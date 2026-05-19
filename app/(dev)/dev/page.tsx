@@ -3,6 +3,7 @@
 // · Recent commits · Open PRs.
 
 import { Suspense } from "react";
+import { version as pkgVersion } from "../../../package.json";
 import AutoRefresh from "./AutoRefresh";
 import {
   getRecentCommits,
@@ -13,9 +14,12 @@ import { getPlanSummary } from "./queries/plan";
 import { getSessionsSummary } from "./queries/sessions";
 import { getServiceHealth } from "./queries/services";
 import { getBlockers } from "./queries/blockers";
+import { getCronAggregate } from "./queries/cron";
+import { getEnhanceSignals } from "./queries/enhance-signals";
 
 export default function DevDashboard() {
   const sha = process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? "local";
+  const version = pkgVersion;
 
   return (
     <div className="dev-wrap">
@@ -30,7 +34,8 @@ export default function DevDashboard() {
           </div>
         </div>
         <div style={{ display: "flex", gap: 10 }}>
-          <span className="dev-pill">build {sha}</span>
+          <span className="dev-pill">v{version}</span>
+          <span className="dev-pill">{sha}</span>
         </div>
       </header>
 
@@ -80,6 +85,20 @@ export default function DevDashboard() {
         <h2>External service health</h2>
         <Suspense fallback={<div className="dev-empty">loading…</div>}>
           <ServicesGrid />
+        </Suspense>
+      </div>
+
+      <div className="dev-card">
+        <h2>Cron + API health</h2>
+        <Suspense fallback={<div className="dev-empty">loading…</div>}>
+          <CronList />
+        </Suspense>
+      </div>
+
+      <div className="dev-card">
+        <h2>Auto-enhance signals</h2>
+        <Suspense fallback={<div className="dev-empty">loading…</div>}>
+          <EnhanceSignalsList />
         </Suspense>
       </div>
 
@@ -155,12 +174,31 @@ async function AvgScoreTile() {
 }
 
 async function CostTile() {
-  const s = await getSessionsSummary();
+  const cron = await getCronAggregate();
   return (
     <Tile
-      label="cost 7d"
-      value={`$${s.totalCost7d.toFixed(2)}`}
-      sub="ceiling $5 per call"
+      label="api cost today"
+      value={`$${cron.costToday.toFixed(2)}`}
+      sub={`yesterday $${cron.costYesterday.toFixed(2)}`}
+      tone={cron.costToday > 5 ? "amber" : undefined}
+    />
+  );
+}
+
+async function FailuresTile() {
+  const cron = await getCronAggregate();
+  return (
+    <Tile
+      label="failures 24h"
+      value={String(cron.failures24h)}
+      sub={`${cron.totalRuns24h} runs total`}
+      tone={
+        cron.failures24h === 0
+          ? "green"
+          : cron.failures24h < 3
+            ? "amber"
+            : "amber"
+      }
     />
   );
 }
@@ -623,6 +661,132 @@ async function PrsList() {
             {pr.author}
           </span>
         </a>
+      ))}
+    </div>
+  );
+}
+
+// ---------- Cron list ----------
+
+async function CronList() {
+  const cron = await getCronAggregate();
+  if (cron.recentJobs.length === 0) {
+    return (
+      <div className="dev-empty">
+        no cron runs in last 24h · first scheduled cron lands in phase 3.
+      </div>
+    );
+  }
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+      {cron.recentJobs.map((j, idx) => (
+        <div
+          key={`${j.job}-${idx}`}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            padding: "8px 12px",
+            fontSize: 12,
+            background: "var(--dev-bg-3)",
+            border: "1px solid var(--dev-border)",
+            borderRadius: 6,
+          }}
+        >
+          <span
+            style={{
+              width: 6,
+              height: 6,
+              borderRadius: "50%",
+              background:
+                j.status === "FAILED"
+                  ? "var(--dev-red)"
+                  : j.status === "PARTIAL"
+                    ? "var(--dev-amber)"
+                    : "var(--dev-green)",
+            }}
+          />
+          <span
+            className="dev-mono"
+            style={{ fontSize: 11, color: "var(--dev-text-3)" }}
+          >
+            {j.startedAt.slice(11, 16)}
+          </span>
+          <span style={{ flex: 1 }}>{j.job}</span>
+          <span
+            className="dev-mono"
+            style={{ fontSize: 11, color: "var(--dev-text-3)" }}
+          >
+            ${j.costUsd.toFixed(3)}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ---------- Enhance signals ----------
+
+async function EnhanceSignalsList() {
+  const signals = await getEnhanceSignals();
+  if (signals.length === 0) {
+    return (
+      <div className="dev-empty">
+        no patterns detected · process-enhancer runs at end of every session.
+      </div>
+    );
+  }
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      {signals.map((s) => (
+        <div
+          key={s.id}
+          style={{
+            padding: "10px 12px",
+            background: "var(--dev-bg-3)",
+            border: "1px solid var(--dev-border)",
+            borderLeft: `3px solid ${
+              s.severity === "error"
+                ? "var(--dev-red)"
+                : s.severity === "warn"
+                  ? "var(--dev-amber)"
+                  : "var(--dev-text-3)"
+            }`,
+            borderRadius: 8,
+          }}
+        >
+          <div style={{ display: "flex", gap: 8, fontSize: 13 }}>
+            <span
+              className="dev-mono"
+              style={{ fontSize: 11, color: "var(--dev-text-3)" }}
+            >
+              {s.category}
+            </span>
+            <span style={{ flex: 1, fontWeight: 600 }}>{s.headline}</span>
+            {s.prUrl && (
+              <a
+                href={s.prUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="dev-mono"
+                style={{ fontSize: 11, color: "var(--dev-indigo)" }}
+              >
+                PR →
+              </a>
+            )}
+          </div>
+          <div
+            className="dev-mono"
+            style={{ fontSize: 11, color: "var(--dev-text-3)", marginTop: 4 }}
+          >
+            {s.evidence}
+          </div>
+          <div
+            style={{ fontSize: 12, color: "var(--dev-text-2)", marginTop: 6 }}
+          >
+            → {s.action}
+          </div>
+        </div>
       ))}
     </div>
   );

@@ -70,6 +70,8 @@ Every TS/TSX file you touch loads the relevant rule docs as context. Read them b
 - `.claude/rules/realtime-and-optimistic.md` — useOptimistic · SSE patterns
 - `.claude/rules/seo.md` — marketing/blog/public pages
 - `.claude/rules/accessibility.md` — WCAG 2.1 AA
+- `.claude/rules/browser-testing.md` — every UI phase validated via Claude in Chrome before merge
+- `.claude/rules/versioning.md` — every auto-merge bumps package.json patch; phase close bumps minor
 - `.claude/rules/i18n.md` — translations
 - `.claude/rules/testing.md` — what to test, what NOT to test
 - `.claude/rules/signal-engineering.md` — when adding/changing signals
