@@ -502,15 +502,18 @@ async function ServicesGrid() {
       }}
     >
       {services.map((svc) => {
-        const state = !svc.configured
-          ? "missing"
+        const state: "ok" | "missing" | "down" | "optional" = !svc.configured
+          ? svc.optional
+            ? "optional"
+            : "missing"
           : svc.reachable === false
             ? "down"
             : "ok";
-        const colorMap = {
+        const colorMap: Record<typeof state, string> = {
           ok: "var(--dev-green)",
           missing: "var(--dev-amber)",
           down: "var(--dev-red)",
+          optional: "var(--dev-text-3)",
         };
         return (
           <div
@@ -582,6 +585,21 @@ async function ServicesGrid() {
                 }}
               >
                 → {whereMap[svc.where]}
+              </div>
+            )}
+            {state === "optional" && svc.optional && (
+              <div
+                className="dev-mono"
+                style={{
+                  fontSize: 10,
+                  color: "var(--dev-text-3)",
+                  marginTop: 6,
+                  paddingTop: 6,
+                  borderTop: "1px solid var(--dev-border)",
+                  fontStyle: "italic",
+                }}
+              >
+                optional · defer to {svc.optional.phase}
               </div>
             )}
           </div>

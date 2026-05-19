@@ -1,0 +1,21 @@
+{
+  "sessionId": "SES-2026-05-19-supervisor-blocked",
+  "kind": "supervisor-tick",
+  "startedAt": "2026-05-19T23:39:00Z",
+  "endedAt": "2026-05-19T23:45:30Z",
+  "outcome": "aborted-host-blocker",
+  "phase": null,
+  "tasksAttempted": [],
+  "tasksCompleted": [],
+  "incidents": ["INC-2026-05-19-14"],
+  "blockers": [
+    {
+      "id": "sandbox-unlink-blocked",
+      "summary": "Working tree on /sessions/<sandbox>/mnt/mapsly has crashed-session leftovers (.git-rewrite/, .git/index.lock, _tmp_3_*) and local main has no commits. FUSE mount blocks unlink() — recovery is host-only.",
+      "requiresHost": true,
+      "recipe": "cd ~/Documents/Claude/Projects/mapsly && rm -rf .git-rewrite/ _tmp_3_* .claude/memory/_test-tick.txt && rm -f .git/index.lock && git fetch origin main && git reset --hard origin/main"
+    }
+  ],
+  "cooldownUntil": "2026-05-20T23:45:13Z",
+  "notes": "First tick of the day's window. Found the loop in an unrecoverable state from inside the sandbox. INC-14 documents why INC-01's GIT_DIR=/tmp trick is insufficient — unlink is blocked on the working tree itself, not just on .git lockfiles."
+}

@@ -16,6 +16,8 @@ export interface ServiceStatus {
   /** Where the user fixes it. */
   where: "vercel-env" | "vercel-storage" | "third-party-account";
   detail: string;
+  /** Optional services don't surface as "you forgot to do this" — they're deferred to a later phase. */
+  optional?: { phase: string; reason: string };
 }
 
 async function pingHead(url: string, ms = 4000): Promise<boolean> {
@@ -88,6 +90,12 @@ export async function getServiceHealth(): Promise<ServiceStatus[]> {
       configured: !!process.env.META_AD_LIBRARY_ACCESS_TOKEN,
       reachable: await pingHead("https://graph.facebook.com"),
       detail: "ads_archive endpoint · needs Business Verification",
+      optional: process.env.META_AD_LIBRARY_ACCESS_TOKEN
+        ? undefined
+        : {
+            phase: "Phase 2",
+            reason: "Required for daily ads scan cron. Phase 1 doesn't use it.",
+          },
     },
     {
       name: "Stripe",
@@ -115,17 +123,35 @@ export async function getServiceHealth(): Promise<ServiceStatus[]> {
       configured: !!process.env.SENTRY_DSN,
       reachable: null,
       detail: process.env.SENTRY_DSN ? "DSN set" : "DSN missing",
+      optional: process.env.SENTRY_DSN
+        ? undefined
+        : {
+            phase: "Phase 8",
+            reason: "Production error tracking. Optional during Phase 1 dev.",
+          },
     },
     {
-      name: "Vercel KV",
+      name: "Redis / KV",
       category: "core",
-      expects: "KV_REST_API_URL",
+      expects: "KV_REST_API_URL | REDIS_URL | UPSTASH_REDIS_REST_URL",
       where: "vercel-storage",
-      configured: !!process.env.KV_REST_API_URL,
+      configured: !!(
+        process.env.KV_REST_API_URL ??
+        process.env.REDIS_URL ??
+        process.env.UPSTASH_REDIS_REST_URL
+      ),
       reachable: null,
-      detail: process.env.KV_REST_API_URL
-        ? "rate limit + adapter caches ready"
-        : "create at vercel.com/dashboard → Storage → KV",
+      detail:
+        (process.env.KV_REST_API_URL ??
+        process.env.REDIS_URL ??
+        process.env.UPSTASH_REDIS_REST_URL)
+          ? "rate limit + adapter caches ready"
+          : "Vercel Storage → Redis (or Upstash) — auto-injects env vars",
+      optional: {
+        phase: "Phase 2",
+        reason:
+          "Only needed once crons start running (DataForSEO dedup cache) and user-facing API routes ship (rate limiting). Phase 1 doesn't use it.",
+      },
     },
     {
       name: "Vercel Blob",

@@ -296,3 +296,45 @@ revalidateTag("dev-dashboard-github", "seconds");
 **Where encoded:** `app/(dev)/dev/actions.ts`, `.claude/rules/caching.md`, this file.
 **Confidence:** high
 **Tags:** next-16, cache-components, revalidate-tag
+
+---
+
+### INC-2026-05-19-14 · Cowork sandbox FUSE mount blocks `unlink()` — git working-tree updates impossible
+
+**Symptom:** Supervisor tick opens, sees the working tree in an unborn-HEAD state (`fatal: your current branch 'main' does not have any commits yet`) with `.git-rewrite/`, `.git/index.lock`, and `_tmp_3_*` leftovers from a prior crashed session. INC-01's `GIT_DIR=/tmp/<scratch>` workaround initializes a fresh git dir and `git fetch origin main` succeeds, but `git reset --hard origin/main` aborts with:
+
+```
+error: unable to unlink old 'tsconfig.json': Operation not permitted
+error: unable to unlink old 'vercel.json': Operation not permitted
+fatal: Could not reset index file to revision 'origin/main'.
+```
+
+`python3 os.unlink('.../file')` returns `PermissionError [Errno 1]` on a file the sandbox itself just created (uid matches sandbox user, mode 0600). `chmod` succeeds, write/truncate succeed; only `unlink()` is denied.
+
+**Root cause:** Cowork mounts the workspace via FUSE/virtiofs with policy `rw,nosuid,nodev,default_permissions,allow_other` and `user_id=0,group_id=0`. The FUSE layer permits create / write / truncate / chmod but **blocks the `unlink()` syscall categorically**, regardless of POSIX permissions or file ownership. INC-01's GIT_DIR-in-/tmp trick relocates `.git` but does nothing for the working tree — every `git checkout`, `git reset --hard`, `git merge`, `git rebase` must unlink the old version of any file it's replacing, and they all hit the FUSE wall. Write/Edit tools work because they overwrite in place; raw git cannot.
+
+**Fix applied (this tick):** None — recovery is impossible from inside the bash sandbox. Tick aborted, cooldown set to 24h, blocker surfaced for host-side intervention.
+
+**Recovery recipe (Viktor, from macOS Terminal — sandbox cannot do this):**
+
+```bash
+cd ~/Documents/Claude/Projects/mapsly
+rm -rf .git-rewrite/ _tmp_3_* .claude/memory/_test-tick.txt
+rm -f .git/index.lock
+git fetch origin main
+git reset --hard origin/main
+```
+
+After that, local main has commits, working tree is clean, and the next supervisor tick proceeds normally.
+
+**Prevention:**
+
+1. **Supervisor pre-flight, hard halt path:** every tick must run `git status` first. If it reports "No commits yet" OR `.git-rewrite/` exists OR `.git/index.lock` exists, the supervisor MUST set a 24h cooldown and exit. Do not attempt `git reset`, `git pull`, or any working-tree-mutating git command — they burn a tick, leave more garbage, and do not recover.
+2. **No scratch files in the working tree:** never `touch`, `>`, or `cat >` test files under `/sessions/<sandbox>/mnt/mapsly` — once created they are unkillable from the sandbox and Viktor has to clean them up by hand. Scratch belongs in `/tmp/<unique>/`.
+3. **Encode in SKILL:** `.claude/skills/autonomous-build-loop/SKILL.md` should add a Step 2.5 "Working-tree health check — abort with 24h cooldown if unhealthy" before the boot reads.
+4. **Block-list on dashboard:** add a `blockers/sandbox-unlink-blocked` signal so `dev.mapsly.ai` surfaces the recovery recipe when this incident triggers.
+5. **Long-term escalation:** raise with Cowork — either grant the sandbox unlink permission on the mounted folder, or run the autonomous loop as a macOS-host process rather than inside the Linux sandbox.
+
+**Where encoded:** this file. Propagate to `.claude/skills/autonomous-build-loop/SKILL.md` (pre-flight check) and `.claude/rules/incident-prevention.md` (hard-halt trigger list) by the next host-side session.
+**Confidence:** high
+**Tags:** sandbox, fuse, virtiofs, git, unlink, supervisor, host-only-fix, blocker
