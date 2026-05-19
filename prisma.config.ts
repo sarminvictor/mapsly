@@ -12,8 +12,11 @@ export default defineConfig({
   migrations: {
     path: path.join("prisma", "migrations"),
   },
+  // Prisma 7's Datasource shape is { url, shadowDatabaseUrl } only.
+  // For Neon, point migrate at the direct (non-pooled) URL via DATABASE_URL.
+  // If you keep both pooled and direct URLs, swap DATABASE_URL for DIRECT_URL
+  // when running `prisma migrate` / `prisma db push`.
   datasource: {
-    url: process.env.DATABASE_URL,
-    directUrl: process.env.DIRECT_URL ?? process.env.DATABASE_URL,
+    url: process.env.DIRECT_URL ?? process.env.DATABASE_URL,
   },
 });
