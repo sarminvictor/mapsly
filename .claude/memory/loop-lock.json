@@ -1,9 +1,9 @@
 {
-  "state": "cooldown",
-  "sessionId": "SES-2026-05-19-supervisor-blocked",
-  "startedAt": "2026-05-19T23:45:13Z",
-  "lastTickAt": "2026-05-19T23:45:13Z",
-  "cooldownUntil": "2026-05-20T23:45:13Z",
-  "consecutiveFailures": 1,
-  "note": "Working tree on /sessions/<sandbox>/mnt/mapsly is in unborn-HEAD state with .git-rewrite/ + .git/index.lock + _tmp_3_* leftovers. FUSE mount blocks unlink() — recovery requires host-side macOS Terminal. See INC-2026-05-19-14 for the fix recipe."
+  "state": "idle",
+  "sessionId": null,
+  "startedAt": null,
+  "lastTickAt": "2026-05-19T23:50:00Z",
+  "cooldownUntil": null,
+  "consecutiveFailures": 0,
+  "note": "Reset to idle after host-side recovery + Redis/KV tile fix + v0.2.2 push."
 }
