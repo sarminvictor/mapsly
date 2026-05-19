@@ -5,6 +5,7 @@
 import { Suspense } from "react";
 import { version as pkgVersion } from "../../../package.json";
 import AutoRefresh from "./AutoRefresh";
+import RefreshButton from "./RefreshButton";
 import {
   getRecentCommits,
   getOpenPrs,
@@ -33,9 +34,10 @@ export default function DevDashboard() {
             <div className="dev-status">dev.mapsly.ai · phase 1</div>
           </div>
         </div>
-        <div style={{ display: "flex", gap: 10 }}>
+        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
           <span className="dev-pill">v{version}</span>
           <span className="dev-pill">{sha}</span>
+          <RefreshButton />
         </div>
       </header>
 
@@ -485,11 +487,17 @@ async function SessionsList() {
 
 async function ServicesGrid() {
   const services = await getServiceHealth();
+  const whereMap = {
+    "vercel-env": "set in Vercel → Settings → Environment Variables",
+    "vercel-storage":
+      "create at Vercel → Storage (env vars auto-inject after provision)",
+    "third-party-account": "sign up at provider, paste key in Vercel env",
+  } as const;
   return (
     <div
       style={{
         display: "grid",
-        gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
+        gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))",
         gap: 8,
       }}
     >
@@ -501,7 +509,7 @@ async function ServicesGrid() {
             : "ok";
         const colorMap = {
           ok: "var(--dev-green)",
-          missing: "var(--dev-text-3)",
+          missing: "var(--dev-amber)",
           down: "var(--dev-red)",
         };
         return (
@@ -511,6 +519,7 @@ async function ServicesGrid() {
               padding: "10px 12px",
               background: "var(--dev-bg-3)",
               border: "1px solid var(--dev-border)",
+              borderLeft: `3px solid ${colorMap[state]}`,
               borderRadius: 8,
             }}
           >
@@ -531,6 +540,26 @@ async function ServicesGrid() {
                 }}
               />
               <span style={{ fontWeight: 600 }}>{svc.name}</span>
+              <span
+                className="dev-mono"
+                style={{
+                  fontSize: 9,
+                  color: "var(--dev-text-3)",
+                  marginLeft: "auto",
+                }}
+              >
+                {state}
+              </span>
+            </div>
+            <div
+              className="dev-mono"
+              style={{
+                fontSize: 10,
+                color: "var(--dev-text-2)",
+                marginTop: 4,
+              }}
+            >
+              {svc.detail}
             </div>
             <div
               className="dev-mono"
@@ -540,8 +569,21 @@ async function ServicesGrid() {
                 marginTop: 4,
               }}
             >
-              {state} · {svc.detail}
+              env: {svc.expects}
             </div>
+            {state === "missing" && (
+              <div
+                style={{
+                  fontSize: 11,
+                  color: "var(--dev-text-2)",
+                  marginTop: 6,
+                  paddingTop: 6,
+                  borderTop: "1px solid var(--dev-border)",
+                }}
+              >
+                → {whereMap[svc.where]}
+              </div>
+            )}
           </div>
         );
       })}

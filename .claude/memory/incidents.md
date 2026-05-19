@@ -279,3 +279,20 @@ git push --force-with-lease origin main
 **Tags:** vercel, cli, bootstrap
 
 ---
+
+### INC-2026-05-19-13 · Next 16 revalidateTag requires cacheLife profile arg
+
+**Symptom:** `Type error: Expected 2 arguments, but got 1.` on every `revalidateTag("...")` call. Build fails.
+
+**Root cause:** Next 16 with `experimental.cacheComponents: true` (PPR) changed the `revalidateTag` signature: it now requires a `cacheLife` profile name as the second argument (e.g., `"seconds"`, `"minutes"`, `"days"`). The single-argument form is no longer accepted.
+
+**Fix applied:** Pass the profile explicitly:
+```ts
+revalidateTag("dev-dashboard-github", "seconds");
+```
+
+**Prevention:** Any new `revalidateTag` call needs both args. Loop in `.claude/rules/caching.md` already documented this pattern — the lesson is to enforce via lint or grep before merge.
+
+**Where encoded:** `app/(dev)/dev/actions.ts`, `.claude/rules/caching.md`, this file.
+**Confidence:** high
+**Tags:** next-16, cache-components, revalidate-tag
