@@ -147,6 +147,37 @@ export async function POST(req: Request) {
 }
 ```
 
+## Module-load env access is forbidden
+
+Reading `process.env.X` at module top level (outside a function) for things that get instantiated at import time crashes Vercel's build phase — env vars aren't always available there.
+
+❌ Wrong:
+
+```ts
+const prisma = new PrismaClient({
+  adapter: new PrismaNeon({ connectionString: process.env.DATABASE_URL }),
+});
+export default prisma;
+```
+
+✅ Right — lazy via Proxy:
+
+```ts
+function getClient(): PrismaClient {
+  if (!globalThis.__prisma) globalThis.__prisma = makeClient();
+  return globalThis.__prisma;
+}
+export default new Proxy({} as PrismaClient, {
+  get(_t, prop, recv) {
+    return Reflect.get(getClient(), prop, recv);
+  },
+});
+```
+
+Same pattern for Stripe, Resend, Anthropic, DataForSEO, any client that takes a secret in its constructor. See INC-2026-05-19-07.
+
+The exception: env vars validated via Zod in `lib/env.ts` at boot. That's intentional fail-fast for the runtime — never imported during Vercel build (it's a runtime entry, not a build-time one).
+
 ## Secret handling
 
 - Secrets live in `.env.local` (gitignored) and Vercel env vars (encrypted at rest)

@@ -26,24 +26,27 @@ Tags: `human-required` means autonomous mode must skip; `signals` involves new s
 
 Goal: `pnpm dev` runs, magic-link signin works, an empty SMB and Agency dashboard render.
 
-| ID     | Task                                                                                                             | Effort | Status  | Deps          | Tags                        |
-| ------ | ---------------------------------------------------------------------------------------------------------------- | ------ | ------- | ------------- | --------------------------- |
-| 1.1    | `pnpm install` runs clean; `pnpm typecheck` passes on empty modules                                              | S      | pending | 0.1           |                             |
-| 1.2    | Set up Neon DB + run `prisma db push` to create initial schema                                                   | S      | pending | 0.2           | human-required              |
-| 1.3    | Wire NextAuth v5 (Resend magic link) + sign-in pages (`/signin`, `/signin/check-email`)                          | M      | pending | 1.2           |                             |
-| 1.4    | Resend email template for magic links + onboarding welcome                                                       | S      | pending | 1.3           |                             |
-| 1.5    | Empty SMB dashboard scaffold at `/(smb)/dashboard` — pulls latest BusinessSnapshot, renders 6 KPI tiles          | M      | pending | 1.3, 0.2      |                             |
-| 1.6    | Empty Agency lists scaffold at `/(agency)/lists` — pulls Agency.lists, renders cards                             | M      | pending | 1.3, 0.2      |                             |
-| 1.7    | Marketing landing migrated from `_design/landing/index.html` to `/(marketing)/page.tsx`                          | M      | pending | 1.1           |                             |
-| 1.8    | For-agencies marketing migrated from `_design/landing/for-agencies.html` to `/(marketing)/for-agencies/page.tsx` | M      | pending | 1.1           |                             |
-| 1.9    | Deploy to Vercel preview · validate end-to-end on real domain                                                    | S      | pending | 1.5, 1.6, 1.7 | human-required              |
-| 1.10.1 | Subdomain routing · middleware.ts dev rewrite + Vercel domain config                                             | S      | pending | 1.1           | dashboard                   |
-| 1.10.2 | `app/(dev)/dev/page.tsx` · layout + hero tiles + section grid with mock data                                     | M      | pending | 1.10.1        | dashboard                   |
-| 1.10.3 | Real data sources · parse PLAN.md, session JSON, GitHub API, CronRun                                             | M      | pending | 1.10.2        | dashboard                   |
-| 1.10.4 | Auto-refresh via revalidateTag + router.refresh() every 15s                                                      | S      | pending | 1.10.3        | dashboard                   |
-| 1.10.5 | MCP health ping + KV-backed cache                                                                                | S      | pending | 1.10.3        | dashboard                   |
-| 1.10.6 | Auto-enhance signals · render from enhance-signals.json                                                          | S      | pending | 1.10.3        | dashboard                   |
-| 1.10.7 | process-enhancer agent · daily scheduled task · writes signals · opens PRs                                       | M      | pending | 1.10.6        | dashboard, self-improvement |
+| ID      | Task                                                                                                             | Effort | Status  | Deps          | Tags             |
+| ------- | ---------------------------------------------------------------------------------------------------------------- | ------ | ------- | ------------- | ---------------- |
+| 1.1     | `pnpm install` runs clean; `pnpm typecheck` passes on empty modules                                              | S      | pending | 0.1           |                  |
+| 1.2     | Set up Neon DB + run `prisma db push` to create initial schema                                                   | S      | pending | 0.2           | human-required   |
+| 1.3     | Wire NextAuth v5 (Resend magic link) + sign-in pages (`/signin`, `/signin/check-email`)                          | M      | pending | 1.2           |                  |
+| 1.4     | Resend email template for magic links + onboarding welcome                                                       | S      | pending | 1.3           |                  |
+| 1.5     | Empty SMB dashboard scaffold at `/(smb)/dashboard` — pulls latest BusinessSnapshot, renders 6 KPI tiles          | M      | pending | 1.3, 0.2      |                  |
+| 1.6     | Empty Agency lists scaffold at `/(agency)/lists` — pulls Agency.lists, renders cards                             | M      | pending | 1.3, 0.2      |                  |
+| 1.7     | Marketing landing migrated from `_design/landing/index.html` to `/(marketing)/page.tsx`                          | M      | pending | 1.1           |                  |
+| 1.8     | For-agencies marketing migrated from `_design/landing/for-agencies.html` to `/(marketing)/for-agencies/page.tsx` | M      | pending | 1.1           |                  |
+| 1.9     | Deploy to Vercel preview · validate end-to-end on real domain                                                    | S      | pending | 1.5, 1.6, 1.7 | human-required   |
+| 1.10.1  | Subdomain routing · middleware.ts dev rewrite + Vercel domain config                                             | S      | done    | 1.1           | dashboard        |
+| 1.10.2  | `app/(dev)/dev/page.tsx` · layout + hero tiles + section grid with mock data                                     | M      | done    | 1.10.1        | dashboard        |
+| 1.10.3  | Real data · GitHub commits + open PRs feed (queries/github.ts)                                                   | S      | done    | 1.10.2        | dashboard        |
+| 1.10.4  | Real data · PLAN.md parser (status pills + scores per phase)                                                     | M      | pending | 1.10.3        | dashboard        |
+| 1.10.5  | Real data · session JSON reader · 7-day heatmap + current-session card                                           | M      | pending | 1.10.3        | dashboard        |
+| 1.10.6  | Real data · CronRun aggregate (cost today, failures 24h)                                                         | S      | pending | 1.10.3        | dashboard        |
+| 1.10.7  | Real data · MCP health pinger (postgres/gsc/ga/dataforseo/sentry) · KV-backed 60s cache                          | M      | pending | 1.10.3        | dashboard        |
+| 1.10.8  | Auto-refresh · client-side AutoRefresh component + revalidateTag('dev-dashboard') server action                  | S      | pending | 1.10.4        | dashboard        |
+| 1.10.9  | Auto-enhance signals · render from .claude/memory/enhance-signals.json                                           | S      | pending | 1.10.4        | dashboard        |
+| 1.10.10 | process-enhancer agent · scheduled daily · clusters incidents · opens self-improvement PRs                       | M      | pending | 1.10.9        | self-improvement |
 
 ---
 

@@ -129,6 +129,18 @@ Stream every above-the-fold block independently. Skeletons must match final dime
 
 `performance-auditor` runs against every PR's preview deploy.
 
+## PPR + cacheComponents · forbidden in server components
+
+With `experimental.cacheComponents: true` (Partial Pre-rendering), these calls make a route un-prerenderable and the build fails:
+
+- `new Date()` / `Date.now()` — use `process.env.VERCEL_GIT_COMMIT_SHA` for build identity, or put the time read in a `'use client'` component
+- `Math.random()` — same restriction
+- `crypto.randomUUID()` — same; move to client or route handler
+
+If the route legitimately needs current time on every render, read it via a request-scoped source (`cookies()`, `headers()`) first — that signals "dynamic" to Next so PPR splits it correctly. Cleanest pattern: small client component that reads `new Date()` in `useEffect`.
+
+See INC-2026-05-19-09 for the symptom and resolution.
+
 ## Common anti-patterns (don't)
 
 - ❌ `'use client'` at the page level

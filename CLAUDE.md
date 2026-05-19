@@ -54,6 +54,7 @@ Every TS/TSX file you touch loads the relevant rule docs as context. Read them b
 
 ### Always loaded (every change)
 
+- **`.claude/rules/incident-prevention.md` — read `.claude/memory/incidents.md` first; encode new failures**
 - `.claude/rules/conventions.md` — naming · structure · imports
 - `.claude/rules/performance.md` — the #1 priority
 - `.claude/rules/caching.md` — tag everything
@@ -275,11 +276,16 @@ Registered in `.mcp.json`. Per-server rules in `.claude/rules/mcp-*.md`.
 
 ---
 
-## Memory
+## Memory · institutional learning
 
+- **`.claude/memory/incidents.md`** — every past failure with root cause + fix + prevention. **Read FIRST on every session.** Skipping this is a defect against `.claude/rules/incident-prevention.md`. Append a new INC- entry whenever a session encounters a failure with a non-obvious lesson.
 - `.claude/memory/MEMORY.md` — Viktor's preferences and feedback. Read at session start. Never write autonomously without strong reason.
 - `.claude/memory/build-log.md` — append-only diary of every autonomous session. Both the loop and Viktor read it.
+- `.claude/memory/sessions/{date}-{n}.json` — per-session structured data the dev dashboard renders.
+- `.claude/memory/enhance-signals.json` — process-enhancer's detected patterns + self-improvement signals.
 - `.claude/memory/db-snapshots/` — captured metric baselines (from `/db-snapshot` skill).
+
+**The contract:** every failure surfaces a lesson. Every lesson lives in `incidents.md` with a fix recipe and a prevention. Every future session reads `incidents.md` first. We never encounter the same issue twice.
 
 ---
 

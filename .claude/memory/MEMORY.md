@@ -1,0 +1,24 @@
+# MEMORY · Viktor's preferences and learned context
+
+Read at the start of every session. Append carefully — this is the long-term memory of how Viktor likes to work.
+
+## Hard preferences
+
+- **Pro Max 20x only.** Never the Anthropic API. The plan is paid; idle quota is wasted.
+- **Auto-merge is default.** When gates pass, ship to main without waiting for review.
+- **Mapsly stops at "qualified lead."** No outreach automation in v1.
+- **Performance is the #1 requirement.** Slow = broken.
+- **One step at a time when Viktor is watching.** Don't batch unrelated work into one walkthrough; pause between distinct setup steps for confirmation.
+- **Recommend, never ask.** Research the answer yourself; present recommendations with reasoning. Avoid open-ended "what should we do?" questions.
+- **Never expose internal file paths** (sandbox paths like `/sessions/...`) to Viktor. Use the user-facing path or just "the project folder".
+
+## Style of work
+
+- Score everything · 5-dim scorecard appended to PLAN.md per phase.
+- Phased plans · one phase = one session = one PR.
+- Scale to complexity · a typo fix doesn't need 5 research agents.
+- Always commit + push at end of session, even partial work.
+
+## What's been built
+
+(Updated by autonomous-build-loop on every successful merge. Most recent first.)

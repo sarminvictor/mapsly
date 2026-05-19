@@ -15,12 +15,21 @@ description: Mapsly autonomous build loop · runs on Claude Pro Max 20x via sche
 
 ```
 ┌────────────────────────────────────────────────────┐
-│ START SESSION                                      │
-│  1. Read CLAUDE.md, PLAN.md, build-log, MEMORY     │
-│  2. Pull latest from main                          │
-│  3. Session deadline = now + 5h                    │
-│  4. Token budget = Pro Max 20x quota               │
-│  5. Cost ceiling per call = $5 (see permissions)   │
+│ START SESSION · MANDATORY READS (in this order)    │
+│  1. .claude/memory/incidents.md ← every entry      │
+│  2. .claude/rules/incident-prevention.md           │
+│  3. CLAUDE.md                                      │
+│  4. PLAN.md                                        │
+│  5. .claude/memory/MEMORY.md                       │
+│  6. .claude/memory/build-log.md (tail 200 lines)   │
+│  7. git pull --ff-only origin main                 │
+│  8. Session deadline = now + 5h                    │
+│  9. Token budget = Pro Max 20x quota               │
+│  10. Cost ceiling per call = $5 (permissions.md)   │
+│                                                    │
+│  Skipping the incidents read is a defect.          │
+│  Every incident has a fix you must apply if the    │
+│  symptom appears — do NOT re-discover.             │
 └────────────────────────────────────────────────────┘
                        │
                        ▼
@@ -137,6 +146,22 @@ Stop immediately if:
 - Disk usage > 80%
 
 Halt always: append to build-log with reason, exit clean.
+
+## CLOSE SESSION · mandatory steps (in this order)
+
+Before the loop exits — even on a clean stop, even when the session ran perfectly — these must run:
+
+1. **Sweep for new incidents.** Review every failure encountered this session (failed test, failed deploy, failed agent invocation, sandbox limitation, API quirk). For each:
+   - Check `.claude/memory/incidents.md` — is this already logged?
+   - If yes: cite the existing INC- ID in `build-log.md` (so process-enhancer can count recurrences)
+   - If no: append a new INC- entry following the format in `.claude/rules/incident-prevention.md`. **No exceptions.** A failure with no incident entry is a leaked lesson.
+2. **Update rules where appropriate.** If an incident's prevention belongs in an existing rule file (e.g., a Prisma quirk goes in `.claude/rules/database.md`), edit that rule and mark the incident's `Where encoded:` line accordingly.
+3. **Run process-enhancer agent.** It clusters today's incidents, looks for patterns of 3+ similar entries, and opens a self-improvement PR if warranted.
+4. **Append session entry to `build-log.md`** with the schema below.
+5. **Write session JSON** to `.claude/memory/sessions/{date}-{n}.json` so the dashboard can render the timeline.
+6. **Commit + push** any rule/memory updates as part of the session's last PR (or as a stand-alone `chore: session N memory updates` commit).
+
+Skipping any of these is a defect. The whole point of the system is institutional learning — without close-session sweep, every session starts from zero.
 
 ## Auto-merge policy
 

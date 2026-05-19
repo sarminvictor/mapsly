@@ -47,3 +47,4 @@ lib/generated
 # Local credentials
 *.local
 service-account*.json
+tsconfig.tsbuildinfo
