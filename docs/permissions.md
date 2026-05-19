@@ -5,6 +5,7 @@ This doc is the contract between Viktor and the autonomous Claude loop. Every pe
 ## Full access (no approval needed)
 
 ### Repos
+
 - **`github.com/sarminvictor/mapsly`** — full read/write/PR. Claude can:
   - Read every file
   - Edit every file
@@ -23,6 +24,7 @@ This doc is the contract between Viktor and the autonomous Claude loop. Every pe
   - **Cannot:** modify, push, comment, or PR
 
 ### Local files (in Mapsly workspace)
+
 - All files in `/Users/Viktor/Documents/Claude/Projects/mapsly/`
 - `.env.local` — READ access (to confirm vars are present)
 - `.env.example` — full edit (additive only, no removing keys)
@@ -33,6 +35,7 @@ This doc is the contract between Viktor and the autonomous Claude loop. Every pe
 - `lib/generated/` — never edit (auto-generated)
 
 ### External services
+
 - **Vercel** — full project access. Claude can:
   - Trigger preview deploys
   - Read deploy logs
@@ -54,6 +57,7 @@ This doc is the contract between Viktor and the autonomous Claude loop. Every pe
 **Any single API call estimated to cost > $5 needs Viktor approval before execution.**
 
 Examples that require approval:
+
 - Mass keyword volume pull (> 5,000 keywords at once)
 - Full market census on a new metro
 - Lighthouse audit batch > 500 sites at once
@@ -78,6 +82,7 @@ When Claude estimates a call > $5:
 6. After execution, post actual cost as a comment.
 
 If Viktor comments `/deny`, Claude:
+
 - Marks the related PLAN.md task as `blocked`
 - Adds a follow-up task to find a cheaper approach
 - Moves on
@@ -95,6 +100,7 @@ If Viktor comments `/deny`, Claude:
 ## Hard restrictions (NEVER permitted)
 
 Claude will refuse and exit if asked to:
+
 - Push to `main` directly (always PR)
 - Modify `.env.local` (read-only)
 - Modify `MEMORY.md` or `feedback/` (Viktor-only)
@@ -112,14 +118,14 @@ Claude will refuse and exit if asked to:
 
 ## Per-MCP permissions
 
-| MCP | Read | Write | Notes |
-|---|---|---|---|
-| `mcp__postgres__query` | ✅ SELECT only | ❌ | Never UPDATE/INSERT/DELETE through MCP |
-| `mcp__gsc__*` | ✅ all | ❌ no write | Read GSC data, no property modification |
-| `mcp__ga__*` | ✅ all | ❌ | Read GA4 data |
-| `mcp__dataforseo__*` | ✅ all | n/a | Cost-tracked — $5 rule applies |
-| `mcp__context7__*` | ✅ all | n/a | Free, no limits |
-| `mcp__sentry__*` | ✅ read tools | ⚠️ write tools require explicit user instruction in current turn |
+| MCP                    | Read           | Write                                                            | Notes                                   |
+| ---------------------- | -------------- | ---------------------------------------------------------------- | --------------------------------------- |
+| `mcp__postgres__query` | ✅ SELECT only | ❌                                                               | Never UPDATE/INSERT/DELETE through MCP  |
+| `mcp__gsc__*`          | ✅ all         | ❌ no write                                                      | Read GSC data, no property modification |
+| `mcp__ga__*`           | ✅ all         | ❌                                                               | Read GA4 data                           |
+| `mcp__dataforseo__*`   | ✅ all         | n/a                                                              | Cost-tracked — $5 rule applies          |
+| `mcp__context7__*`     | ✅ all         | n/a                                                              | Free, no limits                         |
+| `mcp__sentry__*`       | ✅ read tools  | ⚠️ write tools require explicit user instruction in current turn |
 
 ## Boxly read access · pattern reference
 
@@ -132,6 +138,7 @@ Claude can `Read` and `Grep` files in `/Users/Viktor/Documents/Boxly_development
 - `prisma/schema.prisma` — for reference on indexing strategies, but don't copy verbatim — Mapsly's data shape is different
 
 Claude must NOT:
+
 - Copy proprietary Boxly business logic without thinking through whether it applies to Mapsly
 - Modify any Boxly file
 - Reference Boxly customer data or internal docs in Mapsly code
@@ -144,22 +151,23 @@ Claude must NOT:
 
 ## Quick reference
 
-| Question | Answer |
-|---|---|
-| Can Claude open a PR? | Yes, from `auto/...` or `enhance/...` branches |
-| Can Claude merge its own PR? | Yes — auto-merge when all gates pass. Else tagged `needs-review`, Viktor merges. |
-| Can Claude read `.env.local`? | Yes (verify values present) |
-| Can Claude modify `.env.local`? | No |
-| Can Claude call DataForSEO? | Yes, under $5/call |
-| Can Claude call DataForSEO for a $20 batch? | Only with approval |
-| Can Claude use the Anthropic API for autonomous dev? | No — Pro Max x5 only |
-| Can Claude push to `main`? | No |
-| Can Claude read Boxly source? | Yes, read-only |
-| Can Claude deploy to prod? | Only via PR merge by Viktor |
+| Question                                             | Answer                                                                           |
+| ---------------------------------------------------- | -------------------------------------------------------------------------------- |
+| Can Claude open a PR?                                | Yes, from `auto/...` or `enhance/...` branches                                   |
+| Can Claude merge its own PR?                         | Yes — auto-merge when all gates pass. Else tagged `needs-review`, Viktor merges. |
+| Can Claude read `.env.local`?                        | Yes (verify values present)                                                      |
+| Can Claude modify `.env.local`?                      | No                                                                               |
+| Can Claude call DataForSEO?                          | Yes, under $5/call                                                               |
+| Can Claude call DataForSEO for a $20 batch?          | Only with approval                                                               |
+| Can Claude use the Anthropic API for autonomous dev? | No — Pro Max x5 only                                                             |
+| Can Claude push to `main`?                           | No                                                                               |
+| Can Claude read Boxly source?                        | Yes, read-only                                                                   |
+| Can Claude deploy to prod?                           | Only via PR merge by Viktor                                                      |
 
 ## Auditing
 
 Every action Claude takes leaves a trace:
+
 - Code changes → git history
 - PR activity → GitHub events
 - Cron API calls → `CronRun` table with `costUsd`

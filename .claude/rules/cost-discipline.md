@@ -41,19 +41,21 @@ The business only works if API costs stay under the per-tier ceiling. Every exte
 
 ```ts
 // services/dataforseo/maps-search.ts
-import { z } from 'zod';
-import { withCostCounter } from './cost-counter';
-import { cache24h } from '@/lib/cache';
+import { z } from "zod";
+import { withCostCounter } from "./cost-counter";
+import { cache24h } from "@/lib/cache";
 
-const MapsSearchResponse = z.object({ /* ... */ });
+const MapsSearchResponse = z.object({
+  /* ... */
+});
 
 export const mapsSearch = withCostCounter(
-  'dataforseo.maps.search',
-  0.0006,  // unit cost
-  cache24h('dataforseo:maps:search', async (params: MapsSearchParams) => {
+  "dataforseo.maps.search",
+  0.0006, // unit cost
+  cache24h("dataforseo:maps:search", async (params: MapsSearchParams) => {
     const response = await fetch(/* ... */);
     return MapsSearchResponse.parse(await response.json());
-  })
+  }),
 );
 ```
 

@@ -60,10 +60,12 @@ Given a request like "wire up Stripe" or "add Meta Ad Library scan":
 Return:
 
 ### API surface used
+
 - Endpoint X — purpose, expected cost
 - Endpoint Y — purpose, expected cost
 
 ### Adapter design
+
 - File: `services/{vendor}/{operation}.ts`
 - Cost-counter tag: `{vendor}.{operation}`
 - Cache: 24h on key `{vendor}:{operation}:{hash}`
@@ -71,11 +73,13 @@ Return:
 - Error mapping table
 
 ### Webhook (if applicable)
+
 - Endpoint: `app/api/webhooks/{vendor}/route.ts`
 - Signature verification: how
 - Events handled: list
 - Idempotency: stored where
 
 ### Env vars required
+
 - `VENDOR_API_KEY` — how to obtain (link to handoff.md)
 - `VENDOR_WEBHOOK_SECRET` — how to obtain

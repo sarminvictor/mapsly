@@ -27,17 +27,17 @@ A single public no-auth page that shows the autonomous loop's health 24/7. Mocku
 // middleware.ts (additive — runs after next-intl middleware)
 export default async function middleware(req: NextRequest) {
   const url = req.nextUrl;
-  const host = req.headers.get('host') ?? '';
+  const host = req.headers.get("host") ?? "";
 
   // Route dev.mapsly.ai to /dev internally
-  if (host.startsWith('dev.') && !url.pathname.startsWith('/dev')) {
+  if (host.startsWith("dev.") && !url.pathname.startsWith("/dev")) {
     url.pathname = `/dev${url.pathname}`;
     return NextResponse.rewrite(url);
   }
 
   // Hide /dev from main domain
-  if (!host.startsWith('dev.') && url.pathname.startsWith('/dev')) {
-    return new NextResponse('Not found', { status: 404 });
+  if (!host.startsWith("dev.") && url.pathname.startsWith("/dev")) {
+    return new NextResponse("Not found", { status: 404 });
   }
 
   return intlMiddleware(req);
@@ -45,6 +45,7 @@ export default async function middleware(req: NextRequest) {
 ```
 
 Vercel:
+
 - Add `dev.mapsly.ai` as a domain alias on the project
 - Same deployment serves both
 - No separate build
@@ -73,18 +74,18 @@ The `(dev)` route group keeps it out of the main app navigation.
 
 All data lives in places Claude already writes during the autonomous loop:
 
-| Section | Source |
-|---|---|
-| Sessions timeline | `.claude/memory/sessions/{date}-{n}.json` files |
-| Current session | parse the latest non-finalized session file |
-| PLAN.md progress | parse `PLAN.md` (`gray-matter` or simple regex on the task tables) |
-| Scorecards | parse PLAN.md `*.score` rows |
-| Recent merges | GitHub API (`GET /repos/{owner}/{repo}/commits`) with our `GITHUB_TOKEN` |
-| MCP health | live ping each MCP, cache 60s in KV |
-| API spend today | aggregate `CronRun.costUsd` from Postgres |
-| Failures | parse `.claude/memory/build-log.md` + recent FAILED CronRuns |
-| Auto-enhance signals | `.claude/memory/enhance-signals.json` (process-enhancer writes this) |
-| Commits feed | GitHub API |
+| Section              | Source                                                                   |
+| -------------------- | ------------------------------------------------------------------------ |
+| Sessions timeline    | `.claude/memory/sessions/{date}-{n}.json` files                          |
+| Current session      | parse the latest non-finalized session file                              |
+| PLAN.md progress     | parse `PLAN.md` (`gray-matter` or simple regex on the task tables)       |
+| Scorecards           | parse PLAN.md `*.score` rows                                             |
+| Recent merges        | GitHub API (`GET /repos/{owner}/{repo}/commits`) with our `GITHUB_TOKEN` |
+| MCP health           | live ping each MCP, cache 60s in KV                                      |
+| API spend today      | aggregate `CronRun.costUsd` from Postgres                                |
+| Failures             | parse `.claude/memory/build-log.md` + recent FAILED CronRuns             |
+| Auto-enhance signals | `.claude/memory/enhance-signals.json` (process-enhancer writes this)     |
+| Commits feed         | GitHub API                                                               |
 
 Everything cached with `'use cache'` + `cacheLife('seconds')` so the page is fast but ~live.
 
@@ -92,26 +93,43 @@ Everything cached with `'use cache'` + `cacheLife('seconds')` so the page is fas
 
 ```ts
 // app/(dev)/dev/queries.ts
-'use cache'
-import { cacheLife, cacheTag } from 'next/cache';
+"use cache";
+import { cacheLife, cacheTag } from "next/cache";
 
 export async function getDashboardData() {
-  cacheLife('seconds');  // 10s freshness
-  cacheTag('dev-dashboard');
+  cacheLife("seconds"); // 10s freshness
+  cacheTag("dev-dashboard");
 
-  const [sessions, planProgress, mergedPRs, mcpHealth, apiSpend, failures, signals, commits] =
-    await Promise.all([
-      getRecentSessions(7),
-      parsePlanMd(),
-      getRecentMerges(10),
-      pingAllMcps(),
-      getDailyApiSpend(),
-      getRecentFailures(10),
-      getEnhanceSignals(),
-      getRecentCommits(10),
-    ]);
+  const [
+    sessions,
+    planProgress,
+    mergedPRs,
+    mcpHealth,
+    apiSpend,
+    failures,
+    signals,
+    commits,
+  ] = await Promise.all([
+    getRecentSessions(7),
+    parsePlanMd(),
+    getRecentMerges(10),
+    pingAllMcps(),
+    getDailyApiSpend(),
+    getRecentFailures(10),
+    getEnhanceSignals(),
+    getRecentCommits(10),
+  ]);
 
-  return { sessions, planProgress, mergedPRs, mcpHealth, apiSpend, failures, signals, commits };
+  return {
+    sessions,
+    planProgress,
+    mergedPRs,
+    mcpHealth,
+    apiSpend,
+    failures,
+    signals,
+    commits,
+  };
 }
 ```
 
@@ -120,9 +138,9 @@ Plus a server action `/api/dev/refresh` that calls `revalidateTag('dev-dashboard
 ### Auto-refresh pattern
 
 ```tsx
-'use client'
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+"use client";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 export function AutoRefresh({ intervalMs = 15_000 }: { intervalMs?: number }) {
   const router = useRouter();
@@ -141,6 +159,7 @@ Embed in `app/(dev)/dev/page.tsx`. Calls `router.refresh()` which re-runs the se
 The route group `(dev)` has its own `layout.tsx` that doesn't call `auth()`. The `middleware.ts` rewrite happens before any auth check.
 
 Treat the dashboard as **internal but public**:
+
 - No PII shown (no user emails, no payment info)
 - No mutation endpoints (read-only)
 - No links into authenticated areas (sign-in is hidden)
@@ -192,15 +211,15 @@ All of this is shown on the dashboard's "Failures" card.
 
 This dashboard lands as a PLAN.md phase. Suggested split:
 
-| ID | Task | Effort |
-|---|---|---|
-| 1.10.1 | Subdomain routing — middleware.ts dev rewrite + Vercel domain config | S |
-| 1.10.2 | `app/(dev)/dev/page.tsx` layout · grid · hero tiles · all sections rendered with mock data | M |
-| 1.10.3 | Real data sources — parse PLAN.md, session JSON, GitHub API, CronRun | M |
-| 1.10.4 | Auto-refresh via `revalidateTag` + `router.refresh()` | S |
-| 1.10.5 | MCP health ping + cache · KV-backed | S |
-| 1.10.6 | Auto-enhance signals · render from `.claude/memory/enhance-signals.json` | S |
-| 1.10.7 | Process-enhancer agent · detects patterns · writes signals · opens PRs | M |
+| ID     | Task                                                                                       | Effort |
+| ------ | ------------------------------------------------------------------------------------------ | ------ |
+| 1.10.1 | Subdomain routing — middleware.ts dev rewrite + Vercel domain config                       | S      |
+| 1.10.2 | `app/(dev)/dev/page.tsx` layout · grid · hero tiles · all sections rendered with mock data | M      |
+| 1.10.3 | Real data sources — parse PLAN.md, session JSON, GitHub API, CronRun                       | M      |
+| 1.10.4 | Auto-refresh via `revalidateTag` + `router.refresh()`                                      | S      |
+| 1.10.5 | MCP health ping + cache · KV-backed                                                        | S      |
+| 1.10.6 | Auto-enhance signals · render from `.claude/memory/enhance-signals.json`                   | S      |
+| 1.10.7 | Process-enhancer agent · detects patterns · writes signals · opens PRs                     | M      |
 
 Total ~6h of work. The mockup is the spec.
 
@@ -213,6 +232,7 @@ Once the dashboard is live, the orchestrator reads it (via the data sources, not
 - On every successful merge: write to sessions JSON so the dashboard reflects it
 
 This turns the dashboard from a passive view into a **closed feedback loop**:
+
 1. Autonomous loop writes data
 2. Dashboard renders data
 3. Process-enhancer reads data, finds patterns

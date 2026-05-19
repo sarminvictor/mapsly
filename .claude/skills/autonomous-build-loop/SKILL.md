@@ -116,17 +116,18 @@ The Pro Max 20x plan delivers ~20× the message volume of a Pro plan per 5h roll
 
 ### Budget heuristics per task type
 
-| Task effort | Token estimate | Approx duration |
-|---|---|---|
-| S (≤ 1h) | 30–80k | 10–20 min |
-| M (1–3h) | 80–200k | 30–90 min |
-| L (3–8h) | 200–500k | not done autonomously — flag for Viktor |
+| Task effort | Token estimate | Approx duration                         |
+| ----------- | -------------- | --------------------------------------- |
+| S (≤ 1h)    | 30–80k         | 10–20 min                               |
+| M (1–3h)    | 80–200k        | 30–90 min                               |
+| L (3–8h)    | 200–500k       | not done autonomously — flag for Viktor |
 
 For a 5h window, expect 4–8 M-sized tasks per session.
 
 ### Halt conditions (token-aware)
 
 Stop immediately if:
+
 - Approaching rate-limit indicator visible
 - Last task consumed > 2× its estimated tokens (signal of model thrashing or task complexity creep)
 - Three consecutive task failures
@@ -144,7 +145,7 @@ Before this version: every PR waited for Viktor. **Now: when gates pass, the loo
 ### Why auto-merge
 
 - `mapsly.ai` always reflects latest autonomous work
-- Viktor reviews *after the fact* via dev.mapsly.ai dashboard + GitHub history
+- Viktor reviews _after the fact_ via dev.mapsly.ai dashboard + GitHub history
 - Removes the bottleneck (Viktor can't review 4 PRs/day in real time)
 - Quality gates are strict enough — if they pass, merging is safe
 
@@ -193,6 +194,7 @@ The orchestrator reads the dashboard at session start. If the dashboard shows re
 ## Process-enhancer integration
 
 A separate agent (`process-enhancer`) runs daily. Reads:
+
 - build-log patterns
 - scorer trends (which dimensions consistently low?)
 - CronRun cost trends
@@ -200,6 +202,7 @@ A separate agent (`process-enhancer`) runs daily. Reads:
 - Sentry pattern frequency
 
 When it spots a pattern, it opens a PR against `.claude/rules/` or `.claude/agents/` to refine the system. Example:
+
 - "Performance dim consistently 7/10 across the last 5 phases" → propose stricter `performance.md` thresholds
 - "ux-reviewer-smb keeps flagging same jargon" → add to banned-word list in `copy-voice.md`
 - "DataForSEO timeouts cluster Mondays 9-11 UTC" → propose rate-limit window in `services/dataforseo/`
@@ -230,11 +233,33 @@ Process-enhancer PRs go through the same auto-merge gates as feature PRs.
   "tokensUsed": { "input": 2_400_000, "output": 380_000, "total": 2_780_000 },
   "rateLimitWarnings": 0,
   "tasksShipped": [
-    { "phaseId": "1.3", "merged": true, "scoreAggregate": 9.4, "scoreCells": { "completion": 10, "quality": 9, "audience": 10, "relevance": 9, "performance": 9 } },
-    { "phaseId": "1.4", "merged": true, "scoreAggregate": 9.0, "scoreCells": { /* ... */ } }
+    {
+      "phaseId": "1.3",
+      "merged": true,
+      "scoreAggregate": 9.4,
+      "scoreCells": {
+        "completion": 10,
+        "quality": 9,
+        "audience": 10,
+        "relevance": 9,
+        "performance": 9
+      }
+    },
+    {
+      "phaseId": "1.4",
+      "merged": true,
+      "scoreAggregate": 9.0,
+      "scoreCells": {
+        /* ... */
+      }
+    }
   ],
   "tasksLeftOpenForReview": [
-    { "phaseId": "1.5", "prNumber": 23, "reason": "min cell 7 on Audience (jargon found)" }
+    {
+      "phaseId": "1.5",
+      "prNumber": 23,
+      "reason": "min cell 7 on Audience (jargon found)"
+    }
   ],
   "failures": [],
   "followupsOpened": ["FU.1.5.audience"],
@@ -248,6 +273,7 @@ The dashboard reads these to render the timeline.
 ## When to stop forever
 
 When ALL of:
+
 - Every PLAN.md phase has `status: completed`
 - Every score row has aggregate ≥ 9.0
 - Backlog is empty or all entries < S

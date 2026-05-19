@@ -19,6 +19,7 @@ You need a Claude Code cloud account with **scheduled-task** capability. Sign up
 ### 2. Connect GitHub repository
 
 In the cloud UI:
+
 - Connect `github.com/sarminvictor/mapsly` (this repo)
 - Grant: `Read & write` on contents, PRs, and actions
 - Working branch: leave blank — the loop creates `auto/...` branches per session
@@ -42,21 +43,22 @@ The cloud worker mirrors these into the running environment automatically — au
 
 In the cloud UI, create a new scheduled task:
 
-| Field | Value |
-|---|---|
-| Name | Mapsly autonomous build |
-| Repository | github.com/sarminvictor/mapsly |
-| Branch | main |
+| Field         | Value                                      |
+| ------------- | ------------------------------------------ |
+| Name          | Mapsly autonomous build                    |
+| Repository    | github.com/sarminvictor/mapsly             |
+| Branch        | main                                       |
 | Cron schedule | `0 */6 * * *` (every 6 hours — 4× per day) |
-| Max duration | 4h 30min |
-| Skill to run | `/autonomous-build-loop` |
-| On failure | Email viktor@... |
+| Max duration  | 4h 30min                                   |
+| Skill to run  | `/autonomous-build-loop`                   |
+| On failure    | Email viktor@...                           |
 
 The 6-hour cadence gives Claude 4 sessions per day. Each session is up to 4h30m. Total daily compute budget: 18 hours.
 
 ### 5. Configure the branch protection
 
 In GitHub repo settings:
+
 - Protect `main` branch
 - Require PRs from `auto/*` branches
 - Require at least one human approval (you) before merge
@@ -73,6 +75,7 @@ Before scheduling, run the loop manually once to validate:
 ```
 
 Watch the first session. Confirm:
+
 - It reads `PLAN.md`
 - It picks a sensible task
 - It creates a branch
@@ -127,13 +130,13 @@ At $480/mo Claude + ~$300/mo DataForSEO + ~$50/mo other = **~$830/mo total infra
 
 ## Failure modes + fixes
 
-| Symptom | Likely cause | Fix |
-|---|---|---|
-| Claude can't push | GitHub token expired | Rotate token in cloud UI |
-| Claude picks the same task twice | PLAN.md status not committed | Check the loop's commit step is running |
-| Sessions go silent | Cloud worker crashed | Check cloud UI dashboard, restart |
-| Sessions complete but nothing ships | All remaining tasks blocked | Manual review of PLAN.md to unblock |
-| Costs spike | Runaway cron in production | Check `CronRun` table, find the runaway job |
+| Symptom                             | Likely cause                 | Fix                                         |
+| ----------------------------------- | ---------------------------- | ------------------------------------------- |
+| Claude can't push                   | GitHub token expired         | Rotate token in cloud UI                    |
+| Claude picks the same task twice    | PLAN.md status not committed | Check the loop's commit step is running     |
+| Sessions go silent                  | Cloud worker crashed         | Check cloud UI dashboard, restart           |
+| Sessions complete but nothing ships | All remaining tasks blocked  | Manual review of PLAN.md to unblock         |
+| Costs spike                         | Runaway cron in production   | Check `CronRun` table, find the runaway job |
 
 ## Disable autonomous mode
 

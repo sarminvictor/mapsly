@@ -11,16 +11,20 @@ Mapsly stores prospect lists, business profiles, billing data. **Every route is 
 ## Auth
 
 ### Server components / routes
+
 ```ts
-import { auth } from '@/lib/auth';
-import { unauthorized, forbidden } from 'next/navigation';
+import { auth } from "@/lib/auth";
+import { unauthorized, forbidden } from "next/navigation";
 
 export default async function ProtectedPage() {
   const session = await auth();
   if (!session?.user?.id) unauthorized();
 
   // Owner check
-  const business = await prisma.business.findUnique({ where: { id }, select: { ownerUserId: true } });
+  const business = await prisma.business.findUnique({
+    where: { id },
+    select: { ownerUserId: true },
+  });
   if (business?.ownerUserId !== session.user.id) forbidden();
 
   // ...
@@ -28,39 +32,44 @@ export default async function ProtectedPage() {
 ```
 
 **Rules:**
+
 - `unauthorized()` — not signed in (401)
 - `forbidden()` — signed in but not allowed (403)
 - Both throw and unwind via Next 16's `experimental.authInterrupts`
 - Never return `null` or `<Redirect>` for auth failures — use these helpers
 
 ### API routes
+
 ```ts
 export async function POST(req: Request) {
   const session = await auth();
   if (!session?.user?.id) {
-    return Response.json({ error: 'unauthorized' }, { status: 401 });
+    return Response.json({ error: "unauthorized" }, { status: 401 });
   }
   // ...
 }
 ```
 
 ### Server actions
+
 ```ts
-'use server'
-import { auth } from '@/lib/auth';
-import { z } from 'zod';
+"use server";
+import { auth } from "@/lib/auth";
+import { z } from "zod";
 
 export async function updateLeadStatus(formData: FormData) {
   const session = await auth();
-  if (!session?.user?.id) throw new Error('unauthorized');
+  if (!session?.user?.id) throw new Error("unauthorized");
 
   const parsed = Schema.parse(Object.fromEntries(formData));
   // Ownership check
   const lead = await prisma.lead.findUnique({
     where: { id: parsed.leadId },
-    select: { agency: { select: { members: { where: { userId: session.user.id } } } } },
+    select: {
+      agency: { select: { members: { where: { userId: session.user.id } } } },
+    },
   });
-  if (!lead?.agency.members.length) throw new Error('forbidden');
+  if (!lead?.agency.members.length) throw new Error("forbidden");
 
   // ...
 }
@@ -89,10 +98,13 @@ const csp = `
   form-action 'self';
   object-src 'none';
   upgrade-insecure-requests;
-`.replace(/\s+/g, ' ').trim();
+`
+  .replace(/\s+/g, " ")
+  .trim();
 ```
 
 **Rules:**
+
 - No `unsafe-eval`. Ever.
 - No `unsafe-inline` for scripts — use nonces.
 - Allow-list third parties explicitly. No wildcards on `script-src`.
@@ -103,25 +115,33 @@ Every webhook handler verifies its source:
 
 ```ts
 // app/api/webhooks/stripe/route.ts
-import Stripe from 'stripe';
+import Stripe from "stripe";
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
 export async function POST(req: Request) {
   const body = await req.text(); // raw body for signature
-  const signature = req.headers.get('stripe-signature');
+  const signature = req.headers.get("stripe-signature");
 
   let event: Stripe.Event;
   try {
-    event = stripe.webhooks.constructEvent(body, signature!, process.env.STRIPE_WEBHOOK_SECRET!);
+    event = stripe.webhooks.constructEvent(
+      body,
+      signature!,
+      process.env.STRIPE_WEBHOOK_SECRET!,
+    );
   } catch {
-    return new Response('Bad signature', { status: 400 });
+    return new Response("Bad signature", { status: 400 });
   }
 
   // Idempotency check
-  const existing = await prisma.stripeWebhookEvent.findUnique({ where: { eventId: event.id } });
+  const existing = await prisma.stripeWebhookEvent.findUnique({
+    where: { eventId: event.id },
+  });
   if (existing) return Response.json({ ok: true });
 
-  await prisma.stripeWebhookEvent.create({ data: { eventId: event.id, type: event.type } });
+  await prisma.stripeWebhookEvent.create({
+    data: { eventId: event.id, type: event.type },
+  });
 
   // ... process
 }
@@ -142,7 +162,7 @@ Every external input — request body, URL params, search params, form data, hea
 ```ts
 const Schema = z.object({
   listId: z.string().cuid(),
-  status: z.enum(['NEW', 'CONTACTED', 'REPLIED', 'WON', 'LOST', 'HIDDEN']),
+  status: z.enum(["NEW", "CONTACTED", "REPLIED", "WON", "LOST", "HIDDEN"]),
 });
 
 const parsed = Schema.parse(input); // throws on bad input
@@ -171,6 +191,7 @@ await prisma.$queryRaw`SELECT * FROM "Business" WHERE id = ${id}`;
 ## Rate limiting
 
 See `scalability.md` § Rate limiting. Summary:
+
 - 60/min/IP on public routes
 - 30/min/user on auth routes
 - 200/min on webhook routes
@@ -187,6 +208,7 @@ See `scalability.md` § Rate limiting. Summary:
 ## OWASP top 10 self-audit
 
 Before every release:
+
 - [ ] Broken Access Control — all routes have auth + ownership checks
 - [ ] Cryptographic Failures — secrets only in env vars, no plain-text storage of sensitive data
 - [ ] Injection — Zod + Prisma parameterization

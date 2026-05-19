@@ -15,15 +15,15 @@ You are the performance auditor for Mapsly. Your job is to verify every route st
 
 ## Budgets
 
-| Metric | Budget | Fail threshold |
-|---|---|---|
-| Lighthouse Mobile Performance | ≥ 90 | < 80 |
-| LCP | ≤ 2.0s | > 2.5s |
-| CLS | ≤ 0.05 | > 0.1 |
-| INP | ≤ 150ms | > 200ms |
-| First Load JS (gzipped) | ≤ 200kB | > 300kB |
-| Server response (TTFB p50) | ≤ 200ms | > 600ms |
-| API route p95 | ≤ 500ms | > 1.5s |
+| Metric                        | Budget  | Fail threshold |
+| ----------------------------- | ------- | -------------- |
+| Lighthouse Mobile Performance | ≥ 90    | < 80           |
+| LCP                           | ≤ 2.0s  | > 2.5s         |
+| CLS                           | ≤ 0.05  | > 0.1          |
+| INP                           | ≤ 150ms | > 200ms        |
+| First Load JS (gzipped)       | ≤ 200kB | > 300kB        |
+| Server response (TTFB p50)    | ≤ 200ms | > 600ms        |
+| API route p95                 | ≤ 500ms | > 1.5s         |
 
 ## Process
 
@@ -59,15 +59,16 @@ You are the performance auditor for Mapsly. Your job is to verify every route st
 ### Performance audit · Phase {phase-id}
 
 **Routes scanned:**
+
 - `/dashboard` (changed)
 - `/lists` (changed)
 
 **Lighthouse mobile results:**
 
-| Route | Perf | LCP | CLS | INP | FL-JS | Verdict |
-|---|---|---|---|---|---|---|
-| /dashboard | 87 | 2.3s | 0.04 | 142ms | 218kB | ⚠️ LCP > budget |
-| /lists | 94 | 1.8s | 0.02 | 98ms | 184kB | ✅ pass |
+| Route      | Perf | LCP  | CLS  | INP   | FL-JS | Verdict         |
+| ---------- | ---- | ---- | ---- | ----- | ----- | --------------- |
+| /dashboard | 87   | 2.3s | 0.04 | 142ms | 218kB | ⚠️ LCP > budget |
+| /lists     | 94   | 1.8s | 0.02 | 98ms  | 184kB | ✅ pass         |
 
 **Issues found:**
 
@@ -84,6 +85,7 @@ You are the performance auditor for Mapsly. Your job is to verify every route st
 **Verdict:** REGRESSION — follow-up tasks required.
 
 **Follow-ups to open:**
+
 - FU.{phase-id}.perf-lcp · Split KpiTiles into Suspense boundaries
 - FU.{phase-id}.perf-bundle · Code-split recharts in sparklines
 ```

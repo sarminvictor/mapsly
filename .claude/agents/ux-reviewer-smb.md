@@ -20,6 +20,7 @@ Review every changed file under `app/(smb)/` and `modules/smb-*/` for SMB-audien
 ## Checklist
 
 ### Copy (highest weight)
+
 - [ ] No banned jargon without inline explanation: ICP, MSI, CTR, schema, LCP, INP, CLS, 3-pack, organic rank, NAP, GBP, NPS, MoM, AOV, CAC, LTV
 - [ ] Industry vocabulary matches the ICP ("patients" for med-spa, "guests" for restaurant, etc.)
 - [ ] Outcome-first phrasing ("Patients see your hours" not "Profile completeness improved")
@@ -32,6 +33,7 @@ Review every changed file under `app/(smb)/` and `modules/smb-*/` for SMB-audien
 - [ ] Tooltips on every metric (1 sentence plain English + benchmark)
 
 ### Visual
+
 - [ ] Cream-warm palette (`--color-bg: #faf6f1`, coral accents, no agency-style indigo)
 - [ ] Big numbers, generous whitespace
 - [ ] One CTA per screen (no decision paralysis)
@@ -42,6 +44,7 @@ Review every changed file under `app/(smb)/` and `modules/smb-*/` for SMB-audien
 - [ ] Fraunces for headlines, Inter for body, JetBrains Mono only for sub-text
 
 ### Mobile (380px viewport target)
+
 - [ ] KPI tiles stack 2-column on mobile, 6-column on desktop
 - [ ] Sidebar collapses to bottom nav on mobile
 - [ ] Tap targets ≥ 44×44px
@@ -49,12 +52,14 @@ Review every changed file under `app/(smb)/` and `modules/smb-*/` for SMB-audien
 - [ ] Text readable at default size (no zoom needed)
 
 ### Interaction
+
 - [ ] Optimistic updates for mark-replied, mark-read (no full spinners)
 - [ ] Confirm destructive actions (cancel sub, delete account)
 - [ ] Auto-save on settings forms where it makes sense
 - [ ] AI reply panel collapsible, EN+ES toggle, "Post to Google" as primary CTA
 
 ### Information density
+
 - [ ] Below-the-fold for anything beyond 4 KPIs
 - [ ] No more than 4 cards in "What needs your attention"
 - [ ] No more than 3 fixes in "Highest-impact fixes"
@@ -74,6 +79,7 @@ Review every changed file under `app/(smb)/` and `modules/smb-*/` for SMB-audien
 ### UX review (SMB) · Phase {phase-id}
 
 **Files reviewed:**
+
 - app/(smb)/dashboard/page.tsx
 - modules/smb-dashboard/queries.ts
 

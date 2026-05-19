@@ -12,24 +12,24 @@ Every external input is hostile. Every external call can fail. Plan for both.
 
 Validate at every boundary:
 
-| Boundary | Where | What |
-|---|---|---|
-| API request body | route handler | Full body shape |
-| URL search params | route handler / page | Full params shape |
-| Form data | server action | Full form shape |
-| Webhook payload | webhook handler | After signature verify |
-| External API response | service adapter | Full response shape |
-| Env vars | `lib/env.ts` (boot-time) | All required vars |
+| Boundary              | Where                    | What                   |
+| --------------------- | ------------------------ | ---------------------- |
+| API request body      | route handler            | Full body shape        |
+| URL search params     | route handler / page     | Full params shape      |
+| Form data             | server action            | Full form shape        |
+| Webhook payload       | webhook handler          | After signature verify |
+| External API response | service adapter          | Full response shape    |
+| Env vars              | `lib/env.ts` (boot-time) | All required vars      |
 
 ```ts
 // lib/env.ts — validated at boot
-import { z } from 'zod';
+import { z } from "zod";
 
 const Env = z.object({
   DATABASE_URL: z.string().url(),
   AUTH_SECRET: z.string().min(32),
-  STRIPE_SECRET_KEY: z.string().startsWith('sk_'),
-  ANTHROPIC_API_KEY: z.string().startsWith('sk-ant-'),
+  STRIPE_SECRET_KEY: z.string().startsWith("sk_"),
+  ANTHROPIC_API_KEY: z.string().startsWith("sk-ant-"),
   // ...
 });
 
@@ -50,6 +50,7 @@ modules/lists/
 ```
 
 Or for routes:
+
 ```
 app/api/lists/
   schema.ts
@@ -66,13 +67,14 @@ Every API error response is `{ error: string, details?: object }`:
 const parsed = Schema.safeParse(body);
 if (!parsed.success) {
   return Response.json(
-    { error: 'invalid_input', details: parsed.error.flatten().fieldErrors },
-    { status: 400 }
+    { error: "invalid_input", details: parsed.error.flatten().fieldErrors },
+    { status: 400 },
   );
 }
 ```
 
 Standard error codes:
+
 - `invalid_input` (400)
 - `unauthorized` (401)
 - `forbidden` (403)
@@ -87,14 +89,17 @@ Never leak internal error messages to clients. Log full error to Sentry, return 
 ## Try-catch discipline
 
 In server components:
+
 - For expected failures (not-found, forbidden), use Next 16's `notFound()`/`forbidden()`.
 - For unexpected failures, let them throw — the closest `error.tsx` catches.
 
 In server actions:
+
 - Try-catch only when you need to translate the error for the client.
 - Otherwise let it throw — server-action wrapper logs to Sentry.
 
 In service adapters:
+
 - Try-catch ALL external calls.
 - Map vendor errors to our error types: `class ExternalApiError extends Error { vendor: string; code: string; }`
 - Add retry policy at the adapter layer (max 2 retries, exp backoff).
@@ -103,8 +108,14 @@ In service adapters:
 
 ```tsx
 // app/(smb)/dashboard/error.tsx
-'use client'
-export default function Error({ error, reset }: { error: Error; reset: () => void }) {
+"use client";
+export default function Error({
+  error,
+  reset,
+}: {
+  error: Error;
+  reset: () => void;
+}) {
   return (
     <div className="p-8">
       <h2>Something went wrong on the dashboard</h2>
@@ -116,6 +127,7 @@ export default function Error({ error, reset }: { error: Error; reset: () => voi
 ```
 
 **Rules:**
+
 - Every route segment with significant work has an `error.tsx`
 - Errors auto-bubble to the nearest one
 - Always provide a "Try again" via `reset()`
@@ -128,11 +140,12 @@ Every async UI shows three states explicitly:
 ```tsx
 <Suspense fallback={<LeadsSkeleton />}>
   <Leads />
-</Suspense>
+</Suspense>;
 
 async function Leads() {
   const leads = await getLeads(listId);
-  if (leads.length === 0) return <EmptyState message="No qualified leads yet" />;
+  if (leads.length === 0)
+    return <EmptyState message="No qualified leads yet" />;
   return <LeadsList items={leads} />;
 }
 ```
@@ -144,7 +157,7 @@ Empty states must explain WHY there's nothing and WHAT to do next. Not just "No 
 For external API calls:
 
 ```ts
-import pRetry from 'p-retry';
+import pRetry from "p-retry";
 
 const result = await pRetry(
   async () => {
@@ -160,11 +173,12 @@ const result = await pRetry(
     onFailedAttempt: (err) => {
       // log to Sentry breadcrumb
     },
-  }
+  },
 );
 ```
 
 **Rules:**
+
 - Max 2 retries (3 total attempts).
 - Exponential backoff with jitter.
 - Don't retry on 4xx (except 408, 429).

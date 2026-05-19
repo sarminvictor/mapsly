@@ -14,16 +14,16 @@ Project-level rules. Loaded automatically by Claude Code on every session.
 
 **Mapsly** is a signal-driven local-business-intelligence platform. Two audiences. Two portals. Two distinct UX languages.
 
-| | SMB | Agency |
-|---|---|---|
-| Persona | Maria · owner of one local business | Tom · owner of a 4-seat marketing agency |
-| Job | "Make MY business better" | "Find qualified prospects for my pitch" |
-| Vocabulary | "patients · treatments · providers" | "MSI · 3-pack · LCP · schema · NAP · GBP" |
-| Pricing | $29/mo direct | $49 Solo · $99 Growth · $249 Pro · $499 Boutique |
-| Palette | Warm cream + coral (`#faf6f1` / `#c3553a`) | Cool gray + indigo (`#f6f7fb` / `#5b3df5`) |
-| UX language | Warm, plain English, mobile-first, big numbers, one CTA per screen | Tool-y, dense, keyboard-first, bulk actions, jargon-OK |
-| Information density | Below-the-fold beyond 4 KPIs | Above-the-fold dense workflows |
-| Reference rules | `.claude/rules/ui-ux-smb.md` | `.claude/rules/ui-ux-agency.md` |
+|                     | SMB                                                                | Agency                                                 |
+| ------------------- | ------------------------------------------------------------------ | ------------------------------------------------------ |
+| Persona             | Maria · owner of one local business                                | Tom · owner of a 4-seat marketing agency               |
+| Job                 | "Make MY business better"                                          | "Find qualified prospects for my pitch"                |
+| Vocabulary          | "patients · treatments · providers"                                | "MSI · 3-pack · LCP · schema · NAP · GBP"              |
+| Pricing             | $29/mo direct                                                      | $49 Solo · $99 Growth · $249 Pro · $499 Boutique       |
+| Palette             | Warm cream + coral (`#faf6f1` / `#c3553a`)                         | Cool gray + indigo (`#f6f7fb` / `#5b3df5`)             |
+| UX language         | Warm, plain English, mobile-first, big numbers, one CTA per screen | Tool-y, dense, keyboard-first, bulk actions, jargon-OK |
+| Information density | Below-the-fold beyond 4 KPIs                                       | Above-the-fold dense workflows                         |
+| Reference rules     | `.claude/rules/ui-ux-smb.md`                                       | `.claude/rules/ui-ux-agency.md`                        |
 
 **Every agent that touches UI MUST read the relevant audience rule before producing copy or layout.**
 
@@ -33,18 +33,18 @@ Project-level rules. Loaded automatically by Claude Code on every session.
 
 ## Stack
 
-| Tech | Version | Notes |
-|---|---|---|
-| Node.js | 24 | `.nvmrc` pins to `24` |
-| Next.js | 16 | Turbopack default, PPR via `cacheComponents` |
-| React | 19 | `react-jsx`, `use cache`, `useOptimistic` |
-| Prisma | 7 | Neon serverless adapter |
-| TypeScript | 5 | Strict; ES2022 target |
-| Tailwind | 4 | `@tailwindcss/postcss`, `inlineCss` |
-| NextAuth | 5-beta | JWT, magic link via Resend |
-| next-intl | 4 | en · es · en-CA · fr-CA |
-| TanStack Query | 5 | client-side caching |
-| Vitest + Playwright | latest | testing |
+| Tech                | Version | Notes                                        |
+| ------------------- | ------- | -------------------------------------------- |
+| Node.js             | 24      | `.nvmrc` pins to `24`                        |
+| Next.js             | 16      | Turbopack default, PPR via `cacheComponents` |
+| React               | 19      | `react-jsx`, `use cache`, `useOptimistic`    |
+| Prisma              | 7       | Neon serverless adapter                      |
+| TypeScript          | 5       | Strict; ES2022 target                        |
+| Tailwind            | 4       | `@tailwindcss/postcss`, `inlineCss`          |
+| NextAuth            | 5-beta  | JWT, magic link via Resend                   |
+| next-intl           | 4       | en · es · en-CA · fr-CA                      |
+| TanStack Query      | 5       | client-side caching                          |
+| Vitest + Playwright | latest  | testing                                      |
 
 ---
 
@@ -53,6 +53,7 @@ Project-level rules. Loaded automatically by Claude Code on every session.
 Every TS/TSX file you touch loads the relevant rule docs as context. Read them before writing code.
 
 ### Always loaded (every change)
+
 - `.claude/rules/conventions.md` — naming · structure · imports
 - `.claude/rules/performance.md` — the #1 priority
 - `.claude/rules/caching.md` — tag everything
@@ -63,6 +64,7 @@ Every TS/TSX file you touch loads the relevant rule docs as context. Read them b
 - `.claude/rules/cost-discipline.md` — every API call costs money
 
 ### Loaded conditionally
+
 - `.claude/rules/data-fetching.md` — when SSR/SSG/streaming/server-action/SSE
 - `.claude/rules/realtime-and-optimistic.md` — useOptimistic · SSE patterns
 - `.claude/rules/seo.md` — marketing/blog/public pages
@@ -151,20 +153,20 @@ _design/                            # original HTML mockups (reference)
 
 ## Feature map (live)
 
-| Feature | Module | Routes | Status |
-|---|---|---|---|
-| Landing (SMB) | — | `app/[locale]/(marketing)/page.tsx` | scaffold |
-| Landing (Agency) | — | `app/[locale]/(marketing)/for-agencies/page.tsx` | scaffold |
-| SMB dashboard | modules/smb-dashboard | `app/[locale]/(smb)/dashboard` | pending |
-| SMB reviews | modules/reviews | `app/[locale]/(smb)/reviews` | pending |
-| Agency lists | modules/lists | `app/[locale]/(agency)/lists` | pending |
-| Agency search (hunter) | modules/hunter | `app/[locale]/(agency)/search` | pending |
-| Prospect detail | modules/prospect | `app/[locale]/(agency)/prospect/[id]` | pending |
-| Reports (CSV/PDF/link) | modules/reports | `app/[locale]/(agency)/reports` | pending |
-| Cron jobs | — | `app/api/cron/**` | pending |
-| Stripe | modules/billing | `app/api/webhooks/stripe` | pending |
-| Auth | modules/auth | NextAuth handlers | pending |
-| i18n | — | next-intl + middleware | scaffold |
+| Feature                | Module                | Routes                                           | Status   |
+| ---------------------- | --------------------- | ------------------------------------------------ | -------- |
+| Landing (SMB)          | —                     | `app/[locale]/(marketing)/page.tsx`              | scaffold |
+| Landing (Agency)       | —                     | `app/[locale]/(marketing)/for-agencies/page.tsx` | scaffold |
+| SMB dashboard          | modules/smb-dashboard | `app/[locale]/(smb)/dashboard`                   | pending  |
+| SMB reviews            | modules/reviews       | `app/[locale]/(smb)/reviews`                     | pending  |
+| Agency lists           | modules/lists         | `app/[locale]/(agency)/lists`                    | pending  |
+| Agency search (hunter) | modules/hunter        | `app/[locale]/(agency)/search`                   | pending  |
+| Prospect detail        | modules/prospect      | `app/[locale]/(agency)/prospect/[id]`            | pending  |
+| Reports (CSV/PDF/link) | modules/reports       | `app/[locale]/(agency)/reports`                  | pending  |
+| Cron jobs              | —                     | `app/api/cron/**`                                | pending  |
+| Stripe                 | modules/billing       | `app/api/webhooks/stripe`                        | pending  |
+| Auth                   | modules/auth          | NextAuth handlers                                | pending  |
+| i18n                   | —                     | next-intl + middleware                           | scaffold |
 
 See `PLAN.md` for phased priorities.
 
@@ -186,14 +188,17 @@ See `PLAN.md` for phased priorities.
 ## Quality gates
 
 Before every commit:
+
 ```bash
 pnpm deploy-check
 ```
+
 Which runs: format → typecheck → lint → build → cost-budget audit.
 
 Required for: every PR, every autonomous loop iteration.
 
 Performance budgets (per-route, enforced by `performance-auditor`):
+
 - Lighthouse Mobile Performance ≥ 90
 - LCP ≤ 2.0s · CLS ≤ 0.05 · INP ≤ 150ms
 - First Load JS ≤ 200kB
@@ -203,6 +208,7 @@ Performance budgets (per-route, enforced by `performance-auditor`):
 ## Data collection rules
 
 See [docs/data-cadence.md](docs/data-cadence.md). TL;DR:
+
 - **Daily** — cheap deltas (ads, brand hijack, new reviews)
 - **Weekly** — anchor pull (profile, reviews, Lighthouse, SERP, score recompute)
 - **Monthly** — slow data (keyword volume, market census, baselines)
@@ -214,43 +220,43 @@ Every API call logs to `CronRun.costUsd`. Tier ceilings enforced — never silen
 
 ## Agents Index
 
-| Agent | Role | Tools |
-|---|---|---|
-| `code-reviewer` | Quality review against checklist | Read, Grep, Glob, Bash |
-| `test-writer` | Generate Vitest skeletons | Read, Grep, Glob, Write, Edit |
-| `db-analyst` | DB metrics + business queries | `mcp__postgres__query` |
-| `signal-engineer` | Adding / tuning signals | Read, Grep, `mcp__context7__*` |
-| `integration-specialist` | External APIs (DataForSEO, Meta, Stripe) | Read, Grep, WebFetch, `mcp__context7__*` |
-| `performance-auditor` | Lighthouse + bundle on changed routes | Read, Grep, Glob, Bash |
-| `process-enhancer` | Daily meta-loop · refines rules/agents from build-log + scorer trends | Read, Grep, Edit, Write, Bash, `mcp__postgres__query`, `mcp__sentry__*` |
-| `ux-reviewer-smb` | SMB-portal UX | Read, Grep, Glob |
-| `ux-reviewer-agency` | Agency-portal UX | Read, Grep, Glob |
-| `copy-reviewer` | Voice + tone per audience | Read, Grep, Glob |
-| `scorer` | 5-dim score per phase, appends to PLAN.md | Read, Grep, Glob, Bash |
-| `seo-auditor` | GSC + on-page SEO health | `mcp__gsc__*`, `mcp__postgres__query` |
-| `competitive-researcher` | External market research | WebFetch, WebSearch |
-| `analytics-analyst` | GA4 funnels, attribution | `mcp__ga__*`, `mcp__postgres__query` |
-| `sentry-monitor` | Daily error triage | `mcp__sentry__*` |
-| `security-auditor` | Auth, CSRF, RBAC, rate limits | Read, Grep, Bash |
-| `payments-auditor` | Stripe webhook + idempotency | Read, Grep, Bash |
-| `a11y-reviewer` | WCAG 2.1 AA | Read, Grep, Bash |
+| Agent                    | Role                                                                  | Tools                                                                   |
+| ------------------------ | --------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `code-reviewer`          | Quality review against checklist                                      | Read, Grep, Glob, Bash                                                  |
+| `test-writer`            | Generate Vitest skeletons                                             | Read, Grep, Glob, Write, Edit                                           |
+| `db-analyst`             | DB metrics + business queries                                         | `mcp__postgres__query`                                                  |
+| `signal-engineer`        | Adding / tuning signals                                               | Read, Grep, `mcp__context7__*`                                          |
+| `integration-specialist` | External APIs (DataForSEO, Meta, Stripe)                              | Read, Grep, WebFetch, `mcp__context7__*`                                |
+| `performance-auditor`    | Lighthouse + bundle on changed routes                                 | Read, Grep, Glob, Bash                                                  |
+| `process-enhancer`       | Daily meta-loop · refines rules/agents from build-log + scorer trends | Read, Grep, Edit, Write, Bash, `mcp__postgres__query`, `mcp__sentry__*` |
+| `ux-reviewer-smb`        | SMB-portal UX                                                         | Read, Grep, Glob                                                        |
+| `ux-reviewer-agency`     | Agency-portal UX                                                      | Read, Grep, Glob                                                        |
+| `copy-reviewer`          | Voice + tone per audience                                             | Read, Grep, Glob                                                        |
+| `scorer`                 | 5-dim score per phase, appends to PLAN.md                             | Read, Grep, Glob, Bash                                                  |
+| `seo-auditor`            | GSC + on-page SEO health                                              | `mcp__gsc__*`, `mcp__postgres__query`                                   |
+| `competitive-researcher` | External market research                                              | WebFetch, WebSearch                                                     |
+| `analytics-analyst`      | GA4 funnels, attribution                                              | `mcp__ga__*`, `mcp__postgres__query`                                    |
+| `sentry-monitor`         | Daily error triage                                                    | `mcp__sentry__*`                                                        |
+| `security-auditor`       | Auth, CSRF, RBAC, rate limits                                         | Read, Grep, Bash                                                        |
+| `payments-auditor`       | Stripe webhook + idempotency                                          | Read, Grep, Bash                                                        |
+| `a11y-reviewer`          | WCAG 2.1 AA                                                           | Read, Grep, Bash                                                        |
 
 ---
 
 ## Skills Index
 
-| Skill | Command | Purpose |
-|---|---|---|
-| `mapsly` | `/mapsly` | Menu — list all skills |
-| `new-feature` | `/new-feature [name]` | Orchestrated feature build |
-| `change-feature` | `/change-feature [module]` | Orchestrated modification |
-| `new-signal` | `/new-signal [name]` | Add a new signal |
-| `deploy-check` | `/deploy-check` | format + types + lint + build + cost |
-| `db-snapshot` | `/db-snapshot` | Metrics baseline to memory/ |
-| **`autonomous-build-loop`** | `/autonomous-build-loop` | The scheduled self-driving loop |
-| `cost-audit` | `/cost-audit` | Last-7d API cost vs budget |
-| `review` | `/review` | Spawn code-reviewer |
-| `seo-check` | `/seo-check` | Spawn seo-auditor |
+| Skill                       | Command                    | Purpose                              |
+| --------------------------- | -------------------------- | ------------------------------------ |
+| `mapsly`                    | `/mapsly`                  | Menu — list all skills               |
+| `new-feature`               | `/new-feature [name]`      | Orchestrated feature build           |
+| `change-feature`            | `/change-feature [module]` | Orchestrated modification            |
+| `new-signal`                | `/new-signal [name]`       | Add a new signal                     |
+| `deploy-check`              | `/deploy-check`            | format + types + lint + build + cost |
+| `db-snapshot`               | `/db-snapshot`             | Metrics baseline to memory/          |
+| **`autonomous-build-loop`** | `/autonomous-build-loop`   | The scheduled self-driving loop      |
+| `cost-audit`                | `/cost-audit`              | Last-7d API cost vs budget           |
+| `review`                    | `/review`                  | Spawn code-reviewer                  |
+| `seo-check`                 | `/seo-check`               | Spawn seo-auditor                    |
 
 ---
 
@@ -258,14 +264,14 @@ Every API call logs to `CronRun.costUsd`. Tier ceilings enforced — never silen
 
 Registered in `.mcp.json`. Per-server rules in `.claude/rules/mcp-*.md`.
 
-| MCP | Use for |
-|---|---|
-| postgres | Live DB queries (SELECT only) |
-| gsc | Search Console — clicks, impressions, position |
-| ga | GA4 traffic, behavior, conversions |
+| MCP        | Use for                                         |
+| ---------- | ----------------------------------------------- |
+| postgres   | Live DB queries (SELECT only)                   |
+| gsc        | Search Console — clicks, impressions, position  |
+| ga         | GA4 traffic, behavior, conversions              |
 | dataforseo | Keyword volume, SERP, Maps, Reviews, Lighthouse |
-| context7 | Live framework / library docs |
-| sentry | Live errors, events, releases |
+| context7   | Live framework / library docs                   |
+| sentry     | Live errors, events, releases                   |
 
 ---
 
@@ -292,4 +298,4 @@ Registered in `.mcp.json`. Per-server rules in `.claude/rules/mcp-*.md`.
 
 ---
 
-*Version 0.2 · 2026-05-19 · Phase 0 complete + quality-gate rule set landed. See PLAN.md for what ships next.*
+_Version 0.2 · 2026-05-19 · Phase 0 complete + quality-gate rule set landed. See PLAN.md for what ships next._

@@ -1,0 +1,8 @@
+node_modules
+.next
+lib/generated
+_design
+pnpm-lock.yaml
+package-lock.json
+*.min.js
+*.min.css

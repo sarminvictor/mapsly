@@ -36,12 +36,12 @@ For marketing, share-links, signal definitions.
 
 ```tsx
 // app/(marketing)/page.tsx
-'use cache'
-import { cacheLife, cacheTag } from 'next/cache';
+"use cache";
+import { cacheLife, cacheTag } from "next/cache";
 
 export default async function MarketingHome() {
-  cacheLife('weeks');
-  cacheTag('marketing');
+  cacheLife("weeks");
+  cacheTag("marketing");
 
   return <Hero />;
 }
@@ -55,8 +55,11 @@ The default for app dashboards.
 
 ```tsx
 // app/(smb)/dashboard/page.tsx
-import { Suspense } from 'react';
-import { getBusinessSnapshot, getAlerts } from '@/modules/smb-dashboard/queries';
+import { Suspense } from "react";
+import {
+  getBusinessSnapshot,
+  getAlerts,
+} from "@/modules/smb-dashboard/queries";
 
 export default async function Dashboard() {
   const session = await auth();
@@ -82,12 +85,12 @@ async function KpiTiles({ userId }: { userId: string }) {
 
 ```ts
 // modules/smb-dashboard/queries.ts
-'use cache'
-import { cacheLife, cacheTag } from 'next/cache';
-import prisma from '@/lib/prisma';
+"use cache";
+import { cacheLife, cacheTag } from "next/cache";
+import prisma from "@/lib/prisma";
 
 export async function getBusinessSnapshot(userId: string) {
-  cacheLife('hours');
+  cacheLife("hours");
   cacheTag(`user-${userId}-snapshot`);
 
   return prisma.business.findFirst({
@@ -97,7 +100,7 @@ export async function getBusinessSnapshot(userId: string) {
       name: true,
       snapshots: {
         take: 1,
-        orderBy: { snapshotDate: 'desc' },
+        orderBy: { snapshotDate: "desc" },
         select: { mapslyScore: true, msiRank: true, msiTotal: true },
       },
     },
@@ -108,11 +111,16 @@ export async function getBusinessSnapshot(userId: string) {
 ## Pattern 3 · `noStore()` for must-be-fresh
 
 ```ts
-import { unstable_noStore as noStore } from 'next/cache';
+import { unstable_noStore as noStore } from "next/cache";
 
 export async function getBillingStatus(userId: string) {
   noStore();
-  return prisma.user.findUnique({ where: { id: userId }, select: { /* ... */ } });
+  return prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      /* ... */
+    },
+  });
 }
 ```
 
@@ -122,19 +130,19 @@ Use ONLY when the data is so volatile that even 10-second staleness is wrong (bi
 
 ```tsx
 // modules/lists/actions.ts
-'use server'
-import { z } from 'zod';
-import { revalidateTag } from 'next/cache';
-import { auth } from '@/lib/auth';
+"use server";
+import { z } from "zod";
+import { revalidateTag } from "next/cache";
+import { auth } from "@/lib/auth";
 
 const SetLeadStatusSchema = z.object({
   leadId: z.string().cuid(),
-  status: z.enum(['NEW', 'CONTACTED', 'REPLIED', 'WON', 'LOST', 'HIDDEN']),
+  status: z.enum(["NEW", "CONTACTED", "REPLIED", "WON", "LOST", "HIDDEN"]),
 });
 
 export async function setLeadStatus(formData: FormData) {
   const session = await auth();
-  if (!session?.user?.id) throw new Error('unauthorized');
+  if (!session?.user?.id) throw new Error("unauthorized");
 
   const parsed = SetLeadStatusSchema.parse(Object.fromEntries(formData));
 
@@ -143,12 +151,13 @@ export async function setLeadStatus(formData: FormData) {
     data: { status: parsed.status, statusChangedAt: new Date() },
   });
 
-  revalidateTag(`lead-${parsed.leadId}`, 'minutes');
-  revalidateTag(`list-${listId}`, 'minutes');
+  revalidateTag(`lead-${parsed.leadId}`, "minutes");
+  revalidateTag(`list-${listId}`, "minutes");
 }
 ```
 
 **Rules:**
+
 - Always validate input with Zod.
 - Always check auth at the top.
 - Always revalidate granular tags after the write.
@@ -160,9 +169,9 @@ For "new match arrived" toasts and live activity feed.
 
 ```ts
 // app/api/realtime/list-events/route.ts
-import { auth } from '@/lib/auth';
+import { auth } from "@/lib/auth";
 
-export const runtime = 'edge';
+export const runtime = "edge";
 
 export async function GET(req: Request) {
   const session = await auth();
@@ -172,17 +181,19 @@ export async function GET(req: Request) {
     async start(controller) {
       const encoder = new TextEncoder();
       const sub = subscribeToListEvents(session.user.id, (event) => {
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
+        controller.enqueue(
+          encoder.encode(`data: ${JSON.stringify(event)}\n\n`),
+        );
       });
-      req.signal.addEventListener('abort', () => sub.unsubscribe());
+      req.signal.addEventListener("abort", () => sub.unsubscribe());
     },
   });
 
   return new Response(stream, {
     headers: {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
-      Connection: 'keep-alive',
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      Connection: "keep-alive",
     },
   });
 }
@@ -191,6 +202,7 @@ export async function GET(req: Request) {
 Backend pub/sub: Vercel KV channels or a lightweight Postgres `LISTEN/NOTIFY`. Prefer KV — Neon doesn't always support LISTEN.
 
 **Rules:**
+
 - SSE over WebSocket — simpler, works on Vercel Edge.
 - Always pass an `AbortSignal` to clean up subscriptions.
 - Heartbeat every 30s with `: keep-alive\n\n` if no real events.
@@ -203,11 +215,13 @@ Backend pub/sub: Vercel KV channels or a lightweight Postgres `LISTEN/NOTIFY`. P
 export async function getLeads(listId: string, cursor?: string, take = 25) {
   return prisma.lead.findMany({
     where: { listId },
-    orderBy: { matchScore: 'desc' },
+    orderBy: { matchScore: "desc" },
     take: take + 1,
     cursor: cursor ? { id: cursor } : undefined,
     skip: cursor ? 1 : 0,
-    select: { /* ... */ },
+    select: {
+      /* ... */
+    },
   });
   // Client gets back `take + 1` items, pops the last as the next cursor.
 }

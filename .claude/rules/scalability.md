@@ -58,7 +58,10 @@ For mixed batch operations:
 ```ts
 await prisma.$transaction([
   prisma.businessSnapshot.createMany({ data: snapshots }),
-  prisma.business.updateMany({ where: { id: { in: ids } }, data: { lastRefreshedAt: now } }),
+  prisma.business.updateMany({
+    where: { id: { in: ids } },
+    data: { lastRefreshedAt: now },
+  }),
 ]);
 ```
 
@@ -71,6 +74,7 @@ Use `$transaction` when multiple writes must succeed or fail together:
 - Cron run write + revalidateTag → revalidate AFTER the transaction commits
 
 Avoid:
+
 - Long-running transactions (> 5s) — block connections
 - Nested transactions (Prisma doesn't support them)
 - External API calls inside a transaction — extend the open time unpredictably
@@ -79,24 +83,22 @@ Avoid:
 
 Every `services/{vendor}` adapter respects the vendor's limit:
 
-| Vendor | Rate limit | Our strategy |
-|---|---|---|
-| DataForSEO | 2000/min on Standard, 10/sec/IP | Queue + backoff; never exceed 1 req/sec per cron handler |
-| Meta Ad Library | 600/hour per token | Batch competitor scans · cache 6h |
-| Anthropic | 50 req/min on Sonnet/Haiku | Batch where possible · sequential not parallel |
-| Stripe | 100/sec | Should never approach |
-| Resend | 10/sec | Queue if sending bulk |
+| Vendor          | Rate limit                      | Our strategy                                             |
+| --------------- | ------------------------------- | -------------------------------------------------------- |
+| DataForSEO      | 2000/min on Standard, 10/sec/IP | Queue + backoff; never exceed 1 req/sec per cron handler |
+| Meta Ad Library | 600/hour per token              | Batch competitor scans · cache 6h                        |
+| Anthropic       | 50 req/min on Sonnet/Haiku      | Batch where possible · sequential not parallel           |
+| Stripe          | 100/sec                         | Should never approach                                    |
+| Resend          | 10/sec                          | Queue if sending bulk                                    |
 
 Adapter pattern:
 
 ```ts
-import pLimit from 'p-limit';
+import pLimit from "p-limit";
 
 const limit = pLimit(5); // 5 concurrent calls max
 
-await Promise.all(
-  items.map((item) => limit(() => vendorCall(item)))
-);
+await Promise.all(items.map((item) => limit(() => vendorCall(item))));
 ```
 
 ## Cron orchestration
@@ -106,12 +108,12 @@ Each cron handler does ONE thing for ONE batch. Don't process all businesses in 
 ```ts
 // /api/cron/weekly/business-profile-refresh/route.ts
 export async function GET(req: Request) {
-  const auth = req.headers.get('authorization');
+  const auth = req.headers.get("authorization");
   if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
-    return new Response('Unauthorized', { status: 401 });
+    return new Response("Unauthorized", { status: 401 });
   }
 
-  const run = await openCronRun('weekly:business-profile-refresh');
+  const run = await openCronRun("weekly:business-profile-refresh");
 
   try {
     // Get THIS WEEK'S batch — split 2.1M across 7 days
@@ -123,22 +125,23 @@ export async function GET(req: Request) {
         lastRefreshedAt: { lt: new Date(Date.now() - 7 * 86400 * 1000) },
       },
       take: 200, // 200 per run, runs hourly = 4800/day = 33k/wk
-      orderBy: { lastRefreshedAt: 'asc' },
+      orderBy: { lastRefreshedAt: "asc" },
     });
 
     for (const business of batch) {
       await refreshBusiness(business.id, { runId: run.id });
     }
 
-    await closeCronRun(run.id, 'OK', batch.length);
+    await closeCronRun(run.id, "OK", batch.length);
   } catch (e) {
-    await closeCronRun(run.id, 'FAILED', 0, String(e));
+    await closeCronRun(run.id, "FAILED", 0, String(e));
     throw e;
   }
 }
 ```
 
 **Rules:**
+
 - Bounded per-run work (~5 min Vercel timeout for cron, but stay under 4 min)
 - Resume-from-cursor pattern — if a run fails, the next picks up where it left off
 - Never lock entire tables — use row-level processing
@@ -149,19 +152,19 @@ Every `/api/*` route under user auth gets rate-limited:
 
 ```ts
 // lib/middleware/rate-limit.ts
-import { Ratelimit } from '@upstash/ratelimit';
-import { kv } from '@vercel/kv';
+import { Ratelimit } from "@upstash/ratelimit";
+import { kv } from "@vercel/kv";
 
 export const userLimit = new Ratelimit({
   redis: kv,
-  limiter: Ratelimit.slidingWindow(30, '1 m'), // 30 req/min
-  prefix: 'rl:user',
+  limiter: Ratelimit.slidingWindow(30, "1 m"), // 30 req/min
+  prefix: "rl:user",
 });
 
 export const ipLimit = new Ratelimit({
   redis: kv,
-  limiter: Ratelimit.slidingWindow(60, '1 m'), // 60 req/min per IP for public routes
-  prefix: 'rl:ip',
+  limiter: Ratelimit.slidingWindow(60, "1 m"), // 60 req/min per IP for public routes
+  prefix: "rl:ip",
 });
 ```
 
@@ -170,11 +173,15 @@ export const ipLimit = new Ratelimit({
 const session = await auth();
 const limit = await userLimit.limit(session.user.id);
 if (!limit.success) {
-  return Response.json({ error: 'rate_limited', retryAfter: limit.reset }, { status: 429 });
+  return Response.json(
+    { error: "rate_limited", retryAfter: limit.reset },
+    { status: 429 },
+  );
 }
 ```
 
 **Defaults:**
+
 - Public marketing routes: 60/min/IP
 - User-auth API: 30/min/user
 - Cron handlers: not rate-limited (server-to-server)
@@ -191,12 +198,15 @@ const existing = await prisma.stripeWebhookEvent.findUnique({
 if (existing) return Response.json({ ok: true }); // already processed
 
 await prisma.$transaction([
-  prisma.stripeWebhookEvent.create({ data: { eventId: stripeEvent.id, type: stripeEvent.type } }),
+  prisma.stripeWebhookEvent.create({
+    data: { eventId: stripeEvent.id, type: stripeEvent.type },
+  }),
   // ... actual processing
 ]);
 ```
 
 **Rules:**
+
 - Every webhook has an `eventId` table — first action is "have I seen this before?"
 - Server actions triggered by user click should also have idempotency keys if the user might double-click — use a UUID in the form.
 - Don't rely on database constraints to dedupe — they error, requiring extra handling. Explicit check first.
@@ -204,11 +214,13 @@ await prisma.$transaction([
 ## Queueing — when needed
 
 For Phase 2+ when scale demands it:
+
 - Use **Inngest** for background job orchestration with retries.
 - Or **Vercel Queue** (when GA).
 - For Phase 1, cron + DB polling is enough.
 
 Don't pre-build queue infra before it's needed. Add it when:
+
 - Cron handler hits the 4-min timeout
 - Need for retry-with-backoff beyond what the cron can do
 - Need for fan-out (1 trigger → N workers)

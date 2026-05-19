@@ -1,6 +1,7 @@
 ---
 description: How to add or modify signals. The 60+ filterable signals are the product's moat.
-globs: ["modules/signals/**/*.ts", "modules/hunter/**/*.ts", "modules/lists/**/*.ts"]
+globs:
+  ["modules/signals/**/*.ts", "modules/hunter/**/*.ts", "modules/lists/**/*.ts"]
 ---
 
 # Signal engineering
@@ -20,12 +21,14 @@ Every signal has 5 components:
 ## Adding a new signal — checklist
 
 Before you write code:
+
 - [ ] Justify it: which agency pitch / SMB use-case does it unblock?
 - [ ] Check it's not already collected (run `/db-snapshot` or grep `prisma/schema.prisma`)
 - [ ] Cost estimate: what's the marginal cost per business per refresh cycle?
 - [ ] Cadence: does daily / weekly / monthly fit?
 
 When you write code:
+
 - [ ] Add the column to the appropriate Prisma model (with index if filterable)
 - [ ] Add to the relevant cron job (or create one)
 - [ ] Wrap the data fetch in a `services/{vendor}` adapter (cost-tracked)
@@ -41,16 +44,17 @@ When you write code:
 // modules/signals/registry.ts
 export const signals = {
   reply_rate: {
-    label: 'Owner reply rate (last 20 reviews)',
-    helpTooltip: '% of last 20 reviews with an owner response. Industry benchmark ~89%.',
-    group: 'reviews',
-    type: 'numeric',
-    comparators: ['<', '≤', '=', '≥', 'between'],
-    valueUnit: '%',
+    label: "Owner reply rate (last 20 reviews)",
+    helpTooltip:
+      "% of last 20 reviews with an owner response. Industry benchmark ~89%.",
+    group: "reviews",
+    type: "numeric",
+    comparators: ["<", "≤", "=", "≥", "between"],
+    valueUnit: "%",
     defaultValue: 25,
-    source: 'computed-from-reviews',
-    cadence: 'weekly',
-    column: 'BusinessSnapshot.communicationScore',
+    source: "computed-from-reviews",
+    cadence: "weekly",
+    column: "BusinessSnapshot.communicationScore",
   },
   // ...
 } as const;

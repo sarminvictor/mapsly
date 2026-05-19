@@ -11,8 +11,8 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  NODE_VERSION: '24'
-  PNPM_VERSION: '9.15.0'
+  NODE_VERSION: "24"
+  PNPM_VERSION: "9.15.0"
 
 jobs:
   validate:
@@ -31,7 +31,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'pnpm'
+          cache: "pnpm"
 
       - name: Install
         run: pnpm install --frozen-lockfile
@@ -61,7 +61,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'pnpm'
+          cache: "pnpm"
 
       - name: Install
         run: pnpm install --frozen-lockfile
@@ -72,14 +72,14 @@ jobs:
       - name: Build
         env:
           # Build-time-only stubs · real values live in Vercel
-          DATABASE_URL: 'postgres://stub:stub@localhost:5432/stub'
-          DIRECT_URL: 'postgres://stub:stub@localhost:5432/stub'
-          AUTH_SECRET: 'stub-stub-stub-stub-stub-stub-stub-32'
-          AUTH_URL: 'http://localhost:3000'
-          RESEND_API_KEY: 're_stub'
-          CRON_SECRET: 'stub'
-          ANTHROPIC_API_KEY: 'sk-ant-stub'
-          STRIPE_SECRET_KEY: 'sk_test_stub'
+          DATABASE_URL: "postgres://stub:stub@localhost:5432/stub"
+          DIRECT_URL: "postgres://stub:stub@localhost:5432/stub"
+          AUTH_SECRET: "stub-stub-stub-stub-stub-stub-stub-32"
+          AUTH_URL: "http://localhost:3000"
+          RESEND_API_KEY: "re_stub"
+          CRON_SECRET: "stub"
+          ANTHROPIC_API_KEY: "sk-ant-stub"
+          STRIPE_SECRET_KEY: "sk_test_stub"
         run: pnpm build
 
   test:
@@ -95,7 +95,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'pnpm'
+          cache: "pnpm"
 
       - name: Install
         run: pnpm install --frozen-lockfile

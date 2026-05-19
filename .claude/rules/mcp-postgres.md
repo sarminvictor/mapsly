@@ -6,21 +6,21 @@ description: Mapsly Postgres MCP usage. SQL table names (not Prisma model names)
 
 When using `mcp__postgres__query`, use the actual SQL table names, not Prisma model names:
 
-| Prisma model | SQL table | Key columns |
-|---|---|---|
-| `Business` | `Business` | `"isClaimed"`, `"isActive"`, `rating`, `"reviewCount"`, `category`, `city` |
-| `BusinessSnapshot` | `BusinessSnapshot` | `"mapslyScore"`, `"msiRank"`, `"snapshotDate"` |
-| `Review` | `Review` | `stars`, `"ownerReplied"`, `"postedAt"`, `sentiment` |
-| `LighthouseAudit` | `LighthouseAudit` | `performance`, `seo`, `lcp`, `cls`, `"auditedAt"` |
-| `AdLibraryEntry` | `AdLibraryEntry` | `platform`, `"isActive"`, `"matchedKeyword"` |
-| `SerpResult` | `SerpResult` | `"localPackRank"`, `"organicRank"`, `"scannedAt"` |
-| `Keyword` | `Keyword` | `keyword`, `"searchVolume"`, `cpc` |
-| `Lead` | `Lead` | `status`, `"matchScore"`, `"contactedAt"` |
-| `List` | `List` | `"serviceType"`, `"agencyId"`, `"isActive"` |
-| `Agency` | `Agency` | `plan`, `slug` |
-| `AgencyMember` | `AgencyMember` | `role`, `"agencyId"`, `"userId"` |
-| `User` | `User` | `email`, `role`, `"createdAt"` |
-| `CronRun` | `CronRun` | `job`, `status`, `"costUsd"`, `"startedAt"` |
+| Prisma model       | SQL table          | Key columns                                                                |
+| ------------------ | ------------------ | -------------------------------------------------------------------------- |
+| `Business`         | `Business`         | `"isClaimed"`, `"isActive"`, `rating`, `"reviewCount"`, `category`, `city` |
+| `BusinessSnapshot` | `BusinessSnapshot` | `"mapslyScore"`, `"msiRank"`, `"snapshotDate"`                             |
+| `Review`           | `Review`           | `stars`, `"ownerReplied"`, `"postedAt"`, `sentiment`                       |
+| `LighthouseAudit`  | `LighthouseAudit`  | `performance`, `seo`, `lcp`, `cls`, `"auditedAt"`                          |
+| `AdLibraryEntry`   | `AdLibraryEntry`   | `platform`, `"isActive"`, `"matchedKeyword"`                               |
+| `SerpResult`       | `SerpResult`       | `"localPackRank"`, `"organicRank"`, `"scannedAt"`                          |
+| `Keyword`          | `Keyword`          | `keyword`, `"searchVolume"`, `cpc`                                         |
+| `Lead`             | `Lead`             | `status`, `"matchScore"`, `"contactedAt"`                                  |
+| `List`             | `List`             | `"serviceType"`, `"agencyId"`, `"isActive"`                                |
+| `Agency`           | `Agency`           | `plan`, `slug`                                                             |
+| `AgencyMember`     | `AgencyMember`     | `role`, `"agencyId"`, `"userId"`                                           |
+| `User`             | `User`             | `email`, `role`, `"createdAt"`                                             |
+| `CronRun`          | `CronRun`          | `job`, `status`, `"costUsd"`, `"startedAt"`                                |
 
 ## Column rules
 
@@ -37,6 +37,7 @@ When using `mcp__postgres__query`, use the actual SQL table names, not Prisma mo
 ## Useful queries
 
 ### Top-cost cron jobs last 7 days
+
 ```sql
 SELECT job, SUM("costUsd") AS total_cost, COUNT(*) AS runs
 FROM "CronRun"
@@ -47,6 +48,7 @@ LIMIT 20;
 ```
 
 ### Recent Mapsly Score changes
+
 ```sql
 SELECT b.name, b.city,
   s1."mapslyScore" - s2."mapslyScore" AS delta,
@@ -61,6 +63,7 @@ LIMIT 25;
 ```
 
 ### Lists by reply rate
+
 ```sql
 SELECT
   l.name,

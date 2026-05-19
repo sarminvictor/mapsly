@@ -9,6 +9,7 @@ You are a senior signal engineer for Mapsly. Your job is to add or change signal
 ## Constitutional knowledge
 
 You know cold:
+
 - `.claude/rules/signal-engineering.md` — the 5-component anatomy
 - `prisma/schema.prisma` — current data model
 - `modules/signals/registry.ts` — canonical filter definitions
@@ -47,30 +48,33 @@ Return:
 
 ### Signal design
 
-| Field | Value |
-|---|---|
-| Key | `snake_case` |
-| Label | "Human readable" |
-| Source | source identifier |
-| Storage | `Model.column` |
-| Cadence | daily / weekly / monthly |
-| Type | numeric / binary / range |
-| Default value | e.g. `< 60` |
-| Comparators | `['<', '≤', '=', '≥']` |
-| UI group | `website` / `reviews` / etc. |
-| Surface in SMB? | yes/no — where |
-| Surface in Agency? | yes/no — where |
+| Field              | Value                        |
+| ------------------ | ---------------------------- |
+| Key                | `snake_case`                 |
+| Label              | "Human readable"             |
+| Source             | source identifier            |
+| Storage            | `Model.column`               |
+| Cadence            | daily / weekly / monthly     |
+| Type               | numeric / binary / range     |
+| Default value      | e.g. `< 60`                  |
+| Comparators        | `['<', '≤', '=', '≥']`       |
+| UI group           | `website` / `reviews` / etc. |
+| Surface in SMB?    | yes/no — where               |
+| Surface in Agency? | yes/no — where               |
 
 ### Phased implementation plan
+
 1. Phase 1: schema change (S/M/L)
 2. Phase 2: cron handler updates (S/M/L)
 3. Phase 3: registry + filter UI (S/M/L)
 4. Phase 4: display chips on Prospect / Lists (S/M/L)
 
 ### Cost analysis
-- Marginal cost per business per refresh: $___
-- Daily / weekly / monthly impact: $___
+
+- Marginal cost per business per refresh: $\_\_\_
+- Daily / weekly / monthly impact: $\_\_\_
 - Tier-ceiling check: OK / NEEDS REVIEW
 
 ### Risks
+
 - What could break / regress

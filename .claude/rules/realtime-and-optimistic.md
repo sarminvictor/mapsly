@@ -10,19 +10,20 @@ Two distinct concerns. **Optimistic** = "show the change before the server confi
 ## Optimistic updates · `useOptimistic`
 
 Use when:
+
 - A user action mutates a row visible on screen (e.g. "Mark contacted" on a lead)
 - The mutation is likely to succeed
 - Reverting on failure is acceptable
 
 ```tsx
-'use client'
-import { useOptimistic, useTransition } from 'react';
-import { setLeadStatus } from '@/modules/lists/actions';
+"use client";
+import { useOptimistic, useTransition } from "react";
+import { setLeadStatus } from "@/modules/lists/actions";
 
 export function LeadStatusPill({ lead }: { lead: Lead }) {
   const [optimisticLead, addOptimistic] = useOptimistic(
     lead,
-    (state, newStatus: LeadStatus) => ({ ...state, status: newStatus })
+    (state, newStatus: LeadStatus) => ({ ...state, status: newStatus }),
   );
   const [isPending, startTransition] = useTransition();
 
@@ -30,8 +31,8 @@ export function LeadStatusPill({ lead }: { lead: Lead }) {
     <button
       onClick={() => {
         startTransition(async () => {
-          addOptimistic('CONTACTED');
-          await setLeadStatus({ leadId: lead.id, status: 'CONTACTED' });
+          addOptimistic("CONTACTED");
+          await setLeadStatus({ leadId: lead.id, status: "CONTACTED" });
         });
       }}
       disabled={isPending}
@@ -43,6 +44,7 @@ export function LeadStatusPill({ lead }: { lead: Lead }) {
 ```
 
 **Rules:**
+
 - Wrap the optimistic mutation in `startTransition`.
 - Pair with a server action that returns void or the new state.
 - On failure: the optimistic value reverts automatically (React re-runs from the source).
@@ -54,28 +56,29 @@ After every successful mutation, push a toast — but only the **first time** th
 
 ```ts
 // modules/ui/toast.ts (client-side toast queue)
-toast.success('Marked 12 leads as contacted', { duration: 3000 });
+toast.success("Marked 12 leads as contacted", { duration: 3000 });
 ```
 
 ## Realtime · SSE
 
 Use when:
+
 - An event originates on the server (cron job finished, new match added)
 - Multiple users may need to know about it
 - No user action triggered the event
 
 ```tsx
-'use client'
-import { useEffect, useState } from 'react';
+"use client";
+import { useEffect, useState } from "react";
 
 export function NewMatchToaster() {
   const [count, setCount] = useState(0);
 
   useEffect(() => {
-    const es = new EventSource('/api/realtime/list-events');
+    const es = new EventSource("/api/realtime/list-events");
     es.onmessage = (e) => {
       const event = JSON.parse(e.data);
-      if (event.type === 'new-match') setCount((c) => c + 1);
+      if (event.type === "new-match") setCount((c) => c + 1);
     };
     return () => es.close();
   }, []);
@@ -86,6 +89,7 @@ export function NewMatchToaster() {
 ```
 
 **Rules:**
+
 - Use SSE not WebSocket — works on Vercel Edge, simpler reconnect.
 - Always provide a fallback (page already shows correct data via the cache).
 - Don't fire UI updates more than 1/sec — batch in the client.
@@ -97,7 +101,7 @@ The realtime endpoint subscribes to a channel. The cron job publishes to it.
 
 ```ts
 // lib/realtime/pubsub.ts
-import { kv } from '@vercel/kv';
+import { kv } from "@vercel/kv";
 
 export async function publish(channel: string, event: Event) {
   await kv.publish(channel, JSON.stringify(event));
@@ -106,11 +110,16 @@ export async function publish(channel: string, event: Event) {
 export function subscribe(channel: string, onMessage: (e: Event) => void) {
   // Use ioredis with KV REST as fallback
   // ...
-  return { unsubscribe() { /* ... */ } };
+  return {
+    unsubscribe() {
+      /* ... */
+    },
+  };
 }
 ```
 
 **Channels:**
+
 - `agency:${agencyId}:list-events` — new matches, removals, refresh complete
 - `user:${userId}:business-events` — new review, new alert, score change
 - `system:cron` — cron run started/finished (admin dashboard only)
@@ -124,6 +133,7 @@ export function subscribe(channel: string, onMessage: (e: Event) => void) {
 ## Conflict resolution
 
 If an optimistic update lands and then a realtime event contradicts it:
+
 - Trust the realtime event (it came from the server)
 - Revert the optimistic
 - Show a subtle toast: "Status updated"

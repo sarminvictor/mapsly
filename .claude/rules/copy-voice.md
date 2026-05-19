@@ -41,64 +41,69 @@ Mapsly has two audiences with two distinct voices. Every copy decision starts he
 
 ### Onboarding email subject line
 
-| Audience | ❌ Wrong | ✅ Right |
-|---|---|---|
-| SMB | "Welcome to Mapsly!" | "Maria — your weekly check-in is ready" |
-| Agency | "Get started with Mapsly today!" | "Anchor Local · 6 lists ready · review now" |
+| Audience | ❌ Wrong                         | ✅ Right                                    |
+| -------- | -------------------------------- | ------------------------------------------- |
+| SMB      | "Welcome to Mapsly!"             | "Maria — your weekly check-in is ready"     |
+| Agency   | "Get started with Mapsly today!" | "Anchor Local · 6 lists ready · review now" |
 
 ### Empty list
 
-| Audience | ✅ Right |
-|---|---|
-| SMB | "No new reviews this week. We'll show them here as they come in." |
-| Agency | "No qualified leads. Adjust filters or wait for next refresh." |
+| Audience | ✅ Right                                                          |
+| -------- | ----------------------------------------------------------------- |
+| SMB      | "No new reviews this week. We'll show them here as they come in." |
+| Agency   | "No qualified leads. Adjust filters or wait for next refresh."    |
 
 ### Error · DataForSEO 5xx
 
-| Audience | ✅ Right |
-|---|---|
-| SMB | "We couldn't refresh your data right now. Try again in a few minutes." |
-| Agency | "DataForSEO 503 · upstream issue · retry in 2 min · status.dataforseo.com" |
+| Audience | ✅ Right                                                                   |
+| -------- | -------------------------------------------------------------------------- |
+| SMB      | "We couldn't refresh your data right now. Try again in a few minutes."     |
+| Agency   | "DataForSEO 503 · upstream issue · retry in 2 min · status.dataforseo.com" |
 
 ### CTA on a fix card
 
-| Audience | ✅ Right |
-|---|---|
-| SMB | "Reply to 8 unanswered reviews" |
-| Agency | "Bulk-draft replies (8)" |
+| Audience | ✅ Right                        |
+| -------- | ------------------------------- |
+| SMB      | "Reply to 8 unanswered reviews" |
+| Agency   | "Bulk-draft replies (8)"        |
 
 ### Tooltip on "Reply rate"
 
-| Audience | ✅ Right |
-|---|---|
-| SMB | "The percentage of your reviews where you've replied. Most spas reply to about 89%." |
-| Agency | "% of last 20 reviews with owner_answer. Benchmark 89%. Filter trigger for review-management lists." |
+| Audience | ✅ Right                                                                                             |
+| -------- | ---------------------------------------------------------------------------------------------------- |
+| SMB      | "The percentage of your reviews where you've replied. Most spas reply to about 89%."                 |
+| Agency   | "% of last 20 reviews with owner_answer. Benchmark 89%. Filter trigger for review-management lists." |
 
 ## Microcopy patterns
 
 ### Buttons
+
 - **Primary action:** Imperative verb + object. "Save as list", "Open lead", "Post to Google".
 - **Secondary action:** Verb. "Edit", "Skip", "Cancel".
 - **Destructive:** Specific. "Delete list" not "Delete". "Cancel subscription" not "Cancel".
 
 ### Confirmations
+
 - "Are you sure you want to delete this list? You'll lose 47 qualified leads."
 - Always state what's lost. No generic "Are you sure?"
 
 ### Toasts
+
 - Success: ≤ 5 words. "Reply posted · A.C. (1★)"
 - Error: ≤ 15 words. State what failed + what to do next.
 - Auto-dismiss after 3s for success, 7s for error. Persistent for critical errors.
 
 ### Form labels
+
 - Sentence case, no colon. "Reply tone".
 - Help text below: one line, conversational.
 
 ### Pluralization
+
 - Use `Intl.PluralRules` in code:
   ```ts
   const n = items.length;
-  const word = new Intl.PluralRules('en').select(n);
+  const word = new Intl.PluralRules("en").select(n);
   // → 'one' | 'other'
   ```
 - Translations include zero/one/two/few/many/other where applicable.
@@ -106,6 +111,7 @@ Mapsly has two audiences with two distinct voices. Every copy decision starts he
 ## Internationalization implications
 
 When copy moves to i18n strings (see `i18n.md`):
+
 - Translation keys reflect audience: `smb.dashboard.empty_state` vs `agency.lists.empty_state`
 - Translators get tone guide (this doc) + screenshot context
 - Never machine-translate without a human pass — voice gets flattened

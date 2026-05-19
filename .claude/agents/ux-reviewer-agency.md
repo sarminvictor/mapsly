@@ -20,6 +20,7 @@ Review every changed file under `app/(agency)/` and `modules/hunter|lists|prospe
 ## Checklist
 
 ### Information density (Tom's portal IS dense — that's the value)
+
 - [ ] Above-the-fold = the workflow (table of leads, list of clients, status bar)
 - [ ] Side rail uses context space (summaries, glossary, related actions)
 - [ ] Tables show 6+ columns when relevant (sticky header, sortable)
@@ -28,6 +29,7 @@ Review every changed file under `app/(agency)/` and `modules/hunter|lists|prospe
 - [ ] Hover-reveal for card actions (clone, pause, more menu)
 
 ### Copy
+
 - [ ] Tool-y, precise — "47 matches · 42 verified" not "lots of fresh prospects"
 - [ ] Jargon allowed (LCP, MSI, GBP, NAP, 3-pack, schema) — tooltips available for plain-English explanation but jargon is the primary label
 - [ ] Imperative verbs in actions ("Add to outreach", "Mark contacted", "Clone list")
@@ -37,6 +39,7 @@ Review every changed file under `app/(agency)/` and `modules/hunter|lists|prospe
 - [ ] Empty states: terse, technical OK ("No new matches. Refresh due Mon 6am.")
 
 ### Visual
+
 - [ ] Cool gray palette (`--color-agency-bg: #f6f7fb`, indigo accent `#5b3df5`)
 - [ ] Inter throughout — no serif fonts on agency side
 - [ ] JetBrains Mono for data/technical sub-text
@@ -44,6 +47,7 @@ Review every changed file under `app/(agency)/` and `modules/hunter|lists|prospe
 - [ ] Status pills are clickable and cycle through states
 
 ### Keyboard
+
 - [ ] `⌘K` global search reachable
 - [ ] Status changes have keyboard shortcut (`m` for mark-contacted)
 - [ ] `?` shows the shortcut help overlay
@@ -52,6 +56,7 @@ Review every changed file under `app/(agency)/` and `modules/hunter|lists|prospe
 - [ ] Focus trap in modals
 
 ### Tables
+
 - [ ] Sticky header on scroll
 - [ ] Row hover highlight
 - [ ] Click row → opens detail (not just the action button)
@@ -60,11 +65,13 @@ Review every changed file under `app/(agency)/` and `modules/hunter|lists|prospe
 - [ ] Empty/error states match the rest of the table aesthetically
 
 ### Modal vs side panel
+
 - [ ] Modal for: create/save (with name + setup), confirm destructive
 - [ ] Side panel for: open lead in detail without losing list context
 - [ ] Both close on Escape, focus trap when open
 
 ### Real-time
+
 - [ ] New-match toast doesn't reflow content
 - [ ] "Refresh due in X hours" countdown if applicable
 - [ ] Status changes optimistic (no spinner — change pill instantly)
@@ -83,6 +90,7 @@ Review every changed file under `app/(agency)/` and `modules/hunter|lists|prospe
 ### UX review (Agency) · Phase {phase-id}
 
 **Files reviewed:**
+
 - app/(agency)/lists/page.tsx
 - modules/lists/queries.ts
 

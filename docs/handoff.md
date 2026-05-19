@@ -5,11 +5,14 @@ Things I scaffolded vs things only you can do. Work through this list in order. 
 ## On your laptop (15 minutes)
 
 1. **Clone the repo locally** (from your terminal, not the cloud sandbox):
+
    ```bash
    cd ~/Documents/Claude/Projects/
    git pull origin main  # or git clone if fresh
    ```
+
    The scaffold I built is in this directory. The `.git` is initialized, remote set to `git@github.com:sarminvictor/mapsly.git`. You need to push the initial commit:
+
    ```bash
    cd mapsly
    git add -A
@@ -18,10 +21,12 @@ Things I scaffolded vs things only you can do. Work through this list in order. 
    ```
 
 2. **Rename hidden-file workarounds** (sandbox blocked dot-prefix writes):
+
    ```bash
    mv _claude-setup .claude
    mv .mcp.example.json .mcp.json
    ```
+
    Then commit: `git commit -am "chore: activate .claude/ and .mcp.json"`
 
 3. **Install dependencies:**
@@ -33,6 +38,7 @@ Things I scaffolded vs things only you can do. Work through this list in order. 
 ## Vendor accounts (1–2 hours total)
 
 ### Neon (Postgres) — required
+
 - Sign up: https://console.neon.tech
 - Create a project named `mapsly`
 - Get the **pooled** and **direct** connection strings (different URLs!)
@@ -44,6 +50,7 @@ Things I scaffolded vs things only you can do. Work through this list in order. 
 - Run `pnpm db:push` from your laptop to create the schema
 
 ### DataForSEO — required (largest cost)
+
 - Sign up: https://app.dataforseo.com
 - Add $50 minimum deposit (pay-as-you-go)
 - Get your API username + password from `app.dataforseo.com → API Access`
@@ -54,6 +61,7 @@ Things I scaffolded vs things only you can do. Work through this list in order. 
   ```
 
 ### Resend (email) — required
+
 - Sign up: https://resend.com
 - Verify a sending domain (e.g. `mapsly.ai`) — DNS records take ~10 min
 - Create an API key
@@ -64,6 +72,7 @@ Things I scaffolded vs things only you can do. Work through this list in order. 
   ```
 
 ### Anthropic API — required
+
 - Sign up: https://console.anthropic.com
 - Create API key with $20 credit minimum
 - Add to `.env.local`:
@@ -72,6 +81,7 @@ Things I scaffolded vs things only you can do. Work through this list in order. 
   ```
 
 ### Stripe — required for billing (can be added later)
+
 - Sign up: https://dashboard.stripe.com
 - Create products for each tier:
   - SMB Paid · $29/mo
@@ -84,12 +94,14 @@ Things I scaffolded vs things only you can do. Work through this list in order. 
 - Add all to `.env.local`
 
 ### Sentry — recommended
+
 - Sign up: https://sentry.io
 - Create a Next.js project named `mapsly`
 - Run their setup wizard (it auto-configures `sentry.client.config.ts` etc.)
 - Add DSN + auth token to `.env.local`
 
 ### Google Cloud (for GSC + GA MCP) — recommended for SEO insights
+
 - Create service account: https://console.cloud.google.com/iam-admin/serviceaccounts
 - Download JSON key, save to `~/.config/gsc/service-account.json`
 - For GSC: grant the service account email **Read** on your verified property at `search.google.com/search-console`
@@ -101,6 +113,7 @@ Things I scaffolded vs things only you can do. Work through this list in order. 
   ```
 
 ### Vercel (hosting) — required for production
+
 - Connect this repo via https://vercel.com/new
 - Add all env vars from `.env.local` to Vercel → Project → Settings → Environment Variables
 - Enable Cron Jobs (auto-detected from `vercel.json`)
@@ -108,6 +121,7 @@ Things I scaffolded vs things only you can do. Work through this list in order. 
 - First deploy will fail until the DB exists — run `pnpm db:push` first
 
 ### Meta Ad Library — required for ad-intel signals
+
 - Apply for access: https://developers.facebook.com/docs/marketing-api/insights
 - Create a Meta app, request `ads_archive_read` permission (instant approval for public ads)
 - Generate a long-lived access token
@@ -117,6 +131,7 @@ Things I scaffolded vs things only you can do. Work through this list in order. 
   ```
 
 ### Vercel Blob — required for PDF storage
+
 - In Vercel dashboard → Storage → Create Blob store
 - Copy the read/write token to `.env.local` as `BLOB_READ_WRITE_TOKEN`
 
@@ -158,18 +173,18 @@ If `pnpm build` succeeds and `pnpm dev` shows the landing page, you're ready.
 
 For the first month of running autonomous + 1 paying customer:
 
-| Item | Monthly |
-|---|---|
-| Neon DB (free tier) | $0 |
-| Vercel hobby + cron | $0 (within free tier limits) |
-| Vercel Pro (when needed) | $20 |
-| DataForSEO (1 customer · weekly cadence) | ~$2 |
-| Anthropic (Haiku + autonomous Claude) | ~$50–500 (depends on autonomous activity) |
-| Resend (free tier 3k emails) | $0 |
-| Sentry (free tier) | $0 |
-| Stripe fees | 2.9% + 30¢ per transaction |
-| Meta Ad Library / Google Ads Transparency | $0 |
-| **Total month 1** | **~$70–520** |
+| Item                                      | Monthly                                   |
+| ----------------------------------------- | ----------------------------------------- |
+| Neon DB (free tier)                       | $0                                        |
+| Vercel hobby + cron                       | $0 (within free tier limits)              |
+| Vercel Pro (when needed)                  | $20                                       |
+| DataForSEO (1 customer · weekly cadence)  | ~$2                                       |
+| Anthropic (Haiku + autonomous Claude)     | ~$50–500 (depends on autonomous activity) |
+| Resend (free tier 3k emails)              | $0                                        |
+| Sentry (free tier)                        | $0                                        |
+| Stripe fees                               | 2.9% + 30¢ per transaction                |
+| Meta Ad Library / Google Ads Transparency | $0                                        |
+| **Total month 1**                         | **~$70–520**                              |
 
 The autonomous Claude is the biggest variable. Cap it via cloud UI if needed.
 
@@ -191,12 +206,14 @@ You're now a 24/7 software team of one + Claude.
 ## Help / debugging
 
 If something doesn't work:
+
 - DB issue → check Neon dashboard "Compute → Recent Activity"
 - DataForSEO issue → check their dashboard for API call logs
 - Stripe issue → check Stripe → Developers → Webhook attempts
 - Claude Code cloud issue → check the scheduled-task run history in the cloud UI
 
 Issues we've hit before (will track in build-log going forward):
+
 - _empty_ — fresh project
 
 When in doubt, open a Claude Code session at the repo and ask. The context is preloaded via `CLAUDE.md`.

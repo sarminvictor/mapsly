@@ -32,11 +32,13 @@ ORDER BY spend_last_24h DESC;
 For each job, compare to `docs/data-cadence.md` expected ceiling.
 
 If any job is >2× expected:
+
 - Yellow warning in output
 - Add a note to `.claude/memory/build-log.md` for review
 - Don't block the build (but flag)
 
 If any job is >5× expected:
+
 - Red alert
 - BLOCK the deploy check
 - Suggest reviewing the cron handler for runaway loop

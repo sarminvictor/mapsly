@@ -1,6 +1,12 @@
 ---
 description: SEO patterns. Static where possible, structured data, sitemap, canonical, Core Web Vitals.
-globs: ["app/(marketing)/**/*.tsx", "app/(static-seo)/**/*.tsx", "app/sitemap.ts", "app/robots.ts"]
+globs:
+  [
+    "app/(marketing)/**/*.tsx",
+    "app/(static-seo)/**/*.tsx",
+    "app/sitemap.ts",
+    "app/robots.ts",
+  ]
 ---
 
 # SEO
@@ -12,12 +18,12 @@ Mapsly competes on **search visibility** to acquire customers. Every public page
 All marketing pages, `for-businesses`, `for-agencies`, blog, public profile pages use `'use cache'` with `cacheLife('weeks')`. They build at deploy time. They serve as HTML.
 
 ```tsx
-'use cache'
-import { cacheLife, cacheTag } from 'next/cache';
+"use cache";
+import { cacheLife, cacheTag } from "next/cache";
 
 export default async function ForAgenciesPage() {
-  cacheLife('weeks');
-  cacheTag('marketing-for-agencies');
+  cacheLife("weeks");
+  cacheTag("marketing-for-agencies");
   return <Page />;
 }
 ```
@@ -27,31 +33,38 @@ export default async function ForAgenciesPage() {
 Every public page exports `generateMetadata` or `metadata`:
 
 ```tsx
-import type { Metadata } from 'next';
+import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: 'Mapsly for agencies — Local SMBs ready to switch',
-  description: 'Query 2M+ local businesses by signal. Verified contacts. Weekly refresh.',
+  title: "Mapsly for agencies — Local SMBs ready to switch",
+  description:
+    "Query 2M+ local businesses by signal. Verified contacts. Weekly refresh.",
   alternates: {
-    canonical: 'https://mapsly.ai/for-agencies',
+    canonical: "https://mapsly.ai/for-agencies",
     languages: {
-      'en-US': '/en/for-agencies',
-      'es-US': '/es/for-agencies',
-      'en-CA': '/en-ca/for-agencies',
-      'fr-CA': '/fr/for-agencies',
+      "en-US": "/en/for-agencies",
+      "es-US": "/es/for-agencies",
+      "en-CA": "/en-ca/for-agencies",
+      "fr-CA": "/fr/for-agencies",
     },
   },
   openGraph: {
-    type: 'website',
-    siteName: 'Mapsly',
-    title: 'Mapsly for agencies',
-    description: 'Local SMBs ready to switch. With reasons. With contacts.',
-    images: [{ url: 'https://mapsly.ai/og/for-agencies.png', width: 1200, height: 630 }],
+    type: "website",
+    siteName: "Mapsly",
+    title: "Mapsly for agencies",
+    description: "Local SMBs ready to switch. With reasons. With contacts.",
+    images: [
+      {
+        url: "https://mapsly.ai/og/for-agencies.png",
+        width: 1200,
+        height: 630,
+      },
+    ],
   },
   twitter: {
-    card: 'summary_large_image',
-    title: 'Mapsly for agencies',
-    description: 'Local SMBs ready to switch. With reasons. With contacts.',
+    card: "summary_large_image",
+    title: "Mapsly for agencies",
+    description: "Local SMBs ready to switch. With reasons. With contacts.",
   },
   robots: { index: true, follow: true },
 };
@@ -60,7 +73,11 @@ export const metadata: Metadata = {
 For dynamic pages:
 
 ```tsx
-export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
   const { slug } = await params;
   const biz = await getBusinessBySlug(slug);
   return {
@@ -80,13 +97,17 @@ Add `LocalBusiness` schema on every business profile page:
   type="application/ld+json"
   dangerouslySetInnerHTML={{
     __html: JSON.stringify({
-      '@context': 'https://schema.org',
-      '@type': 'MedicalBusiness', // or appropriate type
+      "@context": "https://schema.org",
+      "@type": "MedicalBusiness", // or appropriate type
       name: biz.name,
-      address: { '@type': 'PostalAddress', /* ... */ },
+      address: { "@type": "PostalAddress" /* ... */ },
       telephone: biz.phone,
       url: biz.website,
-      aggregateRating: { '@type': 'AggregateRating', ratingValue: biz.rating, reviewCount: biz.reviewCount },
+      aggregateRating: {
+        "@type": "AggregateRating",
+        ratingValue: biz.rating,
+        reviewCount: biz.reviewCount,
+      },
     }),
   }}
 />
@@ -100,13 +121,18 @@ For FAQ blocks — `FAQPage` schema (eligible for rich snippets).
 
 ```ts
 // app/sitemap.ts
-import type { MetadataRoute } from 'next';
+import type { MetadataRoute } from "next";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const baseUrl = 'https://mapsly.ai';
+  const baseUrl = "https://mapsly.ai";
 
   const staticRoutes = [
-    { url: baseUrl, lastModified: new Date(), changeFrequency: 'weekly' as const, priority: 1.0 },
+    {
+      url: baseUrl,
+      lastModified: new Date(),
+      changeFrequency: "weekly" as const,
+      priority: 1.0,
+    },
     { url: `${baseUrl}/for-agencies`, lastModified: new Date(), priority: 0.9 },
     { url: `${baseUrl}/pricing`, lastModified: new Date(), priority: 0.8 },
   ];
@@ -120,7 +146,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const bizRoutes = businesses.map((b) => ({
     url: `${baseUrl}/biz/${b.slug}`,
     lastModified: b.updatedAt,
-    changeFrequency: 'weekly' as const,
+    changeFrequency: "weekly" as const,
     priority: 0.6,
   }));
 
@@ -129,6 +155,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 ```
 
 **Rules:**
+
 - Cap at 50,000 URLs per sitemap file. Split with `app/sitemap/[id]/route.ts` if exceeded.
 - Reference sitemap in `robots.ts`.
 - Submit to GSC after each deploy that adds URLs.
@@ -137,14 +164,18 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
 ```ts
 // app/robots.ts
-import type { MetadataRoute } from 'next';
+import type { MetadataRoute } from "next";
 
 export default function robots(): MetadataRoute.Robots {
   return {
     rules: [
-      { userAgent: '*', allow: '/', disallow: ['/api/', '/admin/', '/(smb)/', '/(agency)/'] },
+      {
+        userAgent: "*",
+        allow: "/",
+        disallow: ["/api/", "/admin/", "/(smb)/", "/(agency)/"],
+      },
     ],
-    sitemap: 'https://mapsly.ai/sitemap.xml',
+    sitemap: "https://mapsly.ai/sitemap.xml",
   };
 }
 ```
@@ -163,6 +194,7 @@ export default function robots(): MetadataRoute.Robots {
 Google ranks on real-user CWV (CrUX) data. Maintaining the performance budgets in `performance.md` is the SEO strategy.
 
 Specifically for SEO routes (marketing, blog, public biz pages):
+
 - LCP < 1.5s (stricter than the in-app 2.0s budget)
 - CLS < 0.05
 - INP < 100ms
@@ -204,6 +236,7 @@ alternates: {
 ## Validation checklist
 
 Before deploying any new marketing page:
+
 - [ ] H1 contains primary keyword
 - [ ] Meta description 150–160 chars, mentions value prop
 - [ ] OG image 1200×630, < 200kB

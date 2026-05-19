@@ -47,71 +47,87 @@ Is this code...
 ## What we DO test
 
 ### 1. Signal scoring + computed metrics
+
 **Why:** Wrong score = wrong UX everywhere. Easy to regress.
 
 ```ts
 // modules/scoring/__tests__/mapsly-score.test.ts
-import { computeMapslyScore } from '../mapsly-score';
+import { computeMapslyScore } from "../mapsly-score";
 
-describe('computeMapslyScore', () => {
-  test('weights reputation 25%', () => {
+describe("computeMapslyScore", () => {
+  test("weights reputation 25%", () => {
     const score = computeMapslyScore({
-      rating: 5.0, reviewCount: 1000,
-      replyRate: 0, /* ... rest at 0 */
+      rating: 5.0,
+      reviewCount: 1000,
+      replyRate: 0 /* ... rest at 0 */,
     });
     // Reputation alone = 2.5 of 10
     expect(score).toBeCloseTo(2.5, 1);
   });
 
-  test('clamps to 0–10', () => {
-    expect(computeMapslyScore({ /* all perfect */ })).toBeLessThanOrEqual(10);
-    expect(computeMapslyScore({ /* all zero */ })).toBeGreaterThanOrEqual(0);
+  test("clamps to 0–10", () => {
+    expect(
+      computeMapslyScore({
+        /* all perfect */
+      }),
+    ).toBeLessThanOrEqual(10);
+    expect(
+      computeMapslyScore({
+        /* all zero */
+      }),
+    ).toBeGreaterThanOrEqual(0);
   });
 });
 ```
 
 ### 2. Cron job correctness
+
 **Why:** Cron jobs run unattended. Silent failure is the worst kind.
 
 ```ts
 // app/api/cron/weekly/snapshot-write/__tests__/handler.test.ts
-import { setupTestDb, seedBusiness } from '@/tests/helpers';
-import { GET } from '../route';
+import { setupTestDb, seedBusiness } from "@/tests/helpers";
+import { GET } from "../route";
 
 beforeEach(setupTestDb);
 
-test('writes snapshot row for active businesses only', async () => {
+test("writes snapshot row for active businesses only", async () => {
   await seedBusiness({ isActive: true });
   await seedBusiness({ isActive: false });
 
-  const res = await GET(new Request('http://localhost', { headers: { authorization: `Bearer ${process.env.CRON_SECRET}` } }));
+  const res = await GET(
+    new Request("http://localhost", {
+      headers: { authorization: `Bearer ${process.env.CRON_SECRET}` },
+    }),
+  );
   expect(res.status).toBe(200);
 
   const snapshots = await prisma.businessSnapshot.findMany();
   expect(snapshots).toHaveLength(1);
 });
 
-test('logs costUsd to CronRun on success', async () => {
+test("logs costUsd to CronRun on success", async () => {
   // ...
 });
 
-test('marks CronRun FAILED if a single business throws', async () => {
+test("marks CronRun FAILED if a single business throws", async () => {
   // ...
 });
 ```
 
 ### 3. Webhook handlers
+
 **Why:** Bad webhook handler = silent billing breaks.
 
 ```ts
 // app/api/webhooks/stripe/__tests__/handler.test.ts
-test('rejects request without valid signature', async () => {
-  const res = await POST(new Request('http://localhost', { body: '{}' }));
+test("rejects request without valid signature", async () => {
+  const res = await POST(new Request("http://localhost", { body: "{}" }));
   expect(res.status).toBe(400);
 });
 
-test('handles invoice.paid idempotently', async () => {
-  const event = mockStripeEvent('invoice.paid');
+test("handles invoice.paid idempotently", async () => {
+  const event = mockStripeEvent("invoice.paid");
   await POST(reqWithEvent(event));
   await POST(reqWithEvent(event)); // replay
   // assert: subscription state updated exactly once
@@ -119,15 +135,16 @@ test('handles invoice.paid idempotently', async () => {
 ```
 
 ### 4. Auth gates
+
 **Why:** Forgetting an auth check is a security incident.
 
 ```ts
-test('GET /api/lists requires session', async () => {
-  const res = await fetch('/api/lists');
+test("GET /api/lists requires session", async () => {
+  const res = await fetch("/api/lists");
   expect(res.status).toBe(401);
 });
 
-test('GET /api/lists/:id rejects cross-agency access', async () => {
+test("GET /api/lists/:id rejects cross-agency access", async () => {
   const { listId, otherUserToken } = await setupTwoAgencies();
   const res = await fetchWithAuth(`/api/lists/${listId}`, otherUserToken);
   expect(res.status).toBe(403);
@@ -135,16 +152,18 @@ test('GET /api/lists/:id rejects cross-agency access', async () => {
 ```
 
 ### 5. Filter evaluation logic (Hunter)
+
 **Why:** Hunter mis-evaluating a filter = wrong list = lost revenue.
 
 ```ts
 test('filter "reply rate < 25%" matches businesses with replyRate 0–24', async () => {
-  const matches = await evaluateFilter({ reply_rate: { op: '<', value: 25 } });
+  const matches = await evaluateFilter({ reply_rate: { op: "<", value: 25 } });
   expect(matches.every((b) => b.replyRate < 25)).toBe(true);
 });
 ```
 
 ### 6. Critical UI flows (E2E, sparingly)
+
 - Sign-in via magic link
 - Create a list → see it on dashboard → drill into it
 - Mark a lead as contacted → status persists on reload
@@ -199,15 +218,15 @@ tests/
 
 We do NOT chase coverage %. We chase **invariant coverage**:
 
-| Area | Coverage target |
-|---|---|
-| Signal scoring | 100% of formulas |
-| Cron handlers | 100% have a happy-path + failure-path test |
-| Webhook handlers | 100% have signature + idempotency test |
-| Auth gates | 100% protected routes have 401/403 test |
+| Area                     | Coverage target                                                                |
+| ------------------------ | ------------------------------------------------------------------------------ |
+| Signal scoring           | 100% of formulas                                                               |
+| Cron handlers            | 100% have a happy-path + failure-path test                                     |
+| Webhook handlers         | 100% have signature + idempotency test                                         |
+| Auth gates               | 100% protected routes have 401/403 test                                        |
 | Hunter filter evaluation | 100% of comparator types (`<`, `≤`, `=`, `≥`, `between`, `missing`, `present`) |
-| Stripe billing paths | 100% of subscription state transitions |
-| Everything else | 0% required |
+| Stripe billing paths     | 100% of subscription state transitions                                         |
+| Everything else          | 0% required                                                                    |
 
 Don't add tests just to push a number. Add tests because the test prevents an incident.
 

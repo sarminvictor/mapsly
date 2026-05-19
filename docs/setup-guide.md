@@ -4,17 +4,17 @@
 
 ## Cost summary upfront
 
-| Item | One-time | Monthly |
-|---|---|---|
-| Domain (mapsly.ai) | $80–120/yr | — |
-| DataForSEO deposit (pay-as-you-go) | $50 | ~$10–60 (usage-based) |
-| Anthropic API credits (for in-product AI) | $20 | ~$10–50 |
-| Neon Postgres | $0 (free tier) | $0–19 (when scaling) |
-| Vercel Pro (needed for cron + Speed Insights) | $0 | $20 |
-| Resend (3k emails free) | $0 | $0–20 |
-| Sentry (free tier) | $0 | $0 |
-| Stripe (transaction fees only) | $0 | 2.9% + 30¢ per txn |
-| **Total upfront** | **~$150** | **~$30–150/mo at scale** |
+| Item                                          | One-time       | Monthly                  |
+| --------------------------------------------- | -------------- | ------------------------ |
+| Domain (mapsly.ai)                            | $80–120/yr     | —                        |
+| DataForSEO deposit (pay-as-you-go)            | $50            | ~$10–60 (usage-based)    |
+| Anthropic API credits (for in-product AI)     | $20            | ~$10–50                  |
+| Neon Postgres                                 | $0 (free tier) | $0–19 (when scaling)     |
+| Vercel Pro (needed for cron + Speed Insights) | $0             | $20                      |
+| Resend (3k emails free)                       | $0             | $0–20                    |
+| Sentry (free tier)                            | $0             | $0                       |
+| Stripe (transaction fees only)                | $0             | 2.9% + 30¢ per txn       |
+| **Total upfront**                             | **~$150**      | **~$30–150/mo at scale** |
 
 You already have **Claude Pro Max 20x** (autonomous dev runs on this, $0 marginal).
 
@@ -63,6 +63,7 @@ pnpm install
 (Use Node 24 · `nvm use 24` or rely on `.nvmrc`)
 
 ✓ **Verify:**
+
 ```bash
 pnpm typecheck    # should pass (will pass on empty modules)
 ```
@@ -139,7 +140,7 @@ RESEND_REPLY_TO="support@mapsly.ai"
 
 ### B.3 · Anthropic API (for in-product AI features only)
 
-> NOT for autonomous dev — that's your Pro Max 20x plan. This is for the *product* features: AI sentiment, AI reply drafts, one-pager copy generation.
+> NOT for autonomous dev — that's your Pro Max 20x plan. This is for the _product_ features: AI sentiment, AI reply drafts, one-pager copy generation.
 
 1. Sign up: https://console.anthropic.com
 2. **Settings → Billing** — add $20 minimum credit
@@ -183,10 +184,12 @@ Returns 200 with a message.
    - Vercel Blob storage with the 100GB tier
 
 Generate `BLOB_READ_WRITE_TOKEN`:
+
 - **Storage → Create Database → Blob** · name it `mapsly-blob`
 - Copy the `BLOB_READ_WRITE_TOKEN`, add to Vercel env vars + `.env.local`
 
 Vercel KV (for rate-limit + dedup cache):
+
 - **Storage → Create Database → KV** · name it `mapsly-kv`
 - Copy `KV_REST_API_URL` + `KV_REST_API_TOKEN`, add to Vercel + `.env.local`
 
@@ -258,11 +261,13 @@ For the SEO + analytics MCPs.
 6. Save it as `~/.config/gsc/service-account.json` (chmod 600 it)
 
 Grant GSC access:
+
 - https://search.google.com/search-console → Settings → Users and permissions → Add user
 - Email = the service-account email (`mapsly-mcp-reader@mapsly-mcp.iam.gserviceaccount.com`)
 - Permission: **Restricted**
 
 Grant GA4 access:
+
 - https://analytics.google.com → Admin → Property Access Management → +
 - Same service-account email
 - Role: **Viewer**
@@ -316,6 +321,7 @@ npx @sentry/wizard@latest -i nextjs
 ```
 
 It will:
+
 - Add `sentry.client.config.ts`, `sentry.server.config.ts`, `sentry.edge.config.ts`
 - Add DSN + auth token to `.env.local`
 - Update `next.config.ts` to wrap with Sentry
@@ -340,6 +346,7 @@ SENTRY_PROJECT=mapsly-app
 https://github.com/sarminvictor/mapsly/settings/branches
 
 Add rule for `main`:
+
 - ✅ Require a pull request before merging
 - ✅ Require approvals: **0** (Claude's auto-merge needs 0 required; the gates are the approval)
 - ✅ Require status checks to pass:
@@ -355,16 +362,19 @@ Add rule for `main`:
 https://github.com/sarminvictor/mapsly/settings/secrets/actions
 
 Required:
+
 - `DATABASE_URL` — Neon test branch (NOT production) for CI runs
 - `DIRECT_URL` — same Neon test branch direct
 
 Optional but useful:
+
 - `VERCEL_TOKEN` — for richer deploy info in PR comments
 - `SENTRY_AUTH_TOKEN` — for source map uploads
 
 ### D.3 · Allow auto-merge
 
 https://github.com/sarminvictor/mapsly/settings → **Pull Requests** section:
+
 - ✅ Allow squash merging
 - ✅ **Allow auto-merge**
 - ❌ Allow merge commits (off)
@@ -373,6 +383,7 @@ https://github.com/sarminvictor/mapsly/settings → **Pull Requests** section:
 ### D.4 · Label for autonomous PRs
 
 https://github.com/sarminvictor/mapsly/labels → New label:
+
 - Name: `autonomous-ready`
 - Description: "All quality gates passed — eligible for auto-merge"
 - Color: `#22c55e`
@@ -380,6 +391,7 @@ https://github.com/sarminvictor/mapsly/labels → New label:
 The autonomous loop adds this label after gates pass. The `.github/workflows/auto-merge.yml` workflow watches for it.
 
 Also create:
+
 - `needs-review` (yellow `#f59e0b`) — gates failed, Viktor must look
 - `enhancement` (blue) — for process-enhancer PRs
 
@@ -396,6 +408,7 @@ pnpm dev
 Open http://localhost:3000
 
 ✓ **Verify:**
+
 - Landing scaffold renders
 - No console errors
 - Click through to /signin (placeholder) · email field present
@@ -447,6 +460,7 @@ Verify your subscription tier — Settings → Account → Plan should say **Pro
 ### F.3 · Schedule process-enhancer (daily)
 
 Similarly:
+
 ```
 @claude schedule the process-enhancer to run daily at 09:00 UTC
 ```
@@ -461,6 +475,7 @@ This is the meta-loop that improves the build loop.
 ```
 
 You should see:
+
 - `autonomous-build-loop` · every 6h
 - `process-enhancer` · daily at 09:00 UTC
 
@@ -481,16 +496,20 @@ If you haven't yet:
 Vercel's domain setup page shows the exact records. Typically:
 
 For `mapsly.ai`:
+
 - A record · `@` · `76.76.21.21`
 - AAAA record · `@` · Vercel's IPv6
 
 For `dev.mapsly.ai`:
+
 - CNAME · `dev` · `cname.vercel-dns.com`
 
 For `app.mapsly.ai` (optional — if you want auth-gated routes on a subdomain later):
+
 - CNAME · `app` · `cname.vercel-dns.com`
 
 ✓ **Verify:** after propagation (10min – 24h):
+
 - `dig mapsly.ai` resolves
 - `https://mapsly.ai` shows your landing
 - `https://dev.mapsly.ai` shows the dashboard (after Phase 1.10 ships)
@@ -513,6 +532,7 @@ By now, the autonomous loop has already run once (from F.2). Now verify the end-
 ### H.2 · Watch the dashboard
 
 After Phase 1.10 ships (the loop will build it), visit `https://dev.mapsly.ai`:
+
 - Sessions timeline shows recent sessions
 - Currently working on · shows the live task
 - PLAN.md progress · shows what's done vs pending
@@ -521,6 +541,7 @@ After Phase 1.10 ships (the loop will build it), visit `https://dev.mapsly.ai`:
 ### H.3 · Daily routine going forward
 
 Every morning:
+
 1. Open GitHub → check the PRs labeled `needs-review` (these are the ones where gates failed)
 2. Read the PR description — Claude tells you which dimension failed and why
 3. Decide: merge anyway? Request changes? Reject?
@@ -528,6 +549,7 @@ Every morning:
 5. Look at `.claude/memory/build-log.md` for session summaries
 
 Once a week:
+
 1. Read the daily GitHub digest email (configure in GitHub notification preferences)
 2. Check the dashboard for cost trends, MCP health, failure patterns
 3. Update `MEMORY.md` if you've discovered a preference you want Claude to remember

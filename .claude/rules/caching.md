@@ -13,17 +13,18 @@ Three layers. Each has rules. **Untagged caches are forbidden.**
 The default. Used for any pure server function whose output depends on inputs.
 
 ```ts
-'use cache'
-import { cacheLife, cacheTag } from 'next/cache';
+"use cache";
+import { cacheLife, cacheTag } from "next/cache";
 
 export async function getList(listId: string) {
-  cacheLife('hours');
+  cacheLife("hours");
   cacheTag(`list-${listId}`);
   // ...
 }
 ```
 
 **Rules:**
+
 - Every `'use cache'` function declares BOTH `cacheLife` and `cacheTag`.
 - `cacheLife` profiles (defined in `next.config.ts`):
   - `seconds` — 10s · for fast-changing dashboards
@@ -39,18 +40,19 @@ export async function getList(listId: string) {
 Used by `services/{vendor}` adapters to dedup external API calls.
 
 ```ts
-import { kvCache } from '@/lib/cache/kv';
+import { kvCache } from "@/lib/cache/kv";
 
 export const dataforSeoMapsSearch = kvCache(
-  'dfs:maps:search',
+  "dfs:maps:search",
   { ttl: 86400 }, // 24h
   async (params: SearchParams) => {
     return await rawCall(params);
-  }
+  },
 );
 ```
 
 **Rules:**
+
 - TTL is **always explicit**. No default ≥ 24h without explicit reason.
 - Cache key format: `{vendor}:{operation}:{stable-hash-of-params}`.
 - Cache hits are tracked in `CronRun.meta.cacheHits` for cost-audit reporting.
@@ -61,6 +63,7 @@ export const dataforSeoMapsSearch = kvCache(
 `BusinessSnapshot`, `LighthouseAudit`, `SerpResult`, etc. are themselves caches — they store the result of weekly cron jobs so user requests never trigger live calls.
 
 **Rules:**
+
 - User request path reads from these tables — never from external APIs.
 - "Latest snapshot" pattern: `findFirst` ordered by `snapshotDate desc`.
 - Don't rebuild snapshots in user routes. Only cron jobs write here.
@@ -70,35 +73,36 @@ export const dataforSeoMapsSearch = kvCache(
 After a cron job updates a business's data:
 
 ```ts
-import { revalidateTag } from 'next/cache';
+import { revalidateTag } from "next/cache";
 
 // In the cron handler, after writing the snapshot
-revalidateTag(`business-${business.slug}`, 'days');
-revalidateTag(`business-${business.slug}-reviews`, 'days');
-revalidateTag(`agency-${agencyId}`, 'days'); // if cascade applies
+revalidateTag(`business-${business.slug}`, "days");
+revalidateTag(`business-${business.slug}-reviews`, "days");
+revalidateTag(`agency-${agencyId}`, "days"); // if cascade applies
 ```
 
 **Rules:**
+
 - Revalidate **granular** tags, not broad ones. Don't `revalidateTag('businesses')` if you can revalidate one.
 - Always pass the second arg (cacheLife profile) so Next knows the new validity horizon.
 - Revalidate happens in cron handler AFTER the DB write succeeds. Rollback on revalidate failure is fine — next read will hit the new data anyway.
 
 ## Tag taxonomy
 
-| Tag pattern | Owner | When to revalidate |
-|---|---|---|
-| `business-${slug}` | weekly cron | After weekly snapshot write |
-| `business-${slug}-reviews` | daily cron | After new-reviews-delta |
-| `business-${slug}-lighthouse` | weekly cron | After lighthouse-audit |
-| `list-${id}` | list-refresh cron | After list-refresh |
-| `list-${id}-full` | list-refresh cron | After list-refresh |
-| `lead-${id}` | user action | After status change |
-| `agency-${id}` | aggregator | After any list refresh |
-| `agency-${id}-analytics` | weekly | After list-refresh cron |
-| `kw-${id}` | weekly cron | After serp-rank-scan |
-| `marketing` | manual | On copy update |
-| `seo-sitemap` | weekly cron | After indexer adds businesses |
-| `user-${id}` | user action | After settings change |
+| Tag pattern                   | Owner             | When to revalidate            |
+| ----------------------------- | ----------------- | ----------------------------- |
+| `business-${slug}`            | weekly cron       | After weekly snapshot write   |
+| `business-${slug}-reviews`    | daily cron        | After new-reviews-delta       |
+| `business-${slug}-lighthouse` | weekly cron       | After lighthouse-audit        |
+| `list-${id}`                  | list-refresh cron | After list-refresh            |
+| `list-${id}-full`             | list-refresh cron | After list-refresh            |
+| `lead-${id}`                  | user action       | After status change           |
+| `agency-${id}`                | aggregator        | After any list refresh        |
+| `agency-${id}-analytics`      | weekly            | After list-refresh cron       |
+| `kw-${id}`                    | weekly cron       | After serp-rank-scan          |
+| `marketing`                   | manual            | On copy update                |
+| `seo-sitemap`                 | weekly cron       | After indexer adds businesses |
+| `user-${id}`                  | user action       | After settings change         |
 
 ## Anti-patterns
 
@@ -117,7 +121,7 @@ revalidateTag(`agency-${agencyId}`, 'days'); // if cascade applies
 - **Admin internal tools:** caching is overhead, skip.
 
 ```ts
-import { unstable_noStore as noStore } from 'next/cache';
+import { unstable_noStore as noStore } from "next/cache";
 
 export async function getMyDashboard() {
   noStore();

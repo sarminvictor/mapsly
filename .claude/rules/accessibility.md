@@ -10,6 +10,7 @@ Every page passes Lighthouse Accessibility ≥ 95. Real users include keyboard-o
 ## Semantic HTML
 
 Use the right element:
+
 - `<button>` for actions, `<a>` for navigation
 - `<nav>` for navigation regions, `<main>` for primary content, `<aside>` for sidebars
 - `<h1>` once per page, then `<h2>`/`<h3>` in order — no skips
@@ -27,7 +28,8 @@ Use the right element:
 
 ```tsx
 // Visible focus ring — Tailwind utility
-className="focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
+className =
+  "focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2";
 ```
 
 Never `outline: none` without a replacement.
@@ -37,6 +39,7 @@ Never `outline: none` without a replacement.
 ARIA is the **escape hatch**, not the default. Most accessible patterns need no ARIA.
 
 Use when needed:
+
 - `aria-label` on icon-only buttons (no visible text)
 - `aria-expanded` on toggles (dropdowns, accordions)
 - `aria-current="page"` on the active nav item
@@ -45,6 +48,7 @@ Use when needed:
 - `aria-describedby` on form fields with help text
 
 Never use:
+
 - `aria-hidden="true"` on focusable elements
 - `role="button"` on a `<div>` — use `<button>`
 - `aria-required` on inputs — use `required` attribute
@@ -99,7 +103,9 @@ Never use:
 
 ```css
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
+  *,
+  *::before,
+  *::after {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
   }

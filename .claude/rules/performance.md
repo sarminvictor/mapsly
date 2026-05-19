@@ -23,19 +23,20 @@ Mapsly's product promise is speed. A slow page is a broken page. **Every route m
 ## React patterns
 
 ### `use cache` directive
+
 For any pure server function whose output is determined by inputs:
 
 ```tsx
-'use cache'
-import { cacheLife, cacheTag } from 'next/cache';
+"use cache";
+import { cacheLife, cacheTag } from "next/cache";
 
 async function getBusinessSnapshot(businessId: string) {
-  cacheLife('hours'); // or 'days' / 'weeks' / 'max'
+  cacheLife("hours"); // or 'days' / 'weeks' / 'max'
   cacheTag(`business-${businessId}`);
 
   return prisma.businessSnapshot.findFirst({
     where: { businessId },
-    orderBy: { snapshotDate: 'desc' },
+    orderBy: { snapshotDate: "desc" },
   });
 }
 ```
@@ -45,28 +46,30 @@ async function getBusinessSnapshot(businessId: string) {
 - **`revalidateTag('business-${id}', 'days')`** when the underlying data changes (cron job, user action).
 
 ### Cache tag conventions
-| Resource | Tag |
-|---|---|
-| Per-business snapshot | `business-${slug}` |
-| Per-business reviews | `business-${slug}-reviews` |
-| Per-list leads | `list-${id}` |
-| Per-list-detail full | `list-${id}-full` |
-| Per-keyword SERP | `kw-${keywordId}` |
-| Per-agency aggregate | `agency-${id}` |
-| Global marketing | `marketing` |
-| SEO sitemap | `sitemap` |
-| User session aggregate | `user-${id}` |
+
+| Resource               | Tag                        |
+| ---------------------- | -------------------------- |
+| Per-business snapshot  | `business-${slug}`         |
+| Per-business reviews   | `business-${slug}-reviews` |
+| Per-list leads         | `list-${id}`               |
+| Per-list-detail full   | `list-${id}-full`          |
+| Per-keyword SERP       | `kw-${keywordId}`          |
+| Per-agency aggregate   | `agency-${id}`             |
+| Global marketing       | `marketing`                |
+| SEO sitemap            | `sitemap`                  |
+| User session aggregate | `user-${id}`               |
 
 Never use untagged caches. Untagged = unrevalidatable = stale forever.
 
 ### Suspense pattern
+
 ```tsx
 export default async function DashboardPage() {
   return (
     <div>
-      <PageHeader />  {/* renders instantly */}
+      <PageHeader /> {/* renders instantly */}
       <Suspense fallback={<KpiSkeletons />}>
-        <KpiTiles />  {/* streams when ready */}
+        <KpiTiles /> {/* streams when ready */}
       </Suspense>
       <Suspense fallback={<AlertsSkeleton />}>
         <AlertsFeed />
@@ -79,6 +82,7 @@ export default async function DashboardPage() {
 Stream every above-the-fold block independently. Skeletons must match final dimensions exactly — no CLS.
 
 ### Client components
+
 - Mark with `'use client'` at top
 - Keep them at the leaves of the tree, never high up
 - Pass server-fetched data as props
@@ -113,15 +117,15 @@ Stream every above-the-fold block independently. Skeletons must match final dime
 
 ## Performance budgets (enforced by performance-auditor)
 
-| Metric | Budget | Fail threshold |
-|---|---|---|
-| Lighthouse Mobile Performance | ≥ 90 | < 80 blocks merge |
-| LCP | ≤ 2.0s | > 2.5s blocks |
-| CLS | ≤ 0.05 | > 0.1 blocks |
-| INP | ≤ 150ms | > 200ms blocks |
-| First Load JS (gz) | ≤ 200kB | > 300kB blocks |
-| Server response (TTFB) | ≤ 200ms p50 | > 600ms p95 alerts |
-| API route p95 | ≤ 500ms | > 1.5s blocks |
+| Metric                        | Budget      | Fail threshold     |
+| ----------------------------- | ----------- | ------------------ |
+| Lighthouse Mobile Performance | ≥ 90        | < 80 blocks merge  |
+| LCP                           | ≤ 2.0s      | > 2.5s blocks      |
+| CLS                           | ≤ 0.05      | > 0.1 blocks       |
+| INP                           | ≤ 150ms     | > 200ms blocks     |
+| First Load JS (gz)            | ≤ 200kB     | > 300kB blocks     |
+| Server response (TTFB)        | ≤ 200ms p50 | > 600ms p95 alerts |
+| API route p95                 | ≤ 500ms     | > 1.5s blocks      |
 
 `performance-auditor` runs against every PR's preview deploy.
 
