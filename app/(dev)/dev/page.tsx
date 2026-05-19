@@ -3,6 +3,7 @@
 // · Recent commits · Open PRs.
 
 import { Suspense } from "react";
+import AutoRefresh from "./AutoRefresh";
 import {
   getRecentCommits,
   getOpenPrs,
@@ -96,6 +97,7 @@ export default function DevDashboard() {
         </Suspense>
       </div>
 
+      <AutoRefresh intervalMs={30000} />
       <footer
         style={{
           fontFamily: "JetBrains Mono, monospace",
