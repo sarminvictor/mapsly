@@ -1,0 +1,915 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Signals coverage matrix · Mapsly</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+    <style>
+      :root {
+        --bg:#faf6f1; --bg-2:#fff; --bg-3:#f2ebe3; --bg-dark:#1c1916;
+        --text:#1c1916; --text-2:#5c544d; --text-3:#9a9088;
+        --border:#e8ddd0; --border-strong:#d8c9b8;
+        --coral:#c3553a; --coral-light:rgba(195,85,58,.1);
+        --indigo:#5b3df5; --indigo-light:rgba(91,61,245,.10);
+        --berry:#8b3a2c; --gold:#d4a574; --gold-light:rgba(212,165,116,.18);
+        --success:#2d8659; --success-light:rgba(45,134,89,.12);
+        --alert:#b53d47; --alert-light:rgba(181,61,71,.1);
+        --info:#3b6ec4; --info-light:rgba(59,110,196,.1);
+        --purple:#6b4f9b; --purple-light:rgba(107,79,155,.12);
+        --shadow-sm:0 2px 8px rgba(28,25,22,.04);
+      }
+      * { margin:0; padding:0; box-sizing:border-box; }
+      body {
+        font-family:'Inter',sans-serif; background:var(--bg); color:var(--text);
+        line-height:1.5; min-height:100vh;
+        -webkit-font-smoothing:antialiased;
+        padding:32px;
+      }
+      .wrap { max-width:1500px; margin:0 auto; }
+      .head { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:24px; flex-wrap:wrap; gap:18px; }
+      .head-title { font-family:'Fraunces',serif; font-size:34px; font-weight:700; letter-spacing:-.02em; line-height:1.1; }
+      .head-sub { font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--text-3); margin-top:6px; }
+      .crumb { font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text-3); margin-bottom:8px; text-transform:uppercase; letter-spacing:.08em; }
+
+      /* SUMMARY */
+      .summary-grid { display:grid; grid-template-columns:repeat(5,1fr); gap:14px; margin-bottom:28px; }
+      @media (max-width:1100px) { .summary-grid { grid-template-columns:repeat(2,1fr); } }
+      .sum-tile { background:var(--bg-2); border:1px solid var(--border); border-radius:14px; padding:20px 22px; box-shadow:var(--shadow-sm); }
+      .sum-tile-label { font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.1em; color:var(--text-3); margin-bottom:8px; }
+      .sum-tile-num { font-family:'Fraunces',serif; font-size:38px; font-weight:700; line-height:1; }
+      .sum-tile-num.coral { color:var(--coral); }
+      .sum-tile-num.indigo { color:var(--indigo); }
+      .sum-tile-num.success { color:var(--success); }
+      .sum-tile-num.gold { color:var(--gold); }
+      .sum-tile-num.muted { color:var(--text-3); }
+      .sum-tile-bar { margin-top:14px; height:6px; background:var(--bg-3); border-radius:3px; overflow:hidden; position:relative; }
+      .sum-tile-bar-fill { position:absolute; top:0; left:0; bottom:0; border-radius:3px; }
+      .sum-tile-meta { font-size:11px; color:var(--text-3); margin-top:8px; font-family:'JetBrains Mono',monospace; }
+
+      /* LEGEND */
+      .legend {
+        display:flex; gap:18px; flex-wrap:wrap;
+        padding:14px 20px;
+        background:var(--bg-2);
+        border:1px solid var(--border);
+        border-radius:12px;
+        margin-bottom:22px;
+        align-items:center;
+        font-size:12.5px;
+        color:var(--text-2);
+      }
+      .legend b { color:var(--text); font-weight:600; }
+      .legend-chip {
+        display:inline-flex; align-items:center; gap:6px;
+        font-family:'JetBrains Mono',monospace;
+        font-size:10.5px;
+        padding:2.5px 8px;
+        border-radius:4px;
+        font-weight:600;
+      }
+      .legend-chip.smb { background:var(--coral-light); color:var(--coral); }
+      .legend-chip.agency { background:var(--indigo-light); color:var(--indigo); }
+
+      /* FILTERS */
+      .filters { display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap; align-items:center; }
+      .filter-pill {
+        padding:7px 13px; font-size:12.5px; font-weight:500;
+        color:var(--text-2);
+        border:1px solid var(--border); border-radius:100px;
+        background:var(--bg-2);
+        display:inline-flex; align-items:center; gap:7px;
+        cursor:pointer;
+      }
+      .filter-pill:hover { border-color:var(--border-strong); color:var(--text); }
+      .filter-pill.active { background:var(--text); color:#fff; border-color:var(--text); }
+      .filter-pill-count { font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:700; background:var(--bg-3); color:var(--text-2); padding:1px 6px; border-radius:100px; }
+      .filter-pill.active .filter-pill-count { background:rgba(255,255,255,.18); color:#fff; }
+      .filter-divider { width:1px; height:22px; background:var(--border); margin:0 4px; }
+      .search-input { margin-left:auto; padding:8px 14px; border:1px solid var(--border); border-radius:8px; font-size:12.5px; background:var(--bg-2); min-width:240px; }
+      .search-input:focus { outline:none; border-color:var(--coral); }
+
+      /* SECTION */
+      .section-head { margin-top:36px; margin-bottom:14px; display:flex; align-items:baseline; gap:14px; }
+      .section-head h2 { font-family:'Fraunces',serif; font-size:20px; font-weight:600; letter-spacing:-.02em; }
+      .section-head .section-meta { font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text-3); }
+
+      /* TABLE */
+      .matrix { background:var(--bg-2); border:1px solid var(--border); border-radius:14px; box-shadow:var(--shadow-sm); overflow:hidden; }
+      .matrix table { width:100%; border-collapse:collapse; font-size:13px; }
+      .matrix th {
+        text-align:left; font-size:11px; font-weight:600;
+        text-transform:uppercase; letter-spacing:.08em;
+        color:var(--text-3);
+        padding:14px 14px;
+        background:var(--bg-3);
+        font-family:'JetBrains Mono',monospace;
+        border-bottom:1px solid var(--border);
+      }
+      .matrix td { padding:14px; border-bottom:1px solid var(--border); vertical-align:top; }
+      .matrix tr:last-child td { border-bottom:none; }
+      .matrix tr:hover td { background:rgba(28,25,22,.015); }
+
+      .signal-name { font-weight:600; font-size:13.5px; margin-bottom:3px; }
+      .signal-formula { font-size:11.5px; color:var(--text-3); font-family:'JetBrains Mono',monospace; line-height:1.45; }
+      .signal-source { font-family:'JetBrains Mono',monospace; font-size:11.5px; color:var(--text-2); }
+      .signal-source small { display:block; color:var(--text-3); font-size:10.5px; margin-top:2px; }
+      .signal-freq { font-family:'JetBrains Mono',monospace; font-size:11px; padding:2px 8px; border-radius:4px; background:var(--bg-3); color:var(--text-2); display:inline-block; white-space:nowrap; }
+      .signal-freq.daily { background:var(--info-light); color:var(--info); }
+      .signal-freq.weekly { background:var(--bg-3); color:var(--text-2); }
+      .signal-freq.monthly { background:var(--gold-light); color:#8a5a1f; }
+      .signal-freq.realtime { background:var(--purple-light); color:var(--purple); }
+
+      /* PORTAL CELLS */
+      .portal-cell {
+        font-size:11px;
+      }
+      .portal-label {
+        font-family:'JetBrains Mono',monospace;
+        font-size:9.5px; font-weight:700;
+        text-transform:uppercase; letter-spacing:.06em;
+        color:var(--text-3);
+        margin-bottom:4px;
+      }
+      .portal-pills { display:flex; flex-wrap:wrap; gap:3px; margin-bottom:6px; }
+      .pill-page {
+        font-family:'JetBrains Mono',monospace;
+        font-size:10px; font-weight:600;
+        padding:2px 6px;
+        border-radius:3px;
+      }
+      .pill-page.smb { background:var(--coral-light); color:var(--coral); }
+      .pill-page.agency { background:var(--indigo-light); color:var(--indigo); }
+      .pill-page.dim { background:var(--bg-3); color:var(--text-3); font-weight:500; }
+      .pill-none {
+        font-family:'JetBrains Mono',monospace;
+        font-size:10.5px;
+        color:var(--text-3);
+        font-style:italic;
+      }
+
+      .status {
+        display:inline-flex; align-items:center; gap:6px;
+        font-family:'JetBrains Mono',monospace;
+        font-size:10.5px; font-weight:700;
+        padding:3px 8px; border-radius:4px;
+        text-transform:uppercase; letter-spacing:.05em;
+        white-space:nowrap;
+      }
+      .status.shown { background:var(--success-light); color:var(--success); }
+      .status.partial { background:var(--gold-light); color:#8a5a1f; }
+      .status.smb-only { background:var(--coral-light); color:var(--coral); }
+      .status.agency-only { background:var(--indigo-light); color:var(--indigo); }
+      .status.both { background:var(--success-light); color:var(--success); }
+      .status.roadmap { background:var(--purple-light); color:var(--purple); }
+      .status-dot { width:7px; height:7px; border-radius:50%; }
+      .status.shown .status-dot { background:var(--success); }
+      .status.partial .status-dot { background:var(--gold); }
+      .status.smb-only .status-dot { background:var(--coral); }
+      .status.agency-only .status-dot { background:var(--indigo); }
+      .status.both .status-dot { background:var(--success); }
+      .status.roadmap .status-dot { background:var(--purple); }
+
+      .note { font-size:11px; color:var(--text-3); margin-top:4px; font-family:'JetBrains Mono',monospace; line-height:1.4; max-width:260px; }
+
+      .signal-row.hidden { display:none; }
+      .footer-note { margin-top:32px; padding:16px 20px; background:var(--bg-3); border-radius:10px; font-size:12px; color:var(--text-3); font-family:'JetBrains Mono',monospace; line-height:1.6; }
+
+      @media (max-width:1100px) {
+        .matrix { overflow-x:auto; }
+        .matrix table { min-width:1100px; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+
+      <div class="head">
+        <div>
+          <div class="crumb">Internal · product/signals-coverage.html</div>
+          <div class="head-title">Signals coverage matrix</div>
+          <div class="head-sub">// every signal we can collect, mapped to SMB and Agency portal pages where it appears</div>
+        </div>
+      </div>
+
+      <!-- SUMMARY -->
+      <div class="summary-grid">
+        <div class="sum-tile">
+          <div class="sum-tile-label">Total signals catalogued</div>
+          <div class="sum-tile-num">74</div>
+          <div class="sum-tile-meta">across 2 portals · 11 roadmap</div>
+        </div>
+        <div class="sum-tile">
+          <div class="sum-tile-label">In SMB portal</div>
+          <div class="sum-tile-num coral">52</div>
+          <div class="sum-tile-bar"><div class="sum-tile-bar-fill" style="width:70%;background:var(--coral);"></div></div>
+          <div class="sum-tile-meta">9 pages · Maria's everyday view</div>
+        </div>
+        <div class="sum-tile">
+          <div class="sum-tile-label">In Agency portal (v1)</div>
+          <div class="sum-tile-num indigo">38</div>
+          <div class="sum-tile-bar"><div class="sum-tile-bar-fill" style="width:51%;background:var(--indigo);"></div></div>
+          <div class="sum-tile-meta">7 pages · lists + prospect deep-dive</div>
+        </div>
+        <div class="sum-tile">
+          <div class="sum-tile-label">In both portals</div>
+          <div class="sum-tile-num success">34</div>
+          <div class="sum-tile-bar"><div class="sum-tile-bar-fill" style="width:46%;background:var(--success);"></div></div>
+          <div class="sum-tile-meta">framed differently per audience</div>
+        </div>
+        <div class="sum-tile">
+          <div class="sum-tile-label">Roadmap (not collected)</div>
+          <div class="sum-tile-num muted">11</div>
+          <div class="sum-tile-bar"><div class="sum-tile-bar-fill" style="width:15%;background:var(--text-3);"></div></div>
+          <div class="sum-tile-meta">Phase 2–4 · new sources required</div>
+        </div>
+      </div>
+
+      <!-- LEGEND -->
+      <div class="legend">
+        <b>How to read this:</b>
+        <span><span class="legend-chip smb">smb : dashboard</span> = page in SMB portal (Maria's view)</span>
+        <span><span class="legend-chip agency">agency : prospect</span> = page in Agency portal (Tom's view)</span>
+        <span style="color:var(--text-3); font-family:'JetBrains Mono',monospace; font-size:11.5px;">// dim pills mean partial · empty means roadmap</span>
+      </div>
+
+      <!-- FILTERS -->
+      <div class="filters">
+        <button class="filter-pill active" data-filter="all">All <span class="filter-pill-count">74</span></button>
+        <button class="filter-pill" data-filter="both">In both <span class="filter-pill-count">34</span></button>
+        <button class="filter-pill" data-filter="smb-only">SMB only <span class="filter-pill-count">18</span></button>
+        <button class="filter-pill" data-filter="agency-only">Agency only <span class="filter-pill-count">4</span></button>
+        <button class="filter-pill" data-filter="partial">Partial <span class="filter-pill-count">7</span></button>
+        <button class="filter-pill" data-filter="roadmap">Roadmap <span class="filter-pill-count">11</span></button>
+        <div class="filter-divider"></div>
+        <button class="filter-pill" data-cat="identity">Identity</button>
+        <button class="filter-pill" data-cat="reviews">Reviews</button>
+        <button class="filter-pill" data-cat="competitors">Competitors</button>
+        <button class="filter-pill" data-cat="search">Search</button>
+        <button class="filter-pill" data-cat="ads">Ads</button>
+        <button class="filter-pill" data-cat="website">Website</button>
+        <button class="filter-pill" data-cat="market">Market</button>
+        <button class="filter-pill" data-cat="scores">Scores</button>
+        <button class="filter-pill" data-cat="alerts">Alerts</button>
+        <input class="search-input" type="text" placeholder="Search signals…" id="search" />
+      </div>
+
+      <!-- ============ A. IDENTITY ============ -->
+      <div class="section-head">
+        <h2>A · Identity & Profile</h2>
+        <span class="section-meta">12 signals · 12 in SMB · 8 in agency</span>
+      </div>
+      <div class="matrix">
+        <table>
+          <thead>
+            <tr>
+              <th style="width:20%;">Signal</th>
+              <th style="width:14%;">Source</th>
+              <th style="width:8%;">Freq</th>
+              <th style="width:16%;">SMB portal</th>
+              <th style="width:16%;">Agency portal</th>
+              <th style="width:10%;">Status</th>
+              <th style="width:16%;">Note</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="signal-row" data-cat="identity" data-status="both">
+              <td><div class="signal-name">Business name</div><div class="signal-formula">Direct: `title`</div></td>
+              <td><div class="signal-source">Google Maps SERP</div></td>
+              <td><span class="signal-freq weekly">Weekly</span></td>
+              <td><div class="portal-pills"><span class="pill-page smb">all pages header</span></div></td>
+              <td><div class="portal-pills"><span class="pill-page agency">prospect</span><span class="pill-page agency">list-detail</span><span class="pill-page agency">search</span></div></td>
+              <td><span class="status both"><span class="status-dot"></span>Both</span></td>
+              <td><div class="note">Anchor data for every view</div></td>
+            </tr>
+            <tr class="signal-row" data-cat="identity" data-status="both">
+              <td><div class="signal-name">Address</div><div class="signal-formula">Direct: `address`</div></td>
+              <td><div class="signal-source">Google Maps SERP</div></td>
+              <td><span class="signal-freq weekly">Weekly</span></td>
+              <td><div class="portal-pills"><span class="pill-page smb">competitors</span><span class="pill-page smb">settings</span></div></td>
+              <td><div class="portal-pills"><span class="pill-page agency">prospect</span><span class="pill-page agency">list-detail</span></div></td>
+              <td><span class="status both"><span class="status-dot"></span>Both</span></td>
+              <td><div class="note">Drives same-bldg flag</div></td>
+            </tr>
+            <tr class="signal-row" data-cat="identity" data-status="both">
+              <td><div class="signal-name">Phone</div><div class="signal-formula">Direct: `phone`</div></td>
+              <td><div class="signal-source">Google Maps SERP</div></td>
+              <td><span class="signal-freq weekly">Weekly</span></td>
+              <td><div class="portal-pills"><span class="pill-page smb">settings</span><span class="pill-page smb">website</span></div></td>
+              <td><div class="portal-pills"><span class="pill-page agency">prospect</span><span class="pill-page agency">list-detail</span><span class="pill-page agency">reports CSV</span></div></td>
+              <td><span class="status both"><span class="status-dot"></span>Both</span></td>
+              <td><div class="note">SMB: NAP check · agency: contact</div></td>
+            </tr>
+            <tr class="signal-row" data-cat="identity" data-status="both">
+              <td><div class="signal-name">Website URL</div><div class="signal-formula">Direct: `url`</div></td>
+              <td><div class="signal-source">Google Maps SERP</div></td>
+              <td><span class="signal-freq weekly">Weekly</span></td>
+              <td><div class="portal-pills"><span class="pill-page smb">website</span><span class="pill-page smb">settings</span></div></td>
+              <td><div class="portal-pills"><span class="pill-page agency">prospect</span><span class="pill-page agency">list-detail</span></div></td>
+              <td><span class="status both"><span class="status-dot"></span>Both</span></td>
+              <td></td>
+            </tr>
+            <tr class="signal-row" data-cat="identity" data-status="both">
+              <td><div class="signal-name">Hours per day</div><div class="signal-formula">work_time.work_hours.timetable</div></td>
+              <td><div class="signal-source">Google Maps SERP</div></td>
+              <td><span class="signal-freq weekly">Weekly</span></td>
+              <td><div class="portal-pills"><span class="pill-page smb">competitors</span></div></td>
+              <td><div class="portal-pills"><span class="pill-page agency">prospect</span></div></td>
+              <td><span class="status both"><span class="status-dot"></span>Both</span></td>
+              <td><div class="note">Same-bldg + Sun-open check</div></td>
+            </tr>
+            <tr class="signal-row" data-cat="identity" data-status="both">
+              <td><div class="signal-name">Categories</div><div class="signal-formula">category_ids[]</div></td>
+              <td><div class="signal-source">Google Maps SERP</div></td>
+              <td><span class="signal-freq weekly">Weekly</span></td>
+              <td><div class="portal-pills"><span class="pill-page smb">settings</span></div></td>
+              <td><div class="portal-pills"><span class="pill-page agency">search filter</span><span class="pill-page agency">lists</span></div></td>
+              <td><span class="status both"><span class="status-dot"></span>Both</span></td>
+              <td><div class="note">Filters censuses</div></td>
+            </tr>
+            <tr class="signal-row" data-cat="identity" data-status="both">
+              <td><div class="signal-name">Photos count</div><div class="signal-formula">total_photos</div></td>
+              <td><div class="signal-source">Google Maps SERP</div></td>
+              <td><span class="signal-freq weekly">Weekly</span></td>
+              <td><div class="portal-pills"><span class="pill-page smb">dashboard</span><span class="pill-page smb">competitors</span><span class="pill-page smb">market</span></div></td>
+              <td><div class="portal-pills"><span class="pill-page agency">prospect</span><span class="pill-page agency">search filter</span></div></td>
+              <td><span class="status both"><span class="status-dot"></span>Both</span></td>
+              <td><div class="note">46 vs Lux 700 — biggest gap</div></td>
+            </tr>
+            <tr class="signal-row" data-cat="identity" data-status="both">
+              <td><div class="signal-name">Instagram handle + followers</div><div class="signal-formula">Parse SERP for instagram.com/{handle}</div></td>
+              <td><div class="signal-source">Google SERP organic</div></td>
+              <td><span class="signal-freq weekly">Weekly</span></td>
+              <td><div class="portal-pills"><span class="pill-page smb">competitors</span></div></td>
+              <td><div class="portal-pills"><span class="pill-page agency">prospect</span></div></td>
+              <td><span class="status both"><span class="status-dot"></span>Both</span></td>
+              <td></td>
+            </tr>
+            <tr class="signal-row" data-cat="identity" data-status="both">
+              <td><div class="signal-name">Years on Google</div><div class="signal-formula">(now − first_seen).years</div></td>
+              <td><div class="signal-source">Maps `first_seen`</div></td>
+              <td><span class="signal-freq monthly">Monthly</span></td>
+              <td><div class="portal-pills"><span class="pill-page smb">competitors</span></div></td>
+              <td><div class="portal-pills"><span class="pill-page agency">prospect</span><span class="pill-page agency">list-detail</span><span class="pill-page agency">search filter</span></div></td>
+              <td><span class="status both"><span class="status-dot"></span>Both</span></td>
+              <td><div class="note">Agency uses as qualifier (≥2 yr)</div></td>
+            </tr>
+            <tr class="signal-row" data-cat="identity" data-status="smb-only">
+              <td><div class="signal-name">Claimed status</div><div class="signal-formula">is_claimed</div></td>
+              <td><div class="signal-source">Maps</div></td>
+              <td><span class="signal-freq weekly">Weekly</span></td>
+              <td><div class="portal-pills"><span class="pill-page smb">settings</span></div></td>
+              <td><div class="portal-pills"><span class="pill-page agency">search filter</span></div></td>
+              <td><span class="status both"><span class="status-dot"></span>Both</span></td>
+              <td><div class="note">Agency filters claimed only</div></td>
+            </tr>
+            <tr class="signal-row" data-cat="identity" data-status="smb-only">
+              <td><div class="signal-name">Coordinates (lat/lng)</div><div class="signal-formula">latitude / longitude</div></td>
+              <td><div class="signal-source">Maps</div></td>
+              <td><span class="signal-freq monthly">Once</span></td>
+              <td><div class="portal-pills"><span class="pill-page smb">market</span></div></td>
+              <td><div class="pill-none">— internal use only</div></td>
+              <td><span class="status smb-only"><span class="status-dot"></span>SMB only</span></td>
+              <td><div class="note">Powers same-bldg flag in both</div></td>
+            </tr>
+            <tr class="signal-row" data-cat="identity" data-status="smb-only">
+              <td><div class="signal-name">Attributes (LGBTQ, sauna, etc.)</div><div class="signal-formula">attributes{}</div></td>
+              <td><div class="signal-source">Maps</div></td>
+              <td><span class="signal-freq weekly">Weekly</span></td>
+              <td><div class="portal-pills"><span class="pill-page smb">settings</span><span class="pill-page smb">competitors</span></div></td>
+              <td><div class="pill-none">— not surfaced v1</div></td>
+              <td><span class="status smb-only"><span class="status-dot"></span>SMB only</span></td>
+              <td><div class="note">Could add to prospect detail</div></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- ============ B. REVIEWS ============ -->
+      <div class="section-head">
+        <h2>B · Review intelligence</h2>
+        <span class="section-meta">16 signals · 16 in SMB · 9 in agency</span>
+      </div>
+      <div class="matrix">
+        <table>
+          <thead>
+            <tr>
+              <th style="width:20%;">Signal</th>
+              <th style="width:14%;">Source</th>
+              <th style="width:8%;">Freq</th>
+              <th style="width:16%;">SMB portal</th>
+              <th style="width:16%;">Agency portal</th>
+              <th style="width:10%;">Status</th>
+              <th style="width:16%;">Note</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="signal-row" data-cat="reviews" data-status="both">
+              <td><div class="signal-name">Current Google rating</div><div class="signal-formula">rating.value</div></td>
+              <td><div class="signal-source">Maps + Reviews</div></td>
+              <td><span class="signal-freq weekly">Weekly</span></td>
+              <td><div class="portal-pills"><span class="pill-page smb">dashboard</span><span class="pill-page smb">reviews</span></div></td>
+              <td><div class="portal-pills"><span class="pill-page agency">prospect</span><span class="pill-page agency">list-detail</span><span class="pill-page agency">search filter</span></div></td>
+              <td><span class="status both"><span class="status-dot"></span>Both</span></td>
+              <td><div class="note">Agency uses 3.5–4.5 filter</div></td>
+            </tr>
+            <tr class="signal-row" data-cat="reviews" data-status="both">
+              <td><div class="signal-name">Current review count</div><div class="signal-formula">rating.votes_count</div></td>
+              <td><div class="signal-source">Maps + Reviews</div></td>
+              <td><span class="signal-freq weekly">Weekly</span></td>
+              <td><div class="portal-pills"><span class="pill-page smb">dashboard</span><span class="pill-page smb">reviews</span><span class="pill-page smb">competitors</span></div></td>
+              <td><div class="portal-pills"><span class="pill-page agency">prospect</span><span class="pill-page agency">list-detail</span><span class="pill-page agency">search filter</span></div></td>
+              <td><span class="status both"><span class="status-dot"></span>Both</span></td>
+              <td><div class="note">Agency uses ≥100 as qualifier</div></td>
+            </tr>
+            <tr class="signal-row" data-cat="reviews" data-status="smb-only">
+              <td><div class="signal-name">Rating distribution (1–5★)</div><div class="signal-formula">rating_distribution{}</div></td>
+              <td><div class="signal-source">Maps</div></td>
+              <td><span class="signal-freq weekly">Weekly</span></td>
+              <td><div class="portal-pills"><span class="pill-page smb">reviews</span></div></td>
+              <td><div class="pill-none">— not in v1</div></td>
+              <td><span class="status smb-only"><span class="status-dot"></span>SMB only</span></td>
+              <td><div class="note">Less useful for prospecting</div></td>
+            </tr>
+            <tr class="signal-row" data-cat="reviews" data-status="smb-only">
+              <td><div class="signal-name">Last 20 reviews (full text)</div><div class="signal-formula">sort_by=newest depth=20</div></td>
+              <td><div class="signal-source">Reviews API</div></td>
+              <td><span class="signal-freq weekly">Weekly</span></td>
+              <td><div class="portal-pills"><span class="pill-page smb">reviews</span></div></td>
+              <td><div class="portal-pills"><span class="pill-page agency dim">prospect snippet</span></div></td>
+              <td><span class="status partial"><span class="status-dot"></span>Partial</span></td>
+              <td><div class="note">Agency shows summary, not full list</div></td>
+            </tr>
+            <tr class="signal-row" data-cat="reviews" data-status="smb-only">
+              <td><div class="signal-name">Per-review fields</div><div class="signal-formula">stars, text, date, owner_answer</div></td>
+              <td><div class="signal-source">Reviews API</div></td>
+              <td><span class="signal-freq weekly">Weekly</span></td>
+              <td><div class="portal-pills"><span class="pill-page smb">reviews</span></div></td>
+              <td><div class="pill-none">— not in v1</div></td>
+              <td><span class="status smb-only"><span class="status-dot"></span>SMB only</span></td>
+              <td></td>
+            </tr>
+            <tr class="signal-row" data-cat="reviews" data-status="smb-only">
+              <td><div class="signal-name">Reviewer name anonymization</div><div class="signal-formula">First + last initial</div></td>
+              <td><div class="signal-source">Internal</div></td>
+              <td><span class="signal-freq weekly">Weekly</span></td>
+              <td><div class="portal-pills"><span class="pill-page smb">reviews</span><span class="pill-page smb">activity</span></div></td>
+              <td><div class="pill-none">— not in v1</div></td>
+              <td><span class="status smb-only"><span class="status-dot"></span>SMB only</span></td>
+              <td></td>
+            </tr>
+            <tr class="signal-row" data-cat="reviews" data-status="both">
+              <td><div class="signal-name">Owner reply rate</div><div class="signal-formula">count(owner_answer ≠ null) / 20</div></td>
+              <td><div class="signal-source">Computed</div></td>
+              <td><span class="signal-freq weekly">Weekly</span></td>
+              <td><div class="portal-pills"><span class="pill-page smb">dashboard</span><span class="pill-page smb">reviews</span><span class="pill-page smb">competitors</span></div></td>
+              <td><div class="portal-pills"><span class="pill-page agency">prospect</span><span class="pill-page agency">list-detail</span><span class="pill-page agency">search filter</span></div></td>
+              <td><span class="status both"><span class="status-dot"></span>Both</span></td>
+              <td><div class="note">Hero metric for agency lists</div></td>
+            </tr>
+            <tr class="signal-row" data-cat="reviews" data-status="both">
+              <td><div class="signal-name">Unanswered queue</div><div class="signal-formula">count(owner_answer == null)</div></td>
+              <td><div class="signal-source">Computed</div></td>
+              <td><span class="signal-freq weekly">Weekly</span></td>
+              <td><div class="portal-pills"><span class="pill-page smb">dashboard</span><span class="pill-page smb">reviews</span></div></td>
+              <td><div class="portal-pills"><span class="pill-page agency">prospect</span><span class="pill-page agency">search filter</span></div></td>
+              <td><span class="status both"><span class="status-dot"></span>Both</span></td>
+              <td><div class="note">Agency: 1★ &gt;7d filter</div></td>
+            </tr>
+            <tr class="signal-row" data-cat="reviews" data-status="both">
+              <td><div class="signal-name">Review velocity (30d)</div><div class="signal-formula">count last 30d</div></td>
+              <td><div class="signal-source">Computed</div></td>
+              <td><span class="signal-freq weekly">Weekly</span></td>
+              <td><div class="portal-pills"><span class="pill-page smb">dashboard</span><span class="pill-page smb">reviews</span><span class="pill-page smb">competitors</span></div></td>
+              <td><div class="portal-pills"><span class="pill-page agency">prospect</span><span class="pill-page agency">search filter</span></div></td>
+              <td><span class="status both"><span class="status-dot"></span>Both</span></td>
+              <td></td>
+            </tr>
+            <tr class="signal-row" data-cat="reviews" data-status="smb-only">
+              <td><div class="signal-name">Velocity vs leader</div><div class="signal-formula">your / leader</div></td>
+              <td><div class="signal-source">Computed</div></td>
+              <td><span class="signal-freq weekly">Weekly</span></td>
+              <td><div class="portal-pills"><span class="pill-page smb">dashboard</span><span class="pill-page smb">competitors</span></div></td>
+              <td><div class="pill-none">— not in v1</div></td>
+              <td><span class="status smb-only"><span class="status-dot"></span>SMB only</span></td>
+              <td><div class="note">Need leader context · roadmap</div></td>
+            </tr>
+            <tr class="signal-row" data-cat="reviews" data-status="both">
+              <td><div class="signal-name">Top topics in reviews</div><div class="signal-formula">place_topics[] with mentions</div></td>
+              <td><div class="signal-source">Google place_topics</div></td>
+              <td><span class="signal-freq weekly">Weekly</span></td>
+              <td><div class="portal-pills"><span class="pill-page smb">reviews</span></div></td>
+              <td><div class="portal-pills"><span class="pill-page agency">prospect</span></div></td>
+              <td><span class="status both"><span class="status-dot"></span>Both</span></td>
+              <td><div class="note">Agency: recurring negative theme</div></td>
+            </tr>
+            <tr class="signal-row" data-cat="reviews" data-status="smb-only">
+              <td><div class="signal-name">Per-review sentiment</div><div class="signal-formula">pos / neu / neg</div></td>
+              <td><div class="signal-source">Claude Haiku</div></td>
+              <td><span class="signal-freq realtime">On new</span></td>
+              <td><div class="portal-pills"><span class="pill-page smb">reviews</span></div></td>
+              <td><div class="pill-none">— not in v1</div></td>
+              <td><span class="status smb-only"><span class="status-dot"></span>SMB only</span></td>
+              <td><div class="note">Agency aggregates only</div></td>
+            </tr>
+            <tr class="signal-row" data-cat="reviews" data-status="smb-only">
+              <td><div class="signal-name">AI-drafted reply</div><div class="signal-formula">Haiku · 80–140 words</div></td>
+              <td><div class="signal-source">Claude Haiku</div></td>
+              <td><span class="signal-freq realtime">On new</span></td>
+              <td><div class="portal-pills"><span class="pill-page smb">reviews</span></div></td>
+              <td><div class="pill-none">— out of scope</div></td>
+              <td><span class="status smb-only"><span class="status-dot"></span>SMB only</span></td>
+              <td><div class="note">Reply happens client-side</div></td>
+            </tr>
+            <tr class="signal-row" data-cat="reviews" data-status="smb-only">
+              <td><div class="signal-name">Reply tone selector</div><div class="signal-formula">User-configurable</div></td>
+              <td><div class="signal-source">App config</div></td>
+              <td><span class="signal-freq weekly">n/a</span></td>
+              <td><div class="portal-pills"><span class="pill-page smb">reviews</span><span class="pill-page smb">settings</span></div></td>
+              <td><div class="pill-none">— out of scope</div></td>
+              <td><span class="status smb-only"><span class="status-dot"></span>SMB only</span></td>
+              <td></td>
+            </tr>
+            <tr class="signal-row" data-cat="reviews" data-status="both">
+              <td><div class="signal-name">Bilingual review detection</div><div class="signal-formula">Lang-detect per review</div></td>
+              <td><div class="signal-source">Haiku + langdetect</div></td>
+              <td><span class="signal-freq realtime">On new</span></td>
+              <td><div class="portal-pills"><span class="pill-page smb">reviews</span></div></td>
+              <td><div class="portal-pills"><span class="pill-page agency">prospect</span></div></td>
+              <td><span class="status both"><span class="status-dot"></span>Both</span></td>
+              <td><div class="note">Agency: positive differentiator</div></td>
+            </tr>
+            <tr class="signal-row" data-cat="reviews" data-status="smb-only">
+              <td><div class="signal-name">Returning-customer flag</div><div class="signal-formula">profile_reviews_count &gt; 5</div></td>
+              <td><div class="signal-source">Reviews API</div></td>
+              <td><span class="signal-freq weekly">Weekly</span></td>
+              <td><div class="portal-pills"><span class="pill-page smb">reviews</span></div></td>
+              <td><div class="pill-none">— not in v1</div></td>
+              <td><span class="status smb-only"><span class="status-dot"></span>SMB only</span></td>
+              <td></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- ============ C. COMPETITORS ============ -->
+      <div class="section-head">
+        <h2>C · Competitor tracking</h2>
+        <span class="section-meta">12 signals · 9 in SMB · 4 in agency</span>
+      </div>
+      <div class="matrix">
+        <table>
+          <thead>
+            <tr>
+              <th style="width:20%;">Signal</th>
+              <th style="width:14%;">Source</th>
+              <th style="width:8%;">Freq</th>
+              <th style="width:16%;">SMB portal</th>
+              <th style="width:16%;">Agency portal</th>
+              <th style="width:10%;">Status</th>
+              <th style="width:16%;">Note</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="signal-row" data-cat="competitors" data-status="both">
+              <td><div class="signal-name">Top N competitors (local pack)</div><div class="signal-formula">SERP local_pack</div></td>
+              <td><div class="signal-source">DataForSEO SERP</div></td>
+              <td><span class="signal-freq weekly">Weekly</span></td>
+              <td><div class="portal-pills"><span class="pill-page smb">competitors</span><span class="pill-page smb">market</span></div></td>
+              <td><div class="portal-pills"><span class="pill-page agency">prospect</span></div></td>
+              <td><span class="status both"><span class="status-dot"></span>Both</span></td>
+              <td></td>
+            </tr>
+            <tr class="signal-row" data-cat="competitors" data-status="smb-only">
+              <td><div class="signal-name">Per-competitor stats</div><div class="signal-formula">rating, reviews, photos per place_id</div></td>
+              <td><div class="signal-source">Maps per competitor</div></td>
+              <td><span class="signal-freq weekly">Weekly</span></td>
+              <td><div class="portal-pills"><span class="pill-page smb">competitors</span></div></td>
+              <td><div class="portal-pills"><span class="pill-page agency dim">prospect leader only</span></div></td>
+              <td><span class="status partial"><span class="status-dot"></span>Partial</span></td>
+              <td><div class="note">Agency shows only leader stats</div></td>
+            </tr>
+            <tr class="signal-row" data-cat="competitors" data-status="smb-only">
+              <td><div class="signal-name">Per-competitor hours, attributes</div><div class="signal-formula">Direct fields</div></td>
+              <td><div class="signal-source">Maps</div></td>
+              <td><span class="signal-freq weekly">Weekly</span></td>
+              <td><div class="portal-pills"><span class="pill-page smb">competitors</span></div></td>
+              <td><div class="pill-none">— not in v1</div></td>
+              <td><span class="status smb-only"><span class="status-dot"></span>SMB only</span></td>
+              <td></td>
+            </tr>
+            <tr class="signal-row" data-cat="competitors" data-status="smb-only">
+              <td><div class="signal-name">Rating + review + photo gaps</div><div class="signal-formula">competitor.X − your.X</div></td>
+              <td><div class="signal-source">Computed</div></td>
+              <td><span class="signal-freq weekly">Weekly</span></td>
+              <td><div class="portal-pills"><span class="pill-page smb">competitors</span></div></td>
+              <td><div class="portal-pills"><span class="pill-page agency dim">prospect implicit</span></div></td>
+              <td><span class="status partial"><span class="status-dot"></span>Partial</span></td>
+              <td><div class="note">Agency mentions only key gap</div></td>
+            </tr>
+            <tr class="signal-row" data-cat="competitors" data-status="both">
+              <td><div class="signal-name">Same-building proximity flag</div><div class="signal-formula">Same address AND distance &lt; 50m</div></td>
+              <td><div class="signal-source">Geocode distance</div></td>
+              <td><span class="signal-freq weekly">Weekly</span></td>
+              <td><div class="portal-pills"><span class="pill-page smb">dashboard</span><span class="pill-page smb">competitors</span><span class="pill-page smb">market</span></div></td>
+              <td><div class="portal-pills"><span class="pill-page agency">prospect</span><span class="pill-page agency">list-detail</span></div></td>
+              <td><span class="status both"><span class="status-dot"></span>Both</span></td>
+              <td><div class="note">Strong agency pitch wedge</div></td>
+            </tr>
+            <tr class="signal-row" data-cat="competitors" data-status="smb-only">
+              <td><div class="signal-name">Competitor activity diff</div><div class="signal-formula">Diff between weekly snapshots</div></td>
+              <td><div class="signal-source">Maps + Reviews diff</div></td>
+              <td><span class="signal-freq weekly">Weekly</span></td>
+              <td><div class="portal-pills"><span class="pill-page smb">activity</span></div></td>
+              <td><div class="pill-none">— not in v1</div></td>
+              <td><span class="status smb-only"><span class="status-dot"></span>SMB only</span></td>
+              <td></td>
+            </tr>
+            <tr class="signal-row" data-cat="competitors" data-status="partial">
+              <td><div class="signal-name">Competitor themes</div><div class="signal-formula">place_topics per competitor</div></td>
+              <td><div class="signal-source">Google place_topics</div></td>
+              <td><span class="signal-freq weekly">Weekly</span></td>
+              <td><div class="portal-pills"><span class="pill-page smb dim">competitors deep-dive</span></div></td>
+              <td><div class="pill-none">— not in v1</div></td>
+              <td><span class="status partial"><span class="status-dot"></span>Partial</span></td>
+              <td></td>
+            </tr>
+            <tr class="signal-row" data-cat="competitors" data-status="partial">
+              <td><div class="signal-name">Competitor staff names</div><div class="signal-formula">LLM NER on review text</div></td>
+              <td><div class="signal-source">Haiku NER</div></td>
+              <td><span class="signal-freq weekly">Weekly</span></td>
+              <td><div class="portal-pills"><span class="pill-page smb dim">competitors deep-dive</span></div></td>
+              <td><div class="pill-none">— not in v1</div></td>
+              <td><span class="status partial"><span class="status-dot"></span>Partial</span></td>
+              <td></td>
+            </tr>
+            <tr class="signal-row" data-cat="competitors" data-status="partial">
+              <td><div class="signal-name">"Passed you in X months" framing</div><div class="signal-formula">first_seen + crossings</div></td>
+              <td><div class="signal-source">Maps `first_seen`</div></td>
+              <td><span class="signal-freq monthly">Monthly</span></td>
+              <td><div class="portal-pills"><span class="pill-page smb dim">competitors</span></div></td>
+              <td><div class="pill-none">— not in v1</div></td>
+              <td><span class="status partial"><span class="status-dot"></span>Partial</span></td>
+              <td></td>
+            </tr>
+            <tr class="signal-row" data-cat="competitors" data-status="both">
+              <td><div class="signal-name">Threat ranking score</div><div class="signal-formula">Geo + service + rank + momentum</div></td>
+              <td><div class="signal-source">Computed</div></td>
+              <td><span class="signal-freq weekly">Weekly</span></td>
+              <td><div class="portal-pills"><span class="pill-page smb">competitors</span></div></td>
+              <td><div class="portal-pills"><span class="pill-page agency">prospect</span></div></td>
+              <td><span class="status both"><span class="status-dot"></span>Both</span></td>
+              <td></td>
+            </tr>
+            <tr class="signal-row" data-cat="competitors" data-status="smb-only">
+              <td><div class="signal-name">Structural gaps</div><div class="signal-formula">Completeness diff vs leader</div></td>
+              <td><div class="signal-source">Computed</div></td>
+              <td><span class="signal-freq weekly">Weekly</span></td>
+              <td><div class="portal-pills"><span class="pill-page smb">competitors</span></div></td>
+              <td><div class="pill-none">— not in v1</div></td>
+              <td><span class="status smb-only"><span class="status-dot"></span>SMB only</span></td>
+              <td></td>
+            </tr>
+            <tr class="signal-row" data-cat="competitors" data-status="smb-only">
+              <td><div class="signal-name">Service coverage matrix</div><div class="signal-formula">Crawl + Maps join</div></td>
+              <td><div class="signal-source">Crawl + Maps</div></td>
+              <td><span class="signal-freq weekly">Weekly</span></td>
+              <td><div class="portal-pills"><span class="pill-page smb">competitors</span></div></td>
+              <td><div class="pill-none">— not in v1</div></td>
+              <td><span class="status smb-only"><span class="status-dot"></span>SMB only</span></td>
+              <td></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- ============ D. SEARCH ============ -->
+      <div class="section-head">
+        <h2>D · Search & visibility</h2>
+        <span class="section-meta">12 signals · 10 in SMB · 6 in agency</span>
+      </div>
+      <div class="matrix">
+        <table>
+          <thead>
+            <tr><th style="width:20%;">Signal</th><th style="width:14%;">Source</th><th style="width:8%;">Freq</th><th style="width:16%;">SMB portal</th><th style="width:16%;">Agency portal</th><th style="width:10%;">Status</th><th style="width:16%;">Note</th></tr>
+          </thead>
+          <tbody>
+            <tr class="signal-row" data-cat="search" data-status="both"><td><div class="signal-name">Keyword search volume</div><div class="signal-formula">search_volume per location</div></td><td><div class="signal-source">DataForSEO Google Ads</div></td><td><span class="signal-freq monthly">Monthly</span></td><td><div class="portal-pills"><span class="pill-page smb">search</span><span class="pill-page smb">ads</span></div></td><td><div class="portal-pills"><span class="pill-page agency">prospect</span></div></td><td><span class="status both"><span class="status-dot"></span>Both</span></td><td></td></tr>
+            <tr class="signal-row" data-cat="search" data-status="smb-only"><td><div class="signal-name">Keyword CPC</div><div class="signal-formula">cpc field</div></td><td><div class="signal-source">DataForSEO Google Ads</div></td><td><span class="signal-freq monthly">Monthly</span></td><td><div class="portal-pills"><span class="pill-page smb">search</span><span class="pill-page smb">ads</span></div></td><td><div class="pill-none">— not in v1</div></td><td><span class="status smb-only"><span class="status-dot"></span>SMB only</span></td><td></td></tr>
+            <tr class="signal-row" data-cat="search" data-status="smb-only"><td><div class="signal-name">Keyword competition</div><div class="signal-formula">competition_index</div></td><td><div class="signal-source">DataForSEO Google Ads</div></td><td><span class="signal-freq monthly">Monthly</span></td><td><div class="portal-pills"><span class="pill-page smb">search</span></div></td><td><div class="pill-none">— not in v1</div></td><td><span class="status smb-only"><span class="status-dot"></span>SMB only</span></td><td></td></tr>
+            <tr class="signal-row" data-cat="search" data-status="partial"><td><div class="signal-name">12-month volume trend</div><div class="signal-formula">monthly_searches[]</div></td><td><div class="signal-source">DataForSEO Google Ads</div></td><td><span class="signal-freq monthly">Monthly</span></td><td><div class="portal-pills"><span class="pill-page smb dim">search detail</span></div></td><td><div class="pill-none">— not in v1</div></td><td><span class="status partial"><span class="status-dot"></span>Partial</span></td><td></td></tr>
+            <tr class="signal-row" data-cat="search" data-status="both"><td><div class="signal-name">Local pack rank per keyword</div><div class="signal-formula">Find place_id in local_pack[]</div></td><td><div class="signal-source">DataForSEO SERP</div></td><td><span class="signal-freq weekly">Weekly</span></td><td><div class="portal-pills"><span class="pill-page smb">search</span><span class="pill-page smb">dashboard</span></div></td><td><div class="portal-pills"><span class="pill-page agency">prospect</span><span class="pill-page agency">search filter</span></div></td><td><span class="status both"><span class="status-dot"></span>Both</span></td><td><div class="note">"Not in 3-pack" is agency filter</div></td></tr>
+            <tr class="signal-row" data-cat="search" data-status="both"><td><div class="signal-name">Local pack occupants</div><div class="signal-formula">First 3 items in local_pack</div></td><td><div class="signal-source">DataForSEO SERP</div></td><td><span class="signal-freq weekly">Weekly</span></td><td><div class="portal-pills"><span class="pill-page smb">search</span></div></td><td><div class="portal-pills"><span class="pill-page agency">prospect</span></div></td><td><span class="status both"><span class="status-dot"></span>Both</span></td><td></td></tr>
+            <tr class="signal-row" data-cat="search" data-status="smb-only"><td><div class="signal-name">Organic rank per keyword</div><div class="signal-formula">Find domain in organic[]</div></td><td><div class="signal-source">DataForSEO SERP</div></td><td><span class="signal-freq weekly">Weekly</span></td><td><div class="portal-pills"><span class="pill-page smb">search</span></div></td><td><div class="portal-pills"><span class="pill-page agency dim">prospect mention</span></div></td><td><span class="status partial"><span class="status-dot"></span>Partial</span></td><td></td></tr>
+            <tr class="signal-row" data-cat="search" data-status="smb-only"><td><div class="signal-name">Service × demand match</div><div class="signal-formula">Service catalog ↔ keyword volume</div></td><td><div class="signal-source">Internal join</div></td><td><span class="signal-freq weekly">Weekly</span></td><td><div class="portal-pills"><span class="pill-page smb">search</span></div></td><td><div class="pill-none">— not in v1</div></td><td><span class="status smb-only"><span class="status-dot"></span>SMB only</span></td><td></td></tr>
+            <tr class="signal-row" data-cat="search" data-status="both"><td><div class="signal-name">Open lane detection</div><div class="signal-formula">≤2 advertisers AND you_offer</div></td><td><div class="signal-source">Computed</div></td><td><span class="signal-freq weekly">Weekly</span></td><td><div class="portal-pills"><span class="pill-page smb">search</span><span class="pill-page smb">ads</span></div></td><td><div class="portal-pills"><span class="pill-page agency">prospect</span></div></td><td><span class="status both"><span class="status-dot"></span>Both</span></td><td></td></tr>
+            <tr class="signal-row" data-cat="search" data-status="partial"><td><div class="signal-name">Share of voice estimate</div><div class="signal-formula">Σ(CTR[rank] × volume)</div></td><td><div class="signal-source">Computed</div></td><td><span class="signal-freq weekly">Weekly</span></td><td><div class="portal-pills"><span class="pill-page smb dim">search summary</span></div></td><td><div class="pill-none">— not in v1</div></td><td><span class="status partial"><span class="status-dot"></span>Partial</span></td><td></td></tr>
+            <tr class="signal-row" data-cat="search" data-status="smb-only"><td><div class="signal-name">Service catalog source</div><div class="signal-formula">Categories ∪ crawl ∪ topics</div></td><td><div class="signal-source">3-source union</div></td><td><span class="signal-freq weekly">Weekly</span></td><td><div class="portal-pills"><span class="pill-page smb">search</span><span class="pill-page smb">settings</span></div></td><td><div class="pill-none">— internal</div></td><td><span class="status smb-only"><span class="status-dot"></span>SMB only</span></td><td></td></tr>
+            <tr class="signal-row" data-cat="search" data-status="smb-only"><td><div class="signal-name">Trending services in market</div><div class="signal-formula">YoY growth &gt; 50%</div></td><td><div class="signal-source">Aggregated</div></td><td><span class="signal-freq monthly">Monthly</span></td><td><div class="portal-pills"><span class="pill-page smb">market</span></div></td><td><div class="pill-none">— not in v1</div></td><td><span class="status smb-only"><span class="status-dot"></span>SMB only</span></td><td></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- ============ E. ADS ============ -->
+      <div class="section-head">
+        <h2>E · Ads intelligence</h2>
+        <span class="section-meta">12 signals · 9 in SMB · 4 in agency</span>
+      </div>
+      <div class="matrix">
+        <table>
+          <thead>
+            <tr><th style="width:20%;">Signal</th><th style="width:14%;">Source</th><th style="width:8%;">Freq</th><th style="width:16%;">SMB portal</th><th style="width:16%;">Agency portal</th><th style="width:10%;">Status</th><th style="width:16%;">Note</th></tr>
+          </thead>
+          <tbody>
+            <tr class="signal-row" data-cat="ads" data-status="both"><td><div class="signal-name">Active Meta ads</div><div class="signal-formula">funder = name + ACTIVE</div></td><td><div class="signal-source">Meta Ad Library (free)</div></td><td><span class="signal-freq daily">Daily</span></td><td><div class="portal-pills"><span class="pill-page smb">ads</span></div></td><td><div class="portal-pills"><span class="pill-page agency">prospect</span><span class="pill-page agency">search filter</span></div></td><td><span class="status both"><span class="status-dot"></span>Both</span></td><td></td></tr>
+            <tr class="signal-row" data-cat="ads" data-status="smb-only"><td><div class="signal-name">Active Google ads</div><div class="signal-formula">Domain lookup 30d</div></td><td><div class="signal-source">Google Ads Transparency</div></td><td><span class="signal-freq daily">Daily</span></td><td><div class="portal-pills"><span class="pill-page smb">ads</span></div></td><td><div class="pill-none">— not in v1</div></td><td><span class="status smb-only"><span class="status-dot"></span>SMB only</span></td><td></td></tr>
+            <tr class="signal-row" data-cat="ads" data-status="partial"><td><div class="signal-name">Ad copy themes (cluster)</div><div class="signal-formula">LLM clusters</div></td><td><div class="signal-source">Haiku</div></td><td><span class="signal-freq weekly">Weekly</span></td><td><div class="portal-pills"><span class="pill-page smb dim">ads</span></div></td><td><div class="pill-none">— not in v1</div></td><td><span class="status partial"><span class="status-dot"></span>Partial</span></td><td></td></tr>
+            <tr class="signal-row" data-cat="ads" data-status="partial"><td><div class="signal-name">Ad landing pages</div><div class="signal-formula">landing_url</div></td><td><div class="signal-source">Meta Ad Library</div></td><td><span class="signal-freq weekly">Weekly</span></td><td><div class="portal-pills"><span class="pill-page smb dim">ads</span></div></td><td><div class="pill-none">— not in v1</div></td><td><span class="status partial"><span class="status-dot"></span>Partial</span></td><td></td></tr>
+            <tr class="signal-row" data-cat="ads" data-status="smb-only"><td><div class="signal-name">Per-keyword competitor count</div><div class="signal-formula">Distinct page_id per kw</div></td><td><div class="signal-source">Meta Ad Library</div></td><td><span class="signal-freq weekly">Weekly</span></td><td><div class="portal-pills"><span class="pill-page smb">ads</span></div></td><td><div class="pill-none">— not in v1</div></td><td><span class="status smb-only"><span class="status-dot"></span>SMB only</span></td><td></td></tr>
+            <tr class="signal-row" data-cat="ads" data-status="smb-only"><td><div class="signal-name">Per-keyword top advertisers</div><div class="signal-formula">Group + sort</div></td><td><div class="signal-source">Meta Ad Library</div></td><td><span class="signal-freq weekly">Weekly</span></td><td><div class="portal-pills"><span class="pill-page smb">ads</span></div></td><td><div class="pill-none">— not in v1</div></td><td><span class="status smb-only"><span class="status-dot"></span>SMB only</span></td><td></td></tr>
+            <tr class="signal-row" data-cat="ads" data-status="smb-only"><td><div class="signal-name">Competitor ad copy samples</div><div class="signal-formula">ad_creative_body snippets</div></td><td><div class="signal-source">Meta Ad Library</div></td><td><span class="signal-freq weekly">Weekly</span></td><td><div class="portal-pills"><span class="pill-page smb">ads</span><span class="pill-page smb">activity</span></div></td><td><div class="pill-none">— not in v1</div></td><td><span class="status smb-only"><span class="status-dot"></span>SMB only</span></td><td></td></tr>
+            <tr class="signal-row" data-cat="ads" data-status="both"><td><div class="signal-name">Brand hijack detection</div><div class="signal-formula">Paid SERP for brand</div></td><td><div class="signal-source">DataForSEO SERP</div></td><td><span class="signal-freq daily">Daily</span></td><td><div class="portal-pills"><span class="pill-page smb">dashboard</span><span class="pill-page smb">activity</span></div></td><td><div class="portal-pills"><span class="pill-page agency">prospect</span><span class="pill-page agency">search filter</span><span class="pill-page agency">lists</span></div></td><td><span class="status both"><span class="status-dot"></span>Both</span></td><td><div class="note">Agency has dedicated brand-hijack list</div></td></tr>
+            <tr class="signal-row" data-cat="ads" data-status="partial"><td><div class="signal-name">Brand hijack bidder list</div><div class="signal-formula">advertiser_domain + headline</div></td><td><div class="signal-source">DataForSEO SERP</div></td><td><span class="signal-freq daily">Daily</span></td><td><div class="portal-pills"><span class="pill-page smb dim">ads</span></div></td><td><div class="pill-none">— not in v1</div></td><td><span class="status partial"><span class="status-dot"></span>Partial</span></td><td></td></tr>
+            <tr class="signal-row" data-cat="ads" data-status="both"><td><div class="signal-name">Open-lane Meta opportunities</div><div class="signal-formula">≤2 advertisers AND offer</div></td><td><div class="signal-source">Computed</div></td><td><span class="signal-freq weekly">Weekly</span></td><td><div class="portal-pills"><span class="pill-page smb">ads</span></div></td><td><div class="portal-pills"><span class="pill-page agency">prospect</span></div></td><td><span class="status both"><span class="status-dot"></span>Both</span></td><td></td></tr>
+            <tr class="signal-row" data-cat="ads" data-status="smb-only"><td><div class="signal-name">Estimated CPC ceiling</div><div class="signal-formula">high_top_of_page_bid</div></td><td><div class="signal-source">DataForSEO Google Ads</div></td><td><span class="signal-freq monthly">Monthly</span></td><td><div class="portal-pills"><span class="pill-page smb">ads</span></div></td><td><div class="pill-none">— not in v1</div></td><td><span class="status smb-only"><span class="status-dot"></span>SMB only</span></td><td></td></tr>
+            <tr class="signal-row" data-cat="ads" data-status="smb-only"><td><div class="signal-name">Estimated competitor spend</div><div class="signal-formula">impressions × CPM</div></td><td><div class="signal-source">Computed</div></td><td><span class="signal-freq weekly">Weekly</span></td><td><div class="portal-pills"><span class="pill-page smb">ads</span></div></td><td><div class="pill-none">— not in v1</div></td><td><span class="status smb-only"><span class="status-dot"></span>SMB only</span></td><td></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- ============ F. WEBSITE ============ -->
+      <div class="section-head">
+        <h2>F · Website health</h2>
+        <span class="section-meta">15 signals · 9 in SMB · 6 in agency</span>
+      </div>
+      <div class="matrix">
+        <table>
+          <thead>
+            <tr><th style="width:20%;">Signal</th><th style="width:14%;">Source</th><th style="width:8%;">Freq</th><th style="width:16%;">SMB portal</th><th style="width:16%;">Agency portal</th><th style="width:10%;">Status</th><th style="width:16%;">Note</th></tr>
+          </thead>
+          <tbody>
+            <tr class="signal-row" data-cat="website" data-status="both"><td><div class="signal-name">Lighthouse scores (Perf / A11y / BP / SEO / PWA)</div><div class="signal-formula">categories.{x}.score × 100</div></td><td><div class="signal-source">DataForSEO Lighthouse</div></td><td><span class="signal-freq weekly">Weekly</span></td><td><div class="portal-pills"><span class="pill-page smb">website</span></div></td><td><div class="portal-pills"><span class="pill-page agency">prospect</span><span class="pill-page agency">search filter</span></div></td><td><span class="status both"><span class="status-dot"></span>Both</span></td><td><div class="note">"Perf &lt; 60" key filter</div></td></tr>
+            <tr class="signal-row" data-cat="website" data-status="both"><td><div class="signal-name">LCP</div><div class="signal-formula">largest-contentful-paint</div></td><td><div class="signal-source">Lighthouse</div></td><td><span class="signal-freq weekly">Weekly</span></td><td><div class="portal-pills"><span class="pill-page smb">website</span></div></td><td><div class="portal-pills"><span class="pill-page agency">prospect</span><span class="pill-page agency">search filter</span></div></td><td><span class="status both"><span class="status-dot"></span>Both</span></td><td></td></tr>
+            <tr class="signal-row" data-cat="website" data-status="smb-only"><td><div class="signal-name">CLS</div><div class="signal-formula">cumulative-layout-shift</div></td><td><div class="signal-source">Lighthouse</div></td><td><span class="signal-freq weekly">Weekly</span></td><td><div class="portal-pills"><span class="pill-page smb">website</span></div></td><td><div class="pill-none">— not in v1</div></td><td><span class="status smb-only"><span class="status-dot"></span>SMB only</span></td><td></td></tr>
+            <tr class="signal-row" data-cat="website" data-status="smb-only"><td><div class="signal-name">INP</div><div class="signal-formula">interactive numericValue</div></td><td><div class="signal-source">Lighthouse</div></td><td><span class="signal-freq weekly">Weekly</span></td><td><div class="portal-pills"><span class="pill-page smb">website</span></div></td><td><div class="pill-none">— not in v1</div></td><td><span class="status smb-only"><span class="status-dot"></span>SMB only</span></td><td></td></tr>
+            <tr class="signal-row" data-cat="website" data-status="partial"><td><div class="signal-name">FCP / TBT / TTFB / bytes</div><div class="signal-formula">Individual audits</div></td><td><div class="signal-source">Lighthouse</div></td><td><span class="signal-freq weekly">Weekly</span></td><td><div class="portal-pills"><span class="pill-page smb dim">website detail</span></div></td><td><div class="pill-none">— not in v1</div></td><td><span class="status partial"><span class="status-dot"></span>Partial</span></td><td></td></tr>
+            <tr class="signal-row" data-cat="website" data-status="both"><td><div class="signal-name">Schema · LocalBusiness</div><div class="signal-formula">JSON-LD @type check</div></td><td><div class="signal-source">Schema validator</div></td><td><span class="signal-freq weekly">Weekly</span></td><td><div class="portal-pills"><span class="pill-page smb">website</span></div></td><td><div class="portal-pills"><span class="pill-page agency">prospect</span><span class="pill-page agency">search filter</span></div></td><td><span class="status both"><span class="status-dot"></span>Both</span></td><td><div class="note">Agency: "no schema" filter</div></td></tr>
+            <tr class="signal-row" data-cat="website" data-status="both"><td><div class="signal-name">Schema · FAQ</div><div class="signal-formula">JSON-LD FAQPage</div></td><td><div class="signal-source">Schema validator</div></td><td><span class="signal-freq weekly">Weekly</span></td><td><div class="portal-pills"><span class="pill-page smb">website</span></div></td><td><div class="portal-pills"><span class="pill-page agency">search filter</span></div></td><td><span class="status both"><span class="status-dot"></span>Both</span></td><td></td></tr>
+            <tr class="signal-row" data-cat="website" data-status="both"><td><div class="signal-name">NAP consistency</div><div class="signal-formula">Phone strings across pages</div></td><td><div class="signal-source">Custom DOM crawl</div></td><td><span class="signal-freq weekly">Weekly</span></td><td><div class="portal-pills"><span class="pill-page smb">website</span></div></td><td><div class="portal-pills"><span class="pill-page agency">prospect</span></div></td><td><span class="status both"><span class="status-dot"></span>Both</span></td><td></td></tr>
+            <tr class="signal-row" data-cat="website" data-status="smb-only"><td><div class="signal-name">Service-page H1 keyword check</div><div class="signal-formula">Parse H1s</div></td><td><div class="signal-source">DOM crawl</div></td><td><span class="signal-freq weekly">Weekly</span></td><td><div class="portal-pills"><span class="pill-page smb">website</span></div></td><td><div class="pill-none">— not in v1</div></td><td><span class="status smb-only"><span class="status-dot"></span>SMB only</span></td><td></td></tr>
+            <tr class="signal-row" data-cat="website" data-status="smb-only"><td><div class="signal-name">Image alt-text completeness</div><div class="signal-formula">% img with descriptive alt</div></td><td><div class="signal-source">Lighthouse + crawl</div></td><td><span class="signal-freq weekly">Weekly</span></td><td><div class="portal-pills"><span class="pill-page smb">website</span></div></td><td><div class="pill-none">— not in v1</div></td><td><span class="status smb-only"><span class="status-dot"></span>SMB only</span></td><td></td></tr>
+            <tr class="signal-row" data-cat="website" data-status="smb-only"><td><div class="signal-name">Language / hreflang</div><div class="signal-formula">html lang + hreflang</div></td><td><div class="signal-source">DOM crawl</div></td><td><span class="signal-freq weekly">Weekly</span></td><td><div class="portal-pills"><span class="pill-page smb">website</span></div></td><td><div class="pill-none">— not in v1</div></td><td><span class="status smb-only"><span class="status-dot"></span>SMB only</span></td><td></td></tr>
+            <tr class="signal-row" data-cat="website" data-status="partial"><td><div class="signal-name">Booking CTA above fold</div><div class="signal-formula">DOM book/appointment in 600px</div></td><td><div class="signal-source">DOM crawl</div></td><td><span class="signal-freq weekly">Weekly</span></td><td><div class="portal-pills"><span class="pill-page smb dim">website</span></div></td><td><div class="pill-none">— not in v1</div></td><td><span class="status partial"><span class="status-dot"></span>Partial</span></td><td></td></tr>
+            <tr class="signal-row" data-cat="website" data-status="partial"><td><div class="signal-name">Phone above-fold · map · pricing · reviews widget</div><div class="signal-formula">DOM checks</div></td><td><div class="signal-source">DOM crawl</div></td><td><span class="signal-freq weekly">Weekly</span></td><td><div class="portal-pills"><span class="pill-page smb dim">website</span></div></td><td><div class="pill-none">— not in v1</div></td><td><span class="status partial"><span class="status-dot"></span>Partial</span></td><td></td></tr>
+            <tr class="signal-row" data-cat="website" data-status="partial"><td><div class="signal-name">Tech stack detection</div><div class="signal-formula">Wappalyzer signatures</div></td><td><div class="signal-source">Wappalyzer OSS</div></td><td><span class="signal-freq monthly">Monthly</span></td><td><div class="portal-pills"><span class="pill-page smb dim">website</span></div></td><td><div class="pill-none">— not in v1</div></td><td><span class="status partial"><span class="status-dot"></span>Partial</span></td><td></td></tr>
+            <tr class="signal-row" data-cat="website" data-status="smb-only"><td><div class="signal-name">Industry baseline comparison</div><div class="signal-formula">Median + p95 across top 10</div></td><td><div class="signal-source">Computed</div></td><td><span class="signal-freq monthly">Monthly</span></td><td><div class="portal-pills"><span class="pill-page smb">website</span></div></td><td><div class="pill-none">— not in v1</div></td><td><span class="status smb-only"><span class="status-dot"></span>SMB only</span></td><td></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- ============ G. MARKET ============ -->
+      <div class="section-head">
+        <h2>G · Market / census data</h2>
+        <span class="section-meta">11 signals · 8 in SMB · 2 in agency</span>
+      </div>
+      <div class="matrix">
+        <table>
+          <thead>
+            <tr><th style="width:20%;">Signal</th><th style="width:14%;">Source</th><th style="width:8%;">Freq</th><th style="width:16%;">SMB portal</th><th style="width:16%;">Agency portal</th><th style="width:10%;">Status</th><th style="width:16%;">Note</th></tr>
+          </thead>
+          <tbody>
+            <tr class="signal-row" data-cat="market" data-status="smb-only"><td><div class="signal-name">Total active competitors in metro</div><div class="signal-formula">Census in 5mi</div></td><td><div class="signal-source">Maps category</div></td><td><span class="signal-freq monthly">Monthly</span></td><td><div class="portal-pills"><span class="pill-page smb">dashboard</span><span class="pill-page smb">market</span></div></td><td><div class="pill-none">— internal</div></td><td><span class="status smb-only"><span class="status-dot"></span>SMB only</span></td><td><div class="note">Drives agency's index size</div></td></tr>
+            <tr class="signal-row" data-cat="market" data-status="partial"><td><div class="signal-name">Total claimed competitors</div><div class="signal-formula">Filter is_claimed = true</div></td><td><div class="signal-source">Computed</div></td><td><span class="signal-freq monthly">Monthly</span></td><td><div class="portal-pills"><span class="pill-page smb dim">market</span></div></td><td><div class="portal-pills"><span class="pill-page agency">search filter</span></div></td><td><span class="status both"><span class="status-dot"></span>Both</span></td><td></td></tr>
+            <tr class="signal-row" data-cat="market" data-status="smb-only"><td><div class="signal-name">MSI rank</div><div class="signal-formula">Weighted composite</div></td><td><div class="signal-source">Computed</div></td><td><span class="signal-freq weekly">Weekly</span></td><td><div class="portal-pills"><span class="pill-page smb">dashboard</span><span class="pill-page smb">market</span></div></td><td><div class="portal-pills"><span class="pill-page agency dim">prospect mention</span></div></td><td><span class="status partial"><span class="status-dot"></span>Partial</span></td><td></td></tr>
+            <tr class="signal-row" data-cat="market" data-status="smb-only"><td><div class="signal-name">Market medians (rating, reviews, reply, photos)</div><div class="signal-formula">Quartiles</div></td><td><div class="signal-source">Computed</div></td><td><span class="signal-freq weekly">Weekly</span></td><td><div class="portal-pills"><span class="pill-page smb">market</span></div></td><td><div class="pill-none">— not in v1</div></td><td><span class="status smb-only"><span class="status-dot"></span>SMB only</span></td><td></td></tr>
+            <tr class="signal-row" data-cat="market" data-status="partial"><td><div class="signal-name">Rating distribution (market)</div><div class="signal-formula">Histogram</div></td><td><div class="signal-source">Computed</div></td><td><span class="signal-freq weekly">Weekly</span></td><td><div class="portal-pills"><span class="pill-page smb dim">market</span></div></td><td><div class="pill-none">— not in v1</div></td><td><span class="status partial"><span class="status-dot"></span>Partial</span></td><td></td></tr>
+            <tr class="signal-row" data-cat="market" data-status="partial"><td><div class="signal-name">% of competitors running ads</div><div class="signal-formula">with_ads / total</div></td><td><div class="signal-source">Meta batch</div></td><td><span class="signal-freq weekly">Weekly</span></td><td><div class="portal-pills"><span class="pill-page smb dim">market</span></div></td><td><div class="pill-none">— not in v1</div></td><td><span class="status partial"><span class="status-dot"></span>Partial</span></td><td></td></tr>
+            <tr class="signal-row" data-cat="market" data-status="both"><td><div class="signal-name">New entrants (last 90d)</div><div class="signal-formula">first_seen &gt; today−90d</div></td><td><div class="signal-source">Maps diff</div></td><td><span class="signal-freq monthly">Monthly</span></td><td><div class="portal-pills"><span class="pill-page smb">market</span><span class="pill-page smb">activity</span></div></td><td><div class="portal-pills"><span class="pill-page agency">lists</span><span class="pill-page agency">activity</span></div></td><td><span class="status both"><span class="status-dot"></span>Both</span></td><td><div class="note">Agency has "new entrants" list type</div></td></tr>
+            <tr class="signal-row" data-cat="market" data-status="smb-only"><td><div class="signal-name">Inactive / closed</div><div class="signal-formula">is_active flips</div></td><td><div class="signal-source">Maps diff</div></td><td><span class="signal-freq monthly">Monthly</span></td><td><div class="portal-pills"><span class="pill-page smb">market</span></div></td><td><div class="pill-none">— not in v1</div></td><td><span class="status smb-only"><span class="status-dot"></span>SMB only</span></td><td></td></tr>
+            <tr class="signal-row" data-cat="market" data-status="smb-only"><td><div class="signal-name">Spatial distribution map</div><div class="signal-formula">Plot lat/lng</div></td><td><div class="signal-source">Coordinates</div></td><td><span class="signal-freq monthly">Monthly</span></td><td><div class="portal-pills"><span class="pill-page smb">market</span></div></td><td><div class="pill-none">— not in v1</div></td><td><span class="status smb-only"><span class="status-dot"></span>SMB only</span></td><td></td></tr>
+            <tr class="signal-row" data-cat="market" data-status="smb-only"><td><div class="signal-name">Fastest growers / slippers</div><div class="signal-formula">Delta MSI 90d</div></td><td><div class="signal-source">Computed</div></td><td><span class="signal-freq weekly">Weekly</span></td><td><div class="portal-pills"><span class="pill-page smb">market</span></div></td><td><div class="pill-none">— not in v1</div></td><td><span class="status smb-only"><span class="status-dot"></span>SMB only</span></td><td></td></tr>
+            <tr class="signal-row" data-cat="market" data-status="smb-only"><td><div class="signal-name">Market median rating</div><div class="signal-formula">Mean(rating)</div></td><td><div class="signal-source">Computed</div></td><td><span class="signal-freq weekly">Weekly</span></td><td><div class="portal-pills"><span class="pill-page smb">market</span></div></td><td><div class="pill-none">— not in v1</div></td><td><span class="status smb-only"><span class="status-dot"></span>SMB only</span></td><td></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- ============ H. SCORES ============ -->
+      <div class="section-head">
+        <h2>H · Computed scores</h2>
+        <span class="section-meta">11 signals · 10 in SMB · 1 in agency</span>
+      </div>
+      <div class="matrix">
+        <table>
+          <thead>
+            <tr><th style="width:20%;">Signal</th><th style="width:14%;">Source</th><th style="width:8%;">Freq</th><th style="width:16%;">SMB portal</th><th style="width:16%;">Agency portal</th><th style="width:10%;">Status</th><th style="width:16%;">Note</th></tr>
+          </thead>
+          <tbody>
+            <tr class="signal-row" data-cat="scores" data-status="smb-only"><td><div class="signal-name">Mapsly Score (0–10)</div><div class="signal-formula">6-dimension composite</div></td><td><div class="signal-source">Internal</div></td><td><span class="signal-freq weekly">Weekly</span></td><td><div class="portal-pills"><span class="pill-page smb">dashboard</span></div></td><td><div class="pill-none">— internal · powers ranking</div></td><td><span class="status smb-only"><span class="status-dot"></span>SMB only</span></td><td><div class="note">Agency uses internally for match-score ordering</div></td></tr>
+            <tr class="signal-row" data-cat="scores" data-status="smb-only"><td><div class="signal-name">Reputation sub-score</div><div class="signal-formula">rating + log(reviews)</div></td><td><div class="signal-source">Internal</div></td><td><span class="signal-freq weekly">Weekly</span></td><td><div class="portal-pills"><span class="pill-page smb">dashboard</span></div></td><td><div class="pill-none">— internal</div></td><td><span class="status smb-only"><span class="status-dot"></span>SMB only</span></td><td></td></tr>
+            <tr class="signal-row" data-cat="scores" data-status="smb-only"><td><div class="signal-name">Communication sub-score</div><div class="signal-formula">owner_reply_rate × 10</div></td><td><div class="signal-source">Internal</div></td><td><span class="signal-freq weekly">Weekly</span></td><td><div class="portal-pills"><span class="pill-page smb">dashboard</span></div></td><td><div class="pill-none">— internal</div></td><td><span class="status smb-only"><span class="status-dot"></span>SMB only</span></td><td></td></tr>
+            <tr class="signal-row" data-cat="scores" data-status="smb-only"><td><div class="signal-name">Profile completeness</div><div class="signal-formula">filled / total fields</div></td><td><div class="signal-source">Internal</div></td><td><span class="signal-freq weekly">Weekly</span></td><td><div class="portal-pills"><span class="pill-page smb">dashboard</span></div></td><td><div class="pill-none">— internal</div></td><td><span class="status smb-only"><span class="status-dot"></span>SMB only</span></td><td></td></tr>
+            <tr class="signal-row" data-cat="scores" data-status="smb-only"><td><div class="signal-name">Trust / Pricing / Brand-presence sub-scores</div><div class="signal-formula">Rule-scored composites</div></td><td><div class="signal-source">Internal</div></td><td><span class="signal-freq weekly">Weekly</span></td><td><div class="portal-pills"><span class="pill-page smb">dashboard</span></div></td><td><div class="pill-none">— internal</div></td><td><span class="status smb-only"><span class="status-dot"></span>SMB only</span></td><td></td></tr>
+            <tr class="signal-row" data-cat="scores" data-status="smb-only"><td><div class="signal-name">Recommended fixes engine</div><div class="signal-formula">Rules trigger from sub-scores</div></td><td><div class="signal-source">Internal rules</div></td><td><span class="signal-freq weekly">Weekly</span></td><td><div class="portal-pills"><span class="pill-page smb">dashboard</span></div></td><td><div class="pill-none">— not in v1</div></td><td><span class="status smb-only"><span class="status-dot"></span>SMB only</span></td><td></td></tr>
+            <tr class="signal-row" data-cat="scores" data-status="smb-only"><td><div class="signal-name">Estimated new patients/mo</div><div class="signal-formula">Σ(volume × CTR × conversion)</div></td><td><div class="signal-source">Internal</div></td><td><span class="signal-freq weekly">Weekly</span></td><td><div class="portal-pills"><span class="pill-page smb">dashboard</span><span class="pill-page smb">search</span></div></td><td><div class="pill-none">— not in v1</div></td><td><span class="status smb-only"><span class="status-dot"></span>SMB only</span></td><td></td></tr>
+            <tr class="signal-row" data-cat="scores" data-status="smb-only"><td><div class="signal-name">Estimated revenue lift per fix</div><div class="signal-formula">marginal_patients × ticket</div></td><td><div class="signal-source">Internal</div></td><td><span class="signal-freq weekly">Weekly</span></td><td><div class="portal-pills"><span class="pill-page smb">dashboard</span></div></td><td><div class="pill-none">— not in v1</div></td><td><span class="status smb-only"><span class="status-dot"></span>SMB only</span></td><td></td></tr>
+            <tr class="signal-row" data-cat="scores" data-status="partial"><td><div class="signal-name">Projected score with fixes</div><div class="signal-formula">Apply impact deltas</div></td><td><div class="signal-source">Internal</div></td><td><span class="signal-freq weekly">Weekly</span></td><td><div class="portal-pills"><span class="pill-page smb dim">dashboard</span></div></td><td><div class="pill-none">— not in v1</div></td><td><span class="status partial"><span class="status-dot"></span>Partial</span></td><td></td></tr>
+            <tr class="signal-row" data-cat="scores" data-status="smb-only"><td><div class="signal-name">Score trend over time</div><div class="signal-formula">Snapshot diff WoW</div></td><td><div class="signal-source">Internal</div></td><td><span class="signal-freq weekly">Weekly</span></td><td><div class="portal-pills"><span class="pill-page smb">dashboard</span><span class="pill-page smb">activity</span></div></td><td><div class="pill-none">— not in v1</div></td><td><span class="status smb-only"><span class="status-dot"></span>SMB only</span></td><td></td></tr>
+            <tr class="signal-row" data-cat="scores" data-status="both"><td><div class="signal-name">Match score (agency)</div><div class="signal-formula">signal_strength × intent × fit</div></td><td><div class="signal-source">Internal</div></td><td><span class="signal-freq weekly">Weekly</span></td><td><div class="pill-none">— agency-side scoring</div></td><td><div class="portal-pills"><span class="pill-page agency">list-detail</span><span class="pill-page agency">prospect</span></div></td><td><span class="status agency-only"><span class="status-dot"></span>Agency only</span></td><td><div class="note">Ranks leads in a list</div></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- ============ I. ALERTS / EVENTS ============ -->
+      <div class="section-head">
+        <h2>I · Alerts & events</h2>
+        <span class="section-meta">10 signals · 8 in SMB · 5 in agency</span>
+      </div>
+      <div class="matrix">
+        <table>
+          <thead>
+            <tr><th style="width:20%;">Signal</th><th style="width:14%;">Source</th><th style="width:8%;">Freq</th><th style="width:16%;">SMB portal</th><th style="width:16%;">Agency portal</th><th style="width:10%;">Status</th><th style="width:16%;">Note</th></tr>
+          </thead>
+          <tbody>
+            <tr class="signal-row" data-cat="alerts" data-status="smb-only"><td><div class="signal-name">New 1★ review alert</div><div class="signal-formula">New rating ≤ 2</div></td><td><div class="signal-source">Reviews API diff</div></td><td><span class="signal-freq realtime">24h</span></td><td><div class="portal-pills"><span class="pill-page smb">dashboard</span><span class="pill-page smb">reviews</span><span class="pill-page smb">activity</span></div></td><td><div class="pill-none">— SMB-side alert</div></td><td><span class="status smb-only"><span class="status-dot"></span>SMB only</span></td><td></td></tr>
+            <tr class="signal-row" data-cat="alerts" data-status="both"><td><div class="signal-name">Brand hijack alert</div><div class="signal-formula">Paid SERP for brand</div></td><td><div class="signal-source">SERP daily</div></td><td><span class="signal-freq daily">Daily</span></td><td><div class="portal-pills"><span class="pill-page smb">dashboard</span><span class="pill-page smb">activity</span></div></td><td><div class="portal-pills"><span class="pill-page agency">lists</span><span class="pill-page agency">activity</span></div></td><td><span class="status both"><span class="status-dot"></span>Both</span></td><td></td></tr>
+            <tr class="signal-row" data-cat="alerts" data-status="partial"><td><div class="signal-name">Competitor passes you in reviews</div><div class="signal-formula">competitor.reviews crosses yours</div></td><td><div class="signal-source">Reviews diff</div></td><td><span class="signal-freq weekly">Weekly</span></td><td><div class="portal-pills"><span class="pill-page smb dim">activity</span></div></td><td><div class="pill-none">— not in v1</div></td><td><span class="status partial"><span class="status-dot"></span>Partial</span></td><td></td></tr>
+            <tr class="signal-row" data-cat="alerts" data-status="both"><td><div class="signal-name">New competitor in local pack</div><div class="signal-formula">Pack composition change</div></td><td><div class="signal-source">SERP weekly</div></td><td><span class="signal-freq weekly">Weekly</span></td><td><div class="portal-pills"><span class="pill-page smb">activity</span><span class="pill-page smb">competitors</span></div></td><td><div class="portal-pills"><span class="pill-page agency">activity</span></div></td><td><span class="status both"><span class="status-dot"></span>Both</span></td><td></td></tr>
+            <tr class="signal-row" data-cat="alerts" data-status="smb-only"><td><div class="signal-name">Ranking drop ≥ 3 positions</div><div class="signal-formula">Δ rank ≥ 3 negative</div></td><td><div class="signal-source">SERP weekly</div></td><td><span class="signal-freq weekly">Weekly</span></td><td><div class="portal-pills"><span class="pill-page smb">activity</span><span class="pill-page smb">search</span></div></td><td><div class="pill-none">— SMB-side alert</div></td><td><span class="status smb-only"><span class="status-dot"></span>SMB only</span></td><td></td></tr>
+            <tr class="signal-row" data-cat="alerts" data-status="partial"><td><div class="signal-name">Site speed degraded ≥ 10pt</div><div class="signal-formula">Δ Lighthouse ≤ −10</div></td><td><div class="signal-source">Lighthouse weekly</div></td><td><span class="signal-freq weekly">Weekly</span></td><td><div class="portal-pills"><span class="pill-page smb dim">website</span></div></td><td><div class="pill-none">— not in v1</div></td><td><span class="status partial"><span class="status-dot"></span>Partial</span></td><td></td></tr>
+            <tr class="signal-row" data-cat="alerts" data-status="smb-only"><td><div class="signal-name">New competitor ad campaign</div><div class="signal-formula">Ad libraries diff</div></td><td><div class="signal-source">Ad libraries daily</div></td><td><span class="signal-freq daily">Daily</span></td><td><div class="portal-pills"><span class="pill-page smb">activity</span><span class="pill-page smb">ads</span></div></td><td><div class="pill-none">— not in v1</div></td><td><span class="status smb-only"><span class="status-dot"></span>SMB only</span></td><td></td></tr>
+            <tr class="signal-row" data-cat="alerts" data-status="smb-only"><td><div class="signal-name">Theme spike (negative)</div><div class="signal-formula">Same theme ≥ 3× in 60d 1–3★</div></td><td><div class="signal-source">Reviews + sentiment</div></td><td><span class="signal-freq weekly">Weekly</span></td><td><div class="portal-pills"><span class="pill-page smb">reviews</span></div></td><td><div class="pill-none">— not in v1</div></td><td><span class="status smb-only"><span class="status-dot"></span>SMB only</span></td><td></td></tr>
+            <tr class="signal-row" data-cat="alerts" data-status="smb-only"><td><div class="signal-name">Hours change at competitor</div><div class="signal-formula">Diff on hours field</div></td><td><div class="signal-source">Maps diff</div></td><td><span class="signal-freq weekly">Weekly</span></td><td><div class="portal-pills"><span class="pill-page smb">activity</span></div></td><td><div class="pill-none">— not in v1</div></td><td><span class="status smb-only"><span class="status-dot"></span>SMB only</span></td><td></td></tr>
+            <tr class="signal-row" data-cat="alerts" data-status="agency-only"><td><div class="signal-name">List match added / removed</div><div class="signal-formula">Re-run filter daily, diff</div></td><td><div class="signal-source">Computed</div></td><td><span class="signal-freq daily">Daily</span></td><td><div class="pill-none">— agency-side event</div></td><td><div class="portal-pills"><span class="pill-page agency">activity</span><span class="pill-page agency">lists</span></div></td><td><span class="status agency-only"><span class="status-dot"></span>Agency only</span></td><td><div class="note">Core agency event type</div></td></tr>
+            <tr class="signal-row" data-cat="alerts" data-status="agency-only"><td><div class="signal-name">Email verification status change</div><div class="signal-formula">SMTP check delta</div></td><td><div class="signal-source">Mail verify svc</div></td><td><span class="signal-freq weekly">Weekly</span></td><td><div class="pill-none">— agency-side event</div></td><td><div class="portal-pills"><span class="pill-page agency">activity</span><span class="pill-page agency">prospect</span></div></td><td><span class="status agency-only"><span class="status-dot"></span>Agency only</span></td><td></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- ============ J. ROADMAP ============ -->
+      <div class="section-head">
+        <h2>J · Roadmap signals (not collected yet)</h2>
+        <span class="section-meta">11 signals · Phase 2–4 · new data sources required</span>
+      </div>
+      <div class="matrix">
+        <table>
+          <thead>
+            <tr><th style="width:20%;">Signal</th><th style="width:14%;">New source required</th><th style="width:8%;">Phase</th><th style="width:16%;">Would live in SMB</th><th style="width:16%;">Would live in Agency</th><th style="width:10%;">Status</th><th style="width:16%;">Why valuable</th></tr>
+          </thead>
+          <tbody>
+            <tr class="signal-row" data-cat="roadmap" data-status="roadmap"><td><div class="signal-name">GMB Posts diff</div><div class="signal-formula">Competitor GMB post cadence</div></td><td><div class="signal-source">GMB API / scrape</div></td><td><span class="signal-freq monthly">Phase 2</span></td><td><div class="portal-pills"><span class="pill-page smb dim">activity</span><span class="pill-page smb dim">competitors</span></div></td><td><div class="portal-pills"><span class="pill-page agency dim">search filter</span></div></td><td><span class="status roadmap"><span class="status-dot"></span>Roadmap</span></td><td><div class="note">Cadence signal · they post weekly?</div></td></tr>
+            <tr class="signal-row" data-cat="roadmap" data-status="roadmap"><td><div class="signal-name">Yelp reviews + rating</div><div class="signal-formula">Mirror of Google Reviews</div></td><td><div class="signal-source">Yelp Fusion API</div></td><td><span class="signal-freq monthly">Phase 2</span></td><td><div class="portal-pills"><span class="pill-page smb dim">reviews</span></div></td><td><div class="portal-pills"><span class="pill-page agency dim">search filter</span></div></td><td><span class="status roadmap"><span class="status-dot"></span>Roadmap</span></td><td><div class="note">Spa / restaurant verticals</div></td></tr>
+            <tr class="signal-row" data-cat="roadmap" data-status="roadmap"><td><div class="signal-name">Instagram post engagement</div><div class="signal-formula">Likes + comments / post avg</div></td><td><div class="signal-source">IG Graph (opt-in)</div></td><td><span class="signal-freq monthly">Phase 3</span></td><td><div class="portal-pills"><span class="pill-page smb dim">ads</span></div></td><td><div class="pill-none">— low priority for agency</div></td><td><span class="status roadmap"><span class="status-dot"></span>Roadmap</span></td><td></td></tr>
+            <tr class="signal-row" data-cat="roadmap" data-status="roadmap"><td><div class="signal-name">TikTok ads / creators</div><div class="signal-formula">Competitor TikTok presence</div></td><td><div class="signal-source">TikTok Creative Center</div></td><td><span class="signal-freq monthly">Phase 3</span></td><td><div class="portal-pills"><span class="pill-page smb dim">ads</span></div></td><td><div class="pill-none">— low priority for agency</div></td><td><span class="status roadmap"><span class="status-dot"></span>Roadmap</span></td><td></td></tr>
+            <tr class="signal-row" data-cat="roadmap" data-status="roadmap"><td><div class="signal-name">Booking system detection</div><div class="signal-formula">Tech-stack signature</div></td><td><div class="signal-source">Extended Wappalyzer</div></td><td><span class="signal-freq monthly">Phase 2</span></td><td><div class="portal-pills"><span class="pill-page smb dim">competitors</span></div></td><td><div class="portal-pills"><span class="pill-page agency dim">prospect</span></div></td><td><span class="status roadmap"><span class="status-dot"></span>Roadmap</span></td><td><div class="note">Mangomint / Boulevard / etc</div></td></tr>
+            <tr class="signal-row" data-cat="roadmap" data-status="roadmap"><td><div class="signal-name">Quote-response time</div><div class="signal-formula">Opt-in mystery shop</div></td><td><div class="signal-source">Internal opt-in</div></td><td><span class="signal-freq monthly">Phase 4</span></td><td><div class="portal-pills"><span class="pill-page smb dim">competitors</span></div></td><td><div class="pill-none">— not for agency</div></td><td><span class="status roadmap"><span class="status-dot"></span>Roadmap</span></td><td></td></tr>
+            <tr class="signal-row" data-cat="roadmap" data-status="roadmap"><td><div class="signal-name">Phone answer-time</div><div class="signal-formula">CallRail measure</div></td><td><div class="signal-source">CallRail (opt-in)</div></td><td><span class="signal-freq realtime">Phase 4</span></td><td><div class="portal-pills"><span class="pill-page smb dim">competitors</span></div></td><td><div class="pill-none">— not for agency</div></td><td><span class="status roadmap"><span class="status-dot"></span>Roadmap</span></td><td></td></tr>
+            <tr class="signal-row" data-cat="roadmap" data-status="roadmap"><td><div class="signal-name">Real revenue attribution</div><div class="signal-formula">Booking-system loop</div></td><td><div class="signal-source">Mindbody / Boulevard</div></td><td><span class="signal-freq weekly">Phase 3</span></td><td><div class="portal-pills"><span class="pill-page smb dim">dashboard</span></div></td><td><div class="pill-none">— not for agency v1</div></td><td><span class="status roadmap"><span class="status-dot"></span>Roadmap</span></td><td></td></tr>
+            <tr class="signal-row" data-cat="roadmap" data-status="roadmap"><td><div class="signal-name">Email-marketing engagement</div><div class="signal-formula">Connect existing email tool</div></td><td><div class="signal-source">Mailchimp / Klaviyo</div></td><td><span class="signal-freq weekly">Phase 3</span></td><td><div class="portal-pills"><span class="pill-page smb dim">activity</span></div></td><td><div class="pill-none">— not for agency v1</div></td><td><span class="status roadmap"><span class="status-dot"></span>Roadmap</span></td><td></td></tr>
+            <tr class="signal-row" data-cat="roadmap" data-status="roadmap"><td><div class="signal-name">Reddit mentions of brand</div><div class="signal-formula">Apify Reddit scraper</div></td><td><div class="signal-source">Apify Reddit</div></td><td><span class="signal-freq weekly">Phase 2</span></td><td><div class="portal-pills"><span class="pill-page smb dim">activity</span></div></td><td><div class="portal-pills"><span class="pill-page agency dim">search filter</span></div></td><td><span class="status roadmap"><span class="status-dot"></span>Roadmap</span></td><td></td></tr>
+            <tr class="signal-row" data-cat="roadmap" data-status="roadmap"><td><div class="signal-name">News mentions</div><div class="signal-formula">Press monitoring</div></td><td><div class="signal-source">NewsAPI / Google News</div></td><td><span class="signal-freq weekly">Phase 2</span></td><td><div class="portal-pills"><span class="pill-page smb dim">activity</span></div></td><td><div class="pill-none">— low priority</div></td><td><span class="status roadmap"><span class="status-dot"></span>Roadmap</span></td><td></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="footer-note">
+        // 74 signals catalogued · SMB portal surfaces 52 (the agency's offer to Maria: rich diagnostic intelligence) · Agency portal v1 surfaces 38 (the agency's offer to Tom: qualified leads with pitch-ready evidence) · 34 signals appear in both, framed for each audience · 11 roadmap items require new data sources. Updated 2026-05-18 after pivot from CRM-style agency portal to lists-first model.
+      </div>
+
+    </div>
+
+    <script>
+      const allRows = () => document.querySelectorAll('.signal-row');
+      const statusPills = document.querySelectorAll('.filter-pill[data-filter]');
+      const catPills = document.querySelectorAll('.filter-pill[data-cat]');
+      let activeStatus = 'all';
+      let activeCat = null;
+      let q = '';
+      function apply() {
+        allRows().forEach(r => {
+          const st = r.dataset.status;
+          const ct = r.dataset.cat;
+          const text = r.textContent.toLowerCase();
+          let show = true;
+          if (activeStatus !== 'all' && st !== activeStatus) show = false;
+          if (activeCat && ct !== activeCat) show = false;
+          if (q && !text.includes(q)) show = false;
+          r.classList.toggle('hidden', !show);
+        });
+      }
+      statusPills.forEach(p => p.addEventListener('click', () => {
+        statusPills.forEach(x => x.classList.remove('active'));
+        p.classList.add('active');
+        activeStatus = p.dataset.filter;
+        apply();
+      }));
+      catPills.forEach(p => p.addEventListener('click', () => {
+        if (activeCat === p.dataset.cat) { activeCat = null; p.classList.remove('active'); }
+        else { catPills.forEach(x => x.classList.remove('active')); activeCat = p.dataset.cat; p.classList.add('active'); }
+        apply();
+      }));
+      document.getElementById('search').addEventListener('input', e => { q = e.target.value.toLowerCase().trim(); apply(); });
+    </script>
+  </body>
+</html>

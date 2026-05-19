@@ -1,0 +1,28 @@
+name: auto-merge
+
+on:
+  pull_request_target:
+    types: [labeled, opened, synchronize, reopened]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  auto-merge:
+    # Only run on PRs from auto/* or enhance/* branches with autonomous-ready label
+    if: |
+      (startsWith(github.event.pull_request.head.ref, 'auto/') ||
+       startsWith(github.event.pull_request.head.ref, 'enhance/')) &&
+      contains(github.event.pull_request.labels.*.name, 'autonomous-ready')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Enable squash auto-merge
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr merge "${{ github.event.pull_request.number }}" \
+            --repo "${{ github.repository }}" \
+            --squash \
+            --auto \
+            --delete-branch

@@ -1,0 +1,109 @@
+{
+  "marketing": {
+    "hero_smb": {
+      "title": "Intelligence locale pour votre entreprise — mise à jour chaque semaine",
+      "subtitle": "Voyez ce qui fonctionne, ce qui ne fonctionne pas, et ce qu'il faut corriger cette semaine.",
+      "cta_primary": "Commencer gratuitement",
+      "cta_secondary": "Voir comment ça marche"
+    },
+    "hero_agency": {
+      "title": "PME locales prêtes à changer.",
+      "subtitle": "Avec des raisons. Avec des contacts. Maintenant.",
+      "cta_primary": "Obtenir 50 prospects gratuits",
+      "cta_secondary": "Voir la démo"
+    },
+    "stats": {
+      "businesses_indexed": "Entreprises indexées",
+      "filter_signals": "Signaux de filtrage",
+      "email_verify_rate": "Taux de vérification courriel",
+      "refresh_cadence": "Fréquence de mise à jour"
+    }
+  },
+
+  "smb": {
+    "dashboard": {
+      "greeting_morning": "Bon matin, {name}",
+      "greeting_afternoon": "Bon après-midi, {name}",
+      "greeting_evening": "Bonsoir, {name}",
+      "subtitle_refreshed": "Actualisé {when}",
+      "kpi": {
+        "score": "Score Mapsly",
+        "rank_metro": "Position dans votre région",
+        "patients_per_month": "Patients estimés par mois",
+        "reply_rate": "Taux de réponse aux avis",
+        "brand_protection": "Protection de marque",
+        "review_velocity": "Avis ce mois-ci"
+      },
+      "needs_attention": "Ce qui requiert votre attention",
+      "top_fixes": "Améliorations à plus fort impact",
+      "empty_state": "Aucun nouvel avis cette semaine. Nous vous les afficherons ici dès qu'ils arrivent."
+    },
+    "reviews": {
+      "title": "Avis",
+      "tab_unanswered": "{count, plural, =0 {Aucun sans réponse} one {# sans réponse} other {# sans réponse}}",
+      "tab_negative": "Négatifs",
+      "tab_all": "Tous récents",
+      "ai_draft_label": "Réponse rédigée par l'IA",
+      "ai_draft_post": "Publier sur Google",
+      "ai_draft_edit": "Modifier",
+      "ai_draft_regenerate": "Régénérer"
+    }
+  },
+
+  "agency": {
+    "lists": {
+      "title": "Listes",
+      "subtitle": "Une liste par service que vous vendez",
+      "today_new": "{count, plural, =0 {Aucun nouveau prospect aujourd'hui} one {# nouveau prospect aujourd'hui} other {# nouveaux prospects aujourd'hui}}",
+      "across_lists": " parmi vos {count} listes actives",
+      "empty_state": "Aucune liste pour l'instant. Commencez à partir d'un service que vous vendez — ou utilisez la recherche pour explorer.",
+      "create_list": "Nouvelle liste"
+    },
+    "lead_status": {
+      "new": "Nouveau",
+      "contacted": "Contacté",
+      "replied": "Répondu",
+      "won": "Gagné",
+      "lost": "Perdu",
+      "hidden": "Masqué"
+    }
+  },
+
+  "common": {
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "delete": "Supprimer",
+    "edit": "Modifier",
+    "open": "Ouvrir",
+    "close": "Fermer",
+    "next": "Suivant",
+    "previous": "Précédent",
+    "loading": "Chargement…",
+    "search": "Rechercher"
+  },
+
+  "errors": {
+    "generic": "Une erreur est survenue. Réessayez dans un instant.",
+    "unauthorized": "Vous devez vous connecter pour voir ceci.",
+    "forbidden": "Vous n'avez pas accès à ceci.",
+    "not_found": "Nous n'avons pas trouvé ce que vous cherchez.",
+    "rate_limited": "Trop de requêtes. Réessayez dans {minutes} minutes.",
+    "network": "Problème réseau. Vérifiez votre connexion et réessayez."
+  },
+
+  "nav": {
+    "dashboard": "Tableau de bord",
+    "reviews": "Avis",
+    "activity": "Activité",
+    "competitors": "Concurrents",
+    "search_visibility": "Visibilité de recherche",
+    "ads": "Publicités",
+    "website": "Santé du site",
+    "market": "Marché",
+    "settings": "Paramètres",
+    "lists": "Listes",
+    "search": "Recherche",
+    "reports": "Rapports",
+    "list_analytics": "Analyses de listes"
+  }
+}

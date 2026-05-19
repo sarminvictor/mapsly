@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Reports · Mapsly Agency</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="_shared.css" />
+    <style>
+      .intro {
+        background:linear-gradient(120deg, var(--indigo-light), var(--teal-light));
+        border:1px solid rgba(91,61,245,.16);
+        border-radius:14px;
+        padding:16px 22px;
+        margin-bottom:22px;
+        font-size:13px; color:var(--text-2); line-height:1.55;
+      }
+      .intro b { color:var(--text); font-weight:600; }
+
+      .templates-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr)); gap:14px; margin-bottom:22px; }
+      .template { background:var(--bg-2); border:1px solid var(--border); border-radius:12px; padding:18px 20px; cursor:pointer; transition:all .15s; box-shadow:var(--shadow-sm); }
+      .template:hover { border-color:var(--indigo); transform:translateY(-1px); }
+      .template-thumb { height:120px; border-radius:8px; margin-bottom:14px; position:relative; overflow:hidden; padding:14px; display:flex; flex-direction:column; justify-content:flex-end; color:#fff; }
+      .template-thumb.csv { background:linear-gradient(135deg, var(--text), #2c2e3c); }
+      .template-thumb.pdf { background:linear-gradient(135deg, var(--indigo), var(--indigo-2)); }
+      .template-thumb.share { background:linear-gradient(135deg, var(--teal), #075e74); }
+      .template-thumb-tag {
+        position:absolute; top:10px; right:10px;
+        background:rgba(255,255,255,.18);
+        font-family:'JetBrains Mono',monospace;
+        font-size:9px; font-weight:700;
+        padding:2px 7px; border-radius:4px;
+        text-transform:uppercase; letter-spacing:.06em;
+        backdrop-filter:blur(6px);
+      }
+      .template-thumb-title { font-size:16px; font-weight:700; }
+      .template-thumb-sub { font-size:11.5px; opacity:.8; margin-top:3px; font-family:'JetBrains Mono',monospace; }
+      .template-name { font-size:14px; font-weight:600; margin-bottom:4px; }
+      .template-meta { font-size:11.5px; color:var(--text-3); line-height:1.5; }
+
+      .rep-row { display:grid; grid-template-columns:auto 1fr auto auto auto; gap:14px; align-items:center; padding:14px 16px; background:var(--bg-2); border:1px solid var(--border); border-radius:10px; margin-bottom:8px; box-shadow:var(--shadow-sm); }
+      .rep-icon { width:36px; height:36px; border-radius:8px; display:flex; align-items:center; justify-content:center; color:#fff; font-weight:700; flex-shrink:0; font-size:11px; }
+      .rep-icon.csv { background:var(--text); }
+      .rep-icon.pdf { background:var(--indigo); }
+      .rep-icon.share { background:var(--teal); }
+      .rep-name { font-size:13.5px; font-weight:600; }
+      .rep-meta { font-size:11px; color:var(--text-3); font-family:'JetBrains Mono',monospace; margin-top:2px; }
+      .rep-pill { font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:700; padding:2.5px 8px; border-radius:4px; }
+      .rep-pill.ready { background:var(--success-light); color:var(--success); }
+      .rep-pill.draft { background:var(--bg-3); color:var(--text-2); }
+      .rep-pill.shared { background:var(--indigo-light); color:var(--indigo); }
+      .rep-stat { font-family:'JetBrains Mono',monospace; font-size:13px; font-weight:600; min-width:80px; text-align:right; }
+      .rep-action { font-size:11.5px; font-weight:600; color:var(--indigo); padding:6px 11px; border:1px solid var(--indigo-light); border-radius:6px; }
+      .rep-action:hover { background:var(--indigo); color:#fff; }
+    </style>
+  </head>
+  <body>
+
+    <aside class="sidebar">
+      <div class="sidebar-logo">
+        <span class="sidebar-logo-dot"></span>
+        <span class="sidebar-logo-text">mapsly</span>
+        <span class="sidebar-logo-tag">Agency</span>
+      </div>
+      <div class="sidebar-section-label">Workspace</div>
+      <a href="lists.html" class="nav-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>Lists <span class="nav-item-badge">6</span></a>
+      <a href="search.html" class="nav-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>Search</a>
+      <a href="activity.html" class="nav-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>Activity <span class="nav-item-badge">23</span></a>
+      <a href="reports.html" class="nav-item active"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>Reports</a>
+      <div class="sidebar-section-label">Account</div>
+      <a href="list-analytics.html" class="nav-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 16l4-8 4 4 5-10"/></svg>List analytics</a>
+      <a href="settings.html" class="nav-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Settings</a>
+      <div class="sidebar-footer">
+        <div class="sidebar-agency">
+          <div class="sidebar-agency-avatar">AL</div>
+          <div>
+            <div class="sidebar-agency-name">Anchor Local</div>
+            <div class="sidebar-agency-meta">Toronto · 4 seats</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <div class="topbar-title">Reports</div>
+          <div class="topbar-subtitle">Export lists as CSV · branded prospect one-pagers · shareable links</div>
+        </div>
+      </header>
+
+      <div class="content">
+
+        <div class="intro">
+          Reports turn a <b>list</b> or a <b>single lead</b> into something you can use outside Mapsly. CSV for your CRM, PDF one-pager for the cold pitch, or a private link your prospect can click. v1 keeps it simple — no email-sending, no tracking-pixel-magic. You own the touch.
+          <div style="margin-top:10px;">
+            <a href="one-pager-example.html" class="btn btn-primary" style="display:inline-flex; padding:7px 13px; font-size:12.5px;">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+              See what a one-pager looks like →
+            </a>
+          </div>
+        </div>
+
+        <!-- TEMPLATES -->
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <div class="card-title">Output formats</div>
+              <div class="card-subtitle">// pick what you want for the list or lead you're working on</div>
+            </div>
+          </div>
+
+          <div class="templates-grid">
+            <div class="template">
+              <div class="template-thumb csv">
+                <span class="template-thumb-tag">all signals</span>
+                <div>
+                  <div class="template-thumb-title">CSV export</div>
+                  <div class="template-thumb-sub">name · contact · 32 signals · scores</div>
+                </div>
+              </div>
+              <div class="template-name">CSV export</div>
+              <div class="template-meta">Every signal as a column · drop into HubSpot, Pipedrive, your own sheet · contact + verified-email flag included.</div>
+            </div>
+            <a href="one-pager-example.html" class="template" style="display:block;">
+              <div class="template-thumb pdf">
+                <span class="template-thumb-tag">see example →</span>
+                <div>
+                  <div class="template-thumb-title">Prospect one-pager</div>
+                  <div class="template-thumb-sub">PDF · single page · print-ready</div>
+                </div>
+              </div>
+              <div class="template-name">Prospect one-pager (PDF)</div>
+              <div class="template-meta">Single-lead cold-pitch brief · 4 strongest signals + projected impact · attach to email or hand at meeting. Click to see the actual template.</div>
+            </a>
+            <a href="shareable-link.html" class="template" style="display:block;">
+              <div class="template-thumb share">
+                <span class="template-thumb-tag">see example →</span>
+                <div>
+                  <div class="template-thumb-title">Shareable link</div>
+                  <div class="template-thumb-sub">view-only · expires 30d</div>
+                </div>
+              </div>
+              <div class="template-name">Shareable link</div>
+              <div class="template-meta">Send a URL the prospect can open in browser · view-only · no login · branded by you. Click to see what they see.</div>
+            </a>
+          </div>
+        </div>
+
+        <!-- RECENT EXPORTS -->
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <div class="card-title">Recent exports · last 14 days</div>
+              <div class="card-subtitle">// 17 total · 12 CSV · 4 PDF · 1 link</div>
+            </div>
+            <button class="btn btn-ghost">Download all (zip)</button>
+          </div>
+
+          <div class="rep-row">
+            <div class="rep-icon pdf">PDF</div>
+            <div>
+              <div class="rep-name">Solea Brickell Spa · one-pager</div>
+              <div class="rep-meta">generated today 9:14 AM · 4 signals · 2 pages</div>
+            </div>
+            <span class="rep-pill ready">ready</span>
+            <div class="rep-stat" style="color:var(--text-3);">v1</div>
+            <a href="#" class="rep-action">Download →</a>
+          </div>
+
+          <div class="rep-row">
+            <div class="rep-icon csv">CSV</div>
+            <div>
+              <div class="rep-name">Brickell med spas · full list export</div>
+              <div class="rep-meta">generated today 8:02 AM · 47 rows · 32 columns</div>
+            </div>
+            <span class="rep-pill ready">ready</span>
+            <div class="rep-stat" style="color:var(--text-3);">47 rows</div>
+            <a href="#" class="rep-action">Download →</a>
+          </div>
+
+          <div class="rep-row">
+            <div class="rep-icon share">URL</div>
+            <div>
+              <div class="rep-name">Solea Brickell Spa · shareable link</div>
+              <div class="rep-meta">link.anchorlocal.com/p/sk2-9f0 · expires Jun 16 · 1 view</div>
+            </div>
+            <span class="rep-pill shared">live</span>
+            <div class="rep-stat" style="color:var(--indigo);">1 view</div>
+            <a href="#" class="rep-action">Copy link →</a>
+          </div>
+
+          <div class="rep-row">
+            <div class="rep-icon csv">CSV</div>
+            <div>
+              <div class="rep-name">GTA HVAC · slow site export</div>
+              <div class="rep-meta">May 15 · 89 rows · 32 columns</div>
+            </div>
+            <span class="rep-pill ready">ready</span>
+            <div class="rep-stat" style="color:var(--text-3);">89 rows</div>
+            <a href="#" class="rep-action">Download →</a>
+          </div>
+
+          <div class="rep-row">
+            <div class="rep-icon pdf">PDF</div>
+            <div>
+              <div class="rep-name">Toronto dental · churn-risk · summary deck</div>
+              <div class="rep-meta">May 14 · 31 leads summarized · 8 pages</div>
+            </div>
+            <span class="rep-pill ready">ready</span>
+            <div class="rep-stat" style="color:var(--text-3);">8 pp</div>
+            <a href="#" class="rep-action">Download →</a>
+          </div>
+
+          <div class="rep-row">
+            <div class="rep-icon csv">CSV</div>
+            <div>
+              <div class="rep-name">Brickell brow bar · single lead</div>
+              <div class="rep-meta">May 13 · 1 row · 32 columns</div>
+            </div>
+            <span class="rep-pill ready">ready</span>
+            <div class="rep-stat" style="color:var(--text-3);">1 row</div>
+            <a href="#" class="rep-action">Download →</a>
+          </div>
+
+          <div class="rep-row">
+            <div class="rep-icon pdf">PDF</div>
+            <div>
+              <div class="rep-name">Lush Velvet Skin · one-pager</div>
+              <div class="rep-meta">May 12 · draft · not yet downloaded</div>
+            </div>
+            <span class="rep-pill draft">draft</span>
+            <div class="rep-stat" style="color:var(--text-3);">v0</div>
+            <a href="#" class="rep-action">Open →</a>
+          </div>
+        </div>
+
+        <div style="margin-top:0; padding:14px 18px; background:var(--bg-3); border-radius:10px; font-size:11.5px; color:var(--text-3); font-family:'JetBrains Mono',monospace; line-height:1.6;">
+          // Export uses your white-label branding from Settings · CSV column set is fixed for v1 · custom column selection coming next · all generated reports stored 90d
+        </div>
+      </div>
+    </main>
+  </body>
+</html>

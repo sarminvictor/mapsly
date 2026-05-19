@@ -1,0 +1,414 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>List analytics · Mapsly Agency</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="_shared.css" />
+    <style>
+      .global-search { display:flex; align-items:center; gap:8px; padding:0 12px; background:var(--bg-2); border:1px solid var(--border); border-radius:8px; min-width:260px; }
+      .global-search:focus-within { border-color:var(--indigo); }
+      .global-search input { flex:1; padding:9px 0; border:none; background:transparent; font-size:13px; color:var(--text); outline:none; }
+      .global-search-kbd { font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--text-3); background:var(--bg-3); padding:1px 6px; border-radius:3px; }
+
+      .state-bar { background:var(--bg-2); border:1px solid var(--border); border-radius:14px; padding:22px 28px; margin-bottom:22px; display:grid; grid-template-columns:repeat(4,1fr); gap:24px; box-shadow:var(--shadow-sm); }
+      @media (max-width:1000px) { .state-bar { grid-template-columns:1fr 1fr; } }
+      .state-cell { padding-right:24px; border-right:1px solid var(--border); }
+      .state-cell:last-child { border-right:none; padding-right:0; }
+      .state-label { font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.1em; color:var(--text-3); margin-bottom:6px; }
+      .state-num { font-size:28px; font-weight:800; line-height:1; }
+      .state-num.green { color:var(--success); }
+      .state-num.indigo { color:var(--indigo); }
+      .state-num.warn { color:var(--warn); }
+      .state-meta { font-size:11.5px; color:var(--text-3); margin-top:6px; font-family:'JetBrains Mono',monospace; }
+
+      /* TABLE */
+      .perf-table { background:var(--bg-2); border:1px solid var(--border); border-radius:14px; overflow:hidden; box-shadow:var(--shadow-sm); margin-bottom:22px; }
+      .perf-head { padding:20px 28px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; }
+      .perf-title { font-size:15px; font-weight:600; }
+      .perf-sub { font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text-3); margin-top:3px; }
+      table { width:100%; border-collapse:collapse; font-size:13px; }
+      th { text-align:left; font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:var(--text-3); padding:14px 18px; background:var(--bg-3); border-bottom:1px solid var(--border); }
+      td { padding:16px 18px; border-bottom:1px solid var(--border); vertical-align:middle; }
+      tr:last-child td { border-bottom:none; }
+      tr:hover td { background:rgba(91,61,245,.025); }
+
+      .list-name-cell { font-weight:600; font-size:13.5px; }
+      .list-sub { font-size:11px; color:var(--text-3); font-family:'JetBrains Mono',monospace; margin-top:2px; }
+      .badge-svc { font-family:'JetBrains Mono',monospace; font-size:9.5px; font-weight:700; padding:2px 7px; border-radius:4px; text-transform:uppercase; letter-spacing:.06em; margin-right:6px; }
+      .badge-svc.web { background:rgba(8,145,178,.12); color:var(--teal); }
+      .badge-svc.ads { background:rgba(91,61,245,.10); color:var(--indigo); }
+      .badge-svc.seo { background:rgba(217,119,6,.12); color:var(--warn); }
+      .badge-svc.review { background:rgba(220,38,38,.10); color:var(--alert); }
+      .badge-svc.brand { background:rgba(22,163,74,.12); color:var(--success); }
+      .badge-svc.launch { background:rgba(107,79,155,.12); color:#6b4f9b; }
+
+      .num-cell { font-family:'JetBrains Mono',monospace; font-weight:700; font-size:14px; }
+      .num-cell.green { color:var(--success); }
+      .num-cell.warn { color:var(--warn); }
+      .num-cell.alert { color:var(--alert); }
+      .num-meta { font-size:10.5px; color:var(--text-3); margin-top:2px; font-family:'JetBrains Mono',monospace; font-weight:500; }
+
+      .funnel-mini { display:flex; gap:1px; height:24px; border-radius:4px; overflow:hidden; }
+      .funnel-mini-seg { display:flex; align-items:center; justify-content:center; font-family:'JetBrains Mono',monospace; font-size:9.5px; font-weight:700; color:#fff; }
+      .funnel-mini-seg.new       { background:var(--indigo); }
+      .funnel-mini-seg.contacted { background:var(--warn); }
+      .funnel-mini-seg.replied   { background:var(--success); }
+      .funnel-mini-seg.won       { background:#0a6b34; }
+      .funnel-mini-seg.lost      { background:var(--alert); }
+      .funnel-mini-labels { display:flex; justify-content:space-between; margin-top:4px; font-family:'JetBrains Mono',monospace; font-size:9.5px; color:var(--text-3); }
+
+      /* SIGNAL PERFORMANCE */
+      .panel { background:var(--bg-2); border:1px solid var(--border); border-radius:14px; padding:22px 24px; margin-bottom:18px; box-shadow:var(--shadow-sm); }
+      .panel-head { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:18px; gap:12px; }
+      .panel-title { font-size:15px; font-weight:600; }
+      .panel-sub { font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text-3); margin-top:3px; }
+
+      .signal-rank-row { display:grid; grid-template-columns:auto 1fr auto auto; gap:14px; padding:10px 0; border-bottom:1px solid var(--border); align-items:center; }
+      .signal-rank-row:last-child { border-bottom:none; }
+      .signal-rank-num { font-family:'JetBrains Mono',monospace; font-size:14px; font-weight:700; color:var(--text-3); min-width:24px; }
+      .signal-rank-name { font-size:13.5px; }
+      .signal-rank-bar { height:6px; background:var(--bg-3); border-radius:3px; overflow:hidden; min-width:120px; }
+      .signal-rank-fill { height:100%; border-radius:3px; }
+      .signal-rank-fill.green { background:var(--success); }
+      .signal-rank-fill.warn { background:var(--warn); }
+      .signal-rank-fill.alert { background:var(--alert); }
+      .signal-rank-pct { font-family:'JetBrains Mono',monospace; font-weight:700; font-size:13px; min-width:50px; text-align:right; }
+      .signal-rank-pct.green { color:var(--success); }
+      .signal-rank-pct.warn { color:var(--warn); }
+      .signal-rank-pct.alert { color:var(--alert); }
+    </style>
+  </head>
+  <body>
+
+    <aside class="sidebar">
+      <div class="sidebar-logo">
+        <span class="sidebar-logo-dot"></span>
+        <span class="sidebar-logo-text">mapsly</span>
+        <span class="sidebar-logo-tag">Agency</span>
+      </div>
+      <div class="sidebar-section-label">Workspace</div>
+      <a href="lists.html" class="nav-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>Lists <span class="nav-item-badge">6</span></a>
+      <a href="search.html" class="nav-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>Search</a>
+      <a href="activity.html" class="nav-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>Activity <span class="nav-item-badge">23</span></a>
+      <a href="reports.html" class="nav-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>Reports</a>
+      <div class="sidebar-section-label">Account</div>
+      <a href="list-analytics.html" class="nav-item active"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 16l4-8 4 4 5-10"/></svg>List analytics</a>
+      <a href="settings.html" class="nav-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Settings</a>
+      <div class="sidebar-footer">
+        <div class="sidebar-agency">
+          <div class="sidebar-agency-avatar">AL</div>
+          <div>
+            <div class="sidebar-agency-name">Anchor Local</div>
+            <div class="sidebar-agency-meta">Toronto · 4 seats</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <div class="topbar-title">List analytics</div>
+          <div class="topbar-subtitle">Which lists convert · which signals predict deals · last 90 days</div>
+        </div>
+        <div class="topbar-right">
+          <div class="global-search">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text-3);"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+            <input placeholder="Look up a business…" />
+            <span class="global-search-kbd">⌘K</span>
+          </div>
+          <button class="btn btn-ghost">Export</button>
+        </div>
+      </header>
+
+      <div class="content">
+
+        <!-- STATE BAR -->
+        <div class="state-bar">
+          <div class="state-cell">
+            <div class="state-label">Total leads surfaced 90d
+              <span class="info-tip" data-tip="Across all your lists. Sum of new matches that hit your lists in the trailing 90 days.">i</span>
+            </div>
+            <div class="state-num indigo">412</div>
+            <div class="state-meta">+89 vs prior 90d</div>
+          </div>
+          <div class="state-cell">
+            <div class="state-label">Contact rate
+              <span class="info-tip" data-tip="% of surfaced leads you (or your team) actually emailed. Below 50% = your lists are too broad or your team is bottlenecked.">i</span>
+            </div>
+            <div class="state-num warn">42%</div>
+            <div class="state-meta">173 contacted</div>
+          </div>
+          <div class="state-cell">
+            <div class="state-label">Reply rate
+              <span class="info-tip" data-tip="Unique replies / unique contacted. Industry benchmark on cold outreach = 8%. Your edge from signal-rich pitches is showing.">i</span>
+            </div>
+            <div class="state-num green">23%</div>
+            <div class="state-meta">40 replied · vs 8% benchmark</div>
+          </div>
+          <div class="state-cell">
+            <div class="state-label">Closed won
+              <span class="info-tip" data-tip="Leads you've marked as Won in any list, last 90d. Shows the bottom of the funnel.">i</span>
+            </div>
+            <div class="state-num green">9</div>
+            <div class="state-meta">22% of replies</div>
+          </div>
+        </div>
+
+        <!-- PER-LIST PERFORMANCE -->
+        <div class="perf-table">
+          <div class="perf-head">
+            <div>
+              <div class="perf-title">Per-list performance</div>
+              <div class="perf-sub">// last 90 days · sorted by close rate</div>
+            </div>
+            <button class="btn btn-ghost">Sort: close rate</button>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>List</th>
+                <th style="text-align:right;">Surfaced</th>
+                <th style="text-align:right;">Contacted</th>
+                <th style="text-align:right;">Replied</th>
+                <th style="text-align:right;">Won</th>
+                <th style="text-align:right;">Close rate</th>
+                <th style="width:240px;">Funnel</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>
+                  <div class="list-name-cell"><span class="badge-svc brand">🛡️ Brand</span>Miami medical · brand hijack</div>
+                  <div class="list-sub">11 qualified · refresh daily</div>
+                </td>
+                <td style="text-align:right;" class="num-cell">28</td>
+                <td style="text-align:right;" class="num-cell">22</td>
+                <td style="text-align:right;" class="num-cell green">14</td>
+                <td style="text-align:right;" class="num-cell green">4</td>
+                <td style="text-align:right;">
+                  <div class="num-cell green">18%</div>
+                  <div class="num-meta">best list</div>
+                </td>
+                <td>
+                  <div class="funnel-mini">
+                    <div class="funnel-mini-seg new" style="flex:6;">6</div>
+                    <div class="funnel-mini-seg contacted" style="flex:8;">8</div>
+                    <div class="funnel-mini-seg replied" style="flex:10;">14</div>
+                    <div class="funnel-mini-seg won" style="flex:4;">4</div>
+                  </div>
+                  <div class="funnel-mini-labels"><span>new</span><span>contacted</span><span>replied</span><span>won</span></div>
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  <div class="list-name-cell"><span class="badge-svc launch">🆕 Launch</span>Montreal pilates · new entrants</div>
+                  <div class="list-sub">8 qualified · refresh weekly</div>
+                </td>
+                <td style="text-align:right;" class="num-cell">14</td>
+                <td style="text-align:right;" class="num-cell">11</td>
+                <td style="text-align:right;" class="num-cell green">5</td>
+                <td style="text-align:right;" class="num-cell green">2</td>
+                <td style="text-align:right;">
+                  <div class="num-cell green">14%</div>
+                </td>
+                <td>
+                  <div class="funnel-mini">
+                    <div class="funnel-mini-seg new" style="flex:3;">3</div>
+                    <div class="funnel-mini-seg contacted" style="flex:6;">6</div>
+                    <div class="funnel-mini-seg replied" style="flex:3;">5</div>
+                    <div class="funnel-mini-seg won" style="flex:2;">2</div>
+                  </div>
+                  <div class="funnel-mini-labels"><span>new</span><span>contacted</span><span>replied</span><span>won</span></div>
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  <div class="list-name-cell"><span class="badge-svc web">🌐 Web</span>Brickell med spas · website rebuild</div>
+                  <div class="list-sub">47 qualified · refresh daily</div>
+                </td>
+                <td style="text-align:right;" class="num-cell">112</td>
+                <td style="text-align:right;" class="num-cell">38</td>
+                <td style="text-align:right;" class="num-cell green">9</td>
+                <td style="text-align:right;" class="num-cell green">2</td>
+                <td style="text-align:right;">
+                  <div class="num-cell warn">5.3%</div>
+                  <div class="num-meta">but high volume</div>
+                </td>
+                <td>
+                  <div class="funnel-mini">
+                    <div class="funnel-mini-seg new" style="flex:74;"></div>
+                    <div class="funnel-mini-seg contacted" style="flex:29;">29</div>
+                    <div class="funnel-mini-seg replied" style="flex:7;">9</div>
+                    <div class="funnel-mini-seg won" style="flex:2;">2</div>
+                  </div>
+                  <div class="funnel-mini-labels"><span>new</span><span>contacted</span><span>replied</span><span>won</span></div>
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  <div class="list-name-cell"><span class="badge-svc seo">🔍 SEO</span>GTA HVAC · invisible on Maps</div>
+                  <div class="list-sub">89 qualified · refresh weekly</div>
+                </td>
+                <td style="text-align:right;" class="num-cell">156</td>
+                <td style="text-align:right;" class="num-cell">62</td>
+                <td style="text-align:right;" class="num-cell">8</td>
+                <td style="text-align:right;" class="num-cell green">1</td>
+                <td style="text-align:right;">
+                  <div class="num-cell warn">1.6%</div>
+                </td>
+                <td>
+                  <div class="funnel-mini">
+                    <div class="funnel-mini-seg new" style="flex:94;"></div>
+                    <div class="funnel-mini-seg contacted" style="flex:54;">54</div>
+                    <div class="funnel-mini-seg replied" style="flex:7;">8</div>
+                    <div class="funnel-mini-seg won" style="flex:1;">1</div>
+                  </div>
+                  <div class="funnel-mini-labels"><span>new</span><span>contacted</span><span>replied</span><span>won</span></div>
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  <div class="list-name-cell"><span class="badge-svc ads">📣 Ads</span>Toronto dental · ready for paid social</div>
+                  <div class="list-sub">31 qualified · refresh weekly</div>
+                </td>
+                <td style="text-align:right;" class="num-cell">68</td>
+                <td style="text-align:right;" class="num-cell">29</td>
+                <td style="text-align:right;" class="num-cell">3</td>
+                <td style="text-align:right;" class="num-cell">0</td>
+                <td style="text-align:right;">
+                  <div class="num-cell alert">0%</div>
+                  <div class="num-meta">review pitch</div>
+                </td>
+                <td>
+                  <div class="funnel-mini">
+                    <div class="funnel-mini-seg new" style="flex:39;"></div>
+                    <div class="funnel-mini-seg contacted" style="flex:26;">26</div>
+                    <div class="funnel-mini-seg replied" style="flex:3;">3</div>
+                  </div>
+                  <div class="funnel-mini-labels"><span>new</span><span>contacted</span><span>replied</span><span>won</span></div>
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  <div class="list-name-cell"><span class="badge-svc review">⭐ Reviews</span>Mississauga restaurants · 0% reply</div>
+                  <div class="list-sub">14 qualified · refresh daily</div>
+                </td>
+                <td style="text-align:right;" class="num-cell">34</td>
+                <td style="text-align:right;" class="num-cell">11</td>
+                <td style="text-align:right;" class="num-cell">1</td>
+                <td style="text-align:right;" class="num-cell">0</td>
+                <td style="text-align:right;">
+                  <div class="num-cell alert">0%</div>
+                </td>
+                <td>
+                  <div class="funnel-mini">
+                    <div class="funnel-mini-seg new" style="flex:23;"></div>
+                    <div class="funnel-mini-seg contacted" style="flex:10;">10</div>
+                    <div class="funnel-mini-seg replied" style="flex:1;">1</div>
+                  </div>
+                  <div class="funnel-mini-labels"><span>new</span><span>contacted</span><span>replied</span><span>won</span></div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- SIGNAL CORRELATION -->
+        <div class="panel">
+          <div class="panel-head">
+            <div>
+              <div class="panel-title">Which signals correlate with replies?
+                <span class="info-tip" data-tip="When a lead has signal X, what % of contacts reply vs the baseline. Calculated across all your closed-loop outreach data — 90 days minimum.">i</span>
+              </div>
+              <div class="panel-sub">// across all closed-loop data · last 90d · 173 contacts · 40 replies (23% baseline)</div>
+            </div>
+          </div>
+
+          <div class="signal-rank-row">
+            <div class="signal-rank-num">1</div>
+            <div>
+              <div class="signal-rank-name">Brand hijack detected</div>
+              <div class="num-meta">28 contacts · 14 replied</div>
+            </div>
+            <div class="signal-rank-bar"><div class="signal-rank-fill green" style="width:100%;"></div></div>
+            <div class="signal-rank-pct green">50%</div>
+          </div>
+
+          <div class="signal-rank-row">
+            <div class="signal-rank-num">2</div>
+            <div>
+              <div class="signal-rank-name">Same-building competitor</div>
+              <div class="num-meta">11 contacts · 5 replied</div>
+            </div>
+            <div class="signal-rank-bar"><div class="signal-rank-fill green" style="width:91%;"></div></div>
+            <div class="signal-rank-pct green">45%</div>
+          </div>
+
+          <div class="signal-rank-row">
+            <div class="signal-rank-num">3</div>
+            <div>
+              <div class="signal-rank-name">Unanswered 1★ &gt; 7d</div>
+              <div class="num-meta">42 contacts · 14 replied</div>
+            </div>
+            <div class="signal-rank-bar"><div class="signal-rank-fill green" style="width:67%;"></div></div>
+            <div class="signal-rank-pct green">33%</div>
+          </div>
+
+          <div class="signal-rank-row">
+            <div class="signal-rank-num">4</div>
+            <div>
+              <div class="signal-rank-name">First seen &lt; 90 days</div>
+              <div class="num-meta">11 contacts · 3 replied</div>
+            </div>
+            <div class="signal-rank-bar"><div class="signal-rank-fill green" style="width:55%;"></div></div>
+            <div class="signal-rank-pct green">27%</div>
+          </div>
+
+          <div class="signal-rank-row">
+            <div class="signal-rank-num">5</div>
+            <div>
+              <div class="signal-rank-name">LCP &gt; 3s (slow site)</div>
+              <div class="num-meta">38 contacts · 9 replied</div>
+            </div>
+            <div class="signal-rank-bar"><div class="signal-rank-fill warn" style="width:48%;"></div></div>
+            <div class="signal-rank-pct warn">24%</div>
+          </div>
+
+          <div class="signal-rank-row">
+            <div class="signal-rank-num">6</div>
+            <div>
+              <div class="signal-rank-name">Reply rate &lt; 25%</div>
+              <div class="num-meta">11 contacts · 1 replied</div>
+            </div>
+            <div class="signal-rank-bar"><div class="signal-rank-fill alert" style="width:18%;"></div></div>
+            <div class="signal-rank-pct alert">9%</div>
+          </div>
+
+          <div class="signal-rank-row">
+            <div class="signal-rank-num">7</div>
+            <div>
+              <div class="signal-rank-name">Not in local 3-pack</div>
+              <div class="num-meta">62 contacts · 8 replied</div>
+            </div>
+            <div class="signal-rank-bar"><div class="signal-rank-fill alert" style="width:26%;"></div></div>
+            <div class="signal-rank-pct alert">13%</div>
+          </div>
+
+          <div style="margin-top:18px; padding:14px 16px; background:var(--bg-3); border-radius:9px; font-size:12.5px; color:var(--text-2); line-height:1.55;">
+            <b style="color:var(--text);">Insight:</b> Urgency signals (brand hijack, same-building, fresh 1★) convert at <b>2–4× baseline</b>. SEO / website signals convert at baseline or below. Restructure your outreach copy on the SEO + website lists to lead with urgency rather than diagnostic.
+          </div>
+        </div>
+
+        <div style="margin-top:24px; padding:14px 18px; background:var(--bg-3); border-radius:10px; font-size:11.5px; color:var(--text-3); font-family:'JetBrains Mono',monospace; line-height:1.6;">
+          // Closed-loop data requires you to mark lead status manually (Contacted / Replied / Won / Lost) on each lead · the more you log, the more accurate this analysis · 90-day rolling window
+        </div>
+
+      </div>
+    </main>
+  </body>
+</html>

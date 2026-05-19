@@ -1,0 +1,364 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Settings · Mapsly Agency</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="_shared.css" />
+    <style>
+      .settings-layout { display:grid; grid-template-columns:200px 1fr; gap:32px; align-items:start; }
+      @media (max-width:900px) { .settings-layout { grid-template-columns:1fr; } }
+      .settings-nav { position:sticky; top:84px; background:var(--bg-2); border:1px solid var(--border); border-radius:12px; padding:8px; box-shadow:var(--shadow-sm); }
+      .settings-nav-item { display:block; padding:9px 12px; font-size:13px; color:var(--text-2); border-radius:7px; margin-bottom:2px; cursor:pointer; }
+      .settings-nav-item:hover { background:var(--bg-3); color:var(--text); }
+      .settings-nav-item.active { background:var(--indigo-light); color:var(--indigo); font-weight:600; }
+
+      .field-row { display:grid; grid-template-columns:200px 1fr; gap:18px; align-items:center; padding:14px 0; border-bottom:1px solid var(--border); }
+      .field-row:last-child { border-bottom:none; }
+      @media (max-width:700px) { .field-row { grid-template-columns:1fr; gap:4px; } }
+      .field-label { font-size:13px; font-weight:500; }
+      .field-help { font-size:11px; color:var(--text-3); margin-top:3px; font-family:'JetBrains Mono',monospace; }
+      .field-input { width:100%; padding:10px 14px; background:var(--bg-2); border:1px solid var(--border); border-radius:8px; font-size:13px; color:var(--text); }
+      .field-input:focus { outline:none; border-color:var(--indigo); }
+      .field-input[readonly] { background:var(--bg-3); color:var(--text-2); }
+
+      .toggle-row { display:flex; justify-content:space-between; align-items:center; padding:14px 0; border-bottom:1px solid var(--border); }
+      .toggle-row:last-child { border-bottom:none; }
+      .toggle-info { flex:1; padding-right:14px; }
+      .toggle-label { font-size:13.5px; font-weight:500; }
+      .toggle-desc { font-size:12px; color:var(--text-3); margin-top:3px; line-height:1.45; }
+      .toggle { position:relative; width:44px; height:24px; background:var(--bg-3); border:1px solid var(--border); border-radius:12px; flex-shrink:0; cursor:pointer; transition:all .15s; }
+      .toggle::after { content:''; position:absolute; top:1px; left:1px; width:18px; height:18px; background:#fff; border-radius:50%; box-shadow:0 1px 3px rgba(20,22,32,.15); transition:all .15s; }
+      .toggle.on { background:var(--indigo); border-color:var(--indigo); }
+      .toggle.on::after { left:21px; }
+
+      .plan-card { display:grid; grid-template-columns:1fr auto; gap:18px; align-items:center; padding:18px 22px; background:linear-gradient(135deg, var(--indigo-light), transparent); border:1px solid rgba(91,61,245,.25); border-radius:12px; }
+      .plan-name { font-size:22px; font-weight:700; letter-spacing:-.02em; }
+      .plan-price { font-family:'JetBrains Mono',monospace; font-size:13px; color:var(--text-2); margin-top:4px; }
+      .plan-price b { color:var(--indigo); font-weight:700; }
+
+      .brand-preview { display:flex; align-items:center; gap:12px; padding:14px 16px; background:var(--bg-3); border-radius:10px; margin-top:10px; }
+      .brand-logo { width:40px; height:40px; border-radius:9px; background:linear-gradient(135deg, var(--indigo), var(--teal)); display:flex; align-items:center; justify-content:center; color:#fff; font-weight:800; }
+      .brand-name { font-weight:700; }
+      .brand-url { font-size:11.5px; color:var(--text-3); font-family:'JetBrains Mono',monospace; }
+
+      .seat-row { display:grid; grid-template-columns:auto 1fr auto auto; gap:12px; align-items:center; padding:12px 0; border-bottom:1px solid var(--border); }
+      .seat-row:last-child { border-bottom:none; }
+      .seat-avatar { width:36px; height:36px; border-radius:50%; background:linear-gradient(135deg, var(--indigo), var(--teal)); display:flex; align-items:center; justify-content:center; color:#fff; font-weight:700; font-size:12px; }
+      .seat-name { font-size:13.5px; font-weight:600; }
+      .seat-meta { font-size:11px; color:var(--text-3); font-family:'JetBrains Mono',monospace; margin-top:2px; }
+      .seat-role { font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; padding:3px 8px; border-radius:4px; background:var(--bg-3); color:var(--text-2); }
+      .seat-role.owner { background:var(--indigo-light); color:var(--indigo); }
+
+      .danger-zone { border-color:rgba(220,38,38,.25); }
+    </style>
+  </head>
+  <body>
+
+    <aside class="sidebar">
+      <div class="sidebar-logo">
+        <span class="sidebar-logo-dot"></span>
+        <span class="sidebar-logo-text">mapsly</span>
+        <span class="sidebar-logo-tag">Agency</span>
+      </div>
+      <div class="sidebar-section-label">Workspace</div>
+      <a href="lists.html" class="nav-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>Lists <span class="nav-item-badge">6</span></a>
+      <a href="search.html" class="nav-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>Search</a>
+      <a href="activity.html" class="nav-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>Activity <span class="nav-item-badge">23</span></a>
+      <a href="reports.html" class="nav-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>Reports</a>
+      <div class="sidebar-section-label">Account</div>
+      <a href="list-analytics.html" class="nav-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 16l4-8 4 4 5-10"/></svg>List analytics</a>
+      <a href="settings.html" class="nav-item active"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Settings</a>
+      <div class="sidebar-footer">
+        <div class="sidebar-agency">
+          <div class="sidebar-agency-avatar">AL</div>
+          <div>
+            <div class="sidebar-agency-name">Anchor Local</div>
+            <div class="sidebar-agency-meta">Toronto · 4 seats</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <div class="topbar-title">Settings</div>
+          <div class="topbar-subtitle">Agency profile · brand · team · billing</div>
+        </div>
+      </header>
+
+      <div class="content" style="max-width:1100px;">
+
+        <div class="settings-layout">
+
+          <nav class="settings-nav">
+            <a href="#agency" class="settings-nav-item active">Agency profile</a>
+            <a href="#team" class="settings-nav-item">Team</a>
+            <a href="#notifications" class="settings-nav-item">Notifications</a>
+            <a href="#billing" class="settings-nav-item">Billing</a>
+            <a href="#data" class="settings-nav-item">Data + privacy</a>
+            <a href="#danger" class="settings-nav-item">Danger zone</a>
+          </nav>
+
+          <div>
+
+            <!-- AGENCY -->
+            <div class="card" id="agency">
+              <div class="card-head">
+                <div>
+                  <div class="card-title">Agency profile</div>
+                  <div class="card-subtitle">// shown in exported reports + shareable links</div>
+                </div>
+              </div>
+              <div class="field-row">
+                <div><div class="field-label">Agency name</div></div>
+                <input class="field-input" value="Anchor Local" />
+              </div>
+              <div class="field-row">
+                <div><div class="field-label">Domain</div><div class="field-help">used for shareable links + invoices</div></div>
+                <input class="field-input" value="anchorlocal.com" />
+              </div>
+              <div class="field-row">
+                <div><div class="field-label">Default metro</div><div class="field-help">Search + new lists start here</div></div>
+                <select class="field-input">
+                  <option>Toronto, ON</option>
+                  <option>GTA (5 cities)</option>
+                  <option>Mississauga, ON</option>
+                  <option>Miami, FL</option>
+                </select>
+              </div>
+              <div class="field-row">
+                <div><div class="field-label">Categories you serve</div><div class="field-help">used to suggest list templates</div></div>
+                <textarea class="field-input" style="min-height:60px; resize:vertical;">medical_spa, dentist, hvac, restaurant, salon, pilates, auto_body, pediatrics</textarea>
+              </div>
+            </div>
+
+            <!-- TEAM -->
+            <div class="card" id="team">
+              <div class="card-head">
+                <div>
+                  <div class="card-title">Team · 4 of 5 seats</div>
+                  <div class="card-subtitle">// each seat sees only lists they're assigned to · admins see all</div>
+                </div>
+                <button class="btn btn-primary">+ Invite</button>
+              </div>
+              <div class="seat-row">
+                <div class="seat-avatar">TM</div>
+                <div>
+                  <div class="seat-name">Tom Mendes</div>
+                  <div class="seat-meta">tom@anchorlocal.com</div>
+                </div>
+                <span class="seat-role owner">Owner</span>
+                <button class="btn btn-ghost">Manage</button>
+              </div>
+              <div class="seat-row">
+                <div class="seat-avatar" style="background:linear-gradient(135deg, var(--teal), #075e74);">SA</div>
+                <div>
+                  <div class="seat-name">Sara Akhtar</div>
+                  <div class="seat-meta">sara@anchorlocal.com · joined Sep 2024</div>
+                </div>
+                <span class="seat-role">Admin</span>
+                <button class="btn btn-ghost">Manage</button>
+              </div>
+              <div class="seat-row">
+                <div class="seat-avatar" style="background:linear-gradient(135deg, var(--warn), #92590a);">MK</div>
+                <div>
+                  <div class="seat-name">Marc Kuhne</div>
+                  <div class="seat-meta">marc@anchorlocal.com · joined Jan 2025</div>
+                </div>
+                <span class="seat-role">Staff</span>
+                <button class="btn btn-ghost">Manage</button>
+              </div>
+              <div class="seat-row">
+                <div class="seat-avatar" style="background:linear-gradient(135deg, var(--alert), #9b1b1b);">JI</div>
+                <div>
+                  <div class="seat-name">Jess Iturralde</div>
+                  <div class="seat-meta">jess@anchorlocal.com · joined Mar 2025</div>
+                </div>
+                <span class="seat-role">Staff</span>
+                <button class="btn btn-ghost">Manage</button>
+              </div>
+            </div>
+
+            <!-- NOTIFICATIONS -->
+            <div class="card" id="notifications">
+              <div class="card-head">
+                <div>
+                  <div class="card-title">Notifications</div>
+                  <div class="card-subtitle">// what gets pushed where</div>
+                </div>
+              </div>
+              <div class="toggle-row">
+                <div class="toggle-info">
+                  <div class="toggle-label">Morning digest · 8am</div>
+                  <div class="toggle-desc">Summary of new list matches overnight</div>
+                </div>
+                <div class="toggle on"></div>
+              </div>
+              <div class="toggle-row">
+                <div class="toggle-info">
+                  <div class="toggle-label">List refresh complete</div>
+                  <div class="toggle-desc">Notify when a daily/weekly refresh finishes (skip = quieter inbox)</div>
+                </div>
+                <div class="toggle"></div>
+              </div>
+              <div class="toggle-row">
+                <div class="toggle-info">
+                  <div class="toggle-label">Email verification status changes</div>
+                  <div class="toggle-desc">When a prospect email becomes verified or fails verification</div>
+                </div>
+                <div class="toggle on"></div>
+              </div>
+              <div class="toggle-row">
+                <div class="toggle-info">
+                  <div class="toggle-label">New competitor enters tracked market</div>
+                  <div class="toggle-desc">Daily check across the categories + metros you've saved</div>
+                </div>
+                <div class="toggle on"></div>
+              </div>
+              <div class="toggle-row">
+                <div class="toggle-info">
+                  <div class="toggle-label">Slack notifications</div>
+                  <div class="toggle-desc">Mirror these alerts to a Slack channel · connect under Integrations</div>
+                </div>
+                <div class="toggle"></div>
+              </div>
+            </div>
+
+            <!-- BILLING -->
+            <div class="card" id="billing">
+              <div class="card-head">
+                <div>
+                  <div class="card-title">Plan & billing</div>
+                  <div class="card-subtitle">// invoices to tom@anchorlocal.com</div>
+                </div>
+              </div>
+              <div class="plan-card">
+                <div>
+                  <div class="plan-name">Growth · $99/mo</div>
+                  <div class="plan-price"><b>3 seats · 10 lists · daily refresh · unlimited leads</b> · billed monthly</div>
+                </div>
+                <button class="btn btn-ghost">Compare plans →</button>
+              </div>
+
+              <div style="margin-top:22px;">
+                <div class="field-label" style="margin-bottom:10px;">All plans</div>
+                <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:10px; margin-bottom:14px;">
+                  <div style="padding:14px 16px; background:var(--bg-2); border:1px solid var(--border); border-radius:10px;">
+                    <div style="font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--text-3); margin-bottom:6px;">Solo</div>
+                    <div style="font-size:22px; font-weight:800; letter-spacing:-.02em;">$49</div>
+                    <div style="font-size:11px; color:var(--text-3); margin-top:6px; font-family:'JetBrains Mono',monospace; line-height:1.5;">1 seat · 3 lists · weekly refresh · 200 leads/mo</div>
+                  </div>
+                  <div style="padding:14px 16px; background:var(--indigo); color:#fff; border-radius:10px;">
+                    <div style="font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; opacity:.7; margin-bottom:6px;">Growth · current</div>
+                    <div style="font-size:22px; font-weight:800; letter-spacing:-.02em;">$99</div>
+                    <div style="font-size:11px; opacity:.85; margin-top:6px; font-family:'JetBrains Mono',monospace; line-height:1.5;">3 seats · 10 lists · daily refresh · unlimited</div>
+                  </div>
+                  <div style="padding:14px 16px; background:var(--bg-2); border:1px solid var(--border); border-radius:10px;">
+                    <div style="font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--text-3); margin-bottom:6px;">Agency Pro</div>
+                    <div style="font-size:22px; font-weight:800; letter-spacing:-.02em;">$249</div>
+                    <div style="font-size:11px; color:var(--text-3); margin-top:6px; font-family:'JetBrains Mono',monospace; line-height:1.5;">10 seats · status tracking · team scoping · list analytics · API</div>
+                  </div>
+                  <div style="padding:14px 16px; background:var(--bg-2); border:1px solid var(--border); border-radius:10px;">
+                    <div style="font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--text-3); margin-bottom:6px;">Boutique</div>
+                    <div style="font-size:22px; font-weight:800; letter-spacing:-.02em;">$499</div>
+                    <div style="font-size:11px; color:var(--text-3); margin-top:6px; font-family:'JetBrains Mono',monospace; line-height:1.5;">unlimited · dedicated success · custom signals</div>
+                  </div>
+                </div>
+                <div class="field-row">
+                  <div><div class="field-label">Payment method</div><div class="field-help">Visa ending 9911 · exp 06/28</div></div>
+                  <button class="btn btn-ghost">Update card</button>
+                </div>
+                <div class="field-row">
+                  <div><div class="field-label">Next charge</div></div>
+                  <input class="field-input" value="Jun 17, 2026 · $99.00" readonly />
+                </div>
+              </div>
+            </div>
+
+            <!-- DATA -->
+            <div class="card" id="data">
+              <div class="card-head">
+                <div>
+                  <div class="card-title">Data + privacy</div>
+                  <div class="card-subtitle">// GDPR · PIPEDA · CCPA compliant</div>
+                </div>
+              </div>
+              <div class="toggle-row">
+                <div class="toggle-info">
+                  <div class="toggle-label">Data residency · Canada</div>
+                  <div class="toggle-desc">Your lists + saved contacts stored in CA region</div>
+                </div>
+                <div class="toggle on"></div>
+              </div>
+              <div class="toggle-row">
+                <div class="toggle-info">
+                  <div class="toggle-label">Exclude unclaimed listings from results</div>
+                  <div class="toggle-desc">Only show businesses that claimed their Google profile</div>
+                </div>
+                <div class="toggle on"></div>
+              </div>
+              <div class="toggle-row">
+                <div class="toggle-info">
+                  <div class="toggle-label">Auto-delete unverified emails after 30d</div>
+                  <div class="toggle-desc">Emails that fail verification get purged</div>
+                </div>
+                <div class="toggle on"></div>
+              </div>
+              <button class="btn btn-ghost" style="margin-top:8px;">Download all your data (.zip)</button>
+            </div>
+
+            <!-- DANGER -->
+            <div class="card danger-zone" id="danger">
+              <div class="card-head">
+                <div>
+                  <div class="card-title" style="color:var(--alert);">Danger zone</div>
+                  <div class="card-subtitle">// not reversible</div>
+                </div>
+              </div>
+              <div class="field-row">
+                <div>
+                  <div class="field-label">Pause all list refreshes</div>
+                  <div class="field-help">no new matches surface · billing pauses</div>
+                </div>
+                <button class="btn btn-ghost">Pause</button>
+              </div>
+              <div class="field-row">
+                <div>
+                  <div class="field-label">Cancel subscription</div>
+                  <div class="field-help">retains data 90 days · then deleted</div>
+                </div>
+                <button class="btn btn-danger">Cancel plan</button>
+              </div>
+              <div class="field-row">
+                <div>
+                  <div class="field-label">Delete agency workspace</div>
+                  <div class="field-help">removes lists, leads, exports immediately</div>
+                </div>
+                <button class="btn btn-danger">Delete</button>
+              </div>
+            </div>
+
+            <div style="margin-top:12px; padding:14px 18px; background:var(--bg-3); border-radius:10px; font-size:11.5px; color:var(--text-3); font-family:'JetBrains Mono',monospace; line-height:1.6;">
+              // Settings save on blur · take effect next refresh cycle
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <script>
+      document.querySelectorAll('.toggle').forEach(t => t.addEventListener('click', () => t.classList.toggle('on')));
+      document.querySelectorAll('.settings-nav-item').forEach(item => {
+        item.addEventListener('click', () => {
+          document.querySelectorAll('.settings-nav-item').forEach(x => x.classList.remove('active'));
+          item.classList.add('active');
+        });
+      });
+    </script>
+  </body>
+</html>

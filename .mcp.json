@@ -1,0 +1,49 @@
+{
+  "$schema": "https://docs.claude.com/schema/mcp.json",
+  "_comment": "Rename this file to .mcp.json after cloning. Sensitive — env vars referenced are read from .env.local at MCP startup. Restart Claude Code after changes.",
+  "mcpServers": {
+    "postgres": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-postgres", "${DATABASE_URL}"],
+      "env": {
+        "DATABASE_URL": "${DATABASE_URL}"
+      }
+    },
+    "gsc": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "mcp-google-search-console"],
+      "env": {
+        "GOOGLE_APPLICATION_CREDENTIALS": "${GOOGLE_APPLICATION_CREDENTIALS}"
+      }
+    },
+    "ga": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "mcp-google-analytics-oauth2"],
+      "env": {
+        "GOOGLE_AUTH_MODE": "service_account",
+        "GOOGLE_CREDENTIALS_PATH": "${GOOGLE_APPLICATION_CREDENTIALS}"
+      }
+    },
+    "dataforseo": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@dataforseo/mcp-server"],
+      "env": {
+        "DATAFORSEO_USERNAME": "${DATAFORSEO_USERNAME}",
+        "DATAFORSEO_PASSWORD": "${DATAFORSEO_PASSWORD}"
+      }
+    },
+    "context7": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp"]
+    },
+    "sentry": {
+      "type": "http",
+      "url": "https://mcp.sentry.dev/mcp"
+    }
+  }
+}

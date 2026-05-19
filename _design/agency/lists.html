@@ -1,0 +1,696 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Lists · Mapsly Agency</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="_shared.css" />
+    <style>
+      .intro {
+        background:linear-gradient(120deg, var(--indigo-light), var(--teal-light));
+        border:1px solid rgba(91,61,245,.16);
+        border-radius:14px;
+        padding:18px 22px;
+        margin-bottom:22px;
+        display:flex; gap:16px; align-items:center;
+      }
+      .intro-icon { width:42px; height:42px; border-radius:10px; background:var(--indigo); color:#fff; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+      .intro-text { font-size:13px; color:var(--text-2); line-height:1.55; }
+      .intro-text b { color:var(--text); font-weight:600; }
+
+      .today-strip {
+        display:grid;
+        grid-template-columns:auto 1fr auto;
+        gap:18px;
+        align-items:center;
+        padding:18px 22px;
+        background:var(--bg-2);
+        border:1px solid var(--border);
+        border-radius:14px;
+        margin-bottom:22px;
+        box-shadow:var(--shadow-sm);
+      }
+      .today-num {
+        font-size:42px; font-weight:800;
+        line-height:1; letter-spacing:-.02em;
+        color:var(--indigo);
+      }
+      .today-label {
+        font-family:'JetBrains Mono',monospace;
+        font-size:10px; font-weight:700;
+        text-transform:uppercase; letter-spacing:.1em;
+        color:var(--text-3);
+        margin-bottom:4px;
+      }
+      .today-detail { font-size:13.5px; color:var(--text); }
+      .today-meta { font-size:11.5px; color:var(--text-3); margin-top:4px; font-family:'JetBrains Mono',monospace; }
+
+      /* LISTS GRID */
+      .lists-grid {
+        display:grid;
+        grid-template-columns:repeat(auto-fill, minmax(360px, 1fr));
+        gap:14px;
+      }
+      .list-card {
+        background:var(--bg-2);
+        border:1px solid var(--border);
+        border-radius:14px;
+        padding:20px 22px;
+        cursor:pointer;
+        transition:all .15s var(--ease);
+        position:relative;
+        overflow:hidden;
+        box-shadow:var(--shadow-sm);
+      }
+      .list-card:hover {
+        border-color:var(--indigo);
+        transform:translateY(-1px);
+        box-shadow:var(--shadow-md);
+      }
+      .list-card.fresh::before {
+        content:'';
+        position:absolute; top:0; left:0; right:0;
+        height:3px;
+        background:linear-gradient(90deg, var(--indigo), var(--teal));
+      }
+      .list-card.paused { opacity:.65; }
+
+      /* CARD ACTIONS — visible on hover */
+      .card-actions {
+        position:absolute; top:14px; right:14px;
+        display:flex; gap:4px;
+        opacity:0; transition:opacity .15s;
+        z-index:5;
+      }
+      .list-card:hover .card-actions { opacity:1; }
+      .card-action-btn {
+        width:28px; height:28px;
+        border-radius:6px;
+        background:var(--bg-2);
+        border:1px solid var(--border);
+        display:flex; align-items:center; justify-content:center;
+        color:var(--text-2);
+        cursor:pointer;
+        transition:all .1s;
+      }
+      .card-action-btn:hover {
+        border-color:var(--indigo);
+        color:var(--indigo);
+        background:var(--indigo-light);
+      }
+
+      /* SERVICE BADGE */
+      .service-badge {
+        display:inline-flex; align-items:center; gap:6px;
+        font-family:'JetBrains Mono',monospace;
+        font-size:10px; font-weight:700;
+        text-transform:uppercase; letter-spacing:.08em;
+        padding:3px 8px;
+        border-radius:4px;
+        margin-bottom:10px;
+      }
+      .service-badge.web { background:rgba(8,145,178,.12); color:var(--teal); }
+      .service-badge.ads { background:rgba(91,61,245,.10); color:var(--indigo); }
+      .service-badge.seo { background:rgba(217,119,6,.12); color:var(--warn); }
+      .service-badge.review { background:rgba(220,38,38,.10); color:var(--alert); }
+      .service-badge.brand { background:rgba(22,163,74,.12); color:var(--success); }
+      .service-badge.launch { background:rgba(107,79,155,.12); color:#6b4f9b; }
+
+      .list-head {
+        display:flex; justify-content:space-between; align-items:flex-start;
+        margin-bottom:8px;
+        gap:10px;
+      }
+      .list-name { font-size:15px; font-weight:600; line-height:1.3; flex:1; }
+      .list-target {
+        font-family:'JetBrains Mono',monospace;
+        font-size:11px;
+        color:var(--text-3);
+        margin-bottom:10px;
+      }
+      .list-status {
+        display:inline-flex; align-items:center; gap:5px;
+        font-family:'JetBrains Mono',monospace;
+        font-size:10px; font-weight:700;
+        text-transform:uppercase; letter-spacing:.06em;
+        padding:3px 8px;
+        border-radius:4px;
+        white-space:nowrap;
+      }
+      .list-status.fresh { background:var(--indigo-light); color:var(--indigo); }
+      .list-status.stable { background:var(--bg-3); color:var(--text-2); }
+      .list-status.paused { background:var(--bg-3); color:var(--text-3); }
+
+      .list-pitch {
+        font-size:12.5px;
+        color:var(--text-2);
+        line-height:1.5;
+        margin-bottom:14px;
+        font-style:italic;
+      }
+
+      .list-stats {
+        display:grid;
+        grid-template-columns:1fr 1fr 1fr;
+        gap:8px;
+        padding:12px 0;
+        border-top:1px solid var(--border);
+        border-bottom:1px solid var(--border);
+        margin-bottom:14px;
+      }
+      .list-stat { text-align:left; }
+      .list-stat-num { font-family:'JetBrains Mono',monospace; font-size:18px; font-weight:700; }
+      .list-stat-num.indigo { color:var(--indigo); }
+      .list-stat-num.green { color:var(--success); }
+      .list-stat-label {
+        font-family:'JetBrains Mono',monospace;
+        font-size:9.5px; font-weight:600;
+        text-transform:uppercase; letter-spacing:.05em;
+        color:var(--text-3);
+        margin-top:2px;
+      }
+
+      .list-filters {
+        display:flex; flex-wrap:wrap; gap:5px;
+        margin-bottom:14px;
+      }
+      .filter-chip {
+        font-family:'JetBrains Mono',monospace;
+        font-size:10.5px;
+        padding:3px 7px;
+        border-radius:4px;
+        background:var(--bg-3);
+        color:var(--text-2);
+      }
+
+      .list-foot {
+        display:flex; justify-content:space-between; align-items:center;
+        font-size:11px;
+        color:var(--text-3);
+        font-family:'JetBrains Mono',monospace;
+      }
+
+      /* SERVICE TEMPLATES STRIP */
+      .service-templates {
+        background:var(--bg-2);
+        border:1px solid var(--border);
+        border-radius:14px;
+        padding:18px 22px;
+        margin-bottom:22px;
+        box-shadow:var(--shadow-sm);
+      }
+      .service-templates-head {
+        font-size:14px; font-weight:600;
+        margin-bottom:6px;
+      }
+      .service-templates-sub {
+        font-family:'JetBrains Mono',monospace;
+        font-size:11px;
+        color:var(--text-3);
+        margin-bottom:14px;
+      }
+      .template-row {
+        display:grid;
+        grid-template-columns:repeat(auto-fill, minmax(180px, 1fr));
+        gap:10px;
+      }
+      .template-card {
+        padding:14px 14px;
+        border:1px solid var(--border);
+        border-radius:10px;
+        background:var(--bg-2);
+        cursor:pointer;
+        transition:all .15s;
+      }
+      .template-card:hover { border-color:var(--indigo); background:var(--indigo-light); }
+      .template-icon {
+        font-size:18px;
+        margin-bottom:8px;
+        display:block;
+      }
+      .template-name { font-size:13.5px; font-weight:600; margin-bottom:3px; }
+      .template-meta { font-size:11px; color:var(--text-3); font-family:'JetBrains Mono',monospace; }
+
+      /* NEW LIST */
+      .new-list {
+        background:transparent;
+        border:1px dashed var(--border-strong);
+        border-radius:14px;
+        padding:32px 22px;
+        text-align:center;
+        cursor:pointer;
+        transition:all .15s var(--ease);
+        display:flex; flex-direction:column; justify-content:center;
+        min-height:280px;
+      }
+      .new-list:hover { border-color:var(--indigo); background:var(--indigo-light); }
+      .new-list-icon {
+        margin:0 auto 14px;
+        width:44px; height:44px;
+        border-radius:50%;
+        background:var(--indigo-light);
+        display:flex; align-items:center; justify-content:center;
+        color:var(--indigo);
+      }
+      .new-list-title { font-size:15px; font-weight:600; margin-bottom:6px; }
+      .new-list-sub { font-size:12px; color:var(--text-3); line-height:1.5; }
+
+      .section-head {
+        margin:24px 0 14px;
+        display:flex; justify-content:space-between; align-items:baseline;
+      }
+      .section-head h2 { font-size:14px; font-weight:600; letter-spacing:.02em; }
+      .section-head .meta { font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text-3); }
+    </style>
+  </head>
+  <body>
+
+    <aside class="sidebar">
+      <div class="sidebar-logo">
+        <span class="sidebar-logo-dot"></span>
+        <span class="sidebar-logo-text">mapsly</span>
+        <span class="sidebar-logo-tag">Agency</span>
+      </div>
+      <div class="sidebar-section-label">Workspace</div>
+      <a href="lists.html" class="nav-item active">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
+        Lists <span class="nav-item-badge">6</span>
+      </a>
+      <a href="search.html" class="nav-item">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        Search
+      </a>
+      <a href="activity.html" class="nav-item">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+        Activity <span class="nav-item-badge">23</span>
+      </a>
+      <a href="reports.html" class="nav-item">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        Reports
+      </a>
+      <div class="sidebar-section-label">Account</div>
+      <a href="list-analytics.html" class="nav-item">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 16l4-8 4 4 5-10"/></svg>
+        List analytics
+      </a>
+      <a href="settings.html" class="nav-item">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        Settings
+      </a>
+      <div class="sidebar-footer">
+        <div class="sidebar-agency">
+          <div class="sidebar-agency-avatar">AL</div>
+          <div>
+            <div class="sidebar-agency-name">Anchor Local</div>
+            <div class="sidebar-agency-meta">Toronto · 4 seats</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main">
+
+      <header class="topbar">
+        <div>
+          <div class="topbar-title">Lists</div>
+          <div class="topbar-subtitle">One list per service you sell · Tom · Mon May 17</div>
+        </div>
+        <div class="topbar-right">
+          <div style="display:flex; align-items:center; gap:8px; padding:0 12px; background:var(--bg-2); border:1px solid var(--border); border-radius:8px; min-width:240px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text-3);"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+            <input placeholder="Look up a business…" style="flex:1; padding:9px 0; border:none; background:transparent; font-size:13px; color:var(--text); outline:none; font-family:'Inter',sans-serif;" />
+            <span style="font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--text-3); background:var(--bg-3); padding:1px 6px; border-radius:3px;">⌘K</span>
+          </div>
+          <a href="search.html" class="btn btn-primary">+ New list</a>
+        </div>
+      </header>
+
+      <div class="content">
+
+        <div class="intro">
+          <div class="intro-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
+          </div>
+          <div class="intro-text">
+            Each <b>list</b> represents <b>one service you sell</b>. Pick the signals that match the offer (e.g. "slow site + no schema" = website rebuild candidates) and Mapsly auto-surfaces every business in our 2.1M index that fits. New matches appear here each morning.
+            <br>
+            <span style="color:var(--text-3); font-family:'JetBrains Mono',monospace; font-size:11.5px; margin-top:4px; display:inline-block;">// 6 services tracking · 23 new leads today across all lists</span>
+          </div>
+        </div>
+
+        <!-- TODAY'S MATCHES -->
+        <div class="today-strip">
+          <div>
+            <div class="today-label">Today's new leads</div>
+            <div class="today-num">23</div>
+          </div>
+          <div>
+            <div class="today-detail">
+              <b>23 new businesses</b> surfaced overnight across your 6 service lists. Most came from <b>"Website rebuild · Brickell med spas"</b> (12) and <b>"Local SEO · GTA HVAC"</b> (8).
+            </div>
+            <div class="today-meta">// overnight sweep finished 6:14 AM · last 24h delta</div>
+          </div>
+          <a href="activity.html" class="btn btn-primary">Review →</a>
+        </div>
+
+        <!-- SERVICE QUICK START -->
+        <div class="service-templates">
+          <div class="service-templates-head">Start a list from a service you sell</div>
+          <div class="service-templates-sub">// click any service to pre-fill the matching filters · you can refine before saving</div>
+          <div class="template-row">
+            <a href="search.html" class="template-card">
+              <span class="template-icon">🌐</span>
+              <div class="template-name">Website rebuild</div>
+              <div class="template-meta">slow site · no schema · old tech</div>
+            </a>
+            <a href="search.html" class="template-card">
+              <span class="template-icon">📣</span>
+              <div class="template-name">Meta ads campaign</div>
+              <div class="template-meta">no ads · or off-keyword copy</div>
+            </a>
+            <a href="search.html" class="template-card">
+              <span class="template-icon">🎯</span>
+              <div class="template-name">Google Ads launch</div>
+              <div class="template-meta">no paid search · high-CPC kw open</div>
+            </a>
+            <a href="search.html" class="template-card">
+              <span class="template-icon">🔍</span>
+              <div class="template-name">Local SEO + GBP</div>
+              <div class="template-meta">not in 3-pack · low photos</div>
+            </a>
+            <a href="search.html" class="template-card">
+              <span class="template-icon">⭐</span>
+              <div class="template-name">Review management</div>
+              <div class="template-meta">reply rate &lt; 25% · unanswered 1★</div>
+            </a>
+            <a href="search.html" class="template-card">
+              <span class="template-icon">🛡️</span>
+              <div class="template-name">Brand defense</div>
+              <div class="template-meta">competitor bidding on brand name</div>
+            </a>
+            <a href="search.html" class="template-card">
+              <span class="template-icon">🆕</span>
+              <div class="template-name">New-business launch</div>
+              <div class="template-meta">opened &lt; 90d · &lt; 10 reviews</div>
+            </a>
+            <a href="search.html" class="template-card">
+              <span class="template-icon">📊</span>
+              <div class="template-name">Full audit</div>
+              <div class="template-meta">all signals · for big retainer pitches</div>
+            </a>
+          </div>
+        </div>
+
+        <!-- ACTIVE LISTS -->
+        <div class="section-head">
+          <h2>Your active lists</h2>
+          <span class="meta">// 5 active · refreshing</span>
+        </div>
+
+        <div class="lists-grid">
+
+          <!-- LIST 1 · Website rebuild -->
+          <a href="list-detail.html" class="list-card fresh">
+            <div class="card-actions" onclick="event.stopPropagation(); event.preventDefault();">
+              <button class="card-action-btn" title="Clone list" onclick="event.preventDefault();">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              </button>
+              <button class="card-action-btn" title="Pause" onclick="event.preventDefault();">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+              </button>
+              <button class="card-action-btn" title="More" onclick="event.preventDefault();">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
+              </button>
+            </div>
+            <span class="service-badge web">🌐 Website creation / rebuild</span>
+            <div class="list-head">
+              <div class="list-name">Brickell med spas · slow sites + no schema</div>
+              <span class="list-status fresh">12 new</span>
+            </div>
+            <div class="list-target">target: med spas · Miami · 5mi radius</div>
+            <div class="list-pitch">"Your site is losing leads before they ever call." Lighthouse &lt; 60, missing schema, NAP inconsistent. These convert at ~22% reply rate on the cold pitch.</div>
+            <div class="list-stats">
+              <div class="list-stat">
+                <div class="list-stat-num indigo">47</div>
+                <div class="list-stat-label">qualified</div>
+              </div>
+              <div class="list-stat">
+                <div class="list-stat-num green">+12</div>
+                <div class="list-stat-label">this week</div>
+              </div>
+              <div class="list-stat">
+                <div class="list-stat-num">42</div>
+                <div class="list-stat-label">verified email</div>
+              </div>
+            </div>
+            <div class="list-filters">
+              <span class="filter-chip">Lighthouse Perf &lt; 60</span>
+              <span class="filter-chip">No LocalBusiness schema</span>
+              <span class="filter-chip">LCP &gt; 3s</span>
+              <span class="filter-chip">+5 more</span>
+            </div>
+            <div class="list-foot">
+              <span>Refreshes daily 6am</span>
+              <span>Tom · today</span>
+            </div>
+          </a>
+
+          <!-- LIST 2 · Meta ads campaign -->
+          <a href="list-detail.html" class="list-card fresh">
+            <span class="service-badge ads">📣 Meta ads campaign</span>
+            <div class="list-head">
+              <div class="list-name">Toronto dentists · ready to launch paid social</div>
+              <span class="list-status fresh">3 new</span>
+            </div>
+            <div class="list-target">target: dentists · Toronto + GTA</div>
+            <div class="list-pitch">"You have demand but no funnel for it." Established practices (≥3yr) with strong rating and zero Meta ad spend — primed for first-time paid launch.</div>
+            <div class="list-stats">
+              <div class="list-stat">
+                <div class="list-stat-num indigo">31</div>
+                <div class="list-stat-label">qualified</div>
+              </div>
+              <div class="list-stat">
+                <div class="list-stat-num green">+3</div>
+                <div class="list-stat-label">this week</div>
+              </div>
+              <div class="list-stat">
+                <div class="list-stat-num">28</div>
+                <div class="list-stat-label">verified email</div>
+              </div>
+            </div>
+            <div class="list-filters">
+              <span class="filter-chip">No active Meta ads</span>
+              <span class="filter-chip">Rating ≥ 4.5</span>
+              <span class="filter-chip">Reviews ≥ 100</span>
+              <span class="filter-chip">+3 more</span>
+            </div>
+            <div class="list-foot">
+              <span>Refreshes Mon weekly</span>
+              <span>Sara · today</span>
+            </div>
+          </a>
+
+          <!-- LIST 3 · Local SEO -->
+          <a href="list-detail.html" class="list-card fresh">
+            <span class="service-badge seo">🔍 Local SEO + GBP</span>
+            <div class="list-head">
+              <div class="list-name">GTA HVAC · invisible on Google Maps</div>
+              <span class="list-status fresh">8 new</span>
+            </div>
+            <div class="list-target">target: HVAC · Greater Toronto Area</div>
+            <div class="list-pitch">"You're not in the local 3-pack — that's 70% of your category's traffic." Not appearing in the 3-pack for primary service keyword, low photos, no recent GBP posts.</div>
+            <div class="list-stats">
+              <div class="list-stat">
+                <div class="list-stat-num indigo">89</div>
+                <div class="list-stat-label">qualified</div>
+              </div>
+              <div class="list-stat">
+                <div class="list-stat-num green">+8</div>
+                <div class="list-stat-label">this week</div>
+              </div>
+              <div class="list-stat">
+                <div class="list-stat-num">71</div>
+                <div class="list-stat-label">verified email</div>
+              </div>
+            </div>
+            <div class="list-filters">
+              <span class="filter-chip">Not in local 3-pack</span>
+              <span class="filter-chip">Photos &lt; 50</span>
+              <span class="filter-chip">No GBP posts 60d</span>
+              <span class="filter-chip">+2 more</span>
+            </div>
+            <div class="list-foot">
+              <span>Refreshes Mon weekly</span>
+              <span>Marc · today</span>
+            </div>
+          </a>
+
+          <!-- LIST 4 · Review management -->
+          <a href="list-detail.html" class="list-card">
+            <span class="service-badge review">⭐ Review management</span>
+            <div class="list-head">
+              <div class="list-name">Mississauga restaurants · 0% reply rate</div>
+              <span class="list-status stable">stable</span>
+            </div>
+            <div class="list-target">target: restaurants · Mississauga + Brampton</div>
+            <div class="list-pitch">"Every unanswered 1★ costs you rank." Reply rate under 25%, fresh negative reviews from last 14 days, high-volume operations.</div>
+            <div class="list-stats">
+              <div class="list-stat">
+                <div class="list-stat-num indigo">14</div>
+                <div class="list-stat-label">qualified</div>
+              </div>
+              <div class="list-stat">
+                <div class="list-stat-num">+0</div>
+                <div class="list-stat-label">this week</div>
+              </div>
+              <div class="list-stat">
+                <div class="list-stat-num">14</div>
+                <div class="list-stat-label">verified email</div>
+              </div>
+            </div>
+            <div class="list-filters">
+              <span class="filter-chip">Reply rate &lt; 25%</span>
+              <span class="filter-chip">Unanswered 1★ &gt; 7d</span>
+              <span class="filter-chip">Reviews ≥ 100</span>
+              <span class="filter-chip">+2 more</span>
+            </div>
+            <div class="list-foot">
+              <span>Refreshes daily 6am</span>
+              <span>Tom · today</span>
+            </div>
+          </a>
+
+          <!-- LIST 5 · Brand defense -->
+          <a href="list-detail.html" class="list-card">
+            <span class="service-badge brand">🛡️ Brand defense</span>
+            <div class="list-head">
+              <div class="list-name">Miami medical · brand hijack detected</div>
+              <span class="list-status stable">stable</span>
+            </div>
+            <div class="list-target">target: medical · Miami metro</div>
+            <div class="list-pitch">"Someone is bidding on your name right now." Competitors running paid Google ads on the prospect's exact brand search — most owners don't know it's happening.</div>
+            <div class="list-stats">
+              <div class="list-stat">
+                <div class="list-stat-num indigo">11</div>
+                <div class="list-stat-label">qualified</div>
+              </div>
+              <div class="list-stat">
+                <div class="list-stat-num">+0</div>
+                <div class="list-stat-label">this week</div>
+              </div>
+              <div class="list-stat">
+                <div class="list-stat-num">10</div>
+                <div class="list-stat-label">verified email</div>
+              </div>
+            </div>
+            <div class="list-filters">
+              <span class="filter-chip">Brand hijack detected</span>
+              <span class="filter-chip">Reviews ≥ 200</span>
+              <span class="filter-chip">+1 more</span>
+            </div>
+            <div class="list-foot">
+              <span>Refreshes daily 6am</span>
+              <span>Tom · today</span>
+            </div>
+          </a>
+
+          <!-- LIST 6 · New launch -->
+          <a href="list-detail.html" class="list-card">
+            <span class="service-badge launch">🆕 New-business launch</span>
+            <div class="list-head">
+              <div class="list-name">Montreal pilates · just opened, need everything</div>
+              <span class="list-status stable">stable</span>
+            </div>
+            <div class="list-target">target: pilates studios · Montreal metro</div>
+            <div class="list-pitch">"You opened &lt; 90 days ago. Reviews + site + ads all need a foundation — let's bundle." Highest LTV pitch — they sign multi-month retainers when they're greenfield.</div>
+            <div class="list-stats">
+              <div class="list-stat">
+                <div class="list-stat-num indigo">8</div>
+                <div class="list-stat-label">qualified</div>
+              </div>
+              <div class="list-stat">
+                <div class="list-stat-num">+0</div>
+                <div class="list-stat-label">this week</div>
+              </div>
+              <div class="list-stat">
+                <div class="list-stat-num">7</div>
+                <div class="list-stat-label">verified email</div>
+              </div>
+            </div>
+            <div class="list-filters">
+              <span class="filter-chip">First seen &lt; 90d</span>
+              <span class="filter-chip">Reviews &lt; 10</span>
+              <span class="filter-chip">+1 more</span>
+            </div>
+            <div class="list-foot">
+              <span>Refreshes Mon weekly</span>
+              <span>Sara · today</span>
+            </div>
+          </a>
+
+          <!-- NEW LIST CTA -->
+          <div class="new-list">
+            <div class="new-list-icon">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+            </div>
+            <div class="new-list-title">Create a new list</div>
+            <div class="new-list-sub">Start from a service you sell. Pick the matching signals.<br>Mapsly does the qualification.</div>
+            <button class="btn btn-primary" style="margin-top:18px; align-self:center;">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+              Start list
+            </button>
+          </div>
+        </div>
+
+        <!-- PAUSED -->
+        <div class="section-head">
+          <h2>Paused</h2>
+          <span class="meta">// not refreshing · doesn't count toward your plan limit</span>
+        </div>
+
+        <div class="lists-grid">
+          <a href="list-detail.html" class="list-card paused">
+            <span class="service-badge" style="background:var(--bg-3); color:var(--text-3);">— generic cold</span>
+            <div class="list-head">
+              <div class="list-name">Wide GTA salon scrape</div>
+              <span class="list-status paused">paused</span>
+            </div>
+            <div class="list-target">target: salons · GTA · no specific service</div>
+            <div class="list-pitch">No defined service. Was a wide cold scrape that didn't convert. Paused after 12d.</div>
+            <div class="list-stats">
+              <div class="list-stat">
+                <div class="list-stat-num" style="color:var(--text-3);">412</div>
+                <div class="list-stat-label">qualified</div>
+              </div>
+              <div class="list-stat">
+                <div class="list-stat-num" style="color:var(--text-3);">—</div>
+                <div class="list-stat-label">paused</div>
+              </div>
+              <div class="list-stat">
+                <div class="list-stat-num" style="color:var(--text-3);">340</div>
+                <div class="list-stat-label">verified email</div>
+              </div>
+            </div>
+            <div class="list-filters">
+              <span class="filter-chip">category:salon</span>
+              <span class="filter-chip">metro:gta</span>
+              <span class="filter-chip">any_signal</span>
+            </div>
+            <div class="list-foot">
+              <span>Paused May 5</span>
+              <span>Sara</span>
+            </div>
+          </a>
+        </div>
+
+        <div style="margin-top:24px; padding:14px 18px; background:var(--bg-3); border-radius:10px; font-size:11.5px; color:var(--text-3); font-family:'JetBrains Mono',monospace; line-height:1.6;">
+          // The agencies with the highest reply-rate run TIGHT service-specific lists, not wide ones · 5-15 signals per list works best · refresh weekly for SEO/website, daily for reviews/ads · contact data verified weekly · CSV export anytime
+        </div>
+
+      </div>
+    </main>
+  </body>
+</html>

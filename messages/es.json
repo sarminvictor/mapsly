@@ -1,0 +1,109 @@
+{
+  "marketing": {
+    "hero_smb": {
+      "title": "Inteligencia de negocios locales — actualizada cada semana",
+      "subtitle": "Mira qué funciona, qué no, y exactamente qué arreglar esta semana.",
+      "cta_primary": "Empezar gratis",
+      "cta_secondary": "Ver cómo funciona"
+    },
+    "hero_agency": {
+      "title": "PYMEs locales listas para cambiar.",
+      "subtitle": "Con razones. Con contactos. Ahora mismo.",
+      "cta_primary": "Obtener 50 leads gratis",
+      "cta_secondary": "Ver demo en vivo"
+    },
+    "stats": {
+      "businesses_indexed": "Negocios indexados",
+      "filter_signals": "Señales de filtro",
+      "email_verify_rate": "Tasa de verificación de email",
+      "refresh_cadence": "Frecuencia de actualización"
+    }
+  },
+
+  "smb": {
+    "dashboard": {
+      "greeting_morning": "Buenos días, {name}",
+      "greeting_afternoon": "Buenas tardes, {name}",
+      "greeting_evening": "Buenas noches, {name}",
+      "subtitle_refreshed": "Actualizado {when}",
+      "kpi": {
+        "score": "Puntuación Mapsly",
+        "rank_metro": "Posición en tu zona",
+        "patients_per_month": "Pacientes estimados por mes",
+        "reply_rate": "Tasa de respuesta a reseñas",
+        "brand_protection": "Protección de marca",
+        "review_velocity": "Reseñas este mes"
+      },
+      "needs_attention": "Lo que requiere tu atención",
+      "top_fixes": "Mejoras de mayor impacto",
+      "empty_state": "No hay reseñas nuevas esta semana. Te las mostraremos aquí cuando lleguen."
+    },
+    "reviews": {
+      "title": "Reseñas",
+      "tab_unanswered": "{count, plural, =0 {Ninguna sin responder} one {# sin responder} other {# sin responder}}",
+      "tab_negative": "Negativas",
+      "tab_all": "Todas recientes",
+      "ai_draft_label": "Respuesta sugerida por IA",
+      "ai_draft_post": "Publicar en Google",
+      "ai_draft_edit": "Editar borrador",
+      "ai_draft_regenerate": "Regenerar"
+    }
+  },
+
+  "agency": {
+    "lists": {
+      "title": "Listas",
+      "subtitle": "Una lista por cada servicio que vendes",
+      "today_new": "{count, plural, =0 {Sin nuevos leads hoy} one {# nuevo lead hoy} other {# nuevos leads hoy}}",
+      "across_lists": " en tus {count} listas activas",
+      "empty_state": "Aún no hay listas. Empieza una desde un servicio que ofreces — o usa la búsqueda para explorar.",
+      "create_list": "Nueva lista"
+    },
+    "lead_status": {
+      "new": "Nuevo",
+      "contacted": "Contactado",
+      "replied": "Respondió",
+      "won": "Ganado",
+      "lost": "Perdido",
+      "hidden": "Oculto"
+    }
+  },
+
+  "common": {
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "delete": "Eliminar",
+    "edit": "Editar",
+    "open": "Abrir",
+    "close": "Cerrar",
+    "next": "Siguiente",
+    "previous": "Anterior",
+    "loading": "Cargando…",
+    "search": "Buscar"
+  },
+
+  "errors": {
+    "generic": "Algo salió mal. Intenta de nuevo en un momento.",
+    "unauthorized": "Inicia sesión para ver esto.",
+    "forbidden": "No tienes acceso a esto.",
+    "not_found": "No pudimos encontrar lo que buscas.",
+    "rate_limited": "Demasiadas solicitudes. Intenta de nuevo en {minutes} minutos.",
+    "network": "Problema de red. Revisa tu conexión e intenta de nuevo."
+  },
+
+  "nav": {
+    "dashboard": "Panel",
+    "reviews": "Reseñas",
+    "activity": "Actividad",
+    "competitors": "Competidores",
+    "search_visibility": "Visibilidad en búsqueda",
+    "ads": "Anuncios",
+    "website": "Salud del sitio",
+    "market": "Mercado",
+    "settings": "Configuración",
+    "lists": "Listas",
+    "search": "Búsqueda",
+    "reports": "Reportes",
+    "list_analytics": "Analíticas de listas"
+  }
+}

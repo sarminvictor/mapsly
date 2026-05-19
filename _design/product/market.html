@@ -1,0 +1,693 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Market reality · Mapsly</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+    <style>
+      :root {
+        --bg:#faf6f1; --bg-2:#fff; --bg-3:#f2ebe3; --bg-dark:#1c1916;
+        --text:#1c1916; --text-2:#5c544d; --text-3:#9a9088;
+        --border:#e8ddd0; --border-strong:#d8c9b8;
+        --coral:#c3553a; --coral-light:rgba(195,85,58,.1);
+        --berry:#8b3a2c; --gold:#d4a574; --gold-light:rgba(212,165,116,.18);
+        --success:#2d8659; --success-light:rgba(45,134,89,.12);
+        --alert:#b53d47; --alert-light:rgba(181,61,71,.1);
+        --info:#3b6ec4; --info-light:rgba(59,110,196,.1);
+        --purple:#6b4f9b; --purple-light:rgba(107,79,155,.12);
+        --ease:cubic-bezier(0.16,1,0.3,1);
+        --shadow-sm:0 2px 8px rgba(28,25,22,.04);
+      }
+      * { margin:0; padding:0; box-sizing:border-box; }
+      body { font-family:'Inter',sans-serif; background:var(--bg); color:var(--text); line-height:1.5; min-height:100vh; display:flex; -webkit-font-smoothing:antialiased; }
+      a { color:inherit; text-decoration:none; }
+      button { font-family:inherit; cursor:pointer; border:none; background:none; }
+      .sidebar { width:240px; background:var(--bg); border-right:1px solid var(--border); padding:22px 16px; height:100vh; position:sticky; top:0; display:flex; flex-direction:column; flex-shrink:0; }
+      .sidebar-logo { display:flex; align-items:center; gap:10px; padding:6px 8px 22px; margin-bottom:12px; border-bottom:1px solid var(--border); }
+      .sidebar-logo-dot { width:9px; height:9px; border-radius:50%; background:var(--coral); box-shadow:0 0 10px rgba(195,85,58,.5); }
+      .sidebar-logo-text { font-family:'Fraunces',serif; font-size:19px; font-weight:700; letter-spacing:-.02em; }
+      .sidebar-section-label { font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.12em; color:var(--text-3); padding:14px 10px 6px; }
+      .nav-item { display:flex; align-items:center; gap:11px; padding:9px 10px; border-radius:8px; font-size:14px; font-weight:500; color:var(--text-2); transition:all .15s var(--ease); }
+      .nav-item:hover { background:rgba(28,25,22,.04); color:var(--text); }
+      .nav-item.active { background:var(--coral-light); color:var(--coral); font-weight:600; }
+      .nav-item-badge { margin-left:auto; background:var(--alert); color:#fff; font-size:10px; font-weight:700; padding:2px 6px; border-radius:10px; min-width:18px; text-align:center; font-family:'JetBrains Mono',monospace; }
+      .nav-item-badge.info { background:var(--info); }
+      .sidebar-footer { margin-top:auto; padding-top:16px; border-top:1px solid var(--border); }
+      .sidebar-business { display:flex; align-items:center; gap:10px; padding:10px; border-radius:8px; background:var(--bg-3); }
+      .sidebar-biz-avatar { width:32px; height:32px; border-radius:8px; background:linear-gradient(135deg,var(--gold),var(--coral)); display:flex; align-items:center; justify-content:center; color:#fff; font-weight:700; font-size:14px; font-family:'Fraunces',serif; }
+      .sidebar-biz-name { font-size:13px; font-weight:600; }
+      .sidebar-biz-meta { font-size:11px; color:var(--text-3); font-family:'JetBrains Mono',monospace; }
+      .main { flex:1; min-width:0; }
+      .topbar { position:sticky; top:0; z-index:10; background:rgba(250,246,241,.92); backdrop-filter:blur(20px); border-bottom:1px solid var(--border); padding:16px 32px; display:flex; align-items:center; justify-content:space-between; }
+      .topbar-title { font-family:'Fraunces',serif; font-size:22px; font-weight:600; letter-spacing:-.02em; }
+      .topbar-subtitle { font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--text-3); }
+      .topbar-right { display:flex; align-items:center; gap:10px; }
+      .top-pill { display:inline-flex; align-items:center; gap:7px; padding:7px 12px; background:var(--bg-2); border:1px solid var(--border); border-radius:8px; font-size:12px; color:var(--text-2); font-family:'JetBrains Mono',monospace; }
+      .top-pill-dot { width:7px; height:7px; border-radius:50%; background:var(--success); }
+      .btn { padding:8px 14px; border-radius:8px; font-size:12.5px; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:7px; }
+      .btn-ghost { background:transparent; color:var(--text-2); border:1px solid var(--border); }
+      .content { padding:28px 32px 64px; max-width:1400px; }
+
+      /* ============ STATE BAR ============ */
+      .state-bar { background:var(--bg-2); border:1px solid var(--border); border-radius:16px; padding:22px 28px; margin-bottom:22px; display:grid; grid-template-columns:repeat(5,1fr); gap:24px; box-shadow:var(--shadow-sm); }
+      @media (max-width:1100px) { .state-bar { grid-template-columns:repeat(2,1fr); } }
+      .state-cell { padding-right:24px; border-right:1px solid var(--border); }
+      .state-cell:last-child { border-right:none; padding-right:0; }
+      .state-label { font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.1em; color:var(--text-3); margin-bottom:6px; }
+      .state-num { font-family:'Fraunces',serif; font-size:30px; font-weight:700; line-height:1; }
+      .state-num.alert { color:var(--alert); }
+      .state-num.success { color:var(--success); }
+      .state-num.coral { color:var(--coral); }
+      .state-delta { font-size:11.5px; color:var(--text-3); margin-top:6px; font-family:'JetBrains Mono',monospace; }
+
+      /* ============ MSI RANKING ============ */
+      .panel { background:var(--bg-2); border:1px solid var(--border); border-radius:14px; box-shadow:var(--shadow-sm); overflow:hidden; margin-bottom:22px; }
+      .panel-head { padding:20px 28px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; }
+      .panel-title { font-size:15px; font-weight:600; }
+      .panel-subtitle { font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text-3); margin-top:3px; }
+
+      .msi-grid {
+        padding:22px 28px;
+        display:grid;
+        grid-template-columns:1fr;
+        gap:10px;
+      }
+      .msi-row {
+        display:grid;
+        grid-template-columns:36px 1fr 80px 240px 120px;
+        gap:14px;
+        align-items:center;
+        padding:12px 16px;
+        background:var(--bg-3);
+        border-radius:9px;
+      }
+      .msi-row.you {
+        background:var(--coral-light);
+        border:1px solid var(--coral);
+      }
+      .msi-row.top-3 {
+        background:linear-gradient(90deg, var(--gold-light), transparent);
+      }
+      .msi-rank {
+        font-family:'Fraunces',serif;
+        font-size:20px; font-weight:700;
+        text-align:center;
+        line-height:1;
+      }
+      .msi-rank.gold { color:var(--gold); }
+      .msi-rank.you { color:var(--coral); }
+      .msi-name {
+        font-size:14px; font-weight:600;
+      }
+      .msi-name-sub {
+        font-size:11px; color:var(--text-3);
+        font-family:'JetBrains Mono',monospace;
+        margin-top:2px;
+      }
+      .msi-rating {
+        font-family:'JetBrains Mono',monospace;
+        font-size:13px;
+        font-weight:600;
+      }
+      .msi-rating-stars {
+        color:var(--gold);
+        font-size:11px;
+      }
+      .msi-bar {
+        height:8px;
+        background:var(--bg-2);
+        border-radius:4px;
+        overflow:hidden;
+      }
+      .msi-bar-fill {
+        height:100%;
+        border-radius:4px;
+        background:linear-gradient(90deg, var(--gold), var(--coral));
+      }
+      .msi-score {
+        font-family:'Fraunces',serif;
+        font-size:18px; font-weight:700;
+        text-align:right;
+      }
+      .msi-score-sub {
+        font-size:10px; color:var(--text-3);
+        font-family:'JetBrains Mono',monospace;
+        text-align:right;
+        margin-top:2px;
+      }
+
+      /* ============ MEDIAN STATS ============ */
+      .median-grid {
+        display:grid;
+        grid-template-columns:repeat(4,1fr);
+        gap:14px;
+        padding:22px 28px;
+      }
+      @media (max-width:1100px) { .median-grid { grid-template-columns:1fr 1fr; } }
+      .median-card {
+        background:var(--bg-3);
+        border-radius:10px;
+        padding:14px 16px;
+      }
+      .median-label {
+        font-family:'JetBrains Mono',monospace;
+        font-size:10px; font-weight:700;
+        text-transform:uppercase; letter-spacing:.08em;
+        color:var(--text-3);
+        margin-bottom:6px;
+      }
+      .median-row {
+        display:flex; justify-content:space-between;
+        font-size:12.5px;
+        padding:4px 0;
+      }
+      .median-row-name { color:var(--text-2); }
+      .median-row-val {
+        font-family:'JetBrains Mono',monospace;
+        font-weight:600;
+        color:var(--text);
+      }
+      .median-row.you {
+        margin-top:6px;
+        padding-top:8px;
+        border-top:1px dashed var(--border-strong);
+      }
+      .median-row.you .median-row-name { color:var(--coral); font-weight:600; }
+      .median-row.you .median-row-val { color:var(--coral); }
+
+      /* ============ MAP / SATURATION ============ */
+      .saturation-card {
+        padding:22px 28px;
+      }
+      .saturation-svg {
+        width:100%;
+        height:220px;
+        background:linear-gradient(180deg, var(--bg-3), var(--bg-2));
+        border-radius:10px;
+        position:relative;
+      }
+      .saturation-pin {
+        position:absolute;
+        width:10px; height:10px;
+        border-radius:50%;
+        background:var(--text-3);
+        transform: translate(-50%, -50%);
+        cursor:pointer;
+      }
+      .saturation-pin.you {
+        background:var(--coral);
+        width:14px; height:14px;
+        box-shadow:0 0 0 4px var(--coral-light);
+      }
+      .saturation-pin.leader {
+        background:var(--gold);
+        width:12px; height:12px;
+        box-shadow:0 0 0 4px var(--gold-light);
+      }
+      .saturation-pin.same-bldg {
+        background:var(--alert);
+        width:12px; height:12px;
+      }
+      .saturation-pin.new {
+        background:var(--purple);
+      }
+      .saturation-legend {
+        margin-top:14px;
+        display:flex; gap:18px;
+        flex-wrap:wrap;
+        font-size:12px;
+        color:var(--text-2);
+        font-family:'JetBrains Mono',monospace;
+      }
+      .legend-dot {
+        display:inline-block;
+        width:9px; height:9px;
+        border-radius:50%;
+        margin-right:6px;
+        vertical-align:1px;
+      }
+
+      /* ============ GROWTH ============ */
+      .growth-grid {
+        display:grid;
+        grid-template-columns:1fr 1fr;
+        gap:14px;
+        padding:22px 28px;
+      }
+      @media (max-width:900px) { .growth-grid { grid-template-columns:1fr; } }
+      .growth-card {
+        background:var(--bg-3);
+        border-radius:10px;
+        padding:14px 16px;
+      }
+      .growth-card-label {
+        font-family:'JetBrains Mono',monospace;
+        font-size:10px; font-weight:700;
+        text-transform:uppercase; letter-spacing:.08em;
+        color:var(--text-3);
+        margin-bottom:10px;
+      }
+      .growth-row {
+        display:flex; justify-content:space-between;
+        align-items:center;
+        padding:8px 0;
+        border-bottom:1px solid var(--border);
+        font-size:13px;
+      }
+      .growth-row:last-child { border-bottom:none; }
+      .growth-name { font-weight:500; }
+      .growth-delta {
+        font-family:'JetBrains Mono',monospace;
+        font-size:12.5px;
+        font-weight:600;
+      }
+      .growth-delta.up { color:var(--success); }
+      .growth-delta.down { color:var(--alert); }
+
+      /* ============ TOOLTIPS ============ */
+      .info-tip { display:inline-flex; align-items:center; justify-content:center; width:14px; height:14px; border-radius:50%; background:var(--bg-3); color:var(--text-3); font-size:10px; font-weight:700; margin-left:4px; cursor:help; font-family:'JetBrains Mono',monospace; position:relative; vertical-align:2px; }
+      .info-tip:hover { background:var(--coral-light); color:var(--coral); }
+      .info-tip[data-tip]::after { content:attr(data-tip); position:absolute; bottom:100%; right:0; transform:translateY(-6px); background:var(--bg-dark); color:#fff; padding:10px 14px; border-radius:8px; font-size:11px; line-height:1.5; font-family:'Inter',sans-serif; white-space:pre-line; width:280px; text-align:left; opacity:0; pointer-events:none; transition:opacity .2s; z-index:100; box-shadow:0 8px 24px rgba(0,0,0,.2); }
+      .info-tip:hover::after { opacity:1; }
+
+      @media (max-width:768px) {
+        .sidebar { display:none; }
+        .topbar { padding:14px 18px; }
+        .content { padding:18px 18px 48px; }
+        .msi-row { grid-template-columns:30px 1fr 80px; }
+        .msi-row > :nth-child(4), .msi-row > :nth-child(5) { display:none; }
+      }
+    </style>
+  </head>
+  <body>
+
+    <aside class="sidebar">
+      <div class="sidebar-logo"><span class="sidebar-logo-dot"></span><span class="sidebar-logo-text">mapsly</span></div>
+      <div class="sidebar-section-label">Daily</div>
+      <a href="dashboard.html" class="nav-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>Dashboard</a>
+      <a href="reviews.html" class="nav-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3 7h7l-5.5 4.5L18 21l-6-4-6 4 1.5-7.5L2 9h7z"/></svg>Reviews <span class="nav-item-badge">8</span></a>
+      <a href="activity.html" class="nav-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>Activity <span class="nav-item-badge info">3</span></a>
+      <div class="sidebar-section-label">Watch</div>
+      <a href="competitors.html" class="nav-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2v20M2 12h20"/></svg>Competitors</a>
+      <a href="search.html" class="nav-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>Search visibility</a>
+      <a href="ads.html" class="nav-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 8h7M9 12h7M9 16h4"/></svg>Ads intelligence</a>
+      <div class="sidebar-section-label">Audit</div>
+      <a href="website.html" class="nav-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>Website health</a>
+      <a href="market.html" class="nav-item active"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 16l4-8 4 4 5-10"/></svg>Market reality</a>
+      <div class="sidebar-section-label">Account</div>
+      <a href="settings.html" class="nav-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Settings</a>
+      <div class="sidebar-footer">
+        <div class="sidebar-business">
+          <div class="sidebar-biz-avatar">S</div>
+          <div>
+            <div class="sidebar-biz-name">Solea Brickell Spa</div>
+            <div class="sidebar-biz-meta">Miami · Brickell</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <div class="topbar-title">Market reality</div>
+          <div class="topbar-subtitle">40 active med spas · Miami-Dade · monthly snapshot</div>
+        </div>
+        <div class="topbar-right">
+          <span class="top-pill"><span class="top-pill-dot"></span>Census May 17</span>
+          <button class="btn btn-ghost">Export</button>
+        </div>
+      </header>
+
+      <div class="content">
+
+        <!-- STATE BAR -->
+        <div class="state-bar">
+          <div class="state-cell">
+            <div class="state-label">Active med spas
+              <span class="info-tip" data-tip="Total claimed med spa Google Business Profiles within 5 miles of your address. Source: Maps category census, weekly diff against last month.">i</span>
+            </div>
+            <div class="state-num">40</div>
+            <div class="state-delta">in Miami-Dade · 5mi radius</div>
+          </div>
+          <div class="state-cell">
+            <div class="state-label">New (last 90d)</div>
+            <div class="state-num success">+5</div>
+            <div class="state-delta">incl. Glow Loft (May 14)</div>
+          </div>
+          <div class="state-cell">
+            <div class="state-label">Inactive / closed</div>
+            <div class="state-num">3</div>
+            <div class="state-delta">last 90d</div>
+          </div>
+          <div class="state-cell">
+            <div class="state-label">Your MSI rank
+              <span class="info-tip" data-tip="Market Share Index: weighted composite of rating, reviews, photos, hours, services, and search visibility. Updated weekly.">i</span>
+            </div>
+            <div class="state-num coral">#37</div>
+            <div class="state-delta">of 40 · ↑ moved up 2 spots</div>
+          </div>
+          <div class="state-cell">
+            <div class="state-label">Median rating</div>
+            <div class="state-num">4.6</div>
+            <div class="state-delta">market avg · you: 4.4</div>
+          </div>
+        </div>
+
+        <!-- MSI RANKING -->
+        <div class="panel">
+          <div class="panel-head">
+            <div>
+              <div class="panel-title">MSI ranking · top 12 of 40
+                <span class="info-tip" data-tip="Market Share Index = 0.30 × normalized_rating + 0.25 × log(reviews) + 0.15 × reply_rate + 0.10 × photos_count + 0.10 × hours_per_week + 0.10 × keyword_pack_presence. Refreshed weekly.">i</span>
+              </div>
+              <div class="panel-subtitle">// rank in addressable Miami-Dade med spa market · show top 12 + you</div>
+            </div>
+            <button class="btn btn-ghost">View all 40 →</button>
+          </div>
+          <div class="msi-grid">
+
+            <div class="msi-row top-3">
+              <div class="msi-rank gold">1</div>
+              <div>
+                <div class="msi-name">LUX MedSpa Brickell</div>
+                <div class="msi-name-sub">2,200 reviews · 5.0★ · 700 photos · 95% reply</div>
+              </div>
+              <div>
+                <div class="msi-rating">5.0</div>
+                <div class="msi-rating-stars">★★★★★</div>
+              </div>
+              <div class="msi-bar"><div class="msi-bar-fill" style="width:98%;"></div></div>
+              <div>
+                <div class="msi-score">98</div>
+                <div class="msi-score-sub">MSI score</div>
+              </div>
+            </div>
+
+            <div class="msi-row top-3">
+              <div class="msi-rank gold">2</div>
+              <div>
+                <div class="msi-name">Dr. Hamadiya Miami Wellness</div>
+                <div class="msi-name-sub">282 reviews · 5.0★ · 240 photos · 88% reply</div>
+              </div>
+              <div>
+                <div class="msi-rating">5.0</div>
+                <div class="msi-rating-stars">★★★★★</div>
+              </div>
+              <div class="msi-bar"><div class="msi-bar-fill" style="width:86%;"></div></div>
+              <div>
+                <div class="msi-score">86</div>
+                <div class="msi-score-sub">MSI score</div>
+              </div>
+            </div>
+
+            <div class="msi-row top-3">
+              <div class="msi-rank gold">3</div>
+              <div>
+                <div class="msi-name">No Filter Medical Spa</div>
+                <div class="msi-name-sub">196 reviews · 4.9★ · 180 photos · 82% reply</div>
+              </div>
+              <div>
+                <div class="msi-rating">4.9</div>
+                <div class="msi-rating-stars">★★★★★</div>
+              </div>
+              <div class="msi-bar"><div class="msi-bar-fill" style="width:81%;"></div></div>
+              <div>
+                <div class="msi-score">81</div>
+                <div class="msi-score-sub">MSI score</div>
+              </div>
+            </div>
+
+            <div class="msi-row">
+              <div class="msi-rank">4</div>
+              <div>
+                <div class="msi-name">Sisu Clinic Miami</div>
+                <div class="msi-name-sub">342 reviews · 4.9★ · 220 photos · 91% reply · SAME BUILDING</div>
+              </div>
+              <div>
+                <div class="msi-rating">4.9</div>
+                <div class="msi-rating-stars">★★★★★</div>
+              </div>
+              <div class="msi-bar"><div class="msi-bar-fill" style="width:78%;"></div></div>
+              <div>
+                <div class="msi-score">78</div>
+                <div class="msi-score-sub">MSI score</div>
+              </div>
+            </div>
+
+            <div class="msi-row">
+              <div class="msi-rank">5</div>
+              <div>
+                <div class="msi-name">Deluxe Med Spa Beauty</div>
+                <div class="msi-name-sub">267 reviews · 4.9★ · 142 photos · 70% reply</div>
+              </div>
+              <div>
+                <div class="msi-rating">4.9</div>
+                <div class="msi-rating-stars">★★★★★</div>
+              </div>
+              <div class="msi-bar"><div class="msi-bar-fill" style="width:74%;"></div></div>
+              <div>
+                <div class="msi-score">74</div>
+                <div class="msi-score-sub">MSI score</div>
+              </div>
+            </div>
+
+            <div class="msi-row">
+              <div class="msi-rank">6</div>
+              <div>
+                <div class="msi-name">Asha Esthetic & Medspa</div>
+                <div class="msi-name-sub">308 reviews · 5.0★ · 120 photos · 65% reply</div>
+              </div>
+              <div>
+                <div class="msi-rating">5.0</div>
+                <div class="msi-rating-stars">★★★★★</div>
+              </div>
+              <div class="msi-bar"><div class="msi-bar-fill" style="width:69%;"></div></div>
+              <div>
+                <div class="msi-score">69</div>
+                <div class="msi-score-sub">MSI score</div>
+              </div>
+            </div>
+
+            <div class="msi-row">
+              <div class="msi-rank">7</div>
+              <div>
+                <div class="msi-name">Miami Skin Spa Aesthetics</div>
+                <div class="msi-name-sub">147 reviews · 4.8★ · 94 photos · 76% reply</div>
+              </div>
+              <div>
+                <div class="msi-rating">4.8</div>
+                <div class="msi-rating-stars">★★★★★</div>
+              </div>
+              <div class="msi-bar"><div class="msi-bar-fill" style="width:62%;"></div></div>
+              <div>
+                <div class="msi-score">62</div>
+                <div class="msi-score-sub">MSI score</div>
+              </div>
+            </div>
+
+            <div class="msi-row">
+              <div class="msi-rank">8</div>
+              <div>
+                <div class="msi-name">Leaf Spa at AKA Brickell</div>
+                <div class="msi-name-sub">104 reviews · 4.7★ · 68 photos · 62% reply</div>
+              </div>
+              <div>
+                <div class="msi-rating">4.7</div>
+                <div class="msi-rating-stars">★★★★★</div>
+              </div>
+              <div class="msi-bar"><div class="msi-bar-fill" style="width:54%;"></div></div>
+              <div>
+                <div class="msi-score">54</div>
+                <div class="msi-score-sub">MSI score</div>
+              </div>
+            </div>
+
+            <!-- gap -->
+            <div style="text-align:center;padding:10px 0;color:var(--text-3);font-family:'JetBrains Mono',monospace;font-size:11px;">
+              · · · 28 spas in MSI range 23–52 · · ·
+            </div>
+
+            <div class="msi-row you">
+              <div class="msi-rank you">37</div>
+              <div>
+                <div class="msi-name">Solea Brickell Spa · YOU</div>
+                <div class="msi-name-sub">342 reviews · 4.4★ · 46 photos · 0% reply · 5 yrs</div>
+              </div>
+              <div>
+                <div class="msi-rating">4.4</div>
+                <div class="msi-rating-stars">★★★★☆</div>
+              </div>
+              <div class="msi-bar"><div class="msi-bar-fill" style="width:24%;"></div></div>
+              <div>
+                <div class="msi-score">24</div>
+                <div class="msi-score-sub">MSI score · ↑+3</div>
+              </div>
+            </div>
+
+            <div class="msi-row">
+              <div class="msi-rank">38</div>
+              <div>
+                <div class="msi-name">Dua Spa by K'alma</div>
+                <div class="msi-name-sub">53 reviews · 4.6★ · 42 photos · 45% reply</div>
+              </div>
+              <div>
+                <div class="msi-rating">4.6</div>
+                <div class="msi-rating-stars">★★★★☆</div>
+              </div>
+              <div class="msi-bar"><div class="msi-bar-fill" style="width:22%;"></div></div>
+              <div>
+                <div class="msi-score">22</div>
+                <div class="msi-score-sub">MSI score</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- MEDIANS -->
+        <div class="panel">
+          <div class="panel-head">
+            <div>
+              <div class="panel-title">Market medians · where you stand</div>
+              <div class="panel-subtitle">// median across all 40 active med spas in Miami-Dade</div>
+            </div>
+          </div>
+          <div class="median-grid">
+            <div class="median-card">
+              <div class="median-label">Rating</div>
+              <div class="median-row"><span class="median-row-name">Top 25%</span><span class="median-row-val">≥ 4.9</span></div>
+              <div class="median-row"><span class="median-row-name">Median</span><span class="median-row-val">4.6</span></div>
+              <div class="median-row"><span class="median-row-name">Bottom 25%</span><span class="median-row-val">&lt; 4.3</span></div>
+              <div class="median-row you"><span class="median-row-name">You</span><span class="median-row-val">4.4 · just above bottom quartile</span></div>
+            </div>
+            <div class="median-card">
+              <div class="median-label">Review count</div>
+              <div class="median-row"><span class="median-row-name">Top 25%</span><span class="median-row-val">≥ 285</span></div>
+              <div class="median-row"><span class="median-row-name">Median</span><span class="median-row-val">112</span></div>
+              <div class="median-row"><span class="median-row-name">Bottom 25%</span><span class="median-row-val">&lt; 40</span></div>
+              <div class="median-row you"><span class="median-row-name">You</span><span class="median-row-val">342 · top quartile ✓</span></div>
+            </div>
+            <div class="median-card">
+              <div class="median-label">Reply rate</div>
+              <div class="median-row"><span class="median-row-name">Top 25%</span><span class="median-row-val">≥ 88%</span></div>
+              <div class="median-row"><span class="median-row-name">Median</span><span class="median-row-val">62%</span></div>
+              <div class="median-row"><span class="median-row-name">Bottom 25%</span><span class="median-row-val">&lt; 30%</span></div>
+              <div class="median-row you"><span class="median-row-name">You</span><span class="median-row-val">0% · bottom of bottom quartile</span></div>
+            </div>
+            <div class="median-card">
+              <div class="median-label">Photos count</div>
+              <div class="median-row"><span class="median-row-name">Top 25%</span><span class="median-row-val">≥ 200</span></div>
+              <div class="median-row"><span class="median-row-name">Median</span><span class="median-row-val">86</span></div>
+              <div class="median-row"><span class="median-row-name">Bottom 25%</span><span class="median-row-val">&lt; 35</span></div>
+              <div class="median-row you"><span class="median-row-name">You</span><span class="median-row-val">46 · between bottom and median</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SATURATION MAP -->
+        <div class="panel">
+          <div class="panel-head">
+            <div>
+              <div class="panel-title">Spatial distribution
+                <span class="info-tip" data-tip="Schematic — pin position represents address relative to Brickell. Source: Maps category census geocodes. Click any pin to view competitor.">i</span>
+              </div>
+              <div class="panel-subtitle">// 40 spas plotted by Brickell-relative coordinates · simplified view</div>
+            </div>
+          </div>
+          <div class="saturation-card">
+            <div class="saturation-svg">
+              <!-- random distribution of pins -->
+              <div class="saturation-pin" style="left:14%;top:22%;" title="Asha Esthetic"></div>
+              <div class="saturation-pin" style="left:22%;top:36%;" title="Deluxe Med Spa"></div>
+              <div class="saturation-pin" style="left:18%;top:55%;" title="Dr. Hamadiya"></div>
+              <div class="saturation-pin leader" style="left:48%;top:48%;" title="LUX MedSpa Brickell"></div>
+              <div class="saturation-pin you" style="left:50%;top:52%;" title="You · Solea"></div>
+              <div class="saturation-pin same-bldg" style="left:51%;top:51%;" title="Sisu Clinic (same bldg)"></div>
+              <div class="saturation-pin" style="left:55%;top:40%;" title="No Filter Medical"></div>
+              <div class="saturation-pin" style="left:58%;top:62%;" title="Leaf Spa AKA"></div>
+              <div class="saturation-pin" style="left:62%;top:55%;" title="Dua Spa K'alma"></div>
+              <div class="saturation-pin" style="left:42%;top:60%;" title="Miami Skin Spa"></div>
+              <div class="saturation-pin new" style="left:38%;top:65%;" title="Glow Loft (NEW)"></div>
+              <div class="saturation-pin" style="left:68%;top:42%;" title="Skin Spa #11"></div>
+              <div class="saturation-pin" style="left:72%;top:55%;" title="Spa #12"></div>
+              <div class="saturation-pin" style="left:75%;top:48%;" title="Spa #13"></div>
+              <div class="saturation-pin" style="left:35%;top:35%;" title="Spa #14"></div>
+              <div class="saturation-pin" style="left:30%;top:42%;" title="Spa #15"></div>
+              <div class="saturation-pin" style="left:65%;top:35%;" title="Spa #16"></div>
+              <div class="saturation-pin" style="left:80%;top:30%;" title="Spa #17"></div>
+              <div class="saturation-pin" style="left:83%;top:60%;" title="Spa #18"></div>
+              <div class="saturation-pin" style="left:88%;top:50%;" title="Spa #19"></div>
+              <div class="saturation-pin" style="left:25%;top:75%;" title="Spa #20"></div>
+              <div class="saturation-pin" style="left:45%;top:75%;" title="Spa #21"></div>
+              <div class="saturation-pin" style="left:55%;top:78%;" title="Spa #22"></div>
+              <div class="saturation-pin" style="left:70%;top:75%;" title="Spa #23"></div>
+              <div class="saturation-pin" style="left:78%;top:75%;" title="Spa #24"></div>
+              <div class="saturation-pin" style="left:13%;top:50%;" title="Spa #25"></div>
+              <div class="saturation-pin" style="left:60%;top:25%;" title="Spa #26"></div>
+              <div class="saturation-pin" style="left:42%;top:25%;" title="Spa #27"></div>
+              <div class="saturation-pin" style="left:35%;top:18%;" title="Spa #28"></div>
+              <div class="saturation-pin" style="left:50%;top:18%;" title="Spa #29"></div>
+              <div class="saturation-pin" style="left:25%;top:62%;" title="Spa #30"></div>
+              <div class="saturation-pin" style="left:30%;top:80%;" title="Spa #31"></div>
+              <div class="saturation-pin" style="left:62%;top:82%;" title="Spa #32"></div>
+              <div class="saturation-pin" style="left:90%;top:35%;" title="Spa #33"></div>
+              <div class="saturation-pin" style="left:8%;top:35%;" title="Spa #34"></div>
+              <div class="saturation-pin" style="left:18%;top:18%;" title="Spa #35"></div>
+              <div class="saturation-pin" style="left:80%;top:18%;" title="Spa #36"></div>
+              <div class="saturation-pin" style="left:78%;top:88%;" title="Spa #37"></div>
+              <div class="saturation-pin" style="left:14%;top:85%;" title="Spa #38"></div>
+              <div class="saturation-pin new" style="left:88%;top:78%;" title="New entrant"></div>
+              <div class="saturation-pin" style="left:8%;top:65%;" title="Spa #40"></div>
+            </div>
+            <div class="saturation-legend">
+              <span><span class="legend-dot" style="background:var(--coral);"></span>You</span>
+              <span><span class="legend-dot" style="background:var(--gold);"></span>Leader (Lux)</span>
+              <span><span class="legend-dot" style="background:var(--alert);"></span>Same-building threat</span>
+              <span><span class="legend-dot" style="background:var(--purple);"></span>New entrant (90d)</span>
+              <span><span class="legend-dot" style="background:var(--text-3);"></span>Other competitors</span>
+            </div>
+            <div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--border);font-size:12.5px;color:var(--text-2);line-height:1.55;">
+              <b style="color:var(--text)">Brickell density:</b> 12 of 40 spas cluster within 0.5 mi of you. The center of gravity has shifted east in the last 18 months — most new entrants are SE of Brickell Ave. Sisu (red dot) is co-located with you.
+            </div>
+          </div>
+        </div>
+
+        <!-- GROWTH -->
+        <div class="panel">
+          <div class="panel-head">
+            <div>
+              <div class="panel-title">Movers · last 90 days</div>
+              <div class="panel-subtitle">// fastest changes by MSI score</div>
+            </div>
+          </div>
+          <div class="growth-grid">
+            <div class="growth-card">
+              <div class="growth-card-label">★ Fastest growing</div>
+              <div class="growth-row"><span class="growth-name">Sisu Clinic Miami</span><span class="growth-delta up">+18 MSI</span></div>
+              <div class="growth-row"><span class="growth-name">LUX MedSpa Brickell</span><span class="growth-delta up">+7</span></div>
+              <div class="growth-row"><span class="growth-name">No Filter Medical Spa</span><span class="growth-delta up">+6</span></div>
+              <div class="growth-row"><span class="growth-name">Asha Esthetic & Medspa</span><span class="growth-delta up">+4</span></div>
+              <div class="growth-row"><span class="growth-name"><b style="color:var(--coral);">Solea (you)</b></span><span class="growth-delta up">+3</span></div>
+            </div>
+            <div class="growth-card">
+              <div class="growth-card-label">⚠ Slipping</div>
+              <div class="growth-row"><span class="growth-name">Dua Spa by K'alma</span><span class="growth-delta down">−4 MSI</span></div>
+              <div class="growth-row"><span class="growth-name">Miami Wellness Lounge</span><span class="growth-delta down">−3</span></div>
+              <div class="growth-row"><span class="growth-name">Deluxe Med Spa Beauty</span><span class="growth-delta down">−2</span></div>
+              <div class="growth-row"><span class="growth-name">Leaf Spa at AKA</span><span class="growth-delta down">−1</span></div>
+              <div class="growth-row"><span class="growth-name">Vida Wellness Center</span><span class="growth-delta down">−1</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top:0;padding:14px 18px;background:var(--bg-3);border-radius:10px;font-size:11.5px;color:var(--text-3);font-family:'JetBrains Mono',monospace;line-height:1.6;">
+          // Market census = all claimed med spa Google Business Profiles within 5 mi of your address · refreshed monthly · MSI formula and weights configurable in Settings → Scoring · new-entrant detection = first_seen_on_google &gt; today−90d
+        </div>
+
+      </div>
+    </main>
+  </body>
+</html>

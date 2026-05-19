@@ -1,0 +1,1226 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mapsly for agencies — Local SMBs ready to switch</title>
+    <meta
+      name="description"
+      content="Query 2M+ local businesses by signal. Verified contacts. Weekly refresh. 50 free leads to start."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg: #07070b;
+        --bg-2: #0d0d18;
+        --bg-3: #131322;
+        --card: rgba(255, 255, 255, 0.03);
+        --card-hover: rgba(255, 255, 255, 0.06);
+        --border: rgba(255, 255, 255, 0.08);
+        --border-strong: rgba(255, 255, 255, 0.16);
+        --text: #ffffff;
+        --text-2: #a8a8b8;
+        --text-3: #6b6b80;
+        --cyan: #00d4ff;
+        --purple: #a855f7;
+        --purple-dim: rgba(168, 85, 247, 0.15);
+        --green: #00ff88;
+        --red: #ff3b5c;
+        --amber: #ffb800;
+      }
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html { scroll-behavior: smooth; }
+      body {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        line-height: 1.5;
+        overflow-x: hidden;
+        -webkit-font-smoothing: antialiased;
+      }
+      .mono { font-family: 'JetBrains Mono', monospace; }
+
+      /* ====================== NAV ====================== */
+      nav {
+        position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+        padding: 18px 32px;
+        backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+        background: rgba(7, 7, 11, 0.7);
+        border-bottom: 1px solid var(--border);
+      }
+      .nav-inner {
+        max-width: 1280px; margin: 0 auto;
+        display: flex; align-items: center; justify-content: space-between;
+      }
+      .logo {
+        font-size: 20px; font-weight: 800; letter-spacing: -0.02em;
+        display: flex; align-items: center; gap: 10px;
+        text-decoration: none; color: var(--text);
+      }
+      .logo-dot {
+        width: 10px; height: 10px; border-radius: 50%;
+        background: var(--purple); box-shadow: 0 0 16px var(--purple);
+        animation: pulse-dot 2s infinite;
+      }
+      @keyframes pulse-dot {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.5; transform: scale(0.85); }
+      }
+      .nav-links { display: flex; align-items: center; gap: 32px; }
+      .nav-link {
+        color: var(--text-2); text-decoration: none;
+        font-size: 14px; font-weight: 500; transition: color 0.2s;
+      }
+      .nav-link:hover { color: var(--text); }
+      .nav-link.active { color: var(--purple); }
+
+      .btn {
+        display: inline-flex; align-items: center; justify-content: center;
+        gap: 8px; padding: 12px 22px; border-radius: 10px;
+        font-size: 14px; font-weight: 600;
+        text-decoration: none; border: 1px solid transparent;
+        cursor: pointer; transition: all 0.2s; font-family: inherit;
+      }
+      .btn-primary { background: var(--text); color: var(--bg); }
+      .btn-primary:hover { background: #e0e0e0; transform: translateY(-1px); }
+      .btn-purple {
+        background: var(--purple); color: #fff;
+        box-shadow: 0 0 0 1px rgba(168, 85, 247, 0.3), 0 8px 32px rgba(168, 85, 247, 0.25);
+      }
+      .btn-purple:hover {
+        background: #b769ff; transform: translateY(-1px);
+        box-shadow: 0 0 0 1px rgba(168, 85, 247, 0.5), 0 12px 40px rgba(168, 85, 247, 0.35);
+      }
+      .btn-ghost { background: transparent; color: var(--text); border-color: var(--border-strong); }
+      .btn-ghost:hover { background: var(--card); border-color: var(--text); }
+      .btn-lg { padding: 16px 28px; font-size: 15px; }
+      .btn-arrow { transition: transform 0.2s; }
+      .btn:hover .btn-arrow { transform: translateX(4px); }
+
+      /* ====================== HERO ====================== */
+      .hero { padding: 140px 32px 80px; position: relative; overflow: hidden; }
+      .hero-bg {
+        position: absolute; inset: 0; z-index: 0;
+        background:
+          radial-gradient(ellipse 80% 60% at 50% 0%, rgba(168, 85, 247, 0.18) 0%, transparent 60%),
+          radial-gradient(ellipse 60% 50% at 80% 80%, rgba(0, 212, 255, 0.08) 0%, transparent 60%);
+      }
+      .radar-grid {
+        position: absolute; inset: 0;
+        background-image:
+          linear-gradient(to right, rgba(255,255,255,0.03) 1px, transparent 1px),
+          linear-gradient(to bottom, rgba(255,255,255,0.03) 1px, transparent 1px);
+        background-size: 60px 60px;
+        mask-image: radial-gradient(ellipse 70% 70% at 50% 30%, black 30%, transparent 80%);
+        -webkit-mask-image: radial-gradient(ellipse 70% 70% at 50% 30%, black 30%, transparent 80%);
+      }
+      .hero-inner {
+        max-width: 1180px; margin: 0 auto;
+        position: relative; z-index: 1;
+      }
+      .eyebrow {
+        display: inline-flex; align-items: center; gap: 10px;
+        padding: 8px 14px;
+        background: var(--card); border: 1px solid var(--border);
+        border-radius: 100px;
+        font-size: 13px; font-weight: 500; color: var(--text-2);
+        margin-bottom: 32px;
+      }
+      .eyebrow-dot {
+        width: 8px; height: 8px; border-radius: 50%;
+        background: var(--purple); box-shadow: 0 0 12px var(--purple);
+        animation: pulse-dot 2s infinite;
+      }
+
+      h1 {
+        font-size: clamp(40px, 6vw, 76px);
+        line-height: 0.98; font-weight: 800; letter-spacing: -0.04em;
+        margin-bottom: 24px; max-width: 900px;
+      }
+      .gradient-text {
+        background: linear-gradient(120deg, var(--purple), #d4a3ff);
+        -webkit-background-clip: text; background-clip: text; color: transparent;
+      }
+      .hero-sub {
+        font-size: clamp(17px, 1.8vw, 21px);
+        color: var(--text-2);
+        max-width: 660px; margin-bottom: 40px; line-height: 1.5;
+      }
+      .hero-ctas {
+        display: flex; gap: 12px; flex-wrap: wrap;
+        margin-bottom: 56px;
+      }
+
+      .live-stats {
+        display: flex; align-items: center; gap: 32px; flex-wrap: wrap;
+      }
+      .stat { display: flex; flex-direction: column; }
+      .stat-num {
+        font-size: 28px; font-weight: 700; letter-spacing: -0.02em;
+        font-feature-settings: 'tnum';
+      }
+      .stat-label {
+        font-size: 12px; color: var(--text-3);
+        text-transform: uppercase; letter-spacing: 0.08em;
+      }
+      .stat-divider { width: 1px; height: 36px; background: var(--border); }
+
+      /* ====================== SECTIONS ====================== */
+      section { padding: 100px 32px; position: relative; }
+      .container { max-width: 1180px; margin: 0 auto; }
+      .section-label {
+        display: inline-block; font-size: 13px; font-weight: 600;
+        color: var(--purple); text-transform: uppercase; letter-spacing: 0.12em;
+        margin-bottom: 20px;
+      }
+      h2 {
+        font-size: clamp(32px, 4vw, 52px);
+        line-height: 1.05; font-weight: 800; letter-spacing: -0.03em;
+        margin-bottom: 20px; max-width: 800px;
+      }
+      .section-sub {
+        font-size: 18px; color: var(--text-2);
+        max-width: 640px; margin-bottom: 56px;
+      }
+
+      /* ====================== COMPARE ====================== */
+      .compare {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 16px;
+      }
+      @media (min-width: 800px) {
+        .compare { grid-template-columns: 1fr 1fr; }
+      }
+      .compare-card {
+        padding: 32px;
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+      }
+      .compare-card.bad { opacity: 0.6; }
+      .compare-card.good {
+        border-color: var(--purple);
+        background: linear-gradient(180deg, rgba(168, 85, 247, 0.06), var(--card));
+        box-shadow: 0 0 40px rgba(168, 85, 247, 0.1);
+      }
+      .compare-label {
+        font-family: 'JetBrains Mono', monospace; font-size: 13px;
+        margin-bottom: 16px;
+      }
+      .compare-card.bad .compare-label { color: var(--red); }
+      .compare-card.good .compare-label { color: var(--green); }
+      .compare-title {
+        font-size: 22px; font-weight: 700; letter-spacing: -0.02em;
+        margin-bottom: 20px; line-height: 1.2;
+      }
+      .compare-list { list-style: none; }
+      .compare-list li {
+        padding: 10px 0; font-size: 14px; color: var(--text-2);
+        display: flex; gap: 10px; align-items: flex-start;
+        border-top: 1px solid var(--border);
+      }
+      .compare-list li:first-child { border-top: none; }
+      .compare-list svg {
+        flex-shrink: 0; margin-top: 3px;
+      }
+      .compare-card.bad svg { color: var(--red); }
+      .compare-card.good svg { color: var(--purple); }
+
+      /* ====================== HUNTER MOCK ====================== */
+      .hunter {
+        background: linear-gradient(180deg, var(--bg-2), var(--bg-3));
+        border: 1px solid var(--border-strong);
+        border-radius: 20px;
+        overflow: hidden;
+        position: relative;
+      }
+      .hunter::before {
+        content: '';
+        position: absolute; inset: 0;
+        background: radial-gradient(ellipse 60% 40% at 50% 0%, rgba(168, 85, 247, 0.12), transparent 60%);
+        pointer-events: none;
+      }
+
+      .hunter-head {
+        padding: 20px 24px;
+        border-bottom: 1px solid var(--border);
+        display: flex; align-items: center; justify-content: space-between;
+        flex-wrap: wrap; gap: 16px;
+      }
+      .hunter-title {
+        font-size: 18px; font-weight: 700; letter-spacing: -0.02em;
+      }
+      .hunter-meta {
+        font-family: 'JetBrains Mono', monospace; font-size: 13px;
+        color: var(--text-3);
+      }
+      .hunter-meta b { color: var(--purple); }
+
+      .hunter-body {
+        display: grid;
+        grid-template-columns: 1fr;
+      }
+      @media (min-width: 900px) {
+        .hunter-body { grid-template-columns: 320px 1fr; }
+      }
+
+      .filters {
+        padding: 24px;
+        border-right: 1px solid var(--border);
+      }
+      .filter-group { margin-bottom: 22px; }
+      .filter-label {
+        font-size: 12px; color: var(--text-3);
+        text-transform: uppercase; letter-spacing: 0.08em;
+        margin-bottom: 10px; font-weight: 600;
+      }
+      .filter-pill {
+        display: inline-flex; align-items: center; gap: 6px;
+        padding: 6px 12px;
+        background: var(--bg-3); border: 1px solid var(--border);
+        border-radius: 8px;
+        font-size: 13px; color: var(--text);
+        margin-right: 6px; margin-bottom: 6px;
+        font-family: 'JetBrains Mono', monospace;
+      }
+      .filter-pill.active {
+        background: var(--purple-dim); border-color: var(--purple);
+        color: var(--purple);
+      }
+      .filter-pill svg { color: currentColor; }
+      .filter-slider {
+        height: 6px;
+        background: rgba(255,255,255,0.08);
+        border-radius: 3px;
+        position: relative;
+        margin: 12px 0 6px;
+      }
+      .filter-slider-track {
+        position: absolute; left: 20%; right: 10%; top: 0; bottom: 0;
+        background: var(--purple); border-radius: 3px;
+      }
+      .filter-slider-thumb {
+        position: absolute; top: 50%; transform: translateY(-50%);
+        width: 14px; height: 14px; border-radius: 50%;
+        background: #fff;
+        border: 2px solid var(--purple);
+        box-shadow: 0 0 12px rgba(168, 85, 247, 0.4);
+      }
+      .filter-slider-thumb.t1 { left: calc(20% - 7px); }
+      .filter-slider-thumb.t2 { right: calc(10% - 7px); }
+      .filter-range {
+        display: flex; justify-content: space-between;
+        font-size: 12px; color: var(--text-3);
+        font-family: 'JetBrains Mono', monospace;
+      }
+
+      .results {
+        padding: 0;
+        display: flex; flex-direction: column;
+      }
+      .result-bar {
+        padding: 16px 24px;
+        border-bottom: 1px solid var(--border);
+        display: flex; align-items: center; justify-content: space-between;
+        gap: 16px;
+        flex-wrap: wrap;
+      }
+      .result-count {
+        font-size: 14px;
+      }
+      .result-count b { color: var(--purple); font-family: 'JetBrains Mono', monospace; }
+      .result-actions { display: flex; gap: 8px; }
+      .result-btn {
+        padding: 6px 12px;
+        background: var(--bg-3); border: 1px solid var(--border);
+        border-radius: 6px;
+        font-size: 12px; color: var(--text);
+        font-family: 'JetBrains Mono', monospace;
+        cursor: pointer;
+      }
+
+      .lead-list { padding: 8px; overflow: hidden; }
+      .lead {
+        padding: 16px;
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 12px;
+        border-radius: 10px;
+        transition: background 0.2s;
+        cursor: pointer;
+      }
+      @media (min-width: 700px) {
+        .lead { grid-template-columns: 1.5fr 1fr 0.8fr auto; align-items: center; }
+      }
+      .lead:hover { background: var(--card-hover); }
+      .lead + .lead { border-top: 1px solid var(--border); }
+
+      .lead-name {
+        font-size: 14px; font-weight: 600; line-height: 1.3;
+      }
+      .lead-loc {
+        font-size: 12px; color: var(--text-3); font-family: 'JetBrains Mono', monospace;
+        margin-top: 2px;
+      }
+      .lead-signals { display: flex; gap: 6px; flex-wrap: wrap; }
+      .lead-sig {
+        padding: 3px 8px;
+        background: var(--bg-3); border: 1px solid var(--border);
+        border-radius: 4px;
+        font-size: 11px; font-weight: 600;
+      }
+      .lead-sig.red { color: var(--red); border-color: rgba(255, 59, 92, 0.4); }
+      .lead-sig.amber { color: var(--amber); border-color: rgba(255, 184, 0, 0.4); }
+      .lead-sig.green { color: var(--green); border-color: rgba(0, 255, 136, 0.4); }
+      .lead-contact {
+        font-size: 12px; color: var(--text-2);
+        font-family: 'JetBrains Mono', monospace;
+      }
+      .lead-contact b {
+        display: flex; align-items: center; gap: 4px;
+        color: var(--green); font-weight: 600;
+      }
+      .lead-action {
+        padding: 6px 10px; border-radius: 6px;
+        background: var(--purple); color: #fff;
+        font-size: 12px; font-weight: 600;
+        font-family: inherit;
+        border: none; cursor: pointer;
+      }
+
+      /* ====================== WHITE-LABEL ====================== */
+      .wl-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 32px;
+        align-items: center;
+      }
+      @media (min-width: 900px) {
+        .wl-grid { grid-template-columns: 1fr 1.3fr; gap: 60px; }
+      }
+      .wl-text h3 {
+        font-size: clamp(28px, 3vw, 40px);
+        font-weight: 800; letter-spacing: -0.02em;
+        line-height: 1.1; margin-bottom: 20px;
+      }
+      .wl-text p {
+        font-size: 16px; color: var(--text-2); line-height: 1.6;
+        margin-bottom: 16px;
+      }
+      .wl-features {
+        list-style: none; margin-top: 24px;
+      }
+      .wl-features li {
+        padding: 12px 0; font-size: 14px;
+        display: flex; gap: 10px; align-items: flex-start;
+        border-top: 1px solid var(--border);
+      }
+      .wl-features li:first-child { border-top: none; }
+      .wl-features svg { color: var(--purple); flex-shrink: 0; margin-top: 3px; }
+
+      .wl-mock {
+        background: linear-gradient(180deg, var(--bg-2), var(--bg-3));
+        border: 1px solid var(--border-strong);
+        border-radius: 16px;
+        padding: 8px;
+        position: relative;
+      }
+      .wl-mock-bar {
+        padding: 10px 16px;
+        background: var(--bg);
+        border-radius: 10px;
+        display: flex; justify-content: space-between; align-items: center;
+        margin-bottom: 8px;
+        font-size: 12px;
+        font-family: 'JetBrains Mono', monospace;
+        color: var(--text-3);
+      }
+      .wl-mock-bar-dots {
+        display: flex; gap: 6px;
+      }
+      .wl-mock-bar-dots span {
+        width: 10px; height: 10px; border-radius: 50%;
+      }
+      .wl-mock-bar-dots span:nth-child(1) { background: #ff5f57; }
+      .wl-mock-bar-dots span:nth-child(2) { background: #febc2e; }
+      .wl-mock-bar-dots span:nth-child(3) { background: #28c840; }
+      .wl-mock-content {
+        background: var(--bg-3);
+        border-radius: 10px;
+        padding: 28px;
+      }
+      .wl-mock-brand {
+        display: flex; align-items: center; gap: 10px;
+        margin-bottom: 24px;
+      }
+      .wl-mock-logo {
+        width: 32px; height: 32px;
+        background: linear-gradient(135deg, #ff6b9d, #ff9e6c);
+        border-radius: 8px;
+        display: flex; align-items: center; justify-content: center;
+        font-weight: 800; font-size: 14px;
+      }
+      .wl-mock-brand-name {
+        font-size: 16px; font-weight: 700; letter-spacing: -0.01em;
+      }
+      .wl-mock-brand-tag {
+        font-size: 11px; color: var(--text-3);
+        font-family: 'JetBrains Mono', monospace;
+        margin-left: auto;
+      }
+      .wl-mock-headline {
+        font-size: 22px; font-weight: 700; letter-spacing: -0.02em;
+        margin-bottom: 6px;
+      }
+      .wl-mock-sub {
+        font-size: 13px; color: var(--text-3); margin-bottom: 20px;
+      }
+      .wl-mock-stats {
+        display: grid; grid-template-columns: 1fr 1fr 1fr;
+        gap: 8px;
+      }
+      .wl-mock-stat {
+        background: var(--card); padding: 12px;
+        border-radius: 8px; border: 1px solid var(--border);
+      }
+      .wl-mock-stat-num {
+        font-size: 22px; font-weight: 800; letter-spacing: -0.02em;
+        font-family: 'JetBrains Mono', monospace;
+        background: linear-gradient(120deg, #ff6b9d, #ff9e6c);
+        -webkit-background-clip: text; background-clip: text; color: transparent;
+      }
+      .wl-mock-stat-label {
+        font-size: 10px; color: var(--text-3);
+        text-transform: uppercase; letter-spacing: 0.08em;
+        margin-top: 4px;
+      }
+      .wl-mock-footer {
+        margin-top: 16px;
+        font-size: 11px; color: var(--text-3);
+        text-align: center;
+      }
+
+      /* ====================== USE CASES ====================== */
+      .uc-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 16px;
+      }
+      @media (min-width: 800px) {
+        .uc-grid { grid-template-columns: repeat(3, 1fr); }
+      }
+      .uc-card {
+        padding: 32px 28px;
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        position: relative; overflow: hidden;
+      }
+      .uc-icon {
+        width: 44px; height: 44px;
+        background: var(--purple-dim);
+        border-radius: 10px;
+        display: flex; align-items: center; justify-content: center;
+        color: var(--purple);
+        margin-bottom: 20px;
+      }
+      .uc-card h3 {
+        font-size: 20px; font-weight: 700; letter-spacing: -0.02em;
+        margin-bottom: 8px;
+      }
+      .uc-card p {
+        font-size: 14px; color: var(--text-2); line-height: 1.6;
+        margin-bottom: 16px;
+      }
+      .uc-pitch {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 12px; color: var(--purple);
+        padding: 12px; border-radius: 8px;
+        background: rgba(168, 85, 247, 0.06);
+        border: 1px solid var(--purple-dim);
+        line-height: 1.5;
+      }
+
+      /* ====================== PRICING ====================== */
+      .pricing-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 16px;
+      }
+      @media (min-width: 800px) {
+        .pricing-grid { grid-template-columns: repeat(3, 1fr); }
+      }
+      .price-card {
+        padding: 36px 28px;
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        position: relative;
+        display: flex; flex-direction: column;
+      }
+      .price-card.featured {
+        border-color: var(--purple);
+        background: linear-gradient(180deg, rgba(168,85,247,0.06), var(--card));
+        box-shadow: 0 0 40px rgba(168, 85, 247, 0.1);
+      }
+      .price-tag {
+        position: absolute; top: -10px; right: 20px;
+        padding: 4px 10px;
+        background: var(--purple); color: #fff;
+        border-radius: 6px; font-size: 11px; font-weight: 700;
+        text-transform: uppercase; letter-spacing: 0.08em;
+      }
+      .price-name {
+        font-size: 16px; font-weight: 600; margin-bottom: 8px; color: var(--text-2);
+      }
+      .price-amount {
+        display: flex; align-items: baseline; gap: 4px;
+        margin-bottom: 8px;
+      }
+      .price-amt-num {
+        font-size: 48px; font-weight: 800; letter-spacing: -0.03em;
+      }
+      .price-amt-period { font-size: 15px; color: var(--text-3); }
+      .price-desc {
+        font-size: 14px; color: var(--text-2);
+        margin-bottom: 28px; line-height: 1.5;
+      }
+      .price-features {
+        list-style: none; margin-bottom: 28px; flex: 1;
+      }
+      .price-features li {
+        padding: 10px 0; border-top: 1px solid var(--border);
+        display: flex; gap: 10px; align-items: flex-start;
+        font-size: 14px; color: var(--text-2);
+      }
+      .price-features li:first-child { border-top: none; }
+      .price-features svg { color: var(--purple); flex-shrink: 0; margin-top: 3px; }
+
+      /* ====================== FAQ ====================== */
+      .faq { max-width: 800px; margin: 0 auto; }
+      .faq-item { border-bottom: 1px solid var(--border); }
+      .faq-q {
+        padding: 24px 0; display: flex; justify-content: space-between;
+        align-items: center; cursor: pointer;
+        font-size: 17px; font-weight: 600; gap: 24px; user-select: none;
+      }
+      .faq-q::after {
+        content: '+'; font-size: 24px; color: var(--text-3);
+        transition: transform 0.3s;
+      }
+      .faq-item.open .faq-q::after { transform: rotate(45deg); }
+      .faq-a {
+        font-size: 15px; color: var(--text-2); line-height: 1.6;
+        max-height: 0; overflow: hidden;
+        transition: max-height 0.4s ease, padding 0.4s ease;
+      }
+      .faq-item.open .faq-a { max-height: 400px; padding-bottom: 24px; }
+
+      /* ====================== CTA ====================== */
+      .cta-band { text-align: center; padding: 100px 32px; }
+      .cta-card {
+        max-width: 900px; margin: 0 auto;
+        padding: 80px 48px;
+        background:
+          radial-gradient(ellipse 80% 80% at 50% 0%, rgba(168,85,247,0.18), transparent 60%),
+          radial-gradient(ellipse 80% 80% at 50% 100%, rgba(0,212,255,0.08), transparent 60%),
+          var(--bg-2);
+        border: 1px solid var(--border); border-radius: 24px;
+        position: relative; overflow: hidden;
+      }
+      .cta-title {
+        font-size: clamp(32px, 4vw, 48px);
+        font-weight: 800; letter-spacing: -0.03em;
+        margin-bottom: 16px; line-height: 1.1;
+      }
+      .cta-sub { font-size: 18px; color: var(--text-2); margin-bottom: 36px; }
+      .cta-buttons { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+
+      /* ====================== FOOTER ====================== */
+      footer { padding: 56px 32px 40px; border-top: 1px solid var(--border); }
+      .footer-inner {
+        max-width: 1180px; margin: 0 auto;
+        display: flex; justify-content: space-between; align-items: center;
+        flex-wrap: wrap; gap: 24px;
+      }
+      .footer-links {
+        display: flex; gap: 24px; font-size: 13px; color: var(--text-3);
+      }
+      .footer-links a {
+        color: inherit; text-decoration: none; transition: color 0.2s;
+      }
+      .footer-links a:hover { color: var(--text); }
+      .footer-copy { font-size: 13px; color: var(--text-3); }
+
+      /* ====================== RESPONSIVE ====================== */
+      @media (max-width: 700px) {
+        nav { padding: 14px 18px; }
+        .nav-links { gap: 12px; }
+        .nav-link { display: none; }
+        .hero { padding: 110px 18px 60px; }
+        section { padding: 70px 18px; }
+        .hunter-head { padding: 16px; }
+        .filters { padding: 16px; border-right: none; border-bottom: 1px solid var(--border); }
+        .cta-card { padding: 56px 24px; }
+      }
+
+      /* ====================== UTIL ====================== */
+      .reveal {
+        opacity: 0; transform: translateY(20px);
+        transition: opacity 0.6s, transform 0.6s;
+      }
+      .reveal.in-view { opacity: 1; transform: translateY(0); }
+    </style>
+  </head>
+  <body>
+    <nav>
+      <div class="nav-inner">
+        <a href="index.html" class="logo">
+          <span class="logo-dot"></span>
+          mapsly
+        </a>
+        <div class="nav-links">
+          <a href="for-businesses.html" class="nav-link">For businesses</a>
+          <a href="for-agencies.html" class="nav-link active">For agencies</a>
+          <a href="#pricing" class="nav-link">Pricing</a>
+          <a href="#" class="btn btn-ghost">Sign in</a>
+        </div>
+      </div>
+    </nav>
+
+    <!-- ====================== HERO ====================== -->
+    <section class="hero">
+      <div class="hero-bg"></div>
+      <div class="radar-grid"></div>
+
+      <div class="hero-inner">
+        <div class="eyebrow">
+          <span class="eyebrow-dot"></span>
+          50 free leads. No card. Cancel anytime.
+        </div>
+
+        <h1>
+          Local SMBs <span class="gradient-text">ready to switch.</span><br />
+          With reasons. With contacts. Right now.
+        </h1>
+
+        <p class="hero-sub">
+          Skip the Apollo lists. Skip the spray-and-pray. Hunter queries 2M+ local businesses by
+          signal — declining reviews, slow site, no ads — and hands you the ones that match your
+          pitch. Owner emails verified weekly.
+        </p>
+
+        <div class="hero-ctas">
+          <a href="#cta" class="btn btn-purple btn-lg">
+            Get 50 free leads
+            <svg class="btn-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M5 12h14M13 6l6 6-6 6"/>
+            </svg>
+          </a>
+          <a href="#hunter" class="btn btn-ghost btn-lg">
+            See live demo
+          </a>
+        </div>
+
+        <div class="live-stats">
+          <div class="stat">
+            <span class="stat-num mono">2.1M</span>
+            <span class="stat-label">Businesses indexed</span>
+          </div>
+          <div class="stat-divider"></div>
+          <div class="stat">
+            <span class="stat-num mono">32</span>
+            <span class="stat-label">Filter signals</span>
+          </div>
+          <div class="stat-divider"></div>
+          <div class="stat">
+            <span class="stat-num mono">94%</span>
+            <span class="stat-label">Email verify rate</span>
+          </div>
+          <div class="stat-divider"></div>
+          <div class="stat">
+            <span class="stat-num mono">7 days</span>
+            <span class="stat-label">Refresh cadence</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ====================== OLD WAY vs NEW WAY ====================== -->
+    <section>
+      <div class="container">
+        <span class="section-label">The shift</span>
+        <h2>Stop renting Apollo. Start hunting with intent.</h2>
+        <p class="section-sub">
+          Generic B2B databases give you 200 cold contacts. Mapsly gives you 12 SMBs who
+          actually need exactly what you sell — and the data to prove it in the pitch.
+        </p>
+
+        <div class="compare">
+          <div class="compare-card bad reveal">
+            <div class="compare-label">// the old way</div>
+            <div class="compare-title">Cold list from Apollo / ZoomInfo</div>
+            <ul class="compare-list">
+              <li>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                "Local marketing agency" filter is generic
+              </li>
+              <li>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                No idea who actually needs what you sell
+              </li>
+              <li>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                Contacts go stale within 90 days
+              </li>
+              <li>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                Reply rate: 0.5–2% (cold spray)
+              </li>
+              <li>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                $149–800/mo and you do all the targeting work
+              </li>
+            </ul>
+          </div>
+
+          <div class="compare-card good reveal">
+            <div class="compare-label">// the mapsly way</div>
+            <div class="compare-title">Signal-based query on real intent</div>
+            <ul class="compare-list">
+              <li>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg>
+                "Med spas in Miami with Lighthouse &lt; 50 and no Meta ads"
+              </li>
+              <li>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg>
+                Each lead comes with a 1-line "why now" pitch
+              </li>
+              <li>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg>
+                Emails re-verified every 7 days
+              </li>
+              <li>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg>
+                Reply rate: 6–14% (signal-based + personalized)
+              </li>
+              <li>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg>
+                $99/mo. We do the targeting math.
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ====================== HUNTER MOCK ====================== -->
+    <section id="hunter" style="background: var(--bg-2)">
+      <div class="container">
+        <span class="section-label">The product</span>
+        <h2>This is Hunter. This is what you'd be using tomorrow.</h2>
+        <p class="section-sub">
+          Build a query once. Get a fresh batch of matching SMBs every week, in your inbox or CRM.
+          Below: a real saved search for a Miami web-design agency hunting med spa rebuild work.
+        </p>
+
+        <div class="hunter reveal">
+          <div class="hunter-head">
+            <div class="hunter-title">"Miami med spas — website rebuild candidates"</div>
+            <div class="hunter-meta">
+              <b>147</b> matches · refreshed 2h ago · 24 new this week
+            </div>
+          </div>
+
+          <div class="hunter-body">
+            <div class="filters">
+              <div class="filter-group">
+                <div class="filter-label">Vertical</div>
+                <span class="filter-pill active">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12l5 5L20 7"/></svg>
+                  Med Spa
+                </span>
+              </div>
+
+              <div class="filter-group">
+                <div class="filter-label">Metro</div>
+                <span class="filter-pill active">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12l5 5L20 7"/></svg>
+                  Miami-Dade
+                </span>
+                <span class="filter-pill active">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12l5 5L20 7"/></svg>
+                  Broward
+                </span>
+              </div>
+
+              <div class="filter-group">
+                <div class="filter-label">Lighthouse score</div>
+                <div class="filter-slider">
+                  <div class="filter-slider-track"></div>
+                  <div class="filter-slider-thumb t1"></div>
+                  <div class="filter-slider-thumb t2"></div>
+                </div>
+                <div class="filter-range">
+                  <span>20</span><span>50</span>
+                </div>
+              </div>
+
+              <div class="filter-group">
+                <div class="filter-label">Active ad campaigns</div>
+                <span class="filter-pill active">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12l5 5L20 7"/></svg>
+                  None on Meta
+                </span>
+              </div>
+
+              <div class="filter-group">
+                <div class="filter-label">Reviews trend (90d)</div>
+                <span class="filter-pill active">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12l5 5L20 7"/></svg>
+                  Declining
+                </span>
+              </div>
+
+              <div class="filter-group">
+                <div class="filter-label">Contact verified</div>
+                <span class="filter-pill active">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12l5 5L20 7"/></svg>
+                  Last 7 days
+                </span>
+              </div>
+            </div>
+
+            <div class="results">
+              <div class="result-bar">
+                <div class="result-count"><b>147</b> matches · sorted by intent score</div>
+                <div class="result-actions">
+                  <button class="result-btn">Export CSV</button>
+                  <button class="result-btn">Push to CRM</button>
+                </div>
+              </div>
+
+              <div class="lead-list">
+                <div class="lead">
+                  <div>
+                    <div class="lead-name">Lumière Aesthetics Miami</div>
+                    <div class="lead-loc">miami beach, fl · 4.6★ · 87 reviews</div>
+                  </div>
+                  <div class="lead-signals">
+                    <span class="lead-sig red">Lighthouse 38</span>
+                    <span class="lead-sig amber">Reviews −22%</span>
+                  </div>
+                  <div class="lead-contact">
+                    <b><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12l5 5L20 7"/></svg> Verified</b>
+                    elena@lumiere-miami.com
+                  </div>
+                  <button class="lead-action">Open</button>
+                </div>
+
+                <div class="lead">
+                  <div>
+                    <div class="lead-name">Coral Gables Med Spa</div>
+                    <div class="lead-loc">coral gables, fl · 4.7★ · 134 reviews</div>
+                  </div>
+                  <div class="lead-signals">
+                    <span class="lead-sig red">Lighthouse 41</span>
+                    <span class="lead-sig red">No ads</span>
+                  </div>
+                  <div class="lead-contact">
+                    <b><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12l5 5L20 7"/></svg> Verified</b>
+                    dr.r@cgmedspa.com
+                  </div>
+                  <button class="lead-action">Open</button>
+                </div>
+
+                <div class="lead">
+                  <div>
+                    <div class="lead-name">Brickell Aesthetic Studio</div>
+                    <div class="lead-loc">brickell, fl · 4.5★ · 62 reviews</div>
+                  </div>
+                  <div class="lead-signals">
+                    <span class="lead-sig red">Lighthouse 29</span>
+                    <span class="lead-sig amber">Reviews −14%</span>
+                    <span class="lead-sig red">No ads</span>
+                  </div>
+                  <div class="lead-contact">
+                    <b><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12l5 5L20 7"/></svg> Verified</b>
+                    sofia@brickellaesthetic.com
+                  </div>
+                  <button class="lead-action">Open</button>
+                </div>
+
+                <div class="lead">
+                  <div>
+                    <div class="lead-name">Aventura Skin & Laser</div>
+                    <div class="lead-loc">aventura, fl · 4.8★ · 218 reviews</div>
+                  </div>
+                  <div class="lead-signals">
+                    <span class="lead-sig red">Lighthouse 44</span>
+                    <span class="lead-sig amber">Reviews −9%</span>
+                  </div>
+                  <div class="lead-contact">
+                    <b><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12l5 5L20 7"/></svg> Verified</b>
+                    info@aventura-skin.com
+                  </div>
+                  <button class="lead-action">Open</button>
+                </div>
+
+                <div class="lead">
+                  <div>
+                    <div class="lead-name">Fort Lauderdale Glow Bar</div>
+                    <div class="lead-loc">fort lauderdale, fl · 4.6★ · 96 reviews</div>
+                  </div>
+                  <div class="lead-signals">
+                    <span class="lead-sig red">Lighthouse 33</span>
+                    <span class="lead-sig red">No ads</span>
+                  </div>
+                  <div class="lead-contact">
+                    <b><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12l5 5L20 7"/></svg> Verified</b>
+                    hello@glowbarfl.com
+                  </div>
+                  <button class="lead-action">Open</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ====================== USE CASES ====================== -->
+    <section>
+      <div class="container">
+        <span class="section-label">Built for</span>
+        <h2>One platform. Every kind of agency.</h2>
+        <p class="section-sub">
+          Whether you sell websites, ads, or SEO — every type of agency has a signal it can hunt on.
+        </p>
+
+        <div class="uc-grid">
+          <div class="uc-card reveal">
+            <div class="uc-icon">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+            </div>
+            <h3>Web design agencies</h3>
+            <p>Find SMBs with broken or outdated sites. Lighthouse, mobile-friendly, and Core Web Vitals filters.</p>
+            <div class="uc-pitch">
+              "Med spas in Phoenix with Lighthouse &lt; 50 and DNS not updated in 2+ years"
+            </div>
+          </div>
+
+          <div class="uc-card reveal">
+            <div class="uc-icon">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+            </div>
+            <h3>Ad agencies</h3>
+            <p>Find SMBs whose competitors are running ads but they aren't — and own the lane.</p>
+            <div class="uc-pitch">
+              "HVAC in Dallas where 3+ competitors run Meta ads but they don't"
+            </div>
+          </div>
+
+          <div class="uc-card reveal">
+            <div class="uc-icon">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            </div>
+            <h3>SEO agencies</h3>
+            <p>Target businesses with low local-pack visibility, declining SERP positions, or missing schema.</p>
+            <div class="uc-pitch">
+              "Dentists in NYC at GMB position 7–15, no schema, low backlinks"
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ====================== PRICING ====================== -->
+    <section id="pricing">
+      <div class="container">
+        <span class="section-label">Pricing</span>
+        <h2>Pay for outcomes, not seats.</h2>
+        <p class="section-sub">
+          All plans include verified contacts, weekly refresh, saved searches, CSV + CRM export, and
+          the full Mapsly signal stack.
+        </p>
+
+        <div class="pricing-grid">
+          <div class="price-card">
+            <div class="price-name">Solo</div>
+            <div class="price-amount">
+              <span class="price-amt-num">$99</span>
+              <span class="price-amt-period">/mo</span>
+            </div>
+            <p class="price-desc">For freelancers and one-person agencies focused on a single vertical.</p>
+            <ul class="price-features">
+              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg> 50 leads / month</li>
+              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg> 1 vertical, 1 metro</li>
+              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg> 3 saved searches</li>
+              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg> Weekly "new opportunities" email</li>
+              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg> CSV export, email support</li>
+            </ul>
+            <a href="#cta" class="btn btn-ghost btn-lg" style="width:100%">Start free</a>
+          </div>
+
+          <div class="price-card featured">
+            <span class="price-tag">Most popular</span>
+            <div class="price-name">Agency</div>
+            <div class="price-amount">
+              <span class="price-amt-num">$299</span>
+              <span class="price-amt-period">/mo</span>
+            </div>
+            <p class="price-desc">For most local marketing agencies — multi-vertical, multi-city.</p>
+            <ul class="price-features">
+              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg> 500 leads / month</li>
+              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg> 3 verticals, unlimited metros</li>
+              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg> Unlimited saved searches</li>
+              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg> Daily refresh, instant Slack/email alerts</li>
+              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg> CRM push (Hubspot, Pipedrive, Close)</li>
+              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg> 5 seats, priority support</li>
+            </ul>
+            <a href="#cta" class="btn btn-purple btn-lg" style="width:100%">Start 14-day trial</a>
+          </div>
+
+          <div class="price-card">
+            <div class="price-name">Scale</div>
+            <div class="price-amount">
+              <span class="price-amt-num">$599</span>
+              <span class="price-amt-period">/mo</span>
+            </div>
+            <p class="price-desc">For multi-service agencies and lead-gen consultancies.</p>
+            <ul class="price-features">
+              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg> Everything in Agency</li>
+              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg> Unlimited verticals & metros</li>
+              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg> 2,000 leads / month</li>
+              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg> Full API access</li>
+              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg> 20 seats, team workspaces</li>
+              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg> Dedicated account manager</li>
+            </ul>
+            <a href="#cta" class="btn btn-ghost btn-lg" style="width:100%">Talk to us</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ====================== FAQ ====================== -->
+    <section style="background: var(--bg-2)">
+      <div class="container">
+        <span class="section-label">FAQ</span>
+        <h2 style="margin-bottom:48px">Quick answers.</h2>
+
+        <div class="faq">
+          <div class="faq-item">
+            <div class="faq-q">How is this different from Apollo, ZoomInfo, or Clay?</div>
+            <div class="faq-a"><div style="padding-top:0">
+              Those tools give you generic B2B contact data. Mapsly gives you local SMBs filtered
+              by *intent signals* — what's broken on their site, who's running ads against them,
+              whose reviews are tanking, who just rebuilt their site. Every lead comes with the
+              reason to pitch, not just the contact.
+            </div></div>
+          </div>
+          <div class="faq-item">
+            <div class="faq-q">How fresh are the contacts?</div>
+            <div class="faq-a"><div style="padding-top:0">
+              Every email is re-verified weekly. Phones daily on the Agency tier. If a contact
+              bounces, we suppress it and surface a fresh one — at no extra cost.
+            </div></div>
+          </div>
+          <div class="faq-item">
+            <div class="faq-q">Can I cancel anytime?</div>
+            <div class="faq-a"><div style="padding-top:0">
+              Yes. One click. Monthly plans cancel at end of period. Annual plans get prorated refund
+              for unused months.
+            </div></div>
+          </div>
+          <div class="faq-item">
+            <div class="faq-q">What about CAN-SPAM and CASL?</div>
+            <div class="faq-a"><div style="padding-top:0">
+              All contacts are publicly observable business emails (the same data on Google or Yelp).
+              Mapsly stays on the right side of CAN-SPAM and CASL — but as the sender, you're
+              responsible for compliant outreach. We include best-practice templates and a built-in
+              suppression list to help.
+            </div></div>
+          </div>
+          <div class="faq-item">
+            <div class="faq-q">Do you take a cut of deals I close?</div>
+            <div class="faq-a"><div style="padding-top:0">
+              No. Flat monthly subscription. Whatever you close is yours.
+            </div></div>
+          </div>
+          <div class="faq-item">
+            <div class="faq-q">Affiliate program?</div>
+            <div class="faq-a"><div style="padding-top:0">
+              Yes. 30% recurring revenue for any SMB or agency signup you refer. Available to all paid
+              agency tiers.
+            </div></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ====================== FINAL CTA ====================== -->
+    <section class="cta-band" id="cta">
+      <div class="cta-card">
+        <h2 class="cta-title">See 50 leads. Free.</h2>
+        <p class="cta-sub">
+          Pick a vertical, pick a metro, pick a filter. We'll show you 50 SMBs that match — with
+          verified contacts. No card, no demo call.
+        </p>
+        <div class="cta-buttons">
+          <a href="#" class="btn btn-purple btn-lg">
+            Get 50 free leads
+            <svg class="btn-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M5 12h14M13 6l6 6-6 6"/>
+            </svg>
+          </a>
+          <a href="#" class="btn btn-ghost btn-lg">Book a 15-min walkthrough</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- ====================== FOOTER ====================== -->
+    <footer>
+      <div class="footer-inner">
+        <a href="index.html" class="logo">
+          <span class="logo-dot"></span>
+          mapsly
+        </a>
+        <div class="footer-links">
+          <a href="index.html">Home</a>
+          <a href="for-businesses.html">For businesses</a>
+          <a href="#pricing">Pricing</a>
+          <a href="#">Privacy</a>
+          <a href="mailto:hello@mapsly.ai">hello@mapsly.ai</a>
+        </div>
+        <span class="footer-copy">© 2026 Mapsly</span>
+      </div>
+    </footer>
+
+    <script>
+      // ============ REVEAL ON SCROLL ============
+      const observer = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+              entry.target.classList.add('in-view');
+              observer.unobserve(entry.target);
+            }
+          });
+        },
+        { threshold: 0.15 }
+      );
+      document.querySelectorAll('.reveal, .compare-card, .uc-card').forEach((el) => observer.observe(el));
+
+      // ============ FAQ TOGGLE ============
+      document.querySelectorAll('.faq-q').forEach((q) => {
+        q.addEventListener('click', () => q.parentElement.classList.toggle('open'));
+      });
+    </script>
+  </body>
+</html>

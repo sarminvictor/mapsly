@@ -1,0 +1,603 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>One-pager example · Mapsly Agency</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="_shared.css" />
+    <style>
+      .breadcrumb { display:flex; align-items:center; gap:8px; font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text-3); margin-bottom:8px; }
+      .breadcrumb a:hover { color:var(--indigo); }
+      .breadcrumb .sep { color:var(--text-4); }
+
+      /* EXPLAINER STRIP */
+      .explainer {
+        display:grid;
+        grid-template-columns:1fr 1fr;
+        gap:16px;
+        margin-bottom:24px;
+      }
+      @media (max-width:900px) { .explainer { grid-template-columns:1fr; } }
+      .ex-card {
+        background:var(--bg-2);
+        border:1px solid var(--border);
+        border-radius:14px;
+        padding:18px 22px;
+        box-shadow:var(--shadow-sm);
+      }
+      .ex-eyebrow {
+        font-family:'JetBrains Mono',monospace;
+        font-size:11px; font-weight:700;
+        text-transform:uppercase; letter-spacing:.08em;
+        color:var(--indigo);
+        margin-bottom:6px;
+      }
+      .ex-title { font-size:18px; font-weight:700; margin-bottom:8px; letter-spacing:-.02em; }
+      .ex-body { font-size:13px; color:var(--text-2); line-height:1.55; }
+      .ex-body b { color:var(--text); font-weight:600; }
+      .ex-list { margin-top:10px; padding-left:18px; font-size:12.5px; color:var(--text-2); line-height:1.7; }
+      .ex-list li::marker { color:var(--indigo); }
+
+      /* PAGE SCAFFOLD */
+      .scaffold-bar {
+        display:flex;
+        justify-content:space-between; align-items:center;
+        margin-bottom:14px;
+        flex-wrap:wrap; gap:10px;
+      }
+      .scaffold-label {
+        font-family:'JetBrains Mono',monospace;
+        font-size:11px; font-weight:700;
+        text-transform:uppercase; letter-spacing:.1em;
+        color:var(--text-3);
+      }
+      .scaffold-actions { display:flex; gap:8px; }
+
+      /* THE ONE-PAGER (the renderable example) */
+      .page {
+        background:#ffffff;
+        border:1px solid var(--border-strong);
+        border-radius:8px;
+        max-width:820px;
+        margin:0 auto 32px;
+        padding:48px 56px;
+        box-shadow:0 8px 28px rgba(20,22,32,.08);
+        font-family:'Inter', sans-serif;
+        color:#1a1a24;
+      }
+      @media print {
+        body { padding:0 !important; background:#fff !important; }
+        .sidebar, .topbar, .breadcrumb, .explainer, .scaffold-bar, .page-controls { display:none !important; }
+        .page { box-shadow:none; border:none; margin:0; padding:32px; max-width:none; }
+      }
+
+      .p-header {
+        display:flex; justify-content:space-between; align-items:flex-start;
+        padding-bottom:18px;
+        border-bottom:2px solid var(--indigo);
+        margin-bottom:24px;
+      }
+      .p-agency {
+        display:flex; align-items:center; gap:10px;
+      }
+      .p-agency-logo {
+        width:36px; height:36px;
+        border-radius:8px;
+        background:linear-gradient(135deg, var(--indigo), var(--teal));
+        color:#fff;
+        display:flex; align-items:center; justify-content:center;
+        font-weight:800; font-size:13px;
+      }
+      .p-agency-name {
+        font-weight:700; font-size:14px;
+        letter-spacing:-.01em;
+      }
+      .p-agency-tag {
+        font-size:11px;
+        color:var(--text-3);
+        font-family:'JetBrains Mono',monospace;
+        margin-top:1px;
+      }
+      .p-meta {
+        text-align:right;
+        font-size:11px;
+        color:var(--text-3);
+        font-family:'JetBrains Mono',monospace;
+        line-height:1.55;
+      }
+
+      .p-target {
+        margin-bottom:8px;
+      }
+      .p-target-eyebrow {
+        font-family:'JetBrains Mono',monospace;
+        font-size:11px; font-weight:700;
+        text-transform:uppercase; letter-spacing:.08em;
+        color:var(--indigo);
+        margin-bottom:6px;
+      }
+      .p-target-name {
+        font-family:'Fraunces', Georgia, serif;
+        font-size:32px; font-weight:700;
+        letter-spacing:-.02em;
+        line-height:1.15;
+        margin-bottom:6px;
+      }
+      .p-target-meta {
+        font-size:12.5px;
+        color:var(--text-2);
+        font-family:'JetBrains Mono',monospace;
+      }
+
+      .p-headline {
+        font-family:'Fraunces', Georgia, serif;
+        font-size:22px; font-weight:600;
+        letter-spacing:-.01em;
+        line-height:1.35;
+        padding:18px 0;
+        border-bottom:1px solid var(--border);
+        margin:18px 0;
+      }
+      .p-headline b { color:var(--alert); font-weight:700; }
+
+      .p-stat-row {
+        display:grid;
+        grid-template-columns:repeat(4, 1fr);
+        gap:12px;
+        margin-bottom:24px;
+      }
+      .p-stat {
+        text-align:left;
+        padding:14px 14px;
+        background:var(--bg-3);
+        border-radius:8px;
+      }
+      .p-stat-label {
+        font-family:'JetBrains Mono',monospace;
+        font-size:10px; font-weight:700;
+        text-transform:uppercase; letter-spacing:.06em;
+        color:var(--text-3);
+        margin-bottom:4px;
+      }
+      .p-stat-num {
+        font-family:'Fraunces', serif;
+        font-size:24px; font-weight:700;
+        letter-spacing:-.02em;
+        line-height:1;
+      }
+      .p-stat-num.alert { color:var(--alert); }
+      .p-stat-num.warn { color:var(--warn); }
+      .p-stat-meta {
+        font-size:10.5px;
+        color:var(--text-3);
+        margin-top:3px;
+        font-family:'JetBrains Mono',monospace;
+      }
+
+      .p-section-title {
+        font-family:'Fraunces',serif;
+        font-size:18px; font-weight:600;
+        letter-spacing:-.01em;
+        margin-bottom:14px;
+        padding-bottom:6px;
+        border-bottom:1px solid var(--border);
+      }
+
+      .p-finding {
+        display:grid;
+        grid-template-columns:auto 1fr;
+        gap:14px;
+        margin-bottom:14px;
+        padding:14px 16px;
+        background:#fafbfd;
+        border:1px solid var(--border);
+        border-radius:8px;
+      }
+      .p-finding-num {
+        width:28px; height:28px;
+        border-radius:50%;
+        background:var(--indigo);
+        color:#fff;
+        font-weight:700;
+        font-family:'JetBrains Mono',monospace;
+        font-size:12px;
+        display:flex; align-items:center; justify-content:center;
+        flex-shrink:0;
+      }
+      .p-finding-title {
+        font-size:14px; font-weight:700;
+        margin-bottom:5px;
+      }
+      .p-finding-body {
+        font-size:12.5px;
+        color:var(--text-2);
+        line-height:1.55;
+      }
+      .p-finding-body b { color:var(--text); font-weight:600; }
+      .p-finding-evidence {
+        margin-top:8px;
+        font-family:'JetBrains Mono',monospace;
+        font-size:10.5px;
+        color:var(--text-3);
+        padding:6px 10px;
+        background:#fff;
+        border-left:2px solid var(--border-strong);
+        border-radius:4px;
+      }
+
+      .p-fix {
+        background:linear-gradient(135deg, var(--indigo-light), transparent);
+        border:1px solid rgba(91,61,245,.2);
+        border-radius:10px;
+        padding:18px 22px;
+        margin:24px 0;
+      }
+      .p-fix-title {
+        font-family:'Fraunces',serif;
+        font-size:16px; font-weight:600;
+        margin-bottom:10px;
+      }
+      .p-fix-list {
+        font-size:12.5px;
+        line-height:1.7;
+        color:var(--text-2);
+        padding-left:20px;
+      }
+      .p-fix-list li::marker { color:var(--indigo); }
+      .p-fix-list b { color:var(--text); font-weight:600; }
+
+      .p-impact {
+        display:grid;
+        grid-template-columns:1fr 1fr 1fr;
+        gap:14px;
+        margin-bottom:24px;
+      }
+      .p-impact-card {
+        text-align:center;
+        padding:14px;
+        background:var(--bg-3);
+        border-radius:8px;
+      }
+      .p-impact-num {
+        font-family:'Fraunces',serif;
+        font-size:24px; font-weight:700;
+        color:var(--indigo);
+        line-height:1;
+      }
+      .p-impact-label {
+        font-family:'JetBrains Mono',monospace;
+        font-size:10px; font-weight:700;
+        text-transform:uppercase; letter-spacing:.06em;
+        color:var(--text-3);
+        margin-top:6px;
+      }
+
+      .p-cta {
+        background:var(--text); color:#fff;
+        border-radius:10px;
+        padding:20px 22px;
+        margin-top:24px;
+        display:flex; justify-content:space-between; align-items:center;
+        gap:14px;
+        flex-wrap:wrap;
+      }
+      .p-cta-headline {
+        font-family:'Fraunces',serif;
+        font-size:17px; font-weight:600;
+        letter-spacing:-.01em;
+        line-height:1.35;
+        max-width:480px;
+      }
+      .p-cta-actions {
+        display:flex; flex-direction:column;
+        gap:5px;
+        text-align:right;
+        font-size:13px;
+        font-family:'JetBrains Mono',monospace;
+      }
+      .p-cta-actions b { color:#fff; font-weight:700; font-size:13.5px; }
+      .p-cta-actions a { color:var(--teal); }
+
+      .p-foot {
+        margin-top:18px;
+        padding-top:14px;
+        border-top:1px solid var(--border);
+        display:flex; justify-content:space-between; align-items:center;
+        font-size:10.5px;
+        color:var(--text-3);
+        font-family:'JetBrains Mono',monospace;
+        flex-wrap:wrap;
+        gap:8px;
+      }
+
+      .page-controls {
+        text-align:center;
+        margin-top:24px;
+      }
+
+      .ann-overlay {
+        position:relative;
+      }
+      .ann-callout {
+        position:absolute;
+        font-family:'JetBrains Mono',monospace;
+        font-size:11px;
+        background:var(--text);
+        color:#fff;
+        padding:6px 10px;
+        border-radius:6px;
+        white-space:nowrap;
+        pointer-events:none;
+        z-index:2;
+      }
+      .ann-callout::before {
+        content:'';
+        position:absolute;
+        width:30px; height:1px;
+        background:var(--text);
+      }
+    </style>
+  </head>
+  <body>
+
+    <aside class="sidebar">
+      <div class="sidebar-logo">
+        <span class="sidebar-logo-dot"></span>
+        <span class="sidebar-logo-text">mapsly</span>
+        <span class="sidebar-logo-tag">Agency</span>
+      </div>
+      <div class="sidebar-section-label">Workspace</div>
+      <a href="lists.html" class="nav-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>Lists <span class="nav-item-badge">6</span></a>
+      <a href="search.html" class="nav-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>Search</a>
+      <a href="activity.html" class="nav-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>Activity <span class="nav-item-badge">23</span></a>
+      <a href="reports.html" class="nav-item active"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>Reports</a>
+      <div class="sidebar-section-label">Account</div>
+      <a href="settings.html" class="nav-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Settings</a>
+      <div class="sidebar-footer">
+        <div class="sidebar-agency">
+          <div class="sidebar-agency-avatar">AL</div>
+          <div>
+            <div class="sidebar-agency-name">Anchor Local</div>
+            <div class="sidebar-agency-meta">Toronto · 4 seats</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <div class="breadcrumb">
+            <a href="reports.html">Reports</a>
+            <span class="sep">/</span>
+            <span>One-pager example</span>
+          </div>
+          <div class="topbar-title">What is a one-pager?</div>
+        </div>
+        <div class="topbar-right">
+          <button class="btn btn-ghost" onclick="window.print()">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6,9 6,2 18,2 18,9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+            Print preview
+          </button>
+        </div>
+      </header>
+
+      <div class="content" style="max-width:1100px;">
+
+        <!-- EXPLAINER -->
+        <div class="explainer">
+          <div class="ex-card">
+            <div class="ex-eyebrow">What this is</div>
+            <div class="ex-title">A single-page cold-pitch brief</div>
+            <div class="ex-body">
+              The one-pager is the <b>artifact you attach to a cold email</b> (or hand to a prospect at a meeting). One PDF page. Their business name, their visible problems, what you'd do, the projected impact.
+              <br><br>
+              It's not a deck. Not a proposal. Not a contract. It's the <b>"here's what I noticed about your business"</b> document that opens the conversation.
+            </div>
+            <ul class="ex-list">
+              <li>Single-page · always · print-ready</li>
+              <li>Tailored to one prospect, generated in &lt; 10 seconds</li>
+              <li>Plain English · no jargon · for the owner, not the marketing manager</li>
+              <li>Loss-aversion top, gain-framing bottom</li>
+            </ul>
+          </div>
+          <div class="ex-card">
+            <div class="ex-eyebrow">When to use it</div>
+            <div class="ex-title">Three workflows</div>
+            <div class="ex-body">
+              <b>1. Cold-email attachment.</b> Reply rates jump 4–5× when there's a personalized PDF attached — recipient sees their name on the cover before they decide to read.
+              <br><br>
+              <b>2. Pre-meeting send.</b> "Before our call Tuesday, I wrote up what I saw. Look it over." Frames the meeting around your findings.
+              <br><br>
+              <b>3. Walk-in / event hand-out.</b> Print, fold. Industry conferences, trade shows, walk-in meetings — paper still wins.
+            </div>
+            <div class="ex-list" style="padding-left:0; list-style:none; margin-top:14px;">
+              <li style="font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text-3); line-height:1.6;">// generated from any prospect detail · click "Generate one-pager" on the Prospect page or Reports page</li>
+            </div>
+          </div>
+        </div>
+
+        <!-- SCAFFOLD BAR -->
+        <div class="scaffold-bar">
+          <div class="scaffold-label">↓ Live preview · auto-filled from Solea Brickell Spa data</div>
+          <div class="scaffold-actions">
+            <button class="btn btn-ghost">Regenerate</button>
+            <button class="btn btn-ghost" onclick="window.print()">Download PDF</button>
+            <button class="btn btn-primary">Send as link</button>
+          </div>
+        </div>
+
+        <!-- ============ THE ONE-PAGER ============ -->
+        <div class="page">
+
+          <!-- HEADER -->
+          <div class="p-header">
+            <div class="p-agency">
+              <div class="p-agency-logo">AL</div>
+              <div>
+                <div class="p-agency-name">Anchor Local</div>
+                <div class="p-agency-tag">local-marketing intelligence</div>
+              </div>
+            </div>
+            <div class="p-meta">
+              prepared: Mon May 17, 2026<br>
+              for: Maria · owner<br>
+              by: Tom @ Anchor Local
+            </div>
+          </div>
+
+          <!-- TARGET -->
+          <div class="p-target">
+            <div class="p-target-eyebrow">// brief for</div>
+            <div class="p-target-name">Solea Brickell Spa</div>
+            <div class="p-target-meta">701 S Miami Ave Suite 311A · Brickell City Centre · 5 yrs on Google</div>
+          </div>
+
+          <!-- HEADLINE -->
+          <div class="p-headline">
+            You generated <b>+53 reviews</b> in 30 days. You replied to <b>zero</b> of them.
+          </div>
+
+          <!-- STATS -->
+          <div class="p-stat-row">
+            <div class="p-stat">
+              <div class="p-stat-label">Rating</div>
+              <div class="p-stat-num warn">4.4</div>
+              <div class="p-stat-meta">leader 5.0</div>
+            </div>
+            <div class="p-stat">
+              <div class="p-stat-label">Reviews</div>
+              <div class="p-stat-num">342</div>
+              <div class="p-stat-meta">+53 last 30d</div>
+            </div>
+            <div class="p-stat">
+              <div class="p-stat-label">Reply rate</div>
+              <div class="p-stat-num alert">0%</div>
+              <div class="p-stat-meta">industry 89%</div>
+            </div>
+            <div class="p-stat">
+              <div class="p-stat-label">Local rank</div>
+              <div class="p-stat-num warn">#3</div>
+              <div class="p-stat-meta">"med spa brickell"</div>
+            </div>
+          </div>
+
+          <!-- FINDINGS -->
+          <div class="p-section-title">What we noticed</div>
+
+          <div class="p-finding">
+            <div class="p-finding-num">1</div>
+            <div>
+              <div class="p-finding-title">Two unanswered 1★ reviews — both about appointment-time confusion</div>
+              <div class="p-finding-body">
+                A.C. (May 11) and R.P. (May 10) both describe the same failure pattern: <b>appointment time shifted between booking and reminder.</b> Both reviewers are active Google reviewers (2 and 20 prior reviews respectively). 6+ days unanswered.
+              </div>
+              <div class="p-finding-evidence">evidence: Google Reviews · Solea Brickell Spa · sort_by=newest, last 7d</div>
+            </div>
+          </div>
+
+          <div class="p-finding">
+            <div class="p-finding-num">2</div>
+            <div>
+              <div class="p-finding-title">Sisu Clinic is in your building</div>
+              <div class="p-finding-body">
+                Same address (701 S Miami Ave). Sisu sits at <b>position #3 in Google's local pack for "botox brickell"</b> with a $9/unit promo — directly competing for your most-searched service. They launched <b>3 new Meta ads this week</b>.
+              </div>
+              <div class="p-finding-evidence">evidence: Google Maps + Meta Ad Library · cross-check May 17</div>
+            </div>
+          </div>
+
+          <div class="p-finding">
+            <div class="p-finding-num">3</div>
+            <div>
+              <div class="p-finding-title">13 Meta ads · 0 keyword lanes</div>
+              <div class="p-finding-body">
+                Your ads run "$59 deal" copy. <b>None of them contain the service keywords patients actually search</b> — "hydrafacial brickell" has 210 monthly searches and zero advertisers. You're spending budget on the wrong intent.
+              </div>
+              <div class="p-finding-evidence">evidence: Meta Ad Library · 14 keyword lanes scanned · Solea match: 0</div>
+            </div>
+          </div>
+
+          <div class="p-finding">
+            <div class="p-finding-num">4</div>
+            <div>
+              <div class="p-finding-title">Bilingual service is your actual edge — but you don't lead with it</div>
+              <div class="p-finding-body">
+                <b>6 of your last 20 reviews are in Spanish</b> and rave about the bilingual experience. 50% of Brickell is Hispanic. Your website doesn't mention this anywhere above the fold.
+              </div>
+              <div class="p-finding-evidence">evidence: review-language detection + site audit · 6/20 ES · 0 ES mentions above fold</div>
+            </div>
+          </div>
+
+          <!-- FIX -->
+          <div class="p-fix">
+            <div class="p-fix-title">What we'd do — first 30 days</div>
+            <ul class="p-fix-list">
+              <li><b>Reply to all 20+ unanswered reviews.</b> AI-drafted in English and Spanish, you approve before posting. Average reply time target: 24 hrs.</li>
+              <li><b>Rewrite 14 Meta ad variants — one per service keyword.</b> Lane-matched copy ("hydrafacial brickell" gets a hydrafacial-anchored ad). Bilingual versions.</li>
+              <li><b>Add LocalBusiness + FAQ schema to your site.</b> Standardize NAP across header, footer, contact. Fix Lighthouse Performance from 58 → 80.</li>
+              <li><b>Build the Spanish-first landing page</b> for "spa brickell español" — a search term with 90 monthly volume and no dedicated landing page in the whole market.</li>
+            </ul>
+          </div>
+
+          <!-- IMPACT -->
+          <div class="p-section-title">Projected impact · 90 days</div>
+          <div class="p-impact">
+            <div class="p-impact-card">
+              <div class="p-impact-num">+0.4</div>
+              <div class="p-impact-label">rating uplift</div>
+            </div>
+            <div class="p-impact-card">
+              <div class="p-impact-num">+12</div>
+              <div class="p-impact-label">est. patients / mo</div>
+            </div>
+            <div class="p-impact-card">
+              <div class="p-impact-num">↑ #1</div>
+              <div class="p-impact-label">local pack target</div>
+            </div>
+          </div>
+          <div style="font-size:11px; color:var(--text-3); font-family:'JetBrains Mono',monospace; line-height:1.55; padding:10px 12px; background:var(--bg-3); border-radius:6px;">
+            // estimates based on industry benchmarks · reply-rate → rank correlation (Google Reviews API), keyword volume × CTR-by-rank curve (Brickell-calibrated), avg ticket size for Brickell med spas ($310). Real results vary.
+          </div>
+
+          <!-- CTA -->
+          <div class="p-cta">
+            <div class="p-cta-headline">
+              30 minutes on a call, I'll walk you through it. If it's not for you, no follow-up.
+            </div>
+            <div class="p-cta-actions">
+              <b>Tom Mendes · Anchor Local</b>
+              <a>tom@anchorlocal.com</a>
+              <a>(416) 555-0182</a>
+              <a>anchorlocal.com/book</a>
+            </div>
+          </div>
+
+          <!-- FOOTER -->
+          <div class="p-foot">
+            <span>Prepared by Anchor Local · data sourced from Google Business Profile, Meta Ad Library, Lighthouse audits, May 17 2026</span>
+            <span>page 1 of 1</span>
+          </div>
+        </div>
+
+        <!-- PAGE CONTROLS -->
+        <div class="page-controls">
+          <button class="btn btn-ghost" onclick="window.print()" style="margin-right:8px;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6,9 6,2 18,2 18,9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+            Save as PDF
+          </button>
+          <button class="btn btn-primary">
+            Generate for a different prospect →
+          </button>
+        </div>
+
+        <div style="margin-top:32px; padding:14px 18px; background:var(--bg-3); border-radius:10px; font-size:11.5px; color:var(--text-3); font-family:'JetBrains Mono',monospace; line-height:1.6;">
+          // Above is the actual template Mapsly generates · auto-filled from any prospect's signal data · regenerate anytime (re-pulls fresh data) · share as PDF, link, or print
+        </div>
+      </div>
+    </main>
+  </body>
+</html>

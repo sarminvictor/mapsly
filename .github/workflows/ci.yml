@@ -1,0 +1,125 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '24'
+  PNPM_VERSION: '9.15.0'
+
+jobs:
+  validate:
+    name: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Prisma generate
+        run: pnpm db:generate
+
+      - name: Format check
+        run: pnpm prettier --check .
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Lint
+        run: pnpm lint
+
+  build:
+    name: build
+    runs-on: ubuntu-latest
+    needs: validate
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Prisma generate
+        run: pnpm db:generate
+
+      - name: Build
+        env:
+          # Build-time-only stubs · real values live in Vercel
+          DATABASE_URL: 'postgres://stub:stub@localhost:5432/stub'
+          DIRECT_URL: 'postgres://stub:stub@localhost:5432/stub'
+          AUTH_SECRET: 'stub-stub-stub-stub-stub-stub-stub-32'
+          AUTH_URL: 'http://localhost:3000'
+          RESEND_API_KEY: 're_stub'
+          CRON_SECRET: 'stub'
+          ANTHROPIC_API_KEY: 'sk-ant-stub'
+          STRIPE_SECRET_KEY: 'sk_test_stub'
+        run: pnpm build
+
+  test:
+    name: test
+    runs-on: ubuntu-latest
+    needs: validate
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Prisma generate
+        run: pnpm db:generate
+
+      - name: Test
+        run: pnpm test:run
+
+  # Required-status-checks gate ·
+  # configure branch protection on main to require this job to pass.
+  ci-passed:
+    name: ci-passed
+    runs-on: ubuntu-latest
+    needs: [validate, build, test]
+    if: always()
+    steps:
+      - name: Verify all required jobs passed
+        run: |
+          if [ "${{ needs.validate.result }}" != "success" ] \
+             || [ "${{ needs.build.result }}" != "success" ] \
+             || [ "${{ needs.test.result }}" != "success" ]; then
+            echo "One or more required jobs failed."
+            exit 1
+          fi
+          echo "All checks passed."

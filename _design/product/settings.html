@@ -1,0 +1,696 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Settings · Mapsly</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+    <style>
+      :root {
+        --bg:#faf6f1; --bg-2:#fff; --bg-3:#f2ebe3; --bg-dark:#1c1916;
+        --text:#1c1916; --text-2:#5c544d; --text-3:#9a9088;
+        --border:#e8ddd0; --border-strong:#d8c9b8;
+        --coral:#c3553a; --coral-light:rgba(195,85,58,.1);
+        --berry:#8b3a2c; --gold:#d4a574; --gold-light:rgba(212,165,116,.18);
+        --success:#2d8659; --success-light:rgba(45,134,89,.12);
+        --alert:#b53d47; --alert-light:rgba(181,61,71,.1);
+        --info:#3b6ec4; --info-light:rgba(59,110,196,.1);
+        --ease:cubic-bezier(0.16,1,0.3,1);
+        --shadow-sm:0 2px 8px rgba(28,25,22,.04);
+      }
+      * { margin:0; padding:0; box-sizing:border-box; }
+      body { font-family:'Inter',sans-serif; background:var(--bg); color:var(--text); line-height:1.5; min-height:100vh; display:flex; -webkit-font-smoothing:antialiased; }
+      a { color:inherit; text-decoration:none; }
+      button { font-family:inherit; cursor:pointer; border:none; background:none; }
+      input, select, textarea { font-family:inherit; }
+
+      .sidebar { width:240px; background:var(--bg); border-right:1px solid var(--border); padding:22px 16px; height:100vh; position:sticky; top:0; display:flex; flex-direction:column; flex-shrink:0; }
+      .sidebar-logo { display:flex; align-items:center; gap:10px; padding:6px 8px 22px; margin-bottom:12px; border-bottom:1px solid var(--border); }
+      .sidebar-logo-dot { width:9px; height:9px; border-radius:50%; background:var(--coral); box-shadow:0 0 10px rgba(195,85,58,.5); }
+      .sidebar-logo-text { font-family:'Fraunces',serif; font-size:19px; font-weight:700; letter-spacing:-.02em; }
+      .sidebar-section-label { font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.12em; color:var(--text-3); padding:14px 10px 6px; }
+      .nav-item { display:flex; align-items:center; gap:11px; padding:9px 10px; border-radius:8px; font-size:14px; font-weight:500; color:var(--text-2); transition:all .15s var(--ease); }
+      .nav-item:hover { background:rgba(28,25,22,.04); color:var(--text); }
+      .nav-item.active { background:var(--coral-light); color:var(--coral); font-weight:600; }
+      .nav-item-badge { margin-left:auto; background:var(--alert); color:#fff; font-size:10px; font-weight:700; padding:2px 6px; border-radius:10px; min-width:18px; text-align:center; font-family:'JetBrains Mono',monospace; }
+      .nav-item-badge.info { background:var(--info); }
+      .sidebar-footer { margin-top:auto; padding-top:16px; border-top:1px solid var(--border); }
+      .sidebar-business { display:flex; align-items:center; gap:10px; padding:10px; border-radius:8px; background:var(--bg-3); }
+      .sidebar-biz-avatar { width:32px; height:32px; border-radius:8px; background:linear-gradient(135deg,var(--gold),var(--coral)); display:flex; align-items:center; justify-content:center; color:#fff; font-weight:700; font-size:14px; font-family:'Fraunces',serif; }
+      .sidebar-biz-name { font-size:13px; font-weight:600; }
+      .sidebar-biz-meta { font-size:11px; color:var(--text-3); font-family:'JetBrains Mono',monospace; }
+
+      .main { flex:1; min-width:0; }
+      .topbar { position:sticky; top:0; z-index:10; background:rgba(250,246,241,.92); backdrop-filter:blur(20px); border-bottom:1px solid var(--border); padding:16px 32px; display:flex; align-items:center; justify-content:space-between; }
+      .topbar-title { font-family:'Fraunces',serif; font-size:22px; font-weight:600; letter-spacing:-.02em; }
+      .topbar-subtitle { font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--text-3); }
+      .btn { padding:8px 14px; border-radius:8px; font-size:12.5px; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:7px; transition:all .15s var(--ease); }
+      .btn-primary { background:var(--coral); color:#fff; }
+      .btn-primary:hover { background:var(--berry); }
+      .btn-ghost { background:transparent; color:var(--text-2); border:1px solid var(--border); }
+      .btn-ghost:hover { border-color:var(--border-strong); color:var(--text); }
+      .btn-danger { background:var(--alert-light); color:var(--alert); border:1px solid rgba(181,61,71,.25); }
+      .btn-danger:hover { background:var(--alert); color:#fff; }
+
+      .content { padding:28px 32px 64px; max-width:1000px; }
+
+      /* ============ TABS NAV ============ */
+      .settings-layout {
+        display:grid;
+        grid-template-columns:200px 1fr;
+        gap:32px;
+        align-items:start;
+      }
+      @media (max-width:900px) { .settings-layout { grid-template-columns:1fr; } }
+      .settings-nav {
+        position:sticky;
+        top:84px;
+        background:var(--bg-2);
+        border:1px solid var(--border);
+        border-radius:12px;
+        padding:10px;
+        box-shadow:var(--shadow-sm);
+      }
+      .settings-nav-item {
+        display:block;
+        padding:9px 12px;
+        font-size:13px;
+        color:var(--text-2);
+        border-radius:7px;
+        margin-bottom:2px;
+        cursor:pointer;
+      }
+      .settings-nav-item:hover { background:rgba(28,25,22,.04); color:var(--text); }
+      .settings-nav-item.active {
+        background:var(--coral-light);
+        color:var(--coral);
+        font-weight:600;
+      }
+
+      /* ============ CARDS ============ */
+      .card {
+        background:var(--bg-2);
+        border:1px solid var(--border);
+        border-radius:14px;
+        margin-bottom:20px;
+        box-shadow:var(--shadow-sm);
+        overflow:hidden;
+      }
+      .card-head {
+        padding:20px 24px;
+        border-bottom:1px solid var(--border);
+      }
+      .card-title { font-size:15px; font-weight:600; }
+      .card-subtitle { font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text-3); margin-top:3px; }
+      .card-body { padding:22px 24px; }
+
+      .field-row {
+        display:grid;
+        grid-template-columns:200px 1fr;
+        gap:18px;
+        align-items:center;
+        padding:14px 0;
+        border-bottom:1px solid var(--border);
+      }
+      .field-row:last-child { border-bottom:none; }
+      @media (max-width:700px) {
+        .field-row { grid-template-columns:1fr; gap:4px; }
+      }
+      .field-label {
+        font-size:13px;
+        color:var(--text);
+        font-weight:500;
+      }
+      .field-help {
+        font-size:11px;
+        color:var(--text-3);
+        margin-top:3px;
+        font-family:'JetBrains Mono',monospace;
+      }
+      .field-input {
+        width:100%;
+        padding:10px 14px;
+        border:1px solid var(--border);
+        border-radius:8px;
+        font-size:13px;
+        background:var(--bg-2);
+        color:var(--text);
+      }
+      .field-input:focus {
+        outline:none;
+        border-color:var(--coral);
+      }
+      .field-input[readonly] {
+        background:var(--bg-3);
+        color:var(--text-2);
+      }
+      textarea.field-input {
+        min-height:80px;
+        resize:vertical;
+        line-height:1.5;
+      }
+
+      /* TOGGLES */
+      .toggle-row {
+        display:flex;
+        justify-content:space-between;
+        align-items:center;
+        padding:14px 0;
+        border-bottom:1px solid var(--border);
+      }
+      .toggle-row:last-child { border-bottom:none; }
+      .toggle-info { flex:1; padding-right:14px; }
+      .toggle-label {
+        font-size:13.5px;
+        font-weight:500;
+      }
+      .toggle-desc {
+        font-size:12px;
+        color:var(--text-3);
+        margin-top:3px;
+        line-height:1.45;
+      }
+      .toggle {
+        position:relative;
+        width:44px; height:24px;
+        background:var(--bg-3);
+        border-radius:12px;
+        flex-shrink:0;
+        transition: background 0.15s;
+        border:1px solid var(--border);
+      }
+      .toggle::after {
+        content:'';
+        position:absolute;
+        top:2px; left:2px;
+        width:18px; height:18px;
+        background:#fff;
+        border-radius:50%;
+        box-shadow:0 1px 3px rgba(0,0,0,.2);
+        transition: left 0.15s;
+      }
+      .toggle.on {
+        background:var(--coral);
+        border-color:var(--coral);
+      }
+      .toggle.on::after {
+        left:22px;
+      }
+
+      /* BILLING */
+      .plan-card {
+        display:grid;
+        grid-template-columns:1fr auto;
+        gap:18px;
+        align-items:center;
+        padding:18px 22px;
+        background:linear-gradient(135deg, var(--coral-light), transparent);
+        border:1px solid rgba(195,85,58,.25);
+        border-radius:12px;
+      }
+      .plan-name {
+        font-family:'Fraunces',serif;
+        font-size:22px; font-weight:700;
+      }
+      .plan-price {
+        font-family:'JetBrains Mono',monospace;
+        font-size:13px;
+        color:var(--text-2);
+        margin-top:4px;
+      }
+      .plan-price b { color:var(--coral); font-weight:700; }
+      .plan-actions { display:flex; gap:8px; }
+
+      /* CONNECTIONS */
+      .connection-row {
+        display:grid;
+        grid-template-columns:auto 1fr auto;
+        gap:14px;
+        align-items:center;
+        padding:14px 0;
+        border-bottom:1px solid var(--border);
+      }
+      .connection-row:last-child { border-bottom:none; }
+      .conn-logo {
+        width:36px; height:36px;
+        border-radius:8px;
+        background:var(--bg-3);
+        display:flex; align-items:center; justify-content:center;
+        font-family:'Fraunces',serif;
+        font-weight:700;
+        flex-shrink:0;
+        font-size:13px;
+      }
+      .conn-logo.g { background:#fff; border:1px solid var(--border); color:#4285F4; }
+      .conn-logo.m { background:#1877F2; color:#fff; }
+      .conn-name { font-size:14px; font-weight:600; }
+      .conn-status {
+        font-size:11px;
+        font-family:'JetBrains Mono',monospace;
+        color:var(--text-3);
+        margin-top:2px;
+      }
+      .conn-status.connected { color:var(--success); }
+      .conn-pill {
+        font-family:'JetBrains Mono',monospace;
+        font-size:10px;
+        font-weight:700;
+        padding:3px 8px;
+        border-radius:4px;
+        background:var(--success-light);
+        color:var(--success);
+        text-transform:uppercase;
+        letter-spacing:.04em;
+      }
+
+      /* DANGER ZONE */
+      .danger-zone {
+        border:1px solid rgba(181,61,71,.25);
+        background:var(--alert-light);
+      }
+      .danger-zone .card-head { border-bottom-color:rgba(181,61,71,.2); }
+
+      /* TOOLTIPS */
+      .info-tip { display:inline-flex; align-items:center; justify-content:center; width:14px; height:14px; border-radius:50%; background:var(--bg-3); color:var(--text-3); font-size:10px; font-weight:700; margin-left:4px; cursor:help; font-family:'JetBrains Mono',monospace; position:relative; vertical-align:2px; }
+      .info-tip:hover { background:var(--coral-light); color:var(--coral); }
+      .info-tip[data-tip]::after { content:attr(data-tip); position:absolute; bottom:100%; left:50%; transform:translateX(-50%) translateY(-6px); background:var(--bg-dark); color:#fff; padding:10px 14px; border-radius:8px; font-size:11px; line-height:1.5; font-family:'Inter',sans-serif; white-space:pre-line; width:260px; text-align:left; opacity:0; pointer-events:none; transition:opacity .2s; z-index:100; box-shadow:0 8px 24px rgba(0,0,0,.2); }
+      .info-tip:hover::after { opacity:1; }
+
+      @media (max-width:768px) {
+        .sidebar { display:none; }
+        .topbar { padding:14px 18px; }
+        .content { padding:18px 18px 48px; }
+      }
+    </style>
+  </head>
+  <body>
+
+    <aside class="sidebar">
+      <div class="sidebar-logo"><span class="sidebar-logo-dot"></span><span class="sidebar-logo-text">mapsly</span></div>
+      <div class="sidebar-section-label">Daily</div>
+      <a href="dashboard.html" class="nav-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>Dashboard</a>
+      <a href="reviews.html" class="nav-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3 7h7l-5.5 4.5L18 21l-6-4-6 4 1.5-7.5L2 9h7z"/></svg>Reviews <span class="nav-item-badge">8</span></a>
+      <a href="activity.html" class="nav-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>Activity <span class="nav-item-badge info">3</span></a>
+      <div class="sidebar-section-label">Watch</div>
+      <a href="competitors.html" class="nav-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2v20M2 12h20"/></svg>Competitors</a>
+      <a href="search.html" class="nav-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>Search visibility</a>
+      <a href="ads.html" class="nav-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 8h7M9 12h7M9 16h4"/></svg>Ads intelligence</a>
+      <div class="sidebar-section-label">Audit</div>
+      <a href="website.html" class="nav-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>Website health</a>
+      <a href="market.html" class="nav-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 16l4-8 4 4 5-10"/></svg>Market reality</a>
+      <div class="sidebar-section-label">Account</div>
+      <a href="settings.html" class="nav-item active"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Settings</a>
+      <div class="sidebar-footer">
+        <div class="sidebar-business">
+          <div class="sidebar-biz-avatar">S</div>
+          <div>
+            <div class="sidebar-biz-name">Solea Brickell Spa</div>
+            <div class="sidebar-biz-meta">Miami · Brickell</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <div class="topbar-title">Settings</div>
+          <div class="topbar-subtitle">Business · billing · connections · notifications</div>
+        </div>
+      </header>
+
+      <div class="content">
+
+        <div class="settings-layout">
+
+          <!-- Anchor nav -->
+          <nav class="settings-nav">
+            <a href="#business" class="settings-nav-item active">Business profile</a>
+            <a href="#brand-voice" class="settings-nav-item">Brand voice</a>
+            <a href="#notifications" class="settings-nav-item">Notifications</a>
+            <a href="#team" class="settings-nav-item">Team & seats</a>
+            <a href="#connections" class="settings-nav-item">Connections</a>
+            <a href="#billing" class="settings-nav-item">Billing</a>
+            <a href="#danger" class="settings-nav-item">Danger zone</a>
+          </nav>
+
+          <div>
+
+            <!-- ============ BUSINESS ============ -->
+            <div class="card" id="business">
+              <div class="card-head">
+                <div class="card-title">Business profile</div>
+                <div class="card-subtitle">// shown in reports + used as ground-truth for scoring</div>
+              </div>
+              <div class="card-body">
+                <div class="field-row">
+                  <div>
+                    <div class="field-label">Business name</div>
+                    <div class="field-help">as it appears on Google</div>
+                  </div>
+                  <input class="field-input" value="Solea Brickell Spa" />
+                </div>
+                <div class="field-row">
+                  <div>
+                    <div class="field-label">Google Business Profile</div>
+                    <div class="field-help">Place ID locked to scoring · auto-detected</div>
+                  </div>
+                  <input class="field-input" value="701 S Miami Ave Suite 311A, Miami, FL 33131" readonly />
+                </div>
+                <div class="field-row">
+                  <div>
+                    <div class="field-label">Website</div>
+                    <div class="field-help">audited weekly</div>
+                  </div>
+                  <input class="field-input" value="https://soleabrickellspa.com" />
+                </div>
+                <div class="field-row">
+                  <div>
+                    <div class="field-label">Phone</div>
+                    <div class="field-help">used for NAP consistency check</div>
+                  </div>
+                  <input class="field-input" value="+1 (786) 418-4515" />
+                </div>
+                <div class="field-row">
+                  <div>
+                    <div class="field-label">Category</div>
+                    <div class="field-help">drives competitor census & keyword set</div>
+                  </div>
+                  <select class="field-input">
+                    <option>Medical spa</option>
+                    <option>Day spa</option>
+                    <option>Facial spa</option>
+                  </select>
+                </div>
+                <div class="field-row">
+                  <div>
+                    <div class="field-label">Service area
+                      <span class="info-tip" data-tip="Radius for competitor census and market reality views. Smaller radius = tighter signal. 5 mi is default for urban core.">i</span>
+                    </div>
+                    <div class="field-help">competitor census radius</div>
+                  </div>
+                  <select class="field-input">
+                    <option>5 mi (default · Brickell + Downtown)</option>
+                    <option>3 mi (Brickell only)</option>
+                    <option>10 mi (Miami metro)</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <!-- ============ BRAND VOICE ============ -->
+            <div class="card" id="brand-voice">
+              <div class="card-head">
+                <div class="card-title">Brand voice & reply tone</div>
+                <div class="card-subtitle">// used as system prompt for AI-drafted replies and ad copy suggestions</div>
+              </div>
+              <div class="card-body">
+                <div class="field-row">
+                  <div>
+                    <div class="field-label">Default reply tone</div>
+                    <div class="field-help">applies to new drafts · can override per review</div>
+                  </div>
+                  <select class="field-input">
+                    <option>Warm (default)</option>
+                    <option>Professional</option>
+                    <option>Concise</option>
+                    <option>Personal</option>
+                  </select>
+                </div>
+                <div class="field-row">
+                  <div>
+                    <div class="field-label">Owner name + signature</div>
+                    <div class="field-help">appended to AI replies</div>
+                  </div>
+                  <input class="field-input" value="— Maria, Owner, Solea Brickell Spa" />
+                </div>
+                <div class="field-row">
+                  <div>
+                    <div class="field-label">Languages
+                      <span class="info-tip" data-tip="AI replies draft in both languages for reviews in your locale. Auto-detected from review text + your service area.">i</span>
+                    </div>
+                    <div class="field-help">auto-detected · adjust if wrong</div>
+                  </div>
+                  <input class="field-input" value="English, Spanish" />
+                </div>
+                <div class="field-row">
+                  <div>
+                    <div class="field-label">"Do not say" list
+                      <span class="info-tip" data-tip="Phrases banned from AI-generated copy. Use this to maintain your brand voice or avoid legal issues.">i</span>
+                    </div>
+                    <div class="field-help">comma-separated · banned from AI drafts</div>
+                  </div>
+                  <textarea class="field-input">cheap, discount, deal, low-cost, treatment plan, results may vary</textarea>
+                </div>
+                <div class="field-row">
+                  <div>
+                    <div class="field-label">Brand keywords</div>
+                    <div class="field-help">surfaced first in keyword-anchored copy</div>
+                  </div>
+                  <textarea class="field-input">Endermologie, LPG, bilingual, Brickell City Centre, Imilsis, Fanny</textarea>
+                </div>
+              </div>
+            </div>
+
+            <!-- ============ NOTIFICATIONS ============ -->
+            <div class="card" id="notifications">
+              <div class="card-head">
+                <div class="card-title">Notifications</div>
+                <div class="card-subtitle">// what gets pushed to email vs lives only in-app</div>
+              </div>
+              <div class="card-body">
+                <div class="toggle-row">
+                  <div class="toggle-info">
+                    <div class="toggle-label">Daily morning digest</div>
+                    <div class="toggle-desc">Email at 8:00 AM your local time · yesterday's events summarized</div>
+                  </div>
+                  <div class="toggle on"></div>
+                </div>
+                <div class="toggle-row">
+                  <div class="toggle-info">
+                    <div class="toggle-label">Urgent 1★ review</div>
+                    <div class="toggle-desc">Instant push + email when you receive a 1–2★ review</div>
+                  </div>
+                  <div class="toggle on"></div>
+                </div>
+                <div class="toggle-row">
+                  <div class="toggle-info">
+                    <div class="toggle-label">Brand hijack detected</div>
+                    <div class="toggle-desc">Instant alert when a competitor bids on your brand name in Google Ads</div>
+                  </div>
+                  <div class="toggle on"></div>
+                </div>
+                <div class="toggle-row">
+                  <div class="toggle-info">
+                    <div class="toggle-label">Competitor opens / closes / changes hours</div>
+                    <div class="toggle-desc">Goes to activity feed only · no email</div>
+                  </div>
+                  <div class="toggle"></div>
+                </div>
+                <div class="toggle-row">
+                  <div class="toggle-info">
+                    <div class="toggle-label">Rank shifts in tracked keywords</div>
+                    <div class="toggle-desc">Email weekly summary · activity feed in real-time</div>
+                  </div>
+                  <div class="toggle on"></div>
+                </div>
+                <div class="toggle-row">
+                  <div class="toggle-info">
+                    <div class="toggle-label">New competitor enters market</div>
+                    <div class="toggle-desc">Email + activity feed · default on</div>
+                  </div>
+                  <div class="toggle on"></div>
+                </div>
+                <div class="toggle-row">
+                  <div class="toggle-info">
+                    <div class="toggle-label">Weekly snapshot ready</div>
+                    <div class="toggle-desc">Email Monday 9:00 AM with score delta + top 3 fixes</div>
+                  </div>
+                  <div class="toggle on"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- ============ TEAM ============ -->
+            <div class="card" id="team">
+              <div class="card-head">
+                <div class="card-title">Team & seats · 1 of 3 used</div>
+                <div class="card-subtitle">// invite staff to view-only or full access · Starter plan: up to 3 seats</div>
+              </div>
+              <div class="card-body">
+                <div class="connection-row">
+                  <div class="conn-logo" style="background:linear-gradient(135deg,var(--gold),var(--coral));color:#fff;">M</div>
+                  <div>
+                    <div class="conn-name">Maria Sarmiento <span class="conn-pill">OWNER</span></div>
+                    <div class="conn-status connected">maria@soleabrickellspa.com</div>
+                  </div>
+                  <button class="btn btn-ghost">Manage</button>
+                </div>
+                <div style="margin-top:14px;padding:14px 16px;background:var(--bg-3);border-radius:9px;display:flex;justify-content:space-between;align-items:center;font-size:13px;">
+                  <div style="color:var(--text-2);">Invite a teammate · 2 seats remaining</div>
+                  <button class="btn btn-primary">+ Invite by email</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- ============ CONNECTIONS ============ -->
+            <div class="card" id="connections">
+              <div class="card-head">
+                <div class="card-title">Connections</div>
+                <div class="card-subtitle">// optional integrations · unlocks deeper signals</div>
+              </div>
+              <div class="card-body">
+                <div class="connection-row">
+                  <div class="conn-logo g">G</div>
+                  <div>
+                    <div class="conn-name">Google Business Profile</div>
+                    <div class="conn-status connected">Connected · enables posting replies + photos</div>
+                  </div>
+                  <span class="conn-pill">Connected</span>
+                </div>
+                <div class="connection-row">
+                  <div class="conn-logo g">GS</div>
+                  <div>
+                    <div class="conn-name">Google Search Console <span class="info-tip" data-tip="Optional. Connecting unlocks impression-level data alongside our SERP rank tracking. We never modify your GSC property.">i</span></div>
+                    <div class="conn-status">Optional · unlocks impression-level keyword data</div>
+                  </div>
+                  <button class="btn btn-ghost">Connect</button>
+                </div>
+                <div class="connection-row">
+                  <div class="conn-logo g">GA</div>
+                  <div>
+                    <div class="conn-name">Google Analytics 4</div>
+                    <div class="conn-status">Optional · ties patient inquiries to keywords/pages</div>
+                  </div>
+                  <button class="btn btn-ghost">Connect</button>
+                </div>
+                <div class="connection-row">
+                  <div class="conn-logo m">f</div>
+                  <div>
+                    <div class="conn-name">Meta Business Suite</div>
+                    <div class="conn-status">Optional · drafts ads directly into your ad account</div>
+                  </div>
+                  <button class="btn btn-ghost">Connect</button>
+                </div>
+                <div class="connection-row">
+                  <div class="conn-logo" style="background:#1a1530;color:#fff;">B</div>
+                  <div>
+                    <div class="conn-name">Boulevard (booking)</div>
+                    <div class="conn-status">Optional · ties replies to bookings + closes the loop</div>
+                  </div>
+                  <button class="btn btn-ghost">Connect</button>
+                </div>
+                <div class="connection-row">
+                  <div class="conn-logo" style="background:#25D366;color:#fff;">W</div>
+                  <div>
+                    <div class="conn-name">WhatsApp Business</div>
+                    <div class="conn-status">Optional · alerts via WhatsApp instead of email</div>
+                  </div>
+                  <button class="btn btn-ghost">Connect</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- ============ BILLING ============ -->
+            <div class="card" id="billing">
+              <div class="card-head">
+                <div class="card-title">Plan & billing</div>
+                <div class="card-subtitle">// invoices sent to maria@soleabrickellspa.com</div>
+              </div>
+              <div class="card-body">
+                <div class="plan-card">
+                  <div>
+                    <div class="plan-name">Starter</div>
+                    <div class="plan-price"><b>$29 / mo</b> · billed monthly · 30-day money-back guarantee</div>
+                  </div>
+                  <div class="plan-actions">
+                    <button class="btn btn-ghost">Switch to annual ($29 × 11 = $319 · save $29)</button>
+                    <button class="btn btn-ghost">Compare plans</button>
+                  </div>
+                </div>
+                <div style="margin-top:18px;">
+                  <div class="field-row">
+                    <div>
+                      <div class="field-label">Payment method</div>
+                      <div class="field-help">Visa ending 4242 · exp 03/27</div>
+                    </div>
+                    <button class="btn btn-ghost">Update card</button>
+                  </div>
+                  <div class="field-row">
+                    <div>
+                      <div class="field-label">Billing email</div>
+                    </div>
+                    <input class="field-input" value="maria@soleabrickellspa.com" />
+                  </div>
+                  <div class="field-row">
+                    <div>
+                      <div class="field-label">Next charge</div>
+                      <div class="field-help">$29.00 · auto-renew</div>
+                    </div>
+                    <input class="field-input" value="Jun 17, 2026" readonly />
+                  </div>
+                  <div class="field-row">
+                    <div>
+                      <div class="field-label">Invoices</div>
+                    </div>
+                    <button class="btn btn-ghost">Download all</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- ============ DANGER ============ -->
+            <div class="card danger-zone" id="danger">
+              <div class="card-head">
+                <div class="card-title" style="color:var(--alert);">Danger zone</div>
+                <div class="card-subtitle">// these actions are not reversible</div>
+              </div>
+              <div class="card-body">
+                <div class="field-row">
+                  <div>
+                    <div class="field-label">Pause monitoring</div>
+                    <div class="field-help">stops all scans · billing pauses · resume anytime</div>
+                  </div>
+                  <button class="btn btn-ghost">Pause</button>
+                </div>
+                <div class="field-row">
+                  <div>
+                    <div class="field-label">Reset all scores</div>
+                    <div class="field-help">clears historical snapshots · keeps current data</div>
+                  </div>
+                  <button class="btn btn-danger">Reset history</button>
+                </div>
+                <div class="field-row">
+                  <div>
+                    <div class="field-label">Delete account</div>
+                    <div class="field-help">removes all data permanently · 30-day grace period</div>
+                  </div>
+                  <button class="btn btn-danger">Delete account</button>
+                </div>
+              </div>
+            </div>
+
+            <div style="margin-top:12px;padding:14px 18px;background:var(--bg-3);border-radius:10px;font-size:11.5px;color:var(--text-3);font-family:'JetBrains Mono',monospace;line-height:1.6;">
+              // Settings auto-save on blur · changes apply to next scan cycle · scoring weights and refresh cadence available to admins under Advanced
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </main>
+
+    <script>
+      document.querySelectorAll('.toggle').forEach(t => {
+        t.addEventListener('click', () => t.classList.toggle('on'));
+      });
+      document.querySelectorAll('.settings-nav-item').forEach(item => {
+        item.addEventListener('click', () => {
+          document.querySelectorAll('.settings-nav-item').forEach(x => x.classList.remove('active'));
+          item.classList.add('active');
+        });
+      });
+    </script>
+  </body>
+</html>

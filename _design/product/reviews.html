@@ -1,0 +1,1529 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Reviews · Mapsly</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+    <style>
+      :root {
+        --bg: #faf6f1;
+        --bg-2: #ffffff;
+        --bg-3: #f2ebe3;
+        --bg-dark: #1c1916;
+        --bg-sidebar: #faf6f1;
+        --text: #1c1916;
+        --text-2: #5c544d;
+        --text-3: #9a9088;
+        --text-4: #c0b5a8;
+        --border: #e8ddd0;
+        --border-strong: #d8c9b8;
+        --coral: #c3553a;
+        --coral-light: rgba(195, 85, 58, 0.1);
+        --berry: #8b3a2c;
+        --gold: #d4a574;
+        --gold-2: #e8c79b;
+        --gold-light: rgba(212, 165, 116, 0.18);
+        --success: #2d8659;
+        --success-light: rgba(45, 134, 89, 0.12);
+        --alert: #b53d47;
+        --alert-light: rgba(181, 61, 71, 0.1);
+        --info: #3b6ec4;
+        --info-light: rgba(59, 110, 196, 0.1);
+        --ease: cubic-bezier(0.16, 1, 0.3, 1);
+        --shadow-sm: 0 2px 8px rgba(28, 25, 22, 0.04);
+        --shadow-md: 0 8px 24px rgba(28, 25, 22, 0.06);
+      }
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html { scroll-behavior: smooth; }
+      body {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        line-height: 1.5;
+        -webkit-font-smoothing: antialiased;
+        font-feature-settings: 'cv11', 'ss01';
+        min-height: 100vh;
+        display: flex;
+      }
+      .serif { font-family: 'Fraunces', Georgia, serif; letter-spacing: -0.02em; }
+      .mono { font-family: 'JetBrains Mono', monospace; }
+      a { color: inherit; text-decoration: none; }
+      button { font-family: inherit; cursor: pointer; border: none; background: none; }
+
+      /* ============ SIDEBAR (same as dashboard) ============ */
+      .sidebar {
+        width: 240px;
+        background: var(--bg-sidebar);
+        border-right: 1px solid var(--border);
+        padding: 22px 16px;
+        height: 100vh;
+        position: sticky;
+        top: 0;
+        display: flex;
+        flex-direction: column;
+        flex-shrink: 0;
+      }
+      .sidebar-logo {
+        display: flex; align-items: center; gap: 10px;
+        padding: 6px 8px 22px;
+        margin-bottom: 12px;
+        border-bottom: 1px solid var(--border);
+      }
+      .sidebar-logo-dot {
+        width: 9px; height: 9px; border-radius: 50%;
+        background: var(--coral);
+        box-shadow: 0 0 10px rgba(195, 85, 58, 0.5);
+      }
+      .sidebar-logo-text {
+        font-family: 'Fraunces', serif;
+        font-size: 19px; font-weight: 700;
+        letter-spacing: -0.02em;
+      }
+      .sidebar-section-label {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 10px; font-weight: 600;
+        text-transform: uppercase; letter-spacing: 0.12em;
+        color: var(--text-3);
+        padding: 14px 10px 6px;
+      }
+      .nav-item {
+        display: flex; align-items: center; gap: 11px;
+        padding: 9px 10px;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 500;
+        color: var(--text-2);
+        transition: all 0.15s var(--ease);
+      }
+      .nav-item:hover { background: rgba(28, 25, 22, 0.04); color: var(--text); }
+      .nav-item.active {
+        background: var(--coral-light);
+        color: var(--coral);
+        font-weight: 600;
+      }
+      .nav-item svg { flex-shrink: 0; }
+      .nav-item-badge {
+        margin-left: auto;
+        background: var(--alert);
+        color: #fff;
+        font-size: 10px;
+        font-weight: 700;
+        padding: 2px 6px;
+        border-radius: 10px;
+        min-width: 18px;
+        text-align: center;
+        font-family: 'JetBrains Mono', monospace;
+      }
+      .nav-item-badge.info { background: var(--info); }
+      .sidebar-footer {
+        margin-top: auto;
+        padding-top: 16px;
+        border-top: 1px solid var(--border);
+      }
+      .sidebar-business {
+        display: flex; align-items: center; gap: 10px;
+        padding: 10px 10px;
+        border-radius: 8px;
+        background: var(--bg-3);
+      }
+      .sidebar-biz-avatar {
+        width: 32px; height: 32px;
+        border-radius: 8px;
+        background: linear-gradient(135deg, var(--gold), var(--coral));
+        display: flex; align-items: center; justify-content: center;
+        color: #fff; font-weight: 700; font-size: 14px;
+        font-family: 'Fraunces', serif;
+      }
+      .sidebar-biz-name {
+        font-size: 13px; font-weight: 600;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      }
+      .sidebar-biz-meta {
+        font-size: 11px; color: var(--text-3);
+        font-family: 'JetBrains Mono', monospace;
+      }
+
+      /* ============ MAIN ============ */
+      .main {
+        flex: 1;
+        min-width: 0;
+      }
+      .topbar {
+        position: sticky; top: 0; z-index: 10;
+        background: rgba(250, 246, 241, 0.92);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border-bottom: 1px solid var(--border);
+        padding: 16px 32px;
+        display: flex; align-items: center; justify-content: space-between;
+      }
+      .topbar-title {
+        font-family: 'Fraunces', serif;
+        font-size: 22px; font-weight: 600;
+        letter-spacing: -0.02em;
+      }
+      .topbar-subtitle {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 12px;
+        color: var(--text-3);
+      }
+      .topbar-right { display: flex; align-items: center; gap: 10px; }
+      .top-pill {
+        display: inline-flex; align-items: center; gap: 7px;
+        padding: 7px 12px;
+        background: var(--bg-2);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        font-size: 12px;
+        color: var(--text-2);
+        font-family: 'JetBrains Mono', monospace;
+      }
+      .top-pill-dot {
+        width: 7px; height: 7px; border-radius: 50%;
+        background: var(--success);
+      }
+
+      .content {
+        padding: 28px 32px 64px;
+        max-width: 1400px;
+      }
+
+      /* ============ STATE BAR ============ */
+      .state-bar {
+        background: var(--bg-2);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 20px 28px;
+        margin-bottom: 22px;
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 24px;
+        box-shadow: var(--shadow-sm);
+      }
+      @media (max-width: 1100px) {
+        .state-bar { grid-template-columns: 1fr 1fr; }
+      }
+      .state-cell {
+        padding-right: 24px;
+        border-right: 1px solid var(--border);
+      }
+      .state-cell:last-child { border-right: none; padding-right: 0; }
+      .state-label {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 10px; font-weight: 700;
+        text-transform: uppercase; letter-spacing: 0.1em;
+        color: var(--text-3);
+        margin-bottom: 6px;
+      }
+      .state-num {
+        font-family: 'Fraunces', serif;
+        font-size: 30px; font-weight: 700;
+        line-height: 1;
+      }
+      .state-num.alert { color: var(--alert); }
+      .state-num.success { color: var(--success); }
+      .state-num.gold { color: var(--gold); }
+      .state-num.coral { color: var(--coral); }
+      .state-delta {
+        font-size: 11.5px; color: var(--text-3);
+        margin-top: 6px;
+        font-family: 'JetBrains Mono', monospace;
+      }
+      .state-delta.up { color: var(--success); }
+      .state-delta.down { color: var(--alert); }
+
+      /* ============ TABS ============ */
+      .tabs-row {
+        display: flex;
+        gap: 4px;
+        margin-bottom: 16px;
+        border-bottom: 1px solid var(--border);
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      .tab {
+        padding: 10px 16px;
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--text-2);
+        border-bottom: 2px solid transparent;
+        margin-bottom: -1px;
+        display: flex; align-items: center; gap: 8px;
+      }
+      .tab:hover { color: var(--text); }
+      .tab.active {
+        color: var(--coral);
+        border-bottom-color: var(--coral);
+        font-weight: 600;
+      }
+      .tab-count {
+        background: var(--bg-3);
+        font-size: 10px;
+        font-weight: 700;
+        font-family: 'JetBrains Mono', monospace;
+        padding: 2px 7px;
+        border-radius: 10px;
+        color: var(--text-2);
+      }
+      .tab.active .tab-count { background: var(--coral-light); color: var(--coral); }
+      .tab-count.alert { background: var(--alert-light); color: var(--alert); }
+
+      .toolbar {
+        display: flex; gap: 10px;
+        margin-left: auto;
+        padding-bottom: 6px;
+        align-items: center;
+      }
+      .select {
+        padding: 7px 11px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--bg-2);
+        font-size: 12px;
+        font-family: 'Inter', sans-serif;
+        color: var(--text-2);
+        cursor: pointer;
+      }
+      .select:hover { border-color: var(--border-strong); }
+
+      /* ============ LAYOUT ============ */
+      .grid-main {
+        display: grid;
+        grid-template-columns: 1fr 320px;
+        gap: 22px;
+        align-items: start;
+      }
+      @media (max-width: 1100px) { .grid-main { grid-template-columns: 1fr; } }
+
+      .card {
+        background: var(--bg-2);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 20px 22px;
+        box-shadow: var(--shadow-sm);
+        margin-bottom: 18px;
+      }
+      .card-head {
+        display: flex; justify-content: space-between; align-items: flex-start;
+        margin-bottom: 16px;
+        gap: 12px;
+      }
+      .card-title {
+        font-size: 15px;
+        font-weight: 600;
+      }
+      .card-subtitle {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 11px;
+        color: var(--text-3);
+        margin-top: 2px;
+      }
+
+      /* ============ REVIEW CARD ============ */
+      .review {
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 18px 20px;
+        background: var(--bg-2);
+        margin-bottom: 12px;
+        transition: border-color 0.15s;
+      }
+      .review.unanswered-1star {
+        border-color: rgba(181, 61, 71, 0.35);
+        background: linear-gradient(180deg, var(--alert-light) 0%, var(--bg-2) 30%);
+      }
+      .review:hover { border-color: var(--border-strong); }
+
+      .review-head {
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        gap: 12px;
+        align-items: flex-start;
+        margin-bottom: 10px;
+      }
+      .review-avatar {
+        width: 36px; height: 36px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, var(--gold), var(--coral));
+        display: flex; align-items: center; justify-content: center;
+        color: #fff; font-weight: 700;
+        font-family: 'Fraunces', serif;
+        font-size: 13px;
+        flex-shrink: 0;
+      }
+      .review-avatar.avatar-red {
+        background: linear-gradient(135deg, var(--alert), var(--berry));
+      }
+      .review-avatar.avatar-success {
+        background: linear-gradient(135deg, var(--success), #1f6644);
+      }
+      .review-meta-top {
+        display: flex; align-items: baseline; gap: 10px;
+        flex-wrap: wrap;
+      }
+      .review-name {
+        font-weight: 600;
+        font-size: 14px;
+      }
+      .review-stars {
+        font-family: 'JetBrains Mono', monospace;
+        color: var(--gold);
+        font-size: 13px;
+        letter-spacing: 1px;
+      }
+      .review-date {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 11px;
+        color: var(--text-3);
+      }
+      .review-pill {
+        display: inline-flex; align-items: center; gap: 5px;
+        font-size: 10px;
+        font-weight: 600;
+        padding: 2px 8px;
+        border-radius: 100px;
+        font-family: 'JetBrains Mono', monospace;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      .review-pill.urgent { background: var(--alert); color: #fff; }
+      .review-pill.sentiment-pos { background: var(--success-light); color: var(--success); }
+      .review-pill.sentiment-neg { background: var(--alert-light); color: var(--alert); }
+      .review-pill.sentiment-neu { background: var(--bg-3); color: var(--text-2); }
+      .review-pill.theme {
+        background: var(--info-light);
+        color: var(--info);
+        text-transform: none;
+        letter-spacing: 0;
+      }
+      .review-status {
+        font-size: 11px;
+        font-family: 'JetBrains Mono', monospace;
+        padding: 4px 8px;
+        border-radius: 6px;
+        white-space: nowrap;
+      }
+      .review-status.unanswered { background: var(--alert-light); color: var(--alert); font-weight: 600; }
+      .review-status.replied { background: var(--success-light); color: var(--success); }
+
+      .review-text {
+        font-size: 14px;
+        line-height: 1.55;
+        color: var(--text);
+        margin-bottom: 14px;
+      }
+      .review-highlights {
+        display: flex; gap: 6px; flex-wrap: wrap;
+        margin-bottom: 14px;
+      }
+      .review-highlight {
+        font-size: 11px;
+        color: var(--text-3);
+        padding: 3px 8px;
+        background: var(--bg-3);
+        border-radius: 100px;
+        font-family: 'JetBrains Mono', monospace;
+      }
+      .review-actions {
+        display: flex; gap: 10px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      .btn {
+        padding: 8px 14px;
+        border-radius: 8px;
+        font-size: 12.5px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.15s var(--ease);
+        display: inline-flex; align-items: center; gap: 7px;
+      }
+      .btn-primary {
+        background: var(--coral);
+        color: #fff;
+      }
+      .btn-primary:hover { background: var(--berry); }
+      .btn-ghost {
+        background: transparent;
+        color: var(--text-2);
+        border: 1px solid var(--border);
+      }
+      .btn-ghost:hover { border-color: var(--border-strong); color: var(--text); }
+      .btn-icon {
+        width: 32px; height: 32px;
+        padding: 0;
+        justify-content: center;
+        background: transparent;
+        color: var(--text-3);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+      }
+      .btn-icon:hover { color: var(--coral); border-color: var(--coral); }
+      .btn-link {
+        padding: 0;
+        background: transparent;
+        color: var(--coral);
+        font-size: 12px;
+        font-weight: 600;
+      }
+      .btn-link:hover { color: var(--berry); }
+
+      /* ============ AI REPLY DRAFT ============ */
+      .ai-draft {
+        margin-top: 14px;
+        padding: 14px 16px;
+        background: var(--bg-3);
+        border-radius: 10px;
+        border-left: 3px solid var(--coral);
+      }
+      .ai-draft-head {
+        display: flex; justify-content: space-between; align-items: center;
+        margin-bottom: 10px;
+      }
+      .ai-draft-label {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: var(--coral);
+        display: flex; align-items: center; gap: 7px;
+      }
+      .ai-draft-lang-tabs {
+        display: inline-flex;
+        gap: 2px;
+        background: var(--bg-2);
+        padding: 3px;
+        border-radius: 7px;
+        border: 1px solid var(--border);
+      }
+      .lang-tab {
+        padding: 4px 12px;
+        font-size: 11px;
+        font-weight: 600;
+        font-family: 'JetBrains Mono', monospace;
+        color: var(--text-2);
+        border-radius: 5px;
+      }
+      .lang-tab.active {
+        background: var(--coral);
+        color: #fff;
+      }
+      .ai-draft-body {
+        font-size: 13.5px;
+        line-height: 1.55;
+        color: var(--text);
+        white-space: pre-line;
+        padding: 12px;
+        background: var(--bg-2);
+        border-radius: 8px;
+        border: 1px solid var(--border);
+      }
+      .ai-draft-meta {
+        margin-top: 10px;
+        font-size: 11px;
+        color: var(--text-3);
+        font-family: 'JetBrains Mono', monospace;
+        display: flex; gap: 14px;
+        flex-wrap: wrap;
+      }
+      .ai-draft-actions {
+        margin-top: 12px;
+        display: flex; gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      /* ============ RIGHT RAIL ============ */
+      .rail-card {
+        background: var(--bg-2);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 18px 20px;
+        box-shadow: var(--shadow-sm);
+        margin-bottom: 16px;
+      }
+      .rail-title {
+        font-size: 13px;
+        font-weight: 600;
+        margin-bottom: 12px;
+        display: flex; align-items: center; gap: 6px;
+      }
+      .rail-meta {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 10px;
+        color: var(--text-3);
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        margin-bottom: 6px;
+      }
+
+      /* Rating distribution */
+      .rating-row {
+        display: grid;
+        grid-template-columns: 36px 1fr 32px;
+        gap: 10px;
+        align-items: center;
+        margin-bottom: 6px;
+        font-size: 12px;
+      }
+      .rating-stars {
+        font-family: 'JetBrains Mono', monospace;
+        color: var(--gold);
+      }
+      .rating-track {
+        height: 5px;
+        background: rgba(28, 25, 22, 0.06);
+        border-radius: 3px;
+        overflow: hidden;
+      }
+      .rating-fill {
+        height: 100%;
+        background: linear-gradient(90deg, var(--gold), var(--coral));
+        border-radius: 3px;
+      }
+      .rating-fill.neg { background: var(--alert); }
+      .rating-count {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 11px;
+        color: var(--text-2);
+        text-align: right;
+      }
+
+      /* Themes */
+      .theme-row {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 10px;
+        padding: 9px 0;
+        border-bottom: 1px solid var(--border);
+        align-items: center;
+      }
+      .theme-row:last-child { border-bottom: none; }
+      .theme-name {
+        font-size: 13px;
+        color: var(--text);
+      }
+      .theme-sub {
+        font-size: 11px;
+        color: var(--text-3);
+        margin-top: 2px;
+        font-family: 'JetBrains Mono', monospace;
+      }
+      .theme-count {
+        background: var(--bg-3);
+        font-size: 12px;
+        font-weight: 600;
+        font-family: 'JetBrains Mono', monospace;
+        padding: 3px 9px;
+        border-radius: 100px;
+        color: var(--text);
+      }
+      .theme-count.neg { background: var(--alert-light); color: var(--alert); }
+      .theme-count.pos { background: var(--success-light); color: var(--success); }
+
+      /* Reply tone */
+      .tone-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+      }
+      .tone-opt {
+        padding: 12px 12px;
+        border: 1px solid var(--border);
+        border-radius: 9px;
+        cursor: pointer;
+        text-align: center;
+        font-size: 11.5px;
+        font-weight: 600;
+        font-family: 'JetBrains Mono', monospace;
+        color: var(--text-2);
+      }
+      .tone-opt.active {
+        background: var(--coral-light);
+        border-color: var(--coral);
+        color: var(--coral);
+      }
+      .tone-opt-emoji {
+        display: block;
+        font-size: 18px;
+        margin-bottom: 4px;
+      }
+
+      /* Sparkline / trend */
+      .trend-card {
+        background: var(--bg-2);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 18px 22px;
+        box-shadow: var(--shadow-sm);
+        margin-bottom: 18px;
+      }
+      .trend-title {
+        font-size: 14px;
+        font-weight: 600;
+        margin-bottom: 14px;
+        display: flex; justify-content: space-between; align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+      .trend-legend {
+        display: flex; gap: 14px;
+        font-size: 11px;
+        color: var(--text-3);
+        font-family: 'JetBrains Mono', monospace;
+      }
+      .legend-dot {
+        display: inline-block;
+        width: 8px; height: 8px;
+        border-radius: 50%;
+        margin-right: 4px;
+        vertical-align: 1px;
+      }
+      .trend-chart {
+        height: 140px;
+        position: relative;
+      }
+      .trend-chart svg { width: 100%; height: 100%; }
+
+      /* ============ TECH TOOLTIPS ============ */
+      .info-tip {
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 14px; height: 14px;
+        border-radius: 50%;
+        background: var(--bg-3);
+        color: var(--text-3);
+        font-size: 10px;
+        font-weight: 700;
+        margin-left: 4px;
+        cursor: help;
+        font-family: 'JetBrains Mono', monospace;
+        position: relative;
+        vertical-align: 2px;
+      }
+      .info-tip:hover { background: var(--coral-light); color: var(--coral); }
+      .info-tip[data-tip]::after {
+        content: attr(data-tip);
+        position: absolute;
+        bottom: 100%;
+        right: 0;
+        transform: translateY(-6px);
+        background: var(--bg-dark);
+        color: #fff;
+        padding: 10px 14px;
+        border-radius: 8px;
+        font-size: 11px;
+        font-weight: 400;
+        line-height: 1.5;
+        font-family: 'Inter', sans-serif;
+        text-transform: none;
+        letter-spacing: normal;
+        white-space: pre-line;
+        width: 300px;
+        text-align: left;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.2s;
+        z-index: 100;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+      }
+      .info-tip:hover::after { opacity: 1; }
+
+      @media (max-width: 768px) {
+        .sidebar { display: none; }
+        .topbar { padding: 14px 18px; }
+        .content { padding: 18px 18px 48px; }
+        .state-bar { padding: 16px 18px; gap: 14px; }
+      }
+    </style>
+  </head>
+  <body>
+
+    <!-- ============ SIDEBAR ============ -->
+    <aside class="sidebar">
+      <div class="sidebar-logo">
+        <span class="sidebar-logo-dot"></span>
+        <span class="sidebar-logo-text">mapsly</span>
+      </div>
+
+      <div class="sidebar-section-label">Daily</div>
+      <a href="dashboard.html" class="nav-item">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>
+        Dashboard
+      </a>
+      <a href="reviews.html" class="nav-item active">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3 7h7l-5.5 4.5L18 21l-6-4-6 4 1.5-7.5L2 9h7z"/></svg>
+        Reviews
+        <span class="nav-item-badge">8</span>
+      </a>
+      <a href="activity.html" class="nav-item">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+        Activity
+        <span class="nav-item-badge info">3</span>
+      </a>
+
+      <div class="sidebar-section-label">Watch</div>
+      <a href="competitors.html" class="nav-item">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2v20M2 12h20"/></svg>
+        Competitors
+      </a>
+      <a href="search.html" class="nav-item">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        Search visibility
+      </a>
+      <a href="ads.html" class="nav-item">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 8h7M9 12h7M9 16h4"/></svg>
+        Ads intelligence
+      </a>
+
+      <div class="sidebar-section-label">Audit</div>
+      <a href="website.html" class="nav-item">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+        Website health
+      </a>
+      <a href="market.html" class="nav-item">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 16l4-8 4 4 5-10"/></svg>
+        Market reality
+      </a>
+
+      <div class="sidebar-section-label">Account</div>
+      <a href="settings.html" class="nav-item">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        Settings
+      </a>
+
+      <div class="sidebar-footer">
+        <div class="sidebar-business">
+          <div class="sidebar-biz-avatar">S</div>
+          <div>
+            <div class="sidebar-biz-name">Solea Brickell Spa</div>
+            <div class="sidebar-biz-meta">Miami · Brickell</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ============ MAIN ============ -->
+    <main class="main">
+
+      <!-- ============ TOP BAR ============ -->
+      <header class="topbar">
+        <div>
+          <div class="topbar-title">Reviews</div>
+          <div class="topbar-subtitle">Google Reviews · refreshed Mon 9:00 AM</div>
+        </div>
+        <div class="topbar-right">
+          <span class="top-pill">
+            <span class="top-pill-dot"></span>
+            Sync · 47 min ago
+          </span>
+          <button class="btn btn-ghost">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+            Export
+          </button>
+        </div>
+      </header>
+
+      <!-- ============ CONTENT ============ -->
+      <div class="content">
+
+        <!-- ============ STATE BAR · 5 review-specific KPIs ============ -->
+        <div class="state-bar">
+          <div class="state-cell">
+            <div class="state-label">Reply rate
+              <span class="info-tip" data-tip="Last 20 reviews: count where owner_answer is null = 20. Reply rate = 0/20 = 0%. Source: Google Reviews API (sort_by=newest). Refreshed weekly.">i</span>
+            </div>
+            <div class="state-num alert">0%</div>
+            <div class="state-delta down">leader: 95% · industry: 89%</div>
+          </div>
+          <div class="state-cell">
+            <div class="state-label">Unanswered queue
+              <span class="info-tip" data-tip="Count of reviews with no owner reply, last 30 days. Negative stars (1–3★) are flagged urgent. Source: Google Reviews API.">i</span>
+            </div>
+            <div class="state-num alert">8</div>
+            <div class="state-delta">2 urgent · 1★ from May 10–11</div>
+          </div>
+          <div class="state-cell">
+            <div class="state-label">Avg rating
+              <span class="info-tip" data-tip="Google-displayed rating · all-time. Source: business_data/google/info → google_rating. Refreshed weekly.">i</span>
+            </div>
+            <div class="state-num gold">4.4</div>
+            <div class="state-delta">leader: 5.0 · 342 total reviews</div>
+          </div>
+          <div class="state-cell">
+            <div class="state-label">Velocity 30d
+              <span class="info-tip" data-tip="Reviews added in last 30 days vs leader in same window. Source: count of reviews where created_at ≥ today−30d. Refreshed weekly.">i</span>
+            </div>
+            <div class="state-num success">+53</div>
+            <div class="state-delta up">3.1× faster than Lux MedSpa</div>
+          </div>
+          <div class="state-cell">
+            <div class="state-label">Sentiment 7d
+              <span class="info-tip" data-tip="Last 7 days reviews scored by AI sentiment classifier (positive / neutral / negative). 17 positive of 20 = 85%. Source: Google Reviews API + Claude Haiku sentiment pass.">i</span>
+            </div>
+            <div class="state-num success">85%</div>
+            <div class="state-delta">17 positive · 1 neutral · 2 negative</div>
+          </div>
+        </div>
+
+        <!-- ============ TABS ============ -->
+        <div class="tabs-row">
+          <button class="tab active">
+            Unanswered <span class="tab-count alert">8</span>
+          </button>
+          <button class="tab">
+            Negative <span class="tab-count alert">2</span>
+          </button>
+          <button class="tab">
+            All recent <span class="tab-count">20</span>
+          </button>
+          <button class="tab">
+            By theme
+          </button>
+          <button class="tab">
+            Replied <span class="tab-count">0</span>
+          </button>
+          <div class="toolbar">
+            <select class="select">
+              <option>Sort: Most urgent</option>
+              <option>Sort: Newest first</option>
+              <option>Sort: Lowest stars</option>
+              <option>Sort: Oldest unanswered</option>
+            </select>
+            <select class="select">
+              <option>All languages</option>
+              <option>English (14)</option>
+              <option>Spanish (6)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- ============ MAIN GRID ============ -->
+        <div class="grid-main">
+
+          <!-- LEFT · review list -->
+          <div>
+
+            <!-- ============ 1★ A.C. — URGENT UNANSWERED ============ -->
+            <div class="review unanswered-1star">
+              <div class="review-head">
+                <div class="review-avatar avatar-red">AC</div>
+                <div>
+                  <div class="review-meta-top">
+                    <span class="review-name">A.C.</span>
+                    <span class="review-stars">★☆☆☆☆</span>
+                    <span class="review-date">May 11 · 6 days ago</span>
+                    <span class="review-pill urgent">Urgent · 1★</span>
+                    <span class="review-pill sentiment-neg">Negative</span>
+                  </div>
+                  <div style="font-size:11px;color:var(--text-3);font-family:'JetBrains Mono',monospace;margin-top:4px;">
+                    Reviewer has 2 prior reviews · est. profile-weight impact: −0.4 grade
+                    <span class="info-tip" data-tip="Reviews from active reviewers (>1 prior review) carry higher Google trust signal. A.C. = 2 prior, R.P. = 20 prior. Impact estimate uses your rating distribution × Google's known reviewer-weight curve.">i</span>
+                  </div>
+                </div>
+                <span class="review-status unanswered">Unanswered · 6d</span>
+              </div>
+
+              <div class="review-text">
+                "Very poor coordination between the call center and the beauty salon. I had two appointments scheduled two weeks in advance, one at 3:30 and the other at 5:30. When I arrived at the salon, they told me the 3:30 appointment had been rescheduled for 2:30 and that they couldn't see me. I asked what solution they could offer since I had driven a long time and paid for parking to get there, and the response was, "We won't be seeing that appointment today." I immediately canceled the 5:30 appointment because they play with people's time. Definitely a very bad experience. Call early if you have an…"
+              </div>
+
+              <div class="review-highlights">
+                <span class="review-highlight">theme: scheduling</span>
+                <span class="review-highlight">theme: coordination</span>
+                <span class="review-highlight">theme: attention</span>
+              </div>
+
+              <!-- AI DRAFT REPLY -->
+              <div class="ai-draft">
+                <div class="ai-draft-head">
+                  <div class="ai-draft-label">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2l1.5 4.5L18 8l-4.5 1.5L12 14l-1.5-4.5L6 8l4.5-1.5z"/></svg>
+                    AI-drafted reply
+                    <span class="info-tip" data-tip="Generated by Claude Haiku using your business profile (name, services, tone, owner first name) + the review text. Trained on 4,200 best-practice spa replies. You review and post.">i</span>
+                  </div>
+                  <div class="ai-draft-lang-tabs">
+                    <button class="lang-tab active">EN</button>
+                    <button class="lang-tab">ES</button>
+                  </div>
+                </div>
+                <div class="ai-draft-body">Hi A.C. — I'm so sorry. You drove out, paid for parking, and we let you down. That's on us, not you.
+
+I'm reviewing exactly what happened on May 11. If our call center and front desk show different times, the customer should not be the one paying for it. Can you email me directly at maria@soleabrickellspa.com? I'd like to make this right with a complimentary facial of your choice and a one-on-one rebooking with our manager, not the call center.
+
+Thank you for the honest feedback — it's how we get better.
+
+— Maria, Owner, Solea Brickell Spa</div>
+                <div class="ai-draft-meta">
+                  <span>104 words · 612 chars</span>
+                  <span>tone: warm · owner-signed · per Google guidelines</span>
+                  <span>est. grade impact: +0.2</span>
+                </div>
+                <div class="ai-draft-actions">
+                  <button class="btn btn-primary">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+                    Post to Google
+                  </button>
+                  <button class="btn btn-ghost">Edit draft</button>
+                  <button class="btn btn-ghost">Regenerate</button>
+                  <button class="btn btn-link">Why this wording?</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- ============ 1★ R.P. — URGENT UNANSWERED ============ -->
+            <div class="review unanswered-1star">
+              <div class="review-head">
+                <div class="review-avatar avatar-red">RP</div>
+                <div>
+                  <div class="review-meta-top">
+                    <span class="review-name">R.P.</span>
+                    <span class="review-stars">★☆☆☆☆</span>
+                    <span class="review-date">May 10 · 7 days ago</span>
+                    <span class="review-pill urgent">Urgent · 1★</span>
+                    <span class="review-pill sentiment-neg">Negative</span>
+                  </div>
+                  <div style="font-size:11px;color:var(--text-3);font-family:'JetBrains Mono',monospace;margin-top:4px;">
+                    Reviewer has 20 prior reviews · high-trust reviewer · est. impact: −0.5 grade
+                  </div>
+                </div>
+                <span class="review-status unanswered">Unanswered · 7d</span>
+              </div>
+
+              <div class="review-text">
+                "I made an appointment on April 24th for a facial on May 5th at 3:30 PM. When I arrived for my appointment, I was told my appointment was at 2:30 PM and that I had "missed" it. When I checked my messages afterward, our original conversation did confirm the appointment was booked for 3:30 PM. Apparently, later reminder messages showed 2:30 PM, which I admit I didn't catch because I had no reason to think my appointment time would suddenly be changed after already being booked almost two weeks in advance. The front desk girl was very nice, and I understand the situation was not her fault. My…"
+              </div>
+
+              <div class="review-highlights">
+                <span class="review-highlight">theme: scheduling</span>
+                <span class="review-highlight">theme: reminders / SMS</span>
+                <span class="review-highlight">theme: communication</span>
+              </div>
+
+              <div class="ai-draft">
+                <div class="ai-draft-head">
+                  <div class="ai-draft-label">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2l1.5 4.5L18 8l-4.5 1.5L12 14l-1.5-4.5L6 8l4.5-1.5z"/></svg>
+                    AI-drafted reply
+                  </div>
+                  <div class="ai-draft-lang-tabs">
+                    <button class="lang-tab active">EN</button>
+                    <button class="lang-tab">ES</button>
+                  </div>
+                </div>
+                <div class="ai-draft-body">Hi R.P. — thank you for taking the time to write this. You're right — when you book an appointment on a specific date and time, the burden is on us to honor it, not on you to chase reminder texts that quietly changed.
+
+We owe you a real apology and a real fix. I've personally pulled your booking log to understand where the time shifted between booking and reminder, and we're tightening the workflow so it can't happen again. I'd love to host you for the facial you came for — please reach me at maria@soleabrickellspa.com.
+
+Thank you for keeping it honest.
+
+— Maria, Owner, Solea Brickell Spa</div>
+                <div class="ai-draft-meta">
+                  <span>108 words · 642 chars</span>
+                  <span>tone: warm · owner-signed · accountability-forward</span>
+                  <span>est. grade impact: +0.2</span>
+                </div>
+                <div class="ai-draft-actions">
+                  <button class="btn btn-primary">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+                    Post to Google
+                  </button>
+                  <button class="btn btn-ghost">Edit draft</button>
+                  <button class="btn btn-ghost">Regenerate</button>
+                  <button class="btn btn-link">Why this wording?</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- ============ 5★ unanswered · M.M. ============ -->
+            <div class="review">
+              <div class="review-head">
+                <div class="review-avatar">MM</div>
+                <div>
+                  <div class="review-meta-top">
+                    <span class="review-name">M.M.</span>
+                    <span class="review-stars">★★★★★</span>
+                    <span class="review-date">May 14 · 3 days ago</span>
+                    <span class="review-pill sentiment-pos">Positive</span>
+                    <span class="review-pill theme">staff: Fanny</span>
+                  </div>
+                  <div style="font-size:11px;color:var(--text-3);font-family:'JetBrains Mono',monospace;margin-top:4px;">
+                    Reviewer has 11 prior reviews · highlights praised staff member by name
+                  </div>
+                </div>
+                <span class="review-status unanswered">Unanswered · 3d</span>
+              </div>
+
+              <div class="review-text">
+                "Amazing service & team, highly recommend Fanny, she made the experience a great one!"
+              </div>
+
+              <div class="review-highlights">
+                <span class="review-highlight">price: great</span>
+                <span class="review-highlight">service: underarm hair removal</span>
+                <span class="review-highlight">staff: Fanny</span>
+              </div>
+
+              <div class="ai-draft">
+                <div class="ai-draft-head">
+                  <div class="ai-draft-label">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2l1.5 4.5L18 8l-4.5 1.5L12 14l-1.5-4.5L6 8l4.5-1.5z"/></svg>
+                    AI-drafted reply
+                  </div>
+                  <div class="ai-draft-lang-tabs">
+                    <button class="lang-tab active">EN</button>
+                    <button class="lang-tab">ES</button>
+                  </div>
+                </div>
+                <div class="ai-draft-body">Thank you M.M.! Fanny will be glowing when she sees this — she pours so much care into every appointment, and she'll love hearing she made yours great. We'll see you soon. — The Solea team</div>
+                <div class="ai-draft-meta">
+                  <span>34 words · 211 chars</span>
+                  <span>tone: warm-short · staff-name reinforced</span>
+                  <span>est. SEO impact: +keyword "Fanny" indexed</span>
+                </div>
+                <div class="ai-draft-actions">
+                  <button class="btn btn-primary">Post to Google</button>
+                  <button class="btn btn-ghost">Edit</button>
+                  <button class="btn btn-ghost">Regenerate</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- ============ 5★ M.A. ============ -->
+            <div class="review">
+              <div class="review-head">
+                <div class="review-avatar">MA</div>
+                <div>
+                  <div class="review-meta-top">
+                    <span class="review-name">M.A.</span>
+                    <span class="review-stars">★★★★★</span>
+                    <span class="review-date">May 13 · 4 days ago</span>
+                    <span class="review-pill sentiment-pos">Positive</span>
+                    <span class="review-pill theme">staff: Imilsis</span>
+                  </div>
+                  <div style="font-size:11px;color:var(--text-3);font-family:'JetBrains Mono',monospace;margin-top:4px;">
+                    Imilsis mentioned in 2 of last 20 reviews — emerging top performer
+                  </div>
+                </div>
+                <span class="review-status unanswered">Unanswered · 4d</span>
+              </div>
+              <div class="review-text">
+                "Absolutely perfect! Imilsis did my facial and I'm thrilled. I'll be back! I highly recommend her. Great technique, skill, and kindness. Excellent work!"
+              </div>
+              <div class="review-highlights">
+                <span class="review-highlight">service: skin treatments</span>
+                <span class="review-highlight">staff: Imilsis</span>
+              </div>
+              <div class="review-actions">
+                <button class="btn btn-primary">Generate reply</button>
+                <button class="btn btn-ghost">Skip</button>
+                <button class="btn-icon" title="Flag for follow-up">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1zM4 22V3"/></svg>
+                </button>
+              </div>
+            </div>
+
+            <!-- ============ 5★ V.J. ============ -->
+            <div class="review">
+              <div class="review-head">
+                <div class="review-avatar">VJ</div>
+                <div>
+                  <div class="review-meta-top">
+                    <span class="review-name">V.J.</span>
+                    <span class="review-stars">★★★★★</span>
+                    <span class="review-date">May 14 · 3 days ago</span>
+                    <span class="review-pill sentiment-pos">Positive</span>
+                    <span class="review-pill theme">staff: Sabina, Sabrina, Sasha</span>
+                  </div>
+                  <div style="font-size:11px;color:var(--text-3);font-family:'JetBrains Mono',monospace;margin-top:4px;">
+                    High-trust reviewer · 51 prior reviews · multiple staff named
+                  </div>
+                </div>
+                <span class="review-status unanswered">Unanswered · 3d</span>
+              </div>
+              <div class="review-text">
+                "Great job from all the staff, especially Sabina, Sabrina and Sasha. Highly recommended"
+              </div>
+              <div class="review-highlights">
+                <span class="review-highlight">price: great</span>
+                <span class="review-highlight">service: skin treatments</span>
+              </div>
+              <div class="review-actions">
+                <button class="btn btn-primary">Generate reply</button>
+                <button class="btn btn-ghost">Skip</button>
+                <button class="btn-icon" title="Flag for follow-up">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1zM4 22V3"/></svg>
+                </button>
+              </div>
+            </div>
+
+            <!-- ============ 5★ F.P. — bilingual signal ============ -->
+            <div class="review">
+              <div class="review-head">
+                <div class="review-avatar">FP</div>
+                <div>
+                  <div class="review-meta-top">
+                    <span class="review-name">F.P.</span>
+                    <span class="review-stars">★★★★★</span>
+                    <span class="review-date">May 13 · 4 days ago</span>
+                    <span class="review-pill sentiment-pos">Positive</span>
+                    <span class="review-pill theme">bilingual: Spanish</span>
+                  </div>
+                  <div style="font-size:11px;color:var(--text-3);font-family:'JetBrains Mono',monospace;margin-top:4px;">
+                    Spanish-language review · differentiator vs Anglo competitors · suggest ES reply
+                  </div>
+                </div>
+                <span class="review-status unanswered">Unanswered · 4d</span>
+              </div>
+              <div class="review-text">
+                "Excellent service, very good customer service in Spanish. I was extremely satisfied with the service."
+              </div>
+              <div class="review-highlights">
+                <span class="review-highlight">price: reasonable</span>
+                <span class="review-highlight">service: skin treatments</span>
+                <span class="review-highlight">language: ES</span>
+              </div>
+              <div class="review-actions">
+                <button class="btn btn-primary">Generate reply (ES)</button>
+                <button class="btn btn-ghost">Skip</button>
+                <button class="btn-icon" title="Flag for follow-up">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1zM4 22V3"/></svg>
+                </button>
+              </div>
+            </div>
+
+            <!-- ============ 5★ L. — membership signup ============ -->
+            <div class="review">
+              <div class="review-head">
+                <div class="review-avatar">L.</div>
+                <div>
+                  <div class="review-meta-top">
+                    <span class="review-name">L.</span>
+                    <span class="review-stars">★★★★★</span>
+                    <span class="review-date">May 13 · 4 days ago</span>
+                    <span class="review-pill sentiment-pos">Positive</span>
+                    <span class="review-pill theme">action: membership signup</span>
+                  </div>
+                  <div style="font-size:11px;color:var(--text-3);font-family:'JetBrains Mono',monospace;margin-top:4px;">
+                    First-time visitor + membership conversion · long-form review · high SEO value
+                  </div>
+                </div>
+                <span class="review-status unanswered">Unanswered · 4d</span>
+              </div>
+              <div class="review-text">
+                "First time visitor. It's located on the 3rd floor a brickell city center mall. The staff is nice, check in was quick and efficient. The service was nice. I signed up for their membership program. Looking forward to trying the treatments they offer."
+              </div>
+              <div class="review-highlights">
+                <span class="review-highlight">price: reasonable</span>
+                <span class="review-highlight">service: skin treatments</span>
+                <span class="review-highlight">location: brickell city centre</span>
+              </div>
+              <div class="review-actions">
+                <button class="btn btn-primary">Generate reply</button>
+                <button class="btn btn-ghost">Skip</button>
+              </div>
+            </div>
+
+            <!-- ============ 5★ A.M. ============ -->
+            <div class="review">
+              <div class="review-head">
+                <div class="review-avatar">AM</div>
+                <div>
+                  <div class="review-meta-top">
+                    <span class="review-name">A.M.</span>
+                    <span class="review-stars">★★★★★</span>
+                    <span class="review-date">May 12 · 5 days ago</span>
+                    <span class="review-pill sentiment-pos">Positive</span>
+                  </div>
+                </div>
+                <span class="review-status unanswered">Unanswered · 5d</span>
+              </div>
+              <div class="review-text">
+                "The place is beautiful & very clean, the facial was amazing & everything was explained very well!"
+              </div>
+              <div class="review-highlights">
+                <span class="review-highlight">service: facial</span>
+                <span class="review-highlight">attribute: cleanliness</span>
+              </div>
+              <div class="review-actions">
+                <button class="btn btn-primary">Generate reply</button>
+                <button class="btn btn-ghost">Skip</button>
+              </div>
+            </div>
+
+            <!-- ============ BULK BAR ============ -->
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px;background:var(--bg-3);border-radius:10px;margin-top:6px;">
+              <div style="font-size:13px;color:var(--text-2);">
+                <b style="color:var(--text)">+0 more</b> shown in this view ·
+                <a href="#" class="btn-link" style="display:inline">show 12 older unanswered →</a>
+              </div>
+              <button class="btn btn-ghost">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l1.5 4.5L18 8l-4.5 1.5L12 14l-1.5-4.5L6 8l4.5-1.5z"/></svg>
+                Draft replies for all positive (6)
+              </button>
+            </div>
+          </div>
+
+          <!-- RIGHT · rail -->
+          <aside>
+
+            <!-- Reply tone -->
+            <div class="rail-card">
+              <div class="rail-title">
+                Default reply tone
+                <span class="info-tip" data-tip="Used as the system prompt when generating AI replies. Change anytime — applies to next draft.">i</span>
+              </div>
+              <div class="tone-grid">
+                <button class="tone-opt active">
+                  <span class="tone-opt-emoji">🤝</span>
+                  Warm
+                </button>
+                <button class="tone-opt">
+                  <span class="tone-opt-emoji">💼</span>
+                  Professional
+                </button>
+                <button class="tone-opt">
+                  <span class="tone-opt-emoji">✨</span>
+                  Concise
+                </button>
+                <button class="tone-opt">
+                  <span class="tone-opt-emoji">💛</span>
+                  Personal
+                </button>
+              </div>
+              <div style="margin-top:14px;font-size:11px;color:var(--text-3);font-family:'JetBrains Mono',monospace;">
+                Reply sign-off:<br>
+                <span style="color:var(--text);font-family:'Inter';font-size:13px;">— Maria, Owner, Solea Brickell Spa</span>
+              </div>
+              <button class="btn-link" style="margin-top:8px;">Edit signature</button>
+            </div>
+
+            <!-- Rating distribution -->
+            <div class="rail-card">
+              <div class="rail-title">
+                Rating distribution
+                <span class="info-tip" data-tip="Snapshot of all 289 reviews on the latest weekly snapshot. Live total: 342. Source: business_data/google/info → rating_distribution.">i</span>
+              </div>
+              <div class="rail-meta">All-time · 289 reviews</div>
+              <div class="rating-row">
+                <div class="rating-stars">★★★★★</div>
+                <div class="rating-track"><div class="rating-fill" style="width:83.4%;"></div></div>
+                <div class="rating-count">241</div>
+              </div>
+              <div class="rating-row">
+                <div class="rating-stars">★★★★</div>
+                <div class="rating-track"><div class="rating-fill" style="width:0.3%;"></div></div>
+                <div class="rating-count">1</div>
+              </div>
+              <div class="rating-row">
+                <div class="rating-stars">★★★</div>
+                <div class="rating-track"><div class="rating-fill" style="width:0.3%;"></div></div>
+                <div class="rating-count">1</div>
+              </div>
+              <div class="rating-row">
+                <div class="rating-stars">★★</div>
+                <div class="rating-track"><div class="rating-fill neg" style="width:2.4%;"></div></div>
+                <div class="rating-count">7</div>
+              </div>
+              <div class="rating-row">
+                <div class="rating-stars">★</div>
+                <div class="rating-track"><div class="rating-fill neg" style="width:13.5%;"></div></div>
+                <div class="rating-count">39</div>
+              </div>
+              <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);font-size:12px;color:var(--text-2);line-height:1.5;">
+                <b>16.3%</b> of all reviews are 1–3★ — vs Lux at <b style="color:var(--success)">1.05%</b>.
+              </div>
+            </div>
+
+            <!-- Theme breakdown -->
+            <div class="rail-card">
+              <div class="rail-title">
+                Top themes in your reviews
+                <span class="info-tip" data-tip="Topics extracted via DataForSEO place_topics + Claude theme classifier. Negative-skew themes auto-tagged from 1–3★ reviews. Refreshed weekly.">i</span>
+              </div>
+              <div class="rail-meta">// 289 reviews aggregated</div>
+              <div class="theme-row">
+                <div>
+                  <div class="theme-name">LPG / Endermologie</div>
+                  <div class="theme-sub">most mentioned · neutral skew</div>
+                </div>
+                <span class="theme-count">22</span>
+              </div>
+              <div class="theme-row">
+                <div>
+                  <div class="theme-name">Payment / billing</div>
+                  <div class="theme-sub">⚠ negative skew · 1–3★ heavy</div>
+                </div>
+                <span class="theme-count neg">13</span>
+              </div>
+              <div class="theme-row">
+                <div>
+                  <div class="theme-name">Attention / attentiveness</div>
+                  <div class="theme-sub">⚠ negative skew · 1–3★ heavy</div>
+                </div>
+                <span class="theme-count neg">11</span>
+              </div>
+              <div class="theme-row">
+                <div>
+                  <div class="theme-name">Treatment quality</div>
+                  <div class="theme-sub">positive skew</div>
+                </div>
+                <span class="theme-count pos">9</span>
+              </div>
+              <div class="theme-row">
+                <div>
+                  <div class="theme-name">Laser hair removal</div>
+                  <div class="theme-sub">positive skew</div>
+                </div>
+                <span class="theme-count pos">8</span>
+              </div>
+              <div class="theme-row">
+                <div>
+                  <div class="theme-name">Receptionist</div>
+                  <div class="theme-sub">⚠ mixed · 1–3★ heavy</div>
+                </div>
+                <span class="theme-count neg">8</span>
+              </div>
+              <div class="theme-row">
+                <div>
+                  <div class="theme-name">Quote / pricing transparency</div>
+                  <div class="theme-sub">⚠ negative skew</div>
+                </div>
+                <span class="theme-count neg">5</span>
+              </div>
+            </div>
+
+            <!-- Operational signal -->
+            <div class="rail-card" style="background: var(--alert-light); border-color: rgba(181, 61, 71, 0.2);">
+              <div class="rail-title" style="color: var(--alert);">
+                Pattern detected
+                <span class="info-tip" data-tip="Pattern engine flags themes that appear ≥3 times in 1–3★ reviews within last 60 days. Source: classifier output + theme count.">i</span>
+              </div>
+              <div style="font-size:13px;color:var(--text);line-height:1.55;">
+                Both fresh 1★ reviews and 2 of your 7 prior 1★ describe the same failure: <b>appointment time shifts between booking and reminder</b>.
+              </div>
+              <div style="margin-top:12px;font-size:11px;color:var(--text-2);font-family:'JetBrains Mono',monospace;line-height:1.55;">
+                Likely root cause: SMS reminder system writes a different time than the booking record. This is an operational fix, not a marketing fix.
+              </div>
+              <button class="btn btn-ghost" style="margin-top:12px;width:100%;justify-content:center;">
+                Open as task →
+              </button>
+            </div>
+          </aside>
+        </div>
+
+        <!-- ============ TREND CHART ============ -->
+        <div class="trend-card" style="margin-top:8px;">
+          <div class="trend-title">
+            <div>
+              Rating + velocity · last 90 days
+              <span class="info-tip" data-tip="Weekly rolling avg rating (left axis) vs review count per week (right axis). Source: Google Reviews API with reviews bucketed by created_at week. Refreshed weekly.">i</span>
+            </div>
+            <div class="trend-legend">
+              <span><span class="legend-dot" style="background:var(--coral);"></span>Avg rating</span>
+              <span><span class="legend-dot" style="background:var(--gold);"></span>Reviews/week</span>
+              <span><span class="legend-dot" style="background:var(--alert);"></span>1–3★ count</span>
+            </div>
+          </div>
+          <div class="trend-chart">
+            <svg viewBox="0 0 1000 140" preserveAspectRatio="none">
+              <!-- bars · reviews per week -->
+              <g fill="var(--gold-light)" stroke="var(--gold)" stroke-width="1">
+                <rect x="20"  y="60" width="60" height="80"/>
+                <rect x="90"  y="40" width="60" height="100"/>
+                <rect x="160" y="50" width="60" height="90"/>
+                <rect x="230" y="30" width="60" height="110"/>
+                <rect x="300" y="48" width="60" height="92"/>
+                <rect x="370" y="20" width="60" height="120"/>
+                <rect x="440" y="35" width="60" height="105"/>
+                <rect x="510" y="55" width="60" height="85"/>
+                <rect x="580" y="22" width="60" height="118"/>
+                <rect x="650" y="45" width="60" height="95"/>
+                <rect x="720" y="28" width="60" height="112"/>
+                <rect x="790" y="18" width="60" height="122"/>
+                <rect x="860" y="12" width="60" height="128"/>
+              </g>
+              <!-- 1-3 star spikes on top of bars -->
+              <g fill="var(--alert)">
+                <rect x="20"  y="130" width="60" height="10"/>
+                <rect x="90"  y="125" width="60" height="15"/>
+                <rect x="160" y="132" width="60" height="8"/>
+                <rect x="230" y="120" width="60" height="20"/>
+                <rect x="300" y="130" width="60" height="10"/>
+                <rect x="370" y="115" width="60" height="25"/>
+                <rect x="440" y="128" width="60" height="12"/>
+                <rect x="510" y="135" width="60" height="5"/>
+                <rect x="580" y="122" width="60" height="18"/>
+                <rect x="650" y="130" width="60" height="10"/>
+                <rect x="720" y="125" width="60" height="15"/>
+                <rect x="790" y="115" width="60" height="25"/>
+                <rect x="860" y="118" width="60" height="22"/>
+              </g>
+              <!-- rating line -->
+              <polyline fill="none" stroke="var(--coral)" stroke-width="2.5"
+                points="50,55 120,50 190,52 260,48 330,52 400,45 470,42 540,50 610,42 680,45 750,40 820,38 890,36"/>
+              <g fill="var(--coral)">
+                <circle cx="50" cy="55" r="3"/>
+                <circle cx="120" cy="50" r="3"/>
+                <circle cx="190" cy="52" r="3"/>
+                <circle cx="260" cy="48" r="3"/>
+                <circle cx="330" cy="52" r="3"/>
+                <circle cx="400" cy="45" r="3"/>
+                <circle cx="470" cy="42" r="3"/>
+                <circle cx="540" cy="50" r="3"/>
+                <circle cx="610" cy="42" r="3"/>
+                <circle cx="680" cy="45" r="3"/>
+                <circle cx="750" cy="40" r="3"/>
+                <circle cx="820" cy="38" r="3"/>
+                <circle cx="890" cy="36" r="3"/>
+              </g>
+            </svg>
+          </div>
+          <div style="display:flex;justify-content:space-between;margin-top:10px;font-size:11px;color:var(--text-3);font-family:'JetBrains Mono',monospace;">
+            <span>13 wks ago</span>
+            <span>9 wks</span>
+            <span>5 wks</span>
+            <span>This week</span>
+          </div>
+          <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);font-size:13px;color:var(--text-2);line-height:1.55;">
+            <b style="color:var(--text)">Velocity is climbing</b> (+8/week trend), but 1–3★ count holds steady at 1–2 per week — meaning your operational issue is constant, not seasonal. Replying with empathy + fix is your single highest-leverage move.
+          </div>
+        </div>
+
+        <!-- ============ FOOTER NOTE ============ -->
+        <div style="margin-top:24px;padding:14px 18px;background:var(--bg-3);border-radius:10px;font-size:11.5px;color:var(--text-3);font-family:'JetBrains Mono',monospace;line-height:1.6;">
+          // All review data sourced from Google · sentiment classification by Claude Haiku · theme extraction blends Google place_topics + custom classifier · refreshed every Monday 9:00 AM your local time · last sync 47 min ago
+        </div>
+
+      </div>
+    </main>
+
+    <script>
+      // Tab switching (visual only)
+      document.querySelectorAll('.tab').forEach(t => {
+        t.addEventListener('click', () => {
+          document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+          t.classList.add('active');
+        });
+      });
+      // Lang tabs in AI drafts (visual only)
+      document.querySelectorAll('.ai-draft').forEach(draft => {
+        draft.querySelectorAll('.lang-tab').forEach(lt => {
+          lt.addEventListener('click', () => {
+            draft.querySelectorAll('.lang-tab').forEach(x => x.classList.remove('active'));
+            lt.classList.add('active');
+          });
+        });
+      });
+      // Tone selection
+      document.querySelectorAll('.tone-opt').forEach(t => {
+        t.addEventListener('click', () => {
+          document.querySelectorAll('.tone-opt').forEach(x => x.classList.remove('active'));
+          t.classList.add('active');
+        });
+      });
+    </script>
+  </body>
+</html>

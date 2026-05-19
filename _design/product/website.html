@@ -1,0 +1,643 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Website health · Mapsly</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+    <style>
+      :root {
+        --bg:#faf6f1; --bg-2:#fff; --bg-3:#f2ebe3; --bg-dark:#1c1916;
+        --text:#1c1916; --text-2:#5c544d; --text-3:#9a9088;
+        --border:#e8ddd0; --border-strong:#d8c9b8;
+        --coral:#c3553a; --coral-light:rgba(195,85,58,.1);
+        --berry:#8b3a2c; --gold:#d4a574; --gold-light:rgba(212,165,116,.18);
+        --success:#2d8659; --success-light:rgba(45,134,89,.12);
+        --alert:#b53d47; --alert-light:rgba(181,61,71,.1);
+        --info:#3b6ec4; --info-light:rgba(59,110,196,.1);
+        --ease:cubic-bezier(0.16,1,0.3,1);
+        --shadow-sm:0 2px 8px rgba(28,25,22,.04);
+      }
+      * { margin:0; padding:0; box-sizing:border-box; }
+      body {
+        font-family:'Inter',sans-serif; background:var(--bg); color:var(--text);
+        line-height:1.5; min-height:100vh; display:flex;
+        -webkit-font-smoothing:antialiased;
+      }
+      a { color:inherit; text-decoration:none; }
+      button { font-family:inherit; cursor:pointer; border:none; background:none; }
+
+      .sidebar { width:240px; background:var(--bg); border-right:1px solid var(--border); padding:22px 16px; height:100vh; position:sticky; top:0; display:flex; flex-direction:column; flex-shrink:0; }
+      .sidebar-logo { display:flex; align-items:center; gap:10px; padding:6px 8px 22px; margin-bottom:12px; border-bottom:1px solid var(--border); }
+      .sidebar-logo-dot { width:9px; height:9px; border-radius:50%; background:var(--coral); box-shadow:0 0 10px rgba(195,85,58,.5); }
+      .sidebar-logo-text { font-family:'Fraunces',serif; font-size:19px; font-weight:700; letter-spacing:-.02em; }
+      .sidebar-section-label { font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.12em; color:var(--text-3); padding:14px 10px 6px; }
+      .nav-item { display:flex; align-items:center; gap:11px; padding:9px 10px; border-radius:8px; font-size:14px; font-weight:500; color:var(--text-2); transition:all .15s var(--ease); }
+      .nav-item:hover { background:rgba(28,25,22,.04); color:var(--text); }
+      .nav-item.active { background:var(--coral-light); color:var(--coral); font-weight:600; }
+      .nav-item-badge { margin-left:auto; background:var(--alert); color:#fff; font-size:10px; font-weight:700; padding:2px 6px; border-radius:10px; min-width:18px; text-align:center; font-family:'JetBrains Mono',monospace; }
+      .nav-item-badge.info { background:var(--info); }
+      .sidebar-footer { margin-top:auto; padding-top:16px; border-top:1px solid var(--border); }
+      .sidebar-business { display:flex; align-items:center; gap:10px; padding:10px; border-radius:8px; background:var(--bg-3); }
+      .sidebar-biz-avatar { width:32px; height:32px; border-radius:8px; background:linear-gradient(135deg,var(--gold),var(--coral)); display:flex; align-items:center; justify-content:center; color:#fff; font-weight:700; font-size:14px; font-family:'Fraunces',serif; }
+      .sidebar-biz-name { font-size:13px; font-weight:600; }
+      .sidebar-biz-meta { font-size:11px; color:var(--text-3); font-family:'JetBrains Mono',monospace; }
+
+      .main { flex:1; min-width:0; }
+      .topbar { position:sticky; top:0; z-index:10; background:rgba(250,246,241,.92); backdrop-filter:blur(20px); border-bottom:1px solid var(--border); padding:16px 32px; display:flex; align-items:center; justify-content:space-between; }
+      .topbar-title { font-family:'Fraunces',serif; font-size:22px; font-weight:600; letter-spacing:-.02em; }
+      .topbar-subtitle { font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--text-3); }
+      .topbar-right { display:flex; align-items:center; gap:10px; }
+      .top-pill { display:inline-flex; align-items:center; gap:7px; padding:7px 12px; background:var(--bg-2); border:1px solid var(--border); border-radius:8px; font-size:12px; color:var(--text-2); font-family:'JetBrains Mono',monospace; }
+      .top-pill-dot { width:7px; height:7px; border-radius:50%; background:var(--success); }
+      .btn { padding:8px 14px; border-radius:8px; font-size:12.5px; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:7px; }
+      .btn-primary { background:var(--coral); color:#fff; }
+      .btn-ghost { background:transparent; color:var(--text-2); border:1px solid var(--border); }
+
+      .content { padding:28px 32px 64px; max-width:1400px; }
+
+      /* ============ SCORES BAR ============ */
+      .scores-bar {
+        background:var(--bg-2); border:1px solid var(--border);
+        border-radius:16px; padding:24px 28px;
+        margin-bottom:22px;
+        display:grid;
+        grid-template-columns:repeat(5,1fr);
+        gap:20px;
+        box-shadow:var(--shadow-sm);
+      }
+      @media (max-width:1100px) { .scores-bar { grid-template-columns:repeat(2,1fr); } }
+      .score-cell {
+        text-align:center;
+        padding:0 16px;
+        border-right:1px solid var(--border);
+      }
+      .score-cell:last-child { border-right:none; }
+      @media (max-width:1100px) { .score-cell { border-right:none; } }
+      .score-ring {
+        width:80px; height:80px;
+        margin:0 auto 8px;
+        position:relative;
+      }
+      .score-ring svg {
+        width:100%; height:100%;
+        transform: rotate(-90deg);
+      }
+      .score-ring circle {
+        fill:none; stroke-width:6;
+      }
+      .score-ring circle.track { stroke:var(--bg-3); }
+      .score-ring circle.fill-success  { stroke:var(--success); }
+      .score-ring circle.fill-gold     { stroke:var(--gold); }
+      .score-ring circle.fill-alert    { stroke:var(--alert); }
+      .score-ring-num {
+        position:absolute; top:0; left:0; right:0; bottom:0;
+        display:flex; align-items:center; justify-content:center;
+        font-family:'Fraunces',serif;
+        font-size:24px; font-weight:700;
+      }
+      .score-label {
+        font-family:'JetBrains Mono',monospace;
+        font-size:11px;
+        text-transform:uppercase;
+        letter-spacing:.06em;
+        color:var(--text-2);
+        font-weight:600;
+      }
+      .score-leader {
+        font-size:11px;
+        color:var(--text-3);
+        margin-top:3px;
+        font-family:'JetBrains Mono',monospace;
+      }
+
+      /* ============ VITALS ============ */
+      .vitals-grid {
+        display:grid;
+        grid-template-columns:1fr 1fr 1fr;
+        gap:16px;
+        margin-bottom:22px;
+      }
+      @media (max-width:1100px) { .vitals-grid { grid-template-columns:1fr; } }
+      .vital-card {
+        background:var(--bg-2);
+        border:1px solid var(--border);
+        border-radius:14px;
+        padding:18px 22px;
+        box-shadow:var(--shadow-sm);
+      }
+      .vital-label {
+        font-family:'JetBrains Mono',monospace;
+        font-size:11px; font-weight:600;
+        text-transform:uppercase; letter-spacing:.08em;
+        color:var(--text-3);
+        margin-bottom:8px;
+        display:flex; align-items:center; gap:6px;
+      }
+      .vital-num {
+        font-family:'Fraunces',serif;
+        font-size:36px; font-weight:700;
+        line-height:1;
+      }
+      .vital-num.success { color:var(--success); }
+      .vital-num.gold { color:var(--gold); }
+      .vital-num.alert { color:var(--alert); }
+      .vital-unit {
+        font-size:14px;
+        color:var(--text-3);
+        font-family:'JetBrains Mono',monospace;
+        margin-left:4px;
+      }
+      .vital-meta {
+        font-size:12px;
+        color:var(--text-3);
+        margin-top:6px;
+        font-family:'JetBrains Mono',monospace;
+      }
+      .vital-bar {
+        height:5px;
+        background:var(--bg-3);
+        border-radius:3px;
+        margin-top:10px;
+        position:relative;
+        overflow:hidden;
+      }
+      .vital-bar-fill {
+        height:100%;
+        border-radius:3px;
+      }
+      .vital-bar-fill.success { background:var(--success); }
+      .vital-bar-fill.gold    { background:var(--gold); }
+      .vital-bar-fill.alert   { background:var(--alert); }
+      .vital-bar-thresholds {
+        display:flex; justify-content:space-between;
+        font-size:9px;
+        font-family:'JetBrains Mono',monospace;
+        color:var(--text-3);
+        margin-top:4px;
+      }
+
+      /* ============ ISSUE LIST ============ */
+      .panel { background:var(--bg-2); border:1px solid var(--border); border-radius:14px; box-shadow:var(--shadow-sm); margin-bottom:22px; overflow:hidden; }
+      .panel-head { padding:20px 28px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; }
+      .panel-title { font-size:15px; font-weight:600; }
+      .panel-subtitle { font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text-3); margin-top:3px; }
+
+      .issue {
+        display:grid;
+        grid-template-columns:auto 1fr auto auto;
+        gap:14px;
+        padding:18px 28px;
+        align-items:center;
+        border-bottom:1px solid var(--border);
+      }
+      .issue:last-child { border-bottom:none; }
+      .issue:hover { background:rgba(28,25,22,.015); }
+      .issue-sev {
+        font-family:'JetBrains Mono',monospace;
+        font-size:10px; font-weight:700;
+        text-transform:uppercase; letter-spacing:.06em;
+        padding:3px 8px;
+        border-radius:4px;
+        white-space:nowrap;
+      }
+      .issue-sev.high { background:var(--alert); color:#fff; }
+      .issue-sev.med  { background:var(--gold); color:#fff; }
+      .issue-sev.low  { background:var(--bg-3); color:var(--text-2); }
+      .issue-title {
+        font-size:14px; font-weight:600;
+        margin-bottom:3px;
+      }
+      .issue-detail {
+        font-size:12.5px;
+        color:var(--text-3);
+        font-family:'JetBrains Mono',monospace;
+      }
+      .issue-impact {
+        font-family:'Fraunces',serif;
+        font-size:18px;
+        font-weight:700;
+        color:var(--coral);
+        white-space:nowrap;
+        text-align:right;
+      }
+      .issue-impact-sub {
+        font-size:10px;
+        color:var(--text-3);
+        font-family:'JetBrains Mono',monospace;
+        text-align:right;
+      }
+      .issue-cta {
+        font-size:12px;
+        color:var(--coral);
+        font-weight:600;
+        padding:6px 12px;
+        border:1px solid var(--coral-light);
+        border-radius:6px;
+        white-space:nowrap;
+      }
+      .issue-cta:hover { background:var(--coral); color:#fff; }
+
+      /* ============ COMPARE ============ */
+      .compare-row {
+        display:grid;
+        grid-template-columns:1fr auto auto;
+        gap:14px;
+        padding:14px 28px;
+        align-items:center;
+        font-size:13px;
+        border-bottom:1px solid var(--border);
+      }
+      .compare-row:last-child { border-bottom:none; }
+      .compare-row-label { color:var(--text-2); }
+      .compare-val {
+        font-family:'JetBrains Mono',monospace;
+        font-weight:600;
+        min-width:80px;
+        text-align:right;
+      }
+      .compare-val.you { color:var(--text); }
+      .compare-val.them { color:var(--text-3); }
+      .compare-val.win { color:var(--success); }
+      .compare-val.lose { color:var(--alert); }
+
+      /* ============ TOOLTIPS ============ */
+      .info-tip { display:inline-flex; align-items:center; justify-content:center; width:14px; height:14px; border-radius:50%; background:var(--bg-3); color:var(--text-3); font-size:10px; font-weight:700; margin-left:4px; cursor:help; font-family:'JetBrains Mono',monospace; position:relative; vertical-align:2px; }
+      .info-tip:hover { background:var(--coral-light); color:var(--coral); }
+      .info-tip[data-tip]::after { content:attr(data-tip); position:absolute; bottom:100%; right:0; transform:translateY(-6px); background:var(--bg-dark); color:#fff; padding:10px 14px; border-radius:8px; font-size:11px; line-height:1.5; font-family:'Inter',sans-serif; white-space:pre-line; width:280px; text-align:left; opacity:0; pointer-events:none; transition:opacity .2s; z-index:100; box-shadow:0 8px 24px rgba(0,0,0,.2); }
+      .info-tip:hover::after { opacity:1; }
+
+      @media (max-width:768px) {
+        .sidebar { display:none; }
+        .topbar { padding:14px 18px; }
+        .content { padding:18px 18px 48px; }
+      }
+    </style>
+  </head>
+  <body>
+
+    <aside class="sidebar">
+      <div class="sidebar-logo"><span class="sidebar-logo-dot"></span><span class="sidebar-logo-text">mapsly</span></div>
+      <div class="sidebar-section-label">Daily</div>
+      <a href="dashboard.html" class="nav-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>Dashboard</a>
+      <a href="reviews.html" class="nav-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3 7h7l-5.5 4.5L18 21l-6-4-6 4 1.5-7.5L2 9h7z"/></svg>Reviews <span class="nav-item-badge">8</span></a>
+      <a href="activity.html" class="nav-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>Activity <span class="nav-item-badge info">3</span></a>
+      <div class="sidebar-section-label">Watch</div>
+      <a href="competitors.html" class="nav-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2v20M2 12h20"/></svg>Competitors</a>
+      <a href="search.html" class="nav-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>Search visibility</a>
+      <a href="ads.html" class="nav-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 8h7M9 12h7M9 16h4"/></svg>Ads intelligence</a>
+      <div class="sidebar-section-label">Audit</div>
+      <a href="website.html" class="nav-item active"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>Website health</a>
+      <a href="market.html" class="nav-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 16l4-8 4 4 5-10"/></svg>Market reality</a>
+      <div class="sidebar-section-label">Account</div>
+      <a href="settings.html" class="nav-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Settings</a>
+      <div class="sidebar-footer">
+        <div class="sidebar-business">
+          <div class="sidebar-biz-avatar">S</div>
+          <div>
+            <div class="sidebar-biz-name">Solea Brickell Spa</div>
+            <div class="sidebar-biz-meta">soleabrickellspa.com</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <div class="topbar-title">Website health</div>
+          <div class="topbar-subtitle">soleabrickellspa.com · audited weekly via Lighthouse</div>
+        </div>
+        <div class="topbar-right">
+          <span class="top-pill"><span class="top-pill-dot"></span>Last audit Sun May 17 · 9:43 PM</span>
+          <button class="btn btn-ghost">Re-run audit</button>
+        </div>
+      </header>
+
+      <div class="content">
+
+        <!-- SCORES BAR -->
+        <div class="scores-bar">
+          <div class="score-cell">
+            <div class="score-ring">
+              <svg viewBox="0 0 80 80">
+                <circle class="track" cx="40" cy="40" r="32"/>
+                <circle class="fill-alert" cx="40" cy="40" r="32" stroke-dasharray="200.96" stroke-dashoffset="84.4" stroke-linecap="round"/>
+              </svg>
+              <div class="score-ring-num">58</div>
+            </div>
+            <div class="score-label">Performance</div>
+            <div class="score-leader">Lux 91 · gap −33</div>
+          </div>
+          <div class="score-cell">
+            <div class="score-ring">
+              <svg viewBox="0 0 80 80">
+                <circle class="track" cx="40" cy="40" r="32"/>
+                <circle class="fill-gold" cx="40" cy="40" r="32" stroke-dasharray="200.96" stroke-dashoffset="42.2" stroke-linecap="round"/>
+              </svg>
+              <div class="score-ring-num">79</div>
+            </div>
+            <div class="score-label">Accessibility</div>
+            <div class="score-leader">Lux 88 · gap −9</div>
+          </div>
+          <div class="score-cell">
+            <div class="score-ring">
+              <svg viewBox="0 0 80 80">
+                <circle class="track" cx="40" cy="40" r="32"/>
+                <circle class="fill-gold" cx="40" cy="40" r="32" stroke-dasharray="200.96" stroke-dashoffset="56.3" stroke-linecap="round"/>
+              </svg>
+              <div class="score-ring-num">72</div>
+            </div>
+            <div class="score-label">Best practices</div>
+            <div class="score-leader">Lux 93 · gap −21</div>
+          </div>
+          <div class="score-cell">
+            <div class="score-ring">
+              <svg viewBox="0 0 80 80">
+                <circle class="track" cx="40" cy="40" r="32"/>
+                <circle class="fill-alert" cx="40" cy="40" r="32" stroke-dasharray="200.96" stroke-dashoffset="80.4" stroke-linecap="round"/>
+              </svg>
+              <div class="score-ring-num">60</div>
+            </div>
+            <div class="score-label">SEO</div>
+            <div class="score-leader">Lux 96 · gap −36</div>
+          </div>
+          <div class="score-cell">
+            <div class="score-ring">
+              <svg viewBox="0 0 80 80">
+                <circle class="track" cx="40" cy="40" r="32"/>
+                <circle class="fill-success" cx="40" cy="40" r="32" stroke-dasharray="200.96" stroke-dashoffset="30.1" stroke-linecap="round"/>
+              </svg>
+              <div class="score-ring-num">85</div>
+            </div>
+            <div class="score-label">PWA / Mobile</div>
+            <div class="score-leader">Lux 82 · gap +3</div>
+          </div>
+        </div>
+
+        <!-- CORE WEB VITALS -->
+        <div class="vitals-grid">
+          <div class="vital-card">
+            <div class="vital-label">
+              LCP <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-3);">Largest Contentful Paint</span>
+              <span class="info-tip" data-tip="In plain English: how long until the biggest thing on your page (usually your main photo or headline) shows up on a phone. Above 2.5 seconds = patients leave before they see it. Google penalizes you in ranking too.">i</span>
+            </div>
+            <div><span class="vital-num gold">3.4</span><span class="vital-unit">s</span></div>
+            <div class="vital-meta">target: &lt; 2.5s · Lux: 1.8s</div>
+            <div class="vital-bar"><div class="vital-bar-fill gold" style="width:62%;"></div></div>
+            <div class="vital-bar-thresholds"><span>0s</span><span>2.5s good</span><span>4s poor</span></div>
+          </div>
+          <div class="vital-card">
+            <div class="vital-label">
+              CLS <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-3);">Cumulative Layout Shift</span>
+              <span class="info-tip" data-tip="In plain English: how much your page jumps around as it loads — like when you're about to tap a button and an ad pops in and you tap the wrong thing. Above 0.1 = annoying. Google now uses this to rank sites.">i</span>
+            </div>
+            <div><span class="vital-num success">0.04</span></div>
+            <div class="vital-meta">target: &lt; 0.1 · Lux: 0.02</div>
+            <div class="vital-bar"><div class="vital-bar-fill success" style="width:18%;"></div></div>
+            <div class="vital-bar-thresholds"><span>0</span><span>0.1 good</span><span>0.25 poor</span></div>
+          </div>
+          <div class="vital-card">
+            <div class="vital-label">
+              INP <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-3);">Interaction to Next Paint</span>
+              <span class="info-tip" data-tip="In plain English: how long it takes for your page to respond after a patient taps a button. Above 200ms feels laggy. Above 500ms feels broken — they bounce. Google uses this in ranking.">i</span>
+            </div>
+            <div><span class="vital-num alert">312</span><span class="vital-unit">ms</span></div>
+            <div class="vital-meta">target: &lt; 200ms · Lux: 145ms</div>
+            <div class="vital-bar"><div class="vital-bar-fill alert" style="width:80%;"></div></div>
+            <div class="vital-bar-thresholds"><span>0</span><span>200 good</span><span>500 poor</span></div>
+          </div>
+        </div>
+
+        <!-- TOP ISSUES -->
+        <div class="panel">
+          <div class="panel-head">
+            <div>
+              <div class="panel-title">Top issues to fix · ranked by SEO impact
+                <span class="info-tip" data-tip="Each issue is scored on: severity (Lighthouse weight), prevalence (which pages affected), and uplift potential (estimated rank impact if fixed). Ranking updates weekly.">i</span>
+              </div>
+              <div class="panel-subtitle">// 14 issues found · 6 high priority</div>
+            </div>
+            <button class="btn btn-ghost">Send to developer</button>
+          </div>
+
+          <div class="issue">
+            <span class="issue-sev high">High</span>
+            <div>
+              <div class="issue-title">Largest image is 1.4 MB · slows LCP to 3.4s</div>
+              <div class="issue-detail">/hero-banner.jpg · 1440×900 · uncompressed JPEG · 87% of mobile users won't wait</div>
+            </div>
+            <div>
+              <div class="issue-impact">+12</div>
+              <div class="issue-impact-sub">perf points</div>
+            </div>
+            <a href="#" class="issue-cta">How to fix →</a>
+          </div>
+
+          <div class="issue">
+            <span class="issue-sev high">High</span>
+            <div>
+              <div class="issue-title">No structured data (Schema.org) for LocalBusiness
+                <span class="info-tip" data-tip="In plain English: schema is hidden code on your site that tells Google 'I'm a medical spa at this address, with these hours, this phone'. Without it, Google can't show your address/phone card in search results — the rich snippet your competitors get.">i</span>
+              </div>
+              <div class="issue-detail">Lux + No Filter both publish MedicalBusiness JSON-LD · you publish none · directly affects rich-result eligibility</div>
+            </div>
+            <div>
+              <div class="issue-impact">+25</div>
+              <div class="issue-impact-sub">SEO points</div>
+            </div>
+            <a href="#" class="issue-cta">Generate schema →</a>
+          </div>
+
+          <div class="issue">
+            <span class="issue-sev high">High</span>
+            <div>
+              <div class="issue-title">Service pages missing H1 keyword anchors</div>
+              <div class="issue-detail">/fillers-botox has H1 "Treatments" · should be "Botox & Filler in Brickell, Miami" · same on 6 other service pages</div>
+            </div>
+            <div>
+              <div class="issue-impact">+9</div>
+              <div class="issue-impact-sub">avg rank</div>
+            </div>
+            <a href="#" class="issue-cta">See pages →</a>
+          </div>
+
+          <div class="issue">
+            <span class="issue-sev high">High</span>
+            <div>
+              <div class="issue-title">No FAQ schema on service pages</div>
+              <div class="issue-detail">Lux uses FAQPage schema on Botox + Microneedling · their snippets show in 3 SERP positions you don't</div>
+            </div>
+            <div>
+              <div class="issue-impact">+5</div>
+              <div class="issue-impact-sub">SERP features</div>
+            </div>
+            <a href="#" class="issue-cta">Draft FAQ →</a>
+          </div>
+
+          <div class="issue">
+            <span class="issue-sev high">High</span>
+            <div>
+              <div class="issue-title">No NAP consistency on contact page
+                <span class="info-tip" data-tip="In plain English: NAP = Name, Address, Phone. If those three things are written differently on different pages of your site (or differ from your Google profile), Google treats them as different businesses and the trust signal weakens.">i</span>
+              </div>
+              <div class="issue-detail">Phone reads (786) 418-4515 in header, +1.786.418.4515 in footer · Google reads as 2 distinct numbers · weakens local pack signal</div>
+            </div>
+            <div>
+              <div class="issue-impact">+4</div>
+              <div class="issue-impact-sub">local trust</div>
+            </div>
+            <a href="#" class="issue-cta">How to fix →</a>
+          </div>
+
+          <div class="issue">
+            <span class="issue-sev high">High</span>
+            <div>
+              <div class="issue-title">INP failures from 3rd-party booking widget</div>
+              <div class="issue-detail">Boulevard booking iframe blocks main thread for 312ms · main scheduling button delays 300ms+</div>
+            </div>
+            <div>
+              <div class="issue-impact">+22</div>
+              <div class="issue-impact-sub">perf points</div>
+            </div>
+            <a href="#" class="issue-cta">See fix →</a>
+          </div>
+
+          <div class="issue">
+            <span class="issue-sev med">Med</span>
+            <div>
+              <div class="issue-title">Render-blocking CSS in head</div>
+              <div class="issue-detail">2 of 4 stylesheets aren't deferred · adds ~400ms to first paint</div>
+            </div>
+            <div>
+              <div class="issue-impact">+6</div>
+              <div class="issue-impact-sub">perf points</div>
+            </div>
+            <a href="#" class="issue-cta">How to fix →</a>
+          </div>
+
+          <div class="issue">
+            <span class="issue-sev med">Med</span>
+            <div>
+              <div class="issue-title">Images missing descriptive alt text on 14 of 46</div>
+              <div class="issue-detail">alt="image" or empty · hurts accessibility + image-search SEO</div>
+            </div>
+            <div>
+              <div class="issue-impact">+8</div>
+              <div class="issue-impact-sub">a11y points</div>
+            </div>
+            <a href="#" class="issue-cta">Bulk-fix →</a>
+          </div>
+
+          <div class="issue">
+            <span class="issue-sev med">Med</span>
+            <div>
+              <div class="issue-title">No language tag · auto-detected as English only</div>
+              <div class="issue-detail">Your bilingual EN/ES service positioning isn't expressed in HTML · add hreflang + lang attributes</div>
+            </div>
+            <div>
+              <div class="issue-impact">+3</div>
+              <div class="issue-impact-sub">bilingual lift</div>
+            </div>
+            <a href="#" class="issue-cta">How to fix →</a>
+          </div>
+
+          <div class="issue">
+            <span class="issue-sev low">Low</span>
+            <div>
+              <div class="issue-title">Outdated meta description on 3 service pages</div>
+              <div class="issue-detail">/fillers-botox, /microneedling, /lpg · descriptions truncated at 120 chars · target 150–160</div>
+            </div>
+            <div>
+              <div class="issue-impact">+2</div>
+              <div class="issue-impact-sub">CTR</div>
+            </div>
+            <a href="#" class="issue-cta">Edit →</a>
+          </div>
+
+          <div class="issue">
+            <span class="issue-sev low">Low</span>
+            <div>
+              <div class="issue-title">No favicon · default browser icon shown in tabs</div>
+              <div class="issue-detail">Lux + No Filter both have branded favicons · minor trust signal</div>
+            </div>
+            <div>
+              <div class="issue-impact">+1</div>
+              <div class="issue-impact-sub">trust</div>
+            </div>
+            <a href="#" class="issue-cta">Upload favicon →</a>
+          </div>
+        </div>
+
+        <!-- COMPARE -->
+        <div class="panel">
+          <div class="panel-head">
+            <div>
+              <div class="panel-title">You vs Lux · website signals</div>
+              <div class="panel-subtitle">// Lighthouse + on-page SEO scrape</div>
+            </div>
+          </div>
+          <div class="compare-row">
+            <div class="compare-row-label">Performance score (mobile)
+              <span class="info-tip" data-tip="Lighthouse score, mobile profile, 4G throttling. 90+ = good, 50–89 = fair, &lt;50 = poor.">i</span>
+            </div>
+            <div class="compare-val lose">58</div>
+            <div class="compare-val them">91</div>
+          </div>
+          <div class="compare-row">
+            <div class="compare-row-label">SEO score</div>
+            <div class="compare-val lose">60</div>
+            <div class="compare-val them">96</div>
+          </div>
+          <div class="compare-row">
+            <div class="compare-row-label">LCP</div>
+            <div class="compare-val lose">3.4s</div>
+            <div class="compare-val them">1.8s</div>
+          </div>
+          <div class="compare-row">
+            <div class="compare-row-label">Mobile-friendly</div>
+            <div class="compare-val win">Pass</div>
+            <div class="compare-val them">Pass</div>
+          </div>
+          <div class="compare-row">
+            <div class="compare-row-label">HTTPS</div>
+            <div class="compare-val win">Yes</div>
+            <div class="compare-val them">Yes</div>
+          </div>
+          <div class="compare-row">
+            <div class="compare-row-label">LocalBusiness schema</div>
+            <div class="compare-val lose">No</div>
+            <div class="compare-val them">Yes</div>
+          </div>
+          <div class="compare-row">
+            <div class="compare-row-label">FAQ schema</div>
+            <div class="compare-val lose">No</div>
+            <div class="compare-val them">Yes · 3 pages</div>
+          </div>
+          <div class="compare-row">
+            <div class="compare-row-label">Service pages with keyword H1</div>
+            <div class="compare-val lose">2 of 9</div>
+            <div class="compare-val them">9 of 9</div>
+          </div>
+          <div class="compare-row">
+            <div class="compare-row-label">Blog posts published</div>
+            <div class="compare-val lose">3</div>
+            <div class="compare-val them">42</div>
+          </div>
+          <div class="compare-row">
+            <div class="compare-row-label">Avg page load (s)</div>
+            <div class="compare-val lose">3.8</div>
+            <div class="compare-val them">2.1</div>
+          </div>
+        </div>
+
+        <div style="margin-top:0;padding:14px 18px;background:var(--bg-3);border-radius:10px;font-size:11.5px;color:var(--text-3);font-family:'JetBrains Mono',monospace;line-height:1.6;">
+          // Audit run via Google Lighthouse (mobile profile, throttled 4G) on 5 representative pages: /, /services, /fillers-botox, /microneedling, /contact · scores averaged · refreshed weekly Sunday 9:00 PM · re-run on demand
+        </div>
+
+      </div>
+    </main>
+  </body>
+</html>

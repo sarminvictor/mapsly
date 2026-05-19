@@ -1,0 +1,1142 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Search · Mapsly Agency</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="_shared.css" />
+    <style>
+      .intro {
+        background:linear-gradient(120deg, var(--indigo-light), var(--teal-light));
+        border:1px solid rgba(91,61,245,.16);
+        border-radius:14px;
+        padding:16px 22px;
+        margin-bottom:22px;
+        font-size:13px; color:var(--text-2); line-height:1.55;
+      }
+      .intro b { color:var(--text); font-weight:600; }
+      .intro-note { font-family:'JetBrains Mono',monospace; font-size:11.5px; color:var(--text-3); margin-top:6px; display:inline-block; }
+
+      /* GLOBAL SEARCH BAR */
+      .global-search {
+        display:flex; align-items:center; gap:8px;
+        padding:0 12px;
+        background:var(--bg-2);
+        border:1px solid var(--border);
+        border-radius:8px;
+        min-width:280px;
+      }
+      .global-search:focus-within { border-color:var(--indigo); }
+      .global-search input {
+        flex:1; padding:9px 0;
+        border:none; background:transparent;
+        font-size:13px; color:var(--text);
+        outline:none;
+      }
+      .global-search-kbd {
+        font-family:'JetBrains Mono',monospace;
+        font-size:10px; color:var(--text-3);
+        background:var(--bg-3); padding:1px 6px; border-radius:3px;
+      }
+
+      /* SERVICE TEMPLATES */
+      .service-strip {
+        background:var(--bg-2);
+        border:1px solid var(--border);
+        border-radius:14px;
+        padding:18px 22px;
+        margin-bottom:18px;
+        box-shadow:var(--shadow-sm);
+      }
+      .service-strip-head { font-size:14px; font-weight:600; margin-bottom:4px; }
+      .service-strip-sub { font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text-3); margin-bottom:14px; }
+      .service-row { display:grid; grid-template-columns:repeat(auto-fill, minmax(160px, 1fr)); gap:8px; }
+      .service-tile {
+        padding:12px 14px;
+        background:var(--bg-2);
+        border:1px solid var(--border);
+        border-radius:10px;
+        cursor:pointer;
+        transition:all .15s;
+      }
+      .service-tile:hover { border-color:var(--indigo); background:var(--indigo-light); }
+      .service-tile.active { background:var(--indigo); border-color:var(--indigo); }
+      .service-tile.active .service-tile-name { color:#fff; }
+      .service-tile.active .service-tile-sub { color:rgba(255,255,255,.75); }
+      .service-tile-icon { font-size:16px; display:block; margin-bottom:6px; }
+      .service-tile-name { font-size:12.5px; font-weight:600; line-height:1.3; color:var(--text); }
+      .service-tile-sub { font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--text-3); margin-top:3px; line-height:1.4; }
+
+      /* TARGET */
+      .target-card { background:var(--bg-2); border:1px solid var(--border); border-radius:14px; padding:18px 22px; margin-bottom:18px; box-shadow:var(--shadow-sm); }
+      .target-row { display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; }
+      @media (max-width:900px) { .target-row { grid-template-columns:1fr; } }
+      .field-label { font-family:'JetBrains Mono',monospace; font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--text-3); margin-bottom:6px; }
+      .field-input { width:100%; padding:10px 14px; background:var(--bg-2); border:1px solid var(--border); border-radius:8px; font-size:13.5px; color:var(--text); }
+      .field-input:focus { outline:none; border-color:var(--indigo); }
+
+      /* ============ SIGNAL FILTERS — NEW EDITABLE SYSTEM ============ */
+      .signals-card {
+        background:var(--bg-2);
+        border:1px solid var(--border);
+        border-radius:14px;
+        padding:22px 24px;
+        margin-bottom:18px;
+        box-shadow:var(--shadow-sm);
+      }
+
+      .signal-group { margin-bottom:24px; padding-bottom:22px; border-bottom:1px solid var(--border); }
+      .signal-group:last-child { border-bottom:none; padding-bottom:0; }
+      .signal-group-head { display:flex; justify-content:space-between; align-items:baseline; gap:12px; margin-bottom:6px; flex-wrap:wrap; }
+      .signal-group-title { font-size:14px; font-weight:600; }
+      .signal-group-count { font-family:'JetBrains Mono',monospace; font-size:10px; background:var(--bg-3); color:var(--text-2); padding:2px 7px; border-radius:10px; font-weight:600; }
+      .signal-group-count.active { background:var(--indigo); color:#fff; }
+      .signal-group-help { font-size:12px; color:var(--text-3); line-height:1.5; margin-bottom:14px; }
+
+      /* FILTER ROW — the new editable design */
+      .filter-row {
+        display:grid;
+        grid-template-columns:24px 1fr auto;
+        gap:14px;
+        align-items:center;
+        padding:10px 14px;
+        background:var(--bg-2);
+        border:1px solid var(--border);
+        border-radius:9px;
+        margin-bottom:6px;
+        transition:all .15s;
+      }
+      .filter-row.active {
+        background:var(--indigo-light);
+        border-color:var(--indigo);
+      }
+      .filter-row:hover { border-color:var(--border-strong); }
+      .filter-row.active:hover { border-color:var(--indigo); }
+
+      /* Checkbox toggle */
+      .filter-check {
+        width:18px; height:18px;
+        border-radius:4px;
+        border:1.5px solid var(--border-strong);
+        cursor:pointer;
+        display:flex; align-items:center; justify-content:center;
+        background:var(--bg-2);
+        transition:all .15s;
+        flex-shrink:0;
+      }
+      .filter-row.active .filter-check {
+        background:var(--indigo);
+        border-color:var(--indigo);
+      }
+      .filter-row.active .filter-check::after {
+        content:'';
+        width:9px; height:5px;
+        border-left:2px solid #fff;
+        border-bottom:2px solid #fff;
+        transform:rotate(-45deg) translate(1px, -1px);
+      }
+
+      /* Label + help */
+      .filter-label-row {
+        display:flex; align-items:center; gap:8px;
+        flex-wrap:wrap;
+        flex:1;
+      }
+      .filter-label {
+        font-size:13px; font-weight:500;
+        color:var(--text);
+      }
+      .filter-row:not(.active) .filter-label { color:var(--text-2); }
+
+      .filter-help {
+        display:inline-flex; align-items:center; justify-content:center;
+        width:14px; height:14px;
+        border-radius:50%;
+        background:var(--bg-3); color:var(--text-3);
+        font-size:9px; font-weight:700;
+        cursor:help; font-family:'JetBrains Mono',monospace;
+        position:relative;
+      }
+      .filter-help:hover { background:var(--indigo); color:#fff; }
+      .filter-help[data-tip]::after {
+        content:attr(data-tip);
+        position:absolute; bottom:100%; left:50%;
+        transform:translate(-50%, -6px);
+        background:var(--text); color:#fff;
+        padding:10px 14px; border-radius:8px;
+        font-size:11.5px; line-height:1.55;
+        font-family:'Inter',sans-serif;
+        white-space:normal;
+        width:280px; text-align:left;
+        opacity:0; pointer-events:none;
+        transition:opacity .2s; z-index:200;
+        box-shadow:0 8px 24px rgba(20,22,32,.18);
+      }
+      .filter-help:hover::after { opacity:1; }
+
+      /* Value controls */
+      .filter-controls {
+        display:flex; align-items:center; gap:6px;
+        font-family:'JetBrains Mono',monospace;
+        font-size:12px;
+      }
+      .comp-select {
+        padding:4px 8px;
+        background:var(--bg-2);
+        border:1px solid var(--border);
+        border-radius:5px;
+        font-size:12px;
+        font-family:'JetBrains Mono',monospace;
+        font-weight:600;
+        color:var(--text);
+        cursor:pointer;
+      }
+      .filter-row.active .comp-select { background:#fff; border-color:rgba(91,61,245,.3); color:var(--indigo); }
+      .val-input {
+        width:64px;
+        padding:4px 8px;
+        background:var(--bg-2);
+        border:1px solid var(--border);
+        border-radius:5px;
+        font-size:12px;
+        font-family:'JetBrains Mono',monospace;
+        font-weight:600;
+        color:var(--text);
+        text-align:right;
+      }
+      .val-input.wide { width:84px; text-align:left; }
+      .filter-row.active .val-input { background:#fff; border-color:rgba(91,61,245,.3); color:var(--indigo); }
+      .val-suffix {
+        font-size:11px; color:var(--text-3);
+        font-weight:600;
+        min-width:14px;
+      }
+      .filter-row.active .val-suffix { color:var(--indigo); }
+      .val-binary {
+        padding:5px 11px;
+        background:var(--bg-3);
+        border-radius:5px;
+        font-size:11px;
+        font-weight:700;
+        color:var(--text-3);
+        text-transform:uppercase;
+        letter-spacing:.04em;
+        white-space:nowrap;
+      }
+      .filter-row.active .val-binary {
+        background:var(--indigo);
+        color:#fff;
+      }
+
+      /* Add custom signal */
+      .add-signal-row {
+        margin-top:10px;
+        padding:10px 14px;
+        background:transparent;
+        border:1px dashed var(--border-strong);
+        border-radius:9px;
+        display:flex; align-items:center; justify-content:center;
+        gap:8px;
+        font-size:12.5px; font-weight:500;
+        color:var(--text-3);
+        cursor:pointer;
+      }
+      .add-signal-row:hover { border-color:var(--indigo); color:var(--indigo); background:var(--indigo-light); }
+
+      /* PREVIEW BAR */
+      .preview-bar {
+        position:sticky; bottom:20px;
+        margin-top:18px;
+        display:flex; align-items:center; gap:14px;
+        background:var(--text); color:#fff;
+        padding:16px 22px;
+        border-radius:14px;
+        box-shadow:0 8px 24px rgba(20,22,32,.2);
+        font-size:13.5px;
+        z-index:50;
+      }
+      .preview-num { font-size:22px; font-weight:800; letter-spacing:-.02em; }
+      .preview-meta { opacity:.75; font-family:'JetBrains Mono',monospace; font-size:11.5px; }
+      .preview-actions { margin-left:auto; display:flex; gap:8px; flex-wrap:wrap; }
+      .preview-actions .btn-ghost { background:transparent; border-color:rgba(255,255,255,.2); color:#fff; }
+      .preview-actions .btn-ghost:hover { border-color:rgba(255,255,255,.4); }
+
+      .active-filters-summary { flex:1; font-size:12.5px; line-height:1.45; }
+
+      /* ============ SAVE-AS-LIST MODAL ============ */
+      .modal-overlay {
+        position:fixed; inset:0;
+        background:rgba(20,22,32,.5);
+        backdrop-filter:blur(4px);
+        z-index:200;
+        display:none;
+        align-items:center; justify-content:center;
+        padding:24px;
+      }
+      .modal-overlay.open { display:flex; }
+      .modal {
+        background:var(--bg-2);
+        border-radius:18px;
+        padding:32px 36px;
+        max-width:540px;
+        width:100%;
+        box-shadow:0 20px 60px rgba(20,22,32,.3);
+        max-height:90vh;
+        overflow-y:auto;
+      }
+      .modal-title {
+        font-family:'Inter',sans-serif;
+        font-size:20px; font-weight:700;
+        letter-spacing:-.02em;
+        margin-bottom:4px;
+      }
+      .modal-sub { font-family:'JetBrains Mono',monospace; font-size:11.5px; color:var(--text-3); margin-bottom:22px; }
+      .modal-field { margin-bottom:14px; }
+      .modal-label {
+        font-family:'JetBrains Mono',monospace;
+        font-size:10.5px; font-weight:700;
+        text-transform:uppercase; letter-spacing:.06em;
+        color:var(--text-3);
+        margin-bottom:6px;
+        display:block;
+      }
+      .modal-input {
+        width:100%;
+        padding:11px 14px;
+        background:var(--bg-2);
+        border:1px solid var(--border);
+        border-radius:8px;
+        font-size:13.5px;
+        color:var(--text);
+        font-family:'Inter',sans-serif;
+      }
+      .modal-input:focus { outline:none; border-color:var(--indigo); }
+      textarea.modal-input { min-height:70px; resize:vertical; line-height:1.5; }
+      .modal-radio-row { display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; }
+      .modal-radio {
+        padding:10px 12px;
+        background:var(--bg-2);
+        border:1px solid var(--border);
+        border-radius:8px;
+        font-size:12.5px;
+        cursor:pointer;
+        text-align:center;
+      }
+      .modal-radio.active { background:var(--indigo-light); border-color:var(--indigo); color:var(--indigo); font-weight:600; }
+      .modal-actions { margin-top:22px; display:flex; gap:8px; justify-content:flex-end; }
+    </style>
+  </head>
+  <body>
+
+    <aside class="sidebar">
+      <div class="sidebar-logo">
+        <span class="sidebar-logo-dot"></span>
+        <span class="sidebar-logo-text">mapsly</span>
+        <span class="sidebar-logo-tag">Agency</span>
+      </div>
+      <div class="sidebar-section-label">Workspace</div>
+      <a href="lists.html" class="nav-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>Lists <span class="nav-item-badge">6</span></a>
+      <a href="search.html" class="nav-item active"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>Search</a>
+      <a href="activity.html" class="nav-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>Activity <span class="nav-item-badge">23</span></a>
+      <a href="reports.html" class="nav-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>Reports</a>
+      <div class="sidebar-section-label">Account</div>
+      <a href="list-analytics.html" class="nav-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 16l4-8 4 4 5-10"/></svg>List analytics</a>
+      <a href="settings.html" class="nav-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Settings</a>
+      <div class="sidebar-footer">
+        <div class="sidebar-agency">
+          <div class="sidebar-agency-avatar">AL</div>
+          <div>
+            <div class="sidebar-agency-name">Anchor Local</div>
+            <div class="sidebar-agency-meta">Toronto · 4 seats</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <div class="topbar-title">Search</div>
+          <div class="topbar-subtitle">Build a list around the service you sell · 60+ tunable signals</div>
+        </div>
+        <div class="topbar-right">
+          <div class="global-search">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text-3);"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+            <input placeholder="Look up a business by name…" />
+            <span class="global-search-kbd">⌘K</span>
+          </div>
+        </div>
+      </header>
+
+      <div class="content" style="max-width:1200px;">
+
+        <div class="intro">
+          <b>Step 1:</b> pick the service template (or skip to step 3). <b>Step 2:</b> set target market. <b>Step 3:</b> tune the signal thresholds — every value is editable. Live count updates as you change values. <b>Step 4:</b> save as a list to monitor weekly.
+          <div class="intro-note">// every numeric filter has a comparator + editable value · every binary signal is a checkbox</div>
+        </div>
+
+        <!-- ============ SERVICE TEMPLATES ============ -->
+        <div class="service-strip">
+          <div class="service-strip-head">Step 1 · Pick a service template</div>
+          <div class="service-strip-sub">// pre-fills the filter set · refine values afterwards</div>
+          <div class="service-row">
+            <div class="service-tile active"><span class="service-tile-icon">🌐</span><div class="service-tile-name">Website rebuild</div><div class="service-tile-sub">slow site · no schema</div></div>
+            <div class="service-tile"><span class="service-tile-icon">📣</span><div class="service-tile-name">Meta ads campaign</div><div class="service-tile-sub">no ads · off-keyword</div></div>
+            <div class="service-tile"><span class="service-tile-icon">🎯</span><div class="service-tile-name">Google Ads launch</div><div class="service-tile-sub">no paid search</div></div>
+            <div class="service-tile"><span class="service-tile-icon">🔍</span><div class="service-tile-name">Local SEO + GBP</div><div class="service-tile-sub">not in 3-pack</div></div>
+            <div class="service-tile"><span class="service-tile-icon">⭐</span><div class="service-tile-name">Review management</div><div class="service-tile-sub">low reply rate</div></div>
+            <div class="service-tile"><span class="service-tile-icon">🛡️</span><div class="service-tile-name">Brand defense</div><div class="service-tile-sub">brand-name hijack</div></div>
+            <div class="service-tile"><span class="service-tile-icon">🆕</span><div class="service-tile-name">New-business launch</div><div class="service-tile-sub">first seen &lt; 90d</div></div>
+            <div class="service-tile"><span class="service-tile-icon">📊</span><div class="service-tile-name">Full audit</div><div class="service-tile-sub">all signals</div></div>
+          </div>
+        </div>
+
+        <!-- ============ TARGET ============ -->
+        <div class="target-card">
+          <div class="service-strip-head" style="margin-bottom:14px;">Step 2 · Target market</div>
+          <div class="target-row">
+            <div>
+              <div class="field-label">Category</div>
+              <input class="field-input" value="medical spa" />
+            </div>
+            <div>
+              <div class="field-label">City / metro</div>
+              <input class="field-input" value="Miami, FL" />
+            </div>
+            <div>
+              <div class="field-label">Radius</div>
+              <select class="field-input"><option>5 mi</option><option>3 mi</option><option>10 mi</option><option>25 mi</option></select>
+            </div>
+          </div>
+        </div>
+
+        <!-- ============ EDITABLE SIGNAL FILTERS ============ -->
+        <div class="signals-card">
+          <div class="service-strip-head" style="margin-bottom:6px;">Step 3 · Tune your filters</div>
+          <div class="service-strip-sub" style="margin-bottom:24px;">// click the box to activate · edit comparator + value · live count updates below</div>
+
+          <!-- ====== WEBSITE / TECH ====== -->
+          <div class="signal-group">
+            <div class="signal-group-head">
+              <span class="signal-group-title">🌐 Website / Tech health</span>
+              <span class="signal-group-count active">7 active · 16 available</span>
+            </div>
+            <div class="signal-group-help">Issues you can fix with a redesign, code work, or schema/SEO tuning.</div>
+
+            <div class="filter-row active">
+              <div class="filter-check"></div>
+              <div class="filter-label-row">
+                <span class="filter-label">Lighthouse Performance</span>
+                <span class="filter-help" data-tip="Google's open-source scoring tool. 0–100. Below 60 = poor.">i</span>
+              </div>
+              <div class="filter-controls">
+                <select class="comp-select"><option selected>&lt;</option><option>≤</option><option>=</option><option>≥</option><option>between</option></select>
+                <input class="val-input" value="60" />
+              </div>
+            </div>
+
+            <div class="filter-row active">
+              <div class="filter-check"></div>
+              <div class="filter-label-row">
+                <span class="filter-label">Lighthouse SEO</span>
+                <span class="filter-help" data-tip="Lighthouse SEO score. Below 80 = major on-page issues.">i</span>
+              </div>
+              <div class="filter-controls">
+                <select class="comp-select"><option selected>&lt;</option><option>≥</option></select>
+                <input class="val-input" value="80" />
+              </div>
+            </div>
+
+            <div class="filter-row active">
+              <div class="filter-check"></div>
+              <div class="filter-label-row">
+                <span class="filter-label">LCP · Largest Contentful Paint</span>
+                <span class="filter-help" data-tip="Time until the biggest visible element renders. Above 2.5s = poor.">i</span>
+              </div>
+              <div class="filter-controls">
+                <select class="comp-select"><option>&lt;</option><option selected>&gt;</option><option>≥</option></select>
+                <input class="val-input" value="3" />
+                <span class="val-suffix">sec</span>
+              </div>
+            </div>
+
+            <div class="filter-row">
+              <div class="filter-check"></div>
+              <div class="filter-label-row">
+                <span class="filter-label">CLS · Cumulative Layout Shift</span>
+                <span class="filter-help" data-tip="How much the page jumps as it loads. Above 0.1 = poor.">i</span>
+              </div>
+              <div class="filter-controls">
+                <select class="comp-select"><option selected>&gt;</option><option>&lt;</option></select>
+                <input class="val-input" value="0.1" />
+              </div>
+            </div>
+
+            <div class="filter-row">
+              <div class="filter-check"></div>
+              <div class="filter-label-row">
+                <span class="filter-label">INP · Interaction to Next Paint</span>
+                <span class="filter-help" data-tip="How long until the page responds to a tap. Above 200ms = laggy.">i</span>
+              </div>
+              <div class="filter-controls">
+                <select class="comp-select"><option selected>&gt;</option></select>
+                <input class="val-input" value="200" />
+                <span class="val-suffix">ms</span>
+              </div>
+            </div>
+
+            <div class="filter-row active">
+              <div class="filter-check"></div>
+              <div class="filter-label-row">
+                <span class="filter-label">LocalBusiness schema</span>
+                <span class="filter-help" data-tip="JSON-LD schema markup on the site. Required for Google rich-result eligibility.">i</span>
+              </div>
+              <div class="filter-controls">
+                <select class="comp-select"><option selected>missing</option><option>present</option></select>
+              </div>
+            </div>
+
+            <div class="filter-row active">
+              <div class="filter-check"></div>
+              <div class="filter-label-row">
+                <span class="filter-label">FAQ schema</span>
+                <span class="filter-help" data-tip="Structured Q&A markup. Enables rich Google snippets.">i</span>
+              </div>
+              <div class="filter-controls">
+                <select class="comp-select"><option selected>missing</option><option>present</option></select>
+              </div>
+            </div>
+
+            <div class="filter-row active">
+              <div class="filter-check"></div>
+              <div class="filter-label-row">
+                <span class="filter-label">NAP consistency</span>
+                <span class="filter-help" data-tip="Name, Address, Phone match across site + Google profile.">i</span>
+              </div>
+              <div class="filter-controls">
+                <select class="comp-select"><option selected>inconsistent</option><option>consistent</option></select>
+              </div>
+            </div>
+
+            <div class="filter-row">
+              <div class="filter-check"></div>
+              <div class="filter-label-row">
+                <span class="filter-label">HTTPS / SSL</span>
+                <span class="filter-help" data-tip="Site loads on https://. Insecure sites get Chrome warnings + Google deprioritization.">i</span>
+              </div>
+              <div class="filter-controls">
+                <select class="comp-select"><option>has</option><option selected>missing</option></select>
+              </div>
+            </div>
+
+            <div class="filter-row">
+              <div class="filter-check"></div>
+              <div class="filter-label-row">
+                <span class="filter-label">Mobile-friendly</span>
+                <span class="filter-help" data-tip="Passes Google's mobile-friendliness test.">i</span>
+              </div>
+              <div class="filter-controls">
+                <select class="comp-select"><option>passes</option><option selected>fails</option></select>
+              </div>
+            </div>
+
+            <div class="filter-row">
+              <div class="filter-check"></div>
+              <div class="filter-label-row">
+                <span class="filter-label">Tech stack</span>
+                <span class="filter-help" data-tip="Detected platform. Wix/Squarespace = DIY, often poor. Custom = bigger budget.">i</span>
+              </div>
+              <div class="filter-controls">
+                <select class="comp-select"><option selected>contains</option><option>excludes</option></select>
+                <input class="val-input wide" value="WordPress" />
+              </div>
+            </div>
+
+            <div class="filter-row">
+              <div class="filter-check"></div>
+              <div class="filter-label-row">
+                <span class="filter-label">Booking widget above fold</span>
+                <span class="filter-help" data-tip="A 'book / appointment' CTA in the top 600px of the homepage.">i</span>
+              </div>
+              <div class="filter-controls">
+                <select class="comp-select"><option>present</option><option selected>missing</option></select>
+              </div>
+            </div>
+
+            <div class="filter-row">
+              <div class="filter-check"></div>
+              <div class="filter-label-row">
+                <span class="filter-label">Phone visible above fold</span>
+              </div>
+              <div class="filter-controls">
+                <select class="comp-select"><option>visible</option><option selected>hidden</option></select>
+              </div>
+            </div>
+
+            <div class="filter-row">
+              <div class="filter-check"></div>
+              <div class="filter-label-row">
+                <span class="filter-label">Reviews widget on site</span>
+              </div>
+              <div class="filter-controls">
+                <select class="comp-select"><option>present</option><option selected>missing</option></select>
+              </div>
+            </div>
+
+            <div class="add-signal-row">+ Add another website signal</div>
+          </div>
+
+          <!-- ====== SEARCH / SEO ====== -->
+          <div class="signal-group">
+            <div class="signal-group-head">
+              <span class="signal-group-title">🔍 Search / Local SEO</span>
+              <span class="signal-group-count">0 active · 9 available</span>
+            </div>
+            <div class="signal-group-help">Visibility on Google Maps + organic search.</div>
+
+            <div class="filter-row">
+              <div class="filter-check"></div>
+              <div class="filter-label-row">
+                <span class="filter-label">Local pack rank for primary keyword</span>
+                <span class="filter-help" data-tip="The local 3-pack is the Google Maps box at the top of search results — 3 businesses + map. Rank 1–3 = 70%+ clicks.">i</span>
+              </div>
+              <div class="filter-controls">
+                <select class="comp-select"><option selected>not in 3-pack</option><option>rank ≥</option><option>not on first page</option></select>
+              </div>
+            </div>
+
+            <div class="filter-row">
+              <div class="filter-check"></div>
+              <div class="filter-label-row">
+                <span class="filter-label">Rank drop (last 30d)</span>
+              </div>
+              <div class="filter-controls">
+                <select class="comp-select"><option selected>≥</option></select>
+                <input class="val-input" value="3" />
+                <span class="val-suffix">pos</span>
+              </div>
+            </div>
+
+            <div class="filter-row">
+              <div class="filter-check"></div>
+              <div class="filter-label-row">
+                <span class="filter-label">Photo count on Google profile</span>
+                <span class="filter-help" data-tip="One of Google's strongest profile-completeness signals.">i</span>
+              </div>
+              <div class="filter-controls">
+                <select class="comp-select"><option selected>&lt;</option><option>≥</option><option>between</option></select>
+                <input class="val-input" value="50" />
+              </div>
+            </div>
+
+            <div class="filter-row">
+              <div class="filter-check"></div>
+              <div class="filter-label-row">
+                <span class="filter-label">Days since last GBP post</span>
+                <span class="filter-help" data-tip="Google Business Profile updates/offers. Stale profiles get lower visibility.">i</span>
+              </div>
+              <div class="filter-controls">
+                <select class="comp-select"><option selected>&gt;</option></select>
+                <input class="val-input" value="60" />
+                <span class="val-suffix">days</span>
+              </div>
+            </div>
+
+            <div class="filter-row">
+              <div class="filter-check"></div>
+              <div class="filter-label-row">
+                <span class="filter-label">Days since last review</span>
+              </div>
+              <div class="filter-controls">
+                <select class="comp-select"><option selected>&gt;</option></select>
+                <input class="val-input" value="30" />
+                <span class="val-suffix">days</span>
+              </div>
+            </div>
+
+            <div class="filter-row">
+              <div class="filter-check"></div>
+              <div class="filter-label-row">
+                <span class="filter-label">Services listed on GBP</span>
+              </div>
+              <div class="filter-controls">
+                <select class="comp-select"><option selected>&lt;</option><option>≥</option></select>
+                <input class="val-input" value="3" />
+              </div>
+            </div>
+
+            <div class="filter-row">
+              <div class="filter-check"></div>
+              <div class="filter-label-row">
+                <span class="filter-label">Hours match site vs GBP</span>
+              </div>
+              <div class="filter-controls">
+                <select class="comp-select"><option>match</option><option selected>mismatch</option></select>
+              </div>
+            </div>
+
+            <div class="add-signal-row">+ Add another search signal</div>
+          </div>
+
+          <!-- ====== ADS ====== -->
+          <div class="signal-group">
+            <div class="signal-group-head">
+              <span class="signal-group-title">📣 Ads / paid presence</span>
+              <span class="signal-group-count">0 active · 8 available</span>
+            </div>
+            <div class="signal-group-help">Their paid Meta + Google footprint.</div>
+
+            <div class="filter-row">
+              <div class="filter-check"></div>
+              <div class="filter-label-row">
+                <span class="filter-label">Active Meta ads count</span>
+              </div>
+              <div class="filter-controls">
+                <select class="comp-select"><option selected>=</option><option>&lt;</option><option>≥</option></select>
+                <input class="val-input" value="0" />
+              </div>
+            </div>
+
+            <div class="filter-row">
+              <div class="filter-check"></div>
+              <div class="filter-label-row">
+                <span class="filter-label">Active Google ads count</span>
+              </div>
+              <div class="filter-controls">
+                <select class="comp-select"><option selected>=</option><option>&lt;</option></select>
+                <input class="val-input" value="0" />
+              </div>
+            </div>
+
+            <div class="filter-row">
+              <div class="filter-check"></div>
+              <div class="filter-label-row">
+                <span class="filter-label">Ads running but 0 keyword-lane hits</span>
+                <span class="filter-help" data-tip="They spend money but their copy doesn't contain the keywords patients search.">i</span>
+              </div>
+              <div class="filter-controls">
+                <span class="val-binary">yes</span>
+              </div>
+            </div>
+
+            <div class="filter-row">
+              <div class="filter-check"></div>
+              <div class="filter-label-row">
+                <span class="filter-label">Brand hijack — competitors bidding on brand name</span>
+                <span class="filter-help" data-tip="When someone searches the prospect's name, a competitor's paid ad shows first.">i</span>
+              </div>
+              <div class="filter-controls">
+                <span class="val-binary">detected</span>
+              </div>
+            </div>
+
+            <div class="filter-row">
+              <div class="filter-check"></div>
+              <div class="filter-label-row">
+                <span class="filter-label">Days since last ad refresh</span>
+              </div>
+              <div class="filter-controls">
+                <select class="comp-select"><option selected>&gt;</option></select>
+                <input class="val-input" value="60" />
+                <span class="val-suffix">days</span>
+              </div>
+            </div>
+
+            <div class="filter-row">
+              <div class="filter-check"></div>
+              <div class="filter-label-row">
+                <span class="filter-label">Open ad lane in their category</span>
+                <span class="filter-help" data-tip="A relevant service keyword has ≤2 advertisers in their geo. Cheap entry for them.">i</span>
+              </div>
+              <div class="filter-controls">
+                <span class="val-binary">available</span>
+              </div>
+            </div>
+
+            <div class="filter-row">
+              <div class="filter-check"></div>
+              <div class="filter-label-row">
+                <span class="filter-label">Remarketing pixel installed</span>
+              </div>
+              <div class="filter-controls">
+                <select class="comp-select"><option>installed</option><option selected>missing</option></select>
+              </div>
+            </div>
+
+            <div class="add-signal-row">+ Add another ads signal</div>
+          </div>
+
+          <!-- ====== REVIEWS ====== -->
+          <div class="signal-group">
+            <div class="signal-group-head">
+              <span class="signal-group-title">⭐ Reviews / reputation</span>
+              <span class="signal-group-count">0 active · 10 available</span>
+            </div>
+            <div class="signal-group-help">Reputation signals — highest emotional urgency.</div>
+
+            <div class="filter-row">
+              <div class="filter-check"></div>
+              <div class="filter-label-row">
+                <span class="filter-label">Owner reply rate (last 20 reviews)</span>
+                <span class="filter-help" data-tip="% of reviews with an owner response. Industry benchmark ~89%.">i</span>
+              </div>
+              <div class="filter-controls">
+                <select class="comp-select"><option selected>&lt;</option><option>≥</option><option>between</option></select>
+                <input class="val-input" value="25" />
+                <span class="val-suffix">%</span>
+              </div>
+            </div>
+
+            <div class="filter-row">
+              <div class="filter-check"></div>
+              <div class="filter-label-row">
+                <span class="filter-label">Average rating</span>
+              </div>
+              <div class="filter-controls">
+                <select class="comp-select"><option selected>between</option><option>&lt;</option><option>≥</option></select>
+                <input class="val-input" value="3.5" />
+                <input class="val-input" value="4.5" />
+              </div>
+            </div>
+
+            <div class="filter-row">
+              <div class="filter-check"></div>
+              <div class="filter-label-row">
+                <span class="filter-label">Unanswered 1★ aged</span>
+              </div>
+              <div class="filter-controls">
+                <select class="comp-select"><option selected>&gt;</option></select>
+                <input class="val-input" value="7" />
+                <span class="val-suffix">days</span>
+              </div>
+            </div>
+
+            <div class="filter-row">
+              <div class="filter-check"></div>
+              <div class="filter-label-row">
+                <span class="filter-label">Fresh 1★ in last N days</span>
+              </div>
+              <div class="filter-controls">
+                <select class="comp-select"><option selected>within</option></select>
+                <input class="val-input" value="14" />
+                <span class="val-suffix">days</span>
+              </div>
+            </div>
+
+            <div class="filter-row">
+              <div class="filter-check"></div>
+              <div class="filter-label-row">
+                <span class="filter-label">Rating drop (last 30d)</span>
+              </div>
+              <div class="filter-controls">
+                <select class="comp-select"><option selected>≥</option></select>
+                <input class="val-input" value="0.1" />
+              </div>
+            </div>
+
+            <div class="filter-row">
+              <div class="filter-check"></div>
+              <div class="filter-label-row">
+                <span class="filter-label">Negative theme spike</span>
+                <span class="filter-help" data-tip="A complaint topic appearing 3+ times in last 60 days.">i</span>
+              </div>
+              <div class="filter-controls">
+                <select class="comp-select"><option selected>detected</option></select>
+              </div>
+            </div>
+
+            <div class="filter-row">
+              <div class="filter-check"></div>
+              <div class="filter-label-row">
+                <span class="filter-label">Review velocity change</span>
+              </div>
+              <div class="filter-controls">
+                <select class="comp-select"><option selected>dropping</option><option>flat</option><option>rising</option></select>
+              </div>
+            </div>
+
+            <div class="filter-row">
+              <div class="filter-check"></div>
+              <div class="filter-label-row">
+                <span class="filter-label">Bilingual reviews unhandled</span>
+                <span class="filter-help" data-tip="Get reviews in ES/FR but only reply in EN.">i</span>
+              </div>
+              <div class="filter-controls">
+                <span class="val-binary">yes</span>
+              </div>
+            </div>
+
+            <div class="add-signal-row">+ Add another review signal</div>
+          </div>
+
+          <!-- ====== COMPETITIVE ====== -->
+          <div class="signal-group">
+            <div class="signal-group-head">
+              <span class="signal-group-title">🗺️ Competitive / geo pressure</span>
+              <span class="signal-group-count">0 active · 5 available</span>
+            </div>
+            <div class="signal-group-help">Threats from nearby competitors — strong pitch urgency.</div>
+
+            <div class="filter-row">
+              <div class="filter-check"></div>
+              <div class="filter-label-row">
+                <span class="filter-label">Same-building competitor</span>
+                <span class="filter-help" data-tip="Another business in the same category at the same address (within 50m).">i</span>
+              </div>
+              <div class="filter-controls">
+                <span class="val-binary">detected</span>
+              </div>
+            </div>
+
+            <div class="filter-row">
+              <div class="filter-check"></div>
+              <div class="filter-label-row">
+                <span class="filter-label">New competitor within</span>
+              </div>
+              <div class="filter-controls">
+                <input class="val-input" value="1" />
+                <span class="val-suffix">mi · first seen &lt;</span>
+                <input class="val-input" value="90" />
+                <span class="val-suffix">d</span>
+              </div>
+            </div>
+
+            <div class="filter-row">
+              <div class="filter-check"></div>
+              <div class="filter-label-row">
+                <span class="filter-label">Closed on day(s)</span>
+              </div>
+              <div class="filter-controls">
+                <select class="comp-select"><option selected>Sundays</option><option>Mondays</option><option>weekends</option></select>
+              </div>
+            </div>
+
+            <div class="filter-row">
+              <div class="filter-check"></div>
+              <div class="filter-label-row">
+                <span class="filter-label">Leader review velocity ratio</span>
+              </div>
+              <div class="filter-controls">
+                <select class="comp-select"><option selected>≥</option></select>
+                <input class="val-input" value="2" />
+                <span class="val-suffix">× yours</span>
+              </div>
+            </div>
+
+            <div class="add-signal-row">+ Add another competitive signal</div>
+          </div>
+
+          <!-- ====== BUSINESS QUALIFIERS ====== -->
+          <div class="signal-group">
+            <div class="signal-group-head">
+              <span class="signal-group-title">💼 Business qualifiers</span>
+              <span class="signal-group-count active">3 active · 8 available</span>
+            </div>
+            <div class="signal-group-help">Make sure they can afford to hire you.</div>
+
+            <div class="filter-row active">
+              <div class="filter-check"></div>
+              <div class="filter-label-row">
+                <span class="filter-label">Review count</span>
+                <span class="filter-help" data-tip="Proxy for revenue. 100+ = active operations.">i</span>
+              </div>
+              <div class="filter-controls">
+                <select class="comp-select"><option selected>≥</option><option>≤</option><option>between</option></select>
+                <input class="val-input" value="100" />
+              </div>
+            </div>
+
+            <div class="filter-row active">
+              <div class="filter-check"></div>
+              <div class="filter-label-row">
+                <span class="filter-label">Years in business</span>
+              </div>
+              <div class="filter-controls">
+                <select class="comp-select"><option selected>≥</option><option>≤</option><option>between</option></select>
+                <input class="val-input" value="2" />
+              </div>
+            </div>
+
+            <div class="filter-row active">
+              <div class="filter-check"></div>
+              <div class="filter-label-row">
+                <span class="filter-label">Email verified</span>
+                <span class="filter-help" data-tip="Owner email passed SMTP verification.">i</span>
+              </div>
+              <div class="filter-controls">
+                <select class="comp-select"><option selected>yes</option><option>any</option></select>
+              </div>
+            </div>
+
+            <div class="filter-row">
+              <div class="filter-check"></div>
+              <div class="filter-label-row">
+                <span class="filter-label">Phone verified</span>
+              </div>
+              <div class="filter-controls">
+                <select class="comp-select"><option selected>yes</option><option>any</option></select>
+              </div>
+            </div>
+
+            <div class="filter-row">
+              <div class="filter-check"></div>
+              <div class="filter-label-row">
+                <span class="filter-label">Instagram follower count</span>
+              </div>
+              <div class="filter-controls">
+                <select class="comp-select"><option selected>≥</option></select>
+                <input class="val-input" value="1000" />
+              </div>
+            </div>
+
+            <div class="filter-row">
+              <div class="filter-check"></div>
+              <div class="filter-label-row">
+                <span class="filter-label">Distinct staff named in reviews</span>
+              </div>
+              <div class="filter-controls">
+                <select class="comp-select"><option selected>≥</option></select>
+                <input class="val-input" value="3" />
+              </div>
+            </div>
+
+            <div class="add-signal-row">+ Add another qualifier</div>
+          </div>
+
+          <!-- ====== EXCLUSIONS ====== -->
+          <div class="signal-group">
+            <div class="signal-group-head">
+              <span class="signal-group-title">🚫 Exclusions</span>
+              <span class="signal-group-count active">2 active · 4 available</span>
+            </div>
+            <div class="signal-group-help">Skip prospects you don't want surfaced.</div>
+
+            <div class="filter-row active">
+              <div class="filter-check"></div>
+              <div class="filter-label-row"><span class="filter-label">Exclude existing clients</span></div>
+              <div class="filter-controls"><span class="val-binary">on</span></div>
+            </div>
+
+            <div class="filter-row active">
+              <div class="filter-check"></div>
+              <div class="filter-label-row">
+                <span class="filter-label">Cooldown — don't re-show contacted</span>
+                <span class="filter-help" data-tip="If you've marked a business as contacted, hide for N days.">i</span>
+              </div>
+              <div class="filter-controls">
+                <select class="comp-select"><option selected>within</option></select>
+                <input class="val-input" value="90" />
+                <span class="val-suffix">days</span>
+              </div>
+            </div>
+
+            <div class="filter-row">
+              <div class="filter-check"></div>
+              <div class="filter-label-row"><span class="filter-label">Exclude multi-location chains</span></div>
+              <div class="filter-controls">
+                <select class="comp-select"><option selected>≥</option></select>
+                <input class="val-input" value="3" />
+                <span class="val-suffix">loc</span>
+              </div>
+            </div>
+
+            <div class="filter-row">
+              <div class="filter-check"></div>
+              <div class="filter-label-row"><span class="filter-label">Exclude unclaimed listings</span></div>
+              <div class="filter-controls"><span class="val-binary">on</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ============ PREVIEW BAR ============ -->
+        <div class="preview-bar">
+          <div>
+            <div class="preview-num">47</div>
+            <div class="preview-meta">matches</div>
+          </div>
+          <div class="active-filters-summary">
+            <div>Brickell med spas · Lighthouse Perf &lt; 60, LCP &gt; 3s, no LocalBusiness schema, no FAQ schema, NAP inconsistent, reviews ≥ 100, years ≥ 2, verified email — <b style="color:#fff;">website rebuild candidates</b></div>
+            <div class="preview-meta">// 42 with verified email · 12 added this week · 12 active filters total</div>
+          </div>
+          <div class="preview-actions">
+            <button class="btn btn-ghost" onclick="document.getElementById('saveModal').classList.add('open')">Save as list</button>
+            <a href="list-detail.html" class="btn btn-primary">See 47 results →</a>
+          </div>
+        </div>
+
+        <div style="margin-top:24px; padding:14px 18px; background:var(--bg-3); border-radius:10px; font-size:11.5px; color:var(--text-3); font-family:'JetBrains Mono',monospace; line-height:1.6;">
+          // 60+ tunable signals · every numeric filter has comparator + editable value · every binary signal is a checkbox · ad-hoc searches run live · saved lists refresh on a schedule
+        </div>
+      </div>
+    </main>
+
+    <!-- ============ SAVE AS LIST MODAL ============ -->
+    <div class="modal-overlay" id="saveModal">
+      <div class="modal">
+        <div class="modal-title">Save as list</div>
+        <div class="modal-sub">// 12 active filters · 47 matches today</div>
+
+        <div class="modal-field">
+          <label class="modal-label">List name</label>
+          <input class="modal-input" value="Brickell med spas · website rebuild" placeholder="e.g. Toronto dental — needs website redesign" />
+        </div>
+
+        <div class="modal-field">
+          <label class="modal-label">What pitch are you selling? (shown on list card)</label>
+          <textarea class="modal-input" placeholder="e.g. Your site is losing leads before they ever call. Lighthouse &lt; 60, missing schema, NAP inconsistent...">Your site is losing leads before they ever call. Lighthouse &lt; 60, missing schema, NAP inconsistent. These convert at ~22% reply rate on the cold pitch.</textarea>
+        </div>
+
+        <div class="modal-field">
+          <label class="modal-label">Refresh cadence</label>
+          <div class="modal-radio-row">
+            <div class="modal-radio active">Daily 6am</div>
+            <div class="modal-radio">Weekly Mon</div>
+            <div class="modal-radio">Manual only</div>
+          </div>
+        </div>
+
+        <div class="modal-field">
+          <label class="modal-label">Owner</label>
+          <select class="modal-input">
+            <option>Tom Mendes (you)</option>
+            <option>Sara Akhtar</option>
+            <option>Marc Kuhne</option>
+            <option>Jess Iturralde</option>
+          </select>
+        </div>
+
+        <div class="modal-actions">
+          <button class="btn btn-ghost" onclick="document.getElementById('saveModal').classList.remove('open')">Cancel</button>
+          <button class="btn btn-primary">Save list →</button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // Service templates
+      document.querySelectorAll('.service-tile').forEach(s => s.addEventListener('click', () => {
+        document.querySelectorAll('.service-tile').forEach(x => x.classList.remove('active'));
+        s.classList.add('active');
+      }));
+      // Filter rows — click anywhere to toggle active
+      document.querySelectorAll('.filter-row').forEach(r => {
+        r.addEventListener('click', e => {
+          if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'OPTION') return;
+          r.classList.toggle('active');
+        });
+      });
+      // Radio rows in modal
+      document.querySelectorAll('.modal-radio').forEach(r => r.addEventListener('click', () => {
+        r.parentElement.querySelectorAll('.modal-radio').forEach(x => x.classList.remove('active'));
+        r.classList.add('active');
+      }));
+      // Modal close on overlay click
+      document.getElementById('saveModal').addEventListener('click', e => {
+        if (e.target.id === 'saveModal') e.currentTarget.classList.remove('open');
+      });
+    </script>
+  </body>
+</html>

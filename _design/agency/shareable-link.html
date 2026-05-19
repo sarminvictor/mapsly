@@ -1,0 +1,456 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Solea Brickell Spa · Anchor Local</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+    <style>
+      :root {
+        --bg:#f6f7fb; --bg-2:#fff; --bg-3:#eef0f5;
+        --text:#1c1d24; --text-2:#54586a; --text-3:#8b91a3;
+        --border:#e3e5ec; --border-strong:#d2d5df;
+        --indigo:#5b3df5; --indigo-2:#4729d8; --indigo-light:rgba(91,61,245,.10);
+        --teal:#0891b2;
+        --success:#16a34a; --success-light:rgba(22,163,74,.10);
+        --warn:#d97706; --warn-light:rgba(217,119,6,.10);
+        --alert:#dc2626; --alert-light:rgba(220,38,38,.10);
+        --shadow-sm:0 1px 3px rgba(20,22,32,.04);
+      }
+      * { margin:0; padding:0; box-sizing:border-box; }
+      body { font-family:'Inter',sans-serif; background:var(--bg); color:var(--text); line-height:1.5; min-height:100vh; -webkit-font-smoothing:antialiased; }
+      a { color:inherit; }
+
+      /* WHAT THIS IS · DEMO BANNER */
+      .demo-banner {
+        background:var(--text); color:#fff;
+        padding:10px 24px;
+        font-size:11.5px;
+        text-align:center;
+        font-family:'JetBrains Mono',monospace;
+      }
+      .demo-banner b { color:var(--indigo); }
+      .demo-banner a { color:#fff; text-decoration:underline; opacity:.8; margin-left:8px; }
+
+      /* AGENCY-BRANDED HEADER */
+      .branded-head {
+        background:var(--bg-2);
+        border-bottom:1px solid var(--border);
+        padding:20px 0;
+      }
+      .branded-inner {
+        max-width:980px;
+        margin:0 auto;
+        padding:0 32px;
+        display:flex; justify-content:space-between; align-items:center;
+      }
+      .b-agency { display:flex; align-items:center; gap:12px; }
+      .b-agency-logo {
+        width:38px; height:38px; border-radius:8px;
+        background:linear-gradient(135deg, var(--indigo), var(--teal));
+        color:#fff;
+        display:flex; align-items:center; justify-content:center;
+        font-weight:800; font-size:13px;
+      }
+      .b-agency-name {
+        font-weight:800; font-size:16px;
+        letter-spacing:-.01em;
+      }
+      .b-agency-tag {
+        font-family:'JetBrains Mono',monospace;
+        font-size:11px; color:var(--text-3);
+        margin-top:1px;
+      }
+      .b-meta {
+        font-family:'JetBrains Mono',monospace;
+        font-size:11px;
+        color:var(--text-3);
+        text-align:right;
+        line-height:1.5;
+      }
+
+      .container { max-width:980px; margin:0 auto; padding:32px; }
+
+      /* HERO */
+      .target-card {
+        background:var(--bg-2);
+        border:1px solid var(--border);
+        border-radius:14px;
+        padding:32px 36px;
+        margin-bottom:22px;
+        box-shadow:var(--shadow-sm);
+      }
+      .target-eyebrow {
+        font-family:'JetBrains Mono',monospace;
+        font-size:11px; font-weight:700;
+        text-transform:uppercase; letter-spacing:.1em;
+        color:var(--indigo);
+        margin-bottom:8px;
+      }
+      .target-name {
+        font-family:'Fraunces',serif;
+        font-size:38px; font-weight:700;
+        letter-spacing:-.025em;
+        line-height:1.1;
+        margin-bottom:8px;
+      }
+      .target-meta {
+        font-size:13px; color:var(--text-3);
+        font-family:'JetBrains Mono',monospace;
+        margin-bottom:24px;
+      }
+
+      .stat-row {
+        display:grid;
+        grid-template-columns:repeat(4, 1fr);
+        gap:14px;
+        padding-top:24px;
+        border-top:1px solid var(--border);
+      }
+      @media (max-width:700px) { .stat-row { grid-template-columns:repeat(2, 1fr); } }
+      .stat {
+        padding:14px 16px;
+        background:var(--bg-3);
+        border-radius:10px;
+      }
+      .stat-label {
+        font-family:'JetBrains Mono',monospace;
+        font-size:10px; font-weight:700;
+        text-transform:uppercase; letter-spacing:.06em;
+        color:var(--text-3);
+        margin-bottom:5px;
+      }
+      .stat-num {
+        font-family:'Fraunces',serif;
+        font-size:28px; font-weight:700;
+        letter-spacing:-.02em; line-height:1;
+      }
+      .stat-num.alert { color:var(--alert); }
+      .stat-num.warn { color:var(--warn); }
+      .stat-meta {
+        font-size:11px; color:var(--text-3);
+        margin-top:4px;
+        font-family:'JetBrains Mono',monospace;
+      }
+
+      /* HEADLINE */
+      .headline {
+        font-family:'Fraunces',serif;
+        font-size:32px; font-weight:600;
+        letter-spacing:-.02em; line-height:1.3;
+        padding:28px 36px;
+        background:var(--bg-2);
+        border:1px solid var(--border);
+        border-radius:14px;
+        margin-bottom:22px;
+        text-align:center;
+        box-shadow:var(--shadow-sm);
+      }
+      .headline b { color:var(--alert); font-weight:700; }
+
+      /* FINDING CARDS */
+      .findings { margin-bottom:22px; }
+      .section-title {
+        font-family:'Fraunces',serif;
+        font-size:22px; font-weight:600;
+        letter-spacing:-.02em;
+        margin-bottom:18px;
+      }
+      .finding {
+        background:var(--bg-2);
+        border:1px solid var(--border);
+        border-radius:14px;
+        padding:24px 28px;
+        margin-bottom:12px;
+        display:grid;
+        grid-template-columns:auto 1fr;
+        gap:20px;
+        box-shadow:var(--shadow-sm);
+      }
+      .finding-num {
+        width:36px; height:36px;
+        border-radius:50%;
+        background:var(--indigo);
+        color:#fff;
+        font-family:'Fraunces',serif;
+        font-weight:700; font-size:16px;
+        display:flex; align-items:center; justify-content:center;
+        flex-shrink:0;
+      }
+      .finding-title {
+        font-size:18px; font-weight:700;
+        letter-spacing:-.01em;
+        margin-bottom:8px;
+        line-height:1.3;
+      }
+      .finding-body {
+        font-size:14px;
+        color:var(--text-2);
+        line-height:1.6;
+      }
+      .finding-body b { color:var(--text); font-weight:600; }
+
+      /* FIX */
+      .fix-card {
+        background:linear-gradient(135deg, var(--indigo-light), transparent);
+        border:1px solid rgba(91,61,245,.25);
+        border-radius:14px;
+        padding:28px 32px;
+        margin-bottom:22px;
+      }
+      .fix-card-title {
+        font-family:'Fraunces',serif;
+        font-size:22px; font-weight:600;
+        letter-spacing:-.02em;
+        margin-bottom:14px;
+      }
+      .fix-list {
+        font-size:14.5px; line-height:1.75;
+        color:var(--text-2);
+        padding-left:22px;
+      }
+      .fix-list li::marker { color:var(--indigo); }
+      .fix-list b { color:var(--text); font-weight:600; }
+
+      /* IMPACT */
+      .impact {
+        display:grid;
+        grid-template-columns:repeat(3, 1fr);
+        gap:14px;
+        margin-bottom:22px;
+      }
+      @media (max-width:700px) { .impact { grid-template-columns:1fr; } }
+      .impact-card {
+        background:var(--bg-2);
+        border:1px solid var(--border);
+        border-radius:14px;
+        padding:22px;
+        text-align:center;
+        box-shadow:var(--shadow-sm);
+      }
+      .impact-num {
+        font-family:'Fraunces',serif;
+        font-size:36px; font-weight:700;
+        color:var(--indigo);
+        letter-spacing:-.02em;
+        line-height:1;
+      }
+      .impact-label {
+        font-family:'JetBrains Mono',monospace;
+        font-size:11px; font-weight:700;
+        text-transform:uppercase; letter-spacing:.06em;
+        color:var(--text-3);
+        margin-top:10px;
+      }
+
+      /* CTA */
+      .cta {
+        background:var(--text); color:#fff;
+        border-radius:18px;
+        padding:36px 40px;
+        text-align:center;
+        margin-bottom:32px;
+      }
+      .cta-headline {
+        font-family:'Fraunces',serif;
+        font-size:26px; font-weight:600;
+        letter-spacing:-.02em;
+        line-height:1.35;
+        margin-bottom:24px;
+        max-width:560px;
+        margin-left:auto; margin-right:auto;
+      }
+      .cta-btn {
+        display:inline-block;
+        background:var(--indigo);
+        color:#fff;
+        padding:14px 28px;
+        border-radius:10px;
+        font-size:15px; font-weight:700;
+        margin:0 6px 6px;
+        text-decoration:none;
+      }
+      .cta-btn:hover { background:var(--indigo-2); }
+      .cta-btn.secondary {
+        background:transparent;
+        border:1px solid rgba(255,255,255,.3);
+      }
+      .cta-meta {
+        font-family:'JetBrains Mono',monospace;
+        font-size:11.5px;
+        color:rgba(255,255,255,.65);
+        margin-top:16px;
+      }
+
+      /* FOOTER */
+      .foot {
+        padding:24px 0;
+        border-top:1px solid var(--border);
+        text-align:center;
+        font-size:11.5px;
+        color:var(--text-3);
+        font-family:'JetBrains Mono',monospace;
+        line-height:1.6;
+      }
+      .foot-mapsly { color:var(--text-3); margin-top:4px; }
+    </style>
+  </head>
+  <body>
+
+    <!-- DEMO BANNER · only visible because this is the example -->
+    <div class="demo-banner">
+      <b>// SHAREABLE LINK EXAMPLE</b> · this is what your prospect sees when they click your shareable link — no Mapsly login required, view-only, branded by you ·
+      <a href="reports.html">back to Reports</a>
+    </div>
+
+    <!-- AGENCY-BRANDED HEADER -->
+    <div class="branded-head">
+      <div class="branded-inner">
+        <div class="b-agency">
+          <div class="b-agency-logo">AL</div>
+          <div>
+            <div class="b-agency-name">Anchor Local</div>
+            <div class="b-agency-tag">local marketing · Toronto + Miami</div>
+          </div>
+        </div>
+        <div class="b-meta">
+          prepared for Maria<br>
+          May 17 · 2026
+        </div>
+      </div>
+    </div>
+
+    <div class="container">
+
+      <!-- TARGET CARD -->
+      <div class="target-card">
+        <div class="target-eyebrow">// audit prepared for</div>
+        <div class="target-name">Solea Brickell Spa</div>
+        <div class="target-meta">701 S Miami Ave Suite 311A · Brickell City Centre · medical spa · 5 yrs on Google</div>
+
+        <div class="stat-row">
+          <div class="stat">
+            <div class="stat-label">Google rating</div>
+            <div class="stat-num warn">4.4</div>
+            <div class="stat-meta">market leader 5.0</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">Reviews</div>
+            <div class="stat-num">342</div>
+            <div class="stat-meta">+53 last 30 days</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">Reply rate</div>
+            <div class="stat-num alert">0%</div>
+            <div class="stat-meta">industry 89%</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">Local rank</div>
+            <div class="stat-num warn">#3</div>
+            <div class="stat-meta">"med spa brickell"</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- HEADLINE -->
+      <div class="headline">
+        You generated <b>+53 reviews in 30 days</b>.<br>You replied to <b>zero</b> of them.
+      </div>
+
+      <!-- FINDINGS -->
+      <div class="findings">
+        <div class="section-title">What I noticed</div>
+
+        <div class="finding">
+          <div class="finding-num">1</div>
+          <div>
+            <div class="finding-title">Two unanswered 1★ reviews — both about appointment-time confusion</div>
+            <div class="finding-body">
+              A.C. (May 11) and R.P. (May 10) both describe the same failure pattern: <b>appointment time shifted between booking and reminder.</b> Both reviewers have prior review history (2 and 20 reviews respectively). Six days unanswered. Visible to every patient researching you.
+            </div>
+          </div>
+        </div>
+
+        <div class="finding">
+          <div class="finding-num">2</div>
+          <div>
+            <div class="finding-title">Sisu Clinic just opened in your building</div>
+            <div class="finding-body">
+              Same address (701 S Miami Ave). Sisu sits at <b>position #3 in Google's local pack for "botox brickell"</b> with a $9/unit promo — competing directly for your most-searched service. They've launched <b>3 new Meta ads this week</b>.
+            </div>
+          </div>
+        </div>
+
+        <div class="finding">
+          <div class="finding-num">3</div>
+          <div>
+            <div class="finding-title">13 Meta ads · zero keyword matches</div>
+            <div class="finding-body">
+              Your active ads run "$59 deal" copy. <b>None of them contain the service keywords patients actually search</b> — "hydrafacial brickell" has 210 monthly searches and zero advertisers. You're paying for the wrong intent.
+            </div>
+          </div>
+        </div>
+
+        <div class="finding">
+          <div class="finding-num">4</div>
+          <div>
+            <div class="finding-title">Your bilingual service is the edge — but invisible</div>
+            <div class="finding-body">
+              <b>6 of your last 20 reviews are in Spanish</b> and rave about the bilingual experience. 50% of Brickell is Hispanic. Your website doesn't mention this anywhere above the fold.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- FIX -->
+      <div class="fix-card">
+        <div class="fix-card-title">What I'd do — first 30 days</div>
+        <ul class="fix-list">
+          <li><b>Reply to all 20+ unanswered reviews.</b> AI-drafted in English and Spanish — you approve before posting. Target average reply time: 24 hours.</li>
+          <li><b>Rewrite 14 Meta ad variants — one per service keyword.</b> Lane-matched copy ("hydrafacial brickell" gets a hydrafacial-anchored ad). Bilingual versions included.</li>
+          <li><b>Add LocalBusiness + FAQ schema</b> to your site. Standardize NAP across header, footer, contact. Lift Lighthouse Performance from 58 → 80.</li>
+          <li><b>Build the Spanish-first landing page</b> for "spa brickell español" — 90 monthly searches with no dedicated landing page in the whole market.</li>
+        </ul>
+      </div>
+
+      <!-- IMPACT -->
+      <div class="section-title">Projected impact · 90 days</div>
+      <div class="impact">
+        <div class="impact-card">
+          <div class="impact-num">+0.4</div>
+          <div class="impact-label">rating uplift</div>
+        </div>
+        <div class="impact-card">
+          <div class="impact-num">+12</div>
+          <div class="impact-label">patients per month</div>
+        </div>
+        <div class="impact-card">
+          <div class="impact-num">↑ #1</div>
+          <div class="impact-label">local pack target</div>
+        </div>
+      </div>
+
+      <!-- CTA -->
+      <div class="cta">
+        <div class="cta-headline">
+          30 minutes on a call, I'll walk you through it.<br>
+          If it's not for you, no follow-up.
+        </div>
+        <a href="#" class="cta-btn">Book a 30-min call →</a>
+        <a href="mailto:tom@anchorlocal.com" class="cta-btn secondary">Reply by email</a>
+        <div class="cta-meta">
+          Tom Mendes · Anchor Local · tom@anchorlocal.com · (416) 555-0182
+        </div>
+      </div>
+
+      <!-- FOOTER -->
+      <div class="foot">
+        Prepared by Anchor Local · data sourced from Google Business Profile, Meta Ad Library, and Lighthouse audits on May 17, 2026
+        <div class="foot-mapsly">audit engine: mapsly · this link expires in 30 days</div>
+      </div>
+
+    </div>
+  </body>
+</html>

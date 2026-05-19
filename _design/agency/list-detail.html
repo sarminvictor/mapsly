@@ -1,0 +1,495 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Brickell med spas · website rebuild — Mapsly</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="_shared.css" />
+    <style>
+      .breadcrumb { display:flex; align-items:center; gap:8px; font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text-3); margin-bottom:8px; }
+      .breadcrumb a:hover { color:var(--indigo); }
+      .breadcrumb .sep { color:var(--text-4); }
+
+      .global-search { display:flex; align-items:center; gap:8px; padding:0 12px; background:var(--bg-2); border:1px solid var(--border); border-radius:8px; min-width:260px; }
+      .global-search:focus-within { border-color:var(--indigo); }
+      .global-search input { flex:1; padding:9px 0; border:none; background:transparent; font-size:13px; color:var(--text); outline:none; }
+      .global-search-kbd { font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--text-3); background:var(--bg-3); padding:1px 6px; border-radius:3px; }
+
+      /* HERO */
+      .list-hero { background:var(--bg-2); border:1px solid var(--border); border-radius:14px; padding:24px 28px; margin-bottom:22px; box-shadow:var(--shadow-sm); }
+      .hero-title-row { display:flex; justify-content:space-between; align-items:flex-start; gap:14px; flex-wrap:wrap; margin-bottom:14px; }
+      .hero-title { font-size:24px; font-weight:700; letter-spacing:-.02em; line-height:1.2; }
+      .hero-pitch { font-size:14px; color:var(--text-2); line-height:1.55; padding:14px 16px; background:var(--bg-3); border-left:3px solid var(--indigo); border-radius:8px; margin-bottom:18px; font-style:italic; }
+      .hero-pitch b { color:var(--text); font-style:normal; font-weight:600; }
+
+      .hero-stats { display:grid; grid-template-columns:repeat(5, 1fr); gap:20px; padding-top:18px; border-top:1px solid var(--border); }
+      @media (max-width:900px) { .hero-stats { grid-template-columns:repeat(2,1fr); } }
+      .hero-stat-label { font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:var(--text-3); margin-bottom:5px; }
+      .hero-stat-num { font-size:24px; font-weight:800; letter-spacing:-.02em; line-height:1; }
+      .hero-stat-num.indigo { color:var(--indigo); }
+      .hero-stat-num.green { color:var(--success); }
+      .hero-stat-meta { font-size:11px; color:var(--text-3); margin-top:4px; font-family:'JetBrains Mono',monospace; }
+
+      /* FILTERS USED */
+      .filters-card { background:var(--bg-2); border:1px solid var(--border); border-radius:12px; padding:16px 20px; margin-bottom:18px; }
+      .filters-card-label { font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:600; color:var(--text-3); margin-bottom:10px; display:flex; justify-content:space-between; align-items:center; }
+      .filters-row { display:flex; flex-wrap:wrap; gap:6px; }
+      .filter-tag { display:inline-flex; align-items:center; gap:6px; font-family:'JetBrains Mono',monospace; font-size:11.5px; padding:5px 10px; background:var(--indigo-light); color:var(--indigo); border-radius:6px; font-weight:600; }
+
+      /* STATUS TABS */
+      .toolbar { display:flex; gap:8px; align-items:center; margin-bottom:14px; flex-wrap:wrap; }
+      .chip { padding:7px 13px; font-size:12.5px; font-weight:500; color:var(--text-2); background:var(--bg-2); border:1px solid var(--border); border-radius:100px; display:inline-flex; align-items:center; gap:7px; cursor:pointer; }
+      .chip.active { background:var(--indigo-light); border-color:var(--indigo); color:var(--indigo); font-weight:600; }
+      .chip-c { background:var(--bg-3); color:var(--text-2); font-family:'JetBrains Mono',monospace; font-size:10px; padding:1px 6px; border-radius:100px; }
+      .chip.active .chip-c { background:rgba(91,61,245,.18); color:var(--indigo); }
+      .chip-dot { width:8px; height:8px; border-radius:50%; }
+      .chip-dot.new { background:var(--indigo); }
+      .chip-dot.contacted { background:var(--warn); }
+      .chip-dot.replied { background:var(--success); }
+      .chip-dot.won { background:var(--success); }
+      .chip-dot.lost { background:var(--alert); }
+      .chip-dot.hidden { background:var(--text-3); }
+
+      .toolbar-right { margin-left:auto; display:flex; gap:8px; align-items:center; }
+      .search-input { padding:8px 14px; background:var(--bg-2); border:1px solid var(--border); border-radius:8px; font-size:12.5px; color:var(--text); min-width:200px; }
+
+      /* TABLE */
+      .leads-table { background:var(--bg-2); border:1px solid var(--border); border-radius:14px; overflow:hidden; }
+      table { width:100%; border-collapse:collapse; font-size:13px; }
+      th { text-align:left; font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:var(--text-3); padding:14px 16px; background:var(--bg-3); border-bottom:1px solid var(--border); white-space:nowrap; }
+      td { padding:16px; border-bottom:1px solid var(--border); vertical-align:middle; }
+      tr:last-child td { border-bottom:none; }
+      tr:hover td { background:rgba(91,61,245,.025); }
+      tr.row-dim td { opacity:.45; }
+
+      .biz-cell { display:flex; align-items:flex-start; gap:12px; min-width:240px; }
+      .biz-avatar { width:34px; height:34px; border-radius:8px; display:flex; align-items:center; justify-content:center; color:#fff; font-weight:700; font-size:12px; flex-shrink:0; }
+      .av-1 { background:linear-gradient(135deg, #c3553a, #8b3a2c); }
+      .av-2 { background:linear-gradient(135deg, #16a34a, #15803d); }
+      .av-3 { background:linear-gradient(135deg, var(--indigo), var(--indigo-2)); }
+      .av-4 { background:linear-gradient(135deg, var(--teal), #075e74); }
+      .av-5 { background:linear-gradient(135deg, #d4a574, #8a6f3f); }
+      .av-6 { background:linear-gradient(135deg, var(--alert), #9b1b1b); }
+      .av-7 { background:linear-gradient(135deg, var(--warn), #92590a); }
+      .biz-name { font-size:13.5px; font-weight:600; }
+      .biz-meta { font-size:11px; color:var(--text-3); font-family:'JetBrains Mono',monospace; margin-top:3px; line-height:1.45; }
+
+      /* STATUS PILL — interactive */
+      .status-cell { position:relative; }
+      .status-pill {
+        display:inline-flex; align-items:center; gap:6px;
+        font-family:'JetBrains Mono',monospace;
+        font-size:10.5px; font-weight:700;
+        padding:4px 10px; border-radius:5px;
+        text-transform:uppercase; letter-spacing:.05em;
+        cursor:pointer;
+        white-space:nowrap;
+        border:1px solid transparent;
+      }
+      .status-pill::after {
+        content:'⌄';
+        margin-left:2px;
+        font-size:10px;
+        opacity:.6;
+      }
+      .status-pill:hover { background:var(--bg-3); }
+      .status-pill.new       { background:var(--indigo-light); color:var(--indigo); }
+      .status-pill.contacted { background:var(--warn-light); color:var(--warn); }
+      .status-pill.replied   { background:var(--success-light); color:var(--success); }
+      .status-pill.won       { background:var(--success); color:#fff; }
+      .status-pill.lost      { background:var(--alert-light); color:var(--alert); }
+      .status-pill.hidden-s  { background:var(--bg-3); color:var(--text-3); }
+
+      .stats-mini { display:flex; gap:14px; font-family:'JetBrains Mono',monospace; font-size:12px; }
+      .stat-mini-num { font-weight:700; }
+      .stat-mini-num.amber { color:var(--warn); }
+      .stat-mini-num.alert { color:var(--alert); }
+      .stat-mini-num.success { color:var(--success); }
+      .stat-mini-label { font-size:9.5px; color:var(--text-3); margin-top:2px; text-transform:uppercase; letter-spacing:.04em; }
+
+      .signals-cell { display:flex; flex-wrap:wrap; gap:4px; max-width:300px; }
+      .sig-chip { font-family:'JetBrains Mono',monospace; font-size:10.5px; padding:2.5px 7px; border-radius:4px; background:var(--bg-3); color:var(--text-2); font-weight:600; }
+      .sig-chip.alert { background:var(--alert-light); color:var(--alert); }
+      .sig-chip.warn { background:var(--warn-light); color:var(--warn); }
+      .sig-chip.teal { background:var(--teal-light); color:var(--teal); }
+
+      .actions-cell { white-space:nowrap; text-align:right; }
+      .btn-mini { padding:6px 10px; border-radius:6px; font-size:11.5px; font-weight:600; cursor:pointer; background:var(--bg-2); color:var(--text-2); border:1px solid var(--border); }
+      .btn-mini.primary { background:var(--indigo); color:#fff; border-color:var(--indigo); }
+      .btn-mini.primary:hover { background:var(--indigo-2); }
+
+      /* Floating action bar */
+      .bulk-bar {
+        position:sticky; bottom:20px;
+        margin-top:18px;
+        display:flex; align-items:center; gap:12px;
+        background:var(--text); color:#fff;
+        padding:14px 22px;
+        border-radius:12px;
+        box-shadow:0 8px 24px rgba(20,22,32,.18);
+        font-size:13px;
+        z-index:50;
+      }
+      .bulk-bar b { font-weight:700; }
+      .bulk-meta { opacity:.7; font-family:'JetBrains Mono',monospace; font-size:11.5px; }
+
+      .ck { width:14px; height:14px; cursor:pointer; }
+    </style>
+  </head>
+  <body>
+
+    <aside class="sidebar">
+      <div class="sidebar-logo">
+        <span class="sidebar-logo-dot"></span>
+        <span class="sidebar-logo-text">mapsly</span>
+        <span class="sidebar-logo-tag">Agency</span>
+      </div>
+      <div class="sidebar-section-label">Workspace</div>
+      <a href="lists.html" class="nav-item active"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>Lists <span class="nav-item-badge">6</span></a>
+      <a href="search.html" class="nav-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>Search</a>
+      <a href="activity.html" class="nav-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>Activity <span class="nav-item-badge">23</span></a>
+      <a href="reports.html" class="nav-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>Reports</a>
+      <div class="sidebar-section-label">Account</div>
+      <a href="list-analytics.html" class="nav-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 16l4-8 4 4 5-10"/></svg>List analytics</a>
+      <a href="settings.html" class="nav-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Settings</a>
+      <div class="sidebar-footer">
+        <div class="sidebar-agency">
+          <div class="sidebar-agency-avatar">AL</div>
+          <div>
+            <div class="sidebar-agency-name">Anchor Local</div>
+            <div class="sidebar-agency-meta">Toronto · 4 seats</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <div class="breadcrumb">
+            <a href="lists.html">Lists</a>
+            <span class="sep">/</span>
+            <span>Brickell med spas · website rebuild</span>
+          </div>
+          <div class="topbar-title">Brickell med spas · website rebuild</div>
+        </div>
+        <div class="topbar-right">
+          <div class="global-search">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text-3);"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+            <input placeholder="Look up a business…" />
+            <span class="global-search-kbd">⌘K</span>
+          </div>
+          <button class="btn btn-ghost">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            Clone list
+          </button>
+          <button class="btn btn-ghost">Edit filters</button>
+          <button class="btn btn-primary">Export 47</button>
+        </div>
+      </header>
+
+      <div class="content">
+
+        <!-- LIST HERO -->
+        <div class="list-hero">
+          <div class="hero-pitch">
+            <b>The pitch:</b> Brickell med spas with sites that are killing their conversions — slow load, no schema, NAP inconsistent. We sell <b>website rebuild + on-page SEO + schema markup</b> for $5,500 flat + $349/mo monthly.
+          </div>
+
+          <div class="hero-stats">
+            <div>
+              <div class="hero-stat-label">Qualified</div>
+              <div class="hero-stat-num indigo">47</div>
+              <div class="hero-stat-meta">of 2.1M index</div>
+            </div>
+            <div>
+              <div class="hero-stat-label">New this week</div>
+              <div class="hero-stat-num green">+12</div>
+              <div class="hero-stat-meta">vs +6 prior</div>
+            </div>
+            <div>
+              <div class="hero-stat-label">Already contacted</div>
+              <div class="hero-stat-num" style="color:var(--warn);">9</div>
+              <div class="hero-stat-meta">19% of list</div>
+            </div>
+            <div>
+              <div class="hero-stat-label">Refresh</div>
+              <div class="hero-stat-num" style="font-size:17px;">Daily 6am</div>
+              <div class="hero-stat-meta">next: Tue 6:00 AM</div>
+            </div>
+            <div>
+              <div class="hero-stat-label">Created</div>
+              <div class="hero-stat-num" style="font-size:17px;">Apr 22</div>
+              <div class="hero-stat-meta">by Tom · 25d ago</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- FILTERS USED -->
+        <div class="filters-card">
+          <div class="filters-card-label">
+            <span>// Filters defining this list · 12 active</span>
+            <a href="search.html" class="btn-mini">Edit →</a>
+          </div>
+          <div class="filters-row">
+            <span class="filter-tag">category : medical_spa</span>
+            <span class="filter-tag">metro : miami · 5mi</span>
+            <span class="filter-tag">Lighthouse Perf &lt; 60</span>
+            <span class="filter-tag">Lighthouse SEO &lt; 80</span>
+            <span class="filter-tag">LCP &gt; 3s</span>
+            <span class="filter-tag">LocalBusiness schema : missing</span>
+            <span class="filter-tag">FAQ schema : missing</span>
+            <span class="filter-tag">NAP : inconsistent</span>
+            <span class="filter-tag">reviews ≥ 100</span>
+            <span class="filter-tag">years ≥ 2</span>
+            <span class="filter-tag">email_verified : yes</span>
+            <span class="filter-tag">exclude existing clients</span>
+          </div>
+        </div>
+
+        <!-- STATUS TABS -->
+        <div class="toolbar">
+          <button class="chip active"><span class="chip-dot new"></span>New <span class="chip-c">31</span></button>
+          <button class="chip"><span class="chip-dot contacted"></span>Contacted <span class="chip-c">9</span></button>
+          <button class="chip"><span class="chip-dot replied"></span>Replied <span class="chip-c">3</span></button>
+          <button class="chip"><span class="chip-dot won"></span>Won <span class="chip-c">2</span></button>
+          <button class="chip"><span class="chip-dot lost"></span>Lost <span class="chip-c">1</span></button>
+          <button class="chip"><span class="chip-dot hidden"></span>Hidden <span class="chip-c">1</span></button>
+          <div class="toolbar-right">
+            <input class="search-input" placeholder="Search by name…" />
+            <button class="btn btn-ghost">Sort: relevance</button>
+          </div>
+        </div>
+
+        <!-- LEADS TABLE -->
+        <div class="leads-table">
+          <table>
+            <thead>
+              <tr>
+                <th style="width:32px;"><input type="checkbox" class="ck" /></th>
+                <th style="width:22%;">Business</th>
+                <th>Why qualified</th>
+                <th>Status</th>
+                <th>Contact</th>
+                <th style="text-align:right;">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+
+              <!-- New -->
+              <tr>
+                <td><input type="checkbox" class="ck" /></td>
+                <td>
+                  <div class="biz-cell">
+                    <div class="biz-avatar av-5">SO</div>
+                    <div>
+                      <div class="biz-name">Solea Brickell Spa</div>
+                      <div class="biz-meta">5 yrs · 4.4★ · 342 reviews · added 3d ago</div>
+                    </div>
+                  </div>
+                </td>
+                <td>
+                  <div class="signals-cell">
+                    <span class="sig-chip warn">Perf 58</span>
+                    <span class="sig-chip alert">LCP 3.4s</span>
+                    <span class="sig-chip teal">no schema</span>
+                    <span class="sig-chip warn">NAP off</span>
+                  </div>
+                </td>
+                <td class="status-cell"><button class="status-pill new" data-current="new">New</button></td>
+                <td><div style="font-family:'JetBrains Mono',monospace; font-size:11.5px; color:var(--text-2);">maria@soleabrickellspa.com<br>(786) 418-4515</div></td>
+                <td class="actions-cell"><a href="prospect.html" class="btn-mini primary">Open →</a></td>
+              </tr>
+
+              <!-- Contacted -->
+              <tr>
+                <td><input type="checkbox" class="ck" /></td>
+                <td>
+                  <div class="biz-cell">
+                    <div class="biz-avatar av-7">BB</div>
+                    <div>
+                      <div class="biz-name">Brickell Brow Bar</div>
+                      <div class="biz-meta">3 yrs · 4.2★ · 187 reviews · contacted by Sara · May 14</div>
+                    </div>
+                  </div>
+                </td>
+                <td>
+                  <div class="signals-cell">
+                    <span class="sig-chip warn">Perf 62</span>
+                    <span class="sig-chip alert">LCP 4.1s</span>
+                    <span class="sig-chip teal">no schema</span>
+                  </div>
+                </td>
+                <td class="status-cell"><button class="status-pill contacted">Contacted · 3d</button></td>
+                <td><div style="font-family:'JetBrains Mono',monospace; font-size:11.5px; color:var(--text-2);">info@brickellbrowbar.com</div></td>
+                <td class="actions-cell"><a href="prospect.html" class="btn-mini">Open →</a></td>
+              </tr>
+
+              <!-- Replied -->
+              <tr>
+                <td><input type="checkbox" class="ck" /></td>
+                <td>
+                  <div class="biz-cell">
+                    <div class="biz-avatar av-2">LV</div>
+                    <div>
+                      <div class="biz-name">Lush Velvet Skin Studio</div>
+                      <div class="biz-meta">4 yrs · 4.0★ · 112 reviews · replied yesterday · Sara owns</div>
+                    </div>
+                  </div>
+                </td>
+                <td>
+                  <div class="signals-cell">
+                    <span class="sig-chip alert">Perf 41</span>
+                    <span class="sig-chip alert">LCP 4.2s</span>
+                    <span class="sig-chip teal">no schema</span>
+                    <span class="sig-chip warn">NAP off</span>
+                  </div>
+                </td>
+                <td class="status-cell"><button class="status-pill replied">Replied · interested</button></td>
+                <td><div style="font-family:'JetBrains Mono',monospace; font-size:11.5px; color:var(--text-2);">hello@lushvelvet.com</div></td>
+                <td class="actions-cell"><a href="prospect.html" class="btn-mini primary">Open →</a></td>
+              </tr>
+
+              <!-- New 4 -->
+              <tr>
+                <td><input type="checkbox" class="ck" /></td>
+                <td>
+                  <div class="biz-cell">
+                    <div class="biz-avatar av-3">BC</div>
+                    <div>
+                      <div class="biz-name">Brickell Cosmetic Center</div>
+                      <div class="biz-meta">6 yrs · no Google reviews · added 7d ago</div>
+                    </div>
+                  </div>
+                </td>
+                <td>
+                  <div class="signals-cell">
+                    <span class="sig-chip alert">Perf 38</span>
+                    <span class="sig-chip alert">LCP 5.1s</span>
+                    <span class="sig-chip teal">no schema</span>
+                    <span class="sig-chip warn">unclaimed listing</span>
+                  </div>
+                </td>
+                <td class="status-cell"><button class="status-pill new">New</button></td>
+                <td><div style="font-family:'JetBrains Mono',monospace; font-size:11.5px; color:var(--text-2);">brickellcosmetic.com<br><span style="color:var(--text-3);">email pending</span></div></td>
+                <td class="actions-cell"><a href="prospect.html" class="btn-mini primary">Open →</a></td>
+              </tr>
+
+              <!-- Won -->
+              <tr>
+                <td><input type="checkbox" class="ck" /></td>
+                <td>
+                  <div class="biz-cell">
+                    <div class="biz-avatar av-2">VL</div>
+                    <div>
+                      <div class="biz-name">Vibe Lash Lounge</div>
+                      <div class="biz-meta">signed $399/mo · client since Apr 28 · marked won by Sara</div>
+                    </div>
+                  </div>
+                </td>
+                <td>
+                  <div class="signals-cell">
+                    <span class="sig-chip warn">Perf 54</span>
+                    <span class="sig-chip teal">no schema</span>
+                  </div>
+                </td>
+                <td class="status-cell"><button class="status-pill won">Won ✓</button></td>
+                <td><div style="font-family:'JetBrains Mono',monospace; font-size:11.5px; color:var(--success); font-weight:600;">active client</div></td>
+                <td class="actions-cell"><a href="prospect.html" class="btn-mini">Open →</a></td>
+              </tr>
+
+              <!-- Contacted 2 -->
+              <tr>
+                <td><input type="checkbox" class="ck" /></td>
+                <td>
+                  <div class="biz-cell">
+                    <div class="biz-avatar av-5">DS</div>
+                    <div>
+                      <div class="biz-name">Dua Spa by K'alma</div>
+                      <div class="biz-meta">2 yrs · 4.6★ · 53 reviews · contacted by Tom · May 12</div>
+                    </div>
+                  </div>
+                </td>
+                <td>
+                  <div class="signals-cell">
+                    <span class="sig-chip warn">Perf 64</span>
+                    <span class="sig-chip teal">no schema</span>
+                  </div>
+                </td>
+                <td class="status-cell"><button class="status-pill contacted">Contacted · 5d</button></td>
+                <td><div style="font-family:'JetBrains Mono',monospace; font-size:11.5px; color:var(--text-2);">book@duaspa.com</div></td>
+                <td class="actions-cell"><a href="prospect.html" class="btn-mini">Open →</a></td>
+              </tr>
+
+              <!-- Hidden -->
+              <tr class="row-dim">
+                <td><input type="checkbox" class="ck" /></td>
+                <td>
+                  <div class="biz-cell">
+                    <div class="biz-avatar av-6">VW</div>
+                    <div>
+                      <div class="biz-name">Vida Wellness Center</div>
+                      <div class="biz-meta">3 yrs · hidden by Tom — "wrong vibe" · May 15</div>
+                    </div>
+                  </div>
+                </td>
+                <td>
+                  <div class="signals-cell">
+                    <span class="sig-chip warn">Perf 51</span>
+                    <span class="sig-chip teal">no schema</span>
+                  </div>
+                </td>
+                <td class="status-cell"><button class="status-pill hidden-s">Hidden</button></td>
+                <td><div style="font-family:'JetBrains Mono',monospace; font-size:11.5px; color:var(--text-3);">owner@vidawellness.com</div></td>
+                <td class="actions-cell"><button class="btn-mini">Restore</button></td>
+              </tr>
+
+              <tr>
+                <td colspan="6" style="padding:18px; text-align:center; color:var(--text-3); font-family:'JetBrains Mono',monospace; font-size:12px;">
+                  + 40 more · <a href="#" style="color:var(--indigo);">show all 47</a> · scroll for more
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- BULK BAR -->
+        <div class="bulk-bar">
+          <b>2 selected</b>
+          <span class="bulk-meta">// bulk-apply to checked rows</span>
+          <button class="btn btn-primary" style="margin-left:auto;">Mark contacted</button>
+          <button class="btn btn-ghost" style="background:transparent; border-color:rgba(255,255,255,.2); color:#fff;">Mark replied</button>
+          <button class="btn btn-ghost" style="background:transparent; border-color:rgba(255,255,255,.2); color:#fff;">Hide from list</button>
+          <button class="btn btn-ghost" style="background:transparent; border-color:rgba(255,255,255,.2); color:#fff;">Export CSV</button>
+          <button class="btn btn-ghost" style="background:transparent; border-color:rgba(255,255,255,.2); color:#fff;">Generate one-pagers</button>
+        </div>
+
+        <div style="margin-top:24px; padding:14px 18px; background:var(--bg-3); border-radius:10px; font-size:11.5px; color:var(--text-3); font-family:'JetBrains Mono',monospace; line-height:1.6;">
+          // Lead status: New (auto) → Contacted (manual) → Replied / Won / Lost · Hidden = skip in default view · contacted leads cool down 90d before re-surfacing as New · status changes log to Activity for team visibility
+        </div>
+      </div>
+    </main>
+
+    <script>
+      // Status cycle on click (visual demo)
+      document.querySelectorAll('.status-pill').forEach(p => {
+        p.addEventListener('click', () => {
+          const cycle = ['new','contacted','replied','won','lost','hidden-s'];
+          const labels = ['New','Contacted','Replied','Won ✓','Lost','Hidden'];
+          const current = cycle.findIndex(c => p.classList.contains(c));
+          const next = (current + 1) % cycle.length;
+          cycle.forEach(c => p.classList.remove(c));
+          p.classList.add(cycle[next]);
+          p.firstChild.textContent = labels[next];
+        });
+      });
+      document.querySelectorAll('.chip').forEach(c => c.addEventListener('click', () => {
+        document.querySelectorAll('.chip').forEach(x => x.classList.remove('active'));
+        c.classList.add('active');
+      }));
+    </script>
+  </body>
+</html>

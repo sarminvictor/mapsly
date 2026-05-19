@@ -1,0 +1,2955 @@
+{
+  "generatedAt": "2026-05-18T23:15:00Z",
+  "target": {
+    "name": "Solea Brickell Spa",
+    "address": "701 S Miami Ave Suite 311A, Miami, FL 33131",
+    "city": "Miami (Brickell / Downtown Miami)",
+    "neighborhood": "Brickell City Centre",
+    "website": "soleabrickellspa.com",
+    "phone": "+1-786-418-4515",
+    "category": "Medical spa",
+    "additionalCategories": [
+      "Laser hair removal service",
+      "Sauna",
+      "Spa",
+      "Spa and health club"
+    ],
+    "googleRating": 4.4,
+    "googleReviewCount": 342,
+    "googleReviewCountStaleSnapshot": 289,
+    "ratingDistribution": {
+      "1": 39,
+      "2": 7,
+      "3": 1,
+      "4": 1,
+      "5": 241,
+      "note": "Distribution snapshot from the 289-review baseline; current total is 342 reviews (SERP live).",
+      "percent5Star": 83.4,
+      "percent1To3Star": 16.3
+    },
+    "hours": {
+      "mon": "11:00-20:00",
+      "tue": "11:00-20:00",
+      "wed": "11:00-20:00",
+      "thu": "11:00-20:00",
+      "fri": "11:00-20:00",
+      "sat": "11:00-20:00",
+      "sun": "closed"
+    },
+    "isOpenSunday": false,
+    "leaderOpenSunday": true,
+    "localPackRank": 3,
+    "localPackKeyword": "med spa brickell miami",
+    "totalInArea": null,
+    "totalInAreaNote": "DataForSEO med_spa category search returned 0 items in this MCP run (likely category-ID mismatch). Use a manual map count or another data source to populate.",
+    "responseRate": 0.0,
+    "photosCount": 46,
+    "yearsInBusiness": 5,
+    "isClaimedOnGoogle": true,
+    "coordinates": {
+      "lat": 25.767,
+      "lng": -80.194
+    },
+    "googlePlaceId": "ChIJdxTDfYO32YgR_dV5rECP7_E",
+    "googleCid": "17433310190508824061",
+    "attributes": {
+      "onsiteServices": true,
+      "wheelchairAccessible": true,
+      "hasSauna": true,
+      "offersSkincare": true,
+      "onlineScheduling": true,
+      "lgbtqWelcoming": true,
+      "transgenderSafespace": true,
+      "appointmentRecommended": true,
+      "appointmentRequired": false,
+      "parking": "paid_parking_lot_only",
+      "membership": false
+    },
+    "instagramFollowers": 16400,
+    "instagramHandle": "soleabrickellspa",
+    "recentReviews": [
+      {
+        "reviewer": "L.D.",
+        "stars": 5,
+        "date": "2026-05-16",
+        "text": "I had a nice experience, they explained all the process step-by-step. Very professional.",
+        "ownerReplied": false,
+        "ownerReplySnippet": null,
+        "reviewerHasOtherReviews": 5,
+        "highlights": [
+          "Reasonable price",
+          "Skin treatments"
+        ]
+      },
+      {
+        "reviewer": "S.B.",
+        "stars": 5,
+        "date": "2026-05-15",
+        "text": "",
+        "ownerReplied": false,
+        "ownerReplySnippet": null,
+        "reviewerHasOtherReviews": 0,
+        "highlights": [
+          "Great price",
+          "Ultherapy"
+        ]
+      },
+      {
+        "reviewer": "I.R.",
+        "stars": 5,
+        "date": "2026-05-15",
+        "text": "Very professional and knowledgeable.",
+        "ownerReplied": false,
+        "ownerReplySnippet": null,
+        "reviewerHasOtherReviews": 2,
+        "highlights": [
+          "Great price",
+          "Skin treatments"
+        ]
+      },
+      {
+        "reviewer": "M.M.",
+        "stars": 5,
+        "date": "2026-05-14",
+        "text": "Amazing service & team, highly recommend Fanny, she made the experience a great one!",
+        "ownerReplied": false,
+        "ownerReplySnippet": null,
+        "reviewerHasOtherReviews": 11,
+        "highlights": [
+          "Great price",
+          "Underarm hair removal"
+        ]
+      },
+      {
+        "reviewer": "V.J.",
+        "stars": 5,
+        "date": "2026-05-14",
+        "text": "Great job from all the staff, especially Sabina, Sabrina and Sasha. Highly recommended",
+        "ownerReplied": false,
+        "ownerReplySnippet": null,
+        "reviewerHasOtherReviews": 51,
+        "highlights": [
+          "Great price",
+          "Skin treatments"
+        ]
+      },
+      {
+        "reviewer": "J.C.",
+        "stars": 5,
+        "date": "2026-05-14",
+        "text": "I love it here !",
+        "ownerReplied": false,
+        "ownerReplySnippet": null,
+        "reviewerHasOtherReviews": 7,
+        "highlights": [
+          "Great price",
+          "Skin treatments"
+        ]
+      },
+      {
+        "reviewer": "L.",
+        "stars": 5,
+        "date": "2026-05-13",
+        "text": "First time visitor. It’s located on the 3rd floor a brickell city center mall. The staff is nice, check in was quick and efficient. The service was nice. I signed up for their membership program. Looking forward to trying the treatments they offer.",
+        "ownerReplied": false,
+        "ownerReplySnippet": null,
+        "reviewerHasOtherReviews": 31,
+        "highlights": [
+          "Reasonable price",
+          "Skin treatments"
+        ]
+      },
+      {
+        "reviewer": "M.A.",
+        "stars": 5,
+        "date": "2026-05-13",
+        "text": "Absolutely perfect! Imilsis did my facial and I'm thrilled. I'll be back! I highly recommend her. Great technique, skill, and kindness. Excellent work!",
+        "ownerReplied": false,
+        "ownerReplySnippet": null,
+        "reviewerHasOtherReviews": 2,
+        "highlights": [
+          "Skin treatments"
+        ]
+      },
+      {
+        "reviewer": "M.V.",
+        "stars": 5,
+        "date": "2026-05-13",
+        "text": "What a spectacular experience! Everyone I interacted with was excellent. I'm leaving incredibly happy and excited about my trip.\n\nThank you so much!",
+        "ownerReplied": false,
+        "ownerReplySnippet": null,
+        "reviewerHasOtherReviews": 11,
+        "highlights": [
+          "Great price",
+          "Skin treatments"
+        ]
+      },
+      {
+        "reviewer": "H.C.",
+        "stars": 5,
+        "date": "2026-05-13",
+        "text": "My girlfriend went and said it was the best. Imilsis was the one who did the service, and she said she was excellent. She recommends this spa.",
+        "ownerReplied": false,
+        "ownerReplySnippet": null,
+        "reviewerHasOtherReviews": 4,
+        "highlights": [
+          "Great price",
+          "Skin treatments"
+        ]
+      },
+      {
+        "reviewer": "F.P.",
+        "stars": 5,
+        "date": "2026-05-13",
+        "text": "Excellent service, very good customer service in Spanish. I was extremely satisfied with the service.",
+        "ownerReplied": false,
+        "ownerReplySnippet": null,
+        "reviewerHasOtherReviews": 2,
+        "highlights": [
+          "Reasonable price",
+          "Skin treatments"
+        ]
+      },
+      {
+        "reviewer": "A.M.",
+        "stars": 5,
+        "date": "2026-05-12",
+        "text": "The place is beautiful & very clean, the facial was amazing & everything was explained very well!",
+        "ownerReplied": false,
+        "ownerReplySnippet": null,
+        "reviewerHasOtherReviews": 13,
+        "highlights": [
+          "Skin treatments"
+        ]
+      },
+      {
+        "reviewer": "R.M.",
+        "stars": 5,
+        "date": "2026-05-12",
+        "text": "",
+        "ownerReplied": false,
+        "ownerReplySnippet": null,
+        "reviewerHasOtherReviews": 3,
+        "highlights": []
+      },
+      {
+        "reviewer": "A.C.",
+        "stars": 1,
+        "date": "2026-05-11",
+        "text": "Very poor coordination between the call center and the beauty salon. I had two appointments scheduled two weeks in advance, one at 3:30 and the other at 5:30. When I arrived at the salon, they told me the 3:30 appointment had been rescheduled for 2:30 and that they couldn't see me. I asked what solution they could offer since I had driven a long time and paid for parking to get there, and the response was, \"We won't be seeing that appointment today.\" I immediately canceled the 5:30 appointment because they play with people's time. Definitely a very bad experience. Call early if you have an ...",
+        "ownerReplied": false,
+        "ownerReplySnippet": null,
+        "reviewerHasOtherReviews": 2,
+        "highlights": []
+      },
+      {
+        "reviewer": "R.P.",
+        "stars": 1,
+        "date": "2026-05-10",
+        "text": "I made an appointment on April 24th for a facial on May 5th at 3:30 PM. When I arrived for my appointment, I was told my appointment was at 2:30 PM and that I had “missed” it.\n\nWhen I checked my messages afterward, our original conversation did confirm the appointment was booked for 3:30 PM. Apparently, later reminder messages showed 2:30 PM, which I admit I didn’t catch because I had no reason to think my appointment time would suddenly be changed after already being booked almost two weeks in advance.\n\nThe front desk girl was very nice, and I understand the situation was not her fault. My...",
+        "ownerReplied": false,
+        "ownerReplySnippet": null,
+        "reviewerHasOtherReviews": 20,
+        "highlights": []
+      },
+      {
+        "reviewer": "A.P.",
+        "stars": 4,
+        "date": "2026-05-09",
+        "text": "",
+        "ownerReplied": false,
+        "ownerReplySnippet": null,
+        "reviewerHasOtherReviews": 3,
+        "highlights": [
+          "Reasonable price",
+          "Facial"
+        ]
+      },
+      {
+        "reviewer": "A.",
+        "stars": 5,
+        "date": "2026-05-09",
+        "text": "Excellent service and attention, I loved it!!!! I highly recommend it",
+        "ownerReplied": false,
+        "ownerReplySnippet": null,
+        "reviewerHasOtherReviews": 1,
+        "highlights": [
+          "Great price",
+          "Skin treatments"
+        ]
+      },
+      {
+        "reviewer": "D.M.",
+        "stars": 5,
+        "date": "2026-05-09",
+        "text": "Literally soo amazing! I can’t explain it, it’s something you have to experience! 😋",
+        "ownerReplied": false,
+        "ownerReplySnippet": null,
+        "reviewerHasOtherReviews": 1,
+        "highlights": []
+      },
+      {
+        "reviewer": "T.B.",
+        "stars": 5,
+        "date": "2026-05-09",
+        "text": "Excellent!!! They treated me very well.",
+        "ownerReplied": false,
+        "ownerReplySnippet": null,
+        "reviewerHasOtherReviews": 14,
+        "highlights": [
+          "Skin treatments"
+        ]
+      },
+      {
+        "reviewer": "L.A.",
+        "stars": 5,
+        "date": "2026-05-09",
+        "text": "Excellent service and treatments to choose from’!",
+        "ownerReplied": false,
+        "ownerReplySnippet": null,
+        "reviewerHasOtherReviews": 7,
+        "highlights": [
+          "Reasonable price",
+          "Skin treatments"
+        ]
+      }
+    ],
+    "topThemes": {
+      "mostMentionedTopics": [
+        {
+          "topic": "LPG (Endermologie / cellulite)",
+          "mentions": 22
+        },
+        {
+          "topic": "Payment / billing",
+          "mentions": 13
+        },
+        {
+          "topic": "Attention / service attentiveness",
+          "mentions": 11
+        },
+        {
+          "topic": "Treatment quality",
+          "mentions": 9
+        },
+        {
+          "topic": "Laser hair removal",
+          "mentions": 8
+        },
+        {
+          "topic": "Receptionist",
+          "mentions": 8
+        },
+        {
+          "topic": "Endosphere",
+          "mentions": 5
+        },
+        {
+          "topic": "Quote / pricing transparency",
+          "mentions": 5
+        },
+        {
+          "topic": "IV therapy",
+          "mentions": 5
+        }
+      ],
+      "themesNote": "These are aggregate topic mentions from Google reviews surfaced by DataForSEO place_topics; not sentiment-classified into positive/negative. 'Payment', 'attention', 'quote', and 'receptionist' frequently appear in 1-star reviews based on the 16.3% negative skew, but a per-review sentiment pass is needed to confirm.",
+      "structuralGapVsLeader": [
+        "Closed Sundays (Lux is open 7 days, 11am–7pm)",
+        "Only 46 photos on Google profile (Lux has 700)",
+        "Rating 4.4 vs Lux 5.0 — 47 of 289 baseline reviews are 1–3 stars",
+        "Solea has 5+ years in business yet 342 reviews; Lux passed 2,100+ in under 2 years (first_seen 2024-07-20)"
+      ]
+    },
+    "recentReviewsSourceNote": "20 most recent reviews pulled via DataForSEO Google Reviews REST API (business_data/google/reviews, sort_by=newest, May 17 2026). Reviewer names anonymized to first-initial.last-initial format. Each review includes ownerReplied flag, date, review text, and Google-surfaced review_highlights.",
+    "responseRateSampleSize": 20,
+    "responseRateInsight": "0% of Solea's last 20 reviews have an owner response — vs Lux's 95% across the same window. Solea is leaving every recent reviewer (including 2 fresh 1-star scheduling complaints) without a public reply.",
+    "recentNegativeReviews": [
+      {
+        "reviewer": "A.C.",
+        "stars": 1,
+        "date": "2026-05-11",
+        "text": "Very poor coordination between the call center and the beauty salon. I had two appointments scheduled two weeks in advance, one at 3:30 and the other at 5:30. When I arrived at the salon, they told me the 3:30 appointment had been rescheduled for 2:30 and that they couldn't see me. I asked what solution they could offer since I had driven a long time and paid for parking to get there, and the response was, \"We won't be seeing that appointment today.\" I immediately canceled the 5:30 appointment because they play with people's time. Definitely a very bad experience. Call early if you have an ...",
+        "ownerReplied": false,
+        "ownerReplySnippet": null,
+        "reviewerHasOtherReviews": 2,
+        "highlights": []
+      },
+      {
+        "reviewer": "R.P.",
+        "stars": 1,
+        "date": "2026-05-10",
+        "text": "I made an appointment on April 24th for a facial on May 5th at 3:30 PM. When I arrived for my appointment, I was told my appointment was at 2:30 PM and that I had “missed” it.\n\nWhen I checked my messages afterward, our original conversation did confirm the appointment was booked for 3:30 PM. Apparently, later reminder messages showed 2:30 PM, which I admit I didn’t catch because I had no reason to think my appointment time would suddenly be changed after already being booked almost two weeks in advance.\n\nThe front desk girl was very nice, and I understand the situation was not her fault. My...",
+        "ownerReplied": false,
+        "ownerReplySnippet": null,
+        "reviewerHasOtherReviews": 20,
+        "highlights": []
+      }
+    ],
+    "recentRatingDistribution": {
+      "5": 17,
+      "1": 2,
+      "4": 1
+    },
+    "positiveSignals": {
+      "bilingualCustomerService": {
+        "evidence": "Multiple recent reviews in Spanish (e.g. F.P. 5★ 2026-05-13: 'Excellent service, very good customer service in Spanish. I was extremely satisfied with the service.')",
+        "marketRelevance": "Brickell + Downtown Miami population is ~50%+ Hispanic — bilingual service is a material differentiator most Anglo med-spa chains can't match",
+        "landingPageUse": "Solea positive — frame as 'authentic Miami' positioning"
+      },
+      "staffNamesPraisedInRecentReviews": [
+        {
+          "name": "Imilsis",
+          "mentions": 2,
+          "context": "facial provider, repeatedly praised"
+        },
+        {
+          "name": "Fanny",
+          "mentions": 1,
+          "context": "service provider"
+        },
+        {
+          "name": "Sabina, Sabrina, Sasha",
+          "mentions": 1,
+          "context": "team praised together"
+        }
+      ],
+      "recentReviewVelocity": {
+        "target_added_reviews": 53,
+        "leader_added_reviews": 17,
+        "ratio_target_over_leader": 3.12,
+        "window": "Between business_listings snapshot (Solea 289 / Lux 2183) and live SERP (Solea 342 / Lux 2200), ~6 weeks",
+        "interpretation": "Solea is generating reviews FASTER than Lux right now — likely a campaign or seasonal push. But 0% owner-reply rate squanders the social-proof momentum."
+      },
+      "ratingStability": {
+        "baselineNegativeRate": "16.3% of 289 reviews are 1-3 star",
+        "recentNegativeRate": "15.0% of recent 20 are 1-3 star",
+        "interpretation": "Operational quality is stable — Solea isn't getting worse, just not investing in defense"
+      },
+      "instagramFollowers": {
+        "target": 16400,
+        "leader": 9600,
+        "ratio_target_over_leader": 1.71,
+        "interpretation": "Solea has 1.7× Lux's Instagram following — Solea is winning on social discovery, losing on search discovery and review management."
+      },
+      "topServicesByCustomerMentions": [
+        "LPG / Endermologie (22 mentions)",
+        "Laser hair removal (8 mentions)",
+        "Endosphere (5 mentions)",
+        "IV therapy (5 mentions)",
+        "Microneedling (positive recent praise)"
+      ],
+      "physicalAttributes": "Brickell City Centre 3rd floor — premium mall location, validated parking, wheelchair access, LGBTQ welcoming, transgender safespace, online scheduling, 16.4k Instagram followers"
+    }
+  },
+  "leader": {
+    "name": "LUX MedSpa Brickell",
+    "address": "805 S Miami Ave 9th Floor, Miami, FL 33130",
+    "venue": "SLS LUX Hotel Brickell, 9th Floor",
+    "website": "luxmedspabrickell.com",
+    "phone": "+1-305-988-9388",
+    "category": "Day spa",
+    "additionalCategories": [
+      "Facial spa",
+      "Lymph drainage therapist",
+      "Massage spa",
+      "Medical spa"
+    ],
+    "googleRating": 5.0,
+    "googleReviewCount": 2200,
+    "googleReviewCountStaleSnapshot": 2183,
+    "ratingDistribution": {
+      "1": 13,
+      "2": 5,
+      "3": 5,
+      "4": 15,
+      "5": 2145,
+      "note": "Distribution snapshot from the 2,183-review baseline; current total is 2,200 reviews (SERP live).",
+      "percent5Star": 98.3,
+      "percent1To3Star": 1.05
+    },
+    "hours": {
+      "mon": "11:00-19:00",
+      "tue": "11:00-19:00",
+      "wed": "11:00-19:00",
+      "thu": "11:00-19:00",
+      "fri": "11:00-19:00",
+      "sat": "11:00-19:00",
+      "sun": "11:00-19:00"
+    },
+    "localPackRank": 1,
+    "responseRate": 0.95,
+    "photosCount": 700,
+    "yearsInBusiness": 2,
+    "firstSeenOnGoogle": "2024-07-20",
+    "isClaimedOnGoogle": true,
+    "instagramFollowers": 9600,
+    "instagramHandle": "luxmedspa.brickell",
+    "bookingSystem": "Mangomint",
+    "attributes": {
+      "ownedByLatinx": true,
+      "ownedByLGBTQ": true,
+      "onsiteServices": true,
+      "wheelchairAccessible": true,
+      "hasSauna": true,
+      "offersSkincare": true,
+      "onlineScheduling": true,
+      "membership": true,
+      "appointmentRequired": true,
+      "parking": "free_garage_free_lot_valet_available"
+    },
+    "topMentionedTopics": [
+      {
+        "topic": "Couples massage",
+        "mentions": 66
+      },
+      {
+        "topic": "Amenities",
+        "mentions": 42
+      },
+      {
+        "topic": "Lymphatic drainage",
+        "mentions": 42
+      },
+      {
+        "topic": "Steam room",
+        "mentions": 41
+      },
+      {
+        "topic": "Microneedling",
+        "mentions": 19
+      },
+      {
+        "topic": "Concierge",
+        "mentions": 14
+      },
+      {
+        "topic": "Bellini",
+        "mentions": 22
+      },
+      {
+        "topic": "Pool",
+        "mentions": 8
+      },
+      {
+        "topic": "Exosomes",
+        "mentions": 7
+      }
+    ],
+    "recentReviews": [
+      {
+        "initials": "M.R.",
+        "stars": 5,
+        "date": "2026-05-17",
+        "text": "OMG! They are not lying when they say it’s #1 in Miami. First time here, my bf bought a gift card for me back in Christmas. So I finally got to use it for my birthday.\nI got the service Sunday-Funday. Deep\nTissue Massage + Scalp\nMassage + Hot Stones + SpaDay to use our State of Art\nSwimming Pool\nThey pick you up from the lobby, the front desk lady I did not catch her name but she was the sweetest thing, they take you to the waiting room, they offer water, snacks, and tea. My masseuse Rey Introduced himself and took me to the room. He asked me which areas he would like for him to focus on, I...",
+        "ownerReplied": false
+      },
+      {
+        "initials": "L.",
+        "stars": 5,
+        "date": "2026-05-12",
+        "text": "Sophia was a pleasure! Explained everything and made sure I understood what I what I needed to work on for my at-home skin routine. Can’t wait to be back! :)",
+        "ownerReplied": true
+      },
+      {
+        "initials": "L.",
+        "stars": 5,
+        "date": "2026-05-12",
+        "text": "Brought my girlfriend here as a surprise and the experience was awesome!!  Amazing services, amazing massages and great views!!! Thank you to Hali for hosting us!! Such a great person!",
+        "ownerReplied": true
+      },
+      {
+        "initials": "M.A.",
+        "stars": 5,
+        "date": "2026-05-12",
+        "text": "Had such an amazing Mother’s Day experience at the spa. Such a clean and welcoming feeling. Hali and Layeh went above and beyond for me and the massages were amazing!! I felt like such a queen and they even went out of their way to make me feel special. Beyond happy!! Will definitely come back!!",
+        "ownerReplied": true
+      },
+      {
+        "initials": "C.K.",
+        "stars": 5,
+        "date": "2026-05-09",
+        "text": "Monique has a calming energy and really knows what she’s doing. The massage was the perfect balance of relaxing and therapeutic. Also Leyah was great with assisting me. I walked in tense and left feeling like a new man. Definitely coming back.",
+        "ownerReplied": true
+      },
+      {
+        "initials": "K.S.",
+        "stars": 5,
+        "date": "2026-05-09",
+        "text": "Great experience at Lux MedSpa. Dainelly gave an amazing massage — very professional and relaxing. Leyah at reception was also super welcoming and helpful. The whole experience was smooth and enjoyable. Definitely recommend!",
+        "ownerReplied": true
+      },
+      {
+        "initials": "S.S.",
+        "stars": 5,
+        "date": "2026-05-09",
+        "text": "My experience here has been nothing but amazing! Sophia did my mom's facial & she feels refreshed, younger & she is glowing! She made her feel so pampered & cared for. Nana at the front desk also made us feel so welcome & at home.  We can't wait to go back!\n\nI came back to get a facial with Microneedling for myself with Sophia, it was the best, most relaxing facial ever. My skin has never looked better, it's barely red & it's so glowy! I booked a facial for both my mom & aunt for Mother's Day, my mom couldn't wait to come back & see Sophia. Thank you to Sophia & SLS lux brickell for making ...",
+        "ownerReplied": true
+      },
+      {
+        "initials": "A.A.",
+        "stars": 5,
+        "date": "2026-05-08",
+        "text": "These group of individuals are fantastic. I had an excellent experience with Ray during my sports massage session. From the moment you walk in, you immediately get a sense of relief and comfort. Ray is extremely hospitable, professional, and knowledgeable about the body and recovery process. He took the time to understand what areas needed attention and explained everything in a way that made me feel confident I was in good hands.\n\nThe massage itself was amazing — targeted, effective, and exactly what my body needed. You can tell he truly cares about his clients and their well-being. I left...",
+        "ownerReplied": true
+      },
+      {
+        "initials": "J.A.",
+        "stars": 5,
+        "date": "2026-05-08",
+        "text": "Came in for a massage and honestly couldn’t have asked for a better experience. The ambiance at LUX MedSpa Brickell is immediately relaxing — you feel the stress leave before the treatment even starts. My therapist was skilled, attentive, and tailored the pressure perfectly. Left feeling completely restored. Highly recommend and will definitely be back!​​​​​​​​​​​​​​​​",
+        "ownerReplied": true
+      },
+      {
+        "initials": "O.R.",
+        "stars": 5,
+        "date": "2026-05-05",
+        "text": "Sophia was fantastic! She did a wonderful job and made me feel so comfortable. I have glass skin now!",
+        "ownerReplied": true
+      }
+    ],
+    "recentReviewsSourceNote": "10 most recent 5-star reviews with text > 80 characters, pulled via DataForSEO Google Reviews REST API (business_data/google/reviews, sort_by=newest, May 17 2026, filtered from 20-review pull where 20/20 were 5-star). Reviewer names anonymized to first-initial.last-initial format. These are the 'reviews waiting for you' / 'patients who chose elsewhere' source quotes.",
+    "responseRateSampleSize": 20,
+    "recentRatingDistribution": {
+      "5": 20
+    }
+  },
+  "competitors": [
+    {
+      "rank": 1,
+      "name": "LUX MedSpa Brickell",
+      "rating": 5.0,
+      "reviewCount": 2200,
+      "source": "local_pack + business_listing",
+      "note": "Same entity as leader — included for ranking context."
+    },
+    {
+      "rank": 2,
+      "name": "No Filter Medical Spa",
+      "rating": 4.9,
+      "reviewCount": 196,
+      "source": "local_pack + people_also_search",
+      "url": "https://nofiltermedspa.com/"
+    },
+    {
+      "rank": 3,
+      "name": "Solea Brickell Spa",
+      "rating": 4.4,
+      "reviewCount": 342,
+      "source": "local_pack",
+      "note": "TARGET business — included for ranking context."
+    },
+    {
+      "rank": null,
+      "name": "Miami Skin Spa Aesthetics & Wellness",
+      "rating": 4.8,
+      "reviewCount": 147,
+      "source": "people_also_search + organic #6 on med-spa-brickell-miami",
+      "url": "https://www.miamiskinspa.com/"
+    },
+    {
+      "rank": null,
+      "name": "Leaf Spa at AKA Brickell",
+      "rating": 4.7,
+      "reviewCount": 104,
+      "source": "people_also_search"
+    },
+    {
+      "rank": null,
+      "name": "Dua Spa by K'alma",
+      "rating": 4.6,
+      "reviewCount": 53,
+      "source": "people_also_search"
+    },
+    {
+      "rank": null,
+      "name": "Healing Hands Therapeutic Massage",
+      "rating": 4.9,
+      "reviewCount": 779,
+      "source": "people_also_search (Lux)"
+    },
+    {
+      "rank": null,
+      "name": "Brickell Cosmetic Center",
+      "rating": null,
+      "reviewCount": null,
+      "source": "organic #9 on med-spa-brickell-miami (SERP)",
+      "url": "https://brickellcosmetic.com/"
+    }
+  ],
+  "competitorsNote": "Sourced from local pack + organic SERP for 'med spa brickell miami' + people_also_search panels of both target and leader business listings. The direct DataForSEO categories=['med_spa'] search around Brickell coordinates returned 0 items in this MCP run, so the full ~47-business count in the area could not be verified.",
+  "keywords": [
+    {
+      "keyword": "med spa brickell",
+      "searchVolume": 30,
+      "cpc": 5.65,
+      "highTopOfPageBid": 13.73,
+      "lowTopOfPageBid": 2.35,
+      "competition": "HIGH",
+      "competitionIndex": 88,
+      "yourPositionInLocalPack": null,
+      "yourOrganicRank": 2,
+      "yourOrganicRankAbsolute": 5,
+      "localPackOccupants": [
+        {
+          "rank": 1,
+          "name": "LUX MedSpa Brickell",
+          "rating": 5.0,
+          "reviewCount": 2200
+        },
+        {
+          "rank": 2,
+          "name": "Deluxe Med Spa Beauty",
+          "rating": 4.9,
+          "reviewCount": 267
+        },
+        {
+          "rank": 3,
+          "name": "No Filter Medical Spa",
+          "rating": 4.9,
+          "reviewCount": 196
+        }
+      ],
+      "positionNote": "Solea is NOT in the 3-pack for this keyword; ranks #2 in organic (#5 absolute). 3-pack is locked by Lux + Deluxe Med Spa Beauty + No Filter.",
+      "trend12Month": "20–40/mo steady; no growth"
+    },
+    {
+      "keyword": "botox brickell",
+      "searchVolume": 50,
+      "cpc": 16.35,
+      "highTopOfPageBid": 53.4,
+      "lowTopOfPageBid": 5.11,
+      "competition": "MEDIUM",
+      "competitionIndex": 57,
+      "yourPositionInLocalPack": null,
+      "yourOrganicRank": 9,
+      "yourOrganicRankAbsolute": 13,
+      "yourOrganicLandingPage": "https://soleabrickellspa.com/fillers-botox",
+      "localPackOccupants": [
+        {
+          "rank": 1,
+          "name": "Dr. Hamadiya Miami Wellness and Aesthetic Center",
+          "rating": 5.0,
+          "reviewCount": 282
+        },
+        {
+          "rank": 2,
+          "name": "LUX MedSpa Brickell",
+          "rating": 5.0,
+          "reviewCount": 2200
+        },
+        {
+          "rank": 3,
+          "name": "Sisu Clinic Miami",
+          "rating": 4.9,
+          "reviewCount": 342
+        }
+      ],
+      "positionNote": "Solea is NOT in the 3-pack and is buried at organic rank 9 (absolute 13) — below Brickell Cosmetic Center, Yelp, Dermacare, Sisu, a Brickell-Babes blog post, and Dr. Hamadiya's site. Sisu Clinic operates in the SAME BUILDING as Solea (Brickell City Centre, 701 S Miami Ave) and is in the 3-pack with the exact same 342 reviews — direct in-mall threat.",
+      "insight": "CPC of $16.35 with a $53.40 high-bid ceiling means a single Botox lead costs ~$50–100 in paid search — strongest argument for organic local-pack dominance."
+    },
+    {
+      "keyword": "med spa miami",
+      "searchVolume": 1000,
+      "cpc": 6.85,
+      "highTopOfPageBid": 8.29,
+      "lowTopOfPageBid": 2.07,
+      "competition": "MEDIUM",
+      "competitionIndex": 62,
+      "yourPositionInLocalPack": null,
+      "positionNote": "Citywide keyword — Brickell-area businesses rarely rank in citywide local pack; would need a separate SERP pull at the Miami centroid.",
+      "trend12Month": "Down: ~2400/mo in spring 2025 → ~390/mo in March 2026"
+    },
+    {
+      "keyword": "hydrafacial miami",
+      "searchVolume": 210,
+      "cpc": 6.92,
+      "highTopOfPageBid": 8.75,
+      "lowTopOfPageBid": 2.29,
+      "competition": "HIGH",
+      "competitionIndex": 100,
+      "yourPositionInLocalPack": null,
+      "yourOrganicRank": null,
+      "yourOrganicRankAbsolute": null,
+      "localPackOccupants": [
+        {
+          "rank": 1,
+          "name": "LUX MedSpa Brickell",
+          "rating": 5.0,
+          "reviewCount": 2200
+        },
+        {
+          "rank": 2,
+          "name": "No Filter Medical Spa",
+          "rating": 4.9,
+          "reviewCount": 196
+        },
+        {
+          "rank": 3,
+          "name": "Asha Esthetic & Medspa",
+          "rating": 5.0,
+          "reviewCount": 308
+        }
+      ],
+      "positionNote": "Solea is INVISIBLE for this keyword — not in the 3-pack and not in the top 13 organic results. Brickell-area competitors Miami Skin Spa ($150 entry pricing in snippet) and Lux dominate. Highest-value miss given the 210/mo volume and HIGH competition (index 100)."
+    }
+  ],
+  "keywordExpansion": {
+    "generatedFrom": [
+      "kw_data_google_ads_search_volume (Miami,FL,US)",
+      "dataforseo_labs_google_keyword_suggestions seed='med spa miami'"
+    ],
+    "locationScope": "Miami,Florida,United States (location_code 1015116 + 2840)",
+    "summary": "Solea's actual service catalog (Botox, fillers, microneedling, morpheus8, hydrafacial, laser hair removal, IV therapy, PDO threads, Venus Legacy, dermaplaning) maps to 6 high-value commercial keywords with proven Miami volume that the original 4-keyword set missed entirely. The two biggest unmissable targets are Microneedling Miami (1,300/mo, HIGH competition, $7.58 CPC) and Dermal Filler Miami (1,000/mo, LOW competition, $16.76 CPC — the lowest competition + highest CPC combo in the entire set).",
+    "treatmentsMiamiBroad": [
+      {
+        "keyword": "microneedling miami",
+        "searchVolume": 1300,
+        "cpc": 7.58,
+        "lowTopBid": 2.7,
+        "highTopBid": 10.54,
+        "competition": "HIGH",
+        "competitionIndex": 100,
+        "soleaOffersService": true,
+        "priority": "P0",
+        "rationale": "Highest volume of any matched treatment keyword + Solea explicitly lists 'Microneedeling with vitamins' as a service. Currently undefended."
+      },
+      {
+        "keyword": "dermal filler miami",
+        "searchVolume": 1000,
+        "cpc": 16.76,
+        "lowTopBid": 5.55,
+        "highTopBid": 11.25,
+        "competition": "LOW",
+        "competitionIndex": 33,
+        "soleaOffersService": true,
+        "priority": "P0",
+        "rationale": "LOW competition + 1000/mo + $16.76 CPC = best opportunity in the set. Solea offers fillers (botox-fillers page exists). Volume highly variable month-to-month (40 in Mar 2026 vs 5,400 in Jun 2025) — likely seasonal."
+      },
+      {
+        "keyword": "botox miami",
+        "searchVolume": 720,
+        "cpc": 14.39,
+        "lowTopBid": 4.05,
+        "highTopBid": 17.99,
+        "competition": "MEDIUM",
+        "competitionIndex": 57,
+        "soleaOffersService": true,
+        "priority": "P0",
+        "rationale": "Higher volume than 'botox brickell' (50/mo) at lower CPC. Solea has a /fillers-botox page. Targeting Miami-wide opens the funnel."
+      },
+      {
+        "keyword": "lip filler miami",
+        "searchVolume": 590,
+        "cpc": 11.23,
+        "lowTopBid": 3.66,
+        "highTopBid": 11.25,
+        "competition": "MEDIUM",
+        "competitionIndex": 53,
+        "soleaOffersService": true,
+        "priority": "P1",
+        "rationale": "Subset of dermal filler intent, more specific buyer signal. Solea offers Russian lip technique per competitor SERP snippets."
+      },
+      {
+        "keyword": "morpheus8 miami",
+        "searchVolume": 90,
+        "cpc": 5.47,
+        "lowTopBid": 1.71,
+        "highTopBid": 7.0,
+        "competition": "HIGH",
+        "competitionIndex": 99,
+        "soleaOffersService": true,
+        "priority": "P1",
+        "rationale": "Solea explicitly markets Morpheus8 on Instagram (@soleabrickellspa). 12-month range 50–170/mo, steady demand."
+      }
+    ],
+    "treatmentsBrickellHyperLocal": [
+      {
+        "keyword": "hydrafacial brickell",
+        "searchVolume": 20,
+        "cpc": 4.31,
+        "competition": "HIGH",
+        "competitionIndex": 97,
+        "priority": "P1",
+        "rationale": "Tiny volume but exact match for Solea's geography + service. Easy to capture if Solea adds a /hydrafacial-brickell landing page."
+      },
+      {
+        "keyword": "lip filler brickell",
+        "searchVolume": 10,
+        "cpc": 1.45,
+        "competition": "MEDIUM",
+        "competitionIndex": 63,
+        "priority": "P2",
+        "rationale": "10/mo + $1.45 CPC = cheap demonstration content. Bundle into a single Brickell-fillers page."
+      },
+      {
+        "keyword": "microneedling brickell",
+        "searchVolume": 10,
+        "cpc": null,
+        "competition": "HIGH",
+        "competitionIndex": 98,
+        "priority": "P2",
+        "rationale": "10/mo. Capture as part of a Brickell-treatments landing page rather than its own URL."
+      },
+      {
+        "keyword": "morpheus8 brickell",
+        "searchVolume": null,
+        "competition": null,
+        "priority": "skip",
+        "rationale": "Insufficient data (no measurable volume in Miami location). Lump with Miami targeting."
+      }
+    ],
+    "geographicVariantsForMedSpa": [
+      {
+        "keyword": "miami beach med spa",
+        "searchVolume": 590,
+        "cpc": 9.63,
+        "competition": "MEDIUM",
+        "competitionIndex": 42,
+        "priority": "P2",
+        "rationale": "Different neighborhood (Miami Beach is across Biscayne Bay from Brickell — 15+ min drive). Worth a single page only if Solea wants to capture beach-side travelers."
+      },
+      {
+        "keyword": "med spa miami beach",
+        "searchVolume": 590,
+        "cpc": 9.63,
+        "competition": "MEDIUM",
+        "competitionIndex": 42,
+        "priority": "P2",
+        "rationale": "Variant of above, same intent."
+      },
+      {
+        "keyword": "miami lakes med spa",
+        "searchVolume": 480,
+        "cpc": 5.72,
+        "competition": "LOW",
+        "competitionIndex": 24,
+        "priority": "skip",
+        "rationale": "Miami Lakes is 18mi north — out of Solea's catchment. Destiny Med Spa dominates this query. Skip."
+      },
+      {
+        "keyword": "med spa in miami",
+        "searchVolume": 320,
+        "cpc": 5.57,
+        "competition": "LOW",
+        "competitionIndex": 29,
+        "priority": "P1",
+        "rationale": "Same intent as 'med spa miami' (1900/mo) but with LOW competition — easier to rank. Cluster into the same target page."
+      },
+      {
+        "keyword": "med spa miami fl",
+        "searchVolume": 320,
+        "cpc": 5.57,
+        "competition": "LOW",
+        "competitionIndex": 29,
+        "priority": "P1",
+        "rationale": "Same as above. Likely shares SERP."
+      }
+    ],
+    "competitorBrandKeywords": [
+      {
+        "keyword": "destiny med spa miami lakes",
+        "searchVolume": 1300,
+        "cpc": 5.0,
+        "competition": "LOW",
+        "rationale": "Highest-volume competitor brand. Miami Lakes is out of catchment, so brand-hijack ROI is weak."
+      },
+      {
+        "keyword": "miracle laser med spa miami",
+        "searchVolume": 170,
+        "cpc": null,
+        "competition": "LOW",
+        "rationale": "Possible outbound brand-bid target if their brand-search is unprotected."
+      },
+      {
+        "keyword": "modern plastic surgery and med spa of miami",
+        "searchVolume": 170,
+        "cpc": 1.99,
+        "competition": "LOW",
+        "rationale": "Plastic surgery brand — different category but adjacent intent."
+      },
+      {
+        "keyword": "heavenly med spa miami",
+        "searchVolume": 140,
+        "cpc": 0.73,
+        "competition": "LOW",
+        "rationale": "Cheap brand-bid candidate."
+      },
+      {
+        "keyword": "elite med spa miami",
+        "searchVolume": 90,
+        "cpc": 3.01,
+        "competition": "LOW",
+        "trend": "+600% YoY",
+        "rationale": "Fastest-growing competitor brand in this list."
+      },
+      {
+        "keyword": "alicia med spa miami",
+        "searchVolume": 40,
+        "cpc": 3.7,
+        "competition": "LOW"
+      },
+      {
+        "keyword": "beauty fix med spa miami",
+        "searchVolume": 40,
+        "cpc": 14.83,
+        "competition": "HIGH",
+        "rationale": "HIGH competition implies they actively defend the brand with their own paid bid. Risky."
+      },
+      {
+        "keyword": "deluxe med spa beauty miami reviews",
+        "searchVolume": 40,
+        "cpc": 5.93,
+        "competition": "LOW",
+        "rationale": "Deluxe Med Spa Beauty is in the 'med spa brickell' 3-pack — direct local competitor. Reviews-modifier suggests trust-stage browsers."
+      }
+    ],
+    "skippedSeedKeywords": [
+      "chemical peel miami",
+      "laser hair removal brickell",
+      "laser hair removal miami",
+      "prp facial miami",
+      "emsculpt miami",
+      "coolsculpting miami",
+      "coolsculpting brickell",
+      "iv therapy miami",
+      "iv drip miami",
+      "pdo threads miami",
+      "facial brickell",
+      "facial miami",
+      "skin tightening miami",
+      "semaglutide miami",
+      "weight loss injection miami",
+      "best med spa miami",
+      "best med spa brickell",
+      "medical spa miami",
+      "medical spa brickell",
+      "aesthetic clinic miami",
+      "aesthetic clinic brickell",
+      "med spa near me",
+      "botox cost miami",
+      "hydrafacial cost miami",
+      "brickell facial",
+      "brickell laser hair removal"
+    ],
+    "skippedSeedNote": "These 26 seed queries returned NO match in DataForSEO's Google Ads volume database for the Miami,Florida,US location code (1015116) — meaning fewer than ~10 monthly searches in this specific local market. They may still have national volume but are not worth a dedicated page. 'med spa near me' is the only notable absentee — Google personalises 'near me' aggressively so the location signal is encoded server-side and rarely surfaces in Ads keyword tools.",
+    "implementationRecommendation": "Build 3 new landing pages: (1) /microneedling-brickell-miami targeting microneedling miami + brickell variant (1,310 combined/mo, P0); (2) /dermal-fillers-miami targeting dermal filler + lip filler + lip filler brickell (1,600 combined/mo, P0 — and the LOWEST competition in the entire set); (3) /morpheus8-skin-tightening-brickell-miami targeting morpheus8 miami + brickell + skin tightening intent (P1). Each page anchors on a service Solea already offers, with a 'Book Brickell appointment' CTA. Skip the Miami Beach / Miami Lakes geo-variants — outside Brickell's catchment."
+  },
+  "brandHijack": [],
+  "brandHijackNote": "Live SERP for the brand query 'Solea Brickell Spa' (Miami, FL) returned zero paid ad items — no competitor is currently bidding on Solea's brand term. The SERP is dominated by Solea's own knowledge graph + organic listings (Yelp, Instagram, Simon mall, ClassPass, Vagaro, Waze). If brand bidding emerges later, this array would populate; integrity of empty array preserved per spec.",
+  "websiteAudit": {
+    "target": {
+      "url": "https://soleabrickellspa.com/",
+      "lighthouseVersion": "13.1.0",
+      "formFactor": "desktop",
+      "lighthouseScores": {
+        "performance": 55,
+        "accessibility": 82,
+        "bestPractices": 73,
+        "seo": 85
+      },
+      "fcp": "2.5s",
+      "fcpMs": 2492,
+      "lcp": "4.7s",
+      "lcpMs": 4735,
+      "speedIndex": "8.7s",
+      "speedIndexMs": 8692,
+      "totalBlockingTime": "165ms",
+      "cumulativeLayoutShift": 0.0,
+      "interactive": "4.8s",
+      "serverResponseTime": "1.48s",
+      "totalBytes": 7918837,
+      "totalMb": 7.92,
+      "bootupTime": "1.8s",
+      "mobileFriendly": true,
+      "mobileFriendlyNote": "Derived from Lighthouse desktop SEO score of 85 (passes viewport meta + tap-target audits). A dedicated mobile-formFactor run would give an authoritative mobile Performance number.",
+      "platform": "WordPress",
+      "thirdParties": [
+        "Google Tag Manager",
+        "Ahrefs",
+        "LeadConnector (GoHighLevel)",
+        "Microsoft Clarity",
+        "Facebook",
+        "Google/Doubleclick Ads",
+        "Bunny.net CDN",
+        "NitroPack"
+      ]
+    },
+    "leader": {
+      "url": "https://www.luxmedspabrickell.com/",
+      "lighthouseVersion": "13.1.0",
+      "formFactor": "desktop",
+      "lighthouseScores": {
+        "performance": 73,
+        "accessibility": 97,
+        "bestPractices": 100,
+        "seo": 100
+      },
+      "fcp": "1.5s",
+      "fcpMs": 1531,
+      "lcp": "3.0s",
+      "lcpMs": 2954,
+      "speedIndex": "1.7s",
+      "speedIndexMs": 1683,
+      "totalBlockingTime": "151ms",
+      "cumulativeLayoutShift": 0.012,
+      "interactive": "3.0s",
+      "serverResponseTime": "135ms",
+      "totalBytes": 2102499,
+      "totalMb": 2.1,
+      "bootupTime": "0.4s",
+      "mobileFriendly": true,
+      "mobileFriendlyNote": "Derived from Lighthouse desktop SEO score of 100.",
+      "platform": "Squarespace",
+      "thirdParties": [
+        "Squarespace",
+        "Google Tag Manager",
+        "Google Analytics",
+        "YouTube",
+        "Elfsight",
+        "Termly (privacy)",
+        "Pinterest"
+      ]
+    },
+    "comparison": {
+      "performanceGapPoints": 18,
+      "lcpGapMs": 1781,
+      "byteWeightRatio": 3.77,
+      "headlineDelta": "Solea ships 3.77× more page weight (7.9 MB vs 2.1 MB) and serves the first byte 11× slower (1.48s vs 0.14s) than Lux."
+    }
+  },
+  "sources": {
+    "businessProfile": "DataForSEO Business Listings Search (business_data_business_listings_search) — title-match + 5km coordinate radius around Brickell (25.7641,-80.1923)",
+    "googleRating": "DataForSEO Business Listings + cross-verified against live Google SERP knowledge graph + local pack",
+    "ratingDistribution": "DataForSEO Business Listings (rating_distribution)",
+    "hours": "DataForSEO Business Listings (work_time.work_hours.timetable)",
+    "photosCount": "DataForSEO Business Listings (total_photos)",
+    "localPackRank": "DataForSEO Google SERP organic live (serp_organic_live_advanced) for keyword 'med spa brickell miami', Miami,Florida,United States, desktop",
+    "competitors": "DataForSEO local pack + organic results + business_listing.people_also_search",
+    "keywords": "DataForSEO Google Ads search volume (kw_data_google_ads_search_volume) — location Miami,Florida,United States, English",
+    "brandHijack": "DataForSEO Google SERP organic live for brand query 'Solea Brickell Spa' — inspected for items of type 'paid'; none present",
+    "lighthouseAudit": "DataForSEO On-Page Lighthouse (on_page_lighthouse) — desktop form factor, Lighthouse 13.1.0, JS enabled",
+    "instagramFollowers": "DataForSEO Google SERP organic — Instagram result snippet"
+  },
+  "errors": [
+    {
+      "step": "competitor_category_search",
+      "endpoint": "business_data_business_listings_search",
+      "request": "categories=['med_spa'] + 3km radius around 25.7641,-80.1923",
+      "result": "Returned items=[]; likely the 'med_spa' category ID does not match DataForSEO's expected taxonomy. The 'medical_spa' value seen in the target's category_ids array suggests retrying with that exact slug, or omitting categories and filtering on title/description instead.",
+      "impact": "Could not produce a numeric 'totalInArea' or a category-sorted top-10. Workaround: competitors list assembled from local pack + people_also_search across both target and leader listings."
+    },
+    {
+      "step": "owner_response_rate_and_recent_reviews",
+      "endpoint": "DataForSEO REST API direct: POST /v3/business_data/google/reviews/task_post + GET /task_get/{id}",
+      "result": "RESOLVED in run 4. The DataForSEO MCP wrapper does not expose the Google Reviews endpoint, but the REST API supports it directly. Authenticated via DATAFORSEO_LOGIN+PASSWORD from /Users/Viktor/Documents/Boxly_development/boxly_app/.env (user-approved cross-project reuse). Pulled 20 most recent reviews for each business (Solea + Lux) sorted by newest. Anonymised reviewer names to initials; computed owner-response rate from owner_answer field. Note: required field 'location_name' must be passed (value: 'United States' works) even when querying by place_id.",
+      "impact": "None. target.recentReviews + leader.recentReviews + responseRate fields are now populated with real data."
+    },
+    {
+      "step": "local_pack_rank_per_keyword",
+      "endpoint": "serp_organic_live_advanced",
+      "result": "Follow-up run pulled SERPs for the 3 requested keywords (med spa brickell, botox brickell, hydrafacial miami). Solea is NOT in the 3-pack for any of them. 'med spa miami' (citywide, 1,000/mo) was not requested and remains null.",
+      "impact": "Closed for the three requested keywords. One additional SERP call would close 'med spa miami', but at citywide scope Solea is highly unlikely to crack the 3-pack."
+    },
+    {
+      "step": "google_ads_advertisers_endpoint",
+      "endpoint": "Expected mcp__dataforseo__serp_google_ads_advertisers_live",
+      "result": "Endpoint does not exist in active DataForSEO MCP namespace. Used serp_organic_live_advanced as fallback — its response schema includes type:'paid' items if any are present. Scanned 7 commercial-intent SERPs; zero paid items in any response.",
+      "impact": "googleAds.byKeyword[].advertisers all return []. This is real data, not missing data — there genuinely are no paid ads on these SERPs at scan time. Whether the 0-advertiser finding is structural or a Sunday-night artifact requires a weekday-business-hours rescan."
+    },
+    {
+      "step": "meta_ad_library_access",
+      "endpoint": "facebook.com/ads/library (UI scrape via Chrome MCP)",
+      "result": "RESOLVED via Claude in Chrome extension. User installed the agent-enabled Chrome extension; I drove their browser through 3 Meta Ad Library searches (Lux, Solea, med spa miami broad) and 3 Google Ads Transparency Center domain queries. All data captured and merged.",
+      "impact": "None. metaAds.status = 'collected' with full ad inventory for Solea (13 ads, 5 campaign themes) and zero-confirmed for Lux. Broader market scan returned 220 ads across 67 advertisers."
+    },
+    {
+      "step": "boxly_pro_review_response_generator",
+      "endpoint": "Expected app/api/pro/[moverId]/reviews/generate-response or similar",
+      "result": "No such endpoint exists in the Boxly app. The /app/api/pro/[moverId]/reviews/ namespace exists but no AI reply-generation route. Drafted the 2 replies directly in-context.",
+      "impact": "aiReplies populated with 2 reviews × 2 languages, drafted by Claude with verified contact info from earlier sections of this file, no fabricated staff/owner names."
+    },
+    {
+      "step": "marketCensus_solea_classification",
+      "endpoint": "business_data_business_listings_search categories=['medical_spa']",
+      "result": "Solea Brickell Spa is NOT returned in 4 paginated calls (top 40 by reviews) despite Solea's own listing having 'medical_spa' in its category_ids array. This is itself a finding — Solea's primary category in DataForSEO's taxonomy must differ from medical_spa, causing the discovery gap.",
+      "impact": "soleaRankByReviews=null with explanatory note. soleaEffectiveRankByReviewsAmongCensus=37 derived from where 342 reviews would slot in the returned list."
+    },
+    {
+      "step": "ads_data_window_normalisation",
+      "endpoint": "Meta Ad Library + Google Ads Transparency UI scrapes",
+      "result": "Initial run mixed time windows: Meta used 'currently active' (no date filter) while Google domain queries used 'Any time' (lifetime). Re-ran all 5 scans with explicit Last 30 days filter for apples-to-apples comparison. Meta clarification: 'Last 30 days' = ads served impressions in window (not launched). Solea's 13 active Meta ads ALL served impressions in last 30 days, but only 8 were newly launched (Apr 18 onward).",
+      "impact": "Numbers in metaAds + googleAdsTransparency now lock to a single window. topFindings 'paid_spend_paradox' updated with corrected 17-total figure."
+    }
+  ],
+  "estimatedCostUsd": 0.16,
+  "costNote": "Cumulative ≈ $0.16 (unchanged from Run 5). Run 6 (Meta + Google Ads via Claude Chrome MCP, with Last 30 days filter normalisation) added $0 — pure UI scrape on user's browser. All paid-ad data is now apples-to-apples on the Last 30 days window: ad served impressions in 2026-04-18 to 2026-05-17.",
+  "topFindings": [
+    {
+      "id": "meta_keyword_paid_blind_spot",
+      "category": "Paid acquisition gap",
+      "headline": "Solea runs 13 Meta ads — but appears in NONE of the 14 treatment-keyword lanes. They're invisible to anyone searching their actual services on Meta.",
+      "supportingData": {
+        "soleaMetaAdsActive": 13,
+        "keywordLanesScanned": 14,
+        "soleaInTopAdvertisers": 0,
+        "soleaAdCopyPattern": "Product benefit (Skin Tightening, $59 deals) — not keyword-anchored",
+        "emptyLanesAvailable": [
+          "hydrafacial brickell (0 ads)",
+          "endosphere miami (1 ad)"
+        ],
+        "competitorsInBotoxBrickell": [
+          "Brickell Avenue Dentistry (8)",
+          "MDW Aesthetics (4)",
+          "Brickell Cosmetic Center (2)",
+          "Dr Hamadiya (2)",
+          "Sisu Clinic (3)"
+        ]
+      },
+      "landingPageUse": "'You're spending on Meta, but the right keyword switch would put you in front of 835+ in-market searches you're invisible to today.'"
+    },
+    {
+      "id": "paid_spend_paradox",
+      "category": "Paid vs Organic Strategy",
+      "headline": "Solea runs 17 active paid ads in last 30 days (13 Meta + 4 Google). Lux runs 0. No Filter runs 0. Yet Lux + No Filter beat Solea in the 3-packs Solea targets.",
+      "supportingData": {
+        "target_meta_ads_last30d": 13,
+        "target_meta_ads_launched_last30d": 8,
+        "target_google_ads_last30d": 4,
+        "target_google_lifetime": 87,
+        "leader_meta_ads_last30d": 0,
+        "leader_google_ads_last30d": 0,
+        "leader_google_lifetime": 0,
+        "competitor_nofilter_meta_last30d": "≈0 (not in top 18 advertisers in broad-market sample)",
+        "competitor_nofilter_google_last30d": 0,
+        "competitor_nofilter_google_lifetime": 10,
+        "target_local_pack_appearances": "1 of 4 keywords (med spa brickell miami #3)",
+        "leader_local_pack_appearances": "3 of 4 keywords",
+        "competitor_nofilter_local_pack": "3 of 4 keywords"
+      },
+      "landingPageUse": "'You're outspending your competitors by infinity — and losing.' Single most impactful contrast in the entire dataset."
+    },
+    {
+      "id": "v0_vercel_landing_pages",
+      "category": "Tech stack signal",
+      "headline": "Solea already uses V0-BSPA.VERCEL.APP for Meta-ad landing pages — same v0.dev/Vercel infra Mapsly is built on. They've started building Mapsly-shaped pages themselves but inconsistently.",
+      "supportingData": {
+        "landing_domains_used": 3,
+        "primary_brand_domain_used_for_paid_ads": false,
+        "v0_vercel_pages": 4,
+        "main_org_pages": 6,
+        "messenger_only_pages": 3
+      },
+      "landingPageUse": "'You already know personalised landing pages work — you tried to build one yourself. We do it for you, faster.'"
+    },
+    {
+      "id": "discount_price_anchor",
+      "category": "Brand positioning erosion",
+      "headline": "Every Solea Meta ad anchors on a discount: $59 facial, $59 lipo, 'new clients only', 'limited time'",
+      "supportingData": {
+        "discount_ads": 11,
+        "premium_brand_ads": 0,
+        "common_phrases": [
+          "$59 SKIN TIGHTENING FACIAL – 5 DAYS ONLY",
+          "Lipo Lower Body Sculpt for Just $59",
+          "New clients only",
+          "Limited Time Only"
+        ]
+      },
+      "landingPageUse": "'Your premium Brickell City Centre address is being undermined by your own $59 facial ads. Lux charges $250+ and shows up first.'"
+    },
+    {
+      "id": "response_rate_gap",
+      "category": "Reviews engagement",
+      "headline": "Solea ignores every recent review — Lux replies to 95% of them",
+      "supportingData": {
+        "target": "0/20 owner replies (0%)",
+        "leader": "19/20 owner replies (95%)",
+        "window": "20 most recent reviews each, pulled 2026-05-17"
+      },
+      "landingPageUse": "Hero / 'Are your reviews actively managed?' — leading anxiety hook"
+    },
+    {
+      "id": "tenure_vs_reviews_asymmetry",
+      "category": "Growth trajectory",
+      "headline": "Lux opened on Google in July 2024 and already has 6.4× more reviews than Solea has after 5+ years",
+      "supportingData": {
+        "target_reviews": 342,
+        "leader_reviews": 2200,
+        "ratio": "6.43×",
+        "target_years": 5,
+        "leader_years": 2,
+        "tenure_ratio": "2.5×"
+      },
+      "landingPageUse": "'You're being outpaced by a 2-year-old competitor' — urgency framing"
+    },
+    {
+      "id": "local_pack_invisibility",
+      "category": "Search visibility",
+      "headline": "Solea is invisible in 3 of 4 commercial-intent Brickell/Miami map packs",
+      "supportingData": {
+        "med spa brickell miami": "rank 3 (niche, low volume)",
+        "med spa brickell": "NOT in 3-pack",
+        "botox brickell": "NOT in 3-pack",
+        "hydrafacial miami": "NOT in 3-pack AND not in top 13 organic"
+      },
+      "landingPageUse": "'When someone searches your service in your neighborhood, you don't show up'"
+    },
+    {
+      "id": "sisu_in_building_threat",
+      "category": "Direct competitive threat",
+      "headline": "Sisu Clinic operates from the same address as Solea (701 S Miami Ave) and beats Solea in the 'botox brickell' 3-pack with the exact same review count",
+      "supportingData": {
+        "competitor": "Sisu Clinic Miami",
+        "shared_address": "Brickell City Centre, 701 S Miami Ave",
+        "rating": 5.0,
+        "review_count": 342,
+        "ranking_advantage": "Sisu in #3 of botox brickell 3-pack; Solea not in pack"
+      },
+      "landingPageUse": "'Your literal hallway neighbor is winning the bookings'"
+    },
+    {
+      "id": "fresh_unanswered_complaints",
+      "category": "Active brand damage",
+      "headline": "Two 1-star scheduling complaints from May 10–11, 2026 sit publicly with no Solea reply",
+      "supportingData": {
+        "complaint_1": "2026-05-11, 1★, A.C.: 'Very poor coordination between the call center and the beauty salon. I had two appointments scheduled two weeks in advance...'",
+        "complaint_2": "2026-05-10, 1★, R.P.: 'I made an appointment on April 24th for a facial on May 5th at 3:30 PM. When I arrived for my appointment, I was told my...'",
+        "owner_response_to_either": "none"
+      },
+      "landingPageUse": "Live screenshot — 'this is what prospects are reading right now'"
+    },
+    {
+      "id": "page_weight_and_server",
+      "category": "Website performance",
+      "headline": "Solea's site ships 3.77× more weight and takes 11× longer to respond than Lux's",
+      "supportingData": {
+        "target_bytes": "7.92 MB",
+        "leader_bytes": "2.10 MB",
+        "target_server_ms": 1484,
+        "leader_server_ms": 135,
+        "target_lcp": "4.7s",
+        "leader_lcp": "3.0s",
+        "target_lighthouse_perf": 55,
+        "leader_lighthouse_perf": 73
+      },
+      "landingPageUse": "'Your website is your worst employee'"
+    },
+    {
+      "id": "sunday_revenue_leak",
+      "category": "Hours / availability",
+      "headline": "Lux is open 7 days; Solea is closed Sundays",
+      "supportingData": {
+        "target_sun": "closed",
+        "leader_sun": "11am–7pm"
+      },
+      "landingPageUse": "'How many bookings are walking 200 ft down the street every Sunday?'"
+    },
+    {
+      "id": "review_velocity_paradox",
+      "category": "Squandered opportunity",
+      "headline": "Solea's recent review velocity is 3.1× Lux's — but it ignores all of them",
+      "supportingData": {
+        "target_recent_velocity": "+53 reviews (289→342 in ~6 weeks)",
+        "leader_recent_velocity": "+17 reviews (2183→2200, same window)",
+        "ratio": "3.12×",
+        "target_owner_response_rate": "0%"
+      },
+      "landingPageUse": "'You're getting more reviews than your top competitor — and doing nothing with them'"
+    },
+    {
+      "id": "service_keyword_blindspot",
+      "category": "Missed demand",
+      "headline": "Solea offers microneedling, dermal fillers, and morpheus8 — and ranks for none of the Miami-volume terms",
+      "supportingData": {
+        "microneedling miami": "1,300/mo, $7.58 CPC, HIGH comp — Solea offers it, ranks 0",
+        "dermal filler miami": "1,000/mo, $16.76 CPC, LOW comp — Solea offers it, ranks 0",
+        "morpheus8 miami": "90/mo, $5.47 CPC — Solea actively markets it on Instagram, ranks 0",
+        "combined_missed_volume": "~2,390/mo"
+      },
+      "landingPageUse": "'You're invisible for what you actually sell'"
+    },
+    {
+      "id": "photos_gap",
+      "category": "Profile completeness",
+      "headline": "Lux's Google profile has 15× more photos than Solea's",
+      "supportingData": {
+        "target_photos": 46,
+        "leader_photos": 700,
+        "ratio": "15.22×"
+      },
+      "landingPageUse": "'Your profile looks empty next to theirs'"
+    },
+    {
+      "id": "brand_safety_window",
+      "category": "Defensible advantage",
+      "headline": "Zero competitors are bidding on the 'Solea Brickell Spa' brand term",
+      "supportingData": {
+        "paid_ads_on_brand_serp": 0,
+        "brand_query": "Solea Brickell Spa"
+      },
+      "landingPageUse": "'Your brand is undefended — but it's also unattacked, for now. That window can close.'"
+    }
+  ],
+  "competitiveThreats": [
+    {
+      "id": "sisu_clinic_same_building",
+      "name": "Sisu Clinic Miami",
+      "severity": "P0",
+      "type": "In-building competitor",
+      "address": "Brickell City Centre, 701 S Miami Ave Unit 364c (same building as Solea — Solea is Suite 311A, 3rd floor)",
+      "rating": 5.0,
+      "reviewCount": 342,
+      "phone": "(786) 635-1565",
+      "rankingEvidence": {
+        "botox brickell": {
+          "localPackRank": 3,
+          "soleaRank": "not in 3-pack, organic 9"
+        }
+      },
+      "narrative": "Sisu has IDENTICAL review count to Solea (342) but a 0.6-point higher rating (5.0 vs 4.4) and a doctor-led positioning. Customers physically walking the Brickell City Centre mall see both signs. Sisu also runs a multi-location chain (Brickell is one of many) which gives them domain authority Solea can't match."
+    },
+    {
+      "id": "deluxe_med_spa_beauty",
+      "name": "Deluxe Med Spa Beauty",
+      "severity": "P1",
+      "type": "Local 3-pack competitor",
+      "rating": 4.9,
+      "reviewCount": 267,
+      "phone": "(786) 901-0611",
+      "rankingEvidence": {
+        "med spa brickell": {
+          "localPackRank": 2,
+          "soleaRank": "not in 3-pack, organic 2"
+        }
+      },
+      "narrative": "10+ years in business, holds rank 2 in the 'med spa brickell' 3-pack — directly between Lux (#1) and No Filter (#3). Solea is bumped to organic. Brand-bid keyword 'deluxe med spa beauty miami reviews' (40/mo, LOW comp) is a viable outbound counter."
+    },
+    {
+      "id": "no_filter_medical_spa",
+      "name": "No Filter Medical Spa",
+      "severity": "P1",
+      "type": "Multi-keyword 3-pack defender",
+      "rating": 4.9,
+      "reviewCount": 196,
+      "phone": "(305) 619-2651",
+      "url": "https://nofiltermedspa.com/",
+      "rankingEvidence": {
+        "med spa brickell miami": {
+          "localPackRank": 2
+        },
+        "med spa brickell": {
+          "localPackRank": 3
+        },
+        "hydrafacial miami": {
+          "localPackRank": 2
+        }
+      },
+      "narrative": "Appears in 3 of the 4 commercial 3-packs Solea tested — the most consistent 3-pack defender besides Lux. Smaller review count (196) but very high rating (4.9) and aggressive proximity to Brickell."
+    },
+    {
+      "id": "dr_hamadiya",
+      "name": "Dr. Hamadiya Miami Wellness and Aesthetic Center",
+      "severity": "P1",
+      "type": "Botox 3-pack #1",
+      "address": "999 Brickell Ave #920",
+      "rating": 5.0,
+      "reviewCount": 282,
+      "phone": "(305) 469-1188",
+      "rankingEvidence": {
+        "botox brickell": {
+          "localPackRank": 1,
+          "soleaRank": "not in 3-pack, organic 9"
+        }
+      },
+      "narrative": "Holds #1 for the highest-CPC keyword (botox brickell, $16.35 CPC) on the strength of a 'doctor-led' positioning + 5.0 rating. Two blocks from Solea."
+    },
+    {
+      "id": "miami_skin_spa",
+      "name": "Miami Skin Spa Aesthetics & Wellness",
+      "severity": "P2",
+      "type": "Organic SERP dominant for hydrafacial",
+      "rating": 4.8,
+      "reviewCount": 147,
+      "url": "https://www.miamiskinspa.com/",
+      "rankingEvidence": {
+        "hydrafacial miami": {
+          "organicRank": 4,
+          "snippet_price": "$150 entry"
+        },
+        "med spa brickell miami": {
+          "organicRank": 3
+        }
+      },
+      "narrative": "Strong organic competitor with transparent pricing in SERP snippets ('Starting at $150'). Solea doesn't expose pricing in metadata — a fixable on-page win."
+    }
+  ],
+  "comparisonAtGlance": {
+    "_columns": [
+      "dimension",
+      "target_solea",
+      "leader_lux",
+      "winner",
+      "magnitude"
+    ],
+    "rows": [
+      {
+        "dimension": "Google rating",
+        "target_solea": "4.4★",
+        "leader_lux": "5.0★",
+        "winner": "leader",
+        "magnitude": "-0.6 pts"
+      },
+      {
+        "dimension": "Google review count",
+        "target_solea": 342,
+        "leader_lux": 2200,
+        "winner": "leader",
+        "magnitude": "6.43× more"
+      },
+      {
+        "dimension": "Google photos",
+        "target_solea": 46,
+        "leader_lux": 700,
+        "winner": "leader",
+        "magnitude": "15.22× more"
+      },
+      {
+        "dimension": "Recent owner-reply rate (last 20 reviews)",
+        "target_solea": "0%",
+        "leader_lux": "95%",
+        "winner": "leader",
+        "magnitude": "-95 pp"
+      },
+      {
+        "dimension": "Recent review velocity (~6 wk)",
+        "target_solea": "+53",
+        "leader_lux": "+17",
+        "winner": "target",
+        "magnitude": "3.12× faster"
+      },
+      {
+        "dimension": "Years on Google",
+        "target_solea": "5+",
+        "leader_lux": "~2 (first seen Jul 2024)",
+        "winner": "target",
+        "magnitude": "2.5× longer"
+      },
+      {
+        "dimension": "Hours open per week",
+        "target_solea": 54,
+        "leader_lux": 56,
+        "winner": "leader",
+        "magnitude": "-2 hrs"
+      },
+      {
+        "dimension": "Open Sundays",
+        "target_solea": "no",
+        "leader_lux": "yes (11am–7pm)",
+        "winner": "leader",
+        "magnitude": "1 day/wk gap"
+      },
+      {
+        "dimension": "Instagram followers",
+        "target_solea": 16400,
+        "leader_lux": 9600,
+        "winner": "target",
+        "magnitude": "1.71× more"
+      },
+      {
+        "dimension": "Booking platform",
+        "target_solea": "Vagaro",
+        "leader_lux": "Mangomint",
+        "winner": "tie",
+        "magnitude": "both modern"
+      },
+      {
+        "dimension": "Local-pack appearances (4 keywords tested)",
+        "target_solea": 1,
+        "leader_lux": 3,
+        "winner": "leader",
+        "magnitude": "Solea: med spa brickell miami #3 only"
+      },
+      {
+        "dimension": "Lighthouse Performance score",
+        "target_solea": 55,
+        "leader_lux": 73,
+        "winner": "leader",
+        "magnitude": "-18 pp"
+      },
+      {
+        "dimension": "Lighthouse Best Practices",
+        "target_solea": 73,
+        "leader_lux": 100,
+        "winner": "leader",
+        "magnitude": "-27 pp"
+      },
+      {
+        "dimension": "Lighthouse SEO",
+        "target_solea": 85,
+        "leader_lux": 100,
+        "winner": "leader",
+        "magnitude": "-15 pp"
+      },
+      {
+        "dimension": "First Contentful Paint",
+        "target_solea": "2.5s",
+        "leader_lux": "1.5s",
+        "winner": "leader",
+        "magnitude": "-1.0s"
+      },
+      {
+        "dimension": "Largest Contentful Paint",
+        "target_solea": "4.7s",
+        "leader_lux": "3.0s",
+        "winner": "leader",
+        "magnitude": "-1.7s"
+      },
+      {
+        "dimension": "Server response time (TTFB)",
+        "target_solea": "1.48s",
+        "leader_lux": "135ms",
+        "winner": "leader",
+        "magnitude": "10.99× slower"
+      },
+      {
+        "dimension": "Total page weight",
+        "target_solea": "7.92 MB",
+        "leader_lux": "2.10 MB",
+        "winner": "leader",
+        "magnitude": "3.77× heavier"
+      },
+      {
+        "dimension": "Site platform",
+        "target_solea": "WordPress + NitroPack + LeadConnector + Bunny.net",
+        "leader_lux": "Squarespace + GTM + GA + Pinterest",
+        "winner": "neutral",
+        "magnitude": "WordPress stack is heavier; Squarespace is simpler"
+      },
+      {
+        "dimension": "Free parking on-site",
+        "target_solea": "paid lot only",
+        "leader_lux": "free garage + free lot + valet",
+        "winner": "leader",
+        "magnitude": "Lux wins booking experience"
+      },
+      {
+        "dimension": "From-the-business attributes",
+        "target_solea": "(none claimed)",
+        "leader_lux": "Latinx-owned + LGBTQ-owned",
+        "winner": "leader",
+        "magnitude": "Lux uses identity attributes for discovery"
+      },
+      {
+        "dimension": "Brand-hijack defense (paid ads on brand SERP)",
+        "target_solea": "0 competitor bids",
+        "leader_lux": "(not measured)",
+        "winner": "target",
+        "magnitude": "Solea brand SERP is clean"
+      }
+    ]
+  },
+  "derivedStats": {
+    "reviewCountRatio_LeaderOverTarget": 6.43,
+    "tenureRatio_TargetOverLeader": 2.5,
+    "photosRatio_LeaderOverTarget": 15.22,
+    "pageWeightRatio_TargetOverLeader": 3.77,
+    "serverResponseRatio_TargetOverLeader": 10.99,
+    "lcpGapMs_TargetMinusLeader": 1781,
+    "instagramRatio_TargetOverLeader": 1.71,
+    "recentReviewVelocityRatio_TargetOverLeader": 3.12,
+    "ownerReplyRateGap_pp": -95,
+    "lighthousePerformanceGap_pp": -18,
+    "lighthouseSeoGap_pp": -15,
+    "lighthouseBestPracticesGap_pp": -27,
+    "missedMonthlySearchesOnP0Keywords": 3020,
+    "p0KeywordsBreakdown": {
+      "microneedling miami": 1300,
+      "dermal filler miami": 1000,
+      "botox miami": 720
+    }
+  },
+  "marketCensus": {
+    "geoScope": "12 km radius around Miami centroid (25.7641, -80.1923)",
+    "filterApplied": "categories=['medical_spa'], is_claimed=true, ordered by review count desc",
+    "sourceCalls": "DataForSEO business_data_business_listings_search × 4 paginated calls (offsets 0/10/20/30, limit 100 each — but MCP wrapper capped each response at 10 items)",
+    "totalReturnedAcrossPages": 40,
+    "totalClaimed": 40,
+    "totalActiveInRadius": null,
+    "totalActiveInRadiusNote": "True 'totalActive' count requires either (a) deeper pagination beyond rank 40 (MCP caps responses at 10/call, so 50+ rank requires more calls) or (b) DataForSEO REST API direct. Top 40 ranges from 3,485 reviews (Spectrum Aesthetics) down to 325 (Aviva Medical Spa).",
+    "soleaRankByReviews": null,
+    "soleaRankByReviewsNote": "Solea is NOT returned in the medical_spa-filtered census (top 40 paginated). Solea's profile lists 'medical_spa' in category_ids (along with spa, spa_and_health_club, sauna, laser_hair_removal_service), but DataForSEO's primary-category filter does not match it. By review count (342), Solea would sit at approximately rank ~37 if it appeared — between Facial Mania (344) and Chopra (335). The exclusion is itself a discoverability finding.",
+    "soleaEffectiveRankByReviewsAmongCensus": 37,
+    "soleaEffectiveRankByRatingAmongCensus": 38,
+    "soleaEffectiveRankByRatingNote": "In top 40, only 2 entries have lower rating than Solea's 4.4 (both at 4.3). 38 of 40 entries beat Solea on rating.",
+    "medianReviewCount_top40": 425,
+    "minReviewCount_top40": 325,
+    "maxReviewCount_top40": 3485,
+    "fiveStarCount_top40": 15,
+    "ratingDistribution_top40": {
+      "5.0": 15,
+      "4.9": 5,
+      "4.8": 6,
+      "4.7": 8,
+      "4.6": 3,
+      "4.5": 1,
+      "4.4": 0,
+      "4.3": 2
+    },
+    "soleaRatingPercentile_top40": "Bottom 5% (35/40 entries rate higher; Solea ties no entry in top 40, falls between the 4.5-cluster and the 4.3-pair)",
+    "primaryCategoriesSeen_top40": [
+      "Beauty salon",
+      "Cosmetic surgeon",
+      "Day spa",
+      "Eye care center",
+      "Facial spa",
+      "Laser hair removal service",
+      "Medical spa",
+      "Permanent make-up clinic",
+      "Plastic surgeon",
+      "Plastic surgery clinic",
+      "Skin care clinic",
+      "Tanning salon",
+      "Wellness center"
+    ],
+    "primaryCategoriesNote": "Google's 'medical spa' is umbrella'd across 13 distinct primary-category labels. Solea's primary may be classified as 'Spa', 'Spa and health club', or another label that doesn't intersect the medical_spa category filter — explaining the discovery gap.",
+    "topPerformers": [
+      {
+        "rank": 1,
+        "name": "Spectrum Aesthetics",
+        "rating": 4.6,
+        "reviews": 3485,
+        "borough": "Coral Gables-adjacent"
+      },
+      {
+        "rank": 2,
+        "name": "LUX MedSpa Brickell",
+        "rating": 5.0,
+        "reviews": 2183,
+        "borough": "Brickell — direct competitor"
+      },
+      {
+        "rank": 3,
+        "name": "Dermaclinic Miami",
+        "rating": 4.3,
+        "reviews": 1047,
+        "borough": "Brickell-adjacent (175 SW 7th)"
+      },
+      {
+        "rank": 4,
+        "name": "4Ever Young Med Spa & Wellness Center Miami Midtown",
+        "rating": 4.8,
+        "reviews": 755
+      },
+      {
+        "rank": 5,
+        "name": "Body Details (Coral Gables)",
+        "rating": 4.9,
+        "reviews": 702
+      },
+      {
+        "rank": 6,
+        "name": "Body Details (Midtown)",
+        "rating": 4.8,
+        "reviews": 700
+      },
+      {
+        "rank": 7,
+        "name": "The Refinery Lab Microblading",
+        "rating": 4.9,
+        "reviews": 672
+      },
+      {
+        "rank": 8,
+        "name": "Careaga Plastic Surgery",
+        "rating": 4.7,
+        "reviews": 658
+      },
+      {
+        "rank": 9,
+        "name": "Karen Paba Studio",
+        "rating": 4.7,
+        "reviews": 654
+      },
+      {
+        "rank": 10,
+        "name": "Ideal Image Coral Gables",
+        "rating": 4.9,
+        "reviews": 634
+      }
+    ],
+    "rating5StarCount": 15,
+    "marketHeadline": "In a 12km Miami radius, 15 of the top 40 verified medical spas hold perfect 5.0 ratings, and the median has 425 reviews. Solea (4.4★ / 342 reviews) would rank ~37 if visible — but isn't even returned by Google Maps' category filter. The market floor is high."
+  },
+  "googleAds": {
+    "scanWindow": "2026-05-18 22:30-22:31 EDT (single-snapshot, desktop, Miami,FL,US)",
+    "byKeyword": [
+      {
+        "keyword": "med spa brickell",
+        "advertisers": [],
+        "paidAdsCount": 0,
+        "localPackOccupants": [
+          {
+            "rank": 1,
+            "name": "LUX MedSpa Brickell",
+            "rating": 5.0,
+            "reviewCount": 2200
+          },
+          {
+            "rank": 2,
+            "name": "Solea Brickell Spa",
+            "rating": 4.4,
+            "reviewCount": 342,
+            "change_vs_prior_run": "MOVED UP — was not in pack 2026-05-17"
+          },
+          {
+            "rank": 3,
+            "name": "No Filter Medical Spa",
+            "rating": 4.9,
+            "reviewCount": 197
+          }
+        ]
+      },
+      {
+        "keyword": "botox brickell",
+        "advertisers": [],
+        "paidAdsCount": 0,
+        "localPackOccupants": [
+          {
+            "rank": 1,
+            "name": "Dr. Hamadiya Miami Wellness",
+            "rating": 5.0,
+            "reviewCount": 282
+          },
+          {
+            "rank": 2,
+            "name": "Brickell Cosmetic Center-Aesthetics & Dermatology",
+            "rating": 4.6,
+            "reviewCount": 440,
+            "change_vs_prior_run": "Newly captured — replaces LUX in pack"
+          },
+          {
+            "rank": 3,
+            "name": "Plump Cosmetics & Injectables",
+            "rating": 5.0,
+            "reviewCount": 89
+          }
+        ]
+      },
+      {
+        "keyword": "med spa miami",
+        "advertisers": [],
+        "paidAdsCount": 0,
+        "localPackOccupants": [
+          {
+            "rank": 1,
+            "name": "LUX MedSpa Brickell",
+            "rating": 5.0,
+            "reviewCount": 2200
+          },
+          {
+            "rank": 2,
+            "name": "No Filter Medical Spa",
+            "rating": 4.9,
+            "reviewCount": 197
+          },
+          {
+            "rank": 3,
+            "name": "Miami Skin Spa Aesthetics & Wellness",
+            "rating": 4.8,
+            "reviewCount": 154
+          }
+        ]
+      },
+      {
+        "keyword": "botox miami",
+        "advertisers": [],
+        "paidAdsCount": 0,
+        "localPackOccupants": [
+          {
+            "rank": 1,
+            "name": "Dr. Hamadiya Miami Wellness",
+            "rating": 5.0,
+            "reviewCount": 282
+          },
+          {
+            "rank": 2,
+            "name": "Sisu Clinic Miami",
+            "rating": 4.9,
+            "reviewCount": 342
+          },
+          {
+            "rank": 3,
+            "name": "Plump Cosmetics & Injectables",
+            "rating": 5.0,
+            "reviewCount": 89
+          }
+        ]
+      },
+      {
+        "keyword": "hydrafacial miami",
+        "advertisers": [],
+        "paidAdsCount": 0,
+        "localPackOccupants": [
+          {
+            "rank": 1,
+            "name": "LUX MedSpa Brickell",
+            "rating": 5.0,
+            "reviewCount": 2200
+          },
+          {
+            "rank": 2,
+            "name": "No Filter Medical Spa",
+            "rating": 4.9,
+            "reviewCount": 197
+          },
+          {
+            "rank": 3,
+            "name": "Miami Skin Spa Aesthetics & Wellness",
+            "rating": 4.8,
+            "reviewCount": 154
+          }
+        ]
+      },
+      {
+        "keyword": "microneedling miami",
+        "advertisers": [],
+        "paidAdsCount": 0,
+        "localPackOccupants": [
+          {
+            "rank": 1,
+            "name": "LUX MedSpa Brickell",
+            "rating": 5.0,
+            "reviewCount": 2200
+          },
+          {
+            "rank": 2,
+            "name": "No Filter Medical Spa",
+            "rating": 4.9,
+            "reviewCount": 197
+          },
+          {
+            "rank": 3,
+            "name": "Miami Skin Spa Aesthetics & Wellness",
+            "rating": 4.8,
+            "reviewCount": 154
+          }
+        ]
+      },
+      {
+        "keyword": "dermal filler miami",
+        "advertisers": [],
+        "paidAdsCount": 0,
+        "localPackOccupants": [
+          {
+            "rank": 1,
+            "name": "Dr. Hamadiya Miami Wellness",
+            "rating": 5.0,
+            "reviewCount": 282
+          },
+          {
+            "rank": 2,
+            "name": "NuYou Medical Aesthetics",
+            "rating": 5.0,
+            "reviewCount": 465
+          },
+          {
+            "rank": 3,
+            "name": "Sisu Clinic Miami",
+            "rating": 4.9,
+            "reviewCount": 342
+          }
+        ]
+      }
+    ],
+    "totalUniqueAdvertisers": 0,
+    "topSpenderInferred": null,
+    "topSpenderInferredNote": "Zero advertisers detected at scan time across all 7 keywords — cannot infer a top spender. This contradicts keyword competition_index (HIGH on 4 of 7 keywords, $14-$17 CPCs).",
+    "headlineFindings": [
+      "ZERO paid Google Ads appear on any of the 7 commercial-intent SERPs at scan time (10:30pm EDT, Sunday).",
+      "Keywords with the highest CPC ceilings ($16.35 botox brickell, $16.76 dermal filler miami, $14.39 botox miami) have NO active bidders right now.",
+      "This is either (a) a genuine market opening — Solea could capture top ad position at floor bids — or (b) an artifact of late-Sunday-night scanning when ad budgets are exhausted/paused. A daytime weekday rescan would confirm.",
+      "Sisu Clinic Miami — Solea's same-building competitor — appears organically in 3-pack for both 'botox miami' AND 'dermal filler miami' without paying. They've solved the Brickell SEO without ad spend.",
+      "Solea moved INTO the 'med spa brickell' 3-pack today (rank #2) — was not in pack on 2026-05-17. Local pack rankings are volatile; this gain could reverse."
+    ],
+    "methodologyNote": "Used serp_organic_live_advanced as fallback because no serp_google_ads_advertisers_live endpoint exists in this DataForSEO MCP namespace. The fallback returns ALL SERP element types (including type:'paid' if present). Inspected each of 7 response files for items of type='paid' — none found.",
+    "scanFreshness": "Single-snapshot, desktop, Miami,FL,US, Sunday evening. Re-run during weekday business hours to confirm whether 0-advertiser finding is structural or temporal."
+  },
+  "metaAds": {
+    "status": "collected",
+    "scanWindow": "2026-05-18 22:35–22:50 EDT. Filter: country=US, ad_active_status=ACTIVE, impressions in 2026-04-18 to 2026-05-17 (Last 30 days).",
+    "scanMethod": "Claude in Chrome extension drove the UI on user's local browser; ad data parsed via JS scrape of the rendered DOM",
+    "perBusinessSummary": {
+      "target_solea": {
+        "adsServingImpressionsLast30Days": 13,
+        "adsLaunchedLast30Days": 8,
+        "adsOlderButStillServing": 5,
+        "totalActive_anyStart": 13,
+        "search_query": "Solea Brickell Spa",
+        "note": "All 13 active Solea ads served impressions in last 30 days. 8 were newly launched in window (started ≥ 2026-04-18); 5 are older creatives (launched Dec 2025 – Apr 13, 2026) still serving."
+      },
+      "leader_lux": {
+        "adsServingImpressionsLast30Days": 0,
+        "adsLaunchedLast30Days": 0,
+        "totalActive_anyStart": 0,
+        "search_query": "Lux MedSpa Brickell",
+        "note": "ZERO ads in any window. Lux has run no Meta ads recently."
+      },
+      "broadMarket_medSpaMiami": {
+        "totalResultsReported_last30Days": "~250",
+        "totalResultsReported_anyStart": "~260",
+        "search_query": "med spa miami",
+        "samplingCoverage": "29 of ~250 ads scraped via 6 page-scrolls; not exhaustive",
+        "uniqueAdvertisersInSample": 18,
+        "note": "Difference between 'any active' (260) and 'served impressions in last 30 days' (250) is minimal — most 'med spa miami' active ads are currently serving. The window contracts the picture by ~4%."
+      }
+    },
+    "soleaActive": [
+      {
+        "libraryId": "1705246147212235",
+        "startedRunningOn": "2026-05-15",
+        "campaign_theme": "$59 Skin Tightening Facial",
+        "landing_page": "V0-BSPA.VERCEL.APP",
+        "creative_snippet": "✨ $59 SKIN TIGHTENING FACIAL – 5 DAYS ONLY ✨ For the next five days, new clients can experience our skin tightening facial at this exclusive price...",
+        "launchedInLast30Days": true,
+        "servedImpressionsInLast30Days": true
+      },
+      {
+        "libraryId": "973637271925133",
+        "startedRunningOn": "2026-05-15",
+        "campaign_theme": "$59 Skin Tightening Facial (duplicate)",
+        "landing_page": "V0-BSPA.VERCEL.APP",
+        "creative_snippet": "✨ $59 SKIN TIGHTENING FACIAL – 5 DAYS ONLY ✨...",
+        "launchedInLast30Days": true,
+        "servedImpressionsInLast30Days": true
+      },
+      {
+        "libraryId": "939323102272834",
+        "startedRunningOn": "2026-05-12",
+        "campaign_theme": "Lipo Lower Body Sculpt $59",
+        "landing_page": "BOOK.SOLEABRICKELLSPA.ORG",
+        "creative_snippet": "🔥 LIMITED TIME OFFER! 🔥 ✨ This Month Only! Lipo Lower Body Sculpt for Just $59. Hips • Booty • Legs...",
+        "launchedInLast30Days": true,
+        "servedImpressionsInLast30Days": true
+      },
+      {
+        "libraryId": "2593486951048460",
+        "startedRunningOn": "2026-05-12",
+        "campaign_theme": "Skin Tightening / Wrinkle Reduction",
+        "landing_page": "BOOK.SOLEABRICKELLSPA.ORG",
+        "creative_snippet": "🌟 Skin Tightening 🌟 Wrinkle Reduction 🌟 Improved Skin Texture 🌟 Lifting Effect...",
+        "launchedInLast30Days": true,
+        "servedImpressionsInLast30Days": true
+      },
+      {
+        "libraryId": "958162470168349",
+        "startedRunningOn": "2026-05-12",
+        "campaign_theme": "Lipo Lower Body Sculpt $59 (duplicate)",
+        "landing_page": "BOOK.SOLEABRICKELLSPA.ORG",
+        "creative_snippet": "🔥 LIMITED TIME OFFER! 🔥...",
+        "launchedInLast30Days": true,
+        "servedImpressionsInLast30Days": true
+      },
+      {
+        "libraryId": "1298784581717622",
+        "startedRunningOn": "2026-05-12",
+        "campaign_theme": "Skin Tightening / Wrinkle Reduction (duplicate)",
+        "landing_page": "BOOK.SOLEABRICKELLSPA.ORG",
+        "creative_snippet": "🌟 Skin Tightening 🌟 Wrinkle Reduction...",
+        "launchedInLast30Days": true,
+        "servedImpressionsInLast30Days": true
+      },
+      {
+        "libraryId": "938811269033088",
+        "startedRunningOn": "2026-04-20",
+        "campaign_theme": "Skin Tightening / Wrinkle Reduction",
+        "landing_page": "SOLEABRICKELLSPA.ORG",
+        "creative_snippet": "🌟 Skin Tightening 🌟 Wrinkle Reduction 🌟 Improved Skin Texture 🌟 Lifting Effect...",
+        "launchedInLast30Days": true,
+        "servedImpressionsInLast30Days": true
+      },
+      {
+        "libraryId": "2772291113105144",
+        "startedRunningOn": "2026-04-20",
+        "campaign_theme": "Skin Tightening / Wrinkle Reduction (duplicate)",
+        "landing_page": "SOLEABRICKELLSPA.ORG",
+        "creative_snippet": "🌟 Skin Tightening...",
+        "launchedInLast30Days": true,
+        "servedImpressionsInLast30Days": true
+      },
+      {
+        "libraryId": "1638966510745884",
+        "startedRunningOn": "2026-04-13",
+        "campaign_theme": "$59 Skin Tightening Facial (video)",
+        "landing_page": "V0-BSPA.VERCEL.APP",
+        "creative_snippet": "✨ $59 SKIN TIGHTENING FACIAL – 5 DAYS ONLY ✨...",
+        "launchedInLast30Days": false,
+        "servedImpressionsInLast30Days": true
+      },
+      {
+        "libraryId": "956781693610998",
+        "startedRunningOn": "2026-04-13",
+        "campaign_theme": "$59 Skin Tightening Facial (duplicate, started Apr 13)",
+        "landing_page": "V0-BSPA.VERCEL.APP",
+        "creative_snippet": "✨ $59 SKIN TIGHTENING FACIAL – 5 DAYS ONLY ✨...",
+        "launchedInLast30Days": false,
+        "servedImpressionsInLast30Days": true
+      },
+      {
+        "libraryId": "1887000488598801",
+        "startedRunningOn": "2026-03-16",
+        "campaign_theme": "5 Treatments in ONE Facial",
+        "landing_page": "DM TO BOOK (Messenger)",
+        "creative_snippet": "✨ Get 5 Treatments in ONE Facial — Deep Pore Cleansing • Microdermabrasion • Glow Exfoliation • Ultrasound Hydration • LED Glow Therapy...",
+        "launchedInLast30Days": false,
+        "servedImpressionsInLast30Days": true
+      },
+      {
+        "libraryId": "875189908199301",
+        "startedRunningOn": "2025-12-17",
+        "campaign_theme": "Goodbye Double Chin",
+        "landing_page": "DM TO BOOK (Messenger)",
+        "creative_snippet": "Goodbye Double Chin — without surgery. Modern, non-surgical approach. No downtime. New clients only...",
+        "launchedInLast30Days": false,
+        "servedImpressionsInLast30Days": true
+      },
+      {
+        "libraryId": "1802822520366467",
+        "startedRunningOn": "2025-12-12",
+        "campaign_theme": "Lipo Lower Body Sculpt $59 (original)",
+        "landing_page": "DM TO BOOK (Messenger)",
+        "creative_snippet": "🔥 LIMITED TIME OFFER! 🔥 Lipo Lower Body Sculpt for Just $59...",
+        "launchedInLast30Days": false,
+        "servedImpressionsInLast30Days": true
+      }
+    ],
+    "soleaCampaignThemes": [
+      {
+        "theme": "$59 Skin Tightening Facial",
+        "adCount": 4,
+        "earliestStart": "2026-04-13",
+        "latestStart": "2026-05-15"
+      },
+      {
+        "theme": "Skin Tightening / Wrinkle Reduction",
+        "adCount": 4,
+        "earliestStart": "2026-04-20",
+        "latestStart": "2026-05-12"
+      },
+      {
+        "theme": "Lipo Lower Body Sculpt $59",
+        "adCount": 3,
+        "earliestStart": "2025-12-12",
+        "latestStart": "2026-05-12"
+      },
+      {
+        "theme": "5 Treatments in ONE Facial",
+        "adCount": 1,
+        "earliestStart": "2026-03-16"
+      },
+      {
+        "theme": "Goodbye Double Chin",
+        "adCount": 1,
+        "earliestStart": "2025-12-17"
+      }
+    ],
+    "soleaLandingPageMix": {
+      "V0-BSPA.VERCEL.APP": 4,
+      "BOOK.SOLEABRICKELLSPA.ORG": 4,
+      "SOLEABRICKELLSPA.ORG": 2,
+      "DM TO BOOK (Messenger, no landing page)": 3
+    },
+    "soleaLandingPageInsight": "Solea uses 3 separate domains/platforms (.com, .org, V0-BSPA.VERCEL.APP) plus Messenger DM funnels. The Vercel/v0.dev landing pages indicate they're already experimenting with AI-built landing pages — the same infrastructure family Mapsly is built on. Their primary marketing site (soleabrickellspa.com, the verified business URL) is NOT used as the landing destination for paid ads.",
+    "broadMarketTopAdvertisers": [
+      {
+        "name": "A&E Plastic Surgery Miami",
+        "activeAds": 16,
+        "sampleHeadline": "✨ Descubre los servicios de A&E Plastic Surgery & Med Spa Miami."
+      },
+      {
+        "name": "Lov Med Spa",
+        "activeAds": 8,
+        "sampleHeadline": "There are a lot of skin tightening options out there. Here's what makes Quantum FR different..."
+      },
+      {
+        "name": "Zeugma MedSpa",
+        "activeAds": 7,
+        "sampleHeadline": "Imagine your own plasma, PRP, injected all over your face!"
+      },
+      {
+        "name": "AG Serenity Med Spa",
+        "activeAds": 6,
+        "sampleHeadline": "📣 ✨ Mujeres de Hollywood & Miami ✨"
+      },
+      {
+        "name": "Heavenly Med Spa Miami",
+        "activeAds": 6,
+        "sampleHeadline": "¿Quieres bajar de peso rápido? Escríbenos ya..."
+      },
+      {
+        "name": "MDW Aesthetics Miami",
+        "activeAds": 6,
+        "sampleHeadline": "Nurse injectors... your clients are already asking for salmon DNA facials and PRP microneedling."
+      },
+      {
+        "name": "Miami Lakes Med Spa",
+        "activeAds": 6,
+        "sampleHeadline": "PRP joint injections at Miami Lakes Med Spa — $450/injection."
+      },
+      {
+        "name": "Victoria Monarca",
+        "activeAds": 6,
+        "sampleHeadline": "🔥 Atención Miami 🔥"
+      },
+      {
+        "name": "Grand Skin Treatments",
+        "activeAds": 5
+      },
+      {
+        "name": "Medstar Media (agency)",
+        "activeAds": 5,
+        "sampleHeadline": "I've tried dozens of agencies. MedStar Media is the only one I trust"
+      },
+      {
+        "name": "Calm & Glow",
+        "activeAds": 4,
+        "sampleHeadline": "Only $69.99 — EM Sculpt + Body Contouring"
+      },
+      {
+        "name": "Laser Me Hair Removal & MedSpa",
+        "activeAds": 4
+      },
+      {
+        "name": "Alicia Med Spa",
+        "activeAds": 3
+      },
+      {
+        "name": "Facial Mania Med Spa Coral Gables",
+        "activeAds": 3,
+        "sampleHeadline": "💦 Coral Gables Ladies! $99 Hydro Oxygen Facial ($100 OFF)"
+      },
+      {
+        "name": "Facial Mania Med Spa South Florida",
+        "activeAds": 3,
+        "sampleHeadline": "$99 Hydro Oxygen Facial (originally $199)"
+      },
+      {
+        "name": "IdeaLaser Cosmetic Center",
+        "activeAds": 3
+      },
+      {
+        "name": "Magical Med Spa",
+        "activeAds": 3
+      },
+      {
+        "name": "Paris Med Spa",
+        "activeAds": 3,
+        "sampleHeadline": "Tres ubicaciones en Miami: Miami Lakes, Kendall y Le Jeune"
+      },
+      {
+        "name": "TOXWELL Med Spa & Wellness",
+        "activeAds": 3
+      },
+      {
+        "name": "elite.medspamiami",
+        "activeAds": 3
+      }
+    ],
+    "broadMarketInsights": [
+      "Heaviest Meta advertiser in the broader 'med spa miami' query: A&E Plastic Surgery Miami (16 ads), primarily in Spanish — confirms Spanish-language is the dominant Meta-ad language in this market.",
+      "Heavy use of $59 / $69 / $99 price hooks. Solea's $59 facial strategy mirrors a dozen other med spas — this is the price-led playbook of the lower tier, not the premium tier.",
+      "Lux MedSpa Brickell has 0 active Meta ads. They neither defend their brand nor advertise treatments. Pure organic dominance.",
+      "Sisu Clinic Miami (Solea's same-building competitor) has 0 active Meta ads either — winning local pack via SEO not paid.",
+      "Two Meta ads in the results are FROM marketing agencies SELLING to med spas: 'Medstar Media' (5 ads) and 'Tendem.ai' (1 ad selling med-spa-owner lead lists). Suggests Solea is a target for these agencies.",
+      "Haute Beauty Network is advertising 'AI-readable authority profiles' to plastic surgeons — same positioning Mapsly is taking. Worth tracking as a direct competitor in the personalised-landing space."
+    ],
+    "broadMarketTopAdvertisers_last30Days": [
+      {
+        "name": "Grand Skin Treatments",
+        "adsInSample": 4
+      },
+      {
+        "name": "Heavenly Med Spa Miami",
+        "adsInSample": 3
+      },
+      {
+        "name": "Miami Lakes Med Spa",
+        "adsInSample": 3
+      },
+      {
+        "name": "Magical Med Spa",
+        "adsInSample": 2
+      },
+      {
+        "name": "Facial Mania Med Spa South Florida",
+        "adsInSample": 2
+      },
+      {
+        "name": "A Beauty and Body Salon and Spa",
+        "adsInSample": 2
+      },
+      {
+        "name": "VK Medical Professionals LLC",
+        "adsInSample": 1
+      },
+      {
+        "name": "Aromas Therapy MedSpa",
+        "adsInSample": 1
+      },
+      {
+        "name": "Dolce Medical Spa",
+        "adsInSample": 1
+      },
+      {
+        "name": "Miami Skin Club",
+        "adsInSample": 1
+      },
+      {
+        "name": "Facial Mania Med Spa Kendall",
+        "adsInSample": 1
+      },
+      {
+        "name": "Paris Med Spa",
+        "adsInSample": 1
+      },
+      {
+        "name": "Skinney Medspa",
+        "adsInSample": 1
+      },
+      {
+        "name": "Tatiana Cotto, MSN, FNP-C",
+        "adsInSample": 1
+      }
+    ],
+    "broadMarketTopAdvertisersNote": "Sampled 29 of ~250 ads in 6 scroll passes. Top advertisers in this last-30-days-filtered slice differ from the all-time sample. Notably ABSENT from last-30-days impressions window: A&E Plastic Surgery Miami (had 16 ads under 'any active'), Lov Med Spa, Zeugma MedSpa, AG Serenity Med Spa, MDW Aesthetics. These advertisers' ads may have stopped serving recently or my sample under-counted them. A full enumeration would require ~5x more pagination."
+  },
+  "aiReplies": [
+    {
+      "reviewer": "A.C.",
+      "reviewDate": "2026-05-11",
+      "stars": 1,
+      "reviewExcerpt": "Very poor coordination between the call center and the beauty salon. I had two appointments scheduled two weeks in advance...",
+      "draftEn": "A.C., thank you for sharing this — and please accept our sincere apology for the breakdown between our booking team and our spa floor. You shouldn't have to chase appointments you scheduled two weeks in advance, and the experience you described is not the standard of care we want for any guest at Solea Brickell. We'd like the chance to make this right. Our spa manager will reach out within 48 hours to listen, understand exactly what happened, and offer a complimentary service of your choice. If you'd prefer to reach us first, please call 786-418-4515 or email info@soleabrickellspa.com.",
+      "draftEnWordCount": 104,
+      "draftEs": "A.C., gracias por compartir esto, y por favor acepte nuestras más sinceras disculpas por la falta de coordinación entre nuestro centro de llamadas y la sala del spa. No debería tener que perseguir citas que reservó con dos semanas de anticipación, y la experiencia que describe no es el estándar de servicio que queremos para ningún cliente de Solea Brickell. Nos gustaría tener la oportunidad de corregirlo. Nuestra gerente del spa se comunicará en las próximas 48 horas para escucharla, entender exactamente lo que ocurrió y ofrecerle un servicio de cortesía de su elección. Si prefiere contactarnos primero, llame al 786-418-4515 o escriba a info@soleabrickellspa.com.",
+      "draftEsWordCount": 109,
+      "tone": "Professional, empathetic, ownership-forward, no defensiveness, concrete remediation + 48h callback commitment",
+      "verificationNotes": "Phone and email pulled from confirmed target.phone and target sources earlier in this file. No staff or owner names fabricated. Generic 'spa manager' used in absence of verified leadership name."
+    },
+    {
+      "reviewer": "R.P.",
+      "reviewDate": "2026-05-10",
+      "stars": 1,
+      "reviewExcerpt": "I made an appointment on April 24th for a facial on May 5th at 3:30 PM. When I arrived for my appointment, I was told my...",
+      "draftEn": "R.P., we are deeply sorry. Booking your facial on April 24th, planning your day around May 5th at 3:30 PM, and arriving to find a problem on our end is unacceptable — and we own that completely. We'd like to invite you back at no charge for the facial you scheduled, plus a complimentary upgrade for the inconvenience. Our spa manager will personally oversee the rebooking and confirm every detail in writing this time. Please reply to this review with the best phone number to reach you, or call us directly at 786-418-4515. Thank you for giving us the chance to make this right.",
+      "draftEnWordCount": 108,
+      "draftEs": "R.P., lo sentimos profundamente. Reservar su facial el 24 de abril, organizar su día en torno al 5 de mayo a las 3:30 PM, y llegar y descubrir un problema de nuestra parte es inaceptable, y asumimos la responsabilidad por completo. Nos gustaría invitarla a regresar sin costo para el facial que había reservado, además de una mejora de cortesía por la molestia. Nuestra gerente del spa supervisará personalmente la nueva reserva y confirmará cada detalle por escrito esta vez. Por favor responda a esta reseña con su mejor número de teléfono, o llámenos directamente al 786-418-4515. Gracias por darnos la oportunidad de corregirlo.",
+      "draftEsWordCount": 107,
+      "tone": "Professional, empathetic, ownership-forward, specific recovery offer (free facial + upgrade), written confirmation commitment",
+      "verificationNotes": "Phone from confirmed target.phone. No staff or owner names fabricated. References the specific dates the customer cited (April 24th / May 5th 3:30 PM) to demonstrate the reply read the actual complaint."
+    }
+  ],
+  "googleAdsTransparency": {
+    "status": "collected",
+    "source": "adstransparency.google.com via Claude Chrome MCP, 2026-05-18 22:36 EDT",
+    "scanMethod": "Domain-keyed lookups in Google's Ads Transparency Center via Claude Chrome MCP, with explicit Last 30 days filter (preset-date=Last+30+days URL param). 2026-05-18 22:36–22:48 EDT.",
+    "perBusinessSummary": {
+      "target_solea": {
+        "domain": "soleabrickellspa.com",
+        "advertiserName": "Doiban Simon",
+        "advertiserId": "AR01293859859992674305",
+        "verified": true,
+        "advertiserNote": "Verified advertiser 'Doiban Simon' (legal name, likely owner). 87 ads in lifetime under this advertiser ID, but only 4 currently serving impressions in last 30 days. The 95%+ drop from lifetime to recent suggests Solea ran heavy Google Ads campaigns historically but has scaled back recently.",
+        "lifetimeAdCount": 87,
+        "last30DaysAdCount": 4,
+        "creativeFormatsSeen": "Cannot fully enumerate — Chrome MCP redacted individual creative URLs in the output. The 4 visible cards in the last-30-days view were identifiable by advertiser banner only."
+      },
+      "leader_lux": {
+        "domain": "luxmedspabrickell.com",
+        "advertiserName": null,
+        "lifetimeAdCount": 0,
+        "last30DaysAdCount": 0,
+        "advertiserNote": "ZERO ads pointing to luxmedspabrickell.com in any time window. Lux runs no Google ads."
+      },
+      "competitor_no_filter": {
+        "domain": "nofiltermedspa.com",
+        "advertiserName": "Nofiltermedspa, LLC",
+        "verified": true,
+        "lifetimeAdCount": 10,
+        "advertiserNote": "Verified advertiser 'Nofiltermedspa, LLC'. 10 lifetime ads, but ZERO in last 30 days — they've also paused Google ads recently. Yet No Filter still appears in 3 of 4 commercial 3-packs Solea tested (med spa brickell, med spa brickell miami, hydrafacial miami, microneedling miami). Pure SEO.",
+        "last30DaysAdCount": 0
+      }
+    },
+    "headlineFindings": [
+      "**Apples-to-apples (Last 30 days impressions only): Lux = 0 ads, Solea = 4 ads, No Filter = 0 ads.** Solea is the only one of the three Brickell-area competitors running active Google ads right now.",
+      "Solea's lifetime Google ad count is 87 — 21.75× their current active count. They've throttled Google ad spend hard recently.",
+      "No Filter has 10 lifetime Google ads but ZERO active right now. They reached 3-pack dominance and stopped paying.",
+      "Lux MedSpa Brickell: 0 lifetime, 0 active. Never used Google Ads. Built brand on Meta organic + Maps optimization + word-of-mouth from SLS LUX Hotel guests."
+    ],
+    "limitations": [
+      "Google Ads Transparency Center has no official API; data captured via UI scrape.",
+      "Individual ad creative content (image, video, headline, landing URL) was not captured — Chrome MCP's privacy filter redacted the creative-detail URLs. A future scan could open each creative panel and OCR/extract content, but that requires more click-through automation.",
+      "The 'Last 30 days' default cannot be reliably changed via JS clicks in the Chrome MCP environment — the date filter dropdown is custom React widget that didn't respond to programmatic clicks.",
+      "Cross-advertiser attribution: Solea's domain shows '87 ads (multiple advertiser accounts pointing here)'. Confirmed via the advertiser-detail page that one advertiser ID owns the current 4 active ads. Whether additional sibling advertiser accounts also point to soleabrickellspa.com was not exhaustively enumerated."
+    ]
+  },
+  "metaAdsByKeyword": {
+    "status": "collected",
+    "scanWindow": "2026-05-18 23:00-23:15 EDT. Filter: country=US, ad_active_status=ACTIVE, impressions in 2026-04-18 to 2026-05-17 (Last 30 days)",
+    "scanMethod": "Claude in Chrome extension drove user's browser through each of 14 keyword searches in Meta Ad Library. Parsed ad cards via DOM scrape; sampled 1-55 ads per keyword via 3 scroll passes.",
+    "summary": {
+      "keywordsScanned": 14,
+      "totalAdsInWindow_acrossAllKeywords": 835,
+      "soleaInTopAdvertisers_count": 0,
+      "soleaInTopAdvertisers_percent": "0% — Solea does NOT appear in the top advertisers for ANY of the 14 keyword lanes despite running 13 active Meta ads.",
+      "soleaCopyExplanation": "Solea's 13 Meta ads use product-benefit copy (Skin Tightening, Lipo Lower Body Sculpt, 5 Treatments in ONE Facial, Goodbye Double Chin) — NOT keyword-anchored copy like 'botox miami' or 'microneedling brickell'. Meta keyword search matches against ad text + page name; Solea's page is 'Solea Brickell's Spa' which doesn't contain treatment keywords.",
+      "emptyOrNearEmptyLanes": [
+        "hydrafacial brickell",
+        "endosphere miami"
+      ],
+      "heavyLanes_50plus": [
+        "microneedling miami",
+        "botox miami",
+        "lip filler miami",
+        "laser hair removal miami",
+        "iv therapy miami"
+      ],
+      "biggestLane": {
+        "keyword": "botox miami",
+        "ads": 340,
+        "note": "Highest competition; Brickell Avenue Dentistry tops with 8 ads."
+      },
+      "smallestNonEmptyLane": {
+        "keyword": "endosphere miami",
+        "ads": 1,
+        "note": "Solea's 5×-review-mentioned differentiator has 1 competing ad."
+      }
+    },
+    "keywords": [
+      {
+        "keyword": "microneedling miami",
+        "category": "Treatment × Miami",
+        "soleaOffers": true,
+        "soleaInTopAdvertisers": false,
+        "totalAdsInWindow": 73,
+        "uniqueAdvertisersSampled": 28,
+        "topAdvertisers": [
+          {
+            "name": "Gallo M.D. Miami",
+            "count": 5
+          },
+          {
+            "name": "MDW Aesthetics Miami",
+            "count": 5
+          },
+          {
+            "name": "Medstar Media (agency)",
+            "count": 5
+          },
+          {
+            "name": "Elena Cosmetologist Miami",
+            "count": 3
+          },
+          {
+            "name": "Miami Skin Club",
+            "count": 2
+          },
+          {
+            "name": "Venus Aesthetics Miami",
+            "count": 2
+          }
+        ],
+        "soleaCompetitorsBidding": []
+      },
+      {
+        "keyword": "dermal filler miami",
+        "category": "Treatment × Miami",
+        "soleaOffers": true,
+        "soleaInTopAdvertisers": false,
+        "totalAdsInWindow": 13,
+        "uniqueAdvertisersSampled": 6,
+        "topAdvertisers": [
+          {
+            "name": "Symmetrik MD",
+            "count": 5
+          },
+          {
+            "name": "A Beauty and Body Salon and Spa",
+            "count": 1
+          },
+          {
+            "name": "Get Refreshed",
+            "count": 1
+          },
+          {
+            "name": "Sisu Clinic - U.S.A",
+            "count": 1
+          },
+          {
+            "name": "Excel Aesthetics1",
+            "count": 1
+          },
+          {
+            "name": "4Ever Young Miami Midtown",
+            "count": 1
+          }
+        ],
+        "soleaCompetitorsBidding": [
+          "Sisu Clinic - U.S.A (Solea's same-building competitor at 701 S Miami Ave)"
+        ]
+      },
+      {
+        "keyword": "botox miami",
+        "category": "Treatment × Miami",
+        "soleaOffers": true,
+        "soleaInTopAdvertisers": false,
+        "totalAdsInWindow": 340,
+        "uniqueAdvertisersSampled": 26,
+        "topAdvertisers": [
+          {
+            "name": "Brickell Avenue Dentistry; Dr. Abraham Jaskiel DMD",
+            "count": 8
+          },
+          {
+            "name": "Venus Aesthetics Miami",
+            "count": 6
+          },
+          {
+            "name": "Dolce medical Spa",
+            "count": 3
+          },
+          {
+            "name": "Miami Skin Club",
+            "count": 2
+          },
+          {
+            "name": "4Ever Young Miami Midtown",
+            "count": 2
+          },
+          {
+            "name": "Vizage Aesthetic Center",
+            "count": 2
+          }
+        ],
+        "soleaCompetitorsBidding": [
+          "Brickell Avenue Dentistry (Brickell-based dentist office running Botox ads)"
+        ]
+      },
+      {
+        "keyword": "lip filler miami",
+        "category": "Treatment × Miami",
+        "soleaOffers": true,
+        "soleaInTopAdvertisers": false,
+        "totalAdsInWindow": 150,
+        "uniqueAdvertisersSampled": 28,
+        "topAdvertisers": [
+          {
+            "name": "MDW Aesthetics Miami",
+            "count": 8
+          },
+          {
+            "name": "Venus Aesthetics Miami",
+            "count": 5
+          },
+          {
+            "name": "dr.hamadiya",
+            "count": 4
+          },
+          {
+            "name": "Selfie Aesthetic",
+            "count": 3
+          },
+          {
+            "name": "Verla Aesthetics",
+            "count": 3
+          },
+          {
+            "name": "Smith Carpenter Jason",
+            "count": 3
+          }
+        ],
+        "soleaCompetitorsBidding": [
+          "dr.hamadiya (Solea's botox-brickell 3-pack #1 competitor)"
+        ]
+      },
+      {
+        "keyword": "hydrafacial miami",
+        "category": "Treatment × Miami",
+        "soleaOffers": true,
+        "soleaInTopAdvertisers": false,
+        "totalAdsInWindow": 22,
+        "uniqueAdvertisersSampled": 8,
+        "topAdvertisers": [
+          {
+            "name": "Cici Skincare",
+            "count": 4
+          },
+          {
+            "name": "Tanova Aesthetics Miami",
+            "count": 2
+          },
+          {
+            "name": "Med Aesthetics Miami",
+            "count": 2
+          },
+          {
+            "name": "James Christian Cosmetics",
+            "count": 1
+          },
+          {
+            "name": "Dermatology Experts",
+            "count": 1
+          },
+          {
+            "name": "Elena Cosmetologist Miami",
+            "count": 1
+          }
+        ],
+        "soleaCompetitorsBidding": []
+      },
+      {
+        "keyword": "morpheus8 miami",
+        "category": "Treatment × Miami",
+        "soleaOffers": true,
+        "soleaInTopAdvertisers": false,
+        "totalAdsInWindow": 41,
+        "uniqueAdvertisersSampled": 15,
+        "topAdvertisers": [
+          {
+            "name": "Venus Aesthetics Miami",
+            "count": 11
+          },
+          {
+            "name": "Adulto mayor ultimate",
+            "count": 3
+          },
+          {
+            "name": "Youthyok",
+            "count": 3
+          },
+          {
+            "name": "Ultimate Medical Center And Spa",
+            "count": 3
+          },
+          {
+            "name": "Effortless Touch Miami",
+            "count": 1
+          }
+        ],
+        "soleaCompetitorsBidding": []
+      },
+      {
+        "keyword": "botox brickell",
+        "category": "Treatment × Brickell (hyper-local)",
+        "soleaOffers": true,
+        "soleaInTopAdvertisers": false,
+        "totalAdsInWindow": 19,
+        "uniqueAdvertisersSampled": 6,
+        "topAdvertisers": [
+          {
+            "name": "Brickell Avenue Dentistry; Dr. Abraham Jaskiel DMD",
+            "count": 8
+          },
+          {
+            "name": "MDW Aesthetics Miami",
+            "count": 4
+          },
+          {
+            "name": "Brickell Cosmetic Center",
+            "count": 2
+          },
+          {
+            "name": "dr.hamadiya",
+            "count": 2
+          },
+          {
+            "name": "Sisu Clinic - U.S.A",
+            "count": 2
+          },
+          {
+            "name": "Sisu Clinic with gabyfigueroanp",
+            "count": 1
+          }
+        ],
+        "soleaCompetitorsBidding": [
+          "Brickell Avenue Dentistry",
+          "Brickell Cosmetic Center (Solea's local-pack #2)",
+          "dr.hamadiya (Solea's local-pack #1)",
+          "Sisu Clinic (Solea's same-building competitor)"
+        ]
+      },
+      {
+        "keyword": "med spa brickell",
+        "category": "Hub × Brickell",
+        "soleaOffers": true,
+        "soleaInTopAdvertisers": false,
+        "totalAdsInWindow": 5,
+        "uniqueAdvertisersSampled": 3,
+        "topAdvertisers": [
+          {
+            "name": "Beauty Project Miami",
+            "count": 3
+          },
+          {
+            "name": "MDW Aesthetics Miami",
+            "count": 1
+          },
+          {
+            "name": "Infrafit",
+            "count": 1
+          }
+        ],
+        "soleaCompetitorsBidding": []
+      },
+      {
+        "keyword": "hydrafacial brickell",
+        "category": "Treatment × Brickell (hyper-local)",
+        "soleaOffers": true,
+        "soleaInTopAdvertisers": false,
+        "totalAdsInWindow": 0,
+        "uniqueAdvertisersSampled": 0,
+        "topAdvertisers": [],
+        "soleaCompetitorsBidding": [],
+        "specialNote": "EMPTY LANE — zero Meta advertisers on this keyword. Easiest acquisition target Solea could own at near-zero CPC."
+      },
+      {
+        "keyword": "lip filler brickell",
+        "category": "Treatment × Brickell (hyper-local)",
+        "soleaOffers": true,
+        "soleaInTopAdvertisers": false,
+        "totalAdsInWindow": 21,
+        "uniqueAdvertisersSampled": 4,
+        "topAdvertisers": [
+          {
+            "name": "MDW Aesthetics Miami",
+            "count": 8
+          },
+          {
+            "name": "dr.hamadiya",
+            "count": 4
+          },
+          {
+            "name": "Sisu Clinic - U.S.A",
+            "count": 1
+          },
+          {
+            "name": "Sisu Clinic with gabyfigueroanp",
+            "count": 1
+          }
+        ],
+        "soleaCompetitorsBidding": [
+          "dr.hamadiya",
+          "Sisu Clinic (×2 ad variants)"
+        ]
+      },
+      {
+        "keyword": "laser hair removal miami",
+        "category": "Treatment × Miami (review-mentioned)",
+        "soleaOffers": true,
+        "soleaOfferEvidence": "Mentioned 8× in recent Google reviews",
+        "soleaInTopAdvertisers": false,
+        "totalAdsInWindow": 68,
+        "uniqueAdvertisersSampled": 12,
+        "topAdvertisers": [
+          {
+            "name": "Hairremoval.miami",
+            "count": 7
+          },
+          {
+            "name": "Laser Me Hair Removal & MedSpa",
+            "count": 3
+          },
+          {
+            "name": "4Ever Young Miami Kendall",
+            "count": 3
+          },
+          {
+            "name": "JH Laser Hair Removal",
+            "count": 2
+          },
+          {
+            "name": "Alexspot24 (Manscaping/Men's Spa Miami)",
+            "count": 2
+          },
+          {
+            "name": "LaserMe Aesthetics",
+            "count": 2
+          }
+        ],
+        "soleaCompetitorsBidding": []
+      },
+      {
+        "keyword": "endermologie miami",
+        "category": "Treatment × Miami (review-mentioned)",
+        "soleaOffers": true,
+        "soleaOfferEvidence": "LPG/Endermologie — top mentioned topic 22× in Solea's reviews",
+        "soleaInTopAdvertisers": false,
+        "totalAdsInWindow": 6,
+        "uniqueAdvertisersSampled": 2,
+        "topAdvertisers": [
+          {
+            "name": "The Lymphatic Circle",
+            "count": 2
+          },
+          {
+            "name": "Herbal Remedies",
+            "count": 2
+          }
+        ],
+        "soleaCompetitorsBidding": [],
+        "specialNote": "Niche treatment with only 2 advertisers serving in Miami last 30 days — Solea's strongest organic differentiator (22× review mentions) is barely covered by paid ads."
+      },
+      {
+        "keyword": "iv therapy miami",
+        "category": "Treatment × Miami (review-mentioned)",
+        "soleaOffers": true,
+        "soleaOfferEvidence": "IV therapy mentioned 5× in reviews, IV lounge is differentiator",
+        "soleaInTopAdvertisers": false,
+        "totalAdsInWindow": 76,
+        "uniqueAdvertisersSampled": 14,
+        "topAdvertisers": [
+          {
+            "name": "Hanabergh Consultant Mary",
+            "count": 3
+          },
+          {
+            "name": "Next Health Miami",
+            "count": 3
+          },
+          {
+            "name": "The DRIPBaR North Miami",
+            "count": 2
+          },
+          {
+            "name": "Revibe",
+            "count": 2
+          },
+          {
+            "name": "EDEN Plastic Surgery Miami",
+            "count": 1
+          },
+          {
+            "name": "Royal Beauty Miami Plastic Surgery",
+            "count": 1
+          }
+        ],
+        "soleaCompetitorsBidding": []
+      },
+      {
+        "keyword": "endosphere miami",
+        "category": "Treatment × Miami (review-mentioned)",
+        "soleaOffers": true,
+        "soleaOfferEvidence": "Endosphere mentioned 5× in Solea's reviews",
+        "soleaInTopAdvertisers": false,
+        "totalAdsInWindow": 1,
+        "uniqueAdvertisersSampled": 1,
+        "topAdvertisers": [
+          {
+            "name": "Endospheres Therapy Miami",
+            "count": 1
+          }
+        ],
+        "soleaCompetitorsBidding": [],
+        "specialNote": "Effectively empty lane (1 advertiser, 1 ad). Solea offers this and gets review praise but doesn't advertise it."
+      }
+    ],
+    "crossKeywordAdvertisers": [
+      {
+        "advertiser": "MDW Aesthetics Miami",
+        "keywordCount": 5,
+        "totalAdsAcrossKeywords": 26,
+        "keywordsBid": [
+          "microneedling miami",
+          "lip filler miami",
+          "botox brickell",
+          "med spa brickell",
+          "lip filler brickell"
+        ]
+      },
+      {
+        "advertiser": "Venus Aesthetics Miami",
+        "keywordCount": 4,
+        "totalAdsAcrossKeywords": 24,
+        "keywordsBid": [
+          "microneedling miami",
+          "botox miami",
+          "lip filler miami",
+          "morpheus8 miami"
+        ]
+      },
+      {
+        "advertiser": "dr.hamadiya",
+        "keywordCount": 3,
+        "totalAdsAcrossKeywords": 10,
+        "keywordsBid": [
+          "lip filler miami",
+          "botox brickell",
+          "lip filler brickell"
+        ]
+      },
+      {
+        "advertiser": "Sisu Clinic - U.S.A",
+        "keywordCount": 3,
+        "totalAdsAcrossKeywords": 4,
+        "keywordsBid": [
+          "dermal filler miami",
+          "botox brickell",
+          "lip filler brickell"
+        ]
+      },
+      {
+        "advertiser": "Brickell Avenue Dentistry; Dr. Abraham Jaskiel DMD",
+        "keywordCount": 2,
+        "totalAdsAcrossKeywords": 16,
+        "keywordsBid": [
+          "botox miami",
+          "botox brickell"
+        ]
+      },
+      {
+        "advertiser": "Elena Cosmetologist Miami",
+        "keywordCount": 2,
+        "totalAdsAcrossKeywords": 4,
+        "keywordsBid": [
+          "microneedling miami",
+          "hydrafacial miami"
+        ]
+      },
+      {
+        "advertiser": "Miami Skin Club",
+        "keywordCount": 2,
+        "totalAdsAcrossKeywords": 4,
+        "keywordsBid": [
+          "microneedling miami",
+          "botox miami"
+        ]
+      },
+      {
+        "advertiser": "4Ever Young Miami Midtown",
+        "keywordCount": 2,
+        "totalAdsAcrossKeywords": 3,
+        "keywordsBid": [
+          "dermal filler miami",
+          "botox miami"
+        ]
+      },
+      {
+        "advertiser": "Sisu Clinic with gabyfigueroanp",
+        "keywordCount": 2,
+        "totalAdsAcrossKeywords": 2,
+        "keywordsBid": [
+          "botox brickell",
+          "lip filler brickell"
+        ]
+      }
+    ],
+    "headlineFindings": [
+      "**Solea runs 13 Meta ads but appears in ZERO of the 14 keyword-level lanes.** Their ad copy targets product benefits ($59 deals, double chin, lipo) — not treatment-keyword Meta searches. Anyone searching 'botox brickell' or 'microneedling miami' on Meta sees 4 of Solea's local-pack competitors but not Solea.",
+      "**4 of Solea's local-pack competitors actively bid on 'botox brickell': Brickell Avenue Dentistry (8 ads), Brickell Cosmetic Center (2), Dr Hamadiya (2), Sisu Clinic (3 across variants).** Solea is absent from the lane they should dominate as the Brickell City Centre incumbent.",
+      "**'hydrafacial brickell' has ZERO advertisers in last 30 days** — pure empty lane. With Solea's $59 facial promos already running, redirecting them to this keyword would yield near-monopoly Meta visibility for a treatment Solea offers.",
+      "**Brickell Avenue Dentistry — a dentist office — is the heaviest Botox advertiser in both Miami-wide AND Brickell-specific Meta search.** 16 total ads across 2 keywords. They're not in any of Solea's Maps 3-packs but they're winning the paid lane.",
+      "**MDW Aesthetics Miami appears as top advertiser in 5 keywords** (microneedling, lip filler miami, botox brickell, lip filler brickell, med spa brickell) — the highest multi-keyword bidder. Combined ~22 ads across keywords. Strongest paid-lane competitor that doesn't appear in Solea's Brickell 3-packs.",
+      "**Solea's review-mentioned strengths (Endermologie 22×, IV therapy 5×, Endosphere 5×, Laser hair removal 8×) are NOT used as paid-ad keywords by Solea.** Endermologie and Endosphere lanes are virtually empty (6 and 1 ads respectively) — these are uncontested opportunities Solea has organic proof for but doesn't capture in paid."
+    ]
+  }
+}

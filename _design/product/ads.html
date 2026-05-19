@@ -1,0 +1,693 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ads intelligence · Mapsly</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+    <style>
+      :root {
+        --bg:#faf6f1; --bg-2:#fff; --bg-3:#f2ebe3; --bg-dark:#1c1916;
+        --text:#1c1916; --text-2:#5c544d; --text-3:#9a9088;
+        --border:#e8ddd0; --border-strong:#d8c9b8;
+        --coral:#c3553a; --coral-light:rgba(195,85,58,.1);
+        --berry:#8b3a2c; --gold:#d4a574; --gold-light:rgba(212,165,116,.18);
+        --success:#2d8659; --success-light:rgba(45,134,89,.12);
+        --alert:#b53d47; --alert-light:rgba(181,61,71,.1);
+        --info:#3b6ec4; --info-light:rgba(59,110,196,.1);
+        --purple:#6b4f9b; --purple-light:rgba(107,79,155,.12);
+        --ease:cubic-bezier(0.16,1,0.3,1);
+        --shadow-sm:0 2px 8px rgba(28,25,22,.04);
+      }
+      * { margin:0; padding:0; box-sizing:border-box; }
+      body {
+        font-family:'Inter',sans-serif; background:var(--bg); color:var(--text);
+        line-height:1.5; min-height:100vh; display:flex;
+        -webkit-font-smoothing:antialiased;
+      }
+      a { color:inherit; text-decoration:none; }
+      button { font-family:inherit; cursor:pointer; border:none; background:none; }
+
+      .sidebar { width:240px; background:var(--bg); border-right:1px solid var(--border); padding:22px 16px; height:100vh; position:sticky; top:0; display:flex; flex-direction:column; flex-shrink:0; }
+      .sidebar-logo { display:flex; align-items:center; gap:10px; padding:6px 8px 22px; margin-bottom:12px; border-bottom:1px solid var(--border); }
+      .sidebar-logo-dot { width:9px; height:9px; border-radius:50%; background:var(--coral); box-shadow:0 0 10px rgba(195,85,58,.5); }
+      .sidebar-logo-text { font-family:'Fraunces',serif; font-size:19px; font-weight:700; letter-spacing:-.02em; }
+      .sidebar-section-label { font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.12em; color:var(--text-3); padding:14px 10px 6px; }
+      .nav-item { display:flex; align-items:center; gap:11px; padding:9px 10px; border-radius:8px; font-size:14px; font-weight:500; color:var(--text-2); transition:all .15s var(--ease); }
+      .nav-item:hover { background:rgba(28,25,22,.04); color:var(--text); }
+      .nav-item.active { background:var(--coral-light); color:var(--coral); font-weight:600; }
+      .nav-item-badge { margin-left:auto; background:var(--alert); color:#fff; font-size:10px; font-weight:700; padding:2px 6px; border-radius:10px; min-width:18px; text-align:center; font-family:'JetBrains Mono',monospace; }
+      .nav-item-badge.info { background:var(--info); }
+      .sidebar-footer { margin-top:auto; padding-top:16px; border-top:1px solid var(--border); }
+      .sidebar-business { display:flex; align-items:center; gap:10px; padding:10px; border-radius:8px; background:var(--bg-3); }
+      .sidebar-biz-avatar { width:32px; height:32px; border-radius:8px; background:linear-gradient(135deg,var(--gold),var(--coral)); display:flex; align-items:center; justify-content:center; color:#fff; font-weight:700; font-size:14px; font-family:'Fraunces',serif; }
+      .sidebar-biz-name { font-size:13px; font-weight:600; }
+      .sidebar-biz-meta { font-size:11px; color:var(--text-3); font-family:'JetBrains Mono',monospace; }
+
+      .main { flex:1; min-width:0; }
+      .topbar { position:sticky; top:0; z-index:10; background:rgba(250,246,241,.92); backdrop-filter:blur(20px); border-bottom:1px solid var(--border); padding:16px 32px; display:flex; align-items:center; justify-content:space-between; }
+      .topbar-title { font-family:'Fraunces',serif; font-size:22px; font-weight:600; letter-spacing:-.02em; }
+      .topbar-subtitle { font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--text-3); }
+      .topbar-right { display:flex; align-items:center; gap:10px; }
+      .top-pill { display:inline-flex; align-items:center; gap:7px; padding:7px 12px; background:var(--bg-2); border:1px solid var(--border); border-radius:8px; font-size:12px; color:var(--text-2); font-family:'JetBrains Mono',monospace; }
+      .top-pill-dot { width:7px; height:7px; border-radius:50%; background:var(--success); }
+      .btn { padding:8px 14px; border-radius:8px; font-size:12.5px; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:7px; }
+      .btn-primary { background:var(--coral); color:#fff; }
+      .btn-primary:hover { background:var(--berry); }
+      .btn-ghost { background:transparent; color:var(--text-2); border:1px solid var(--border); }
+      .btn-ghost:hover { border-color:var(--border-strong); color:var(--text); }
+
+      .content { padding:28px 32px 64px; max-width:1400px; }
+
+      /* ============ STATE BAR ============ */
+      .state-bar {
+        background:var(--bg-2); border:1px solid var(--border);
+        border-radius:16px; padding:22px 28px;
+        margin-bottom:22px;
+        display:grid; grid-template-columns:repeat(4,1fr); gap:24px;
+        box-shadow:var(--shadow-sm);
+      }
+      @media (max-width:1100px) { .state-bar { grid-template-columns:1fr 1fr; } }
+      .state-cell { padding-right:24px; border-right:1px solid var(--border); }
+      .state-cell:last-child { border-right:none; padding-right:0; }
+      .state-label { font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.1em; color:var(--text-3); margin-bottom:6px; }
+      .state-num { font-family:'Fraunces',serif; font-size:30px; font-weight:700; line-height:1; }
+      .state-num.alert { color:var(--alert); }
+      .state-num.success { color:var(--success); }
+      .state-num.gold { color:var(--gold); }
+      .state-delta { font-size:11.5px; color:var(--text-3); margin-top:6px; font-family:'JetBrains Mono',monospace; }
+      .state-delta.up { color:var(--success); }
+      .state-delta.down { color:var(--alert); }
+
+      /* ============ PARADOX CALLOUT ============ */
+      .paradox {
+        background:linear-gradient(135deg, var(--alert-light), transparent 80%);
+        border:1px solid rgba(181,61,71,.25);
+        border-radius:14px;
+        padding:24px 28px;
+        margin-bottom:22px;
+        display:grid;
+        grid-template-columns:1fr auto;
+        gap:24px;
+        align-items:center;
+      }
+      .paradox-eyebrow {
+        font-family:'JetBrains Mono',monospace;
+        font-size:11px; font-weight:700;
+        text-transform:uppercase; letter-spacing:.12em;
+        color:var(--alert);
+        margin-bottom:8px;
+      }
+      .paradox-headline {
+        font-family:'Fraunces',serif;
+        font-size:22px; font-weight:700;
+        letter-spacing:-.02em;
+        line-height:1.3;
+        margin-bottom:10px;
+      }
+      .paradox-headline b { color:var(--alert); }
+      .paradox-body { font-size:13.5px; color:var(--text-2); line-height:1.55; }
+      .paradox-stats {
+        display:grid;
+        grid-template-columns:1fr 1fr;
+        gap:14px;
+        text-align:center;
+        min-width:240px;
+      }
+      .paradox-stat-num {
+        font-family:'Fraunces',serif;
+        font-size:38px; font-weight:700;
+        line-height:1;
+      }
+      .paradox-stat-num.alert { color:var(--alert); }
+      .paradox-stat-num.gold  { color:var(--gold); }
+      .paradox-stat-label {
+        font-size:11px; color:var(--text-3);
+        font-family:'JetBrains Mono',monospace;
+        margin-top:6px;
+        text-transform:uppercase; letter-spacing:.06em;
+      }
+
+      /* ============ TABS ============ */
+      .panel { background:var(--bg-2); border:1px solid var(--border); border-radius:14px; box-shadow:var(--shadow-sm); overflow:hidden; margin-bottom:22px; }
+      .panel-head { padding:20px 28px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; }
+      .panel-title { font-size:15px; font-weight:600; }
+      .panel-subtitle { font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text-3); margin-top:3px; }
+
+      /* ============ KEYWORD LANES ============ */
+      .lanes-grid {
+        display:grid;
+        grid-template-columns:repeat(auto-fill, minmax(280px, 1fr));
+        gap:14px;
+        padding:22px;
+      }
+      .lane {
+        border:1px solid var(--border);
+        border-radius:12px;
+        padding:16px 18px;
+        background:var(--bg-2);
+        position:relative;
+      }
+      .lane.you-absent {
+        border-color:rgba(212,165,116,.35);
+        background:linear-gradient(180deg, var(--gold-light) 0%, var(--bg-2) 30%);
+      }
+      .lane.open {
+        border-color:rgba(45,134,89,.35);
+        background:linear-gradient(180deg, var(--success-light) 0%, var(--bg-2) 30%);
+      }
+      .lane-head {
+        display:flex; justify-content:space-between; align-items:flex-start;
+        margin-bottom:10px;
+      }
+      .lane-kw {
+        font-family:'JetBrains Mono',monospace;
+        font-size:13px; font-weight:600;
+        color:var(--text);
+      }
+      .lane-volume {
+        font-family:'JetBrains Mono',monospace;
+        font-size:11px;
+        color:var(--text-3);
+        margin-top:2px;
+      }
+      .lane-advertisers {
+        font-family:'Fraunces',serif;
+        font-size:24px;
+        font-weight:700;
+        line-height:1;
+        text-align:right;
+      }
+      .lane-advertisers.zero { color:var(--success); }
+      .lane-advertisers.few { color:var(--gold); }
+      .lane-advertisers.crowded { color:var(--text-2); }
+      .lane-advertisers-sub {
+        font-size:10px;
+        color:var(--text-3);
+        font-family:'JetBrains Mono',monospace;
+        text-transform:uppercase; letter-spacing:.04em;
+        text-align:right;
+        margin-top:2px;
+      }
+      .lane-status {
+        font-size:11px;
+        padding:8px 10px;
+        background:var(--bg-3);
+        border-radius:8px;
+        margin-bottom:10px;
+        color:var(--text-2);
+        line-height:1.45;
+      }
+      .lane-status.you-in { color:var(--success); background:var(--success-light); font-weight:500; }
+      .lane-status.you-out { color:var(--alert); background:var(--alert-light); font-weight:500; }
+      .lane-status.no-one { color:var(--success); font-weight:500; }
+      .lane-top-advertiser {
+        font-size:11px;
+        color:var(--text-3);
+        font-family:'JetBrains Mono',monospace;
+      }
+      .lane-cta {
+        display:inline-block;
+        margin-top:10px;
+        font-size:11.5px;
+        font-weight:600;
+        color:var(--coral);
+        padding:5px 10px;
+        background:var(--coral-light);
+        border-radius:6px;
+      }
+      .lane-cta:hover { background:var(--coral); color:#fff; }
+
+      /* ============ YOUR ADS ============ */
+      .your-ads-grid {
+        display:grid;
+        grid-template-columns:repeat(auto-fill, minmax(280px, 1fr));
+        gap:14px;
+        padding:22px;
+      }
+      .ad-card {
+        border:1px solid var(--border);
+        border-radius:12px;
+        padding:16px 18px;
+        background:var(--bg-2);
+      }
+      .ad-card-head {
+        display:flex; justify-content:space-between; align-items:flex-start;
+        margin-bottom:10px;
+      }
+      .ad-card-platform {
+        font-family:'JetBrains Mono',monospace;
+        font-size:10px; font-weight:700;
+        text-transform:uppercase; letter-spacing:.08em;
+        padding:2px 7px;
+        border-radius:4px;
+        background:var(--info-light);
+        color:var(--info);
+      }
+      .ad-card-age {
+        font-size:10px;
+        font-family:'JetBrains Mono',monospace;
+        color:var(--text-3);
+      }
+      .ad-card-copy {
+        font-size:13.5px;
+        line-height:1.5;
+        color:var(--text);
+        margin-bottom:10px;
+        font-style:italic;
+      }
+      .ad-card-stats {
+        display:flex; gap:14px;
+        font-size:11px;
+        color:var(--text-3);
+        font-family:'JetBrains Mono',monospace;
+        padding-top:10px;
+        border-top:1px solid var(--border);
+      }
+      .ad-card-issue {
+        margin-top:10px;
+        padding:8px 10px;
+        background:var(--alert-light);
+        color:var(--alert);
+        font-size:11px;
+        border-radius:6px;
+        font-weight:500;
+      }
+
+      /* ============ TABS ============ */
+      .tabs-row {
+        display:flex; padding:0 28px;
+        border-bottom:1px solid var(--border);
+        background:var(--bg-2);
+      }
+      .tab {
+        padding:14px 18px;
+        font-size:13px; font-weight:500;
+        color:var(--text-2);
+        border-bottom:2px solid transparent;
+        margin-bottom:-1px;
+      }
+      .tab.active {
+        color:var(--coral);
+        border-bottom-color:var(--coral);
+        font-weight:600;
+      }
+      .tab-count {
+        background:var(--bg-3);
+        color:var(--text-2);
+        font-family:'JetBrains Mono',monospace;
+        font-size:10px;
+        padding:2px 7px;
+        border-radius:10px;
+        margin-left:6px;
+      }
+      .tab.active .tab-count { background:var(--coral-light); color:var(--coral); }
+      .tab-count.alert { background:var(--alert-light); color:var(--alert); }
+
+      /* ============ TOOLTIPS ============ */
+      .info-tip { display:inline-flex; align-items:center; justify-content:center; width:14px; height:14px; border-radius:50%; background:var(--bg-3); color:var(--text-3); font-size:10px; font-weight:700; margin-left:4px; cursor:help; font-family:'JetBrains Mono',monospace; position:relative; vertical-align:2px; }
+      .info-tip:hover { background:var(--coral-light); color:var(--coral); }
+      .info-tip[data-tip]::after { content:attr(data-tip); position:absolute; bottom:100%; right:0; transform:translateY(-6px); background:var(--bg-dark); color:#fff; padding:10px 14px; border-radius:8px; font-size:11px; line-height:1.5; font-family:'Inter',sans-serif; white-space:pre-line; width:280px; text-align:left; opacity:0; pointer-events:none; transition:opacity .2s; z-index:100; box-shadow:0 8px 24px rgba(0,0,0,.2); }
+      .info-tip:hover::after { opacity:1; }
+
+      @media (max-width:768px) {
+        .sidebar { display:none; }
+        .topbar { padding:14px 18px; }
+        .content { padding:18px 18px 48px; }
+        .paradox { grid-template-columns:1fr; }
+      }
+    </style>
+  </head>
+  <body>
+
+    <aside class="sidebar">
+      <div class="sidebar-logo">
+        <span class="sidebar-logo-dot"></span>
+        <span class="sidebar-logo-text">mapsly</span>
+      </div>
+      <div class="sidebar-section-label">Daily</div>
+      <a href="dashboard.html" class="nav-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>Dashboard</a>
+      <a href="reviews.html" class="nav-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3 7h7l-5.5 4.5L18 21l-6-4-6 4 1.5-7.5L2 9h7z"/></svg>Reviews <span class="nav-item-badge">8</span></a>
+      <a href="activity.html" class="nav-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>Activity <span class="nav-item-badge info">3</span></a>
+      <div class="sidebar-section-label">Watch</div>
+      <a href="competitors.html" class="nav-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2v20M2 12h20"/></svg>Competitors</a>
+      <a href="search.html" class="nav-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>Search visibility</a>
+      <a href="ads.html" class="nav-item active"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 8h7M9 12h7M9 16h4"/></svg>Ads intelligence</a>
+      <div class="sidebar-section-label">Audit</div>
+      <a href="website.html" class="nav-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>Website health</a>
+      <a href="market.html" class="nav-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 16l4-8 4 4 5-10"/></svg>Market reality</a>
+      <div class="sidebar-section-label">Account</div>
+      <a href="settings.html" class="nav-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Settings</a>
+      <div class="sidebar-footer">
+        <div class="sidebar-business">
+          <div class="sidebar-biz-avatar">S</div>
+          <div>
+            <div class="sidebar-biz-name">Solea Brickell Spa</div>
+            <div class="sidebar-biz-meta">Miami · Brickell</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <div class="topbar-title">Ads intelligence</div>
+          <div class="topbar-subtitle">14 keyword lanes · Meta + Google · refreshed daily</div>
+        </div>
+        <div class="topbar-right">
+          <span class="top-pill"><span class="top-pill-dot"></span>835 ads scanned today</span>
+          <button class="btn btn-ghost">Export</button>
+        </div>
+      </header>
+
+      <div class="content">
+
+        <!-- STATE BAR -->
+        <div class="state-bar">
+          <div class="state-cell">
+            <div class="state-label">Your active ads
+              <span class="info-tip" data-tip="Count of currently-running Meta ads linked to your funder/page. Source: Meta Ad Library API, daily scan.">i</span>
+            </div>
+            <div class="state-num">13</div>
+            <div class="state-delta">Meta · 0 Google paid search</div>
+          </div>
+          <div class="state-cell">
+            <div class="state-label">Keyword lanes covered
+              <span class="info-tip" data-tip="Of 14 tracked service keywords, how many of your ad copies actually contain that keyword. We text-match copy against keyword list.">i</span>
+            </div>
+            <div class="state-num alert">0 / 14</div>
+            <div class="state-delta down">benefit-led, not keyword-led</div>
+          </div>
+          <div class="state-cell">
+            <div class="state-label">Est. competitor spend
+              <span class="info-tip" data-tip="Sum of estimated ad spend across 7 tracked competitors. Calculation: impressions_banding_midpoint × CPM_benchmark. Rough.">i</span>
+            </div>
+            <div class="state-num gold">$540–1,100</div>
+            <div class="state-delta">/ day in your service lanes</div>
+          </div>
+          <div class="state-cell">
+            <div class="state-label">Open lanes
+              <span class="info-tip" data-tip="Keyword lanes with 0 or 1 advertiser. Cheap to enter, low competition for ad serving.">i</span>
+            </div>
+            <div class="state-num success">3</div>
+            <div class="state-delta">incl. hydrafacial brickell</div>
+          </div>
+        </div>
+
+        <!-- PARADOX CALLOUT -->
+        <div class="paradox">
+          <div>
+            <div class="paradox-eyebrow">The Solea paradox</div>
+            <div class="paradox-headline">
+              You spend on <b>13 active ads</b> but rank for <b>0 of 14</b> service keywords.
+            </div>
+            <div class="paradox-body">
+              Your ad copy reads "$59 deal" and "double chin" — benefit-focused, low intent. The patient who searches "hydrafacial brickell" never sees you. The patient scrolling Instagram who maybe wants a face treatment sees a $59 deal — but doesn't convert because there is no commercial intent in their session.
+              <br><br>
+              <b>Fix:</b> rewrite copy in 14 keyword-anchored versions, each with its lane's service keyword in the headline. Let Meta optimize delivery to the patient who actually wants that service.
+            </div>
+          </div>
+          <div class="paradox-stats">
+            <div>
+              <div class="paradox-stat-num alert">13</div>
+              <div class="paradox-stat-label">your active ads</div>
+            </div>
+            <div>
+              <div class="paradox-stat-num gold">0</div>
+              <div class="paradox-stat-label">keyword lanes hit</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- KEYWORD LANES -->
+        <div class="panel">
+          <div class="panel-head">
+            <div>
+              <div class="panel-title">Keyword lanes · 14 tracked
+                <span class="info-tip" data-tip="A 'lane' is a service keyword + Brickell/Miami geo. We scan Meta Ad Library daily for any ad whose copy or targeting matches, and count distinct advertisers per lane.">i</span>
+              </div>
+              <div class="panel-subtitle">// each lane = service keyword × geo · advertisers count is unique funders running in the lane today</div>
+            </div>
+            <button class="btn btn-ghost">View all 14 →</button>
+          </div>
+
+          <div class="lanes-grid">
+
+            <div class="lane open">
+              <div class="lane-head">
+                <div>
+                  <div class="lane-kw">hydrafacial brickell</div>
+                  <div class="lane-volume">vol 210/mo · CPC $6.92</div>
+                </div>
+                <div>
+                  <div class="lane-advertisers zero">0</div>
+                  <div class="lane-advertisers-sub">advertisers</div>
+                </div>
+              </div>
+              <div class="lane-status no-one">OPEN LANE · no one bidding</div>
+              <div class="lane-top-advertiser">cheapest entry · auction wide open</div>
+              <a href="#" class="lane-cta">Draft an ad →</a>
+            </div>
+
+            <div class="lane you-absent">
+              <div class="lane-head">
+                <div>
+                  <div class="lane-kw">endosphere miami</div>
+                  <div class="lane-volume">vol 110/mo · CPC $4.10</div>
+                </div>
+                <div>
+                  <div class="lane-advertisers few">1</div>
+                  <div class="lane-advertisers-sub">advertisers</div>
+                </div>
+              </div>
+              <div class="lane-status you-out">You offer this · you're not in lane</div>
+              <div class="lane-top-advertiser">Only Body Lab Miami running here</div>
+              <a href="#" class="lane-cta">Draft an ad →</a>
+            </div>
+
+            <div class="lane you-absent">
+              <div class="lane-head">
+                <div>
+                  <div class="lane-kw">morpheus8 miami</div>
+                  <div class="lane-volume">vol 260/mo · CPC $11.30</div>
+                </div>
+                <div>
+                  <div class="lane-advertisers few">2</div>
+                  <div class="lane-advertisers-sub">advertisers</div>
+                </div>
+              </div>
+              <div class="lane-status you-out">You offer this · you're not in lane</div>
+              <div class="lane-top-advertiser">Sculpt Skin Studio · Dr. Hamadiya</div>
+              <a href="#" class="lane-cta">Draft an ad →</a>
+            </div>
+
+            <div class="lane">
+              <div class="lane-head">
+                <div>
+                  <div class="lane-kw">botox brickell</div>
+                  <div class="lane-volume">vol 50/mo · CPC $16.35</div>
+                </div>
+                <div>
+                  <div class="lane-advertisers crowded">11</div>
+                  <div class="lane-advertisers-sub">advertisers</div>
+                </div>
+              </div>
+              <div class="lane-status you-out">You're not in this crowded lane</div>
+              <div class="lane-top-advertiser">Lux MedSpa · Sisu (same bldg) · Dr. Hamadiya</div>
+              <a href="#" class="lane-cta">See ads →</a>
+            </div>
+
+            <div class="lane">
+              <div class="lane-head">
+                <div>
+                  <div class="lane-kw">med spa brickell</div>
+                  <div class="lane-volume">vol 30/mo · CPC $5.65</div>
+                </div>
+                <div>
+                  <div class="lane-advertisers crowded">14</div>
+                  <div class="lane-advertisers-sub">advertisers</div>
+                </div>
+              </div>
+              <div class="lane-status you-out">You're running 0 in this lane</div>
+              <div class="lane-top-advertiser">Lux · Deluxe · No Filter · 11 others</div>
+              <a href="#" class="lane-cta">See ads →</a>
+            </div>
+
+            <div class="lane">
+              <div class="lane-head">
+                <div>
+                  <div class="lane-kw">microneedling miami</div>
+                  <div class="lane-volume">vol 1,300/mo · CPC $7.58</div>
+                </div>
+                <div>
+                  <div class="lane-advertisers crowded">8</div>
+                  <div class="lane-advertisers-sub">advertisers</div>
+                </div>
+              </div>
+              <div class="lane-status you-out">You offer this · you're not in lane</div>
+              <div class="lane-top-advertiser">Lux · No Filter · Skin Spa</div>
+              <a href="#" class="lane-cta">Draft an ad →</a>
+            </div>
+
+            <div class="lane you-absent">
+              <div class="lane-head">
+                <div>
+                  <div class="lane-kw">dermal filler miami</div>
+                  <div class="lane-volume">vol 1,000/mo · CPC $16.76</div>
+                </div>
+                <div>
+                  <div class="lane-advertisers few">3</div>
+                  <div class="lane-advertisers-sub">advertisers</div>
+                </div>
+              </div>
+              <div class="lane-status you-out">High volume, low competition · best entry</div>
+              <div class="lane-top-advertiser">Lux · Dr. Hamadiya · Sisu</div>
+              <a href="#" class="lane-cta">Draft an ad →</a>
+            </div>
+
+            <div class="lane you-absent">
+              <div class="lane-head">
+                <div>
+                  <div class="lane-kw">laser hair removal brickell</div>
+                  <div class="lane-volume">vol 170/mo · CPC $4.20</div>
+                </div>
+                <div>
+                  <div class="lane-advertisers few">4</div>
+                  <div class="lane-advertisers-sub">advertisers</div>
+                </div>
+              </div>
+              <div class="lane-status you-out">You over-deliver on this service</div>
+              <div class="lane-top-advertiser">Smoothie Laser · Body Lab Miami</div>
+              <a href="#" class="lane-cta">Draft an ad →</a>
+            </div>
+
+            <div class="lane">
+              <div class="lane-head">
+                <div>
+                  <div class="lane-kw">iv therapy miami</div>
+                  <div class="lane-volume">vol 320/mo · CPC $8.10</div>
+                </div>
+                <div>
+                  <div class="lane-advertisers crowded">9</div>
+                  <div class="lane-advertisers-sub">advertisers</div>
+                </div>
+              </div>
+              <div class="lane-status you-out">Crowded, but tied to wellness positioning</div>
+              <div class="lane-top-advertiser">Drip Hydration · Mobile IV Miami</div>
+              <a href="#" class="lane-cta">See ads →</a>
+            </div>
+          </div>
+        </div>
+
+        <!-- YOUR ADS -->
+        <div class="panel">
+          <div class="panel-head">
+            <div>
+              <div class="panel-title">Your 13 active ads</div>
+              <div class="panel-subtitle">// scraped from Meta Ad Library · your funder profile</div>
+            </div>
+          </div>
+
+          <div class="tabs-row">
+            <button class="tab active">All <span class="tab-count">13</span></button>
+            <button class="tab">Off-keyword <span class="tab-count alert">13</span></button>
+            <button class="tab">Low engagement <span class="tab-count">4</span></button>
+            <button class="tab">Long-running (60d+) <span class="tab-count">2</span></button>
+          </div>
+
+          <div class="your-ads-grid">
+
+            <div class="ad-card">
+              <div class="ad-card-head">
+                <span class="ad-card-platform">Meta · Reels</span>
+                <span class="ad-card-age">running 28 days</span>
+              </div>
+              <div class="ad-card-copy">"💰 $59 ANY first treatment — Brickell's only true Endermologie spa · book now"</div>
+              <div class="ad-card-stats">
+                <span>Impressions: 50k–100k</span>
+                <span>Brickell · 3mi</span>
+              </div>
+              <div class="ad-card-issue">⚠ No service keyword in copy · 0 lane match</div>
+            </div>
+
+            <div class="ad-card">
+              <div class="ad-card-head">
+                <span class="ad-card-platform">Meta · Feed</span>
+                <span class="ad-card-age">running 14 days</span>
+              </div>
+              <div class="ad-card-copy">"Say goodbye to double chin · medical-grade results · Brickell only · DM 'GLOW'"</div>
+              <div class="ad-card-stats">
+                <span>Impressions: 20k–50k</span>
+                <span>F 25–45</span>
+              </div>
+              <div class="ad-card-issue">⚠ No service keyword · "double chin" not in lane set</div>
+            </div>
+
+            <div class="ad-card">
+              <div class="ad-card-head">
+                <span class="ad-card-platform">Meta · Story</span>
+                <span class="ad-card-age">running 41 days</span>
+              </div>
+              <div class="ad-card-copy">"3 sessions for $199 · Brickell City Centre 3rd floor · validated parking"</div>
+              <div class="ad-card-stats">
+                <span>Impressions: 10k–20k</span>
+                <span>Brickell · 5mi</span>
+              </div>
+              <div class="ad-card-issue">⚠ Treatment unnamed · no keyword anchor</div>
+            </div>
+
+            <div class="ad-card">
+              <div class="ad-card-head">
+                <span class="ad-card-platform">Meta · Reels</span>
+                <span class="ad-card-age">running 67 days</span>
+              </div>
+              <div class="ad-card-copy">"Spring glow special · facial + LED · Brickell · book this week"</div>
+              <div class="ad-card-stats">
+                <span>Impressions: 100k+</span>
+                <span>F 28–55</span>
+              </div>
+              <div class="ad-card-issue">⚠ Long-running · stale · no keyword</div>
+            </div>
+
+            <div class="ad-card">
+              <div class="ad-card-head">
+                <span class="ad-card-platform">Meta · Feed</span>
+                <span class="ad-card-age">running 9 days</span>
+              </div>
+              <div class="ad-card-copy">"Your skin glow-up starts here · packages from $129 · DM us"</div>
+              <div class="ad-card-stats">
+                <span>Impressions: 5k–10k</span>
+                <span>Miami metro</span>
+              </div>
+              <div class="ad-card-issue">⚠ Generic · no service · no location anchor</div>
+            </div>
+
+            <div class="ad-card">
+              <div class="ad-card-head">
+                <span class="ad-card-platform">Meta · Reels</span>
+                <span class="ad-card-age">running 6 days</span>
+              </div>
+              <div class="ad-card-copy">"Cellulite? meet Endermologie · clinically proven · Brickell only"</div>
+              <div class="ad-card-stats">
+                <span>Impressions: 5k–10k</span>
+                <span>F 30–55</span>
+              </div>
+              <div class="ad-card-issue">✓ Service named · ⚠ Brickell, not "endermologie miami"</div>
+            </div>
+          </div>
+          <div style="padding:0 22px 22px;">
+            <button class="btn btn-ghost" style="width:100%; justify-content:center;">Show all 13 ads →</button>
+          </div>
+        </div>
+
+        <div style="margin-top:24px;padding:14px 18px;background:var(--bg-3);border-radius:10px;font-size:11.5px;color:var(--text-3);font-family:'JetBrains Mono',monospace;line-height:1.6;">
+          // Meta Ad Library is a free public database · we scan every active ad whose copy/targeting touches your service keyword set, daily · 835 ads tracked across 14 lanes as of last scan · Google Ads Transparency complements with paid-search competitive view (no Solea search ads detected)
+        </div>
+
+      </div>
+    </main>
+  </body>
+</html>

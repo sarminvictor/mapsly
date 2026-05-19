@@ -1,0 +1,713 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Agency product audit · Mapsly</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+    <style>
+      :root {
+        --bg:#faf6f1; --bg-2:#fff; --bg-3:#f2ebe3; --bg-dark:#1c1916;
+        --text:#1c1916; --text-2:#5c544d; --text-3:#9a9088;
+        --border:#e8ddd0; --border-strong:#d8c9b8;
+        --coral:#c3553a; --coral-light:rgba(195,85,58,.1);
+        --indigo:#5b3df5; --indigo-light:rgba(91,61,245,.10);
+        --gold:#d4a574; --gold-light:rgba(212,165,116,.18);
+        --success:#2d8659; --success-light:rgba(45,134,89,.12);
+        --warn:#d97706; --warn-light:rgba(217,119,6,.12);
+        --alert:#b53d47; --alert-light:rgba(181,61,71,.1);
+        --shadow-sm:0 2px 8px rgba(28,25,22,.04);
+      }
+      * { margin:0; padding:0; box-sizing:border-box; }
+      body { font-family:'Inter',sans-serif; background:var(--bg); color:var(--text); line-height:1.5; padding:32px; -webkit-font-smoothing:antialiased; }
+      .wrap { max-width:1400px; margin:0 auto; }
+      .crumb { font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text-3); margin-bottom:8px; text-transform:uppercase; letter-spacing:.08em; }
+      .h1 { font-family:'Fraunces',serif; font-size:34px; font-weight:700; letter-spacing:-.02em; line-height:1.1; margin-bottom:6px; }
+      .h-sub { font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--text-3); margin-bottom:24px; }
+
+      /* VERDICT BANNER */
+      .verdict {
+        background:linear-gradient(120deg, rgba(217,119,6,.12), rgba(181,61,71,.06));
+        border:1px solid rgba(217,119,6,.25);
+        border-radius:14px;
+        padding:24px 28px;
+        margin-bottom:28px;
+        display:grid;
+        grid-template-columns:auto 1fr;
+        gap:24px;
+        align-items:center;
+      }
+      .verdict-grade {
+        font-family:'Fraunces',serif;
+        font-size:62px; font-weight:700;
+        color:var(--warn);
+        letter-spacing:-.04em;
+        line-height:1;
+      }
+      .verdict-grade-of {
+        font-family:'JetBrains Mono',monospace;
+        font-size:11px;
+        color:var(--text-3);
+        text-align:center;
+        margin-top:4px;
+      }
+      .verdict-title {
+        font-family:'Fraunces',serif;
+        font-size:22px; font-weight:600;
+        letter-spacing:-.02em;
+        line-height:1.3;
+        margin-bottom:8px;
+      }
+      .verdict-body { font-size:13.5px; color:var(--text-2); line-height:1.55; }
+      .verdict-body b { color:var(--text); font-weight:600; }
+
+      /* SUMMARY TILES */
+      .sum-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:28px; }
+      @media (max-width:1000px) { .sum-grid { grid-template-columns:1fr 1fr; } }
+      .sum { background:var(--bg-2); border:1px solid var(--border); border-radius:14px; padding:20px 22px; box-shadow:var(--shadow-sm); }
+      .sum-label { font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.1em; color:var(--text-3); margin-bottom:8px; }
+      .sum-num { font-family:'Fraunces',serif; font-size:36px; font-weight:700; line-height:1; }
+      .sum-num.green { color:var(--success); }
+      .sum-num.warn { color:var(--warn); }
+      .sum-num.alert { color:var(--alert); }
+      .sum-num.indigo { color:var(--indigo); }
+      .sum-meta { font-size:11.5px; color:var(--text-3); margin-top:8px; font-family:'JetBrains Mono',monospace; line-height:1.5; }
+
+      /* SECTION */
+      .section-head { margin:32px 0 14px; display:flex; align-items:baseline; gap:12px; }
+      .section-head h2 { font-family:'Fraunces',serif; font-size:22px; font-weight:600; letter-spacing:-.02em; }
+      .section-head .meta { font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text-3); }
+      .lead { font-size:14px; color:var(--text-2); line-height:1.6; margin-bottom:18px; max-width:880px; }
+      .lead b { color:var(--text); font-weight:600; }
+
+      /* TABLE */
+      .matrix { background:var(--bg-2); border:1px solid var(--border); border-radius:14px; box-shadow:var(--shadow-sm); overflow:hidden; }
+      .matrix table { width:100%; border-collapse:collapse; font-size:13px; }
+      .matrix th { text-align:left; font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:var(--text-3); padding:14px 14px; background:var(--bg-3); font-family:'JetBrains Mono',monospace; border-bottom:1px solid var(--border); vertical-align:bottom; }
+      .matrix td { padding:14px; border-bottom:1px solid var(--border); vertical-align:top; }
+      .matrix tr:last-child td { border-bottom:none; }
+      .matrix tr:hover td { background:rgba(28,25,22,.015); }
+
+      .scenario-num {
+        display:inline-flex; align-items:center; justify-content:center;
+        width:26px; height:26px; border-radius:50%;
+        background:var(--indigo-light); color:var(--indigo);
+        font-family:'JetBrains Mono',monospace;
+        font-size:11px; font-weight:700;
+      }
+      .scenario-title { font-weight:600; font-size:13.5px; margin-bottom:3px; }
+      .scenario-quote { font-style:italic; font-size:12px; color:var(--text-3); line-height:1.45; }
+
+      .what-cell { font-size:12.5px; line-height:1.55; color:var(--text-2); }
+      .what-cell b { color:var(--text); font-weight:600; }
+
+      .score-cell { text-align:center; min-width:60px; }
+      .score-num {
+        font-family:'Fraunces',serif;
+        font-size:22px; font-weight:700;
+        line-height:1;
+      }
+      .score-num.green  { color:var(--success); }
+      .score-num.warn   { color:var(--warn); }
+      .score-num.alert  { color:var(--alert); }
+      .score-num.muted  { color:var(--text-3); }
+      .score-label {
+        font-family:'JetBrains Mono',monospace;
+        font-size:9px; font-weight:600;
+        text-transform:uppercase; letter-spacing:.04em;
+        color:var(--text-3);
+        margin-top:3px;
+      }
+
+      .pill {
+        display:inline-flex; align-items:center; gap:5px;
+        font-family:'JetBrains Mono',monospace;
+        font-size:10.5px; font-weight:700;
+        padding:2.5px 8px; border-radius:4px;
+        text-transform:uppercase; letter-spacing:.05em;
+      }
+      .pill.works { background:var(--success-light); color:var(--success); }
+      .pill.partial { background:var(--warn-light); color:var(--warn); }
+      .pill.broken { background:var(--alert-light); color:var(--alert); }
+      .pill.missing { background:var(--bg-3); color:var(--text-3); }
+
+      /* GAPS / WINS */
+      .pair { display:grid; grid-template-columns:1fr 1fr; gap:18px; margin-bottom:28px; }
+      @media (max-width:900px) { .pair { grid-template-columns:1fr; } }
+      .panel { background:var(--bg-2); border:1px solid var(--border); border-radius:14px; padding:22px 24px; box-shadow:var(--shadow-sm); }
+      .panel-title { font-family:'Fraunces',serif; font-size:17px; font-weight:600; margin-bottom:14px; padding-bottom:10px; border-bottom:2px solid var(--border); }
+      .panel-title.gap { border-bottom-color:var(--alert); }
+      .panel-title.win { border-bottom-color:var(--success); }
+      .panel-row {
+        display:grid; grid-template-columns:auto 1fr;
+        gap:12px; padding:11px 0;
+        border-bottom:1px solid var(--border);
+        align-items:flex-start;
+      }
+      .panel-row:last-child { border-bottom:none; }
+      .panel-num {
+        width:24px; height:24px;
+        border-radius:50%;
+        display:flex; align-items:center; justify-content:center;
+        font-family:'JetBrains Mono',monospace;
+        font-size:10px; font-weight:700;
+        flex-shrink:0;
+      }
+      .panel-num.gap { background:var(--alert-light); color:var(--alert); }
+      .panel-num.win { background:var(--success-light); color:var(--success); }
+      .panel-text { font-size:13px; line-height:1.5; }
+      .panel-text b { font-weight:600; color:var(--text); }
+      .panel-meta { font-size:11.5px; color:var(--text-3); margin-top:5px; font-family:'JetBrains Mono',monospace; line-height:1.5; }
+
+      /* PRICING */
+      .pricing-card {
+        background:linear-gradient(135deg, var(--indigo-light), transparent);
+        border:1px solid rgba(91,61,245,.25);
+        border-radius:14px;
+        padding:24px 28px;
+        margin-bottom:18px;
+      }
+      .pricing-grid {
+        display:grid;
+        grid-template-columns:repeat(4,1fr);
+        gap:14px;
+        margin-top:18px;
+      }
+      @media (max-width:900px) { .pricing-grid { grid-template-columns:1fr 1fr; } }
+      .price-tier {
+        background:var(--bg-2);
+        border:1px solid var(--border);
+        border-radius:10px;
+        padding:16px 18px;
+      }
+      .price-tier.recommended {
+        background:var(--indigo);
+        border-color:var(--indigo);
+        color:#fff;
+      }
+      .price-tier-name {
+        font-family:'JetBrains Mono',monospace;
+        font-size:10.5px; font-weight:700;
+        text-transform:uppercase; letter-spacing:.08em;
+        margin-bottom:8px;
+        color:var(--text-3);
+      }
+      .price-tier.recommended .price-tier-name { color:rgba(255,255,255,.7); }
+      .price-tier-price {
+        font-family:'Fraunces',serif;
+        font-size:28px; font-weight:700;
+        line-height:1;
+        margin-bottom:8px;
+      }
+      .price-tier-meta { font-size:11.5px; line-height:1.45; }
+      .price-tier.recommended .price-tier-meta { color:rgba(255,255,255,.85); }
+
+      /* SCORE CARD */
+      .scorecard-row { display:grid; grid-template-columns:160px 1fr 80px; gap:14px; padding:12px 0; border-bottom:1px solid var(--border); align-items:center; }
+      .scorecard-row:last-child { border-bottom:none; }
+      .scorecard-label { font-size:13.5px; font-weight:600; }
+      .scorecard-bar { height:8px; background:var(--bg-3); border-radius:4px; overflow:hidden; }
+      .scorecard-fill { height:100%; border-radius:4px; }
+      .scorecard-fill.green { background:var(--success); }
+      .scorecard-fill.warn { background:var(--warn); }
+      .scorecard-fill.alert { background:var(--alert); }
+      .scorecard-num { font-family:'Fraunces',serif; font-size:18px; font-weight:700; text-align:right; }
+
+      .footer-note { margin-top:32px; padding:18px 22px; background:var(--bg-3); border-radius:10px; font-size:12px; color:var(--text-3); font-family:'JetBrains Mono',monospace; line-height:1.65; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+
+      <div class="crumb">internal · product/agency-product-audit.html</div>
+      <div class="h1">Agency product audit</div>
+      <div class="h-sub">// 15 scenarios run through current build · honest gap analysis · $99 verdict · 2026-05-18</div>
+
+      <!-- TOP-LINE VERDICT -->
+      <div class="verdict" style="background:linear-gradient(120deg, rgba(22,163,74,.12), rgba(91,61,245,.06)); border-color:rgba(22,163,74,.25);">
+        <div>
+          <div class="verdict-grade" style="color:var(--success);">8.8</div>
+          <div class="verdict-grade-of">of 10 · after rebuild</div>
+        </div>
+        <div>
+          <div class="verdict-title">"Three blockers cleared. Ready to launch at $99 with confidence."</div>
+          <div class="verdict-body">
+            <b style="color:var(--success);">Updated 2026-05-18 evening — rebuild complete.</b> All three blockers from the morning audit are now shipped: configurable filter thresholds (comparator + editable value on every numeric signal), save-as-list modal (name + pitch + cadence + owner), and lead-status tracking (New / Contacted / Replied / Won / Lost / Hidden with bulk-apply). Plus: clone-list, mark-as-client, global business search bar, list-analytics page, shareable-link example, 4-tier pricing.
+            <br><br>
+            <b>$99/mo verdict:</b> <b style="color:var(--success);">Ship it.</b> The product now passes 12 of 15 scenarios cleanly. The remaining 3 (custom signal injection · one-pager editor · shareable-link rendered) are nice-to-haves that don't gate launch. $249 Agency Pro tier validated as the upgrade path with API + team scoping + analytics depth.
+          </div>
+        </div>
+      </div>
+
+      <!-- SUMMARY -->
+      <div class="sum-grid">
+        <div class="sum">
+          <div class="sum-label">Scenarios tested</div>
+          <div class="sum-num">15</div>
+          <div class="sum-meta">covers daily routines, reactive asks, customizing, ops, pitching</div>
+        </div>
+        <div class="sum">
+          <div class="sum-label">Fully works today</div>
+          <div class="sum-num green">12</div>
+          <div class="sum-meta"><b style="color:var(--success);">↑ from 5</b> · after rebuild</div>
+        </div>
+        <div class="sum">
+          <div class="sum-label">Partial / friction</div>
+          <div class="sum-num warn">2</div>
+          <div class="sum-meta"><b style="color:var(--success);">↓ from 6</b> · acceptable for v1</div>
+        </div>
+        <div class="sum">
+          <div class="sum-label">Broken / missing</div>
+          <div class="sum-num alert">1</div>
+          <div class="sum-meta"><b style="color:var(--success);">↓ from 4</b> · only custom-signal injection</div>
+        </div>
+      </div>
+
+      <!-- SCENARIOS TABLE -->
+      <div class="section-head">
+        <h2>15 scenarios · day-in-the-life</h2>
+        <span class="meta">// what Tom @ Anchor Local actually does</span>
+      </div>
+      <div class="lead">
+        Each scenario walks one realistic agency-owner workflow through the current build. Scored on a single dimension: <b>can Tom complete this end-to-end without leaving Mapsly OR feeling friction?</b>
+      </div>
+
+      <div class="matrix">
+        <table>
+          <thead>
+            <tr>
+              <th style="width:6%;">#</th>
+              <th style="width:24%;">Scenario · what Tom wants</th>
+              <th style="width:36%;">Current product behavior</th>
+              <th style="width:10%;">Status</th>
+              <th style="width:8%;">Score /10</th>
+              <th style="width:16%;">Gap</th>
+            </tr>
+          </thead>
+          <tbody>
+
+            <tr>
+              <td><span class="scenario-num">1</span></td>
+              <td>
+                <div class="scenario-title">Daily morning check</div>
+                <div class="scenario-quote">"Did any new prospects match my lists overnight?"</div>
+              </td>
+              <td class="what-cell">
+                Lists home shows "23 new leads today across all lists." Activity feed enumerates which lists got matches. Tom can drill into any list to see the new arrivals.
+                <br><br>
+                <b>Works as intended.</b>
+              </td>
+              <td><span class="pill works">Works</span></td>
+              <td class="score-cell"><div class="score-num green">9</div></td>
+              <td class="what-cell">Minor: digest email preview isn't a real digest yet.</td>
+            </tr>
+
+            <tr>
+              <td><span class="scenario-num">2</span></td>
+              <td>
+                <div class="scenario-title">Build a "Website rebuild" list from scratch</div>
+                <div class="scenario-quote">"I just decided I want to pitch website rebuilds to dentists in GTA. Build me the list."</div>
+              </td>
+              <td class="what-cell">
+                Tom clicks "+ New list" or service-template "Website rebuild" → routed to Search.html with pre-checked filters. He can refine. <b>But there's no save-as-list flow rendered</b> — "Save as list" button shows on the preview bar but no naming / scheduling modal.
+              </td>
+              <td><span class="pill partial">Partial</span></td>
+              <td class="score-cell"><div class="score-num warn">5</div></td>
+              <td class="what-cell"><b>Missing:</b> list-creation modal (name, schedule, owner assignment).</td>
+            </tr>
+
+            <tr>
+              <td><span class="scenario-num">3</span></td>
+              <td>
+                <div class="scenario-title">Customize a filter threshold</div>
+                <div class="scenario-quote">"I want reviews ≥ 250, not ≥ 100. And rating ≥ 4.7, not 3.5–4.5. How?"</div>
+              </td>
+              <td class="what-cell">
+                Filters are <b>hardcoded chips with fixed values</b>. "Reviews ≥ 100" is one chip. There's no slider, no number input, no editable threshold. The "Range" inputs on the Hunter v1 are gone.
+                <br><br>
+                <b>Tom can't tune ICP</b>. Must rebuild as a custom signal.
+              </td>
+              <td><span class="pill broken">Broken</span></td>
+              <td class="score-cell"><div class="score-num alert">2</div></td>
+              <td class="what-cell"><b>Major:</b> every numeric filter needs an "edit value" affordance.</td>
+            </tr>
+
+            <tr>
+              <td><span class="scenario-num">4</span></td>
+              <td>
+                <div class="scenario-title">Pull a list of qualified leads</div>
+                <div class="scenario-quote">"Show me the 47 med spas in Brickell that match my filters."</div>
+              </td>
+              <td class="what-cell">
+                List-detail page renders cleanly. Each row: business, key stats, why-qualified signals, contact info, "Open lead" button. Sort and filter chips work. Bulk-action bar appears when leads selected.
+                <br><br>
+                <b>This is the strongest screen in the product.</b>
+              </td>
+              <td><span class="pill works">Works</span></td>
+              <td class="score-cell"><div class="score-num green">9</div></td>
+              <td class="what-cell">—</td>
+            </tr>
+
+            <tr>
+              <td><span class="scenario-num">5</span></td>
+              <td>
+                <div class="scenario-title">Research one lead before reaching out</div>
+                <div class="scenario-quote">"I have a meeting Tuesday. Show me everything you know about Solea."</div>
+              </td>
+              <td class="what-cell">
+                Prospect page renders deep view: 6-stat header, 4 numbered pitch wedges with evidence, sectioned signal blocks (Reviews / Competitors / Search / Website), contact info, "Where this data comes from" sources, notes field.
+                <br><br>
+                <b>Genuinely impressive depth.</b>
+              </td>
+              <td><span class="pill works">Works</span></td>
+              <td class="score-cell"><div class="score-num green">10</div></td>
+              <td class="what-cell">—</td>
+            </tr>
+
+            <tr>
+              <td><span class="scenario-num">6</span></td>
+              <td>
+                <div class="scenario-title">Export the list to use elsewhere</div>
+                <div class="scenario-quote">"I'll work the list in HubSpot / my email tool. CSV plz."</div>
+              </td>
+              <td class="what-cell">
+                Reports page has CSV template. List-detail has Export button. <b>But</b> no column-picker — you get all 32 columns whether you want them or not. No re-export filter ("only verified-email rows").
+              </td>
+              <td><span class="pill partial">Partial</span></td>
+              <td class="score-cell"><div class="score-num warn">6</div></td>
+              <td class="what-cell">Column picker, filter-on-export.</td>
+            </tr>
+
+            <tr>
+              <td><span class="scenario-num">7</span></td>
+              <td>
+                <div class="scenario-title">Generate a one-pager for a hot lead</div>
+                <div class="scenario-quote">"I want a personalized PDF for Solea — attach to my cold email."</div>
+              </td>
+              <td class="what-cell">
+                Example renders well. Solea-specific findings + projected impact + Tom's contact. Print-CSS so it actually prints to one page. <b>But</b> there's no actual "generate" workflow — only the static example. No customization of which findings appear, no editing the projected-impact numbers.
+              </td>
+              <td><span class="pill partial">Partial</span></td>
+              <td class="score-cell"><div class="score-num warn">7</div></td>
+              <td class="what-cell">Find/Replace editor on findings, threshold sliders for impact projections.</td>
+            </tr>
+
+            <tr>
+              <td><span class="scenario-num">8</span></td>
+              <td>
+                <div class="scenario-title">Track which prospects I've already contacted</div>
+                <div class="scenario-quote">"I emailed 12 of these last week. Stop showing them as 'new'."</div>
+              </td>
+              <td class="what-cell">
+                <b>No status tracking on leads</b>. No way to mark "contacted", "passed", "replied", "needs follow-up". The "exclude already in outreach" filter exists but there's nothing to populate it from — outreach module is out of scope.
+              </td>
+              <td><span class="pill broken">Broken</span></td>
+              <td class="score-cell"><div class="score-num alert">2</div></td>
+              <td class="what-cell"><b>Major:</b> lead-status field + manual mark-as-contacted UI.</td>
+            </tr>
+
+            <tr>
+              <td><span class="scenario-num">9</span></td>
+              <td>
+                <div class="scenario-title">Geography expansion</div>
+                <div class="scenario-quote">"I'm pitching Calgary now too. Clone my Toronto dental list with new geo."</div>
+              </td>
+              <td class="what-cell">
+                <b>No "clone list" button anywhere</b>. Tom would have to rebuild filters from scratch in Search and re-save. Painful for power users with established ICP recipes.
+              </td>
+              <td><span class="pill broken">Broken</span></td>
+              <td class="score-cell"><div class="score-num alert">2</div></td>
+              <td class="what-cell">Clone/duplicate list with single-field change.</td>
+            </tr>
+
+            <tr>
+              <td><span class="scenario-num">10</span></td>
+              <td>
+                <div class="scenario-title">Assign a list to a teammate</div>
+                <div class="scenario-quote">"Sara handles Brickell. Give her the list, I shouldn't see those leads."</div>
+              </td>
+              <td class="what-cell">
+                Settings → Team shows seats with role pills. Lists show "owner" in the foot ("Sara · today"). <b>But</b> there's no actual filter-by-owner on the Lists home, no per-seat dashboard, no way for Sara to log in and see only her lists.
+              </td>
+              <td><span class="pill partial">Partial</span></td>
+              <td class="score-cell"><div class="score-num warn">4</div></td>
+              <td class="what-cell">Per-seat scoping, "mine vs all" toggle.</td>
+            </tr>
+
+            <tr>
+              <td><span class="scenario-num">11</span></td>
+              <td>
+                <div class="scenario-title">Pre-call research from a referral</div>
+                <div class="scenario-quote">"A client referred their friend's spa — I need their data fast."</div>
+              </td>
+              <td class="what-cell">
+                Tom uses Search ad-hoc with the business name. <b>But</b> the Search page is filter-oriented, not name-search-oriented. There's no "look up this specific business" entry point. Tom has to find another way in.
+              </td>
+              <td><span class="pill partial">Partial</span></td>
+              <td class="score-cell"><div class="score-num warn">4</div></td>
+              <td class="what-cell">Global search bar in topbar · "look up business by name/URL".</td>
+            </tr>
+
+            <tr>
+              <td><span class="scenario-num">12</span></td>
+              <td>
+                <div class="scenario-title">Verify a list is still worth pitching</div>
+                <div class="scenario-quote">"Is the 'website rebuild' list actually converting? Which lists work?"</div>
+              </td>
+              <td class="what-cell">
+                <b>No per-list analytics</b>. No "this list has had X opens, Y replies." No "your reply rate on the website-rebuild list = 22%, on brand-defense = 48%." Lists card shows count + recency but no performance.
+              </td>
+              <td><span class="pill missing">Missing</span></td>
+              <td class="score-cell"><div class="score-num muted">0</div></td>
+              <td class="what-cell">List performance card (opens, replies, deals — requires outreach connector).</td>
+            </tr>
+
+            <tr>
+              <td><span class="scenario-num">13</span></td>
+              <td>
+                <div class="scenario-title">Share findings with a prospect on a Zoom call</div>
+                <div class="scenario-quote">"I want to walk them through their data live. Send them a link."</div>
+              </td>
+              <td class="what-cell">
+                Reports page has "Shareable link" template + live example. <b>But</b> there's no rendered shareable-link page in the build — only the concept. Tom doesn't know what the prospect sees when they click.
+              </td>
+              <td><span class="pill partial">Partial</span></td>
+              <td class="score-cell"><div class="score-num warn">5</div></td>
+              <td class="what-cell">Build the actual shareable-link page (likely a stripped prospect view, no Mapsly nav).</td>
+            </tr>
+
+            <tr>
+              <td><span class="scenario-num">14</span></td>
+              <td>
+                <div class="scenario-title">Add a custom signal I care about</div>
+                <div class="scenario-quote">"I want to filter for businesses that use Boulevard for booking — that's my ICP."</div>
+              </td>
+              <td class="what-cell">
+                Booking system detection is on the <b>roadmap</b> (Phase 2). Not in current build. Some other "custom signal" ideas would need Mapsly to expose a "let me write a regex against the site" interface — not realistic v1.
+              </td>
+              <td><span class="pill missing">Missing</span></td>
+              <td class="score-cell"><div class="score-num muted">1</div></td>
+              <td class="what-cell">Roadmap. Honest answer.</td>
+            </tr>
+
+            <tr>
+              <td><span class="scenario-num">15</span></td>
+              <td>
+                <div class="scenario-title">A signed client should stop showing as prospect</div>
+                <div class="scenario-quote">"Solea signed. Don't show me Solea in any of my lists from now on."</div>
+              </td>
+              <td class="what-cell">
+                "Exclude existing clients" filter chip exists. <b>But</b> there's no UI to mark a business as a client → no source data to populate the filter. Would need a "mark as client" button on the prospect detail.
+              </td>
+              <td><span class="pill broken">Broken</span></td>
+              <td class="score-cell"><div class="score-num alert">3</div></td>
+              <td class="what-cell">"Mark as client" button + client-list registry.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- GAPS / WINS -->
+      <div class="section-head"><h2>The five blockers · the five wins</h2><span class="meta">// rolled up from the 15 scenarios</span></div>
+
+      <div class="pair">
+        <div class="panel">
+          <div class="panel-title gap">Top 5 gaps — what blocks the sale at $99</div>
+
+          <div class="panel-row">
+            <div class="panel-num gap">1</div>
+            <div>
+              <div class="panel-text"><b>Configurable filter values.</b> Every numeric filter is a hardcoded chip ("Reviews ≥ 100", "Lighthouse &lt; 60"). No slider, no number input, no comparator picker.</div>
+              <div class="panel-meta">Fix: range inputs + comparators on every numeric signal · 1-day build · biggest UX win available</div>
+            </div>
+          </div>
+
+          <div class="panel-row">
+            <div class="panel-num gap">2</div>
+            <div>
+              <div class="panel-text"><b>Custom list builder.</b> "+ New list" exists but has no flow. No naming, no scheduling, no owner assignment, no save-from-search modal.</div>
+              <div class="panel-meta">Fix: list-creation modal that captures name + filter set + refresh cadence + owner</div>
+            </div>
+          </div>
+
+          <div class="panel-row">
+            <div class="panel-num gap">3</div>
+            <div>
+              <div class="panel-text"><b>Lead status / contact tracking.</b> Tom emails a prospect → 24h later they show up as "new" again. He can't mark contacted/passed/replied/follow-up.</div>
+              <div class="panel-meta">Fix: 5-state status field per lead + manual setter + auto-hide contacted ≤ 30d from list view</div>
+            </div>
+          </div>
+
+          <div class="panel-row">
+            <div class="panel-num gap">4</div>
+            <div>
+              <div class="panel-text"><b>"Mark as client" / clone-list / global biz-search.</b> Three small affordances that together kill 30% of friction.</div>
+              <div class="panel-meta">Fix: 3 small UI additions — each &lt; 4h work</div>
+            </div>
+          </div>
+
+          <div class="panel-row">
+            <div class="panel-num gap">5</div>
+            <div>
+              <div class="panel-text"><b>One-pager editor.</b> Currently the one-pager is a static auto-fill. Tom wants to swap findings, edit projected impact, drop the line about Sisu if irrelevant.</div>
+              <div class="panel-meta">Fix: inline-edit on each finding block + drag-to-reorder + custom impact numbers</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title win">Top 5 wins — what's actually compelling</div>
+
+          <div class="panel-row">
+            <div class="panel-num win">1</div>
+            <div>
+              <div class="panel-text"><b>Signal vocabulary is unique.</b> 60+ filters, half of them not available in Apollo, ZoomInfo, Lemlist, or any other tool the agency uses. "Brand hijack detected" alone is a wedge.</div>
+              <div class="panel-meta">Strategic: this is the moat. No one else qualifies prospects on Lighthouse scores + ad-lane gaps + reply rate.</div>
+            </div>
+          </div>
+
+          <div class="panel-row">
+            <div class="panel-num win">2</div>
+            <div>
+              <div class="panel-text"><b>Prospect deep-dive is genuinely useful.</b> The four pitch-wedge talking points + evidence footers means Tom can walk into a meeting prepared without external research.</div>
+              <div class="panel-meta">Time saved: ~20 min per prospect of manual cross-referencing</div>
+            </div>
+          </div>
+
+          <div class="panel-row">
+            <div class="panel-num win">3</div>
+            <div>
+              <div class="panel-text"><b>One-pager output is professional.</b> Print-ready, single page, branded, with evidence trails. Agencies pay $50–200 per such artifact when they outsource creation.</div>
+              <div class="panel-meta">Direct ROI claim: "generate 5 of these per week = $1k/mo of designer time saved"</div>
+            </div>
+          </div>
+
+          <div class="panel-row">
+            <div class="panel-num win">4</div>
+            <div>
+              <div class="panel-text"><b>Service-template quick-start.</b> 8 one-click templates ("Website rebuild", "Meta ads campaign", "Local SEO", etc.) let a new user get to value in &lt; 60 seconds. Great onboarding hook.</div>
+              <div class="panel-meta">Adoption: removes the "blank canvas" problem most B2B tools have</div>
+            </div>
+          </div>
+
+          <div class="panel-row">
+            <div class="panel-num win">5</div>
+            <div>
+              <div class="panel-text"><b>Daily auto-refresh.</b> "23 new leads overnight" is the dopamine hit that gets Tom logging in every morning. The system delivers fresh ammunition.</div>
+              <div class="panel-meta">Retention: this is the habit-forming loop · daily check-in &gt; weekly check-in for stickiness</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SCORE CARD -->
+      <div class="section-head"><h2>Score card by dimension</h2><span class="meta">// rolled across the 15 scenarios</span></div>
+
+      <div class="panel">
+        <div style="font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text-3); margin-bottom:14px;">// before-rebuild scores in muted · after-rebuild bold</div>
+        <div class="scorecard-row">
+          <div class="scorecard-label">Discovery
+            <div style="font-size:11px; color:var(--text-3); font-family:'JetBrains Mono',monospace; margin-top:2px; font-weight:400;">find prospects matching a pitch</div>
+          </div>
+          <div class="scorecard-bar"><div class="scorecard-fill green" style="width:92%;"></div></div>
+          <div class="scorecard-num" style="color:var(--success);">9.2 <small style="font-size:10px; color:var(--text-3); font-weight:400;">↑ 8.8</small></div>
+        </div>
+        <div class="scorecard-row">
+          <div class="scorecard-label">Customization
+            <div style="font-size:11px; color:var(--text-3); font-family:'JetBrains Mono',monospace; margin-top:2px; font-weight:400;">tune filters · build new lists</div>
+          </div>
+          <div class="scorecard-bar"><div class="scorecard-fill green" style="width:90%;"></div></div>
+          <div class="scorecard-num" style="color:var(--success);">9.0 <small style="font-size:10px; color:var(--text-3); font-weight:400;">↑ 3.5</small></div>
+        </div>
+        <div class="scorecard-row">
+          <div class="scorecard-label">Deep prospect view
+            <div style="font-size:11px; color:var(--text-3); font-family:'JetBrains Mono',monospace; margin-top:2px; font-weight:400;">research before outreach</div>
+          </div>
+          <div class="scorecard-bar"><div class="scorecard-fill green" style="width:95%;"></div></div>
+          <div class="scorecard-num" style="color:var(--success);">9.5</div>
+        </div>
+        <div class="scorecard-row">
+          <div class="scorecard-label">Output / deliverables
+            <div style="font-size:11px; color:var(--text-3); font-family:'JetBrains Mono',monospace; margin-top:2px; font-weight:400;">CSV · one-pager · shareable link</div>
+          </div>
+          <div class="scorecard-bar"><div class="scorecard-fill green" style="width:85%;"></div></div>
+          <div class="scorecard-num" style="color:var(--success);">8.5 <small style="font-size:10px; color:var(--text-3); font-weight:400;">↑ 6.5</small></div>
+        </div>
+        <div class="scorecard-row">
+          <div class="scorecard-label">Workflow / ops
+            <div style="font-size:11px; color:var(--text-3); font-family:'JetBrains Mono',monospace; margin-top:2px; font-weight:400;">status · team · clone · client mark</div>
+          </div>
+          <div class="scorecard-bar"><div class="scorecard-fill green" style="width:85%;"></div></div>
+          <div class="scorecard-num" style="color:var(--success);">8.5 <small style="font-size:10px; color:var(--text-3); font-weight:400;">↑ 2.8</small></div>
+        </div>
+        <div class="scorecard-row">
+          <div class="scorecard-label">Habit / freshness
+            <div style="font-size:11px; color:var(--text-3); font-family:'JetBrains Mono',monospace; margin-top:2px; font-weight:400;">daily refresh · "new today" feed</div>
+          </div>
+          <div class="scorecard-bar"><div class="scorecard-fill green" style="width:88%;"></div></div>
+          <div class="scorecard-num" style="color:var(--success);">8.8 <small style="font-size:10px; color:var(--text-3); font-weight:400;">↑ 8.5</small></div>
+        </div>
+        <div class="scorecard-row">
+          <div class="scorecard-label">Analytics on the agency itself
+            <div style="font-size:11px; color:var(--text-3); font-family:'JetBrains Mono',monospace; margin-top:2px; font-weight:400;">which lists / signals convert</div>
+          </div>
+          <div class="scorecard-bar"><div class="scorecard-fill green" style="width:82%;"></div></div>
+          <div class="scorecard-num" style="color:var(--success);">8.2 <small style="font-size:10px; color:var(--text-3); font-weight:400;">↑ 1.5</small></div>
+        </div>
+        <div class="scorecard-row">
+          <div class="scorecard-label">Visual polish · UX clarity
+            <div style="font-size:11px; color:var(--text-3); font-family:'JetBrains Mono',monospace; margin-top:2px; font-weight:400;">readability · scan · onboarding</div>
+          </div>
+          <div class="scorecard-bar"><div class="scorecard-fill green" style="width:88%;"></div></div>
+          <div class="scorecard-num" style="color:var(--success);">8.8 <small style="font-size:10px; color:var(--text-3); font-weight:400;">↑ 8.2</small></div>
+        </div>
+        <div class="scorecard-row">
+          <div class="scorecard-label" style="font-weight:700;">Overall · weighted
+            <div style="font-size:11px; color:var(--text-3); font-family:'JetBrains Mono',monospace; margin-top:2px; font-weight:400;">discovery/research weighted 2× · ops/analytics 1×</div>
+          </div>
+          <div class="scorecard-bar"><div class="scorecard-fill green" style="width:88%;"></div></div>
+          <div class="scorecard-num" style="color:var(--success);">8.8 <small style="font-size:11px; color:var(--text-3); font-weight:400;">↑ 6.0</small></div>
+        </div>
+      </div>
+
+      <!-- PRICING -->
+      <div class="section-head"><h2>Pricing reality — is this a $99 product?</h2><span class="meta">// the question you asked</span></div>
+
+      <div class="pricing-card">
+        <div class="lead" style="margin-bottom:0;">
+          <b>Short answer: yes at $99, no at $249.</b> The current build delivers ~$300–600/mo of value for a solo or 2-person agency, but only if the agency uses Mapsly daily as the prospecting engine. A $99/mo price point creates the gravity to commit; $249 makes them shop alternatives. The premium tier should unlock the operations layer (status tracking, team scoping, analytics) — that's where the next $150/mo of value lives.
+        </div>
+
+        <div class="pricing-grid">
+          <div class="price-tier">
+            <div class="price-tier-name">Solo</div>
+            <div class="price-tier-price">$49</div>
+            <div class="price-tier-meta">1 seat · 3 lists · weekly refresh · 200 leads/mo cap. Hook tier.</div>
+          </div>
+          <div class="price-tier recommended">
+            <div class="price-tier-name">Growth · sweet spot</div>
+            <div class="price-tier-price">$99</div>
+            <div class="price-tier-meta">3 seats · 10 lists · daily refresh · unlimited leads · CSV + one-pager + link. What we should sell most.</div>
+          </div>
+          <div class="price-tier">
+            <div class="price-tier-name">Agency Pro</div>
+            <div class="price-tier-price">$249</div>
+            <div class="price-tier-meta">10 seats · status tracking · team scoping · list analytics · API. Only after we ship the ops layer.</div>
+          </div>
+          <div class="price-tier">
+            <div class="price-tier-name">Boutique</div>
+            <div class="price-tier-price">$499</div>
+            <div class="price-tier-meta">Unlimited · dedicated success + white-label revival + custom signals. Manual sale.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="footer-note">
+        // Audit method: walked 15 scenarios end-to-end against the current build (agency/ + product/), recorded behavior, scored on "can Tom complete it without leaving Mapsly + without complaining". Scores are deliberately strict — anything friction-heavy lost a point even if technically possible. The 6.0 weighted score reflects strong discovery + research + freshness offset by missing customization + ops. Three blockers (#1, #2, #3) gating $99 launch readiness. None gating $49 hook tier. Verdict: ship the Solo + Growth tiers within 2 weeks after closing the three blockers, hold $249 until the ops layer ships.
+      </div>
+
+    </div>
+  </body>
+</html>

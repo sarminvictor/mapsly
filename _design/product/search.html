@@ -1,0 +1,917 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Search visibility · Mapsly</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+    <style>
+      :root {
+        --bg:#faf6f1; --bg-2:#fff; --bg-3:#f2ebe3; --bg-dark:#1c1916;
+        --text:#1c1916; --text-2:#5c544d; --text-3:#9a9088;
+        --border:#e8ddd0; --border-strong:#d8c9b8;
+        --coral:#c3553a; --coral-light:rgba(195,85,58,.1);
+        --berry:#8b3a2c; --gold:#d4a574; --gold-light:rgba(212,165,116,.18);
+        --success:#2d8659; --success-light:rgba(45,134,89,.12);
+        --alert:#b53d47; --alert-light:rgba(181,61,71,.1);
+        --info:#3b6ec4; --info-light:rgba(59,110,196,.1);
+        --purple:#6b4f9b; --purple-light:rgba(107,79,155,.12);
+        --ease:cubic-bezier(0.16,1,0.3,1);
+        --shadow-sm:0 2px 8px rgba(28,25,22,.04);
+      }
+      * { margin:0; padding:0; box-sizing:border-box; }
+      body {
+        font-family:'Inter',sans-serif; background:var(--bg); color:var(--text);
+        line-height:1.5; min-height:100vh; display:flex;
+        -webkit-font-smoothing:antialiased;
+      }
+      a { color:inherit; text-decoration:none; }
+      button { font-family:inherit; cursor:pointer; border:none; background:none; }
+
+      .sidebar {
+        width:240px; background:var(--bg); border-right:1px solid var(--border);
+        padding:22px 16px; height:100vh; position:sticky; top:0;
+        display:flex; flex-direction:column; flex-shrink:0;
+      }
+      .sidebar-logo {
+        display:flex; align-items:center; gap:10px;
+        padding:6px 8px 22px; margin-bottom:12px;
+        border-bottom:1px solid var(--border);
+      }
+      .sidebar-logo-dot {
+        width:9px; height:9px; border-radius:50%; background:var(--coral);
+        box-shadow:0 0 10px rgba(195,85,58,.5);
+      }
+      .sidebar-logo-text {
+        font-family:'Fraunces',serif; font-size:19px; font-weight:700; letter-spacing:-.02em;
+      }
+      .sidebar-section-label {
+        font-family:'JetBrains Mono',monospace; font-size:10px;
+        font-weight:600; text-transform:uppercase; letter-spacing:.12em;
+        color:var(--text-3); padding:14px 10px 6px;
+      }
+      .nav-item {
+        display:flex; align-items:center; gap:11px;
+        padding:9px 10px; border-radius:8px;
+        font-size:14px; font-weight:500; color:var(--text-2);
+        transition:all .15s var(--ease);
+      }
+      .nav-item:hover { background:rgba(28,25,22,.04); color:var(--text); }
+      .nav-item.active { background:var(--coral-light); color:var(--coral); font-weight:600; }
+      .nav-item-badge {
+        margin-left:auto; background:var(--alert); color:#fff;
+        font-size:10px; font-weight:700;
+        padding:2px 6px; border-radius:10px; min-width:18px; text-align:center;
+        font-family:'JetBrains Mono',monospace;
+      }
+      .nav-item-badge.info { background:var(--info); }
+      .sidebar-footer {
+        margin-top:auto; padding-top:16px; border-top:1px solid var(--border);
+      }
+      .sidebar-business {
+        display:flex; align-items:center; gap:10px;
+        padding:10px; border-radius:8px; background:var(--bg-3);
+      }
+      .sidebar-biz-avatar {
+        width:32px; height:32px; border-radius:8px;
+        background:linear-gradient(135deg,var(--gold),var(--coral));
+        display:flex; align-items:center; justify-content:center;
+        color:#fff; font-weight:700; font-size:14px;
+        font-family:'Fraunces',serif;
+      }
+      .sidebar-biz-name { font-size:13px; font-weight:600; }
+      .sidebar-biz-meta { font-size:11px; color:var(--text-3); font-family:'JetBrains Mono',monospace; }
+
+      .main { flex:1; min-width:0; }
+      .topbar {
+        position:sticky; top:0; z-index:10;
+        background:rgba(250,246,241,.92); backdrop-filter:blur(20px);
+        border-bottom:1px solid var(--border);
+        padding:16px 32px;
+        display:flex; align-items:center; justify-content:space-between;
+      }
+      .topbar-title { font-family:'Fraunces',serif; font-size:22px; font-weight:600; letter-spacing:-.02em; }
+      .topbar-subtitle { font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--text-3); }
+      .topbar-right { display:flex; align-items:center; gap:10px; }
+      .top-pill {
+        display:inline-flex; align-items:center; gap:7px;
+        padding:7px 12px; background:var(--bg-2);
+        border:1px solid var(--border); border-radius:8px;
+        font-size:12px; color:var(--text-2); font-family:'JetBrains Mono',monospace;
+      }
+      .top-pill-dot { width:7px; height:7px; border-radius:50%; background:var(--success); }
+      .btn {
+        padding:8px 14px; border-radius:8px;
+        font-size:12.5px; font-weight:600; cursor:pointer;
+        display:inline-flex; align-items:center; gap:7px;
+      }
+      .btn-primary { background:var(--coral); color:#fff; }
+      .btn-primary:hover { background:var(--berry); }
+      .btn-ghost { background:transparent; color:var(--text-2); border:1px solid var(--border); }
+      .btn-ghost:hover { border-color:var(--border-strong); color:var(--text); }
+
+      .content { padding:28px 32px 64px; max-width:1400px; }
+
+      /* ============ TOP STATE BAR ============ */
+      .state-bar {
+        background:var(--bg-2); border:1px solid var(--border);
+        border-radius:16px; padding:22px 28px;
+        margin-bottom:22px;
+        display:grid; grid-template-columns:repeat(4,1fr); gap:24px;
+        box-shadow:var(--shadow-sm);
+      }
+      @media (max-width:1100px) { .state-bar { grid-template-columns:1fr 1fr; } }
+      .state-cell { padding-right:24px; border-right:1px solid var(--border); }
+      .state-cell:last-child { border-right:none; padding-right:0; }
+      .state-label {
+        font-family:'JetBrains Mono',monospace; font-size:10px;
+        font-weight:700; text-transform:uppercase; letter-spacing:.1em;
+        color:var(--text-3); margin-bottom:6px;
+      }
+      .state-num {
+        font-family:'Fraunces',serif; font-size:30px; font-weight:700; line-height:1;
+      }
+      .state-num.alert { color:var(--alert); }
+      .state-num.success { color:var(--success); }
+      .state-num.coral { color:var(--coral); }
+      .state-delta { font-size:11.5px; color:var(--text-3); margin-top:6px;
+        font-family:'JetBrains Mono',monospace; }
+      .state-delta.up { color:var(--success); }
+      .state-delta.down { color:var(--alert); }
+
+      /* ============ KEYWORDS TABLE ============ */
+      .panel {
+        background:var(--bg-2); border:1px solid var(--border);
+        border-radius:14px; box-shadow:var(--shadow-sm);
+        overflow:hidden; margin-bottom:22px;
+      }
+      .panel-head {
+        padding:20px 28px;
+        border-bottom:1px solid var(--border);
+        display:flex; justify-content:space-between; align-items:center;
+        flex-wrap:wrap; gap:12px;
+      }
+      .panel-title { font-size:15px; font-weight:600; }
+      .panel-subtitle {
+        font-family:'JetBrains Mono',monospace; font-size:11px;
+        color:var(--text-3); margin-top:3px;
+      }
+
+      .kw-tabs {
+        display:flex; gap:6px; padding:0 28px;
+        border-bottom:1px solid var(--border);
+      }
+      .kw-tab {
+        padding:12px 16px;
+        font-size:13px; font-weight:500;
+        color:var(--text-2);
+        border-bottom:2px solid transparent;
+        margin-bottom:-1px;
+      }
+      .kw-tab.active { color:var(--coral); border-bottom-color:var(--coral); font-weight:600; }
+      .kw-tab-count {
+        background:var(--bg-3); color:var(--text-2);
+        font-family:'JetBrains Mono',monospace;
+        font-size:10px; font-weight:700;
+        padding:2px 7px; border-radius:10px;
+        margin-left:6px;
+      }
+      .kw-tab.active .kw-tab-count { background:var(--coral-light); color:var(--coral); }
+      .kw-tab-count.alert { background:var(--alert-light); color:var(--alert); }
+      .kw-tab-count.success { background:var(--success-light); color:var(--success); }
+
+      .kw-table { width:100%; }
+      .kw-table table { width:100%; border-collapse:collapse; }
+      .kw-table th {
+        text-align:left;
+        font-size:11px; font-weight:600;
+        text-transform:uppercase; letter-spacing:.08em;
+        color:var(--text-3);
+        padding:14px 18px;
+        background:var(--bg-3);
+        font-family:'JetBrains Mono',monospace;
+        white-space:nowrap;
+      }
+      .kw-table td {
+        padding:18px;
+        font-size:13px;
+        border-bottom:1px solid var(--border);
+        vertical-align:middle;
+      }
+      .kw-table tr:hover td { background:rgba(28,25,22,.015); }
+
+      .kw-name {
+        font-weight:600; font-size:14px;
+        display:flex; align-items:center; gap:8px;
+        margin-bottom:3px;
+      }
+      .kw-meta {
+        font-size:11px; color:var(--text-3);
+        font-family:'JetBrains Mono',monospace;
+      }
+      .kw-pill {
+        font-family:'JetBrains Mono',monospace;
+        font-size:10px; font-weight:700;
+        text-transform:uppercase; letter-spacing:.04em;
+        padding:2px 7px; border-radius:4px;
+      }
+      .kw-pill.p0 { background:var(--alert); color:#fff; }
+      .kw-pill.p1 { background:var(--gold); color:#fff; }
+      .kw-pill.p2 { background:var(--bg-3); color:var(--text-2); }
+
+      .rank-cell {
+        display:flex; align-items:center; gap:10px;
+      }
+      .rank-num {
+        font-family:'Fraunces',serif;
+        font-size:22px; font-weight:700;
+        line-height:1; min-width:40px;
+      }
+      .rank-num.in-pack { color:var(--success); }
+      .rank-num.fringe { color:var(--gold); }
+      .rank-num.invisible { color:var(--alert); }
+      .rank-num.muted { color:var(--text-3); font-size:18px; }
+      .rank-sub {
+        font-size:10px; color:var(--text-3);
+        font-family:'JetBrains Mono',monospace;
+        text-transform:uppercase; letter-spacing:.04em;
+      }
+
+      .vol-cell {
+        font-family:'JetBrains Mono',monospace;
+        font-weight:600; font-size:14px;
+      }
+      .cpc-cell {
+        font-family:'JetBrains Mono',monospace;
+        font-size:13px; color:var(--text-2);
+      }
+      .gap-cell {
+        font-family:'JetBrains Mono',monospace;
+        font-weight:600;
+      }
+      .gap-cell.lost { color:var(--alert); }
+      .gap-cell.win  { color:var(--success); }
+
+      .opp-bar {
+        height:6px;
+        background:var(--bg-3);
+        border-radius:3px;
+        margin-top:6px;
+        overflow:hidden;
+      }
+      .opp-fill {
+        height:100%; border-radius:3px;
+        background:linear-gradient(90deg, var(--gold), var(--coral));
+      }
+      .opp-fill.green { background:linear-gradient(90deg, var(--success), #1f6644); }
+
+      /* ============ LOCAL PACK ROW ============ */
+      .pack-row {
+        display:grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap:6px;
+        margin-top:6px;
+      }
+      .pack-slot {
+        font-size:11px;
+        font-family:'JetBrains Mono',monospace;
+        padding:6px 9px;
+        background:var(--bg-3);
+        border-radius:6px;
+        color:var(--text-2);
+        white-space:nowrap;
+        overflow:hidden; text-overflow:ellipsis;
+      }
+      .pack-slot.you {
+        background:var(--coral-light);
+        color:var(--coral);
+        font-weight:600;
+      }
+      .pack-slot.empty {
+        background:transparent;
+        border:1px dashed var(--border);
+        text-align:center;
+        font-style:italic;
+        color:var(--text-3);
+      }
+      .pack-slot-rank {
+        display:inline-block;
+        width:14px;
+        font-weight:700;
+        color:var(--text);
+      }
+      .pack-slot.you .pack-slot-rank { color:var(--coral); }
+
+      /* ============ ACTION CELL ============ */
+      .actions-cell { white-space:nowrap; }
+      .btn-mini {
+        font-size:11.5px; font-weight:600;
+        padding:6px 10px;
+        border-radius:6px;
+        color:var(--coral);
+        background:var(--coral-light);
+      }
+      .btn-mini:hover { background:var(--coral); color:#fff; }
+      .btn-mini-ghost {
+        font-size:11.5px;
+        padding:6px 10px;
+        color:var(--text-3);
+        background:transparent;
+      }
+      .btn-mini-ghost:hover { color:var(--text); background:var(--bg-3); }
+
+      /* ============ OPPORTUNITY GRID ============ */
+      .opp-grid {
+        display:grid;
+        grid-template-columns:repeat(3,1fr);
+        gap:14px;
+      }
+      @media (max-width:900px) { .opp-grid { grid-template-columns:1fr; } }
+      .opp-card {
+        background:var(--bg-2);
+        border:1px solid var(--border);
+        border-radius:12px;
+        padding:18px 20px;
+        position:relative;
+      }
+      .opp-card.priority {
+        border-color:rgba(195,85,58,.35);
+        background:linear-gradient(180deg, var(--coral-light) 0%, var(--bg-2) 30%);
+      }
+      .opp-card-label {
+        font-family:'JetBrains Mono',monospace;
+        font-size:10px; font-weight:700;
+        text-transform:uppercase; letter-spacing:.08em;
+        color:var(--coral);
+        margin-bottom:6px;
+      }
+      .opp-card-kw {
+        font-family:'Fraunces',serif;
+        font-size:18px; font-weight:700;
+        margin-bottom:4px;
+      }
+      .opp-card-stats {
+        display:flex; gap:14px;
+        font-size:11.5px;
+        color:var(--text-2);
+        font-family:'JetBrains Mono',monospace;
+        margin-bottom:10px;
+      }
+      .opp-card-body {
+        font-size:13px; line-height:1.5;
+        color:var(--text-2);
+      }
+      .opp-card-body b { color:var(--text); font-weight:600; }
+      .opp-card-actions { margin-top:12px; }
+
+      /* ============ TOOLTIPS ============ */
+      .info-tip {
+        display:inline-flex; align-items:center; justify-content:center;
+        width:14px; height:14px; border-radius:50%;
+        background:var(--bg-3); color:var(--text-3);
+        font-size:10px; font-weight:700;
+        margin-left:4px; cursor:help;
+        font-family:'JetBrains Mono',monospace;
+        position:relative; vertical-align:2px;
+      }
+      .info-tip:hover { background:var(--coral-light); color:var(--coral); }
+      .info-tip[data-tip]::after {
+        content:attr(data-tip);
+        position:absolute; bottom:100%; right:0;
+        transform:translateY(-6px);
+        background:var(--bg-dark); color:#fff;
+        padding:10px 14px; border-radius:8px;
+        font-size:11px; line-height:1.5;
+        font-family:'Inter',sans-serif;
+        white-space:pre-line;
+        width:280px; text-align:left;
+        opacity:0; pointer-events:none;
+        transition:opacity .2s; z-index:100;
+        box-shadow:0 8px 24px rgba(0,0,0,.2);
+      }
+      .info-tip:hover::after { opacity:1; }
+
+      @media (max-width:768px) {
+        .sidebar { display:none; }
+        .topbar { padding:14px 18px; }
+        .content { padding:18px 18px 48px; }
+      }
+    </style>
+  </head>
+  <body>
+
+    <aside class="sidebar">
+      <div class="sidebar-logo">
+        <span class="sidebar-logo-dot"></span>
+        <span class="sidebar-logo-text">mapsly</span>
+      </div>
+      <div class="sidebar-section-label">Daily</div>
+      <a href="dashboard.html" class="nav-item">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>
+        Dashboard
+      </a>
+      <a href="reviews.html" class="nav-item">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3 7h7l-5.5 4.5L18 21l-6-4-6 4 1.5-7.5L2 9h7z"/></svg>
+        Reviews <span class="nav-item-badge">8</span>
+      </a>
+      <a href="activity.html" class="nav-item">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+        Activity <span class="nav-item-badge info">3</span>
+      </a>
+      <div class="sidebar-section-label">Watch</div>
+      <a href="competitors.html" class="nav-item">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2v20M2 12h20"/></svg>
+        Competitors
+      </a>
+      <a href="search.html" class="nav-item active">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        Search visibility
+      </a>
+      <a href="ads.html" class="nav-item">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 8h7M9 12h7M9 16h4"/></svg>
+        Ads intelligence
+      </a>
+      <div class="sidebar-section-label">Audit</div>
+      <a href="website.html" class="nav-item">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+        Website health
+      </a>
+      <a href="market.html" class="nav-item">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 16l4-8 4 4 5-10"/></svg>
+        Market reality
+      </a>
+      <div class="sidebar-section-label">Account</div>
+      <a href="settings.html" class="nav-item">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        Settings
+      </a>
+      <div class="sidebar-footer">
+        <div class="sidebar-business">
+          <div class="sidebar-biz-avatar">S</div>
+          <div>
+            <div class="sidebar-biz-name">Solea Brickell Spa</div>
+            <div class="sidebar-biz-meta">Miami · Brickell</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <div class="topbar-title">Search visibility</div>
+          <div class="topbar-subtitle">14 service keywords tracked · refreshed Thu 6:00 AM</div>
+        </div>
+        <div class="topbar-right">
+          <span class="top-pill"><span class="top-pill-dot"></span>Last scan 3 days ago</span>
+          <button class="btn btn-ghost">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+            Track keyword
+          </button>
+        </div>
+      </header>
+
+      <div class="content">
+
+        <!-- STATE BAR -->
+        <div class="state-bar">
+          <div class="state-cell">
+            <div class="state-label">In local 3-pack
+              <span class="info-tip" data-tip="What is the local 3-pack? When someone searches a service in Google, the top result is usually a Google Maps box with 3 businesses (with a small map). That's the 'local 3-pack'. Being in it = patients call you. Not being in it = patients see your competitors.">i</span>
+            </div>
+            <div class="state-num success">2</div>
+            <div class="state-delta">of 14 service keywords</div>
+          </div>
+          <div class="state-cell">
+            <div class="state-label">Invisible (rank > 20)
+              <span class="info-tip" data-tip="Keywords where you don't appear in top 20 of organic OR local pack. These are pure-loss situations.">i</span>
+            </div>
+            <div class="state-num alert">5</div>
+            <div class="state-delta down">incl. "hydrafacial brickell"</div>
+          </div>
+          <div class="state-cell">
+            <div class="state-label">Total searches / mo
+              <span class="info-tip" data-tip="Sum of monthly search volume across all 14 tracked keywords. Source: DataForSEO Keyword Volume API, Canada/US blended location.">i</span>
+            </div>
+            <div class="state-num">3,420</div>
+            <div class="state-delta">addressable demand</div>
+          </div>
+          <div class="state-cell">
+            <div class="state-label">Est. patients lost / mo
+              <span class="info-tip" data-tip="Σ for each keyword: volume × (CTR_top3 − CTR_yourRank) × industry_conversion_rate. The clicks you miss because you're below the fold. Source: keyword volume × known CTR curve × benchmark conversion.">i</span>
+            </div>
+            <div class="state-num coral">~17</div>
+            <div class="state-delta down">vs being in top 3 everywhere</div>
+          </div>
+        </div>
+
+        <!-- TABS -->
+        <div class="panel">
+          <div class="panel-head">
+            <div>
+              <div class="panel-title">Service keywords · Miami metro</div>
+              <div class="panel-subtitle">// where Brickell patients search · matched to your service catalog</div>
+            </div>
+            <button class="btn btn-ghost">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+              Export CSV
+            </button>
+          </div>
+
+          <div class="kw-tabs">
+            <button class="kw-tab active">All <span class="kw-tab-count">14</span></button>
+            <button class="kw-tab">In 3-pack <span class="kw-tab-count success">2</span></button>
+            <button class="kw-tab">Fringe (4-10) <span class="kw-tab-count">3</span></button>
+            <button class="kw-tab">Invisible <span class="kw-tab-count alert">5</span></button>
+            <button class="kw-tab">Untracked <span class="kw-tab-count">4</span></button>
+          </div>
+
+          <div class="kw-table">
+            <table>
+              <thead>
+                <tr>
+                  <th>Keyword</th>
+                  <th>Volume / mo
+                    <span class="info-tip" data-tip="Monthly searches for this keyword in your metro. Source: DataForSEO Keyword Volume API, location Miami/FL.">i</span>
+                  </th>
+                  <th>CPC
+                    <span class="info-tip" data-tip="Google Ads cost-per-click average. High CPC = high commercial intent = leads are worth more here.">i</span>
+                  </th>
+                  <th>Your rank</th>
+                  <th>Local 3-pack
+                    <span class="info-tip" data-tip="The 3 businesses Google shows in the map box at the top of search results. Position 1 gets ~17% of clicks · position 2 gets ~10% · position 3 gets ~7% · everyone outside gets &lt; 1%.">i</span>
+                  </th>
+                  <th>Est. patients lost</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+
+                <!-- microneedling miami · P0 -->
+                <tr>
+                  <td>
+                    <div class="kw-name">microneedling miami <span class="kw-pill p0">P0</span></div>
+                    <div class="kw-meta">HIGH competition · index 100 · you offer this service</div>
+                  </td>
+                  <td><div class="vol-cell">1,300</div></td>
+                  <td><div class="cpc-cell">$7.58</div><div class="opp-bar"><div class="opp-fill" style="width:55%;"></div></div></td>
+                  <td>
+                    <div class="rank-cell">
+                      <div>
+                        <div class="rank-num invisible">—</div>
+                        <div class="rank-sub">not in top 20</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    <div class="pack-row">
+                      <div class="pack-slot"><span class="pack-slot-rank">1</span>Lux MedSpa</div>
+                      <div class="pack-slot"><span class="pack-slot-rank">2</span>No Filter</div>
+                      <div class="pack-slot"><span class="pack-slot-rank">3</span>Skin Spa</div>
+                    </div>
+                  </td>
+                  <td><div class="gap-cell lost">−5/mo</div></td>
+                  <td class="actions-cell">
+                    <button class="btn-mini">Plan →</button>
+                  </td>
+                </tr>
+
+                <!-- dermal filler miami · P0 -->
+                <tr>
+                  <td>
+                    <div class="kw-name">dermal filler miami <span class="kw-pill p0">P0</span></div>
+                    <div class="kw-meta">LOW competition + $16.76 CPC · best ratio in your set</div>
+                  </td>
+                  <td><div class="vol-cell">1,000</div></td>
+                  <td><div class="cpc-cell">$16.76</div><div class="opp-bar"><div class="opp-fill green" style="width:90%;"></div></div></td>
+                  <td>
+                    <div class="rank-cell">
+                      <div>
+                        <div class="rank-num invisible">—</div>
+                        <div class="rank-sub">not in top 20</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    <div class="pack-row">
+                      <div class="pack-slot"><span class="pack-slot-rank">1</span>Lux MedSpa</div>
+                      <div class="pack-slot empty">low competition</div>
+                      <div class="pack-slot empty">open slot</div>
+                    </div>
+                  </td>
+                  <td><div class="gap-cell lost">−4/mo</div></td>
+                  <td class="actions-cell">
+                    <button class="btn-mini">Plan →</button>
+                  </td>
+                </tr>
+
+                <!-- hydrafacial miami · P0 -->
+                <tr>
+                  <td>
+                    <div class="kw-name">hydrafacial miami <span class="kw-pill p0">P0</span></div>
+                    <div class="kw-meta">HIGH competition · index 100 · you offer this service</div>
+                  </td>
+                  <td><div class="vol-cell">210</div></td>
+                  <td><div class="cpc-cell">$6.92</div><div class="opp-bar"><div class="opp-fill" style="width:50%;"></div></div></td>
+                  <td>
+                    <div class="rank-cell">
+                      <div>
+                        <div class="rank-num invisible">—</div>
+                        <div class="rank-sub">not in top 13</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    <div class="pack-row">
+                      <div class="pack-slot"><span class="pack-slot-rank">1</span>Lux MedSpa</div>
+                      <div class="pack-slot"><span class="pack-slot-rank">2</span>No Filter</div>
+                      <div class="pack-slot"><span class="pack-slot-rank">3</span>Asha Esthetic</div>
+                    </div>
+                  </td>
+                  <td><div class="gap-cell lost">−2/mo</div></td>
+                  <td class="actions-cell">
+                    <button class="btn-mini">Plan →</button>
+                  </td>
+                </tr>
+
+                <!-- botox brickell · P1 (you have a landing page) -->
+                <tr>
+                  <td>
+                    <div class="kw-name">botox brickell <span class="kw-pill p1">P1</span></div>
+                    <div class="kw-meta">MEDIUM · $53 high-bid ceiling · ~$50–100 per paid lead</div>
+                  </td>
+                  <td><div class="vol-cell">50</div></td>
+                  <td><div class="cpc-cell">$16.35</div></td>
+                  <td>
+                    <div class="rank-cell">
+                      <div>
+                        <div class="rank-num fringe">9</div>
+                        <div class="rank-sub">organic</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    <div class="pack-row">
+                      <div class="pack-slot"><span class="pack-slot-rank">1</span>Dr. Hamadiya</div>
+                      <div class="pack-slot"><span class="pack-slot-rank">2</span>Lux MedSpa</div>
+                      <div class="pack-slot"><span class="pack-slot-rank">3</span>Sisu (same bldg)</div>
+                    </div>
+                  </td>
+                  <td><div class="gap-cell lost">−1/mo</div></td>
+                  <td class="actions-cell">
+                    <button class="btn-mini">Plan →</button>
+                  </td>
+                </tr>
+
+                <!-- med spa brickell · P1 (in local pack) -->
+                <tr>
+                  <td>
+                    <div class="kw-name">med spa brickell <span class="kw-pill p2">tracking</span></div>
+                    <div class="kw-meta">HIGH competition · steady 20–40/mo</div>
+                  </td>
+                  <td><div class="vol-cell">30</div></td>
+                  <td><div class="cpc-cell">$5.65</div></td>
+                  <td>
+                    <div class="rank-cell">
+                      <div>
+                        <div class="rank-num fringe">2</div>
+                        <div class="rank-sub">organic / fringe pack</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    <div class="pack-row">
+                      <div class="pack-slot"><span class="pack-slot-rank">1</span>Lux MedSpa</div>
+                      <div class="pack-slot"><span class="pack-slot-rank">2</span>Deluxe Med Spa</div>
+                      <div class="pack-slot"><span class="pack-slot-rank">3</span>No Filter</div>
+                    </div>
+                  </td>
+                  <td><div class="gap-cell lost">−1/mo</div></td>
+                  <td class="actions-cell">
+                    <button class="btn-mini">Plan →</button>
+                  </td>
+                </tr>
+
+                <!-- med spa brickell miami · in 3-pack -->
+                <tr>
+                  <td>
+                    <div class="kw-name">med spa brickell miami <span class="kw-pill p2">tracking</span></div>
+                    <div class="kw-meta">your brand-keyword sweet spot</div>
+                  </td>
+                  <td><div class="vol-cell">90</div></td>
+                  <td><div class="cpc-cell">$5.40</div></td>
+                  <td>
+                    <div class="rank-cell">
+                      <div>
+                        <div class="rank-num in-pack">3</div>
+                        <div class="rank-sub">in pack ↑ from 4</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    <div class="pack-row">
+                      <div class="pack-slot"><span class="pack-slot-rank">1</span>Lux MedSpa</div>
+                      <div class="pack-slot"><span class="pack-slot-rank">2</span>No Filter</div>
+                      <div class="pack-slot you"><span class="pack-slot-rank">3</span>You</div>
+                    </div>
+                  </td>
+                  <td><div class="gap-cell win">+5/mo</div></td>
+                  <td class="actions-cell">
+                    <button class="btn-mini-ghost">Hold →</button>
+                  </td>
+                </tr>
+
+                <!-- laser hair removal brickell -->
+                <tr>
+                  <td>
+                    <div class="kw-name">laser hair removal brickell <span class="kw-pill p1">P1</span></div>
+                    <div class="kw-meta">8 mentions in your reviews · you over-deliver here</div>
+                  </td>
+                  <td><div class="vol-cell">170</div></td>
+                  <td><div class="cpc-cell">$4.20</div></td>
+                  <td>
+                    <div class="rank-cell">
+                      <div>
+                        <div class="rank-num fringe">7</div>
+                        <div class="rank-sub">organic</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    <div class="pack-row">
+                      <div class="pack-slot"><span class="pack-slot-rank">1</span>Smoothie Laser</div>
+                      <div class="pack-slot"><span class="pack-slot-rank">2</span>Milani Med Spa</div>
+                      <div class="pack-slot"><span class="pack-slot-rank">3</span>Body Lab Miami</div>
+                    </div>
+                  </td>
+                  <td><div class="gap-cell lost">−3/mo</div></td>
+                  <td class="actions-cell">
+                    <button class="btn-mini">Plan →</button>
+                  </td>
+                </tr>
+
+                <!-- LPG endermologie -->
+                <tr>
+                  <td>
+                    <div class="kw-name">endermologie miami <span class="kw-pill p1">P1</span></div>
+                    <div class="kw-meta">22 mentions in your reviews · #1 service · niche keyword</div>
+                  </td>
+                  <td><div class="vol-cell">90</div></td>
+                  <td><div class="cpc-cell">$3.85</div></td>
+                  <td>
+                    <div class="rank-cell">
+                      <div>
+                        <div class="rank-num in-pack">1</div>
+                        <div class="rank-sub">in pack · defending</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    <div class="pack-row">
+                      <div class="pack-slot you"><span class="pack-slot-rank">1</span>You</div>
+                      <div class="pack-slot empty">low competition</div>
+                      <div class="pack-slot empty">open slot</div>
+                    </div>
+                  </td>
+                  <td><div class="gap-cell win">+9/mo</div></td>
+                  <td class="actions-cell">
+                    <button class="btn-mini-ghost">Hold →</button>
+                  </td>
+                </tr>
+
+                <!-- iv therapy miami -->
+                <tr>
+                  <td>
+                    <div class="kw-name">iv therapy miami <span class="kw-pill p2">tracking</span></div>
+                    <div class="kw-meta">5 review mentions · related to wellness positioning</div>
+                  </td>
+                  <td><div class="vol-cell">320</div></td>
+                  <td><div class="cpc-cell">$8.10</div></td>
+                  <td>
+                    <div class="rank-cell">
+                      <div>
+                        <div class="rank-num fringe">14</div>
+                        <div class="rank-sub">organic</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    <div class="pack-row">
+                      <div class="pack-slot"><span class="pack-slot-rank">1</span>Drip Hydration</div>
+                      <div class="pack-slot"><span class="pack-slot-rank">2</span>Mobile IV Miami</div>
+                      <div class="pack-slot"><span class="pack-slot-rank">3</span>Hangover Hospital</div>
+                    </div>
+                  </td>
+                  <td><div class="gap-cell lost">−2/mo</div></td>
+                  <td class="actions-cell">
+                    <button class="btn-mini-ghost">Plan →</button>
+                  </td>
+                </tr>
+
+                <!-- morpheus8 -->
+                <tr>
+                  <td>
+                    <div class="kw-name">morpheus8 miami <span class="kw-pill p1">P1</span></div>
+                    <div class="kw-meta">premium service · low competition · service Lux doesn't offer</div>
+                  </td>
+                  <td><div class="vol-cell">260</div></td>
+                  <td><div class="cpc-cell">$11.30</div></td>
+                  <td>
+                    <div class="rank-cell">
+                      <div>
+                        <div class="rank-num invisible">—</div>
+                        <div class="rank-sub">not tracked yet</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    <div class="pack-row">
+                      <div class="pack-slot empty">low competition</div>
+                      <div class="pack-slot empty">open slot</div>
+                      <div class="pack-slot empty">open slot</div>
+                    </div>
+                  </td>
+                  <td><div class="gap-cell lost">−3/mo</div></td>
+                  <td class="actions-cell">
+                    <button class="btn-mini">Plan →</button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- ============ TOP 3 OPPORTUNITIES ============ -->
+        <div class="panel">
+          <div class="panel-head">
+            <div>
+              <div class="panel-title">Top 3 quick wins
+                <span class="info-tip" data-tip="Ranked by: volume × CPC × low-competition multiplier × your service-fit score. Auto-recalculated weekly.">i</span>
+              </div>
+              <div class="panel-subtitle">// where Brickell demand meets low competition meets your service catalog</div>
+            </div>
+          </div>
+          <div style="padding:22px 28px;">
+            <div class="opp-grid">
+
+              <div class="opp-card priority">
+                <div class="opp-card-label">★ HIGHEST ROI</div>
+                <div class="opp-card-kw">dermal filler miami</div>
+                <div class="opp-card-stats">
+                  <span>vol 1,000</span>
+                  <span>$16.76 CPC</span>
+                  <span>LOW competition</span>
+                </div>
+                <div class="opp-card-body">
+                  <b>Why P0:</b> Highest CPC + lowest competition in your set. Top of local pack is owned by Lux on this one — but slots 2 and 3 are vulnerable. You already offer fillers. Need a dedicated landing page, schema markup, and 8–10 photo posts on Google.
+                </div>
+                <div class="opp-card-actions">
+                  <button class="btn btn-primary">Open playbook →</button>
+                </div>
+              </div>
+
+              <div class="opp-card priority">
+                <div class="opp-card-label">★ DEFEND</div>
+                <div class="opp-card-kw">endermologie miami</div>
+                <div class="opp-card-stats">
+                  <span>vol 90</span>
+                  <span>$3.85 CPC</span>
+                  <span>YOU rank #1</span>
+                </div>
+                <div class="opp-card-body">
+                  <b>Why critical:</b> 22 of your reviews mention LPG/Endermologie — you own this. But your Google profile doesn't lead with it, and your website tucks it under "treatments". Promote it to top-line. Patients searching this convert at 3–4× generic queries.
+                </div>
+                <div class="opp-card-actions">
+                  <button class="btn btn-primary">Open playbook →</button>
+                </div>
+              </div>
+
+              <div class="opp-card priority">
+                <div class="opp-card-label">★ UNDEFENDED</div>
+                <div class="opp-card-kw">microneedling miami</div>
+                <div class="opp-card-stats">
+                  <span>vol 1,300</span>
+                  <span>$7.58 CPC</span>
+                  <span>HIGH competition</span>
+                </div>
+                <div class="opp-card-body">
+                  <b>Why P0:</b> 1,300 monthly searches and you don't appear anywhere. Your "Microneedling with vitamins" service is unique copy that nobody else in Brickell uses. Build it as the lead-magnet keyword for your blog/SEO push.
+                </div>
+                <div class="opp-card-actions">
+                  <button class="btn btn-primary">Open playbook →</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top:24px;padding:14px 18px;background:var(--bg-3);border-radius:10px;font-size:11.5px;color:var(--text-3);font-family:'JetBrains Mono',monospace;line-height:1.6;">
+          // Keyword volumes from DataForSEO Keyword Volume API · ranks from DataForSEO Maps SERP + organic SERP · CTR curve calibrated to medical-spa category · conversion benchmark 8–12% from local pack click → patient inquiry · scans refresh weekly Thursday 6:00 AM
+        </div>
+
+      </div>
+    </main>
+  </body>
+</html>

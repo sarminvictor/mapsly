@@ -1,0 +1,567 @@
+// Mapsly · core data model
+// Cadence flags on each field: @daily / @weekly / @monthly / @on_demand
+// Cost notes: see docs/data-cadence.md
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../lib/generated/prisma"
+  moduleFormat = "esm"
+  runtime      = "nodejs"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ============================================================================
+// AUTH + ACCOUNTS
+// ============================================================================
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  image         String?
+  emailVerified DateTime?
+
+  role UserRole @default(MEMBER)
+
+  accounts      Account[]
+  sessions      Session[]
+  agencyMembers AgencyMember[]
+  ownedBusinesses Business[] @relation("BusinessOwner")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum UserRole {
+  ADMIN
+  MEMBER
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+  @@unique([identifier, token])
+}
+
+// ============================================================================
+// AGENCY (multi-tenant for the agency portal)
+// ============================================================================
+
+model Agency {
+  id          String  @id @default(cuid())
+  name        String
+  slug        String  @unique
+  domain      String?
+  defaultMetro String?
+  categoriesServed String[] @default([])
+
+  plan        AgencyPlan @default(SOLO)
+  stripeCustomerId String? @unique
+  stripeSubscriptionId String?
+
+  members     AgencyMember[]
+  lists       List[]
+  leads       Lead[]
+  reports     Report[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum AgencyPlan {
+  SOLO        // $49
+  GROWTH      // $99
+  AGENCY_PRO  // $249
+  BOUTIQUE    // $499
+}
+
+model AgencyMember {
+  id        String        @id @default(cuid())
+  agencyId  String
+  userId    String
+  role      AgencyMemberRole @default(STAFF)
+
+  agency    Agency @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  ownedLists List[]
+
+  createdAt DateTime @default(now())
+
+  @@unique([agencyId, userId])
+}
+
+enum AgencyMemberRole {
+  OWNER
+  ADMIN
+  STAFF
+}
+
+// ============================================================================
+// BUSINESS · the core 2.1M index — populated by cron jobs
+// ============================================================================
+
+model Business {
+  id            String   @id @default(cuid())
+  googlePlaceId String?  @unique   // from DataForSEO Maps
+  googleCid     String?  @unique
+
+  // Identity
+  name          String
+  slug          String   @unique
+  category      String           // primary category
+  categories    String[] @default([])
+  address       String?
+  city          String?
+  province      String?  // state for US
+  country       String?
+  postalCode    String?
+  lat           Float?
+  lng           Float?
+
+  // Contact
+  phone         String?
+  website       String?
+  email         String?  // verified owner email — see emailVerifiedAt
+  emailVerifiedAt DateTime?
+  instagramHandle String?
+  instagramFollowers Int?
+
+  // Profile state (weekly snapshot of current values)
+  rating        Float?
+  reviewCount   Int?
+  photosCount   Int?
+  hours         Json?    // structured hours
+  attributes    Json?
+  isClaimed     Boolean  @default(false)
+  isActive      Boolean  @default(true)
+  firstSeenOnGoogle DateTime?
+  yearsOnGoogle Int?
+
+  // Owner (if claimed in Mapsly by their SMB user)
+  ownerUserId   String?
+  owner         User?    @relation("BusinessOwner", fields: [ownerUserId], references: [id])
+
+  // Linked records
+  snapshots     BusinessSnapshot[]
+  reviews       Review[]
+  lighthouseAudits LighthouseAudit[]
+  adLibraryEntries AdLibraryEntry[]
+  serpResults   SerpResult[]
+  leads         Lead[]
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  lastRefreshedAt DateTime?
+
+  @@index([category, city])
+  @@index([country, province, city])
+  @@index([lat, lng])
+  @@index([category, country])
+}
+
+// Weekly snapshot — preserves history for trend analysis
+model BusinessSnapshot {
+  id           String   @id @default(cuid())
+  businessId   String
+  snapshotDate DateTime @default(now())
+
+  rating          Float?
+  reviewCount     Int?
+  photosCount     Int?
+  replyRate       Float?
+  velocityLast30d Int?
+  mapslyScore     Float?  // 0-10 composite
+  msiRank         Int?    // rank in metro
+  msiTotal        Int?
+  hoursPerWeek    Int?
+
+  // Per-dimension sub-scores (denormalized for trend queries)
+  reputationScore   Float?
+  communicationScore Float?
+  profileCompletenessScore Float?
+  trustScore        Float?
+  pricingTransparencyScore Float?
+  brandPresenceScore Float?
+
+  raw           Json?    // full source payload for replay
+
+  business     Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@unique([businessId, snapshotDate])
+  @@index([businessId, snapshotDate])
+}
+
+// ============================================================================
+// REVIEWS · weekly pull of last 20 per business; new-review delta daily
+// ============================================================================
+
+model Review {
+  id           String   @id @default(cuid())
+  businessId   String
+  externalId   String?  // Google review ID
+  reviewerName String   // anonymized to initials
+  reviewerProfileReviews Int? // signal of trustworthiness
+  stars        Int
+  text         String?  @db.Text
+  language     String?  // 'en' / 'es' / etc.
+  postedAt     DateTime
+  ownerReplied Boolean  @default(false)
+  ownerReplyText String? @db.Text
+  ownerReplyAt DateTime?
+
+  sentiment    ReviewSentiment? // AI-classified
+  themes       String[] @default([]) // AI-extracted theme tags
+  isUrgent     Boolean  @default(false) // 1★ unanswered > 7d
+  aiReplyDraftEn String? @db.Text
+  aiReplyDraftEs String? @db.Text
+
+  business     Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  collectedAt  DateTime @default(now())
+
+  @@unique([businessId, externalId])
+  @@index([businessId, postedAt])
+}
+
+enum ReviewSentiment {
+  POSITIVE
+  NEUTRAL
+  NEGATIVE
+}
+
+// ============================================================================
+// LIGHTHOUSE AUDIT · weekly for SMB clients; monthly for prospects
+// ============================================================================
+
+model LighthouseAudit {
+  id           String   @id @default(cuid())
+  businessId   String
+  auditedAt    DateTime @default(now())
+
+  performance     Float? // 0-100
+  accessibility   Float?
+  bestPractices   Float?
+  seo             Float?
+  pwa             Float?
+
+  // Core Web Vitals
+  lcp             Float? // seconds
+  cls             Float?
+  inp             Float? // ms
+  fcp             Float?
+  tbt             Float?
+  ttfb            Float?
+  totalBytes      Int?
+
+  // Custom DOM checks
+  hasLocalBusinessSchema Boolean?
+  hasFaqSchema           Boolean?
+  hasBookingCtaAboveFold Boolean?
+  hasPhoneAboveFold      Boolean?
+  napConsistent          Boolean?
+
+  // Tech stack (Wappalyzer)
+  techStack       String[] @default([])
+
+  business     Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, auditedAt])
+}
+
+// ============================================================================
+// AD LIBRARY · daily diff for tracked competitors + tracked keyword lanes
+// ============================================================================
+
+model AdLibraryEntry {
+  id           String   @id @default(cuid())
+  businessId   String?
+  platform     AdPlatform
+  externalAdId String   @unique // Meta Ad ID or Google Transparency ID
+
+  adCreativeBody String? @db.Text
+  landingUrl    String?
+  startedAt     DateTime?
+  endedAt       DateTime?
+  isActive      Boolean  @default(true)
+
+  // Targeting
+  targetGeo     String?
+  targetGender  String?
+  targetAgeMin  Int?
+  targetAgeMax  Int?
+
+  // Estimated metrics
+  impressionsMid Int?    // midpoint of banded estimate
+  spendMidLow    Float?
+  spendMidHigh   Float?
+
+  // Keyword-lane match (for "off-keyword" flag)
+  matchedKeyword String?
+
+  business     Business? @relation(fields: [businessId], references: [id], onDelete: SetNull)
+
+  firstSeenAt   DateTime @default(now())
+  lastSeenAt    DateTime @default(now())
+
+  @@index([businessId, platform])
+  @@index([matchedKeyword])
+}
+
+enum AdPlatform {
+  META
+  GOOGLE
+  TIKTOK
+}
+
+// ============================================================================
+// SERP / SEARCH VISIBILITY · weekly per tracked keyword × tracked business
+// ============================================================================
+
+model Keyword {
+  id           String   @id @default(cuid())
+  keyword      String
+  locationCode Int      // DataForSEO location code
+  language     String   @default("en")
+
+  searchVolume Int?
+  cpc          Float?
+  competition  String?  // LOW / MEDIUM / HIGH
+  competitionIndex Int?
+
+  // Monthly-refreshed trend
+  trend12Month Json?
+
+  serpResults  SerpResult[]
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  refreshedAt  DateTime?
+
+  @@unique([keyword, locationCode, language])
+}
+
+model SerpResult {
+  id           String   @id @default(cuid())
+  keywordId    String
+  businessId   String?  // nullable — could be a competitor not in our index yet
+  scannedAt    DateTime @default(now())
+
+  localPackRank Int?     // 1-3 in the 3-pack, null if not in pack
+  organicRank   Int?     // organic position
+  organicAbsRank Int?    // absolute including ads
+  landingUrl    String?
+
+  // Top 3 in local pack (for competitive view)
+  pack1Name    String?
+  pack2Name    String?
+  pack3Name    String?
+
+  // Brand hijack flag — for "search business name" type queries
+  isBrandQuery Boolean  @default(false)
+  paidBidders  Json?    // [{ advertiserDomain, headline }]
+
+  keyword      Keyword  @relation(fields: [keywordId], references: [id], onDelete: Cascade)
+  business     Business? @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([keywordId, scannedAt])
+  @@index([businessId, scannedAt])
+}
+
+// ============================================================================
+// AGENCY · LISTS · LEADS
+// ============================================================================
+
+model List {
+  id           String   @id @default(cuid())
+  agencyId     String
+  ownerMemberId String
+
+  name         String
+  serviceType  ListServiceType
+  pitch        String?  @db.Text
+  filterJson   Json     // serialized filter expression
+  refreshCadence ListCadence @default(WEEKLY)
+  isActive     Boolean  @default(true)
+
+  // Target market
+  category     String?
+  metro        String?
+  radiusMi     Int?
+
+  agency       Agency       @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  owner        AgencyMember @relation(fields: [ownerMemberId], references: [id])
+  leads        Lead[]
+  refreshes    ListRefresh[]
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  lastRefreshedAt DateTime?
+  pausedAt     DateTime?
+}
+
+enum ListServiceType {
+  WEBSITE_REBUILD
+  META_ADS_CAMPAIGN
+  GOOGLE_ADS_LAUNCH
+  LOCAL_SEO
+  REVIEW_MANAGEMENT
+  BRAND_DEFENSE
+  NEW_BUSINESS_LAUNCH
+  FULL_AUDIT
+  CUSTOM
+}
+
+enum ListCadence {
+  DAILY
+  WEEKLY
+  MANUAL
+}
+
+model ListRefresh {
+  id          String   @id @default(cuid())
+  listId      String
+  refreshedAt DateTime @default(now())
+
+  matchesBefore Int
+  matchesAfter  Int
+  added         Int     // new qualifying businesses
+  removed       Int     // de-qualified
+
+  list        List     @relation(fields: [listId], references: [id], onDelete: Cascade)
+
+  @@index([listId, refreshedAt])
+}
+
+model Lead {
+  id           String   @id @default(cuid())
+  listId       String
+  agencyId     String
+  businessId   String
+
+  status       LeadStatus @default(NEW)
+  statusChangedAt DateTime @default(now())
+  notes        String?  @db.Text
+  matchScore   Float?
+
+  // Closed-loop tracking (for analytics)
+  contactedAt  DateTime?
+  repliedAt    DateTime?
+  wonAt        DateTime?
+  lostAt       DateTime?
+  lostReason   String?
+
+  list         List     @relation(fields: [listId], references: [id], onDelete: Cascade)
+  agency       Agency   @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  business     Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([listId, businessId])
+  @@index([agencyId, status])
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  REPLIED
+  WON
+  LOST
+  HIDDEN
+}
+
+// ============================================================================
+// REPORTS · one-pagers, CSVs, shareable links
+// ============================================================================
+
+model Report {
+  id           String   @id @default(cuid())
+  agencyId     String
+  businessId   String?  // null for list-level reports
+  listId       String?
+
+  type         ReportType
+  status       ReportStatus @default(READY)
+  publicShareId String?  @unique // for shareable links
+  shareExpiresAt DateTime?
+
+  storageUrl   String?  // for PDF / CSV in Vercel Blob
+  meta         Json?    // generation params
+
+  agency       Agency   @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+
+  createdAt    DateTime @default(now())
+  viewCount    Int      @default(0)
+}
+
+enum ReportType {
+  CSV_LIST
+  PDF_ONE_PAGER
+  SHARE_LINK
+}
+
+enum ReportStatus {
+  DRAFT
+  READY
+  SHARED
+  EXPIRED
+}
+
+// ============================================================================
+// CRON JOB LOGS — for audit + cost tracking
+// ============================================================================
+
+model CronRun {
+  id          String   @id @default(cuid())
+  job         String
+  startedAt   DateTime @default(now())
+  finishedAt  DateTime?
+  status      CronRunStatus @default(RUNNING)
+  itemsProcessed Int   @default(0)
+  costUsd     Float?
+  errorMessage String? @db.Text
+  meta        Json?
+
+  @@index([job, startedAt])
+}
+
+enum CronRunStatus {
+  RUNNING
+  OK
+  PARTIAL
+  FAILED
+}

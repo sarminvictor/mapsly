@@ -1,0 +1,1484 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mapsly — Every local business has a hidden scoreboard</title>
+    <meta
+      name="description"
+      content="Mapsly maps every local business in North America. We show owners how they really compare — and the agencies who can help them climb."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg: #07070b;
+        --bg-2: #0d0d18;
+        --bg-3: #131322;
+        --card: rgba(255, 255, 255, 0.03);
+        --card-hover: rgba(255, 255, 255, 0.06);
+        --border: rgba(255, 255, 255, 0.08);
+        --border-strong: rgba(255, 255, 255, 0.16);
+        --text: #ffffff;
+        --text-2: #a8a8b8;
+        --text-3: #6b6b80;
+        --cyan: #00d4ff;
+        --purple: #a855f7;
+        --green: #00ff88;
+        --red: #ff3b5c;
+        --amber: #ffb800;
+      }
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      html {
+        scroll-behavior: smooth;
+      }
+
+      body {
+        font-family:
+          'Inter',
+          -apple-system,
+          BlinkMacSystemFont,
+          sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        line-height: 1.5;
+        overflow-x: hidden;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      .mono {
+        font-family: 'JetBrains Mono', monospace;
+      }
+
+      /* ====================== NAV ====================== */
+      nav {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 100;
+        padding: 18px 32px;
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        background: rgba(7, 7, 11, 0.7);
+        border-bottom: 1px solid var(--border);
+      }
+
+      .nav-inner {
+        max-width: 1280px;
+        margin: 0 auto;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      .logo {
+        font-size: 20px;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        text-decoration: none;
+        color: var(--text);
+      }
+
+      .logo-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: var(--green);
+        box-shadow: 0 0 16px var(--green);
+        animation: pulse-dot 2s infinite;
+      }
+
+      @keyframes pulse-dot {
+        0%,
+        100% {
+          opacity: 1;
+          transform: scale(1);
+        }
+        50% {
+          opacity: 0.5;
+          transform: scale(0.85);
+        }
+      }
+
+      .nav-links {
+        display: flex;
+        align-items: center;
+        gap: 32px;
+      }
+
+      .nav-link {
+        color: var(--text-2);
+        text-decoration: none;
+        font-size: 14px;
+        font-weight: 500;
+        transition: color 0.2s;
+      }
+
+      .nav-link:hover {
+        color: var(--text);
+      }
+
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 12px 22px;
+        border-radius: 10px;
+        font-size: 14px;
+        font-weight: 600;
+        text-decoration: none;
+        border: 1px solid transparent;
+        cursor: pointer;
+        transition: all 0.2s;
+        font-family: inherit;
+      }
+
+      .btn-primary {
+        background: var(--text);
+        color: var(--bg);
+      }
+
+      .btn-primary:hover {
+        background: #e0e0e0;
+        transform: translateY(-1px);
+      }
+
+      .btn-ghost {
+        background: transparent;
+        color: var(--text);
+        border-color: var(--border-strong);
+      }
+
+      .btn-ghost:hover {
+        background: var(--card);
+        border-color: var(--text);
+      }
+
+      .btn-lg {
+        padding: 16px 28px;
+        font-size: 15px;
+      }
+
+      .btn-arrow {
+        transition: transform 0.2s;
+      }
+
+      .btn:hover .btn-arrow {
+        transform: translateX(4px);
+      }
+
+      /* ====================== HERO ====================== */
+      .hero {
+        min-height: 100vh;
+        padding: 140px 32px 100px;
+        position: relative;
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+      }
+
+      .hero-bg {
+        position: absolute;
+        inset: 0;
+        z-index: 0;
+        background:
+          radial-gradient(
+            ellipse 80% 60% at 50% 0%,
+            rgba(168, 85, 247, 0.15) 0%,
+            transparent 60%
+          ),
+          radial-gradient(
+            ellipse 60% 50% at 80% 80%,
+            rgba(0, 212, 255, 0.1) 0%,
+            transparent 60%
+          );
+      }
+
+      .radar-grid {
+        position: absolute;
+        inset: 0;
+        background-image:
+          linear-gradient(
+            to right,
+            rgba(255, 255, 255, 0.03) 1px,
+            transparent 1px
+          ),
+          linear-gradient(
+            to bottom,
+            rgba(255, 255, 255, 0.03) 1px,
+            transparent 1px
+          );
+        background-size: 60px 60px;
+        mask-image: radial-gradient(
+          ellipse 70% 70% at 50% 30%,
+          black 30%,
+          transparent 80%
+        );
+        -webkit-mask-image: radial-gradient(
+          ellipse 70% 70% at 50% 30%,
+          black 30%,
+          transparent 80%
+        );
+      }
+
+      .dot-field {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+      }
+
+      .dot {
+        position: absolute;
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--cyan);
+        opacity: 0;
+      }
+
+      .dot.pulse {
+        animation: dot-pulse 4s infinite;
+      }
+
+      @keyframes dot-pulse {
+        0% {
+          opacity: 0;
+          transform: scale(0);
+        }
+        20% {
+          opacity: 0.9;
+          transform: scale(1);
+        }
+        40% {
+          opacity: 0.4;
+          transform: scale(2.5);
+        }
+        100% {
+          opacity: 0;
+          transform: scale(4);
+        }
+      }
+
+      .hero-inner {
+        max-width: 1180px;
+        margin: 0 auto;
+        position: relative;
+        z-index: 1;
+        width: 100%;
+      }
+
+      .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 14px;
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 100px;
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--text-2);
+        margin-bottom: 32px;
+      }
+
+      .eyebrow-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--green);
+        box-shadow: 0 0 12px var(--green);
+        animation: pulse-dot 2s infinite;
+      }
+
+      h1 {
+        font-size: clamp(44px, 7vw, 88px);
+        line-height: 0.95;
+        font-weight: 800;
+        letter-spacing: -0.04em;
+        margin-bottom: 28px;
+        max-width: 1000px;
+      }
+
+      .gradient-text {
+        background: linear-gradient(120deg, var(--cyan), var(--purple));
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+      }
+
+      .hero-sub {
+        font-size: clamp(17px, 2vw, 22px);
+        color: var(--text-2);
+        max-width: 680px;
+        margin-bottom: 48px;
+        line-height: 1.5;
+      }
+
+      .hero-ctas {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+        max-width: 760px;
+        margin-bottom: 56px;
+      }
+
+      .audience-card {
+        padding: 28px;
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        text-decoration: none;
+        color: var(--text);
+        transition: all 0.3s;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .audience-card::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(
+          135deg,
+          transparent,
+          rgba(255, 255, 255, 0.03)
+        );
+        opacity: 0;
+        transition: opacity 0.3s;
+      }
+
+      .audience-card:hover {
+        border-color: var(--border-strong);
+        transform: translateY(-2px);
+        background: var(--card-hover);
+      }
+
+      .audience-card:hover::before {
+        opacity: 1;
+      }
+
+      .audience-card.smb:hover {
+        border-color: var(--cyan);
+        box-shadow: 0 0 40px rgba(0, 212, 255, 0.15);
+      }
+
+      .audience-card.agency:hover {
+        border-color: var(--purple);
+        box-shadow: 0 0 40px rgba(168, 85, 247, 0.15);
+      }
+
+      .audience-label {
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--text-3);
+      }
+
+      .audience-title {
+        font-size: 24px;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+      }
+
+      .audience-sub {
+        font-size: 14px;
+        color: var(--text-2);
+        margin-bottom: 8px;
+      }
+
+      .audience-arrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 14px;
+        font-weight: 600;
+        margin-top: auto;
+      }
+
+      .audience-card.smb .audience-arrow {
+        color: var(--cyan);
+      }
+
+      .audience-card.agency .audience-arrow {
+        color: var(--purple);
+      }
+
+      .audience-card:hover .audience-arrow svg {
+        transform: translateX(6px);
+      }
+
+      .audience-arrow svg {
+        transition: transform 0.2s;
+      }
+
+      .live-stats {
+        display: flex;
+        align-items: center;
+        gap: 32px;
+        flex-wrap: wrap;
+      }
+
+      .stat {
+        display: flex;
+        flex-direction: column;
+      }
+
+      .stat-num {
+        font-size: 28px;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        font-feature-settings: 'tnum';
+      }
+
+      .stat-label {
+        font-size: 12px;
+        color: var(--text-3);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+
+      .stat-divider {
+        width: 1px;
+        height: 36px;
+        background: var(--border);
+      }
+
+      /* ====================== SECTIONS ====================== */
+      section {
+        padding: 120px 32px;
+        position: relative;
+      }
+
+      .container {
+        max-width: 1180px;
+        margin: 0 auto;
+      }
+
+      .section-label {
+        display: inline-block;
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--cyan);
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        margin-bottom: 20px;
+      }
+
+      h2 {
+        font-size: clamp(34px, 4.5vw, 56px);
+        line-height: 1.05;
+        font-weight: 800;
+        letter-spacing: -0.03em;
+        margin-bottom: 24px;
+        max-width: 800px;
+      }
+
+      .section-sub {
+        font-size: 18px;
+        color: var(--text-2);
+        max-width: 640px;
+        margin-bottom: 56px;
+      }
+
+      /* ====================== WHAT WE DO ====================== */
+      .pipeline {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 16px;
+        position: relative;
+      }
+
+      @media (min-width: 900px) {
+        .pipeline {
+          grid-template-columns: 1fr 1fr 1fr 1fr;
+        }
+      }
+
+      .pipeline-step {
+        padding: 28px;
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        position: relative;
+        opacity: 0;
+        transform: translateY(20px);
+        transition:
+          opacity 0.6s,
+          transform 0.6s;
+      }
+
+      .pipeline-step.in-view {
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+      .pipeline-step:nth-child(2) {
+        transition-delay: 0.1s;
+      }
+
+      .pipeline-step:nth-child(3) {
+        transition-delay: 0.2s;
+      }
+
+      .pipeline-step:nth-child(4) {
+        transition-delay: 0.3s;
+      }
+
+      .step-num {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 13px;
+        color: var(--text-3);
+        margin-bottom: 16px;
+      }
+
+      .step-title {
+        font-size: 20px;
+        font-weight: 700;
+        margin-bottom: 8px;
+        letter-spacing: -0.02em;
+      }
+
+      .step-desc {
+        font-size: 14px;
+        color: var(--text-2);
+        line-height: 1.5;
+      }
+
+      /* ====================== AUDIENCE SPLIT ====================== */
+      .split {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 24px;
+      }
+
+      @media (min-width: 900px) {
+        .split {
+          grid-template-columns: 1fr 1fr;
+        }
+      }
+
+      .split-card {
+        padding: 48px;
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 24px;
+        position: relative;
+        overflow: hidden;
+        opacity: 0;
+        transform: translateY(20px);
+        transition:
+          opacity 0.6s,
+          transform 0.6s;
+      }
+
+      .split-card.in-view {
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+      .split-card.right {
+        transition-delay: 0.15s;
+      }
+
+      .split-card::after {
+        content: '';
+        position: absolute;
+        top: -100px;
+        right: -100px;
+        width: 300px;
+        height: 300px;
+        border-radius: 50%;
+        filter: blur(80px);
+        opacity: 0.25;
+        pointer-events: none;
+      }
+
+      .split-card.smb::after {
+        background: var(--cyan);
+      }
+
+      .split-card.agency::after {
+        background: var(--purple);
+      }
+
+      .split-eyebrow {
+        font-size: 13px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        margin-bottom: 16px;
+      }
+
+      .split-card.smb .split-eyebrow {
+        color: var(--cyan);
+      }
+
+      .split-card.agency .split-eyebrow {
+        color: var(--purple);
+      }
+
+      .split-title {
+        font-size: 32px;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        margin-bottom: 16px;
+        line-height: 1.1;
+      }
+
+      .split-desc {
+        font-size: 16px;
+        color: var(--text-2);
+        margin-bottom: 32px;
+        line-height: 1.6;
+      }
+
+      .split-features {
+        list-style: none;
+        margin-bottom: 36px;
+      }
+
+      .split-features li {
+        padding: 12px 0;
+        border-top: 1px solid var(--border);
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        font-size: 15px;
+        color: var(--text-2);
+      }
+
+      .check {
+        width: 18px;
+        height: 18px;
+        flex-shrink: 0;
+        margin-top: 2px;
+      }
+
+      .split-card.smb .check {
+        color: var(--cyan);
+      }
+
+      .split-card.agency .check {
+        color: var(--purple);
+      }
+
+      /* ====================== SIGNALS PREVIEW ====================== */
+      .signals-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 16px;
+      }
+
+      @media (min-width: 700px) {
+        .signals-grid {
+          grid-template-columns: 1fr 1fr;
+        }
+      }
+
+      @media (min-width: 1000px) {
+        .signals-grid {
+          grid-template-columns: 1fr 1fr 1fr;
+        }
+      }
+
+      .signal-card {
+        padding: 24px;
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        transition: all 0.3s;
+        opacity: 0;
+        transform: translateY(20px);
+        transition:
+          opacity 0.6s,
+          transform 0.6s,
+          border-color 0.3s,
+          background 0.3s;
+      }
+
+      .signal-card.in-view {
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+      .signal-card:hover {
+        border-color: var(--border-strong);
+        background: var(--card-hover);
+      }
+
+      .signal-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 16px;
+      }
+
+      .signal-name {
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--text);
+      }
+
+      .signal-pill {
+        padding: 3px 8px;
+        border-radius: 4px;
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+      }
+
+      .signal-pill.bad {
+        background: rgba(255, 59, 92, 0.15);
+        color: var(--red);
+      }
+
+      .signal-pill.warn {
+        background: rgba(255, 184, 0, 0.15);
+        color: var(--amber);
+      }
+
+      .signal-pill.good {
+        background: rgba(0, 255, 136, 0.15);
+        color: var(--green);
+      }
+
+      .signal-value {
+        font-size: 32px;
+        font-weight: 800;
+        letter-spacing: -0.03em;
+        line-height: 1;
+        margin-bottom: 8px;
+        font-feature-settings: 'tnum';
+      }
+
+      .signal-desc {
+        font-size: 13px;
+        color: var(--text-3);
+        line-height: 1.4;
+      }
+
+      .signal-bar {
+        height: 4px;
+        background: rgba(255, 255, 255, 0.08);
+        border-radius: 2px;
+        overflow: hidden;
+        margin-top: 12px;
+      }
+
+      .signal-bar-fill {
+        height: 100%;
+        border-radius: 2px;
+        width: 0;
+        transition: width 1.4s cubic-bezier(0.16, 1, 0.3, 1);
+      }
+
+      .signal-card.in-view .signal-bar-fill {
+        width: var(--w, 60%);
+      }
+
+      .bar-red {
+        background: linear-gradient(90deg, var(--red), #ff6b80);
+      }
+
+      .bar-amber {
+        background: linear-gradient(90deg, var(--amber), #ffd76b);
+      }
+
+      .bar-green {
+        background: linear-gradient(90deg, var(--green), #6bffb8);
+      }
+
+      /* ====================== FAQ ====================== */
+      .faq {
+        max-width: 800px;
+        margin: 0 auto;
+      }
+
+      .faq-item {
+        border-bottom: 1px solid var(--border);
+      }
+
+      .faq-q {
+        padding: 24px 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        cursor: pointer;
+        font-size: 17px;
+        font-weight: 600;
+        gap: 24px;
+        user-select: none;
+      }
+
+      .faq-q::after {
+        content: '+';
+        font-size: 24px;
+        font-weight: 400;
+        color: var(--text-3);
+        transition: transform 0.3s;
+      }
+
+      .faq-item.open .faq-q::after {
+        transform: rotate(45deg);
+      }
+
+      .faq-a {
+        font-size: 15px;
+        color: var(--text-2);
+        line-height: 1.6;
+        max-height: 0;
+        overflow: hidden;
+        transition:
+          max-height 0.4s ease,
+          padding 0.4s ease;
+      }
+
+      .faq-item.open .faq-a {
+        max-height: 400px;
+        padding-bottom: 24px;
+      }
+
+      /* ====================== CTA ====================== */
+      .cta-band {
+        text-align: center;
+        padding: 100px 32px;
+      }
+
+      .cta-card {
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 80px 48px;
+        background:
+          radial-gradient(
+            ellipse 80% 80% at 50% 0%,
+            rgba(168, 85, 247, 0.15) 0%,
+            transparent 60%
+          ),
+          radial-gradient(
+            ellipse 80% 80% at 50% 100%,
+            rgba(0, 212, 255, 0.12) 0%,
+            transparent 60%
+          ),
+          var(--bg-2);
+        border: 1px solid var(--border);
+        border-radius: 24px;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .cta-title {
+        font-size: clamp(32px, 4vw, 48px);
+        font-weight: 800;
+        letter-spacing: -0.03em;
+        margin-bottom: 16px;
+        line-height: 1.1;
+      }
+
+      .cta-sub {
+        font-size: 18px;
+        color: var(--text-2);
+        margin-bottom: 36px;
+      }
+
+      .cta-buttons {
+        display: flex;
+        gap: 12px;
+        justify-content: center;
+        flex-wrap: wrap;
+      }
+
+      /* ====================== FOOTER ====================== */
+      footer {
+        padding: 56px 32px 40px;
+        border-top: 1px solid var(--border);
+      }
+
+      .footer-inner {
+        max-width: 1180px;
+        margin: 0 auto;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 24px;
+      }
+
+      .footer-links {
+        display: flex;
+        gap: 24px;
+        font-size: 13px;
+        color: var(--text-3);
+      }
+
+      .footer-links a {
+        color: inherit;
+        text-decoration: none;
+        transition: color 0.2s;
+      }
+
+      .footer-links a:hover {
+        color: var(--text);
+      }
+
+      .footer-copy {
+        font-size: 13px;
+        color: var(--text-3);
+      }
+
+      /* ====================== RESPONSIVE ====================== */
+      @media (max-width: 700px) {
+        nav {
+          padding: 14px 18px;
+        }
+        .nav-links {
+          gap: 12px;
+        }
+        .nav-link {
+          display: none;
+        }
+        .hero {
+          padding: 110px 18px 60px;
+        }
+        section {
+          padding: 80px 18px;
+        }
+        .hero-ctas {
+          grid-template-columns: 1fr;
+        }
+        .live-stats {
+          gap: 18px;
+        }
+        .stat-divider {
+          display: none;
+        }
+        .stat-num {
+          font-size: 22px;
+        }
+        .split-card {
+          padding: 32px 24px;
+        }
+        .cta-card {
+          padding: 56px 24px;
+        }
+      }
+
+      /* ====================== UTIL ====================== */
+      .reveal {
+        opacity: 0;
+        transform: translateY(20px);
+        transition:
+          opacity 0.6s,
+          transform 0.6s;
+      }
+      .reveal.in-view {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    </style>
+  </head>
+  <body>
+    <nav>
+      <div class="nav-inner">
+        <a href="/" class="logo">
+          <span class="logo-dot"></span>
+          mapsly
+        </a>
+        <div class="nav-links">
+          <a href="for-businesses.html" class="nav-link">For businesses</a>
+          <a href="for-agencies.html" class="nav-link">For agencies</a>
+          <a href="#how" class="nav-link">How it works</a>
+          <a href="#" class="btn btn-ghost">Sign in</a>
+        </div>
+      </div>
+    </nav>
+
+    <!-- ====================== HERO ====================== -->
+    <section class="hero">
+      <div class="hero-bg"></div>
+      <div class="radar-grid"></div>
+      <div class="dot-field" id="dotField"></div>
+
+      <div class="hero-inner">
+        <div class="eyebrow">
+          <span class="eyebrow-dot"></span>
+          <span><span id="liveCount">12,847</span> local businesses analyzed this week</span>
+        </div>
+
+        <h1>
+          Every local business has a
+          <span class="gradient-text">hidden scoreboard.</span>
+        </h1>
+
+        <p class="hero-sub">
+          We map every local business in North America. We show owners the patients,
+          calls, and customers they're losing — and the reviews, ads, and competitors
+          behind it. Agencies see the same data, inverted: who needs help, right now.
+        </p>
+
+        <div class="hero-ctas">
+          <a href="for-businesses.html" class="audience-card smb">
+            <span class="audience-label">For local businesses</span>
+            <span class="audience-title">See the customers you're losing</span>
+            <span class="audience-sub">
+              Free reality check. The patients, calls, and reviews going to the spa down the street — with names.
+            </span>
+            <span class="audience-arrow">
+              See my reality
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <path d="M5 12h14M13 6l6 6-6 6" />
+              </svg>
+            </span>
+          </a>
+
+          <a href="for-agencies.html" class="audience-card agency">
+            <span class="audience-label">For agencies</span>
+            <span class="audience-title">Find local businesses ready to switch</span>
+            <span class="audience-sub">
+              Query 2M+ SMBs by signal — declining reviews, slow site, no ads. Verified contacts. 50 free leads.
+            </span>
+            <span class="audience-arrow">
+              See 50 free leads
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <path d="M5 12h14M13 6l6 6-6 6" />
+              </svg>
+            </span>
+          </a>
+        </div>
+
+        <div class="live-stats">
+          <div class="stat">
+            <span class="stat-num mono" data-count="2147832">0</span>
+            <span class="stat-label">Businesses indexed</span>
+          </div>
+          <div class="stat-divider"></div>
+          <div class="stat">
+            <span class="stat-num mono" data-count="65">0</span>
+            <span class="stat-label">Metros covered</span>
+          </div>
+          <div class="stat-divider"></div>
+          <div class="stat">
+            <span class="stat-num mono" data-count="32">0</span>
+            <span class="stat-label">Signals per business</span>
+          </div>
+          <div class="stat-divider"></div>
+          <div class="stat">
+            <span class="stat-num mono" data-count="4">0</span>
+            <span class="stat-label">Refreshed weekly</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ====================== HOW IT WORKS ====================== -->
+    <section id="how">
+      <div class="container">
+        <span class="section-label">How it works</span>
+        <h2>
+          The same data engine. Two completely different products.
+        </h2>
+        <p class="section-sub">
+          We crawl every local business in North America, run 30+ signals across them, and turn raw
+          data into named diagnoses anyone can act on.
+        </p>
+
+        <div class="pipeline">
+          <div class="pipeline-step reveal">
+            <div class="step-num">01 / Index</div>
+            <div class="step-title">We map them.</div>
+            <div class="step-desc">
+              Every local business across 65 NA metros. Reviews, listings, ads, web,
+              social, hiring, news — pulled and re-pulled weekly.
+            </div>
+          </div>
+
+          <div class="pipeline-step reveal">
+            <div class="step-num">02 / Score</div>
+            <div class="step-title">We score them.</div>
+            <div class="step-desc">
+              32 signals turn into named diagnoses: Stolen Customer Index, Local Pack
+              Vulnerability, Marketing Spend Wasting. Not numbers — verdicts.
+            </div>
+          </div>
+
+          <div class="pipeline-step reveal">
+            <div class="step-num">03 / Show</div>
+            <div class="step-title">We show owners the truth.</div>
+            <div class="step-desc">
+              Each owner sees their position vs every competitor in their city.
+              Specific gaps. Specific fixes. No fluff dashboard.
+            </div>
+          </div>
+
+          <div class="pipeline-step reveal">
+            <div class="step-num">04 / Match</div>
+            <div class="step-title">We hand agencies the list.</div>
+            <div class="step-desc">
+              Same data, inverted. Agencies query for SMBs with declining
+              signals — and get verified contacts to pitch.
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ====================== AUDIENCE SPLIT ====================== -->
+    <section style="background: var(--bg-2)">
+      <div class="container">
+        <span class="section-label">Built for two sides of one market</span>
+        <h2>Which side of the table are you on?</h2>
+
+        <div class="split">
+          <div class="split-card smb">
+            <span class="split-eyebrow">For local businesses</span>
+            <div class="split-title">Reality Mirror</div>
+            <p class="split-desc">
+              See your business through your customers' eyes — and every move your local
+              competitors are making while you're not looking.
+            </p>
+
+            <ul class="split-features">
+              <li>
+                <svg class="check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7" /></svg>
+                Weekly rank in your category, in your city
+              </li>
+              <li>
+                <svg class="check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7" /></svg>
+                Specific gaps vs the local leader — with the fix path
+              </li>
+              <li>
+                <svg class="check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7" /></svg>
+                Alerts when a competitor starts running ads or gets a review spike
+              </li>
+              <li>
+                <svg class="check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7" /></svg>
+                AI-drafted responses to every Google review
+              </li>
+              <li>
+                <svg class="check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7" /></svg>
+                From $39/mo. Free report — no signup
+              </li>
+            </ul>
+
+            <a href="for-businesses.html" class="btn btn-primary btn-lg">
+              Get your free report
+              <svg class="btn-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <path d="M5 12h14M13 6l6 6-6 6" />
+              </svg>
+            </a>
+          </div>
+
+          <div class="split-card agency right">
+            <span class="split-eyebrow">For agencies</span>
+            <div class="split-title">Hunter</div>
+            <p class="split-desc">
+              Skip the database. Skip the spray-and-pray. Hunter shows you which local
+              SMBs need exactly what you sell — right now.
+            </p>
+
+            <ul class="split-features">
+              <li>
+                <svg class="check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7" /></svg>
+                Query 2M+ businesses by signal — declining reviews, no ads, slow site
+              </li>
+              <li>
+                <svg class="check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7" /></svg>
+                Verified owner emails + phones, refreshed weekly
+              </li>
+              <li>
+                <svg class="check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7" /></svg>
+                Weekly "new opportunities" email per saved search
+              </li>
+              <li>
+                <svg class="check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7" /></svg>
+                White-label the SMB dashboard for your own clients
+              </li>
+              <li>
+                <svg class="check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7" /></svg>
+                From $99/mo. 50 free leads to start
+              </li>
+            </ul>
+
+            <a href="for-agencies.html" class="btn btn-primary btn-lg">
+              See 50 free leads
+              <svg class="btn-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <path d="M5 12h14M13 6l6 6-6 6" />
+              </svg>
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ====================== SIGNALS PREVIEW ====================== -->
+    <section>
+      <div class="container">
+        <span class="section-label">What you'll actually see</span>
+        <h2>Not metrics. Plain English.</h2>
+        <p class="section-sub">
+          Anyone can show you a star rating. We show you the things you can act on — in
+          words that make sense whether you're an HVAC owner or a med spa owner.
+        </p>
+
+        <div class="signals-grid">
+          <div class="signal-card reveal">
+            <div class="signal-head">
+              <span class="signal-name">Customers you're losing</span>
+              <span class="signal-pill bad">23 this month</span>
+            </div>
+            <div class="signal-value">23<span style="color:var(--text-3);font-size:18px"> people</span></div>
+            <div class="signal-bar"><div class="signal-bar-fill bar-red" style="--w: 74%"></div></div>
+            <p class="signal-desc" style="margin-top:12px">
+              Customers we tracked going to nearby competitors — with their names and reasons.
+            </p>
+          </div>
+
+          <div class="signal-card reveal">
+            <div class="signal-head">
+              <span class="signal-name">Your ranking is slipping</span>
+              <span class="signal-pill warn">47 days out</span>
+            </div>
+            <div class="signal-value">#4<span style="color:var(--text-3);font-size:18px"> → #2 risk</span></div>
+            <div class="signal-bar"><div class="signal-bar-fill bar-amber" style="--w: 62%"></div></div>
+            <p class="signal-desc" style="margin-top:12px">
+              At your competitor's review pace, you'll drop two spots on Google in 47 days.
+            </p>
+          </div>
+
+          <div class="signal-card reveal">
+            <div class="signal-head">
+              <span class="signal-name">Reviews you haven't answered</span>
+              <span class="signal-pill bad">8 waiting</span>
+            </div>
+            <div class="signal-value">23<span style="color:var(--text-3);font-size:18px">%</span></div>
+            <div class="signal-bar"><div class="signal-bar-fill bar-red" style="--w: 23%"></div></div>
+            <p class="signal-desc" style="margin-top:12px">
+              You respond to 23% of reviews. The top spa in your city: 89%.
+            </p>
+          </div>
+
+          <div class="signal-card reveal">
+            <div class="signal-head">
+              <span class="signal-name">Ads running, phone not ringing</span>
+              <span class="signal-pill warn">Out of sync</span>
+            </div>
+            <div class="signal-value">+40<span style="color:var(--text-3);font-size:18px">%</span></div>
+            <div class="signal-bar"><div class="signal-bar-fill bar-amber" style="--w: 55%"></div></div>
+            <p class="signal-desc" style="margin-top:12px">
+              Ad spend up 40% in 90 days. Reviews and calls flat. Your ads aren't converting.
+            </p>
+          </div>
+
+          <div class="signal-card reveal">
+            <div class="signal-head">
+              <span class="signal-name">Demand you're not capturing</span>
+              <span class="signal-pill good">Headroom</span>
+            </div>
+            <div class="signal-value">73<span style="color:var(--text-3);font-size:18px"> searches</span></div>
+            <div class="signal-bar"><div class="signal-bar-fill bar-green" style="--w: 19%"></div></div>
+            <p class="signal-desc" style="margin-top:12px">
+              73 people searched your category last Tuesday. Your calendar had openings.
+            </p>
+          </div>
+
+          <div class="signal-card reveal">
+            <div class="signal-head">
+              <span class="signal-name">Competitors buying your name</span>
+              <span class="signal-pill bad">3 active</span>
+            </div>
+            <div class="signal-value">3<span style="color:var(--text-3);font-size:18px"> competitors</span></div>
+            <div class="signal-bar"><div class="signal-bar-fill bar-red" style="--w: 80%"></div></div>
+            <p class="signal-desc" style="margin-top:12px">
+              Three competitors are bidding on your business name in Google Ads. You can stop it.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ====================== FAQ ====================== -->
+    <section style="background: var(--bg-2)">
+      <div class="container">
+        <span class="section-label">Common questions</span>
+        <h2 style="margin-bottom:48px">Quick answers.</h2>
+
+        <div class="faq">
+          <div class="faq-item">
+            <div class="faq-q">Where does your data come from?</div>
+            <div class="faq-a"><div style="padding-top:0">
+              Google Maps, Google Search Console, Yelp, BBB, Trustpilot, Meta Ad Library, your website
+              (Lighthouse), Reddit, job boards, certificate transparency, WHOIS, and 20+ other sources.
+              Everything we use is either an official API or publicly observable. No scraping behind logins.
+            </div></div>
+          </div>
+
+          <div class="faq-item">
+            <div class="faq-q">Is the free report really free?</div>
+            <div class="faq-a"><div style="padding-top:0">
+              Yes. One full report per business, no signup required. You see your rank, top 3 gaps,
+              and your competitor breakdown. Paid plans unlock weekly refresh, alerts, more competitor
+              detail, and the AI review-responder.
+            </div></div>
+          </div>
+
+          <div class="faq-item">
+            <div class="faq-q">How is this different from other reputation tools?</div>
+            <div class="faq-a"><div style="padding-top:0">
+              Most tools tell you about your own reviews. Mapsly tells you how you compare to every
+              competitor in your city — with the names, the reasons, and the fixes. No sales call.
+              No annual contract. Cancel anytime.
+            </div></div>
+          </div>
+
+          <div class="faq-item">
+            <div class="faq-q">What cities and verticals are covered?</div>
+            <div class="faq-a"><div style="padding-top:0">
+              At launch: med spa, HVAC, real estate, chiropractor, vet, roofing, plumbing, auto repair —
+              across the top 30 metros in the US and Canada. Expanding to 65 metros and 20+ verticals
+              through Year 1. You can request coverage of a vertical or city from inside the product.
+            </div></div>
+          </div>
+
+          <div class="faq-item">
+            <div class="faq-q">Will my data be sold to anyone?</div>
+            <div class="faq-a"><div style="padding-top:0">
+              We use publicly observable signals only. When you sign up as a business, you opt into our
+              network. Agencies see your business in lead searches if you match their criteria — that's
+              the deal that funds your $39/mo. You can opt out of agency surfacing at any time.
+            </div></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ====================== FINAL CTA ====================== -->
+    <section class="cta-band">
+      <div class="cta-card">
+        <h2 class="cta-title">See your local scoreboard.</h2>
+        <p class="cta-sub">
+          Free report. No signup. 60 seconds.
+        </p>
+        <div class="cta-buttons">
+          <a href="for-businesses.html" class="btn btn-primary btn-lg">
+            I run a local business
+            <svg class="btn-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M5 12h14M13 6l6 6-6 6" />
+            </svg>
+          </a>
+          <a href="for-agencies.html" class="btn btn-ghost btn-lg">
+            I work with local businesses
+            <svg class="btn-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M5 12h14M13 6l6 6-6 6" />
+            </svg>
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <!-- ====================== FOOTER ====================== -->
+    <footer>
+      <div class="footer-inner">
+        <a href="/" class="logo">
+          <span class="logo-dot"></span>
+          mapsly
+        </a>
+        <div class="footer-links">
+          <a href="for-businesses.html">For businesses</a>
+          <a href="for-agencies.html">For agencies</a>
+          <a href="#">Privacy</a>
+          <a href="#">Terms</a>
+          <a href="mailto:hello@mapsly.ai">hello@mapsly.ai</a>
+        </div>
+        <span class="footer-copy">© 2026 Mapsly. All rights reserved.</span>
+      </div>
+    </footer>
+
+    <script>
+      // ============ DOT FIELD (radar pulses in hero) ============
+      const dotField = document.getElementById('dotField');
+      const DOT_COUNT = 14;
+      for (let i = 0; i < DOT_COUNT; i++) {
+        const dot = document.createElement('div');
+        dot.className = 'dot pulse';
+        dot.style.left = Math.random() * 100 + '%';
+        dot.style.top = Math.random() * 80 + '%';
+        dot.style.animationDelay = Math.random() * 4 + 's';
+        const palette = ['var(--cyan)', 'var(--purple)', 'var(--green)'];
+        dot.style.background = palette[i % palette.length];
+        dot.style.boxShadow = '0 0 12px ' + dot.style.background;
+        dotField.appendChild(dot);
+      }
+
+      // ============ COUNT UP STATS ============
+      const counters = document.querySelectorAll('[data-count]');
+      const animateCount = (el) => {
+        const target = +el.getAttribute('data-count');
+        const duration = 1600;
+        const startTime = performance.now();
+        const animate = (now) => {
+          const elapsed = now - startTime;
+          const progress = Math.min(elapsed / duration, 1);
+          const eased = 1 - Math.pow(1 - progress, 3);
+          const value = Math.floor(eased * target);
+          el.textContent = value.toLocaleString();
+          if (progress < 1) requestAnimationFrame(animate);
+        };
+        requestAnimationFrame(animate);
+      };
+
+      // ============ LIVE COUNTER ============
+      const liveCount = document.getElementById('liveCount');
+      let live = 12847;
+      setInterval(() => {
+        live += Math.floor(Math.random() * 3) + 1;
+        liveCount.textContent = live.toLocaleString();
+      }, 2500);
+
+      // ============ REVEAL ON SCROLL ============
+      const observer = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+              entry.target.classList.add('in-view');
+              if (entry.target.matches('[data-count]')) {
+                animateCount(entry.target);
+              }
+              observer.unobserve(entry.target);
+            }
+          });
+        },
+        { threshold: 0.15 }
+      );
+
+      document
+        .querySelectorAll('.reveal, .pipeline-step, .signal-card, .split-card, [data-count]')
+        .forEach((el) => observer.observe(el));
+
+      // ============ FAQ TOGGLE ============
+      document.querySelectorAll('.faq-q').forEach((q) => {
+        q.addEventListener('click', () => {
+          q.parentElement.classList.toggle('open');
+        });
+      });
+    </script>
+  </body>
+</html>

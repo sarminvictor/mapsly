@@ -1,0 +1,1602 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mapsly — See the patients you're losing to the med spa down the street</title>
+    <meta
+      name="description"
+      content="Free. 30 seconds. We already pulled the data — type your business name and see who chose someone else this month."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,800&family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg: #faf6f1;
+        --bg-2: #ffffff;
+        --bg-3: #f2ebe3;
+        --bg-dark: #1c1916;
+        --text: #1c1916;
+        --text-2: #5c544d;
+        --text-3: #9a9088;
+        --border: #e8ddd0;
+        --border-strong: #d8c9b8;
+        --coral: #c3553a;
+        --coral-dim: rgba(195, 85, 58, 0.1);
+        --berry: #8b3a2c;
+        --gold: #d4a574;
+        --gold-dim: rgba(212, 165, 116, 0.18);
+        --success: #2d8659;
+        --success-dim: rgba(45, 134, 89, 0.12);
+        --alert: #b53d47;
+        --alert-dim: rgba(181, 61, 71, 0.1);
+      }
+
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html { scroll-behavior: smooth; }
+      body {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        line-height: 1.55;
+        -webkit-font-smoothing: antialiased;
+        overflow-x: hidden;
+      }
+      .serif {
+        font-family: 'Fraunces', Georgia, serif;
+        letter-spacing: -0.02em;
+        font-feature-settings: 'ss01';
+      }
+
+      /* ====================== NAV ====================== */
+      nav {
+        position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+        padding: 16px 32px;
+        backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+        background: rgba(250, 246, 241, 0.85);
+        border-bottom: 1px solid rgba(232, 221, 208, 0.6);
+      }
+      .nav-inner {
+        max-width: 1180px; margin: 0 auto;
+        display: flex; align-items: center; justify-content: space-between;
+      }
+      .logo {
+        font-size: 22px; font-weight: 700;
+        font-family: 'Fraunces', serif;
+        letter-spacing: -0.02em;
+        display: flex; align-items: center; gap: 10px;
+        text-decoration: none; color: var(--text);
+      }
+      .logo-dot {
+        width: 10px; height: 10px; border-radius: 50%;
+        background: var(--coral); box-shadow: 0 0 12px rgba(195, 85, 58, 0.5);
+        animation: pulse-dot 2s infinite;
+      }
+      @keyframes pulse-dot {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.6; transform: scale(0.9); }
+      }
+      .nav-links { display: flex; align-items: center; gap: 28px; }
+      .nav-link {
+        color: var(--text-2); text-decoration: none;
+        font-size: 14px; font-weight: 500; transition: color 0.2s;
+      }
+      .nav-link:hover { color: var(--text); }
+      .nav-link.active { color: var(--coral); }
+
+      .btn {
+        display: inline-flex; align-items: center; justify-content: center;
+        gap: 8px; padding: 12px 22px; border-radius: 8px;
+        font-size: 14px; font-weight: 600;
+        text-decoration: none; border: 1px solid transparent;
+        cursor: pointer; transition: all 0.2s; font-family: inherit;
+      }
+      .btn-coral {
+        background: var(--coral); color: #fff;
+        box-shadow: 0 4px 16px rgba(195, 85, 58, 0.25);
+      }
+      .btn-coral:hover {
+        background: var(--berry); transform: translateY(-1px);
+        box-shadow: 0 6px 24px rgba(195, 85, 58, 0.35);
+      }
+      .btn-ghost {
+        background: transparent; color: var(--text);
+        border-color: var(--border-strong);
+      }
+      .btn-ghost:hover { background: var(--bg-2); border-color: var(--text); }
+      .btn-lg { padding: 16px 28px; font-size: 15px; }
+      .btn-arrow { transition: transform 0.2s; }
+      .btn:hover .btn-arrow { transform: translateX(4px); }
+
+      /* ====================== HERO ====================== */
+      .hero {
+        padding: 140px 32px 100px;
+        position: relative; overflow: hidden;
+      }
+      .hero-bg {
+        position: absolute; inset: 0; z-index: 0;
+        background:
+          radial-gradient(ellipse 60% 50% at 20% 0%, rgba(195, 85, 58, 0.08) 0%, transparent 50%),
+          radial-gradient(ellipse 50% 40% at 90% 100%, rgba(212, 165, 116, 0.12) 0%, transparent 50%);
+      }
+      .hero-inner {
+        max-width: 1180px; margin: 0 auto;
+        position: relative; z-index: 1;
+      }
+
+      .eyebrow {
+        display: inline-flex; align-items: center; gap: 10px;
+        padding: 7px 14px;
+        background: var(--bg-2); border: 1px solid var(--border);
+        border-radius: 100px;
+        font-size: 13px; font-weight: 500; color: var(--text-2);
+        margin-bottom: 32px;
+      }
+      .eyebrow-dot {
+        width: 8px; height: 8px; border-radius: 50%;
+        background: var(--coral); box-shadow: 0 0 10px var(--coral);
+        animation: pulse-dot 2s infinite;
+      }
+
+      h1.hero-h1 {
+        font-size: clamp(40px, 6.5vw, 80px);
+        line-height: 1.02; font-weight: 700;
+        margin-bottom: 28px; max-width: 920px;
+        color: var(--text);
+      }
+      .hero-h1 em {
+        font-style: italic;
+        color: var(--coral);
+        font-weight: 500;
+      }
+      .hero-sub {
+        font-size: clamp(17px, 1.6vw, 20px);
+        color: var(--text-2);
+        max-width: 580px;
+        margin-bottom: 36px;
+        line-height: 1.55;
+      }
+
+      /* ====================== SEARCH BAR ====================== */
+      .search-card {
+        background: var(--bg-2);
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        padding: 8px;
+        max-width: 600px;
+        box-shadow: 0 8px 40px rgba(28, 25, 22, 0.06);
+        transition: box-shadow 0.3s, border-color 0.3s;
+      }
+      .search-card:focus-within {
+        border-color: var(--coral);
+        box-shadow: 0 8px 40px rgba(195, 85, 58, 0.15);
+      }
+      .search-row {
+        display: flex; align-items: center; gap: 6px;
+      }
+      .search-icon {
+        padding: 0 14px;
+        color: var(--text-3);
+      }
+      .search-input {
+        flex: 1;
+        background: transparent;
+        border: none;
+        outline: none;
+        color: var(--text);
+        font-size: 16px;
+        font-family: inherit;
+        padding: 14px 4px;
+        min-width: 0;
+      }
+      .search-input::placeholder { color: var(--text-3); }
+      .search-typing::after {
+        content: '|';
+        animation: cursor-blink 1s infinite;
+        color: var(--coral);
+        font-weight: 300;
+      }
+      @keyframes cursor-blink {
+        0%, 50% { opacity: 1; }
+        51%, 100% { opacity: 0; }
+      }
+
+      .search-suggest {
+        margin-top: 16px;
+        padding: 6px 0;
+        font-size: 13px;
+        color: var(--text-3);
+        display: flex; align-items: center; gap: 10px;
+        flex-wrap: wrap;
+      }
+      .suggest-pill {
+        padding: 4px 10px;
+        background: var(--bg-2);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        font-size: 12px;
+        color: var(--text-2);
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+      .suggest-pill:hover {
+        border-color: var(--coral); color: var(--coral);
+      }
+
+      .hero-trust {
+        margin-top: 56px;
+        padding-top: 32px;
+        border-top: 1px solid var(--border);
+        display: flex; align-items: center; gap: 32px;
+        flex-wrap: wrap;
+      }
+      .hero-trust-text {
+        font-size: 14px; color: var(--text-2);
+        max-width: 320px;
+      }
+      .hero-trust-text b { color: var(--text); font-weight: 600; }
+      .hero-avatars {
+        display: flex;
+      }
+      .h-avatar {
+        width: 36px; height: 36px;
+        border-radius: 50%;
+        border: 2px solid var(--bg);
+        margin-left: -10px;
+        display: flex; align-items: center; justify-content: center;
+        font-weight: 600; font-size: 13px;
+        color: #fff;
+      }
+      .h-avatar:first-child { margin-left: 0; }
+      .h-avatar.a1 { background: linear-gradient(135deg, #e8836d, #c3553a); }
+      .h-avatar.a2 { background: linear-gradient(135deg, #d4a574, #b8924d); }
+      .h-avatar.a3 { background: linear-gradient(135deg, #c3553a, #8b3a2c); }
+      .h-avatar.a4 { background: linear-gradient(135deg, #e8a987, #c98167); }
+      .h-avatar.a5 {
+        background: var(--bg-3);
+        color: var(--text-2);
+        font-size: 11px;
+      }
+
+      /* ====================== SECTIONS ====================== */
+      section { padding: 100px 32px; position: relative; }
+      .container { max-width: 1180px; margin: 0 auto; }
+
+      .section-label {
+        display: inline-block; font-size: 13px; font-weight: 600;
+        color: var(--coral); text-transform: uppercase; letter-spacing: 0.12em;
+        margin-bottom: 18px;
+      }
+      h2 {
+        font-size: clamp(32px, 4.5vw, 56px);
+        line-height: 1.05; font-weight: 700;
+        margin-bottom: 20px; max-width: 820px;
+        font-family: 'Fraunces', serif;
+        letter-spacing: -0.02em;
+      }
+      h2 em {
+        font-style: italic; color: var(--coral); font-weight: 500;
+      }
+      .section-sub {
+        font-size: 18px; color: var(--text-2);
+        max-width: 620px; margin-bottom: 56px; line-height: 1.55;
+      }
+
+      /* ====================== LOST PATIENTS ====================== */
+      .lost-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 16px;
+        margin-bottom: 32px;
+      }
+      @media (min-width: 800px) {
+        .lost-grid { grid-template-columns: repeat(3, 1fr); }
+      }
+      .patient-card {
+        padding: 28px;
+        background: var(--bg-2);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        position: relative;
+        transition: all 0.3s;
+      }
+      .patient-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 12px 32px rgba(28, 25, 22, 0.08);
+      }
+      .patient-head {
+        display: flex; align-items: center; gap: 14px;
+        margin-bottom: 18px;
+      }
+      .patient-avatar {
+        width: 48px; height: 48px;
+        border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        color: #fff; font-weight: 700; font-size: 16px;
+        flex-shrink: 0;
+      }
+      .patient-name {
+        font-weight: 600; font-size: 15px;
+        color: var(--text);
+      }
+      .patient-meta {
+        font-size: 13px; color: var(--text-3);
+      }
+      .patient-quote {
+        font-style: italic;
+        color: var(--text-2);
+        font-size: 15px;
+        line-height: 1.55;
+        padding-left: 12px;
+        border-left: 3px solid var(--gold);
+        margin-bottom: 20px;
+      }
+      .patient-quote::before { content: '"'; }
+      .patient-quote::after { content: '"'; }
+      .patient-went {
+        display: flex; align-items: center; gap: 8px;
+        font-size: 13px;
+        color: var(--text-3);
+      }
+      .patient-went b {
+        color: var(--coral); font-weight: 600;
+      }
+      .patient-stars {
+        display: flex; gap: 2px;
+        margin-left: auto;
+        color: var(--gold);
+        font-size: 14px;
+      }
+
+      /* ====================== MONEY CARD ====================== */
+      .money-card {
+        background: linear-gradient(135deg, var(--bg-dark), #2a2520);
+        color: #fff;
+        border-radius: 20px;
+        padding: 48px;
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 32px;
+        align-items: center;
+      }
+      @media (min-width: 800px) {
+        .money-card { grid-template-columns: 1.2fr 1fr; padding: 56px; }
+      }
+      .money-label {
+        font-size: 13px; font-weight: 600;
+        color: var(--gold);
+        text-transform: uppercase; letter-spacing: 0.12em;
+        margin-bottom: 16px;
+      }
+      .money-amount {
+        font-family: 'Fraunces', serif;
+        font-size: clamp(56px, 9vw, 96px);
+        font-weight: 700;
+        line-height: 0.95;
+        letter-spacing: -0.04em;
+        background: linear-gradient(120deg, #f5d4a7, #e8836d);
+        -webkit-background-clip: text; background-clip: text;
+        color: transparent;
+        margin-bottom: 16px;
+      }
+      .money-text {
+        font-size: 16px;
+        color: rgba(255, 255, 255, 0.75);
+        line-height: 1.6;
+        max-width: 420px;
+      }
+      .money-breakdown {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 14px;
+        padding: 24px;
+      }
+      .breakdown-row {
+        display: flex; justify-content: space-between;
+        padding: 10px 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        font-size: 14px;
+        color: rgba(255, 255, 255, 0.8);
+      }
+      .breakdown-row:last-child { border-bottom: none; padding-top: 14px; font-weight: 600; color: #fff; }
+      .breakdown-row b { color: #fff; font-weight: 600; }
+      .breakdown-row span { font-variant-numeric: tabular-nums; }
+
+      /* ====================== REVIEWS ====================== */
+      .reviews-list {
+        display: flex; flex-direction: column;
+        gap: 16px;
+      }
+      .review-card {
+        background: var(--bg-2);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 24px;
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        gap: 20px;
+        align-items: start;
+      }
+      .review-avatar {
+        width: 44px; height: 44px;
+        border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        color: #fff; font-weight: 700; font-size: 15px;
+        flex-shrink: 0;
+      }
+      .review-head {
+        display: flex; align-items: center; gap: 8px;
+        margin-bottom: 6px;
+        flex-wrap: wrap;
+      }
+      .review-name { font-weight: 600; font-size: 14px; }
+      .review-stars { color: var(--gold); font-size: 14px; }
+      .review-date { font-size: 12px; color: var(--text-3); }
+      .review-text {
+        font-size: 14px; color: var(--text-2);
+        line-height: 1.55;
+      }
+      .review-action {
+        padding: 8px 14px;
+        background: var(--coral-dim);
+        color: var(--coral);
+        border-radius: 8px;
+        font-size: 12px;
+        font-weight: 600;
+        white-space: nowrap;
+        align-self: start;
+      }
+      @media (max-width: 700px) {
+        .review-card { grid-template-columns: auto 1fr; }
+        .review-action { grid-column: 1 / -1; justify-self: start; }
+      }
+
+      .reviews-fact {
+        margin-top: 24px;
+        padding: 20px 24px;
+        background: var(--coral-dim);
+        border-radius: 12px;
+        font-size: 15px;
+        color: var(--berry);
+        font-weight: 500;
+        display: flex; gap: 12px; align-items: flex-start;
+      }
+      .reviews-fact svg { flex-shrink: 0; margin-top: 2px; }
+
+      /* ====================== PHONE RACE ====================== */
+      .race-card {
+        background: var(--bg-2);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        padding: 0;
+        overflow: hidden;
+      }
+      .race-head {
+        padding: 24px 32px;
+        border-bottom: 1px solid var(--border);
+        display: flex; justify-content: space-between; align-items: center;
+        flex-wrap: wrap; gap: 12px;
+      }
+      .race-head-title { font-weight: 600; font-size: 15px; }
+      .race-head-meta { font-size: 13px; color: var(--text-3); }
+      .race-body {
+        display: grid;
+        grid-template-columns: 1fr;
+      }
+      @media (min-width: 800px) {
+        .race-body { grid-template-columns: 1fr 1fr; }
+      }
+      .race-side {
+        padding: 32px;
+        display: flex; flex-direction: column;
+        gap: 16px;
+      }
+      .race-side.you {
+        background: var(--alert-dim);
+        border-right: 1px solid var(--border);
+      }
+      .race-side.them {
+        background: var(--success-dim);
+      }
+      @media (max-width: 800px) {
+        .race-side.you { border-right: none; border-bottom: 1px solid var(--border); }
+      }
+      .race-side-label {
+        font-size: 11px; font-weight: 700;
+        text-transform: uppercase; letter-spacing: 0.12em;
+      }
+      .race-side.you .race-side-label { color: var(--alert); }
+      .race-side.them .race-side-label { color: var(--success); }
+      .race-side-name {
+        font-family: 'Fraunces', serif;
+        font-size: 22px; font-weight: 600; letter-spacing: -0.01em;
+      }
+      .race-stat-row {
+        display: flex; justify-content: space-between;
+        padding: 10px 0;
+        border-top: 1px solid rgba(28, 25, 22, 0.08);
+        font-size: 14px;
+        color: var(--text-2);
+      }
+      .race-stat-row b { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+      .race-side.you .race-stat-row b { color: var(--alert); }
+      .race-side.them .race-stat-row b { color: var(--success); }
+
+      /* ====================== EMPTY CHAIRS ====================== */
+      .empty-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 24px;
+        align-items: center;
+      }
+      @media (min-width: 800px) {
+        .empty-grid { grid-template-columns: 1.1fr 1fr; gap: 56px; }
+      }
+      .empty-stat {
+        font-family: 'Fraunces', serif;
+        font-size: clamp(64px, 11vw, 120px);
+        font-weight: 700;
+        line-height: 0.95;
+        letter-spacing: -0.04em;
+        color: var(--coral);
+        margin-bottom: 8px;
+      }
+      .empty-sub {
+        font-size: 18px;
+        color: var(--text-2);
+        line-height: 1.5;
+        max-width: 460px;
+      }
+      .empty-cal {
+        background: var(--bg-2);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 24px;
+      }
+      .cal-head {
+        display: flex; justify-content: space-between;
+        margin-bottom: 16px;
+        font-size: 13px; color: var(--text-3);
+      }
+      .cal-head b { color: var(--text); font-weight: 600; }
+      .cal-row {
+        display: grid;
+        grid-template-columns: 50px 1fr;
+        gap: 12px;
+        align-items: center;
+        padding: 6px 0;
+      }
+      .cal-time {
+        font-size: 13px; color: var(--text-3);
+        font-variant-numeric: tabular-nums;
+      }
+      .cal-slot {
+        height: 26px;
+        border-radius: 6px;
+        background: var(--bg-3);
+        position: relative;
+      }
+      .cal-slot.empty {
+        background: var(--alert-dim);
+        border: 1px dashed rgba(181, 61, 71, 0.3);
+      }
+      .cal-slot.empty::after {
+        content: 'Empty';
+        position: absolute;
+        left: 10px; top: 50%; transform: translateY(-50%);
+        font-size: 11px; color: var(--alert); font-weight: 600;
+      }
+      .cal-slot.booked {
+        background: linear-gradient(90deg, var(--success-dim), var(--success-dim));
+        border: 1px solid rgba(45, 134, 89, 0.25);
+      }
+      .cal-slot.booked::after {
+        content: 'Booked';
+        position: absolute;
+        left: 10px; top: 50%; transform: translateY(-50%);
+        font-size: 11px; color: var(--success); font-weight: 600;
+      }
+      .cal-search {
+        height: 4px;
+        border-radius: 2px;
+        background: linear-gradient(90deg, var(--coral), var(--gold));
+        margin-top: 14px;
+        position: relative;
+        overflow: hidden;
+      }
+      .cal-search::before {
+        content: '';
+        position: absolute; inset: 0;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.5), transparent);
+        animation: shimmer 2s infinite;
+      }
+      @keyframes shimmer {
+        0% { transform: translateX(-100%); }
+        100% { transform: translateX(100%); }
+      }
+      .cal-search-label {
+        margin-top: 10px;
+        font-size: 12px; color: var(--text-3);
+        text-align: center;
+      }
+
+      /* ====================== GRADE ====================== */
+      .grade-card {
+        background: var(--bg-2);
+        border: 1px solid var(--border);
+        border-radius: 24px;
+        padding: 48px;
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 32px;
+        align-items: center;
+        text-align: center;
+      }
+      @media (min-width: 800px) {
+        .grade-card { grid-template-columns: auto 1fr; text-align: left; padding: 56px; }
+      }
+      .grade-circle {
+        width: 200px; height: 200px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, var(--gold), var(--coral));
+        display: flex; flex-direction: column;
+        align-items: center; justify-content: center;
+        color: #fff;
+        margin: 0 auto;
+        box-shadow: 0 20px 60px rgba(195, 85, 58, 0.25);
+      }
+      .grade-letter {
+        font-family: 'Fraunces', serif;
+        font-size: 88px;
+        font-weight: 700;
+        line-height: 1;
+        letter-spacing: -0.04em;
+      }
+      .grade-out-of {
+        font-size: 13px; opacity: 0.85;
+        margin-top: 4px;
+        font-weight: 500;
+      }
+      .grade-text h3 {
+        font-family: 'Fraunces', serif;
+        font-size: clamp(28px, 3.5vw, 40px);
+        font-weight: 600;
+        margin-bottom: 12px;
+        line-height: 1.1;
+      }
+      .grade-text p {
+        font-size: 16px; color: var(--text-2);
+        line-height: 1.6;
+        margin-bottom: 16px;
+      }
+      .grade-bullets {
+        display: flex; flex-direction: column;
+        gap: 8px;
+        font-size: 14px;
+        color: var(--text-2);
+      }
+      .grade-bullets li {
+        list-style: none;
+        display: flex; gap: 10px; align-items: flex-start;
+      }
+      .grade-bullets svg { color: var(--coral); flex-shrink: 0; margin-top: 3px; }
+
+      /* ====================== INSTAGRAM CARD ====================== */
+      .ig-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 32px;
+        align-items: center;
+      }
+      @media (min-width: 800px) {
+        .ig-grid { grid-template-columns: 1.2fr 1fr; gap: 56px; }
+      }
+      .ig-text h3 {
+        font-family: 'Fraunces', serif;
+        font-size: clamp(28px, 3.5vw, 44px);
+        font-weight: 600;
+        margin-bottom: 20px;
+        line-height: 1.1;
+      }
+      .ig-text p {
+        font-size: 17px; color: var(--text-2);
+        line-height: 1.6;
+        margin-bottom: 14px;
+      }
+      .ig-mock {
+        aspect-ratio: 1;
+        max-width: 400px;
+        margin: 0 auto;
+        background: linear-gradient(135deg, #fff5ec, #f3dcc4);
+        border-radius: 20px;
+        padding: 32px;
+        display: flex; flex-direction: column;
+        position: relative;
+        box-shadow: 0 24px 60px rgba(28, 25, 22, 0.12);
+      }
+      .ig-mock-head {
+        display: flex; align-items: center; gap: 10px;
+        margin-bottom: 32px;
+      }
+      .ig-mock-logo {
+        width: 32px; height: 32px;
+        border-radius: 8px;
+        background: var(--text);
+        color: #fff;
+        display: flex; align-items: center; justify-content: center;
+        font-weight: 700; font-family: 'Fraunces', serif;
+        font-size: 16px;
+      }
+      .ig-mock-brand { font-weight: 700; font-size: 14px; }
+      .ig-mock-month {
+        font-size: 11px; color: var(--text-3);
+        text-transform: uppercase; letter-spacing: 0.12em;
+        margin-left: auto;
+      }
+      .ig-mock-body { flex: 1; display: flex; flex-direction: column; justify-content: center; }
+      .ig-mock-rank {
+        font-family: 'Fraunces', serif;
+        font-size: 92px; font-weight: 700;
+        line-height: 0.9;
+        letter-spacing: -0.04em;
+        color: var(--berry);
+        margin-bottom: 8px;
+      }
+      .ig-mock-rank-sub {
+        font-size: 18px; font-weight: 600;
+        color: var(--berry);
+        margin-bottom: 28px;
+      }
+      .ig-mock-stats {
+        display: flex; gap: 24px;
+        margin-bottom: 8px;
+      }
+      .ig-mock-stat-num {
+        font-family: 'Fraunces', serif;
+        font-size: 26px; font-weight: 700;
+        color: var(--text);
+      }
+      .ig-mock-stat-label {
+        font-size: 11px; color: var(--text-3);
+        text-transform: uppercase; letter-spacing: 0.06em;
+      }
+      .ig-mock-footer {
+        font-size: 11px; color: var(--text-3);
+        text-align: center;
+        margin-top: auto;
+      }
+
+      /* ====================== PRICING ====================== */
+      .price-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 16px;
+      }
+      @media (min-width: 800px) { .price-grid { grid-template-columns: repeat(3, 1fr); } }
+      .price-card {
+        background: var(--bg-2);
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        padding: 36px 28px;
+        display: flex; flex-direction: column;
+        position: relative;
+      }
+      .price-card.featured {
+        background: linear-gradient(180deg, #fff5ec, var(--bg-2));
+        border-color: var(--coral);
+        box-shadow: 0 20px 60px rgba(195, 85, 58, 0.12);
+      }
+      .price-tag {
+        position: absolute; top: -10px; right: 22px;
+        background: var(--coral); color: #fff;
+        padding: 4px 12px;
+        border-radius: 6px;
+        font-size: 11px; font-weight: 700;
+        text-transform: uppercase; letter-spacing: 0.08em;
+      }
+      .price-name {
+        font-family: 'Fraunces', serif;
+        font-size: 22px; font-weight: 600;
+        margin-bottom: 4px;
+      }
+      .price-amount {
+        display: flex; align-items: baseline; gap: 4px;
+        margin: 12px 0 8px;
+      }
+      .price-amt-num {
+        font-family: 'Fraunces', serif;
+        font-size: 56px; font-weight: 700;
+        letter-spacing: -0.03em;
+        line-height: 1;
+      }
+      .price-amt-period { font-size: 15px; color: var(--text-3); }
+      .price-desc {
+        font-size: 14px; color: var(--text-2);
+        margin-bottom: 28px; line-height: 1.5;
+      }
+      .price-features {
+        list-style: none; margin-bottom: 28px; flex: 1;
+      }
+      .price-features li {
+        padding: 10px 0; border-top: 1px solid var(--border);
+        display: flex; gap: 10px; align-items: flex-start;
+        font-size: 14px; color: var(--text-2);
+      }
+      .price-features li:first-child { border-top: none; }
+      .price-features svg { color: var(--coral); flex-shrink: 0; margin-top: 3px; }
+
+      /* ====================== FAQ ====================== */
+      .faq { max-width: 800px; margin: 0 auto; }
+      .faq-item { border-bottom: 1px solid var(--border); }
+      .faq-q {
+        padding: 24px 0; display: flex; justify-content: space-between;
+        align-items: center; cursor: pointer;
+        font-size: 17px; font-weight: 600; gap: 24px; user-select: none;
+        font-family: 'Fraunces', serif;
+        letter-spacing: -0.01em;
+      }
+      .faq-q::after {
+        content: '+'; font-size: 24px; color: var(--text-3);
+        font-family: 'Inter', sans-serif; font-weight: 300;
+        transition: transform 0.3s;
+      }
+      .faq-item.open .faq-q::after { transform: rotate(45deg); }
+      .faq-a {
+        font-size: 15px; color: var(--text-2); line-height: 1.6;
+        max-height: 0; overflow: hidden;
+        transition: max-height 0.4s ease, padding 0.4s ease;
+      }
+      .faq-item.open .faq-a { max-height: 400px; padding-bottom: 24px; }
+
+      /* ====================== FINAL CTA ====================== */
+      .cta-section {
+        background: var(--bg-dark);
+        color: #fff;
+        padding: 100px 32px;
+        position: relative;
+        overflow: hidden;
+      }
+      .cta-section::before {
+        content: '';
+        position: absolute; inset: 0;
+        background:
+          radial-gradient(ellipse 60% 50% at 30% 0%, rgba(195, 85, 58, 0.15), transparent 60%),
+          radial-gradient(ellipse 50% 40% at 80% 100%, rgba(212, 165, 116, 0.12), transparent 60%);
+      }
+      .cta-inner {
+        max-width: 720px; margin: 0 auto;
+        text-align: center;
+        position: relative; z-index: 1;
+      }
+      .cta-h2 {
+        font-family: 'Fraunces', serif;
+        font-size: clamp(36px, 5vw, 56px);
+        font-weight: 600;
+        letter-spacing: -0.02em;
+        margin-bottom: 16px;
+        line-height: 1.1;
+      }
+      .cta-h2 em { font-style: italic; color: #f5d4a7; font-weight: 500; }
+      .cta-sub {
+        font-size: 18px;
+        color: rgba(255, 255, 255, 0.75);
+        margin-bottom: 36px;
+      }
+      .cta-search {
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(20px);
+        max-width: 540px; margin: 0 auto;
+      }
+      .cta-search .search-input { color: #fff; }
+      .cta-search .search-input::placeholder { color: rgba(255,255,255,0.4); }
+      .cta-search .search-icon { color: rgba(255,255,255,0.5); }
+
+      /* ====================== FOOTER ====================== */
+      footer {
+        padding: 56px 32px 40px;
+        border-top: 1px solid var(--border);
+        background: var(--bg);
+      }
+      .footer-inner {
+        max-width: 1180px; margin: 0 auto;
+        display: flex; justify-content: space-between; align-items: center;
+        flex-wrap: wrap; gap: 24px;
+      }
+      .footer-links {
+        display: flex; gap: 24px; font-size: 13px; color: var(--text-3);
+      }
+      .footer-links a {
+        color: inherit; text-decoration: none; transition: color 0.2s;
+      }
+      .footer-links a:hover { color: var(--text); }
+      .footer-copy { font-size: 13px; color: var(--text-3); }
+
+      /* ====================== RESPONSIVE ====================== */
+      @media (max-width: 700px) {
+        nav { padding: 14px 18px; }
+        .nav-links { gap: 12px; }
+        .nav-link { display: none; }
+        .hero { padding: 100px 18px 60px; }
+        section { padding: 70px 18px; }
+        .money-card, .grade-card, .race-side { padding: 28px; }
+        .cta-section { padding: 70px 18px; }
+      }
+
+      /* ====================== UTIL ====================== */
+      .reveal {
+        opacity: 0; transform: translateY(20px);
+        transition: opacity 0.6s, transform 0.6s;
+      }
+      .reveal.in-view { opacity: 1; transform: translateY(0); }
+      .reveal.d1 { transition-delay: 0.1s; }
+      .reveal.d2 { transition-delay: 0.2s; }
+    </style>
+  </head>
+  <body>
+    <nav>
+      <div class="nav-inner">
+        <a href="index.html" class="logo">
+          <span class="logo-dot"></span>
+          mapsly
+        </a>
+        <div class="nav-links">
+          <a href="for-businesses.html" class="nav-link active">For businesses</a>
+          <a href="for-agencies.html" class="nav-link">For agencies</a>
+          <a href="#pricing" class="nav-link">Pricing</a>
+          <a href="#" class="btn btn-ghost">Sign in</a>
+        </div>
+      </div>
+    </nav>
+
+    <!-- ====================== HERO ====================== -->
+    <section class="hero">
+      <div class="hero-bg"></div>
+      <div class="hero-inner">
+        <div class="eyebrow">
+          <span class="eyebrow-dot"></span>
+          Free reality check · 30 seconds · No signup
+        </div>
+
+        <h1 class="hero-h1 serif">
+          See the patients who chose <em>the med spa down the street</em> over you this month.
+        </h1>
+
+        <p class="hero-sub">
+          We already pulled your data — reviews, ratings, the patients who went elsewhere, and what they said about why. Type your business name to see it.
+        </p>
+
+        <div class="search-card">
+          <div class="search-row">
+            <div class="search-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8" />
+                <path d="m21 21-4.3-4.3" />
+              </svg>
+            </div>
+            <input id="searchInput" class="search-input" type="text" placeholder="Lumière Aesthetics, Miami…" autocomplete="off" />
+            <button class="btn btn-coral" onclick="document.getElementById('cta-search').scrollIntoView({behavior:'smooth'})">
+              See my reality
+              <svg class="btn-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <path d="M5 12h14M13 6l6 6-6 6" />
+              </svg>
+            </button>
+          </div>
+          <div class="search-suggest">
+            <span>Popular this week:</span>
+            <span class="suggest-pill">Glow Aesthetics Phoenix</span>
+            <span class="suggest-pill">Skin Lab Scottsdale</span>
+            <span class="suggest-pill">Coral Gables Med Spa</span>
+          </div>
+        </div>
+
+        <div class="hero-trust">
+          <div class="hero-avatars">
+            <div class="h-avatar a1">M</div>
+            <div class="h-avatar a2">S</div>
+            <div class="h-avatar a3">R</div>
+            <div class="h-avatar a4">D</div>
+            <div class="h-avatar a5">+1.2k</div>
+          </div>
+          <div class="hero-trust-text">
+            <b>1,247 med spa owners</b> checked their reality this month. Most found at least one surprise.
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ====================== LOST PATIENTS ====================== -->
+    <section>
+      <div class="container">
+        <span class="section-label">// the patients you didn't know about</span>
+        <h2 class="serif">
+          Twelve patients chose someone else <em>this month.</em>
+        </h2>
+        <p class="section-sub">
+          We tracked the reviews left at nearby med spas in the last 30 days — and the ones from people who look exactly like your typical patient. Here are three of them.
+        </p>
+
+        <div class="lost-grid">
+          <div class="patient-card reveal">
+            <div class="patient-head">
+              <div class="patient-avatar" style="background: linear-gradient(135deg, #e8836d, #c3553a)">SM</div>
+              <div>
+                <div class="patient-name">Sarah M.</div>
+                <div class="patient-meta">Booked Botox · 2 weeks ago</div>
+              </div>
+              <div class="patient-stars">★★★★★</div>
+            </div>
+            <p class="patient-quote">I'd been going to my old place for two years but they never followed up. Glow texted me the day after my consult.</p>
+            <div class="patient-went">
+              Chose <b>Glow Aesthetics Brickell</b>
+            </div>
+          </div>
+
+          <div class="patient-card reveal d1">
+            <div class="patient-head">
+              <div class="patient-avatar" style="background: linear-gradient(135deg, #d4a574, #b8924d)">JL</div>
+              <div>
+                <div class="patient-name">Jessica L.</div>
+                <div class="patient-meta">Booked filler + lip · 3 weeks ago</div>
+              </div>
+              <div class="patient-stars">★★★★★</div>
+            </div>
+            <p class="patient-quote">Dr. Marlene takes the time to actually listen. I left feeling like I wasn't just a number on a schedule.</p>
+            <div class="patient-went">
+              Chose <b>Skin Lab Coral Gables</b>
+            </div>
+          </div>
+
+          <div class="patient-card reveal d2">
+            <div class="patient-head">
+              <div class="patient-avatar" style="background: linear-gradient(135deg, #c3553a, #8b3a2c)">AK</div>
+              <div>
+                <div class="patient-name">Amanda K.</div>
+                <div class="patient-meta">Booked laser package · 5 days ago</div>
+              </div>
+              <div class="patient-stars">★★★★☆</div>
+            </div>
+            <p class="patient-quote">I called three places. Glow answered in two minutes and emailed me prices that night. The others took days.</p>
+            <div class="patient-went">
+              Chose <b>Glow Aesthetics Brickell</b>
+            </div>
+          </div>
+        </div>
+
+        <p style="font-size:13px;color:var(--text-3);text-align:center;margin-top:8px">+ 9 more this month, with the full story behind each one inside.</p>
+      </div>
+    </section>
+
+    <!-- ====================== MONEY ====================== -->
+    <section>
+      <div class="container">
+        <div class="money-card reveal">
+          <div>
+            <div class="money-label">// estimated revenue lost · last 30 days</div>
+            <div class="money-amount" id="moneyNum">$4,200</div>
+            <p class="money-text">
+              At an average ticket of $350 (Botox + filler combo), the patients we tracked going to nearby spas would have been roughly this much in revenue for you.
+            </p>
+          </div>
+          <div class="money-breakdown">
+            <div class="breakdown-row">
+              <span>Patients tracked</span>
+              <b>12</b>
+            </div>
+            <div class="breakdown-row">
+              <span>Avg ticket in your area</span>
+              <b>$350</b>
+            </div>
+            <div class="breakdown-row">
+              <span>Top reason cited</span>
+              <b>Slow response</b>
+            </div>
+            <div class="breakdown-row">
+              <span>Estimated revenue lost</span>
+              <span>$4,200</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ====================== REVIEWS YOU MISSED ====================== -->
+    <section style="background: var(--bg-3)">
+      <div class="container">
+        <span class="section-label">// reviews waiting for you</span>
+        <h2 class="serif">
+          Eight reviews you haven't answered yet.
+        </h2>
+        <p class="section-sub">
+          You have a 4.7★ rating. The top spa in Miami has a 4.9★ — and they reply to every review within 4 hours. Here are three you missed.
+        </p>
+
+        <div class="reviews-list">
+          <div class="review-card reveal">
+            <div class="review-avatar" style="background: linear-gradient(135deg, #e8836d, #c3553a)">RP</div>
+            <div>
+              <div class="review-head">
+                <span class="review-name">Rachel P.</span>
+                <span class="review-stars">★★★★★</span>
+                <span class="review-date">· 9 days ago</span>
+              </div>
+              <div class="review-text">Dr. Sofia is incredible. She talked me through every step and made me feel comfortable. The results are even better than I hoped. Highly recommend if you're nervous about your first time.</div>
+            </div>
+            <div class="review-action">Reply with AI</div>
+          </div>
+
+          <div class="review-card reveal d1">
+            <div class="review-avatar" style="background: linear-gradient(135deg, #d4a574, #b8924d)">ET</div>
+            <div>
+              <div class="review-head">
+                <span class="review-name">Emily T.</span>
+                <span class="review-stars">★★★★☆</span>
+                <span class="review-date">· 14 days ago</span>
+              </div>
+              <div class="review-text">Loved the team and the results. Only thing I'd say is that booking took two days to confirm. Hope this helps for future patients.</div>
+            </div>
+            <div class="review-action">Reply with AI</div>
+          </div>
+
+          <div class="review-card reveal d2">
+            <div class="review-avatar" style="background: linear-gradient(135deg, #c3553a, #8b3a2c)">MW</div>
+            <div>
+              <div class="review-head">
+                <span class="review-name">Madison W.</span>
+                <span class="review-stars">★★★★★</span>
+                <span class="review-date">· 22 days ago</span>
+              </div>
+              <div class="review-text">My third time here and it just keeps getting better. The new front desk girl is so sweet. I'm not going anywhere else!</div>
+            </div>
+            <div class="review-action">Reply with AI</div>
+          </div>
+        </div>
+
+        <div class="reviews-fact">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/>
+          </svg>
+          <span>
+            Replying to every review is the single biggest factor in your Google ranking — and the easiest fix on this page. Patients see who responds, and Google watches.
+          </span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ====================== PHONE RACE ====================== -->
+    <section>
+      <div class="container">
+        <span class="section-label">// the phone test</span>
+        <h2 class="serif">
+          We called you. We called Glow. <em>Here's what happened.</em>
+        </h2>
+        <p class="section-sub">
+          Last Tuesday at 11am, we submitted the same quote request to your website and to your top competitor. Both for a $1,200 laser package consultation.
+        </p>
+
+        <div class="race-card reveal">
+          <div class="race-head">
+            <span class="race-head-title">Quote request · Tuesday, 11:04 AM</span>
+            <span class="race-head-meta">"Hi, interested in laser package for face. What's your pricing and availability?"</span>
+          </div>
+          <div class="race-body">
+            <div class="race-side you">
+              <span class="race-side-label">You</span>
+              <div class="race-side-name">Lumière Aesthetics</div>
+              <div class="race-stat-row">
+                <span>First reply</span>
+                <b>4 hours 12 min</b>
+              </div>
+              <div class="race-stat-row">
+                <span>Email length</span>
+                <b>47 words</b>
+              </div>
+              <div class="race-stat-row">
+                <span>Pricing included</span>
+                <b>No</b>
+              </div>
+              <div class="race-stat-row">
+                <span>Photos / treatment details</span>
+                <b>No</b>
+              </div>
+              <div class="race-stat-row">
+                <span>Follow-up if no response</span>
+                <b>None</b>
+              </div>
+            </div>
+            <div class="race-side them">
+              <span class="race-side-label">Glow Aesthetics</span>
+              <div class="race-side-name">Glow Aesthetics</div>
+              <div class="race-stat-row">
+                <span>First reply</span>
+                <b>11 minutes</b>
+              </div>
+              <div class="race-stat-row">
+                <span>Email length</span>
+                <b>280 words</b>
+              </div>
+              <div class="race-stat-row">
+                <span>Pricing included</span>
+                <b>Yes — 3 packages</b>
+              </div>
+              <div class="race-stat-row">
+                <span>Photos / treatment details</span>
+                <b>4 attached</b>
+              </div>
+              <div class="race-stat-row">
+                <span>Follow-up if no response</span>
+                <b>Text + email at 24h</b>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <p style="font-size:14px;color:var(--text-3);text-align:center;margin-top:24px">
+          Most patients pick the first spa that gets back to them. Speed isn't everything — but speed wins most first bookings.
+        </p>
+      </div>
+    </section>
+
+    <!-- ====================== EMPTY CHAIRS ====================== -->
+    <section style="background: var(--bg-3)">
+      <div class="container">
+        <span class="section-label">// the slots you didn't fill</span>
+        <div class="empty-grid">
+          <div>
+            <div class="empty-stat reveal">73 searches</div>
+            <p class="empty-sub">
+              That's how many people in your area searched "Botox near me" or similar last Tuesday afternoon. Your calendar had four open slots. Nobody called.
+            </p>
+            <p style="margin-top:20px;font-size:14px;color:var(--text-3)">
+              We compare local search demand to your visibility every hour. When you're invisible during peak demand, we flag it.
+            </p>
+          </div>
+          <div class="empty-cal reveal d1">
+            <div class="cal-head">
+              <span>Tuesday · 12:00 — 5:00 PM</span>
+              <b>4 of 6 slots empty</b>
+            </div>
+            <div class="cal-row"><span class="cal-time">12:00</span><div class="cal-slot booked"></div></div>
+            <div class="cal-row"><span class="cal-time">1:00</span><div class="cal-slot empty"></div></div>
+            <div class="cal-row"><span class="cal-time">2:00</span><div class="cal-slot empty"></div></div>
+            <div class="cal-row"><span class="cal-time">3:00</span><div class="cal-slot booked"></div></div>
+            <div class="cal-row"><span class="cal-time">4:00</span><div class="cal-slot empty"></div></div>
+            <div class="cal-row"><span class="cal-time">5:00</span><div class="cal-slot empty"></div></div>
+            <div class="cal-search"></div>
+            <div class="cal-search-label">Local search demand peak — 1pm to 4pm</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ====================== GRADE ====================== -->
+    <section>
+      <div class="container">
+        <span class="section-label">// the bottom line</span>
+        <h2 class="serif">Your Mapsly Grade.</h2>
+        <p class="section-sub">
+          One letter. Everything we tracked. Mapped against the top spa in your city.
+        </p>
+
+        <div class="grade-card reveal">
+          <div class="grade-circle">
+            <div class="grade-letter">B</div>
+            <div class="grade-out-of">of A · #4 of 47 in Miami</div>
+          </div>
+          <div class="grade-text">
+            <h3 class="serif">A solid spa with three fixable gaps.</h3>
+            <p>
+              You do beautiful work — your reviews say it clearly. What's holding you back isn't your treatments. It's that nearly half your reviews never get a reply, you respond to quote requests 20× slower than the top spa, and your calendar has openings during peak search hours.
+            </p>
+            <ul class="grade-bullets">
+              <li>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg>
+                Fix the review replies → estimated +0.5 score
+              </li>
+              <li>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg>
+                Auto-reply to quote requests → estimated +0.4 score
+              </li>
+              <li>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg>
+                Fill 2 Tuesday afternoon slots/week → ~$2,800/mo
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ====================== INSTAGRAM SCORECARD ====================== -->
+    <section style="background: var(--bg-3)">
+      <div class="container">
+        <div class="ig-grid">
+          <div class="ig-text">
+            <span class="section-label">// share your score</span>
+            <h3 class="serif">A monthly scorecard your patients will love to see.</h3>
+            <p>
+              On the first of every month, we generate a beautiful card for your social. Your rank, your reviews, your wins.
+            </p>
+            <p>
+              Post it. Watch your patients screenshot it and tag you. Free social content that builds trust automatically.
+            </p>
+          </div>
+          <div class="ig-mock reveal">
+            <div class="ig-mock-head">
+              <div class="ig-mock-logo">L</div>
+              <div class="ig-mock-brand">Lumière Aesthetics</div>
+              <div class="ig-mock-month">June 2026</div>
+            </div>
+            <div class="ig-mock-body">
+              <div class="ig-mock-rank">#4</div>
+              <div class="ig-mock-rank-sub">of 47 med spas in Miami</div>
+              <div class="ig-mock-stats">
+                <div>
+                  <div class="ig-mock-stat-num">142</div>
+                  <div class="ig-mock-stat-label">Reviews</div>
+                </div>
+                <div>
+                  <div class="ig-mock-stat-num">4.7★</div>
+                  <div class="ig-mock-stat-label">Rating</div>
+                </div>
+                <div>
+                  <div class="ig-mock-stat-num">+14</div>
+                  <div class="ig-mock-stat-label">This month</div>
+                </div>
+              </div>
+            </div>
+            <div class="ig-mock-footer">Your monthly card · powered by Mapsly</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ====================== PRICING ====================== -->
+    <section id="pricing">
+      <div class="container">
+        <span class="section-label">// pricing</span>
+        <h2 class="serif">Start free. Pay only if it changes how you run your business.</h2>
+        <p class="section-sub">
+          See your full report free. Upgrade for weekly tracking, AI review replies, and the things that actually move your needle.
+        </p>
+
+        <div class="price-grid">
+          <div class="price-card">
+            <div class="price-name">Free</div>
+            <div class="price-amount">
+              <span class="price-amt-num">$0</span>
+              <span class="price-amt-period">one-time</span>
+            </div>
+            <p class="price-desc">See your reality once. No card. No call.</p>
+            <ul class="price-features">
+              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg> Your Mapsly grade + city rank</li>
+              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg> 3 patients who chose someone else</li>
+              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg> Your 3 biggest fixable gaps</li>
+              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg> Static snapshot — no refresh</li>
+            </ul>
+            <a href="#cta-search" class="btn btn-ghost btn-lg" style="width:100%">See my reality</a>
+          </div>
+
+          <div class="price-card featured">
+            <span class="price-tag">Most picked</span>
+            <div class="price-name">Pro</div>
+            <div class="price-amount">
+              <span class="price-amt-num">$39</span>
+              <span class="price-amt-period">/mo</span>
+            </div>
+            <p class="price-desc">For one owner who wants to win their city.</p>
+            <ul class="price-features">
+              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg> Everything in Free</li>
+              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg> Weekly refresh of every signal</li>
+              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg> Every patient we track going elsewhere</li>
+              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg> Alerts when a competitor moves</li>
+              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg> AI replies to your Google reviews</li>
+              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg> Monthly Instagram scorecard</li>
+            </ul>
+            <a href="#" class="btn btn-coral btn-lg" style="width:100%">Start 14-day trial</a>
+          </div>
+
+          <div class="price-card">
+            <div class="price-name">Plus</div>
+            <div class="price-amount">
+              <span class="price-amt-num">$89</span>
+              <span class="price-amt-period">/mo</span>
+            </div>
+            <p class="price-desc">For multi-location owners and one make-or-break market.</p>
+            <ul class="price-features">
+              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg> Everything in Pro</li>
+              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg> Up to 3 locations</li>
+              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg> Phone race vs your top 5 competitors</li>
+              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg> What your reviews are really saying</li>
+              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg> Integrations (Mindbody, Boulevard)</li>
+              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg> Priority support</li>
+            </ul>
+            <a href="#" class="btn btn-ghost btn-lg" style="width:100%">Start 14-day trial</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ====================== FAQ ====================== -->
+    <section style="background: var(--bg-3)">
+      <div class="container">
+        <span class="section-label">// quick questions</span>
+        <h2 class="serif" style="margin-bottom:48px">Honest answers.</h2>
+
+        <div class="faq">
+          <div class="faq-item">
+            <div class="faq-q">Is the free report actually free?</div>
+            <div class="faq-a"><div style="padding-top:0">
+              Yes. No card, no sales call, no signup before you see it. Type your business name, we pull your data, you see the report on one page. Save it, share it, come back later. Static snapshot — paid plans refresh weekly.
+            </div></div>
+          </div>
+          <div class="faq-item">
+            <div class="faq-q">Where do you get the patient data?</div>
+            <div class="faq-a"><div style="padding-top:0">
+              Public Google and Yelp reviews. We don't see anyone's medical records, contact info, or anything private. We use what's already on the internet — and find the patterns nobody else looks for.
+            </div></div>
+          </div>
+          <div class="faq-item">
+            <div class="faq-q">My business isn't on the list. Can I still get a report?</div>
+            <div class="faq-a"><div style="padding-top:0">
+              Yes. Type your name + city in the search bar — if we don't have you yet, we'll add you and email when the report's ready (usually within 24 hours).
+            </div></div>
+          </div>
+          <div class="faq-item">
+            <div class="faq-q">Will my competitors see my data?</div>
+            <div class="faq-a"><div style="padding-top:0">
+              Your dashboard is private. The data that *was already public anyway* (your Google reviews, your Yelp, your rating) appears in any agency searches that match your category. You can opt out anytime.
+            </div></div>
+          </div>
+          <div class="faq-item">
+            <div class="faq-q">Can I cancel anytime?</div>
+            <div class="faq-a"><div style="padding-top:0">
+              One click. No phone call, no "are you sure" pop-ups. Monthly plans cancel at the end of the current cycle.
+            </div></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ====================== FINAL CTA ====================== -->
+    <section class="cta-section" id="cta-search">
+      <div class="cta-inner">
+        <h2 class="cta-h2">See your reality. <em>It's already there.</em></h2>
+        <p class="cta-sub">Free report · 30 seconds · no signup until you ask for more.</p>
+        <div class="search-card cta-search">
+          <div class="search-row">
+            <div class="search-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8" />
+                <path d="m21 21-4.3-4.3" />
+              </svg>
+            </div>
+            <input class="search-input" type="text" placeholder="Your business name + city…" />
+            <button class="btn btn-coral">
+              Get my report
+              <svg class="btn-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <path d="M5 12h14M13 6l6 6-6 6" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ====================== FOOTER ====================== -->
+    <footer>
+      <div class="footer-inner">
+        <a href="index.html" class="logo">
+          <span class="logo-dot"></span>
+          mapsly
+        </a>
+        <div class="footer-links">
+          <a href="index.html">Home</a>
+          <a href="for-agencies.html">For agencies</a>
+          <a href="#pricing">Pricing</a>
+          <a href="#">Privacy</a>
+          <a href="mailto:hello@mapsly.ai">hello@mapsly.ai</a>
+        </div>
+        <span class="footer-copy">© 2026 Mapsly</span>
+      </div>
+    </footer>
+
+    <script>
+      // ============ HERO TYPING ANIMATION ============
+      const searchInput = document.getElementById('searchInput');
+      const examples = [
+        'Lumière Aesthetics, Miami',
+        'Glow Skin Lab, Phoenix',
+        'Pure Aesthetics, Toronto',
+        'Coral Gables Med Spa',
+        'Brickell Aesthetic Studio',
+      ];
+      let exampleIndex = 0;
+      let charIndex = 0;
+      let typingDirection = 'forward';
+
+      function typeLoop() {
+        if (document.activeElement === searchInput) return;
+        const word = examples[exampleIndex];
+        if (typingDirection === 'forward') {
+          if (charIndex < word.length) {
+            searchInput.placeholder = word.slice(0, charIndex + 1) + '|';
+            charIndex++;
+            setTimeout(typeLoop, 60);
+          } else {
+            searchInput.placeholder = word;
+            setTimeout(() => { typingDirection = 'back'; typeLoop(); }, 1800);
+          }
+        } else {
+          if (charIndex > 0) {
+            searchInput.placeholder = word.slice(0, charIndex - 1) + '|';
+            charIndex--;
+            setTimeout(typeLoop, 30);
+          } else {
+            typingDirection = 'forward';
+            exampleIndex = (exampleIndex + 1) % examples.length;
+            setTimeout(typeLoop, 400);
+          }
+        }
+      }
+      setTimeout(typeLoop, 800);
+
+      // ============ MONEY COUNT-UP ============
+      const moneyNum = document.getElementById('moneyNum');
+      const moneyObserver = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+              const target = 4200;
+              const duration = 1400;
+              const start = performance.now();
+              const animate = (now) => {
+                const elapsed = now - start;
+                const progress = Math.min(elapsed / duration, 1);
+                const eased = 1 - Math.pow(1 - progress, 3);
+                const val = Math.floor(eased * target);
+                moneyNum.textContent = '$' + val.toLocaleString();
+                if (progress < 1) requestAnimationFrame(animate);
+              };
+              requestAnimationFrame(animate);
+              moneyObserver.unobserve(entry.target);
+            }
+          });
+        },
+        { threshold: 0.4 }
+      );
+      moneyObserver.observe(moneyNum);
+
+      // ============ REVEAL ON SCROLL ============
+      const observer = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+              entry.target.classList.add('in-view');
+              observer.unobserve(entry.target);
+            }
+          });
+        },
+        { threshold: 0.15 }
+      );
+      document.querySelectorAll('.reveal').forEach((el) => observer.observe(el));
+
+      // ============ FAQ ============
+      document.querySelectorAll('.faq-q').forEach((q) => {
+        q.addEventListener('click', () => q.parentElement.classList.toggle('open'));
+      });
+
+      // ============ SUGGEST PILLS FILL INPUT ============
+      document.querySelectorAll('.suggest-pill').forEach((p) => {
+        p.addEventListener('click', () => {
+          searchInput.value = p.textContent;
+          searchInput.focus();
+        });
+      });
+    </script>
+  </body>
+</html>

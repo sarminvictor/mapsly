@@ -1,0 +1,151 @@
+{
+  "marketing": {
+    "hero_smb": {
+      "title": "Local business intelligence — refreshed weekly",
+      "subtitle": "See what's working, what's not, and exactly what to fix this week.",
+      "cta_primary": "Start free",
+      "cta_secondary": "See how it works"
+    },
+    "hero_agency": {
+      "title": "Local SMBs ready to switch.",
+      "subtitle": "With reasons. With contacts. Right now.",
+      "cta_primary": "Get 50 free leads",
+      "cta_secondary": "See live demo"
+    },
+    "stats": {
+      "businesses_indexed": "Businesses indexed",
+      "filter_signals": "Filter signals",
+      "email_verify_rate": "Email verify rate",
+      "refresh_cadence": "Refresh cadence"
+    },
+    "pricing": {
+      "smb_paid": "{price}/mo",
+      "agency_solo": "{price}/mo · 1 seat",
+      "agency_growth": "{price}/mo · 3 seats",
+      "agency_pro": "{price}/mo · 10 seats",
+      "agency_boutique": "{price}/mo · unlimited"
+    }
+  },
+
+  "smb": {
+    "dashboard": {
+      "greeting_morning": "Good morning, {name}",
+      "greeting_afternoon": "Good afternoon, {name}",
+      "greeting_evening": "Good evening, {name}",
+      "subtitle_refreshed": "Refreshed {when}",
+      "kpi": {
+        "score": "Mapsly Score",
+        "score_tooltip": "Weighted score across 6 dimensions: reputation, communication, profile completeness, trust, pricing transparency, brand presence.",
+        "rank_metro": "Rank in metro",
+        "rank_metro_tooltip": "Out of every active business in your category and metro, here's where you stand. Updated weekly.",
+        "patients_per_month": "Estimated patients per month",
+        "patients_per_month_tooltip": "Approximate number of new patients you'll get from Google search this month. Based on volume, your rank, and category averages.",
+        "reply_rate": "Review reply rate",
+        "reply_rate_tooltip": "The percentage of your reviews where you've replied. Most businesses in your category reply to about 89%.",
+        "brand_protection": "Brand protection",
+        "brand_protection_tooltip": "We check daily whether anyone is running ads on your business name. Clean means no one is.",
+        "review_velocity": "Reviews this month"
+      },
+      "needs_attention": "What needs your attention",
+      "top_fixes": "Your highest-impact fixes",
+      "empty_state": "No new reviews this week. We'll show them here as they come in."
+    },
+    "reviews": {
+      "title": "Reviews",
+      "tab_unanswered": "{count, plural, =0 {No unanswered} one {# unanswered} other {# unanswered}}",
+      "tab_negative": "Negative",
+      "tab_all": "All recent",
+      "ai_draft_label": "AI-drafted reply",
+      "ai_draft_post": "Post to Google",
+      "ai_draft_edit": "Edit draft",
+      "ai_draft_regenerate": "Regenerate"
+    }
+  },
+
+  "agency": {
+    "lists": {
+      "title": "Lists",
+      "subtitle": "One list per service you sell",
+      "today_new": "{count, plural, =0 {No new leads today} one {# new lead today} other {# new leads today}}",
+      "across_lists": " across your {count} active lists",
+      "empty_state": "No lists yet. Start one from a service you sell — or use the search to explore.",
+      "create_list": "New list",
+      "service_templates": {
+        "website": "Website rebuild",
+        "meta_ads": "Meta ads campaign",
+        "google_ads": "Google Ads launch",
+        "local_seo": "Local SEO + GBP",
+        "reviews": "Review management",
+        "brand": "Brand defense",
+        "launch": "New-business launch",
+        "audit": "Full audit"
+      }
+    },
+    "lead_status": {
+      "new": "New",
+      "contacted": "Contacted",
+      "replied": "Replied",
+      "won": "Won",
+      "lost": "Lost",
+      "hidden": "Hidden"
+    },
+    "search": {
+      "title": "Search",
+      "subtitle": "Build a list around the service you sell · 60+ tunable signals",
+      "step_1": "Step 1 · Pick a service template",
+      "step_2": "Step 2 · Target market",
+      "step_3": "Step 3 · Tune your filters",
+      "save_as_list": "Save as list",
+      "see_results": "See {count} results"
+    }
+  },
+
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "open": "Open",
+    "close": "Close",
+    "next": "Next",
+    "previous": "Previous",
+    "loading": "Loading…",
+    "search": "Search"
+  },
+
+  "errors": {
+    "generic": "Something went wrong. Try again in a moment.",
+    "unauthorized": "You need to sign in to see this.",
+    "forbidden": "You don't have access to this.",
+    "not_found": "We couldn't find what you were looking for.",
+    "rate_limited": "Too many requests. Try again in {minutes} minutes.",
+    "dataforseo_unavailable": "Data source temporarily unavailable. Retry in a few minutes.",
+    "validation": "Some fields need attention.",
+    "network": "Network issue. Check your connection and try again."
+  },
+
+  "nav": {
+    "dashboard": "Dashboard",
+    "reviews": "Reviews",
+    "activity": "Activity",
+    "competitors": "Competitors",
+    "search_visibility": "Search visibility",
+    "ads": "Ads intelligence",
+    "website": "Website health",
+    "market": "Market reality",
+    "settings": "Settings",
+    "lists": "Lists",
+    "search": "Search",
+    "reports": "Reports",
+    "list_analytics": "List analytics"
+  },
+
+  "settings": {
+    "title": "Settings",
+    "language": "Language",
+    "language_help": "Auto-detects from your browser. You can override here.",
+    "billing": "Billing",
+    "team": "Team",
+    "notifications": "Notifications"
+  }
+}

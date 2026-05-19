@@ -1,0 +1,1146 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Activity · Mapsly</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+    <style>
+      :root {
+        --bg: #faf6f1;
+        --bg-2: #ffffff;
+        --bg-3: #f2ebe3;
+        --bg-dark: #1c1916;
+        --bg-sidebar: #faf6f1;
+        --text: #1c1916;
+        --text-2: #5c544d;
+        --text-3: #9a9088;
+        --text-4: #c0b5a8;
+        --border: #e8ddd0;
+        --border-strong: #d8c9b8;
+        --coral: #c3553a;
+        --coral-light: rgba(195, 85, 58, 0.1);
+        --berry: #8b3a2c;
+        --gold: #d4a574;
+        --gold-2: #e8c79b;
+        --gold-light: rgba(212, 165, 116, 0.18);
+        --success: #2d8659;
+        --success-light: rgba(45, 134, 89, 0.12);
+        --alert: #b53d47;
+        --alert-light: rgba(181, 61, 71, 0.1);
+        --info: #3b6ec4;
+        --info-light: rgba(59, 110, 196, 0.1);
+        --purple: #6b4f9b;
+        --purple-light: rgba(107, 79, 155, 0.12);
+        --ease: cubic-bezier(0.16, 1, 0.3, 1);
+        --shadow-sm: 0 2px 8px rgba(28, 25, 22, 0.04);
+        --shadow-md: 0 8px 24px rgba(28, 25, 22, 0.06);
+      }
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html { scroll-behavior: smooth; }
+      body {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        line-height: 1.5;
+        -webkit-font-smoothing: antialiased;
+        min-height: 100vh;
+        display: flex;
+      }
+      a { color: inherit; text-decoration: none; }
+      button { font-family: inherit; cursor: pointer; border: none; background: none; }
+
+      /* ============ SIDEBAR ============ */
+      .sidebar {
+        width: 240px;
+        background: var(--bg-sidebar);
+        border-right: 1px solid var(--border);
+        padding: 22px 16px;
+        height: 100vh;
+        position: sticky;
+        top: 0;
+        display: flex; flex-direction: column;
+        flex-shrink: 0;
+      }
+      .sidebar-logo {
+        display: flex; align-items: center; gap: 10px;
+        padding: 6px 8px 22px;
+        margin-bottom: 12px;
+        border-bottom: 1px solid var(--border);
+      }
+      .sidebar-logo-dot {
+        width: 9px; height: 9px; border-radius: 50%;
+        background: var(--coral);
+        box-shadow: 0 0 10px rgba(195, 85, 58, 0.5);
+      }
+      .sidebar-logo-text {
+        font-family: 'Fraunces', serif;
+        font-size: 19px; font-weight: 700;
+        letter-spacing: -0.02em;
+      }
+      .sidebar-section-label {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 10px; font-weight: 600;
+        text-transform: uppercase; letter-spacing: 0.12em;
+        color: var(--text-3);
+        padding: 14px 10px 6px;
+      }
+      .nav-item {
+        display: flex; align-items: center; gap: 11px;
+        padding: 9px 10px;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 500;
+        color: var(--text-2);
+        transition: all 0.15s var(--ease);
+      }
+      .nav-item:hover { background: rgba(28, 25, 22, 0.04); color: var(--text); }
+      .nav-item.active {
+        background: var(--coral-light);
+        color: var(--coral);
+        font-weight: 600;
+      }
+      .nav-item svg { flex-shrink: 0; }
+      .nav-item-badge {
+        margin-left: auto;
+        background: var(--alert); color: #fff;
+        font-size: 10px; font-weight: 700;
+        padding: 2px 6px;
+        border-radius: 10px;
+        min-width: 18px; text-align: center;
+        font-family: 'JetBrains Mono', monospace;
+      }
+      .nav-item-badge.info { background: var(--info); }
+      .sidebar-footer {
+        margin-top: auto;
+        padding-top: 16px;
+        border-top: 1px solid var(--border);
+      }
+      .sidebar-business {
+        display: flex; align-items: center; gap: 10px;
+        padding: 10px 10px;
+        border-radius: 8px;
+        background: var(--bg-3);
+      }
+      .sidebar-biz-avatar {
+        width: 32px; height: 32px;
+        border-radius: 8px;
+        background: linear-gradient(135deg, var(--gold), var(--coral));
+        display: flex; align-items: center; justify-content: center;
+        color: #fff; font-weight: 700; font-size: 14px;
+        font-family: 'Fraunces', serif;
+      }
+      .sidebar-biz-name {
+        font-size: 13px; font-weight: 600;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      }
+      .sidebar-biz-meta {
+        font-size: 11px; color: var(--text-3);
+        font-family: 'JetBrains Mono', monospace;
+      }
+
+      /* ============ MAIN ============ */
+      .main { flex: 1; min-width: 0; }
+      .topbar {
+        position: sticky; top: 0; z-index: 10;
+        background: rgba(250, 246, 241, 0.92);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border-bottom: 1px solid var(--border);
+        padding: 16px 32px;
+        display: flex; align-items: center; justify-content: space-between;
+      }
+      .topbar-title {
+        font-family: 'Fraunces', serif;
+        font-size: 22px; font-weight: 600;
+        letter-spacing: -0.02em;
+      }
+      .topbar-subtitle {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 12px;
+        color: var(--text-3);
+      }
+      .topbar-right { display: flex; align-items: center; gap: 10px; }
+      .top-pill {
+        display: inline-flex; align-items: center; gap: 7px;
+        padding: 7px 12px;
+        background: var(--bg-2);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        font-size: 12px;
+        color: var(--text-2);
+        font-family: 'JetBrains Mono', monospace;
+      }
+      .top-pill-dot {
+        width: 7px; height: 7px; border-radius: 50%;
+        background: var(--success);
+      }
+      .btn {
+        padding: 8px 14px;
+        border-radius: 8px;
+        font-size: 12.5px;
+        font-weight: 600;
+        cursor: pointer;
+        display: inline-flex; align-items: center; gap: 7px;
+      }
+      .btn-primary { background: var(--coral); color: #fff; }
+      .btn-primary:hover { background: var(--berry); }
+      .btn-ghost {
+        background: transparent;
+        color: var(--text-2);
+        border: 1px solid var(--border);
+      }
+      .btn-ghost:hover { border-color: var(--border-strong); color: var(--text); }
+
+      .content {
+        padding: 28px 32px 64px;
+        max-width: 1400px;
+      }
+
+      /* ============ FILTER BAR ============ */
+      .filter-bar {
+        background: var(--bg-2);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 14px 20px;
+        margin-bottom: 22px;
+        display: flex; gap: 10px;
+        align-items: center;
+        flex-wrap: wrap;
+        box-shadow: var(--shadow-sm);
+      }
+      .filter-pill {
+        padding: 7px 14px;
+        font-size: 12.5px;
+        font-weight: 500;
+        color: var(--text-2);
+        border: 1px solid var(--border);
+        border-radius: 100px;
+        background: var(--bg-2);
+        display: inline-flex; align-items: center; gap: 7px;
+        transition: all 0.15s;
+      }
+      .filter-pill:hover { border-color: var(--border-strong); color: var(--text); }
+      .filter-pill.active {
+        background: var(--text);
+        color: #fff;
+        border-color: var(--text);
+      }
+      .filter-pill-count {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 10px;
+        font-weight: 700;
+        background: var(--bg-3);
+        color: var(--text-2);
+        padding: 1px 6px;
+        border-radius: 100px;
+      }
+      .filter-pill.active .filter-pill-count {
+        background: rgba(255,255,255,0.15);
+        color: rgba(255,255,255,0.9);
+      }
+      .filter-divider {
+        width: 1px; height: 22px;
+        background: var(--border);
+      }
+      .filter-select {
+        margin-left: auto;
+        padding: 7px 11px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--bg-2);
+        font-size: 12px;
+        color: var(--text-2);
+        cursor: pointer;
+      }
+
+      /* ============ FEED ============ */
+      .feed-layout {
+        display: grid;
+        grid-template-columns: 1fr 320px;
+        gap: 22px;
+        align-items: start;
+      }
+      @media (max-width: 1100px) { .feed-layout { grid-template-columns: 1fr; } }
+
+      .day-group { margin-bottom: 26px; }
+      .day-label {
+        display: flex; align-items: center; gap: 12px;
+        margin-bottom: 12px;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        color: var(--text-3);
+      }
+      .day-label::after {
+        content: '';
+        flex: 1;
+        height: 1px;
+        background: var(--border);
+      }
+      .day-label-count {
+        background: var(--bg-3);
+        color: var(--text-2);
+        padding: 2px 8px;
+        border-radius: 100px;
+        font-size: 10px;
+      }
+
+      .event {
+        display: grid;
+        grid-template-columns: 36px 1fr auto;
+        gap: 14px;
+        padding: 14px 18px;
+        background: var(--bg-2);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        margin-bottom: 8px;
+        align-items: flex-start;
+        transition: all 0.15s var(--ease);
+      }
+      .event:hover {
+        border-color: var(--border-strong);
+        box-shadow: var(--shadow-sm);
+      }
+      .event.event-priority {
+        background: linear-gradient(90deg, var(--alert-light) 0%, var(--bg-2) 16%);
+        border-color: rgba(181, 61, 71, 0.25);
+      }
+      .event.event-good {
+        background: linear-gradient(90deg, var(--success-light) 0%, var(--bg-2) 16%);
+      }
+
+      .event-icon {
+        width: 32px; height: 32px;
+        border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        color: #fff;
+        flex-shrink: 0;
+      }
+      .event-icon.alert { background: var(--alert); }
+      .event-icon.gold { background: var(--gold); }
+      .event-icon.success { background: var(--success); }
+      .event-icon.info { background: var(--info); }
+      .event-icon.purple { background: var(--purple); }
+      .event-icon.coral { background: var(--coral); }
+      .event-icon.muted {
+        background: var(--bg-3);
+        color: var(--text-2);
+      }
+
+      .event-body { min-width: 0; }
+      .event-meta-line {
+        display: flex; align-items: baseline; gap: 9px;
+        flex-wrap: wrap;
+        margin-bottom: 4px;
+      }
+      .event-category {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        padding: 2px 8px;
+        border-radius: 4px;
+      }
+      .event-category.reviews { background: var(--coral-light); color: var(--coral); }
+      .event-category.ads { background: var(--gold-light); color: #8a5a1f; }
+      .event-category.search { background: var(--info-light); color: var(--info); }
+      .event-category.competitors { background: var(--purple-light); color: var(--purple); }
+      .event-category.profile { background: var(--bg-3); color: var(--text-2); }
+      .event-category.market { background: var(--success-light); color: var(--success); }
+      .event-category.alert { background: var(--alert-light); color: var(--alert); }
+      .event-time {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 11px;
+        color: var(--text-3);
+      }
+      .event-actor {
+        font-size: 11.5px;
+        font-weight: 500;
+        color: var(--text-2);
+      }
+      .event-text {
+        font-size: 14px;
+        line-height: 1.5;
+        color: var(--text);
+      }
+      .event-text b { font-weight: 600; }
+      .event-text .pill-inline {
+        display: inline-block;
+        font-size: 11px;
+        padding: 1px 7px;
+        border-radius: 4px;
+        background: var(--bg-3);
+        color: var(--text-2);
+        font-family: 'JetBrains Mono', monospace;
+        vertical-align: 1px;
+        margin: 0 2px;
+      }
+      .event-text .pill-up { background: var(--success-light); color: var(--success); }
+      .event-text .pill-down { background: var(--alert-light); color: var(--alert); }
+      .event-snippet {
+        margin-top: 8px;
+        padding: 10px 12px;
+        background: var(--bg-3);
+        border-left: 2px solid var(--border-strong);
+        border-radius: 6px;
+        font-size: 13px;
+        line-height: 1.5;
+        color: var(--text-2);
+        font-style: italic;
+      }
+      .event-source {
+        margin-top: 6px;
+        font-size: 11px;
+        color: var(--text-3);
+        font-family: 'JetBrains Mono', monospace;
+      }
+      .event-cta {
+        flex-shrink: 0;
+        font-size: 12px;
+        color: var(--coral);
+        font-weight: 600;
+        padding: 6px 10px;
+        border-radius: 6px;
+        white-space: nowrap;
+        align-self: center;
+      }
+      .event-cta:hover { background: var(--coral); color: #fff; }
+      .event-cta.muted { color: var(--text-3); }
+      .event-cta.muted:hover { color: var(--text); background: var(--bg-3); }
+
+      /* ============ RIGHT RAIL ============ */
+      .rail-card {
+        background: var(--bg-2);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 18px 20px;
+        box-shadow: var(--shadow-sm);
+        margin-bottom: 16px;
+      }
+      .rail-title {
+        font-size: 13px; font-weight: 600;
+        margin-bottom: 12px;
+        display: flex; align-items: center; gap: 6px;
+      }
+      .summary-row {
+        display: flex; justify-content: space-between; align-items: center;
+        padding: 9px 0;
+        border-bottom: 1px solid var(--border);
+        font-size: 13px;
+      }
+      .summary-row:last-child { border-bottom: none; }
+      .summary-name {
+        color: var(--text-2);
+        display: flex; align-items: center; gap: 9px;
+      }
+      .summary-dot {
+        display: inline-block;
+        width: 8px; height: 8px;
+        border-radius: 50%;
+      }
+      .summary-num {
+        font-family: 'JetBrains Mono', monospace;
+        font-weight: 600;
+        color: var(--text);
+      }
+
+      /* digest preview */
+      .digest-preview {
+        font-size: 12.5px;
+        line-height: 1.55;
+        color: var(--text-2);
+        padding: 14px;
+        background: var(--bg-3);
+        border-radius: 10px;
+        margin-bottom: 14px;
+      }
+      .digest-preview-line { display: block; margin-bottom: 6px; }
+      .digest-preview-line:last-child { margin-bottom: 0; }
+      .digest-preview-line b { color: var(--text); font-weight: 600; }
+
+      /* Heatmap of activity by hour */
+      .heat-grid {
+        display: grid;
+        grid-template-columns: repeat(24, 1fr);
+        gap: 2px;
+        margin-top: 6px;
+      }
+      .heat-cell {
+        height: 8px;
+        background: var(--bg-3);
+        border-radius: 2px;
+      }
+      .heat-cell.h1 { background: rgba(195, 85, 58, 0.20); }
+      .heat-cell.h2 { background: rgba(195, 85, 58, 0.45); }
+      .heat-cell.h3 { background: rgba(195, 85, 58, 0.70); }
+      .heat-cell.h4 { background: var(--coral); }
+      .heat-axis {
+        display: flex; justify-content: space-between;
+        font-size: 9px; color: var(--text-3);
+        font-family: 'JetBrains Mono', monospace;
+        margin-top: 5px;
+      }
+
+      /* ============ TECH TOOLTIPS ============ */
+      .info-tip {
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 14px; height: 14px;
+        border-radius: 50%;
+        background: var(--bg-3);
+        color: var(--text-3);
+        font-size: 10px;
+        font-weight: 700;
+        margin-left: 4px;
+        cursor: help;
+        font-family: 'JetBrains Mono', monospace;
+        position: relative;
+        vertical-align: 2px;
+      }
+      .info-tip:hover { background: var(--coral-light); color: var(--coral); }
+      .info-tip[data-tip]::after {
+        content: attr(data-tip);
+        position: absolute;
+        bottom: 100%;
+        right: 0;
+        transform: translateY(-6px);
+        background: var(--bg-dark);
+        color: #fff;
+        padding: 10px 14px;
+        border-radius: 8px;
+        font-size: 11px;
+        font-weight: 400;
+        line-height: 1.5;
+        font-family: 'Inter', sans-serif;
+        text-transform: none;
+        letter-spacing: normal;
+        white-space: pre-line;
+        width: 280px;
+        text-align: left;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.2s;
+        z-index: 100;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+      }
+      .info-tip:hover::after { opacity: 1; }
+
+      @media (max-width: 768px) {
+        .sidebar { display: none; }
+        .topbar { padding: 14px 18px; }
+        .content { padding: 18px 18px 48px; }
+        .filter-bar { padding: 12px 14px; }
+      }
+    </style>
+  </head>
+  <body>
+
+    <!-- ============ SIDEBAR ============ -->
+    <aside class="sidebar">
+      <div class="sidebar-logo">
+        <span class="sidebar-logo-dot"></span>
+        <span class="sidebar-logo-text">mapsly</span>
+      </div>
+
+      <div class="sidebar-section-label">Daily</div>
+      <a href="dashboard.html" class="nav-item">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>
+        Dashboard
+      </a>
+      <a href="reviews.html" class="nav-item">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3 7h7l-5.5 4.5L18 21l-6-4-6 4 1.5-7.5L2 9h7z"/></svg>
+        Reviews
+        <span class="nav-item-badge">8</span>
+      </a>
+      <a href="activity.html" class="nav-item active">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+        Activity
+        <span class="nav-item-badge info">3</span>
+      </a>
+
+      <div class="sidebar-section-label">Watch</div>
+      <a href="competitors.html" class="nav-item">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2v20M2 12h20"/></svg>
+        Competitors
+      </a>
+      <a href="search.html" class="nav-item">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        Search visibility
+      </a>
+      <a href="ads.html" class="nav-item">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 8h7M9 12h7M9 16h4"/></svg>
+        Ads intelligence
+      </a>
+
+      <div class="sidebar-section-label">Audit</div>
+      <a href="website.html" class="nav-item">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+        Website health
+      </a>
+      <a href="market.html" class="nav-item">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 16l4-8 4 4 5-10"/></svg>
+        Market reality
+      </a>
+
+      <div class="sidebar-section-label">Account</div>
+      <a href="settings.html" class="nav-item">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        Settings
+      </a>
+
+      <div class="sidebar-footer">
+        <div class="sidebar-business">
+          <div class="sidebar-biz-avatar">S</div>
+          <div>
+            <div class="sidebar-biz-name">Solea Brickell Spa</div>
+            <div class="sidebar-biz-meta">Miami · Brickell</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ============ MAIN ============ -->
+    <main class="main">
+
+      <header class="topbar">
+        <div>
+          <div class="topbar-title">Activity</div>
+          <div class="topbar-subtitle">Everything that moved in your market · last 7 days</div>
+        </div>
+        <div class="topbar-right">
+          <span class="top-pill"><span class="top-pill-dot"></span>Live · auto-refresh on</span>
+          <button class="btn btn-ghost">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+            Email digest
+          </button>
+        </div>
+      </header>
+
+      <div class="content">
+
+        <!-- ============ FILTER BAR ============ -->
+        <div class="filter-bar">
+          <button class="filter-pill active">All <span class="filter-pill-count">38</span></button>
+          <button class="filter-pill">Reviews <span class="filter-pill-count">12</span></button>
+          <button class="filter-pill">Ads <span class="filter-pill-count">9</span></button>
+          <button class="filter-pill">Search <span class="filter-pill-count">6</span></button>
+          <button class="filter-pill">Competitors <span class="filter-pill-count">7</span></button>
+          <button class="filter-pill">Market <span class="filter-pill-count">3</span></button>
+          <button class="filter-pill">Alerts <span class="filter-pill-count">1</span></button>
+          <div class="filter-divider"></div>
+          <button class="filter-pill">Yours</button>
+          <button class="filter-pill">Lux MedSpa</button>
+          <button class="filter-pill">Sisu Clinic</button>
+          <select class="filter-select">
+            <option>Last 7 days</option>
+            <option>Today</option>
+            <option>Last 24 hours</option>
+            <option>Last 30 days</option>
+          </select>
+        </div>
+
+        <!-- ============ MAIN GRID ============ -->
+        <div class="feed-layout">
+
+          <!-- LEFT · the feed -->
+          <div>
+
+            <!-- ============ TODAY · MAY 17 ============ -->
+            <div class="day-group">
+              <div class="day-label">Today · Mon May 17 <span class="day-label-count">6 events</span></div>
+
+              <!-- 1 · Brand hijack scan completed -->
+              <div class="event event-good">
+                <div class="event-icon success">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 12l2 2 4-4M12 2L4 6v6c0 5 3 8 8 10 5-2 8-5 8-10V6l-8-4z"/></svg>
+                </div>
+                <div class="event-body">
+                  <div class="event-meta-line">
+                    <span class="event-category alert">Brand protection</span>
+                    <span class="event-time">9:07 AM · today</span>
+                    <span class="event-actor">Auto-scan</span>
+                  </div>
+                  <div class="event-text">
+                    Daily brand hijack scan on <b>"solea brickell spa"</b> — <span class="pill-inline pill-up">0 paid bidders</span>. Your brand is clean today.
+                  </div>
+                  <div class="event-source">
+                    Source: Google SERP live scan · type=paid filter · daily 9:00 AM
+                    <span class="info-tip" data-tip="Every morning we run a live Google search for your exact brand name and check for paid ads from competitors. If anyone is bidding on your brand, you'll see them here with their ad copy.">i</span>
+                  </div>
+                </div>
+                <a href="#" class="event-cta muted">View scan →</a>
+              </div>
+
+              <!-- 2 · Sisu added 1 new ad -->
+              <div class="event event-priority">
+                <div class="event-icon alert">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 8h7M9 12h7M9 16h4"/></svg>
+                </div>
+                <div class="event-body">
+                  <div class="event-meta-line">
+                    <span class="event-category ads">Ads · Meta</span>
+                    <span class="event-time">8:14 AM · today</span>
+                    <span class="event-actor">Sisu Clinic Miami</span>
+                  </div>
+                  <div class="event-text">
+                    <b>Sisu Clinic launched 3 new Meta ads</b> — all on "botox brickell" geo-targeting <span class="pill-inline">3-mile radius</span> overlapping your catchment. They are in your building (701 S Miami Ave).
+                  </div>
+                  <div class="event-snippet">
+                    "Tox by board-certified MDs · $9/unit Brickell special · same-day appointments available"
+                  </div>
+                  <div class="event-source">
+                    Source: Meta Ad Library · funder verified · est. spend $40–80/day · ad started May 17
+                    <span class="info-tip" data-tip="Meta Ad Library is a free public database of every active ad. We poll daily for ads from your competitor list and ads targeting your service keywords. Source field is funder name; spend is estimated from the impressions banding.">i</span>
+                  </div>
+                </div>
+                <a href="ads.html" class="event-cta">See ads →</a>
+              </div>
+
+              <!-- 3 · Lux MedSpa replied to 4 reviews -->
+              <div class="event">
+                <div class="event-icon coral">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+                </div>
+                <div class="event-body">
+                  <div class="event-meta-line">
+                    <span class="event-category reviews">Reviews · Competitor</span>
+                    <span class="event-time">7:42 AM · today</span>
+                    <span class="event-actor">LUX MedSpa Brickell</span>
+                  </div>
+                  <div class="event-text">
+                    Lux replied to <b>4 new reviews overnight</b> — owner sign-off on each, average response time <span class="pill-inline">3.2 hrs</span>. Their reply rate stays at <span class="pill-inline pill-up">95%</span>. You are at <span class="pill-inline pill-down">0%</span>.
+                  </div>
+                  <div class="event-source">
+                    Source: Google Reviews API · sort_by=newest · diff against yesterday's snapshot
+                  </div>
+                </div>
+                <a href="reviews.html" class="event-cta">Reply queue →</a>
+              </div>
+
+              <!-- 4 · Photos update -->
+              <div class="event">
+                <div class="event-icon muted">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+                </div>
+                <div class="event-body">
+                  <div class="event-meta-line">
+                    <span class="event-category profile">Profile · Lux</span>
+                    <span class="event-time">6:30 AM · today</span>
+                    <span class="event-actor">LUX MedSpa Brickell</span>
+                  </div>
+                  <div class="event-text">
+                    Lux added <b>11 new photos</b> to their Google profile — now at <span class="pill-inline">711 photos</span>. You are at <span class="pill-inline pill-down">46</span>.
+                  </div>
+                  <div class="event-source">
+                    Source: business_data/google/info · photos_count delta tracked daily
+                  </div>
+                </div>
+                <a href="competitors.html" class="event-cta muted">View profile →</a>
+              </div>
+
+              <!-- 5 · Your snapshot refreshed -->
+              <div class="event">
+                <div class="event-icon info">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 12a9 9 0 0 1 9-9 9 9 0 0 1 6.7 3M21 3v6h-6M21 12a9 9 0 0 1-9 9 9 9 0 0 1-6.7-3M3 21v-6h6"/></svg>
+                </div>
+                <div class="event-body">
+                  <div class="event-meta-line">
+                    <span class="event-category profile">System</span>
+                    <span class="event-time">6:00 AM · today</span>
+                    <span class="event-actor">Mapsly</span>
+                  </div>
+                  <div class="event-text">
+                    Weekly snapshot refreshed for Solea Brickell Spa. <b>Mapsly Score: 6.2</b> <span class="pill-inline pill-up">+0.1 from last week</span> · MSI <span class="pill-inline">#37/40</span> <span class="pill-inline pill-up">↑2</span>
+                  </div>
+                  <div class="event-source">
+                    Source: Worker job snapshot.weekly · Mondays 6:00 AM your local time
+                    <span class="info-tip" data-tip="Every Monday at 6am, we run the full pipeline: pull reviews, refresh rankings, check ads, audit website, recompute scores. This event marks completion. Open the dashboard for the full breakdown.">i</span>
+                  </div>
+                </div>
+                <a href="dashboard.html" class="event-cta">View dashboard →</a>
+              </div>
+
+              <!-- 6 · No Filter MedSpa earned 6 reviews -->
+              <div class="event">
+                <div class="event-icon coral">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2l3 7h7l-5.5 4.5L18 21l-6-4-6 4 1.5-7.5L2 9h7z"/></svg>
+                </div>
+                <div class="event-body">
+                  <div class="event-meta-line">
+                    <span class="event-category reviews">Reviews · Competitor</span>
+                    <span class="event-time">4:15 AM · today</span>
+                    <span class="event-actor">No Filter Medical Spa</span>
+                  </div>
+                  <div class="event-text">
+                    No Filter earned <b>6 new reviews</b> in 24h — all 5★, avg sentiment 92% positive. Their total: <span class="pill-inline">202 reviews</span>, rank <span class="pill-inline">#2 in metro</span> on "med spa brickell".
+                  </div>
+                  <div class="event-source">
+                    Source: Google Reviews API daily delta · sentiment via Claude Haiku
+                  </div>
+                </div>
+                <a href="competitors.html" class="event-cta muted">View →</a>
+              </div>
+            </div>
+
+            <!-- ============ YESTERDAY · MAY 16 ============ -->
+            <div class="day-group">
+              <div class="day-label">Yesterday · Sun May 16 <span class="day-label-count">9 events</span></div>
+
+              <!-- L.D. left you a 5★ review -->
+              <div class="event event-good">
+                <div class="event-icon success">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2l3 7h7l-5.5 4.5L18 21l-6-4-6 4 1.5-7.5L2 9h7z"/></svg>
+                </div>
+                <div class="event-body">
+                  <div class="event-meta-line">
+                    <span class="event-category reviews">Reviews · Yours</span>
+                    <span class="event-time">May 16 · 1 day ago</span>
+                    <span class="event-actor">L.D.</span>
+                  </div>
+                  <div class="event-text">
+                    <b>New 5★ review from L.D.</b> on Solea Brickell Spa. Reviewer has 5 prior reviews — high-trust profile.
+                  </div>
+                  <div class="event-snippet">
+                    "I had a nice experience, they explained all the process step-by-step. Very professional."
+                  </div>
+                  <div class="event-source">
+                    Source: Google Reviews API · highlights: reasonable price, skin treatments
+                  </div>
+                </div>
+                <a href="reviews.html" class="event-cta">Reply →</a>
+              </div>
+
+              <!-- Sisu hours change -->
+              <div class="event event-priority">
+                <div class="event-icon alert">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+                </div>
+                <div class="event-body">
+                  <div class="event-meta-line">
+                    <span class="event-category profile">Profile · Sisu</span>
+                    <span class="event-time">May 16 · 1 day ago</span>
+                    <span class="event-actor">Sisu Clinic</span>
+                  </div>
+                  <div class="event-text">
+                    <b>Sisu Clinic now open Sundays</b> 11:00–17:00. Same building, same address — and now matching Lux's 7-day availability. You are still closed Sundays.
+                  </div>
+                  <div class="event-source">
+                    Source: Google place_info hours · diff detected vs prior snapshot
+                  </div>
+                </div>
+                <a href="competitors.html" class="event-cta">View Sisu →</a>
+              </div>
+
+              <!-- SERP rank shift -->
+              <div class="event">
+                <div class="event-icon info">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M2 17l10-10 4 4 8-8"/><path d="M14 7h10v10"/></svg>
+                </div>
+                <div class="event-body">
+                  <div class="event-meta-line">
+                    <span class="event-category search">Search · Rank shift</span>
+                    <span class="event-time">May 16 · 1 day ago</span>
+                    <span class="event-actor">Auto-scan</span>
+                  </div>
+                  <div class="event-text">
+                    Your rank on <b>"med spa brickell miami"</b> moved <span class="pill-inline pill-up">↑ 4 → 3</span> in the local pack — you re-entered the top-3. Estimated patient lift: <span class="pill-inline">~3/mo</span>.
+                  </div>
+                  <div class="event-source">
+                    Source: DataForSEO local_pack scan · daily 6am · CTR curve calibrated to your category
+                    <span class="info-tip" data-tip="Pos 1 → Pos 3 CTR drop is ~17% → ~9%. We compute estimated traffic delta = keyword_volume × ΔCTR × industry_conversion. This is a forecast, not measured clicks.">i</span>
+                  </div>
+                </div>
+                <a href="search.html" class="event-cta">See keywords →</a>
+              </div>
+
+              <!-- Lux launched ad -->
+              <div class="event">
+                <div class="event-icon gold">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 8h7M9 12h7M9 16h4"/></svg>
+                </div>
+                <div class="event-body">
+                  <div class="event-meta-line">
+                    <span class="event-category ads">Ads · Meta</span>
+                    <span class="event-time">May 16 · 1 day ago</span>
+                    <span class="event-actor">LUX MedSpa Brickell</span>
+                  </div>
+                  <div class="event-text">
+                    Lux launched <b>2 new ads</b> on "lymphatic drainage miami" — a service you also offer. Lux is now active in <span class="pill-inline">4 of 14</span> service keyword lanes.
+                  </div>
+                  <div class="event-snippet">
+                    "Lymphatic drainage by certified therapists · SLS Brickell · book in 60 seconds"
+                  </div>
+                  <div class="event-source">
+                    Source: Meta Ad Library · keyword-lane scan · new advertiser detected
+                  </div>
+                </div>
+                <a href="ads.html" class="event-cta">View ads →</a>
+              </div>
+
+              <!-- More events collapsed -->
+              <button class="event" style="cursor:pointer; justify-content: center; display:flex; color: var(--text-3); font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 12px; background: transparent; border: 1px dashed var(--border);">
+                + 5 more events on May 16 — click to expand
+              </button>
+            </div>
+
+            <!-- ============ MAY 15 ============ -->
+            <div class="day-group">
+              <div class="day-label">Fri May 15 <span class="day-label-count">8 events</span></div>
+
+              <!-- 1★ A.C. -->
+              <div class="event event-priority">
+                <div class="event-icon alert">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2l3 7h7l-5.5 4.5L18 21l-6-4-6 4 1.5-7.5L2 9h7z"/></svg>
+                </div>
+                <div class="event-body">
+                  <div class="event-meta-line">
+                    <span class="event-category reviews">Reviews · Yours</span>
+                    <span class="event-time">May 11 → indexed May 15</span>
+                    <span class="event-actor">A.C.</span>
+                  </div>
+                  <div class="event-text">
+                    <b>1★ review from A.C.</b> — scheduling failure complaint, public for 4 days, still unanswered. AI reply drafted EN+ES.
+                  </div>
+                  <div class="event-snippet">
+                    "Very poor coordination between the call center and the beauty salon. I had two appointments scheduled two weeks in advance, one at 3:30 and the other at 5:30. When I arrived at the salon, they told me the 3:30 appointment had been rescheduled for 2:30…"
+                  </div>
+                  <div class="event-source">
+                    Source: Google Reviews API · classified as urgent by review-priority engine · est. impact on rank: −0.4 grade
+                  </div>
+                </div>
+                <a href="reviews.html" class="event-cta">Reply now →</a>
+              </div>
+
+              <!-- New competitor in market -->
+              <div class="event event-priority">
+                <div class="event-icon purple">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2v8M12 22v-4M4.93 4.93l5.66 5.66M13.41 13.41l5.66 5.66M2 12h8M14 12h8M4.93 19.07l5.66-5.66M13.41 10.59l5.66-5.66"/></svg>
+                </div>
+                <div class="event-body">
+                  <div class="event-meta-line">
+                    <span class="event-category competitors">Competitor · New entrant</span>
+                    <span class="event-time">May 15 · 2 days ago</span>
+                    <span class="event-actor">Auto-detect</span>
+                  </div>
+                  <div class="event-text">
+                    New competitor appeared in Brickell area: <b>Glow Loft MedSpa</b> at 100 SE 2nd St. First seen on Google May 14, 12 photos, 4 reviews (avg 5.0), claimed profile.
+                  </div>
+                  <div class="event-source">
+                    Source: Maps category scan · med_spa category in 1-mile radius · daily diff
+                    <span class="info-tip" data-tip="Each day we pull every med spa in your radius and diff against yesterday. New listings or newly-claimed profiles are flagged here. Use this to react before they get reviews.">i</span>
+                  </div>
+                </div>
+                <a href="market.html" class="event-cta">See market →</a>
+              </div>
+
+              <!-- More events -->
+              <button class="event" style="cursor:pointer; justify-content: center; display:flex; color: var(--text-3); font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 12px; background: transparent; border: 1px dashed var(--border);">
+                + 6 more events on May 15 — click to expand
+              </button>
+            </div>
+
+            <!-- ============ MAY 14 — collapsed by default ============ -->
+            <div class="day-group">
+              <div class="day-label">Thu May 14 <span class="day-label-count">9 events</span></div>
+
+              <!-- M.M. 5★ -->
+              <div class="event event-good">
+                <div class="event-icon success">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2l3 7h7l-5.5 4.5L18 21l-6-4-6 4 1.5-7.5L2 9h7z"/></svg>
+                </div>
+                <div class="event-body">
+                  <div class="event-meta-line">
+                    <span class="event-category reviews">Reviews · Yours</span>
+                    <span class="event-time">May 14 · 3 days ago</span>
+                    <span class="event-actor">M.M.</span>
+                  </div>
+                  <div class="event-text">
+                    <b>New 5★ review from M.M.</b> praising staff member <span class="pill-inline">Fanny</span>. Reviewer has 11 prior reviews.
+                  </div>
+                  <div class="event-snippet">
+                    "Amazing service & team, highly recommend Fanny, she made the experience a great one!"
+                  </div>
+                </div>
+                <a href="reviews.html" class="event-cta">Reply →</a>
+              </div>
+
+              <!-- Search visibility report -->
+              <div class="event">
+                <div class="event-icon info">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                </div>
+                <div class="event-body">
+                  <div class="event-meta-line">
+                    <span class="event-category search">Search · Weekly scan</span>
+                    <span class="event-time">May 14 · 3 days ago</span>
+                    <span class="event-actor">Auto-scan</span>
+                  </div>
+                  <div class="event-text">
+                    Weekly keyword scan complete. You rank top-3 on <b>2 of 14 service keywords</b>. Biggest opportunity: <span class="pill-inline">"hydrafacial brickell"</span> — 720 monthly searches, 0 paid bidders, you currently rank <span class="pill-inline pill-down">#21</span>.
+                  </div>
+                  <div class="event-source">
+                    Source: DataForSEO Keyword Volume + SERP organic · weekly Thursday
+                  </div>
+                </div>
+                <a href="search.html" class="event-cta">See keywords →</a>
+              </div>
+
+              <button class="event" style="cursor:pointer; justify-content: center; display:flex; color: var(--text-3); font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 12px; background: transparent; border: 1px dashed var(--border);">
+                + 7 more events on May 14 — click to expand
+              </button>
+            </div>
+
+            <!-- ============ MAY 13 — collapsed ============ -->
+            <div class="day-group">
+              <div class="day-label">Wed May 13 <span class="day-label-count">6 events</span></div>
+              <button class="event" style="cursor:pointer; justify-content: center; display:flex; color: var(--text-3); font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 12px; background: transparent; border: 1px dashed var(--border);">
+                Show 6 events on May 13 (3 reviews, 2 ads, 1 SERP) — click to expand
+              </button>
+            </div>
+
+            <!-- Load more -->
+            <div style="text-align:center;margin-top:24px;">
+              <button class="btn btn-ghost">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                Load older events
+              </button>
+            </div>
+          </div>
+
+          <!-- RIGHT · rail -->
+          <aside>
+
+            <!-- 7-day summary -->
+            <div class="rail-card">
+              <div class="rail-title">
+                Last 7 days · summary
+                <span class="info-tip" data-tip="Aggregated event count by category over the trailing 7 days. Source: events table grouped by category, dt ≥ today−7d.">i</span>
+              </div>
+              <div class="summary-row">
+                <span class="summary-name"><span class="summary-dot" style="background:var(--coral);"></span>Reviews on you</span>
+                <span class="summary-num">+10</span>
+              </div>
+              <div class="summary-row">
+                <span class="summary-name"><span class="summary-dot" style="background:var(--coral);"></span>Reviews on competitors</span>
+                <span class="summary-num">+23</span>
+              </div>
+              <div class="summary-row">
+                <span class="summary-name"><span class="summary-dot" style="background:var(--gold);"></span>New competitor ads</span>
+                <span class="summary-num">9</span>
+              </div>
+              <div class="summary-row">
+                <span class="summary-name"><span class="summary-dot" style="background:var(--info);"></span>SERP rank shifts</span>
+                <span class="summary-num">6</span>
+              </div>
+              <div class="summary-row">
+                <span class="summary-name"><span class="summary-dot" style="background:var(--purple);"></span>Competitor profile changes</span>
+                <span class="summary-num">7</span>
+              </div>
+              <div class="summary-row">
+                <span class="summary-name"><span class="summary-dot" style="background:var(--success);"></span>New market entrants</span>
+                <span class="summary-num">3</span>
+              </div>
+              <div class="summary-row">
+                <span class="summary-name"><span class="summary-dot" style="background:var(--alert);"></span>Brand hijack attempts</span>
+                <span class="summary-num">0</span>
+              </div>
+            </div>
+
+            <!-- When market moves heatmap -->
+            <div class="rail-card">
+              <div class="rail-title">
+                When your market is most active
+                <span class="info-tip" data-tip="Counts events by hour-of-day over the last 30 days. Higher density = peak time for reviews / ads / rank shifts in your category and metro. Use this to time replies and ad launches.">i</span>
+              </div>
+              <div style="font-size:11px;color:var(--text-3);margin-bottom:8px;font-family:'JetBrains Mono', monospace;">// last 30 days · events per hour</div>
+              <div class="heat-grid">
+                <div class="heat-cell"></div>
+                <div class="heat-cell"></div>
+                <div class="heat-cell"></div>
+                <div class="heat-cell"></div>
+                <div class="heat-cell"></div>
+                <div class="heat-cell"></div>
+                <div class="heat-cell h1"></div>
+                <div class="heat-cell h1"></div>
+                <div class="heat-cell h2"></div>
+                <div class="heat-cell h3"></div>
+                <div class="heat-cell h3"></div>
+                <div class="heat-cell h2"></div>
+                <div class="heat-cell h2"></div>
+                <div class="heat-cell h3"></div>
+                <div class="heat-cell h4"></div>
+                <div class="heat-cell h4"></div>
+                <div class="heat-cell h4"></div>
+                <div class="heat-cell h3"></div>
+                <div class="heat-cell h3"></div>
+                <div class="heat-cell h2"></div>
+                <div class="heat-cell h2"></div>
+                <div class="heat-cell h1"></div>
+                <div class="heat-cell h1"></div>
+                <div class="heat-cell"></div>
+              </div>
+              <div class="heat-axis">
+                <span>12 AM</span>
+                <span>6 AM</span>
+                <span>12 PM</span>
+                <span>6 PM</span>
+                <span>11 PM</span>
+              </div>
+              <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);font-size:12.5px;color:var(--text-2);line-height:1.5;">
+                Peak: <b style="color:var(--text)">2–4 PM</b> weekdays. Schedule review-reply blocks and ad launches in this window for max visibility.
+              </div>
+            </div>
+
+            <!-- Email digest preview -->
+            <div class="rail-card">
+              <div class="rail-title">
+                Your morning digest
+                <span class="info-tip" data-tip="Daily 8:00 AM email summarizing yesterday's events. Customize what categories you receive in Settings → Notifications.">i</span>
+              </div>
+              <div class="digest-preview">
+                <span class="digest-preview-line"><b>Mon May 18, 8:00 AM</b></span>
+                <span class="digest-preview-line">→ 2 urgent 1★ still unanswered (6+ days)</span>
+                <span class="digest-preview-line">→ Sisu launched 3 new "botox brickell" ads</span>
+                <span class="digest-preview-line">→ You rank #3 on "med spa brickell miami" (↑ from #4)</span>
+                <span class="digest-preview-line">→ 1 new 5★ from L.D.</span>
+              </div>
+              <button class="btn btn-ghost" style="width:100%;justify-content:center;">
+                Configure digest →
+              </button>
+            </div>
+          </aside>
+        </div>
+
+        <!-- ============ FOOTER NOTE ============ -->
+        <div style="margin-top:24px;padding:14px 18px;background:var(--bg-3);border-radius:10px;font-size:11.5px;color:var(--text-3);font-family:'JetBrains Mono',monospace;line-height:1.6;">
+          // Events stream from 7 sources · Google Reviews, Maps SERP, place_info, Meta Ad Library, Google Ads Transparency, Lighthouse, brand-hijack daily scan · all surfaced as a unified timeline · retention 90 days
+        </div>
+
+      </div>
+    </main>
+
+    <script>
+      // Filter pill toggle (visual)
+      document.querySelectorAll('.filter-pill').forEach(p => {
+        p.addEventListener('click', () => {
+          // For simple demo: only one "category" filter active at a time
+          const cats = ['All', 'Reviews', 'Ads', 'Search', 'Competitors', 'Market', 'Alerts'];
+          const isCat = cats.some(c => p.textContent.trim().startsWith(c));
+          if (isCat) {
+            document.querySelectorAll('.filter-pill').forEach(x => {
+              if (cats.some(c => x.textContent.trim().startsWith(c))) {
+                x.classList.remove('active');
+              }
+            });
+          }
+          p.classList.toggle('active');
+        });
+      });
+    </script>
+  </body>
+</html>

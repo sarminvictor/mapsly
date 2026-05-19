@@ -1,0 +1,652 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Solea Brickell Spa — Lead view</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="_shared.css" />
+    <style>
+      .breadcrumb { display:flex; align-items:center; gap:8px; font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text-3); margin-bottom:8px; }
+      .breadcrumb a:hover { color:var(--indigo); }
+      .breadcrumb .sep { color:var(--text-4); }
+
+      /* HERO */
+      .hero {
+        background:var(--bg-2);
+        border:1px solid var(--border);
+        border-radius:14px;
+        padding:24px 28px;
+        margin-bottom:22px;
+        display:grid;
+        grid-template-columns:auto 1fr auto;
+        gap:18px;
+        align-items:center;
+        box-shadow:var(--shadow-sm);
+      }
+      .hero-avatar {
+        width:56px; height:56px; border-radius:12px;
+        background:linear-gradient(135deg, #d4a574, #c3553a);
+        display:flex; align-items:center; justify-content:center;
+        color:#fff; font-weight:800; font-size:18px;
+      }
+      .hero-title { font-size:24px; font-weight:700; letter-spacing:-.02em; }
+      .hero-meta {
+        font-family:'JetBrains Mono',monospace;
+        font-size:12.5px; color:var(--text-3);
+        margin-top:4px;
+        display:flex; gap:8px; flex-wrap:wrap;
+      }
+      .hero-actions { display:flex; gap:8px; flex-wrap:wrap; }
+
+      /* TOP STATS */
+      .stats-row {
+        display:grid;
+        grid-template-columns:repeat(6, 1fr);
+        gap:16px;
+        margin-bottom:22px;
+      }
+      @media (max-width:1100px) { .stats-row { grid-template-columns:repeat(3,1fr); } }
+      @media (max-width:700px)  { .stats-row { grid-template-columns:repeat(2,1fr); } }
+      .stat-card {
+        background:var(--bg-2);
+        border:1px solid var(--border);
+        border-radius:12px;
+        padding:14px 16px;
+        box-shadow:var(--shadow-sm);
+      }
+      .stat-label {
+        font-family:'JetBrains Mono',monospace;
+        font-size:10px; font-weight:700;
+        text-transform:uppercase; letter-spacing:.08em;
+        color:var(--text-3);
+        margin-bottom:6px;
+      }
+      .stat-num {
+        font-size:24px; font-weight:800;
+        line-height:1; letter-spacing:-.02em;
+      }
+      .stat-num.alert { color:var(--alert); }
+      .stat-num.warn { color:var(--warn); }
+      .stat-num.success { color:var(--success); }
+      .stat-num.indigo { color:var(--indigo); }
+      .stat-meta {
+        font-size:11px; color:var(--text-3);
+        margin-top:5px; font-family:'JetBrains Mono',monospace;
+      }
+
+      /* PITCH BLOCK */
+      .pitch-block {
+        background:var(--bg-2);
+        border:1px solid var(--indigo-light);
+        border-radius:14px;
+        padding:24px 28px;
+        margin-bottom:22px;
+        box-shadow:var(--shadow-sm);
+      }
+      .pitch-eyebrow {
+        font-family:'JetBrains Mono',monospace;
+        font-size:11px; font-weight:700;
+        text-transform:uppercase; letter-spacing:.1em;
+        color:var(--indigo);
+        margin-bottom:10px;
+      }
+      .pitch-headline {
+        font-size:22px; font-weight:700;
+        line-height:1.3; letter-spacing:-.02em;
+        margin-bottom:14px;
+      }
+      .pitch-points {
+        display:grid; gap:10px;
+        margin-bottom:16px;
+      }
+      .pitch-point {
+        display:grid;
+        grid-template-columns:auto 1fr;
+        gap:12px;
+        align-items:flex-start;
+        padding:11px 14px;
+        background:var(--bg-3);
+        border-radius:8px;
+      }
+      .pitch-point-num {
+        width:24px; height:24px;
+        border-radius:50%;
+        background:var(--indigo);
+        color:#fff; font-weight:700;
+        display:flex; align-items:center; justify-content:center;
+        font-size:11px; flex-shrink:0;
+        font-family:'JetBrains Mono',monospace;
+      }
+      .pitch-point-text { font-size:13.5px; line-height:1.5; color:var(--text); }
+      .pitch-point-text b { font-weight:600; }
+      .pitch-point-meta {
+        font-size:11px; color:var(--text-3);
+        margin-top:4px;
+        font-family:'JetBrains Mono',monospace;
+      }
+
+      /* SECTIONS */
+      .row { display:grid; gap:20px; margin-bottom:20px; }
+      .row-2 { grid-template-columns:2fr 1fr; }
+      @media (max-width:1100px) { .row-2 { grid-template-columns:1fr; } }
+
+      .signal-block { background:var(--bg-2); border:1px solid var(--border); border-radius:14px; padding:22px 24px; box-shadow:var(--shadow-sm); }
+      .signal-block-title { font-size:14px; font-weight:600; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center; }
+      .signal-block-meta {
+        font-family:'JetBrains Mono',monospace;
+        font-size:11px; color:var(--text-3);
+        margin-bottom:14px;
+      }
+
+      .signal-row {
+        display:grid;
+        grid-template-columns:auto 1fr auto;
+        gap:12px;
+        align-items:flex-start;
+        padding:11px 0;
+        border-bottom:1px solid var(--border);
+      }
+      .signal-row:last-child { border-bottom:none; }
+      .signal-icon {
+        width:24px; height:24px; border-radius:6px;
+        display:flex; align-items:center; justify-content:center;
+        flex-shrink:0;
+        font-size:11px;
+      }
+      .signal-icon.alert { background:var(--alert-light); color:var(--alert); }
+      .signal-icon.warn { background:var(--warn-light); color:var(--warn); }
+      .signal-icon.success { background:var(--success-light); color:var(--success); }
+      .signal-icon.indigo { background:var(--indigo-light); color:var(--indigo); }
+      .signal-name { font-size:13.5px; font-weight:500; }
+      .signal-detail {
+        font-size:11.5px; color:var(--text-3);
+        margin-top:3px;
+        font-family:'JetBrains Mono',monospace;
+        line-height:1.45;
+      }
+      .signal-val {
+        font-family:'JetBrains Mono',monospace;
+        font-size:14px; font-weight:700;
+        text-align:right;
+        min-width:60px;
+        white-space:nowrap;
+      }
+      .signal-val.alert { color:var(--alert); }
+      .signal-val.warn { color:var(--warn); }
+      .signal-val.success { color:var(--success); }
+      .signal-val.indigo { color:var(--indigo); }
+      .signal-val.muted { color:var(--text-3); }
+
+      /* RAIL */
+      .rail-card { background:var(--bg-2); border:1px solid var(--border); border-radius:14px; padding:18px 20px; box-shadow:var(--shadow-sm); margin-bottom:16px; }
+      .rail-title { font-size:13px; font-weight:600; margin-bottom:14px; }
+      .contact-line { display:flex; gap:8px; align-items:flex-start; padding:8px 0; border-bottom:1px solid var(--border); font-size:13px; }
+      .contact-line:last-child { border-bottom:none; }
+      .contact-line svg { flex-shrink:0; color:var(--text-3); margin-top:3px; }
+      .contact-line a { color:var(--indigo); }
+      .contact-line .verify { background:var(--success-light); color:var(--success); font-size:9px; font-weight:700; padding:1px 5px; border-radius:3px; text-transform:uppercase; letter-spacing:.04em; margin-left:6px; vertical-align:1px; }
+
+      .notes textarea {
+        width:100%;
+        padding:11px 13px;
+        background:var(--bg-3);
+        border:1px solid var(--border);
+        border-radius:8px;
+        font-size:13px;
+        color:var(--text);
+        resize:vertical;
+        min-height:90px;
+        font-family:'Inter', sans-serif;
+        line-height:1.5;
+      }
+      .notes textarea:focus { outline:none; border-color:var(--indigo); }
+    </style>
+  </head>
+  <body>
+
+    <aside class="sidebar">
+      <div class="sidebar-logo">
+        <span class="sidebar-logo-dot"></span>
+        <span class="sidebar-logo-text">mapsly</span>
+        <span class="sidebar-logo-tag">Agency</span>
+      </div>
+      <div class="sidebar-section-label">Workspace</div>
+      <a href="lists.html" class="nav-item active">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
+        Lists
+        <span class="nav-item-badge">6</span>
+      </a>
+      <a href="search.html" class="nav-item">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        Search
+      </a>
+      <a href="activity.html" class="nav-item">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+        Activity
+        <span class="nav-item-badge">23</span>
+      </a>
+      <a href="reports.html" class="nav-item">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>
+        Reports
+      </a>
+      <div class="sidebar-section-label">Account</div>
+      <a href="list-analytics.html" class="nav-item">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 16l4-8 4 4 5-10"/></svg>
+        List analytics
+      </a>
+      <a href="settings.html" class="nav-item">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        Settings
+      </a>
+      <div class="sidebar-footer">
+        <div class="sidebar-agency">
+          <div class="sidebar-agency-avatar">AL</div>
+          <div>
+            <div class="sidebar-agency-name">Anchor Local</div>
+            <div class="sidebar-agency-meta">Toronto · 4 seats</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <div class="breadcrumb">
+            <a href="lists.html">Lists</a>
+            <span class="sep">/</span>
+            <a href="list-detail.html">Brickell med spas · 0% reply rate</a>
+            <span class="sep">/</span>
+            <span>Solea Brickell Spa</span>
+          </div>
+          <div class="topbar-title">Lead view</div>
+        </div>
+        <div class="topbar-right">
+          <button class="btn btn-ghost">← Prev</button>
+          <button class="btn btn-ghost">Next →</button>
+          <button class="btn btn-ghost" style="background:var(--warn-light); color:var(--warn); border-color:rgba(217,119,6,.25);">Mark as contacted</button>
+          <button class="btn btn-ghost" style="background:var(--success-light); color:var(--success); border-color:rgba(22,163,74,.25);">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4M12 2L4 6v6c0 5 3 8 8 10 5-2 8-5 8-10V6l-8-4z"/></svg>
+            Mark as client
+          </button>
+          <button class="btn btn-primary">Generate one-pager</button>
+        </div>
+      </header>
+
+      <div class="content">
+
+        <!-- HERO -->
+        <div class="hero">
+          <div class="hero-avatar">SO</div>
+          <div>
+            <div class="hero-title">Solea Brickell Spa</div>
+            <div class="hero-meta">
+              <span>701 S Miami Ave Suite 311A</span>
+              <span>· Brickell City Centre</span>
+              <span>· Miami, FL</span>
+              <span>· medical spa</span>
+              <span>· 5 yrs on Google</span>
+            </div>
+          </div>
+          <div class="hero-actions">
+            <button class="btn btn-ghost">Save</button>
+            <button class="btn btn-ghost">Hide from list</button>
+            <button class="btn btn-ghost">Open Google profile ↗</button>
+          </div>
+        </div>
+
+        <!-- TOP STATS -->
+        <div class="stats-row">
+          <div class="stat-card">
+            <div class="stat-label">Rating</div>
+            <div class="stat-num warn">4.4</div>
+            <div class="stat-meta">★★★★☆ · vs leader 5.0</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Reviews</div>
+            <div class="stat-num">342</div>
+            <div class="stat-meta">+53 last 30d</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Reply rate</div>
+            <div class="stat-num alert">0%</div>
+            <div class="stat-meta">leader 95% · industry 89%</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Site speed</div>
+            <div class="stat-num warn">58</div>
+            <div class="stat-meta">mobile Lighthouse · poor</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Local rank</div>
+            <div class="stat-num warn">#3</div>
+            <div class="stat-meta">"med spa brickell miami"</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Active ads</div>
+            <div class="stat-num">13</div>
+            <div class="stat-meta">Meta · 0 keyword-anchored</div>
+          </div>
+        </div>
+
+        <!-- PITCH BLOCK -->
+        <div class="pitch-block">
+          <div class="pitch-eyebrow">// Why this lead qualifies — your pitch wedge</div>
+          <div class="pitch-headline">Solea earned <b>+53 reviews in 30 days</b> — and answered <b>zero</b> of them.</div>
+          <div class="pitch-points">
+            <div class="pitch-point">
+              <div class="pitch-point-num">1</div>
+              <div>
+                <div class="pitch-point-text">
+                  <b>Two unanswered 1★ reviews</b> from May 10 and May 11 — same complaint pattern (appointment-time shift between booking and SMS reminder). 6+ days unanswered. AI-drafted EN/ES replies are ready.
+                </div>
+                <div class="pitch-point-meta">Estimated rank impact if unanswered &gt; 14d: −0.4 grade · industry benchmark</div>
+              </div>
+            </div>
+            <div class="pitch-point">
+              <div class="pitch-point-num">2</div>
+              <div>
+                <div class="pitch-point-text">
+                  <b>Sisu Clinic just opened in their building.</b> Same address (701 S Miami Ave). Sisu sits at #3 local-pack for "botox brickell" with a $9/unit Brickell promo — directly competing on Solea's main service.
+                </div>
+                <div class="pitch-point-meta">Same-building geocode flag · Sisu launched Apr 2026 · 3 new Meta ads today</div>
+              </div>
+            </div>
+            <div class="pitch-point">
+              <div class="pitch-point-num">3</div>
+              <div>
+                <div class="pitch-point-text">
+                  <b>13 active Meta ads, 0 keyword lanes.</b> Their ad copy says "$59 deal" — Mapsly's open-lane scan found that "hydrafacial brickell" has 0 advertisers. They're burning Meta budget on the wrong intent.
+                </div>
+                <div class="pitch-point-meta">14 keyword lanes scanned · 0 hits · open lanes: hydrafacial brickell, endosphere miami</div>
+              </div>
+            </div>
+            <div class="pitch-point">
+              <div class="pitch-point-num">4</div>
+              <div>
+                <div class="pitch-point-text">
+                  <b>Bilingual customer service is their actual edge</b> — they get organic Spanish-language reviews praising it, but their website doesn't lead with this. The biggest market in their building is Hispanic.
+                </div>
+                <div class="pitch-point-meta">6 of last 20 reviews in Spanish · 50% of Brickell population Hispanic</div>
+              </div>
+            </div>
+          </div>
+          <div style="margin-top:14px; padding:14px 16px; background:var(--bg-3); border-radius:9px; font-size:12.5px; color:var(--text-2); line-height:1.55;">
+            <b style="color:var(--text);">Talking-point one-liner:</b> "Maria, you're generating reviews 3× faster than Lux MedSpa — but you're letting them all go unanswered, you have a competitor in your own building, and your $59-deal ads are missing every patient who actually types in 'hydrafacial brickell'. We fix this in 30 days."
+          </div>
+        </div>
+
+        <!-- DETAIL SIGNALS -->
+        <div class="row row-2">
+
+          <!-- LEFT · signals -->
+          <div>
+
+            <!-- REVIEWS -->
+            <div class="signal-block">
+              <div class="signal-block-title">
+                Reviews & reputation
+                <span class="info-tip" data-tip="Pulled from Google Reviews API + sentiment classification + theme extraction. Refreshes weekly.">i</span>
+              </div>
+              <div class="signal-block-meta">// 14 signals · 4 negative · 2 positive · this is your strongest pitch territory</div>
+
+              <div class="signal-row">
+                <div class="signal-icon alert">!</div>
+                <div>
+                  <div class="signal-name">2 fresh unanswered 1★ reviews</div>
+                  <div class="signal-detail">A.C. on May 11, R.P. on May 10 · both scheduling complaints · 6+ days unanswered</div>
+                </div>
+                <div class="signal-val alert">2 / 20</div>
+              </div>
+
+              <div class="signal-row">
+                <div class="signal-icon alert">!</div>
+                <div>
+                  <div class="signal-name">Owner reply rate</div>
+                  <div class="signal-detail">0% across last 20 reviews · benchmark 89%</div>
+                </div>
+                <div class="signal-val alert">0%</div>
+              </div>
+
+              <div class="signal-row">
+                <div class="signal-icon success">↑</div>
+                <div>
+                  <div class="signal-name">Review velocity 30d</div>
+                  <div class="signal-detail">+53 reviews vs leader +17 · they have momentum, just not management</div>
+                </div>
+                <div class="signal-val success">+53</div>
+              </div>
+
+              <div class="signal-row">
+                <div class="signal-icon warn">▾</div>
+                <div>
+                  <div class="signal-name">Recurring negative theme</div>
+                  <div class="signal-detail">Scheduling / appointment-time confusion · 4 negative reviews mention it in 60d</div>
+                </div>
+                <div class="signal-val warn">4 mentions</div>
+              </div>
+
+              <div class="signal-row">
+                <div class="signal-icon indigo">✦</div>
+                <div>
+                  <div class="signal-name">Bilingual praise pattern</div>
+                  <div class="signal-detail">6 of last 20 reviews in Spanish · differentiator they don't lead with</div>
+                </div>
+                <div class="signal-val indigo">6 / 20</div>
+              </div>
+
+              <div class="signal-row">
+                <div class="signal-icon indigo">✦</div>
+                <div>
+                  <div class="signal-name">Staff name mentions</div>
+                  <div class="signal-detail">Imilsis (facialist) 2× · Fanny 1× · Sabina/Sabrina/Sasha 1× · Google indexes these</div>
+                </div>
+                <div class="signal-val">4 named</div>
+              </div>
+            </div>
+
+            <!-- COMPETITORS -->
+            <div class="signal-block">
+              <div class="signal-block-title">Competitive pressure</div>
+              <div class="signal-block-meta">// 40 med spas in 5mi · their MSI rank = #37 of 40</div>
+
+              <div class="signal-row">
+                <div class="signal-icon alert">!</div>
+                <div>
+                  <div class="signal-name">Same-building competitor: Sisu Clinic</div>
+                  <div class="signal-detail">701 S Miami Ave · same address as Solea · in 3-pack for "botox brickell"</div>
+                </div>
+                <div class="signal-val alert">0.0 mi</div>
+              </div>
+
+              <div class="signal-row">
+                <div class="signal-icon warn">!</div>
+                <div>
+                  <div class="signal-name">Leader Lux MedSpa</div>
+                  <div class="signal-detail">5.0★ · 2,200 reviews · 95% reply · 700 photos · 0.2mi away</div>
+                </div>
+                <div class="signal-val warn">−1.6 gap</div>
+              </div>
+
+              <div class="signal-row">
+                <div class="signal-icon">+</div>
+                <div>
+                  <div class="signal-name">New entrant 0.4mi away</div>
+                  <div class="signal-detail">Glow Loft MedSpa · first seen May 14 · 4 reviews · 5.0★ · monitor</div>
+                </div>
+                <div class="signal-val">May 14</div>
+              </div>
+            </div>
+
+            <!-- SEARCH -->
+            <div class="signal-block">
+              <div class="signal-block-title">Search & ads</div>
+              <div class="signal-block-meta">// 14 service keywords tracked · 2 in 3-pack · 5 invisible</div>
+
+              <div class="signal-row">
+                <div class="signal-icon alert">▾</div>
+                <div>
+                  <div class="signal-name">Invisible on "hydrafacial brickell"</div>
+                  <div class="signal-detail">210 monthly searches · 0 paid bidders · they don't appear in top 13</div>
+                </div>
+                <div class="signal-val alert">−2/mo</div>
+              </div>
+
+              <div class="signal-row">
+                <div class="signal-icon alert">▾</div>
+                <div>
+                  <div class="signal-name">Invisible on "microneedling miami"</div>
+                  <div class="signal-detail">1,300 monthly searches · HIGH competition · they offer this service</div>
+                </div>
+                <div class="signal-val alert">−5/mo</div>
+              </div>
+
+              <div class="signal-row">
+                <div class="signal-icon warn">!</div>
+                <div>
+                  <div class="signal-name">13 Meta ads · 0 keyword lanes</div>
+                  <div class="signal-detail">Copy says "$59 deal" — doesn't match the 14 service keywords patients actually search</div>
+                </div>
+                <div class="signal-val warn">0 / 14</div>
+              </div>
+
+              <div class="signal-row">
+                <div class="signal-icon success">✓</div>
+                <div>
+                  <div class="signal-name">In 3-pack for "endermologie miami"</div>
+                  <div class="signal-detail">22 review mentions of LPG · they own this niche · defend</div>
+                </div>
+                <div class="signal-val success">#1</div>
+              </div>
+            </div>
+
+            <!-- WEBSITE -->
+            <div class="signal-block">
+              <div class="signal-block-title">Website health</div>
+              <div class="signal-block-meta">// Lighthouse mobile · audited May 17</div>
+
+              <div class="signal-row">
+                <div class="signal-icon warn">!</div>
+                <div>
+                  <div class="signal-name">Lighthouse Performance · 58</div>
+                  <div class="signal-detail">LCP 3.4s · target &lt;2.5s · Lux has Perf 91 / LCP 1.8s</div>
+                </div>
+                <div class="signal-val warn">58</div>
+              </div>
+
+              <div class="signal-row">
+                <div class="signal-icon alert">!</div>
+                <div>
+                  <div class="signal-name">No LocalBusiness schema</div>
+                  <div class="signal-detail">Lux and No Filter both publish MedicalBusiness JSON-LD · directly hurts rich-result eligibility</div>
+                </div>
+                <div class="signal-val alert">missing</div>
+              </div>
+
+              <div class="signal-row">
+                <div class="signal-icon alert">!</div>
+                <div>
+                  <div class="signal-name">NAP inconsistency</div>
+                  <div class="signal-detail">Phone reads two ways across header/footer · Google reads as 2 numbers</div>
+                </div>
+                <div class="signal-val alert">2 vals</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- RIGHT RAIL -->
+          <aside>
+
+            <!-- CONTACT -->
+            <div class="rail-card">
+              <div class="rail-title">Contact
+                <span class="info-tip" data-tip="Owner / decision-maker email verified weekly via SMTP check. Phone scraped from Google Business Profile.">i</span>
+              </div>
+              <div class="contact-line">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                <div>
+                  <a href="mailto:maria@soleabrickellspa.com">maria@soleabrickellspa.com</a> <span class="verify">verified ✓</span>
+                  <div style="font-size:11px; color:var(--text-3); margin-top:2px; font-family:'JetBrains Mono',monospace;">last verified May 17</div>
+                </div>
+              </div>
+              <div class="contact-line">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                <div>
+                  (786) 418-4515
+                  <div style="font-size:11px; color:var(--text-3); margin-top:2px; font-family:'JetBrains Mono',monospace;">Google-listed</div>
+                </div>
+              </div>
+              <div class="contact-line">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="5"/></svg>
+                <div>
+                  <a href="#">@soleabrickellspa</a>
+                  <div style="font-size:11px; color:var(--text-3); margin-top:2px; font-family:'JetBrains Mono',monospace;">16.4k followers</div>
+                </div>
+              </div>
+              <div class="contact-line">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/></svg>
+                <div>
+                  <a href="#">soleabrickellspa.com</a>
+                </div>
+              </div>
+            </div>
+
+            <!-- IN WHICH LISTS -->
+            <div class="rail-card">
+              <div class="rail-title">Appears in</div>
+              <div style="font-size:13px; padding:8px 0; border-bottom:1px solid var(--border);">
+                <a href="list-detail.html" style="color:var(--indigo); font-weight:600;">Brickell med spas · 0% reply rate</a>
+                <div style="font-size:11px; color:var(--text-3); margin-top:3px; font-family:'JetBrains Mono',monospace;">added May 14 · match score 94</div>
+              </div>
+              <div style="font-size:13px; padding:8px 0;">
+                <a href="#" style="color:var(--indigo); font-weight:600;">Top picks · this week</a>
+                <div style="font-size:11px; color:var(--text-3); margin-top:3px; font-family:'JetBrains Mono',monospace;">saved by Tom · today</div>
+              </div>
+            </div>
+
+            <!-- NOTES -->
+            <div class="rail-card notes">
+              <div class="rail-title">Your notes
+                <span style="float:right; font-size:10px; font-weight:500; color:var(--text-3); font-family:'JetBrains Mono',monospace;">private · team-shared</span>
+              </div>
+              <textarea placeholder="e.g. owner Maria · originally from Cuba · prefers WhatsApp · target $349/mo retainer + reply automation upsell · referenced Lux directly when I asked her about the building competitor"></textarea>
+              <button class="btn btn-primary" style="margin-top:10px; width:100%; justify-content:center;">Save note</button>
+            </div>
+
+            <!-- DEFINITIONS -->
+            <div class="rail-card">
+              <div class="rail-title">Where this data comes from
+                <span class="info-tip" data-tip="Every signal on this page is pulled or computed from a specific source. Toggle technical details inline if you want to dig in.">i</span>
+              </div>
+              <div style="font-size:12px; color:var(--text-2); line-height:1.6;">
+                <div style="padding:6px 0; border-bottom:1px solid var(--border);">
+                  <b style="color:var(--text);">Reviews · velocity · sentiment</b>
+                  <div style="color:var(--text-3); font-family:'JetBrains Mono',monospace; font-size:10.5px;">Google Reviews API · refreshed weekly</div>
+                </div>
+                <div style="padding:6px 0; border-bottom:1px solid var(--border);">
+                  <b style="color:var(--text);">Local rank · search visibility</b>
+                  <div style="color:var(--text-3); font-family:'JetBrains Mono',monospace; font-size:10.5px;">DataForSEO Maps SERP · weekly Thursday</div>
+                </div>
+                <div style="padding:6px 0; border-bottom:1px solid var(--border);">
+                  <b style="color:var(--text);">Ads (Meta + Google)</b>
+                  <div style="color:var(--text-3); font-family:'JetBrains Mono',monospace; font-size:10.5px;">Meta Ad Library + Google Ads Transparency · daily</div>
+                </div>
+                <div style="padding:6px 0;">
+                  <b style="color:var(--text);">Site speed · schema · NAP</b>
+                  <div style="color:var(--text-3); font-family:'JetBrains Mono',monospace; font-size:10.5px;">Lighthouse mobile + custom DOM crawl · weekly</div>
+                </div>
+              </div>
+            </div>
+          </aside>
+        </div>
+
+        <div style="margin-top:0; padding:14px 18px; background:var(--bg-3); border-radius:10px; font-size:11.5px; color:var(--text-3); font-family:'JetBrains Mono',monospace; line-height:1.6;">
+          // This is a read-only profile · Mapsly does not message the business on your behalf · use the contact info + signal evidence to craft your own outreach in your existing tools
+        </div>
+      </div>
+    </main>
+  </body>
+</html>

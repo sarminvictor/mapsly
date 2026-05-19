@@ -1,0 +1,1249 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Competitors · Mapsly</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+    <style>
+      :root {
+        --bg:#faf6f1; --bg-2:#fff; --bg-3:#f2ebe3; --bg-dark:#1c1916;
+        --bg-sidebar:#faf6f1;
+        --text:#1c1916; --text-2:#5c544d; --text-3:#9a9088; --text-4:#c0b5a8;
+        --border:#e8ddd0; --border-strong:#d8c9b8;
+        --coral:#c3553a; --coral-light:rgba(195,85,58,.1);
+        --berry:#8b3a2c; --gold:#d4a574; --gold-light:rgba(212,165,116,.18);
+        --success:#2d8659; --success-light:rgba(45,134,89,.12);
+        --alert:#b53d47; --alert-light:rgba(181,61,71,.1);
+        --info:#3b6ec4; --info-light:rgba(59,110,196,.1);
+        --purple:#6b4f9b; --purple-light:rgba(107,79,155,.12);
+        --ease:cubic-bezier(0.16,1,0.3,1);
+        --shadow-sm:0 2px 8px rgba(28,25,22,.04);
+        --shadow-md:0 8px 24px rgba(28,25,22,.06);
+      }
+      * { margin:0; padding:0; box-sizing:border-box; }
+      body {
+        font-family:'Inter',sans-serif; background:var(--bg); color:var(--text);
+        line-height:1.5; min-height:100vh; display:flex;
+        -webkit-font-smoothing:antialiased;
+      }
+      a { color:inherit; text-decoration:none; }
+      button { font-family:inherit; cursor:pointer; border:none; background:none; }
+
+      /* ============ SIDEBAR ============ */
+      .sidebar {
+        width:240px; background:var(--bg-sidebar);
+        border-right:1px solid var(--border);
+        padding:22px 16px; height:100vh; position:sticky; top:0;
+        display:flex; flex-direction:column; flex-shrink:0;
+      }
+      .sidebar-logo {
+        display:flex; align-items:center; gap:10px;
+        padding:6px 8px 22px; margin-bottom:12px;
+        border-bottom:1px solid var(--border);
+      }
+      .sidebar-logo-dot {
+        width:9px; height:9px; border-radius:50%; background:var(--coral);
+        box-shadow:0 0 10px rgba(195,85,58,.5);
+      }
+      .sidebar-logo-text {
+        font-family:'Fraunces',serif; font-size:19px; font-weight:700;
+        letter-spacing:-.02em;
+      }
+      .sidebar-section-label {
+        font-family:'JetBrains Mono',monospace; font-size:10px;
+        font-weight:600; text-transform:uppercase; letter-spacing:.12em;
+        color:var(--text-3); padding:14px 10px 6px;
+      }
+      .nav-item {
+        display:flex; align-items:center; gap:11px;
+        padding:9px 10px; border-radius:8px;
+        font-size:14px; font-weight:500; color:var(--text-2);
+        transition:all .15s var(--ease);
+      }
+      .nav-item:hover { background:rgba(28,25,22,.04); color:var(--text); }
+      .nav-item.active {
+        background:var(--coral-light); color:var(--coral); font-weight:600;
+      }
+      .nav-item-badge {
+        margin-left:auto; background:var(--alert); color:#fff;
+        font-size:10px; font-weight:700;
+        padding:2px 6px; border-radius:10px; min-width:18px; text-align:center;
+        font-family:'JetBrains Mono',monospace;
+      }
+      .nav-item-badge.info { background:var(--info); }
+      .sidebar-footer {
+        margin-top:auto; padding-top:16px;
+        border-top:1px solid var(--border);
+      }
+      .sidebar-business {
+        display:flex; align-items:center; gap:10px;
+        padding:10px; border-radius:8px; background:var(--bg-3);
+      }
+      .sidebar-biz-avatar {
+        width:32px; height:32px; border-radius:8px;
+        background:linear-gradient(135deg,var(--gold),var(--coral));
+        display:flex; align-items:center; justify-content:center;
+        color:#fff; font-weight:700; font-size:14px;
+        font-family:'Fraunces',serif;
+      }
+      .sidebar-biz-name { font-size:13px; font-weight:600; }
+      .sidebar-biz-meta { font-size:11px; color:var(--text-3); font-family:'JetBrains Mono',monospace; }
+
+      /* ============ MAIN ============ */
+      .main { flex:1; min-width:0; }
+      .topbar {
+        position:sticky; top:0; z-index:10;
+        background:rgba(250,246,241,.92); backdrop-filter:blur(20px);
+        border-bottom:1px solid var(--border);
+        padding:16px 32px;
+        display:flex; align-items:center; justify-content:space-between;
+      }
+      .topbar-title {
+        font-family:'Fraunces',serif; font-size:22px; font-weight:600;
+        letter-spacing:-.02em;
+      }
+      .topbar-subtitle {
+        font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--text-3);
+      }
+      .topbar-right { display:flex; align-items:center; gap:10px; }
+      .top-pill {
+        display:inline-flex; align-items:center; gap:7px;
+        padding:7px 12px; background:var(--bg-2);
+        border:1px solid var(--border); border-radius:8px;
+        font-size:12px; color:var(--text-2);
+        font-family:'JetBrains Mono',monospace;
+      }
+      .top-pill-dot { width:7px; height:7px; border-radius:50%; background:var(--success); }
+      .btn {
+        padding:8px 14px; border-radius:8px;
+        font-size:12.5px; font-weight:600; cursor:pointer;
+        display:inline-flex; align-items:center; gap:7px;
+        transition:all .15s var(--ease);
+      }
+      .btn-primary { background:var(--coral); color:#fff; }
+      .btn-primary:hover { background:var(--berry); }
+      .btn-ghost {
+        background:transparent; color:var(--text-2);
+        border:1px solid var(--border);
+      }
+      .btn-ghost:hover { border-color:var(--border-strong); color:var(--text); }
+
+      .content { padding:28px 32px 64px; max-width:1400px; }
+
+      /* ============ COMPARE TABLE ============ */
+      .compare-section {
+        background:var(--bg-2); border:1px solid var(--border);
+        border-radius:16px; padding:0;
+        margin-bottom:22px;
+        box-shadow:var(--shadow-sm); overflow:hidden;
+      }
+      .compare-header {
+        padding:20px 28px;
+        display:flex; justify-content:space-between; align-items:center;
+        border-bottom:1px solid var(--border);
+        flex-wrap:wrap; gap:12px;
+      }
+      .compare-title {
+        font-size:16px; font-weight:600;
+      }
+      .compare-subtitle {
+        font-family:'JetBrains Mono',monospace; font-size:11px;
+        color:var(--text-3); margin-top:3px;
+      }
+      .compare-toolbar { display:flex; gap:8px; }
+
+      .compare-table {
+        width:100%;
+        overflow-x:auto;
+      }
+      .compare-table table {
+        width:100%;
+        border-collapse:collapse;
+        min-width:1100px;
+      }
+      .compare-table th {
+        text-align:left;
+        font-size:11px; font-weight:600;
+        text-transform:uppercase; letter-spacing:.08em;
+        color:var(--text-3);
+        padding:14px 14px;
+        background:var(--bg-3);
+        font-family:'JetBrains Mono',monospace;
+        border-bottom:1px solid var(--border);
+        white-space:nowrap;
+        position:sticky; top:0;
+      }
+      .compare-table td {
+        padding:18px 14px;
+        font-size:13px;
+        border-bottom:1px solid var(--border);
+        vertical-align:middle;
+      }
+      .compare-table tr.target-row {
+        background:rgba(195,85,58,.05);
+      }
+      .compare-table tr.target-row td:first-child {
+        border-left:3px solid var(--coral);
+      }
+      .compare-table tr.same-building td:first-child {
+        position:relative;
+      }
+      .compare-table tr.same-building td:first-child::before {
+        content:'';
+        position:absolute; left:0; top:0; bottom:0; width:3px;
+        background:var(--alert);
+      }
+
+      .biz-cell {
+        display:flex; align-items:center; gap:12px;
+        min-width:240px;
+      }
+      .biz-avatar {
+        width:36px; height:36px; border-radius:8px;
+        display:flex; align-items:center; justify-content:center;
+        color:#fff; font-weight:700; font-size:12px;
+        font-family:'Fraunces',serif;
+        flex-shrink:0;
+      }
+      .av-lux   { background:linear-gradient(135deg,#3a2e6b,#1a1530); }
+      .av-nofilter { background:linear-gradient(135deg,#2d8659,#1f6644); }
+      .av-solea { background:linear-gradient(135deg,var(--gold),var(--coral)); }
+      .av-sisu  { background:linear-gradient(135deg,#a64b3c,#5e2a22); }
+      .av-skin  { background:linear-gradient(135deg,#b8985f,#8a6f3f); }
+      .av-leaf  { background:linear-gradient(135deg,#5a8a5c,#3a6543); }
+      .av-dua   { background:linear-gradient(135deg,#6b4f9b,#3e2e5b); }
+      .av-glow  { background:linear-gradient(135deg,#e8a86b,#c97a3a); }
+
+      .biz-info-name {
+        font-weight:600; font-size:14px;
+        display:flex; align-items:center; gap:8px;
+      }
+      .biz-info-meta {
+        font-size:11px; color:var(--text-3); margin-top:2px;
+        font-family:'JetBrains Mono',monospace;
+      }
+      .rank-pill {
+        display:inline-flex; align-items:center; justify-content:center;
+        background:var(--bg-3);
+        font-family:'JetBrains Mono',monospace;
+        font-size:11px; font-weight:700;
+        padding:2px 8px; border-radius:100px;
+        color:var(--text);
+      }
+      .rank-pill.gold { background:var(--gold); color:#fff; }
+      .rank-pill.silver { background:#c0c0c0; color:#fff; }
+      .rank-pill.bronze { background:#b08458; color:#fff; }
+      .rank-pill.muted { color:var(--text-3); }
+
+      .badge-flag {
+        display:inline-flex; align-items:center; gap:4px;
+        font-size:10px; font-weight:700;
+        font-family:'JetBrains Mono',monospace;
+        text-transform:uppercase; letter-spacing:.04em;
+        padding:2px 7px; border-radius:4px;
+      }
+      .badge-flag.same-building { background:var(--alert); color:#fff; }
+      .badge-flag.you { background:var(--coral); color:#fff; }
+      .badge-flag.new { background:var(--purple); color:#fff; }
+
+      .stat-cell {
+        font-family:'JetBrains Mono',monospace;
+        font-size:13.5px;
+        font-weight:600;
+        white-space:nowrap;
+      }
+      .stat-cell.alert { color:var(--alert); }
+      .stat-cell.success { color:var(--success); }
+      .stat-cell.muted { color:var(--text-3); }
+      .stat-sub {
+        font-family:'Inter',sans-serif;
+        font-weight:400; font-size:11px; color:var(--text-3);
+        margin-top:2px;
+      }
+
+      .rating-cell {
+        display:flex; align-items:center; gap:8px;
+      }
+      .rating-num {
+        font-family:'Fraunces',serif;
+        font-size:18px; font-weight:600;
+        line-height:1;
+      }
+      .rating-stars-mini {
+        font-family:'JetBrains Mono',monospace;
+        color:var(--gold);
+        font-size:10px;
+        margin-top:2px;
+      }
+
+      /* ============ DETAIL PANEL ============ */
+      .detail-section {
+        display:grid;
+        grid-template-columns: 1fr 320px;
+        gap:22px;
+        align-items:start;
+      }
+      @media (max-width: 1100px) { .detail-section { grid-template-columns:1fr; } }
+      .panel {
+        background:var(--bg-2); border:1px solid var(--border);
+        border-radius:14px; padding:22px 24px;
+        box-shadow:var(--shadow-sm);
+        margin-bottom:18px;
+      }
+      .panel-head {
+        display:flex; justify-content:space-between; align-items:flex-start;
+        margin-bottom:18px; gap:12px;
+      }
+      .panel-title {
+        font-size:15px; font-weight:600;
+      }
+      .panel-subtitle {
+        font-family:'JetBrains Mono',monospace; font-size:11px;
+        color:var(--text-3); margin-top:3px;
+      }
+
+      .focus-bar {
+        display:flex; align-items:center; gap:14px;
+        padding:18px 22px;
+        background:linear-gradient(90deg, rgba(58,46,107,.06), transparent);
+        border:1px solid var(--border);
+        border-radius:14px;
+        margin-bottom:18px;
+      }
+      .focus-avatar {
+        width:48px; height:48px; border-radius:10px;
+        display:flex; align-items:center; justify-content:center;
+        color:#fff; font-weight:700; font-size:16px;
+        font-family:'Fraunces',serif;
+        flex-shrink:0;
+      }
+      .focus-name {
+        font-family:'Fraunces',serif;
+        font-size:22px; font-weight:700;
+        letter-spacing:-.02em;
+      }
+      .focus-meta {
+        font-size:12px; color:var(--text-3);
+        font-family:'JetBrains Mono',monospace;
+        margin-top:2px;
+      }
+      .focus-stats {
+        margin-left:auto;
+        display:flex; gap:24px;
+        flex-wrap:wrap;
+      }
+      .focus-stat-label {
+        font-family:'JetBrains Mono',monospace;
+        font-size:10px; color:var(--text-3);
+        text-transform:uppercase; letter-spacing:.08em;
+      }
+      .focus-stat-num {
+        font-family:'Fraunces',serif;
+        font-size:20px; font-weight:700;
+        margin-top:2px;
+      }
+
+      /* ============ COMPARE BARS ============ */
+      .vs-row {
+        display:grid;
+        grid-template-columns: 160px 1fr 1fr;
+        gap:14px;
+        align-items:center;
+        padding:14px 0;
+        border-bottom:1px solid var(--border);
+      }
+      .vs-row:last-child { border-bottom:none; }
+      .vs-row-label {
+        font-size:13px; color:var(--text-2);
+        display:flex; align-items:center; gap:6px;
+      }
+      .vs-side {
+        position:relative;
+        height:36px;
+        display:flex; align-items:center;
+        padding:0 12px;
+        border-radius:8px;
+        font-family:'JetBrains Mono',monospace;
+        font-size:13px; font-weight:600;
+      }
+      .vs-side.you {
+        background:linear-gradient(90deg, rgba(195,85,58,.18), rgba(195,85,58,.06));
+        color:var(--coral);
+        justify-content:flex-end;
+      }
+      .vs-side.them {
+        background:linear-gradient(90deg, rgba(58,46,107,.06), rgba(58,46,107,.18));
+        color:var(--text);
+      }
+      .vs-side .pill-up {
+        background:var(--success-light); color:var(--success);
+        padding:1px 6px; border-radius:4px; font-size:11px;
+        margin-left:6px;
+      }
+      .vs-side .pill-down {
+        background:var(--alert-light); color:var(--alert);
+        padding:1px 6px; border-radius:4px; font-size:11px;
+        margin-left:6px;
+      }
+
+      /* ============ SERVICE GRID ============ */
+      .service-grid {
+        display:grid;
+        grid-template-columns: 1fr auto auto;
+        gap:6px 16px;
+        font-size:13px;
+        align-items:center;
+      }
+      .service-row {
+        display:contents;
+      }
+      .service-name {
+        padding:8px 0;
+        color:var(--text-2);
+      }
+      .check {
+        font-family:'JetBrains Mono',monospace;
+        font-size:13px; font-weight:600;
+        text-align:center;
+        width:32px;
+      }
+      .check-y { color:var(--success); }
+      .check-n { color:var(--text-3); }
+
+      .service-grid-head {
+        font-family:'JetBrains Mono',monospace;
+        font-size:10px; font-weight:700;
+        text-transform:uppercase; letter-spacing:.08em;
+        color:var(--text-3);
+        padding-bottom:8px;
+        border-bottom:1px solid var(--border);
+      }
+
+      /* ============ REVIEW SAMPLE ============ */
+      .review-sample {
+        padding:14px 16px;
+        background:var(--bg-3);
+        border-radius:10px;
+        margin-bottom:10px;
+      }
+      .review-sample-head {
+        display:flex; align-items:baseline; gap:10px;
+        margin-bottom:6px;
+        font-size:12px;
+      }
+      .review-sample-name { font-weight:600; }
+      .review-sample-stars { color:var(--gold); font-family:'JetBrains Mono',monospace; font-size:11px; }
+      .review-sample-date { color:var(--text-3); font-family:'JetBrains Mono',monospace; font-size:11px; margin-left:auto; }
+      .review-sample-text {
+        font-size:13px; line-height:1.5; color:var(--text-2);
+        font-style:italic;
+      }
+
+      /* ============ RAIL ============ */
+      .rail-card {
+        background:var(--bg-2); border:1px solid var(--border);
+        border-radius:14px; padding:18px 20px;
+        box-shadow:var(--shadow-sm);
+        margin-bottom:16px;
+      }
+      .rail-title {
+        font-size:13px; font-weight:600;
+        margin-bottom:12px;
+        display:flex; align-items:center; gap:6px;
+      }
+      .threat-row {
+        padding:10px 12px;
+        border-radius:9px;
+        margin-bottom:8px;
+        font-size:12.5px;
+        line-height:1.45;
+        background:var(--bg-3);
+      }
+      .threat-row.high { background:var(--alert-light); }
+      .threat-row.med  { background:var(--gold-light); }
+      .threat-row b { color:var(--text); font-weight:600; }
+      .threat-meta {
+        font-size:11px; color:var(--text-3);
+        margin-top:4px;
+        font-family:'JetBrains Mono',monospace;
+      }
+
+      .gap-list { display:flex; flex-direction:column; gap:8px; }
+      .gap-item {
+        display:flex; align-items:flex-start; gap:9px;
+        font-size:13px; line-height:1.45;
+        color:var(--text);
+        padding:8px 0;
+        border-bottom:1px solid var(--border);
+      }
+      .gap-item:last-child { border-bottom:none; }
+      .gap-item svg { flex-shrink:0; margin-top:2px; }
+      .gap-item-sub {
+        font-size:11px; color:var(--text-3);
+        margin-top:3px;
+        font-family:'JetBrains Mono',monospace;
+      }
+
+      /* ============ TOOLTIPS ============ */
+      .info-tip {
+        display:inline-flex; align-items:center; justify-content:center;
+        width:14px; height:14px; border-radius:50%;
+        background:var(--bg-3); color:var(--text-3);
+        font-size:10px; font-weight:700;
+        margin-left:4px; cursor:help;
+        font-family:'JetBrains Mono',monospace;
+        position:relative; vertical-align:2px;
+      }
+      .info-tip:hover { background:var(--coral-light); color:var(--coral); }
+      .info-tip[data-tip]::after {
+        content:attr(data-tip);
+        position:absolute; bottom:100%; right:0;
+        transform:translateY(-6px);
+        background:var(--bg-dark); color:#fff;
+        padding:10px 14px; border-radius:8px;
+        font-size:11px; font-weight:400; line-height:1.5;
+        font-family:'Inter',sans-serif;
+        text-transform:none; letter-spacing:normal;
+        white-space:pre-line;
+        width:280px; text-align:left;
+        opacity:0; pointer-events:none;
+        transition:opacity .2s; z-index:100;
+        box-shadow:0 8px 24px rgba(0,0,0,.2);
+      }
+      .info-tip:hover::after { opacity:1; }
+
+      @media (max-width:768px) {
+        .sidebar { display:none; }
+        .topbar { padding:14px 18px; }
+        .content { padding:18px 18px 48px; }
+        .compare-header { padding:14px 18px; }
+        .compare-table th, .compare-table td { padding:12px 10px; }
+      }
+    </style>
+  </head>
+  <body>
+
+    <!-- ============ SIDEBAR ============ -->
+    <aside class="sidebar">
+      <div class="sidebar-logo">
+        <span class="sidebar-logo-dot"></span>
+        <span class="sidebar-logo-text">mapsly</span>
+      </div>
+
+      <div class="sidebar-section-label">Daily</div>
+      <a href="dashboard.html" class="nav-item">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>
+        Dashboard
+      </a>
+      <a href="reviews.html" class="nav-item">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3 7h7l-5.5 4.5L18 21l-6-4-6 4 1.5-7.5L2 9h7z"/></svg>
+        Reviews
+        <span class="nav-item-badge">8</span>
+      </a>
+      <a href="activity.html" class="nav-item">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+        Activity
+        <span class="nav-item-badge info">3</span>
+      </a>
+
+      <div class="sidebar-section-label">Watch</div>
+      <a href="competitors.html" class="nav-item active">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2v20M2 12h20"/></svg>
+        Competitors
+      </a>
+      <a href="search.html" class="nav-item">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        Search visibility
+      </a>
+      <a href="ads.html" class="nav-item">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 8h7M9 12h7M9 16h4"/></svg>
+        Ads intelligence
+      </a>
+
+      <div class="sidebar-section-label">Audit</div>
+      <a href="website.html" class="nav-item">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+        Website health
+      </a>
+      <a href="market.html" class="nav-item">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 16l4-8 4 4 5-10"/></svg>
+        Market reality
+      </a>
+
+      <div class="sidebar-section-label">Account</div>
+      <a href="settings.html" class="nav-item">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        Settings
+      </a>
+
+      <div class="sidebar-footer">
+        <div class="sidebar-business">
+          <div class="sidebar-biz-avatar">S</div>
+          <div>
+            <div class="sidebar-biz-name">Solea Brickell Spa</div>
+            <div class="sidebar-biz-meta">Miami · Brickell</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main">
+
+      <header class="topbar">
+        <div>
+          <div class="topbar-title">Competitors</div>
+          <div class="topbar-subtitle">8 tracked · refreshed Mon 9:00 AM</div>
+        </div>
+        <div class="topbar-right">
+          <span class="top-pill"><span class="top-pill-dot"></span>Last sync 47 min</span>
+          <button class="btn btn-ghost">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+            Add competitor
+          </button>
+        </div>
+      </header>
+
+      <div class="content">
+
+        <!-- ============ COMPARE TABLE ============ -->
+        <div class="compare-section">
+          <div class="compare-header">
+            <div>
+              <div class="compare-title">Brickell med-spa landscape · live ranking</div>
+              <div class="compare-subtitle">// 8 competitors tracked · sourced from local pack + people-also-search + manual additions
+                <span class="info-tip" data-tip="Auto-discovered from Google local pack for your service keywords + 'people also search' panels on you and the leader. You can also add competitors manually by URL or business name.">i</span>
+              </div>
+            </div>
+            <div class="compare-toolbar">
+              <button class="btn btn-ghost">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M6 12h12M10 18h4"/></svg>
+                Sort: Rank
+              </button>
+              <button class="btn btn-ghost">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+                Export
+              </button>
+            </div>
+          </div>
+
+          <div class="compare-table">
+            <table>
+              <thead>
+                <tr>
+                  <th>Business</th>
+                  <th>Rank
+                    <span class="info-tip" data-tip="Position in Google local pack for 'med spa brickell miami'. Source: DataForSEO local_pack scan, weekly.">i</span>
+                  </th>
+                  <th>Rating</th>
+                  <th>Reviews</th>
+                  <th>Reply rate
+                    <span class="info-tip" data-tip="% of last 20 reviews with an owner_answer. Source: Google Reviews API.">i</span>
+                  </th>
+                  <th>Velocity 30d</th>
+                  <th>Photos</th>
+                  <th>Sun open?</th>
+                  <th>Years</th>
+                  <th>Active ads</th>
+                </tr>
+              </thead>
+              <tbody>
+
+                <!-- 1 · Lux MedSpa Brickell (leader) -->
+                <tr>
+                  <td>
+                    <div class="biz-cell">
+                      <div class="biz-avatar av-lux">LX</div>
+                      <div>
+                        <div class="biz-info-name">LUX MedSpa Brickell</div>
+                        <div class="biz-info-meta">805 S Miami Ave · SLS LUX 9th Floor</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td><span class="rank-pill gold">#1</span></td>
+                  <td>
+                    <div class="rating-cell">
+                      <div>
+                        <div class="rating-num">5.0</div>
+                        <div class="rating-stars-mini">★★★★★</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td><div class="stat-cell">2,200</div><div class="stat-sub">98.3% 5★</div></td>
+                  <td><div class="stat-cell success">95%</div></td>
+                  <td><div class="stat-cell">+17</div><div class="stat-sub">last 30d</div></td>
+                  <td><div class="stat-cell">700+</div></td>
+                  <td><div class="stat-cell success">Yes</div></td>
+                  <td><div class="stat-cell">2 yrs</div></td>
+                  <td><div class="stat-cell">12</div></td>
+                </tr>
+
+                <!-- 2 · No Filter Medical Spa -->
+                <tr>
+                  <td>
+                    <div class="biz-cell">
+                      <div class="biz-avatar av-nofilter">NF</div>
+                      <div>
+                        <div class="biz-info-name">No Filter Medical Spa</div>
+                        <div class="biz-info-meta">Brickell · independent</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td><span class="rank-pill silver">#2</span></td>
+                  <td>
+                    <div class="rating-cell">
+                      <div>
+                        <div class="rating-num">4.9</div>
+                        <div class="rating-stars-mini">★★★★★</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td><div class="stat-cell">196</div></td>
+                  <td><div class="stat-cell success">82%</div></td>
+                  <td><div class="stat-cell">+14</div></td>
+                  <td><div class="stat-cell">180</div></td>
+                  <td><div class="stat-cell muted">No</div></td>
+                  <td><div class="stat-cell">3 yrs</div></td>
+                  <td><div class="stat-cell">5</div></td>
+                </tr>
+
+                <!-- 3 · Solea (target / you) -->
+                <tr class="target-row">
+                  <td>
+                    <div class="biz-cell">
+                      <div class="biz-avatar av-solea">S</div>
+                      <div>
+                        <div class="biz-info-name">Solea Brickell Spa <span class="badge-flag you">You</span></div>
+                        <div class="biz-info-meta">701 S Miami Ave · Brickell City Centre</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td><span class="rank-pill bronze">#3</span></td>
+                  <td>
+                    <div class="rating-cell">
+                      <div>
+                        <div class="rating-num">4.4</div>
+                        <div class="rating-stars-mini">★★★★☆</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td><div class="stat-cell">342</div><div class="stat-sub">83.4% 5★</div></td>
+                  <td><div class="stat-cell alert">0%</div></td>
+                  <td><div class="stat-cell success">+53</div><div class="stat-sub">3.1× leader</div></td>
+                  <td><div class="stat-cell alert">46</div></td>
+                  <td><div class="stat-cell muted">No</div></td>
+                  <td><div class="stat-cell">5 yrs</div></td>
+                  <td><div class="stat-cell">13</div></td>
+                </tr>
+
+                <!-- Sisu Clinic — SAME BUILDING -->
+                <tr class="same-building">
+                  <td>
+                    <div class="biz-cell">
+                      <div class="biz-avatar av-sisu">SI</div>
+                      <div>
+                        <div class="biz-info-name">Sisu Clinic Miami <span class="badge-flag same-building">Same building</span></div>
+                        <div class="biz-info-meta">701 S Miami Ave · Brickell City Centre</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td><span class="rank-pill muted">—</span><div class="stat-sub">in pack for "botox brickell"</div></td>
+                  <td>
+                    <div class="rating-cell">
+                      <div>
+                        <div class="rating-num">4.9</div>
+                        <div class="rating-stars-mini">★★★★★</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td><div class="stat-cell">342</div></td>
+                  <td><div class="stat-cell success">91%</div></td>
+                  <td><div class="stat-cell">+22</div></td>
+                  <td><div class="stat-cell">220</div></td>
+                  <td><div class="stat-cell success">Yes</div><div class="stat-sub">new May 16</div></td>
+                  <td><div class="stat-cell">1 yr</div></td>
+                  <td><div class="stat-cell">9</div></td>
+                </tr>
+
+                <!-- Miami Skin Spa -->
+                <tr>
+                  <td>
+                    <div class="biz-cell">
+                      <div class="biz-avatar av-skin">MS</div>
+                      <div>
+                        <div class="biz-info-name">Miami Skin Spa Aesthetics & Wellness</div>
+                        <div class="biz-info-meta">Brickell · independent</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td><span class="rank-pill muted">—</span><div class="stat-sub">organic #6</div></td>
+                  <td>
+                    <div class="rating-cell">
+                      <div>
+                        <div class="rating-num">4.8</div>
+                        <div class="rating-stars-mini">★★★★★</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td><div class="stat-cell">147</div></td>
+                  <td><div class="stat-cell success">76%</div></td>
+                  <td><div class="stat-cell">+8</div></td>
+                  <td><div class="stat-cell">94</div></td>
+                  <td><div class="stat-cell muted">No</div></td>
+                  <td><div class="stat-cell">4 yrs</div></td>
+                  <td><div class="stat-cell">2</div></td>
+                </tr>
+
+                <!-- Leaf Spa at AKA Brickell -->
+                <tr>
+                  <td>
+                    <div class="biz-cell">
+                      <div class="biz-avatar av-leaf">LF</div>
+                      <div>
+                        <div class="biz-info-name">Leaf Spa at AKA Brickell</div>
+                        <div class="biz-info-meta">AKA Brickell hotel</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td><span class="rank-pill muted">—</span></td>
+                  <td>
+                    <div class="rating-cell">
+                      <div>
+                        <div class="rating-num">4.7</div>
+                        <div class="rating-stars-mini">★★★★★</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td><div class="stat-cell">104</div></td>
+                  <td><div class="stat-cell">62%</div></td>
+                  <td><div class="stat-cell">+5</div></td>
+                  <td><div class="stat-cell">68</div></td>
+                  <td><div class="stat-cell success">Yes</div></td>
+                  <td><div class="stat-cell">3 yrs</div></td>
+                  <td><div class="stat-cell">0</div></td>
+                </tr>
+
+                <!-- Dua Spa -->
+                <tr>
+                  <td>
+                    <div class="biz-cell">
+                      <div class="biz-avatar av-dua">DU</div>
+                      <div>
+                        <div class="biz-info-name">Dua Spa by K'alma</div>
+                        <div class="biz-info-meta">Brickell · boutique</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td><span class="rank-pill muted">—</span></td>
+                  <td>
+                    <div class="rating-cell">
+                      <div>
+                        <div class="rating-num">4.6</div>
+                        <div class="rating-stars-mini">★★★★☆</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td><div class="stat-cell">53</div></td>
+                  <td><div class="stat-cell">45%</div></td>
+                  <td><div class="stat-cell">+3</div></td>
+                  <td><div class="stat-cell">42</div></td>
+                  <td><div class="stat-cell muted">No</div></td>
+                  <td><div class="stat-cell">2 yrs</div></td>
+                  <td><div class="stat-cell">1</div></td>
+                </tr>
+
+                <!-- Glow Loft (new entrant) -->
+                <tr>
+                  <td>
+                    <div class="biz-cell">
+                      <div class="biz-avatar av-glow">GL</div>
+                      <div>
+                        <div class="biz-info-name">Glow Loft MedSpa <span class="badge-flag new">New · May 14</span></div>
+                        <div class="biz-info-meta">100 SE 2nd St · 0.4 mi away</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td><span class="rank-pill muted">—</span></td>
+                  <td>
+                    <div class="rating-cell">
+                      <div>
+                        <div class="rating-num">5.0</div>
+                        <div class="rating-stars-mini">★★★★★</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td><div class="stat-cell">4</div></td>
+                  <td><div class="stat-cell muted">—</div></td>
+                  <td><div class="stat-cell">+4</div></td>
+                  <td><div class="stat-cell">12</div></td>
+                  <td><div class="stat-cell muted">No</div></td>
+                  <td><div class="stat-cell">&lt;1</div></td>
+                  <td><div class="stat-cell">0</div></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- ============ FOCUS BAR · Lux as selected ============ -->
+        <div class="focus-bar">
+          <div class="focus-avatar av-lux">LX</div>
+          <div>
+            <div class="focus-name">LUX MedSpa Brickell <span style="font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--text-3);font-weight:400;background:var(--bg-3);padding:3px 8px;border-radius:4px;vertical-align:4px;margin-left:8px;">SELECTED</span></div>
+            <div class="focus-meta">SLS LUX Hotel Brickell, 9th Floor · 805 S Miami Ave · 0.2 mi from you</div>
+          </div>
+          <div class="focus-stats">
+            <div>
+              <div class="focus-stat-label">Reviews</div>
+              <div class="focus-stat-num">2,200</div>
+            </div>
+            <div>
+              <div class="focus-stat-label">Rating</div>
+              <div class="focus-stat-num">5.0</div>
+            </div>
+            <div>
+              <div class="focus-stat-label">Booking</div>
+              <div class="focus-stat-num" style="font-size:13px;line-height:1.6;font-family:'JetBrains Mono',monospace;font-weight:600;margin-top:6px;">Mangomint</div>
+            </div>
+            <div>
+              <div class="focus-stat-label">Instagram</div>
+              <div class="focus-stat-num" style="font-size:13px;line-height:1.6;font-family:'JetBrains Mono',monospace;font-weight:600;margin-top:6px;">9.6k followers</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ============ DETAIL SECTION ============ -->
+        <div class="detail-section">
+
+          <!-- LEFT · vs panels -->
+          <div>
+
+            <!-- HEAD-TO-HEAD -->
+            <div class="panel">
+              <div class="panel-head">
+                <div>
+                  <div class="panel-title">Head-to-head · you vs Lux</div>
+                  <div class="panel-subtitle">// 8 dimensions · color shows who leads</div>
+                </div>
+              </div>
+
+              <div class="vs-row">
+                <div class="vs-row-label">Rating
+                  <span class="info-tip" data-tip="Google-displayed all-time rating. Higher is better. Source: Google place_info.">i</span>
+                </div>
+                <div class="vs-side you">4.4 <span class="pill-down">−0.6</span></div>
+                <div class="vs-side them">5.0</div>
+              </div>
+
+              <div class="vs-row">
+                <div class="vs-row-label">Reviews</div>
+                <div class="vs-side you">342</div>
+                <div class="vs-side them">2,200 <span class="pill-up">6.4×</span></div>
+              </div>
+
+              <div class="vs-row">
+                <div class="vs-row-label">Reply rate
+                  <span class="info-tip" data-tip="Last 20 reviews where owner_answer exists. Industry benchmark: 89%.">i</span>
+                </div>
+                <div class="vs-side you">0% <span class="pill-down">−95</span></div>
+                <div class="vs-side them">95%</div>
+              </div>
+
+              <div class="vs-row">
+                <div class="vs-row-label">Velocity 30d</div>
+                <div class="vs-side you">+53 <span class="pill-up">3.1×</span></div>
+                <div class="vs-side them">+17</div>
+              </div>
+
+              <div class="vs-row">
+                <div class="vs-row-label">Photos</div>
+                <div class="vs-side you">46 <span class="pill-down">−654</span></div>
+                <div class="vs-side them">700</div>
+              </div>
+
+              <div class="vs-row">
+                <div class="vs-row-label">Instagram
+                  <span class="info-tip" data-tip="Follower count from public Instagram profile. Refreshed weekly via public scraping.">i</span>
+                </div>
+                <div class="vs-side you">16.4k <span class="pill-up">1.7×</span></div>
+                <div class="vs-side them">9.6k</div>
+              </div>
+
+              <div class="vs-row">
+                <div class="vs-row-label">Hours / week</div>
+                <div class="vs-side you">54 hrs (closed Sun)</div>
+                <div class="vs-side them">56 hrs (open 7d) <span class="pill-up">+2</span></div>
+              </div>
+
+              <div class="vs-row">
+                <div class="vs-row-label">Years in business</div>
+                <div class="vs-side you">5 yrs <span class="pill-up">+3</span></div>
+                <div class="vs-side them">2 yrs</div>
+              </div>
+            </div>
+
+            <!-- SERVICE COVERAGE -->
+            <div class="panel">
+              <div class="panel-head">
+                <div>
+                  <div class="panel-title">Service coverage matrix</div>
+                  <div class="panel-subtitle">// services offered · scraped from each website + Google attributes</div>
+                </div>
+              </div>
+              <div class="service-grid">
+                <div class="service-grid-head">Service</div>
+                <div class="service-grid-head" style="text-align:center;width:60px;">You</div>
+                <div class="service-grid-head" style="text-align:center;width:60px;">Lux</div>
+
+                <div class="service-row">
+                  <div class="service-name">Botox / fillers</div>
+                  <div class="check check-y">●</div>
+                  <div class="check check-y">●</div>
+                </div>
+                <div class="service-row">
+                  <div class="service-name">Hydrafacial</div>
+                  <div class="check check-y">●</div>
+                  <div class="check check-y">●</div>
+                </div>
+                <div class="service-row">
+                  <div class="service-name">Microneedling</div>
+                  <div class="check check-y">●</div>
+                  <div class="check check-y">●</div>
+                </div>
+                <div class="service-row">
+                  <div class="service-name">Morpheus8</div>
+                  <div class="check check-y">●</div>
+                  <div class="check check-n">○</div>
+                </div>
+                <div class="service-row">
+                  <div class="service-name">Laser hair removal</div>
+                  <div class="check check-y">●</div>
+                  <div class="check check-n">○</div>
+                </div>
+                <div class="service-row">
+                  <div class="service-name">LPG / Endermologie</div>
+                  <div class="check check-y">●</div>
+                  <div class="check check-n">○</div>
+                </div>
+                <div class="service-row">
+                  <div class="service-name">PDO threads</div>
+                  <div class="check check-y">●</div>
+                  <div class="check check-n">○</div>
+                </div>
+                <div class="service-row">
+                  <div class="service-name">IV therapy</div>
+                  <div class="check check-y">●</div>
+                  <div class="check check-n">○</div>
+                </div>
+                <div class="service-row">
+                  <div class="service-name">Lymphatic drainage</div>
+                  <div class="check check-y">●</div>
+                  <div class="check check-y">●</div>
+                </div>
+                <div class="service-row">
+                  <div class="service-name">Couples massage</div>
+                  <div class="check check-n">○</div>
+                  <div class="check check-y">●</div>
+                </div>
+                <div class="service-row">
+                  <div class="service-name">Steam room / sauna</div>
+                  <div class="check check-y">●</div>
+                  <div class="check check-y">●</div>
+                </div>
+                <div class="service-row">
+                  <div class="service-name">Concierge / amenities</div>
+                  <div class="check check-n">○</div>
+                  <div class="check check-y">●</div>
+                </div>
+                <div class="service-row">
+                  <div class="service-name">Pool access</div>
+                  <div class="check check-n">○</div>
+                  <div class="check check-y">●</div>
+                </div>
+                <div class="service-row">
+                  <div class="service-name">Exosomes</div>
+                  <div class="check check-n">○</div>
+                  <div class="check check-y">●</div>
+                </div>
+              </div>
+              <div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--border);font-size:13px;color:var(--text-2);line-height:1.55;">
+                <b style="color:var(--text)">Solea has more aesthetic depth</b> (Morpheus8, PDO, laser, LPG). Lux wins on experience / hotel amenities (pool, couples, concierge). You can win the "treatment seeker" segment Lux ignores.
+              </div>
+            </div>
+
+            <!-- LATEST REVIEWS · LUX -->
+            <div class="panel">
+              <div class="panel-head">
+                <div>
+                  <div class="panel-title">Latest 5 reviews · Lux</div>
+                  <div class="panel-subtitle">// these are the patients Solea could have served</div>
+                </div>
+                <a href="#" style="font-size:12px;color:var(--coral);font-weight:600;">All reviews →</a>
+              </div>
+
+              <div class="review-sample">
+                <div class="review-sample-head">
+                  <span class="review-sample-name">M.R.</span>
+                  <span class="review-sample-stars">★★★★★</span>
+                  <span class="review-sample-date">May 17 · today</span>
+                </div>
+                <div class="review-sample-text">
+                  "OMG! They are not lying when they say it's #1 in Miami. First time here, my bf bought a gift card for me back in Christmas. So I finally got to use it for my birthday. I got the service Sunday-Funday. Deep Tissue Massage + Scalp Massage + Hot Stones + SpaDay…"
+                </div>
+              </div>
+
+              <div class="review-sample">
+                <div class="review-sample-head">
+                  <span class="review-sample-name">M.A.</span>
+                  <span class="review-sample-stars">★★★★★</span>
+                  <span class="review-sample-date">May 12</span>
+                </div>
+                <div class="review-sample-text">
+                  "Had such an amazing Mother's Day experience at the spa. Such a clean and welcoming feeling. Hali and Layeh went above and beyond for me and the massages were amazing!! I felt like such a queen…"
+                </div>
+              </div>
+
+              <div class="review-sample">
+                <div class="review-sample-head">
+                  <span class="review-sample-name">C.K.</span>
+                  <span class="review-sample-stars">★★★★★</span>
+                  <span class="review-sample-date">May 9</span>
+                </div>
+                <div class="review-sample-text">
+                  "Monique has a calming energy and really knows what she's doing. The massage was the perfect balance of relaxing and therapeutic. Also Leyah was great with assisting me. I walked in tense and left feeling like a new man."
+                </div>
+              </div>
+
+              <div class="review-sample">
+                <div class="review-sample-head">
+                  <span class="review-sample-name">S.S.</span>
+                  <span class="review-sample-stars">★★★★★</span>
+                  <span class="review-sample-date">May 9</span>
+                </div>
+                <div class="review-sample-text">
+                  "Sophia did my mom's facial & she feels refreshed, younger & she is glowing! She made her feel so pampered & cared for. Nana at the front desk also made us feel so welcome…"
+                </div>
+              </div>
+
+              <div class="review-sample">
+                <div class="review-sample-head">
+                  <span class="review-sample-name">A.A.</span>
+                  <span class="review-sample-stars">★★★★★</span>
+                  <span class="review-sample-date">May 8</span>
+                </div>
+                <div class="review-sample-text">
+                  "I had an excellent experience with Ray during my sports massage session. From the moment you walk in, you immediately get a sense of relief and comfort. Ray is extremely hospitable, professional, and knowledgeable…"
+                </div>
+              </div>
+
+              <div style="margin-top:14px;font-size:12.5px;color:var(--text-2);line-height:1.55;padding:12px 14px;background:var(--bg-3);border-radius:8px;">
+                <b>Pattern:</b> Lux reviews are personal — staff named by first name, treatment named, outcome described. None of your last 8 reviews mention staff by name except M.M. (Fanny), M.A. (Imilsis), V.J. (Sabina/Sabrina/Sasha) — and you replied to <b>none</b> of them, so Google can't index those staff names against you.
+              </div>
+            </div>
+
+          </div>
+
+          <!-- RIGHT · rail -->
+          <aside>
+
+            <!-- Threat ranking -->
+            <div class="rail-card">
+              <div class="rail-title">
+                Threat ranking
+                <span class="info-tip" data-tip="Scored on 4 dimensions: geographic proximity, service overlap, search-rank overlap, momentum (review velocity). Refreshed weekly.">i</span>
+              </div>
+              <div class="threat-row high">
+                <b>Sisu Clinic Miami</b> <span style="font-size:10px;background:var(--alert);color:#fff;padding:1px 6px;border-radius:4px;font-family:'JetBrains Mono',monospace;margin-left:4px;">HIGH</span>
+                <div style="margin-top:5px;line-height:1.45;">Same building. In the local pack for "botox brickell" — your #1 service. New 3-pack threat as of Apr 2026.</div>
+                <div class="threat-meta">est. monthly bookings lost: ~5</div>
+              </div>
+              <div class="threat-row high">
+                <b>LUX MedSpa Brickell</b> <span style="font-size:10px;background:var(--alert);color:#fff;padding:1px 6px;border-radius:4px;font-family:'JetBrains Mono',monospace;margin-left:4px;">HIGH</span>
+                <div style="margin-top:5px;line-height:1.45;">Owns local pack #1 across 4 major keywords. 95% reply rate vs your 0%. Just expanded into lymphatic drainage ads.</div>
+                <div class="threat-meta">est. monthly bookings lost: ~12</div>
+              </div>
+              <div class="threat-row med">
+                <b>Glow Loft MedSpa</b> <span style="font-size:10px;background:var(--gold);color:#fff;padding:1px 6px;border-radius:4px;font-family:'JetBrains Mono',monospace;margin-left:4px;">RISING</span>
+                <div style="margin-top:5px;line-height:1.45;">New entrant May 14. 0.4 mi away. No reviews yet — engage before they get traction.</div>
+                <div class="threat-meta">monitor weekly</div>
+              </div>
+              <div class="threat-row">
+                <b>No Filter Medical Spa</b>
+                <div style="margin-top:5px;line-height:1.45;">Local pack #2 on multiple keywords but lower service overlap with Solea.</div>
+              </div>
+            </div>
+
+            <!-- Structural gaps -->
+            <div class="rail-card">
+              <div class="rail-title">
+                Structural gaps · vs Lux
+                <span class="info-tip" data-tip="Differences in profile completeness, hours, photos, attribution. These shape Google's ranking signal independent of reviews.">i</span>
+              </div>
+              <div class="gap-list">
+                <div class="gap-item">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="var(--alert)" stroke="none"><path d="M12 2l1 14h-2zM12 18a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/></svg>
+                  <div>
+                    Closed Sundays · Lux open 7 days
+                    <div class="gap-item-sub">Sisu just changed to open Sundays · pressure rising</div>
+                  </div>
+                </div>
+                <div class="gap-item">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="var(--alert)" stroke="none"><path d="M12 2l1 14h-2zM12 18a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/></svg>
+                  <div>
+                    46 photos · Lux has 700+
+                    <div class="gap-item-sub">photos = strongest "completeness" signal Google uses</div>
+                  </div>
+                </div>
+                <div class="gap-item">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="var(--alert)" stroke="none"><path d="M12 2l1 14h-2zM12 18a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/></svg>
+                  <div>
+                    0% review reply rate
+                    <div class="gap-item-sub">Lux: 95% · biggest single ranking lever</div>
+                  </div>
+                </div>
+                <div class="gap-item">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="var(--success)" stroke="none"><path d="M9 16l-4-4 1.4-1.4 2.6 2.6 7.6-7.6L18 7z"/></svg>
+                  <div>
+                    16.4k Instagram followers
+                    <div class="gap-item-sub">Lux: 9.6k · YOU LEAD — convert this</div>
+                  </div>
+                </div>
+                <div class="gap-item">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="var(--success)" stroke="none"><path d="M9 16l-4-4 1.4-1.4 2.6 2.6 7.6-7.6L18 7z"/></svg>
+                  <div>
+                    Bilingual EN/ES customer service
+                    <div class="gap-item-sub">50% Brickell is Hispanic · Lux doesn't lead with this</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Same-building callout -->
+            <div class="rail-card" style="background:var(--alert-light); border-color:rgba(181,61,71,.2);">
+              <div class="rail-title" style="color:var(--alert);">
+                Same-building threat
+              </div>
+              <div style="font-size:13px;line-height:1.55;color:var(--text);">
+                Sisu Clinic occupies 701 S Miami Ave — your address. They are in the local pack for <b>"botox brickell"</b> with the exact same 342 review count, $9/unit promo, board-certified MD positioning.
+              </div>
+              <div style="margin-top:12px;font-size:11px;color:var(--text-2);font-family:'JetBrains Mono',monospace;line-height:1.55;">
+                Mall-tenant lock-in: a patient walking through Brickell City Centre sees both signs. Your differentiation must be visible at the suite level (bilingual, LPG, 5-yr tenure).
+              </div>
+              <button class="btn btn-ghost" style="margin-top:12px;width:100%;justify-content:center;">
+                Open Sisu profile →
+              </button>
+            </div>
+          </aside>
+        </div>
+
+        <div style="margin-top:24px;padding:14px 18px;background:var(--bg-3);border-radius:10px;font-size:11.5px;color:var(--text-3);font-family:'JetBrains Mono',monospace;line-height:1.6;">
+          // Competitor list auto-discovered from local pack + people-also-search panels · daily delta tracking on hours, photos, reviews, ads · same-building flag triggers when address matches yours · last full refresh Mon 9:00 AM
+        </div>
+
+      </div>
+    </main>
+
+  </body>
+</html>
