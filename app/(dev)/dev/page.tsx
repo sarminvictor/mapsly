@@ -1,6 +1,6 @@
-// Dev dashboard — Phase 1 wiring: real GitHub feed (commits + open PRs + merges).
-// Remaining sections (PLAN.md parser, sessions JSON, CronRun, MCP health, enhance
-// signals) get added by the autonomous loop in phases 1.10.4–1.10.7.
+// Dev dashboard — fully wired data sources.
+// Sections: hero KPIs · Blockers · Plan progress · Sessions · Service health
+// · Recent commits · Open PRs.
 
 import { Suspense } from "react";
 import {
@@ -8,6 +8,10 @@ import {
   getOpenPrs,
   getRecentMerges,
 } from "./queries/github";
+import { getPlanSummary } from "./queries/plan";
+import { getSessionsSummary } from "./queries/sessions";
+import { getServiceHealth } from "./queries/services";
+import { getBlockers } from "./queries/blockers";
 
 export default function DevDashboard() {
   const sha = process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? "local";
@@ -21,13 +25,10 @@ export default function DevDashboard() {
             <div className="dev-head-title">
               Mapsly · autonomous build status
             </div>
-            <div className="dev-status">
-              dev.mapsly.ai · phase 1 in progress
-            </div>
+            <div className="dev-status">dev.mapsly.ai · phase 1</div>
           </div>
         </div>
         <div style={{ display: "flex", gap: 10 }}>
-          <span className="dev-pill">phase 1 · ramping</span>
           <span className="dev-pill">build {sha}</span>
         </div>
       </header>
@@ -36,14 +37,50 @@ export default function DevDashboard() {
         <Suspense fallback={<TileSkeleton label="open prs" />}>
           <OpenPrsTile />
         </Suspense>
-        <Suspense fallback={<TileSkeleton label="recent merges" />}>
+        <Suspense fallback={<TileSkeleton label="merges 7d" />}>
           <RecentMergesTile />
         </Suspense>
-        <Tile label="avg score" value="—" sub="threshold 9.0" tone="indigo" />
-        <Tile label="api spend today" value="$0.00" sub="ceiling $5.00" />
-        <Tile label="sessions 7d" value="—" sub="loop not armed" />
-        <Tile label="failures 24h" value="0" sub="rolling" tone="green" />
+        <Suspense fallback={<TileSkeleton label="avg score" />}>
+          <AvgScoreTile />
+        </Suspense>
+        <Suspense fallback={<TileSkeleton label="cost 7d" />}>
+          <CostTile />
+        </Suspense>
+        <Suspense fallback={<TileSkeleton label="plan progress" />}>
+          <PlanTile />
+        </Suspense>
+        <Suspense fallback={<TileSkeleton label="blockers" />}>
+          <BlockersTile />
+        </Suspense>
       </section>
+
+      <div className="dev-card">
+        <h2>Blockers · only items I cannot do programmatically</h2>
+        <Suspense fallback={<div className="dev-empty">loading…</div>}>
+          <BlockersList />
+        </Suspense>
+      </div>
+
+      <div className="dev-card">
+        <h2>Plan progress</h2>
+        <Suspense fallback={<div className="dev-empty">loading…</div>}>
+          <PlanProgress />
+        </Suspense>
+      </div>
+
+      <div className="dev-card">
+        <h2>Sessions · last 7 days</h2>
+        <Suspense fallback={<div className="dev-empty">loading…</div>}>
+          <SessionsList />
+        </Suspense>
+      </div>
+
+      <div className="dev-card">
+        <h2>External service health</h2>
+        <Suspense fallback={<div className="dev-empty">loading…</div>}>
+          <ServicesGrid />
+        </Suspense>
+      </div>
 
       <div className="dev-card">
         <h2>Recent commits</h2>
@@ -57,30 +94,6 @@ export default function DevDashboard() {
         <Suspense fallback={<div className="dev-empty">loading…</div>}>
           <PrsList />
         </Suspense>
-      </div>
-
-      <div className="dev-card">
-        <h2>Plan progress</h2>
-        <div className="dev-empty">
-          parser lands in phase 1.10.4 · until then, see{" "}
-          <code className="dev-mono">PLAN.md</code> in the repo.
-        </div>
-      </div>
-
-      <div className="dev-card">
-        <h2>Sessions · last 7 days</h2>
-        <div className="dev-empty">
-          autonomous loop writes session JSON files; renderer lands in phase
-          1.10.4.
-        </div>
-      </div>
-
-      <div className="dev-card">
-        <h2>MCP + API health</h2>
-        <div className="dev-empty">
-          health pings + cost aggregate land in phase 1.10.5 (KV-backed, 60s
-          cache).
-        </div>
       </div>
 
       <footer
@@ -109,7 +122,7 @@ async function OpenPrsTile() {
     <Tile
       label="open prs"
       value={String(prs.length)}
-      sub={needsReview > 0 ? `${needsReview} need review` : "all gates pending"}
+      sub={needsReview > 0 ? `${needsReview} need review` : "auto-merge queue"}
       tone={needsReview > 0 ? "amber" : undefined}
     />
   );
@@ -127,7 +140,376 @@ async function RecentMergesTile() {
   );
 }
 
-// ---------- Lists ----------
+async function AvgScoreTile() {
+  const s = await getSessionsSummary();
+  return (
+    <Tile
+      label="avg score 7d"
+      value={s.avgScore7d != null ? s.avgScore7d.toFixed(1) : "—"}
+      sub={s.avgScore7d != null ? "threshold 9.0" : "no scored phases yet"}
+      tone={s.avgScore7d != null && s.avgScore7d >= 9 ? "green" : "indigo"}
+    />
+  );
+}
+
+async function CostTile() {
+  const s = await getSessionsSummary();
+  return (
+    <Tile
+      label="cost 7d"
+      value={`$${s.totalCost7d.toFixed(2)}`}
+      sub="ceiling $5 per call"
+    />
+  );
+}
+
+async function PlanTile() {
+  const p = await getPlanSummary();
+  return (
+    <Tile
+      label="plan progress"
+      value={`${p.percent}%`}
+      sub={`${p.done} / ${p.total} done`}
+      tone="indigo"
+    />
+  );
+}
+
+async function BlockersTile() {
+  const b = await getBlockers();
+  return (
+    <Tile
+      label="blockers"
+      value={String(b.length)}
+      sub={b.length === 0 ? "nothing waiting on you" : "your action needed"}
+      tone={b.length === 0 ? "green" : "amber"}
+    />
+  );
+}
+
+// ---------- Blockers ----------
+
+async function BlockersList() {
+  const blockers = await getBlockers();
+  if (blockers.length === 0) {
+    return (
+      <div className="dev-empty">
+        ✓ nothing waiting on you · every other open item is something I can do
+        myself.
+      </div>
+    );
+  }
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      {blockers.map((b) => (
+        <div
+          key={b.id}
+          style={{
+            padding: "12px 14px",
+            background: "var(--dev-bg-3)",
+            border: "1px solid var(--dev-border)",
+            borderLeft: `3px solid ${
+              b.priority === "critical"
+                ? "var(--dev-red)"
+                : b.priority === "warn"
+                  ? "var(--dev-amber)"
+                  : "var(--dev-text-3)"
+            }`,
+            borderRadius: 8,
+          }}
+        >
+          <div
+            style={{ fontSize: 13, fontWeight: 600, color: "var(--dev-text)" }}
+          >
+            {b.title}
+          </div>
+          <div
+            className="dev-mono"
+            style={{
+              fontSize: 11,
+              color: "var(--dev-text-3)",
+              marginTop: 4,
+            }}
+          >
+            why: {b.reason}
+          </div>
+          <div
+            style={{
+              fontSize: 12,
+              color: "var(--dev-text-2)",
+              marginTop: 6,
+            }}
+          >
+            → {b.action}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ---------- Plan progress ----------
+
+async function PlanProgress() {
+  const p = await getPlanSummary();
+  if (p.total === 0) {
+    return <div className="dev-empty">PLAN.md not found or empty.</div>;
+  }
+  const recent = p.rows.filter(
+    (r) => r.status === "in_progress" || r.status === "pending",
+  );
+  // Show the next 12 actionable rows
+  const next = recent.slice(0, 12);
+  return (
+    <div>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 16,
+          marginBottom: 14,
+          fontSize: 12,
+          color: "var(--dev-text-2)",
+        }}
+      >
+        <span>
+          <strong style={{ color: "var(--dev-green)" }}>{p.done}</strong> done
+        </span>
+        <span>
+          <strong style={{ color: "var(--dev-amber)" }}>{p.inProgress}</strong>{" "}
+          in progress
+        </span>
+        <span>
+          <strong>{p.pending}</strong> pending
+        </span>
+        {p.blocked > 0 && (
+          <span>
+            <strong style={{ color: "var(--dev-red)" }}>{p.blocked}</strong>{" "}
+            blocked
+          </span>
+        )}
+      </div>
+      <div
+        style={{
+          height: 8,
+          background: "var(--dev-bg-3)",
+          borderRadius: 4,
+          overflow: "hidden",
+          marginBottom: 16,
+        }}
+      >
+        <div
+          style={{
+            width: `${p.percent}%`,
+            height: "100%",
+            background:
+              p.percent === 100 ? "var(--dev-green)" : "var(--dev-indigo)",
+          }}
+        />
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        {next.map((row) => (
+          <div
+            key={row.id}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+              padding: "8px 12px",
+              fontSize: 12,
+              background: "var(--dev-bg-3)",
+              border: "1px solid var(--dev-border)",
+              borderRadius: 6,
+            }}
+          >
+            <StatusPill status={row.status} />
+            <span
+              className="dev-mono"
+              style={{ color: "var(--dev-text-3)", fontSize: 11 }}
+            >
+              {row.id}
+            </span>
+            <span style={{ flex: 1, color: "var(--dev-text)" }}>
+              {row.description}
+            </span>
+            <span
+              className="dev-mono"
+              style={{ fontSize: 10, color: "var(--dev-text-3)" }}
+            >
+              {row.effort}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function StatusPill({ status }: { status: string }) {
+  const map: Record<string, { bg: string; color: string; label: string }> = {
+    done: {
+      bg: "rgba(34,197,94,.15)",
+      color: "var(--dev-green)",
+      label: "done",
+    },
+    in_progress: {
+      bg: "rgba(245,158,11,.15)",
+      color: "var(--dev-amber)",
+      label: "running",
+    },
+    pending: {
+      bg: "var(--dev-bg-2)",
+      color: "var(--dev-text-2)",
+      label: "next",
+    },
+    blocked: {
+      bg: "rgba(239,68,68,.15)",
+      color: "var(--dev-red)",
+      label: "blocked",
+    },
+    "human-required": {
+      bg: "rgba(245,158,11,.15)",
+      color: "var(--dev-amber)",
+      label: "your turn",
+    },
+  };
+  const cfg = map[status] ?? map.pending;
+  return (
+    <span
+      className="dev-mono"
+      style={{
+        fontSize: 10,
+        padding: "2px 6px",
+        borderRadius: 4,
+        background: cfg.bg,
+        color: cfg.color,
+        minWidth: 56,
+        textAlign: "center",
+      }}
+    >
+      {cfg.label}
+    </span>
+  );
+}
+
+// ---------- Sessions ----------
+
+async function SessionsList() {
+  const s = await getSessionsSummary();
+  if (s.total === 0) {
+    return (
+      <div className="dev-empty">
+        no autonomous sessions recorded yet · first scheduled run pending.
+      </div>
+    );
+  }
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      {s.last7d.slice(0, 7).map((rec) => (
+        <div
+          key={rec.id}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            padding: "10px 12px",
+            background: "var(--dev-bg-3)",
+            border: "1px solid var(--dev-border)",
+            borderRadius: 8,
+          }}
+        >
+          <span
+            className="dev-mono"
+            style={{ fontSize: 11, color: "var(--dev-text-3)" }}
+          >
+            {rec.id}
+          </span>
+          <span style={{ fontSize: 12, flex: 1 }}>
+            shipped {rec.tasksShipped?.length ?? 0} · merged{" "}
+            {rec.prsAutoMerged?.length ?? 0} · avg score{" "}
+            {rec.scoreAvg?.toFixed(1) ?? "—"}
+          </span>
+          <span
+            className="dev-mono"
+            style={{ fontSize: 11, color: "var(--dev-text-3)" }}
+          >
+            ${(rec.costUsd ?? 0).toFixed(2)} · {rec.exit ?? "running"}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ---------- Service health ----------
+
+async function ServicesGrid() {
+  const services = await getServiceHealth();
+  return (
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
+        gap: 8,
+      }}
+    >
+      {services.map((svc) => {
+        const state = !svc.configured
+          ? "missing"
+          : svc.reachable === false
+            ? "down"
+            : "ok";
+        const colorMap = {
+          ok: "var(--dev-green)",
+          missing: "var(--dev-text-3)",
+          down: "var(--dev-red)",
+        };
+        return (
+          <div
+            key={svc.name}
+            style={{
+              padding: "10px 12px",
+              background: "var(--dev-bg-3)",
+              border: "1px solid var(--dev-border)",
+              borderRadius: 8,
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                fontSize: 12,
+              }}
+            >
+              <span
+                style={{
+                  width: 6,
+                  height: 6,
+                  borderRadius: "50%",
+                  background: colorMap[state],
+                }}
+              />
+              <span style={{ fontWeight: 600 }}>{svc.name}</span>
+            </div>
+            <div
+              className="dev-mono"
+              style={{
+                fontSize: 10,
+                color: "var(--dev-text-3)",
+                marginTop: 4,
+              }}
+            >
+              {state} · {svc.detail}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ---------- Commits + PRs (unchanged from earlier wiring) ----------
 
 async function CommitsList() {
   const commits = await getRecentCommits(8);

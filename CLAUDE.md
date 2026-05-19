@@ -289,6 +289,17 @@ Registered in `.mcp.json`. Per-server rules in `.claude/rules/mcp-*.md`.
 
 ---
 
+## Blockers contract · the never-bother-Viktor-with-trivia rule
+
+A "blocker" surfaces on dev.mapsly.ai ONLY when there is no programmatic path I have access to. This means:
+
+- ✅ Block-list it if: requires ID verification (Meta Business, Stripe identity), requires logging into a third-party UI that has no API, requires a credential I genuinely don't have.
+- ❌ DO NOT block-list: anything I can do via API token, CLI, or MCP. Set env var, push commit, run a script, configure a service via its REST API — those are mine to do, logged to `build-log.md`, not surfaced as a Viktor action.
+
+When in doubt, attempt programmatically first. Only after a real failure (auth denied, no API exists) does it become a blocker.
+
+The dashboard's "Blockers" card is the single source of truth for what Viktor must do. If something needs Viktor and isn't there, that's a defect — fix by either doing it myself or adding it to the queries/blockers.ts source.
+
 ## Hard reminders
 
 1. **Performance is the #1 product requirement.** Slow page = broken page.
