@@ -198,3 +198,15 @@ Changes:
 Outcome: SUCCESS. Next Cowork tick will (1) clone origin to /tmp, (2) read v0.6.6 STEP 0, (3) load env, (4) claim a task, (5) edit files in /tmp clone, (6) push to GitHub, (7) wait for Vercel CI, (8) auto-merge on green. All operations happen in /tmp where FUSE doesn't apply.
 
 The mount-side .git is permanently stuck (can't ever sync via fetch) but that doesn't matter — the loop ignores it.
+
+## SES-2026-05-20-cowork-05 · 2026-05-20 06:50 UTC · post-v0.6.6 sync tick
+
+First Cowork tick AFTER v0.6.6 (commit `4adcc59`) shipped. Found origin/main already at v0.6.6 — work was independently shipped by a parallel Mac /loop tick while this Cowork session was still bootstrapping. INC-01 escape hatch (`GIT_DIR=/tmp/mapsly-git-copy`) used for git ops since this tick was still operating against the stale FUSE-mounted .git.
+
+- HEAD already at v0.6.6 (4adcc59); local diff against origin reduced to housekeeping.
+- Stamped `loop-lock.lastTickAt` to current time (origin still had 06:42:00Z from v0.6.5 ship — never refreshed because v0.6.6 ship didn't touch it).
+- Updated `loop-lock.note` to reflect "v0.6.6 live".
+- No PLAN task claimed: by the time bootstrap finished the highest-priority candidate (B.0, P10, no `requires:*` tags but realistically needs deploy-check) would have failed deploy-check immediately under CAN_DEPLOY_CHECK=0 in this env; per v0.6.6 STEP 6 the next tick will instead defer-to-vercel-ci.
+- Mount-side orphans noted: `.git-test-marker` (from this iteration's probe), `.claude/memory/build-log.md.new` (from origin show pipe) — neither can be unlinked from this env. Both invisible to future ticks since v0.6.6 ignores the mount.
+
+Outcome: SUCCESS (small) — loop-lock refreshed so dashboard heartbeat stays live; no regressions.

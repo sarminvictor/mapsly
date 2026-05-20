@@ -2,8 +2,8 @@
   "state": "idle",
   "sessionId": null,
   "startedAt": null,
-  "lastTickAt": "2026-05-20T06:42:00Z",
+  "lastTickAt": "2026-05-20T06:52:00Z",
   "cooldownUntil": null,
   "consecutiveFailures": 0,
-  "note": "v0.6.5 reset · capability-aware routing replaces v0.6.4 fuse-wall halt. Next tick re-probes env and picks up eligible work."
+  "note": "v0.6.6 shipped from Cowork tick via INC-01 GIT_DIR=/tmp escape hatch · prior iteration drafted, this one pushed · future ticks will bootstrap from /tmp clone per new STEP 0"
 }
