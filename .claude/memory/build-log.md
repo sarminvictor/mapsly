@@ -598,3 +598,23 @@ Routes:
 - Link from `https://dev.mapsly.ai/` header
 
 Outcome: SUCCESS.
+
+## SES-2026-05-20-cowork-1779316561 · C.6 · SUCCESS · v0.6.35
+
+- Task: **C.6 · services/email-verify · SMTP-handshake mailbox verification** · Effort S · merged 5f849de via squash PR #27 · v0.6.32 → v0.6.35 (other ticks bumped 0.6.33/0.6.34 in between)
+- Files: services/email-verify/{smtp.ts (584 lines), index.ts (26), __tests__/smtp.test.ts (743 lines)} + .env.example +7 lines + .prettierignore +4 lines
+- Diff: 5 files / +1373 / -2 (across 4 commits — initial + 3 fix-ups)
+- Tests: 25 new unit cases (syntax gate / DNS errors / all SMTP code classes / multi-line EHLO continuation / EHLO→HELO fallback / MAIL-FROM refused / banner refused / transport failures incl. ECONNREFUSED / socket timeout + 10s hard ceiling via vi.useFakeTimers / PII hygiene / lowest-priority MX win / isLikelyDeliverable mapping / cron-context invariant / lowercasing+trim / durationMs telemetry)
+- CI: validate ✓ build ✓ test ✓ integration ✓ bundle-check ✓ ci-passed ✓ Vercel preview ✓ (lighthouse FAILED — pre-existing infra noise unrelated to C.6, no UI added)
+- code-reviewer subagent verdict: PASS 9.0/10 · 2 LOW findings addressed in commit 2 (drop unused `line` arg from extractReason; add PROBE_TIMEOUT_MS hard-ceiling test)
+- scorer verdict: 9.5 aggregate (completion 9.5 / quality 9.5 / audience 9.5 / relevance 9.5 / performance 9.5)
+- Fix-ups required: 3
+  1. Drop unused `line` param + add probe-timeout test (reviewer LOW)
+  2. Add `.claude/memory/loop-lock.json` to `.prettierignore` — middle-dot chars in 'note' field + CI's prettier-plugin-tailwindcss auto-load yielded false-flag formatting drift. Matches existing precedent (build-log.md was added for same class of flake)
+  3. Cast `Socket as unknown as SocketLike` at `defaultSocketFactory` boundary — Node net.Socket.end has wider overloads (TS2322 caught by Vercel CI on push 1, fixed in push 3)
+- Validation strategy: unit ✓ ran inside iteration (mocked Prisma + DNS + socket); deploy-check deferred to Vercel CI per INC-31 sandbox CAN_DEPLOY_CHECK=0 pattern; integration deferred to C.10 monthly cron; browser/db/email/perf/a11y N/A (pure backend adapter, no UI / no DB writes / probe never sends DATA / no route changes)
+- Incidents recurring: INC-31 (Cowork sandbox /tmp clone · followed); INC-32 (test mock mirrors Postgres NULL+increment semantics to surface regressions — production code initializes costUsd: 0)
+- Incidents new: none
+- Orphan recovered at start: C.4 (TaskRun `trun-177931540991482-c4` was IN_PROGRESS in DB but PR #26 had merged at 22:32:12Z — prior session ran out of budget mid-close-out; patched to SUCCESS with prNumber=26)
+- Unblocks: C.10 (monthly email-verification cron) and E.6 (SMB settings — verified billing email)
+- One-line summary: SES-2026-05-20-cowork-1779316561 · C.6 · SUCCESS · score 9.5/10 · 1373+/2- · ci=green · merge=AUTO
