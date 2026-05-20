@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { setRequestLocale, getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 
@@ -15,6 +16,10 @@ export async function generateMetadata({
   };
 }
 
+// Outer page is async only because of params + getTranslations (both cached
+// or i18n-controlled). The uncached searchParams.email read is delegated
+// to an inner async component wrapped in <Suspense> so cacheComponents (PPR)
+// is happy.
 export default async function CheckEmailPage({
   params,
   searchParams,
@@ -24,15 +29,7 @@ export default async function CheckEmailPage({
 }) {
   const { locale } = await params;
   setRequestLocale(locale);
-  const { email } = await searchParams;
   const t = await getTranslations("auth.check_email");
-
-  // Soft display value — if no email was passed (direct nav), show a
-  // neutral fallback so the page doesn't read as broken.
-  const displayEmail =
-    email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
-      ? email
-      : "your inbox";
 
   return (
     <main
@@ -100,16 +97,22 @@ export default async function CheckEmailPage({
           {t("title")}
         </h1>
 
-        <p
-          style={{
-            margin: "12px 0 20px",
-            color: "var(--color-text-2)",
-            fontSize: 15,
-            lineHeight: 1.55,
-          }}
+        <Suspense
+          fallback={
+            <p
+              style={{
+                margin: "12px 0 20px",
+                color: "var(--color-text-2)",
+                fontSize: 15,
+                lineHeight: 1.55,
+              }}
+            >
+              {t("subtitle", { email: "your inbox" })}
+            </p>
+          }
         >
-          {t("subtitle", { email: displayEmail })}
-        </p>
+          <EmailSubtitle searchParams={searchParams} />
+        </Suspense>
 
         <a
           href="https://mail.google.com/mail/u/0/#inbox"
@@ -157,5 +160,28 @@ export default async function CheckEmailPage({
         </p>
       </div>
     </main>
+  );
+}
+
+async function EmailSubtitle({
+  searchParams,
+}: {
+  searchParams: Promise<{ email?: string }>;
+}) {
+  const { email } = await searchParams;
+  const t = await getTranslations("auth.check_email");
+  const displayEmail =
+    email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? email : "your inbox";
+  return (
+    <p
+      style={{
+        margin: "12px 0 20px",
+        color: "var(--color-text-2)",
+        fontSize: 15,
+        lineHeight: 1.55,
+      }}
+    >
+      {t("subtitle", { email: displayEmail })}
+    </p>
   );
 }
