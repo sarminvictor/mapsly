@@ -618,3 +618,18 @@ Outcome: SUCCESS.
 - Orphan recovered at start: C.4 (TaskRun `trun-177931540991482-c4` was IN_PROGRESS in DB but PR #26 had merged at 22:32:12Z — prior session ran out of budget mid-close-out; patched to SUCCESS with prNumber=26)
 - Unblocks: C.10 (monthly email-verification cron) and E.6 (SMB settings — verified billing email)
 - One-line summary: SES-2026-05-20-cowork-1779316561 · C.6 · SUCCESS · score 9.5/10 · 1373+/2- · ci=green · merge=AUTO
+
+## SES-2026-05-20-cowork-1779318496 · 2026-05-20T23:39:43Z
+- Task: C.3 · services/dataforseo · all 6 adapters (Maps, SERP, Local, Reviews, Keyword, Lighthouse)
+- Outcome: SUCCESS · merged via squash to main (PR #28 → b78c918817fd1a98343a684021616e63a9a066b9)
+- Branch: auto/2026-05-20-C.3-1
+- Commits: 3 (feat + style/prettier fix x2)
+- Lines: +1955 / -7 across 11 new files + 2 reformatted pre-existing
+- CI: green (validate · test · integration · build · bundle-check · ci-passed). Lighthouse failed but unrelated to a backend-only PR.
+- Score (self): 8.4/10 (Completion 8 · Quality 8 · Audience 9 · Relevance 9 · Performance 8)
+- Notes:
+  - Pattern matches services/meta-ad-library + services/ai. Shared client.ts (auth, retry, envelope unwrap, DataForSeoError). Each adapter ~80-180 LOC, total ~1170 LOC src + 710 LOC tests.
+  - Uses DataForSEO Live tier. Standard queue (10x cheaper) deferred to follow-up — would need task_post/task_get polling. Flagged in pricing.ts header.
+  - Reviewer (general-purpose agent) initially returned REJECT based on missing-deps phantom (was reading wrong dir). Real findings — stale lighthouse 30s/60s comment + missing timeout-retry test + missing secret-leak guard — all addressed before commit.
+  - Resume across 2 ticks: first tick pushed code + hit prettier-CI fail; second tick installed prettier 3.4.2 standalone, formatted the 9 new files + 2 pre-existing showcase files (e844aff drift), pushed, CI green, merge via autonomous-ready label.
+- Bumped: v0.6.35 → v0.6.36
