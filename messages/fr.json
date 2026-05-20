@@ -17,9 +17,122 @@
       "filter_signals": "Signaux de filtrage",
       "email_verify_rate": "Taux de vérification courriel",
       "refresh_cadence": "Fréquence de mise à jour"
+    },
+    "footer": {
+      "copyright": "© {year} Mapsly. Intelligence d'affaires locale.",
+      "privacy": "Confidentialité",
+      "terms": "Conditions",
+      "cookies": "Témoins"
     }
   },
-
+  "legal": {
+    "shared": {
+      "legal_eyebrow": "Légal",
+      "effective_date": "En vigueur depuis le {date}"
+    },
+    "privacy": {
+      "title": "Politique de confidentialité",
+      "subtitle": "Comment Mapsly recueille, utilise, partage et protège vos renseignements.",
+      "effective_date": "20 mai 2026",
+      "s1_heading": "1. Qui nous sommes",
+      "s1_p1": "Mapsly est une plateforme d'intelligence pour les entreprises locales, exploitée par Mapsly, Inc. (« Mapsly », « nous »). Nous aidons les petites entreprises à comprendre leur présence en ligne et les agences de marketing à trouver des prospects locaux qualifiés. Cette politique explique quelles données nous recueillons, pourquoi et vos droits à leur égard.",
+      "s1_p2": "Pour toute question, écrivez-nous à privacy@mapsly.ai. Nous répondons à toute demande de confidentialité dans un délai de 30 jours.",
+      "s2_heading": "2. Renseignements que nous recueillons",
+      "s2_p1": "Nous recueillons les renseignements que vous fournissez directement, ceux recueillis automatiquement, et ceux provenant de sources publiques sur les entreprises locales que vous (ou votre agence) recherchez sur Mapsly.",
+      "s2_b1": "Renseignements de compte : nom, courriel et préférence de langue. Pour les sièges d'agence, nous stockons aussi votre appartenance d'équipe et votre rôle.",
+      "s2_b2": "Renseignements d'entreprise : si vous exploitez une PME sur Mapsly, nous stockons le nom, l'adresse, la catégorie, le Google CID et les données publiques de profil que nous actualisons chaque semaine en votre nom.",
+      "s2_b3": "Données d'utilisation : télémétrie anonyme sur les pages visitées, les filtres appliqués et la performance des fonctionnalités. Utilisé pour améliorer le produit. Aucun enregistrement de frappes ni d'entrées.",
+      "s2_b4": "Renseignements de paiement : gérés par Stripe. Nous ne voyons ni ne stockons jamais votre numéro de carte complet, uniquement un jeton, les 4 derniers chiffres et le pays de facturation.",
+      "s2_p2": "Mapsly n'est pas destiné aux enfants de moins de 16 ans. Nous ne recueillons pas sciemment de renseignements personnels auprès de mineurs de moins de 16 ans. Si vous croyez que c'est le cas, écrivez à privacy@mapsly.ai et nous supprimerons rapidement.",
+      "s3_heading": "3. Comment nous utilisons vos renseignements",
+      "s3_p1": "Nous utilisons les renseignements recueillis pour :",
+      "s3_b1": "Fournir le service — afficher votre tableau de bord, actualiser vos données d'entreprise, générer des listes de prospects.",
+      "s3_b2": "Vous authentifier — vérifier les connexions par lien magique envoyé par courriel.",
+      "s3_b3": "Facturer votre abonnement — via Stripe, selon le plan choisi.",
+      "s3_b4": "Envoyer des courriels transactionnels — bilans hebdomadaires, reçus de facturation, avis de sécurité. Pas de marketing.",
+      "s3_b5": "Améliorer le produit — tendances d'utilisation agrégées et anonymisées.",
+      "s3_b6": "Respecter la loi — exigences fiscales, comptables et demandes légitimes des autorités.",
+      "s4_heading": "4. Fournisseurs avec lesquels nous partageons",
+      "s4_p1": "Nous utilisons un petit ensemble de fournisseurs vérifiés pour exploiter Mapsly. Chacun reçoit uniquement les données nécessaires à son rôle : Stripe (paiements), Resend (courriels transactionnels), DataForSEO (rafraîchissement des données publiques), Anthropic (brouillons de réponses par IA), Sentry (surveillance des erreurs) et Vercel (hébergement). Nous ne vendons ni ne louons vos renseignements personnels à personne.",
+      "s4_p2": "Si nous devons ajouter un nouveau fournisseur traitant des données personnelles, nous mettrons à jour cette politique et publierons un journal des changements en haut de page.",
+      "s5_heading": "5. Vos droits",
+      "s5_p1": "Selon votre lieu de résidence, vous disposez de tout ou partie des droits suivants :",
+      "s5_b1": "Accès — demander une copie des données personnelles que nous détenons sur vous.",
+      "s5_b2": "Correction — nous demander de corriger toute inexactitude.",
+      "s5_b3": "Suppression — nous demander de supprimer votre compte et vos données personnelles. Nous pouvons conserver les registres de facturation requis par la loi.",
+      "s5_b4": "Portabilité — recevoir vos données dans un format structuré et lisible par machine.",
+      "s5_b5": "Opposition — vous opposer à certains usages, dont l'analytique anonymisée.",
+      "s5_b6": "Retrait du consentement — à tout moment, pour les traitements fondés sur le consentement.",
+      "s5_p2": "Pour exercer l'un de ces droits, écrivez à privacy@mapsly.ai depuis l'adresse courriel de votre compte. Nous pouvons devoir vérifier votre identité avant d'agir. Les résidents de l'UE et du Royaume-Uni peuvent également déposer une plainte auprès de leur autorité de contrôle locale.",
+      "s6_heading": "6. Conservation des données",
+      "s6_p1": "Nous conservons les données de compte tant que celui-ci est actif. Après résiliation, nous conservons les registres de facturation pendant 7 ans (fiscalité américaine) et supprimons le reste dans les 30 jours. Les journaux serveurs sont conservés 30 jours; l'analytique d'utilisation, sous forme agrégée, indéfiniment.",
+      "s7_heading": "7. Transferts internationaux et sécurité",
+      "s7_p1": "Mapsly est exploité depuis les États-Unis. Si vous accédez au service depuis l'étranger, vos renseignements seront transférés et traités aux États-Unis selon des clauses contractuelles types. Nous utilisons un chiffrement aux standards de l'industrie en transit (TLS 1.3) et au repos, et appliquons le principe du moindre privilège dans tous nos systèmes internes.",
+      "s8_heading": "8. Modifications et contact",
+      "s8_p1": "Nous publierons les modifications de cette politique sur cette page et mettrons à jour la date d'entrée en vigueur. Les changements importants seront annoncés par courriel aux comptes actifs au moins 30 jours à l'avance. Pour toute question de confidentialité, contactez :"
+    },
+    "terms": {
+      "title": "Conditions d'utilisation",
+      "subtitle": "L'accord entre vous et Mapsly.",
+      "effective_date": "20 mai 2026",
+      "s1_heading": "1. Acceptation",
+      "s1_p1": "En créant un compte ou en utilisant Mapsly, vous acceptez ces Conditions d'utilisation et la Politique de confidentialité. Si vous utilisez Mapsly au nom d'une entreprise ou d'une agence, vous confirmez avoir l'autorité d'engager cette organisation.",
+      "s2_heading": "2. Votre compte",
+      "s2_p1": "Vous devez fournir des renseignements exacts à l'inscription et maintenir votre courriel de contact à jour. Vous êtes responsable de l'activité sous votre compte, y compris des membres d'équipe que vous invitez. Avertissez-nous rapidement en cas de soupçon d'accès non autorisé.",
+      "s2_p2": "Les comptes Mapsly sont destinés aux organisations et aux personnes qui les exploitent. Ne partagez pas vos identifiants. Chaque membre d'équipe reçoit son propre siège dans votre plan.",
+      "s3_heading": "3. Utilisation acceptable",
+      "s3_p1": "Vous acceptez de ne pas :",
+      "s3_b1": "Utiliser Mapsly pour enfreindre la loi ou les droits d'un tiers.",
+      "s3_b2": "Extraire, copier ou republier notre index d'entreprises en dehors du service.",
+      "s3_b3": "Utiliser les coordonnées des prospects pour des envois en masse non sollicités (spam). Mapsly s'arrête au « prospect qualifié »; la prise de contact reste votre responsabilité, soumise aux lois antipourriel de votre juridiction.",
+      "s3_b4": "Faire de la rétro-ingénierie ou tenter d'extraire nos formules de score ou logiques de signal.",
+      "s3_b5": "Vous présenter de manière trompeuse, mentir sur la propriété d'une entreprise ou sur votre affiliation à une autre organisation.",
+      "s4_heading": "4. Abonnements et facturation",
+      "s4_p1": "Mapsly est vendu sous forme d'abonnements mensuels facturés d'avance via Stripe. Les tarifs en vigueur figurent sur la page Tarifs. Nous pouvons modifier les tarifs avec un préavis d'au moins 30 jours; les abonnements existants conservent leur tarif jusqu'au prochain renouvellement.",
+      "s4_p2": "Annulez à tout moment depuis vos paramètres. L'annulation prend effet à la fin de la période de facturation en cours; aucun remboursement partiel pour les jours non utilisés, sauf si la loi l'exige ou si notre garantie de remboursement de 30 jours pour les nouveaux comptes s'applique.",
+      "s5_heading": "5. Vos contenus et données",
+      "s5_p1": "Vous conservez la propriété de tout contenu que vous téléversez (notes, présentations de listes, filtres personnalisés). Vous accordez à Mapsly une licence limitée pour héberger, traiter et afficher ce contenu dans la mesure nécessaire au fonctionnement du service. Nous n'utilisons pas votre contenu pour entraîner des modèles d'IA externes.",
+      "s5_p2": "Les données agrégées et désidentifiées sur l'utilisation du service peuvent être conservées indéfiniment et utilisées pour améliorer Mapsly. Ces données ne peuvent pas être liées à vous.",
+      "s6_heading": "6. Disponibilité du service",
+      "s6_p1": "Nous visons 99,9 % de disponibilité mensuelle mais ne la garantissons pas. Mapsly peut avoir des fenêtres de maintenance planifiées et dépendre de services tiers (Stripe, Resend, DataForSEO) dont les pannes affectent le nôtre. Nous ferons des efforts raisonnables sur le plan commercial pour rétablir rapidement le service.",
+      "s7_heading": "7. Avis de non-responsabilité et limitation de responsabilité",
+      "s7_p1": "Mapsly est fourni « tel quel » sans garantie d'aucune sorte. Nos scores, classements et évaluations de signaux sont des estimations fondées sur des données publiques et peuvent contenir des inexactitudes. Les décisions que vous prenez à partir des données Mapsly relèvent de votre responsabilité.",
+      "s7_p2": "Dans toute la mesure permise par la loi, la responsabilité totale de Mapsly pour toute réclamation découlant de votre utilisation du service est limitée au montant que vous avez payé à Mapsly au cours des 12 mois précédant l'évènement à l'origine de la réclamation. Nous ne sommes pas responsables des dommages indirects, accessoires ou consécutifs.",
+      "s8_heading": "8. Résiliation",
+      "s8_p1": "Vous pouvez fermer votre compte à tout moment dans les paramètres. Nous pouvons suspendre ou résilier des comptes qui enfreignent ces Conditions, ne paient pas, ou présentent un risque pour les autres utilisateurs ou notre infrastructure. À la résiliation, votre accès cesse et nous supprimons vos données personnelles selon notre calendrier de conservation.",
+      "s9_heading": "9. Droit applicable",
+      "s9_p1": "Ces Conditions sont régies par les lois de l'État du Delaware (États-Unis), sans égard aux principes de conflit de lois. Tout différend sera réglé devant les tribunaux étatiques ou fédéraux situés au Delaware, sauf si votre loi locale vous donne le droit de l'introduire ailleurs.",
+      "s10_heading": "10. Modifications et contact",
+      "s10_p1": "Nous pouvons mettre à jour ces Conditions de temps à autre. Les changements importants seront annoncés par courriel au moins 30 jours à l'avance. Toute utilisation continue après la date d'entrée en vigueur vaut acceptation des nouvelles Conditions. Contact :"
+    },
+    "cookies": {
+      "title": "Politique relative aux témoins",
+      "subtitle": "Quels témoins Mapsly utilise et comment les contrôler.",
+      "effective_date": "20 mai 2026",
+      "s1_heading": "1. Que sont les témoins (cookies)",
+      "s1_p1": "Les témoins sont de petits fichiers texte qu'un site enregistre dans votre navigateur. Ils nous permettent de mémoriser des informations entre les pages (par exemple, que vous êtes connecté) et de mesurer comment le service est utilisé. Certains sont nécessaires au fonctionnement de Mapsly; d'autres sont facultatifs.",
+      "s2_heading": "2. Témoins que nous utilisons",
+      "s2_p1": "Mapsly utilise un petit ensemble de témoins, regroupés par objectif :",
+      "s2_essential_heading": "Témoins essentiels",
+      "s2_essential_p1": "Toujours actifs et impossibles à désactiver — sans eux, vous ne pouvez pas vous connecter ni rester connecté.",
+      "s2_essential_b1": "next-auth.session-token : vous garde connecté. Expire à la déconnexion ou après 30 jours d'inactivité.",
+      "s2_essential_b2": "next-auth.csrf-token : protège les formulaires de connexion contre la falsification de requête intersites.",
+      "s2_essential_b3": "NEXT_LOCALE : mémorise votre langue choisie. Expire après un an.",
+      "s2_analytics_heading": "Témoins analytiques",
+      "s2_analytics_p1": "Ils nous aident à comprendre l'utilisation globale de Mapsly. Ils ne vous identifient pas personnellement.",
+      "s2_analytics_b1": "_ga, _ga_* : Google Analytics 4 — pages vues anonymisées, source de trafic. Expire après 13 mois.",
+      "s2_analytics_b2": "Notre propre traceur d'évènements produit : quelles tuiles du tableau de bord vous ouvrez. Limité à la session.",
+      "s2_third_party_heading": "Témoins tiers",
+      "s2_third_party_p1": "Lorsque vous payez via Stripe, Stripe dépose des témoins sur ses pages de paiement à des fins de prévention de la fraude. Nous ne contrôlons pas ces témoins. Voir la politique de Stripe sur stripe.com/cookies-policy.",
+      "s3_heading": "3. Gérer les témoins",
+      "s3_p1": "Vous pouvez bloquer ou supprimer les témoins dans les paramètres de votre navigateur. Bloquer les témoins essentiels empêchera la connexion. Bloquer les témoins analytiques n'a aucun effet sur les fonctionnalités disponibles.",
+      "s3_p2": "Nous respecterons le signal « Do Not Track » de votre navigateur en ne chargeant pas les témoins analytiques s'il est activé.",
+      "s4_heading": "4. Modifications",
+      "s4_p1": "Si nous ajoutons ou retirons des témoins, nous mettrons cette page à jour et modifierons la date d'entrée en vigueur. Les changements importants seront annoncés par courriel aux comptes actifs.",
+      "s5_heading": "5. Contact",
+      "s5_p1": "Questions sur les témoins ou tout autre sujet de confidentialité :"
+    }
+  },
   "smb": {
     "dashboard": {
       "greeting_morning": "Bon matin, {name}",
@@ -49,7 +162,6 @@
       "ai_draft_regenerate": "Régénérer"
     }
   },
-
   "agency": {
     "lists": {
       "title": "Listes",
@@ -68,7 +180,6 @@
       "hidden": "Masqué"
     }
   },
-
   "common": {
     "save": "Enregistrer",
     "cancel": "Annuler",
@@ -81,7 +192,6 @@
     "loading": "Chargement…",
     "search": "Rechercher"
   },
-
   "errors": {
     "generic": "Une erreur est survenue. Réessayez dans un instant.",
     "unauthorized": "Vous devez vous connecter pour voir ceci.",
@@ -90,7 +200,6 @@
     "rate_limited": "Trop de requêtes. Réessayez dans {minutes} minutes.",
     "network": "Problème réseau. Vérifiez votre connexion et réessayez."
   },
-
   "nav": {
     "dashboard": "Tableau de bord",
     "reviews": "Avis",
@@ -106,7 +215,6 @@
     "reports": "Rapports",
     "list_analytics": "Analyses de listes"
   },
-
   "auth": {
     "signin": {
       "title": "Connectez-vous à Mapsly",
