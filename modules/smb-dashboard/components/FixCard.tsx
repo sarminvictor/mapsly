@@ -24,8 +24,8 @@ export type FixCardTone = "good" | "warn" | "neutral";
 export interface FixCardProps extends React.HTMLAttributes<HTMLDivElement> {
   /** Rank in the priority list (1 = highest). Renders as the leading circle. */
   rank: number;
-  /** The action — plain English imperative ("Reply to 20 unanswered reviews"). */
-  title: React.ReactNode;
+  /** The action Maria should take — imperative phrase ("Reply to 20 unanswered reviews"). */
+  action: React.ReactNode;
   /** Optional secondary line — why this surfaced (signal trigger). Mono. */
   meta?: React.ReactNode;
   /** Big impact value — e.g. "+0.7", "+5 patients/mo". */
@@ -50,7 +50,7 @@ function impactColor(tone: FixCardTone): string {
 
 export function FixCard({
   rank,
-  title,
+  action,
   meta,
   impact,
   impactSub,
@@ -106,7 +106,7 @@ export function FixCard({
             color: "var(--color-text)",
           }}
         >
-          {title}
+          {action}
         </div>
         {meta != null ? (
           <div
