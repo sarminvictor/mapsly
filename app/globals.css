@@ -16,8 +16,11 @@
   --color-coral: #c3553a;
   --color-berry: #8b3a2c;
   --color-gold: #d4a574;
+  --color-gold-2: #e8c79b;
   --color-success: #2d8659;
+  --color-success-2: #5cf09a;
   --color-alert: #b53d47;
+  --color-info: #3b6ec4;
 
   /* Agency palette · cool gray + indigo */
   --color-agency-bg: #f6f7fb;
@@ -33,4 +36,14 @@ html {
 body {
   font-feature-settings: "cv11", "ss01";
   -webkit-font-smoothing: antialiased;
+}
+
+/* Honor reduced-motion preferences — see .claude/rules/accessibility.md */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }
