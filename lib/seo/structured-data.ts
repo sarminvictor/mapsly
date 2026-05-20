@@ -153,9 +153,7 @@ export interface FAQItem {
  *
  * Reference: https://developers.google.com/search/docs/appearance/structured-data/faqpage
  */
-export function faqSchema(
-  items: readonly FAQItem[],
-): Record<string, unknown> {
+export function faqSchema(items: readonly FAQItem[]): Record<string, unknown> {
   if (items.length === 0) {
     throw new Error("faqSchema: items must be non-empty");
   }

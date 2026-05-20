@@ -77,16 +77,12 @@ describe("resolveTranslatedPath", () => {
   });
 
   test("returns the Spanish translated path", () => {
-    expect(resolveTranslatedPath("/for-agencies", "es")).toBe(
-      "/para-agencias",
-    );
+    expect(resolveTranslatedPath("/for-agencies", "es")).toBe("/para-agencias");
     expect(resolveTranslatedPath("/pricing", "es")).toBe("/precios");
   });
 
   test("returns the French translated path", () => {
-    expect(resolveTranslatedPath("/for-agencies", "fr")).toBe(
-      "/pour-agences",
-    );
+    expect(resolveTranslatedPath("/for-agencies", "fr")).toBe("/pour-agences");
     expect(resolveTranslatedPath("/pricing", "fr")).toBe("/tarifs");
   });
 
@@ -121,9 +117,7 @@ describe("localizedPath", () => {
   test("/for-agencies URLs per locale", () => {
     expect(localizedPath("/for-agencies", "en")).toBe("/for-agencies");
     expect(localizedPath("/for-agencies", "es")).toBe("/es/para-agencias");
-    expect(localizedPath("/for-agencies", "en-CA")).toBe(
-      "/en-ca/for-agencies",
-    );
+    expect(localizedPath("/for-agencies", "en-CA")).toBe("/en-ca/for-agencies");
     expect(localizedPath("/for-agencies", "fr")).toBe("/fr/pour-agences");
   });
 
@@ -199,9 +193,7 @@ describe("buildAlternates", () => {
     const enAlt = buildAlternates("/for-agencies", "en");
     const esAlt = buildAlternates("/for-agencies", "es");
     expect(enAlt.canonical).toBe(`${CANONICAL_ORIGIN}/for-agencies`);
-    expect(esAlt.canonical).toBe(
-      `${CANONICAL_ORIGIN}/es/para-agencias`,
-    );
+    expect(esAlt.canonical).toBe(`${CANONICAL_ORIGIN}/es/para-agencias`);
   });
 
   test("languages block matches buildHreflang output exactly", () => {

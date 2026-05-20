@@ -65,7 +65,6 @@ export const ALL_LOCALES: readonly Locale[] = routing.locales;
 /* Pathname resolution                                                       */
 /* ------------------------------------------------------------------------ */
 
-type PathnamesConfig = typeof routing.pathnames;
 type PathnameValue = string | Partial<Record<Locale, string>>;
 
 /**

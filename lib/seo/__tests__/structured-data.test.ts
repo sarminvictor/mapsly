@@ -45,7 +45,9 @@ describe("organizationSchema", () => {
   });
 
   test("output is JSON-serializable", () => {
-    expect(() => JSON.parse(JSON.stringify(organizationSchema()))).not.toThrow();
+    expect(() =>
+      JSON.parse(JSON.stringify(organizationSchema())),
+    ).not.toThrow();
   });
 });
 
@@ -68,9 +70,7 @@ describe("websiteSchema", () => {
     const target = action.target as Record<string, unknown>;
     expect(target["@type"]).toBe("EntryPoint");
     expect(target.urlTemplate).toContain("{search_term_string}");
-    expect(action["query-input"]).toBe(
-      "required name=search_term_string",
-    );
+    expect(action["query-input"]).toBe("required name=search_term_string");
   });
 
   test("custom site name is applied", () => {
