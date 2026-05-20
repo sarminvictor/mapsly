@@ -40,6 +40,18 @@ export async function getCostBreakdown(): Promise<CostBreakdown> {
   cacheLife("minutes");
   cacheTag("dev-dashboard-cost");
 
+  if (process.env.NEXT_PHASE === "phase-production-build") {
+    return {
+      totalToday: 0,
+      totalThisWeek: 0,
+      totalThisMonth: 0,
+      projectedMonthEnd: 0,
+      byVendor: [],
+      budget: { dailyUsd: 0, status: "ok" as const },
+    };
+  }
+
+
   const now = new Date();
   const startOfToday = new Date(
     now.getFullYear(),

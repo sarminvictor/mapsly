@@ -7,7 +7,6 @@ import RefreshButton from "../RefreshButton";
 import { getPlanSummary, type PhaseRow } from "../queries/plan";
 import TaskRowControls from "./TaskRowControls";
 import AddTaskButton from "./AddTaskButton";
-import { connection } from "next/server";
 
 export const metadata = {
   title: "Mapsly · tasks",
@@ -26,10 +25,7 @@ const DOMAIN_LABELS: Record<string, string> = {
   I18N: "i18n",
 };
 
-export default async function TasksPage() {
-  // Mark dynamic under cacheComponents — DB-backed list, no prerender.
-  await connection();
-
+export default function TasksPage() {
   return (
     <div className="dev-wrap">
       <header className="dev-head">

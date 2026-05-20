@@ -6,21 +6,17 @@ import RefreshButton from "../../RefreshButton";
 import { getTaskDetail } from "../../queries/plan";
 import { getAgentInvocations } from "../../queries/agents";
 import TaskEditForm from "./TaskEditForm";
-import { connection } from "next/server";
 
 export const metadata = {
   title: "Mapsly · task",
   robots: { index: false, follow: false },
 };
 
-export default async function TaskDetailPage({
+export default function TaskDetailPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
-  // Mark dynamic under cacheComponents — DB-backed task detail.
-  await connection();
-
   return (
     <div className="dev-wrap">
       <header className="dev-head">

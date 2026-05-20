@@ -34,6 +34,9 @@ export async function getQuotaStatus(): Promise<QuotaStatus> {
   const windowStart = new Date(now.getTime() - WINDOW_HOURS * 3600_000);
 
   try {
+    if (process.env.NEXT_PHASE === "phase-production-build") {
+      throw new Error("skip-during-build");
+    }
     const usages = await prisma.tokenUsage.findMany({
       where: { occurredAt: { gte: windowStart } },
       orderBy: { occurredAt: "asc" },
