@@ -395,3 +395,28 @@ Now only real static-asset extensions are excluded; arbitrary dotted paths flow 
 **Where encoded:** `loop-lock.json`, this file. Future sandbox sessions exclude loop-lock from rsync.
 **Confidence:** high
 **Tags:** sandbox, rsync, dashboard, lock-state
+
+### INC-2026-05-19-18 · Pro Max usage card showed fabricated numbers — Anthropic has no usage API
+
+**Symptom:** Dashboard "Pro Max usage · 5h rolling window" card showed `0% session used` and `0 routine runs` while claude.ai/settings/usage showed the real numbers (e.g. 64% session, 5 routines run). Users were misled into thinking the loop had budget when it was actually constrained.
+
+**Root cause:** No public Anthropic API exposes Pro Max plan usage (session %, weekly limits, routine count, credits remaining). The card was approximating from internal `TokenUsage` records the loop wrote itself — but those rows are sparse (one per worker invocation that bothered to log) and don't reflect what claude.ai counts.
+
+**Fix applied:** Deleted the QuotaCard entirely from `app/(dev)/dev/page.tsx`. No card replacement — the dashboard has no usage tile at all. Real numbers live at `claude.ai/settings/usage`.
+
+**Prevention:**
+1. **Never display fabricated/approximated data as if it were real.** If the source of truth is upstream and inaccessible, don't show a number — show nothing or a clear "see upstream" pointer.
+2. Recovery from quota exhaustion now has THREE layers (so the loop doesn't need a working usage probe to be safe):
+   - **Layer 1 · Agent self-cleanup (best case):** loop-prompt.md §9.5 instructs the agent to detect approaching limit → mark TaskRun=INCOMPLETE, reset Task to PENDING, write cooldown to loop-lock.
+   - **Layer 2 · Worker fallback (mid-run kill):** loop-tick.sh greps worker output for `rate.?limit|usage.?limit|quota.?exceeded|429`. On match: marks this session's open TaskRuns INCOMPLETE, resets owned Tasks to PENDING, writes 4h cooldown to loop-lock.
+   - **Layer 3 · Supervisor orphan sweep (worker crashed):** loop-tick.sh runs an orphan sweep BEFORE spawning workers — any Task IN_PROGRESS with `startedAt > 30 min` ago gets its TaskRun marked INCOMPLETE and Task reset to PENDING.
+3. Supervisor now honors `state: cooldown` + future `cooldownUntil` in loop-lock — exits silently instead of spawning workers.
+
+**Where encoded:**
+- `app/(dev)/dev/page.tsx` (card deleted)
+- `scripts/launchd/loop-tick.sh` (cooldown gate + orphan sweep + worker fallback)
+- `scripts/launchd/loop-prompt.md` §9.5 (agent self-cleanup), §4 (resume from INCOMPLETE)
+- `prisma/schema.prisma` TaskRun (added `resumedFromRunId` + `@@index([outcome])`)
+
+**Confidence:** high
+**Tags:** quota, recovery, anthropic-api, dashboard-honesty, three-layer-safety

@@ -114,6 +114,23 @@ await prisma.task.update({
 });
 ```
 
+**Resume INCOMPLETE work first.** Before opening a fresh TaskRun, check if this task has a prior INCOMPLETE TaskRun (from a quota-exhausted session). If yes, resume on that branch — don't restart from scratch:
+
+```ts
+const incomplete = await prisma.taskRun.findFirst({
+  where: { taskId: eligible.id, outcome: "INCOMPLETE" },
+  orderBy: { startedAt: "desc" },
+});
+
+if (incomplete?.branchName) {
+  // Resume: checkout the prior branch, pick up where we left off.
+  // Bash: git fetch origin && git checkout {incomplete.branchName}
+  // The autonomous-build-loop skill should read TaskRun.notes for the prior
+  // session's reasoning + last-completed step, and continue from there.
+  console.log(`[resume] task=${eligible.id} branch=${incomplete.branchName}`);
+}
+```
+
 Open a TaskRun row to track this attempt:
 
 ```ts
@@ -122,6 +139,9 @@ const run = await prisma.taskRun.create({
     taskId: eligible.id,
     sessionId,
     outcome: "IN_PROGRESS",
+    // If resuming, link the prior run + reuse its branch
+    resumedFromRunId: incomplete?.id ?? null,
+    branchName: incomplete?.branchName ?? null,
   },
 });
 ```

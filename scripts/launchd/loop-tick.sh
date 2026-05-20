@@ -57,6 +57,45 @@ cd "$PROJECT_DIR" || {
 
 echo "[$(date)] SUPERVISOR TICK · model=$MODEL · max_parallel=$MAX_PARALLEL" >> "$SUPERVISOR_LOG"
 
+# ---- Honor loop-lock cooldown ----
+# If a previous worker wrote a cooldown (quota exhausted), exit silently until it expires.
+LOCK_PATH="$PROJECT_DIR/.claude/memory/loop-lock.json"
+if [ -f "$LOCK_PATH" ]; then
+  LOCK_STATE="$(node -e "try{const l=require('$LOCK_PATH');if(l.state==='cooldown'&&l.cooldownUntil&&new Date(l.cooldownUntil)>new Date()){console.log('COOLDOWN '+l.cooldownUntil)}}catch(e){}" 2>/dev/null)"
+  if [ -n "$LOCK_STATE" ]; then
+    echo "[$(date)] SUPERVISOR · $LOCK_STATE · skipping tick" >> "$SUPERVISOR_LOG"
+    exit 0
+  fi
+fi
+
+# ---- Orphan sweep · runs BEFORE spawning workers ----
+# Tasks stuck IN_PROGRESS with no recent TaskRun update (> 30 min since startedAt
+# AND no TaskRun.finishedAt) are orphans from a killed worker. Reset to PENDING
+# and mark the prior TaskRun INCOMPLETE so it can be resumed.
+node -e "
+const { PrismaClient } = require('./lib/generated/prisma/client');
+const { PrismaNeon } = require('@prisma/adapter-neon');
+const url = process.env.DATABASE_URL || process.env.DIRECT_URL;
+if (!url) process.exit(0);
+const prisma = new PrismaClient({ adapter: new PrismaNeon({ connectionString: url }) });
+const cutoff = new Date(Date.now() - 30 * 60 * 1000);
+(async () => {
+  const orphaned = await prisma.task.findMany({
+    where: { status: 'IN_PROGRESS', startedAt: { lt: cutoff } },
+    select: { id: true, lastSessionId: true },
+  });
+  for (const t of orphaned) {
+    await prisma.taskRun.updateMany({
+      where: { taskId: t.id, sessionId: t.lastSessionId || undefined, outcome: 'IN_PROGRESS' },
+      data: { outcome: 'INCOMPLETE', finishedAt: new Date(), errorMessage: 'worker killed (quota or crash) · auto-reset by orphan sweep' },
+    });
+    await prisma.task.update({ where: { id: t.id }, data: { status: 'PENDING', lastSessionId: null } });
+    console.log('orphan-reset task=' + t.id);
+  }
+  await prisma.\$disconnect();
+})().catch(e => { console.error(e); process.exit(0); });
+" >> "$SUPERVISOR_LOG" 2>&1 || true
+
 # Spawn N background workers. Each worker claims one task or exits.
 for SLOT in $(seq 1 "$MAX_PARALLEL"); do
   WORKER_LOG="$LOG_DIR/worker-$DATE_TAG-slot$SLOT.log"
@@ -75,6 +114,47 @@ for SLOT in $(seq 1 "$MAX_PARALLEL"); do
     if tail -100 "$WORKER_LOG" | grep -qiE "rate.?limit|usage.?limit|quota.?exceeded|429"; then
       echo "[$(date)] WORKER $SLOT RATE-LIMIT detected · session=$SESSION_ID exit=$EXIT" >> "$WORKER_LOG"
       echo "[$(date)] WORKER $SLOT RATE-LIMIT detected · session=$SESSION_ID" >> "$SUPERVISOR_LOG"
+
+      # Fallback recovery · the agent may not have run §9.5 if killed mid-run.
+      # Reset any task this session was working on, mark TaskRun INCOMPLETE,
+      # and set loop-lock cooldown = 4h (Pro Max rolling window estimate).
+      node -e "
+        const { PrismaClient } = require('./lib/generated/prisma/client');
+        const { PrismaNeon } = require('@prisma/adapter-neon');
+        const fs = require('fs');
+        const url = process.env.DATABASE_URL || process.env.DIRECT_URL;
+        if (!url) process.exit(0);
+        const prisma = new PrismaClient({ adapter: new PrismaNeon({ connectionString: url }) });
+        (async () => {
+          // Mark any open TaskRuns from this session as INCOMPLETE
+          await prisma.taskRun.updateMany({
+            where: { sessionId: '$SESSION_ID', outcome: 'IN_PROGRESS' },
+            data: { outcome: 'INCOMPLETE', finishedAt: new Date(), errorMessage: 'Pro Max quota exhausted · worker terminated' },
+          });
+          // Unlock any Task this session was claiming
+          await prisma.task.updateMany({
+            where: { lastSessionId: '$SESSION_ID', status: 'IN_PROGRESS' },
+            data: { status: 'PENDING', lastSessionId: null },
+          });
+          await prisma.\$disconnect();
+        })().catch(e => { console.error(e); process.exit(0); });
+      " >> "$WORKER_LOG" 2>&1 || true
+
+      # Write loop-lock cooldown (4h is the Pro Max 5h rolling window estimate).
+      # `date -u -v+4H` is BSD/macOS; `date -u -d` is GNU. Try BSD first.
+      WORKER_LOCK_PATH="$PROJECT_DIR/.claude/memory/loop-lock.json"
+      COOLDOWN_UNTIL="$(date -u -v+4H +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -d '+4 hours' +%Y-%m-%dT%H:%M:%SZ)"
+      NOW_ISO="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+      node -e "
+        const fs = require('fs');
+        fs.writeFileSync('$WORKER_LOCK_PATH', JSON.stringify({
+          state: 'cooldown',
+          reason: 'quota-exhausted',
+          cooldownUntil: '$COOLDOWN_UNTIL',
+          setBy: 'worker-slot$SLOT',
+          setAt: '$NOW_ISO',
+        }, null, 2));
+      " 2>/dev/null || true
     else
       echo "[$(date)] WORKER $SLOT END · exit=$EXIT" >> "$WORKER_LOG"
     fi

@@ -684,6 +684,9 @@ model TaskRun {
   linesDeleted   Int?
   testsAdded     Int      @default(0)
 
+  // Resume chain · when this run continued from a prior INCOMPLETE run
+  resumedFromRunId String?
+
   // Quality gates
   ciPassed         Boolean?
   deployPassed     Boolean?
@@ -715,6 +718,8 @@ model TaskRun {
 
   @@index([taskId, startedAt])
   @@index([sessionId])
+  @@index([outcome])
+  @@index([resumedFromRunId])
 }
 
 enum TaskRunOutcome {
