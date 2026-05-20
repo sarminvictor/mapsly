@@ -12,8 +12,6 @@
 import { describe, expect, test } from "vitest";
 import en from "../../../../messages/en.json";
 
-type Section = string | Record<string, unknown>;
-
 interface ForBusinessesShape {
   meta: Record<string, string>;
   hero: Record<string, string>;
@@ -59,14 +57,15 @@ const REQUIRED_SECTIONS: ReadonlyArray<keyof ForBusinessesShape> = [
   "cta",
 ];
 
-function flatten(obj: Section, path = ""): Array<[string, string]> {
+function flatten(obj: unknown, path = ""): Array<[string, string]> {
   if (typeof obj === "string") return [[path, obj]];
+  if (typeof obj !== "object" || obj === null) return [];
   const out: Array<[string, string]> = [];
-  for (const k of Object.keys(obj)) {
+  for (const k of Object.keys(obj as Record<string, unknown>)) {
     const v = (obj as Record<string, unknown>)[k];
     if (typeof v === "string") out.push([`${path}.${k}`, v]);
     else if (typeof v === "object" && v !== null)
-      out.push(...flatten(v as Section, `${path}.${k}`));
+      out.push(...flatten(v, `${path}.${k}`));
   }
   return out;
 }
