@@ -748,6 +748,47 @@ enum NotificationLevel {
   CRITICAL
 }
 
+// ============================================================================
+// AGENT INVOCATIONS · per-agent spans within a TaskRun
+// OpenTelemetry-style tracing — full replay-ability + per-agent cost tracking
+// ============================================================================
+
+model AgentInvocation {
+  id              String   @id @default(cuid())
+  taskRunId       String
+  agentName       String                  // "code-reviewer" / "scorer" / etc
+  startedAt       DateTime @default(now())
+  finishedAt      DateTime?
+  durationMs      Int?
+  status          AgentInvocationStatus @default(RUNNING)
+
+  // Replay-ability
+  inputSummary    String?  @db.Text       // truncated prompt (first 2KB)
+  outputSummary   String?  @db.Text       // truncated response (first 4KB)
+
+  // Resource accounting
+  tokensInput     Int?
+  tokensOutput    Int?
+  costUsd         Float?
+
+  // Verdict (when applicable)
+  verdict         String?                 // "PASS" | "WARN" | "FAIL" | "NEUTRAL"
+  scoreReturned   Float?                  // when this is a scoring agent
+  filesReviewed   String?  @db.Text       // JSON array of paths
+
+  errorMessage    String?  @db.Text
+
+  @@index([taskRunId, agentName])
+  @@index([agentName, startedAt])
+}
+
+enum AgentInvocationStatus {
+  RUNNING
+  SUCCESS
+  FAILED
+  TIMED_OUT
+}
+
 
 // ============================================================================
 // COST GOVERNANCE · per-day budget enforcement

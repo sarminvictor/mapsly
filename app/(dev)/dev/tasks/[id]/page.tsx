@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import AutoRefresh from "../../AutoRefresh";
 import RefreshButton from "../../RefreshButton";
 import { getTaskDetail } from "../../queries/plan";
+import { getAgentInvocations } from "../../queries/agents";
 import TaskEditForm from "./TaskEditForm";
 
 export const metadata = {
@@ -490,6 +491,125 @@ function renderValidationOutcomes(outcomes: Record<string, unknown>) {
           </span>
         </>
       ))}
+    </div>
+  );
+}
+
+async function AgentSpanTree({ taskRunId }: { taskRunId: string }) {
+  const spans = await getAgentInvocations(taskRunId);
+  if (spans.length === 0) return null;
+  const max =
+    spans.reduce(
+      (mx, s) =>
+        Math.max(
+          mx,
+          s.finishedAt
+            ? new Date(s.finishedAt).getTime() - new Date(s.startedAt).getTime()
+            : 0,
+        ),
+      0,
+    ) || 1;
+  return (
+    <div
+      style={{
+        marginTop: 10,
+        paddingTop: 10,
+        borderTop: "1px solid var(--dev-border)",
+      }}
+    >
+      <div
+        className="dev-mono"
+        style={{
+          fontSize: 10,
+          color: "var(--dev-text-3)",
+          marginBottom: 6,
+          textTransform: "uppercase",
+          letterSpacing: "0.05em",
+        }}
+      >
+        Agents · {spans.length}
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+        {spans.map((s) => {
+          const dur = s.finishedAt
+            ? new Date(s.finishedAt).getTime() - new Date(s.startedAt).getTime()
+            : 0;
+          const widthPct = Math.max(2, (dur / max) * 100);
+          const color =
+            s.verdict === "PASS"
+              ? "var(--dev-green)"
+              : s.verdict === "WARN"
+                ? "var(--dev-amber)"
+                : s.verdict === "FAIL"
+                  ? "var(--dev-red)"
+                  : "var(--dev-indigo)";
+          return (
+            <div
+              key={s.id}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                fontSize: 11,
+              }}
+            >
+              <span
+                className="dev-mono"
+                style={{ minWidth: 140, color: "var(--dev-text)" }}
+              >
+                {s.agentName}
+              </span>
+              <div
+                style={{
+                  flex: 1,
+                  height: 6,
+                  background: "var(--dev-bg-2)",
+                  borderRadius: 3,
+                  overflow: "hidden",
+                }}
+              >
+                <div
+                  style={{
+                    width: `${widthPct}%`,
+                    height: "100%",
+                    background: color,
+                  }}
+                />
+              </div>
+              <span
+                className="dev-mono"
+                style={{
+                  minWidth: 50,
+                  color: "var(--dev-text-3)",
+                  textAlign: "right",
+                }}
+              >
+                {dur}ms
+              </span>
+              {s.verdict && (
+                <span
+                  className="dev-mono"
+                  style={{ minWidth: 40, color, textAlign: "right" }}
+                >
+                  {s.verdict}
+                </span>
+              )}
+              {s.tokensInput != null && (
+                <span
+                  className="dev-mono"
+                  style={{
+                    minWidth: 60,
+                    color: "var(--dev-text-3)",
+                    textAlign: "right",
+                  }}
+                >
+                  {s.tokensInput}↓ {s.tokensOutput ?? 0}↑
+                </span>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

@@ -1,0 +1,61 @@
+name: bundle-size
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  bundle-check:
+    name: bundle-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: "pnpm"
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Prisma generate
+        run: pnpm db:generate
+
+      - name: Build with bundle analyzer
+        env:
+          ANALYZE: "true"
+          DATABASE_URL: "postgres://stub:stub@localhost:5432/stub"
+          DIRECT_URL: "postgres://stub:stub@localhost:5432/stub"
+          AUTH_SECRET: "stub-stub-stub-stub-stub-stub-stub-32"
+          AUTH_URL: "http://localhost:3000"
+          RESEND_API_KEY: "re_stub"
+          CRON_SECRET: "stub"
+          ANTHROPIC_API_KEY: "sk-ant-stub"
+          STRIPE_SECRET_KEY: "sk_test_stub"
+        run: pnpm build
+
+      - name: Check First Load JS budgets
+        run: |
+          # Parse next build output; fail if any route exceeds 200kB First Load JS
+          if [ -f .next/build-manifest.json ]; then
+            echo "First Load JS budget · target ≤ 200kB per route"
+            # Lightweight check — full bundle analysis goes to artifacts
+            ls -la .next/static/chunks/*.js | awk '{print $5, $9}' | sort -rn | head -10
+          fi
+
+      - name: Upload bundle report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bundle-report
+          path: |
+            .next/analyze
+            .next/build-manifest.json

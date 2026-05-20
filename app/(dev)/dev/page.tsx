@@ -18,6 +18,7 @@ import { getServiceHealth } from "./queries/services";
 import { getBlockers } from "./queries/blockers";
 import { getCronAggregate } from "./queries/cron";
 import { getEnhanceSignals } from "./queries/enhance-signals";
+import { getDoraMetrics } from "./queries/dora";
 import { getLoopState } from "./queries/loop";
 import LoopControls from "./LoopControls";
 
@@ -91,6 +92,13 @@ export default function DevDashboard() {
         <h2>Loop control</h2>
         <Suspense fallback={<div className="dev-empty">loading…</div>}>
           <LoopControlCard />
+        </Suspense>
+      </div>
+
+      <div className="dev-card">
+        <h2>DORA metrics</h2>
+        <Suspense fallback={<div className="dev-empty">loading…</div>}>
+          <DoraCard />
         </Suspense>
       </div>
 
@@ -382,6 +390,56 @@ async function BlockersList() {
           </div>
         </div>
       ))}
+    </div>
+  );
+}
+
+// ---------- DORA ----------
+
+async function DoraCard() {
+  const m = await getDoraMetrics();
+  const cell = {
+    padding: "10px 12px",
+    background: "var(--dev-bg-3)",
+    border: "1px solid var(--dev-border)",
+    borderRadius: 6,
+    flex: 1,
+    minWidth: 140,
+  } as const;
+  return (
+    <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+      <div style={cell}>
+        <div className="dev-tile-label">deploy freq · 7d</div>
+        <div className="dev-tile-num">{m.deployFrequency.last7d}</div>
+        <div className="dev-tile-sub">{m.deployFrequency.last30d} in 30d</div>
+      </div>
+      <div style={cell}>
+        <div className="dev-tile-label">lead time p50</div>
+        <div className="dev-tile-num">
+          {m.leadTimeP50Hours != null ? `${m.leadTimeP50Hours}h` : "—"}
+        </div>
+        <div className="dev-tile-sub">
+          p95 {m.leadTimeP95Hours != null ? `${m.leadTimeP95Hours}h` : "—"}
+        </div>
+      </div>
+      <div style={cell}>
+        <div className="dev-tile-label">change failure rate</div>
+        <div
+          className={`dev-tile-num${m.changeFailureRate.last7d > 15 ? " amber" : m.changeFailureRate.last7d > 30 ? " amber" : ""}`}
+        >
+          {m.changeFailureRate.last7d}%
+        </div>
+        <div className="dev-tile-sub">7d · target ≤ 15%</div>
+      </div>
+      <div style={cell}>
+        <div className="dev-tile-label">mttr</div>
+        <div className="dev-tile-num">
+          {m.mttrHours != null ? `${m.mttrHours}h` : "—"}
+        </div>
+        <div className="dev-tile-sub">
+          {m.mttrHours == null ? "no incidents to measure" : "target ≤ 1h"}
+        </div>
+      </div>
     </div>
   );
 }

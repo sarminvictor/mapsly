@@ -305,6 +305,21 @@ When in doubt, attempt programmatically first. Only after a real failure (auth d
 
 The dashboard's "Blockers" card is the single source of truth for what Viktor must do. If something needs Viktor and isn't there, that's a defect — fix by either doing it myself or adding it to the queries/blockers.ts source.
 
+## Real User Monitoring · piggybacks on Sentry browser SDK
+
+We don't pay for Vercel Speed Insights or a 3rd-party RUM service. Sentry's
+`@sentry/nextjs` browser SDK captures Core Web Vitals + Long Animation Frames
++ user-perceived latency automatically — into the same Sentry org we already
+have set up. No new account, no new env var, just the existing `SENTRY_DSN`.
+
+Wire in `instrumentation.ts` once Phase 8 (observability) lands:
+- `Sentry.browserTracingIntegration()` captures CWV + page-load timings
+- `tracesSampleRate: 0.1` (10% sample to stay within free quota)
+- `replaysSessionSampleRate: 0.0`, `replaysOnErrorSampleRate: 1.0` (only record sessions when error fires)
+
+The loop's `sentry-monitor` agent reads these via MCP and surfaces as
+auto-enhance signals + per-route CWV trends on the dashboard.
+
 ## Hard reminders
 
 1. **Performance is the #1 product requirement.** Slow page = broken page.
