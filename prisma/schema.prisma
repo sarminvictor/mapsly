@@ -627,6 +627,12 @@ model Task {
   lastSessionId   String?    // owner during IN_PROGRESS, last completer otherwise
 
   notes           String?    @db.Text
+
+  // Parallelism control (H.12)
+  parallelLane    String?    // "auth" | "data" | "compute" | "smb-ui" | "agency-ui" | "billing" | "ops" | "i18n" | "shared"
+  independent     Boolean    @default(false)   // can run alongside ANY other task
+  filesPlanned    String?    @db.Text          // JSON array of file paths the task will touch
+
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt
   startedAt       DateTime?
@@ -636,6 +642,7 @@ model Task {
   runs            TaskRun[]
 
   @@index([status, groupId, sortOrder])
+  @@index([parallelLane, status])
   @@index([groupId, sortOrder])
 }
 
@@ -717,6 +724,7 @@ enum TaskRunOutcome {
   FAILED
   ABORTED
   SKIPPED
+  INCOMPLETE   // hit token quota mid-task · resumable next session
 }
 
 // ============================================================================
@@ -805,4 +813,30 @@ model CostBudget {
   haltThresholdPct  Float  @default(1.00)  // halt loop at 100%
   updatedAt       DateTime @updatedAt
   createdAt       DateTime @default(now())
+}
+
+
+// ============================================================================
+// TOKEN USAGE · per-tick claude CLI consumption · feeds quota tracker
+// ============================================================================
+
+model TokenUsage {
+  id              String   @id @default(cuid())
+  sessionId       String?
+  taskRunId       String?
+  occurredAt      DateTime @default(now())
+
+  model           String   // "claude-opus-4-7" etc
+  tokensInput     Int      @default(0)
+  tokensOutput    Int      @default(0)
+  tokensCacheRead Int      @default(0)
+  tokensCacheWrite Int     @default(0)
+  costUsdEstimate Float?
+
+  // Outcome for this tick (success / rate-limit-hit / error)
+  outcome         String   @default("success")  // "success" | "rate-limit" | "error"
+  errorMessage    String?  @db.Text
+
+  @@index([occurredAt])
+  @@index([sessionId])
 }

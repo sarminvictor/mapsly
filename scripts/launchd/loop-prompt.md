@@ -230,6 +230,20 @@ The per-task detail page reads these rows — that's how Viktor sees what was do
    - ≥ 5 consecutive failures → cooldown 24h + log "loop unhealthy" incident
 7. Commit + push.
 
+## 9.5 Quota exhaustion recovery
+
+If during execution you detect approaching usage limit (warning in Claude output, `usage_limit` field, or rate-limit response):
+
+1. **Do NOT panic-revert.** Whatever you've committed so far stays.
+2. **Mark current TaskRun with outcome=INCOMPLETE.** Set finishedAt=now. Save what files were changed.
+3. **Set the Task back to PENDING** (so the next session can pick it up) OR leave at IN_PROGRESS if you want THIS specific session to resume next.
+4. **Write the branch name** to TaskRun.branchName so next session knows where to resume.
+5. **Estimate quota reset time** · Pro Max 20x rolling 5h window. Set loop-lock cooldownUntil = oldest TokenUsage in last 5h + 5h.
+6. **Write TokenUsage row** with outcome=rate-limit, tokensInput/Output captured if visible.
+7. **Exit cleanly.**
+
+The next launchd tick (after cooldown clears) reads the INCOMPLETE TaskRun, checks out the branch, and continues. **No work lost.** Per .claude/rules/agent-orchestration.md §Replayability.
+
 # Hard halts (cooldown + exit)
 
 - Approaching usage limit

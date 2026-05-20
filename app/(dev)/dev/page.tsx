@@ -20,6 +20,7 @@ import { getCronAggregate } from "./queries/cron";
 import { getEnhanceSignals } from "./queries/enhance-signals";
 import { getDoraMetrics } from "./queries/dora";
 import { getCostBreakdown } from "./queries/cost";
+import { getQuotaStatus } from "./queries/quota";
 import { getLoopState } from "./queries/loop";
 import LoopControls from "./LoopControls";
 
@@ -93,6 +94,13 @@ export default function DevDashboard() {
         <h2>Loop control</h2>
         <Suspense fallback={<div className="dev-empty">loading…</div>}>
           <LoopControlCard />
+        </Suspense>
+      </div>
+
+      <div className="dev-card">
+        <h2>Pro Max usage · 5h rolling window</h2>
+        <Suspense fallback={<div className="dev-empty">loading…</div>}>
+          <QuotaCard />
         </Suspense>
       </div>
 
@@ -447,6 +455,67 @@ async function DoraCard() {
         <div className="dev-tile-sub">
           {m.mttrHours == null ? "no incidents to measure" : "target ≤ 1h"}
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------- Pro Max quota ----------
+
+async function QuotaCard() {
+  const q = await getQuotaStatus();
+  const color = {
+    ok: "var(--dev-green)",
+    warn: "var(--dev-amber)",
+    "near-limit": "var(--dev-amber)",
+    exceeded: "var(--dev-red)",
+  }[q.status];
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+        <div className="dev-tile" style={{ flex: 1, minWidth: 140 }}>
+          <div className="dev-tile-label">input tokens</div>
+          <div className="dev-tile-num" style={{ color }}>
+            {q.inputUsedPct}%
+          </div>
+          <div className="dev-tile-sub">
+            {Math.round(q.tokensInputUsed / 1000)}K used
+          </div>
+        </div>
+        <div className="dev-tile" style={{ flex: 1, minWidth: 140 }}>
+          <div className="dev-tile-label">output tokens</div>
+          <div className="dev-tile-num" style={{ color }}>
+            {q.outputUsedPct}%
+          </div>
+          <div className="dev-tile-sub">
+            {Math.round(q.tokensOutputUsed / 1000)}K used
+          </div>
+        </div>
+        <div className="dev-tile" style={{ flex: 1, minWidth: 140 }}>
+          <div className="dev-tile-label">active sessions</div>
+          <div className="dev-tile-num">{q.activeSessions}</div>
+          <div className="dev-tile-sub">parallel workers</div>
+        </div>
+        <div className="dev-tile" style={{ flex: 1, minWidth: 140 }}>
+          <div className="dev-tile-label">rate-limited 24h</div>
+          <div
+            className="dev-tile-num"
+            style={{
+              color: q.rateLimitedRecent > 0 ? "var(--dev-amber)" : undefined,
+            }}
+          >
+            {q.rateLimitedRecent}
+          </div>
+          <div className="dev-tile-sub">incomplete sessions</div>
+        </div>
+      </div>
+      <div
+        className="dev-mono"
+        style={{ fontSize: 11, color: "var(--dev-text-3)" }}
+      >
+        Window started {q.windowStartedAt.slice(11, 16)}Z · estimated reset{" "}
+        {q.resetEstimateAt.slice(11, 16)}Z · cost so far $
+        {q.costEstimateUsd.toFixed(2)}
       </div>
     </div>
   );
