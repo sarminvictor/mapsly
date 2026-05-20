@@ -19,6 +19,7 @@ import { getBlockers } from "./queries/blockers";
 import { getCronAggregate } from "./queries/cron";
 import { getEnhanceSignals } from "./queries/enhance-signals";
 import { getDoraMetrics } from "./queries/dora";
+import { getCostBreakdown } from "./queries/cost";
 import { getLoopState } from "./queries/loop";
 import LoopControls from "./LoopControls";
 
@@ -99,6 +100,13 @@ export default function DevDashboard() {
         <h2>DORA metrics</h2>
         <Suspense fallback={<div className="dev-empty">loading…</div>}>
           <DoraCard />
+        </Suspense>
+      </div>
+
+      <div className="dev-card">
+        <h2>Cost projection</h2>
+        <Suspense fallback={<div className="dev-empty">loading…</div>}>
+          <CostCard />
         </Suspense>
       </div>
 
@@ -440,6 +448,130 @@ async function DoraCard() {
           {m.mttrHours == null ? "no incidents to measure" : "target ≤ 1h"}
         </div>
       </div>
+    </div>
+  );
+}
+
+// ---------- Cost projection ----------
+
+async function CostCard() {
+  const c = await getCostBreakdown();
+  const usd = (n: number) => `$${n.toFixed(2)}`;
+  const statusColor = {
+    ok: "var(--dev-green)",
+    warn: "var(--dev-amber)",
+    halt: "var(--dev-red)",
+  }[c.budget.status];
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+        <div className="dev-tile" style={{ flex: 1, minWidth: 140 }}>
+          <div className="dev-tile-label">today</div>
+          <div className="dev-tile-num" style={{ color: statusColor }}>
+            {usd(c.totalToday)}
+          </div>
+          <div className="dev-tile-sub">
+            of {usd(c.budget.dailyUsd)} · {c.budget.status}
+          </div>
+        </div>
+        <div className="dev-tile" style={{ flex: 1, minWidth: 140 }}>
+          <div className="dev-tile-label">this week</div>
+          <div className="dev-tile-num">{usd(c.totalThisWeek)}</div>
+          <div className="dev-tile-sub">7d rolling</div>
+        </div>
+        <div className="dev-tile" style={{ flex: 1, minWidth: 140 }}>
+          <div className="dev-tile-label">this month</div>
+          <div className="dev-tile-num">{usd(c.totalThisMonth)}</div>
+          <div className="dev-tile-sub">to date</div>
+        </div>
+        <div className="dev-tile" style={{ flex: 1, minWidth: 140 }}>
+          <div className="dev-tile-label">projected month-end</div>
+          <div
+            className="dev-tile-num"
+            style={{
+              color: c.projectedMonthEnd > 150 ? "var(--dev-amber)" : undefined,
+            }}
+          >
+            {usd(c.projectedMonthEnd)}
+          </div>
+          <div className="dev-tile-sub">linear projection</div>
+        </div>
+      </div>
+      {c.byVendor.length > 0 && (
+        <div>
+          <div
+            className="dev-mono"
+            style={{
+              fontSize: 10,
+              color: "var(--dev-text-3)",
+              marginBottom: 4,
+              textTransform: "uppercase",
+              letterSpacing: "0.05em",
+            }}
+          >
+            by vendor · 7d
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            {c.byVendor.slice(0, 8).map((v) => (
+              <div
+                key={v.vendor}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  fontSize: 12,
+                  padding: "6px 10px",
+                  background: "var(--dev-bg-3)",
+                  border: "1px solid var(--dev-border)",
+                  borderRadius: 6,
+                }}
+              >
+                <span className="dev-mono" style={{ minWidth: 120 }}>
+                  {v.vendor}
+                </span>
+                <div
+                  style={{
+                    flex: 1,
+                    height: 6,
+                    background: "var(--dev-bg-2)",
+                    borderRadius: 3,
+                    overflow: "hidden",
+                  }}
+                >
+                  <div
+                    style={{
+                      width: `${Math.min(100, (v.usd / Math.max(...c.byVendor.map((x) => x.usd))) * 100)}%`,
+                      height: "100%",
+                      background: "var(--dev-indigo)",
+                    }}
+                  />
+                </div>
+                <span
+                  className="dev-mono"
+                  style={{ minWidth: 60, textAlign: "right" }}
+                >
+                  {usd(v.usd)}
+                </span>
+                <span
+                  className="dev-mono"
+                  style={{
+                    minWidth: 60,
+                    textAlign: "right",
+                    color: "var(--dev-text-3)",
+                  }}
+                >
+                  {v.calls} calls
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      {c.byVendor.length === 0 && (
+        <div className="dev-empty">
+          no API spend yet · cron handlers haven&apos;t run.
+        </div>
+      )}
     </div>
   );
 }

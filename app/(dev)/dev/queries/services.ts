@@ -20,7 +20,7 @@ export interface ServiceStatus {
   optional?: { phase: string; reason: string };
 }
 
-async function pingHead(url: string, ms = 4000): Promise<boolean> {
+async function pingHead(url: string, ms = 2000): Promise<boolean> {
   try {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), ms);
@@ -34,7 +34,7 @@ async function pingHead(url: string, ms = 4000): Promise<boolean> {
 
 export async function getServiceHealth(): Promise<ServiceStatus[]> {
   "use cache";
-  cacheLife("seconds");
+  cacheLife("minutes");
   cacheTag("dev-dashboard-services");
 
   const dbUrl = process.env.DATABASE_URL;
@@ -88,7 +88,9 @@ export async function getServiceHealth(): Promise<ServiceStatus[]> {
       expects: "META_AD_LIBRARY_ACCESS_TOKEN",
       where: "third-party-account",
       configured: !!process.env.META_AD_LIBRARY_ACCESS_TOKEN,
-      reachable: await pingHead("https://graph.facebook.com"),
+      reachable: process.env.META_AD_LIBRARY_ACCESS_TOKEN
+        ? await pingHead("https://graph.facebook.com")
+        : null,
       detail: "ads_archive endpoint · needs Business Verification",
       optional: process.env.META_AD_LIBRARY_ACCESS_TOKEN
         ? undefined
@@ -156,7 +158,9 @@ export async function getServiceHealth(): Promise<ServiceStatus[]> {
       expects: "APIFY_TOKEN",
       where: "third-party-account",
       configured: !!process.env.APIFY_TOKEN,
-      reachable: await pingHead("https://api.apify.com"),
+      reachable: process.env.APIFY_TOKEN
+        ? await pingHead("https://api.apify.com")
+        : null,
       detail: "Reddit + scraping (Phase 2 roadmap)",
       optional: process.env.APIFY_TOKEN
         ? undefined
