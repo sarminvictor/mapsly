@@ -1,6 +1,11 @@
-// Dev dashboard — fully wired data sources.
-// Sections: hero KPIs · Blockers · Plan progress · Sessions · Service health
-// · Recent commits · Open PRs.
+// Dev dashboard · v0.4.4 layout
+// Sections (top → bottom by priority):
+//   1. Hero strip      · 6 KPI tiles for the 5-second glance
+//   2. Now             · loop control + in-flight task (+ blockers when non-zero)
+//   3. Activity        · commits + open PRs + sessions last 7d
+//   4. Metrics         · DORA + cost + plan progress
+//   5. Health          · external services + cron/API
+//   6. Signals         · auto-enhance (only when non-empty)
 
 import { Suspense } from "react";
 import { version as pkgVersion } from "../../../package.json";
@@ -21,6 +26,7 @@ import { getEnhanceSignals } from "./queries/enhance-signals";
 import { getDoraMetrics } from "./queries/dora";
 import { getCostBreakdown } from "./queries/cost";
 import { getLoopState } from "./queries/loop";
+import { getInFlight } from "./queries/in-flight";
 import LoopControls from "./LoopControls";
 
 export default function DevDashboard() {
@@ -82,82 +88,125 @@ export default function DevDashboard() {
         </Suspense>
       </section>
 
-      <div className="dev-card">
-        <h2>Blockers · only items I cannot do programmatically</h2>
-        <Suspense fallback={<div className="dev-empty">loading…</div>}>
-          <BlockersList />
+      {/* ============================================================ */}
+      {/* SECTION · NOW · live ops control + what's running             */}
+      {/* ============================================================ */}
+      <section className="dev-section">
+        <div className="dev-section-head">
+          <span>Now</span>
+          <span className="dev-section-meta">live · auto-refresh 30s</span>
+        </div>
+        <div className="dev-grid dev-grid-2">
+          <div className="dev-card">
+            <h2>Loop control</h2>
+            <Suspense fallback={<div className="dev-empty">loading…</div>}>
+              <LoopControlCard />
+            </Suspense>
+          </div>
+          <div className="dev-card">
+            <h2>In flight <span className="dev-card-sub">most-recent active task</span></h2>
+            <Suspense fallback={<div className="dev-empty">loading…</div>}>
+              <InFlightCard />
+            </Suspense>
+          </div>
+        </div>
+        <Suspense fallback={null}>
+          <BlockersSection />
         </Suspense>
-      </div>
+      </section>
 
-      <div className="dev-card">
-        <h2>Loop control</h2>
-        <Suspense fallback={<div className="dev-empty">loading…</div>}>
-          <LoopControlCard />
-        </Suspense>
-      </div>
+      {/* ============================================================ */}
+      {/* SECTION · ACTIVITY · what shipped + what's queued             */}
+      {/* ============================================================ */}
+      <section className="dev-section">
+        <div className="dev-section-head">
+          <span>Activity</span>
+          <span className="dev-section-meta">commits · PRs · sessions</span>
+        </div>
+        <div className="dev-grid dev-grid-2">
+          <div className="dev-card">
+            <h2>Recent commits <span className="dev-card-sub">main · last 8</span></h2>
+            <Suspense fallback={<div className="dev-empty">loading…</div>}>
+              <CommitsList />
+            </Suspense>
+          </div>
+          <div className="dev-card">
+            <h2>Open PRs <span className="dev-card-sub">awaiting CI or review</span></h2>
+            <Suspense fallback={<div className="dev-empty">loading…</div>}>
+              <PrsList />
+            </Suspense>
+          </div>
+        </div>
+        <div style={{ marginTop: 16 }}>
+          <div className="dev-card">
+            <h2>Sessions <span className="dev-card-sub">last 7 days · scored phases</span></h2>
+            <Suspense fallback={<div className="dev-empty">loading…</div>}>
+              <SessionsList />
+            </Suspense>
+          </div>
+        </div>
+      </section>
 
-      <div className="dev-card">
-        <h2>DORA metrics</h2>
-        <Suspense fallback={<div className="dev-empty">loading…</div>}>
-          <DoraCard />
-        </Suspense>
-      </div>
+      {/* ============================================================ */}
+      {/* SECTION · METRICS · the trends I care about weekly            */}
+      {/* ============================================================ */}
+      <section className="dev-section">
+        <div className="dev-section-head">
+          <span>Metrics</span>
+          <span className="dev-section-meta">DORA · cost · plan</span>
+        </div>
+        <div className="dev-grid dev-grid-3">
+          <div className="dev-card">
+            <h2>DORA</h2>
+            <Suspense fallback={<div className="dev-empty">loading…</div>}>
+              <DoraCard />
+            </Suspense>
+          </div>
+          <div className="dev-card">
+            <h2>Cost <span className="dev-card-sub">today · 7d · budget</span></h2>
+            <Suspense fallback={<div className="dev-empty">loading…</div>}>
+              <CostCard />
+            </Suspense>
+          </div>
+          <div className="dev-card">
+            <h2>Plan progress</h2>
+            <Suspense fallback={<div className="dev-empty">loading…</div>}>
+              <PlanProgress />
+            </Suspense>
+          </div>
+        </div>
+      </section>
 
-      <div className="dev-card">
-        <h2>Cost projection</h2>
-        <Suspense fallback={<div className="dev-empty">loading…</div>}>
-          <CostCard />
-        </Suspense>
-      </div>
+      {/* ============================================================ */}
+      {/* SECTION · HEALTH · production + service status                */}
+      {/* ============================================================ */}
+      <section className="dev-section">
+        <div className="dev-section-head">
+          <span>Health</span>
+          <span className="dev-section-meta">externals · cron + API</span>
+        </div>
+        <div className="dev-grid dev-grid-2">
+          <div className="dev-card">
+            <h2>External services</h2>
+            <Suspense fallback={<div className="dev-empty">loading…</div>}>
+              <ServicesGrid />
+            </Suspense>
+          </div>
+          <div className="dev-card">
+            <h2>Cron + API <span className="dev-card-sub">last 24h</span></h2>
+            <Suspense fallback={<div className="dev-empty">loading…</div>}>
+              <CronList />
+            </Suspense>
+          </div>
+        </div>
+      </section>
 
-      <div className="dev-card">
-        <h2>Plan progress</h2>
-        <Suspense fallback={<div className="dev-empty">loading…</div>}>
-          <PlanProgress />
-        </Suspense>
-      </div>
-
-      <div className="dev-card">
-        <h2>Sessions · last 7 days</h2>
-        <Suspense fallback={<div className="dev-empty">loading…</div>}>
-          <SessionsList />
-        </Suspense>
-      </div>
-
-      <div className="dev-card">
-        <h2>External service health</h2>
-        <Suspense fallback={<div className="dev-empty">loading…</div>}>
-          <ServicesGrid />
-        </Suspense>
-      </div>
-
-      <div className="dev-card">
-        <h2>Cron + API health</h2>
-        <Suspense fallback={<div className="dev-empty">loading…</div>}>
-          <CronList />
-        </Suspense>
-      </div>
-
-      <div className="dev-card">
-        <h2>Auto-enhance signals</h2>
-        <Suspense fallback={<div className="dev-empty">loading…</div>}>
-          <EnhanceSignalsList />
-        </Suspense>
-      </div>
-
-      <div className="dev-card">
-        <h2>Recent commits</h2>
-        <Suspense fallback={<div className="dev-empty">loading…</div>}>
-          <CommitsList />
-        </Suspense>
-      </div>
-
-      <div className="dev-card">
-        <h2>Open PRs</h2>
-        <Suspense fallback={<div className="dev-empty">loading…</div>}>
-          <PrsList />
-        </Suspense>
-      </div>
+      {/* ============================================================ */}
+      {/* SECTION · SIGNALS · only render when non-empty                */}
+      {/* ============================================================ */}
+      <Suspense fallback={null}>
+        <SignalsSection />
+      </Suspense>
 
       <AutoRefresh intervalMs={30000} />
       <footer
@@ -224,24 +273,6 @@ async function CostTile() {
       value={`$${cron.costToday.toFixed(2)}`}
       sub={`yesterday $${cron.costYesterday.toFixed(2)}`}
       tone={cron.costToday > 5 ? "amber" : undefined}
-    />
-  );
-}
-
-async function FailuresTile() {
-  const cron = await getCronAggregate();
-  return (
-    <Tile
-      label="failures 24h"
-      value={String(cron.failures24h)}
-      sub={`${cron.totalRuns24h} runs total`}
-      tone={
-        cron.failures24h === 0
-          ? "green"
-          : cron.failures24h < 3
-            ? "amber"
-            : "amber"
-      }
     />
   );
 }
@@ -338,6 +369,155 @@ async function LoopControlCard() {
       )}
       <LoopControls state={lock.state} cooldownUntil={lock.cooldownUntil} />
     </div>
+  );
+}
+
+// ---------- In flight · live current/last task ----------
+
+async function InFlightCard() {
+  const flight = await getInFlight();
+
+  if (!flight) {
+    return (
+      <div className="dev-empty">
+        no sessions yet · the loop hasn&apos;t picked up a task. First eligible
+        task waits at the top of the queue.
+      </div>
+    );
+  }
+
+  const isLive = flight.status === "IN_PROGRESS";
+  const outcomeColor =
+    flight.runOutcome === "SUCCESS"
+      ? "var(--dev-green)"
+      : flight.runOutcome === "FAILED"
+        ? "var(--dev-red)"
+        : flight.runOutcome === "INCOMPLETE"
+          ? "var(--dev-amber)"
+          : "var(--dev-text)";
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+        {isLive ? <span className="dev-pulse" /> : null}
+        <span
+          className="dev-mono"
+          style={{
+            fontSize: 10,
+            fontWeight: 700,
+            textTransform: "uppercase",
+            letterSpacing: "0.12em",
+            color: isLive ? "var(--dev-green)" : "var(--dev-text-3)",
+          }}
+        >
+          {isLive ? "live · in progress" : "most recent · finished"}
+        </span>
+      </div>
+      <div>
+        <Link
+          href={`/tasks/${flight.taskId}`}
+          style={{
+            fontSize: 16,
+            fontWeight: 700,
+            color: "var(--dev-text)",
+            textDecoration: "none",
+          }}
+        >
+          {flight.taskId} · {flight.title}
+        </Link>
+        <div
+          className="dev-mono"
+          style={{ fontSize: 11, color: "var(--dev-text-3)", marginTop: 4 }}
+        >
+          {flight.lastSessionId
+            ? `${flight.lastSessionId.slice(0, 24)} · `
+            : ""}
+          started {formatAgo(flight.startedAt)}
+          {flight.parallelLane ? ` · lane=${flight.parallelLane}` : ""}
+        </div>
+      </div>
+      <div
+        style={{
+          display: "flex",
+          gap: 16,
+          fontSize: 12,
+          flexWrap: "wrap",
+        }}
+      >
+        {flight.runOutcome ? (
+          <span style={{ color: "var(--dev-text-2)" }}>
+            outcome:{" "}
+            <strong style={{ color: outcomeColor }}>
+              {flight.runOutcome.toLowerCase()}
+            </strong>
+          </span>
+        ) : null}
+        {flight.runScoreAggregate != null ? (
+          <span style={{ color: "var(--dev-text-2)" }}>
+            score:{" "}
+            <strong style={{ color: "var(--dev-text)" }}>
+              {flight.runScoreAggregate.toFixed(1)}
+            </strong>
+            <span style={{ color: "var(--dev-text-3)" }}> /10</span>
+          </span>
+        ) : null}
+        {flight.branchName ? (
+          <span
+            className="dev-mono"
+            style={{ color: "var(--dev-text-3)", fontSize: 11 }}
+          >
+            ⎇ {flight.branchName}
+          </span>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function formatAgo(d: Date | string | null | undefined): string {
+  if (!d) return "—";
+  const date = typeof d === "string" ? new Date(d) : d;
+  const secs = Math.max(0, Math.round((Date.now() - date.getTime()) / 1000));
+  if (secs < 60) return `${secs}s ago`;
+  if (secs < 3600) return `${Math.round(secs / 60)}m ago`;
+  if (secs < 86400) return `${Math.round(secs / 3600)}h ago`;
+  return `${Math.round(secs / 86400)}d ago`;
+}
+
+// ---------- Blockers section · conditional render (hide when empty) ----------
+
+async function BlockersSection() {
+  const blockers = await getBlockers();
+  if (blockers.length === 0) return null;
+  return (
+    <div style={{ marginTop: 16 }}>
+      <div className="dev-card dev-card-alert">
+        <h2>
+          Blockers · {blockers.length} item{blockers.length === 1 ? "" : "s"}{" "}
+          waiting on you
+        </h2>
+        <BlockersList />
+      </div>
+    </div>
+  );
+}
+
+// ---------- Signals section · conditional render ----------
+
+async function SignalsSection() {
+  const signals = await getEnhanceSignals();
+  if (!signals || signals.length === 0) return null;
+  return (
+    <section className="dev-section">
+      <div className="dev-section-head">
+        <span>Signals</span>
+        <span className="dev-section-meta">process-enhancer · weekly review</span>
+      </div>
+      <div className="dev-card">
+        <h2>Auto-enhance signals</h2>
+        <EnhanceSignalsList />
+      </div>
+    </section>
   );
 }
 
