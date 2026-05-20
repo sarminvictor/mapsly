@@ -22,9 +22,11 @@ delay 6
 
 -- Send the slash command + Enter to whichever Terminal window is frontmost
 -- (the one we just opened above).
+-- Bare /loop reads .claude/loop.md and uses Claude-chosen dynamic interval
+-- (1 min when work is active, up to 1 hour when nothing's pending — saves quota).
 tell application "System Events"
 	tell process "Terminal"
-		keystroke "/loop 5m"
+		keystroke "/loop"
 		key code 36 -- Return
 	end tell
 end tell
