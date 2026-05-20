@@ -27,6 +27,35 @@ Schema per entry:
 
 ---
 
+## SES-2026-05-20-cowork-03 · 2026-05-20 09:15 → 09:25 UTC (Cowork scheduled task)
+
+- Started: 2026-05-20T09:15:56Z
+- Ended: 2026-05-20T09:25:08Z
+- Exit: clean
+- Tasks completed: I.4
+- PRs opened: #8
+- PRs auto-merged: #8
+- PRs needs-review: -
+- Incidents new: -
+- Incidents recurring: INC-2026-05-20-31 (Cowork /tmp bootstrap worked as designed)
+- Score average: 8.2
+- Cost USD: -
+- Tokens used: -
+
+One-line: SES-2026-05-20-cowork-0925 · I.4 · SUCCESS · score 8.2/10 · 144+/0- · ci-pass · merge
+
+I.4 ships messages/en-CA.json (sparse override file per .claude/rules/i18n.md)
+and i18n/__tests__/locale-en-ca.test.ts. Single Canadian-spelling override
+("Brand defense" -> "Brand defence") plus 7 invariant tests pinning
+registration, override resolution, and sparse-override discipline. CI
+ci-passed=success (validate+build+test+integration); lighthouse failed but
+is a known pre-existing issue across recent PRs (I.5, C.1 also failed) and
+is not a regression from I.4. Auto-merged via REST API squash + branch
+delete. package.json bumped to v0.6.11.
+
+Scheduler: Cowork desktop scheduled task. WORK_DIR=/tmp/mapsly-work-...
+(per INC-31 loop.md v0.6.6 design). FUSE mount untouched for git ops.
+
 ## SES-2026-05-20-cowork-0738 · 2026-05-20 07:35 → 07:54 UTC (Cowork scheduled task)
 
 - Started: 2026-05-20T07:35:00Z
