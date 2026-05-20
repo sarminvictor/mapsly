@@ -26,7 +26,9 @@ import {
 } from "../detect-patterns";
 
 const FIXED_NOW = new Date("2026-05-20T12:00:00.000Z");
-const ctx = { now: () => FIXED_NOW };
+// Default test ctx: deterministic timestamp + no rule coverage. Individual
+// tests can override `ruleExists` to assert the coverage-suppression branch.
+const ctx = { now: () => FIXED_NOW, ruleExists: () => false };
 
 // ─────────────────────────────────────────────────────────────────────────────
 // parseIncidents
