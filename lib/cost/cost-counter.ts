@@ -62,8 +62,12 @@ export function assertCronContext(operation: string): CronRunHandle {
  * status + finishedAt. Prefer `withCronRun(...)` which guarantees this.
  */
 export async function openCronRun(job: string): Promise<CronRunHandle> {
+  // costUsd MUST default to 0 (not NULL). Prisma's `{ increment }` does
+  // NULL + x = NULL in Postgres, which silently breaks cost accumulation
+  // because the schema declares costUsd as Float? (nullable, no DB default).
+  // Explicit init at insert time is the simplest fix without a migration.
   const row = await prisma.cronRun.create({
-    data: { job, status: "RUNNING" },
+    data: { job, status: "RUNNING", costUsd: 0 },
     select: { id: true, job: true, startedAt: true },
   });
   return { id: row.id, job: row.job, startedAt: row.startedAt };
@@ -81,6 +85,7 @@ export async function closeCronRun(
   itemsProcessed?: number,
   errorMessage?: string,
   costUsd?: number,
+  meta?: Record<string, unknown>,
 ): Promise<void> {
   await prisma.cronRun.update({
     where: { id },
@@ -90,6 +95,7 @@ export async function closeCronRun(
       ...(itemsProcessed != null ? { itemsProcessed } : {}),
       ...(errorMessage != null ? { errorMessage } : {}),
       ...(costUsd != null ? { costUsd } : {}),
+      ...(meta != null ? { meta } : {}),
     },
   });
 }
@@ -181,8 +187,20 @@ export function withCostCounter<Args extends readonly unknown[], R>(
   };
 }
 
-/** Test-only: clear the ALS context. Exported for unit tests. */
-export const __TEST_ONLY__ = {
-  /** Synchronously read the current store (returns undefined if none). */
-  peek: () => storage.getStore(),
-};
+/**
+ * Run a callback inside the ALS frame of an already-open CronRun handle.
+ *
+ * Used by middleware/no-live-api.ts cronHandler so it can manage open + close
+ * itself (to write itemsProcessed/meta at close time) while still routing
+ * adapter cost increments through the same ALS storage used by
+ * assertCronContext / getCurrentCronRun.
+ *
+ * Do NOT use this from application code; prefer `withCronRun(job, fn)` which
+ * handles open/close + error propagation correctly.
+ */
+export function runWithCronRun<T>(
+  handle: CronRunHandle,
+  fn: () => Promise<T>,
+): Promise<T> {
+  return storage.run({ run: handle }, fn);
+}

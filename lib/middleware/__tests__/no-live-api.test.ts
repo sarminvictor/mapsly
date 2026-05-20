@@ -13,6 +13,7 @@ interface FakeRow {
   itemsProcessed: number;
   costUsd: number;
   errorMessage: string | null;
+  meta: Record<string, unknown> | null;
 }
 
 const fakeDb = {
@@ -27,20 +28,31 @@ const fakeDb = {
 vi.mock("@/lib/prisma", () => ({
   default: {
     cronRun: {
-      create: vi.fn(async ({ data }: { data: { job: string; status: string } }) => {
-        const id = `run_${fakeDb.nextId++}`;
-        const row: FakeRow = {
-          id,
-          job: data.job,
-          status: data.status as FakeRow["status"],
-          finishedAt: null,
-          itemsProcessed: 0,
-          costUsd: 0,
-          errorMessage: null,
-        };
-        fakeDb.rows.set(id, row);
-        return { id, job: data.job, startedAt: new Date() };
-      }),
+      create: vi.fn(
+        async ({
+          data,
+        }: {
+          data: {
+            job: string;
+            status: string;
+            costUsd?: number | null;
+          };
+        }) => {
+          const id = `run_${fakeDb.nextId++}`;
+          const row: FakeRow = {
+            id,
+            job: data.job,
+            status: data.status as FakeRow["status"],
+            finishedAt: null,
+            itemsProcessed: 0,
+            costUsd: data.costUsd ?? (null as unknown as number),
+            errorMessage: null,
+            meta: null,
+          };
+          fakeDb.rows.set(id, row);
+          return { id, job: data.job, startedAt: new Date() };
+        },
+      ),
       update: vi.fn(
         async ({
           where,
@@ -56,6 +68,7 @@ vi.mock("@/lib/prisma", () => ({
             else if (k === "finishedAt") row.finishedAt = v as Date;
             else if (k === "errorMessage") row.errorMessage = v as string;
             else if (k === "itemsProcessed") row.itemsProcessed = v as number;
+            else if (k === "meta") row.meta = v as Record<string, unknown>;
             else if (
               k === "costUsd" &&
               typeof v === "object" &&
@@ -190,6 +203,62 @@ describe("cronHandler · CronRun lifecycle", () => {
     );
     expect(receivedRunId).toMatch(/^run_/);
     expect(receivedJob).toBe("test:ctx");
+  });
+});
+
+
+describe("cronHandler · itemsProcessed + meta + PARTIAL", () => {
+  test("writes itemsProcessed to CronRun.itemsProcessed at close", async () => {
+    const handler = cronHandler("test:items", async () => ({ itemsProcessed: 42 }));
+    await handler(
+      new Request("https://x/y", {
+        headers: { authorization: "Bearer test-secret-abc" },
+      }),
+    );
+    const row = [...fakeDb.rows.values()][0];
+    expect(row.itemsProcessed).toBe(42);
+    expect(row.status).toBe("OK");
+  });
+
+  test("writes meta to CronRun.meta as JSON", async () => {
+    const handler = cronHandler("test:meta", async () => ({
+      itemsProcessed: 5,
+      meta: { batchKey: "weekly-2026-w20", cacheHits: 3 },
+    }));
+    await handler(
+      new Request("https://x/y", {
+        headers: { authorization: "Bearer test-secret-abc" },
+      }),
+    );
+    const row = [...fakeDb.rows.values()][0];
+    expect(row.meta).toEqual({ batchKey: "weekly-2026-w20", cacheHits: 3 });
+  });
+
+  test("status: PARTIAL closes the run with PARTIAL", async () => {
+    const handler = cronHandler("test:partial", async () => ({
+      itemsProcessed: 3,
+      status: "PARTIAL",
+    }));
+    const res = await handler(
+      new Request("https://x/y", {
+        headers: { authorization: "Bearer test-secret-abc" },
+      }),
+    );
+    expect(res.status).toBe(200);
+    const row = [...fakeDb.rows.values()][0];
+    expect(row.status).toBe("PARTIAL");
+  });
+
+  test("CronRun is created with costUsd initialized to 0 (regression guard)", async () => {
+    const handler = cronHandler("test:cost-init", async () => undefined);
+    await handler(
+      new Request("https://x/y", {
+        headers: { authorization: "Bearer test-secret-abc" },
+      }),
+    );
+    const row = [...fakeDb.rows.values()][0];
+    // costUsd MUST be 0, not NULL. See cost-counter.ts openCronRun comment.
+    expect(row.costUsd).toBe(0);
   });
 });
 

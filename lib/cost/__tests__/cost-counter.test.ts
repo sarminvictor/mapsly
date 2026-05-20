@@ -30,21 +30,35 @@ const fakeDb = {
 vi.mock("@/lib/prisma", () => ({
   default: {
     cronRun: {
-      create: vi.fn(async ({ data }: { data: { job: string; status: string } }) => {
-        const id = `run_${fakeDb.nextId++}`;
-        const row: FakeRow = {
-          id,
-          job: data.job,
-          status: data.status as FakeRow["status"],
-          startedAt: new Date(),
-          finishedAt: null,
-          itemsProcessed: 0,
-          costUsd: 0,
-          errorMessage: null,
-        };
-        fakeDb.rows.set(id, row);
-        return { id, job: data.job, startedAt: row.startedAt };
-      }),
+      create: vi.fn(
+        async ({
+          data,
+        }: {
+          data: {
+            job: string;
+            status: string;
+            costUsd?: number | null;
+            itemsProcessed?: number;
+          };
+        }) => {
+          const id = `run_${fakeDb.nextId++}`;
+          // Mimic Postgres: nullable column without DB default = NULL when
+          // not specified. This catches the "forgot to init costUsd to 0"
+          // bug — Prisma's { increment } on NULL yields NULL in Postgres.
+          const row: FakeRow = {
+            id,
+            job: data.job,
+            status: data.status as FakeRow["status"],
+            startedAt: new Date(),
+            finishedAt: null,
+            itemsProcessed: data.itemsProcessed ?? 0,
+            costUsd: data.costUsd ?? (null as unknown as number),
+            errorMessage: null,
+          };
+          fakeDb.rows.set(id, row);
+          return { id, job: data.job, startedAt: row.startedAt };
+        },
+      ),
       update: vi.fn(
         async ({
           where,
@@ -62,7 +76,13 @@ vi.mock("@/lib/prisma", () => ({
               v !== null &&
               "increment" in v
             ) {
-              row.costUsd += (v as { increment: number }).increment;
+              const inc = (v as { increment: number }).increment;
+              // Mimic Postgres `NULL + x = NULL` — if costUsd is still NULL,
+              // increments are silently lost (the bug code-reviewer caught).
+              row.costUsd =
+                row.costUsd == null
+                  ? (null as unknown as number)
+                  : row.costUsd + inc;
             } else if (k === "status") {
               row.status = v as FakeRow["status"];
             } else if (k === "finishedAt") {
@@ -104,11 +124,16 @@ afterEach(() => {
 // ---- Tests --------------------------------------------------------------
 
 describe("cost-counter · CronRun lifecycle", () => {
-  test("openCronRun creates a RUNNING row", async () => {
+  test("openCronRun creates a RUNNING row with costUsd initialized to 0", async () => {
     const run = await openCronRun("test:job-a");
     expect(run.id).toMatch(/^run_/);
     expect(run.job).toBe("test:job-a");
-    expect(fakeDb.rows.get(run.id)?.status).toBe("RUNNING");
+    const row = fakeDb.rows.get(run.id)!;
+    expect(row.status).toBe("RUNNING");
+    // Critical: costUsd MUST be 0, not NULL. Prisma's { increment } over
+    // NULL stays NULL in Postgres, which would silently break every
+    // adapter's cost accumulation. Regression guard.
+    expect(row.costUsd).toBe(0);
   });
 
   test("closeCronRun finalizes status + finishedAt", async () => {
