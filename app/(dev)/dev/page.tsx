@@ -117,46 +117,21 @@ export default function DevDashboard() {
       </section>
 
       {/* ============================================================ */}
-      {/* SECTION · ACTIVITY · what shipped + what's queued             */}
+      {/* SECTION · ACTIVITY · adaptive grid · cards collapse when empty */}
       {/* ============================================================ */}
-      <section className="dev-section">
-        <div className="dev-section-head">
-          <span>Activity</span>
-          <span className="dev-section-meta">commits · PRs · sessions</span>
-        </div>
-        <div className="dev-grid dev-grid-2">
-          <div className="dev-card">
-            <h2>Recent commits <span className="dev-card-sub">main · last 8</span></h2>
-            <Suspense fallback={<div className="dev-empty">loading…</div>}>
-              <CommitsList />
-            </Suspense>
-          </div>
-          <div className="dev-card">
-            <h2>Open PRs <span className="dev-card-sub">awaiting CI or review</span></h2>
-            <Suspense fallback={<div className="dev-empty">loading…</div>}>
-              <PrsList />
-            </Suspense>
-          </div>
-        </div>
-        <div style={{ marginTop: 16 }}>
-          <div className="dev-card">
-            <h2>Sessions <span className="dev-card-sub">last 7 days · scored phases</span></h2>
-            <Suspense fallback={<div className="dev-empty">loading…</div>}>
-              <SessionsList />
-            </Suspense>
-          </div>
-        </div>
-      </section>
+      <Suspense fallback={null}>
+        <ActivitySection />
+      </Suspense>
 
       {/* ============================================================ */}
-      {/* SECTION · METRICS · the trends I care about weekly            */}
+      {/* SECTION · METRICS · DORA + Cost · plan gets its own row       */}
       {/* ============================================================ */}
       <section className="dev-section">
         <div className="dev-section-head">
           <span>Metrics</span>
-          <span className="dev-section-meta">DORA · cost · plan</span>
+          <span className="dev-section-meta">DORA · cost</span>
         </div>
-        <div className="dev-grid dev-grid-3">
+        <div className="dev-grid dev-grid-2">
           <div className="dev-card">
             <h2>DORA</h2>
             <Suspense fallback={<div className="dev-empty">loading…</div>}>
@@ -169,38 +144,33 @@ export default function DevDashboard() {
               <CostCard />
             </Suspense>
           </div>
-          <div className="dev-card">
-            <h2>Plan progress</h2>
-            <Suspense fallback={<div className="dev-empty">loading…</div>}>
-              <PlanProgress />
-            </Suspense>
-          </div>
         </div>
       </section>
 
       {/* ============================================================ */}
-      {/* SECTION · HEALTH · production + service status                */}
+      {/* SECTION · PLAN · full width · scrolls internally if very long */}
       {/* ============================================================ */}
       <section className="dev-section">
         <div className="dev-section-head">
-          <span>Health</span>
-          <span className="dev-section-meta">externals · cron + API</span>
+          <span>Plan</span>
+          <span className="dev-section-meta">19/81 done · next-eligible queue</span>
         </div>
-        <div className="dev-grid dev-grid-2">
-          <div className="dev-card">
-            <h2>External services</h2>
-            <Suspense fallback={<div className="dev-empty">loading…</div>}>
-              <ServicesGrid />
-            </Suspense>
-          </div>
-          <div className="dev-card">
-            <h2>Cron + API <span className="dev-card-sub">last 24h</span></h2>
-            <Suspense fallback={<div className="dev-empty">loading…</div>}>
-              <CronList />
-            </Suspense>
-          </div>
+        <div className="dev-card">
+          <h2>Plan progress</h2>
+          <Suspense fallback={<div className="dev-empty">loading…</div>}>
+            <div className="dev-scroll-cap">
+              <PlanProgress />
+            </div>
+          </Suspense>
         </div>
       </section>
+
+      {/* ============================================================ */}
+      {/* SECTION · HEALTH · adaptive · hides Cron card when empty      */}
+      {/* ============================================================ */}
+      <Suspense fallback={null}>
+        <HealthSection />
+      </Suspense>
 
       {/* ============================================================ */}
       {/* SECTION · SIGNALS · only render when non-empty                */}
@@ -477,6 +447,126 @@ async function InFlightCard() {
         ) : null}
       </div>
     </div>
+  );
+}
+
+// ---------- Activity section · adaptive grid ----------
+// Recent commits is always present. Open PRs hides when empty. Sessions
+// collapses to a thin one-line strip when total=0. This avoids the
+// "2-column grid with one column empty" whitespace problem.
+
+async function ActivitySection() {
+  const [prs, sessions] = await Promise.all([
+    getOpenPrs(),
+    getSessionsSummary(),
+  ]);
+  const showPrs = prs.length > 0;
+  const showSessionsCard = sessions.total > 0;
+
+  return (
+    <section className="dev-section">
+      <div className="dev-section-head">
+        <span>Activity</span>
+        <span className="dev-section-meta">
+          commits
+          {showPrs ? ` · ${prs.length} PR${prs.length === 1 ? "" : "s"}` : ""}
+          {showSessionsCard
+            ? ` · ${sessions.total} session${sessions.total === 1 ? "" : "s"}`
+            : ""}
+        </span>
+      </div>
+      {/* Commits + (optionally) PRs in adaptive grid */}
+      <div
+        className={showPrs ? "dev-grid dev-grid-2" : "dev-grid"}
+        style={{ gridTemplateColumns: showPrs ? undefined : "1fr" }}
+      >
+        <div className="dev-card">
+          <h2>
+            Recent commits <span className="dev-card-sub">main · last 8</span>
+          </h2>
+          <Suspense fallback={<div className="dev-empty">loading…</div>}>
+            <CommitsList />
+          </Suspense>
+        </div>
+        {showPrs ? (
+          <div className="dev-card">
+            <h2>
+              Open PRs{" "}
+              <span className="dev-card-sub">
+                {prs.length} awaiting CI or review
+              </span>
+            </h2>
+            <PrsList />
+          </div>
+        ) : null}
+      </div>
+      {/* Sessions: empty → thin strip; non-empty → full card */}
+      <div style={{ marginTop: 16 }}>
+        {showSessionsCard ? (
+          <div className="dev-card">
+            <h2>
+              Sessions{" "}
+              <span className="dev-card-sub">
+                last 7 days · scored phases
+              </span>
+            </h2>
+            <SessionsList />
+          </div>
+        ) : (
+          <div className="dev-strip">
+            <span className="dev-strip-label">SESSIONS</span>
+            <span className="dev-strip-body">
+              no autonomous sessions yet · first scheduled run pending
+            </span>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+// ---------- Health section · adaptive (Cron card hides when empty) ----------
+
+async function HealthSection() {
+  const cron = await getCronAggregate();
+  const showCron = cron.recentJobs.length > 0;
+
+  return (
+    <section className="dev-section">
+      <div className="dev-section-head">
+        <span>Health</span>
+        <span className="dev-section-meta">
+          externals{showCron ? ` · ${cron.recentJobs.length} cron runs` : ""}
+        </span>
+      </div>
+      <div
+        className={showCron ? "dev-grid dev-grid-2" : "dev-grid"}
+        style={{ gridTemplateColumns: showCron ? undefined : "1fr" }}
+      >
+        <div className="dev-card">
+          <h2>External services</h2>
+          <Suspense fallback={<div className="dev-empty">loading…</div>}>
+            <ServicesGrid />
+          </Suspense>
+        </div>
+        {showCron ? (
+          <div className="dev-card">
+            <h2>
+              Cron + API <span className="dev-card-sub">last 24h</span>
+            </h2>
+            <CronList />
+          </div>
+        ) : null}
+      </div>
+      {!showCron ? (
+        <div className="dev-strip" style={{ marginTop: 16 }}>
+          <span className="dev-strip-label">CRON + API</span>
+          <span className="dev-strip-body">
+            no cron runs in last 24h · first scheduled cron lands in phase 3
+          </span>
+        </div>
+      ) : null}
+    </section>
   );
 }
 
@@ -1098,19 +1188,8 @@ async function CommitsList() {
           href={c.url}
           target="_blank"
           rel="noopener noreferrer"
-          style={{
-            display: "grid",
-            gridTemplateColumns: "auto 1fr auto",
-            alignItems: "center",
-            columnGap: 12,
-            rowGap: 4,
-            padding: "10px 12px",
-            borderRadius: 8,
-            background: "var(--dev-bg-3)",
-            color: "var(--dev-text)",
-            textDecoration: "none",
-            border: "1px solid var(--dev-border)",
-          }}
+          title={`${c.author} · ${c.date}`}
+          className="dev-row"
         >
           <span
             className="dev-mono"
@@ -1118,28 +1197,17 @@ async function CommitsList() {
           >
             {c.short}
           </span>
-          <span style={{ fontSize: 13, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {c.message}
-          </span>
+          <span className="dev-row-main">{c.message}</span>
           <LocalTime
             iso={c.date}
             mode="relative"
             className="dev-mono"
-            style={{ fontSize: 11, color: "var(--dev-text-3)" }}
-          />
-          <span
-            className="dev-mono"
             style={{
-              gridColumn: "1 / -1",
-              fontSize: 10,
+              fontSize: 11,
               color: "var(--dev-text-3)",
-              opacity: 0.7,
-              marginTop: 2,
+              whiteSpace: "nowrap",
             }}
-          >
-            {c.author} ·{" "}
-            <LocalTime iso={c.date} mode="absolute" />
-          </span>
+          />
         </a>
       ))}
     </div>
@@ -1152,24 +1220,15 @@ async function PrsList() {
     return <div className="dev-empty">no open PRs · queue is clean.</div>;
   }
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
       {prs.slice(0, 10).map((pr) => (
         <a
           key={pr.number}
           href={pr.url}
           target="_blank"
           rel="noopener noreferrer"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 12,
-            padding: "10px 12px",
-            borderRadius: 8,
-            background: "var(--dev-bg-3)",
-            color: "var(--dev-text)",
-            textDecoration: "none",
-            border: "1px solid var(--dev-border)",
-          }}
+          title={`#${pr.number} · ${pr.author} · ${pr.createdAt}`}
+          className="dev-row"
         >
           <span
             className="dev-mono"
@@ -1177,10 +1236,10 @@ async function PrsList() {
           >
             #{pr.number}
           </span>
-          <span style={{ fontSize: 13, flex: 1 }}>{pr.title}</span>
-          {pr.labels.length > 0 && (
+          <span className="dev-row-main">{pr.title}</span>
+          {pr.labels.length > 0 ? (
             <span style={{ display: "flex", gap: 4 }}>
-              {pr.labels.slice(0, 3).map((l) => (
+              {pr.labels.slice(0, 2).map((l) => (
                 <span
                   key={l}
                   className="dev-mono"
@@ -1194,25 +1253,25 @@ async function PrsList() {
                         ? "rgba(245,158,11,.15)"
                         : "var(--dev-bg-2)",
                     color: "var(--dev-text-2)",
+                    whiteSpace: "nowrap",
                   }}
                 >
                   {l}
                 </span>
               ))}
             </span>
+          ) : (
+            <LocalTime
+              iso={pr.createdAt}
+              mode="relative"
+              className="dev-mono"
+              style={{
+                fontSize: 11,
+                color: "var(--dev-text-3)",
+                whiteSpace: "nowrap",
+              }}
+            />
           )}
-          <LocalTime
-            iso={pr.createdAt}
-            mode="relative"
-            className="dev-mono"
-            style={{ fontSize: 11, color: "var(--dev-text-3)" }}
-          />
-          <span
-            className="dev-mono"
-            style={{ fontSize: 11, color: "var(--dev-text-3)" }}
-          >
-            {pr.author}
-          </span>
         </a>
       ))}
     </div>

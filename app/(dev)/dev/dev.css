@@ -84,8 +84,8 @@
 .dev-hero {
   display: grid;
   grid-template-columns: repeat(6, 1fr);
-  gap: 14px;
-  margin-bottom: 24px;
+  gap: 12px;
+  margin-bottom: 8px;
 }
 
 @media (max-width: 1100px) {
@@ -147,7 +147,7 @@
   background: var(--dev-bg-2);
   border: 1px solid var(--dev-border);
   border-radius: 12px;
-  padding: 20px;
+  padding: 16px 18px;
   margin-bottom: 0; /* spacing handled by .dev-grid + .dev-section */
 }
 
@@ -181,7 +181,7 @@
 /* ---------- Section layout ---------- */
 
 .dev-section {
-  margin-top: 28px;
+  margin-top: 20px;
   margin-bottom: 0;
 }
 
@@ -256,6 +256,75 @@
 
 .dev-card.dev-card-alert h2 {
   color: var(--dev-amber);
+}
+
+/* Compact horizontal row · used for commits, PRs, sessions */
+.dev-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: var(--dev-bg-3);
+  color: var(--dev-text);
+  text-decoration: none;
+  border: 1px solid var(--dev-border);
+  font-size: 13px;
+  line-height: 1.3;
+  transition: border-color 120ms ease;
+}
+
+.dev-row:hover {
+  border-color: var(--dev-border-2, color-mix(in srgb, var(--dev-text-3) 30%, var(--dev-border)));
+}
+
+.dev-row-main {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Thin one-line empty-state strip · for empty Sessions/Cron etc. */
+.dev-strip {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: var(--dev-bg-2);
+  border: 1px dashed var(--dev-border);
+  border-radius: 8px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 11px;
+}
+
+.dev-strip-label {
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--dev-text-3);
+  flex-shrink: 0;
+}
+
+.dev-strip-body {
+  color: var(--dev-text-2);
+}
+
+/* Scroll-capped container · keeps very long lists from blowing up vertically */
+.dev-scroll-cap {
+  max-height: 480px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.dev-scroll-cap::-webkit-scrollbar {
+  width: 6px;
+}
+
+.dev-scroll-cap::-webkit-scrollbar-thumb {
+  background: var(--dev-border);
+  border-radius: 3px;
 }
 
 /* In-flight indicator dot */
