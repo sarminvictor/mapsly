@@ -57,9 +57,22 @@ cd "$PROJECT_DIR" || {
 
 echo "[$(date)] SUPERVISOR TICK · model=$MODEL · max_parallel=$MAX_PARALLEL" >> "$SUPERVISOR_LOG"
 
+# ---- Stamp lastTickAt unconditionally ----
+# So we can tell from the dashboard whether launchd is even firing.
+# Done early so a later crash still leaves evidence of the tick.
+LOCK_PATH="$PROJECT_DIR/.claude/memory/loop-lock.json"
+NOW_ISO="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+node -e "
+  const fs = require('fs');
+  const path = '$LOCK_PATH';
+  let lock = {};
+  try { lock = JSON.parse(fs.readFileSync(path, 'utf8')); } catch(e) {}
+  lock.lastTickAt = '$NOW_ISO';
+  fs.writeFileSync(path, JSON.stringify(lock, null, 2));
+" 2>/dev/null || true
+
 # ---- Honor loop-lock cooldown ----
 # If a previous worker wrote a cooldown (quota exhausted), exit silently until it expires.
-LOCK_PATH="$PROJECT_DIR/.claude/memory/loop-lock.json"
 if [ -f "$LOCK_PATH" ]; then
   LOCK_STATE="$(node -e "try{const l=require('$LOCK_PATH');if(l.state==='cooldown'&&l.cooldownUntil&&new Date(l.cooldownUntil)>new Date()){console.log('COOLDOWN '+l.cooldownUntil)}}catch(e){}" 2>/dev/null)"
   if [ -n "$LOCK_STATE" ]; then
@@ -103,10 +116,16 @@ for SLOT in $(seq 1 "$MAX_PARALLEL"); do
     SESSION_ID="SES-$(date +%Y-%m-%d)-$(date +%H%M%S)-slot$SLOT"
     echo "[$(date)] WORKER $SLOT START · session=$SESSION_ID · model=$MODEL" >> "$WORKER_LOG"
 
-    # Inject session context as additional env so the loop prompt can use it
+    # Inject session context as additional env so the loop prompt can use it.
+    # CRITICAL: --dangerously-skip-permissions — without this, headless claude
+    # blocks on every tool-use approval prompt (no TTY = silent hang).
+    # See INC-19 for the symptom (0 TaskRuns ever written despite ticks firing).
     SESSION_ID="$SESSION_ID" \
     CLAUDE_MODEL="$MODEL" \
-    "$CLAUDE_BIN" --print --model "$MODEL" "$(cat "$PROMPT_PATH")" \
+    "$CLAUDE_BIN" --print \
+      --model "$MODEL" \
+      --dangerously-skip-permissions \
+      "$(cat "$PROMPT_PATH")" \
       >> "$WORKER_LOG" 2>&1
     EXIT=$?
 

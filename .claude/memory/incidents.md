@@ -420,3 +420,27 @@ Now only real static-asset extensions are excluded; arbitrary dotted paths flow 
 
 **Confidence:** high
 **Tags:** quota, recovery, anthropic-api, dashboard-honesty, three-layer-safety
+
+### INC-2026-05-20-19 · Loop never claimed a task · `claude --print` blocks on permission prompts
+
+**Symptom:** Loop-lock has been `idle` for hours/days. Dashboard shows 0 TaskRuns ever written. Postgres confirms: 60 PENDING tasks, 19 DONE, 0 IN_PROGRESS, 0 CronRun rows, 0 Notification rows. The autonomous loop has NEVER successfully claimed and shipped a task despite the wrapper being installed.
+
+**Root cause:** `scripts/launchd/loop-tick.sh` invoked `claude --print --model "$MODEL" "$(cat prompt.md)"` without `--dangerously-skip-permissions`. In headless mode (no TTY), every tool-use approval (Edit/Write/Bash/Task/git) prompts for explicit user permission. With no terminal to respond, the CLI either hangs (forever) or silently auto-denies — Claude answers the prompt as text and exits without doing any actual file/db/git work. Result: launchd fires every 5 min, the wrapper spawns the CLI, the CLI reads the prompt and responds with planning text, but no tools execute. Zero side-effects.
+
+**Fix applied:**
+- Added `--dangerously-skip-permissions` to the claude invocation in `loop-tick.sh`.
+- Added unconditional `lastTickAt` write at the top of each tick so we can tell from the dashboard whether launchd is firing at all (vs the previous symptom: lastTickAt only updated when someone manually wrote it).
+- Created `scripts/launchd/diagnose.sh` so future "is the loop alive?" investigations take one round-trip instead of N.
+
+**Prevention:**
+1. **Headless `claude --print` invocations MUST include `--dangerously-skip-permissions`.** Any wrapper that runs Claude unattended needs the flag, full stop. Document this in the wrapper comments + the install README + here.
+2. The loop-lock's `lastTickAt` field is now the canonical "is launchd firing?" signal. If it's > 10 minutes stale, that's a problem worth chasing.
+3. After updating `scripts/launchd/loop-tick.sh`, the installed copy at `~/.mapsly/loop-tick.sh` is stale — `bash scripts/launchd/install.sh` must be re-run. Add this to git-discipline.md and to the dashboard's "Loop control" card as a one-time reminder when wrapper-related files change.
+
+**Where encoded:**
+- `scripts/launchd/loop-tick.sh` (the `--dangerously-skip-permissions` flag, the lastTickAt stamp)
+- `scripts/launchd/diagnose.sh` (new diagnostic script)
+- this file
+
+**Confidence:** high (verified by Postgres SELECT showing 0 TaskRuns ever)
+**Tags:** loop, claude-cli, headless, permissions, root-cause
