@@ -33,11 +33,58 @@ Write loop-lock with `state: running`, fresh sessionId, startedAt = now. Commit 
 5. Tail 200 lines of `.claude/memory/build-log.md`.
 6. `git pull --ff-only origin main`.
 
-## 4. Pick the first eligible task from PLAN.md
+## 4. Pick the first eligible task from the Postgres Task table
 
-Filter: `status: pending` AND all deps `done` AND not tagged `human-required` AND effort fits remaining budget.
+The Task table is the source of truth. PLAN.md is a derived markdown mirror.
 
-Update PLAN.md → `in_progress`. Push as `chore(loop): claim {phase-id}`.
+Query (via `prisma` from `lib/prisma.ts`):
+
+```ts
+const candidates = await prisma.task.findMany({
+  where: {
+    status: "PENDING",
+    NOT: { tags: { contains: "human-required" } },
+  },
+  include: { group: true },
+  orderBy: [
+    { priority: "asc" },        // 0 = highest
+    { group: { sortOrder: "asc" } },
+    { sortOrder: "asc" },
+    { id: "asc" },
+  ],
+});
+
+// Filter by deps satisfied
+const allTasks = await prisma.task.findMany({ select: { id: true, status: true } });
+const doneIds = new Set(allTasks.filter(t => t.status === "DONE").map(t => t.id));
+const eligible = candidates.find(t => {
+  if (!t.deps) return true;
+  return t.deps.split(",").map(s => s.trim()).every(d => !d || doneIds.has(d));
+});
+
+if (!eligible) { /* nothing to do — set cooldown, exit */ }
+
+await prisma.task.update({
+  where: { id: eligible.id },
+  data: {
+    status: "IN_PROGRESS",
+    startedAt: new Date(),
+    lastSessionId: sessionId,
+  },
+});
+```
+
+Open a TaskRun row to track this attempt:
+
+```ts
+const run = await prisma.taskRun.create({
+  data: {
+    taskId: eligible.id,
+    sessionId,
+    outcome: "IN_PROGRESS",
+  },
+});
+```
 
 ## 5. Execute autonomous-build-loop skill · MANDATORY parallelism
 
@@ -64,7 +111,47 @@ On successful auto-merge, bump `package.json` version per `.claude/rules/version
 
 ## 9. Close session
 
-1. Sweep failures into incidents.md (new INC- entries; cite recurring ones).
+1. **Close the TaskRun** with the full audit trail:
+
+```ts
+await prisma.taskRun.update({
+  where: { id: run.id },
+  data: {
+    finishedAt: new Date(),
+    outcome: scoreAggregate >= 9 ? "SUCCESS" :
+             scoreAggregate >= 7 ? "PARTIAL" : "FAILED",
+    scoreCompletion, scoreQuality, scoreAudience, scoreRelevance, scorePerformance,
+    scoreAggregate,
+    branchName, prNumber, prUrl, commitSha,
+    filesChanged: JSON.stringify(filesChangedArr),
+    linesAdded, linesDeleted, testsAdded,
+    ciPassed, deployPassed, lighthousePassed,
+    agentsUsed: JSON.stringify(agentsArr),
+    skillsUsed: JSON.stringify(skillsArr),
+    rulesConsulted: JSON.stringify(rulesArr),
+    mcpsUsed: JSON.stringify(mcpsArr),
+    tokensInput, tokensOutput, costUsd, durationSec,
+    incidentsLogged: JSON.stringify(incidentIds),
+  },
+});
+
+await prisma.task.update({
+  where: { id: eligible.id },
+  data: {
+    status: outcome === "SUCCESS" ? "DONE" :
+            outcome === "FAILED" ? "FAILED" : "PENDING",
+    completedAt: outcome === "SUCCESS" ? new Date() : null,
+    scoreAvg: scoreAggregate,
+    scoreCompletion, scoreQuality, scoreAudience, scoreRelevance, scorePerformance,
+    lastPrNumber: prNumber, lastPrUrl: prUrl, lastCommitSha: commitSha,
+    failureCount: outcome === "FAILED" ? { increment: 1 } : undefined,
+  },
+});
+```
+
+The per-task detail page reads these rows — that's how Viktor sees what was done, by which agents, with which gates passed.
+
+2. Sweep failures into incidents.md (new INC- entries; cite recurring ones).
 2. Run process-enhancer agent.
 3. Append to build-log.md.
 4. Write session JSON to `.claude/memory/sessions/{date}-{n}.json`.
