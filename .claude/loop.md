@@ -22,7 +22,7 @@ esac
 if [ "$IS_SANDBOX" = "1" ]; then
   WORK_DIR=/tmp/mapsly-work
   MOUNT_DIR="$PWD"
-  
+
   # Load secrets from the mount before we leave it. The mount's .env.local
   # is readable; we just can't write tracked files there.
   if [ -f "$MOUNT_DIR/.env.local" ]; then
@@ -31,7 +31,7 @@ if [ "$IS_SANDBOX" = "1" ]; then
     . "$MOUNT_DIR/.env.local" 2>/dev/null || true
     set +a
   fi
-  
+
   # Fresh clone (or refresh) on every tick. /tmp doesn't persist between
   # sandbox sessions, so we always assume cold start. Clone is < 1s, cheap.
   if [ ! -d "$WORK_DIR/.git" ]; then
@@ -44,11 +44,11 @@ if [ "$IS_SANDBOX" = "1" ]; then
     git reset --hard origin/main 2>&1
     git clean -fd 2>&1
   fi
-  
+
   cd "$WORK_DIR"
   git config user.email "sarminvictor@gmail.com"
   git config user.name "Viktor"
-  
+
   echo "[step-0] sandbox bootstrap: WORK_DIR=$WORK_DIR · HEAD=$(git rev-parse --short HEAD)"
 else
   # Real macOS: standard hard-sync to origin/main when clean
@@ -101,6 +101,7 @@ WHERE status='IN_PROGRESS'
 ```
 
 **Why this design works for Cowork-only mode:**
+
 - `/tmp` is fully writable; no FUSE wall. Every git operation works normally.
 - Clone is ~1s and 4 MB — trivial cost per tick.
 - Vercel CI runs the full deploy-check on every push. The loop reads CI verdict via `gh pr checks` or HTTP API and acts on it.
@@ -113,12 +114,12 @@ WHERE status='IN_PROGRESS'
 
 Read `.claude/memory/loop-lock.json`.
 
-| state | cooldownUntil | Action |
-|---|---|---|
-| `paused` | any | Exit ≤1 line: `loop paused via dashboard, skipping`. No DB writes, no file writes. |
-| `cooldown` | future | Exit ≤1 line: `cooldown until {time}, skipping`. |
-| `cooldown` | past | Flip to `idle`, proceed |
-| `idle` | — | Proceed |
+| state      | cooldownUntil | Action                                                                             |
+| ---------- | ------------- | ---------------------------------------------------------------------------------- |
+| `paused`   | any           | Exit ≤1 line: `loop paused via dashboard, skipping`. No DB writes, no file writes. |
+| `cooldown` | future        | Exit ≤1 line: `cooldown until {time}, skipping`.                                   |
+| `cooldown` | past          | Flip to `idle`, proceed                                                            |
+| `idle`     | —             | Proceed                                                                            |
 
 Stamp `lastTickAt` = now ISO UTC on EVERY iteration (even skip iterations). The dashboard's "live" indicator depends on this.
 
@@ -156,9 +157,10 @@ ORDER BY t.priority NULLS LAST, g."sortOrder", t."sortOrder", t.id
 LIMIT 20;
 ```
 
-Filter for deps-satisfied (all comma-separated `deps` must be DONE). 
+Filter for deps-satisfied (all comma-separated `deps` must be DONE).
 
 **Then filter by current capabilities** per `.claude/rules/capability-routing.md`:
+
 - If `CAN_PNPM_INSTALL=0` (Cowork sandbox), exclude any Task whose `tags` contains `requires:pnpm-install` OR `requires:deploy-check`.
 - If `CAN_DEPLOY_CHECK=0`, exclude tasks that would need `pnpm typecheck/lint/build` to validate. Code-ship tasks typically need this; pure docs/memory/research tasks do not.
 - Tasks with NO `requires:*` tag are treated as env-agnostic (Read/Write/Edit/Bash/Postgres/Agent calls only) and always eligible.
@@ -205,21 +207,22 @@ After implementation, BEFORE touching the PR or scorer, spawn the required revie
 
 Required by task type (always include code-reviewer; add others per scope):
 
-| Task touches | Required agents |
-|---|---|
-| Any task | `code-reviewer` |
-| Logic / scoring / cron / webhook | + `test-writer` |
-| New route or layout | + `performance-auditor` |
-| `app/[locale]/(smb)/**` | + `ux-reviewer-smb`, `copy-reviewer` |
-| `app/[locale]/(agency)/**` | + `ux-reviewer-agency`, `copy-reviewer` |
-| `app/api/payments/**` | + `payments-auditor`, `security-auditor` |
-| Auth / signin / session | + `security-auditor` |
-| User-visible UI | + `a11y-reviewer` |
-| Any commit | + `scorer` (LAST, after all above) |
+| Task touches                     | Required agents                          |
+| -------------------------------- | ---------------------------------------- |
+| Any task                         | `code-reviewer`                          |
+| Logic / scoring / cron / webhook | + `test-writer`                          |
+| New route or layout              | + `performance-auditor`                  |
+| `app/[locale]/(smb)/**`          | + `ux-reviewer-smb`, `copy-reviewer`     |
+| `app/[locale]/(agency)/**`       | + `ux-reviewer-agency`, `copy-reviewer`  |
+| `app/api/payments/**`            | + `payments-auditor`, `security-auditor` |
+| Auth / signin / session          | + `security-auditor`                     |
+| User-visible UI                  | + `a11y-reviewer`                        |
+| Any commit                       | + `scorer` (LAST, after all above)       |
 
 Cap = 5 concurrent. Sequence rule: `scorer` always runs AFTER every other agent — it reads their verdicts.
 
 Record on TaskRun:
+
 - `agentsUsed`: JSON array of agent names invoked
 - `validationStrategy`: JSON of which validation modes ran (see STEP 6)
 - `validationOutcomes`: JSON of per-mode pass/fail counts
@@ -235,10 +238,11 @@ Every applicable mode MUST run **inside this iteration**, not "deferred." If a m
 1. **Local `pnpm deploy-check`** — gated on `CAN_DEPLOY_CHECK`.
    - **If `CAN_DEPLOY_CHECK=1`** (real macOS): run `pnpm deploy-check` locally. Check exit code; on failure, read output, fix code, retry (counts against STEP 7 retry budget of 6). This is the fastest feedback loop.
    - **If `CAN_DEPLOY_CHECK=0`** (Cowork sandbox): SKIP local deploy-check. Push the branch instead and let Vercel CI run the full validation (format/typecheck/lint/build/tests). Record `validationStrategy.deployCheck = "deferred-to-vercel-ci"` on the TaskRun. This is the canonical pattern for Cowork-only mode (INC-31).
-   
+
    The "deferred to CI" path is the right pattern when local deploy-check is not feasible (no node_modules, no unlink, no disk space). Vercel runs the same `pnpm deploy-check` script in its build pipeline. The 60s extra wall-clock is acceptable because ticks run every 5 min and CI takes 2-3 min typically.
-   
+
    For env-agnostic tasks (docs/memory/research/dashboard queries with no compiled code change), deploy-check is N/A — record `validationStrategy.deployCheck = "not-applicable"` with reason.
+
 2. **Unit + integration tests** · run `pnpm test:run` locally. If any pre-existing test fails, fix before proceeding.
 3. **Push branch + open PR** if not already done.
 4. **Wait for CI + Vercel preview URL** · poll `gh pr view {n} --json statusCheckRollup,deployments` every 15s.
@@ -256,18 +260,19 @@ Every applicable mode MUST run **inside this iteration**, not "deferred." If a m
 
 ### Mode applicability cheat-sheet
 
-| Mode | Required when | Valid skip reasons |
-|---|---|---|
-| `deployCheck` | ALWAYS | none |
-| `unit` | Pure logic added (scorer, parser, validator, compute fn) | "no pure logic in this task" |
-| `integration` | Crossed a service boundary (DB, API, webhook, cron handler) | "no service boundary crossed" |
-| `browser` | Any UI route added/changed | "no UI changes — backend only" |
-| `db` | Any DB write/migrate | "no DB writes from this task" |
-| `email` | Magic link, transactional, cohort, billing email triggered | "no email triggered" |
-| `performance` | Route or layout changed | "no route changes" |
-| `a11y` | UI added/changed | "no UI changes" |
+| Mode          | Required when                                               | Valid skip reasons             |
+| ------------- | ----------------------------------------------------------- | ------------------------------ |
+| `deployCheck` | ALWAYS                                                      | none                           |
+| `unit`        | Pure logic added (scorer, parser, validator, compute fn)    | "no pure logic in this task"   |
+| `integration` | Crossed a service boundary (DB, API, webhook, cron handler) | "no service boundary crossed"  |
+| `browser`     | Any UI route added/changed                                  | "no UI changes — backend only" |
+| `db`          | Any DB write/migrate                                        | "no DB writes from this task"  |
+| `email`       | Magic link, transactional, cohort, billing email triggered  | "no email triggered"           |
+| `performance` | Route or layout changed                                     | "no route changes"             |
+| `a11y`        | UI added/changed                                            | "no UI changes"                |
 
 **ABSOLUTELY INVALID skip reasons** (these will fail the iteration):
+
 - "deferred to CI"
 - "needs preview URL" (preview URL is ALWAYS available — see step 4 above)
 - "needs Gmail tab" (Claude in Chrome MCP has Gmail access)
@@ -314,6 +319,7 @@ If gate fails:
 - **`human-required` tag on Task** → label PR `needs-review`, do NOT merge. This is the ONLY routine `needs-review` case (e.g. payments cutover, major schema migration that needs manual confirm).
 
 Either way, write the decision to `TaskRun.notes` verbatim:
+
 ```
 CI=green/red · deploy-check=pass/fail · reviewers={code-reviewer:PASS, security-auditor:N/A, ...} · merge=AUTO|RETRY-N|HOLD-human-required
 ```
@@ -323,6 +329,7 @@ CI=green/red · deploy-check=pass/fail · reviewers={code-reviewer:PASS, securit
 ## STEP 8 · Close out · NO PARTIAL OUTCOMES
 
 Update TaskRun:
+
 - `outcome`: only TWO valid values for completed iterations:
   - `SUCCESS` — merged to main (the default desired outcome)
   - `INCOMPLETE` — iteration ran out of work/time/quota; next iteration resumes via STEP 3 INCOMPLETE-resume path
@@ -337,6 +344,7 @@ Update TaskRun:
 Update parent Task: `lastRunOutcome` = TaskRun.outcome.
 
 Append ONE LINE to `.claude/memory/build-log.md`:
+
 ```
 SES-{date}-{slot} · {taskId} · {outcome} · score {agg}/10 · {linesAdded}+/{linesDeleted}- · {ci|no-ci} · {merge|hold}
 ```
@@ -360,6 +368,7 @@ If during execution you detect approaching usage limit (warning in output, `usag
 ## STEP 10 · Discipline · cooldown only on real failures
 
 **Cooldown is reserved for catastrophic / repeated failures, NEVER for capability gaps:**
+
 - ≥3 consecutive task failures (same task, different runs) → 1h cooldown + INC- entry
 - ≥5 consecutive failures across different tasks → 24h cooldown + "loop unhealthy" INC- entry
 - Quota approaching (STEP 9) → 4h cooldown
@@ -369,9 +378,8 @@ If during execution you detect approaching usage limit (warning in output, `usag
 
 The dashboard surfaces capability-degraded mode as an INFO Notification (not WARN), so Viktor knows the loop is running but in narrowed scope. Code tasks queue up until the next `/loop` tick on the Mac picks them up.
 
-
 - Ship at most ONE task per iteration. Move on next iteration.
-- Never surface a sandbox-internal issue (_tmp_*, .git locks, FUSE unlink) as a Viktor blocker. Use STEP 0 self-heal.
+- Never surface a sandbox-internal issue (_tmp_\*, .git locks, FUSE unlink) as a Viktor blocker. Use STEP 0 self-heal.
 - Blockers are ONLY for things requiring HUMAN action (Stripe identity verification, Meta business verification, etc.) per CLAUDE.md.
 - Use Promise.allSettled for parallel agent calls so one slow agent doesn't block the rest.
 - If everything is green and quiet at end of iteration, exit with one line — the dashboard reads it.
@@ -381,16 +389,16 @@ The dashboard surfaces capability-degraded mode as an INFO Notification (not WAR
 
 ## Failure modes the loop must handle without surfacing blockers
 
-| Symptom | Self-heal | If self-heal fails |
-|---|---|---|
-| `_tmp_*` orphans block pnpm | `rm -f _tmp_*` in STEP 0 | Mark INCOMPLETE, cooldown 30 min |
-| `.git/index.lock` stale | STEP 0 `find .git -name '*.lock' -mmin +1 -delete` | INC-01 relocate `GIT_DIR=/tmp/...` |
-| Mid-rebase from prior iteration | STEP 0 `git rebase --abort` | INC-01 escape hatch |
-| FUSE unlink wall | INC-01 escape hatch (relocate .git to /tmp) | Mark INCOMPLETE, cooldown 4h |
-| Vercel build failed | Open PR + label `needs-review` + comment | Same — it's a code issue, surfaces via PR |
-| Sentry error spike post-merge | Auto-revert (per `observability.md` §post-merge health check) | Log INC- entry, cooldown 4h |
-| Quota approaching | STEP 9 quota guard | Same |
-| CI never goes green | After 30 min: mark PR `needs-review`, close iteration | — |
+| Symptom                         | Self-heal                                                     | If self-heal fails                        |
+| ------------------------------- | ------------------------------------------------------------- | ----------------------------------------- |
+| `_tmp_*` orphans block pnpm     | `rm -f _tmp_*` in STEP 0                                      | Mark INCOMPLETE, cooldown 30 min          |
+| `.git/index.lock` stale         | STEP 0 `find .git -name '*.lock' -mmin +1 -delete`            | INC-01 relocate `GIT_DIR=/tmp/...`        |
+| Mid-rebase from prior iteration | STEP 0 `git rebase --abort`                                   | INC-01 escape hatch                       |
+| FUSE unlink wall                | INC-01 escape hatch (relocate .git to /tmp)                   | Mark INCOMPLETE, cooldown 4h              |
+| Vercel build failed             | Open PR + label `needs-review` + comment                      | Same — it's a code issue, surfaces via PR |
+| Sentry error spike post-merge   | Auto-revert (per `observability.md` §post-merge health check) | Log INC- entry, cooldown 4h               |
+| Quota approaching               | STEP 9 quota guard                                            | Same                                      |
+| CI never goes green             | After 30 min: mark PR `needs-review`, close iteration         | —                                         |
 
 If the user starts a fresh session and the loop expires, the same Scheduled Task picks up and runs this same prompt. State lives in Postgres + git, not in the session.
 

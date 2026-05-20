@@ -22,79 +22,92 @@ export async function getInFlight(): Promise<InFlightTask | null> {
   cacheLife("seconds");
   cacheTag("dev-dashboard-inflight");
 
-  // Prefer an actually-running TaskRun (outcome=IN_PROGRESS).
-  // Don't trust Task.status alone — that stays IN_PROGRESS while PRs await review.
-  const active = await prisma.task.findFirst({
-    where: {
-      status: "IN_PROGRESS",
-      runs: {
-        some: { outcome: "IN_PROGRESS" },
-      },
-    },
-    orderBy: { startedAt: "desc" },
-    select: {
-      id: true,
-      title: true,
-      lastSessionId: true,
-      startedAt: true,
-      parallelLane: true,
-      runs: {
-        take: 1,
-        orderBy: { startedAt: "desc" },
-        select: {
-          outcome: true,
-          scoreAggregate: true,
-          branchName: true,
+  // INC-27 guard: Vercel build worker cannot open Neon WebSocket against the
+  // stub DATABASE_URL used during build. Short-circuit at build time so the
+  // /dev page prerenders cleanly; runtime first-request re-runs the function.
+  if (process.env.NEXT_PHASE === "phase-production-build") return null;
+
+  try {
+    // Prefer an actually-running TaskRun (outcome=IN_PROGRESS).
+    // Don't trust Task.status alone — that stays IN_PROGRESS while PRs await review.
+    const active = await prisma.task.findFirst({
+      where: {
+        status: "IN_PROGRESS",
+        runs: {
+          some: { outcome: "IN_PROGRESS" },
         },
       },
-    },
-  });
+      orderBy: { startedAt: "desc" },
+      select: {
+        id: true,
+        title: true,
+        lastSessionId: true,
+        startedAt: true,
+        parallelLane: true,
+        runs: {
+          take: 1,
+          orderBy: { startedAt: "desc" },
+          select: {
+            outcome: true,
+            scoreAggregate: true,
+            branchName: true,
+          },
+        },
+      },
+    });
 
-  if (active) {
+    if (active) {
+      return {
+        taskId: active.id,
+        title: active.title,
+        status: "IN_PROGRESS",
+        lastSessionId: active.lastSessionId,
+        startedAt: active.startedAt,
+        branchName: active.runs[0]?.branchName ?? null,
+        runOutcome: active.runs[0]?.outcome ?? null,
+        runScoreAggregate: active.runs[0]?.scoreAggregate ?? null,
+        parallelLane: active.parallelLane,
+      };
+    }
+
+    // Otherwise show the most-recent completed run
+    const recent = await prisma.taskRun.findFirst({
+      where: {
+        outcome: { in: ["SUCCESS", "PARTIAL", "FAILED", "INCOMPLETE"] },
+      },
+      orderBy: { startedAt: "desc" },
+      select: {
+        sessionId: true,
+        startedAt: true,
+        outcome: true,
+        scoreAggregate: true,
+        branchName: true,
+        task: {
+          select: {
+            id: true,
+            title: true,
+            parallelLane: true,
+          },
+        },
+      },
+    });
+
+    if (!recent?.task) return null;
+
     return {
-      taskId: active.id,
-      title: active.title,
-      status: "IN_PROGRESS",
-      lastSessionId: active.lastSessionId,
-      startedAt: active.startedAt,
-      branchName: active.runs[0]?.branchName ?? null,
-      runOutcome: active.runs[0]?.outcome ?? null,
-      runScoreAggregate: active.runs[0]?.scoreAggregate ?? null,
-      parallelLane: active.parallelLane,
+      taskId: recent.task.id,
+      title: recent.task.title,
+      status: "RECENT",
+      lastSessionId: recent.sessionId,
+      startedAt: recent.startedAt,
+      branchName: recent.branchName,
+      runOutcome: recent.outcome,
+      runScoreAggregate: recent.scoreAggregate,
+      parallelLane: recent.task.parallelLane,
     };
+  } catch {
+    // INC-27: tolerate transient connection failures (build, cold-start),
+    // surface null so the dashboard renders the empty state.
+    return null;
   }
-
-  // Otherwise show the most-recent completed run
-  const recent = await prisma.taskRun.findFirst({
-    where: { outcome: { in: ["SUCCESS", "PARTIAL", "FAILED", "INCOMPLETE"] } },
-    orderBy: { startedAt: "desc" },
-    select: {
-      sessionId: true,
-      startedAt: true,
-      outcome: true,
-      scoreAggregate: true,
-      branchName: true,
-      task: {
-        select: {
-          id: true,
-          title: true,
-          parallelLane: true,
-        },
-      },
-    },
-  });
-
-  if (!recent?.task) return null;
-
-  return {
-    taskId: recent.task.id,
-    title: recent.task.title,
-    status: "RECENT",
-    lastSessionId: recent.sessionId,
-    startedAt: recent.startedAt,
-    branchName: recent.branchName,
-    runOutcome: recent.outcome,
-    runScoreAggregate: recent.scoreAggregate,
-    parallelLane: recent.task.parallelLane,
-  };
 }
