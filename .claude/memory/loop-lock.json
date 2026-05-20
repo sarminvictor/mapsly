@@ -1,9 +1,9 @@
 {
-  "state": "idle",
-  "sessionId": null,
-  "startedAt": null,
-  "lastTickAt": null,
-  "cooldownUntil": null,
+  "state": "cooldown",
+  "sessionId": "SES-2026-05-20-cowork-02",
+  "startedAt": "2026-05-20T06:20:48Z",
+  "lastTickAt": "2026-05-20T06:29:45Z",
+  "cooldownUntil": "2026-05-20T10:29:45Z",
   "consecutiveFailures": 0,
-  "note": "Manual override · cleared stale cooldown from INC-14 false alarm so v0.6.1 loop can resume B.6 from auto/2026-05-20-B.6-1 branch."
+  "note": "Cowork FUSE wall (INC-29) — pnpm install impossible from /sessions/.../mnt/mapsly. Switch to /loop 5m in Claude Code on Mac. Cooldown 4h. Notification clnvly01m70t2mpdombj5 surfaced."
 }

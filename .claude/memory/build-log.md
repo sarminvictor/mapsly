@@ -27,6 +27,32 @@ Schema per entry:
 
 ---
 
+## SES-2026-05-20-cowork-02 · 2026-05-20 06:20 → 06:30 UTC (Cowork scheduled task)
+
+- Started: 2026-05-20T06:20:48Z
+- Ended: 2026-05-20T06:29:45Z
+- Exit: HALT — Cowork FUSE wall blocks pnpm install (INC-29 written)
+- Tasks claimed: none (would have been C.0, but no task can ship without deploy-check)
+- Tasks completed: none
+- PRs opened: none
+- Incidents new: INC-2026-05-20-29 (Cowork scheduled task cannot run pnpm install · structural FUSE wall)
+- Incidents recurring: INC-14 (FUSE unlink wall — same root cause, broader scope: pnpm install in addition to git ops)
+- Recovery applied: none possible from inside sandbox. Set 4h cooldown + surfaced Notification clnvly01m70t2mpdombj5 + amended loop.md STEP 0b.1 with capability probe
+- Score average: n/a
+- Cost USD: $0 external API
+- Scheduler: Cowork desktop scheduled task
+
+Notes:
+- Boot reads: complete (incidents.md, CLAUDE.md hard reminders, loop-lock, MEMORY, cache-components rule)
+- STEP 0a auto-sync to origin/main: clean (local HEAD == origin/main)
+- STEP 0b sandbox detection: IS_SANDBOX=1
+- STEP 0b.1 (added this iteration) probe: `touch _probe; rm -f _probe` → `Operation not permitted` — wall confirmed
+- Highest-priority eligible task C.0 (P8) requires `pnpm seed:dev` execution + deploy-check; cannot run from this env
+- Meta-improvement shipped instead: incidents.md INC-29 + loop.md v0.6.4 (STEP 0b.1 + STEP 1 capability-halt path)
+- Follow-up for Viktor: open Claude Code on Mac (Terminal) and run `cd ~/Documents/Claude/Projects/mapsly && /loop 5m`. That session has macOS filesystem access and is the canonical scheduler per INC-22. Cowork scheduled task should be disabled or reserved for read-only diagnostics
+
+---
+
 ## SES-2026-05-20-cowork-01 · 2026-05-20 04:28 → 04:42 UTC (Cowork scheduled task)
 
 - Started: 2026-05-20T04:28:26Z
