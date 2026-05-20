@@ -331,7 +331,13 @@ export default function UiShowcasePage() {
         </p>
 
         <div style={audienceLabel}>SMB · comfortable density</div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16 }}>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(2, 1fr)",
+            gap: 16,
+          }}
+        >
           <Card audience="smb" density="comfortable">
             <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>
               Solea Brickell Spa
@@ -353,7 +359,13 @@ export default function UiShowcasePage() {
         <div style={{ ...audienceLabel, marginTop: 24 }}>
           Agency · compact density (dense tables)
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16 }}>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(2, 1fr)",
+            gap: 16,
+          }}
+        >
           <Card audience="agency" density="compact">
             <h3 style={{ margin: 0, fontSize: 14, fontWeight: 600 }}>
               Anchor Local · 47 leads
@@ -382,7 +394,13 @@ export default function UiShowcasePage() {
         </p>
 
         <div style={audienceLabel}>SMB · cream + coral focus ring</div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 24 }}>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(2, 1fr)",
+            gap: 24,
+          }}
+        >
           <Input
             audience="smb"
             label="Business name"
@@ -393,13 +411,13 @@ export default function UiShowcasePage() {
             label="Email"
             type="email"
             placeholder="maria@solea.com"
-            hint="We&apos;ll use this for weekly check-ins."
+            hint="We'll use this for weekly check-ins."
           />
           <Input
             audience="smb"
             label="Phone"
             placeholder="(305) 555-0100"
-            error="That doesn&apos;t look like a US phone number."
+            error="That doesn't look like a US phone number."
           />
           <Input
             audience="smb"
@@ -412,7 +430,13 @@ export default function UiShowcasePage() {
         <div style={{ ...audienceLabel, marginTop: 24 }}>
           Agency · cool-gray + indigo focus ring
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 24 }}>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(2, 1fr)",
+            gap: 24,
+          }}
+        >
           <Input
             audience="agency"
             label="List name"

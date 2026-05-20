@@ -20,7 +20,7 @@ export default function UiShowcaseModalDemo() {
         open={openSmb}
         onClose={() => setOpenSmb(false)}
         title="Reply to 8 unanswered reviews"
-        description="We&apos;ll draft replies in your tone and let you review before posting."
+        description="We'll draft replies in your tone and let you review before posting."
         footer={
           <>
             <Button
