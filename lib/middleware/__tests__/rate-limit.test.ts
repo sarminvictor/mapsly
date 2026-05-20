@@ -179,9 +179,8 @@ describe("rateLimit() · fail-soft when KV unavailable", () => {
 
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 
-    const { rateLimit, PUBLIC_LIMIT, __resetLimitersForTest } = await import(
-      "../rate-limit"
-    );
+    const { rateLimit, PUBLIC_LIMIT, __resetLimitersForTest } =
+      await import("../rate-limit");
     __resetLimitersForTest();
 
     const req = new Request("https://x.example/");
@@ -208,9 +207,8 @@ describe("rateLimit() · fail-soft when KV unavailable", () => {
 
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 
-    const { rateLimit, USER_LIMIT, __resetLimitersForTest } = await import(
-      "../rate-limit"
-    );
+    const { rateLimit, USER_LIMIT, __resetLimitersForTest } =
+      await import("../rate-limit");
     __resetLimitersForTest();
 
     await rateLimit(new Request("https://x.example/"), USER_LIMIT, "u1");
@@ -260,9 +258,8 @@ describe("withRateLimit() · decorator", () => {
       remaining: 59,
       reset: Date.now() + 60_000,
     });
-    const { withRateLimit, PUBLIC_LIMIT, ipKey } = await import(
-      "../rate-limit"
-    );
+    const { withRateLimit, PUBLIC_LIMIT, ipKey } =
+      await import("../rate-limit");
 
     const inner = vi.fn(async () => new Response("ok", { status: 200 }));
     const wrapped = withRateLimit(PUBLIC_LIMIT, ipKey, inner);
@@ -284,9 +281,8 @@ describe("withRateLimit() · decorator", () => {
       remaining: 0,
       reset: Date.now() + 60_000,
     });
-    const { withRateLimit, PUBLIC_LIMIT, ipKey } = await import(
-      "../rate-limit"
-    );
+    const { withRateLimit, PUBLIC_LIMIT, ipKey } =
+      await import("../rate-limit");
 
     const inner = vi.fn(async () => new Response("ok"));
     const wrapped = withRateLimit(PUBLIC_LIMIT, ipKey, inner);
@@ -322,9 +318,8 @@ describe("withRateLimit() · decorator", () => {
 
 describe("profile registry · matches scalability.md defaults", () => {
   test("PUBLIC_LIMIT = 60/min, USER_LIMIT = 30/min, WEBHOOK_LIMIT = 200/min", async () => {
-    const { PUBLIC_LIMIT, USER_LIMIT, WEBHOOK_LIMIT } = await import(
-      "../rate-limit"
-    );
+    const { PUBLIC_LIMIT, USER_LIMIT, WEBHOOK_LIMIT } =
+      await import("../rate-limit");
 
     expect(PUBLIC_LIMIT.limit).toBe(60);
     expect(PUBLIC_LIMIT.window).toBe("1 m");
@@ -340,10 +335,13 @@ describe("profile registry · matches scalability.md defaults", () => {
   });
 
   test("each profile has a unique prefix (no keyspace collisions)", async () => {
-    const { PUBLIC_LIMIT, USER_LIMIT, WEBHOOK_LIMIT } = await import(
-      "../rate-limit"
-    );
-    const prefixes = [PUBLIC_LIMIT.prefix, USER_LIMIT.prefix, WEBHOOK_LIMIT.prefix];
+    const { PUBLIC_LIMIT, USER_LIMIT, WEBHOOK_LIMIT } =
+      await import("../rate-limit");
+    const prefixes = [
+      PUBLIC_LIMIT.prefix,
+      USER_LIMIT.prefix,
+      WEBHOOK_LIMIT.prefix,
+    ];
     expect(new Set(prefixes).size).toBe(prefixes.length);
   });
 });
