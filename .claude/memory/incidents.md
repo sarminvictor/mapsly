@@ -638,3 +638,35 @@ CREATE INDEX IF NOT EXISTS "TaskRun_resumedFromRunId_idx" ON "TaskRun"("resumedF
 
 **Confidence:** high
 **Tags:** loop, INC-14-scope, false-positive, auto-sync, working-tree
+
+### INC-2026-05-20-29 · Cowork scheduled-task iteration cannot run pnpm install · structural FUSE wall
+
+**Symptom:** SES-2026-05-20-cowork-02 (this iteration) was triggered by the Cowork desktop app's Scheduled Task feature. STEP 0 detected `IS_SANDBOX=1` (PWD under `/sessions/.../mnt/mapsly`). Trying to install dependencies for STEP 6 validation (`pnpm install --ignore-scripts --frozen-lockfile`) crashed immediately with:
+
+```
+[ERROR] EPERM: operation not permitted, unlink '/sessions/.../mnt/mapsly/_tmp_5_df0de19325d1d579781e6932c90f2dc7'
+```
+
+Probe confirmed the FUSE wall is total: `touch _probe_test; rm -f _probe_test` returns `Operation not permitted` on a file the sandbox just created. `mv` fails identically (source unlink). Only Write/Edit (overwrite via O_TRUNC) work. This means `pnpm install` cannot ever complete in the Cowork mount, and therefore `pnpm deploy-check` (typecheck/lint/build/test) cannot run from this iteration's environment.
+
+**Root cause:** Cowork's mount of `~/Documents/Claude/Projects/mapsly` into `/sessions/.../mnt/mapsly` is a FUSE layer that categorically blocks the `unlink()` syscall. INC-14 documented this in passing for git operations; the new finding is that this also blocks pnpm's atomic-rename install pattern, and the loop's v0.6.3 STEP 0 self-heal (`rm -f _tmp_*`) cannot remove these orphans either — they are placed by pnpm itself during the install attempt and survive the attempt.
+
+This is structural: there is no escape hatch from inside the sandbox. INC-01's `GIT_DIR=/tmp/...` trick works for git because the .git dir can live outside the mount. node_modules cannot — Node's module resolution requires it next to package.json. We'd need to:
+- Symlink node_modules into the mount (FUSE may reject), OR
+- Copy the entire project to /tmp, install + validate there, and propagate diffs back (1GB disk pressure on a workspace with only ~1GB free in /tmp).
+
+**Fix applied (this iteration):** Did not attempt heroic workarounds. Skipped task claim. Set 4h cooldown on loop-lock. Surfaced a Notification row for Viktor so the dashboard's Blockers card shows the issue. Amended loop.md STEP 0 with explicit Cowork-mode guidance: if `IS_SANDBOX=1` AND `pnpm install` would be required, skip task claim and request the user run the iteration via Claude Code's `/loop` slash command on the real Mac filesystem instead.
+
+**Prevention:**
+1. **`.claude/loop.md` STEP 0 amendment (v0.6.4):** when `IS_SANDBOX=1`, probe-test `touch _probe_$$; rm -f _probe_$$` immediately after the existing self-heal. If the rm fails (`Operation not permitted`), set 4h cooldown, write Notification (`level=WARN`, `title="Cowork sandbox FUSE wall — switch to /loop"`, body cites this INC), exit ≤1 line. Do not attempt to claim a task; nothing useful can be done from this environment.
+2. **Documentation pivot (CLAUDE.md "Model pin" section):** Cowork desktop Scheduled Task is officially NOT a supported scheduler for the autonomous build loop — only `/loop` from an interactive Claude Code session on the Mac (which has direct macOS filesystem access) qualifies. Cowork's scheduled task can run discovery/reporting tasks that need only Read+Bash, but not implementation tasks that need `pnpm install`.
+3. **Dashboard surfaces the constraint:** the LoopControls card on `dev.mapsly.ai` should show which scheduler is currently driving ticks (read from loop-lock.note or a new field). If `lastTickAt` is being stamped by a Cowork session but no TaskRuns are shipping, the dashboard surfaces "Loop is running but cannot install deps — switch to /loop". Track as a follow-up task.
+
+**Where encoded:**
+- `.claude/loop.md` STEP 0 (Cowork probe added in this commit)
+- This entry
+- (followup) `CLAUDE.md` Model pin paragraph
+- (followup) `app/(dev)/dev/LoopControls.tsx`
+
+**Confidence:** high (probe-tested in this iteration: unlink, mv, rm all denied; truncate-write works)
+**Tags:** loop, cowork, fuse, pnpm-install, structural, scheduler-mode

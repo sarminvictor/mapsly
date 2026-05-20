@@ -1,4 +1,4 @@
-# Mapsly autonomous build loop · v0.6.0 strict per-iteration prompt
+# Mapsly autonomous build loop · v0.6.4 strict per-iteration prompt
 
 Read by Claude Code's Desktop Scheduled Task → fires every 5 min → executes this file as the prompt for one iteration. Each iteration ships AT MOST one task end-to-end (claim → implement → review → score → auto-merge OR hold) OR exits cleanly with one-line status.
 
@@ -40,6 +40,23 @@ case "$PWD" in
   */sessions/*|*/mnt/*) IS_SANDBOX=1 ;;
   *) IS_SANDBOX=0 ;;
 esac
+
+# 0b.1 · Cowork sandbox capability probe (INC-29).
+# Even if STEP 0c can rm orphan _tmp_* files in MOST sessions, the Cowork mount in
+# CURRENT desktop builds blocks the unlink() syscall categorically. Probe-test once
+# per iteration: if even a just-created file cannot be removed, pnpm install will
+# fail downstream and nothing requiring deploy-check can ship. Set cooldown + exit.
+if [ "$IS_SANDBOX" = "1" ]; then
+  PROBE_FILE="_probe_loop_$$_$(date +%s%N 2>/dev/null || date +%s)"
+  touch "$PROBE_FILE" 2>/dev/null
+  if ! rm -f "$PROBE_FILE" 2>/dev/null; then
+    echo "[step-0] Cowork FUSE unlink wall detected — pnpm install impossible"
+    # The agent layer must now: stamp lastTickAt, write Notification, set 4h cooldown
+    # in loop-lock, do NOT claim a task, exit ≤1 line. See INC-29.
+    LOOP_HALT_REASON="cowork-fuse-wall"
+    LOOP_HALT_COOLDOWN_HOURS=4
+  fi
+fi
 
 # 0c · Stale pnpm tmp orphans (cause "Operation not permitted" cascade on next pnpm install)
 rm -f _tmp_*_tmp_* _tmp_[0-9]* 2>/dev/null
@@ -83,7 +100,7 @@ If any recovery action prints an error, log it to the supervisor field of TaskRu
 
 ---
 
-## STEP 1 · Honor the loop-lock
+## STEP 1 · Honor the loop-lock + capability halt
 
 Read `.claude/memory/loop-lock.json`.
 
@@ -95,6 +112,11 @@ Read `.claude/memory/loop-lock.json`.
 | `idle` | — | Proceed |
 
 Stamp `lastTickAt` = now ISO UTC on EVERY iteration (even skip iterations) via Edit tool. The dashboard's "live" indicator depends on this.
+
+**Capability halt (LOOP_HALT_REASON set in STEP 0):** if STEP 0 set `LOOP_HALT_REASON=cowork-fuse-wall`, the iteration MUST:
+1. Stamp `lastTickAt`, set `state=cooldown`, `cooldownUntil=now + 4h`, `note="Cowork FUSE wall (INC-29) — switch to /loop in Claude Code on Mac"`.
+2. Insert ONE Notification row (idempotent: dedupe by `title` within last 24h) so the dashboard's Blockers card shows: `title="Loop stalled — Cowork sandbox cannot install deps"`, `level=WARN`, `body="Run /loop 5m in Claude Code on your Mac instead. See INC-29."`, `actionHref="/dev"`, `createdAt=now`.
+3. Exit ≤1 line: `cowork fuse wall, 4h cooldown, switch to /loop`. Do NOT proceed to STEP 2+. Nothing useful can ship from this environment.
 
 ---
 
