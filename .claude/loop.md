@@ -1,4 +1,4 @@
-# Mapsly autonomous build loop · v0.6.6 strict per-iteration prompt
+# Mapsly autonomous build loop · v0.6.20 strict per-iteration prompt
 
 Read by Claude Code's Desktop Scheduled Task → fires every 5 min → executes this file as the prompt for one iteration. Each iteration ships AT MOST one task end-to-end (claim → implement → review → score → auto-merge OR hold) OR exits cleanly with one-line status.
 
@@ -16,6 +16,67 @@ case "$PWD" in
   */sessions/*|*/mnt/*) IS_SANDBOX=1 ;;
   *) IS_SANDBOX=0 ;;
 esac
+
+# 0a.1 · /tmp HYGIENE (INC-33) — delete prior-tick orphans before bootstrap.
+# Cowork's /dev/nvme0n1p1 is ~9.6 GB total; each tick leaves behind a 4-MB
+# clone + occasional 50-MB-1.1-GB toolchain installs (lock-gen, prettier-check,
+# db-helper, etc.). After ~30 ticks the disk fills and `useradd` itself fails,
+# halting the loop. STEP 0 MUST GC before bootstrap.
+#
+# Safe to delete (per-tick scratch):
+#   /tmp/mapsly-* older than 30 min        (clone orphans + escape-hatch dirs)
+#   /tmp/lock-gen, /tmp/prettier-*         (one-off install dirs from prior ticks)
+#   /tmp/fmt-pkg, /tmp/zen-loop, /tmp/mw   (named tool installs from past iters)
+#   /tmp/db-helper, /tmp/pg-cwk            (named tool installs)
+#   /tmp/*.tar.xz, /tmp/*.tar.gz           (extracted tarballs)
+#
+# Keep (sticky toolchain — see 0a.2):
+#   /tmp/node24      (Node 24 binary, ~207 MB, reusable across ticks)
+#   /tmp/npm-global  (pnpm install location, ~19 MB, reusable)
+#
+# Each scheduled-task tick runs as the same sandbox user (typically `nobody`),
+# so it CAN delete its own past orphans even though it can't delete files
+# created by a different sandbox session. `rm -rf` errors are suppressed —
+# any file we can't delete is from a different user and will be cleaned by
+# that user's next tick.
+BEFORE_BYTES=$(df --output=avail / 2>/dev/null | awk 'NR==2' | tr -d ' ')
+find /tmp -maxdepth 1 -name 'mapsly-*' \( -mmin +30 -o -name 'mapsly-git*' -o -name 'mapsly-work-*' -o -name 'mapsly-loop-*' -o -name 'mapsly-commit*' -o -name 'mapsly-scratch*' -o -name 'mapsly-wt-*' -o -name 'mapsly-env-*' -o -name 'mapsly-run-id*' -o -name 'mapsly-session-id*' \) -exec rm -rf {} + 2>/dev/null
+rm -rf /tmp/lock-gen /tmp/prettier-check /tmp/prettier-cli /tmp/prettier-tool /tmp/prettier-bin /tmp/prettier-mini /tmp/fmt-pkg /tmp/zen-loop /tmp/mw /tmp/db-helper /tmp/pg-cwk 2>/dev/null
+rm -f /tmp/*.tar.xz /tmp/*.tar.gz 2>/dev/null
+AFTER_BYTES=$(df --output=avail / 2>/dev/null | awk 'NR==2' | tr -d ' ')
+FREED_KB=$((AFTER_BYTES - BEFORE_BYTES))
+echo "[step-0] /tmp GC freed $((FREED_KB / 1024)) MB · /tmp now $((AFTER_BYTES / 1024)) MB free"
+
+# 0a.2 · Sticky toolchain · install Node + pnpm + gh ONCE per sandbox lifetime, reuse forever.
+# Avoids 30-second pnpm reinstalls + multi-MB tool reinstalls every 5 min.
+NODE_BIN=/tmp/node24/bin
+NPM_GLOBAL=/tmp/npm-global
+
+if [ ! -x "$NODE_BIN/node" ]; then
+  echo "[step-0] Installing Node 24 to $NODE_BIN (one-time, ~30s)..."
+  ARCH=$(uname -m); [ "$ARCH" = "aarch64" ] && NODE_ARCH=arm64 || NODE_ARCH=x64
+  TARBALL="node-v24.5.0-linux-${NODE_ARCH}.tar.xz"
+  cd /tmp && curl -sSLO "https://nodejs.org/download/release/v24.5.0/${TARBALL}"
+  tar -xJf "$TARBALL" 2>/dev/null && mv "node-v24.5.0-linux-${NODE_ARCH}" node24 && rm -f "$TARBALL"
+fi
+
+export PATH="$NODE_BIN:$NPM_GLOBAL/bin:$PATH"
+
+if ! command -v pnpm >/dev/null 2>&1; then
+  echo "[step-0] Installing pnpm to $NPM_GLOBAL (one-time, ~5s)..."
+  mkdir -p "$NPM_GLOBAL"
+  npm install -g pnpm@9.15.0 --prefix "$NPM_GLOBAL" 2>&1 | tail -1
+fi
+
+if ! command -v gh >/dev/null 2>&1; then
+  echo "[step-0] Installing gh CLI to $NPM_GLOBAL/bin (one-time, ~20s)..."
+  ARCH=$(uname -m); [ "$ARCH" = "aarch64" ] && GH_ARCH=arm64 || GH_ARCH=amd64
+  GH_TAR="gh_2.63.2_linux_${GH_ARCH}.tar.gz"
+  cd /tmp && curl -sSLO "https://github.com/cli/cli/releases/download/v2.63.2/${GH_TAR}"
+  tar -xzf "$GH_TAR" 2>/dev/null && cp "gh_2.63.2_linux_${GH_ARCH}/bin/gh" "$NPM_GLOBAL/bin/" && rm -rf "$GH_TAR" "gh_2.63.2_linux_${GH_ARCH}"
+fi
+
+echo "[step-0] tools: $(command -v node || echo missing-node) · $(command -v pnpm || echo missing-pnpm) · $(command -v gh || echo missing-gh)"
 
 # 0b · Pick the canonical working directory.
 # Sandbox: clone into /tmp. Real macOS: use $PWD directly (mount IS writable).

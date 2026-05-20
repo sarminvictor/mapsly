@@ -796,3 +796,40 @@ The FUSE-mounted project directory at `~/Documents/Claude/Projects/mapsly` is no
 
 **Confidence:** high (regression test fails without the fix; CI typecheck + test on PR #6 commit 6704fc1 was green with the fix in place)
 **Tags:** prisma, postgres-null-arithmetic, increment, cost-counter, mock-fidelity
+
+### INC-2026-05-20-33 · Cowork /tmp accumulates per-tick orphans · loop halts at 100% disk
+
+**Symptom:** Cowork scheduled-task tick at 2026-05-20T15:15Z couldn't bootstrap. Loop-lock note: *"sandbox bash still unavailable (useradd: No space left on device on /etc/passwd) · cannot bootstrap /tmp clone, cannot query Postgres, cannot push"*. Inspection found `/dev/nvme0n1p1` (the sandbox's writable filesystem holding `/tmp`, `/etc`, and `/`) at 100% / 0 bytes available, with 27 orphan `/tmp/mapsly-*` clone dirs (~67 MB total) plus large one-off tool installs from prior ticks: `/tmp/lock-gen` (1.1 GB), `/tmp/prettier-check` (395 MB), `/tmp/node24` (207 MB), `/tmp/prettier-{cli,tool,bin,mini}` (~40 MB), `/tmp/db-helper` (38 MB), `/tmp/pg-cwk` (24 MB), `/tmp/zen-loop` (19 MB), `/tmp/fmt-pkg` (14 MB). Total accumulated waste ≈ 1.9 GB across ~30 successful ticks (B.0 through D.2 over ~12 hours).
+
+When `/` hits 100%, the sandbox kernel can't even append to `/etc/passwd` to provision the per-tick user, so `useradd` fails before the iteration prompt is ever read. The loop is dead even though origin/main and the git/Vercel pipeline are healthy.
+
+**Root cause:** v0.6.6 STEP 0 introduced the "/tmp clone per tick" pattern (correctly — fixes INC-29 FUSE wall). But no GC was scheduled. Each tick:
+- Cloned origin to a unique-named work dir (`/tmp/mapsly-work-funny-sweet-tesla`, `/tmp/mapsly-work-eloquent-bold-clarke`, etc.) — never reused.
+- Installed pnpm + Node + sometimes prettier/gh into a unique `/tmp/<tool>-<random>` dir — never reused.
+- Wrote git-escape-hatch dirs (`/tmp/mapsly-git-1779258664`, etc.) — never cleaned.
+- Left the working tree behind after exit. /tmp persists between sandbox sessions but is finite (~9.6 GB total, ~2 GB headroom after baseline sandbox files).
+
+Each successful tick added 50–500 MB to `/tmp`. Catastrophic accumulation was inevitable.
+
+**Fix applied (v0.6.20):**
+1. **STEP 0a.1 — /tmp GC before bootstrap.** Every tick now runs:
+   - `find /tmp -maxdepth 1 -name 'mapsly-*' (clone/git/loop/wt/commit/scratch/env/run/session patterns) -mmin +30 -exec rm -rf {} +`
+   - `rm -rf` for the known one-off tool dirs (lock-gen, prettier-*, fmt-pkg, zen-loop, mw, db-helper, pg-cwk)
+   - `rm -f /tmp/*.tar.{xz,gz}` (extracted tarballs)
+   - Logs `freed N MB · /tmp now M MB free` so the dashboard can track recovery.
+2. **STEP 0a.2 — Sticky toolchain at canonical paths.** Node 24, pnpm, and gh now install ONCE to `/tmp/node24` and `/tmp/npm-global` (preserved by the GC). Subsequent ticks add them to PATH and skip install. Saves ~30–60 s per tick AND prevents the "every tick installs to a new unique path" disk waste.
+3. **STEP 0b — Canonical work dir `/tmp/mapsly-work`.** Single dir, refreshed via `git fetch + git reset --hard origin/main` on each tick (when /tmp persists). No more uniquely-named clone dirs.
+
+**Prevention:**
+1. **Architectural rule:** `/tmp` in the Cowork sandbox is shared across ticks and finite. Every tick MUST GC its own orphans before consuming new space. Persistent toolchain installs go to canonical paths (`/tmp/node24`, `/tmp/npm-global`); ephemeral per-tick artifacts go to the canonical work dir (`/tmp/mapsly-work`) and get refreshed via `git reset --hard`, not re-cloned.
+2. **STEP 0 telemetry:** `[step-0] /tmp GC freed N MB · /tmp now M MB free` must appear in every tick's output. The dashboard's auto-enhance signals card watches for `M < 500` (warning) and `M < 100` (critical, equivalent to the INC-33 dead state).
+3. **No more unique-named clone dirs.** The v0.6.6 design used unique names (e.g. `mapsly-work-funny-sweet-tesla`) under the assumption that /tmp is ephemeral per session; it's actually shared. v0.6.20 fixes this by reusing `/tmp/mapsly-work` and refreshing in place.
+4. **One-off tool installs are forbidden going forward.** If a tick needs prettier, pnpm, gh, etc., it MUST install via `/tmp/npm-global` (the sticky pnpm global location). New `/tmp/<unique-tool-name>-<random>` dirs in subsequent INCs = process-enhancer flags + STEP 0a.1 GC list extended.
+
+**Where encoded:**
+- `.claude/loop.md` v0.6.20 STEP 0a.1 (GC) + 0a.2 (sticky toolchain) + 0b (canonical work dir)
+- This entry
+- (followup) Dashboard auto-enhance signal: watch for `/tmp < 500 MB`
+
+**Confidence:** high (probe-tested: deleting orphans from a user that owns them frees space; sandbox `nobody` user can rm its own orphans; sticky-path toolchain reuse pattern is standard)
+**Tags:** loop, cowork, /tmp, disk-pressure, GC, sticky-toolchain, v0.6.20

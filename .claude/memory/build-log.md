@@ -412,3 +412,18 @@ Outcome: SUCCESS · PR #17 squash-merged to main · sha=a09f2e6 · v0.6.18 → v
 Unblocks: D.3 (MSI rank), D.5 (Match Score), E.1 (SMB dashboard ScoreBreakdown), C.9 (weekly snapshot-write cron persists composite to BusinessSnapshot.mapslyScore).
 
 · One-line summary: SES-2026-05-20-cowork-1340 · D.2 · SUCCESS · score 9.60/10 · 1284+/0- · ci=green · merge=AUTO
+
+## SES-2026-05-20-cowork-emergency · v0.6.20 ship · /tmp GC + sticky toolchain · INC-33
+
+Triggered manually after Viktor reported the loop wedged at 2026-05-20T15:15Z with loop-lock note *"useradd: No space left on device"*. /dev/nvme0n1p1 was 100% / 0 B available. Root cause: 30+ successful ticks (B.0 through D.2, v0.6.6 → v0.6.19) shipped ~9 PRs but each left ~50-500 MB behind in `/tmp` (unique-named clone dirs, one-off tool installs, escape-hatch git copies). No GC ever ran.
+
+**Fix:**
+- `.claude/loop.md` v0.6.20 STEP 0a.1: per-tick `/tmp` GC. Deletes `mapsly-*` orphans older than 30 min, plus known one-off tool dirs (lock-gen, prettier-*, fmt-pkg, zen-loop, db-helper, pg-cwk, mw). Each tick reclaims its own past disk.
+- STEP 0a.2: sticky toolchain at `/tmp/node24` and `/tmp/npm-global`. Node + pnpm + gh install once per sandbox lifetime, not per tick. Saves 30-60s + multi-MB per tick.
+- STEP 0b: canonical work dir `/tmp/mapsly-work` (no more unique-named clones).
+- `.claude/memory/incidents.md`: INC-33 documents the failure mode + prevention.
+- `package.json`: 0.6.19 → 0.6.20.
+
+This was a meta-improvement ship — no PLAN task claimed. Next scheduled tick will run as `nobody`, GC its own past orphans (the 24 `mapsly-*` dirs currently owned by `nobody` in `/tmp`), and resume normal task shipping with much more headroom.
+
+Outcome: SUCCESS.
