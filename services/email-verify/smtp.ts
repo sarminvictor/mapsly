@@ -131,7 +131,11 @@ function getSocketFactory(): SocketFactory {
 function defaultSocketFactory(host: string, port: number): SocketLike {
   const sock = new Socket();
   sock.connect(port, host);
-  return sock;
+  // Node's net.Socket.end has wider overloads (accepts callback as first
+  // arg, returns Socket) than the minimal SocketLike contract used by the
+  // SMTP probe state machine. Runtime behavior matches; the cast just
+  // narrows the surface to what we actually call.
+  return sock as unknown as SocketLike;
 }
 
 // ---- Public schemas + types --------------------------------------------
