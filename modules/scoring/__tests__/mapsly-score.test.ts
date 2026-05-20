@@ -31,10 +31,7 @@ import {
   TRUST_AGE_SATURATION,
   VELOCITY_SATURATION,
 } from "../sub-scores";
-import {
-  MAPSLY_SCORE_DIMENSIONS,
-  type MapslyScoreSubScores,
-} from "../types";
+import { MAPSLY_SCORE_DIMENSIONS, type MapslyScoreSubScores } from "../types";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Fixtures

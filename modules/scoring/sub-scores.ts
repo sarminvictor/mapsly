@@ -108,9 +108,7 @@ export function deriveReputationScore(inputs: ReputationInputs): number {
 //     · 168h+ → 0.0 (1 week or worse)
 //     · linear in between
 // ─────────────────────────────────────────────────────────────────────────────
-export function deriveCommunicationScore(
-  inputs: CommunicationInputs,
-): number {
+export function deriveCommunicationScore(inputs: CommunicationInputs): number {
   const replyRate = clamp01(num(inputs.replyRate));
   const latencyHours = num(inputs.avgReplyLatencyHours);
   const latencyScore =
@@ -200,19 +198,15 @@ export function derivePricingTransparencyScore(
 //   - Active ads (Meta or Google)    15%
 //   - Social links from GBP          15%
 // ─────────────────────────────────────────────────────────────────────────────
-export function deriveBrandPresenceScore(
-  inputs: BrandPresenceInputs,
-): number {
-  const perfNorm = clamp01(num(inputs.lighthousePerformance) / LIGHTHOUSE_PERFECT);
+export function deriveBrandPresenceScore(inputs: BrandPresenceInputs): number {
+  const perfNorm = clamp01(
+    num(inputs.lighthousePerformance) / LIGHTHOUSE_PERFECT,
+  );
   const seoNorm = clamp01(num(inputs.lighthouseSeo) / LIGHTHOUSE_PERFECT);
   const schema = bool(inputs.hasSchema);
   const ads = bool(inputs.hasActiveAds);
   const social = bool(inputs.hasSocialLinks);
   return clamp01(
-    perfNorm * 0.3 +
-      seoNorm * 0.2 +
-      schema * 0.2 +
-      ads * 0.15 +
-      social * 0.15,
+    perfNorm * 0.3 + seoNorm * 0.2 + schema * 0.2 + ads * 0.15 + social * 0.15,
   );
 }
