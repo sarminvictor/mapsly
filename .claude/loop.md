@@ -1,4 +1,4 @@
-# Mapsly autonomous build loop · v0.6.20 strict per-iteration prompt
+# Mapsly autonomous build loop · v0.6.26 strict per-iteration prompt
 
 Read by Claude Code's Desktop Scheduled Task → fires every 5 min → executes this file as the prompt for one iteration. Each iteration ships AT MOST one task end-to-end (claim → implement → review → score → auto-merge OR hold) OR exits cleanly with one-line status.
 
@@ -40,12 +40,33 @@ esac
 # any file we can't delete is from a different user and will be cleaned by
 # that user's next tick.
 BEFORE_BYTES=$(df --output=avail / 2>/dev/null | awk 'NR==2' | tr -d ' ')
+BEFORE_MB=$((BEFORE_BYTES / 1024))
+
+# Standard GC: orphans older than 30 min + known one-off tool dirs
 find /tmp -maxdepth 1 -name 'mapsly-*' \( -mmin +30 -o -name 'mapsly-git*' -o -name 'mapsly-work-*' -o -name 'mapsly-loop-*' -o -name 'mapsly-commit*' -o -name 'mapsly-scratch*' -o -name 'mapsly-wt-*' -o -name 'mapsly-env-*' -o -name 'mapsly-run-id*' -o -name 'mapsly-session-id*' \) -exec rm -rf {} + 2>/dev/null
-rm -rf /tmp/lock-gen /tmp/prettier-check /tmp/prettier-cli /tmp/prettier-tool /tmp/prettier-bin /tmp/prettier-mini /tmp/fmt-pkg /tmp/zen-loop /tmp/mw /tmp/db-helper /tmp/pg-cwk 2>/dev/null
+rm -rf /tmp/lock-gen /tmp/prettier-check /tmp/prettier-cli /tmp/prettier-tool /tmp/prettier-bin /tmp/prettier-mini /tmp/fmt-pkg /tmp/zen-loop /tmp/mw /tmp/db-helper /tmp/pg-cwk /tmp/dbprobe /tmp/fmt 2>/dev/null
 rm -f /tmp/*.tar.xz /tmp/*.tar.gz 2>/dev/null
+
+# Disk-pressure-aware aggressive GC (INC-34): when free < 1 GB, also nuke
+# pnpm content-addressable store + ALL mapsly-* orphans regardless of age
+# (except canonical /tmp/mapsly-work). The pnpm-store grows monotonically
+# across ticks and is the largest single offender; safe to clear because
+# next pnpm install repopulates from network.
+PRESSURE_AVAIL=$(df --output=avail / 2>/dev/null | awk 'NR==2' | tr -d ' ')
+if [ "${PRESSURE_AVAIL:-0}" -lt 1048576 ]; then
+  echo "[step-0] disk pressure detected (${PRESSURE_AVAIL} KB free < 1 GB) — aggressive GC"
+  rm -rf /tmp/.pnpm-store 2>/dev/null
+  rm -rf /tmp/pnpm-store /tmp/.npm 2>/dev/null
+  # Nuke every /tmp/mapsly-* except the canonical work dir
+  find /tmp -maxdepth 1 -name 'mapsly-*' ! -name 'mapsly-work' -exec rm -rf {} + 2>/dev/null
+  # Nuke prior-tick node_modules trees we don't own (best-effort)
+  find /tmp -maxdepth 2 -name 'node_modules' -mmin +5 -exec rm -rf {} + 2>/dev/null
+fi
+
 AFTER_BYTES=$(df --output=avail / 2>/dev/null | awk 'NR==2' | tr -d ' ')
-FREED_KB=$((AFTER_BYTES - BEFORE_BYTES))
-echo "[step-0] /tmp GC freed $((FREED_KB / 1024)) MB · /tmp now $((AFTER_BYTES / 1024)) MB free"
+AFTER_MB=$((AFTER_BYTES / 1024))
+FREED_MB=$((AFTER_MB - BEFORE_MB))
+echo "[step-0] /tmp GC freed ${FREED_MB} MB · /tmp now ${AFTER_MB} MB free"
 
 # 0a.2 · Sticky toolchain · install Node + pnpm + gh ONCE per sandbox lifetime, reuse forever.
 # Avoids 30-second pnpm reinstalls + multi-MB tool reinstalls every 5 min.
@@ -290,9 +311,14 @@ Record on TaskRun:
 
 ---
 
-## STEP 6 · MANDATORY validation · NO "deferred to CI" ESCAPE
+## STEP 6 · MANDATORY validation · gated by capability, not by convenience
 
-Every applicable mode MUST run **inside this iteration**, not "deferred." If a mode genuinely cannot run (no UI changes → skip browser; no DB writes → skip db), record `reason` explaining WHY it's N/A. "deferred to CI" / "needs preview URL" / "needs Gmail tab" are NEVER valid reasons.
+Every applicable mode MUST run **inside this iteration**. The capability-aware split:
+
+- **Compile / build / lint / typecheck / unit-tests**: when `CAN_DEPLOY_CHECK=1` (real macOS), runs locally; when `CAN_DEPLOY_CHECK=0` (Cowork), deferred to Vercel CI (same `pnpm deploy-check` script runs in the build container). Both paths produce equivalent verdicts.
+- **Browser, Lighthouse, axe-core, DB validation, test-data cleanup**: ALWAYS run inside this iteration via Claude in Chrome MCP + Prisma direct query — regardless of `CAN_DEPLOY_CHECK`. These hit the Vercel preview URL (or production for read-only DB checks), so they're independent of local toolchain state.
+
+If a mode genuinely cannot run (no UI changes → skip browser; no DB writes → skip db), record `reason` explaining WHY it's N/A. "needs preview URL" / "needs Gmail tab" / "will validate manually later" are NEVER valid reasons.
 
 ### Validation order (do in this exact sequence)
 
@@ -323,7 +349,7 @@ Every applicable mode MUST run **inside this iteration**, not "deferred." If a m
 
 | Mode          | Required when                                               | Valid skip reasons             |
 | ------------- | ----------------------------------------------------------- | ------------------------------ |
-| `deployCheck` | ALWAYS                                                      | none                           |
+| `deployCheck` | ALWAYS (locally if CAN_DEPLOY_CHECK=1, else via Vercel CI)  | none                           |
 | `unit`        | Pure logic added (scorer, parser, validator, compute fn)    | "no pure logic in this task"   |
 | `integration` | Crossed a service boundary (DB, API, webhook, cron handler) | "no service boundary crossed"  |
 | `browser`     | Any UI route added/changed                                  | "no UI changes — backend only" |
@@ -334,7 +360,8 @@ Every applicable mode MUST run **inside this iteration**, not "deferred." If a m
 
 **ABSOLUTELY INVALID skip reasons** (these will fail the iteration):
 
-- "deferred to CI"
+- "deferred to CI" — INVALID for compile/build/lint when CAN_DEPLOY_CHECK=1 (run locally). VALID for compile/build/lint when CAN_DEPLOY_CHECK=0 (use `deferred-to-vercel-ci` exactly).
+- "deferred to CI" for browser/Lighthouse/a11y is NEVER valid — CI doesn't run those. Always invoke Claude in Chrome MCP against the Vercel preview URL after CI green.
 - "needs preview URL" (preview URL is ALWAYS available — see step 4 above)
 - "needs Gmail tab" (Claude in Chrome MCP has Gmail access)
 - "validation infrastructure not yet built"
@@ -403,6 +430,24 @@ Update TaskRun:
 - `tokensInput`, `tokensOutput`, `costUsd`, `durationSec`
 
 Update parent Task: `lastRunOutcome` = TaskRun.outcome.
+
+**Resolve stale dashboard Notifications on SUCCESS.** If TaskRun.outcome = SUCCESS, mark any unresolved WARN-level Notification about loop-stall as RESOLVED. The schema has a `resolvedAt: DateTime?` column; setting it to now() takes the row out of the active-blockers query. SQL:
+
+```sql
+UPDATE "Notification"
+SET "resolvedAt" = now()
+WHERE "resolvedAt" IS NULL
+  AND level = 'WARN'
+  AND (
+    title ILIKE '%loop stalled%'
+    OR title ILIKE '%switch to /loop%'
+    OR title ILIKE '%cowork sandbox cannot install%'
+    OR title ILIKE '%fuse wall%'
+    OR title ILIKE '%loop in degraded mode%'
+  );
+```
+
+This prevents the dashboard's Blockers card from showing v0.6.4-era misleading entries. Runs only on SUCCESS — on INCOMPLETE/FAILED we keep the warning visible.
 
 Append ONE LINE to `.claude/memory/build-log.md`:
 

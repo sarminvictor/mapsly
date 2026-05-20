@@ -217,3 +217,34 @@ Issues we've hit before (will track in build-log going forward):
 - _empty_ — fresh project
 
 When in doubt, open a Claude Code session at the repo and ask. The context is preloaded via `CLAUDE.md`.
+
+---
+
+## Cowork sandbox recovery (when the loop stops shipping)
+
+Symptom: dev.mapsly.ai shows `lastTickAt` not advancing, or a tick logs `useradd: /etc/passwd.*: No space left on device`. The Cowork sandbox's host writable volume (~9.6 GB) is exhausted by accumulated `/tmp/.pnpm-store`, prior-tick `node_modules`, or `/tmp/mapsly-*` clone orphans.
+
+**Fix (one click):** Restart the Cowork desktop app. The sandbox volume is reprovisioned fresh on next boot — all `/tmp` orphans go away, the host root FS gets reset, the scheduled task picks up on its next 5-min cadence and runs v0.6.20+ GC from STEP 0a.1.
+
+You can confirm recovery on `dev.mapsly.ai`: within ~10 min of the restart, `lastTickAt` should advance and at least one TaskRun row should appear with `[step-0] /tmp now N MB free` where N > 1000.
+
+**The macOS `/loop` fallback is unaffected** by any Cowork issue. If you keep an interactive Claude Code session open on your Mac with `/loop 5m`, it ships from the real macOS filesystem (no FUSE wall, no sandbox volume) and continues even when Cowork is dead. Per CLAUDE.md "Model pin" paragraph, `/loop` is the supported Mac scheduler; per INC-31, Cowork is the supported sandbox scheduler.
+
+## Local mount-side `.git` is read-only
+
+Your `~/Documents/Claude/Projects/mapsly/.git` directory lives behind the Cowork FUSE mount layer, which silently blocks the `unlink()` syscall on packfile object promotion (INC-29). This means `git fetch` against the local `.git` returns exit-0 but never advances `origin/main` refs — your local `git log` lies. The autonomous loop sidesteps this by running entirely from `/tmp` clones (INC-31), so it doesn't affect shipping.
+
+To restore your local terminal's view of the repo on your Mac (one-time, when you want to inspect recent code locally):
+
+```bash
+cd ~/Documents/Claude/Projects/mapsly
+rm -rf .git
+git clone --no-checkout https://github.com/sarminvictor/mapsly.git .git-fresh
+mv .git-fresh/.git .git
+rm -rf .git-fresh
+git fetch origin main
+git reset --hard origin/main
+```
+
+After that your local terminal will reflect what's actually on `origin/main`. Re-run if you ever find `git log` doesn't show recent commits you can see on GitHub.
+

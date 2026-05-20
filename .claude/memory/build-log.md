@@ -504,3 +504,21 @@ INC-21 is a numbering gap (skipped during creation), not a missing fix.
 No code change. Doc + status amendments only.
 
 Outcome: SUCCESS.
+
+## SES-2026-05-20-cowork-audit-followup · v0.6.26 ship · 5 next-fixes bundled
+
+Per Viktor request "yes implement all". Five next-fix priorities from the v0.6.25 audit shipped in one commit:
+
+1. **STEP 0a.1 pnpm-store GC under pressure.** When `df --output=avail /` < 1 GB, drop the `mmin +30` filter and additionally nuke `/tmp/.pnpm-store`, `/tmp/pnpm-store`, `/tmp/.npm`, every `/tmp/mapsly-*` (except canonical `/tmp/mapsly-work`), and `node_modules` trees older than 5 min. The pnpm-store is content-addressable and safely repopulated by next install — observed 1.1 GB accumulation across ~15 ticks before this fix.
+
+2. **STEP 0a.1 disk-pressure-aware GC threshold.** Same pressure block: drops the 30-min age filter when free disk < 1 GB. Prevents the back-to-back-tick blowout that caused the 17:51/17:57/18:0x useradd-failures (INC-34).
+
+3. **STEP 8 stale dashboard Notification resolve.** On SUCCESS, SQL UPDATE Notification SET resolvedAt = now() WHERE level='WARN' AND title ILIKE '%loop stalled%' (+ similar). Clears v0.6.4-era misleading entries automatically.
+
+4. **STEP 6 Lighthouse + a11y + browser validation gate clarified.** Rewrote the STEP 6 header + cheat-sheet + invalid-skip-reasons to clarify: compile/build/lint may defer to Vercel CI (CAN_DEPLOY_CHECK=0), but browser/Lighthouse/axe/DB validation ALWAYS run via Claude in Chrome MCP + Prisma — regardless of env. The prior "NO 'deferred to CI' ESCAPE" wording was wrong for Cowork mode and got softened with the right exceptions documented.
+
+5. **docs/handoff.md Cowork recovery + mount-side .git note.** One-click recovery (restart Cowork app) for sandbox-exhaustion; one-time bash recipe for refreshing the FUSE-mount's stuck `.git`. Both are operational, not loop-side.
+
+Plus INC-34 documents host disk exhaustion + folds in the mount-side draft "INC-32" the 18:0x skip tick wrote.
+
+Outcome: SUCCESS. No regressions; doc + STEP 0a.1 + STEP 6 + STEP 8 wording changes only. Bumps 0.6.25 → 0.6.26.

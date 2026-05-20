@@ -901,3 +901,45 @@ Each successful tick added 50–500 MB to `/tmp`. Catastrophic accumulation was 
 
 **Confidence:** high (probe-tested: deleting orphans from a user that owns them frees space; sandbox `nobody` user can rm its own orphans; sticky-path toolchain reuse pattern is standard)
 **Tags:** loop, cowork, /tmp, disk-pressure, GC, sticky-toolchain, v0.6.20
+
+### INC-2026-05-20-34 · Cowork sandbox host disk exhaustion · root FS full, bash can't start (supersedes mount-side draft "INC-32")
+
+**Status:** ✅ FIXED + ENCODED — v0.6.26 STEP 0a.1 extends GC to include `/tmp/.pnpm-store` and prior-tick `node_modules` trees under disk pressure; v0.6.26 also clarifies the loop's graceful-skip semantics for host-infra gaps.
+
+**Symptom:** Cowork scheduled-task ticks at 17:51 / 17:57 / 18:0x UTC on 2026-05-20 could not execute a single bash command. Every shell call (even `echo test`) returned:
+
+```
+bash failed on resume, create, and re-resume. resume: RPC error: ensure user:
+useradd failed: exit status 1: useradd: /etc/passwd.179057: No space left on device
+useradd: cannot lock /etc/passwd; try again later.
+```
+
+Progressive escalation across the day:
+1. Earlier ticks (per build-log): `/tmp` at 100% used — `git clone /tmp/mapsly-work` per STEP 0 failed mid-clone (INC-33).
+2. Later ticks (17:51+): root filesystem also full — Cowork's per-call user provisioner cannot append a row to `/etc/passwd`, so bash itself never starts. Nothing downstream runs: no git, no pnpm, no psql, no curl. The mount-side draft "INC-32" the tick wrote was a numbering collision with origin's existing INC-32; renumbered here to INC-34.
+
+**Root cause:** Cowork sandbox's host writable volume (root FS `/dev/nvme0n1p1`, 9.6 GB) is exhausted. The provisioner appends to `/etc/passwd` per call; when ENOSPC fires there, the user account is never created and the shell exits before `bash -c '…'` runs. `/tmp` (same volume) and `/etc` share the same exhaustion class; either can fill first.
+
+Two distinct accumulators contribute over a 12-hour shipping window:
+- **/tmp/mapsly-* clone orphans** (INC-33): ~50–500 MB per tick, addressed by v0.6.20 GC.
+- **/tmp/.pnpm-store/v3 monotonic growth**: pnpm's content-addressable global store grows by ~50–200 MB whenever a tick installs deps with a new lockfile (or even minor version drift). v0.6.20 GC didn't touch it. Observed 1.1 GB grown across ~15 ticks. NEW finding in this entry.
+
+**Fix applied (v0.6.26):**
+1. STEP 0a.1 extended GC: when `df --output=avail /` reports < 1 GB free, drop the `mmin +30` filter and additionally nuke `/tmp/.pnpm-store`, `/tmp/pnpm-store`, `/tmp/.npm`, every `/tmp/mapsly-*` (except canonical `/tmp/mapsly-work`), and prior-tick `node_modules` trees older than 5 min. Logged as `[step-0] disk pressure detected — aggressive GC`.
+2. STEP 10 cooldown discipline already specified: host-infra gaps (sandbox can't boot) are graceful-skip, NEVER cooldown. The skip tick at 18:02 correctly applied this.
+3. Mount-side draft "INC-32" content folded here; the skip tick's loop-lock note + build-log entry stay accurate.
+
+**Prevention:**
+1. **Per-tick pnpm-store GC under pressure.** The pnpm-store is safe to wipe because the next install repopulates from network. Only nuke under pressure to avoid penalizing normal ticks.
+2. **Detection telemetry.** STEP 0a.1 logs `[step-0] /tmp now M MB free` every tick. Process-enhancer should watch for `M < 500` (warning) or `M < 100` (critical: write an INFO Notification "Sandbox disk low — restart Cowork app to reclaim").
+3. **Host-side recovery (not loop-side).** When root FS exhausts, NOTHING inside the sandbox can self-heal. The user must restart the Cowork desktop app, which reprovisions the sandbox volume. Document this in `docs/handoff.md`.
+4. **Loop continues on macOS `/loop`.** Even with Cowork sandbox dead, the Mac `/loop` tick (when active) keeps shipping. This is the architectural justification for keeping `/loop` as a supported fallback per CLAUDE.md.
+
+**Where encoded:**
+- `.claude/loop.md` v0.6.26 STEP 0a.1 (extended GC, pnpm-store, disk-pressure-aware)
+- `.claude/loop.md` STEP 10 (cooldown discipline — graceful-skip for infra gaps)
+- `docs/handoff.md` § Cowork sandbox recovery (v0.6.26 addition)
+- This entry
+
+**Confidence:** high (probe-confirmed: /tmp/.pnpm-store/v3 was 1.1 GB and I manually freed it from this very interactive session)
+**Tags:** sandbox, cowork-host, disk-exhaustion, pnpm-store, infra, graceful-skip, no-cooldown, v0.6.26, supersedes-mount-draft
