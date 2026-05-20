@@ -132,7 +132,7 @@ describe("autoScore", () => {
       output: "Thank you for your kind review of our business and service.",
       reviewText: "The staff were great.",
     });
-    expect((s.spanishMarkersFound ?? 0)).toBeLessThan(3);
+    expect(s.spanishMarkersFound ?? 0).toBeLessThan(3);
   });
 });
 

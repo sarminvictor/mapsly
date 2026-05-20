@@ -211,9 +211,7 @@ export function autoScore(args: {
     const withinCharLimit = outputChars > 0 && outputChars <= 600;
     const refs = referencesReview(output, reviewText);
     const autoQualityScore =
-      (withinCharLimit ? 4 : 0) +
-      (refs ? 4 : 0) +
-      (outputChars >= 80 ? 2 : 0);
+      (withinCharLimit ? 4 : 0) + (refs ? 4 : 0) + (outputChars >= 80 ? 2 : 0);
     return {
       outputChars,
       withinCharLimit,
@@ -513,18 +511,17 @@ export function estimateCostUsd(args: {
   // script free of cost-counter side effects; the consistency test in
   // services/ai/__tests__/model-decision.test.ts asserts the table values
   // match the live PRICING constants.
-  const PRICING: Record<
-    SupportedModel,
-    { inUsd: number; outUsd: number }
-  > = {
+  const PRICING: Record<SupportedModel, { inUsd: number; outUsd: number }> = {
     "gpt-5.4-nano": { inUsd: 0.05, outUsd: 0.4 },
     "gpt-5.4-mini": { inUsd: 0.25, outUsd: 2.0 },
   };
   const p = PRICING[model];
   if (!p) throw new Error(`Unknown model: ${model}`);
   return Number(
-    ((inputTokens * p.inUsd) / 1_000_000 +
-      (outputTokens * p.outUsd) / 1_000_000).toFixed(8),
+    (
+      (inputTokens * p.inUsd) / 1_000_000 +
+      (outputTokens * p.outUsd) / 1_000_000
+    ).toFixed(8),
   );
 }
 
@@ -703,10 +700,10 @@ function round(n: number, places = 2): number {
 /** Build the prompt for each task. Inline copies of the prompts in
  *  services/ai/{sentiment,reply-draft}.ts — kept here to avoid importing
  *  the production module (which gates on a CronRun context). */
-function promptFor(args: {
-  task: ModelTask;
-  fixture: ReviewFixture;
-}): { system: string; user: string } {
+function promptFor(args: { task: ModelTask; fixture: ReviewFixture }): {
+  system: string;
+  user: string;
+} {
   const { task, fixture } = args;
   if (task === "sentiment") {
     return {
@@ -928,8 +925,7 @@ const thisFile =
   typeof import.meta !== "undefined" && import.meta.url
     ? fileURLToPath(import.meta.url)
     : "";
-const isMain =
-  thisFile && process.argv[1] && process.argv[1] === thisFile;
+const isMain = thisFile && process.argv[1] && process.argv[1] === thisFile;
 
 if (isMain) {
   void main().catch((e) => {

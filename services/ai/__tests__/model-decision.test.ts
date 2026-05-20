@@ -43,7 +43,9 @@ describe("MODEL_DECISION shape", () => {
   });
 
   test("decidedAt + reviewedAt are valid ISO timestamps", () => {
-    expect(() => new Date(MODEL_DECISION.decidedAt).toISOString()).not.toThrow();
+    expect(() =>
+      new Date(MODEL_DECISION.decidedAt).toISOString(),
+    ).not.toThrow();
     for (const task of ALL_MODEL_TASKS) {
       expect(() =>
         new Date(MODEL_DECISION.choices[task].reviewedAt).toISOString(),
@@ -102,7 +104,9 @@ describe("pickModelFor + getChoiceFor", () => {
   });
 
   test("ALL_MODEL_TASKS is exhaustive (no undeclared task in MODEL_DECISION)", () => {
-    const declared = new Set(Object.keys(MODEL_DECISION.choices) as ModelTask[]);
+    const declared = new Set(
+      Object.keys(MODEL_DECISION.choices) as ModelTask[],
+    );
     const known = new Set(ALL_MODEL_TASKS);
     expect(declared).toEqual(known);
   });
@@ -110,7 +114,9 @@ describe("pickModelFor + getChoiceFor", () => {
 
 describe("runtime DEFAULT_*_MODEL constants match the decision", () => {
   test("sentiment runtime default matches MODEL_DECISION.choices.sentiment", () => {
-    expect(DEFAULT_SENTIMENT_MODEL).toBe(MODEL_DECISION.choices.sentiment.model);
+    expect(DEFAULT_SENTIMENT_MODEL).toBe(
+      MODEL_DECISION.choices.sentiment.model,
+    );
   });
 
   test("reply-draft runtime default matches MODEL_DECISION.choices.replyDraftEn", () => {
@@ -148,7 +154,10 @@ describe("JSON audit artifact stays in sync with the TS constant", () => {
     expect(parsed.source).toBe(MODEL_DECISION.source);
     expect(parsed.notes).toBe(MODEL_DECISION.notes);
 
-    const jsonChoices = parsed.choices as Record<string, Record<string, unknown>>;
+    const jsonChoices = parsed.choices as Record<
+      string,
+      Record<string, unknown>
+    >;
     for (const task of ALL_MODEL_TASKS) {
       const ts = MODEL_DECISION.choices[task];
       const js = jsonChoices[task];
