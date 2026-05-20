@@ -583,3 +583,4 @@ SES-2026-05-20-cowork-1779313116 · D.8 · SUCCESS · 1744+/10- · ci-green · m
   Lessons:
   - Spanish-language detection via substring markers is more fragile than expected. Punctuation-adjacent forms (¡gracias, ¿cómo) need substring (no-boundary) markers; English-cognate-risky words (usted/trusted, amable) keep leading-space form. Documenting in the marker block's comment so future me doesn't re-bite this.
   - CI prettier --check transient failures on Cowork-pushed PRs are observed multiple times now (this PR + B.4 RESUME). Worth a follow-up INC if it recurs. For now: re-run via empty-commit push or `gh workflow run` is the workaround; root cause unclear (cache or environment, not file content).
+SES-2026-05-20-cowork-2216 · C.4 · SUCCESS · score 7.8/10 · 932+/0- · ci-pass · merge
