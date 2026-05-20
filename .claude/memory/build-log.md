@@ -483,3 +483,9 @@ CI: ci-passed = SUCCESS (validate + build + test + integration + bundle-check al
 B.2 (For-Agencies landing) · B.3 (For-SMB landing) · B.4 (Pricing) · B.7 (SEO infrastructure) · B.10 (analytics events). All can reuse `components/marketing/*` primitives and the i18n + Metadata patterns established here.
 
 SES-2026-05-20-cowork-1606 · B.7 · SUCCESS · score 9.2/10 · +1080/-0 · ci-green · auto-merge · v0.6.22
+
+## SES-2026-05-20-cowork-1635 · 2026-05-20T16:35Z → 17:00Z
+
+SES-2026-05-20-cowork-1635 · B.2 · SUCCESS · score informational · +1080 LOC / -10 LOC · ci=green · merge=auto
+
+Shipped /for-agencies marketing landing. 7 server components + 1 client (calculator). 4 tier cards ($49 Solo / $99 Growth / $249 Pro / $499 Boutique). Sample list preview · interactive metro-leads calculator · 74-signal taxonomy teaser · FAQPage JSON-LD. Fix-round friction: (1) next-intl Link rejects mailto: + #anchor hrefs (TS2322) — used plain <a> for non-route targets. (2) INC-26 redux — passing `t` function to client component fails prerender; client uses `useTranslations` directly. (3) i18n/__tests__/locale-en-ca.test asserts sparse override file — removed redundant en-CA nav keys.
