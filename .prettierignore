@@ -9,3 +9,7 @@ package-lock.json
 
 # Build log is append-only prose · prettier mis-handles inline underscores
 .claude/memory/build-log.md
+
+# Loop-lock is a state file written on every tick · contains middle-dot chars in note
+# that prettier-CI sometimes re-formats inconsistently. State file, not source.
+.claude/memory/loop-lock.json
