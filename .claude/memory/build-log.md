@@ -338,3 +338,25 @@ Notes:
 · One-line summary: SES-2026-05-20-cowork-1779269915 · C.2 · SUCCESS · score n/a (S-effort) · 784+/1- · ci=green · merge=AUTO
 SES-2026-05-20-cowork-05 · D.1 · SUCCESS · score 9.6/10 · 12+/3- · ci-green · merge-auto (PR #11 · resume of cowork-1009)
 SES-2026-05-20-cowork-06 · C.11 · SUCCESS · score 9.2/10 · 601+/0- · ci-green · merge
+
+## SES-2026-05-20-cowork-1138 · 2026-05-20 11:38 → 11:55 UTC (Cowork scheduled task)
+
+- Task: E.0 · SMB component library (KPITile · AlertCard · FixCard · ScoreBreakdown)
+- Outcome: SUCCESS · auto-merged to main (PR #13, squash sha 839a69e)
+- Files: modules/smb-dashboard/components/{KPITile,AlertCard,FixCard,ScoreBreakdown,index}.{tsx,ts} + app/globals.css
+- Diff: 6 files / +853 / -0
+- Tests: none added (per .claude/rules/testing.md · DON'T TEST React component rendering — TypeScript covers the contract; visual validation happens at E.1)
+- CI: validate ✓ build ✓ test ✓ integration ✓ bundle-check ✓ ci-passed ✓ (lighthouse failure tolerated — no UI routes added by this PR; same exception as C.2/C.11)
+- Agents: code-reviewer (PASS-WITH-NITS, 7.5/10 — flagged info-tip a11y, AlertCard role=status default, hardcoded hex colors; all addressed pre-push)
+- Version bumped: 0.6.14 → 0.6.15
+
+Notes:
+
+- E.0 ships the SMB-audience component library on top of B.0 primitives. Cream + coral palette baked in via `data-audience="smb"`. All four components are server-component-safe (no hooks, no event handlers, no `Date.now()`/`Math.random()`/`t.rich()` — clears cache-components.md Patterns 1-5).
+- A11y bar raised vs the original draft after code-reviewer feedback: info-tip is now a focusable `<button>` (Tab + Enter reveals via `:focus-visible`), AlertCard's `role="status"` is opt-in via `live` prop (default off · avoids AT spam announcing static cards on page load), ScoreBreakdown rows include `role="progressbar"` + valuenow/min/max for AT users.
+- INC-citation: FixCard prop renamed `title` → `action` because `HTMLAttributes<HTMLDivElement>.title` is `string | undefined` and `React.ReactNode` doesn't widen to that. CI TS2430 caught it on first push; one fix commit cleared the gate.
+- Required 2 push rounds: initial → TS2430 fix on FixCard.title collision. Lighthouse failure ignored (no UI routes shipped). Validate, build, test, integration, ci-passed, bundle-check all green.
+- Sandbox iteration via /tmp clone (INC-31 pattern). `pnpm install` not run — prettier-plugin-tailwindcss installed via `npm install` in /tmp/prettier-check and linked into project's node_modules for local format/typecheck. CAN_DEPLOY_CHECK=0 path · validation deferred to Vercel CI.
+- Drive-by token additions in `app/globals.css`: `--color-info` (#3b6ec4 · for info-tone AlertCards), `--color-gold-2` (#e8c79b · ScoreBreakdown gradient stop), `--color-success-2` (#5cf09a · same). Plus global `@media (prefers-reduced-motion: reduce)` rule per a11y.md mandate — replaces the per-component check the reviewer flagged.
+
+· One-line summary: SES-2026-05-20-cowork-1138 · E.0 · SUCCESS · score 7.5/10 · 853+/0- · ci=green · merge=AUTO
