@@ -78,6 +78,7 @@ Per `.claude/rules/incident-prevention.md`, read these files first. Skipping any
 2. `CLAUDE.md` — project context, audience rules, hard reminders
 3. `PLAN.md` — phase context
 4. `.claude/memory/MEMORY.md` — Viktor's preferences
+5. `.claude/rules/cache-components.md` — **MANDATORY** if the task touches a Next.js page, route, or `'use cache'` query. The 5 patterns documented there will save you 4-7 round-trip fix commits.
 
 Cache these mentally for this iteration. Do not re-read mid-iteration.
 
@@ -164,7 +165,7 @@ Every applicable mode MUST run **inside this iteration**, not "deferred." If a m
 
 ### Validation order (do in this exact sequence)
 
-1. **`pnpm deploy-check`** locally · ALWAYS. Self-heal any `_tmp_*` orphans from STEP 0 first. If this fails, the iteration is broken — fix or INCOMPLETE.
+1. **`pnpm deploy-check`** locally · **NON-SKIPPABLE, FIRST STEP**. Self-heal any `_tmp_*` orphans from STEP 0 first. Run via Bash and check the exit code: if `$? -ne 0`, the iteration is broken — read the output, fix the errors, retry deploy-check (this is part of the STEP 7 retry budget). Do NOT skip this step "deferring to CI" — Vercel's build is 60s slower than local deploy-check, and catching errors locally saves real wall-clock per fix iteration.
 2. **Unit + integration tests** · run `pnpm test:run` locally. If any pre-existing test fails, fix before proceeding.
 3. **Push branch + open PR** if not already done.
 4. **Wait for Vercel preview URL** · poll `gh pr view {n} --json statusCheckRollup,deployments` every 15s for up to 4 min. Vercel posts a preview comment with `https://*.vercel.app` URL within ~60s of push. THIS is the URL for browser/email/Lighthouse validation.
@@ -232,7 +233,7 @@ If `canAutoMerge`:
 
 If gate fails:
 
-- **CI red or deploy-check fail** → loop attempts repair IN THIS ITERATION: read failing logs, push fix commits, re-run CI. Repeat up to 3 times. If still red after 3 → mark TaskRun `INCOMPLETE`, save `branchName`, next iteration resumes the same branch and continues fixing.
+- **CI red or deploy-check fail** → loop attempts repair IN THIS ITERATION: read failing logs, push fix commits, re-run CI. Repeat up to **6 times** (cacheComponents/prerender errors cascade — one fix often surfaces the next layer; do not give up after 3). If still red after 6 → mark TaskRun `INCOMPLETE`, save `branchName`, next iteration resumes the same branch and continues fixing. Record each attempt's failure mode in `TaskRun.errorMessage` so the resume iteration doesn't re-try the same dead-end.
 - **Reviewer hard-reject** (security-auditor / payments-auditor veto only) → label PR `needs-review`, write reviewer's reasoning to TaskRun.notes, do NOT merge. Task.status stays IN_PROGRESS so the next iteration can fix.
 - **`human-required` tag on Task** → label PR `needs-review`, do NOT merge. This is the ONLY routine `needs-review` case (e.g. payments cutover, major schema migration that needs manual confirm).
 

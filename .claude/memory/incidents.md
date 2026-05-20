@@ -564,3 +564,54 @@ CREATE INDEX IF NOT EXISTS "TaskRun_resumedFromRunId_idx" ON "TaskRun"("resumedF
 
 **Confidence:** high
 **Tags:** dashboard, in-flight, status-conflation, ux-honesty
+
+### INC-2026-05-20-25 · NEXT_PHASE guard return shapes must be 100% complete · TS errors cascade
+
+**Symptom:** B.6 iteration pushed `NEXT_PHASE === "phase-production-build"` guards in 7 `'use cache'` queries. Vercel build failed 3 commits in a row, each on a different missing field in the empty return shape (`cost.ts` missing `haltPct`, then missing `byJob`+`dailyTrend`, then `cron.ts` missing `failures24h`+`successful24h`+`totalRuns24h`, then `dora.ts` missing `last30d`). Each fix surfaced the next layer.
+
+**Root cause:** The NEXT_PHASE guard was written inline as an object literal — TypeScript checks literal-by-literal against the interface, so a partial shape fails immediately. We had no single source of truth for the "empty state" of each interface, so each query's guard + each query's catch wrote their own partial shape.
+
+**Fix applied:** Refactored to `EMPTY_*` typed constants per interface (e.g. `export const EMPTY_COST_BREAKDOWN: CostBreakdown = {...}`). NEXT_PHASE guard returns the constant. Catch block returns the constant. One source of truth, TypeScript catches partial shapes once.
+
+**Prevention:** Codified in `.claude/rules/cache-components.md` Pattern 1. Every NEW `'use cache'` Prisma query must define `EMPTY_X: Type` next to the interface and reference it in both the guard and the catch.
+
+**Where encoded:**
+- `.claude/rules/cache-components.md` Pattern 1
+- `app/(dev)/dev/queries/cost.ts`, `cron.ts`, `dora.ts` (now using EMPTY_* constants)
+
+**Confidence:** high
+**Tags:** cacheComponents, prisma, typescript, build-phase, empty-state
+
+### INC-2026-05-20-26 · next-intl t.rich() render-prop callbacks don't survive cacheComponents prerender
+
+**Symptom:** B.6's `/signin/check-email` page used `t.rich("no_email_received", { tryAgain: chunks => <Link>{chunks}</Link> })` (next-intl rich-text pattern). Vercel prerender failed with `Error: Functions cannot be passed directly to Client Components unless you explicitly expose it by marking it with "use server".` The function being serialized was the `tryAgain` render-prop callback inside the React tree.
+
+**Root cause:** Under `cacheComponents: true`, React serializes the prerendered tree for the static shell. Render-prop callbacks are JavaScript functions — they can't be serialized.
+
+**Fix applied:** Converted `/signin/check-email` to a `"use client"` component. `useTranslations()` from `next-intl` works fine in client components; the render-prop callback is just JSX rendered on the client, no serialization needed.
+
+**Prevention:** Codified in `.claude/rules/cache-components.md` Pattern 4. Any page using `t.rich()` with a render-prop must be a client component when `cacheComponents` is enabled.
+
+**Where encoded:**
+- `.claude/rules/cache-components.md` Pattern 4
+- `app/[locale]/signin/check-email/page.tsx`
+
+**Confidence:** high
+**Tags:** next-intl, cacheComponents, render-prop, serialization
+
+### INC-2026-05-20-27 · Vercel build container cannot open Neon WebSockets · every `'use cache'` Prisma query needs a build-phase guard
+
+**Symptom:** Every `'use cache'` query in the `/dev` tree that called `prisma.foo.findMany()` crashed during Vercel's `next build` step. The error surfaced as "Uncached data was accessed outside of <Suspense>" — but the underlying cause was a Neon WebSocket connection failure (Vercel's build worker has no Neon connectivity). cacheComponents tries to populate `'use cache'` blocks at build time and the Prisma call rejects with an opaque ErrorEvent.
+
+**Root cause:** With `cacheComponents: true`, `'use cache'` blocks are populated DURING the build (so the prerendered shell has cache-warmed values). Vercel's build container is sandboxed away from Neon's WebSocket-only protocol → every Prisma call from a build-phase `'use cache'` block fails. The failures cascade into "Uncached data outside Suspense" because the build worker can't determine the cache shape.
+
+**Fix applied:** Added `if (process.env.NEXT_PHASE === "phase-production-build") return EMPTY_X` guards to all DB-hitting `'use cache'` queries. At build time, the cache populates with the empty shape; at runtime, the cache expires immediately and the next request fetches real data.
+
+**Prevention:** Codified in `.claude/rules/cache-components.md` Pattern 1. Every `'use cache'` Prisma query that runs at build time must have a NEXT_PHASE guard + matching EMPTY_X constant.
+
+**Where encoded:**
+- `.claude/rules/cache-components.md` Pattern 1
+- All DB-hitting `app/(dev)/dev/queries/*.ts` files
+
+**Confidence:** high
+**Tags:** vercel-build, neon, prisma, cacheComponents, websocket

@@ -18,20 +18,22 @@ export interface CronAggregate {
   }>;
 }
 
+export const EMPTY_CRON_AGGREGATE: CronAggregate = {
+  costToday: 0,
+  costYesterday: 0,
+  failures24h: 0,
+  successful24h: 0,
+  totalRuns24h: 0,
+  recentJobs: [],
+};
+
 export async function getCronAggregate(): Promise<CronAggregate> {
   "use cache";
   cacheLife("minutes");
   cacheTag("dev-dashboard-cron");
 
   if (process.env.NEXT_PHASE === "phase-production-build") {
-    return {
-      costToday: 0,
-      costYesterday: 0,
-      failures24h: 0,
-      successful24h: 0,
-      totalRuns24h: 0,
-      recentJobs: [],
-    };
+    return EMPTY_CRON_AGGREGATE;
   }
 
   const now = new Date();

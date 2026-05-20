@@ -12,19 +12,21 @@ export interface DoraMetrics {
   mttrHours: number | null;
 }
 
+export const EMPTY_DORA_METRICS: DoraMetrics = {
+  deployFrequency: { last7d: 0, last30d: 0 },
+  leadTimeP50Hours: null,
+  leadTimeP95Hours: null,
+  changeFailureRate: { last7d: 0, last30d: 0 },
+  mttrHours: null,
+};
+
 export async function getDoraMetrics(): Promise<DoraMetrics> {
   "use cache";
   cacheLife("minutes");
   cacheTag("dev-dashboard-dora");
 
   if (process.env.NEXT_PHASE === "phase-production-build") {
-    return {
-      deployFrequency: { last7d: 0, last30d: 0 },
-      leadTimeP50Hours: null,
-      leadTimeP95Hours: null,
-      changeFailureRate: { last7d: 0, last30d: 0 },
-      mttrHours: null,
-    };
+    return EMPTY_DORA_METRICS;
   }
 
   const now = new Date();

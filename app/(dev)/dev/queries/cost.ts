@@ -16,6 +16,17 @@ export interface CostBreakdown {
   budget: { dailyUsd: number; haltPct: number; status: "ok" | "warn" | "halt" };
 }
 
+export const EMPTY_COST_BREAKDOWN: CostBreakdown = {
+  totalToday: 0,
+  totalThisWeek: 0,
+  totalThisMonth: 0,
+  projectedMonthEnd: 0,
+  byVendor: [],
+  byJob: [],
+  dailyTrend: [],
+  budget: { dailyUsd: 0, haltPct: 0, status: "ok" },
+};
+
 // Per-call cost reference (USD)
 // These are reasonable estimates per .claude/rules/cost-discipline.md.
 // Real costs land in CronRun.costUsd via lib/cost/cost-counter.ts.
@@ -41,16 +52,7 @@ export async function getCostBreakdown(): Promise<CostBreakdown> {
   cacheTag("dev-dashboard-cost");
 
   if (process.env.NEXT_PHASE === "phase-production-build") {
-    return {
-      totalToday: 0,
-      totalThisWeek: 0,
-      totalThisMonth: 0,
-      projectedMonthEnd: 0,
-      byVendor: [],
-      byJob: [],
-      dailyTrend: [],
-      budget: { dailyUsd: 0, haltPct: 0, status: "ok" as const },
-    };
+    return EMPTY_COST_BREAKDOWN;
   }
 
   const now = new Date();
