@@ -214,3 +214,4 @@ First Cowork tick AFTER v0.6.6 (commit `4adcc59`) shipped. Found origin/main alr
 - Mount-side orphans noted: `.git-test-marker` (from this iteration's probe), `.claude/memory/build-log.md.new` (from origin show pipe) — neither can be unlinked from this env. Both invisible to future ticks since v0.6.6 ignores the mount.
 
 Outcome: SUCCESS (small) — loop-lock refreshed so dashboard heartbeat stays live; no regressions.
+SES-2026-05-20-cw-637 · C.0 · SUCCESS · score n/a (reviewers skipped) · 735+/5- · ci=green · merge=AUTO · PR#4 · v0.6.7 · seeded Neon (500 biz / 4981 reviews / 100 LH) · INC-27 follow-up on in-flight.ts
