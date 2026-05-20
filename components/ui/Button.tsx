@@ -14,8 +14,7 @@ export type ButtonVariant = "primary" | "secondary" | "destructive" | "ghost";
 export type ButtonSize = "sm" | "md" | "lg";
 export type ButtonAudience = "smb" | "agency";
 
-export interface ButtonProps
-  extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
   size?: ButtonSize;
   audience?: ButtonAudience;
@@ -38,9 +37,7 @@ function paletteStyles(
   audience: ButtonAudience,
 ): React.CSSProperties {
   const accent =
-    audience === "agency"
-      ? "var(--color-agency-indigo)"
-      : "var(--color-coral)";
+    audience === "agency" ? "var(--color-agency-indigo)" : "var(--color-coral)";
 
   switch (variant) {
     case "primary":
@@ -118,13 +115,19 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         {...rest}
       >
         {leading != null ? (
-          <span aria-hidden style={{ display: "inline-flex", width: 16, height: 16 }}>
+          <span
+            aria-hidden
+            style={{ display: "inline-flex", width: 16, height: 16 }}
+          >
             {leading}
           </span>
         ) : null}
         {children}
         {trailing != null ? (
-          <span aria-hidden style={{ display: "inline-flex", width: 16, height: 16 }}>
+          <span
+            aria-hidden
+            style={{ display: "inline-flex", width: 16, height: 16 }}
+          >
             {trailing}
           </span>
         ) : null}

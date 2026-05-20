@@ -18,13 +18,7 @@ export type {
 export { Input } from "./Input";
 export type { InputProps, InputAudience } from "./Input";
 
-export {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardBody,
-  CardFooter,
-} from "./Card";
+export { Card, CardHeader, CardTitle, CardBody, CardFooter } from "./Card";
 export type { CardProps, CardDensity, CardAudience } from "./Card";
 
 export { Tile } from "./Tile";

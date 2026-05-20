@@ -11,8 +11,10 @@ import { cn } from "@/lib/ui/cn";
  */
 export type InputAudience = "smb" | "agency";
 
-export interface InputProps
-  extends Omit<React.InputHTMLAttributes<HTMLInputElement>, "size"> {
+export interface InputProps extends Omit<
+  React.InputHTMLAttributes<HTMLInputElement>,
+  "size"
+> {
   /** Visible label above the input. */
   label?: React.ReactNode;
   /** One-line help text below the input. */
@@ -44,15 +46,14 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
   ) {
     const reactId = React.useId();
     const inputId = id ?? `input-${reactId}`;
-    const hintId = hint != null && error == null ? `${inputId}-hint` : undefined;
+    const hintId =
+      hint != null && error == null ? `${inputId}-hint` : undefined;
     const errorId = error != null ? `${inputId}-error` : undefined;
     const describedBy =
       [ariaDescribedBy, hintId, errorId].filter(Boolean).join(" ") || undefined;
 
     const accent =
-      audience === "agency"
-        ? "rgba(91,61,245,.12)"
-        : "rgba(195,85,58,.12)";
+      audience === "agency" ? "rgba(91,61,245,.12)" : "rgba(195,85,58,.12)";
 
     const inputStyle: React.CSSProperties = {
       width: block ? "100%" : undefined,
@@ -67,9 +68,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
       fontFamily: "var(--font-sans)",
       fontSize: 15,
       outline: "none",
-      boxShadow: error
-        ? "0 0 0 3px rgba(181,61,71,.12)"
-        : `0 0 0 0 ${accent}`,
+      boxShadow: error ? "0 0 0 3px rgba(181,61,71,.12)" : `0 0 0 0 ${accent}`,
       transition: "box-shadow 140ms ease, border-color 140ms ease",
       ...style,
     };
