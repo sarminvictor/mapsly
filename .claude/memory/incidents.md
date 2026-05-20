@@ -378,3 +378,20 @@ Now only real static-asset extensions are excluded; arbitrary dotted paths flow 
 **Where encoded:** `scripts/launchd/loop-tick.sh`, `.env.example`, `CLAUDE.md`, this file.
 **Confidence:** high
 **Tags:** loop, claude-cli, model-selection
+
+### INC-2026-05-19-17 · Sandbox rsync clobbered dashboard-set loop-lock state
+
+**Symptom:** User resumed loop via dashboard (`Mapsly Dashboard · chore(loop): idle via dashboard`). Subsequent commits from sandbox-Claude work showed loop-lock.json reverted to "paused" — user's resume action lost. After 10 min, no launchd ticks acquired the lock.
+
+**Root cause:** When sandbox-Claude commits batched work, it `rsync`s the entire working tree from `/tmp/lock-gen/` back to `/sessions/.../mapsly/`. The sandbox-Claude's working copy had a STALE `.claude/memory/loop-lock.json` (last seen as "paused"). The rsync overwrote the dashboard's "idle" state on disk. Next commit included that stale lock-lock as a regression.
+
+**Fix applied:** Manually restored `loop-lock.json` to `state: idle` and committed.
+
+**Prevention:**
+1. **NEVER rsync `loop-lock.json` from sandbox** · the dashboard's `pauseLoop`/`resumeLoop` server actions are the canonical writer
+2. Add `.claude/memory/loop-lock.json` to the rsync exclude list when syncing back from `/tmp` to mount
+3. Document in `.claude/rules/incident-prevention.md` and `agent-orchestration.md`
+
+**Where encoded:** `loop-lock.json`, this file. Future sandbox sessions exclude loop-lock from rsync.
+**Confidence:** high
+**Tags:** sandbox, rsync, dashboard, lock-state

@@ -1,9 +1,9 @@
 {
-  "state": "paused",
+  "state": "idle",
   "sessionId": null,
   "startedAt": null,
-  "lastTickAt": "2026-05-19T23:55:00Z",
+  "lastTickAt": "2026-05-20T02:10:42Z",
   "cooldownUntil": null,
   "consecutiveFailures": 0,
-  "note": "Paused by Viktor while PLAN.md gets cleaned + task tracker ships. Resume via dashboard or by setting state to idle."
+  "note": "Restored by Claude · sandbox rsync had overwritten user's dashboard resume. Loop is idle and eligible for next launchd tick."
 }
