@@ -101,7 +101,10 @@ describe("formatNumber", () => {
 
   test("forwards Intl options · percent format", () => {
     expect(
-      formatNumber(0.4321, "en", { style: "percent", maximumFractionDigits: 1 }),
+      formatNumber(0.4321, "en", {
+        style: "percent",
+        maximumFractionDigits: 1,
+      }),
     ).toBe("43.2%");
   });
 });
@@ -131,9 +134,7 @@ describe("formatPrice", () => {
 
   test("fr-CA with explicit foreign currency (USD) adds 'US' suffix", () => {
     // ICU disambiguates foreign currency: "29,99 $ US"
-    expect(formatPrice(29.99, "fr", { currency: "USD" })).toBe(
-      "29,99 $ US",
-    );
+    expect(formatPrice(29.99, "fr", { currency: "USD" })).toBe("29,99 $ US");
   });
 
   test("en-CA explicit foreign currency (USD) emits 'US$'", () => {
