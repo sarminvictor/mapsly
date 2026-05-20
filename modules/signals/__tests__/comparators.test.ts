@@ -17,10 +17,7 @@ import {
   evaluate,
   isValidComparator,
 } from "../comparators";
-import {
-  CATEGORIES_ORDERED,
-  CATEGORIES,
-} from "../categories";
+import { CATEGORIES_ORDERED, CATEGORIES } from "../categories";
 import {
   SIGNALS,
   SIGNALS_ORDERED,
@@ -215,9 +212,9 @@ describe("enum comparators", () => {
     expect(
       evaluate("enum", "is_one_of", ["wordpress", "wix"], "wordpress"),
     ).toBe(true);
-    expect(
-      evaluate("enum", "is_one_of", ["wordpress", "wix"], "shopify"),
-    ).toBe(false);
+    expect(evaluate("enum", "is_one_of", ["wordpress", "wix"], "shopify")).toBe(
+      false,
+    );
   });
 
   test("is_none_of", () => {
@@ -252,10 +249,12 @@ describe("string comparators", () => {
   });
 
   test("not_contains", () => {
-    expect(evaluate("string", "not_contains", "premium", "Free first visit"))
-      .toBe(true);
-    expect(evaluate("string", "not_contains", "free", "Free first visit"))
-      .toBe(false);
+    expect(
+      evaluate("string", "not_contains", "premium", "Free first visit"),
+    ).toBe(true);
+    expect(evaluate("string", "not_contains", "free", "Free first visit")).toBe(
+      false,
+    );
   });
 
   test("equals / not_equals (case-insensitive)", () => {
@@ -358,7 +357,9 @@ describe("signal registry", () => {
   test("all 8 categories are populated", () => {
     for (const cat of Object.keys(CATEGORIES)) {
       const sigs = getSignalsByCategory(cat as never);
-      expect(sigs.length, `category ${cat} has zero signals`).toBeGreaterThan(0);
+      expect(sigs.length, `category ${cat} has zero signals`).toBeGreaterThan(
+        0,
+      );
     }
   });
 

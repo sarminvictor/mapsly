@@ -71,14 +71,16 @@ export const DATE_COMPARATORS = [
 ] as const satisfies readonly DateComparator[];
 
 /** Map value-type → allowed comparator list. */
-export const COMPARATORS_BY_TYPE: Record<SignalValueType, readonly Comparator[]> =
-  {
-    numeric: NUMERIC_COMPARATORS,
-    boolean: BOOLEAN_COMPARATORS,
-    enum: ENUM_COMPARATORS,
-    string: STRING_COMPARATORS,
-    date: DATE_COMPARATORS,
-  };
+export const COMPARATORS_BY_TYPE: Record<
+  SignalValueType,
+  readonly Comparator[]
+> = {
+  numeric: NUMERIC_COMPARATORS,
+  boolean: BOOLEAN_COMPARATORS,
+  enum: ENUM_COMPARATORS,
+  string: STRING_COMPARATORS,
+  date: DATE_COMPARATORS,
+};
 
 /** True if `comparator` is valid for `type`. */
 export function isValidComparator(
@@ -284,8 +286,7 @@ function evaluateDate(
       const lo = toDate(expected[0]);
       const hi = toDate(expected[1]);
       if (lo === null || hi === null) return false;
-      const [min, max] =
-        lo.getTime() <= hi.getTime() ? [lo, hi] : [hi, lo];
+      const [min, max] = lo.getTime() <= hi.getTime() ? [lo, hi] : [hi, lo];
       return a.getTime() >= min.getTime() && a.getTime() <= max.getTime();
     }
     case "older_than": {

@@ -1122,9 +1122,7 @@ const allSignals: readonly SignalDefinition[] = [
  * **Read-only**. Adding signals requires editing the per-category arrays above.
  */
 export const SIGNALS: Readonly<Record<string, SignalDefinition>> =
-  Object.freeze(
-    Object.fromEntries(allSignals.map((s) => [s.key, s])),
-  );
+  Object.freeze(Object.fromEntries(allSignals.map((s) => [s.key, s])));
 
 /** All signals in registration order. */
 export const SIGNALS_ORDERED: readonly SignalDefinition[] = Object.freeze([
