@@ -47,7 +47,9 @@ Wrap each module-scope client behind a Proxy that defers instantiation to first 
 ```ts
 // ✅ lib/prisma.ts (canonical pattern, replicate per vendor)
 function makeClient(): PrismaClient {
-  const adapter = new PrismaNeon({ connectionString: process.env.DATABASE_URL! });
+  const adapter = new PrismaNeon({
+    connectionString: process.env.DATABASE_URL!,
+  });
   return new PrismaClient({ adapter });
 }
 
@@ -149,7 +151,10 @@ Cross-referenced with `.claude/rules/cache-components.md` Pattern 1. Every `'use
 import { cacheLife, cacheTag } from "next/cache";
 
 export const EMPTY_X: X = {
-  field1: 0, field2: null, list: [], nested: { a: 0, b: 0 },
+  field1: 0,
+  field2: null,
+  list: [],
+  nested: { a: 0, b: 0 },
   // ^ EVERY field of the X interface, even the optional ones
 };
 
@@ -159,7 +164,11 @@ export async function getX(): Promise<X> {
   cacheTag("dashboard-x");
   if (process.env.NEXT_PHASE === "phase-production-build") return EMPTY_X;
   try {
-    return shape(await prisma.x.findMany({ /* ... */ }));
+    return shape(
+      await prisma.x.findMany({
+        /* ... */
+      }),
+    );
   } catch {
     return EMPTY_X;
   }

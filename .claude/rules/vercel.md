@@ -44,6 +44,7 @@ Cross-reference: `.claude/rules/prisma.md` § 4.
 ## 3 · No `process.env` reads at module load time (INC-07)
 
 Vercel's build container runs in TWO phases:
+
 1. **Build phase** — sets only `VERCEL_*` envs. User-defined envs are NOT injected.
 2. **Runtime phase** (after deploy) — all envs available.
 
@@ -102,9 +103,12 @@ Every `'use cache'` Prisma query that touches the DB must short-circuit at build
 ```ts
 "use cache";
 export async function getDashboardData(): Promise<DashboardData> {
-  if (process.env.NEXT_PHASE === "phase-production-build") return EMPTY_DASHBOARD_DATA;
+  if (process.env.NEXT_PHASE === "phase-production-build")
+    return EMPTY_DASHBOARD_DATA;
   try {
-    return await prisma.dashboardData.findFirstOrThrow({ /* ... */ });
+    return await prisma.dashboardData.findFirstOrThrow({
+      /* ... */
+    });
   } catch {
     return EMPTY_DASHBOARD_DATA;
   }
@@ -126,5 +130,5 @@ INC-06, 07, 10, 12, 27 — see `.claude/memory/incidents.md`.
 ## See also
 
 - `.claude/rules/prisma.md` for the Prisma 7 specifics
-- `.claude/rules/cache-components.md` Pattern 1 for the EMPTY_* shape rules
+- `.claude/rules/cache-components.md` Pattern 1 for the EMPTY\_\* shape rules
 - `.claude/rules/git-discipline.md` for commit identity beyond just Vercel

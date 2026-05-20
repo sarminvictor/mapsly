@@ -88,6 +88,17 @@ export default async function MarketingLayout({
             {t("nav_for_agencies")}
           </Link>
           <Link
+            href="/pricing"
+            style={{
+              color: "var(--color-text-2)",
+              textDecoration: "none",
+              fontSize: 14,
+              fontWeight: 500,
+            }}
+          >
+            {t("nav_pricing")}
+          </Link>
+          <Link
             href="/signin"
             style={{
               color: "var(--color-text)",

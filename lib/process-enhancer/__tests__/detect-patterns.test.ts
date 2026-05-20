@@ -22,6 +22,7 @@ import {
   parseBuildLogCitations,
   parseIncidents,
   type EnhanceSignal,
+  type IncidentEntry,
 } from "../detect-patterns";
 
 const FIXED_NOW = new Date("2026-05-20T12:00:00.000Z");
@@ -232,7 +233,6 @@ describe("detectPatterns", () => {
   });
 });
 
-
 // ─────────────────────────────────────────────────────────────────────────────
 // SUPERSEDED INC suppression (v0.6.27)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -254,7 +254,9 @@ describe("detectPatterns · ♻️ SUPERSEDED INCs", () => {
       },
       ctx,
     );
-    expect(signals.filter((s) => s.category === "incident-recurrence")).toHaveLength(0);
+    expect(
+      signals.filter((s) => s.category === "incident-recurrence"),
+    ).toHaveLength(0);
   });
 
   test("DOES emit incident-recurrence for an active (non-superseded) INC", () => {
@@ -273,7 +275,9 @@ describe("detectPatterns · ♻️ SUPERSEDED INCs", () => {
       },
       ctx,
     );
-    expect(signals.some((s) => s.id.includes("recurring-INC-2026-05-20-32"))).toBe(true);
+    expect(
+      signals.some((s) => s.id.includes("recurring-INC-2026-05-20-32")),
+    ).toBe(true);
   });
 
   test("treats missing status as active (signal fires)", () => {
@@ -288,7 +292,9 @@ describe("detectPatterns · ♻️ SUPERSEDED INCs", () => {
       },
       ctx,
     );
-    expect(signals.some((s) => s.id.includes("recurring-INC-2026-05-19-01"))).toBe(true);
+    expect(
+      signals.some((s) => s.id.includes("recurring-INC-2026-05-19-01")),
+    ).toBe(true);
   });
 });
 
@@ -327,7 +333,9 @@ describe("detectPatterns · TAG_TO_RULE coverage", () => {
       { citationCount: new Map(), total: 0 },
       { ...ctx, ruleExists: () => true /* irrelevant, tag not mapped */ },
     );
-    expect(signals.some((s) => s.id.includes("tag-brand-new-domain"))).toBe(true);
+    expect(signals.some((s) => s.id.includes("tag-brand-new-domain"))).toBe(
+      true,
+    );
   });
 
   test("TAG_TO_RULE silences multiple tags pointing to same rule", () => {
@@ -343,8 +351,12 @@ describe("detectPatterns · TAG_TO_RULE coverage", () => {
       { citationCount: new Map(), total: 0 },
       { ...ctx, ruleExists: (rel) => rel === "cache-components.md" },
     );
-    expect(signals.some((s) => s.headline.includes("cacheComponents"))).toBe(false);
-    expect(signals.some((s) => s.headline.includes("cache-components"))).toBe(false);
+    expect(signals.some((s) => s.headline.includes("cacheComponents"))).toBe(
+      false,
+    );
+    expect(signals.some((s) => s.headline.includes("cache-components"))).toBe(
+      false,
+    );
   });
 });
 

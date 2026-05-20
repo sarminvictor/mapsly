@@ -658,7 +658,7 @@ CREATE INDEX IF NOT EXISTS "TaskRun_resumedFromRunId_idx" ON "TaskRun"("resumedF
 
 ### INC-2026-05-20-27 · Vercel build container cannot open Neon WebSockets · every `'use cache'` Prisma query needs a build-phase guard
 
-**Status:** ✅ FIXED + ENCODED — `.claude/rules/cache-components.md` Pattern 1; all `'use cache'` Prisma queries have NEXT_PHASE guard + EMPTY_* fallback.
+**Status:** ✅ FIXED + ENCODED — `.claude/rules/cache-components.md` Pattern 1; all `'use cache'` Prisma queries have NEXT*PHASE guard + EMPTY*\* fallback.
 
 **Symptom:** Every `'use cache'` query in the `/dev` tree that called `prisma.foo.findMany()` crashed during Vercel's `next build` step. The error surfaced as "Uncached data was accessed outside of <Suspense>" — but the underlying cause was a Neon WebSocket connection failure (Vercel's build worker has no Neon connectivity). cacheComponents tries to populate `'use cache'` blocks at build time and the Prisma call rejects with an opaque ErrorEvent.
 
@@ -915,27 +915,32 @@ useradd: cannot lock /etc/passwd; try again later.
 ```
 
 Progressive escalation across the day:
+
 1. Earlier ticks (per build-log): `/tmp` at 100% used — `git clone /tmp/mapsly-work` per STEP 0 failed mid-clone (INC-33).
 2. Later ticks (17:51+): root filesystem also full — Cowork's per-call user provisioner cannot append a row to `/etc/passwd`, so bash itself never starts. Nothing downstream runs: no git, no pnpm, no psql, no curl. The mount-side draft "INC-32" the tick wrote was a numbering collision with origin's existing INC-32; renumbered here to INC-34.
 
 **Root cause:** Cowork sandbox's host writable volume (root FS `/dev/nvme0n1p1`, 9.6 GB) is exhausted. The provisioner appends to `/etc/passwd` per call; when ENOSPC fires there, the user account is never created and the shell exits before `bash -c '…'` runs. `/tmp` (same volume) and `/etc` share the same exhaustion class; either can fill first.
 
 Two distinct accumulators contribute over a 12-hour shipping window:
-- **/tmp/mapsly-* clone orphans** (INC-33): ~50–500 MB per tick, addressed by v0.6.20 GC.
+
+- **/tmp/mapsly-\* clone orphans** (INC-33): ~50–500 MB per tick, addressed by v0.6.20 GC.
 - **/tmp/.pnpm-store/v3 monotonic growth**: pnpm's content-addressable global store grows by ~50–200 MB whenever a tick installs deps with a new lockfile (or even minor version drift). v0.6.20 GC didn't touch it. Observed 1.1 GB grown across ~15 ticks. NEW finding in this entry.
 
 **Fix applied (v0.6.26):**
+
 1. STEP 0a.1 extended GC: when `df --output=avail /` reports < 1 GB free, drop the `mmin +30` filter and additionally nuke `/tmp/.pnpm-store`, `/tmp/pnpm-store`, `/tmp/.npm`, every `/tmp/mapsly-*` (except canonical `/tmp/mapsly-work`), and prior-tick `node_modules` trees older than 5 min. Logged as `[step-0] disk pressure detected — aggressive GC`.
 2. STEP 10 cooldown discipline already specified: host-infra gaps (sandbox can't boot) are graceful-skip, NEVER cooldown. The skip tick at 18:02 correctly applied this.
 3. Mount-side draft "INC-32" content folded here; the skip tick's loop-lock note + build-log entry stay accurate.
 
 **Prevention:**
+
 1. **Per-tick pnpm-store GC under pressure.** The pnpm-store is safe to wipe because the next install repopulates from network. Only nuke under pressure to avoid penalizing normal ticks.
 2. **Detection telemetry.** STEP 0a.1 logs `[step-0] /tmp now M MB free` every tick. Process-enhancer should watch for `M < 500` (warning) or `M < 100` (critical: write an INFO Notification "Sandbox disk low — restart Cowork app to reclaim").
 3. **Host-side recovery (not loop-side).** When root FS exhausts, NOTHING inside the sandbox can self-heal. The user must restart the Cowork desktop app, which reprovisions the sandbox volume. Document this in `docs/handoff.md`.
 4. **Loop continues on macOS `/loop`.** Even with Cowork sandbox dead, the Mac `/loop` tick (when active) keeps shipping. This is the architectural justification for keeping `/loop` as a supported fallback per CLAUDE.md.
 
 **Where encoded:**
+
 - `.claude/loop.md` v0.6.26 STEP 0a.1 (extended GC, pnpm-store, disk-pressure-aware)
 - `.claude/loop.md` STEP 10 (cooldown discipline — graceful-skip for infra gaps)
 - `docs/handoff.md` § Cowork sandbox recovery (v0.6.26 addition)

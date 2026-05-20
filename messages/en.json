@@ -31,7 +31,8 @@
       "terms": "Terms",
       "cookies": "Cookies",
       "nav_for_agencies": "For agencies",
-      "nav_signin": "Sign in"
+      "nav_signin": "Sign in",
+      "nav_pricing": "Pricing"
     }
   },
   "legal": {
@@ -749,6 +750,61 @@
       "trust_1": "30-day money back",
       "trust_2": "No card for the free report",
       "trust_3": "Cancel anytime"
+    }
+  },
+  "pricing": {
+    "meta": {
+      "title": "Pricing · Mapsly · $29/mo for owners, $49–$499/mo for agencies",
+      "description": "One plan for local business owners ($29/mo). Four tiers for marketing agencies ($49 Solo, $99 Growth, $249 Pro, $499 Boutique). Cancel anytime. 30-day money back.",
+      "og_title": "Mapsly pricing · Owners $29/mo · Agencies from $49/mo",
+      "og_description": "Pay for outcomes, not seats. All plans include verified contacts, weekly refresh, full signal stack. Cancel anytime."
+    },
+    "hero": {
+      "eyebrow": "Pricing",
+      "title": "Two audiences. One promise.",
+      "sub": "If you own a local business, there's one plan. If you run an agency that finds qualified SMB leads, pick a tier that matches your volume.",
+      "jump_label": "Jump to your pricing",
+      "jump_smb": "I own a business",
+      "jump_agency": "I run an agency"
+    },
+    "smb_eyebrow": "For owners",
+    "smb_title": "One plan. No tier games.",
+    "smb_sub": "Maria runs a med-spa. Tom runs an auto shop. Same software, same price, same weekly check-in.",
+    "smb_card_label": "SMB plan · $29 per month",
+    "includes_label": "Included",
+    "agency_eyebrow": "For agencies",
+    "agency_title": "Pick a tier. Scale up when you outgrow it.",
+    "agency_sub": "Every tier ships verified contacts, the full signal stack, weekly refresh, CSV + CRM export, and white-label one-pagers. Lead volume and seat count scale with the tier.",
+    "trust": {
+      "heading": "Built for the long haul",
+      "secure_label": "Stripe-powered checkout",
+      "secure_desc": "PCI-DSS Level 1. Your card stays on Stripe — we never see the number.",
+      "refund_label": "30-day money back",
+      "refund_desc": "Not worth it in the first month? One email. Full refund. No \"what could we do better\" form.",
+      "cancel_label": "Cancel anytime",
+      "cancel_desc": "One click in settings. We prorate the month. No win-back gauntlet.",
+      "soc2_label": "SOC 2 Type II · in progress",
+      "soc2_desc": "Audit kicked off Q3 2026. We'll publish the report on /security when it lands."
+    },
+    "faq": {
+      "eyebrow": "Frequently asked",
+      "title": "Pricing questions, answered.",
+      "q1": "What's the difference between the SMB plan and the agency tiers?",
+      "a1": "The SMB plan is for one local business owner watching their own spa, restaurant, or shop. The agency tiers are for marketing shops finding qualified leads for many SMBs at once. Different jobs, different software, different price.",
+      "q2": "Can I switch tiers later?",
+      "a2": "Yes. Move up or down at any billing cycle from your settings page. Mid-cycle upgrades are prorated; downgrades take effect at the next renewal so you don't lose what you've paid for.",
+      "q3": "What counts as a \"qualified lead\" on the agency tiers?",
+      "a3": "A business that passes the filters you set in Hunter — for example \"med-spa in Miami with reply rate below 25% and at least 100 reviews\". You see the count live before you save the list, so there are no surprise overages.",
+      "q4": "Do you offer a free trial?",
+      "a4": "Growth, Pro, and Boutique each include a 14-day trial — full access, no card required up front. Solo skips the trial because the $49 tier is already the lowest commitment in the category. SMB owners get a free reality check before the $29/mo kicks in.",
+      "q5": "I need an invoice / wire / annual contract.",
+      "a5": "Boutique tier ships invoice billing and annual contracts by default. For Pro tier, email hello@mapsly.ai and we'll switch you over. Solo and Growth are credit-card monthly only — keeps overhead down so the price stays down."
+    },
+    "cta": {
+      "title": "Ready to start?",
+      "sub": "Same sign-in for both audiences. We'll ask whether you're an owner or an agency right after your first link click.",
+      "primary": "Sign in / start free",
+      "secondary": "Talk to us"
     }
   }
 }
