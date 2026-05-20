@@ -244,3 +244,25 @@ First Cowork tick AFTER v0.6.6 (commit `4adcc59`) shipped. Found origin/main alr
 
 Outcome: SUCCESS (small) — loop-lock refreshed so dashboard heartbeat stays live; no regressions.
 SES-2026-05-20-cw-637 · C.0 · SUCCESS · score n/a (reviewers skipped) · 735+/5- · ci=green · merge=AUTO · PR#4 · v0.6.7 · seeded Neon (500 biz / 4981 reviews / 100 LH) · INC-27 follow-up on in-flight.ts
+
+## SES-2026-05-20-cowork-080758 · 2026-05-20 08:07 → 08:36 UTC (Cowork scheduled task)
+
+- Started: 2026-05-20T08:07:59Z
+- Task: C.1 · Cost-counter + CronRun lifecycle
+- Outcome: SUCCESS · auto-merged to main (PR #6, squash sha 6e014a1)
+- Score: 8.4/10 (Completion 9 · Quality 7 · Audience 8 · Relevance 10 · Performance 8)
+- Files: lib/cost/cost-counter.ts + lib/middleware/no-live-api.ts + 2 test suites (32 tests) + vitest.config.ts + PLAN scorecard + incidents INC-32
+- Diff: 7 files / +952 / -11
+- CI: validate ✓ build ✓ test ✓ integration ✓ bundle-check ✓ ci-passed ✓ (lighthouse FAILED but N/A — no UI routes)
+- Agents: code-reviewer (WARN→fixed in c6ee83e), security-auditor (PASS), scorer (8.4/10 MERGE)
+- Incident logged: INC-2026-05-20-32 · Prisma { increment } over NULL nullable Float stays NULL · openCronRun now initializes costUsd: 0
+- Version bumped: 0.6.8 → 0.6.9
+- Followups: 5 logged in PLAN scorecard (timingSafeEqual bearer compare, IP rate-limit /api/cron/\*, per-batch incrementCost audit for C.3 adapters, Neon integration test, INC-32 encoded)
+
+Notes:
+
+- C.1 is the load-bearing moat piece: every Phase 2 adapter (C.3-C.7) and Phase 3 cron handler (C.8-C.10) depends on this CronRun lifecycle + AsyncLocalStorage cost binding. The "no live API in user request path" invariant is now provably enforced via assertCronContext.
+- cronHandler ships above the minimum spec (OK/PARTIAL status, itemsProcessed + meta writeback) to set the pattern for the upcoming cron routes.
+- Sandbox iteration via /tmp clone (INC-31 pattern) again worked end-to-end. Validation deferred to Vercel CI ("deferred-to-vercel-ci" is canonical for CAN_DEPLOY_CHECK=0). Required 4 push rounds: initial → blocker fix → format → typecheck fix → final docs format.
+
+· One-line summary: SES-2026-05-20-cowork-080758 · C.1 · SUCCESS · score 8.4/10 · 952+/11- · ci=green · merge=AUTO
