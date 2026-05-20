@@ -101,7 +101,7 @@ You ARE the orchestrator. Every non-trivial request goes through:
    - `ux-reviewer-agency` (if `/(agency)/` touched)
    - `copy-reviewer` (if user-visible copy changed)
 4. **Score.** Spawn the `scorer` agent on the completed phase. Produces 5-dim scorecard (Completion · Quality · Audience-fit · Relevance · Performance). Append to PLAN.md.
-5. **Auto-merge or hold.** If aggregate ≥ 9.0 AND min cell ≥ 8.0 AND deploy-check passed AND CI green AND no new Sentry errors → **auto-merge to main**. Else → tag PR `needs-review`, leave for Viktor.
+5. **Auto-merge is the default.** If CI green AND deploy-check passed AND no critical reviewer veto AND no new Sentry errors AND Task is not tagged `human-required` → **auto-merge to main**. The scorer's aggregate is informational (logged on TaskRun for DORA trends), not a merge gate. PRs only stay at `needs-review` for explicit `human-required` tasks (payments, major schema) or hard reviewer vetos. Per `.claude/loop.md` v0.6.1.
 6. **Iterate.** Pick next task. Loop until token budget low or time exhausted.
 
 **Auto-merge means `mapsly.ai` always reflects latest autonomous code.** Viktor reviews already-shipped code via `dev.mapsly.ai` dashboard + daily GitHub digest email. Quality gates do the gatekeeping.
@@ -332,7 +332,7 @@ auto-enhance signals + per-route CWV trends on the dashboard.
 6. **Tests cover invariants, not coverage %.** See `.claude/rules/testing.md`.
 7. **i18n from day 1.** Strings in `messages/*.json`. No hardcoded English.
 8. **Accessibility is part of "done."** ≥ 95 Lighthouse a11y on every route.
-9. **Every change scored.** 5-dim scorecard appended to PLAN.md. 9.0 aggregate · 8.0 floor = ship.
+9. **Every change scored, but score is informational.** 5-dim scorecard logged on every TaskRun for DORA + Plan trends. Merge gate is objective (CI green · deploy-check · no critical reviewer veto · no `human-required` tag), not subjective. Per `.claude/loop.md` v0.6.1.
 10. **Boxly is reference, not source.** Read it for patterns; don't copy proprietary logic.
 
 ---

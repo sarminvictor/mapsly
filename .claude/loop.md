@@ -33,7 +33,25 @@ fi
 # Only attempted if a normal git operation reports "Operation not permitted"
 ```
 
+**Orphan IN_PROGRESS sweep** — recover from any prior iteration that closed without resetting Task.status:
+```sql
+-- Reset any Task stuck IN_PROGRESS whose most recent TaskRun is closed
+UPDATE "Task" SET status='PENDING', "lastSessionId"=NULL
+WHERE status='IN_PROGRESS'
+  AND id IN (
+    SELECT DISTINCT t.id FROM "Task" t
+    JOIN "TaskRun" r ON r."taskId" = t.id
+    WHERE t.status='IN_PROGRESS'
+      AND NOT EXISTS (
+        SELECT 1 FROM "TaskRun" r2
+        WHERE r2."taskId" = t.id AND r2.outcome='IN_PROGRESS'
+      )
+  );
+```
+
 If any recovery action prints an error, log it to the supervisor field of TaskRun.errorMessage with the prefix `[sandbox-self-heal]` — but DO NOT abort the iteration. Continue.
+
+**Incidents that auto-recovered are NOT new incidents.** If STEP 0 self-heal succeeded (e.g. INC-14 pattern cleared via `_tmp_*` removal or `git rebase --abort`), write ONE LINE to TaskRun.errorMessage: `[self-heal] INC-14 recurrence auto-mitigated`. Do NOT amend the canonical incidents.md entry. Amendments are reserved for NEW failure modes we haven't seen.
 
 ---
 
@@ -140,56 +158,99 @@ Record on TaskRun:
 
 ---
 
-## STEP 6 · MANDATORY validation per `.claude/rules/validation.md`
+## STEP 6 · MANDATORY validation · NO "deferred to CI" ESCAPE
 
-Pick validation modes by task type (see `.claude/rules/test-scenarios.md` for the 10 playbooks). NEVER skip silently — record `reason` if a mode is genuinely N/A.
+Every applicable mode MUST run **inside this iteration**, not "deferred." If a mode genuinely cannot run (no UI changes → skip browser; no DB writes → skip db), record `reason` explaining WHY it's N/A. "deferred to CI" / "needs preview URL" / "needs Gmail tab" are NEVER valid reasons.
 
-For a typical UI task (e.g. B.6 sign-in):
+### Validation order (do in this exact sequence)
 
-| Mode | Required? | What to record |
+1. **`pnpm deploy-check`** locally · ALWAYS. Self-heal any `_tmp_*` orphans from STEP 0 first. If this fails, the iteration is broken — fix or INCOMPLETE.
+2. **Unit + integration tests** · run `pnpm test:run` locally. If any pre-existing test fails, fix before proceeding.
+3. **Push branch + open PR** if not already done.
+4. **Wait for Vercel preview URL** · poll `gh pr view {n} --json statusCheckRollup,deployments` every 15s for up to 4 min. Vercel posts a preview comment with `https://*.vercel.app` URL within ~60s of push. THIS is the URL for browser/email/Lighthouse validation.
+5. **Browser validation** via Claude in Chrome MCP against the preview URL:
+   - Navigate, screenshot, assert key content, click interactive elements
+   - For auth tasks: full magic-link flow including the Gmail tab check (see test-scenarios.md Scenario A)
+   - Record screenshot paths + console errors + network 4xx/5xx in `validationOutcomes.browser`
+6. **Lighthouse mobile** against preview URL via Claude in Chrome MCP. Record perf, a11y, lcp, cls, inp.
+7. **axe-core** a11y check via Chrome MCP. Record violations count + critical ones.
+8. **DB validation** via Prisma direct query. SELECT the rows the task touched, assert expected state.
+9. **Cleanup test data** per `.claude/rules/browser-testing.md` — every `test+{taskId}@mapsly.ai` user/business created during validation gets deleted.
+
+### Mode applicability cheat-sheet
+
+| Mode | Required when | Valid skip reasons |
 |---|---|---|
-| Unit tests (Vitest) | If pure logic added | `validationOutcomes.unit: {passed, failed}` |
-| Integration tests | If crossed a service boundary | `validationOutcomes.integration: {…}` |
-| **Browser validation** via Claude in Chrome MCP | YES for any UI route | `screenshotsUrls`, `validationOutcomes.browser: {status, errors}` |
-| **DB validation** via Postgres MCP | YES if writing/reading DB | `validationOutcomes.db: {rowsAsserted}` |
-| **Email-flow** via Gmail tab | YES if email triggered (magic link, transactional) | `validationOutcomes.email: {received, subject, clicked}` |
-| Lighthouse mobile | YES if route changed | `validationOutcomes.performance: {perf, a11y, lcp, cls, inp}` |
-| `axe-core` a11y | YES if UI added | `validationOutcomes.a11y: {violations}` |
-| `pnpm deploy-check` | ALWAYS | `validationOutcomes.deployCheck: pass|fail` |
+| `deployCheck` | ALWAYS | none |
+| `unit` | Pure logic added (scorer, parser, validator, compute fn) | "no pure logic in this task" |
+| `integration` | Crossed a service boundary (DB, API, webhook, cron handler) | "no service boundary crossed" |
+| `browser` | Any UI route added/changed | "no UI changes — backend only" |
+| `db` | Any DB write/migrate | "no DB writes from this task" |
+| `email` | Magic link, transactional, cohort, billing email triggered | "no email triggered" |
+| `performance` | Route or layout changed | "no route changes" |
+| `a11y` | UI added/changed | "no UI changes" |
 
-A TaskRun closing with empty `validationOutcomes` = the iteration is `INCOMPLETE`, not `SUCCESS`. Hard rule.
+**ABSOLUTELY INVALID skip reasons** (these will fail the iteration):
+- "deferred to CI"
+- "needs preview URL" (preview URL is ALWAYS available — see step 4 above)
+- "needs Gmail tab" (Claude in Chrome MCP has Gmail access)
+- "validation infrastructure not yet built"
+- "will validate manually later"
+
+A TaskRun closing with `validationOutcomes` containing ANY of the invalid skip reasons = the iteration is `INCOMPLETE`, not `SUCCESS`. Hard rule.
 
 ---
 
-## STEP 7 · Auto-merge gate (non-skippable evaluation)
+## STEP 7 · Auto-merge gate · DEFAULT TO MERGE
 
-Compute the merge decision EXPLICITLY:
+**The loop ships to main. Period.** PRs sitting at `needs-review` are the exception, not the norm. Viktor watches `mapsly.ai` (production) to verify, not per-PR diffs.
+
+Compute the merge decision based on OBJECTIVE signals only:
 
 ```
 canAutoMerge = (
-  scorer.aggregate >= 9.0
-  AND every scorer cell >= 8.0
-  AND CI green on the PR
-  AND no new Sentry errors in last 60 min
-  AND validationOutcomes.deployCheck == 'pass'
-  AND validationOutcomes.browser.errors.length == 0
+  CI green on the PR (all required checks passed)
+  AND deploy-check passed locally (typecheck + lint + build)
+  AND no `code-reviewer` agent returned verdict='REJECT'
+  AND no `security-auditor` veto (if invoked)
+  AND no `payments-auditor` veto (if invoked)
+  AND no new Sentry errors in last 60 min on production
+  AND Task.tags does NOT contain 'human-required'
 )
 ```
 
-Write the decision to `TaskRun.notes`:
-```
-Score X.X/10 (min cell Y) · CI=green/red · deploy-check=pass/fail · merge=AUTO|HOLD
-```
+**The scorer's aggregate is informational** (logged for DORA trends + Plan progress), **not a merge gate.** A 6/10 task that compiles, passes tests, and doesn't break prod ships. We refactor for quality in follow-up tasks.
 
-If `canAutoMerge`: `gh pr merge --auto --squash`, bump `package.json` patch, push.
-Else: open PR with label `needs-review`, leave for Viktor.
+If `canAutoMerge`:
+
+1. Push branch (if not already pushed)
+2. `gh pr merge --auto --squash --delete-branch`
+3. Bump `package.json` patch + commit on main
+4. Tag if phase boundary crossed (per `.claude/rules/versioning.md`)
+5. Write TaskRun: `outcome=SUCCESS`, note `MERGED · CI green · deploy-check pass · score X.X (informational)`
+6. Update Task: `status=DONE`, `completedAt=now`
+
+If gate fails:
+
+- **CI red or deploy-check fail** → loop attempts repair IN THIS ITERATION: read failing logs, push fix commits, re-run CI. Repeat up to 3 times. If still red after 3 → mark TaskRun `INCOMPLETE`, save `branchName`, next iteration resumes the same branch and continues fixing.
+- **Reviewer hard-reject** (security-auditor / payments-auditor veto only) → label PR `needs-review`, write reviewer's reasoning to TaskRun.notes, do NOT merge. Task.status stays IN_PROGRESS so the next iteration can fix.
+- **`human-required` tag on Task** → label PR `needs-review`, do NOT merge. This is the ONLY routine `needs-review` case (e.g. payments cutover, major schema migration that needs manual confirm).
+
+Either way, write the decision to `TaskRun.notes` verbatim:
+```
+CI=green/red · deploy-check=pass/fail · reviewers={code-reviewer:PASS, security-auditor:N/A, ...} · merge=AUTO|RETRY-N|HOLD-human-required
+```
 
 ---
 
-## STEP 8 · Close out
+## STEP 8 · Close out · NO PARTIAL OUTCOMES
 
 Update TaskRun:
-- `outcome`: `SUCCESS` (merged) | `PARTIAL` (PR open, awaiting review) | `INCOMPLETE` (quota or step skipped) | `FAILED` (genuine error)
+- `outcome`: only TWO valid values for completed iterations:
+  - `SUCCESS` — merged to main (the default desired outcome)
+  - `INCOMPLETE` — iteration ran out of work/time/quota; next iteration resumes via STEP 3 INCOMPLETE-resume path
+  - (`FAILED` reserved for catastrophic errors that prevent retry; rare)
+  - **`PARTIAL` is BANNED.** If you find yourself wanting to mark PARTIAL, you actually want INCOMPLETE — the iteration didn't finish, fix in the next tick. If the PR is genuinely human-required (rare), the Task should have been tagged so at creation; the iteration should never have claimed it.
 - `finishedAt`: now
 - `scoreAggregate`, `score{Completion,Quality,Audience,Relevance,Performance}`: from scorer
 - `agentsUsed`, `validationStrategy`, `validationOutcomes`: from STEP 5+6
