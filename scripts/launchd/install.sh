@@ -9,8 +9,7 @@ LAUNCHD_DIR="$HOME/Library/LaunchAgents"
 PLIST_NAME="ai.mapsly.loop.plist"
 PLIST_SRC="$PROJECT_DIR/scripts/launchd/$PLIST_NAME"
 PLIST_DST="$LAUNCHD_DIR/$PLIST_NAME"
-WRAPPER_SRC="$PROJECT_DIR/scripts/launchd/loop-tick.sh"
-WRAPPER_DST="$HOME/.mapsly/loop-tick.sh"
+WRAPPER_REPO="$PROJECT_DIR/scripts/launchd/loop-tick.sh"
 LABEL="ai.mapsly.loop"
 UID_NUM="$(id -u)"
 
@@ -23,9 +22,11 @@ fi
 if [ ! -f "$PLIST_SRC" ]; then
   echo "✗ Plist source missing: $PLIST_SRC · run 'git pull' first"; exit 1
 fi
-if [ ! -f "$WRAPPER_SRC" ]; then
-  echo "✗ Wrapper source missing: $WRAPPER_SRC · run 'git pull' first"; exit 1
+if [ ! -f "$WRAPPER_REPO" ]; then
+  echo "✗ Wrapper source missing: $WRAPPER_REPO · run 'git pull' first"; exit 1
 fi
+# Ensure wrapper is executable in the repo (git permission bit can drift)
+chmod +x "$WRAPPER_REPO"
 if ! command -v claude >/dev/null 2>&1 && [ ! -x "$HOME/.claude/local/claude" ]; then
   echo "⚠ claude CLI not in PATH and not at ~/.claude/local/claude"
   echo "  The wrapper still tries common locations — install will continue."
@@ -42,12 +43,16 @@ fi
 mkdir -p "$LAUNCHD_DIR"
 mkdir -p "$HOME/.mapsly/logs"
 
-# 4. Install wrapper (with executable bit)
-echo "→ Installing wrapper to $WRAPPER_DST"
-cp "$WRAPPER_SRC" "$WRAPPER_DST"
-chmod +x "$WRAPPER_DST"
+# 4. Clean up legacy installed wrapper · we now run from the repo directly
+LEGACY_WRAPPER="$HOME/.mapsly/loop-tick.sh"
+if [ -f "$LEGACY_WRAPPER" ]; then
+  echo "→ Removing legacy installed wrapper at $LEGACY_WRAPPER"
+  echo "  (plist now points to the repo wrapper · git pull is enough)"
+  rm -f "$LEGACY_WRAPPER"
+fi
 
-# 5. Install plist (substitute $HOME for the placeholder)
+# 5. Install plist (substitute $HOME for the placeholder · plist points
+#    straight at the repo wrapper path, so future updates need only git pull)
 echo "→ Installing plist to $PLIST_DST"
 sed "s|HOME_PLACEHOLDER|$HOME|g" "$PLIST_SRC" > "$PLIST_DST"
 

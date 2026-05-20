@@ -444,3 +444,28 @@ Now only real static-asset extensions are excluded; arbitrary dotted paths flow 
 
 **Confidence:** high (verified by Postgres SELECT showing 0 TaskRuns ever)
 **Tags:** loop, claude-cli, headless, permissions, root-cause
+
+### INC-2026-05-20-20 · Loop still 0 TaskRuns after v0.4.5 ship · installed wrapper was stale
+
+**Symptom:** v0.4.5 added `--dangerously-skip-permissions` and v0.4.6 added `--effort max` to `scripts/launchd/loop-tick.sh`, but Postgres still showed 0 TaskRuns ever and `loop-lock.lastTickAt` was frozen at the manual-restore timestamp from 44 min ago. The fix was in main but had no effect on the running loop.
+
+**Root cause:** The launchd plist installed by `scripts/launchd/install.sh` pointed to `~/.mapsly/loop-tick.sh` — a *copy* the installer made when first run. Updates to `scripts/launchd/loop-tick.sh` in the repo didn't propagate to the running wrapper until Viktor re-ran `install.sh`. The instruction "re-run install.sh after pulling" was buried in the v0.4.5 commit message and easy to miss.
+
+**Fix applied:**
+1. **plist now points to the repo path directly:** `HOME/Documents/Claude/Projects/mapsly/scripts/launchd/loop-tick.sh`. No more copy.
+2. `install.sh` removes the legacy `~/.mapsly/loop-tick.sh` copy on next run so future Claude can `grep` for it and see the migration happened.
+3. `install.sh` `chmod +x` the repo wrapper (in case the git permission bit drifted).
+4. After this one final `install.sh` run, `git pull` alone is enough for all future wrapper changes.
+
+**Prevention:**
+1. **Never make launchd point to a copy of a file that lives in version control.** Always point launchd at the canonical source. If you need to mutate the file at install time (substitute $HOME), do it on the plist, not the script.
+2. Whenever a wrapper change requires a re-install step, surface that to the user on the dashboard — not just in a commit message.
+3. The unconditional `lastTickAt` stamp at the top of `loop-tick.sh` (added in v0.4.5) is the canonical "is launchd firing?" signal. If it's not updating, the wrapper isn't being invoked at all.
+
+**Where encoded:**
+- `scripts/launchd/ai.mapsly.loop.plist` (points to repo path)
+- `scripts/launchd/install.sh` (no longer copies, removes legacy copy)
+- this file
+
+**Confidence:** high
+**Tags:** loop, launchd, install, stale-copy, self-update

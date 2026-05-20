@@ -5,10 +5,13 @@
     <key>Label</key>
     <string>ai.mapsly.loop</string>
 
+    <!-- Run the wrapper STRAIGHT FROM THE REPO so `git pull` is enough to
+         pick up wrapper changes. No more "I forgot to re-run install.sh"
+         (see INC-19). -->
     <key>ProgramArguments</key>
     <array>
         <string>/bin/bash</string>
-        <string>HOME_PLACEHOLDER/.mapsly/loop-tick.sh</string>
+        <string>HOME_PLACEHOLDER/Documents/Claude/Projects/mapsly/scripts/launchd/loop-tick.sh</string>
     </array>
 
     <key>StartInterval</key>
