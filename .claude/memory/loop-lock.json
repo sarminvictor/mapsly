@@ -2,8 +2,8 @@
   "state": "idle",
   "sessionId": null,
   "startedAt": null,
-  "lastTickAt": "2026-05-20T04:42:26Z",
+  "lastTickAt": null,
   "cooldownUntil": null,
   "consecutiveFailures": 0,
-  "note": "SES-2026-05-20-cowork-01 shipped B.6 as PR #1 (PARTIAL · needs-review). INC-14 recurred mid-iteration — _tmp_14_* orphans + wedged .git/index.lock blocked pnpm install; recovered via relocated GIT_DIR pattern. Next iteration: Viktor cleanup recipe required before any task needing local build can run."
+  "note": "Manual override · cleared stale cooldown from INC-14 false alarm so v0.6.1 loop can resume B.6 from auto/2026-05-20-B.6-1 branch."
 }
