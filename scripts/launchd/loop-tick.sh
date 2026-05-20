@@ -42,10 +42,15 @@ if [ -f "$PROJECT_DIR/.env.local" ]; then
   set +a
 fi
 
-echo "[$(date)] TICK START · claude=$CLAUDE_BIN" >> "$TICK_LOG"
+# Model selection · always use the latest/strongest Opus available.
+# Override via CLAUDE_MODEL env var (loaded from .env.local above) if needed.
+# Fallback chain: explicit env → known latest Opus → "opus" alias → CLI default.
+MODEL="${CLAUDE_MODEL:-claude-opus-4-6}"
+
+echo "[$(date)] TICK START · claude=$CLAUDE_BIN · model=$MODEL" >> "$TICK_LOG"
 
 # Headless one-shot. --print = non-interactive. Read prompt from file.
-"$CLAUDE_BIN" --print "$(cat "$PROMPT_PATH")" \
+"$CLAUDE_BIN" --print --model "$MODEL" "$(cat "$PROMPT_PATH")" \
   >> "$TICK_LOG" 2>&1
 
 EXIT_CODE=$?

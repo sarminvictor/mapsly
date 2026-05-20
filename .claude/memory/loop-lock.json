@@ -1,9 +1,9 @@
 {
-  "state": "idle",
+  "state": "paused",
   "sessionId": null,
   "startedAt": null,
-  "lastTickAt": "2026-05-20T01:46:05.257Z",
+  "lastTickAt": "2026-05-19T23:55:00Z",
   "cooldownUntil": null,
   "consecutiveFailures": 0,
-  "note": "Resumed via dashboard."
+  "note": "Paused by Viktor while PLAN.md gets cleaned + task tracker ships. Resume via dashboard or by setting state to idle."
 }

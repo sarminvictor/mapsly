@@ -361,3 +361,20 @@ Now only real static-asset extensions are excluded; arbitrary dotted paths flow 
 **Where encoded:** `middleware.ts`, this file.
 **Confidence:** high
 **Tags:** next-intl, middleware, routing, dynamic-segments
+
+### INC-2026-05-19-16 · Loop was running on default model (Sonnet) not Opus
+
+**Symptom:** Loop quality scores plausibly lower than expected. Viktor flagged the loop wasn't on the strongest available model.
+
+**Root cause:** The launchd wrapper `scripts/launchd/loop-tick.sh` invoked `claude --print "$PROMPT"` without a `--model` flag. The Claude CLI falls back to whatever the user's CLI config defaults to — for most Pro Max users that's Sonnet, not Opus.
+
+**Fix applied:**
+- Added `--model "$MODEL"` to the claude invocation
+- New env var `CLAUDE_MODEL` (default `claude-opus-4-6`, overridable in `.env.local`)
+- Documented in CLAUDE.md as a "Model pin" hard rule
+
+**Prevention:** Any wrapper that invokes `claude` in headless mode for autonomous work MUST set `--model` explicitly. Inheriting the user's CLI default is fragile — it could be a different model on each machine.
+
+**Where encoded:** `scripts/launchd/loop-tick.sh`, `.env.example`, `CLAUDE.md`, this file.
+**Confidence:** high
+**Tags:** loop, claude-cli, model-selection
