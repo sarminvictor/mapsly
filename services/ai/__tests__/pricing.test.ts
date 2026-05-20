@@ -22,16 +22,16 @@ describe("services/ai/pricing", () => {
 
   test("cached input bills at the discounted rate", () => {
     // 100K input total, 80K cached, 20K fresh, 50K output, on nano
-    //   fresh:  20_000 / 1e6 * 0.05  = 0.000001
-    //   cached: 80_000 / 1e6 * 0.025 = 0.000002
-    //   output: 50_000 / 1e6 * 0.40  = 0.00002
-    //   total = 0.000023
+    //   fresh:  20_000 / 1e6 * 0.05  = 0.001
+    //   cached: 80_000 / 1e6 * 0.025 = 0.002
+    //   output: 50_000 / 1e6 * 0.40  = 0.02
+    //   total = 0.023
     const cost = computeUsd("gpt-5.4-nano", {
       inputTokens: 100_000,
       cachedInputTokens: 80_000,
       outputTokens: 50_000,
     });
-    expect(cost).toBeCloseTo(0.000023, 8);
+    expect(cost).toBeCloseTo(0.023, 6);
   });
 
   test("0-token call costs 0", () => {
