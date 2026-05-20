@@ -96,14 +96,16 @@ describe("generateOnePager", () => {
         reply(
           JSON.stringify({
             headline: "Solea Brickell · why now is the moment",
-            subhead: "Miami's med-spa scene is shifting. Your profile is ready.",
+            subhead:
+              "Miami's med-spa scene is shifting. Your profile is ready.",
             wedgeNarratives: [
               "Your reply rate is 0% on the last 47 reviews — Google's local pack rewards engagement.",
               "Three competitors moved within 2 blocks in Q1. Your visibility is at risk.",
               "Your booking page loads in 4.2s on mobile — 60% of visitors leave.",
               "Your weekly ad spend is $0 in the category. Three competitors run weekly.",
             ],
-            callToAction: "15 minutes next Tuesday to walk through this together?",
+            callToAction:
+              "15 minutes next Tuesday to walk through this together?",
           }),
         ),
       ),
@@ -189,8 +191,6 @@ describe("generateOnePager", () => {
     const userMsg = body.messages.find((m) => m.role === "user")!.content;
     expect(userMsg).toContain("Wedge 1");
     expect(userMsg).toContain("Wedge 4");
-    expect(userMsg.indexOf("Wedge 1")).toBeLessThan(
-      userMsg.indexOf("Wedge 4"),
-    );
+    expect(userMsg.indexOf("Wedge 1")).toBeLessThan(userMsg.indexOf("Wedge 4"));
   });
 });

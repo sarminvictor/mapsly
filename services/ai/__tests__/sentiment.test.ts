@@ -45,14 +45,8 @@ vi.mock("@/lib/prisma", () => ({
 }));
 
 import { withCronRun } from "@/lib/cost/cost-counter";
-import {
-  __setApiKeyForTesting,
-  __setFetchForTesting,
-} from "../client";
-import {
-  classifyReviewUncached,
-  DEFAULT_SENTIMENT_MODEL,
-} from "../sentiment";
+import { __setApiKeyForTesting, __setFetchForTesting } from "../client";
+import { classifyReviewUncached, DEFAULT_SENTIMENT_MODEL } from "../sentiment";
 
 function makeOpenAiResponse(content: string, model = DEFAULT_SENTIMENT_MODEL) {
   return new Response(
@@ -151,8 +145,8 @@ describe("classifyReviewUncached", () => {
   });
 
   test("rejects out-of-range stars before calling the API", async () => {
-    const fetchMock = vi.fn(async () =>
-      makeOpenAiResponse("{}"), // shouldn't be hit
+    const fetchMock = vi.fn(
+      async () => makeOpenAiResponse("{}"), // shouldn't be hit
     );
     __setFetchForTesting(fetchMock);
     await expect(

@@ -292,10 +292,10 @@ describe("callOpenAi", () => {
     __setFetchForTesting(
       vi.fn(
         async () =>
-          new Response(
-            JSON.stringify({ error: { message: "bad request" } }),
-            { status: 400, statusText: "Bad Request" },
-          ),
+          new Response(JSON.stringify({ error: { message: "bad request" } }), {
+            status: 400,
+            statusText: "Bad Request",
+          }),
       ),
     );
     await expect(

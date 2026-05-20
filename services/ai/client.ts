@@ -14,10 +14,7 @@
 // inside an open CronRun (AsyncLocalStorage via lib/cost/cost-counter.ts)
 // and increment the run's costUsd. callOpenAi enforces both invariants.
 
-import {
-  assertCronContext,
-  incrementCost,
-} from "@/lib/cost/cost-counter";
+import { assertCronContext, incrementCost } from "@/lib/cost/cost-counter";
 import {
   computeUsd,
   DEFAULT_PER_CALL_CEILING_USD,
