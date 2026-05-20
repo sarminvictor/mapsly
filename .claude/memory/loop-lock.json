@@ -5,5 +5,5 @@
   "lastTickAt": null,
   "cooldownUntil": null,
   "consecutiveFailures": 0,
-  "note": "Reset after INC-14 false alarm on Desktop Scheduled Task · git working tree cleaned, B.6 reset to PENDING."
+  "note": "Manual override · cleared stale cooldown from INC-14 false alarm so v0.6.1 loop can resume B.6 from auto/2026-05-20-B.6-1 branch."
 }

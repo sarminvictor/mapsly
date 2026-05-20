@@ -340,6 +340,8 @@ After that, local main has commits, working tree is clean, and the next supervis
 **Confidence:** high
 **Tags:** sandbox, fuse, virtiofs, git, unlink, supervisor, host-only-fix, blocker
 
+**Amendment 2026-05-20 (SES-2026-05-20-cowork-01):** The wall can trigger AFTER pre-flight passes. This iteration's pre-flight check found no `.git/index.lock` and no `.git-rewrite/`, but discovered two stale `_tmp_14_*` orphans in the working tree from a prior session. The orphans alone were not in the pre-flight halt-trigger list, so the iteration proceeded — and then `pnpm install` tripped the wall (couldn't unlink the orphans to take the store lock), AND the failed install left a fresh `.git/index.lock` that subsequent git commands couldn't clear. Recovery: applied INC-01 pattern (relocated `GIT_DIR=/tmp/mapsly-git-<ts>/` with `.git` copied + index.lock removed from the copy) which let git add/commit/push work normally. **Prevention update:** add `_tmp_*` glob to the pre-flight halt-trigger list. Specifically: if `ls /sessions/.../mnt/mapsly/_tmp_* 2>/dev/null | head -1` returns a path, the supervisor MUST set 24h cooldown and exit — those files come from prior pnpm crashes and cannot be cleaned from the sandbox. Until Viktor runs the recovery recipe, no iteration can run `pnpm install`. The relocated-GIT_DIR escape hatch still lets iterations commit/push code-only changes (no install needed), but any task requiring typecheck/lint/build/test must abort.
+
 ### INC-2026-05-19-15 · next-intl middleware matcher excludes paths with dots
 
 **Symptom:** Routes containing a dot in the URL (like `/tasks/A.1`, `/tasks/1.10.4`) return 404 on `dev.mapsly.ai`. The same paths work locally (`pnpm dev`) but 404 in production.
@@ -515,3 +517,50 @@ Now only real static-asset extensions are excluded; arbitrary dotted paths flow 
 
 **Confidence:** high
 **Tags:** loop, scheduler-pivot, macos-tcc, in-session, structural
+
+### INC-2026-05-20-23 · TaskRun.resumedFromRunId added to schema but never pushed to Neon · /tasks/[id] 404s
+
+**Symptom:** After v0.4.3 added `resumedFromRunId` to the `TaskRun` Prisma model, `https://dev.mapsly.ai/tasks/B.6` started returning 404 (via Next.js `notFound()`). The page LOOKED reachable (HTTP 200, Suspense fallback rendered) but the data fetch silently failed.
+
+**Root cause:** `prisma generate` runs during Vercel build so the client knows about the new field, but `prisma db push` was never executed against the Neon production DB. `Task.findUnique` with `include: { runs: ... }` Prisma generates a SELECT that includes `resumedFromRunId`. Postgres errors: `column "resumedFromRunId" does not exist`. The `try { ... } catch { return null }` in `getTaskDetail` swallowed the error → page got `null` → called `notFound()`.
+
+**Fix applied:** Direct SQL migration on Neon:
+```sql
+ALTER TABLE "TaskRun" ADD COLUMN IF NOT EXISTS "resumedFromRunId" text;
+CREATE INDEX IF NOT EXISTS "TaskRun_outcome_idx" ON "TaskRun"(outcome);
+CREATE INDEX IF NOT EXISTS "TaskRun_resumedFromRunId_idx" ON "TaskRun"("resumedFromRunId");
+```
+
+**Prevention:**
+1. **Every schema change MUST be paired with a Neon `db push` in the same commit.** Add to `.claude/rules/database.md` (or create one): "Before merging any change to `prisma/schema.prisma`, run `pnpm prisma db push` against the Neon dev branch and verify the columns match."
+2. The `try { return null } catch` pattern in queries silently masks DB schema errors. Replace with: log the error to console.error (Vercel captures + Sentry catches) before returning null — so 404s surface as Sentry issues instead of invisible.
+3. Add a CI job that runs `pnpm prisma migrate diff --from-schema-datamodel prisma/schema.prisma --to-url $DATABASE_URL` and fails if there's drift between schema and DB.
+4. The `getTaskDetail` query and similar should NOT have empty catch blocks. Either let errors propagate (caller handles) or log them.
+
+**Where encoded:**
+- `prisma/schema.prisma` (already had the field)
+- Neon DB (now has the column)
+- this file
+- TODO: add CI job + replace silent catches
+
+**Confidence:** high (verified by direct ALTER TABLE → page now resolves)
+**Tags:** prisma, neon, schema-drift, silent-catch, notFound
+
+### INC-2026-05-20-24 · In-flight card lies "live · in progress" when TaskRun is PARTIAL/FAILED
+
+**Symptom:** After B.6 shipped as PARTIAL (PR opened, awaiting review), the dashboard's In-flight card kept showing "live · in progress" with a pulsing green dot for B.6 — even though no agent was actively running.
+
+**Root cause:** `queries/in-flight.ts` selected any `Task.status='IN_PROGRESS'` and treated it as "live." But Task.status stays IN_PROGRESS while a PR awaits human review (correct convention — work isn't fully done until merged). The "live" indicator was conflating "Task in flight" with "agent actively running."
+
+**Fix applied:** `getInFlight` now requires BOTH `Task.status='IN_PROGRESS'` AND at least one `TaskRun.outcome='IN_PROGRESS'`. Without both, falls through to the "most recent finished run" display.
+
+**Prevention:**
+1. UI indicators for "live" / "active" / "running" must check the lowest-level signal (TaskRun.outcome=IN_PROGRESS), not aggregate states.
+2. Document Task.status semantics in `prisma/schema.prisma` comments: `IN_PROGRESS` covers "claimed and either actively running OR awaiting PR review." Use TaskRun.outcome to distinguish.
+
+**Where encoded:**
+- `app/(dev)/dev/queries/in-flight.ts`
+- this file
+
+**Confidence:** high
+**Tags:** dashboard, in-flight, status-conflation, ux-honesty

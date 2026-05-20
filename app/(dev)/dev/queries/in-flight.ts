@@ -22,11 +22,15 @@ export async function getInFlight(): Promise<InFlightTask | null> {
   cacheLife("seconds");
   cacheTag("dev-dashboard-inflight");
 
-  if (process.env.NEXT_PHASE === "phase-production-build") return null;
-
-  // Prefer an actively-IN_PROGRESS Task
+  // Prefer an actually-running TaskRun (outcome=IN_PROGRESS).
+  // Don't trust Task.status alone — that stays IN_PROGRESS while PRs await review.
   const active = await prisma.task.findFirst({
-    where: { status: "IN_PROGRESS" },
+    where: {
+      status: "IN_PROGRESS",
+      runs: {
+        some: { outcome: "IN_PROGRESS" },
+      },
+    },
     orderBy: { startedAt: "desc" },
     select: {
       id: true,

@@ -27,6 +27,31 @@ Schema per entry:
 
 ---
 
+## SES-2026-05-20-cowork-01 · 2026-05-20 04:28 → 04:42 UTC (Cowork scheduled task)
+
+- Started: 2026-05-20T04:28:26Z
+- Ended: 2026-05-20T04:41:41Z
+- Exit: clean (one task shipped, PARTIAL outcome)
+- Tasks completed: B.6 (PR opened, validation deferred — see below)
+- PRs opened: #1 https://github.com/sarminvictor/mapsly/pull/1
+- PRs auto-merged: none (validation incomplete, labeled `needs-review`)
+- PRs needs-review: #1
+- Incidents new: none (mid-iteration INC-14 recurrence noted as INC-14 amendment)
+- Incidents recurring: INC-14 (sandbox unlink wall — triggered when pnpm install hit stale `_tmp_14_*` orphans in working tree)
+- Recovery applied: INC-01 pattern — relocated `GIT_DIR=/tmp/mapsly-git-...` so git could commit + push around the wedged `.git/index.lock`
+- Score average: n/a (no scorer agent spawned this iteration)
+- Cost USD: ~$0 external API (no DataForSEO / Lighthouse / OpenAI calls)
+- Tokens used: not tracked this iteration
+- Scheduler: Cowork desktop scheduled task (NOT the canonical `/loop` per INC-22; ran loop.md per instruction)
+
+Notes:
+- Files: 11 changed, 605 insertions — sign-in + check-email + post-signin pages, NextAuth handler, i18n nav + routing, auth translations (en/es/fr)
+- Local typecheck/lint/build deferred to CI (pnpm install blocked by INC-14 unlink wall)
+- Browser + email validation deferred to next iteration with Vercel preview URL
+- Follow-up for Viktor: in macOS Terminal, run `cd ~/Documents/Claude/Projects/mapsly && rm -f _tmp_14_* .git/index.lock` to clear working-tree garbage so next loop tick can install dependencies normally
+
+---
+
 ## SES-2026-05-19-supervisor-blocked · 2026-05-19 23:45 UTC
 
 **Type:** supervisor tick (scheduled · 5-min fire)
