@@ -107,7 +107,9 @@ export function SmbMirror({ t }: SmbMirrorProps) {
                   fontSize: 11,
                   textTransform: "uppercase",
                   letterSpacing: "0.1em",
-                  color: tile.emphasize ? "rgba(255,255,255,.85)" : "var(--color-text-3)",
+                  color: tile.emphasize
+                    ? "rgba(255,255,255,.85)"
+                    : "var(--color-text-3)",
                 }}
               >
                 {t(`mirror.${tile.key}_label`)}
@@ -129,7 +131,9 @@ export function SmbMirror({ t }: SmbMirrorProps) {
                   style={{
                     fontSize: 13,
                     fontFamily: "var(--font-mono)",
-                    color: tile.emphasize ? "rgba(255,255,255,.85)" : "var(--color-text-3)",
+                    color: tile.emphasize
+                      ? "rgba(255,255,255,.85)"
+                      : "var(--color-text-3)",
                   }}
                 >
                   {t(`mirror.${tile.key}_unit`)}
@@ -141,7 +145,9 @@ export function SmbMirror({ t }: SmbMirrorProps) {
                   margin: 0,
                   fontSize: 14,
                   lineHeight: 1.5,
-                  color: tile.emphasize ? "rgba(255,255,255,.9)" : "var(--color-text-2)",
+                  color: tile.emphasize
+                    ? "rgba(255,255,255,.9)"
+                    : "var(--color-text-2)",
                 }}
               >
                 {t(`mirror.${tile.key}_desc`)}

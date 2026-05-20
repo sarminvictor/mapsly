@@ -95,7 +95,14 @@ export function SmbPricing({ t }: SmbPricingProps) {
             {t("pricing.free_badge")}
           </div>
 
-          <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginBottom: 28 }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "baseline",
+              gap: 6,
+              marginBottom: 28,
+            }}
+          >
             <span
               style={{
                 fontFamily: "var(--font-serif)",

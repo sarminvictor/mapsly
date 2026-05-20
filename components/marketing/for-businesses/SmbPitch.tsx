@@ -14,8 +14,18 @@ interface SmbPitchProps {
 }
 
 export function SmbPitch({ t }: SmbPitchProps) {
-  const oldPoints = [t("pitch.old_p1"), t("pitch.old_p2"), t("pitch.old_p3"), t("pitch.old_p4")];
-  const newPoints = [t("pitch.new_p1"), t("pitch.new_p2"), t("pitch.new_p3"), t("pitch.new_p4")];
+  const oldPoints = [
+    t("pitch.old_p1"),
+    t("pitch.old_p2"),
+    t("pitch.old_p3"),
+    t("pitch.old_p4"),
+  ];
+  const newPoints = [
+    t("pitch.new_p1"),
+    t("pitch.new_p2"),
+    t("pitch.new_p3"),
+    t("pitch.new_p4"),
+  ];
 
   return (
     <section

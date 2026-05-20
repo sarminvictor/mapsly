@@ -20,9 +20,7 @@ interface FaqEntry {
   };
 }
 
-function buildFaqSchema(
-  t: (key: string) => string,
-): {
+function buildFaqSchema(t: (key: string) => string): {
   "@context": string;
   "@type": string;
   mainEntity: FaqEntry[];

@@ -157,13 +157,17 @@ describe("for_businesses locale key parity", () => {
   test("es, fr, en-CA have all the same top-level for_businesses sections as en", async () => {
     const { default: es } = await import("../../../../messages/es.json");
     const { default: fr } = await import("../../../../messages/fr.json");
-    const { default: enCa } = await import(
-      "../../../../messages/en-CA.json"
-    );
+    const { default: enCa } = await import("../../../../messages/en-CA.json");
 
     const enKeys = Object.keys(en.for_businesses).sort();
-    expect(Object.keys((es as { for_businesses: object }).for_businesses).sort()).toEqual(enKeys);
-    expect(Object.keys((fr as { for_businesses: object }).for_businesses).sort()).toEqual(enKeys);
-    expect(Object.keys((enCa as { for_businesses: object }).for_businesses).sort()).toEqual(enKeys);
+    expect(
+      Object.keys((es as { for_businesses: object }).for_businesses).sort(),
+    ).toEqual(enKeys);
+    expect(
+      Object.keys((fr as { for_businesses: object }).for_businesses).sort(),
+    ).toEqual(enKeys);
+    expect(
+      Object.keys((enCa as { for_businesses: object }).for_businesses).sort(),
+    ).toEqual(enKeys);
   });
 });
