@@ -2,8 +2,8 @@
   "state": "idle",
   "sessionId": null,
   "startedAt": null,
-  "lastTickAt": null,
+  "lastTickAt": "2026-05-20T04:42:26Z",
   "cooldownUntil": null,
   "consecutiveFailures": 0,
-  "note": "Reset after INC-14 false alarm on Desktop Scheduled Task · git working tree cleaned, B.6 reset to PENDING."
+  "note": "SES-2026-05-20-cowork-01 shipped B.6 as PR #1 (PARTIAL · needs-review). INC-14 recurred mid-iteration — _tmp_14_* orphans + wedged .git/index.lock blocked pnpm install; recovered via relocated GIT_DIR pattern. Next iteration: Viktor cleanup recipe required before any task needing local build can run."
 }

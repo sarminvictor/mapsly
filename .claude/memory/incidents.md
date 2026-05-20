@@ -340,6 +340,8 @@ After that, local main has commits, working tree is clean, and the next supervis
 **Confidence:** high
 **Tags:** sandbox, fuse, virtiofs, git, unlink, supervisor, host-only-fix, blocker
 
+**Amendment 2026-05-20 (SES-2026-05-20-cowork-01):** The wall can trigger AFTER pre-flight passes. This iteration's pre-flight check found no `.git/index.lock` and no `.git-rewrite/`, but discovered two stale `_tmp_14_*` orphans in the working tree from a prior session. The orphans alone were not in the pre-flight halt-trigger list, so the iteration proceeded — and then `pnpm install` tripped the wall (couldn't unlink the orphans to take the store lock), AND the failed install left a fresh `.git/index.lock` that subsequent git commands couldn't clear. Recovery: applied INC-01 pattern (relocated `GIT_DIR=/tmp/mapsly-git-<ts>/` with `.git` copied + index.lock removed from the copy) which let git add/commit/push work normally. **Prevention update:** add `_tmp_*` glob to the pre-flight halt-trigger list. Specifically: if `ls /sessions/.../mnt/mapsly/_tmp_* 2>/dev/null | head -1` returns a path, the supervisor MUST set 24h cooldown and exit — those files come from prior pnpm crashes and cannot be cleaned from the sandbox. Until Viktor runs the recovery recipe, no iteration can run `pnpm install`. The relocated-GIT_DIR escape hatch still lets iterations commit/push code-only changes (no install needed), but any task requiring typecheck/lint/build/test must abort.
+
 ### INC-2026-05-19-15 · next-intl middleware matcher excludes paths with dots
 
 **Symptom:** Routes containing a dot in the URL (like `/tasks/A.1`, `/tasks/1.10.4`) return 404 on `dev.mapsly.ai`. The same paths work locally (`pnpm dev`) but 404 in production.
