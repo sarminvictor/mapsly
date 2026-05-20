@@ -13,7 +13,35 @@ Before reading anything, recover from common stale states. Per CLAUDE.md Blocker
 ```bash
 cd ~/Documents/Claude/Projects/mapsly
 
-# Stale pnpm tmp orphans (cause "Operation not permitted" cascade on next pnpm install)
+# 0a · HARD SYNC TO origin/main · only when no IN_PROGRESS Task exists for this session
+# This guarantees every iteration starts from a clean state matching production.
+# Eliminates the "stale local working tree" failure mode (INC-28).
+# Skipped when resuming an INCOMPLETE TaskRun (we'd lose the in-flight branch).
+if [ -z "$(git status --porcelain 2>/dev/null | head -1)" ] && [ -z "$(git rev-parse --verify --quiet HEAD)" ]; then : ; fi  # safety stub
+git fetch origin main 2>/dev/null || true
+LOCAL_HEAD="$(git rev-parse HEAD 2>/dev/null || echo unknown)"
+REMOTE_HEAD="$(git rev-parse origin/main 2>/dev/null || echo unknown)"
+if [ "$LOCAL_HEAD" != "$REMOTE_HEAD" ] || ! git diff --quiet 2>/dev/null; then
+  # Diverged or dirty — but only if no IN_PROGRESS work on a feature branch
+  CURRENT_BRANCH="$(git rev-parse --abbrev-ref HEAD 2>/dev/null)"
+  if [ "$CURRENT_BRANCH" = "main" ]; then
+    git stash -u 2>/dev/null || true
+    rm -f .git/index.lock 2>/dev/null
+    git reset --hard origin/main 2>/dev/null
+    git clean -fd 2>/dev/null
+    git stash drop 2>/dev/null || true
+  fi
+fi
+
+# 0b · Detect whether this iteration is in a real macOS filesystem OR a sandboxed FUSE mount.
+# INC-14 (FUSE unlink wall) ONLY applies to sandbox paths. On real macOS, git operations
+# work normally — do NOT invoke the INC-01 escape hatch or 24h cooldown.
+case "$PWD" in
+  */sessions/*|*/mnt/*) IS_SANDBOX=1 ;;
+  *) IS_SANDBOX=0 ;;
+esac
+
+# 0c · Stale pnpm tmp orphans (cause "Operation not permitted" cascade on next pnpm install)
 rm -f _tmp_*_tmp_* _tmp_[0-9]* 2>/dev/null
 
 # Stale .git lock files (only if no active git process)

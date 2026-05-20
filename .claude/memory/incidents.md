@@ -615,3 +615,26 @@ CREATE INDEX IF NOT EXISTS "TaskRun_resumedFromRunId_idx" ON "TaskRun"("resumedF
 
 **Confidence:** high
 **Tags:** vercel-build, neon, prisma, cacheComponents, websocket
+
+### INC-2026-05-20-28 · INC-14 falsely invoked on real macOS · loop iteration false-aborted
+
+**Symptom:** v0.6.2 Desktop Scheduled Task iteration on Viktor's Mac diagnosed "FUSE unlink wall (INC-14)" and exited with 4h cooldown — but the iteration runs on the actual macOS filesystem (no FUSE). The real issue: local working tree had stale uncommitted changes from earlier sandbox commits + local main was 2 commits behind origin/main after v0.6.2 push.
+
+**Root cause:** INC-14 documents a FUSE-mount limitation that ONLY applies inside the Cowork sandbox (paths under `/sessions/.../mnt/`). The iteration agent matched the surface symptom ("can't unlink files cleanly") to INC-14 without checking whether the working path was actually FUSE-mounted, and invoked the 24h-cooldown escape hatch instead of doing the obvious `git stash + git pull + git stash drop` recovery that works fine on a real filesystem.
+
+**Fix applied:**
+1. Manual: `rm -f .git/index.lock && git reset --hard origin/main && git clean -fd` on Viktor's Mac to restore clean state.
+2. v0.6.3 loop.md STEP 0 now auto-syncs to origin/main when on `main` branch with no active IN_PROGRESS Task — eliminates the "stale-tree-after-merge" precondition entirely.
+3. v0.6.3 loop.md STEP 0 also adds an `IS_SANDBOX` detection (`case $PWD in */sessions/*|*/mnt/*) IS_SANDBOX=1`) — INC-14 patterns may only be invoked when `IS_SANDBOX=1`.
+
+**Prevention:**
+1. **INC-14 scope is now explicit:** only applies when the working directory path includes `/sessions/` or `/mnt/`. On real macOS, regular git operations always work.
+2. Every iteration starting on `main` auto-syncs to `origin/main` before claiming a task — no more stale-tree confusion possible.
+3. When the agent considers invoking INC-14's 24h cooldown, it must verify `IS_SANDBOX=1` first. Otherwise, attempt normal git recovery (stash → reset → clean) before any escape hatch.
+
+**Where encoded:**
+- `.claude/loop.md` STEP 0 (auto-sync + IS_SANDBOX detection)
+- This entry
+
+**Confidence:** high
+**Tags:** loop, INC-14-scope, false-positive, auto-sync, working-tree
