@@ -771,3 +771,28 @@ The FUSE-mounted project directory at `~/Documents/Claude/Projects/mapsly` is no
 
 **Confidence:** high
 **Tags:** loop, sandbox, /tmp, cowork-canonical, design, INC-29-supersede, INC-30-supersede
+
+### INC-2026-05-20-32 · Prisma `{ increment }` over a NULL nullable column stays NULL
+
+**Symptom:** C.1 shipped `lib/cost/cost-counter.ts` with `prisma.cronRun.update({ data: { costUsd: { increment: 0.0006 } } })`. The `CronRun.costUsd` column is `Float?` (nullable, no DB default). After `openCronRun` created the row with no explicit costUsd, every subsequent `{ increment }` was a no-op — Postgres evaluates `NULL + x = NULL`, so costUsd stayed NULL forever. The behaviour was silent: no exception, no log, just zero cost ever recorded. Unit tests passed only because the in-test mock defaulted costUsd to 0, hiding the real DB semantics.
+
+**Root cause:** Prisma's `{ increment: n }` operator translates to SQL `"costUsd" = "costUsd" + $1`, and Postgres's arithmetic over NULL yields NULL. The schema column was Float? without a `@default(0)`, so newly-created rows had costUsd = NULL.
+
+**Fix applied:** `openCronRun` now passes `data: { job, status: "RUNNING", costUsd: 0 }` explicitly at insert time. No schema migration needed (kept the column nullable to allow "never tracked" rows in catalogs / fixtures). Test mock updated to mimic Postgres NULL semantics (`row.costUsd == null ? null : row.costUsd + inc`) so a regression guard test for openCronRun + costUsd === 0 actually fires if the init is removed.
+
+**Prevention:**
+
+1. **Any Prisma column written via `{ increment }`, `{ decrement }`, or other arithmetic operators MUST be initialized at insert time** — either via schema `@default(0)` (preferred long-term) or via an explicit value in the `create({ data })` call. Treat nullable numeric columns as a yellow flag in code review.
+2. **Test mocks must mimic real DB semantics for the ops they cover.** A mock that defaults nullable columns to 0 silently hides NULL-arithmetic bugs. Default to `null` in the mock and require the production code to pass the value explicitly.
+3. **Prefer integration tests against a real Neon test branch (per `.claude/rules/testing.md` §"No mocking DB") for any code that relies on Prisma update semantics.** Pure-mock unit tests cover algorithm shape; integration tests cover SQL semantics. C.1 should have had at least one round-trip integration test against Neon before merge — added as follow-up.
+
+**Where encoded:**
+
+- `lib/cost/cost-counter.ts` (openCronRun · `costUsd: 0` initializer + comment block)
+- `lib/cost/__tests__/cost-counter.test.ts` (mock updated to mimic Postgres NULL + regression test "openCronRun creates a RUNNING row with costUsd initialized to 0")
+- `lib/middleware/__tests__/no-live-api.test.ts` (mirror regression test)
+- This file
+- Followup: PLAN scorer follow-up #4 — Neon integration test against cost-counter
+
+**Confidence:** high (regression test fails without the fix; CI typecheck + test on PR #6 commit 6704fc1 was green with the fix in place)
+**Tags:** prisma, postgres-null-arithmetic, increment, cost-counter, mock-fidelity
