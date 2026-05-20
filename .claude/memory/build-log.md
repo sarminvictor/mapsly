@@ -176,3 +176,25 @@ Changes:
 - `package.json`: 0.6.4 → 0.6.5.
 
 Outcome: SUCCESS. No code-shipping ran in this iteration (env-agnostic ship from Cowork sandbox via /tmp git escape hatch). Next /loop tick on Mac OR Cowork will see capability-aware routing live.
+
+## SES-2026-05-20-cowork-04 · v0.6.6 ship · Cowork-first scheduler
+
+Viktor: *"we do not use loop - we use cowork scheduler."*
+
+**The realization:** v0.6.5's capability-routing was the right design BUT didn't address why Cowork couldn't even SEE v0.6.5. The FUSE wall blocks `git fetch` from promoting temp objects (70+ unlink errors per fetch), so the local origin/main ref is permanently stuck at v0.6.3. The loop's own STEP 0 self-update was unrecoverable from inside the mount.
+
+**The fix:** don't run the loop from the mount at all. Clone to /tmp on every tick (sandbox-writable, no FUSE wall), source `.env.local` from the mount for secrets, run all subsequent steps from `/tmp/mapsly-work`. The mount is now a read-only mirror.
+
+Code-ship tasks defer deploy-check to Vercel CI when `CAN_DEPLOY_CHECK=0` (Cowork has no node_modules + tight /tmp disk). This restores the "deferred to CI" pattern that v0.6.4 had banned.
+
+Changes:
+- `.claude/loop.md` v0.6.6 STEP 0: full rewrite. Sandbox bootstrap clones to /tmp, sources .env.local, sets capability flags. Real-macOS path unchanged.
+- `.claude/loop.md` STEP 1: capability flags advisory only, both envs run same path.
+- `.claude/loop.md` STEP 6: `CAN_DEPLOY_CHECK=0` → push and let Vercel CI validate. Records `validationStrategy.deployCheck = "deferred-to-vercel-ci"`.
+- `.claude/loop.md` STEP 6.4: CI polling with up to 6 min budget for Cowork mode.
+- `.claude/memory/incidents.md`: INC-31 documents the architectural pivot.
+- `package.json`: 0.6.6.
+
+Outcome: SUCCESS. Next Cowork tick will (1) clone origin to /tmp, (2) read v0.6.6 STEP 0, (3) load env, (4) claim a task, (5) edit files in /tmp clone, (6) push to GitHub, (7) wait for Vercel CI, (8) auto-merge on green. All operations happen in /tmp where FUSE doesn't apply.
+
+The mount-side .git is permanently stuck (can't ever sync via fetch) but that doesn't matter — the loop ignores it.

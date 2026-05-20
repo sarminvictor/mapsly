@@ -708,3 +708,44 @@ The deeper design flaw: tasks had no way to declare what capabilities they need,
 
 **Confidence:** high
 **Tags:** loop, design, capability-routing, scoped-halts, queue-discipline, INC-29-amendment
+
+### INC-2026-05-20-31 · Cowork-only scheduler · loop must run in /tmp, not in the FUSE-mounted project dir
+
+**Symptom:** v0.6.5 shipped capability-aware routing in `.claude/loop.md`, but the Cowork scheduled task tick STILL couldn't act on it because the tick's `git fetch origin main` in STEP 0 silently failed to update refs. The local `.git/refs/remotes/origin/main` stayed at v0.6.3 (`59e1515`) even though origin had advanced through v0.6.4 (`07fe8f4`), v0.6.4-version-bump (`59b0eca`), and v0.6.5 (`1a7cde6`). 
+
+`git fetch` exited 0 but printed 70+ lines of `warning: unable to unlink '.git/objects/XX/tmp_obj_*': Operation not permitted`. Git could download packfiles but couldn't promote temporary objects to their final on-disk locations because the FUSE mount blocks `unlink()`. So every Cowork tick read the OLD v0.6.4 STEP 0/STEP 1 logic from its own working tree, applied the OLD "fuse-wall halt + 4h cooldown" pattern, and exited — no matter how many improvements we shipped to origin/main.
+
+Viktor: *"we do not use loop - we use cowork scheduler."* (clarifying that the Mac `/loop` alternative is not an option; Cowork must work.)
+
+**Root cause:** Three independent FUSE-wall limitations conspired:
+1. `git fetch` can't promote temp objects in `.git/objects/` (unlink-blocked).
+2. `git reset --hard origin/main` can't remove tracked files that should be deleted (unlink-blocked).
+3. `pnpm install` can't atomic-rename via unlink (INC-29 already covered this).
+
+Combined: a Cowork tick that starts from a stale working tree can never refresh itself, so every code/loop improvement we ship to origin/main is invisible to it. The fundamental design assumption "the loop reads its own latest version from the working tree" is broken on FUSE.
+
+**Fix applied (v0.6.6):** Stop running the loop from the FUSE-mounted project directory entirely. The Cowork tick now:
+1. Detects `IS_SANDBOX=1` from `$PWD`.
+2. Sources `.env.local` from the mount (read works — only write is blocked).
+3. Clones origin to `/tmp/mapsly-work` (or `git fetch + reset --hard` if /tmp already has the clone from a prior session, which it usually doesn't because /tmp is ephemeral). The clone is ~4 MB and takes < 1 second.
+4. `cd /tmp/mapsly-work` and runs all subsequent steps from there. `/tmp` is sandbox-writable; unlink works; git refs advance normally.
+5. STEP 6 deploy-check is gated on `CAN_DEPLOY_CHECK`. In sandbox mode (`CAN_DEPLOY_CHECK=0`), local deploy-check is skipped and validation defers to Vercel CI on push. This is the canonical Cowork-only pattern.
+
+The FUSE-mounted project directory at `~/Documents/Claude/Projects/mapsly` is now a read-only mirror from the user's perspective. The loop never writes there; the user can pull origin/main into the mount manually when they want to inspect latest code locally.
+
+**Prevention:**
+1. **Architectural rule (now in loop.md STEP 0):** when `IS_SANDBOX=1`, the loop NEVER runs from the mount. It clones to `/tmp` and runs from there. The mount is only read for `.env.local`.
+2. **Capability flag taxonomy:** `CAN_DEPLOY_CHECK=0` is the canonical signal that "local deploy-check infeasible — push and defer to Vercel CI." This unblocks the "deferred to CI" pattern that v0.6.4 had banned (the ban was wrong; it assumed a real macOS env always exists).
+3. **`/tmp` ephemerality acknowledged:** the loop assumes /tmp is cold on every tick. Fresh clone + git fetch is < 1s — cheap enough to do every time. No caching needed.
+4. **No more mount-based git operations in sandbox:** any code that does `git fetch / reset / commit / push` in `$IS_SANDBOX=1` mode must check it's in `/tmp/mapsly-work`, not the mount. The /tmp .git is the source of truth for sandbox iterations.
+
+**Where encoded:**
+- `.claude/loop.md` STEP 0 (sandbox bootstrap via /tmp clone)
+- `.claude/loop.md` STEP 1 (capability flags advisory, no halt path)
+- `.claude/loop.md` STEP 6 (deploy-check gated on CAN_DEPLOY_CHECK; "deferred-to-vercel-ci" is canonical for Cowork)
+- This entry
+- INC-29 amendment: FUSE wall is real, but irrelevant — the loop simply doesn't touch the FUSE dir.
+- INC-30 amendment: capability routing still applies, but for Cowork-only mode every tick runs the same code path; the routing is about WHICH validation strategy fires, not whether the tick runs.
+
+**Confidence:** high
+**Tags:** loop, sandbox, /tmp, cowork-canonical, design, INC-29-supersede, INC-30-supersede
