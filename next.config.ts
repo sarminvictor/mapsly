@@ -8,7 +8,6 @@ const withBundleAnalyzer = bundleAnalyzer({
 
 const withNextIntl = createNextIntlPlugin();
 
-
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   experimental: {

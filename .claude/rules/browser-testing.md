@@ -31,7 +31,7 @@ After implementing any phase that ships a user-facing route, before marking the 
    - No console errors
    - No 4xx network requests (open devtools, scan)
    - Lighthouse mobile Performance ≥ 90, A11y ≥ 95
-6. **Record evidence** — screenshot + URL → attach to the PR via comment, or write to `.claude/memory/screenshots/{phaseId}-{date}.png`
+7. **Record evidence** — screenshot + URL → attach to the PR via comment, or write to `.claude/memory/screenshots/{phaseId}-{date}.png`
 
 ## Tooling
 

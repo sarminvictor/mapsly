@@ -60,6 +60,20 @@ export async function getPlanSummary(): Promise<PlanSummary> {
   cacheLife("seconds");
   cacheTag("dev-dashboard-plan");
 
+  if (process.env.NEXT_PHASE === "phase-production-build") {
+    return {
+      total: 0,
+      done: 0,
+      inProgress: 0,
+      pending: 0,
+      blocked: 0,
+      humanRequired: 0,
+      percent: 0,
+      rows: [],
+      groups: [],
+    };
+  }
+
   try {
     const groups = await prisma.taskGroup.findMany({
       orderBy: { sortOrder: "asc" },
@@ -144,6 +158,8 @@ export async function getTaskDetail(id: string) {
   "use cache";
   cacheLife("seconds");
   cacheTag(`dev-task-${id}`);
+
+  if (process.env.NEXT_PHASE === "phase-production-build") return null;
 
   try {
     const task = await prisma.task.findUnique({

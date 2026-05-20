@@ -23,6 +23,17 @@ export async function getCronAggregate(): Promise<CronAggregate> {
   cacheLife("minutes");
   cacheTag("dev-dashboard-cron");
 
+  if (process.env.NEXT_PHASE === "phase-production-build") {
+    return {
+      costToday: 0,
+      costYesterday: 0,
+      failures24h: 0,
+      successful24h: 0,
+      totalRuns24h: 0,
+      recentJobs: [],
+    };
+  }
+
   const now = new Date();
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const yesterdayStart = new Date(todayStart);

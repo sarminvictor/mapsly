@@ -276,7 +276,10 @@
 }
 
 .dev-row:hover {
-  border-color: var(--dev-border-2, color-mix(in srgb, var(--dev-text-3) 30%, var(--dev-border)));
+  border-color: var(
+    --dev-border-2,
+    color-mix(in srgb, var(--dev-text-3) 30%, var(--dev-border))
+  );
 }
 
 .dev-row-main {
@@ -339,6 +342,13 @@
 }
 
 @keyframes dev-pulse {
-  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 color-mix(in srgb, var(--dev-green) 50%, transparent); }
-  50% { opacity: 0.55; box-shadow: 0 0 0 6px transparent; }
+  0%,
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--dev-green) 50%, transparent);
+  }
+  50% {
+    opacity: 0.55;
+    box-shadow: 0 0 0 6px transparent;
+  }
 }

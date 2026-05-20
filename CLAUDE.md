@@ -311,10 +311,12 @@ The dashboard's "Blockers" card is the single source of truth for what Viktor mu
 
 We don't pay for Vercel Speed Insights or a 3rd-party RUM service. Sentry's
 `@sentry/nextjs` browser SDK captures Core Web Vitals + Long Animation Frames
-+ user-perceived latency automatically — into the same Sentry org we already
-have set up. No new account, no new env var, just the existing `SENTRY_DSN`.
+
+- user-perceived latency automatically — into the same Sentry org we already
+  have set up. No new account, no new env var, just the existing `SENTRY_DSN`.
 
 Wire in `instrumentation.ts` once Phase 8 (observability) lands:
+
 - `Sentry.browserTracingIntegration()` captures CWV + page-load timings
 - `tracesSampleRate: 0.1` (10% sample to stay within free quota)
 - `replaysSessionSampleRate: 0.0`, `replaysOnErrorSampleRate: 1.0` (only record sessions when error fires)

@@ -17,6 +17,16 @@ export async function getDoraMetrics(): Promise<DoraMetrics> {
   cacheLife("minutes");
   cacheTag("dev-dashboard-dora");
 
+  if (process.env.NEXT_PHASE === "phase-production-build") {
+    return {
+      deployFrequency: { last7d: 0, last30d: 0 },
+      leadTimeP50Hours: null,
+      leadTimeP95Hours: null,
+      changeFailureRate: { last7d: 0, last30d: 0 },
+      mttrHours: null,
+    };
+  }
+
   const now = new Date();
   const since7d = new Date(now.getTime() - 7 * 86400_000);
   const since30d = new Date(now.getTime() - 30 * 86400_000);
