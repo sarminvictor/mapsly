@@ -29,8 +29,17 @@ import { getLoopState } from "./queries/loop";
 import { getInFlight } from "./queries/in-flight";
 import LoopControls from "./LoopControls";
 import LocalTime from "./LocalTime";
+import { connection } from "next/server";
 
-export default function DevDashboard() {
+export default async function DevDashboard() {
+  // Mark route as dynamic under cacheComponents (PPR). The /dev tree is
+  // 100% live DB-backed telemetry — every `use cache` block populates
+  // at runtime on first request, not at build time. Without this, Vercel's
+  // build worker tries to open Neon WebSockets to materialize the static
+  // shell and bundle-check + lighthouse blow up. See companion fix /
+  // explanation in this commit message.
+  await connection();
+
   const sha = process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? "local";
   const version = pkgVersion;
 
