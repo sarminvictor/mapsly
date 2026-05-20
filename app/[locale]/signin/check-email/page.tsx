@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { Suspense } from "react";
 import { setRequestLocale, getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 
@@ -16,16 +15,15 @@ export async function generateMetadata({
   };
 }
 
-// Outer page is async only because of params + getTranslations (both cached
-// or i18n-controlled). The uncached searchParams.email read is delegated
-// to an inner async component wrapped in <Suspense> so cacheComponents (PPR)
-// is happy.
+// Fully static — no searchParams dependency. The original design read
+// `?email=foo@bar` from the URL to personalize the subtitle, but under
+// cacheComponents (PPR) any uncached prop crossing a Suspense boundary
+// triggers serialization errors. The generic "check your inbox" subtitle
+// is fine UX-wise — users just signed in, they know their email.
 export default async function CheckEmailPage({
   params,
-  searchParams,
 }: {
   params: Promise<{ locale: string }>;
-  searchParams: Promise<{ email?: string }>;
 }) {
   const { locale } = await params;
   setRequestLocale(locale);
@@ -97,22 +95,16 @@ export default async function CheckEmailPage({
           {t("title")}
         </h1>
 
-        <Suspense
-          fallback={
-            <p
-              style={{
-                margin: "12px 0 20px",
-                color: "var(--color-text-2)",
-                fontSize: 15,
-                lineHeight: 1.55,
-              }}
-            >
-              {t("subtitle", { email: "your inbox" })}
-            </p>
-          }
+        <p
+          style={{
+            margin: "12px 0 20px",
+            color: "var(--color-text-2)",
+            fontSize: 15,
+            lineHeight: 1.55,
+          }}
         >
-          <EmailSubtitle searchParams={searchParams} />
-        </Suspense>
+          {t("subtitle", { email: "your inbox" })}
+        </p>
 
         <a
           href="https://mail.google.com/mail/u/0/#inbox"
@@ -160,28 +152,5 @@ export default async function CheckEmailPage({
         </p>
       </div>
     </main>
-  );
-}
-
-async function EmailSubtitle({
-  searchParams,
-}: {
-  searchParams: Promise<{ email?: string }>;
-}) {
-  const { email } = await searchParams;
-  const t = await getTranslations("auth.check_email");
-  const displayEmail =
-    email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? email : "your inbox";
-  return (
-    <p
-      style={{
-        margin: "12px 0 20px",
-        color: "var(--color-text-2)",
-        fontSize: 15,
-        lineHeight: 1.55,
-      }}
-    >
-      {t("subtitle", { email: displayEmail })}
-    </p>
   );
 }
