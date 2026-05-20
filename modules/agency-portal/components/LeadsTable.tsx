@@ -115,11 +115,7 @@ export function LeadsTable({
 
 /* --------------------------------------------------------------- header */
 
-export function LeadsTableHeader({
-  children,
-}: {
-  children?: React.ReactNode;
-}) {
+export function LeadsTableHeader({ children }: { children?: React.ReactNode }) {
   return (
     <thead
       style={{
@@ -134,8 +130,7 @@ export function LeadsTableHeader({
   );
 }
 
-export interface LeadsTableHeaderCellProps
-  extends React.ThHTMLAttributes<HTMLTableCellElement> {
+export interface LeadsTableHeaderCellProps extends React.ThHTMLAttributes<HTMLTableCellElement> {
   /** Mark this column as the row-select cell · narrow width + center align. */
   select?: boolean;
   /** Sortable column · renders a small "▲/▼/⇅" affordance. */
@@ -162,8 +157,13 @@ export function LeadsTableHeaderCell({
   style,
   ...rest
 }: LeadsTableHeaderCellProps) {
-  const sortGlyph =
-    !sortable ? null : sorted === "asc" ? "▲" : sorted === "desc" ? "▼" : "⇅";
+  const sortGlyph = !sortable
+    ? null
+    : sorted === "asc"
+      ? "▲"
+      : sorted === "desc"
+        ? "▼"
+        : "⇅";
 
   return (
     <th
@@ -204,7 +204,10 @@ export function LeadsTableHeaderCell({
           style={{
             marginLeft: 6,
             fontSize: 9,
-            color: sorted === "none" ? "var(--color-text-3)" : "var(--color-agency-indigo)",
+            color:
+              sorted === "none"
+                ? "var(--color-text-3)"
+                : "var(--color-agency-indigo)",
           }}
         >
           {sortGlyph}
@@ -216,18 +219,13 @@ export function LeadsTableHeaderCell({
 
 /* ----------------------------------------------------------------- body */
 
-export function LeadsTableBody({
-  children,
-}: {
-  children?: React.ReactNode;
-}) {
+export function LeadsTableBody({ children }: { children?: React.ReactNode }) {
   return <tbody>{children}</tbody>;
 }
 
 /* ----------------------------------------------------------------- row */
 
-export interface LeadsTableRowProps
-  extends React.HTMLAttributes<HTMLTableRowElement> {
+export interface LeadsTableRowProps extends React.HTMLAttributes<HTMLTableRowElement> {
   /** When true, paints the row with a subtle "selected" tint. */
   selected?: boolean;
   /** When true, renders the trailing "Open →" affordance as a real button. */
@@ -262,8 +260,7 @@ export function LeadsTableRow({
 
 /* ---------------------------------------------------------------- cell */
 
-export interface LeadsTableCellProps
-  extends React.TdHTMLAttributes<HTMLTableCellElement> {
+export interface LeadsTableCellProps extends React.TdHTMLAttributes<HTMLTableCellElement> {
   /** Mark this cell as the row-select cell (narrow + checkbox container). */
   select?: boolean;
   /** Cell alignment. Default "left". */
@@ -285,11 +282,7 @@ export function LeadsTableCell({
     <td
       className={cn("mapsly-leads-cell", className)}
       style={{
-        padding: flush
-          ? "0 14px"
-          : select
-            ? "12px 8px 12px 14px"
-            : "12px 14px",
+        padding: flush ? "0 14px" : select ? "12px 8px 12px 14px" : "12px 14px",
         textAlign: align,
         verticalAlign: "middle",
         borderBottom: "1px solid var(--color-border)",

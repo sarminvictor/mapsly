@@ -213,13 +213,7 @@ function NumericControls({
   );
 }
 
-function BinaryControl({
-  value,
-  active,
-}: {
-  value: string;
-  active: boolean;
-}) {
+function BinaryControl({ value, active }: { value: string; active: boolean }) {
   const bg = active ? "var(--color-agency-indigo)" : "var(--color-bg-3)";
   const fg = active ? "#fff" : "var(--color-text-3)";
   return (
@@ -321,7 +315,9 @@ export function FilterRow({
           width: 18,
           height: 18,
           borderRadius: 4,
-          background: active ? "var(--color-agency-indigo)" : "var(--color-bg-2)",
+          background: active
+            ? "var(--color-agency-indigo)"
+            : "var(--color-bg-2)",
           border: `1.5px solid ${
             active ? "var(--color-agency-indigo)" : "var(--color-border)"
           }`,
