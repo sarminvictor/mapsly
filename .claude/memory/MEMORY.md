@@ -22,3 +22,7 @@ Read at the start of every session. Append carefully — this is the long-term m
 ## What's been built
 
 (Updated by autonomous-build-loop on every successful merge. Most recent first.)
+
+### 2026-05-20
+
+- **B.0 · Design system primitives** (v0.6.8 · PR #5) — `components/ui/{Button,Input,Card,Tile,Pill,Modal}.tsx` + `lib/ui/cn.ts`. Audience-aware (smb/agency) palette via prop. Modal is the only client component (state + keyboard). Score 8.8/10. Unblocks B.1–B.9 marketing pages, E.0 SMB component library, F.0 Agency component library.
