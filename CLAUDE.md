@@ -6,7 +6,7 @@ Project-level rules. Loaded automatically by Claude Code on every session.
 
 > **All autonomous development runs on Claude Pro Max 20x + scheduled tasks · NEVER the OpenAI API.** Use the entire 5h token budget per session — the plan is paid, idle quota is wasted. See `.claude/skills/autonomous-build-loop/SKILL.md` and `docs/permissions.md`.
 
-> **Model pin · always the latest Opus.** The launchd wrapper sets `--model "$CLAUDE_MODEL"` with default `claude-opus-4-7` and allows override via `.env.local`. Bump as new models ship. Sonnet is faster but lower-quality for orchestration; Haiku is too small for the agent-spawning logic. Opus is required for the loop's quality bar.
+> **Model pin · always the latest Opus, always max effort.** The launchd wrapper sets `--model "$CLAUDE_MODEL"` (default `claude-opus-4-7`; 1M context auto-enabled on Pro Max) and `--effort "$CLAUDE_EFFORT_LEVEL"` (default `max`). Both overridable via `.env.local`. Plus `--dangerously-skip-permissions` is required in headless mode — see INC-19. Bump model as new releases ship. Sonnet is faster but lower-quality for orchestration; Haiku is too small for the agent-spawning logic. Opus + max effort is required for the loop's quality bar — session budget is the cap, not per-call cost, so we want the deepest reasoning per tick.
 
 > **Auto-merge is default.** When all gates pass, the loop merges itself to `main`. Viktor watches via `dev.mapsly.ai` and daily GitHub digest, not per-PR review. See `docs/dev-dashboard.md`.
 

@@ -28,6 +28,7 @@ import { getCostBreakdown } from "./queries/cost";
 import { getLoopState } from "./queries/loop";
 import { getInFlight } from "./queries/in-flight";
 import LoopControls from "./LoopControls";
+import LocalTime from "./LocalTime";
 
 export default function DevDashboard() {
   const sha = process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? "local";
@@ -432,7 +433,12 @@ async function InFlightCard() {
           {flight.lastSessionId
             ? `${flight.lastSessionId.slice(0, 24)} · `
             : ""}
-          started {formatAgo(flight.startedAt)}
+          started{" "}
+          {flight.startedAt ? (
+            <LocalTime iso={flight.startedAt.toISOString()} />
+          ) : (
+            "—"
+          )}
           {flight.parallelLane ? ` · lane=${flight.parallelLane}` : ""}
         </div>
       </div>
@@ -472,16 +478,6 @@ async function InFlightCard() {
       </div>
     </div>
   );
-}
-
-function formatAgo(d: Date | string | null | undefined): string {
-  if (!d) return "—";
-  const date = typeof d === "string" ? new Date(d) : d;
-  const secs = Math.max(0, Math.round((Date.now() - date.getTime()) / 1000));
-  if (secs < 60) return `${secs}s ago`;
-  if (secs < 3600) return `${Math.round(secs / 60)}m ago`;
-  if (secs < 86400) return `${Math.round(secs / 3600)}h ago`;
-  return `${Math.round(secs / 86400)}d ago`;
 }
 
 // ---------- Blockers section · conditional render (hide when empty) ----------
@@ -937,6 +933,14 @@ async function SessionsList() {
             {rec.prsAutoMerged?.length ?? 0} · avg score{" "}
             {rec.scoreAvg?.toFixed(1) ?? "—"}
           </span>
+          {rec.startedAt ? (
+            <LocalTime
+              iso={rec.startedAt}
+              mode="relative"
+              className="dev-mono"
+              style={{ fontSize: 11, color: "var(--dev-text-3)" }}
+            />
+          ) : null}
           <span
             className="dev-mono"
             style={{ fontSize: 11, color: "var(--dev-text-3)" }}
@@ -1095,9 +1099,11 @@ async function CommitsList() {
           target="_blank"
           rel="noopener noreferrer"
           style={{
-            display: "flex",
-            alignItems: "baseline",
-            gap: 12,
+            display: "grid",
+            gridTemplateColumns: "auto 1fr auto",
+            alignItems: "center",
+            columnGap: 12,
+            rowGap: 4,
             padding: "10px 12px",
             borderRadius: 8,
             background: "var(--dev-bg-3)",
@@ -1112,12 +1118,27 @@ async function CommitsList() {
           >
             {c.short}
           </span>
-          <span style={{ fontSize: 13, flex: 1 }}>{c.message}</span>
-          <span
+          <span style={{ fontSize: 13, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {c.message}
+          </span>
+          <LocalTime
+            iso={c.date}
+            mode="relative"
             className="dev-mono"
             style={{ fontSize: 11, color: "var(--dev-text-3)" }}
+          />
+          <span
+            className="dev-mono"
+            style={{
+              gridColumn: "1 / -1",
+              fontSize: 10,
+              color: "var(--dev-text-3)",
+              opacity: 0.7,
+              marginTop: 2,
+            }}
           >
-            {c.author}
+            {c.author} ·{" "}
+            <LocalTime iso={c.date} mode="absolute" />
           </span>
         </a>
       ))}
@@ -1180,6 +1201,12 @@ async function PrsList() {
               ))}
             </span>
           )}
+          <LocalTime
+            iso={pr.createdAt}
+            mode="relative"
+            className="dev-mono"
+            style={{ fontSize: 11, color: "var(--dev-text-3)" }}
+          />
           <span
             className="dev-mono"
             style={{ fontSize: 11, color: "var(--dev-text-3)" }}

@@ -32,6 +32,13 @@ fi
 
 MAX_PARALLEL="${MAX_PARALLEL_SESSIONS:-1}"
 MODEL="${CLAUDE_MODEL:-claude-opus-4-7}"
+# Effort level controls extended-thinking budget. Opus 4.7 supports the full
+# scale: low | medium | high | xhigh | max. We default to max for the loop
+# because (a) Pro Max session budget is the constraint, not per-call cost,
+# and (b) higher effort = better self-scoring + fewer recurring incidents.
+# Override via .env.local: CLAUDE_EFFORT_LEVEL=high (etc.)
+# Honor either name (CLAUDE_CODE_EFFORT_LEVEL is the canonical CLI env var)
+EFFORT="${CLAUDE_CODE_EFFORT_LEVEL:-${CLAUDE_EFFORT_LEVEL:-max}}"
 
 # Locate claude
 CLAUDE_BIN="$(command -v claude 2>/dev/null || true)"
@@ -55,7 +62,7 @@ cd "$PROJECT_DIR" || {
   exit 1
 }
 
-echo "[$(date)] SUPERVISOR TICK · model=$MODEL · max_parallel=$MAX_PARALLEL" >> "$SUPERVISOR_LOG"
+echo "[$(date)] SUPERVISOR TICK · model=$MODEL · effort=$EFFORT · max_parallel=$MAX_PARALLEL" >> "$SUPERVISOR_LOG"
 
 # ---- Stamp lastTickAt unconditionally ----
 # So we can tell from the dashboard whether launchd is even firing.
@@ -117,13 +124,19 @@ for SLOT in $(seq 1 "$MAX_PARALLEL"); do
     echo "[$(date)] WORKER $SLOT START · session=$SESSION_ID · model=$MODEL" >> "$WORKER_LOG"
 
     # Inject session context as additional env so the loop prompt can use it.
-    # CRITICAL: --dangerously-skip-permissions — without this, headless claude
-    # blocks on every tool-use approval prompt (no TTY = silent hang).
-    # See INC-19 for the symptom (0 TaskRuns ever written despite ticks firing).
+    # CRITICAL flags:
+    # - --dangerously-skip-permissions: required in headless mode, otherwise
+    #   every tool-use call blocks on an approval prompt no one can answer.
+    #   See INC-19 (0 TaskRuns ever written despite ticks firing).
+    # - --effort "$EFFORT" (default: max): controls extended-thinking budget.
+    #   max = deepest reasoning, slower per-tick, better scoring + fewer
+    #   recurring incidents. Pro Max session is the budget cap, not per-call.
     SESSION_ID="$SESSION_ID" \
     CLAUDE_MODEL="$MODEL" \
+    CLAUDE_CODE_EFFORT_LEVEL="$EFFORT" \
     "$CLAUDE_BIN" --print \
       --model "$MODEL" \
+      --effort "$EFFORT" \
       --dangerously-skip-permissions \
       "$(cat "$PROMPT_PATH")" \
       >> "$WORKER_LOG" 2>&1
