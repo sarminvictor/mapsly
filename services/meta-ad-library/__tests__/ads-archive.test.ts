@@ -348,7 +348,38 @@ describe("adsArchiveSearchUncached · errors", () => {
     ).rejects.toThrow(/HTTP 400.*Invalid search_terms/);
   });
 
-  test("HTTP 503 throws", async () => {
+  test("HTTP 400 redacts access_token if echoed in body (security)", async () => {
+    const fetchMock = vi.fn(
+      async (): Promise<Response> =>
+        errResponse(
+          400,
+          JSON.stringify({
+            error: { message: "bad token" },
+            echo: "access_token=SECRET-12345&fields=id",
+          }),
+        ),
+    );
+    __setFetchForTesting(fetchMock as unknown as typeof fetch);
+
+    let captured: unknown = null;
+    try {
+      await withCronRun("meta:test", async () =>
+        adsArchiveSearchUncached({
+          search_terms: "med spa",
+          ad_reached_countries: ["US"],
+        }),
+      );
+    } catch (e) {
+      captured = e;
+    }
+    expect(captured).toBeInstanceOf(Error);
+    const msg = (captured as Error).message;
+    expect(msg).toContain("HTTP 400");
+    expect(msg).toContain("access_token=<redacted>");
+    expect(msg).not.toContain("SECRET-12345");
+  });
+
+    test("HTTP 503 throws", async () => {
     const fetchMock = vi.fn(
       async (): Promise<Response> => errResponse(503, "upstream"),
     );

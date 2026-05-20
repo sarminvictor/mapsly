@@ -261,7 +261,7 @@ async function adsArchiveSearchRaw(
         // ignore
       }
       throw new Error(
-        `[meta-ad-library] ${operation} HTTP ${res.status} ${res.statusText}: ${bodySnippet.slice(0, 500)}`,
+        `[meta-ad-library] ${operation} HTTP ${res.status} ${res.statusText}: ${redactSecrets(bodySnippet).slice(0, 500)}`,
       );
     }
 
@@ -347,6 +347,16 @@ export function parseBand(
 }
 
 // ---- Internals ----------------------------------------------------------
+
+/**
+ * Strip secrets that Meta sometimes echoes back into error responses. If the
+ * upstream body ever contains the access_token (rare but observed when Meta
+ * 4xx's a malformed request) we MUST NOT propagate it into Sentry / logs.
+ * Per `.claude/rules/security.md` § Secret handling.
+ */
+function redactSecrets(raw: string): string {
+  return raw.replace(/(access_token=)[^&\s"]+/gi, "$1<redacted>");
+}
 
 function parseBandedNumber(raw: string | undefined): number | null {
   if (raw == null) return null;
