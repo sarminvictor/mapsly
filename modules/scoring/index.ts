@@ -47,3 +47,17 @@ export {
   type MapslyScoreDimensionBreakdown,
   type SnapshotLikeSubScores,
 } from "./mapsly-score";
+
+export {
+  adVisibilityBonus,
+  computeMsiScore,
+  MSI_AD_BONUS,
+  MSI_SCORE_MAX,
+  MSI_VOLUME_BONUS,
+  MSI_VOLUME_SATURATION,
+  rankByMsiInMetro,
+  rankByMsiInMetros,
+  reviewVolumeBonus,
+  type MsiInput,
+  type MsiResult,
+} from "./msi";
