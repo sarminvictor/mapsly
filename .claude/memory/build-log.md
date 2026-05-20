@@ -570,3 +570,5 @@ Outcome: SUCCESS. Dashboard's auto-enhance card should show 0 signals on next re
 
   Lessons:
   - Pre-existing test failures on main are a defect we should catch via the post-merge health check (observability.md §post-merge), not via every PR's CI. Worth a INC- entry for the test-fixture-drift pattern: tests that depend on filesystem state break silently when new rule files land.
+
+SES-2026-05-20-cowork-2040 · D.3 · SUCCESS · score 9.2/10 · 731+/0- · ci-green · merged
