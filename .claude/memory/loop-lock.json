@@ -2,8 +2,8 @@
   "state": "idle",
   "sessionId": null,
   "startedAt": null,
-  "lastTickAt": "2026-05-20T11:05:00Z",
+  "lastTickAt": "2026-05-20T11:28:48Z",
   "cooldownUntil": null,
   "consecutiveFailures": 0,
-  "note": "SES-2026-05-20-cowork-05 · D.1 SHIPPED · PR #11 merged (1c08ed0) · v0.6.13 · score 9.6/10 (informational). Resume of prior INCOMPLETE iteration cowork-1009. Type-widening fix only; original 74-signal registry untouched."
+  "note": "SES-2026-05-20-cowork-06 \u00b7 C.11 SHIPPED \u00b7 PR #12 merged (6b67a93) \u00b7 v0.6.14 \u00b7 rate-limit middleware with 3 profiles + decorator + 14 tests"
 }
