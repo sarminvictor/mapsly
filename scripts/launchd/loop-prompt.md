@@ -24,6 +24,33 @@ Decision:
 
 Write loop-lock with `state: running`, fresh sessionId, startedAt = now. Commit + push as `chore(loop): lock {sessionId} start`.
 
+## 2.5 Pre-flight cost ceiling check
+
+Query `CronRun.costUsd` sum for today:
+
+```ts
+const todayCost = await prisma.cronRun.aggregate({
+  where: { startedAt: { gte: startOfToday() } },
+  _sum: { costUsd: true },
+});
+const budget = await prisma.costBudget.findUnique({
+  where: { scope: "global" },
+});
+if (
+  budget &&
+  todayCost._sum.costUsd >= budget.dailyBudgetUsd * budget.haltThresholdPct
+) {
+  // Halt: cooldown until midnight, notify
+  setCooldown(midnightUtc());
+  notifyViktor(
+    "CRITICAL",
+    "Daily budget exhausted",
+    `$${todayCost._sum.costUsd}/$${budget.dailyBudgetUsd}`,
+  );
+  exit();
+}
+```
+
 ## 3. Mandatory boot reads in order
 
 1. `.claude/memory/incidents.md` — every entry. Apply known fixes on sight.

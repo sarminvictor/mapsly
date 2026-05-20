@@ -287,6 +287,7 @@ git push --force-with-lease origin main
 **Root cause:** Next 16 with `experimental.cacheComponents: true` (PPR) changed the `revalidateTag` signature: it now requires a `cacheLife` profile name as the second argument (e.g., `"seconds"`, `"minutes"`, `"days"`). The single-argument form is no longer accepted.
 
 **Fix applied:** Pass the profile explicitly:
+
 ```ts
 revalidateTag("dev-dashboard-github", "seconds");
 ```

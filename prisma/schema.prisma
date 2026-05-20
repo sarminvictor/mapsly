@@ -718,3 +718,50 @@ enum TaskRunOutcome {
   ABORTED
   SKIPPED
 }
+
+// ============================================================================
+// NOTIFICATIONS · the autonomous loop's inbox to Viktor
+// Surfaced on dev.mapsly.ai · acknowledged via dashboard
+// ============================================================================
+
+model Notification {
+  id          String   @id @default(cuid())
+  level       NotificationLevel @default(INFO)
+  category    String   // "loop" | "merge" | "incident" | "cost" | "blocker" | "rollback"
+  title       String
+  body        String?  @db.Text
+  taskId      String?  // optional link to Task
+  incidentId  String?  // optional link to INC-
+  prNumber    Int?
+  url         String?  @db.Text
+  createdAt   DateTime @default(now())
+  readAt      DateTime?
+
+  @@index([readAt, createdAt])
+  @@index([category, createdAt])
+}
+
+enum NotificationLevel {
+  INFO
+  WARN
+  ERROR
+  CRITICAL
+}
+
+
+// ============================================================================
+// COST GOVERNANCE · per-day budget enforcement
+// Loop reads `currentSpendUsd` vs `dailyBudgetUsd` in supervisor pre-flight
+// ============================================================================
+
+model CostBudget {
+  id              String   @id @default(cuid())
+  scope           String   @unique  // "global" | "smb" | "agency-solo" | etc.
+  dailyBudgetUsd  Float
+  weeklyBudgetUsd Float?
+  monthlyBudgetUsd Float?
+  alertThresholdPct Float  @default(0.80)  // alert at 80% of daily
+  haltThresholdPct  Float  @default(1.00)  // halt loop at 100%
+  updatedAt       DateTime @updatedAt
+  createdAt       DateTime @default(now())
+}

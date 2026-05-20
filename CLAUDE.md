@@ -56,6 +56,8 @@ Every TS/TSX file you touch loads the relevant rule docs as context. Read them b
 
 - **`.claude/rules/incident-prevention.md` — read `.claude/memory/incidents.md` first; encode new failures**
 - `.claude/rules/conventions.md` — naming · structure · imports
+- `.claude/rules/git-discipline.md` — branches · commits · force-push · author identity
+- `.claude/rules/observability.md` — Sentry tags · logging · correlation IDs · post-merge health check
 - `.claude/rules/performance.md` — the #1 priority
 - `.claude/rules/caching.md` — tag everything
 - `.claude/rules/scalability.md` — indexes · batching · rate limits
@@ -112,7 +114,7 @@ You ARE the orchestrator. Every non-trivial request goes through:
 
 ```
 app/                                # Next.js routes
-  [locale]/                         # i18n root segment
+  [locale]/                         # i18n root: en, es, en-CA, fr
     (marketing)/                    # public landing
     (smb)/                          # Maria's portal · cream + coral
     (agency)/                       # Tom's portal · cool gray + indigo

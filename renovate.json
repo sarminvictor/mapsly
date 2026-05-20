@@ -1,0 +1,39 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":semanticCommits",
+    ":automergePatch",
+    ":automergeMinor"
+  ],
+  "labels": ["autonomous", "deps"],
+  "rangeStrategy": "bump",
+  "schedule": ["before 6am on monday"],
+  "timezone": "America/Toronto",
+  "packageRules": [
+    {
+      "matchUpdateTypes": ["major"],
+      "labels": ["needs-review", "deps", "major"],
+      "automerge": false
+    },
+    {
+      "matchPackagePatterns": ["^next$", "^react", "^@prisma", "^typescript$", "^next-intl$", "^next-auth$"],
+      "groupName": "framework",
+      "automerge": false,
+      "labels": ["needs-review", "deps", "framework"]
+    },
+    {
+      "matchPackagePatterns": ["^@types/"],
+      "automerge": true,
+      "groupName": "type-defs"
+    },
+    {
+      "matchDepTypes": ["devDependencies"],
+      "automerge": true
+    }
+  ],
+  "vulnerabilityAlerts": {
+    "labels": ["security", "needs-review"],
+    "automerge": false
+  }
+}
