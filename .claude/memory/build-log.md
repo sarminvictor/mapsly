@@ -383,3 +383,32 @@ Validation:
 - Lighthouse failed on landing page (errors-in-console, document-latency-insight) — pre-existing, unrelated to H.6 (no UI touched). Not a merge gate per loop.md STEP 7.
 
 Outcome: SUCCESS · PR #16 squash-merged to main · sha=87507fc · v0.6.17 → v0.6.18 (chore(version) bump 60856a1). Task H.6 DONE in Postgres.
+
+## SES-2026-05-20-cowork-1340 · 2026-05-20T13:53Z · D.2 ship
+
+Cowork tick (loop.md v0.6.6). Sandbox bootstrap: /tmp owned by `nobody`/full disk → fell back to `/sessions/sleepy-zealous-hamilton/mapsly-loop` (nvme1n1, 4.9 GB free). Capability flags: CAN_UNLINK=1, CAN_PNPM_INSTALL=0, CAN_DEPLOY_CHECK=0 — validation deferred to Vercel CI per INC-31.
+
+Claimed D.2 (Mapsly Score formula · 6-dim weighted composite, M effort, deps D.1 done, no `requires:*` tags → env-agnostic). Eligible filter from STEP 3 worked correctly — A.9 skipped (requires:pnpm-install).
+
+Changes (5 new files, +1284/-0):
+- `modules/scoring/types.ts` — `MapslyScoreSubScores`, `MAPSLY_SCORE_DIMENSIONS`, per-helper input shapes
+- `modules/scoring/sub-scores.ts` — 6 derivation helpers + saturation thresholds + `clamp01`
+- `modules/scoring/mapsly-score.ts` — `computeMapslyScore` / `computeMapslyScoreFromSnapshot` / `computeMapslyScoreBreakdown` + frozen `MAPSLY_SCORE_WEIGHTS`
+- `modules/scoring/index.ts` — barrel
+- `modules/scoring/__tests__/mapsly-score.test.ts` — 56 cases / 12 describes
+
+Weights (sum=1.0, frozen, module-load self-check throws on drift):
+reputation 0.25 · communication 0.15 · profileCompleteness 0.15 · trust 0.15 · pricingTransparency 0.10 · brandPresence 0.20
+
+Validation:
+- code-reviewer · independent · PASS-WITH-NITS 9/10 (both nits addressed pre-push: JSDoc on `num` clarifying intentional negative-collapses-to-0; `Object.freeze` on breakdown return + regression test)
+- scorer · 9.60/10 aggregate (Completion 9.5 · Quality 9.0 · Audience-fit 9.5 · Relevance 10 · Performance 10)
+- In-iteration smoke test via parallel JS port: 9/9 composite + 23/23 derivations pass
+- Vercel CI: validate ✓ test ✓ build ✓ integration ✓ bundle-check ✓ ci-passed ✓ · lighthouse failure tolerated (no UI shipped, same exception as E.0/C.2/C.11)
+- Required one fix-up commit: prettier --check failed on first push (formatting only); resolved via prettier@3.8.3 installed in /sessions/sleepy-zealous-hamilton/prettier (no semantic changes).
+
+Outcome: SUCCESS · PR #17 squash-merged to main · sha=a09f2e6 · v0.6.18 → v0.6.19. Task D.2 DONE in Postgres.
+
+Unblocks: D.3 (MSI rank), D.5 (Match Score), E.1 (SMB dashboard ScoreBreakdown), C.9 (weekly snapshot-write cron persists composite to BusinessSnapshot.mapslyScore).
+
+· One-line summary: SES-2026-05-20-cowork-1340 · D.2 · SUCCESS · score 9.60/10 · 1284+/0- · ci=green · merge=AUTO

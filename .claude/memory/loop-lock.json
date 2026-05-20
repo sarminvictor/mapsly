@@ -2,8 +2,8 @@
   "state": "idle",
   "sessionId": null,
   "startedAt": null,
-  "lastTickAt": "2026-05-20T13:26:58Z",
+  "lastTickAt": "2026-05-20T13:55:56Z",
   "cooldownUntil": null,
   "consecutiveFailures": 0,
-  "note": "v0.6.18 · SES-2026-05-20-cowork-06 shipped H.6 via /tmp/zen-loop/mapsly-work bootstrap · code-reviewer PASS · ci-passed green · merged PR #16"
+  "note": "v0.6.19 · SES-2026-05-20-cowork-1340 shipped D.2 (Mapsly Score formula · 6-dim composite) via /sessions clone bootstrap (/tmp was full owned by nobody) · code-reviewer PASS-WITH-NITS 9/10 · scorer 9.60/10 · ci-passed green · merged PR #17"
 }
