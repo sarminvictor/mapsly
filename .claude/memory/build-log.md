@@ -155,3 +155,24 @@ git reset --hard origin/main
 - `.git/ORIG_HEAD.lock` (0 bytes)
 
 **Prevention shipped:** none new — the native launchd loop IS the prevention, and it's already on main as of commit `40c54df`.
+
+## SES-2026-05-20-cowork-03 · v0.6.5 ship · capability-aware task routing
+
+Viktor: *"we should not stop our process if only one task is blocked - we can continue with our process, take not blocked tasks and so on. Any incident should not block ALL tasks."*
+
+**The defect:** v0.6.4 STEP 0/STEP 1 set a 4h `loop-lock` cooldown when the Cowork sandbox unlink probe failed. That halted the entire queue — including docs, memory, research, dashboard, and DB-write tasks that don't need `pnpm install` at all.
+
+**The fix:** capability gaps narrow eligibility, never halt the loop.
+
+Changes:
+- `.claude/loop.md` STEP 0: probe sets advisory `CAN_UNLINK` / `CAN_PNPM_INSTALL` / `CAN_DEPLOY_CHECK` flags. No `LOOP_HALT_REASON`.
+- `.claude/loop.md` STEP 1: capability-halt exit DELETED. Cooldown reserved for catastrophic / repeated failures only.
+- `.claude/loop.md` STEP 3: filter eligible queue by `Task.tags` `requires:*` against current capability set. Empty filtered queue → exit normally, no cooldown.
+- `.claude/loop.md` STEP 6: deploy-check EPERM errors auto-tag the task `requires:deploy-check`, release back to PENDING, continue to next eligible. Loop self-learns.
+- `.claude/loop.md` STEP 10: explicit cooldown discipline table — capability gaps are never a cooldown trigger.
+- `.claude/rules/capability-routing.md`: new canonical rule for the capability vocabulary + task tagging + filter logic.
+- `.claude/memory/incidents.md`: INC-30 documents the design principle + the v0.6.4 → v0.6.5 fix.
+- `.claude/memory/loop-lock.json`: reset to `idle`, cooldown cleared, so next tick re-probes.
+- `package.json`: 0.6.4 → 0.6.5.
+
+Outcome: SUCCESS. No code-shipping ran in this iteration (env-agnostic ship from Cowork sandbox via /tmp git escape hatch). Next /loop tick on Mac OR Cowork will see capability-aware routing live.

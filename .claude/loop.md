@@ -1,4 +1,4 @@
-# Mapsly autonomous build loop · v0.6.4 strict per-iteration prompt
+# Mapsly autonomous build loop · v0.6.5 strict per-iteration prompt
 
 Read by Claude Code's Desktop Scheduled Task → fires every 5 min → executes this file as the prompt for one iteration. Each iteration ships AT MOST one task end-to-end (claim → implement → review → score → auto-merge OR hold) OR exits cleanly with one-line status.
 
@@ -41,22 +41,24 @@ case "$PWD" in
   *) IS_SANDBOX=0 ;;
 esac
 
-# 0b.1 · Cowork sandbox capability probe (INC-29).
-# Even if STEP 0c can rm orphan _tmp_* files in MOST sessions, the Cowork mount in
-# CURRENT desktop builds blocks the unlink() syscall categorically. Probe-test once
-# per iteration: if even a just-created file cannot be removed, pnpm install will
-# fail downstream and nothing requiring deploy-check can ship. Set cooldown + exit.
-if [ "$IS_SANDBOX" = "1" ]; then
-  PROBE_FILE="_probe_loop_$$_$(date +%s%N 2>/dev/null || date +%s)"
-  touch "$PROBE_FILE" 2>/dev/null
-  if ! rm -f "$PROBE_FILE" 2>/dev/null; then
-    echo "[step-0] Cowork FUSE unlink wall detected — pnpm install impossible"
-    # The agent layer must now: stamp lastTickAt, write Notification, set 4h cooldown
-    # in loop-lock, do NOT claim a task, exit ≤1 line. See INC-29.
-    LOOP_HALT_REASON="cowork-fuse-wall"
-    LOOP_HALT_COOLDOWN_HOURS=4
-  fi
+# 0b.1 · Capability probe (INC-29 + INC-30).
+# Probe whether unlink() works in this env. Sets ADVISORY flags only — never halts.
+# Per .claude/rules/capability-routing.md: capability gaps narrow eligibility, they do NOT halt the loop.
+CAN_UNLINK=1
+PROBE_FILE="_probe_loop_$$_$(date +%s%N 2>/dev/null || date +%s)"
+touch "$PROBE_FILE" 2>/dev/null
+if ! rm -f "$PROBE_FILE" 2>/dev/null; then
+  CAN_UNLINK=0
+  echo "[step-0] CAN_UNLINK=0 (Cowork FUSE wall) — code-ship tasks filtered, env-agnostic tasks proceed"
+else
+  echo "[step-0] CAN_UNLINK=1 — all task capabilities available"
 fi
+# Derived: pnpm install requires unlink. Deploy-check (typecheck/lint/build) requires it
+# because next build cleans .next/ via unlink. So both ride on CAN_UNLINK.
+CAN_PNPM_INSTALL="$CAN_UNLINK"
+CAN_DEPLOY_CHECK="$CAN_UNLINK"
+# Git push always works — via /tmp escape hatch (INC-01) if direct .git is locked.
+CAN_GIT_PUSH=1
 
 # 0c · Stale pnpm tmp orphans (cause "Operation not permitted" cascade on next pnpm install)
 rm -f _tmp_*_tmp_* _tmp_[0-9]* 2>/dev/null
@@ -100,7 +102,7 @@ If any recovery action prints an error, log it to the supervisor field of TaskRu
 
 ---
 
-## STEP 1 · Honor the loop-lock + capability halt
+## STEP 1 · Honor the loop-lock · capability flags are advisory
 
 Read `.claude/memory/loop-lock.json`.
 
@@ -111,12 +113,12 @@ Read `.claude/memory/loop-lock.json`.
 | `cooldown` | past | Flip to `idle`, proceed |
 | `idle` | — | Proceed |
 
-Stamp `lastTickAt` = now ISO UTC on EVERY iteration (even skip iterations) via Edit tool. The dashboard's "live" indicator depends on this.
+Stamp `lastTickAt` = now ISO UTC on EVERY iteration (even skip iterations). The dashboard's "live" indicator depends on this.
 
-**Capability halt (LOOP_HALT_REASON set in STEP 0):** if STEP 0 set `LOOP_HALT_REASON=cowork-fuse-wall`, the iteration MUST:
-1. Stamp `lastTickAt`, set `state=cooldown`, `cooldownUntil=now + 4h`, `note="Cowork FUSE wall (INC-29) — switch to /loop in Claude Code on Mac"`.
-2. Insert ONE Notification row (idempotent: dedupe by `title` within last 24h) so the dashboard's Blockers card shows: `title="Loop stalled — Cowork sandbox cannot install deps"`, `level=WARN`, `body="Run /loop 5m in Claude Code on your Mac instead. See INC-29."`, `actionHref="/dev"`, `createdAt=now`.
-3. Exit ≤1 line: `cowork fuse wall, 4h cooldown, switch to /loop`. Do NOT proceed to STEP 2+. Nothing useful can ship from this environment.
+**Capability flags from STEP 0 are advisory, not gating.** Per `.claude/rules/capability-routing.md` and INC-30, a missing capability narrows which tasks are eligible — it does NOT halt the loop. The v0.6.4 "fuse-wall halt + 4h cooldown" pattern is REMOVED. If `CAN_UNLINK=0` (Cowork FUSE wall), this iteration:
+- Stamps lastTickAt
+- Optionally inserts ONE dashboard Notification (dedupe by title within 24h) so Viktor sees the constraint: `title="Sandbox in degraded mode — code tasks waiting for /loop on Mac"`, `level=INFO`, `body="Cowork sandbox cannot pnpm install. Env-agnostic tasks (docs, memory, research, DB writes) still ship. Run /loop 5m on Mac for code tasks. INC-29."`, `actionHref="/dev"`
+- Proceeds to STEP 2+ with the filter applied in STEP 3
 
 ---
 
@@ -148,7 +150,16 @@ ORDER BY t.priority NULLS LAST, g."sortOrder", t."sortOrder", t.id
 LIMIT 20;
 ```
 
-Filter for deps-satisfied (all comma-separated `deps` must be DONE). If none → exit ≤1 line: `no eligible tasks, queue empty`.
+Filter for deps-satisfied (all comma-separated `deps` must be DONE). 
+
+**Then filter by current capabilities** per `.claude/rules/capability-routing.md`:
+- If `CAN_PNPM_INSTALL=0` (Cowork sandbox), exclude any Task whose `tags` contains `requires:pnpm-install` OR `requires:deploy-check`.
+- If `CAN_DEPLOY_CHECK=0`, exclude tasks that would need `pnpm typecheck/lint/build` to validate. Code-ship tasks typically need this; pure docs/memory/research tasks do not.
+- Tasks with NO `requires:*` tag are treated as env-agnostic (Read/Write/Edit/Bash/Postgres/Agent calls only) and always eligible.
+
+If the eligible queue is empty AFTER capability filtering → exit ≤1 line: `no eligible tasks for current capabilities (CAN_UNLINK={0|1}), idle`. **No cooldown.** The next tick re-probes; a `/loop` tick on the real Mac will see CAN_UNLINK=1 and pick up the same task.
+
+If the eligible queue is empty for DEPENDENCY reasons (everything blocked on incomplete predecessors) → exit ≤1 line: `no eligible tasks, queue empty`. **No cooldown.**
 
 **Before claiming**: look for prior INCOMPLETE TaskRun on this task with a `branchName`. If found, this iteration RESUMES that branch (`git checkout branchName`), not start fresh.
 
@@ -215,7 +226,11 @@ Every applicable mode MUST run **inside this iteration**, not "deferred." If a m
 
 ### Validation order (do in this exact sequence)
 
-1. **`pnpm deploy-check`** locally · **NON-SKIPPABLE, FIRST STEP**. Self-heal any `_tmp_*` orphans from STEP 0 first. Run via Bash and check the exit code: if `$? -ne 0`, the iteration is broken — read the output, fix the errors, retry deploy-check (this is part of the STEP 7 retry budget). Do NOT skip this step "deferring to CI" — Vercel's build is 60s slower than local deploy-check, and catching errors locally saves real wall-clock per fix iteration.
+1. **`pnpm deploy-check`** locally · **NON-SKIPPABLE for code-ship tasks**. Self-heal any `_tmp_*` orphans from STEP 0 first. Run via Bash and check the exit code: if `$? -ne 0`, read the output. Differentiate the failure mode:
+   - **Compile/lint/type errors** → genuine task failure. Read output, fix code, retry (counts against STEP 7 retry budget of 6).
+   - **EPERM / unlink / "Operation not permitted"** → environment incapability (CAN_UNLINK should have prevented this; if not, STEP 0 probe needs fixing). Auto-tag this task `requires:deploy-check` (so future iterations skip it in degraded env), mark TaskRun INCOMPLETE, save `branchName`, release Task back to PENDING, and CONTINUE to STEP 3 to try the next eligible task — do NOT exit the iteration. This is the v0.6.5 capability-routing pattern.
+   
+   Do NOT skip this step "deferring to CI" — Vercel's build is 60s slower than local deploy-check, and catching errors locally saves real wall-clock per fix iteration. For env-agnostic tasks (docs/memory/research with NO `requires:deploy-check` tag), deploy-check is N/A and validation falls back to STEP 6.5 below.
 2. **Unit + integration tests** · run `pnpm test:run` locally. If any pre-existing test fails, fix before proceeding.
 3. **Push branch + open PR** if not already done.
 4. **Wait for Vercel preview URL** · poll `gh pr view {n} --json statusCheckRollup,deployments` every 15s for up to 4 min. Vercel posts a preview comment with `https://*.vercel.app` URL within ~60s of push. THIS is the URL for browser/email/Lighthouse validation.
@@ -331,7 +346,18 @@ If during execution you detect approaching usage limit (warning in output, `usag
 
 ---
 
-## STEP 10 · Discipline
+## STEP 10 · Discipline · cooldown only on real failures
+
+**Cooldown is reserved for catastrophic / repeated failures, NEVER for capability gaps:**
+- ≥3 consecutive task failures (same task, different runs) → 1h cooldown + INC- entry
+- ≥5 consecutive failures across different tasks → 24h cooldown + "loop unhealthy" INC- entry
+- Quota approaching (STEP 9) → 4h cooldown
+- Rate-limit response from Anthropic API → 4h cooldown
+- `CAN_UNLINK=0` is NOT a cooldown trigger. Filter the queue; if empty, exit normally.
+- `code-ship task incompatible with current env` is NOT a cooldown trigger. Skip the task, try the next eligible.
+
+The dashboard surfaces capability-degraded mode as an INFO Notification (not WARN), so Viktor knows the loop is running but in narrowed scope. Code tasks queue up until the next `/loop` tick on the Mac picks them up.
+
 
 - Ship at most ONE task per iteration. Move on next iteration.
 - Never surface a sandbox-internal issue (_tmp_*, .git locks, FUSE unlink) as a Viktor blocker. Use STEP 0 self-heal.

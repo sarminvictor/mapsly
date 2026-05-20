@@ -670,3 +670,41 @@ This is structural: there is no escape hatch from inside the sandbox. INC-01's `
 
 **Confidence:** high (probe-tested in this iteration: unlink, mv, rm all denied; truncate-write works)
 **Tags:** loop, cowork, fuse, pnpm-install, structural, scheduler-mode
+
+### INC-2026-05-20-30 · v0.6.4 halted the entire loop on a single capability gap · capability halts must be scoped
+
+**Symptom:** v0.6.4 shipped a "Cowork FUSE wall halt path" in `.claude/loop.md` STEP 0/STEP 1. When STEP 0 probed `touch + rm _probe_$$` and `rm` returned `Operation not permitted`, the iteration set `LOOP_HALT_REASON=cowork-fuse-wall` and STEP 1 unconditionally exited with a 4-hour cooldown on `loop-lock`. This blocked the ENTIRE queue from running for 4 hours, even though most tasks in the queue (docs, memory, research, DB writes, dashboard tweaks) don't need `pnpm install` and would have shipped fine from the sandbox via Write/Edit/Postgres MCP.
+
+Viktor's reaction was the correct design check: *"Any incident should not block ALL tasks."*
+
+**Root cause:** v0.6.4 conflated two different concepts:
+1. *Environment capability* — what THIS env can physically do (run `unlink()`, install deps, open Chrome, reach Gmail tab, etc.)
+2. *Loop liveness* — whether the loop should be running at all
+
+A FUSE unlink wall is a capability gap, not a liveness failure. The loop is healthy; the queue has work; the env just can't ship a SUBSET of tasks. Treating it as a liveness failure (4h global cooldown) wastes the rest of the queue for no reason.
+
+The deeper design flaw: tasks had no way to declare what capabilities they need, and the loop had no way to filter the queue by what the env can offer. Without that vocabulary, every capability gap looked like a hard wall.
+
+**Fix applied (v0.6.5):**
+1. **STEP 0** now sets advisory capability flags (`CAN_UNLINK`, `CAN_PNPM_INSTALL`, `CAN_DEPLOY_CHECK`, `CAN_GIT_PUSH`) instead of `LOOP_HALT_REASON`.
+2. **STEP 1** no longer has a capability-halt exit. Cooldown is reserved for catastrophic / repeated failures, never for capability gaps.
+3. **STEP 3** filters the eligible queue by `Task.tags requires:*` against current capabilities. Tasks with no `requires:*` tag are env-agnostic (run anywhere). Tasks tagged `requires:deploy-check` skip in Cowork; tasks tagged `requires:pnpm-install` skip there too.
+4. **STEP 6** soft-handles EPERM/unlink errors from deploy-check: auto-tag the Task `requires:deploy-check`, mark TaskRun INCOMPLETE, release back to PENDING, continue to next eligible task in the SAME iteration. The loop SELF-LEARNS which tasks need which capabilities.
+5. **STEP 10** explicit cooldown discipline: never set cooldown for a capability gap or an empty-eligible-queue exit — let the next tick re-probe.
+6. **New rule:** `.claude/rules/capability-routing.md` documents the capability vocabulary, task tagging convention, STEP 3 filter logic, and anti-patterns. Future capabilities (browser, email-tab, lighthouse, vercel-deploy) follow the same pattern.
+
+**Prevention:**
+1. **Design principle (now in capability-routing.md):** A capability gap is a routing constraint, not a halt signal. It narrows which tasks are eligible — it does not stop the loop.
+2. **Task taxonomy:** every task that requires a specific env capability declares it via `tags: requires:<cap>`. Default is env-agnostic. Failures auto-tag (STEP 6 soft-handler).
+3. **Cooldown discipline:** the cooldown trigger table in capability-routing.md is the single source of truth. Only catastrophic / repeated-failure / rate-limit conditions trigger cooldown.
+4. **Dashboard surface:** capability-degraded mode is INFO, not WARN. The user-facing copy is *"Sandbox in degraded mode — code tasks waiting for /loop on Mac. Env-agnostic tasks still shipping."* (not the v0.6.4 "Loop stalled — switch to /loop" alarmist phrasing).
+5. **The probe in STEP 0 is non-destructive** — it sets flags, it doesn't halt. Halting decisions live in STEP 1 (loop-lock) and STEP 3 (capability filter), never in STEP 0.
+
+**Where encoded:**
+- `.claude/loop.md` (STEP 0 probe, STEP 1 no-halt, STEP 3 capability filter, STEP 6 auto-learn, STEP 10 cooldown discipline)
+- `.claude/rules/capability-routing.md` (new file · canonical rule)
+- `.claude/memory/incidents.md` (this entry)
+- INC-29 amendment: the FUSE wall remains a real env constraint, but its impact is now scoped via capability tags, not via a global halt.
+
+**Confidence:** high
+**Tags:** loop, design, capability-routing, scoped-halts, queue-discipline, INC-29-amendment
