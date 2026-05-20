@@ -90,8 +90,12 @@ describe("reviewVolumeBonus", () => {
   });
 
   test("clamped above saturation", () => {
-    expect(reviewVolumeBonus(MSI_VOLUME_SATURATION * 10)).toBe(MSI_VOLUME_BONUS);
-    expect(reviewVolumeBonus(MSI_VOLUME_SATURATION * 1000)).toBe(MSI_VOLUME_BONUS);
+    expect(reviewVolumeBonus(MSI_VOLUME_SATURATION * 10)).toBe(
+      MSI_VOLUME_BONUS,
+    );
+    expect(reviewVolumeBonus(MSI_VOLUME_SATURATION * 1000)).toBe(
+      MSI_VOLUME_BONUS,
+    );
   });
 
   test("first reviews matter more (log-shape)", () => {
@@ -128,19 +132,29 @@ describe("adVisibilityBonus", () => {
 describe("computeMsiScore", () => {
   test("neutral inputs -> mapslyScore", () => {
     expect(
-      computeMsiScore(input("b1", { mapslyScore: 5, reviewCount: 0, hasActiveAds: false })),
+      computeMsiScore(
+        input("b1", { mapslyScore: 5, reviewCount: 0, hasActiveAds: false }),
+      ),
     ).toBe(5);
   });
 
   test("null mapslyScore -> 0 base", () => {
     expect(
-      computeMsiScore(input("b1", { mapslyScore: null, reviewCount: 0, hasActiveAds: false })),
+      computeMsiScore(
+        input("b1", { mapslyScore: null, reviewCount: 0, hasActiveAds: false }),
+      ),
     ).toBe(0);
   });
 
   test("NaN mapslyScore -> 0 base (defensive)", () => {
     expect(
-      computeMsiScore(input("b1", { mapslyScore: Number.NaN, reviewCount: 0, hasActiveAds: false })),
+      computeMsiScore(
+        input("b1", {
+          mapslyScore: Number.NaN,
+          reviewCount: 0,
+          hasActiveAds: false,
+        }),
+      ),
     ).toBe(0);
   });
 
@@ -158,7 +172,9 @@ describe("computeMsiScore", () => {
 
   test("negative mapslyScore -> 0 base", () => {
     expect(
-      computeMsiScore(input("b1", { mapslyScore: -1, reviewCount: 0, hasActiveAds: false })),
+      computeMsiScore(
+        input("b1", { mapslyScore: -1, reviewCount: 0, hasActiveAds: false }),
+      ),
     ).toBe(0);
   });
 
@@ -183,7 +199,11 @@ describe("computeMsiScore", () => {
   test("bonuses additive on top of base", () => {
     const base = 7;
     const score = computeMsiScore(
-      input("b1", { mapslyScore: base, reviewCount: MSI_VOLUME_SATURATION, hasActiveAds: true }),
+      input("b1", {
+        mapslyScore: base,
+        reviewCount: MSI_VOLUME_SATURATION,
+        hasActiveAds: true,
+      }),
     );
     expect(score).toBeCloseTo(base + MSI_VOLUME_BONUS + MSI_AD_BONUS, 9);
   });

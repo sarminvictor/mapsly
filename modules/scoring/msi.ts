@@ -98,8 +98,7 @@ export const MSI_AD_BONUS = 0.3;
  * active ads). Exposed for tests + documentation; never used as a UI
  * bound because MSI is rendered as rank, not score.
  */
-export const MSI_SCORE_MAX =
-  MAPSLY_SCORE_MAX + MSI_VOLUME_BONUS + MSI_AD_BONUS;
+export const MSI_SCORE_MAX = MAPSLY_SCORE_MAX + MSI_VOLUME_BONUS + MSI_AD_BONUS;
 
 // ----------------------------------------------------------------------------
 // Types
