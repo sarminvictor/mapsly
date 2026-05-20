@@ -135,19 +135,29 @@ export interface RunReport {
 
 /** Spanish-only markers we count for language detection. Lowercase. */
 export const SPANISH_MARKERS: readonly string[] = Object.freeze([
+  // Spanish-only orthography (catches "¡Gracias", "¿Cómo está?", "señor", "año")
   "ñ",
   "¡",
   "¿",
-  " gracias ",
-  " usted ",
-  " ustedes ",
-  " pacientes",
-  " agradec",
-  " visita",
-  " saluda",
-  " mucho",
-  " disculpa",
-  " lamenta",
+  // Distinctive Spanish words — substring match without word boundaries.
+  // Picked to be vanishingly unlikely as substrings of English words.
+  // "usted" is a special case ("trUSTED" contains it), so we require a
+  // leading space; the rest use simple substring matches.
+  "gracias",
+  " usted",
+  " ustedes",
+  "pacientes",
+  "agradec",
+  "esperamos",
+  "saludos",
+  "cordiales",
+  "amable",
+  "nuestro",
+  "nuestra",
+  "disculpa",
+  "lamenta",
+  "pronto",
+  "visita",
 ]);
 
 /** Count Spanish-language markers in a string. Conservative — meant for
