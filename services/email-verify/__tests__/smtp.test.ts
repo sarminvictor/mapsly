@@ -594,6 +594,52 @@ describe("transport failures all → inconclusive", () => {
     expect(out.verdict).toBe("inconclusive");
     expect(out.reason).toBe("socket-timeout");
   });
+
+  test("PROBE_TIMEOUT_MS hard ceiling fires when server never responds → inconclusive probe-timeout", async () => {
+    __setResolverForTesting(
+      fakeResolver([{ exchange: "mx.example.com", priority: 10 }]),
+    );
+    // Factory builds a socket that never sends ANY data — not even the
+    // banner. The 10s hard outer timer (PROBE_TIMEOUT_MS) is the only
+    // thing that can terminate the probe.
+    const silentFactory: SocketFactory = (_host, _port) => {
+      let dataFn: ((chunk: string) => void) | null = null;
+      let timeoutFn: (() => void) | null = null;
+      let errorFn: ((err: Error) => void) | null = null;
+      let closeFn: (() => void) | null = null;
+      const sock = {
+        setTimeout: vi.fn(),
+        on(event: string, listener: (...args: unknown[]) => void): void {
+          if (event === "data") dataFn = listener as typeof dataFn;
+          else if (event === "error") errorFn = listener as typeof errorFn;
+          else if (event === "close") closeFn = listener as typeof closeFn;
+          else if (event === "timeout")
+            timeoutFn = listener as typeof timeoutFn;
+        },
+        write: vi.fn(),
+        end: vi.fn(),
+        destroy: vi.fn(),
+      } as unknown as SocketLike;
+      // Silence "unused" lints — these are wired even though we don't fire them.
+      void dataFn;
+      void timeoutFn;
+      void errorFn;
+      void closeFn;
+      return sock;
+    };
+    __setSocketFactoryForTesting(silentFactory);
+
+    vi.useFakeTimers();
+    const run = await openCronRun("test");
+    const promise = runWithCronRun(run, () =>
+      smtpVerifyEmailUncached({ email: "alice@example.com" }),
+    );
+    // Advance past the 10s PROBE_TIMEOUT_MS hard timer.
+    await vi.advanceTimersByTimeAsync(11_000);
+    const out = await promise;
+    expect(out.verdict).toBe("inconclusive");
+    expect(out.reason).toBe("probe-timeout");
+  });
 });
 
 describe("cron-context invariant", () => {

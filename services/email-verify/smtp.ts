@@ -513,7 +513,7 @@ async function probeRcpt(options: {
           return;
         }
         case "rcpt": {
-          rcptVerdict = { code, reason: extractReason(line, code) };
+          rcptVerdict = { code, reason: extractReason(code) };
           stage = "quit";
           finish(rcptVerdict);
           return;
@@ -546,7 +546,7 @@ function isFinalLine(line: string): boolean {
 /** Build a Sentry-safe reason string. We include the SMTP code and a
  *  short tag derived from the line, but NOT the verbatim line — server
  *  text sometimes echoes the probed address back. */
-function extractReason(line: string, code: number | null): string {
+function extractReason(code: number | null): string {
   const tag =
     code === null
       ? "unknown"
