@@ -105,7 +105,10 @@ export default function DevDashboard() {
             </Suspense>
           </div>
           <div className="dev-card">
-            <h2>In flight <span className="dev-card-sub">most-recent active task</span></h2>
+            <h2>
+              In flight{" "}
+              <span className="dev-card-sub">most-recent active task</span>
+            </h2>
             <Suspense fallback={<div className="dev-empty">loading…</div>}>
               <InFlightCard />
             </Suspense>
@@ -139,7 +142,9 @@ export default function DevDashboard() {
             </Suspense>
           </div>
           <div className="dev-card">
-            <h2>Cost <span className="dev-card-sub">today · 7d · budget</span></h2>
+            <h2>
+              Cost <span className="dev-card-sub">today · 7d · budget</span>
+            </h2>
             <Suspense fallback={<div className="dev-empty">loading…</div>}>
               <CostCard />
             </Suspense>
@@ -153,7 +158,9 @@ export default function DevDashboard() {
       <section className="dev-section">
         <div className="dev-section-head">
           <span>Plan</span>
-          <span className="dev-section-meta">19/81 done · next-eligible queue</span>
+          <span className="dev-section-meta">
+            19/81 done · next-eligible queue
+          </span>
         </div>
         <div className="dev-card">
           <h2>Plan progress</h2>
@@ -279,7 +286,7 @@ async function LoopControlCard() {
   if (!lock) {
     return (
       <div className="dev-empty">
-        loop-lock.json not found · loop hasn't run yet.
+        loop-lock.json not found · loop hasn&apos;t run yet.
       </div>
     );
   }
@@ -506,9 +513,7 @@ async function ActivitySection() {
           <div className="dev-card">
             <h2>
               Sessions{" "}
-              <span className="dev-card-sub">
-                last 7 days · scored phases
-              </span>
+              <span className="dev-card-sub">last 7 days · scored phases</span>
             </h2>
             <SessionsList />
           </div>
@@ -597,7 +602,9 @@ async function SignalsSection() {
     <section className="dev-section">
       <div className="dev-section-head">
         <span>Signals</span>
-        <span className="dev-section-meta">process-enhancer · weekly review</span>
+        <span className="dev-section-meta">
+          process-enhancer · weekly review
+        </span>
       </div>
       <div className="dev-card">
         <h2>Auto-enhance signals</h2>

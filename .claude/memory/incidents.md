@@ -369,6 +369,7 @@ Now only real static-asset extensions are excluded; arbitrary dotted paths flow 
 **Root cause:** The launchd wrapper `scripts/launchd/loop-tick.sh` invoked `claude --print "$PROMPT"` without a `--model` flag. The Claude CLI falls back to whatever the user's CLI config defaults to — for most Pro Max users that's Sonnet, not Opus.
 
 **Fix applied:**
+
 - Added `--model "$MODEL"` to the claude invocation
 - New env var `CLAUDE_MODEL` (default `claude-opus-4-6`, overridable in `.env.local`)
 - Documented in CLAUDE.md as a "Model pin" hard rule
@@ -388,6 +389,7 @@ Now only real static-asset extensions are excluded; arbitrary dotted paths flow 
 **Fix applied:** Manually restored `loop-lock.json` to `state: idle` and committed.
 
 **Prevention:**
+
 1. **NEVER rsync `loop-lock.json` from sandbox** · the dashboard's `pauseLoop`/`resumeLoop` server actions are the canonical writer
 2. Add `.claude/memory/loop-lock.json` to the rsync exclude list when syncing back from `/tmp` to mount
 3. Document in `.claude/rules/incident-prevention.md` and `agent-orchestration.md`
@@ -405,6 +407,7 @@ Now only real static-asset extensions are excluded; arbitrary dotted paths flow 
 **Fix applied:** Deleted the QuotaCard entirely from `app/(dev)/dev/page.tsx`. No card replacement — the dashboard has no usage tile at all. Real numbers live at `claude.ai/settings/usage`.
 
 **Prevention:**
+
 1. **Never display fabricated/approximated data as if it were real.** If the source of truth is upstream and inaccessible, don't show a number — show nothing or a clear "see upstream" pointer.
 2. Recovery from quota exhaustion now has THREE layers (so the loop doesn't need a working usage probe to be safe):
    - **Layer 1 · Agent self-cleanup (best case):** loop-prompt.md §9.5 instructs the agent to detect approaching limit → mark TaskRun=INCOMPLETE, reset Task to PENDING, write cooldown to loop-lock.
@@ -413,6 +416,7 @@ Now only real static-asset extensions are excluded; arbitrary dotted paths flow 
 3. Supervisor now honors `state: cooldown` + future `cooldownUntil` in loop-lock — exits silently instead of spawning workers.
 
 **Where encoded:**
+
 - `app/(dev)/dev/page.tsx` (card deleted)
 - `scripts/launchd/loop-tick.sh` (cooldown gate + orphan sweep + worker fallback)
 - `scripts/launchd/loop-prompt.md` §9.5 (agent self-cleanup), §4 (resume from INCOMPLETE)
@@ -428,16 +432,19 @@ Now only real static-asset extensions are excluded; arbitrary dotted paths flow 
 **Root cause:** `scripts/launchd/loop-tick.sh` invoked `claude --print --model "$MODEL" "$(cat prompt.md)"` without `--dangerously-skip-permissions`. In headless mode (no TTY), every tool-use approval (Edit/Write/Bash/Task/git) prompts for explicit user permission. With no terminal to respond, the CLI either hangs (forever) or silently auto-denies — Claude answers the prompt as text and exits without doing any actual file/db/git work. Result: launchd fires every 5 min, the wrapper spawns the CLI, the CLI reads the prompt and responds with planning text, but no tools execute. Zero side-effects.
 
 **Fix applied:**
+
 - Added `--dangerously-skip-permissions` to the claude invocation in `loop-tick.sh`.
 - Added unconditional `lastTickAt` write at the top of each tick so we can tell from the dashboard whether launchd is firing at all (vs the previous symptom: lastTickAt only updated when someone manually wrote it).
 - Created `scripts/launchd/diagnose.sh` so future "is the loop alive?" investigations take one round-trip instead of N.
 
 **Prevention:**
+
 1. **Headless `claude --print` invocations MUST include `--dangerously-skip-permissions`.** Any wrapper that runs Claude unattended needs the flag, full stop. Document this in the wrapper comments + the install README + here.
 2. The loop-lock's `lastTickAt` field is now the canonical "is launchd firing?" signal. If it's > 10 minutes stale, that's a problem worth chasing.
 3. After updating `scripts/launchd/loop-tick.sh`, the installed copy at `~/.mapsly/loop-tick.sh` is stale — `bash scripts/launchd/install.sh` must be re-run. Add this to git-discipline.md and to the dashboard's "Loop control" card as a one-time reminder when wrapper-related files change.
 
 **Where encoded:**
+
 - `scripts/launchd/loop-tick.sh` (the `--dangerously-skip-permissions` flag, the lastTickAt stamp)
 - `scripts/launchd/diagnose.sh` (new diagnostic script)
 - this file
@@ -449,20 +456,23 @@ Now only real static-asset extensions are excluded; arbitrary dotted paths flow 
 
 **Symptom:** v0.4.5 added `--dangerously-skip-permissions` and v0.4.6 added `--effort max` to `scripts/launchd/loop-tick.sh`, but Postgres still showed 0 TaskRuns ever and `loop-lock.lastTickAt` was frozen at the manual-restore timestamp from 44 min ago. The fix was in main but had no effect on the running loop.
 
-**Root cause:** The launchd plist installed by `scripts/launchd/install.sh` pointed to `~/.mapsly/loop-tick.sh` — a *copy* the installer made when first run. Updates to `scripts/launchd/loop-tick.sh` in the repo didn't propagate to the running wrapper until Viktor re-ran `install.sh`. The instruction "re-run install.sh after pulling" was buried in the v0.4.5 commit message and easy to miss.
+**Root cause:** The launchd plist installed by `scripts/launchd/install.sh` pointed to `~/.mapsly/loop-tick.sh` — a _copy_ the installer made when first run. Updates to `scripts/launchd/loop-tick.sh` in the repo didn't propagate to the running wrapper until Viktor re-ran `install.sh`. The instruction "re-run install.sh after pulling" was buried in the v0.4.5 commit message and easy to miss.
 
 **Fix applied:**
+
 1. **plist now points to the repo path directly:** `HOME/Documents/Claude/Projects/mapsly/scripts/launchd/loop-tick.sh`. No more copy.
 2. `install.sh` removes the legacy `~/.mapsly/loop-tick.sh` copy on next run so future Claude can `grep` for it and see the migration happened.
 3. `install.sh` `chmod +x` the repo wrapper (in case the git permission bit drifted).
 4. After this one final `install.sh` run, `git pull` alone is enough for all future wrapper changes.
 
 **Prevention:**
+
 1. **Never make launchd point to a copy of a file that lives in version control.** Always point launchd at the canonical source. If you need to mutate the file at install time (substitute $HOME), do it on the plist, not the script.
 2. Whenever a wrapper change requires a re-install step, surface that to the user on the dashboard — not just in a commit message.
 3. The unconditional `lastTickAt` stamp at the top of `loop-tick.sh` (added in v0.4.5) is the canonical "is launchd firing?" signal. If it's not updating, the wrapper isn't being invoked at all.
 
 **Where encoded:**
+
 - `scripts/launchd/ai.mapsly.loop.plist` (points to repo path)
 - `scripts/launchd/install.sh` (no longer copies, removes legacy copy)
 - this file
@@ -484,16 +494,19 @@ Now only real static-asset extensions are excluded; arbitrary dotted paths flow 
 - Added `scripts/launchd/uninstall.sh` to cleanly disable the legacy agent
 
 **Trade-offs accepted:**
+
 1. Mac must stay on (Viktor confirmed: "I will not shut down Mac")
 2. `/loop` recurring tasks expire after 7 days — must re-run `/loop 5m` weekly. The loop.md's §9 detects approaching expiry and writes a Notification row.
 3. Terminal window must stay open. Viktor's responsibility.
 4. Min interval is 1 minute (we pick 5 min). Acceptable.
 
 **Prevention:**
+
 1. **Default to in-session scheduling for autonomous AI workflows on macOS.** Background launchd/cron is the wrong architecture when the work needs sandboxed file access and the platform is macOS — TCC will eat any approach that runs outside an interactive session.
 2. The launchd setup is kept in the repo as fallback (in case `/loop` expiry or Mac restart becomes too painful and we move to a Linux VPS later) but is NOT the canonical scheduler.
 
 **Where encoded:**
+
 - `.claude/loop.md` (new)
 - `CLAUDE.md` (model-pin paragraph updated)
 - `app/(dev)/dev/LoopControls.tsx` (force-run hint)

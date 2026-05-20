@@ -11,7 +11,6 @@ export async function getAgentInvocations(taskRunId: string) {
   // bundle-check + lighthouse. Runtime cache fills on first request.
   if (process.env.NEXT_PHASE === "phase-production-build") return [];
 
-
   try {
     return await prisma.agentInvocation.findMany({
       where: { taskRunId },

@@ -24,7 +24,6 @@ export async function getInFlight(): Promise<InFlightTask | null> {
 
   if (process.env.NEXT_PHASE === "phase-production-build") return null;
 
-
   // Prefer an actively-IN_PROGRESS Task
   const active = await prisma.task.findFirst({
     where: { status: "IN_PROGRESS" },

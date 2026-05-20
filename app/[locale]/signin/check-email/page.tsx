@@ -135,20 +135,18 @@ export default async function CheckEmailPage({
             lineHeight: 1.5,
           }}
         >
-          {t.rich("no_email_received", {
-            tryAgain: (chunks) => (
-              <Link
-                href="/signin"
-                style={{
-                  color: "var(--color-coral)",
-                  textDecoration: "underline",
-                  textUnderlineOffset: 2,
-                }}
-              >
-                {chunks}
-              </Link>
-            ),
-          })}
+          {t("no_email_received", { tryAgain: "" }).replace(/\s*\.\s*$/, "")}{" "}
+          <Link
+            href="/signin"
+            style={{
+              color: "var(--color-coral)",
+              textDecoration: "underline",
+              textUnderlineOffset: 2,
+            }}
+          >
+            {t("try_again")}
+          </Link>
+          .
         </p>
       </div>
     </main>

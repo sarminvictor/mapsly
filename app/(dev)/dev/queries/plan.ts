@@ -74,7 +74,6 @@ export async function getPlanSummary(): Promise<PlanSummary> {
     };
   }
 
-
   try {
     const groups = await prisma.taskGroup.findMany({
       orderBy: { sortOrder: "asc" },
@@ -161,7 +160,6 @@ export async function getTaskDetail(id: string) {
   cacheTag(`dev-task-${id}`);
 
   if (process.env.NEXT_PHASE === "phase-production-build") return null;
-
 
   try {
     const task = await prisma.task.findUnique({

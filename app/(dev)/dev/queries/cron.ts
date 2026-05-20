@@ -34,7 +34,6 @@ export async function getCronAggregate(): Promise<CronAggregate> {
     };
   }
 
-
   const now = new Date();
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const yesterdayStart = new Date(todayStart);

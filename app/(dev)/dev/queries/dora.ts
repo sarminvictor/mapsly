@@ -27,7 +27,6 @@ export async function getDoraMetrics(): Promise<DoraMetrics> {
     };
   }
 
-
   const now = new Date();
   const since7d = new Date(now.getTime() - 7 * 86400_000);
   const since30d = new Date(now.getTime() - 30 * 86400_000);

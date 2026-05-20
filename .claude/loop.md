@@ -54,6 +54,7 @@ VALUES ('{taskId}', '{sessionId}', 'IN_PROGRESS', {priorRunId or NULL}, {priorBr
 The skill at `.claude/skills/autonomous-build-loop/SKILL.md` defines the full implementation flow: research agents in parallel → implement → review agents in parallel → scorer → conditional auto-merge.
 
 Honor these load-bearing rules:
+
 - `.claude/rules/agent-orchestration.md` — concurrency caps (research ≤6, review ≤5), sequencing, `Promise.allSettled` for parallel research.
 - `.claude/rules/validation.md` — per-task validation strategy recorded on the TaskRun.
 - `.claude/rules/git-discipline.md` — branch pattern `auto/YYYY-MM-DD-{taskId}-{n}`, author `Viktor <sarminvictor@gmail.com>`, conventional commits.

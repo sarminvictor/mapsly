@@ -29,7 +29,8 @@ export default function LocalTime({
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
-    setHydrated(true);
+    // Defer setState so we don't cascade a re-render in the same effect tick.
+    queueMicrotask(() => setHydrated(true));
   }, []);
 
   const d = new Date(iso);

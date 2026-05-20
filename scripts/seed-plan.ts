@@ -60,18 +60,60 @@ const GROUPS: SeedGroup[] = [
         effort: "M",
         status: "DONE",
       },
-      { id: "A.3", title: "Neon Postgres + DB push", description: "Schema materialized in Neon · 23 tables · 50+ indexes. Adapter via @prisma/adapter-neon. Validation: SELECT COUNT from information_schema.", parallelLane: "shared",
-        effort: "S", status: "DONE" },
-      { id: "A.4", title: "GitHub Actions CI · validate · build · test · ci-passed", description: "Required-status gate workflow at .github/workflows/ci.yml. Runs format-check + typecheck + lint + build (stub env vars) + test:run + ci-passed aggregator. Blocks merge if any step fails.", parallelLane: "shared",
-        effort: "S", status: "DONE" },
-      { id: "A.5", title: "Auto-merge workflow + autonomous-ready label", description: ".github/workflows/auto-merge.yml fires on autonomous-ready label + branch starting auto/ or enhance/. Runs gh pr merge --squash --auto --delete-branch. Labels: autonomous, autonomous-ready, needs-review created via API.", parallelLane: "shared",
-        effort: "S", status: "DONE" },
-      { id: "A.6", title: "Vercel deploy · mapsly.ai · dev.mapsly.ai", description: "Production domain wired to www.mapsly.ai. Subdomain dev.mapsly.ai via DNS CNAME → Vercel. Middleware host-based rewrite to /dev. Env vars in Vercel project. Postinstall runs prisma generate (INC-06).", parallelLane: "shared",
-        effort: "S", status: "DONE" },
-      { id: "A.7", title: "Incident-prevention system", description: ".claude/memory/incidents.md seeded with 15 INC entries. .claude/rules/incident-prevention.md as load-bearing rule. autonomous-build-loop SKILL mandates incidents read first + new entries before close.", parallelLane: "shared",
-        effort: "M", status: "DONE" },
-      { id: "A.8", title: "Native macOS launchd loop", description: "scripts/launchd/ — loop-tick.sh + ai.mapsly.loop.plist + install.sh + loop-prompt.md. Escapes Cowork FUSE limitation (INC-14). Runs every 5 min via launchd. Honors loop-lock.json state (idle/running/cooldown/paused).", parallelLane: "shared",
-        effort: "M", status: "DONE" },
+      {
+        id: "A.3",
+        title: "Neon Postgres + DB push",
+        description:
+          "Schema materialized in Neon · 23 tables · 50+ indexes. Adapter via @prisma/adapter-neon. Validation: SELECT COUNT from information_schema.",
+        parallelLane: "shared",
+        effort: "S",
+        status: "DONE",
+      },
+      {
+        id: "A.4",
+        title: "GitHub Actions CI · validate · build · test · ci-passed",
+        description:
+          "Required-status gate workflow at .github/workflows/ci.yml. Runs format-check + typecheck + lint + build (stub env vars) + test:run + ci-passed aggregator. Blocks merge if any step fails.",
+        parallelLane: "shared",
+        effort: "S",
+        status: "DONE",
+      },
+      {
+        id: "A.5",
+        title: "Auto-merge workflow + autonomous-ready label",
+        description:
+          ".github/workflows/auto-merge.yml fires on autonomous-ready label + branch starting auto/ or enhance/. Runs gh pr merge --squash --auto --delete-branch. Labels: autonomous, autonomous-ready, needs-review created via API.",
+        parallelLane: "shared",
+        effort: "S",
+        status: "DONE",
+      },
+      {
+        id: "A.6",
+        title: "Vercel deploy · mapsly.ai · dev.mapsly.ai",
+        description:
+          "Production domain wired to www.mapsly.ai. Subdomain dev.mapsly.ai via DNS CNAME → Vercel. Middleware host-based rewrite to /dev. Env vars in Vercel project. Postinstall runs prisma generate (INC-06).",
+        parallelLane: "shared",
+        effort: "S",
+        status: "DONE",
+      },
+      {
+        id: "A.7",
+        title: "Incident-prevention system",
+        description:
+          ".claude/memory/incidents.md seeded with 15 INC entries. .claude/rules/incident-prevention.md as load-bearing rule. autonomous-build-loop SKILL mandates incidents read first + new entries before close.",
+        parallelLane: "shared",
+        effort: "M",
+        status: "DONE",
+      },
+      {
+        id: "A.8",
+        title: "Native macOS launchd loop",
+        description:
+          "scripts/launchd/ — loop-tick.sh + ai.mapsly.loop.plist + install.sh + loop-prompt.md. Escapes Cowork FUSE limitation (INC-14). Runs every 5 min via launchd. Honors loop-lock.json state (idle/running/cooldown/paused).",
+        parallelLane: "shared",
+        effort: "M",
+        status: "DONE",
+      },
       {
         id: "A.9",
         title: "E2E test infrastructure · Playwright + fixtures",
@@ -85,13 +127,15 @@ const GROUPS: SeedGroup[] = [
   {
     id: "B",
     name: "Marketing surface (public)",
-    description: "Public pages: landing, for-SMB, for-Agency, pricing, sign-in, legal, SEO.",
+    description:
+      "Public pages: landing, for-SMB, for-Agency, pricing, sign-in, legal, SEO.",
     domain: "MARKETING",
     sortOrder: 1,
     tasks: [
       {
         id: "B.0",
-        title: "Design system · shared components (Tile, Card, Pill, Button, Input, Modal)",
+        title:
+          "Design system · shared components (Tile, Card, Pill, Button, Input, Modal)",
         description:
           "As a developer I want a shared component library so every portal page doesn't reinvent the same primitives. Acceptance: components/ui/{Tile, Card, Pill, Button, Input, Modal, Toast, Skeleton}.tsx. Each accepts variant + tone (smb / agency / neutral). Tailwind 4 tokens via @theme. Tested in Storybook? No (per testing.md, skip). Validation: import + render in B.1 and F.1 without restyling.",
         effort: "L",
@@ -162,7 +206,8 @@ const GROUPS: SeedGroup[] = [
       },
       {
         id: "B.7",
-        title: "SEO infrastructure · sitemap + robots + hreflang + structured data",
+        title:
+          "SEO infrastructure · sitemap + robots + hreflang + structured data",
         description:
           "Acceptance: app/sitemap.ts generates valid XML (splits at 50K URLs). app/robots.ts allows public, blocks /api+/admin. Every public page exports metadata with alternates.languages for all 4 locales. JSON-LD per page-type (Article on blog, FAQPage on FAQ blocks). x-default points to /en. Files: app/sitemap.ts, app/robots.ts, lib/seo/. Validation: Google Search Console submission + Lighthouse SEO ≥ 95.",
         parallelLane: "marketing-ui",
@@ -203,13 +248,15 @@ const GROUPS: SeedGroup[] = [
   {
     id: "C",
     name: "Data collection layer",
-    description: "External APIs, cron jobs, cost tracking. Populates the 2.1M business index.",
+    description:
+      "External APIs, cron jobs, cost tracking. Populates the 2.1M business index.",
     domain: "DATA",
     sortOrder: 2,
     tasks: [
       {
         id: "C.0",
-        title: "Dev seed data · 500 sample businesses + 5K reviews + Lighthouse audits",
+        title:
+          "Dev seed data · 500 sample businesses + 5K reviews + Lighthouse audits",
         description:
           "Without realistic data, SMB dashboard + Hunter UI can't be tested locally or in CI. Acceptance: scripts/seed-dev.ts populates 500 businesses across 5 metros (Miami, Toronto, LA, NYC, Calgary) and 3 categories (med-spa, auto-body, restaurant). Generates 5K reviews with sentiment distribution. Generates Lighthouse audit rows for 100 of them. Idempotent. Files: scripts/seed-dev.ts. Validation: pnpm seed:dev + Postgres MCP SELECT COUNT verifies.",
         parallelLane: "data",
@@ -230,7 +277,8 @@ const GROUPS: SeedGroup[] = [
       },
       {
         id: "C.2",
-        title: "Cache layer · Redis-backed · 24h TTL with cacheTag invalidation",
+        title:
+          "Cache layer · Redis-backed · 24h TTL with cacheTag invalidation",
         description:
           "lib/cache/index.ts. Key format: mapsly:{vendor}:{operation}:{stable-hash}. Cache hits tracked in CronRun.meta.cacheHits. Falls through gracefully if Redis unavailable. Files: lib/cache/index.ts, lib/cache/kv.ts. Validation: integration test seeds + reads + asserts cache hit.",
         effort: "S",
@@ -238,7 +286,8 @@ const GROUPS: SeedGroup[] = [
       },
       {
         id: "C.3",
-        title: "services/dataforseo · all adapters (Maps, SERP, Local, Reviews, Keyword, Lighthouse)",
+        title:
+          "services/dataforseo · all adapters (Maps, SERP, Local, Reviews, Keyword, Lighthouse)",
         description:
           "6 adapters · each wrapped with cost-counter + 24h cache + retry (max 2 with exponential backoff) + timeout 10s. Uses DataForSEO Standard queue (10× cheaper than Live). Files: services/dataforseo/{maps-search,serp-organic,serp-local-pack,reviews,keyword-volume,lighthouse}.ts. Validation: mocked unit tests + one real integration call counting cost in CronRun.",
         effort: "XL",
@@ -247,7 +296,8 @@ const GROUPS: SeedGroup[] = [
       {
         id: "C.4",
         title: "services/meta-ad-library",
-        description: "ads_archive endpoint adapter. Daily competitor ad scan. Cost-tracked. Cache 6h. Files: services/meta-ad-library/ads-archive.ts. Validation: mocked unit + integration test with one real query.",
+        description:
+          "ads_archive endpoint adapter. Daily competitor ad scan. Cost-tracked. Cache 6h. Files: services/meta-ad-library/ads-archive.ts. Validation: mocked unit + integration test with one real query.",
         parallelLane: "data",
         effort: "M",
         deps: "C.1,C.2",
@@ -255,7 +305,8 @@ const GROUPS: SeedGroup[] = [
       {
         id: "C.5",
         title: "services/lighthouse · DataForSEO + custom DOM checks",
-        description: "Wraps DataForSEO Lighthouse + custom DOM extraction: schema markup presence, NAP consistency, booking-CTA detection. Files: services/lighthouse/audit.ts, services/lighthouse/dom-checks.ts. Validation: unit on DOM checks + integration with sample biz.",
+        description:
+          "Wraps DataForSEO Lighthouse + custom DOM extraction: schema markup presence, NAP consistency, booking-CTA detection. Files: services/lighthouse/audit.ts, services/lighthouse/dom-checks.ts. Validation: unit on DOM checks + integration with sample biz.",
         parallelLane: "data",
         effort: "M",
         deps: "C.3",
@@ -263,7 +314,8 @@ const GROUPS: SeedGroup[] = [
       {
         id: "C.6",
         title: "services/email-verify · SMTP verification",
-        description: "Verify SMB/agency owner emails are deliverable before storing. Used for cohort outreach + onboarding validity. Files: services/email-verify/smtp.ts. Validation: unit + manual test against known-good + known-invalid emails.",
+        description:
+          "Verify SMB/agency owner emails are deliverable before storing. Used for cohort outreach + onboarding validity. Files: services/email-verify/smtp.ts. Validation: unit + manual test against known-good + known-invalid emails.",
         parallelLane: "data",
         effort: "S",
         deps: "C.1",
@@ -271,7 +323,8 @@ const GROUPS: SeedGroup[] = [
       {
         id: "C.7",
         title: "services/ai-haiku · Anthropic SDK wrapper",
-        description: "Wraps Anthropic SDK for review sentiment + reply drafts + one-pager copy. Cost-tracked (Haiku for cheap, Sonnet for tone). Files: services/ai-haiku/{sentiment,reply-draft,copy-gen}.ts. Validation: unit + sample-input integration.",
+        description:
+          "Wraps Anthropic SDK for review sentiment + reply drafts + one-pager copy. Cost-tracked (Haiku for cheap, Sonnet for tone). Files: services/ai-haiku/{sentiment,reply-draft,copy-gen}.ts. Validation: unit + sample-input integration.",
         effort: "S",
         deps: "C.1",
       },
@@ -295,7 +348,8 @@ const GROUPS: SeedGroup[] = [
       {
         id: "C.10",
         title: "Cron · monthly handlers (4 routes)",
-        description: "keyword-volume-refresh, market-census, industry-baseline, email-verification. Slow data; budget-heavy; runs against tier-permitted businesses only. Files: app/api/cron/monthly/**. Validation: integration + cost-budget assertion.",
+        description:
+          "keyword-volume-refresh, market-census, industry-baseline, email-verification. Slow data; budget-heavy; runs against tier-permitted businesses only. Files: app/api/cron/monthly/**. Validation: integration + cost-budget assertion.",
         parallelLane: "data",
         effort: "L",
         deps: "C.3",
@@ -315,7 +369,8 @@ const GROUPS: SeedGroup[] = [
   {
     id: "D",
     name: "Compute / scoring",
-    description: "60+ signal vocabulary, scoring formulas, AI classification. Mapsly's moat.",
+    description:
+      "60+ signal vocabulary, scoring formulas, AI classification. Mapsly's moat.",
     domain: "COMPUTE",
     sortOrder: 3,
     tasks: [
@@ -342,7 +397,8 @@ const GROUPS: SeedGroup[] = [
       {
         id: "D.3",
         title: "Market Share Index (MSI) rank within metro",
-        description: "Within-metro ranking by Mapsly Score, weighted by review volume + ad spend visibility. Runs inside snapshot-write cron. Stored on BusinessSnapshot.msiRank + msiTotal. Files: modules/scoring/msi.ts. Validation: unit + integration on seeded multi-business metro.",
+        description:
+          "Within-metro ranking by Mapsly Score, weighted by review volume + ad spend visibility. Runs inside snapshot-write cron. Stored on BusinessSnapshot.msiRank + msiTotal. Files: modules/scoring/msi.ts. Validation: unit + integration on seeded multi-business metro.",
         parallelLane: "compute",
         effort: "M",
         deps: "D.2",
@@ -359,7 +415,8 @@ const GROUPS: SeedGroup[] = [
       {
         id: "D.5",
         title: "Match score · per-lead per-list ranking",
-        description: "modules/scoring/match-score.ts. Within a list, rank leads by how strongly they match the filter signals. Surfaced as 'why this lead qualifies' in Prospect view (F.4). Files: modules/scoring/match-score.ts. Validation: unit + integration test on a seeded list.",
+        description:
+          "modules/scoring/match-score.ts. Within a list, rank leads by how strongly they match the filter signals. Surfaced as 'why this lead qualifies' in Prospect view (F.4). Files: modules/scoring/match-score.ts. Validation: unit + integration test on a seeded list.",
         parallelLane: "compute",
         effort: "M",
         deps: "D.4",
@@ -367,7 +424,8 @@ const GROUPS: SeedGroup[] = [
       {
         id: "D.6",
         title: "AI sentiment + theme extraction for reviews",
-        description: "ai-haiku call per review on every weekly pull. Stores Review.sentiment (POS/NEU/NEG) + Review.themes[] (atmosphere, price, staff, parking, etc.). Files: modules/scoring/review-classifier.ts. Validation: unit on classifier prompt + manual review on 20 known samples.",
+        description:
+          "ai-haiku call per review on every weekly pull. Stores Review.sentiment (POS/NEU/NEG) + Review.themes[] (atmosphere, price, staff, parking, etc.). Files: modules/scoring/review-classifier.ts. Validation: unit on classifier prompt + manual review on 20 known samples.",
         parallelLane: "compute",
         effort: "M",
         deps: "C.7,C.9",
@@ -375,15 +433,18 @@ const GROUPS: SeedGroup[] = [
       {
         id: "D.7",
         title: "AI reply draft generation (EN + ES)",
-        description: "On every new review, generate aiReplyDraftEn + aiReplyDraftEs using OpenAI client (model from D.8 winner). Tone matches SMB's reply-tone setting (warm/professional/casual). Stored on Review row. Files: modules/scoring/ai-reply.ts. Validation: unit + cohort A/B test eventually + browser SMB acceptance.",
+        description:
+          "On every new review, generate aiReplyDraftEn + aiReplyDraftEs using OpenAI client (model from D.8 winner). Tone matches SMB's reply-tone setting (warm/professional/casual). Stored on Review row. Files: modules/scoring/ai-reply.ts. Validation: unit + cohort A/B test eventually + browser SMB acceptance.",
         parallelLane: "compute",
         effort: "M",
         deps: "C.7,D.8",
       },
       {
         id: "D.8",
-        title: "AI model A/B test · gpt-5.4-mini vs gpt-5.4-nano on real review data",
-        description: "As cost-conscious owner I want to run real Mapsly use cases through both gpt-5.4-mini and gpt-5.4-nano to pick the cheapest model that produces acceptable output. Acceptance: scripts/model-ab-test.ts runs 50 real reviews from seeded data through BOTH models for 3 tasks (sentiment classification, English reply draft, Spanish reply draft). Compares: output quality (manual rubric 1-10), token cost, latency. If nano scores >= 80% of mini quality, use nano. Writes winner to .claude/memory/model-decision.json. C.7/D.6/D.7 read this file for default model choice. Files: scripts/model-ab-test.ts, .claude/memory/model-decision.json. Validation: run produces decision file + cost saved estimated + sample outputs reviewable on /dev surface.",
+        title:
+          "AI model A/B test · gpt-5.4-mini vs gpt-5.4-nano on real review data",
+        description:
+          "As cost-conscious owner I want to run real Mapsly use cases through both gpt-5.4-mini and gpt-5.4-nano to pick the cheapest model that produces acceptable output. Acceptance: scripts/model-ab-test.ts runs 50 real reviews from seeded data through BOTH models for 3 tasks (sentiment classification, English reply draft, Spanish reply draft). Compares: output quality (manual rubric 1-10), token cost, latency. If nano scores >= 80% of mini quality, use nano. Writes winner to .claude/memory/model-decision.json. C.7/D.6/D.7 read this file for default model choice. Files: scripts/model-ab-test.ts, .claude/memory/model-decision.json. Validation: run produces decision file + cost saved estimated + sample outputs reviewable on /dev surface.",
         parallelLane: "compute",
         effort: "M",
         deps: "C.7,C.0",
@@ -395,34 +456,86 @@ const GROUPS: SeedGroup[] = [
   {
     id: "E",
     name: "SMB portal · Maria's pages",
-    description: "Warm + simple. Plain English. Patients/treatments vocabulary. Mobile-first.",
+    description:
+      "Warm + simple. Plain English. Patients/treatments vocabulary. Mobile-first.",
     domain: "SMB_PORTAL",
     sortOrder: 4,
     tasks: [
       {
         id: "E.0",
-        title: "SMB component library (KPI tile · alert card · fix card · score breakdown)",
-        description: "Audience-specific components for Maria's pages. KPITile (big number + label + tooltip), AlertCard (what needs attention + CTA), FixCard (plain-English action + impact preview), ScoreBreakdown (6-dim sub-scores). All cream+coral palette. Files: modules/smb-dashboard/components/. Validation: render in E.1 without restyling + ux-reviewer-smb.",
+        title:
+          "SMB component library (KPI tile · alert card · fix card · score breakdown)",
+        description:
+          "Audience-specific components for Maria's pages. KPITile (big number + label + tooltip), AlertCard (what needs attention + CTA), FixCard (plain-English action + impact preview), ScoreBreakdown (6-dim sub-scores). All cream+coral palette. Files: modules/smb-dashboard/components/. Validation: render in E.1 without restyling + ux-reviewer-smb.",
         parallelLane: "smb-ui",
         effort: "M",
         deps: "B.0",
         tags: "design-system,smb",
         priority: 18,
       },
-      { id: "E.1", title: "SMB dashboard · /(smb)/dashboard", description: "Maria's home. Hero KPI: Mapsly Score 6.2/10. 5 supporting KPIs. 'What needs your attention today' (max 4 alert cards). Top 3 fixes ordered by impact. This-week activity feed. Files: app/[locale]/(smb)/dashboard/page.tsx. Validation: browser anon (redirect) + signed-in SMB + Lighthouse + ux-reviewer-smb + copy-reviewer (no jargon).", parallelLane: "smb-ui",
-        effort: "L", deps: "D.2,E.0,C.9" },
-      { id: "E.2", title: "SMB reviews page · /(smb)/reviews", description: "Tabs: Unanswered (default) / Negative / All / By theme. Per review: stars + date + text + AI reply draft (EN+ES toggle). 'Post to Google' CTA. Right rail: rating distribution, theme analysis, reply-tone settings. Files: app/[locale]/(smb)/reviews/page.tsx. Validation: browser SMB + DB (AI reply persistence) + ux + copy.", parallelLane: "smb-ui",
-        effort: "L", deps: "D.6,D.7,E.0" },
-      { id: "E.3", title: "SMB competitors page · /(smb)/competitors", description: "Head-to-head vs 3 nearest competitors. Service-coverage matrix. Threat ranking. 'Where you beat them' / 'Where they beat you' wedges. Files: app/[locale]/(smb)/competitors/page.tsx. Validation: browser + ux.", parallelLane: "smb-ui",
-        effort: "L", deps: "C.9,E.0" },
-      { id: "E.4", title: "SMB search visibility · /(smb)/search", description: "Keyword table: term, monthly volume, your position, who else ranks in local 3-pack. P0 opportunities (high volume + low your-rank). Plain English: 'When someone searches X you appear Y'. Files: app/[locale]/(smb)/search/page.tsx. Validation: browser + ux + copy.", parallelLane: "smb-ui",
-        effort: "M", deps: "D.1,C.9,E.0" },
-      { id: "E.5", title: "SMB ads page · /(smb)/ads", description: "Competitor ad copy by keyword (Meta + Google Ads Transparency). 'Off-keyword warning' when ads don't match SMB services. 14-keyword lane grid. Files: app/[locale]/(smb)/ads/page.tsx. Validation: browser + DB.", parallelLane: "smb-ui",
-        effort: "M", deps: "C.4,C.8,E.0" },
-      { id: "E.6", title: "SMB settings · /(smb)/settings", description: "Business info (name, address, hours, services). Reply-tone (warm/professional/casual). Locale preference. Notification prefs. Stripe billing card. Files: app/[locale]/(smb)/settings/page.tsx. Validation: browser + DB persistence + form validation.", parallelLane: "smb-ui",
-        effort: "M", deps: "B.6,E.0,G.4" },
-      { id: "E.7", title: "SMB onboarding flow", description: "4-step wizard: claim business → set vocabulary (industry) → connect Google Business Profile → invite team. Each step has skip. Mobile-friendly. Files: app/[locale]/(smb)/onboarding/page.tsx. Validation: browser multi-step + DB state per step + a11y.", parallelLane: "smb-ui",
-        effort: "L", deps: "B.6,E.0" },
+      {
+        id: "E.1",
+        title: "SMB dashboard · /(smb)/dashboard",
+        description:
+          "Maria's home. Hero KPI: Mapsly Score 6.2/10. 5 supporting KPIs. 'What needs your attention today' (max 4 alert cards). Top 3 fixes ordered by impact. This-week activity feed. Files: app/[locale]/(smb)/dashboard/page.tsx. Validation: browser anon (redirect) + signed-in SMB + Lighthouse + ux-reviewer-smb + copy-reviewer (no jargon).",
+        parallelLane: "smb-ui",
+        effort: "L",
+        deps: "D.2,E.0,C.9",
+      },
+      {
+        id: "E.2",
+        title: "SMB reviews page · /(smb)/reviews",
+        description:
+          "Tabs: Unanswered (default) / Negative / All / By theme. Per review: stars + date + text + AI reply draft (EN+ES toggle). 'Post to Google' CTA. Right rail: rating distribution, theme analysis, reply-tone settings. Files: app/[locale]/(smb)/reviews/page.tsx. Validation: browser SMB + DB (AI reply persistence) + ux + copy.",
+        parallelLane: "smb-ui",
+        effort: "L",
+        deps: "D.6,D.7,E.0",
+      },
+      {
+        id: "E.3",
+        title: "SMB competitors page · /(smb)/competitors",
+        description:
+          "Head-to-head vs 3 nearest competitors. Service-coverage matrix. Threat ranking. 'Where you beat them' / 'Where they beat you' wedges. Files: app/[locale]/(smb)/competitors/page.tsx. Validation: browser + ux.",
+        parallelLane: "smb-ui",
+        effort: "L",
+        deps: "C.9,E.0",
+      },
+      {
+        id: "E.4",
+        title: "SMB search visibility · /(smb)/search",
+        description:
+          "Keyword table: term, monthly volume, your position, who else ranks in local 3-pack. P0 opportunities (high volume + low your-rank). Plain English: 'When someone searches X you appear Y'. Files: app/[locale]/(smb)/search/page.tsx. Validation: browser + ux + copy.",
+        parallelLane: "smb-ui",
+        effort: "M",
+        deps: "D.1,C.9,E.0",
+      },
+      {
+        id: "E.5",
+        title: "SMB ads page · /(smb)/ads",
+        description:
+          "Competitor ad copy by keyword (Meta + Google Ads Transparency). 'Off-keyword warning' when ads don't match SMB services. 14-keyword lane grid. Files: app/[locale]/(smb)/ads/page.tsx. Validation: browser + DB.",
+        parallelLane: "smb-ui",
+        effort: "M",
+        deps: "C.4,C.8,E.0",
+      },
+      {
+        id: "E.6",
+        title: "SMB settings · /(smb)/settings",
+        description:
+          "Business info (name, address, hours, services). Reply-tone (warm/professional/casual). Locale preference. Notification prefs. Stripe billing card. Files: app/[locale]/(smb)/settings/page.tsx. Validation: browser + DB persistence + form validation.",
+        parallelLane: "smb-ui",
+        effort: "M",
+        deps: "B.6,E.0,G.4",
+      },
+      {
+        id: "E.7",
+        title: "SMB onboarding flow",
+        description:
+          "4-step wizard: claim business → set vocabulary (industry) → connect Google Business Profile → invite team. Each step has skip. Mobile-friendly. Files: app/[locale]/(smb)/onboarding/page.tsx. Validation: browser multi-step + DB state per step + a11y.",
+        parallelLane: "smb-ui",
+        effort: "L",
+        deps: "B.6,E.0",
+      },
     ],
   },
   {
@@ -434,49 +547,116 @@ const GROUPS: SeedGroup[] = [
     tasks: [
       {
         id: "F.0",
-        title: "Agency component library (filter row · lead row · status pill · bulk-action bar · table)",
-        description: "Audience-specific components. FilterRow (signal + comparator + value), LeadRow (clickable, status pill, bulk-select checkbox), StatusPill (NEW/CONTACTED/REPLIED/WON/LOST/HIDDEN), BulkActionBar (sticky), DenseTable (resizable cols, density toggle). All cool-gray+indigo. Files: modules/agency/components/. Validation: render in F.1+F.3 + ux-reviewer-agency.",
+        title:
+          "Agency component library (filter row · lead row · status pill · bulk-action bar · table)",
+        description:
+          "Audience-specific components. FilterRow (signal + comparator + value), LeadRow (clickable, status pill, bulk-select checkbox), StatusPill (NEW/CONTACTED/REPLIED/WON/LOST/HIDDEN), BulkActionBar (sticky), DenseTable (resizable cols, density toggle). All cool-gray+indigo. Files: modules/agency/components/. Validation: render in F.1+F.3 + ux-reviewer-agency.",
         parallelLane: "agency-ui",
         effort: "M",
         deps: "B.0",
         tags: "design-system,agency",
         priority: 18,
       },
-      { id: "F.1", title: "Agency lists · /(agency)/lists", description: "Service-template strip top (Website / Meta ads / Local SEO / etc.). Today's-new-matches summary row. Lists grid · service badge per card · hover-reveal actions (clone, pause, more). Paused section below. Files: app/[locale]/(agency)/lists/page.tsx. Validation: browser + ux-reviewer-agency.", parallelLane: "agency-ui",
-        effort: "L", deps: "D.4,F.0" },
+      {
+        id: "F.1",
+        title: "Agency lists · /(agency)/lists",
+        description:
+          "Service-template strip top (Website / Meta ads / Local SEO / etc.). Today's-new-matches summary row. Lists grid · service badge per card · hover-reveal actions (clone, pause, more). Paused section below. Files: app/[locale]/(agency)/lists/page.tsx. Validation: browser + ux-reviewer-agency.",
+        parallelLane: "agency-ui",
+        effort: "L",
+        deps: "D.4,F.0",
+      },
       {
         id: "F.2",
         title: "Hunter UI · /(agency)/search",
-        description: "As an agency owner I want to filter the 2.1M business index by signal to build a qualified-lead list. Acceptance: 3-step flow (template → market → tune). 60+ filter rows reading D.1 signal registry. Live match count debounced 400ms reading D.4 evaluation engine. Sticky preview bar: count + filter summary + 'Save as list'. ⌘K + Tab navigation. Files: app/[locale]/(agency)/search/page.tsx, modules/hunter/components/. Validation: browser multi-comparator combinations + DB filter-eval assertions + perf (Lighthouse on first match) + ux-reviewer-agency.",
+        description:
+          "As an agency owner I want to filter the 2.1M business index by signal to build a qualified-lead list. Acceptance: 3-step flow (template → market → tune). 60+ filter rows reading D.1 signal registry. Live match count debounced 400ms reading D.4 evaluation engine. Sticky preview bar: count + filter summary + 'Save as list'. ⌘K + Tab navigation. Files: app/[locale]/(agency)/search/page.tsx, modules/hunter/components/. Validation: browser multi-comparator combinations + DB filter-eval assertions + perf (Lighthouse on first match) + ux-reviewer-agency.",
         parallelLane: "agency-ui",
         effort: "XL",
         deps: "D.1,D.4,F.0",
         tags: "hunter,moat",
       },
-      { id: "F.3", title: "List detail · /(agency)/lists/[id]", description: "Hero: pitch + 5 KPIs. Filter chips bar. Status tabs: New / Contacted / Replied / Won / Lost / Hidden. Table rows: business, why-qualified signals, status pill (clickable), contact, action. Sticky bulk-action bar. Files: app/[locale]/(agency)/lists/[id]/page.tsx. Validation: browser state transitions + DB + ux + bulk-action perf.", parallelLane: "agency-ui",
-        effort: "L", deps: "F.1,F.0" },
+      {
+        id: "F.3",
+        title: "List detail · /(agency)/lists/[id]",
+        description:
+          "Hero: pitch + 5 KPIs. Filter chips bar. Status tabs: New / Contacted / Replied / Won / Lost / Hidden. Table rows: business, why-qualified signals, status pill (clickable), contact, action. Sticky bulk-action bar. Files: app/[locale]/(agency)/lists/[id]/page.tsx. Validation: browser state transitions + DB + ux + bulk-action perf.",
+        parallelLane: "agency-ui",
+        effort: "L",
+        deps: "F.1,F.0",
+      },
       {
         id: "F.4",
         title: "Prospect detail · /(agency)/prospect/[businessId]",
-        description: "Hero: avatar, name, address, prev/next nav, Mark Contacted, Mark Client, Generate one-pager. Top stats row (6 KPIs). 'Why this lead qualifies' — 4 numbered pitch wedges with evidence footers. Signal blocks: Reviews / Competitors / Search / Ads / Website. Files: app/[locale]/(agency)/prospect/[businessId]/page.tsx. Validation: browser navigation + DB + Match Score assertion + ux.",
+        description:
+          "Hero: avatar, name, address, prev/next nav, Mark Contacted, Mark Client, Generate one-pager. Top stats row (6 KPIs). 'Why this lead qualifies' — 4 numbered pitch wedges with evidence footers. Signal blocks: Reviews / Competitors / Search / Ads / Website. Files: app/[locale]/(agency)/prospect/[businessId]/page.tsx. Validation: browser navigation + DB + Match Score assertion + ux.",
         parallelLane: "agency-ui",
         effort: "XL",
         deps: "D.5,F.3,F.0",
       },
-      { id: "F.5", title: "List analytics · /(agency)/list-analytics", description: "4-stat header (surfaced 90d / contact rate / reply rate / closed won). Per-list table with mini-funnel viz per row. Signal correlation panel (which signals predict replies). Files: app/[locale]/(agency)/list-analytics/page.tsx. Validation: DB aggregate + ux.", parallelLane: "agency-ui",
-        effort: "M", deps: "F.3,D.4" },
-      { id: "F.6", title: "One-pager PDF generation", description: "Generate per-prospect PDF with Solea-template branding. Headline insight, 4 pitch wedges, evidence sections. Write to Vercel Blob. Files: modules/reports/one-pager-pdf.ts. Validation: integration test (PDF generated + Blob URL returned + content match).", parallelLane: "agency-ui",
-        effort: "L", deps: "F.4" },
-      { id: "F.7", title: "CSV export with column picker", description: "Per-list CSV download. User chooses columns (business name, address, phone, score, status, etc.). Writes to Vercel Blob, signed URL, 30d expiry. Files: modules/reports/csv-export.ts. Validation: integration test (CSV bytes + content sample assertion).", parallelLane: "agency-ui",
-        effort: "S", deps: "F.3" },
-      { id: "F.8", title: "Shareable link · /share/[publicShareId]", description: "Read-only public route showing one-pager content. Branded with agency name + logo. 30d expiry. View counter. Auto-noindex. Files: app/[locale]/(public)/share/[id]/page.tsx, modules/reports/share-link.ts. Validation: browser anon + noindex header + view counter increment.", parallelLane: "agency-ui",
-        effort: "M", deps: "F.6" },
-      { id: "F.9", title: "Agency settings · /(agency)/settings", description: "Team management (invite/remove members). Default metro + categories. Billing (current plan, change tier, invoices). API keys section (future). Files: app/[locale]/(agency)/settings/page.tsx. Validation: browser + DB on team changes + invitation email flow.", parallelLane: "agency-ui",
-        effort: "M", deps: "B.6,G.4" },
-      { id: "F.10", title: "Agency onboarding flow", description: "3-step: agency profile → choose first service template → see first 50 free leads. Skips allowed. Drops into lists view at end. Files: app/[locale]/(agency)/onboarding/page.tsx. Validation: browser multi-step + DB per-step persistence.", parallelLane: "agency-ui",
-        effort: "M", deps: "B.6,F.1" },
-      { id: "F.11", title: "Global ⌘K business search · top-bar quick lookup", description: "Type business name or URL → fuzzy match → click → open Prospect detail. Keyboard-driven. Files: components/agency/CommandK.tsx, modules/business-search/. Validation: browser keyboard navigation + DB search query.", parallelLane: "agency-ui",
-        effort: "S", deps: "C.8,F.4" },
+      {
+        id: "F.5",
+        title: "List analytics · /(agency)/list-analytics",
+        description:
+          "4-stat header (surfaced 90d / contact rate / reply rate / closed won). Per-list table with mini-funnel viz per row. Signal correlation panel (which signals predict replies). Files: app/[locale]/(agency)/list-analytics/page.tsx. Validation: DB aggregate + ux.",
+        parallelLane: "agency-ui",
+        effort: "M",
+        deps: "F.3,D.4",
+      },
+      {
+        id: "F.6",
+        title: "One-pager PDF generation",
+        description:
+          "Generate per-prospect PDF with Solea-template branding. Headline insight, 4 pitch wedges, evidence sections. Write to Vercel Blob. Files: modules/reports/one-pager-pdf.ts. Validation: integration test (PDF generated + Blob URL returned + content match).",
+        parallelLane: "agency-ui",
+        effort: "L",
+        deps: "F.4",
+      },
+      {
+        id: "F.7",
+        title: "CSV export with column picker",
+        description:
+          "Per-list CSV download. User chooses columns (business name, address, phone, score, status, etc.). Writes to Vercel Blob, signed URL, 30d expiry. Files: modules/reports/csv-export.ts. Validation: integration test (CSV bytes + content sample assertion).",
+        parallelLane: "agency-ui",
+        effort: "S",
+        deps: "F.3",
+      },
+      {
+        id: "F.8",
+        title: "Shareable link · /share/[publicShareId]",
+        description:
+          "Read-only public route showing one-pager content. Branded with agency name + logo. 30d expiry. View counter. Auto-noindex. Files: app/[locale]/(public)/share/[id]/page.tsx, modules/reports/share-link.ts. Validation: browser anon + noindex header + view counter increment.",
+        parallelLane: "agency-ui",
+        effort: "M",
+        deps: "F.6",
+      },
+      {
+        id: "F.9",
+        title: "Agency settings · /(agency)/settings",
+        description:
+          "Team management (invite/remove members). Default metro + categories. Billing (current plan, change tier, invoices). API keys section (future). Files: app/[locale]/(agency)/settings/page.tsx. Validation: browser + DB on team changes + invitation email flow.",
+        parallelLane: "agency-ui",
+        effort: "M",
+        deps: "B.6,G.4",
+      },
+      {
+        id: "F.10",
+        title: "Agency onboarding flow",
+        description:
+          "3-step: agency profile → choose first service template → see first 50 free leads. Skips allowed. Drops into lists view at end. Files: app/[locale]/(agency)/onboarding/page.tsx. Validation: browser multi-step + DB per-step persistence.",
+        parallelLane: "agency-ui",
+        effort: "M",
+        deps: "B.6,F.1",
+      },
+      {
+        id: "F.11",
+        title: "Global ⌘K business search · top-bar quick lookup",
+        description:
+          "Type business name or URL → fuzzy match → click → open Prospect detail. Keyboard-driven. Files: components/agency/CommandK.tsx, modules/business-search/. Validation: browser keyboard navigation + DB search query.",
+        parallelLane: "agency-ui",
+        effort: "S",
+        deps: "C.8,F.4",
+      },
     ],
   },
   {
@@ -486,44 +666,164 @@ const GROUPS: SeedGroup[] = [
     domain: "BILLING",
     sortOrder: 6,
     tasks: [
-      { id: "G.1", title: "Stripe checkout · subscription create", description: "5 price IDs (SMB $29 + 4 agency tiers). Checkout session creator. Stripe Customer creation, link to User/Agency. Files: app/api/billing/checkout/route.ts, modules/billing/checkout.ts. Validation: browser → Stripe test mode + DB Customer + Subscription rows.", parallelLane: "billing",
-        effort: "M", deps: "B.6" },
-      { id: "G.2", title: "Stripe webhook · subscription lifecycle (idempotent)", description: "/api/webhooks/stripe. Verify signature with STRIPE_WEBHOOK_SECRET. Idempotency via StripeWebhookEvent table. Handle: checkout.completed, invoice.paid, invoice.payment_failed, subscription.updated, subscription.deleted. Files: app/api/webhooks/stripe/route.ts. Validation: payments-auditor + integration (replay = 200 no double-process).", parallelLane: "billing",
-        effort: "M", deps: "G.1" },
-      { id: "G.3", title: "Tier enforcement · cost ceilings + feature gating", description: "lib/cost/tier-ceiling.ts. Per-tier monthly cap. Cron skips business if owner-agency ceiling reached. Agency features gated by plan. Files: lib/cost/tier-ceiling.ts, lib/middleware/feature-gate.ts. Validation: integration test simulating each tier hitting ceiling.", parallelLane: "billing",
-        effort: "M", deps: "G.2,C.1" },
-      { id: "G.4", title: "Billing UI · current plan + invoices + change tier", description: "Embedded in Agency settings + SMB settings. Show current plan, days remaining, last invoice link (Stripe-hosted). Change tier → Stripe customer-portal session. Files: components/billing/. Validation: browser + Stripe test mode change-tier flow.", parallelLane: "billing",
-        effort: "M", deps: "G.1" },
+      {
+        id: "G.1",
+        title: "Stripe checkout · subscription create",
+        description:
+          "5 price IDs (SMB $29 + 4 agency tiers). Checkout session creator. Stripe Customer creation, link to User/Agency. Files: app/api/billing/checkout/route.ts, modules/billing/checkout.ts. Validation: browser → Stripe test mode + DB Customer + Subscription rows.",
+        parallelLane: "billing",
+        effort: "M",
+        deps: "B.6",
+      },
+      {
+        id: "G.2",
+        title: "Stripe webhook · subscription lifecycle (idempotent)",
+        description:
+          "/api/webhooks/stripe. Verify signature with STRIPE_WEBHOOK_SECRET. Idempotency via StripeWebhookEvent table. Handle: checkout.completed, invoice.paid, invoice.payment_failed, subscription.updated, subscription.deleted. Files: app/api/webhooks/stripe/route.ts. Validation: payments-auditor + integration (replay = 200 no double-process).",
+        parallelLane: "billing",
+        effort: "M",
+        deps: "G.1",
+      },
+      {
+        id: "G.3",
+        title: "Tier enforcement · cost ceilings + feature gating",
+        description:
+          "lib/cost/tier-ceiling.ts. Per-tier monthly cap. Cron skips business if owner-agency ceiling reached. Agency features gated by plan. Files: lib/cost/tier-ceiling.ts, lib/middleware/feature-gate.ts. Validation: integration test simulating each tier hitting ceiling.",
+        parallelLane: "billing",
+        effort: "M",
+        deps: "G.2,C.1",
+      },
+      {
+        id: "G.4",
+        title: "Billing UI · current plan + invoices + change tier",
+        description:
+          "Embedded in Agency settings + SMB settings. Show current plan, days remaining, last invoice link (Stripe-hosted). Change tier → Stripe customer-portal session. Files: components/billing/. Validation: browser + Stripe test mode change-tier flow.",
+        parallelLane: "billing",
+        effort: "M",
+        deps: "G.1",
+      },
     ],
   },
   {
     id: "H",
     name: "Ops · self-improvement infrastructure",
-    description: "Internal tooling: dev dashboard, task tracker, incidents, process-enhancer.",
+    description:
+      "Internal tooling: dev dashboard, task tracker, incidents, process-enhancer.",
     domain: "OPS",
     sortOrder: 7,
     tasks: [
-      { id: "H.1", title: "dev.mapsly.ai dashboard · core", description: "Hero tiles + cards (Loop control, DORA, Plan progress, Sessions 7d, Service health, Cron+API health, Auto-enhance signals, Recent commits, Open PRs). Refresh button + 30s AutoRefresh. Shipped.", parallelLane: "ops",
-        effort: "XL", deps: "A.6", status: "DONE" },
-      { id: "H.2", title: "Task tracker · DB-backed with TaskGroup + TaskRun models", description: "Postgres Task + TaskGroup + TaskRun + AgentInvocation + Notification + CostBudget. Seed from this file. Dashboard reads from DB. /dev/tasks list grouped by domain. Shipped v0.3.0+.", parallelLane: "ops",
-        effort: "L", deps: "A.2", status: "DONE" },
-      { id: "H.3", title: "/dev/tasks/[id] detail page with edit + run history + span tree", description: "Per-task page with editable form. Run history with 5-dim scorecard, agents used, gates passed, validation strategy + outcomes, AgentInvocation span tree (Honeycomb-style). Shipped v0.3.0+.", parallelLane: "ops",
-        effort: "L", deps: "H.2", status: "DONE" },
-      { id: "H.4", title: "Edit + Add + Delete tasks from UI", description: "Server actions backed by Prisma + Zod. Inline status menu on list. Full edit on detail. New-task modal per group. Soft-delete via SKIPPED status. Shipped v0.3.0.", parallelLane: "ops",
-        effort: "M", deps: "H.3", status: "DONE" },
-      { id: "H.5", title: "Loop reads next task from DB (not PLAN.md)", description: "Loop prompt updated to query Task table: status=PENDING, deps satisfied, priority+sortOrder ordering. On claim: status=IN_PROGRESS, open TaskRun. On close: write TaskRun + bump Task.status + denormalized scores. Shipped v0.3.0.", parallelLane: "ops",
-        effort: "M", deps: "H.2", status: "DONE" },
-      { id: "H.6", title: "process-enhancer agent · meta-loop (clusters incidents → opens self-improvement PRs)", description: "Daily scheduled. Reads incidents.md + last-N TaskRun + sessions JSON. Clusters patterns. Opens enhance/ PRs (rule rewrites, agent prompt tweaks). Writes enhance-signals.json. Dry-run script exists at scripts/process-enhancer-dryrun.ts. Validation: dry-run produces ≥1 signal on the 15 INC entries.", parallelLane: "ops",
-        effort: "L", deps: "H.2", priority: 30 },
-      { id: "H.7", title: "Quality gates panel per TaskRun", description: "Show: CI badge, deploy result, Lighthouse score, code-reviewer verdict, test-writer added (N) tests, performance-auditor LCP/CLS/INP, ux-reviewer-{audience} pass/fail, copy-reviewer pass/fail, scorer 5-dim card. Rendered on detail page. Shipped v0.3.1.", effort: "M", deps: "H.3", status: "DONE" },
-      { id: "H.8", title: "DORA metrics card + AgentInvocation span tree + Loop control card", description: "Derives deploy freq + lead time p50/p95 + change failure rate from existing TaskRun. AgentInvocation per-agent spans render as Honeycomb-style timeline on detail page. Loop control card with pause/resume/clear-cooldown. Shipped v0.3.3.", parallelLane: "ops",
-        effort: "L", deps: "H.2", status: "DONE" },
-      { id: "H.9", title: "Validation framework + Browser-testing rule", description: ".claude/rules/validation.md (per-task validation strategy: unit/integration/browser/DB/email/perf/a11y). .claude/rules/browser-testing.md (multi-user Claude in Chrome MCP). Test data lifecycle (seed→test→cleanup). Shipped v0.3.1.", parallelLane: "ops",
-        effort: "M", deps: "H.5", status: "DONE" },
-      { id: "H.10", title: "Notification + CostBudget models + post-merge rollback policy", description: "Notification table for loop→Viktor inbox (CRITICAL/ERROR/WARN/INFO). CostBudget per-scope daily/weekly/monthly enforcement. Post-merge Sentry health check + auto-revert if regression. Shipped v0.3.2.", parallelLane: "ops",
-        effort: "M", deps: "H.2", status: "DONE" },
-      { id: "H.11", title: "Agent orchestration rule · concurrency budget + sequencing", description: ".claude/rules/agent-orchestration.md. Caps research at 6 parallel, review at 5. Sequencing rules (code-reviewer before scorer, security before payments). Token-aware scheduling. Shipped v0.3.3.", parallelLane: "ops",
-        effort: "S", deps: "H.5", status: "DONE" },
+      {
+        id: "H.1",
+        title: "dev.mapsly.ai dashboard · core",
+        description:
+          "Hero tiles + cards (Loop control, DORA, Plan progress, Sessions 7d, Service health, Cron+API health, Auto-enhance signals, Recent commits, Open PRs). Refresh button + 30s AutoRefresh. Shipped.",
+        parallelLane: "ops",
+        effort: "XL",
+        deps: "A.6",
+        status: "DONE",
+      },
+      {
+        id: "H.2",
+        title: "Task tracker · DB-backed with TaskGroup + TaskRun models",
+        description:
+          "Postgres Task + TaskGroup + TaskRun + AgentInvocation + Notification + CostBudget. Seed from this file. Dashboard reads from DB. /dev/tasks list grouped by domain. Shipped v0.3.0+.",
+        parallelLane: "ops",
+        effort: "L",
+        deps: "A.2",
+        status: "DONE",
+      },
+      {
+        id: "H.3",
+        title:
+          "/dev/tasks/[id] detail page with edit + run history + span tree",
+        description:
+          "Per-task page with editable form. Run history with 5-dim scorecard, agents used, gates passed, validation strategy + outcomes, AgentInvocation span tree (Honeycomb-style). Shipped v0.3.0+.",
+        parallelLane: "ops",
+        effort: "L",
+        deps: "H.2",
+        status: "DONE",
+      },
+      {
+        id: "H.4",
+        title: "Edit + Add + Delete tasks from UI",
+        description:
+          "Server actions backed by Prisma + Zod. Inline status menu on list. Full edit on detail. New-task modal per group. Soft-delete via SKIPPED status. Shipped v0.3.0.",
+        parallelLane: "ops",
+        effort: "M",
+        deps: "H.3",
+        status: "DONE",
+      },
+      {
+        id: "H.5",
+        title: "Loop reads next task from DB (not PLAN.md)",
+        description:
+          "Loop prompt updated to query Task table: status=PENDING, deps satisfied, priority+sortOrder ordering. On claim: status=IN_PROGRESS, open TaskRun. On close: write TaskRun + bump Task.status + denormalized scores. Shipped v0.3.0.",
+        parallelLane: "ops",
+        effort: "M",
+        deps: "H.2",
+        status: "DONE",
+      },
+      {
+        id: "H.6",
+        title:
+          "process-enhancer agent · meta-loop (clusters incidents → opens self-improvement PRs)",
+        description:
+          "Daily scheduled. Reads incidents.md + last-N TaskRun + sessions JSON. Clusters patterns. Opens enhance/ PRs (rule rewrites, agent prompt tweaks). Writes enhance-signals.json. Dry-run script exists at scripts/process-enhancer-dryrun.ts. Validation: dry-run produces ≥1 signal on the 15 INC entries.",
+        parallelLane: "ops",
+        effort: "L",
+        deps: "H.2",
+        priority: 30,
+      },
+      {
+        id: "H.7",
+        title: "Quality gates panel per TaskRun",
+        description:
+          "Show: CI badge, deploy result, Lighthouse score, code-reviewer verdict, test-writer added (N) tests, performance-auditor LCP/CLS/INP, ux-reviewer-{audience} pass/fail, copy-reviewer pass/fail, scorer 5-dim card. Rendered on detail page. Shipped v0.3.1.",
+        effort: "M",
+        deps: "H.3",
+        status: "DONE",
+      },
+      {
+        id: "H.8",
+        title:
+          "DORA metrics card + AgentInvocation span tree + Loop control card",
+        description:
+          "Derives deploy freq + lead time p50/p95 + change failure rate from existing TaskRun. AgentInvocation per-agent spans render as Honeycomb-style timeline on detail page. Loop control card with pause/resume/clear-cooldown. Shipped v0.3.3.",
+        parallelLane: "ops",
+        effort: "L",
+        deps: "H.2",
+        status: "DONE",
+      },
+      {
+        id: "H.9",
+        title: "Validation framework + Browser-testing rule",
+        description:
+          ".claude/rules/validation.md (per-task validation strategy: unit/integration/browser/DB/email/perf/a11y). .claude/rules/browser-testing.md (multi-user Claude in Chrome MCP). Test data lifecycle (seed→test→cleanup). Shipped v0.3.1.",
+        parallelLane: "ops",
+        effort: "M",
+        deps: "H.5",
+        status: "DONE",
+      },
+      {
+        id: "H.10",
+        title: "Notification + CostBudget models + post-merge rollback policy",
+        description:
+          "Notification table for loop→Viktor inbox (CRITICAL/ERROR/WARN/INFO). CostBudget per-scope daily/weekly/monthly enforcement. Post-merge Sentry health check + auto-revert if regression. Shipped v0.3.2.",
+        parallelLane: "ops",
+        effort: "M",
+        deps: "H.2",
+        status: "DONE",
+      },
+      {
+        id: "H.11",
+        title: "Agent orchestration rule · concurrency budget + sequencing",
+        description:
+          ".claude/rules/agent-orchestration.md. Caps research at 6 parallel, review at 5. Sequencing rules (code-reviewer before scorer, security before payments). Token-aware scheduling. Shipped v0.3.3.",
+        parallelLane: "ops",
+        effort: "S",
+        deps: "H.5",
+        status: "DONE",
+      },
     ],
   },
   {
@@ -533,17 +833,64 @@ const GROUPS: SeedGroup[] = [
     domain: "I18N",
     sortOrder: 8,
     tasks: [
-      { id: "I.1", title: "next-intl scaffold · app/[locale]/ tree", description: "i18n/routing.ts. messages/{en,es,en-CA,fr}.json scaffold. Locale switcher. Auto-detect via Accept-Language. Cookie persistence. Shipped.", effort: "M", deps: "A.1", status: "DONE" },
-      { id: "I.2", title: "Spanish (es-US) translation of marketing copy", description: "messages/es.json populated for marketing namespace. Native-speaker review (no MT). Service vocabulary (patients → pacientes for med-spa).", parallelLane: "i18n",
-        effort: "M", deps: "I.1,B.1", tags: "human-required" },
-      { id: "I.3", title: "Quebec French (fr-CA) translation", description: "messages/fr.json. Native Quebec French reviewer. CAD currency formatting. Locale-specific date formats.", parallelLane: "i18n",
-        effort: "M", deps: "I.1,B.1", tags: "human-required" },
-      { id: "I.4", title: "Canadian English (en-CA) overrides", description: "messages/en-CA.json with only overrides vs en (cheque vs check, neighbour, etc.). Fallback chain to en. Files: messages/en-CA.json. Validation: routing-test for /en-ca path + locale-specific copy.", parallelLane: "i18n",
-        effort: "S", deps: "I.1", priority: 22 },
-      { id: "I.5", title: "Currency + date locale-aware formatting", description: "useFormatter() throughout. en-US: $29.99 May 17. fr-CA: 29,99 $ CA 17 mai. Each Price + Date component reads locale from useLocale(). Files: components/i18n/Price.tsx, components/i18n/Date.tsx. Validation: snapshot tests per locale.", parallelLane: "i18n",
-        effort: "S", deps: "I.1", priority: 22 },
-      { id: "I.6", title: "Translated route pathnames", description: "Per i18n/routing.ts pathnames: /for-agencies → /para-agencias / /pour-agences. /lists → /listas / /listes. Link from next-intl. Validation: routing test per locale + browser hreflang.", parallelLane: "i18n",
-        effort: "S", deps: "I.1,B.2" },
+      {
+        id: "I.1",
+        title: "next-intl scaffold · app/[locale]/ tree",
+        description:
+          "i18n/routing.ts. messages/{en,es,en-CA,fr}.json scaffold. Locale switcher. Auto-detect via Accept-Language. Cookie persistence. Shipped.",
+        effort: "M",
+        deps: "A.1",
+        status: "DONE",
+      },
+      {
+        id: "I.2",
+        title: "Spanish (es-US) translation of marketing copy",
+        description:
+          "messages/es.json populated for marketing namespace. Native-speaker review (no MT). Service vocabulary (patients → pacientes for med-spa).",
+        parallelLane: "i18n",
+        effort: "M",
+        deps: "I.1,B.1",
+        tags: "human-required",
+      },
+      {
+        id: "I.3",
+        title: "Quebec French (fr-CA) translation",
+        description:
+          "messages/fr.json. Native Quebec French reviewer. CAD currency formatting. Locale-specific date formats.",
+        parallelLane: "i18n",
+        effort: "M",
+        deps: "I.1,B.1",
+        tags: "human-required",
+      },
+      {
+        id: "I.4",
+        title: "Canadian English (en-CA) overrides",
+        description:
+          "messages/en-CA.json with only overrides vs en (cheque vs check, neighbour, etc.). Fallback chain to en. Files: messages/en-CA.json. Validation: routing-test for /en-ca path + locale-specific copy.",
+        parallelLane: "i18n",
+        effort: "S",
+        deps: "I.1",
+        priority: 22,
+      },
+      {
+        id: "I.5",
+        title: "Currency + date locale-aware formatting",
+        description:
+          "useFormatter() throughout. en-US: $29.99 May 17. fr-CA: 29,99 $ CA 17 mai. Each Price + Date component reads locale from useLocale(). Files: components/i18n/Price.tsx, components/i18n/Date.tsx. Validation: snapshot tests per locale.",
+        parallelLane: "i18n",
+        effort: "S",
+        deps: "I.1",
+        priority: 22,
+      },
+      {
+        id: "I.6",
+        title: "Translated route pathnames",
+        description:
+          "Per i18n/routing.ts pathnames: /for-agencies → /para-agencias / /pour-agences. /lists → /listas / /listes. Link from next-intl. Validation: routing test per locale + browser hreflang.",
+        parallelLane: "i18n",
+        effort: "S",
+        deps: "I.1,B.2",
+      },
     ],
   },
 ];
@@ -557,20 +904,37 @@ async function main() {
   const adapter = new PrismaNeon({ connectionString: url });
   const prisma = new PrismaClient({ adapter });
 
-  let groupsInserted = 0, groupsUpdated = 0;
-  let tasksInserted = 0, tasksUpdated = 0, tasksUnchanged = 0;
+  let groupsInserted = 0,
+    groupsUpdated = 0;
+  let tasksInserted = 0,
+    tasksUpdated = 0;
+  const _tasksUnchanged = 0;
+  void _tasksUnchanged;
 
   for (const g of GROUPS) {
-    const existingG = await prisma.taskGroup.findUnique({ where: { id: g.id } });
+    const existingG = await prisma.taskGroup.findUnique({
+      where: { id: g.id },
+    });
     if (!existingG) {
       await prisma.taskGroup.create({
-        data: { id: g.id, name: g.name, description: g.description, domain: g.domain, sortOrder: g.sortOrder },
+        data: {
+          id: g.id,
+          name: g.name,
+          description: g.description,
+          domain: g.domain,
+          sortOrder: g.sortOrder,
+        },
       });
       groupsInserted++;
     } else {
       await prisma.taskGroup.update({
         where: { id: g.id },
-        data: { name: g.name, description: g.description, domain: g.domain, sortOrder: g.sortOrder },
+        data: {
+          name: g.name,
+          description: g.description,
+          domain: g.domain,
+          sortOrder: g.sortOrder,
+        },
       });
       groupsUpdated++;
     }
@@ -579,7 +943,8 @@ async function main() {
       const t = g.tasks[i];
       const existing = await prisma.task.findUnique({ where: { id: t.id } });
       const isHumanRequired = t.tags?.includes("human-required");
-      const status = (t.status ?? (isHumanRequired ? "HUMAN_REQUIRED" : "PENDING")) as TaskStatus;
+      const status = (t.status ??
+        (isHumanRequired ? "HUMAN_REQUIRED" : "PENDING")) as TaskStatus;
 
       if (!existing) {
         await prisma.task.create({
@@ -612,7 +977,11 @@ async function main() {
             deps: t.deps ?? existing.deps,
             tags: t.tags ?? existing.tags,
             sortOrder: i,
-            completedAt: becameNewlyDone ? new Date() : (status === "DONE" ? existing.completedAt : null),
+            completedAt: becameNewlyDone
+              ? new Date()
+              : status === "DONE"
+                ? existing.completedAt
+                : null,
           },
         });
         tasksUpdated++;
@@ -629,4 +998,7 @@ async function main() {
   process.exit(0);
 }
 
-main().catch((e) => { console.error(e); process.exit(1); });
+main().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});

@@ -17,7 +17,14 @@
       "automerge": false
     },
     {
-      "matchPackagePatterns": ["^next$", "^react", "^@prisma", "^typescript$", "^next-intl$", "^next-auth$"],
+      "matchPackagePatterns": [
+        "^next$",
+        "^react",
+        "^@prisma",
+        "^typescript$",
+        "^next-intl$",
+        "^next-auth$"
+      ],
       "groupName": "framework",
       "automerge": false,
       "labels": ["needs-review", "deps", "framework"]

@@ -53,7 +53,6 @@ export async function getCostBreakdown(): Promise<CostBreakdown> {
     };
   }
 
-
   const now = new Date();
   const startOfToday = new Date(
     now.getFullYear(),
