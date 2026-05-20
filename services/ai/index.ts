@@ -56,3 +56,13 @@ export {
   type OnePagerResult,
   type PitchWedgeInput,
 } from "./copy-gen";
+
+export {
+  MODEL_DECISION,
+  pickModelFor,
+  getChoiceFor,
+  ALL_MODEL_TASKS,
+  type ModelDecision,
+  type ModelChoice,
+  type ModelTask,
+} from "./model-decision";

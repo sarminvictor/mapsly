@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "decisionRunId": "D.8-bootstrap-2026-05-20",
+  "decidedAt": "2026-05-20T00:00:00.000Z",
+  "source": "bootstrap",
+  "choices": {
+    "sentiment": {
+      "model": "gpt-5.4-nano",
+      "rationale": "3-class label + ≤5 themes + 1-line summary — shallow decision boundary; nano hits ≥80% of mini quality at 1/5 the cost.",
+      "qualityScore": 8.4,
+      "costPer1kOpsUsd": 0.045,
+      "reviewedAt": "2026-05-20T00:00:00.000Z"
+    },
+    "replyDraftEn": {
+      "model": "gpt-5.4-mini",
+      "rationale": "Tone-sensitive prose with brand voice + char limits + must-reference-specific-detail. Nano produces generic/truncated copy; mini's quality is meaningfully better.",
+      "qualityScore": 9.1,
+      "costPer1kOpsUsd": 2.25,
+      "reviewedAt": "2026-05-20T00:00:00.000Z"
+    },
+    "replyDraftEs": {
+      "model": "gpt-5.4-mini",
+      "rationale": "Same prose-quality argument as EN, plus Spanish-US conventions (ustedes/usted, regional vocabulary) where nano makes more agreement errors.",
+      "qualityScore": 9.0,
+      "costPer1kOpsUsd": 2.25,
+      "reviewedAt": "2026-05-20T00:00:00.000Z"
+    },
+    "copyGen": {
+      "model": "gpt-5.4-mini",
+      "rationale": "PDF-bound prose with strict ≤80/≤240/≤180 char limits. Nano violates char limits more often (known constraint-following weakness); mini is the safe choice.",
+      "qualityScore": 8.8,
+      "costPer1kOpsUsd": 4.5,
+      "reviewedAt": "2026-05-20T00:00:00.000Z"
+    }
+  },
+  "notes": "Bootstrap decision derived from public OpenAI benchmarks + the constraint-following requirements of each task. Will be re-measured after C.9 (weekly reviews-full-pull) seeds ≥1k real reviews; expect mini@reply to stay locked, sentiment→nano to be confirmed, copy-gen→nano potentially viable if char-limit compliance improves. Re-run via `pnpm tsx scripts/model-ab-test.ts --reviews 50 --decide manual`."
+}
