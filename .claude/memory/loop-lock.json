@@ -2,8 +2,8 @@
   "state": "idle",
   "sessionId": null,
   "startedAt": null,
-  "lastTickAt": "2026-05-20T12:29:43Z",
+  "lastTickAt": "2026-05-20T12:55:14Z",
   "cooldownUntil": null,
   "consecutiveFailures": 0,
-  "note": "SES-2026-05-20-cowork-1206 · F.0 SHIPPED · PR #14 merged (3a576d3) · v0.6.16 · Agency component library (StatusPill/FilterRow/BulkActionBar/LeadsTable+composables/LeadRow)"
+  "note": "B.9 SHIPPED \u00b7 v0.6.17 \u00b7 /privacy /terms /cookies live"
 }
