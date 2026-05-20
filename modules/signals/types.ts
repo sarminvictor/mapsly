@@ -155,15 +155,24 @@ export interface SignalDefinition {
 /**
  * Internal helper type: a value passed to a comparator. `between` and
  * `is_one_of` use tuple/array forms; everything else uses a scalar.
+ *
+ * The runtime evaluator is defensive — it coerces strings/numbers/Dates
+ * via toNumber/toDate — so callers may pass any of the forms below.
+ * The catch-all `readonly unknown[]` variant lets tests exercise
+ * malformed input paths (e.g. wrong-arity arrays) without resorting
+ * to `as unknown` casts.
  */
 export type FilterValue =
   | number
   | string
   | boolean
   | null
-  | readonly [number, number] // for `between` (numeric)
-  | readonly [string, string] // for `between` (date)
-  | readonly string[]; //         for `is_one_of` / `is_none_of`
+  | Date
+  | readonly [number, number] //     for `between` (numeric)
+  | readonly [string, string] //     for `between` (date · ISO)
+  | readonly [Date, Date] //         for `between` (date · Date)
+  | readonly string[] //             for `is_one_of` / `is_none_of`
+  | readonly unknown[]; //           malformed shapes — runtime returns false
 
 /**
  * The shape one filter row in a Hunter list takes on the wire.
