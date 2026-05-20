@@ -18,7 +18,12 @@ After implementing any phase that ships a user-facing route, before marking the 
    - Run the validation
    - Clean up via `scripts/test-cleanup.ts` (or rollback transaction)
    - Test records use email pattern `test+{phaseId}-{n}@mapsly.ai` so they're identifiable + greppable
-5. **Required checks per route:**
+5. **Mobile viewport pass · MANDATORY for every UI task**:
+   - Resize Chrome to 380px width via `mcp__Claude_in_Chrome__resize_window`
+   - Re-navigate the route — assert layout doesn't break (no horizontal scroll, tap targets ≥ 44×44px, modals fit)
+   - Run Lighthouse mobile preset (not desktop)
+   - Take a second screenshot at 380px for the PR comment + TaskRun.screenshotsUrls
+6. **Required checks per route:**
    - Page returns 200 (not 404, not 500)
    - Expected content is present (assert key copy / element selectors)
    - Permissions enforced (signed-out user can't reach `/dashboard`; SMB can't reach `/(agency)`)

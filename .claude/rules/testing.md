@@ -181,6 +181,45 @@ Use Playwright. 5 E2E tests max for v1.
 - ❌ Storybook stories (we don't use Storybook)
 - ❌ Internal admin routes (use them, find bugs in dogfooding)
 
+## Snapshot tests for compute formulas (NEW · golden values)
+
+For pure-function compute (Mapsly Score, MSI, match score, filter eval) we **do** snapshot test — but with **golden inputs**, not JSX output.
+
+```ts
+// modules/scoring/__tests__/mapsly-score.test.ts
+import { computeMapslyScore } from "../mapsly-score";
+
+test("perfect business returns near-10", () => {
+  expect(
+    computeMapslyScore({
+      rating: 5.0,
+      reviewCount: 1000,
+      replyRate: 1.0,
+      profileCompleteness: 1.0,
+      trustScore: 1.0,
+      pricingTransparency: 1.0,
+      brandPresence: 1.0,
+    }),
+  ).toMatchInlineSnapshot("9.85");
+});
+
+test("brand-new biz returns ~3", () => {
+  expect(
+    computeMapslyScore({
+      rating: 0,
+      reviewCount: 0,
+      replyRate: 0,
+      profileCompleteness: 0.5,
+      trustScore: 0.4,
+      pricingTransparency: 0.3,
+      brandPresence: 0.1,
+    }),
+  ).toMatchInlineSnapshot("2.8");
+});
+```
+
+Snapshot diffs in PR reviews = score formula behavior change = explicit decision.
+
 ## Tooling
 
 - **Vitest** for unit + integration. Fast, Vite-based.

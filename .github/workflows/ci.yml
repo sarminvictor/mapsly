@@ -106,19 +106,48 @@ jobs:
       - name: Test
         run: pnpm test:run
 
+  integration:
+    name: integration
+    runs-on: ubuntu-latest
+    needs: validate
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: ${{ env.PNPM_VERSION }} }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm db:generate
+      - name: Run integration tests
+        env:
+          # CI test branch will be wired by H.6+ work; for now skip gracefully
+          DATABASE_URL: ${{ secrets.NEON_TEST_BRANCH_URL || 'postgres://stub:stub@localhost:5432/stub' }}
+          DIRECT_URL: ${{ secrets.NEON_TEST_BRANCH_URL || 'postgres://stub:stub@localhost:5432/stub' }}
+        run: |
+          # Run integration tests only if there are any matching files
+          if find . -path ./node_modules -prune -o -name "*.integration.test.ts" -print | grep -q .; then
+            pnpm test:run --reporter=verbose --testNamePattern=integration
+          else
+            echo "No integration tests yet · skipping"
+          fi
+
   # Required-status-checks gate ·
   # configure branch protection on main to require this job to pass.
   ci-passed:
     name: ci-passed
     runs-on: ubuntu-latest
-    needs: [validate, build, test]
+    needs: [validate, build, test, integration]
     if: always()
     steps:
       - name: Verify all required jobs passed
         run: |
           if [ "${{ needs.validate.result }}" != "success" ] \
              || [ "${{ needs.build.result }}" != "success" ] \
-             || [ "${{ needs.test.result }}" != "success" ]; then
+             || [ "${{ needs.test.result }}" != "success" ] \
+             || [ "${{ needs.integration.result }}" != "success" ]; then
             echo "One or more required jobs failed."
             exit 1
           fi
