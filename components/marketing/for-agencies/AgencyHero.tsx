@@ -123,8 +123,8 @@ export function AgencyHero({ t }: AgencyHeroProps) {
           >
             {t("hero.cta_primary")}
           </Link>
-          <Link
-            href="/for-agencies#signals"
+          <a
+            href="#signals"
             style={{
               display: "inline-flex",
               alignItems: "center",
@@ -140,7 +140,7 @@ export function AgencyHero({ t }: AgencyHeroProps) {
             }}
           >
             {t("hero.cta_secondary")}
-          </Link>
+          </a>
         </div>
 
         <dl

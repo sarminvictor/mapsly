@@ -100,7 +100,7 @@ export function AgencyCTA({ t }: AgencyCTAProps) {
           >
             {t("cta.primary")}
           </Link>
-          <Link
+          <a
             href="mailto:sales@mapsly.ai"
             style={{
               display: "inline-flex",
@@ -118,7 +118,7 @@ export function AgencyCTA({ t }: AgencyCTAProps) {
             }}
           >
             {t("cta.secondary")}
-          </Link>
+          </a>
         </div>
 
         <ul
