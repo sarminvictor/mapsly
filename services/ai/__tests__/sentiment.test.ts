@@ -145,7 +145,7 @@ describe("classifyReviewUncached", () => {
   });
 
   test("rejects out-of-range stars before calling the API", async () => {
-    const fetchMock = vi.fn(
+    const fetchMock = vi.fn<typeof fetch>(
       async () => makeOpenAiResponse("{}"), // shouldn't be hit
     );
     __setFetchForTesting(fetchMock);
@@ -196,7 +196,7 @@ describe("classifyReviewUncached", () => {
   });
 
   test("model parameter overrides the default (for A/B testing)", async () => {
-    const fetchMock = vi.fn(async () =>
+    const fetchMock = vi.fn<typeof fetch>(async () =>
       makeOpenAiResponse(
         JSON.stringify({
           sentiment: "POSITIVE",

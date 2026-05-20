@@ -152,7 +152,7 @@ describe("draftReplyUncached", () => {
   });
 
   test("passes tone + voiceNotes through to the prompt", async () => {
-    const fetchMock = vi.fn(async () =>
+    const fetchMock = vi.fn<typeof fetch>(async () =>
       reply(JSON.stringify({ en: "hi", es: "hola" })),
     );
     __setFetchForTesting(fetchMock);

@@ -173,7 +173,7 @@ describe("generateOnePager", () => {
   });
 
   test("includes all wedges in the prompt in order", async () => {
-    const fetchMock = vi.fn(async () =>
+    const fetchMock = vi.fn<typeof fetch>(async () =>
       reply(
         JSON.stringify({
           headline: "h",

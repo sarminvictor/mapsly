@@ -150,7 +150,7 @@ describe("callOpenAi", () => {
   });
 
   test("returns text + usage from a successful call", async () => {
-    const fetchMock = vi.fn(async () =>
+    const fetchMock = vi.fn<typeof fetch>(async () =>
       okResponse({
         content: "Hello world",
         promptTokens: 10,
@@ -175,7 +175,7 @@ describe("callOpenAi", () => {
   });
 
   test("posts JSON body with model + messages + max_tokens", async () => {
-    const fetchMock = vi.fn(async () =>
+    const fetchMock = vi.fn<typeof fetch>(async () =>
       okResponse({ content: "x", promptTokens: 1, completionTokens: 1 }),
     );
     __setFetchForTesting(fetchMock);
