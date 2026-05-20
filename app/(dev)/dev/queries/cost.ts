@@ -47,7 +47,7 @@ export async function getCostBreakdown(): Promise<CostBreakdown> {
       totalThisMonth: 0,
       projectedMonthEnd: 0,
       byVendor: [],
-      budget: { dailyUsd: 0, status: "ok" as const },
+      budget: { dailyUsd: 0, haltPct: 0, status: "ok" as const },
     };
   }
 
