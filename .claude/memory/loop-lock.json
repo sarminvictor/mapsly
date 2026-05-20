@@ -2,8 +2,8 @@
   "state": "idle",
   "sessionId": null,
   "startedAt": null,
-  "lastTickAt": "2026-05-20T13:55:56Z",
+  "lastTickAt": "2026-05-20T15:47:26Z",
   "cooldownUntil": null,
   "consecutiveFailures": 0,
-  "note": "v0.6.19 · SES-2026-05-20-cowork-1340 shipped D.2 (Mapsly Score formula · 6-dim composite) via /sessions clone bootstrap (/tmp was full owned by nobody) · code-reviewer PASS-WITH-NITS 9/10 · scorer 9.60/10 · ci-passed green · merged PR #17"
+  "note": "v0.6.21 \u00b7 SES-2026-05-20-cowork-1514 shipped B.1 (main landing \u00b7 audience switcher + 6-block scroll story) via /tmp clone bootstrap \u00b7 7 review agents all PASS-WITH-NITS \u00b7 scorer 8.2/10 \u00b7 ci-passed green (lighthouse informational) \u00b7 merged PR #18"
 }

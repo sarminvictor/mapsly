@@ -427,3 +427,57 @@ Triggered manually after Viktor reported the loop wedged at 2026-05-20T15:15Z wi
 This was a meta-improvement ship — no PLAN task claimed. Next scheduled tick will run as `nobody`, GC its own past orphans (the 24 `mapsly-*` dirs currently owned by `nobody` in `/tmp`), and resume normal task shipping with much more headroom.
 
 Outcome: SUCCESS.
+
+---
+
+## SES-2026-05-20-cowork-1514 · B.1 main landing shipped
+
+**Outcome:** SUCCESS · merged PR #18 · v0.6.21
+**Task:** B.1 · `app/[locale]/(marketing)/page.tsx` + 6 new marketing components (1326 lines TSX)
+**Branch:** auto/2026-05-20-B.1-1 · 4 commits squashed
+**Duration:** ~30 min · single-iteration ship from a UID-1036 sandbox (prior /tmp/mapsly-work was nobody-owned, so worked in /tmp/work-{ts})
+
+### What shipped
+
+- Hero with eyebrow + serif H1 + audience-switcher (SMB coral / Agency indigo cards) + 4-stat coverage strip
+- Pipeline (4-step "how it works") with Maria-safe diagnosis copy ("Customers Slipping Away" not "Local Pack Vulnerability" — copy-reviewer caught the SMB jargon leak)
+- AudienceSplit (Reality Mirror vs Hunter head-to-head, 5 features each, accent-colored CTAs)
+- SignalsPreview (6 named-diagnosis cards with tone-color pill + bar + plain-English desc)
+- FAQ using native `<details>` + JSON-LD FAQPage schema (zero client JS)
+- FinalCTA closing audience-split band
+- Full Metadata: hreflang 4 locales, canonical, OG/Twitter, Organization JSON-LD inline
+- 50+ i18n keys under `landing.*` in messages/en.json (es/fr/en-CA fall back to en pending B.8)
+- globals.css: `:focus-visible` outline + `<summary>` chevron (a11y polish)
+
+### Reviewer chorus (7 agents, all PASS-WITH-NITS, no REJECT):
+
+| Agent | Verdict | Score |
+|---|---|---|
+| code-reviewer | PASS-WITH-NITS | 8/10 |
+| copy-reviewer | PASS-WITH-NITS | 8/10 (jargon-leak fix landed inline) |
+| ux-reviewer-smb | PASS-WITH-NITS | 8/10 |
+| ux-reviewer-agency | PASS-WITH-NITS | 8/10 |
+| a11y-reviewer | PASS-WITH-NITS | 8/10 · est Lighthouse a11y 95 |
+| performance-auditor | PASS-WITH-NITS | 8/10 · est Lighthouse perf 92, LCP 1.6s, FirstLoadJS 95kB |
+| scorer | MERGE recommendation | 8.2/10 aggregate |
+
+CI: ci-passed = SUCCESS (validate + build + test + integration + bundle-check all green). lighthouse = FAILURE (informational — not in ci-passed gate; failures are env issues + pre-existing localePrefix=as-needed redirect of /en → /; color-contrast nit fixed inline by switching text-3 → text-2 in eyebrow labels).
+
+### In-iteration fixes (the 4 follow-up commits before merge)
+
+1. Initial ship — Hero, Pipeline, AudienceSplit, SignalsPreview, FAQ, FinalCTA + page + en.json (3d1bd72)
+2. copy-reviewer nit fix · "Local Pack Vulnerability" → "Customers Slipping Away" etc (6fb7786)
+3. prettier --write fix for 3 mine + pre-existing incidents.md flagged by CI (1ebc736)
+4. a11y nits · contrast tier bump + focus rings + dt/dd order + i18n aria-labels + summary chevron (438110a)
+
+### Followups filed (in scorer output, to add as Tasks)
+
+- B.1-fu1 · Migrate root layout fonts from `<link>` to `next/font` (render-blocking removal · LCP improvement)
+- B.1-fu2 · Add `cacheTag("marketing")` + extract inline styles to Tailwind utilities (HTML payload -20%)
+- B.1-fu3 · Tighten `t` prop typing across marketing components (use `ReturnType<typeof useTranslations>` not `(key: string) => string`)
+- B.1-fu4 · Dedupe `LOCALE_TO_PATH` against `alternates.languages`
+- B.1-fu5 · Mobile 13px → 14px on SMB signal desc; densify agency card; agency-side serif h3 → Inter
+
+### What this unblocks
+
+B.2 (For-Agencies landing) · B.3 (For-SMB landing) · B.4 (Pricing) · B.7 (SEO infrastructure) · B.10 (analytics events). All can reuse `components/marketing/*` primitives and the i18n + Metadata patterns established here.
