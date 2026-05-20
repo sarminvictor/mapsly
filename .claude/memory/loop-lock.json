@@ -2,8 +2,8 @@
   "state": "idle",
   "sessionId": null,
   "startedAt": null,
-  "lastTickAt": "2026-05-20T15:47:26Z",
+  "lastTickAt": "2026-05-20T16:31:30Z",
   "cooldownUntil": null,
   "consecutiveFailures": 0,
-  "note": "v0.6.21 \u00b7 SES-2026-05-20-cowork-1514 shipped B.1 (main landing \u00b7 audience switcher + 6-block scroll story) via /tmp clone bootstrap \u00b7 7 review agents all PASS-WITH-NITS \u00b7 scorer 8.2/10 \u00b7 ci-passed green (lighthouse informational) \u00b7 merged PR #18"
+  "note": "SES-2026-05-20-cowork-1606 closed · B.7 SUCCESS · v0.6.22 · merged 9a645e3 · scorer 9.2/10 · code-reviewer PASS · 9 new files +1080 LOC · 57 new tests · session-local tmp bootstrap (root /tmp full) made CAN_DEPLOY_CHECK feasible after pnpm install → ran full local validate/typecheck/lint/test/build before push → CI passed first push attempt after one prettier autofix"
 }
