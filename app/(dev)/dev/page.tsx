@@ -464,40 +464,64 @@ async function DoraCard() {
 
 async function QuotaCard() {
   const q = await getQuotaStatus();
-  const color = {
-    ok: "var(--dev-green)",
-    warn: "var(--dev-amber)",
-    "near-limit": "var(--dev-amber)",
-    exceeded: "var(--dev-red)",
-  }[q.status];
+  // Real source-of-truth is Claude.ai; we approximate locally from TokenUsage
+  // rows the loop writes per tick. Until the loop runs, our local count is 0.
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <div
+        style={{
+          padding: "8px 12px",
+          background: "rgba(245,158,11,.08)",
+          border: "1px solid rgba(245,158,11,.3)",
+          borderRadius: 6,
+          fontSize: 11,
+          color: "var(--dev-text-2)",
+        }}
+      >
+        ⚠ Local approximation only. Anthropic does not expose Pro Max usage via
+        API. For real numbers see{" "}
+        <a
+          href="https://claude.ai/settings/usage"
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ color: "var(--dev-indigo)" }}
+        >
+          claude.ai/settings/usage
+        </a>
+        . This card sums TokenUsage rows written by the loop &mdash;
+        conversational usage from your own chat sessions is NOT counted here.
+      </div>
+
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
         <div className="dev-tile" style={{ flex: 1, minWidth: 140 }}>
-          <div className="dev-tile-label">input tokens</div>
-          <div className="dev-tile-num" style={{ color }}>
-            {q.inputUsedPct}%
+          <div className="dev-tile-label">loop input tokens · 5h</div>
+          <div className="dev-tile-num">
+            {Math.round(q.tokensInputUsed / 1000)}K
           </div>
-          <div className="dev-tile-sub">
-            {Math.round(q.tokensInputUsed / 1000)}K used
-          </div>
+          <div className="dev-tile-sub">from autonomous sessions</div>
         </div>
         <div className="dev-tile" style={{ flex: 1, minWidth: 140 }}>
-          <div className="dev-tile-label">output tokens</div>
-          <div className="dev-tile-num" style={{ color }}>
-            {q.outputUsedPct}%
+          <div className="dev-tile-label">loop output tokens · 5h</div>
+          <div className="dev-tile-num">
+            {Math.round(q.tokensOutputUsed / 1000)}K
           </div>
-          <div className="dev-tile-sub">
-            {Math.round(q.tokensOutputUsed / 1000)}K used
-          </div>
+          <div className="dev-tile-sub">from autonomous sessions</div>
         </div>
         <div className="dev-tile" style={{ flex: 1, minWidth: 140 }}>
           <div className="dev-tile-label">active sessions</div>
-          <div className="dev-tile-num">{q.activeSessions}</div>
-          <div className="dev-tile-sub">parallel workers</div>
+          <div
+            className="dev-tile-num"
+            style={{
+              color:
+                q.activeSessions > 0 ? "var(--dev-amber)" : "var(--dev-text)",
+            }}
+          >
+            {q.activeSessions}
+          </div>
+          <div className="dev-tile-sub">parallel workers running</div>
         </div>
         <div className="dev-tile" style={{ flex: 1, minWidth: 140 }}>
-          <div className="dev-tile-label">rate-limited 24h</div>
+          <div className="dev-tile-label">rate-limited · 24h</div>
           <div
             className="dev-tile-num"
             style={{
@@ -506,15 +530,16 @@ async function QuotaCard() {
           >
             {q.rateLimitedRecent}
           </div>
-          <div className="dev-tile-sub">incomplete sessions</div>
+          <div className="dev-tile-sub">INCOMPLETE TaskRuns</div>
         </div>
       </div>
+
       <div
         className="dev-mono"
         style={{ fontSize: 11, color: "var(--dev-text-3)" }}
       >
-        Window started {q.windowStartedAt.slice(11, 16)}Z · estimated reset{" "}
-        {q.resetEstimateAt.slice(11, 16)}Z · cost so far $
+        Local window approximated from oldest TokenUsage in last 5h. Real reset
+        shown on claude.ai/settings/usage. Loop cost estimate so far: $
         {q.costEstimateUsd.toFixed(2)}
       </div>
     </div>
