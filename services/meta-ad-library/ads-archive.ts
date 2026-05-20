@@ -268,18 +268,34 @@ async function adsArchiveSearchRaw(
     const json: unknown = await res.json();
     const parsedJson = AdsArchiveResponseSchema.parse(json);
 
+    let pageHadOverflow = false;
     for (const row of parsedJson.data) {
       if (rows.length >= MAX_RESULTS_PER_QUERY) {
-        truncated = true;
+        pageHadOverflow = true;
         break;
       }
       rows.push(row);
     }
 
-    if (truncated) break;
+    if (pageHadOverflow) {
+      // Inner loop hit the ceiling mid-page — there is by definition more
+      // data available than we returned.
+      truncated = true;
+      break;
+    }
 
     const next = parsedJson.paging?.next;
-    nextUrl = next && typeof next === "string" && next.length > 0 ? next : null;
+    const hasNext = typeof next === "string" && next.length > 0 ? next : null;
+
+    if (rows.length >= MAX_RESULTS_PER_QUERY) {
+      // Filled exactly to the ceiling. If Meta says there's another page,
+      // mark truncated WITHOUT fetching it — saves one network round trip
+      // vs the prior "fetch-then-discover" loop shape.
+      if (hasNext) truncated = true;
+      break;
+    }
+
+    nextUrl = hasNext;
   }
 
   return {
