@@ -584,3 +584,17 @@ SES-2026-05-20-cowork-1779313116 · D.8 · SUCCESS · 1744+/10- · ci-green · m
   - Spanish-language detection via substring markers is more fragile than expected. Punctuation-adjacent forms (¡gracias, ¿cómo) need substring (no-boundary) markers; English-cognate-risky words (usted/trusted, amable) keep leading-space form. Documenting in the marker block's comment so future me doesn't re-bite this.
   - CI prettier --check transient failures on Cowork-pushed PRs are observed multiple times now (this PR + B.4 RESUME). Worth a follow-up INC if it recurs. For now: re-run via empty-commit push or `gh workflow run` is the workaround; root cause unclear (cache or environment, not file content).
 SES-2026-05-20-cowork-2216 · C.4 · SUCCESS · score 7.8/10 · 932+/0- · ci-pass · merge
+
+## SES-2026-05-20-cowork-audit-followup4 · v0.6.29 ship · dev.mapsly.ai/ui showcase
+
+Viktor: *"add this to https://dev.mapsly.ai/ui - is it possible? I need the easiest way"*
+
+Added a new server-component page at `app/(dev)/dev/ui/page.tsx` (~460 lines) plus a small `"use client"` ModalDemo helper (~76 lines, needed because Modal manages open/close state). Renders every B.0 primitive (Button, Pill, Tile, Card, Input, Modal) × all variants × both SMB and Agency audience palettes. Added a nav link `ui →` next to `tasks →` in the dev dashboard header for one-click access.
+
+No new dependencies. Pure inline styles (matches the existing dev-dashboard convention). `noindex,nofollow` metadata.
+
+Routes:
+- `https://dev.mapsly.ai/ui` — the showcase
+- Link from `https://dev.mapsly.ai/` header
+
+Outcome: SUCCESS.

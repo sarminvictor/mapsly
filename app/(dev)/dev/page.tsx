@@ -64,6 +64,20 @@ export default function DevDashboard() {
           >
             tasks →
           </Link>
+          <Link
+            href="/ui"
+            style={{
+              padding: "6px 12px",
+              fontSize: 12,
+              color: "var(--color-fg-muted, #6b7280)",
+              border: "1px solid var(--color-border, #e5e7eb)",
+              borderRadius: 6,
+              textDecoration: "none",
+              fontFamily: "JetBrains Mono, monospace",
+            }}
+          >
+            ui →
+          </Link>
           <RefreshButton />
         </div>
       </header>
