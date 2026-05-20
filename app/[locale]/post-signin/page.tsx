@@ -1,5 +1,5 @@
+import { Suspense } from "react";
 import { unauthorized } from "next/navigation";
-import { connection } from "next/server";
 
 import { auth } from "@/lib/auth";
 import { redirect } from "@/i18n/navigation";
@@ -14,17 +14,26 @@ import prisma from "@/lib/prisma";
 //   2. AgencyMember row exists    → /lists
 //   3. Default                    → /dashboard (SMB)
 //
-// Marked dynamic via `auth()` (which reads cookies) so PPR doesn't try to
-// prerender this — it's user-specific by definition.
-export default async function PostSignInPage({
+// Under cacheComponents (PPR), the outer page must be sync — async work
+// (auth + DB query) goes inside <Suspense> so the static shell renders
+// without blocking. Inner component does the redirect once it resolves.
+export default function PostSignInPage({
   params,
 }: {
   params: Promise<{ locale: string }>;
 }) {
-  // Mark dynamic under cacheComponents (PPR) — this route depends on
-  // the user's session cookie, must not be prerendered.
-  await connection();
+  return (
+    <Suspense fallback={null}>
+      <PostSignInRedirect params={params} />
+    </Suspense>
+  );
+}
 
+async function PostSignInRedirect({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}) {
   const { locale } = (await params) as { locale: Locale };
   const session = await auth();
 
