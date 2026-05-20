@@ -63,4 +63,7 @@ async function PostSignInRedirect({
   }
 
   redirect({ href: "/dashboard", locale });
+
+  // Unreachable — redirect() throws. Return null so TS infers ReactNode.
+  return null;
 }
