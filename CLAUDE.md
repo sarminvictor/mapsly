@@ -4,7 +4,7 @@ Project-level rules. Loaded automatically by Claude Code on every session.
 
 > **Performance is the #1 product requirement.** Every page · every route · every interaction. Slow = broken. See `.claude/rules/performance.md`.
 
-> **All autonomous development runs on Claude Pro Max 20x + scheduled tasks · NEVER the Anthropic API.** Use the entire 5h token budget per session — the plan is paid, idle quota is wasted. See `.claude/skills/autonomous-build-loop/SKILL.md` and `docs/permissions.md`.
+> **All autonomous development runs on Claude Pro Max 20x + scheduled tasks · NEVER the OpenAI API.** Use the entire 5h token budget per session — the plan is paid, idle quota is wasted. See `.claude/skills/autonomous-build-loop/SKILL.md` and `docs/permissions.md`.
 
 > **Auto-merge is default.** When all gates pass, the loop merges itself to `main`. Viktor watches via `dev.mapsly.ai` and daily GitHub digest, not per-PR review. See `docs/dev-dashboard.md`.
 
@@ -133,7 +133,7 @@ modules/                            # feature modules (boundary = folder)
   billing/                          # Stripe integration
   auth/                             # NextAuth wrappers
 services/                           # external API adapters · cost-tracked
-  dataforseo/  meta-ad-library/  lighthouse/  email-verify/  ai-haiku/
+  dataforseo/  meta-ad-library/  lighthouse/  email-verify/  ai-openai/
 lib/
   prisma.ts  prisma-types.ts  auth.ts
   cost/cost-counter.ts              # AsyncLocalStorage cost tracking
