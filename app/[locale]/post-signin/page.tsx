@@ -1,4 +1,5 @@
 import { unauthorized } from "next/navigation";
+import { connection } from "next/server";
 
 import { auth } from "@/lib/auth";
 import { redirect } from "@/i18n/navigation";
@@ -20,6 +21,10 @@ export default async function PostSignInPage({
 }: {
   params: Promise<{ locale: string }>;
 }) {
+  // Mark dynamic under cacheComponents (PPR) — this route depends on
+  // the user's session cookie, must not be prerendered.
+  await connection();
+
   const { locale } = (await params) as { locale: Locale };
   const session = await auth();
 
