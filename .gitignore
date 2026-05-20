@@ -56,3 +56,4 @@ _probe_*
 # Loop iteration scratch (runtime env, branch metadata)
 .env.runtime
 .loop-run-meta
+.pr-number

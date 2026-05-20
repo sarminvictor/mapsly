@@ -164,9 +164,7 @@ function AudienceCard({
   cta,
 }: AudienceCardProps) {
   const accent =
-    audience === "agency"
-      ? "var(--color-agency-indigo)"
-      : "var(--color-coral)";
+    audience === "agency" ? "var(--color-agency-indigo)" : "var(--color-coral)";
   const background =
     audience === "agency" ? "var(--color-agency-bg)" : "var(--color-bg-2)";
 

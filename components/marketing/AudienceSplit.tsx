@@ -119,9 +119,7 @@ function AudiencePanel({
   ctaHref,
 }: AudiencePanelProps) {
   const accent =
-    audience === "agency"
-      ? "var(--color-agency-indigo)"
-      : "var(--color-coral)";
+    audience === "agency" ? "var(--color-agency-indigo)" : "var(--color-coral)";
   const surface =
     audience === "agency" ? "var(--color-agency-bg)" : "var(--color-bg-2)";
 
