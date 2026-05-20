@@ -30,9 +30,14 @@ export default async function MarketingLayout({
     >
       <header
         style={{
-          padding: "24px 32px",
+          padding: "20px 32px",
           borderBottom: "1px solid var(--color-border)",
           background: "var(--color-bg-2)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 16,
+          flexWrap: "wrap",
         }}
       >
         <Link
@@ -62,6 +67,42 @@ export default async function MarketingLayout({
           />
           mapsly
         </Link>
+        <nav
+          aria-label="Primary"
+          style={{
+            display: "flex",
+            gap: 24,
+            alignItems: "center",
+            flexWrap: "wrap",
+          }}
+        >
+          <Link
+            href="/for-agencies"
+            style={{
+              color: "var(--color-text-2)",
+              textDecoration: "none",
+              fontSize: 14,
+              fontWeight: 500,
+            }}
+          >
+            {t("nav_for_agencies")}
+          </Link>
+          <Link
+            href="/signin"
+            style={{
+              color: "var(--color-text)",
+              textDecoration: "none",
+              fontSize: 14,
+              fontWeight: 600,
+              padding: "8px 14px",
+              border: "1px solid var(--color-border)",
+              borderRadius: 8,
+              background: "var(--color-bg-2)",
+            }}
+          >
+            {t("nav_signin")}
+          </Link>
+        </nav>
       </header>
 
       <main style={{ flex: 1 }}>{children}</main>

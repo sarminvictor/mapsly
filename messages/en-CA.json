@@ -5,5 +5,11 @@
         "brand": "Brand defence"
       }
     }
+  },
+  "marketing": {
+    "footer": {
+      "nav_for_agencies": "For agencies",
+      "nav_signin": "Sign in"
+    }
   }
 }

@@ -22,7 +22,9 @@
       "copyright": "© {year} Mapsly. Intelligence d'affaires locale.",
       "privacy": "Confidentialité",
       "terms": "Conditions",
-      "cookies": "Témoins"
+      "cookies": "Témoins",
+      "nav_for_agencies": "Pour agences",
+      "nav_signin": "Connexion"
     }
   },
   "legal": {
