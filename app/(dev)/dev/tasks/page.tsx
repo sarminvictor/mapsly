@@ -1,18 +1,28 @@
-// /dev/tasks · full task tracker view.
-// Phase 1 (this version): read-only list grouped by phase. Pulls directly
-// from PLAN.md via the same parser the main dashboard uses.
-// Phase 1.11.3+: filter chips, click-into-detail, edit-in-place — those land
-// once the DB-backed Task table ships.
+// /dev/tasks · domain-grouped task tracker with inline controls.
 
 import Link from "next/link";
 import { Suspense } from "react";
 import AutoRefresh from "../AutoRefresh";
 import RefreshButton from "../RefreshButton";
 import { getPlanSummary, type PhaseRow } from "../queries/plan";
+import TaskRowControls from "./TaskRowControls";
+import AddTaskButton from "./AddTaskButton";
 
 export const metadata = {
   title: "Mapsly · tasks",
   robots: { index: false, follow: false },
+};
+
+const DOMAIN_LABELS: Record<string, string> = {
+  FOUNDATION: "Foundation",
+  MARKETING: "Marketing",
+  DATA: "Data collection",
+  COMPUTE: "Compute",
+  SMB_PORTAL: "SMB portal",
+  AGENCY_PORTAL: "Agency portal",
+  BILLING: "Billing",
+  OPS: "Ops",
+  I18N: "i18n",
 };
 
 export default function TasksPage() {
@@ -23,7 +33,9 @@ export default function TasksPage() {
           <span className="dev-dot" aria-hidden />
           <div>
             <div className="dev-head-title">Mapsly · tasks</div>
-            <div className="dev-status">all phases · all statuses</div>
+            <div className="dev-status">
+              9 groups · domain-organized · DB-backed
+            </div>
           </div>
         </div>
         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
@@ -58,106 +70,139 @@ export default function TasksPage() {
 async function TasksContent() {
   const plan = await getPlanSummary();
   if (plan.total === 0) {
-    return <div className="dev-empty">PLAN.md unreadable.</div>;
+    return (
+      <div className="dev-empty">
+        no tasks in DB · run <code>pnpm seed:plan</code>
+      </div>
+    );
   }
-
-  // Group by major phase (first segment of ID).
-  const groups = new Map<string, PhaseRow[]>();
-  for (const row of plan.rows) {
-    const phase = row.id.split(".")[0];
-    if (!groups.has(phase)) groups.set(phase, []);
-    groups.get(phase)!.push(row);
-  }
-  const orderedPhases = [...groups.keys()].sort((a, b) => {
-    const an = Number(a);
-    const bn = Number(b);
-    if (!Number.isNaN(an) && !Number.isNaN(bn)) return an - bn;
-    return a.localeCompare(b);
-  });
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      <SummaryBar plan={plan} />
-      {orderedPhases.map((phase) => {
-        const rows = groups.get(phase)!;
-        const doneCt = rows.filter((r) => r.status === "done").length;
-        return (
-          <div key={phase} className="dev-card">
-            <h2>
-              Phase {phase} · {doneCt}/{rows.length} done
-            </h2>
-            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-              {rows.map((row) => (
-                <TaskRow key={row.id} row={row} />
-              ))}
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function SummaryBar({
-  plan,
-}: {
-  plan: Awaited<ReturnType<typeof getPlanSummary>>;
-}) {
-  return (
-    <div
-      className="dev-card"
-      style={{
-        display: "flex",
-        gap: 24,
-        alignItems: "center",
-        fontSize: 13,
-        color: "var(--dev-text-2)",
-      }}
-    >
-      <div>
-        <strong style={{ color: "var(--dev-green)", fontSize: 22 }}>
-          {plan.done}
-        </strong>{" "}
-        done
-      </div>
-      <div>
-        <strong style={{ color: "var(--dev-amber)", fontSize: 22 }}>
-          {plan.inProgress}
-        </strong>{" "}
-        in progress
-      </div>
-      <div>
-        <strong style={{ fontSize: 22 }}>{plan.pending}</strong> pending
-      </div>
-      {plan.blocked > 0 && (
+      <div
+        className="dev-card"
+        style={{
+          display: "flex",
+          gap: 24,
+          alignItems: "center",
+          fontSize: 13,
+          color: "var(--dev-text-2)",
+          flexWrap: "wrap",
+        }}
+      >
         <div>
-          <strong style={{ color: "var(--dev-red)", fontSize: 22 }}>
-            {plan.blocked}
+          <strong style={{ color: "var(--dev-green)", fontSize: 22 }}>
+            {plan.done}
           </strong>{" "}
-          blocked
+          done
         </div>
-      )}
-      <div style={{ flex: 1 }}>
-        <div
-          style={{
-            height: 8,
-            background: "var(--dev-bg-3)",
-            borderRadius: 4,
-            overflow: "hidden",
-          }}
-        >
+        <div>
+          <strong style={{ color: "var(--dev-amber)", fontSize: 22 }}>
+            {plan.inProgress}
+          </strong>{" "}
+          running
+        </div>
+        <div>
+          <strong style={{ fontSize: 22 }}>{plan.pending}</strong> queued
+        </div>
+        {plan.blocked > 0 && (
+          <div>
+            <strong style={{ color: "var(--dev-red)", fontSize: 22 }}>
+              {plan.blocked}
+            </strong>{" "}
+            blocked
+          </div>
+        )}
+        {plan.humanRequired > 0 && (
+          <div>
+            <strong style={{ color: "var(--dev-amber)", fontSize: 22 }}>
+              {plan.humanRequired}
+            </strong>{" "}
+            need you
+          </div>
+        )}
+        <div style={{ flex: 1, minWidth: 200 }}>
           <div
             style={{
-              width: `${plan.percent}%`,
-              height: "100%",
-              background: "var(--dev-indigo)",
+              height: 8,
+              background: "var(--dev-bg-3)",
+              borderRadius: 4,
+              overflow: "hidden",
             }}
-          />
+          >
+            <div
+              style={{
+                width: `${plan.percent}%`,
+                height: "100%",
+                background:
+                  plan.percent === 100
+                    ? "var(--dev-green)"
+                    : "var(--dev-indigo)",
+              }}
+            />
+          </div>
+        </div>
+        <div className="dev-mono" style={{ fontSize: 12 }}>
+          {plan.percent}% · {plan.done}/{plan.total}
         </div>
       </div>
-      <div className="dev-mono" style={{ fontSize: 12 }}>
-        {plan.percent}% · {plan.done}/{plan.total}
-      </div>
+
+      {plan.groups.map((g) => (
+        <div key={g.id} className="dev-card">
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "baseline",
+              marginBottom: 8,
+              gap: 12,
+              flexWrap: "wrap",
+            }}
+          >
+            <div>
+              <h2 style={{ display: "inline", marginRight: 8 }}>
+                {g.id} · {g.name}
+              </h2>
+              <span
+                className="dev-mono"
+                style={{
+                  fontSize: 10,
+                  padding: "2px 6px",
+                  borderRadius: 4,
+                  background: "var(--dev-bg-3)",
+                  color: "var(--dev-text-3)",
+                }}
+              >
+                {DOMAIN_LABELS[g.domain] ?? g.domain}
+              </span>
+            </div>
+            <div
+              className="dev-mono"
+              style={{ fontSize: 11, color: "var(--dev-text-3)" }}
+            >
+              {g.done}/{g.total} · {g.percent}%
+            </div>
+          </div>
+          {g.description && (
+            <div
+              style={{
+                fontSize: 12,
+                color: "var(--dev-text-2)",
+                fontStyle: "italic",
+                marginBottom: 12,
+              }}
+            >
+              {g.description}
+            </div>
+          )}
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            {g.rows.map((row) => (
+              <TaskRow key={row.id} row={row} />
+            ))}
+          </div>
+          <AddTaskButton groupId={g.id} />
+        </div>
+      ))}
     </div>
   );
 }
@@ -187,6 +232,16 @@ function TaskRow({ row }: { row: PhaseRow }) {
       color: "var(--dev-red)",
       label: "blocked",
     },
+    failed: {
+      bg: "rgba(239,68,68,.15)",
+      color: "var(--dev-red)",
+      label: "failed",
+    },
+    skipped: {
+      bg: "var(--dev-bg-2)",
+      color: "var(--dev-text-3)",
+      label: "skipped",
+    },
     "human-required": {
       bg: "rgba(245,158,11,.15)",
       color: "var(--dev-amber)",
@@ -194,6 +249,15 @@ function TaskRow({ row }: { row: PhaseRow }) {
     },
   };
   const cfg = statusConfig[row.status] ?? statusConfig.pending;
+  const dbStatusMap: Record<string, string> = {
+    pending: "PENDING",
+    in_progress: "IN_PROGRESS",
+    done: "DONE",
+    blocked: "BLOCKED",
+    failed: "FAILED",
+    skipped: "SKIPPED",
+    "human-required": "HUMAN_REQUIRED",
+  };
 
   return (
     <div
@@ -222,19 +286,28 @@ function TaskRow({ row }: { row: PhaseRow }) {
       >
         {cfg.label}
       </span>
-      <span
+      <Link
+        href={`/tasks/${row.id}`}
         className="dev-mono"
         style={{
           fontSize: 11,
           color: "var(--dev-text-3)",
           minWidth: 56,
+          textDecoration: "none",
         }}
       >
         {row.id}
-      </span>
-      <span style={{ flex: 1, color: "var(--dev-text)" }}>
+      </Link>
+      <Link
+        href={`/tasks/${row.id}`}
+        style={{
+          flex: 1,
+          color: "var(--dev-text)",
+          textDecoration: "none",
+        }}
+      >
         {row.description}
-      </span>
+      </Link>
       {row.tags && (
         <span
           className="dev-mono"
@@ -258,6 +331,10 @@ function TaskRow({ row }: { row: PhaseRow }) {
       >
         {row.effort}
       </span>
+      <TaskRowControls
+        taskId={row.id}
+        current={dbStatusMap[row.status] ?? "PENDING"}
+      />
     </div>
   );
 }

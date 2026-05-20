@@ -567,30 +567,65 @@ enum CronRunStatus {
 }
 
 // ============================================================================
-// TASK TRACKER — source of truth for autonomous build loop work queue
-// PLAN.md is regenerated from this table by the loop on every state change.
+// TASK TRACKER · source of truth for the autonomous build loop work queue
+// PLAN.md becomes a derived markdown mirror (regenerated on every state change)
 // ============================================================================
 
+model TaskGroup {
+  id          String  @id            // "A" "B.smb-portal" — domain-flavored
+  name        String                  // "Foundation" · "SMB portal" · "Data collection"
+  description String? @db.Text
+  domain      TaskDomain
+  sortOrder   Int     @default(0)
+  ownerUrl    String? @db.Text        // dev surface for this group (e.g. /dev/tasks?group=E)
+  targetDate  DateTime?
+  notes       String? @db.Text
+
+  tasks       Task[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([domain, sortOrder])
+}
+
+enum TaskDomain {
+  FOUNDATION       // CI, deploy, schema, auth, dev dashboard
+  MARKETING        // public landing, SEO, sign-in
+  DATA             // external APIs, crons, cache, cost tracking
+  COMPUTE          // scoring, MSI, signal vocab, AI
+  SMB_PORTAL       // Maria's portal pages
+  AGENCY_PORTAL    // Tom's portal pages
+  BILLING          // Stripe, plans, tier enforcement
+  OPS              // dev dashboard, task tracker, incident system, observability
+  I18N             // locales, translations, hreflang
+}
+
 model Task {
-  id              String     @id   // matches PLAN.md ID (e.g. "1.10.4", "B.1")
-  phase           String     // "0", "1", "1.10", "B" — major grouping for the tracker UI
+  id              String     @id     // free-form ID — kept human-readable e.g. "A.1" "smb.dashboard.kpi"
+  groupId         String
+  group           TaskGroup  @relation(fields: [groupId], references: [id])
+
   title           String     @db.Text
+  description     String?    @db.Text  // user story + acceptance criteria
   effort          String?    // "S" | "M" | "L" | "XL"
   status          TaskStatus @default(PENDING)
-  deps            String?    // comma-separated phase IDs, free-form
+  priority        Int        @default(50) // 0=highest, 100=lowest · controls loop pick order
+  deps            String?    // comma-separated task IDs
   tags            String?    // comma-separated tags
-  scoreAvg        Float?     // averaged 5-dim score after last completed session
-  scoreCompletion Int?       // last completion score (1-10)
+  sortOrder       Int        @default(0) // order within the group
+
+  // Last-run summary (denormalized for fast list rendering)
+  scoreAvg        Float?
+  scoreCompletion Int?
   scoreQuality    Int?
   scoreAudience   Int?
   scoreRelevance  Int?
   scorePerformance Int?
-  ownerSessionId  String?    // currently-claiming session, null if not in-progress
-  prNumber        Int?       // GitHub PR number that shipped this task
-  prUrl           String?    @db.Text
-  commitSha       String?
-  agentsUsed      String?    @db.Text // JSON array of agent names invoked
-  skillsUsed      String?    @db.Text // JSON array of skill names invoked
+  lastPrNumber    Int?
+  lastPrUrl       String?    @db.Text
+  lastCommitSha   String?
+  lastSessionId   String?    // owner during IN_PROGRESS, last completer otherwise
+
   notes           String?    @db.Text
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt
@@ -598,8 +633,10 @@ model Task {
   completedAt     DateTime?
   failureCount    Int        @default(0)
 
-  @@index([status, phase])
-  @@index([phase])
+  runs            TaskRun[]
+
+  @@index([status, groupId, sortOrder])
+  @@index([groupId, sortOrder])
 }
 
 enum TaskStatus {
@@ -610,4 +647,67 @@ enum TaskStatus {
   SKIPPED
   FAILED
   HUMAN_REQUIRED
+}
+
+// Per-attempt audit trail · one row per time the loop touches the task
+model TaskRun {
+  id             String   @id @default(cuid())
+  taskId         String
+  task           Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  sessionId      String                            // links to autonomous-build-loop session
+  startedAt      DateTime @default(now())
+  finishedAt     DateTime?
+  outcome        TaskRunOutcome @default(IN_PROGRESS)
+
+  // Scoring
+  scoreCompletion  Int?
+  scoreQuality     Int?
+  scoreAudience    Int?
+  scoreRelevance   Int?
+  scorePerformance Int?
+  scoreAggregate   Float?
+
+  // Shipping
+  branchName     String?
+  prNumber       Int?
+  prUrl          String?  @db.Text
+  commitSha      String?
+  filesChanged   String?  @db.Text     // JSON array of file paths
+  linesAdded     Int?
+  linesDeleted   Int?
+  testsAdded     Int      @default(0)
+
+  // Quality gates
+  ciPassed         Boolean?
+  deployPassed     Boolean?
+  lighthousePassed Boolean?
+
+  // Audit trail
+  agentsUsed       String?  @db.Text   // JSON array of agent names invoked
+  skillsUsed       String?  @db.Text   // JSON array of skill names invoked
+  rulesConsulted   String?  @db.Text   // JSON array of rule file paths read
+  mcpsUsed         String?  @db.Text   // JSON array of MCP server names
+
+  // Cost / scale
+  tokensInput      Int?
+  tokensOutput     Int?
+  costUsd          Float?
+  durationSec      Int?
+
+  // Failure + learning
+  incidentsLogged  String?  @db.Text   // JSON array of INC- IDs
+  errorMessage     String?  @db.Text
+  screenshotsUrls  String?  @db.Text   // JSON array of dev-validated screenshots
+
+  @@index([taskId, startedAt])
+  @@index([sessionId])
+}
+
+enum TaskRunOutcome {
+  IN_PROGRESS
+  SUCCESS
+  PARTIAL
+  FAILED
+  ABORTED
+  SKIPPED
 }
