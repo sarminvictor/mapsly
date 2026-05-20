@@ -572,3 +572,14 @@ Outcome: SUCCESS. Dashboard's auto-enhance card should show 0 signals on next re
   - Pre-existing test failures on main are a defect we should catch via the post-merge health check (observability.md §post-merge), not via every PR's CI. Worth a INC- entry for the test-fixture-drift pattern: tests that depend on filesystem state break silently when new rule files land.
 
 SES-2026-05-20-cowork-2040 · D.3 · SUCCESS · score 9.2/10 · 731+/0- · ci-green · merged
+
+SES-2026-05-20-cowork-1779313116 · D.8 · SUCCESS · 1744+/10- · ci-green · merged d91fd8b · v0.6.32
+  Shipped scripts/model-ab-test.ts (939 LOC) + services/ai/model-decision.ts (160 LOC TS canonical) + .claude/memory/model-decision.json (audit mirror) + 2 test suites (53 tests). Bootstrap decision: nano for sentiment (8.4/10 quality at 1/5 cost), mini for replyEn/replyEs/copyGen (prose-quality + char-limit compliance). Re-measure after C.9 seeds ≥1k reviews via `pnpm tsx scripts/model-ab-test.ts --reviews 50 --live --decide manual`. Consistency tests lock TS↔JSON↔runtime DEFAULT_*_MODEL together (drift fails CI).
+
+  Resume tick: prior tick (SES-2026-05-20-cowork-d8-initial) pushed PR #25 head=54a8ec0 which hit transient prettier --check failure (10 unmodified files flagged — could not reproduce locally with same prettier 3.8.3 + plugin 0.6.14 setup; the re-run on commit 4a908b1 passed validate without code changes to those files, confirming CI cache transient). Real test failure: replyDraftEs Spanish marker count was 2 not ≥3 because " gracias " (with leading space) didn't match "¡gracias" at sentence start (¡ between space and gracias). Fix in 03dd25e expanded SPANISH_MARKERS to substring matches without boundaries for distinctively Spanish words (gracias, esperamos, saludos, cordiales, nuestro, amable, visita, pronto, etc.) and reserved leading-space form only for words with English false-positive risk (' usted' because "trusted" contains it).
+
+  Validation: deferred to Vercel CI per CAN_DEPLOY_CHECK=0 in Cowork sandbox (INC-31). All required gates green on commit 03dd25e: validate ✓ build ✓ test ✓ integration ✓ bundle-check ✓ ci-passed ✓. Vercel preview ✓. Lighthouse fail unrelated (no UI changes — pre-existing on main, see prior B.4 RESUME note).
+
+  Lessons:
+  - Spanish-language detection via substring markers is more fragile than expected. Punctuation-adjacent forms (¡gracias, ¿cómo) need substring (no-boundary) markers; English-cognate-risky words (usted/trusted, amable) keep leading-space form. Documenting in the marker block's comment so future me doesn't re-bite this.
+  - CI prettier --check transient failures on Cowork-pushed PRs are observed multiple times now (this PR + B.4 RESUME). Worth a follow-up INC if it recurs. For now: re-run via empty-commit push or `gh workflow run` is the workaround; root cause unclear (cache or environment, not file content).
