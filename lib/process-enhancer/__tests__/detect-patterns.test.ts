@@ -132,21 +132,16 @@ describe("detectPatterns", () => {
     expect(signals).toHaveLength(1);
     expect(signals[0]?.category).toBe("incident-recurrence");
     expect(signals[0]?.severity).toBe("warn");
-    expect(signals[0]?.id).toBe(
-      "ENH.2026-05-20.recurring-INC-2026-05-19-14",
-    );
+    expect(signals[0]?.id).toBe("ENH.2026-05-20.recurring-INC-2026-05-19-14");
     expect(signals[0]?.headline).toContain("3 times");
   });
 
   test("emits a cluster signal at exactly CLUSTER_THRESHOLD", () => {
-    const incidents = Array.from(
-      { length: CLUSTER_THRESHOLD },
-      (_, i) => ({
-        id: `INC-2026-05-19-${String(i + 1).padStart(2, "0")}`,
-        tags: ["prisma"],
-        body: "",
-      }),
-    );
+    const incidents = Array.from({ length: CLUSTER_THRESHOLD }, (_, i) => ({
+      id: `INC-2026-05-19-${String(i + 1).padStart(2, "0")}`,
+      tags: ["prisma"],
+      body: "",
+    }));
     const signals = detectPatterns(
       incidents,
       { citationCount: new Map(), total: 0 },
@@ -163,21 +158,27 @@ describe("detectPatterns", () => {
   test("cluster signals are sorted by frequency desc, then alpha", () => {
     const incidents = [
       // tag "z" appears 3, "a" appears 4, "m" appears 3
-      ...Array(4).fill(null).map((_, i) => ({
-        id: `INC-A-${i}`,
-        tags: ["a"],
-        body: "",
-      })),
-      ...Array(3).fill(null).map((_, i) => ({
-        id: `INC-M-${i}`,
-        tags: ["m"],
-        body: "",
-      })),
-      ...Array(3).fill(null).map((_, i) => ({
-        id: `INC-Z-${i}`,
-        tags: ["z"],
-        body: "",
-      })),
+      ...Array(4)
+        .fill(null)
+        .map((_, i) => ({
+          id: `INC-A-${i}`,
+          tags: ["a"],
+          body: "",
+        })),
+      ...Array(3)
+        .fill(null)
+        .map((_, i) => ({
+          id: `INC-M-${i}`,
+          tags: ["m"],
+          body: "",
+        })),
+      ...Array(3)
+        .fill(null)
+        .map((_, i) => ({
+          id: `INC-Z-${i}`,
+          tags: ["z"],
+          body: "",
+        })),
     ];
     const signals = detectPatterns(
       incidents,
@@ -210,8 +211,16 @@ describe("detectPatterns", () => {
     const incidents = [
       { id: "INC-2026-05-19-02", tags: ["prisma", "prisma-7"], body: "" },
       { id: "INC-2026-05-19-03", tags: ["prisma", "adapter-neon"], body: "" },
-      { id: "INC-2026-05-19-06", tags: ["prisma", "vercel", "build"], body: "" },
-      { id: "INC-2026-05-19-07", tags: ["vercel", "env-vars", "prisma"], body: "" },
+      {
+        id: "INC-2026-05-19-06",
+        tags: ["prisma", "vercel", "build"],
+        body: "",
+      },
+      {
+        id: "INC-2026-05-19-07",
+        tags: ["vercel", "env-vars", "prisma"],
+        body: "",
+      },
     ];
     const signals = detectPatterns(
       incidents,
