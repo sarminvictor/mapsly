@@ -139,7 +139,10 @@ export async function withCronRun<T>(
  *
  * Throws if no CronRun is open.
  */
-export async function incrementCost(usd: number, operation = "incrementCost"): Promise<void> {
+export async function incrementCost(
+  usd: number,
+  operation = "incrementCost",
+): Promise<void> {
   if (!Number.isFinite(usd) || usd < 0) {
     throw new Error(
       `[cost-counter] incrementCost requires a non-negative finite number, got ${usd}`,

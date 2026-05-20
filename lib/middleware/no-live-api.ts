@@ -78,7 +78,10 @@ interface CronHandlerOptions {
  */
 export function cronHandler(
   jobName: string,
-  fn: (ctx: { runId: string; job: string }) => Promise<CronHandlerResult | void>,
+  fn: (ctx: {
+    runId: string;
+    job: string;
+  }) => Promise<CronHandlerResult | void>,
   options: CronHandlerOptions = {},
 ): (req: Request) => Promise<Response> {
   const secretEnvVar = options.secretEnvVar ?? "CRON_SECRET";

@@ -117,7 +117,9 @@ describe("cronHandler · auth", () => {
   });
 
   test("accepts matching bearer + opens CronRun", async () => {
-    const handler = cronHandler("test:auth-ok", async () => ({ itemsProcessed: 3 }));
+    const handler = cronHandler("test:auth-ok", async () => ({
+      itemsProcessed: 3,
+    }));
     const res = await handler(
       new Request("https://x/y", {
         headers: { authorization: "Bearer test-secret-abc" },
@@ -206,10 +208,11 @@ describe("cronHandler · CronRun lifecycle", () => {
   });
 });
 
-
 describe("cronHandler · itemsProcessed + meta + PARTIAL", () => {
   test("writes itemsProcessed to CronRun.itemsProcessed at close", async () => {
-    const handler = cronHandler("test:items", async () => ({ itemsProcessed: 42 }));
+    const handler = cronHandler("test:items", async () => ({
+      itemsProcessed: 42,
+    }));
     await handler(
       new Request("https://x/y", {
         headers: { authorization: "Bearer test-secret-abc" },

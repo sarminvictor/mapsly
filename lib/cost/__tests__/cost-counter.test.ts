@@ -186,7 +186,9 @@ describe("cost-counter · CronRun lifecycle", () => {
 describe("cost-counter · withCostCounter", () => {
   test("throws when called outside an open CronRun", async () => {
     const wrapped = withCostCounter("test.op", 0.001, async () => "result");
-    await expect(wrapped()).rejects.toThrow(/test\.op.*outside of an open CronRun/);
+    await expect(wrapped()).rejects.toThrow(
+      /test\.op.*outside of an open CronRun/,
+    );
   });
 
   test("increments costUsd by unit cost on success", async () => {
@@ -236,7 +238,11 @@ describe("cost-counter · withCostCounter", () => {
 
   test("zero unit cost is allowed (cached call)", async () => {
     await withCronRun("test:cost-zero", async () => {
-      const wrapped = withCostCounter("vendor.op.cached", 0, async () => "cached");
+      const wrapped = withCostCounter(
+        "vendor.op.cached",
+        0,
+        async () => "cached",
+      );
       const out = await wrapped();
       expect(out).toBe("cached");
     });
@@ -258,7 +264,9 @@ describe("cost-counter · withCostCounter", () => {
 
 describe("cost-counter · incrementCost (dynamic pricing)", () => {
   test("works inside a CronRun, throws outside", async () => {
-    await expect(incrementCost(0.01)).rejects.toThrow(/outside of an open CronRun/);
+    await expect(incrementCost(0.01)).rejects.toThrow(
+      /outside of an open CronRun/,
+    );
     await withCronRun("test:dyn", async () => {
       await incrementCost(0.005);
       await incrementCost(0.0001);
@@ -278,7 +286,9 @@ describe("cost-counter · incrementCost (dynamic pricing)", () => {
   test("rejects negative or NaN", async () => {
     await withCronRun("test:dyn-bad", async () => {
       await expect(incrementCost(-1)).rejects.toThrow(/non-negative finite/);
-      await expect(incrementCost(Number.NaN)).rejects.toThrow(/non-negative finite/);
+      await expect(incrementCost(Number.NaN)).rejects.toThrow(
+        /non-negative finite/,
+      );
     });
   });
 });
