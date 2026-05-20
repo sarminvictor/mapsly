@@ -338,3 +338,25 @@ After that, local main has commits, working tree is clean, and the next supervis
 **Where encoded:** this file. Propagate to `.claude/skills/autonomous-build-loop/SKILL.md` (pre-flight check) and `.claude/rules/incident-prevention.md` (hard-halt trigger list) by the next host-side session.
 **Confidence:** high
 **Tags:** sandbox, fuse, virtiofs, git, unlink, supervisor, host-only-fix, blocker
+
+### INC-2026-05-19-15 · next-intl middleware matcher excludes paths with dots
+
+**Symptom:** Routes containing a dot in the URL (like `/tasks/A.1`, `/tasks/1.10.4`) return 404 on `dev.mapsly.ai`. The same paths work locally (`pnpm dev`) but 404 in production.
+
+**Root cause:** The middleware config matcher pattern `/((?!api|_next|_vercel|.*\..*).*)` excludes any URL containing a dot — designed to skip static assets (`.css`, `.png`, etc.) but too greedy: `A.1` matches the same regex. With matcher skipped, the host-based rewrite in `middleware.ts` doesn't fire, so `dev.mapsly.ai/tasks/A.1` is served as-is — but only `/dev/tasks/[id]` exists, not `/tasks/[id]`.
+
+**Fix applied:** Tightened the matcher exclusion to a specific extension list:
+
+```ts
+matcher: [
+  "/((?!api|_next|_vercel|.*\\.(?:css|js|mjs|json|webmanifest|map|ico|png|jpg|jpeg|gif|svg|webp|avif|woff|woff2|ttf|otf|eot|mp4|webm|mp3|wav|pdf|txt|xml|zip)).*)",
+],
+```
+
+Now only real static-asset extensions are excluded; arbitrary dotted paths flow through middleware as expected.
+
+**Prevention:** Any time a route uses task IDs / SKUs / version strings with dots, the matcher must allow them. The "exclude any dot" pattern is a Next.js docs default but unsafe for dynamic-segment IDs. Pin matchers to known extensions only.
+
+**Where encoded:** `middleware.ts`, this file.
+**Confidence:** high
+**Tags:** next-intl, middleware, routing, dynamic-segments

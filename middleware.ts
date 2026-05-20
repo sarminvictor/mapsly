@@ -34,6 +34,10 @@ export default function middleware(req: NextRequest) {
 }
 
 export const config = {
-  // Match everything except: api, _next, _vercel, files with extensions.
-  matcher: ["/((?!api|_next|_vercel|.*\\..*).*)"],
+  // Match everything except: api, _next, _vercel, and real static-asset paths.
+  // The previous pattern `.*\..*` was too aggressive — it excluded any path
+  // containing a dot (like task IDs `A.1`, `1.10.4`). See INC-2026-05-19-15.
+  matcher: [
+    "/((?!api|_next|_vercel|.*\\.(?:css|js|mjs|json|webmanifest|map|ico|png|jpg|jpeg|gif|svg|webp|avif|woff|woff2|ttf|otf|eot|mp4|webm|mp3|wav|pdf|txt|xml|zip)).*)",
+  ],
 };

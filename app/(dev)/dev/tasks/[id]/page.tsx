@@ -283,6 +283,51 @@ function RunRow({ run }: { run: any }) {
         )}
       </div>
 
+      {(run.validationStrategy ||
+        run.validationOutcomes ||
+        run.validationNotes) && (
+        <div
+          style={{
+            marginTop: 12,
+            paddingTop: 10,
+            borderTop: "1px solid var(--dev-border)",
+          }}
+        >
+          <div
+            className="dev-mono"
+            style={{
+              fontSize: 10,
+              color: "var(--dev-text-3)",
+              textTransform: "uppercase",
+              letterSpacing: "0.05em",
+              marginBottom: 6,
+            }}
+          >
+            Validation
+          </div>
+          {run.validationStrategy &&
+            renderValidationChecklist(safeJson(run.validationStrategy))}
+          {run.validationOutcomes &&
+            renderValidationOutcomes(safeJson(run.validationOutcomes))}
+          {run.validationNotes && (
+            <div
+              style={{
+                marginTop: 8,
+                padding: 8,
+                background: "var(--dev-bg-2)",
+                borderRadius: 4,
+                fontSize: 11,
+                color: "var(--dev-text-2)",
+                fontStyle: "italic",
+                whiteSpace: "pre-wrap",
+              }}
+            >
+              {run.validationNotes}
+            </div>
+          )}
+        </div>
+      )}
+
       {run.errorMessage && (
         <div
           style={{
@@ -343,13 +388,7 @@ function Cell({ label, value }: { label: string; value: number | null }) {
   );
 }
 
-function Gate({
-  label,
-  passed,
-}: {
-  label: string;
-  passed: boolean | null;
-}) {
+function Gate({ label, passed }: { label: string; passed: boolean | null }) {
   if (passed == null)
     return (
       <span
@@ -369,6 +408,89 @@ function Gate({
     >
       {label}:{passed ? "✓" : "✗"}
     </span>
+  );
+}
+
+function safeJson(s: string): Record<string, unknown> {
+  try {
+    const v = JSON.parse(s);
+    return typeof v === "object" && v !== null
+      ? (v as Record<string, unknown>)
+      : {};
+  } catch {
+    return {};
+  }
+}
+
+function renderValidationChecklist(strategy: Record<string, unknown>) {
+  const modes = [
+    "unit",
+    "integration",
+    "browser",
+    "db",
+    "email",
+    "performance",
+    "a11y",
+  ];
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexWrap: "wrap",
+        gap: 6,
+        marginBottom: 6,
+      }}
+    >
+      {modes.map((m) => {
+        const v = strategy[m];
+        const on = v === true || (typeof v === "object" && v !== null);
+        return (
+          <span
+            key={m}
+            className="dev-mono"
+            style={{
+              fontSize: 10,
+              padding: "3px 6px",
+              borderRadius: 4,
+              background: on ? "rgba(34,197,94,.15)" : "var(--dev-bg-2)",
+              color: on ? "var(--dev-green)" : "var(--dev-text-3)",
+              border: "1px solid var(--dev-border)",
+            }}
+          >
+            {on ? "✓" : "○"} {m}
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
+function renderValidationOutcomes(outcomes: Record<string, unknown>) {
+  return (
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "auto 1fr",
+        gap: "3px 12px",
+        fontSize: 11,
+        color: "var(--dev-text-2)",
+      }}
+    >
+      {Object.entries(outcomes).map(([mode, result]) => (
+        <>
+          <span
+            key={mode + "-k"}
+            className="dev-mono"
+            style={{ color: "var(--dev-text-3)" }}
+          >
+            {mode}:
+          </span>
+          <span key={mode + "-v"} className="dev-mono" style={{ fontSize: 10 }}>
+            {typeof result === "string" ? result : JSON.stringify(result)}
+          </span>
+        </>
+      ))}
+    </div>
   );
 }
 

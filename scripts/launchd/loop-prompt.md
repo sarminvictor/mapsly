@@ -47,7 +47,7 @@ const candidates = await prisma.task.findMany({
   },
   include: { group: true },
   orderBy: [
-    { priority: "asc" },        // 0 = highest
+    { priority: "asc" }, // 0 = highest
     { group: { sortOrder: "asc" } },
     { sortOrder: "asc" },
     { id: "asc" },
@@ -55,14 +55,23 @@ const candidates = await prisma.task.findMany({
 });
 
 // Filter by deps satisfied
-const allTasks = await prisma.task.findMany({ select: { id: true, status: true } });
-const doneIds = new Set(allTasks.filter(t => t.status === "DONE").map(t => t.id));
-const eligible = candidates.find(t => {
+const allTasks = await prisma.task.findMany({
+  select: { id: true, status: true },
+});
+const doneIds = new Set(
+  allTasks.filter((t) => t.status === "DONE").map((t) => t.id),
+);
+const eligible = candidates.find((t) => {
   if (!t.deps) return true;
-  return t.deps.split(",").map(s => s.trim()).every(d => !d || doneIds.has(d));
+  return t.deps
+    .split(",")
+    .map((s) => s.trim())
+    .every((d) => !d || doneIds.has(d));
 });
 
-if (!eligible) { /* nothing to do — set cooldown, exit */ }
+if (!eligible) {
+  /* nothing to do — set cooldown, exit */
+}
 
 await prisma.task.update({
   where: { id: eligible.id },
@@ -118,19 +127,37 @@ await prisma.taskRun.update({
   where: { id: run.id },
   data: {
     finishedAt: new Date(),
-    outcome: scoreAggregate >= 9 ? "SUCCESS" :
-             scoreAggregate >= 7 ? "PARTIAL" : "FAILED",
-    scoreCompletion, scoreQuality, scoreAudience, scoreRelevance, scorePerformance,
+    outcome:
+      scoreAggregate >= 9
+        ? "SUCCESS"
+        : scoreAggregate >= 7
+          ? "PARTIAL"
+          : "FAILED",
+    scoreCompletion,
+    scoreQuality,
+    scoreAudience,
+    scoreRelevance,
+    scorePerformance,
     scoreAggregate,
-    branchName, prNumber, prUrl, commitSha,
+    branchName,
+    prNumber,
+    prUrl,
+    commitSha,
     filesChanged: JSON.stringify(filesChangedArr),
-    linesAdded, linesDeleted, testsAdded,
-    ciPassed, deployPassed, lighthousePassed,
+    linesAdded,
+    linesDeleted,
+    testsAdded,
+    ciPassed,
+    deployPassed,
+    lighthousePassed,
     agentsUsed: JSON.stringify(agentsArr),
     skillsUsed: JSON.stringify(skillsArr),
     rulesConsulted: JSON.stringify(rulesArr),
     mcpsUsed: JSON.stringify(mcpsArr),
-    tokensInput, tokensOutput, costUsd, durationSec,
+    tokensInput,
+    tokensOutput,
+    costUsd,
+    durationSec,
     incidentsLogged: JSON.stringify(incidentIds),
   },
 });
@@ -138,12 +165,22 @@ await prisma.taskRun.update({
 await prisma.task.update({
   where: { id: eligible.id },
   data: {
-    status: outcome === "SUCCESS" ? "DONE" :
-            outcome === "FAILED" ? "FAILED" : "PENDING",
+    status:
+      outcome === "SUCCESS"
+        ? "DONE"
+        : outcome === "FAILED"
+          ? "FAILED"
+          : "PENDING",
     completedAt: outcome === "SUCCESS" ? new Date() : null,
     scoreAvg: scoreAggregate,
-    scoreCompletion, scoreQuality, scoreAudience, scoreRelevance, scorePerformance,
-    lastPrNumber: prNumber, lastPrUrl: prUrl, lastCommitSha: commitSha,
+    scoreCompletion,
+    scoreQuality,
+    scoreAudience,
+    scoreRelevance,
+    scorePerformance,
+    lastPrNumber: prNumber,
+    lastPrUrl: prUrl,
+    lastCommitSha: commitSha,
     failureCount: outcome === "FAILED" ? { increment: 1 } : undefined,
   },
 });
@@ -152,15 +189,15 @@ await prisma.task.update({
 The per-task detail page reads these rows — that's how Viktor sees what was done, by which agents, with which gates passed.
 
 2. Sweep failures into incidents.md (new INC- entries; cite recurring ones).
-2. Run process-enhancer agent.
-3. Append to build-log.md.
-4. Write session JSON to `.claude/memory/sessions/{date}-{n}.json`.
-5. Update loop-lock:
+3. Run process-enhancer agent.
+4. Append to build-log.md.
+5. Write session JSON to `.claude/memory/sessions/{date}-{n}.json`.
+6. Update loop-lock:
    - Clean exit → cooldown 30 min
    - Rate-limit warning → cooldown 4 hours
    - Hard halt → cooldown 1 hour, increment consecutiveFailures
    - ≥ 5 consecutive failures → cooldown 24h + log "loop unhealthy" incident
-6. Commit + push.
+7. Commit + push.
 
 # Hard halts (cooldown + exit)
 

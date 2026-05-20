@@ -697,7 +697,14 @@ model TaskRun {
   // Failure + learning
   incidentsLogged  String?  @db.Text   // JSON array of INC- IDs
   errorMessage     String?  @db.Text
-  screenshotsUrls  String?  @db.Text   // JSON array of dev-validated screenshots
+
+  // Validation strategy + outcomes (see .claude/rules/validation.md)
+  validationStrategy String? @db.Text  // JSON: which modes were chosen + why
+  validationOutcomes String? @db.Text  // JSON: per-mode pass/fail + counts
+  validationNotes    String? @db.Text  // free-form reasoning chain
+  screenshotsUrls    String? @db.Text  // JSON array of dev-validation screenshots
+  testsAddedFiles    String? @db.Text  // JSON array of new test file paths
+  toolsInstalled     String? @db.Text  // JSON array of pkg names temporarily added
 
   @@index([taskId, startedAt])
   @@index([sessionId])
