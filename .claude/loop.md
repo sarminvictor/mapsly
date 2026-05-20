@@ -34,6 +34,7 @@ fi
 ```
 
 **Orphan IN_PROGRESS sweep** — recover from any prior iteration that closed without resetting Task.status:
+
 ```sql
 -- Reset any Task stuck IN_PROGRESS whose most recent TaskRun is closed
 UPDATE "Task" SET status='PENDING', "lastSessionId"=NULL
@@ -59,12 +60,12 @@ If any recovery action prints an error, log it to the supervisor field of TaskRu
 
 Read `.claude/memory/loop-lock.json`.
 
-| state | cooldownUntil | Action |
-|---|---|---|
-| `paused` | any | Exit ≤1 line: `loop paused via dashboard, skipping`. No DB writes, no file writes. |
-| `cooldown` | future | Exit ≤1 line: `cooldown until {time}, skipping`. |
-| `cooldown` | past | Flip to `idle`, proceed |
-| `idle` | — | Proceed |
+| state      | cooldownUntil | Action                                                                             |
+| ---------- | ------------- | ---------------------------------------------------------------------------------- |
+| `paused`   | any           | Exit ≤1 line: `loop paused via dashboard, skipping`. No DB writes, no file writes. |
+| `cooldown` | future        | Exit ≤1 line: `cooldown until {time}, skipping`.                                   |
+| `cooldown` | past          | Flip to `idle`, proceed                                                            |
+| `idle`     | —             | Proceed                                                                            |
 
 Stamp `lastTickAt` = now ISO UTC on EVERY iteration (even skip iterations) via Edit tool. The dashboard's "live" indicator depends on this.
 
@@ -137,21 +138,22 @@ After implementation, BEFORE touching the PR or scorer, spawn the required revie
 
 Required by task type (always include code-reviewer; add others per scope):
 
-| Task touches | Required agents |
-|---|---|
-| Any task | `code-reviewer` |
-| Logic / scoring / cron / webhook | + `test-writer` |
-| New route or layout | + `performance-auditor` |
-| `app/[locale]/(smb)/**` | + `ux-reviewer-smb`, `copy-reviewer` |
-| `app/[locale]/(agency)/**` | + `ux-reviewer-agency`, `copy-reviewer` |
-| `app/api/payments/**` | + `payments-auditor`, `security-auditor` |
-| Auth / signin / session | + `security-auditor` |
-| User-visible UI | + `a11y-reviewer` |
-| Any commit | + `scorer` (LAST, after all above) |
+| Task touches                     | Required agents                          |
+| -------------------------------- | ---------------------------------------- |
+| Any task                         | `code-reviewer`                          |
+| Logic / scoring / cron / webhook | + `test-writer`                          |
+| New route or layout              | + `performance-auditor`                  |
+| `app/[locale]/(smb)/**`          | + `ux-reviewer-smb`, `copy-reviewer`     |
+| `app/[locale]/(agency)/**`       | + `ux-reviewer-agency`, `copy-reviewer`  |
+| `app/api/payments/**`            | + `payments-auditor`, `security-auditor` |
+| Auth / signin / session          | + `security-auditor`                     |
+| User-visible UI                  | + `a11y-reviewer`                        |
+| Any commit                       | + `scorer` (LAST, after all above)       |
 
 Cap = 5 concurrent. Sequence rule: `scorer` always runs AFTER every other agent — it reads their verdicts.
 
 Record on TaskRun:
+
 - `agentsUsed`: JSON array of agent names invoked
 - `validationStrategy`: JSON of which validation modes ran (see STEP 6)
 - `validationOutcomes`: JSON of per-mode pass/fail counts
@@ -179,18 +181,19 @@ Every applicable mode MUST run **inside this iteration**, not "deferred." If a m
 
 ### Mode applicability cheat-sheet
 
-| Mode | Required when | Valid skip reasons |
-|---|---|---|
-| `deployCheck` | ALWAYS | none |
-| `unit` | Pure logic added (scorer, parser, validator, compute fn) | "no pure logic in this task" |
-| `integration` | Crossed a service boundary (DB, API, webhook, cron handler) | "no service boundary crossed" |
-| `browser` | Any UI route added/changed | "no UI changes — backend only" |
-| `db` | Any DB write/migrate | "no DB writes from this task" |
-| `email` | Magic link, transactional, cohort, billing email triggered | "no email triggered" |
-| `performance` | Route or layout changed | "no route changes" |
-| `a11y` | UI added/changed | "no UI changes" |
+| Mode          | Required when                                               | Valid skip reasons             |
+| ------------- | ----------------------------------------------------------- | ------------------------------ |
+| `deployCheck` | ALWAYS                                                      | none                           |
+| `unit`        | Pure logic added (scorer, parser, validator, compute fn)    | "no pure logic in this task"   |
+| `integration` | Crossed a service boundary (DB, API, webhook, cron handler) | "no service boundary crossed"  |
+| `browser`     | Any UI route added/changed                                  | "no UI changes — backend only" |
+| `db`          | Any DB write/migrate                                        | "no DB writes from this task"  |
+| `email`       | Magic link, transactional, cohort, billing email triggered  | "no email triggered"           |
+| `performance` | Route or layout changed                                     | "no route changes"             |
+| `a11y`        | UI added/changed                                            | "no UI changes"                |
 
 **ABSOLUTELY INVALID skip reasons** (these will fail the iteration):
+
 - "deferred to CI"
 - "needs preview URL" (preview URL is ALWAYS available — see step 4 above)
 - "needs Gmail tab" (Claude in Chrome MCP has Gmail access)
@@ -237,6 +240,7 @@ If gate fails:
 - **`human-required` tag on Task** → label PR `needs-review`, do NOT merge. This is the ONLY routine `needs-review` case (e.g. payments cutover, major schema migration that needs manual confirm).
 
 Either way, write the decision to `TaskRun.notes` verbatim:
+
 ```
 CI=green/red · deploy-check=pass/fail · reviewers={code-reviewer:PASS, security-auditor:N/A, ...} · merge=AUTO|RETRY-N|HOLD-human-required
 ```
@@ -246,6 +250,7 @@ CI=green/red · deploy-check=pass/fail · reviewers={code-reviewer:PASS, securit
 ## STEP 8 · Close out · NO PARTIAL OUTCOMES
 
 Update TaskRun:
+
 - `outcome`: only TWO valid values for completed iterations:
   - `SUCCESS` — merged to main (the default desired outcome)
   - `INCOMPLETE` — iteration ran out of work/time/quota; next iteration resumes via STEP 3 INCOMPLETE-resume path
@@ -260,6 +265,7 @@ Update TaskRun:
 Update parent Task: `lastRunOutcome` = TaskRun.outcome.
 
 Append ONE LINE to `.claude/memory/build-log.md`:
+
 ```
 SES-{date}-{slot} · {taskId} · {outcome} · score {agg}/10 · {linesAdded}+/{linesDeleted}- · {ci|no-ci} · {merge|hold}
 ```
@@ -283,7 +289,7 @@ If during execution you detect approaching usage limit (warning in output, `usag
 ## STEP 10 · Discipline
 
 - Ship at most ONE task per iteration. Move on next iteration.
-- Never surface a sandbox-internal issue (_tmp_*, .git locks, FUSE unlink) as a Viktor blocker. Use STEP 0 self-heal.
+- Never surface a sandbox-internal issue (_tmp_\*, .git locks, FUSE unlink) as a Viktor blocker. Use STEP 0 self-heal.
 - Blockers are ONLY for things requiring HUMAN action (Stripe identity verification, Meta business verification, etc.) per CLAUDE.md.
 - Use Promise.allSettled for parallel agent calls so one slow agent doesn't block the rest.
 - If everything is green and quiet at end of iteration, exit with one line — the dashboard reads it.
@@ -293,16 +299,16 @@ If during execution you detect approaching usage limit (warning in output, `usag
 
 ## Failure modes the loop must handle without surfacing blockers
 
-| Symptom | Self-heal | If self-heal fails |
-|---|---|---|
-| `_tmp_*` orphans block pnpm | `rm -f _tmp_*` in STEP 0 | Mark INCOMPLETE, cooldown 30 min |
-| `.git/index.lock` stale | STEP 0 `find .git -name '*.lock' -mmin +1 -delete` | INC-01 relocate `GIT_DIR=/tmp/...` |
-| Mid-rebase from prior iteration | STEP 0 `git rebase --abort` | INC-01 escape hatch |
-| FUSE unlink wall | INC-01 escape hatch (relocate .git to /tmp) | Mark INCOMPLETE, cooldown 4h |
-| Vercel build failed | Open PR + label `needs-review` + comment | Same — it's a code issue, surfaces via PR |
-| Sentry error spike post-merge | Auto-revert (per `observability.md` §post-merge health check) | Log INC- entry, cooldown 4h |
-| Quota approaching | STEP 9 quota guard | Same |
-| CI never goes green | After 30 min: mark PR `needs-review`, close iteration | — |
+| Symptom                         | Self-heal                                                     | If self-heal fails                        |
+| ------------------------------- | ------------------------------------------------------------- | ----------------------------------------- |
+| `_tmp_*` orphans block pnpm     | `rm -f _tmp_*` in STEP 0                                      | Mark INCOMPLETE, cooldown 30 min          |
+| `.git/index.lock` stale         | STEP 0 `find .git -name '*.lock' -mmin +1 -delete`            | INC-01 relocate `GIT_DIR=/tmp/...`        |
+| Mid-rebase from prior iteration | STEP 0 `git rebase --abort`                                   | INC-01 escape hatch                       |
+| FUSE unlink wall                | INC-01 escape hatch (relocate .git to /tmp)                   | Mark INCOMPLETE, cooldown 4h              |
+| Vercel build failed             | Open PR + label `needs-review` + comment                      | Same — it's a code issue, surfaces via PR |
+| Sentry error spike post-merge   | Auto-revert (per `observability.md` §post-merge health check) | Log INC- entry, cooldown 4h               |
+| Quota approaching               | STEP 9 quota guard                                            | Same                                      |
+| CI never goes green             | After 30 min: mark PR `needs-review`, close iteration         | —                                         |
 
 If the user starts a fresh session and the loop expires, the same Scheduled Task picks up and runs this same prompt. State lives in Postgres + git, not in the session.
 

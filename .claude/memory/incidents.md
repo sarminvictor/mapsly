@@ -525,6 +525,7 @@ Now only real static-asset extensions are excluded; arbitrary dotted paths flow 
 **Root cause:** `prisma generate` runs during Vercel build so the client knows about the new field, but `prisma db push` was never executed against the Neon production DB. `Task.findUnique` with `include: { runs: ... }` Prisma generates a SELECT that includes `resumedFromRunId`. Postgres errors: `column "resumedFromRunId" does not exist`. The `try { ... } catch { return null }` in `getTaskDetail` swallowed the error → page got `null` → called `notFound()`.
 
 **Fix applied:** Direct SQL migration on Neon:
+
 ```sql
 ALTER TABLE "TaskRun" ADD COLUMN IF NOT EXISTS "resumedFromRunId" text;
 CREATE INDEX IF NOT EXISTS "TaskRun_outcome_idx" ON "TaskRun"(outcome);
@@ -532,12 +533,14 @@ CREATE INDEX IF NOT EXISTS "TaskRun_resumedFromRunId_idx" ON "TaskRun"("resumedF
 ```
 
 **Prevention:**
+
 1. **Every schema change MUST be paired with a Neon `db push` in the same commit.** Add to `.claude/rules/database.md` (or create one): "Before merging any change to `prisma/schema.prisma`, run `pnpm prisma db push` against the Neon dev branch and verify the columns match."
 2. The `try { return null } catch` pattern in queries silently masks DB schema errors. Replace with: log the error to console.error (Vercel captures + Sentry catches) before returning null — so 404s surface as Sentry issues instead of invisible.
 3. Add a CI job that runs `pnpm prisma migrate diff --from-schema-datamodel prisma/schema.prisma --to-url $DATABASE_URL` and fails if there's drift between schema and DB.
 4. The `getTaskDetail` query and similar should NOT have empty catch blocks. Either let errors propagate (caller handles) or log them.
 
 **Where encoded:**
+
 - `prisma/schema.prisma` (already had the field)
 - Neon DB (now has the column)
 - this file
@@ -555,10 +558,12 @@ CREATE INDEX IF NOT EXISTS "TaskRun_resumedFromRunId_idx" ON "TaskRun"("resumedF
 **Fix applied:** `getInFlight` now requires BOTH `Task.status='IN_PROGRESS'` AND at least one `TaskRun.outcome='IN_PROGRESS'`. Without both, falls through to the "most recent finished run" display.
 
 **Prevention:**
+
 1. UI indicators for "live" / "active" / "running" must check the lowest-level signal (TaskRun.outcome=IN_PROGRESS), not aggregate states.
 2. Document Task.status semantics in `prisma/schema.prisma` comments: `IN_PROGRESS` covers "claimed and either actively running OR awaiting PR review." Use TaskRun.outcome to distinguish.
 
 **Where encoded:**
+
 - `app/(dev)/dev/queries/in-flight.ts`
 - this file
 

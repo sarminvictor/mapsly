@@ -45,6 +45,7 @@ Schema per entry:
 - Scheduler: Cowork desktop scheduled task (NOT the canonical `/loop` per INC-22; ran loop.md per instruction)
 
 Notes:
+
 - Files: 11 changed, 605 insertions — sign-in + check-email + post-signin pages, NextAuth handler, i18n nav + routing, auth translations (en/es/fr)
 - Local typecheck/lint/build deferred to CI (pnpm install blocked by INC-14 unlink wall)
 - Browser + email validation deferred to next iteration with Vercel preview URL
