@@ -6,3 +6,6 @@ pnpm-lock.yaml
 package-lock.json
 *.min.js
 *.min.css
+
+# Build log is append-only prose · prettier mis-handles inline underscores
+.claude/memory/build-log.md
