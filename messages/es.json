@@ -105,5 +105,29 @@
     "search": "Búsqueda",
     "reports": "Reportes",
     "list_analytics": "Analíticas de listas"
+  },
+
+  "auth": {
+    "signin": {
+      "title": "Inicia sesión en Mapsly",
+      "subtitle": "Te enviaremos un enlace por correo. Sin contraseñas.",
+      "email_label": "Correo de trabajo",
+      "email_placeholder": "tu@tunegocio.com",
+      "submit": "Enviar enlace de acceso",
+      "submitting": "Enviando…",
+      "legal": "Al continuar, aceptas nuestros Términos y Política de Privacidad.",
+      "error_invalid_email": "Eso no parece un correo. Intenta de nuevo.",
+      "error_send_failed": "No pudimos enviar el enlace. Intenta de nuevo en un momento."
+    },
+    "check_email": {
+      "title": "Revisa tu correo",
+      "subtitle": "Enviamos un enlace de acceso a {email}. Expira en 24 horas.",
+      "no_email_received": "¿No lo viste? Revisa spam, o {tryAgain}.",
+      "try_again": "solicita un nuevo enlace",
+      "open_gmail": "Abrir Gmail"
+    },
+    "post_signin": {
+      "loading": "Un momento — preparando tu espacio de trabajo…"
+    }
   }
 }

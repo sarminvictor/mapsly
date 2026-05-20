@@ -37,6 +37,24 @@ export const routing = defineRouting({
       "en-CA": "/lists",
       fr: "/listes",
     },
+    "/signin": {
+      en: "/signin",
+      es: "/iniciar-sesion",
+      "en-CA": "/signin",
+      fr: "/connexion",
+    },
+    "/signin/check-email": {
+      en: "/signin/check-email",
+      es: "/iniciar-sesion/revisa-tu-correo",
+      "en-CA": "/signin/check-email",
+      fr: "/connexion/verifiez-vos-courriels",
+    },
+    "/post-signin": {
+      en: "/post-signin",
+      es: "/post-acceso",
+      "en-CA": "/post-signin",
+      fr: "/post-connexion",
+    },
   },
 });
 

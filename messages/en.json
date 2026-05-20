@@ -147,5 +147,29 @@
     "billing": "Billing",
     "team": "Team",
     "notifications": "Notifications"
+  },
+
+  "auth": {
+    "signin": {
+      "title": "Sign in to Mapsly",
+      "subtitle": "We'll email you a link. No passwords.",
+      "email_label": "Work email",
+      "email_placeholder": "you@yourbusiness.com",
+      "submit": "Send sign-in link",
+      "submitting": "Sending…",
+      "legal": "By continuing, you agree to our Terms and Privacy Policy.",
+      "error_invalid_email": "That doesn't look like an email. Try again.",
+      "error_send_failed": "We couldn't send the link. Try again in a moment."
+    },
+    "check_email": {
+      "title": "Check your email",
+      "subtitle": "We sent a sign-in link to {email}. It expires in 24 hours.",
+      "no_email_received": "Didn't see it? Check spam, or {tryAgain}.",
+      "try_again": "request a new link",
+      "open_gmail": "Open Gmail"
+    },
+    "post_signin": {
+      "loading": "One moment — getting your workspace ready…"
+    }
   }
 }
