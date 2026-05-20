@@ -23,6 +23,7 @@ Read at the start of every session. Append carefully — this is the long-term m
 
 (Updated by autonomous-build-loop on every successful merge. Most recent first.)
 
+- **2026-05-20 · D.1 · Signal registry · 74 signals across 8 categories (PR #11 · v0.6.13 · score 9.6/10)** — `modules/signals/{registry,types,comparators,categories,index}.ts` + comparator-semantics unit tests. SignalDefinition shape (key/label/help/category/type/comparators/source/cadence/column/isExclusion) is the moat data structure. Discriminated comparator unions, exhaustive never-checks, defensive coercion helpers (toNumber/toBoolean/toDate). Object.freeze on SIGNALS map. FilterValue union widened on resume to accept Date scalars + [Date,Date] tuples + readonly unknown[] for tests. Follow-ups: registry.test.ts asserting SIGNAL_COUNT/column-format invariants, populate costPerRefreshUsd field, wire into modules/hunter/groups.ts (F.2).
 - **2026-05-20 · C.1 · Cost-counter + CronRun lifecycle (PR #6 · v0.6.9 · score 8.4/10)** — `lib/cost/cost-counter.ts` + `lib/middleware/no-live-api.ts` + 32 tests. AsyncLocalStorage binds a CronRun to all async ops; `withCostCounter(operation, unitCost, fn)` throws if no CronRun open (the "no live API in user request path" enforcement). cronHandler wrapper adds Bearer CRON_SECRET auth + OK/PARTIAL + itemsProcessed/meta writeback. INC-32 logged: Prisma `{ increment }` over NULL nullable column stays NULL — fix is explicit `costUsd: 0` in openCronRun.
 
 ### 2026-05-20

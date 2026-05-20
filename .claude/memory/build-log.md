@@ -336,3 +336,4 @@ Notes:
 - Required 1 follow-up commit to add `.claude/memory/build-log.md` to `.prettierignore` — prettier was rewriting an inline `__tests__` token (left by I.5's build-log entry) to `**tests**`. Append-only narrative logs shouldn't be strict-markdown-formatted.
 
 · One-line summary: SES-2026-05-20-cowork-1779269915 · C.2 · SUCCESS · score n/a (S-effort) · 784+/1- · ci=green · merge=AUTO
+SES-2026-05-20-cowork-05 · D.1 · SUCCESS · score 9.6/10 · 12+/3- · ci-green · merge-auto (PR #11 · resume of cowork-1009)
