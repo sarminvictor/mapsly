@@ -481,3 +481,5 @@ CI: ci-passed = SUCCESS (validate + build + test + integration + bundle-check al
 ### What this unblocks
 
 B.2 (For-Agencies landing) · B.3 (For-SMB landing) · B.4 (Pricing) · B.7 (SEO infrastructure) · B.10 (analytics events). All can reuse `components/marketing/*` primitives and the i18n + Metadata patterns established here.
+
+SES-2026-05-20-cowork-1606 · B.7 · SUCCESS · score 9.2/10 · +1080/-0 · ci-green · auto-merge · v0.6.22
