@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { useId, useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 
 /**
  * AgencyCalculator · interactive sizing widget.
@@ -11,18 +12,18 @@ import { useId, useMemo, useState } from "react";
  * table baked in below. Keeps client JS tiny (~3 kB gzipped — just React
  * hooks + a small lookup) per `.claude/rules/performance.md`.
  *
- * Per `.claude/rules/cache-components.md` Pattern 4: client component because
- * it uses useState/useId. No t.rich render-prop concerns here.
+ * Per `.claude/rules/cache-components.md` Pattern 4 + INC-26: the parent
+ * page is a server component but this widget needs hooks. We DO NOT accept
+ * a `t` function as a prop (functions can't cross the server→client
+ * boundary). Instead this client component calls `useTranslations` itself
+ * so the i18n is fully client-side here.
  *
  * Accessibility per `.claude/rules/accessibility.md`:
  *   - <label htmlFor> on every select
  *   - aria-live="polite" on the result for screen-reader announcement
  *   - Both selects use native <select>, fully keyboard-navigable
+ *   - Minimum tap-target 44×44px on selects
  */
-
-interface AgencyCalculatorProps {
-  t: (key: string) => string;
-}
 
 type VerticalKey =
   | "med_spa"
@@ -57,7 +58,8 @@ const VERTICALS: VerticalKey[] = [
 
 const TIERS: MetroTier[] = ["tier_1", "tier_2", "tier_3", "tier_4"];
 
-export function AgencyCalculator({ t }: AgencyCalculatorProps) {
+export function AgencyCalculator() {
+  const t = useTranslations("for_agencies.calculator");
   const verticalId = useId();
   const metroId = useId();
   const resultId = useId();
@@ -66,9 +68,6 @@ export function AgencyCalculator({ t }: AgencyCalculatorProps) {
   const [tier, setTier] = useState<MetroTier>("tier_2");
 
   const count = useMemo(() => COUNTS[vertical][tier], [vertical, tier]);
-  // Format with thousands sep using en-US (locale-specific number polish
-  // is handled by the surrounding next-intl page-level provider for the
-  // unit/result-lead copy; this number is purely numeric).
   const formattedCount = useMemo(
     () => new Intl.NumberFormat("en-US").format(count),
     [count],
@@ -90,7 +89,7 @@ export function AgencyCalculator({ t }: AgencyCalculatorProps) {
             marginBottom: 16,
           }}
         >
-          {t("calculator.eyebrow")}
+          {t("eyebrow")}
         </div>
         <h2
           id="for-agencies-calc-title"
@@ -104,7 +103,7 @@ export function AgencyCalculator({ t }: AgencyCalculatorProps) {
             color: "var(--color-text)",
           }}
         >
-          {t("calculator.title")}
+          {t("title")}
         </h2>
         <p
           style={{
@@ -116,7 +115,7 @@ export function AgencyCalculator({ t }: AgencyCalculatorProps) {
             fontFamily: "var(--font-mono)",
           }}
         >
-          {t("calculator.sub")}
+          {t("sub")}
         </p>
 
         <div
@@ -151,7 +150,7 @@ export function AgencyCalculator({ t }: AgencyCalculatorProps) {
                   marginBottom: 8,
                 }}
               >
-                {t("calculator.vertical_label")}
+                {t("vertical_label")}
               </label>
               <select
                 id={verticalId}
@@ -172,7 +171,7 @@ export function AgencyCalculator({ t }: AgencyCalculatorProps) {
               >
                 {VERTICALS.map((v) => (
                   <option key={v} value={v}>
-                    {t(`calculator.vertical_${v}`)}
+                    {t(`vertical_${v}`)}
                   </option>
                 ))}
               </select>
@@ -191,7 +190,7 @@ export function AgencyCalculator({ t }: AgencyCalculatorProps) {
                   marginBottom: 8,
                 }}
               >
-                {t("calculator.metro_label")}
+                {t("metro_label")}
               </label>
               <select
                 id={metroId}
@@ -212,7 +211,7 @@ export function AgencyCalculator({ t }: AgencyCalculatorProps) {
               >
                 {TIERS.map((m) => (
                   <option key={m} value={m}>
-                    {t(`calculator.metro_${m}`)}
+                    {t(`metro_${m}`)}
                   </option>
                 ))}
               </select>
@@ -238,7 +237,7 @@ export function AgencyCalculator({ t }: AgencyCalculatorProps) {
                 fontFamily: "var(--font-mono)",
               }}
             >
-              {t("calculator.result_lead")}
+              {t("result_lead")}
             </span>
             <span style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
               <span
@@ -261,7 +260,7 @@ export function AgencyCalculator({ t }: AgencyCalculatorProps) {
                   color: "var(--color-text-2)",
                 }}
               >
-                {t("calculator.result_unit")}
+                {t("result_unit")}
               </span>
             </span>
             <span
@@ -273,7 +272,7 @@ export function AgencyCalculator({ t }: AgencyCalculatorProps) {
                 fontFamily: "var(--font-mono)",
               }}
             >
-              {t("calculator.result_caveat")}
+              {t("result_caveat")}
             </span>
           </div>
         </div>

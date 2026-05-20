@@ -109,7 +109,7 @@ export default async function ForAgenciesPage({
       <AgencyPitch t={t} />
       <AgencyTiers t={t} />
       <AgencySampleList t={t} />
-      <AgencyCalculator t={t} />
+      <AgencyCalculator />
       <AgencySignals t={t} />
       <AgencyFAQ t={t} />
       <AgencyCTA t={t} />
