@@ -2,8 +2,8 @@
   "state": "idle",
   "sessionId": null,
   "startedAt": null,
-  "lastTickAt": "2026-05-20T02:10:42Z",
+  "lastTickAt": null,
   "cooldownUntil": null,
   "consecutiveFailures": 0,
-  "note": "Restored by Claude · sandbox rsync had overwritten user's dashboard resume. Loop is idle and eligible for next launchd tick."
+  "note": "Reset after INC-14 false alarm on Desktop Scheduled Task · git working tree cleaned, B.6 reset to PENDING."
 }
