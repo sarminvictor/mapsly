@@ -261,18 +261,16 @@ describe("adsArchiveSearchUncached · happy path", () => {
   });
 
   test("follows paging.next across multiple pages", async () => {
-    const fetchMock = vi.fn(
-      async (url: string | URL): Promise<Response> => {
-        const u = typeof url === "string" ? url : url.toString();
-        if (!u.includes("cursor=PAGE2")) {
-          return okResponse(
-            [{ id: "ad_1" }, { id: "ad_2" }],
-            "https://graph.facebook.com/v19.0/ads_archive?cursor=PAGE2",
-          );
-        }
-        return okResponse([{ id: "ad_3" }, { id: "ad_4" }]);
-      },
-    );
+    const fetchMock = vi.fn(async (url: string | URL): Promise<Response> => {
+      const u = typeof url === "string" ? url : url.toString();
+      if (!u.includes("cursor=PAGE2")) {
+        return okResponse(
+          [{ id: "ad_1" }, { id: "ad_2" }],
+          "https://graph.facebook.com/v19.0/ads_archive?cursor=PAGE2",
+        );
+      }
+      return okResponse([{ id: "ad_3" }, { id: "ad_4" }]);
+    });
     __setFetchForTesting(fetchMock as unknown as typeof fetch);
 
     const result = await withCronRun("meta:test", async () =>
@@ -296,19 +294,17 @@ describe("adsArchiveSearchUncached · happy path", () => {
     // Build a page of 100 + a paging.next, repeat until we exceed 1500.
     // We make each page return 100 unique IDs.
     let pageNum = 0;
-    const fetchMock = vi.fn(
-      async (): Promise<Response> => {
-        pageNum += 1;
-        const rows: RawRow[] = Array.from({ length: 100 }, (_, i) => ({
-          id: `ad_p${pageNum}_${i}`,
-        }));
-        // Always return paging.next; the adapter should stop on its own.
-        return okResponse(
-          rows,
-          `https://graph.facebook.com/v19.0/ads_archive?cursor=PAGE${pageNum + 1}`,
-        );
-      },
-    );
+    const fetchMock = vi.fn(async (): Promise<Response> => {
+      pageNum += 1;
+      const rows: RawRow[] = Array.from({ length: 100 }, (_, i) => ({
+        id: `ad_p${pageNum}_${i}`,
+      }));
+      // Always return paging.next; the adapter should stop on its own.
+      return okResponse(
+        rows,
+        `https://graph.facebook.com/v19.0/ads_archive?cursor=PAGE${pageNum + 1}`,
+      );
+    });
     __setFetchForTesting(fetchMock as unknown as typeof fetch);
 
     const result = await withCronRun("meta:test", async () =>
@@ -379,7 +375,7 @@ describe("adsArchiveSearchUncached · errors", () => {
     expect(msg).not.toContain("SECRET-12345");
   });
 
-    test("HTTP 503 throws", async () => {
+  test("HTTP 503 throws", async () => {
     const fetchMock = vi.fn(
       async (): Promise<Response> => errResponse(503, "upstream"),
     );
@@ -418,9 +414,11 @@ describe("adsArchiveSearchUncached · errors", () => {
 
 describe("parseBand", () => {
   test("normal both bounds → mid + low + high", () => {
-    expect(
-      parseBand({ lower_bound: "1000", upper_bound: "5000" }),
-    ).toEqual({ mid: 3000, low: 1000, high: 5000 });
+    expect(parseBand({ lower_bound: "1000", upper_bound: "5000" })).toEqual({
+      mid: 3000,
+      low: 1000,
+      high: 5000,
+    });
   });
 
   test("zero bound is parseable", () => {
@@ -444,9 +442,7 @@ describe("parseBand", () => {
   });
 
   test("both unparseable → null", () => {
-    expect(
-      parseBand({ lower_bound: "abc", upper_bound: "def" }),
-    ).toBeNull();
+    expect(parseBand({ lower_bound: "abc", upper_bound: "def" })).toBeNull();
   });
 
   test("empty strings → null", () => {
