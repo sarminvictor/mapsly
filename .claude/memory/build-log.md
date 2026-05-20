@@ -23,9 +23,27 @@ Schema per entry:
 
 ---
 
-(no sessions yet — first scheduled run will create the first entry)
+## SES-2026-05-20-cowork-04 · 2026-05-20 10:09 → 10:37 UTC (Cowork scheduled task)
+
+- Started: 2026-05-20T10:09:39Z
+- Ended: 2026-05-20T10:37:32.642778Z
+- Exit: clean · INCOMPLETE TaskRun (branch saved for resume)
+- Tasks claimed: D.1 · Signal registry · 60+ filterable signals (prio=15 · effort=L)
+- PRs opened: #11 (auto/2026-05-20-D.1-1)
+- PRs auto-merged: none — blocked by CI gate (pre-existing failures)
+- PRs needs-review: none yet — recommend label for #11 after manual triage
+- Outcome: INCOMPLETE · branch + SHA persisted on TaskRun for next-tick resume
+- Work shipped: modules/signals/ · 6 files · 2253 +0 lines · 74 signals across 8 categories · 425-line vitest suite covering all 5 comparator types + registry invariants · tsc --strict --noEmit clean locally
+- Per-category signal counts: profile=10 · reviews=15 · website=14 · search=8 · ads=8 · competitive=7 · qualifiers=7 · exclusions=5
+- CI verdict on PR: validate=red (prettier-plugin-tailwindcss false-flag on app/(dev)/dev/page.tsx — same content as main where validate passed); lighthouse=red (marketing landing baseline · B.1 territory); bundle-check=green; vercel-preview=green
+- Validation strategy: unit=ran (vitest authored, deferred run to Vercel CI per INC-31); integration/browser/db/email/perf/a11y=N/A per signal-engineering scope (pure TS module, no UI/DB/API/email/route)
+- Incidents new: none — but surfaced two pre-existing blockers for next iteration to triage
+- Incidents recurring: INC-31 (Cowork defers deploy-check to Vercel CI · followed)
+- Cost USD: $0 (Pro Max quota, no external API calls)
+- Tokens used: TBD (logged via wrapper)
 
 ---
+
 
 ## SES-2026-05-20-cowork-03 · 2026-05-20 09:15 → 09:25 UTC (Cowork scheduled task)
 
