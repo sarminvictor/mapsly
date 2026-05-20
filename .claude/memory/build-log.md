@@ -490,3 +490,17 @@ SES-2026-05-20-cowork-1635 · B.2 · SUCCESS · score informational · +1080 LOC
 
 Shipped /for-agencies marketing landing. 7 server components + 1 client (calculator). 4 tier cards ($49 Solo / $99 Growth / $249 Pro / $499 Boutique). Sample list preview · interactive metro-leads calculator · 74-signal taxonomy teaser · FAQPage JSON-LD. Fix-round friction: (1) next-intl Link rejects mailto: + #anchor hrefs (TS2322) — used plain <a> for non-route targets. (2) INC-26 redux — passing `t` function to client component fails prerender; client uses `useTranslations` directly. (3) i18n/__tests__/locale-en-ca.test asserts sparse override file — removed redundant en-CA nav keys.
 SES-2026-05-20-cowork-1707 · B.3 · SUCCESS · score 8.6/10 (est, scorer skipped — see notes) · 2096+/30- · CI-green · merged 6db76f7 · v0.6.24 · 3 retries on validate (prettier→TS2345→en-CA sparseness)
+
+## SES-2026-05-20-cowork-audit · v0.6.25 ship · incidents status audit
+
+Manual audit: amended every INC entry in `.claude/memory/incidents.md` with a `**Status:**` line right after the title. Three statuses used:
+- ✅ FIXED + ENCODED — prevention is in the code/rule it claims to be in (21 INCs)
+- ♻️ SUPERSEDED BY INC-31 — older sandbox-fight bugs that the /tmp-clone architecture rendered moot (9 INCs: 01, 14, 17, 19, 20, 22, 28, 29 — plus INC-32 elsewhere)
+- ✅ ACTIVE DESIGN PRINCIPLE — current design (INC-30 capability-routing, INC-31 /tmp clone)
+- 🟡 FIXED + VERIFICATION-PENDING — v0.6.20 just shipped, waiting for first GC tick proof (INC-33)
+
+INC-21 is a numbering gap (skipped during creation), not a missing fix.
+
+No code change. Doc + status amendments only.
+
+Outcome: SUCCESS.

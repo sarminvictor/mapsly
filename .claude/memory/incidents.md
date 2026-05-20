@@ -8,6 +8,8 @@ See `.claude/rules/incident-prevention.md` for the rules.
 
 ### INC-2026-05-19-01 · sandbox cannot unlock stale .git/index.lock
 
+**Status:** ♻️ SUPERSEDED BY INC-31 — Loop runs from /tmp clone; the FUSE-mounted .git is no longer touched.
+
 **Symptom:** `rm: cannot remove '.git/index.lock': Operation not permitted`, even though the file is owned by the current user. Cascades into "fatal: Unable to create '.git/index.lock'" on every git operation.
 
 **Root cause:** The sandbox's bind mount of the user's working directory has file-level write restrictions for files created by a different sandbox session. Lockfiles created by one sandbox can outlive that sandbox but cannot be removed by a new one.
@@ -32,6 +34,8 @@ git remote add origin "https://x-access-token:${GITHUB_TOKEN}@github.com/sarminv
 ---
 
 ### INC-2026-05-19-02 · Prisma 7 forbids `url` and `directUrl` in datasource block
+
+**Status:** ✅ FIXED + ENCODED — Encoded in `prisma/schema.prisma` + `prisma.config.ts`.
 
 **Symptom:** `prisma generate` fails with `Error code: P1012 · error: The datasource property 'url' is no longer supported in schema files. Move connection URLs for Migrate to prisma.config.ts`.
 
@@ -65,6 +69,8 @@ Note: the `Datasource` type only allows `{ url, shadowDatabaseUrl }` — no `dir
 
 ### INC-2026-05-19-03 · PrismaNeon adapter takes PoolConfig directly, not new Pool()
 
+**Status:** ✅ FIXED + ENCODED — Encoded in `lib/prisma.ts` lazy proxy.
+
 **Symptom:** `TypeScript error TS2559: Type 'Pool' has no properties in common with type 'PoolConfig'`
 
 **Root cause:** The `@prisma/adapter-neon@7.x` constructor signature changed from `new PrismaNeon(pool)` to `new PrismaNeon(poolConfig)`. Old pattern `new Pool({ connectionString })` is no longer needed — the adapter creates its own pool internally.
@@ -89,6 +95,8 @@ Also drop `import { Pool } from "@neondatabase/serverless"` — no longer needed
 
 ### INC-2026-05-19-04 · vitest fails CI when no test files exist yet
 
+**Status:** ✅ FIXED + ENCODED — `--passWithNoTests` in `package.json` scripts.
+
 **Symptom:** `vitest run` exits with code 1 on an empty test suite ("No test files found, exiting with code 1"). CI `test` job fails on scaffold.
 
 **Root cause:** Vitest's default behavior is to treat zero matched files as an error. Reasonable in mature repos, harmful during scaffolding.
@@ -109,6 +117,8 @@ Also drop `import { Pool } from "@neondatabase/serverless"` — no longer needed
 ---
 
 ### INC-2026-05-19-05 · ESLint 9 + FlatCompat + next/typescript hits circular JSON
+
+**Status:** ✅ FIXED + ENCODED — Encoded in `eslint.config.mjs`.
 
 **Symptom:** `eslint` invocation fails with `TypeError: Converting circular structure to JSON ... property 'react' closes the circle` deep inside `@eslint/eslintrc` config-validator.
 
@@ -132,6 +142,8 @@ export default [...nextCoreWebVitals, ...nextTypescript /* overrides */];
 
 ### INC-2026-05-19-06 · Vercel build skips `prisma generate` → missing generated client
 
+**Status:** ✅ FIXED + ENCODED — `postinstall: prisma generate` in `package.json`.
+
 **Symptom:** Vercel deploy errors immediately after `pnpm install`. Error happens during `next build` because `import { PrismaClient } from "@/lib/generated/prisma/client"` resolves to a non-existent path.
 
 **Root cause:** Vercel runs `pnpm install && pnpm build`. Our CI also runs `pnpm db:generate` as a separate step; Vercel doesn't. Without `prisma generate`, `lib/generated/prisma/` is empty.
@@ -154,6 +166,8 @@ export default [...nextCoreWebVitals, ...nextTypescript /* overrides */];
 ---
 
 ### INC-2026-05-19-07 · Module-load env access crashes Vercel build
+
+**Status:** ✅ FIXED + ENCODED — Encoded in `.claude/rules/security.md` § Module-load + lazy-proxy pattern in `lib/prisma.ts`, Stripe/Resend/Anthropic clients.
 
 **Symptom:** Vercel build fails after `prisma generate` runs cleanly. Stack trace shows `Error: DATABASE_URL not set` at module-top-level in `lib/prisma.ts`.
 
@@ -184,6 +198,8 @@ export default prisma;
 
 ### INC-2026-05-19-08 · Neon adapter cannot deserialize PostgreSQL `name` columns
 
+**Status:** ✅ FIXED + ENCODED — All `mcp__postgres__query` calls cast `name` columns to text per `.claude/rules/mcp-postgres.md`.
+
 **Symptom:** `$queryRaw` against `pg_indexes` fails with `DriverAdapterError: UnsupportedNativeDataType ... Failed to deserialize column of type 'name'`.
 
 **Root cause:** PostgreSQL has a `name` system type (used in catalog tables like pg_indexes, pg_class, pg_namespace). The Neon serverless driver doesn't have a default mapping for it.
@@ -203,6 +219,8 @@ prisma.$queryRaw`SELECT indexname::text AS idx FROM pg_indexes ...`;
 ---
 
 ### INC-2026-05-19-09 · Next 16 cacheComponents forbids `new Date()` in server components
+
+**Status:** ✅ FIXED + ENCODED — `.claude/rules/cache-components.md` Pattern 1 + NEXT_PHASE guards in `app/(dev)/dev/queries/*`.
 
 **Symptom:** `next build` fails with: `Route "/dev" used 'new Date()' before accessing either uncached data ... or Request data ... Accessing the current time in a Server Component requires reading one of these data sources first.`
 
@@ -225,6 +243,8 @@ Or, if the timestamp must be live, move the read into a Client Component (`"use 
 ---
 
 ### INC-2026-05-19-10 · Vercel rejected deploy because commit email didn't match GitHub account
+
+**Status:** ✅ FIXED + ENCODED — `.claude/rules/git-discipline.md` § commit author identity.
 
 **Symptom:** Vercel deployment blocked with: "Deployment was blocked because the commit email `claude@mapsly.ai` could not be matched to a GitHub account."
 
@@ -250,6 +270,8 @@ git push --force-with-lease origin main
 
 ### INC-2026-05-19-11 · `app/page.tsx` 404s because next-intl middleware rewrites `/` to a missing locale path
 
+**Status:** ✅ FIXED + ENCODED — `app/[locale]/` restructure shipped; root `/` redirects via next-intl middleware.
+
 **Symptom:** `https://www.mapsly.ai/` returns HTTP 404 despite `app/page.tsx` existing. `dev.mapsly.ai/` returns 200 (because middleware bypasses next-intl for that host).
 
 **Root cause:** `createMiddleware(routing)` from next-intl with `localePrefix: "as-needed"` rewrites `/` → an internal `/{detected-locale}` path. Without `app/[locale]/page.tsx`, that path 404s. The top-level `app/page.tsx` is unreachable.
@@ -266,6 +288,8 @@ git push --force-with-lease origin main
 
 ### INC-2026-05-19-12 · Vercel CLI requires `vercel link` before env/deploy commands
 
+**Status:** ✅ FIXED + ENCODED — `docs/handoff.md` § Vercel bootstrap.
+
 **Symptom:** `npx vercel env pull` (or any project-scoped command) fails with: `Error: Your codebase isn't linked to a project on Vercel. Run vercel link to begin.`
 
 **Root cause:** Vercel CLI looks for `.vercel/project.json` in the current directory. Without it, even a fully-authenticated CLI doesn't know which project to operate on.
@@ -281,6 +305,8 @@ git push --force-with-lease origin main
 ---
 
 ### INC-2026-05-19-13 · Next 16 revalidateTag requires cacheLife profile arg
+
+**Status:** ✅ FIXED + ENCODED — `.claude/rules/caching.md` § revalidation profile arg.
 
 **Symptom:** `Type error: Expected 2 arguments, but got 1.` on every `revalidateTag("...")` call. Build fails.
 
@@ -301,6 +327,8 @@ revalidateTag("dev-dashboard-github", "seconds");
 ---
 
 ### INC-2026-05-19-14 · Cowork sandbox FUSE mount blocks `unlink()` — git working-tree updates impossible
+
+**Status:** ♻️ SUPERSEDED BY INC-31 — Loop runs from /tmp; FUSE mount never holds the active working tree anymore.
 
 **Symptom:** Supervisor tick opens, sees the working tree in an unborn-HEAD state (`fatal: your current branch 'main' does not have any commits yet`) with `.git-rewrite/`, `.git/index.lock`, and `_tmp_3_*` leftovers from a prior crashed session. INC-01's `GIT_DIR=/tmp/<scratch>` workaround initializes a fresh git dir and `git fetch origin main` succeeds, but `git reset --hard origin/main` aborts with:
 
@@ -344,6 +372,8 @@ After that, local main has commits, working tree is clean, and the next supervis
 
 ### INC-2026-05-19-15 · next-intl middleware matcher excludes paths with dots
 
+**Status:** ✅ FIXED + ENCODED — `middleware.ts` matcher updated; `.claude/rules/i18n.md` matcher pattern documented.
+
 **Symptom:** Routes containing a dot in the URL (like `/tasks/A.1`, `/tasks/1.10.4`) return 404 on `dev.mapsly.ai`. The same paths work locally (`pnpm dev`) but 404 in production.
 
 **Root cause:** The middleware config matcher pattern `/((?!api|_next|_vercel|.*\..*).*)` excludes any URL containing a dot — designed to skip static assets (`.css`, `.png`, etc.) but too greedy: `A.1` matches the same regex. With matcher skipped, the host-based rewrite in `middleware.ts` doesn't fire, so `dev.mapsly.ai/tasks/A.1` is served as-is — but only `/dev/tasks/[id]` exists, not `/tasks/[id]`.
@@ -366,6 +396,8 @@ Now only real static-asset extensions are excluded; arbitrary dotted paths flow 
 
 ### INC-2026-05-19-16 · Loop was running on default model (Sonnet) not Opus
 
+**Status:** ✅ FIXED + ENCODED — `scripts/launchd/loop-tick.sh` passes `--model "$CLAUDE_MODEL"`; default opus-4-7. (Launchd wrapper retained as fallback per CLAUDE.md.)
+
 **Symptom:** Loop quality scores plausibly lower than expected. Viktor flagged the loop wasn't on the strongest available model.
 
 **Root cause:** The launchd wrapper `scripts/launchd/loop-tick.sh` invoked `claude --print "$PROMPT"` without a `--model` flag. The Claude CLI falls back to whatever the user's CLI config defaults to — for most Pro Max users that's Sonnet, not Opus.
@@ -384,6 +416,8 @@ Now only real static-asset extensions are excluded; arbitrary dotted paths flow 
 
 ### INC-2026-05-19-17 · Sandbox rsync clobbered dashboard-set loop-lock state
 
+**Status:** ♻️ SUPERSEDED BY INC-31 — No rsync from FUSE mount in current architecture. Loop never reads or writes the mounted `.claude/memory/loop-lock.json` directly.
+
 **Symptom:** User resumed loop via dashboard (`Mapsly Dashboard · chore(loop): idle via dashboard`). Subsequent commits from sandbox-Claude work showed loop-lock.json reverted to "paused" — user's resume action lost. After 10 min, no launchd ticks acquired the lock.
 
 **Root cause:** When sandbox-Claude commits batched work, it `rsync`s the entire working tree from `/tmp/lock-gen/` back to `/sessions/.../mapsly/`. The sandbox-Claude's working copy had a STALE `.claude/memory/loop-lock.json` (last seen as "paused"). The rsync overwrote the dashboard's "idle" state on disk. Next commit included that stale lock-lock as a regression.
@@ -401,6 +435,8 @@ Now only real static-asset extensions are excluded; arbitrary dotted paths flow 
 **Tags:** sandbox, rsync, dashboard, lock-state
 
 ### INC-2026-05-19-18 · Pro Max usage card showed fabricated numbers — Anthropic has no usage API
+
+**Status:** ✅ FIXED + ENCODED — Pro Max usage card deleted from `app/(dev)/dev/page.tsx`; honest quota link via `app/(dev)/dev/QuotaCard.tsx`.
 
 **Symptom:** Dashboard "Pro Max usage · 5h rolling window" card showed `0% session used` and `0 routine runs` while claude.ai/settings/usage showed the real numbers (e.g. 64% session, 5 routines run). Users were misled into thinking the loop had budget when it was actually constrained.
 
@@ -429,6 +465,8 @@ Now only real static-asset extensions are excluded; arbitrary dotted paths flow 
 
 ### INC-2026-05-20-19 · Loop never claimed a task · `claude --print` blocks on permission prompts
 
+**Status:** ♻️ SUPERSEDED BY INC-31 — Launchd wrapper no longer the canonical scheduler. Cowork scheduled task spawns its own shell with permissions pre-granted at sandbox-config level.
+
 **Symptom:** Loop-lock has been `idle` for hours/days. Dashboard shows 0 TaskRuns ever written. Postgres confirms: 60 PENDING tasks, 19 DONE, 0 IN_PROGRESS, 0 CronRun rows, 0 Notification rows. The autonomous loop has NEVER successfully claimed and shipped a task despite the wrapper being installed.
 
 **Root cause:** `scripts/launchd/loop-tick.sh` invoked `claude --print --model "$MODEL" "$(cat prompt.md)"` without `--dangerously-skip-permissions`. In headless mode (no TTY), every tool-use approval (Edit/Write/Bash/Task/git) prompts for explicit user permission. With no terminal to respond, the CLI either hangs (forever) or silently auto-denies — Claude answers the prompt as text and exits without doing any actual file/db/git work. Result: launchd fires every 5 min, the wrapper spawns the CLI, the CLI reads the prompt and responds with planning text, but no tools execute. Zero side-effects.
@@ -455,6 +493,8 @@ Now only real static-asset extensions are excluded; arbitrary dotted paths flow 
 **Tags:** loop, claude-cli, headless, permissions, root-cause
 
 ### INC-2026-05-20-20 · Loop still 0 TaskRuns after v0.4.5 ship · installed wrapper was stale
+
+**Status:** ♻️ SUPERSEDED BY INC-31 — Launchd wrapper is fallback; Cowork-canonical scheduler runs from origin/main clone every tick, so stale-wrapper class of bugs cannot apply.
 
 **Symptom:** v0.4.5 added `--dangerously-skip-permissions` and v0.4.6 added `--effort max` to `scripts/launchd/loop-tick.sh`, but Postgres still showed 0 TaskRuns ever and `loop-lock.lastTickAt` was frozen at the manual-restore timestamp from 44 min ago. The fix was in main but had no effect on the running loop.
 
@@ -483,6 +523,8 @@ Now only real static-asset extensions are excluded; arbitrary dotted paths flow 
 **Tags:** loop, launchd, install, stale-copy, self-update
 
 ### INC-2026-05-20-22 · Pivot scheduler · launchd → /loop in open CC session
+
+**Status:** ♻️ SUPERSEDED BY INC-31 — /loop in open CC session was the v0.5 pivot. v0.6.6 (INC-31) pivoted further to Cowork-canonical with /tmp work-dir. The /loop path remains supported as a Mac fallback only.
 
 **Symptom:** After 7 failed attempts (INC-15, 17, 19, 20, 21) to make launchd-based scheduling work for the autonomous build loop, the loop has shipped zero TaskRuns. Each fix exposed a new layer of macOS sandbox/TCC complexity (Cowork sandbox blocked file unlinks, then `~/Documents/` TCC blocked launchd-spawned bash, then `/bin/bash` couldn't be granted FDA via GUI, etc).
 
@@ -520,6 +562,8 @@ Now only real static-asset extensions are excluded; arbitrary dotted paths flow 
 
 ### INC-2026-05-20-23 · TaskRun.resumedFromRunId added to schema but never pushed to Neon · /tasks/[id] 404s
 
+**Status:** ✅ FIXED + ENCODED — Column live in Neon; `.claude/rules/conventions.md` § schema-drift prevention.
+
 **Symptom:** After v0.4.3 added `resumedFromRunId` to the `TaskRun` Prisma model, `https://dev.mapsly.ai/tasks/B.6` started returning 404 (via Next.js `notFound()`). The page LOOKED reachable (HTTP 200, Suspense fallback rendered) but the data fetch silently failed.
 
 **Root cause:** `prisma generate` runs during Vercel build so the client knows about the new field, but `prisma db push` was never executed against the Neon production DB. `Task.findUnique` with `include: { runs: ... }` Prisma generates a SELECT that includes `resumedFromRunId`. Postgres errors: `column "resumedFromRunId" does not exist`. The `try { ... } catch { return null }` in `getTaskDetail` swallowed the error → page got `null` → called `notFound()`.
@@ -551,6 +595,8 @@ CREATE INDEX IF NOT EXISTS "TaskRun_resumedFromRunId_idx" ON "TaskRun"("resumedF
 
 ### INC-2026-05-20-24 · In-flight card lies "live · in progress" when TaskRun is PARTIAL/FAILED
 
+**Status:** ✅ FIXED + ENCODED — `app/(dev)/dev/queries/in-flight.ts` reads TaskRun.outcome strictly.
+
 **Symptom:** After B.6 shipped as PARTIAL (PR opened, awaiting review), the dashboard's In-flight card kept showing "live · in progress" with a pulsing green dot for B.6 — even though no agent was actively running.
 
 **Root cause:** `queries/in-flight.ts` selected any `Task.status='IN_PROGRESS'` and treated it as "live." But Task.status stays IN_PROGRESS while a PR awaits human review (correct convention — work isn't fully done until merged). The "live" indicator was conflating "Task in flight" with "agent actively running."
@@ -572,6 +618,8 @@ CREATE INDEX IF NOT EXISTS "TaskRun_resumedFromRunId_idx" ON "TaskRun"("resumedF
 
 ### INC-2026-05-20-25 · NEXT_PHASE guard return shapes must be 100% complete · TS errors cascade
 
+**Status:** ✅ FIXED + ENCODED — `.claude/rules/cache-components.md` Pattern 1 + `EMPTY_*` typed constants in `app/(dev)/dev/queries/{cost,cron,dora}.ts`.
+
 **Symptom:** B.6 iteration pushed `NEXT_PHASE === "phase-production-build"` guards in 7 `'use cache'` queries. Vercel build failed 3 commits in a row, each on a different missing field in the empty return shape (`cost.ts` missing `haltPct`, then missing `byJob`+`dailyTrend`, then `cron.ts` missing `failures24h`+`successful24h`+`totalRuns24h`, then `dora.ts` missing `last30d`). Each fix surfaced the next layer.
 
 **Root cause:** The NEXT_PHASE guard was written inline as an object literal — TypeScript checks literal-by-literal against the interface, so a partial shape fails immediately. We had no single source of truth for the "empty state" of each interface, so each query's guard + each query's catch wrote their own partial shape.
@@ -589,6 +637,8 @@ CREATE INDEX IF NOT EXISTS "TaskRun_resumedFromRunId_idx" ON "TaskRun"("resumedF
 **Tags:** cacheComponents, prisma, typescript, build-phase, empty-state
 
 ### INC-2026-05-20-26 · next-intl t.rich() render-prop callbacks don't survive cacheComponents prerender
+
+**Status:** ✅ FIXED + ENCODED — `.claude/rules/cache-components.md` Pattern 4 + `app/[locale]/signin/check-email/page.tsx` → `"use client"`.
 
 **Symptom:** B.6's `/signin/check-email` page used `t.rich("no_email_received", { tryAgain: chunks => <Link>{chunks}</Link> })` (next-intl rich-text pattern). Vercel prerender failed with `Error: Functions cannot be passed directly to Client Components unless you explicitly expose it by marking it with "use server".` The function being serialized was the `tryAgain` render-prop callback inside the React tree.
 
@@ -608,6 +658,8 @@ CREATE INDEX IF NOT EXISTS "TaskRun_resumedFromRunId_idx" ON "TaskRun"("resumedF
 
 ### INC-2026-05-20-27 · Vercel build container cannot open Neon WebSockets · every `'use cache'` Prisma query needs a build-phase guard
 
+**Status:** ✅ FIXED + ENCODED — `.claude/rules/cache-components.md` Pattern 1; all `'use cache'` Prisma queries have NEXT_PHASE guard + EMPTY_* fallback.
+
 **Symptom:** Every `'use cache'` query in the `/dev` tree that called `prisma.foo.findMany()` crashed during Vercel's `next build` step. The error surfaced as "Uncached data was accessed outside of <Suspense>" — but the underlying cause was a Neon WebSocket connection failure (Vercel's build worker has no Neon connectivity). cacheComponents tries to populate `'use cache'` blocks at build time and the Prisma call rejects with an opaque ErrorEvent.
 
 **Root cause:** With `cacheComponents: true`, `'use cache'` blocks are populated DURING the build (so the prerendered shell has cache-warmed values). Vercel's build container is sandboxed away from Neon's WebSocket-only protocol → every Prisma call from a build-phase `'use cache'` block fails. The failures cascade into "Uncached data outside Suspense" because the build worker can't determine the cache shape.
@@ -625,6 +677,8 @@ CREATE INDEX IF NOT EXISTS "TaskRun_resumedFromRunId_idx" ON "TaskRun"("resumedF
 **Tags:** vercel-build, neon, prisma, cacheComponents, websocket
 
 ### INC-2026-05-20-28 · INC-14 falsely invoked on real macOS · loop iteration false-aborted
+
+**Status:** ♻️ SUPERSEDED BY INC-31 — Loop no longer probes the FUSE mount in STEP 0 — runs in /tmp from a fresh clone, so the false-positive class of bugs cannot apply.
 
 **Symptom:** v0.6.2 Desktop Scheduled Task iteration on Viktor's Mac diagnosed "FUSE unlink wall (INC-14)" and exited with 4h cooldown — but the iteration runs on the actual macOS filesystem (no FUSE). The real issue: local working tree had stale uncommitted changes from earlier sandbox commits + local main was 2 commits behind origin/main after v0.6.2 push.
 
@@ -651,6 +705,8 @@ CREATE INDEX IF NOT EXISTS "TaskRun_resumedFromRunId_idx" ON "TaskRun"("resumedF
 **Tags:** loop, INC-14-scope, false-positive, auto-sync, working-tree
 
 ### INC-2026-05-20-29 · Cowork scheduled-task iteration cannot run pnpm install · structural FUSE wall
+
+**Status:** ♻️ SUPERSEDED BY INC-31 — v0.6.6 architectural pivot — loop bootstraps in /tmp/mapsly-work, which is sandbox-writable. The FUSE wall still exists but the loop sidesteps it.
 
 **Symptom:** SES-2026-05-20-cowork-02 (this iteration) was triggered by the Cowork desktop app's Scheduled Task feature. STEP 0 detected `IS_SANDBOX=1` (PWD under `/sessions/.../mnt/mapsly`). Trying to install dependencies for STEP 6 validation (`pnpm install --ignore-scripts --frozen-lockfile`) crashed immediately with:
 
@@ -686,6 +742,8 @@ This is structural: there is no escape hatch from inside the sandbox. INC-01's `
 **Tags:** loop, cowork, fuse, pnpm-install, structural, scheduler-mode
 
 ### INC-2026-05-20-30 · v0.6.4 halted the entire loop on a single capability gap · capability halts must be scoped
+
+**Status:** ✅ ACTIVE DESIGN PRINCIPLE — Capability-routing rule remains canonical in `.claude/rules/capability-routing.md`. In Cowork-only mode it's largely inert (all tasks treated env-agnostic), but the principle covers any future env with reduced capabilities.
 
 **Symptom:** v0.6.4 shipped a "Cowork FUSE wall halt path" in `.claude/loop.md` STEP 0/STEP 1. When STEP 0 probed `touch + rm _probe_$$` and `rm` returned `Operation not permitted`, the iteration set `LOOP_HALT_REASON=cowork-fuse-wall` and STEP 1 unconditionally exited with a 4-hour cooldown on `loop-lock`. This blocked the ENTIRE queue from running for 4 hours, even though most tasks in the queue (docs, memory, research, DB writes, dashboard tweaks) don't need `pnpm install` and would have shipped fine from the sandbox via Write/Edit/Postgres MCP.
 
@@ -728,6 +786,8 @@ The deeper design flaw: tasks had no way to declare what capabilities they need,
 **Tags:** loop, design, capability-routing, scoped-halts, queue-discipline, INC-29-amendment
 
 ### INC-2026-05-20-31 · Cowork-only scheduler · loop must run in /tmp, not in the FUSE-mounted project dir
+
+**Status:** ✅ ACTIVE DESIGN — This IS the v0.6.6+ scheduler model. Encoded in `.claude/loop.md` STEP 0a/0b.
 
 **Symptom:** v0.6.5 shipped capability-aware routing in `.claude/loop.md`, but the Cowork scheduled task tick STILL couldn't act on it because the tick's `git fetch origin main` in STEP 0 silently failed to update refs. The local `.git/refs/remotes/origin/main` stayed at v0.6.3 (`59e1515`) even though origin had advanced through v0.6.4 (`07fe8f4`), v0.6.4-version-bump (`59b0eca`), and v0.6.5 (`1a7cde6`).
 
@@ -774,6 +834,8 @@ The FUSE-mounted project directory at `~/Documents/Claude/Projects/mapsly` is no
 
 ### INC-2026-05-20-32 · Prisma `{ increment }` over a NULL nullable column stays NULL
 
+**Status:** ✅ FIXED + ENCODED — `lib/cost/cost-counter.ts` `openCronRun` initializes `costUsd: 0`.
+
 **Symptom:** C.1 shipped `lib/cost/cost-counter.ts` with `prisma.cronRun.update({ data: { costUsd: { increment: 0.0006 } } })`. The `CronRun.costUsd` column is `Float?` (nullable, no DB default). After `openCronRun` created the row with no explicit costUsd, every subsequent `{ increment }` was a no-op — Postgres evaluates `NULL + x = NULL`, so costUsd stayed NULL forever. The behaviour was silent: no exception, no log, just zero cost ever recorded. Unit tests passed only because the in-test mock defaulted costUsd to 0, hiding the real DB semantics.
 
 **Root cause:** Prisma's `{ increment: n }` operator translates to SQL `"costUsd" = "costUsd" + $1`, and Postgres's arithmetic over NULL yields NULL. The schema column was Float? without a `@default(0)`, so newly-created rows had costUsd = NULL.
@@ -798,6 +860,8 @@ The FUSE-mounted project directory at `~/Documents/Claude/Projects/mapsly` is no
 **Tags:** prisma, postgres-null-arithmetic, increment, cost-counter, mock-fidelity
 
 ### INC-2026-05-20-33 · Cowork /tmp accumulates per-tick orphans · loop halts at 100% disk
+
+**Status:** 🟡 FIXED + VERIFICATION-PENDING — v0.6.20 STEP 0a.1 + 0a.2 shipped. First GC tick will validate; if `/tmp` free stays > 1 GB across 24h of ticks, mark FIXED + ENCODED.
 
 **Symptom:** Cowork scheduled-task tick at 2026-05-20T15:15Z couldn't bootstrap. Loop-lock note: _"sandbox bash still unavailable (useradd: No space left on device on /etc/passwd) · cannot bootstrap /tmp clone, cannot query Postgres, cannot push"_. Inspection found `/dev/nvme0n1p1` (the sandbox's writable filesystem holding `/tmp`, `/etc`, and `/`) at 100% / 0 bytes available, with 27 orphan `/tmp/mapsly-*` clone dirs (~67 MB total) plus large one-off tool installs from prior ticks: `/tmp/lock-gen` (1.1 GB), `/tmp/prettier-check` (395 MB), `/tmp/node24` (207 MB), `/tmp/prettier-{cli,tool,bin,mini}` (~40 MB), `/tmp/db-helper` (38 MB), `/tmp/pg-cwk` (24 MB), `/tmp/zen-loop` (19 MB), `/tmp/fmt-pkg` (14 MB). Total accumulated waste ≈ 1.9 GB across ~30 successful ticks (B.0 through D.2 over ~12 hours).
 
