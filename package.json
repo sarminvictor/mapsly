@@ -1,6 +1,6 @@
 {
   "name": "mapsly",
-  "version": "0.2.4",
+  "version": "0.2.5",
   "private": true,
   "scripts": {
     "dev": "next dev --turbo",
@@ -18,7 +18,8 @@
     "test": "vitest",
     "test:run": "vitest run --passWithNoTests",
     "test:coverage": "vitest run --coverage --passWithNoTests",
-    "deploy-check": "pnpm format && pnpm typecheck && pnpm lint && pnpm build"
+    "deploy-check": "pnpm format && pnpm typecheck && pnpm lint && pnpm build",
+    "seed:plan": "tsx scripts/seed-plan.ts"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.7.4",

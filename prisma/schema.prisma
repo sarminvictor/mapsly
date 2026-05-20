@@ -565,3 +565,49 @@ enum CronRunStatus {
   PARTIAL
   FAILED
 }
+
+// ============================================================================
+// TASK TRACKER — source of truth for autonomous build loop work queue
+// PLAN.md is regenerated from this table by the loop on every state change.
+// ============================================================================
+
+model Task {
+  id              String     @id   // matches PLAN.md ID (e.g. "1.10.4", "B.1")
+  phase           String     // "0", "1", "1.10", "B" — major grouping for the tracker UI
+  title           String     @db.Text
+  effort          String?    // "S" | "M" | "L" | "XL"
+  status          TaskStatus @default(PENDING)
+  deps            String?    // comma-separated phase IDs, free-form
+  tags            String?    // comma-separated tags
+  scoreAvg        Float?     // averaged 5-dim score after last completed session
+  scoreCompletion Int?       // last completion score (1-10)
+  scoreQuality    Int?
+  scoreAudience   Int?
+  scoreRelevance  Int?
+  scorePerformance Int?
+  ownerSessionId  String?    // currently-claiming session, null if not in-progress
+  prNumber        Int?       // GitHub PR number that shipped this task
+  prUrl           String?    @db.Text
+  commitSha       String?
+  agentsUsed      String?    @db.Text // JSON array of agent names invoked
+  skillsUsed      String?    @db.Text // JSON array of skill names invoked
+  notes           String?    @db.Text
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  startedAt       DateTime?
+  completedAt     DateTime?
+  failureCount    Int        @default(0)
+
+  @@index([status, phase])
+  @@index([phase])
+}
+
+enum TaskStatus {
+  PENDING
+  IN_PROGRESS
+  DONE
+  BLOCKED
+  SKIPPED
+  FAILED
+  HUMAN_REQUIRED
+}

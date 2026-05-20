@@ -13,6 +13,7 @@ You are running natively on macOS, in `~/Documents/Claude/Projects/mapsly`. Full
 Schema: `{ state, sessionId, startedAt, lastTickAt, cooldownUntil, consecutiveFailures }`.
 
 Decision:
+
 - `state: running` AND `startedAt` < 6h ago → check recent commit on origin/main. If within 60 min, another session is active → exit silently. Else clear lock.
 - `state: running` AND `startedAt` > 6h ago → crashed; clear lock.
 - `state: cooldown` AND `cooldownUntil` is future → exit silently.
@@ -47,6 +48,7 @@ Update PLAN.md → `in_progress`. Push as `chore(loop): claim {phase-id}`.
 ## 6. Browser validation (every UI phase)
 
 Per `.claude/rules/browser-testing.md` — use Claude in Chrome MCP to:
+
 - Navigate the preview URL
 - Validate as anon + SMB owner + agency member + admin
 - Seed test data via `scripts/test-seed.ts`, validate, clean up via `scripts/test-cleanup.ts`
