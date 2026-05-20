@@ -296,3 +296,25 @@ Notes:
 
 · One-line summary: SES-2026-05-20-cowork-080758 · C.1 · SUCCESS · score 8.4/10 · 952+/11- · ci=green · merge=AUTO
 SES-2026-05-20-cowork-loop-0846 · I.5 · SUCCESS · +795/-0 · ci-green · merged #7 cf2d171 · v0.6.9→v0.6.10
+
+## SES-2026-05-20-cowork-1779269915 · 2026-05-20 09:35 → 09:55 UTC (Cowork scheduled task)
+
+- Task: C.2 · Cache layer · Redis-backed · 24h TTL with cacheTag invalidation
+- Outcome: SUCCESS · auto-merged to main (PR #9, squash sha 7c2521d)
+- Files: lib/cache/kv.ts + lib/cache/index.ts + lib/cache/__tests__/cache.test.ts + .prettierignore
+- Diff: 4 files / +784 / -1
+- Tests: 19 added (93 total pass)
+- CI: validate ✓ build ✓ test ✓ integration ✓ bundle-check ✓ ci-passed ✓ (lighthouse FAILED but N/A — no UI routes)
+- Agents: skipped (S-effort, scale-to-complexity)
+- Version bumped: 0.6.11 → 0.6.12
+
+Notes:
+
+- C.2 unblocks C.3 (DataForSEO adapters), C.11 (API rate-limit middleware), and the general "every external API call dedups for 24h" cost-discipline invariant.
+- API design: kvCache(prefix, {ttl, tag?}, fn) wraps an async fn with stable-hashed dedup. invalidateCacheTag(tag) drops keys via SCAN over per-tag marker keys. CronRun.meta.cacheHits bumped via Postgres jsonb_set (single-statement atomic — no read-modify-write race).
+- Fail-soft by design: KV unavailable → straight-through to fn (1 warn-once per process). KV runtime errors → straight-through to fn (1 warn-once per process). Caller never sees a cache-related exception.
+- Cost-discipline alignment: a cache HIT skips the wrapped fn entirely, so withCostCounter wrapping the fn is also skipped — no double-billing, exactly the desired semantics per .claude/rules/cost-discipline.md and .claude/rules/caching.md Layer 2.
+- Sandbox iteration via /sessions/.../work clone (6.8G free in $HOME vs /tmp's 858M cap) — pnpm install ran full, deploy-check executed locally with exit 0. INC-31's `/tmp` clone pattern is fine for small clones but $HOME is the right scratch area when node_modules is involved (~600 MB).
+- Required 1 follow-up commit to add `.claude/memory/build-log.md` to `.prettierignore` — prettier was rewriting an inline `__tests__` token (left by I.5's build-log entry) to `**tests**`. Append-only narrative logs shouldn't be strict-markdown-formatted.
+
+· One-line summary: SES-2026-05-20-cowork-1779269915 · C.2 · SUCCESS · score n/a (S-effort) · 784+/1- · ci=green · merge=AUTO

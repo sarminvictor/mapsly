@@ -2,8 +2,8 @@
   "state": "idle",
   "sessionId": null,
   "startedAt": null,
-  "lastTickAt": "2026-05-20T09:25:42Z",
+  "lastTickAt": "2026-05-20T09:57:09Z",
   "cooldownUntil": null,
   "consecutiveFailures": 0,
-  "note": "I.4 merged · v0.6.11 · Canadian English (en-CA) overrides + routing test (sparse override file + 7 invariant tests · cowork sandbox /tmp bootstrap working)"
+  "note": "C.2 merged · v0.6.12 · KV-backed adapter cache layer + 24h dedup + tag invalidation · unblocks C.3 + C.11"
 }
