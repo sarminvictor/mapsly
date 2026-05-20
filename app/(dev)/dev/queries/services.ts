@@ -34,7 +34,7 @@ async function pingHead(url: string, ms = 2000): Promise<boolean> {
 
 export async function getServiceHealth(): Promise<ServiceStatus[]> {
   "use cache";
-  cacheLife("minutes");
+  cacheLife("days");
   cacheTag("dev-dashboard-services");
 
   const dbUrl = process.env.DATABASE_URL;
