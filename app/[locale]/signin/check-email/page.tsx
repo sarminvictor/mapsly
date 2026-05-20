@@ -1,33 +1,13 @@
-import type { Metadata } from "next";
-import { setRequestLocale, getTranslations } from "next-intl/server";
+"use client";
+
+import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 
-export async function generateMetadata({
-  params,
-}: {
-  params: Promise<{ locale: string }>;
-}): Promise<Metadata> {
-  const { locale } = await params;
-  const t = await getTranslations({ locale, namespace: "auth.check_email" });
-  return {
-    title: `${t("title")} · Mapsly`,
-    robots: { index: false, follow: false },
-  };
-}
-
-// Fully static — no searchParams dependency. The original design read
-// `?email=foo@bar` from the URL to personalize the subtitle, but under
-// cacheComponents (PPR) any uncached prop crossing a Suspense boundary
-// triggers serialization errors. The generic "check your inbox" subtitle
-// is fine UX-wise — users just signed in, they know their email.
-export default async function CheckEmailPage({
-  params,
-}: {
-  params: Promise<{ locale: string }>;
-}) {
-  const { locale } = await params;
-  setRequestLocale(locale);
-  const t = await getTranslations("auth.check_email");
+// Client component — sidesteps cacheComponents serialization quirks
+// with next-intl's t.rich() render-prop pattern. Renders instantly on
+// signup-redirect; no DB/SSR work needed.
+export default function CheckEmailPage() {
+  const t = useTranslations("auth.check_email");
 
   return (
     <main
