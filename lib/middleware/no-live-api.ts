@@ -20,6 +20,7 @@
 // override the default OK close (e.g. when some batch items succeeded and
 // others failed but you want the run recorded as partial-success).
 
+import { Prisma } from "@/lib/prisma";
 import {
   assertCronContext,
   closeCronRun,
@@ -48,7 +49,7 @@ export const requireCronContext = assertCronContext;
  */
 export interface CronHandlerResult {
   itemsProcessed?: number;
-  meta?: Record<string, unknown>;
+  meta?: Prisma.InputJsonObject;
   status?: Extract<CronRunStatus, "OK" | "PARTIAL">;
   body?: unknown;
 }
@@ -118,14 +119,12 @@ export function cronHandler(
         result?.meta,
       );
 
-      const body =
-        result?.body ??
-        ({
-          ok: true,
-          ...(result?.itemsProcessed != null
-            ? { itemsProcessed: result.itemsProcessed }
-            : {}),
-        } as const);
+      const body = result?.body ?? {
+        ok: true,
+        ...(result?.itemsProcessed != null
+          ? { itemsProcessed: result.itemsProcessed }
+          : {}),
+      };
       return Response.json(body, { status: 200 });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);

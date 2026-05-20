@@ -17,7 +17,7 @@
 // throws — exactly the invariant we want.
 
 import { AsyncLocalStorage } from "node:async_hooks";
-import prisma from "@/lib/prisma";
+import prisma, { Prisma } from "@/lib/prisma";
 
 export type CronRunStatus = "OK" | "PARTIAL" | "FAILED";
 
@@ -85,7 +85,7 @@ export async function closeCronRun(
   itemsProcessed?: number,
   errorMessage?: string,
   costUsd?: number,
-  meta?: Record<string, unknown>,
+  meta?: Prisma.InputJsonValue,
 ): Promise<void> {
   await prisma.cronRun.update({
     where: { id },
