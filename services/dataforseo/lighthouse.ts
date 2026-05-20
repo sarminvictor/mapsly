@@ -67,8 +67,14 @@ const LighthouseResultSchema = z
     crawled_url: z.string().optional(),
     fetch_time: z.string().optional(),
     lighthouse_version: z.string().optional(),
-    categories: z.record(z.string(), LighthouseCategorySchema).nullable().optional(),
-    audits: z.record(z.string(), LighthouseAuditValueSchema).nullable().optional(),
+    categories: z
+      .record(z.string(), LighthouseCategorySchema)
+      .nullable()
+      .optional(),
+    audits: z
+      .record(z.string(), LighthouseAuditValueSchema)
+      .nullable()
+      .optional(),
   })
   .passthrough();
 type LighthouseRawResult = z.infer<typeof LighthouseResultSchema>;

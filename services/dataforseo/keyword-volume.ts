@@ -37,7 +37,10 @@ export const KeywordVolumeRowSchema = z.object({
   /** Average monthly search volume (12-month). */
   search_volume: z.number().nullable().optional(),
   /** Competition bucket as returned by Google Ads. */
-  competition: z.enum(["LOW", "MEDIUM", "HIGH", "UNKNOWN"]).nullable().optional(),
+  competition: z
+    .enum(["LOW", "MEDIUM", "HIGH", "UNKNOWN"])
+    .nullable()
+    .optional(),
   /** Competition index 0..100. */
   competition_index: z.number().nullable().optional(),
   /** Low end of bid range in USD. */

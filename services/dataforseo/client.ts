@@ -170,7 +170,8 @@ export async function dataforSeoPost<TaskResult>(
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const retries = options.retries ?? DEFAULT_RETRIES;
   const url = buildUrl(options.path);
-  const authHeader = "Basic " + Buffer.from(`${username}:${password}`).toString("base64");
+  const authHeader =
+    "Basic " + Buffer.from(`${username}:${password}`).toString("base64");
   const bodyJson = JSON.stringify([options.body]);
 
   let lastErr: unknown = null;
@@ -193,7 +194,8 @@ export async function dataforSeoPost<TaskResult>(
 
       // HTTP-level retry classification.
       if (!res.ok) {
-        const retryable = res.status >= 500 || res.status === 408 || res.status === 429;
+        const retryable =
+          res.status >= 500 || res.status === 408 || res.status === 429;
         const snippet = await safeReadText(res);
         const err = new DataForSeoError({
           operation: options.operation,
@@ -260,7 +262,11 @@ export async function dataforSeoPost<TaskResult>(
       return { result, rawCostUsd: task.cost };
     } catch (err) {
       // AbortError from the timeout → retryable.
-      if (err instanceof Error && err.name === "TimeoutError" && attempt < retries) {
+      if (
+        err instanceof Error &&
+        err.name === "TimeoutError" &&
+        attempt < retries
+      ) {
         lastErr = err;
         continue;
       }

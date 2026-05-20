@@ -90,11 +90,13 @@ async function serpLocalPackRaw(
   query: SerpLocalPackQuery,
 ): Promise<SerpLocalPackResult> {
   const parsed = SerpLocalPackQuerySchema.parse(query);
-  const { result } = await dataforSeoPost<z.infer<typeof SerpMapsResultSchema>>({
-    path: "/v3/serp/google/maps/live/advanced",
-    operation: OPERATION,
-    body: parsed,
-  });
+  const { result } = await dataforSeoPost<z.infer<typeof SerpMapsResultSchema>>(
+    {
+      path: "/v3/serp/google/maps/live/advanced",
+      operation: OPERATION,
+      body: parsed,
+    },
+  );
   const first = SerpMapsResultSchema.parse(result[0] ?? {});
   return {
     keyword: first.keyword ?? parsed.keyword,

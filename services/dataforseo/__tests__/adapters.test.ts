@@ -249,9 +249,7 @@ describe("serpLocalPackUncached", () => {
   test("rejects query without location_code or location_coordinate", async () => {
     __setFetchForTesting(vi.fn<typeof fetch>());
     await expect(
-      withCronRun("test", () =>
-        serpLocalPackUncached({ keyword: "med spa" }),
-      ),
+      withCronRun("test", () => serpLocalPackUncached({ keyword: "med spa" })),
     ).rejects.toThrow(/location_code or location_coordinate/);
   });
 });

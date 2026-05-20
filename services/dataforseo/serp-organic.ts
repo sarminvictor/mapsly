@@ -63,9 +63,13 @@ export interface SerpOrganicResult {
 
 const OPERATION = "dataforseo.serp.organic";
 
-async function serpOrganicRaw(query: SerpOrganicQuery): Promise<SerpOrganicResult> {
+async function serpOrganicRaw(
+  query: SerpOrganicQuery,
+): Promise<SerpOrganicResult> {
   const parsed = SerpOrganicQuerySchema.parse(query);
-  const { result } = await dataforSeoPost<z.infer<typeof SerpOrganicResultSchema>>({
+  const { result } = await dataforSeoPost<
+    z.infer<typeof SerpOrganicResultSchema>
+  >({
     path: "/v3/serp/google/organic/live/advanced",
     operation: OPERATION,
     body: parsed,

@@ -35,7 +35,10 @@ export const ReviewsQuerySchema = z
       .default("newest"),
   })
   .refine(
-    (q) => q.cid !== undefined || q.place_id !== undefined || q.keyword !== undefined,
+    (q) =>
+      q.cid !== undefined ||
+      q.place_id !== undefined ||
+      q.keyword !== undefined,
     { message: "one of cid, place_id, keyword is required" },
   );
 export type ReviewsQuery = z.input<typeof ReviewsQuerySchema>;

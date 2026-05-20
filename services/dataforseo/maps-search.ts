@@ -95,7 +95,9 @@ export interface MapsSearchResult {
 
 const OPERATION = "dataforseo.maps.search";
 
-async function mapsSearchRaw(query: MapsSearchQuery): Promise<MapsSearchResult> {
+async function mapsSearchRaw(
+  query: MapsSearchQuery,
+): Promise<MapsSearchResult> {
   const parsed = MapsSearchQuerySchema.parse(query);
   const { result } = await dataforSeoPost<z.infer<typeof MapsResultSchema>>({
     path: "/v3/business_data/business_listings/search/live",

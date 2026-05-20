@@ -242,9 +242,7 @@ describe("dataforSeoPost", () => {
 
   test("normalizes task.result = null to empty array", async () => {
     __setFetchForTesting(
-      vi.fn<typeof fetch>(async () =>
-        jsonResponse(envelope({ result: null })),
-      ),
+      vi.fn<typeof fetch>(async () => jsonResponse(envelope({ result: null }))),
     );
     const out = await withCronRun("test", () =>
       dataforSeoPost({ path: "/v3/x", operation: "test.op", body: {} }),
