@@ -151,18 +151,6 @@ export async function getServiceHealth(): Promise<ServiceStatus[]> {
       detail: "indexing · clicks · impressions per query",
     },
     {
-      name: "PostHog",
-      category: "observability",
-      expects: "NEXT_PUBLIC_POSTHOG_KEY",
-      where: "vercel-env",
-      configured: !!process.env.NEXT_PUBLIC_POSTHOG_KEY,
-      reachable: await pingHead("https://us.i.posthog.com"),
-      detail: "product analytics · feature flags",
-      optional: process.env.NEXT_PUBLIC_POSTHOG_KEY
-        ? undefined
-        : { phase: "Phase 2", reason: "Optional analytics layer next to GA4" },
-    },
-    {
       name: "Apify",
       category: "data",
       expects: "APIFY_TOKEN",
@@ -173,18 +161,6 @@ export async function getServiceHealth(): Promise<ServiceStatus[]> {
       optional: process.env.APIFY_TOKEN
         ? undefined
         : { phase: "Phase 2", reason: "Reddit signal collection, not Phase 1" },
-    },
-    {
-      name: "Yelp Fusion",
-      category: "data",
-      expects: "YELP_FUSION_API_KEY",
-      where: "third-party-account",
-      configured: !!process.env.YELP_FUSION_API_KEY,
-      reachable: await pingHead("https://api.yelp.com"),
-      detail: "supplementary review source (Phase 2 roadmap)",
-      optional: process.env.YELP_FUSION_API_KEY
-        ? undefined
-        : { phase: "Phase 2", reason: "Supplementary review source" },
     },
     {
       name: "Redis / KV",
