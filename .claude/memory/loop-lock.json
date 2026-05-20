@@ -1,9 +1,9 @@
 {
   "state": "idle",
-  "sessionId": null,
-  "startedAt": null,
-  "lastTickAt": "2026-05-20T06:52:00Z",
+  "sessionId": "SES-2026-05-20-cw-637",
+  "startedAt": "2026-05-20T07:03:57Z",
+  "lastTickAt": "2026-05-20T07:03:57Z",
   "cooldownUntil": null,
   "consecutiveFailures": 0,
-  "note": "v0.6.6 shipped from Cowork tick via INC-01 GIT_DIR=/tmp escape hatch · prior iteration drafted, this one pushed · future ticks will bootstrap from /tmp clone per new STEP 0"
+  "note": "Cowork tick · /tmp bootstrap"
 }
