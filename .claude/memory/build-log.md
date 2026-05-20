@@ -43,6 +43,7 @@ Schema per entry:
 - Scheduler: Cowork desktop scheduled task
 
 Notes:
+
 - Boot reads: complete (incidents.md, CLAUDE.md hard reminders, loop-lock, MEMORY, cache-components rule)
 - STEP 0a auto-sync to origin/main: clean (local HEAD == origin/main)
 - STEP 0b sandbox detection: IS_SANDBOX=1
@@ -71,6 +72,7 @@ Notes:
 - Scheduler: Cowork desktop scheduled task (NOT the canonical `/loop` per INC-22; ran loop.md per instruction)
 
 Notes:
+
 - Files: 11 changed, 605 insertions — sign-in + check-email + post-signin pages, NextAuth handler, i18n nav + routing, auth translations (en/es/fr)
 - Local typecheck/lint/build deferred to CI (pnpm install blocked by INC-14 unlink wall)
 - Browser + email validation deferred to next iteration with Vercel preview URL
@@ -158,13 +160,14 @@ git reset --hard origin/main
 
 ## SES-2026-05-20-cowork-03 · v0.6.5 ship · capability-aware task routing
 
-Viktor: *"we should not stop our process if only one task is blocked - we can continue with our process, take not blocked tasks and so on. Any incident should not block ALL tasks."*
+Viktor: _"we should not stop our process if only one task is blocked - we can continue with our process, take not blocked tasks and so on. Any incident should not block ALL tasks."_
 
 **The defect:** v0.6.4 STEP 0/STEP 1 set a 4h `loop-lock` cooldown when the Cowork sandbox unlink probe failed. That halted the entire queue — including docs, memory, research, dashboard, and DB-write tasks that don't need `pnpm install` at all.
 
 **The fix:** capability gaps narrow eligibility, never halt the loop.
 
 Changes:
+
 - `.claude/loop.md` STEP 0: probe sets advisory `CAN_UNLINK` / `CAN_PNPM_INSTALL` / `CAN_DEPLOY_CHECK` flags. No `LOOP_HALT_REASON`.
 - `.claude/loop.md` STEP 1: capability-halt exit DELETED. Cooldown reserved for catastrophic / repeated failures only.
 - `.claude/loop.md` STEP 3: filter eligible queue by `Task.tags` `requires:*` against current capability set. Empty filtered queue → exit normally, no cooldown.
@@ -179,7 +182,7 @@ Outcome: SUCCESS. No code-shipping ran in this iteration (env-agnostic ship from
 
 ## SES-2026-05-20-cowork-04 · v0.6.6 ship · Cowork-first scheduler
 
-Viktor: *"we do not use loop - we use cowork scheduler."*
+Viktor: _"we do not use loop - we use cowork scheduler."_
 
 **The realization:** v0.6.5's capability-routing was the right design BUT didn't address why Cowork couldn't even SEE v0.6.5. The FUSE wall blocks `git fetch` from promoting temp objects (70+ unlink errors per fetch), so the local origin/main ref is permanently stuck at v0.6.3. The loop's own STEP 0 self-update was unrecoverable from inside the mount.
 
@@ -188,6 +191,7 @@ Viktor: *"we do not use loop - we use cowork scheduler."*
 Code-ship tasks defer deploy-check to Vercel CI when `CAN_DEPLOY_CHECK=0` (Cowork has no node_modules + tight /tmp disk). This restores the "deferred to CI" pattern that v0.6.4 had banned.
 
 Changes:
+
 - `.claude/loop.md` v0.6.6 STEP 0: full rewrite. Sandbox bootstrap clones to /tmp, sources .env.local, sets capability flags. Real-macOS path unchanged.
 - `.claude/loop.md` STEP 1: capability flags advisory only, both envs run same path.
 - `.claude/loop.md` STEP 6: `CAN_DEPLOY_CHECK=0` → push and let Vercel CI validate. Records `validationStrategy.deployCheck = "deferred-to-vercel-ci"`.

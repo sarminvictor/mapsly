@@ -525,6 +525,7 @@ Now only real static-asset extensions are excluded; arbitrary dotted paths flow 
 **Root cause:** `prisma generate` runs during Vercel build so the client knows about the new field, but `prisma db push` was never executed against the Neon production DB. `Task.findUnique` with `include: { runs: ... }` Prisma generates a SELECT that includes `resumedFromRunId`. Postgres errors: `column "resumedFromRunId" does not exist`. The `try { ... } catch { return null }` in `getTaskDetail` swallowed the error → page got `null` → called `notFound()`.
 
 **Fix applied:** Direct SQL migration on Neon:
+
 ```sql
 ALTER TABLE "TaskRun" ADD COLUMN IF NOT EXISTS "resumedFromRunId" text;
 CREATE INDEX IF NOT EXISTS "TaskRun_outcome_idx" ON "TaskRun"(outcome);
@@ -532,12 +533,14 @@ CREATE INDEX IF NOT EXISTS "TaskRun_resumedFromRunId_idx" ON "TaskRun"("resumedF
 ```
 
 **Prevention:**
+
 1. **Every schema change MUST be paired with a Neon `db push` in the same commit.** Add to `.claude/rules/database.md` (or create one): "Before merging any change to `prisma/schema.prisma`, run `pnpm prisma db push` against the Neon dev branch and verify the columns match."
 2. The `try { return null } catch` pattern in queries silently masks DB schema errors. Replace with: log the error to console.error (Vercel captures + Sentry catches) before returning null — so 404s surface as Sentry issues instead of invisible.
 3. Add a CI job that runs `pnpm prisma migrate diff --from-schema-datamodel prisma/schema.prisma --to-url $DATABASE_URL` and fails if there's drift between schema and DB.
 4. The `getTaskDetail` query and similar should NOT have empty catch blocks. Either let errors propagate (caller handles) or log them.
 
 **Where encoded:**
+
 - `prisma/schema.prisma` (already had the field)
 - Neon DB (now has the column)
 - this file
@@ -555,10 +558,12 @@ CREATE INDEX IF NOT EXISTS "TaskRun_resumedFromRunId_idx" ON "TaskRun"("resumedF
 **Fix applied:** `getInFlight` now requires BOTH `Task.status='IN_PROGRESS'` AND at least one `TaskRun.outcome='IN_PROGRESS'`. Without both, falls through to the "most recent finished run" display.
 
 **Prevention:**
+
 1. UI indicators for "live" / "active" / "running" must check the lowest-level signal (TaskRun.outcome=IN_PROGRESS), not aggregate states.
 2. Document Task.status semantics in `prisma/schema.prisma` comments: `IN_PROGRESS` covers "claimed and either actively running OR awaiting PR review." Use TaskRun.outcome to distinguish.
 
 **Where encoded:**
+
 - `app/(dev)/dev/queries/in-flight.ts`
 - this file
 
@@ -576,8 +581,9 @@ CREATE INDEX IF NOT EXISTS "TaskRun_resumedFromRunId_idx" ON "TaskRun"("resumedF
 **Prevention:** Codified in `.claude/rules/cache-components.md` Pattern 1. Every NEW `'use cache'` Prisma query must define `EMPTY_X: Type` next to the interface and reference it in both the guard and the catch.
 
 **Where encoded:**
+
 - `.claude/rules/cache-components.md` Pattern 1
-- `app/(dev)/dev/queries/cost.ts`, `cron.ts`, `dora.ts` (now using EMPTY_* constants)
+- `app/(dev)/dev/queries/cost.ts`, `cron.ts`, `dora.ts` (now using EMPTY\_\* constants)
 
 **Confidence:** high
 **Tags:** cacheComponents, prisma, typescript, build-phase, empty-state
@@ -593,6 +599,7 @@ CREATE INDEX IF NOT EXISTS "TaskRun_resumedFromRunId_idx" ON "TaskRun"("resumedF
 **Prevention:** Codified in `.claude/rules/cache-components.md` Pattern 4. Any page using `t.rich()` with a render-prop must be a client component when `cacheComponents` is enabled.
 
 **Where encoded:**
+
 - `.claude/rules/cache-components.md` Pattern 4
 - `app/[locale]/signin/check-email/page.tsx`
 
@@ -610,6 +617,7 @@ CREATE INDEX IF NOT EXISTS "TaskRun_resumedFromRunId_idx" ON "TaskRun"("resumedF
 **Prevention:** Codified in `.claude/rules/cache-components.md` Pattern 1. Every `'use cache'` Prisma query that runs at build time must have a NEXT_PHASE guard + matching EMPTY_X constant.
 
 **Where encoded:**
+
 - `.claude/rules/cache-components.md` Pattern 1
 - All DB-hitting `app/(dev)/dev/queries/*.ts` files
 
@@ -623,16 +631,19 @@ CREATE INDEX IF NOT EXISTS "TaskRun_resumedFromRunId_idx" ON "TaskRun"("resumedF
 **Root cause:** INC-14 documents a FUSE-mount limitation that ONLY applies inside the Cowork sandbox (paths under `/sessions/.../mnt/`). The iteration agent matched the surface symptom ("can't unlink files cleanly") to INC-14 without checking whether the working path was actually FUSE-mounted, and invoked the 24h-cooldown escape hatch instead of doing the obvious `git stash + git pull + git stash drop` recovery that works fine on a real filesystem.
 
 **Fix applied:**
+
 1. Manual: `rm -f .git/index.lock && git reset --hard origin/main && git clean -fd` on Viktor's Mac to restore clean state.
 2. v0.6.3 loop.md STEP 0 now auto-syncs to origin/main when on `main` branch with no active IN_PROGRESS Task — eliminates the "stale-tree-after-merge" precondition entirely.
 3. v0.6.3 loop.md STEP 0 also adds an `IS_SANDBOX` detection (`case $PWD in */sessions/*|*/mnt/*) IS_SANDBOX=1`) — INC-14 patterns may only be invoked when `IS_SANDBOX=1`.
 
 **Prevention:**
+
 1. **INC-14 scope is now explicit:** only applies when the working directory path includes `/sessions/` or `/mnt/`. On real macOS, regular git operations always work.
 2. Every iteration starting on `main` auto-syncs to `origin/main` before claiming a task — no more stale-tree confusion possible.
 3. When the agent considers invoking INC-14's 24h cooldown, it must verify `IS_SANDBOX=1` first. Otherwise, attempt normal git recovery (stash → reset → clean) before any escape hatch.
 
 **Where encoded:**
+
 - `.claude/loop.md` STEP 0 (auto-sync + IS_SANDBOX detection)
 - This entry
 
@@ -652,17 +663,20 @@ Probe confirmed the FUSE wall is total: `touch _probe_test; rm -f _probe_test` r
 **Root cause:** Cowork's mount of `~/Documents/Claude/Projects/mapsly` into `/sessions/.../mnt/mapsly` is a FUSE layer that categorically blocks the `unlink()` syscall. INC-14 documented this in passing for git operations; the new finding is that this also blocks pnpm's atomic-rename install pattern, and the loop's v0.6.3 STEP 0 self-heal (`rm -f _tmp_*`) cannot remove these orphans either — they are placed by pnpm itself during the install attempt and survive the attempt.
 
 This is structural: there is no escape hatch from inside the sandbox. INC-01's `GIT_DIR=/tmp/...` trick works for git because the .git dir can live outside the mount. node_modules cannot — Node's module resolution requires it next to package.json. We'd need to:
+
 - Symlink node_modules into the mount (FUSE may reject), OR
 - Copy the entire project to /tmp, install + validate there, and propagate diffs back (1GB disk pressure on a workspace with only ~1GB free in /tmp).
 
 **Fix applied (this iteration):** Did not attempt heroic workarounds. Skipped task claim. Set 4h cooldown on loop-lock. Surfaced a Notification row for Viktor so the dashboard's Blockers card shows the issue. Amended loop.md STEP 0 with explicit Cowork-mode guidance: if `IS_SANDBOX=1` AND `pnpm install` would be required, skip task claim and request the user run the iteration via Claude Code's `/loop` slash command on the real Mac filesystem instead.
 
 **Prevention:**
+
 1. **`.claude/loop.md` STEP 0 amendment (v0.6.4):** when `IS_SANDBOX=1`, probe-test `touch _probe_$$; rm -f _probe_$$` immediately after the existing self-heal. If the rm fails (`Operation not permitted`), set 4h cooldown, write Notification (`level=WARN`, `title="Cowork sandbox FUSE wall — switch to /loop"`, body cites this INC), exit ≤1 line. Do not attempt to claim a task; nothing useful can be done from this environment.
 2. **Documentation pivot (CLAUDE.md "Model pin" section):** Cowork desktop Scheduled Task is officially NOT a supported scheduler for the autonomous build loop — only `/loop` from an interactive Claude Code session on the Mac (which has direct macOS filesystem access) qualifies. Cowork's scheduled task can run discovery/reporting tasks that need only Read+Bash, but not implementation tasks that need `pnpm install`.
 3. **Dashboard surfaces the constraint:** the LoopControls card on `dev.mapsly.ai` should show which scheduler is currently driving ticks (read from loop-lock.note or a new field). If `lastTickAt` is being stamped by a Cowork session but no TaskRuns are shipping, the dashboard surfaces "Loop is running but cannot install deps — switch to /loop". Track as a follow-up task.
 
 **Where encoded:**
+
 - `.claude/loop.md` STEP 0 (Cowork probe added in this commit)
 - This entry
 - (followup) `CLAUDE.md` Model pin paragraph
@@ -675,17 +689,19 @@ This is structural: there is no escape hatch from inside the sandbox. INC-01's `
 
 **Symptom:** v0.6.4 shipped a "Cowork FUSE wall halt path" in `.claude/loop.md` STEP 0/STEP 1. When STEP 0 probed `touch + rm _probe_$$` and `rm` returned `Operation not permitted`, the iteration set `LOOP_HALT_REASON=cowork-fuse-wall` and STEP 1 unconditionally exited with a 4-hour cooldown on `loop-lock`. This blocked the ENTIRE queue from running for 4 hours, even though most tasks in the queue (docs, memory, research, DB writes, dashboard tweaks) don't need `pnpm install` and would have shipped fine from the sandbox via Write/Edit/Postgres MCP.
 
-Viktor's reaction was the correct design check: *"Any incident should not block ALL tasks."*
+Viktor's reaction was the correct design check: _"Any incident should not block ALL tasks."_
 
 **Root cause:** v0.6.4 conflated two different concepts:
-1. *Environment capability* — what THIS env can physically do (run `unlink()`, install deps, open Chrome, reach Gmail tab, etc.)
-2. *Loop liveness* — whether the loop should be running at all
+
+1. _Environment capability_ — what THIS env can physically do (run `unlink()`, install deps, open Chrome, reach Gmail tab, etc.)
+2. _Loop liveness_ — whether the loop should be running at all
 
 A FUSE unlink wall is a capability gap, not a liveness failure. The loop is healthy; the queue has work; the env just can't ship a SUBSET of tasks. Treating it as a liveness failure (4h global cooldown) wastes the rest of the queue for no reason.
 
 The deeper design flaw: tasks had no way to declare what capabilities they need, and the loop had no way to filter the queue by what the env can offer. Without that vocabulary, every capability gap looked like a hard wall.
 
 **Fix applied (v0.6.5):**
+
 1. **STEP 0** now sets advisory capability flags (`CAN_UNLINK`, `CAN_PNPM_INSTALL`, `CAN_DEPLOY_CHECK`, `CAN_GIT_PUSH`) instead of `LOOP_HALT_REASON`.
 2. **STEP 1** no longer has a capability-halt exit. Cooldown is reserved for catastrophic / repeated failures, never for capability gaps.
 3. **STEP 3** filters the eligible queue by `Task.tags requires:*` against current capabilities. Tasks with no `requires:*` tag are env-agnostic (run anywhere). Tasks tagged `requires:deploy-check` skip in Cowork; tasks tagged `requires:pnpm-install` skip there too.
@@ -694,13 +710,15 @@ The deeper design flaw: tasks had no way to declare what capabilities they need,
 6. **New rule:** `.claude/rules/capability-routing.md` documents the capability vocabulary, task tagging convention, STEP 3 filter logic, and anti-patterns. Future capabilities (browser, email-tab, lighthouse, vercel-deploy) follow the same pattern.
 
 **Prevention:**
+
 1. **Design principle (now in capability-routing.md):** A capability gap is a routing constraint, not a halt signal. It narrows which tasks are eligible — it does not stop the loop.
 2. **Task taxonomy:** every task that requires a specific env capability declares it via `tags: requires:<cap>`. Default is env-agnostic. Failures auto-tag (STEP 6 soft-handler).
 3. **Cooldown discipline:** the cooldown trigger table in capability-routing.md is the single source of truth. Only catastrophic / repeated-failure / rate-limit conditions trigger cooldown.
-4. **Dashboard surface:** capability-degraded mode is INFO, not WARN. The user-facing copy is *"Sandbox in degraded mode — code tasks waiting for /loop on Mac. Env-agnostic tasks still shipping."* (not the v0.6.4 "Loop stalled — switch to /loop" alarmist phrasing).
+4. **Dashboard surface:** capability-degraded mode is INFO, not WARN. The user-facing copy is _"Sandbox in degraded mode — code tasks waiting for /loop on Mac. Env-agnostic tasks still shipping."_ (not the v0.6.4 "Loop stalled — switch to /loop" alarmist phrasing).
 5. **The probe in STEP 0 is non-destructive** — it sets flags, it doesn't halt. Halting decisions live in STEP 1 (loop-lock) and STEP 3 (capability filter), never in STEP 0.
 
 **Where encoded:**
+
 - `.claude/loop.md` (STEP 0 probe, STEP 1 no-halt, STEP 3 capability filter, STEP 6 auto-learn, STEP 10 cooldown discipline)
 - `.claude/rules/capability-routing.md` (new file · canonical rule)
 - `.claude/memory/incidents.md` (this entry)
@@ -711,13 +729,14 @@ The deeper design flaw: tasks had no way to declare what capabilities they need,
 
 ### INC-2026-05-20-31 · Cowork-only scheduler · loop must run in /tmp, not in the FUSE-mounted project dir
 
-**Symptom:** v0.6.5 shipped capability-aware routing in `.claude/loop.md`, but the Cowork scheduled task tick STILL couldn't act on it because the tick's `git fetch origin main` in STEP 0 silently failed to update refs. The local `.git/refs/remotes/origin/main` stayed at v0.6.3 (`59e1515`) even though origin had advanced through v0.6.4 (`07fe8f4`), v0.6.4-version-bump (`59b0eca`), and v0.6.5 (`1a7cde6`). 
+**Symptom:** v0.6.5 shipped capability-aware routing in `.claude/loop.md`, but the Cowork scheduled task tick STILL couldn't act on it because the tick's `git fetch origin main` in STEP 0 silently failed to update refs. The local `.git/refs/remotes/origin/main` stayed at v0.6.3 (`59e1515`) even though origin had advanced through v0.6.4 (`07fe8f4`), v0.6.4-version-bump (`59b0eca`), and v0.6.5 (`1a7cde6`).
 
 `git fetch` exited 0 but printed 70+ lines of `warning: unable to unlink '.git/objects/XX/tmp_obj_*': Operation not permitted`. Git could download packfiles but couldn't promote temporary objects to their final on-disk locations because the FUSE mount blocks `unlink()`. So every Cowork tick read the OLD v0.6.4 STEP 0/STEP 1 logic from its own working tree, applied the OLD "fuse-wall halt + 4h cooldown" pattern, and exited — no matter how many improvements we shipped to origin/main.
 
-Viktor: *"we do not use loop - we use cowork scheduler."* (clarifying that the Mac `/loop` alternative is not an option; Cowork must work.)
+Viktor: _"we do not use loop - we use cowork scheduler."_ (clarifying that the Mac `/loop` alternative is not an option; Cowork must work.)
 
 **Root cause:** Three independent FUSE-wall limitations conspired:
+
 1. `git fetch` can't promote temp objects in `.git/objects/` (unlink-blocked).
 2. `git reset --hard origin/main` can't remove tracked files that should be deleted (unlink-blocked).
 3. `pnpm install` can't atomic-rename via unlink (INC-29 already covered this).
@@ -725,6 +744,7 @@ Viktor: *"we do not use loop - we use cowork scheduler."* (clarifying that the M
 Combined: a Cowork tick that starts from a stale working tree can never refresh itself, so every code/loop improvement we ship to origin/main is invisible to it. The fundamental design assumption "the loop reads its own latest version from the working tree" is broken on FUSE.
 
 **Fix applied (v0.6.6):** Stop running the loop from the FUSE-mounted project directory entirely. The Cowork tick now:
+
 1. Detects `IS_SANDBOX=1` from `$PWD`.
 2. Sources `.env.local` from the mount (read works — only write is blocked).
 3. Clones origin to `/tmp/mapsly-work` (or `git fetch + reset --hard` if /tmp already has the clone from a prior session, which it usually doesn't because /tmp is ephemeral). The clone is ~4 MB and takes < 1 second.
@@ -734,12 +754,14 @@ Combined: a Cowork tick that starts from a stale working tree can never refresh 
 The FUSE-mounted project directory at `~/Documents/Claude/Projects/mapsly` is now a read-only mirror from the user's perspective. The loop never writes there; the user can pull origin/main into the mount manually when they want to inspect latest code locally.
 
 **Prevention:**
+
 1. **Architectural rule (now in loop.md STEP 0):** when `IS_SANDBOX=1`, the loop NEVER runs from the mount. It clones to `/tmp` and runs from there. The mount is only read for `.env.local`.
 2. **Capability flag taxonomy:** `CAN_DEPLOY_CHECK=0` is the canonical signal that "local deploy-check infeasible — push and defer to Vercel CI." This unblocks the "deferred to CI" pattern that v0.6.4 had banned (the ban was wrong; it assumed a real macOS env always exists).
 3. **`/tmp` ephemerality acknowledged:** the loop assumes /tmp is cold on every tick. Fresh clone + git fetch is < 1s — cheap enough to do every time. No caching needed.
 4. **No more mount-based git operations in sandbox:** any code that does `git fetch / reset / commit / push` in `$IS_SANDBOX=1` mode must check it's in `/tmp/mapsly-work`, not the mount. The /tmp .git is the source of truth for sandbox iterations.
 
 **Where encoded:**
+
 - `.claude/loop.md` STEP 0 (sandbox bootstrap via /tmp clone)
 - `.claude/loop.md` STEP 1 (capability flags advisory, no halt path)
 - `.claude/loop.md` STEP 6 (deploy-check gated on CAN_DEPLOY_CHECK; "deferred-to-vercel-ci" is canonical for Cowork)

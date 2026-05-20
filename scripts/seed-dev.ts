@@ -372,13 +372,49 @@ function buildReviewsForBiz(
     const roll = rand();
     let stars: number;
     if (biz.rating >= 4.5) {
-      stars = roll < 0.78 ? 5 : roll < 0.92 ? 4 : roll < 0.97 ? 3 : roll < 0.99 ? 2 : 1;
+      stars =
+        roll < 0.78
+          ? 5
+          : roll < 0.92
+            ? 4
+            : roll < 0.97
+              ? 3
+              : roll < 0.99
+                ? 2
+                : 1;
     } else if (biz.rating >= 4.0) {
-      stars = roll < 0.55 ? 5 : roll < 0.82 ? 4 : roll < 0.93 ? 3 : roll < 0.98 ? 2 : 1;
+      stars =
+        roll < 0.55
+          ? 5
+          : roll < 0.82
+            ? 4
+            : roll < 0.93
+              ? 3
+              : roll < 0.98
+                ? 2
+                : 1;
     } else if (biz.rating >= 3.5) {
-      stars = roll < 0.35 ? 5 : roll < 0.65 ? 4 : roll < 0.85 ? 3 : roll < 0.95 ? 2 : 1;
+      stars =
+        roll < 0.35
+          ? 5
+          : roll < 0.65
+            ? 4
+            : roll < 0.85
+              ? 3
+              : roll < 0.95
+                ? 2
+                : 1;
     } else {
-      stars = roll < 0.18 ? 5 : roll < 0.4 ? 4 : roll < 0.62 ? 3 : roll < 0.82 ? 2 : 1;
+      stars =
+        roll < 0.18
+          ? 5
+          : roll < 0.4
+            ? 4
+            : roll < 0.62
+              ? 3
+              : roll < 0.82
+                ? 2
+                : 1;
     }
     const sentiment: "POSITIVE" | "NEUTRAL" | "NEGATIVE" =
       stars >= 4 ? "POSITIVE" : stars === 3 ? "NEUTRAL" : "NEGATIVE";
@@ -408,9 +444,7 @@ function buildReviewsForBiz(
         ? "Thank you so much for sharing! We're delighted you enjoyed your visit."
         : "Thank you for the feedback. We'd like to make this right — please reach out so we can follow up."
       : null;
-    const ageDays = Math.floor(
-      (Date.now() - postedAt.getTime()) / 86_400_000,
-    );
+    const ageDays = Math.floor((Date.now() - postedAt.getTime()) / 86_400_000);
     const isUrgent = stars === 1 && !ownerReplied && ageDays > 7;
     reviews.push({
       externalId: `dev-rev-${baseSeq + i}-${biz.slug.slice(-12)}`,

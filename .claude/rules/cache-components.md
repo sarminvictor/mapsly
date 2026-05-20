@@ -29,7 +29,9 @@ export async function getThing(): Promise<Thing> {
   if (process.env.NEXT_PHASE === "phase-production-build") return EMPTY_THING;
 
   try {
-    const rows = await prisma.thing.findMany({ /* ... */ });
+    const rows = await prisma.thing.findMany({
+      /* ... */
+    });
     return shape(rows);
   } catch {
     return EMPTY_THING;
@@ -38,6 +40,7 @@ export async function getThing(): Promise<Thing> {
 ```
 
 **Hard rules:**
+
 - The guard return must be the **exact shape** of the declared return type — TypeScript catches partial shapes at literal-comparison time (this is what failed B.6 four commits in a row).
 - Export EMPTY_X as a `const` typed against the interface so the guard, the catch, and unit tests all share one source of truth.
 - Never return `null` from a guard if the declared type isn't nullable — Vercel will type-error.
@@ -77,6 +80,7 @@ async function ProtectedBody({
 ```
 
 **Hard rules:**
+
 - Async page bodies that read cookies, auth, or DB **cannot be the default export directly.** They must live inside a Suspense-wrapped inner component.
 - The inner component's return type must be `ReactNode | Promise<ReactNode>` — add `return null;` after any unreachable `redirect()` / `unauthorized()` call so TS infers correctly.
 
@@ -111,6 +115,7 @@ If your `searchParams` value enters the React tree as a **prop on a Suspense bou
 `next-intl`'s `t.rich(key, { renderProp: chunks => <Link>{chunks}</Link> })` passes a **function** through the React tree. Under cacheComponents prerender that function gets serialized → `Functions cannot be passed directly to Client Components`.
 
 **Pick one:**
+
 - **Convert the file to `"use client"`** — works everywhere, page renders client-side
 - **Use plain `t(key)` returning a string** + render the link manually next to it
 
@@ -128,6 +133,7 @@ export const revalidate = 0;
 ```
 
 The error is unambiguous:
+
 ```
 Route segment config "dynamic" is not compatible with `nextConfig.cacheComponents`.
 ```
@@ -154,6 +160,7 @@ Before opening a PR with a new route:
 - ❌ Adding `force-dynamic` to a route segment instead of using `connection()`
 
 ## Cites
+
 - INC-09 (cacheComponents PPR forbidden APIs)
 - INC-25 (NEXT_PHASE guard return shape parity)
 - INC-26 (next-intl t.rich render props don't serialize)
