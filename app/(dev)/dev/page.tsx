@@ -4,6 +4,7 @@
 
 import { Suspense } from "react";
 import { version as pkgVersion } from "../../../package.json";
+import Link from "next/link";
 import AutoRefresh from "./AutoRefresh";
 import RefreshButton from "./RefreshButton";
 import {
@@ -17,6 +18,8 @@ import { getServiceHealth } from "./queries/services";
 import { getBlockers } from "./queries/blockers";
 import { getCronAggregate } from "./queries/cron";
 import { getEnhanceSignals } from "./queries/enhance-signals";
+import { getLoopState } from "./queries/loop";
+import LoopControls from "./LoopControls";
 
 export default function DevDashboard() {
   const sha = process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? "local";
@@ -37,6 +40,21 @@ export default function DevDashboard() {
         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
           <span className="dev-pill">v{version}</span>
           <span className="dev-pill">{sha}</span>
+          <Link
+            href="/tasks"
+            style={{
+              fontSize: 11,
+              padding: "5px 10px",
+              background: "var(--dev-bg-3)",
+              color: "var(--dev-text-2)",
+              border: "1px solid var(--dev-border)",
+              borderRadius: 6,
+              textDecoration: "none",
+              fontFamily: "JetBrains Mono, monospace",
+            }}
+          >
+            tasks →
+          </Link>
           <RefreshButton />
         </div>
       </header>
@@ -66,6 +84,13 @@ export default function DevDashboard() {
         <h2>Blockers · only items I cannot do programmatically</h2>
         <Suspense fallback={<div className="dev-empty">loading…</div>}>
           <BlockersList />
+        </Suspense>
+      </div>
+
+      <div className="dev-card">
+        <h2>Loop control</h2>
+        <Suspense fallback={<div className="dev-empty">loading…</div>}>
+          <LoopControlCard />
         </Suspense>
       </div>
 
@@ -226,6 +251,77 @@ async function BlockersTile() {
       sub={b.length === 0 ? "nothing waiting on you" : "your action needed"}
       tone={b.length === 0 ? "green" : "amber"}
     />
+  );
+}
+
+// ---------- Loop control ----------
+
+async function LoopControlCard() {
+  const lock = await getLoopState();
+  if (!lock) {
+    return (
+      <div className="dev-empty">
+        loop-lock.json not found · loop hasn't run yet.
+      </div>
+    );
+  }
+  const stateColor = {
+    idle: "var(--dev-green)",
+    running: "var(--dev-amber)",
+    cooldown: "var(--dev-text-3)",
+    paused: "var(--dev-red)",
+  } as const;
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <span
+          style={{
+            width: 10,
+            height: 10,
+            borderRadius: "50%",
+            background: stateColor[lock.state],
+          }}
+        />
+        <span
+          className="dev-mono"
+          style={{
+            fontSize: 14,
+            fontWeight: 700,
+            color: stateColor[lock.state],
+            textTransform: "uppercase",
+            letterSpacing: "0.05em",
+          }}
+        >
+          {lock.state}
+        </span>
+        <span
+          className="dev-mono"
+          style={{ fontSize: 11, color: "var(--dev-text-3)", marginLeft: 8 }}
+        >
+          last tick {lock.lastTickAt}
+        </span>
+        {lock.cooldownUntil && (
+          <span
+            className="dev-mono"
+            style={{ fontSize: 11, color: "var(--dev-text-3)" }}
+          >
+            cooldown until {lock.cooldownUntil}
+          </span>
+        )}
+      </div>
+      {lock.note && (
+        <div
+          style={{
+            fontSize: 12,
+            color: "var(--dev-text-2)",
+            fontStyle: "italic",
+          }}
+        >
+          {lock.note}
+        </div>
+      )}
+      <LoopControls state={lock.state} cooldownUntil={lock.cooldownUntil} />
+    </div>
   );
 }
 
