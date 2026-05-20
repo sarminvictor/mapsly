@@ -360,3 +360,4 @@ Notes:
 - Drive-by token additions in `app/globals.css`: `--color-info` (#3b6ec4 · for info-tone AlertCards), `--color-gold-2` (#e8c79b · ScoreBreakdown gradient stop), `--color-success-2` (#5cf09a · same). Plus global `@media (prefers-reduced-motion: reduce)` rule per a11y.md mandate — replaces the per-component check the reviewer flagged.
 
 · One-line summary: SES-2026-05-20-cowork-1138 · E.0 · SUCCESS · score 7.5/10 · 853+/0- · ci=green · merge=AUTO
+SES-2026-05-20-cowork-1206 · F.0 · SUCCESS · score 8.5/10 (informational) · 1479+/0- · ci-green · auto-merged PR #14 → main · v0.6.16 · Agency component library (StatusPill/FilterRow/BulkActionBar/LeadsTable+composables/LeadRow)
