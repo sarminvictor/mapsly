@@ -22,6 +22,21 @@ SUPERVISOR_LOG="$LOG_DIR/supervisor-$DATE_TAG.log"
 
 mkdir -p "$LOG_DIR"
 
+# ---- TCC pre-flight ----
+# macOS blocks launchd processes from ~/Documents/ unless the runner binary
+# has Full Disk Access. Detect early and write a useful error (otherwise
+# launchd.err.log fills with cryptic "Operation not permitted" messages).
+if [ ! -r "$PROJECT_DIR/.env.local" ] || [ ! -r "$PROMPT_PATH" ]; then
+  {
+    echo "[$(date)] TCC BLOCK · loop-runner cannot read project files"
+    echo "  PROJECT_DIR: $PROJECT_DIR"
+    echo "  Grant Full Disk Access to: $HOME/.mapsly/loop-runner"
+    echo "  System Settings → Privacy & Security → Full Disk Access → +"
+    echo "  Then kick: launchctl kickstart -k gui/$(id -u)/ai.mapsly.loop"
+  } >> "$SUPERVISOR_LOG" 2>&1
+  exit 0  # Exit clean so launchd backs off (not retry-storm)
+fi
+
 # Source .env.local for CLAUDE_MODEL, MAX_PARALLEL_SESSIONS, GITHUB_TOKEN, DATABASE_URL
 if [ -f "$PROJECT_DIR/.env.local" ]; then
   set -a

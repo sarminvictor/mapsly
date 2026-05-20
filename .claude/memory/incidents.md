@@ -469,3 +469,36 @@ Now only real static-asset extensions are excluded; arbitrary dotted paths flow 
 
 **Confidence:** high
 **Tags:** loop, launchd, install, stale-copy, self-update
+
+### INC-2026-05-20-22 · Pivot scheduler · launchd → /loop in open CC session
+
+**Symptom:** After 7 failed attempts (INC-15, 17, 19, 20, 21) to make launchd-based scheduling work for the autonomous build loop, the loop has shipped zero TaskRuns. Each fix exposed a new layer of macOS sandbox/TCC complexity (Cowork sandbox blocked file unlinks, then `~/Documents/` TCC blocked launchd-spawned bash, then `/bin/bash` couldn't be granted FDA via GUI, etc).
+
+**Root cause:** macOS Sequoia treats launchd-spawned background processes as having minimal TCC privileges. Granting Full Disk Access to the process tree requires either a custom code-signed binary OR moving the project out of `~/Documents/` — both invasive. The fight is structural, not a code bug.
+
+**Fix applied:** Pivot to Claude Code's `/loop` slash command as the canonical scheduler. `/loop` runs inside an interactive Claude Code session (which has all permissions inherited from Terminal). The session draws from the main Pro Max quota — NOT the new headless credit pool that activates June 15, 2026, so it's the only **truly-free** sustained option.
+
+- Created `.claude/loop.md` — per-iteration prompt that `/loop` reads when invoked bare or with just an interval
+- Renamed CLAUDE.md "Model pin" section to reflect `/loop` as canonical
+- Updated dashboard's LoopControls force-run hint from `launchctl kickstart` to `/loop 5m`
+- Added `scripts/launchd/uninstall.sh` to cleanly disable the legacy agent
+
+**Trade-offs accepted:**
+1. Mac must stay on (Viktor confirmed: "I will not shut down Mac")
+2. `/loop` recurring tasks expire after 7 days — must re-run `/loop 5m` weekly. The loop.md's §9 detects approaching expiry and writes a Notification row.
+3. Terminal window must stay open. Viktor's responsibility.
+4. Min interval is 1 minute (we pick 5 min). Acceptable.
+
+**Prevention:**
+1. **Default to in-session scheduling for autonomous AI workflows on macOS.** Background launchd/cron is the wrong architecture when the work needs sandboxed file access and the platform is macOS — TCC will eat any approach that runs outside an interactive session.
+2. The launchd setup is kept in the repo as fallback (in case `/loop` expiry or Mac restart becomes too painful and we move to a Linux VPS later) but is NOT the canonical scheduler.
+
+**Where encoded:**
+- `.claude/loop.md` (new)
+- `CLAUDE.md` (model-pin paragraph updated)
+- `app/(dev)/dev/LoopControls.tsx` (force-run hint)
+- `scripts/launchd/uninstall.sh` (new cleanup script)
+- this file
+
+**Confidence:** high
+**Tags:** loop, scheduler-pivot, macos-tcc, in-session, structural

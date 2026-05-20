@@ -93,7 +93,7 @@ export default function LoopControls({
             marginLeft: 8,
           }}
         >
-          force-run (terminal):
+          start loop (in Claude Code session):
           <code
             style={{
               marginLeft: 6,
@@ -103,7 +103,7 @@ export default function LoopControls({
               borderRadius: 4,
             }}
           >
-            launchctl kickstart -k gui/$(id -u)/ai.mapsly.loop
+            /loop 5m
           </code>
         </span>
       </div>

@@ -4,7 +4,7 @@ Project-level rules. Loaded automatically by Claude Code on every session.
 
 > **Performance is the #1 product requirement.** Every page · every route · every interaction. Slow = broken. See `.claude/rules/performance.md`.
 
-> **All autonomous development runs on Claude Pro Max 20x + scheduled tasks · NEVER the OpenAI API.** Use the entire 5h token budget per session — the plan is paid, idle quota is wasted. See `.claude/skills/autonomous-build-loop/SKILL.md` and `docs/permissions.md`.
+> **All autonomous development runs on Claude Pro Max 20x via `/loop` in an open Claude Code session · NEVER the OpenAI API.** Use the entire 5h token budget per session — the plan is paid, idle quota is wasted. The canonical scheduler is `/loop 5m` reading `.claude/loop.md`; launchd is kept as a fallback. See `.claude/skills/autonomous-build-loop/SKILL.md`, `.claude/loop.md`, and `docs/permissions.md`.
 
 > **Model pin · always the latest Opus, always max effort.** The launchd wrapper sets `--model "$CLAUDE_MODEL"` (default `claude-opus-4-7`; 1M context auto-enabled on Pro Max) and `--effort "$CLAUDE_EFFORT_LEVEL"` (default `max`). Both overridable via `.env.local`. Plus `--dangerously-skip-permissions` is required in headless mode — see INC-19. Bump model as new releases ship. Sonnet is faster but lower-quality for orchestration; Haiku is too small for the agent-spawning logic. Opus + max effort is required for the loop's quality bar — session budget is the cap, not per-call cost, so we want the deepest reasoning per tick.
 
