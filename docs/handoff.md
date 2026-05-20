@@ -247,4 +247,3 @@ git reset --hard origin/main
 ```
 
 After that your local terminal will reflect what's actually on `origin/main`. Re-run if you ever find `git log` doesn't show recent commits you can see on GitHub.
-

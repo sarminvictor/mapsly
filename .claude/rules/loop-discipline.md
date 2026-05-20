@@ -44,15 +44,15 @@ Removed in v0.6.5+: the v0.6.4 binary "halt the whole queue for 4h" pattern. Rep
 
 Cooldown is reserved for CATASTROPHIC failures, never for capability gaps:
 
-| Trigger | Cooldown |
-|---|---|
-| ≥3 consecutive failures of the SAME task | 1h + INC- entry |
-| ≥5 consecutive failures across DIFFERENT tasks | 24h + "loop unhealthy" INC- |
-| Quota / rate-limit approaching | 4h |
-| Anthropic 429 | 4h |
-| Capability gap (e.g. `CAN_UNLINK=0`) | **NEVER** — exit normally, no cooldown |
-| Eligible queue empty (deps or capability) | **NEVER** — exit normally, no cooldown |
-| Sandbox host disk exhausted (`useradd` fails) | **NEVER** — graceful skip, NO cooldown (INC-34) |
+| Trigger                                        | Cooldown                                        |
+| ---------------------------------------------- | ----------------------------------------------- |
+| ≥3 consecutive failures of the SAME task       | 1h + INC- entry                                 |
+| ≥5 consecutive failures across DIFFERENT tasks | 24h + "loop unhealthy" INC-                     |
+| Quota / rate-limit approaching                 | 4h                                              |
+| Anthropic 429                                  | 4h                                              |
+| Capability gap (e.g. `CAN_UNLINK=0`)           | **NEVER** — exit normally, no cooldown          |
+| Eligible queue empty (deps or capability)      | **NEVER** — exit normally, no cooldown          |
+| Sandbox host disk exhausted (`useradd` fails)  | **NEVER** — graceful skip, NO cooldown (INC-34) |
 
 Encoded in `.claude/loop.md` STEP 1 + STEP 10. **Mechanical check:** any `loop-lock.cooldownUntil` set in response to a capability gap = defect against this rule + INC-30 / INC-34.
 
@@ -61,6 +61,7 @@ Encoded in `.claude/loop.md` STEP 1 + STEP 10. **Mechanical check:** any `loop-l
 When CI green AND deploy-check pass AND no critical reviewer veto AND no new Sentry errors AND Task NOT tagged `human-required` → **auto-merge to main**. The scorer's aggregate is informational (logged for DORA trends), NOT a merge gate.
 
 PRs only stay at `needs-review` for:
+
 - Explicit `human-required` tag (payments cutover, major schema migration)
 - Hard reviewer vetos (security-auditor REJECT, payments-auditor REJECT)
 
