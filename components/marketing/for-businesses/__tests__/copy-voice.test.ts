@@ -153,10 +153,14 @@ describe("for_businesses copy-voice invariants", () => {
 });
 
 describe("for_businesses locale key parity", () => {
-  test("es, fr, en-CA have all the same top-level for_businesses sections as en", async () => {
+  // es + fr are full translations (or English-mirror placeholders at MVP).
+  // en-CA is intentionally SPARSE — only Canadian-specific overrides land
+  // there (see `.claude/rules/i18n.md` + i18n/__tests__/locale-en-ca.test.ts).
+  // At MVP there is no Canadian-specific deviation for /for-businesses, so
+  // en-CA's `for_businesses` key is absent and falls back to en.
+  test("es and fr have all the same top-level for_businesses sections as en", async () => {
     const { default: es } = await import("../../../../messages/es.json");
     const { default: fr } = await import("../../../../messages/fr.json");
-    const { default: enCa } = await import("../../../../messages/en-CA.json");
 
     const enKeys = Object.keys(en.for_businesses).sort();
     expect(
@@ -165,8 +169,12 @@ describe("for_businesses locale key parity", () => {
     expect(
       Object.keys((fr as { for_businesses: object }).for_businesses).sort(),
     ).toEqual(enKeys);
+  });
+
+  test("en-CA has no for_businesses key (sparse-override rule)", async () => {
+    const { default: enCa } = await import("../../../../messages/en-CA.json");
     expect(
-      Object.keys((enCa as { for_businesses: object }).for_businesses).sort(),
-    ).toEqual(enKeys);
+      (enCa as { for_businesses?: unknown }).for_businesses,
+    ).toBeUndefined();
   });
 });
