@@ -47,7 +47,7 @@ export function AudienceSplit({ t }: AudienceSplitProps) {
             fontFamily: "var(--font-mono)",
             letterSpacing: "0.08em",
             textTransform: "uppercase",
-            color: "var(--color-text-3)",
+            color: "var(--color-text-2)",
           }}
         >
           {t("split.eyebrow")}

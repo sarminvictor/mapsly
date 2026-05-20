@@ -102,7 +102,7 @@ export function SignalsPreview({ t }: SignalsPreviewProps) {
             fontFamily: "var(--font-mono)",
             letterSpacing: "0.08em",
             textTransform: "uppercase",
-            color: "var(--color-text-3)",
+            color: "var(--color-text-2)",
           }}
         >
           {t("signals.eyebrow")}
@@ -218,7 +218,7 @@ function SignalCard({ card }: { card: SignalCardData }) {
             fontSize: 14,
             fontFamily: "var(--font-sans)",
             fontWeight: 500,
-            color: "var(--color-text-3)",
+            color: "var(--color-text-2)",
           }}
         >
           {card.unit}

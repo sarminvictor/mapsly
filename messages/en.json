@@ -310,7 +310,9 @@
       "stats_metros": "Metros covered",
       "stats_signals": "Signals per business",
       "stats_refresh": "Refresh cadence",
-      "stats_refresh_value": "Weekly"
+      "stats_refresh_value": "Weekly",
+      "aria_choose_audience": "Choose your path",
+      "aria_stats": "Coverage stats"
     },
     "pipeline": {
       "eyebrow": "How it works",

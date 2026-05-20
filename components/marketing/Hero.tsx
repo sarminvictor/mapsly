@@ -93,7 +93,7 @@ export function Hero({ locale: _locale, t }: HeroProps) {
         {/* Audience switcher · the two-card row */}
         <div
           role="group"
-          aria-label="Choose audience"
+          aria-label={t("hero.aria_choose_audience")}
           style={{
             display: "grid",
             gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
@@ -122,7 +122,7 @@ export function Hero({ locale: _locale, t }: HeroProps) {
 
         {/* Stats row */}
         <dl
-          aria-label="Coverage stats"
+          aria-label={t("hero.aria_stats")}
           style={{
             display: "grid",
             gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
@@ -253,8 +253,23 @@ function AudienceCard({
 }
 
 function Stat({ value, label }: { value: string; label: string }) {
+  // HTML5 description list: <dt> (term) precedes <dd> (description).
+  // Wrapping div is allowed under the spec and lets us center each pair.
   return (
     <div style={{ textAlign: "center" }}>
+      <dt
+        style={{
+          fontSize: 12,
+          fontFamily: "var(--font-mono)",
+          letterSpacing: "0.04em",
+          textTransform: "uppercase",
+          color: "var(--color-text-2)",
+          order: 2,
+          marginTop: 4,
+        }}
+      >
+        {label}
+      </dt>
       <dd
         style={{
           margin: 0,
@@ -263,22 +278,11 @@ function Stat({ value, label }: { value: string; label: string }) {
           fontWeight: 700,
           letterSpacing: "-0.02em",
           color: "var(--color-text)",
+          order: 1,
         }}
       >
         {value}
       </dd>
-      <dt
-        style={{
-          marginTop: 4,
-          fontSize: 12,
-          fontFamily: "var(--font-mono)",
-          letterSpacing: "0.04em",
-          textTransform: "uppercase",
-          color: "var(--color-text-3)",
-        }}
-      >
-        {label}
-      </dt>
     </div>
   );
 }
