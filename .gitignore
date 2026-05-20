@@ -52,3 +52,7 @@ tsconfig.tsbuildinfo
 # Sandbox scratch (INC-14 / INC-29 — Cowork FUSE mount blocks unlink, leaves orphans)
 _tmp_*
 _probe_*
+
+# Loop iteration scratch (runtime env, branch metadata)
+.env.runtime
+.loop-run-meta
