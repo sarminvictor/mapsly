@@ -551,3 +551,13 @@ Fixes (per Viktor's "both: detector + rules"):
 After deploy: dashboard's auto-enhance card should silence the 8 false-positive signals on next process-enhancer run, leaving the card empty except for newly-detected patterns.
 
 Outcome: SUCCESS.
+
+## SES-2026-05-20-cowork-audit-followup3 · v0.6.28 ship · regenerate enhance-signals.json
+
+Viktor: *"but we still showing this on dashboards - if we already fixed this - we should hide them?"*
+
+Right. v0.6.27 fixed the detector code but didn't refresh the cached output JSON the dashboard reads from. The dashboard's `getEnhanceSignals()` query reads `.claude/memory/enhance-signals.json` directly via GitHub raw content — it doesn't re-run the detector at request time. Until the cached JSON gets updated, the dashboard keeps showing the 8 stale signals.
+
+Ran the v0.6.27 detector logic by hand against current `.claude/memory/{incidents,build-log}.md` and `.claude/rules/*.md` (rule existence check). Result: ALL 8 prior signals silenced (7 incident-cluster covered by TAG_TO_RULE, 1 incident-recurrence is INC-14 SUPERSEDED). Wrote the result (`[]`) to enhance-signals.json.
+
+Outcome: SUCCESS. Dashboard's auto-enhance card should show 0 signals on next render (or the next time the cache tag `dev-dashboard-enhance` invalidates).
