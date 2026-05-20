@@ -25,6 +25,24 @@ export const routing = defineRouting({
       "en-CA": "/pricing",
       fr: "/tarifs",
     },
+    "/privacy": {
+      en: "/privacy",
+      es: "/privacidad",
+      "en-CA": "/privacy",
+      fr: "/confidentialite",
+    },
+    "/terms": {
+      en: "/terms",
+      es: "/terminos",
+      "en-CA": "/terms",
+      fr: "/conditions",
+    },
+    "/cookies": {
+      en: "/cookies",
+      es: "/cookies",
+      "en-CA": "/cookies",
+      fr: "/temoins",
+    },
     "/dashboard": {
       en: "/dashboard",
       es: "/panel",
