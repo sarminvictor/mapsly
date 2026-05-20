@@ -232,6 +232,122 @@ describe("detectPatterns", () => {
   });
 });
 
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SUPERSEDED INC suppression (v0.6.27)
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("detectPatterns · ♻️ SUPERSEDED INCs", () => {
+  test("does NOT emit incident-recurrence for a SUPERSEDED INC", () => {
+    const signals = detectPatterns(
+      [
+        {
+          id: "INC-2026-05-19-14",
+          tags: ["sandbox", "fuse"],
+          status: "♻️ SUPERSEDED BY INC-31 — Loop runs from /tmp.",
+          body: "",
+        },
+      ],
+      {
+        citationCount: new Map([["INC-2026-05-19-14", 5]]),
+        total: 5,
+      },
+      ctx,
+    );
+    expect(signals.filter((s) => s.category === "incident-recurrence")).toHaveLength(0);
+  });
+
+  test("DOES emit incident-recurrence for an active (non-superseded) INC", () => {
+    const signals = detectPatterns(
+      [
+        {
+          id: "INC-2026-05-20-32",
+          tags: ["prisma"],
+          status: "✅ FIXED + ENCODED",
+          body: "",
+        },
+      ],
+      {
+        citationCount: new Map([["INC-2026-05-20-32", 5]]),
+        total: 5,
+      },
+      ctx,
+    );
+    expect(signals.some((s) => s.id.includes("recurring-INC-2026-05-20-32"))).toBe(true);
+  });
+
+  test("treats missing status as active (signal fires)", () => {
+    const signals = detectPatterns(
+      [
+        // Pre-v0.6.25 INC with no Status line
+        { id: "INC-2026-05-19-01", tags: ["sandbox"], body: "" },
+      ],
+      {
+        citationCount: new Map([["INC-2026-05-19-01", 4]]),
+        total: 4,
+      },
+      ctx,
+    );
+    expect(signals.some((s) => s.id.includes("recurring-INC-2026-05-19-01"))).toBe(true);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TAG_TO_RULE coverage suppression (v0.6.27)
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("detectPatterns · TAG_TO_RULE coverage", () => {
+  const threeIncidents = (tag: string): IncidentEntry[] => [
+    { id: "INC-2026-05-19-01", tags: [tag], body: "" },
+    { id: "INC-2026-05-19-02", tags: [tag], body: "" },
+    { id: "INC-2026-05-19-03", tags: [tag], body: "" },
+  ];
+
+  test("silences incident-cluster signal when TAG_TO_RULE rule exists", () => {
+    const signals = detectPatterns(
+      threeIncidents("prisma"),
+      { citationCount: new Map(), total: 0 },
+      { ...ctx, ruleExists: (rel) => rel === "prisma.md" },
+    );
+    expect(signals.some((s) => s.id.includes("tag-prisma"))).toBe(false);
+  });
+
+  test("emits incident-cluster signal when rule file missing", () => {
+    const signals = detectPatterns(
+      threeIncidents("prisma"),
+      { citationCount: new Map(), total: 0 },
+      { ...ctx, ruleExists: () => false },
+    );
+    expect(signals.some((s) => s.id.includes("tag-prisma"))).toBe(true);
+  });
+
+  test("emits incident-cluster signal for an unknown tag (not in TAG_TO_RULE map)", () => {
+    const signals = detectPatterns(
+      threeIncidents("brand-new-domain"),
+      { citationCount: new Map(), total: 0 },
+      { ...ctx, ruleExists: () => true /* irrelevant, tag not mapped */ },
+    );
+    expect(signals.some((s) => s.id.includes("tag-brand-new-domain"))).toBe(true);
+  });
+
+  test("TAG_TO_RULE silences multiple tags pointing to same rule", () => {
+    const signals = detectPatterns(
+      [
+        { id: "INC-A", tags: ["cacheComponents"], body: "" },
+        { id: "INC-B", tags: ["cacheComponents"], body: "" },
+        { id: "INC-C", tags: ["cacheComponents"], body: "" },
+        { id: "INC-D", tags: ["cache-components"], body: "" },
+        { id: "INC-E", tags: ["cache-components"], body: "" },
+        { id: "INC-F", tags: ["cache-components"], body: "" },
+      ],
+      { citationCount: new Map(), total: 0 },
+      { ...ctx, ruleExists: (rel) => rel === "cache-components.md" },
+    );
+    expect(signals.some((s) => s.headline.includes("cacheComponents"))).toBe(false);
+    expect(signals.some((s) => s.headline.includes("cache-components"))).toBe(false);
+  });
+});
+
 // ─────────────────────────────────────────────────────────────────────────────
 // mergeSignals
 // ─────────────────────────────────────────────────────────────────────────────

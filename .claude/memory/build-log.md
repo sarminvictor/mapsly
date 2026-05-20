@@ -522,3 +522,32 @@ Per Viktor request "yes implement all". Five next-fix priorities from the v0.6.2
 Plus INC-34 documents host disk exhaustion + folds in the mount-side draft "INC-32" the 18:0x skip tick wrote.
 
 Outcome: SUCCESS. No regressions; doc + STEP 0a.1 + STEP 6 + STEP 8 wording changes only. Bumps 0.6.25 → 0.6.26.
+
+## SES-2026-05-20-cowork-audit-followup2 · v0.6.27 ship · enhance-signals detector knows about supersession + 3 new rule files
+
+Viktor pointed out the dashboard was showing 8 incident-cluster + 1 incident-recurrence signals AFTER we had shipped many of the fixes ("we did not fix this and not enhance? if we do — why not clean the list?"). The signal detector was naive: counts tag frequency + INC citations without checking (a) whether a rule already covers the cluster, or (b) whether the cited INCs are marked SUPERSEDED.
+
+Audited 8 signals against rule coverage:
+- 4 false positives: next-intl, git, cacheComponents, sandbox — rules existed
+- 1 false positive: INC-14 recurrence — INC-14 is ♻️ SUPERSEDED-BY-INC-31
+- 3 real gaps: prisma, vercel, loop — no dedicated rule
+
+Fixes (per Viktor's "both: detector + rules"):
+
+**Detector (`lib/process-enhancer/detect-patterns.ts`):**
+- IncidentEntry gets a `status?: string` field (parsed from the `**Status:**` line v0.6.25 introduced)
+- New `TAG_TO_RULE: Record<string, string>` map (35+ tag → rule entries)
+- New `tagIsCovered(tag, ctx)` helper — checks rule existence via `existsSync` OR `ctx.ruleExists` test hook
+- Pattern 1 (incident-recurrence) skips INCs whose status contains `SUPERSEDED`
+- Pattern 2 (incident-cluster) skips tags whose `TAG_TO_RULE[tag]` rule file exists on disk
+
+**Tests:** 4 new test blocks (~80 lines) covering supersession skip, coverage skip, unknown-tag still-fires, multi-tag-to-one-rule. Vitest unit; no IO.
+
+**3 new rule files:**
+- `.claude/rules/prisma.md` (194 lines) — consolidates 10 prisma-tagged INCs into 8 mechanical checks
+- `.claude/rules/vercel.md` (130 lines) — consolidates 5 vercel-tagged INCs into 5 mechanical checks
+- `.claude/rules/loop-discipline.md` (120 lines) — consolidates 11 loop-tagged INCs into 8 disciplines
+
+After deploy: dashboard's auto-enhance card should silence the 8 false-positive signals on next process-enhancer run, leaving the card empty except for newly-detected patterns.
+
+Outcome: SUCCESS.
