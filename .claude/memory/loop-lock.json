@@ -2,8 +2,8 @@
   "state": "idle",
   "sessionId": null,
   "startedAt": null,
-  "lastTickAt": "2026-05-20T12:55:14Z",
+  "lastTickAt": "2026-05-20T13:26:58Z",
   "cooldownUntil": null,
   "consecutiveFailures": 0,
-  "note": "B.9 SHIPPED \u00b7 v0.6.17 \u00b7 /privacy /terms /cookies live"
+  "note": "v0.6.18 · SES-2026-05-20-cowork-06 shipped H.6 via /tmp/zen-loop/mapsly-work bootstrap · code-reviewer PASS · ci-passed green · merged PR #16"
 }

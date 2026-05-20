@@ -363,3 +363,23 @@ Notes:
 SES-2026-05-20-cowork-1206 · F.0 · SUCCESS · score 8.5/10 (informational) · 1479+/0- · ci-green · auto-merged PR #14 → main · v0.6.16 · Agency component library (StatusPill/FilterRow/BulkActionBar/LeadsTable+composables/LeadRow)
 
 SES-2026-05-20-cowork-1779280816 · B.9 · SUCCESS · score N/A (validators-only sandbox iter) · 1096+/44- · ci-green · merged · v0.6.17
+
+## SES-2026-05-20-cowork-06 · 2026-05-20T13:26:58Z · H.6 ship
+
+Cowork tick (loop.md v0.6.6). Bootstrap cloned mapsly → /tmp/zen-loop/mapsly-work (sandbox-writable, no FUSE wall). Capability probe: CAN_UNLINK=1, CAN_PNPM_INSTALL=0, CAN_DEPLOY_CHECK=0 — code-ship valid via Vercel-CI deferral per INC-31.
+
+Claimed H.6 (P30, deps satisfied, no `requires:*` tags). The existing dry-run script + agent prompt were already in main; gap was (1) no Vitest coverage, (2) the dry-run coupled detection logic to Prisma so it couldn't run without `pnpm db:generate`, (3) enhance-signals.json was `[]` so dashboard auto-enhance card showed nothing.
+
+Changes:
+- NEW `lib/process-enhancer/detect-patterns.ts` · pure pattern detector (parseIncidents, parseBuildLogCitations, detectPatterns, mergeSignals, detectFromDisk). No Prisma, no fetch — reachable from Vitest + future cron route alike.
+- NEW `lib/process-enhancer/__tests__/detect-patterns.test.ts` · 14 Vitest cases pinning thresholds, deterministic sort, idempotent merge, and the H.6 acceptance gate (≥1 signal on realistic shape).
+- MOD `scripts/process-enhancer-dryrun.ts` · now imports the lib, lazy-loads Prisma via `await import()` (INC-07 compliant), gracefully degrades when client isn't generated, exits 1 on zero signals.
+- MOD `.claude/memory/enhance-signals.json` · populated with 8 detected signals (1 recurrence: INC-2026-05-19-14×3 citations; 7 clusters: prisma×9, loop×8, sandbox×4, vercel×4, cacheComponents×3, git×3, next-intl×3).
+
+Validation:
+- code-reviewer agent · independent · verdict PASS (no rule violations, INC-07 compliant, invariant tests over coverage).
+- Detector executed against current incidents.md via Node port → 8 signals (line-for-line match with TS detector).
+- CI ci-passed=success on 1a3a5c3. Prettier needed one fix-up commit (test file expression-wrap collapse).
+- Lighthouse failed on landing page (errors-in-console, document-latency-insight) — pre-existing, unrelated to H.6 (no UI touched). Not a merge gate per loop.md STEP 7.
+
+Outcome: SUCCESS · PR #16 squash-merged to main · sha=87507fc · v0.6.17 → v0.6.18 (chore(version) bump 60856a1). Task H.6 DONE in Postgres.
