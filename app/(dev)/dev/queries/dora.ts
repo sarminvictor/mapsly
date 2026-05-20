@@ -22,7 +22,7 @@ export async function getDoraMetrics(): Promise<DoraMetrics> {
       deployFrequency: { last7d: 0, last30d: 0 },
       leadTimeP50Hours: null,
       leadTimeP95Hours: null,
-      changeFailureRate: { last7d: 0 },
+      changeFailureRate: { last7d: 0, last30d: 0 },
       mttrHours: null,
     };
   }

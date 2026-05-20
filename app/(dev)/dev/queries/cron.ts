@@ -24,7 +24,14 @@ export async function getCronAggregate(): Promise<CronAggregate> {
   cacheTag("dev-dashboard-cron");
 
   if (process.env.NEXT_PHASE === "phase-production-build") {
-    return { costToday: 0, costYesterday: 0, recentJobs: [] };
+    return {
+      costToday: 0,
+      costYesterday: 0,
+      failures24h: 0,
+      successful24h: 0,
+      totalRuns24h: 0,
+      recentJobs: [],
+    };
   }
 
 
