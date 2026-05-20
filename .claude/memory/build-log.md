@@ -561,3 +561,12 @@ Right. v0.6.27 fixed the detector code but didn't refresh the cached output JSON
 Ran the v0.6.27 detector logic by hand against current `.claude/memory/{incidents,build-log}.md` and `.claude/rules/*.md` (rule existence check). Result: ALL 8 prior signals silenced (7 incident-cluster covered by TAG_TO_RULE, 1 incident-recurrence is INC-14 SUPERSEDED). Wrote the result (`[]`) to enhance-signals.json.
 
 Outcome: SUCCESS. Dashboard's auto-enhance card should show 0 signals on next render (or the next time the cache tag `dev-dashboard-enhance` invalidates).
+
+- **SES-2026-05-20-cowork-1779307769** · B.4 RESUME · SUCCESS · score N/A (informational, no scorer agent in resume tick) · 0+/0- net (rebased + 3 fix commits squashed) · CI green · auto-merged 3b4e4ab to main · v0.6.29
+
+  B.4 pricing page resume tick. Prior B.4 commit (86b5c94) was complete in code but failed CI on (1) prettier formatting on 7 files post-rebase, (2) TypeScript prop-name mismatch (`tPricing` vs `t` on PricingSmbCard + PricingAgencyTiers calls in page.tsx), (3) two pre-existing test failures in detect-patterns.test.ts that became broken when v0.6.27 added .claude/rules/prisma.md to disk — tagIsCovered("prisma") now returns true, suppressing the cluster signal the basic tests expected. Fix: default test ctx now sets ruleExists: () => false so cluster tests don't depend on filesystem state.
+
+  Validation: deferred to Vercel CI (CAN_DEPLOY_CHECK=0 in Cowork sandbox per INC-31). All required gates green: validate ✓ bundle-check ✓ build ✓ test ✓ integration ✓ ci-passed ✓ Vercel ✓. Browser-validation gated by Vercel team SSO on preview URL — pragmatic skip since build+integration on this exact tree passed.
+
+  Lessons:
+  - Pre-existing test failures on main are a defect we should catch via the post-merge health check (observability.md §post-merge), not via every PR's CI. Worth a INC- entry for the test-fixture-drift pattern: tests that depend on filesystem state break silently when new rule files land.
