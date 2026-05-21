@@ -5,48 +5,5 @@
         "brand": "Brand defence"
       }
     }
-  },
-  "smb": {
-    "dashboard": {
-      "meta": {
-        "title": "Your dashboard · Mapsly",
-        "description": "Weekly check-in on how your business is doing online."
-      },
-      "eyebrow": "This week's check-in",
-      "title": "What's happening with {name}",
-      "empty_title": "Let's connect your business",
-      "empty_body": "We don't have a business linked to your account yet. We'll show you what's working, what's not, and what to fix — once you tell us where you are.",
-      "kpi_mapsly_score_label": "Mapsly Score",
-      "kpi_mapsly_score_tip": "A weekly score from 0 to 10 across 6 things: reputation, replies, profile, trust, pricing, and brand. Higher means healthier.",
-      "kpi_no_data_sublabel": "We'll show this once your first refresh runs",
-      "kpi_rating_label": "Google rating",
-      "kpi_rating_tip": "Your average star rating on Google. Anything below 4.5 typically shows on the third page of search.",
-      "kpi_reviews_label": "Total reviews",
-      "kpi_reviews_tip": "How many reviews you have on Google. More reviews builds trust with people picking between you and a competitor.",
-      "kpi_reply_rate_label": "Reply rate",
-      "kpi_reply_rate_tip": "How often you reply to reviews. Most businesses in your category reply to about 89%.",
-      "kpi_rank_label": "Market rank",
-      "kpi_rank_tip": "Where you stand among other businesses in your category and city. Lower numbers are better.",
-      "kpi_velocity_label": "Reviews this month",
-      "kpi_velocity_tip": "How many new reviews came in over the last 30 days. Steady flow keeps you visible.",
-      "kpi_velocity_sublabel": "Last 30 days",
-      "breakdown_heading": "Where you're strong, where you're not",
-      "breakdown_no_data_caption": "We'll fill this in after your first refresh.",
-      "dim_reputation": "Reputation",
-      "dim_reputation_tip": "Your star rating, how many reviews you have, and how often new ones come in.",
-      "dim_communication": "Replies",
-      "dim_communication_tip": "How often and how quickly you respond to reviews.",
-      "dim_profile": "Profile",
-      "dim_profile_tip": "How complete your Google listing is — hours, phone, photos, services.",
-      "dim_trust": "Trust",
-      "dim_trust_tip": "Whether your listing is claimed, how long you've been around, and other trust signals.",
-      "dim_pricing": "Pricing visibility",
-      "dim_pricing_tip": "Whether people can see what you charge before they call.",
-      "dim_brand": "Brand presence",
-      "dim_brand_tip": "Your website health, ads, social, and how well Google can read your site.",
-      "fixes_heading": "Your top fixes",
-      "fixes_empty_body": "We'll show you the highest-impact things to fix here once your first weekly refresh runs.",
-      "fixes_empty_meta": "Refresh runs every Monday at 6am"
-    }
   }
 }
