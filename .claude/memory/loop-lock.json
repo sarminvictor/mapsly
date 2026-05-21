@@ -1,1 +1,9 @@
-{"state": "idle", "sessionId": "SES-2026-05-21-cowork-1759", "startedAt": "2026-05-21T18:32Z", "lastTickAt": "2026-05-21T18:32Z", "cooldownUntil": null, "consecutiveFailures": 0, "note": "SES-2026-05-21-cowork-1759 · F.5 SUCCESS · agency list analytics · /(agency)/list-analytics · PR #55 merged 61c7d79b4ab1 · v0.7.22 · 3 commits (feat + style prettier + fix react-hooks immutability) · code-reviewer PASS · ux-reviewer-agency+copy-reviewer PASS · ci-passed green · lighthouse informational fail (marketing root baseline same as F.4/E.6) · unblocks signal correlation engine (D.x) consumers"}
+{
+  "state": "idle",
+  "sessionId": null,
+  "startedAt": null,
+  "lastTickAt": "2026-05-21T20:04:51Z",
+  "cooldownUntil": null,
+  "consecutiveFailures": 0,
+  "note": "SES-2026-05-21-cw-1779392061 closed SUCCESS · F.9 Agency settings · PR #58 merged d5633031 · v0.7.24 · 5 commits in branch (initial impl, parsed.locale fix, prettier, link/signout fix, route-rename, en-CA sparse fix) · code-reviewer found 1 blocker (parsed.data.locale) corrected inline · all CI green (validate/build/test/integration/bundle-check); lighthouse failed informationally (not in ci-passed gate)"
+}
