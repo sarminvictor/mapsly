@@ -27,6 +27,7 @@ import { unauthorized } from "next/navigation";
 import { setRequestLocale, getTranslations } from "next-intl/server";
 
 import { auth } from "@/lib/auth";
+import { Link } from "@/i18n/navigation";
 import { openBillingPortal } from "@/modules/billing/actions";
 import {
   getSmbCurrentPlan,
@@ -279,9 +280,9 @@ function CurrentPlanCard({
         >
           {labels.freeBody}
         </p>
-        <a href="/pricing" style={primaryButtonStyle()}>
+        <Link href="/pricing" style={primaryButtonStyle()}>
           {labels.subscribeCta}
-        </a>
+        </Link>
       </section>
     );
   }
