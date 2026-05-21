@@ -80,7 +80,8 @@ export function SignalBlock({ block, labels, defaultOpen }: SignalBlockProps) {
             fontWeight: 500,
           }}
         >
-          // {block.summaryLine}
+          {"// "}
+          {block.summaryLine}
         </span>
       </summary>
       <ul
