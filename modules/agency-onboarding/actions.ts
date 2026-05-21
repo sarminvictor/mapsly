@@ -90,7 +90,7 @@ export async function updateAgencyProfile(formData: FormData) {
 
   // Advance the wizard. `redirect()` throws an internal signal.
   redirect({
-    href: { pathname: "/onboarding", query: { step: 2 } },
+    href: { pathname: "/setup", query: { step: 2 } },
     locale: "en",
   });
 }
@@ -139,7 +139,7 @@ export async function chooseServiceTemplate(formData: FormData) {
   revalidateTag(`agency-lists-${userId}`, "minutes");
 
   redirect({
-    href: { pathname: "/onboarding", query: { step: 3 } },
+    href: { pathname: "/setup", query: { step: 3 } },
     locale: "en",
   });
 }

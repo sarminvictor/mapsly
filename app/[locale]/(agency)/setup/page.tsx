@@ -1,6 +1,6 @@
 /**
- * Agency onboarding · `/(agency)/onboarding` (locale variants
- * `/es/bienvenida`, `/fr/bienvenue`). Three-step wizard for Tom:
+ * Agency onboarding · `/(agency)/setup` (locale variants
+ * `/es/configurar`, `/fr/configurer`). Three-step wizard for Tom:
  *
  *   1. Agency profile — defaultMetro + categoriesServed.
  *   2. Pick first service template — seeds a List row.
@@ -355,7 +355,7 @@ function Footer({
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
         {!isFinal && (
           <Link
-            href={{ pathname: "/onboarding", query: { step: nextStep } }}
+            href={{ pathname: "/setup", query: { step: nextStep } }}
             style={styles.textLink}
           >
             {t("skip_for_now")}
