@@ -8,6 +8,9 @@
  * Pure server component · zero client JS · matches the marketing layout's
  * cream + coral tokens.
  */
+
+import { Link } from "@/i18n/navigation";
+
 export default function BizNotFound() {
   return (
     <section
@@ -43,7 +46,7 @@ export default function BizNotFound() {
             color: "var(--color-text)",
           }}
         >
-          We couldn't find that business.
+          We couldn&apos;t find that business.
         </h1>
         <p
           style={{
@@ -57,7 +60,7 @@ export default function BizNotFound() {
           The link may be stale or the business may have closed. Try a fresh
           search.
         </p>
-        <a
+        <Link
           href="/for-businesses"
           style={{
             display: "inline-flex",
@@ -73,7 +76,7 @@ export default function BizNotFound() {
           }}
         >
           Look up your business
-        </a>
+        </Link>
       </div>
     </section>
   );

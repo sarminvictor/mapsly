@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { setRequestLocale } from "next-intl/server";
 
+import { Link } from "@/i18n/navigation";
+
 import { routing, type Locale } from "@/i18n/routing";
 import { LOCALE_TO_BCP47 } from "@/lib/seo/hreflang";
 import {
@@ -432,11 +434,11 @@ export default async function BusinessProfilePage({
               lineHeight: 1.5,
             }}
           >
-            See who's choosing the {categoryLabel.toLowerCase()} down the
+            See who&apos;s choosing the {categoryLabel.toLowerCase()} down the
             street, what your reviews really say, and the three fixes that
             actually move the needle this week.
           </p>
-          <a
+          <Link
             href="/for-businesses"
             style={{
               display: "inline-flex",
@@ -452,7 +454,7 @@ export default async function BusinessProfilePage({
             }}
           >
             See your free reality check →
-          </a>
+          </Link>
         </section>
       </div>
 
