@@ -781,6 +781,16 @@
         "title": "Couldn't find that prospect",
         "body": "The business may not be on any of your lists, may have been removed, or the link is stale. Pick another prospect from one of your lists.",
         "cta": "Back to lists"
+      },
+      "share": {
+        "cta": "Share with prospect",
+        "busy": "Creating link…",
+        "copy": "Copy",
+        "copied": "Copied!",
+        "expires": "Expires {date}",
+        "error_unauthorized": "Sign in to share.",
+        "error_forbidden": "You don't have access to this prospect.",
+        "error_generic": "Couldn't create a share link. Try again."
       }
     },
     "onboarding": {

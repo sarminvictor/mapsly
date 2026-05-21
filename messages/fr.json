@@ -537,6 +537,16 @@
         "title": "Impossible de trouver ce prospect",
         "body": "L'entreprise n'est peut-être dans aucune de vos listes, a été retirée, ou le lien est obsolète. Choisissez un autre prospect dans vos listes.",
         "cta": "Retour aux listes"
+      },
+      "share": {
+        "cta": "Partager avec le prospect",
+        "busy": "Création du lien…",
+        "copy": "Copier",
+        "copied": "Copié !",
+        "expires": "Expire le {date}",
+        "error_unauthorized": "Connectez-vous pour partager.",
+        "error_forbidden": "Vous n'avez pas accès à ce prospect.",
+        "error_generic": "Impossible de créer le lien. Réessayez."
       }
     },
     "onboarding": {

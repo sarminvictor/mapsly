@@ -537,6 +537,16 @@
         "title": "No encontramos ese prospecto",
         "body": "Puede que el negocio no esté en ninguna de tus listas, haya sido removido o el enlace está desactualizado. Elige otro prospecto desde una de tus listas.",
         "cta": "Volver a listas"
+      },
+      "share": {
+        "cta": "Compartir con prospecto",
+        "busy": "Creando enlace…",
+        "copy": "Copiar",
+        "copied": "¡Copiado!",
+        "expires": "Vence el {date}",
+        "error_unauthorized": "Inicia sesión para compartir.",
+        "error_forbidden": "No tienes acceso a este prospecto.",
+        "error_generic": "No se pudo crear el enlace. Inténtalo de nuevo."
       }
     },
     "onboarding": {

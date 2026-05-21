@@ -55,3 +55,25 @@ export {
 
 export type { OnePagerDocumentProps } from "./one-pager";
 export { OnePagerDocument } from "./one-pager";
+
+/* ------------------------------------------------- F.8 share link */
+
+export type {
+  GetOrCreateShareLinkOptions,
+  ShareLinkRecord,
+  ShareableReport,
+  ShareLookupResult,
+} from "./share-link";
+export {
+  DEFAULT_SHARE_TTL_DAYS,
+  buildShareUrl,
+  formatRemainingLabel,
+  generatePublicShareId,
+  getOrCreateShareLink,
+  getShareableReport,
+  incrementShareViewCount,
+  isValidPublicShareId,
+} from "./share-link";
+
+export type { CreateShareLinkResult } from "./share-link-action";
+export { createShareLinkAction } from "./share-link-action";

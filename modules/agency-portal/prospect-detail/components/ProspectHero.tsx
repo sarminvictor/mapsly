@@ -52,6 +52,12 @@ export interface ProspectHeroProps {
    * disabled (matches the v0 presentation).
    */
   onePagerHref?: string;
+  /**
+   * Optional client component slot rendered alongside the other
+   * action buttons (F.8 · "Share with prospect"). The page owns
+   * instantiation so this server-safe hero stays presentational.
+   */
+  shareLinkSlot?: React.ReactNode;
 }
 
 export function ProspectHero({
@@ -61,6 +67,7 @@ export function ProspectHero({
   nextLink,
   backLink,
   onePagerHref,
+  shareLinkSlot,
 }: ProspectHeroProps) {
   return (
     <section
@@ -243,6 +250,7 @@ export function ProspectHero({
               {labels.generateOnePager}
             </button>
           )}
+          {shareLinkSlot ?? null}
         </div>
       </div>
     </section>
