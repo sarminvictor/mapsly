@@ -2,8 +2,8 @@
   "state": "idle",
   "sessionId": null,
   "startedAt": null,
-  "lastTickAt": "2026-05-21T11:00:11Z",
+  "lastTickAt": "2026-05-21T15:09:53Z",
   "cooldownUntil": null,
   "consecutiveFailures": 0,
-  "note": "SES-2026-05-21-cw-1779359892 closed SUCCESS · F.10 agency onboarding · /(agency)/setup 3-step wizard · PR #48 merged 809bd6a · v0.7.15 · 3 follow-up commits (prettier package.json + revalidateTag profile arg + route rename to avoid /onboarding collision)"
+  "note": "SES-2026-05-21-cw-1779374018 closed SUCCESS · G.1 Stripe checkout · subscription create · PR #49 merged e156f7a · v0.7.16 · 4 reviewer agents PASS/WARN · 26 tests · schema migration applied to Neon (User.stripeCustomerId UNIQUE + stripeSubscriptionId)"
 }
