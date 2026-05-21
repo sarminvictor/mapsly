@@ -194,7 +194,10 @@ export async function generateAndPersistReplyDrafts(
 }
 
 function clampConcurrency(n: number): number {
-  if (!Number.isFinite(n) || n < 1) return 1;
+  // Treat NaN as "no input" → fall back to 1. Infinity is "very large" → cap
+  // at 10 (the upper bound). Negative / sub-1 values clamp up to 1.
+  if (Number.isNaN(n)) return 1;
+  if (n < 1) return 1;
   if (n > 10) return 10;
   return Math.floor(n);
 }
