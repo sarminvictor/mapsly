@@ -654,3 +654,5 @@ Changes:
 Turn budget per tick: 60–140 → 30–50. 2-3× headroom under the Claude Code 100-turn cap.
 
 Outcome: SUCCESS.
+
+SES-2026-05-21-cowork-1779329538 · I.6 · SUCCESS · score n/a (reviewer PASS, no scorer agent) · +434/-62 · ci-green · merged PR #34 → v0.6.43
