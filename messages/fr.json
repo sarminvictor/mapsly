@@ -201,6 +201,34 @@
       "ai_draft_post": "Publier sur Google",
       "ai_draft_edit": "Modifier",
       "ai_draft_regenerate": "Régénérer"
+    },
+    "competitors": {
+      "meta": {
+        "title": "Concurrents · Mapsly",
+        "description": "Comment vous vous comparez aux autres entreprises de votre catégorie et de votre ville."
+      },
+      "eyebrow": "Où vous vous situez",
+      "title": "Comment {name} se compare",
+      "subtitle": "Autres entreprises de {category} à {city}",
+      "empty_title": "Connectons votre entreprise",
+      "empty_body": "Aucune entreprise n'est encore liée à votre compte. Dites-nous où vous êtes et nous vous montrerons à qui vous faites face — et comment vous vous classez.",
+      "rank_label": "Votre rang sur le marché",
+      "rank_headline": "Vous êtes #{rank} sur {total} dans votre secteur",
+      "rank_pending": "Nous mesurons encore votre rang",
+      "rank_help": "Plus le chiffre est bas, mieux c'est. Le rang utilise votre Score Mapsly comparé à tous ceux de la même catégorie et de la même ville.",
+      "list_heading": "Comment vous vous comparez, côte à côte",
+      "col_business": "Entreprise",
+      "col_rating": "Note",
+      "col_reviews": "Avis",
+      "col_score": "Score",
+      "you_badge": "Vous",
+      "you_aria_suffix": "votre entreprise",
+      "score_aria_label": "Score Mapsly",
+      "rating_aria_label": "Note Google",
+      "reviews_aria_label": "Nombre d'avis",
+      "empty_no_city": "Nous n'avons pas encore votre ville, donc nous ne pouvons pas trouver de concurrents locaux. Ajoutez votre adresse dans les paramètres et nous les chargerons à la prochaine mise à jour.",
+      "empty_no_neighbours": "Aucune autre entreprise de votre catégorie et de votre ville n'est encore dans notre index. Au fur et à mesure que nous les découvrirons, elles apparaîtront ici.",
+      "footer_help": "Mis à jour chaque semaine. Un meilleur score, un meilleur rang et des avis plus récents vous placent au-dessus."
     }
   },
   "agency": {

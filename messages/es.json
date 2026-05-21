@@ -201,6 +201,34 @@
       "ai_draft_post": "Publicar en Google",
       "ai_draft_edit": "Editar borrador",
       "ai_draft_regenerate": "Regenerar"
+    },
+    "competitors": {
+      "meta": {
+        "title": "Competidores · Mapsly",
+        "description": "Cómo te comparas con otros negocios de tu categoría y ciudad."
+      },
+      "eyebrow": "Dónde estás",
+      "title": "Cómo se compara {name}",
+      "subtitle": "Otros negocios de {category} en {city}",
+      "empty_title": "Vamos a conectar tu negocio",
+      "empty_body": "Aún no tenemos un negocio vinculado a tu cuenta. Dinos dónde estás y te mostraremos contra quién compites — y cómo te ubicas.",
+      "rank_label": "Tu posición en el mercado",
+      "rank_headline": "Eres el #{rank} de {total} en tu zona",
+      "rank_pending": "Aún estamos midiendo tu posición",
+      "rank_help": "Menor es mejor. Tu posición usa tu Puntaje Mapsly frente a todos los de la misma categoría y ciudad.",
+      "list_heading": "Cómo te comparas, uno al lado del otro",
+      "col_business": "Negocio",
+      "col_rating": "Calificación",
+      "col_reviews": "Reseñas",
+      "col_score": "Puntaje",
+      "you_badge": "Tú",
+      "you_aria_suffix": "tu negocio",
+      "score_aria_label": "Puntaje Mapsly",
+      "rating_aria_label": "Calificación de Google",
+      "reviews_aria_label": "Número de reseñas",
+      "empty_no_city": "Aún no tenemos tu ciudad registrada, así que no podemos encontrar competidores locales. Agrega tu dirección en ajustes y los traeremos en la próxima actualización.",
+      "empty_no_neighbours": "Aún no tenemos a otros negocios de tu categoría y ciudad en nuestro índice. A medida que los descubramos, aparecerán aquí.",
+      "footer_help": "Se actualiza cada semana. Un mayor puntaje, mejor posición y reseñas más recientes te elevan por encima del resto."
     }
   },
   "agency": {
