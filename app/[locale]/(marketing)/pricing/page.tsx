@@ -8,6 +8,10 @@ import { PricingTrust } from "@/components/marketing/pricing/PricingTrust";
 import { PricingFAQ } from "@/components/marketing/pricing/PricingFAQ";
 import { PricingCTA } from "@/components/marketing/pricing/PricingCTA";
 import type { Locale } from "@/i18n/routing";
+import {
+  getLocaleAlternates,
+  getLocalizedPath,
+} from "@/i18n/pathnames";
 
 // Pricing page · mapsly.ai/pricing (locale variants /es/precios, /en-ca/pricing,
 // /fr/tarifs registered in i18n/routing.ts).
@@ -39,12 +43,6 @@ import type { Locale } from "@/i18n/routing";
 
 const CANONICAL_ORIGIN = "https://mapsly.ai";
 
-const LOCALE_TO_PATH: Record<Locale, string> = {
-  en: "/pricing",
-  es: "/es/precios",
-  "en-CA": "/en-ca/pricing",
-  fr: "/fr/tarifs",
-};
 
 export async function generateMetadata({
   params,
@@ -57,20 +55,14 @@ export async function generateMetadata({
     namespace: "pricing.meta",
   });
 
-  const path = LOCALE_TO_PATH[locale as Locale] ?? "/pricing";
+  const path = getLocalizedPath("/pricing", locale as Locale);
 
   return {
     title: t("title"),
     description: t("description"),
     alternates: {
       canonical: `${CANONICAL_ORIGIN}${path}`,
-      languages: {
-        "en-US": "/pricing",
-        "es-US": "/es/precios",
-        "en-CA": "/en-ca/pricing",
-        "fr-CA": "/fr/tarifs",
-        "x-default": "/pricing",
-      },
+      languages: getLocaleAlternates("/pricing"),
     },
     openGraph: {
       type: "website",
@@ -103,6 +95,10 @@ export default async function PricingPage({
   const tSmb = await getTranslations("for_businesses.pricing");
   const tAgency = await getTranslations("for_agencies.tiers");
 
+  // Locale-aware base path for Offer URLs in JSON-LD below. Derived from
+  // i18n/pathnames so a route translation in routing.ts auto-propagates.
+  const path = getLocalizedPath("/pricing", locale as Locale);
+
   // Product JSON-LD · helps Google show price-range in SERP for "mapsly
   // pricing" queries. Listing both audiences as separate Offers because
   // Google supports a `priceRange` aggregator over Offer list.
@@ -124,35 +120,35 @@ export default async function PricingPage({
           name: tSmb("price") + " — " + tPricing("smb_eyebrow"),
           price: "29",
           priceCurrency: "USD",
-          url: `${CANONICAL_ORIGIN}${LOCALE_TO_PATH[locale as Locale] ?? "/pricing"}#smb`,
+          url: `${CANONICAL_ORIGIN}${path}#smb`,
         },
         {
           "@type": "Offer",
           name: tAgency("solo_name"),
           price: "49",
           priceCurrency: "USD",
-          url: `${CANONICAL_ORIGIN}${LOCALE_TO_PATH[locale as Locale] ?? "/pricing"}#agency`,
+          url: `${CANONICAL_ORIGIN}${path}#agency`,
         },
         {
           "@type": "Offer",
           name: tAgency("growth_name"),
           price: "99",
           priceCurrency: "USD",
-          url: `${CANONICAL_ORIGIN}${LOCALE_TO_PATH[locale as Locale] ?? "/pricing"}#agency`,
+          url: `${CANONICAL_ORIGIN}${path}#agency`,
         },
         {
           "@type": "Offer",
           name: tAgency("pro_name"),
           price: "249",
           priceCurrency: "USD",
-          url: `${CANONICAL_ORIGIN}${LOCALE_TO_PATH[locale as Locale] ?? "/pricing"}#agency`,
+          url: `${CANONICAL_ORIGIN}${path}#agency`,
         },
         {
           "@type": "Offer",
           name: tAgency("boutique_name"),
           price: "499",
           priceCurrency: "USD",
-          url: `${CANONICAL_ORIGIN}${LOCALE_TO_PATH[locale as Locale] ?? "/pricing"}#agency`,
+          url: `${CANONICAL_ORIGIN}${path}#agency`,
         },
       ],
     },

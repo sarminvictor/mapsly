@@ -10,6 +10,10 @@ import { AgencySignals } from "@/components/marketing/for-agencies/AgencySignals
 import { AgencyFAQ } from "@/components/marketing/for-agencies/AgencyFAQ";
 import { AgencyCTA } from "@/components/marketing/for-agencies/AgencyCTA";
 import type { Locale } from "@/i18n/routing";
+import {
+  getLocaleAlternates,
+  getLocalizedPath,
+} from "@/i18n/pathnames";
 
 // For-Agencies marketing landing · mapsly.ai/for-agencies (and locale-pathnamed
 // equivalents: /es/para-agencias, /en-ca/for-agencies, /fr/pour-agences).
@@ -35,12 +39,6 @@ import type { Locale } from "@/i18n/routing";
 
 const CANONICAL_ORIGIN = "https://mapsly.ai";
 
-const LOCALE_TO_PATH: Record<Locale, string> = {
-  en: "/for-agencies",
-  es: "/es/para-agencias",
-  "en-CA": "/en-ca/for-agencies",
-  fr: "/fr/pour-agences",
-};
 
 export async function generateMetadata({
   params,
@@ -53,20 +51,14 @@ export async function generateMetadata({
     namespace: "for_agencies.meta",
   });
 
-  const path = LOCALE_TO_PATH[locale as Locale] ?? "/for-agencies";
+  const path = getLocalizedPath("/for-agencies", locale as Locale);
 
   return {
     title: t("title"),
     description: t("description"),
     alternates: {
       canonical: `${CANONICAL_ORIGIN}${path}`,
-      languages: {
-        "en-US": "/for-agencies",
-        "es-US": "/es/para-agencias",
-        "en-CA": "/en-ca/for-agencies",
-        "fr-CA": "/fr/pour-agences",
-        "x-default": "/for-agencies",
-      },
+      languages: getLocaleAlternates("/for-agencies"),
     },
     openGraph: {
       type: "website",

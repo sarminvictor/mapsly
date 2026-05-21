@@ -9,6 +9,10 @@ import { SmbPricing } from "@/components/marketing/for-businesses/SmbPricing";
 import { SmbFAQ } from "@/components/marketing/for-businesses/SmbFAQ";
 import { SmbCTA } from "@/components/marketing/for-businesses/SmbCTA";
 import type { Locale } from "@/i18n/routing";
+import {
+  getLocaleAlternates,
+  getLocalizedPath,
+} from "@/i18n/pathnames";
 
 // For-Businesses marketing landing · mapsly.ai/for-businesses (and locale-pathnamed
 // equivalents: /es/para-empresas, /en-ca/for-businesses, /fr/pour-entreprises).
@@ -30,12 +34,6 @@ import type { Locale } from "@/i18n/routing";
 
 const CANONICAL_ORIGIN = "https://mapsly.ai";
 
-const LOCALE_TO_PATH: Record<Locale, string> = {
-  en: "/for-businesses",
-  es: "/es/para-empresas",
-  "en-CA": "/en-ca/for-businesses",
-  fr: "/fr/pour-entreprises",
-};
 
 export async function generateMetadata({
   params,
@@ -48,20 +46,14 @@ export async function generateMetadata({
     namespace: "for_businesses.meta",
   });
 
-  const path = LOCALE_TO_PATH[locale as Locale] ?? "/for-businesses";
+  const path = getLocalizedPath("/for-businesses", locale as Locale);
 
   return {
     title: t("title"),
     description: t("description"),
     alternates: {
       canonical: `${CANONICAL_ORIGIN}${path}`,
-      languages: {
-        "en-US": "/for-businesses",
-        "es-US": "/es/para-empresas",
-        "en-CA": "/en-ca/for-businesses",
-        "fr-CA": "/fr/pour-entreprises",
-        "x-default": "/for-businesses",
-      },
+      languages: getLocaleAlternates("/for-businesses"),
     },
     openGraph: {
       type: "website",

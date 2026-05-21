@@ -8,6 +8,10 @@ import { SignalsPreview } from "@/components/marketing/SignalsPreview";
 import { FAQ } from "@/components/marketing/FAQ";
 import { FinalCTA } from "@/components/marketing/FinalCTA";
 import type { Locale } from "@/i18n/routing";
+import {
+  getLocaleAlternates,
+  getLocalizedPath,
+} from "@/i18n/pathnames";
 
 // Main marketing landing · mapsly.ai/
 // Public, anonymous. Static under cacheComponents PPR — the only thing
@@ -34,12 +38,6 @@ import type { Locale } from "@/i18n/routing";
 
 const CANONICAL_ORIGIN = "https://mapsly.ai";
 
-const LOCALE_TO_PATH: Record<Locale, string> = {
-  en: "/",
-  es: "/es",
-  "en-CA": "/en-ca",
-  fr: "/fr",
-};
 
 export async function generateMetadata({
   params,
@@ -49,25 +47,21 @@ export async function generateMetadata({
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: "landing.meta" });
 
+  const path = getLocalizedPath("/", locale as Locale);
+
   return {
     title: t("title"),
     description: t("description"),
     alternates: {
-      canonical: `${CANONICAL_ORIGIN}${LOCALE_TO_PATH[locale as Locale] ?? "/"}`,
-      languages: {
-        "en-US": "/",
-        "es-US": "/es",
-        "en-CA": "/en-ca",
-        "fr-CA": "/fr",
-        "x-default": "/",
-      },
+      canonical: `${CANONICAL_ORIGIN}${path}`,
+      languages: getLocaleAlternates("/"),
     },
     openGraph: {
       type: "website",
       siteName: "Mapsly",
       title: t("og_title"),
       description: t("og_description"),
-      url: `${CANONICAL_ORIGIN}${LOCALE_TO_PATH[locale as Locale] ?? "/"}`,
+      url: `${CANONICAL_ORIGIN}${path}`,
     },
     twitter: {
       card: "summary_large_image",
