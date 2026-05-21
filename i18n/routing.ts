@@ -97,6 +97,12 @@ export const routing = defineRouting({
       "en-CA": "/search",
       fr: "/visibilite",
     },
+    "/onboarding": {
+      en: "/onboarding",
+      es: "/bienvenida",
+      "en-CA": "/onboarding",
+      fr: "/bienvenue",
+    },
   },
 });
 
