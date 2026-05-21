@@ -1189,13 +1189,13 @@ Existing review subagents (code-reviewer, test-writer, scorer, performance-audit
 
 **Symptom:** v0.7.4 shipped the "parent-delegates-everything" architecture with custom subagent definitions in `.claude/agents/loop-implementer.md` + `loop-validator.md`. First post-v0.7.4 Cowork tick that shipped E.1 burned 99 of 100 turns, merged E.1, but didn't push the bookkeeping chore commit. Next tick had to recover state and hit 100 again.
 
-Viktor: *"one task went well, but next - err after"* → log analysis revealed three independent failures stacked.
+Viktor: _"one task went well, but next - err after"_ → log analysis revealed three independent failures stacked.
 
 **Three failures (root cause chain):**
 
-1. **Subagents weren't registered in the Cowork session.** Per Anthropic docs (https://platform.claude.com/docs/en/agent-sdk/subagents): *"Agents defined in `.claude/agents/` are loaded at startup only. If you create a new agent file while Claude Code is running, restart the session to load it."* Cowork's scheduled task booted with cwd = FUSE mount, whose `.claude/agents/` directory was stale (FUSE-stuck `.git` per INC-29 means the mount never received the v0.7.4 commit). Tick log smoking gun: *"The custom loop-implementer subagent type isn't registered in this Cowork session."*
+1. **Subagents weren't registered in the Cowork session.** Per Anthropic docs (https://platform.claude.com/docs/en/agent-sdk/subagents): _"Agents defined in `.claude/agents/` are loaded at startup only. If you create a new agent file while Claude Code is running, restart the session to load it."_ Cowork's scheduled task booted with cwd = FUSE mount, whose `.claude/agents/` directory was stale (FUSE-stuck `.git` per INC-29 means the mount never received the v0.7.4 commit). Tick log smoking gun: _"The custom loop-implementer subagent type isn't registered in this Cowork session."_
 
-2. **Agent rationalized back into parent-does-everything.** After failing to find `loop-implementer`, the agent tried `general-purpose` but bailed because of a real concern: *"the agent's Write tool targets the mount while git ops happen in /tmp"*. This is a true Cowork-specific behavior — the Write tool's default cwd is the FUSE mount where Claude Code launched, but the loop's bash heredocs `cd "$WORK_DIR"` to /tmp. Files written via Write went to the mount; the loop's `git add -A` from /tmp didn't see them. The agent's resolution: do everything in parent via bash. That ate 28 turns of implementation work in parent.
+2. **Agent rationalized back into parent-does-everything.** After failing to find `loop-implementer`, the agent tried `general-purpose` but bailed because of a real concern: _"the agent's Write tool targets the mount while git ops happen in /tmp"_. This is a true Cowork-specific behavior — the Write tool's default cwd is the FUSE mount where Claude Code launched, but the loop's bash heredocs `cd "$WORK_DIR"` to /tmp. Files written via Write went to the mount; the loop's `git add -A` from /tmp didn't see them. The agent's resolution: do everything in parent via bash. That ate 28 turns of implementation work in parent.
 
 3. **Turn budget exhausted before close-out push.** Parent did 99 turns: bootstrap (16) + STEP 1/2 (15) + claim (6) + TaskRun open (3) + failed delegation (2) + implementation in parent (28) + push+PR (2) + CI wait (4) + CI-red fix loop (9) + merge (1) + psql close-out + file writes (10) + bookkeeping file writes to mount (3) = 99. Hit the 100-cap before doing `git commit + git push` for the version bump + build-log + loop-lock. GitHub got the E.1 merge but the chore commit was never pushed.
 
@@ -1203,7 +1203,7 @@ Viktor: *"one task went well, but next - err after"* → log analysis revealed t
 
 **Fix applied (v0.7.7):**
 
-- **STEP 3 + STEP 7** use `subagent_type: "general-purpose"` (built-in, always available per Anthropic docs: *"Built-in general-purpose: Claude can invoke the built-in general-purpose subagent at any time via the Agent tool without you defining anything"*). Custom subagent definitions in `.claude/agents/loop-implementer.md` + `.claude/agents/loop-validator.md` stay in the repo as documentation/intent, but the loop calls general-purpose with the FULL inlined prompt — no filesystem registration dependency.
+- **STEP 3 + STEP 7** use `subagent_type: "general-purpose"` (built-in, always available per Anthropic docs: _"Built-in general-purpose: Claude can invoke the built-in general-purpose subagent at any time via the Agent tool without you defining anything"_). Custom subagent definitions in `.claude/agents/loop-implementer.md` + `.claude/agents/loop-validator.md` stay in the repo as documentation/intent, but the loop calls general-purpose with the FULL inlined prompt — no filesystem registration dependency.
 - **Subagent prompts open with `cd "${WORK_DIR}"`** as the FIRST mandatory action, and use bash heredocs (`cat > file <<EOF`) for ALL file writes. NO `Write` or `Edit` tool calls in the subagent. This sidesteps the FUSE-mount-vs-/tmp cwd mismatch entirely.
 - **STEP 9 close-out reordered:** write bookkeeping files + commit + push chore commit BEFORE the psql transaction. If turn budget runs out mid-psql, the metadata is already on origin/main; Neon update can be re-applied idempotently on the next tick.
 - **STEP 0 GC guard:** `mapsly-loop-*` and `mapsly-work-*` clauses now require `-mmin +30` so a currently-running tick can't have its work dir deleted by another tick (or by its own STEP 0 if rerun).
@@ -1218,6 +1218,7 @@ Viktor: *"one task went well, but next - err after"* → log analysis revealed t
 5. **Write tool cwd ≠ bash cwd in Cowork sandbox.** Loop logic that mixes Write/Edit with `cd`-based bash will desync. Pick one: either ONLY bash heredocs (current loop's choice) or ONLY Write/Edit (with explicit absolute paths). Mixing is forbidden in subagent prompts.
 
 **Where encoded:**
+
 - `.claude/loop.md` v0.7.7 (STEP 0 GC guards + extended list, STEP 3 + STEP 7 use general-purpose + inlined prompts, STEP 9 close-out reorder)
 - `.claude/agents/loop-implementer.md` + `.claude/agents/loop-validator.md` (kept as documentation; loop.md no longer references them by name)
 - This entry
