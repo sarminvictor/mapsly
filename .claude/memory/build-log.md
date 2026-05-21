@@ -761,3 +761,4 @@ SES-2026-05-21-cowork-1779341905 · E.2 · SUCCESS · score informational (subag
 
 Outcome: SUCCESS.
 SES-2026-05-21-cowork-1 · E.3 · SUCCESS · score N/A (informational; code-reviewer PASS) · 9 files · ci=green · merge=AUTO · v0.7.9 (PR #41)
+SES-2026-05-21-cw-44948 · E.4 · INCOMPLETE · branch=auto/2026-05-21-E.4-1 · CI red · root cause: modules/smb-search/queries.ts L180 missing keyword relation in SerpResult.select · resume next tick
