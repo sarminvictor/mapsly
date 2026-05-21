@@ -1119,7 +1119,7 @@ Identical mechanism to **INC-23** (TaskRun.resumedFromRunId added but never push
 - Total before review agents: ~80 turns
 - Killed at ~100 when about to spawn review agents
 
-Viktor: *"err again after all this · analyse"* → *"do research and web research if this will work - need proof"*
+Viktor: _"err again after all this · analyse"_ → _"do research and web research if this will work - need proof"_
 
 **Root cause (definitive):** Prose guidance in a system prompt does NOT change LLM agent behavior. The agent's training-derived tool-use patterns (one tool call per logical sub-step, post-write verification, free-form serial exploration) are too strong to be overridden by instructions in the loop.md prompt. v0.6.42 tried; v0.7.0 tried with harder language and force-function rules; both ignored. The agent reads the rules, acknowledges them, then follows training instinct.
 
@@ -1135,23 +1135,24 @@ This means each `Agent` tool call costs 1 turn in the parent, but the subagent's
 
 **New architecture:**
 
-| Parent step | Tool call | Parent turn cost |
-|---|---|---:|
-| STEP 0 bootstrap | 1 bash heredoc (probe + GC + toolchain + clone + env + capability + lock + orphan sweep) | 1 |
-| STEP 1 boot reads | (DELETED · moved into loop-implementer subagent) | 0 |
-| STEP 2 atomic claim | 1 bash (psql CTE-claim) + 1 bash (TaskRun INSERT) | 2 |
-| STEP 3 implementation | `Agent(loop-implementer, ...)` — subagent does ALL exploration + writes + commits in its OWN 100-turn budget | 1 |
-| STEP 4 review | ONE message with 5 parallel Agent calls (code-reviewer, test-writer, perf, ux, copy) + 1 follow-up Agent(scorer) | 2 |
-| STEP 5 push + PR | 1 bash (`git push && gh pr create`) | 1 |
-| STEP 6 CI wait | 1 bash with exponential-backoff loop (sleeps INSIDE the bash, parent sees 1 turn) | 1 |
-| STEP 7 browser validate | `Agent(loop-validator, ...)` — Chrome MCP + Lighthouse + axe in subagent's 100-turn budget | 1 |
-| STEP 8 merge | 1 bash (`gh pr merge --auto`) | 1 |
-| STEP 9 close-out | 1 bash heredoc (psql transaction + build-log + loop-lock) | 1 |
-| **Parent total** | | **~11 turns** |
+| Parent step             | Tool call                                                                                                        | Parent turn cost |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------- | ---------------: |
+| STEP 0 bootstrap        | 1 bash heredoc (probe + GC + toolchain + clone + env + capability + lock + orphan sweep)                         |                1 |
+| STEP 1 boot reads       | (DELETED · moved into loop-implementer subagent)                                                                 |                0 |
+| STEP 2 atomic claim     | 1 bash (psql CTE-claim) + 1 bash (TaskRun INSERT)                                                                |                2 |
+| STEP 3 implementation   | `Agent(loop-implementer, ...)` — subagent does ALL exploration + writes + commits in its OWN 100-turn budget     |                1 |
+| STEP 4 review           | ONE message with 5 parallel Agent calls (code-reviewer, test-writer, perf, ux, copy) + 1 follow-up Agent(scorer) |                2 |
+| STEP 5 push + PR        | 1 bash (`git push && gh pr create`)                                                                              |                1 |
+| STEP 6 CI wait          | 1 bash with exponential-backoff loop (sleeps INSIDE the bash, parent sees 1 turn)                                |                1 |
+| STEP 7 browser validate | `Agent(loop-validator, ...)` — Chrome MCP + Lighthouse + axe in subagent's 100-turn budget                       |                1 |
+| STEP 8 merge            | 1 bash (`gh pr merge --auto`)                                                                                    |                1 |
+| STEP 9 close-out        | 1 bash heredoc (psql transaction + build-log + loop-lock)                                                        |                1 |
+| **Parent total**        |                                                                                                                  |    **~11 turns** |
 
 Each subagent has its own fresh 100-turn budget. Big tasks fit because per-subagent budget resets. Even with 2× parent's internal deliberation overhead, parent caps at ~22 turns. **~78 turns of headroom under the Claude Code 100-cap.**
 
 **New subagent definitions** (`.claude/agents/`):
+
 - `loop-implementer.md` — heavy lifter for STEP 3. Investigates codebase, writes files, runs prettier, commits. 100-turn budget.
 - `loop-validator.md` — browser/Lighthouse/axe validation for STEP 7. Chrome MCP access. 100-turn budget.
 
@@ -1159,9 +1160,9 @@ Existing review subagents (code-reviewer, test-writer, scorer, performance-audit
 
 **Constraints from Anthropic docs (designed around):**
 
-1. *"Subagents cannot spawn their own subagents. Don't include `Agent` in a subagent's tools array."* → All review/implementer subagents spawn FROM PARENT, never nest. `loop-implementer.tools` excludes `Agent`.
-2. *"The only channel from parent to subagent is the Agent tool's prompt string, so include any file paths, error messages, or decisions the subagent needs directly in that prompt."* → STEP 3 + STEP 7 Agent prompts embed full Task context (ID, title, branch, contextBundle, etc.).
-3. *"The subagent does not receive: the parent's conversation history or tool results."* → Each subagent prompt is self-contained.
+1. _"Subagents cannot spawn their own subagents. Don't include `Agent` in a subagent's tools array."_ → All review/implementer subagents spawn FROM PARENT, never nest. `loop-implementer.tools` excludes `Agent`.
+2. _"The only channel from parent to subagent is the Agent tool's prompt string, so include any file paths, error messages, or decisions the subagent needs directly in that prompt."_ → STEP 3 + STEP 7 Agent prompts embed full Task context (ID, title, branch, contextBundle, etc.).
+3. _"The subagent does not receive: the parent's conversation history or tool results."_ → Each subagent prompt is self-contained.
 
 **Prevention (for future failure modes):**
 
@@ -1171,6 +1172,7 @@ Existing review subagents (code-reviewer, test-writer, scorer, performance-audit
 4. **Each subagent has bounded scope.** If a subagent's natural budget exceeds 100, split into multiple subagents (e.g., `loop-implementer-investigate` + `loop-implementer-write`).
 
 **Where encoded:**
+
 - `.claude/loop.md` v0.7.4 (full rewrite for parent-delegates architecture)
 - `.claude/agents/loop-implementer.md` (new)
 - `.claude/agents/loop-validator.md` (new)

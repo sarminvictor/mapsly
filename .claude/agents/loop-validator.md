@@ -16,7 +16,7 @@ You are the loop-validator. The parent has shipped code, opened a PR, waited for
    - Anonymous (default)
    - SMB owner (sign in via magic-link flow if the task touched `app/[locale]/(smb)/**`)
    - Agency member (same for `(agency)/`)
-   Per `.claude/rules/browser-testing.md` Scenario A.
+     Per `.claude/rules/browser-testing.md` Scenario A.
 
 3. **Assert key content** via `get_page_text` or `find`. Compare against the Task's expected hero copy / interactive elements / specific selectors.
 
