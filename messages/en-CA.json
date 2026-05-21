@@ -4,19 +4,6 @@
       "service_templates": {
         "brand": "Brand defence"
       }
-    },
-    "commandK": {
-      "trigger": "⌘K Search",
-      "triggerAriaLabel": "Open business search",
-      "title": "Find a business",
-      "description": "Type a name, URL, or city. ↑↓ to move, Enter to open, Esc to close.",
-      "inputLabel": "Business search",
-      "placeholder": "Search businesses…",
-      "hint": "Type at least 2 characters.",
-      "loading": "Searching…",
-      "empty": "No matches. Try a name, URL, or city.",
-      "errorState": "Couldn’t reach search. Try again.",
-      "listAriaLabel": "Matching businesses"
     }
   }
 }
