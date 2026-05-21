@@ -61,6 +61,12 @@ export const routing = defineRouting({
       "en-CA": "/lists/[id]",
       fr: "/listes/[id]",
     },
+    "/list-analytics": {
+      en: "/list-analytics",
+      es: "/analitica-de-listas",
+      "en-CA": "/list-analytics",
+      fr: "/analytique-des-listes",
+    },
     "/signin": {
       en: "/signin",
       es: "/iniciar-sesion",
