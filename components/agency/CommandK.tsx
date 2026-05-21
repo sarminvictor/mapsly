@@ -66,6 +66,21 @@ export function CommandK() {
   const fetchTokenRef = React.useRef(0);
   const listboxId = React.useId();
 
+  // closeModal is the canonical "close + reset" path. Called from ⌘K
+  // toggle, Esc/onClose (Modal primitive), and select(). We do not use
+  // an effect-on-[open] reset (would violate react-hooks/set-state-in-effect).
+  const closeModal = React.useCallback(() => {
+    setOpen(false);
+    setQuery("");
+    setState({ kind: "idle" });
+    setActiveIdx(0);
+  }, []);
+
+  // Sync ref so the empty-deps ⌘K listener can read current open without
+  // re-registering on every open/close transition.
+  const openRef = React.useRef(open);
+  openRef.current = open;
+
   // ─── Global ⌘K / Ctrl+K shortcut ─────────────────────────────────────
   React.useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -85,21 +100,6 @@ export function CommandK() {
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [closeModal]);
-
-  // closeModal is the canonical "close + reset" path. Called from ⌘K
-  // toggle, Esc/onClose (Modal primitive), and select(). We do not use
-  // an effect-on-[open] reset (would violate react-hooks/set-state-in-effect).
-  const closeModal = React.useCallback(() => {
-    setOpen(false);
-    setQuery("");
-    setState({ kind: "idle" });
-    setActiveIdx(0);
-  }, []);
-
-  // Sync ref so the empty-deps ⌘K listener can read current open without
-  // re-registering on every open/close transition.
-  const openRef = React.useRef(open);
-  openRef.current = open;
 
   // ─── Focus the input when the modal opens ────────────────────────────
   // Modal's own focus-first logic targets the first focusable, which is
