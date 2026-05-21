@@ -57,3 +57,5 @@ _probe_*
 .env.runtime
 .loop-run-meta
 .pr-number
+
+.pg-scripts/

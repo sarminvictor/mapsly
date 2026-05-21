@@ -477,6 +477,68 @@
         "cta": "Retour aux listes"
       }
     },
+    "prospect_detail": {
+      "meta": {
+        "title": "Détail du prospect · Mapsly",
+        "description": "Détail du prospect · pitch, signaux, contact, sources."
+      },
+      "footer_readonly": "// Profil en lecture seule · Mapsly n'envoie pas de messages en votre nom · utilisez le contact + les preuves pour votre propre démarchage",
+      "hero": {
+        "back_to_lists": "Listes",
+        "prev": "Précédent",
+        "next": "Suivant",
+        "mark_contacted": "Marquer contacté",
+        "mark_client": "Marquer client",
+        "generate_one_pager": "Générer one-pager"
+      },
+      "stats": {
+        "mapsly_score": "Mapsly Score",
+        "msi_rank": "Rang MSI",
+        "rating": "Note",
+        "review_count": "Avis",
+        "reply_rate": "Taux de réponse",
+        "lighthouse_perf": "Vitesse du site"
+      },
+      "why": {
+        "title": "Pourquoi ce prospect qualifie",
+        "subtitle": "// argument-clé · arme de clôture",
+        "severity": {
+          "critical": "Critique",
+          "warn": "Opportunité",
+          "ok": "Force"
+        }
+      },
+      "signals": {
+        "reviews": "Avis et réputation",
+        "competitors": "Pression concurrentielle",
+        "search": "Recherche et SEO",
+        "ads": "Publicités actives",
+        "website": "Santé du site",
+        "empty_placeholder": "Aucune donnée · prochain refresh à venir"
+      },
+      "rail": {
+        "contact_title": "Contact",
+        "appears_in_title": "Apparaît dans",
+        "appears_in_empty": "Pas encore dans vos listes",
+        "data_sources_title": "D'où viennent ces données",
+        "refreshed_at": "actualisé {date}",
+        "notes_title": "Vos notes",
+        "notes_placeholder": "Ajoutez une note sur ce prospect — contexte, décideur, retainer cible. Connecté en F.7.",
+        "notes_save_pending": "// sauvegarder · arrive en F.7",
+        "no_phone": "pas de téléphone",
+        "no_email": "pas de courriel",
+        "no_website": "pas de site web"
+      },
+      "nav": {
+        "no_prev": "Pas de prospect précédent",
+        "no_next": "Pas de prospect suivant"
+      },
+      "not_found": {
+        "title": "Impossible de trouver ce prospect",
+        "body": "L'entreprise n'est peut-être dans aucune de vos listes, a été retirée, ou le lien est obsolète. Choisissez un autre prospect dans vos listes.",
+        "cta": "Retour aux listes"
+      }
+    },
     "onboarding": {
       "meta": {
         "title": "Configurez votre agence · Mapsly",

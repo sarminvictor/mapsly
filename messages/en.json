@@ -721,6 +721,68 @@
         "cta": "Back to lists"
       }
     },
+    "prospect_detail": {
+      "meta": {
+        "title": "Prospect detail · Mapsly",
+        "description": "Agency prospect detail · pitch, signals, contact, data sources."
+      },
+      "footer_readonly": "// Read-only profile · Mapsly does not message the business on your behalf · use the contact info + signal evidence to craft outreach in your existing tools",
+      "hero": {
+        "back_to_lists": "Lists",
+        "prev": "Prev",
+        "next": "Next",
+        "mark_contacted": "Mark contacted",
+        "mark_client": "Mark client",
+        "generate_one_pager": "Generate one-pager"
+      },
+      "stats": {
+        "mapsly_score": "Mapsly Score",
+        "msi_rank": "MSI rank",
+        "rating": "Rating",
+        "review_count": "Reviews",
+        "reply_rate": "Reply rate",
+        "lighthouse_perf": "Site speed"
+      },
+      "why": {
+        "title": "Why this lead qualifies",
+        "subtitle": "// pitch wedge · the closing weapon",
+        "severity": {
+          "critical": "Critical",
+          "warn": "Opportunity",
+          "ok": "Strength"
+        }
+      },
+      "signals": {
+        "reviews": "Reviews & reputation",
+        "competitors": "Competitive pressure",
+        "search": "Search & SEO",
+        "ads": "Active ads",
+        "website": "Website health",
+        "empty_placeholder": "No data yet · refresh due next cron"
+      },
+      "rail": {
+        "contact_title": "Contact",
+        "appears_in_title": "Appears in",
+        "appears_in_empty": "Not on any of your lists yet",
+        "data_sources_title": "Where this data comes from",
+        "refreshed_at": "refreshed {date}",
+        "notes_title": "Your notes",
+        "notes_placeholder": "Add a note about this prospect — pitch context, decision-maker, target retainer. Wired in F.7.",
+        "notes_save_pending": "// save · coming in F.7",
+        "no_phone": "no phone on file",
+        "no_email": "no email on file",
+        "no_website": "no website on file"
+      },
+      "nav": {
+        "no_prev": "No previous prospect",
+        "no_next": "No next prospect"
+      },
+      "not_found": {
+        "title": "Couldn't find that prospect",
+        "body": "The business may not be on any of your lists, may have been removed, or the link is stale. Pick another prospect from one of your lists.",
+        "cta": "Back to lists"
+      }
+    },
     "onboarding": {
       "meta": {
         "title": "Set up your agency · Mapsly",
