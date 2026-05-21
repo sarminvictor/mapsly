@@ -76,3 +76,31 @@ details > summary::after {
 details[open] > summary::after {
   transform: rotate(-90deg);
 }
+
+/* Agency lists · hover-reveal card action cluster.
+ * Per .claude/rules/ui-ux-agency.md "Hover-reveal for card actions (clone,
+ * pause, more menu)". Inline styles can't express :hover, so this rule
+ * scopes the reveal behavior to the agency ListCard markup.
+ *
+ * Keyboard users still reach the buttons via focus-within (Tab into a
+ * button reveals the cluster). prefers-reduced-motion users get the same
+ * reveal but no transition (covered by the global reduced-motion rule
+ * above).
+ */
+.mapsly-agency-list-card .mapsly-agency-card-actions {
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.mapsly-agency-list-card:hover .mapsly-agency-card-actions,
+.mapsly-agency-list-card:focus-within .mapsly-agency-card-actions {
+  opacity: 1;
+}
+.mapsly-agency-list-card {
+  transition:
+    border-color 0.15s ease,
+    transform 0.15s ease;
+}
+.mapsly-agency-list-card:hover {
+  border-color: var(--color-agency-indigo);
+  transform: translateY(-1px);
+}
