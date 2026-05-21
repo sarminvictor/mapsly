@@ -1,6 +1,6 @@
 # Mapsly autonomous build loop · v0.7.4 · PARENT-DELEGATES-EVERYTHING
 
-> **Architecture · option B.** Parent session does ~11 turns of orchestration. Heavy work delegated to `loop-implementer` + `loop-validator` subagents (each with its OWN 100-turn budget per [Anthropic docs](https://platform.claude.com/docs/en/agent-sdk/subagents): *"Each subagent runs in its own fresh conversation. Intermediate tool calls and results stay inside the subagent; only its final message returns to the parent."*). Review agents (code-reviewer, test-writer, scorer, etc.) all spawn from the parent in ONE message, each with their own fresh session. The Claude Code 100-turn cap on the parent is no longer a constraint because parent's tool calls cap at ~11.
+> **Architecture · option B.** Parent session does ~11 turns of orchestration. Heavy work delegated to `loop-implementer` + `loop-validator` subagents (each with its OWN 100-turn budget per [Anthropic docs](https://platform.claude.com/docs/en/agent-sdk/subagents): _"Each subagent runs in its own fresh conversation. Intermediate tool calls and results stay inside the subagent; only its final message returns to the parent."_). Review agents (code-reviewer, test-writer, scorer, etc.) all spawn from the parent in ONE message, each with their own fresh session. The Claude Code 100-turn cap on the parent is no longer a constraint because parent's tool calls cap at ~11.
 
 Read by the Cowork desktop scheduled task → fires every 5 min → executes this file as the prompt for one iteration. Each iteration ships AT MOST one task end-to-end (claim → delegate-implement → spawn-reviewers → push → wait-CI → delegate-validate → auto-merge OR hold-INCOMPLETE) OR exits cleanly with one-line status.
 
@@ -225,16 +225,16 @@ The parent issues ONE assistant message containing N parallel `Agent` tool-use b
 
 Required agents by task type (always include code-reviewer; add others per scope):
 
-| Task touches | Add agents |
-|---|---|
-| Any task | `code-reviewer` |
+| Task touches                     | Add agents                                          |
+| -------------------------------- | --------------------------------------------------- |
+| Any task                         | `code-reviewer`                                     |
 | Logic / scoring / cron / webhook | `code-reviewer` (already covers this case at depth) |
-| New route or layout | + `performance-auditor` |
-| `app/[locale]/(smb)/**` | + `ux-reviewer-smb`, `copy-reviewer` |
-| `app/[locale]/(agency)/**` | + `ux-reviewer-agency`, `copy-reviewer` |
-| `app/api/payments/**` | + `payments-auditor`, `security-auditor` |
-| Auth / signin / session | + `security-auditor` |
-| User-visible UI | + `a11y-reviewer` |
+| New route or layout              | + `performance-auditor`                             |
+| `app/[locale]/(smb)/**`          | + `ux-reviewer-smb`, `copy-reviewer`                |
+| `app/[locale]/(agency)/**`       | + `ux-reviewer-agency`, `copy-reviewer`             |
+| `app/api/payments/**`            | + `payments-auditor`, `security-auditor`            |
+| Auth / signin / session          | + `security-auditor`                                |
+| User-visible UI                  | + `a11y-reviewer`                                   |
 
 Up to 5 review agents in ONE message. Each gets the same context:
 
@@ -387,18 +387,18 @@ EOF
 
 ## Parent turn budget · 11–14 turns (cap = 100)
 
-| Step | Parent turns |
-|---|---:|
-| STEP 0 bootstrap | 1 |
-| STEP 2 claim (psql + insert) | 2 |
-| STEP 3 Agent(loop-implementer) | 1 |
-| STEP 4 ONE message with 5 parallel Agents + scorer | 2 |
-| STEP 5 push + PR | 1 |
-| STEP 6 CI wait | 1 |
-| STEP 7 Agent(loop-validator) | 1 |
-| STEP 8 merge | 1 |
-| STEP 9 close-out | 1 |
-| **Total** | **11** |
+| Step                                               | Parent turns |
+| -------------------------------------------------- | -----------: |
+| STEP 0 bootstrap                                   |            1 |
+| STEP 2 claim (psql + insert)                       |            2 |
+| STEP 3 Agent(loop-implementer)                     |            1 |
+| STEP 4 ONE message with 5 parallel Agents + scorer |            2 |
+| STEP 5 push + PR                                   |            1 |
+| STEP 6 CI wait                                     |            1 |
+| STEP 7 Agent(loop-validator)                       |            1 |
+| STEP 8 merge                                       |            1 |
+| STEP 9 close-out                                   |            1 |
+| **Total**                                          |       **11** |
 
 Each subagent has its OWN 100-turn budget. Heavy work fits comfortably. Per [Anthropic docs](https://platform.claude.com/docs/en/agent-sdk/subagents):
 
@@ -410,28 +410,30 @@ Each subagent has its OWN 100-turn budget. Heavy work fits comfortably. Per [Ant
 
 ## Failure modes the loop must handle without surfacing blockers
 
-| Symptom | Self-heal | If self-heal fails |
-|---|---|---|
-| `_tmp_*` orphans block pnpm | STEP 0 GC | Mark INCOMPLETE, cooldown 30 min |
-| FUSE unlink wall | STEP 0 ignores mount, works in /tmp | Mark INCOMPLETE, cooldown 4h |
-| Vercel CI failed | Mark INCOMPLETE on CI red, next tick resumes via STEP 2 INCOMPLETE-resume | – |
-| `loop-implementer` returns STATUS=failed | Close TaskRun INCOMPLETE, save branch, next tick resumes | – |
-| `loop-validator` returns STATUS=fail | Skip auto-merge, label PR `needs-review` | – |
-| Subagent hits its OWN 100-turn cap | Subagent returns whatever it has + STATUS=needs-followup, parent treats as INCOMPLETE | – |
-| Sentry error spike post-merge | Auto-revert per observability.md | Log INC-, cooldown 4h |
-| Quota approaching | Cooldown 4h, INCOMPLETE next tick | Same |
+| Symptom                                  | Self-heal                                                                             | If self-heal fails               |
+| ---------------------------------------- | ------------------------------------------------------------------------------------- | -------------------------------- |
+| `_tmp_*` orphans block pnpm              | STEP 0 GC                                                                             | Mark INCOMPLETE, cooldown 30 min |
+| FUSE unlink wall                         | STEP 0 ignores mount, works in /tmp                                                   | Mark INCOMPLETE, cooldown 4h     |
+| Vercel CI failed                         | Mark INCOMPLETE on CI red, next tick resumes via STEP 2 INCOMPLETE-resume             | –                                |
+| `loop-implementer` returns STATUS=failed | Close TaskRun INCOMPLETE, save branch, next tick resumes                              | –                                |
+| `loop-validator` returns STATUS=fail     | Skip auto-merge, label PR `needs-review`                                              | –                                |
+| Subagent hits its OWN 100-turn cap       | Subagent returns whatever it has + STATUS=needs-followup, parent treats as INCOMPLETE | –                                |
+| Sentry error spike post-merge            | Auto-revert per observability.md                                                      | Log INC-, cooldown 4h            |
+| Quota approaching                        | Cooldown 4h, INCOMPLETE next tick                                                     | Same                             |
 
 ---
 
 ## Cooldown discipline (unchanged from v0.6.5+)
 
 Cooldown is reserved for catastrophic / repeated failures, NEVER for:
+
 - Capability gaps (`CAN_UNLINK=0` etc.)
 - Eligible queue empty
 - Single CI failure (deferred to next tick via INCOMPLETE)
 - Subagent hitting its own turn cap (deferred to next tick via INCOMPLETE)
 
 Cooldown DOES fire for:
+
 - ≥3 consecutive failures of the SAME task → 1h + INC-
 - ≥5 consecutive failures across DIFFERENT tasks → 24h + "loop unhealthy" INC-
 - Quota / rate-limit approaching → 4h

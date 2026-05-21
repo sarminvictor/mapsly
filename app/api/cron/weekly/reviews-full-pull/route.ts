@@ -26,6 +26,7 @@ import prisma from "@/lib/prisma";
 import { cronHandler } from "@/lib/middleware/no-live-api";
 import { reviewsPull } from "@/services/dataforseo";
 import { classifyReview, draftReply } from "@/services/ai";
+import { generateAndPersistReplyDrafts } from "@/modules/scoring/ai-reply";
 import { runBatch, statusFromOutcome } from "../../_lib/batch";
 import { reviewItemToPersist } from "../../daily/new-reviews-delta/route";
 
@@ -90,6 +91,7 @@ export const GET = cronHandler(JOB, async ({ runId }) => {
     }));
 
   const revalidatedSlugs = new Set<string>();
+  const touchedReviewIds = new Set<string>();
   let insertedReviews = 0;
   let updatedReviews = 0;
   let classifiedReviews = 0;
@@ -134,7 +136,11 @@ export const GET = cronHandler(JOB, async ({ runId }) => {
 
       if (!prior) {
         try {
-          await prisma.review.create({ data: persist });
+          const created = await prisma.review.create({
+            data: persist,
+            select: { id: true },
+          });
+          touchedReviewIds.add(created.id);
           insertedReviews += 1;
         } catch {
           // unique race — skip
@@ -161,6 +167,7 @@ export const GET = cronHandler(JOB, async ({ runId }) => {
             themes: [],
           },
         });
+        touchedReviewIds.add(prior.id);
         updatedReviews += 1;
       }
     }
@@ -190,6 +197,7 @@ export const GET = cronHandler(JOB, async ({ runId }) => {
           themes: verdict.themes,
         },
       });
+      touchedReviewIds.add(r.id);
       classifiedReviews += 1;
     }
 
@@ -233,6 +241,14 @@ export const GET = cronHandler(JOB, async ({ runId }) => {
     revalidatedSlugs.add(biz.slug);
   });
 
+  // D.7 · sweep across all touched reviews this run and draft EN+ES for any
+  // still missing both languages. The legacy urgent-only draft pass above
+  // ran inline per-biz; this is the broader pass and intentionally idempotent
+  // — generateAndPersistReplyDrafts skips reviews whose drafts already exist.
+  const aiReply = await generateAndPersistReplyDrafts(
+    Array.from(touchedReviewIds),
+  );
+
   for (const slug of revalidatedSlugs) {
     revalidateTag(`business-${slug}-reviews`, "days");
     revalidateTag(`business-${slug}`, "days");
@@ -251,6 +267,11 @@ export const GET = cronHandler(JOB, async ({ runId }) => {
       updatedReviews,
       classifiedReviews,
       draftedReplies,
+      aiReply: {
+        processed: aiReply.processed,
+        skipped: aiReply.skipped,
+        failed: aiReply.failed,
+      },
       failureSample: outcome.failures.slice(0, 5).map((f) => ({
         businessId: (f.item as BusinessRow).id,
         error: f.error,
