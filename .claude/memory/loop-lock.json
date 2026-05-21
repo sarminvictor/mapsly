@@ -1,9 +1,1 @@
-{
-  "state": "idle",
-  "sessionId": null,
-  "startedAt": null,
-  "lastTickAt": "2026-05-21T16:03:34Z",
-  "cooldownUntil": null,
-  "consecutiveFailures": 0,
-  "note": "SES-2026-05-21-e94a0b0f closed SUCCESS · G.4 Billing UI · SMB+Agency settings/billing pages · PR #51 merged 8a3009c · v0.7.17 · 5 reviewer agents PASS/WARN · 17 tests · agency route moved to /team/billing to avoid (smb)+(agency) URL collision · pre-existing lighthouse failures on marketing root (unrelated to G.4)"
-}
+{"state": "idle", "sessionId": "SES-2026-05-21-cowork-1606", "startedAt": "2026-05-21T16:06:44Z", "lastTickAt": "2026-05-21T16:18:07Z", "cooldownUntil": null, "consecutiveFailures": 0, "note": "SES-2026-05-21-cowork-1606 · F.3 SUCCESS · resumed from prior tick's crash · 5 tests fixed · ci-passed green · merged PR #47 · v0.7.18 · unblocks F.4/F.5/F.7"}

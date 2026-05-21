@@ -1,5 +1,9 @@
 # Build log · append-only
 
+## 2026-05-21
+
+- SES-2026-05-21-cowork-1606 · F.3 · SUCCESS · resumed from prior tick's crash · 5 test failures fixed (deriveAvatar hyphens · summarizeLeadSignals null · filter-tags label · 2× en-CA dupes) · 11+/9- · ci=green · merge=AUTO · v0.7.18
+
 Every autonomous session writes one entry at close-time. Most recent at top.
 
 Schema per entry:
