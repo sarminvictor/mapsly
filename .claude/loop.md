@@ -110,19 +110,18 @@ After this ONE bash call, the agent has every piece of state it needs for STEPS 
 
 If the JSON's `loop_lock.state` is `paused` or `cooldown` (future) → exit ≤1 line per the table below. Otherwise proceed to STEP 2.
 
-| state | cooldownUntil | Action |
-|---|---|---|
-| `paused` | any | Exit ≤1 line: `loop paused via dashboard, skipping`. |
-| `cooldown` | future | Exit ≤1 line: `cooldown until {time}, skipping`. |
-| `cooldown` | past | Treat as idle, proceed. |
-| `idle` | — | Proceed. |
+| state      | cooldownUntil | Action                                               |
+| ---------- | ------------- | ---------------------------------------------------- |
+| `paused`   | any           | Exit ≤1 line: `loop paused via dashboard, skipping`. |
+| `cooldown` | future        | Exit ≤1 line: `cooldown until {time}, skipping`.     |
+| `cooldown` | past          | Treat as idle, proceed.                              |
+| `idle`     | —             | Proceed.                                             |
 
 Stamp `lastTickAt` at the END of the iteration (STEP 8), not now.
 
 **Capability flags are advisory** per `.claude/rules/capability-routing.md`. Never halt the loop.
 
 ---
-
 
 ## STEP 2 · Bundled boot reads (single bash · v0.7.0)
 
@@ -139,7 +138,6 @@ echo $(( $(cat /tmp/mapsly-turn-counter) + 1 )) > /tmp/mapsly-turn-counter
 ```
 
 One turn, five files. Banned to issue separate Read calls for these — see `.claude/rules/compound-steps.md`.
-
 
 ## STEP 3 · Atomic SKIP LOCKED claim + TaskRun INSERT in ONE bash call (v0.7.0)
 
@@ -197,7 +195,6 @@ echo $(( $(cat /tmp/mapsly-turn-counter) + 1 )) > /tmp/mapsly-turn-counter
 
 If `contextBundle` is non-null, the agent uses it directly in STEP 4 (no separate exploration). If null (legacy tasks not yet auto-populated), STEP 4 invokes one `Agent(Explore)` to derive context — see STEP 4.
 
-
 ## STEP 4 · Implementation · MANDATORY Agent-first when no contextBundle (v0.7.0)
 
 **Force-function rule (compound-steps.md):** If `Task.contextBundle` is null, the FIRST tool call of STEP 4 MUST be `Agent(subagent_type="Explore", ...)`. Any Read/Grep/Bash issued before that = defect → mark TaskRun INCOMPLETE + exit.
@@ -228,23 +225,22 @@ No decision turns wasted on naming.
 
 Increment turn counter: `echo $(( $(cat /tmp/mapsly-turn-counter) + N )) > /tmp/mapsly-turn-counter` where N = number of Write+Edit calls.
 
-
 ## STEP 5 · MANDATORY review agents · ONE message · ALL parallel (v0.7.0)
 
 All required review agents are spawned in ONE assistant message containing ALL `Agent` tool-use blocks. Splitting across messages = defect against `.claude/rules/compound-steps.md`.
 
 Required agents by task type — pick the applicable set, dispatch in ONE message:
 
-| Task touches | Required agents |
-|---|---|
-| Any task | `code-reviewer` |
-| Logic / scoring / cron / webhook | + `test-writer` |
-| New route or layout | + `performance-auditor` |
-| `app/[locale]/(smb)/**` | + `ux-reviewer-smb`, `copy-reviewer` |
-| `app/[locale]/(agency)/**` | + `ux-reviewer-agency`, `copy-reviewer` |
-| `app/api/payments/**` | + `payments-auditor`, `security-auditor` |
-| Auth / signin / session | + `security-auditor` |
-| User-visible UI | + `a11y-reviewer` |
+| Task touches                     | Required agents                          |
+| -------------------------------- | ---------------------------------------- |
+| Any task                         | `code-reviewer`                          |
+| Logic / scoring / cron / webhook | + `test-writer`                          |
+| New route or layout              | + `performance-auditor`                  |
+| `app/[locale]/(smb)/**`          | + `ux-reviewer-smb`, `copy-reviewer`     |
+| `app/[locale]/(agency)/**`       | + `ux-reviewer-agency`, `copy-reviewer`  |
+| `app/api/payments/**`            | + `payments-auditor`, `security-auditor` |
+| Auth / signin / session          | + `security-auditor`                     |
+| User-visible UI                  | + `a11y-reviewer`                        |
 
 Cap = 5 concurrent per `.claude/rules/agent-orchestration.md`. The `scorer` agent runs AFTER all others (read their verdicts) — second batch, 1 turn.
 
@@ -265,7 +261,6 @@ Agent({ name: "scorer", inputs: [code-reviewer verdict, test-writer verdict, ...
 **Total STEP 5: 2 turns.** Was 5–10 in pre-v0.7.0.
 
 Increment counter: `echo $(( $(cat /tmp/mapsly-turn-counter) + 2 )) > /tmp/mapsly-turn-counter`.
-
 
 ## STEP 6 · Validation · compound CI + browser_batch (v0.7.0)
 
@@ -305,6 +300,7 @@ One turn for the entire 7-minute poll envelope (the sleeps happen inside the one
 ### Step 6c · Browser validation · ONE Chrome MCP browser_batch
 
 Single `mcp__Claude_in_Chrome__browser_batch` call that:
+
 1. Opens Vercel preview URL
 2. Asserts hero content + key interactive selectors
 3. Runs Lighthouse mobile preset
@@ -326,7 +322,6 @@ echo $(( $(cat /tmp/mapsly-turn-counter) + 1 )) > /tmp/mapsly-turn-counter
 ```
 
 **Total STEP 6: 4 turns** (6a push, 6b CI poll, 6c browser_batch, 6d DB). Was 15–30 in pre-v0.7.0.
-
 
 ## STEP 7 · Auto-merge gate · DEFAULT TO MERGE
 
@@ -421,7 +416,6 @@ echo $(( $(cat /tmp/mapsly-turn-counter) + 1 )) > /tmp/mapsly-turn-counter
 
 **Total STEP 8: 1 turn.** Was 5–10 in pre-v0.7.0.
 
-
 ## STEP 9 · Quota guard
 
 If during execution you detect approaching usage limit (warning in output, `usage_limit`, 429):
@@ -439,11 +433,13 @@ If during execution you detect approaching usage limit (warning in output, `usag
 **Mechanical turn-budget enforcement (v0.7.0 · INC-36):**
 
 The turn counter lives in `/tmp/mapsly-turn-counter`. Every bash call ends with:
+
 ```bash
 echo $(( $(cat /tmp/mapsly-turn-counter) + 1 )) > /tmp/mapsly-turn-counter
 ```
 
 At every step boundary (between STEPs), the agent checks:
+
 ```bash
 TURNS=$(cat /tmp/mapsly-turn-counter)
 [ "$TURNS" -ge 80 ] && exec_graceful_incomplete
@@ -470,6 +466,7 @@ Issuing N separate tool calls where 1 compound call would do = defect → INC- e
 After Write/Edit, do NOT run `wc -l`, `ls -la`, `cat`, or `find` to "make sure it worked". Write throws on failure; trust it. Verification calls are the #1 source of avoidable turn waste (~5–10 per task in pre-v0.7.0).
 
 **Cooldown is reserved for catastrophic / repeated failures, NEVER for capability gaps:**
+
 - ≥3 consecutive failures of the SAME task → 1h + INC- entry
 - ≥5 consecutive failures across DIFFERENT tasks → 24h + "loop unhealthy" INC-
 - Quota / rate-limit approaching → 4h
@@ -479,7 +476,7 @@ After Write/Edit, do NOT run `wc -l`, `ls -la`, `cat`, or `find` to "make sure i
 - TURN_USED >= 80 → INCOMPLETE + resume next tick, NOT cooldown
 
 - Ship at most ONE task per iteration. Move on next iteration.
-- Never surface a sandbox-internal issue (_tmp_*, .git locks, FUSE unlink) as a Viktor blocker.
+- Never surface a sandbox-internal issue (_tmp_\*, .git locks, FUSE unlink) as a Viktor blocker.
 - Use Promise.allSettled for parallel agent calls so one slow agent doesn't block the rest.
 - If everything is green and quiet at end of iteration, exit with one line — the dashboard reads it.
 
@@ -487,16 +484,16 @@ After Write/Edit, do NOT run `wc -l`, `ls -la`, `cat`, or `find` to "make sure i
 
 ## Failure modes the loop must handle without surfacing blockers
 
-| Symptom | Self-heal | If self-heal fails |
-|---|---|---|
-| `_tmp_*` orphans block pnpm | STEP 0a.1 GC | Mark INCOMPLETE, cooldown 30 min |
-| `.git/index.lock` stale | STEP 0 `find -mmin +1 -delete` | INC-01 escape hatch via `GIT_DIR=/tmp/...` |
-| Mid-rebase from prior iteration | STEP 0 `git rebase --abort` | INC-01 escape hatch |
-| FUSE unlink wall | STEP 0 ignores mount, works in /tmp | Mark INCOMPLETE, cooldown 4h |
-| Vercel build failed | Mark INCOMPLETE on CI red, next tick resumes | – |
-| Sentry error spike post-merge | Auto-revert per observability.md | Log INC-, cooldown 4h |
-| Quota approaching | STEP 9 quota guard | Same |
-| CI never goes green | Mark INCOMPLETE; next tick resumes | – |
-| TURN_USED >= 80 | STEP 10 mechanical exit to INCOMPLETE | – |
+| Symptom                         | Self-heal                                    | If self-heal fails                         |
+| ------------------------------- | -------------------------------------------- | ------------------------------------------ |
+| `_tmp_*` orphans block pnpm     | STEP 0a.1 GC                                 | Mark INCOMPLETE, cooldown 30 min           |
+| `.git/index.lock` stale         | STEP 0 `find -mmin +1 -delete`               | INC-01 escape hatch via `GIT_DIR=/tmp/...` |
+| Mid-rebase from prior iteration | STEP 0 `git rebase --abort`                  | INC-01 escape hatch                        |
+| FUSE unlink wall                | STEP 0 ignores mount, works in /tmp          | Mark INCOMPLETE, cooldown 4h               |
+| Vercel build failed             | Mark INCOMPLETE on CI red, next tick resumes | –                                          |
+| Sentry error spike post-merge   | Auto-revert per observability.md             | Log INC-, cooldown 4h                      |
+| Quota approaching               | STEP 9 quota guard                           | Same                                       |
+| CI never goes green             | Mark INCOMPLETE; next tick resumes           | –                                          |
+| TURN_USED >= 80                 | STEP 10 mechanical exit to INCOMPLETE        | –                                          |
 
 **Begin iteration.**

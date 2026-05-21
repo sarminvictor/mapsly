@@ -1017,7 +1017,7 @@ Total turn budget per tick: **60–140 → 30–50.** 2-3× headroom under the 1
 - File writes: 12 turns including post-write verification with `wc -l`, `ls -la`, `cat`
 - Total before STEP 5: **~76 turns**, hit 100 mid-validation
 
-Viktor: *"still too many? let's analyse"* → *"deeper analyze as Pro Engineer and optimization master"*
+Viktor: _"still too many? let's analyse"_ → _"deeper analyze as Pro Engineer and optimization master"_
 
 **Root cause:** **Prose guidance does not change LLM agent behavior.** The agent's tool-use defaults — one tool call per logical sub-step, post-write verification, free-form serial exploration before commitment — are training-derived patterns that the prose in loop.md cannot override. Writing "bundle these reads" in the doc doesn't reduce the number of Read tool calls the agent makes. Writing "be efficient" doesn't make the agent efficient.
 
@@ -1044,15 +1044,16 @@ The v0.6.42 design was prose-heavy guidance ("agents SHOULD bundle", "STEP 4 SHO
 
 **Score impact (per the Pro Engineer audit):**
 
-| Aspect | v0.6.42 | v0.7.0 |
-|---|---:|---:|
-| Pre-STEP-5 turns | 76 | ~13 |
-| Full-task turn budget | 100+ (overflow) | 30–45 (cap-safe) |
-| Mechanical enforcement | 10% | 90% |
-| Prose guidance | 90% | 10% |
-| Force functions | 0 | 3 (STEP 4 Agent-first, no-verify, turn-counter gate) |
+| Aspect                 |         v0.6.42 |                                               v0.7.0 |
+| ---------------------- | --------------: | ---------------------------------------------------: |
+| Pre-STEP-5 turns       |              76 |                                                  ~13 |
+| Full-task turn budget  | 100+ (overflow) |                                     30–45 (cap-safe) |
+| Mechanical enforcement |             10% |                                                  90% |
+| Prose guidance         |             90% |                                                  10% |
+| Force functions        |               0 | 3 (STEP 4 Agent-first, no-verify, turn-counter gate) |
 
 **Where encoded:**
+
 - `.claude/loop.md` v0.7.0 (compound bootstrap STEP 0, compound STEP 2, compound STEP 3, force-function STEP 4, batched STEP 5, compound STEP 6, compound STEP 8, mechanical STEP 10)
 - `.claude/rules/compound-steps.md` (new · the canonical rule)
 - `.claude/rules/no-verify.md` (new · companion rule)

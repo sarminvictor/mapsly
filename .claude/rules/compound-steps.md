@@ -6,15 +6,15 @@ The autonomous loop runs in a Claude-Code-style agent session with a hard 100-tu
 
 ## The mapping · step → required tool shape
 
-| Step | Required shape | What's BANNED |
-|---|---|---|
-| STEP 0 (bootstrap) | ONE bash heredoc that does probe + GC + toolchain + clone + env + capability + counter init + STEP 1 fold. Outputs structured JSON the agent parses. | Multiple bash calls for sub-steps (0a, 0a.1, 0a.2, 0b, 0c, 0d). Each `if [ -d ... ]; then` lives in the same heredoc. |
-| STEP 2 (boot reads) | ONE bash heredoc that `cat`s all 5 files into one stream. | 5 separate `Read` tool calls. The agent parses section headers (`===== filename =====`) to separate. |
-| STEP 3 (claim) | ONE bash call running `psql` with multi-statement transaction (CTE-claim + UPDATE-RETURNING + TaskRun INSERT). | Separate SELECT/UPDATE/INSERT round trips. |
-| STEP 4 (impl, contextBundle=null) | ONE `Agent(subagent_type="Explore")` first, THEN Write/Edit. | Read/Grep/Bash for exploration in parent session before the Agent returns. |
-| STEP 5 (review) | ONE assistant message containing ALL parallel `Agent` tool-use blocks. Scorer is a second batch (1 more turn). | Spawning review agents one at a time across multiple messages. |
-| STEP 6c (browser val) | ONE Chrome MCP `browser_batch` (or ≤3 calls if no batch available). | Separate navigate / find / read_page / Lighthouse / axe-core calls in sequence. |
-| STEP 8 (close-out) | ONE bash heredoc that does the close-out psql transaction + build-log append + loop-lock stamp. | Three separate calls for transaction / file append / file write. |
+| Step                              | Required shape                                                                                                                                       | What's BANNED                                                                                                         |
+| --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| STEP 0 (bootstrap)                | ONE bash heredoc that does probe + GC + toolchain + clone + env + capability + counter init + STEP 1 fold. Outputs structured JSON the agent parses. | Multiple bash calls for sub-steps (0a, 0a.1, 0a.2, 0b, 0c, 0d). Each `if [ -d ... ]; then` lives in the same heredoc. |
+| STEP 2 (boot reads)               | ONE bash heredoc that `cat`s all 5 files into one stream.                                                                                            | 5 separate `Read` tool calls. The agent parses section headers (`===== filename =====`) to separate.                  |
+| STEP 3 (claim)                    | ONE bash call running `psql` with multi-statement transaction (CTE-claim + UPDATE-RETURNING + TaskRun INSERT).                                       | Separate SELECT/UPDATE/INSERT round trips.                                                                            |
+| STEP 4 (impl, contextBundle=null) | ONE `Agent(subagent_type="Explore")` first, THEN Write/Edit.                                                                                         | Read/Grep/Bash for exploration in parent session before the Agent returns.                                            |
+| STEP 5 (review)                   | ONE assistant message containing ALL parallel `Agent` tool-use blocks. Scorer is a second batch (1 more turn).                                       | Spawning review agents one at a time across multiple messages.                                                        |
+| STEP 6c (browser val)             | ONE Chrome MCP `browser_batch` (or ≤3 calls if no batch available).                                                                                  | Separate navigate / find / read_page / Lighthouse / axe-core calls in sequence.                                       |
+| STEP 8 (close-out)                | ONE bash heredoc that does the close-out psql transaction + build-log append + loop-lock stamp.                                                      | Three separate calls for transaction / file append / file write.                                                      |
 
 ## What makes a step "compound"
 
