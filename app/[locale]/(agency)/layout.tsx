@@ -11,9 +11,16 @@
  * Per `.claude/rules/cache-components.md` Pattern 2, the layout is a
  * SYNC shell with a Suspense'd async chrome. Auth lives in each page,
  * not the layout — that's what lets cacheComponents prerender empty.
+ *
+ * F.11 · global ⌘K business search trigger lives inline in the header.
+ * `<CommandK />` is a client component that self-mounts its own modal +
+ * global keydown listener for ⌘K / Ctrl+K — only the trigger button is
+ * rendered in the header chrome.
  */
 
 import { Suspense, type ReactNode } from "react";
+
+import { CommandK } from "@/components/agency/CommandK";
 
 interface LayoutParams {
   locale: string;
@@ -122,14 +129,23 @@ async function AgencyHeader({ params }: { params: Promise<LayoutParams> }) {
       </span>
       <span
         style={{
-          fontFamily: "var(--font-mono)",
-          fontSize: 11,
-          textTransform: "uppercase",
-          letterSpacing: "0.08em",
-          color: "var(--color-text-3)",
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 16,
         }}
       >
-        Lead workspace
+        <CommandK />
+        <span
+          style={{
+            fontFamily: "var(--font-mono)",
+            fontSize: 11,
+            textTransform: "uppercase",
+            letterSpacing: "0.08em",
+            color: "var(--color-text-3)",
+          }}
+        >
+          Lead workspace
+        </span>
       </span>
     </header>
   );
