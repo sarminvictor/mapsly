@@ -98,7 +98,19 @@ function FunnelSvg({
     );
   }
 
-  let x = 0;
+  // Pre-compute x offsets via reduce — no mutation during .map. React 19
+  // compiler's react-hooks/immutability rule forbids reassignment of
+  // render-scope vars after render completes.
+  const positioned = segments.reduce<
+    { label: string; fill: string; count: number; x: number; w: number }[]
+  >((acc, s) => {
+    const w = (s.count / total) * width;
+    const prev = acc[acc.length - 1];
+    const x = prev ? prev.x + prev.w : 0;
+    acc.push({ label: s.label, fill: s.fill, count: s.count, x, w });
+    return acc;
+  }, []);
+
   return (
     <svg
       role="img"
@@ -108,17 +120,20 @@ function FunnelSvg({
       viewBox={`0 0 ${width} ${height}`}
       style={{ display: "block" }}
     >
-      {segments.map((s) => {
-        const w = (s.count / total) * width;
-        if (w <= 0) return null;
-        const seg = (
-          <rect key={s.label} x={x} y={6} width={w} height={10} fill={s.fill}>
+      {positioned.map((s) =>
+        s.w <= 0 ? null : (
+          <rect
+            key={s.label}
+            x={s.x}
+            y={6}
+            width={s.w}
+            height={10}
+            fill={s.fill}
+          >
             <title>{`${s.label}: ${s.count}`}</title>
           </rect>
-        );
-        x += w;
-        return seg;
-      })}
+        ),
+      )}
     </svg>
   );
 }
