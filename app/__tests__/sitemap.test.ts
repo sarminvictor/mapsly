@@ -16,7 +16,20 @@
  *   - Authenticated routes are disallowed
  */
 
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
+
+// `app/sitemap.ts` calls `listBizSitemapEntries` which uses `'use cache'` +
+// cacheLife/cacheTag. Outside Next's runtime those throw E887. Stub them
+// here so the sitemap function can run end-to-end. The biz enumeration
+// still returns [] in test env because the lazy Prisma proxy throws when
+// DATABASE_URL is unset — caught by listBizSitemapEntries's try/catch.
+vi.mock("next/cache", () => ({
+  cacheLife: vi.fn(),
+  cacheTag: vi.fn(),
+  revalidateTag: vi.fn(),
+  unstable_noStore: vi.fn(),
+}));
+
 import sitemap from "../sitemap";
 import robots from "../robots";
 import { routing } from "@/i18n/routing";
