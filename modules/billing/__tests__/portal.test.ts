@@ -107,8 +107,9 @@ beforeEach(() => {
 
 afterEach(() => {
   for (const k of ENV_KEYS) {
-    if (snapshot[k] === undefined) delete process.env[k];
-    else process.env[k] = snapshot[k]!;
+    const v = snapshot[k];
+    if (v === undefined) delete process.env[k];
+    else (process.env as Record<string, string | undefined>)[k] = v;
   }
   vi.clearAllMocks();
 });
