@@ -10,10 +10,7 @@ import { AgencySignals } from "@/components/marketing/for-agencies/AgencySignals
 import { AgencyFAQ } from "@/components/marketing/for-agencies/AgencyFAQ";
 import { AgencyCTA } from "@/components/marketing/for-agencies/AgencyCTA";
 import type { Locale } from "@/i18n/routing";
-import {
-  getLocaleAlternates,
-  getLocalizedPath,
-} from "@/i18n/pathnames";
+import { getLocaleAlternates, getLocalizedPath } from "@/i18n/pathnames";
 
 // For-Agencies marketing landing · mapsly.ai/for-agencies (and locale-pathnamed
 // equivalents: /es/para-agencias, /en-ca/for-agencies, /fr/pour-agences).
@@ -38,7 +35,6 @@ import {
 // reads are next-intl getTranslations which is build-safe.
 
 const CANONICAL_ORIGIN = "https://mapsly.ai";
-
 
 export async function generateMetadata({
   params,

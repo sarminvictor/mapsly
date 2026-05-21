@@ -9,10 +9,7 @@ import { SmbPricing } from "@/components/marketing/for-businesses/SmbPricing";
 import { SmbFAQ } from "@/components/marketing/for-businesses/SmbFAQ";
 import { SmbCTA } from "@/components/marketing/for-businesses/SmbCTA";
 import type { Locale } from "@/i18n/routing";
-import {
-  getLocaleAlternates,
-  getLocalizedPath,
-} from "@/i18n/pathnames";
+import { getLocaleAlternates, getLocalizedPath } from "@/i18n/pathnames";
 
 // For-Businesses marketing landing · mapsly.ai/for-businesses (and locale-pathnamed
 // equivalents: /es/para-empresas, /en-ca/for-businesses, /fr/pour-entreprises).
@@ -33,7 +30,6 @@ import {
 // reads via next-intl getTranslations which is build-safe.
 
 const CANONICAL_ORIGIN = "https://mapsly.ai";
-
 
 export async function generateMetadata({
   params,

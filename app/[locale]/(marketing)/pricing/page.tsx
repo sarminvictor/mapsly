@@ -8,10 +8,7 @@ import { PricingTrust } from "@/components/marketing/pricing/PricingTrust";
 import { PricingFAQ } from "@/components/marketing/pricing/PricingFAQ";
 import { PricingCTA } from "@/components/marketing/pricing/PricingCTA";
 import type { Locale } from "@/i18n/routing";
-import {
-  getLocaleAlternates,
-  getLocalizedPath,
-} from "@/i18n/pathnames";
+import { getLocaleAlternates, getLocalizedPath } from "@/i18n/pathnames";
 
 // Pricing page · mapsly.ai/pricing (locale variants /es/precios, /en-ca/pricing,
 // /fr/tarifs registered in i18n/routing.ts).
@@ -42,7 +39,6 @@ import {
 // because the page does no auth/cookies/DB reads; only build-safe i18n.
 
 const CANONICAL_ORIGIN = "https://mapsly.ai";
-
 
 export async function generateMetadata({
   params,

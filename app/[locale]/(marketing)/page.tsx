@@ -8,10 +8,7 @@ import { SignalsPreview } from "@/components/marketing/SignalsPreview";
 import { FAQ } from "@/components/marketing/FAQ";
 import { FinalCTA } from "@/components/marketing/FinalCTA";
 import type { Locale } from "@/i18n/routing";
-import {
-  getLocaleAlternates,
-  getLocalizedPath,
-} from "@/i18n/pathnames";
+import { getLocaleAlternates, getLocalizedPath } from "@/i18n/pathnames";
 
 // Main marketing landing · mapsly.ai/
 // Public, anonymous. Static under cacheComponents PPR — the only thing
@@ -37,7 +34,6 @@ import {
 // inline. FAQPage schema lives in the FAQ component.
 
 const CANONICAL_ORIGIN = "https://mapsly.ai";
-
 
 export async function generateMetadata({
   params,
