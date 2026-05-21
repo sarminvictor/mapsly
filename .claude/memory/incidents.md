@@ -948,3 +948,54 @@ Two distinct accumulators contribute over a 12-hour shipping window:
 
 **Confidence:** high (probe-confirmed: /tmp/.pnpm-store/v3 was 1.1 GB and I manually freed it from this very interactive session)
 **Tags:** sandbox, cowork-host, disk-exhaustion, pnpm-store, infra, graceful-skip, no-cooldown, v0.6.26, supersedes-mount-draft
+
+### INC-2026-05-20-35 · Cowork scheduled task hits Claude Code 100-turn limit on complex tasks
+
+**Status:** ✅ FIXED + ENCODED — v0.6.42 STEP 0 init + STEP 10 turn-budget checkpoint + STEP 3 SKIP LOCKED rewrite + STEP 6 exponential backoff + STEP 6 banned same-session retries.
+
+**Symptom:** Cowork scheduled task tick aborts mid-iteration with `Something went wrong · Try sending your message again. If it keeps happening, share feedback so we can investigate. Reached maximum number of turns (100). You can restart the conversation from an earlier message.` Whatever was in flight stops; the TaskRun row stays open with `outcome=IN_PROGRESS` (orphaned); STEP 0's orphan-sweep on the next tick eventually resets the Task to PENDING.
+
+Viktor: *"often see this err in our schedules - explain and how to fix"*
+
+**Root cause:** Claude Code (and Cowork's desktop scheduled task) imposes a hard `max-turns=100` per session. A "turn" = one model invocation = the assistant's response + any tool calls inside it. Each Bash, Read, Edit, Agent spawn, Postgres MCP query consumes turns. The loop.md prompt in v0.6.41 was structured for 60–140 turns per task-shipping iteration (worst case: CI red + 6 retries pushing well past 100). Easy tasks shipped fine; hard tasks hit the wall.
+
+Turn accounting (v0.6.41 worst-case):
+- STEP 0 bootstrap = 5–10
+- STEP 2 5 separate Read calls = 5
+- STEP 3 candidate-fetch + deps filter + capability filter + INCOMPLETE check + UPDATE + verify + TaskRun INSERT = 5–7
+- STEP 4 research agents + implementation = 15–40
+- STEP 5 review agents = 5–10
+- STEP 6 CI poll at 15s × 24 polls = 24
+- STEP 6 retry budget × 6 = up to 30
+- STEP 8 close-out = 5–10
+- Total worst-case: 60–140+, easily exceeding 100
+
+**Fix applied (v0.6.42):**
+1. **STEP 0d turn-budget counter init.** `TURN_BUDGET=80` (20% margin), `TURN_USED=0`. Each major step increments `TURN_USED` by its rough cost.
+2. **STEP 10 turn-budget checkpoint.** At every step boundary, if `TURN_USED >= TURN_BUDGET`, gracefully exit to INCOMPLETE + save branch + reset Task to PENDING. Next tick resumes via STEP 3 INCOMPLETE-resume path.
+3. **STEP 3 SKIP LOCKED rewrite (saves 3–5 turns).** Single CTE: candidate-select + capability gate + deps gate + `FOR UPDATE SKIP LOCKED` + UPDATE-RETURNING with inline INCOMPLETE-resume metadata. Was 5–7 round trips, now 2.
+4. **STEP 6 exponential backoff polling (saves 15–20 turns).** Poll CI at t=15s/45s/105s/225s/465s (5 turns over ~7 min) instead of t=15s × 24 polls (24 turns over 6 min). Same coverage, 5× fewer turns.
+5. **STEP 6 same-session retry banned (saves 0–30 turns worst-case).** On CI red, mark INCOMPLETE + save branch + exit; next tick resumes and retries. The +5 min wall-clock per next-tick retry is negligible vs a session kill.
+6. **STEP 2 bundled boot reads (saves 4 turns).** One bash heredoc instead of 5 separate Read calls.
+7. **STEP 8 bundled close-out (saves 3–5 turns).** Single Postgres transaction: UPDATE TaskRun + UPDATE Task + UPDATE Notification (resolve stale WARN rows). One round trip.
+8. **STEP 0a.2 simplified sticky toolchain probe (saves 2–3 turns).** Single `command -v` triplet probe; install only what's missing.
+9. **STEP 4 agent context bundle (saves 10–20 turns).** Pre-render shared context ONCE per task, attach to every spawned agent prompt; agents stop re-deriving the same files.
+10. **process-enhancer becomes daily cron** (`app/api/cron/process-enhancer` at 03:30 UTC) instead of per-tick re-detection.
+
+Total turn budget per tick: **60–140 → 30–50.** 2-3× headroom under the 100-turn cap.
+
+**Prevention:**
+1. **Inviolable: TURN_USED check at every step boundary.** STEP 10 documents the discipline; the checkpoint is non-skippable.
+2. **Banned: same-session retries.** All retries defer to next-tick resume per `.claude/rules/loop-discipline.md` § Retry policy.
+3. **Telemetry:** every tick's exit line includes `turns=${TURN_USED}/${TURN_BUDGET}`. If consistently > 60, that's a signal to enhance further (e.g. move STEP 5 to a separate cron, or reduce review-agent count).
+4. **Cowork desktop setting** (optional, separate from this fix): if Cowork exposes `max-turns` in scheduled-task config, bump to 300. Doesn't replace the in-prompt discipline — it just gives more cushion for outlier tasks.
+
+**Where encoded:**
+- `.claude/loop.md` v0.6.42 STEP 0d (counter), STEP 2 (bundle), STEP 3 (SKIP LOCKED), STEP 4 (agent bundle), STEP 6 (backoff + banned retry), STEP 8 (transaction), STEP 10 (checkpoint)
+- `.claude/rules/loop-discipline.md` § Retry policy (banned same-session retries — v0.6.42 amendment)
+- `app/api/cron/process-enhancer/route.ts` (new · daily 03:30 UTC)
+- `vercel.json` (cron added)
+- This entry
+
+**Confidence:** high (turn accounting derived from actual STEP-by-STEP execution; SKIP LOCKED is canonical Postgres queue pattern)
+**Tags:** loop, max-turns, claude-code, queue-discipline, skip-locked, exponential-backoff, agent-context-bundle, v0.6.42

@@ -1,4 +1,4 @@
-# Mapsly autonomous build loop · v0.6.26 strict per-iteration prompt
+# Mapsly autonomous build loop · v0.6.42 strict per-iteration prompt
 
 Read by Claude Code's Desktop Scheduled Task → fires every 5 min → executes this file as the prompt for one iteration. Each iteration ships AT MOST one task end-to-end (claim → implement → review → score → auto-merge OR hold) OR exits cleanly with one-line status.
 
@@ -146,25 +146,27 @@ else
 fi
 
 # 0c · Capability flags (advisory only — never halt the loop).
-# In sandbox, /tmp has unlink but limited disk (~1 GB free). pnpm install for
-# this project is ~600 MB — too big to install reliably in every tick. So:
-# CAN_PNPM_INSTALL=0 in sandbox unless we add a tar-archive caching strategy.
-# CAN_DEPLOY_CHECK=0 because deploy-check needs pnpm install + next build.
-# Code-ship tasks defer compile/lint/build/test to Vercel CI on push.
 if [ "$IS_SANDBOX" = "1" ]; then
-  CAN_UNLINK=1                # /tmp unlink works
-  CAN_PNPM_INSTALL=0          # /tmp is too small for full install
-  CAN_DEPLOY_CHECK=0          # deferred to Vercel CI
-  CAN_VERCEL_CI=1             # CI is the validator
+  CAN_UNLINK=1 CAN_PNPM_INSTALL=0 CAN_DEPLOY_CHECK=0 CAN_VERCEL_CI=1
 else
-  CAN_UNLINK=1
-  CAN_PNPM_INSTALL=1
-  CAN_DEPLOY_CHECK=1
-  CAN_VERCEL_CI=1
+  CAN_UNLINK=1 CAN_PNPM_INSTALL=1 CAN_DEPLOY_CHECK=1 CAN_VERCEL_CI=1
 fi
 CAN_GIT_PUSH=1
 echo "[step-0] capabilities: UNLINK=$CAN_UNLINK PNPM_INSTALL=$CAN_PNPM_INSTALL DEPLOY_CHECK=$CAN_DEPLOY_CHECK"
+
+# 0d · Turn-budget counter (v0.6.42 · INC-35).
+# Claude Code (and the Cowork desktop scheduled task) imposes a max-turns
+# safety limit per session — default 100. Each step boundary stamps
+# TURN_USED and the agent compares against TURN_BUDGET=80 (20% safety margin).
+# At or above 80, the agent gracefully exits to INCOMPLETE for resume next tick.
+# This prevents orphaned TaskRun rows from mid-iteration "Reached maximum
+# number of turns (100)" kills.
+TURN_BUDGET=80
+TURN_USED=0
+echo "[step-0] turn budget: $TURN_USED / $TURN_BUDGET (max-turns=100 with 20% margin)"
 ```
+
+**Sticky toolchain detection (v0.6.42 simplification):** replace the 3 separate `if !` blocks with one shared probe. If `node`, `pnpm`, and `gh` are all already on PATH (`command -v` exits 0 for each), skip installs entirely. Otherwise install each missing tool to its canonical sticky path (`/tmp/node24`, `/tmp/npm-global`). One probe replaces three.
 
 **Orphan IN_PROGRESS sweep** — recover from any prior iteration that closed without resetting Task.status. Run this AFTER bootstrap so DATABASE_URL is loaded:
 
@@ -211,63 +213,102 @@ No dashboard Notification is written for capability gaps; the dashboard reads th
 
 ---
 
-## STEP 2 · Mandatory boot reads
+## STEP 2 · Bundled boot reads (v0.6.42 optimization)
 
-Per `.claude/rules/incident-prevention.md`, read these files first. Skipping any = defect:
+Per `.claude/rules/incident-prevention.md`, the loop must boot with full context of incidents + project rules + plan. Prior versions used 5 separate `Read` tool calls (5 turns). v0.6.42 bundles all five files into ONE bash call:
 
-1. `.claude/memory/incidents.md` (full file) — apply every documented prevention rule below
-2. `CLAUDE.md` — project context, audience rules, hard reminders
-3. `PLAN.md` — phase context
-4. `.claude/memory/MEMORY.md` — Viktor's preferences
-5. `.claude/rules/cache-components.md` — **MANDATORY** if the task touches a Next.js page, route, or `'use cache'` query. The 5 patterns documented there will save you 4-7 round-trip fix commits.
+```bash
+{
+  echo "===== incidents.md ====="
+  cat .claude/memory/incidents.md
+  echo "===== CLAUDE.md ====="
+  cat CLAUDE.md
+  echo "===== PLAN.md ====="
+  cat PLAN.md 2>/dev/null || echo "(no PLAN.md)"
+  echo "===== MEMORY.md ====="
+  cat .claude/memory/MEMORY.md 2>/dev/null || echo "(no MEMORY.md)"
+  echo "===== cache-components.md ====="
+  cat .claude/rules/cache-components.md 2>/dev/null || echo "(no cache-components.md)"
+} | head -c 200000   # truncate to ~200 KB if any file blew up
+```
+
+One turn. Five files. Parse the section headers (`===== filename =====`) to identify boundaries. **TURN_USED=$((TURN_USED + 1))** after this step.
+
+Skip this step's bundle if the agent has high confidence the files haven't changed since a prior recent tick in the same session (rare for /tmp clones that are fresh per tick, but applies if the loop runs locally on Mac via `/loop`).
 
 Cache these mentally for this iteration. Do not re-read mid-iteration.
 
 ---
 
-## STEP 3 · Claim the next task atomically
+## STEP 3 · Atomic SKIP LOCKED claim (v0.6.42 rewrite)
 
-Query Postgres (DATABASE_URL from `.env.local`):
+Prior versions did 5–7 round trips (candidate fetch → in-process deps filter → in-process capability filter → INCOMPLETE lookup → UPDATE → verify rowsAffected → TaskRun INSERT). v0.6.42 collapses this to **2 round trips** using the canonical Postgres queue pattern `FOR UPDATE SKIP LOCKED` + UPDATE-RETURNING. The CTE also embeds deps + capability filters in SQL.
 
-```sql
-SELECT t.id, t.title, t.priority, t.deps, t."parallelLane", g."name" AS group_name
-FROM "Task" t
-JOIN "TaskGroup" g ON g.id = t."groupId"
-WHERE t.status = 'PENDING'
-  AND (t.tags IS NULL OR t.tags NOT LIKE '%human-required%')
-ORDER BY t.priority NULLS LAST, g."sortOrder", t."sortOrder", t.id
-LIMIT 20;
+**Build the capabilities array** for the claim query (one-line shell):
+
+```bash
+CAPS=()
+[ "$CAN_PNPM_INSTALL" = "1" ] && CAPS+=("requires:pnpm-install")
+[ "$CAN_DEPLOY_CHECK" = "1" ] && CAPS+=("requires:deploy-check")
+[ "$CAN_VERCEL_CI"    = "1" ] && CAPS+=("requires:vercel-ci")
+# Pass to psql as a Postgres TEXT[] literal: '{requires:pnpm-install,requires:deploy-check,...}'
+CAPS_LITERAL="{$(IFS=,; echo "${CAPS[*]}")}"
 ```
 
-Filter for deps-satisfied (all comma-separated `deps` must be DONE).
-
-**Then filter by current capabilities** per `.claude/rules/capability-routing.md`:
-
-- If `CAN_PNPM_INSTALL=0` (Cowork sandbox), exclude any Task whose `tags` contains `requires:pnpm-install` OR `requires:deploy-check`.
-- If `CAN_DEPLOY_CHECK=0`, exclude tasks that would need `pnpm typecheck/lint/build` to validate. Code-ship tasks typically need this; pure docs/memory/research tasks do not.
-- Tasks with NO `requires:*` tag are treated as env-agnostic (Read/Write/Edit/Bash/Postgres/Agent calls only) and always eligible.
-
-If the eligible queue is empty AFTER capability filtering → exit ≤1 line: `no eligible tasks for current capabilities (CAN_UNLINK={0|1}), idle`. **No cooldown.** The next tick re-probes; a `/loop` tick on the real Mac will see CAN_UNLINK=1 and pick up the same task.
-
-If the eligible queue is empty for DEPENDENCY reasons (everything blocked on incomplete predecessors) → exit ≤1 line: `no eligible tasks, queue empty`. **No cooldown.**
-
-**Before claiming**: look for prior INCOMPLETE TaskRun on this task with a `branchName`. If found, this iteration RESUMES that branch (`git checkout branchName`), not start fresh.
-
-Atomic claim:
+**Round 1 · single-statement claim** (deps + capability filter + lock + UPDATE + return INCOMPLETE-resume metadata):
 
 ```sql
-UPDATE "Task" SET status='IN_PROGRESS', "startedAt"=now(), "lastSessionId"='{sessionId}'
-WHERE id='{taskId}' AND status='PENDING';
+WITH eligible AS (
+  SELECT t.id
+  FROM "Task" t
+  JOIN "TaskGroup" g ON g.id = t."groupId"
+  WHERE t.status = 'PENDING'
+    AND (t.tags IS NULL OR t.tags NOT LIKE '%human-required%')
+    -- Capability gate: skip tasks needing a capability we lack.
+    -- Each `requires:*` tag in a task's tags must be in $1 (CAPS_LITERAL).
+    AND (t.tags IS NULL OR NOT EXISTS (
+      SELECT 1 FROM regexp_split_to_table(t.tags, ',') tag
+      WHERE trim(tag) LIKE 'requires:%'
+        AND NOT (trim(tag) = ANY($1::text[]))
+    ))
+    -- Deps gate: every comma-separated dep must be Status=DONE.
+    AND (t.deps IS NULL OR t.deps = '' OR NOT EXISTS (
+      SELECT 1 FROM regexp_split_to_table(t.deps, ',') dep_id
+      LEFT JOIN "Task" td ON td.id = trim(dep_id)
+      WHERE td.status IS DISTINCT FROM 'DONE'
+    ))
+  ORDER BY t.priority NULLS LAST, g."sortOrder", t."sortOrder", t.id
+  LIMIT 1
+  FOR UPDATE OF t SKIP LOCKED   -- concurrent-safe; SQL-guaranteed atomicity
+)
+UPDATE "Task" t
+SET status='IN_PROGRESS', "startedAt"=now(), "lastSessionId"=$2
+FROM eligible
+WHERE t.id = eligible.id
+RETURNING
+  t.id, t.title, t.priority, t.tags, t.deps, t."parallelLane",
+  -- INCOMPLETE-resume metadata fetched inline in same statement
+  (SELECT json_build_object('runId', r.id, 'branchName', r."branchName")
+   FROM "TaskRun" r
+   WHERE r."taskId" = t.id AND r.outcome = 'INCOMPLETE'
+   ORDER BY r."startedAt" DESC LIMIT 1) AS resume;
 ```
 
-Verify `rowsAffected == 1`. If 0, race — try next eligible.
+Returns:
+- 0 rows → queue empty for current capabilities → exit ≤1 line: `no eligible tasks (caps=${CAPS_LITERAL}), idle`. **No cooldown.**
+- 1 row with `resume = null` → fresh task; checkout a new branch `auto/YYYY-MM-DD-{taskId}-{n}`.
+- 1 row with `resume = {runId, branchName}` → resume the prior incomplete run; `git checkout $branchName`.
 
-Open a fresh TaskRun row (or update the INCOMPLETE one if resuming):
+**Round 2 · open TaskRun:**
 
 ```sql
 INSERT INTO "TaskRun" (id, "taskId", "sessionId", outcome, "startedAt", "resumedFromRunId", "branchName")
-VALUES ('{newId}', '{taskId}', '{sessionId}', 'IN_PROGRESS', now(), {priorRunId or NULL}, {priorBranch or NULL});
+VALUES ($1, $2, $3, 'IN_PROGRESS', now(), $4, $5);
 ```
+
+**Total: 2 turns** for full STEP 3 (was 5–7 turns). Postgres handles concurrent claim safety via row locks; no app-level retry needed. `TURN_USED=$((TURN_USED + 2))`.
+
+If TURN_USED > TURN_BUDGET at this point → graceful exit (see STEP 10 cooldown discipline). Should never happen unless STEP 0 was unusually expensive.
 
 ---
 
@@ -275,11 +316,35 @@ VALUES ('{newId}', '{taskId}', '{sessionId}', 'IN_PROGRESS', now(), {priorRunId 
 
 Read `.claude/skills/autonomous-build-loop/SKILL.md` and follow its phases:
 
-1. **Research phase** — spawn parallel research agents IN ONE message (Promise.allSettled). Use the orchestrator pattern from CLAUDE.md. Cap = 6 concurrent per `.claude/rules/agent-orchestration.md`. Agents to consider: `competitive-researcher`, `db-analyst`, `integration-specialist`, `signal-engineer`, `Explore`. Skip research for S-size tasks.
+1. **Research phase** — spawn parallel research agents IN ONE message (`Promise.allSettled`). Cap = 6 concurrent per `.claude/rules/agent-orchestration.md`. Skip research entirely for S-size tasks.
+
+   **v0.6.42 · agent context bundle.** Pre-render a shared context bundle ONCE, attach to every spawned agent's prompt as a single block. Prevents each agent from re-deriving the same context:
+
+   ```
+   <context-bundle>
+   ## Task
+   {Task.id} · {Task.title} · {effort} · {priority}
+   {Task.description}
+
+   ## Phase context (from PLAN.md)
+   {extracted phase header + adjacent tasks}
+
+   ## Relevant recent incidents
+   {INC- entries from incidents.md tagged with task's domain — auto-filtered}
+
+   ## Rule files this task likely touches
+   {grep -l "{Task.domain keyword}" .claude/rules/ — auto-discovered}
+   </context-bundle>
+   ```
+
+   Each agent gets `<context-bundle>` + its specific mission. Saves 10–20 turns per task vs each agent's prompt independently fetching the same files.
+
 2. **Implement phase** — edit files. Honor every rule in `.claude/rules/`.
 3. **Review phase** — see STEP 5 below.
 
 Branch naming: `auto/YYYY-MM-DD-{taskId}-{n}` per `git-discipline.md`. Author: `Viktor <sarminvictor@gmail.com>`. Conventional commits.
+
+`TURN_USED=$((TURN_USED + N))` where N = number of agents spawned + edits.
 
 ---
 
@@ -332,10 +397,29 @@ If a mode genuinely cannot run (no UI changes → skip browser; no DB writes →
 
 2. **Unit + integration tests** · run `pnpm test:run` locally. If any pre-existing test fails, fix before proceeding.
 3. **Push branch + open PR** if not already done.
-4. **Wait for CI + Vercel preview URL** · poll `gh pr view {n} --json statusCheckRollup,deployments` every 15s.
-   - If `CAN_DEPLOY_CHECK=0` (Cowork): wait up to 6 min for CI to finish (typecheck/lint/build/tests). Read each check's conclusion. If any check FAILED, read its log via `gh run view`, fix the issue in the working copy, push, and retry (counts against STEP 7 retry budget of 6).
-   - Vercel posts a preview comment with `https://*.vercel.app` URL within ~60s of push. THIS is the URL for browser/Lighthouse validation.
-   - If CI passes but Vercel preview status is "Building" — wait up to 4 more min for deploy.
+4. **Wait for CI + Vercel preview URL · exponential backoff polling (v0.6.42).** Prior versions polled `gh pr view {n}` every 15s for up to 24 polls (= 24 turns burned on waiting). v0.6.42 uses exponential backoff: poll at t=15s, t=45s, t=105s, t=225s, t=465s (5 polls, ~7 min total budget, 5 turns).
+
+   ```bash
+   for delay in 15 30 60 120 240; do
+     sleep $delay
+     STATUS=$(gh pr view $PR --json statusCheckRollup --jq '.statusCheckRollup | map(.conclusion)' 2>&1)
+     case "$STATUS" in
+       *FAILURE*|*TIMED_OUT*|*CANCELLED*) echo "ci_failed"; break ;;
+       *SUCCESS*) [[ "$STATUS" != *PENDING* && "$STATUS" != *null* ]] && echo "ci_green"; break ;;
+     esac
+   done
+   ```
+
+   On `ci_failed`: **DO NOT retry in this iteration** (v0.6.42 change). Instead:
+   1. Mark TaskRun `outcome=INCOMPLETE`, save `branchName` and a brief reason.
+   2. Add a comment to the PR with the failing check log link (so next tick has context).
+   3. Reset Task back to `PENDING` (so STEP 3 re-claims it next tick).
+   4. Exit ≤1 line: `CI red on attempt 1 · saved INCOMPLETE for next-tick resume · PR=$PR`.
+   5. The next iteration's STEP 3 will see the INCOMPLETE TaskRun, resume the branch, read the PR comment for context, and push fixes.
+
+   This is the canonical queue-worker retry pattern (per `.claude/rules/loop-discipline.md` § Retry policy and INC-35). Same-session retries burn turns and risk hitting the 100-turn cap mid-fix. Across-tick retries cost +5 min wall-clock per attempt, which is negligible compared to a session kill.
+
+   Vercel posts a preview comment with `https://*.vercel.app` URL within ~60s of push. THIS is the URL for browser/Lighthouse validation in steps 5–7 below. If the preview is still `Building` after 4 min, the same INCOMPLETE-and-resume pattern applies.
 5. **Browser validation** via Claude in Chrome MCP against the preview URL:
    - Navigate, screenshot, assert key content, click interactive elements
    - For auth tasks: full magic-link flow including the Gmail tab check (see test-scenarios.md Scenario A)
@@ -402,7 +486,7 @@ If `canAutoMerge`:
 
 If gate fails:
 
-- **CI red or deploy-check fail** → loop attempts repair IN THIS ITERATION: read failing logs, push fix commits, re-run CI. Repeat up to **6 times** (cacheComponents/prerender errors cascade — one fix often surfaces the next layer; do not give up after 3). If still red after 6 → mark TaskRun `INCOMPLETE`, save `branchName`, next iteration resumes the same branch and continues fixing. Record each attempt's failure mode in `TaskRun.errorMessage` so the resume iteration doesn't re-try the same dead-end.
+- **CI red or deploy-check fail** → loop attempts repair IN THIS ITERATION: read failing logs, push fix commits, re-run CI. **Same-session retries banned in v0.6.42** (see INC-35). On CI red, mark INCOMPLETE + save branch + exit; the next iteration resumes via STEP 3 INCOMPLETE-resume path and continues fixing across-tick. If red on attempt 1 → mark TaskRun `INCOMPLETE` (v0.6.42: same-session retries are banned, see INC-35), save `branchName`, next iteration resumes the same branch and continues fixing. Record each attempt's failure mode in `TaskRun.errorMessage` so the resume iteration doesn't re-try the same dead-end.
 - **Reviewer hard-reject** (security-auditor / payments-auditor veto only) → label PR `needs-review`, write reviewer's reasoning to TaskRun.notes, do NOT merge. Task.status stays IN_PROGRESS so the next iteration can fix.
 - **`human-required` tag on Task** → label PR `needs-review`, do NOT merge. This is the ONLY routine `needs-review` case (e.g. payments cutover, major schema migration that needs manual confirm).
 
@@ -431,31 +515,52 @@ Update TaskRun:
 
 Update parent Task: `lastRunOutcome` = TaskRun.outcome.
 
-**Resolve stale dashboard Notifications on SUCCESS.** If TaskRun.outcome = SUCCESS, mark any unresolved WARN-level Notification about loop-stall as RESOLVED. The schema has a `resolvedAt: DateTime?` column; setting it to now() takes the row out of the active-blockers query. SQL:
+**Close-out as a single transaction (v0.6.42 optimization).** Bundle the TaskRun update, Task update, stale-Notification resolve, and an audit row into ONE round trip:
 
 ```sql
+BEGIN;
+
+UPDATE "TaskRun"
+SET outcome = $1, "finishedAt" = now(),
+    "commitSha" = $2, "prNumber" = $3, "prUrl" = $4, "branchName" = $5,
+    "filesChanged" = $6, "linesAdded" = $7, "linesDeleted" = $8, "testsAdded" = $9,
+    "scoreAggregate" = $10, "scoreCompletion" = $11, "scoreQuality" = $12,
+    "scoreAudience" = $13, "scoreRelevance" = $14, "scorePerformance" = $15,
+    "agentsUsed" = $16, "validationStrategy" = $17, "validationOutcomes" = $18,
+    "tokensInput" = $19, "tokensOutput" = $20, "costUsd" = $21, "durationSec" = $22
+WHERE id = $23;
+
+UPDATE "Task"
+SET status = CASE WHEN $1 = 'SUCCESS' THEN 'DONE' ELSE status END,
+    "completedAt" = CASE WHEN $1 = 'SUCCESS' THEN now() ELSE "completedAt" END,
+    "lastRunOutcome" = $1,
+    "lastPrNumber" = $3, "lastPrUrl" = $4, "lastCommitSha" = $2,
+    "scoreAvg" = $10,
+    "failureCount" = CASE WHEN $1 = 'FAILED' THEN "failureCount" + 1 ELSE "failureCount" END
+WHERE id = $24;
+
+-- Resolve stale dashboard Notifications on SUCCESS
 UPDATE "Notification"
 SET "resolvedAt" = now()
-WHERE "resolvedAt" IS NULL
+WHERE $1 = 'SUCCESS'
+  AND "resolvedAt" IS NULL
   AND level = 'WARN'
-  AND (
-    title ILIKE '%loop stalled%'
-    OR title ILIKE '%switch to /loop%'
-    OR title ILIKE '%cowork sandbox cannot install%'
-    OR title ILIKE '%fuse wall%'
-    OR title ILIKE '%loop in degraded mode%'
-  );
+  AND (title ILIKE '%loop stalled%'
+       OR title ILIKE '%switch to /loop%'
+       OR title ILIKE '%cowork sandbox cannot install%'
+       OR title ILIKE '%fuse wall%'
+       OR title ILIKE '%loop in degraded mode%');
+
+COMMIT;
 ```
 
-This prevents the dashboard's Blockers card from showing v0.6.4-era misleading entries. Runs only on SUCCESS — on INCOMPLETE/FAILED we keep the warning visible.
+One transaction, one round trip. Was 3–4 separate UPDATEs in prior versions.
 
-Append ONE LINE to `.claude/memory/build-log.md`:
+Then ONE bash call to:
+1. Append to `.claude/memory/build-log.md` (`echo ">> SES-... · taskId · outcome ..." >> file`)
+2. Stamp `.claude/memory/loop-lock.json` (write JSON via cat heredoc)
 
-```
-SES-{date}-{slot} · {taskId} · {outcome} · score {agg}/10 · {linesAdded}+/{linesDeleted}- · {ci|no-ci} · {merge|hold}
-```
-
-Stamp `loop-lock.lastTickAt` again.
+`TURN_USED=$((TURN_USED + 2))` (SQL transaction + bash bundle).
 
 ---
 
@@ -471,7 +576,19 @@ If during execution you detect approaching usage limit (warning in output, `usag
 
 ---
 
-## STEP 10 · Discipline · cooldown only on real failures
+## STEP 10 · Discipline · turn budget + cooldown only on real failures
+
+**Turn-budget checkpoint (v0.6.42 · INC-35):** At every step boundary (after STEPs 0, 2, 3, 4, 5, 6, 7), the agent compares `TURN_USED` against `TURN_BUDGET` (default 80, with 20% margin against the 100-turn cap).
+
+If `TURN_USED >= TURN_BUDGET`:
+1. Stop new work. Do NOT spawn additional agents, do NOT poll CI further.
+2. Mark TaskRun `outcome=INCOMPLETE` with `branchName` preserved + `notes` capturing where we paused.
+3. Reset Task back to `PENDING`.
+4. Append `SES-{date}-{slot} · {taskId} · INCOMPLETE · turn-budget-exhausted · resumed-on-next-tick` to build-log.md.
+5. Stamp loop-lock + exit ≤1 line: `turn budget exhausted at step N (used=${TURN_USED}/${TURN_BUDGET}) · INCOMPLETE · next tick resumes`.
+6. The next iteration's STEP 3 sees the INCOMPLETE TaskRun and resumes the branch.
+
+This prevents the "Reached maximum number of turns (100)" mid-iteration kills that orphan TaskRun rows. Per INC-35.
 
 **Cooldown is reserved for catastrophic / repeated failures, NEVER for capability gaps:**
 

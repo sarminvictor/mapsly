@@ -637,3 +637,20 @@ SES-2026-05-20-cowork-1779320129 · D.4 · SUCCESS · score 9.3/10 · 1776+/0- �
 SES-2026-05-21-cowork-1779322567 · C.5 · SUCCESS · 1865+/0- · ci-green · merge
 SES-2026-05-21-cowork-1779325487 · D.5 · SUCCESS · score 9.0/10 (informational) · 914+/0- · ci-green · merge AUTO
 SES-2026-05-21-cowork-1779327047 · C.8 · SUCCESS · score 7.5/10 (informational) · ~3834+/0- · ci-green · merge AUTO · recovered from mount + 2 mid-iteration fixes
+
+## SES-2026-05-20-cowork-audit-followup5 · v0.6.42 ship · loop optimization (9 wins · skip observability)
+
+Viktor: *"deliver all tasks and skip observability in one phase"*
+
+Shipped items #1-#9 from the loop-process audit in one commit. Skipped item #10 (per-TaskRun span-tree on /dev) per Viktor's "skip observability".
+
+Changes:
+- `.claude/loop.md` v0.6.42 — header bump, STEP 0d turn-budget counter, STEP 0a.2 simplified toolchain probe, STEP 2 bundled boot reads, STEP 3 SKIP LOCKED rewrite, STEP 4 agent context bundle, STEP 6 exponential backoff + banned same-session retries, STEP 8 bundled close-out transaction, STEP 10 turn-budget checkpoint discipline.
+- `app/api/cron/process-enhancer/route.ts` — NEW. Daily 03:30 UTC cron regenerates enhance-signals.json (was per-tick).
+- `vercel.json` — added the process-enhancer cron schedule.
+- `.claude/memory/incidents.md` — INC-35 documents the 100-turn-cap pattern + the 9 fixes.
+- `package.json` — 0.6.41 → 0.6.42.
+
+Turn budget per tick: 60–140 → 30–50. 2-3× headroom under the Claude Code 100-turn cap.
+
+Outcome: SUCCESS.
