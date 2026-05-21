@@ -163,9 +163,7 @@ export function formatReplyRateLine(
   if (communicationScore == null || !Number.isFinite(communicationScore)) {
     return "Reply rate —";
   }
-  const pct = Math.round(
-    Math.max(0, Math.min(1, communicationScore)) * 100,
-  );
+  const pct = Math.round(Math.max(0, Math.min(1, communicationScore)) * 100);
   return `Reply rate ${pct}%`;
 }
 
@@ -263,7 +261,11 @@ export function derivePitchWedges(
       headline: `Reply rate ${pct}% across recent reviews`,
       evidence: `Benchmark ~89% · low replies signal disengaged operator · easy win`,
     });
-  } else if (input.rating != null && input.rating < 4.0 && input.reviewCount > 5) {
+  } else if (
+    input.rating != null &&
+    input.rating < 4.0 &&
+    input.reviewCount > 5
+  ) {
     wedges.push({
       index: 2,
       headline: `Rating ${input.rating.toFixed(1)} with ${input.reviewCount} reviews`,
@@ -357,7 +359,8 @@ export function deriveFixes(input: DeriveFixesInputs): OnePagerFix[] {
   } else if (input.hasLocalBusinessSchema === false) {
     fixes.push({
       area: "Schema & SEO",
-      action: "Add LocalBusiness JSON-LD · enable rich results in Google search",
+      action:
+        "Add LocalBusiness JSON-LD · enable rich results in Google search",
     });
   } else {
     fixes.push({
@@ -367,10 +370,7 @@ export function deriveFixes(input: DeriveFixesInputs): OnePagerFix[] {
   }
 
   /* 2 · profile. */
-  if (
-    input.profileCompleteness != null &&
-    input.profileCompleteness < 0.85
-  ) {
+  if (input.profileCompleteness != null && input.profileCompleteness < 0.85) {
     const pct = Math.round(input.profileCompleteness * 100);
     fixes.push({
       area: "Profile completeness",
@@ -379,7 +379,8 @@ export function deriveFixes(input: DeriveFixesInputs): OnePagerFix[] {
   } else {
     fixes.push({
       area: "Profile completeness",
-      action: "Refresh photos quarterly · tune services + attributes for keyword match",
+      action:
+        "Refresh photos quarterly · tune services + attributes for keyword match",
     });
   }
 

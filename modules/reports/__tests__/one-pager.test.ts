@@ -325,17 +325,13 @@ describe("deriveFixes", () => {
   });
 
   test("fix #2 surfaces profile completeness when low", () => {
-    const fixes = deriveFixes(
-      buildFixesInputs({ profileCompleteness: 0.6 }),
-    );
+    const fixes = deriveFixes(buildFixesInputs({ profileCompleteness: 0.6 }));
     expect(fixes[1]!.area).toBe("Profile completeness");
     expect(fixes[1]!.action).toContain("60%");
   });
 
   test("fix #3 surfaces low reply rate first", () => {
-    const fixes = deriveFixes(
-      buildFixesInputs({ communicationScore: 0.1 }),
-    );
+    const fixes = deriveFixes(buildFixesInputs({ communicationScore: 0.1 }));
     expect(fixes[2]!.area).toBe("Review management");
     expect(fixes[2]!.action).toContain("10%");
   });

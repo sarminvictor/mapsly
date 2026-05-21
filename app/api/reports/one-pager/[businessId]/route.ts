@@ -44,6 +44,7 @@ import {
   type OnePagerData,
 } from "@/modules/reports/one-pager-data";
 import { OnePagerDocument } from "@/modules/reports/one-pager";
+import React from "react";
 
 // @react-pdf/renderer requires Node-only APIs. Turbopack defaults
 // to Node for route handlers; per `.claude/rules/conventions.md` we
@@ -82,10 +83,7 @@ export async function GET(
   // fall back to en-US.
   const url = new URL(req.url);
   const localeQuery = url.searchParams.get("locale");
-  const locale = pickLocale(
-    localeQuery,
-    req.headers.get("accept-language"),
-  );
+  const locale = pickLocale(localeQuery, req.headers.get("accept-language"));
 
   // ─── Domain ───────────────────────────────────────────────────────────
   let data: OnePagerData | null;
@@ -121,7 +119,9 @@ export async function GET(
   let pdfBuffer: Buffer;
   try {
     const { renderToBuffer } = await import("@react-pdf/renderer");
-    pdfBuffer = await renderToBuffer(<OnePagerDocument data={data} />);
+    pdfBuffer = await renderToBuffer(
+      React.createElement(OnePagerDocument, { data }),
+    );
   } catch (err) {
     console.error(
       JSON.stringify({
