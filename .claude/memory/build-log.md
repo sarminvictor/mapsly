@@ -783,3 +783,4 @@ SES-2026-05-21-cowork-1722 · F.4 · SUCCESS · score 7.5/10 · agency prospect 
 SES-2026-05-21-1832 · F.5 · SUCCESS · v0.7.22 · agency list analytics · /(agency)/list-analytics · PR #55 merged 61c7d79b4ab1 · 1762+/0- · ci-passed green · code-reviewer PASS · ux-reviewer-agency+copy-reviewer PASS · lighthouse informational fail (marketing root baseline) · 1 mechanical fix (prettier) + 1 react-hooks/immutability fix (ListFunnelRow reduce) · unblocks: signal correlation engine consumers
 
 SES-2026-05-21-cw-1779392061 · F.9 · SUCCESS · score TBD/10 · 1230+/57- · ci-green · merge d5633031 · v0.7.24
+SES-2026-05-21-cw-1779394124 · F.11 · SUCCESS · score 9.03/10 · 994+/6- · merged=8fcc1f8 · v0.7.25 · PR #59 · 4 fix commits (set-state-in-effect, TS2448 hoist, react-hooks/refs, en-CA sparse override)
