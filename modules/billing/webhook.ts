@@ -384,25 +384,23 @@ async function findTarget(
   audience: "smb" | "agency",
   input: FindTargetInput,
 ): Promise<{ id: string; stripeSubscriptionId: string | null } | null> {
-  // Preference: metadata-supplied id (trusted — set by our checkout creator).
-  const metaId =
-    audience === "agency"
-      ? input.metadata?.agencyId
-      : input.metadata?.userId;
-
-  if (metaId) {
-    if (audience === "agency") {
-      const a = await prisma.agency.findFirst({
-        where: { stripeSubscriptionId: input.subscriptionId ?? metaId },
-        select: { id: true, stripeSubscriptionId: true },
-      });
-      // Even if subscriptionId doesn't match, fall through to other lookups
-      // — but if it does, prefer it.
-      if (a) return a;
-    }
-  }
-
-  // Subscription id wins when present (most specific) — already UNIQUE.
+  // Subscription id wins when present (most specific) — already UNIQUE on
+  // both User and Agency. This is the canonical post-checkout lookup path.
+  //
+  // We do NOT look up by metadata.userId / metadata.agencyId, even though
+  // it might seem like the most trusted source. Reasoning:
+  //   - checkout.ts always writes `stripeCustomerId` to the User/Agency row
+  //     BEFORE creating the Stripe Checkout Session, so the customer-id
+  //     fallback below always succeeds for legitimately-originated subs.
+  //   - Trusting metadata-supplied ids would bypass that safety net and
+  //     write to whatever row id Stripe metadata says — including any
+  //     id an attacker could craft if they ever found a way to inject
+  //     metadata into a session creation. Better to require the customer
+  //     correspondence than to accept the claim.
+  //
+  // The `input.metadata` field is still part of the input contract so
+  // audit logs and telemetry can record what Stripe sent, even though it
+  // doesn't drive the lookup.
   if (input.subscriptionId) {
     const row =
       audience === "agency"

@@ -238,6 +238,31 @@ describe("handleStripeEvent · checkout.session.completed", () => {
     expect(ctx.userUpdates).toHaveLength(0);
     expect(ctx.agencyUpdates).toHaveLength(0);
   });
+
+  test("regression · metadata.agencyId alone does NOT match an unrelated agency (must require customer/subscription correspondence)", async () => {
+    // An agency exists in DB but its stripeCustomerId does NOT match the
+    // session.customer that arrived. Even if metadata.agencyId points at
+    // this row, we must NOT write to it — the customer correspondence is
+    // the safety net (see findTarget docstring).
+    const ctx = makePrisma({
+      agencies: [{ id: "a1", stripeCustomerId: "cus_OTHER_AGENCY", stripeSubscriptionId: null, plan: "SOLO" }],
+    });
+
+    const out = await handleStripeEvent(
+      checkoutCompleted({
+        customer: "cus_ATTACKER_CONTROLLED",
+        subscription: "sub_attacker_1",
+        metadata: { agencyId: "a1", plan: "agency_pro", audience: "agency" },
+      }),
+      ctx.seam,
+    );
+
+    expect(out.kind).toBe("skipped");
+    expect(ctx.agencyUpdates).toHaveLength(0);
+    // Verify the underlying agency was NOT touched
+    expect(ctx.agencies.get("a1")?.plan).toBe("SOLO");
+    expect(ctx.agencies.get("a1")?.stripeSubscriptionId).toBeNull();
+  });
 });
 
 // ─── customer.subscription.created / updated ────────────────────────────────
