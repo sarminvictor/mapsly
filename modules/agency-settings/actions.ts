@@ -24,7 +24,7 @@ import { revalidateTag } from "next/cache";
 import { cookies } from "next/headers";
 import { z } from "zod";
 
-import { auth } from "@/lib/auth";
+import { auth, signOut } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { redirect } from "@/i18n/navigation";
 import { routing } from "@/i18n/routing";
@@ -125,4 +125,14 @@ export async function setLocalePreference(formData: FormData) {
   revalidateTag(`agency-settings-${session.user.id}`, "minutes");
 
   redirect({ href: "/settings", locale: parsed.locale });
+}
+
+/**
+ * Sign-out — invalidates NextAuth JWT session + redirects to "/".
+ * Used by the Sign-out section's <form action={...}>; lets us avoid the
+ * `<a href="/api/auth/signout">` pattern that ESLint's
+ * `@next/next/no-html-link-for-pages` rule rejects.
+ */
+export async function signOutFromAgencySettings(): Promise<void> {
+  await signOut({ redirectTo: "/" });
 }

@@ -36,10 +36,11 @@ import { unauthorized } from "next/navigation";
 import { setRequestLocale, getTranslations } from "next-intl/server";
 
 import { auth } from "@/lib/auth";
-import { redirect } from "@/i18n/navigation";
+import { Link, redirect } from "@/i18n/navigation";
 import type { Locale } from "@/i18n/routing";
 
 import {
+  signOutFromAgencySettings,
   updateAgencyProfile,
   setLocalePreference,
 } from "@/modules/agency-settings/actions";
@@ -244,9 +245,9 @@ function PlanCard({
         </span>
         <span style={styles.planRowValue}>{planLabel}</span>
       </p>
-      <a href="/api/billing/checkout" style={styles.linkButton}>
+      <Link href="/settings/billing" style={styles.linkButton}>
         {t("sections.plan.upgrade")}
-      </a>
+      </Link>
     </SettingsSection>
   );
 }
@@ -337,9 +338,11 @@ function SignOutCard({
       headingId="agency-settings-signout-heading"
       heading={t("sections.signOut.heading")}
     >
-      <a href="/api/auth/signout" style={styles.dangerLink}>
-        {t("sections.signOut.cta")}
-      </a>
+      <form action={signOutFromAgencySettings}>
+        <button type="submit" style={styles.dangerLink}>
+          {t("sections.signOut.cta")}
+        </button>
+      </form>
     </SettingsSection>
   );
 }
@@ -398,7 +401,8 @@ function RolePill({
 
 function planLiteral(
   plan: AgencyPlanValue,
-  t: (key: string) => string,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _t: (key: string) => string,
 ): string {
   // Values come from messages/<locale>.json so they're translatable.
   if (plan === "SOLO") return "Solo · $49/mo";
