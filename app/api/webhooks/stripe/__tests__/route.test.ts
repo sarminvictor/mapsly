@@ -16,7 +16,8 @@ const stripeCalls = {
 vi.mock("@/lib/stripe", () => ({
   default: {
     webhooks: {
-      constructEvent: (...args: unknown[]) => stripeCalls.constructEvent(...args),
+      constructEvent: (...args: unknown[]) =>
+        stripeCalls.constructEvent(...args),
     },
   },
 }));
@@ -37,27 +38,60 @@ const db = {
 vi.mock("@/lib/prisma", () => ({
   default: {
     stripeWebhookEvent: {
-      create: vi.fn(async ({ data, select }: { data: { eventId: string; type: string }; select: { id: true } }) => {
-        if (Array.from(db.rows.values()).some((r) => r.eventId === data.eventId)) {
-          // Mimic Prisma's P2002 unique constraint error shape
-          const err = new Error("Unique constraint failed on the fields: (`eventId`)") as Error & { code?: string };
-          err.code = "P2002";
-          throw err;
-        }
-        const id = `whk_${db.rows.size + 1}`;
-        db.rows.set(id, { id, eventId: data.eventId, type: data.type, processedAt: null, error: null });
-        return select ? { id } : (db.rows.get(id) as unknown);
-      }),
-      update: vi.fn(async ({ where, data }: { where: { id: string }; data: { processedAt?: Date; error?: string | null } }) => {
-        const r = db.rows.get(where.id);
-        if (!r) throw new Error("row not found");
-        if (typeof data.processedAt !== "undefined") r.processedAt = data.processedAt;
-        if (typeof data.error !== "undefined") r.error = data.error;
-        return r as unknown;
-      }),
+      create: vi.fn(
+        async ({
+          data,
+          select,
+        }: {
+          data: { eventId: string; type: string };
+          select: { id: true };
+        }) => {
+          if (
+            Array.from(db.rows.values()).some((r) => r.eventId === data.eventId)
+          ) {
+            // Mimic Prisma's P2002 unique constraint error shape
+            const err = new Error(
+              "Unique constraint failed on the fields: (`eventId`)",
+            ) as Error & { code?: string };
+            err.code = "P2002";
+            throw err;
+          }
+          const id = `whk_${db.rows.size + 1}`;
+          db.rows.set(id, {
+            id,
+            eventId: data.eventId,
+            type: data.type,
+            processedAt: null,
+            error: null,
+          });
+          return select ? { id } : (db.rows.get(id) as unknown);
+        },
+      ),
+      update: vi.fn(
+        async ({
+          where,
+          data,
+        }: {
+          where: { id: string };
+          data: { processedAt?: Date; error?: string | null };
+        }) => {
+          const r = db.rows.get(where.id);
+          if (!r) throw new Error("row not found");
+          if (typeof data.processedAt !== "undefined")
+            r.processedAt = data.processedAt;
+          if (typeof data.error !== "undefined") r.error = data.error;
+          return r as unknown;
+        },
+      ),
     },
-    user: { findFirst: vi.fn(async () => null), update: vi.fn(async () => ({})) },
-    agency: { findFirst: vi.fn(async () => null), update: vi.fn(async () => ({})) },
+    user: {
+      findFirst: vi.fn(async () => null),
+      update: vi.fn(async () => ({})),
+    },
+    agency: {
+      findFirst: vi.fn(async () => null),
+      update: vi.fn(async () => ({})),
+    },
   },
 }));
 
@@ -68,7 +102,9 @@ vi.mock("@/lib/middleware/rate-limit", () => ({
 }));
 
 const ENV_KEYS = ["STRIPE_WEBHOOK_SECRET"] as const;
-const envSnapshot: Partial<Record<(typeof ENV_KEYS)[number], string | undefined>> = {};
+const envSnapshot: Partial<
+  Record<(typeof ENV_KEYS)[number], string | undefined>
+> = {};
 
 beforeEach(() => {
   for (const k of ENV_KEYS) envSnapshot[k] = process.env[k];
@@ -112,7 +148,16 @@ function stubEvent(eventId: string, type: string) {
     pending_webhooks: 0,
     request: { id: null, idempotency_key: null },
     object: "event",
-    data: { object: { id: "cs_unused", object: "checkout.session", mode: "payment", customer: null, subscription: null, metadata: {} } },
+    data: {
+      object: {
+        id: "cs_unused",
+        object: "checkout.session",
+        mode: "payment",
+        customer: null,
+        subscription: null,
+        metadata: {},
+      },
+    },
   };
 }
 
@@ -144,7 +189,9 @@ describe("POST /api/webhooks/stripe · signature verification", () => {
 
 describe("POST /api/webhooks/stripe · idempotency", () => {
   test("first delivery → 200 ok, second delivery (same eventId) → 200 duplicate", async () => {
-    stripeCalls.constructEvent.mockImplementation(() => stubEvent("evt_dup_1", "checkout.session.completed"));
+    stripeCalls.constructEvent.mockImplementation(() =>
+      stubEvent("evt_dup_1", "checkout.session.completed"),
+    );
 
     const r1 = await POST(req("{}", "t=12345,v1=abc"));
     const r2 = await POST(req("{}", "t=12345,v1=abc"));
@@ -162,7 +209,9 @@ describe("POST /api/webhooks/stripe · idempotency", () => {
 
 describe("POST /api/webhooks/stripe · happy path", () => {
   test("ok=true with handler outcome and stamps processedAt", async () => {
-    stripeCalls.constructEvent.mockImplementation(() => stubEvent("evt_ok_1", "charge.refunded"));
+    stripeCalls.constructEvent.mockImplementation(() =>
+      stubEvent("evt_ok_1", "charge.refunded"),
+    );
     const res = await POST(req("{}", "t=12345,v1=abc"));
     expect(res.status).toBe(200);
     const body = await res.json();

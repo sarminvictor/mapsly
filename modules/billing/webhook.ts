@@ -63,7 +63,12 @@ type AgencyPlan = "SOLO" | "GROWTH" | "AGENCY_PRO" | "BOUTIQUE";
 // ─── Public verdict shape ────────────────────────────────────────────────────
 
 export type WebhookOutcome =
-  | { kind: "handled"; event: string; targetType: "user" | "agency"; targetId: string }
+  | {
+      kind: "handled";
+      event: string;
+      targetType: "user" | "agency";
+      targetId: string;
+    }
   | { kind: "ignored"; event: string; reason: string }
   | { kind: "skipped"; event: string; reason: string };
 
@@ -77,7 +82,10 @@ export type WebhookOutcome =
 export interface PrismaSeam {
   user: {
     findFirst: (args: {
-      where: { stripeCustomerId?: string | null; stripeSubscriptionId?: string | null };
+      where: {
+        stripeCustomerId?: string | null;
+        stripeSubscriptionId?: string | null;
+      };
       select: { id: true; stripeSubscriptionId: true };
     }) => Promise<{ id: string; stripeSubscriptionId: string | null } | null>;
     update: (args: {
@@ -87,7 +95,10 @@ export interface PrismaSeam {
   };
   agency: {
     findFirst: (args: {
-      where: { stripeCustomerId?: string | null; stripeSubscriptionId?: string | null };
+      where: {
+        stripeCustomerId?: string | null;
+        stripeSubscriptionId?: string | null;
+      };
       select: { id: true; stripeSubscriptionId: true };
     }) => Promise<{ id: string; stripeSubscriptionId: string | null } | null>;
     update: (args: {
@@ -137,7 +148,11 @@ export async function handleStripeEvent(
       // Stripe sends many event types we don't care about (charges, refunds,
       // tax events, etc.). Returning 200 stops Stripe from retrying — the
       // route layer logs at info level for visibility.
-      return { kind: "ignored", event: event.type, reason: "unhandled_event_type" };
+      return {
+        kind: "ignored",
+        event: event.type,
+        reason: "unhandled_event_type",
+      };
   }
 }
 
@@ -149,21 +164,40 @@ async function handleCheckoutCompleted(
 ): Promise<WebhookOutcome> {
   const session = event.data.object as Stripe.Checkout.Session;
   if (session.mode !== "subscription") {
-    return { kind: "ignored", event: event.type, reason: `mode=${session.mode} (not subscription)` };
+    return {
+      kind: "ignored",
+      event: event.type,
+      reason: `mode=${session.mode} (not subscription)`,
+    };
   }
   const subscriptionId = asString(session.subscription);
   if (!subscriptionId) {
-    return { kind: "skipped", event: event.type, reason: "missing subscription id on session" };
+    return {
+      kind: "skipped",
+      event: event.type,
+      reason: "missing subscription id on session",
+    };
   }
-  const metadata = (session.metadata ?? {}) as Record<string, string | undefined>;
+  const metadata = (session.metadata ?? {}) as Record<
+    string,
+    string | undefined
+  >;
   const audience = metadata.audience as "smb" | "agency" | undefined;
   const plan = parsePlan(metadata.plan);
   if (!plan) {
-    return { kind: "skipped", event: event.type, reason: `unknown plan literal ${metadata.plan}` };
+    return {
+      kind: "skipped",
+      event: event.type,
+      reason: `unknown plan literal ${metadata.plan}`,
+    };
   }
   const customerId = asString(session.customer);
   if (!customerId) {
-    return { kind: "skipped", event: event.type, reason: "missing customer id on session" };
+    return {
+      kind: "skipped",
+      event: event.type,
+      reason: "missing customer id on session",
+    };
   }
 
   return upsertSubscriptionRow({
@@ -200,7 +234,8 @@ async function handleSubscriptionUpsert(
   return upsertSubscriptionRow({
     prisma,
     event: event.type,
-    audience: audienceMaybe ?? (plan ? inferAudience(plan) : undefined) ?? "smb",
+    audience:
+      audienceMaybe ?? (plan ? inferAudience(plan) : undefined) ?? "smb",
     customerId: asString(sub.customer) ?? "",
     subscriptionId: sub.id,
     metadata,
@@ -220,9 +255,16 @@ async function handleSubscriptionDeleted(
   const metadata = (sub.metadata ?? {}) as Record<string, string | undefined>;
   const audience = (metadata.audience as "smb" | "agency" | undefined) ?? "smb";
   const customerId = asString(sub.customer) ?? "";
-  const target = await findTarget(prisma, audience, { subscriptionId: sub.id, customerId });
+  const target = await findTarget(prisma, audience, {
+    subscriptionId: sub.id,
+    customerId,
+  });
   if (!target) {
-    return { kind: "skipped", event: event.type, reason: `no ${audience} matches subscription ${sub.id}` };
+    return {
+      kind: "skipped",
+      event: event.type,
+      reason: `no ${audience} matches subscription ${sub.id}`,
+    };
   }
 
   // Clear subscription state but leave `stripeCustomerId` set — the customer
@@ -253,7 +295,12 @@ async function handleSubscriptionDeleted(
       },
     });
   }
-  return { kind: "handled", event: event.type, targetType: audience === "agency" ? "agency" : "user", targetId: target.id };
+  return {
+    kind: "handled",
+    event: event.type,
+    targetType: audience === "agency" ? "agency" : "user",
+    targetId: target.id,
+  };
 }
 
 async function handleInvoicePaid(
@@ -263,9 +310,16 @@ async function handleInvoicePaid(
   const invoice = event.data.object as Stripe.Invoice;
   // Stripe Invoice in API 2024-12-18 carries `subscription` (id or expanded object)
   // and `lines.data[].period.end` for the renewal anchor.
-  const subscriptionId = asString((invoice as unknown as { subscription?: string | Stripe.Subscription }).subscription);
+  const subscriptionId = asString(
+    (invoice as unknown as { subscription?: string | Stripe.Subscription })
+      .subscription,
+  );
   if (!subscriptionId) {
-    return { kind: "ignored", event: event.type, reason: "invoice has no subscription (one-off)" };
+    return {
+      kind: "ignored",
+      event: event.type,
+      reason: "invoice has no subscription (one-off)",
+    };
   }
   const customerId = asString(invoice.customer) ?? "";
   // Prefer line-item period end (the renewal anchor) over invoice-level dates.
@@ -273,9 +327,16 @@ async function handleInvoicePaid(
   const periodEnd = lineEnd ? new Date(lineEnd * 1000) : null;
   const audience = inferAudienceFromInvoice(invoice);
 
-  const target = await findTarget(prisma, audience, { subscriptionId, customerId });
+  const target = await findTarget(prisma, audience, {
+    subscriptionId,
+    customerId,
+  });
   if (!target) {
-    return { kind: "skipped", event: event.type, reason: `no ${audience} matches subscription ${subscriptionId}` };
+    return {
+      kind: "skipped",
+      event: event.type,
+      reason: `no ${audience} matches subscription ${subscriptionId}`,
+    };
   }
   const update = {
     stripeStatus: "active",
@@ -286,7 +347,12 @@ async function handleInvoicePaid(
   } else {
     await prisma.user.update({ where: { id: target.id }, data: update });
   }
-  return { kind: "handled", event: event.type, targetType: audience === "agency" ? "agency" : "user", targetId: target.id };
+  return {
+    kind: "handled",
+    event: event.type,
+    targetType: audience === "agency" ? "agency" : "user",
+    targetId: target.id,
+  };
 }
 
 async function handleInvoicePaymentFailed(
@@ -294,15 +360,29 @@ async function handleInvoicePaymentFailed(
   prisma: PrismaSeam,
 ): Promise<WebhookOutcome> {
   const invoice = event.data.object as Stripe.Invoice;
-  const subscriptionId = asString((invoice as unknown as { subscription?: string | Stripe.Subscription }).subscription);
+  const subscriptionId = asString(
+    (invoice as unknown as { subscription?: string | Stripe.Subscription })
+      .subscription,
+  );
   if (!subscriptionId) {
-    return { kind: "ignored", event: event.type, reason: "invoice has no subscription" };
+    return {
+      kind: "ignored",
+      event: event.type,
+      reason: "invoice has no subscription",
+    };
   }
   const customerId = asString(invoice.customer) ?? "";
   const audience = inferAudienceFromInvoice(invoice);
-  const target = await findTarget(prisma, audience, { subscriptionId, customerId });
+  const target = await findTarget(prisma, audience, {
+    subscriptionId,
+    customerId,
+  });
   if (!target) {
-    return { kind: "skipped", event: event.type, reason: `no ${audience} matches subscription ${subscriptionId}` };
+    return {
+      kind: "skipped",
+      event: event.type,
+      reason: `no ${audience} matches subscription ${subscriptionId}`,
+    };
   }
   const update = { stripeStatus: "past_due" } as const;
   if (audience === "agency") {
@@ -310,7 +390,12 @@ async function handleInvoicePaymentFailed(
   } else {
     await prisma.user.update({ where: { id: target.id }, data: update });
   }
-  return { kind: "handled", event: event.type, targetType: audience === "agency" ? "agency" : "user", targetId: target.id };
+  return {
+    kind: "handled",
+    event: event.type,
+    targetType: audience === "agency" ? "agency" : "user",
+    targetId: target.id,
+  };
 }
 
 // ─── Shared upsert primitive ─────────────────────────────────────────────────
@@ -446,8 +531,11 @@ function inferAudience(plan: Plan): "smb" | "agency" {
 }
 
 function inferAudienceFromInvoice(invoice: Stripe.Invoice): "smb" | "agency" {
-  const subscriptionMeta = (invoice as unknown as { subscription_details?: { metadata?: Record<string, string> } })
-    .subscription_details?.metadata;
+  const subscriptionMeta = (
+    invoice as unknown as {
+      subscription_details?: { metadata?: Record<string, string> };
+    }
+  ).subscription_details?.metadata;
   const audience = subscriptionMeta?.audience;
   if (audience === "agency" || audience === "smb") return audience;
   // Best-effort fallback: check line item description for the plan name.
@@ -477,12 +565,15 @@ function subscriptionPeriodEnd(sub: Stripe.Subscription): Date | null {
   // exposes it at the top level for active subs and inside `items.data[]` —
   // we use the top-level field. Cast through unknown because Stripe's
   // generated types occasionally lag the live API.
-  const ts = (sub as unknown as { current_period_end?: number }).current_period_end;
+  const ts = (sub as unknown as { current_period_end?: number })
+    .current_period_end;
   if (typeof ts !== "number") return null;
   return new Date(ts * 1000);
 }
 
-function asString(value: string | { id: string } | null | undefined): string | undefined {
+function asString(
+  value: string | { id: string } | null | undefined,
+): string | undefined {
   if (!value) return undefined;
   return typeof value === "string" ? value : value.id;
 }
