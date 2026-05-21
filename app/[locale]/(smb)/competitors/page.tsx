@@ -323,10 +323,7 @@ async function CompetitorsBody({ params }: { params: Promise<PageParams> }) {
       </section>
 
       {/* Comparison list */}
-      <section
-        aria-labelledby="list-heading"
-        style={{ marginBottom: 24 }}
-      >
+      <section aria-labelledby="list-heading" style={{ marginBottom: 24 }}>
         <h2
           id="list-heading"
           style={{
@@ -364,22 +361,14 @@ async function CompetitorsBody({ params }: { params: Promise<PageParams> }) {
               <span style={{ width: 28, flexShrink: 0 }} aria-hidden>
                 #
               </span>
-              <span style={{ flex: 1, minWidth: 0 }}>
-                {t("col_business")}
-              </span>
-              <span
-                style={{ width: 64, textAlign: "right", flexShrink: 0 }}
-              >
+              <span style={{ flex: 1, minWidth: 0 }}>{t("col_business")}</span>
+              <span style={{ width: 64, textAlign: "right", flexShrink: 0 }}>
                 {t("col_rating")}
               </span>
-              <span
-                style={{ width: 56, textAlign: "right", flexShrink: 0 }}
-              >
+              <span style={{ width: 56, textAlign: "right", flexShrink: 0 }}>
                 {t("col_reviews")}
               </span>
-              <span
-                style={{ width: 56, textAlign: "right", flexShrink: 0 }}
-              >
+              <span style={{ width: 56, textAlign: "right", flexShrink: 0 }}>
                 {t("col_score")}
               </span>
             </div>

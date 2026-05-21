@@ -64,8 +64,7 @@ export function CompetitorRow({
   const dash = labels.noDataDash;
   const scoreText = mapslyScore != null ? mapslyScore.toFixed(1) : dash;
   const ratingText = rating != null ? rating.toFixed(1) : dash;
-  const reviewsText =
-    reviewCount != null ? String(reviewCount) : dash;
+  const reviewsText = reviewCount != null ? String(reviewCount) : dash;
 
   const ariaLabel = isOwn ? `${name} (${labels.youAriaSuffix})` : name;
 
