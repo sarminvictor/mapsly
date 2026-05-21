@@ -2,8 +2,8 @@
   "state": "idle",
   "sessionId": null,
   "startedAt": null,
-  "lastTickAt": "2026-05-21T03:44:46Z",
+  "lastTickAt": "2026-05-21T04:01:42Z",
   "cooldownUntil": null,
   "consecutiveFailures": 0,
-  "note": "SES-2026-05-21-cowork-1779332920 closed · B.5 INCOMPLETE · branch auto/2026-05-20-B.5-1 has 6 commits banked · test/integration/validate ✓ · build/lighthouse/bundle-check ✗ on Next 16 PPR E_BLOCKING_ROUTE at /[locale]/biz/[slug]. Cache-components.md Pattern 2 (Suspense wrap) + Pattern 5 (await connection()) BOTH applied; error persists. Likely the parent async [locale] or (marketing) layout's await params is the offending site — the next iteration should run 'next build --debug-prerender' locally to pinpoint it. Files: app/[locale]/(marketing)/biz/[slug]/page.tsx + not-found.tsx + modules/biz-profile/{types,queries,format,json-ld,index}.ts + 2 unit test files + app/sitemap.ts dynamic enumeration."
+  "note": "SES-2026-05-21-cowork-1779335186 closed · B.5 SUCCESS · resumed INCOMPLETE branch auto/2026-05-20-B.5-1, applied cacheComponents Pattern 2 to parent layouts (LocaleLayout + MarketingLayout) — sync shell + Suspense-wrapped async i18n providers/chrome — unblocking /[locale]/biz/[slug] PPR prerender. PR #36 squash-merged → 2951378 · v0.7.0 → v0.7.1. CI green (validate/test/integration/build/bundle-check/ci-passed SUCCESS · lighthouse pre-existing global failures). Layout fix is reusable for any future dynamic descendant of (marketing) group."
 }
