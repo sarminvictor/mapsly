@@ -30,8 +30,20 @@ model User {
 
   // Stripe billing — set on first checkout-session creation for SMB plans.
   // Agency plans bill against `Agency.stripeCustomerId`. See modules/billing.
-  stripeCustomerId     String? @unique
-  stripeSubscriptionId String?
+  //
+  // Subscription fields are written by the webhook handler (G.2). The
+  // `stripeSubscriptionId` is the active subscription's id; `stripePlan`
+  // is the plan literal from our registry (e.g. "smb_paid"); `stripeStatus`
+  // tracks Stripe's subscription.status verbatim ("active", "past_due",
+  // "canceled", etc.); `currentPeriodEnd` is the renewal anchor used for
+  // feature gating + grace-period logic.
+  stripeCustomerId        String?   @unique
+  stripeSubscriptionId    String?   @unique
+  stripePlan              String?   // plan literal from modules/billing/plans.ts
+  stripeStatus            String?   // Stripe subscription.status
+  stripePriceId           String?   // current Stripe price id
+  currentPeriodEnd        DateTime?
+  cancelAtPeriodEnd       Boolean   @default(false)
 
   accounts      Account[]
   sessions      Session[]
@@ -93,9 +105,22 @@ model Agency {
   defaultMetro String?
   categoriesServed String[] @default([])
 
+  // Plan tier — written by the webhook handler when an agency subscription
+  // becomes active (or upgrades / downgrades). Default SOLO covers the
+  // pre-billing free state too — feature gating consults `stripeStatus`
+  // before treating SOLO as paid.
   plan        AgencyPlan @default(SOLO)
-  stripeCustomerId String? @unique
-  stripeSubscriptionId String?
+
+  // Stripe billing — agency plans bill against the agency, not the user.
+  // See `.claude/rules/security.md` + modules/billing/webhook.ts for the
+  // owner-role gate that protects these mutations.
+  stripeCustomerId        String?   @unique
+  stripeSubscriptionId    String?   @unique
+  stripePlan              String?   // plan literal from modules/billing/plans.ts
+  stripeStatus            String?   // Stripe subscription.status
+  stripePriceId           String?   // current Stripe price id
+  currentPeriodEnd        DateTime?
+  cancelAtPeriodEnd       Boolean   @default(false)
 
   members     AgencyMember[]
   lists       List[]
@@ -856,4 +881,39 @@ model TokenUsage {
 
   @@index([occurredAt])
   @@index([sessionId])
+}
+
+// ============================================================================
+// STRIPE WEBHOOK EVENT · idempotency log
+//
+// Every webhook delivery from Stripe is recorded here BEFORE the side-effects
+// run. The `eventId` UNIQUE constraint provides at-most-once processing
+// semantics — Stripe retries deliveries on non-2xx, and we INSERT-then-handle
+// so a duplicate delivery hits the unique violation and short-circuits.
+//
+// `processedAt` is stamped after the handler returns successfully. Rows with
+// `processedAt = NULL` are deliveries that started processing but failed
+// mid-way — surfaced by the payments-auditor cron / dashboard, replayed by
+// hand. Stripe will re-deliver too.
+//
+// `error` carries the last error message when a delivery failed; cleared
+// on successful replay. Body is captured raw (`payload`) for forensic
+// debugging — never relied on at runtime (the handler operates on the
+// Stripe.Event object, not the raw payload).
+// ============================================================================
+
+model StripeWebhookEvent {
+  id            String   @id @default(cuid())
+  eventId       String   @unique  // Stripe Event.id — at-most-once key
+  type          String              // Stripe Event.type (e.g. "invoice.paid")
+  apiVersion    String?             // Stripe API version sent by the event
+  livemode      Boolean  @default(false)
+  receivedAt    DateTime @default(now())
+  processedAt   DateTime?
+  error         String?  @db.Text
+  payload       Json                // raw event body for forensics
+
+  @@index([type])
+  @@index([receivedAt])
+  @@index([processedAt])
 }
