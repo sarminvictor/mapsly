@@ -418,6 +418,70 @@
           "meta": "Mapsly Score < 5 · multiple weak signals"
         }
       }
+    },
+    "onboarding": {
+      "meta": {
+        "title": "Configurez votre agence · Mapsly",
+        "description": "Trois étapes rapides · profil · premier service · 50 premiers leads."
+      },
+      "eyebrow": "Configuration agence",
+      "title_step1": "Profil de votre agence",
+      "title_step2": "Choisissez votre premier service template",
+      "title_step3": "Vos 50 premiers leads",
+      "intro_step1": "Metro par défaut + catégories pour que Hunter et Lists préremplissent les bons filtres.",
+      "intro_step2": "Chaque template lance une List avec les bons signaux. Vous en ajouterez d'autres ensuite.",
+      "intro_step3": "Entreprises les mieux notées de votre metro. Votre première List ira plus loin.",
+      "step_label": "Étape {current} sur {total}",
+      "step1_label": "Profil",
+      "step2_label": "Service",
+      "step3_label": "Leads",
+      "metro_label": "Metro par défaut",
+      "metro_placeholder": "Montréal, QC",
+      "metro_help": "Villes que vous ciblez. Sert de geo par défaut sur Hunter.",
+      "categories_label": "Catégories couvertes",
+      "categories_placeholder": "med-spa, restaurant, dental",
+      "categories_help": "Séparées par des virgules · jusqu'à 8.",
+      "save_continue": "Enregistrer et continuer",
+      "skip_for_now": "Passer pour l'instant",
+      "already_added": "Déjà ajouté",
+      "see_my_lists": "Voir mes listes",
+      "skip_to_lists": "Passer · aller aux listes",
+      "preview_more": "+ {count} autres dans votre première liste",
+      "preview_empty": "Aucune correspondance pour l'instant · la liste se remplira quand l'indexer tournera.",
+      "templates": {
+        "website": {
+          "label": "Refonte de site web",
+          "meta": "LCP lent · stack ancien · schema manquant"
+        },
+        "meta_ads": {
+          "label": "Meta Ads",
+          "meta": "Pas de Meta Ads actifs · base de reviews solide"
+        },
+        "google_ads": {
+          "label": "Lancement Google Ads",
+          "meta": "Aucun SERP payant · local pack actif"
+        },
+        "local_seo": {
+          "label": "Local SEO",
+          "meta": "Hors du 3-pack · NAP faible"
+        },
+        "reviews": {
+          "label": "Gestion des reviews",
+          "meta": "Reply rate < 25% · 1★ anciens non traités"
+        },
+        "brand": {
+          "label": "Défense de marque",
+          "meta": "Concurrent au-dessus de votre brand SERP"
+        },
+        "launch": {
+          "label": "Forfait lancement",
+          "meta": "Tout neuf · pas de reviews · profil vide"
+        },
+        "audit": {
+          "label": "Audit complet",
+          "meta": "Livrable ponctuel · signaux mixtes"
+        }
+      }
     }
   },
   "common": {
