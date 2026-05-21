@@ -634,3 +634,4 @@ Outcome: SUCCESS.
   - Resume across 2 ticks: first tick pushed code + hit prettier-CI fail; second tick installed prettier 3.4.2 standalone, formatted the 9 new files + 2 pre-existing showcase files (e844aff drift), pushed, CI green, merge via autonomous-ready label.
 - Bumped: v0.6.35 → v0.6.36
 SES-2026-05-20-cowork-1779320129 · D.4 · SUCCESS · score 9.3/10 · 1776+/0- · ci-green · auto-merge · v0.6.37 · Hunter filter evaluation engine + incremental refresh helpers (PR #29)
+SES-2026-05-21-cowork-1779322567 · C.5 · SUCCESS · 1865+/0- · ci-green · merge
