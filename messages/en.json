@@ -892,6 +892,52 @@
         "invoice_status_void": "Void",
         "invoice_status_uncollectible": "Uncollectible",
         "invoice_status_draft": "Draft"
+      },
+      "meta": {
+        "title": "Agency settings · Mapsly",
+        "description": "Profile · plan · team · locale."
+      },
+      "heading": "Settings",
+      "subheading": "Agency profile, plan, team roster, and locale.",
+      "sections": {
+        "profile": {
+          "heading": "Profile",
+          "fields": {
+            "name": "Agency name",
+            "defaultMetro": "Default metro",
+            "categoriesServed": "Categories served"
+          },
+          "helpName": "Internal label · shown on shared reports.",
+          "helpMetro": "Used as the default geo on Hunter + List filters.",
+          "helpCategories": "Comma-separated · up to 8 · e.g. med-spa, dental, hvac.",
+          "save": "Save changes",
+          "saved": "Saved"
+        },
+        "plan": {
+          "heading": "Plan",
+          "currentPlan": "Current plan",
+          "upgrade": "Change plan"
+        },
+        "team": {
+          "heading": "Team",
+          "role": {
+            "owner": "Owner",
+            "admin": "Admin",
+            "staff": "Staff"
+          }
+        },
+        "locale": {
+          "heading": "Language",
+          "help": "Affects the UI for your account only.",
+          "save": "Save language"
+        },
+        "signOut": {
+          "heading": "Session",
+          "cta": "Sign out"
+        }
+      },
+      "errors": {
+        "unauthorized": "You need to sign in to change settings."
       }
     },
     "list_analytics": {
