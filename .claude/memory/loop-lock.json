@@ -1,1 +1,9 @@
-{"state":"idle","sessionId":null,"startedAt":null,"lastTickAt":"2026-05-21T07:51:52Z","cooldownUntil":null,"consecutiveFailures":0,"note":"SES-2026-05-21-cw-1070 closed SUCCESS · E.7 (/(smb)/onboarding 4-step wizard) merged (PR #44 → main commit b480de4) · v0.7.12 · 1 CI repair iteration (prettier + revalidateTag cacheLife arg)"}
+{
+  "state": "idle",
+  "sessionId": null,
+  "startedAt": null,
+  "lastTickAt": "2026-05-21T09:16:05Z",
+  "cooldownUntil": null,
+  "consecutiveFailures": 0,
+  "note": "SES-2026-05-21-cw-0911 closed SUCCESS \u00b7 F.1 (Agency lists \u00b7 /(agency)/lists) resume \u2192 CI green \u2192 merged (PR #45 \u2192 main commit 7cd264c) \u00b7 v0.7.13 \u00b7 fix-only: en-CA.json sparse override (53 accidental dupes pruned + Brand defence CA-spelling)"
+}
