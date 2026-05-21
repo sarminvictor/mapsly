@@ -1104,3 +1104,79 @@ Identical mechanism to **INC-23** (TaskRun.resumedFromRunId added but never push
 **Confidence:** high — diagnosed via direct Neon query, fix is mechanically verified (column now exists, query no longer fetches removed-or-added columns).
 
 **Tags:** prisma, schema-drift, neon, dashboard, swallow-catch, broad-include, observability, INC-23-recurrence, v0.7.2
+
+### INC-2026-05-21-38 · v0.7.0 mechanical enforcement failed · parent-delegates-everything architecture (option B)
+
+**Status:** ✅ FIXED + ENCODED — v0.7.4: loop.md rewritten so parent does only ~11 turns of orchestration; all heavy work (investigation, implementation, review, browser validation) delegated to subagents (`loop-implementer`, `loop-validator`, code-reviewer, test-writer, scorer, etc.) per Anthropic Agent SDK docs which document that each subagent runs in its own fresh conversation with isolated context + turn budget.
+
+**Symptom:** v0.7.0 shipped mechanical enforcement (`/tmp/mapsly-turn-counter`, force-functions like "STEP 4 first call MUST be Agent(Explore)", `.claude/rules/no-verify.md`, `.claude/rules/compound-steps.md`). First Cowork tick after v0.7.0 STILL hit `Reached maximum number of turns (100)` mid-iteration. Reconstruction of the tick log:
+
+- Bootstrap: 15 turns (target was 1 via compound bash heredoc)
+- STEP 1+2 boot reads: 16 turns (target was 1 via bundled `cat`)
+- STEP 4 free-form investigation: 12 turns (target was 1 via Agent dispatch — force-function ignored)
+- "Hunt for tsc to typecheck": 9 turns (target was 0 — banned by `no-verify.md`)
+- "House style verification": 2 turns (also banned)
+- Total before review agents: ~80 turns
+- Killed at ~100 when about to spawn review agents
+
+Viktor: *"err again after all this · analyse"* → *"do research and web research if this will work - need proof"*
+
+**Root cause (definitive):** Prose guidance in a system prompt does NOT change LLM agent behavior. The agent's training-derived tool-use patterns (one tool call per logical sub-step, post-write verification, free-form serial exploration) are too strong to be overridden by instructions in the loop.md prompt. v0.6.42 tried; v0.7.0 tried with harder language and force-function rules; both ignored. The agent reads the rules, acknowledges them, then follows training instinct.
+
+The agent also has no visibility into its own turn count vs the 100-cap. The `/tmp/mapsly-turn-counter` file was invisible because the agent never checked it. By the time the budget mattered, the session was already killed.
+
+**Fix applied (v0.7.4):** Replace mechanical-enforcement-in-prompt with **architectural delegation**. Per Anthropic Agent SDK official docs (https://platform.claude.com/docs/en/agent-sdk/subagents):
+
+> "Each subagent runs in its own fresh conversation. Intermediate tool calls and results stay inside the subagent; only its final message returns to the parent."
+
+> "Multiple subagents can run concurrently, dramatically speeding up complex workflows."
+
+This means each `Agent` tool call costs 1 turn in the parent, but the subagent's full session (up to its own 100-turn cap) runs in isolation. The parent's context doesn't accumulate the subagent's work.
+
+**New architecture:**
+
+| Parent step | Tool call | Parent turn cost |
+|---|---|---:|
+| STEP 0 bootstrap | 1 bash heredoc (probe + GC + toolchain + clone + env + capability + lock + orphan sweep) | 1 |
+| STEP 1 boot reads | (DELETED · moved into loop-implementer subagent) | 0 |
+| STEP 2 atomic claim | 1 bash (psql CTE-claim) + 1 bash (TaskRun INSERT) | 2 |
+| STEP 3 implementation | `Agent(loop-implementer, ...)` — subagent does ALL exploration + writes + commits in its OWN 100-turn budget | 1 |
+| STEP 4 review | ONE message with 5 parallel Agent calls (code-reviewer, test-writer, perf, ux, copy) + 1 follow-up Agent(scorer) | 2 |
+| STEP 5 push + PR | 1 bash (`git push && gh pr create`) | 1 |
+| STEP 6 CI wait | 1 bash with exponential-backoff loop (sleeps INSIDE the bash, parent sees 1 turn) | 1 |
+| STEP 7 browser validate | `Agent(loop-validator, ...)` — Chrome MCP + Lighthouse + axe in subagent's 100-turn budget | 1 |
+| STEP 8 merge | 1 bash (`gh pr merge --auto`) | 1 |
+| STEP 9 close-out | 1 bash heredoc (psql transaction + build-log + loop-lock) | 1 |
+| **Parent total** | | **~11 turns** |
+
+Each subagent has its own fresh 100-turn budget. Big tasks fit because per-subagent budget resets. Even with 2× parent's internal deliberation overhead, parent caps at ~22 turns. **~78 turns of headroom under the Claude Code 100-cap.**
+
+**New subagent definitions** (`.claude/agents/`):
+- `loop-implementer.md` — heavy lifter for STEP 3. Investigates codebase, writes files, runs prettier, commits. 100-turn budget.
+- `loop-validator.md` — browser/Lighthouse/axe validation for STEP 7. Chrome MCP access. 100-turn budget.
+
+Existing review subagents (code-reviewer, test-writer, scorer, performance-auditor, ux-reviewer-{smb,agency}, copy-reviewer, security-auditor, payments-auditor, a11y-reviewer) are reused unchanged.
+
+**Constraints from Anthropic docs (designed around):**
+
+1. *"Subagents cannot spawn their own subagents. Don't include `Agent` in a subagent's tools array."* → All review/implementer subagents spawn FROM PARENT, never nest. `loop-implementer.tools` excludes `Agent`.
+2. *"The only channel from parent to subagent is the Agent tool's prompt string, so include any file paths, error messages, or decisions the subagent needs directly in that prompt."* → STEP 3 + STEP 7 Agent prompts embed full Task context (ID, title, branch, contextBundle, etc.).
+3. *"The subagent does not receive: the parent's conversation history or tool results."* → Each subagent prompt is self-contained.
+
+**Prevention (for future failure modes):**
+
+1. **Never rely on prose to change agent tool-use behavior.** If an agent's natural pattern would cost N turns, delegate it to a subagent (where the agent's natural pattern is fine because budget is per-subagent).
+2. **Parent stays orchestration-only.** Parent's job: bash for I/O, Agent for delegation. NEVER Read/Grep/Edit in parent — that's subagent work.
+3. **Subagent prompts include EVERY needed context fact.** No assumption that subagent inherits anything.
+4. **Each subagent has bounded scope.** If a subagent's natural budget exceeds 100, split into multiple subagents (e.g., `loop-implementer-investigate` + `loop-implementer-write`).
+
+**Where encoded:**
+- `.claude/loop.md` v0.7.4 (full rewrite for parent-delegates architecture)
+- `.claude/agents/loop-implementer.md` (new)
+- `.claude/agents/loop-validator.md` (new)
+- `.claude/memory/incidents.md` (this entry)
+- INC-35, INC-36 (predecessors — same root cause, weaker fixes)
+
+**Confidence:** very high — Anthropic docs explicitly state subagents have isolated context + budget. Architectural fix is canonical for multi-agent systems (see Temporal Activities, Argo Workflows DAGs, AWS Step Functions Map states — all use the same isolation pattern).
+
+**Tags:** loop, max-turns, claude-code, agent-sdk, subagents, parent-delegates-everything, option-b, INC-35-INC-36-followup, v0.7.4, architectural-fix

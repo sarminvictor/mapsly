@@ -705,3 +705,29 @@ Tasks dashboard recovers on next request (cacheLife: seconds, ~30s).
 Outcome: SUCCESS.
 
 SES-2026-05-21-cowork-1779336391 · D.6 · SUCCESS · ~+952/-1 · 14 tests added · CI green (validate/build/test/integration/bundle-check/ci-passed) · lighthouse pre-existing failure · merge=AUTO · v0.7.2→v0.7.3 · PR #37 → a28c07c. D.6 spec called for "manual review on 20 known samples" — encoded that as a reusable golden-corpus eval harness (services/ai/__fixtures__/sentiment-corpus.json + services/ai/eval-sentiment.ts + scripts/eval-sentiment.ts) so prompt regressions get caught mechanically across model swaps (D.8). The classifier itself + C.9 cron integration were already shipped before this iteration. Two ticks: first tick failed CI on prettier (10 pre-existing files); second tick rebased onto v0.7.2 (where 8 of the 10 were already fixed) and prettier-write fixed the remaining 5 cosmetic line-wrap issues. Code-reviewer agent found a real conventions.md violation (`as unknown as` cast) and a typo-risk in --model arg parsing — both fixed before push.
+
+## SES-2026-05-21-cowork-v074 · v0.7.4 ship · parent-delegates-everything architecture
+
+Viktor: *"ok, implement"* (after web research confirmed subagents have isolated context + turn budgets per Anthropic Agent SDK docs).
+
+Architectural rewrite of loop.md. Parent now does ONLY orchestration (~11 turns total). Heavy work delegated to:
+- `loop-implementer` subagent (STEP 3): investigates codebase, writes files, commits. 100-turn budget.
+- `loop-validator` subagent (STEP 7): Chrome MCP browser/Lighthouse/axe validation. 100-turn budget.
+- Existing review subagents (code-reviewer, test-writer, scorer, etc.) spawned from parent in ONE parallel batch.
+
+Parent's tool calls cap at ~11. Big tasks fit because per-subagent budget is fresh. ~78 turns of headroom under the Claude Code 100-cap.
+
+Proven by:
+1. Anthropic docs (platform.claude.com/docs/en/agent-sdk/subagents): "Each subagent runs in its own fresh conversation. Intermediate tool calls and results stay inside the subagent; only its final message returns to the parent."
+2. Architectural analog: Temporal Activities, AWS Step Functions Map states, Argo Workflows DAGs — same isolation pattern.
+
+Changes:
+- `.claude/loop.md` — full rewrite (442 lines). Parent has 10 STEPs each = 1-2 tool calls.
+- `.claude/agents/loop-implementer.md` (new · 61 lines). The heavy lifter.
+- `.claude/agents/loop-validator.md` (new · 59 lines). The browser/Lighthouse/axe validator.
+- `.claude/memory/incidents.md` — INC-38 documents the prose-vs-architecture lesson.
+- `package.json` — 0.7.3 → 0.7.4.
+
+INC-38 is the third and final entry in the v0.6.42 → v0.7.0 → v0.7.4 escalation. INC-35 (100-turn cap diagnosis), INC-36 (prose-vs-enforcement, v0.7.0 fix that didn't hold), INC-38 (architectural fix via subagent delegation).
+
+Outcome: SUCCESS.
