@@ -1,0 +1,208 @@
+{
+  "version": 1,
+  "description": "Golden corpus for sentiment + theme classification (D.6). 20 anonymized review samples chosen to exercise: each allowed theme at least once, sentiment-vs-stars contradiction handling, empty/short text fallback, multi-theme posts, NEUTRAL boundaries, and mixed-signal confidence.",
+  "samples": [
+    {
+      "id": "pos-01-staff-results",
+      "stars": 5,
+      "text": "Dr. K and her team are wonderful. Walked in nervous, walked out glowing — the results are exactly what I asked for. Would not trust anyone else.",
+      "expectedSentiment": "POSITIVE",
+      "expectedThemes": ["staff", "results"],
+      "expectedThemesMode": "subset",
+      "minConfidence": 0.8,
+      "notes": "Unambiguous high-rating with explicit staff + outcome praise."
+    },
+    {
+      "id": "pos-02-pricing-value",
+      "stars": 5,
+      "text": "Honestly the most reasonable prices in Brickell for this kind of treatment, and you can tell they don't cut corners. Worth every dollar.",
+      "expectedSentiment": "POSITIVE",
+      "expectedThemes": ["pricing", "value"],
+      "expectedThemesMode": "subset",
+      "minConfidence": 0.8,
+      "notes": "Pricing + value framing in a positive context."
+    },
+    {
+      "id": "pos-03-atmosphere-comfort",
+      "stars": 5,
+      "text": "The space is gorgeous and so calming. I felt taken care of the moment I sat down on the couch. Soft music, herbal tea, the works.",
+      "expectedSentiment": "POSITIVE",
+      "expectedThemes": ["atmosphere", "comfort"],
+      "expectedThemesMode": "subset",
+      "minConfidence": 0.8,
+      "notes": "Aesthetic + sensory comfort, no service mention."
+    },
+    {
+      "id": "pos-04-expertise",
+      "stars": 5,
+      "text": "Finally found a provider who knows what she's doing. Asked all the right questions, explained the science, and the work shows it.",
+      "expectedSentiment": "POSITIVE",
+      "expectedThemes": ["expertise"],
+      "expectedThemesMode": "subset",
+      "minConfidence": 0.8,
+      "notes": "Single-theme: technical competence."
+    },
+    {
+      "id": "pos-05-booking-communication",
+      "stars": 5,
+      "text": "Booked online in two minutes, got a confirmation text right away, and the rescheduling when I had a conflict was just as smooth. Front desk is on top of it.",
+      "expectedSentiment": "POSITIVE",
+      "expectedThemes": ["booking", "communication"],
+      "expectedThemesMode": "subset",
+      "minConfidence": 0.8,
+      "notes": "Booking workflow + responsive communication."
+    },
+    {
+      "id": "pos-06-cleanliness",
+      "stars": 5,
+      "text": "Spotless. You can tell they take hygiene seriously — every tool sterilized in front of you, every surface wiped.",
+      "expectedSentiment": "POSITIVE",
+      "expectedThemes": ["cleanliness"],
+      "expectedThemesMode": "subset",
+      "minConfidence": 0.85,
+      "notes": "Single theme: cleanliness emphasis."
+    },
+    {
+      "id": "pos-07-parking",
+      "stars": 4,
+      "text": "Great experience overall. Tiny win: easy free parking right out front, which is rare for this neighborhood.",
+      "expectedSentiment": "POSITIVE",
+      "expectedThemes": ["parking"],
+      "expectedThemesMode": "subset",
+      "minConfidence": 0.7,
+      "notes": "4★ positive with parking call-out."
+    },
+    {
+      "id": "pos-08-results-pricing",
+      "stars": 5,
+      "text": "Three sessions in and I can already see the difference. Plus the package pricing made it manageable on a budget. Highly recommend.",
+      "expectedSentiment": "POSITIVE",
+      "expectedThemes": ["results", "pricing"],
+      "expectedThemesMode": "subset",
+      "minConfidence": 0.85,
+      "notes": "Multi-theme positive."
+    },
+    {
+      "id": "neu-01-mixed",
+      "stars": 3,
+      "text": "Treatment was fine, results are okay. Staff was professional but a little impersonal. Probably won't be back but no complaints either.",
+      "expectedSentiment": "NEUTRAL",
+      "expectedThemes": ["staff", "results"],
+      "expectedThemesMode": "subset",
+      "minConfidence": 0.5,
+      "notes": "Classic neutral: not bad, not great. Mixed signals."
+    },
+    {
+      "id": "neu-02-empty-text",
+      "stars": 3,
+      "text": "",
+      "expectedSentiment": "NEUTRAL",
+      "expectedThemes": [],
+      "expectedThemesMode": "subset",
+      "minConfidence": 0.2,
+      "maxConfidence": 0.5,
+      "notes": "Empty text — confidence should be low (~0.2 per prompt) and themes empty."
+    },
+    {
+      "id": "neu-03-short",
+      "stars": 3,
+      "text": "It was alright.",
+      "expectedSentiment": "NEUTRAL",
+      "expectedThemes": [],
+      "expectedThemesMode": "subset",
+      "minConfidence": 0.3,
+      "maxConfidence": 0.7,
+      "notes": "Two-word neutral with no themes."
+    },
+    {
+      "id": "neu-04-pricing-tradeoff",
+      "stars": 3,
+      "text": "Did the job but pricier than I expected for what amounted to a 20 minute appointment.",
+      "expectedSentiment": "NEUTRAL",
+      "expectedThemes": ["pricing"],
+      "expectedThemesMode": "subset",
+      "minConfidence": 0.6,
+      "notes": "Neutral with a single complaint dimension."
+    },
+    {
+      "id": "neg-01-wait-time",
+      "stars": 2,
+      "text": "Showed up on time for my appointment, was kept waiting 45 minutes with no explanation. Treatment itself was fine but I won't be back.",
+      "expectedSentiment": "NEGATIVE",
+      "expectedThemes": ["wait_time"],
+      "expectedThemesMode": "subset",
+      "minConfidence": 0.85,
+      "notes": "Single-issue negative review."
+    },
+    {
+      "id": "neg-02-rude-staff",
+      "stars": 1,
+      "text": "Front desk woman was incredibly rude. Talked down to me when I asked a basic question about pricing. Walked out before the consultation.",
+      "expectedSentiment": "NEGATIVE",
+      "expectedThemes": ["rude", "staff"],
+      "expectedThemesMode": "subset",
+      "minConfidence": 0.9,
+      "notes": "Rude + staff — both should fire."
+    },
+    {
+      "id": "neg-03-billing-issue",
+      "stars": 1,
+      "text": "Charged me twice for the same session and it took 6 weeks of emails to get refunded. Treatment was fine but I'll never go back after how billing handled it.",
+      "expectedSentiment": "NEGATIVE",
+      "expectedThemes": ["billing_issue"],
+      "expectedThemesMode": "subset",
+      "minConfidence": 0.85,
+      "notes": "Billing dispute drives the 1★ — treatment quality is parenthetical."
+    },
+    {
+      "id": "neg-04-missed-appointment",
+      "stars": 1,
+      "text": "Drove an hour for my appointment and they 'couldn't find me in the system.' No apology, no offer to fit me in. Bizarre.",
+      "expectedSentiment": "NEGATIVE",
+      "expectedThemes": ["missed_appointment"],
+      "expectedThemesMode": "subset",
+      "minConfidence": 0.85,
+      "notes": "missed_appointment theme — operational failure."
+    },
+    {
+      "id": "neg-05-communication",
+      "stars": 2,
+      "text": "Called three times to ask a question about my post-treatment care and never got a callback. For the price, I'd expect them to pick up the phone.",
+      "expectedSentiment": "NEGATIVE",
+      "expectedThemes": ["communication"],
+      "expectedThemesMode": "subset",
+      "minConfidence": 0.8,
+      "notes": "Communication failure — pricing mentioned but theme is comms."
+    },
+    {
+      "id": "neg-06-cleanliness",
+      "stars": 1,
+      "text": "Sheets on the treatment bed looked reused. The bathroom hadn't been cleaned in what felt like days. That's a hard no for a place doing skincare.",
+      "expectedSentiment": "NEGATIVE",
+      "expectedThemes": ["cleanliness"],
+      "expectedThemesMode": "subset",
+      "minConfidence": 0.9,
+      "notes": "Cleanliness in a negative context."
+    },
+    {
+      "id": "edge-01-contradiction-5star",
+      "stars": 5,
+      "text": "Worst experience of my life. They lost my appointment, then yelled at me when I complained. Avoid.",
+      "expectedSentiment": "NEGATIVE",
+      "expectedThemes": ["missed_appointment", "rude"],
+      "expectedThemesMode": "subset",
+      "minConfidence": 0.7,
+      "notes": "5★ but text strongly contradicts — prompt's UNLESS rule says sentiment follows text."
+    },
+    {
+      "id": "edge-02-contradiction-1star",
+      "stars": 1,
+      "text": "Sorry, meant to give this 5 stars — fat-fingered the rating. Honestly the best aesthetician I've ever seen, results are unreal.",
+      "expectedSentiment": "POSITIVE",
+      "expectedThemes": ["results", "expertise"],
+      "expectedThemesMode": "subset",
+      "minConfidence": 0.7,
+      "notes": "1★ but explicit correction in text — sentiment follows text."
+    }
+  ]
+}

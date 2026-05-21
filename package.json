@@ -20,7 +20,8 @@
     "test:coverage": "vitest run --coverage --passWithNoTests",
     "deploy-check": "pnpm format && pnpm typecheck && pnpm lint && pnpm build",
     "seed:plan": "tsx scripts/seed-plan.ts",
-    "seed:dev": "tsx scripts/seed-dev.ts"
+    "seed:dev": "tsx scripts/seed-dev.ts",
+    "eval:sentiment": "tsx scripts/eval-sentiment.ts"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.7.4",
