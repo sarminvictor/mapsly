@@ -112,7 +112,7 @@ export async function setLocalePreference(formData: FormData) {
   });
 
   const cookieStore = await cookies();
-  cookieStore.set("NEXT_LOCALE", parsed.data.locale, {
+  cookieStore.set("NEXT_LOCALE", parsed.locale, {
     path: "/",
     maxAge: 60 * 60 * 24 * 365,
     sameSite: "lax",
@@ -124,5 +124,5 @@ export async function setLocalePreference(formData: FormData) {
   // picks up the new locale even if the user clicks through quickly.
   revalidateTag(`agency-settings-${session.user.id}`, "minutes");
 
-  redirect({ href: "/settings", locale: parsed.data.locale });
+  redirect({ href: "/settings", locale: parsed.locale });
 }
