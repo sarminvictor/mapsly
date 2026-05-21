@@ -1,4 +1,4 @@
-# Mapsly autonomous build loop · v0.7.4 · PARENT-DELEGATES-EVERYTHING
+# Mapsly autonomous build loop · v0.7.7 · PARENT-DELEGATES-EVERYTHING · `general-purpose` subagent · INC-39
 
 > **Architecture · option B.** Parent session does ~11 turns of orchestration. Heavy work delegated to `loop-implementer` + `loop-validator` subagents (each with its OWN 100-turn budget per [Anthropic docs](https://platform.claude.com/docs/en/agent-sdk/subagents): _"Each subagent runs in its own fresh conversation. Intermediate tool calls and results stay inside the subagent; only its final message returns to the parent."_). Review agents (code-reviewer, test-writer, scorer, etc.) all spawn from the parent in ONE message, each with their own fresh session. The Claude Code 100-turn cap on the parent is no longer a constraint because parent's tool calls cap at ~11.
 
@@ -21,8 +21,15 @@ Per `.claude/rules/compound-steps.md`, STEP 0 is exactly ONE `Bash` tool call. O
 
   # /tmp GC (INC-33, INC-34): standard sweep + disk-pressure aggressive sweep
   BEFORE=$(df --output=avail / 2>/dev/null | awk 'NR==2'); BEFORE=${BEFORE:-0}
-  find /tmp -maxdepth 1 -name 'mapsly-*' \( -mmin +30 -o -name 'mapsly-git*' -o -name 'mapsly-work-*' -o -name 'mapsly-loop-*' -o -name 'mapsly-commit*' -o -name 'mapsly-scratch*' -o -name 'mapsly-wt-*' -o -name 'mapsly-env-*' -o -name 'mapsly-run-id*' -o -name 'mapsly-session-id*' \) -exec rm -rf {} + 2>/dev/null
-  rm -rf /tmp/lock-gen /tmp/prettier-* /tmp/fmt-pkg /tmp/zen-loop /tmp/mw /tmp/db-helper /tmp/pg-cwk /tmp/dbprobe /tmp/fmt /tmp/v0*-edit /tmp/v07*-edit /tmp/audit-rules /tmp/check-* /tmp/neon-probe 2>/dev/null
+  # v0.7.7 (INC-39): mapsly-loop-* / mapsly-work-* are work dirs that may belong to
+  # a currently-running tick. Only delete them if they're > 30 min old. The other
+  # patterns (mapsly-git*, mapsly-commit*, mapsly-scratch*, mapsly-wt-*, mapsly-env-*,
+  # mapsly-run-id*, mapsly-session-id*) are scratch markers safe to nuke any time.
+  find /tmp -maxdepth 1 -name 'mapsly-*' \( -mmin +30 -o -name 'mapsly-git*' -o -name 'mapsly-commit*' -o -name 'mapsly-scratch*' -o -name 'mapsly-wt-*' -o -name 'mapsly-env-*' -o -name 'mapsly-run-id*' -o -name 'mapsly-session-id*' \) -exec rm -rf {} + 2>/dev/null
+  # v0.7.7 (INC-39): extended GC list — catches orphan patterns observed in /tmp
+  # surveys. Each is a one-off install dir from a prior tick that ignored the
+  # sticky-toolchain convention (canonical paths: /tmp/node24, /tmp/npm-global).
+  rm -rf /tmp/lock-gen /tmp/prettier-* /tmp/fmt-pkg /tmp/zen-loop /tmp/mw /tmp/db-helper /tmp/pg-cwk /tmp/dbprobe /tmp/fmt /tmp/v0*-edit /tmp/v07*-edit /tmp/audit-rules /tmp/check-* /tmp/neon-probe /tmp/tsc-helper /tmp/tsc-q9 /tmp/loop-ts-tools /tmp/loop-prettier /tmp/gh-bin /tmp/npm-cwk /tmp/pgclient /tmp/dazzling-pgwrap /tmp/prettier-runner /tmp/prettier-fix 2>/dev/null
   rm -f /tmp/*.tar.xz /tmp/*.tar.gz /tmp/_probe_* 2>/dev/null
   AVAIL=$(df --output=avail / 2>/dev/null | awk 'NR==2'); AVAIL=${AVAIL:-0}
   if [ "$AVAIL" -lt 1048576 ]; then
@@ -190,11 +197,16 @@ SQL
 
 The parent does NOT investigate the codebase, write files, run prettier, or commit. The `loop-implementer` subagent does all of that in its own session with its own 100-turn budget.
 
+**v0.7.7 (INC-39):** use the built-in `general-purpose` subagent type — NOT a custom `loop-implementer` filesystem-defined subagent. Per Anthropic docs, custom subagents are loaded at Claude Code startup from `.claude/agents/`, BUT Cowork's scheduled-task session boots with cwd = the FUSE mount, where filesystem-based agent definitions may be stale. The built-in `general-purpose` subagent is always available without registration.
+
 ```
 Agent({
   description: "Implement task ${TASK_ID}",
-  subagent_type: "loop-implementer",
+  subagent_type: "general-purpose",
   prompt: `
+You are the loop-implementer for the Mapsly autonomous build loop.
+
+# Context
 TASK_ID: ${TASK_ID}
 TASK_TITLE: ${TASK_TITLE}
 TASK_LANE: ${TASK_LANE}
@@ -204,11 +216,43 @@ BRANCH: ${RESUME_BRANCH:-auto/$(date +%Y-%m-%d)-${TASK_ID}-1}
 RESUME_FROM_RUN: ${RESUME_RUN_ID:-none}
 CONTEXT_BUNDLE: ${CONTEXT_BUNDLE:-(none — do focused exploration via Read/Grep/Glob)}
 
-Your job: implement this task, stage the working tree, and return a structured
-summary. Read the boot files (incidents.md, CLAUDE.md, PLAN.md, MEMORY.md, cache-components.md)
-yourself — they're available at ${WORK_DIR}. You have your own 100-turn budget.
+# Your budget · 100 turns (your own, separate from parent's per Anthropic docs)
 
-Return STATUS + BRANCH + FILES_CHANGED + TESTS_ADDED + COMMIT_SHA + NOTES.
+# First action · MANDATORY (v0.7.7 INC-39)
+Begin EVERY bash call with \`cd "${WORK_DIR}"\`. The Cowork sandbox's Write tool
+defaults to a DIFFERENT cwd than bash (Write resolves to the FUSE mount; bash
+resolves to /tmp). Files written via Write end up in the wrong directory and
+miss the git push. **Therefore: use bash heredocs for ALL file writes**:
+\`\`\`bash
+cd "${WORK_DIR}" && cat > path/to/file <<'EOF'
+... file contents ...
+EOF
+\`\`\`
+DO NOT use the Write or Edit tools for new files. Only use Edit for files you
+verified exist (via \`ls\` inside a \`cd\` heredoc) and only when you have
+their exact current content.
+
+# Step-by-step
+1. \`cd "${WORK_DIR}" && cat .claude/memory/incidents.md CLAUDE.md PLAN.md .claude/memory/MEMORY.md .claude/rules/cache-components.md 2>/dev/null | head -c 200000\` — read boot files in ONE call.
+2. Read or grep the codebase to understand patterns. Cheap here (your private budget).
+3. Plan implementation: files to create, files to modify, tests, edge cases.
+4. Write files via bash heredocs (\`cat > file <<EOF ... EOF\`) — NOT via Write/Edit.
+5. Run prettier: \`cd "${WORK_DIR}" && pnpm prettier --write {files}\` or \`npx prettier --write {files}\`.
+6. Stage + commit: \`cd "${WORK_DIR}" && git checkout -b "${BRANCH}" && git add -A && git commit -m "feat(${TASK_LANE}): ${TASK_ID} · ${TASK_TITLE}"\`.
+
+# DO NOT verify your own writes
+Per \`.claude/rules/no-verify.md\` — \`Write\`/\`Edit\`/bash heredocs throw on
+failure. No \`wc -l\`, \`ls -la\`, \`cat <just-written>\` for verification.
+
+# Final summary back to parent · structured
+STATUS: ready-for-review | needs-followup | failed
+BRANCH: <name>
+COMMIT_SHA: <7-char>
+FILES_CHANGED: <count>
+  + path/to/new (new, N LOC)
+  ~ path/to/modified (modified, +N/-N)
+TESTS_ADDED: <count>
+NOTES: <CI risks, follow-up tasks, INC- entries logged · keep tight, parent reads this verbatim>
   `,
 })
 ```
@@ -299,19 +343,49 @@ echo "PREVIEW_URL=$PREVIEW_URL"
 
 Only fires if `CI_STATUS=green` AND `PREVIEW_URL` is set. Otherwise skip.
 
+**v0.7.7 (INC-39):** use built-in `general-purpose` subagent, not custom `loop-validator`.
+
 ```
 Agent({
   description: "Browser-validate PR #${PR}",
-  subagent_type: "loop-validator",
+  subagent_type: "general-purpose",
   prompt: `
+You are the loop-validator for the Mapsly autonomous build loop.
+
+# Context
 PR: ${PR}
 PREVIEW_URL: ${PREVIEW_URL}
 TASK_ID: ${TASK_ID}
 TASK_DESCRIPTION: ${TASK_TITLE}
-EXPECTED_ASSERTIONS: <derived from task spec — e.g., "hero contains 'For Agencies'", "no console errors", "Lighthouse perf ≥ 90">
+EXPECTED_ASSERTIONS: <derived from task spec — hero copy, key selectors, perf budgets>
 
-Your own 100-turn budget. Validate as anonymous + appropriate signed-in user types.
-Return STATUS + LIGHTHOUSE_PERF + LIGHTHOUSE_A11Y + CONSOLE_ERRORS + AXE_VIOLATIONS + NOTES.
+# Your budget · 100 turns (separate from parent's)
+
+# Workflow
+1. \`mcp__Claude_in_Chrome__navigate\` to \`${PREVIEW_URL}\`. Confirm HTTP 200 via \`read_network_requests\`.
+2. Validate hero content via \`get_page_text\` or \`find\` selectors per the task spec.
+3. \`read_console_messages\` — any errors = STATUS=fail.
+4. \`read_network_requests\` — any 4xx/5xx = STATUS=fail.
+5. Lighthouse mobile preset (if available) — record Performance, A11y, SEO + LCP/CLS/INP.
+6. axe-core (if available) — count violations + list critical ones.
+7. \`resize_window\` to 380px for mobile pass; re-check no horizontal scroll.
+8. Validate as multiple user types if route has auth (see .claude/rules/browser-testing.md).
+
+# Final summary · structured
+STATUS: pass | fail | warn
+URL: ${PREVIEW_URL}
+HTTP: 200
+CONTENT_ASSERTIONS: <n>/<n> passed
+CONSOLE_ERRORS: <n>
+NETWORK_4XX_5XX: <n>
+LIGHTHOUSE_PERF: <n>
+LIGHTHOUSE_A11Y: <n>
+LCP_MS: <n>
+CLS: <n>
+INP_MS: <n>
+AXE_VIOLATIONS: <n> critical / <n> minor
+MOBILE_VIEWPORT: pass | fail
+NOTES: <follow-up items; omit if pass>
   `,
 })
 ```
@@ -334,13 +408,59 @@ echo "MERGED_SHA=$MERGED_SHA"
 
 ---
 
-## STEP 9 · CLOSE-OUT · ONE bash heredoc
+## STEP 9 · CLOSE-OUT · push chore commit FIRST, then psql (v0.7.7 INC-39 reorder)
 
-Single bash: psql transaction (TaskRun + Task + Notification resolve) + build-log append + loop-lock stamp.
+Prior versions did psql + file writes + then push. If parent ran out of turns
+between psql and push, the bookkeeping desynced (Neon thought task was done,
+but the build-log + loop-lock + version bump never landed on origin/main).
+
+v0.7.7 reorders: write bookkeeping files + push chore commit FIRST. This
+costs ~2 turns up front but guarantees the metadata is on origin even if
+the iteration aborts mid-psql later. The psql transaction is then idempotent
+(re-running it just overwrites with the same values).
+
+### Step 9a · Write bookkeeping + push chore commit (FIRST)
 
 ```bash
+cd "${WORK_DIR}"
+
+# Bump package.json version
+node -e "
+  const fs = require('fs');
+  const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+  const v = pkg.version.split('.').map(Number);
+  v[2]++;
+  pkg.version = v.join('.');
+  fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
+  console.log('Version bumped to ' + pkg.version);
+"
+
+# Append build-log
+echo "SES-$(date +%Y-%m-%d)-${SESSION_ID:0:8} · ${TASK_ID} · ${OUTCOME} · score ${SCORE:-0}/10 · ${LINES_ADD:-0}+/${LINES_DEL:-0}- · ${CI_STATUS} · merged=${MERGED_SHA:-none}" >> .claude/memory/build-log.md
+
+# Stamp loop-lock
+cat > .claude/memory/loop-lock.json <<EOF
 {
-  psql "$DATABASE_URL" -At <<SQL
+  "state": "idle",
+  "sessionId": null,
+  "lastTickAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+  "cooldownUntil": null,
+  "consecutiveFailures": 0,
+  "note": "${SESSION_ID:0:8} · ${TASK_ID} · ${OUTCOME}"
+}
+EOF
+
+# Commit + push the chore commit on main
+NEW_VER=$(node -p "require('./package.json').version")
+git add package.json .claude/memory/build-log.md .claude/memory/loop-lock.json
+git commit -m "chore(loop): close session · ${TASK_ID} ${OUTCOME} · v${NEW_VER}"
+git push origin main 2>&1 | tail -3
+```
+
+### Step 9b · psql transaction (now bookkeeping is durable)
+
+```bash
+psql "$DATABASE_URL" -At <<SQL
 BEGIN;
 UPDATE "TaskRun" SET outcome='${OUTCOME}', "finishedAt"=now(),
   "commitSha"='${MERGED_SHA}', "prNumber"=${PR}, "prUrl"='${PR_URL}',

@@ -1182,3 +1182,46 @@ Existing review subagents (code-reviewer, test-writer, scorer, performance-audit
 **Confidence:** very high — Anthropic docs explicitly state subagents have isolated context + budget. Architectural fix is canonical for multi-agent systems (see Temporal Activities, Argo Workflows DAGs, AWS Step Functions Map states — all use the same isolation pattern).
 
 **Tags:** loop, max-turns, claude-code, agent-sdk, subagents, parent-delegates-everything, option-b, INC-35-INC-36-followup, v0.7.4, architectural-fix
+
+### INC-2026-05-21-39 · v0.7.4 subagents didn't load + cwd mismatch + close-out push race
+
+**Status:** ✅ FIXED + ENCODED — v0.7.7: (1) loop.md uses `subagent_type: "general-purpose"` not custom filesystem-defined subagents; (2) subagent prompt mandates `cd "${WORK_DIR}"` + bash heredocs (not Write/Edit); (3) close-out reordered to push chore commit BEFORE psql; (4) STEP 0 GC's `mapsly-loop-*` and `mapsly-work-*` clauses get `-mmin +30` guard so a running tick can't cannibalize itself.
+
+**Symptom:** v0.7.4 shipped the "parent-delegates-everything" architecture with custom subagent definitions in `.claude/agents/loop-implementer.md` + `loop-validator.md`. First post-v0.7.4 Cowork tick that shipped E.1 burned 99 of 100 turns, merged E.1, but didn't push the bookkeeping chore commit. Next tick had to recover state and hit 100 again.
+
+Viktor: *"one task went well, but next - err after"* → log analysis revealed three independent failures stacked.
+
+**Three failures (root cause chain):**
+
+1. **Subagents weren't registered in the Cowork session.** Per Anthropic docs (https://platform.claude.com/docs/en/agent-sdk/subagents): *"Agents defined in `.claude/agents/` are loaded at startup only. If you create a new agent file while Claude Code is running, restart the session to load it."* Cowork's scheduled task booted with cwd = FUSE mount, whose `.claude/agents/` directory was stale (FUSE-stuck `.git` per INC-29 means the mount never received the v0.7.4 commit). Tick log smoking gun: *"The custom loop-implementer subagent type isn't registered in this Cowork session."*
+
+2. **Agent rationalized back into parent-does-everything.** After failing to find `loop-implementer`, the agent tried `general-purpose` but bailed because of a real concern: *"the agent's Write tool targets the mount while git ops happen in /tmp"*. This is a true Cowork-specific behavior — the Write tool's default cwd is the FUSE mount where Claude Code launched, but the loop's bash heredocs `cd "$WORK_DIR"` to /tmp. Files written via Write went to the mount; the loop's `git add -A` from /tmp didn't see them. The agent's resolution: do everything in parent via bash. That ate 28 turns of implementation work in parent.
+
+3. **Turn budget exhausted before close-out push.** Parent did 99 turns: bootstrap (16) + STEP 1/2 (15) + claim (6) + TaskRun open (3) + failed delegation (2) + implementation in parent (28) + push+PR (2) + CI wait (4) + CI-red fix loop (9) + merge (1) + psql close-out + file writes (10) + bookkeeping file writes to mount (3) = 99. Hit the 100-cap before doing `git commit + git push` for the version bump + build-log + loop-lock. GitHub got the E.1 merge but the chore commit was never pushed.
+
+**Recovery:** the next tick detected the desync (Neon Task=DONE, build-log.md missing E.1 line, package.json version not bumped) and shipped the bookkeeping. But that recovery work + a new task attempt blew its own 100-turn budget and crashed.
+
+**Fix applied (v0.7.7):**
+
+- **STEP 3 + STEP 7** use `subagent_type: "general-purpose"` (built-in, always available per Anthropic docs: *"Built-in general-purpose: Claude can invoke the built-in general-purpose subagent at any time via the Agent tool without you defining anything"*). Custom subagent definitions in `.claude/agents/loop-implementer.md` + `.claude/agents/loop-validator.md` stay in the repo as documentation/intent, but the loop calls general-purpose with the FULL inlined prompt — no filesystem registration dependency.
+- **Subagent prompts open with `cd "${WORK_DIR}"`** as the FIRST mandatory action, and use bash heredocs (`cat > file <<EOF`) for ALL file writes. NO `Write` or `Edit` tool calls in the subagent. This sidesteps the FUSE-mount-vs-/tmp cwd mismatch entirely.
+- **STEP 9 close-out reordered:** write bookkeeping files + commit + push chore commit BEFORE the psql transaction. If turn budget runs out mid-psql, the metadata is already on origin/main; Neon update can be re-applied idempotently on the next tick.
+- **STEP 0 GC guard:** `mapsly-loop-*` and `mapsly-work-*` clauses now require `-mmin +30` so a currently-running tick can't have its work dir deleted by another tick (or by its own STEP 0 if rerun).
+- **STEP 0 extended GC list:** added `tsc-helper`, `tsc-q9`, `loop-ts-tools`, `loop-prettier`, `gh-bin`, `npm-cwk`, `pgclient`, `dazzling-pgwrap`, `prettier-runner`, `prettier-fix` — orphan patterns observed in `/tmp` surveys that aren't part of the sticky toolchain.
+
+**Prevention:**
+
+1. **Architecture deployment ≠ architecture design.** v0.7.4's parent-delegates-everything strategy was right. The execution path (custom filesystem subagents in `.claude/agents/`) was wrong because Cowork doesn't refresh agent definitions from a stale FUSE mount.
+2. **Built-in over custom for Cowork.** Whenever Cowork's scheduled-task hosts the loop, prefer built-in tools / built-in subagent types over filesystem-defined ones. Custom files in the repo may or may not be visible depending on cwd/session-startup behavior.
+3. **Bookkeeping FIRST, business logic AFTER.** Any multi-step close-out must order writes so the most-recoverable state is written first. Push the chore commit before the psql transaction so partial completion leaves a recoverable state.
+4. **GC must guard against self-deletion.** Any `find` clause that deletes work directories must verify they're NOT the current tick's directory (or use age-based guards).
+5. **Write tool cwd ≠ bash cwd in Cowork sandbox.** Loop logic that mixes Write/Edit with `cd`-based bash will desync. Pick one: either ONLY bash heredocs (current loop's choice) or ONLY Write/Edit (with explicit absolute paths). Mixing is forbidden in subagent prompts.
+
+**Where encoded:**
+- `.claude/loop.md` v0.7.7 (STEP 0 GC guards + extended list, STEP 3 + STEP 7 use general-purpose + inlined prompts, STEP 9 close-out reorder)
+- `.claude/agents/loop-implementer.md` + `.claude/agents/loop-validator.md` (kept as documentation; loop.md no longer references them by name)
+- This entry
+
+**Confidence:** very high — all 4 root causes diagnosed from the actual tick log; fixes are surgical, each targets one cause.
+
+**Tags:** loop, cowork, subagent-registration, fuse-mount, cwd-mismatch, close-out-race, GC-self-deletion, INC-29-followup, INC-35-INC-36-INC-38-followup, v0.7.7

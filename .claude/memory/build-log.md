@@ -736,3 +736,23 @@ SES-2026-05-21-cowork-1779338492 · D.7 · SUCCESS · score 8.4/10 · ~+649/-52 
 SES-2026-05-21-cowork-1779340396 · E.1 · SUCCESS · score informational (subagents not registered) · +961/-54 · ci=green · merged=9272b67 · v0.7.5→v0.7.6 · PR #39. First SMB-portal page: scaffolded `/(smb)/dashboard` with sync shell + Suspense'd async body per cache-components Pattern 2 (INC-25, INC-27), hero Mapsly Score + 5-tile KPI grid + 6-dim ScoreBreakdown + onboarding empty state. Uses E.0 components (KPITile/AlertCard/ScoreBreakdown) + D.2 scoring barrel + C.9 snapshot data via new `getSmbDashboardData(userId)` query (NEXT_PHASE build-guard + EMPTY shape). 36 new `smb.dashboard.*` i18n keys in EN; ES/FR get EN-fallback values pending translation. One CI repair iteration: initial commit duplicated EN values into en-CA.json, `i18n/__tests__/locale-en-ca.test.ts` sparse-override test caught 36 accidental duplicates → reverted en-CA.json to origin/main shape (next-intl fallback chain handles missing keys → en). Lighthouse pre-existing global FAILURE (canonical/color-contrast/document-latency-insight on /) non-blocking, not in ci-passed required list. Cowork sandbox tick: CAN_DEPLOY_CHECK=0, validation deferred to Vercel CI per loop.md v0.7.4 STEP 6 path; custom subagents (code-reviewer/scorer/ux-reviewer-smb/copy-reviewer) not registered in Cowork session so review-agent fan-out skipped — score field set to 0 (informational), agentsUsed=[]. Auto-merge proceeded on objective CI-green signal per loop.md v0.7.4 STEP 8 default-to-merge policy. Phase E group unblocks E.7 (SMB onboarding) which can now flow users post-signin into the new dashboard.
 
 Outcome: SUCCESS.
+
+## SES-2026-05-21-cowork-v077 · v0.7.7 ship · 4-fix surgical · INC-39
+
+Viktor: *"yes, ship"* (after analysis of the 3-failure chain in the E.1 tick that nearly-succeeded then crashed the next tick).
+
+Root causes:
+1. Custom subagents (loop-implementer, loop-validator) didn't load — Cowork session loads from FUSE mount which is stale per INC-29
+2. Agent fell back to parent-does-everything because of Write tool cwd vs bash cwd mismatch in the Cowork sandbox
+3. Parent burned 99 turns implementing E.1 in itself; ran out before pushing the chore commit (bookkeeping desync)
+
+Fixes shipped in one commit:
+- STEP 3 + STEP 7 use `subagent_type: "general-purpose"` (built-in, doesn't need filesystem registration) with full prompts inlined
+- Subagent prompts MANDATE `cd "${WORK_DIR}"` + bash heredocs (no Write/Edit tool calls)
+- STEP 9 close-out REORDERED: push chore commit BEFORE psql, so partial completion leaves recoverable state on origin
+- STEP 0 GC: `mapsly-loop-*` and `mapsly-work-*` get `-mmin +30` guard (no self-cannibalization)
+- STEP 0 GC: extended orphan-pattern list with 10 new dirs observed in /tmp surveys
+
+INC-39 documents all 4 fixes + the "architecture deployment ≠ architecture design" lesson.
+
+Outcome: SUCCESS.
