@@ -320,6 +320,7 @@ async function ProspectDetailBody({ params }: { params: Promise<PageParams> }) {
         prevLink={prevLink}
         nextLink={nextLink}
         backLink={backLink}
+        onePagerHref={`/api/reports/one-pager/${prospect.id}?locale=${encodeURIComponent(locale)}`}
       />
 
       <ProspectStats prospect={prospect} labels={statsLabels} />

@@ -45,6 +45,13 @@ export interface ProspectHeroProps {
   prevLink: React.ReactNode | null;
   nextLink: React.ReactNode | null;
   backLink: React.ReactNode;
+  /**
+   * One-pager PDF download URL (F.6). When provided, the
+   * "Generate one-pager" button renders as a real `<a>` link that
+   * streams an `application/pdf`. When omitted, the button stays
+   * disabled (matches the v0 presentation).
+   */
+  onePagerHref?: string;
 }
 
 export function ProspectHero({
@@ -53,6 +60,7 @@ export function ProspectHero({
   prevLink,
   nextLink,
   backLink,
+  onePagerHref,
 }: ProspectHeroProps) {
   return (
     <section
@@ -191,26 +199,50 @@ export function ProspectHero({
           >
             {labels.markClient}
           </button>
-          <button
-            type="button"
-            disabled
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              padding: "8px 14px",
-              borderRadius: 8,
-              background: "var(--color-agency-indigo)",
-              color: "#fff",
-              border: "1px solid var(--color-agency-indigo)",
-              fontSize: 13,
-              fontWeight: 600,
-              cursor: "not-allowed",
-              opacity: 0.85,
-            }}
-            data-testid="generate-one-pager-btn"
-          >
-            {labels.generateOnePager}
-          </button>
+          {onePagerHref ? (
+            <a
+              href={onePagerHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                padding: "8px 14px",
+                borderRadius: 8,
+                background: "var(--color-agency-indigo)",
+                color: "#fff",
+                border: "1px solid var(--color-agency-indigo)",
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: "pointer",
+                textDecoration: "none",
+              }}
+              data-testid="generate-one-pager-btn"
+            >
+              {labels.generateOnePager}
+            </a>
+          ) : (
+            <button
+              type="button"
+              disabled
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                padding: "8px 14px",
+                borderRadius: 8,
+                background: "var(--color-agency-indigo)",
+                color: "#fff",
+                border: "1px solid var(--color-agency-indigo)",
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: "not-allowed",
+                opacity: 0.85,
+              }}
+              data-testid="generate-one-pager-btn"
+            >
+              {labels.generateOnePager}
+            </button>
+          )}
         </div>
       </div>
     </section>

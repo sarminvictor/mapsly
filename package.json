@@ -48,7 +48,8 @@
     "p-limit": "^6.2.0",
     "p-retry": "^6.2.1",
     "react-hook-form": "^7.54.2",
-    "@hookform/resolvers": "^3.9.1"
+    "@hookform/resolvers": "^3.9.1",
+    "@react-pdf/renderer": "^4.5.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.0.0",
