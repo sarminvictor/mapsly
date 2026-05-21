@@ -786,3 +786,4 @@ SES-2026-05-21-cw-1779392061 · F.9 · SUCCESS · score TBD/10 · 1230+/57- · c
 SES-2026-05-21-cw-1779394124 · F.11 · SUCCESS · score 9.03/10 · 994+/6- · merged=8fcc1f8 · v0.7.25 · PR #59 · 4 fix commits (set-state-in-effect, TS2448 hoist, react-hooks/refs, en-CA sparse override)
 SES-2026-05-21-cw-selfheal · F.6-STALE-CLEANUP · SELF-HEAL · 0/10 · 0+/0- · no-ci · no-merge · marked stale TaskRun INCOMPLETE, reset Task PENDING
 SES-2026-05-21-2051 · idle · no-eligible (sandbox CAN_PNPM_INSTALL=0) · tagged F.6 requires:pnpm-install for future filter automation · no cooldown
+SES-2026-05-21-2112 · idle · no-eligible (sandbox CAN_PNPM_INSTALL=0) · 5 PENDING: A.9/B.10/F.6 need pnpm-install · B.8/I.2/I.3 human-required · F.8 dep-blocked by F.6 · no cooldown
