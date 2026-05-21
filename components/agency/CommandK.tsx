@@ -77,9 +77,12 @@ export function CommandK() {
   }, []);
 
   // Sync ref so the empty-deps ⌘K listener can read current open without
-  // re-registering on every open/close transition.
+  // re-registering on every open/close transition. (Ref mutation MUST live
+  // in an effect, not in the render path — react-hooks/refs rule.)
   const openRef = React.useRef(open);
-  openRef.current = open;
+  React.useEffect(() => {
+    openRef.current = open;
+  }, [open]);
 
   // ─── Global ⌘K / Ctrl+K shortcut ─────────────────────────────────────
   React.useEffect(() => {
