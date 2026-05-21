@@ -106,10 +106,7 @@ export function SignalCorrelationPanel({
           {correlations.map((c) => {
             // Clamp lift to a visual range of 0..3× for bar width
             // (positive correlation only). Lifts >3× cap at 100%.
-            const widthPct = Math.max(
-              4,
-              Math.min(100, (c.lift / 3) * 100),
-            );
+            const widthPct = Math.max(4, Math.min(100, (c.lift / 3) * 100));
             const isPositive = c.lift >= 1;
             return (
               <li

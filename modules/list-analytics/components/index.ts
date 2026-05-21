@@ -13,10 +13,7 @@ export { StatHeader } from "./StatHeader";
 export type { StatHeaderProps, StatHeaderLabels } from "./StatHeader";
 
 export { ListFunnelRow } from "./ListFunnelRow";
-export type {
-  ListFunnelRowProps,
-  ListFunnelRowLabels,
-} from "./ListFunnelRow";
+export type { ListFunnelRowProps, ListFunnelRowLabels } from "./ListFunnelRow";
 
 export { ListFunnelTable } from "./ListFunnelTable";
 export type {

@@ -226,8 +226,7 @@ export async function getListAnalyticsForAgency(
     // busiest lists rise to the top of Tom's scan.
     const funnelRows: ListFunnelRow[] = lists.map((l) => {
       const t = perList.get(l.id) ?? { ...empty };
-      const totalLeads =
-        t.new + t.contacted + t.replied + t.won + t.lost;
+      const totalLeads = t.new + t.contacted + t.replied + t.won + t.lost;
       return {
         listId: l.id,
         listName: l.name,

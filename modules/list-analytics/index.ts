@@ -5,9 +5,7 @@
  * submodules — keeps the surface stable as we evolve the internals.
  */
 
-export {
-  getListAnalyticsForAgency,
-} from "./queries";
+export { getListAnalyticsForAgency } from "./queries";
 
 export {
   EMPTY_LIST_ANALYTICS,

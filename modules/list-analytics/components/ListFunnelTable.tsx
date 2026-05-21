@@ -1,10 +1,7 @@
 import * as React from "react";
 
 import type { ListFunnelRow as FunnelRowData } from "../types";
-import {
-  ListFunnelRow,
-  type ListFunnelRowLabels,
-} from "./ListFunnelRow";
+import { ListFunnelRow, type ListFunnelRowLabels } from "./ListFunnelRow";
 
 /**
  * ListFunnelTable · the per-list funnel table for `/(agency)/list-

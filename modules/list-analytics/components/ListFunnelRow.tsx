@@ -218,7 +218,11 @@ export function ListFunnelRow({ row, labels, nameLink }: ListFunnelRowProps) {
             {labels.emptyRowHint}
           </span>
         ) : (
-          <FunnelSvg segments={segments} total={totalLeads} ariaLabel={funnelAria} />
+          <FunnelSvg
+            segments={segments}
+            total={totalLeads}
+            ariaLabel={funnelAria}
+          />
         )}
       </td>
     </>

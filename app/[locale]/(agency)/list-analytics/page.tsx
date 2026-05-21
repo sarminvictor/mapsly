@@ -166,11 +166,7 @@ function ListAnalyticsSkeleton() {
 
 /* ----------------------------------------------------- async body */
 
-async function ListAnalyticsBody({
-  params,
-}: {
-  params: Promise<PageParams>;
-}) {
+async function ListAnalyticsBody({ params }: { params: Promise<PageParams> }) {
   const { locale } = await params;
   setRequestLocale(locale);
 
@@ -235,14 +231,7 @@ async function ListAnalyticsBody({
     row: {
       formatInt,
       pausedPill: t("row_paused_pill"),
-      funnelAria: ({
-        listName,
-        new: n,
-        contacted,
-        replied,
-        won,
-        lost,
-      }) =>
+      funnelAria: ({ listName, new: n, contacted, replied, won, lost }) =>
         t("row_funnel_aria", {
           listName,
           new: formatInt(n),
