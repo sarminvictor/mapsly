@@ -60,18 +60,14 @@ import {
  * resolve as `latest` vs `previous`. A mid-week ad-hoc rescan won't be
  * mistaken for "last week".
  */
-function pickLatestAndPrev(
-  scans: Array<{
-    scannedAt: Date;
-    localPackRank: number | null;
-    organicRank: number | null;
-  }>,
-): [(typeof scans)[number] | null, (typeof scans)[number] | null] {
+function pickLatestAndPrev<T extends { scannedAt: Date }>(
+  scans: T[],
+): [T | null, T | null] {
   if (scans.length === 0) return [null, null];
   // Scans arrive sorted desc by scannedAt (Prisma orderBy below).
   const latest = scans[0];
   const cutoffMs = latest.scannedAt.getTime() - 6 * 24 * 60 * 60 * 1000;
-  let previous: (typeof scans)[number] | null = null;
+  let previous: T | null = null;
   for (let i = 1; i < scans.length; i++) {
     if (scans[i].scannedAt.getTime() <= cutoffMs) {
       previous = scans[i];
