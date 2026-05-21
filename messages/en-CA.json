@@ -1,8 +1,64 @@
 {
   "agency": {
     "lists": {
+      "meta": {
+        "title": "Lists · Mapsly",
+        "description": "Service-driven prospect lists for your agency. One list per service you sell."
+      },
+      "title": "Lists",
+      "subtitle": "One list per service you sell",
+      "subtitle_with_agency": "One list per service you sell · {agency}",
+      "today_new": "{count, plural, =0 {No new leads today} one {# new lead today} other {# new leads today}}",
+      "across_lists": " across your {count} active lists",
+      "empty_title": "No lists yet",
+      "empty_state": "Pick a service you sell — Mapsly will surface every business in our 2.1M index that fits. New matches arrive each morning.",
+      "empty_cta": "Open Search",
+      "create_list": "New list",
+      "intro_body": "Each list represents one service you sell. Pick the signals that match the offer (e.g. slow site + no schema = website rebuild candidates) and Mapsly auto-surfaces every business in our 2.1M index that fits. New matches appear here each morning.",
+      "today_strip_label": "New leads this week",
+      "today_strip_detail": "{new, plural, =0 {No new businesses surfaced} one {# new business surfaced} other {# new businesses surfaced}} across your {lists, plural, one {# active list} other {# active lists}} in the last 7 days.",
+      "today_strip_meta": "// most recent list-refresh · 7-day rolling window",
+      "today_strip_cta": "Review →",
+      "templates_heading": "Start a list from a service you sell",
+      "templates_sub": "// click any service to pre-fill the matching filters · you can refine before saving",
+      "active_heading": "Your active lists",
+      "active_meta": "// {count, plural, one {# active · refreshing} other {# active · refreshing}}",
+      "paused_heading": "Paused",
+      "paused_meta": "// {count, plural, one {# paused} other {# paused}}",
+      "card_new_pill": "{count, plural, =0 {No new} one {# new} other {# new}}",
+      "card_paused_pill": "Paused",
+      "card_qualified_label": "qualified",
+      "card_this_week_label": "this week",
+      "card_engaged_label": "engaged",
+      "card_cadence_daily": "Refreshes daily 6am",
+      "card_cadence_weekly": "Refreshes weekly",
+      "card_cadence_manual": "Manual refresh",
+      "card_action_clone": "Clone list",
+      "card_action_pause": "Pause list",
+      "card_action_resume": "Resume list",
+      "card_action_more": "More",
+      "card_target_prefix": "target: {target}",
+      "card_target_any": "target: any business · open",
+      "service_type_custom": "Custom",
       "service_templates": {
-        "brand": "Brand defence"
+        "website": "Website rebuild",
+        "meta_ads": "Meta ads campaign",
+        "google_ads": "Google Ads launch",
+        "local_seo": "Local SEO + GBP",
+        "reviews": "Review management",
+        "brand": "Brand defense",
+        "launch": "New-business launch",
+        "audit": "Full audit"
+      },
+      "service_template_metas": {
+        "website": "slow site · no schema · old tech",
+        "meta_ads": "no ads · or off-keyword copy",
+        "google_ads": "no paid search · high-CPC kw open",
+        "local_seo": "not in 3-pack · low photos",
+        "reviews": "reply rate < 25% · unanswered 1★",
+        "brand": "competitor bidding on brand name",
+        "launch": "opened < 90d · < 10 reviews",
+        "audit": "all signals · for big retainer pitches"
       }
     }
   }
