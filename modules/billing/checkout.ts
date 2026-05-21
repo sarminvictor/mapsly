@@ -40,6 +40,9 @@ export interface CreateCheckoutInput {
    * Absolute URL where Stripe redirects after success or cancellation.
    * Success URL receives `?checkout=success` appended; cancel URL receives
    * `?canceled=1`. The caller picks the route (e.g. `/billing/return`).
+   *
+   * Hosts are allow-listed (see `validateReturnUrl`) to defend against
+   * open-redirect attacks via Stripe-mediated post-checkout redirects.
    */
   returnUrl: string;
 }
@@ -63,6 +66,7 @@ export class CheckoutError extends Error {
       | "user_not_found"
       | "agency_required"
       | "agency_not_found"
+      | "agency_role_required"
       | "invalid_return_url",
     message: string,
   ) {
@@ -81,6 +85,7 @@ interface AgencyRow {
 
 interface MembershipRow {
   agencyId: string;
+  role: "OWNER" | "ADMIN" | "STAFF";
   agency: AgencyRow | null;
 }
 
@@ -123,6 +128,7 @@ export async function createCheckoutSession(
       agencyMembers: {
         select: {
           agencyId: true,
+          role: true,
           agency: {
             select: { id: true, name: true, stripeCustomerId: true },
           },
@@ -180,6 +186,16 @@ async function checkoutForAgency(
     throw new CheckoutError(
       "agency_required",
       `Plan "${input.plan}" requires the user to belong to an agency.`,
+    );
+  }
+  // Role gate: only OWNER + ADMIN may trigger billing on the agency's
+  // behalf. STAFF members can use the agency but must not be able to
+  // start, upgrade, or cancel its subscription. Source of truth is
+  // `AgencyMemberRole` in prisma/schema.prisma.
+  if (membership.role !== "OWNER" && membership.role !== "ADMIN") {
+    throw new CheckoutError(
+      "agency_role_required",
+      `Plan "${input.plan}" requires an OWNER or ADMIN agency role (got ${membership.role}).`,
     );
   }
   const agency = membership.agency;
@@ -299,6 +315,23 @@ function appendQueryFlag(url: string, key: string, value: string): string {
   return `${url}${sep}${encodeURIComponent(key)}=${encodeURIComponent(value)}`;
 }
 
+/**
+ * Open-redirect defense for the Stripe post-checkout redirect.
+ *
+ * Stripe will redirect users to `success_url` / `cancel_url` verbatim — if
+ * we accept any `http(s)` URL the attacker can craft a checkout link that
+ * lands the user on a phishing page that looks like Mapsly. The allow-list
+ * here mirrors the hosts our own UI actually uses:
+ *
+ *   - The configured `NEXT_PUBLIC_APP_URL` host (production: `mapsly.ai`,
+ *     `www.mapsly.ai`).
+ *   - Any `*.vercel.app` subdomain (preview deploys).
+ *   - `localhost` / `127.0.0.1` (local dev).
+ *
+ * Protocol rule: only `https:` in production; `http:` is allowed *only*
+ * for localhost/127.0.0.1 so dev still works. This guards against the
+ * "downgrade to http and MitM the session" path on the public internet.
+ */
 function validateReturnUrl(returnUrl: string): void {
   let parsed: URL;
   try {
@@ -309,10 +342,68 @@ function validateReturnUrl(returnUrl: string): void {
       `returnUrl "${returnUrl}" is not a valid absolute URL.`,
     );
   }
+
   if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
     throw new CheckoutError(
       "invalid_return_url",
       `returnUrl protocol "${parsed.protocol}" is not allowed.`,
     );
+  }
+
+  const host = parsed.hostname.toLowerCase();
+  const isLocalhost = host === "localhost" || host === "127.0.0.1";
+
+  // http: only allowed for localhost; reject http on any public host.
+  if (parsed.protocol === "http:" && !isLocalhost) {
+    throw new CheckoutError(
+      "invalid_return_url",
+      `returnUrl must use https for non-localhost hosts (got "${returnUrl}").`,
+    );
+  }
+
+  // In production, refuse http: entirely (even localhost — there's no
+  // legitimate reason a production Stripe checkout lands on localhost).
+  if (process.env.NODE_ENV === "production" && parsed.protocol !== "https:") {
+    throw new CheckoutError(
+      "invalid_return_url",
+      `returnUrl must use https in production (got "${returnUrl}").`,
+    );
+  }
+
+  if (isAllowedReturnHost(host)) return;
+
+  throw new CheckoutError(
+    "invalid_return_url",
+    `returnUrl host "${host}" is not on the allow-list.`,
+  );
+}
+
+function isAllowedReturnHost(host: string): boolean {
+  if (host === "localhost" || host === "127.0.0.1") return true;
+
+  // Any *.vercel.app preview deploy (and `vercel.app` itself, harmless).
+  if (host === "vercel.app" || host.endsWith(".vercel.app")) return true;
+
+  // The configured public app URL host (e.g. mapsly.ai). Also accept
+  // the apex/www variant of the same registrable domain so a config of
+  // `https://mapsly.ai` still accepts `www.mapsly.ai` and vice versa —
+  // both belong to us.
+  const appHost = appUrlHost();
+  if (appHost) {
+    if (host === appHost) return true;
+    if (host === `www.${appHost}`) return true;
+    if (appHost.startsWith("www.") && host === appHost.slice(4)) return true;
+  }
+
+  return false;
+}
+
+function appUrlHost(): string | null {
+  const raw = process.env.NEXT_PUBLIC_APP_URL;
+  if (!raw) return null;
+  try {
+    return new URL(raw).hostname.toLowerCase();
+  } catch {
+    return null;
   }
 }

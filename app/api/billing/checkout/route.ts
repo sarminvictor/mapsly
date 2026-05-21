@@ -10,6 +10,8 @@
 //   400 { error: "invalid_return_url" }
 //   401 { error: "unauthorized" }
 //   403 { error: "agency_required" }       — agency_* plan, user has no agency
+//   403 { error: "agency_not_found" }      — membership references missing agency
+//   403 { error: "agency_role_required" }  — STAFF tried to bill the agency
 //   404 { error: "user_not_found" }        — session.user.id stale
 //   429 { error: "rate_limited", ... }     — emitted by rateLimit middleware
 //   500 { error: "internal_error" }
@@ -91,7 +93,9 @@ function handleCheckoutError(err: unknown, userId: string): Response {
     const httpStatus =
       err.code === "user_not_found"
         ? 404
-        : err.code === "agency_required" || err.code === "agency_not_found"
+        : err.code === "agency_required" ||
+            err.code === "agency_not_found" ||
+            err.code === "agency_role_required"
           ? 403
           : 400;
     // Honest logging per INC-37 — surface domain errors with context so they

@@ -7,12 +7,15 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 // ─── In-memory DB seam ─────────────────────────────────────────────────────
 
+type AgencyRole = "OWNER" | "ADMIN" | "STAFF";
+
 interface FakeUser {
   id: string;
   email: string;
   name: string | null;
   stripeCustomerId: string | null;
   agencyId: string | null;
+  agencyRole: AgencyRole | null;
 }
 interface FakeAgency {
   id: string;
@@ -44,6 +47,7 @@ vi.mock("@/lib/prisma", () => ({
             ? [
                 {
                   agencyId: u.agencyId,
+                  role: u.agencyRole ?? "OWNER",
                   agency: agency
                     ? {
                         id: agency.id,
@@ -159,6 +163,8 @@ const ENV_KEYS = [
   "STRIPE_PRICE_AGENCY_GROWTH",
   "STRIPE_PRICE_AGENCY_PRO",
   "STRIPE_PRICE_AGENCY_BOUTIQUE",
+  "NEXT_PUBLIC_APP_URL",
+  "NODE_ENV",
 ] as const;
 const envSnapshot: Partial<Record<(typeof ENV_KEYS)[number], string | undefined>> = {};
 
@@ -169,6 +175,9 @@ beforeEach(() => {
   process.env.STRIPE_PRICE_AGENCY_GROWTH = "price_agency_99";
   process.env.STRIPE_PRICE_AGENCY_PRO = "price_agency_249";
   process.env.STRIPE_PRICE_AGENCY_BOUTIQUE = "price_agency_499";
+  // Test allow-list anchor — all "happy path" tests use app.mapsly.ai which
+  // matches NEXT_PUBLIC_APP_URL=https://app.mapsly.ai.
+  process.env.NEXT_PUBLIC_APP_URL = "https://app.mapsly.ai";
   db.reset();
   stripeCalls.reset();
 });
@@ -198,6 +207,7 @@ describe("createCheckoutSession · SMB plan", () => {
       name: "Maria",
       stripeCustomerId: null,
       agencyId: null,
+      agencyRole: null,
     });
 
     const out = await createCheckoutSession({
@@ -244,6 +254,7 @@ describe("createCheckoutSession · SMB plan", () => {
       name: null,
       stripeCustomerId: "cus_existing_smb",
       agencyId: null,
+      agencyRole: null,
     });
 
     const out = await createCheckoutSession({
@@ -273,6 +284,7 @@ describe("createCheckoutSession · agency plans", () => {
       name: "Tom",
       stripeCustomerId: null,
       agencyId: "a1",
+      agencyRole: "OWNER",
     });
 
     const out = await createCheckoutSession({
@@ -318,6 +330,7 @@ describe("createCheckoutSession · agency plans", () => {
       name: "Owner",
       stripeCustomerId: null,
       agencyId: "a2",
+      agencyRole: "OWNER",
     });
 
     const out = await createCheckoutSession({
@@ -337,6 +350,7 @@ describe("createCheckoutSession · agency plans", () => {
       name: null,
       stripeCustomerId: null,
       agencyId: null,
+      agencyRole: null,
     });
 
     await expect(
@@ -352,6 +366,64 @@ describe("createCheckoutSession · agency plans", () => {
 
     expect(stripeCalls.customers).toHaveLength(0);
     expect(stripeCalls.sessions).toHaveLength(0);
+  });
+
+  test("rejects when user's agency membership has STAFF role", async () => {
+    db.agencies.set("a3", {
+      id: "a3",
+      name: "Anchor Local",
+      stripeCustomerId: null,
+    });
+    db.users.set("u_staff", {
+      id: "u_staff",
+      email: "staffer@anchor.example",
+      name: "Staffer",
+      stripeCustomerId: null,
+      agencyId: "a3",
+      agencyRole: "STAFF",
+    });
+
+    await expect(
+      createCheckoutSession({
+        userId: "u_staff",
+        plan: "agency_growth",
+        returnUrl: "https://app.mapsly.ai/billing/return",
+      }),
+    ).rejects.toMatchObject({
+      name: "CheckoutError",
+      code: "agency_role_required",
+    });
+
+    // No Stripe writes should have happened.
+    expect(stripeCalls.customers).toHaveLength(0);
+    expect(stripeCalls.sessions).toHaveLength(0);
+    // And no DB write to Agency.stripeCustomerId either.
+    expect(db.agencies.get("a3")?.stripeCustomerId).toBeNull();
+  });
+
+  test("ADMIN role is allowed to start agency billing", async () => {
+    db.agencies.set("a4", {
+      id: "a4",
+      name: "Anchor Local",
+      stripeCustomerId: null,
+    });
+    db.users.set("u_admin", {
+      id: "u_admin",
+      email: "admin@anchor.example",
+      name: "Admin",
+      stripeCustomerId: null,
+      agencyId: "a4",
+      agencyRole: "ADMIN",
+    });
+
+    const out = await createCheckoutSession({
+      userId: "u_admin",
+      plan: "agency_solo",
+      returnUrl: "https://app.mapsly.ai/billing/return",
+    });
+
+    expect(out.sessionId).toMatch(/^cs_test_/);
+    expect(stripeCalls.sessions).toHaveLength(1);
   });
 });
 
@@ -373,6 +445,7 @@ describe("createCheckoutSession · validation errors", () => {
       name: null,
       stripeCustomerId: "cus_1",
       agencyId: null,
+      agencyRole: null,
     });
     await expect(
       createCheckoutSession({
@@ -390,12 +463,134 @@ describe("createCheckoutSession · validation errors", () => {
       name: null,
       stripeCustomerId: "cus_1",
       agencyId: null,
+      agencyRole: null,
     });
     await expect(
       createCheckoutSession({
         userId: "u7",
         plan: "smb_paid",
         returnUrl: "javascript:alert(1)",
+      }),
+    ).rejects.toMatchObject({ code: "invalid_return_url" });
+  });
+});
+
+describe("createCheckoutSession · returnUrl host allow-list", () => {
+  // Shared SMB user used across these tests — has an existing customer id
+  // so no Stripe.customers.create call clutters the recorded sessions.
+  function seedUser(id: string) {
+    db.users.set(id, {
+      id,
+      email: `${id}@example.com`,
+      name: null,
+      stripeCustomerId: `cus_${id}`,
+      agencyId: null,
+      agencyRole: null,
+    });
+  }
+
+  test("accepts NEXT_PUBLIC_APP_URL host", async () => {
+    process.env.NEXT_PUBLIC_APP_URL = "https://mapsly.ai";
+    seedUser("u_app");
+    const out = await createCheckoutSession({
+      userId: "u_app",
+      plan: "smb_paid",
+      returnUrl: "https://mapsly.ai/billing/return",
+    });
+    expect(out.sessionId).toMatch(/^cs_test_/);
+  });
+
+  test("accepts the www. variant of the NEXT_PUBLIC_APP_URL host", async () => {
+    process.env.NEXT_PUBLIC_APP_URL = "https://mapsly.ai";
+    seedUser("u_www");
+    const out = await createCheckoutSession({
+      userId: "u_www",
+      plan: "smb_paid",
+      returnUrl: "https://www.mapsly.ai/billing/return",
+    });
+    expect(out.sessionId).toMatch(/^cs_test_/);
+  });
+
+  test("accepts *.vercel.app preview URLs", async () => {
+    seedUser("u_vercel");
+    const out = await createCheckoutSession({
+      userId: "u_vercel",
+      plan: "smb_paid",
+      returnUrl:
+        "https://mapsly-git-auto-2026-05-21-g-1-1-mapsly.vercel.app/billing/return",
+    });
+    expect(out.sessionId).toMatch(/^cs_test_/);
+  });
+
+  test("accepts localhost in dev (NODE_ENV !== production)", async () => {
+    process.env.NODE_ENV = "development";
+    seedUser("u_local");
+    const out = await createCheckoutSession({
+      userId: "u_local",
+      plan: "smb_paid",
+      returnUrl: "http://localhost:3000/billing/return",
+    });
+    expect(out.sessionId).toMatch(/^cs_test_/);
+  });
+
+  test("accepts 127.0.0.1 in dev", async () => {
+    process.env.NODE_ENV = "development";
+    seedUser("u_loopback");
+    const out = await createCheckoutSession({
+      userId: "u_loopback",
+      plan: "smb_paid",
+      returnUrl: "http://127.0.0.1:3000/billing/return",
+    });
+    expect(out.sessionId).toMatch(/^cs_test_/);
+  });
+
+  test("rejects attacker-controlled host", async () => {
+    seedUser("u_evil");
+    await expect(
+      createCheckoutSession({
+        userId: "u_evil",
+        plan: "smb_paid",
+        returnUrl: "https://evil.example/phish",
+      }),
+    ).rejects.toMatchObject({ code: "invalid_return_url" });
+    expect(stripeCalls.sessions).toHaveLength(0);
+  });
+
+  test("rejects look-alike host containing the app domain as suffix", async () => {
+    // Defence against `https://mapsly.ai.evil.com/` — host comparison must be
+    // exact, not a substring/suffix check.
+    process.env.NEXT_PUBLIC_APP_URL = "https://mapsly.ai";
+    seedUser("u_lookalike");
+    await expect(
+      createCheckoutSession({
+        userId: "u_lookalike",
+        plan: "smb_paid",
+        returnUrl: "https://mapsly.ai.evil.com/billing/return",
+      }),
+    ).rejects.toMatchObject({ code: "invalid_return_url" });
+    expect(stripeCalls.sessions).toHaveLength(0);
+  });
+
+  test("rejects http: outside localhost", async () => {
+    seedUser("u_http");
+    await expect(
+      createCheckoutSession({
+        userId: "u_http",
+        plan: "smb_paid",
+        returnUrl: "http://app.mapsly.ai/billing/return",
+      }),
+    ).rejects.toMatchObject({ code: "invalid_return_url" });
+    expect(stripeCalls.sessions).toHaveLength(0);
+  });
+
+  test("rejects http://localhost in production", async () => {
+    process.env.NODE_ENV = "production";
+    seedUser("u_prod_local");
+    await expect(
+      createCheckoutSession({
+        userId: "u_prod_local",
+        plan: "smb_paid",
+        returnUrl: "http://localhost:3000/billing/return",
       }),
     ).rejects.toMatchObject({ code: "invalid_return_url" });
   });
