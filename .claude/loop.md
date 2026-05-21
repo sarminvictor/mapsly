@@ -295,6 +295,7 @@ RETURNING
 ```
 
 Returns:
+
 - 0 rows → queue empty for current capabilities → exit ≤1 line: `no eligible tasks (caps=${CAPS_LITERAL}), idle`. **No cooldown.**
 - 1 row with `resume = null` → fresh task; checkout a new branch `auto/YYYY-MM-DD-{taskId}-{n}`.
 - 1 row with `resume = {runId, branchName}` → resume the prior incomplete run; `git checkout $branchName`.
@@ -420,6 +421,7 @@ If a mode genuinely cannot run (no UI changes → skip browser; no DB writes →
    This is the canonical queue-worker retry pattern (per `.claude/rules/loop-discipline.md` § Retry policy and INC-35). Same-session retries burn turns and risk hitting the 100-turn cap mid-fix. Across-tick retries cost +5 min wall-clock per attempt, which is negligible compared to a session kill.
 
    Vercel posts a preview comment with `https://*.vercel.app` URL within ~60s of push. THIS is the URL for browser/Lighthouse validation in steps 5–7 below. If the preview is still `Building` after 4 min, the same INCOMPLETE-and-resume pattern applies.
+
 5. **Browser validation** via Claude in Chrome MCP against the preview URL:
    - Navigate, screenshot, assert key content, click interactive elements
    - For auth tasks: full magic-link flow including the Gmail tab check (see test-scenarios.md Scenario A)
@@ -557,6 +559,7 @@ COMMIT;
 One transaction, one round trip. Was 3–4 separate UPDATEs in prior versions.
 
 Then ONE bash call to:
+
 1. Append to `.claude/memory/build-log.md` (`echo ">> SES-... · taskId · outcome ..." >> file`)
 2. Stamp `.claude/memory/loop-lock.json` (write JSON via cat heredoc)
 
@@ -581,6 +584,7 @@ If during execution you detect approaching usage limit (warning in output, `usag
 **Turn-budget checkpoint (v0.6.42 · INC-35):** At every step boundary (after STEPs 0, 2, 3, 4, 5, 6, 7), the agent compares `TURN_USED` against `TURN_BUDGET` (default 80, with 20% margin against the 100-turn cap).
 
 If `TURN_USED >= TURN_BUDGET`:
+
 1. Stop new work. Do NOT spawn additional agents, do NOT poll CI further.
 2. Mark TaskRun `outcome=INCOMPLETE` with `branchName` preserved + `notes` capturing where we paused.
 3. Reset Task back to `PENDING`.
