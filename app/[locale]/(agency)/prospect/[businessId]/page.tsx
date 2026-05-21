@@ -50,11 +50,13 @@ import {
   WhyQualifies,
   SignalBlock,
   ProspectRail,
+  ShareLinkButton,
   type ProspectHeroLabels,
   type ProspectStatsLabels,
   type WhyQualifiesLabels,
   type SignalBlockLabels,
   type ProspectRailLabels,
+  type ShareLinkButtonLabels,
 } from "@/modules/agency-portal/prospect-detail/components";
 import { getAgencyProspectDetailData } from "@/modules/agency-portal/prospect-detail/queries";
 import type { ProspectSignalBlockKey } from "@/modules/agency-portal/prospect-detail/types";
@@ -244,6 +246,18 @@ async function ProspectDetailBody({ params }: { params: Promise<PageParams> }) {
     noWebsite: t("rail.no_website"),
   };
 
+  const tShare = await getTranslations("agency.prospect_detail.share");
+  const shareLabels: ShareLinkButtonLabels = {
+    cta: tShare("cta"),
+    busy: tShare("busy"),
+    copy: tShare("copy"),
+    copied: tShare("copied"),
+    expires: tShare("expires"),
+    errorUnauthorized: tShare("error_unauthorized"),
+    errorForbidden: tShare("error_forbidden"),
+    errorGeneric: tShare("error_generic"),
+  };
+
   /* ---------------- prev / next + back nav --------------- */
   const prevLink =
     data.prevProspectId != null ? (
@@ -321,6 +335,13 @@ async function ProspectDetailBody({ params }: { params: Promise<PageParams> }) {
         nextLink={nextLink}
         backLink={backLink}
         onePagerHref={`/api/reports/one-pager/${prospect.id}?locale=${encodeURIComponent(locale)}`}
+        shareLinkSlot={
+          <ShareLinkButton
+            businessId={prospect.id}
+            labels={shareLabels}
+            locale={locale}
+          />
+        }
       />
 
       <ProspectStats prospect={prospect} labels={statsLabels} />
