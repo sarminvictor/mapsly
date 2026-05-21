@@ -23,14 +23,25 @@ export async function signInAction(
   }
 
   try {
-    // NextAuth v5 server-action `signIn`. On success it throws a
-    // NEXT_REDIRECT to `redirectTo` (after the magic-link click) and
-    // immediately to `pages.verifyRequest` (which we set to
-    // /signin/check-email). We append the email as a query param so
-    // the check-email page can show "we sent a link to {email}".
+    // NextAuth v5 server-action `signIn` for an email provider has TWO
+    // distinct redirects:
+    //   1. On form submit: the action sends the magic-link email and
+    //      throws NEXT_REDIRECT to `pages.verifyRequest`
+    //      (= /signin/check-email). The user sees the waiting screen.
+    //   2. On magic-link click: /api/auth/callback/resend verifies the
+    //      token, mints the session cookie, and redirects to the
+    //      `redirectTo` value that was baked into the email URL.
+    //
+    // So `redirectTo` MUST be the POST-signin destination, not the
+    // check-email waiting page — else the user bounces straight back
+    // to the waiting screen after clicking the magic link, without
+    // ever landing in a signed-in state.
+    //
+    // We send everyone to /post-signin which does role-based routing
+    // (ADMIN/SMB → /dashboard, agency member → /lists).
     await signIn("resend", {
       email,
-      redirectTo: `/signin/check-email?email=${encodeURIComponent(email)}`,
+      redirectTo: "/post-signin",
     });
   } catch (err) {
     if (err instanceof AuthError) {
