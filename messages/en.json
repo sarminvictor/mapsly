@@ -893,6 +893,42 @@
         "invoice_status_uncollectible": "Uncollectible",
         "invoice_status_draft": "Draft"
       }
+    },
+    "list_analytics": {
+      "meta": {
+        "title": "List analytics · Mapsly",
+        "description": "Cross-list funnel + signal correlation for your agency."
+      },
+      "title": "List analytics",
+      "subtitle_with_agency": "Funnel + signal correlation across your lists · last 90 days · {agency}",
+      "stat_surfaced_90d": "Surfaced · 90d",
+      "stat_surfaced_90d_help": "Total leads landed in any list, last 90 days.",
+      "stat_contact_rate": "Contact rate",
+      "stat_contact_rate_help": "Leads we touched / leads surfaced. Benchmark ~60%.",
+      "stat_reply_rate": "Reply rate",
+      "stat_reply_rate_help": "Replied or further / contacted-or-further. Benchmark ~12%.",
+      "stat_closed_won": "Closed won",
+      "stat_closed_won_help": "Won / contacted-or-further. Benchmark ~3%.",
+      "table_title": "Per-list funnel",
+      "table_aria": "Per-list funnel breakdown · last 90 days",
+      "table_col_list": "List",
+      "table_col_new": "New",
+      "table_col_contacted": "Contacted",
+      "table_col_replied": "Replied",
+      "table_col_won": "Won",
+      "table_col_lost": "Lost",
+      "table_col_funnel": "Funnel",
+      "table_empty_title": "No leads in window",
+      "table_empty_body": "No leads landed in any list in the last 90 days. Adjust filters or wait for next refresh.",
+      "row_paused_pill": "Paused",
+      "row_funnel_aria": "{listName} funnel · {new} new · {contacted} contacted · {replied} replied · {won} won · {lost} lost",
+      "row_empty_hint": "No leads yet",
+      "correlation_title": "Signal correlation",
+      "correlation_subtitle": "Which filters predict a reply · lift vs baseline.",
+      "correlation_empty": "Correlation engine ships next phase. Need ≥ 30 replied leads per signal for a usable lift.",
+      "empty_state_title": "No leads yet",
+      "empty_state_body": "No leads in any list. Create a list via search or wait for next list refresh.",
+      "empty_state_cta": "Open search"
     }
   },
   "common": {
