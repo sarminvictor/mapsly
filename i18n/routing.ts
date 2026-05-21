@@ -73,6 +73,12 @@ export const routing = defineRouting({
       "en-CA": "/post-signin",
       fr: "/post-connexion",
     },
+    "/reviews": {
+      en: "/reviews",
+      es: "/resenas",
+      "en-CA": "/reviews",
+      fr: "/avis",
+    },
   },
 });
 
