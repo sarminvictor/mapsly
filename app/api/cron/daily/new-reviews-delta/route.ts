@@ -20,6 +20,7 @@ import prisma from "@/lib/prisma";
 import { cronHandler } from "@/lib/middleware/no-live-api";
 import { reviewsPull } from "@/services/dataforseo";
 import type { ReviewItem } from "@/services/dataforseo";
+import { generateAndPersistReplyDrafts } from "@/modules/scoring/ai-reply";
 import { runBatch, statusFromOutcome } from "../_lib/batch";
 
 const JOB = "daily:new-reviews-delta";
@@ -75,6 +76,7 @@ export const GET = cronHandler(JOB, async ({ runId }) => {
     .map((c) => ({ ...c, googleCid: c.googleCid as string }));
 
   const revalidatedSlugs = new Set<string>();
+  const insertedReviewIds: string[] = [];
   let newReviews = 0;
   let businessesWithNewReviews = 0;
 
@@ -123,7 +125,11 @@ export const GET = cronHandler(JOB, async ({ runId }) => {
       const row = reviewItemToPersist(item, biz.id);
       if (!row) continue; // missing required fields → skip silently
       try {
-        await prisma.review.create({ data: row });
+        const created = await prisma.review.create({
+          data: row,
+          select: { id: true },
+        });
+        insertedReviewIds.push(created.id);
         addedHere += 1;
       } catch {
         // Likely a race with concurrent insert — skip.
@@ -150,6 +156,10 @@ export const GET = cronHandler(JOB, async ({ runId }) => {
     revalidatedSlugs.add(biz.slug);
   });
 
+  // D.7 · generate EN+ES AI reply drafts for newly-inserted reviews.
+  // Cost flows into this CronRun via callOpenAi's incrementCost (services/ai/client.ts).
+  const aiReply = await generateAndPersistReplyDrafts(insertedReviewIds);
+
   for (const slug of revalidatedSlugs) {
     revalidateTag(`business-${slug}-reviews`, "hours");
     revalidateTag(`business-${slug}`, "hours");
@@ -166,6 +176,11 @@ export const GET = cronHandler(JOB, async ({ runId }) => {
       failed: outcome.failures.length,
       newReviews,
       businessesWithNewReviews,
+      aiReply: {
+        processed: aiReply.processed,
+        skipped: aiReply.skipped,
+        failed: aiReply.failed,
+      },
       failureSample: outcome.failures.slice(0, 5).map((f) => ({
         businessId: (f.item as BusinessRow).id,
         error: f.error,
