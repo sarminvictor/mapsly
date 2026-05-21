@@ -3,7 +3,7 @@
  *
  *   - `updateAgencyProfile` — OWNER or ADMIN only. Saves
  *     `Agency.defaultMetro`, `Agency.name`, `Agency.categoriesServed`
- *     then redirects back to `/settings`.
+ *     then redirects back to `/agency-settings`.
  *   - `setLocalePreference` — any signed-in viewer (incl. STAFF). Writes
  *     the `NEXT_LOCALE` cookie so the next render uses the chosen
  *     locale (no `User.preferredLocale` column yet · cookie is the
@@ -92,7 +92,7 @@ export async function updateAgencyProfile(formData: FormData) {
   // Refresh the cached onboarding view too · same Agency row backs it.
   revalidateTag(`agency-onboarding-${userId}`, "minutes");
 
-  redirect({ href: "/settings", locale: "en" });
+  redirect({ href: "/agency-settings", locale: "en" });
 }
 
 /**
@@ -124,7 +124,7 @@ export async function setLocalePreference(formData: FormData) {
   // picks up the new locale even if the user clicks through quickly.
   revalidateTag(`agency-settings-${session.user.id}`, "minutes");
 
-  redirect({ href: "/settings", locale: parsed.locale });
+  redirect({ href: "/agency-settings", locale: parsed.locale });
 }
 
 /**
