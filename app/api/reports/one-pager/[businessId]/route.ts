@@ -119,9 +119,13 @@ export async function GET(
   let pdfBuffer: Buffer;
   try {
     const { renderToBuffer } = await import("@react-pdf/renderer");
-    pdfBuffer = await renderToBuffer(
-      React.createElement(OnePagerDocument, { data }),
-    );
+    // OnePagerDocument returns a <Document>; cast through unknown because
+    // @react-pdf/renderer's renderToBuffer signature parameterizes on
+    // DocumentProps and our wrapper's own props don't match structurally.
+    const element = React.createElement(OnePagerDocument, {
+      data,
+    }) as unknown as Parameters<typeof renderToBuffer>[0];
+    pdfBuffer = await renderToBuffer(element);
   } catch (err) {
     console.error(
       JSON.stringify({
@@ -137,7 +141,7 @@ export async function GET(
 
   const filename = `${data.slug || "one-pager"}.pdf`;
 
-  return new Response(pdfBuffer, {
+  return new Response(new Uint8Array(pdfBuffer), {
     status: 200,
     headers: {
       "Content-Type": "application/pdf",
