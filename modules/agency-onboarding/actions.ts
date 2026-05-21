@@ -86,7 +86,7 @@ export async function updateAgencyProfile(formData: FormData) {
     },
   });
 
-  revalidateTag(`agency-onboarding-${userId}`);
+  revalidateTag(`agency-onboarding-${userId}`, "minutes");
 
   // Advance the wizard. `redirect()` throws an internal signal.
   redirect({
@@ -135,8 +135,8 @@ export async function chooseServiceTemplate(formData: FormData) {
     });
   }
 
-  revalidateTag(`agency-onboarding-${userId}`);
-  revalidateTag(`agency-lists-${userId}`);
+  revalidateTag(`agency-onboarding-${userId}`, "minutes");
+  revalidateTag(`agency-lists-${userId}`, "minutes");
 
   redirect({
     href: { pathname: "/onboarding", query: { step: 3 } },
@@ -152,8 +152,8 @@ export async function finishAgencyOnboarding() {
   if (!session?.user?.id) throw new Error("unauthorized");
   const userId = session.user.id;
 
-  revalidateTag(`agency-onboarding-${userId}`);
-  revalidateTag(`agency-lists-${userId}`);
+  revalidateTag(`agency-onboarding-${userId}`, "minutes");
+  revalidateTag(`agency-lists-${userId}`, "minutes");
 
   redirect({ href: "/lists", locale: "en" });
 }
