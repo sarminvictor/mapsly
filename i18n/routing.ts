@@ -85,6 +85,12 @@ export const routing = defineRouting({
       "en-CA": "/competitors",
       fr: "/concurrents",
     },
+    "/search": {
+      en: "/search",
+      es: "/visibilidad",
+      "en-CA": "/search",
+      fr: "/visibilite",
+    },
   },
 });
 
