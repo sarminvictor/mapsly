@@ -2,7 +2,7 @@
   "state": "paused",
   "sessionId": null,
   "startedAt": null,
-  "lastTickAt": "2026-05-21T21:39:57.987Z",
+  "lastTickAt": "2026-05-21T21:40:03.001Z",
   "cooldownUntil": null,
   "consecutiveFailures": 0,
   "note": "Paused via dashboard. Resume to continue."
