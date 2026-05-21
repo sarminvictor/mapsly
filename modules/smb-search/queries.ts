@@ -171,7 +171,7 @@ export async function getSmbSearchData(userId: string): Promise<SmbSearchData> {
 
     for (const [, scans] of byKeyword) {
       // Scans within each group inherit the outer desc order.
-      const [latest, previous] = pickLatestAndPrev(scans);
+      const [latest, previous] = pickLatestAndPrev<Scan>(scans);
       if (!latest) continue;
       const kw = latest.keyword;
       if (!kw) continue;
