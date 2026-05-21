@@ -328,6 +328,35 @@
       "empty_body": "We don't have a business linked to your account yet. Tell us where you are and we'll start tracking the searches your patients use.",
       "empty_no_keywords": "We're still finding the keywords your patients search. Check back in a few days.",
       "footer_help": "Refreshed weekly. We watch the keywords most likely to bring you patients in your area."
+    },
+    "ads": {
+      "meta": {
+        "title": "Ads · Mapsly",
+        "description": "What competitor ads are running for your services right now."
+      },
+      "eyebrow": "What you're up against",
+      "title": "Ads running in your category",
+      "subtitle_with_business": "Ads we've spotted while watching the market for {name}",
+      "empty_title": "Let's connect your business",
+      "empty_body": "We don't have a business linked to your account yet. Tell us where you are and we'll start tracking the ads running in your category — and flag the ones that aren't for your services.",
+      "no_ads_title": "No active ads we can see",
+      "no_ads_body": "We haven't spotted any ads for your services this week. We check daily — they'll show up here as they appear.",
+      "kpi_active": "Active ads we're tracking",
+      "kpi_active_help": "The number of live ads we've spotted in the last week that look connected to your category. We check daily.",
+      "kpi_off_keyword": "Ads off your services",
+      "kpi_off_keyword_help": "Ads we found that don't seem to match what your business offers. Sometimes useful to know, sometimes just noise.",
+      "alert_many_off_keyword": "Most of these ads aren't for your services. Your competitors might be targeting customers you're not.",
+      "alert_many_off_keyword_meta": "Based on the {count, plural, one {# ad} other {# ads}} we flagged off your services this week.",
+      "lane_off_keyword_chip": "Off-services",
+      "lane_off_keyword_aria": "Off-service lane warning",
+      "lane_unmatched_label": "Other ads",
+      "lane_ads_count": "{count, plural, one {# ad} other {# ads}}",
+      "lane_no_creative": "(no copy stored)",
+      "lane_platform_meta": "Meta",
+      "lane_platform_google": "Google",
+      "lane_external_link_aria": "Open landing page in a new tab",
+      "lane_more_count": "+{count, plural, one {# more} other {# more}}",
+      "footer_help": "Refreshed daily. We track Meta and Google ads matched to your tracked keywords."
     }
   },
   "agency": {
