@@ -2,8 +2,8 @@
   "state": "idle",
   "sessionId": null,
   "startedAt": null,
-  "lastTickAt": "2026-05-21T15:09:53Z",
+  "lastTickAt": "2026-05-21T16:03:34Z",
   "cooldownUntil": null,
   "consecutiveFailures": 0,
-  "note": "SES-2026-05-21-cw-1779374018 closed SUCCESS · G.1 Stripe checkout · subscription create · PR #49 merged e156f7a · v0.7.16 · 4 reviewer agents PASS/WARN · 26 tests · schema migration applied to Neon (User.stripeCustomerId UNIQUE + stripeSubscriptionId)"
+  "note": "SES-2026-05-21-e94a0b0f closed SUCCESS · G.4 Billing UI · SMB+Agency settings/billing pages · PR #51 merged 8a3009c · v0.7.17 · 5 reviewer agents PASS/WARN · 17 tests · agency route moved to /team/billing to avoid (smb)+(agency) URL collision · pre-existing lighthouse failures on marketing root (unrelated to G.4)"
 }

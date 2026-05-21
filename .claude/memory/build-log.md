@@ -772,3 +772,4 @@ SES-2026-05-21-cw-0911 · F.1 · SUCCESS · resume of SES-2026-05-21-cw-0837 (tr
 SES-2026-05-21-cw-0938 · F.2 · SUCCESS · score 7.0/10 (informational) · ~1450+/22- · ci-green · merged PR#46 → main commit 341ebf3 · v0.7.14
 SES-2026-05-21-cw-1779359892 · F.10 · SUCCESS · score 8.8/10 · agency onboarding (3-step /setup flow) · auto-merge · PR #48 · v0.7.15
 SES-2026-05-21-cw--cw-177937 · G.1 · SUCCESS · score 8.6/10 · 1369+/18- · vercel-ci-green · merged=e156f7a (PR #49)
+SES-2026-05-21-e94a0b0f · G.4 · SUCCESS · score 8.6/10 · 2752+/0- · ci=green · merged=8a3009c · v0.7.17
