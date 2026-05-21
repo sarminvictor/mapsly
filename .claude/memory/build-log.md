@@ -681,3 +681,5 @@ Expected net: per-task turn budget 76+ → 30–45. ~55 turns of headroom under 
 Outcome: SUCCESS.
 
 SES-2026-05-21-cowork-1779332920 · B.5 · INCOMPLETE · ~+1500/-20 · branch auto/2026-05-20-B.5-1 · CI test/integration/validate green · build/lighthouse/bundle-check ✗ on PPR E_BLOCKING_ROUTE — Pattern 2+5 applied, layout-chain await still tripping. 6 commits banked: feat init + a11y tap-target + sitemap-test-await + lint-fix + test-mock + Suspense-wrap + connection() + drop-setRequestLocale. Resume via STEP 3 INCOMPLETE-resume.
+
+SES-2026-05-21-cowork-1779335186 · B.5 · SUCCESS · resume INCOMPLETE branch auto/2026-05-20-B.5-1 · cacheComponents Pattern 2 applied to parent layouts (app/[locale]/layout.tsx + app/[locale]/(marketing)/layout.tsx) — sync shell + Suspense'd async i18n providers/chrome. Unblocked /[locale]/biz/[slug] PPR prerender. CI green (test/integration/build/validate/bundle-check all SUCCESS; lighthouse failures are pre-existing global issues not introduced by B.5). PR #36 squash-merged → 2951378 · v0.7.0 → v0.7.1. New rule encoded in cache-components.md Pattern 2 (already there; layout fix is a direct application).
