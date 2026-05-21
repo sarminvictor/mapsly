@@ -36,14 +36,12 @@ export function HunterStepper({ currentStep, labels }: HunterStepperProps) {
         const stepNum = (idx + 1) as 1 | 2 | 3;
         const isActive = stepNum === currentStep;
         const isDone = stepNum < currentStep;
-        const bg = isActive
-          ? "rgba(91,61,245,0.10)"
-          : "var(--color-bg-2)";
+        const bg = isActive ? "rgba(91,61,245,0.10)" : "var(--color-bg-2)";
         const color = isActive
           ? "var(--color-agency-indigo)"
           : isDone
-          ? "var(--color-text)"
-          : "var(--color-text-3)";
+            ? "var(--color-text)"
+            : "var(--color-text-3)";
         const borderColor = isActive
           ? "var(--color-agency-indigo)"
           : "var(--color-border)";
@@ -76,16 +74,14 @@ export function HunterStepper({ currentStep, labels }: HunterStepperProps) {
                 background: isActive
                   ? "var(--color-agency-indigo)"
                   : isDone
-                  ? "var(--color-text)"
-                  : "transparent",
+                    ? "var(--color-text)"
+                    : "transparent",
                 color: isActive || isDone ? "#fff" : "var(--color-text-3)",
                 fontSize: 11,
                 fontFamily: "var(--font-mono)",
                 fontWeight: 700,
                 border:
-                  isActive || isDone
-                    ? "none"
-                    : "1px solid var(--color-border)",
+                  isActive || isDone ? "none" : "1px solid var(--color-border)",
               }}
             >
               {stepNum}

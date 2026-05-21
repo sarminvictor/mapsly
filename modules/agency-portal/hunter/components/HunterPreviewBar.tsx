@@ -41,8 +41,8 @@ export function HunterPreviewBar({
     currentStep === 1
       ? labels.summaryStep1
       : currentStep === 2
-      ? labels.summaryStep2
-      : labels.summaryStep3;
+        ? labels.summaryStep2
+        : labels.summaryStep3;
 
   const canSave = currentStep === 3 && matchCount > 0;
 
@@ -78,7 +78,9 @@ export function HunterPreviewBar({
             letterSpacing: "-0.01em",
           }}
         >
-          {matchCount > 0 ? matchCount.toLocaleString() : labels.countPlaceholder}
+          {matchCount > 0
+            ? matchCount.toLocaleString()
+            : labels.countPlaceholder}
         </span>
         <span
           style={{

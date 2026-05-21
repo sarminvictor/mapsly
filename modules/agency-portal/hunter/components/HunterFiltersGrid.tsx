@@ -54,10 +54,7 @@ function defaultComparator(s: SignalDefinition): string {
   return String(s.comparators[0] ?? "=");
 }
 
-export function HunterFiltersGrid({
-  groups,
-  labels,
-}: HunterFiltersGridProps) {
+export function HunterFiltersGrid({ groups, labels }: HunterFiltersGridProps) {
   const totalSignals = groups.reduce((sum, g) => sum + g.signals.length, 0);
 
   return (
