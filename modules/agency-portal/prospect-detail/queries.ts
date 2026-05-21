@@ -14,10 +14,11 @@
  *   - `'use cache'` + `cacheLife('minutes')` · the page renders from
  *     the latest snapshot, which cron writes weekly. Minutes is
  *     plenty fresh; tags below let us revalidate granularly.
- *   - `cacheTag('business-${businessId}')` · per-business scope; the
- *     weekly snapshot cron hits this tag.
- *   - `cacheTag('business-${businessId}-lighthouse')` · so a website
- *     audit re-run invalidates the page.
+ *   - `cacheTag('business-${slug}')` · per-business scope; the weekly
+ *     snapshot cron hits this tag (canonical key is slug, not id —
+ *     see `.claude/rules/caching.md` + all cron handlers).
+ *   - `cacheTag('business-${slug}-lighthouse')` · so a website audit
+ *     re-run invalidates the page.
  *
  * Per `.claude/rules/cache-components.md` Pattern 1 we short-circuit
  * to `EMPTY_PROSPECT_DETAIL` for `NEXT_PHASE === 'phase-production-build'`
@@ -140,7 +141,9 @@ export function derivePitchWedges(input: PitchInputs): ProspectPitchWedge[] {
     input.reviewCount >= 50
   ) {
     const replyPct = Math.round(input.communicationScore * 100);
-    const unanswered = Math.round(input.reviewCount * (1 - input.communicationScore));
+    const unanswered = Math.round(
+      input.reviewCount * (1 - input.communicationScore),
+    );
     wedges.push({
       headline: `Reply rate ${replyPct}% · ${unanswered} reviews unanswered`,
       evidence: `${input.reviewCount} reviews on file · benchmark 89%`,
@@ -151,7 +154,8 @@ export function derivePitchWedges(input: PitchInputs): ProspectPitchWedge[] {
   if (input.napConsistent === false) {
     wedges.push({
       headline: "NAP inconsistent across listings",
-      evidence: "Name/Address/Phone mismatch · Google reads as multiple records",
+      evidence:
+        "Name/Address/Phone mismatch · Google reads as multiple records",
       severity: "critical",
     });
   }
@@ -238,7 +242,9 @@ export function derivePitchWedges(input: PitchInputs): ProspectPitchWedge[] {
     if (input.category) {
       padCandidates.push({
         headline: `Category · ${input.category}`,
-        evidence: input.city ? `Operating in ${input.city}` : "Active local business",
+        evidence: input.city
+          ? `Operating in ${input.city}`
+          : "Active local business",
         severity: "ok",
       });
     }
@@ -279,7 +285,10 @@ export interface SignalBlocksInputs {
   hasLocalBusinessSchema: boolean | null;
   napConsistent: boolean | null;
   /** i18n-resolved titles supplied by the page. */
-  titles: Record<"reviews" | "competitors" | "search" | "ads" | "website", string>;
+  titles: Record<
+    "reviews" | "competitors" | "search" | "ads" | "website",
+    string
+  >;
   emptyPlaceholder: string;
 }
 
@@ -299,7 +308,9 @@ export function deriveSignalBlocks(
     const bullets: string[] = [];
     let severity: ProspectSeverity = "ok";
     if (input.rating != null) {
-      bullets.push(`Rating ${input.rating.toFixed(1)}★ · ${input.reviewCount} reviews`);
+      bullets.push(
+        `Rating ${input.rating.toFixed(1)}★ · ${input.reviewCount} reviews`,
+      );
     } else if (input.reviewCount > 0) {
       bullets.push(`${input.reviewCount} reviews on file`);
     }
@@ -392,7 +403,9 @@ export function deriveSignalBlocks(
     const bullets: string[] = [];
     let severity: ProspectSeverity = "ok";
     if (input.performance != null) {
-      bullets.push(`Lighthouse Performance ${Math.round(input.performance)}/100`);
+      bullets.push(
+        `Lighthouse Performance ${Math.round(input.performance)}/100`,
+      );
       if (input.performance < 50) severity = "critical";
       else if (input.performance < 70) severity = "warn";
     }
@@ -435,8 +448,9 @@ export async function getAgencyProspectDetailData(
 ): Promise<AgencyProspectDetailData> {
   "use cache";
   cacheLife("minutes");
-  cacheTag(`business-${businessId}`);
-  cacheTag(`business-${businessId}-lighthouse`);
+  // Note: canonical business tags use `slug` per `.claude/rules/caching.md`
+  // and existing crons (e.g. weekly snapshot-write, lighthouse-audit).
+  // We tag below after resolving the slug from the business row.
 
   if (process.env.NEXT_PHASE === "phase-production-build") {
     return EMPTY_PROSPECT_DETAIL;
@@ -464,10 +478,7 @@ export async function getAgencyProspectDetailData(
     const accessibleLead = await prisma.lead.findFirst({
       where: { businessId, agencyId: { in: agencyIds } },
       select: { id: true, agencyId: true, matchScore: true },
-      orderBy: [
-        { matchScore: { sort: "desc", nulls: "last" } },
-        { id: "asc" },
-      ],
+      orderBy: [{ matchScore: { sort: "desc", nulls: "last" } }, { id: "asc" }],
     });
     if (!accessibleLead) {
       return EMPTY_PROSPECT_DETAIL;
@@ -484,6 +495,7 @@ export async function getAgencyProspectDetailData(
       where: { id: businessId },
       select: {
         id: true,
+        slug: true,
         name: true,
         address: true,
         city: true,
@@ -526,6 +538,12 @@ export async function getAgencyProspectDetailData(
     if (!business) {
       return EMPTY_PROSPECT_DETAIL;
     }
+
+    // Tag with the canonical slug-keyed tags so cron `revalidateTag`
+    // (`business-${slug}` / `business-${slug}-lighthouse`) actually
+    // invalidates this page. See `.claude/rules/caching.md`.
+    cacheTag(`business-${business.slug}`);
+    cacheTag(`business-${business.slug}-lighthouse`);
 
     const snap = business.snapshots[0];
     const lh = business.lighthouseAudits[0];
@@ -591,10 +609,7 @@ export async function getAgencyProspectDetailData(
     const orderedLeads = await prisma.lead.findMany({
       where: { agencyId: { in: agencyIds } },
       select: { id: true, businessId: true, matchScore: true },
-      orderBy: [
-        { matchScore: { sort: "desc", nulls: "last" } },
-        { id: "asc" },
-      ],
+      orderBy: [{ matchScore: { sort: "desc", nulls: "last" } }, { id: "asc" }],
       take: 500,
     });
     let prevProspectId: string | null = null;

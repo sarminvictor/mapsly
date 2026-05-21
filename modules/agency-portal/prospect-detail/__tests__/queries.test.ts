@@ -58,10 +58,7 @@ import {
   formatAddress,
   getAgencyProspectDetailData,
 } from "../queries";
-import {
-  EMPTY_PROSPECT_DETAIL,
-  type AgencyProspectDetailData,
-} from "../types";
+import { EMPTY_PROSPECT_DETAIL, type AgencyProspectDetailData } from "../types";
 
 /* ---------------- EMPTY_PROSPECT_DETAIL contract ---------------- */
 
@@ -138,9 +135,9 @@ describe("formatAddress", () => {
     expect(
       formatAddress({ address: null, city: "Miami", province: null }),
     ).toBe("Miami");
-    expect(
-      formatAddress({ address: null, city: null, province: null }),
-    ).toBe("");
+    expect(formatAddress({ address: null, city: null, province: null })).toBe(
+      "",
+    );
   });
 });
 

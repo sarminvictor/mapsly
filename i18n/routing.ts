@@ -55,6 +55,12 @@ export const routing = defineRouting({
       "en-CA": "/lists",
       fr: "/listes",
     },
+    "/lists/[id]": {
+      en: "/lists/[id]",
+      es: "/listas/[id]",
+      "en-CA": "/lists/[id]",
+      fr: "/listes/[id]",
+    },
     "/signin": {
       en: "/signin",
       es: "/iniciar-sesion",
@@ -108,6 +114,12 @@ export const routing = defineRouting({
       es: "/prospecto",
       "en-CA": "/prospect",
       fr: "/prospect",
+    },
+    "/prospect/[businessId]": {
+      en: "/prospect/[businessId]",
+      es: "/prospecto/[businessId]",
+      "en-CA": "/prospect/[businessId]",
+      fr: "/prospect/[businessId]",
     },
     "/onboarding": {
       en: "/onboarding",

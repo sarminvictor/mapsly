@@ -248,12 +248,10 @@ async function ProspectDetailBody({ params }: { params: Promise<PageParams> }) {
   const prevLink =
     data.prevProspectId != null ? (
       <Link
-        href={
-          {
-            pathname: "/prospect/[businessId]",
-            params: { businessId: data.prevProspectId },
-          } as never
-        }
+        href={{
+          pathname: "/prospect/[businessId]",
+          params: { businessId: data.prevProspectId },
+        }}
         data-testid="prospect-prev-link"
         style={prevNextLinkStyle()}
       >
@@ -264,12 +262,10 @@ async function ProspectDetailBody({ params }: { params: Promise<PageParams> }) {
   const nextLink =
     data.nextProspectId != null ? (
       <Link
-        href={
-          {
-            pathname: "/prospect/[businessId]",
-            params: { businessId: data.nextProspectId },
-          } as never
-        }
+        href={{
+          pathname: "/prospect/[businessId]",
+          params: { businessId: data.nextProspectId },
+        }}
         data-testid="prospect-next-link"
         style={prevNextLinkStyle()}
       >
@@ -291,7 +287,7 @@ async function ProspectDetailBody({ params }: { params: Promise<PageParams> }) {
   const appearsInLinks = prospect.appearsInLists.map((l) => (
     <Link
       key={l.id}
-      href={{ pathname: "/lists/[id]", params: { id: l.id } } as never}
+      href={{ pathname: "/lists/[id]", params: { id: l.id } }}
       data-testid={`prospect-appears-in-${l.id}`}
       style={{
         color: "var(--color-agency-indigo)",

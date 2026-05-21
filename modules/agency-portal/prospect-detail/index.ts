@@ -11,10 +11,7 @@ export {
   formatAddress,
   getAgencyProspectDetailData,
 } from "./queries";
-export type {
-  PitchInputs,
-  SignalBlocksInputs,
-} from "./queries";
+export type { PitchInputs, SignalBlocksInputs } from "./queries";
 export {
   EMPTY_PROSPECT_DETAIL,
   type AgencyProspectDetailData,
