@@ -88,8 +88,12 @@ export default function AgencySettingsPage({
 function SettingsSkeleton() {
   return (
     <section aria-hidden style={styles.shell}>
-      <div style={{ ...styles.skel, height: 18, width: 120, marginBottom: 8 }} />
-      <div style={{ ...styles.skel, height: 36, width: 280, marginBottom: 24 }} />
+      <div
+        style={{ ...styles.skel, height: 18, width: 120, marginBottom: 8 }}
+      />
+      <div
+        style={{ ...styles.skel, height: 36, width: 280, marginBottom: 24 }}
+      />
       {[0, 1, 2, 3, 4].map((i) => (
         <div
           key={i}
@@ -404,7 +408,6 @@ function planLiteral(
   // Fallback covers any future enum value before this code's redeploy.
   return plan as string;
 }
-
 
 /* ------------------------------------------------------------------ */
 /* Styles · agency palette (cool gray + indigo)                       */
