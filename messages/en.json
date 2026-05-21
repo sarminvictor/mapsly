@@ -621,6 +621,70 @@
         "body": "It may have been deleted, belong to another agency, or the link is stale. You can pick another list from your workspace.",
         "cta": "Back to lists"
       }
+    },
+    "onboarding": {
+      "meta": {
+        "title": "Set up your agency · Mapsly",
+        "description": "Three quick steps · profile · first service · first 50 leads."
+      },
+      "eyebrow": "Agency setup",
+      "title_step1": "Your agency profile",
+      "title_step2": "Pick your first service template",
+      "title_step3": "Your first 50 leads",
+      "intro_step1": "Default metro + services so Hunter and Lists pre-fill the right filters.",
+      "intro_step2": "Each template seeds a List with the right signals. You can add more later.",
+      "intro_step3": "Top-rated businesses in your metro. Your first List will go deeper.",
+      "step_label": "Step {current} of {total}",
+      "step1_label": "Profile",
+      "step2_label": "Service",
+      "step3_label": "Leads",
+      "metro_label": "Default metro",
+      "metro_placeholder": "Miami, FL",
+      "metro_help": "Cities you sell into. Used for default geo on Hunter.",
+      "categories_label": "Categories served",
+      "categories_placeholder": "med-spa, restaurant, dental",
+      "categories_help": "Comma-separated · up to 8.",
+      "save_continue": "Save and continue",
+      "skip_for_now": "Skip for now",
+      "already_added": "Already added",
+      "see_my_lists": "See my lists",
+      "skip_to_lists": "Skip · go to lists",
+      "preview_more": "+ {count} more in your first list",
+      "preview_empty": "No matching businesses yet · we'll fill the list as the indexer runs.",
+      "templates": {
+        "website": {
+          "label": "Website rebuild",
+          "meta": "Slow LCP · old stack · missing schema"
+        },
+        "meta_ads": {
+          "label": "Meta Ads",
+          "meta": "Inactive Meta Ads · solid review base"
+        },
+        "google_ads": {
+          "label": "Google Ads launch",
+          "meta": "No paid SERP · live local pack"
+        },
+        "local_seo": {
+          "label": "Local SEO",
+          "meta": "Below 3-pack · weak NAP"
+        },
+        "reviews": {
+          "label": "Review management",
+          "meta": "Reply rate < 25% · old 1★ unhandled"
+        },
+        "brand": {
+          "label": "Brand defense",
+          "meta": "Competitor on top of your brand SERP"
+        },
+        "launch": {
+          "label": "Launch package",
+          "meta": "Brand-new · no reviews · empty profile"
+        },
+        "audit": {
+          "label": "Full audit",
+          "meta": "One-time deliverable · mixed signals"
+        }
+      }
     }
   },
   "common": {

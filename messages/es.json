@@ -476,6 +476,70 @@
         "body": "Puede haber sido eliminada, pertenecer a otra agencia, o el enlace está desactualizado. Elige otra lista del workspace.",
         "cta": "Volver a listas"
       }
+    },
+    "onboarding": {
+      "meta": {
+        "title": "Configura tu agencia · Mapsly",
+        "description": "Tres pasos rápidos · perfil · primer servicio · primeros 50 leads."
+      },
+      "eyebrow": "Configuración de agencia",
+      "title_step1": "Perfil de tu agencia",
+      "title_step2": "Elige tu primer service template",
+      "title_step3": "Tus primeros 50 leads",
+      "intro_step1": "Metro por defecto + categorías para que Hunter y Lists prellenen los filtros correctos.",
+      "intro_step2": "Cada template inicia una List con las señales correctas. Puedes añadir más después.",
+      "intro_step3": "Negocios mejor valorados en tu metro. Tu primera List irá más a fondo.",
+      "step_label": "Paso {current} de {total}",
+      "step1_label": "Perfil",
+      "step2_label": "Servicio",
+      "step3_label": "Leads",
+      "metro_label": "Metro por defecto",
+      "metro_placeholder": "Miami, FL",
+      "metro_help": "Ciudades a las que vendes. Usado como geo por defecto en Hunter.",
+      "categories_label": "Categorías que atiendes",
+      "categories_placeholder": "med-spa, restaurant, dental",
+      "categories_help": "Separadas por comas · hasta 8.",
+      "save_continue": "Guardar y continuar",
+      "skip_for_now": "Omitir por ahora",
+      "already_added": "Ya añadido",
+      "see_my_lists": "Ver mis listas",
+      "skip_to_lists": "Omitir · ir a listas",
+      "preview_more": "+ {count} más en tu primera lista",
+      "preview_empty": "Aún no hay coincidencias · llenaremos la lista cuando corra el indexer.",
+      "templates": {
+        "website": {
+          "label": "Rebuild de sitio web",
+          "meta": "LCP lento · stack antiguo · sin schema"
+        },
+        "meta_ads": {
+          "label": "Meta Ads",
+          "meta": "Sin Meta Ads activos · base de reviews sólida"
+        },
+        "google_ads": {
+          "label": "Lanzamiento Google Ads",
+          "meta": "Sin SERP pagado · local pack activo"
+        },
+        "local_seo": {
+          "label": "Local SEO",
+          "meta": "Fuera del 3-pack · NAP débil"
+        },
+        "reviews": {
+          "label": "Gestión de reviews",
+          "meta": "Reply rate < 25% · 1★ antiguas sin respuesta"
+        },
+        "brand": {
+          "label": "Defensa de marca",
+          "meta": "Competencia sobre tu brand SERP"
+        },
+        "launch": {
+          "label": "Paquete de lanzamiento",
+          "meta": "Recién abierto · sin reviews · perfil vacío"
+        },
+        "audit": {
+          "label": "Auditoría completa",
+          "meta": "Entrega única · señales mixtas"
+        }
+      }
     }
   },
   "common": {
