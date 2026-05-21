@@ -28,6 +28,11 @@ model User {
 
   role UserRole @default(MEMBER)
 
+  // Stripe billing — set on first checkout-session creation for SMB plans.
+  // Agency plans bill against `Agency.stripeCustomerId`. See modules/billing.
+  stripeCustomerId     String? @unique
+  stripeSubscriptionId String?
+
   accounts      Account[]
   sessions      Session[]
   agencyMembers AgencyMember[]
