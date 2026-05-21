@@ -1,22 +1,47 @@
-import type { ReactNode } from "react";
+/**
+ * Marketing chrome layout · sync shell + async header/footer in <Suspense>.
+ *
+ * Per `.claude/rules/cache-components.md` Pattern 2 + INC-2026-05-21 (B.5
+ * E_BLOCKING_ROUTE), async layouts that `await params` + `getTranslations`
+ * trip the cacheComponents prerender check when a descendant route has
+ * non-enumerated dynamic params (e.g. `/biz/[slug]`). Even though
+ * `/biz/[slug]/page.tsx` wraps its body in Suspense + calls
+ * `await connection()`, the parent layout's await chain runs first and
+ * blocks the route's shell prerender.
+ *
+ * The fix: keep the outer container sync, and split the chrome (header,
+ * footer) into Suspense'd async children that hold the
+ * `setRequestLocale` + `getTranslations` calls. `children` (the page) is
+ * passed through `<main>` synchronously, so the page's own Suspense
+ * boundary controls when its body resolves.
+ *
+ * For static routes (e.g. `/pricing`, `/for-businesses`), the chrome
+ * Suspense boundaries resolve synchronously at build time — no perceived
+ * deferral, the route fully prerenders. For dynamic descendants
+ * (`/biz/[slug]`), the chrome defers at request time while the rest of
+ * the shell continues without blocking.
+ *
+ * Cites: INC-2026-05-21 (B.5), cache-components.md Pattern 2.
+ */
+import { Suspense, type ReactNode } from "react";
 import { setRequestLocale, getTranslations } from "next-intl/server";
 
 import { Link } from "@/i18n/navigation";
 
-// Shared layout for the public marketing surface (legal pages today, full
-// landing/pricing/for-* pages once B.1–B.4 land). Keeps the chrome thin so
-// each page sets its own hero / metadata.
-export default async function MarketingLayout({
+interface LayoutParams {
+  locale: string;
+}
+
+export default function MarketingLayout({
   children,
   params,
 }: {
   children: ReactNode;
-  params: Promise<{ locale: string }>;
+  params: Promise<LayoutParams>;
 }) {
-  const { locale } = await params;
-  setRequestLocale(locale);
-  const t = await getTranslations("marketing.footer");
-
+  // Sync shell: just inline styles + the children passthrough. Suspense
+  // boundaries scope the async i18n reads to their own subtrees so the
+  // layout itself never blocks a descendant route's prerender.
   return (
     <div
       style={{
@@ -28,155 +53,213 @@ export default async function MarketingLayout({
         fontFamily: "var(--font-sans)",
       }}
     >
-      <header
+      <Suspense fallback={<MarketingHeaderShell />}>
+        <MarketingHeader params={params} />
+      </Suspense>
+
+      <main style={{ flex: 1 }}>{children}</main>
+
+      <Suspense fallback={<MarketingFooterShell />}>
+        <MarketingFooter params={params} />
+      </Suspense>
+    </div>
+  );
+}
+
+/**
+ * Header skeleton · renders during dynamic shell prerender. Visual height
+ * matches the resolved header to avoid CLS once translations resolve.
+ */
+function MarketingHeaderShell() {
+  return (
+    <div
+      aria-hidden
+      style={{
+        padding: "20px 32px",
+        borderBottom: "1px solid var(--color-border)",
+        background: "var(--color-bg-2)",
+        height: 65,
+      }}
+    />
+  );
+}
+
+/** Footer skeleton · same CLS-safety rationale as header shell. */
+function MarketingFooterShell() {
+  return (
+    <div
+      aria-hidden
+      style={{
+        marginTop: 64,
+        padding: "32px",
+        borderTop: "1px solid var(--color-border)",
+        background: "var(--color-bg-2)",
+        height: 100,
+      }}
+    />
+  );
+}
+
+async function MarketingHeader({ params }: { params: Promise<LayoutParams> }) {
+  const { locale } = await params;
+  setRequestLocale(locale);
+  const t = await getTranslations("marketing.footer");
+
+  return (
+    <header
+      style={{
+        padding: "20px 32px",
+        borderBottom: "1px solid var(--color-border)",
+        background: "var(--color-bg-2)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 16,
+        flexWrap: "wrap",
+      }}
+    >
+      <Link
+        href="/"
+        aria-label="Mapsly home"
         style={{
-          padding: "20px 32px",
-          borderBottom: "1px solid var(--color-border)",
-          background: "var(--color-bg-2)",
-          display: "flex",
+          display: "inline-flex",
           alignItems: "center",
-          justifyContent: "space-between",
-          gap: 16,
+          gap: 10,
+          fontFamily: "var(--font-serif)",
+          fontSize: 22,
+          fontWeight: 700,
+          color: "var(--color-text)",
+          letterSpacing: "-0.02em",
+          textDecoration: "none",
+        }}
+      >
+        <span
+          aria-hidden
+          style={{
+            width: 12,
+            height: 12,
+            borderRadius: "50%",
+            background: "var(--color-coral)",
+            boxShadow: "0 0 12px rgba(195,85,58,.5)",
+          }}
+        />
+        mapsly
+      </Link>
+      <nav
+        aria-label="Primary"
+        style={{
+          display: "flex",
+          gap: 24,
+          alignItems: "center",
           flexWrap: "wrap",
         }}
       >
         <Link
-          href="/"
-          aria-label="Mapsly home"
+          href="/for-agencies"
           style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 10,
-            fontFamily: "var(--font-serif)",
-            fontSize: 22,
-            fontWeight: 700,
-            color: "var(--color-text)",
-            letterSpacing: "-0.02em",
+            color: "var(--color-text-2)",
             textDecoration: "none",
+            fontSize: 14,
+            fontWeight: 500,
           }}
         >
-          <span
-            aria-hidden
-            style={{
-              width: 12,
-              height: 12,
-              borderRadius: "50%",
-              background: "var(--color-coral)",
-              boxShadow: "0 0 12px rgba(195,85,58,.5)",
-            }}
-          />
-          mapsly
+          {t("nav_for_agencies")}
         </Link>
-        <nav
-          aria-label="Primary"
+        <Link
+          href="/pricing"
           style={{
-            display: "flex",
-            gap: 24,
-            alignItems: "center",
-            flexWrap: "wrap",
+            color: "var(--color-text-2)",
+            textDecoration: "none",
+            fontSize: 14,
+            fontWeight: 500,
           }}
         >
-          <Link
-            href="/for-agencies"
-            style={{
-              color: "var(--color-text-2)",
-              textDecoration: "none",
-              fontSize: 14,
-              fontWeight: 500,
-            }}
-          >
-            {t("nav_for_agencies")}
-          </Link>
-          <Link
-            href="/pricing"
-            style={{
-              color: "var(--color-text-2)",
-              textDecoration: "none",
-              fontSize: 14,
-              fontWeight: 500,
-            }}
-          >
-            {t("nav_pricing")}
-          </Link>
-          <Link
-            href="/signin"
-            style={{
-              color: "var(--color-text)",
-              textDecoration: "none",
-              fontSize: 14,
-              fontWeight: 600,
-              padding: "8px 14px",
-              border: "1px solid var(--color-border)",
-              borderRadius: 8,
-              background: "var(--color-bg-2)",
-            }}
-          >
-            {t("nav_signin")}
-          </Link>
-        </nav>
-      </header>
+          {t("nav_pricing")}
+        </Link>
+        <Link
+          href="/signin"
+          style={{
+            color: "var(--color-text)",
+            textDecoration: "none",
+            fontSize: 14,
+            fontWeight: 600,
+            padding: "8px 14px",
+            border: "1px solid var(--color-border)",
+            borderRadius: 8,
+            background: "var(--color-bg-2)",
+          }}
+        >
+          {t("nav_signin")}
+        </Link>
+      </nav>
+    </header>
+  );
+}
 
-      <main style={{ flex: 1 }}>{children}</main>
+async function MarketingFooter({ params }: { params: Promise<LayoutParams> }) {
+  const { locale } = await params;
+  setRequestLocale(locale);
+  const t = await getTranslations("marketing.footer");
 
-      <footer
+  return (
+    <footer
+      style={{
+        marginTop: 64,
+        padding: "32px",
+        borderTop: "1px solid var(--color-border)",
+        background: "var(--color-bg-2)",
+        color: "var(--color-text-3)",
+        fontSize: 13,
+        lineHeight: 1.5,
+      }}
+    >
+      <div
         style={{
-          marginTop: 64,
-          padding: "32px",
-          borderTop: "1px solid var(--color-border)",
-          background: "var(--color-bg-2)",
-          color: "var(--color-text-3)",
-          fontSize: 13,
-          lineHeight: 1.5,
+          maxWidth: 960,
+          margin: "0 auto",
+          display: "flex",
+          flexWrap: "wrap",
+          gap: 16,
+          alignItems: "center",
+          justifyContent: "space-between",
         }}
       >
-        <div
-          style={{
-            maxWidth: 960,
-            margin: "0 auto",
-            display: "flex",
-            flexWrap: "wrap",
-            gap: 16,
-            alignItems: "center",
-            justifyContent: "space-between",
-          }}
+        {/* Year is static per INC-2026-05-19-09 — new Date() is forbidden under
+            cacheComponents PPR. Bump on annual redeploy. */}
+        <span>{t("copyright", { year: 2026 })}</span>
+        <nav
+          aria-label="Legal"
+          style={{ display: "flex", gap: 24, flexWrap: "wrap" }}
         >
-          {/* Year is static per INC-2026-05-19-09 — new Date() is forbidden under
-              cacheComponents PPR. Bump on annual redeploy. */}
-          <span>{t("copyright", { year: 2026 })}</span>
-          <nav
-            aria-label="Legal"
-            style={{ display: "flex", gap: 24, flexWrap: "wrap" }}
+          <Link
+            href="/privacy"
+            style={{
+              color: "var(--color-text-2)",
+              textDecoration: "none",
+            }}
           >
-            <Link
-              href="/privacy"
-              style={{
-                color: "var(--color-text-2)",
-                textDecoration: "none",
-              }}
-            >
-              {t("privacy")}
-            </Link>
-            <Link
-              href="/terms"
-              style={{
-                color: "var(--color-text-2)",
-                textDecoration: "none",
-              }}
-            >
-              {t("terms")}
-            </Link>
-            <Link
-              href="/cookies"
-              style={{
-                color: "var(--color-text-2)",
-                textDecoration: "none",
-              }}
-            >
-              {t("cookies")}
-            </Link>
-          </nav>
-        </div>
-      </footer>
-    </div>
+            {t("privacy")}
+          </Link>
+          <Link
+            href="/terms"
+            style={{
+              color: "var(--color-text-2)",
+              textDecoration: "none",
+            }}
+          >
+            {t("terms")}
+          </Link>
+          <Link
+            href="/cookies"
+            style={{
+              color: "var(--color-text-2)",
+              textDecoration: "none",
+            }}
+          >
+            {t("cookies")}
+          </Link>
+        </nav>
+      </div>
+    </footer>
   );
 }

@@ -25,8 +25,8 @@ After any `Write`, `Edit`, or successful bash that creates/modifies a file:
 
 ## Allowed exceptions
 
-- Reading a file you wrote in a *prior session* (state unknown across sessions)
-- Reading a file the agent modified *via a subagent* (caller doesn't have the subagent's verdict yet)
+- Reading a file you wrote in a _prior session_ (state unknown across sessions)
+- Reading a file the agent modified _via a subagent_ (caller doesn't have the subagent's verdict yet)
 - Reading a file that another bash call may have raced with (concurrent processes)
 - Reading the OUTPUT of a build/test that was supposed to compile your code (e.g., `next build` exit code) — this IS verification but of the build, not the write
 

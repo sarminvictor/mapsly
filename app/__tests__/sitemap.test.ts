@@ -1,55 +1,73 @@
 /**
  * sitemap + robots route handlers · invariant tests.
  *
- * `app/sitemap.ts` and `app/robots.ts` are Next.js metadata route handlers,
- * not Server Components — they run at request time + the function is pure
- * with respect to inputs (no DB, no env-time data). Easy to unit-test.
+ * `app/sitemap.ts` and `app/robots.ts` are Next.js metadata route handlers.
+ * `robots` is sync; `sitemap` is async since B.5 (it enumerates active
+ * businesses via `listBizSitemapEntries`, which is a cached Prisma query
+ * that returns `[]` in test env because the lazy `lib/prisma.ts` proxy
+ * throws when `DATABASE_URL` is unset — that throw is swallowed by the
+ * `try/catch` in `listBizSitemapEntries` and falls back to empty).
  *
  * What we assert:
- *   - Sitemap has at least one entry per locale × public path
+ *   - Sitemap has at least one entry per locale × static public path
  *   - Every URL is absolute on the canonical origin
  *   - Every entry declares hreflang sibling URLs
  *   - Robots references the sitemap
  *   - Authenticated routes are disallowed
  */
 
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
+
+// `app/sitemap.ts` calls `listBizSitemapEntries` which uses `'use cache'` +
+// cacheLife/cacheTag. Outside Next's runtime those throw E887. Stub them
+// here so the sitemap function can run end-to-end. The biz enumeration
+// still returns [] in test env because the lazy Prisma proxy throws when
+// DATABASE_URL is unset — caught by listBizSitemapEntries's try/catch.
+vi.mock("next/cache", () => ({
+  cacheLife: vi.fn(),
+  cacheTag: vi.fn(),
+  revalidateTag: vi.fn(),
+  unstable_noStore: vi.fn(),
+}));
+
 import sitemap from "../sitemap";
 import robots from "../robots";
 import { routing } from "@/i18n/routing";
 import { CANONICAL_ORIGIN } from "@/lib/seo/canonical";
 
 describe("app/sitemap.ts", () => {
-  test("emits at least one entry per (path × locale)", () => {
-    const entries = sitemap();
-    // 4 public paths today (/, /privacy, /terms, /cookies) × 4 locales = 16
-    // This number bumps as B.2–B.5 ship; assert ≥ 4 × 4 to keep the test
-    // robust against new public routes landing.
+  test("emits at least one entry per (path × locale)", async () => {
+    const entries = await sitemap();
+    // 4 static public paths today (/, /privacy, /terms, /cookies) × 4 locales
+    // = 16. Biz profile entries may add more in production, but `0` in test
+    // env (Prisma proxy throws without DATABASE_URL, caught + returns []).
     expect(entries.length).toBeGreaterThanOrEqual(routing.locales.length * 4);
   });
 
-  test("every URL is absolute on the canonical origin", () => {
-    for (const entry of sitemap()) {
+  test("every URL is absolute on the canonical origin", async () => {
+    for (const entry of await sitemap()) {
       expect(entry.url.startsWith(`${CANONICAL_ORIGIN}/`)).toBe(true);
     }
   });
 
-  test("homepage has priority 1.0", () => {
-    const home = sitemap().filter((e) => e.url === `${CANONICAL_ORIGIN}/`);
+  test("homepage has priority 1.0", async () => {
+    const home = (await sitemap()).filter(
+      (e) => e.url === `${CANONICAL_ORIGIN}/`,
+    );
     expect(home.length).toBeGreaterThan(0);
     for (const entry of home) {
       expect(entry.priority).toBe(1.0);
     }
   });
 
-  test("lastModified is set on every entry", () => {
-    for (const entry of sitemap()) {
+  test("lastModified is set on every entry", async () => {
+    for (const entry of await sitemap()) {
       expect(entry.lastModified).toBeDefined();
     }
   });
 
-  test("every entry declares its hreflang siblings", () => {
-    for (const entry of sitemap()) {
+  test("every entry declares its hreflang siblings", async () => {
+    for (const entry of await sitemap()) {
       const langs = entry.alternates?.languages as
         | Record<string, string>
         | undefined;
@@ -62,16 +80,16 @@ describe("app/sitemap.ts", () => {
     }
   });
 
-  test("each entry's own URL appears in its languages block", () => {
-    for (const entry of sitemap()) {
+  test("each entry's own URL appears in its languages block", async () => {
+    for (const entry of await sitemap()) {
       const langs = entry.alternates?.languages as Record<string, string>;
       const values = Object.values(langs);
       expect(values).toContain(entry.url);
     }
   });
 
-  test("there are no duplicate URLs", () => {
-    const urls = sitemap().map((e) => e.url);
+  test("there are no duplicate URLs", async () => {
+    const urls = (await sitemap()).map((e) => e.url);
     expect(new Set(urls).size).toBe(urls.length);
   });
 });
