@@ -477,6 +477,68 @@
         "cta": "Volver a listas"
       }
     },
+    "prospect_detail": {
+      "meta": {
+        "title": "Detalle del prospecto · Mapsly",
+        "description": "Detalle de prospecto · pitch, señales, contacto, fuentes."
+      },
+      "footer_readonly": "// Perfil de solo lectura · Mapsly no envía mensajes en tu nombre · usa el contacto + evidencia para tu propio outreach",
+      "hero": {
+        "back_to_lists": "Listas",
+        "prev": "Anterior",
+        "next": "Siguiente",
+        "mark_contacted": "Marcar contactado",
+        "mark_client": "Marcar cliente",
+        "generate_one_pager": "Generar one-pager"
+      },
+      "stats": {
+        "mapsly_score": "Mapsly Score",
+        "msi_rank": "Rank MSI",
+        "rating": "Calificación",
+        "review_count": "Reseñas",
+        "reply_rate": "Tasa de respuesta",
+        "lighthouse_perf": "Velocidad del sitio"
+      },
+      "why": {
+        "title": "Por qué cualifica este lead",
+        "subtitle": "// cuña de pitch · arma de cierre",
+        "severity": {
+          "critical": "Crítico",
+          "warn": "Oportunidad",
+          "ok": "Fortaleza"
+        }
+      },
+      "signals": {
+        "reviews": "Reseñas y reputación",
+        "competitors": "Presión competitiva",
+        "search": "Búsqueda y SEO",
+        "ads": "Anuncios activos",
+        "website": "Salud del sitio",
+        "empty_placeholder": "Sin datos aún · refresco próximo"
+      },
+      "rail": {
+        "contact_title": "Contacto",
+        "appears_in_title": "Aparece en",
+        "appears_in_empty": "Aún no está en ninguna lista",
+        "data_sources_title": "De dónde vienen estos datos",
+        "refreshed_at": "actualizado {date}",
+        "notes_title": "Tus notas",
+        "notes_placeholder": "Añade una nota sobre este prospecto — contexto, decisor, retainer objetivo. Se conecta en F.7.",
+        "notes_save_pending": "// guardar · llega en F.7",
+        "no_phone": "sin teléfono",
+        "no_email": "sin correo",
+        "no_website": "sin sitio web"
+      },
+      "nav": {
+        "no_prev": "No hay prospecto anterior",
+        "no_next": "No hay siguiente prospecto"
+      },
+      "not_found": {
+        "title": "No encontramos ese prospecto",
+        "body": "Puede que el negocio no esté en ninguna de tus listas, haya sido removido o el enlace está desactualizado. Elige otro prospecto desde una de tus listas.",
+        "cta": "Volver a listas"
+      }
+    },
     "onboarding": {
       "meta": {
         "title": "Configura tu agencia · Mapsly",

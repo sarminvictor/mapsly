@@ -103,6 +103,12 @@ export const routing = defineRouting({
       "en-CA": "/hunter",
       fr: "/chasseur",
     },
+    "/prospect": {
+      en: "/prospect",
+      es: "/prospecto",
+      "en-CA": "/prospect",
+      fr: "/prospect",
+    },
     "/onboarding": {
       en: "/onboarding",
       es: "/bienvenida",
