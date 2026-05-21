@@ -703,3 +703,5 @@ Changes:
 Tasks dashboard recovers on next request (cacheLife: seconds, ~30s).
 
 Outcome: SUCCESS.
+
+SES-2026-05-21-cowork-1779336391 · D.6 · SUCCESS · ~+952/-1 · 14 tests added · CI green (validate/build/test/integration/bundle-check/ci-passed) · lighthouse pre-existing failure · merge=AUTO · v0.7.2→v0.7.3 · PR #37 → a28c07c. D.6 spec called for "manual review on 20 known samples" — encoded that as a reusable golden-corpus eval harness (services/ai/__fixtures__/sentiment-corpus.json + services/ai/eval-sentiment.ts + scripts/eval-sentiment.ts) so prompt regressions get caught mechanically across model swaps (D.8). The classifier itself + C.9 cron integration were already shipped before this iteration. Two ticks: first tick failed CI on prettier (10 pre-existing files); second tick rebased onto v0.7.2 (where 8 of the 10 were already fixed) and prettier-write fixed the remaining 5 cosmetic line-wrap issues. Code-reviewer agent found a real conventions.md violation (`as unknown as` cast) and a typo-risk in --model arg parsing — both fixed before push.
