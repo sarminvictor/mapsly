@@ -189,6 +189,11 @@ async function ListDetailBody({
   const tService = await getTranslations("agency.lists.service_templates");
 
   const list = data.list;
+  // ListDetailBody is already a dynamic server component (it awaits
+  // params, searchParams, auth) — reading Date.now() here for the
+  // "created N days ago" hero stat is intentional and well-defined.
+  // The react-hooks/purity rule applies to client render only.
+  // eslint-disable-next-line react-hooks/purity
   const nowMs = Date.now();
 
   /* ------------------------------------------------ i18n label resolve */
