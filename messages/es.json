@@ -419,6 +419,64 @@
         }
       }
     },
+    "list_detail": {
+      "meta": {
+        "title": "{listName} · Mapsly",
+        "description": "Detalle de lista · prospectos cualificados, señales y triaje de estado."
+      },
+      "subtitle_agency": "{agency} · refresco y triaje de prospectos",
+      "breadcrumb_aria": "Migas de pan",
+      "breadcrumb_lists": "Listas",
+      "service_type_custom": "Personalizado",
+      "action_edit_filters": "Editar filtros",
+      "action_export": "{count, plural, =0 {Exportar} one {Exportar #} other {Exportar #}}",
+      "table_caption": "Prospectos cualificados · abre una fila para ver el detalle.",
+      "table_select_aria": "Seleccionar fila",
+      "table_business": "Negocio",
+      "table_why_qualified": "Por qué cualifica",
+      "table_status": "Estado",
+      "table_contact": "Contacto",
+      "table_actions": "Acciones",
+      "table_open": "Abrir →",
+      "table_open_aria": "Abrir {business}",
+      "table_no_contact": "correo pendiente",
+      "empty_state": "Sin prospectos en {status}. El refresco diario puede surfacear más mañana.",
+      "hero": {
+        "pitch_lead": "El pitch:",
+        "qualified_label": "Cualificados",
+        "new_this_week_label": "Nuevos esta semana",
+        "contacted_label": "Ya contactados",
+        "refresh_label": "Refresco",
+        "created_label": "Creada",
+        "qualified_meta": "{count, plural, =0 {de 0 en esta lista} one {de # en esta lista} other {de # en esta lista}}",
+        "new_this_week_meta": "vs +{prior} semana anterior",
+        "contacted_meta": "{pct}% de la lista",
+        "created_meta": "por {owner} · {days, plural, =0 {hoy} one {hace #d} other {hace #d}}",
+        "paused_pill": "Pausada",
+        "active_pill": "Activa"
+      },
+      "cadence": {
+        "daily_value": "Diario 6am",
+        "daily_meta": "próximo: mañana 6:00",
+        "weekly_value": "Semanal",
+        "weekly_meta": "ancla · lunes",
+        "manual_value": "Manual",
+        "manual_meta": "refresco bajo demanda"
+      },
+      "filters_card": {
+        "heading": "{count, plural, =0 {// Sin filtros definidos} one {// Filtros que definen esta lista · # activo} other {// Filtros que definen esta lista · # activos}}",
+        "edit_action": "Editar →",
+        "empty_fallback": "Abre el Hunter para definir qué señales hacen cualificable a un negocio."
+      },
+      "status_tabs": {
+        "group_aria": "Filtrar prospectos por estado"
+      },
+      "not_found": {
+        "title": "No encontramos esa lista",
+        "body": "Puede haber sido eliminada, pertenecer a otra agencia, o el enlace está desactualizado. Elige otra lista del workspace.",
+        "cta": "Volver a listas"
+      }
+    },
     "onboarding": {
       "meta": {
         "title": "Configura tu agencia · Mapsly",

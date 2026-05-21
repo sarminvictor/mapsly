@@ -605,6 +605,64 @@
         }
       }
     },
+    "list_detail": {
+      "meta": {
+        "title": "{listName} · Mapsly",
+        "description": "Agency list detail · qualified leads, signals, status triage."
+      },
+      "subtitle_agency": "{agency} · refresh + triage qualified leads",
+      "breadcrumb_aria": "Breadcrumb",
+      "breadcrumb_lists": "Lists",
+      "service_type_custom": "Custom",
+      "action_edit_filters": "Edit filters",
+      "action_export": "{count, plural, =0 {Export} one {Export #} other {Export #}}",
+      "table_caption": "Qualified leads · drill into a row to see the prospect.",
+      "table_select_aria": "Select row",
+      "table_business": "Business",
+      "table_why_qualified": "Why qualified",
+      "table_status": "Status",
+      "table_contact": "Contact",
+      "table_actions": "Actions",
+      "table_open": "Open →",
+      "table_open_aria": "Open {business}",
+      "table_no_contact": "email pending",
+      "empty_state": "No {status} leads in this list. The daily refresh may surface more tomorrow.",
+      "hero": {
+        "pitch_lead": "The pitch:",
+        "qualified_label": "Qualified",
+        "new_this_week_label": "New this week",
+        "contacted_label": "Already contacted",
+        "refresh_label": "Refresh",
+        "created_label": "Created",
+        "qualified_meta": "{count, plural, =0 {of 0 in this list} one {of # in this list} other {of # in this list}}",
+        "new_this_week_meta": "vs +{prior} prior week",
+        "contacted_meta": "{pct}% of list",
+        "created_meta": "by {owner} · {days, plural, =0 {today} one {#d ago} other {#d ago}}",
+        "paused_pill": "Paused",
+        "active_pill": "Active"
+      },
+      "cadence": {
+        "daily_value": "Daily 6am",
+        "daily_meta": "next: tomorrow 6:00 AM",
+        "weekly_value": "Weekly",
+        "weekly_meta": "anchor pull · Mondays",
+        "manual_value": "Manual",
+        "manual_meta": "refresh on demand"
+      },
+      "filters_card": {
+        "heading": "{count, plural, =0 {// No filters defined} one {// Filters defining this list · # active} other {// Filters defining this list · # active}}",
+        "edit_action": "Edit →",
+        "empty_fallback": "Open the Hunter to define which signals make a business qualified."
+      },
+      "status_tabs": {
+        "group_aria": "Filter leads by status"
+      },
+      "not_found": {
+        "title": "Couldn't find that list",
+        "body": "It may have been deleted, belong to another agency, or the link is stale. You can pick another list from your workspace.",
+        "cta": "Back to lists"
+      }
+    },
     "onboarding": {
       "meta": {
         "title": "Set up your agency · Mapsly",
