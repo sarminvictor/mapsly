@@ -418,6 +418,64 @@
           "meta": "Mapsly Score < 5 · multiple weak signals"
         }
       }
+    },
+    "list_detail": {
+      "meta": {
+        "title": "{listName} · Mapsly",
+        "description": "Détail de la liste · prospects qualifiés, signaux et triage de statut."
+      },
+      "subtitle_agency": "{agency} · rafraîchir + trier les prospects qualifiés",
+      "breadcrumb_aria": "Fil d'Ariane",
+      "breadcrumb_lists": "Listes",
+      "service_type_custom": "Personnalisé",
+      "action_edit_filters": "Modifier les filtres",
+      "action_export": "{count, plural, =0 {Exporter} one {Exporter #} other {Exporter #}}",
+      "table_caption": "Prospects qualifiés · cliquez sur une ligne pour voir le détail.",
+      "table_select_aria": "Sélectionner la ligne",
+      "table_business": "Entreprise",
+      "table_why_qualified": "Pourquoi qualifié",
+      "table_status": "Statut",
+      "table_contact": "Contact",
+      "table_actions": "Actions",
+      "table_open": "Ouvrir →",
+      "table_open_aria": "Ouvrir {business}",
+      "table_no_contact": "courriel en attente",
+      "empty_state": "Aucun prospect avec le statut {status}. La mise à jour quotidienne pourrait en remonter demain.",
+      "hero": {
+        "pitch_lead": "Le pitch :",
+        "qualified_label": "Qualifiés",
+        "new_this_week_label": "Nouveaux cette semaine",
+        "contacted_label": "Déjà contactés",
+        "refresh_label": "Rafraîchir",
+        "created_label": "Créée",
+        "qualified_meta": "{count, plural, =0 {sur 0 dans cette liste} one {sur # dans cette liste} other {sur # dans cette liste}}",
+        "new_this_week_meta": "vs +{prior} semaine précédente",
+        "contacted_meta": "{pct}% de la liste",
+        "created_meta": "par {owner} · {days, plural, =0 {aujourd'hui} one {il y a #j} other {il y a #j}}",
+        "paused_pill": "En pause",
+        "active_pill": "Active"
+      },
+      "cadence": {
+        "daily_value": "Quotidien 6h",
+        "daily_meta": "prochaine : demain 6h00",
+        "weekly_value": "Hebdomadaire",
+        "weekly_meta": "ancrage · lundis",
+        "manual_value": "Manuel",
+        "manual_meta": "rafraîchir à la demande"
+      },
+      "filters_card": {
+        "heading": "{count, plural, =0 {// Aucun filtre défini} one {// Filtres définissant cette liste · # actif} other {// Filtres définissant cette liste · # actifs}}",
+        "edit_action": "Modifier →",
+        "empty_fallback": "Ouvre le Hunter pour définir quels signaux qualifient une entreprise."
+      },
+      "status_tabs": {
+        "group_aria": "Filtrer les prospects par statut"
+      },
+      "not_found": {
+        "title": "Liste introuvable",
+        "body": "Elle a peut-être été supprimée, appartient à une autre agence, ou le lien est obsolète. Choisis une autre liste de ton espace.",
+        "cta": "Retour aux listes"
+      }
     }
   },
   "common": {
