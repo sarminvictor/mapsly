@@ -79,6 +79,12 @@ export const routing = defineRouting({
       "en-CA": "/reviews",
       fr: "/avis",
     },
+    "/competitors": {
+      en: "/competitors",
+      es: "/competidores",
+      "en-CA": "/competitors",
+      fr: "/concurrents",
+    },
   },
 });
 

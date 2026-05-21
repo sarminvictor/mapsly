@@ -254,6 +254,34 @@
       "empty_by-theme_body": "We'll group reviews by theme once the AI classifier has enough text to work with.",
       "empty_replied_title": "No replies yet",
       "empty_replied_body": "Once you reply to a review, it'll show up here so you can see what you've already covered."
+    },
+    "competitors": {
+      "meta": {
+        "title": "Competitors · Mapsly",
+        "description": "How you compare to other businesses in your category and city."
+      },
+      "eyebrow": "Where you stand",
+      "title": "How {name} compares",
+      "subtitle": "Other {category} businesses in {city}",
+      "empty_title": "Let's connect your business",
+      "empty_body": "We don't have a business linked to your account yet. Tell us where you are and we'll show you who you're up against — and how you stack up.",
+      "rank_label": "Your market rank",
+      "rank_headline": "You're #{rank} of {total} in your area",
+      "rank_pending": "We're still measuring your rank",
+      "rank_help": "Lower is better. The rank uses your Mapsly Score against everyone in the same category and city.",
+      "list_heading": "How you compare, side by side",
+      "col_business": "Business",
+      "col_rating": "Rating",
+      "col_reviews": "Reviews",
+      "col_score": "Score",
+      "you_badge": "You",
+      "you_aria_suffix": "your business",
+      "score_aria_label": "Mapsly score",
+      "rating_aria_label": "Google rating",
+      "reviews_aria_label": "Review count",
+      "empty_no_city": "We don't have your city on file yet, so we can't find local competitors. Add your address in settings and we'll pull them in next refresh.",
+      "empty_no_neighbours": "No other businesses in your category and city are in our index yet. As we discover them, they'll show up here.",
+      "footer_help": "Refreshed weekly. Higher score, higher rank, and more recent reviews lift you above the rest."
     }
   },
   "agency": {
