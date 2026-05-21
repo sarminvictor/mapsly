@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
+import { connection } from "next/server";
 import { notFound } from "next/navigation";
 import { setRequestLocale } from "next-intl/server";
 
@@ -116,6 +117,16 @@ export async function generateMetadata({
 }
 
 async function BizProfileBody({ params }: { params: Promise<RouteParams> }) {
+  // Mark this route dynamic at request time. Per
+  // `.claude/rules/cache-components.md` Pattern 5, `/biz/[slug]` cannot
+  // statically prerender (the slug is not enumerable via
+  // generateStaticParams — there are 500+ businesses and the set grows
+  // weekly via cron). `await connection()` is the canonical "this route
+  // reads request-time data" signal under cacheComponents PPR — without
+  // it, Next tries to prerender the [slug] placeholder shell and trips
+  // E_BLOCKING_ROUTE before the cached query even runs.
+  await connection();
+
   const { locale, slug } = await params;
   if (!routing.locales.includes(locale as Locale)) notFound();
   setRequestLocale(locale);
