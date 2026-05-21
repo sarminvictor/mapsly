@@ -61,3 +61,19 @@ export {
   type MsiInput,
   type MsiResult,
 } from "./msi";
+
+export {
+  computeMatchScore,
+  computeMatchScoreFromSnapshot,
+  MATCH_SCORE_MAX,
+  MATCH_SCORE_MIN,
+  NEUTRAL_MAPSLY_SCORE,
+  QUALITY_FLOOR,
+  QUALITY_LIFT,
+  rankByMatchScore,
+  type MatchScoreBreakdown,
+  type MatchScoreContribution,
+  type MatchScoreInput,
+  type RankByMatchScoreOptions,
+  type RankedMatch,
+} from "./match-score";
