@@ -69,6 +69,18 @@ export default function TasksPage() {
 
 async function TasksContent() {
   const plan = await getPlanSummary();
+  if (plan.error) {
+    return (
+      <div className="dev-empty" style={{ color: "var(--dev-warn, #d97706)" }}>
+        <strong>tasks query failed</strong> — {plan.error}
+        <br />
+        <span style={{ fontSize: 12, opacity: 0.7 }}>
+          Likely a schema drift (Prisma client expects a column Neon doesn&apos;t have).
+          See INC-23 / INC-37 in <code>.claude/memory/incidents.md</code>.
+        </span>
+      </div>
+    );
+  }
   if (plan.total === 0) {
     return (
       <div className="dev-empty">

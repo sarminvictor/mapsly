@@ -1063,3 +1063,43 @@ The v0.6.42 design was prose-heavy guidance ("agents SHOULD bundle", "STEP 4 SHO
 **Confidence:** high — the diagnosis is reconstructed from Viktor's actual tick log; the fix is the inverse of the diagnosed root cause (mechanical, not prose).
 
 **Tags:** loop, max-turns, claude-code, mechanical-enforcement, compound-steps, no-verify, agent-explore-force-function, v0.7.0, prose-vs-enforcement, INC-35-followup
+
+### INC-2026-05-21-37 · Dashboard "no tasks · run pnpm seed:plan" — schema drift hiding behind swallow-catch (recurrence of INC-23)
+
+**Status:** ✅ FIXED + ENCODED — v0.7.2: (1) `ALTER TABLE "Task" ADD COLUMN "contextBundle" JSONB` applied to Neon, (2) `app/(dev)/dev/queries/plan.ts` uses explicit `select` instead of broad `include` so future additive schema changes don't break the dashboard, (3) catch now surfaces the error to the page instead of silently returning total=0.
+
+**Symptom:** `https://dev.mapsly.ai/tasks` displayed `no tasks in DB · run pnpm seed:plan` while Postgres actually held **81 active tasks** (52 DONE, 26 PENDING, 2 HUMAN_REQUIRED, 1 IN_PROGRESS) across 9 TaskGroups. Loop was still shipping (v0.7.1 just merged B.5), proving tasks exist.
+
+Viktor: *"where all our task gone?"*
+
+**Root cause:** v0.7.0 added `Task.contextBundle Json?` to `prisma/schema.prisma`. Vercel built with `prisma generate` so the deployed Prisma client included `contextBundle` in the default field set. But `prisma db push` was NEVER run against Neon (per `.claude/rules/prisma.md` § 6 schema-drift workflow — `prisma migrate dev` writes a migration file, `prisma db push` applies to remote, both are out-of-band from `next build`). The deployed app's `prisma.taskGroup.findMany({ include: { tasks: ... } })` issued a SELECT containing `t."contextBundle"` → Neon returned `column "contextBundle" does not exist` → Prisma threw → `app/(dev)/dev/queries/plan.ts`'s broad `} catch { return { total:0, ... } }` swallowed it → the page rendered the misleading empty-state message.
+
+Identical mechanism to **INC-23** (TaskRun.resumedFromRunId added but never pushed to Neon → /tasks/[id] returns 404). Prevention there said "any schema PR must `pnpm prisma migrate status` before merging" — that prevention did NOT hold for v0.7.0 because the column was added directly to schema.prisma in a sandbox commit without the local prisma toolchain available to run migrate-status.
+
+**Fix applied (v0.7.2):**
+
+1. Ran `ALTER TABLE "Task" ADD COLUMN IF NOT EXISTS "contextBundle" JSONB` directly on Neon via the @neondatabase/serverless driver from the sandbox. Idempotent. Confirmed `information_schema.columns` shows the column with `data_type = jsonb`.
+2. **`app/(dev)/dev/queries/plan.ts`**: replaced `include: { tasks: ... }` with explicit `select: { id, name, description, domain, sortOrder, tasks: { select: { id, title, effort, status, deps, tags } } }`. Now only the columns the dashboard actually renders are fetched. Future additive schema changes can be applied to Prisma client without breaking the deployed query.
+3. **`app/(dev)/dev/queries/plan.ts`**: catch block now `console.error`s + returns `error: string` field on the PlanSummary instead of silently zeroing. `PlanSummary` interface gets `error?: string`.
+4. **`app/(dev)/dev/tasks/page.tsx`**: detects `plan.error` and renders an actionable message ("tasks query failed — {error}. Likely schema drift, see INC-23/INC-37.") instead of the misleading empty state.
+
+**Prevention (stronger than INC-23):**
+
+1. **Use `select` over `include` in dashboard queries.** Broad includes auto-include EVERY column on the model, including ones added since the deployed `prisma generate` ran. Explicit `select` lists only what we render — additive schema changes don't break the query. Add to `.claude/rules/prisma.md`.
+
+2. **Never silently swallow Prisma errors.** Catches that return zero/empty must record the error and surface it to the UI. Otherwise schema drift = invisible regression. Add to `.claude/rules/observability.md` (or new `.claude/rules/error-handling.md`).
+
+3. **Schema-change PR checklist:** any PR that adds a column to `prisma/schema.prisma` MUST include either (a) a `prisma/migrations/<timestamp>_<name>/migration.sql` file with the ALTER TABLE, OR (b) an explicit comment on the PR describing the manual `prisma db push` that will be run before merge. Add to `.claude/rules/prisma.md` § 6.
+
+4. **Defensive query pattern as default.** New dashboard queries use `select` not `include`, even when fetching everything. The pattern cost is +5 lines of typing per query; the failure cost is "all tasks disappeared from the dashboard for hours".
+
+**Where encoded:**
+- `app/(dev)/dev/queries/plan.ts` (explicit select + honest catch)
+- `app/(dev)/dev/tasks/page.tsx` (error rendering)
+- `prisma/schema.prisma` (unchanged — column already there from v0.7.0)
+- Neon DB (column added via direct ALTER TABLE)
+- This entry (INC-37 + INC-23 cross-reference)
+
+**Confidence:** high — diagnosed via direct Neon query, fix is mechanically verified (column now exists, query no longer fetches removed-or-added columns).
+
+**Tags:** prisma, schema-drift, neon, dashboard, swallow-catch, broad-include, observability, INC-23-recurrence, v0.7.2

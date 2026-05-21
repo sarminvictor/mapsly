@@ -683,3 +683,23 @@ Outcome: SUCCESS.
 SES-2026-05-21-cowork-1779332920 · B.5 · INCOMPLETE · ~+1500/-20 · branch auto/2026-05-20-B.5-1 · CI test/integration/validate green · build/lighthouse/bundle-check ✗ on PPR E_BLOCKING_ROUTE — Pattern 2+5 applied, layout-chain await still tripping. 6 commits banked: feat init + a11y tap-target + sitemap-test-await + lint-fix + test-mock + Suspense-wrap + connection() + drop-setRequestLocale. Resume via STEP 3 INCOMPLETE-resume.
 
 SES-2026-05-21-cowork-1779335186 · B.5 · SUCCESS · resume INCOMPLETE branch auto/2026-05-20-B.5-1 · cacheComponents Pattern 2 applied to parent layouts (app/[locale]/layout.tsx + app/[locale]/(marketing)/layout.tsx) — sync shell + Suspense'd async i18n providers/chrome. Unblocked /[locale]/biz/[slug] PPR prerender. CI green (test/integration/build/validate/bundle-check all SUCCESS; lighthouse failures are pre-existing global issues not introduced by B.5). PR #36 squash-merged → 2951378 · v0.7.0 → v0.7.1. New rule encoded in cache-components.md Pattern 2 (already there; layout fix is a direct application).
+
+## SES-2026-05-21-cowork-emergency-v072 · v0.7.2 ship · restore tasks dashboard (INC-37)
+
+Viktor: *"https://dev.mapsly.ai/tasks · no tasks in DB · run `pnpm seed:plan` · where all our task gone?"*
+
+Diagnosed in 4 minutes: tasks were intact in Neon (81 active across 9 TaskGroups). v0.7.0 added `Task.contextBundle Json?` to schema.prisma but `prisma db push` was never run. Deployed Prisma client requested the missing column → threw → plan.ts swallow-catch returned total=0 → page showed misleading empty state.
+
+Same failure mechanism as INC-23. Stronger prevention this time.
+
+Changes:
+- Neon: `ALTER TABLE "Task" ADD COLUMN IF NOT EXISTS "contextBundle" JSONB` applied via @neondatabase/serverless from sandbox. Verified column now exists with data_type=jsonb.
+- `app/(dev)/dev/queries/plan.ts`: replaced `include: { tasks }` with explicit `select` of only the fields the dashboard renders. Future additive schema changes can't break this query.
+- `app/(dev)/dev/queries/plan.ts`: catch now logs + returns `error: string` instead of silently zeroing.
+- `app/(dev)/dev/tasks/page.tsx`: shows actionable error message ("tasks query failed — {err}. Likely schema drift, see INC-23/INC-37") instead of misleading empty state.
+- `.claude/memory/incidents.md`: INC-37 documents the recurrence + stronger preventions.
+- `package.json`: 0.7.1 → 0.7.2.
+
+Tasks dashboard recovers on next request (cacheLife: seconds, ~30s).
+
+Outcome: SUCCESS.

@@ -34,6 +34,8 @@ export interface TaskGroupSummary {
 }
 
 export interface PlanSummary {
+  /** Set when getPlanSummary catches an error — page should show this instead of the empty state. */
+  error?: string;
   total: number;
   done: number;
   inProgress: number;
@@ -75,10 +77,30 @@ export async function getPlanSummary(): Promise<PlanSummary> {
   }
 
   try {
+    // v0.7.2 (INC-37): explicit SELECT prevents schema-drift breakage. When
+    // a new Task column is added via Prisma client but not yet pushed to
+    // Neon, the deployed app would throw "column does not exist" on
+    // findMany-with-include. Listing fields explicitly only fetches what
+    // we render — additive schema changes don't break the dashboard.
     const groups = await prisma.taskGroup.findMany({
       orderBy: { sortOrder: "asc" },
-      include: {
-        tasks: { orderBy: [{ sortOrder: "asc" }, { id: "asc" }] },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        domain: true,
+        sortOrder: true,
+        tasks: {
+          orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
+          select: {
+            id: true,
+            title: true,
+            effort: true,
+            status: true,
+            deps: true,
+            tags: true,
+          },
+        },
       },
     });
 
@@ -138,8 +160,14 @@ export async function getPlanSummary(): Promise<PlanSummary> {
       rows: allRows,
       groups: groupSummaries,
     };
-  } catch {
+  } catch (err) {
+    // v0.7.2 (INC-37): surface the error instead of silently returning 0.
+    // The page detects `error` field and shows an actionable message
+    // (schema drift, Neon down, etc.) rather than the misleading
+    // "no tasks · run pnpm seed:plan" empty state.
+    console.error("[plan.ts] getPlanSummary failed:", err);
     return {
+      error: err instanceof Error ? err.message : String(err),
       total: 0,
       done: 0,
       inProgress: 0,
