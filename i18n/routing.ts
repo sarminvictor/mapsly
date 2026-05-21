@@ -151,6 +151,12 @@ export const routing = defineRouting({
       "en-CA": "/settings/billing",
       fr: "/parametres/facturation",
     },
+    "/agency-settings": {
+      en: "/agency-settings",
+      es: "/configuracion-agencia",
+      "en-CA": "/agency-settings",
+      fr: "/parametres-agence",
+    },
     "/team/billing": {
       en: "/team/billing",
       es: "/equipo/facturacion",

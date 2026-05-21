@@ -602,6 +602,54 @@
           "meta": "Livrable ponctuel · signaux mixtes"
         }
       }
+    },
+    "settings": {
+      "meta": {
+        "title": "Paramètres de l'agence · Mapsly",
+        "description": "Profil · forfait · équipe · langue."
+      },
+      "heading": "Paramètres",
+      "subheading": "Profil de l'agence, forfait, équipe et langue.",
+      "sections": {
+        "profile": {
+          "heading": "Profil",
+          "fields": {
+            "name": "Nom de l'agence",
+            "defaultMetro": "Marché par défaut",
+            "categoriesServed": "Catégories desservies"
+          },
+          "helpName": "Étiquette interne · affichée sur les rapports partagés.",
+          "helpMetro": "Géographie par défaut pour Hunter et les filtres de listes.",
+          "helpCategories": "Séparées par une virgule · jusqu'à 8 · p. ex. med-spa, dentaire, CVCA.",
+          "save": "Enregistrer les changements",
+          "saved": "Enregistré"
+        },
+        "plan": {
+          "heading": "Forfait",
+          "currentPlan": "Forfait actuel",
+          "upgrade": "Changer de forfait"
+        },
+        "team": {
+          "heading": "Équipe",
+          "role": {
+            "owner": "Propriétaire",
+            "admin": "Administrateur",
+            "staff": "Membre"
+          }
+        },
+        "locale": {
+          "heading": "Langue",
+          "help": "S'applique uniquement à l'interface de votre compte.",
+          "save": "Enregistrer la langue"
+        },
+        "signOut": {
+          "heading": "Session",
+          "cta": "Se déconnecter"
+        }
+      },
+      "errors": {
+        "unauthorized": "Connectez-vous pour modifier les paramètres."
+      }
     }
   },
   "common": {

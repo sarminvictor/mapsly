@@ -602,6 +602,54 @@
           "meta": "Entrega única · señales mixtas"
         }
       }
+    },
+    "settings": {
+      "meta": {
+        "title": "Configuración de la agencia · Mapsly",
+        "description": "Perfil · plan · equipo · idioma."
+      },
+      "heading": "Configuración",
+      "subheading": "Perfil de la agencia, plan, equipo e idioma.",
+      "sections": {
+        "profile": {
+          "heading": "Perfil",
+          "fields": {
+            "name": "Nombre de la agencia",
+            "defaultMetro": "Mercado predeterminado",
+            "categoriesServed": "Categorías que atiende"
+          },
+          "helpName": "Etiqueta interna · aparece en los informes compartidos.",
+          "helpMetro": "Geografía predeterminada para Hunter y los filtros de lista.",
+          "helpCategories": "Separadas por coma · hasta 8 · p. ej. med-spa, dental, hvac.",
+          "save": "Guardar cambios",
+          "saved": "Guardado"
+        },
+        "plan": {
+          "heading": "Plan",
+          "currentPlan": "Plan actual",
+          "upgrade": "Cambiar plan"
+        },
+        "team": {
+          "heading": "Equipo",
+          "role": {
+            "owner": "Propietario",
+            "admin": "Administrador",
+            "staff": "Miembro"
+          }
+        },
+        "locale": {
+          "heading": "Idioma",
+          "help": "Solo afecta la interfaz de tu cuenta.",
+          "save": "Guardar idioma"
+        },
+        "signOut": {
+          "heading": "Sesión",
+          "cta": "Cerrar sesión"
+        }
+      },
+      "errors": {
+        "unauthorized": "Inicia sesión para cambiar la configuración."
+      }
     }
   },
   "common": {
