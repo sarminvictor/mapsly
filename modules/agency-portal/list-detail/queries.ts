@@ -73,8 +73,11 @@ function avatarToneFromId(id: string): 1 | 2 | 3 | 4 | 5 | 6 | 7 {
 
 /** "Solea Brickell Spa" → "SO"; single-word → first two letters uppercase. */
 export function deriveAvatar(name: string): string {
+  // Strip punctuation that isn't part of a word — but KEEP hyphens so
+  // names like "123-go" or "Anchor-Local" stay as one token. Whitespace
+  // and commas/periods/etc. still split words.
   const words = name
-    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .replace(/[^\p{L}\p{N}\s-]/gu, " ")
     .trim()
     .split(/\s+/)
     .filter(Boolean);
@@ -210,7 +213,10 @@ export function summarizeLeadSignals(input: {
 
   // Coarse fallbacks if nothing showed up
   if (chips.length === 0) {
-    if (input.reviewCount == null || input.reviewCount === 0) {
+    // Only emit "no reviews" when we KNOW the count is zero — null means
+    // "unknown" (e.g. not yet ingested) and we shouldn't shame the prospect
+    // for our gap. Tests in __tests__/queries-helpers.test.ts assert this.
+    if (input.reviewCount === 0) {
       chips.push({
         label: "no reviews",
         tone: "warn",

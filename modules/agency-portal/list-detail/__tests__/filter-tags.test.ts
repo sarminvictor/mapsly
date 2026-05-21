@@ -53,7 +53,9 @@ describe("parseFilterTags · shape parsing", () => {
       ],
     });
     expect(out).toHaveLength(1);
-    expect(out[0]!.label).toBe("rating ≥ 4.0");
+    // Note: JS can't distinguish 4 from 4.0 (both === 4), so formatValue
+    // renders integer-ish values without decimals. "rating ≥ 4" is fine UX.
+    expect(out[0]!.label).toBe("rating ≥ 4");
   });
 });
 

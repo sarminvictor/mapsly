@@ -4,12 +4,6 @@
       "service_templates": {
         "brand": "Brand defence"
       }
-    },
-    "list_detail": {
-      "cadence": {
-        "weekly_meta": "anchor pull · Mondays"
-      },
-      "table_no_contact": "email pending"
     }
   }
 }
