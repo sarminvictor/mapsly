@@ -297,7 +297,7 @@ export function OnePagerDocument({
 
         {/* What we'd fix · 3 bullets */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>What we'd fix in 30 days</Text>
+          <Text style={styles.sectionTitle}>What we&apos;d fix in 30 days</Text>
           {data.fixes.map((f, idx) => (
             <View key={idx} style={styles.fix} wrap={false}>
               <View style={styles.fixBullet} />
