@@ -115,6 +115,12 @@ export const routing = defineRouting({
       "en-CA": "/setup",
       fr: "/configurer",
     },
+    "/settings": {
+      en: "/settings",
+      es: "/configuracion",
+      "en-CA": "/settings",
+      fr: "/parametres",
+    },
     "/settings/billing": {
       en: "/settings/billing",
       es: "/configuracion/facturacion",
