@@ -260,6 +260,21 @@ export function derivePitchWedges(input: PitchInputs): ProspectPitchWedge[] {
       evidence: "Indexed business · accessible signal surface",
       severity: "ok",
     });
+    padCandidates.push({
+      headline: "Tracked in Mapsly index",
+      evidence: "Refreshed weekly · signals current",
+      severity: "ok",
+    });
+    padCandidates.push({
+      headline: "Local-search eligible",
+      evidence: "Discoverable via Google Maps · qualified surface",
+      severity: "ok",
+    });
+    padCandidates.push({
+      headline: "Reachable for outreach",
+      evidence: "Contact channels indexed · ready for pitch",
+      severity: "ok",
+    });
 
     const next = padCandidates.find(
       (c) => !ordered.some((o) => o.headline === c.headline),
