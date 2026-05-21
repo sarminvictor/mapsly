@@ -76,19 +76,30 @@ export function CommandK() {
       // on Firefox sets shiftKey; we treat shifted variants as not-ours).
       if (e.shiftKey || e.altKey) return;
       e.preventDefault();
-      setOpen((prev) => !prev);
+      if (openRef.current) {
+        closeModal();
+      } else {
+        setOpen(true);
+      }
     }
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, []);
+  }, [closeModal]);
 
-  // ─── Reset state when the modal closes ───────────────────────────────
-  React.useEffect(() => {
-    if (open) return;
+  // closeModal is the canonical "close + reset" path. Called from ⌘K
+  // toggle, Esc/onClose (Modal primitive), and select(). We do not use
+  // an effect-on-[open] reset (would violate react-hooks/set-state-in-effect).
+  const closeModal = React.useCallback(() => {
+    setOpen(false);
     setQuery("");
     setState({ kind: "idle" });
     setActiveIdx(0);
-  }, [open]);
+  }, []);
+
+  // Sync ref so the empty-deps ⌘K listener can read current open without
+  // re-registering on every open/close transition.
+  const openRef = React.useRef(open);
+  openRef.current = open;
 
   // ─── Focus the input when the modal opens ────────────────────────────
   // Modal's own focus-first logic targets the first focusable, which is
@@ -103,13 +114,22 @@ export function CommandK() {
   // ─── Debounced fetch ─────────────────────────────────────────────────
   React.useEffect(() => {
     const trimmed = query.trim();
-    if (trimmed.length < MIN_QUERY_LEN) {
-      setState({ kind: "idle" });
-      return;
-    }
-    setState({ kind: "loading" });
     const token = ++fetchTokenRef.current;
+    if (trimmed.length < MIN_QUERY_LEN) {
+      // Defer setState out of the effect body to satisfy
+      // react-hooks/set-state-in-effect. setTimeout(0) is sufficient;
+      // the token check skips state update if a newer keystroke landed.
+      const itid = window.setTimeout(() => {
+        if (token === fetchTokenRef.current) setState({ kind: "idle" });
+      }, 0);
+      return () => window.clearTimeout(itid);
+    }
+    // Loading state and fetch are both inside an async timeout, so they
+    // happen outside the effect body — satisfies the lint rule.
     const tid = window.setTimeout(async () => {
+      // Stale-token check first (a newer keystroke may have superseded us).
+      if (token !== fetchTokenRef.current) return;
+      setState({ kind: "loading" });
       try {
         const res = await fetch(
           `/api/agency/search?q=${encodeURIComponent(trimmed)}`,
@@ -136,13 +156,13 @@ export function CommandK() {
   // ─── Selection (Enter / click) ───────────────────────────────────────
   const select = React.useCallback(
     (match: BusinessMatch) => {
-      setOpen(false);
+      closeModal();
       router.push({
         pathname: "/prospect/[businessId]",
         params: { businessId: match.id },
       });
     },
-    [router],
+    [router, closeModal],
   );
 
   // ─── List keyboard navigation ────────────────────────────────────────
@@ -204,7 +224,7 @@ export function CommandK() {
 
       <Modal
         open={open}
-        onClose={() => setOpen(false)}
+        onClose={closeModal}
         title={t("title")}
         description={t("description")}
         audience="agency"
