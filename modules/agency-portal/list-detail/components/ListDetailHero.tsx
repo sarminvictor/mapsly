@@ -66,18 +66,23 @@ export interface ListDetailHeroProps {
    * page reads it from the same i18n namespace that powers F.1.
    */
   serviceLabel: string;
+  /**
+   * Current time in ms — passed from the page so the render function stays
+   * pure (react-hooks/purity forbids `Date.now()` inside a component body).
+   */
+  nowMs: number;
 }
 
 export function ListDetailHero({
   data,
   labels,
   serviceLabel,
+  nowMs,
 }: ListDetailHeroProps) {
   const template = SERVICE_TEMPLATE_BY_TYPE[data.serviceType];
-  const now = Date.now();
   const ageDays = Math.max(
     0,
-    Math.floor((now - data.createdAt.getTime()) / (24 * 60 * 60 * 1000)),
+    Math.floor((nowMs - data.createdAt.getTime()) / (24 * 60 * 60 * 1000)),
   );
   const contactedPct =
     data.totalLeads > 0

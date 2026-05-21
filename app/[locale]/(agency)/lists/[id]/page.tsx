@@ -189,6 +189,7 @@ async function ListDetailBody({
   const tService = await getTranslations("agency.lists.service_templates");
 
   const list = data.list;
+  const nowMs = Date.now();
 
   /* ------------------------------------------------ i18n label resolve */
 
@@ -357,6 +358,7 @@ async function ListDetailBody({
         }}
         labels={heroLabels}
         serviceLabel={serviceLabel}
+        nowMs={nowMs}
       />
 
       {/* Filter chips card · "what defines this list" */}
