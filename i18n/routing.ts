@@ -109,6 +109,12 @@ export const routing = defineRouting({
       "en-CA": "/onboarding",
       fr: "/bienvenue",
     },
+    "/setup": {
+      en: "/setup",
+      es: "/configurar",
+      "en-CA": "/setup",
+      fr: "/configurer",
+    },
   },
 });
 
