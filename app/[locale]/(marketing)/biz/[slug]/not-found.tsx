@@ -63,7 +63,7 @@ export default function BizNotFound() {
             display: "inline-flex",
             alignItems: "center",
             gap: 6,
-            padding: "10px 18px",
+            padding: "12px 22px",
             borderRadius: 10,
             background: "var(--color-coral)",
             color: "#fff",
