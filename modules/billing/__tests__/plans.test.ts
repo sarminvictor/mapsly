@@ -40,7 +40,9 @@ describe("getPriceId", () => {
     "STRIPE_PRICE_AGENCY_PRO",
     "STRIPE_PRICE_AGENCY_BOUTIQUE",
   ] as const;
-  const snapshot: Partial<Record<(typeof ENV_KEYS)[number], string | undefined>> = {};
+  const snapshot: Partial<
+    Record<(typeof ENV_KEYS)[number], string | undefined>
+  > = {};
 
   beforeEach(() => {
     for (const k of ENV_KEYS) snapshot[k] = process.env[k];

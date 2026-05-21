@@ -166,7 +166,9 @@ const ENV_KEYS = [
   "NEXT_PUBLIC_APP_URL",
   "NODE_ENV",
 ] as const;
-const envSnapshot: Partial<Record<(typeof ENV_KEYS)[number], string | undefined>> = {};
+const envSnapshot: Partial<
+  Record<(typeof ENV_KEYS)[number], string | undefined>
+> = {};
 
 beforeEach(() => {
   for (const k of ENV_KEYS) envSnapshot[k] = process.env[k];
@@ -192,10 +194,7 @@ afterEach(() => {
 
 // ─── Import under test AFTER mocks are registered ──────────────────────────
 
-import {
-  CheckoutError,
-  createCheckoutSession,
-} from "../checkout";
+import { CheckoutError, createCheckoutSession } from "../checkout";
 
 // ─── Tests ─────────────────────────────────────────────────────────────────
 
@@ -230,9 +229,7 @@ describe("createCheckoutSession · SMB plan", () => {
     expect(stripeCalls.sessions).toHaveLength(1);
     const sess = stripeCalls.sessions[0];
     expect(sess.mode).toBe("subscription");
-    expect(sess.line_items).toEqual([
-      { price: "price_smb_29", quantity: 1 },
-    ]);
+    expect(sess.line_items).toEqual([{ price: "price_smb_29", quantity: 1 }]);
     expect(sess.client_reference_id).toBe("u1");
     expect(sess.metadata).toMatchObject({
       userId: "u1",
