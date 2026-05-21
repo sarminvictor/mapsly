@@ -109,9 +109,9 @@ describe("featuresForPlan", () => {
   });
 
   test("agency_boutique gets the most features", () => {
-    const counts = (["agency_solo", "agency_growth", "agency_pro", "agency_boutique"] as const).map(
-      (p) => featuresForPlan(p).length,
-    );
+    const counts = (
+      ["agency_solo", "agency_growth", "agency_pro", "agency_boutique"] as const
+    ).map((p) => featuresForPlan(p).length);
     expect(counts[0]).toBeLessThan(counts[1]); // solo < growth
     expect(counts[1]).toBeLessThan(counts[2]); // growth < pro
     expect(counts[2]).toBeLessThan(counts[3]); // pro < boutique

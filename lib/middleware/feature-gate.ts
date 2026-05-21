@@ -104,8 +104,16 @@ export const FEATURE_REQUIREMENTS: Record<Feature, ReadonlySet<PlanLiteral>> = {
     "agency_pro",
     "agency_boutique",
   ]),
-  agency_csv_export: new Set(["agency_growth", "agency_pro", "agency_boutique"]),
-  agency_team_seats: new Set(["agency_growth", "agency_pro", "agency_boutique"]),
+  agency_csv_export: new Set([
+    "agency_growth",
+    "agency_pro",
+    "agency_boutique",
+  ]),
+  agency_team_seats: new Set([
+    "agency_growth",
+    "agency_pro",
+    "agency_boutique",
+  ]),
 
   // Agency · Pro+
   agency_bulk_actions: new Set(["agency_pro", "agency_boutique"]),
@@ -290,11 +298,9 @@ export async function requireFeature(
       ? await getAgencyPlan(scope.id)
       : await getSmbUserPlan(scope.id);
   if (!hasFeature(plan, feature)) {
-    throw new FeatureGateError(
-      feature,
-      plan,
-      [...FEATURE_REQUIREMENTS[feature]] as PlanLiteral[],
-    );
+    throw new FeatureGateError(feature, plan, [
+      ...FEATURE_REQUIREMENTS[feature],
+    ] as PlanLiteral[]);
   }
   return plan;
 }
