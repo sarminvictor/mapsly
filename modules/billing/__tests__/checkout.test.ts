@@ -187,7 +187,7 @@ afterEach(() => {
   for (const k of ENV_KEYS) {
     const v = envSnapshot[k];
     if (v === undefined) delete process.env[k];
-    else process.env[k] = v;
+    else (process.env as Record<string, string | undefined>)[k] = v;
   }
   vi.clearAllMocks();
 });
@@ -520,7 +520,8 @@ describe("createCheckoutSession · returnUrl host allow-list", () => {
   });
 
   test("accepts localhost in dev (NODE_ENV !== production)", async () => {
-    process.env.NODE_ENV = "development";
+    (process.env as Record<string, string | undefined>).NODE_ENV =
+      "development";
     seedUser("u_local");
     const out = await createCheckoutSession({
       userId: "u_local",
@@ -531,7 +532,8 @@ describe("createCheckoutSession · returnUrl host allow-list", () => {
   });
 
   test("accepts 127.0.0.1 in dev", async () => {
-    process.env.NODE_ENV = "development";
+    (process.env as Record<string, string | undefined>).NODE_ENV =
+      "development";
     seedUser("u_loopback");
     const out = await createCheckoutSession({
       userId: "u_loopback",
@@ -581,7 +583,7 @@ describe("createCheckoutSession · returnUrl host allow-list", () => {
   });
 
   test("rejects http://localhost in production", async () => {
-    process.env.NODE_ENV = "production";
+    (process.env as Record<string, string | undefined>).NODE_ENV = "production";
     seedUser("u_prod_local");
     await expect(
       createCheckoutSession({
