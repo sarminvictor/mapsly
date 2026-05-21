@@ -177,11 +177,7 @@ async function ListDetailBody({
 
   const activeStatus = pickActiveStatus(search?.status);
 
-  const data = await getAgencyListDetailData(
-    id,
-    session.user.id,
-    activeStatus,
-  );
+  const data = await getAgencyListDetailData(id, session.user.id, activeStatus);
 
   if (data.list === null) {
     notFound();
@@ -397,7 +393,13 @@ async function ListDetailBody({
         linkFor={(status, node) => (
           <Link
             // Same logical route · only the search param changes.
-            href={{ pathname: "/lists/[id]", params: { id: list.id }, query: { status } } as never}
+            href={
+              {
+                pathname: "/lists/[id]",
+                params: { id: list.id },
+                query: { status },
+              } as never
+            }
             data-status-link={status}
             style={{ textDecoration: "none" }}
           >
@@ -420,19 +422,16 @@ async function ListDetailBody({
         <LeadsTable density="comfortable" caption={t("table_caption")}>
           <LeadsTableHeader>
             <LeadsTableRow>
-              <LeadsTableHeaderCell select aria-label={t("table_select_aria")} />
-              <LeadsTableHeaderCell>
-                {t("table_business")}
-              </LeadsTableHeaderCell>
+              <LeadsTableHeaderCell
+                select
+                aria-label={t("table_select_aria")}
+              />
+              <LeadsTableHeaderCell>{t("table_business")}</LeadsTableHeaderCell>
               <LeadsTableHeaderCell>
                 {t("table_why_qualified")}
               </LeadsTableHeaderCell>
-              <LeadsTableHeaderCell>
-                {t("table_status")}
-              </LeadsTableHeaderCell>
-              <LeadsTableHeaderCell>
-                {t("table_contact")}
-              </LeadsTableHeaderCell>
+              <LeadsTableHeaderCell>{t("table_status")}</LeadsTableHeaderCell>
+              <LeadsTableHeaderCell>{t("table_contact")}</LeadsTableHeaderCell>
               <LeadsTableHeaderCell align="right">
                 {t("table_actions")}
               </LeadsTableHeaderCell>
@@ -462,9 +461,7 @@ async function ListDetailBody({
                       {lead.contactEmail ? (
                         <span>{lead.contactEmail}</span>
                       ) : null}
-                      {lead.contactEmail && lead.contactPhone ? (
-                        <br />
-                      ) : null}
+                      {lead.contactEmail && lead.contactPhone ? <br /> : null}
                       {lead.contactPhone ? (
                         <span>{lead.contactPhone}</span>
                       ) : null}
@@ -516,9 +513,7 @@ async function ListDetailBody({
 
 /* ---------------------------------------------------------- helpers */
 
-function pickActiveStatus(
-  raw: string | string[] | undefined,
-): LeadStatusValue {
+function pickActiveStatus(raw: string | string[] | undefined): LeadStatusValue {
   const v = Array.isArray(raw) ? raw[0] : raw;
   if (!v) return "NEW";
   const upper = v.toUpperCase() as LeadStatusValue;
@@ -556,7 +551,13 @@ function primaryButtonStyle(): React.CSSProperties {
   };
 }
 
-function EmptyLeadsCard({ status, label }: { status: LeadStatusValue; label: string }) {
+function EmptyLeadsCard({
+  status,
+  label,
+}: {
+  status: LeadStatusValue;
+  label: string;
+}) {
   return (
     <div
       style={{

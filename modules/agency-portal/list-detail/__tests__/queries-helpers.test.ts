@@ -123,31 +123,19 @@ describe("describeDwell", () => {
 
   test("short ranges render as days", () => {
     expect(
-      describeDwell(
-        new Date(NOW - 3 * 24 * 60 * 60 * 1000),
-        "CONTACTED",
-        NOW,
-      ),
+      describeDwell(new Date(NOW - 3 * 24 * 60 * 60 * 1000), "CONTACTED", NOW),
     ).toBe("3d");
   });
 
   test("mid ranges render as weeks", () => {
     expect(
-      describeDwell(
-        new Date(NOW - 21 * 24 * 60 * 60 * 1000),
-        "REPLIED",
-        NOW,
-      ),
+      describeDwell(new Date(NOW - 21 * 24 * 60 * 60 * 1000), "REPLIED", NOW),
     ).toBe("3w");
   });
 
   test("long ranges render as months", () => {
     expect(
-      describeDwell(
-        new Date(NOW - 90 * 24 * 60 * 60 * 1000),
-        "WON",
-        NOW,
-      ),
+      describeDwell(new Date(NOW - 90 * 24 * 60 * 60 * 1000), "WON", NOW),
     ).toBe("3mo");
   });
 

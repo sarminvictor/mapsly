@@ -74,12 +74,13 @@ describe("parseFilterTags · comparator glyphs", () => {
   });
 
   test("missing / present collapse the value", () => {
-    expect(parseFilterTags([{ id: "has_local_business_schema", op: "missing" }])[0]!.label).toBe(
-      "LocalBusiness schema: missing",
-    );
-    expect(parseFilterTags([{ id: "has_faq_schema", op: "present" }])[0]!.label).toBe(
-      "FAQ schema: present",
-    );
+    expect(
+      parseFilterTags([{ id: "has_local_business_schema", op: "missing" }])[0]!
+        .label,
+    ).toBe("LocalBusiness schema: missing");
+    expect(
+      parseFilterTags([{ id: "has_faq_schema", op: "present" }])[0]!.label,
+    ).toBe("FAQ schema: present");
   });
 
   test("unknown comparator falls through as the raw op", () => {
@@ -90,7 +91,9 @@ describe("parseFilterTags · comparator glyphs", () => {
 
 describe("parseFilterTags · value formatting", () => {
   test("ints render as integers", () => {
-    const out = parseFilterTags([{ id: "review_count", op: "gte", value: 100 }]);
+    const out = parseFilterTags([
+      { id: "review_count", op: "gte", value: 100 },
+    ]);
     expect(out[0]!.label).toBe("reviews ≥ 100");
   });
 
@@ -105,12 +108,16 @@ describe("parseFilterTags · value formatting", () => {
   });
 
   test("arrays render comma-joined", () => {
-    const out = parseFilterTags([{ id: "category", op: "in", value: ["a", "b"] }]);
+    const out = parseFilterTags([
+      { id: "category", op: "in", value: ["a", "b"] },
+    ]);
     expect(out[0]!.label).toContain("a, b");
   });
 
   test("unknown signal id falls back to the raw id", () => {
-    const out = parseFilterTags([{ id: "nonexistent_signal_x", op: "eq", value: 1 }]);
+    const out = parseFilterTags([
+      { id: "nonexistent_signal_x", op: "eq", value: 1 },
+    ]);
     expect(out[0]!.label).toBe("nonexistent_signal_x = 1");
   });
 });

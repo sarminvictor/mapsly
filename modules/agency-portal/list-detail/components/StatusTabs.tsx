@@ -1,9 +1,6 @@
 import * as React from "react";
 
-import type {
-  LeadStatusCounts,
-  LeadStatusValue,
-} from "../types";
+import type { LeadStatusCounts, LeadStatusValue } from "../types";
 
 import { LEAD_STATUS_TAB_ORDER } from "../types";
 
@@ -88,9 +85,7 @@ export function StatusTabs({
                 ? "rgba(91,61,245,.10)"
                 : "var(--color-bg-2)",
               border: `1px solid ${
-                isActive
-                  ? "var(--color-agency-indigo)"
-                  : "var(--color-border)"
+                isActive ? "var(--color-agency-indigo)" : "var(--color-border)"
               }`,
               borderRadius: 100,
               display: "inline-flex",

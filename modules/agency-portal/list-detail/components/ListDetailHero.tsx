@@ -108,7 +108,14 @@ export function ListDetailHero({
           marginBottom: 14,
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            minWidth: 0,
+          }}
+        >
           <ServiceBadge
             tone={template?.badgeTone ?? "audit"}
             glyph={template?.glyph ?? "📊"}
@@ -227,10 +234,7 @@ export function ListDetailHero({
 
 /* --------------------------------------------------------------- stat */
 
-const VALUE_TONE: Record<
-  "default" | "indigo" | "green" | "warn",
-  string
-> = {
+const VALUE_TONE: Record<"default" | "indigo" | "green" | "warn", string> = {
   default: "var(--color-text)",
   indigo: "var(--color-agency-indigo)",
   green: "var(--color-success)",

@@ -36,6 +36,15 @@ export type ListServiceTypeValue =
 /** Mirror of Prisma `ListCadence` enum. */
 export type ListCadenceValue = "DAILY" | "WEEKLY" | "MANUAL";
 
+/** Mirror of Prisma `LeadStatus` enum · keep these in lock-step. */
+export type LeadStatusValue =
+  | "NEW"
+  | "CONTACTED"
+  | "REPLIED"
+  | "WON"
+  | "LOST"
+  | "HIDDEN";
+
 export interface AgencyListSummary {
   id: string;
   name: string;
