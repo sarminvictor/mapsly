@@ -83,9 +83,10 @@ export function ServiceTemplateStrip({
           <li key={tpl.key}>
             <Link
               href={{
-                // `/search` is locale-mapped in i18n/routing.ts. The
-                // `?template=` query is forwarded by F.2 once it lands.
-                pathname: "/search",
+                // `/hunter` is locale-mapped in i18n/routing.ts. F.2
+                // reads `?template=` and pre-fills the matching filter
+                // signals on step 1 of the Hunter flow.
+                pathname: "/hunter",
                 query: { template: tpl.key },
               }}
               style={{

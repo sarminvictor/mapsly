@@ -323,7 +323,7 @@ async function ListsBody({ params }: { params: Promise<PageParams> }) {
         <EmptyState
           title={t("empty_title")}
           body={t("empty_state")}
-          ctaHref="/search"
+          ctaHref="/hunter"
           ctaLabel={t("empty_cta")}
         />
       ) : null}
@@ -462,7 +462,7 @@ function EmptyState({
 }: {
   title: string;
   body: string;
-  ctaHref: "/search";
+  ctaHref: "/hunter";
   ctaLabel: string;
 }) {
   return (

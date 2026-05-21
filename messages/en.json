@@ -491,6 +491,78 @@
       "step_3": "Step 3 · Tune your filters",
       "save_as_list": "Save as list",
       "see_results": "See {count} results"
+    },
+    "hunter": {
+      "meta": {
+        "title": "Hunter · Mapsly",
+        "description": "Filter 2.1M businesses by signal to build qualified-lead lists."
+      },
+      "title": "Hunter · search",
+      "subtitle": "// filter 2.1M businesses · 60+ signals · live count",
+      "step1_label": "Service template",
+      "step2_label": "Target market",
+      "step3_label": "Tune filters",
+      "step1_heading": "Pick the service you sell",
+      "step1_prompt": "// we'll pre-load matching signal filters for step 3",
+      "step1_continue": "Continue →",
+      "step2_heading": "Where do you want leads?",
+      "step2_subheading": "// industry · city · radius · refine before signal tuning",
+      "step2_category_label": "Industry category",
+      "step2_category_placeholder": "Medical spa, restaurant, auto body…",
+      "step2_city_label": "City",
+      "step2_city_placeholder": "Miami, FL",
+      "step2_radius_label": "Radius (km)",
+      "step2_radius_placeholder": "25",
+      "step2_continue": "Continue to filters →",
+      "step2_back": "← Back to templates",
+      "step3_heading": "Tune filters",
+      "step3_subheading": "// 60+ signals across 8 categories · order = highest leverage first",
+      "step3_readonly_notice": "Scaffold mode — values are read-only previews. Editing + live count arrive in the next pass.",
+      "step3_back": "← Back to market",
+      "preview_bar": {
+        "count_suffix": "matches",
+        "count_placeholder": "—",
+        "loading": "Counting…",
+        "summary_step1": "// pick a template to begin",
+        "summary_step2": "// add a market to see live matches",
+        "summary_step3": "// editing arrives in F.2 follow-up · count placeholder",
+        "save_cta": "Save as list",
+        "save_disabled_hint": "Reach step 3 with > 0 matches to save."
+      },
+      "templates": {
+        "website": {
+          "label": "Website rebuild",
+          "meta": "Slow LCP · missing schema · no booking CTA"
+        },
+        "meta_ads": {
+          "label": "Meta ads",
+          "meta": "Zero ad spend last 90 days · ≥100 reviews"
+        },
+        "google_ads": {
+          "label": "Google ads",
+          "meta": "No paid Maps · weak local pack rank"
+        },
+        "local_seo": {
+          "label": "Local SEO",
+          "meta": "Outside the 3-pack · weak NAP"
+        },
+        "reviews": {
+          "label": "Review management",
+          "meta": "Reply rate < 25% · unanswered 1★ aged"
+        },
+        "brand": {
+          "label": "Brand defense",
+          "meta": "Competitor running on brand keyword"
+        },
+        "launch": {
+          "label": "Launch",
+          "meta": "New listing · < 20 reviews · profile gaps"
+        },
+        "audit": {
+          "label": "Free audit",
+          "meta": "Mapsly Score < 5 · multiple weak signals"
+        }
+      }
     }
   },
   "common": {
