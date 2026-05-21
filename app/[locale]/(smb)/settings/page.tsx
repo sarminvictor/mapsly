@@ -358,7 +358,11 @@ function BusinessProfileCard({
     );
   }
 
-  const addressLine = [data.businessAddress, data.businessCity, data.businessProvince]
+  const addressLine = [
+    data.businessAddress,
+    data.businessCity,
+    data.businessProvince,
+  ]
     .filter(Boolean)
     .join(", ");
 
@@ -370,10 +374,7 @@ function BusinessProfileCard({
       <p style={cardSubtitleStyle()}>{labels.subtitle}</p>
       <dl style={dlStyle()}>
         <Row label={labels.name_label} value={data.businessName} />
-        <Row
-          label={labels.address_label}
-          value={addressLine || labels.dash}
-        />
+        <Row label={labels.address_label} value={addressLine || labels.dash} />
         <Row
           label={labels.category_label}
           value={data.businessCategory || labels.dash}
@@ -441,7 +442,12 @@ function BrandVoiceCard({ labels }: { labels: BrandVoiceLabels }) {
       <fieldset
         disabled
         aria-disabled="true"
-        style={{ border: "none", padding: 0, margin: "12px 0 0", opacity: 0.55 }}
+        style={{
+          border: "none",
+          padding: 0,
+          margin: "12px 0 0",
+          opacity: 0.55,
+        }}
       >
         <label style={fieldLabelStyle()}>
           {labels.tone_label}
@@ -453,11 +459,7 @@ function BrandVoiceCard({ labels }: { labels: BrandVoiceLabels }) {
         </label>
         <label style={fieldLabelStyle()}>
           {labels.signature_label}
-          <input
-            disabled
-            style={inputStyle()}
-            placeholder="— Maria, Owner"
-          />
+          <input disabled style={inputStyle()} placeholder="— Maria, Owner" />
         </label>
       </fieldset>
     </section>
@@ -527,7 +529,9 @@ function NotificationItem({ label, desc }: { label: string; desc: string }) {
       }}
     >
       <div>
-        <div style={{ fontSize: 14, fontWeight: 500, color: "var(--color-text)" }}>
+        <div
+          style={{ fontSize: 14, fontWeight: 500, color: "var(--color-text)" }}
+        >
           {label}
         </div>
         <div
@@ -620,7 +624,10 @@ function LanguageCard({
             ))}
           </select>
         </label>
-        <button type="submit" style={{ ...primaryButtonStyle(), marginTop: 12 }}>
+        <button
+          type="submit"
+          style={{ ...primaryButtonStyle(), marginTop: 12 }}
+        >
           {labels.save_cta}
         </button>
       </form>

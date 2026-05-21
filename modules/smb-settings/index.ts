@@ -7,7 +7,4 @@
 
 export { getSmbSettingsData } from "./queries";
 export { signOutFromSettings, setPreferredLocale } from "./actions";
-export {
-  EMPTY_SMB_SETTINGS,
-  type SmbSettingsData,
-} from "./types";
+export { EMPTY_SMB_SETTINGS, type SmbSettingsData } from "./types";
