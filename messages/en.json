@@ -510,6 +510,19 @@
         "signout_body": "Sign out of this device. You'll need your email to sign back in.",
         "signout_cta": "Sign out"
       }
+    },
+    "nav": {
+      "brand": "mapsly",
+      "audience_tag": "Your business",
+      "section_daily": "Daily",
+      "section_watch": "Watch",
+      "section_account": "Account",
+      "item_dashboard": "Dashboard",
+      "item_reviews": "Reviews",
+      "item_competitors": "Competitors",
+      "item_search": "Search visibility",
+      "item_ads": "Ads intelligence",
+      "item_settings": "Settings"
     }
   },
   "agency": {

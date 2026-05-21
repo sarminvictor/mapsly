@@ -275,6 +275,19 @@
       "empty_body": "Aucune entreprise n'est encore liée à votre compte. Dites-nous où vous êtes et nous commencerons à suivre les recherches utilisées par vos patients.",
       "empty_no_keywords": "Nous cherchons encore les recherches utilisées par vos patients. Revenez dans quelques jours.",
       "footer_help": "Mis à jour chaque semaine. Nous surveillons les recherches les plus susceptibles de vous amener des patients dans votre secteur."
+    },
+    "nav": {
+      "brand": "mapsly",
+      "audience_tag": "Votre entreprise",
+      "section_daily": "Quotidien",
+      "section_watch": "À surveiller",
+      "section_account": "Compte",
+      "item_dashboard": "Tableau de bord",
+      "item_reviews": "Avis",
+      "item_competitors": "Concurrents",
+      "item_search": "Visibilité",
+      "item_ads": "Publicités",
+      "item_settings": "Paramètres"
     }
   },
   "agency": {
