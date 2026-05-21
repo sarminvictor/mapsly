@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { setRequestLocale } from "next-intl/server";
 
@@ -114,11 +115,7 @@ export async function generateMetadata({
   };
 }
 
-export default async function BusinessProfilePage({
-  params,
-}: {
-  params: Promise<RouteParams>;
-}) {
+async function BizProfileBody({ params }: { params: Promise<RouteParams> }) {
   const { locale, slug } = await params;
   if (!routing.locales.includes(locale as Locale)) notFound();
   setRequestLocale(locale);
@@ -464,5 +461,26 @@ export default async function BusinessProfilePage({
         dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
       />
     </article>
+  );
+}
+
+/**
+ * Public default export · sync shell that wraps the async body in a
+ * Suspense boundary. Per `.claude/rules/cache-components.md` Pattern 2,
+ * pages doing DB reads MUST wrap the async work in <Suspense> so Next's
+ * Partial Pre-Rendering can prerender the shell and defer the body to
+ * runtime. The fallback is null because the marketing layout already
+ * provides chrome (header, footer); the article itself appears in one
+ * paint once the cached query resolves.
+ */
+export default function BusinessProfilePage({
+  params,
+}: {
+  params: Promise<RouteParams>;
+}) {
+  return (
+    <Suspense fallback={null}>
+      <BizProfileBody params={params} />
+    </Suspense>
   );
 }
