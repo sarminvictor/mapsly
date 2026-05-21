@@ -778,3 +778,4 @@ SES-2026-05-21-cw-1779359892 · F.10 · SUCCESS · score 8.8/10 · agency onboar
 SES-2026-05-21-cw--cw-177937 · G.1 · SUCCESS · score 8.6/10 · 1369+/18- · vercel-ci-green · merged=e156f7a (PR #49)
 SES-2026-05-21-e94a0b0f · G.4 · SUCCESS · score 8.6/10 · 2752+/0- · ci=green · merged=8a3009c · v0.7.17
 SES-2026-05-21-cowork-1635 · F.7 · SUCCESS · score n/a (no agents · informational only per loop.md v0.6.6) · 976+/0- · ci-green (lighthouse fail informational, not required) · merged · v0.7.19
+SES-2026-05-21-cowork-1700 · E.6 · SUCCESS · 8 files +1351/-19 · ci-passed green · auto-merge · v0.7.20
