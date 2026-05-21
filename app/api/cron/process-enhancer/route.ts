@@ -10,8 +10,6 @@
 
 import { detectFromDisk } from "@/lib/process-enhancer/detect-patterns";
 
-export const dynamic = "force-dynamic";
-
 export async function GET(req: Request) {
   const auth = req.headers.get("authorization");
   if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
