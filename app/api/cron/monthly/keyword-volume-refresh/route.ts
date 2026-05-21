@@ -17,10 +17,7 @@
 import { revalidateTag } from "next/cache";
 import prisma from "@/lib/prisma";
 import { cronHandler } from "@/lib/middleware/no-live-api";
-import {
-  keywordVolume,
-  type KeywordVolumeRow,
-} from "@/services/dataforseo";
+import { keywordVolume, type KeywordVolumeRow } from "@/services/dataforseo";
 import { resolveBatchLimit, statusFromOutcome } from "../../_lib/batch";
 
 const JOB = "monthly:keyword-volume-refresh";
@@ -67,10 +64,7 @@ export async function processMonthlyKeywordRefresh(
       language: true,
     },
     take: limit,
-    orderBy: [
-      { refreshedAt: { sort: "asc", nulls: "first" } },
-      { id: "asc" },
-    ],
+    orderBy: [{ refreshedAt: { sort: "asc", nulls: "first" } }, { id: "asc" }],
   });
 
   if (candidates.length === 0) {

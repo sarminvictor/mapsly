@@ -61,10 +61,7 @@ export async function processMonthlyEmailVerification(
     where: {
       isActive: true,
       email: { not: null },
-      OR: [
-        { emailVerifiedAt: null },
-        { emailVerifiedAt: { lt: cutoff } },
-      ],
+      OR: [{ emailVerifiedAt: null }, { emailVerifiedAt: { lt: cutoff } }],
     },
     select: { id: true, slug: true, email: true },
     take: limit,
