@@ -124,10 +124,7 @@ export const GET = cronHandler(JOB, async ({ runId }) => {
     totalEntrants += entrants;
     totalExits += exits;
 
-    revalidateTag(
-      `competitor-diff-${anchor.category}-${anchor.city}`,
-      "weeks",
-    );
+    revalidateTag(`competitor-diff-${anchor.category}-${anchor.city}`, "weeks");
   });
 
   return {

@@ -78,100 +78,103 @@ export const GET = cronHandler(JOB, async ({ runId }) => {
   const revalidatedSlugs = new Set<string>();
   let snapshotsWritten = 0;
 
-  const outcome = await runBatch(businesses, async (biz: BusinessForScoring) => {
-    const signals = await gatherSignals(biz);
+  const outcome = await runBatch(
+    businesses,
+    async (biz: BusinessForScoring) => {
+      const signals = await gatherSignals(biz);
 
-    const reputation = deriveReputationScore({
-      rating: signals.rating,
-      reviewCount: signals.reviewCount,
-      velocityLast30d: signals.velocityLast30d,
-    });
-    const communication = deriveCommunicationScore({
-      replyRate: signals.replyRate,
-      avgReplyLatencyHours: signals.avgReplyLatencyHours,
-    });
-    const profileCompleteness = deriveProfileCompletenessScore({
-      hasPhone: signals.hasPhone,
-      hasWebsite: signals.hasWebsite,
-      hasHours: signals.hasHours,
-      photosCount: signals.photosCount,
-      hasCategory: signals.hasCategory,
-      hasQandA: signals.hasQandA,
-    });
-    const trust = deriveTrustScore({
-      verified: signals.verified,
-      claimed: signals.claimed,
-      businessAgeYears: signals.businessAgeYears,
-      hasProfilePhoto: signals.hasProfilePhoto,
-      hasRecentReply: signals.hasRecentReply,
-    });
-    const pricingTransparency = derivePricingTransparencyScore({
-      hasPricingPage: signals.hasPricingPage,
-      hasServicesList: signals.hasServicesList,
-      hasGbpServices: signals.hasGbpServices,
-    });
-    const brandPresence = deriveBrandPresenceScore({
-      lighthousePerformance: signals.lighthousePerformance,
-      lighthouseSeo: signals.lighthouseSeo,
-      hasSchema: signals.hasSchema,
-      hasActiveAds: signals.hasActiveAds,
-      hasSocialLinks: signals.hasSocialLinks,
-    });
+      const reputation = deriveReputationScore({
+        rating: signals.rating,
+        reviewCount: signals.reviewCount,
+        velocityLast30d: signals.velocityLast30d,
+      });
+      const communication = deriveCommunicationScore({
+        replyRate: signals.replyRate,
+        avgReplyLatencyHours: signals.avgReplyLatencyHours,
+      });
+      const profileCompleteness = deriveProfileCompletenessScore({
+        hasPhone: signals.hasPhone,
+        hasWebsite: signals.hasWebsite,
+        hasHours: signals.hasHours,
+        photosCount: signals.photosCount,
+        hasCategory: signals.hasCategory,
+        hasQandA: signals.hasQandA,
+      });
+      const trust = deriveTrustScore({
+        verified: signals.verified,
+        claimed: signals.claimed,
+        businessAgeYears: signals.businessAgeYears,
+        hasProfilePhoto: signals.hasProfilePhoto,
+        hasRecentReply: signals.hasRecentReply,
+      });
+      const pricingTransparency = derivePricingTransparencyScore({
+        hasPricingPage: signals.hasPricingPage,
+        hasServicesList: signals.hasServicesList,
+        hasGbpServices: signals.hasGbpServices,
+      });
+      const brandPresence = deriveBrandPresenceScore({
+        lighthousePerformance: signals.lighthousePerformance,
+        lighthouseSeo: signals.lighthouseSeo,
+        hasSchema: signals.hasSchema,
+        hasActiveAds: signals.hasActiveAds,
+        hasSocialLinks: signals.hasSocialLinks,
+      });
 
-    const mapslyScore = computeMapslyScore({
-      reputation,
-      communication,
-      profileCompleteness,
-      trust,
-      pricingTransparency,
-      brandPresence,
-    });
+      const mapslyScore = computeMapslyScore({
+        reputation,
+        communication,
+        profileCompleteness,
+        trust,
+        pricingTransparency,
+        brandPresence,
+      });
 
-    // Day-granularity snapshot date so a daily re-run idempotent-upserts.
-    const snapshotDate = todayUtcMidnight();
+      // Day-granularity snapshot date so a daily re-run idempotent-upserts.
+      const snapshotDate = todayUtcMidnight();
 
-    await prisma.businessSnapshot.upsert({
-      where: {
-        businessId_snapshotDate: {
+      await prisma.businessSnapshot.upsert({
+        where: {
+          businessId_snapshotDate: {
+            businessId: biz.id,
+            snapshotDate,
+          },
+        },
+        create: {
           businessId: biz.id,
           snapshotDate,
+          rating: signals.rating,
+          reviewCount: signals.reviewCount,
+          photosCount: signals.photosCount,
+          replyRate: signals.replyRate,
+          velocityLast30d: signals.velocityLast30d,
+          mapslyScore,
+          reputationScore: reputation,
+          communicationScore: communication,
+          profileCompletenessScore: profileCompleteness,
+          trustScore: trust,
+          pricingTransparencyScore: pricingTransparency,
+          brandPresenceScore: brandPresence,
         },
-      },
-      create: {
-        businessId: biz.id,
-        snapshotDate,
-        rating: signals.rating,
-        reviewCount: signals.reviewCount,
-        photosCount: signals.photosCount,
-        replyRate: signals.replyRate,
-        velocityLast30d: signals.velocityLast30d,
-        mapslyScore,
-        reputationScore: reputation,
-        communicationScore: communication,
-        profileCompletenessScore: profileCompleteness,
-        trustScore: trust,
-        pricingTransparencyScore: pricingTransparency,
-        brandPresenceScore: brandPresence,
-      },
-      update: {
-        rating: signals.rating,
-        reviewCount: signals.reviewCount,
-        photosCount: signals.photosCount,
-        replyRate: signals.replyRate,
-        velocityLast30d: signals.velocityLast30d,
-        mapslyScore,
-        reputationScore: reputation,
-        communicationScore: communication,
-        profileCompletenessScore: profileCompleteness,
-        trustScore: trust,
-        pricingTransparencyScore: pricingTransparency,
-        brandPresenceScore: brandPresence,
-      },
-    });
+        update: {
+          rating: signals.rating,
+          reviewCount: signals.reviewCount,
+          photosCount: signals.photosCount,
+          replyRate: signals.replyRate,
+          velocityLast30d: signals.velocityLast30d,
+          mapslyScore,
+          reputationScore: reputation,
+          communicationScore: communication,
+          profileCompletenessScore: profileCompleteness,
+          trustScore: trust,
+          pricingTransparencyScore: pricingTransparency,
+          brandPresenceScore: brandPresence,
+        },
+      });
 
-    snapshotsWritten += 1;
-    revalidatedSlugs.add(biz.slug);
-  });
+      snapshotsWritten += 1;
+      revalidatedSlugs.add(biz.slug);
+    },
+  );
 
   for (const slug of revalidatedSlugs) {
     revalidateTag(`business-${slug}`, "weeks");
@@ -206,51 +209,49 @@ async function gatherSignals(biz: BusinessForScoring) {
     Date.now() - REVIEW_VELOCITY_WINDOW_DAYS * 24 * 60 * 60 * 1000,
   );
 
-  const [
-    velocityLast30d,
-    recentReviews,
-    latestLighthouse,
-    activeAdsCount,
-  ] = await Promise.all([
-    prisma.review.count({
-      where: { businessId: biz.id, postedAt: { gte: velocityCutoff } },
-    }),
-    prisma.review.findMany({
-      where: { businessId: biz.id },
-      select: {
-        ownerReplied: true,
-        ownerReplyAt: true,
-        postedAt: true,
-      },
-      orderBy: { postedAt: "desc" },
-      take: REPLY_LATENCY_LOOKBACK,
-    }),
-    prisma.lighthouseAudit.findFirst({
-      where: { businessId: biz.id },
-      orderBy: { auditedAt: "desc" },
-      select: {
-        performance: true,
-        seo: true,
-        hasLocalBusinessSchema: true,
-        hasBookingCtaAboveFold: true,
-        hasPhoneAboveFold: true,
-      },
-    }),
-    prisma.adLibraryEntry.count({
-      where: { businessId: biz.id, isActive: true },
-    }),
-  ]);
+  const [velocityLast30d, recentReviews, latestLighthouse, activeAdsCount] =
+    await Promise.all([
+      prisma.review.count({
+        where: { businessId: biz.id, postedAt: { gte: velocityCutoff } },
+      }),
+      prisma.review.findMany({
+        where: { businessId: biz.id },
+        select: {
+          ownerReplied: true,
+          ownerReplyAt: true,
+          postedAt: true,
+        },
+        orderBy: { postedAt: "desc" },
+        take: REPLY_LATENCY_LOOKBACK,
+      }),
+      prisma.lighthouseAudit.findFirst({
+        where: { businessId: biz.id },
+        orderBy: { auditedAt: "desc" },
+        select: {
+          performance: true,
+          seo: true,
+          hasLocalBusinessSchema: true,
+          hasBookingCtaAboveFold: true,
+          hasPhoneAboveFold: true,
+        },
+      }),
+      prisma.adLibraryEntry.count({
+        where: { businessId: biz.id, isActive: true },
+      }),
+    ]);
 
   const replyRate =
     recentReviews.length > 0
-      ? recentReviews.filter((r) => r.ownerReplied).length / recentReviews.length
+      ? recentReviews.filter((r) => r.ownerReplied).length /
+        recentReviews.length
       : null;
   const avgReplyLatencyHours = averageReplyLatencyHours(recentReviews);
   const hasRecentReply = recentReviews.some(
     (r) =>
       r.ownerReplied &&
       r.ownerReplyAt &&
-      r.ownerReplyAt.getTime() >= velocityCutoff.getTime() - 60 * 24 * 60 * 60 * 1000,
+      r.ownerReplyAt.getTime() >=
+        velocityCutoff.getTime() - 60 * 24 * 60 * 60 * 1000,
   );
 
   return {
@@ -310,10 +311,7 @@ export function yearsOnGoogle(firstSeen: Date | null): number | null {
  * Conservative: returns null when shape isn't an object → that maps to
  * "unknown" in the sub-score derivation (contributes 0, not 1).
  */
-export function hasAttribute(
-  attributes: unknown,
-  key: string,
-): boolean | null {
+export function hasAttribute(attributes: unknown, key: string): boolean | null {
   if (attributes == null || typeof attributes !== "object") return null;
   const obj = attributes as Record<string, unknown>;
   const v = obj[key];

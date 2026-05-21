@@ -147,9 +147,7 @@ export const GET = cronHandler(JOB, async ({ runId }) => {
           string,
           unknown
         > | null,
-        reviews: b.reviews as unknown as ReadonlyArray<
-          Record<string, unknown>
-        >,
+        reviews: b.reviews as unknown as ReadonlyArray<Record<string, unknown>>,
         serpResults: b.serpResults as unknown as ReadonlyArray<
           Record<string, unknown>
         >,

@@ -38,14 +38,17 @@ const ROUTES = [
 ] as const;
 
 describe("weekly handlers · smoke", () => {
-  test.each(ROUTES)("%s · exports GET + has unique JOB constant", async (route) => {
-    const mod = await import(`../${route}/route`);
-    expect(typeof mod.GET).toBe("function");
-    // __test object exposes JOB for inspection by tests + grep.
-    expect(mod.__test).toBeDefined();
-    expect(typeof mod.__test.JOB).toBe("string");
-    expect(mod.__test.JOB).toMatch(/^weekly:/);
-  });
+  test.each(ROUTES)(
+    "%s · exports GET + has unique JOB constant",
+    async (route) => {
+      const mod = await import(`../${route}/route`);
+      expect(typeof mod.GET).toBe("function");
+      // __test object exposes JOB for inspection by tests + grep.
+      expect(mod.__test).toBeDefined();
+      expect(typeof mod.__test.JOB).toBe("string");
+      expect(mod.__test.JOB).toMatch(/^weekly:/);
+    },
+  );
 
   test.each(ROUTES)("%s · rejects request without bearer", async (route) => {
     const mod = await import(`../${route}/route`);

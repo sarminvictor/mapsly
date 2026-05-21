@@ -54,10 +54,7 @@ export const GET = cronHandler(JOB, async ({ runId }) => {
       lat: { not: null },
       lng: { not: null },
       category: { not: "" },
-      OR: [
-        { lastRefreshedAt: null },
-        { lastRefreshedAt: { lt: cutoff } },
-      ],
+      OR: [{ lastRefreshedAt: null }, { lastRefreshedAt: { lt: cutoff } }],
     },
     select: {
       id: true,

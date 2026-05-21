@@ -69,8 +69,16 @@ export const GET = cronHandler(JOB, async ({ runId }) => {
 
   const rows: BusinessRow[] = candidates
     .filter(
-      (c): c is { id: string; slug: string; name: string; category: string; googleCid: string; country: string | null } =>
-        typeof c.googleCid === "string" && c.googleCid.length > 0,
+      (
+        c,
+      ): c is {
+        id: string;
+        slug: string;
+        name: string;
+        category: string;
+        googleCid: string;
+        country: string | null;
+      } => typeof c.googleCid === "string" && c.googleCid.length > 0,
     )
     .map((c) => ({
       id: c.id,

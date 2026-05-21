@@ -105,8 +105,9 @@ export const GET = cronHandler(JOB, async ({ runId }) => {
       if (item.type !== "maps_search") continue;
       if (top3.length < 3) top3.push({ title: item.title ?? null });
       const cid = typeof item.cid === "string" ? item.cid : null;
-      const bizId = cid ? knownBusinessesByCid.get(cid) ?? null : null;
-      const key = bizId ?? (cid ? `__cid:${cid}` : `__rank:${item.rank_group ?? "x"}`);
+      const bizId = cid ? (knownBusinessesByCid.get(cid) ?? null) : null;
+      const key =
+        bizId ?? (cid ? `__cid:${cid}` : `__rank:${item.rank_group ?? "x"}`);
       const prev = perBiz.get(key);
       perBiz.set(key, {
         businessId: bizId,
@@ -222,7 +223,9 @@ async function loadKnownBusinessCids(): Promise<Map<string, string>> {
  *   "soleabrickell.com"                   → "soleabrickell.com"
  *   ""                                    → null
  */
-export function normalizeDomain(input: string | null | undefined): string | null {
+export function normalizeDomain(
+  input: string | null | undefined,
+): string | null {
   if (!input) return null;
   const raw = input.trim();
   if (!raw) return null;
@@ -243,7 +246,6 @@ function clampLimitFromEnv(defaultLimit: number, max: number): number {
   if (!Number.isFinite(parsed) || parsed <= 0) return defaultLimit;
   return Math.max(1, Math.min(parsed, max));
 }
-
 
 export const __test = {
   JOB,
