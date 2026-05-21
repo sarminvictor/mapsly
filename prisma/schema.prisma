@@ -628,6 +628,13 @@ model Task {
 
   notes           String?    @db.Text
 
+  // Pre-computed task context (v0.7.0 · saves ~15 turns/tick by avoiding
+  // runtime grep/match for related files, INCs, rules). Populated when
+  // Task is created or modified — see scripts/compute-task-context.ts.
+  // Loop's STEP 3 returns this inline; STEP 4 reads it instead of
+  // re-deriving via subagent.
+  contextBundle   Json?
+
   // Parallelism control (H.12)
   parallelLane    String?    // "auth" | "data" | "compute" | "smb-ui" | "agency-ui" | "billing" | "ops" | "i18n" | "shared"
   independent     Boolean    @default(false)   // can run alongside ANY other task

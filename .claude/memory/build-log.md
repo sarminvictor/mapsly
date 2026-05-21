@@ -658,3 +658,24 @@ Outcome: SUCCESS.
 SES-2026-05-21-cowork-1779329538 · I.6 · SUCCESS · score n/a (reviewer PASS, no scorer agent) · +434/-62 · ci-green · merged PR #34 → v0.6.43
 
 SES-2026-05-20-cowork-1779331052 · C.10 · SUCCESS · 4 monthly cron handlers (keyword-volume-refresh / market-census / industry-baseline / email-verification) · 918+/22- · PR #35 squash → b2ea301 · v0.6.44 · CI green after 4 fix-commits: prettier × 2, TS2345 industry-baseline meta cast, drop force-dynamic from process-enhancer (INC-09)
+
+## SES-2026-05-21-cowork-audit-v070 · v0.7.0 ship · 10 mechanical-enforcement optimizations (one-task-one-tick preserved)
+
+Viktor: *"okay, implement all in 1 phase"* (after Pro Engineer audit identifying that v0.6.42's prose guidance failed to change agent behavior).
+
+The lesson from v0.6.42's failure: LLM agents follow training-derived tool-call patterns, not prose instructions. v0.7.0 replaces prose with mechanical enforcement at three levels:
+- Compound tool shape per step (every step is ONE tool call doing N internal operations)
+- Disk-resident turn counter (`/tmp/mapsly-turn-counter`) checked at every step boundary
+- Force-functions where agent instinct diverges most (STEP 4 MANDATORY Agent(Explore) first)
+
+Changes:
+- `.claude/loop.md` v0.7.0 — full rewrite of STEPs 0/2/3/4/5/6/8/10. Compound bash heredocs replace 76+ turns of small calls with ~13 turns of compound operations.
+- `.claude/rules/compound-steps.md` (NEW · 49 lines) — the canonical rule mapping each STEP to its required tool shape.
+- `.claude/rules/no-verify.md` (NEW · 45 lines) — bans post-write verification calls. Cuts 5–10 turns per task.
+- `prisma/schema.prisma` — added `Task.contextBundle Json?` column for precomputed task context (saves Agent(Explore) turn when populated).
+- `.claude/memory/incidents.md` — INC-36 documents prose-vs-enforcement lesson + the 10 v0.7.0 fixes.
+- `package.json` — 0.6.44 → 0.7.0.
+
+Expected net: per-task turn budget 76+ → 30–45. ~55 turns of headroom under the 100-cap. 1 task = 1 tick preserved.
+
+Outcome: SUCCESS.

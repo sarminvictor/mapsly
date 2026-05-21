@@ -1003,3 +1003,62 @@ Total turn budget per tick: **60–140 → 30–50.** 2-3× headroom under the 1
 
 **Confidence:** high (turn accounting derived from actual STEP-by-STEP execution; SKIP LOCKED is canonical Postgres queue pattern)
 **Tags:** loop, max-turns, claude-code, queue-discipline, skip-locked, exponential-backoff, agent-context-bundle, v0.6.42
+
+### INC-2026-05-20-36 · Loop hit 100-turn cap even after v0.6.42 · prose guidance ≠ behavior change
+
+**Status:** ✅ FIXED + ENCODED — v0.7.0 mechanical enforcement: compound bash heredocs at every step (`compound-steps.md`), banned post-write verification (`no-verify.md`), `/tmp/mapsly-turn-counter` file as the disk-resident budget, STEP 4 force-function for Agent(Explore)-first, single-message review-agent batch in STEP 5.
+
+**Symptom:** v0.6.42 shipped 9 optimizations as prose in `.claude/loop.md` (compound STEP 0, SKIP LOCKED claim, exponential backoff, banned same-session retries, etc.). First Cowork tick after v0.6.42 STILL hit `Reached maximum number of turns (100)` mid-task. Reconstruction of the tick log showed:
+
+- Bootstrap: **17 turns** (target was 2; agent made 17 small bash calls instead of one heredoc)
+- STEP 1 + orphan sweep: **9 turns** (target was 1)
+- Investigation + pattern study: **24 turns** of free-form Read/Grep (target was 1 via Agent dispatch)
+- Atomic claim: **4 turns** (target was 1)
+- File writes: 12 turns including post-write verification with `wc -l`, `ls -la`, `cat`
+- Total before STEP 5: **~76 turns**, hit 100 mid-validation
+
+Viktor: *"still too many? let's analyse"* → *"deeper analyze as Pro Engineer and optimization master"*
+
+**Root cause:** **Prose guidance does not change LLM agent behavior.** The agent's tool-use defaults — one tool call per logical sub-step, post-write verification, free-form serial exploration before commitment — are training-derived patterns that the prose in loop.md cannot override. Writing "bundle these reads" in the doc doesn't reduce the number of Read tool calls the agent makes. Writing "be efficient" doesn't make the agent efficient.
+
+The v0.6.42 design was prose-heavy guidance ("agents SHOULD bundle", "STEP 4 SHOULD start with Explore", "DON'T retry same-session"). Agents read it, then ignored it because their instinct is the inverse.
+
+**Fix applied (v0.7.0):** Replace prose with mechanical enforcement at three levels:
+
+1. **Compound tool shape per step** (`.claude/rules/compound-steps.md`). The doc no longer says "bundle these"; it specifies the EXACT shape: ONE bash heredoc for STEP 0, ONE bash for STEP 2, ONE bash for STEP 3, etc. Each `## STEP N` heading is the contract. Issuing N tool calls where 1 is specified = defect, logged for process-enhancer.
+
+2. **Force-functions where agent instinct diverges most.** STEP 4 explicitly says: if Task.contextBundle is null, the FIRST tool call MUST be `Agent(subagent_type="Explore", ...)`. Any Read/Grep/Bash before that = defect → mark TaskRun INCOMPLETE + exit. This removes the agent's option to "just take a quick look first".
+
+3. **Mechanical disk-resident turn counter.** `/tmp/mapsly-turn-counter` is a single integer the bash heredocs increment at the end. Every step boundary is a 2-line check (`[ $(cat) -ge 80 ] && exec_graceful_incomplete`). The agent doesn't have to "remember" the budget; bash does. At 80 (out of 100), the loop gracefully exits to INCOMPLETE + saves branch + resumes next tick.
+
+4. **`.claude/rules/no-verify.md`** (NEW). Bans post-write `wc -l`/`ls`/`cat`/`find`/`stat` calls on files just written. Write throws on failure; trust it. This single rule cuts 5–10 turns per task in measured traces.
+
+5. **`Task.contextBundle Json?`** (schema column added). Precomputed via `compute_task_context()` (TODO: future cron). When Task has a contextBundle, STEP 3 returns it inline; STEP 4 reads from it instead of dispatching Explore. Saves the Agent dispatch turn entirely (when populated).
+
+**Prevention:**
+
+- Compound-steps rule is non-skippable per `.claude/rules/compound-steps.md`. Every loop.md STEP heading specifies its required tool shape.
+- Turn-counter is disk-resident; not subject to agent forgetfulness.
+- No-verify rule is cited at every relevant STEP in loop.md.
+- Force-function in STEP 4 makes the agent's normal exploration impossible — Agent(Explore) MUST come first.
+
+**Score impact (per the Pro Engineer audit):**
+
+| Aspect | v0.6.42 | v0.7.0 |
+|---|---:|---:|
+| Pre-STEP-5 turns | 76 | ~13 |
+| Full-task turn budget | 100+ (overflow) | 30–45 (cap-safe) |
+| Mechanical enforcement | 10% | 90% |
+| Prose guidance | 90% | 10% |
+| Force functions | 0 | 3 (STEP 4 Agent-first, no-verify, turn-counter gate) |
+
+**Where encoded:**
+- `.claude/loop.md` v0.7.0 (compound bootstrap STEP 0, compound STEP 2, compound STEP 3, force-function STEP 4, batched STEP 5, compound STEP 6, compound STEP 8, mechanical STEP 10)
+- `.claude/rules/compound-steps.md` (new · the canonical rule)
+- `.claude/rules/no-verify.md` (new · companion rule)
+- `prisma/schema.prisma` (Task.contextBundle Json? column)
+- This entry
+
+**Confidence:** high — the diagnosis is reconstructed from Viktor's actual tick log; the fix is the inverse of the diagnosed root cause (mechanical, not prose).
+
+**Tags:** loop, max-turns, claude-code, mechanical-enforcement, compound-steps, no-verify, agent-explore-force-function, v0.7.0, prose-vs-enforcement, INC-35-followup
