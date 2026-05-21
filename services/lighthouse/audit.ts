@@ -32,7 +32,11 @@ import {
   lighthouseAuditUncached,
   type LighthouseAuditResult as DataForSeoLighthouseResult,
 } from "@/services/dataforseo/lighthouse";
-import { runDomChecks, type DomChecksResult, type NapInput } from "./dom-checks";
+import {
+  runDomChecks,
+  type DomChecksResult,
+  type NapInput,
+} from "./dom-checks";
 import { LIGHTHOUSE_UNIT_COST_USD } from "./pricing";
 
 // ---- Constants ----------------------------------------------------------
@@ -176,7 +180,8 @@ async function fetchHtmlRaw(url: string): Promise<HtmlFetchResult> {
         clearTimeout(timeoutId);
       }
       if (!res.ok) {
-        const retryable = res.status >= 500 || res.status === 408 || res.status === 429;
+        const retryable =
+          res.status >= 500 || res.status === 408 || res.status === 429;
         const err = new LighthouseHtmlFetchError({
           url,
           message: `http ${res.status}`,
@@ -198,9 +203,7 @@ async function fetchHtmlRaw(url: string): Promise<HtmlFetchResult> {
     } catch (err) {
       lastError = err;
       const retryable =
-        err instanceof LighthouseHtmlFetchError
-          ? err.retryable
-          : true; // network errors are retryable
+        err instanceof LighthouseHtmlFetchError ? err.retryable : true; // network errors are retryable
       if (!retryable || attempt === HTML_FETCH_RETRIES) {
         if (err instanceof LighthouseHtmlFetchError) throw err;
         throw new LighthouseHtmlFetchError({

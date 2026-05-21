@@ -208,7 +208,8 @@ describe("cron-context invariant", () => {
   test("lighthouseFullAuditUncached throws outside withCronRun", async () => {
     setDataForSeoFetch((async () =>
       dataForSeoLighthouseResponse()) as typeof fetch);
-    __setFetchForTesting((async () => htmlResponse(SAMPLE_HTML)) as typeof fetch);
+    __setFetchForTesting((async () =>
+      htmlResponse(SAMPLE_HTML)) as typeof fetch);
 
     await expect(
       lighthouseFullAuditUncached({ url: "https://example.com/" }),
@@ -216,7 +217,8 @@ describe("cron-context invariant", () => {
   });
 
   test("lighthouseDomFetchUncached throws outside withCronRun", async () => {
-    __setFetchForTesting((async () => htmlResponse(SAMPLE_HTML)) as typeof fetch);
+    __setFetchForTesting((async () =>
+      htmlResponse(SAMPLE_HTML)) as typeof fetch);
     await expect(
       lighthouseDomFetchUncached("https://example.com/"),
     ).rejects.toThrow(/outside of an open CronRun/);
@@ -227,7 +229,8 @@ describe("lighthouseFullAuditUncached · happy path", () => {
   test("both legs succeed → combined result, partial=false, billed once per leg", async () => {
     setDataForSeoFetch((async () =>
       dataForSeoLighthouseResponse()) as typeof fetch);
-    __setFetchForTesting((async () => htmlResponse(SAMPLE_HTML)) as typeof fetch);
+    __setFetchForTesting((async () =>
+      htmlResponse(SAMPLE_HTML)) as typeof fetch);
 
     const out = await withCronRun("test:weekly:lighthouse", async () => {
       return lighthouseFullAuditUncached({
@@ -285,9 +288,12 @@ describe("lighthouseFullAuditUncached · partial paths", () => {
   });
 
   test("DataForSEO leg throws → partial=true, DOM checks populated, scores null", async () => {
-    setDataForSeoFetch((async () =>
-      new Response("internal error", { status: 500 })) as typeof fetch);
-    __setFetchForTesting((async () => htmlResponse(SAMPLE_HTML)) as typeof fetch);
+    setDataForSeoFetch(
+      (async () =>
+        new Response("internal error", { status: 500 })) as typeof fetch,
+    );
+    __setFetchForTesting((async () =>
+      htmlResponse(SAMPLE_HTML)) as typeof fetch);
 
     const out = await withCronRun("test:weekly:lighthouse", async () => {
       return lighthouseFullAuditUncached({ url: "https://example.com/" });
@@ -303,8 +309,10 @@ describe("lighthouseFullAuditUncached · partial paths", () => {
   });
 
   test("both legs fail → throws", async () => {
-    setDataForSeoFetch((async () =>
-      new Response("internal error", { status: 500 })) as typeof fetch);
+    setDataForSeoFetch(
+      (async () =>
+        new Response("internal error", { status: 500 })) as typeof fetch,
+    );
     __setFetchForTesting((async () =>
       htmlResponse("upstream busy", 503)) as typeof fetch);
 
@@ -323,7 +331,9 @@ describe("HTML fetch retry behavior", () => {
       dataForSeoLighthouseResponse()) as typeof fetch);
     __setFetchForTesting((async () => {
       calls++;
-      return calls === 1 ? htmlResponse("busy", 503) : htmlResponse(SAMPLE_HTML);
+      return calls === 1
+        ? htmlResponse("busy", 503)
+        : htmlResponse(SAMPLE_HTML);
     }) as typeof fetch);
 
     const out = await withCronRun("test:weekly:lighthouse", async () =>
@@ -371,7 +381,8 @@ describe("toPersistRow", () => {
   test("maps a full happy-path result into Prisma row shape", async () => {
     setDataForSeoFetch((async () =>
       dataForSeoLighthouseResponse()) as typeof fetch);
-    __setFetchForTesting((async () => htmlResponse(SAMPLE_HTML)) as typeof fetch);
+    __setFetchForTesting((async () =>
+      htmlResponse(SAMPLE_HTML)) as typeof fetch);
 
     const out = await withCronRun("test:weekly:lighthouse", async () =>
       lighthouseFullAuditUncached({

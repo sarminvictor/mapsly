@@ -90,7 +90,10 @@ describe("extractJsonLdBlocks", () => {
   test("extracts a single well-formed block", () => {
     const html = wrap(
       "",
-      jsonLdScript({ "@context": "https://schema.org", "@type": "LocalBusiness" }),
+      jsonLdScript({
+        "@context": "https://schema.org",
+        "@type": "LocalBusiness",
+      }),
     );
     const blocks = extractJsonLdBlocks(html);
     expect(blocks).toHaveLength(1);
@@ -166,9 +169,7 @@ describe("hasLocalBusinessSchema", () => {
   });
   test("true for Restaurant subtype", () => {
     expect(
-      hasLocalBusinessSchema(
-        wrap("", jsonLdScript({ "@type": "Restaurant" })),
-      ),
+      hasLocalBusinessSchema(wrap("", jsonLdScript({ "@type": "Restaurant" }))),
     ).toBe(true);
   });
   test("true inside @graph layout", () => {
@@ -178,10 +179,7 @@ describe("hasLocalBusinessSchema", () => {
           "",
           jsonLdScript({
             "@context": "https://schema.org",
-            "@graph": [
-              { "@type": "WebSite" },
-              { "@type": "HairSalon" },
-            ],
+            "@graph": [{ "@type": "WebSite" }, { "@type": "HairSalon" }],
           }),
         ),
       ),
@@ -262,9 +260,9 @@ describe("extractPhoneNumbers", () => {
     );
   });
   test("matches tel: link", () => {
-    expect(
-      extractPhoneNumbers(`<a href="tel:+13055550100">Call</a>`),
-    ).toEqual(new Set(["3055550100"]));
+    expect(extractPhoneNumbers(`<a href="tel:+13055550100">Call</a>`)).toEqual(
+      new Set(["3055550100"]),
+    );
   });
   test("ignores plain digit runs that aren't phone-shaped", () => {
     expect(extractPhoneNumbers("Order #12345").size).toBe(0);
@@ -285,9 +283,9 @@ describe("extractPhoneNumbers", () => {
 
 describe("hasPhoneAboveFold", () => {
   test("true when phone is in the body intro", () => {
-    expect(
-      hasPhoneAboveFold(wrap("Welcome! Call us at (305) 555-0100.")),
-    ).toBe(true);
+    expect(hasPhoneAboveFold(wrap("Welcome! Call us at (305) 555-0100."))).toBe(
+      true,
+    );
   });
   test("true when tel: href present without visible digits", () => {
     expect(
@@ -296,9 +294,9 @@ describe("hasPhoneAboveFold", () => {
   });
   test("false when phone only appears below the fold", () => {
     const padding = "x ".repeat(4_000);
-    expect(
-      hasPhoneAboveFold(wrap(`${padding}Phone (305) 555-0100`)),
-    ).toBe(false);
+    expect(hasPhoneAboveFold(wrap(`${padding}Phone (305) 555-0100`))).toBe(
+      false,
+    );
   });
   test("false when no phone anywhere", () => {
     expect(hasPhoneAboveFold(wrap("welcome to our spa"))).toBe(false);

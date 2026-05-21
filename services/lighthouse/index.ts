@@ -70,7 +70,4 @@ export {
   type NapInput,
 } from "./dom-checks";
 
-export {
-  LIGHTHOUSE_UNIT_COST_USD,
-  type LighthouseOperation,
-} from "./pricing";
+export { LIGHTHOUSE_UNIT_COST_USD, type LighthouseOperation } from "./pricing";
