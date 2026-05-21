@@ -312,7 +312,9 @@ async function AdsBody({ params }: { params: Promise<PageParams> }) {
             tone="warn"
             icon={warnIcon}
             body={t("alert_many_off_keyword")}
-            meta={t("alert_many_off_keyword_meta", { count: data.offKeywordCount })}
+            meta={t("alert_many_off_keyword_meta", {
+              count: data.offKeywordCount,
+            })}
           />
         </div>
       ) : null}

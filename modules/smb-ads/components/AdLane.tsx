@@ -73,19 +73,11 @@ export interface AdLaneProps {
   labels: AdLaneLabels;
 }
 
-function platformLabel(
-  platform: SmbAdPlatform,
-  labels: AdLaneLabels,
-): string {
+function platformLabel(platform: SmbAdPlatform, labels: AdLaneLabels): string {
   return platform === "GOOGLE" ? labels.platformGoogle : labels.platformMeta;
 }
 
-export function AdLane({
-  keyword,
-  ads,
-  isOffKeyword,
-  labels,
-}: AdLaneProps) {
+export function AdLane({ keyword, ads, isOffKeyword, labels }: AdLaneProps) {
   const isUnmatched = keyword === UNMATCHED_KEYWORD;
   const headerText = isUnmatched ? labels.unmatchedLabel : keyword;
   const visible = ads.slice(0, MAX_ADS_PER_LANE_VISIBLE);

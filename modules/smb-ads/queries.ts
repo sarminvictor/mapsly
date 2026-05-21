@@ -118,9 +118,7 @@ export async function getSmbAdsData(userId: string): Promise<SmbAdsData> {
       // TikTok is captured in DB but we don't show it yet — fall it
       // into META visually as a neutral "social" until we ship a
       // dedicated chip in a follow-up.
-      platform: (r.platform === "GOOGLE"
-        ? "GOOGLE"
-        : "META") as SmbAdPlatform,
+      platform: (r.platform === "GOOGLE" ? "GOOGLE" : "META") as SmbAdPlatform,
       adCreativeBody: r.adCreativeBody,
       landingUrl: r.landingUrl,
       lastSeenAt: r.lastSeenAt,
