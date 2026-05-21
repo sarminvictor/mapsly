@@ -24,10 +24,7 @@ import {
   type Classifier,
   type SentimentCorpusSample,
 } from "@/services/ai/eval-sentiment";
-import type {
-  ClassifyReviewResult,
-  Sentiment,
-} from "@/services/ai/sentiment";
+import type { ClassifyReviewResult, Sentiment } from "@/services/ai/sentiment";
 
 function makeResult(
   sentiment: Sentiment,
@@ -54,7 +51,9 @@ describe("loadCorpus", () => {
     // every sample has a sentiment field.
     const c = loadCorpus();
     for (const s of c.samples) {
-      expect(["POSITIVE", "NEUTRAL", "NEGATIVE"]).toContain(s.expectedSentiment);
+      expect(["POSITIVE", "NEUTRAL", "NEGATIVE"]).toContain(
+        s.expectedSentiment,
+      );
     }
   });
 
@@ -101,10 +100,7 @@ describe("scoreSample", () => {
   });
 
   test("fails + reports missing themes when an expected theme is absent", () => {
-    const v = scoreSample(
-      baseSample,
-      makeResult("POSITIVE", ["staff"], 0.9),
-    );
+    const v = scoreSample(baseSample, makeResult("POSITIVE", ["staff"], 0.9));
     expect(v.pass).toBe(false);
     expect(v.themesMatch).toBe(false);
     expect(v.missingThemes).toEqual(["results"]);
@@ -196,8 +192,7 @@ describe("evaluateSentimentCorpus", () => {
   test("partial failure produces a coherent summary", async () => {
     // Returns POSITIVE for every sample — only the actual POSITIVE
     // samples get sentimentMatch.
-    const wrongly: Classifier = async () =>
-      makeResult("POSITIVE", [], 0.85);
+    const wrongly: Classifier = async () => makeResult("POSITIVE", [], 0.85);
     const report = await evaluateSentimentCorpus(wrongly);
     const positiveSamples = loadCorpus().samples.filter(
       (s) => s.expectedSentiment === "POSITIVE",

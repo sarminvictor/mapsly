@@ -292,7 +292,9 @@ export function formatReport(report: EvalReport): string {
   lines.push(
     `Sentiment accuracy: ${(summary.sentimentAccuracy * 100).toFixed(1)}%`,
   );
-  lines.push(`Themes accuracy:    ${(summary.themesAccuracy * 100).toFixed(1)}%`);
+  lines.push(
+    `Themes accuracy:    ${(summary.themesAccuracy * 100).toFixed(1)}%`,
+  );
   lines.push(
     `Mean confidence:    ${(summary.confidenceMeanReported * 100).toFixed(1)}%`,
   );

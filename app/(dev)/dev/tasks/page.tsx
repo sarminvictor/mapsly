@@ -75,8 +75,9 @@ async function TasksContent() {
         <strong>tasks query failed</strong> — {plan.error}
         <br />
         <span style={{ fontSize: 12, opacity: 0.7 }}>
-          Likely a schema drift (Prisma client expects a column Neon doesn&apos;t have).
-          See INC-23 / INC-37 in <code>.claude/memory/incidents.md</code>.
+          Likely a schema drift (Prisma client expects a column Neon
+          doesn&apos;t have). See INC-23 / INC-37 in{" "}
+          <code>.claude/memory/incidents.md</code>.
         </span>
       </div>
     );

@@ -118,7 +118,9 @@ async function main(): Promise<void> {
     console.error(
       `[eval-sentiment] FAIL · sentiment accuracy ${(
         report.summary.sentimentAccuracy * 100
-      ).toFixed(1)}% < threshold ${(sentimentAccuracyThreshold * 100).toFixed(1)}%`,
+      ).toFixed(
+        1,
+      )}% < threshold ${(sentimentAccuracyThreshold * 100).toFixed(1)}%`,
     );
     process.exit(1);
   }

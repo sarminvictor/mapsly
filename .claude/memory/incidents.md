@@ -1070,7 +1070,7 @@ The v0.6.42 design was prose-heavy guidance ("agents SHOULD bundle", "STEP 4 SHO
 
 **Symptom:** `https://dev.mapsly.ai/tasks` displayed `no tasks in DB · run pnpm seed:plan` while Postgres actually held **81 active tasks** (52 DONE, 26 PENDING, 2 HUMAN_REQUIRED, 1 IN_PROGRESS) across 9 TaskGroups. Loop was still shipping (v0.7.1 just merged B.5), proving tasks exist.
 
-Viktor: *"where all our task gone?"*
+Viktor: _"where all our task gone?"_
 
 **Root cause:** v0.7.0 added `Task.contextBundle Json?` to `prisma/schema.prisma`. Vercel built with `prisma generate` so the deployed Prisma client included `contextBundle` in the default field set. But `prisma db push` was NEVER run against Neon (per `.claude/rules/prisma.md` § 6 schema-drift workflow — `prisma migrate dev` writes a migration file, `prisma db push` applies to remote, both are out-of-band from `next build`). The deployed app's `prisma.taskGroup.findMany({ include: { tasks: ... } })` issued a SELECT containing `t."contextBundle"` → Neon returned `column "contextBundle" does not exist` → Prisma threw → `app/(dev)/dev/queries/plan.ts`'s broad `} catch { return { total:0, ... } }` swallowed it → the page rendered the misleading empty-state message.
 
@@ -1094,6 +1094,7 @@ Identical mechanism to **INC-23** (TaskRun.resumedFromRunId added but never push
 4. **Defensive query pattern as default.** New dashboard queries use `select` not `include`, even when fetching everything. The pattern cost is +5 lines of typing per query; the failure cost is "all tasks disappeared from the dashboard for hours".
 
 **Where encoded:**
+
 - `app/(dev)/dev/queries/plan.ts` (explicit select + honest catch)
 - `app/(dev)/dev/tasks/page.tsx` (error rendering)
 - `prisma/schema.prisma` (unchanged — column already there from v0.7.0)
