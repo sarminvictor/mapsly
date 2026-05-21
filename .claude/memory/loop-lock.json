@@ -2,8 +2,8 @@
   "state": "idle",
   "sessionId": null,
   "startedAt": null,
-  "lastTickAt": "2026-05-21T20:36:00Z",
+  "lastTickAt": "2026-05-21T20:44:58Z",
   "cooldownUntil": null,
   "consecutiveFailures": 0,
-  "note": "SES-2026-05-21-cw-1779394124 closed SUCCESS · F.11 Global Cmd-K business search · PR #59 merged 8fcc1f8 · v0.7.25 · 4 CI-driven fix commits before green (set-state-in-effect lint, TS2448 hoist, react-hooks/refs, en-CA sparse-override)"
+  "note": "tick self-healed stale F.6 TaskRun (open 2h+ no branch · prior cowork-9009 crashed) · reset F.6→PENDING · no eligible: F.6 effort=L needs deps (PDF gen lib), A.9/B.10 capability-blocked (CAN_PNPM_INSTALL=0), F.8 dep-blocks F.6 · idle"
 }
