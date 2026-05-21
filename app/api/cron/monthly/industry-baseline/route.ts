@@ -157,17 +157,22 @@ export async function processMonthlyIndustryBaseline(
   // re-render on next page-load for every signed-in SMB.
   if (baselines.length > 0) revalidateTag("industry-baselines", "days");
 
+  const meta: Prisma.InputJsonObject = {
+    runId: ctx.runId,
+    limit,
+    bucketCount: baselines.length,
+    okBuckets: baselines.filter((b) => b.status === "ok").length,
+    thinBuckets: baselines.filter((b) => b.status === "thin").length,
+    minSampleSize: MIN_SAMPLE_SIZE,
+    // BaselineBucket has a literal-union `status` field that TS won't
+    // structurally accept against Prisma's InputJsonObject index signature.
+    // Cast once here — values are JSON-safe by construction.
+    baselines: baselines as unknown as Prisma.InputJsonValue,
+  };
+
   return {
     itemsProcessed: baselines.length,
-    meta: {
-      runId: ctx.runId,
-      limit,
-      bucketCount: baselines.length,
-      okBuckets: baselines.filter((b) => b.status === "ok").length,
-      thinBuckets: baselines.filter((b) => b.status === "thin").length,
-      minSampleSize: MIN_SAMPLE_SIZE,
-      baselines,
-    },
+    meta,
   };
 }
 
