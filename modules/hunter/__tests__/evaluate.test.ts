@@ -31,6 +31,9 @@ import type { EvaluationRow, FilterSpec } from "../types";
 // ─────────────────────────────────────────────────────────────────────────────
 
 function makeRow(overrides: Partial<EvaluationRow> = {}): EvaluationRow {
+  // Honor explicit `null` / `undefined` overrides — `{ snapshot: null }`
+  // and `{ reviews: undefined }` must replace the defaults, not be merged in.
+  // `'key' in overrides` distinguishes "caller passed null" from "caller omitted".
   return {
     id: overrides.id ?? "biz_demo",
     business: {
@@ -45,23 +48,25 @@ function makeRow(overrides: Partial<EvaluationRow> = {}): EvaluationRow {
       category: "med-spa",
       ...overrides.business,
     },
-    snapshot: {
-      replyRate: 0.84,
-      velocityLast30d: 12,
-      ...overrides.snapshot,
-    } as Record<string, unknown>,
-    lighthouseAudit: {
-      performance: 72,
-      lcp: 2.8,
-      ...overrides.lighthouseAudit,
-    } as Record<string, unknown>,
-    reviews: overrides.reviews ?? [
-      { stars: 5, ownerReplied: true, postedAt: new Date("2026-04-01") },
-      { stars: 4, ownerReplied: true, postedAt: new Date("2026-04-15") },
-      { stars: 2, ownerReplied: false, postedAt: new Date("2026-05-01") },
-    ],
-    serpResults: overrides.serpResults ?? [],
-    adLibraryEntries: overrides.adLibraryEntries ?? [],
+    snapshot:
+      "snapshot" in overrides
+        ? overrides.snapshot
+        : ({ replyRate: 0.84, velocityLast30d: 12 } as Record<string, unknown>),
+    lighthouseAudit:
+      "lighthouseAudit" in overrides
+        ? overrides.lighthouseAudit
+        : ({ performance: 72, lcp: 2.8 } as Record<string, unknown>),
+    reviews:
+      "reviews" in overrides
+        ? overrides.reviews
+        : [
+            { stars: 5, ownerReplied: true, postedAt: new Date("2026-04-01") },
+            { stars: 4, ownerReplied: true, postedAt: new Date("2026-04-15") },
+            { stars: 2, ownerReplied: false, postedAt: new Date("2026-05-01") },
+          ],
+    serpResults: "serpResults" in overrides ? overrides.serpResults : [],
+    adLibraryEntries:
+      "adLibraryEntries" in overrides ? overrides.adLibraryEntries : [],
   };
 }
 
@@ -223,10 +228,16 @@ describe("evaluateRow · boolean comparators", () => {
     expect(evaluateRow(row, r("is_claimed", "is_not", false))).toBe(true);
   });
 
-  test("treats truthy string as boolean (has_website)", () => {
-    expect(evaluateRow(row, r("has_website", "is", true))).toBe(true);
-    const noSite = makeRow({ business: { website: null } });
-    expect(evaluateRow(noSite, r("has_website", "is", true))).toBe(false);
+  test("is/is_not against an explicit boolean field (has_email/Business.emailVerifiedAt)", () => {
+    // Boolean signals work against fields the cron persists as actual booleans
+    // or null. Coercing arbitrary string fields (e.g. a URL on Business.website)
+    // is intentionally not supported — has_website is a derived boolean the
+    // refresh cron writes; the evaluator doesn't synthesize it at read time.
+    const verified = makeRow({ business: { emailVerifiedAt: true } });
+    const unverified = makeRow({ business: { emailVerifiedAt: false } });
+    expect(evaluateRow(verified, r("has_email", "is", true))).toBe(true);
+    expect(evaluateRow(unverified, r("has_email", "is", true))).toBe(false);
+    expect(evaluateRow(unverified, r("has_email", "is_not", true))).toBe(true);
   });
 });
 
