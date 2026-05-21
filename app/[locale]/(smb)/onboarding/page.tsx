@@ -87,8 +87,17 @@ export default function SmbOnboardingPage({
 function OnboardingSkeleton() {
   return (
     <section aria-hidden style={styles.shell}>
-      <div style={{ ...styles.skel, height: 18, width: 100, marginBottom: 12 }} />
-      <div style={{ ...styles.skel, height: 44, marginBottom: 32, borderRadius: 999 }} />
+      <div
+        style={{ ...styles.skel, height: 18, width: 100, marginBottom: 12 }}
+      />
+      <div
+        style={{
+          ...styles.skel,
+          height: 44,
+          marginBottom: 32,
+          borderRadius: 999,
+        }}
+      />
       <div style={{ ...styles.skel, height: 220 }} />
     </section>
   );
@@ -219,14 +228,31 @@ function GoogleStep({ t }: { t: (k: string) => string }) {
     <>
       <h1 style={styles.title}>{t("title_step3")}</h1>
       <p style={styles.lead}>{t("intro_step3")}</p>
-      <p style={{ margin: "12px 0 0", fontSize: 14, color: "var(--color-text-2)" }}>
+      <p
+        style={{
+          margin: "12px 0 0",
+          fontSize: 14,
+          color: "var(--color-text-2)",
+        }}
+      >
         {t("google_what_we_use")}
       </p>
       <div style={{ marginTop: 20 }}>
-        <button type="button" aria-disabled="true" disabled style={styles.stubButton}>
+        <button
+          type="button"
+          aria-disabled="true"
+          disabled
+          style={styles.stubButton}
+        >
           {t("google_cta")} · {t("google_coming_soon")}
         </button>
-        <p style={{ margin: "10px 0 0", fontSize: 13, color: "var(--color-text-2)" }}>
+        <p
+          style={{
+            margin: "10px 0 0",
+            fontSize: 13,
+            color: "var(--color-text-2)",
+          }}
+        >
           {t("google_coming_soon_note")}
         </p>
       </div>
@@ -240,7 +266,9 @@ function TeamStep({ t }: { t: (k: string) => string }) {
       <h1 style={styles.title}>{t("title_step4")}</h1>
       <p style={styles.lead}>{t("intro_step4")}</p>
       <form action={inviteTeammate} style={styles.form}>
-        <FieldLabel htmlFor="onboarding-team-email">{t("team_email_label")}</FieldLabel>
+        <FieldLabel htmlFor="onboarding-team-email">
+          {t("team_email_label")}
+        </FieldLabel>
         <input
           id="onboarding-team-email"
           name="email"
@@ -250,7 +278,9 @@ function TeamStep({ t }: { t: (k: string) => string }) {
           placeholder={t("team_email_placeholder")}
           style={styles.input}
         />
-        <FieldLabel htmlFor="onboarding-team-role">{t("team_role_label")}</FieldLabel>
+        <FieldLabel htmlFor="onboarding-team-role">
+          {t("team_role_label")}
+        </FieldLabel>
         <select
           id="onboarding-team-role"
           name="role"
@@ -261,7 +291,13 @@ function TeamStep({ t }: { t: (k: string) => string }) {
           <option value="manager">{t("team_role_manager")}</option>
           <option value="staff">{t("team_role_staff")}</option>
         </select>
-        <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--color-text-2)" }}>
+        <p
+          style={{
+            margin: "4px 0 0",
+            fontSize: 13,
+            color: "var(--color-text-2)",
+          }}
+        >
           {t("team_help")}
         </p>
         <button type="submit" style={styles.secondaryButton}>
@@ -330,7 +366,12 @@ function Footer({
       ) : (
         <Link
           href={{ pathname: "/onboarding", query: { step: nextStep } }}
-          style={{ ...styles.primaryButton, display: "inline-flex", alignItems: "center", textDecoration: "none" }}
+          style={{
+            ...styles.primaryButton,
+            display: "inline-flex",
+            alignItems: "center",
+            textDecoration: "none",
+          }}
         >
           {t("primary_next")}
         </Link>

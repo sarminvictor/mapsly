@@ -40,10 +40,7 @@ export function StepIndicator({
     .replace("{total}", String(TOTAL_STEPS));
 
   return (
-    <nav
-      aria-label={count}
-      style={{ marginBottom: 24 }}
-    >
+    <nav aria-label={count} style={{ marginBottom: 24 }}>
       <p
         style={{
           margin: "0 0 12px",

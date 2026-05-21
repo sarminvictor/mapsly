@@ -52,7 +52,7 @@ export async function inviteTeammate(formData: FormData) {
   // email when the `Invitation` model + cohort email template land.
   // For now: silent success. The user already advances to the next
   // step on submit (button name="action" value="next").
-  revalidateTag(`smb-onboarding-${session.user.id}`);
+  revalidateTag(`smb-onboarding-${session.user.id}`, "minutes");
 }
 
 /**
@@ -65,7 +65,7 @@ export async function finishOnboarding() {
 
   // TODO(E.7-followup): `await prisma.user.update({ where: { id }, data: { onboardedAt: new Date() } });`
   // — requires schema migration; not in scope for this task.
-  revalidateTag(`smb-onboarding-${session.user.id}`);
+  revalidateTag(`smb-onboarding-${session.user.id}`, "minutes");
 
   // `redirect()` throws an internal Next.js signal — never reached
   // past this line. We don't return.
