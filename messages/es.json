@@ -275,6 +275,19 @@
       "empty_body": "Aún no tenemos un negocio vinculado a tu cuenta. Dinos dónde estás y empezaremos a seguir las búsquedas que usan tus pacientes.",
       "empty_no_keywords": "Aún estamos encontrando las búsquedas que usan tus pacientes. Vuelve en unos días.",
       "footer_help": "Se actualiza cada semana. Vigilamos las búsquedas con más probabilidad de traerte pacientes en tu zona."
+    },
+    "nav": {
+      "brand": "mapsly",
+      "audience_tag": "Tu negocio",
+      "section_daily": "Diario",
+      "section_watch": "Observar",
+      "section_account": "Cuenta",
+      "item_dashboard": "Panel",
+      "item_reviews": "Reseñas",
+      "item_competitors": "Competencia",
+      "item_search": "Visibilidad",
+      "item_ads": "Anuncios",
+      "item_settings": "Configuración"
     }
   },
   "agency": {

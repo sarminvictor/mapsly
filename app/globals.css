@@ -104,3 +104,133 @@ details[open] > summary::after {
   border-color: var(--color-agency-indigo);
   transform: translateY(-1px);
 }
+
+/* ===========================================================
+ * SMB portal sidebar · navigation
+ * Used by components/smb/SmbSidebar.tsx · rendered inside the
+ * SMB layout. Inline styles can't express media queries or :hover,
+ * so the layout primitives live here.
+ *
+ * Per .claude/rules/ui-ux-smb.md:
+ *   - Cream + coral palette
+ *   - Tap targets ≥ 44 × 44 px on mobile
+ *   - Sidebar on desktop · horizontal scroll-tab strip on mobile
+ *
+ * The "smb-shell" class on the layout div toggles the grid:
+ *   - Desktop (≥ 900px): 240px sidebar | 1fr main
+ *   - Mobile (< 900px):  full-width main, nav becomes a sticky
+ *                        horizontal tab strip at the top
+ * ============================================================ */
+.smb-shell {
+  display: grid;
+  min-height: 100vh;
+  grid-template-columns: 240px minmax(0, 1fr);
+  background: var(--color-bg);
+}
+.smb-nav {
+  background: var(--color-bg);
+  border-right: 1px solid var(--color-border);
+  padding: 22px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  position: sticky;
+  top: 0;
+  align-self: start;
+  max-height: 100vh;
+  overflow-y: auto;
+}
+.smb-nav-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 8px 18px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--color-border);
+}
+.smb-nav-brand-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--color-coral);
+  box-shadow: 0 0 10px rgba(195, 85, 58, 0.5);
+}
+.smb-nav-brand-text {
+  font-family: var(--font-serif);
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--color-text);
+}
+.smb-nav-section-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--color-text-3);
+  padding: 14px 10px 6px;
+}
+.smb-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 9px 10px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-2);
+  text-decoration: none;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+  min-height: 36px;
+}
+.smb-nav-item:hover {
+  background: rgba(28, 25, 22, 0.04);
+  color: var(--color-text);
+}
+.smb-nav-item.is-active {
+  background: rgba(195, 85, 58, 0.1);
+  color: var(--color-coral);
+  font-weight: 600;
+}
+.smb-nav-item-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+/* Mobile · sidebar collapses to a horizontal scroll-tab strip.
+ * Brand + section labels hide; only the icon+label pills remain. */
+@media (max-width: 899px) {
+  .smb-shell {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto 1fr;
+  }
+  .smb-nav {
+    flex-direction: row;
+    border-right: none;
+    border-bottom: 1px solid var(--color-border);
+    padding: 8px 12px;
+    gap: 4px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    max-height: none;
+    align-self: stretch;
+    background: var(--color-bg-2);
+  }
+  .smb-nav-brand,
+  .smb-nav-section-label {
+    display: none;
+  }
+  .smb-nav-item {
+    min-height: 44px; /* WCAG tap target */
+    white-space: nowrap;
+    padding: 10px 14px;
+    flex-shrink: 0;
+  }
+}
