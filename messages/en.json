@@ -411,6 +411,47 @@
       "back": "Back",
       "done_body": "Your dashboard is ready. We'll check in tomorrow with anything new.",
       "done_cta": "Open my dashboard"
+    },
+    "settings": {
+      "billing": {
+        "meta": {
+          "title": "Billing · Mapsly",
+          "description": "Your subscription and invoices."
+        },
+        "eyebrow": "Settings",
+        "title": "Your subscription",
+        "subtitle": "Manage your plan, payment method, and invoices in one place.",
+        "current_plan_heading": "Current plan",
+        "free_plan_heading": "You're on the free plan",
+        "free_plan_body": "Get the full weekly check-in, reply drafts, and competitor alerts for $29 a month.",
+        "subscribe_cta": "See plans",
+        "manage_cta": "Manage subscription",
+        "plan_label": "Plan",
+        "smb_plan_name": "Mapsly for your business",
+        "per_month": "per month",
+        "status_active": "Active",
+        "status_past_due": "Payment failed",
+        "status_canceled": "Canceled",
+        "status_trialing": "Trial",
+        "status_other": "Pending",
+        "renews_on": "Renews on",
+        "ends_on": "Ends on",
+        "pending_cancel": "You've asked to cancel — it ends at the period close.",
+        "invoices_heading": "Invoices",
+        "invoices_empty": "No invoices yet. We'll list them here once your first payment goes through.",
+        "col_date": "Date",
+        "col_amount": "Amount",
+        "col_status": "Status",
+        "col_download": "Download",
+        "download_action": "Download",
+        "download_aria": "Download invoice from {date}",
+        "invoices_more_note": "Showing your 12 most recent invoices.",
+        "invoice_status_paid": "Paid",
+        "invoice_status_open": "Open",
+        "invoice_status_void": "Void",
+        "invoice_status_uncollectible": "Uncollectible",
+        "invoice_status_draft": "Draft"
+      }
     }
   },
   "agency": {
@@ -626,6 +667,53 @@
           "label": "Full audit",
           "meta": "One-time deliverable · mixed signals"
         }
+      }
+    },
+    "settings": {
+      "billing": {
+        "meta": {
+          "title": "Billing · Mapsly",
+          "description": "Subscription tier and invoices for your agency."
+        },
+        "eyebrow": "Settings · Billing",
+        "title": "Subscription",
+        "current_plan_heading": "Current plan",
+        "free_plan_heading": "No active subscription",
+        "free_plan_body": "Your agency is on the free tier. Pick a tier to unlock list refresh cadence and seat count.",
+        "subscribe_cta": "See pricing",
+        "manage_cta": "Manage subscription",
+        "manage_staff_note": "Only the agency owner or an admin can change billing. Ask them to manage the subscription.",
+        "plan_label": "Plan",
+        "status_label": "Status",
+        "renews_label": "Renews",
+        "ends_label": "Ends",
+        "pending_cancel": "cancel at period end",
+        "per_month": "/ mo",
+        "status_active": "Active",
+        "status_past_due": "Past due",
+        "status_canceled": "Canceled",
+        "status_trialing": "Trialing",
+        "status_other": "Pending",
+        "plan_solo": "Solo",
+        "plan_growth": "Growth",
+        "plan_pro": "Pro",
+        "plan_boutique": "Boutique",
+        "plan_fallback": "Custom",
+        "invoices_heading": "Invoices",
+        "invoices_empty": "No invoices yet. They'll appear here after the first charge.",
+        "col_date": "Date",
+        "col_invoice": "Invoice",
+        "col_amount": "Amount",
+        "col_status": "Status",
+        "col_action": "Open",
+        "open_action": "Open",
+        "open_aria": "Open invoice from {date}",
+        "invoices_more_note": "Showing last 12 invoices · earlier invoices in Stripe portal",
+        "invoice_status_paid": "Paid",
+        "invoice_status_open": "Open",
+        "invoice_status_void": "Void",
+        "invoice_status_uncollectible": "Uncollectible",
+        "invoice_status_draft": "Draft"
       }
     }
   },
