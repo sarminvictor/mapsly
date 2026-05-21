@@ -281,12 +281,28 @@ async function lighthouseFullAuditRaw(
 
   if (!lighthouseOk && !domOk) {
     // Both legs failed — surface the LH error since it's the more
-    // expensive one and the more likely root cause.
-    const reason =
-      lhResult.status === "rejected"
-        ? lhResult.reason
-        : new Error("both audit legs failed");
-    throw reason instanceof Error ? reason : new Error(String(reason));
+    // expensive one and the more likely root cause. Attach the DOM
+    // error via `cause` so triage can see both stacks.
+    const lhReason = lhResult.status === "rejected" ? lhResult.reason : null;
+    const domReason = domResult.status === "rejected" ? domResult.reason : null;
+    const primary =
+      lhReason instanceof Error
+        ? lhReason
+        : new Error(
+            lhReason != null ? String(lhReason) : "both audit legs failed",
+          );
+    if (domReason && !primary.cause) {
+      try {
+        Object.defineProperty(primary, "cause", {
+          value: domReason,
+          configurable: true,
+          writable: true,
+        });
+      } catch {
+        // Older runtimes that don't allow setting .cause — ignore.
+      }
+    }
+    throw primary;
   }
 
   // Build the scores leg. If DataForSEO failed, fall back to an empty
@@ -431,7 +447,7 @@ export function toPersistRow(
       : null,
     napConsistent: result.domChecks.napConsistent,
     techStack: [],
-    rawJson: result.scores.raw ?? null,
+    rawJson: result.legs.lighthouseOk ? (result.scores.raw ?? null) : null,
   };
 }
 
