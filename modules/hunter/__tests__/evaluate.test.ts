@@ -30,9 +30,7 @@ import type { EvaluationRow, FilterSpec } from "../types";
 // fixtures
 // ─────────────────────────────────────────────────────────────────────────────
 
-function makeRow(
-  overrides: Partial<EvaluationRow> = {},
-): EvaluationRow {
+function makeRow(overrides: Partial<EvaluationRow> = {}): EvaluationRow {
   return {
     id: overrides.id ?? "biz_demo",
     business: {
@@ -129,7 +127,9 @@ describe("resolveColumnValue", () => {
 
   test("returns undefined when single-row relation is null", () => {
     const empty = makeRow({ snapshot: null });
-    expect(resolveColumnValue(empty, "BusinessSnapshot.replyRate")).toBeUndefined();
+    expect(
+      resolveColumnValue(empty, "BusinessSnapshot.replyRate"),
+    ).toBeUndefined();
   });
 
   test("returns array of values for multi-row relations", () => {
@@ -268,24 +268,36 @@ describe("evaluateRow · multi-row aggregation (numeric signal · Review.stars)"
         { stars: 3, ownerReplied: true }, // matches between [2,3]
       ],
     });
-    expect(evaluateRow(row, r("unanswered_1star_count", "between", [2, 3]))).toBe(true);
+    expect(
+      evaluateRow(row, r("unanswered_1star_count", "between", [2, 3])),
+    ).toBe(true);
   });
 
   test("missing matches when relation array is empty", () => {
     const empty = makeRow({ reviews: [] });
-    expect(evaluateRow(empty, r("unanswered_1star_count", "missing", null))).toBe(true);
-    expect(evaluateRow(empty, r("unanswered_1star_count", "present", null))).toBe(false);
+    expect(
+      evaluateRow(empty, r("unanswered_1star_count", "missing", null)),
+    ).toBe(true);
+    expect(
+      evaluateRow(empty, r("unanswered_1star_count", "present", null)),
+    ).toBe(false);
   });
 
   test("present matches when relation has at least one row", () => {
     const row = makeRow({ reviews: [{ stars: 5, ownerReplied: true }] });
-    expect(evaluateRow(row, r("unanswered_1star_count", "present", null))).toBe(true);
-    expect(evaluateRow(row, r("unanswered_1star_count", "missing", null))).toBe(false);
+    expect(evaluateRow(row, r("unanswered_1star_count", "present", null))).toBe(
+      true,
+    );
+    expect(evaluateRow(row, r("unanswered_1star_count", "missing", null))).toBe(
+      false,
+    );
   });
 
   test("missing matches when relation is undefined", () => {
     const row = makeRow({ reviews: undefined });
-    expect(evaluateRow(row, r("unanswered_1star_count", "missing", null))).toBe(true);
+    expect(evaluateRow(row, r("unanswered_1star_count", "missing", null))).toBe(
+      true,
+    );
   });
 });
 
@@ -316,9 +328,13 @@ describe("evaluateRow · multi-row aggregation (boolean signal · Review.themes)
 
   test("'is_not true' inverts the match", () => {
     const noNeg = makeRow({ reviews: [{ themes: false }, { themes: false }] });
-    expect(evaluateRow(noNeg, r("has_negative_theme", "is_not", true))).toBe(true);
+    expect(evaluateRow(noNeg, r("has_negative_theme", "is_not", true))).toBe(
+      true,
+    );
     const hasNeg = makeRow({ reviews: [{ themes: true }] });
-    expect(evaluateRow(hasNeg, r("has_negative_theme", "is_not", true))).toBe(false);
+    expect(evaluateRow(hasNeg, r("has_negative_theme", "is_not", true))).toBe(
+      false,
+    );
   });
 });
 
@@ -345,12 +361,18 @@ describe("evaluateRow · enum comparators (single-row · Business.country)", () 
 
   test("is_one_of matches any of the listed values", () => {
     expect(evaluateRow(us, r("country", "is_one_of", ["US", "MX"]))).toBe(true);
-    expect(evaluateRow(ca, r("country", "is_one_of", ["US", "MX"]))).toBe(false);
+    expect(evaluateRow(ca, r("country", "is_one_of", ["US", "MX"]))).toBe(
+      false,
+    );
   });
 
   test("is_none_of matches when not in the listed values", () => {
-    expect(evaluateRow(us, r("country", "is_none_of", ["CA", "MX"]))).toBe(true);
-    expect(evaluateRow(us, r("country", "is_none_of", ["US", "MX"]))).toBe(false);
+    expect(evaluateRow(us, r("country", "is_none_of", ["CA", "MX"]))).toBe(
+      true,
+    );
+    expect(evaluateRow(us, r("country", "is_none_of", ["US", "MX"]))).toBe(
+      false,
+    );
   });
 
   test("missing matches when field is null", () => {
@@ -412,7 +434,9 @@ describe("evaluateRow · stale/invalid input", () => {
 
   test("invalid comparator for value type returns false", () => {
     // 'between' isn't valid on booleans
-    expect(evaluateRow(row, r("is_claimed", "between", [true, true]))).toBe(false);
+    expect(evaluateRow(row, r("is_claimed", "between", [true, true]))).toBe(
+      false,
+    );
   });
 
   test("Lead-based exclusion (unknown model) returns false", () => {
@@ -529,9 +553,18 @@ describe("evaluateSpec · exclusions", () => {
 
 describe("evaluateRows", () => {
   test("returns IDs of matching rows in input order", () => {
-    const a = makeRow({ id: "biz_a", business: { rating: 4.9, reviewCount: 200, isClaimed: true } });
-    const b = makeRow({ id: "biz_b", business: { rating: 4.0, reviewCount: 50, isClaimed: true } });
-    const c = makeRow({ id: "biz_c", business: { rating: 4.7, reviewCount: 300, isClaimed: true } });
+    const a = makeRow({
+      id: "biz_a",
+      business: { rating: 4.9, reviewCount: 200, isClaimed: true },
+    });
+    const b = makeRow({
+      id: "biz_b",
+      business: { rating: 4.0, reviewCount: 50, isClaimed: true },
+    });
+    const c = makeRow({
+      id: "biz_c",
+      business: { rating: 4.7, reviewCount: 300, isClaimed: true },
+    });
 
     const spec: FilterSpec = {
       rows: [r("rating", ">=", 4.5), r("review_count", ">=", 100)],
@@ -606,13 +639,25 @@ describe("evaluateSpecWithTrace", () => {
 
 describe("evaluateRowsWithTrace", () => {
   test("returns id + verdict for each row", () => {
-    const a = makeRow({ id: "biz_a", business: { rating: 4.9, reviewCount: 200, isClaimed: true } });
-    const b = makeRow({ id: "biz_b", business: { rating: 3.5, reviewCount: 50, isClaimed: true } });
+    const a = makeRow({
+      id: "biz_a",
+      business: { rating: 4.9, reviewCount: 200, isClaimed: true },
+    });
+    const b = makeRow({
+      id: "biz_b",
+      business: { rating: 3.5, reviewCount: 50, isClaimed: true },
+    });
     const spec: FilterSpec = { rows: [r("rating", ">=", 4.5)] };
     const out = evaluateRowsWithTrace([a, b], spec);
     expect(out).toHaveLength(2);
-    expect(out[0]).toEqual({ id: "biz_a", verdict: expect.objectContaining({ matches: true }) });
-    expect(out[1]).toEqual({ id: "biz_b", verdict: expect.objectContaining({ matches: false }) });
+    expect(out[0]).toEqual({
+      id: "biz_a",
+      verdict: expect.objectContaining({ matches: true }),
+    });
+    expect(out[1]).toEqual({
+      id: "biz_b",
+      verdict: expect.objectContaining({ matches: false }),
+    });
   });
 });
 
@@ -664,7 +709,10 @@ describe("integration · realistic filter spec on a batch", () => {
     const batch = Array.from({ length: 100 }, (_, i) =>
       makeRow({
         id: `seed_${i}`,
-        lighthouseAudit: { performance: 30 + (i % 60), lcp: 2.0 + (i % 4) * 0.5 },
+        lighthouseAudit: {
+          performance: 30 + (i % 60),
+          lcp: 2.0 + (i % 4) * 0.5,
+        },
         business: {
           rating: 3.0 + ((i * 7) % 20) / 10,
           reviewCount: 10 + i * 3,
@@ -691,7 +739,11 @@ describe("performance budget", () => {
     const rows = Array.from({ length: 1000 }, (_, i) =>
       makeRow({
         id: `perf_${i}`,
-        business: { rating: 3 + (i % 20) / 10, reviewCount: i, isClaimed: i % 2 === 0 },
+        business: {
+          rating: 3 + (i % 20) / 10,
+          reviewCount: i,
+          isClaimed: i % 2 === 0,
+        },
         lighthouseAudit: { performance: i % 100, lcp: 2 + (i % 5) * 0.3 },
       }),
     );

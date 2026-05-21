@@ -160,7 +160,12 @@ export function evaluateRow(row: EvaluationRow, filter: FilterRow): boolean {
   if (!signal) return false;
   if (!isValidComparator(signal.type, filter.comparator)) return false;
 
-  return evaluateFilterAgainstSignal(row, signal, filter.comparator, filter.value);
+  return evaluateFilterAgainstSignal(
+    row,
+    signal,
+    filter.comparator,
+    filter.value,
+  );
 }
 
 function evaluateFilterAgainstSignal(
@@ -279,9 +284,7 @@ export function evaluateSpecWithTrace(
   } else {
     const combine = spec.combine ?? "and";
     matches =
-      combine === "or"
-        ? rowMatches.some((m) => m)
-        : rowMatches.every((m) => m);
+      combine === "or" ? rowMatches.some((m) => m) : rowMatches.every((m) => m);
   }
 
   return { matches, trace };

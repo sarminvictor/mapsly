@@ -106,7 +106,9 @@ describe("strictestCadence", () => {
   });
 
   test("picks on-demand over everything", () => {
-    expect(strictestCadence(["monthly", "on-demand", "weekly"])).toBe("on-demand");
+    expect(strictestCadence(["monthly", "on-demand", "weekly"])).toBe(
+      "on-demand",
+    );
   });
 
   test("returns weekly when empty (platform baseline)", () => {
@@ -174,11 +176,15 @@ describe("hasChangedSince", () => {
   const baseCandidate: ChangeCandidate = { id: "biz_1" };
 
   test("null since (first run) returns true for everyone", () => {
-    expect(hasChangedSince(baseCandidate, null, new Set(["Business"]))).toBe(true);
+    expect(hasChangedSince(baseCandidate, null, new Set(["Business"]))).toBe(
+      true,
+    );
   });
 
   test("malformed since string returns true (don't filter)", () => {
-    expect(hasChangedSince(baseCandidate, "not-a-date", new Set(["Business"]))).toBe(true);
+    expect(
+      hasChangedSince(baseCandidate, "not-a-date", new Set(["Business"])),
+    ).toBe(true);
   });
 
   test("returns false when nothing newer", () => {
@@ -189,7 +195,9 @@ describe("hasChangedSince", () => {
         updatedAt: new Date("2026-05-01T00:00:00Z"),
       },
     };
-    expect(hasChangedSince(candidate, since, new Set(["Business"]))).toBe(false);
+    expect(hasChangedSince(candidate, since, new Set(["Business"]))).toBe(
+      false,
+    );
   });
 
   test("Business.lastRefreshedAt newer than since → true", () => {
@@ -205,7 +213,9 @@ describe("hasChangedSince", () => {
       id: "biz_1",
       snapshot: { snapshotDate: new Date("2026-05-19T00:00:00Z") },
     };
-    expect(hasChangedSince(candidate, since, new Set(["BusinessSnapshot"]))).toBe(true);
+    expect(
+      hasChangedSince(candidate, since, new Set(["BusinessSnapshot"])),
+    ).toBe(true);
   });
 
   test("snapshot change ignored when BusinessSnapshot NOT in scope", () => {
@@ -214,7 +224,9 @@ describe("hasChangedSince", () => {
       snapshot: { snapshotDate: new Date("2026-05-19T00:00:00Z") },
     };
     // Spec only references Business — ignore snapshot timestamp
-    expect(hasChangedSince(candidate, since, new Set(["Business"]))).toBe(false);
+    expect(hasChangedSince(candidate, since, new Set(["Business"]))).toBe(
+      false,
+    );
   });
 
   test("lighthouse newer than since with LighthouseAudit in scope", () => {
@@ -222,7 +234,9 @@ describe("hasChangedSince", () => {
       id: "biz_1",
       lighthouseAudit: { auditedAt: "2026-05-19T00:00:00Z" },
     };
-    expect(hasChangedSince(candidate, since, new Set(["LighthouseAudit"]))).toBe(true);
+    expect(
+      hasChangedSince(candidate, since, new Set(["LighthouseAudit"])),
+    ).toBe(true);
   });
 
   test("review/serp/ad latest timestamps wired in", () => {
@@ -254,7 +268,9 @@ describe("hasChangedSince", () => {
       id: "biz_1",
       business: { lastRefreshedAt: "2026-05-19T00:00:00Z" },
     };
-    expect(hasChangedSince(candidate, sinceISO, new Set(["Business"]))).toBe(true);
+    expect(hasChangedSince(candidate, sinceISO, new Set(["Business"]))).toBe(
+      true,
+    );
   });
 
   test("null/undefined timestamps treated as 'not newer'", () => {
@@ -263,7 +279,13 @@ describe("hasChangedSince", () => {
       business: { lastRefreshedAt: null, updatedAt: undefined },
       snapshot: null,
     };
-    expect(hasChangedSince(candidate, since, new Set(["Business", "BusinessSnapshot"]))).toBe(false);
+    expect(
+      hasChangedSince(
+        candidate,
+        since,
+        new Set(["Business", "BusinessSnapshot"]),
+      ),
+    ).toBe(false);
   });
 });
 
@@ -272,13 +294,22 @@ describe("selectChangedCandidates", () => {
     const since = new Date("2026-05-15T00:00:00Z");
     const candidates: ChangeCandidate[] = [
       // Changed business
-      { id: "a", business: { lastRefreshedAt: new Date("2026-05-19T00:00:00Z") } },
+      {
+        id: "a",
+        business: { lastRefreshedAt: new Date("2026-05-19T00:00:00Z") },
+      },
       // Stale
-      { id: "b", business: { lastRefreshedAt: new Date("2026-05-10T00:00:00Z") } },
+      {
+        id: "b",
+        business: { lastRefreshedAt: new Date("2026-05-10T00:00:00Z") },
+      },
       // Snapshot changed (in scope)
       { id: "c", snapshot: { snapshotDate: new Date("2026-05-19T00:00:00Z") } },
       // Lighthouse changed (NOT in scope for this spec)
-      { id: "d", lighthouseAudit: { auditedAt: new Date("2026-05-19T00:00:00Z") } },
+      {
+        id: "d",
+        lighthouseAudit: { auditedAt: new Date("2026-05-19T00:00:00Z") },
+      },
     ];
 
     const spec: FilterSpec = {
@@ -290,17 +321,16 @@ describe("selectChangedCandidates", () => {
   });
 
   test("first run (since=null) returns all candidates", () => {
-    const candidates: ChangeCandidate[] = [
-      { id: "a" },
-      { id: "b" },
-    ];
+    const candidates: ChangeCandidate[] = [{ id: "a" }, { id: "b" }];
     const spec: FilterSpec = { rows: [r("rating", ">=", 4.0)] };
     expect(selectChangedCandidates(candidates, null, spec)).toHaveLength(2);
   });
 
   test("empty candidates returns empty", () => {
     expect(
-      selectChangedCandidates([], new Date(), { rows: [r("rating", ">=", 4.0)] }),
+      selectChangedCandidates([], new Date(), {
+        rows: [r("rating", ">=", 4.0)],
+      }),
     ).toEqual([]);
   });
 });

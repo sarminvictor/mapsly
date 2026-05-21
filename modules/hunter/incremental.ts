@@ -20,10 +20,7 @@
  */
 
 import { getSignal } from "@/modules/signals/registry";
-import type {
-  SignalCadence,
-  SignalDefinition,
-} from "@/modules/signals/types";
+import type { SignalCadence, SignalDefinition } from "@/modules/signals/types";
 
 import { isKnownModel, parseColumnRef } from "./evaluate";
 import type { FilterSpec, ModelName, RefreshDelta } from "./types";
@@ -54,10 +51,7 @@ export function describeSpec(spec: FilterSpec): SpecSummary {
   const cadences = new Set<SignalCadence>();
   const unknownKeys: string[] = [];
 
-  const allRows = [
-    ...(spec.rows ?? []),
-    ...(spec.exclusions ?? []),
-  ];
+  const allRows = [...(spec.rows ?? []), ...(spec.exclusions ?? [])];
 
   for (const row of allRows) {
     const signal: SignalDefinition | undefined = getSignal(row.signalKey);
@@ -216,7 +210,10 @@ export function hasChangedSince(
   ) {
     return true;
   }
-  if (relevantModels.has("Review") && newer(candidate.latestReviewAt, sinceMs)) {
+  if (
+    relevantModels.has("Review") &&
+    newer(candidate.latestReviewAt, sinceMs)
+  ) {
     return true;
   }
   if (
@@ -251,7 +248,10 @@ export function selectChangedCandidates(
   return candidates.filter((c) => hasChangedSince(c, since, models));
 }
 
-function newer(value: Date | string | null | undefined, sinceMs: number): boolean {
+function newer(
+  value: Date | string | null | undefined,
+  sinceMs: number,
+): boolean {
   const ms = toEpochMs(value);
   return ms !== null && ms > sinceMs;
 }
