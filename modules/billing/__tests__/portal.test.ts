@@ -100,8 +100,7 @@ const snapshot: Partial<Record<(typeof ENV_KEYS)[number], string | undefined>> =
 beforeEach(() => {
   for (const k of ENV_KEYS) snapshot[k] = process.env[k];
   process.env.NEXT_PUBLIC_APP_URL = "https://app.mapsly.ai";
-  // @ts-expect-error -- writable for test
-  process.env.NODE_ENV = "test";
+  (process.env as Record<string, string | undefined>).NODE_ENV = "test";
   db.reset();
   stripeCalls.reset();
 });

@@ -1,7 +1,7 @@
 // Billing · server-only data fetchers for the settings/billing pages.
 //
 // These run inside the Suspense'd async body of `(smb)/settings/billing`
-// and `(agency)/settings/billing` per `.claude/rules/cache-components.md`
+// and `(agency)/team/billing` per `.claude/rules/cache-components.md`
 // Pattern 2. Stripe calls are NOT `'use cache'`d — billing state is
 // security-sensitive enough that a 5-minute cache is more risk than
 // value. DB reads of `User.stripeCustomerId` could be cached but the

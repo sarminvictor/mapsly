@@ -1,5 +1,5 @@
 /**
- * Agency billing settings · `/(agency)/settings/billing`.
+ * Agency billing settings · `/(agency)/team/billing` (path renamed to avoid (smb)/(agency) URL collision).
  *
  * Audience: Tom. Per `.claude/rules/ui-ux-agency.md`:
  *   - Tool-y, dense, jargon-OK. "Subscription · Growth · $99/mo · renews
@@ -833,5 +833,5 @@ function jsLocale(locale: string): string {
 function absoluteReturnUrl(locale: string): string {
   const base = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
   const prefix = locale === "en" ? "" : `/${locale}`;
-  return `${base}${prefix}/settings/billing`;
+  return `${base}${prefix}/team/billing`;
 }

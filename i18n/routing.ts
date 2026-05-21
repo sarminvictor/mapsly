@@ -121,6 +121,12 @@ export const routing = defineRouting({
       "en-CA": "/settings/billing",
       fr: "/parametres/facturation",
     },
+    "/team/billing": {
+      en: "/team/billing",
+      es: "/equipo/facturacion",
+      "en-CA": "/team/billing",
+      fr: "/equipe/facturation",
+    },
   },
 });
 
