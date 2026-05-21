@@ -46,8 +46,9 @@ import { setRequestLocale, getTranslations } from "next-intl/server";
 
 import { auth } from "@/lib/auth";
 import { AlertCard, KPITile } from "@/modules/smb-dashboard/components";
-import { AdLane } from "@/modules/smb-ads/components";
+import { AdLane, ParadoxAlert } from "@/modules/smb-ads/components";
 import { getSmbAdsData } from "@/modules/smb-ads/queries";
+import { MAX_LANES, detectParadoxTier } from "@/modules/smb-ads/types";
 
 export async function generateMetadata({
   params,
@@ -212,10 +213,32 @@ async function AdsBody({ params }: { params: Promise<PageParams> }) {
     platformGoogle: t("lane_platform_google"),
     linkAria: t("lane_external_link_aria"),
     moreCount: (n: number) => t("lane_more_count", { count: n }),
+    statusOpen: t("lane_status_open"),
+    statusYouAbsent: t("lane_status_you_absent"),
+    statusPresent: t("lane_status_present"),
+    statusCrowded: t("lane_status_crowded"),
+    competitorsLine: (count: number, names: string[]): string => {
+      if (count === 0) return t("lane_competitors_none");
+      if (names.length === 0)
+        return t("lane_competitors_count_only", { count });
+      const joined = names.join(", ");
+      return count > names.length
+        ? t("lane_competitors_more", {
+            names: joined,
+            extra: count - names.length,
+          })
+        : t("lane_competitors_named", { names: joined });
+    },
+    yourAdTag: t("lane_your_ad_tag"),
   };
 
   const hasLanes = data.lanes.length > 0;
   const showOffKeywordAlert = data.offKeywordCount > 5;
+  const paradoxTier = detectParadoxTier({
+    totalActiveAds: data.totalActiveAds,
+    lanesCovered: data.lanesCovered,
+    totalLanes: Math.max(data.lanes.length, Math.min(MAX_LANES, 14)),
+  });
 
   // Friendly warning-bell icon (inline SVG) reused for the AlertCard.
   // 14px, currentColor — AlertCard skin tints it via its tone chip.
@@ -283,12 +306,13 @@ async function AdsBody({ params }: { params: Promise<PageParams> }) {
         </p>
       </header>
 
-      {/* KPI tiles · 2-col on mobile, 2-col on desktop too (Maria's
-          surfaces stay calm — two big numbers beat six small ones). */}
+      {/* KPI strip · 4 tiles · auto-fit so mobile stacks 2x2 and desktop
+          shows the row. Maria's surfaces stay calm even at 4 KPIs —
+          each one carries an info-tip in plain English. */}
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+          gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
           gap: 12,
           marginBottom: 24,
         }}
@@ -299,12 +323,46 @@ async function AdsBody({ params }: { params: Promise<PageParams> }) {
           infoTip={t("kpi_active_help")}
         />
         <KPITile
-          label={t("kpi_off_keyword")}
-          value={data.offKeywordCount}
-          tone={data.offKeywordCount > 0 ? "warn" : "neutral"}
-          infoTip={t("kpi_off_keyword_help")}
+          label={t("kpi_lanes_covered")}
+          value={`${data.lanesCovered} / ${data.lanes.length}`}
+          tone={
+            data.lanesCovered === 0 && data.totalActiveAds > 0
+              ? "warn"
+              : "neutral"
+          }
+          infoTip={t("kpi_lanes_covered_help")}
+        />
+        <KPITile
+          label={t("kpi_open_lanes")}
+          value={data.openLanes}
+          tone={data.openLanes > 0 ? "good" : "neutral"}
+          infoTip={t("kpi_open_lanes_help")}
+        />
+        <KPITile
+          label={t("kpi_competitor_count")}
+          value={data.competitorCount}
+          infoTip={t("kpi_competitor_count_help")}
         />
       </div>
+
+      {paradoxTier ? (
+        <ParadoxAlert
+          tier={paradoxTier}
+          labels={{
+            eyebrow:
+              paradoxTier === "high"
+                ? t("paradox_eyebrow_high")
+                : t("paradox_eyebrow_medium"),
+            headline: t("paradox_headline", {
+              totalActiveAds: data.totalActiveAds,
+              lanesCovered: data.lanesCovered,
+              totalLanes: Math.max(data.lanes.length, 1),
+            }),
+            body: t("paradox_body"),
+            cta: t("paradox_cta"),
+          }}
+        />
+      ) : null}
 
       {showOffKeywordAlert ? (
         <div style={{ marginBottom: 24 }}>
@@ -334,6 +392,9 @@ async function AdsBody({ params }: { params: Promise<PageParams> }) {
               keyword={lane.keyword}
               ads={lane.ads}
               isOffKeyword={lane.isOffKeyword}
+              status={lane.status}
+              competitorCount={lane.competitorCount}
+              topCompetitors={lane.topCompetitors}
               labels={laneLabels}
             />
           ))}

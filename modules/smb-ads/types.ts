@@ -46,6 +46,13 @@ export interface AdEntry {
   /** When we last saw this ad active. Used for the lane's "last seen"
    * footer + the page-level "refreshed" header. */
   lastSeenAt: Date;
+  /** Owning business name · null when this is Maria's own ad. The UI
+   * renders "{advertiser} · {timeAgo}" for competitor ads, just
+   * "{timeAgo}" for own ads. */
+  advertiserName: string | null;
+  /** True iff this is Maria's own ad (vs a competitor's). Drives a
+   * subtle visual distinction in the card. */
+  isOwn: boolean;
 }
 
 /**
@@ -59,19 +66,42 @@ export interface AdEntry {
  *   - keyword is the `__unmatched__` sentinel, OR
  *   - no service string in Maria's `Business.categories` overlaps
  *     (substring, case-insensitive) with the keyword.
+ *
+ * **Competitor intel (PR · Ads competitor intel):** in addition to
+ * Maria's own ads, lanes now carry counts + names from competitor
+ * businesses in the same `category` + `city`. `status` makes the
+ * competitive picture scannable:
+ *
+ *   - `open`        · 0 competitor ads, 0 own ads → blue-ocean lane
+ *   - `you-absent`  · ≥ 1 competitor ad, 0 own ads → "they're spending, you're not"
+ *   - `present`     · own ads present, ≤ 2 competitors total in lane
+ *   - `crowded`     · ≥ 3 competitor ads → tough lane regardless of your presence
  */
+export type AdLaneStatus = "open" | "you-absent" | "present" | "crowded";
+
 export interface AdLane {
   /** Lane key. `__unmatched__` for the "couldn't match" bucket;
    * a plain keyword string otherwise. */
   keyword: string;
-  /** Ads in this lane, capped to MAX_ADS_PER_LANE_VISIBLE in the UI;
-   * the full list is kept here so the page can show a "+N more"
-   * footer with an honest count. */
+  /** All ads in this lane — own + competitor. Capped per
+   * MAX_ADS_PER_LANE_VISIBLE in the UI; full list kept here so the
+   * page can show a "+N more" footer with an honest count. */
   ads: AdEntry[];
   /** Whether the lane should render with the off-service warning chip
    * + coral-tinted border (per `.claude/rules/ui-ux-smb.md` —
    * redundant cues, never color alone). */
   isOffKeyword: boolean;
+  /** Count of Maria's own ads in this lane. */
+  ownCount: number;
+  /** Count of distinct competitor businesses with at least one ad in
+   * this lane. NOT the count of competitor ads (a single competitor
+   * with 4 creatives counts as 1). */
+  competitorCount: number;
+  /** Up to 3 competitor business names sorted by ad count (most
+   * advertised first). Empty when no competitors are running ads. */
+  topCompetitors: string[];
+  /** Computed status. See `AdLaneStatus`. */
+  status: AdLaneStatus;
 }
 
 /**
@@ -87,12 +117,19 @@ export interface SmbAdsData {
   name: string;
   /** Owned business primary category. */
   category: string;
-  /** Total active ads counted across all lanes (pre-cap). Used in the
-   * first KPI tile. */
+  /** Total active ads — Maria's own only. Used in "Your active ads". */
   totalActiveAds: number;
-  /** Total ads in off-keyword lanes. Used in the second KPI tile +
-   * to gate the "most of these aren't for your services" alert. */
+  /** Total ads in off-keyword lanes (own only). Used in "Ads off your
+   * services" + to gate the warning alert. */
   offKeywordCount: number;
+  /** Count of lanes where Maria has ≥ 1 own ad. */
+  lanesCovered: number;
+  /** Count of lanes where 0 ads are running (own + competitor) and the
+   * keyword is on-service for Maria — "blue ocean" opportunities. */
+  openLanes: number;
+  /** Distinct competitor businesses we've seen ads from in this market
+   * across all lanes. Used in the "Who else is advertising" KPI. */
+  competitorCount: number;
   /** Lanes, ordered by ad count descending (most-active first). */
   lanes: AdLane[];
   /** Most recent `lastSeenAt` across all ads. Used in the "Refreshed"
@@ -112,6 +149,9 @@ export const EMPTY_SMB_ADS: SmbAdsData = {
   category: "",
   totalActiveAds: 0,
   offKeywordCount: 0,
+  lanesCovered: 0,
+  openLanes: 0,
+  competitorCount: 0,
   lanes: [],
   refreshedAt: null,
 };
@@ -209,11 +249,7 @@ export function groupIntoLanes(
 
   const lanes: AdLane[] = [];
   for (const [keyword, laneAds] of buckets.entries()) {
-    lanes.push({
-      keyword,
-      ads: laneAds,
-      isOffKeyword: isOffKeyword(keyword, services),
-    });
+    lanes.push(deriveLaneStats(keyword, laneAds, services));
   }
 
   lanes.sort((a, b) => {
@@ -223,4 +259,83 @@ export function groupIntoLanes(
   });
 
   return lanes.slice(0, maxLanes);
+}
+
+/**
+ * Derive the full lane shape (counts, top advertisers, status) from a
+ * keyword + its ads. Pure; tested via `__tests__/types.test.ts`.
+ *
+ * Status rules — first match wins:
+ *   - `competitorCount >= 3`  → `crowded`
+ *   - `competitorCount >= 1` and `ownCount === 0` → `you-absent`
+ *   - `ownCount >= 1`         → `present`
+ *   - else (no ads at all)    → `open`
+ */
+export function deriveLaneStats(
+  keyword: string,
+  laneAds: readonly AdEntry[],
+  services: readonly string[],
+): AdLane {
+  let ownCount = 0;
+  const competitorAdCounts = new Map<string, number>();
+
+  for (const ad of laneAds) {
+    if (ad.isOwn) {
+      ownCount++;
+      continue;
+    }
+    const name = ad.advertiserName?.trim();
+    if (!name) continue;
+    competitorAdCounts.set(name, (competitorAdCounts.get(name) ?? 0) + 1);
+  }
+
+  const competitorCount = competitorAdCounts.size;
+  const topCompetitors = Array.from(competitorAdCounts.entries())
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .slice(0, 3)
+    .map(([n]) => n);
+
+  let status: AdLaneStatus;
+  if (competitorCount >= 3) status = "crowded";
+  else if (competitorCount >= 1 && ownCount === 0) status = "you-absent";
+  else if (ownCount >= 1) status = "present";
+  else status = "open";
+
+  return {
+    keyword,
+    ads: [...laneAds],
+    isOffKeyword: isOffKeyword(keyword, services),
+    ownCount,
+    competitorCount,
+    topCompetitors,
+    status,
+  };
+}
+
+/**
+ * Paradox detection · returns the alert label tier when Maria is
+ * "spending without showing up" — many own ads but few covered lanes
+ * relative to what's available in her market.
+ *
+ *   - `high`  · totalActiveAds ≥ 5 AND lanesCovered / max(1, totalLanes) < 0.25
+ *   - `medium`· totalActiveAds ≥ 1 AND lanesCovered / max(1, totalLanes) < 0.5
+ *   - null    · otherwise
+ *
+ * The component renders a coral alert for `high`, a gold alert for
+ * `medium`, nothing for null.
+ */
+export type ParadoxTier = "high" | "medium" | null;
+
+export function detectParadoxTier(input: {
+  totalActiveAds: number;
+  lanesCovered: number;
+  totalLanes: number;
+}): ParadoxTier {
+  const { totalActiveAds, lanesCovered, totalLanes } = input;
+  if (totalActiveAds === 0) return null;
+  const denom = Math.max(1, totalLanes);
+  const ratio = lanesCovered / denom;
+  if (totalActiveAds >= 5 && ratio < 0.25) return "high";
+  if (ratio < 0.5) return "medium";
+  return null;
 }

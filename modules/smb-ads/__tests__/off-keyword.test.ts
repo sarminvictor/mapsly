@@ -27,6 +27,8 @@ const ad = (id: string, overrides: Partial<AdEntry> = {}): AdEntry => ({
   adCreativeBody: `creative ${id}`,
   landingUrl: `https://example.test/${id}`,
   lastSeenAt: new Date("2026-05-20T00:00:00Z"),
+  advertiserName: null,
+  isOwn: true,
   ...overrides,
 });
 
@@ -37,6 +39,9 @@ describe("EMPTY_SMB_ADS", () => {
     expect(EMPTY_SMB_ADS.category).toBe("");
     expect(EMPTY_SMB_ADS.totalActiveAds).toBe(0);
     expect(EMPTY_SMB_ADS.offKeywordCount).toBe(0);
+    expect(EMPTY_SMB_ADS.lanesCovered).toBe(0);
+    expect(EMPTY_SMB_ADS.openLanes).toBe(0);
+    expect(EMPTY_SMB_ADS.competitorCount).toBe(0);
     expect(EMPTY_SMB_ADS.lanes).toEqual([]);
     expect(EMPTY_SMB_ADS.refreshedAt).toBeNull();
   });

@@ -356,7 +356,27 @@
       "lane_platform_google": "Google",
       "lane_external_link_aria": "Open landing page in a new tab",
       "lane_more_count": "+{count, plural, one {# more} other {# more}}",
-      "footer_help": "Refreshed daily. We track Meta and Google ads matched to your tracked keywords."
+      "footer_help": "Refreshed daily. We track Meta and Google ads matched to your tracked keywords.",
+      "kpi_lanes_covered": "Services you're advertising for",
+      "kpi_lanes_covered_help": "How many of your services show up in your active ads. The first number is what you cover; the second is what we found ads about in your area.",
+      "kpi_open_lanes": "Open lanes",
+      "kpi_open_lanes_help": "Service categories nobody nearby is advertising for yet — a quiet space if you wanted to be first.",
+      "kpi_competitor_count": "Others advertising nearby",
+      "kpi_competitor_count_help": "How many other businesses in your category and city we've seen running ads recently.",
+      "lane_status_open": "Open lane",
+      "lane_status_you_absent": "You're not in this one",
+      "lane_status_present": "You're here",
+      "lane_status_crowded": "Crowded",
+      "lane_competitors_none": "Nobody else is advertising for this yet.",
+      "lane_competitors_count_only": "{count, plural, one {1 other business is advertising here} other {# other businesses are advertising here}}.",
+      "lane_competitors_named": "Also advertising: {names}.",
+      "lane_competitors_more": "Also advertising: {names} +{extra, plural, one {1 more} other {# more}}.",
+      "lane_your_ad_tag": "Your ad",
+      "paradox_eyebrow_high": "Worth a look",
+      "paradox_eyebrow_medium": "Quick check",
+      "paradox_headline": "{totalActiveAds, plural, one {You have 1 ad running} other {You have # ads running}} — but only showing up for {lanesCovered} of {totalLanes} services we found ads about.",
+      "paradox_body": "Most of your spend isn't pointing customers at your actual services. Each ad you run should mention the treatment by name (botox, facials, etc.) — that's how the people searching for it actually find you.",
+      "paradox_cta": "Tip · rewrite each ad headline with the service name first."
     },
     "onboarding": {
       "meta": {

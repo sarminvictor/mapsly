@@ -4,6 +4,7 @@ import {
   MAX_ADS_PER_LANE_VISIBLE,
   UNMATCHED_KEYWORD,
   type AdEntry,
+  type AdLaneStatus,
   type SmbAdPlatform,
 } from "../types";
 
@@ -56,6 +57,17 @@ export interface AdLaneLabels {
   /** Text suffix for the "+N more" footer when the lane has more ads
    * than fit visibly. Receives the overflow count. */
   moreCount: (n: number) => string;
+  /** Status pill text — one per `AdLaneStatus`. */
+  statusOpen: string;
+  statusYouAbsent: string;
+  statusPresent: string;
+  statusCrowded: string;
+  /** Sub-label rendered under the status pill summarising who's in
+   * the lane. Receives competitor count + top advertiser names. */
+  competitorsLine: (count: number, names: string[]) => string;
+  /** Tag shown on each ad row identifying the advertiser (own vs
+   * competitor). */
+  yourAdTag: string;
 }
 
 export interface AdLaneProps {
@@ -69,15 +81,72 @@ export interface AdLaneProps {
   /** Whether to render with the off-service warning chip + coral
    * border. */
   isOffKeyword: boolean;
+  /** Computed lane status (open / you-absent / present / crowded). */
+  status: AdLaneStatus;
+  /** Count of distinct competitor businesses advertising in this lane. */
+  competitorCount: number;
+  /** Top 3 competitor business names (sorted by ad count). */
+  topCompetitors: string[];
   /** i18n-resolved labels passed in from the page. */
   labels: AdLaneLabels;
+}
+
+function statusPillStyle(status: AdLaneStatus): React.CSSProperties {
+  // Per .claude/rules/ui-ux-smb.md "redundant cues, never color alone":
+  // each status uses a different background + colour AND a different
+  // text label, so colour is supportive not load-bearing.
+  switch (status) {
+    case "open":
+      return {
+        background: "rgba(45,134,89,.12)",
+        color: "var(--color-success)",
+      };
+    case "you-absent":
+      return {
+        background: "rgba(212,165,116,.18)",
+        color: "var(--color-berry)",
+      };
+    case "crowded":
+      return {
+        background: "rgba(154,144,136,.18)",
+        color: "var(--color-text-2)",
+      };
+    case "present":
+    default:
+      return {
+        background: "rgba(195,85,58,.10)",
+        color: "var(--color-coral)",
+      };
+  }
+}
+
+function statusLabel(status: AdLaneStatus, labels: AdLaneLabels): string {
+  switch (status) {
+    case "open":
+      return labels.statusOpen;
+    case "you-absent":
+      return labels.statusYouAbsent;
+    case "crowded":
+      return labels.statusCrowded;
+    case "present":
+    default:
+      return labels.statusPresent;
+  }
 }
 
 function platformLabel(platform: SmbAdPlatform, labels: AdLaneLabels): string {
   return platform === "GOOGLE" ? labels.platformGoogle : labels.platformMeta;
 }
 
-export function AdLane({ keyword, ads, isOffKeyword, labels }: AdLaneProps) {
+export function AdLane({
+  keyword,
+  ads,
+  isOffKeyword,
+  status,
+  competitorCount,
+  topCompetitors,
+  labels,
+}: AdLaneProps) {
   const isUnmatched = keyword === UNMATCHED_KEYWORD;
   const headerText = isUnmatched ? labels.unmatchedLabel : keyword;
   const visible = ads.slice(0, MAX_ADS_PER_LANE_VISIBLE);
@@ -86,6 +155,8 @@ export function AdLane({ keyword, ads, isOffKeyword, labels }: AdLaneProps) {
   const ariaLabel = isOffKeyword
     ? `${headerText} (${labels.offKeywordAria})`
     : headerText;
+
+  const showCompetitorLine = competitorCount > 0 || topCompetitors.length > 0;
 
   return (
     <article
@@ -148,18 +219,54 @@ export function AdLane({ keyword, ads, isOffKeyword, labels }: AdLaneProps) {
         ) : null}
       </header>
 
-      <p
+      <div
         style={{
-          margin: 0,
-          fontFamily: "var(--font-mono)",
-          fontSize: 11,
-          textTransform: "uppercase",
-          letterSpacing: "0.08em",
-          color: "var(--color-text-3)",
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          flexWrap: "wrap",
         }}
       >
-        {labels.adsCount(ads.length)}
-      </p>
+        <span
+          style={{
+            padding: "3px 8px",
+            borderRadius: 999,
+            fontFamily: "var(--font-mono)",
+            fontSize: 10,
+            textTransform: "uppercase",
+            letterSpacing: "0.06em",
+            fontWeight: 600,
+            ...statusPillStyle(status),
+          }}
+          data-testid={`lane-status-${status}`}
+        >
+          {statusLabel(status, labels)}
+        </span>
+        <span
+          style={{
+            fontFamily: "var(--font-mono)",
+            fontSize: 11,
+            textTransform: "uppercase",
+            letterSpacing: "0.08em",
+            color: "var(--color-text-3)",
+          }}
+        >
+          {labels.adsCount(ads.length)}
+        </span>
+      </div>
+
+      {showCompetitorLine ? (
+        <p
+          style={{
+            margin: 0,
+            fontSize: 12.5,
+            lineHeight: 1.5,
+            color: "var(--color-text-2)",
+          }}
+        >
+          {labels.competitorsLine(competitorCount, topCompetitors)}
+        </p>
+      ) : null}
 
       <ul
         style={{
@@ -196,19 +303,50 @@ export function AdLane({ keyword, ads, isOffKeyword, labels }: AdLaneProps) {
             >
               <span
                 style={{
-                  padding: "2px 6px",
-                  borderRadius: 6,
-                  background: "var(--color-bg-3)",
-                  color: "var(--color-text-2)",
-                  fontFamily: "var(--font-mono)",
-                  fontSize: 10,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.06em",
-                  fontWeight: 600,
-                  flexShrink: 0,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  minWidth: 0,
                 }}
               >
-                {platformLabel(ad.platform, labels)}
+                <span
+                  style={{
+                    padding: "2px 6px",
+                    borderRadius: 6,
+                    background: "var(--color-bg-3)",
+                    color: "var(--color-text-2)",
+                    fontFamily: "var(--font-mono)",
+                    fontSize: 10,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.06em",
+                    fontWeight: 600,
+                    flexShrink: 0,
+                  }}
+                >
+                  {platformLabel(ad.platform, labels)}
+                </span>
+                <span
+                  style={{
+                    fontFamily: "var(--font-mono)",
+                    fontSize: 11,
+                    color: ad.isOwn
+                      ? "var(--color-coral)"
+                      : "var(--color-text-3)",
+                    fontWeight: ad.isOwn ? 600 : 500,
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    minWidth: 0,
+                    maxWidth: 180,
+                  }}
+                  title={
+                    ad.isOwn
+                      ? labels.yourAdTag
+                      : (ad.advertiserName ?? undefined)
+                  }
+                >
+                  {ad.isOwn ? labels.yourAdTag : (ad.advertiserName ?? "—")}
+                </span>
               </span>
               {ad.landingUrl ? (
                 <a
