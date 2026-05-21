@@ -2,11 +2,10 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { notFound } from "next/navigation";
-import { setRequestLocale } from "next-intl/server";
 
 import { Link } from "@/i18n/navigation";
 
-import { routing, type Locale } from "@/i18n/routing";
+import { routing } from "@/i18n/routing";
 import { LOCALE_TO_BCP47 } from "@/lib/seo/hreflang";
 import {
   buildMetaDescription,
@@ -128,8 +127,9 @@ async function BizProfileBody({ params }: { params: Promise<RouteParams> }) {
   await connection();
 
   const { locale, slug } = await params;
-  if (!routing.locales.includes(locale as Locale)) notFound();
-  setRequestLocale(locale);
+  // Locale gating is the middleware's job; if we got here the locale is valid.
+  // Skip setRequestLocale — this route renders zero translated strings
+  // (business content is per-record, not per-locale).
 
   const data = await getBusinessBySlug(slug);
   if (data.id === "") notFound();
