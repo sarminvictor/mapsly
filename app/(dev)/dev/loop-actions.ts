@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidateTag } from "next/cache";
+import { assertAdmin } from "@/lib/portal-guard";
 
 const REPO = "sarminvictor/mapsly";
 const FILE_PATH = ".claude/memory/loop-lock.json";
@@ -85,14 +86,17 @@ async function setState(newState: LoopLock["state"], note: string) {
 }
 
 export async function pauseLoop() {
+  await assertAdmin();
   await setState("paused", "Paused via dashboard. Resume to continue.");
 }
 
 export async function resumeLoop() {
+  await assertAdmin();
   await setState("idle", "Resumed via dashboard.");
 }
 
 export async function clearCooldown() {
+  await assertAdmin();
   const current = await getCurrent();
   if (!current) throw new Error("Could not read current lock");
   const updated: LoopLock = {
