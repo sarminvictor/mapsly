@@ -33,6 +33,7 @@ import {
   useOptimistic,
   useState,
 } from "react";
+import { useTranslations } from "next-intl";
 
 import { Link } from "@/i18n/navigation";
 import { BulkActionBar } from "@/modules/agency-portal/components/BulkActionBar";
@@ -65,6 +66,13 @@ export interface InteractiveLeadRowData {
   statusDwell?: string;
   contactEmail?: string | null;
   contactPhone?: string | null;
+  /**
+   * Pre-resolved `aria-label` for the row's "Open →" link, e.g.
+   * "Open Solea Brickell prospect detail". Server-side resolution
+   * keeps functions OFF the server→client prop boundary (INC-26:
+   * "Functions cannot be passed directly to Client Components").
+   */
+  openAriaLabel: string;
 }
 
 export interface LeadsTableInteractiveLabels {
@@ -76,15 +84,21 @@ export interface LeadsTableInteractiveLabels {
   actions: string;
   caption: string;
   openLabel: string;
-  openAria: (business: string) => string;
   noContact: string;
-  selectedNoun: (count: number) => string;
   bulkMarkContacted: string;
   bulkMarkReplied: string;
   bulkMarkLost: string;
   bulkHide: string;
   bulkClear: string;
   statusError: string;
+  /**
+   * i18n namespace the client island resolves `selectedNoun` from
+   * via `useTranslations`. Default is the canonical
+   * `agency.list_detail` namespace. Pluralised via ICU MessageFormat
+   * client-side so the count crossing the boundary stays a plain
+   * number (INC-26: no function props across server→client).
+   */
+  selectedNounNamespace?: string;
 }
 
 export interface LeadsTableInteractiveProps {
@@ -123,6 +137,13 @@ export function LeadsTableInteractive({
   leads,
   labels,
 }: LeadsTableInteractiveProps) {
+  // `selectedNoun` ICU plural lives in the namespace the page passes
+  // in. Resolved client-side via `useTranslations` so the function
+  // never crosses the server→client prop boundary (INC-26).
+  const t = useTranslations(
+    labels.selectedNounNamespace ?? "agency.list_detail",
+  );
+
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [statusOverrides, applyOverride] = useOptimistic<
     OptimisticStatusMap,
@@ -249,7 +270,7 @@ export function LeadsTableInteractive({
                       params: { businessId: lead.businessId },
                     }}
                     data-testid={`lead-open-${lead.id}`}
-                    aria-label={labels.openAria(lead.businessName)}
+                    aria-label={lead.openAriaLabel}
                     style={{
                       display: "inline-flex",
                       alignItems: "center",
@@ -292,7 +313,7 @@ export function LeadsTableInteractive({
 
       <BulkActionBar
         selectedCount={selected.size}
-        meta={labels.selectedNoun(selected.size)}
+        meta={t("table_bulk_selected_meta", { count: selected.size })}
       >
         <button
           type="button"
