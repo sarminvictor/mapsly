@@ -12,6 +12,12 @@
 export { StatHeader } from "./StatHeader";
 export type { StatHeaderProps, StatHeaderLabels } from "./StatHeader";
 
+export { InsightCallout } from "./InsightCallout";
+export type {
+  InsightCalloutProps,
+  InsightCalloutLabels,
+} from "./InsightCallout";
+
 export { ListFunnelRow } from "./ListFunnelRow";
 export type { ListFunnelRowProps, ListFunnelRowLabels } from "./ListFunnelRow";
 

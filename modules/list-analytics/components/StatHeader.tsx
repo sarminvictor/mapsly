@@ -1,6 +1,6 @@
 import * as React from "react";
 
-import type { ListAnalyticsStats } from "../types";
+import type { ListAnalyticsStats, ListAnalyticsSampleSizes } from "../types";
 
 /**
  * StatHeader · the 4-stat hero row for `/(agency)/list-analytics`.
@@ -31,10 +31,21 @@ export interface StatHeaderLabels {
   formatPct: (rate: number) => string;
   /** Pre-resolved integer formatter ("1,247" / "1.247" / "1 247") per locale. */
   formatInt: (n: number) => string;
+  /**
+   * Per-tile meta lines · short numeric sample-size hints rendered
+   * under the help text. Tom's voice — "across 7 lists", "32 of 84 leads".
+   * All pre-resolved so the component owns no i18n.
+   */
+  surfacedMeta: string;
+  contactRateMeta: string;
+  replyRateMeta: string;
+  closedWonMeta: string;
 }
 
 export interface StatHeaderProps {
   stats: ListAnalyticsStats;
+  /** Sample sizes feeding each tile · drives the meta line under each. */
+  sampleSizes: ListAnalyticsSampleSizes;
   labels: StatHeaderLabels;
 }
 
@@ -44,30 +55,35 @@ export function StatHeader({ stats, labels }: StatHeaderProps) {
     title: string;
     help: string;
     value: string;
+    meta: string;
   }> = [
     {
       id: "surfaced",
       title: labels.surfacedTitle,
       help: labels.surfacedHelp,
       value: labels.formatInt(stats.surfaced90d),
+      meta: labels.surfacedMeta,
     },
     {
       id: "contact-rate",
       title: labels.contactRateTitle,
       help: labels.contactRateHelp,
       value: labels.formatPct(stats.contactRate),
+      meta: labels.contactRateMeta,
     },
     {
       id: "reply-rate",
       title: labels.replyRateTitle,
       help: labels.replyRateHelp,
       value: labels.formatPct(stats.replyRate),
+      meta: labels.replyRateMeta,
     },
     {
       id: "closed-won",
       title: labels.closedWonTitle,
       help: labels.closedWonHelp,
       value: labels.formatPct(stats.closedWon),
+      meta: labels.closedWonMeta,
     },
   ];
 
@@ -131,6 +147,20 @@ export function StatHeader({ stats, labels }: StatHeaderProps) {
           >
             {t.help}
           </span>
+          {t.meta ? (
+            <span
+              data-testid={`stat-${t.id}-meta`}
+              style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: 10.5,
+                fontWeight: 600,
+                color: "var(--color-agency-indigo)",
+                lineHeight: 1.4,
+              }}
+            >
+              {t.meta}
+            </span>
+          ) : null}
         </div>
       ))}
     </section>
