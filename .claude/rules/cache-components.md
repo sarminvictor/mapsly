@@ -140,7 +140,7 @@ Defining a server-resolved `tableLabels: { openAria: (business: string) => strin
   const labels = { openAria: (business: string) => t("aria", { business }) };
 
   // ✅ Right · per-row pre-resolved string
-  rows.map((r) => ({ ...r, openAriaLabel: t("aria", { business: r.name }) }))
+  rows.map((r) => ({ ...r, openAriaLabel: t("aria", { business: r.name }) }));
   ```
 
 - **Variable-arg functions (e.g. count-based plurals)** → resolve in the client component via `useTranslations(namespace)`. Pass the namespace as a plain string prop.
@@ -152,7 +152,7 @@ Defining a server-resolved `tableLabels: { openAria: (business: string) => strin
   // ✅ Right · client resolves via useTranslations
   // Client component:
   const t = useTranslations(labels.selectedNounNamespace);
-  <BulkActionBar meta={t("plural", { count: selected.size })} />
+  <BulkActionBar meta={t("plural", { count: selected.size })} />;
   ```
 
 ### 4c · Promises (which contain function refs) on Suspense boundaries

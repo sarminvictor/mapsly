@@ -1234,9 +1234,11 @@ Viktor: _"one task went well, but next - err after"_ → log analysis revealed t
 **Status:** ✅ FIXED + ENCODED — PR #83 hotfix · removed two function-style labels from `LeadsTableInteractive` props; pre-resolved per-row + moved client-side `useTranslations` for the variable-count plural.
 
 **Symptom:** Live production error on every `/lists/[id]` hit since PR #74's deploy:
+
 ```
 GET /lists/cmpg16jtf00060f7ui3356gbu  200  error  Error: Functions cannot be passed directly to Client Components
 ```
+
 Browser sees: _"This page couldn't load · A server error occurred · ERROR 3336813208"_. Reported by Viktor in production after the agency rollout shipped.
 
 **Root cause:** The list-detail page passed two functions across the server→client prop boundary to `LeadsTableInteractive` ('use client'):
@@ -1244,7 +1246,7 @@ Browser sees: _"This page couldn't load · A server error occurred · ERROR 3336
 ```ts
 const tableLabels: LeadsTableInteractiveLabels = {
   // ... 14 string labels ...
-  openAria: (business) => t("table_open_aria", { business }),       // ❌ function
+  openAria: (business) => t("table_open_aria", { business }), // ❌ function
   selectedNoun: (count) => t("table_bulk_selected_meta", { count }), // ❌ function
 };
 ```
@@ -1267,9 +1269,13 @@ Functions can't be serialized through the server→client boundary. Same inciden
 
    ```tsx
    // LeadsTableInteractive.tsx
-   const t = useTranslations(labels.selectedNounNamespace ?? "agency.list_detail");
+   const t = useTranslations(
+     labels.selectedNounNamespace ?? "agency.list_detail",
+   );
    // ...
-   <BulkActionBar meta={t("table_bulk_selected_meta", { count: selected.size })} />
+   <BulkActionBar
+     meta={t("table_bulk_selected_meta", { count: selected.size })}
+   />;
    ```
 
    The namespace is the only thing crossing the boundary — a string.
@@ -1279,7 +1285,6 @@ Functions can't be serialized through the server→client boundary. Same inciden
 1. **Broaden INC-26's rule.** Cross-reference: `.claude/rules/cache-components.md` Pattern 4 originally read _"no `t.rich()` render props"_. It should also call out **no function props at all** (callable values cannot serialize). The rule needs an explicit "function props are forbidden across `'use client'` boundaries" line.
 
 2. **Two canonical resolutions:**
-
    - **Per-row functions** → pre-resolve into a `string` field on each row data object server-side. The function executes once per row during `.map()` and produces a plain string the client receives.
    - **Variable-arg functions (e.g. count-based plurals)** → resolve in the client component via `useTranslations(namespace)`. Pass the namespace as a plain string prop.
 
