@@ -26,7 +26,9 @@
 import { Suspense, type ReactNode } from "react";
 import { setRequestLocale, getTranslations } from "next-intl/server";
 
+import { auth } from "@/lib/auth";
 import { Link } from "@/i18n/navigation";
+import { getPortalDestination } from "@/lib/portal-destination";
 
 interface LayoutParams {
   locale: string;
@@ -105,6 +107,20 @@ async function MarketingHeader({ params }: { params: Promise<LayoutParams> }) {
   setRequestLocale(locale);
   const t = await getTranslations("marketing.footer");
 
+  // Per-request session resolution. The header runs INSIDE a Suspense
+  // boundary in this layout, so calling auth() here is safe under
+  // cacheComponents · page bodies stay 'use cache'-fast, only the
+  // chrome re-renders with the user's identity.
+  //
+  // When a user is signed in we swap the "Sign in" CTA for a
+  // role-aware portal link (SMB → dashboard, agency → lists, admin
+  // → dashboard placeholder). Anonymous visitors see the same
+  // surface they always did.
+  const session = await auth();
+  const portal = session?.user?.id
+    ? await getPortalDestination(session.user.id)
+    : null;
+
   return (
     <header
       style={{
@@ -176,21 +192,41 @@ async function MarketingHeader({ params }: { params: Promise<LayoutParams> }) {
         >
           {t("nav_pricing")}
         </Link>
-        <Link
-          href="/signin"
-          style={{
-            color: "var(--color-text)",
-            textDecoration: "none",
-            fontSize: 14,
-            fontWeight: 600,
-            padding: "8px 14px",
-            border: "1px solid var(--color-border)",
-            borderRadius: 8,
-            background: "var(--color-bg-2)",
-          }}
-        >
-          {t("nav_signin")}
-        </Link>
+        {portal ? (
+          <Link
+            href={portal.href}
+            data-testid="marketing-portal-cta"
+            style={{
+              color: "#fff",
+              textDecoration: "none",
+              fontSize: 14,
+              fontWeight: 600,
+              padding: "8px 14px",
+              border: "1px solid var(--color-coral)",
+              borderRadius: 8,
+              background: "var(--color-coral)",
+            }}
+          >
+            {t(`portal_${portal.labelKey}`)}
+          </Link>
+        ) : (
+          <Link
+            href="/signin"
+            data-testid="marketing-signin-cta"
+            style={{
+              color: "var(--color-text)",
+              textDecoration: "none",
+              fontSize: 14,
+              fontWeight: 600,
+              padding: "8px 14px",
+              border: "1px solid var(--color-border)",
+              borderRadius: 8,
+              background: "var(--color-bg-2)",
+            }}
+          >
+            {t("nav_signin")}
+          </Link>
+        )}
       </nav>
     </header>
   );

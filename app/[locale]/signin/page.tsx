@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import { setRequestLocale, getTranslations } from "next-intl/server";
 
+import { auth } from "@/lib/auth";
+import { redirect } from "@/i18n/navigation";
+import type { Locale } from "@/i18n/routing";
 import { SignInForm } from "./SignInForm";
 
 export async function generateMetadata({
@@ -25,6 +28,15 @@ export default async function SignInPage({
   const { locale } = await params;
   setRequestLocale(locale);
   const t = await getTranslations("auth.signin");
+
+  // If the visitor is already signed in, skip the form and route
+  // through /post-signin which dispatches by role (admin / agency /
+  // SMB). This matches the marketing header swap: a logged-in user
+  // who lands on /signin shouldn't have to re-enter their email.
+  const session = await auth();
+  if (session?.user?.id) {
+    redirect({ href: "/post-signin", locale: locale as Locale });
+  }
 
   return (
     <main

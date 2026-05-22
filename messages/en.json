@@ -32,7 +32,10 @@
       "cookies": "Cookies",
       "nav_for_agencies": "For agencies",
       "nav_signin": "Sign in",
-      "nav_pricing": "Pricing"
+      "nav_pricing": "Pricing",
+      "portal_open_dashboard": "Open your dashboard",
+      "portal_open_workspace": "Open your workspace",
+      "portal_open_admin": "Open admin"
     }
   },
   "legal": {
