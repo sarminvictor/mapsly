@@ -169,6 +169,12 @@ export const routing = defineRouting({
       "en-CA": "/share/[publicShareId]",
       fr: "/partage/[publicShareId]",
     },
+    "/activity": {
+      en: "/activity",
+      es: "/actividad",
+      "en-CA": "/activity",
+      fr: "/activite",
+    },
   },
 });
 

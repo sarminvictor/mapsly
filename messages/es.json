@@ -326,7 +326,8 @@
       "item_competitors": "Competencia",
       "item_search": "Visibilidad",
       "item_ads": "Anuncios",
-      "item_settings": "Configuración"
+      "item_settings": "Configuración",
+      "item_activity": "Actividad"
     },
     "ads": {
       "kpi_lanes_covered": "Servicios para los que te anuncias",
@@ -349,6 +350,27 @@
       "paradox_headline": "{totalActiveAds, plural, one {Tienes 1 anuncio activo} other {Tienes # anuncios activos}} — pero solo apareces en {lanesCovered} de {totalLanes} servicios donde encontramos anuncios.",
       "paradox_body": "La mayoría de tu inversión no dirige a los clientes a tus servicios reales. Cada anuncio debería mencionar el tratamiento por su nombre (botox, faciales, etc.) — así te encuentra la gente que lo busca.",
       "paradox_cta": "Consejo · reescribe cada titular de anuncio empezando con el nombre del servicio."
+    },
+    "activity": {
+      "meta": {
+        "title": "Actividad · Mapsly",
+        "description": "Todo lo que se ha movido en tu mercado en los últimos 30 días."
+      },
+      "eyebrow": "Tu mercado",
+      "title": "Lo que se ha movido este mes",
+      "subtitle": "Reseñas, anuncios y nuevos negocios cerca de ti — todo en una vista tranquila.",
+      "aria_list": "Eventos de actividad agrupados por día",
+      "no_events_title": "Nada nuevo todavía",
+      "no_events_body": "Llenaremos esta página a medida que aparezcan reseñas, anuncios y negocios cerca de ti.",
+      "empty_title": "Tu feed de actividad",
+      "empty_body": "Una vez vinculado tu negocio, esta página muestra todo lo que se mueve en tu mercado — nuevas reseñas, anuncios de la competencia, nuevos negocios cerca.",
+      "scope_you": "Tú",
+      "scope_competitor": "Cerca",
+      "scope_market": "Mercado",
+      "source_reviews": "Reseñas",
+      "source_ads": "Anuncios",
+      "source_search": "Búsqueda",
+      "source_market": "Mercado"
     }
   },
   "agency": {

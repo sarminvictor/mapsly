@@ -581,7 +581,29 @@
       "item_competitors": "Competitors",
       "item_search": "Search visibility",
       "item_ads": "Ads intelligence",
-      "item_settings": "Settings"
+      "item_settings": "Settings",
+      "item_activity": "Activity"
+    },
+    "activity": {
+      "meta": {
+        "title": "Activity · Mapsly",
+        "description": "Everything that moved in your market in the last 30 days."
+      },
+      "eyebrow": "Your market",
+      "title": "What moved this month",
+      "subtitle": "Reviews, ads, and new businesses near you — all in one calm scroll.",
+      "aria_list": "Activity events grouped by day",
+      "no_events_title": "Nothing new yet",
+      "no_events_body": "We'll fill this page as new reviews, ads, and businesses show up near you.",
+      "empty_title": "Your activity feed",
+      "empty_body": "Once your business is linked, this page shows everything that moves in your market — new reviews, competitor ads, newcomers nearby.",
+      "scope_you": "You",
+      "scope_competitor": "Nearby",
+      "scope_market": "Market",
+      "source_reviews": "Reviews",
+      "source_ads": "Ads",
+      "source_search": "Search",
+      "source_market": "Market"
     }
   },
   "agency": {
