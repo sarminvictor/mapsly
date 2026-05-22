@@ -110,16 +110,58 @@ export default async function SomeFormPage({
 
 If your `searchParams` value enters the React tree as a **prop on a Suspense boundary**, you'll get `Functions cannot be passed directly to Client Components` because Promises contain function references. **Solution:** await searchParams INSIDE the inner component, not on the boundary.
 
-## Pattern 4 · No `t.rich()` render props in server components
+## Pattern 4 · No function props across the server→client boundary
 
-`next-intl`'s `t.rich(key, { renderProp: chunks => <Link>{chunks}</Link> })` passes a **function** through the React tree. Under cacheComponents prerender that function gets serialized → `Functions cannot be passed directly to Client Components`.
+The React `'use client'` boundary serializes props. Functions cannot serialize. Any function-typed prop crossing into a client component throws:
 
-**Pick one:**
+```
+Error: Functions cannot be passed directly to Client Components
+unless you explicitly expose it by marking it with "use server".
+```
 
-- **Convert the file to `"use client"`** — works everywhere, page renders client-side
-- **Use plain `t(key)` returning a string** + render the link manually next to it
+This rule covers **three common expressions** of the same defect:
 
-Hard rule: if your component imports `Link` from `@/i18n/navigation` AND uses `t.rich()` AND has `cacheComponents` on, mark it `"use client"`.
+### 4a · `t.rich()` render props (INC-26)
+
+`next-intl`'s `t.rich(key, { renderProp: chunks => <Link>{chunks}</Link> })` passes a function through the React tree. Same boundary, same error.
+
+**Pick one:** convert the file to `"use client"`, OR use plain `t(key)` returning a string and render the link manually next to it.
+
+### 4b · Direct function props in label/formatter interfaces (INC-40)
+
+Defining a server-resolved `tableLabels: { openAria: (business: string) => string }` and passing it as a prop to a `'use client'` component trips the same error — the function never makes it across, even when the page successfully called it on the server.
+
+**Two canonical fixes:**
+
+- **Per-row functions** → pre-resolve into a plain `string` field on each row data object server-side. The function executes once per row during `.map()` and produces a plain string for the client.
+
+  ```ts
+  // ❌ Wrong · function in labels prop
+  const labels = { openAria: (business: string) => t("aria", { business }) };
+
+  // ✅ Right · per-row pre-resolved string
+  rows.map((r) => ({ ...r, openAriaLabel: t("aria", { business: r.name }) }))
+  ```
+
+- **Variable-arg functions (e.g. count-based plurals)** → resolve in the client component via `useTranslations(namespace)`. Pass the namespace as a plain string prop.
+
+  ```tsx
+  // ❌ Wrong · function in labels prop
+  const labels = { selectedNoun: (count: number) => t("plural", { count }) };
+
+  // ✅ Right · client resolves via useTranslations
+  // Client component:
+  const t = useTranslations(labels.selectedNounNamespace);
+  <BulkActionBar meta={t("plural", { count: selected.size })} />
+  ```
+
+### 4c · Promises (which contain function refs) on Suspense boundaries
+
+See Pattern 3 above · same root cause, different expression.
+
+### Hard rule
+
+Before crossing a `'use client'` boundary, audit every prop. If any field's type is `(...args) => ...` it WILL fail at runtime — TypeScript happily allows function props because the boundary check is in React, not the type system. Pre-resolve server-side or move resolution into the client via `useTranslations`.
 
 ## Pattern 5 · Don't mix `force-dynamic` with cacheComponents
 
@@ -145,7 +187,8 @@ Route segment config "dynamic" is not compatible with `nextConfig.cacheComponent
 Before opening a PR with a new route:
 
 - [ ] Does it `await` anything uncached (auth, cookies, searchParams, DB)? → Pattern 2: Suspense wrap.
-- [ ] Does it use `t.rich()`? → Pattern 4: `"use client"`.
+- [ ] Does it use `t.rich()`? → Pattern 4a: `"use client"`.
+- [ ] Does it pass any function-typed prop to a `'use client'` child (label formatters, callbacks, render props)? → Pattern 4b: pre-resolve per-row OR resolve via `useTranslations` in the client.
 - [ ] Does any helper use `'use cache'` + Prisma? → Pattern 1: `EMPTY_X` constant + NEXT_PHASE guard.
 - [ ] Does it use `export const dynamic`? → Pattern 5: delete it; use `connection()` or Suspense.
 - [ ] Does it pass `Promise<...>` as a prop crossing Suspense? → Pattern 3: await inside the boundary, not outside.
@@ -157,6 +200,7 @@ Before opening a PR with a new route:
 - ❌ `try { ... } catch {}` that swallows the failure and returns a different shape than the success path
 - ❌ Async default export reading `cookies()` / `auth()` without a Suspense wrap
 - ❌ `t.rich()` in a server component file (must be `"use client"`)
+- ❌ Function-typed prop in any interface passed to a `'use client'` component (e.g. `openAria: (s: string) => string`) — pre-resolve or move resolution into the client
 - ❌ Adding `force-dynamic` to a route segment instead of using `connection()`
 
 ## Cites
@@ -164,4 +208,5 @@ Before opening a PR with a new route:
 - INC-09 (cacheComponents PPR forbidden APIs)
 - INC-25 (NEXT_PHASE guard return shape parity)
 - INC-26 (next-intl t.rich render props don't serialize)
+- INC-40 (function-prop boundary crossing on /lists/[id] · same class, different expression)
 - INC-27 (Vercel build cannot open Neon WebSocket — every Prisma `'use cache'` needs the guard)
