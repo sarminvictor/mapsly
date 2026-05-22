@@ -831,6 +831,21 @@
       "empty": "No matches. Try a name, URL, or city.",
       "errorState": "Couldn’t reach search. Try again.",
       "listAriaLabel": "Matching businesses"
+    },
+    "nav": {
+      "brand": "mapsly",
+      "audience_tag": "Agence",
+      "topbar_tag": "Espace prospects",
+      "section_workspace": "Espace de travail",
+      "section_insight": "Analyse",
+      "section_account": "Compte",
+      "item_lists": "Listes",
+      "item_hunter": "Hunter",
+      "item_list_analytics": "Analyse des listes",
+      "item_list_activity": "Activité des listes",
+      "item_reports": "Rapports",
+      "item_agency_settings": "Paramètres d'agence",
+      "item_team_billing": "Équipe et facturation"
     }
   },
   "common": {
