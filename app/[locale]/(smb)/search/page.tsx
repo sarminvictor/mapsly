@@ -42,6 +42,9 @@ import { unauthorized } from "next/navigation";
 import { setRequestLocale, getTranslations } from "next-intl/server";
 
 import { auth } from "@/lib/auth";
+import { requirePortal } from "@/lib/portal-guard";
+import { redirect } from "@/i18n/navigation";
+import type { Locale } from "@/i18n/routing";
 import { KPITile } from "@/modules/smb-dashboard/components";
 import { KeywordRow } from "@/modules/smb-search/components";
 import type {
@@ -221,6 +224,14 @@ async function SearchBody({ params }: { params: Promise<PageParams> }) {
     // Next 16 auth interrupt — bubbles to the closest unauthorized.tsx
     // (or framework default). Per `.claude/rules/security.md`.
     unauthorized();
+  }
+
+  // Cross-portal guard · agency members get bounced to /lists so the
+  // SMB portal is reserved for Maria + non-agency users (ADMIN passes
+  // through). Per `lib/portal-guard.ts`.
+  const portalMismatch = await requirePortal(session.user.id, "smb");
+  if (portalMismatch) {
+    redirect({ href: portalMismatch.redirectTo, locale: locale as Locale });
   }
 
   const t = await getTranslations("smb.search");

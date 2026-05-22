@@ -45,6 +45,9 @@ import { unauthorized } from "next/navigation";
 import { setRequestLocale, getTranslations } from "next-intl/server";
 
 import { auth } from "@/lib/auth";
+import { requirePortal } from "@/lib/portal-guard";
+import { redirect } from "@/i18n/navigation";
+import type { Locale } from "@/i18n/routing";
 import { AlertCard, KPITile } from "@/modules/smb-dashboard/components";
 import { AdLane, ParadoxAlert } from "@/modules/smb-ads/components";
 import { getSmbAdsData } from "@/modules/smb-ads/queries";
@@ -165,6 +168,14 @@ async function AdsBody({ params }: { params: Promise<PageParams> }) {
   const session = await auth();
   if (!session?.user?.id) {
     unauthorized();
+  }
+
+  // Cross-portal guard · agency members get bounced to /lists so the
+  // SMB portal is reserved for Maria + non-agency users (ADMIN passes
+  // through). Per `lib/portal-guard.ts`.
+  const portalMismatch = await requirePortal(session.user.id, "smb");
+  if (portalMismatch) {
+    redirect({ href: portalMismatch.redirectTo, locale: locale as Locale });
   }
 
   const t = await getTranslations("smb.ads");
