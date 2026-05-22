@@ -24,7 +24,10 @@
       "terms": "Conditions",
       "cookies": "Témoins",
       "nav_for_agencies": "Pour agences",
-      "nav_signin": "Connexion"
+      "nav_signin": "Connexion",
+      "portal_open_dashboard": "Ouvrir ton tableau",
+      "portal_open_workspace": "Ouvrir ton espace",
+      "portal_open_admin": "Ouvrir admin"
     }
   },
   "legal": {
