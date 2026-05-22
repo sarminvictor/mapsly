@@ -247,6 +247,8 @@ async function ReviewsBody({
     ctaComingSoon: t("ai_draft_coming_soon"),
     daysAgoLabel: t("days_ago"),
     noText: t("no_text"),
+    langEn: t("ai_draft_lang_en"),
+    langEs: t("ai_draft_lang_es"),
   };
 
   const ratingLabels: RatingDistributionCardLabels = {
@@ -300,6 +302,83 @@ async function ReviewsBody({
         </h1>
       </header>
 
+      {/* 5-KPI state bar · Maria's first glance · Reply rate ·
+          Unanswered · Avg rating · Reviews 30d · Sentiment 7d. */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+          gap: 10,
+          marginBottom: 18,
+        }}
+      >
+        <KpiCell
+          label={t("kpi_reply_rate")}
+          value={
+            data.kpis.replyRate == null
+              ? "—"
+              : `${Math.round(data.kpis.replyRate * 100)}%`
+          }
+          tone={
+            data.kpis.replyRate == null
+              ? "neutral"
+              : data.kpis.replyRate >= 0.6
+                ? "good"
+                : data.kpis.replyRate >= 0.25
+                  ? "warn"
+                  : "bad"
+          }
+        />
+        <KpiCell
+          label={t("kpi_unanswered")}
+          value={data.kpis.unanswered}
+          tone={
+            data.kpis.unanswered === 0
+              ? "good"
+              : data.kpis.unanswered >= 5
+                ? "bad"
+                : "warn"
+          }
+        />
+        <KpiCell
+          label={t("kpi_avg_rating")}
+          value={
+            data.kpis.avgRating == null ? "—" : data.kpis.avgRating.toFixed(1)
+          }
+          suffix={data.kpis.avgRating == null ? "" : "/5"}
+          tone={
+            data.kpis.avgRating == null
+              ? "neutral"
+              : data.kpis.avgRating >= 4.5
+                ? "good"
+                : data.kpis.avgRating >= 4.0
+                  ? "neutral"
+                  : "warn"
+          }
+        />
+        <KpiCell
+          label={t("kpi_velocity_30d")}
+          value={data.kpis.velocityLast30d}
+        />
+        <KpiCell
+          label={t("kpi_sentiment_7d")}
+          value={
+            data.kpis.sentiment7d == null
+              ? "—"
+              : `${Math.round(data.kpis.sentiment7d * 100)}%`
+          }
+          tone={
+            data.kpis.sentiment7d == null
+              ? "neutral"
+              : data.kpis.sentiment7d >= 0.7
+                ? "good"
+                : data.kpis.sentiment7d >= 0.4
+                  ? "neutral"
+                  : "warn"
+          }
+        />
+      </div>
+
       <ReviewTabs
         activeTab={data.activeTab}
         counts={data.tabCounts}
@@ -336,6 +415,52 @@ async function ReviewsBody({
           aria-label={t("rail_aside_label")}
           style={{ display: "flex", flexDirection: "column", gap: 12 }}
         >
+          {data.pattern ? (
+            <article
+              style={{
+                background: "rgba(212,165,116,.16)",
+                border: "1px solid var(--color-gold)",
+                borderRadius: 14,
+                padding: "14px 16px",
+              }}
+            >
+              <p
+                style={{
+                  margin: 0,
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 11,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.08em",
+                  color: "var(--color-berry)",
+                  fontWeight: 600,
+                }}
+              >
+                {t("pattern_eyebrow")}
+              </p>
+              <h3
+                style={{
+                  margin: "6px 0 6px",
+                  fontFamily: "var(--font-serif)",
+                  fontSize: 16,
+                  lineHeight: 1.25,
+                  letterSpacing: "-0.01em",
+                  color: "var(--color-text)",
+                }}
+              >
+                {data.pattern.headline}
+              </h3>
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: 13,
+                  lineHeight: 1.5,
+                  color: "var(--color-text-2)",
+                }}
+              >
+                {data.pattern.body}
+              </p>
+            </article>
+          ) : null}
           <RatingDistributionCard
             distribution={data.ratingDistribution}
             labels={ratingLabels}
@@ -344,6 +469,81 @@ async function ReviewsBody({
         </aside>
       </div>
     </section>
+  );
+}
+
+/**
+ * Tiny KPI cell used in the reviews state bar. Server-rendered, no
+ * info-tip drawer — Maria's reviews surface stays calm; the tip
+ * pattern from the dashboard lives one click away in the help drawer.
+ */
+function KpiCell({
+  label,
+  value,
+  suffix,
+  tone = "neutral",
+}: {
+  label: string;
+  value: React.ReactNode;
+  suffix?: string;
+  tone?: "neutral" | "good" | "warn" | "bad";
+}) {
+  const toneColor =
+    tone === "good"
+      ? "var(--color-success)"
+      : tone === "warn"
+        ? "var(--color-gold)"
+        : tone === "bad"
+          ? "var(--color-alert)"
+          : "var(--color-text)";
+  return (
+    <div
+      style={{
+        background: "var(--color-bg-2)",
+        border: "1px solid var(--color-border)",
+        borderRadius: 12,
+        padding: "10px 14px",
+      }}
+    >
+      <p
+        style={{
+          margin: 0,
+          fontFamily: "var(--font-mono)",
+          fontSize: 10,
+          fontWeight: 600,
+          textTransform: "uppercase",
+          letterSpacing: "0.08em",
+          color: "var(--color-text-3)",
+        }}
+      >
+        {label}
+      </p>
+      <p
+        style={{
+          margin: "4px 0 0",
+          fontFamily: "var(--font-serif)",
+          fontSize: 22,
+          fontWeight: 600,
+          letterSpacing: "-0.02em",
+          color: toneColor,
+          lineHeight: 1.1,
+        }}
+      >
+        {value}
+        {suffix ? (
+          <span
+            style={{
+              fontSize: 13,
+              fontWeight: 500,
+              color: "var(--color-text-3)",
+              marginLeft: 2,
+            }}
+          >
+            {suffix}
+          </span>
+        ) : null}
+      </p>
+    </div>
   );
 }
 

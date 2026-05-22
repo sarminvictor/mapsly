@@ -213,7 +213,15 @@
       "ai_draft_label": "Respuesta sugerida por IA",
       "ai_draft_post": "Publicar en Google",
       "ai_draft_edit": "Editar borrador",
-      "ai_draft_regenerate": "Regenerar"
+      "ai_draft_regenerate": "Regenerar",
+      "kpi_reply_rate": "Tasa de respuesta",
+      "kpi_unanswered": "Sin responder",
+      "kpi_avg_rating": "Calificación media",
+      "kpi_velocity_30d": "Reseñas este mes",
+      "kpi_sentiment_7d": "Contentos esta semana",
+      "ai_draft_lang_en": "English",
+      "ai_draft_lang_es": "Español",
+      "pattern_eyebrow": "Patrón detectado"
     },
     "competitors": {
       "meta": {

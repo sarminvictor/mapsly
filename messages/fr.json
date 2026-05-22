@@ -213,7 +213,15 @@
       "ai_draft_label": "Réponse rédigée par l'IA",
       "ai_draft_post": "Publier sur Google",
       "ai_draft_edit": "Modifier",
-      "ai_draft_regenerate": "Régénérer"
+      "ai_draft_regenerate": "Régénérer",
+      "kpi_reply_rate": "Taux de réponse",
+      "kpi_unanswered": "Sans réponse",
+      "kpi_avg_rating": "Note moyenne",
+      "kpi_velocity_30d": "Avis ce mois-ci",
+      "kpi_sentiment_7d": "Contents cette semaine",
+      "ai_draft_lang_en": "English",
+      "ai_draft_lang_es": "Español",
+      "pattern_eyebrow": "Tendance détectée"
     },
     "competitors": {
       "meta": {

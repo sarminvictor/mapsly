@@ -266,7 +266,15 @@
       "empty_by-theme_title": "No themes yet",
       "empty_by-theme_body": "We'll group reviews by theme once the AI classifier has enough text to work with.",
       "empty_replied_title": "No replies yet",
-      "empty_replied_body": "Once you reply to a review, it'll show up here so you can see what you've already covered."
+      "empty_replied_body": "Once you reply to a review, it'll show up here so you can see what you've already covered.",
+      "kpi_reply_rate": "Reply rate",
+      "kpi_unanswered": "Unanswered",
+      "kpi_avg_rating": "Average rating",
+      "kpi_velocity_30d": "Reviews this month",
+      "kpi_sentiment_7d": "Happy this week",
+      "ai_draft_lang_en": "English",
+      "ai_draft_lang_es": "Español",
+      "pattern_eyebrow": "Pattern detected"
     },
     "competitors": {
       "meta": {
