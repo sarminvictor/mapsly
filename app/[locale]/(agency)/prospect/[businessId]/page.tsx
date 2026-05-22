@@ -170,6 +170,12 @@ async function ProspectDetailBody({ params }: { params: Promise<PageParams> }) {
   const t = await getTranslations("agency.prospect_detail");
   const tSignals = await getTranslations("agency.prospect_detail.signals");
 
+  // Locale-aware integer formatter · used by the contact rail's
+  // Instagram follower line ("12,400" / "12.400" / "12 400"). Per
+  // `.claude/rules/i18n.md` Intl.NumberFormat is the canonical path
+  // for locale-formatting numbers in server components.
+  const intFmt = new Intl.NumberFormat(locale);
+
   /* --- compose i18n-resolved titles for the queries' English fallbacks --- */
   // The query layer returns signalBlocks with English fallback titles
   // (so the formula layer stays UI-framework-free). Here we re-map
@@ -244,6 +250,17 @@ async function ProspectDetailBody({ params }: { params: Promise<PageParams> }) {
     noPhone: t("rail.no_phone"),
     noEmail: t("rail.no_email"),
     noWebsite: t("rail.no_website"),
+    noInstagram: t("rail.no_instagram"),
+    emailVerifiedPill: t("rail.email_verified_pill"),
+    emailVerifiedAria: (iso) =>
+      t("rail.email_verified_aria", {
+        date: heroLabels.refreshedAt(iso),
+      }),
+    instagramFollowersLabel: (count) =>
+      t("rail.instagram_followers", {
+        count,
+        formatted: intFmt.format(count),
+      }),
   };
 
   const tShare = await getTranslations("agency.prospect_detail.share");

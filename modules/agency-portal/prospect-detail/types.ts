@@ -125,6 +125,25 @@ export interface ProspectRecord {
   reviewCount: number;
   websiteUrl: string | null;
   phone: string | null;
+  /**
+   * Owner contact email (from `Business.email`) — surfaced on the
+   * contact rail. Null when the email-verification cron hasn't found
+   * one yet or the owner has opted out.
+   */
+  email: string | null;
+  /**
+   * ISO timestamp when `Business.emailVerifiedAt` was last set. When
+   * non-null the contact rail renders a "verified" pill so Tom knows
+   * this is an actually-deliverable address rather than a guess.
+   */
+  emailVerifiedAt: string | null;
+  /**
+   * Instagram handle (e.g. "solea.brickell") — surfaced on the contact
+   * rail with a deep-link to `https://instagram.com/{handle}`.
+   */
+  instagramHandle: string | null;
+  /** Public follower count (snapshot from the monthly cron). */
+  instagramFollowers: number | null;
   /** ISO timestamp of the latest snapshot used for the page. */
   refreshedAt: string;
   snapshot: ProspectSnapshotSummary | null;
