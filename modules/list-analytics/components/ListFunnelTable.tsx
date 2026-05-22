@@ -30,6 +30,8 @@ export interface ListFunnelTableLabels {
   colReplied: string;
   colWon: string;
   colLost: string;
+  /** Close-rate column header · "Close %" / "Cierre %" / "Closure %". */
+  colCloseRate: string;
   colFunnel: string;
   /** Pre-resolved row labels (shared formatters + pill copy). */
   row: ListFunnelRowLabels;
@@ -176,6 +178,9 @@ export function ListFunnelTable({
                 </th>
                 <th style={HEAD_CELL} scope="col">
                   {labels.colLost}
+                </th>
+                <th style={HEAD_CELL} scope="col">
+                  {labels.colCloseRate}
                 </th>
                 <th style={HEAD_CELL_LEFT} scope="col">
                   {labels.colFunnel}

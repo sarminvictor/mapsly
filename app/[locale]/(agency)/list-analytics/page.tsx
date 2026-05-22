@@ -55,9 +55,11 @@ import { auth } from "@/lib/auth";
 import { redirect, Link } from "@/i18n/navigation";
 import type { Locale } from "@/i18n/routing";
 import {
+  InsightCallout,
   ListFunnelTable,
   SignalCorrelationPanel,
   StatHeader,
+  type InsightCalloutLabels,
   type ListFunnelTableLabels,
   type SignalCorrelationPanelLabels,
   type StatHeaderLabels,
@@ -216,6 +218,29 @@ async function ListAnalyticsBody({ params }: { params: Promise<PageParams> }) {
     closedWonHelp: t("stat_closed_won_help"),
     formatPct,
     formatInt,
+    surfacedMeta: t("stat_surfaced_meta", {
+      count: data.sampleSizes.activeListCount,
+    }),
+    contactRateMeta: t("stat_contact_rate_meta", {
+      engaged: data.sampleSizes.engagedLeadCount,
+      surfaced: data.stats.surfaced90d,
+    }),
+    replyRateMeta: t("stat_reply_rate_meta", {
+      replied: data.sampleSizes.repliedLeadCount,
+      engaged: data.sampleSizes.engagedLeadCount,
+    }),
+    closedWonMeta: t("stat_closed_won_meta", {
+      won: data.sampleSizes.wonLeadCount,
+      engaged: data.sampleSizes.engagedLeadCount,
+    }),
+  };
+
+  const insightLabels: InsightCalloutLabels = {
+    eyebrow: t("insight_eyebrow"),
+    headline: ({ closeRatePct, listName }) =>
+      t("insight_headline", { closeRatePct, listName }),
+    subline: ({ sampleSize }) => t("insight_subline", { count: sampleSize }),
+    actionLabel: t("insight_action"),
   };
 
   const tableLabels: ListFunnelTableLabels = {
@@ -227,9 +252,12 @@ async function ListAnalyticsBody({ params }: { params: Promise<PageParams> }) {
     colReplied: t("table_col_replied"),
     colWon: t("table_col_won"),
     colLost: t("table_col_lost"),
+    colCloseRate: t("table_col_close_rate"),
     colFunnel: t("table_col_funnel"),
     row: {
       formatInt,
+      formatPct,
+      closeRateZero: t("row_close_rate_zero"),
       pausedPill: t("row_paused_pill"),
       funnelAria: ({ listName, new: n, contacted, replied, won, lost }) =>
         t("row_funnel_aria", {
@@ -309,7 +337,43 @@ async function ListAnalyticsBody({ params }: { params: Promise<PageParams> }) {
         </p>
       </header>
 
-      <StatHeader stats={data.stats} labels={statLabels} />
+      <StatHeader
+        stats={data.stats}
+        sampleSizes={data.sampleSizes}
+        labels={statLabels}
+      />
+
+      {data.insight ? (
+        <InsightCallout
+          insight={data.insight}
+          formatPct={formatPct}
+          labels={insightLabels}
+          actionLink={
+            <Link
+              href={{
+                pathname: "/lists/[id]",
+                params: { id: data.insight.listId },
+              }}
+              data-testid="list-analytics-insight-link"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                padding: "8px 14px",
+                borderRadius: 8,
+                background: "var(--color-agency-indigo)",
+                color: "#fff",
+                fontWeight: 600,
+                fontSize: 12,
+                textDecoration: "none",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {insightLabels.actionLabel}
+            </Link>
+          }
+        />
+      ) : null}
 
       {isEmpty ? (
         <EmptyStateLinked

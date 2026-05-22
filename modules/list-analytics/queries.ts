@@ -53,9 +53,15 @@ import prisma from "@/lib/prisma";
 import {
   EMPTY_LIST_ANALYTICS,
   type ListAnalyticsData,
+  type ListAnalyticsInsight,
   type ListAnalyticsStats,
   type ListFunnelRow,
 } from "./types";
+
+/** Minimum engaged-lead count before we surface a "top performer"
+ *  insight · keeps a single high-close list with 1/1 engaged from
+ *  being painted as a winner. Conservative for v1; tune in F.5.1. */
+const INSIGHT_MIN_ENGAGED = 5;
 
 /** 90-day analytics window · the canonical Tom-facing reporting period. */
 const WINDOW_DAYS = 90;
@@ -155,8 +161,15 @@ export async function getListAnalyticsForAgency(
           replyRate: 0,
           closedWon: 0,
         },
+        sampleSizes: {
+          activeListCount: 0,
+          engagedLeadCount: 0,
+          repliedLeadCount: 0,
+          wonLeadCount: 0,
+        },
         lists: [],
         signalCorrelations: [],
+        insight: null,
       };
     }
 
@@ -227,12 +240,18 @@ export async function getListAnalyticsForAgency(
     const funnelRows: ListFunnelRow[] = lists.map((l) => {
       const t = perList.get(l.id) ?? { ...empty };
       const totalLeads = t.new + t.contacted + t.replied + t.won + t.lost;
+      // Per-list close rate uses the SAME denominator as the page-level
+      // stats.closedWon (engaged = contacted + replied + won + lost) so
+      // the per-list and aggregate rates compare apples-to-apples.
+      const perListEngaged = t.contacted + t.replied + t.won + t.lost;
+      const closeRate = safeRate(t.won, perListEngaged);
       return {
         listId: l.id,
         listName: l.name,
         isActive: l.isActive,
         totals: t,
         totalLeads,
+        closeRate,
       };
     });
     funnelRows.sort((a, b) => b.totalLeads - a.totalLeads);
@@ -259,14 +278,48 @@ export async function getListAnalyticsForAgency(
       closedWon: safeRate(won, engaged),
     };
 
+    // Top performer · pick the funnel row with the highest closeRate
+    // subject to a minimum engaged-lead floor. If no list clears the
+    // floor we return null and the page hides the callout.
+    const topCandidate = funnelRows
+      .map((row) => ({
+        row,
+        engaged:
+          row.totals.contacted +
+          row.totals.replied +
+          row.totals.won +
+          row.totals.lost,
+      }))
+      .filter(({ engaged }) => engaged >= INSIGHT_MIN_ENGAGED)
+      .sort((a, b) => b.row.closeRate - a.row.closeRate)[0];
+
+    const insight: ListAnalyticsInsight | null = topCandidate
+      ? {
+          kind: "top_performer",
+          listId: topCandidate.row.listId,
+          listName: topCandidate.row.listName,
+          closeRate: topCandidate.row.closeRate,
+          sampleSize: topCandidate.engaged,
+        }
+      : null;
+
+    const activeListCount = lists.filter((l) => l.isActive).length;
+
     return {
       agencyId,
       agencyName: member.agency.name,
       stats,
+      sampleSizes: {
+        activeListCount,
+        engagedLeadCount: engaged,
+        repliedLeadCount: replied,
+        wonLeadCount: won,
+      },
       lists: funnelRows,
       // Stub awaiting D.x signal-engineering task. Component renders
       // an empty-state with "coming next phase" copy.
       signalCorrelations: [],
+      insight,
     };
   } catch {
     // Degrade to "looks empty" rather than 500-crash · matches the

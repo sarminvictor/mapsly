@@ -70,6 +70,16 @@ export interface ListFunnelRow {
   };
   /** Sum of the 5 totals · used as the funnel denominator. */
   totalLeads: number;
+  /**
+   * Per-list close rate · `won / (contacted + replied + won + lost)`.
+   * 0..1 float. Falls back to 0 when the engaged denominator is 0 so
+   * the wire shape never carries NaN. The component formats to "12%"
+   * with locale-aware percentage formatting.
+   *
+   * Mirrors the page-level `stats.closedWon` denominator so per-list
+   * + aggregate rates compare apples-to-apples.
+   */
+  closeRate: number;
 }
 
 /**
@@ -94,16 +104,61 @@ export interface SignalCorrelation {
   sampleSize: number;
 }
 
+/**
+ * Top-performer + tile-meta sample sizes · drives the small "across N
+ * lists" / "X of Y leads" lines under each stat tile so Tom sees the
+ * denominator behind every rate at a glance.
+ */
+export interface ListAnalyticsSampleSizes {
+  /** Active lists feeding the 90d window (excludes paused). */
+  activeListCount: number;
+  /** Sum of engaged leads · contacted + replied + won + lost. */
+  engagedLeadCount: number;
+  /** Replied leads · numerator for replyRate (REPLIED + WON + LOST). */
+  repliedLeadCount: number;
+  /** Won leads · numerator for closedWon. */
+  wonLeadCount: number;
+}
+
+/**
+ * Headline insight callout · auto-derived from the per-list funnel rows.
+ *
+ * For F.5 the insight is "top performer by close-rate" (most useful
+ * pitch artefact for Tom: "Anchor Local's last 90d → 23% close on
+ * Local-SEO retainer leads"). Future iterations can surface alternate
+ * insights (e.g. stalled lists, signal correlations) — keep the shape
+ * extensible by tagging the `kind`.
+ *
+ * Returns `null` when no list has any engaged leads — no honest
+ * insight to show yet, so the page hides the callout entirely.
+ */
+export interface ListAnalyticsInsight {
+  kind: "top_performer";
+  listId: string;
+  listName: string;
+  /** 0..1 float · close rate driving the callout. */
+  closeRate: number;
+  /** Sample size feeding the rate (engaged denominator). */
+  sampleSize: number;
+}
+
 export interface ListAnalyticsData {
   /** Agency the signed-in user belongs to · `""` for build/empty/no-membership. */
   agencyId: string;
   agencyName: string;
   /** 4-stat hero row · rolled up across the 90-day window. */
   stats: ListAnalyticsStats;
+  /** Sample sizes feeding each stat · drives the per-tile meta line. */
+  sampleSizes: ListAnalyticsSampleSizes;
   /** Per-list funnel rows · sorted by `totalLeads DESC`. */
   lists: ListFunnelRow[];
   /** Signal correlations · stub at F.5; populated in D.x. */
   signalCorrelations: SignalCorrelation[];
+  /**
+   * Auto-derived headline insight (top performer by close-rate).
+   * Null when no list has any engaged leads.
+   */
+  insight: ListAnalyticsInsight | null;
 }
 
 /**
@@ -130,6 +185,13 @@ export const EMPTY_LIST_ANALYTICS: ListAnalyticsData = {
     replyRate: 0,
     closedWon: 0,
   },
+  sampleSizes: {
+    activeListCount: 0,
+    engagedLeadCount: 0,
+    repliedLeadCount: 0,
+    wonLeadCount: 0,
+  },
   lists: [],
   signalCorrelations: [],
+  insight: null,
 };

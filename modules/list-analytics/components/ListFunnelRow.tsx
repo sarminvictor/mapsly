@@ -27,6 +27,13 @@ import type { ListFunnelRow as FunnelRowData } from "../types";
 export interface ListFunnelRowLabels {
   /** Pre-resolved integer formatter ("1,247" / "1.247" / "1 247"). */
   formatInt: (n: number) => string;
+  /** Pre-resolved percentage formatter ("12%" / "12 %") · drives close-rate cell. */
+  formatPct: (rate: number) => string;
+  /**
+   * Placeholder shown in the close-rate cell when the engaged
+   * denominator is 0 (no leads contacted yet). Mono em-dash by default.
+   */
+  closeRateZero: string;
   /** Pre-resolved paused-pill label · rendered next to the list name when paused. */
   pausedPill: string;
   /** Funnel aria-label · receives the 5 totals + listName. */
@@ -141,7 +148,7 @@ function FunnelSvg({
 /* ------------------------------------------------------------ row */
 
 export function ListFunnelRow({ row, labels, nameLink }: ListFunnelRowProps) {
-  const { totals, totalLeads } = row;
+  const { totals, totalLeads, closeRate } = row;
 
   const segments: FunnelSegment[] = [
     { label: "New", count: totals.new, fill: "var(--color-text-3, #94a3b8)" },
@@ -215,6 +222,21 @@ export function ListFunnelRow({ row, labels, nameLink }: ListFunnelRowProps) {
       <td style={cellStyle}>{labels.formatInt(totals.replied)}</td>
       <td style={cellStyle}>{labels.formatInt(totals.won)}</td>
       <td style={cellStyle}>{labels.formatInt(totals.lost)}</td>
+      <td
+        style={{
+          ...cellStyle,
+          color:
+            totals.contacted + totals.replied + totals.won + totals.lost === 0
+              ? "var(--color-text-3)"
+              : "var(--color-agency-indigo)",
+          fontWeight: 700,
+        }}
+        data-testid={`list-funnel-close-rate-${row.listId}`}
+      >
+        {totals.contacted + totals.replied + totals.won + totals.lost === 0
+          ? labels.closeRateZero
+          : labels.formatPct(closeRate)}
+      </td>
       <td
         style={{
           padding: "10px 12px",
