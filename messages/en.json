@@ -875,7 +875,14 @@
         "title": "Couldn't find that list",
         "body": "It may have been deleted, belong to another agency, or the link is stale. You can pick another list from your workspace.",
         "cta": "Back to lists"
-      }
+      },
+      "table_bulk_selected_meta": "{count, plural, one {1 lead} other {# leads}} selected",
+      "table_bulk_mark_contacted": "Mark contacted",
+      "table_bulk_mark_replied": "Mark replied",
+      "table_bulk_mark_lost": "Mark lost",
+      "table_bulk_hide": "Hide",
+      "table_bulk_clear": "Clear",
+      "table_status_error": "Couldn't update — try again."
     },
     "prospect_detail": {
       "meta": {
