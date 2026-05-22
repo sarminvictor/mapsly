@@ -181,6 +181,12 @@ export const routing = defineRouting({
       "en-CA": "/market",
       fr: "/marche",
     },
+    "/website": {
+      en: "/website",
+      es: "/sitio",
+      "en-CA": "/website",
+      fr: "/site",
+    },
   },
 });
 

@@ -72,6 +72,7 @@ async function SmbSidebarServer({ params }: { params: Promise<LayoutParams> }) {
       search: t("item_search"),
       ads: t("item_ads"),
       market: t("item_market"),
+      website: t("item_website"),
       settings: t("item_settings"),
     },
   };

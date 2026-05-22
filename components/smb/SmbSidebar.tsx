@@ -41,6 +41,7 @@ type NavHref =
   | "/search"
   | "/ads"
   | "/market"
+  | "/website"
   | "/settings";
 
 interface NavItem {
@@ -66,6 +67,7 @@ export interface SmbSidebarLabels {
     search: string;
     ads: string;
     market: string;
+    website: string;
     settings: string;
   };
 }
@@ -155,6 +157,15 @@ function IconMarket() {
   );
 }
 
+function IconWebsite() {
+  return (
+    <svg aria-hidden {...ICON_STROKE_PROPS}>
+      <circle cx="12" cy="12" r="10" />
+      <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+    </svg>
+  );
+}
+
 /* ----------------------------------------------- nav definitions */
 
 const DAILY_ITEMS: NavItem[] = [
@@ -168,6 +179,7 @@ const WATCH_ITEMS: NavItem[] = [
   { href: "/search", labelKey: "search", icon: <IconSearch /> },
   { href: "/ads", labelKey: "ads", icon: <IconAds /> },
   { href: "/market", labelKey: "market", icon: <IconMarket /> },
+  { href: "/website", labelKey: "website", icon: <IconWebsite /> },
 ];
 
 const ACCOUNT_ITEMS: NavItem[] = [
