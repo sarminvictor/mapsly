@@ -37,6 +37,9 @@ import { unauthorized } from "next/navigation";
 import { setRequestLocale, getTranslations } from "next-intl/server";
 
 import { auth } from "@/lib/auth";
+import { requirePortal } from "@/lib/portal-guard";
+import { redirect } from "@/i18n/navigation";
+import type { Locale } from "@/i18n/routing";
 import {
   RatingDistributionCard,
   ReviewCard,
@@ -183,6 +186,14 @@ async function ReviewsBody({
   if (!session?.user?.id) {
     // Bubbles to closest unauthorized.tsx (or framework default).
     unauthorized();
+  }
+
+  // Cross-portal guard · agency members get bounced to /lists so the
+  // SMB portal is reserved for Maria + non-agency users (ADMIN passes
+  // through). Per `lib/portal-guard.ts`.
+  const portalMismatch = await requirePortal(session.user.id, "smb");
+  if (portalMismatch) {
+    redirect({ href: portalMismatch.redirectTo, locale: locale as Locale });
   }
 
   const { tab: tabParam } = await searchParams;
