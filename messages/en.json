@@ -582,7 +582,8 @@
       "item_search": "Search visibility",
       "item_ads": "Ads intelligence",
       "item_settings": "Settings",
-      "item_activity": "Activity"
+      "item_activity": "Activity",
+      "item_market": "Market reality"
     },
     "activity": {
       "meta": {
@@ -604,6 +605,34 @@
       "source_ads": "Ads",
       "source_search": "Search",
       "source_market": "Market"
+    },
+    "market": {
+      "meta": {
+        "title": "Market reality · Mapsly",
+        "description": "Where you stand in your local market."
+      },
+      "eyebrow": "Your market",
+      "title": "Where you stand",
+      "subtitle": "{city} · everyone in your category, side by side.",
+      "empty_title": "Your market reality",
+      "empty_body": "Once your business is linked, this page shows where you stand against everyone else in your category and area.",
+      "rank_label": "Your spot",
+      "rank_value": "#{rank} of {total}",
+      "rank_gap": "The leader is {gap} points ahead of you on Mapsly Score. Closing that gap usually takes one strong month of replies and photos.",
+      "rank_no_data": "We'll fill this in as soon as your first weekly snapshot lands.",
+      "score_label": "Your score",
+      "top12_heading": "Top in your area",
+      "top12_empty": "No other businesses ranked yet — we're still indexing your neighbours.",
+      "you_tag": "You",
+      "medians_heading": "How most ({total}) spas in your area do",
+      "median_rating": "Rating",
+      "median_reviews": "Reviews",
+      "median_reply_rate": "Reply rate",
+      "median_photos": "Photos",
+      "median_velocity": "New reviews/mo",
+      "movers_heading": "On a hot streak",
+      "mover_value": "+{count} reviews/mo",
+      "footer_help": "Refreshed weekly. Numbers come from the same source as Google Maps — no third-party guesses."
     }
   },
   "agency": {

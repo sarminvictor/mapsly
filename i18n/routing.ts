@@ -175,6 +175,12 @@ export const routing = defineRouting({
       "en-CA": "/activity",
       fr: "/activite",
     },
+    "/market": {
+      en: "/market",
+      es: "/mercado",
+      "en-CA": "/market",
+      fr: "/marche",
+    },
   },
 });
 

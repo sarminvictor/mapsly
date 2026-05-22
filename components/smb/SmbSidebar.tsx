@@ -40,6 +40,7 @@ type NavHref =
   | "/competitors"
   | "/search"
   | "/ads"
+  | "/market"
   | "/settings";
 
 interface NavItem {
@@ -64,6 +65,7 @@ export interface SmbSidebarLabels {
     competitors: string;
     search: string;
     ads: string;
+    market: string;
     settings: string;
   };
 }
@@ -144,6 +146,15 @@ function IconActivity() {
   );
 }
 
+function IconMarket() {
+  return (
+    <svg aria-hidden {...ICON_STROKE_PROPS}>
+      <path d="M3 3v18h18" />
+      <path d="M7 16l4-8 4 4 5-10" />
+    </svg>
+  );
+}
+
 /* ----------------------------------------------- nav definitions */
 
 const DAILY_ITEMS: NavItem[] = [
@@ -156,6 +167,7 @@ const WATCH_ITEMS: NavItem[] = [
   { href: "/competitors", labelKey: "competitors", icon: <IconCompetitors /> },
   { href: "/search", labelKey: "search", icon: <IconSearch /> },
   { href: "/ads", labelKey: "ads", icon: <IconAds /> },
+  { href: "/market", labelKey: "market", icon: <IconMarket /> },
 ];
 
 const ACCOUNT_ITEMS: NavItem[] = [
