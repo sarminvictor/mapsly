@@ -288,6 +288,28 @@
       "item_search": "Visibilidad",
       "item_ads": "Anuncios",
       "item_settings": "Configuración"
+    },
+    "ads": {
+      "kpi_lanes_covered": "Servicios para los que te anuncias",
+      "kpi_lanes_covered_help": "Cuántos de tus servicios aparecen en tus anuncios activos. El primer número es lo que cubres; el segundo, los anuncios que encontramos en tu zona.",
+      "kpi_open_lanes": "Espacios libres",
+      "kpi_open_lanes_help": "Categorías de servicios para las que nadie cerca se anuncia todavía — un hueco si quisieras ser la primera.",
+      "kpi_competitor_count": "Otros que se anuncian cerca",
+      "kpi_competitor_count_help": "Cuántos otros negocios en tu categoría y ciudad hemos visto con anuncios recientes.",
+      "lane_status_open": "Espacio libre",
+      "lane_status_you_absent": "No estás aquí",
+      "lane_status_present": "Estás aquí",
+      "lane_status_crowded": "Muy disputado",
+      "lane_competitors_none": "Nadie más se anuncia para esto todavía.",
+      "lane_competitors_count_only": "{count, plural, one {1 otro negocio se anuncia aquí} other {# negocios se anuncian aquí}}.",
+      "lane_competitors_named": "También se anuncian: {names}.",
+      "lane_competitors_more": "También se anuncian: {names} +{extra, plural, one {1 más} other {# más}}.",
+      "lane_your_ad_tag": "Tu anuncio",
+      "paradox_eyebrow_high": "Echa un vistazo",
+      "paradox_eyebrow_medium": "Revisión rápida",
+      "paradox_headline": "{totalActiveAds, plural, one {Tienes 1 anuncio activo} other {Tienes # anuncios activos}} — pero solo apareces en {lanesCovered} de {totalLanes} servicios donde encontramos anuncios.",
+      "paradox_body": "La mayoría de tu inversión no dirige a los clientes a tus servicios reales. Cada anuncio debería mencionar el tratamiento por su nombre (botox, faciales, etc.) — así te encuentra la gente que lo busca.",
+      "paradox_cta": "Consejo · reescribe cada titular de anuncio empezando con el nombre del servicio."
     }
   },
   "agency": {

@@ -288,6 +288,28 @@
       "item_search": "Visibilité",
       "item_ads": "Publicités",
       "item_settings": "Paramètres"
+    },
+    "ads": {
+      "kpi_lanes_covered": "Services pour lesquels tu fais de la pub",
+      "kpi_lanes_covered_help": "Combien de tes services apparaissent dans tes publicités actives. Le premier chiffre est ta couverture ; le second, les publicités trouvées dans ta zone.",
+      "kpi_open_lanes": "Espaces libres",
+      "kpi_open_lanes_help": "Catégories de services pour lesquelles personne autour ne fait de pub — une place tranquille si tu veux y être la première.",
+      "kpi_competitor_count": "Autres qui font de la pub près d'ici",
+      "kpi_competitor_count_help": "Combien d'autres entreprises de ta catégorie et ville font de la pub récemment.",
+      "lane_status_open": "Espace libre",
+      "lane_status_you_absent": "Tu n'y es pas",
+      "lane_status_present": "Tu y es",
+      "lane_status_crowded": "Très disputé",
+      "lane_competitors_none": "Personne d'autre ne fait de pub là-dessus pour l'instant.",
+      "lane_competitors_count_only": "{count, plural, one {1 autre entreprise fait de la pub ici} other {# entreprises font de la pub ici}}.",
+      "lane_competitors_named": "Aussi en pub : {names}.",
+      "lane_competitors_more": "Aussi en pub : {names} +{extra, plural, one {1 de plus} other {# de plus}}.",
+      "lane_your_ad_tag": "Ta pub",
+      "paradox_eyebrow_high": "À regarder",
+      "paradox_eyebrow_medium": "Vérification rapide",
+      "paradox_headline": "{totalActiveAds, plural, one {Tu as 1 pub active} other {Tu as # pubs actives}} — mais tu n'apparais que pour {lanesCovered} sur {totalLanes} services où on a trouvé des pubs.",
+      "paradox_body": "La plupart de ton budget ne pointe pas vers tes vrais services. Chaque pub devrait nommer le soin (botox, soins du visage, etc.) — c'est comme ça que les gens qui le cherchent te trouvent.",
+      "paradox_cta": "Astuce · réécris chaque titre de pub en commençant par le nom du service."
     }
   },
   "agency": {
