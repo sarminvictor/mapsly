@@ -234,3 +234,139 @@ details[open] > summary::after {
     flex-shrink: 0;
   }
 }
+
+/* ===========================================================
+ * Agency portal sidebar · keyboard-first navigation
+ * Used by components/agency/AgencySidebar.tsx · rendered inside
+ * the agency layout. Cool gray + indigo per .claude/rules/
+ * ui-ux-agency.md. Denser than SMB (40px tap targets vs 44px).
+ *
+ * The "agency-shell" class on the layout toggles the grid:
+ *   - Desktop (≥ 900px): 240px sidebar | 1fr main
+ *   - Mobile (< 900px):  full-width main, nav becomes a sticky
+ *                        horizontal tab strip at the top
+ * ============================================================ */
+.agency-shell {
+  display: grid;
+  min-height: 100vh;
+  grid-template-columns: 240px minmax(0, 1fr);
+  background: var(--color-agency-bg);
+}
+.agency-nav {
+  background: var(--color-agency-bg);
+  border-right: 1px solid var(--color-border);
+  padding: 18px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  position: sticky;
+  top: 0;
+  align-self: start;
+  max-height: 100vh;
+  overflow-y: auto;
+}
+.agency-nav-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 2px 8px 14px;
+  margin-bottom: 6px;
+  border-bottom: 1px solid var(--color-border);
+}
+.agency-nav-brand-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--color-agency-indigo);
+  box-shadow: 0 0 10px rgba(91, 61, 245, 0.5);
+}
+.agency-nav-brand-text {
+  font-family: var(--font-sans);
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--color-text);
+}
+.agency-nav-brand-tag {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(91, 61, 245, 0.1);
+  color: var(--color-agency-indigo);
+  margin-left: auto;
+}
+.agency-nav-section-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--color-text-3);
+  padding: 12px 10px 4px;
+}
+.agency-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-2);
+  text-decoration: none;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+  min-height: 32px;
+}
+.agency-nav-item:hover {
+  background: rgba(28, 25, 22, 0.04);
+  color: var(--color-text);
+}
+.agency-nav-item.is-active {
+  background: rgba(91, 61, 245, 0.1);
+  color: var(--color-agency-indigo);
+  font-weight: 600;
+}
+.agency-nav-item-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+/* Mobile · sidebar collapses to a horizontal scroll-tab strip. */
+@media (max-width: 899px) {
+  .agency-shell {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto 1fr;
+  }
+  .agency-nav {
+    flex-direction: row;
+    border-right: none;
+    border-bottom: 1px solid var(--color-border);
+    padding: 8px 12px;
+    gap: 4px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    max-height: none;
+    align-self: stretch;
+    background: var(--color-bg-2);
+  }
+  .agency-nav-brand,
+  .agency-nav-section-label {
+    display: none;
+  }
+  .agency-nav-item {
+    min-height: 44px; /* WCAG tap target on mobile only */
+    white-space: nowrap;
+    padding: 10px 14px;
+    flex-shrink: 0;
+  }
+}

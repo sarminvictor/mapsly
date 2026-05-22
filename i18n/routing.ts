@@ -187,6 +187,18 @@ export const routing = defineRouting({
       "en-CA": "/website",
       fr: "/site",
     },
+    "/list-activity": {
+      en: "/list-activity",
+      es: "/actividad-listas",
+      "en-CA": "/list-activity",
+      fr: "/activite-listes",
+    },
+    "/reports": {
+      en: "/reports",
+      es: "/informes",
+      "en-CA": "/reports",
+      fr: "/rapports",
+    },
   },
 });
 
