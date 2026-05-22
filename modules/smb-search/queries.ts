@@ -46,7 +46,10 @@ import prisma from "@/lib/prisma";
 import {
   EMPTY_SMB_SEARCH,
   MAX_KEYWORDS,
+  deriveSearchQuickWins,
+  estimatePatientsLost,
   type KeywordRow,
+  type PackSlot,
   type SmbSearchData,
 } from "./types";
 
@@ -140,6 +143,10 @@ export async function getSmbSearchData(userId: string): Promise<SmbSearchData> {
             scannedAt: true,
             localPackRank: true,
             organicRank: true,
+            // Pack occupant names — fuel the per-keyword 3-slot view.
+            pack1Name: true,
+            pack2Name: true,
+            pack3Name: true,
             keyword: {
               select: {
                 id: true,
@@ -176,6 +183,18 @@ export async function getSmbSearchData(userId: string): Promise<SmbSearchData> {
       const kw = latest.keyword;
       if (!kw) continue;
 
+      const packSlots = buildPackSlots({
+        pack1Name: latest.pack1Name,
+        pack2Name: latest.pack2Name,
+        pack3Name: latest.pack3Name,
+        ownLocalPackRank: latest.localPackRank,
+        ownName: own.name,
+      });
+      const estLost = estimatePatientsLost({
+        searchVolume: kw.searchVolume,
+        localPackRank: latest.localPackRank,
+      });
+
       rows.push({
         id: kw.id,
         keyword: kw.keyword,
@@ -185,6 +204,8 @@ export async function getSmbSearchData(userId: string): Promise<SmbSearchData> {
         prevLocalPackRank: previous?.localPackRank ?? null,
         prevOrganicRank: previous?.organicRank ?? null,
         scannedAt: latest.scannedAt,
+        packSlots,
+        estPatientsLost: estLost,
       });
 
       const ms = latest.scannedAt.getTime();
@@ -228,6 +249,12 @@ export async function getSmbSearchData(userId: string): Promise<SmbSearchData> {
       }
     }
 
+    const totalEstPatientsLost = rows.reduce(
+      (sum, r) => sum + r.estPatientsLost,
+      0,
+    );
+    const topQuickWins = deriveSearchQuickWins(rows);
+
     return {
       ownedBusinessId: own.id,
       name: own.name,
@@ -238,6 +265,8 @@ export async function getSmbSearchData(userId: string): Promise<SmbSearchData> {
       keywordsImprovedThisWeek: keywordsImproved,
       keywords: visible,
       lastScanAt: mostRecentScanMs != null ? new Date(mostRecentScanMs) : null,
+      totalEstPatientsLost,
+      topQuickWins,
     };
   } catch (err) {
     // Per `.claude/rules/observability.md`, surface Prisma failures to
@@ -246,4 +275,40 @@ export async function getSmbSearchData(userId: string): Promise<SmbSearchData> {
     console.error("getSmbSearchData failed", err);
     return EMPTY_SMB_SEARCH;
   }
+}
+
+/**
+ * Build the 3-slot local-pack view for a keyword.
+ *
+ * Each slot resolves in priority order:
+ *   1. If Maria's own rank matches this slot, use "You" + kind=you.
+ *   2. Else if SerpResult has a named occupant, use it + kind=competitor.
+ *   3. Else mark the slot empty.
+ *
+ * SerpResult names are nullable (the cron sometimes captures rank
+ * without harvesting all 3 names). Empty slots render as a dash.
+ */
+function buildPackSlots(input: {
+  pack1Name: string | null;
+  pack2Name: string | null;
+  pack3Name: string | null;
+  ownLocalPackRank: number | null;
+  ownName: string;
+}): PackSlot[] {
+  const occupants: Array<string | null> = [
+    input.pack1Name,
+    input.pack2Name,
+    input.pack3Name,
+  ];
+  const ownRank = input.ownLocalPackRank;
+  return ([1, 2, 3] as const).map((rank) => {
+    if (ownRank != null && ownRank === rank) {
+      return { rank, name: "You", kind: "you" } as PackSlot;
+    }
+    const captured = occupants[rank - 1];
+    if (captured && captured.trim() !== "") {
+      return { rank, name: captured, kind: "competitor" } as PackSlot;
+    }
+    return { rank, name: "—", kind: "empty" } as PackSlot;
+  });
 }

@@ -295,7 +295,13 @@
       "empty_title": "Connectons votre entreprise",
       "empty_body": "Aucune entreprise n'est encore liée à votre compte. Dites-nous où vous êtes et nous commencerons à suivre les recherches utilisées par vos patients.",
       "empty_no_keywords": "Nous cherchons encore les recherches utilisées par vos patients. Revenez dans quelques jours.",
-      "footer_help": "Mis à jour chaque semaine. Nous surveillons les recherches les plus susceptibles de vous amener des patients dans votre secteur."
+      "footer_help": "Mis à jour chaque semaine. Nous surveillons les recherches les plus susceptibles de vous amener des patients dans votre secteur.",
+      "kpi_patients_lost": "Clients qu'on estime que tu rates",
+      "kpi_patients_lost_sublabel": "Par mois, selon le volume de recherche et la position",
+      "kpi_patients_lost_help": "Estimation du nombre de personnes par mois qui cherchent tes services, voient le top 3 dans Google Maps et ne te trouvent pas parce que tu n'y es pas.",
+      "quick_wins_heading": "Trois gains rapides",
+      "pack_label": "Top 3 dans Maps",
+      "est_lost_per_keyword": "{count, plural, one {≈ 1 client/mois manqué} other {≈ # clients/mois manqués}}"
     },
     "nav": {
       "brand": "mapsly",

@@ -348,7 +348,13 @@
       "empty_title": "Let's connect your business",
       "empty_body": "We don't have a business linked to your account yet. Tell us where you are and we'll start tracking the searches your patients use.",
       "empty_no_keywords": "We're still finding the keywords your patients search. Check back in a few days.",
-      "footer_help": "Refreshed weekly. We watch the keywords most likely to bring you patients in your area."
+      "footer_help": "Refreshed weekly. We watch the keywords most likely to bring you patients in your area.",
+      "kpi_patients_lost": "Customers we estimate you miss",
+      "kpi_patients_lost_sublabel": "Per month, based on search volume + position",
+      "kpi_patients_lost_help": "Rough estimate of how many people each month search for one of your services, see the top 3 spots in Google Maps, and never reach you because you're not in those top 3.",
+      "quick_wins_heading": "Three quick wins",
+      "pack_label": "Top 3 in maps",
+      "est_lost_per_keyword": "{count, plural, one {≈ 1 customer/mo missed} other {≈ # customers/mo missed}}"
     },
     "ads": {
       "meta": {
