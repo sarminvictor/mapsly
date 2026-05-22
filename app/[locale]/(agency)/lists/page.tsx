@@ -197,6 +197,7 @@ async function ListsBody({ params }: { params: Promise<PageParams> }) {
     qualifiedLabel: t("card_qualified_label"),
     thisWeekLabel: t("card_this_week_label"),
     engagedLabel: t("card_engaged_label"),
+    verifiedEmailLabel: t("card_verified_email_label"),
     cadenceLabel: (cadence) => {
       if (cadence === "DAILY") return t("card_cadence_daily");
       if (cadence === "WEEKLY") return t("card_cadence_weekly");
@@ -215,6 +216,8 @@ async function ListsBody({ params }: { params: Promise<PageParams> }) {
         ? t("card_target_any")
         : t("card_target_prefix", { target: parts.join(" · ") });
     },
+    filterChipsLabel: t("card_filter_chips_label"),
+    filterMoreLabel: (n) => t("card_filter_more", { count: n }),
   };
 
   const customServiceLabel = t("service_type_custom");
@@ -309,6 +312,16 @@ async function ListsBody({ params }: { params: Promise<PageParams> }) {
           })}
           meta={t("today_strip_meta")}
           cta={{ href: "/lists", label: t("today_strip_cta") }}
+          verifiedEmail={
+            data.totalVerifiedEmail > 0
+              ? {
+                  count: data.totalVerifiedEmail,
+                  label: t("today_strip_verified_email", {
+                    count: data.totalVerifiedEmail,
+                  }),
+                }
+              : null
+          }
         />
       ) : null}
 

@@ -26,6 +26,8 @@
 
 import * as React from "react";
 
+import type { AgencyListDetailFilterTag } from "@/modules/agency-portal/list-detail/types";
+
 import {
   SERVICE_TEMPLATE_BY_TYPE,
   type ServiceTemplateDescriptor,
@@ -34,14 +36,18 @@ import type { AgencyListSummary } from "../types";
 
 import { ServiceBadge } from "./ServiceBadge";
 
+/** How many filter chips render inline before the "+N more" overflow. */
+const MAX_INLINE_CHIPS = 3;
+
 export interface ListCardLabels {
   badge: string;
   newPill: (n: number) => string;
   pausedPill: string;
-  /** Stat labels · qualified / this week / engaged. */
+  /** Stat labels · qualified / this week / engaged / verified-email. */
   qualifiedLabel: string;
   thisWeekLabel: string;
   engagedLabel: string;
+  verifiedEmailLabel: string;
   /** Cadence footer fragment, e.g. "Refreshes daily 6am". */
   cadenceLabel: (cadence: AgencyListSummary["refreshCadence"]) => string;
   /** Action button titles for screen-readers / tooltips. */
@@ -55,6 +61,10 @@ export interface ListCardLabels {
     metro: string | null;
     radiusMi: number | null;
   }) => string;
+  /** Aria-label on the filter chips row, e.g. "Signals defining this list". */
+  filterChipsLabel: string;
+  /** "+N more" overflow label, e.g. "+2 more". */
+  filterMoreLabel: (n: number) => string;
 }
 
 export interface ListCardProps {
@@ -195,7 +205,7 @@ export function ListCard({ list, customServiceLabel, labels }: ListCardProps) {
         {list.pitch ? (
           <p
             style={{
-              margin: "0 0 14px",
+              margin: "0 0 12px",
               fontSize: 12.5,
               fontStyle: "italic",
               lineHeight: 1.5,
@@ -206,12 +216,23 @@ export function ListCard({ list, customServiceLabel, labels }: ListCardProps) {
           </p>
         ) : null}
 
-        {/* 3-column stat row */}
+        {/* Filter chips · top 3 with "+N more" overflow. Skipped entirely
+            when the list has no filterTags (CUSTOM lists with category-
+            only targeting, or yet-to-be-edited templates). */}
+        {list.filterTags.length > 0 ? (
+          <FilterChips
+            tags={list.filterTags}
+            ariaLabel={labels.filterChipsLabel}
+            moreLabel={labels.filterMoreLabel}
+          />
+        ) : null}
+
+        {/* 4-column stat row · qualified / +new / engaged / verified email */}
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "1fr 1fr 1fr",
-            gap: 8,
+            gridTemplateColumns: "1fr 1fr 1fr 1fr",
+            gap: 6,
             padding: "12px 0",
             borderTop: "1px solid var(--color-border)",
             borderBottom: "1px solid var(--color-border)",
@@ -236,6 +257,11 @@ export function ListCard({ list, customServiceLabel, labels }: ListCardProps) {
             value={list.engagedCount}
             label={labels.engagedLabel}
             tone="neutral"
+          />
+          <Stat
+            value={list.verifiedEmailCount}
+            label={labels.verifiedEmailLabel}
+            tone={list.verifiedEmailCount > 0 ? "teal" : "neutral"}
           />
         </div>
 
@@ -293,20 +319,22 @@ function Stat({
 }: {
   value: number | string;
   label: string;
-  tone: "indigo" | "green" | "neutral";
+  tone: "indigo" | "green" | "neutral" | "teal";
 }) {
   const color =
     tone === "indigo"
       ? "var(--color-agency-indigo)"
       : tone === "green"
         ? "var(--color-success)"
-        : "var(--color-text)";
+        : tone === "teal"
+          ? "var(--color-agency-teal)"
+          : "var(--color-text)";
   return (
     <div>
       <div
         style={{
           fontFamily: "var(--font-mono)",
-          fontSize: 18,
+          fontSize: 17,
           fontWeight: 700,
           color,
         }}
@@ -316,17 +344,97 @@ function Stat({
       <div
         style={{
           fontFamily: "var(--font-mono)",
-          fontSize: 9.5,
+          fontSize: 9,
           fontWeight: 600,
           textTransform: "uppercase",
-          letterSpacing: "0.05em",
+          letterSpacing: "0.04em",
           color: "var(--color-text-3)",
           marginTop: 2,
+          lineHeight: 1.2,
         }}
       >
         {label}
       </div>
     </div>
+  );
+}
+
+/**
+ * Compact horizontal chip row for the parsed filter tags. Shows up to
+ * `MAX_INLINE_CHIPS` chips inline + a "+N more" overflow indicator.
+ *
+ * Tom uses these to scan "what defines this list?" — the chips are
+ * mono, dense, indigo-tinted. Exclude-style filters (e.g. "exclude
+ * existing clients") render in the alert tone so they stand out.
+ */
+function FilterChips({
+  tags,
+  ariaLabel,
+  moreLabel,
+}: {
+  tags: AgencyListDetailFilterTag[];
+  ariaLabel: string;
+  moreLabel: (n: number) => string;
+}) {
+  const visible = tags.slice(0, MAX_INLINE_CHIPS);
+  const overflow = tags.length - visible.length;
+
+  return (
+    <ul
+      aria-label={ariaLabel}
+      style={{
+        listStyle: "none",
+        margin: "0 0 12px",
+        padding: 0,
+        display: "flex",
+        flexWrap: "wrap",
+        gap: 4,
+      }}
+    >
+      {visible.map((tag) => {
+        const isExclude = tag.exclude === true;
+        return (
+          <li
+            key={tag.id}
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: 10,
+              fontWeight: 600,
+              padding: "2px 7px",
+              borderRadius: 4,
+              background: isExclude
+                ? "rgba(195,85,58,.10)"
+                : "rgba(91,61,245,.08)",
+              color: isExclude
+                ? "var(--color-alert)"
+                : "var(--color-agency-indigo)",
+              border: `1px solid ${
+                isExclude ? "rgba(195,85,58,.18)" : "rgba(91,61,245,.18)"
+              }`,
+              whiteSpace: "nowrap",
+              lineHeight: 1.4,
+            }}
+          >
+            {tag.label}
+          </li>
+        );
+      })}
+      {overflow > 0 ? (
+        <li
+          style={{
+            fontFamily: "var(--font-mono)",
+            fontSize: 10,
+            fontWeight: 600,
+            padding: "2px 7px",
+            borderRadius: 4,
+            color: "var(--color-text-3)",
+            lineHeight: 1.4,
+          }}
+        >
+          {moreLabel(overflow)}
+        </li>
+      ) : null}
+    </ul>
   );
 }
 

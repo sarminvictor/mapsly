@@ -4,8 +4,8 @@
  * `AgencyListsData` is the flat shape the `/(agency)/lists` page renders
  * from. Each `AgencyListSummary` denormalises one `List` row + a small
  * set of cheap aggregates (qualified count, this-week delta, engaged
- * count) so the page doesn't have to drill through `leads[]` to render
- * the per-card stats.
+ * count, verified-email count) plus the parsed filter-tag chips so the
+ * page can render "what defines this list" without an extra round-trip.
  *
  * `EMPTY_AGENCY_LISTS` is the build-phase / no-agency / error
  * short-circuit shape per `.claude/rules/cache-components.md` Pattern 1.
@@ -20,6 +20,8 @@
  * local instead of pulling Prisma types in — the F.0 component library
  * uses the same pattern for `LeadStatusValue`.
  */
+
+import type { AgencyListDetailFilterTag } from "@/modules/agency-portal/list-detail/types";
 
 /** Mirror of Prisma `ListServiceType` enum · keep these in lock-step. */
 export type ListServiceTypeValue =
@@ -69,6 +71,19 @@ export interface AgencyListSummary {
   newThisWeekCount: number;
   /** Leads in CONTACTED/REPLIED/WON status · drives "X engaged". */
   engagedCount: number;
+  /**
+   * Leads whose Business has a non-null verified contact email — Tom's
+   * top outreach signal. Drives the 4th stat on each card and feeds the
+   * aggregate `totalVerifiedEmail` on the today-strip.
+   */
+  verifiedEmailCount: number;
+
+  /**
+   * Parsed `List.filterJson` rendered as chips on the card. Empty when
+   * the list has no explicit filters (e.g. a category-only target).
+   * Display caps to 3 chips at the card level with a "+N more" affordance.
+   */
+  filterTags: AgencyListDetailFilterTag[];
 
   createdAt: Date;
 }
@@ -83,6 +98,12 @@ export interface AgencyListsData {
   paused: AgencyListSummary[];
   /** Sum of `newThisWeekCount` across active lists · "today/this week strip". */
   totalNewThisWeek: number;
+  /**
+   * Sum of `verifiedEmailCount` across active lists. Drives the
+   * "X with verified email" line on the today strip — Tom's prompt to
+   * dive in and start contacting.
+   */
+  totalVerifiedEmail: number;
 }
 
 /**
@@ -101,4 +122,5 @@ export const EMPTY_AGENCY_LISTS: AgencyListsData = {
   active: [],
   paused: [],
   totalNewThisWeek: 0,
+  totalVerifiedEmail: 0,
 };
