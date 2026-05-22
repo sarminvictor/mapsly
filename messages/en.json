@@ -583,7 +583,8 @@
       "item_ads": "Ads intelligence",
       "item_settings": "Settings",
       "item_activity": "Activity",
-      "item_market": "Market reality"
+      "item_market": "Market reality",
+      "item_website": "Website health"
     },
     "activity": {
       "meta": {
@@ -633,6 +634,38 @@
       "movers_heading": "On a hot streak",
       "mover_value": "+{count} reviews/mo",
       "footer_help": "Refreshed weekly. Numbers come from the same source as Google Maps — no third-party guesses."
+    },
+    "website": {
+      "meta": {
+        "title": "Website health · Mapsly",
+        "description": "How your website is doing — speed, search-ready, and the fixes that matter."
+      },
+      "eyebrow": "Your website",
+      "title": "How your site is doing",
+      "empty_title": "Your website health",
+      "empty_body": "Once your business is linked, this page shows how fast your site is, what Google sees, and the top fixes worth your time.",
+      "no_audit_title": "We haven't checked your site yet",
+      "no_audit_body": "Audits run weekly. Once the first one lands, you'll see speed scores, what Google sees, and a short list of fixes.",
+      "overall_label": "Overall",
+      "overall_meaning": "A quick read on how your homepage feels for someone tapping in for the first time on their phone.",
+      "score_label": "Score",
+      "speed_heading": "Speed signals",
+      "speed_page_show_label": "How fast your page shows up",
+      "speed_buttons_label": "How quickly buttons respond",
+      "speed_steady_label": "How steady the page is",
+      "speed_overall_speed_label": "Overall speed",
+      "checks_heading": "What Google sees",
+      "check_google_tags_label": "Tags Google reads about your business",
+      "check_faq_tags_label": "FAQ section Google can show in search",
+      "check_booking_top_label": "Booking button at the top",
+      "check_phone_top_label": "Phone number at the top",
+      "check_info_matches_label": "Your name + address + phone match everywhere",
+      "check_state_pass": "Yes",
+      "check_state_fail": "Not yet",
+      "check_state_unknown": "Unsure",
+      "fixes_heading": "Top fixes worth your time",
+      "tech_heading": "What your site is built on",
+      "footer_help": "Refreshed weekly. We check your homepage on mobile — the way most patients first see you."
     }
   },
   "agency": {

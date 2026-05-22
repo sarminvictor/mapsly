@@ -328,7 +328,8 @@
       "item_ads": "Anuncios",
       "item_settings": "Configuración",
       "item_activity": "Actividad",
-      "item_market": "Tu mercado"
+      "item_market": "Tu mercado",
+      "item_website": "Salud del sitio"
     },
     "ads": {
       "kpi_lanes_covered": "Servicios para los que te anuncias",
@@ -400,6 +401,38 @@
       "movers_heading": "En racha",
       "mover_value": "+{count} reseñas/mes",
       "footer_help": "Actualizado cada semana. Los datos vienen de la misma fuente que Google Maps — sin estimaciones de terceros."
+    },
+    "website": {
+      "meta": {
+        "title": "Salud del sitio · Mapsly",
+        "description": "Cómo va tu sitio web — velocidad, listo para búsquedas y las soluciones que importan."
+      },
+      "eyebrow": "Tu sitio web",
+      "title": "Cómo va tu sitio",
+      "empty_title": "Salud de tu sitio",
+      "empty_body": "Una vez vinculado tu negocio, esta página muestra qué tan rápido va tu sitio, qué ve Google y las mejores soluciones para tu tiempo.",
+      "no_audit_title": "Aún no hemos revisado tu sitio",
+      "no_audit_body": "Las revisiones son semanales. Cuando llegue la primera, verás velocidad, lo que ve Google y una lista corta de soluciones.",
+      "overall_label": "En general",
+      "overall_meaning": "Una lectura rápida de cómo se siente tu página de inicio para alguien que entra por primera vez en el móvil.",
+      "score_label": "Puntaje",
+      "speed_heading": "Señales de velocidad",
+      "speed_page_show_label": "Qué tan rápido aparece tu página",
+      "speed_buttons_label": "Qué tan rápido responden los botones",
+      "speed_steady_label": "Qué tan estable es la página",
+      "speed_overall_speed_label": "Velocidad general",
+      "checks_heading": "Lo que ve Google",
+      "check_google_tags_label": "Etiquetas que Google lee sobre tu negocio",
+      "check_faq_tags_label": "Sección de preguntas que Google puede mostrar",
+      "check_booking_top_label": "Botón de reserva arriba",
+      "check_phone_top_label": "Número de teléfono arriba",
+      "check_info_matches_label": "Tu nombre + dirección + teléfono coinciden en todas partes",
+      "check_state_pass": "Sí",
+      "check_state_fail": "Aún no",
+      "check_state_unknown": "Sin certeza",
+      "fixes_heading": "Mejores soluciones para tu tiempo",
+      "tech_heading": "Con qué está hecho tu sitio",
+      "footer_help": "Actualizado cada semana. Revisamos tu página de inicio en móvil — como te ven la mayoría de los pacientes."
     }
   },
   "agency": {
