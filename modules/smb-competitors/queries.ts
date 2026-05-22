@@ -44,6 +44,8 @@ import prisma from "@/lib/prisma";
 import {
   EMPTY_SMB_COMPETITORS,
   MAX_COMPETITORS,
+  deriveHeadToHead,
+  deriveThreats,
   type CompetitorRow,
   type SmbCompetitorsData,
 } from "./types";
@@ -76,6 +78,8 @@ export async function getSmbCompetitorsData(
         province: true,
         rating: true,
         reviewCount: true,
+        address: true,
+        createdAt: true,
         snapshots: {
           take: 1,
           orderBy: { snapshotDate: "desc" },
@@ -84,6 +88,9 @@ export async function getSmbCompetitorsData(
             msiRank: true,
             msiTotal: true,
             velocityLast30d: true,
+            replyRate: true,
+            profileCompletenessScore: true,
+            photosCount: true,
             snapshotDate: true,
           },
         },
@@ -111,6 +118,9 @@ export async function getSmbCompetitorsData(
         marketTotal: ownSnap?.msiTotal ?? null,
         competitors: [],
         lastSnapshotAt: ownSnap?.snapshotDate ?? null,
+        headToHead: [],
+        leaderName: null,
+        threats: [],
       };
     }
 
@@ -133,12 +143,17 @@ export async function getSmbCompetitorsData(
         name: true,
         rating: true,
         reviewCount: true,
+        address: true,
+        createdAt: true,
         snapshots: {
           take: 1,
           orderBy: { snapshotDate: "desc" },
           select: {
             mapslyScore: true,
             velocityLast30d: true,
+            replyRate: true,
+            profileCompletenessScore: true,
+            photosCount: true,
           },
         },
       },
@@ -156,7 +171,14 @@ export async function getSmbCompetitorsData(
       reviewCount: own.reviewCount,
       mapslyScore: ownSnap?.mapslyScore ?? null,
       velocityLast30d: ownSnap?.velocityLast30d ?? null,
+      replyRate: ownSnap?.replyRate ?? null,
+      profileCompletenessScore: ownSnap?.profileCompletenessScore ?? null,
+      photosCount: ownSnap?.photosCount ?? null,
+      isSameBuilding: false,
+      createdAt: own.createdAt ?? null,
     };
+
+    const ownAddrKey = addressKey(own.address);
 
     const neighbourRows: CompetitorRow[] = neighbours.map((n) => {
       const snap = n.snapshots[0] ?? null;
@@ -168,6 +190,12 @@ export async function getSmbCompetitorsData(
         reviewCount: n.reviewCount,
         mapslyScore: snap?.mapslyScore ?? null,
         velocityLast30d: snap?.velocityLast30d ?? null,
+        replyRate: snap?.replyRate ?? null,
+        profileCompletenessScore: snap?.profileCompletenessScore ?? null,
+        photosCount: snap?.photosCount ?? null,
+        isSameBuilding:
+          ownAddrKey !== null && addressKey(n.address) === ownAddrKey,
+        createdAt: n.createdAt ?? null,
       };
     });
 
@@ -175,6 +203,19 @@ export async function getSmbCompetitorsData(
       0,
       MAX_COMPETITORS + 1, // user's row + N competitors
     );
+
+    // Identify the leader (highest-scoring non-own row) for the
+    // head-to-head panel.
+    const leader =
+      combined.find((c) => !c.isOwn && c.mapslyScore != null) ??
+      combined.find((c) => !c.isOwn) ??
+      null;
+
+    const headToHead = deriveHeadToHead(ownRow, leader);
+    const threats = deriveThreats({
+      own: ownRow,
+      competitors: combined,
+    });
 
     return {
       ownedBusinessId: own.id,
@@ -187,10 +228,26 @@ export async function getSmbCompetitorsData(
       marketTotal: ownSnap?.msiTotal ?? null,
       competitors: combined,
       lastSnapshotAt: ownSnap?.snapshotDate ?? null,
+      headToHead,
+      leaderName: leader?.name ?? null,
+      threats,
     };
   } catch {
     return EMPTY_SMB_COMPETITORS;
   }
+}
+
+/**
+ * Address normaliser for the same-building heuristic. Returns a
+ * lowercase, whitespace-collapsed prefix (first 30 chars) or `null`
+ * for missing/empty addresses. Two businesses share the same building
+ * when their normalised addresses match.
+ */
+function addressKey(addr: string | null | undefined): string | null {
+  if (!addr || typeof addr !== "string") return null;
+  const trimmed = addr.toLowerCase().replace(/\s+/g, " ").trim();
+  if (!trimmed) return null;
+  return trimmed.slice(0, 30);
 }
 
 /**

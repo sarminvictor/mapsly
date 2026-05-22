@@ -249,7 +249,19 @@
       "reviews_aria_label": "Número de reseñas",
       "empty_no_city": "Aún no tenemos tu ciudad registrada, así que no podemos encontrar competidores locales. Agrega tu dirección en ajustes y los traeremos en la próxima actualización.",
       "empty_no_neighbours": "Aún no tenemos a otros negocios de tu categoría y ciudad en nuestro índice. A medida que los descubramos, aparecerán aquí.",
-      "footer_help": "Se actualiza cada semana. Un mayor puntaje, mejor posición y reseñas más recientes te elevan por encima del resto."
+      "footer_help": "Se actualiza cada semana. Un mayor puntaje, mejor posición y reseñas más recientes te elevan por encima del resto.",
+      "h2h_heading": "Cómo te comparas con {leader}",
+      "h2h_dim_mapsly_score": "Puntuación de Mapsly",
+      "h2h_dim_rating": "Calificación",
+      "h2h_dim_reviews": "Reseñas",
+      "h2h_dim_reply_rate": "Con qué frecuencia respondes a reseñas",
+      "h2h_dim_velocity": "Reseñas nuevas este mes",
+      "h2h_dim_photos": "Fotos en Google",
+      "h2h_dim_profile": "Perfil de Google completado",
+      "threats_heading": "Lo que necesita tu atención",
+      "threat_tier_high": "Importante",
+      "threat_tier_rising": "Subiendo",
+      "threat_tier_info": "Atención"
     },
     "search": {
       "meta": {

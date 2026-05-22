@@ -249,7 +249,19 @@
       "reviews_aria_label": "Nombre d'avis",
       "empty_no_city": "Nous n'avons pas encore votre ville, donc nous ne pouvons pas trouver de concurrents locaux. Ajoutez votre adresse dans les paramètres et nous les chargerons à la prochaine mise à jour.",
       "empty_no_neighbours": "Aucune autre entreprise de votre catégorie et de votre ville n'est encore dans notre index. Au fur et à mesure que nous les découvrirons, elles apparaîtront ici.",
-      "footer_help": "Mis à jour chaque semaine. Un meilleur score, un meilleur rang et des avis plus récents vous placent au-dessus."
+      "footer_help": "Mis à jour chaque semaine. Un meilleur score, un meilleur rang et des avis plus récents vous placent au-dessus.",
+      "h2h_heading": "Comment tu te compares à {leader}",
+      "h2h_dim_mapsly_score": "Score Mapsly",
+      "h2h_dim_rating": "Note",
+      "h2h_dim_reviews": "Avis",
+      "h2h_dim_reply_rate": "À quelle fréquence tu réponds aux avis",
+      "h2h_dim_velocity": "Nouveaux avis ce mois-ci",
+      "h2h_dim_photos": "Photos sur Google",
+      "h2h_dim_profile": "Profil Google rempli",
+      "threats_heading": "Ce qui demande ton attention",
+      "threat_tier_high": "Important",
+      "threat_tier_rising": "En hausse",
+      "threat_tier_info": "À noter"
     },
     "search": {
       "meta": {
