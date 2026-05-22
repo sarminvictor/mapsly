@@ -41,6 +41,13 @@ export type DeltaDirection =
   /** First scan or newly appearing this week. */
   | "new";
 
+/** One slot of the local-pack 3-slot view rendered inside the row. */
+export interface KeywordRowSlot {
+  rank: 1 | 2 | 3;
+  name: string;
+  kind: "you" | "competitor" | "empty";
+}
+
 export interface KeywordRowDisplayProps {
   /** The keyword being tracked. */
   keyword: string;
@@ -57,6 +64,12 @@ export interface KeywordRowDisplayProps {
   searchVolumeText: string;
   /** Accessible label for the volume cell (e.g. "2400 searches per month"). */
   searchVolumeAriaLabel: string;
+  /** 3-slot local-pack view. */
+  packSlots: KeywordRowSlot[];
+  /** Heading copy for the pack-slot block (e.g. "Top 3 in maps"). */
+  packLabel: string;
+  /** Pre-formatted "+N patients/mo missed" text. Empty string hides it. */
+  estPatientsLostText: string;
 }
 
 function statusColor(status: VisibilityStatus): string {
@@ -96,13 +109,16 @@ export function KeywordRow({
   deltaText,
   searchVolumeText,
   searchVolumeAriaLabel,
+  packSlots,
+  packLabel,
+  estPatientsLostText,
 }: KeywordRowDisplayProps) {
   return (
     <li
       style={{
         display: "flex",
-        alignItems: "center",
-        gap: 12,
+        flexDirection: "column",
+        gap: 10,
         padding: "14px 16px",
         background: "var(--color-bg-2)",
         border: "1px solid var(--color-border)",
@@ -110,70 +126,178 @@ export function KeywordRow({
         listStyle: "none",
       }}
     >
-      <span
+      <div
         style={{
-          flex: 1,
-          minWidth: 0,
-          fontSize: 15,
-          color: "var(--color-text)",
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-          whiteSpace: "nowrap",
+          display: "flex",
+          alignItems: "center",
+          gap: 12,
         }}
       >
-        {keyword}
-      </span>
-      <span
-        aria-label={statusText}
+        <span
+          style={{
+            flex: 1,
+            minWidth: 0,
+            fontSize: 15,
+            color: "var(--color-text)",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {keyword}
+        </span>
+        <span
+          aria-label={statusText}
+          style={{
+            flexShrink: 0,
+            minWidth: 0,
+            fontSize: 13,
+            color: statusColor(status),
+            fontWeight: 500,
+            textAlign: "right",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {statusText}
+        </span>
+        <span
+          aria-label={deltaText}
+          style={{
+            width: 88,
+            flexShrink: 0,
+            textAlign: "right",
+            fontSize: 13,
+            color: deltaColor(delta),
+            fontVariantNumeric: "tabular-nums",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {delta != null ? (
+            <span aria-hidden style={{ marginRight: 4 }}>
+              {deltaGlyph(delta)}
+            </span>
+          ) : null}
+          {deltaText}
+        </span>
+        <span
+          aria-label={searchVolumeAriaLabel}
+          style={{
+            width: 72,
+            flexShrink: 0,
+            textAlign: "right",
+            fontSize: 13,
+            color: "var(--color-text-2)",
+            fontVariantNumeric: "tabular-nums",
+            fontFamily: "var(--font-mono)",
+          }}
+        >
+          {searchVolumeText}
+        </span>
+      </div>
+      <div
         style={{
-          flexShrink: 0,
-          minWidth: 0,
-          fontSize: 13,
-          color: statusColor(status),
-          fontWeight: 500,
-          textAlign: "right",
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-          whiteSpace: "nowrap",
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          flexWrap: "wrap",
         }}
       >
-        {statusText}
-      </span>
-      <span
-        aria-label={deltaText}
-        style={{
-          width: 88,
-          flexShrink: 0,
-          textAlign: "right",
-          fontSize: 13,
-          color: deltaColor(delta),
-          fontVariantNumeric: "tabular-nums",
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-          whiteSpace: "nowrap",
-        }}
-      >
-        {delta != null ? (
-          <span aria-hidden style={{ marginRight: 4 }}>
-            {deltaGlyph(delta)}
+        <span
+          style={{
+            fontFamily: "var(--font-mono)",
+            fontSize: 10,
+            letterSpacing: "0.08em",
+            textTransform: "uppercase",
+            color: "var(--color-text-3)",
+            flexShrink: 0,
+          }}
+        >
+          {packLabel}
+        </span>
+        <ol
+          aria-label={packLabel}
+          style={{
+            display: "flex",
+            gap: 6,
+            margin: 0,
+            padding: 0,
+            listStyle: "none",
+            flexWrap: "wrap",
+          }}
+        >
+          {packSlots.map((slot) => (
+            <li key={slot.rank}>
+              <span
+                title={slot.name}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "3px 10px",
+                  borderRadius: 999,
+                  fontSize: 12,
+                  maxWidth: 160,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                  ...slotStyle(slot.kind),
+                }}
+              >
+                <span
+                  style={{
+                    fontFamily: "var(--font-mono)",
+                    fontSize: 10,
+                    opacity: 0.7,
+                  }}
+                >
+                  #{slot.rank}
+                </span>
+                {slot.name}
+              </span>
+            </li>
+          ))}
+        </ol>
+        {estPatientsLostText ? (
+          <span
+            style={{
+              marginLeft: "auto",
+              fontFamily: "var(--font-mono)",
+              fontSize: 11,
+              color: "var(--color-coral)",
+              fontWeight: 600,
+            }}
+          >
+            {estPatientsLostText}
           </span>
         ) : null}
-        {deltaText}
-      </span>
-      <span
-        aria-label={searchVolumeAriaLabel}
-        style={{
-          width: 72,
-          flexShrink: 0,
-          textAlign: "right",
-          fontSize: 13,
-          color: "var(--color-text-2)",
-          fontVariantNumeric: "tabular-nums",
-          fontFamily: "var(--font-mono)",
-        }}
-      >
-        {searchVolumeText}
-      </span>
+      </div>
     </li>
   );
+}
+
+function slotStyle(kind: KeywordRowSlot["kind"]): React.CSSProperties {
+  switch (kind) {
+    case "you":
+      return {
+        background: "var(--color-coral)",
+        color: "#fff",
+        fontWeight: 600,
+      };
+    case "competitor":
+      return {
+        background: "var(--color-bg-3)",
+        color: "var(--color-text-2)",
+      };
+    case "empty":
+    default:
+      return {
+        background: "transparent",
+        color: "var(--color-text-3)",
+        border: "1px dashed var(--color-border)",
+      };
+  }
 }

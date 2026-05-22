@@ -381,8 +381,105 @@ async function SearchBody({ params }: { params: Promise<PageParams> }) {
             tone={data.keywordsImprovedThisWeek > 0 ? "good" : "neutral"}
             infoTip={t("kpi_improved_help")}
           />
+          <KPITile
+            variant="standard"
+            label={t("kpi_patients_lost")}
+            value={data.totalEstPatientsLost}
+            sublabel={t("kpi_patients_lost_sublabel")}
+            tone={data.totalEstPatientsLost > 0 ? "warn" : "good"}
+            infoTip={t("kpi_patients_lost_help")}
+          />
         </div>
       </section>
+
+      {data.topQuickWins.length > 0 ? (
+        <section
+          aria-labelledby="quick-wins-heading"
+          style={{ marginBottom: 24 }}
+        >
+          <h2
+            id="quick-wins-heading"
+            style={{
+              margin: "0 0 14px",
+              fontFamily: "var(--font-serif)",
+              fontSize: 18,
+              letterSpacing: "-0.01em",
+              color: "var(--color-text)",
+            }}
+          >
+            {t("quick_wins_heading")}
+          </h2>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+              gap: 12,
+            }}
+          >
+            {data.topQuickWins.map((win, idx) => (
+              <article
+                key={win.id}
+                style={{
+                  background: "var(--color-bg-2)",
+                  border: "1px solid var(--color-border)",
+                  borderRadius: 14,
+                  padding: "16px 18px",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 8,
+                }}
+              >
+                <p
+                  style={{
+                    margin: 0,
+                    fontFamily: "var(--font-mono)",
+                    fontSize: 11,
+                    letterSpacing: "0.06em",
+                    textTransform: "uppercase",
+                    color: "var(--color-coral)",
+                    fontWeight: 600,
+                  }}
+                >
+                  #{idx + 1} · {win.impact}
+                </p>
+                <h3
+                  style={{
+                    margin: 0,
+                    fontFamily: "var(--font-serif)",
+                    fontSize: 17,
+                    letterSpacing: "-0.01em",
+                    lineHeight: 1.25,
+                    color: "var(--color-text)",
+                  }}
+                >
+                  {win.keyword}
+                </h3>
+                <p
+                  style={{
+                    margin: 0,
+                    fontSize: 13.5,
+                    lineHeight: 1.5,
+                    color: "var(--color-text-2)",
+                  }}
+                >
+                  {win.currentState}
+                </p>
+                <p
+                  style={{
+                    margin: 0,
+                    fontSize: 13,
+                    lineHeight: 1.5,
+                    color: "var(--color-text)",
+                    fontWeight: 500,
+                  }}
+                >
+                  {win.action}
+                </p>
+              </article>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       {/* Keyword visibility list */}
       <section aria-labelledby="list-heading" style={{ marginBottom: 24 }}>
@@ -470,6 +567,12 @@ async function SearchBody({ params }: { params: Promise<PageParams> }) {
                   row.searchVolume != null && row.searchVolume > 0
                     ? t("volume_aria", { value: row.searchVolume })
                     : t("volume_aria_empty");
+                const estLostText =
+                  row.estPatientsLost > 0
+                    ? t("est_lost_per_keyword", {
+                        count: row.estPatientsLost,
+                      })
+                    : "";
                 return (
                   <KeywordRow
                     key={row.id}
@@ -480,6 +583,9 @@ async function SearchBody({ params }: { params: Promise<PageParams> }) {
                     deltaText={deltaText}
                     searchVolumeText={searchVolumeText}
                     searchVolumeAriaLabel={searchVolumeAriaLabel}
+                    packSlots={row.packSlots}
+                    packLabel={t("pack_label")}
+                    estPatientsLostText={estLostText}
                   />
                 );
               })}
