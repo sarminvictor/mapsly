@@ -327,7 +327,8 @@
       "item_search": "Visibilité",
       "item_ads": "Publicités",
       "item_settings": "Paramètres",
-      "item_activity": "Activité"
+      "item_activity": "Activité",
+      "item_market": "Ton marché"
     },
     "ads": {
       "kpi_lanes_covered": "Services pour lesquels tu fais de la pub",
@@ -371,6 +372,34 @@
       "source_ads": "Pubs",
       "source_search": "Recherche",
       "source_market": "Marché"
+    },
+    "market": {
+      "meta": {
+        "title": "Ton marché · Mapsly",
+        "description": "Où tu te situes dans ton marché local."
+      },
+      "eyebrow": "Ton marché",
+      "title": "Où tu te situes",
+      "subtitle": "{city} · tous ceux de ta catégorie, côte à côte.",
+      "empty_title": "Ton marché",
+      "empty_body": "Une fois ton entreprise liée, cette page montre où tu te situes face aux autres dans ta catégorie et ta zone.",
+      "rank_label": "Ta place",
+      "rank_value": "#{rank} sur {total}",
+      "rank_gap": "Le leader a {gap} points d'avance sur toi au Mapsly Score. Combler cet écart prend en général un bon mois de réponses et de photos.",
+      "rank_no_data": "On remplit dès que ta première photo hebdo arrive.",
+      "score_label": "Ton score",
+      "top12_heading": "Les meilleurs de ta zone",
+      "top12_empty": "Pas encore d'autres entreprises classées — on indexe encore ta zone.",
+      "you_tag": "Toi",
+      "medians_heading": "Comment font la plupart ({total}) près de toi",
+      "median_rating": "Note",
+      "median_reviews": "Avis",
+      "median_reply_rate": "Taux de réponse",
+      "median_photos": "Photos",
+      "median_velocity": "Nouveaux avis/mois",
+      "movers_heading": "Sur leur lancée",
+      "mover_value": "+{count} avis/mois",
+      "footer_help": "Actualisé chaque semaine. Données issues de la même source que Google Maps — pas d'estimations tierces."
     }
   },
   "agency": {

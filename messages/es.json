@@ -327,7 +327,8 @@
       "item_search": "Visibilidad",
       "item_ads": "Anuncios",
       "item_settings": "Configuración",
-      "item_activity": "Actividad"
+      "item_activity": "Actividad",
+      "item_market": "Tu mercado"
     },
     "ads": {
       "kpi_lanes_covered": "Servicios para los que te anuncias",
@@ -371,6 +372,34 @@
       "source_ads": "Anuncios",
       "source_search": "Búsqueda",
       "source_market": "Mercado"
+    },
+    "market": {
+      "meta": {
+        "title": "Tu mercado · Mapsly",
+        "description": "Dónde estás en tu mercado local."
+      },
+      "eyebrow": "Tu mercado",
+      "title": "Dónde estás",
+      "subtitle": "{city} · todos los de tu categoría, uno al lado del otro.",
+      "empty_title": "Tu mercado",
+      "empty_body": "Una vez vinculado tu negocio, esta página muestra dónde estás frente a todos los demás de tu categoría y zona.",
+      "rank_label": "Tu lugar",
+      "rank_value": "#{rank} de {total}",
+      "rank_gap": "La primera tiene {gap} puntos más que tú en Mapsly Score. Cerrar esa diferencia suele tomar un mes fuerte de respuestas y fotos.",
+      "rank_no_data": "Lo completaremos en cuanto llegue tu primera foto semanal.",
+      "score_label": "Tu puntuación",
+      "top12_heading": "Los mejores de tu zona",
+      "top12_empty": "Aún no hay otros negocios clasificados — seguimos indexando tu zona.",
+      "you_tag": "Tú",
+      "medians_heading": "Cómo lo hacen la mayoría ({total}) en tu zona",
+      "median_rating": "Calificación",
+      "median_reviews": "Reseñas",
+      "median_reply_rate": "Tasa de respuesta",
+      "median_photos": "Fotos",
+      "median_velocity": "Reseñas nuevas/mes",
+      "movers_heading": "En racha",
+      "mover_value": "+{count} reseñas/mes",
+      "footer_help": "Actualizado cada semana. Los datos vienen de la misma fuente que Google Maps — sin estimaciones de terceros."
     }
   },
   "agency": {
