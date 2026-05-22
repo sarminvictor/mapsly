@@ -35,3 +35,6 @@ export type {
   HunterPreviewBarLabels,
   HunterPreviewBarProps,
 } from "./HunterPreviewBar";
+
+export { HunterPreviewBarLive } from "./HunterPreviewBarLive";
+export type { HunterPreviewBarLiveProps } from "./HunterPreviewBarLive";

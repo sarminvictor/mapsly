@@ -52,7 +52,7 @@ import {
   HunterTemplatePicker,
   HunterMarketTarget,
   HunterFiltersGrid,
-  HunterPreviewBar,
+  HunterPreviewBarLive,
 } from "@/modules/agency-portal/hunter/components";
 
 interface PageParams {
@@ -294,8 +294,7 @@ async function HunterBody({ params, searchParams }: PageProps) {
         />
       ) : null}
 
-      <HunterPreviewBar
-        matchCount={0}
+      <HunterPreviewBarLive
         currentStep={currentStep}
         labels={{
           countSuffix: t("preview_bar.count_suffix"),
