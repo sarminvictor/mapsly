@@ -401,6 +401,175 @@ async function CompetitorsBody({ params }: { params: Promise<PageParams> }) {
         )}
       </section>
 
+      {data.headToHead.length > 0 && data.leaderName ? (
+        <section aria-labelledby="h2h-heading" style={{ marginBottom: 24 }}>
+          <h2
+            id="h2h-heading"
+            style={{
+              margin: "0 0 14px",
+              fontFamily: "var(--font-serif)",
+              fontSize: 18,
+              letterSpacing: "-0.01em",
+              color: "var(--color-text)",
+            }}
+          >
+            {t("h2h_heading", { leader: data.leaderName })}
+          </h2>
+          <div
+            style={{
+              background: "var(--color-bg-2)",
+              border: "1px solid var(--color-border)",
+              borderRadius: 14,
+              padding: "16px 18px",
+              display: "grid",
+              gap: 10,
+            }}
+          >
+            {data.headToHead.map((row) => (
+              <div
+                key={row.key}
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "minmax(120px, 1fr) minmax(0, 2fr) 80px",
+                  alignItems: "center",
+                  gap: 12,
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: 13,
+                    color: "var(--color-text-2)",
+                    fontWeight: 500,
+                  }}
+                >
+                  {t(`h2h_dim_${row.key}`)}
+                </span>
+                <div
+                  aria-label={`You ${row.ownValue} versus leader ${row.leaderValue}`}
+                  style={{
+                    display: "flex",
+                    height: 10,
+                    background: "var(--color-bg-3)",
+                    borderRadius: 999,
+                    overflow: "hidden",
+                  }}
+                >
+                  <span
+                    style={{
+                      width: `${Math.max(4, Math.round(row.ownShare * 100))}%`,
+                      background:
+                        row.direction >= 0
+                          ? "var(--color-coral)"
+                          : "rgba(195,85,58,.35)",
+                    }}
+                  />
+                </div>
+                <span
+                  style={{
+                    fontFamily: "var(--font-mono)",
+                    fontSize: 12,
+                    color: "var(--color-text-2)",
+                    textAlign: "right",
+                  }}
+                >
+                  {row.ownValue} · {row.leaderValue}
+                </span>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      {data.threats.length > 0 ? (
+        <section aria-labelledby="threats-heading" style={{ marginBottom: 24 }}>
+          <h2
+            id="threats-heading"
+            style={{
+              margin: "0 0 14px",
+              fontFamily: "var(--font-serif)",
+              fontSize: 18,
+              letterSpacing: "-0.01em",
+              color: "var(--color-text)",
+            }}
+          >
+            {t("threats_heading")}
+          </h2>
+          <ul
+            style={{
+              listStyle: "none",
+              padding: 0,
+              margin: 0,
+              display: "grid",
+              gap: 10,
+            }}
+          >
+            {data.threats.map((th) => (
+              <li
+                key={th.id}
+                style={{
+                  background:
+                    th.tier === "high"
+                      ? "rgba(181,61,71,.10)"
+                      : th.tier === "rising"
+                        ? "rgba(212,165,116,.18)"
+                        : "rgba(59,110,196,.10)",
+                  border: `1px solid ${
+                    th.tier === "high"
+                      ? "var(--color-alert)"
+                      : th.tier === "rising"
+                        ? "var(--color-gold)"
+                        : "var(--color-info)"
+                  }`,
+                  borderRadius: 12,
+                  padding: "12px 16px",
+                }}
+              >
+                <p
+                  style={{
+                    margin: 0,
+                    fontFamily: "var(--font-mono)",
+                    fontSize: 10,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.08em",
+                    fontWeight: 600,
+                    color:
+                      th.tier === "high"
+                        ? "var(--color-alert)"
+                        : th.tier === "rising"
+                          ? "var(--color-berry)"
+                          : "var(--color-info)",
+                  }}
+                >
+                  {t(`threat_tier_${th.tier}`)}
+                </p>
+                <p
+                  style={{
+                    margin: "4px 0 0",
+                    fontSize: 14,
+                    lineHeight: 1.45,
+                    color: "var(--color-text)",
+                  }}
+                >
+                  {th.body}
+                </p>
+                {th.meta ? (
+                  <p
+                    style={{
+                      margin: "4px 0 0",
+                      fontFamily: "var(--font-mono)",
+                      fontSize: 11,
+                      color: "var(--color-text-3)",
+                    }}
+                  >
+                    {th.meta}
+                  </p>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
       <p
         style={{
           margin: 0,

@@ -302,7 +302,19 @@
       "reviews_aria_label": "Review count",
       "empty_no_city": "We don't have your city on file yet, so we can't find local competitors. Add your address in settings and we'll pull them in next refresh.",
       "empty_no_neighbours": "No other businesses in your category and city are in our index yet. As we discover them, they'll show up here.",
-      "footer_help": "Refreshed weekly. Higher score, higher rank, and more recent reviews lift you above the rest."
+      "footer_help": "Refreshed weekly. Higher score, higher rank, and more recent reviews lift you above the rest.",
+      "h2h_heading": "How you compare to {leader}",
+      "h2h_dim_mapsly_score": "Mapsly score",
+      "h2h_dim_rating": "Rating",
+      "h2h_dim_reviews": "Reviews",
+      "h2h_dim_reply_rate": "How often you reply to reviews",
+      "h2h_dim_velocity": "New reviews this month",
+      "h2h_dim_photos": "Photos on Google",
+      "h2h_dim_profile": "Google profile filled in",
+      "threats_heading": "What needs your attention",
+      "threat_tier_high": "High",
+      "threat_tier_rising": "Rising",
+      "threat_tier_info": "Heads up"
     },
     "search": {
       "meta": {
