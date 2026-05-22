@@ -4,6 +4,7 @@ import { revalidateTag } from "next/cache";
 import { z } from "zod";
 import prisma from "@/lib/prisma";
 
+import { assertAdmin } from "@/lib/portal-guard";
 const TaskStatusSchema = z.enum([
   "PENDING",
   "IN_PROGRESS",
@@ -42,6 +43,7 @@ function invalidate(taskId?: string) {
 }
 
 export async function updateTask(input: z.infer<typeof EditTaskSchema>) {
+  await assertAdmin();
   const parsed = EditTaskSchema.parse(input);
   const { id, ...rest } = parsed;
   const existing = await prisma.task.findUnique({ where: { id } });
@@ -66,6 +68,7 @@ export async function updateTask(input: z.infer<typeof EditTaskSchema>) {
 }
 
 export async function createTask(input: z.infer<typeof CreateTaskSchema>) {
+  await assertAdmin();
   const parsed = CreateTaskSchema.parse(input);
   const group = await prisma.taskGroup.findUnique({
     where: { id: parsed.groupId },
@@ -85,6 +88,7 @@ export async function createTask(input: z.infer<typeof CreateTaskSchema>) {
 }
 
 export async function deleteTask(id: string) {
+  await assertAdmin();
   // Soft-delete via SKIPPED status so we keep run history.
   await prisma.task.update({
     where: { id },
@@ -98,5 +102,6 @@ export async function setStatus(
   id: string,
   status: z.infer<typeof TaskStatusSchema>,
 ) {
+  await assertAdmin();
   await updateTask({ id, status });
 }

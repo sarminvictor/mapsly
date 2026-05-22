@@ -39,10 +39,26 @@
  * because we only read about the signed-in user.
  */
 
+import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 
 /** Which portal a route lives under. */
 export type PortalKind = "smb" | "agency";
+
+/**
+ * Result of an admin-role gate check (for `/dev/*`, future `/admin/*`,
+ * etc.). Three variants drive three UX paths:
+ *
+ *   - `ok` · ADMIN role · let the page render
+ *   - `unauthenticated` · no session · caller should redirect to /signin
+ *   - `not-admin` · session but role !== ADMIN · caller renders a
+ *     small access-denied panel (no redirect — surfaces the boundary
+ *     to the user honestly rather than silently bouncing)
+ */
+export type AdminGuardResult =
+  | { kind: "ok" }
+  | { kind: "unauthenticated" }
+  | { kind: "not-admin" };
 
 /**
  * Returned when the signed-in user is on the WRONG portal for their
@@ -126,5 +142,82 @@ export async function requirePortal(
     // rather than redirect-loop the user. The page's own auth
     // checks remain the primary defence.
     return null;
+  }
+}
+
+/**
+ * Admin-role gate · used by the /dev tree (and any future /admin
+ * surface) to lock pages to users with `User.role === "ADMIN"`.
+ *
+ * Unlike `requirePortal`, this guard does NOT redirect on mismatch
+ * — the caller decides whether to (a) render an access-denied
+ * panel (preferred for /dev so a non-admin sees an honest boundary
+ * rather than an opaque redirect), or (b) issue a 404 (for routes
+ * we want to keep secret).
+ *
+ * Reads role from `User.role` (the same Prisma column the JWT
+ * callback caches). The session already carries `role` in v0.7.51+,
+ * so most callers can skip this helper and check `session.user.role`
+ * directly — but the helper exists for the case where the caller
+ * has only a `userId` (e.g. a server action that took the id from
+ * a form).
+ */
+/**
+ * Server-action assertion · throws when the current session is NOT
+ * ADMIN. Used to gate the /dev tree's destructive actions
+ * (`pauseLoop`, `createTask`, `deleteTask`, etc.) for defence-in-
+ * depth — the layout-level gate stops anonymous renders, this
+ * helper stops a logged-in non-admin from replaying a server-action
+ * URL by hand.
+ *
+ * Usage:
+ *
+ *   export async function deleteTask(id: string) {
+ *     "use server";
+ *     await assertAdmin();
+ *     // ... actual delete
+ *   }
+ *
+ * The error message is intentionally terse · we don't leak whether
+ * the caller's session existed or what role they have. The Next.js
+ * server-action machinery propagates the throw to the client as a
+ * generic error.
+ */
+export async function assertAdmin(): Promise<void> {
+  const session = await auth();
+  // Fast path · session already carries `role` from the JWT callback.
+  if (session?.user?.role === "ADMIN") return;
+  // Slow path · backfill via Prisma (matches `requireAdmin`).
+  const verdict = await requireAdmin(session?.user?.id ?? null);
+  if (verdict.kind === "ok") return;
+  throw new Error("forbidden");
+}
+
+export async function requireAdmin(
+  userId: string | undefined | null,
+): Promise<AdminGuardResult> {
+  if (!userId || typeof userId !== "string") {
+    return { kind: "unauthenticated" };
+  }
+  if (isBuildPhase()) {
+    // During Vercel's build phase the page is being prerendered;
+    // we can't open a Neon WebSocket to check the role. Treat as
+    // unauthenticated so the build-time render produces the safe
+    // "sign in to continue" panel rather than the admin UI.
+    return { kind: "unauthenticated" };
+  }
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true },
+    });
+    if (!user) return { kind: "unauthenticated" };
+    if (user.role === "ADMIN") return { kind: "ok" };
+    return { kind: "not-admin" };
+  } catch {
+    // Degrade-closed · failing-open here would leak the dev surface
+    // to non-admins on a transient Prisma blip. Render the access-
+    // denied panel until Neon is healthy again.
+    return { kind: "not-admin" };
   }
 }
