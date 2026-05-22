@@ -1115,10 +1115,46 @@
           "help": "Affects the UI for your account only.",
           "save": "Save language"
         },
+        "notifications": {
+          "heading": "Notifications",
+          "subtitle": "Email types your account receives. Per-user toggles ship in a follow-up.",
+          "items": {
+            "refresh": {
+              "title": "Daily refresh digest",
+              "body": "Sent after the daily list-refresh cron · new matches + de-qualified rows."
+            },
+            "weekly": {
+              "title": "Weekly team summary",
+              "body": "Sent Monday 9am local · close-rate + reply-rate per active list."
+            },
+            "billing": {
+              "title": "Billing receipts + security alerts",
+              "body": "Stripe receipts + sign-in alerts · cannot be disabled (account security)."
+            }
+          },
+          "footer": "// per-user notification preferences land alongside the F.9.1 NotificationPreference model."
+        },
+        "privacy": {
+          "heading": "Privacy + data",
+          "subtitle": "Public docs + data-export contact.",
+          "privacyPolicy": "Privacy policy →",
+          "terms": "Terms of service →",
+          "requestExport": "Request data export →",
+          "exportNote": "Reply within 30 days · GDPR / CCPA-compliant per the privacy policy."
+        },
+        "danger": {
+          "heading": "Danger zone",
+          "subtitle": "Account deletion · contact required.",
+          "body": "Deleting an agency cascades through lists, leads, and reports. To prevent accidents and ensure billing teardown runs cleanly, deletion goes through support so we can confirm + cancel the Stripe subscription before the data is purged.",
+          "cta": "Email support to delete →"
+        },
         "signOut": {
           "heading": "Session",
           "cta": "Sign out"
         }
+      },
+      "nav": {
+        "aria": "Settings sections quick-nav"
       },
       "errors": {
         "unauthorized": "You need to sign in to change settings."

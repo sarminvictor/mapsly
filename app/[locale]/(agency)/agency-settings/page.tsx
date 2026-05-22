@@ -136,10 +136,15 @@ async function SettingsBody({ params }: { params: Promise<PageParams> }) {
         <p style={styles.subheading}>{t("subheading")}</p>
       </header>
 
+      <StickyNav t={t} />
+
       <ProfileCard t={t} data={data} canEdit={canEditProfile} />
       <PlanCard t={t} plan={data.agency.plan} />
       <TeamCard t={t} members={data.members} />
       <LocaleCard t={t} currentLocale={locale as Locale} />
+      <NotificationsCard t={t} />
+      <PrivacyCard t={t} />
+      <DangerZoneCard t={t} />
       <SignOutCard t={t} />
     </section>
   );
@@ -343,6 +348,189 @@ function SignOutCard({
           {t("sections.signOut.cta")}
         </button>
       </form>
+    </SettingsSection>
+  );
+}
+
+/**
+ * StickyNav · in-page anchor strip rendered above all section cards.
+ *
+ * Tom uses this to jump between settings sections instead of scrolling.
+ * Server-component-safe — just anchor links + a sticky position from
+ * inline styles. The page's `padding-top: 32px` interacts with the
+ * sticky offset so the focused section heading lands cleanly below
+ * the nav bar.
+ *
+ * Per `.claude/rules/accessibility.md` the nav uses `<nav aria-label>`
+ * so screen-readers announce the region; the anchored sections each
+ * have `scroll-margin-top` applied via inline style on `SettingsSection`
+ * (handled by the existing component).
+ */
+function StickyNav({
+  t,
+}: {
+  t: (key: string, vars?: Record<string, string | number>) => string;
+}) {
+  const items: Array<{ id: string; label: string }> = [
+    {
+      id: "agency-settings-profile-heading",
+      label: t("sections.profile.heading"),
+    },
+    { id: "agency-settings-plan-heading", label: t("sections.plan.heading") },
+    { id: "agency-settings-team-heading", label: t("sections.team.heading") },
+    {
+      id: "agency-settings-locale-heading",
+      label: t("sections.locale.heading"),
+    },
+    {
+      id: "agency-settings-notifications-heading",
+      label: t("sections.notifications.heading"),
+    },
+    {
+      id: "agency-settings-privacy-heading",
+      label: t("sections.privacy.heading"),
+    },
+    {
+      id: "agency-settings-danger-heading",
+      label: t("sections.danger.heading"),
+    },
+  ];
+  return (
+    <nav
+      aria-label={t("nav.aria")}
+      data-testid="agency-settings-sticky-nav"
+      style={styles.stickyNav}
+    >
+      <ul style={styles.stickyNavList}>
+        {items.map((item) => (
+          <li key={item.id}>
+            <a href={`#${item.id}`} style={styles.stickyNavLink}>
+              {item.label}
+            </a>
+          </li>
+        ))}
+      </ul>
+    </nav>
+  );
+}
+
+/**
+ * NotificationsCard · informational summary of which emails Tom's
+ * agency receives. v1 surfaces the canonical email types (no DB-backed
+ * preferences yet; that's a follow-up that needs a
+ * NotificationPreferences model + per-user toggles).
+ */
+function NotificationsCard({
+  t,
+}: {
+  t: (key: string, vars?: Record<string, string | number>) => string;
+}) {
+  const items = [
+    {
+      title: t("sections.notifications.items.refresh.title"),
+      body: t("sections.notifications.items.refresh.body"),
+    },
+    {
+      title: t("sections.notifications.items.weekly.title"),
+      body: t("sections.notifications.items.weekly.body"),
+    },
+    {
+      title: t("sections.notifications.items.billing.title"),
+      body: t("sections.notifications.items.billing.body"),
+    },
+  ];
+  return (
+    <SettingsSection
+      headingId="agency-settings-notifications-heading"
+      heading={t("sections.notifications.heading")}
+      subtitle={t("sections.notifications.subtitle")}
+    >
+      <ul style={styles.notificationList}>
+        {items.map((item) => (
+          <li key={item.title} style={styles.notificationRow}>
+            <span style={styles.notificationTitle}>{item.title}</span>
+            <span style={styles.notificationBody}>{item.body}</span>
+          </li>
+        ))}
+      </ul>
+      <p style={styles.helpText}>{t("sections.notifications.footer")}</p>
+    </SettingsSection>
+  );
+}
+
+/**
+ * PrivacyCard · links out to the public privacy + terms pages plus a
+ * "Request data export" mailto. The data-export flow runs through
+ * humans for v1 — when Phase H lands the dashboard, this will switch
+ * to a server action that drops a JSON archive into Vercel Blob.
+ */
+function PrivacyCard({
+  t,
+}: {
+  t: (key: string, vars?: Record<string, string | number>) => string;
+}) {
+  return (
+    <SettingsSection
+      headingId="agency-settings-privacy-heading"
+      heading={t("sections.privacy.heading")}
+      subtitle={t("sections.privacy.subtitle")}
+    >
+      <ul style={styles.linkList}>
+        <li>
+          <Link href={{ pathname: "/privacy" }} style={styles.linkButton}>
+            {t("sections.privacy.privacyPolicy")}
+          </Link>
+        </li>
+        <li>
+          <Link href={{ pathname: "/terms" }} style={styles.linkButton}>
+            {t("sections.privacy.terms")}
+          </Link>
+        </li>
+        <li>
+          <a
+            href="mailto:privacy@mapsly.ai?subject=Data%20export%20request"
+            style={styles.linkButton}
+            data-testid="agency-settings-export-request"
+          >
+            {t("sections.privacy.requestExport")}
+          </a>
+        </li>
+      </ul>
+      <p style={styles.helpText}>{t("sections.privacy.exportNote")}</p>
+    </SettingsSection>
+  );
+}
+
+/**
+ * DangerZoneCard · account-deletion contact + visual warning.
+ *
+ * v1 keeps the action out-of-band (mailto:support@mapsly.ai) so we
+ * never accidentally delete an active billing subscription. A
+ * proper cascading delete server action with billing teardown is a
+ * follow-up that needs careful integration with Stripe subscription
+ * cancellation + Vercel Blob report cleanup.
+ */
+function DangerZoneCard({
+  t,
+}: {
+  t: (key: string, vars?: Record<string, string | number>) => string;
+}) {
+  return (
+    <SettingsSection
+      headingId="agency-settings-danger-heading"
+      heading={t("sections.danger.heading")}
+      subtitle={t("sections.danger.subtitle")}
+    >
+      <div style={styles.dangerCallout}>
+        <p style={styles.dangerCalloutBody}>{t("sections.danger.body")}</p>
+        <a
+          href="mailto:support@mapsly.ai?subject=Delete%20agency%20account"
+          style={styles.dangerLink}
+          data-testid="agency-settings-delete-account"
+        >
+          {t("sections.danger.cta")}
+        </a>
+      </div>
     </SettingsSection>
   );
 }
@@ -620,5 +808,95 @@ const styles: Record<string, CSSProperties> = {
     margin: 0,
     fontSize: 14,
     color: "var(--color-text-2)",
+  },
+
+  /* sticky in-page nav · indigo-accent strip above sections */
+  stickyNav: {
+    position: "sticky",
+    top: 0,
+    zIndex: 5,
+    margin: "0 0 20px",
+    padding: "10px 0",
+    background: "var(--color-bg)",
+    borderBottom: "1px solid var(--color-border)",
+    backdropFilter: "saturate(180%) blur(8px)",
+    WebkitBackdropFilter: "saturate(180%) blur(8px)",
+  },
+  stickyNavList: {
+    listStyle: "none",
+    margin: 0,
+    padding: 0,
+    display: "flex",
+    flexWrap: "wrap",
+    gap: 6,
+  },
+  stickyNavLink: {
+    display: "inline-flex",
+    alignItems: "center",
+    padding: "6px 10px",
+    fontFamily: "var(--font-mono, ui-monospace, SFMono-Regular, monospace)",
+    fontSize: 11.5,
+    fontWeight: 600,
+    color: "var(--color-text-2)",
+    textDecoration: "none",
+    borderRadius: 6,
+    border: "1px solid var(--color-border)",
+    background: "var(--color-bg-2)",
+    whiteSpace: "nowrap",
+  },
+
+  /* notifications · informational list */
+  notificationList: {
+    listStyle: "none",
+    padding: 0,
+    margin: "0 0 12px",
+    display: "grid",
+    gap: 10,
+  },
+  notificationRow: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 4,
+    padding: "10px 12px",
+    borderRadius: 8,
+    border: "1px solid var(--color-border)",
+    background: "var(--color-bg)",
+  },
+  notificationTitle: {
+    fontSize: 13.5,
+    fontWeight: 600,
+    color: "var(--color-text)",
+  },
+  notificationBody: {
+    fontSize: 12.5,
+    color: "var(--color-text-2)",
+    lineHeight: 1.5,
+  },
+
+  /* privacy · vertical link list */
+  linkList: {
+    listStyle: "none",
+    padding: 0,
+    margin: "0 0 12px",
+    display: "flex",
+    flexDirection: "column",
+    gap: 8,
+  },
+
+  /* danger zone · red-tinted callout */
+  dangerCallout: {
+    padding: "14px 16px",
+    borderRadius: 10,
+    border: "1px solid rgba(181,61,71,.20)",
+    background: "rgba(181,61,71,.04)",
+    display: "flex",
+    flexDirection: "column",
+    gap: 12,
+  },
+  dangerCalloutBody: {
+    margin: 0,
+    fontSize: 13.5,
+    color: "var(--color-text)",
+    lineHeight: 1.5,
   },
 };
