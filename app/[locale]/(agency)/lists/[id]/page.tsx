@@ -57,15 +57,12 @@ import {
   LEAD_STATUS_TAB_ORDER,
   type LeadStatusValue,
 } from "@/modules/agency-portal/list-detail/types";
+import { StatusPill } from "@/modules/agency-portal/components";
 import {
-  LeadsTable,
-  LeadsTableBody,
-  LeadsTableHeader,
-  LeadsTableHeaderCell,
-  LeadsTableRow,
-  LeadRow,
-  StatusPill,
-} from "@/modules/agency-portal/components";
+  LeadsTableInteractive,
+  type InteractiveLeadRowData,
+  type LeadsTableInteractiveLabels,
+} from "@/modules/agency-portal/list-detail/components";
 
 export async function generateMetadata({
   params,
@@ -273,6 +270,26 @@ async function ListDetailBody({
     },
   };
 
+  const tableLabels: LeadsTableInteractiveLabels = {
+    selectAria: t("table_select_aria"),
+    business: t("table_business"),
+    whyQualified: t("table_why_qualified"),
+    status: t("table_status"),
+    contact: t("table_contact"),
+    actions: t("table_actions"),
+    caption: t("table_caption"),
+    openLabel: t("table_open"),
+    openAria: (business: string) => t("table_open_aria", { business }),
+    noContact: t("table_no_contact"),
+    selectedNoun: (count: number) => t("table_bulk_selected_meta", { count }),
+    bulkMarkContacted: t("table_bulk_mark_contacted"),
+    bulkMarkReplied: t("table_bulk_mark_replied"),
+    bulkMarkLost: t("table_bulk_mark_lost"),
+    bulkHide: t("table_bulk_hide"),
+    bulkClear: t("table_bulk_clear"),
+    statusError: t("table_status_error"),
+  };
+
   /* ------------------------------------------------------ rendered */
 
   return (
@@ -415,9 +432,10 @@ async function ListDetailBody({
         )}
       />
 
-      {/* Leads table — server-rendered. Selection is presentational at
-          v1; F.7's CSV export will wire bulk actions via a client
-          wrapper. */}
+      {/* Leads table — interactive (selection + status cycle + bulk
+          actions). Per .claude/rules/ui-ux-agency.md status pills
+          cycle on click and a sticky BulkActionBar appears the moment
+          ≥1 row is selected. */}
       {data.leads.length === 0 ? (
         <EmptyLeadsCard
           status={activeStatus}
@@ -426,93 +444,26 @@ async function ListDetailBody({
           })}
         />
       ) : (
-        <LeadsTable density="comfortable" caption={t("table_caption")}>
-          <LeadsTableHeader>
-            <LeadsTableRow>
-              <LeadsTableHeaderCell
-                select
-                aria-label={t("table_select_aria")}
-              />
-              <LeadsTableHeaderCell>{t("table_business")}</LeadsTableHeaderCell>
-              <LeadsTableHeaderCell>
-                {t("table_why_qualified")}
-              </LeadsTableHeaderCell>
-              <LeadsTableHeaderCell>{t("table_status")}</LeadsTableHeaderCell>
-              <LeadsTableHeaderCell>{t("table_contact")}</LeadsTableHeaderCell>
-              <LeadsTableHeaderCell align="right">
-                {t("table_actions")}
-              </LeadsTableHeaderCell>
-            </LeadsTableRow>
-          </LeadsTableHeader>
-          <LeadsTableBody>
-            {data.leads.map((lead) => (
-              <LeadRow
-                key={lead.id}
-                id={lead.id}
-                business={{
-                  name: lead.businessName,
-                  meta: lead.meta,
-                  avatar: lead.avatar,
-                  avatarTone: lead.avatarTone,
-                }}
-                signals={lead.signals.map((s) => ({
-                  tone: s.tone,
-                  label: s.label,
-                  title: s.title,
-                }))}
-                status={lead.status}
-                statusDwell={lead.statusDwell ?? undefined}
-                contact={
-                  lead.contactEmail || lead.contactPhone ? (
-                    <>
-                      {lead.contactEmail ? (
-                        <span>{lead.contactEmail}</span>
-                      ) : null}
-                      {lead.contactEmail && lead.contactPhone ? <br /> : null}
-                      {lead.contactPhone ? (
-                        <span>{lead.contactPhone}</span>
-                      ) : null}
-                    </>
-                  ) : (
-                    <span style={{ color: "var(--color-text-3)" }}>
-                      {t("table_no_contact")}
-                    </span>
-                  )
-                }
-                action={
-                  <Link
-                    href={
-                      {
-                        pathname: "/lists/[id]",
-                        params: { id: list.id },
-                      } as never
-                    }
-                    data-testid={`lead-open-${lead.id}`}
-                    aria-label={t("table_open_aria", {
-                      business: lead.businessName,
-                    })}
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      padding: "6px 10px",
-                      borderRadius: 6,
-                      fontSize: 11.5,
-                      fontWeight: 600,
-                      background: "var(--color-agency-indigo)",
-                      color: "#fff",
-                      border: "1px solid var(--color-agency-indigo)",
-                      textDecoration: "none",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {t("table_open")}
-                  </Link>
-                }
-                selectable={false}
-              />
-            ))}
-          </LeadsTableBody>
-        </LeadsTable>
+        <LeadsTableInteractive
+          leads={data.leads.map<InteractiveLeadRowData>((lead) => ({
+            id: lead.id,
+            businessId: lead.businessId,
+            businessName: lead.businessName,
+            meta: lead.meta,
+            avatar: lead.avatar,
+            avatarTone: lead.avatarTone,
+            signals: lead.signals.map((s) => ({
+              tone: s.tone,
+              label: s.label,
+              title: s.title,
+            })),
+            status: lead.status,
+            statusDwell: lead.statusDwell ?? undefined,
+            contactEmail: lead.contactEmail ?? null,
+            contactPhone: lead.contactPhone ?? null,
+          }))}
+          labels={tableLabels}
+        />
       )}
     </section>
   );

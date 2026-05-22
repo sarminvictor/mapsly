@@ -633,7 +633,14 @@
         "title": "Liste introuvable",
         "body": "Elle a peut-être été supprimée, appartient à une autre agence, ou le lien est obsolète. Choisis une autre liste de ton espace.",
         "cta": "Retour aux listes"
-      }
+      },
+      "table_bulk_selected_meta": "{count, plural, one {1 prospect} other {# prospects}} sélectionnés",
+      "table_bulk_mark_contacted": "Marquer contacté",
+      "table_bulk_mark_replied": "Marquer répondu",
+      "table_bulk_mark_lost": "Marquer perdu",
+      "table_bulk_hide": "Masquer",
+      "table_bulk_clear": "Effacer",
+      "table_status_error": "Impossible de mettre à jour — réessaye."
     },
     "prospect_detail": {
       "meta": {

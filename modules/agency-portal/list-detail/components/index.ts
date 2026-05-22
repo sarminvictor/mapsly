@@ -13,3 +13,9 @@ export {
   type StatusTabsLabels,
   type StatusTabsProps,
 } from "./StatusTabs";
+export {
+  LeadsTableInteractive,
+  type LeadsTableInteractiveLabels,
+  type LeadsTableInteractiveProps,
+  type InteractiveLeadRowData,
+} from "./LeadsTableInteractive";

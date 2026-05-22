@@ -633,7 +633,14 @@
         "title": "No encontramos esa lista",
         "body": "Puede haber sido eliminada, pertenecer a otra agencia, o el enlace está desactualizado. Elige otra lista del workspace.",
         "cta": "Volver a listas"
-      }
+      },
+      "table_bulk_selected_meta": "{count, plural, one {1 prospecto} other {# prospectos}} seleccionados",
+      "table_bulk_mark_contacted": "Marcar contactado",
+      "table_bulk_mark_replied": "Marcar respondido",
+      "table_bulk_mark_lost": "Marcar perdido",
+      "table_bulk_hide": "Ocultar",
+      "table_bulk_clear": "Limpiar",
+      "table_status_error": "No se pudo actualizar — inténtalo de nuevo."
     },
     "prospect_detail": {
       "meta": {
