@@ -1,6 +1,7 @@
 import * as React from "react";
 
 import { Pill } from "@/components/ui";
+import { AIReplyDraftBody } from "./AIReplyDraftBody";
 import { StarRating } from "./StarRating";
 import type { ReviewItem } from "../types";
 
@@ -61,6 +62,10 @@ export interface ReviewCardLabels {
   daysAgoLabel: string;
   /** No-text-fallback when the reviewer left only stars. */
   noText: string;
+  /** "English" label for the AI-reply language toggle. */
+  langEn: string;
+  /** "Español" label for the AI-reply language toggle. */
+  langEs: string;
 }
 
 export interface ReviewCardProps {
@@ -326,16 +331,11 @@ function AIReplyDraft({
   review: ReviewItem;
   labels: ReviewCardLabels;
 }) {
-  // Both drafts may be present; prefer EN as the default surface for
-  // this scaffold. Locale-aware default + interactive EN/ES toggle is a
-  // follow-up (needs client component + per-user pref). EN-only render
-  // here is intentional: the toggle requires `'use client'` which would
-  // pull the whole card client-side and bloat hydration.
-  const draft = review.aiReplyDraftEn ?? review.aiReplyDraftEs ?? "";
-  if (!draft) return null;
-
-  const wordCount = draft.split(/\s+/).filter(Boolean).length;
-  const charCount = draft.length;
+  // Render the body via a small client island so Maria can toggle
+  // EN ↔ ES. The framing (label + buttons) stays on the server so
+  // only the toggle + draft text + meta line cross the hydration
+  // boundary.
+  if (!review.aiReplyDraftEn && !review.aiReplyDraftEs) return null;
 
   return (
     <div
@@ -373,29 +373,20 @@ function AIReplyDraft({
           <span aria-hidden>✦</span>
           {labels.aiDraftLabel}
         </span>
-        <span
-          style={{
-            fontFamily: "var(--font-mono)",
-            fontSize: 10,
-            color: "var(--color-text-3)",
-          }}
-        >
-          {wordCount} words · {charCount} chars
-        </span>
       </div>
 
-      <div
-        style={{
-          whiteSpace: "pre-wrap",
-          fontSize: 13.5,
-          lineHeight: 1.55,
-          color: "var(--color-text)",
-          marginBottom: 12,
+      <AIReplyDraftBody
+        draftEn={review.aiReplyDraftEn}
+        draftEs={review.aiReplyDraftEs}
+        labelEn={labels.langEn}
+        labelEs={labels.langEs}
+        buildMeta={(text) => {
+          const words = text.split(/\s+/).filter(Boolean).length;
+          return `${words} words · ${text.length} chars`;
         }}
-      >
-        {draft}
-      </div>
+      />
 
+      <div style={{ marginTop: 12 }}></div>
       <div
         style={{
           display: "flex",

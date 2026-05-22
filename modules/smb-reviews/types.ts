@@ -96,6 +96,45 @@ export interface ReviewTabCounts {
   replied: number;
 }
 
+/**
+ * Headline KPI bundle for the review-page state bar. Computed
+ * server-side from the same Review rows the page already reads.
+ * Plain numbers / nulls — the renderer formats them.
+ */
+export interface ReviewKpis {
+  /** 0–1 reply rate across all reviews. Null when there are zero. */
+  replyRate: number | null;
+  /** Count of unanswered reviews (mirrors tabCounts.unanswered for
+   * convenience — keeps the state bar a single object lookup). */
+  unanswered: number;
+  /** Current average rating, 0–5. Null when there are zero reviews. */
+  avgRating: number | null;
+  /** Reviews collected in the last 30 days. */
+  velocityLast30d: number;
+  /** Share of last-7-day reviews that classify as POSITIVE
+   * (0–1). Null when no reviews landed in the window. */
+  sentiment7d: number | null;
+}
+
+/**
+ * "Pattern detected" callout for the right rail. Surfaces when an
+ * operational pattern repeats across multiple negative reviews —
+ * e.g. multiple low-star reviews mentioning scheduling within a
+ * 30-day window. Null = nothing surfaces.
+ */
+export interface ReviewPattern {
+  /** Stable id used as the React key. */
+  id: string;
+  /** Theme slug that triggered the pattern (matches ThemeBucket.theme). */
+  theme: string;
+  /** Count of low-star reviews citing this theme in the window. */
+  count: number;
+  /** Headline line ("3 of your last 5 low-star reviews mention scheduling."). */
+  headline: string;
+  /** Body line — Maria-voice nudge toward an operational fix. */
+  body: string;
+}
+
 export interface SmbReviewsData {
   /** Owned business id, or `""` for empty / build-phase. */
   ownedBusinessId: string;
@@ -124,6 +163,13 @@ export interface SmbReviewsData {
    * daily delta runs.
    */
   lastSnapshotAt: string | null; // ISO
+
+  /** Headline KPI bundle for the state bar. */
+  kpis: ReviewKpis;
+
+  /** Operational-pattern callout for the right rail. Null when nothing
+   * notable shows up. */
+  pattern: ReviewPattern | null;
 }
 
 export const EMPTY_RATING_DISTRIBUTION: RatingDistribution = {
@@ -142,6 +188,14 @@ export const EMPTY_TAB_COUNTS: ReviewTabCounts = {
   replied: 0,
 };
 
+export const EMPTY_REVIEW_KPIS: ReviewKpis = {
+  replyRate: null,
+  unanswered: 0,
+  avgRating: null,
+  velocityLast30d: 0,
+  sentiment7d: null,
+};
+
 export const EMPTY_SMB_REVIEWS: SmbReviewsData = {
   ownedBusinessId: "",
   businessName: "",
@@ -151,7 +205,37 @@ export const EMPTY_SMB_REVIEWS: SmbReviewsData = {
   ratingDistribution: EMPTY_RATING_DISTRIBUTION,
   topThemes: [],
   lastSnapshotAt: null,
+  kpis: EMPTY_REVIEW_KPIS,
+  pattern: null,
 };
+
+/**
+ * Pure derivation of the "Pattern detected" callout. Examines theme
+ * buckets and returns the first theme that:
+ *   - has ≥ 3 mentions in low-star reviews, AND
+ *   - those low-star mentions are ≥ 50% of the theme's mentions
+ *     (i.e. the theme correlates strongly with bad experiences).
+ *
+ * Returns `null` when nothing qualifies. Pure — unit-tested against
+ * synthetic theme buckets in `__tests__/types.test.ts`.
+ */
+export function derivePattern(
+  themes: readonly ThemeBucket[],
+): ReviewPattern | null {
+  for (const t of themes) {
+    if (t.negativeCount < 3) continue;
+    if (t.count === 0) continue;
+    if (t.negativeCount / t.count < 0.5) continue;
+    return {
+      id: `pattern-${t.theme}`,
+      theme: t.theme,
+      count: t.negativeCount,
+      headline: `${t.negativeCount} of your recent low-star reviews mention ${t.theme}.`,
+      body: `When the same theme shows up in many unhappy reviews, it usually points at one fixable workflow — not a marketing problem. Worth a 10-minute look.`,
+    };
+  }
+  return null;
+}
 
 /**
  * Normalise an incoming `tab` search-param value (which may be `undefined`,

@@ -42,8 +42,11 @@ import prisma from "@/lib/prisma";
 
 import {
   DEFAULT_REVIEW_TAB,
+  EMPTY_REVIEW_KPIS,
   EMPTY_SMB_REVIEWS,
+  derivePattern,
   type ReviewItem,
+  type ReviewKpis,
   type ReviewSentiment,
   type ReviewTab,
   type ReviewTabCounts,
@@ -191,6 +194,12 @@ export async function getSmbReviewsData(
       aiReplyDraftEs: r.aiReplyDraftEs,
     }));
 
+    // KPI strip · cheap aggregate counts driven by the same Review
+    // table. Bounded with `_avg` + a couple of count queries; no row
+    // fetch beyond what we already pulled.
+    const kpis = await loadReviewKpis(business.id, tabCounts);
+    const pattern = derivePattern(themeRows);
+
     return {
       ownedBusinessId: business.id,
       businessName: business.name,
@@ -202,6 +211,8 @@ export async function getSmbReviewsData(
       lastSnapshotAt: lastSnapshot?.collectedAt
         ? lastSnapshot.collectedAt.toISOString()
         : null,
+      kpis,
+      pattern,
     };
   } catch (err) {
     // Log so the failure surfaces in Vercel / Sentry rather than only
@@ -301,4 +312,61 @@ async function loadThemeBuckets(businessId: string): Promise<ThemeBucket[]> {
     count: Number(r.count ?? 0n),
     negativeCount: Number(r.negativeCount ?? 0n),
   }));
+}
+
+/**
+ * Compute the 5-KPI state-bar bundle. Driven by the same Review
+ * table the page already touches:
+ *   - replyRate  · all reviews with ownerReplied / all reviews
+ *   - unanswered · already in tabCounts.unanswered
+ *   - avgRating  · `_avg.stars` across all reviews
+ *   - velocity30 · count over the last 30 days
+ *   - sentiment7d· share of last-7-day reviews flagged POSITIVE
+ */
+async function loadReviewKpis(
+  businessId: string,
+  tabCounts: ReviewTabCounts,
+): Promise<ReviewKpis> {
+  if (tabCounts.all === 0) return { ...EMPTY_REVIEW_KPIS };
+
+  const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+  const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+  const now = Date.now();
+  const cutoff30d = new Date(now - THIRTY_DAYS_MS);
+  const cutoff7d = new Date(now - SEVEN_DAYS_MS);
+
+  const [agg, velocity30, sentiment7d] = await Promise.all([
+    prisma.review.aggregate({
+      where: { businessId },
+      _avg: { stars: true },
+    }),
+    prisma.review.count({
+      where: { businessId, postedAt: { gte: cutoff30d } },
+    }),
+    prisma.review.findMany({
+      where: { businessId, postedAt: { gte: cutoff7d } },
+      select: { sentiment: true },
+    }),
+  ]);
+
+  const replyRate =
+    tabCounts.all === 0
+      ? null
+      : Math.max(0, Math.min(1, tabCounts.replied / tabCounts.all));
+
+  let sentimentShare: number | null = null;
+  if (sentiment7d.length > 0) {
+    const positive = sentiment7d.filter(
+      (s) => s.sentiment === "POSITIVE",
+    ).length;
+    sentimentShare = positive / sentiment7d.length;
+  }
+
+  return {
+    replyRate,
+    unanswered: tabCounts.unanswered,
+    avgRating: agg._avg.stars,
+    velocityLast30d: velocity30,
+    sentiment7d: sentimentShare,
+  };
 }
