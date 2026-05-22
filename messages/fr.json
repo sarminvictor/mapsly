@@ -699,7 +699,11 @@
         "notes_save_pending": "// sauvegarder · arrive en F.7",
         "no_phone": "pas de téléphone",
         "no_email": "pas de courriel",
-        "no_website": "pas de site web"
+        "no_website": "pas de site web",
+        "no_instagram": "pas d'Instagram",
+        "email_verified_pill": "Vérifié",
+        "email_verified_aria": "Courriel vérifié · dernière vérification {date}",
+        "instagram_followers": "{count, plural, =0 {aucun abonné} one {# abonné} other {{formatted} abonnés}}"
       },
       "nav": {
         "no_prev": "Pas de prospect précédent",

@@ -520,6 +520,10 @@ export async function getAgencyProspectDetailData(
         reviewCount: true,
         website: true,
         phone: true,
+        email: true,
+        emailVerifiedAt: true,
+        instagramHandle: true,
+        instagramFollowers: true,
         updatedAt: true,
         snapshots: {
           orderBy: { snapshotDate: "desc" },
@@ -727,6 +731,12 @@ export async function getAgencyProspectDetailData(
       reviewCount,
       websiteUrl: business.website ?? null,
       phone: business.phone ?? null,
+      email: business.email ?? null,
+      emailVerifiedAt: business.emailVerifiedAt
+        ? business.emailVerifiedAt.toISOString()
+        : null,
+      instagramHandle: business.instagramHandle ?? null,
+      instagramFollowers: business.instagramFollowers ?? null,
       refreshedAt,
       snapshot,
       lighthouse,

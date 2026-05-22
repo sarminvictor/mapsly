@@ -25,6 +25,13 @@ export interface ProspectRailLabels {
   noPhone: string;
   noEmail: string;
   noWebsite: string;
+  noInstagram: string;
+  /** Pill label rendered next to a verified email · "Verified". */
+  emailVerifiedPill: string;
+  /** Tooltip / aria-label for the verified pill — explains the source. */
+  emailVerifiedAria: (iso: string) => string;
+  /** Locale-formatted follower count · "12.4k followers". */
+  instagramFollowersLabel: (count: number) => string;
 }
 
 export interface ProspectRailProps {
@@ -65,11 +72,24 @@ export function ProspectRail({
         >
           {labels.contactTitle}
         </div>
-        <div style={{ display: "grid", gap: 8 }}>
+        <div style={{ display: "grid", gap: 10 }}>
           <ContactLine
             label="phone"
             value={prospect.phone}
             fallback={labels.noPhone}
+          />
+          <EmailLine
+            email={prospect.email}
+            emailVerifiedAt={prospect.emailVerifiedAt}
+            fallback={labels.noEmail}
+            verifiedPill={labels.emailVerifiedPill}
+            verifiedAria={labels.emailVerifiedAria}
+          />
+          <InstagramLine
+            handle={prospect.instagramHandle}
+            followers={prospect.instagramFollowers}
+            fallback={labels.noInstagram}
+            followersLabel={labels.instagramFollowersLabel}
           />
           <ContactLine
             label="website"
@@ -290,4 +310,162 @@ function labelStyle(): React.CSSProperties {
     letterSpacing: "0.08em",
     color: "var(--color-text-3)",
   };
+}
+
+/**
+ * EmailLine · contact-rail row for the owner email + verified pill.
+ *
+ * Renders the email as a mailto-link in indigo when present, plus a
+ * "Verified" pill in agency-teal when `emailVerifiedAt` is non-null.
+ * Tom uses this to pick which prospects to start drafting outreach
+ * against — verified emails are the bottom of the pyramid (highest-
+ * intent to convert per pitch attempt).
+ */
+function EmailLine({
+  email,
+  emailVerifiedAt,
+  fallback,
+  verifiedPill,
+  verifiedAria,
+}: {
+  email: string | null;
+  emailVerifiedAt: string | null;
+  fallback: string;
+  verifiedPill: string;
+  verifiedAria: (iso: string) => string;
+}) {
+  if (!email) {
+    return (
+      <div
+        style={{
+          fontSize: 12,
+          color: "var(--color-text-3)",
+          fontFamily: "var(--font-mono)",
+        }}
+      >
+        <span style={labelStyle()}>email</span> · {fallback}
+      </div>
+    );
+  }
+  return (
+    <div
+      style={{
+        fontSize: 13,
+        color: "var(--color-text)",
+        wordBreak: "break-word",
+      }}
+    >
+      <span style={labelStyle()}>email</span>
+      <br />
+      <span
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          flexWrap: "wrap",
+          gap: 6,
+        }}
+      >
+        <a
+          href={`mailto:${email}`}
+          style={{
+            color: "var(--color-agency-indigo)",
+            fontWeight: 600,
+            textDecoration: "none",
+            wordBreak: "break-word",
+          }}
+        >
+          {email}
+        </a>
+        {emailVerifiedAt ? (
+          <span
+            aria-label={verifiedAria(emailVerifiedAt)}
+            title={verifiedAria(emailVerifiedAt)}
+            data-testid="prospect-email-verified-pill"
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: 9.5,
+              fontWeight: 700,
+              textTransform: "uppercase",
+              letterSpacing: "0.06em",
+              padding: "2px 6px",
+              borderRadius: 4,
+              background: "rgba(8,145,178,.10)",
+              color: "var(--color-agency-teal)",
+              border: "1px solid rgba(8,145,178,.20)",
+              lineHeight: 1.3,
+              whiteSpace: "nowrap",
+            }}
+          >
+            {verifiedPill}
+          </span>
+        ) : null}
+      </span>
+    </div>
+  );
+}
+
+/**
+ * InstagramLine · contact-rail row for the @handle + follower count.
+ *
+ * Follower count is mono uppercase below the handle so Tom can scan
+ * the "is this a real account vs ghost profile" tell at a glance.
+ */
+function InstagramLine({
+  handle,
+  followers,
+  fallback,
+  followersLabel,
+}: {
+  handle: string | null;
+  followers: number | null;
+  fallback: string;
+  followersLabel: (count: number) => string;
+}) {
+  if (!handle) {
+    return (
+      <div
+        style={{
+          fontSize: 12,
+          color: "var(--color-text-3)",
+          fontFamily: "var(--font-mono)",
+        }}
+      >
+        <span style={labelStyle()}>instagram</span> · {fallback}
+      </div>
+    );
+  }
+  // Strip a leading "@" if present so the deep-link is clean.
+  const cleanHandle = handle.startsWith("@") ? handle.slice(1) : handle;
+  return (
+    <div style={{ fontSize: 13, color: "var(--color-text)" }}>
+      <span style={labelStyle()}>instagram</span>
+      <br />
+      <a
+        href={`https://instagram.com/${cleanHandle}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        style={{
+          color: "var(--color-agency-indigo)",
+          fontWeight: 600,
+          textDecoration: "none",
+        }}
+      >
+        @{cleanHandle}
+      </a>
+      {followers != null && followers > 0 ? (
+        <div
+          style={{
+            fontFamily: "var(--font-mono)",
+            fontSize: 11,
+            color: "var(--color-text-3)",
+            marginTop: 2,
+            fontVariantNumeric: "tabular-nums",
+          }}
+          data-testid="prospect-instagram-followers"
+        >
+          {followersLabel(followers)}
+        </div>
+      ) : null}
+    </div>
+  );
 }

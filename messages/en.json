@@ -941,7 +941,11 @@
         "notes_save_pending": "// save · coming in F.7",
         "no_phone": "no phone on file",
         "no_email": "no email on file",
-        "no_website": "no website on file"
+        "no_website": "no website on file",
+        "no_instagram": "no Instagram on file",
+        "email_verified_pill": "Verified",
+        "email_verified_aria": "Email verified · last checked {date}",
+        "instagram_followers": "{count, plural, =0 {no followers} one {# follower} other {{formatted} followers}}"
       },
       "nav": {
         "no_prev": "No previous prospect",
