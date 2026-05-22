@@ -203,7 +203,20 @@
       },
       "needs_attention": "What needs your attention",
       "top_fixes": "Your highest-impact fixes",
-      "empty_state": "No new reviews this week. We'll show them here as they come in."
+      "empty_state": "No new reviews this week. We'll show them here as they come in.",
+      "kpi_unanswered_label": "Unanswered reviews",
+      "kpi_unanswered_tip": "How many reviews you haven't replied to yet. A short reply on each one quietly lifts your rating in Google Maps.",
+      "kpi_brand_label": "Your name in ads",
+      "kpi_brand_value_clean": "Clean",
+      "kpi_brand_value_watch": "Watch",
+      "kpi_brand_value_hit": "Hit",
+      "kpi_brand_tip": "Is another business running ads using your name? Clean means no, Watch means maybe, Hit means yes — worth a look.",
+      "alerts_heading": "Needs your attention today",
+      "market_heading": "This week in your market",
+      "market_source_reviews": "Reviews",
+      "market_source_ads": "Ads",
+      "market_source_search": "Search",
+      "market_source_market": "Market"
     },
     "reviews": {
       "meta": {

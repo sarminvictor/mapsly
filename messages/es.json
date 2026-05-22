@@ -190,7 +190,20 @@
       "dim_brand_tip": "Your website health, ads, social, and how well Google can read your site.",
       "fixes_heading": "Your top fixes",
       "fixes_empty_body": "We'll show you the highest-impact things to fix here once your first weekly refresh runs.",
-      "fixes_empty_meta": "Refresh runs every Monday at 6am"
+      "fixes_empty_meta": "Refresh runs every Monday at 6am",
+      "kpi_unanswered_label": "Reseñas sin responder",
+      "kpi_unanswered_tip": "Cuántas reseñas no has respondido. Una respuesta corta en cada una sube tu valoración en Google Maps.",
+      "kpi_brand_label": "Tu nombre en anuncios",
+      "kpi_brand_value_clean": "Limpio",
+      "kpi_brand_value_watch": "Vigilar",
+      "kpi_brand_value_hit": "Detectado",
+      "kpi_brand_tip": "¿Otro negocio se anuncia usando tu nombre? Limpio = no, Vigilar = quizás, Detectado = sí — vale la pena revisar.",
+      "alerts_heading": "Lo que necesita tu atención hoy",
+      "market_heading": "Esta semana en tu mercado",
+      "market_source_reviews": "Reseñas",
+      "market_source_ads": "Anuncios",
+      "market_source_search": "Búsqueda",
+      "market_source_market": "Mercado"
     },
     "reviews": {
       "title": "Reseñas",

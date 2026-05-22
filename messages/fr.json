@@ -190,7 +190,20 @@
       "dim_brand_tip": "Your website health, ads, social, and how well Google can read your site.",
       "fixes_heading": "Your top fixes",
       "fixes_empty_body": "We'll show you the highest-impact things to fix here once your first weekly refresh runs.",
-      "fixes_empty_meta": "Refresh runs every Monday at 6am"
+      "fixes_empty_meta": "Refresh runs every Monday at 6am",
+      "kpi_unanswered_label": "Avis sans réponse",
+      "kpi_unanswered_tip": "Combien d'avis tu n'as pas encore répondus. Une courte réponse à chacun fait monter ta note dans Google Maps.",
+      "kpi_brand_label": "Ton nom dans les pubs",
+      "kpi_brand_value_clean": "OK",
+      "kpi_brand_value_watch": "À surveiller",
+      "kpi_brand_value_hit": "Détecté",
+      "kpi_brand_tip": "Une autre entreprise fait de la pub avec ton nom ? OK = non, À surveiller = peut-être, Détecté = oui — à regarder.",
+      "alerts_heading": "Ce qui demande ton attention aujourd'hui",
+      "market_heading": "Cette semaine dans ton marché",
+      "market_source_reviews": "Avis",
+      "market_source_ads": "Pubs",
+      "market_source_search": "Recherche",
+      "market_source_market": "Marché"
     },
     "reviews": {
       "title": "Avis",

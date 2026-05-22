@@ -51,6 +51,7 @@ import { setRequestLocale, getTranslations } from "next-intl/server";
 import { auth } from "@/lib/auth";
 import {
   AlertCard,
+  FixCard,
   KPITile,
   ScoreBreakdown,
   type ScoreDimension,
@@ -324,7 +325,9 @@ async function DashboardBody({ params }: { params: Promise<PageParams> }) {
         />
       </div>
 
-      {/* 5 supporting KPI tiles */}
+      {/* 7 supporting KPI tiles — Maria's "what's happening at a glance".
+          Auto-fit keeps the strip calm on mobile (2 cols) and dense on
+          desktop (up to 4-5 cols). */}
       <div
         style={{
           display: "grid",
@@ -345,6 +348,18 @@ async function DashboardBody({ params }: { params: Promise<PageParams> }) {
           infoTip={t("kpi_reviews_tip")}
         />
         <KPITile
+          label={t("kpi_unanswered_label")}
+          value={data.unansweredReviewCount ?? 0}
+          tone={
+            (data.unansweredReviewCount ?? 0) >= 5
+              ? "bad"
+              : (data.unansweredReviewCount ?? 0) > 0
+                ? "warn"
+                : "neutral"
+          }
+          infoTip={t("kpi_unanswered_tip")}
+        />
+        <KPITile
           label={t("kpi_reply_rate_label")}
           value={replyRateText}
           tone={replyRateTone(data.replyRate)}
@@ -357,11 +372,61 @@ async function DashboardBody({ params }: { params: Promise<PageParams> }) {
         />
         <KPITile
           label={t("kpi_velocity_label")}
-          value={data.velocityLast30d ?? "—"}
+          value={data.velocityLast30d ?? data.reviewsLast30d ?? "—"}
           infoTip={t("kpi_velocity_tip")}
           sublabel={t("kpi_velocity_sublabel")}
         />
+        <KPITile
+          label={t("kpi_brand_label")}
+          value={t(`kpi_brand_value_${data.brandHijackStatus}`)}
+          tone={
+            data.brandHijackStatus === "hit"
+              ? "bad"
+              : data.brandHijackStatus === "watch"
+                ? "warn"
+                : "good"
+          }
+          infoTip={t("kpi_brand_tip")}
+        />
       </div>
+
+      {/* Needs your attention — top alerts (capped at MAX_ALERTS = 4). */}
+      {data.alerts.length > 0 ? (
+        <section aria-labelledby="alerts-heading" style={{ marginBottom: 32 }}>
+          <h2
+            id="alerts-heading"
+            style={{
+              margin: "0 0 12px",
+              fontFamily: "var(--font-serif)",
+              fontSize: 18,
+              letterSpacing: "-0.01em",
+              color: "var(--color-text)",
+            }}
+          >
+            {t("alerts_heading")}
+          </h2>
+          <div
+            style={{
+              display: "grid",
+              gap: 10,
+            }}
+          >
+            {data.alerts.map((alert) => (
+              <AlertCard
+                key={alert.id}
+                tone={alert.tone}
+                icon={
+                  <span aria-hidden style={{ fontWeight: 700 }}>
+                    !
+                  </span>
+                }
+                body={alert.body}
+                meta={alert.meta}
+              />
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       {/* Score breakdown · 6 sub-dimensions */}
       <section
@@ -392,10 +457,10 @@ async function DashboardBody({ params }: { params: Promise<PageParams> }) {
         />
       </section>
 
-      {/* Top fixes placeholder — wired in a follow-up phase (6.1).
-          Keeps the section in document order so screen-readers see the
-          intended structure even before the data flows. */}
-      <section aria-labelledby="fixes-heading" style={{ marginBottom: 24 }}>
+      {/* Your top fixes — 3 highest-impact actions with quantified
+          impact values. Falls back to the empty info card when Maria
+          has nothing to fix today (rare — but it happens). */}
+      <section aria-labelledby="fixes-heading" style={{ marginBottom: 32 }}>
         <h2
           id="fixes-heading"
           style={{
@@ -408,15 +473,136 @@ async function DashboardBody({ params }: { params: Promise<PageParams> }) {
         >
           {t("fixes_heading")}
         </h2>
-        <AlertCard
-          tone="info"
-          icon={<span aria-hidden>i</span>}
-          body={t("fixes_empty_body")}
-          meta={t("fixes_empty_meta")}
-        />
+        {data.topFixes.length > 0 ? (
+          <div style={{ display: "grid", gap: 10 }}>
+            {data.topFixes.map((fix) => (
+              <FixCard
+                key={fix.rank}
+                rank={fix.rank}
+                action={fix.action}
+                meta={fix.meta}
+                impact={fix.impact}
+                impactSub={fix.impactSub}
+                tone={fix.tone}
+              />
+            ))}
+          </div>
+        ) : (
+          <AlertCard
+            tone="good"
+            icon={
+              <span aria-hidden style={{ fontWeight: 700 }}>
+                ✓
+              </span>
+            }
+            body={t("fixes_empty_body")}
+            meta={t("fixes_empty_meta")}
+          />
+        )}
       </section>
+
+      {/* This week in your market — competitor activity feed. Hidden
+          when there's nothing to show (new business, quiet week). */}
+      {data.marketActivity.length > 0 ? (
+        <section aria-labelledby="market-heading" style={{ marginBottom: 24 }}>
+          <h2
+            id="market-heading"
+            style={{
+              margin: "0 0 12px",
+              fontFamily: "var(--font-serif)",
+              fontSize: 18,
+              letterSpacing: "-0.01em",
+              color: "var(--color-text)",
+            }}
+          >
+            {t("market_heading")}
+          </h2>
+          <ul
+            style={{
+              listStyle: "none",
+              margin: 0,
+              padding: 0,
+              background: "var(--color-bg-2)",
+              border: "1px solid var(--color-border)",
+              borderRadius: 14,
+              overflow: "hidden",
+            }}
+          >
+            {data.marketActivity.map((event, idx) => (
+              <li
+                key={event.id}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: "12px 16px",
+                  borderTop:
+                    idx === 0 ? "none" : "1px solid var(--color-border)",
+                  gap: 12,
+                }}
+              >
+                <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                  <span
+                    aria-hidden
+                    style={{
+                      padding: "2px 8px",
+                      borderRadius: 999,
+                      background: "var(--color-bg-3)",
+                      color: "var(--color-text-2)",
+                      fontFamily: "var(--font-mono)",
+                      fontSize: 10,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.08em",
+                      fontWeight: 600,
+                      flexShrink: 0,
+                    }}
+                  >
+                    {t(`market_source_${event.source}`)}
+                  </span>
+                  <span
+                    style={{
+                      color: "var(--color-text)",
+                      fontSize: 14,
+                      lineHeight: 1.45,
+                    }}
+                  >
+                    {event.body}
+                  </span>
+                </div>
+                <span
+                  style={{
+                    fontFamily: "var(--font-mono)",
+                    fontSize: 11,
+                    color: "var(--color-text-3)",
+                    whiteSpace: "nowrap",
+                    flexShrink: 0,
+                  }}
+                >
+                  {formatRelativeShort(event.at)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
     </section>
   );
+}
+
+/**
+ * Short relative-time formatter for the market-activity feed.
+ * Server-rendered — uses a fixed-now anchor (`new Date()` at request
+ * time) so it stays a string, not a live timer. Maria's surface
+ * doesn't need sub-minute precision.
+ */
+function formatRelativeShort(d: Date): string {
+  const diffMs = Date.now() - d.getTime();
+  const days = Math.floor(diffMs / (24 * 60 * 60 * 1000));
+  if (days >= 1) return `${days}d ago`;
+  const hours = Math.floor(diffMs / (60 * 60 * 1000));
+  if (hours >= 1) return `${hours}h ago`;
+  const mins = Math.max(1, Math.floor(diffMs / 60_000));
+  return `${mins}m ago`;
 }
 
 /** 0–1 sub-score → 0–100 integer for the ScoreBreakdown bar. */
