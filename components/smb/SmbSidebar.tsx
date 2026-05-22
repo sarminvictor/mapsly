@@ -36,6 +36,7 @@ import { Link, usePathname } from "@/i18n/navigation";
 type NavHref =
   | "/dashboard"
   | "/reviews"
+  | "/activity"
   | "/competitors"
   | "/search"
   | "/ads"
@@ -59,6 +60,7 @@ export interface SmbSidebarLabels {
   items: {
     dashboard: string;
     reviews: string;
+    activity: string;
     competitors: string;
     search: string;
     ads: string;
@@ -134,11 +136,20 @@ function IconSettings() {
   );
 }
 
+function IconActivity() {
+  return (
+    <svg aria-hidden {...ICON_STROKE_PROPS}>
+      <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+    </svg>
+  );
+}
+
 /* ----------------------------------------------- nav definitions */
 
 const DAILY_ITEMS: NavItem[] = [
   { href: "/dashboard", labelKey: "dashboard", icon: <IconDashboard /> },
   { href: "/reviews", labelKey: "reviews", icon: <IconReviews /> },
+  { href: "/activity", labelKey: "activity", icon: <IconActivity /> },
 ];
 
 const WATCH_ITEMS: NavItem[] = [

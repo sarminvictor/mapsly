@@ -326,7 +326,8 @@
       "item_competitors": "Concurrents",
       "item_search": "Visibilité",
       "item_ads": "Publicités",
-      "item_settings": "Paramètres"
+      "item_settings": "Paramètres",
+      "item_activity": "Activité"
     },
     "ads": {
       "kpi_lanes_covered": "Services pour lesquels tu fais de la pub",
@@ -349,6 +350,27 @@
       "paradox_headline": "{totalActiveAds, plural, one {Tu as 1 pub active} other {Tu as # pubs actives}} — mais tu n'apparais que pour {lanesCovered} sur {totalLanes} services où on a trouvé des pubs.",
       "paradox_body": "La plupart de ton budget ne pointe pas vers tes vrais services. Chaque pub devrait nommer le soin (botox, soins du visage, etc.) — c'est comme ça que les gens qui le cherchent te trouvent.",
       "paradox_cta": "Astuce · réécris chaque titre de pub en commençant par le nom du service."
+    },
+    "activity": {
+      "meta": {
+        "title": "Activité · Mapsly",
+        "description": "Tout ce qui a bougé dans ton marché ces 30 derniers jours."
+      },
+      "eyebrow": "Ton marché",
+      "title": "Ce qui a bougé ce mois-ci",
+      "subtitle": "Avis, pubs et nouvelles entreprises près de chez toi — tout dans une vue tranquille.",
+      "aria_list": "Événements d'activité regroupés par jour",
+      "no_events_title": "Rien de nouveau pour l'instant",
+      "no_events_body": "On remplira cette page dès que des avis, pubs ou nouvelles entreprises apparaîtront près de toi.",
+      "empty_title": "Ton fil d'activité",
+      "empty_body": "Une fois ton entreprise liée, cette page montre tout ce qui bouge dans ton marché — nouveaux avis, pubs de concurrents, nouveaux arrivants.",
+      "scope_you": "Toi",
+      "scope_competitor": "Près",
+      "scope_market": "Marché",
+      "source_reviews": "Avis",
+      "source_ads": "Pubs",
+      "source_search": "Recherche",
+      "source_market": "Marché"
     }
   },
   "agency": {
