@@ -1170,6 +1170,32 @@
       "empty_state_body": "No leads in any list. Create a list via search or wait for next list refresh.",
       "empty_state_cta": "Open search"
     },
+    "list_activity": {
+      "meta": {
+        "title": "List activity · Mapsly",
+        "description": "What happened across your lists in the last 14 days."
+      },
+      "title": "List activity",
+      "subtitle_with_agency": "Status changes + new leads across your lists · last 14 days · {agency}",
+      "feed_aria": "Recent activity across your lists",
+      "empty_title": "Quiet stretch",
+      "empty_body": "Nothing happened in the last 14 days. Tweak filters or wait for next refresh.",
+      "capped_footer": "Showing {shown} of {total} events · oldest first cut off",
+      "last_refresh_label": "Last refresh · {relative}",
+      "verb_new": "NEW LEAD",
+      "verb_contacted": "CONTACTED",
+      "verb_replied": "REPLIED",
+      "verb_won": "WON",
+      "verb_lost": "LOST",
+      "status_pill_new": "New",
+      "status_pill_contacted": "Contacted",
+      "status_pill_replied": "Replied",
+      "status_pill_won": "Won",
+      "status_pill_lost": "Lost",
+      "status_pill_hidden": "Hidden",
+      "row_aria": "{businessName} · {verb} · {relativeTime}",
+      "in_list_connector": "in"
+    },
     "commandK": {
       "trigger": "⌘K Search",
       "triggerAriaLabel": "Open business search",
