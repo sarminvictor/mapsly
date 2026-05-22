@@ -206,8 +206,8 @@ function AccessDenied() {
             color: "var(--dev-fg-2, #94a3b8)",
           }}
         >
-          Your account exists but isn&apos;t part of the Mapsly staff. If
-          you need access for support or debugging, ping{" "}
+          Your account exists but isn&apos;t part of the Mapsly staff. If you
+          need access for support or debugging, ping{" "}
           <a
             href="mailto:support@mapsly.ai"
             style={{ color: "#a3b8ff", textDecoration: "none" }}
