@@ -279,15 +279,17 @@ async function ListDetailBody({
     actions: t("table_actions"),
     caption: t("table_caption"),
     openLabel: t("table_open"),
-    openAria: (business: string) => t("table_open_aria", { business }),
     noContact: t("table_no_contact"),
-    selectedNoun: (count: number) => t("table_bulk_selected_meta", { count }),
     bulkMarkContacted: t("table_bulk_mark_contacted"),
     bulkMarkReplied: t("table_bulk_mark_replied"),
     bulkMarkLost: t("table_bulk_mark_lost"),
     bulkHide: t("table_bulk_hide"),
     bulkClear: t("table_bulk_clear"),
     statusError: t("table_status_error"),
+    // The client island resolves `table_bulk_selected_meta` from this
+    // namespace via `useTranslations` (per INC-26 · functions cannot
+    // cross the server→client boundary).
+    selectedNounNamespace: "agency.list_detail",
   };
 
   /* ------------------------------------------------------ rendered */
@@ -461,6 +463,11 @@ async function ListDetailBody({
             statusDwell: lead.statusDwell ?? undefined,
             contactEmail: lead.contactEmail ?? null,
             contactPhone: lead.contactPhone ?? null,
+            // Pre-resolved server-side so no function crosses the
+            // server→client prop boundary (INC-26).
+            openAriaLabel: t("table_open_aria", {
+              business: lead.businessName,
+            }),
           }))}
           labels={tableLabels}
         />
