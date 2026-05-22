@@ -26,6 +26,12 @@ export interface TodayMatchesStripProps {
   meta: string;
   /** CTA · "Review →" links to the Activity page (built later). */
   cta: { href: "/lists" | "/search"; label: string };
+  /**
+   * Optional secondary KPI · "X verified email" — Tom's outreach
+   * primer. Omitted when 0 across all active lists so the strip stays
+   * tight when the email-verify cron hasn't run yet.
+   */
+  verifiedEmail?: { count: number; label: string } | null;
 }
 
 export function TodayMatchesStrip({
@@ -34,6 +40,7 @@ export function TodayMatchesStrip({
   detail,
   meta,
   cta,
+  verifiedEmail,
 }: TodayMatchesStripProps) {
   return (
     <section
@@ -89,6 +96,20 @@ export function TodayMatchesStrip({
         >
           {detail}
         </p>
+        {verifiedEmail && verifiedEmail.count > 0 ? (
+          <p
+            style={{
+              margin: "6px 0 0",
+              fontFamily: "var(--font-mono)",
+              fontSize: 11.5,
+              fontWeight: 600,
+              color: "var(--color-agency-teal)",
+            }}
+            data-testid="today-strip-verified-email"
+          >
+            {verifiedEmail.label}
+          </p>
+        ) : null}
         <p
           style={{
             margin: "6px 0 0",

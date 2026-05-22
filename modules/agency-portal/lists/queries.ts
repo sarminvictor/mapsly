@@ -41,6 +41,7 @@
 import { cacheLife, cacheTag } from "next/cache";
 
 import prisma from "@/lib/prisma";
+import { parseFilterTags } from "@/modules/agency-portal/list-detail/filter-tags";
 
 import {
   EMPTY_AGENCY_LISTS,
@@ -122,6 +123,7 @@ export async function getAgencyListsData(
         category: true,
         metro: true,
         radiusMi: true,
+        filterJson: true,
         createdAt: true,
       },
     });
@@ -133,6 +135,7 @@ export async function getAgencyListsData(
         active: [],
         paused: [],
         totalNewThisWeek: 0,
+        totalVerifiedEmail: 0,
       };
     }
 
@@ -142,7 +145,7 @@ export async function getAgencyListsData(
     const since = new Date(Date.now() - WEEK_MS);
     const listIds = lists.map((l) => l.id);
 
-    const [statusGroup, newThisWeek] = await Promise.all([
+    const [statusGroup, newThisWeek, verifiedGroup] = await Promise.all([
       prisma.lead.groupBy({
         by: ["listId", "status"],
         where: { listId: { in: listIds } },
@@ -153,17 +156,36 @@ export async function getAgencyListsData(
         where: { listId: { in: listIds }, createdAt: { gte: since } },
         _count: { _all: true },
       }),
+      // Verified-email tally · one row per listId. Joins through to
+      // Business via the `business: { emailVerifiedAt: { not: null } }`
+      // relation filter — Prisma 7's relation-filter syntax. Cheap
+      // because Lead.businessId is indexed and Business.emailVerifiedAt
+      // is a sparse but indexed column (monthly cron writes it).
+      prisma.lead.groupBy({
+        by: ["listId"],
+        where: {
+          listId: { in: listIds },
+          business: { emailVerifiedAt: { not: null } },
+        },
+        _count: { _all: true },
+      }),
     ]);
 
-    // Reshape into { [listId]: { qualified, engaged, newThisWeek } }.
+    // Reshape into { [listId]: { qualified, engaged, newThisWeek, verifiedEmail } }.
     type Aggregate = {
       qualified: number;
       engaged: number;
       newThisWeek: number;
+      verifiedEmail: number;
     };
     const agg = new Map<string, Aggregate>();
     for (const id of listIds) {
-      agg.set(id, { qualified: 0, engaged: 0, newThisWeek: 0 });
+      agg.set(id, {
+        qualified: 0,
+        engaged: 0,
+        newThisWeek: 0,
+        verifiedEmail: 0,
+      });
     }
     const engagedSet = new Set<string>(ENGAGED_STATUSES);
     for (const row of statusGroup) {
@@ -183,12 +205,18 @@ export async function getAgencyListsData(
       if (!a) continue;
       a.newThisWeek = row._count._all;
     }
+    for (const row of verifiedGroup) {
+      const a = agg.get(row.listId);
+      if (!a) continue;
+      a.verifiedEmail = row._count._all;
+    }
 
     const summaries: AgencyListSummary[] = lists.map((l) => {
       const a = agg.get(l.id) ?? {
         qualified: 0,
         engaged: 0,
         newThisWeek: 0,
+        verifiedEmail: 0,
       };
       return {
         id: l.id,
@@ -207,6 +235,8 @@ export async function getAgencyListsData(
         qualifiedCount: a.qualified,
         newThisWeekCount: a.newThisWeek,
         engagedCount: a.engaged,
+        verifiedEmailCount: a.verifiedEmail,
+        filterTags: parseFilterTags(l.filterJson),
         createdAt: l.createdAt,
       };
     });
@@ -224,6 +254,10 @@ export async function getAgencyListsData(
       (sum, l) => sum + l.newThisWeekCount,
       0,
     );
+    const totalVerifiedEmail = active.reduce(
+      (sum, l) => sum + l.verifiedEmailCount,
+      0,
+    );
 
     return {
       agencyId: member.agency.id,
@@ -231,6 +265,7 @@ export async function getAgencyListsData(
       active,
       paused,
       totalNewThisWeek,
+      totalVerifiedEmail,
     };
   } catch {
     return EMPTY_AGENCY_LISTS;
