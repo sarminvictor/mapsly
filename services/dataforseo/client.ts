@@ -70,11 +70,17 @@ function getFetch(): typeof fetch {
 
 function getCredentials(): { username: string; password: string } {
   if (_credentialsOverride) return _credentialsOverride;
-  const username = process.env.DATAFORSEO_USERNAME;
+  // Accept either name · DATAFORSEO_USERNAME is canonical going forward,
+  // DATAFORSEO_LOGIN is the legacy/Boxly convention also used by Viktor's
+  // existing Vercel env. The seed scripts shim this at process-start; the
+  // runtime client also accepts both so server-action paths (which don't
+  // run the seed bridge) work without env-var renaming.
+  const username =
+    process.env.DATAFORSEO_USERNAME ?? process.env.DATAFORSEO_LOGIN;
   const password = process.env.DATAFORSEO_PASSWORD;
   if (!username || !password) {
     throw new Error(
-      "[dataforseo] DATAFORSEO_USERNAME and DATAFORSEO_PASSWORD must be set. " +
+      "[dataforseo] DATAFORSEO_USERNAME (or DATAFORSEO_LOGIN) and DATAFORSEO_PASSWORD must be set. " +
         "Sign up at https://dataforseo.com (pay-as-you-go, ~$50 min deposit) " +
         "and add credentials to .env.local / Vercel env.",
     );
