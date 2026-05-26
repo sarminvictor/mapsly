@@ -98,48 +98,8 @@ export function ReviewTrendCard({ data, labels }: Props) {
           );
         })}
 
-        {/* Avg-star polyline overlay */}
-        <polyline
-          points={data.monthly
-            .map((b, i) => {
-              const x =
-                PADDING.left +
-                i * (INNER_W / data.monthly.length) +
-                barWidth / 2 +
-                2;
-              const avg = b.avgStars ?? 0;
-              const y = PADDING.top + INNER_H - ((avg - 1) / 4) * INNER_H;
-              return b.avgStars == null ? "" : `${x},${y}`;
-            })
-            .filter(Boolean)
-            .join(" ")}
-          fill="none"
-          stroke="var(--color-berry)"
-          strokeWidth={1.5}
-          strokeLinejoin="round"
-          opacity={0.85}
-        />
-        {/* Dots on the polyline */}
-        {data.monthly.map((b, i) => {
-          if (b.avgStars == null) return null;
-          const x =
-            PADDING.left +
-            i * (INNER_W / data.monthly.length) +
-            barWidth / 2 +
-            2;
-          const y = PADDING.top + INNER_H - ((b.avgStars - 1) / 4) * INNER_H;
-          return (
-            <circle
-              key={b.month}
-              cx={x}
-              cy={y}
-              r={2.5}
-              fill="var(--color-berry)"
-            />
-          );
-        })}
-
-        {/* Y-axis labels */}
+        {/* Single y-axis label · count only · avg-star line removed per
+            Viktor's note (bars already convey monthly count clearly). */}
         <text
           x={4}
           y={PADDING.top + 4}
@@ -148,16 +108,6 @@ export function ReviewTrendCard({ data, labels }: Props) {
           fill="var(--color-text-3)"
         >
           {labels.yAxisCount}
-        </text>
-        <text
-          x={WIDTH - 4}
-          y={PADDING.top + 4}
-          textAnchor="end"
-          fontSize={9}
-          fontFamily="var(--font-mono)"
-          fill="var(--color-text-3)"
-        >
-          {labels.yAxisStars}
         </text>
       </svg>
 
