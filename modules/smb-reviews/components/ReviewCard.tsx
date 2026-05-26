@@ -2,6 +2,7 @@ import * as React from "react";
 
 import { Pill } from "@/components/ui";
 import { AIReplyDraftBody } from "./AIReplyDraftBody";
+import { HighlightedReviewText } from "./HighlightedReviewText";
 import { StarRating } from "./StarRating";
 import type { ReviewItem } from "../types";
 
@@ -186,7 +187,19 @@ export function ReviewCard({ review, labels }: ReviewCardProps) {
           // want screen readers to receive the entire review text.
         }}
       >
-        {review.text ? `"${review.text}"` : labels.noText}
+        {review.text ? (
+          <>
+            &ldquo;
+            <HighlightedReviewText
+              text={review.text}
+              people={review.mentionedPeople}
+              services={review.mentionedServices}
+            />
+            &rdquo;
+          </>
+        ) : (
+          labels.noText
+        )}
       </p>
 
       {review.themes.length > 0 ? (

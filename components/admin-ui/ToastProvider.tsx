@@ -84,23 +84,38 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const show = useCallback<ToastContextValue["show"]>((t) => {
-    const id = t.id ?? `toast-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const id =
+      t.id ?? `toast-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const duration = t.duration ?? DURATIONS[t.kind];
-    setToasts((prev) => [
-      { id, kind: t.kind, title: t.title, description: t.description, duration },
-      ...prev,
-    ].slice(0, 6)); // cap at 6 visible
+    setToasts((prev) =>
+      [
+        {
+          id,
+          kind: t.kind,
+          title: t.title,
+          description: t.description,
+          duration,
+        },
+        ...prev,
+      ].slice(0, 6),
+    ); // cap at 6 visible
     return id;
   }, []);
 
-  const value = useMemo<ToastContextValue>(() => ({
-    show,
-    success: (title, description) => show({ kind: "success", title, description }),
-    error: (title, description) => show({ kind: "error", title, description }),
-    info: (title, description) => show({ kind: "info", title, description }),
-    warning: (title, description) => show({ kind: "warning", title, description }),
-    dismiss,
-  }), [show, dismiss]);
+  const value = useMemo<ToastContextValue>(
+    () => ({
+      show,
+      success: (title, description) =>
+        show({ kind: "success", title, description }),
+      error: (title, description) =>
+        show({ kind: "error", title, description }),
+      info: (title, description) => show({ kind: "info", title, description }),
+      warning: (title, description) =>
+        show({ kind: "warning", title, description }),
+      dismiss,
+    }),
+    [show, dismiss],
+  );
 
   return (
     <ToastContext.Provider value={value}>
@@ -172,9 +187,7 @@ function ToastCard({
   }, [toast.duration, onDismiss]);
 
   const pct =
-    toast.duration === 0
-      ? 0
-      : Math.min(100, (elapsed / toast.duration) * 100);
+    toast.duration === 0 ? 0 : Math.min(100, (elapsed / toast.duration) * 100);
 
   const palette = COLOR_BY_KIND[toast.kind];
 

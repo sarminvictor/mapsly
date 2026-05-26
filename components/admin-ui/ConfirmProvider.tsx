@@ -75,15 +75,12 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const close = useCallback(
-    (ok: boolean) => {
-      setPending((prev) => {
-        if (prev) prev.resolve(ok);
-        return null;
-      });
-    },
-    [],
-  );
+  const close = useCallback((ok: boolean) => {
+    setPending((prev) => {
+      if (prev) prev.resolve(ok);
+      return null;
+    });
+  }, []);
 
   // Esc + scroll-lock side effects when a dialog is open
   useEffect(() => {
@@ -246,7 +243,11 @@ function ConfirmDialog({
               padding: "8px 16px",
               fontSize: 12,
               ...(danger
-                ? { background: "#f87171", borderColor: "#f87171", color: "#1a0a0a" }
+                ? {
+                    background: "#f87171",
+                    borderColor: "#f87171",
+                    color: "#1a0a0a",
+                  }
                 : {}),
             }}
           >

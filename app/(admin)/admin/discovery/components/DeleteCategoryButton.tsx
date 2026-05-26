@@ -21,10 +21,7 @@ const initial: ActionResult | null = null;
 
 export function DeleteCategoryButton({ categoryId, label }: Props) {
   const confirm = useConfirm();
-  const [state, formAction, pending] = useActionState(
-    deleteCategory,
-    initial,
-  );
+  const [state, formAction, pending] = useActionState(deleteCategory, initial);
   useActionToast(state);
   const formRef = useRef<HTMLFormElement>(null);
 

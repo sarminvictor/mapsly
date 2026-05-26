@@ -31,3 +31,17 @@ export {
   type ThemesCardProps,
   type ThemesCardLabels,
 } from "./ThemesCard";
+export {
+  CompetitorBenchmarkCard,
+  type CompetitorBenchmarkLabels,
+} from "./CompetitorBenchmarkCard";
+export { ReviewTrendCard, type ReviewTrendCardLabels } from "./ReviewTrendCard";
+export {
+  ServiceMentionsCard,
+  type ServiceMentionsCardLabels,
+} from "./ServiceMentionsCard";
+export {
+  MentionedNamesCard,
+  type MentionedNamesCardLabels,
+} from "./MentionedNamesCard";
+export { HighlightedReviewText } from "./HighlightedReviewText";

@@ -70,6 +70,15 @@ export {
 } from "./reviews";
 
 export {
+  reviewsTaskPost,
+  reviewsTaskGet,
+  buildReviewsPingbackUrl,
+  ReviewsTaskPostQuerySchema,
+  type ReviewsTaskPostQuery,
+  type ReviewsTaskGetResult,
+} from "./reviews-task";
+
+export {
   keywordVolume,
   keywordVolumeUncached,
   KeywordVolumeQuerySchema,

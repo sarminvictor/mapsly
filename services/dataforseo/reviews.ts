@@ -1,17 +1,23 @@
-// services/dataforseo/reviews.ts · Google Maps reviews pull.
+// services/dataforseo/reviews.ts · Google Maps reviews pull (Live tier).
 //
 // Endpoint: /v3/business_data/google/reviews/live
-// Use case: weekly reviews-full-pull (C.9) and daily new-reviews-delta
-// (C.8). Returns the latest reviews for a business by CID, place_id, or
-// keyword + location.
+// Use case: legacy daily new-reviews-delta + weekly reviews-full-pull
+// (R.3 replaces both with Standard-queue + pingback flow; this Live
+// adapter stays for ad-hoc / debug use and for the existing crons until
+// R.3 lands).
+//
+// Cost: VARIABLE per-call · $0.0015 per 10 reviews returned on Live.
+// Earlier versions hardcoded a single $0.0008 unit cost via
+// withCostCounter, under-billing depth=50 calls by ~9×. Fixed in R.1 —
+// we now bill the cost DfS itself reports (`task.cost`) and fall back
+// to per-10-reviews ceil math if the envelope omits it.
 //
 // Cache: 6h — shorter than other endpoints because the daily delta cron
-// wants relatively fresh data and pays a small premium. Reviews change
-// throughout the day for high-traffic businesses.
+// wants relatively fresh data.
 
 import { z } from "zod";
 import { kvCache } from "@/lib/cache";
-import { withCostCounter } from "@/lib/cost/cost-counter";
+import { incrementCost } from "@/lib/cost/cost-counter";
 import { dataforSeoPost } from "./client";
 import { DATAFORSEO_UNIT_COST_USD } from "./pricing";
 
@@ -99,12 +105,29 @@ const OPERATION = "dataforseo.reviews.pull";
 
 async function reviewsPullRaw(query: ReviewsQuery): Promise<ReviewsPullResult> {
   const parsed = ReviewsQuerySchema.parse(query);
-  const { result } = await dataforSeoPost<z.infer<typeof ReviewsResultSchema>>({
+  const { result, rawCostUsd } = await dataforSeoPost<
+    z.infer<typeof ReviewsResultSchema>
+  >({
     path: "/v3/business_data/google/reviews/live",
     operation: OPERATION,
     body: parsed,
   });
   const first = ReviewsResultSchema.parse(result[0] ?? {});
+
+  // Bill the variable cost. DfS reports the actual call cost in
+  // `task.cost` (returned as `rawCostUsd`). Fall back to per-10-reviews
+  // math when missing — never silently under-bill.
+  const itemsCount = first.items_count ?? first.items?.length ?? 0;
+  // DATAFORSEO_UNIT_COST_USD.reviews is the cost for a typical depth=50
+  // pull ($0.0075). Scale by actual items: floor of (cost per 10) ×
+  // ceil(items/10) ≈ $0.0015 × ceil(items/10).
+  const perTen = DATAFORSEO_UNIT_COST_USD.reviews / 50; // per-review unit
+  const fallbackCost = perTen * 10 * Math.max(1, Math.ceil(itemsCount / 10));
+  const billedCost = rawCostUsd ?? fallbackCost;
+  if (billedCost > 0) {
+    await incrementCost(billedCost, OPERATION);
+  }
+
   return {
     items: first.items ?? [],
     aggregateRating: first.rating?.value ?? null,
@@ -113,12 +136,18 @@ async function reviewsPullRaw(query: ReviewsQuery): Promise<ReviewsPullResult> {
   };
 }
 
-export const reviewsPullUncached = withCostCounter(
-  OPERATION,
-  DATAFORSEO_UNIT_COST_USD.reviews,
-  reviewsPullRaw,
-);
+/**
+ * Uncached pull. Always bills the open CronRun based on actual items
+ * returned. `dataforSeoPost` already enforces CronRun context via
+ * `assertCronContext`, so calls outside a CronRun fast-fail there.
+ */
+export const reviewsPullUncached = reviewsPullRaw;
 
+/**
+ * Cached pull. KV TTL = 6h. Cache hits return without invoking the raw
+ * function — no cost is billed on a hit (correct: DfS itself caches
+ * per-CID for 6h, so a hit means the result was already paid for).
+ */
 export const reviewsPull = kvCache(
   "dfs:reviews:pull",
   { ttl: 6 * 60 * 60, tag: "dfs:reviews" },

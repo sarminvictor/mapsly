@@ -42,7 +42,8 @@ export function useActionToast<T extends ActionResultShape | null>(
       const title = options.successTitle ?? state.message ?? "Done.";
       toast.success(title);
     } else {
-      const title = options.errorTitle ?? state.error ?? "Something went wrong.";
+      const title =
+        options.errorTitle ?? state.error ?? "Something went wrong.";
       toast.error(title);
     }
   }, [state, toast, options.successTitle, options.errorTitle]);

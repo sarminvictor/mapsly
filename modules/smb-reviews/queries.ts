@@ -163,6 +163,8 @@ export async function getSmbReviewsData(
             isUrgent: true,
             aiReplyDraftEn: true,
             aiReplyDraftEs: true,
+            mentionedPeople: true,
+            mentionedServices: true,
           },
         }),
         loadTabCounts(business.id),
@@ -192,6 +194,8 @@ export async function getSmbReviewsData(
       isUrgent: r.isUrgent,
       aiReplyDraftEn: r.aiReplyDraftEn,
       aiReplyDraftEs: r.aiReplyDraftEs,
+      mentionedPeople: r.mentionedPeople ?? [],
+      mentionedServices: r.mentionedServices ?? [],
     }));
 
     // KPI strip · cheap aggregate counts driven by the same Review

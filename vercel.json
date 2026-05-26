@@ -14,19 +14,19 @@
       "schedule": "30 11 * * *"
     },
     {
-      "path": "/api/cron/daily/new-reviews-delta",
-      "schedule": "45 11 * * *"
-    },
-    {
       "path": "/api/cron/daily/list-refresh-daily",
       "schedule": "0 12 * * *"
+    },
+    {
+      "path": "/api/cron/daily/reviews-extract-entities",
+      "schedule": "30 13 * * *"
     },
     {
       "path": "/api/cron/weekly/business-profile-refresh",
       "schedule": "0 11 * * 1"
     },
     {
-      "path": "/api/cron/weekly/reviews-full-pull",
+      "path": "/api/cron/weekly/reviews-delta",
       "schedule": "30 11 * * 1"
     },
     {

@@ -289,10 +289,13 @@ describe("reviewsPullUncached", () => {
     expect(out.items[0]!.review_text).toMatch(/Loved/);
     expect(out.aggregateRating).toBe(4.8);
     expect(out.totalReviewsCount).toBe(247);
-    expect(lastCronRun().costUsd).toBeCloseTo(
-      DATAFORSEO_UNIT_COST_USD.reviews,
-      6,
-    );
+    // Variable per-page billing (R.1 fix): items_count=1 → 1 page of 10 →
+    // perTen = DATAFORSEO_UNIT_COST_USD.reviews / 50 = 0.00015 →
+    // 0.00015 * 10 * ceil(1/10) = 0.0015. The constant 0.0075 is the
+    // FALLBACK for a typical depth=50 pull; actual bill scales with items.
+    const perTen = DATAFORSEO_UNIT_COST_USD.reviews / 50;
+    const expected = perTen * 10 * Math.ceil(1 / 10);
+    expect(lastCronRun().costUsd).toBeCloseTo(expected, 6);
   });
 
   test("rejects query with no business identifier", async () => {

@@ -100,23 +100,6 @@ async function main(): Promise<void> {
     `[seed-discovery-registry] locations · created=${created} · skipped=${skipped} (already present)`,
   );
 
-  // 3. Backfill the Solea row's `source` if it's still default. Solea was
-  // manually seeded long before this column existed; mark it correctly so
-  // the new BusinessSource audit isn't misleading.
-  const solea = await prisma.business.findUnique({
-    where: { slug: "solea-brickell-spa" },
-    select: { id: true, source: true },
-  });
-  if (solea && solea.source === "DISCOVERY") {
-    await prisma.business.update({
-      where: { id: solea.id },
-      data: { source: "MANUAL_SEED" },
-    });
-    console.log(
-      `[seed-discovery-registry] backfilled solea-brickell-spa source → MANUAL_SEED`,
-    );
-  }
-
   // Hint to the operator
   const phase1Count = PHASE_1_LAUNCH_CITIES.length;
   const otherCats = KNOWN_CATEGORIES.filter((c) => c.phase !== 1).length;
