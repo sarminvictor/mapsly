@@ -115,7 +115,7 @@ describe("app/robots.ts", () => {
     const wildcard = rules.find((rule) => rule.userAgent === "*")!;
     const disallow = wildcard.disallow as string[];
     expect(disallow).toContain("/api/");
-    expect(disallow).toContain("/dashboard");
+    expect(disallow).toContain("/home");
     expect(disallow).toContain("/lists");
     expect(disallow).toContain("/signin");
     expect(disallow).toContain("/dev");

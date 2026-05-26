@@ -194,16 +194,60 @@ model Business {
   rating        Float?
   reviewCount   Int?
   photosCount   Int?
-  hours         Json?    // structured hours
-  attributes    Json?
+  hours         Json?    // structured hours (DfS work_time.work_hours.timetable)
+  attributes    Json?    // DfS attributes — accessibility, payments, planning, etc.
   isClaimed     Boolean  @default(false)
   isActive      Boolean  @default(true)
   firstSeenOnGoogle DateTime?
   yearsOnGoogle Int?
 
+  // Extended DfS capture · everything the Maps Listings response returns
+  // that's worth indexable / queryable on its own. The full raw row is
+  // preserved in `sourceRawJson` so any forensic re-extraction is cheap.
+  description           String?    @db.Text  // business bio (long-form)
+  originalTitle         String?              // alt-language title when present
+  featureId             String?              // Google internal feature_id (hex pair · distinct from CID)
+  domain                String?              // pre-extracted host from url
+  logoUrl               String?              // Google-hosted logo
+  mainImageUrl          String?              // primary photo
+  snippet               String?              // short rendered text (usually the address)
+  checkUrl              String?              // direct Google Maps URL for this listing
+  categoryIds           String[]  @default([])  // DfS category slugs (e.g. "medical_spa") — vs `categories[]` which is display names
+  ratingDistribution    Json?                // {1: n, 2: n, 3: n, 4: n, 5: n}
+  placeTopics           Json?                // {keyword: count} extracted by DfS from reviews · gold for review themes
+  peopleAlsoSearch      Json?                // top 5 competitor seeds Google's own algorithm surfaces
+  popularTimes          Json?                // hours-of-day occupancy histogram
+  localBusinessLinks    Json?                // booking, reservations, menu links
+  contactInfo           Json?                // typed contact channels with provenance
+  sourceLastUpdatedAt   DateTime?            // when DfS itself last refreshed this row
+  sourceRawJson         Json?                // entire DfS row · forensic recovery
+
   // Owner (if claimed in Mapsly by their SMB user)
   ownerUserId   String?
   owner         User?    @relation("BusinessOwner", fields: [ownerUserId], references: [id])
+
+  // Provenance · which path created this row (admin discovery / manual seed /
+  // SMB self-claim / future Hunter expand). Defaults to DISCOVERY since that's
+  // the production path; manual seeds set it explicitly.
+  source        BusinessSource @default(DISCOVERY)
+
+  // Qualification · checked on /admin/discovery
+  qualificationStatus  QualificationStatus  @default(NOT_QUALIFIED)
+  qualificationFlags   String[]             @default([])  // ["unclaimed","low_reviews","no_email","no_website"]
+  qualifiedAt          DateTime?
+  qualifiedByUserId    String?
+
+  // Email discovery · best candidate found across scrape + RDAP
+  emailDiscovered      String?
+  emailDiscoverySource EmailDiscoverySource?
+  emailDiscoveredAt    DateTime?
+  emailCandidates      Json?  // ranked array [{ email, source, score }, ...]
+
+  // Activity · checked on /admin/activity (separate page)
+  activityStatus       ActivityStatus  @default(NOT_CHECKED)
+  lastReviewAt         DateTime?
+  activityCheckedAt    DateTime?
+  activityCheckedByUserId String?
 
   // Linked records
   snapshots     BusinessSnapshot[]
@@ -212,6 +256,7 @@ model Business {
   adLibraryEntries AdLibraryEntry[]
   serpResults   SerpResult[]
   leads         Lead[]
+  services      BusinessService[]
 
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
@@ -221,6 +266,74 @@ model Business {
   @@index([country, province, city])
   @@index([lat, lng])
   @@index([category, country])
+}
+
+enum BusinessSource {
+  DISCOVERY        // Admin-triggered discovery run
+  MANUAL_SEED      // One-off seed script (e.g., Solea)
+  ONBOARDING       // SMB self-claim during onboarding (future)
+  HUNTER_EXPAND    // Agency "expand to Google" affordance (future)
+}
+
+enum QualificationStatus {
+  NOT_QUALIFIED  // default · never checked
+  QUALIFIED      // claimed + ≥10 reviews + email found
+  DISQUALIFIED   // fails ≥1 criterion but reachable
+  UNREACHABLE    // no email + no website
+  FAILED         // qualification call errored
+}
+
+enum EmailDiscoverySource {
+  SCRAPE_HOMEPAGE
+  SCRAPE_CONTACT
+  SCRAPE_ABOUT
+  SCRAPE_TEAM
+  SCRAPE_FOOTER
+  SCRAPE_BOOKING
+  SCRAPE_JS_BUNDLE
+  RDAP
+  MANUAL
+}
+
+enum ActivityStatus {
+  NOT_CHECKED
+  ACTIVE        // ≥1 review in last 90 days
+  STALE         // last review older than 90 days
+  NO_REVIEWS    // never reviewed
+  FAILED
+}
+
+// What the business offers · the contextual lens for every analysis.
+// SMB portal lets Maria edit this list; cron jobs auto-detect candidates
+// from Google Business categories + DOM scrape on first sync. Services
+// drive review-theme grouping, keyword matching, ad-creative comparison,
+// and per-service website page checks. See `.claude/rules/ui-ux-smb.md`
+// and the SMB portal restructure (v0.8.x).
+model BusinessService {
+  id          String   @id @default(cuid())
+  businessId  String
+  business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  // Display
+  name        String              // "Botox", "Lip filler", "Brow lamination"
+  category    String?             // "Injectables", "Skin care" — optional grouping
+  description String?  @db.Text  // Optional context for AI (review theming, ad analysis)
+
+  // Ordering + state
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+
+  // Provenance · "manual" (Maria typed it), "auto:google" (Google Business
+  // category), "auto:dom" (extracted from her website). Auto entries can be
+  // suppressed by setting isActive=false rather than deleted, so the
+  // detector doesn't re-add them on the next cron pass.
+  source      String   @default("manual")
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([businessId, sortOrder])
+  @@index([businessId, isActive])
 }
 
 // Weekly snapshot — preserves history for trend analysis
@@ -916,4 +1029,125 @@ model StripeWebhookEvent {
   @@index([type])
   @@index([receivedAt])
   @@index([processedAt])
+}
+
+// ============================================================================
+// DISCOVERY REGISTRY · admin-curated category/location pairs that the
+// /admin/discovery panel runs against. Replaces the cron-based daily/monthly
+// indexer (retired May 2026). See docs/data-cadence.md and the preplan
+// (Phase 1 = Med Spa × LA/Miami/Phoenix/Toronto).
+// ============================================================================
+
+// Verified category (vertical) we're allowed to discover against. Admin
+// adds rows from a curated list; cell-level pings against DataForSEO
+// confirm the category yields real businesses before insertion. No free
+// text — only legitimate, picked categories enter this table.
+model BusinessCategory {
+  id            String   @id @default(cuid())
+  dataforseoId  String   @unique          // DfS category slug (e.g. "medical_spa")
+  label         String                    // human-friendly: "Medical Spa"
+  groupKey      String?                   // optional meta-group: "beauty_and_wellness"
+  isActive      Boolean  @default(true)   // soft-disable without dropping history
+  verifiedAt    DateTime                  // when we confirmed via ping
+  createdAt     DateTime @default(now())
+  createdByUserId String?
+
+  trackedLocations TrackedLocation[]
+  discoveryRuns    DiscoveryRun[]
+
+  @@index([groupKey, label])
+  @@index([isActive])
+}
+
+// (category × city × country × radius) cell the admin elects to track.
+// Each row is a knob the admin can run discovery against on demand. The
+// denormalized aggregate fields render the page without joining
+// DiscoveryRun on every load.
+model TrackedLocation {
+  id            String   @id @default(cuid())
+  categoryId    String
+  category      BusinessCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  // Location identity — geocoded + ping-verified at insertion
+  city          String
+  province      String?
+  country       String                    // ISO-2: "US", "CA"
+  lat           Float
+  lng           Float
+  radiusKm      Int      @default(5)
+  verifiedAt    DateTime                  // last successful ping (limit=1 mapsSearch)
+
+  // Soft-disable so admin can pause a cell without losing run history
+  isActive      Boolean  @default(true)
+
+  // Denormalized aggregates — updated on each run completion
+  businessCount Int      @default(0)      // current Business rows matching this cell
+  lastRunAt     DateTime?
+  totalRuns     Int      @default(0)
+  totalNewFound Int      @default(0)
+  totalCostUsd  Float    @default(0)
+
+  // Qualification aggregates · updated when admin runs Qualify
+  qualifiedCount       Int   @default(0)
+  disqualifiedCount    Int   @default(0)
+  unreachableCount     Int   @default(0)
+  lastQualifyAt        DateTime?
+  totalQualifyCostUsd  Float @default(0)
+
+  // Activity aggregates · updated when admin runs Check Activity
+  activeCount          Int   @default(0)
+  staleCount           Int   @default(0)
+  noReviewsCount       Int   @default(0)
+  lastActivityCheckAt  DateTime?
+  totalActivityCostUsd Float @default(0)
+
+  createdAt     DateTime @default(now())
+  createdByUserId String?
+
+  discoveryRuns DiscoveryRun[]
+
+  @@unique([categoryId, city, province, country])
+  @@index([categoryId, lastRunAt])
+  @@index([isActive])
+}
+
+// Audit trail — one row per admin-triggered discovery click. Captures
+// what we asked, what we got, what was new vs dup, and the cost. Drives
+// the "Recent runs" table + per-cell drill-in.
+model DiscoveryRun {
+  id                String   @id @default(cuid())
+  trackedLocationId String
+  trackedLocation   TrackedLocation @relation(fields: [trackedLocationId], references: [id], onDelete: Cascade)
+  categoryId        String                  // denormalized for filtering
+  category          BusinessCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+  startedAt         DateTime @default(now())
+  finishedAt        DateTime?
+  status            DiscoveryRunStatus @default(RUNNING)
+  triggeredByUserId String?
+
+  // What we asked DataForSEO
+  radiusKm          Int
+  limitRequested    Int
+
+  // What we got back
+  totalReturned     Int      @default(0)
+  newBusinesses     Int      @default(0)
+  duplicates        Int      @default(0)
+  errors            Int      @default(0)
+  costUsd           Float    @default(0)
+  errorMessage      String?  @db.Text
+  meta              Json?
+
+  @@index([trackedLocationId, startedAt(sort: Desc)])
+  @@index([categoryId, startedAt(sort: Desc)])
+  @@index([startedAt(sort: Desc)])
+  @@index([status])
+}
+
+enum DiscoveryRunStatus {
+  RUNNING
+  OK
+  PARTIAL
+  FAILED
 }

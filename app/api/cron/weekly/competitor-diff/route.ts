@@ -8,9 +8,9 @@
 //
 // This is the "a new competitor moved into your zip code" signal that
 // powers SMB competitor alerts (E.3) and the agency's "moats" filter.
-// Unlike `daily/indexer-new-businesses` (which adds rows to our
-// Business index globally), this handler runs ANCHORED to a market and
-// records a per-market entrant/exit count.
+// Anchored to a tracked market — records a per-market entrant/exit count.
+// New rows enter our Business index via the admin-triggered discovery
+// path (modules/business-discovery), not via this handler.
 //
 // Source: `services/dataforseo/maps-search` (Live tier, cached 24h).
 // Cadence: weekly Monday 13:00 UTC per `vercel.json`. Bounded to 25

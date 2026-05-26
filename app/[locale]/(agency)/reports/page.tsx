@@ -15,7 +15,7 @@
  *     build'` + Prisma errors.
  *
  * Auth: page is authenticated. Anonymous → `unauthorized()`. User
- * with no `AgencyMember` row → redirect to `/dashboard` (SMB).
+ * with no `AgencyMember` row → redirect to `/home` (SMB).
  */
 
 import { Suspense } from "react";
@@ -110,7 +110,7 @@ async function ReportsBody({ params }: { params: Promise<PageParams> }) {
 
   const data = await getAgencyReports(session.user.id);
   if (data.agencyId === "") {
-    redirect({ href: "/dashboard", locale: locale as Locale });
+    redirect({ href: "/home", locale: locale as Locale });
   }
 
   const t = await getTranslations("agency.reports");

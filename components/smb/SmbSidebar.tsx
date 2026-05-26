@@ -8,25 +8,35 @@
  * mobile so it still works under Maria's "checks the app between
  * client appointments" use case.
  *
+ * 7 main items + Settings under "Account":
+ *
+ *   1. Home              · this week's recommendations + KPIs
+ *   2. How you compare   · Mapsly Score + competitor table + medians
+ *   3. Reviews
+ *   4. Search visibility
+ *   5. Ads visibility
+ *   6. Website
+ *   7. My Business       · services list + business profile
+ *
+ *   Account section:
+ *   - Settings
+ *
  * Per `.claude/rules/ui-ux-smb.md`:
  *
- *   - Warm cream + coral palette via the shared `--color-bg` /
- *     `--color-coral` tokens.
- *   - Sentence case labels · "Search visibility", not "SEARCH VISIBILITY".
+ *   - Warm cream + coral palette via shared `--color-bg` / `--color-coral`.
+ *   - Sentence case labels.
  *   - Big tap targets (≥ 44 × 44 px) for the mobile strip.
- *   - Plain-English category labels (Daily / Watch / Account) — no
- *     marketing jargon.
+ *   - Plain-English category labels.
  *
- * Per `.claude/rules/i18n.md` · all labels come from
- * `messages/{locale}.json` under `smb.nav.*`. The active-link rule
- * reads the canonical (non-localized) pathname via next-intl's
- * `usePathname`, so it works the same in `/dashboard` and `/panel`.
+ * Per `.claude/rules/i18n.md` · all labels come from `messages/{locale}.json`
+ * under `smb.nav.*`. The active-link rule reads the canonical (non-localized)
+ * pathname via next-intl's `usePathname`.
  *
  * Per `.claude/rules/accessibility.md`:
  *
  *   - `<nav aria-label>` so screen-readers announce the region.
  *   - `aria-current="page"` on the active item.
- *   - Visible focus ring (inherits from globals.css `a:focus-visible`).
+ *   - Visible focus ring inherited from globals.css `a:focus-visible`.
  */
 
 import { Link, usePathname } from "@/i18n/navigation";
@@ -34,14 +44,13 @@ import { Link, usePathname } from "@/i18n/navigation";
 /* ----------------------------------------------------------- types */
 
 type NavHref =
-  | "/dashboard"
+  | "/home"
+  | "/how-you-compare"
   | "/reviews"
-  | "/activity"
-  | "/competitors"
   | "/search"
   | "/ads"
-  | "/market"
   | "/website"
+  | "/my-business"
   | "/settings";
 
 interface NavItem {
@@ -55,19 +64,17 @@ export interface SmbSidebarLabels {
   brand: string;
   audienceTag: string;
   sections: {
-    daily: string;
-    watch: string;
+    main: string;
     account: string;
   };
   items: {
-    dashboard: string;
+    home: string;
+    how_you_compare: string;
     reviews: string;
-    activity: string;
-    competitors: string;
     search: string;
     ads: string;
-    market: string;
     website: string;
+    my_business: string;
     settings: string;
   };
 }
@@ -85,13 +92,22 @@ const ICON_STROKE_PROPS = {
   strokeLinejoin: "round" as const,
 };
 
-function IconDashboard() {
+function IconHome() {
   return (
     <svg aria-hidden {...ICON_STROKE_PROPS}>
-      <rect x="3" y="3" width="7" height="9" rx="1" />
-      <rect x="14" y="3" width="7" height="5" rx="1" />
-      <rect x="14" y="12" width="7" height="9" rx="1" />
-      <rect x="3" y="16" width="7" height="5" rx="1" />
+      <path d="M3 11l9-8 9 8" />
+      <path d="M5 10v10h14V10" />
+    </svg>
+  );
+}
+
+function IconCompare() {
+  return (
+    <svg aria-hidden {...ICON_STROKE_PROPS}>
+      <path d="M3 20h18" />
+      <rect x="5" y="10" width="3.5" height="10" rx="0.5" />
+      <rect x="10.25" y="6" width="3.5" height="14" rx="0.5" />
+      <rect x="15.5" y="13" width="3.5" height="7" rx="0.5" />
     </svg>
   );
 }
@@ -100,15 +116,6 @@ function IconReviews() {
   return (
     <svg aria-hidden {...ICON_STROKE_PROPS}>
       <path d="M12 2l3 7h7l-5.5 4.5L18 21l-6-4-6 4 1.5-7.5L2 9h7z" />
-    </svg>
-  );
-}
-
-function IconCompetitors() {
-  return (
-    <svg aria-hidden {...ICON_STROKE_PROPS}>
-      <circle cx="12" cy="12" r="10" />
-      <path d="M12 2v20M2 12h20" />
     </svg>
   );
 }
@@ -131,32 +138,6 @@ function IconAds() {
   );
 }
 
-function IconSettings() {
-  return (
-    <svg aria-hidden {...ICON_STROKE_PROPS}>
-      <circle cx="12" cy="12" r="3" />
-      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-    </svg>
-  );
-}
-
-function IconActivity() {
-  return (
-    <svg aria-hidden {...ICON_STROKE_PROPS}>
-      <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
-    </svg>
-  );
-}
-
-function IconMarket() {
-  return (
-    <svg aria-hidden {...ICON_STROKE_PROPS}>
-      <path d="M3 3v18h18" />
-      <path d="M7 16l4-8 4 4 5-10" />
-    </svg>
-  );
-}
-
 function IconWebsite() {
   return (
     <svg aria-hidden {...ICON_STROKE_PROPS}>
@@ -166,20 +147,39 @@ function IconWebsite() {
   );
 }
 
+function IconMyBusiness() {
+  return (
+    <svg aria-hidden {...ICON_STROKE_PROPS}>
+      <path d="M3 21V10l9-6 9 6v11" />
+      <path d="M9 21v-7h6v7" />
+      <path d="M3 21h18" />
+    </svg>
+  );
+}
+
+function IconSettings() {
+  return (
+    <svg aria-hidden {...ICON_STROKE_PROPS}>
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+    </svg>
+  );
+}
+
 /* ----------------------------------------------- nav definitions */
 
-const DAILY_ITEMS: NavItem[] = [
-  { href: "/dashboard", labelKey: "dashboard", icon: <IconDashboard /> },
+const MAIN_ITEMS: NavItem[] = [
+  { href: "/home", labelKey: "home", icon: <IconHome /> },
+  {
+    href: "/how-you-compare",
+    labelKey: "how_you_compare",
+    icon: <IconCompare />,
+  },
   { href: "/reviews", labelKey: "reviews", icon: <IconReviews /> },
-  { href: "/activity", labelKey: "activity", icon: <IconActivity /> },
-];
-
-const WATCH_ITEMS: NavItem[] = [
-  { href: "/competitors", labelKey: "competitors", icon: <IconCompetitors /> },
   { href: "/search", labelKey: "search", icon: <IconSearch /> },
   { href: "/ads", labelKey: "ads", icon: <IconAds /> },
-  { href: "/market", labelKey: "market", icon: <IconMarket /> },
   { href: "/website", labelKey: "website", icon: <IconWebsite /> },
+  { href: "/my-business", labelKey: "my_business", icon: <IconMyBusiness /> },
 ];
 
 const ACCOUNT_ITEMS: NavItem[] = [
@@ -196,8 +196,8 @@ export function SmbSidebar({ labels }: SmbSidebarProps) {
   const pathname = usePathname();
 
   function isActive(href: NavHref): boolean {
-    if (href === "/dashboard") return pathname === "/dashboard";
-    // `/settings/billing` should keep `/settings` highlighted.
+    // `/settings/billing` should keep `/settings` highlighted; same for
+    // any other nav item with sub-routes.
     return pathname === href || pathname.startsWith(`${href}/`);
   }
 
@@ -226,11 +226,8 @@ export function SmbSidebar({ labels }: SmbSidebarProps) {
         <span className="smb-nav-brand-text">{labels.brand}</span>
       </div>
 
-      <div className="smb-nav-section-label">{labels.sections.daily}</div>
-      {DAILY_ITEMS.map(renderItem)}
-
-      <div className="smb-nav-section-label">{labels.sections.watch}</div>
-      {WATCH_ITEMS.map(renderItem)}
+      <div className="smb-nav-section-label">{labels.sections.main}</div>
+      {MAIN_ITEMS.map(renderItem)}
 
       <div className="smb-nav-section-label">{labels.sections.account}</div>
       {ACCOUNT_ITEMS.map(renderItem)}

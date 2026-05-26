@@ -198,7 +198,7 @@ export async function getServiceHealth(): Promise<ServiceStatus[]> {
       reachable: null,
       detail: process.env.BLOB_READ_WRITE_TOKEN
         ? "PDF + CSV exports ready"
-        : "create at vercel.com/dashboard → Storage → Blob",
+        : "create at vercel.com/home → Storage → Blob",
     },
   ];
 }

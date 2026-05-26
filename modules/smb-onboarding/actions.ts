@@ -3,7 +3,7 @@
  *
  * Three actions:
  *   - `finishOnboarding` — terminal "Finish setup" → redirects to
- *     `/dashboard`. Marking a `User.onboardedAt` flag is OUT OF SCOPE
+ *     `/home`. Marking a `User.onboardedAt` flag is OUT OF SCOPE
  *     for E.7 (no schema migration this task — that needs a separate
  *     `prisma db push` + RFC). TODO when we add the column.
  *   - `inviteTeammate` — accepts an email + role. There's no
@@ -56,7 +56,7 @@ export async function inviteTeammate(formData: FormData) {
 }
 
 /**
- * Terminal action. Redirects to `/dashboard`. Once `User.onboardedAt`
+ * Terminal action. Redirects to `/home`. Once `User.onboardedAt`
  * exists, set it here so we never re-show the wizard.
  */
 export async function finishOnboarding() {
@@ -69,5 +69,5 @@ export async function finishOnboarding() {
 
   // `redirect()` throws an internal Next.js signal — never reached
   // past this line. We don't return.
-  redirect({ href: "/dashboard", locale: "en" });
+  redirect({ href: "/home", locale: "en" });
 }

@@ -22,10 +22,6 @@
       "schedule": "0 12 * * *"
     },
     {
-      "path": "/api/cron/daily/indexer-new-businesses",
-      "schedule": "30 12 * * *"
-    },
-    {
       "path": "/api/cron/weekly/business-profile-refresh",
       "schedule": "0 11 * * 1"
     },
@@ -58,16 +54,12 @@
       "schedule": "0 7 1 * *"
     },
     {
-      "path": "/api/cron/monthly/market-census",
-      "schedule": "0 8 1 * *"
-    },
-    {
       "path": "/api/cron/monthly/industry-baseline",
       "schedule": "0 9 1 * *"
     },
     {
-      "path": "/api/cron/monthly/inactive-cleanup",
-      "schedule": "0 10 1 * *"
+      "path": "/api/cron/monthly/services-detect",
+      "schedule": "30 9 1 * *"
     },
     {
       "path": "/api/cron/monthly/email-verification",

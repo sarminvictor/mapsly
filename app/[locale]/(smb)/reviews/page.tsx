@@ -40,6 +40,7 @@ import { auth } from "@/lib/auth";
 import { requirePortal } from "@/lib/portal-guard";
 import { redirect } from "@/i18n/navigation";
 import type { Locale } from "@/i18n/routing";
+import { ServiceContextChipForCurrentUser } from "@/components/smb/ServiceContextChipForCurrentUser";
 import {
   RatingDistributionCard,
   ReviewCard,
@@ -312,6 +313,15 @@ async function ReviewsBody({
           {t("title", { name: data.businessName })}
         </h1>
       </header>
+
+      {/* Service-context chip · "Reading this for: Botox · Lip filler · …"
+          Deep-links to /my-business so Maria can refine the lens. Wrapped
+          in Suspense so it streams independently from the KPI strip. */}
+      <div style={{ marginBottom: 20 }}>
+        <Suspense fallback={null}>
+          <ServiceContextChipForCurrentUser />
+        </Suspense>
+      </div>
 
       {/* 5-KPI state bar · Maria's first glance · Reply rate ·
           Unanswered · Avg rating · Reviews 30d · Sentiment 7d. */}

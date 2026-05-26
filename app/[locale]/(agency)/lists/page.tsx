@@ -24,7 +24,7 @@
  *
  * Auth: the page is authenticated. Anonymous visitors get redirected to
  * `/signin` via `unauthorized()` (Next 16 auth interrupts). Authenticated
- * users without an `AgencyMember` row get redirected to `/dashboard`
+ * users without an `AgencyMember` row get redirected to `/home`
  * (the SMB surface) so SMB-only users don't see a blank agency shell.
  *
  * Per `.claude/rules/copy-voice.md`:
@@ -162,7 +162,7 @@ async function ListsBody({ params }: { params: Promise<PageParams> }) {
   // rather than rendering an empty agency shell. `redirect()` throws so
   // the rest of the body is unreachable for this branch.
   if (data.agencyId === "") {
-    redirect({ href: "/dashboard", locale: locale as Locale });
+    redirect({ href: "/home", locale: locale as Locale });
   }
 
   const t = await getTranslations("agency.lists");

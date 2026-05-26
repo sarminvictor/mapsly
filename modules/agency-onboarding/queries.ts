@@ -9,7 +9,7 @@
  *
  * Returns `EMPTY_AGENCY_ONBOARDING` when:
  *
- *   - no AgencyMember yet (stray SMB user — page redirects to /dashboard)
+ *   - no AgencyMember yet (stray SMB user — page redirects to /home)
  *   - in Vercel's build phase (NEXT_PHASE guard, INC-27 / Pattern 1)
  *   - Prisma throws (degrade to "looks empty" rather than 500)
  *

@@ -2,11 +2,7 @@ import * as React from "react";
 
 import { ServiceBadge } from "../../lists/components/ServiceBadge";
 import { SERVICE_TEMPLATE_BY_TYPE } from "../../lists/service-templates";
-import type {
-  AgencyListDetailData,
-  ListCadenceValue,
-  ListServiceTypeValue,
-} from "../types";
+import type { AgencyListDetailData, ListCadenceValue } from "../types";
 
 /**
  * ListDetailHero · the `/(agency)/lists/[id]` hero card.

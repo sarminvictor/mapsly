@@ -21,7 +21,12 @@ The product economics depend on collecting the right data at the right frequency
 | `daily/google-ads-transparency-scan` | Scan Google Ads Transparency for tracked competitor domains                               | $0 (free)                      | Google Ads Transparency Center |
 | `daily/new-reviews-delta`            | Compare review-count of tracked businesses vs yesterday; pull new ones via Reviews API    | $0.003 per business with delta | DataForSEO Reviews API         |
 | `daily/list-refresh-daily`           | Re-evaluate filters on daily-cadence agency lists, add/remove leads                       | $0 (DB-only)                   | Internal                       |
-| `daily/indexer-new-businesses`       | Pull category census in tracked metros, diff vs yesterday, add new businesses to index    | ~$0.002 per metro × category   | DataForSEO Maps category       |
+
+> **Business discovery is no longer cron-scheduled** as of May 2026. New
+> businesses enter the index via admin-triggered runs from
+> `/admin/discovery` (see `modules/business-discovery`). The cron-rotated
+> indexer wasted spend re-querying the same anchors; the manual model
+> gives the admin per-cell visibility + audit + cost control.
 
 **Daily total per active SMB/Pro business: ~$0.006–0.012/day.**
 **At 1,000 SMB clients: ~$6–12/day total = ~$200–360/mo.**
@@ -46,13 +51,11 @@ The product economics depend on collecting the right data at the right frequency
 
 ### Monthly · 1st of month 02:00 AM
 
-| Job                                  | What it does                                                                        | Cost                      | Source                    |
-| ------------------------------------ | ----------------------------------------------------------------------------------- | ------------------------- | ------------------------- |
-| `monthly/keyword-volume-refresh`     | Refresh search volume + CPC for every tracked keyword in DB                         | $0.001 × keywords         | DataForSEO Keyword Volume |
-| `monthly/market-census`              | Full Maps category sweep per active metro/category to catch new entrants            | $0.002 × metro × category | DataForSEO Maps           |
-| `monthly/industry-baseline`          | Re-compute median Lighthouse scores across top 10 competitors per category          | $0.003 × ~50 audits       | DataForSEO Lighthouse     |
-| `monthly/inactive-cleanup`           | Mark businesses as inactive if `is_active=false` from Maps for 3 consecutive months | $0                        | DB-only                   |
-| `monthly/email-verification-resweep` | Re-verify all stored emails (SMTP check)                                            | $0.0005 per email         | SMTP verify service       |
+| Job                                  | What it does                                                               | Cost                | Source                    |
+| ------------------------------------ | -------------------------------------------------------------------------- | ------------------- | ------------------------- |
+| `monthly/keyword-volume-refresh`     | Refresh search volume + CPC for every tracked keyword in DB                | $0.001 × keywords   | DataForSEO Keyword Volume |
+| `monthly/industry-baseline`          | Re-compute median Lighthouse scores across top 10 competitors per category | $0.003 × ~50 audits | DataForSEO Lighthouse     |
+| `monthly/email-verification-resweep` | Re-verify all stored emails (SMTP check)                                   | $0.0005 per email   | SMTP verify service       |
 
 **Monthly total: ~$50–100/mo on the agency side · less for SMB.**
 

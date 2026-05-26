@@ -10,7 +10,7 @@
  * Returns `EMPTY_AGENCY_SETTINGS` when:
  *
  *   - the user has no AgencyMember (stray SMB user · page redirects to
- *     /dashboard)
+ *     /home)
  *   - we're in Vercel's build phase (NEXT_PHASE guard · INC-27 /
  *     cache-components Pattern 1)
  *   - Prisma throws (degrade to "looks empty" instead of 500)

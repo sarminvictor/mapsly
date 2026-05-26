@@ -215,7 +215,7 @@ export async function getSmbAdsData(userId: string): Promise<SmbAdsData> {
   } catch (e) {
     // Per `.claude/rules/observability.md`, log and degrade — never
     // 500 a Maria-facing page over a transient DB blip.
-    // eslint-disable-next-line no-console
+
     console.error("[smb-ads] query failed:", e);
     return EMPTY_SMB_ADS;
   }

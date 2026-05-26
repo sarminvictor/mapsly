@@ -10,7 +10,7 @@
 //
 // Cost: $0.0025 per audit (Live tier). DataForSEO charges per audit
 // regardless of audit depth (categories included). We always request all
-// 5 categories (performance, accessibility, best-practices, seo, pwa) and
+// 4 categories (performance, accessibility, best_practices, seo) and
 // score breakdowns happen client-side from the JSON.
 //
 // Timeout: 60s · Lighthouse audits routinely take 10-25s, occasionally
@@ -30,14 +30,20 @@ export const LighthouseQuerySchema = z.object({
   /** Lighthouse preset. Defaults to mobile per `.claude/rules/performance.md`
    *  (we score mobile; desktop is informational). */
   for_mobile: z.boolean().default(true),
-  /** Audit categories to run. Default to all five so the persisted JSON
-   *  carries everything; client-side scoring picks what it needs. */
+  /**
+   * Audit categories to run. Per DataForSEO v3 docs the REQUEST param
+   * uses snake_case (`best_practices`) — the RESPONSE JSON still keys
+   * the same category under `best-practices` per Lighthouse's own
+   * schema, which `extractScores` reads below.
+   *
+   * PWA was removed in Lighthouse v12 (Apr 2024). DataForSEO rejects
+   * it as `Invalid Field: 'categories:pwa'` — drop from the default
+   * set. The response extractor still tolerates `pwa` being absent.
+   */
   categories: z
-    .array(
-      z.enum(["performance", "accessibility", "best-practices", "seo", "pwa"]),
-    )
+    .array(z.enum(["performance", "accessibility", "best_practices", "seo"]))
     .min(1)
-    .default(["performance", "accessibility", "best-practices", "seo", "pwa"]),
+    .default(["performance", "accessibility", "best_practices", "seo"]),
 });
 export type LighthouseQuery = z.input<typeof LighthouseQuerySchema>;
 
@@ -112,10 +118,18 @@ async function lighthouseAuditRaw(
   query: LighthouseQuery,
 ): Promise<LighthouseAuditResult> {
   const parsed = LighthouseQuerySchema.parse(query);
+  // Per DataForSEO v3 docs: "If both 'categories' and 'audits' are
+  // ignored, all audits are returned." Passing only `categories`
+  // narrows the response to category-level scores and omits the
+  // granular `audits.*` object — which means LCP/INP/CLS metrics
+  // come back null. We want everything for the persisted JSON, so
+  // strip categories from the outbound body and let DataForSEO
+  // return the full payload.
+  const { categories: _ignoredCategories, ...body } = parsed;
   const { result } = await dataforSeoPost<LighthouseRawResult>({
     path: "/v3/on_page/lighthouse/live/json",
     operation: OPERATION,
-    body: parsed,
+    body,
     // Lighthouse routinely takes 10-25s; 10s default is too tight.
     timeoutMs: 60_000,
   });

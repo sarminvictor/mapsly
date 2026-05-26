@@ -190,7 +190,6 @@ export async function getSmbWebsiteData(
       auditedAt: audit.auditedAt,
     };
   } catch (err) {
-    // eslint-disable-next-line no-console
     console.error("[smb-website] query failed:", err);
     return EMPTY_SMB_WEBSITE;
   }

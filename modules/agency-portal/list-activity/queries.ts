@@ -14,7 +14,7 @@
  * no-membership / build / failure cases per Pattern 1 of
  * `.claude/rules/cache-components.md` (INC-25, INC-27). The page
  * reads `data.agencyId === ""` and redirects SMB users to
- * `/dashboard`.
+ * `/home`.
  *
  * Cache strategy per `.claude/rules/caching.md`:
  *
@@ -59,7 +59,7 @@ const MAX_FEED_ITEMS = 50;
  *
  * Returns `EMPTY_AGENCY_ACTIVITY` (agencyId === "") for the
  * no-membership / build / failure cases. Callers check
- * `data.agencyId === ""` and redirect SMB users to `/dashboard`.
+ * `data.agencyId === ""` and redirect SMB users to `/home`.
  *
  * Auth is enforced upstream by the page handler — this helper only
  * filters by the user's first `AgencyMember.agencyId` and cannot

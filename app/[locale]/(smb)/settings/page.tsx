@@ -506,7 +506,6 @@ function NotificationsCard({ labels }: { labels: NotificationsLabels }) {
           margin: "12px 0 0",
           opacity: 0.55,
         }}
-        aria-disabled="true"
       >
         <NotificationItem
           label={labels.digest_label}

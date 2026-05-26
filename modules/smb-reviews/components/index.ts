@@ -2,7 +2,7 @@
  * SMB reviews · component barrel.
  *
  * Server-component-only library. Built on top of the shared
- * `components/ui` primitives (Pill) and `modules/smb-dashboard`
+ * `components/ui` primitives (Pill) and `modules/smb-home`
  * conventions (cream + coral palette, warm voice).
  *
  * Do not use in Agency routes — these components carry SMB voice and

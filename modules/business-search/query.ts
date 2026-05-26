@@ -121,7 +121,6 @@ export async function searchBusinesses(q: string): Promise<BusinessMatch[]> {
     // Degrade to "no matches" rather than 500 — the picker shows the
     // empty state, the user retypes, Sentry captures the cause.
     if (process.env.NODE_ENV !== "production") {
-      // eslint-disable-next-line no-console
       console.warn(
         JSON.stringify({
           level: "warn",

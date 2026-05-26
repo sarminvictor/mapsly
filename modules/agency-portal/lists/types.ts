@@ -13,7 +13,7 @@
  * partial shapes at literal-comparison time on Vercel build.
  *
  * Callers identify the no-membership case by `data.agencyId === ""`.
- * The page redirects those users to `/dashboard` (SMB) so a stray SMB
+ * The page redirects those users to `/home` (SMB) so a stray SMB
  * user landing on `/lists` doesn't see a blank shell.
  *
  * Per `.claude/rules/conventions.md` we keep the enum literal unions

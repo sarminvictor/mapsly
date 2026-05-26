@@ -495,6 +495,7 @@ function renderValidationOutcomes(outcomes: Record<string, unknown>) {
   );
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- kept for future agent-trace UI re-enable
 async function AgentSpanTree({ taskRunId }: { taskRunId: string }) {
   const spans = await getAgentInvocations(taskRunId);
   if (spans.length === 0) return null;

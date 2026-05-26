@@ -13,7 +13,7 @@
  *
  * Callers identify the empty-business state by
  * `data.ownedBusinessId === ""` and render the onboarding empty state
- * (same convention as `modules/smb-dashboard`).
+ * (same convention as `modules/smb-home`).
  *
  * The active-tab filter is encoded in the URL search params (`?tab=...`)
  * and resolved server-side — no client component state. Per

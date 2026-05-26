@@ -32,7 +32,7 @@
  *   - No `t.rich()` (Pattern 4 — would break server-component
  *     prerender). Plain `t(key)` only.
  *
- * KPITile is REUSED from `@/modules/smb-dashboard/components` — do not
+ * KPITile is REUSED from `@/modules/smb-home/components` — do not
  * redefine.
  */
 
@@ -45,7 +45,8 @@ import { auth } from "@/lib/auth";
 import { requirePortal } from "@/lib/portal-guard";
 import { redirect } from "@/i18n/navigation";
 import type { Locale } from "@/i18n/routing";
-import { KPITile } from "@/modules/smb-dashboard/components";
+import { ServiceContextChipForCurrentUser } from "@/components/smb/ServiceContextChipForCurrentUser";
+import { KPITile } from "@/modules/smb-home/components";
 import { KeywordRow } from "@/modules/smb-search/components";
 import type {
   DeltaDirection,
@@ -339,6 +340,14 @@ async function SearchBody({ params }: { params: Promise<PageParams> }) {
           </p>
         ) : null}
       </header>
+
+      {/* Service-context chip · "Reading this for: Botox · …" deep-links
+          to /my-business so Maria can refine the keyword-match lens. */}
+      <div style={{ marginBottom: 20 }}>
+        <Suspense fallback={null}>
+          <ServiceContextChipForCurrentUser />
+        </Suspense>
+      </div>
 
       {/* Hero · 4 plain-English KPIs */}
       <section

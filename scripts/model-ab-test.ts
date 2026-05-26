@@ -33,11 +33,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import {
-  ALL_MODEL_TASKS,
-  MODEL_DECISION,
-  type ModelTask,
-} from "@/services/ai/model-decision";
+import { MODEL_DECISION, type ModelTask } from "@/services/ai/model-decision";
 import type { SupportedModel } from "@/services/ai/pricing";
 
 // ---- Constants ----------------------------------------------------------

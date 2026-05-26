@@ -44,7 +44,7 @@ export interface AgencySettingsAgency {
  * build-phase guard returns one well-typed empty value.
  *
  * Sentinel: `agency.id === ""` means "viewer has no AgencyMember row".
- * The page handler bounces stray SMB users to `/dashboard`.
+ * The page handler bounces stray SMB users to `/home`.
  */
 export interface AgencySettingsData {
   agency: AgencySettingsAgency;

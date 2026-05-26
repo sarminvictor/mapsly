@@ -1,0 +1,386 @@
+/**
+ * /admin styles · cool indigo workbench (mirrors /dev tone for staff
+ * surfaces while staying visually distinct from product portals).
+ *
+ * Variables expose the palette so individual pages don't need to touch
+ * hex values. Keep it dark — operators use this on big monitors at
+ * length and the dark palette reduces eye fatigue vs the cream SMB or
+ * gray Agency portals.
+ */
+
+:root {
+  --admin-bg: #0b1224;
+  --admin-bg-1: #111a33;
+  --admin-bg-2: #1a2547;
+  --admin-bg-3: #233063;
+  --admin-fg: #e5ecff;
+  --admin-fg-2: #9fb0dc;
+  --admin-fg-3: #6679a8;
+  --admin-border: #1f2b52;
+  --admin-border-2: #2c3a6b;
+  --admin-accent: #6f7eff;
+  --admin-accent-2: #a3b4ff;
+  --admin-ok: #4ade80;
+  --admin-warn: #fbbf24;
+  --admin-err: #f87171;
+}
+
+.admin-root {
+  min-height: 100vh;
+  background: var(--admin-bg);
+  color: var(--admin-fg);
+  font-family: var(--font-sans, system-ui);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.admin-shell {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  min-height: 100vh;
+}
+
+.admin-sidebar {
+  background: var(--admin-bg-1);
+  border-right: 1px solid var(--admin-border);
+  padding: 18px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.admin-brand {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--admin-fg-3);
+  padding: 6px 10px;
+}
+
+.admin-brand strong {
+  color: var(--admin-fg);
+  font-weight: 600;
+}
+
+.admin-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.admin-nav a {
+  display: block;
+  padding: 8px 12px;
+  border-radius: 6px;
+  color: var(--admin-fg-2);
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.admin-nav a:hover {
+  background: var(--admin-bg-2);
+  color: var(--admin-fg);
+}
+
+.admin-nav a[aria-current="page"] {
+  background: var(--admin-bg-3);
+  color: var(--admin-fg);
+}
+
+.admin-main {
+  padding: 28px 32px 64px;
+  max-width: 1280px;
+}
+
+.admin-h1 {
+  margin: 0 0 4px;
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.admin-sub {
+  margin: 0 0 24px;
+  font-size: 13px;
+  color: var(--admin-fg-2);
+}
+
+.admin-card {
+  background: var(--admin-bg-1);
+  border: 1px solid var(--admin-border);
+  border-radius: 10px;
+  padding: 18px 20px;
+}
+
+.admin-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 13px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid var(--admin-border-2);
+  background: var(--admin-bg-2);
+  color: var(--admin-fg);
+  font-family: inherit;
+}
+
+.admin-btn:hover {
+  background: var(--admin-bg-3);
+}
+
+.admin-btn[data-variant="primary"] {
+  background: var(--admin-accent);
+  border-color: var(--admin-accent);
+  color: #0b0c1e;
+}
+
+.admin-btn[data-variant="primary"]:hover {
+  background: var(--admin-accent-2);
+}
+
+.admin-btn[data-variant="ghost"] {
+  background: transparent;
+}
+
+.admin-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.admin-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.admin-pill[data-status="OK"] {
+  background: rgba(74, 222, 128, 0.16);
+  color: var(--admin-ok);
+}
+
+.admin-pill[data-status="PARTIAL"] {
+  background: rgba(251, 191, 36, 0.18);
+  color: var(--admin-warn);
+}
+
+.admin-pill[data-status="FAILED"] {
+  background: rgba(248, 113, 113, 0.18);
+  color: var(--admin-err);
+}
+
+.admin-pill[data-status="RUNNING"] {
+  background: rgba(111, 126, 255, 0.18);
+  color: var(--admin-accent-2);
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.admin-table th {
+  text-align: left;
+  font-weight: 600;
+  color: var(--admin-fg-3);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--admin-border);
+}
+
+.admin-table td {
+  padding: 10px;
+  border-bottom: 1px solid var(--admin-border);
+  color: var(--admin-fg);
+}
+
+.admin-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.admin-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.admin-muted {
+  color: var(--admin-fg-2);
+}
+
+.admin-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.admin-stat-value {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.admin-stat-label {
+  font-size: 11px;
+  color: var(--admin-fg-3);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.admin-group {
+  margin-bottom: 24px;
+}
+
+.admin-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: var(--admin-bg-2);
+  border: 1px solid var(--admin-border);
+  border-radius: 8px 8px 0 0;
+}
+
+.admin-group-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.admin-group-meta {
+  display: flex;
+  gap: 14px;
+  font-size: 11px;
+  color: var(--admin-fg-2);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.admin-group-rows {
+  border: 1px solid var(--admin-border);
+  border-top: 0;
+  border-radius: 0 0 8px 8px;
+  background: var(--admin-bg-1);
+}
+
+.admin-row {
+  display: grid;
+  grid-template-columns: 1.4fr 0.6fr 0.6fr 0.7fr 0.7fr 0.7fr auto;
+  gap: 16px;
+  align-items: center;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--admin-border);
+}
+
+.admin-row:last-child {
+  border-bottom: 0;
+}
+
+.admin-row-loc {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.admin-row-loc-name {
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.admin-row-loc-meta {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 10px;
+  color: var(--admin-fg-3);
+}
+
+.admin-row-num {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+}
+
+.admin-empty {
+  padding: 28px 22px;
+  text-align: center;
+  color: var(--admin-fg-2);
+  font-size: 13px;
+}
+
+.admin-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  background: var(--admin-bg-1);
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+}
+
+.admin-input,
+.admin-select {
+  background: var(--admin-bg);
+  border: 1px solid var(--admin-border-2);
+  color: var(--admin-fg);
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: inherit;
+}
+
+.admin-input:focus,
+.admin-select:focus {
+  outline: 2px solid var(--admin-accent);
+  outline-offset: 2px;
+  border-color: var(--admin-accent);
+}
+
+.admin-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--admin-fg-3);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-weight: 600;
+}
+
+.admin-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.admin-row-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.admin-msg-ok {
+  padding: 10px 14px;
+  background: rgba(74, 222, 128, 0.12);
+  border: 1px solid rgba(74, 222, 128, 0.35);
+  border-radius: 6px;
+  color: var(--admin-ok);
+  font-size: 12px;
+}
+
+.admin-msg-err {
+  padding: 10px 14px;
+  background: rgba(248, 113, 113, 0.12);
+  border: 1px solid rgba(248, 113, 113, 0.35);
+  border-radius: 6px;
+  color: var(--admin-err);
+  font-size: 12px;
+}

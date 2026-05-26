@@ -7,19 +7,21 @@
  *
  * Mirrors the dispatch logic in `app/[locale]/post-signin/page.tsx`:
  *
- *   1. ADMIN → /dashboard (until Phase H admin lands)
+ *   1. ADMIN → /admin
  *   2. AgencyMember row exists → /lists
- *   3. Default → /dashboard (SMB)
+ *   3. Default → /home (SMB)
  *
  * Returns a label-key (resolved by the caller via getTranslations)
- * plus a typed pathname the caller can pass to next-intl's Link.
+ * plus a typed pathname. When `external` is true the destination sits
+ * outside the next-intl locale tree — caller must use a plain `<a>`
+ * (next-intl rejects undeclared pathnames at build time).
  *
  * Cheap · single User findUnique with a 1-row members include.
  */
 
 import prisma from "@/lib/prisma";
 
-export type PortalDestinationHref = "/dashboard" | "/lists";
+export type PortalDestinationHref = "/home" | "/lists" | "/admin";
 
 export type PortalDestinationLabelKey =
   | "open_dashboard"
@@ -29,6 +31,8 @@ export type PortalDestinationLabelKey =
 export interface PortalDestination {
   href: PortalDestinationHref;
   labelKey: PortalDestinationLabelKey;
+  /** True when href lies outside next-intl pathnames (currently /admin). */
+  external: boolean;
 }
 
 /**
@@ -53,14 +57,16 @@ export async function getPortalDestination(
     if (!user) return null;
 
     if (user.role === "ADMIN") {
-      // /admin doesn't ship until Phase H · fall back to dashboard so
-      // existing admin links keep landing somewhere sensible.
-      return { href: "/dashboard", labelKey: "open_admin" };
+      return { href: "/admin", labelKey: "open_admin", external: true };
     }
     if (user.agencyMembers.length > 0) {
-      return { href: "/lists", labelKey: "open_workspace" };
+      return {
+        href: "/lists",
+        labelKey: "open_workspace",
+        external: false,
+      };
     }
-    return { href: "/dashboard", labelKey: "open_dashboard" };
+    return { href: "/home", labelKey: "open_dashboard", external: false };
   } catch {
     return null;
   }

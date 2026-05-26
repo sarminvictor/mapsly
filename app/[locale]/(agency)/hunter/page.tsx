@@ -33,7 +33,7 @@
  *
  * Auth mirrors `/(agency)/lists/page.tsx`:
  *   - No session → `unauthorized()` (Next 16 auth interrupt)
- *   - Session but no AgencyMember → `redirect('/dashboard')`
+ *   - Session but no AgencyMember → `redirect('/home')`
  */
 
 import { Suspense } from "react";
@@ -159,7 +159,7 @@ async function HunterBody({ params, searchParams }: PageProps) {
     select: { id: true, agencyId: true },
   });
   if (!member) {
-    redirect({ href: "/dashboard", locale: locale as Locale });
+    redirect({ href: "/home", locale: locale as Locale });
   }
 
   const t = await getTranslations({ locale, namespace: "agency.hunter" });

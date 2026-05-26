@@ -29,7 +29,7 @@
  *
  * Auth: page is authenticated. Anonymous → `unauthorized()`.
  * Authenticated user with NO `AgencyMember` row → redirect to
- * `/dashboard` (SMB surface).
+ * `/home` (SMB surface).
  */
 
 import { Suspense } from "react";
@@ -138,7 +138,7 @@ async function ActivityBody({ params }: { params: Promise<PageParams> }) {
   const data = await getAgencyActivityFeed(session.user.id);
 
   if (data.agencyId === "") {
-    redirect({ href: "/dashboard", locale: locale as Locale });
+    redirect({ href: "/home", locale: locale as Locale });
   }
 
   const t = await getTranslations("agency.list_activity");

@@ -43,11 +43,11 @@ export const routing = defineRouting({
       "en-CA": "/cookies",
       fr: "/temoins",
     },
-    "/dashboard": {
-      en: "/dashboard",
-      es: "/panel",
-      "en-CA": "/dashboard",
-      fr: "/tableau",
+    "/home": {
+      en: "/home",
+      es: "/inicio",
+      "en-CA": "/home",
+      fr: "/accueil",
     },
     "/lists": {
       en: "/lists",
@@ -97,12 +97,6 @@ export const routing = defineRouting({
       "en-CA": "/reviews",
       fr: "/avis",
     },
-    "/competitors": {
-      en: "/competitors",
-      es: "/competidores",
-      "en-CA": "/competitors",
-      fr: "/concurrents",
-    },
     "/search": {
       en: "/search",
       es: "/visibilidad",
@@ -145,6 +139,18 @@ export const routing = defineRouting({
       "en-CA": "/settings",
       fr: "/parametres",
     },
+    "/my-business": {
+      en: "/my-business",
+      es: "/mi-negocio",
+      "en-CA": "/my-business",
+      fr: "/mon-entreprise",
+    },
+    "/how-you-compare": {
+      en: "/how-you-compare",
+      es: "/como-te-comparas",
+      "en-CA": "/how-you-compare",
+      fr: "/comment-tu-te-compares",
+    },
     "/settings/billing": {
       en: "/settings/billing",
       es: "/configuracion/facturacion",
@@ -168,18 +174,6 @@ export const routing = defineRouting({
       es: "/compartir/[publicShareId]",
       "en-CA": "/share/[publicShareId]",
       fr: "/partage/[publicShareId]",
-    },
-    "/activity": {
-      en: "/activity",
-      es: "/actividad",
-      "en-CA": "/activity",
-      fr: "/activite",
-    },
-    "/market": {
-      en: "/market",
-      es: "/mercado",
-      "en-CA": "/market",
-      fr: "/marche",
     },
     "/website": {
       en: "/website",

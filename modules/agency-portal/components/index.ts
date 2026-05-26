@@ -4,7 +4,7 @@
  * Built on top of `components/ui` primitives (Button, Card, Pill, Modal).
  * These are Tom-facing components — cool gray + indigo palette, dense,
  * scan-friendly. Do not use in SMB routes; use the
- * `modules/smb-dashboard/components` library instead.
+ * `modules/smb-home/components` library instead.
  *
  * See `.claude/rules/ui-ux-agency.md` for voice and density conventions and
  * `_design/agency/list-detail.html` + `_design/agency/search.html` for

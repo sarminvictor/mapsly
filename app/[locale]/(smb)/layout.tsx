@@ -60,19 +60,17 @@ async function SmbSidebarServer({ params }: { params: Promise<LayoutParams> }) {
     brand: t("brand"),
     audienceTag: t("audience_tag"),
     sections: {
-      daily: t("section_daily"),
-      watch: t("section_watch"),
+      main: t("section_main"),
       account: t("section_account"),
     },
     items: {
-      dashboard: t("item_dashboard"),
+      home: t("item_home"),
+      how_you_compare: t("item_how_you_compare"),
       reviews: t("item_reviews"),
-      activity: t("item_activity"),
-      competitors: t("item_competitors"),
       search: t("item_search"),
       ads: t("item_ads"),
-      market: t("item_market"),
       website: t("item_website"),
+      my_business: t("item_my_business"),
       settings: t("item_settings"),
     },
   };

@@ -10,7 +10,7 @@
  *   4. Invite team — email + role row with an "Add another" affordance.
  *
  * Every step has "Skip for now"; the final step's "Finish setup" runs
- * `finishOnboarding()` → redirects to `/dashboard`.
+ * `finishOnboarding()` → redirects to `/home`.
  *
  * Step state lives in the URL (`?step=1..4`) so the route stays
  * streamable under `cacheComponents`, refreshing keeps state, and

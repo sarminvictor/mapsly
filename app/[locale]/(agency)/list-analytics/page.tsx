@@ -33,7 +33,7 @@
  *
  * Auth: page is authenticated. Anonymous → `unauthorized()`.
  * Authenticated user with NO `AgencyMember` row → redirect to
- * `/dashboard` (the SMB surface) so SMB-only users don't see an
+ * `/home` (the SMB surface) so SMB-only users don't see an
  * empty agency shell. Cross-agency leak is structurally impossible —
  * the query filters by the agencyId from the user's first
  * `AgencyMember` row.
@@ -183,7 +183,7 @@ async function ListAnalyticsBody({ params }: { params: Promise<PageParams> }) {
   // surface rather than rendering an empty agency shell. `redirect()`
   // throws so the rest of the body is unreachable for this branch.
   if (data.agencyId === "") {
-    redirect({ href: "/dashboard", locale: locale as Locale });
+    redirect({ href: "/home", locale: locale as Locale });
   }
 
   const t = await getTranslations("agency.list_analytics");

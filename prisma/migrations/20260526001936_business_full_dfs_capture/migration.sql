@@ -1,0 +1,18 @@
+-- AlterTable
+ALTER TABLE "Business" ADD COLUMN     "categoryIds" TEXT[] DEFAULT ARRAY[]::TEXT[],
+ADD COLUMN     "checkUrl" TEXT,
+ADD COLUMN     "contactInfo" JSONB,
+ADD COLUMN     "description" TEXT,
+ADD COLUMN     "domain" TEXT,
+ADD COLUMN     "featureId" TEXT,
+ADD COLUMN     "localBusinessLinks" JSONB,
+ADD COLUMN     "logoUrl" TEXT,
+ADD COLUMN     "mainImageUrl" TEXT,
+ADD COLUMN     "originalTitle" TEXT,
+ADD COLUMN     "peopleAlsoSearch" JSONB,
+ADD COLUMN     "placeTopics" JSONB,
+ADD COLUMN     "popularTimes" JSONB,
+ADD COLUMN     "ratingDistribution" JSONB,
+ADD COLUMN     "snippet" TEXT,
+ADD COLUMN     "sourceLastUpdatedAt" TIMESTAMP(3),
+ADD COLUMN     "sourceRawJson" JSONB;

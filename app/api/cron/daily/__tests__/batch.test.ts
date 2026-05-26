@@ -69,7 +69,6 @@ describe("runBatch", () => {
 
   test("non-Error throws coerce to string", async () => {
     const outcome = await runBatch([1], async () => {
-      // eslint-disable-next-line @typescript-eslint/only-throw-error
       throw "plain string thrown";
     });
     expect(outcome.failures[0].error).toContain("plain string thrown");

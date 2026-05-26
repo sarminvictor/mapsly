@@ -25,6 +25,7 @@ import { auth } from "@/lib/auth";
 import { requirePortal } from "@/lib/portal-guard";
 import { redirect } from "@/i18n/navigation";
 import type { Locale } from "@/i18n/routing";
+import { ServiceContextChipForCurrentUser } from "@/components/smb/ServiceContextChipForCurrentUser";
 import { getSmbWebsiteData } from "@/modules/smb-website/queries";
 import type { HealthTone, WebsiteCheck } from "@/modules/smb-website/types";
 
@@ -187,6 +188,15 @@ async function WebsiteBody({ params }: { params: Promise<PageParams> }) {
           </p>
         ) : null}
       </header>
+
+      {/* Service-context chip · "Reading this for: Botox · …" deep-links
+          to /my-business so Maria can refine which per-service pages
+          we audit on her site. */}
+      <div style={{ marginBottom: 20 }}>
+        <Suspense fallback={null}>
+          <ServiceContextChipForCurrentUser />
+        </Suspense>
+      </div>
 
       {!hasAudit ? (
         <div

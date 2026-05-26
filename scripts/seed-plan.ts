@@ -466,7 +466,7 @@ const GROUPS: SeedGroup[] = [
         title:
           "SMB component library (KPI tile · alert card · fix card · score breakdown)",
         description:
-          "Audience-specific components for Maria's pages. KPITile (big number + label + tooltip), AlertCard (what needs attention + CTA), FixCard (plain-English action + impact preview), ScoreBreakdown (6-dim sub-scores). All cream+coral palette. Files: modules/smb-dashboard/components/. Validation: render in E.1 without restyling + ux-reviewer-smb.",
+          "Audience-specific components for Maria's pages. KPITile (big number + label + tooltip), AlertCard (what needs attention + CTA), FixCard (plain-English action + impact preview), ScoreBreakdown (6-dim sub-scores). All cream+coral palette. Files: modules/smb-home/components/. Validation: render in E.1 without restyling + ux-reviewer-smb.",
         parallelLane: "smb-ui",
         effort: "M",
         deps: "B.0",

@@ -29,6 +29,14 @@ export default function middleware(req: NextRequest) {
     return new NextResponse("Not found", { status: 404 });
   }
 
+  // /admin sits OUTSIDE the next-intl locale tree (internal ops surface,
+  // staff-only, English-only — same shape as /dev). Pass it through so
+  // next-intl doesn't try to apply locale prefixing and 404. The route's
+  // own admin gate enforces auth + role.
+  if (url.pathname === "/admin" || url.pathname.startsWith("/admin/")) {
+    return NextResponse.next();
+  }
+
   // Everything else → next-intl handles locale negotiation.
   return intlMiddleware(req);
 }

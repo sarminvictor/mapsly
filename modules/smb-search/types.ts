@@ -16,8 +16,8 @@
  *
  * Callers identify the empty-business state by
  * `data.ownedBusinessId === ""` and render the onboarding empty state
- * (same convention as `modules/smb-dashboard`, `modules/smb-reviews`,
- * `modules/smb-competitors`).
+ * (same convention as `modules/smb-home`, `modules/smb-reviews`,
+ * `modules/smb-how-you-compare`).
  *
  * Per `.claude/rules/copy-voice.md`, Maria-facing copy NEVER says
  * "3-pack", "SERP", "MSI". These types use neutral field names

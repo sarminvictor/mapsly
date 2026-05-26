@@ -48,7 +48,8 @@ import { auth } from "@/lib/auth";
 import { requirePortal } from "@/lib/portal-guard";
 import { redirect } from "@/i18n/navigation";
 import type { Locale } from "@/i18n/routing";
-import { AlertCard, KPITile } from "@/modules/smb-dashboard/components";
+import { ServiceContextChipForCurrentUser } from "@/components/smb/ServiceContextChipForCurrentUser";
+import { AlertCard, KPITile } from "@/modules/smb-home/components";
 import { AdLane, ParadoxAlert } from "@/modules/smb-ads/components";
 import { getSmbAdsData } from "@/modules/smb-ads/queries";
 import { MAX_LANES, detectParadoxTier } from "@/modules/smb-ads/types";
@@ -316,6 +317,15 @@ async function AdsBody({ params }: { params: Promise<PageParams> }) {
           {t("subtitle_with_business", { name: data.name })}
         </p>
       </header>
+
+      {/* Service-context chip · "Reading this for: Botox · …" deep-links
+          to /my-business so Maria can refine which services we compare
+          against competitor ads. */}
+      <div style={{ marginBottom: 20 }}>
+        <Suspense fallback={null}>
+          <ServiceContextChipForCurrentUser />
+        </Suspense>
+      </div>
 
       {/* KPI strip · 4 tiles · auto-fit so mobile stacks 2x2 and desktop
           shows the row. Maria's surfaces stay calm even at 4 KPIs —

@@ -17,11 +17,7 @@
 import { revalidateTag } from "next/cache";
 import prisma, { Prisma } from "@/lib/prisma";
 import { cronHandler } from "@/lib/middleware/no-live-api";
-import {
-  evaluateSpec,
-  type EvaluationRow,
-  type FilterSpec,
-} from "@/modules/hunter";
+import { evaluateSpec, type EvaluationRow } from "@/modules/hunter";
 import { runBatch, statusFromOutcome } from "../../_lib/batch";
 import { parseFilterSpec } from "../../daily/list-refresh-daily/route";
 

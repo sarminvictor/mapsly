@@ -38,7 +38,7 @@ export async function signInAction(
     // ever landing in a signed-in state.
     //
     // We send everyone to /post-signin which does role-based routing
-    // (ADMIN/SMB → /dashboard, agency member → /lists).
+    // (ADMIN/SMB → /home, agency member → /lists).
     await signIn("resend", {
       email,
       redirectTo: "/post-signin",

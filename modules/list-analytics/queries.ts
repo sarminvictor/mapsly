@@ -9,7 +9,7 @@
  * Returns `EMPTY_LIST_ANALYTICS` (agencyId === "") for the
  * no-membership / build-phase / Prisma-error cases per Pattern 1 of
  * `.claude/rules/cache-components.md` (INC-25, INC-27). The page reads
- * `data.agencyId === ""` and redirects SMB-only users to `/dashboard`.
+ * `data.agencyId === ""` and redirects SMB-only users to `/home`.
  *
  * Cache strategy per `.claude/rules/caching.md`:
  *
@@ -92,7 +92,7 @@ function safeRate(numerator: number, denominator: number): number {
  *
  * Returns `EMPTY_LIST_ANALYTICS` (agencyId === "") for the
  * no-membership / build / failure cases. Callers check
- * `data.agencyId === ""` and redirect SMB users to `/dashboard`.
+ * `data.agencyId === ""` and redirect SMB users to `/home`.
  *
  * The function does NOT enforce auth — the page handler MUST verify
  * the session and dispatch `unauthorized()` if missing. This helper

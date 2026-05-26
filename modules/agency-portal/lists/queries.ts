@@ -13,7 +13,7 @@
  *   - Prisma throws (degrades to "looks empty" rather than 500 crash)
  *
  * The page handler reads `data.agencyId === ""` and redirects to
- * `/dashboard` so a stray SMB user gets bounced to their SMB surface.
+ * `/home` so a stray SMB user gets bounced to their SMB surface.
  *
  * Cache strategy per `.claude/rules/caching.md`:
  *
@@ -59,7 +59,7 @@ const ENGAGED_STATUSES = ["CONTACTED", "REPLIED", "WON"] as const;
  *
  * Returns `EMPTY_AGENCY_LISTS` (agencyId === "") for the no-membership /
  * build / failure cases. Callers check `data.agencyId === ""` and
- * redirect to `/dashboard` (SMB surface).
+ * redirect to `/home` (SMB surface).
  *
  * The function does NOT enforce auth — the page handler MUST verify the
  * session and dispatch `unauthorized()` if missing. This helper just

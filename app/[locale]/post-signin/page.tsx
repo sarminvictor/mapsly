@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { unauthorized } from "next/navigation";
+import { unauthorized, redirect as nativeRedirect } from "next/navigation";
 
 import { auth } from "@/lib/auth";
 import { redirect } from "@/i18n/navigation";
@@ -10,9 +10,9 @@ import prisma from "@/lib/prisma";
 // up their role + agency membership, then redirect by audience.
 //
 // Order of precedence:
-//   1. ADMIN → /admin             (not yet built — falls back to /dashboard)
+//   1. ADMIN → /admin (outside next-intl tree — native redirect)
 //   2. AgencyMember row exists    → /lists
-//   3. Default                    → /dashboard (SMB)
+//   3. Default                    → /home (SMB)
 //
 // Under cacheComponents (PPR), the outer page must be sync — async work
 // (auth + DB query) goes inside <Suspense> so the static shell renders
@@ -53,16 +53,16 @@ async function PostSignInRedirect({
   if (!user) unauthorized();
 
   if (user.role === "ADMIN") {
-    // /admin doesn't exist yet (Phase H) — fall through to dashboard so
-    // existing admin sign-ins still land somewhere sensible.
-    redirect({ href: "/dashboard", locale });
+    // /admin sits OUTSIDE the next-intl tree — use the native redirect
+    // (next-intl's redirect would prefix the locale and break the path).
+    nativeRedirect("/admin");
   }
 
   if (user.agencyMembers.length > 0) {
     redirect({ href: "/lists", locale });
   }
 
-  redirect({ href: "/dashboard", locale });
+  redirect({ href: "/home", locale });
 
   // Unreachable — redirect() throws. Return null so TS infers ReactNode.
   return null;

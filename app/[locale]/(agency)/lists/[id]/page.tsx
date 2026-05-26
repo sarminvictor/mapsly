@@ -57,7 +57,6 @@ import {
   LEAD_STATUS_TAB_ORDER,
   type LeadStatusValue,
 } from "@/modules/agency-portal/list-detail/types";
-import { StatusPill } from "@/modules/agency-portal/components";
 import {
   LeadsTableInteractive,
   type InteractiveLeadRowData,

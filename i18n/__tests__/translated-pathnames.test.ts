@@ -146,8 +146,8 @@ describe("getLocalizedPath", () => {
     expect(getLocalizedPath("/pricing", "fr")).toBe("/fr/tarifs");
     expect(getLocalizedPath("/lists", "es")).toBe("/es/listas");
     expect(getLocalizedPath("/lists", "fr")).toBe("/fr/listes");
-    expect(getLocalizedPath("/dashboard", "es")).toBe("/es/panel");
-    expect(getLocalizedPath("/dashboard", "fr")).toBe("/fr/tableau");
+    expect(getLocalizedPath("/home", "es")).toBe("/es/inicio");
+    expect(getLocalizedPath("/home", "fr")).toBe("/fr/accueil");
   });
 
   test("nested routes preserve the per-locale segment", () => {
@@ -236,7 +236,7 @@ describe("getLocaleAlternates", () => {
       "/terms",
       "/cookies",
       "/signin",
-      "/dashboard",
+      "/home",
       "/lists",
     ]) {
       const alts = getLocaleAlternates(canonical);

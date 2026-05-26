@@ -193,22 +193,45 @@ async function MarketingHeader({ params }: { params: Promise<LayoutParams> }) {
           {t("nav_pricing")}
         </Link>
         {portal ? (
-          <Link
-            href={portal.href}
-            data-testid="marketing-portal-cta"
-            style={{
-              color: "#fff",
-              textDecoration: "none",
-              fontSize: 14,
-              fontWeight: 600,
-              padding: "8px 14px",
-              border: "1px solid var(--color-coral)",
-              borderRadius: 8,
-              background: "var(--color-coral)",
-            }}
-          >
-            {t(`portal_${portal.labelKey}`)}
-          </Link>
+          // /admin lives outside next-intl pathnames — use a plain
+          // anchor so the locale prefix isn't appended (which would
+          // 404 the link). next-intl Link won't accept undeclared
+          // pathnames at compile time.
+          portal.external || portal.href === "/admin" ? (
+            <a
+              href={portal.href}
+              data-testid="marketing-portal-cta"
+              style={{
+                color: "#fff",
+                textDecoration: "none",
+                fontSize: 14,
+                fontWeight: 600,
+                padding: "8px 14px",
+                border: "1px solid var(--color-coral)",
+                borderRadius: 8,
+                background: "var(--color-coral)",
+              }}
+            >
+              {t(`portal_${portal.labelKey}`)}
+            </a>
+          ) : (
+            <Link
+              href={portal.href}
+              data-testid="marketing-portal-cta"
+              style={{
+                color: "#fff",
+                textDecoration: "none",
+                fontSize: 14,
+                fontWeight: 600,
+                padding: "8px 14px",
+                border: "1px solid var(--color-coral)",
+                borderRadius: 8,
+                background: "var(--color-coral)",
+              }}
+            >
+              {t(`portal_${portal.labelKey}`)}
+            </Link>
+          )
         ) : (
           <Link
             href="/signin"

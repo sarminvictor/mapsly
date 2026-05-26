@@ -120,7 +120,7 @@ async function SettingsBody({ params }: { params: Promise<PageParams> }) {
 
   // Stray SMB user · no AgencyMember row · bounce to the SMB dashboard.
   if (data.agency.id === "") {
-    redirect({ href: "/dashboard", locale });
+    redirect({ href: "/home", locale });
     return null;
   }
 
@@ -589,7 +589,7 @@ function RolePill({
 
 function planLiteral(
   plan: AgencyPlanValue,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+
   _t: (key: string) => string,
 ): string {
   // Values come from messages/<locale>.json so they're translatable.

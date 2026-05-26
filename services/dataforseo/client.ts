@@ -163,7 +163,11 @@ export class DataForSeoError extends Error {
  */
 export async function dataforSeoPost<TaskResult>(
   options: DataForSeoPostOptions,
-): Promise<{ result: TaskResult[]; rawCostUsd: number | undefined }> {
+): Promise<{
+  result: TaskResult[];
+  rawCostUsd: number | undefined;
+  taskId: string | undefined;
+}> {
   assertCronContext(options.operation);
 
   const { username, password } = getCredentials();
@@ -257,9 +261,8 @@ export async function dataforSeoPost<TaskResult>(
       // empty array so callers can iterate without nil checks.
       const result: TaskResult[] = task.result ?? [];
       // `task.cost` is the per-call cost in USD as reported by DataForSEO.
-      // Adapters can use this to override a flat unit-cost if they prefer
-      // exact billing; today we let adapters set a flat cost and ignore this.
-      return { result, rawCostUsd: task.cost };
+      // `task.id` is needed for Standard-queue patterns (task_post → poll).
+      return { result, rawCostUsd: task.cost, taskId: task.id };
     } catch (err) {
       // AbortError from the timeout → retryable.
       if (

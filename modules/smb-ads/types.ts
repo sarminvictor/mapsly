@@ -16,7 +16,6 @@
  * them without pulling in Prisma — keeps tests fast and side-effect
  * free per `.claude/rules/testing.md`.
  */
-/* eslint-disable @typescript-eslint/no-explicit-any */
 
 /**
  * Platform enum mirroring `AdPlatform` from Prisma. Re-declared here as

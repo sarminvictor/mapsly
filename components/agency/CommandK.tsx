@@ -195,7 +195,6 @@ export function CommandK() {
 
   const matches = state.kind === "ready" ? state.matches : [];
   const hasResults = state.kind === "ready" && matches.length > 0;
-  const noMatches = state.kind === "ready" && matches.length === 0;
 
   return (
     <>

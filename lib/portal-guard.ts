@@ -15,7 +15,7 @@
  *   2. `AgencyMember` row exists → ONLY the agency portal. SMB pages
  *      bounce the user to `/lists`.
  *   3. Default (no admin, no agency membership) → ONLY the SMB
- *      portal. Agency pages bounce the user to `/dashboard`.
+ *      portal. Agency pages bounce the user to `/home`.
  *
  * Usage from a portal page:
  *
@@ -67,7 +67,7 @@ export type AdminGuardResult =
  */
 export interface PortalMismatch {
   /** Where the user should go. */
-  redirectTo: "/dashboard" | "/lists";
+  redirectTo: "/home" | "/lists";
   /**
    * Short reason · "agency-member-on-smb" / "smb-on-agency". Useful
    * for telemetry / Sentry tags so we can see how often each side
@@ -133,7 +133,7 @@ export async function requirePortal(
     if (requested === "agency" && !isAgencyMember) {
       // SMB user (no agency membership) trying to load an agency
       // route — push them back to their dashboard.
-      return { redirectTo: "/dashboard", reason: "smb-on-agency" };
+      return { redirectTo: "/home", reason: "smb-on-agency" };
     }
 
     return null;

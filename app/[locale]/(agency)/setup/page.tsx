@@ -129,7 +129,7 @@ async function OnboardingBody({
 
   // Stray SMB user (no AgencyMember) bounces to SMB dashboard.
   if (data.agencyId === "") {
-    redirect({ href: "/dashboard", locale });
+    redirect({ href: "/home", locale });
     return null;
   }
 
