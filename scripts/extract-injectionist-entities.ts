@@ -117,12 +117,12 @@ async function main(): Promise<void> {
   console.log(`  Processed             : ${processed}/${reviews.length}`);
   console.log(`  Reviews with people   : ${withPeople}`);
   console.log(`  Reviews with services : ${withServices}`);
-  console.log(`  Services mentioned    : ${Array.from(serviceMentioned).join(", ") || "(none)"}`);
+  console.log(
+    `  Services mentioned    : ${Array.from(serviceMentioned).join(", ") || "(none)"}`,
+  );
 
   // Show top 10 people across all reviews now that data is in DB.
-  const peopleRows = await prisma.$queryRaw<
-    { name: string; count: bigint }[]
-  >`
+  const peopleRows = await prisma.$queryRaw<{ name: string; count: bigint }[]>`
     SELECT name, COUNT(*)::bigint AS count
     FROM "Review", unnest("mentionedPeople") AS name
     WHERE "businessId" = ${biz.id}

@@ -40,6 +40,7 @@ import {
   upsertReviewBatch,
   recomputeReviewAggregates,
 } from "@/modules/reviews/upsert";
+import { extractEntitiesForBusiness } from "@/modules/reviews/extract-entities-for-business";
 
 export const maxDuration = 300;
 
@@ -174,6 +175,21 @@ async function handle(request: Request): Promise<Response> {
         result.aggregateRating,
       );
 
+      // Event-driven AI entity extraction · NEW reviews only · skips
+      // entirely when 0 new (cheapest possible idle path). Replaces
+      // the retired daily/reviews-extract-entities cron · names +
+      // service mentions land seconds after the pingback instead of
+      // waiting for the next cron tick.
+      let extractionResult: Awaited<
+        ReturnType<typeof extractEntitiesForBusiness>
+      > | null = null;
+      if (upsertResult.insertedIds.length > 0) {
+        extractionResult = await extractEntitiesForBusiness(
+          business.id,
+          upsertResult.insertedIds,
+        );
+      }
+
       // Revalidate cache tags · the /reviews page reads these.
       revalidateTag(`business-${business.slug}-reviews`, "hours");
       revalidateTag(`business-${business.slug}`, "hours");
@@ -183,6 +199,7 @@ async function handle(request: Request): Promise<Response> {
         ...upsertResult,
         totalReviewsCount: result.totalReviewsCount,
         aggregateRating: result.aggregateRating,
+        extraction: extractionResult,
       };
     });
 

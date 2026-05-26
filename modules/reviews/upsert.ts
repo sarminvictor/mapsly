@@ -41,6 +41,10 @@ export interface UpsertReviewBatchOptions {
 export interface UpsertReviewBatchResult {
   /** Items inserted as new rows. */
   inserted: number;
+  /** IDs of newly-inserted Review rows · used by the pingback webhook
+   *  to trigger AI entity extraction on JUST the new rows (R.4 became
+   *  event-driven · no more daily cron). */
+  insertedIds: string[];
   /** Items already in DB whose owner reply state changed (re-pull caught
    *  a new owner_answer or an edit to an existing reply). */
   updated: number;
@@ -75,6 +79,7 @@ export async function upsertReviewBatch(
   options: UpsertReviewBatchOptions,
 ): Promise<UpsertReviewBatchResult> {
   let inserted = 0;
+  const insertedIds: string[] = [];
   let updated = 0;
   let skipped = 0;
   let cutoffStop = false;
@@ -136,13 +141,15 @@ export async function upsertReviewBatch(
     if (!existing) {
       // INSERT path · new review. Sentiment derived from stars at write.
       try {
-        await prisma.review.create({
+        const created = await prisma.review.create({
           data: {
             ...persist,
             sentiment: sentimentFromStars(persist.stars),
           },
+          select: { id: true },
         });
         inserted += 1;
+        insertedIds.push(created.id);
       } catch (err) {
         // Unique-constraint race (another worker inserted concurrently).
         // Fall back to update path on next pull — skip for now.
@@ -189,6 +196,7 @@ export async function upsertReviewBatch(
 
   return {
     inserted,
+    insertedIds,
     updated,
     skipped,
     cutoffStop,
