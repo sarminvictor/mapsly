@@ -166,8 +166,13 @@ export async function qualifyBusiness(
         // passed domain-alignment + shape gates inside email-finder.
         const emailDomain = (ai.email.split("@")[1] ?? "").toLowerCase();
         const localPart = (ai.email.split("@")[0] ?? "").toLowerCase();
+        // Normalize the stored domain (often has www. prefix) before
+        // comparing — emails almost never include the www. label.
+        const normalizedBizDomain = (biz.domain ?? "").toLowerCase().replace(/^www\./, "");
         const isDomainAligned =
-          !!biz.domain && (emailDomain === biz.domain || emailDomain.endsWith("." + biz.domain));
+          !!normalizedBizDomain &&
+          (emailDomain === normalizedBizDomain ||
+            emailDomain.endsWith("." + normalizedBizDomain));
         candidates = [
           {
             email: ai.email,

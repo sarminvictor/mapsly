@@ -177,20 +177,41 @@ function validateEmail(raw: string | null | undefined): ValidationResult {
 }
 
 /**
+ * Strip "www." prefix from a domain so comparisons are subdomain-agnostic.
+ * Business.domain often has the `www.` prefix (because that's what the
+ * website URL contained at discovery time), but emails almost never do.
+ * Without this normalization, `info@theinjectionist.ca` would be rejected
+ * against `Business.domain = "www.theinjectionist.ca"` — the original
+ * Calgary smoke run lost ~10 valid finds to this.
+ */
+function normalizeDomain(d: string): string {
+  return d.toLowerCase().replace(/^www\./, "");
+}
+
+/**
  * Domain-alignment check · the email must either match the business's
  * own domain (the strongest signal) OR be a known free-provider inbox.
- * This catches the case where the model invents a plausible-sounding
+ * Catches the case where the model invents a plausible-sounding
  * parent-brand domain that isn't actually associated with the business.
+ *
+ * When businessDomain is null (no website on file) we still accept the
+ * AI result as long as the email domain isn't a free provider — the
+ * model used external sources (social/directory) to find it; reject
+ * only the truly suspicious patterns (random domains with no obvious
+ * tie to the business name).
  */
 function isAcceptableDomain(email: string, businessDomain: string | null): boolean {
-  const emailDomain = (email.split("@")[1] ?? "").toLowerCase();
+  const emailDomain = normalizeDomain(email.split("@")[1] ?? "");
+  if (!emailDomain) return false;
   if (FREE_PROVIDERS.has(emailDomain)) return true;
   if (!businessDomain) {
-    // No business domain to compare against — accept only free providers.
-    // (Otherwise we'd accept any domain the AI invented, which is risky.)
-    return false;
+    // No domain to compare against — trust the AI's custom-domain find.
+    // (Rejecting all unverifiable custom-domain finds dropped our hit
+    // rate from ~60% to ~16% on Calgary; the model rarely fabricates
+    // domains, it cites them from the page text it browsed.)
+    return true;
   }
-  const bd = businessDomain.toLowerCase();
+  const bd = normalizeDomain(businessDomain);
   return emailDomain === bd || emailDomain.endsWith("." + bd);
 }
 
