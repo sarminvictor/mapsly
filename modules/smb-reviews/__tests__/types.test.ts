@@ -34,13 +34,10 @@ describe("smb-reviews/types", () => {
   });
 
   test("REVIEW_TABS is exhaustive and stable", () => {
-    expect(REVIEW_TABS).toEqual([
-      "unanswered",
-      "negative",
-      "all",
-      "by-theme",
-      "replied",
-    ]);
+    // Dropped `all` + `by-theme` in PR #94 · Maria uses Unanswered /
+    // Negative / Replied only; "All" was a redundant superset, "By theme"
+    // was research noise.
+    expect(REVIEW_TABS).toEqual(["unanswered", "negative", "replied"]);
   });
 });
 
@@ -57,10 +54,14 @@ describe("parseReviewTab", () => {
     expect(parseReviewTab("../admin")).toBe(DEFAULT_REVIEW_TAB);
     expect(parseReviewTab("UNANSWERED")).toBe(DEFAULT_REVIEW_TAB); // case-sensitive
     expect(parseReviewTab("")).toBe(DEFAULT_REVIEW_TAB);
+    // Retired tabs fall back to default · prevents stale bookmarks from
+    // 404-ing.
+    expect(parseReviewTab("all")).toBe(DEFAULT_REVIEW_TAB);
+    expect(parseReviewTab("by-theme")).toBe(DEFAULT_REVIEW_TAB);
   });
 
   test("takes the first value when given an array", () => {
-    expect(parseReviewTab(["negative", "all"])).toBe("negative");
+    expect(parseReviewTab(["negative", "replied"])).toBe("negative");
   });
 
   test("falls back when given an empty array", () => {

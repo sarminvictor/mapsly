@@ -197,14 +197,18 @@ describe("callOpenAi", () => {
     const body = JSON.parse((init as RequestInit).body as string) as {
       model: string;
       messages: Array<{ role: string; content: string }>;
-      max_tokens: number;
-      temperature: number;
+      max_completion_tokens: number;
+      temperature?: number;
       response_format?: { type: string };
       seed?: number;
     };
     expect(body.model).toBe("gpt-5.4-mini");
-    expect(body.max_tokens).toBe(200);
-    expect(body.temperature).toBe(0.7);
+    // OpenAI deprecated `max_tokens` for gpt-5.x in favor of
+    // `max_completion_tokens` — see services/ai/client.ts § 151.
+    expect(body.max_completion_tokens).toBe(200);
+    // gpt-5.x rejects explicit temperature · the client omits the field
+    // for any model whose name starts with "gpt-5".
+    expect(body.temperature).toBeUndefined();
     expect(body.response_format).toEqual({ type: "json_object" });
     expect(body.seed).toBe(42);
     expect(body.messages[0]).toEqual({

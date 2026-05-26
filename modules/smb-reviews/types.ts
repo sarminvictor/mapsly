@@ -22,13 +22,10 @@
  * she's looking at), and works without JS on first paint.
  */
 
-export const REVIEW_TABS = [
-  "unanswered",
-  "negative",
-  "all",
-  "by-theme",
-  "replied",
-] as const;
+// Tabs trimmed to the three Maria actually uses · "all recent" was a
+// duplicate of unanswered+replied combined · "by-theme" never landed
+// useful UX (themes live in the right rail as cards now).
+export const REVIEW_TABS = ["unanswered", "negative", "replied"] as const;
 
 export type ReviewTab = (typeof REVIEW_TABS)[number];
 
@@ -99,7 +96,6 @@ export interface ThemeBucket {
 export interface ReviewTabCounts {
   unanswered: number;
   negative: number;
-  all: number;
   replied: number;
 }
 
@@ -191,7 +187,6 @@ export const EMPTY_RATING_DISTRIBUTION: RatingDistribution = {
 export const EMPTY_TAB_COUNTS: ReviewTabCounts = {
   unanswered: 0,
   negative: 0,
-  all: 0,
   replied: 0,
 };
 

@@ -28,8 +28,6 @@ import type { ReviewTab, ReviewTabCounts } from "../types";
 export interface ReviewTabsLabels {
   unanswered: string;
   negative: string;
-  all: string;
-  byTheme: string;
   replied: string;
 }
 
@@ -60,8 +58,6 @@ export function ReviewTabs({ activeTab, counts, labels }: ReviewTabsProps) {
       count: counts.negative,
       alert: counts.negative > 0,
     },
-    { id: "all", label: labels.all, count: counts.all },
-    { id: "by-theme", label: labels.byTheme },
     { id: "replied", label: labels.replied, count: counts.replied },
   ];
 

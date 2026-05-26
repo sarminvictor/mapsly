@@ -47,6 +47,25 @@ async function main(): Promise<void> {
     `[extract] business=${biz.name} · ${biz.services.length} services: ${serviceNames.join(", ")}`,
   );
 
+  // --force flag re-runs against every review (clears entitiesExtractedAt
+  // first) · use after a prompt change to refresh the corpus. Combined
+  // with the v2 cache key on extractReviewEntities, this is the path to
+  // refresh stale extractions.
+  const force = process.argv.includes("--force");
+  if (force) {
+    const cleared = await prisma.review.updateMany({
+      where: { businessId: biz.id, text: { not: null } },
+      data: {
+        entitiesExtractedAt: null,
+        mentionedPeople: [],
+        mentionedServices: [],
+      },
+    });
+    console.log(
+      `[extract] --force · cleared ${cleared.count} reviews · re-extracting all`,
+    );
+  }
+
   const reviews = await prisma.review.findMany({
     where: {
       businessId: biz.id,

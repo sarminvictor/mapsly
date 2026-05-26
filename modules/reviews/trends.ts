@@ -14,6 +14,7 @@
 
 import { cacheLife, cacheTag } from "next/cache";
 import prisma from "@/lib/prisma";
+import { canonicalizeNames } from "./canonicalize-names";
 
 export interface MonthlyBucket {
   /** ISO month label · "2026-03" */
@@ -143,7 +144,10 @@ async function computeTrends(businessId: string): Promise<ReviewTrendsData> {
       select: { name: true, lastMentionedAt: true },
       orderBy: { sortOrder: "asc" },
     }),
-    // People mentions · unnest the array column + group.
+    // People mentions · unnest the array column + group. Pull MORE
+    // than 10 (cap 50) because canonicalization downstream will merge
+    // variants ("Anra Clark" + "anra" + "Anra" → 1 row). Top 10 sliced
+    // AFTER the merge.
     prisma.$queryRaw<{ name: string; count: bigint }[]>`
       SELECT name, COUNT(*)::bigint AS count
       FROM "Review", unnest("mentionedPeople") AS name
@@ -151,7 +155,7 @@ async function computeTrends(businessId: string): Promise<ReviewTrendsData> {
         AND "postedAt" >= ${twelveMonthsAgo}
       GROUP BY name
       ORDER BY count DESC
-      LIMIT 10
+      LIMIT 50
     `,
     prisma.review.findFirst({
       where: { businessId },
@@ -204,9 +208,15 @@ async function computeTrends(businessId: string): Promise<ReviewTrendsData> {
     s.count = countByService.get(s.name) ?? 0;
   }
 
-  const topPeople: PersonMention[] = peopleRows.map((r) => ({
-    name: r.name,
-    count: Number(r.count),
+  // Canonicalize across variants: "Anra"/"anra"/"Anra Clark" → "Anra"
+  // (count summed) · "Suzy"/"susie" → "Suzy" via Soundex · "Amanda"/
+  // "Amanda Solar" → "Amanda" via first-name match. Top 10 after merge.
+  const canonical = canonicalizeNames(
+    peopleRows.map((r) => ({ name: r.name, count: Number(r.count) })),
+  );
+  const topPeople: PersonMention[] = canonical.slice(0, 10).map((row) => ({
+    name: row.canonical,
+    count: row.count,
   }));
 
   // Delta-since-last-week · count Review.collectedAt > Business.reviewsLastDeltaAt.

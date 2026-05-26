@@ -54,7 +54,10 @@ import {
   type ThemeBucket,
 } from "./types";
 
-const MAX_REVIEWS_PER_TAB = 25;
+// Effective "no limit" · enough to cover all 12-month reviews even for
+// high-volume businesses (restaurant pulling 500/yr). Client paginates
+// from this set via PaginatedReviewList (5 initial → +10 each click).
+const MAX_REVIEWS_PER_TAB = 500;
 const MAX_THEMES = 8;
 
 /**
@@ -132,8 +135,6 @@ export async function getSmbReviewsData(
       negative: {
         OR: [{ stars: { lte: 3 } }, { sentiment: "NEGATIVE" }],
       },
-      all: {},
-      "by-theme": {},
       replied: { ownerReplied: true },
     };
 
@@ -228,7 +229,7 @@ export async function getSmbReviewsData(
 }
 
 async function loadTabCounts(businessId: string): Promise<ReviewTabCounts> {
-  const [unanswered, negative, all, replied] = await Promise.all([
+  const [unanswered, negative, replied] = await Promise.all([
     prisma.review.count({ where: { businessId, ownerReplied: false } }),
     prisma.review.count({
       where: {
@@ -236,10 +237,9 @@ async function loadTabCounts(businessId: string): Promise<ReviewTabCounts> {
         OR: [{ stars: { lte: 3 } }, { sentiment: "NEGATIVE" }],
       },
     }),
-    prisma.review.count({ where: { businessId } }),
     prisma.review.count({ where: { businessId, ownerReplied: true } }),
   ]);
-  return { unanswered, negative, all, replied };
+  return { unanswered, negative, replied };
 }
 
 async function loadRatingDistribution(businessId: string) {
@@ -360,7 +360,9 @@ async function loadReviewKpis(
   businessId: string,
   tabCounts: ReviewTabCounts,
 ): Promise<ReviewKpis> {
-  if (tabCounts.all === 0) return { ...EMPTY_REVIEW_KPIS };
+  // Every review is either replied or unanswered · the union is "all".
+  const total = tabCounts.unanswered + tabCounts.replied;
+  if (total === 0) return { ...EMPTY_REVIEW_KPIS };
 
   const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
   const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
@@ -382,10 +384,7 @@ async function loadReviewKpis(
     }),
   ]);
 
-  const replyRate =
-    tabCounts.all === 0
-      ? null
-      : Math.max(0, Math.min(1, tabCounts.replied / tabCounts.all));
+  const replyRate = Math.max(0, Math.min(1, tabCounts.replied / total));
 
   let sentimentShare: number | null = null;
   if (sentiment7d.length > 0) {
