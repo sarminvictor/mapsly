@@ -215,15 +215,12 @@ export async function recomputeReviewAggregates(
   remoteRating: number | null,
 ): Promise<void> {
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-  const [totals, last30d] = await Promise.all([
-    prisma.review.aggregate({
-      where: { businessId },
-      _count: { _all: true },
-      _sum: {
-        // count of replied reviews via 0/1 isn't supported by aggregate;
-        // compute separately below.
-      },
-    }),
+  const [total, last30d] = await Promise.all([
+    // Total review count for replyRate denominator. Plain count is the
+    // right primitive · prisma.review.aggregate({ _count: { _all: true } })
+    // doesn't accept a sibling `_sum: {}` placeholder (Prisma throws on
+    // empty `_sum`), and we don't need any other aggregates anyway.
+    prisma.review.count({ where: { businessId } }),
     prisma.review.count({
       where: { businessId, postedAt: { gte: thirtyDaysAgo } },
     }),
@@ -233,7 +230,6 @@ export async function recomputeReviewAggregates(
     where: { businessId, ownerReplied: true },
   });
 
-  const total = totals._count._all;
   const replyRate = total === 0 ? 0 : repliedCount / total;
 
   await prisma.business.update({
