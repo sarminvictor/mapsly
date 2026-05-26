@@ -138,6 +138,11 @@ export async function reviewsTaskPost(
     path: "/v3/business_data/google/reviews/task_post",
     operation: OPERATION_POST,
     body: body as Record<string, unknown>,
+    // Standard-queue task_post returns 20100 ("Task Created") on success
+    // · the task is queued for async processing, results arrive via
+    // pingback. 20000 also accepted in case DfS standardizes (defense in
+    // depth).
+    acceptableTaskStatusCodes: [20000, 20100],
   });
 
   if (!taskId) {
