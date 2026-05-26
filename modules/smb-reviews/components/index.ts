@@ -31,3 +31,7 @@ export {
   type ThemesCardProps,
   type ThemesCardLabels,
 } from "./ThemesCard";
+export {
+  CompetitorBenchmarkCard,
+  type CompetitorBenchmarkLabels,
+} from "./CompetitorBenchmarkCard";

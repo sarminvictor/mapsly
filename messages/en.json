@@ -203,7 +203,18 @@
       "kpi_sentiment_7d": "Happy this week",
       "ai_draft_lang_en": "English",
       "ai_draft_lang_es": "Español",
-      "pattern_eyebrow": "Pattern detected"
+      "pattern_eyebrow": "Pattern detected",
+      "compare_eyebrow": "Local market",
+      "compare_title": "How you compare",
+      "compare_position_line": "You're #{rank} of {total} similar businesses in {city}.",
+      "compare_empty": "We need a few more reviews from your area to compare.",
+      "compare_col_rank": "#",
+      "compare_col_name": "Business",
+      "compare_col_rating": "Rating",
+      "compare_col_reviews": "Reviews",
+      "compare_col_new_30d": "New 30d",
+      "compare_col_reply_rate": "Reply rate",
+      "compare_you_label": "you"
     },
     "search": {
       "meta": {

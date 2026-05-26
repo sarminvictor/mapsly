@@ -42,10 +42,12 @@ import { redirect } from "@/i18n/navigation";
 import type { Locale } from "@/i18n/routing";
 import { ServiceContextChipForCurrentUser } from "@/components/smb/ServiceContextChipForCurrentUser";
 import {
+  CompetitorBenchmarkCard,
   RatingDistributionCard,
   ReviewCard,
   ReviewTabs,
   ThemesCard,
+  type CompetitorBenchmarkLabels,
   type ReviewCardLabels,
   type ReviewTabsLabels,
   type RatingDistributionCardLabels,
@@ -53,6 +55,7 @@ import {
 } from "@/modules/smb-reviews/components";
 import { getSmbReviewsData } from "@/modules/smb-reviews/queries";
 import { parseReviewTab, type ReviewItem } from "@/modules/smb-reviews/types";
+import { getCompetitorRanking } from "@/modules/scoring/competitor-ranking";
 
 export async function generateMetadata({
   params,
@@ -277,6 +280,25 @@ async function ReviewsBody({
     negativeSkew: t("rail_themes_negative_skew"),
   };
 
+  const compareLabels: CompetitorBenchmarkLabels = {
+    eyebrow: t("compare_eyebrow"),
+    title: t("compare_title"),
+    positionLine: t("compare_position_line"),
+    empty: t("compare_empty"),
+    colRank: t("compare_col_rank"),
+    colName: t("compare_col_name"),
+    colRating: t("compare_col_rating"),
+    colReviews: t("compare_col_reviews"),
+    colNew30d: t("compare_col_new_30d"),
+    colReplyRate: t("compare_col_reply_rate"),
+    youLabel: t("compare_you_label"),
+  };
+
+  // R.5 · competitor ranking. Suspense'd separately so it streams in
+  // independently from the main review list — Maria sees her reviews
+  // first, "how she compares" lands a beat later.
+  const ranking = await getCompetitorRanking(data.ownedBusinessId);
+
   return (
     <section
       aria-labelledby="reviews-heading"
@@ -488,6 +510,18 @@ async function ReviewsBody({
           />
           <ThemesCard themes={data.topThemes} labels={themesLabels} />
         </aside>
+      </div>
+
+      {/* R.5 · How you compare · local competitor benchmark.
+          Full-width below the reviews grid · Maria sees her position
+          in the local market AFTER digesting her own review list. */}
+      <div style={{ marginTop: 32 }}>
+        <CompetitorBenchmarkCard
+          data={ranking}
+          category={ranking.focalCategory}
+          city={ranking.focalCity}
+          labels={compareLabels}
+        />
       </div>
     </section>
   );
