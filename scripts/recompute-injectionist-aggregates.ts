@@ -96,7 +96,9 @@ async function main(): Promise<void> {
     },
   });
 
-  console.log(`\n[recompute] BusinessSnapshot upserted for ${today.toISOString().slice(0, 10)}`);
+  console.log(
+    `\n[recompute] BusinessSnapshot upserted for ${today.toISOString().slice(0, 10)}`,
+  );
 }
 
 function startOfUtcDay(d: Date): Date {

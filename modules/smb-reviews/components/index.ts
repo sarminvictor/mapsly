@@ -45,3 +45,4 @@ export {
   type MentionedNamesCardLabels,
 } from "./MentionedNamesCard";
 export { HighlightedReviewText } from "./HighlightedReviewText";
+export { PaginatedReviewList } from "./PaginatedReviewList";

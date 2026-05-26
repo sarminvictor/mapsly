@@ -1,33 +1,36 @@
 // modules/scoring/competitor-ranking.ts
 //
-// R.5 · Local competitor ranking for the SMB /reviews page.
+// R.5 · Local competitor ranking for the SMB /reviews page · MSI-style
+// composite score across 4 review-quality dimensions.
 //
 // Given a business, return the top N competitors in the same
-// (category, city, country) cell, ranked by a Bayesian-weighted score
-// that penalizes low-volume "5★ from 3 reviews" outliers.
+// (category, city, country) cell, ranked by:
 //
-// Why Bayesian:
-//   - A new spa with rating=5.0, reviewCount=3 SHOULD NOT outrank an
-//     established competitor with 4.6 stars and 500 reviews
-//   - The formula nudges everything toward the global mean until enough
-//     reviews accumulate. Standard local-search ranking practice.
+//   msi = 0.35 × norm(rating)              // stars
+//       + 0.25 × norm(log10(reviewCount))  // volume validates the rating
+//       + 0.20 × norm(velocity30d)         // active business momentum
+//       + 0.20 × norm(replyRate)           // engagement / responsiveness
 //
-// Score formula:
-//   score = (rating × reviewCount + C × M) / (reviewCount + C)
-//   where:
-//     M = global mean rating across the cell (~4.5 for med-spas)
-//     C = "prior count" — how many reviews it takes to override M (we
-//         use 20, conservative for SMB scale)
+// Each dimension is normalized to [0, 1] via Bayesian shrinkage toward
+// the cell-mean — a new spa with rating=5.0, reviewCount=3 doesn't
+// outrank an established competitor with 4.6 stars and 500 reviews.
 //
-// Returns:
-//   - top N competitors (sorted by score desc)
-//   - the focal business's rank (1-indexed) within the cell
-//   - the cell's total count for context ("you're #14 out of 47")
+// Why MSI-style (vs single-dimension):
+//   - Pure-stars ranking ignores "is this business growing?"
+//   - Pure-volume ranking favors established but possibly-stale businesses
+//   - Including velocity rewards businesses gaining traction THIS month
+//   - Including replyRate rewards businesses doing the work Maria cares
+//     about (responding to customers)
+//
+// For competitors whose reviews haven't been pulled yet, velocity30d +
+// replyRate default to 0 (BusinessSnapshot row is missing). Once those
+// reviews are pulled (admin bulk · /admin/businesses), the ranking
+// re-computes naturally on the next page load.
 //
 // Performance:
 //   - Single SQL query against indexed columns (city, country, category)
+//   - Pulls latest BusinessSnapshot per competitor in one nested select
 //   - Returns within ~100ms at 1000-biz scale
-//   - No N+1 — review aggregates already denormalized on Business
 //
 // Per `.claude/rules/data-fetching.md`, this is a Pattern 2 cached
 // server function with cacheTag for granular revalidation.
@@ -44,13 +47,31 @@ const BAYESIAN_PRIOR_COUNT = 20;
 /** Default top-N to surface in the SMB card. */
 const DEFAULT_TOP_N = 10;
 
+/** MSI dimension weights · sum to 1.00. Tuned to bias toward stars
+ *  (the #1 local-SEO signal) but reward businesses doing the work
+ *  Maria cares about (replying + getting fresh reviews). */
+const MSI_WEIGHTS = {
+  rating: 0.35,
+  reviews: 0.25,
+  velocity: 0.2,
+  reply: 0.2,
+} as const;
+
 export interface CompetitorRow {
   id: string;
   name: string;
   rating: number | null;
   reviewCount: number | null;
-  /** Bayesian-weighted score · normalized to the 1-5 rating space. */
+  /** MSI composite score · 0-100. Higher = stronger market position. */
   score: number;
+  /** Per-dimension sub-scores · 0-1 each, useful for debugging or
+   *  drill-down "why is this business ranked here". */
+  subScores: {
+    rating: number;
+    reviews: number;
+    velocity: number;
+    reply: number;
+  };
   /** 1-indexed rank within the (category, city, country) cell. */
   rank: number;
   /** Last 30 days · count of new reviews (review velocity). */
@@ -179,36 +200,70 @@ async function computeRanking(
   const cellMeanRating =
     totalReviews > 0 ? weightedRatingSum / totalReviews : null;
 
-  // 4. Score every business in the cell.
-  //    Bayesian: score = (rating × rc + C × M) / (rc + C)
-  const M = cellMeanRating ?? 4.3; // Sensible default if cell has no data
+  // 4. Per-dimension max for normalization across the cell.
+  const maxReviewLog = Math.max(
+    1,
+    ...cell.map((b) => Math.log10((b.reviewCount ?? 0) + 1)),
+  );
+  const maxVelocity = Math.max(
+    1,
+    ...cell.map((b) => b.snapshots[0]?.velocityLast30d ?? 0),
+  );
+
+  // 5. Score every business in the cell.
+  //    Each sub-score is in [0, 1]; composite weighted sum → ×100.
+  const M = cellMeanRating ?? 4.3; // Bayesian shrinkage anchor
   const C = BAYESIAN_PRIOR_COUNT;
 
   const scored = cell.map((b) => {
     const rating = b.rating ?? 0;
     const rc = b.reviewCount ?? 0;
-    const score = (rating * rc + C * M) / (rc + C);
-
-    // % of reviews with rating ≥ 4 — proxy for positive sentiment.
-    // We can't compute this exactly from rating alone (rating is the
-    // mean, not the distribution) but a useful approximation is
-    // `min(1, (rating - 1) / 4 + small bonus when rating > 4.5)`.
-    // Better when we have ratingDistribution; this is the v1 fallback.
-    const positivePct = ratingToPositivePct(rating);
-
     const snap = b.snapshots[0];
+
+    // Rating sub-score · Bayesian-shrunk toward cell mean, mapped 1..5 → 0..1.
+    const shrunkRating = (rating * rc + C * M) / (rc + C);
+    const ratingSub = clamp01((shrunkRating - 1) / 4);
+
+    // Review-count sub-score · log10 so a 10× difference reads as 1
+    // unit of difference, normalized against the cell's max.
+    const reviewsSub = clamp01(Math.log10(rc + 1) / maxReviewLog);
+
+    // Velocity sub-score · last 30d count, normalized against cell max.
+    // Falls back to 0 when no BusinessSnapshot exists (reviews not pulled
+    // yet for this competitor).
+    const velocity30d = snap?.velocityLast30d ?? 0;
+    const velocitySub = clamp01(velocity30d / maxVelocity);
+
+    // Reply-rate sub-score · already 0..1, but null when snapshot missing.
+    const replyRate = snap?.replyRate ?? null;
+    const replySub = clamp01(replyRate ?? 0);
+
+    const composite =
+      MSI_WEIGHTS.rating * ratingSub +
+      MSI_WEIGHTS.reviews * reviewsSub +
+      MSI_WEIGHTS.velocity * velocitySub +
+      MSI_WEIGHTS.reply * replySub;
+
+    // Scale to 0-100 for friendlier display.
+    const score = Math.round(composite * 100);
+
     return {
       id: b.id,
       name: b.name,
       rating,
       reviewCount: rc,
       score,
-      velocity30d: snap?.velocityLast30d ?? 0,
-      replyRate: snap?.replyRate ?? null,
-      positivePct,
+      subScores: {
+        rating: Number(ratingSub.toFixed(3)),
+        reviews: Number(reviewsSub.toFixed(3)),
+        velocity: Number(velocitySub.toFixed(3)),
+        reply: Number(replySub.toFixed(3)),
+      },
+      velocity30d,
+      replyRate,
+      positivePct: ratingToPositivePct(rating),
       isFocal: b.id === businessId,
-      // rank set after sort
-      rank: 0,
+      rank: 0, // filled after sort
     };
   });
 
@@ -238,4 +293,11 @@ function ratingToPositivePct(rating: number): number | null {
   // Map 1→0.05, 3→0.5, 5→0.95. Caps at [0.05, 0.95].
   const linear = 0.05 + ((rating - 1) / 4) * 0.9;
   return Math.max(0.05, Math.min(0.95, linear));
+}
+
+function clamp01(v: number): number {
+  if (!Number.isFinite(v)) return 0;
+  if (v < 0) return 0;
+  if (v > 1) return 1;
+  return v;
 }
