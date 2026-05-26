@@ -13,6 +13,7 @@ export { rdapLookup, type RdapResult } from "./rdap";
 export {
   qualifyBusiness,
   qualifyCell,
+  recomputeCellAggregates,
   type QualifyOutcome,
   type CellQualifyResult,
   type QualificationStatusValue,

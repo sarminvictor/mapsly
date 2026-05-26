@@ -20,7 +20,10 @@
 import { z } from "zod";
 
 import { verifyBoxlyWorkerAuth } from "@/lib/boxly-worker/client";
-import { qualifyBusiness } from "@/modules/business-qualification";
+import {
+  qualifyBusiness,
+  recomputeCellAggregates,
+} from "@/modules/business-qualification";
 
 // Per-business qualify can take ~30-60s (email scrape + RDAP + service
 // detection + JS bundle). Vercel default is 300s — generous headroom.
@@ -28,6 +31,11 @@ export const maxDuration = 300;
 
 const RequestSchema = z.object({
   businessId: z.string().min(1).max(128),
+  // Optional · when provided, we recompute the cell's aggregate tallies
+  // after qualifying so /admin/discovery shows live progress as worker
+  // callbacks land. Older clients without this field still work (we
+  // just skip the recompute step).
+  trackedLocationId: z.string().min(1).max(128).optional(),
 });
 
 export async function POST(request: Request): Promise<Response> {
@@ -72,6 +80,22 @@ export async function POST(request: Request): Promise<Response> {
   //    deferred for us. If it throws we return 500 so the worker retries.
   try {
     const outcome = await qualifyBusiness(parsed.businessId);
+
+    // 3a. Live-aggregate update · after every callback, recompute the
+    //     cell's qualified/disqualified/unreachable tallies so the
+    //     /admin/discovery page reflects progress in real time. Failures
+    //     here MUST NOT mask the successful qualify — log + continue.
+    if (parsed.trackedLocationId) {
+      try {
+        await recomputeCellAggregates(parsed.trackedLocationId);
+      } catch (aggErr) {
+        console.warn(
+          "[/api/qualify-one] aggregate recompute failed:",
+          aggErr instanceof Error ? aggErr.message : aggErr,
+        );
+      }
+    }
+
     return Response.json(
       {
         ok: true,

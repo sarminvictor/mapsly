@@ -19,7 +19,6 @@ import {
 
 interface Props {
   trackedLocationId: string;
-  isActive: boolean;
   defaultLimit?: number;
 }
 
@@ -27,7 +26,6 @@ const initial: ActionResult<RunDiscoveryResult> | null = null;
 
 export function RunDiscoveryButton({
   trackedLocationId,
-  isActive,
   defaultLimit = 100,
 }: Props) {
   const [state, formAction, pending] = useActionState(runDiscovery, initial);
@@ -40,7 +38,7 @@ export function RunDiscoveryButton({
         defaultValue={defaultLimit}
         className="admin-select"
         style={{ padding: "6px 8px", fontSize: 11 }}
-        disabled={pending || !isActive}
+        disabled={pending}
         aria-label="Discovery result limit"
       >
         <option value={25}>25</option>
@@ -52,7 +50,7 @@ export function RunDiscoveryButton({
         type="submit"
         className="admin-btn"
         data-variant="primary"
-        disabled={pending || !isActive}
+        disabled={pending}
         style={{ padding: "6px 12px", fontSize: 11 }}
       >
         {pending ? "Running…" : "Run"}

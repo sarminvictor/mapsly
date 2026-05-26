@@ -279,10 +279,49 @@ export async function qualifyCell(
     (o) => o.emailDiscovered != null,
   ).length;
 
-  const finishedAt = new Date();
+  const finishedAt = await recomputeCellAggregates(cell.id);
 
-  // Recompute cell aggregates from fresh row state (avoids drift if
-  // some outcomes are pre-existing from prior runs)
+  return {
+    trackedLocationId: cell.id,
+    attempted: businesses.length,
+    qualified,
+    disqualified,
+    unreachable,
+    failed: failures.length,
+    totalEmailsFound,
+    finishedAt,
+  };
+}
+
+/* ------------------------------------------------ cell aggregate recompute */
+
+/**
+ * Recompute (qualified / disqualified / unreachable) tallies on a
+ * TrackedLocation from fresh Business rows. Cheap — a single groupBy
+ * on indexed columns. Called both at the end of `qualifyCell()` and
+ * after every per-business callback from Boxly Worker so the UI keeps
+ * pace with the worker fan-out.
+ *
+ * Concurrent callers (25 worker callbacks racing) are safe: each runs
+ * its own groupBy + UPDATE; last write wins and last write is correct
+ * (groupBy reads committed state including the prior callback's update).
+ */
+export async function recomputeCellAggregates(
+  trackedLocationId: string,
+): Promise<Date> {
+  const cell = await prisma.trackedLocation.findUnique({
+    where: { id: trackedLocationId },
+    select: {
+      id: true,
+      city: true,
+      country: true,
+      category: { select: { dataforseoId: true } },
+    },
+  });
+  if (!cell) {
+    throw new Error(`TrackedLocation ${trackedLocationId} not found`);
+  }
+
   const counts = await prisma.business.groupBy({
     by: ["qualificationStatus"],
     where: {
@@ -295,6 +334,7 @@ export async function qualifyCell(
   const tally = (s: QualificationStatusValue): number =>
     counts.find((c) => c.qualificationStatus === s)?._count.id ?? 0;
 
+  const finishedAt = new Date();
   await prisma.trackedLocation.update({
     where: { id: cell.id },
     data: {
@@ -302,20 +342,7 @@ export async function qualifyCell(
       disqualifiedCount: tally("DISQUALIFIED"),
       unreachableCount: tally("UNREACHABLE"),
       lastQualifyAt: finishedAt,
-      // Qualify is free (only DfS reviews call costs money, and that's
-      // a separate flow on /admin/activity). Still tally for parity.
-      totalQualifyCostUsd: { increment: 0 },
     },
   });
-
-  return {
-    trackedLocationId: cell.id,
-    attempted: businesses.length,
-    qualified,
-    disqualified,
-    unreachable,
-    failed: failures.length,
-    totalEmailsFound,
-    finishedAt,
-  };
+  return finishedAt;
 }

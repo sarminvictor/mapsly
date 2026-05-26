@@ -383,7 +383,7 @@ export async function runQualifyCell(
   const jobs: WorkerJob[] = businesses.map((b) => ({
     taskId: `mapsly-qualify-${b.id}-${ts}`,
     url: `${callbackUrl}/api/qualify-one`,
-    payload: { businessId: b.id },
+    payload: { businessId: b.id, trackedLocationId: cell.id },
     callerLabel: `mapsly:qualify-business`,
     timeoutSec: 90, // per-business work is 30-60s · 90s gives slack
   }));
@@ -561,37 +561,3 @@ export async function deleteCategory(
   };
 }
 
-/* --------------------------------------------------------- toggle location */
-
-const ToggleLocationSchema = z.object({
-  trackedLocationId: z.string().min(1),
-  isActive: z.enum(["true", "false"]),
-});
-
-export async function toggleLocationActive(
-  _prev: ActionResult | null,
-  formData: FormData,
-): Promise<ActionResult> {
-  try {
-    await requireAdminSession();
-  } catch (err) {
-    return { ok: false, error: (err as Error).message };
-  }
-
-  const parsed = ToggleLocationSchema.safeParse({
-    trackedLocationId: formData.get("trackedLocationId"),
-    isActive: formData.get("isActive"),
-  });
-  if (!parsed.success) {
-    return { ok: false, error: "Invalid toggle." };
-  }
-
-  await prisma.trackedLocation.update({
-    where: { id: parsed.data.trackedLocationId },
-    data: { isActive: parsed.data.isActive === "true" },
-  });
-
-  revalidateTag("admin-discovery", "seconds");
-  revalidatePath("/admin/discovery");
-  return { ok: true, data: null };
-}

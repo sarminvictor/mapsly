@@ -21,7 +21,6 @@ import { DeleteCategoryButton } from "./components/DeleteCategoryButton";
 import { DeleteLocationButton } from "./components/DeleteLocationButton";
 import { QualifyCellButton } from "./components/QualifyCellButton";
 import { RunDiscoveryButton } from "./components/RunDiscoveryButton";
-import { ToggleLocationButton } from "./components/ToggleLocationButton";
 
 /**
  * /admin/discovery · the manual-trigger discovery panel.
@@ -222,6 +221,17 @@ function CategoryGroup({ group }: { group: AdminCategoryGroup }) {
 
 function LocationRow({ loc }: { loc: AdminLocationRow }) {
   const canDelete = loc.businessCount === 0;
+  // Pending = businesses indexed but not yet qualified · drives the
+  // Qualify (N) button. Negative values clamp to 0 to handle the rare
+  // case where the aggregate columns drift higher than businessCount
+  // (e.g. a category-slug rename that moves rows out of the cell).
+  const pendingCount = Math.max(
+    0,
+    loc.businessCount -
+      loc.qualifiedCount -
+      loc.disqualifiedCount -
+      loc.unreachableCount,
+  );
   return (
     <div className="admin-row">
       <div className="admin-row-loc">
@@ -234,7 +244,6 @@ function LocationRow({ loc }: { loc: AdminLocationRow }) {
         </span>
         <span className="admin-row-loc-meta">
           ({loc.lat.toFixed(4)}, {loc.lng.toFixed(4)}) · {loc.radiusKm}km
-          {loc.isActive ? "" : " · paused"}
         </span>
       </div>
       <span className="admin-row-num">
@@ -264,18 +273,13 @@ function LocationRow({ loc }: { loc: AdminLocationRow }) {
         {loc.lastRunAt ? formatRel(loc.lastRunAt) : "never"}
       </span>
       <div className="admin-row-actions">
-        <ToggleLocationButton
-          trackedLocationId={loc.id}
-          isActive={loc.isActive}
-        />
         <RunDiscoveryButton
           trackedLocationId={loc.id}
-          isActive={loc.isActive}
           defaultLimit={100}
         />
         <QualifyCellButton
           trackedLocationId={loc.id}
-          pendingCount={loc.businessCount}
+          pendingCount={pendingCount}
         />
         {canDelete ? (
           <DeleteLocationButton trackedLocationId={loc.id} city={loc.city} />
