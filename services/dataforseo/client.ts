@@ -106,6 +106,11 @@ export interface DataForSeoPostOptions {
   timeoutMs?: number;
   /** Override default retry budget. 0 disables retries. */
   retries?: number;
+  /** Task-level status codes to treat as success. Defaults to [20000] which
+   *  is the canonical "Ok" code for Live endpoints + completed task_get
+   *  calls. Standard-queue task_post returns 20100 ("Task Created") on
+   *  success — callers using task_post should pass [20000, 20100]. */
+  acceptableTaskStatusCodes?: readonly number[];
 }
 
 /** Standard DataForSEO response envelope. */
@@ -247,7 +252,8 @@ export async function dataforSeoPost<TaskResult>(
           envelopeStatusCode: envelope.status_code,
         });
       }
-      if (task.status_code !== 20000) {
+      const acceptableTaskCodes = options.acceptableTaskStatusCodes ?? [20000];
+      if (!acceptableTaskCodes.includes(task.status_code)) {
         const isServerErr = task.status_code >= 50000;
         const err = new DataForSeoError({
           operation: options.operation,
