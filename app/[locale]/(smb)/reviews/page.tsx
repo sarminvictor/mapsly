@@ -43,19 +43,26 @@ import type { Locale } from "@/i18n/routing";
 import { ServiceContextChipForCurrentUser } from "@/components/smb/ServiceContextChipForCurrentUser";
 import {
   CompetitorBenchmarkCard,
+  MentionedNamesCard,
   RatingDistributionCard,
   ReviewCard,
   ReviewTabs,
+  ReviewTrendCard,
+  ServiceMentionsCard,
   ThemesCard,
   type CompetitorBenchmarkLabels,
+  type MentionedNamesCardLabels,
   type ReviewCardLabels,
   type ReviewTabsLabels,
+  type ReviewTrendCardLabels,
   type RatingDistributionCardLabels,
+  type ServiceMentionsCardLabels,
   type ThemesCardLabels,
 } from "@/modules/smb-reviews/components";
 import { getSmbReviewsData } from "@/modules/smb-reviews/queries";
 import { parseReviewTab, type ReviewItem } from "@/modules/smb-reviews/types";
 import { getCompetitorRanking } from "@/modules/scoring/competitor-ranking";
+import { getReviewTrends } from "@/modules/reviews/trends";
 
 export async function generateMetadata({
   params,
@@ -294,10 +301,38 @@ async function ReviewsBody({
     youLabel: t("compare_you_label"),
   };
 
-  // R.5 · competitor ranking. Suspense'd separately so it streams in
-  // independently from the main review list — Maria sees her reviews
-  // first, "how she compares" lands a beat later.
-  const ranking = await getCompetitorRanking(data.ownedBusinessId);
+  const trendLabels: ReviewTrendCardLabels = {
+    eyebrow: t("compare_eyebrow"),
+    title: t("trend_title"),
+    rollingLine: t("trend_rolling_line"),
+    empty: t("trend_empty"),
+    yAxisCount: t("trend_y_axis_count"),
+    yAxisStars: t("trend_y_axis_stars"),
+    lastUpdated: t("trend_last_updated"),
+  };
+
+  const servicesLabels: ServiceMentionsCardLabels = {
+    title: t("services_title"),
+    subtitle: t("services_subtitle"),
+    empty: t("services_empty"),
+    countLabel: t("services_count_label"),
+    staleLabel: t("services_stale_label"),
+    neverLabel: t("services_never_label"),
+  };
+
+  const namesLabels: MentionedNamesCardLabels = {
+    title: t("names_title"),
+    subtitle: t("names_subtitle"),
+    empty: t("names_empty"),
+    countLabel: t("names_count_label"),
+  };
+
+  // R.5 + R.6 · competitor ranking + trend graph + service/name mentions.
+  // Parallel-fetched so the cards stream together with the review list.
+  const [ranking, trends] = await Promise.all([
+    getCompetitorRanking(data.ownedBusinessId),
+    getReviewTrends(data.ownedBusinessId),
+  ]);
 
   return (
     <section
@@ -512,10 +547,33 @@ async function ReviewsBody({
         </aside>
       </div>
 
-      {/* R.5 · How you compare · local competitor benchmark.
-          Full-width below the reviews grid · Maria sees her position
-          in the local market AFTER digesting her own review list. */}
+      {/* R.6 · Trend graph (full-width). Maria sees activity-over-time
+          before drilling into competitor benchmarking. */}
       <div style={{ marginTop: 32 }}>
+        <ReviewTrendCard data={trends} labels={trendLabels} />
+      </div>
+
+      {/* R.6 · Services + Names cards. Two columns on desktop, stacked
+          on mobile (CSS grid auto-fits 280px+ tracks). */}
+      <div
+        style={{
+          marginTop: 16,
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+          gap: 16,
+        }}
+      >
+        <ServiceMentionsCard
+          services={trends.services}
+          labels={servicesLabels}
+        />
+        <MentionedNamesCard people={trends.topPeople} labels={namesLabels} />
+      </div>
+
+      {/* R.5 · How you compare · local competitor benchmark.
+          Full-width below the trend + mention cards · Maria sees her
+          local market position AFTER understanding her own review story. */}
+      <div style={{ marginTop: 16 }}>
         <CompetitorBenchmarkCard
           data={ranking}
           category={ranking.focalCategory}

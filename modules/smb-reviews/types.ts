@@ -60,6 +60,13 @@ export interface ReviewItem {
   isUrgent: boolean;
   aiReplyDraftEn: string | null;
   aiReplyDraftEs: string | null;
+  /** R.4 · staff/provider names extracted from the review text. Used by
+   *  ReviewCard to highlight name mentions inline. */
+  mentionedPeople: string[];
+  /** R.4 · canonical service names mentioned in the review text. Used
+   *  by ReviewCard to highlight service mentions inline + by the
+   *  ServiceMentionsCard for the "stale service" tips. */
+  mentionedServices: string[];
 }
 
 /**

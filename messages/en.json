@@ -214,7 +214,24 @@
       "compare_col_reviews": "Reviews",
       "compare_col_new_30d": "New 30d",
       "compare_col_reply_rate": "Reply rate",
-      "compare_you_label": "you"
+      "compare_you_label": "you",
+      "trend_eyebrow": "Trend",
+      "trend_title": "Reviews over the last year",
+      "trend_rolling_line": "{n} new in the last 30 days ({delta} vs prior 30d).",
+      "trend_empty": "We'll show your trend here once you have a few months of reviews.",
+      "trend_y_axis_count": "count",
+      "trend_y_axis_stars": "★",
+      "trend_last_updated": "Last updated {relative}",
+      "services_title": "Your services in reviews",
+      "services_subtitle": "Last 12 months",
+      "services_empty": "Add services on your business page so we can match them to your reviews.",
+      "services_count_label": "Mentioned {count} times",
+      "services_stale_label": "Not in 3+ months — consider promoting",
+      "services_never_label": "Never mentioned yet",
+      "names_title": "Names your customers mention",
+      "names_subtitle": "Top staff + providers",
+      "names_empty": "We'll surface names here as your team gets called out by customers.",
+      "names_count_label": "{count} mentions"
     },
     "search": {
       "meta": {
