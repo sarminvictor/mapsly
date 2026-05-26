@@ -421,12 +421,18 @@ model Review {
   aiReplyDraftEn String? @db.Text
   aiReplyDraftEs String? @db.Text
 
-  // R.4 · AI-extracted entities. Populated by services/ai/extract-names +
-  // services/ai/extract-service-mentions during the weekly cron (or
-  // backfill cron). Drives "names highlighted in review text" UI and
-  // "service mentions vs your service list" comparator on /reviews.
-  mentionedPeople    String[] @default([])
-  mentionedServices  String[] @default([])
+  // R.4 · AI-extracted entities. Populated by services/ai/extract-entities
+  // during the daily backfill cron (modules/reviews/extract-entities-backfill).
+  // Drives "names highlighted in review text" UI and "service mentions
+  // vs your service list" comparator on /reviews.
+  //
+  // `entitiesExtractedAt` is the processing marker — distinguishes "not
+  // yet extracted" (NULL) from "extracted, found nothing" (timestamp set,
+  // arrays empty). Clear this field to schedule re-extraction (e.g. after
+  // a service-catalog edit invalidates prior results).
+  mentionedPeople     String[]  @default([])
+  mentionedServices   String[]  @default([])
+  entitiesExtractedAt DateTime?
 
   business     Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
 

@@ -70,6 +70,15 @@ export {
 } from "./copy-gen";
 
 export {
+  extractReviewEntities,
+  extractReviewEntitiesUncached,
+  ExtractEntitiesSchema,
+  DEFAULT_EXTRACT_MODEL,
+  type ExtractEntitiesInput,
+  type ExtractEntitiesResult,
+} from "./extract-entities";
+
+export {
   MODEL_DECISION,
   pickModelFor,
   getChoiceFor,
