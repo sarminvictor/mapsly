@@ -10,6 +10,8 @@
 
 import { useActionState } from "react";
 
+import { useActionToast } from "@/components/admin-ui/use-action-toast";
+
 import { addLocation, type ActionResult } from "../actions";
 
 interface Props {
@@ -21,6 +23,7 @@ const initial: ActionResult<{ locationId: string }> | null = null;
 
 export function AddLocationForm({ categoryId, categoryLabel }: Props) {
   const [state, formAction, pending] = useActionState(addLocation, initial);
+  useActionToast(state);
   return (
     <form action={formAction} className="admin-form">
       <input type="hidden" name="categoryId" value={categoryId} />
@@ -109,16 +112,6 @@ export function AddLocationForm({ categoryId, categoryLabel }: Props) {
           Geocodes via OpenStreetMap, then validates with one DataForSEO ping
           ($0.001).
         </span>
-        {state?.ok && state.message ? (
-          <span className="admin-msg-ok" style={{ padding: "6px 10px" }}>
-            {state.message}
-          </span>
-        ) : null}
-        {state && !state.ok ? (
-          <span className="admin-msg-err" style={{ padding: "6px 10px" }}>
-            {state.error}
-          </span>
-        ) : null}
       </div>
     </form>
   );

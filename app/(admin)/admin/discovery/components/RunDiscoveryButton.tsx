@@ -3,14 +3,13 @@
 /**
  * Client wrapper around the `runDiscovery` server action.
  *
- * Per `.claude/rules/cache-components.md` Pattern 4b — we don't pass
- * the action function across the boundary; instead the form uses
- * `action={runDiscovery}` directly (Next.js server-action calling
- * convention). This file stays client-only because it owns the
- * `useActionState` + pending state.
+ * State surfacing moved out of inline JSX into the toast system
+ * (components/admin-ui/ToastProvider) for a cleaner row layout.
  */
 
 import { useActionState } from "react";
+
+import { useActionToast } from "@/components/admin-ui/use-action-toast";
 
 import {
   runDiscovery,
@@ -32,6 +31,7 @@ export function RunDiscoveryButton({
   defaultLimit = 100,
 }: Props) {
   const [state, formAction, pending] = useActionState(runDiscovery, initial);
+  useActionToast(state);
   return (
     <form action={formAction} style={{ display: "inline-flex", gap: 6 }}>
       <input type="hidden" name="trackedLocationId" value={trackedLocationId} />
@@ -41,6 +41,7 @@ export function RunDiscoveryButton({
         className="admin-select"
         style={{ padding: "6px 8px", fontSize: 11 }}
         disabled={pending || !isActive}
+        aria-label="Discovery result limit"
       >
         <option value={25}>25</option>
         <option value={50}>50</option>
@@ -56,31 +57,6 @@ export function RunDiscoveryButton({
       >
         {pending ? "Running…" : "Run"}
       </button>
-      {state && !state.ok ? (
-        <span
-          role="alert"
-          style={{
-            fontSize: 11,
-            color: "var(--admin-err)",
-            alignSelf: "center",
-            marginLeft: 6,
-          }}
-        >
-          {state.error}
-        </span>
-      ) : null}
-      {state && state.ok && state.message ? (
-        <span
-          style={{
-            fontSize: 11,
-            color: "var(--admin-ok)",
-            alignSelf: "center",
-            marginLeft: 6,
-          }}
-        >
-          {state.message}
-        </span>
-      ) : null}
     </form>
   );
 }

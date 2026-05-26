@@ -2,12 +2,13 @@
 
 /**
  * Delete a BusinessCategory · only rendered when the group has zero
- * TrackedLocation rows (the page enforces visibility; the server
- * action re-checks). Categories with any locations get the Add
- * Location CTA only — admin must clear children first.
+ * TrackedLocation rows. Same confirm/toast pattern as DeleteLocationButton.
  */
 
-import { useActionState } from "react";
+import { useActionState, useRef, type FormEvent } from "react";
+
+import { useConfirm } from "@/components/admin-ui/ConfirmProvider";
+import { useActionToast } from "@/components/admin-ui/use-action-toast";
 
 import { deleteCategory, type ActionResult } from "../actions";
 
@@ -19,20 +20,32 @@ interface Props {
 const initial: ActionResult | null = null;
 
 export function DeleteCategoryButton({ categoryId, label }: Props) {
-  const [state, formAction, pending] = useActionState(deleteCategory, initial);
+  const confirm = useConfirm();
+  const [state, formAction, pending] = useActionState(
+    deleteCategory,
+    initial,
+  );
+  useActionToast(state);
+  const formRef = useRef<HTMLFormElement>(null);
+
+  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const ok = await confirm({
+      title: `Remove "${label}"?`,
+      body: "It has no locations and no businesses indexed. Removing it doesn't touch shared infrastructure — other categories stay.",
+      confirmText: "Delete category",
+      danger: true,
+    });
+    if (!ok) return;
+    formRef.current?.requestSubmit();
+  }
+
   return (
     <form
+      ref={formRef}
       action={formAction}
+      onSubmit={handleSubmit}
       style={{ display: "inline-flex" }}
-      onSubmit={(e) => {
-        if (
-          !window.confirm(
-            `Remove "${label}" from the registry? It has no locations and no businesses indexed.`,
-          )
-        ) {
-          e.preventDefault();
-        }
-      }}
     >
       <input type="hidden" name="categoryId" value={categoryId} />
       <button
@@ -50,19 +63,6 @@ export function DeleteCategoryButton({ categoryId, label }: Props) {
       >
         {pending ? "Deleting…" : "Delete category"}
       </button>
-      {state && !state.ok ? (
-        <span
-          role="alert"
-          style={{
-            fontSize: 11,
-            color: "var(--admin-err)",
-            alignSelf: "center",
-            marginLeft: 6,
-          }}
-        >
-          {state.error}
-        </span>
-      ) : null}
     </form>
   );
 }

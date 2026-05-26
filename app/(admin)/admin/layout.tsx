@@ -5,6 +5,8 @@ import "./admin.css";
 
 import { auth } from "@/lib/auth";
 import { requireAdmin, type AdminGuardResult } from "@/lib/portal-guard";
+import { ToastProvider } from "@/components/admin-ui/ToastProvider";
+import { ConfirmProvider } from "@/components/admin-ui/ConfirmProvider";
 
 import { AdminSidebar } from "./AdminSidebar";
 
@@ -56,16 +58,23 @@ async function AdminGate({ children }: { children: ReactNode }) {
 }
 
 function AdminShell({ children }: { children: ReactNode }) {
+  // Providers live inside the gate · only admins ever mount them,
+  // and only after the gate has resolved (so an anonymous user never
+  // sees toast/confirm state initialized).
   return (
-    <div className="admin-shell">
-      <aside className="admin-sidebar">
-        <div className="admin-brand">
-          <strong>Mapsly</strong> · admin
+    <ToastProvider>
+      <ConfirmProvider>
+        <div className="admin-shell">
+          <aside className="admin-sidebar">
+            <div className="admin-brand">
+              <strong>Mapsly</strong> · admin
+            </div>
+            <AdminSidebar />
+          </aside>
+          <main className="admin-main">{children}</main>
         </div>
-        <AdminSidebar />
-      </aside>
-      <main className="admin-main">{children}</main>
-    </div>
+      </ConfirmProvider>
+    </ToastProvider>
   );
 }
 

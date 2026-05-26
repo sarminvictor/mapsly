@@ -2,6 +2,8 @@
 
 import { useActionState } from "react";
 
+import { useActionToast } from "@/components/admin-ui/use-action-toast";
+
 import { toggleLocationActive, type ActionResult } from "../actions";
 
 interface Props {
@@ -12,7 +14,13 @@ interface Props {
 const initial: ActionResult | null = null;
 
 export function ToggleLocationButton({ trackedLocationId, isActive }: Props) {
-  const [, formAction, pending] = useActionState(toggleLocationActive, initial);
+  const [state, formAction, pending] = useActionState(
+    toggleLocationActive,
+    initial,
+  );
+  useActionToast(state, {
+    successTitle: isActive ? "Cell paused" : "Cell resumed",
+  });
   const nextState = !isActive;
   return (
     <form action={formAction} style={{ display: "inline-flex" }}>

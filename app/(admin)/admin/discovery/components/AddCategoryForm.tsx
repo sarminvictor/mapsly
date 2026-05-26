@@ -10,6 +10,8 @@
 
 import { useActionState } from "react";
 
+import { useActionToast } from "@/components/admin-ui/use-action-toast";
+
 import { addCategory, type ActionResult } from "../actions";
 
 interface PickableCategory {
@@ -28,6 +30,7 @@ const initial: ActionResult<{ categoryId: string }> | null = null;
 
 export function AddCategoryForm({ available }: Props) {
   const [state, formAction, pending] = useActionState(addCategory, initial);
+  useActionToast(state);
 
   if (available.length === 0) {
     return (
@@ -77,16 +80,6 @@ export function AddCategoryForm({ available }: Props) {
         >
           {pending ? "Adding…" : "Add category"}
         </button>
-        {state?.ok && state.message ? (
-          <span className="admin-msg-ok" style={{ padding: "6px 10px" }}>
-            {state.message}
-          </span>
-        ) : null}
-        {state && !state.ok ? (
-          <span className="admin-msg-err" style={{ padding: "6px 10px" }}>
-            {state.error}
-          </span>
-        ) : null}
       </div>
     </form>
   );

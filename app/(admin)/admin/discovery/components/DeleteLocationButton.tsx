@@ -2,13 +2,17 @@
 
 /**
  * Delete a TrackedLocation · only rendered for cells with
- * `businessCount === 0` (the page enforces visibility; the server
- * action re-checks before deleting). One-step confirm via the
- * browser's native confirm dialog — admin tooling, no need for a
- * custom modal.
+ * `businessCount === 0`. The page enforces visibility; the server
+ * action re-checks before deleting.
+ *
+ * Confirmation uses our custom ConfirmDialog (not window.confirm) to
+ * keep the visual treatment consistent with the rest of /admin.
  */
 
-import { useActionState } from "react";
+import { useActionState, useRef, type FormEvent } from "react";
+
+import { useConfirm } from "@/components/admin-ui/ConfirmProvider";
+import { useActionToast } from "@/components/admin-ui/use-action-toast";
 
 import { deleteLocation, type ActionResult } from "../actions";
 
@@ -20,20 +24,35 @@ interface Props {
 const initial: ActionResult | null = null;
 
 export function DeleteLocationButton({ trackedLocationId, city }: Props) {
-  const [state, formAction, pending] = useActionState(deleteLocation, initial);
+  const confirm = useConfirm();
+  const [state, formAction, pending] = useActionState(
+    deleteLocation,
+    initial,
+  );
+  useActionToast(state);
+  const formRef = useRef<HTMLFormElement>(null);
+
+  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const ok = await confirm({
+      title: `Remove "${city}"?`,
+      body: "This deletes the cell and its run history. The category and other locations are unaffected.",
+      confirmText: "Delete",
+      danger: true,
+    });
+    if (!ok) return;
+    formRef.current?.requestSubmit();
+    // requestSubmit() bypasses the custom onSubmit because the second
+    // call comes from outside the synthetic event flow · the form
+    // hits formAction directly without re-entering this handler.
+  }
+
   return (
     <form
+      ref={formRef}
       action={formAction}
+      onSubmit={handleSubmit}
       style={{ display: "inline-flex" }}
-      onSubmit={(e) => {
-        if (
-          !window.confirm(
-            `Remove "${city}" from the registry? This deletes the cell and its run history.`,
-          )
-        ) {
-          e.preventDefault();
-        }
-      }}
     >
       <input type="hidden" name="trackedLocationId" value={trackedLocationId} />
       <button
@@ -51,19 +70,6 @@ export function DeleteLocationButton({ trackedLocationId, city }: Props) {
       >
         {pending ? "…" : "Delete"}
       </button>
-      {state && !state.ok ? (
-        <span
-          role="alert"
-          style={{
-            fontSize: 11,
-            color: "var(--admin-err)",
-            alignSelf: "center",
-            marginLeft: 6,
-          }}
-        >
-          {state.error}
-        </span>
-      ) : null}
     </form>
   );
 }
