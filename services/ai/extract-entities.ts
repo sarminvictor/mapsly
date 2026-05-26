@@ -57,14 +57,21 @@ Schema:
 }
 
 Rules for "people":
-- Extract proper names of humans mentioned in the review.
-- Include: providers, staff, doctors, nurses, owners, technicians.
+- Extract PROPER NAMES of humans mentioned in the review.
+- Include: providers, staff, doctors, nurses, owners, technicians — but ONLY when their PERSONAL NAME is given.
 - EXCLUDE: business name, brand names, product names, place names.
-- Keep titles when present: "Dr. Smith", "Nurse Maria", "Sarah" (no title).
+- EXCLUDE: generic job titles or roles without a personal name — "receptionist", "manager",
+  "owner", "doctor", "nurse", "technician", "staff", "team", "girls", "ladies",
+  "front desk" — these are not names. Only return them if attached to a personal
+  name (e.g. "Nurse Maria" → return "Nurse Maria"; bare "nurse" → exclude).
+- Prefer the CANONICAL form: if the review mentions "Amanda Solar" once and "Amanda" elsewhere,
+  return just "Amanda" (the more-common form across the corpus). If only the full form
+  appears, return it. Don't fabricate first names from last-name-only mentions.
+- Keep titles only when attached to a name: "Dr. Smith", "Nurse Maria", "Sarah" (no title).
 - If the same person appears multiple times (e.g. "Sarah was great. Sarah is amazing."),
   return them once.
 - Strip trailing punctuation/possessives: "Sarah's" → "Sarah".
-- Empty array if no people mentioned by name.
+- Empty array if no people mentioned by personal name.
 
 Rules for "services":
 - Return ONLY services from the canonical list provided in the user message.
@@ -141,7 +148,10 @@ export async function extractReviewEntitiesUncached(
  * service catalog invalidates relevant entries (cache miss → fresh extraction).
  */
 export const extractReviewEntities = kvCache(
-  "ai:entities:extract",
+  // v2 · 2026-05-26 · stricter prompt excludes role names like
+  // "receptionist", "manager" · bumping the key busts old cached
+  // results so they re-extract on next call.
+  "ai:entities:extract:v2",
   { ttl: 30 * 86_400 },
   extractReviewEntitiesUncached,
 );

@@ -52,12 +52,22 @@ export function reviewItemToPersist(
   const stars = clampStars(ratingValue);
   const reviewerName = anonymizeReviewerName(item.profile_name);
 
-  const ownerReplyText =
+  // Strip HTML · DfS sometimes surfaces owner_answer with <br> tags
+  // (e.g. "Hi Sarah!<br><br>Thanks for stopping by!"). React renders
+  // those as literal text · ugly. Strip at persist so the DB has
+  // clean text for downstream renderers + AI extractors.
+  const rawOwnerReply =
     typeof item.owner_answer === "string" && item.owner_answer.trim().length > 0
-      ? item.owner_answer.trim()
+      ? stripHtml(item.owner_answer.trim())
       : null;
+  const ownerReplyText =
+    rawOwnerReply && rawOwnerReply.length > 0 ? rawOwnerReply : null;
   const ownerReplyAt = item.owner_time_of_answer
     ? safeDate(item.owner_time_of_answer)
+    : null;
+
+  const reviewText = item.review_text
+    ? stripHtml(item.review_text.toString())
     : null;
 
   return {
@@ -65,7 +75,7 @@ export function reviewItemToPersist(
     externalId: item.review_id,
     reviewerName,
     stars,
-    text: item.review_text?.toString() ?? null,
+    text: reviewText,
     language: null,
     postedAt: timestamp,
     ownerReplied: ownerReplyText != null,
@@ -102,6 +112,34 @@ export function clampStars(v: number): number {
 export function safeDate(iso: string): Date | null {
   const d = new Date(iso);
   return Number.isNaN(d.getTime()) ? null : d;
+}
+
+/**
+ * Strip HTML tags + decode common entities. Used to clean both review
+ * text and owner replies before persistence · DfS sometimes returns
+ * `<br>` (and rarely `<p>`) tags from Google's verbatim response.
+ *
+ * Conservative: <br> → newline, paragraph breaks → double-newline,
+ * everything else stripped to text. Decodes the 5 standard HTML
+ * entities. Pre-line CSS rendering preserves the resulting newlines.
+ *
+ * Per `.claude/rules/security.md`, we NEVER use dangerouslySetInnerHTML
+ * on review text · this util is the canonical sanitizer.
+ */
+export function stripHtml(input: string): string {
+  return input
+    .replace(/<br\s*\/?\s*>/gi, "\n")
+    .replace(/<\/p>\s*<p[^>]*>/gi, "\n\n")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&apos;/g, "'")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
 
 /** Map ISO-2 country code → DataForSEO location_code for review queries. */

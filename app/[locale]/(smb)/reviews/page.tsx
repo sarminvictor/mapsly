@@ -5,10 +5,10 @@
  * Audience: Maria (single-business owner). Per
  * `.claude/rules/ui-ux-smb.md`:
  *
- *   - Tabs at top: Unanswered (default) / Negative / All / By theme / Replied
+ *   - Tabs at top: Unanswered (default) / Negative / Replied
  *   - Per-review card: stars, date, text, urgency pill, AI reply draft
- *     (read-only this scaffold — interactive Post-to-Google + Edit +
- *     Regenerate land once G.5 GBP integration is in place)
+ *     (Generate + Regenerate functional; Post-to-Google + Edit stay
+ *     disabled until G.5 GBP integration is in place)
  *   - Right rail: rating distribution + top themes (reply-tone settings
  *     ship with E.6 settings page)
  *
@@ -46,7 +46,6 @@ import {
   MentionedNamesCard,
   PaginatedReviewList,
   RatingDistributionCard,
-  ReviewCard,
   ReviewTabs,
   ReviewTrendCard,
   ServiceMentionsCard,
@@ -61,7 +60,7 @@ import {
   type ThemesCardLabels,
 } from "@/modules/smb-reviews/components";
 import { getSmbReviewsData } from "@/modules/smb-reviews/queries";
-import { parseReviewTab, type ReviewItem } from "@/modules/smb-reviews/types";
+import { parseReviewTab } from "@/modules/smb-reviews/types";
 import { getCompetitorRanking } from "@/modules/scoring/competitor-ranking";
 import { getReviewTrends } from "@/modules/reviews/trends";
 
@@ -250,8 +249,6 @@ async function ReviewsBody({
   const tabsLabels: ReviewTabsLabels = {
     unanswered: t("tab_unanswered_label"),
     negative: t("tab_negative"),
-    all: t("tab_all"),
-    byTheme: t("tab_by_theme"),
     replied: t("tab_replied"),
   };
 
@@ -268,6 +265,7 @@ async function ReviewsBody({
     sentimentNeutral: t("sentiment_neutral"),
     priorReviews: t.raw("prior_reviews") as string,
     aiDraftLabel: t("ai_draft_label"),
+    ctaGenerate: t("ai_draft_generate"),
     ctaPost: t("ai_draft_post"),
     ctaEdit: t("ai_draft_edit"),
     ctaRegenerate: t("ai_draft_regenerate"),
@@ -479,14 +477,7 @@ async function ReviewsBody({
         className="smb-reviews-grid"
       >
         <main>
-          {data.activeTab === "by-theme" ? (
-            <ByThemeView
-              reviews={data.reviews}
-              themes={data.topThemes}
-              cardLabels={cardLabels}
-              emptyMessage={t("by_theme_empty")}
-            />
-          ) : data.reviews.length === 0 ? (
+          {data.reviews.length === 0 ? (
             <EmptyTab tab={data.activeTab} t={t} />
           ) : (
             <PaginatedReviewList
@@ -663,7 +654,7 @@ function EmptyTab({
   tab,
   t,
 }: {
-  tab: "unanswered" | "negative" | "all" | "by-theme" | "replied";
+  tab: "unanswered" | "negative" | "replied";
   t: (key: string) => string;
 }) {
   const titleKey = `empty_${tab}_title` as const;
@@ -699,84 +690,5 @@ function EmptyTab({
         {t(bodyKey)}
       </p>
     </div>
-  );
-}
-
-/**
- * By-theme tab grouping. Buckets the reviews under each theme heading
- * so Maria can quickly scan the "Scheduling" reviews or the "Pricing"
- * ones. This is a server-side bucket — the client never sees raw
- * filtering logic.
- */
-function ByThemeView({
-  reviews,
-  themes,
-  cardLabels,
-  emptyMessage,
-}: {
-  reviews: ReviewItem[];
-  themes: { theme: string; count: number; negativeCount: number }[];
-  cardLabels: ReviewCardLabels;
-  emptyMessage: string;
-}) {
-  if (themes.length === 0 || reviews.length === 0) {
-    return (
-      <div
-        style={{
-          background: "var(--color-bg-2)",
-          border: "1px dashed var(--color-border)",
-          borderRadius: 14,
-          padding: "32px 24px",
-          textAlign: "center",
-          color: "var(--color-text-2)",
-          fontSize: 14,
-        }}
-      >
-        {emptyMessage}
-      </div>
-    );
-  }
-
-  return (
-    <>
-      {themes.map((tBucket) => {
-        const inTheme = reviews.filter((r) => r.themes.includes(tBucket.theme));
-        if (inTheme.length === 0) return null;
-        return (
-          <section
-            key={tBucket.theme}
-            style={{ marginBottom: 24 }}
-            aria-labelledby={`theme-${tBucket.theme}-heading`}
-          >
-            <h2
-              id={`theme-${tBucket.theme}-heading`}
-              style={{
-                margin: "0 0 10px",
-                fontFamily: "var(--font-serif)",
-                fontSize: 17,
-                color: "var(--color-text)",
-                textTransform: "capitalize",
-              }}
-            >
-              {tBucket.theme}{" "}
-              <span
-                style={{
-                  fontFamily: "var(--font-mono)",
-                  fontSize: 11,
-                  color: "var(--color-text-3)",
-                  fontWeight: 500,
-                  textTransform: "none",
-                }}
-              >
-                ({tBucket.count})
-              </span>
-            </h2>
-            {inTheme.map((r) => (
-              <ReviewCard key={r.id} review={r} labels={cardLabels} />
-            ))}
-          </section>
-        );
-      })}
-    </>
   );
 }

@@ -172,6 +172,7 @@
       "days_ago": "{days} days ago",
       "no_text": "No written feedback — stars only.",
       "ai_draft_label": "AI-drafted reply",
+      "ai_draft_generate": "Generate reply",
       "ai_draft_post": "Post to Google",
       "ai_draft_edit": "Edit draft",
       "ai_draft_regenerate": "Regenerate",

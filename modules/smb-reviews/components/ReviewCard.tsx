@@ -3,6 +3,7 @@ import * as React from "react";
 import { Pill } from "@/components/ui";
 import { AIReplyDraftBody } from "./AIReplyDraftBody";
 import { HighlightedReviewText } from "./HighlightedReviewText";
+import { ReplyActions } from "./ReplyActions";
 import { StarRating } from "./StarRating";
 import type { ReviewItem } from "../types";
 
@@ -51,6 +52,8 @@ export interface ReviewCardLabels {
   priorReviews: string;
   /** AI reply heading "AI-drafted reply". */
   aiDraftLabel: string;
+  /** "Generate reply" CTA · shown when no draft exists yet. */
+  ctaGenerate: string;
   /** "Post to Google" CTA. */
   ctaPost: string;
   /** "Edit draft" secondary action. */
@@ -244,7 +247,9 @@ export function ReviewCard({ review, labels }: ReviewCardProps) {
           when={review.ownerReplyAt}
           labels={labels}
         />
-      ) : review.aiReplyDraftEn || review.aiReplyDraftEs ? (
+      ) : review.text && review.text.trim().length > 0 ? (
+        // Always render the draft panel for reviews with text — even when
+        // there is no AI draft yet · the Generate button lives there.
         <AIReplyDraft review={review} labels={labels} />
       ) : null}
     </article>
@@ -378,11 +383,15 @@ function AIReplyDraft({
   review: ReviewItem;
   labels: ReviewCardLabels;
 }) {
-  // Render the body via a small client island so Maria can toggle
-  // EN ↔ ES. The framing (label + buttons) stays on the server so
-  // only the toggle + draft text + meta line cross the hydration
-  // boundary.
-  if (!review.aiReplyDraftEn && !review.aiReplyDraftEs) return null;
+  // Renders three states:
+  //   1. No draft yet · just the Generate CTA (single prominent button)
+  //   2. Has draft · EN/ES toggle + Post/Edit/Regenerate actions
+  //
+  // The Post/Edit buttons stay disabled until the GBP (Google Business
+  // Profile) integration lands. Generate + Regenerate are functional
+  // today and route through regenerateReplyAction · which samples the
+  // owner's prior replies to match Maria's voice.
+  const hasDraft = Boolean(review.aiReplyDraftEn || review.aiReplyDraftEs);
 
   return (
     <div
@@ -422,97 +431,36 @@ function AIReplyDraft({
         </span>
       </div>
 
-      <AIReplyDraftBody
-        draftEn={review.aiReplyDraftEn}
-        draftEs={review.aiReplyDraftEs}
-        labelEn={labels.langEn}
-        labelEs={labels.langEs}
-        buildMeta={(text) => {
-          const words = text.split(/\s+/).filter(Boolean).length;
-          return `${words} words · ${text.length} chars`;
+      {hasDraft ? (
+        <>
+          <AIReplyDraftBody
+            draftEn={review.aiReplyDraftEn}
+            draftEs={review.aiReplyDraftEs}
+            labelEn={labels.langEn}
+            labelEs={labels.langEs}
+            buildMeta={(text) => {
+              const words = text.split(/\s+/).filter(Boolean).length;
+              return `${words} words · ${text.length} chars`;
+            }}
+          />
+          <div style={{ marginTop: 12 }} />
+        </>
+      ) : null}
+
+      <ReplyActions
+        reviewId={review.id}
+        hasDraft={hasDraft}
+        labels={{
+          generate: labels.ctaGenerate,
+          regenerate: labels.ctaRegenerate,
+          post: labels.ctaPost,
+          edit: labels.ctaEdit,
+          comingSoon: labels.ctaComingSoon,
         }}
       />
-
-      <div style={{ marginTop: 12 }}></div>
-      <div
-        style={{
-          display: "flex",
-          flexWrap: "wrap",
-          gap: 8,
-          alignItems: "center",
-        }}
-      >
-        <button
-          type="button"
-          disabled
-          aria-disabled="true"
-          title={labels.ctaComingSoon}
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 6,
-            padding: "8px 14px",
-            background: "var(--color-coral)",
-            color: "#fff",
-            border: "none",
-            borderRadius: 999,
-            fontFamily: "var(--font-sans)",
-            fontSize: 13,
-            fontWeight: 600,
-            cursor: "not-allowed",
-            opacity: 0.7,
-          }}
-        >
-          {labels.ctaPost}
-        </button>
-        <button
-          type="button"
-          disabled
-          aria-disabled="true"
-          title={labels.ctaComingSoon}
-          style={ghostButton}
-        >
-          {labels.ctaEdit}
-        </button>
-        <button
-          type="button"
-          disabled
-          aria-disabled="true"
-          title={labels.ctaComingSoon}
-          style={ghostButton}
-        >
-          {labels.ctaRegenerate}
-        </button>
-        <span
-          style={{
-            fontFamily: "var(--font-mono)",
-            fontSize: 10,
-            color: "var(--color-text-3)",
-            marginLeft: "auto",
-          }}
-        >
-          {labels.ctaComingSoon}
-        </span>
-      </div>
     </div>
   );
 }
-
-const ghostButton: React.CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  gap: 6,
-  padding: "7px 12px",
-  background: "transparent",
-  color: "var(--color-text-2)",
-  border: "1px solid var(--color-border)",
-  borderRadius: 999,
-  fontFamily: "var(--font-sans)",
-  fontSize: 13,
-  fontWeight: 500,
-  cursor: "not-allowed",
-  opacity: 0.6,
-};
 
 function sentimentTone(
   s: "POSITIVE" | "NEUTRAL" | "NEGATIVE",
