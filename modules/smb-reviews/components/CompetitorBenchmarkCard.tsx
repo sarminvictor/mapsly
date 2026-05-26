@@ -30,6 +30,7 @@ export interface CompetitorBenchmarkLabels {
   /** Column headers. */
   colRank: string;
   colName: string;
+  colScore: string;
   colRating: string;
   colReviews: string;
   colNew30d: string;
@@ -160,6 +161,7 @@ export function CompetitorBenchmarkCard({
             >
               <Th>{labels.colRank}</Th>
               <Th>{labels.colName}</Th>
+              <Th align="right">{labels.colScore}</Th>
               <Th align="right">{labels.colRating}</Th>
               <Th align="right">{labels.colReviews}</Th>
               <Th align="right">{labels.colNew30d}</Th>
@@ -179,7 +181,7 @@ export function CompetitorBenchmarkCard({
             {data.focal && !data.top.some((r) => r.isFocal) ? (
               <>
                 <tr aria-hidden>
-                  <td colSpan={6} style={{ padding: "8px 0" }}>
+                  <td colSpan={7} style={{ padding: "8px 0" }}>
                     <div
                       style={{
                         borderTop: "1px dashed var(--color-border)",
@@ -252,6 +254,19 @@ function CompetitorRowView({
             {youLabel}
           </span>
         ) : null}
+      </Td>
+      <Td align="right">
+        <span
+          title={`Composite (0-100): ${row.score} · subs · rating=${row.subScores.rating.toFixed(2)} · reviews=${row.subScores.reviews.toFixed(2)} · velocity=${row.subScores.velocity.toFixed(2)} · reply=${row.subScores.reply.toFixed(2)}`}
+          style={{
+            fontFamily: "var(--font-mono)",
+            fontSize: 13,
+            color: isFocal ? "var(--color-coral)" : "var(--color-text)",
+            fontWeight: isFocal ? 700 : 600,
+          }}
+        >
+          {row.score}
+        </span>
       </Td>
       <Td align="right">{row.rating != null ? row.rating.toFixed(1) : "—"}</Td>
       <Td align="right">{row.reviewCount ?? 0}</Td>

@@ -50,10 +50,18 @@ async function main(): Promise<void> {
   console.log(`ownerUserId           : ${biz.ownerUserId?.slice(0, 12)}…`);
   console.log("");
   console.log("=== Review-pull state ===");
-  console.log(`pendingReviewsTaskId  : ${biz.pendingReviewsTaskId ?? "(null · no pull in flight)"}`);
-  console.log(`reviewsFirstPulledAt  : ${biz.reviewsFirstPulledAt?.toISOString() ?? "(null · never pulled)"}`);
-  console.log(`reviewsLastDeltaAt    : ${biz.reviewsLastDeltaAt?.toISOString() ?? "(null · never delta'd)"}`);
-  console.log(`latestReviewExternalId: ${biz.latestReviewExternalId ?? "(null)"}`);
+  console.log(
+    `pendingReviewsTaskId  : ${biz.pendingReviewsTaskId ?? "(null · no pull in flight)"}`,
+  );
+  console.log(
+    `reviewsFirstPulledAt  : ${biz.reviewsFirstPulledAt?.toISOString() ?? "(null · never pulled)"}`,
+  );
+  console.log(
+    `reviewsLastDeltaAt    : ${biz.reviewsLastDeltaAt?.toISOString() ?? "(null · never delta'd)"}`,
+  );
+  console.log(
+    `latestReviewExternalId: ${biz.latestReviewExternalId ?? "(null)"}`,
+  );
   console.log(`Review rows in DB     : ${biz._count.reviews}`);
   console.log("");
 

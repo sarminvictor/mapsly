@@ -24,8 +24,8 @@ interface Props {
 }
 
 const WIDTH = 600;
-const HEIGHT = 180;
-const PADDING = { top: 16, right: 40, bottom: 32, left: 32 };
+const HEIGHT = 120;
+const PADDING = { top: 12, right: 28, bottom: 24, left: 24 };
 const INNER_W = WIDTH - PADDING.left - PADDING.right;
 const INNER_H = HEIGHT - PADDING.top - PADDING.bottom;
 
@@ -54,8 +54,8 @@ export function ReviewTrendCard({ data, labels }: Props) {
     <Card labels={labels}>
       <p
         style={{
-          margin: "0 0 12px",
-          fontSize: 14,
+          margin: "0 0 6px",
+          fontSize: 12,
           color: "var(--color-text-2)",
         }}
       >
@@ -196,32 +196,42 @@ function Card({
         background: "var(--color-bg-2)",
         border: "1px solid var(--color-border)",
         borderRadius: 14,
-        padding: "18px 20px",
+        padding: "14px 16px",
       }}
     >
-      <p
+      <div
         style={{
-          margin: 0,
-          fontFamily: "var(--font-mono)",
-          fontSize: 11,
-          textTransform: "uppercase",
-          letterSpacing: "0.08em",
-          color: "var(--color-text-3)",
+          display: "flex",
+          alignItems: "baseline",
+          justifyContent: "space-between",
+          gap: 12,
+          marginBottom: 4,
         }}
       >
-        {labels.eyebrow}
-      </p>
-      <h2
-        id="review-trend-heading"
-        style={{
-          margin: "4px 0 12px",
-          fontFamily: "var(--font-serif)",
-          fontSize: 20,
-          color: "var(--color-text)",
-        }}
-      >
-        {labels.title}
-      </h2>
+        <h2
+          id="review-trend-heading"
+          style={{
+            margin: 0,
+            fontFamily: "var(--font-serif)",
+            fontSize: 16,
+            color: "var(--color-text)",
+          }}
+        >
+          {labels.title}
+        </h2>
+        <p
+          style={{
+            margin: 0,
+            fontFamily: "var(--font-mono)",
+            fontSize: 10,
+            textTransform: "uppercase",
+            letterSpacing: "0.06em",
+            color: "var(--color-text-3)",
+          }}
+        >
+          {labels.eyebrow}
+        </p>
+      </div>
       {children}
     </section>
   );

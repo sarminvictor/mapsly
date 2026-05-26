@@ -44,6 +44,7 @@ import { ServiceContextChipForCurrentUser } from "@/components/smb/ServiceContex
 import {
   CompetitorBenchmarkCard,
   MentionedNamesCard,
+  PaginatedReviewList,
   RatingDistributionCard,
   ReviewCard,
   ReviewTabs,
@@ -298,6 +299,7 @@ async function ReviewsBody({
     empty: t("compare_empty"),
     colRank: t("compare_col_rank"),
     colName: t("compare_col_name"),
+    colScore: t("compare_col_score"),
     colRating: t("compare_col_rating"),
     colReviews: t("compare_col_reviews"),
     colNew30d: t("compare_col_new_30d"),
@@ -487,9 +489,12 @@ async function ReviewsBody({
           ) : data.reviews.length === 0 ? (
             <EmptyTab tab={data.activeTab} t={t} />
           ) : (
-            data.reviews.map((r) => (
-              <ReviewCard key={r.id} review={r} labels={cardLabels} />
-            ))
+            <PaginatedReviewList
+              reviews={data.reviews}
+              labels={cardLabels}
+              showMoreLabel={t("show_more")}
+              showingLabel={t.raw("showing_label") as string}
+            />
           )}
         </main>
 
@@ -547,36 +552,21 @@ async function ReviewsBody({
             distribution={data.ratingDistribution}
             labels={ratingLabels}
           />
+          <ServiceMentionsCard
+            services={trends.services}
+            labels={servicesLabels}
+          />
+          <MentionedNamesCard people={trends.topPeople} labels={namesLabels} />
           <ThemesCard themes={data.topThemes} labels={themesLabels} />
         </aside>
       </div>
 
-      {/* R.6 · Trend graph (full-width). Maria sees activity-over-time
-          before drilling into competitor benchmarking. */}
-      <div style={{ marginTop: 32 }}>
+      {/* R.6 · Trend graph (full-width, compact). */}
+      <div style={{ marginTop: 24 }}>
         <ReviewTrendCard data={trends} labels={trendLabels} />
       </div>
 
-      {/* R.6 · Services + Names cards. Two columns on desktop, stacked
-          on mobile (CSS grid auto-fits 280px+ tracks). */}
-      <div
-        style={{
-          marginTop: 16,
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-          gap: 16,
-        }}
-      >
-        <ServiceMentionsCard
-          services={trends.services}
-          labels={servicesLabels}
-        />
-        <MentionedNamesCard people={trends.topPeople} labels={namesLabels} />
-      </div>
-
-      {/* R.5 · How you compare · local competitor benchmark.
-          Full-width below the trend + mention cards · Maria sees her
-          local market position AFTER understanding her own review story. */}
+      {/* R.5 · How you compare · local market MSI ranking. */}
       <div style={{ marginTop: 16 }}>
         <CompetitorBenchmarkCard
           data={ranking}

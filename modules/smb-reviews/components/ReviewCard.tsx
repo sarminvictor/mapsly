@@ -133,7 +133,7 @@ export function ReviewCard({ review, labels }: ReviewCardProps) {
                 color: "var(--color-text-3)",
               }}
             >
-              {labels.daysAgoLabel.replace("{days}", String(review.daysAgo))}
+              {formatRelativeAgo(review.daysAgo)}
             </time>
             {review.isUrgent ? (
               <Pill tone="bad" size="sm" dot>
@@ -182,6 +182,10 @@ export function ReviewCard({ review, labels }: ReviewCardProps) {
           lineHeight: 1.55,
           color: "var(--color-text-2)",
           margin: "0 0 12px",
+          // Preserve line breaks (Google reviews and owner replies sometimes
+          // contain hard \n) while collapsing redundant inline whitespace.
+          // pre-line also makes long reviews wrap naturally at the column.
+          whiteSpace: "pre-line",
           // Long Google reviews are common — display them in full per
           // the design ref. CSS line-clamping is unsafe here because we
           // want screen readers to receive the entire review text.
@@ -291,9 +295,32 @@ function StatusBadge({
   }
   return (
     <Pill tone="warn" size="sm" title={undefined}>
-      {labels.statusUnanswered} · {daysAgo}d
+      {labels.statusUnanswered} · {formatRelativeAgoShort(daysAgo)}
     </Pill>
   );
+}
+
+/**
+ * "138 days ago" → "4 months ago" · "730 days ago" → "2 years ago".
+ * Used by the timestamp line above the review text.
+ */
+function formatRelativeAgo(daysAgo: number): string {
+  if (daysAgo < 0) return "just now";
+  if (daysAgo === 0) return "today";
+  if (daysAgo === 1) return "yesterday";
+  if (daysAgo < 30) return `${daysAgo} days ago`;
+  if (daysAgo < 60) return "1 month ago";
+  if (daysAgo < 365) return `${Math.round(daysAgo / 30)} months ago`;
+  if (daysAgo < 730) return "1 year ago";
+  return `${Math.round(daysAgo / 365)} years ago`;
+}
+
+/** Compact form for the "Unanswered · 4mo" status pill. */
+function formatRelativeAgoShort(daysAgo: number): string {
+  if (daysAgo < 1) return "today";
+  if (daysAgo < 30) return `${daysAgo}d`;
+  if (daysAgo < 365) return `${Math.round(daysAgo / 30)}mo`;
+  return `${Math.round(daysAgo / 365)}y`;
 }
 
 function OwnerReply({
@@ -329,7 +356,14 @@ function OwnerReply({
         {when ? ` · ${new Date(when).toISOString().slice(0, 10)}` : null}
       </div>
       <div
-        style={{ fontSize: 13, lineHeight: 1.5, color: "var(--color-text)" }}
+        style={{
+          fontSize: 13,
+          lineHeight: 1.5,
+          color: "var(--color-text)",
+          // Owner replies from Google often contain hard line breaks.
+          // pre-line preserves them without trusting raw HTML.
+          whiteSpace: "pre-line",
+        }}
       >
         {text}
       </div>
