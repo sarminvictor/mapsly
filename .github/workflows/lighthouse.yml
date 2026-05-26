@@ -61,8 +61,11 @@ jobs:
       - name: Run Lighthouse CI
         uses: treosh/lighthouse-ci-action@v12
         with:
+          # `/` (not `/en`) — i18n routing uses `as-needed` prefix so the
+          # default locale lives at the apex. Hitting /en redirects, which
+          # blanks the canonical + redirects audits.
           urls: |
-            http://localhost:3000/en
+            http://localhost:3000/
           configPath: ./.lighthouserc.json
           uploadArtifacts: true
           temporaryPublicStorage: true

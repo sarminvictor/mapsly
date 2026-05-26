@@ -233,9 +233,10 @@ describe("callOpenAi", () => {
         prompt: "hi",
       }),
     );
-    // 1M input × $0.05/MTok = $0.05
+    // 1M input × $0.20/MTok = $0.20 (gpt-5.4-nano current pricing per
+    // services/ai/pricing.ts · $0.20 in / $1.25 out per 1M tokens).
     const row = Array.from(fakeDb.rows.values())[0]!;
-    expect(row.costUsd).toBeCloseTo(0.05, 6);
+    expect(row.costUsd).toBeCloseTo(0.2, 6);
   });
 
   test("rejects when computed cost exceeds ceiling (does NOT bill)", async () => {
@@ -243,7 +244,7 @@ describe("callOpenAi", () => {
       vi.fn(async () =>
         okResponse({
           content: "x",
-          promptTokens: 20_000_000, // 20M × $0.05/MTok = $1.00 → exceeds default $0.5 ceiling
+          promptTokens: 20_000_000, // 20M × $0.20/MTok = $4.00 → exceeds default $0.5 ceiling
           completionTokens: 0,
           model: "gpt-5.4-nano",
         }),
@@ -285,7 +286,8 @@ describe("callOpenAi", () => {
         costCeilingUsd: 5,
       }),
     );
-    expect(result.costUsd).toBeCloseTo(1, 6);
+    // 20M input × $0.20/MTok = $4.00 (under the explicit $5 ceiling).
+    expect(result.costUsd).toBeCloseTo(4, 6);
   });
 
   test("throws on non-2xx HTTP response (does NOT bill)", async () => {
