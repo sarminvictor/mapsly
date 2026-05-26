@@ -15,7 +15,7 @@
 import { useState } from "react";
 
 interface Endpoint {
-  id: "ping" | "run" | "geocode" | "scrape" | "rdap";
+  id: "ping" | "run" | "geocode" | "scrape" | "rdap" | "ai-email-finder";
   title: string;
   method: string;
   url: string;
@@ -270,6 +270,61 @@ Timeout: 8s`,
 → Surviving candidates: [{ email: "admin@whitecoatbeauty.com", source: "RDAP", score: 80 }]
 → proxiedOnly: false (we still found a real email)
 → When EVERY contact is proxied → proxiedOnly: true, candidates empty`,
+  },
+  {
+    id: "ai-email-finder",
+    title: "AI email finder · web-search Tier-3 fallback",
+    method: "POST",
+    url: "https://api.openai.com/v1/responses",
+    purpose:
+      "Last-resort email discovery when scrape + RDAP both fail. Uses OpenAI's Responses API with web_search_preview tool · gpt-5.4-nano grounds itself in real Google/Bing/social/directory results, then returns a single best email + cited source. Bypasses Cloudflare WAFs AND Wix/Squarespace dynamic widgets (snippets often expose emails the live site hides behind JS).",
+    cost: "$0.027/business avg (token + $10/1k web_search calls · ~2.4 calls per biz). Calgary smoke run: 15/25 found, ~$0.68 total.",
+    cache:
+      "Idempotency · we skip Tier 3 entirely if Business.emailDiscoverySource === 'AI_WEB_SEARCH' already. Re-qualify doesn't re-spend on rows the AI already searched.",
+    triggeredBy:
+      "/admin/discovery → QualifyCellButton → qualifyBusiness → modules/business-qualification/qualify.ts (Tier 3 · runs only when candidates.length === 0 after scrape + RDAP)",
+    sampleRequest: `POST https://api.openai.com/v1/responses
+Authorization: Bearer <OPENAI_API_KEY>
+Content-Type: application/json
+
+{
+  "model": "gpt-5.4-nano",
+  "input": "You are an OSINT researcher. Find a verifiable contact email...
+Business: The Injectionist & Aesthetics
+Location: Calgary, Alberta, CA
+Website: https://www.theinjectionist.ca/?utm_source=Google&utm_medium=GMB
+Google review count: 485
+... [JSON contract for response] ...",
+  "tools": [{ "type": "web_search_preview" }],
+  "max_output_tokens": 800
+}`,
+    sampleResponseAbbrev: `{
+  "id": "resp_abc123",
+  "model": "gpt-5.4-nano",
+  "output": [
+    { "type": "web_search_call", ... },          ← billable @ $10/1k
+    { "type": "web_search_call", ... },
+    { "type": "message", "content": [{ "type": "output_text", "text":
+        "{\\"email\\":\\"info@theinjectionist.ca\\",\\"confidence\\":\\"high\\",\\"source\\":\\"website\\",\\"reasoning\\":\\"The official site lists this email on the contact page.\\"}"
+    }]}
+  ],
+  "usage": { "input_tokens": 12671, "output_tokens": 273 }
+}
+
+Validation gates (all rejects → email: null, kept in rejectReason):
+  • confidence ∈ {high, medium}                  ← rejects low/none
+  • shape passes isValidEmailShape regex         ← rejects "admin.foo.ca"
+  • final segment NOT a file extension           ← rejects "@2x.png"
+  • not a template placeholder                   ← rejects "example.com"
+  • email.domain matches business.domain OR is a free provider
+                                                  ← rejects parent-brand inference
+
+On accept · synthesize EmailCandidate {
+  source: "AI_WEB_SEARCH",
+  score: confidence === "high" ? 90 : 70,
+  aiCitation: <model-reported source>,
+  ...
+} and persist via the same code path as scrape/RDAP candidates.`,
   },
 ];
 

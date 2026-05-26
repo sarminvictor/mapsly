@@ -112,11 +112,14 @@ export type EmailScrapeSource =
 
 export interface EmailCandidate {
   email: string;
-  source: EmailScrapeSource | "RDAP";
+  source: EmailScrapeSource | "RDAP" | "AI_WEB_SEARCH";
   score: number; // higher = better
   isPersonal: boolean; // firstname@ vs generic info@
   isDomainAligned: boolean; // matches the business's own domain
   isFreeProvider: boolean; // gmail/yahoo/etc.
+  /** Citation/justification when the source is AI_WEB_SEARCH · URL or
+   *  short reasoning. Empty string for scrape/RDAP candidates. */
+  aiCitation?: string;
 }
 
 export interface ScrapeResult {

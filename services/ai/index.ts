@@ -10,11 +10,23 @@
 
 export {
   callOpenAi,
+  callOpenAiResponses,
   __setFetchForTesting,
   __setApiKeyForTesting,
   type CallOpenAiOptions,
   type CallOpenAiResult,
+  type CallOpenAiResponsesOptions,
+  type CallOpenAiResponsesResult,
 } from "./client";
+
+export {
+  findEmailViaAi,
+  DEFAULT_EMAIL_FINDER_MODEL,
+  type FindEmailInput,
+  type FindEmailResult,
+  type FindEmailOptions,
+  type FindEmailConfidence,
+} from "./email-finder";
 
 export {
   PRICING,

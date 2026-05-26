@@ -36,10 +36,12 @@ export const COST_REFERENCE = {
   "dataforseo-reviews": 0.0006,
   "dataforseo-keyword": 0.00001, // per keyword in batch of 1000
   "dataforseo-lighthouse": 0.005,
-  "openai-mini-input": 0.00015 / 1000, // per token (gpt-5.4-mini estimate)
-  "openai-mini-output": 0.0006 / 1000,
-  "openai-nano-input": 0.00003 / 1000, // gpt-5.4-nano cheaper
-  "openai-nano-output": 0.00015 / 1000,
+  // Official OpenAI 5.4-series rates · per-token (USD per MTok / 1M)
+  // Verified vs api.openai.com billing 2026-05-25.
+  "openai-mini-input": 0.00075 / 1000, // $0.75 / 1M tokens
+  "openai-mini-output": 0.0045 / 1000, // $4.50 / 1M tokens
+  "openai-nano-input": 0.0002 / 1000, // $0.20 / 1M tokens
+  "openai-nano-output": 0.00125 / 1000, // $1.25 / 1M tokens
   "anthropic-haiku-input": 0.00025 / 1000,
   "anthropic-haiku-output": 0.00125 / 1000,
   "resend-email": 0.0004,

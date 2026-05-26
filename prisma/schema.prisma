@@ -291,6 +291,10 @@ enum EmailDiscoverySource {
   SCRAPE_FOOTER
   SCRAPE_BOOKING
   SCRAPE_JS_BUNDLE
+  // AI fallback · gpt-5.4-nano + web_search_preview tool. Triggers
+  // only when scrape + RDAP both produce zero candidates. Cost
+  // ~$0.027/business. Cited URL stored in Business.emailCandidates.
+  AI_WEB_SEARCH
   RDAP
   MANUAL
 }

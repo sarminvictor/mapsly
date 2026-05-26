@@ -25,22 +25,23 @@ export interface ModelPricing {
  * Supported models. Add a row here, set its pricing, and it becomes callable
  * via `callOpenAi({ model, ... })`. Typo-safe: unknown ids throw in computeUsd.
  *
- * The exact numbers below are placeholder pricing that mirrors public OpenAI
- * tiers (nano ~$0.05/$0.40, mini ~$0.25/$2.00 per MTok). When you confirm the
- * official 5.4-series rates, replace and bump `version` for audit trail.
+ * Source: OpenAI pricing page as of 2026-05-25. Verified vs api.openai.com
+ * billing dashboard during the Calgary email-finder A/B run.
  */
 export const PRICING: Readonly<Record<string, ModelPricing>> = Object.freeze({
-  // GPT-5.4 nano · cheapest classification + tagging. Used for sentiment.
+  // GPT-5.4 nano · cheapest classification + tagging. Used for sentiment +
+  // email-finder web-search calls. $0.20 in / $1.25 out per 1M tokens.
   "gpt-5.4-nano": {
-    inputUsdPerMTok: 0.05,
-    outputUsdPerMTok: 0.4,
-    cachedInputUsdPerMTok: 0.025,
+    inputUsdPerMTok: 0.2,
+    outputUsdPerMTok: 1.25,
+    cachedInputUsdPerMTok: 0.1,
   },
   // GPT-5.4 mini · cheap prose. Used for reply drafts + one-pager copy.
+  // $0.75 in / $4.50 out per 1M tokens.
   "gpt-5.4-mini": {
-    inputUsdPerMTok: 0.25,
-    outputUsdPerMTok: 2.0,
-    cachedInputUsdPerMTok: 0.125,
+    inputUsdPerMTok: 0.75,
+    outputUsdPerMTok: 4.5,
+    cachedInputUsdPerMTok: 0.375,
   },
 });
 

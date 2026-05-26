@@ -208,3 +208,175 @@ export async function callOpenAi(
     model: json.model ?? model,
   };
 }
+
+/* ------------------------------------------------------------------ */
+/* Responses API · `/v1/responses`                                      */
+/* ------------------------------------------------------------------ */
+//
+// The Responses API supports built-in tools (web_search_preview, file_search,
+// computer_use). We use it for the email-finder Tier-3 fallback — the model
+// can issue real-time web searches and read pages on its own.
+//
+// Pricing model (gpt-5.4 series · reasoning rate):
+//   • tokens billed at model rate (includes search-content tokens)
+//   • web_search_preview $10 per 1,000 calls
+//
+// We extract the web_search_call count from `output[]` to bill exactly.
+
+/** USD per 1k web search calls · gpt-5.4 series treated as reasoning models. */
+const WEB_SEARCH_USD_PER_K_CALLS = 10.0;
+
+export interface CallOpenAiResponsesOptions {
+  operation: string;
+  model: SupportedModel;
+  /** User-turn input (single string · multi-turn not yet supported). */
+  input: string;
+  /** Max output tokens. Required so a buggy prompt can't bill unboundedly. */
+  maxOutputTokens: number;
+  /** Built-in tools the model can call. Currently we only use web_search_preview. */
+  tools?: Array<{ type: "web_search_preview" }>;
+  /** Per-call USD ceiling. Defaults to DEFAULT_PER_CALL_CEILING_USD. */
+  costCeilingUsd?: number;
+}
+
+export interface CallOpenAiResponsesResult {
+  /** Concatenated assistant text content. */
+  text: string;
+  /** Exact count of billable web_search_call items in output[]. */
+  webSearchCalls: number;
+  /** Token usage reported by the API. */
+  usage: UsageCounts;
+  /** USD billed to the open CronRun · tokens + search calls. */
+  costUsd: number;
+  /** Echo of model id used. */
+  model: string;
+}
+
+interface OpenAiResponsesResponse {
+  id?: string;
+  model?: string;
+  output_text?: string;
+  output?: Array<{
+    type?: string;
+    content?: Array<{ type?: string; text?: string }>;
+  }>;
+  usage?: {
+    input_tokens?: number;
+    output_tokens?: number;
+    input_tokens_details?: { cached_tokens?: number };
+  };
+}
+
+/**
+ * Send a single-turn request to OpenAI's Responses API with optional
+ * built-in tools (we use web_search_preview for the email-finder).
+ * Attributes cost to the open CronRun and returns assistant text +
+ * tool-call accounting.
+ *
+ * Invariants enforced (same as callOpenAi):
+ *   1. Must run inside withCronRun(...) — throws otherwise.
+ *   2. Computed cost ≤ costCeilingUsd — throws otherwise.
+ *   3. Model must be in PRICING — typo-safe billing.
+ *   4. Bills cost only on success.
+ */
+export async function callOpenAiResponses(
+  options: CallOpenAiResponsesOptions,
+): Promise<CallOpenAiResponsesResult> {
+  const {
+    operation,
+    model,
+    input,
+    maxOutputTokens,
+    tools,
+    costCeilingUsd = DEFAULT_PER_CALL_CEILING_USD,
+  } = options;
+
+  assertCronContext(operation);
+
+  if (!Number.isInteger(maxOutputTokens) || maxOutputTokens <= 0) {
+    throw new Error(
+      `[ai] callOpenAiResponses("${operation}"): maxOutputTokens must be a positive integer, got ${maxOutputTokens}`,
+    );
+  }
+
+  const apiKey = getApiKey();
+  const fetchFn = getFetch();
+
+  const body: Record<string, unknown> = {
+    model,
+    input,
+    max_output_tokens: maxOutputTokens,
+  };
+  if (tools && tools.length > 0) body.tools = tools;
+
+  const res = await fetchFn(`${OPENAI_BASE_URL}/responses`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    let errText = "";
+    try {
+      errText = await res.text();
+    } catch {
+      // ignore
+    }
+    throw new Error(
+      `[ai] OpenAI "${operation}" HTTP ${res.status} ${res.statusText}: ${errText.slice(0, 500)}`,
+    );
+  }
+
+  const json = (await res.json()) as OpenAiResponsesResponse;
+
+  // Extract concatenated text · output_text shortcut OR walk output[].
+  let text = (json.output_text ?? "").trim();
+  if (!text && Array.isArray(json.output)) {
+    const parts: string[] = [];
+    for (const item of json.output) {
+      if (Array.isArray(item.content)) {
+        for (const c of item.content) {
+          if (c.text) parts.push(c.text);
+        }
+      }
+    }
+    text = parts.join("\n").trim();
+  }
+
+  // Count web_search_call items · governs the per-call charge ($10/1k).
+  let webSearchCalls = 0;
+  if (Array.isArray(json.output)) {
+    for (const item of json.output) {
+      if (item.type === "web_search_call") webSearchCalls++;
+    }
+  }
+
+  const usage: UsageCounts = {
+    inputTokens: json.usage?.input_tokens ?? 0,
+    outputTokens: json.usage?.output_tokens ?? 0,
+    cachedInputTokens: json.usage?.input_tokens_details?.cached_tokens ?? 0,
+  };
+  const tokenCost = computeUsd(model, usage);
+  const searchCost = (webSearchCalls / 1000) * WEB_SEARCH_USD_PER_K_CALLS;
+  const costUsd = Number((tokenCost + searchCost).toFixed(8));
+
+  if (costUsd > costCeilingUsd) {
+    throw new Error(
+      `[ai] "${operation}" cost ${costUsd.toFixed(6)} USD exceeded ceiling ${costCeilingUsd.toFixed(4)} USD. ` +
+        `Tokens in=${usage.inputTokens} out=${usage.outputTokens}, searches=${webSearchCalls}.`,
+    );
+  }
+
+  await incrementCost(costUsd, operation);
+
+  return {
+    text,
+    webSearchCalls,
+    usage,
+    costUsd,
+    model: json.model ?? model,
+  };
+}

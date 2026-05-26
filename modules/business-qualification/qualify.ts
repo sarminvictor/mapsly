@@ -27,6 +27,7 @@
 import type { Prisma } from "@/lib/prisma";
 import prisma from "@/lib/prisma";
 
+import { findEmailViaAi } from "@/services/ai";
 import { detectAndPersistServices } from "@/services/business-services-detect";
 
 import { rdapLookup } from "./rdap";
@@ -84,6 +85,10 @@ export async function qualifyBusiness(
     where: { id: businessId },
     select: {
       id: true,
+      name: true,
+      city: true,
+      province: true,
+      country: true,
       website: true,
       domain: true,
       reviewCount: true,
@@ -94,6 +99,8 @@ export async function qualifyBusiness(
       categoryIds: true,
       description: true,
       placeTopics: true,
+      // Idempotency · skip the AI tier if it already ran for this row
+      emailDiscoverySource: true,
     },
   });
   if (!biz) throw new Error(`Business ${businessId} not found`);
@@ -102,12 +109,21 @@ export async function qualifyBusiness(
   if (!biz.isClaimed) flags.push("unclaimed");
   if ((biz.reviewCount ?? 0) < MIN_REVIEWS) flags.push("low_reviews");
 
-  // Email discovery · scrape FIRST, RDAP only as fallback when scrape
-  // produced nothing. (RDAP rarely beats a scraped contact-page email
-  // since most domains have privacy redaction.)
+  // Email discovery · 3-tier waterfall. Each tier only runs if the
+  // previous one produced zero candidates.
+  //
+  // Tier 1 · website scrape (free, ~30s)
+  // Tier 2 · RDAP/WHOIS    (free, ~3s)
+  // Tier 3 · AI web search (paid, ~10s · gpt-5.4-nano · ~$0.027/biz)
+  //
+  // Cost discipline: Tier 3 runs ONLY when the cheap tiers failed AND
+  // the AI hasn't already run for this row (avoids re-spending on
+  // re-qualify clicks). See services/ai/email-finder.ts for the prompt
+  // + validation gates.
   let scrapeRan = false;
   let websiteUnreachable = false;
   let candidates: EmailCandidate[] = [];
+  let aiAttempted = false;
 
   if (biz.website) {
     const scrape = await scrapeEmailsFromWebsite({
@@ -126,8 +142,60 @@ export async function qualifyBusiness(
     candidates = rdap.candidates;
   }
 
+  // Tier 3 · AI fallback. Conditions:
+  //   1. No candidates from scrape OR RDAP
+  //   2. AI hasn't already run for this row (idempotency)
+  //   3. We have enough context to search (name + city are required;
+  //      a business without a name shouldn't reach here, but defensive)
+  const alreadyAiQualified = biz.emailDiscoverySource === "AI_WEB_SEARCH";
+  if (candidates.length === 0 && !alreadyAiQualified && biz.name && biz.city) {
+    aiAttempted = true;
+    try {
+      const ai = await findEmailViaAi({
+        name: biz.name,
+        city: biz.city,
+        province: biz.province,
+        country: biz.country ?? "US",
+        website: biz.website,
+        domain: biz.domain,
+        reviewCount: biz.reviewCount ?? 0,
+      });
+      if (ai.email) {
+        // Synthesize an EmailCandidate from the AI result. We bypass
+        // the buildCandidate scorer because the AI output already
+        // passed domain-alignment + shape gates inside email-finder.
+        const emailDomain = (ai.email.split("@")[1] ?? "").toLowerCase();
+        const localPart = (ai.email.split("@")[0] ?? "").toLowerCase();
+        const isDomainAligned =
+          !!biz.domain && (emailDomain === biz.domain || emailDomain.endsWith("." + biz.domain));
+        candidates = [
+          {
+            email: ai.email,
+            source: "AI_WEB_SEARCH",
+            score: ai.confidence === "high" ? 90 : 70,
+            isPersonal: !/^(info|contact|hello|admin|support|sales|book|booking|appointments|reception)/.test(
+              localPart,
+            ),
+            isDomainAligned,
+            isFreeProvider: /@(gmail|yahoo|hotmail|outlook|icloud|me|live|aol|protonmail|msn|proton)\./.test(
+              ai.email,
+            ),
+            aiCitation: ai.source,
+          },
+        ];
+      }
+    } catch (err) {
+      // AI failure (rate limit, API hiccup, validation throw) must not
+      // break the qualify. Just continue with no_email.
+      console.warn(
+        `[qualify ${businessId}] AI tier-3 failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }
+
   const best = candidates[0] ?? null;
   if (!best) flags.push("no_email");
+  if (aiAttempted) flags.push("ai_attempted");
 
   // Status arbitration · order matters
   let status: QualificationStatusValue;
