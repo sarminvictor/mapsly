@@ -113,6 +113,9 @@ export async function POST(request: Request): Promise<Response> {
         flags: outcome.flags,
         emailDiscovered: outcome.emailDiscovered,
         servicesCreated: outcome.servicesCreated,
+        // R.2 · review-pull trigger result — visible in worker logs so
+        // we can audit "did the pull fire?" across a cell's qualifies.
+        reviewPull: outcome.reviewPull,
       },
       { status: 200 },
     );

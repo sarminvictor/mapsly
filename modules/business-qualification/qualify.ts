@@ -29,6 +29,10 @@ import prisma from "@/lib/prisma";
 
 import { findEmailViaAi } from "@/services/ai";
 import { detectAndPersistServices } from "@/services/business-services-detect";
+import {
+  triggerReviewPullForBusiness,
+  type TriggerReviewPullResult,
+} from "@/modules/reviews/trigger-pull";
 
 import { rdapLookup } from "./rdap";
 import { scrapeEmailsFromWebsite, type EmailCandidate } from "./scrape-email";
@@ -59,6 +63,10 @@ export interface QualifyOutcome {
   // description + service-page scrape + Google starter list)
   servicesDetected: number;
   servicesCreated: number;
+  // R.2 · review-pull trigger result (the qualify-time hook). Tells the
+  // caller (admin UI / loop) whether reviews are being collected for
+  // this business, with a structured skip reason on no-op.
+  reviewPull: TriggerReviewPullResult;
 }
 
 export interface CellQualifyResult {
@@ -262,6 +270,31 @@ export async function qualifyBusiness(
     // still completes with the email + claimed/reviews checks.
   }
 
+  // R.2 · review-pull hook · trigger a one-time historical pull for
+  // this business via DataForSEO Standard queue. The actual review
+  // upsert happens asynchronously via /api/webhooks/dataforseo/reviews
+  // when DfS pings us back (up to 45 min later).
+  //
+  // Guards inside triggerReviewPullForBusiness:
+  //   - needs Business.googleCid
+  //   - skips if pendingReviewsTaskId is set (in-flight)
+  //   - skips if reviewsFirstPulledAt is already set (idempotency)
+  //   - skips if paid-location gate fails (cost discipline)
+  //
+  // Failure is non-fatal · qualify already succeeded. The pull can be
+  // retried via /admin/businesses "Collect reviews now" (R.9).
+  let reviewPull: TriggerReviewPullResult;
+  try {
+    reviewPull = await triggerReviewPullForBusiness(biz.id, {
+      mode: "initial",
+    });
+  } catch (err) {
+    console.warn(
+      `[qualify ${businessId}] review-pull trigger threw: ${err instanceof Error ? err.message : String(err)}`,
+    );
+    reviewPull = { triggered: false, reason: "task_post_failed" };
+  }
+
   return {
     businessId: biz.id,
     status,
@@ -272,6 +305,7 @@ export async function qualifyBusiness(
     websiteUnreachable: scrapeRan && websiteUnreachable,
     servicesDetected,
     servicesCreated,
+    reviewPull,
   };
 }
 
