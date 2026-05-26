@@ -254,6 +254,10 @@ async function ReviewsBody({
     replied: t("tab_replied"),
   };
 
+  // Templates with `{var}` placeholders use `t.raw()` so we get the raw
+  // ICU string back. Downstream components do `.replace("{var}", value)`
+  // for per-row interpolation. Using `t()` here would throw next-intl's
+  // FORMATTING_ERROR because the vars aren't known until render time.
   const cardLabels: ReviewCardLabels = {
     statusUnanswered: t("status_unanswered"),
     statusReplied: t("status_replied"),
@@ -261,13 +265,13 @@ async function ReviewsBody({
     sentimentNegative: t("sentiment_negative"),
     sentimentPositive: t("sentiment_positive"),
     sentimentNeutral: t("sentiment_neutral"),
-    priorReviews: t("prior_reviews"),
+    priorReviews: t.raw("prior_reviews") as string,
     aiDraftLabel: t("ai_draft_label"),
     ctaPost: t("ai_draft_post"),
     ctaEdit: t("ai_draft_edit"),
     ctaRegenerate: t("ai_draft_regenerate"),
     ctaComingSoon: t("ai_draft_coming_soon"),
-    daysAgoLabel: t("days_ago"),
+    daysAgoLabel: t.raw("days_ago") as string,
     noText: t("no_text"),
     langEn: t("ai_draft_lang_en"),
     langEs: t("ai_draft_lang_es"),
@@ -275,9 +279,9 @@ async function ReviewsBody({
 
   const ratingLabels: RatingDistributionCardLabels = {
     title: t("rail_rating_title"),
-    subtitle: t("rail_rating_subtitle"),
+    subtitle: t.raw("rail_rating_subtitle") as string,
     empty: t("rail_rating_empty"),
-    starRowLabel: t("rail_star_row_label"),
+    starRowLabel: t.raw("rail_star_row_label") as string,
   };
 
   const themesLabels: ThemesCardLabels = {
@@ -290,7 +294,7 @@ async function ReviewsBody({
   const compareLabels: CompetitorBenchmarkLabels = {
     eyebrow: t("compare_eyebrow"),
     title: t("compare_title"),
-    positionLine: t("compare_position_line"),
+    positionLine: t.raw("compare_position_line") as string,
     empty: t("compare_empty"),
     colRank: t("compare_col_rank"),
     colName: t("compare_col_name"),
@@ -304,18 +308,18 @@ async function ReviewsBody({
   const trendLabels: ReviewTrendCardLabels = {
     eyebrow: t("compare_eyebrow"),
     title: t("trend_title"),
-    rollingLine: t("trend_rolling_line"),
+    rollingLine: t.raw("trend_rolling_line") as string,
     empty: t("trend_empty"),
     yAxisCount: t("trend_y_axis_count"),
     yAxisStars: t("trend_y_axis_stars"),
-    lastUpdated: t("trend_last_updated"),
+    lastUpdated: t.raw("trend_last_updated") as string,
   };
 
   const servicesLabels: ServiceMentionsCardLabels = {
     title: t("services_title"),
     subtitle: t("services_subtitle"),
     empty: t("services_empty"),
-    countLabel: t("services_count_label"),
+    countLabel: t.raw("services_count_label") as string,
     staleLabel: t("services_stale_label"),
     neverLabel: t("services_never_label"),
   };
@@ -324,7 +328,7 @@ async function ReviewsBody({
     title: t("names_title"),
     subtitle: t("names_subtitle"),
     empty: t("names_empty"),
-    countLabel: t("names_count_label"),
+    countLabel: t.raw("names_count_label") as string,
   };
 
   // R.5 + R.6 · competitor ranking + trend graph + service/name mentions.
