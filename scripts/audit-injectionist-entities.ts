@@ -84,7 +84,9 @@ async function main(): Promise<void> {
   console.log(`  Reviews with mentionedPeople[]   : ${peopleNonEmpty}`);
   console.log(`  Reviews with mentionedServices[] : ${servicesNonEmpty}`);
 
-  console.log("\n=== Business.placeTopics (DfS-extracted themes · alt source) ===");
+  console.log(
+    "\n=== Business.placeTopics (DfS-extracted themes · alt source) ===",
+  );
   if (biz.placeTopics) {
     const topics = biz.placeTopics as Record<string, number>;
     const entries = Object.entries(topics).slice(0, 15);
@@ -118,7 +120,9 @@ async function main(): Promise<void> {
     console.log(
       `\n  [${i + 1}] ${r.postedAt.toISOString().slice(0, 10)} · ${r.stars}★ · ${r.reviewerName}`,
     );
-    console.log(`     text   : "${r.text?.slice(0, 220) ?? ""}${r.text && r.text.length > 220 ? "…" : ""}"`);
+    console.log(
+      `     text   : "${r.text?.slice(0, 220) ?? ""}${r.text && r.text.length > 220 ? "…" : ""}"`,
+    );
     console.log(`     people : [${r.mentionedPeople.join(", ")}]`);
     console.log(`     services: [${r.mentionedServices.join(", ")}]`);
     console.log(`     themes  : [${r.themes.join(", ")}]`);
