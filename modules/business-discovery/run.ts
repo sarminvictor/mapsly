@@ -61,6 +61,8 @@ export async function runDiscoveryForLocation(input: {
       lat: true,
       lng: true,
       radiusKm: true,
+      city: true,
+      province: true,
       country: true,
       category: { select: { dataforseoId: true } },
     },
@@ -116,7 +118,11 @@ export async function runDiscoveryForLocation(input: {
     costUsd = result.rawCostUsd;
 
     for (const row of result.items) {
-      const shape = mapsRowToPersist(row, cell.country);
+      const shape = mapsRowToPersist(row, {
+        city: cell.city,
+        province: cell.province,
+        country: cell.country,
+      });
       if (!shape) {
         errors += 1;
         continue;

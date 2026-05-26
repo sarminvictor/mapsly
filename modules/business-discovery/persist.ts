@@ -98,6 +98,18 @@ export interface PersistShape {
 }
 
 /**
+ * Geo defaults · used when DfS omits address fields on a row. Comes from
+ * the discovery cell that captured the row — if the business showed up
+ * in a (Calgary, 10km) query but DfS didn't tag its city, "Calgary" is
+ * the right inference (and it makes the qualify-cell filter find it).
+ */
+export interface PersistFallbacks {
+  city: string | null;
+  province: string | null;
+  country: string | null;
+}
+
+/**
  * Map a raw DataForSEO Maps row → Business insert shape. Returns null
  * when the row lacks both `cid` and `place_id` (we wouldn't be able to
  * dedup it). Caller chains this into `persistBusinessRow` below.
@@ -105,11 +117,26 @@ export interface PersistShape {
  * Every DfS field that ships in the response is captured — typed
  * columns for the ones we'll query, plus `sourceRawJson` for the
  * complete row so nothing is lost.
+ *
+ * `fallbacks` provides geo defaults (city, province, country) for rows
+ * where DfS omits those fields — happens ~5-10% of the time on mobile-
+ * service or recently-created listings. The cell's own geo applies
+ * because the business is in our index only because it matched the
+ * cell's (coord, radius) query.
+ *
+ * Backwards-compatible: a single-string second argument is still
+ * accepted as the country fallback (legacy signature from when only
+ * country had a default).
  */
 export function mapsRowToPersist(
   row: MapsBusinessRow,
-  fallbackCountry: string | null,
+  fallbacks: PersistFallbacks | string | null,
 ): PersistShape | null {
+  const fb: PersistFallbacks =
+    typeof fallbacks === "object" && fallbacks !== null
+      ? fallbacks
+      : { city: null, province: null, country: fallbacks ?? null };
+
   const name = row.title ?? null;
   if (!name) return null;
   const cid = row.cid ?? null;
@@ -136,11 +163,15 @@ export function mapsRowToPersist(
         ? [...row.category_ids]
         : [],
 
-    // Location
+    // Location · fall back to cell's geo when DfS omits these. The
+    // business is in our index because it matched the cell's (coord,
+    // radius) query, so the cell's city/province/country is a sound
+    // inference. Without this fallback, ~5-10% of rows persist with
+    // null city, breaking the qualify-cell exact-match filter.
     address: row.address ?? row.address_info?.address ?? null,
-    city: row.address_info?.city ?? null,
-    province: row.address_info?.region ?? null,
-    country: (row.address_info?.country_code ?? fallbackCountry ?? "US")
+    city: row.address_info?.city ?? fb.city ?? null,
+    province: row.address_info?.region ?? fb.province ?? null,
+    country: (row.address_info?.country_code ?? fb.country ?? "US")
       .toUpperCase()
       .slice(0, 3),
     postalCode: row.address_info?.zip ?? null,
