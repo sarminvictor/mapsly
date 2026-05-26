@@ -87,8 +87,8 @@ async function handle(request: Request): Promise<Response> {
     return Response.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  // 3. Look up Business by pendingReviewsTaskId
-  const business = await prisma.business.findUnique({
+  // 3. Look up Business by pendingReviewsTaskId · primary path.
+  let business = await prisma.business.findUnique({
     where: { pendingReviewsTaskId: taskId },
     select: {
       id: true,
@@ -98,8 +98,36 @@ async function handle(request: Request): Promise<Response> {
     },
   });
 
+  // 3a. Tag-based fallback · recovers orphaned pingbacks where the
+  // pendingReviewsTaskId never landed (e.g. INC-2026-05-26 · 20100
+  // status code rejected by client, taskId lost before DB write).
+  // The tag format is `mapsly:{mode}:biz_{businessId}` (see
+  // modules/reviews/trigger-pull.ts) so we can extract the businessId
+  // and recover the reviews from the queued task.
+  if (!business && tag) {
+    const m = tag.match(/^mapsly:[a-z]+:biz_([a-z0-9]+)$/i);
+    const recoveredBizId = m?.[1];
+    if (recoveredBizId) {
+      business = await prisma.business.findUnique({
+        where: { id: recoveredBizId },
+        select: {
+          id: true,
+          slug: true,
+          latestReviewExternalId: true,
+          reviewsFirstPulledAt: true,
+        },
+      });
+      if (business) {
+        console.info(
+          `[/api/webhooks/dataforseo/reviews] recovered via tag · taskId=${taskId.slice(0, 8)} businessId=${recoveredBizId.slice(0, 8)} (no pendingReviewsTaskId match · likely INC-2026-05-26 orphan)`,
+        );
+      }
+    }
+  }
+
   if (!business) {
-    // Already processed OR stale task. DfS will stop retrying on 200.
+    // Already processed OR stale task OR malformed tag. DfS stops
+    // retrying on 200.
     console.info(
       `[/api/webhooks/dataforseo/reviews] no business with pendingReviewsTaskId=${taskId.slice(0, 8)} (already processed or stale) · tag=${tag ?? "none"}`,
     );
