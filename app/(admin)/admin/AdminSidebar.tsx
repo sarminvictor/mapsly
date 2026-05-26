@@ -19,6 +19,8 @@ interface NavItem {
 
 const ITEMS: readonly NavItem[] = [
   { href: "/admin/discovery", label: "Discovery" },
+  { href: "/admin/businesses", label: "Businesses" },
+  { href: "/admin/cron-runs", label: "Cron runs" },
 ];
 
 export function AdminSidebar() {
