@@ -148,8 +148,18 @@ export async function callOpenAi(
   const body: Record<string, unknown> = {
     model,
     messages,
-    max_tokens: maxTokens,
-    temperature,
+    // OpenAI deprecated `max_tokens` for gpt-5.x chat completions in
+    // favor of `max_completion_tokens` (reasoning models need both
+    // visible + hidden token budgets · same field name applies to
+    // non-reasoning gpt-5 nano/mini for consistency).
+    max_completion_tokens: maxTokens,
+    // gpt-5.x models only support temperature=1 (default); they reject
+    // explicit temperature values. Omit the field entirely — the field
+    // was a no-op for non-reasoning gpt-4 era models too when set to
+    // default, and it actively errors on gpt-5.x with non-default values.
+    ...(temperature !== undefined && !model.startsWith("gpt-5")
+      ? { temperature }
+      : {}),
   };
   if (jsonMode) body.response_format = { type: "json_object" };
   if (seed !== undefined) body.seed = seed;

@@ -289,14 +289,24 @@ async function loadRatingDistribution(businessId: string) {
 }
 
 async function loadThemeBuckets(businessId: string): Promise<ThemeBucket[]> {
-  // Themes are stored as `String[]` on Review. Prisma doesn't have a
-  // first-class group-by over array elements, but Postgres `unnest`
-  // does the job and the index on `businessId` keeps it cheap.
+  // Themes come from two sources, in order of preference:
   //
-  // Casting `theme::text` per INC-08 — the system `name` type from
-  // pg_catalog would otherwise crash the Neon driver. Our `themes` is
-  // plain `text[]`, but the cast is harmless and documents intent.
-  const rows = await prisma.$queryRaw<
+  // 1. Review.themes[] · populated by the AI sentiment classifier
+  //    (retired from runtime path in R.1 · stars→sentiment replacement).
+  //    Empty for businesses pulled after the retirement, BUT preserved
+  //    for legacy data from before R.1.
+  //
+  // 2. Business.placeTopics · DfS-provided {keyword: count} extracted
+  //    from Google reviews by DfS's own NLP. Free with the Maps
+  //    Listings call (no AI cost). 8-15 keywords per business typical.
+  //    This is the canonical fallback when (1) is empty.
+  //
+  // Both are returned as ThemeBucket[] · the ThemesCard renders them
+  // identically. `negativeCount` is 0 for placeTopics (no per-review
+  // star linkage at the DfS layer) — that just disables the "negative
+  // skew" pill on those rows.
+
+  const aiRows = await prisma.$queryRaw<
     Array<{ theme: string; count: bigint; negativeCount: bigint }>
   >`
     SELECT
@@ -309,13 +319,32 @@ async function loadThemeBuckets(businessId: string): Promise<ThemeBucket[]> {
     ORDER BY count DESC
     LIMIT ${MAX_THEMES}
   `;
-  return rows.map((r) => ({
-    theme: r.theme,
-    // bigint → number is safe here; we cap at MAX_THEMES rows and
-    // counts fit comfortably inside Number.MAX_SAFE_INTEGER.
-    count: Number(r.count ?? 0n),
-    negativeCount: Number(r.negativeCount ?? 0n),
-  }));
+
+  if (aiRows.length > 0) {
+    return aiRows.map((r) => ({
+      theme: r.theme,
+      count: Number(r.count ?? 0n),
+      negativeCount: Number(r.negativeCount ?? 0n),
+    }));
+  }
+
+  // Fallback · Business.placeTopics from DfS.
+  const biz = await prisma.business.findUnique({
+    where: { id: businessId },
+    select: { placeTopics: true },
+  });
+  const topics = biz?.placeTopics as Record<string, number> | null;
+  if (!topics || typeof topics !== "object") return [];
+
+  return Object.entries(topics)
+    .filter(([k, v]) => typeof k === "string" && typeof v === "number" && v > 0)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, MAX_THEMES)
+    .map(([theme, count]) => ({
+      theme,
+      count,
+      negativeCount: 0,
+    }));
 }
 
 /**
