@@ -210,6 +210,7 @@
       "compare_empty": "We need a few more reviews from your area to compare.",
       "compare_col_rank": "#",
       "compare_col_name": "Business",
+      "compare_col_score": "Score",
       "compare_col_rating": "Rating",
       "compare_col_reviews": "Reviews",
       "compare_col_new_30d": "New 30d",
@@ -231,7 +232,9 @@
       "names_title": "Names your customers mention",
       "names_subtitle": "Top staff + providers",
       "names_empty": "We'll surface names here as your team gets called out by customers.",
-      "names_count_label": "{count} mentions"
+      "names_count_label": "{count} mentions",
+      "show_more": "Show more",
+      "showing_label": "Showing {shown} of {total}"
     },
     "search": {
       "meta": {
