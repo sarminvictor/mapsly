@@ -20,6 +20,7 @@
 import { z } from "zod";
 
 import { verifyBoxlyWorkerAuth } from "@/lib/boxly-worker/client";
+import { withCronRun } from "@/lib/cost/cost-counter";
 import {
   qualifyBusiness,
   recomputeCellAggregates,
@@ -78,8 +79,17 @@ export async function POST(request: Request): Promise<Response> {
 
   // 3. Run qualification · this is the long-running work the worker
   //    deferred for us. If it throws we return 500 so the worker retries.
+  //
+  // Wrap in withCronRun so the AI tier-3 fallback (services/ai/email-finder.ts)
+  // can satisfy assertCronContext + cost-counter increment. Without this,
+  // every AI call throws "External API calls must run inside withCronRun"
+  // and qualify silently falls through to no_email — see INC: AI never
+  // billed despite ai_attempted flag set on every no_email row.
   try {
-    const outcome = await qualifyBusiness(parsed.businessId);
+    const outcome = await withCronRun(
+      "admin:qualify-one",
+      async () => qualifyBusiness(parsed.businessId),
+    );
 
     // 3a. Live-aggregate update · after every callback, recompute the
     //     cell's qualified/disqualified/unreachable tallies so the
