@@ -29,7 +29,7 @@ afterAll(() => {
 
 const ROUTES = [
   "business-profile-refresh",
-  "reviews-full-pull",
+  "reviews-delta",
   "serp-rank-scan",
   "lighthouse-audit",
   "competitor-diff",
