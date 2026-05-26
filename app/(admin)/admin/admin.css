@@ -363,8 +363,25 @@
 }
 
 .admin-row-actions {
-  display: flex;
+  display: grid;
+  grid-template-columns: 140px 110px 80px;
   gap: 8px;
+  justify-content: end;
+}
+
+/* Each direct child of .admin-row-actions is a form wrapper around one
+   action button (or a select+button group). Force them to fill their
+   grid slot so columns align across rows regardless of which button is
+   wider in any given row. */
+.admin-row-actions > form {
+  display: flex;
+  width: 100%;
+  gap: 6px;
+}
+
+.admin-row-actions > form > button {
+  flex: 1;
+  white-space: nowrap;
 }
 
 .admin-msg-ok {

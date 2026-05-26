@@ -19,16 +19,24 @@ import { deleteLocation, type ActionResult } from "../actions";
 interface Props {
   trackedLocationId: string;
   city: string;
+  /**
+   * When true, the cell still has indexed businesses and can't be
+   * deleted — render the button greyed out (with explanatory tooltip)
+   * so the row keeps the same column shape as empty cells. Removing
+   * the button entirely caused the action column to shift width.
+   */
+  disabled?: boolean;
 }
 
 const initial: ActionResult | null = null;
 
-export function DeleteLocationButton({ trackedLocationId, city }: Props) {
+export function DeleteLocationButton({
+  trackedLocationId,
+  city,
+  disabled = false,
+}: Props) {
   const confirm = useConfirm();
-  const [state, formAction, pending] = useActionState(
-    deleteLocation,
-    initial,
-  );
+  const [state, formAction, pending] = useActionState(deleteLocation, initial);
   useActionToast(state);
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -47,6 +55,7 @@ export function DeleteLocationButton({ trackedLocationId, city }: Props) {
     // hits formAction directly without re-entering this handler.
   }
 
+  const isDisabled = pending || disabled;
   return (
     <form
       ref={formRef}
@@ -59,8 +68,12 @@ export function DeleteLocationButton({ trackedLocationId, city }: Props) {
         type="submit"
         className="admin-btn"
         data-variant="ghost"
-        disabled={pending}
-        title="Delete this empty cell"
+        disabled={isDisabled}
+        title={
+          disabled
+            ? "Cell has indexed businesses — delete them or wait before removing."
+            : "Delete this empty cell"
+        }
         style={{
           padding: "6px 10px",
           fontSize: 11,

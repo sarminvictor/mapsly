@@ -273,17 +273,16 @@ function LocationRow({ loc }: { loc: AdminLocationRow }) {
         {loc.lastRunAt ? formatRel(loc.lastRunAt) : "never"}
       </span>
       <div className="admin-row-actions">
-        <RunDiscoveryButton
-          trackedLocationId={loc.id}
-          defaultLimit={100}
-        />
+        <RunDiscoveryButton trackedLocationId={loc.id} defaultLimit={100} />
         <QualifyCellButton
           trackedLocationId={loc.id}
           pendingCount={pendingCount}
         />
-        {canDelete ? (
-          <DeleteLocationButton trackedLocationId={loc.id} city={loc.city} />
-        ) : null}
+        <DeleteLocationButton
+          trackedLocationId={loc.id}
+          city={loc.city}
+          disabled={!canDelete}
+        />
       </div>
     </div>
   );
