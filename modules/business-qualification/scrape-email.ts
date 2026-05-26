@@ -499,12 +499,46 @@ function safeDecodeUriComponent(s: string): string {
   }
 }
 
+/**
+ * File extensions that LOOK like TLDs to the email regex. Without this
+ * filter, srcset markup like `<img src="logo@2x.png">` produces a
+ * false-positive `logo@2x.png` candidate. (Caught a Calgary spa whose
+ * "discovered" email was `macleod-trail-plastic-surgery-...@2x.png`.)
+ *
+ * Lowercased; check is against the post-final-dot segment.
+ */
+const FILE_EXTENSION_TLDS = new Set([
+  // Images
+  "png", "jpg", "jpeg", "gif", "webp", "svg", "ico", "bmp", "tiff", "avif",
+  // Fonts
+  "woff", "woff2", "ttf", "eot", "otf",
+  // Web bundles
+  "css", "js", "mjs", "json", "xml", "html", "htm",
+  // Media
+  "mp4", "mp3", "mov", "wav", "webm", "ogg", "m4a", "m4v",
+  // Docs / archives
+  "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "zip", "rar", "7z", "tar", "gz",
+  // Source maps
+  "map",
+]);
+
 function isValidEmailShape(s: string): boolean {
   if (!s) return false;
   if (s.length > 254) return false;
   // Strip surrounding whitespace and obvious decorators
   const cleaned = s.replace(/^["'<]+|[">']+$/g, "");
-  return /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(cleaned);
+  if (!/^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(cleaned)) {
+    return false;
+  }
+  // Reject when the final segment is a file extension — `logo@2x.png`,
+  // `bundle.abc123.js` patterns scraped from HTML.
+  const finalSegment = cleaned.split(".").pop()?.toLowerCase() ?? "";
+  if (FILE_EXTENSION_TLDS.has(finalSegment)) return false;
+  // Reject the retina-image local-part convention `<name>@2x`, `@3x` —
+  // even when the TLD is something else, this pattern is never an email.
+  const localPart = cleaned.split("@")[0] ?? "";
+  if (/(?:^|[-_.])(?:2x|3x|4x)$/i.test(localPart)) return false;
+  return true;
 }
 
 /* ----------------------------------------------------- scoring + ranking */
