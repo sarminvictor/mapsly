@@ -3,11 +3,11 @@
  *
  * For each business we check:
  *   1. is_claimed in Google (free · already in DB)
- *   2. reviewCount ≥ 10 (free · already in DB)
+ *   2. reviewCount ≥ 3 (free · already in DB)
  *   3. has discoverable email (website scrape + RDAP fallback)
  *
  * Result is one of:
- *   - QUALIFIED      · claimed + ≥10 reviews + email found
+ *   - QUALIFIED      · claimed + ≥3 reviews + email found
  *   - DISQUALIFIED   · fails ≥1 of the above but is reachable
  *   - UNREACHABLE    · no email AND no website
  *   - FAILED         · pipeline errored (timeout, crash)
@@ -15,7 +15,7 @@
  * Flags surfaced on Business.qualificationFlags so admin can see WHY
  * a business was disqualified at a glance:
  *   - "unclaimed"   · is_claimed === false
- *   - "low_reviews" · reviewCount < 10
+ *   - "low_reviews" · reviewCount < 3
  *   - "no_email"    · scrape + RDAP returned nothing
  *   - "no_website"  · Business.website is null
  *
@@ -32,7 +32,11 @@ import { detectAndPersistServices } from "@/services/business-services-detect";
 import { rdapLookup } from "./rdap";
 import { scrapeEmailsFromWebsite, type EmailCandidate } from "./scrape-email";
 
-const MIN_REVIEWS = 10;
+// Lowered from 10 → 3 after Calgary smoke run · businesses with 5–9
+// real reviews (e.g. Southport Skin Studio, Pure Medical Aesthetics)
+// are clearly legitimate operations. 3 still filters out empty Google
+// profiles + brand-new listings with no traction yet.
+const MIN_REVIEWS = 3;
 const PARALLEL_LIMIT = 5;
 
 export type QualificationStatusValue =

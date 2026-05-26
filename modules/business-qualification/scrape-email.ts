@@ -148,15 +148,41 @@ export async function scrapeEmailsFromWebsite(input: {
     };
   }
 
-  // Normalise the base URL — strip trailing slash so we can append paths
-  const base = website.replace(/\/+$/, "");
+  // Normalise the base URL · strip the query string + fragment, then
+  // the trailing slash, so appending "/contact" produces a clean URL.
+  //
+  // DataForSEO often returns the GBP click-through URL with tracking
+  // params (e.g. `https://www.example.com/?utm_source=Google&utm_medium=GMB`).
+  // Naively concatenating `/contact` yielded `...&utm_medium=GMB/contact`,
+  // which then fails every fetch with a 4xx + skews the scrape result.
+  // The `homepage` probe keeps the full URL (so the WAF check / redirect
+  // semantics match what a real GBP click would see); only path probes
+  // strip params.
+  const homepage = website;
+  const baseClean = (() => {
+    try {
+      const u = new URL(website);
+      return `${u.protocol}//${u.host}${u.pathname.replace(/\/+$/, "")}`;
+    } catch {
+      // Malformed URL · best-effort fall back to the legacy behaviour
+      return website.replace(/\/+$/, "");
+    }
+  })();
 
   // Probe homepage first; if it fails entirely we still attempt paths
-  // (some sites redirect / from a CDN but serve /contact directly)
-  const probes: Array<{ url: string; source: EmailScrapeSource }> = [
-    { url: base, source: "SCRAPE_HOMEPAGE" },
-    ...CONTACT_PATHS.map((p) => ({ url: base + p.path, source: p.source })),
+  // (some sites redirect / from a CDN but serve /contact directly).
+  // Dedupe probe URLs so we don't double-fetch when homepage === baseClean.
+  const probesRaw: Array<{ url: string; source: EmailScrapeSource }> = [
+    { url: homepage, source: "SCRAPE_HOMEPAGE" },
+    ...CONTACT_PATHS.map((p) => ({
+      url: baseClean + p.path,
+      source: p.source,
+    })),
   ];
+  const seen = new Set<string>();
+  const probes = probesRaw.filter((p) =>
+    seen.has(p.url) ? false : (seen.add(p.url), true),
+  );
 
   // Bounded-concurrency runner · keeps in-flight ≤ PER_HOST_CONCURRENCY.
   // Avoids tripping WAF rate-limits that flag many-parallel as bot
@@ -220,7 +246,7 @@ export async function scrapeEmailsFromWebsite(input: {
   if (homepageResult?.ok && homepageResult.html) {
     const scriptUrls = extractSameOriginScriptUrls(
       homepageResult.html,
-      base,
+      baseClean,
     ).slice(0, MAX_JS_BUNDLES);
     if (scriptUrls.length > 0) {
       const jsResults = await Promise.all(

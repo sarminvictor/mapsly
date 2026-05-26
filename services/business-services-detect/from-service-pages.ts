@@ -61,7 +61,19 @@ export async function scrapeServicesFromWebsite(input: {
   if (!input.website || input.taxonomy.length === 0) {
     return { candidates: [], visitedUrls: [], failedUrls: [] };
   }
-  const base = input.website.replace(/\/+$/, "");
+  // Strip query string + fragment + trailing slash from the website so
+  // path probes don't produce malformed URLs like
+  //   `https://example.com/?utm_source=Google&utm_medium=GMB/services`.
+  // See `modules/business-qualification/scrape-email.ts` for the
+  // discovery and Calgary scrape diagnostic that surfaced this.
+  const base = (() => {
+    try {
+      const u = new URL(input.website);
+      return `${u.protocol}//${u.host}${u.pathname.replace(/\/+$/, "")}`;
+    } catch {
+      return input.website.replace(/\/+$/, "");
+    }
+  })();
 
   // Concurrency-capped worker pool (same pattern as scrape-email.ts).
   // We also keep raw HTML for the homepage so the SPA fallback can
