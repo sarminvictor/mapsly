@@ -32,7 +32,20 @@ const RequestSchema = z.object({
 
 export async function POST(request: Request): Promise<Response> {
   // 1. Verify Bearer auth · the worker sends the AUTH_TOKEN
-  if (!verifyBoxlyWorkerAuth(request.headers.get("authorization"))) {
+  const authHeader = request.headers.get("authorization");
+  if (!verifyBoxlyWorkerAuth(authHeader)) {
+    // Diagnostic logging · safe to ship · logs length + 4-char fingerprint
+    // (NOT the full token) so config mismatches are obvious in Vercel
+    // Logs without leaking the secret.
+    const incoming = authHeader?.match(/^Bearer\s+(.+)$/i)?.[1] ?? "";
+    const expected = process.env.BOXLY_WORKER_AUTH_TOKEN ?? "";
+    console.warn(
+      `[/api/qualify-one] 401 · incoming-token len=${incoming.length} ` +
+        `prefix=${incoming.slice(0, 4)} suffix=${incoming.slice(-4)} · ` +
+        `expected len=${expected.length} ` +
+        `prefix=${expected.slice(0, 4)} suffix=${expected.slice(-4)} · ` +
+        `env-set=${expected.length > 0}`,
+    );
     return Response.json({ error: "unauthorized" }, { status: 401 });
   }
 
