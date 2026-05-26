@@ -249,6 +249,21 @@ model Business {
   activityCheckedAt    DateTime?
   activityCheckedByUserId String?
 
+  // Review collection cursor · drives the qualify→pull hook (R.2) +
+  // weekly delta cron (R.3). `reviewsFirstPulledAt` is set when the
+  // initial deep historical pull completes. `reviewsLastDeltaAt` is
+  // updated by every subsequent weekly delta (success or no-op).
+  // `latestReviewExternalId` + `latestReviewPostedAt` mark the top
+  // review at the last pull — used as the cursor-stop signal so delta
+  // walks stop as soon as they hit a previously-seen review (no dupes,
+  // bounded cost). `pendingReviewsTaskId` holds the DfS Standard-queue
+  // task_id while a pull is in-flight · cleared in pingback handler.
+  reviewsFirstPulledAt    DateTime?
+  reviewsLastDeltaAt      DateTime?
+  latestReviewExternalId  String?
+  latestReviewPostedAt    DateTime?
+  pendingReviewsTaskId    String?   @unique
+
   // Linked records
   snapshots     BusinessSnapshot[]
   reviews       Review[]
@@ -333,6 +348,11 @@ model BusinessService {
   // detector doesn't re-add them on the next cron pass.
   source      String   @default("manual")
 
+  // Last time this service was mentioned in any Review row · updated by
+  // R.4 service-mention extractor. Drives "stale service" tips on /reviews
+  // (e.g. "Filler hasn't been mentioned in 4 months — consider promoting").
+  lastMentionedAt DateTime?
+
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -390,11 +410,23 @@ model Review {
   ownerReplyText String? @db.Text
   ownerReplyAt DateTime?
 
-  sentiment    ReviewSentiment? // AI-classified
+  // Sentiment is now derived from stars at upsert time (1-2 = NEGATIVE,
+  // 3 = NEUTRAL, 4-5 = POSITIVE) via modules/reviews/sentiment-from-stars.
+  // The classifier in services/ai/sentiment.ts is retired from the runtime
+  // path; star-based mapping is free, instant, and equally useful for the
+  // /reviews tabs (Negative / Replied / All / Unanswered).
+  sentiment    ReviewSentiment?
   themes       String[] @default([]) // AI-extracted theme tags
   isUrgent     Boolean  @default(false) // 1★ unanswered > 7d
   aiReplyDraftEn String? @db.Text
   aiReplyDraftEs String? @db.Text
+
+  // R.4 · AI-extracted entities. Populated by services/ai/extract-names +
+  // services/ai/extract-service-mentions during the weekly cron (or
+  // backfill cron). Drives "names highlighted in review text" UI and
+  // "service mentions vs your service list" comparator on /reviews.
+  mentionedPeople    String[] @default([])
+  mentionedServices  String[] @default([])
 
   business     Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
 
@@ -402,6 +434,12 @@ model Review {
 
   @@unique([businessId, externalId])
   @@index([businessId, postedAt])
+  // Hot composite indexes for the SMB /reviews queries (modules/smb-reviews).
+  // Without these, filtering by ownerReplied / isUrgent / sentiment at the
+  // 50k-review scale degrades to a per-business scan.
+  @@index([businessId, ownerReplied])
+  @@index([businessId, isUrgent, postedAt])
+  @@index([businessId, sentiment])
 }
 
 enum ReviewSentiment {

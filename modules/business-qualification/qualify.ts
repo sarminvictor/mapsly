@@ -168,7 +168,9 @@ export async function qualifyBusiness(
         const localPart = (ai.email.split("@")[0] ?? "").toLowerCase();
         // Normalize the stored domain (often has www. prefix) before
         // comparing — emails almost never include the www. label.
-        const normalizedBizDomain = (biz.domain ?? "").toLowerCase().replace(/^www\./, "");
+        const normalizedBizDomain = (biz.domain ?? "")
+          .toLowerCase()
+          .replace(/^www\./, "");
         const isDomainAligned =
           !!normalizedBizDomain &&
           (emailDomain === normalizedBizDomain ||
@@ -178,13 +180,15 @@ export async function qualifyBusiness(
             email: ai.email,
             source: "AI_WEB_SEARCH",
             score: ai.confidence === "high" ? 90 : 70,
-            isPersonal: !/^(info|contact|hello|admin|support|sales|book|booking|appointments|reception)/.test(
-              localPart,
-            ),
+            isPersonal:
+              !/^(info|contact|hello|admin|support|sales|book|booking|appointments|reception)/.test(
+                localPart,
+              ),
             isDomainAligned,
-            isFreeProvider: /@(gmail|yahoo|hotmail|outlook|icloud|me|live|aol|protonmail|msn|proton)\./.test(
-              ai.email,
-            ),
+            isFreeProvider:
+              /@(gmail|yahoo|hotmail|outlook|icloud|me|live|aol|protonmail|msn|proton)\./.test(
+                ai.email,
+              ),
             aiCitation: ai.source,
           },
         ];

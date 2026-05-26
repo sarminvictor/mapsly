@@ -86,9 +86,8 @@ export async function POST(request: Request): Promise<Response> {
   // and qualify silently falls through to no_email — see INC: AI never
   // billed despite ai_attempted flag set on every no_email row.
   try {
-    const outcome = await withCronRun(
-      "admin:qualify-one",
-      async () => qualifyBusiness(parsed.businessId),
+    const outcome = await withCronRun("admin:qualify-one", async () =>
+      qualifyBusiness(parsed.businessId),
     );
 
     // 3a. Live-aggregate update · after every callback, recompute the

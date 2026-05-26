@@ -102,12 +102,49 @@ const EMAIL_RE = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
  * Mirrored from scrape-email.ts FILE_EXTENSION_TLDS · keep in sync.
  */
 const FILE_EXTENSION_TLDS = new Set([
-  "png", "jpg", "jpeg", "gif", "webp", "svg", "ico", "bmp", "tiff", "avif",
-  "woff", "woff2", "ttf", "eot", "otf",
-  "css", "js", "mjs", "json", "xml", "html", "htm",
-  "mp4", "mp3", "mov", "wav", "webm", "ogg", "m4a", "m4v",
-  "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "zip", "rar",
-  "7z", "tar", "gz", "map",
+  "png",
+  "jpg",
+  "jpeg",
+  "gif",
+  "webp",
+  "svg",
+  "ico",
+  "bmp",
+  "tiff",
+  "avif",
+  "woff",
+  "woff2",
+  "ttf",
+  "eot",
+  "otf",
+  "css",
+  "js",
+  "mjs",
+  "json",
+  "xml",
+  "html",
+  "htm",
+  "mp4",
+  "mp3",
+  "mov",
+  "wav",
+  "webm",
+  "ogg",
+  "m4a",
+  "m4v",
+  "pdf",
+  "doc",
+  "docx",
+  "xls",
+  "xlsx",
+  "ppt",
+  "pptx",
+  "zip",
+  "rar",
+  "7z",
+  "tar",
+  "gz",
+  "map",
 ]);
 
 /**
@@ -150,7 +187,8 @@ interface ValidationResult {
  */
 function validateEmail(raw: string | null | undefined): ValidationResult {
   if (raw == null) return { ok: false, cleaned: null, reason: "null" };
-  if (typeof raw !== "string") return { ok: false, cleaned: null, reason: "not-string" };
+  if (typeof raw !== "string")
+    return { ok: false, cleaned: null, reason: "not-string" };
   const s = raw.trim().toLowerCase();
   if (!s) return { ok: false, cleaned: null, reason: "empty" };
   if (s === "null" || s === "none" || s === "n/a") {
@@ -200,7 +238,10 @@ function normalizeDomain(d: string): string {
  * only the truly suspicious patterns (random domains with no obvious
  * tie to the business name).
  */
-function isAcceptableDomain(email: string, businessDomain: string | null): boolean {
+function isAcceptableDomain(
+  email: string,
+  businessDomain: string | null,
+): boolean {
   const emailDomain = normalizeDomain(email.split("@")[1] ?? "");
   if (!emailDomain) return false;
   if (FREE_PROVIDERS.has(emailDomain)) return true;
@@ -225,7 +266,9 @@ function isAcceptableDomain(email: string, businessDomain: string | null): boole
  * order, they materially affect output JSON-shape compliance.
  */
 function buildPrompt(input: FindEmailInput): string {
-  const loc = [input.city, input.province, input.country].filter(Boolean).join(", ");
+  const loc = [input.city, input.province, input.country]
+    .filter(Boolean)
+    .join(", ");
   return `You are an OSINT researcher. Find a verifiable contact email address for this local business. Use web search aggressively.
 
 Business: ${input.name}
@@ -264,7 +307,12 @@ interface ParsedAiOutput {
 function parseAiOutput(text: string): ParsedAiOutput {
   const match = text.match(/\{[\s\S]*\}/);
   if (!match) {
-    return { email: null, confidence: "none", source: "unparseable", reasoning: text.slice(0, 200) };
+    return {
+      email: null,
+      confidence: "none",
+      source: "unparseable",
+      reasoning: text.slice(0, 200),
+    };
   }
   try {
     const obj = JSON.parse(match[0]) as Record<string, unknown>;
@@ -278,7 +326,12 @@ function parseAiOutput(text: string): ParsedAiOutput {
       reasoning: String(obj.reasoning ?? "").slice(0, 400),
     };
   } catch {
-    return { email: null, confidence: "none", source: "json-parse-fail", reasoning: text.slice(0, 200) };
+    return {
+      email: null,
+      confidence: "none",
+      source: "json-parse-fail",
+      reasoning: text.slice(0, 200),
+    };
   }
 }
 

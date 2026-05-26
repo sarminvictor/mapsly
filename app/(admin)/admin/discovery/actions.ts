@@ -560,4 +560,3 @@ export async function deleteCategory(
     message: `Removed ${cat.label} from the registry.`,
   };
 }
-
