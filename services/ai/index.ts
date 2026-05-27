@@ -58,6 +58,7 @@ export {
   type DraftReplyInput,
   type ReplyDraftResult,
   type ReplyTone,
+  type VoiceExample,
 } from "./reply-draft";
 
 export {

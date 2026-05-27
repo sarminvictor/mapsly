@@ -151,7 +151,7 @@ describe("draftReplyUncached", () => {
     ).rejects.toThrow();
   });
 
-  test("passes tone + voiceNotes through to the prompt", async () => {
+  test("passes tone + voiceNotes through to the prompt (legacy path)", async () => {
     const fetchMock = vi.fn<typeof fetch>(async () =>
       reply(JSON.stringify({ en: "hi", es: "hola" })),
     );
@@ -172,5 +172,78 @@ describe("draftReplyUncached", () => {
     const userMsg = body.messages.find((m) => m.role === "user")!.content;
     expect(userMsg).toContain("Tone: apologetic");
     expect(userMsg).toContain("Voice notes: Use formal usted");
+  });
+
+  test("voiceExamples · few-shot path includes paired (review → reply) blocks", async () => {
+    const fetchMock = vi.fn<typeof fetch>(async () =>
+      reply(JSON.stringify({ en: "Hi there!", es: "¡Hola!" })),
+    );
+    __setFetchForTesting(fetchMock);
+    await withCronRun("test", () =>
+      draftReplyUncached({
+        stars: 5,
+        text: "loved the staff",
+        businessName: "Solea",
+        category: "med spa",
+        reviewerName: "S.B.",
+        voiceExamples: [
+          {
+            reviewStars: 5,
+            reviewText: "amazing service · Dr. White was great",
+            ownerReply:
+              "Hi Sarah! Thank you so much for the kind words about Dr. White 🌸 — see you next time!",
+          },
+          {
+            reviewStars: 4,
+            reviewText: null,
+            ownerReply: "Hi Mike! Thanks for the review — we appreciate it.",
+          },
+        ],
+      }),
+    );
+    const body = JSON.parse(
+      (fetchMock.mock.calls[0]![1] as RequestInit).body as string,
+    ) as { messages: Array<{ role: string; content: string }> };
+    const sysMsg = body.messages.find((m) => m.role === "system")!.content;
+    const userMsg = body.messages.find((m) => m.role === "user")!.content;
+    // Examples-mode system prompt fires when voiceExamples is present.
+    expect(sysMsg).toMatch(/MIMIC their style/i);
+    // User message contains the labeled few-shot blocks (paired with the
+    // trigger review) — this is what gives the model the context to
+    // learn tone, not just style.
+    expect(userMsg).toContain("OWNER'S PRIOR REPLIES");
+    expect(userMsg).toContain("--- Example 1 ---");
+    expect(userMsg).toContain("Review (★5): amazing service");
+    expect(userMsg).toContain("Owner's reply: Hi Sarah!");
+    expect(userMsg).toContain("--- Example 2 ---");
+    expect(userMsg).toContain("Review (★4): (stars only");
+    expect(userMsg).toContain("Owner's reply: Hi Mike!");
+    expect(userMsg).toContain("NEW REVIEW");
+    expect(userMsg).toContain("Reviewer name: S.B.");
+  });
+
+  test("reviewerName · initial-form is passed through · prompt handles 'Hi there' fallback", async () => {
+    const fetchMock = vi.fn<typeof fetch>(async () =>
+      reply(JSON.stringify({ en: "Hi there!", es: "¡Hola!" })),
+    );
+    __setFetchForTesting(fetchMock);
+    await withCronRun("test", () =>
+      draftReplyUncached({
+        stars: 3,
+        text: "neutral",
+        businessName: "Solea",
+        category: "med spa",
+        reviewerName: "A.B.",
+      }),
+    );
+    const body = JSON.parse(
+      (fetchMock.mock.calls[0]![1] as RequestInit).body as string,
+    ) as { messages: Array<{ role: string; content: string }> };
+    const userMsg = body.messages.find((m) => m.role === "user")!.content;
+    const sysMsg = body.messages.find((m) => m.role === "system")!.content;
+    expect(userMsg).toContain("Reviewer name: A.B.");
+    // Both system prompts (with + without examples) instruct the model
+    // to handle initials gracefully · never treat "S.B." as a name.
+    expect(sysMsg).toMatch(/initial/i);
   });
 });
