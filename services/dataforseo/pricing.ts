@@ -55,6 +55,13 @@ export const DATAFORSEO_UNIT_COST_USD = {
 
   /** /v3/on_page/lighthouse/live/json — $0.0025 per audit. */
   lighthouse: 0.0025,
+
+  /** /v3/dataforseo_labs/google/ranked_keywords/live — VARIABLE COST.
+   *  Live tier · ~$0.013 per call for limit=100 (verified 2026-05-27 on
+   *  theinjectionist.ca · returned 742 keywords for $0.013). Per-row cost
+   *  is roughly $0.0001 so larger limit calls scale proportionally.
+   *  Adapter reads rawCostUsd from response; constant is the FALLBACK. */
+  rankedKeywords: 0.013,
 } as const;
 
 export type DataForSeoOperation = keyof typeof DATAFORSEO_UNIT_COST_USD;

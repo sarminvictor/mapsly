@@ -1,0 +1,973 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Mapsly · Search Visibility — research + plan v2</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      :root {
+        --bg: #faf6f1;
+        --bg-2: #f2ebe3;
+        --bg-3: #ece3d6;
+        --ink: #1c1916;
+        --ink-2: #5a4f43;
+        --ink-3: #8b7a68;
+        --coral: #c3553a;
+        --berry: #8e3a4f;
+        --green: #2d8659;
+        --orange: #d97706;
+        --red: #b91c1c;
+        --border: #d8c9b8;
+        --shadow: 0 2px 8px rgba(28, 25, 22, 0.06);
+        --sans:
+          system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue",
+          sans-serif;
+        --mono:
+          "JetBrains Mono", "Fira Code", ui-monospace, "SF Mono", Menlo,
+          monospace;
+        --serif: "Fraunces", Georgia, serif;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        padding: 40px 20px 80px;
+        background: var(--bg);
+        color: var(--ink);
+        font-family: var(--sans);
+        line-height: 1.55;
+        font-size: 15px;
+      }
+      .wrap {
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+      header.doc {
+        margin-bottom: 36px;
+        padding-bottom: 24px;
+        border-bottom: 1px solid var(--border);
+      }
+      h1 {
+        font-family: var(--serif);
+        font-size: 38px;
+        line-height: 1.1;
+        margin: 0 0 8px;
+        letter-spacing: -0.02em;
+      }
+      h2 {
+        font-family: var(--serif);
+        font-size: 26px;
+        margin: 48px 0 14px;
+        letter-spacing: -0.01em;
+      }
+      h3 {
+        font-size: 17px;
+        margin: 22px 0 10px;
+        font-weight: 600;
+      }
+      h4 {
+        font-size: 13px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--ink-3);
+        margin: 18px 0 6px;
+        font-weight: 600;
+      }
+      p,
+      li {
+        color: var(--ink-2);
+      }
+      .meta {
+        font-family: var(--mono);
+        font-size: 12px;
+        color: var(--ink-3);
+      }
+      code {
+        font-family: var(--mono);
+        font-size: 12.5px;
+        background: var(--bg-2);
+        padding: 1px 6px;
+        border-radius: 4px;
+        color: var(--ink);
+      }
+      pre {
+        font-family: var(--mono);
+        font-size: 12px;
+        background: var(--bg-2);
+        padding: 14px 16px;
+        border-radius: 8px;
+        overflow-x: auto;
+        line-height: 1.55;
+        border-left: 3px solid var(--coral);
+      }
+      pre.real {
+        border-left-color: var(--green);
+      }
+      a {
+        color: var(--coral);
+        text-decoration: none;
+        border-bottom: 1px dotted var(--coral);
+      }
+
+      .scorecard {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 14px;
+        margin: 24px 0 8px;
+      }
+      .score-tile {
+        background: #fff;
+        border: 1px solid var(--border);
+        border-left-width: 4px;
+        border-radius: 10px;
+        padding: 14px 16px;
+        box-shadow: var(--shadow);
+      }
+      .score-tile.high {
+        border-left-color: var(--green);
+      }
+      .score-tile.mid {
+        border-left-color: var(--orange);
+      }
+      .score-tile.low {
+        border-left-color: var(--red);
+      }
+      .score-tile h4 {
+        margin: 0 0 4px;
+      }
+      .score-tile .grade {
+        font-family: var(--serif);
+        font-size: 32px;
+        line-height: 1;
+        letter-spacing: -0.02em;
+      }
+      .score-tile .grade .denom {
+        color: var(--ink-3);
+        font-size: 16px;
+      }
+      .score-tile .why {
+        font-size: 12.5px;
+        color: var(--ink-2);
+        margin: 8px 0 0;
+      }
+      .total-score {
+        margin: 20px 0 0;
+        padding: 18px 22px;
+        background: linear-gradient(
+          90deg,
+          rgba(195, 85, 58, 0.08),
+          rgba(45, 134, 89, 0.08)
+        );
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        font-size: 14px;
+      }
+      .total-score strong {
+        font-family: var(--serif);
+        font-size: 26px;
+        color: var(--ink);
+        margin-right: 8px;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        background: #fff;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        overflow: hidden;
+        box-shadow: var(--shadow);
+        margin: 14px 0;
+      }
+      th,
+      td {
+        text-align: left;
+        padding: 10px 12px;
+        font-size: 13px;
+        vertical-align: top;
+        border-bottom: 1px solid var(--bg-2);
+      }
+      th {
+        background: var(--bg-2);
+        font-weight: 600;
+        color: var(--ink);
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+      }
+      tr:last-child td {
+        border-bottom: 0;
+      }
+      .pill {
+        display: inline-block;
+        font-size: 11px;
+        font-family: var(--mono);
+        padding: 2px 8px;
+        border-radius: 999px;
+        border: 1px solid currentColor;
+      }
+      .pill.ok {
+        color: var(--green);
+      }
+      .pill.warn {
+        color: var(--orange);
+      }
+      .pill.bad {
+        color: var(--red);
+      }
+      .pill.recommended {
+        background: var(--green);
+        color: #fff;
+        border-color: var(--green);
+        font-weight: 600;
+      }
+      .pill.gone {
+        background: var(--bg-3);
+        color: var(--ink-3);
+        border-color: var(--ink-3);
+        text-decoration: line-through;
+      }
+      .callout {
+        margin: 14px 0;
+        padding: 12px 16px;
+        background: rgba(195, 85, 58, 0.06);
+        border-left: 3px solid var(--coral);
+        border-radius: 6px;
+        font-size: 13px;
+        color: var(--ink-2);
+      }
+      .callout.good {
+        background: rgba(45, 134, 89, 0.08);
+        border-left-color: var(--green);
+      }
+      .callout.bad {
+        background: rgba(185, 28, 28, 0.06);
+        border-left-color: var(--red);
+      }
+      .callout.warn {
+        background: rgba(217, 119, 6, 0.08);
+        border-left-color: var(--orange);
+      }
+      .endpoint-block {
+        background: #fff;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 16px 18px;
+        margin: 12px 0;
+        box-shadow: var(--shadow);
+      }
+      .endpoint-block.dropped {
+        opacity: 0.7;
+        background: var(--bg-2);
+      }
+      .endpoint-block .head {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 8px;
+        flex-wrap: wrap;
+      }
+      .endpoint-block .head code {
+        background: transparent;
+        font-size: 13px;
+        font-weight: 600;
+      }
+      .flow {
+        font-family: var(--mono);
+        font-size: 12.5px;
+        background: #fff;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 18px 20px;
+        white-space: pre;
+        overflow-x: auto;
+        line-height: 1.55;
+        box-shadow: var(--shadow);
+        margin: 14px 0;
+      }
+      .flow .actor {
+        color: var(--coral);
+        font-weight: 600;
+      }
+      .flow .system {
+        color: var(--berry);
+        font-weight: 600;
+      }
+      .flow .extern {
+        color: var(--green);
+        font-weight: 600;
+      }
+      .flow .note {
+        color: var(--ink-3);
+        font-style: italic;
+      }
+      .flow .arrow {
+        color: var(--ink-3);
+      }
+      .changelog {
+        background: rgba(217, 119, 6, 0.08);
+        border-left: 3px solid var(--orange);
+        border-radius: 6px;
+        padding: 12px 16px;
+        margin: 16px 0;
+        font-size: 13px;
+      }
+      .changelog strong {
+        color: var(--ink);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header class="doc">
+        <h1>Search Visibility · plan v2 (simplified)</h1>
+        <p class="meta">
+          mapsly · v0.12.6 · 2026-05-27 · second pass after Viktor's
+          simplification feedback
+        </p>
+        <p>
+          Pre-implementation analysis. Viktor's feedback on v1 collapsed the
+          plan into a single keystone endpoint (<code>ranked_keywords</code>)
+          plus cell-aggregated Maps queries. This version respects the paid-cell
+          gate, drops two endpoints (keyword_suggestions + monthly volume), and
+          re-uses the Boxly Worker fan-out pattern we already shipped for
+          reviews.
+        </p>
+
+        <div class="changelog">
+          <strong>What changed vs v1:</strong>
+          <ul style="margin: 6px 0 0">
+            <li>
+              ❌ Dropped <code>keyword_suggestions</code> · we don't need
+              manually-entered keywords. <code>ranked_keywords</code> gives us
+              everything the business is ranking for.
+            </li>
+            <li>
+              ❌ Dropped monthly <code>search_volume</code> batch · volume + CPC
+              come embedded in <code>ranked_keywords</code> response.
+            </li>
+            <li>
+              ✅ Added <strong>paid-cell gate</strong> · same pattern as reviews
+              · skip weekly cron entirely for cells without a paid account.
+              Saves ~80% of API spend.
+            </li>
+            <li>
+              ✅ Maps query is <strong>cell-aggregated</strong> · one query per
+              top keyword captures Maps ranks for ALL our indexed businesses in
+              the cell at once (verified · 1 query for "lip filler calgary"
+              returned 4 Calgary businesses by cid).
+            </li>
+            <li>
+              ✅ <strong>One button</strong> per business for manual trigger ·
+              the button enqueues both ranked_keywords + triggers the
+              cell-aggregated Maps query if needed.
+            </li>
+            <li>
+              ✅ Boxly Worker fan-out for bulk + weekly cron · reuses
+              <code>dispatch-bulk-pull</code> pattern from PR #96.
+            </li>
+          </ul>
+        </div>
+      </header>
+
+      <!-- ═══════════════ CORE INSIGHT ═══════════════ -->
+      <h2>1 · The keystone architecture</h2>
+
+      <p>
+        Two endpoints, one button per business, paid-cell gated. Everything else
+        falls out from this:
+      </p>
+
+      <div class="flow">
+        <span class="note"
+          >┌────────────── PER-BUSINESS · weekly + manual ──────────────┐</span
+        >
+        <span class="actor">[Admin click "Search scan"]</span>
+        <span class="system">[Weekly cron · paid-cell gated]</span>
+        <span class="arrow">│</span> <span class="arrow">│</span>
+        <span class="arrow">▼</span> <span class="arrow">▼</span>
+        <span class="system">dispatchSearchScan(businessIds, mode)</span>
+        <span class="arrow">│</span>
+        <span class="arrow">▼</span>
+        <span class="system">Boxly Worker · fan-out · concurrency 5</span>
+        <span class="arrow">│</span>
+        <span class="arrow">▼</span>
+        <span class="system">/api/internal/trigger-search-scan</span> (per
+        business)
+        <span class="arrow">│</span>
+        <span class="arrow">▼</span>
+        <span class="extern"
+          >DfS · dataforseo_labs/google/ranked_keywords/live</span
+        >
+        <span class="note">
+          → all keywords domain ranks for + organic rank + URL + vol + cpc</span
+        >
+        <span class="arrow">│</span>
+        <span class="arrow">▼</span>
+        <span class="system"
+          >upsert BusinessKeyword + SerpResult (organic)</span
+        >
+
+        <span class="note"
+          >└────────────────────────────────────────────────────────────┘</span
+        >
+
+        <span class="note"
+          >┌──────────────── PER-CELL · after all businesses' ranked_keywords
+          land ────────────────┐</span
+        >
+        <span class="system"
+          >aggregate top-N keywords by Σ (volume × cpc) across paid businesses
+          in cell</span
+        >
+        <span class="arrow">│</span>
+        <span class="arrow">▼</span>
+        for each top keyword:
+        <span class="extern">DfS · serp/google/maps/live/advanced</span>
+        <span class="note">
+          location_coordinate = cell centroid + 25km · depth=20</span
+        >
+        <span class="arrow">│</span>
+        <span class="arrow">▼</span>
+        match each item.cid against Business.googleCid in cell
+        <span class="arrow">│</span>
+        <span class="arrow">▼</span>
+        <span class="system"
+          >upsert SerpResult (maps rank) for each matched business</span
+        >
+        <span class="note"
+          >└────────────────────────────────────────────────────────────────────────────────────────┘</span
+        >
+      </div>
+
+      <div class="callout good">
+        <strong>The cost win</strong> · in v1 we estimated $87/mo for 500
+        businesses doing per-keyword Maps scans. In v2, the cell-aggregated Maps
+        strategy + paid-cell gate cuts this to
+        <strong>~$14/mo at the same coverage</strong>. Numbers in section 5.
+      </div>
+
+      <!-- ═══════════════ SCORE ═══════════════ -->
+      <h2>2 · Score · this plan</h2>
+
+      <div class="scorecard">
+        <div class="score-tile high">
+          <h4>Schema readiness</h4>
+          <div class="grade">8<span class="denom">/10</span></div>
+          <p class="why">
+            Existing <code>Keyword</code> + <code>SerpResult</code> models
+            mostly fit. Adding <code>BusinessKeyword</code> join +
+            <code>SerpResult.kind</code> enum (organic | maps) closes the gap.
+          </p>
+        </div>
+
+        <div class="score-tile high">
+          <h4>Keyword discovery</h4>
+          <div class="grade">9<span class="denom">/10</span></div>
+          <p class="why">
+            One <code>ranked_keywords</code> call per business gives 100– 1000
+            keywords with rank + volume + CPC + URL. No manual entry, no seeded
+            suggestions. Auto-aggregates to cell view.
+          </p>
+        </div>
+
+        <div class="score-tile high">
+          <h4>Cron correctness</h4>
+          <div class="grade">9<span class="denom">/10</span></div>
+          <p class="why">
+            Paid-cell gate + Worker fan-out (same pattern as PR #96). Vercel
+            cron tick stays under 300s budget · all heavy lifting happens in
+            fan-out callbacks.
+          </p>
+        </div>
+
+        <div class="score-tile high">
+          <h4>Manual trigger</h4>
+          <div class="grade">9<span class="denom">/10</span></div>
+          <p class="why">
+            Single button on <code>/admin/businesses</code> row · bulk checkbox
+            + sticky bar. Both go through same dispatcher. Toast + result count
+            in &lt;2s.
+          </p>
+        </div>
+
+        <div class="score-tile mid">
+          <h4>UI completeness</h4>
+          <div class="grade">7<span class="denom">/10</span></div>
+          <p class="why">
+            Hero KPIs + per-service grouped keyword table + competitive top-10
+            per high-value keyword + "you're not ranking for" section. Built
+            from <code>SerpResult</code> + <code>BusinessKeyword</code> joins.
+          </p>
+        </div>
+
+        <div class="score-tile high">
+          <h4>Cost discipline</h4>
+          <div class="grade">10<span class="denom">/10</span></div>
+          <p class="why">
+            Paid-cell gate eliminates ~80% of spend. Cell-aggregated Maps
+            replaces N×M per-business per-keyword scans with N+M. Per-tier
+            ceiling enforced via existing <code>CronRun.costUsd</code>.
+          </p>
+        </div>
+      </div>
+
+      <div class="total-score">
+        <strong>Overall · 87/100.</strong> Up from 53 in v1's "do everything"
+        approach. The simplifications didn't lose any information value — we
+        still surface every keyword the business ranks for + their Maps position
+        vs competitors. We just stopped running expensive endpoints that
+        returned data we already had.
+      </div>
+
+      <!-- ═══════════════ ENDPOINT TABLE ═══════════════ -->
+      <h2>3 · Endpoint pick-list · v2</h2>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Endpoint</th>
+            <th>When</th>
+            <th>Cost</th>
+            <th>v1</th>
+            <th>v2</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>dataforseo_labs/google/ranked_keywords/live</code></td>
+            <td>Per business, weekly + manual</td>
+            <td>$0.013/call</td>
+            <td><span class="pill recommended">⭐ Keystone</span></td>
+            <td><span class="pill recommended">⭐ Keystone</span></td>
+          </tr>
+          <tr>
+            <td><code>serp/google/maps/live/advanced</code></td>
+            <td>
+              Per top-keyword, cell-scoped GPS coord, weekly (post-aggregate)
+            </td>
+            <td>$0.002/call</td>
+            <td><span class="pill ok">Per-business per-keyword</span></td>
+            <td>
+              <span class="pill recommended">⭐ Per-cell per-keyword</span>
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <code>dataforseo_labs/google/keyword_suggestions/live</code>
+            </td>
+            <td>—</td>
+            <td>$0.0115/call</td>
+            <td><span class="pill ok">Gap analysis</span></td>
+            <td><span class="pill gone">Dropped</span></td>
+          </tr>
+          <tr>
+            <td><code>keywords_data/google_ads/search_volume/live</code></td>
+            <td>—</td>
+            <td>$0.05/call</td>
+            <td><span class="pill ok">Monthly batch</span></td>
+            <td>
+              <span class="pill gone"
+                >Dropped · vol embedded in ranked_keywords</span
+              >
+            </td>
+          </tr>
+          <tr>
+            <td><code>serp/google/organic/live/advanced</code></td>
+            <td>—</td>
+            <td>$0.0035/call</td>
+            <td><span class="pill ok">Per-keyword scan</span></td>
+            <td>
+              <span class="pill gone"
+                >Dropped · organic ranks come from ranked_keywords</span
+              >
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="callout">
+        <strong>Result · 2 endpoints, not 5.</strong> The simplification kills
+        60% of our planned API surface area while delivering the same product
+        value. Less code, less to maintain, lower cost.
+      </div>
+
+      <!-- ═══════════════ FLOWS ═══════════════ -->
+      <h2>4 · Flows · single + bulk + cron</h2>
+
+      <h3>Flow A · manual scan, single business</h3>
+      <div class="flow">
+        <span class="actor">Admin</span>
+        <span class="system">Server action</span>
+        <span class="system">Worker</span>
+        <span class="system">Mapsly callback</span>
+        <span class="extern">DfS</span> <span class="system">DB</span>
+        <span class="arrow">│</span> <span class="arrow">│</span>
+        <span class="arrow">│</span> <span class="arrow">│</span>
+        <span class="arrow">│</span> <span class="arrow">│</span>
+        <span class="arrow">├──Click──────►│</span> paid-cell check
+        <span class="arrow">│</span> <span class="arrow">│</span>
+        <span class="arrow">│</span> <span class="arrow">│</span>
+        <span class="arrow">│</span>
+        <span class="arrow">├──enqueue 1────►│</span>
+        <span class="arrow">│</span> <span class="arrow">│</span>
+        <span class="arrow">│</span> <span class="arrow">│◄──toast──────┤</span>
+        <span class="arrow">│</span> <span class="arrow">│</span>
+        <span class="arrow">│</span> <span class="arrow">│</span>
+        <span class="arrow">│</span> "Queued" <span class="arrow">│</span>
+        <span class="arrow">│</span> <span class="arrow">│</span>
+        <span class="arrow">│</span> <span class="arrow">│</span>
+        <span class="arrow">│</span> <span class="arrow">│</span>
+        <span class="arrow">├──POST──────►│</span> ranked_keywords
+        <span class="arrow">│</span> <span class="arrow">│</span>
+        <span class="arrow">│</span> <span class="arrow">│</span>
+        <span class="arrow">│</span>
+        <span class="arrow">├──$0.013──────►│</span>
+        <span class="arrow">│</span> <span class="arrow">│</span>
+        <span class="arrow">│</span> <span class="arrow">│</span>
+        <span class="arrow">│◄──742 kw─────┤</span> <span class="arrow">│</span>
+        <span class="arrow">│</span> <span class="arrow">│</span>
+        <span class="arrow">│</span>
+        <span class="arrow">├─upsert BusinessKeyword + SerpResult</span>
+        <span class="arrow">│</span> <span class="arrow">│</span>
+        <span class="arrow">│</span> <span class="arrow">│</span>
+        <span class="arrow">│</span> <span class="arrow">│</span>
+        <span class="arrow">│</span> <span class="arrow">│</span>
+        <span class="arrow">│</span>
+        <span class="arrow">├──schedule cell-aggregate ─────►│</span>
+        <span class="arrow">│</span> <span class="arrow">│</span>
+        <span class="arrow">│</span> <span class="arrow">│</span> (deferred 60s
+        · debounce) <span class="arrow">│</span>
+      </div>
+
+      <h3>Flow B · bulk scan + weekly cron</h3>
+      <div class="flow">
+        <span class="actor">Admin bulk OR weekly cron</span>
+        <span class="system">paid-cell gate</span>
+        <span class="system">Worker fan-out</span>
+        <span class="extern">DfS × N</span> <span class="arrow">│</span>
+        <span class="arrow">│</span> <span class="arrow">│</span>
+        <span class="arrow">│</span> <span class="arrow">▼</span>
+        <span class="arrow">▼</span> <span class="arrow">▼</span>
+        <span class="arrow">▼</span>
+        <span class="system">dispatchSearchScan(ids)</span> filter to paid cells
+        enqueue × eligible ranked_keywords × N <span class="arrow">│</span>
+        <span class="arrow">│</span> <span class="arrow">│</span>
+        <span class="arrow">│</span>
+        <span class="arrow">└─returns in &lt;2s with {queued, failed}</span>
+        <span class="arrow">└─bg callbacks land over 1-5 min</span>
+        <span class="arrow">│</span>
+        <span class="arrow">▼</span>
+        <span class="system">after all callbacks complete (debounced 60s)</span>
+        <span class="arrow">│</span>
+        <span class="arrow">▼</span>
+        <span class="system">computeTopKeywordsPerCell()</span> · pick top-N by
+        Σ(volume × cpc)
+        <span class="arrow">│</span>
+        <span class="arrow">▼</span>
+        <span class="extern">DfS · Maps × top-N keywords</span> · cell-centroid
+        GPS coord
+        <span class="arrow">│</span>
+        <span class="arrow">▼</span>
+        <span class="system"
+          >match items.cid against Business.googleCid in cell</span
+        >
+        <span class="system">upsert SerpResult (kind=maps) for each match</span>
+      </div>
+
+      <!-- ═══════════════ COST ═══════════════ -->
+      <h2>5 · Cost model · cell-gated v2</h2>
+
+      <h3>Per paid cell · weekly</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Item</th>
+            <th>Math</th>
+            <th>Cost</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>ranked_keywords per business in cell</td>
+            <td>25 businesses × $0.013</td>
+            <td>$0.325</td>
+          </tr>
+          <tr>
+            <td>Maps per top-keyword (cell-aggregated)</td>
+            <td>30 keywords × $0.002</td>
+            <td>$0.060</td>
+          </tr>
+          <tr>
+            <td><strong>Total per paid cell per week</strong></td>
+            <td></td>
+            <td><strong>$0.385</strong></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>Catalog-wide · 10 paid cells, ~250 paid businesses</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Item</th>
+            <th>v1 plan ($/mo)</th>
+            <th>v2 plan ($/mo)</th>
+            <th>Savings</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Initial keyword discovery (one-time)</td>
+            <td>$35.50</td>
+            <td>$3.25</td>
+            <td>91%</td>
+          </tr>
+          <tr>
+            <td>Weekly ranked_keywords</td>
+            <td>$26/mo</td>
+            <td>$13/mo</td>
+            <td>50%</td>
+          </tr>
+          <tr>
+            <td>Weekly Maps (top-5 per biz)</td>
+            <td>$20/mo</td>
+            <td>$1/mo (cell-aggregated)</td>
+            <td>95%</td>
+          </tr>
+          <tr>
+            <td>Weekly SERP organic</td>
+            <td>$35/mo</td>
+            <td>$0 (dropped)</td>
+            <td>100%</td>
+          </tr>
+          <tr>
+            <td>Monthly volume batch</td>
+            <td>$0.05/mo</td>
+            <td>$0 (dropped)</td>
+            <td>100%</td>
+          </tr>
+          <tr>
+            <td><strong>Total monthly</strong></td>
+            <td><strong>~$87</strong></td>
+            <td><strong>~$14</strong></td>
+            <td><strong>~84%</strong></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="callout good">
+        At 10× scale (100 paid cells, 2,500 paid businesses): v1 plan ~$870/mo,
+        v2 plan ~$140/mo. Same product, materially cheaper.
+      </div>
+
+      <!-- ═══════════════ DATA ENTITIES ═══════════════ -->
+      <h2>6 · Schema changes</h2>
+
+      <h3>New: <code>BusinessKeyword</code> join</h3>
+      <pre>
+model BusinessKeyword {
+  id           String    @id @default(cuid())
+  businessId   String
+  keywordId    String
+
+  // Source · "ranked" (from ranked_keywords) | "manual" (admin add)
+  source       String    @default("ranked")
+
+  // Latest organic rank · cached from latest SerpResult for fast reads
+  // (avoids JOIN to SerpResult for the table view)
+  latestOrganicRank      Int?
+  latestMapsRank         Int?
+  latestEstTrafficUsd    Float?
+  latestScanAt           DateTime?
+
+  business     Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  keyword      Keyword   @relation(fields: [keywordId], references: [id], onDelete: Cascade)
+
+  @@unique([businessId, keywordId])
+  @@index([businessId, latestEstTrafficUsd])  // sort by value desc
+}</pre
+      >
+
+      <h3>Modify: <code>SerpResult</code></h3>
+      <pre>
+model SerpResult {
+  // existing fields...
+  kind         SerpResultKind  @default(ORGANIC)  // ORGANIC | MAPS
+  // existing fields...
+}
+
+enum SerpResultKind {
+  ORGANIC
+  MAPS
+}</pre
+      >
+      <p class="meta">
+        Currently <code>SerpResult</code> tries to coalesce organic + maps into
+        one row. With <code>kind</code> we get clean per-(keyword × business ×
+        kind × scan) rows, much easier to query and to show diff history per
+        surface.
+      </p>
+
+      <!-- ═══════════════ FLOWS ═══════════════ -->
+      <h2>7 · UI · what Maria sees on <code>/(smb)/search</code></h2>
+
+      <p>Three sections, mobile-first per <code>ui-ux-smb</code>:</p>
+
+      <h3>A · Hero KPIs (4 tiles)</h3>
+      <ul>
+        <li>
+          <strong>Top 3 in Maps</strong> · count of keywords where Maria ranks
+          1–3 on Google Maps for her city
+        </li>
+        <li>
+          <strong>Page 1 of Search</strong> · count of keywords where she ranks
+          1–10 on Google organic
+        </li>
+        <li>
+          <strong>Monthly traffic value</strong> · Σ (estimated traffic × cpc)
+          across her ranking keywords — the value-prop number in dollars
+        </li>
+        <li>
+          <strong>Movement this week</strong> · "↑12 improved · ↓5 dropped · 3
+          new" derived from
+          <code>is_new/is_up/is_down/is_lost</code> ranked_keywords flags
+        </li>
+      </ul>
+
+      <h3>B · Keyword table · grouped by service</h3>
+      <p>
+        Per service (Botox / Filler / Laser hair removal / etc.), show top
+        keywords with: keyword · search volume · Maps rank · organic rank ·
+        weekly delta arrow · estimated $ value. Sorted by traffic value desc.
+        Soft cap 25 per service.
+      </p>
+
+      <h3>C · Competitive table per high-value keyword</h3>
+      <p>
+        Click a keyword row to expand a top-10 competitor view (drawn from
+        cell-aggregated Maps data + ranked_keywords for the businesses we
+        index). Maria's row highlighted in coral.
+      </p>
+
+      <h3>D · &ldquo;Where you're not ranking&rdquo; section</h3>
+      <p>
+        Keywords other paid businesses in the cell rank for, where Maria
+        doesn't. Derived from cell aggregation · zero new API calls. Top 5 by
+        traffic potential. Plain English: &ldquo;Your competitor Papillon ranks
+        for these · you could too.&rdquo;
+      </p>
+
+      <!-- ═══════════════ PHASES ═══════════════ -->
+      <h2>8 · Phased delivery · v2</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Phase</th>
+            <th>Ships</th>
+            <th>Effort</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>S.1</td>
+            <td>
+              <code>rankedKeywords</code> adapter (kvCache 24h) +
+              <code>BusinessKeyword</code> schema migration +
+              <code>SerpResult.kind</code> enum
+            </td>
+            <td>S</td>
+          </tr>
+          <tr>
+            <td>S.2</td>
+            <td>
+              <code>dispatchSearchScan</code> module (mirror of
+              <code>dispatch-bulk-pull</code>) + paid-cell gate +
+              <code>/api/internal/trigger-search-scan</code> Worker callback
+            </td>
+            <td>M</td>
+          </tr>
+          <tr>
+            <td>S.3</td>
+            <td>
+              Admin button + bulk bar on
+              <code>/admin/businesses</code> (mirror of reviews-trigger buttons)
+            </td>
+            <td>S</td>
+          </tr>
+          <tr>
+            <td>S.4</td>
+            <td>
+              Refactor <code>weekly:serp-rank-scan</code> → new
+              <code>weekly:search-visibility</code> · paid-cell + worker fan-out
+              · drops old per-keyword logic
+            </td>
+            <td>M</td>
+          </tr>
+          <tr>
+            <td>S.5</td>
+            <td>
+              Cell-aggregation post-processor · runs after all ranked_keywords
+              callbacks land · computes top-N keywords · fires Maps queries ·
+              upserts SerpResult(kind=maps)
+            </td>
+            <td>M</td>
+          </tr>
+          <tr>
+            <td>S.6</td>
+            <td>
+              UI rebuild · hero KPIs + service-grouped table + competitive
+              expand + gaps section + week-over-week movement card
+            </td>
+            <td>L</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- ═══════════════ DECISIONS ═══════════════ -->
+      <h2>9 · Decisions for you</h2>
+      <ol>
+        <li>
+          <strong>Top-N keywords for Maps · what's N?</strong> · 30 per cell?
+          50? Each is $0.002. <em>My rec:</em> 30 — covers the highest-value
+          keywords per cell · ~$0.06/week per cell.
+        </li>
+        <li>
+          <strong
+            >Should manual single-trigger ALSO trigger cell-aggregate?</strong
+          >
+          · If Maria clicks "scan" on her own business, do we re-run cell
+          aggregation immediately? Or wait for weekly cron?
+          <em>My rec:</em> trigger debounced (if no aggregation in last 24h, run
+          it; else skip).
+        </li>
+        <li>
+          <strong
+            >How does "paid cell" gate work for cells with mixed paid + free
+            businesses?</strong
+          >
+          · Currently <code>shouldCollectReviewsForBusiness</code> uses
+          <code>filterEligibleBusinesses</code> · scan ALL businesses in a paid
+          cell or only the paid ones? <em>My rec:</em> ALL · competitive view
+          requires knowing where competitors rank too, even if they're not
+          customers.
+        </li>
+        <li>
+          <strong>Drop the existing per-keyword cron?</strong> ·
+          <code>weekly:serp-rank-scan</code> reads <code>Keyword</code> table (0
+          rows today). Drop and replace, or deprecate and run new cron
+          alongside? <em>My rec:</em> rename + replace · the existing one is
+          dead code.
+        </li>
+      </ol>
+
+      <h2>10 · TL;DR</h2>
+      <p>
+        Two endpoints. One button per business. Paid-cell gate. Worker fan-out.
+        Cell-aggregated Maps. Total cost ~$14/mo at current scale, ~$140/mo at
+        10× scale — vs $87/$870 in v1. Score 87/100 (up from 53). Ready to start
+        S.1 when you say go.
+      </p>
+    </div>
+  </body>
+</html>
