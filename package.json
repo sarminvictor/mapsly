@@ -1,6 +1,6 @@
 {
   "name": "mapsly",
-  "version": "0.12.4",
+  "version": "0.12.5",
   "private": true,
   "scripts": {
     "dev": "next dev --turbo",
@@ -37,6 +37,7 @@
     "axios": "^1.7.9",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
+    "ioredis": "^5.11.0",
     "next": "^16.0.0",
     "next-auth": "5.0.0-beta.30",
     "next-intl": "^4.0.0",

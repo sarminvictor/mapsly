@@ -227,9 +227,11 @@ describe("kvCache · KV unavailable", () => {
     __setKvClientForTest(null);
     const savedUrl = process.env.KV_REST_API_URL;
     const savedKvUrl = process.env.KV_URL;
+    const savedRedis = process.env.REDIS_URL;
     const savedRo = process.env.KV_REST_API_READ_ONLY_TOKEN;
     delete process.env.KV_REST_API_URL;
     delete process.env.KV_URL;
+    delete process.env.REDIS_URL;
     delete process.env.KV_REST_API_READ_ONLY_TOKEN;
 
     try {
@@ -244,13 +246,14 @@ describe("kvCache · KV unavailable", () => {
     } finally {
       if (savedUrl !== undefined) process.env.KV_REST_API_URL = savedUrl;
       if (savedKvUrl !== undefined) process.env.KV_URL = savedKvUrl;
+      if (savedRedis !== undefined) process.env.REDIS_URL = savedRedis;
       if (savedRo !== undefined)
         process.env.KV_REST_API_READ_ONLY_TOKEN = savedRo;
     }
   });
 
   // KV_WARN_DISABLED env-var · admin escape hatch. Lets the team
-  // run uncached without log spam until Upstash is provisioned.
+  // run uncached without log spam until Redis is provisioned.
   // Need to run from a non-test NODE_ENV because the warning is
   // suppressed in tests by default.
   test("KV_WARN_DISABLED=1 suppresses the one-time warning", async () => {
@@ -258,10 +261,12 @@ describe("kvCache · KV unavailable", () => {
     __resetCacheWarningsForTest();
     const savedUrl = process.env.KV_REST_API_URL;
     const savedKvUrl = process.env.KV_URL;
+    const savedRedis = process.env.REDIS_URL;
     const savedNode = process.env.NODE_ENV;
     const savedDisable = process.env.KV_WARN_DISABLED;
     delete process.env.KV_REST_API_URL;
     delete process.env.KV_URL;
+    delete process.env.REDIS_URL;
     // Pretend we're in production so the warn-block guard runs.
     // NODE_ENV is typed readonly in newer @types/node · cast through
     // Record to assign in tests without polluting the global type.
@@ -277,6 +282,7 @@ describe("kvCache · KV unavailable", () => {
       warnSpy.mockRestore();
       if (savedUrl !== undefined) process.env.KV_REST_API_URL = savedUrl;
       if (savedKvUrl !== undefined) process.env.KV_URL = savedKvUrl;
+      if (savedRedis !== undefined) process.env.REDIS_URL = savedRedis;
       if (savedNode !== undefined)
         (process.env as Record<string, string | undefined>).NODE_ENV =
           savedNode;
@@ -296,9 +302,11 @@ describe("kvCache · KV unavailable", () => {
     __resetCacheWarningsForTest();
     const savedUrl = process.env.KV_REST_API_URL;
     const savedKvUrl = process.env.KV_URL;
+    const savedRedis = process.env.REDIS_URL;
     const savedNode = process.env.NODE_ENV;
     delete process.env.KV_REST_API_URL;
     delete process.env.KV_URL;
+    delete process.env.REDIS_URL;
     delete process.env.KV_WARN_DISABLED;
     // NODE_ENV is typed readonly in newer @types/node · cast through
     // Record to assign in tests without polluting the global type.
@@ -310,8 +318,11 @@ describe("kvCache · KV unavailable", () => {
       await cached();
       await cached(); // second call should NOT fire warning again
       expect(warnSpy).toHaveBeenCalledTimes(1);
-      expect(warnSpy.mock.calls[0]![0]).toContain("Install Upstash Redis");
+      expect(warnSpy.mock.calls[0]![0]).toContain(
+        "no REDIS_URL / KV_REST_API_URL",
+      );
     } finally {
+      if (savedRedis !== undefined) process.env.REDIS_URL = savedRedis;
       warnSpy.mockRestore();
       if (savedUrl !== undefined) process.env.KV_REST_API_URL = savedUrl;
       if (savedKvUrl !== undefined) process.env.KV_URL = savedKvUrl;
