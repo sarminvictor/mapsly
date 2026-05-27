@@ -201,14 +201,14 @@ export async function getSmbSearchData(userId: string): Promise<SmbSearchData> {
         ownName: own.name,
       });
 
-      const estLost = estimatePatientsLost({
-        searchVolume: bk.keyword.searchVolume,
-        localPackRank: bk.latestMapsRank,
-      });
-
       // Prefer DfS-truth `etv` for visits · fall back to (sv × CTR) for
       // pre-v0.12.11 rows where `latestEstMonthlyVisits` is still null.
       const bestRk = bestRank(bk.latestMapsRank, bk.latestOrganicRank);
+
+      const estLost = estimatePatientsLost({
+        searchVolume: bk.keyword.searchVolume,
+        bestRank: bestRk,
+      });
       const estVisits =
         bk.latestEstMonthlyVisits != null
           ? Math.round(bk.latestEstMonthlyVisits)

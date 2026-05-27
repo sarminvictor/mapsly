@@ -340,14 +340,18 @@ function buildKeywordFinderLabels(t: SmbSearchTranslator): KeywordFinderLabels {
 
 /**
  * Pick the narrative sentence for the top of the page. The choice is
- * deterministic — there are only three real cases (in the pack / not in
- * the pack / no data yet) and Maria sees the same line every time her
+ * deterministic — there are only three real cases (in top 3 / not in
+ * top 3 / no data yet) and Maria sees the same line every time her
  * underlying numbers stay flat. Pure · server-component-safe.
+ *
+ * "Top 3" here = best-of-Maps-or-organic ≤ 3 · matches the State Bar
+ * "Top 3 keywords" cell and the rank-breakdown bars so all three
+ * surfaces tell the same story.
  */
 function buildNarrative(
   t: SmbSearchTranslator,
   data: {
-    keywordsInLocalPack: number;
+    topThreeKeywords: number;
     keywordsTracked: number;
     totalEstPatientsLost: number;
   },
@@ -355,14 +359,14 @@ function buildNarrative(
   if (data.keywordsTracked === 0) {
     return t("narrative_no_data");
   }
-  if (data.keywordsInLocalPack === 0) {
+  if (data.topThreeKeywords === 0) {
     return t("narrative_no_top_three", {
       tracked: data.keywordsTracked,
       missed: data.totalEstPatientsLost,
     });
   }
   return t("narrative_full", {
-    topThree: data.keywordsInLocalPack,
+    topThree: data.topThreeKeywords,
     missed: data.totalEstPatientsLost,
   });
 }
@@ -443,7 +447,7 @@ async function SearchBody({ params }: { params: Promise<PageParams> }) {
     data.rankBuckets.find((b) => b.key === "top_3")?.keywordCount ?? 0;
 
   const narrative = buildNarrative(t, {
-    keywordsInLocalPack: data.keywordsInLocalPack,
+    topThreeKeywords,
     keywordsTracked: data.keywordsTracked,
     totalEstPatientsLost: data.totalEstPatientsLost,
   });

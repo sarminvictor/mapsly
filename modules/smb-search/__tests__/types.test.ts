@@ -35,38 +35,28 @@ const row = (overrides: Partial<KeywordRow>): KeywordRow => ({
 
 describe("estimatePatientsLost", () => {
   test("zero volume → zero", () => {
-    expect(
-      estimatePatientsLost({ searchVolume: null, localPackRank: null }),
-    ).toBe(0);
-    expect(estimatePatientsLost({ searchVolume: 0, localPackRank: null })).toBe(
+    expect(estimatePatientsLost({ searchVolume: null, bestRank: null })).toBe(
       0,
     );
+    expect(estimatePatientsLost({ searchVolume: 0, bestRank: null })).toBe(0);
   });
 
-  test("in the local pack → zero (no opportunity cost)", () => {
-    expect(estimatePatientsLost({ searchVolume: 1000, localPackRank: 1 })).toBe(
-      0,
-    );
-    expect(estimatePatientsLost({ searchVolume: 1000, localPackRank: 3 })).toBe(
-      0,
-    );
+  test("top 3 in either Maps or organic → zero (customers find her)", () => {
+    expect(estimatePatientsLost({ searchVolume: 1000, bestRank: 1 })).toBe(0);
+    expect(estimatePatientsLost({ searchVolume: 1000, bestRank: 3 })).toBe(0);
   });
 
-  test("not in the pack → volume × 0.25 × 0.02, rounded", () => {
+  test("not in top 3 anywhere → volume × 0.25 × 0.02, rounded", () => {
     // 1000 × 0.25 × 0.02 = 5
-    expect(
-      estimatePatientsLost({ searchVolume: 1000, localPackRank: null }),
-    ).toBe(5);
+    expect(estimatePatientsLost({ searchVolume: 1000, bestRank: null })).toBe(
+      5,
+    );
     // 400 × 0.25 × 0.02 = 2
-    expect(
-      estimatePatientsLost({ searchVolume: 400, localPackRank: null }),
-    ).toBe(2);
+    expect(estimatePatientsLost({ searchVolume: 400, bestRank: null })).toBe(2);
   });
 
-  test("fringe rank (≥ 4) still counts as 'not in pack'", () => {
-    expect(estimatePatientsLost({ searchVolume: 800, localPackRank: 7 })).toBe(
-      4,
-    );
+  test("fringe rank (≥ 4) still counts as 'not in top 3'", () => {
+    expect(estimatePatientsLost({ searchVolume: 800, bestRank: 7 })).toBe(4);
   });
 });
 

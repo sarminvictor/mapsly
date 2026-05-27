@@ -331,19 +331,24 @@ export function bestRank(
 
 /**
  * Per-keyword est-patients-lost heuristic.
- *   - In-pack CTR ≈ 30%, out-of-pack ≈ 5% (industry baseline for
- *     local Maps results)
+ *   - In-top-3 CTR ≈ 30%, out-of-top-3 ≈ 5% (industry baseline for
+ *     local search; close enough between Maps Pack and organic top 3
+ *     that we collapse them into one "top 3" bucket)
  *   - Local conversion-rate ≈ 2% (visit → booking)
- *   - When Maria is already in the pack, lost = 0
+ *   - When Maria is in the top 3 EITHER in Maps OR organic, lost = 0
+ *     — being #1 organic for "med spa miami" still means her customers
+ *     find her, even if she's invisible in the Maps Pack.
  *
  * Pure. Used by both the query layer and the unit tests.
  */
 export function estimatePatientsLost(input: {
   searchVolume: number | null;
-  localPackRank: number | null;
+  /** Best of (Maps rank, organic rank) — lowest is best. null when not
+   *  ranked anywhere. */
+  bestRank: number | null;
 }): number {
   if (!input.searchVolume || input.searchVolume <= 0) return 0;
-  if (input.localPackRank != null && input.localPackRank <= 3) return 0;
+  if (input.bestRank != null && input.bestRank <= 3) return 0;
   const CTR_GAP = 0.3 - 0.05;
   const CONVERSION = 0.02;
   return Math.round(input.searchVolume * CTR_GAP * CONVERSION);
