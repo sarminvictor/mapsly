@@ -1,42 +1,26 @@
 /**
  * SMB search visibility · server query.
  *
- * Surface: `getSmbSearchData(userId)` — returns the user's own
- * business + a per-keyword visibility view (latest local-pack rank,
- * organic rank, week-over-week delta) for the `/(smb)/search` route.
- * Returns the EMPTY shape (`ownedBusinessId === ""`) when:
+ * Surface: `getSmbSearchData(userId)` — returns the user's own business
+ * + a per-keyword visibility view (latest Maps rank, organic rank,
+ * week-over-week delta) for the `/(smb)/search` route.
  *
+ * Data sources (S.1+S.2 plan):
+ *   - BusinessKeyword (per-(biz × kw) join) · latestOrganicRank,
+ *     latestMapsRank, latestEstTrafficUsd, latestScanAt
+ *   - SerpResult(kind=MAPS) · most-recent scan per keyword for the
+ *     pack1/2/3 names (the competitive 3-pack view)
+ *   - SerpResult(kind=ORGANIC|MAPS) · last ≥6-day-old scan per (keyword
+ *     × kind) for week-over-week delta
+ *
+ * Returns the EMPTY shape (`ownedBusinessId === ""`) when:
  *   - the user has no claimed business yet (post-signup / onboarding)
  *   - we're in Vercel's build phase (NEXT_PHASE guard, INC-27)
  *   - Prisma throws (degrades to "looks empty" rather than 500 crash)
  *
- * The page handler reads `data.ownedBusinessId === ""` and renders an
- * onboarding-style empty state (Maria's first visit).
- *
- * Cache strategy per `.claude/rules/caching.md`:
- *
- *   - `'use cache'` + `cacheLife('hours')` — SERP scans land on a
- *     weekly cron (C.9). Hours-fresh is plenty since the upstream cron
- *     also `revalidateTag`s this tag after the snapshot batch lands.
- *   - `cacheTag('smb-search-${userId}')` — per-user, so a user-facing
- *     business profile change can revalidate only the affected user.
- *
- * Per `.claude/rules/cache-components.md` Pattern 1, the EMPTY shape is
- * the full shape of the declared return type — TypeScript catches
- * partial returns at literal-comparison time. Build-phase short-circuit
- * + catch block both return EMPTY so the page prerenders cleanly even
- * when the Vercel build worker can't open a Neon WebSocket.
- *
- * Per `.claude/rules/performance.md` + INC-37, `select`s are explicit
- * (no bare `include`). The query path fetches the user's business +
- * its SerpResult rows scoped to a recent window in a single round-trip
- * via Prisma relation `select`, then groups in memory by keyword to
- * pick "latest" and "previous-week" per keyword — fewer keywords are
- * tracked per business than there are scans, so this is cheap.
- *
- * Per `.claude/rules/security.md`, this helper does NOT enforce auth —
- * the page handler is responsible for `unauthorized()`. This function
- * just runs queries scoped to the userId it's given.
+ * Cache: `'use cache'` + `cacheLife('hours')` ·
+ * `cacheTag('smb-search-${userId}')` per `.claude/rules/caching.md`.
+ * The S.2 weekly cron `revalidateTag(s)` after its dispatch lands.
  */
 
 import { cacheLife, cacheTag } from "next/cache";
@@ -54,41 +38,14 @@ import {
 } from "./types";
 
 /**
- * Internal helper · pick the latest scan and the previous-week scan
- * for a single keyword from a list of scans for that keyword. Returns
- * `[latest, previous]` where `previous` is the most recent scan ≥ 6
- * days older than `latest`, or `null` if none exists.
- *
- * The 6-day window means a fresh weekly cron run + last week's run
- * resolve as `latest` vs `previous`. A mid-week ad-hoc rescan won't be
- * mistaken for "last week".
- */
-function pickLatestAndPrev<T extends { scannedAt: Date }>(
-  scans: T[],
-): [T | null, T | null] {
-  if (scans.length === 0) return [null, null];
-  // Scans arrive sorted desc by scannedAt (Prisma orderBy below).
-  const latest = scans[0];
-  const cutoffMs = latest.scannedAt.getTime() - 6 * 24 * 60 * 60 * 1000;
-  let previous: T | null = null;
-  for (let i = 1; i < scans.length; i++) {
-    if (scans[i].scannedAt.getTime() <= cutoffMs) {
-      previous = scans[i];
-      break;
-    }
-  }
-  return [latest, previous];
-}
-
-/**
- * Sort rule · in-local-pack rows first (best rank first), then rows
- * with an organic rank (best first), then everything else by keyword
- * search volume desc. Maria's eye scans top-to-bottom, so the
- * highest-value visible wins come first.
+ * Sort rule · in-Maps-pack first (best rank first), then rows with an
+ * organic rank (best first), then by estimated traffic value desc.
+ * Maria's eye scans top-to-bottom; the highest-value visible wins come
+ * first.
  */
 function rankRows(a: KeywordRow, b: KeywordRow): number {
-  const aInPack = a.localPackRank != null;
-  const bInPack = b.localPackRank != null;
+  const aInPack = a.localPackRank != null && a.localPackRank <= 3;
+  const bInPack = b.localPackRank != null && b.localPackRank <= 3;
   if (aInPack && bInPack) {
     return (a.localPackRank ?? 99) - (b.localPackRank ?? 99);
   }
@@ -120,14 +77,9 @@ export async function getSmbSearchData(userId: string): Promise<SmbSearchData> {
   }
 
   try {
-    // 1) Fetch the user's own business + the last ~60 days of SerpResults
-    //    in one round-trip. Per INC-37, explicit `select` only — no
-    //    bare `include`. Per `.claude/rules/performance.md`, narrow
-    //    fields aggressively.
-    //
-    //    We fetch up to 200 recent scans to safely cover ~25 keywords ×
-    //    ~8 weeks of weekly cadence; the cron only stores latest few
-    //    per keyword anyway.
+    // 1) Find Maria's claimed business + her latest BusinessKeyword rows.
+    //    BusinessKeyword caches latest ranks · single SELECT, no JOIN to
+    //    SerpResult for the hot path.
     const own = await prisma.business.findFirst({
       where: { ownerUserId: userId, isActive: true },
       orderBy: { createdAt: "asc" },
@@ -135,18 +87,19 @@ export async function getSmbSearchData(userId: string): Promise<SmbSearchData> {
         id: true,
         name: true,
         city: true,
-        serpResults: {
-          orderBy: { scannedAt: "desc" },
+        searchScanLastAt: true,
+        businessKeywords: {
+          orderBy: { latestEstTrafficUsd: { sort: "desc", nulls: "last" } },
           take: 200,
           select: {
             keywordId: true,
-            scannedAt: true,
-            localPackRank: true,
-            organicRank: true,
-            // Pack occupant names — fuel the per-keyword 3-slot view.
-            pack1Name: true,
-            pack2Name: true,
-            pack3Name: true,
+            latestOrganicRank: true,
+            latestMapsRank: true,
+            latestEstTrafficUsd: true,
+            latestScanAt: true,
+            isNew: true,
+            isUp: true,
+            isDown: true,
             keyword: {
               select: {
                 id: true,
@@ -163,76 +116,114 @@ export async function getSmbSearchData(userId: string): Promise<SmbSearchData> {
       return EMPTY_SMB_SEARCH;
     }
 
-    // 2) Group scans by keywordId so we can pick latest + previous-week
-    //    per keyword.
-    type Scan = (typeof own.serpResults)[number];
-    const byKeyword = new Map<string, Scan[]>();
-    for (const s of own.serpResults) {
-      const list = byKeyword.get(s.keywordId);
-      if (list) list.push(s);
-      else byKeyword.set(s.keywordId, [s]);
+    if (own.businessKeywords.length === 0) {
+      // Maria has a business but no keywords tracked yet (admin hasn't run
+      // SERP scan). Return the empty shape with ownedBusinessId set so the
+      // page renders the "scan pending" copy instead of the full empty state.
+      return {
+        ...EMPTY_SMB_SEARCH,
+        ownedBusinessId: own.id,
+        name: own.name,
+        city: own.city,
+      };
+    }
+
+    // 2) Fetch supporting SerpResult rows in one pass:
+    //    - latest MAPS scan per keyword (for pack1/2/3 names)
+    //    - any scan ≥6 days older per (keyword × kind) (for prev-week delta)
+    const keywordIds = own.businessKeywords.map((bk) => bk.keywordId);
+    const recentSerp = await prisma.serpResult.findMany({
+      where: {
+        businessId: own.id,
+        keywordId: { in: keywordIds },
+      },
+      orderBy: { scannedAt: "desc" },
+      take: 600, // 200 keywords × ~3 historical rows per kind = bounded
+      select: {
+        keywordId: true,
+        kind: true,
+        scannedAt: true,
+        localPackRank: true,
+        organicRank: true,
+        pack1Name: true,
+        pack2Name: true,
+        pack3Name: true,
+      },
+    });
+
+    // Group by (keywordId, kind) so we can pick latest + previous.
+    type SerpScan = (typeof recentSerp)[number];
+    const byKwKind = new Map<string, SerpScan[]>();
+    for (const s of recentSerp) {
+      const key = `${s.keywordId}:${s.kind}`;
+      const arr = byKwKind.get(key);
+      if (arr) arr.push(s);
+      else byKwKind.set(key, [s]);
     }
 
     const rows: KeywordRow[] = [];
     let mostRecentScanMs: number | null = null;
 
-    for (const [, scans] of byKeyword) {
-      // Scans within each group inherit the outer desc order.
-      const [latest, previous] = pickLatestAndPrev<Scan>(scans);
-      if (!latest) continue;
-      const kw = latest.keyword;
-      if (!kw) continue;
+    for (const bk of own.businessKeywords) {
+      if (!bk.keyword) continue;
+      const mapsScans = byKwKind.get(`${bk.keywordId}:MAPS`) ?? [];
+      const organicScans = byKwKind.get(`${bk.keywordId}:ORGANIC`) ?? [];
 
+      // Previous-week scan per kind · oldest ≤ 6 days older than latest.
+      const [prevMapsRank, prevOrganicRank] = [
+        pickPreviousWeek(mapsScans, "localPackRank"),
+        pickPreviousWeek(organicScans, "organicRank"),
+      ];
+
+      // Pack names come from the latest MAPS scan · gives us the
+      // competitive 3-pack view per keyword.
+      const latestMaps = mapsScans[0] ?? null;
       const packSlots = buildPackSlots({
-        pack1Name: latest.pack1Name,
-        pack2Name: latest.pack2Name,
-        pack3Name: latest.pack3Name,
-        ownLocalPackRank: latest.localPackRank,
+        pack1Name: latestMaps?.pack1Name ?? null,
+        pack2Name: latestMaps?.pack2Name ?? null,
+        pack3Name: latestMaps?.pack3Name ?? null,
+        ownLocalPackRank: bk.latestMapsRank,
         ownName: own.name,
       });
+
       const estLost = estimatePatientsLost({
-        searchVolume: kw.searchVolume,
-        localPackRank: latest.localPackRank,
+        searchVolume: bk.keyword.searchVolume,
+        localPackRank: bk.latestMapsRank,
       });
 
       rows.push({
-        id: kw.id,
-        keyword: kw.keyword,
-        searchVolume: kw.searchVolume,
-        localPackRank: latest.localPackRank,
-        organicRank: latest.organicRank,
-        prevLocalPackRank: previous?.localPackRank ?? null,
-        prevOrganicRank: previous?.organicRank ?? null,
-        scannedAt: latest.scannedAt,
+        id: bk.keyword.id,
+        keyword: bk.keyword.keyword,
+        searchVolume: bk.keyword.searchVolume,
+        localPackRank: bk.latestMapsRank,
+        organicRank: bk.latestOrganicRank,
+        prevLocalPackRank: prevMapsRank,
+        prevOrganicRank: prevOrganicRank,
+        scannedAt: bk.latestScanAt,
         packSlots,
         estPatientsLost: estLost,
       });
 
-      const ms = latest.scannedAt.getTime();
-      if (mostRecentScanMs === null || ms > mostRecentScanMs) {
+      const ms = bk.latestScanAt?.getTime() ?? null;
+      if (ms != null && (mostRecentScanMs === null || ms > mostRecentScanMs)) {
         mostRecentScanMs = ms;
       }
     }
 
-    // 3) Sort + trim to the table cap.
     rows.sort(rankRows);
     const visible = rows.slice(0, MAX_KEYWORDS);
 
-    // 4) Derive hero KPIs from the FULL set of rows (not just visible)
-    //    so the "keywords tracked" count is honest even when the table
-    //    is trimmed.
+    // 3) Hero KPIs from the FULL set of rows (not just visible).
     let bestLocalPackRank: number | null = null;
     let keywordsInLocalPack = 0;
     let keywordsImproved = 0;
     for (const r of rows) {
-      if (r.localPackRank != null) {
+      if (r.localPackRank != null && r.localPackRank <= 3) {
         keywordsInLocalPack += 1;
         if (bestLocalPackRank === null || r.localPackRank < bestLocalPackRank) {
           bestLocalPackRank = r.localPackRank;
         }
       }
-      // "Improved" = either local or organic rank got smaller (better)
-      // vs the previous-week scan. Rows with no prev scan don't count.
       const localImproved =
         r.prevLocalPackRank != null &&
         r.localPackRank != null &&
@@ -241,7 +232,6 @@ export async function getSmbSearchData(userId: string): Promise<SmbSearchData> {
         r.prevOrganicRank != null &&
         r.organicRank != null &&
         r.organicRank < r.prevOrganicRank;
-      // Also count "wasn't ranked, now is" as improvement.
       const newlyLocal = r.prevLocalPackRank == null && r.localPackRank != null;
       const newlyOrg = r.prevOrganicRank == null && r.organicRank != null;
       if (localImproved || orgImproved || newlyLocal || newlyOrg) {
@@ -264,29 +254,49 @@ export async function getSmbSearchData(userId: string): Promise<SmbSearchData> {
       keywordsInLocalPack,
       keywordsImprovedThisWeek: keywordsImproved,
       keywords: visible,
-      lastScanAt: mostRecentScanMs != null ? new Date(mostRecentScanMs) : null,
+      lastScanAt:
+        mostRecentScanMs != null
+          ? new Date(mostRecentScanMs)
+          : (own.searchScanLastAt ?? null),
       totalEstPatientsLost,
       topQuickWins,
     };
   } catch (err) {
-    // Per `.claude/rules/observability.md`, surface Prisma failures to
-    // the server log so Sentry's autoinstrumented handler picks them
-    // up. The page still renders the EMPTY shape gracefully.
     console.error("getSmbSearchData failed", err);
     return EMPTY_SMB_SEARCH;
   }
 }
 
 /**
- * Build the 3-slot local-pack view for a keyword.
+ * From a desc-sorted scan list for ONE keyword + one kind, pick the
+ * scan ≥6 days older than the latest. Returns the chosen rank value
+ * (the column passed via `pickField`) or null when no prior scan exists.
  *
- * Each slot resolves in priority order:
+ * The 6-day cutoff means a fresh weekly cron tick + last week's tick
+ * resolve as "latest" vs "previous." A mid-week admin re-trigger won't
+ * be mistaken for last week.
+ */
+function pickPreviousWeek<
+  K extends "localPackRank" | "organicRank",
+  T extends { scannedAt: Date } & Partial<Record<K, number | null>>,
+>(scansDesc: T[], field: K): number | null {
+  if (scansDesc.length < 2) return null;
+  const latest = scansDesc[0];
+  const cutoffMs = latest.scannedAt.getTime() - 6 * 24 * 60 * 60 * 1000;
+  for (let i = 1; i < scansDesc.length; i++) {
+    if (scansDesc[i].scannedAt.getTime() <= cutoffMs) {
+      return scansDesc[i][field] ?? null;
+    }
+  }
+  return null;
+}
+
+/**
+ * Build the 3-slot local-pack view for one keyword.
+ *
  *   1. If Maria's own rank matches this slot, use "You" + kind=you.
  *   2. Else if SerpResult has a named occupant, use it + kind=competitor.
  *   3. Else mark the slot empty.
- *
- * SerpResult names are nullable (the cron sometimes captures rank
- * without harvesting all 3 names). Empty slots render as a dash.
  */
 function buildPackSlots(input: {
   pack1Name: string | null;

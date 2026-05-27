@@ -11,7 +11,7 @@ import {
   pickMatch,
   mapsRowToProfileUpdate,
 } from "../business-profile-refresh/route";
-import { normalizeDomain } from "../serp-rank-scan/route";
+import { normalizeDomain } from "@/lib/url/normalize-domain";
 import {
   averageReplyLatencyHours,
   yearsOnGoogle,

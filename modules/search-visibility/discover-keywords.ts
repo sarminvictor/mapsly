@@ -25,6 +25,7 @@
 import prisma from "@/lib/prisma";
 import { rankedKeywords } from "@/services/dataforseo";
 import type { RankedKeywordsItem } from "@/services/dataforseo";
+import { normalizeDomain } from "@/lib/url/normalize-domain";
 
 import { locationCodeForCountry } from "@/modules/reviews/persist-helpers";
 
@@ -73,7 +74,7 @@ export async function discoverKeywordsForBusiness(
     return zeroResult(businessId, "no_business");
   }
 
-  const domain = extractDomain(business.website);
+  const domain = normalizeDomain(business.website);
   if (!domain) {
     return zeroResult(businessId, "no_website");
   }
@@ -280,22 +281,4 @@ function ctrForRank(rank: number): number {
   if (rank <= 20) return 0.008;
   if (rank <= 50) return 0.002;
   return 0.0005;
-}
-
-/**
- * Domain extractor · same shape as the SERP cron's `normalizeDomain`
- * but local to keep the search-visibility module self-contained. Strips
- * protocol, www, and trailing path/query so DfS sees just "host.tld".
- */
-function extractDomain(website: string | null): string | null {
-  if (!website) return null;
-  const raw = website.trim();
-  if (!raw) return null;
-  try {
-    const u = new URL(raw.startsWith("http") ? raw : `https://${raw}`);
-    const host = u.hostname.toLowerCase().replace(/^www\./, "");
-    return host || null;
-  } catch {
-    return null;
-  }
 }
