@@ -36,6 +36,7 @@ import {
   BoxlyWorkerError,
   type WorkerJob,
 } from "@/lib/boxly-worker/client";
+import { getMapslyPublicUrl } from "@/lib/url/mapsly-public-url";
 
 export type ActionResult<T = null> =
   | { ok: true; data: T; message?: string }
@@ -378,7 +379,7 @@ export async function runQualifyCell(
   // Build one WorkerJob per business · per-task id embeds business id
   // + cell + timestamp for end-to-end idempotency. Worker callback URL
   // points at our public /api/qualify-one endpoint.
-  const callbackUrl = readMapslyCallbackUrl();
+  const callbackUrl = getMapslyPublicUrl();
   const ts = Date.now();
   const jobs: WorkerJob[] = businesses.map((b) => ({
     taskId: `mapsly-qualify-${b.id}-${ts}`,
@@ -416,30 +417,6 @@ export async function runQualifyCell(
       error: err instanceof Error ? err.message : "Worker enqueue failed.",
     };
   }
-}
-
-/**
- * Resolve the public-facing URL where Boxly Worker will POST per-business
- * callbacks. Prefer the explicit env var; fall back to Vercel's auto-set
- * VERCEL_URL (preview deployments) prefixed with https://.
- *
- * Apex `mapsly.ai` 307-redirects to `www.mapsly.ai` on Vercel, and most
- * HTTP clients drop the Authorization header on cross-host redirects →
- * 401. Force the www subdomain when we recognize the production apex so
- * callbacks land at the canonical host directly.
- */
-function readMapslyCallbackUrl(): string {
-  const raw =
-    process.env.MAPSLY_PUBLIC_URL ??
-    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null) ??
-    // Local dev fallback · worker (typically localhost:3001) cannot reach
-    // `localhost:3000` from inside Docker / different host without a tunnel.
-    // Set MAPSLY_PUBLIC_URL to an ngrok URL when testing locally.
-    "http://localhost:3000";
-  const trimmed = raw.replace(/\/+$/, "");
-  return trimmed
-    .replace(/^https?:\/\/mapsly\.ai(?=$|\/)/i, "https://www.mapsly.ai")
-    .replace(/^https?:\/\/dev\.mapsly\.ai(?=$|\/)/i, "https://dev.mapsly.ai");
 }
 
 /* --------------------------------------------------------- delete location */

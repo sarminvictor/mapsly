@@ -21,6 +21,7 @@ import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { withCronRun } from "@/lib/cost/cost-counter";
 import { triggerReviewPullForBusiness } from "@/modules/reviews/trigger-pull";
+import { dispatchBulkReviewPull } from "@/modules/reviews/dispatch-bulk-pull";
 import { qualifyBusiness } from "@/modules/business-qualification";
 
 export type ActionResult<T = null> =
@@ -54,10 +55,18 @@ export interface TriggerReviewPullActionResult {
 }
 
 export interface BulkReviewPullActionResult {
-  triggered: number;
-  skipped: number;
-  skipReasons: Record<string, number>;
-  taskIdSample: string[];
+  /** Path the dispatcher took · "worker-enqueue" or "sequential-fallback". */
+  strategy: "worker-enqueue" | "sequential-fallback";
+  /** IDs the admin selected. */
+  requested: number;
+  /** Worker path: jobs the worker accepted. Sequential: triggered task_posts. */
+  queuedOrTriggered: number;
+  /** Worker path: jobs the worker rejected. Sequential: skipped + threw. */
+  failedOrSkipped: number;
+  /** Sequential path: per-reason skip histogram. */
+  skipReasons?: Record<string, number>;
+  /** Worker path: first 5 taskIds for log correlation. */
+  taskIdSample?: string[];
 }
 
 export interface RerunQualifyActionResult {
@@ -140,44 +149,16 @@ export async function triggerReviewPullBulkAction(
     return { ok: false, error: "Invalid selection." };
   }
 
+  // Worker fan-out path · admin returns in <2s for 500 rows. Falls back
+  // to sequential when BOXLY_WORKER_BASE_URL is unset (local dev).
+  // Per Task #81 · prevents 60s server-action timeout at ~50 rows.
   let result: BulkReviewPullActionResult;
   try {
-    result = await withCronRun(
-      "admin:reviews-trigger-bulk",
-      async (): Promise<BulkReviewPullActionResult> => {
-        let triggered = 0;
-        let skipped = 0;
-        const skipReasons: Record<string, number> = {};
-        const taskIds: string[] = [];
-
-        for (const businessId of parsed.data.businessIds) {
-          try {
-            const r = await triggerReviewPullForBusiness(businessId, {
-              mode: "manual",
-            });
-            if (r.triggered) {
-              triggered += 1;
-              taskIds.push(r.taskId);
-            } else {
-              skipped += 1;
-              skipReasons[r.reason] = (skipReasons[r.reason] ?? 0) + 1;
-            }
-          } catch (err) {
-            skipped += 1;
-            skipReasons["threw"] = (skipReasons["threw"] ?? 0) + 1;
-            console.warn(
-              `[admin:reviews-trigger-bulk] ${businessId} threw: ${err instanceof Error ? err.message : String(err)}`,
-            );
-          }
-        }
-
-        return {
-          triggered,
-          skipped,
-          skipReasons,
-          taskIdSample: taskIds.slice(0, 5),
-        };
-      },
+    result = await withCronRun("admin:reviews-trigger-bulk", async () =>
+      dispatchBulkReviewPull({
+        businessIds: parsed.data.businessIds,
+        mode: "manual",
+      }),
     );
   } catch (err) {
     return {
@@ -188,11 +169,13 @@ export async function triggerReviewPullBulkAction(
 
   revalidatePath("/admin/businesses");
 
-  return {
-    ok: true,
-    data: result,
-    message: `Triggered ${result.triggered}, skipped ${result.skipped}.`,
-  };
+  // Wording depends on which path the dispatcher took.
+  const message =
+    result.strategy === "worker-enqueue"
+      ? `Queued ${result.queuedOrTriggered}/${result.requested} on worker · ${result.failedOrSkipped} rejected · pingbacks land 1–45 min from now.`
+      : `Triggered ${result.queuedOrTriggered}/${result.requested} sequentially · ${result.failedOrSkipped} skipped. (Worker not configured — using fallback.)`;
+
+  return { ok: true, data: result, message };
 }
 
 /**
