@@ -22,6 +22,7 @@ import { auth } from "@/lib/auth";
 import { withCronRun } from "@/lib/cost/cost-counter";
 import { triggerReviewPullForBusiness } from "@/modules/reviews/trigger-pull";
 import { dispatchBulkReviewPull } from "@/modules/reviews/dispatch-bulk-pull";
+import { dispatchSearchScan } from "@/modules/search-visibility/dispatch-bulk-scan";
 import { qualifyBusiness } from "@/modules/business-qualification";
 
 export type ActionResult<T = null> =
@@ -223,4 +224,126 @@ export async function rerunQualifyAction(
     },
     message: `Re-qualified · ${outcome.status}`,
   };
+}
+
+// ────────────────────────────────────────────────────────────────────────
+// Search-visibility scans · S.1 plan v2 · admin-triggered (single + bulk)
+// ────────────────────────────────────────────────────────────────────────
+
+export interface SearchScanActionResult {
+  /** Dispatcher strategy · "worker-enqueue" or "sequential-fallback". */
+  strategy: "worker-enqueue" | "sequential-fallback";
+  /** IDs the admin selected. */
+  requested: number;
+  /** Businesses that passed the paid-cell gate. */
+  eligibleBusinesses: number;
+  /** Worker: jobs enqueued · Sequential: per-biz discoveries completed. */
+  queuedOrTriggered: number;
+  /** Worker: rejected · Sequential: skipped/threw. */
+  failedOrSkipped: number;
+  /** Unique cells we'll run an aggregate Maps pass for. */
+  cellsAggregated: number;
+}
+
+/**
+ * Single-row · trigger ranked_keywords scan for ONE business (+ cell
+ * aggregate if no other businesses in that cell · the dispatcher
+ * always enqueues exactly 1 cell job per unique cell, no duplicate
+ * Maps work).
+ */
+export async function triggerSearchScanAction(
+  _prev: ActionResult<SearchScanActionResult> | null,
+  formData: FormData,
+): Promise<ActionResult<SearchScanActionResult>> {
+  try {
+    await requireAdminSession();
+  } catch (err) {
+    return { ok: false, error: (err as Error).message };
+  }
+
+  const parsed = SingleBizSchema.safeParse({
+    businessId: formData.get("businessId"),
+  });
+  if (!parsed.success) {
+    return { ok: false, error: "Invalid businessId." };
+  }
+
+  let result: SearchScanActionResult;
+  try {
+    result = await withCronRun("admin:search-scan", async () =>
+      dispatchSearchScan({
+        businessIds: [parsed.data.businessId],
+        mode: "manual",
+      }),
+    );
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "Unknown error",
+    };
+  }
+
+  revalidatePath("/admin/businesses");
+  return {
+    ok: true,
+    data: result,
+    message:
+      result.eligibleBusinesses === 0
+        ? `Skipped · business not in a paid cell.`
+        : result.strategy === "worker-enqueue"
+          ? `Queued · ${result.queuedOrTriggered} worker job(s) · 1 cell aggregate · results land 1–3 min from now.`
+          : `Ran sequentially · ${result.queuedOrTriggered} business scanned · ${result.cellsAggregated} cell aggregated.`,
+  };
+}
+
+/**
+ * Bulk · trigger ranked_keywords scans for N businesses. The dispatcher
+ * groups by (city, country) cell and enqueues exactly ONE Maps-aggregate
+ * job per unique cell · so a bulk on 25 businesses in Calgary fires 25
+ * ranked_keywords + 1 Maps aggregate, NOT 25 Maps aggregates. This is
+ * the optimization Viktor asked for.
+ */
+export async function triggerSearchScanBulkAction(
+  _prev: ActionResult<SearchScanActionResult> | null,
+  formData: FormData,
+): Promise<ActionResult<SearchScanActionResult>> {
+  try {
+    await requireAdminSession();
+  } catch (err) {
+    return { ok: false, error: (err as Error).message };
+  }
+
+  const idsRaw = formData.get("businessIds");
+  const ids =
+    typeof idsRaw === "string" && idsRaw.length > 0 ? idsRaw.split(",") : [];
+  const parsed = BulkBizSchema.safeParse({ businessIds: ids });
+  if (!parsed.success) {
+    return { ok: false, error: "Invalid selection." };
+  }
+
+  let result: SearchScanActionResult;
+  try {
+    result = await withCronRun("admin:search-scan-bulk", async () =>
+      dispatchSearchScan({
+        businessIds: parsed.data.businessIds,
+        mode: "bulk",
+      }),
+    );
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "Unknown error",
+    };
+  }
+
+  revalidatePath("/admin/businesses");
+
+  const message =
+    result.eligibleBusinesses === 0
+      ? `Skipped all · 0 in paid cells of ${result.requested} selected.`
+      : result.strategy === "worker-enqueue"
+        ? `Queued ${result.queuedOrTriggered} worker jobs · ${result.cellsAggregated} cell aggregate(s) for ${result.eligibleBusinesses}/${result.requested} eligible businesses.`
+        : `Ran ${result.queuedOrTriggered}/${result.eligibleBusinesses} sequentially · ${result.cellsAggregated} cells aggregated.`;
+
+  return { ok: true, data: result, message };
 }

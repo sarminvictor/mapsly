@@ -95,3 +95,13 @@ export {
   type LighthouseQuery,
   type LighthouseAuditResult,
 } from "./lighthouse";
+
+export {
+  rankedKeywords,
+  rankedKeywordsUncached,
+  RankedKeywordsQuerySchema,
+  RankedKeywordsItemSchema,
+  type RankedKeywordsQuery,
+  type RankedKeywordsItem,
+  type RankedKeywordsResult,
+} from "./ranked-keywords";

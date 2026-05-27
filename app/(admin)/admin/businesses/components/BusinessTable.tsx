@@ -189,6 +189,7 @@ function BusinessRowView({
           businessId={row.id}
           hasInFlight={row.pendingReviewsTaskId != null}
           hasCid={row.reviewCount != null}
+          hasWebsite={Boolean(row.website)}
         />
       </Td>
     </tr>

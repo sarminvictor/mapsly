@@ -16,8 +16,10 @@ import { useActionToast } from "@/components/admin-ui/use-action-toast";
 
 import {
   triggerReviewPullBulkAction,
+  triggerSearchScanBulkAction,
   type ActionResult,
   type BulkReviewPullActionResult,
+  type SearchScanActionResult,
 } from "../actions";
 
 interface Props {
@@ -25,14 +27,20 @@ interface Props {
   onClear: () => void;
 }
 
-const initial: ActionResult<BulkReviewPullActionResult> | null = null;
+const initialReviews: ActionResult<BulkReviewPullActionResult> | null = null;
+const initialSearch: ActionResult<SearchScanActionResult> | null = null;
 
 export function BulkActionsBar({ selectedIds, onClear }: Props) {
-  const [state, formAction, pending] = useActionState(
+  const [reviewsState, reviewsAction, reviewsPending] = useActionState(
     triggerReviewPullBulkAction,
-    initial,
+    initialReviews,
   );
-  useActionToast(state);
+  const [searchState, searchAction, searchPending] = useActionState(
+    triggerSearchScanBulkAction,
+    initialSearch,
+  );
+  useActionToast(reviewsState);
+  useActionToast(searchState);
 
   if (selectedIds.length === 0) return null;
 
@@ -65,22 +73,54 @@ export function BulkActionsBar({ selectedIds, onClear }: Props) {
         {selectedIds.length} selected
       </span>
 
-      <form
-        action={formAction}
-        style={{ display: "inline-flex", marginLeft: "auto" }}
+      <div
+        style={{
+          display: "inline-flex",
+          marginLeft: "auto",
+          gap: 6,
+          alignItems: "center",
+        }}
       >
-        <input type="hidden" name="businessIds" value={selectedIds.join(",")} />
-        <button
-          type="submit"
-          className="admin-btn"
-          data-variant="primary"
-          disabled={pending}
-          style={{ padding: "6px 12px", fontSize: 11 }}
-          title="Enqueues the pull on Boxly Worker · returns in seconds · pingbacks land 1–45 min later"
-        >
-          {pending ? "Queueing…" : `Pull reviews for ${selectedIds.length}`}
-        </button>
-      </form>
+        <form action={reviewsAction} style={{ display: "inline-flex" }}>
+          <input
+            type="hidden"
+            name="businessIds"
+            value={selectedIds.join(",")}
+          />
+          <button
+            type="submit"
+            className="admin-btn"
+            data-variant="primary"
+            disabled={reviewsPending}
+            style={{ padding: "6px 12px", fontSize: 11 }}
+            title="Enqueues review pulls on Boxly Worker · returns in seconds · pingbacks land 1–45 min later"
+          >
+            {reviewsPending
+              ? "Queueing…"
+              : `Pull reviews for ${selectedIds.length}`}
+          </button>
+        </form>
+
+        <form action={searchAction} style={{ display: "inline-flex" }}>
+          <input
+            type="hidden"
+            name="businessIds"
+            value={selectedIds.join(",")}
+          />
+          <button
+            type="submit"
+            className="admin-btn"
+            data-variant="primary"
+            disabled={searchPending}
+            style={{ padding: "6px 12px", fontSize: 11 }}
+            title="Per-biz ranked_keywords + ONE Maps aggregate per unique cell (no duplicate cell work). Paid-cell gated."
+          >
+            {searchPending
+              ? "Queueing…"
+              : `Run SERP scan for ${selectedIds.length}`}
+          </button>
+        </form>
+      </div>
 
       <button
         type="button"

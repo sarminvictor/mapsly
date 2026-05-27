@@ -44,6 +44,7 @@ export interface BusinessRow {
   city: string | null;
   country: string | null;
   category: string;
+  website: string | null;
   qualificationStatus: string;
   qualificationFlags: string[];
   rating: number | null;
@@ -54,6 +55,8 @@ export interface BusinessRow {
   reviewsLastDeltaAt: string | null;
   pendingReviewsTaskId: string | null;
   latestReviewPostedAt: string | null;
+  searchScanLastAt: string | null;
+  keywordsTracked: number;
   servicesCount: number;
   reviewsInDb: number;
 }
@@ -151,6 +154,7 @@ export async function getBusinessList(
         city: true,
         country: true,
         category: true,
+        website: true,
         qualificationStatus: true,
         qualificationFlags: true,
         rating: true,
@@ -161,10 +165,12 @@ export async function getBusinessList(
         reviewsLastDeltaAt: true,
         pendingReviewsTaskId: true,
         latestReviewPostedAt: true,
+        searchScanLastAt: true,
         _count: {
           select: {
             services: true,
             reviews: true,
+            businessKeywords: true,
           },
         },
       },
@@ -213,6 +219,7 @@ export async function getBusinessList(
       city: r.city,
       country: r.country,
       category: r.category,
+      website: r.website,
       qualificationStatus: r.qualificationStatus,
       qualificationFlags: r.qualificationFlags,
       rating: r.rating,
@@ -229,6 +236,10 @@ export async function getBusinessList(
       latestReviewPostedAt: r.latestReviewPostedAt
         ? r.latestReviewPostedAt.toISOString()
         : null,
+      searchScanLastAt: r.searchScanLastAt
+        ? r.searchScanLastAt.toISOString()
+        : null,
+      keywordsTracked: r._count.businessKeywords,
       servicesCount: r._count.services,
       reviewsInDb: r._count.reviews,
     })),

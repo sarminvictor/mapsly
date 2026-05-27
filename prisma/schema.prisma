@@ -264,12 +264,20 @@ model Business {
   latestReviewPostedAt    DateTime?
   pendingReviewsTaskId    String?   @unique
 
+  // Search visibility cursor · drives the per-biz ranked_keywords pull
+  // (admin trigger + weekly cron). `searchScanLastAt` is updated on
+  // every successful scan · used by the cron to pick stalest cell
+  // members first. No in-flight task_id field because ranked_keywords
+  // is Live (synchronous) · pingbacks don't apply.
+  searchScanLastAt        DateTime?
+
   // Linked records
   snapshots     BusinessSnapshot[]
   reviews       Review[]
   lighthouseAudits LighthouseAudit[]
   adLibraryEntries AdLibraryEntry[]
   serpResults   SerpResult[]
+  businessKeywords BusinessKeyword[]
   leads         Lead[]
   services      BusinessService[]
 
@@ -548,15 +556,19 @@ model Keyword {
   locationCode Int      // DataForSEO location code
   language     String   @default("en")
 
+  // Search volume + cost · sourced from ranked_keywords response
+  // (no separate monthly batch · S.1 plan v2)
   searchVolume Int?
   cpc          Float?
   competition  String?  // LOW / MEDIUM / HIGH
   competitionIndex Int?
 
-  // Monthly-refreshed trend
+  // Monthly-refreshed trend · DEPRECATED in S.1 plan v2 · kept for
+  // backwards compat with the old monthly cron which we may retire.
   trend12Month Json?
 
-  serpResults  SerpResult[]
+  serpResults      SerpResult[]
+  businessKeywords BusinessKeyword[]
 
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -565,11 +577,62 @@ model Keyword {
   @@unique([keyword, locationCode, language])
 }
 
+// ============================================================================
+// SEARCH VISIBILITY · BusinessKeyword join · ranked_keywords source-of-truth
+// ============================================================================
+
+/// One row per (Business × Keyword) that the business is known to rank for.
+/// Populated by `discoverKeywordsForBusiness` from
+/// `dataforseo_labs/google/ranked_keywords/live` and refreshed weekly.
+///
+/// The latest* fields are denormalized from the latest SerpResult for the
+/// (business × keyword) pair · keeps the per-row admin/SMB table query
+/// to a single SELECT without a JOIN.
+model BusinessKeyword {
+  id           String   @id @default(cuid())
+  businessId   String
+  keywordId    String
+
+  /// Where this row came from. Today only "ranked" (ranked_keywords).
+  /// Reserved values · "manual" (admin add) · "service-discovery"
+  /// (legacy plan, dropped in v2).
+  source       String   @default("ranked")
+
+  // Latest cached ranks · refreshed by discovery + cell-aggregate
+  latestOrganicRank   Int?
+  latestMapsRank      Int?
+  latestLandingUrl    String?
+  latestEstTrafficUsd Float?     // search_volume × cpc × est CTR (rough)
+  latestScanAt        DateTime?
+
+  // ranked_keywords delta flags · captured per scan so the UI can show
+  // "↑12 improved · ↓5 dropped · 3 new" without recomputing.
+  isNew        Boolean  @default(false)
+  isUp         Boolean  @default(false)
+  isDown       Boolean  @default(false)
+  isLost       Boolean  @default(false)
+
+  business     Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  keyword      Keyword  @relation(fields: [keywordId], references: [id], onDelete: Cascade)
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([businessId, keywordId])
+  @@index([businessId, latestEstTrafficUsd])  // sort table by value desc
+  @@index([keywordId])                         // cell-aggregate lookup
+}
+
 model SerpResult {
   id           String   @id @default(cuid())
   keywordId    String
   businessId   String?  // nullable — could be a competitor not in our index yet
   scannedAt    DateTime @default(now())
+
+  /// Which surface this rank is for · ORGANIC = Google web search,
+  /// MAPS = Google Maps 3-pack / Local Finder. Same keyword can have
+  /// both kinds of rank · one row per kind per scan.
+  kind         SerpResultKind @default(ORGANIC)
 
   localPackRank Int?     // 1-3 in the 3-pack, null if not in pack
   organicRank   Int?     // organic position
@@ -590,6 +653,12 @@ model SerpResult {
 
   @@index([keywordId, scannedAt])
   @@index([businessId, scannedAt])
+  @@index([businessId, kind, scannedAt])  // per-surface trend queries
+}
+
+enum SerpResultKind {
+  ORGANIC
+  MAPS
 }
 
 // ============================================================================
