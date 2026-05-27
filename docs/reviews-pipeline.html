@@ -1,0 +1,1026 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Mapsly · Reviews Collection Pipeline — architecture + scoring</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      :root {
+        --bg: #faf6f1;
+        --bg-2: #f2ebe3;
+        --bg-3: #ece3d6;
+        --ink: #1c1916;
+        --ink-2: #5a4f43;
+        --ink-3: #8b7a68;
+        --coral: #c3553a;
+        --berry: #8e3a4f;
+        --green: #2d8659;
+        --orange: #d97706;
+        --red: #b91c1c;
+        --border: #d8c9b8;
+        --shadow: 0 2px 8px rgba(28, 25, 22, 0.06);
+        --sans:
+          system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue",
+          sans-serif;
+        --mono:
+          "JetBrains Mono", "Fira Code", ui-monospace, "SF Mono", Menlo,
+          monospace;
+        --serif: "Fraunces", Georgia, serif;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        padding: 40px 20px 80px;
+        background: var(--bg);
+        color: var(--ink);
+        font-family: var(--sans);
+        line-height: 1.55;
+        font-size: 15px;
+      }
+      .wrap {
+        max-width: 1180px;
+        margin: 0 auto;
+      }
+      header.doc {
+        margin-bottom: 36px;
+        padding-bottom: 24px;
+        border-bottom: 1px solid var(--border);
+      }
+      h1 {
+        font-family: var(--serif);
+        font-size: 38px;
+        line-height: 1.1;
+        margin: 0 0 8px;
+        letter-spacing: -0.02em;
+      }
+      .meta {
+        font-family: var(--mono);
+        font-size: 12px;
+        color: var(--ink-3);
+      }
+      h2 {
+        font-family: var(--serif);
+        font-size: 26px;
+        margin: 48px 0 16px;
+        letter-spacing: -0.01em;
+      }
+      h3 {
+        font-size: 16px;
+        margin: 24px 0 12px;
+        font-weight: 600;
+      }
+      p,
+      li {
+        color: var(--ink-2);
+      }
+      code,
+      .mono {
+        font-family: var(--mono);
+        font-size: 12.5px;
+        background: var(--bg-2);
+        padding: 1px 6px;
+        border-radius: 4px;
+        color: var(--ink);
+      }
+      pre {
+        font-family: var(--mono);
+        font-size: 12px;
+        background: var(--bg-2);
+        padding: 14px 16px;
+        border-radius: 8px;
+        overflow-x: auto;
+        line-height: 1.5;
+        border-left: 3px solid var(--coral);
+      }
+      a {
+        color: var(--coral);
+        text-decoration: none;
+        border-bottom: 1px dotted var(--coral);
+      }
+
+      /* ── scorecard ────────────────────────────────────── */
+      .scorecard {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 14px;
+        margin: 24px 0 8px;
+      }
+      @media (max-width: 800px) {
+        .scorecard {
+          grid-template-columns: 1fr;
+        }
+      }
+      .score-tile {
+        background: #fff;
+        border: 1px solid var(--border);
+        border-left-width: 4px;
+        border-radius: 10px;
+        padding: 14px 16px;
+        box-shadow: var(--shadow);
+      }
+      .score-tile.high {
+        border-left-color: var(--green);
+      }
+      .score-tile.mid {
+        border-left-color: var(--orange);
+      }
+      .score-tile.low {
+        border-left-color: var(--red);
+      }
+      .score-tile h4 {
+        font-size: 13px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--ink-3);
+        margin: 0 0 4px;
+        font-weight: 600;
+      }
+      .score-tile .grade {
+        font-family: var(--serif);
+        font-size: 34px;
+        line-height: 1;
+        letter-spacing: -0.02em;
+      }
+      .score-tile .grade .denom {
+        color: var(--ink-3);
+        font-size: 18px;
+      }
+      .score-tile .why {
+        font-size: 12.5px;
+        color: var(--ink-2);
+        margin: 8px 0 0;
+      }
+      .total-score {
+        margin: 20px 0 0;
+        padding: 18px 22px;
+        background: linear-gradient(
+          90deg,
+          rgba(195, 85, 58, 0.08),
+          rgba(45, 134, 89, 0.08)
+        );
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        font-size: 14px;
+      }
+      .total-score strong {
+        font-family: var(--serif);
+        font-size: 26px;
+        color: var(--ink);
+        margin-right: 8px;
+      }
+
+      /* ── ascii / flow blocks ──────────────────────────── */
+      .flow {
+        font-family: var(--mono);
+        font-size: 12.5px;
+        background: #fff;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 18px 20px;
+        white-space: pre;
+        overflow-x: auto;
+        line-height: 1.55;
+        box-shadow: var(--shadow);
+      }
+      .flow .actor {
+        color: var(--coral);
+        font-weight: 600;
+      }
+      .flow .system {
+        color: var(--berry);
+        font-weight: 600;
+      }
+      .flow .extern {
+        color: var(--green);
+        font-weight: 600;
+      }
+      .flow .note {
+        color: var(--ink-3);
+        font-style: italic;
+      }
+      .flow .arrow {
+        color: var(--ink-3);
+      }
+
+      /* ── table ────────────────────────────────────────── */
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        background: #fff;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        overflow: hidden;
+        box-shadow: var(--shadow);
+        margin-top: 14px;
+      }
+      th,
+      td {
+        text-align: left;
+        padding: 10px 14px;
+        font-size: 13px;
+        vertical-align: top;
+        border-bottom: 1px solid var(--bg-2);
+      }
+      th {
+        background: var(--bg-2);
+        font-weight: 600;
+        color: var(--ink);
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+      }
+      tr:last-child td {
+        border-bottom: 0;
+      }
+      td.tag {
+        white-space: nowrap;
+        font-family: var(--mono);
+      }
+      .pill {
+        display: inline-block;
+        font-size: 11px;
+        font-family: var(--mono);
+        padding: 2px 8px;
+        border-radius: 999px;
+        border: 1px solid currentColor;
+      }
+      .pill.ok {
+        color: var(--green);
+      }
+      .pill.warn {
+        color: var(--orange);
+      }
+      .pill.bad {
+        color: var(--red);
+      }
+
+      /* ── 2-col grid for flows ────────────────────────── */
+      .twocol {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 20px;
+      }
+
+      /* ── callouts ─────────────────────────────────────── */
+      .callout {
+        margin: 16px 0;
+        padding: 12px 16px;
+        background: rgba(195, 85, 58, 0.06);
+        border-left: 3px solid var(--coral);
+        border-radius: 6px;
+        font-size: 13px;
+        color: var(--ink-2);
+      }
+      .callout.warn {
+        background: rgba(217, 119, 6, 0.08);
+        border-left-color: var(--orange);
+      }
+      .callout.bad {
+        background: rgba(185, 28, 28, 0.06);
+        border-left-color: var(--red);
+      }
+
+      /* ── legend ───────────────────────────────────────── */
+      .legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+        font-size: 12px;
+        color: var(--ink-3);
+        margin-bottom: 16px;
+      }
+      .legend span {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .legend .dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header class="doc">
+        <h1>Reviews Collection Pipeline</h1>
+        <p class="meta">
+          mapsly · v0.12.2 · 2026-05-27 · author Viktor + Claude
+        </p>
+        <p>
+          Architecture of how Mapsly gathers Google reviews for one business
+          (qualify-time + manual single-trigger), bulk of 500 (admin action +
+          weekly cron), and the failure modes covered along the way. Every box
+          in the diagrams is a real file you can grep for. Score at the bottom.
+        </p>
+      </header>
+
+      <!-- ═════════════════════════ SCORECARD ═════════════════════════ -->
+      <h2>Scorecard · current state</h2>
+
+      <div class="scorecard">
+        <div class="score-tile high">
+          <h4>Correctness</h4>
+          <div class="grade">8<span class="denom">/10</span></div>
+          <p class="why">
+            Idempotent via <code>pendingReviewsTaskId</code> + tag-fallback for
+            orphans (INC-2026-05-26). 12-month cutoff + cursor-stop applied at
+            upsert. Race window exists if pingback arrives before the
+            <code>pendingReviewsTaskId</code> write commits — tag-fallback
+            recovers it.
+          </p>
+        </div>
+
+        <div class="score-tile mid">
+          <h4>Reliability · error handling</h4>
+          <div class="grade">7<span class="denom">/10</span></div>
+          <p class="why">
+            DfS client: 2× retries on 5xx/408/429 w/ exp backoff. Pingback
+            returns 503 on <code>40602 task_not_ready</code> → DfS retries; 200
+            on duplicate → DfS stops. No dead-letter queue for orphan tasks
+            stuck > 1h.
+          </p>
+        </div>
+
+        <div class="score-tile high">
+          <h4>Cost discipline</h4>
+          <div class="grade">9<span class="denom">/10</span></div>
+          <p class="why">
+            Every external call routed through <code>withCronRun</code> +
+            <code>incrementCost</code>. Standard queue (10× cheaper than Live).
+            Paid-location gate filters before task_post. Per-call ceiling
+            ($0.05). No per-tier daily ceiling yet.
+          </p>
+        </div>
+
+        <div class="score-tile low">
+          <h4>Scalability · bulk fan-out</h4>
+          <div class="grade">6<span class="denom">/10</span></div>
+          <p class="why">
+            <strong>Weakest link.</strong> Bulk-500 admin action processes
+            sequentially in ONE server-action call (Vercel 60s default budget →
+            timeout risk at ~50 businesses). Weekly cron is capped at 100, ok
+            for now but won't scale to 2M+ catalog. Task #81 tracks worker
+            fan-out.
+          </p>
+        </div>
+
+        <div class="score-tile mid">
+          <h4>Observability</h4>
+          <div class="grade">7<span class="denom">/10</span></div>
+          <p class="why">
+            CronRun per tick with cost + meta JSON, surfaced at
+            <code>/admin/cron-runs</code>. Tag-fallback logs INFO on recovery.
+            Sentry catches uncaught. Missing: "stuck pending pulls > 1h"
+            surface, pingback-latency histogram, alert when webhook silent 24h.
+          </p>
+        </div>
+
+        <div class="score-tile high">
+          <h4>Security</h4>
+          <div class="grade">9<span class="denom">/10</span></div>
+          <p class="why">
+            Pingback token verified via constant-time compare. Admin action
+            requires ADMIN session. PII anonymized at persist (<code
+              >reviewerName</code
+            >
+            → initials). Apex → www rewrite documented (prevents auth-header
+            drop). No <code>dangerouslySetInnerHTML</code> on review text.
+          </p>
+        </div>
+      </div>
+
+      <div class="total-score">
+        <strong>Overall · 74 / 100.</strong> Solid foundation. The scalability
+        gap (sequential bulk fan-out) is the single biggest item blocking a real
+        500+ run today. Closing it gets us to ~88/100. Adding a stuck-pull
+        surface + per-tier daily ceiling pushes past 90.
+      </div>
+
+      <!-- ═════════════════════════ ARCHITECTURE ═══════════════════════ -->
+      <h2>1 · Architecture · the three entry points</h2>
+      <p>
+        Three ways a review pull is triggered. All three converge on one adapter
+        (<code>triggerReviewPullForBusiness</code>) and one pingback webhook. No
+        duplicate code paths.
+      </p>
+
+      <div class="legend">
+        <span
+          ><span class="dot" style="background: var(--coral)"></span>actor /
+          UI</span
+        >
+        <span
+          ><span class="dot" style="background: var(--berry)"></span>mapsly
+          internal</span
+        >
+        <span
+          ><span class="dot" style="background: var(--green)"></span
+          >DataForSEO</span
+        >
+        <span
+          ><span class="dot" style="background: var(--ink-3)"></span>note /
+          timing</span
+        >
+      </div>
+
+      <div class="flow">
+        <span class="note"
+          >┌──────────────────────────── ENTRY POINTS
+          ─────────────────────────────┐</span
+        >
+
+        <span class="actor">[A] Admin clicks Qualify</span>
+        <span class="actor">[B] Admin clicks "Pull reviews"</span>
+        <span class="system">[C] Weekly cron</span>
+        on a Business row on 1 row (or 1–500 bulk) Mon 11:30 UTC
+        <span class="mono">/admin/discovery</span>
+        <span class="mono">/admin/businesses</span>
+        <span class="mono">vercel.json crons</span> <span class="arrow">│</span>
+        <span class="arrow">│</span> <span class="arrow">│</span>
+        <span class="arrow">▼</span> <span class="arrow">▼</span>
+        <span class="arrow">▼</span>
+        <span class="system">/api/qualify-one</span> route
+        <span class="system">triggerReviewPullAction</span>
+        <span class="system">/api/cron/weekly/</span>
+        <span class="mono">qualifyBusiness()</span>
+        <span class="mono">triggerReviewPullBulkAction</span>
+        <span class="mono"> reviews-delta</span>
+        <span class="arrow">└──[ on success ]──┐</span>
+        <span class="arrow">│</span> <span class="arrow">│</span>
+        <span class="arrow">│</span> <span class="arrow">▼</span>
+        <span class="arrow">▼</span> <span class="arrow">└──────►</span>
+        <span class="system">triggerReviewPullForBusiness({mode})</span>
+        <span class="arrow">◄──────┘</span> mode =
+        <span class="mono">initial | manual | delta</span>
+
+        <span class="note"
+          >└─────────────────────────────────────────────────────────────────────┘</span
+        >
+      </div>
+
+      <h3>
+        The convergence point · <code>modules/reviews/trigger-pull.ts</code>
+      </h3>
+      <p>Six idempotency / cost guards before we spend a cent:</p>
+      <pre>
+1. Business exists?                  → no  → skip "not_found"
+2. business.googleCid present?       → no  → skip "no_cid"      (can't query DfS)
+3. pendingReviewsTaskId set?         → yes → skip "in_flight"   (pull already running)
+4. mode=initial && already pulled?   → yes → skip "already_pulled"
+5. shouldCollectReviewsForBusiness   → no  → skip "no_paid_in_location" (paid-cell gate)
+6. POST /v3/business_data/google/reviews/task_post  ← finally spend $0.00075</pre
+      >
+
+      <!-- ═════════════════════════ FLOW: SINGLE ═══════════════════════ -->
+      <h2>2 · Flow A · single business (qualify-time OR admin click)</h2>
+
+      <div class="flow">
+        <span class="actor">Admin (UI)</span>
+        <span class="system">Mapsly API</span>
+        <span class="system">trigger-pull</span>
+        <span class="extern">DfS Standard Q</span>
+        <span class="system">Pingback handler</span>
+        <span class="system">DB</span> <span class="arrow">│</span>
+        <span class="arrow">│</span> <span class="arrow">│</span>
+        <span class="arrow">│</span> <span class="arrow">│</span>
+        <span class="arrow">│</span> <span class="arrow">│</span> click
+        <span class="arrow">│</span> <span class="arrow">│</span>
+        <span class="arrow">│</span> <span class="arrow">│</span>
+        <span class="arrow">│</span>
+        <span class="arrow">├─────────────►│</span> withCronRun
+        <span class="arrow">│</span> <span class="arrow">│</span>
+        <span class="arrow">│</span> <span class="arrow">│</span>
+        <span class="arrow">│</span>
+        <span class="arrow">├───────────────────►│</span> guards (6)
+        <span class="arrow">│</span> <span class="arrow">│</span>
+        <span class="arrow">│</span> <span class="arrow">│</span>
+        <span class="arrow">│</span>
+        <span class="arrow">│</span> reviewsTaskPost
+        <span class="arrow">│</span> <span class="arrow">│</span>
+        <span class="arrow">│</span> <span class="arrow">│</span>
+        <span class="arrow">│</span>
+        <span class="arrow">├──────────────────────►│</span> queued
+        <span class="arrow">│</span> <span class="arrow">│</span>
+        <span class="arrow">│</span> <span class="arrow">│</span>
+        <span class="arrow">│◄──────────────────────┤</span> {taskId, 20100}
+        <span class="arrow">│</span> <span class="arrow">│</span>
+        <span class="arrow">│</span> <span class="arrow">│</span>
+        <span class="arrow"
+          >├──────────────────────────────────────────────────────►│</span
+        >
+        SET <span class="arrow">│</span> <span class="arrow">│</span>
+        <span class="arrow">│</span> <span class="arrow">│</span>
+        <span class="arrow">│</span> <span class="arrow">│</span> pendingTaskId
+        <span class="arrow">│</span>
+        <span class="arrow">│◄─────────────┤</span> 200 OK
+        <span class="arrow">│</span> <span class="arrow">│</span>
+        <span class="arrow">│</span> <span class="arrow">│</span>
+        <span class="arrow">│</span> "queued" <span class="arrow">│</span>
+        <span class="arrow">│</span> <span class="arrow">│</span>
+        <span class="arrow">│</span> <span class="arrow">│</span>
+        <span class="note"> </span>
+        <span class="note"> ━━━━━━━━ DfS computes 1–45 min ━━━━━━━━</span>
+        <span class="note"> </span>
+        <span class="arrow">│</span> <span class="arrow">│</span>
+        <span class="arrow">│</span> <span class="arrow">│</span>
+        <span class="arrow">│</span> <span class="arrow">│</span>
+        <span class="arrow">│</span> <span class="arrow">│</span>
+        <span class="arrow">│</span>
+        <span class="arrow">├──── GET pingback ──►│</span>
+        <span class="arrow">│</span> <span class="arrow">│</span>
+        <span class="arrow">│</span> <span class="arrow">│</span>
+        <span class="arrow">│</span> ?id=X&tag=Y&token=Z
+        <span class="arrow">│</span> verify token <span class="arrow">│</span>
+        <span class="arrow">│</span> <span class="arrow">│</span>
+        <span class="arrow">│</span> <span class="arrow">│</span>
+        <span class="arrow">├───lookup biz──►│</span>
+        <span class="arrow">│</span> <span class="arrow">│</span>
+        <span class="arrow">│</span> <span class="arrow">│</span>
+        <span class="arrow">│</span> by pending <span class="arrow">│</span>
+        <span class="arrow">│</span> <span class="arrow">│</span>
+        <span class="arrow">│</span> <span class="arrow">│</span>
+        <span class="arrow">│</span> or tag fallback<span class="arrow">│</span>
+        <span class="arrow">│</span> <span class="arrow">│</span>
+        <span class="arrow">│</span>
+        <span class="arrow">│◄────reviewsTaskGet─┤</span>
+        <span class="arrow">│</span> <span class="arrow">│</span>
+        <span class="arrow">│</span> <span class="arrow">│</span>
+        <span class="arrow">├──{items, cost}────►│</span> upsertReviewBatch
+        (12-mo cutoff) <span class="arrow">│</span> <span class="arrow">│</span>
+        <span class="arrow">│</span> <span class="arrow">│</span>
+        <span class="arrow">├──extractEntities──►│</span> insertedIds[]
+        <span class="arrow">│</span> <span class="arrow">│</span>
+        <span class="arrow">│</span> <span class="arrow">│</span>
+        <span class="arrow">├──recomputeAggs────►│</span> clear pending
+        <span class="arrow">│</span> <span class="arrow">│</span>
+        <span class="arrow">│</span> <span class="arrow">│</span>
+        <span class="arrow">├──revalidateTag────►│</span> /reviews page
+        <span class="arrow">│</span> <span class="arrow">│</span>
+        <span class="arrow">│</span>
+        <span class="arrow">│◄───200 OK──────────┤</span>
+        <span class="arrow">│</span>
+      </div>
+
+      <div class="callout">
+        <strong>Why Standard queue + pingback?</strong> Live queue would block
+        the cron / route handler for 5–45min until DfS computed — Vercel kills
+        the function at 300s. Standard queue lets us return immediately and
+        catch the results when they're ready. As a bonus, Standard is ~10×
+        cheaper per call.
+      </div>
+
+      <!-- ═════════════════════════ FLOW: BULK ═════════════════════════ -->
+      <h2>3 · Flow B · bulk of 500 (admin) + weekly cron</h2>
+
+      <div class="flow">
+        <span class="actor">Admin selects 500 rows</span>
+        <span class="actor">Vercel weekly cron</span>
+        <span class="extern">DfS Standard Q</span>
+        <span class="system">Pingback × N</span> <span class="arrow">│</span>
+        <span class="arrow">│</span> <span class="arrow">│</span>
+        <span class="arrow">│</span> <span class="arrow">▼</span>
+        <span class="arrow">▼</span> <span class="arrow">│</span>
+        <span class="arrow">│</span>
+        <span class="system">triggerReviewPullBulkAction</span>
+        <span class="system">/api/cron/weekly/reviews-delta</span>
+        <span class="arrow">│</span> <span class="arrow">│</span> require ADMIN
+        session findMany({ <span class="arrow">│</span>
+        <span class="arrow">│</span> parse businessIds[] isActive,
+        <span class="arrow">│</span>
+        <span class="arrow">│</span> pendingReviewsTaskId: null,
+        <span class="arrow">│</span>
+        <span class="arrow">│</span> reviewsLastDeltaAt: < 7d ago
+        <span class="arrow">│</span> <span class="arrow">│</span> }, take: 100)
+        <span class="arrow">│</span> <span class="arrow">│</span>
+        <span class="arrow">│</span> <span class="arrow">│</span>
+        <span class="arrow">│</span> <span class="arrow">│</span>
+        <span class="arrow">▼</span> <span class="arrow">▼</span>
+        <span class="arrow">│</span> <span class="arrow">│</span>
+        <span class="system">withCronRun("admin:bulk")</span>
+        <span class="system">withCronRun("weekly:delta")</span>
+        <span class="arrow">│</span> <span class="arrow">│</span>
+        <span class="arrow">│</span> <span class="arrow">│</span>
+        <span class="arrow">│</span> <span class="arrow">│</span>
+        <span class="arrow">▼</span> <span class="arrow">▼</span>
+        <span class="arrow">│</span> <span class="arrow">│</span>
+        <span class="note">
+          ┌──── for of ids ──────────────┐ ┌──── for of eligible
+          ─────────┐</span
+        >
+        <span class="note">
+          │ triggerReviewPull(id,manual) │ │ triggerReviewPull(id,delta) │</span
+        >
+        <span class="note">
+          │ ── try/catch per row ── │ │ ── try/catch per row ── │</span
+        >
+        <span class="note">
+          │ ~1s per row · SEQUENTIAL │ │ ~1s per row · SEQUENTIAL │</span
+        >
+        <span class="note">
+          └─────────────────────────────┘ └─────────────────────────────┘</span
+        >
+        <span class="arrow">│</span> <span class="arrow">│</span>
+        <span class="arrow">│</span> <span class="arrow">│</span>
+        <span class="arrow">▼</span> <span class="arrow">▼</span>
+        <span class="arrow">▼</span> <span class="arrow">▼</span> 500 ×
+        <span class="mono">task_post</span> 100 ×
+        <span class="mono">task_post</span> queues N tasks N async pingbacks =
+        500s wall clock = 100s wall clock (independent timing) over next 1–45
+        min <span class="pill bad">⚠ exceeds 60s budget</span>
+        <span class="pill ok">within 300s cron</span>
+        <span class="pill ok">DfS-side load</span>
+        <span class="pill ok">parallel ingest</span>
+      </div>
+
+      <div class="callout bad">
+        <strong>Known gap · Task #81.</strong> The bulk admin action processes
+        rows sequentially in ONE server-action call. Vercel's default function
+        budget is 60s; at ~1s per <code>task_post</code> you start timing out
+        around row 50. Today's safe ceiling is ~40 businesses per click. To
+        unblock real 500-row bulk runs we need to enqueue the work (Vercel
+        Queues / Inngest / the Boxly Worker fan-out pattern) and return
+        immediately. The weekly cron is fine because (a) its budget is 300s, (b)
+        it's capped at 100 businesses per tick.
+      </div>
+
+      <!-- ═════════════════════════ FAILURE MATRIX ═════════════════════ -->
+      <h2>4 · Failure modes · what we catch and how</h2>
+
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 24%">Failure</th>
+            <th style="width: 28%">How we detect</th>
+            <th style="width: 38%">How we recover</th>
+            <th style="width: 10%">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>DfS 5xx / 408 / 429 on task_post</td>
+            <td><code>DataForSeoError.retryable=true</code> in client</td>
+            <td>
+              2× retry · exponential backoff · base 500ms + jitter (<code
+                >services/dataforseo/client.ts</code
+              >
+              § 186–230)
+            </td>
+            <td><span class="pill ok">covered</span></td>
+          </tr>
+          <tr>
+            <td>DfS network timeout</td>
+            <td><code>AbortSignal.timeout(15_000)</code> on every fetch</td>
+            <td>Retried (transport errors flagged retryable)</td>
+            <td><span class="pill ok">covered</span></td>
+          </tr>
+          <tr>
+            <td>DfS status_code <code>20100</code> ("Task Created") on post</td>
+            <td>Client envelope check</td>
+            <td>
+              Accepted as success via
+              <code>acceptableTaskStatusCodes: [20000, 20100]</code> ·
+              INC-2026-05-26 fix
+            </td>
+            <td><span class="pill ok">covered</span></td>
+          </tr>
+          <tr>
+            <td>Orphan pingback · taskId never persisted to DB</td>
+            <td><code>findUnique(pendingReviewsTaskId)</code> returns null</td>
+            <td>
+              Tag fallback parses
+              <code>mapsly:&lt;mode&gt;:biz_&lt;id&gt;</code>
+              from the URL · webhook recovers the businessId and ingests anyway
+              · logs INFO
+            </td>
+            <td><span class="pill ok">covered</span></td>
+          </tr>
+          <tr>
+            <td>Pingback arrives but task not ready (<code>40602</code>)</td>
+            <td>task_get throws DfS envelope error</td>
+            <td>
+              Webhook returns <strong>503</strong> · DfS retries the pingback
+            </td>
+            <td><span class="pill ok">covered</span></td>
+          </tr>
+          <tr>
+            <td>Duplicate pingback (same taskId twice)</td>
+            <td><code>pendingReviewsTaskId</code> cleared on first ingest</td>
+            <td>
+              Second pingback: lookup misses · returns 200 +
+              <code>already_processed</code>
+              · DfS stops retrying
+            </td>
+            <td><span class="pill ok">covered</span></td>
+          </tr>
+          <tr>
+            <td>Spoofed pingback / replay attack</td>
+            <td>Shared-secret token in URL</td>
+            <td>
+              Constant-time compare (<code>constantTimeEquals</code>) · 401 on
+              mismatch · logged at WARN
+            </td>
+            <td><span class="pill ok">covered</span></td>
+          </tr>
+          <tr>
+            <td>Bulk action: one row throws</td>
+            <td>per-row try/catch in admin action + cron handler</td>
+            <td>
+              Increment <code>skipReasons.threw</code> · continue to next row ·
+              result reports <code>{triggered, skipped, skipReasons}</code>
+            </td>
+            <td><span class="pill ok">covered</span></td>
+          </tr>
+          <tr>
+            <td>Vercel kills cron at 300s mid-batch</td>
+            <td>Function dies, partial work persisted</td>
+            <td>
+              Next tick re-queries eligible (already-triggered rows have
+              <code>pendingReviewsTaskId</code> set → skip "in_flight")
+            </td>
+            <td><span class="pill ok">covered</span></td>
+          </tr>
+          <tr>
+            <td>DfS rate limit on bulk burst (10 req/s per IP)</td>
+            <td>Would surface as 429 · then retried 2× by client</td>
+            <td>
+              Sequential trigger inside cron · ~1 req/s · stays well under the
+              cap
+            </td>
+            <td><span class="pill ok">covered</span></td>
+          </tr>
+          <tr>
+            <td>Pingback never arrives (DfS drops it)</td>
+            <td>
+              <strong>No active detection.</strong>
+              <code>pendingReviewsTaskId</code> stays set forever
+            </td>
+            <td>
+              <strong>Manual reset.</strong> Admin would have to clear
+              <code>pendingReviewsTaskId</code> in SQL. We'd then re-trigger.
+            </td>
+            <td><span class="pill warn">gap</span></td>
+          </tr>
+          <tr>
+            <td>OpenAI extractEntitiesForBusiness fails</td>
+            <td>Throws inside <code>withCronRun</code></td>
+            <td>
+              Webhook returns 500 · DfS retries the pingback · but reviews
+              already upserted in step before extraction (no rollback) ·
+              extraction runs on next pingback retry · idempotent
+            </td>
+            <td><span class="pill warn">partial</span></td>
+          </tr>
+          <tr>
+            <td>Bulk admin action exceeds 60s budget at ~50 rows</td>
+            <td>Vercel kills the server action</td>
+            <td>
+              <strong>No worker fan-out yet.</strong> Already-triggered rows
+              have <code>pendingReviewsTaskId</code> set so a re-click skips
+              them — but UX is bad (admin has to retry repeatedly).
+            </td>
+            <td><span class="pill bad">Task #81</span></td>
+          </tr>
+          <tr>
+            <td>Cost runs away (e.g. depth=4490 × 500 businesses)</td>
+            <td>Per-call <code>costCeilingUsd: 0.05</code></td>
+            <td>
+              Single call refuses if expected cost > $0.05 · per-tier
+              daily/weekly ceiling NOT yet enforced
+            </td>
+            <td><span class="pill warn">partial</span></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- ═════════════════════════ COST + RATE LIMITS ═════════════════ -->
+      <h2>5 · Cost &amp; rate-limit math</h2>
+
+      <h3>Per-pull cost (typical med-spa, 95 reviews)</h3>
+      <pre>
+task_post:                                $0.00075   (one-time setup)
+task_get  (95 items / 10 = 10 pages):     $0.00750   (Standard queue rate)
+OpenAI entity extraction (~95 reviews):   $0.00200   (gpt-5.4-nano, batched)
+                                          ─────────
+                                          $0.01025   total
+
+Delta pull (e.g. 3 new reviews/week):
+task_post:                                $0.00075
+task_get  (3 items / 10 = 1 page):        $0.00075
+OpenAI entity extraction (~3 reviews):    $0.00010
+                                          ─────────
+                                          $0.00160   per week per business</pre
+      >
+
+      <h3>Bulk-500 projected cost (initial pull)</h3>
+      <pre>
+500 businesses × $0.01025 = <strong>$5.13</strong> · within "no Viktor approval" budget ($5/call)
+                                       per per-call BUT crosses the $5 review threshold cumulatively</pre
+      >
+
+      <h3>Rate limits respected</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Vendor</th>
+            <th>Limit</th>
+            <th>Our pattern</th>
+            <th>Headroom</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>DfS task_post</td>
+            <td>10 req/s per IP · 2000/min Standard</td>
+            <td>Sequential ~1 req/s inside cron + bulk</td>
+            <td><span class="pill ok">10×</span></td>
+          </tr>
+          <tr>
+            <td>DfS task_get</td>
+            <td>Same global cap</td>
+            <td>1 per pingback (async)</td>
+            <td><span class="pill ok">100×+</span></td>
+          </tr>
+          <tr>
+            <td>OpenAI gpt-5.4-nano</td>
+            <td>500 req/min</td>
+            <td>1 call per pingback (covers N reviews)</td>
+            <td><span class="pill ok">100×+</span></td>
+          </tr>
+          <tr>
+            <td>Vercel cron function</td>
+            <td>300s execution budget</td>
+            <td>Cap of 100 trigger calls × ~1s = 100s</td>
+            <td><span class="pill ok">3×</span></td>
+          </tr>
+          <tr>
+            <td>Vercel server action</td>
+            <td>60s default</td>
+            <td><strong>Sequential 500-row bulk → ~500s</strong></td>
+            <td><span class="pill bad">0.12×</span></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- ═════════════════════════ KEY FILES ══════════════════════════ -->
+      <h2>6 · Key files · grepable references</h2>
+
+      <table>
+        <thead>
+          <tr>
+            <th>File</th>
+            <th>Role</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="tag">modules/reviews/trigger-pull.ts</td>
+            <td>The convergence point · 6 idempotency guards + task_post</td>
+          </tr>
+          <tr>
+            <td class="tag">services/dataforseo/reviews-task.ts</td>
+            <td>
+              <code>reviewsTaskPost</code> + <code>reviewsTaskGet</code> +
+              <code>buildReviewsPingbackUrl</code>
+            </td>
+          </tr>
+          <tr>
+            <td class="tag">services/dataforseo/client.ts</td>
+            <td>Retry policy · 2× exp backoff · 5xx/408/429 retryable</td>
+          </tr>
+          <tr>
+            <td class="tag">app/api/webhooks/dataforseo/reviews/route.ts</td>
+            <td>Pingback handler · token verify · tag fallback · upsert</td>
+          </tr>
+          <tr>
+            <td class="tag">app/api/cron/weekly/reviews-delta/route.ts</td>
+            <td>
+              Weekly cron · finds eligible · sequentially triggers · cap 100
+            </td>
+          </tr>
+          <tr>
+            <td class="tag">app/(admin)/admin/businesses/actions.ts</td>
+            <td>
+              <code>triggerReviewPullAction</code> (single) +
+              <code>triggerReviewPullBulkAction</code> (bulk)
+            </td>
+          </tr>
+          <tr>
+            <td class="tag">modules/business-qualification/qualify.ts</td>
+            <td>Qualify-time hook · calls trigger-pull with mode=initial</td>
+          </tr>
+          <tr>
+            <td class="tag">modules/reviews/upsert.ts</td>
+            <td>
+              <code>upsertReviewBatch</code> · 12-mo cutoff + cursor-stop +
+              insertedIds[]
+            </td>
+          </tr>
+          <tr>
+            <td class="tag">modules/reviews/persist-helpers.ts</td>
+            <td>
+              <code>stripHtml</code>, <code>anonymizeReviewerName</code>,
+              <code>locationCodeForCountry</code>
+            </td>
+          </tr>
+          <tr>
+            <td class="tag">
+              modules/reviews/extract-entities-for-business.ts
+            </td>
+            <td>
+              Event-driven · runs after pingback when insertedIds.length > 0
+            </td>
+          </tr>
+          <tr>
+            <td class="tag">lib/reviews/should-collect.ts</td>
+            <td>Paid-location gate</td>
+          </tr>
+          <tr>
+            <td class="tag">lib/cost/cost-counter.ts</td>
+            <td>
+              <code>withCronRun</code> · AsyncLocalStorage cost attribution
+            </td>
+          </tr>
+          <tr>
+            <td class="tag">vercel.json (cron schedule)</td>
+            <td><code>30 11 * * 1</code> · Mon 11:30 UTC weekly</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- ═════════════════════════ ROADMAP ════════════════════════════ -->
+      <h2>7 · Path to 90+/100</h2>
+
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 26%">Item</th>
+            <th style="width: 54%">What changes</th>
+            <th style="width: 10%">Bumps</th>
+            <th style="width: 10%">Effort</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Worker fan-out for bulk (Task #81)</strong></td>
+            <td>
+              Replace sequential <code>for…of</code> with enqueue-and-return.
+              Bulk action persists a queue row per businessId, returns
+              immediately. A worker (Vercel Queues / existing Boxly Worker via
+              callback-webhook) processes them at controlled concurrency (e.g. 5
+              concurrent · ~$0.0001 OpenAI per row → fan-out is the bottleneck,
+              not cost). Admin UI polls a progress endpoint to show "417/500
+              triggered, 83 in queue".
+            </td>
+            <td>Scalability +3</td>
+            <td>L</td>
+          </tr>
+          <tr>
+            <td>Stuck-pull surface</td>
+            <td>
+              New page <code>/admin/cron-runs/stuck</code> showing every
+              Business with
+              <code
+                >pendingReviewsTaskId IS NOT NULL AND updatedAt &lt; now -
+                2h</code
+              >. One-click "reset + re-trigger" button. Daily cron alert if &gt;
+              5 stuck.
+            </td>
+            <td>Observability +2</td>
+            <td>S</td>
+          </tr>
+          <tr>
+            <td>Per-tier daily cost ceiling</td>
+            <td>
+              In <code>triggerReviewPullForBusiness</code>, check current
+              CronRun total against tier daily cap before task_post. Refuse with
+              <code>skip "daily_cap_reached"</code>. Surface in cron meta.
+            </td>
+            <td>Cost +1</td>
+            <td>S</td>
+          </tr>
+          <tr>
+            <td>Pingback-latency histogram</td>
+            <td>
+              At pingback ingress, compute
+              <code>now - Business.updatedAt</code> (proxy for
+              time-since-task_post). Persist on CronRun.meta as p50/p95.
+              Dashboard tile shows trend. Lets us spot DfS slowdowns + tune cron
+              schedule.
+            </td>
+            <td>Observability +1</td>
+            <td>S</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <p style="margin-top: 24px; color: var(--ink-3); font-size: 12.5px">
+        Generated 2026-05-27 · grep evidence for each claim above ·
+        <code>git log --grep="review"</code> for the full PR history.
+      </p>
+    </div>
+  </body>
+</html>

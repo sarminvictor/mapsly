@@ -2,10 +2,10 @@
 //
 // Replaces the old daily/new-reviews-delta + weekly/reviews-full-pull.
 // Both were Live-tier synchronous pulls that bogged down inside the
-// 300s Vercel function budget. The new flow uses DataForSEO Standard
-// queue + pingback so this cron just FIRES task_posts and returns
-// immediately. The actual review upserts happen asynchronously when
-// DfS pings /api/webhooks/dataforseo/reviews per task.
+// 300s Vercel function budget. This flow uses DataForSEO Standard
+// queue + pingback so this cron just enqueues task_post triggers and
+// returns immediately. The actual review upserts happen asynchronously
+// when DfS pings /api/webhooks/dataforseo/reviews per task.
 //
 // Selection rules:
 //   - Must have googleCid (otherwise we can't query DfS)
@@ -15,9 +15,11 @@
 //   - reviewsLastDeltaAt < now-7d OR NULL · skip recently-delta'd
 //   - Paid-location gate (lib/reviews/should-collect) · only paid cells
 //
-// Bounded batch (default 100 businesses per run, override via
-// CRON_WEEKLY_REVIEWS_LIMIT) so a misconfiguration can't bill 2k
-// task_posts in one tick.
+// Task #81 · the trigger phase now fans out via Boxly Worker (with
+// `dispatchBulkReviewPull`). Cap raised 100 → 500 because the cron no
+// longer holds open while ~1s × N triggers run sequentially · the
+// worker absorbs that work. Sequential fallback still works when
+// BOXLY_WORKER_BASE_URL is unset (local dev / preview without worker).
 //
 // Cost: task_post itself ~$0.00075. Real cost lands later when each
 // pingback fires task_get + bills per items returned. Typical delta
@@ -26,12 +28,12 @@
 
 import prisma from "@/lib/prisma";
 import { cronHandler } from "@/lib/middleware/no-live-api";
-import { triggerReviewPullForBusiness } from "@/modules/reviews/trigger-pull";
+import { dispatchBulkReviewPull } from "@/modules/reviews/dispatch-bulk-pull";
 import { filterEligibleBusinesses } from "@/lib/reviews/should-collect";
 
 const JOB = "weekly:reviews-delta";
-const DEFAULT_LIMIT = 100;
-const MAX_LIMIT = 500;
+const DEFAULT_LIMIT = 500; // raised 100 → 500 with worker fan-out
+const MAX_LIMIT = 500; // matches Boxly Worker batch max
 const DELTA_FRESH_DAYS = 7;
 
 export const GET = cronHandler(JOB, async ({ runId }) => {
@@ -69,49 +71,32 @@ export const GET = cronHandler(JOB, async ({ runId }) => {
     candidates.map((c) => c.id),
   );
 
-  // 3. Fire task_posts. Each is fast (~1s) — sequential is fine and avoids
-  //    DfS rate-limit thundering. For 100 businesses this is ~100s, within
-  //    the 300s cron budget.
-  let triggered = 0;
-  let skipped = 0;
-  const skipReasons: Record<string, number> = {};
-  const taskIds: string[] = [];
-
-  for (const businessId of eligibleIds) {
-    try {
-      const result = await triggerReviewPullForBusiness(businessId, {
-        mode: "delta",
-      });
-      if (result.triggered) {
-        triggered += 1;
-        taskIds.push(result.taskId);
-      } else {
-        skipped += 1;
-        skipReasons[result.reason] = (skipReasons[result.reason] ?? 0) + 1;
-      }
-    } catch (err) {
-      // triggerReviewPullForBusiness already catches inside; defense in
-      // depth — if its return contract changes, we still don't crash
-      // the whole cron.
-      skipped += 1;
-      skipReasons["threw"] = (skipReasons["threw"] ?? 0) + 1;
-      console.warn(
-        `[${JOB}] trigger threw for ${businessId}: ${err instanceof Error ? err.message : String(err)}`,
-      );
-    }
-  }
+  // 3. Fan out to Boxly Worker · returns in ~1s regardless of N.
+  //    Worker handles concurrency (5 parallel · stays under DfS 10 req/s
+  //    cap), retries, per-row failures. Pingbacks land 1–45 min later
+  //    into /api/webhooks/dataforseo/reviews.
+  //
+  //    Sequential fallback kicks in automatically when the worker isn't
+  //    configured (BOXLY_WORKER_BASE_URL unset · local dev). At 500 rows
+  //    that's ~500s which would blow the 300s cron budget · but in that
+  //    environment we also wouldn't have set DEFAULT_LIMIT=500 deliberately.
+  const dispatch = await dispatchBulkReviewPull({
+    businessIds: eligibleIds,
+    mode: "delta",
+  });
 
   return {
-    itemsProcessed: triggered,
+    itemsProcessed: dispatch.queuedOrTriggered,
     meta: {
       runId,
       candidatesFound: candidates.length,
       eligibleAfterGate: eligibleIds.length,
       filteredOutByGate: candidates.length - eligibleIds.length,
-      triggered,
-      skipped,
-      skipReasons,
-      taskIdSample: taskIds.slice(0, 5),
+      strategy: dispatch.strategy,
+      queuedOrTriggered: dispatch.queuedOrTriggered,
+      failedOrSkipped: dispatch.failedOrSkipped,
+      ...(dispatch.skipReasons ? { skipReasons: dispatch.skipReasons } : {}),
+      ...(dispatch.taskIdSample ? { taskIdSample: dispatch.taskIdSample } : {}),
     },
   };
 });

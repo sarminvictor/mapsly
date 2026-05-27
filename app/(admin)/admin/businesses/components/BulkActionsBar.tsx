@@ -76,8 +76,9 @@ export function BulkActionsBar({ selectedIds, onClear }: Props) {
           data-variant="primary"
           disabled={pending}
           style={{ padding: "6px 12px", fontSize: 11 }}
+          title="Enqueues the pull on Boxly Worker · returns in seconds · pingbacks land 1–45 min later"
         >
-          {pending ? "Triggering…" : `Pull reviews for ${selectedIds.length}`}
+          {pending ? "Queueing…" : `Pull reviews for ${selectedIds.length}`}
         </button>
       </form>
 

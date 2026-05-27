@@ -27,6 +27,7 @@
 
 import { z } from "zod";
 import { incrementCost } from "@/lib/cost/cost-counter";
+import { getMapslyPublicUrl } from "@/lib/url/mapsly-public-url";
 import { dataforSeoPost, DataForSeoError } from "./client";
 import type { DataForSeoEnvelope } from "./client";
 import { DATAFORSEO_UNIT_COST_USD } from "./pricing";
@@ -53,7 +54,7 @@ import { ReviewItemSchema, type ReviewItem } from "./reviews";
  * set — DfS pingback flow requires it for security.
  */
 export function buildReviewsPingbackUrl(): string {
-  const base = readMapslyPublicUrl();
+  const base = getMapslyPublicUrl();
   const token = process.env.DATAFORSEO_PINGBACK_TOKEN;
   if (!token) {
     throw new Error(
@@ -62,19 +63,6 @@ export function buildReviewsPingbackUrl(): string {
   }
   // DfS replaces $id and $tag literally; we URL-encode the static parts only.
   return `${base}/api/webhooks/dataforseo/reviews?id=$id&tag=$tag&token=${encodeURIComponent(token)}`;
-}
-
-function readMapslyPublicUrl(): string {
-  const raw =
-    process.env.MAPSLY_PUBLIC_URL ??
-    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null) ??
-    "http://localhost:3000";
-  const trimmed = raw.replace(/\/+$/, "");
-  // Apex → www rewrite per INC: Vercel 307 redirects on apex drop the
-  // Authorization header / query state on cross-host. Force www.
-  return trimmed
-    .replace(/^https?:\/\/mapsly\.ai(?=$|\/)/i, "https://www.mapsly.ai")
-    .replace(/^https?:\/\/dev\.mapsly\.ai(?=$|\/)/i, "https://dev.mapsly.ai");
 }
 
 // ---- task_post schema + adapter ------------------------------------------
