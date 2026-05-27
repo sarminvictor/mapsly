@@ -108,6 +108,7 @@ export async function getSmbSearchData(userId: string): Promise<SmbSearchData> {
             latestOrganicRank: true,
             latestMapsRank: true,
             latestEstTrafficUsd: true,
+            latestEstMonthlyVisits: true,
             latestScanAt: true,
             isNew: true,
             isUp: true,
@@ -205,6 +206,14 @@ export async function getSmbSearchData(userId: string): Promise<SmbSearchData> {
         localPackRank: bk.latestMapsRank,
       });
 
+      // Prefer DfS-truth `etv` for visits · fall back to (sv × CTR) for
+      // pre-v0.12.11 rows where `latestEstMonthlyVisits` is still null.
+      const bestRk = bestRank(bk.latestMapsRank, bk.latestOrganicRank);
+      const estVisits =
+        bk.latestEstMonthlyVisits != null
+          ? Math.round(bk.latestEstMonthlyVisits)
+          : Math.round((bk.keyword.searchVolume ?? 0) * ctrForBestRank(bestRk));
+
       rows.push({
         id: bk.keyword.id,
         keyword: bk.keyword.keyword,
@@ -216,6 +225,7 @@ export async function getSmbSearchData(userId: string): Promise<SmbSearchData> {
         scannedAt: bk.latestScanAt,
         packSlots,
         estPatientsLost: estLost,
+        estVisits,
       });
 
       const ms = bk.latestScanAt?.getTime() ?? null;
@@ -226,6 +236,14 @@ export async function getSmbSearchData(userId: string): Promise<SmbSearchData> {
 
     rows.sort(rankRows);
     const visible = rows.slice(0, MAX_KEYWORDS);
+
+    // Top 5 by raw search volume · Maria's "where the demand is" lens.
+    // Sorted desc; keywords without a known volume (rare) sink to the
+    // end. Slice 5 · pack slots already populated per row above.
+    const topByVolume = [...rows]
+      .filter((r) => (r.searchVolume ?? 0) > 0)
+      .sort((a, b) => (b.searchVolume ?? 0) - (a.searchVolume ?? 0))
+      .slice(0, 5);
 
     // 3) Hero KPIs from the FULL set of rows (not just visible).
     let bestLocalPackRank: number | null = null;
@@ -294,6 +312,8 @@ export async function getSmbSearchData(userId: string): Promise<SmbSearchData> {
       keywordsInLocalPack,
       keywordsImprovedThisWeek: keywordsImproved,
       keywords: visible,
+      topByVolume,
+      allTrackedKeywords: rows,
       searchGaps,
       lastScanAt:
         mostRecentScanMs != null
@@ -351,10 +371,12 @@ function computeTotals(rows: readonly KeywordRow[]): {
   for (const r of rows) {
     const vol = r.searchVolume ?? 0;
     totalSearchVolume += vol;
-    const rank = bestRank(r.localPackRank, r.organicRank);
-    const visits = Math.round(vol * ctrForBestRank(rank));
+    // Each row's estVisits is already DfS-truth (or CTR-fallback) ·
+    // sum without re-computing.
+    const visits = r.estVisits;
     totalEstimatedVisits += visits;
 
+    const rank = bestRank(r.localPackRank, r.organicRank);
     if (rank != null && rank <= 3) {
       top3.keywordCount += 1;
       top3.totalSearchVolume += vol;
@@ -419,6 +441,7 @@ async function buildCompetitorLeaderboard(input: {
       businessKeywords: {
         select: {
           latestEstTrafficUsd: true,
+          latestEstMonthlyVisits: true,
           latestOrganicRank: true,
           latestMapsRank: true,
           keyword: { select: { searchVolume: true } },
@@ -426,8 +449,13 @@ async function buildCompetitorLeaderboard(input: {
         take: 500, // bounded per business
       },
     },
-    take: 200,
+    take: 500,
   });
+
+  // Industry-baseline local conversion rate: ~2% of visits convert
+  // into bookings/customers. Used to turn "visits/mo" into the
+  // Maria-friendly "customers/mo" column.
+  const LOCAL_CONVERSION_RATE = 0.02;
 
   // Aggregate per business.
   const aggregated: Array<{
@@ -437,17 +465,24 @@ async function buildCompetitorLeaderboard(input: {
     totalSearchVolume: number;
     keywordCount: number;
     topThreeCount: number;
+    estMonthlyCustomers: number;
   }> = [];
   for (const b of cellBusinesses) {
     if (b.businessKeywords.length === 0) continue;
     let estTraffic = 0;
     let searchVolume = 0;
     let topThree = 0;
+    let visits = 0;
     for (const bk of b.businessKeywords) {
       estTraffic += bk.latestEstTrafficUsd ?? 0;
       searchVolume += bk.keyword?.searchVolume ?? 0;
       const r = bestRank(bk.latestMapsRank, bk.latestOrganicRank);
       if (r != null && r <= 3) topThree += 1;
+      // Visits = DfS truth when set, CTR fallback otherwise.
+      visits +=
+        bk.latestEstMonthlyVisits != null
+          ? bk.latestEstMonthlyVisits
+          : (bk.keyword?.searchVolume ?? 0) * ctrForBestRank(r);
     }
     aggregated.push({
       id: b.id,
@@ -456,6 +491,7 @@ async function buildCompetitorLeaderboard(input: {
       totalSearchVolume: searchVolume,
       keywordCount: b.businessKeywords.length,
       topThreeCount: topThree,
+      estMonthlyCustomers: Math.round(visits * LOCAL_CONVERSION_RATE),
     });
   }
 
@@ -463,10 +499,12 @@ async function buildCompetitorLeaderboard(input: {
     return { rows: [], ownRank: null, total: 0 };
   }
 
-  // Sort by estTrafficUsd desc · tiebreak by topThreeCount desc.
+  // Sort by estMonthlyCustomers desc · tiebreak by topThreeCount desc.
+  // We sort by customers (not raw $ traffic) because that's the column
+  // Maria sees · keep the rank order honest to her display.
   aggregated.sort((a, b) => {
-    if (b.estTrafficUsd !== a.estTrafficUsd) {
-      return b.estTrafficUsd - a.estTrafficUsd;
+    if (b.estMonthlyCustomers !== a.estMonthlyCustomers) {
+      return b.estMonthlyCustomers - a.estMonthlyCustomers;
     }
     return b.topThreeCount - a.topThreeCount;
   });
@@ -495,6 +533,7 @@ async function buildCompetitorLeaderboard(input: {
       totalSearchVolume: a.totalSearchVolume,
       keywordCount: a.keywordCount,
       topThreeCount: a.topThreeCount,
+      estMonthlyCustomers: a.estMonthlyCustomers,
     };
   });
 

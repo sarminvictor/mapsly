@@ -73,6 +73,10 @@ export interface KeywordRow {
   /** Estimated monthly patients Maria loses by not being in the
    * top 3 for this keyword. Heuristic: volume × CTR gap × conv. */
   estPatientsLost: number;
+  /** Estimated monthly visits Maria likely gets from this keyword at
+   *  her current rank · DfS `etv` (source of truth) with a CTR-curve
+   *  fallback for pre-v0.12.11 rows. */
+  estVisits: number;
 }
 
 /**
@@ -130,6 +134,15 @@ export interface SmbSearchData {
    * Sorted: in-local-pack first (best rank first), then organic-only,
    * then untracked appearances last. */
   keywords: KeywordRow[];
+
+  /** Top 5 keywords by raw monthly search volume · Maria's "where the
+   *  demand is" lens. Each row carries packSlots so the UI can show
+   *  the top-3 businesses in Maps next to her own position. */
+  topByVolume: KeywordRow[];
+  /** Full list of every tracked keyword (up to MAX_KEYWORDS_PER_BUSINESS
+   *  = 200) · powers the autosuggest finder and the expandable "show all"
+   *  disclosure below the top-5 block. */
+  allTrackedKeywords: KeywordRow[];
 
   /** When the underlying SERP batch last ran, used for the
    * "Refreshed weekly" footer. Nullable for new businesses. */
@@ -207,6 +220,10 @@ export interface CompetitorRow {
   keywordCount: number;
   /** Count of keywords this business ranks in top 3 (Maps or organic). */
   topThreeCount: number;
+  /** Estimated monthly customers this business likely converts ·
+   *  Σ visits × 0.02 (industry-baseline local conversion rate).
+   *  This is the headline we show Maria, not raw "$ traffic value". */
+  estMonthlyCustomers: number;
 }
 
 /**
@@ -254,6 +271,8 @@ export const EMPTY_SMB_SEARCH: SmbSearchData = {
   keywordsInLocalPack: 0,
   keywordsImprovedThisWeek: 0,
   keywords: [],
+  topByVolume: [],
+  allTrackedKeywords: [],
   searchGaps: [],
   lastScanAt: null,
   totalEstPatientsLost: 0,

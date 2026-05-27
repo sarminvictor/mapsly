@@ -25,11 +25,13 @@ export interface CompetitorLeaderboardCardLabels {
   colName: string;
   colKeywords: string;
   colTopThree: string;
-  colEstTraffic: string;
+  /** "Customers/mo" · we converted from raw $ traffic to a Maria-friendly
+   *  units-of-customer measure. */
+  colCustomers: string;
   /** "Top 3 in maps or organic" tooltip */
   topThreeHelp: string;
-  /** "Estimated monthly value of organic traffic" tooltip */
-  estTrafficHelp: string;
+  /** "Estimated monthly customers this business converts" tooltip */
+  customersHelp: string;
   /** Empty state when no leaderboard data yet. */
   empty: string;
 }
@@ -44,12 +46,6 @@ export interface CompetitorLeaderboardCardProps {
 
 function fmt(n: number): string {
   return n.toLocaleString("en-US");
-}
-
-function fmtUsd(n: number): string {
-  if (n < 10) return `$${n.toFixed(2)}`;
-  if (n < 1000) return `$${Math.round(n)}`;
-  return `$${(n / 1000).toFixed(1)}k`;
 }
 
 export function CompetitorLeaderboardCard({
@@ -160,8 +156,8 @@ export function CompetitorLeaderboardCard({
               <Th align="right" tip={labels.topThreeHelp}>
                 {labels.colTopThree}
               </Th>
-              <Th align="right" tip={labels.estTrafficHelp}>
-                {labels.colEstTraffic}
+              <Th align="right" tip={labels.customersHelp}>
+                {labels.colCustomers}
               </Th>
             </tr>
           </thead>
@@ -221,7 +217,7 @@ export function CompetitorLeaderboardCard({
                           : "var(--color-text)",
                       }}
                     >
-                      {fmtUsd(row.estTrafficUsd)}/mo
+                      ~{fmt(row.estMonthlyCustomers)}/mo
                     </span>
                   </Td>
                 </tr>

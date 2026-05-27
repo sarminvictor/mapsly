@@ -210,12 +210,31 @@ async function persistOne(
     select: { id: true },
   });
 
-  // 2. Estimated traffic value · search_volume × cpc × est CTR for rank.
-  //    Use a simple CTR curve · refined later if we add real models.
+  // 2. DfS-truth traffic estimates · we prefer their numbers over our
+  //    CTR curve. `etv` = estimated monthly clicks at this rank;
+  //    `estimated_paid_traffic_cost` = USD value of those clicks at the
+  //    keyword's CPC. Both come from DfS's own model, calibrated on
+  //    real SERP click data.
+  //
+  //    Fallback only when DfS omits the value (rare · happens on some
+  //    long-tail rows). The fallback uses the SAME CTR curve we used
+  //    pre-v0.12.11 so pre-existing rows stay consistent until refreshed.
+  const etv = serp?.etv ?? null;
+  const dfsTrafficCost = serp?.estimated_paid_traffic_cost ?? null;
+
+  const estMonthlyVisits =
+    etv != null
+      ? etv
+      : searchVolume != null
+        ? searchVolume * fallbackCtrForRank(rank)
+        : null;
+
   const estTrafficUsd =
-    searchVolume != null && cpc != null
-      ? searchVolume * cpc * ctrForRank(rank)
-      : null;
+    dfsTrafficCost != null
+      ? dfsTrafficCost
+      : searchVolume != null && cpc != null
+        ? searchVolume * cpc * fallbackCtrForRank(rank)
+        : null;
 
   // 3. Upsert BusinessKeyword (unique on businessId + keywordId)
   await prisma.businessKeyword.upsert({
@@ -230,6 +249,7 @@ async function persistOne(
       latestMapsRank: null,
       latestLandingUrl: serp?.url ?? null,
       latestEstTrafficUsd: estTrafficUsd,
+      latestEstMonthlyVisits: estMonthlyVisits,
       latestScanAt: scannedAt,
       isNew: serp?.is_new === true,
       isUp: serp?.is_up === true,
@@ -240,6 +260,7 @@ async function persistOne(
       latestOrganicRank: rank,
       latestLandingUrl: serp?.url ?? null,
       latestEstTrafficUsd: estTrafficUsd,
+      latestEstMonthlyVisits: estMonthlyVisits,
       latestScanAt: scannedAt,
       isNew: serp?.is_new === true,
       isUp: serp?.is_up === true,
@@ -267,11 +288,13 @@ async function persistOne(
 }
 
 /**
- * Rough CTR by Google organic rank · used for traffic-value estimation.
- * Source: composite of public 2024–2025 CTR studies (Backlinko, Sistrix);
- * we don't need precision here, just a value-ranking signal.
+ * FALLBACK CTR by Google organic rank · used ONLY when DfS omits `etv`
+ * and `estimated_paid_traffic_cost` (rare, mostly long-tail rows).
+ * Source: composite of public 2024–2025 CTR studies (Backlinko, Sistrix).
+ *
+ * Primary source of truth is DfS — see persistOne() above.
  */
-function ctrForRank(rank: number): number {
+function fallbackCtrForRank(rank: number): number {
   if (rank === 1) return 0.39;
   if (rank === 2) return 0.18;
   if (rank === 3) return 0.1;

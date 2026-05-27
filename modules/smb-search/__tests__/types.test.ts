@@ -29,6 +29,7 @@ const row = (overrides: Partial<KeywordRow>): KeywordRow => ({
     { rank: 3, name: "—", kind: "empty" },
   ],
   estPatientsLost: 0,
+  estVisits: 0,
   ...overrides,
 });
 

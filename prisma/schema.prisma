@@ -602,7 +602,15 @@ model BusinessKeyword {
   latestOrganicRank   Int?
   latestMapsRank      Int?
   latestLandingUrl    String?
-  latestEstTrafficUsd Float?     // search_volume × cpc × est CTR (rough)
+  /// DfS `estimated_paid_traffic_cost` — what the equivalent paid traffic
+  /// would cost at this rank. Source of truth for the "Traffic value" /
+  /// "Customers/mo" column. Falls back to (sv × cpc × CTR-curve) for
+  /// pre-v0.12.11 rows until the next weekly cron refresh.
+  latestEstTrafficUsd Float?
+  /// DfS `etv` — estimated monthly clicks (visits) at this rank. Source
+  /// of truth for the "visits" headline. NULL for pre-v0.12.11 rows;
+  /// queries layer falls back to (sv × CTR-curve) until next cron.
+  latestEstMonthlyVisits Float?
   latestScanAt        DateTime?
 
   // ranked_keywords delta flags · captured per scan so the UI can show

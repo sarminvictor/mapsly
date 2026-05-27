@@ -70,6 +70,9 @@ export interface KeywordRowDisplayProps {
   packLabel: string;
   /** Pre-formatted "+N patients/mo missed" text. Empty string hides it. */
   estPatientsLostText: string;
+  /** Optional DOM id for the row · used by the KeywordFinder
+   *  autosuggest scroll-to-row. */
+  rowId?: string;
 }
 
 function statusColor(status: VisibilityStatus): string {
@@ -112,9 +115,11 @@ export function KeywordRow({
   packSlots,
   packLabel,
   estPatientsLostText,
+  rowId,
 }: KeywordRowDisplayProps) {
   return (
     <li
+      id={rowId}
       style={{
         display: "flex",
         flexDirection: "column",

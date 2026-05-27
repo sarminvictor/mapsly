@@ -20,12 +20,18 @@ export interface SearchStateBarLabels {
   estimatedVisits: string;
   /** "Top 3 spots" */
   inTopThree: string;
-  /** "Keywords tracked" */
-  tracked: string;
+  /** "Best spot in Maps" · replaces the old "Keywords tracked" cell. */
+  bestSpot: string;
   /** "of {total} keywords" · `{total}` is replaced inline. */
   inTopThreeSublabel: string;
-  /** Sub-line for tracked · e.g. "Refreshed weekly". */
-  trackedSublabel: string;
+  /** Sub-line under the best-spot value · "for '{keyword}'" replaced
+   *  inline. When Maria isn't in Maps anywhere, the page passes the
+   *  `bestSpotNoneSublabel` instead. */
+  bestSpotSublabel: string;
+  /** Sub-line under best-spot when Maria isn't ranked anywhere yet. */
+  bestSpotNoneSublabel: string;
+  /** Big-number text shown when Maria isn't ranked in Maps at all. */
+  bestSpotNoneValue: string;
   /** "Add up to all your services' searches" · the "what is this" tip
    *  surfaced on the totalSearches cell. */
   totalSearchesTip: string;
@@ -38,6 +44,12 @@ export interface SearchStateBarProps {
   totalEstimatedVisits: number;
   topThreeKeywords: number;
   tracked: number;
+  /** Maria's best (lowest) Maps rank across all tracked keywords ·
+   *  null when she's not in any Maps result. */
+  bestMapsRank: number | null;
+  /** The keyword whose Maps rank equals bestMapsRank · for the
+   *  sublabel "for '{keyword}'". null when bestMapsRank is null. */
+  bestMapsKeyword: string | null;
   labels: SearchStateBarLabels;
 }
 
@@ -52,12 +64,29 @@ export function SearchStateBar({
   totalEstimatedVisits,
   topThreeKeywords,
   tracked,
+  bestMapsRank,
+  bestMapsKeyword,
   labels,
 }: SearchStateBarProps) {
   const visitsCapturePct =
     totalSearchVolume > 0
       ? Math.round((totalEstimatedVisits / totalSearchVolume) * 100)
       : 0;
+
+  const bestSpotValue =
+    bestMapsRank != null ? `#${bestMapsRank}` : labels.bestSpotNoneValue;
+  const bestSpotSublabel =
+    bestMapsRank != null && bestMapsKeyword
+      ? labels.bestSpotSublabel.replace("{keyword}", bestMapsKeyword)
+      : labels.bestSpotNoneSublabel;
+  const bestSpotTone =
+    bestMapsRank == null
+      ? "warn"
+      : bestMapsRank <= 3
+        ? "good"
+        : bestMapsRank <= 10
+          ? "neutral"
+          : "warn";
 
   return (
     <section
@@ -96,11 +125,11 @@ export function SearchStateBar({
         tone={topThreeKeywords > 0 ? "good" : "neutral"}
       />
       <StateCell
-        label={labels.tracked}
-        value={fmt(tracked)}
-        sublabel={labels.trackedSublabel}
+        label={labels.bestSpot}
+        value={bestSpotValue}
+        sublabel={bestSpotSublabel}
         tip=""
-        tone="neutral"
+        tone={bestSpotTone}
       />
     </section>
   );

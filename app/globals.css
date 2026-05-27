@@ -370,3 +370,35 @@ details[open] > summary::after {
     flex-shrink: 0;
   }
 }
+
+/* SMB /(smb)/search two-column layout · 300px right rail for the
+   Quick Wins panel, collapses to one column on mobile so the rail
+   stacks below the main analytics column. Mirrors the smb-reviews
+   layout for voice consistency. */
+@media (max-width: 760px) {
+  .smb-search-grid,
+  .smb-reviews-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+}
+
+/* Brief highlight on a row when the KeywordFinder scrolls to it. */
+.smb-search-row-pulse {
+  animation: smb-search-row-pulse 1.6s ease-out;
+}
+@keyframes smb-search-row-pulse {
+  0% {
+    background: rgba(195, 85, 58, 0);
+  }
+  20% {
+    background: rgba(195, 85, 58, 0.15);
+  }
+  100% {
+    background: rgba(195, 85, 58, 0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .smb-search-row-pulse {
+    animation: none;
+  }
+}

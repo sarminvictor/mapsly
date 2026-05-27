@@ -6,10 +6,16 @@
  * Audience: Maria (single-business owner). Per
  * `.claude/rules/ui-ux-smb.md` and `.claude/rules/copy-voice.md`:
  *
- *   - Hero KPIs in plain English. No "3-pack", no "SERP", no "MSI".
- *     "Best spot in maps" beats "Best local-pack rank".
- *   - Table shows where she shows up per keyword + last-week delta.
- *   - Empty state for users still being indexed.
+ *   - Page opens with a one-line narrative ("you're in the top 3 for X
+ *     and missing N customers/mo across the rest"). Plain English, no
+ *     "3-pack" / "SERP" / "MSI".
+ *   - State bar (4 cells) + Rank bars + "Customers you miss" tile + a
+ *     top-5 keywords card ("where the demand is") + competitor
+ *     leaderboard. The full 200-keyword list lives in a `<details>`
+ *     disclosure at the bottom.
+ *   - Right rail (desktop) carries the three quick wins so the analytic
+ *     left column doesn't fight the action column. On mobile the rail
+ *     stacks below the main column via `.smb-search-grid` CSS.
  *
  * Per `.claude/rules/cache-components.md`:
  *
@@ -19,18 +25,15 @@
  *   - **Pattern 1** — `getSmbSearchData()` has the NEXT_PHASE build-
  *     guard returning EMPTY_SMB_SEARCH so Vercel's build worker can
  *     prerender without opening a Neon WebSocket.
+ *   - **Pattern 4b** — label builders RESOLVE every string on the
+ *     server and pass plain strings into the components. The single
+ *     `'use client'` component (KeywordFinder) takes plain string +
+ *     option-list props · no functions cross the boundary.
  *   - **Pattern 5** — no `export const dynamic = 'force-dynamic'`.
  *
  * Auth: page is authenticated. Anonymous visitors get
  * `unauthorized()` → `/signin`. Users with no claimed business get
  * the same onboarding empty state as the dashboard.
- *
- * Per `.claude/rules/i18n.md`:
- *
- *   - All copy in `messages/{locale}.json` under `smb.search.*`
- *   - en / es / fr-CA all populated; en-CA falls back to en
- *   - No `t.rich()` (Pattern 4 — would break server-component
- *     prerender). Plain `t(key)` only.
  *
  * KPITile is REUSED from `@/modules/smb-home/components` — do not
  * redefine.
@@ -49,15 +52,20 @@ import { ServiceContextChipForCurrentUser } from "@/components/smb/ServiceContex
 import { KPITile } from "@/modules/smb-home/components";
 import {
   CompetitorLeaderboardCard,
+  KeywordFinder,
   KeywordRow,
   RankBreakdownCard,
+  SearchNarrative,
   SearchStateBar,
+  TopKeywordsCard,
 } from "@/modules/smb-search/components";
 import type {
   CompetitorLeaderboardCardLabels,
   DeltaDirection,
+  KeywordFinderLabels,
   RankBreakdownCardLabels,
   SearchStateBarLabels,
+  TopKeywordsCardLabels,
   VisibilityStatus,
 } from "@/modules/smb-search/components";
 import { getSmbSearchData } from "@/modules/smb-search/queries";
@@ -84,6 +92,13 @@ export async function generateMetadata({
 interface PageParams {
   locale: string;
 }
+
+/** DOM id for the expandable "all tracked keywords" disclosure. The
+ *  KeywordFinder client component opens this and scrolls into it on
+ *  selection. */
+const ALL_KEYWORDS_DETAILS_ID = "smb-search-all-keywords";
+/** Per-row DOM id prefix · `${PREFIX}${keyword.id}` selects one row. */
+const ALL_KEYWORDS_ROW_PREFIX = "smb-search-row-";
 
 /**
  * Default export · SYNC shell with a Suspense'd async body. The shell
@@ -112,7 +127,7 @@ function SearchSkeleton() {
     <section
       aria-hidden
       style={{
-        maxWidth: 960,
+        maxWidth: 1080,
         margin: "0 auto",
         padding: "32px 20px 64px",
       }}
@@ -224,13 +239,11 @@ function formatVolume(volume: number | null): string {
  * Type-erased translator pulled from `getTranslations("smb.search")`.
  * Inline string-replace pattern matches the components — see
  * `SearchStateBar.tsx`, `RankBreakdownCard.tsx`,
- * `CompetitorLeaderboardCard.tsx`.
+ * `CompetitorLeaderboardCard.tsx`, `TopKeywordsCard.tsx`.
  *
- * NOTE on Pattern 4b: these label builders RESOLVE every string on
- * the server and pass plain strings into the components. No function
- * props cross the `'use client'` boundary because the components are
- * themselves server components — but keeping resolution server-side
- * means we'd be free to convert any of them to client later.
+ * Per cache-components Pattern 4b · these label builders RESOLVE every
+ * string on the server and pass plain strings into the components. No
+ * function props cross the `'use client'` boundary.
  */
 type SmbSearchTranslator = (
   key: string,
@@ -242,9 +255,11 @@ function buildStateBarLabels(t: SmbSearchTranslator): SearchStateBarLabels {
     totalSearches: t("state_total_searches"),
     estimatedVisits: t("state_estimated_visits"),
     inTopThree: t("state_in_top_three"),
-    tracked: t("state_tracked"),
+    bestSpot: t("state_best_spot"),
     inTopThreeSublabel: t("state_in_top_three_sublabel", { total: "{total}" }),
-    trackedSublabel: t("state_tracked_sublabel"),
+    bestSpotSublabel: t("state_best_spot_sublabel", { keyword: "{keyword}" }),
+    bestSpotNoneSublabel: t("state_best_spot_none_sublabel"),
+    bestSpotNoneValue: t("state_best_spot_none_value"),
     totalSearchesTip: t("state_total_searches_tip"),
     estimatedVisitsTip: t("state_estimated_visits_tip"),
   };
@@ -288,11 +303,68 @@ function buildCompetitorLeaderboardLabels(
     colName: t("leaderboard_col_name"),
     colKeywords: t("leaderboard_col_keywords"),
     colTopThree: t("leaderboard_col_top_three"),
-    colEstTraffic: t("leaderboard_col_est_traffic"),
+    colCustomers: t("leaderboard_col_customers"),
     topThreeHelp: t("leaderboard_top_three_help"),
-    estTrafficHelp: t("leaderboard_est_traffic_help"),
+    customersHelp: t("leaderboard_customers_help"),
     empty: t("leaderboard_empty"),
   };
+}
+
+function buildTopKeywordsLabels(
+  t: SmbSearchTranslator,
+  trackedTotal: number,
+): TopKeywordsCardLabels {
+  return {
+    heading: t("top_heading"),
+    subtitle: t("top_subtitle", { total: trackedTotal }),
+    volumeTemplate: t("top_volume_template", { value: "{value}" }),
+    mapsLabel: t("top_maps_label"),
+    organicLabel: t("top_organic_label"),
+    rankTemplate: t("top_rank_template", { rank: "{rank}" }),
+    notRanked: t("top_not_ranked"),
+    topThreeInMapsLabel: t("top_top_three_in_maps_label"),
+    emptySlot: t("top_empty_slot"),
+    missedTemplate: t("top_missed_template", { count: "{count}" }),
+    inTopThree: t("top_in_top_three"),
+    empty: t("top_empty"),
+  };
+}
+
+function buildKeywordFinderLabels(t: SmbSearchTranslator): KeywordFinderLabels {
+  return {
+    placeholder: t("finder_placeholder"),
+    ariaLabel: t("finder_aria_label"),
+    expandAll: t("finder_expand_all"),
+  };
+}
+
+/**
+ * Pick the narrative sentence for the top of the page. The choice is
+ * deterministic — there are only three real cases (in the pack / not in
+ * the pack / no data yet) and Maria sees the same line every time her
+ * underlying numbers stay flat. Pure · server-component-safe.
+ */
+function buildNarrative(
+  t: SmbSearchTranslator,
+  data: {
+    keywordsInLocalPack: number;
+    keywordsTracked: number;
+    totalEstPatientsLost: number;
+  },
+): string {
+  if (data.keywordsTracked === 0) {
+    return t("narrative_no_data");
+  }
+  if (data.keywordsInLocalPack === 0) {
+    return t("narrative_no_top_three", {
+      tracked: data.keywordsTracked,
+      missed: data.totalEstPatientsLost,
+    });
+  }
+  return t("narrative_full", {
+    topThree: data.keywordsInLocalPack,
+    missed: data.totalEstPatientsLost,
+  });
 }
 
 /**
@@ -358,29 +430,34 @@ async function SearchBody({ params }: { params: Promise<PageParams> }) {
     );
   }
 
-  // Build a top headline string for the "best spot" KPI. We pick the
-  // single keyword where Maria has the lowest local-pack rank and put
-  // it in plain English — this beats showing a bare "1" / "2" / "3".
-  const bestRow =
+  // Pick the single keyword behind Maria's best Maps rank · feeds the
+  // State Bar's 4th cell sublabel ("for 'med spa miami'").
+  const bestMapsRow =
     data.bestLocalPackRank != null
-      ? (data.keywords.find(
+      ? (data.allTrackedKeywords.find(
           (k) => k.localPackRank === data.bestLocalPackRank,
         ) ?? null)
       : null;
 
-  const heroBestValue =
-    data.bestLocalPackRank != null
-      ? t("hero_best_value", { rank: data.bestLocalPackRank })
-      : t("hero_best_value_empty");
-  const heroBestSublabel = bestRow
-    ? t("hero_best_sublabel", { keyword: bestRow.keyword })
-    : t("hero_best_sublabel_empty");
+  const topThreeKeywords =
+    data.rankBuckets.find((b) => b.key === "top_3")?.keywordCount ?? 0;
+
+  const narrative = buildNarrative(t, {
+    keywordsInLocalPack: data.keywordsInLocalPack,
+    keywordsTracked: data.keywordsTracked,
+    totalEstPatientsLost: data.totalEstPatientsLost,
+  });
+
+  const finderOptions = data.allTrackedKeywords.map((k) => ({
+    id: k.id,
+    keyword: k.keyword,
+  }));
 
   return (
     <section
       aria-labelledby="search-heading"
       style={{
-        maxWidth: 960,
+        maxWidth: 1080,
         margin: "0 auto",
         padding: "32px 20px 64px",
       }}
@@ -432,368 +509,289 @@ async function SearchBody({ params }: { params: Promise<PageParams> }) {
         </Suspense>
       </div>
 
-      {/* State bar · 4 headline numbers · Boxly pattern */}
-      <SearchStateBar
-        totalSearchVolume={data.totalSearchVolume}
-        totalEstimatedVisits={data.totalEstimatedVisits}
-        topThreeKeywords={
-          data.rankBuckets.find((b) => b.key === "top_3")?.keywordCount ?? 0
-        }
-        tracked={data.keywordsTracked}
-        labels={buildStateBarLabels(t)}
-      />
-
-      {/* Rank breakdown · Top 3 / Top 4-10 / 11+ · the user's #3 ask */}
-      <RankBreakdownCard
-        buckets={data.rankBuckets}
-        labels={buildRankBreakdownLabels(t)}
-      />
-
-      {/* Competitor leaderboard · top 10 in cell + Maria's position ·
-          the user's #4 ask */}
-      <CompetitorLeaderboardCard
-        rows={data.competitorLeaderboard}
-        ownRank={data.competitorLeaderboardOwnRank}
-        total={data.competitorLeaderboardTotal}
-        city={data.city}
-        labels={buildCompetitorLeaderboardLabels(t)}
-      />
-
-      {/* "Customers we estimate you miss" tile · kept as a single
-          high-impact KPI · the others moved into the StateBar */}
-      <section
-        aria-labelledby="missed-kpi-heading"
-        style={{ marginBottom: 24 }}
+      {/* Two-column layout · left = analytics, right = quick wins rail.
+          Mirrors the reviews-page layout for voice consistency. The
+          `.smb-search-grid` class collapses to one column < 720px via
+          `app/globals.css`. */}
+      <div
+        className="smb-search-grid"
+        style={{
+          display: "grid",
+          gridTemplateColumns: "minmax(0, 1fr) 300px",
+          gap: 24,
+          alignItems: "start",
+        }}
       >
-        <h2
-          id="missed-kpi-heading"
-          style={{ position: "absolute", left: -9999 }}
-        >
-          {t("kpis_heading")}
-        </h2>
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1fr",
-            gap: 12,
-          }}
-        >
-          <KPITile
-            variant="standard"
-            label={t("kpi_patients_lost")}
-            value={data.totalEstPatientsLost}
-            sublabel={t("kpi_patients_lost_sublabel")}
-            tone={data.totalEstPatientsLost > 0 ? "warn" : "good"}
-            infoTip={t("kpi_patients_lost_help")}
+        <main>
+          {/* One-line narrative · the story before the numbers. */}
+          <SearchNarrative sentence={narrative} />
+
+          {/* State bar · 4 headline numbers · "Best in Maps" replaces
+              the old "Keywords tracked" cell · sublabel uses the
+              keyword behind Maria's best rank. */}
+          <SearchStateBar
+            totalSearchVolume={data.totalSearchVolume}
+            totalEstimatedVisits={data.totalEstimatedVisits}
+            topThreeKeywords={topThreeKeywords}
+            tracked={data.keywordsTracked}
+            bestMapsRank={data.bestLocalPackRank}
+            bestMapsKeyword={bestMapsRow?.keyword ?? null}
+            labels={buildStateBarLabels(t)}
           />
-        </div>
-      </section>
 
-      {data.topQuickWins.length > 0 ? (
-        <section
-          aria-labelledby="quick-wins-heading"
-          style={{ marginBottom: 24 }}
-        >
-          <h2
-            id="quick-wins-heading"
-            style={{
-              margin: "0 0 14px",
-              fontFamily: "var(--font-serif)",
-              fontSize: 18,
-              letterSpacing: "-0.01em",
-              color: "var(--color-text)",
-            }}
-          >
-            {t("quick_wins_heading")}
-          </h2>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
-              gap: 12,
-            }}
-          >
-            {data.topQuickWins.map((win, idx) => (
-              <article
-                key={win.id}
-                style={{
-                  background: "var(--color-bg-2)",
-                  border: "1px solid var(--color-border)",
-                  borderRadius: 14,
-                  padding: "16px 18px",
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 8,
-                }}
-              >
-                <p
-                  style={{
-                    margin: 0,
-                    fontFamily: "var(--font-mono)",
-                    fontSize: 11,
-                    letterSpacing: "0.06em",
-                    textTransform: "uppercase",
-                    color: "var(--color-coral)",
-                    fontWeight: 600,
-                  }}
-                >
-                  #{idx + 1} · {win.impact}
-                </p>
-                <h3
-                  style={{
-                    margin: 0,
-                    fontFamily: "var(--font-serif)",
-                    fontSize: 17,
-                    letterSpacing: "-0.01em",
-                    lineHeight: 1.25,
-                    color: "var(--color-text)",
-                  }}
-                >
-                  {win.keyword}
-                </h3>
-                <p
-                  style={{
-                    margin: 0,
-                    fontSize: 13.5,
-                    lineHeight: 1.5,
-                    color: "var(--color-text-2)",
-                  }}
-                >
-                  {win.currentState}
-                </p>
-                <p
-                  style={{
-                    margin: 0,
-                    fontSize: 13,
-                    lineHeight: 1.5,
-                    color: "var(--color-text)",
-                    fontWeight: 500,
-                  }}
-                >
-                  {win.action}
-                </p>
-              </article>
-            ))}
-          </div>
-        </section>
-      ) : null}
+          {/* Rank breakdown bars · Top 3 / Top 4-10 / 11+. */}
+          <RankBreakdownCard
+            buckets={data.rankBuckets}
+            labels={buildRankBreakdownLabels(t)}
+          />
 
-      {/* Where you're not ranking · cell-aggregated gaps */}
-      {data.searchGaps.length > 0 ? (
-        <section aria-labelledby="gaps-heading" style={{ marginBottom: 24 }}>
-          <h2
-            id="gaps-heading"
-            style={{
-              margin: "0 0 6px",
-              fontFamily: "var(--font-serif)",
-              fontSize: 18,
-              letterSpacing: "-0.01em",
-              color: "var(--color-text)",
-            }}
+          {/* "Customers we estimate you miss" tile · single high-impact
+              KPI · the others moved into the StateBar. */}
+          <section
+            aria-labelledby="missed-kpi-heading"
+            style={{ marginBottom: 24 }}
           >
-            {t("gaps_heading")}
-          </h2>
-          <p
-            style={{
-              margin: "0 0 14px",
-              color: "var(--color-text-2)",
-              fontSize: 13,
-              lineHeight: 1.5,
-            }}
-          >
-            {t("gaps_subtitle", { city: data.city ?? "" })}
-          </p>
-          <ul
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: 8,
-              padding: 0,
-              margin: 0,
-              listStyle: "none",
-            }}
-          >
-            {data.searchGaps.map((gap) => (
-              <li
-                key={gap.id}
+            <h2
+              id="missed-kpi-heading"
+              style={{ position: "absolute", left: -9999 }}
+            >
+              {t("kpis_heading")}
+            </h2>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr",
+                gap: 12,
+              }}
+            >
+              <KPITile
+                variant="standard"
+                label={t("kpi_patients_lost")}
+                value={data.totalEstPatientsLost}
+                sublabel={t("kpi_patients_lost_sublabel")}
+                tone={data.totalEstPatientsLost > 0 ? "warn" : "good"}
+                infoTip={t("kpi_patients_lost_help")}
+              />
+            </div>
+          </section>
+
+          {/* Top 5 keywords by volume · the heart of the rebuild · each
+              row shows Maria's Maps + organic position and the top 3
+              businesses in Maps. */}
+          {data.topByVolume.length > 0 ? (
+            <TopKeywordsCard
+              rows={data.topByVolume}
+              labels={buildTopKeywordsLabels(t, data.keywordsTracked)}
+            />
+          ) : null}
+
+          {/* Competitor leaderboard · top 10 in cell + Maria's row · now
+              renders "Customers/mo" instead of raw $ traffic value. */}
+          <CompetitorLeaderboardCard
+            rows={data.competitorLeaderboard}
+            ownRank={data.competitorLeaderboardOwnRank}
+            total={data.competitorLeaderboardTotal}
+            city={data.city}
+            labels={buildCompetitorLeaderboardLabels(t)}
+          />
+
+          {/* Find + expandable full list · KeywordFinder (client) wires
+              the search-with-autosuggest, the `<details>` below it
+              renders all tracked keywords (collapsed by default). */}
+          {data.allTrackedKeywords.length > 0 ? (
+            <section style={{ marginBottom: 16 }}>
+              <KeywordFinder
+                options={finderOptions}
+                detailsId={ALL_KEYWORDS_DETAILS_ID}
+                rowIdPrefix={ALL_KEYWORDS_ROW_PREFIX}
+                labels={buildKeywordFinderLabels(t)}
+              />
+              <details
+                id={ALL_KEYWORDS_DETAILS_ID}
                 style={{
                   background: "var(--color-bg-2)",
                   border: "1px solid var(--color-border)",
                   borderRadius: 12,
                   padding: "12px 16px",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 14,
-                  flexWrap: "wrap",
                 }}
               >
-                <div style={{ flex: 1, minWidth: 0 }}>
+                <summary
+                  style={{
+                    cursor: "pointer",
+                    fontFamily: "var(--font-mono)",
+                    fontSize: 12,
+                    color: "var(--color-text-2)",
+                    fontWeight: 600,
+                    listStyle: "revert",
+                  }}
+                >
+                  {t("all_keywords_disclosure_summary", {
+                    count: data.allTrackedKeywords.length,
+                  })}
+                </summary>
+                <ul
+                  aria-label={t("all_keywords_aria_label")}
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 8,
+                    padding: 0,
+                    margin: "14px 0 0",
+                    listStyle: "none",
+                  }}
+                >
+                  {data.allTrackedKeywords.map((row) => {
+                    const status = bucketStatus(row);
+                    const delta = deriveDelta(row);
+                    const statusText = t(`status_${status}`);
+                    let deltaText: string;
+                    if (delta === "improved") {
+                      deltaText = t("delta_improved");
+                    } else if (delta === "slipped") {
+                      deltaText = t("delta_slipped");
+                    } else if (delta === "flat") {
+                      deltaText = t("delta_flat");
+                    } else if (delta === "new") {
+                      deltaText = t("delta_new");
+                    } else {
+                      deltaText = t("delta_none");
+                    }
+                    const volumeFormatted = formatVolume(row.searchVolume);
+                    const searchVolumeText =
+                      row.searchVolume != null && row.searchVolume > 0
+                        ? t("volume_with_unit", { value: volumeFormatted })
+                        : volumeFormatted;
+                    const searchVolumeAriaLabel =
+                      row.searchVolume != null && row.searchVolume > 0
+                        ? t("volume_aria", { value: row.searchVolume })
+                        : t("volume_aria_empty");
+                    const estLostText =
+                      row.estPatientsLost > 0
+                        ? t("est_lost_per_keyword", {
+                            count: row.estPatientsLost,
+                          })
+                        : "";
+                    return (
+                      <KeywordRow
+                        key={row.id}
+                        rowId={`${ALL_KEYWORDS_ROW_PREFIX}${row.id}`}
+                        keyword={row.keyword}
+                        statusText={statusText}
+                        status={status}
+                        delta={delta}
+                        deltaText={deltaText}
+                        searchVolumeText={searchVolumeText}
+                        searchVolumeAriaLabel={searchVolumeAriaLabel}
+                        packSlots={row.packSlots}
+                        packLabel={t("pack_label")}
+                        estPatientsLostText={estLostText}
+                      />
+                    );
+                  })}
+                </ul>
+              </details>
+            </section>
+          ) : (
+            <EmptyCard body={t("empty_no_keywords")} />
+          )}
+
+          <p
+            style={{
+              margin: "16px 0 0",
+              color: "var(--color-text-3)",
+              fontSize: 12,
+              fontFamily: "var(--font-mono)",
+            }}
+          >
+            {t("footer_help")}
+          </p>
+        </main>
+
+        {/* Right rail · three quick wins. Mirrors the reviews-page rail
+            (rail_rating + rail_themes). Falls below `<main>` on mobile
+            via `.smb-search-grid` CSS. */}
+        <aside
+          aria-label={t("quick_wins_heading")}
+          style={{ display: "flex", flexDirection: "column", gap: 12 }}
+        >
+          {data.topQuickWins.length > 0 ? (
+            <>
+              <h2
+                style={{
+                  margin: "0 0 6px",
+                  fontFamily: "var(--font-serif)",
+                  fontSize: 16,
+                  letterSpacing: "-0.01em",
+                  color: "var(--color-text)",
+                }}
+              >
+                {t("quick_wins_heading")}
+              </h2>
+              {data.topQuickWins.map((win, idx) => (
+                <article
+                  key={win.id}
+                  style={{
+                    background: "var(--color-bg-2)",
+                    border: "1px solid var(--color-border)",
+                    borderRadius: 14,
+                    padding: "14px 16px",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 8,
+                  }}
+                >
                   <p
                     style={{
                       margin: 0,
-                      fontSize: 15,
-                      lineHeight: 1.3,
+                      fontFamily: "var(--font-mono)",
+                      fontSize: 11,
+                      letterSpacing: "0.06em",
+                      textTransform: "uppercase",
+                      color: "var(--color-coral)",
+                      fontWeight: 600,
+                    }}
+                  >
+                    #{idx + 1} · {win.impact}
+                  </p>
+                  <h3
+                    style={{
+                      margin: 0,
+                      fontFamily: "var(--font-serif)",
+                      fontSize: 16,
+                      letterSpacing: "-0.01em",
+                      lineHeight: 1.25,
+                      color: "var(--color-text)",
+                    }}
+                  >
+                    {win.keyword}
+                  </h3>
+                  <p
+                    style={{
+                      margin: 0,
+                      fontSize: 13,
+                      lineHeight: 1.5,
+                      color: "var(--color-text-2)",
+                    }}
+                  >
+                    {win.currentState}
+                  </p>
+                  <p
+                    style={{
+                      margin: 0,
+                      fontSize: 13,
+                      lineHeight: 1.5,
                       color: "var(--color-text)",
                       fontWeight: 500,
                     }}
                   >
-                    {gap.keyword}
+                    {win.action}
                   </p>
-                  <p
-                    style={{
-                      margin: "4px 0 0",
-                      fontSize: 12,
-                      color: "var(--color-text-2)",
-                    }}
-                  >
-                    {t("gaps_row_competitors", {
-                      count: gap.competitorsRanking,
-                      bestRank: gap.bestCompetitorRank ?? "—",
-                    })}
-                  </p>
-                </div>
-                <div
-                  style={{
-                    flexShrink: 0,
-                    textAlign: "right",
-                    fontFamily: "var(--font-mono)",
-                    fontSize: 12,
-                    color: "var(--color-text-2)",
-                  }}
-                >
-                  {t("gaps_row_volume", {
-                    value: formatVolume(gap.searchVolume),
-                  })}
-                </div>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
-
-      {/* Keyword visibility list */}
-      <section aria-labelledby="list-heading" style={{ marginBottom: 24 }}>
-        <h2
-          id="list-heading"
-          style={{
-            margin: "0 0 14px",
-            fontFamily: "var(--font-serif)",
-            fontSize: 18,
-            letterSpacing: "-0.01em",
-            color: "var(--color-text)",
-          }}
-        >
-          {t("list_heading")}
-        </h2>
-
-        {data.keywords.length === 0 ? (
-          <EmptyCard body={t("empty_no_keywords")} />
-        ) : (
-          <>
-            {/* Visible column labels */}
-            <div
-              role="presentation"
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 12,
-                padding: "0 16px 8px",
-                fontFamily: "var(--font-mono)",
-                fontSize: 10,
-                textTransform: "uppercase",
-                letterSpacing: "0.08em",
-                color: "var(--color-text-3)",
-              }}
-            >
-              <span style={{ flex: 1, minWidth: 0 }}>{t("col_keyword")}</span>
-              <span
-                style={{
-                  flexShrink: 0,
-                  textAlign: "right",
-                  minWidth: 0,
-                }}
-              >
-                {t("col_status")}
-              </span>
-              <span style={{ width: 88, textAlign: "right", flexShrink: 0 }}>
-                {t("col_delta")}
-              </span>
-              <span style={{ width: 72, textAlign: "right", flexShrink: 0 }}>
-                {t("col_volume")}
-              </span>
-            </div>
-            <ul
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: 10,
-                padding: 0,
-                margin: 0,
-                listStyle: "none",
-              }}
-            >
-              {data.keywords.map((row) => {
-                const status = bucketStatus(row);
-                const delta = deriveDelta(row);
-                const statusText = t(`status_${status}`);
-                let deltaText: string;
-                if (delta === "improved") {
-                  deltaText = t("delta_improved");
-                } else if (delta === "slipped") {
-                  deltaText = t("delta_slipped");
-                } else if (delta === "flat") {
-                  deltaText = t("delta_flat");
-                } else if (delta === "new") {
-                  deltaText = t("delta_new");
-                } else {
-                  deltaText = t("delta_none");
-                }
-                const volumeFormatted = formatVolume(row.searchVolume);
-                const searchVolumeText =
-                  row.searchVolume != null && row.searchVolume > 0
-                    ? t("volume_with_unit", { value: volumeFormatted })
-                    : volumeFormatted;
-                const searchVolumeAriaLabel =
-                  row.searchVolume != null && row.searchVolume > 0
-                    ? t("volume_aria", { value: row.searchVolume })
-                    : t("volume_aria_empty");
-                const estLostText =
-                  row.estPatientsLost > 0
-                    ? t("est_lost_per_keyword", {
-                        count: row.estPatientsLost,
-                      })
-                    : "";
-                return (
-                  <KeywordRow
-                    key={row.id}
-                    keyword={row.keyword}
-                    statusText={statusText}
-                    status={status}
-                    delta={delta}
-                    deltaText={deltaText}
-                    searchVolumeText={searchVolumeText}
-                    searchVolumeAriaLabel={searchVolumeAriaLabel}
-                    packSlots={row.packSlots}
-                    packLabel={t("pack_label")}
-                    estPatientsLostText={estLostText}
-                  />
-                );
-              })}
-            </ul>
-          </>
-        )}
-      </section>
-
-      <p
-        style={{
-          margin: 0,
-          color: "var(--color-text-3)",
-          fontSize: 12,
-          fontFamily: "var(--font-mono)",
-        }}
-      >
-        {t("footer_help")}
-      </p>
+                </article>
+              ))}
+            </>
+          ) : null}
+        </aside>
+      </div>
     </section>
   );
 }
