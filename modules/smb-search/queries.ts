@@ -34,8 +34,12 @@ import {
   estimatePatientsLost,
   type KeywordRow,
   type PackSlot,
+  type SearchGap,
   type SmbSearchData,
 } from "./types";
+
+/** How many "you're not ranking for" gap rows to surface to Maria. */
+const MAX_SEARCH_GAPS = 5;
 
 /**
  * Sort rule · in-Maps-pack first (best rank first), then rows with an
@@ -87,6 +91,7 @@ export async function getSmbSearchData(userId: string): Promise<SmbSearchData> {
         id: true,
         name: true,
         city: true,
+        country: true,
         searchScanLastAt: true,
         businessKeywords: {
           orderBy: { latestEstTrafficUsd: { sort: "desc", nulls: "last" } },
@@ -119,7 +124,9 @@ export async function getSmbSearchData(userId: string): Promise<SmbSearchData> {
     if (own.businessKeywords.length === 0) {
       // Maria has a business but no keywords tracked yet (admin hasn't run
       // SERP scan). Return the empty shape with ownedBusinessId set so the
-      // page renders the "scan pending" copy instead of the full empty state.
+      // page renders the "scan pending" copy instead of the full empty
+      // state. Gaps stay empty — without Maria's own data, comparing to
+      // cell-mates isn't meaningful yet.
       return {
         ...EMPTY_SMB_SEARCH,
         ownedBusinessId: own.id,
@@ -245,6 +252,17 @@ export async function getSmbSearchData(userId: string): Promise<SmbSearchData> {
     );
     const topQuickWins = deriveSearchQuickWins(rows);
 
+    // 4) Cell-aggregated GAPS · keywords competitors in Maria's
+    //    (city, country) cell rank for that she does NOT. Zero new
+    //    API calls · derived entirely from existing BusinessKeyword
+    //    data.
+    const searchGaps = await buildSearchGaps({
+      ownBusinessId: own.id,
+      ownKeywordIds: new Set(own.businessKeywords.map((bk) => bk.keywordId)),
+      city: own.city,
+      country: own.country,
+    });
+
     return {
       ownedBusinessId: own.id,
       name: own.name,
@@ -254,6 +272,7 @@ export async function getSmbSearchData(userId: string): Promise<SmbSearchData> {
       keywordsInLocalPack,
       keywordsImprovedThisWeek: keywordsImproved,
       keywords: visible,
+      searchGaps,
       lastScanAt:
         mostRecentScanMs != null
           ? new Date(mostRecentScanMs)
@@ -265,6 +284,117 @@ export async function getSmbSearchData(userId: string): Promise<SmbSearchData> {
     console.error("getSmbSearchData failed", err);
     return EMPTY_SMB_SEARCH;
   }
+}
+
+/**
+ * Find keywords other paid businesses in Maria's (city, country) cell
+ * rank for that she doesn't. Sorted by competitor traffic value desc.
+ *
+ * Pure DB query · zero API calls. Skipped when:
+ *   - Maria's business has no city/country (no cell-mates lookup possible)
+ *   - No other businesses in the cell have BusinessKeyword data yet
+ *
+ * Returns at most `MAX_SEARCH_GAPS` (5) rows.
+ */
+async function buildSearchGaps(input: {
+  ownBusinessId: string;
+  ownKeywordIds: Set<string>;
+  city: string | null;
+  country: string | null;
+}): Promise<SearchGap[]> {
+  if (!input.city || !input.country) return [];
+
+  // Find other businesses in the same cell · scoped by city + country
+  // is intentionally narrow · matches dispatchSearchScan's cell shape.
+  const cellMates = await prisma.business.findMany({
+    where: {
+      city: input.city,
+      country: input.country,
+      isActive: true,
+      id: { not: input.ownBusinessId },
+    },
+    select: { id: true },
+    take: 200,
+  });
+  if (cellMates.length === 0) return [];
+
+  const cellMateIds = cellMates.map((b) => b.id);
+
+  // Pull all BusinessKeyword rows for cell-mates · group by keywordId.
+  // We do this in-memory rather than via groupBy because we want to
+  // pick "best rank" + "competitor count" per keyword in one pass.
+  const competitorKeywords = await prisma.businessKeyword.findMany({
+    where: {
+      businessId: { in: cellMateIds },
+      // Only meaningful ranks · skip rows still pending the first scan.
+      latestOrganicRank: { not: null },
+    },
+    select: {
+      keywordId: true,
+      latestOrganicRank: true,
+      latestEstTrafficUsd: true,
+      keyword: {
+        select: {
+          id: true,
+          keyword: true,
+          searchVolume: true,
+        },
+      },
+    },
+    take: 1000,
+  });
+
+  // Aggregate per keyword.
+  type Agg = {
+    keywordId: string;
+    keyword: string;
+    searchVolume: number | null;
+    competitorsRanking: number;
+    bestCompetitorRank: number | null;
+    estCompetitorTrafficUsd: number;
+  };
+  const byKeyword = new Map<string, Agg>();
+  for (const c of competitorKeywords) {
+    // Filter out keywords Maria already tracks.
+    if (input.ownKeywordIds.has(c.keywordId)) continue;
+    if (!c.keyword) continue;
+    const a = byKeyword.get(c.keywordId) ?? {
+      keywordId: c.keywordId,
+      keyword: c.keyword.keyword,
+      searchVolume: c.keyword.searchVolume,
+      competitorsRanking: 0,
+      bestCompetitorRank: null,
+      estCompetitorTrafficUsd: 0,
+    };
+    a.competitorsRanking += 1;
+    if (
+      c.latestOrganicRank != null &&
+      (a.bestCompetitorRank == null ||
+        c.latestOrganicRank < a.bestCompetitorRank)
+    ) {
+      a.bestCompetitorRank = c.latestOrganicRank;
+    }
+    a.estCompetitorTrafficUsd += c.latestEstTrafficUsd ?? 0;
+    byKeyword.set(c.keywordId, a);
+  }
+
+  // Top-N by competitor traffic value desc · then by competitor count
+  // as a tie-breaker.
+  return Array.from(byKeyword.values())
+    .sort((x, y) => {
+      const v = y.estCompetitorTrafficUsd - x.estCompetitorTrafficUsd;
+      if (v !== 0) return v;
+      return y.competitorsRanking - x.competitorsRanking;
+    })
+    .slice(0, MAX_SEARCH_GAPS)
+    .map((a) => ({
+      id: a.keywordId,
+      keyword: a.keyword,
+      searchVolume: a.searchVolume,
+      competitorsRanking: a.competitorsRanking,
+      bestCompetitorRank: a.bestCompetitorRank,
+      estCompetitorTrafficUsd: a.estCompetitorTrafficUsd,
+    }));
 }
 
 /**

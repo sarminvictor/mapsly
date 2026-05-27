@@ -501,6 +501,99 @@ async function SearchBody({ params }: { params: Promise<PageParams> }) {
         </section>
       ) : null}
 
+      {/* Where you're not ranking · cell-aggregated gaps */}
+      {data.searchGaps.length > 0 ? (
+        <section aria-labelledby="gaps-heading" style={{ marginBottom: 24 }}>
+          <h2
+            id="gaps-heading"
+            style={{
+              margin: "0 0 6px",
+              fontFamily: "var(--font-serif)",
+              fontSize: 18,
+              letterSpacing: "-0.01em",
+              color: "var(--color-text)",
+            }}
+          >
+            {t("gaps_heading")}
+          </h2>
+          <p
+            style={{
+              margin: "0 0 14px",
+              color: "var(--color-text-2)",
+              fontSize: 13,
+              lineHeight: 1.5,
+            }}
+          >
+            {t("gaps_subtitle", { city: data.city ?? "" })}
+          </p>
+          <ul
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 8,
+              padding: 0,
+              margin: 0,
+              listStyle: "none",
+            }}
+          >
+            {data.searchGaps.map((gap) => (
+              <li
+                key={gap.id}
+                style={{
+                  background: "var(--color-bg-2)",
+                  border: "1px solid var(--color-border)",
+                  borderRadius: 12,
+                  padding: "12px 16px",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 14,
+                  flexWrap: "wrap",
+                }}
+              >
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p
+                    style={{
+                      margin: 0,
+                      fontSize: 15,
+                      lineHeight: 1.3,
+                      color: "var(--color-text)",
+                      fontWeight: 500,
+                    }}
+                  >
+                    {gap.keyword}
+                  </p>
+                  <p
+                    style={{
+                      margin: "4px 0 0",
+                      fontSize: 12,
+                      color: "var(--color-text-2)",
+                    }}
+                  >
+                    {t("gaps_row_competitors", {
+                      count: gap.competitorsRanking,
+                      bestRank: gap.bestCompetitorRank ?? "—",
+                    })}
+                  </p>
+                </div>
+                <div
+                  style={{
+                    flexShrink: 0,
+                    textAlign: "right",
+                    fontFamily: "var(--font-mono)",
+                    fontSize: 12,
+                    color: "var(--color-text-2)",
+                  }}
+                >
+                  {t("gaps_row_volume", {
+                    value: formatVolume(gap.searchVolume),
+                  })}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
       {/* Keyword visibility list */}
       <section aria-labelledby="list-heading" style={{ marginBottom: 24 }}>
         <h2
