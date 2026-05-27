@@ -26,7 +26,7 @@
       "schedule": "30 11 * * 1"
     },
     {
-      "path": "/api/cron/weekly/serp-rank-scan",
+      "path": "/api/cron/weekly/search-visibility",
       "schedule": "0 12 * * 1"
     },
     {
