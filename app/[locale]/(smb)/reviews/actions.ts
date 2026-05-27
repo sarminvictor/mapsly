@@ -4,16 +4,18 @@
  * SMB reviews · server actions.
  *
  * regenerateReplyAction · generates (or re-generates) the AI reply draft
- * for one review. Matches the owner's voice by sampling up to 5 of their
- * recent owner replies on OTHER reviews and feeding them as voice-notes
- * to draftReplyUncached. Bypasses the 6h cache (always fresh).
+ * for one review. Matches the owner's voice by sampling up to 8 of their
+ * recent owner-replied reviews on the SAME business — passes them as
+ * paired (review → owner reply) few-shot examples to draftReplyUncached
+ * so the model learns the owner's exact openers, closings, emoji use,
+ * and signature phrases. Bypasses the 6h cache (always fresh).
  *
  * Auth: requires the caller to own the Business (Business.ownerUserId)
  * OR be an ADMIN.
  *
- * Cost: ~$0.003 per call on gpt-5.4-mini (the reply-draft model). Bills
- * to the open `manual:smb-regenerate-reply` CronRun · visible at
- * /admin/cron-runs.
+ * Cost: ~$0.003–0.005 per call on gpt-5.4-mini · few-shot examples bump
+ * input tokens but per-call stays under $0.01. Bills to the open
+ * `manual:smb-regenerate-reply` CronRun · visible at /admin/cron-runs.
  */
 
 import { z } from "zod";
@@ -22,7 +24,11 @@ import { revalidateTag } from "next/cache";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { withCronRun } from "@/lib/cost/cost-counter";
-import { draftReplyUncached, type ReplyTone } from "@/services/ai/reply-draft";
+import {
+  draftReplyUncached,
+  type ReplyTone,
+  type VoiceExample,
+} from "@/services/ai/reply-draft";
 
 export type ActionResult<T = null> =
   | { ok: true; data: T; message?: string }
@@ -65,6 +71,7 @@ export async function regenerateReplyAction(
         id: true,
         stars: true,
         text: true,
+        reviewerName: true,
         businessId: true,
         business: {
           select: {
@@ -88,9 +95,11 @@ export async function regenerateReplyAction(
       return { ok: false, error: "forbidden" };
     }
 
-    // Sample owner replies for voice context · use the most recent 5
-    // from OTHER reviews of the same business. Skip if no prior replies
-    // exist (Maria's first reply — defaults to warm voice).
+    // Sample owner-replied reviews for voice context · up to 8 most
+    // recent on the SAME business. We fetch BOTH the review text and
+    // the owner reply so the model sees the (trigger → response)
+    // pairing · this is materially better tone learning than flat
+    // reply-only voice notes (Boxly-style few-shot pattern).
     const samples = await prisma.review.findMany({
       where: {
         businessId: review.business.id,
@@ -99,14 +108,21 @@ export async function regenerateReplyAction(
         id: { not: reviewId },
       },
       orderBy: { ownerReplyAt: "desc" },
-      take: 5,
-      select: { ownerReplyText: true },
+      take: 8,
+      select: {
+        stars: true,
+        text: true,
+        ownerReplyText: true,
+      },
     });
 
-    const voiceNotes =
-      samples.length > 0
-        ? buildVoiceNotes(samples.map((s) => s.ownerReplyText ?? ""))
-        : undefined;
+    const voiceExamples: VoiceExample[] = samples
+      .filter((s) => s.ownerReplyText && s.ownerReplyText.trim().length > 0)
+      .map((s) => ({
+        reviewStars: s.stars,
+        reviewText: s.text,
+        ownerReply: s.ownerReplyText!,
+      }));
 
     const drafts = await withCronRun(
       "manual:smb-regenerate-reply",
@@ -116,8 +132,15 @@ export async function regenerateReplyAction(
           text: review.text!,
           businessName: review.business.name,
           category: review.business.category,
+          // reviewerName is the anonymized initial (e.g. "S.B."). The
+          // prompt instructs the model to treat initials as "Hi there"
+          // rather than greet by the literal initial. Per
+          // `.claude/rules/security.md` § PII, we never store the full
+          // reviewer name. Maria can edit the placeholder when she
+          // posts to Google (where she sees the real name anyway).
+          reviewerName: review.reviewerName,
           tone: tone as ReplyTone,
-          voiceNotes,
+          voiceExamples: voiceExamples.length > 0 ? voiceExamples : undefined,
         });
       },
     );
@@ -137,11 +160,11 @@ export async function regenerateReplyAction(
       data: {
         draftEn: drafts.en,
         draftEs: drafts.es,
-        voiceNotesSampleCount: samples.length,
+        voiceNotesSampleCount: voiceExamples.length,
       },
       message:
-        samples.length > 0
-          ? `Reply generated · matched tone from ${samples.length} prior reply(ies).`
+        voiceExamples.length > 0
+          ? `Reply generated · matched tone from ${voiceExamples.length} prior reply(ies).`
           : "Reply generated · default warm tone (no prior replies to match).",
     };
   } catch (err) {
@@ -154,21 +177,4 @@ export async function regenerateReplyAction(
       error: err instanceof Error ? err.message : "unknown",
     };
   }
-}
-
-/**
- * Build a voice-notes string from sample owner replies. Truncates each
- * sample to 300 chars to keep the prompt cost-controlled · the model
- * only needs ~tone signal, not full content.
- */
-function buildVoiceNotes(samples: string[]): string {
-  const trimmed = samples
-    .map((s) => s.trim().slice(0, 300))
-    .filter((s) => s.length > 0)
-    .slice(0, 5);
-  if (trimmed.length === 0) return "";
-  return [
-    "Match the owner's voice from these recent replies (note: openers, sign-offs, tone, sentence length, level of formality, use of emoji or none):",
-    ...trimmed.map((s, i) => `Example ${i + 1}: ${s}`),
-  ].join("\n");
 }
