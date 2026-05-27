@@ -208,7 +208,11 @@
       "kpi_patients_lost_help": "Estimación de cuántas personas al mes buscan tus servicios, ven los 3 primeros en Google Maps y no te encuentran porque no estás en esos 3.",
       "quick_wins_heading": "Tres victorias rápidas",
       "pack_label": "Top 3 en mapas",
-      "est_lost_per_keyword": "{count, plural, one {≈ 1 cliente/mes perdido} other {≈ # clientes/mes perdidos}}"
+      "est_lost_per_keyword": "{count, plural, one {≈ 1 cliente/mes perdido} other {≈ # clientes/mes perdidos}}",
+      "gaps_heading": "Donde no apareces",
+      "gaps_subtitle": "Búsquedas en las que otros negocios cerca de ti aparecen — y tú no.",
+      "gaps_row_competitors": "{count, plural, one {1 negocio cercano aparece} other {# negocios cercanos aparecen}} · mejor posición #{bestRank}",
+      "gaps_row_volume": "{value}/mes"
     },
     "nav": {
       "brand": "mapsly",

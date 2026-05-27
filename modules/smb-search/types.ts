@@ -141,6 +141,37 @@ export interface SmbSearchData {
 
   /** Top-3 highest-impact wins, derived from the keyword list. */
   topQuickWins: SearchQuickWin[];
+
+  /** Keywords where competitors in Maria's cell rank but she doesn't.
+   * Derived from cell-aggregate BusinessKeyword data · zero extra API
+   * calls. Top 5 by estimated competitor traffic value. Empty array
+   * when Maria's cell has no other businesses with ranked_keywords
+   * data yet (e.g., first business in a new cell). */
+  searchGaps: SearchGap[];
+}
+
+/**
+ * One row in the "Where you're not ranking" section. Pulled from
+ * keywords other paid businesses in Maria's cell rank for · she
+ * doesn't yet · sorted by competitor traffic value desc.
+ */
+export interface SearchGap {
+  /** Keyword id · stable for keys. */
+  id: string;
+  /** The keyword text Maria isn't ranking for. */
+  keyword: string;
+  /** Monthly searches in Maria's city · nullable when DfS hasn't
+   * surfaced a volume number yet. */
+  searchVolume: number | null;
+  /** How many competitor businesses in Maria's cell rank for this
+   * keyword today. Higher count = more competitive opportunity. */
+  competitorsRanking: number;
+  /** Best rank across all competitors (lowest rank number). Tells
+   * Maria how high the bar is. */
+  bestCompetitorRank: number | null;
+  /** Sum of estimated traffic value across competitors · proxies
+   * "how much this keyword is worth in your market." */
+  estCompetitorTrafficUsd: number;
 }
 
 /**
@@ -164,6 +195,7 @@ export const EMPTY_SMB_SEARCH: SmbSearchData = {
   keywordsInLocalPack: 0,
   keywordsImprovedThisWeek: 0,
   keywords: [],
+  searchGaps: [],
   lastScanAt: null,
   totalEstPatientsLost: 0,
   topQuickWins: [],
