@@ -91,10 +91,24 @@ export function kvCache<Args extends readonly unknown[], R>(
 
     // 1. KV unavailable → straight through.
     if (!isKvAvailable()) {
-      if (!kvWarnedUnavailable && process.env.NODE_ENV !== "test") {
+      // The warning fires once per process · in Vercel Fluid Compute that's
+      // once per function instance (cold start). Set `KV_WARN_DISABLED=1`
+      // to suppress entirely · useful when you've consciously decided not
+      // to set up Vercel KV / Upstash Redis and don't want log noise.
+      //
+      // Long-term fix: install Upstash Redis from the Vercel Marketplace ·
+      // it auto-injects KV_REST_API_URL + KV_REST_API_TOKEN and the cache
+      // becomes active without any code change.
+      const warnDisabled = process.env.KV_WARN_DISABLED === "1";
+      if (
+        !kvWarnedUnavailable &&
+        !warnDisabled &&
+        process.env.NODE_ENV !== "test"
+      ) {
         console.warn(
           `[lib/cache] KV not configured (no KV_REST_API_URL / KV_URL) — running uncached. ` +
-            `Set up Vercel KV to enable 24h dedup. This warning logs once per process.`,
+            `Install Upstash Redis from the Vercel Marketplace to enable 24h dedup, ` +
+            `or set KV_WARN_DISABLED=1 to silence this warning. Logs once per process.`,
         );
         kvWarnedUnavailable = true;
       }

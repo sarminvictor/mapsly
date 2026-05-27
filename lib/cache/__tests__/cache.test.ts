@@ -248,6 +248,78 @@ describe("kvCache · KV unavailable", () => {
         process.env.KV_REST_API_READ_ONLY_TOKEN = savedRo;
     }
   });
+
+  // KV_WARN_DISABLED env-var · admin escape hatch. Lets the team
+  // run uncached without log spam until Upstash is provisioned.
+  // Need to run from a non-test NODE_ENV because the warning is
+  // suppressed in tests by default.
+  test("KV_WARN_DISABLED=1 suppresses the one-time warning", async () => {
+    __setKvClientForTest(null);
+    __resetCacheWarningsForTest();
+    const savedUrl = process.env.KV_REST_API_URL;
+    const savedKvUrl = process.env.KV_URL;
+    const savedNode = process.env.NODE_ENV;
+    const savedDisable = process.env.KV_WARN_DISABLED;
+    delete process.env.KV_REST_API_URL;
+    delete process.env.KV_URL;
+    // Pretend we're in production so the warn-block guard runs.
+    // NODE_ENV is typed readonly in newer @types/node · cast through
+    // Record to assign in tests without polluting the global type.
+    (process.env as Record<string, string | undefined>).NODE_ENV = "production";
+    process.env.KV_WARN_DISABLED = "1";
+
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const cached = kvCache("test:silent", { ttl: 60 }, async () => "ok");
+      await cached();
+      expect(warnSpy).not.toHaveBeenCalled();
+    } finally {
+      warnSpy.mockRestore();
+      if (savedUrl !== undefined) process.env.KV_REST_API_URL = savedUrl;
+      if (savedKvUrl !== undefined) process.env.KV_URL = savedKvUrl;
+      if (savedNode !== undefined)
+        (process.env as Record<string, string | undefined>).NODE_ENV =
+          savedNode;
+      if (savedDisable !== undefined) {
+        process.env.KV_WARN_DISABLED = savedDisable;
+      } else {
+        delete process.env.KV_WARN_DISABLED;
+      }
+    }
+  });
+
+  // Sanity check the inverse · warning DOES fire in production when the
+  // disable flag isn't set. Confirms we didn't accidentally suppress
+  // everywhere.
+  test("warning fires once when KV missing AND KV_WARN_DISABLED unset", async () => {
+    __setKvClientForTest(null);
+    __resetCacheWarningsForTest();
+    const savedUrl = process.env.KV_REST_API_URL;
+    const savedKvUrl = process.env.KV_URL;
+    const savedNode = process.env.NODE_ENV;
+    delete process.env.KV_REST_API_URL;
+    delete process.env.KV_URL;
+    delete process.env.KV_WARN_DISABLED;
+    // NODE_ENV is typed readonly in newer @types/node · cast through
+    // Record to assign in tests without polluting the global type.
+    (process.env as Record<string, string | undefined>).NODE_ENV = "production";
+
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const cached = kvCache("test:warn", { ttl: 60 }, async () => "ok");
+      await cached();
+      await cached(); // second call should NOT fire warning again
+      expect(warnSpy).toHaveBeenCalledTimes(1);
+      expect(warnSpy.mock.calls[0]![0]).toContain("Install Upstash Redis");
+    } finally {
+      warnSpy.mockRestore();
+      if (savedUrl !== undefined) process.env.KV_REST_API_URL = savedUrl;
+      if (savedKvUrl !== undefined) process.env.KV_URL = savedKvUrl;
+      if (savedNode !== undefined)
+        (process.env as Record<string, string | undefined>).NODE_ENV =
+          savedNode;
+    }
+  });
 });
 
 describe("kvCache · KV runtime errors", () => {
