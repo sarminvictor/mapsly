@@ -16,11 +16,21 @@
 //   3. Tests need to swap the client out without touching env vars or hitting
 //      the network. The `__setKvClientForTest` helper makes that explicit.
 //
-// Required env (any ONE of these pairs is enough to be considered configured):
-//   - KV_REST_API_URL + KV_REST_API_TOKEN     (Vercel KV REST · canonical)
-//   - KV_URL                                  (TLS rediss:// for some bindings)
+//   4. Two transports are supported · we pick automatically per env:
+//      a. `@vercel/kv` over HTTPS REST · when KV_REST_API_URL is set
+//      b. `ioredis` over rediss:// · when REDIS_URL or KV_URL is set
+//      This makes the cache work with any Redis provider (Vercel Marketplace
+//      integrations like Upstash + Redis Cloud, self-hosted, etc.) without
+//      forcing the REST endpoint.
+//
+// Required env (any ONE is enough to be considered configured):
+//   - REDIS_URL                               (rediss://… · canonical for most providers)
+//   - KV_REST_API_URL + KV_REST_API_TOKEN     (Vercel KV REST · Upstash HTTPS endpoint)
+//   - KV_URL                                  (alias for REDIS_URL on legacy bindings)
 
 import { kv as vercelKv } from "@vercel/kv";
+
+import { createRedisKvClient, isRedisUrlConfigured } from "./redis-client";
 
 /**
  * Subset of @vercel/kv methods we actually call. Keeps the surface small and
@@ -55,10 +65,15 @@ let testOverride: KvClient | null = null;
  * without a KV binding, test envs), `kvCache` falls through and calls the
  * wrapped fn directly. This keeps the build green and lets developers iterate
  * without provisioning a KV instance.
+ *
+ * Accepts EITHER transport · REDIS_URL (ioredis) OR KV_REST_API_URL
+ * (@vercel/kv REST). REDIS_URL wins when both are set (more direct, lower
+ * latency · REST adds an HTTP hop).
  */
 export function isKvAvailable(): boolean {
   if (testOverride) return true;
   return Boolean(
+    process.env.REDIS_URL ??
     process.env.KV_REST_API_URL ??
     process.env.KV_URL ??
     process.env.KV_REST_API_READ_ONLY_TOKEN,
@@ -68,15 +83,36 @@ export function isKvAvailable(): boolean {
 /**
  * Returns the configured KV client, or `null` if KV is not configured.
  *
- * Never throws. Callers must handle the null case and either skip the cache
- * (`kvCache` does this) or surface the unconfigured state.
+ * Selection logic:
+ *   1. Test override always wins.
+ *   2. If `REDIS_URL` (or `KV_URL`) is set · use the ioredis-backed client
+ *      from redis-client.ts. This is the path Vercel Marketplace Redis
+ *      integrations + Render Redis + most third-party providers expose.
+ *   3. Otherwise if `KV_REST_API_URL` is set · use @vercel/kv (HTTPS REST,
+ *      Upstash via the older Vercel KV integration).
+ *
+ * Never throws. Callers must handle the null case.
  */
 export function getKv(): KvClient | null {
   if (testOverride) return testOverride;
-  if (!isKvAvailable()) return null;
   if (cached) return cached;
-  cached = vercelKv as unknown as KvClient;
-  return cached;
+
+  // Prefer rediss:// connection when available · direct Redis is lower
+  // latency than the REST hop for high-traffic cache use.
+  if (isRedisUrlConfigured()) {
+    const redisClient = createRedisKvClient();
+    if (redisClient) {
+      cached = redisClient;
+      return cached;
+    }
+  }
+
+  if (process.env.KV_REST_API_URL || process.env.KV_REST_API_READ_ONLY_TOKEN) {
+    cached = vercelKv as unknown as KvClient;
+    return cached;
+  }
+
+  return null;
 }
 
 /**

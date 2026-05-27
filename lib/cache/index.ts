@@ -106,9 +106,9 @@ export function kvCache<Args extends readonly unknown[], R>(
         process.env.NODE_ENV !== "test"
       ) {
         console.warn(
-          `[lib/cache] KV not configured (no KV_REST_API_URL / KV_URL) — running uncached. ` +
-            `Install Upstash Redis from the Vercel Marketplace to enable 24h dedup, ` +
-            `or set KV_WARN_DISABLED=1 to silence this warning. Logs once per process.`,
+          `[lib/cache] cache not configured (no REDIS_URL / KV_REST_API_URL) — running uncached. ` +
+            `Provision Redis from the Vercel Marketplace (sets REDIS_URL automatically) ` +
+            `or set KV_WARN_DISABLED=1 to silence. Logs once per process.`,
         );
         kvWarnedUnavailable = true;
       }

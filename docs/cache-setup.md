@@ -1,34 +1,50 @@
-# Cache setup · Upstash Redis via Vercel Marketplace
+# Cache setup · Redis (any provider)
 
 The `lib/cache` module (used by `services/ai/extract-entities`, `services/ai/reply-draft`, `services/dataforseo/*`, etc.) opportunistically dedups identical calls for 24h. Without a configured cache backend, every call hits the upstream API · costs more, slower responses.
 
 If you see this warning in Vercel logs:
 
 ```
-[lib/cache] KV not configured (no KV_REST_API_URL / KV_URL) — running uncached.
-Install Upstash Redis from the Vercel Marketplace to enable 24h dedup,
-or set KV_WARN_DISABLED=1 to silence this warning. Logs once per process.
+[lib/cache] cache not configured (no REDIS_URL / KV_REST_API_URL) — running uncached.
+Provision Redis from the Vercel Marketplace (sets REDIS_URL automatically)
+or set KV_WARN_DISABLED=1 to silence. Logs once per process.
 ```
 
-Pick one of two paths:
+We support **two transports**, picked automatically per env. You only need ONE.
 
-## Option A · Install Upstash Redis (recommended)
+## Transport A · `REDIS_URL` (preferred, lower latency)
 
-Per Vercel's 2026 changes, **Vercel KV is no longer offered**; storage now lives in the Vercel Marketplace. Upstash Redis is the drop-in replacement and works with the existing `@vercel/kv` SDK we already depend on.
+This is what most Vercel Marketplace Redis integrations (Upstash Redis, Redis Cloud, Render Redis, self-hosted) expose. The connection string looks like `rediss://default:<password>@<host>:<port>`.
+
+Detected in `lib/cache/kv.ts`:
+
+```ts
+if (isRedisUrlConfigured()) {
+  return createRedisKvClient(); // ioredis-backed
+}
+```
+
+Backed by `ioredis` with lazy connect, 1-retry-per-request, and offline queue disabled — connection errors fall through to upstream rather than hang.
+
+## Transport B · `KV_REST_API_URL` + `KV_REST_API_TOKEN`
+
+The HTTPS REST endpoint used by `@vercel/kv`. Slower than direct Redis (extra HTTP hop) but works in edge-only runtimes where TCP sockets aren't available. Picked automatically when `REDIS_URL` is unset but `KV_REST_API_URL` is.
+
+If BOTH are set, `REDIS_URL` wins (lower latency).
+
+## Provisioning · Vercel Marketplace
 
 1. Open the Vercel dashboard → project `mapsly` → **Storage** tab
-2. Click **Connect Database** → **Marketplace** → **Upstash Redis** (free tier is fine for v0)
-3. Provision the integration · Vercel auto-injects these env vars across all environments:
-   - `KV_REST_API_URL` (canonical · what we check in `lib/cache/kv.ts`)
-   - `KV_REST_API_TOKEN` (write token)
-   - `KV_REST_API_READ_ONLY_TOKEN` (read-only token)
-   - `KV_URL` (rediss:// connection string, optional)
+2. Click **Connect Database** → **Marketplace** → pick **Upstash Redis** (free tier 10k cmds/day) or **Redis Cloud**
+3. Provision the integration · Vercel auto-injects across all environments:
+   - `REDIS_URL` (rediss:// · what we prefer)
+   - And/or `KV_REST_API_URL` + `KV_REST_API_TOKEN` (the REST endpoint, for older bindings)
 4. Redeploy · the next cold start picks up the env and the cache becomes active
 5. Verify · run any cron + grep `[lib/cache]` in Vercel logs — the warning should be gone, and cache hits accrue to `CronRun.meta.cacheHits`
 
-**Free tier limits (Upstash):** 10k commands/day, 256 MB. Plenty for our 6h–24h dedup on AI extracts + DfS responses.
+Per Vercel's 2026 changes, **Vercel KV is no longer offered**; storage now lives in the Marketplace. Both Upstash and Redis Cloud are drop-in.
 
-## Option B · Silence the warning (no cache)
+## Escape hatch · silence the warning when not provisioning Redis yet
 
 When you've decided the cache isn't worth provisioning yet (early product, low call volume), set on Vercel:
 
@@ -37,7 +53,15 @@ vercel env add KV_WARN_DISABLED production
 # value: 1
 ```
 
-The cache layer continues to fall through (every call hits upstream); the warning stops logging. Use this as a temporary measure · the AI cost savings from cache hits typically pay for the Upstash tier many times over once review volume picks up.
+The cache layer continues to fall through (every call hits upstream); the warning stops logging. Use this as a temporary measure · the AI cost savings from cache hits typically pay for the Redis tier many times over once review volume picks up.
+
+## Connection failure semantics
+
+When Redis is configured but the connection fails (network blip, provider outage):
+
+- `ioredis` connection event-emits an error · we log a warning, swallow at the EventEmitter level
+- The next `get`/`set` call rejects → `lib/cache/index.ts` catches → falls through to the upstream fn
+- **Cache failure NEVER breaks the request path.** This is by design: caching is an optimization, not a load-bearing dependency.
 
 ## What gets cached
 
@@ -59,6 +83,7 @@ Reviews task pull (`services/dataforseo/reviews-task`) does **not** use kvCache 
 
 ## Anti-patterns
 
-- ❌ Hard-coding `process.env.KV_REST_API_URL` outside `lib/cache/kv.ts` — that file is the single source of truth.
-- ❌ Conditionally importing `@vercel/kv` at module top level — the wrapper's lazy Proxy avoids the import-time crash (see INC-07).
-- ❌ Pulling in a separate Redis library when Upstash + `@vercel/kv` already covers the use case.
+- ❌ Hard-coding `process.env.KV_REST_API_URL` / `REDIS_URL` outside `lib/cache/kv.ts` — that file is the single source of truth for transport selection.
+- ❌ Conditionally importing `@vercel/kv` or `ioredis` at module top level — both are wrapped behind lazy Proxies (`getKv()` + `createRedisKvClient()`) to avoid import-time env reads (INC-07).
+- ❌ Adding a third Redis client. We've intentionally settled on `ioredis` for direct rediss:// + `@vercel/kv` for REST · adding a fourth (say, `node-redis`) without removing one fragments the abstraction.
+- ❌ Treating cache failure as fatal · the wrapper falls through to upstream on every error. Don't add code that throws when KV is missing.
