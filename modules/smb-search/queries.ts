@@ -30,16 +30,23 @@ import prisma from "@/lib/prisma";
 import {
   EMPTY_SMB_SEARCH,
   MAX_KEYWORDS,
+  bestRank,
+  ctrForBestRank,
   deriveSearchQuickWins,
   estimatePatientsLost,
+  type CompetitorRow,
   type KeywordRow,
   type PackSlot,
+  type RankBucket,
   type SearchGap,
   type SmbSearchData,
 } from "./types";
 
 /** How many "you're not ranking for" gap rows to surface to Maria. */
 const MAX_SEARCH_GAPS = 5;
+/** How many competitor rows in the leaderboard before Maria's own
+ *  appended row (if she's outside the top 10). */
+const COMPETITOR_LEADERBOARD_SIZE = 10;
 
 /**
  * Sort rule · in-Maps-pack first (best rank first), then rows with an
@@ -252,13 +259,28 @@ export async function getSmbSearchData(userId: string): Promise<SmbSearchData> {
     );
     const topQuickWins = deriveSearchQuickWins(rows);
 
-    // 4) Cell-aggregated GAPS · keywords competitors in Maria's
+    // 4) Demand-side + supply-side totals + rank-bucket breakdown.
+    //    Uses the FULL row set (not visible-trimmed) so the totals are
+    //    honest even when the table is capped at MAX_KEYWORDS.
+    const totals = computeTotals(rows);
+
+    // 5) Cell-aggregated GAPS · keywords competitors in Maria's
     //    (city, country) cell rank for that she does NOT. Zero new
     //    API calls · derived entirely from existing BusinessKeyword
     //    data.
     const searchGaps = await buildSearchGaps({
       ownBusinessId: own.id,
       ownKeywordIds: new Set(own.businessKeywords.map((bk) => bk.keywordId)),
+      city: own.city,
+      country: own.country,
+    });
+
+    // 6) Competitor leaderboard for the cell · sum est traffic across
+    //    every business's tracked keywords · sort + slice top 10 ·
+    //    always include Maria's row.
+    const leaderboard = await buildCompetitorLeaderboard({
+      ownBusinessId: own.id,
+      ownName: own.name,
       city: own.city,
       country: own.country,
     });
@@ -279,11 +301,204 @@ export async function getSmbSearchData(userId: string): Promise<SmbSearchData> {
           : (own.searchScanLastAt ?? null),
       totalEstPatientsLost,
       topQuickWins,
+      totalSearchVolume: totals.totalSearchVolume,
+      totalEstimatedVisits: totals.totalEstimatedVisits,
+      rankBuckets: totals.rankBuckets,
+      competitorLeaderboard: leaderboard.rows,
+      competitorLeaderboardOwnRank: leaderboard.ownRank,
+      competitorLeaderboardTotal: leaderboard.total,
     };
   } catch (err) {
     console.error("getSmbSearchData failed", err);
     return EMPTY_SMB_SEARCH;
   }
+}
+
+/**
+ * Compute the headline totals + the Top-3 / Top-10 / 11+ rank-bucket
+ * breakdown across Maria's tracked keywords. Uses the BEST of
+ * (Maps rank, organic rank) per keyword so the bucket reflects
+ * "did Google show me anywhere?", not which surface.
+ *
+ * Pure function · server-component-safe · no DB.
+ */
+function computeTotals(rows: readonly KeywordRow[]): {
+  totalSearchVolume: number;
+  totalEstimatedVisits: number;
+  rankBuckets: RankBucket[];
+} {
+  const top3: RankBucket = {
+    key: "top_3",
+    keywordCount: 0,
+    totalSearchVolume: 0,
+    estimatedVisits: 0,
+  };
+  const top10: RankBucket = {
+    key: "top_10",
+    keywordCount: 0,
+    totalSearchVolume: 0,
+    estimatedVisits: 0,
+  };
+  const below10: RankBucket = {
+    key: "below_10",
+    keywordCount: 0,
+    totalSearchVolume: 0,
+    estimatedVisits: 0,
+  };
+
+  let totalSearchVolume = 0;
+  let totalEstimatedVisits = 0;
+  for (const r of rows) {
+    const vol = r.searchVolume ?? 0;
+    totalSearchVolume += vol;
+    const rank = bestRank(r.localPackRank, r.organicRank);
+    const visits = Math.round(vol * ctrForBestRank(rank));
+    totalEstimatedVisits += visits;
+
+    if (rank != null && rank <= 3) {
+      top3.keywordCount += 1;
+      top3.totalSearchVolume += vol;
+      top3.estimatedVisits += visits;
+    } else if (rank != null && rank <= 10) {
+      top10.keywordCount += 1;
+      top10.totalSearchVolume += vol;
+      top10.estimatedVisits += visits;
+    } else {
+      below10.keywordCount += 1;
+      below10.totalSearchVolume += vol;
+      // Visits at rank > 10 are negligible · keep contribution but
+      // expect the number to be tiny.
+      below10.estimatedVisits += visits;
+    }
+  }
+
+  return {
+    totalSearchVolume,
+    totalEstimatedVisits,
+    rankBuckets: [top3, top10, below10],
+  };
+}
+
+/**
+ * Build the cell-wide competitor leaderboard · top 10 businesses in
+ * Maria's (city, country) cell ranked by Σ latestEstTrafficUsd.
+ * Maria's own row is included · always at her true position.
+ *
+ * If Maria is OUTSIDE the top 10, we still return her row appended
+ * at the end as the 11th visible row so she sees her position.
+ *
+ * Returns null-rank when the cell has no businesses with
+ * BusinessKeyword data yet (e.g. The Injectionist is first to scan).
+ */
+async function buildCompetitorLeaderboard(input: {
+  ownBusinessId: string;
+  ownName: string;
+  city: string | null;
+  country: string | null;
+}): Promise<{
+  rows: CompetitorRow[];
+  ownRank: number | null;
+  total: number;
+}> {
+  if (!input.city || !input.country) {
+    return { rows: [], ownRank: null, total: 0 };
+  }
+
+  // Pull ALL businesses in cell + their per-keyword traffic value.
+  // We do this with a single findMany grouped by businessId so we
+  // can aggregate in memory · faster than N round-trips.
+  const cellBusinesses = await prisma.business.findMany({
+    where: {
+      city: input.city,
+      country: input.country,
+      isActive: true,
+    },
+    select: {
+      id: true,
+      name: true,
+      businessKeywords: {
+        select: {
+          latestEstTrafficUsd: true,
+          latestOrganicRank: true,
+          latestMapsRank: true,
+          keyword: { select: { searchVolume: true } },
+        },
+        take: 500, // bounded per business
+      },
+    },
+    take: 200,
+  });
+
+  // Aggregate per business.
+  const aggregated: Array<{
+    id: string;
+    name: string;
+    estTrafficUsd: number;
+    totalSearchVolume: number;
+    keywordCount: number;
+    topThreeCount: number;
+  }> = [];
+  for (const b of cellBusinesses) {
+    if (b.businessKeywords.length === 0) continue;
+    let estTraffic = 0;
+    let searchVolume = 0;
+    let topThree = 0;
+    for (const bk of b.businessKeywords) {
+      estTraffic += bk.latestEstTrafficUsd ?? 0;
+      searchVolume += bk.keyword?.searchVolume ?? 0;
+      const r = bestRank(bk.latestMapsRank, bk.latestOrganicRank);
+      if (r != null && r <= 3) topThree += 1;
+    }
+    aggregated.push({
+      id: b.id,
+      name: b.name,
+      estTrafficUsd: estTraffic,
+      totalSearchVolume: searchVolume,
+      keywordCount: b.businessKeywords.length,
+      topThreeCount: topThree,
+    });
+  }
+
+  if (aggregated.length === 0) {
+    return { rows: [], ownRank: null, total: 0 };
+  }
+
+  // Sort by estTrafficUsd desc · tiebreak by topThreeCount desc.
+  aggregated.sort((a, b) => {
+    if (b.estTrafficUsd !== a.estTrafficUsd) {
+      return b.estTrafficUsd - a.estTrafficUsd;
+    }
+    return b.topThreeCount - a.topThreeCount;
+  });
+
+  const ownIndex = aggregated.findIndex((a) => a.id === input.ownBusinessId);
+  const ownRank = ownIndex >= 0 ? ownIndex + 1 : null;
+  const total = aggregated.length;
+
+  const sliced = aggregated.slice(0, COMPETITOR_LEADERBOARD_SIZE);
+
+  // If Maria is outside the visible top-N, append her as the (N+1)th
+  // row so she always sees her position in context.
+  const ownInSlice = sliced.some((a) => a.id === input.ownBusinessId);
+  const appendOwn = !ownInSlice && ownIndex >= 0 ? [aggregated[ownIndex]] : [];
+
+  const rows: CompetitorRow[] = [...sliced, ...appendOwn].map((a, i) => {
+    const isOwn = a.id === input.ownBusinessId;
+    return {
+      id: a.id,
+      // Use the actual rank, not the slice index, when this is Maria's
+      // appended row (it'll be > 10).
+      rank: isOwn ? (ownRank ?? i + 1) : i + 1,
+      kind: isOwn ? "you" : "competitor",
+      name: isOwn ? input.ownName : a.name,
+      estTrafficUsd: a.estTrafficUsd,
+      totalSearchVolume: a.totalSearchVolume,
+      keywordCount: a.keywordCount,
+      topThreeCount: a.topThreeCount,
+    };
+  });
+
+  return { rows, ownRank, total };
 }
 
 /**

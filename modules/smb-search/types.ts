@@ -148,6 +148,65 @@ export interface SmbSearchData {
    * when Maria's cell has no other businesses with ranked_keywords
    * data yet (e.g., first business in a new cell). */
   searchGaps: SearchGap[];
+
+  /** Σ search_volume across Maria's tracked keywords · the demand-side
+   *  headline · "how many people search your services every month." */
+  totalSearchVolume: number;
+  /** Σ (volume × ctr-for-current-rank) across Maria's tracked keywords ·
+   *  "how many likely land on you." Gap vs totalSearchVolume = upside. */
+  totalEstimatedVisits: number;
+
+  /** Top 3 / Top 10 / 11+ rank-bucket breakdown across Maria's tracked
+   *  keywords · we pick the BEST of (Maps rank, organic rank) per
+   *  keyword so the bucket reflects "did Google show me anywhere?" not
+   *  the surface. */
+  rankBuckets: RankBucket[];
+
+  /** Top 10 businesses in Maria's (city, country) cell by total est
+   *  traffic. Maria's row marked `kind: "you"` for UI highlighting.
+   *  When Maria is outside the top 10, she's appended as a 11th row
+   *  so she always sees her position. */
+  competitorLeaderboard: CompetitorRow[];
+  /** Maria's 1-indexed position in the full cell ranking. null when
+   *  no cell-mates have search data yet. */
+  competitorLeaderboardOwnRank: number | null;
+  /** Total businesses in the cell with BusinessKeyword data · gives
+   *  Maria the "#3 of 14" denominator. */
+  competitorLeaderboardTotal: number;
+}
+
+/** One row in the rank-bucket breakdown · Top 3 / Top 4-10 / 11+. */
+export interface RankBucket {
+  /** Stable key · matches the BUCKET_KEYS constant. */
+  key: "top_3" | "top_10" | "below_10";
+  /** Number of Maria's tracked keywords in this bucket. */
+  keywordCount: number;
+  /** Σ monthly search volume across the keywords in this bucket. */
+  totalSearchVolume: number;
+  /** Σ estimated visits Maria likely gets at her current rank.
+   *  Always 0 for `below_10` since CTR there is effectively zero. */
+  estimatedVisits: number;
+}
+
+/** One row in the competitor leaderboard · Maria's row OR a cell-mate. */
+export interface CompetitorRow {
+  /** Stable id · businessId. */
+  id: string;
+  /** Business display name. "You" when kind === "you". */
+  name: string;
+  /** 1-indexed rank in the cell. Always set. */
+  rank: number;
+  /** Whether this row is Maria's business · the UI highlights it. */
+  kind: "you" | "competitor";
+  /** Sum of latestEstTrafficUsd across this business's tracked
+   *  keywords · the leaderboard sort key. */
+  estTrafficUsd: number;
+  /** Σ search_volume across this business's tracked keywords. */
+  totalSearchVolume: number;
+  /** Total tracked keywords for this business. */
+  keywordCount: number;
+  /** Count of keywords this business ranks in top 3 (Maps or organic). */
+  topThreeCount: number;
 }
 
 /**
@@ -199,7 +258,57 @@ export const EMPTY_SMB_SEARCH: SmbSearchData = {
   lastScanAt: null,
   totalEstPatientsLost: 0,
   topQuickWins: [],
+  totalSearchVolume: 0,
+  totalEstimatedVisits: 0,
+  rankBuckets: [
+    { key: "top_3", keywordCount: 0, totalSearchVolume: 0, estimatedVisits: 0 },
+    {
+      key: "top_10",
+      keywordCount: 0,
+      totalSearchVolume: 0,
+      estimatedVisits: 0,
+    },
+    {
+      key: "below_10",
+      keywordCount: 0,
+      totalSearchVolume: 0,
+      estimatedVisits: 0,
+    },
+  ],
+  competitorLeaderboard: [],
+  competitorLeaderboardOwnRank: null,
+  competitorLeaderboardTotal: 0,
 };
+
+/**
+ * CTR by best Google rank (Maps OR organic, whichever is better).
+ * Used to estimate visits per keyword from search volume. Same curve
+ * as `discover-keywords.ts:ctrForRank` so the totals + per-keyword
+ * estimates are consistent.
+ */
+export function ctrForBestRank(rank: number | null): number {
+  if (rank == null) return 0;
+  if (rank === 1) return 0.39;
+  if (rank === 2) return 0.18;
+  if (rank === 3) return 0.1;
+  if (rank === 4) return 0.07;
+  if (rank === 5) return 0.05;
+  if (rank <= 10) return 0.025;
+  if (rank <= 20) return 0.008;
+  if (rank <= 50) return 0.002;
+  return 0.0005;
+}
+
+/** Pick the best (lowest, closest to #1) of Maps + organic rank.
+ *  null when neither is set. */
+export function bestRank(
+  mapsRank: number | null,
+  organicRank: number | null,
+): number | null {
+  if (mapsRank == null) return organicRank ?? null;
+  if (organicRank == null) return mapsRank;
+  return Math.min(mapsRank, organicRank);
+}
 
 /**
  * Per-keyword est-patients-lost heuristic.

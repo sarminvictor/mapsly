@@ -47,9 +47,17 @@ import { redirect } from "@/i18n/navigation";
 import type { Locale } from "@/i18n/routing";
 import { ServiceContextChipForCurrentUser } from "@/components/smb/ServiceContextChipForCurrentUser";
 import { KPITile } from "@/modules/smb-home/components";
-import { KeywordRow } from "@/modules/smb-search/components";
+import {
+  CompetitorLeaderboardCard,
+  KeywordRow,
+  RankBreakdownCard,
+  SearchStateBar,
+} from "@/modules/smb-search/components";
 import type {
+  CompetitorLeaderboardCardLabels,
   DeltaDirection,
+  RankBreakdownCardLabels,
+  SearchStateBarLabels,
   VisibilityStatus,
 } from "@/modules/smb-search/components";
 import { getSmbSearchData } from "@/modules/smb-search/queries";
@@ -213,6 +221,81 @@ function formatVolume(volume: number | null): string {
 }
 
 /**
+ * Type-erased translator pulled from `getTranslations("smb.search")`.
+ * Inline string-replace pattern matches the components — see
+ * `SearchStateBar.tsx`, `RankBreakdownCard.tsx`,
+ * `CompetitorLeaderboardCard.tsx`.
+ *
+ * NOTE on Pattern 4b: these label builders RESOLVE every string on
+ * the server and pass plain strings into the components. No function
+ * props cross the `'use client'` boundary because the components are
+ * themselves server components — but keeping resolution server-side
+ * means we'd be free to convert any of them to client later.
+ */
+type SmbSearchTranslator = (
+  key: string,
+  params?: Record<string, string | number>,
+) => string;
+
+function buildStateBarLabels(t: SmbSearchTranslator): SearchStateBarLabels {
+  return {
+    totalSearches: t("state_total_searches"),
+    estimatedVisits: t("state_estimated_visits"),
+    inTopThree: t("state_in_top_three"),
+    tracked: t("state_tracked"),
+    inTopThreeSublabel: t("state_in_top_three_sublabel", { total: "{total}" }),
+    trackedSublabel: t("state_tracked_sublabel"),
+    totalSearchesTip: t("state_total_searches_tip"),
+    estimatedVisitsTip: t("state_estimated_visits_tip"),
+  };
+}
+
+function buildRankBreakdownLabels(
+  t: SmbSearchTranslator,
+): RankBreakdownCardLabels {
+  return {
+    heading: t("bucket_heading"),
+    subtitle: t("bucket_subtitle"),
+    top3: t("bucket_top3"),
+    top10: t("bucket_top10"),
+    below10: t("bucket_below10"),
+    ctrFootnote: t("bucket_ctr_footnote"),
+    rowTemplate: t("bucket_row_template", {
+      count: "{count}",
+      searches: "{searches}",
+      visits: "{visits}",
+    }),
+    rowTemplateNoVisits: t("bucket_row_template_no_visits", {
+      count: "{count}",
+      searches: "{searches}",
+    }),
+    empty: t("bucket_empty"),
+  };
+}
+
+function buildCompetitorLeaderboardLabels(
+  t: SmbSearchTranslator,
+): CompetitorLeaderboardCardLabels {
+  return {
+    heading: t("leaderboard_heading"),
+    subtitleOwn: t("leaderboard_subtitle_own", {
+      rank: "{rank}",
+      total: "{total}",
+      city: "{city}",
+    }),
+    subtitleNoOwn: t("leaderboard_subtitle_no_own", { city: "{city}" }),
+    colRank: t("leaderboard_col_rank"),
+    colName: t("leaderboard_col_name"),
+    colKeywords: t("leaderboard_col_keywords"),
+    colTopThree: t("leaderboard_col_top_three"),
+    colEstTraffic: t("leaderboard_col_est_traffic"),
+    topThreeHelp: t("leaderboard_top_three_help"),
+    estTrafficHelp: t("leaderboard_est_traffic_help"),
+    empty: t("leaderboard_empty"),
+  };
+}
+
+/**
  * Async body · runs auth check + cached query inside the Suspense
  * boundary. Per cache-components Pattern 2.
  */
@@ -349,58 +432,52 @@ async function SearchBody({ params }: { params: Promise<PageParams> }) {
         </Suspense>
       </div>
 
-      {/* Hero · 4 plain-English KPIs */}
+      {/* State bar · 4 headline numbers · Boxly pattern */}
+      <SearchStateBar
+        totalSearchVolume={data.totalSearchVolume}
+        totalEstimatedVisits={data.totalEstimatedVisits}
+        topThreeKeywords={
+          data.rankBuckets.find((b) => b.key === "top_3")?.keywordCount ?? 0
+        }
+        tracked={data.keywordsTracked}
+        labels={buildStateBarLabels(t)}
+      />
+
+      {/* Rank breakdown · Top 3 / Top 4-10 / 11+ · the user's #3 ask */}
+      <RankBreakdownCard
+        buckets={data.rankBuckets}
+        labels={buildRankBreakdownLabels(t)}
+      />
+
+      {/* Competitor leaderboard · top 10 in cell + Maria's position ·
+          the user's #4 ask */}
+      <CompetitorLeaderboardCard
+        rows={data.competitorLeaderboard}
+        ownRank={data.competitorLeaderboardOwnRank}
+        total={data.competitorLeaderboardTotal}
+        city={data.city}
+        labels={buildCompetitorLeaderboardLabels(t)}
+      />
+
+      {/* "Customers we estimate you miss" tile · kept as a single
+          high-impact KPI · the others moved into the StateBar */}
       <section
-        aria-labelledby="kpis-heading"
-        style={{
-          marginBottom: 28,
-        }}
+        aria-labelledby="missed-kpi-heading"
+        style={{ marginBottom: 24 }}
       >
-        <h2 id="kpis-heading" style={{ position: "absolute", left: -9999 }}>
+        <h2
+          id="missed-kpi-heading"
+          style={{ position: "absolute", left: -9999 }}
+        >
           {t("kpis_heading")}
         </h2>
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+            gridTemplateColumns: "1fr",
             gap: 12,
           }}
         >
-          <KPITile
-            variant="standard"
-            label={t("kpi_best")}
-            value={heroBestValue}
-            sublabel={heroBestSublabel}
-            tone={data.bestLocalPackRank != null ? "good" : "neutral"}
-            infoTip={t("kpi_best_help")}
-          />
-          <KPITile
-            variant="standard"
-            label={t("kpi_tracked")}
-            value={data.keywordsTracked}
-            sublabel={t("kpi_tracked_sublabel")}
-            tone="neutral"
-            infoTip={t("kpi_tracked_help")}
-          />
-          <KPITile
-            variant="standard"
-            label={t("kpi_in_local")}
-            value={data.keywordsInLocalPack}
-            sublabel={t("kpi_in_local_sublabel", {
-              total: data.keywordsTracked,
-            })}
-            tone={data.keywordsInLocalPack > 0 ? "good" : "neutral"}
-            infoTip={t("kpi_in_local_help")}
-          />
-          <KPITile
-            variant="standard"
-            label={t("kpi_improved")}
-            value={data.keywordsImprovedThisWeek}
-            sublabel={t("kpi_improved_sublabel")}
-            trend={data.keywordsImprovedThisWeek > 0 ? "up" : "flat"}
-            tone={data.keywordsImprovedThisWeek > 0 ? "good" : "neutral"}
-            infoTip={t("kpi_improved_help")}
-          />
           <KPITile
             variant="standard"
             label={t("kpi_patients_lost")}
