@@ -77,6 +77,11 @@ export interface KeywordRow {
    *  her current rank · DfS `etv` (source of truth) with a CTR-curve
    *  fallback for pre-v0.12.11 rows. */
   estVisits: number;
+  /** True when the keyword came from a service-detected template
+   *  (e.g. "belkyra calgary" because hasBelkyra) · drives the "your
+   *  service" badge in the table per Boxly's pattern. False for core
+   *  templates and legacy ranked rows. */
+  isServiceKeyword: boolean;
 }
 
 /**
@@ -115,6 +120,10 @@ export interface SmbSearchData {
   name: string;
   /** Owned business city (used in copy and the hero headline). */
   city: string | null;
+  /** Owned business category as stored in the DB ("Medical spa" /
+   *  "Restaurant" / …). Drives the "How customers search for X in Y"
+   *  table heading. */
+  category: string | null;
 
   /** Best (lowest) local-pack rank across all tracked keywords.
    * `null` when Maria appears in zero local packs. */
@@ -168,6 +177,13 @@ export interface SmbSearchData {
   /** Σ (volume × ctr-for-current-rank) across Maria's tracked keywords ·
    *  "how many likely land on you." Gap vs totalSearchVolume = upside. */
   totalEstimatedVisits: number;
+  /** Σ DfS `estimated_paid_traffic_cost` across Maria's tracked keywords ·
+   *  "what you'd pay for these visits through Google Ads at the same
+   *  ranks." Free-traffic value framing per the SMB voice (see
+   *  copy-voice.md · "Traffic value" stays Maria-readable as "what Google
+   *  Ads would cost"). DfS-truth when populated; falls back to
+   *  (sv × cpc × ctr) per discover-local-intent. */
+  totalEstTrafficUsd: number;
 
   /** Top 3 / Top 10 / 11+ rank-bucket breakdown across Maria's tracked
    *  keywords · we pick the BEST of (Maps rank, organic rank) per
@@ -186,6 +202,12 @@ export interface SmbSearchData {
   /** Total businesses in the cell with BusinessKeyword data · gives
    *  Maria the "#3 of 14" denominator. */
   competitorLeaderboardTotal: number;
+
+  /** Count of SerpResult(kind=MAPS) rows recorded for this business.
+   *  Powers the truthful "Maps not scanned yet" copy in the State Bar
+   *  when no Maps SERP scan has run · separates "we checked, you're
+   *  not there" from "we haven't checked Maps yet". S.6 addition. */
+  mapsScanCount: number;
 }
 
 /** One row in the rank-bucket breakdown · Top 3 / Top 4-10 / 11+. */
@@ -266,6 +288,7 @@ export const EMPTY_SMB_SEARCH: SmbSearchData = {
   ownedBusinessId: "",
   name: "",
   city: null,
+  category: null,
   bestLocalPackRank: null,
   keywordsTracked: 0,
   keywordsInLocalPack: 0,
@@ -279,6 +302,7 @@ export const EMPTY_SMB_SEARCH: SmbSearchData = {
   topQuickWins: [],
   totalSearchVolume: 0,
   totalEstimatedVisits: 0,
+  totalEstTrafficUsd: 0,
   rankBuckets: [
     { key: "top_3", keywordCount: 0, totalSearchVolume: 0, estimatedVisits: 0 },
     {
@@ -297,6 +321,7 @@ export const EMPTY_SMB_SEARCH: SmbSearchData = {
   competitorLeaderboard: [],
   competitorLeaderboardOwnRank: null,
   competitorLeaderboardTotal: 0,
+  mapsScanCount: 0,
 };
 
 /**

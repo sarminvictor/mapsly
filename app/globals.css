@@ -382,6 +382,21 @@ details[open] > summary::after {
   }
 }
 
+/* SMB /search · State Bar 2×3 grid responsive collapse.
+   Desktop ≥ 760px: 3 columns × 2 rows (the 6 KPIs in the funnel +
+   scoreboard storytelling order). 540-759px: 2 columns. < 540px:
+   single column · cells stack in reading order. */
+@media (max-width: 759px) {
+  .smb-search-state-bar {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+@media (max-width: 539px) {
+  .smb-search-state-bar {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+}
+
 /* Brief highlight on a row when the KeywordFinder scrolls to it. */
 .smb-search-row-pulse {
   animation: smb-search-row-pulse 1.6s ease-out;

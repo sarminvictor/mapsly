@@ -30,6 +30,7 @@ const row = (overrides: Partial<KeywordRow>): KeywordRow => ({
   ],
   estPatientsLost: 0,
   estVisits: 0,
+  isServiceKeyword: false,
   ...overrides,
 });
 

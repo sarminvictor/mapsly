@@ -2,18 +2,20 @@
  * /api/internal/trigger-search-scan · Boxly Worker callback for search
  * visibility scans. Dispatches on payload.mode:
  *
- *   - mode=biz   · ranked_keywords pull for one business
+ *   - mode=biz   · local-intent keyword discovery for one business
+ *                  (S.6 · architecture C · industry × city templates)
  *                  payload: { businessId }
  *
- *   - mode=cell  · cell-aggregated Maps queries for top-N keywords
- *                  payload: { city, country, centroidLat, centroidLng, topN }
+ *   - mode=cell  · cell-aggregated Maps queries for the cell's
+ *                  local-intent keyword set
+ *                  payload: { city, country, centroidLat, centroidLng }
  *
  * Auth: shared `BOXLY_WORKER_AUTH_TOKEN` Bearer · only the worker can call
  * this. Mirrors /api/qualify-one + /api/internal/trigger-review-pull.
  *
- * Cost attribution: opens its own CronRun per call so the variable
- * ranked_keywords cost (~$0.013/biz) and Maps cost (~$0.002/keyword) bill
- * correctly. Visible in /admin/cron-runs under the "worker" category.
+ * Cost attribution: opens its own CronRun per call so the keyword_volume
+ * cost (~$0.025/biz) and Maps cost (~$0.002/keyword) bill correctly.
+ * Visible in /admin/cron-runs under the "worker" category.
  *
  * Idempotency: the discovery + aggregate modules are upsert-based · a
  * worker retry that lands after a successful run will refresh data
@@ -24,7 +26,7 @@ import { z } from "zod";
 
 import { verifyBoxlyWorkerAuth } from "@/lib/boxly-worker/client";
 import { withCronRun } from "@/lib/cost/cost-counter";
-import { discoverKeywordsForBusiness } from "@/modules/search-visibility/discover-keywords";
+import { discoverLocalIntentForBusiness } from "@/modules/search-visibility/discover-local-intent";
 import { aggregateCellMaps } from "@/modules/search-visibility/aggregate-cell-maps";
 
 // ranked_keywords is fast (~2s); Maps × 30 keywords ~60s. 120s budget is
@@ -89,8 +91,8 @@ export async function POST(request: Request): Promise<Response> {
   try {
     if (parsed.mode === "biz") {
       const outcome = await withCronRun(
-        "worker:search-discover-keywords",
-        async () => discoverKeywordsForBusiness(parsed.businessId),
+        "worker:search-discover-local-intent",
+        async () => discoverLocalIntentForBusiness(parsed.businessId),
       );
       return Response.json(
         { ok: true, mode: "biz", ...outcome },

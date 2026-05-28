@@ -27,9 +27,9 @@ import prisma from "@/lib/prisma";
 import { filterEligibleBusinesses } from "@/lib/reviews/should-collect";
 
 import {
-  discoverKeywordsForBusiness,
-  type DiscoverKeywordsResult,
-} from "./discover-keywords";
+  discoverLocalIntentForBusiness,
+  type DiscoverLocalIntentResult,
+} from "./discover-local-intent";
 import {
   aggregateCellMaps,
   type AggregateCellMapsResult,
@@ -59,7 +59,7 @@ export interface DispatchSearchScanResult {
   /** Sequential path · per-business discovery summary · null on worker. */
   sequentialResults?: Array<{
     businessId: string;
-    status: DiscoverKeywordsResult["status"];
+    status: DiscoverLocalIntentResult["status"];
     keywordsTracked: number;
   }>;
   /** Sequential path · per-cell aggregate summary · null on worker. */
@@ -181,7 +181,7 @@ async function dispatchSequential(
 
   for (const businessId of eligibleIds) {
     try {
-      const r = await discoverKeywordsForBusiness(businessId);
+      const r = await discoverLocalIntentForBusiness(businessId);
       perBiz.push({
         businessId,
         status: r.status,

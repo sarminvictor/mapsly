@@ -593,10 +593,19 @@ model BusinessKeyword {
   businessId   String
   keywordId    String
 
-  /// Where this row came from. Today only "ranked" (ranked_keywords).
-  /// Reserved values · "manual" (admin add) · "service-discovery"
-  /// (legacy plan, dropped in v2).
+  /// Where this row came from.
+  ///   "ranked"    — legacy · DfS ranked_keywords portfolio (S.1)
+  ///   "template"  — S.6 · derived from local-intent templates
+  ///                 (industry × city × services). Source the SMB
+  ///                 /search page reads. Maria-facing.
+  ///   "manual"    — admin add (reserved)
   source       String   @default("ranked")
+  /// For source="template" rows, which template bucket produced this
+  /// keyword. NULL for legacy "ranked" rows.
+  ///   "core"      — always-on per industry (e.g. "med spa calgary")
+  ///   "service"   — gated by services-detect output (e.g. "belkyra
+  ///                 calgary" only if hasBelkyra)
+  templateOrigin String?
 
   // Latest cached ranks · refreshed by discovery + cell-aggregate
   latestOrganicRank   Int?

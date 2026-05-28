@@ -29,14 +29,11 @@ export type {
   CompetitorLeaderboardCardLabels,
 } from "./CompetitorLeaderboardCard";
 
-export { SearchNarrative } from "./SearchNarrative";
-export type { SearchNarrativeProps } from "./SearchNarrative";
-
-export { TopKeywordsCard } from "./TopKeywordsCard";
+export { KeywordVisibilityTable } from "./KeywordVisibilityTable";
 export type {
-  TopKeywordsCardProps,
-  TopKeywordsCardLabels,
-} from "./TopKeywordsCard";
+  KeywordVisibilityTableProps,
+  KeywordVisibilityTableLabels,
+} from "./KeywordVisibilityTable";
 
 export { KeywordFinder } from "./KeywordFinder";
 export type {

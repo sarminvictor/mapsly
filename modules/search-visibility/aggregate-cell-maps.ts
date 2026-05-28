@@ -1,20 +1,31 @@
 // modules/search-visibility/aggregate-cell-maps.ts
 //
-// Cell-aggregated Maps SERP queries (S.5 / S.1 plan v2 cost-saver).
+// S.6 · architecture C · cell-wide Maps SERP scan over the
+// local-intent template set.
 //
 // Why this exists:
-//   ranked_keywords gives us organic ranks per business. Maps positions
-//   (the local 3-pack) are a separate signal. Naive approach would be
-//   "for each business × each top keyword, run a Maps query" · cost
-//   scales O(businesses × keywords).
+//   Maps positions (the local 3-pack) are location-anchored · ONE Maps
+//   query for "botox calgary" covers EVERY business in the Calgary
+//   cell at once. We match item.cid against Business.googleCid and
+//   write SerpResult(kind=MAPS) per matched business + the top-3 pack
+//   names for the competitive view.
 //
-//   Optimization · ONE Maps query for a keyword covers ALL businesses
-//   in that geographic cell at once. We match item.cid against our
-//   indexed Business.googleCid and upsert SerpResult(kind=MAPS) for
-//   each match. Cost scales O(unique cells × top keywords).
+// Keyword source change (vs S.5):
+//   v0.12.x (S.5): top-N keywords by Σ(latestEstTrafficUsd) across
+//                  the cell's BusinessKeyword rows. Suffered from a
+//                  race · cell-aggregate could fire before discovery
+//                  populated the rows, producing items=0 (INC-search-
+//                  visibility-race · 2026-05-27).
+//   v0.13.x (S.6): keyword set = union of every cell business's
+//                  local-intent templates (industry × city × services).
+//                  No dependency on BusinessKeyword existing first ·
+//                  race fixed by construction. The set is the SAME one
+//                  discover-local-intent persisted, so the cron can
+//                  fire either step in any order.
 //
-// For the Calgary cell (~25 businesses, 30 aggregated top keywords):
-//   30 queries × $0.002 = $0.06 vs 25×30 × $0.002 = $1.50 per scan.
+// For Calgary medspa cell (~25 biz, ~12 templates): 12 × $0.002 =
+// $0.024 vs $1.50 if we'd done per-biz. Cell-aggregate optimization
+// preserved.
 //
 // Caller: dispatchSearchScan enqueues ONE Worker job per unique cell.
 // The Worker callback `/api/internal/trigger-search-scan` (mode=cell)
@@ -22,6 +33,8 @@
 
 import prisma from "@/lib/prisma";
 import { serpLocalPack } from "@/services/dataforseo";
+import { buildKeywordSetForCell } from "@/modules/local-intent/build-keyword-set";
+import { locationCodeForCountry } from "@/modules/reviews/persist-helpers";
 
 export interface AggregateCellMapsInput {
   /**
@@ -35,9 +48,9 @@ export interface AggregateCellMapsInput {
   centroidLat: number;
   centroidLng: number;
   /**
-   * How many top-value keywords to query Maps for. 30 is the default
-   * per the plan; bump if you want broader coverage at slightly more
-   * cost ($0.002 per extra).
+   * Legacy · ignored since S.6 (keyword count is now determined by the
+   * template registry per industry · ~12 for medspa, expands as we
+   * seed more industries). Kept for caller-signature compatibility.
    */
   topN?: number;
 }
@@ -55,14 +68,11 @@ export interface AggregateCellMapsResult {
   matchedBusinessIds: string[];
 }
 
-const DEFAULT_TOP_N = 30;
 const RADIUS_KM = 25;
 
 export async function aggregateCellMaps(
   input: AggregateCellMapsInput,
 ): Promise<AggregateCellMapsResult> {
-  const topN = input.topN ?? DEFAULT_TOP_N;
-
   // 1) Find the businesses in this cell that have a googleCid · we can
   //    only correlate Maps results by CID. Active + qualified only.
   const cellBusinesses = await prisma.business.findMany({
@@ -72,7 +82,7 @@ export async function aggregateCellMaps(
       isActive: true,
       googleCid: { not: null },
     },
-    select: { id: true, googleCid: true },
+    select: { id: true, googleCid: true, category: true, city: true, country: true },
   });
 
   if (cellBusinesses.length === 0) {
@@ -91,19 +101,19 @@ export async function aggregateCellMaps(
     if (b.googleCid) cidToBusinessId.set(b.googleCid, b.id);
   }
 
-  // 2) Pick top-N keywords by Σ (latestEstTrafficUsd) across all
-  //    BusinessKeyword rows for these businesses. groupBy on keywordId,
-  //    sort by sum desc, take top N.
-  const businessIds = cellBusinesses.map((b) => b.id);
-  const groups = await prisma.businessKeyword.groupBy({
-    by: ["keywordId"],
-    where: { businessId: { in: businessIds } },
-    _sum: { latestEstTrafficUsd: true },
-    orderBy: { _sum: { latestEstTrafficUsd: "desc" } },
-    take: topN,
-  });
+  // 2) Build the cell's local-intent keyword set · union of every
+  //    business's category × city templates. Source of truth is the
+  //    `modules/local-intent` registry · no DB read needed for the
+  //    keyword pool itself, removing the v0.12.x race condition where
+  //    cell-aggregate could fire before BusinessKeyword rows existed.
+  const expanded = buildKeywordSetForCell(
+    cellBusinesses.map((b) => ({ category: b.category, city: b.city })),
+  );
 
-  if (groups.length === 0) {
+  if (expanded.length === 0) {
+    // No business in this cell maps to a templated industry yet (e.g.
+    // entire cell is restaurants while the restaurant industry stub is
+    // empty). Skip cleanly.
     return {
       city: input.city,
       country: input.country,
@@ -114,12 +124,40 @@ export async function aggregateCellMaps(
     };
   }
 
-  const keywordIds = groups.map((g) => g.keywordId);
-  const keywords = await prisma.keyword.findMany({
-    where: { id: { in: keywordIds } },
-    select: { id: true, keyword: true, language: true },
-  });
-  const keywordById = new Map(keywords.map((k) => [k.id, k]));
+  // 3) Ensure Keyword rows exist for every templated keyword so we can
+  //    write SerpResult + cache latestMapsRank on BusinessKeyword. We
+  //    upsert here because discover-local-intent may not have run yet
+  //    for this cell · cell-aggregate is now self-sufficient.
+  const locationCode = locationCodeForCountry(input.country);
+  const language = "en";
+  const keywordTextToRow = new Map<
+    string,
+    { id: string; keyword: string; language: string }
+  >();
+  for (const kw of expanded) {
+    const row = await prisma.keyword.upsert({
+      where: {
+        keyword_locationCode_language: {
+          keyword: kw.keyword,
+          locationCode,
+          language,
+        },
+      },
+      create: {
+        keyword: kw.keyword,
+        locationCode,
+        language,
+        refreshedAt: new Date(),
+      },
+      update: {}, // existence-only; volume/CPC owned by discover-local-intent
+      select: { id: true, keyword: true, language: true },
+    });
+    keywordTextToRow.set(kw.keyword, row);
+  }
+  const keywordById = new Map(
+    Array.from(keywordTextToRow.values()).map((k) => [k.id, k]),
+  );
+  const keywordIds = Array.from(keywordById.keys());
 
   // 3) For each keyword · run one Maps query GPS-anchored to the cell
   //    centroid · match items.cid against our cell businesses · upsert
@@ -171,11 +209,29 @@ export async function aggregateCellMaps(
         });
         serpRowsWritten += 1;
 
-        // Refresh cached latestMapsRank on the BusinessKeyword join · keeps
-        // table queries cheap.
-        await prisma.businessKeyword.updateMany({
-          where: { businessId, keywordId: kw.id },
-          data: { latestMapsRank: mapsRank, latestScanAt: scannedAt },
+        // Refresh cached latestMapsRank on the BusinessKeyword join.
+        // Cell-aggregate is self-sufficient · if discover-local-intent
+        // hasn't run for this biz yet, CREATE the row so Maria sees
+        // her Maps rank on /search even before her per-biz organic
+        // discovery completes. templateOrigin defaults to "core" ·
+        // discover-local-intent will correct it via update on its run.
+        const expandedKw = expanded.find((e) => e.keyword === kw.keyword);
+        await prisma.businessKeyword.upsert({
+          where: {
+            businessId_keywordId: { businessId, keywordId: kw.id },
+          },
+          create: {
+            businessId,
+            keywordId: kw.id,
+            source: "template",
+            templateOrigin: expandedKw?.origin ?? "core",
+            latestMapsRank: mapsRank,
+            latestScanAt: scannedAt,
+          },
+          update: {
+            latestMapsRank: mapsRank,
+            latestScanAt: scannedAt,
+          },
         });
       }
     } catch (err) {

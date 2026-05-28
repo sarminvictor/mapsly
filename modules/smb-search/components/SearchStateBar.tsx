@@ -14,34 +14,52 @@
 import * as React from "react";
 
 export interface SearchStateBarLabels {
-  /** "Searches your services get each month" */
+  /** Row 1, col 1 · "Total searches/mo" */
   totalSearches: string;
-  /** "How many likely land on you" */
+  /** Row 1, col 2 · "Visits you likely get" */
   estimatedVisits: string;
-  /** "Top 3 spots" */
+  /** Row 1, col 3 · "Free traffic value" */
+  trafficValue: string;
+  /** Row 2, col 1 · "Top 3 keywords" */
   inTopThree: string;
-  /** "Best spot in Maps" · replaces the old "Keywords tracked" cell. */
+  /** Row 2, col 2 · "Customers you miss" */
+  missedCustomers: string;
+  /** Row 2, col 3 · "Best spot in Maps" */
   bestSpot: string;
   /** "of {total} keywords" · `{total}` is replaced inline. */
   inTopThreeSublabel: string;
+  /** "Per month" · sublabel for the missed-customers cell. */
+  missedCustomersSublabel: string;
+  /** "What Google Ads would cost" · sublabel for traffic-value cell. */
+  trafficValueSublabel: string;
   /** Sub-line under the best-spot value · "for '{keyword}'" replaced
    *  inline. When Maria isn't in Maps anywhere, the page passes the
    *  `bestSpotNoneSublabel` instead. */
   bestSpotSublabel: string;
   /** Sub-line under best-spot when Maria isn't ranked anywhere yet. */
   bestSpotNoneSublabel: string;
+  /** Sub-line under best-spot when Maps SERP scan never ran for this
+   *  business · TRUTHFUL framing per the PO review · "Scanning this
+   *  week" instead of misleading "Not in Maps yet". */
+  bestSpotNotScannedSublabel: string;
   /** Big-number text shown when Maria isn't ranked in Maps at all. */
   bestSpotNoneValue: string;
-  /** "Add up to all your services' searches" · the "what is this" tip
-   *  surfaced on the totalSearches cell. */
+  /** Tip on the totalSearches cell. */
   totalSearchesTip: string;
-  /** "{count} of {total} searches likely land on you" — tip on visits. */
+  /** Tip on the visits cell. */
   estimatedVisitsTip: string;
+  /** Tip on the traffic-value cell. */
+  trafficValueTip: string;
+  /** Tip on the missed-customers cell. */
+  missedCustomersTip: string;
 }
 
 export interface SearchStateBarProps {
   totalSearchVolume: number;
   totalEstimatedVisits: number;
+  /** Σ DfS estimated_paid_traffic_cost · the dollar value of the
+   *  visits Maria gets for free. Renders as "$X.Xk/mo" or "$XXX/mo". */
+  totalEstTrafficUsd: number;
   topThreeKeywords: number;
   tracked: number;
   /** Maria's best (lowest) Maps rank across all tracked keywords ·
@@ -50,6 +68,12 @@ export interface SearchStateBarProps {
   /** The keyword whose Maps rank equals bestMapsRank · for the
    *  sublabel "for '{keyword}'". null when bestMapsRank is null. */
   bestMapsKeyword: string | null;
+  /** Sum of est-patients-lost across all tracked keywords. */
+  missedCustomers: number;
+  /** Whether ANY Maps SERP scan has ever run for this business. False
+   *  flips the best-spot sublabel to the truthful "Scanning this week"
+   *  copy instead of "Not in Maps yet". */
+  hasMapsScans: boolean;
   labels: SearchStateBarLabels;
 }
 
@@ -59,13 +83,24 @@ function fmt(n: number): string {
   return n.toLocaleString("en-US");
 }
 
+/** Render the traffic-value cell as compact USD: "$56.40", "$1.2k",
+ *  "$24k". Keeps the cell narrow so it fits the 3-column grid. */
+function fmtUsd(n: number): string {
+  if (n < 10) return `$${n.toFixed(2)}`;
+  if (n < 1000) return `$${Math.round(n)}`;
+  return `$${(n / 1000).toFixed(n >= 10_000 ? 0 : 1)}k`;
+}
+
 export function SearchStateBar({
   totalSearchVolume,
   totalEstimatedVisits,
+  totalEstTrafficUsd,
   topThreeKeywords,
   tracked,
   bestMapsRank,
   bestMapsKeyword,
+  missedCustomers,
+  hasMapsScans,
   labels,
 }: SearchStateBarProps) {
   const visitsCapturePct =
@@ -75,10 +110,15 @@ export function SearchStateBar({
 
   const bestSpotValue =
     bestMapsRank != null ? `#${bestMapsRank}` : labels.bestSpotNoneValue;
+  // Truthful copy · "Scanning this week" when we never asked Google Maps
+  // for this business, vs "Not in Maps yet" when we asked and she was
+  // genuinely absent. The page sets hasMapsScans from mapsScanCount > 0.
   const bestSpotSublabel =
     bestMapsRank != null && bestMapsKeyword
       ? labels.bestSpotSublabel.replace("{keyword}", bestMapsKeyword)
-      : labels.bestSpotNoneSublabel;
+      : hasMapsScans
+        ? labels.bestSpotNoneSublabel
+        : labels.bestSpotNotScannedSublabel;
   const bestSpotTone =
     bestMapsRank == null
       ? "warn"
@@ -88,6 +128,9 @@ export function SearchStateBar({
           ? "neutral"
           : "warn";
 
+  // 2×3 desktop grid · 1 col on narrow screens.
+  // Row 1: demand → visits → value (the funnel)
+  // Row 2: wins   → gaps   → benchmark (the scoreboard)
   return (
     <section
       aria-label="Search visibility totals"
@@ -98,11 +141,13 @@ export function SearchStateBar({
         padding: "20px 24px",
         marginBottom: 24,
         display: "grid",
-        gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-        gap: 20,
+        gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+        gap: "20px 24px",
         boxShadow: "0 2px 8px rgba(28, 25, 22, 0.04)",
       }}
+      className="smb-search-state-bar"
     >
+      {/* Row 1 · the funnel */}
       <StateCell
         label={labels.totalSearches}
         value={fmt(totalSearchVolume)}
@@ -118,11 +163,27 @@ export function SearchStateBar({
         tone={totalEstimatedVisits > 0 ? "good" : "warn"}
       />
       <StateCell
+        label={labels.trafficValue}
+        value={fmtUsd(totalEstTrafficUsd)}
+        sublabel={labels.trafficValueSublabel}
+        tip={labels.trafficValueTip}
+        tone={totalEstTrafficUsd > 0 ? "good" : "neutral"}
+      />
+
+      {/* Row 2 · the scoreboard */}
+      <StateCell
         label={labels.inTopThree}
         value={fmt(topThreeKeywords)}
         sublabel={labels.inTopThreeSublabel.replace("{total}", fmt(tracked))}
         tip=""
         tone={topThreeKeywords > 0 ? "good" : "neutral"}
+      />
+      <StateCell
+        label={labels.missedCustomers}
+        value={fmt(missedCustomers)}
+        sublabel={labels.missedCustomersSublabel}
+        tip={labels.missedCustomersTip}
+        tone={missedCustomers > 0 ? "warn" : "good"}
       />
       <StateCell
         label={labels.bestSpot}

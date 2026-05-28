@@ -49,27 +49,20 @@ import { requirePortal } from "@/lib/portal-guard";
 import { redirect } from "@/i18n/navigation";
 import type { Locale } from "@/i18n/routing";
 import { ServiceContextChipForCurrentUser } from "@/components/smb/ServiceContextChipForCurrentUser";
-import { KPITile } from "@/modules/smb-home/components";
 import {
   CompetitorLeaderboardCard,
-  KeywordFinder,
-  KeywordRow,
+  KeywordVisibilityTable,
   RankBreakdownCard,
-  SearchNarrative,
   SearchStateBar,
-  TopKeywordsCard,
 } from "@/modules/smb-search/components";
 import type {
   CompetitorLeaderboardCardLabels,
-  DeltaDirection,
-  KeywordFinderLabels,
+  KeywordVisibilityTableLabels,
   RankBreakdownCardLabels,
   SearchStateBarLabels,
-  TopKeywordsCardLabels,
-  VisibilityStatus,
 } from "@/modules/smb-search/components";
+import { industryForCategory } from "@/modules/local-intent/category-to-industry";
 import { getSmbSearchData } from "@/modules/smb-search/queries";
-import type { KeywordRow as KeywordRowData } from "@/modules/smb-search/types";
 
 export async function generateMetadata({
   params,
@@ -92,13 +85,6 @@ export async function generateMetadata({
 interface PageParams {
   locale: string;
 }
-
-/** DOM id for the expandable "all tracked keywords" disclosure. The
- *  KeywordFinder client component opens this and scrolls into it on
- *  selection. */
-const ALL_KEYWORDS_DETAILS_ID = "smb-search-all-keywords";
-/** Per-row DOM id prefix · `${PREFIX}${keyword.id}` selects one row. */
-const ALL_KEYWORDS_ROW_PREFIX = "smb-search-row-";
 
 /**
  * Default export · SYNC shell with a Suspense'd async body. The shell
@@ -186,56 +172,6 @@ function SearchSkeleton() {
 }
 
 /**
- * Bucket a keyword row's latest ranks into a Maria-readable status.
- * Pure function — server-component-safe.
- */
-function bucketStatus(row: KeywordRowData): VisibilityStatus {
-  if (row.localPackRank != null) return "in_local_pack";
-  if (row.organicRank != null && row.organicRank <= 10) return "top_organic";
-  if (row.organicRank != null) return "ranking_organic";
-  return "not_ranked";
-}
-
-/**
- * Compare a row's latest rank vs previous-week rank and return a
- * direction. Uses local-pack first (Maria's headline metric); falls
- * back to organic. Returns `null` when neither pair has both sides.
- */
-function deriveDelta(row: KeywordRowData): DeltaDirection | null {
-  // Local-pack takes precedence — that's what Maria sees first.
-  if (row.prevLocalPackRank != null && row.localPackRank != null) {
-    if (row.localPackRank < row.prevLocalPackRank) return "improved";
-    if (row.localPackRank > row.prevLocalPackRank) return "slipped";
-    return "flat";
-  }
-  if (row.prevLocalPackRank == null && row.localPackRank != null) {
-    return "new";
-  }
-  if (row.prevOrganicRank != null && row.organicRank != null) {
-    if (row.organicRank < row.prevOrganicRank) return "improved";
-    if (row.organicRank > row.prevOrganicRank) return "slipped";
-    return "flat";
-  }
-  if (row.prevOrganicRank == null && row.organicRank != null) {
-    return "new";
-  }
-  return null;
-}
-
-/**
- * Format a search-volume integer as "2.4K", "12K", "950", or "—".
- * Locale-aware separators are NOT applied here — the rendered string
- * is short and uses an ASCII suffix the page wraps in i18n "/mo".
- */
-function formatVolume(volume: number | null): string {
-  if (volume == null || volume <= 0) return "—";
-  if (volume >= 1000) {
-    return (volume / 1000).toFixed(volume >= 10_000 ? 0 : 1) + "K";
-  }
-  return String(volume);
-}
-
-/**
  * Type-erased translator pulled from `getTranslations("smb.search")`.
  * Inline string-replace pattern matches the components — see
  * `SearchStateBar.tsx`, `RankBreakdownCard.tsx`,
@@ -254,14 +190,21 @@ function buildStateBarLabels(t: SmbSearchTranslator): SearchStateBarLabels {
   return {
     totalSearches: t("state_total_searches"),
     estimatedVisits: t("state_estimated_visits"),
+    trafficValue: t("state_traffic_value"),
     inTopThree: t("state_in_top_three"),
+    missedCustomers: t("state_missed_customers"),
     bestSpot: t("state_best_spot"),
     inTopThreeSublabel: t("state_in_top_three_sublabel", { total: "{total}" }),
+    missedCustomersSublabel: t("state_missed_customers_sublabel"),
+    trafficValueSublabel: t("state_traffic_value_sublabel"),
     bestSpotSublabel: t("state_best_spot_sublabel", { keyword: "{keyword}" }),
     bestSpotNoneSublabel: t("state_best_spot_none_sublabel"),
+    bestSpotNotScannedSublabel: t("state_best_spot_not_scanned_sublabel"),
     bestSpotNoneValue: t("state_best_spot_none_value"),
     totalSearchesTip: t("state_total_searches_tip"),
     estimatedVisitsTip: t("state_estimated_visits_tip"),
+    trafficValueTip: t("state_traffic_value_tip"),
+    missedCustomersTip: t("state_missed_customers_tip"),
   };
 }
 
@@ -310,65 +253,23 @@ function buildCompetitorLeaderboardLabels(
   };
 }
 
-function buildTopKeywordsLabels(
+function buildVisibilityTableLabels(
   t: SmbSearchTranslator,
-  trackedTotal: number,
-): TopKeywordsCardLabels {
+  industryLabel: string,
+  city: string,
+): KeywordVisibilityTableLabels {
   return {
-    heading: t("top_heading"),
-    subtitle: t("top_subtitle", { total: trackedTotal }),
-    volumeTemplate: t("top_volume_template", { value: "{value}" }),
-    mapsLabel: t("top_maps_label"),
-    organicLabel: t("top_organic_label"),
-    rankTemplate: t("top_rank_template", { rank: "{rank}" }),
-    notRanked: t("top_not_ranked"),
-    topThreeInMapsLabel: t("top_top_three_in_maps_label"),
-    emptySlot: t("top_empty_slot"),
-    missedTemplate: t("top_missed_template", { count: "{count}" }),
-    inTopThree: t("top_in_top_three"),
-    empty: t("top_empty"),
+    heading: t("table_heading", { industry: industryLabel, city }),
+    subtitle: t("table_subtitle"),
+    colKeyword: t("table_col_keyword"),
+    colSearches: t("table_col_searches"),
+    colMaps: t("table_col_maps"),
+    colOrganic: t("table_col_organic"),
+    serviceBadge: t("table_service_badge"),
+    empty: t("table_empty"),
+    legend: t("table_legend"),
+    sortAriaTemplate: t("table_sort_aria", { column: "{column}" }),
   };
-}
-
-function buildKeywordFinderLabels(t: SmbSearchTranslator): KeywordFinderLabels {
-  return {
-    placeholder: t("finder_placeholder"),
-    ariaLabel: t("finder_aria_label"),
-    expandAll: t("finder_expand_all"),
-  };
-}
-
-/**
- * Pick the narrative sentence for the top of the page. The choice is
- * deterministic — there are only three real cases (in top 3 / not in
- * top 3 / no data yet) and Maria sees the same line every time her
- * underlying numbers stay flat. Pure · server-component-safe.
- *
- * "Top 3" here = best-of-Maps-or-organic ≤ 3 · matches the State Bar
- * "Top 3 keywords" cell and the rank-breakdown bars so all three
- * surfaces tell the same story.
- */
-function buildNarrative(
-  t: SmbSearchTranslator,
-  data: {
-    topThreeKeywords: number;
-    keywordsTracked: number;
-    totalEstPatientsLost: number;
-  },
-): string {
-  if (data.keywordsTracked === 0) {
-    return t("narrative_no_data");
-  }
-  if (data.topThreeKeywords === 0) {
-    return t("narrative_no_top_three", {
-      tracked: data.keywordsTracked,
-      missed: data.totalEstPatientsLost,
-    });
-  }
-  return t("narrative_full", {
-    topThree: data.topThreeKeywords,
-    missed: data.totalEstPatientsLost,
-  });
 }
 
 /**
@@ -446,16 +347,13 @@ async function SearchBody({ params }: { params: Promise<PageParams> }) {
   const topThreeKeywords =
     data.rankBuckets.find((b) => b.key === "top_3")?.keywordCount ?? 0;
 
-  const narrative = buildNarrative(t, {
-    topThreeKeywords,
-    keywordsTracked: data.keywordsTracked,
-    totalEstPatientsLost: data.totalEstPatientsLost,
-  });
-
-  const finderOptions = data.allTrackedKeywords.map((k) => ({
-    id: k.id,
-    keyword: k.keyword,
-  }));
+  // Industry label for the table heading "How customers search for X
+  // in Y" · use the friendly DB category ("Medical spa") instead of
+  // the internal IndustryKey ("medspa"). `industryForCategory` is
+  // imported only to flag the eventual "unknown industry" empty-state
+  // path (S.7 hook).
+  const industryLabel = data.category ?? "";
+  const industryRecognised = industryForCategory(data.category) !== null;
 
   return (
     <section
@@ -527,19 +425,19 @@ async function SearchBody({ params }: { params: Promise<PageParams> }) {
         }}
       >
         <main>
-          {/* One-line narrative · the story before the numbers. */}
-          <SearchNarrative sentence={narrative} />
-
-          {/* State bar · 4 headline numbers · "Best in Maps" replaces
-              the old "Keywords tracked" cell · sublabel uses the
-              keyword behind Maria's best rank. */}
+          {/* State bar · 5 headline numbers · narrative collapsed into
+              the numbers per the PO review (the standalone "missed
+              customers" tile + narrative line were redundant). */}
           <SearchStateBar
             totalSearchVolume={data.totalSearchVolume}
             totalEstimatedVisits={data.totalEstimatedVisits}
+            totalEstTrafficUsd={data.totalEstTrafficUsd}
             topThreeKeywords={topThreeKeywords}
             tracked={data.keywordsTracked}
             bestMapsRank={data.bestLocalPackRank}
             bestMapsKeyword={bestMapsRow?.keyword ?? null}
+            missedCustomers={data.totalEstPatientsLost}
+            hasMapsScans={data.mapsScanCount > 0}
             labels={buildStateBarLabels(t)}
           />
 
@@ -549,47 +447,23 @@ async function SearchBody({ params }: { params: Promise<PageParams> }) {
             labels={buildRankBreakdownLabels(t)}
           />
 
-          {/* "Customers we estimate you miss" tile · single high-impact
-              KPI · the others moved into the StateBar. */}
-          <section
-            aria-labelledby="missed-kpi-heading"
-            style={{ marginBottom: 24 }}
-          >
-            <h2
-              id="missed-kpi-heading"
-              style={{ position: "absolute", left: -9999 }}
-            >
-              {t("kpis_heading")}
-            </h2>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr",
-                gap: 12,
-              }}
-            >
-              <KPITile
-                variant="standard"
-                label={t("kpi_patients_lost")}
-                value={data.totalEstPatientsLost}
-                sublabel={t("kpi_patients_lost_sublabel")}
-                tone={data.totalEstPatientsLost > 0 ? "warn" : "good"}
-                infoTip={t("kpi_patients_lost_help")}
-              />
-            </div>
-          </section>
-
-          {/* Top 5 keywords by volume · the heart of the rebuild · each
-              row shows Maria's Maps + organic position and the top 3
-              businesses in Maps. */}
-          {data.topByVolume.length > 0 ? (
-            <TopKeywordsCard
-              rows={data.topByVolume}
-              labels={buildTopKeywordsLabels(t, data.keywordsTracked)}
+          {/* "How customers search for {industry} in {city}" · the
+              sortable Boxly-pattern table that replaces the old top-5
+              cards. Renders the local-intent template set with Maps +
+              organic rank per keyword; "your service" badge for
+              service-flagged rows. */}
+          {industryRecognised ? (
+            <KeywordVisibilityTable
+              rows={data.allTrackedKeywords}
+              labels={buildVisibilityTableLabels(
+                t,
+                industryLabel,
+                data.city ?? "",
+              )}
             />
           ) : null}
 
-          {/* Competitor leaderboard · top 10 in cell + Maria's row · now
+          {/* Competitor leaderboard · top 10 in cell + Maria's row ·
               renders "Customers/mo" instead of raw $ traffic value. */}
           <CompetitorLeaderboardCard
             rows={data.competitorLeaderboard}
@@ -599,105 +473,14 @@ async function SearchBody({ params }: { params: Promise<PageParams> }) {
             labels={buildCompetitorLeaderboardLabels(t)}
           />
 
-          {/* Find + expandable full list · KeywordFinder (client) wires
-              the search-with-autosuggest, the `<details>` below it
-              renders all tracked keywords (collapsed by default). */}
-          {data.allTrackedKeywords.length > 0 ? (
-            <section style={{ marginBottom: 16 }}>
-              <KeywordFinder
-                options={finderOptions}
-                detailsId={ALL_KEYWORDS_DETAILS_ID}
-                rowIdPrefix={ALL_KEYWORDS_ROW_PREFIX}
-                labels={buildKeywordFinderLabels(t)}
-              />
-              <details
-                id={ALL_KEYWORDS_DETAILS_ID}
-                style={{
-                  background: "var(--color-bg-2)",
-                  border: "1px solid var(--color-border)",
-                  borderRadius: 12,
-                  padding: "12px 16px",
-                }}
-              >
-                <summary
-                  style={{
-                    cursor: "pointer",
-                    fontFamily: "var(--font-mono)",
-                    fontSize: 12,
-                    color: "var(--color-text-2)",
-                    fontWeight: 600,
-                    listStyle: "revert",
-                  }}
-                >
-                  {t("all_keywords_disclosure_summary", {
-                    count: data.allTrackedKeywords.length,
-                  })}
-                </summary>
-                <ul
-                  aria-label={t("all_keywords_aria_label")}
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 8,
-                    padding: 0,
-                    margin: "14px 0 0",
-                    listStyle: "none",
-                  }}
-                >
-                  {data.allTrackedKeywords.map((row) => {
-                    const status = bucketStatus(row);
-                    const delta = deriveDelta(row);
-                    const statusText = t(`status_${status}`);
-                    let deltaText: string;
-                    if (delta === "improved") {
-                      deltaText = t("delta_improved");
-                    } else if (delta === "slipped") {
-                      deltaText = t("delta_slipped");
-                    } else if (delta === "flat") {
-                      deltaText = t("delta_flat");
-                    } else if (delta === "new") {
-                      deltaText = t("delta_new");
-                    } else {
-                      deltaText = t("delta_none");
-                    }
-                    const volumeFormatted = formatVolume(row.searchVolume);
-                    const searchVolumeText =
-                      row.searchVolume != null && row.searchVolume > 0
-                        ? t("volume_with_unit", { value: volumeFormatted })
-                        : volumeFormatted;
-                    const searchVolumeAriaLabel =
-                      row.searchVolume != null && row.searchVolume > 0
-                        ? t("volume_aria", { value: row.searchVolume })
-                        : t("volume_aria_empty");
-                    const estLostText =
-                      row.estPatientsLost > 0
-                        ? t("est_lost_per_keyword", {
-                            count: row.estPatientsLost,
-                          })
-                        : "";
-                    return (
-                      <KeywordRow
-                        key={row.id}
-                        rowId={`${ALL_KEYWORDS_ROW_PREFIX}${row.id}`}
-                        keyword={row.keyword}
-                        statusText={statusText}
-                        status={status}
-                        delta={delta}
-                        deltaText={deltaText}
-                        searchVolumeText={searchVolumeText}
-                        searchVolumeAriaLabel={searchVolumeAriaLabel}
-                        packSlots={row.packSlots}
-                        packLabel={t("pack_label")}
-                        estPatientsLostText={estLostText}
-                      />
-                    );
-                  })}
-                </ul>
-              </details>
-            </section>
-          ) : (
+          {/* Empty state when local-intent set is empty (transition
+              window after deploy before the cron has populated, or
+              unknown industry). The table above also renders its own
+              empty state · this is the page-level fallback for the
+              "no business / no data at all" case. */}
+          {data.allTrackedKeywords.length === 0 ? (
             <EmptyCard body={t("empty_no_keywords")} />
-          )}
+          ) : null}
 
           <p
             style={{

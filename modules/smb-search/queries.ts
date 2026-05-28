@@ -99,8 +99,14 @@ export async function getSmbSearchData(userId: string): Promise<SmbSearchData> {
         name: true,
         city: true,
         country: true,
+        category: true,
         searchScanLastAt: true,
         businessKeywords: {
+          // S.6 · architecture C · the SMB page reads ONLY local-intent
+          // template-derived rows. Legacy "ranked" rows from the
+          // ranked_keywords portfolio stay in the DB for any future
+          // admin/footprint view but are excluded here.
+          where: { source: "template" },
           orderBy: { latestEstTrafficUsd: { sort: "desc", nulls: "last" } },
           take: 200,
           select: {
@@ -113,6 +119,7 @@ export async function getSmbSearchData(userId: string): Promise<SmbSearchData> {
             isNew: true,
             isUp: true,
             isDown: true,
+            templateOrigin: true,
             keyword: {
               select: {
                 id: true,
@@ -140,6 +147,7 @@ export async function getSmbSearchData(userId: string): Promise<SmbSearchData> {
         ownedBusinessId: own.id,
         name: own.name,
         city: own.city,
+        category: own.category,
       };
     }
 
@@ -226,6 +234,7 @@ export async function getSmbSearchData(userId: string): Promise<SmbSearchData> {
         packSlots,
         estPatientsLost: estLost,
         estVisits,
+        isServiceKeyword: bk.templateOrigin === "service",
       });
 
       const ms = bk.latestScanAt?.getTime() ?? null;
@@ -303,10 +312,27 @@ export async function getSmbSearchData(userId: string): Promise<SmbSearchData> {
       country: own.country,
     });
 
+    // 7) Maps scan count · drives the truthful "Maps not scanned yet"
+    //    State Bar copy. We separate "no Maps data because we never
+    //    asked Google Maps" from "no Maps data because she's not in
+    //    Maps for any tracked keyword". Single cheap COUNT(*).
+    const mapsScanCount = await prisma.serpResult.count({
+      where: { businessId: own.id, kind: "MAPS" },
+    });
+
+    // 8) Σ traffic value · State Bar 6th cell · "what Google Ads would
+    //    cost for these visits at your current ranks." DfS-truth when
+    //    populated (via discover-local-intent), null-coalesced to 0.
+    let totalEstTrafficUsd = 0;
+    for (const bk of own.businessKeywords) {
+      totalEstTrafficUsd += bk.latestEstTrafficUsd ?? 0;
+    }
+
     return {
       ownedBusinessId: own.id,
       name: own.name,
       city: own.city,
+      category: own.category,
       bestLocalPackRank,
       keywordsTracked: rows.length,
       keywordsInLocalPack,
@@ -323,10 +349,12 @@ export async function getSmbSearchData(userId: string): Promise<SmbSearchData> {
       topQuickWins,
       totalSearchVolume: totals.totalSearchVolume,
       totalEstimatedVisits: totals.totalEstimatedVisits,
+      totalEstTrafficUsd: Math.round(totalEstTrafficUsd * 100) / 100,
       rankBuckets: totals.rankBuckets,
       competitorLeaderboard: leaderboard.rows,
       competitorLeaderboardOwnRank: leaderboard.ownRank,
       competitorLeaderboardTotal: leaderboard.total,
+      mapsScanCount,
     };
   } catch (err) {
     console.error("getSmbSearchData failed", err);
