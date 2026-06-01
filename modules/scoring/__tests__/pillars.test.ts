@@ -96,16 +96,24 @@ describe("percentileRank", () => {
 });
 
 describe("computePillars · safety invariants", () => {
-  test("all-null signals + null cell → every pillar + master finite in [0,10]", () => {
+  test("all-null signals → every pillar + master is null (unmeasured)", () => {
     const r = computePillars(sig(), null);
-    for (const p of PILLARS) {
-      expect(Number.isFinite(r[p])).toBe(true);
-      expect(r[p]).toBeGreaterThanOrEqual(0);
-      expect(r[p]).toBeLessThanOrEqual(PILLAR_SCORE_MAX);
-    }
-    expect(r.master).toBeGreaterThanOrEqual(0);
-    expect(r.master).toBeLessThanOrEqual(PILLAR_SCORE_MAX);
+    for (const p of PILLARS) expect(r[p]).toBeNull();
+    expect(r.master).toBeNull();
     expect(r.adsApplicable).toBe(false);
+  });
+
+  test("a pillar with no inputs is null, not a misleading 0", () => {
+    // Reputation + Profile have inputs; Website + Visibility do not.
+    const r = computePillars(
+      sig({ rating: 4.7, reviewCount: 120, hasPhone: true, photoCount: 20 }),
+      null,
+    );
+    expect(r.reputation).not.toBeNull();
+    expect(r.profile).not.toBeNull();
+    expect(r.website).toBeNull();
+    expect(r.visibility).toBeNull();
+    expect(r.master).not.toBeNull(); // re-normalized over measured pillars
   });
 
   test("NaN / Infinity inputs do not corrupt the score", () => {
@@ -117,8 +125,11 @@ describe("computePillars · safety invariants", () => {
       }),
       null,
     );
-    expect(Number.isFinite(r.master)).toBe(true);
-    expect(r.master).toBeLessThanOrEqual(PILLAR_SCORE_MAX);
+    expect(r.master).not.toBeNull();
+    if (r.master != null) {
+      expect(Number.isFinite(r.master)).toBe(true);
+      expect(r.master).toBeLessThanOrEqual(PILLAR_SCORE_MAX);
+    }
   });
 
   test("breakdown contributions sum to master", () => {
@@ -135,7 +146,8 @@ describe("computePillars · safety invariants", () => {
       cell({ adPrevalence: 0.4 }),
     );
     const summed = r.breakdown.reduce((acc, d2) => acc + d2.contribution, 0);
-    expect(summed).toBeCloseTo(r.master, 6);
+    expect(r.master).not.toBeNull();
+    if (r.master != null) expect(summed).toBeCloseTo(r.master, 6);
   });
 
   test("a strong all-round business beats a broken one", () => {
@@ -167,8 +179,12 @@ describe("computePillars · safety invariants", () => {
       null,
     );
     const broken = computePillars(sig({ rating: 2.5 }), null);
-    expect(strong.master).toBeGreaterThan(7.5);
-    expect(broken.master).toBeLessThan(strong.master);
+    expect(strong.master).not.toBeNull();
+    expect(broken.master).not.toBeNull();
+    if (strong.master != null && broken.master != null) {
+      expect(strong.master).toBeGreaterThan(7.5);
+      expect(broken.master).toBeLessThan(strong.master);
+    }
   });
 });
 

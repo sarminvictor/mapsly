@@ -115,7 +115,7 @@ function ReviewsSkeleton() {
     <section
       aria-hidden
       style={{
-        maxWidth: 1280,
+        maxWidth: 1080,
         margin: "0 auto",
         padding: "32px 20px 64px",
       }}
@@ -347,7 +347,7 @@ async function ReviewsBody({
     <section
       aria-labelledby="reviews-heading"
       style={{
-        maxWidth: 1280,
+        maxWidth: 1080,
         margin: "0 auto",
         padding: "32px 20px 64px",
       }}

@@ -316,26 +316,92 @@ export function computeAdvertisingPillar(
  * its cell reference (null = grade against absolute fallbacks). Returns the
  * per-pillar breakdown whose contributions sum to the master.
  */
+/** True if at least one of the values is present (not null/undefined). */
+function anyPresent(
+  ...vals: ReadonlyArray<number | boolean | null | undefined>
+): boolean {
+  return vals.some((v) => v != null);
+}
+
+/**
+ * Compute all 5 pillars + the consolidated master. A pillar with NO input
+ * signals is "unmeasured" → its score is `null` ("Not measured yet", not a
+ * misleading 0) and it's excluded from the master, which re-normalizes over the
+ * MEASURED pillars only. `master` is null when nothing is measured at all.
+ * Breakdown contributions (re-normalized) sum to the master.
+ */
 export function computePillars(
   s: PillarSignals,
   cell: CellReference | null,
 ): PillarResult {
   const ads = computeAdvertisingPillar(s, cell);
-  const scores: Record<Pillar, number> = {
+  const raw: Record<Pillar, number> = {
     reputation: clampScore(computeReputationPillar(s, cell)),
     visibility: clampScore(computeVisibilityPillar(s, cell)),
     profile: clampScore(computeProfilePillar(s, cell)),
     website: clampScore(computeWebsitePillar(s, cell)),
     advertising: clampScore(ads.score),
   };
+  const measured: Record<Pillar, boolean> = {
+    reputation: anyPresent(
+      s.rating,
+      s.reviewCount,
+      s.replyRate,
+      s.velocityLast30d,
+    ),
+    visibility: anyPresent(
+      s.localPackRank,
+      s.organicRankBest,
+      s.shareOfVoice,
+      s.keywordsRanked,
+    ),
+    profile: anyPresent(
+      s.hasPhone,
+      s.hasWebsite,
+      s.hasHours,
+      s.isClaimed,
+      s.photoCount,
+      s.categoryCount,
+    ),
+    website: anyPresent(
+      s.lighthousePerformance,
+      s.lighthouseSeo,
+      s.lcpSeconds,
+      s.hasSchema,
+      s.hasBookingCta,
+      s.hasPhoneAboveFold,
+      s.napConsistent,
+    ),
+    advertising: anyPresent(
+      s.hasActiveAds,
+      s.metaAdCount,
+      s.estMonthlyAdSpend,
+      s.brandHijack,
+    ),
+  };
 
-  let master = 0;
+  let weightedSum = 0;
+  let weightTotal = 0;
+  for (const p of PILLARS) {
+    if (measured[p]) {
+      weightedSum += raw[p] * PILLAR_WEIGHTS[p];
+      weightTotal += PILLAR_WEIGHTS[p];
+    }
+  }
+  const master = weightTotal > 0 ? clampScore(weightedSum / weightTotal) : null;
+
+  const scores: Record<Pillar, number | null> = {
+    reputation: measured.reputation ? raw.reputation : null,
+    visibility: measured.visibility ? raw.visibility : null,
+    profile: measured.profile ? raw.profile : null,
+    website: measured.website ? raw.website : null,
+    advertising: measured.advertising ? raw.advertising : null,
+  };
   const breakdown = PILLARS.map((p) => {
-    const score = scores[p];
     const weight = PILLAR_WEIGHTS[p];
-    const contribution = score * weight;
-    master += contribution;
-    return Object.freeze({ pillar: p, score, weight, contribution });
+    const contribution =
+      measured[p] && weightTotal > 0 ? (raw[p] * weight) / weightTotal : 0;
+    return Object.freeze({ pillar: p, score: scores[p], weight, contribution });
   });
 
   return {
@@ -344,7 +410,7 @@ export function computePillars(
     profile: scores.profile,
     website: scores.website,
     advertising: scores.advertising,
-    master: clampScore(master),
+    master,
     adsApplicable: ads.applicable,
     breakdown: Object.freeze(breakdown),
   };

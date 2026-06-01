@@ -87,7 +87,7 @@ function MyBusinessSkeleton() {
     <section
       aria-hidden
       style={{
-        maxWidth: 760,
+        maxWidth: 1080,
         margin: "0 auto",
         padding: "32px 20px 64px",
       }}
@@ -137,7 +137,7 @@ async function MyBusinessBody({ params }: { params: Promise<PageParams> }) {
     <section
       aria-labelledby="my-business-heading"
       style={{
-        maxWidth: 760,
+        maxWidth: 1080,
         margin: "0 auto",
         padding: "32px 20px 64px",
       }}

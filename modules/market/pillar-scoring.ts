@@ -25,6 +25,7 @@ import {
   parseCellReference,
   signalsFromSnapshot,
 } from "./cell-metrics";
+import { loadTrackedMarkets, resolveMarketCategory } from "./market-category";
 
 const DEFAULT_LIMIT = 5000;
 const WRITE_CHUNK = 25;
@@ -60,6 +61,7 @@ export async function runPillarScoring(opts?: {
       business: {
         select: {
           category: true,
+          categoryIds: true,
           city: true,
           province: true,
           country: true,
@@ -85,7 +87,8 @@ export async function runPillarScoring(opts?: {
   const msiMap = rankByMsiInMetros(msiInputs, (i) => i.metro);
   const metrosRanked = new Set(msiInputs.map((i) => i.metro)).size;
 
-  // Market reference per cell.
+  // Market reference per cell (grouped by Discovery market · see cell-metrics).
+  const markets = await loadTrackedMarkets();
   const cellRows = await prisma.cellMetric.findMany({
     select: {
       cellKey: true,
@@ -102,9 +105,11 @@ export async function runPillarScoring(opts?: {
   const updates: { id: string; data: Prisma.BusinessSnapshotUpdateInput }[] =
     [];
   for (const r of snapshots) {
-    const { category, city, country } = r.business;
+    const { city, country } = r.business;
     const cellKey =
-      category && city && country ? cellKeyOf(category, city, country) : null;
+      city && country
+        ? cellKeyOf(resolveMarketCategory(r.business, markets), city, country)
+        : null;
     const cellRow = cellKey ? (cellMap.get(cellKey) ?? null) : null;
     const cellRef = parseCellReference(cellRow ?? null);
     if (cellRef) {

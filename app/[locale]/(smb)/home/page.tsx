@@ -112,7 +112,7 @@ function DashboardSkeleton() {
     <section
       aria-hidden
       style={{
-        maxWidth: 960,
+        maxWidth: 1080,
         margin: "0 auto",
         padding: "32px 20px 64px",
       }}
@@ -253,13 +253,15 @@ async function DashboardBody({ params }: { params: Promise<PageParams> }) {
       : null;
   const standingLine = [rankLabel, topLabel].filter(Boolean).join(" · ");
 
-  // Local closure → uses literal i18n keys (no dynamic key, no t-passing).
-  const stateLabel = (tone: PillarTileTone): string =>
-    tone === "good"
-      ? t("pillar_state_strong")
-      : tone === "bad"
-        ? t("pillar_state_weak")
-        : t("pillar_state_ok");
+  // Null-aware state line → "Not measured yet" when the pillar has no data.
+  const stateLabel = (score: number | null): string =>
+    score == null
+      ? t("pillar_state_unmeasured")
+      : score >= 7
+        ? t("pillar_state_strong")
+        : score < 4
+          ? t("pillar_state_weak")
+          : t("pillar_state_ok");
 
   const adsTone: PillarTileTone =
     data.adsApplicable === false ? "warn" : pillarTone(data.adsPillar);
@@ -272,7 +274,7 @@ async function DashboardBody({ params }: { params: Promise<PageParams> }) {
           href: "/reviews",
           score: data.reputationPillar,
           tone: pillarTone(data.reputationPillar),
-          sublabel: stateLabel(pillarTone(data.reputationPillar)),
+          sublabel: stateLabel(data.reputationPillar),
           openLabel: t("pillar_open", { label: t("pillar_reputation") }),
         },
         {
@@ -281,7 +283,7 @@ async function DashboardBody({ params }: { params: Promise<PageParams> }) {
           href: "/search",
           score: data.visibilityPillar,
           tone: pillarTone(data.visibilityPillar),
-          sublabel: stateLabel(pillarTone(data.visibilityPillar)),
+          sublabel: stateLabel(data.visibilityPillar),
           openLabel: t("pillar_open", { label: t("pillar_visibility") }),
         },
         {
@@ -290,7 +292,7 @@ async function DashboardBody({ params }: { params: Promise<PageParams> }) {
           href: "/my-business",
           score: data.profilePillar,
           tone: pillarTone(data.profilePillar),
-          sublabel: stateLabel(pillarTone(data.profilePillar)),
+          sublabel: stateLabel(data.profilePillar),
           openLabel: t("pillar_open", { label: t("pillar_profile") }),
         },
         {
@@ -299,7 +301,7 @@ async function DashboardBody({ params }: { params: Promise<PageParams> }) {
           href: "/website",
           score: data.websitePillar,
           tone: pillarTone(data.websitePillar),
-          sublabel: stateLabel(pillarTone(data.websitePillar)),
+          sublabel: stateLabel(data.websitePillar),
           openLabel: t("pillar_open", { label: t("pillar_website") }),
         },
         {
@@ -311,7 +313,7 @@ async function DashboardBody({ params }: { params: Promise<PageParams> }) {
           sublabel:
             data.adsApplicable === false
               ? t("pillar_ads_off")
-              : stateLabel(adsTone),
+              : stateLabel(data.adsPillar),
           openLabel: t("pillar_open", { label: t("pillar_advertising") }),
         },
       ]
@@ -363,7 +365,7 @@ async function DashboardBody({ params }: { params: Promise<PageParams> }) {
     <section
       aria-labelledby="dashboard-heading"
       style={{
-        maxWidth: 960,
+        maxWidth: 1080,
         margin: "0 auto",
         padding: "32px 20px 64px",
       }}

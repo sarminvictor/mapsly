@@ -96,7 +96,7 @@ function HowYouCompareSkeleton() {
     <section
       aria-hidden
       style={{
-        maxWidth: 960,
+        maxWidth: 1080,
         margin: "0 auto",
         padding: "32px 20px 64px",
       }}
@@ -191,12 +191,14 @@ async function HowYouCompareBody({ params }: { params: Promise<PageParams> }) {
 
   // Scoring v2 · the 5 pillars, each already graded relative to the local
   // market — rendered as the "pillars vs market" lens on the compare page.
-  const stateLabel = (tone: PillarTileTone): string =>
-    tone === "good"
-      ? tHome("pillar_state_strong")
-      : tone === "bad"
-        ? tHome("pillar_state_weak")
-        : tHome("pillar_state_ok");
+  const stateLabel = (score: number | null): string =>
+    score == null
+      ? tHome("pillar_state_unmeasured")
+      : score >= 7
+        ? tHome("pillar_state_strong")
+        : score < 4
+          ? tHome("pillar_state_weak")
+          : tHome("pillar_state_ok");
   const cmpAdsTone: PillarTileTone =
     standing.adsApplicable === false
       ? "warn"
@@ -209,7 +211,7 @@ async function HowYouCompareBody({ params }: { params: Promise<PageParams> }) {
           href: "/reviews",
           score: standing.reputation,
           tone: comparePillarTone(standing.reputation),
-          sublabel: stateLabel(comparePillarTone(standing.reputation)),
+          sublabel: stateLabel(standing.reputation),
           openLabel: tHome("pillar_open", {
             label: tHome("pillar_reputation"),
           }),
@@ -220,7 +222,7 @@ async function HowYouCompareBody({ params }: { params: Promise<PageParams> }) {
           href: "/search",
           score: standing.visibility,
           tone: comparePillarTone(standing.visibility),
-          sublabel: stateLabel(comparePillarTone(standing.visibility)),
+          sublabel: stateLabel(standing.visibility),
           openLabel: tHome("pillar_open", {
             label: tHome("pillar_visibility"),
           }),
@@ -231,7 +233,7 @@ async function HowYouCompareBody({ params }: { params: Promise<PageParams> }) {
           href: "/my-business",
           score: standing.profile,
           tone: comparePillarTone(standing.profile),
-          sublabel: stateLabel(comparePillarTone(standing.profile)),
+          sublabel: stateLabel(standing.profile),
           openLabel: tHome("pillar_open", { label: tHome("pillar_profile") }),
         },
         {
@@ -240,7 +242,7 @@ async function HowYouCompareBody({ params }: { params: Promise<PageParams> }) {
           href: "/website",
           score: standing.website,
           tone: comparePillarTone(standing.website),
-          sublabel: stateLabel(comparePillarTone(standing.website)),
+          sublabel: stateLabel(standing.website),
           openLabel: tHome("pillar_open", { label: tHome("pillar_website") }),
         },
         {
@@ -252,7 +254,7 @@ async function HowYouCompareBody({ params }: { params: Promise<PageParams> }) {
           sublabel:
             standing.adsApplicable === false
               ? tHome("pillar_ads_off")
-              : stateLabel(cmpAdsTone),
+              : stateLabel(standing.advertising),
           openLabel: tHome("pillar_open", {
             label: tHome("pillar_advertising"),
           }),
@@ -264,7 +266,7 @@ async function HowYouCompareBody({ params }: { params: Promise<PageParams> }) {
     <section
       aria-labelledby="hyc-heading"
       style={{
-        maxWidth: 960,
+        maxWidth: 1080,
         margin: "0 auto",
         padding: "32px 20px 64px",
       }}

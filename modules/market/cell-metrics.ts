@@ -21,12 +21,15 @@ import type {
   CellReference,
   PillarSignals,
 } from "@/modules/scoring";
+import { loadTrackedMarkets, resolveMarketCategory } from "./market-category";
 
 /** Cells below this sample size are flagged `confidence: "low"`. */
 export const CELL_MIN_SAMPLE = 8;
 
-/** A distribution needs at least this many values to be worth forming. */
-const MIN_VALUES_FOR_DISTRIBUTION = 4;
+/** A distribution needs at least this many values to be worth forming. Small
+ * cells still get a median (degenerate spreads fall back to absolute scoring
+ * via isUsableBp). */
+const MIN_VALUES_FOR_DISTRIBUTION = 1;
 
 /** Default cap on businesses scanned per aggregation run (scale guard). */
 const DEFAULT_SCAN_LIMIT = 5000;
@@ -195,15 +198,22 @@ export async function runCellAggregation(opts?: {
       replyRate: true,
       velocityLast30d: true,
       business: {
-        select: { category: true, city: true, country: true },
+        select: {
+          category: true,
+          categoryIds: true,
+          city: true,
+          country: true,
+        },
       },
     },
   });
 
-  // Group into cells.
+  // Group into cells by Discovery MARKET (not the raw Google category) so
+  // /admin/cells aligns with /admin/discovery.
+  const markets = await loadTrackedMarkets();
   const buckets = new Map<string, CellBucket>();
   for (const snap of snapshots) {
-    const category = snap.business.category;
+    const category = resolveMarketCategory(snap.business, markets);
     const city = snap.business.city;
     const country = snap.business.country;
     if (!category || !city || !country) continue;
@@ -218,6 +228,7 @@ export async function runCellAggregation(opts?: {
 
   let cellsWritten = 0;
   let highConfidenceCells = 0;
+  const writtenKeys: string[] = [];
 
   for (const bucket of buckets.values()) {
     const { category, city, country, rows } = bucket;
@@ -282,7 +293,16 @@ export async function runCellAggregation(opts?: {
       update: scalars,
     });
     cellsWritten += 1;
+    writtenKeys.push(cellKey);
   }
+
+  // Drop stale cells (raw-category cells from before market grouping, or cells
+  // whose businesses moved/closed) so /admin/cells shows only live markets.
+  await prisma.cellMetric.deleteMany({
+    where: {
+      cellKey: { notIn: writtenKeys.length > 0 ? writtenKeys : ["__none__"] },
+    },
+  });
 
   return {
     cellsProcessed: buckets.size,

@@ -122,22 +122,23 @@ export interface CellReference extends CellDistributions {
 
 export interface PillarBreakdown {
   readonly pillar: Pillar;
-  /** 0–10. */
-  readonly score: number;
+  /** 0–10, or null when the pillar has no input signals ("unmeasured"). */
+  readonly score: number | null;
   /** 0–1. */
   readonly weight: number;
-  /** score × weight · 0–(weight × 10). Sum across pillars equals master. */
+  /** Re-normalized contribution (over measured pillars) · sums to master. */
   readonly contribution: number;
 }
 
 export interface PillarResult {
-  readonly reputation: number;
-  readonly visibility: number;
-  readonly profile: number;
-  readonly website: number;
-  readonly advertising: number;
-  /** 0–10 · weighted roll-up of the five pillars. */
-  readonly master: number;
+  /** 0–10, or null when the pillar is unmeasured (no input signals). */
+  readonly reputation: number | null;
+  readonly visibility: number | null;
+  readonly profile: number | null;
+  readonly website: number | null;
+  readonly advertising: number | null;
+  /** 0–10 · weighted roll-up over the MEASURED pillars; null if none measured. */
+  readonly master: number | null;
   /** Whether the business is actually advertising (display flag, not a weight). */
   readonly adsApplicable: boolean;
   readonly breakdown: readonly PillarBreakdown[];

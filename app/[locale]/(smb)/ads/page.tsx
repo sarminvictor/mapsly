@@ -97,7 +97,7 @@ function AdsSkeleton() {
   return (
     <section
       aria-hidden
-      style={{ maxWidth: 1100, margin: "0 auto", padding: "32px 20px 64px" }}
+      style={{ maxWidth: 1080, margin: "0 auto", padding: "32px 20px 64px" }}
     >
       <div style={{ ...block(28, 8), width: 260, marginBottom: 16 }} />
       <div style={{ ...block(20, 6), width: 420, marginBottom: 24 }} />
@@ -317,7 +317,7 @@ async function AdsBody({ params }: { params: Promise<PageParams> }) {
   return (
     <section
       aria-labelledby="ads-heading"
-      style={{ maxWidth: 1100, margin: "0 auto", padding: "32px 20px 64px" }}
+      style={{ maxWidth: 1080, margin: "0 auto", padding: "32px 20px 64px" }}
     >
       <SmbPageHeader
         userId={session.user.id}

@@ -64,7 +64,7 @@ function WebsiteSkeleton() {
     <section
       aria-hidden
       style={{
-        maxWidth: 1040,
+        maxWidth: 1080,
         margin: "0 auto",
         padding: "32px 20px 64px",
       }}
@@ -145,7 +145,7 @@ async function WebsiteBody({ params }: { params: Promise<PageParams> }) {
     <section
       aria-labelledby="website-heading"
       style={{
-        maxWidth: 1040,
+        maxWidth: 1080,
         margin: "0 auto",
         padding: "32px 20px 64px",
       }}

@@ -821,6 +821,7 @@
       "pillar_state_strong": "Looking strong",
       "pillar_state_ok": "Room to grow",
       "pillar_state_weak": "Needs attention",
+      "pillar_state_unmeasured": "Not measured yet",
       "pillar_ads_off": "Not running ads · quick win",
       "pillar_open": "Open {label}",
       "dim_reputation": "Reputation",

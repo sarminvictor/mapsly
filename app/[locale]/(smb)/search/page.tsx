@@ -593,7 +593,9 @@ async function SearchBody({ params }: { params: Promise<PageParams> }) {
                 );
               })}
             </>
-          ) : null}
+          ) : (
+            <EmptyCard body={t("quick_wins_empty")} />
+          )}
         </aside>
       </div>
     </section>
