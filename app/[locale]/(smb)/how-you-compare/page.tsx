@@ -51,6 +51,12 @@ import {
   type MarketMedians,
   type MarketMover,
 } from "@/modules/smb-how-you-compare";
+import {
+  PillarTiles,
+  type PillarTileData,
+  type PillarTileTone,
+} from "@/modules/smb-home/components";
+import { getOwnerPillarStanding } from "@/modules/smb-shared/pillar-standing";
 
 export async function generateMetadata({
   params,
@@ -142,7 +148,11 @@ async function HowYouCompareBody({ params }: { params: Promise<PageParams> }) {
   }
 
   const t = await getTranslations("smb.how_you_compare");
-  const data = await getSmbHowYouCompareData(session.user.id);
+  const [data, standing, tHome] = await Promise.all([
+    getSmbHowYouCompareData(session.user.id),
+    getOwnerPillarStanding(session.user.id),
+    getTranslations("smb.home"),
+  ]);
 
   if (data.ownedBusinessId === "") {
     return (
@@ -179,6 +189,77 @@ async function HowYouCompareBody({ params }: { params: Promise<PageParams> }) {
     );
   }
 
+  // Scoring v2 · the 5 pillars, each already graded relative to the local
+  // market — rendered as the "pillars vs market" lens on the compare page.
+  const stateLabel = (tone: PillarTileTone): string =>
+    tone === "good"
+      ? tHome("pillar_state_strong")
+      : tone === "bad"
+        ? tHome("pillar_state_weak")
+        : tHome("pillar_state_ok");
+  const cmpAdsTone: PillarTileTone =
+    standing.adsApplicable === false
+      ? "warn"
+      : comparePillarTone(standing.advertising);
+  const pillarTiles: PillarTileData[] = standing.hasData
+    ? [
+        {
+          id: "reputation",
+          label: tHome("pillar_reputation"),
+          href: "/reviews",
+          score: standing.reputation,
+          tone: comparePillarTone(standing.reputation),
+          sublabel: stateLabel(comparePillarTone(standing.reputation)),
+          openLabel: tHome("pillar_open", {
+            label: tHome("pillar_reputation"),
+          }),
+        },
+        {
+          id: "visibility",
+          label: tHome("pillar_visibility"),
+          href: "/search",
+          score: standing.visibility,
+          tone: comparePillarTone(standing.visibility),
+          sublabel: stateLabel(comparePillarTone(standing.visibility)),
+          openLabel: tHome("pillar_open", {
+            label: tHome("pillar_visibility"),
+          }),
+        },
+        {
+          id: "profile",
+          label: tHome("pillar_profile"),
+          href: "/my-business",
+          score: standing.profile,
+          tone: comparePillarTone(standing.profile),
+          sublabel: stateLabel(comparePillarTone(standing.profile)),
+          openLabel: tHome("pillar_open", { label: tHome("pillar_profile") }),
+        },
+        {
+          id: "website",
+          label: tHome("pillar_website"),
+          href: "/website",
+          score: standing.website,
+          tone: comparePillarTone(standing.website),
+          sublabel: stateLabel(comparePillarTone(standing.website)),
+          openLabel: tHome("pillar_open", { label: tHome("pillar_website") }),
+        },
+        {
+          id: "advertising",
+          label: tHome("pillar_advertising"),
+          href: "/ads",
+          score: standing.advertising,
+          tone: cmpAdsTone,
+          sublabel:
+            standing.adsApplicable === false
+              ? tHome("pillar_ads_off")
+              : stateLabel(cmpAdsTone),
+          openLabel: tHome("pillar_open", {
+            label: tHome("pillar_advertising"),
+          }),
+        },
+      ]
+    : [];
+
   return (
     <section
       aria-labelledby="hyc-heading"
@@ -190,6 +271,26 @@ async function HowYouCompareBody({ params }: { params: Promise<PageParams> }) {
     >
       <Header data={data} t={t} />
       <HeroSection data={data} t={t} />
+      {pillarTiles.length > 0 ? (
+        <section
+          aria-labelledby="hyc-pillars-heading"
+          style={{ marginBottom: 28 }}
+        >
+          <h2
+            id="hyc-pillars-heading"
+            style={{
+              margin: "0 0 12px",
+              fontFamily: "var(--font-serif)",
+              fontSize: 18,
+              letterSpacing: "-0.01em",
+              color: "var(--color-text)",
+            }}
+          >
+            {t("pillars_heading")}
+          </h2>
+          <PillarTiles tiles={pillarTiles} />
+        </section>
+      ) : null}
       <TopRankedSection
         rows={data.topRanked}
         t={t}
@@ -207,6 +308,14 @@ async function HowYouCompareBody({ params }: { params: Promise<PageParams> }) {
       <p style={footnoteStyle()}>{t("footer_help")}</p>
     </section>
   );
+}
+
+/** Pillar score (0–10) → PillarTiles tone. */
+function comparePillarTone(score: number | null): PillarTileTone {
+  if (score == null) return "neutral";
+  if (score >= 7) return "good";
+  if (score >= 4) return "warn";
+  return "bad";
 }
 
 // ─── Header ────────────────────────────────────────────────────────────────

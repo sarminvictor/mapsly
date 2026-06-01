@@ -323,6 +323,7 @@ async function AdsBody({ params }: { params: Promise<PageParams> }) {
         userId={session.user.id}
         namespace="smb.ads"
         titleId="ads-heading"
+        pillar="advertising"
       />
 
       {/* Summary banner · the one thing to grasp in 3-5s — who's advertising,

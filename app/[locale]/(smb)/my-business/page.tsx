@@ -146,6 +146,7 @@ async function MyBusinessBody({ params }: { params: Promise<PageParams> }) {
         userId={session.user.id}
         namespace="smb.my_business"
         titleId="my-business-heading"
+        pillar="profile"
       />
 
       {data.ownedBusinessId === "" ? (

@@ -356,6 +356,7 @@ async function ReviewsBody({
         userId={session.user.id}
         namespace="smb.reviews"
         titleId="reviews-heading"
+        pillar="reputation"
       />
 
       {/* 5-KPI state bar · Maria's first glance · Reply rate ·

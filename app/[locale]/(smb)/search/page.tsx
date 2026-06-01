@@ -380,6 +380,7 @@ async function SearchBody({ params }: { params: Promise<PageParams> }) {
         namespace="smb.search"
         titleId="search-heading"
         subtitleParams={{ city: data.city ?? "" }}
+        pillar="visibility"
       />
 
       {/* Two-column layout · left = analytics, right = quick wins rail.

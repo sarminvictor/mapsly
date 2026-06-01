@@ -154,6 +154,7 @@ async function WebsiteBody({ params }: { params: Promise<PageParams> }) {
         userId={session.user.id}
         namespace="smb.website"
         titleId="website-heading"
+        pillar="website"
       />
 
       {!hasAudit ? (

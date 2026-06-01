@@ -35,6 +35,10 @@ export interface DeriveInput {
   brandHijackStatus: "clean" | "watch" | "hit";
   msiRank: number | null;
   msiTotal: number | null;
+  /** Scoring v2 · is the business advertising + its ads pillar (0–10).
+   * Optional so existing derivation fixtures keep typechecking. */
+  adsApplicable?: boolean | null;
+  adsPillar?: number | null;
 }
 
 /* ============================================================ alerts */
@@ -161,6 +165,20 @@ export function deriveTopFixes(input: DeriveInput): SmbDashboardFix[] {
       meta: "Most spas reply to 89% · benchmark · ~5 min each",
       impact: `+${lift}`,
       impactSub: "Mapsly Score",
+      tone: "good",
+    });
+  }
+
+  // Scoring v2 · Ads is Maria's fastest growth lever — surface it as a quick
+  // win when she isn't advertising (live today, while reputation + search are
+  // long games). Market-relativity already keeps it honest in the pillar score.
+  if (input.adsApplicable === false) {
+    candidates.push({
+      priority: 1,
+      action: "Turn on Google or Meta ads",
+      meta: "Rivals near you run them · you can be live today",
+      impact: "Fast",
+      impactSub: "boost this week",
       tone: "good",
     });
   }

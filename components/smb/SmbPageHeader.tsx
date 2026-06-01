@@ -18,10 +18,14 @@
  * `subtitleParams` carries any extra ICU args the subtitle needs (e.g. {city}).
  */
 
-import type { CSSProperties } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { getTranslations } from "next-intl/server";
 
 import { getSmbHeaderInfo } from "@/modules/smb-shared/header-info";
+import {
+  getOwnerPillarStanding,
+  type PillarKey,
+} from "@/modules/smb-shared/pillar-standing";
 
 const eyebrowStyle: CSSProperties = {
   margin: 0,
@@ -70,6 +74,8 @@ export interface SmbPageHeaderProps {
   titleId?: string;
   /** Extra ICU args for the subtitle (e.g. `{ city }`). */
   subtitleParams?: Record<string, string | number>;
+  /** When set, render this page's pillar score badge (Scoring v2). */
+  pillar?: PillarKey;
 }
 
 export async function SmbPageHeader({
@@ -77,37 +83,136 @@ export async function SmbPageHeader({
   namespace,
   titleId,
   subtitleParams,
+  pillar,
 }: SmbPageHeaderProps) {
-  const [t, header] = await Promise.all([
+  const [t, header, standing, tShared] = await Promise.all([
     getTranslations(namespace),
     getSmbHeaderInfo(userId),
+    pillar ? getOwnerPillarStanding(userId) : Promise.resolve(null),
+    pillar ? getTranslations("smb.shared") : Promise.resolve(null),
   ]);
   const name = header?.name ?? "";
   const url = header?.websiteUrl ?? null;
   const domain = url ? displayDomain(url) : null;
 
-  return (
-    <header style={{ marginBottom: 24 }}>
-      <p style={eyebrowStyle}>
-        {t("eyebrow")}
-        {url && domain ? (
-          <span style={{ textTransform: "none" }}>
-            {" · "}
-            <a
-              href={url}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ color: "var(--color-text-2)", textDecoration: "none" }}
-            >
-              {domain}
-            </a>
+  // Scoring v2 · per-page pillar score badge (when this page maps to a pillar
+  // and the pillar-score pass has run). Falls silently absent otherwise.
+  const pillarScore =
+    pillar && standing && standing.hasData ? standing[pillar] : null;
+  let badge: ReactNode = null;
+  if (
+    pillar &&
+    tShared &&
+    standing &&
+    standing.hasData &&
+    pillarScore != null
+  ) {
+    const toneColor =
+      pillarScore >= 7
+        ? "var(--color-success)"
+        : pillarScore >= 4
+          ? "var(--color-gold)"
+          : "var(--color-coral)";
+    const rankLabel =
+      standing.msiRank != null && standing.msiTotal != null
+        ? tShared("standing_rank", {
+            rank: standing.msiRank,
+            total: standing.msiTotal,
+          })
+        : null;
+    const topLabel =
+      standing.msiPercentile != null
+        ? standing.msiRank === 1
+          ? tShared("standing_leader")
+          : tShared("standing_top", {
+              pct: Math.max(1, 100 - Math.round(standing.msiPercentile)),
+            })
+        : null;
+    const standingLine = [rankLabel, topLabel].filter(Boolean).join(" · ");
+    badge = (
+      <div style={{ flexShrink: 0, textAlign: "right" }}>
+        <div
+          style={{
+            fontFamily: "var(--font-mono)",
+            fontSize: 10,
+            textTransform: "uppercase",
+            letterSpacing: "0.1em",
+            color: "var(--color-text-3)",
+          }}
+        >
+          {tShared("this_page_score")}
+        </div>
+        <div
+          style={{
+            fontFamily: "var(--font-serif)",
+            fontSize: 32,
+            fontWeight: 700,
+            lineHeight: 1.1,
+            letterSpacing: "-0.02em",
+            color: toneColor,
+          }}
+        >
+          {pillarScore.toFixed(1)}
+          <span
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: 12,
+              fontWeight: 400,
+              color: "var(--color-text-3)",
+              marginLeft: 2,
+            }}
+          >
+            /10
           </span>
+        </div>
+        {standingLine ? (
+          <div
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: 11,
+              color: "var(--color-text-2)",
+            }}
+          >
+            {standingLine}
+          </div>
         ) : null}
-      </p>
-      <h1 id={titleId} style={titleStyle}>
-        {t("title", { name })}
-      </h1>
-      <p style={subtitleStyle}>{t("subtitle", subtitleParams ?? {})}</p>
+      </div>
+    );
+  }
+
+  return (
+    <header
+      style={{
+        marginBottom: 24,
+        display: "flex",
+        alignItems: "flex-start",
+        justifyContent: "space-between",
+        gap: 16,
+      }}
+    >
+      <div style={{ minWidth: 0 }}>
+        <p style={eyebrowStyle}>
+          {t("eyebrow")}
+          {url && domain ? (
+            <span style={{ textTransform: "none" }}>
+              {" · "}
+              <a
+                href={url}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ color: "var(--color-text-2)", textDecoration: "none" }}
+              >
+                {domain}
+              </a>
+            </span>
+          ) : null}
+        </p>
+        <h1 id={titleId} style={titleStyle}>
+          {t("title", { name })}
+        </h1>
+        <p style={subtitleStyle}>{t("subtitle", subtitleParams ?? {})}</p>
+      </div>
+      {badge}
     </header>
   );
 }

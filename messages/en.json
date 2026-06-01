@@ -147,6 +147,12 @@
     }
   },
   "smb": {
+    "shared": {
+      "this_page_score": "Your score",
+      "standing_rank": "#{rank} of {total} nearby",
+      "standing_top": "top {pct}% nearby",
+      "standing_leader": "#1 in your area"
+    },
     "reviews": {
       "meta": {
         "title": "Reviews · Mapsly",
@@ -638,6 +644,7 @@
       "manage": "Manage in My business"
     },
     "how_you_compare": {
+      "pillars_heading": "Where you stand, pillar by pillar",
       "meta": {
         "title": "How you compare · Mapsly",
         "description": "Where you stand in your local market — score, rank, and what needs your attention."
