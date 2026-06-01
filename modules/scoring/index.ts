@@ -77,3 +77,29 @@ export {
   type RankByMatchScoreOptions,
   type RankedMatch,
 } from "./match-score";
+
+// ── Scoring v2 · market-relative pillars ──
+export {
+  computeAdvertisingPillar,
+  computePillars,
+  computeProfilePillar,
+  computeReputationPillar,
+  computeVisibilityPillar,
+  computeWebsitePillar,
+  msiPercentile,
+  percentileRank,
+  PILLAR_SCORE_MAX,
+  PILLAR_SCORE_MIN,
+  PILLAR_WEIGHTS,
+} from "./pillars";
+
+export {
+  PILLARS,
+  type Breakpoints,
+  type CellDistributions,
+  type CellReference,
+  type Pillar,
+  type PillarBreakdown,
+  type PillarResult,
+  type PillarSignals,
+} from "./pillar-types";

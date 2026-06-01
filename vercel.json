@@ -18,6 +18,14 @@
       "schedule": "30 13 * * 1"
     },
     {
+      "path": "/api/cron/weekly/cell-aggregate",
+      "schedule": "0 14 * * 1"
+    },
+    {
+      "path": "/api/cron/weekly/pillar-score",
+      "schedule": "30 14 * * 1"
+    },
+    {
       "path": "/api/cron/weekly/ads-intelligence",
       "schedule": "0 15 * * 1"
     },

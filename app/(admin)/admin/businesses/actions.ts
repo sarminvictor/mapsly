@@ -26,6 +26,10 @@ import { dispatchSearchScan } from "@/modules/search-visibility/dispatch-bulk-sc
 import { dispatchAdsScan } from "@/modules/ads-intel/dispatch-ads-scan";
 import { dispatchWebsiteScan } from "@/modules/website-intel/dispatch-website-scan";
 import { qualifyBusiness } from "@/modules/business-qualification";
+import {
+  runPillarScoring,
+  type PillarScoringSummary,
+} from "@/modules/market/pillar-scoring";
 
 export type ActionResult<T = null> =
   | { ok: true; data: T; message?: string }
@@ -603,5 +607,42 @@ export async function triggerWebsiteScanBulkAction(
         : result.strategy === "worker-enqueue"
           ? `Queued · ${result.queuedOrTriggered} worker job(s) for ${result.eligibleBusinesses} site(s) · Lighthouse results land shortly.`
           : `Website audit ran inline · ${result.queuedOrTriggered} of ${result.eligibleBusinesses} audited.`,
+  };
+}
+
+// ────────────────────────────────────────────────────────────────────────
+// Scoring v2 · recompute pillar scores + MSI for the index. Grades each
+// business against its CellMetric and revives msiRank / msiTotal. No external
+// API — pure compute over snapshots + cell references. Run "Recompute
+// references" on /admin/cells first so scores grade against fresh medians.
+// ────────────────────────────────────────────────────────────────────────
+
+export async function recomputeScoresAction(
+  _prev: ActionResult<PillarScoringSummary> | null,
+  _formData: FormData,
+): Promise<ActionResult<PillarScoringSummary>> {
+  try {
+    await requireAdminSession();
+  } catch (err) {
+    return { ok: false, error: (err as Error).message };
+  }
+
+  let summary: PillarScoringSummary;
+  try {
+    summary = await withCronRun("admin:scores-recompute", async () =>
+      runPillarScoring(),
+    );
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "Unknown error",
+    };
+  }
+
+  revalidatePath("/admin/businesses");
+  return {
+    ok: true,
+    data: summary,
+    message: `Recomputed pillars + MSI for ${summary.businessesScored} business(es) across ${summary.metrosRanked} metro(s) · ${summary.withCellRef} graded vs cell.`,
   };
 }

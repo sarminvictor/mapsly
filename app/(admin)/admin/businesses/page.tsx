@@ -14,6 +14,7 @@ import { connection } from "next/server";
 
 import { BusinessTable } from "./components/BusinessTable";
 import { FilterBar } from "./components/FilterBar";
+import { RecomputeScoresButton } from "./components/RecomputeScoresButton";
 import {
   getBusinessList,
   getFilterFacets,
@@ -45,13 +46,24 @@ export default function BusinessesPage({
 }) {
   return (
     <>
-      <header style={{ marginBottom: 22 }}>
-        <h1 className="admin-h1">Businesses</h1>
-        <p className="admin-sub">
-          Operational view of every business in the index. Default filter is
-          QUALIFIED. Use bulk actions to trigger review pulls or re-qualify
-          rows.
-        </p>
+      <header
+        style={{
+          marginBottom: 22,
+          display: "flex",
+          alignItems: "flex-start",
+          justifyContent: "space-between",
+          gap: 16,
+        }}
+      >
+        <div>
+          <h1 className="admin-h1">Businesses</h1>
+          <p className="admin-sub">
+            Operational view of every business in the index. Default filter is
+            QUALIFIED. Use bulk actions to trigger review pulls or re-qualify
+            rows.
+          </p>
+        </div>
+        <RecomputeScoresButton />
       </header>
       <Suspense fallback={<LoadingPanel />}>
         <BusinessesBody searchParams={searchParams} />

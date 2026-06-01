@@ -403,6 +403,25 @@ model BusinessSnapshot {
   pricingTransparencyScore Float?
   brandPresenceScore       Float?
 
+  // ── Scoring v2 · market-relative pillars (modules/scoring/pillars.ts) ──────
+  // Pillar INPUTS, denormalized as a typed bag so weekly:cell-aggregate and
+  // pillar scoring read one row instead of re-joining Serp/Lighthouse/Ads.
+  // Shape = PillarSignals (modules/scoring/pillar-types.ts).
+  signalsJson Json?
+
+  // Pillar OUTPUTS (0–10 each) + the consolidated v2 master (pillarScore).
+  // Coexist with the legacy 6 sub-scores + mapslyScore until the SMB UI swaps.
+  reputationPillar Float?
+  visibilityPillar Float?
+  profilePillar    Float?
+  websitePillar    Float?
+  adsPillar        Float?
+  adsApplicable    Boolean? // is the business actually advertising (display flag)
+  pillarScore      Float? // 0–10 · weighted roll-up of the 5 pillars
+  msiPercentile    Float? // 0–100 · inverse rank percentile (90 = top 10%)
+  cellKey          String? // "category|city|country" the scores were graded against
+  cellConfidence   String? // "high" | "low" (low when cell sampleSize < 8)
+
   raw Json? // full source payload for replay
 
   business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
@@ -658,6 +677,48 @@ model AdMarketInsight {
   generatedAt  DateTime   @default(now())
 
   @@unique([category, city, country, platform])
+  @@index([category, city, country])
+}
+
+// ── Scoring v2 · CellMetric ─────────────────────────────────────────────────
+// One row per (category, city, country) MARKET CELL holding the DISTRIBUTION of
+// every scoreable signal across the cell's active businesses — the "market
+// reference" that turns absolute thresholds ("150 reviews = good") into
+// market-relative percentiles ("you're top 15% of Brickell med-spas"). Built
+// ONCE per cell from existing BusinessSnapshot rows (zero external-API cost) by
+// the weekly:cell-aggregate cron, read by pillar scoring (modules/scoring) and
+// the /admin/cells page. Same cell-key shape as AdMarketAdvertiser / Keyword.
+model CellMetric {
+  id String @id @default(cuid())
+
+  category String
+  city     String
+  country  String
+  cellKey  String // "medical_spa|Miami|US" — denormalized for fast joins/reads
+
+  sampleSize Int    @default(0) // active businesses with a snapshot in the cell
+  confidence String @default("low") // "high" (sampleSize ≥ 8) | "low"
+
+  // Headline medians/percentiles as scalar columns — so /admin/cells renders +
+  // sorts without parsing JSON. p50 = median, p90 = "what the leaders look like".
+  ratingP50         Float?
+  reviewCountP50    Int?
+  reviewCountP90    Int?
+  photoCountP50     Int?
+  replyRateP50      Float?
+  velocityP50       Float?
+  lighthousePerfP50 Int?
+  shareOfVoiceP50   Float?
+  adPrevalence      Float? // 0–1 · share of the cell running ads
+
+  // Full per-signal breakpoints { signalKey: { p10,p25,p50,p75,p90 } } consumed
+  // by percentileRank in pillar scoring. Shape = CellDistributions.
+  distributions Json?
+
+  computedAt DateTime @default(now())
+
+  @@unique([category, city, country])
+  @@index([cellKey])
   @@index([category, city, country])
 }
 

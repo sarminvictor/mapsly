@@ -18,7 +18,7 @@
 // serp-rank-scan, lighthouse-audit) have landed their week's data.
 
 import { revalidateTag } from "next/cache";
-import prisma from "@/lib/prisma";
+import prisma, { Prisma } from "@/lib/prisma";
 import { cronHandler } from "@/lib/middleware/no-live-api";
 import { filterEligibleBusinesses } from "@/lib/reviews/should-collect";
 import {
@@ -29,6 +29,7 @@ import {
   deriveProfileCompletenessScore,
   deriveReputationScore,
   deriveTrustScore,
+  type PillarSignals,
 } from "@/modules/scoring";
 import { runBatch, statusFromOutcome } from "../../_lib/batch";
 
@@ -50,6 +51,7 @@ interface BusinessForScoring {
   attributes: unknown;
   isClaimed: boolean;
   category: string | null;
+  categories: string[];
   firstSeenOnGoogle: Date | null;
 }
 
@@ -70,6 +72,7 @@ export const GET = cronHandler(JOB, async ({ runId }) => {
       attributes: true,
       isClaimed: true,
       category: true,
+      categories: true,
       firstSeenOnGoogle: true,
     },
     take: limit,
@@ -135,6 +138,37 @@ export const GET = cronHandler(JOB, async ({ runId }) => {
       brandPresence,
     });
 
+    // Scoring v2 · persist the raw pillar-input bag so cell-aggregate +
+    // pillar-scoring read one row (no Serp/Lighthouse/Ads re-join). The pillars
+    // themselves are graded later, against the cell reference.
+    const pillarSignals = {
+      rating: signals.rating,
+      reviewCount: signals.reviewCount,
+      velocityLast30d: signals.velocityLast30d,
+      replyRate: signals.replyRate,
+      localPackRank: signals.localPackRank,
+      organicRankBest: signals.organicRankBest,
+      shareOfVoice: signals.shareOfVoice,
+      keywordsRanked: signals.keywordsRanked,
+      hasPhone: signals.hasPhone,
+      hasWebsite: signals.hasWebsite,
+      hasHours: signals.hasHours,
+      isClaimed: signals.claimed,
+      photoCount: signals.photosCount,
+      categoryCount: signals.categoryCount,
+      lighthousePerformance: signals.lighthousePerformance,
+      lighthouseSeo: signals.lighthouseSeo,
+      lcpSeconds: signals.lcpSeconds,
+      hasSchema: signals.hasSchema,
+      hasBookingCta: signals.hasBookingCta,
+      hasPhoneAboveFold: signals.hasPhoneAboveFold,
+      napConsistent: signals.napConsistent,
+      hasActiveAds: signals.hasActiveAds,
+      metaAdCount: signals.metaAdCount,
+      estMonthlyAdSpend: signals.estMonthlyAdSpend,
+      brandHijack: signals.brandHijack,
+    } satisfies PillarSignals;
+
     // Day-granularity snapshot date so a daily re-run idempotent-upserts.
     const snapshotDate = todayUtcMidnight();
 
@@ -160,6 +194,7 @@ export const GET = cronHandler(JOB, async ({ runId }) => {
         trustScore: trust,
         pricingTransparencyScore: pricingTransparency,
         brandPresenceScore: brandPresence,
+        signalsJson: pillarSignals as Prisma.InputJsonValue,
       },
       update: {
         rating: signals.rating,
@@ -174,6 +209,7 @@ export const GET = cronHandler(JOB, async ({ runId }) => {
         trustScore: trust,
         pricingTransparencyScore: pricingTransparency,
         brandPresenceScore: brandPresence,
+        signalsJson: pillarSignals as Prisma.InputJsonValue,
       },
     });
 
@@ -220,6 +256,8 @@ async function gatherSignals(biz: BusinessForScoring) {
     latestLighthouse,
     googleAdsCount,
     metaAdsCount,
+    businessKeywords,
+    adSpendAgg,
   ] = await Promise.all([
     prisma.review.count({
       where: { businessId: biz.id, postedAt: { gte: velocityCutoff } },
@@ -240,6 +278,8 @@ async function gatherSignals(biz: BusinessForScoring) {
       select: {
         performance: true,
         seo: true,
+        lcp: true,
+        napConsistent: true,
         hasLocalBusinessSchema: true,
         hasBookingCtaAboveFold: true,
         hasPhoneAboveFold: true,
@@ -255,8 +295,37 @@ async function gatherSignals(biz: BusinessForScoring) {
     prisma.adMarketAdvertiser.count({
       where: { matchedBusinessId: biz.id, isActive: true },
     }),
+    // Search-visibility ranks (BusinessKeyword · the /search source of truth) +
+    // ad-spend estimate · feed the Visibility + Advertising pillars (v2).
+    prisma.businessKeyword.findMany({
+      where: { businessId: biz.id, isLost: false },
+      select: { latestOrganicRank: true, latestMapsRank: true },
+      take: 500,
+    }),
+    prisma.adLibraryEntry.aggregate({
+      where: { businessId: biz.id, isActive: true },
+      _sum: { spendMidHigh: true },
+    }),
   ]);
   const activeAdsCount = googleAdsCount + metaAdsCount;
+
+  // Visibility signals derived from the business's tracked keywords.
+  const mapsRanks = businessKeywords
+    .map((k) => k.latestMapsRank)
+    .filter((x): x is number => x != null);
+  const organicRanks = businessKeywords
+    .map((k) => k.latestOrganicRank)
+    .filter((x): x is number => x != null);
+  const localPackRank = mapsRanks.length > 0 ? Math.min(...mapsRanks) : null;
+  const organicRankBest =
+    organicRanks.length > 0 ? Math.min(...organicRanks) : null;
+  const trackedKw = businessKeywords.length;
+  const shareOfVoice =
+    trackedKw > 0
+      ? (mapsRanks.filter((r) => r <= 3).length / trackedKw) * 100
+      : null;
+  const keywordsRanked = organicRanks.filter((r) => r <= 10).length;
+  const estMonthlyAdSpend = adSpendAgg._sum.spendMidHigh ?? null;
 
   const replyRate =
     recentReviews.length > 0
@@ -297,6 +366,19 @@ async function gatherSignals(biz: BusinessForScoring) {
     hasSchema: latestLighthouse?.hasLocalBusinessSchema ?? null,
     hasActiveAds: activeAdsCount > 0,
     hasSocialLinks: hasAttribute(biz.attributes, "social_links"),
+    // ── Scoring v2 pillar signals (persisted as BusinessSnapshot.signalsJson) ──
+    localPackRank,
+    organicRankBest,
+    shareOfVoice,
+    keywordsRanked,
+    categoryCount: Array.isArray(biz.categories) ? biz.categories.length : null,
+    lcpSeconds: latestLighthouse?.lcp ?? null,
+    napConsistent: latestLighthouse?.napConsistent ?? null,
+    hasBookingCta: latestLighthouse?.hasBookingCtaAboveFold ?? null,
+    hasPhoneAboveFold: latestLighthouse?.hasPhoneAboveFold ?? null,
+    metaAdCount: metaAdsCount,
+    estMonthlyAdSpend,
+    brandHijack: null,
   };
 }
 

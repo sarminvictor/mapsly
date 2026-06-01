@@ -56,7 +56,10 @@ import {
   AlertCard,
   FixCard,
   KPITile,
+  PillarTiles,
   ScoreBreakdown,
+  type PillarTileData,
+  type PillarTileTone,
   type ScoreDimension,
 } from "@/modules/smb-home/components";
 import { SmbPageHeader } from "@/components/smb/SmbPageHeader";
@@ -229,6 +232,91 @@ async function DashboardBody({ params }: { params: Promise<PageParams> }) {
       ? `${data.msiRank}/${data.msiTotal}`
       : "—";
 
+  // ── Scoring v2 · prefer the consolidated pillar score + market standing when
+  // present; fall back to the legacy mapslyScore + 6-dim breakdown until the
+  // pillar-score pass has run. ──
+  const hasPillars = data.pillarScore != null;
+  const heroScoreNum = hasPillars ? data.pillarScore : data.mapslyScore;
+  const heroScoreText = heroScoreNum != null ? heroScoreNum.toFixed(1) : "—";
+
+  const rankLabel =
+    data.msiRank != null && data.msiTotal != null
+      ? t("standing_rank", { rank: data.msiRank, total: data.msiTotal })
+      : null;
+  const topLabel =
+    data.msiPercentile != null
+      ? data.msiRank === 1
+        ? t("standing_leader")
+        : t("standing_top", {
+            pct: Math.max(1, 100 - Math.round(data.msiPercentile)),
+          })
+      : null;
+  const standingLine = [rankLabel, topLabel].filter(Boolean).join(" · ");
+
+  // Local closure → uses literal i18n keys (no dynamic key, no t-passing).
+  const stateLabel = (tone: PillarTileTone): string =>
+    tone === "good"
+      ? t("pillar_state_strong")
+      : tone === "bad"
+        ? t("pillar_state_weak")
+        : t("pillar_state_ok");
+
+  const adsTone: PillarTileTone =
+    data.adsApplicable === false ? "warn" : pillarTone(data.adsPillar);
+
+  const pillarTiles: PillarTileData[] = hasPillars
+    ? [
+        {
+          id: "reputation",
+          label: t("pillar_reputation"),
+          href: "/reviews",
+          score: data.reputationPillar,
+          tone: pillarTone(data.reputationPillar),
+          sublabel: stateLabel(pillarTone(data.reputationPillar)),
+          openLabel: t("pillar_open", { label: t("pillar_reputation") }),
+        },
+        {
+          id: "visibility",
+          label: t("pillar_visibility"),
+          href: "/search",
+          score: data.visibilityPillar,
+          tone: pillarTone(data.visibilityPillar),
+          sublabel: stateLabel(pillarTone(data.visibilityPillar)),
+          openLabel: t("pillar_open", { label: t("pillar_visibility") }),
+        },
+        {
+          id: "profile",
+          label: t("pillar_profile"),
+          href: "/my-business",
+          score: data.profilePillar,
+          tone: pillarTone(data.profilePillar),
+          sublabel: stateLabel(pillarTone(data.profilePillar)),
+          openLabel: t("pillar_open", { label: t("pillar_profile") }),
+        },
+        {
+          id: "website",
+          label: t("pillar_website"),
+          href: "/website",
+          score: data.websitePillar,
+          tone: pillarTone(data.websitePillar),
+          sublabel: stateLabel(pillarTone(data.websitePillar)),
+          openLabel: t("pillar_open", { label: t("pillar_website") }),
+        },
+        {
+          id: "advertising",
+          label: t("pillar_advertising"),
+          href: "/ads",
+          score: data.adsPillar,
+          tone: adsTone,
+          sublabel:
+            data.adsApplicable === false
+              ? t("pillar_ads_off")
+              : stateLabel(adsTone),
+          openLabel: t("pillar_open", { label: t("pillar_advertising") }),
+        },
+      ]
+    : [];
+
   // 6-dim score breakdown. Sub-scores arrive as 0–1 floats; the
   // ScoreBreakdown component normalizes against `max` so we pass each
   // value * 100 against max=100 for a familiar 0-100 surface.
@@ -286,19 +374,27 @@ async function DashboardBody({ params }: { params: Promise<PageParams> }) {
         titleId="dashboard-heading"
       />
 
-      {/* Hero KPI · Mapsly Score */}
+      {/* Hero KPI · Mapsly Score — with market standing under it in v2. */}
       <div style={{ marginBottom: 24 }}>
         <KPITile
           variant="hero"
           label={t("kpi_mapsly_score_label")}
-          value={scoreText}
+          value={heroScoreText}
           unit={`/${MAPSLY_SCORE_MAX}`}
-          tone={mapslyScoreTone(data.mapslyScore)}
+          tone={mapslyScoreTone(heroScoreNum)}
           infoTip={t("kpi_mapsly_score_tip")}
           valueAriaLabel={
-            hasScore ? `${scoreText} out of ${MAPSLY_SCORE_MAX}` : undefined
+            heroScoreNum != null
+              ? `${heroScoreText} out of ${MAPSLY_SCORE_MAX}`
+              : undefined
           }
-          sublabel={hasScore ? null : t("kpi_no_data_sublabel")}
+          sublabel={
+            hasPillars && standingLine
+              ? standingLine
+              : heroScoreNum != null
+                ? null
+                : t("kpi_no_data_sublabel")
+          }
         />
       </div>
 
@@ -405,34 +501,54 @@ async function DashboardBody({ params }: { params: Promise<PageParams> }) {
         </section>
       ) : null}
 
-      {/* Score breakdown · 6 sub-dimensions */}
-      <section
-        aria-labelledby="score-breakdown-heading"
-        style={{
-          padding: "20px 22px",
-          background: "var(--color-bg-2)",
-          border: "1px solid var(--color-border)",
-          borderRadius: 14,
-          marginBottom: 24,
-        }}
-      >
-        <h2
-          id="score-breakdown-heading"
+      {/* Score breakdown — v2 navigable pillar tiles (a map of Maria's
+          business with doors on it), or the legacy 6-dim bars until the
+          pillar-score pass has run. */}
+      {hasPillars ? (
+        <section aria-labelledby="pillars-heading" style={{ marginBottom: 24 }}>
+          <h2
+            id="pillars-heading"
+            style={{
+              margin: "0 0 12px",
+              fontFamily: "var(--font-serif)",
+              fontSize: 18,
+              letterSpacing: "-0.01em",
+              color: "var(--color-text)",
+            }}
+          >
+            {t("pillars_heading")}
+          </h2>
+          <PillarTiles tiles={pillarTiles} />
+        </section>
+      ) : (
+        <section
+          aria-labelledby="score-breakdown-heading"
           style={{
-            margin: "0 0 14px",
-            fontFamily: "var(--font-serif)",
-            fontSize: 18,
-            letterSpacing: "-0.01em",
-            color: "var(--color-text)",
+            padding: "20px 22px",
+            background: "var(--color-bg-2)",
+            border: "1px solid var(--color-border)",
+            borderRadius: 14,
+            marginBottom: 24,
           }}
         >
-          {t("breakdown_heading")}
-        </h2>
-        <ScoreBreakdown
-          dimensions={dimensions}
-          caption={hasScore ? null : t("breakdown_no_data_caption")}
-        />
-      </section>
+          <h2
+            id="score-breakdown-heading"
+            style={{
+              margin: "0 0 14px",
+              fontFamily: "var(--font-serif)",
+              fontSize: 18,
+              letterSpacing: "-0.01em",
+              color: "var(--color-text)",
+            }}
+          >
+            {t("breakdown_heading")}
+          </h2>
+          <ScoreBreakdown
+            dimensions={dimensions}
+            caption={hasScore ? null : t("breakdown_no_data_caption")}
+          />
+        </section>
+      )}
 
       {/* Your top fixes — 3 highest-impact actions with quantified
           impact values. Falls back to the empty info card when Maria
@@ -673,5 +789,13 @@ function replyRateTone(
   if (rate == null) return "neutral";
   if (rate >= 0.6) return "good";
   if (rate >= 0.25) return "warn";
+  return "bad";
+}
+
+/** Pillar score (0–10) → tile tone. Mirrors the hero thresholds. */
+function pillarTone(score: number | null): PillarTileTone {
+  if (score == null) return "neutral";
+  if (score >= 7) return "good";
+  if (score >= 4) return "warn";
   return "bad";
 }

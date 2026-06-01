@@ -105,6 +105,20 @@ export interface SmbDashboardData {
   pricingTransparencyScore: number | null;
   brandPresenceScore: number | null;
 
+  /** ── Scoring v2 · market-relative pillars. Null until the pillar-score
+   * pass runs; the dashboard falls back to the legacy mapslyScore + 6-dim
+   * breakdown while these are null. ── */
+  pillarScore: number | null;
+  reputationPillar: number | null;
+  visibilityPillar: number | null;
+  profilePillar: number | null;
+  websitePillar: number | null;
+  adsPillar: number | null;
+  /** Is the business actually advertising (display flag for the Ads tile). */
+  adsApplicable: boolean | null;
+  /** Inverse rank percentile · 90 = top 10% of the cell. */
+  msiPercentile: number | null;
+
   /** When the latest snapshot was written, nullable for new businesses. */
   lastSnapshotAt: Date | null;
 
@@ -164,6 +178,14 @@ export const EMPTY_SMB_DASHBOARD: SmbDashboardData = {
   trustScore: null,
   pricingTransparencyScore: null,
   brandPresenceScore: null,
+  pillarScore: null,
+  reputationPillar: null,
+  visibilityPillar: null,
+  profilePillar: null,
+  websitePillar: null,
+  adsPillar: null,
+  adsApplicable: null,
+  msiPercentile: null,
   lastSnapshotAt: null,
   unansweredReviewCount: null,
   reviewsLast30d: null,

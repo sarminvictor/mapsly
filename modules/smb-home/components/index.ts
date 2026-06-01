@@ -41,3 +41,10 @@ export type {
   ScoreDimension,
   ScoreTone,
 } from "./ScoreBreakdown";
+
+export { PillarTiles } from "./PillarTiles";
+export type {
+  PillarTileData,
+  PillarTilesProps,
+  PillarTileTone,
+} from "./PillarTiles";

@@ -19,6 +19,7 @@ interface NavItem {
 
 const ITEMS: readonly NavItem[] = [
   { href: "/admin/discovery", label: "Discovery" },
+  { href: "/admin/cells", label: "Cells" },
   { href: "/admin/businesses", label: "Businesses" },
   { href: "/admin/cron-runs", label: "Cron runs" },
 ];
