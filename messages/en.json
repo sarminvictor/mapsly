@@ -300,6 +300,7 @@
       "kpi_patients_lost_sublabel": "Per month, based on search volume + position",
       "kpi_patients_lost_help": "Rough estimate of how many people each month search for one of your services, see the top 3 spots in Google Maps, and never reach you because you're not in those top 3.",
       "quick_wins_heading": "Quick wins",
+      "quick_wins_empty": "Nothing urgent this week. We'll surface fresh openings here as the market shifts.",
       "quick_win_state_maps_fringe": "You're {ordinal} in Maps — {gap, plural, one {1 spot} other {# spots}} from the top 3.",
       "quick_win_state_search_fringe": "You're {ordinal} in Search — most people stop after the top 3 results.",
       "quick_win_action_maps_signals": "Add Sunday hours, 3 new photos, and a Google post this week. All three are 'we're really open' signals Google reads.",
