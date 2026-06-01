@@ -330,6 +330,7 @@ async function lighthouseFullAuditRaw(
       hasPhoneAboveFold: false,
       hasBookingCtaAboveFold: false,
       napConsistent: null,
+      contentWithoutJs: false,
     };
   }
 
@@ -408,6 +409,7 @@ export interface LighthouseAuditPersistRow {
   hasBookingCtaAboveFold: boolean | null;
   hasPhoneAboveFold: boolean | null;
   napConsistent: boolean | null;
+  contentWithoutJs: boolean | null;
   techStack: string[];
   rawJson: unknown;
 }
@@ -446,6 +448,9 @@ export function toPersistRow(
       ? result.domChecks.hasPhoneAboveFold
       : null,
     napConsistent: result.domChecks.napConsistent,
+    contentWithoutJs: result.legs.domOk
+      ? result.domChecks.contentWithoutJs
+      : null,
     techStack: [],
     rawJson: result.legs.lighthouseOk ? (result.scores.raw ?? null) : null,
   };

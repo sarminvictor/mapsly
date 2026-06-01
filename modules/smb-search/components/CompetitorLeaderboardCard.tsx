@@ -20,20 +20,28 @@ export interface CompetitorLeaderboardCardLabels {
   subtitleOwn: string;
   /** Subtitle when Maria isn't ranked · "Other businesses in {city}" */
   subtitleNoOwn: string;
-  /** Column headers */
+  /** Column headers · S.6.6 rework (Viktor 2026-05-28) */
   colRank: string;
   colName: string;
-  colKeywords: string;
-  colTopThree: string;
-  /** "Customers/mo" · we converted from raw $ traffic to a Maria-friendly
-   *  units-of-customer measure. */
-  colCustomers: string;
-  /** "Top 3 in maps or organic" tooltip */
-  topThreeHelp: string;
-  /** "Estimated monthly customers this business converts" tooltip */
-  customersHelp: string;
+  colTopThreeMaps: string;
+  colTopThreeSearch: string;
+  colMonthlyVisitors: string;
+  colDomain: string;
+  /** "How many keywords this biz is top-3 in Maps Pack for" tooltip */
+  topThreeMapsHelp: string;
+  /** "How many keywords this biz is top-3 in Google Search for" tooltip */
+  topThreeSearchHelp: string;
+  /** "Estimated monthly clicks across all keywords" tooltip */
+  monthlyVisitorsHelp: string;
+  /** "no website" placeholder for the domain column */
+  noDomain: string;
   /** Empty state when no leaderboard data yet. */
   empty: string;
+  /** Smaller legend line right below the "You are #N of M" subtitle.
+   *  Explains what the column numbers mean so we can keep the
+   *  headers short ("Maps", "Search") without losing the "top 3
+   *  count" meaning. */
+  columnsLegend: string;
 }
 
 export interface CompetitorLeaderboardCardProps {
@@ -131,34 +139,50 @@ export function CompetitorLeaderboardCard({
         </h2>
         <p
           style={{
-            margin: "4px 0 0",
-            fontSize: 12.5,
-            color: "var(--color-text-2)",
+            margin: "6px 0 0",
+            fontSize: 14,
+            fontWeight: 500,
+            color: "var(--color-text)",
+            lineHeight: 1.4,
           }}
         >
           {subtitle}
         </p>
+        <p
+          style={{
+            margin: "4px 0 0",
+            fontSize: 12,
+            color: "var(--color-text-2)",
+            lineHeight: 1.4,
+          }}
+        >
+          {labels.columnsLegend}
+        </p>
       </header>
 
-      <div style={{ overflowX: "auto" }}>
+      <div>
         <table
           style={{
             width: "100%",
             borderCollapse: "collapse",
             fontSize: 13,
+            tableLayout: "auto",
           }}
         >
           <thead>
             <tr style={{ background: "var(--color-bg-3, #ece3d6)" }}>
               <Th>{labels.colRank}</Th>
               <Th>{labels.colName}</Th>
-              <Th align="right">{labels.colKeywords}</Th>
-              <Th align="right" tip={labels.topThreeHelp}>
-                {labels.colTopThree}
+              <Th align="right" tip={labels.topThreeMapsHelp}>
+                {labels.colTopThreeMaps}
               </Th>
-              <Th align="right" tip={labels.customersHelp}>
-                {labels.colCustomers}
+              <Th align="right" tip={labels.topThreeSearchHelp}>
+                {labels.colTopThreeSearch}
               </Th>
+              <Th align="right" tip={labels.monthlyVisitorsHelp}>
+                {labels.colMonthlyVisitors}
+              </Th>
+              <Th>{labels.colDomain}</Th>
             </tr>
           </thead>
           <tbody>
@@ -205,8 +229,8 @@ export function CompetitorLeaderboardCard({
                       {row.name}
                     </div>
                   </Td>
-                  <Td align="right">{fmt(row.keywordCount)}</Td>
-                  <Td align="right">{fmt(row.topThreeCount)}</Td>
+                  <Td align="right">{fmt(row.topThreeMaps)}</Td>
+                  <Td align="right">{fmt(row.topThreeSearch)}</Td>
                   <Td align="right">
                     <span
                       style={{
@@ -217,7 +241,20 @@ export function CompetitorLeaderboardCard({
                           : "var(--color-text)",
                       }}
                     >
-                      ~{fmt(row.estMonthlyCustomers)}/mo
+                      {fmt(row.monthlyVisitors)}
+                    </span>
+                  </Td>
+                  <Td>
+                    <span
+                      style={{
+                        fontFamily: "var(--font-mono)",
+                        fontSize: 12,
+                        color: row.domain
+                          ? "var(--color-text-2)"
+                          : "var(--color-text-3)",
+                      }}
+                    >
+                      {row.domain ?? labels.noDomain}
                     </span>
                   </Td>
                 </tr>
@@ -243,14 +280,17 @@ function Th({
     <th
       style={{
         textAlign: align ?? "left",
-        padding: "10px 18px",
+        padding: "10px 10px",
         fontFamily: "var(--font-mono)",
         fontSize: 10,
         fontWeight: 700,
         textTransform: "uppercase",
-        letterSpacing: "0.08em",
+        letterSpacing: "0.06em",
         color: "var(--color-text-3)",
-        whiteSpace: "nowrap",
+        // Allow two-line wrap so headers like "Top 3 Maps" can fold
+        // gracefully on narrow viewports instead of forcing a
+        // horizontal scrollbar across the whole card.
+        lineHeight: 1.25,
       }}
       title={tip}
     >
@@ -270,7 +310,7 @@ function Td({
     <td
       style={{
         textAlign: align ?? "left",
-        padding: "12px 18px",
+        padding: "12px 10px",
         verticalAlign: "middle",
       }}
     >

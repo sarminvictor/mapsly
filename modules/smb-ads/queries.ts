@@ -1,64 +1,142 @@
 /**
- * SMB ads · server query.
+ * SMB /ads · server query.
  *
- * Surface: `getSmbAdsData(userId)` — returns Maria's own business +
- * active ads grouped into keyword lanes, INCLUDING competitor ads
- * from businesses in the same `category` + `city` so the page is a
- * true competitive-intel view (not just "look at your own ads").
+ * `getSmbAdsData(userId)` returns Maria's market-intelligence payload, split
+ * into two blocks:
+ *   • GOOGLE — keyword costs (shared Keyword model) + own ad count + a
+ *     market leaderboard of top Google advertisers (AdLibraryEntry GOOGLE,
+ *     aggregated per business in the cell) + cost suggestions.
+ *   • META   — the cell market (AdMarketAdvertiser): advertisers + creatives +
+ *     platform spread + own status + platform/creative suggestions.
  *
- * Cache strategy per `.claude/rules/caching.md`:
- *   - `'use cache'` + `cacheLife('hours')` — the daily ad-library
- *     cron is the source of truth.
- *   - `cacheTag('smb-ads-${userId}')` — per-user; cron revalidates.
- *
- * Per `.claude/rules/cache-components.md` Pattern 1, EMPTY_SMB_ADS is
- * the full shape of the declared return type. Build-phase short-
- * circuit + catch block both return EMPTY so the page prerenders
- * cleanly even when Neon WebSockets aren't available (INC-27).
- *
- * Per `.claude/rules/performance.md`, `select`s are explicit and we
- * cap both own + competitor queries at 200 / 600 rows respectively
- * to bound work. Maria's lane grid is capped at MAX_LANES = 14 in
- * the UI per `.claude/rules/ui-ux-smb.md`.
- *
- * Per `.claude/rules/security.md`, this helper does NOT enforce auth
- * — the page handler is responsible for `unauthorized()`. Competitor
- * ad data is public-by-source (Meta Ad Library / Google Transparency
- * are public databases), so no cross-business leak issue.
+ * Cache: `'use cache'` + `cacheLife('hours')` + `cacheTag('smb-ads-${userId}')`
+ * (the ads crons + admin trigger revalidate this tag). Pattern 1 build-guard +
+ * try/catch both return EMPTY. No external API in the request path.
  */
 
 import { cacheLife, cacheTag } from "next/cache";
 
 import prisma from "@/lib/prisma";
-
+import {
+  adsServiceKeywords,
+  locationCodeForCountry,
+} from "@/modules/ads-intel/keyword-set";
 import {
   EMPTY_SMB_ADS,
-  MAX_LANES,
-  groupIntoLanes,
-  type AdEntry,
-  type SmbAdPlatform,
+  buildGoogleSuggestions,
+  buildPersonalizedMetaSuggestions,
+  competitionLabelFromIndex,
+  curateQuickWins,
+  opportunityScore,
+  pickBestOpportunity,
+  type AdFormatStat,
+  type AdKeywordCost,
+  type CompetitionBucket,
+  type GoogleAdvertiserRow,
+  type MarketServiceStat,
+  type MetaAdvertiserCard,
+  type MetaCreative,
+  type MetaPlatformStat,
   type SmbAdsData,
 } from "./types";
 
-const MAX_OWN_ADS = 200;
-const MAX_COMPETITOR_ADS = 600;
-const MAX_COMPETITORS = 40;
+const MAX_KEYWORD_ROWS = 16;
+const MAX_GOOGLE_LEADERS = 10;
+const MAX_META_ADVERTISERS = 12;
+const MAX_GALLERY_CREATIVES = 6;
+
+function asBucket(s: string | null): CompetitionBucket | null {
+  return s === "LOW" || s === "MEDIUM" || s === "HIGH" ? s : null;
+}
+
+/** Coerce the AdMarketAdvertiser.creatives JSON into typed cards. Dedupes by
+ *  externalAdId — an ad can match several of a cell's search terms, so older
+ *  stored rows may carry the same creative twice (React-key collision). */
+function parseCreatives(json: unknown): MetaCreative[] {
+  if (!Array.isArray(json)) return [];
+  const out: MetaCreative[] = [];
+  const seen = new Set<string>();
+  for (const c of json) {
+    if (!c || typeof c !== "object") continue;
+    const o = c as Record<string, unknown>;
+    const id = typeof o.externalAdId === "string" ? o.externalAdId : null;
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    out.push({
+      externalAdId: id,
+      body: typeof o.body === "string" ? o.body : null,
+      previewUrl: typeof o.previewUrl === "string" ? o.previewUrl : null,
+      format: typeof o.format === "string" ? o.format : null,
+      landingUrl: typeof o.landingUrl === "string" ? o.landingUrl : null,
+      platforms: Array.isArray(o.platforms)
+        ? o.platforms.filter((p): p is string => typeof p === "string")
+        : [],
+    });
+    if (out.length >= MAX_GALLERY_CREATIVES) break;
+  }
+  return out;
+}
+
+/** Normalize a raw Ad Library displayFormat → a Maria-friendly label. */
+function formatLabel(raw: string | null): string | null {
+  if (!raw) return null;
+  const v = raw.toUpperCase();
+  if (v.includes("VIDEO")) return "Video";
+  if (v.includes("IMAGE") || v === "PHOTO") return "Image";
+  if (v.includes("CAROUSEL") || v === "DCO" || v.includes("DPA"))
+    return "Carousel";
+  return "Other";
+}
+
+/** Parse AdMarketInsight.serviceMix JSON → typed list. Dedupes by service name
+ *  (case-insensitive) — the model occasionally repeats a service; a duplicate
+ *  would collide React keys + double-count. Keeps the highest ad count. */
+function parseServiceMix(json: unknown): { service: string; ads: number }[] {
+  if (!Array.isArray(json)) return [];
+  const byName = new Map<string, { service: string; ads: number }>();
+  for (const o of json) {
+    if (!o || typeof o !== "object") continue;
+    const r = o as Record<string, unknown>;
+    if (typeof r.service !== "string" || !r.service.trim()) continue;
+    const service = r.service.trim();
+    const ads = typeof r.ads === "number" && r.ads >= 0 ? Math.round(r.ads) : 0;
+    const key = service.toLowerCase();
+    const prev = byName.get(key);
+    if (!prev) byName.set(key, { service, ads });
+    else if (ads > prev.ads) prev.ads = ads;
+  }
+  return [...byName.values()].sort((a, b) => b.ads - a.ads).slice(0, 12);
+}
+
+/** Parse AdMarketInsight.promos JSON → typed list. */
+function parsePromos(
+  json: unknown,
+): { label: string; offer: string; price: string | null }[] {
+  if (!Array.isArray(json)) return [];
+  const out: { label: string; offer: string; price: string | null }[] = [];
+  for (const o of json) {
+    if (!o || typeof o !== "object") continue;
+    const r = o as Record<string, unknown>;
+    if (typeof r.offer !== "string" || !r.offer.trim()) continue;
+    out.push({
+      label: typeof r.label === "string" ? r.label : "",
+      offer: r.offer.trim(),
+      price: typeof r.price === "string" && r.price.trim() ? r.price : null,
+    });
+    if (out.length >= 8) break;
+  }
+  return out;
+}
 
 export async function getSmbAdsData(userId: string): Promise<SmbAdsData> {
   "use cache";
   cacheLife("hours");
   cacheTag(`smb-ads-${userId}`);
 
-  if (process.env.NEXT_PHASE === "phase-production-build") {
-    return EMPTY_SMB_ADS;
-  }
-
-  if (!userId || typeof userId !== "string") {
-    return EMPTY_SMB_ADS;
-  }
+  if (process.env.NEXT_PHASE === "phase-production-build") return EMPTY_SMB_ADS;
+  if (!userId || typeof userId !== "string") return EMPTY_SMB_ADS;
 
   try {
-    // 1 · Maria's own business identity + services list + city.
     const own = await prisma.business.findFirst({
       where: { ownerUserId: userId, isActive: true },
       orderBy: { createdAt: "asc" },
@@ -68,154 +146,301 @@ export async function getSmbAdsData(userId: string): Promise<SmbAdsData> {
         category: true,
         categories: true,
         city: true,
+        country: true,
+        adsScanLastAt: true,
       },
     });
-
     if (!own) return EMPTY_SMB_ADS;
 
-    // 2 · Sibling competitors in the same category + city (excluding
-    //     Maria herself). We cap at MAX_COMPETITORS to bound the
-    //     downstream ad query; in dense metros this is generous.
-    const competitors =
-      own.category && own.city
-        ? await prisma.business.findMany({
-            where: {
-              category: own.category,
-              city: own.city,
-              isActive: true,
-              id: { not: own.id },
-            },
-            take: MAX_COMPETITORS,
-            orderBy: { reviewCount: "desc" },
-            select: { id: true, name: true },
-          })
-        : [];
+    const locationCode = locationCodeForCountry(own.country);
+    const cell = { category: own.category, city: own.city };
 
-    const competitorIdToName = new Map(competitors.map((c) => [c.id, c.name]));
-
-    // 3 · Maria's own active ads.
-    const ownAdsRows = await prisma.adLibraryEntry.findMany({
-      where: { businessId: own.id, isActive: true },
-      orderBy: [{ matchedKeyword: "asc" }, { lastSeenAt: "desc" }],
-      take: MAX_OWN_ADS,
-      select: {
-        id: true,
-        platform: true,
-        adCreativeBody: true,
-        landingUrl: true,
-        matchedKeyword: true,
-        lastSeenAt: true,
-        businessId: true,
-      },
+    // ─── GOOGLE · keyword costs ────────────────────────────────────────────
+    const keywordSet = adsServiceKeywords({
+      category: own.category,
+      city: own.city,
+      serviceNames: own.categories,
     });
-
-    // 4 · Competitor active ads in the same market.
-    const competitorAdsRows = competitors.length
-      ? await prisma.adLibraryEntry.findMany({
-          where: {
-            businessId: { in: competitors.map((c) => c.id) },
-            isActive: true,
-          },
-          orderBy: [{ matchedKeyword: "asc" }, { lastSeenAt: "desc" }],
-          take: MAX_COMPETITOR_ADS,
+    const keywordRows = keywordSet.length
+      ? await prisma.keyword.findMany({
+          where: { keyword: { in: keywordSet }, locationCode },
           select: {
-            id: true,
-            platform: true,
-            adCreativeBody: true,
-            landingUrl: true,
-            matchedKeyword: true,
-            lastSeenAt: true,
-            businessId: true,
+            keyword: true,
+            searchVolume: true,
+            cpc: true,
+            competition: true,
+            competitionIndex: true,
+            lowTopOfPageBid: true,
+            highTopOfPageBid: true,
           },
         })
       : [];
+    const keywordCosts: AdKeywordCost[] = keywordRows
+      .map((r) => ({
+        keyword: r.keyword,
+        searchVolume: r.searchVolume,
+        cpc: r.cpc,
+        competition: asBucket(r.competition),
+        competitionIndex: r.competitionIndex,
+        lowBid: r.lowTopOfPageBid,
+        highBid: r.highTopOfPageBid,
+        opportunity: opportunityScore({
+          searchVolume: r.searchVolume,
+          cpc: r.cpc,
+          competitionIndex: r.competitionIndex,
+        }),
+      }))
+      .sort((a, b) => b.opportunity - a.opportunity)
+      .slice(0, MAX_KEYWORD_ROWS);
 
-    // 5 · Normalise both into a single AdEntry array with parallel
-    //     keyword + raw business id arrays for `groupIntoLanes`.
-    type Row = (typeof ownAdsRows)[number];
-    const allRows: Row[] = [...ownAdsRows, ...competitorAdsRows];
+    const volumes = keywordCosts
+      .map((k) => k.searchVolume ?? 0)
+      .filter((v) => v > 0);
+    const totalSearchVolume = volumes.reduce((s, v) => s + v, 0);
+    const cpcs = keywordCosts
+      .map((k) => k.cpc)
+      .filter((c): c is number => c != null && c > 0);
+    const avgCpc =
+      cpcs.length > 0
+        ? Math.round((cpcs.reduce((s, c) => s + c, 0) / cpcs.length) * 100) /
+          100
+        : null;
+    const idxs = keywordCosts
+      .map((k) => k.competitionIndex)
+      .filter((i): i is number => i != null);
+    const avgIdx =
+      idxs.length > 0 ? idxs.reduce((s, i) => s + i, 0) / idxs.length : null;
+    const bestOpportunity = pickBestOpportunity(keywordCosts);
 
-    if (allRows.length === 0) {
-      return {
-        ownedBusinessId: own.id,
-        name: own.name,
-        category: own.category ?? "",
-        totalActiveAds: 0,
-        offKeywordCount: 0,
-        lanesCovered: 0,
-        openLanes: 0,
-        competitorCount: 0,
-        lanes: [],
-        refreshedAt: null,
-      };
+    // ─── GOOGLE · own ads + market leaderboard ─────────────────────────────
+    // All active Google creatives across our tracked businesses in the cell.
+    const googleAds =
+      cell.category && cell.city
+        ? await prisma.adLibraryEntry.findMany({
+            where: {
+              platform: "GOOGLE",
+              isActive: true,
+              business: {
+                category: cell.category,
+                city: cell.city,
+                isActive: true,
+              },
+            },
+            select: {
+              businessId: true,
+              business: { select: { name: true, domain: true } },
+            },
+          })
+        : [];
+    const googleByBiz = new Map<
+      string,
+      { name: string; domain: string | null; adCount: number }
+    >();
+    for (const a of googleAds) {
+      if (!a.businessId) continue;
+      const g = googleByBiz.get(a.businessId);
+      if (g) g.adCount += 1;
+      else
+        googleByBiz.set(a.businessId, {
+          name: a.business?.name ?? "A nearby business",
+          domain: a.business?.domain ?? null,
+          adCount: 1,
+        });
     }
+    const ownAdCountGoogle = own.id
+      ? (googleByBiz.get(own.id)?.adCount ?? 0)
+      : 0;
+    const ranked = [...googleByBiz.entries()].sort(
+      (a, b) => b[1].adCount - a[1].adCount,
+    );
+    const topGoogleAdvertisers: GoogleAdvertiserRow[] = ranked
+      .slice(0, MAX_GOOGLE_LEADERS)
+      .map(([id, g], i) => ({
+        id,
+        name: g.name,
+        rank: i + 1,
+        isOwn: id === own.id,
+        adCount: g.adCount,
+        domain: g.domain,
+      }));
+    const ownGoogleRank = ranked.findIndex(([id]) => id === own.id);
 
-    const services = own.categories ?? [];
-
-    const ads: AdEntry[] = allRows.map((r) => {
-      const isOwn = r.businessId === own.id;
-      return {
-        id: r.id,
-        platform: (r.platform === "GOOGLE"
-          ? "GOOGLE"
-          : "META") as SmbAdPlatform,
-        adCreativeBody: r.adCreativeBody,
-        landingUrl: r.landingUrl,
-        lastSeenAt: r.lastSeenAt,
-        advertiserName: isOwn
-          ? null
-          : (competitorIdToName.get(r.businessId ?? "") ?? null),
-        isOwn,
-      };
+    const googleSuggestions = buildGoogleSuggestions({
+      ownAdCount: ownAdCountGoogle,
+      advertiserCount: googleByBiz.size - (ownAdCountGoogle > 0 ? 1 : 0),
+      bestOpportunity,
+      topAdvertiser: topGoogleAdvertisers.find((a) => !a.isOwn)
+        ? {
+            name: topGoogleAdvertisers.find((a) => !a.isOwn)!.name,
+            adCount: topGoogleAdvertisers.find((a) => !a.isOwn)!.adCount,
+          }
+        : null,
     });
-    const keywords = allRows.map((r) => r.matchedKeyword);
 
-    const lanes = groupIntoLanes(ads, services, MAX_LANES, keywords);
+    // ─── META · the cell market (AdMarketAdvertiser) ───────────────────────
+    const metaRows =
+      cell.category && cell.city
+        ? await prisma.adMarketAdvertiser.findMany({
+            where: {
+              category: cell.category,
+              city: cell.city,
+              country: own.country ?? "US",
+              platform: "META",
+              isActive: true,
+            },
+            orderBy: { activeAdCount: "desc" },
+            select: {
+              pageId: true,
+              pageName: true,
+              handle: true,
+              activeAdCount: true,
+              platforms: true,
+              runningSince: true,
+              creatives: true,
+              matchedBusinessId: true,
+            },
+          })
+        : [];
 
-    // 6 · Aggregate derived counts for the state bar.
-    const totalActiveAds = ownAdsRows.length;
-    const offKeywordCount = lanes
-      .filter((l) => l.isOffKeyword)
-      .reduce((n, l) => n + l.ownCount, 0);
-    const lanesCovered = lanes.reduce(
-      (n, l) => (l.ownCount > 0 ? n + 1 : n),
-      0,
-    );
-    const openLanes = lanes.reduce(
-      (n, l) => (l.status === "open" && !l.isOffKeyword ? n + 1 : n),
-      0,
-    );
-    const distinctCompetitors = new Set<string>();
-    for (const lane of lanes) {
-      for (const advertiser of lane.topCompetitors) {
-        distinctCompetitors.add(advertiser);
+    const metaAdvertisers: MetaAdvertiserCard[] = metaRows
+      .slice(0, MAX_META_ADVERTISERS)
+      .map((m) => ({
+        pageId: m.pageId,
+        name: m.pageName,
+        handle: m.handle,
+        isOwn: m.matchedBusinessId === own.id,
+        adCount: m.activeAdCount,
+        platforms: m.platforms,
+        runningSince: m.runningSince,
+        creatives: parseCreatives(m.creatives),
+      }));
+
+    // Platform spread across the whole cell (the optimization signal).
+    const platCount = new Map<string, number>();
+    for (const m of metaRows)
+      for (const p of m.platforms)
+        platCount.set(p, (platCount.get(p) ?? 0) + 1);
+    const metaTotal = metaRows.length;
+    const platformSpread: MetaPlatformStat[] = [...platCount.entries()]
+      .map(([platform, advertisers]) => ({
+        platform,
+        advertisers,
+        share: metaTotal > 0 ? advertisers / metaTotal : 0,
+      }))
+      .sort((a, b) => b.advertisers - a.advertisers);
+
+    const ownMeta = metaRows.find((m) => m.matchedBusinessId === own.id);
+    const ownMetaAdCount = ownMeta?.activeAdCount ?? 0;
+    const ownMetaPlatforms = ownMeta?.platforms ?? [];
+    const metaAdvertiserCount = metaRows.filter(
+      (m) => m.matchedBusinessId !== own.id,
+    ).length;
+    const totalActiveAds = metaRows.reduce((s, m) => s + m.activeAdCount, 0);
+
+    // Format mix — DETERMINISTIC, from the creatives' displayFormat (no AI).
+    const fmtCount = new Map<string, number>();
+    let fmtTotal = 0;
+    for (const m of metaRows) {
+      for (const c of parseCreatives(m.creatives)) {
+        const label = formatLabel(c.format);
+        if (!label) continue;
+        fmtCount.set(label, (fmtCount.get(label) ?? 0) + 1);
+        fmtTotal += 1;
       }
     }
-    const competitorCount = distinctCompetitors.size;
+    const formatMix: AdFormatStat[] = [...fmtCount.entries()]
+      .map(([format, ads]) => ({
+        format,
+        ads,
+        share: fmtTotal > 0 ? ads / fmtTotal : 0,
+      }))
+      .sort((a, b) => b.ads - a.ads);
 
-    let refreshedAt: Date | null = null;
-    for (const r of allRows) {
-      if (!refreshedAt || r.lastSeenAt > refreshedAt) {
-        refreshedAt = r.lastSeenAt;
-      }
-    }
+    // Maria's own services — drives the service "win" gap + the youOffer flag.
+    const ownServiceRows = await prisma.businessService.findMany({
+      where: { businessId: own.id, isActive: true },
+      select: { name: true },
+    });
+    const ownServices = ownServiceRows.map((s) => s.name);
+    const ownServiceSet = new Set(ownServices.map((s) => s.toLowerCase()));
+
+    // AI-extracted serviceMix + promos for the cell (P5 · pipeline-generated).
+    const insightRow =
+      cell.category && cell.city
+        ? await prisma.adMarketInsight.findUnique({
+            where: {
+              category_city_country_platform: {
+                category: cell.category,
+                city: cell.city,
+                country: own.country ?? "US",
+                platform: "META",
+              },
+            },
+            select: { serviceMix: true, promos: true, generatedAt: true },
+          })
+        : null;
+    const rawServiceMix = parseServiceMix(insightRow?.serviceMix);
+    const svcTotal = rawServiceMix.reduce((s, r) => s + r.ads, 0);
+    const serviceMix: MarketServiceStat[] = rawServiceMix.map((r) => ({
+      service: r.service,
+      ads: r.ads,
+      share: svcTotal > 0 ? r.ads / svcTotal : 0,
+      youOffer: ownServiceSet.has(r.service.toLowerCase()),
+    }));
+    const promos = parsePromos(insightRow?.promos);
+
+    const metaSuggestions = buildPersonalizedMetaSuggestions({
+      ownAdCount: ownMetaAdCount,
+      ownPlatforms: ownMetaPlatforms,
+      advertiserCount: metaAdvertiserCount,
+      ownServices,
+      formatMix,
+      serviceMix,
+      promos,
+    });
+
+    const hasData =
+      keywordCosts.length > 0 ||
+      topGoogleAdvertisers.length > 0 ||
+      metaAdvertisers.length > 0;
 
     return {
       ownedBusinessId: own.id,
       name: own.name,
       category: own.category ?? "",
-      totalActiveAds,
-      offKeywordCount,
-      lanesCovered,
-      openLanes,
-      competitorCount,
-      lanes,
-      refreshedAt,
+      city: own.city ?? "",
+      google: {
+        ownAdCount: ownAdCountGoogle,
+        totalSearchVolume,
+        avgCpc,
+        competition: competitionLabelFromIndex(
+          avgIdx != null ? Math.round(avgIdx) : null,
+        ),
+        bestOpportunity,
+        keywordCosts,
+        topAdvertisers: topGoogleAdvertisers,
+        advertiserCount: googleByBiz.size,
+        ownRank: ownGoogleRank >= 0 ? ownGoogleRank + 1 : null,
+        suggestions: googleSuggestions,
+      },
+      meta: {
+        ownAdCount: ownMetaAdCount,
+        ownPlatforms: ownMetaPlatforms,
+        advertiserCount: metaAdvertiserCount,
+        totalActiveAds,
+        platformSpread,
+        advertisers: metaAdvertisers,
+        formatMix,
+        serviceMix,
+        promos,
+        analyzedAt: insightRow?.generatedAt ?? null,
+        suggestions: metaSuggestions,
+      },
+      quickWins: curateQuickWins(googleSuggestions, metaSuggestions),
+      refreshedAt: own.adsScanLastAt ?? null,
+      hasData,
     };
   } catch (e) {
-    // Per `.claude/rules/observability.md`, log and degrade — never
-    // 500 a Maria-facing page over a transient DB blip.
-
     console.error("[smb-ads] query failed:", e);
     return EMPTY_SMB_ADS;
   }

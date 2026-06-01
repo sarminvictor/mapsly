@@ -2,26 +2,6 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "crons": [
     {
-      "path": "/api/cron/daily/brand-hijack-scan",
-      "schedule": "0 11 * * *"
-    },
-    {
-      "path": "/api/cron/daily/ad-library-diff",
-      "schedule": "15 11 * * *"
-    },
-    {
-      "path": "/api/cron/daily/google-ads-transparency",
-      "schedule": "30 11 * * *"
-    },
-    {
-      "path": "/api/cron/daily/list-refresh-daily",
-      "schedule": "0 12 * * *"
-    },
-    {
-      "path": "/api/cron/weekly/business-profile-refresh",
-      "schedule": "0 11 * * 1"
-    },
-    {
       "path": "/api/cron/weekly/reviews-delta",
       "schedule": "30 11 * * 1"
     },
@@ -34,36 +14,16 @@
       "schedule": "30 12 * * 1"
     },
     {
-      "path": "/api/cron/weekly/competitor-diff",
-      "schedule": "0 13 * * 1"
-    },
-    {
       "path": "/api/cron/weekly/snapshot-write",
       "schedule": "30 13 * * 1"
     },
     {
-      "path": "/api/cron/weekly/list-refresh-weekly",
-      "schedule": "0 14 * * 1"
+      "path": "/api/cron/weekly/ads-intelligence",
+      "schedule": "0 15 * * 1"
     },
     {
-      "path": "/api/cron/monthly/keyword-volume-refresh",
-      "schedule": "0 7 1 * *"
-    },
-    {
-      "path": "/api/cron/monthly/industry-baseline",
-      "schedule": "0 9 1 * *"
-    },
-    {
-      "path": "/api/cron/monthly/services-detect",
-      "schedule": "30 9 1 * *"
-    },
-    {
-      "path": "/api/cron/monthly/email-verification",
-      "schedule": "0 11 1 * *"
-    },
-    {
-      "path": "/api/cron/process-enhancer",
-      "schedule": "30 3 * * *"
+      "path": "/api/cron/weekly/ads-meta",
+      "schedule": "30 15 * * 1"
     }
   ],
   "functions": {

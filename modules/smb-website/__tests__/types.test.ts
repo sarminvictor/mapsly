@@ -123,9 +123,7 @@ describe("deriveWebsiteFixes", () => {
       hasPhoneAboveFold: false,
       napConsistent: false,
     });
-    const haystack = fixes
-      .map((f) => `${f.action} ${f.why} ${f.effort}`)
-      .join(" ");
+    const haystack = fixes.map((f) => `${f.action} ${f.why}`).join(" ");
     expect(haystack).not.toMatch(
       /\b(LCP|INP|CLS|CTR|MSI|3-pack|schema\.org|NAP\b|GBP|organic rank|SERP)\b/i,
     );

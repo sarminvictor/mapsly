@@ -17,9 +17,13 @@ import { useActionToast } from "@/components/admin-ui/use-action-toast";
 import {
   triggerReviewPullBulkAction,
   triggerSearchScanBulkAction,
+  triggerAdsScanBulkAction,
+  triggerWebsiteScanBulkAction,
   type ActionResult,
   type BulkReviewPullActionResult,
   type SearchScanActionResult,
+  type AdsScanActionResult,
+  type WebsiteScanActionResult,
 } from "../actions";
 
 interface Props {
@@ -29,6 +33,8 @@ interface Props {
 
 const initialReviews: ActionResult<BulkReviewPullActionResult> | null = null;
 const initialSearch: ActionResult<SearchScanActionResult> | null = null;
+const initialAds: ActionResult<AdsScanActionResult> | null = null;
+const initialWebsite: ActionResult<WebsiteScanActionResult> | null = null;
 
 export function BulkActionsBar({ selectedIds, onClear }: Props) {
   const [reviewsState, reviewsAction, reviewsPending] = useActionState(
@@ -39,8 +45,18 @@ export function BulkActionsBar({ selectedIds, onClear }: Props) {
     triggerSearchScanBulkAction,
     initialSearch,
   );
+  const [adsState, adsAction, adsPending] = useActionState(
+    triggerAdsScanBulkAction,
+    initialAds,
+  );
+  const [websiteState, websiteAction, websitePending] = useActionState(
+    triggerWebsiteScanBulkAction,
+    initialWebsite,
+  );
   useActionToast(reviewsState);
   useActionToast(searchState);
+  useActionToast(adsState);
+  useActionToast(websiteState);
 
   if (selectedIds.length === 0) return null;
 
@@ -118,6 +134,44 @@ export function BulkActionsBar({ selectedIds, onClear }: Props) {
             {searchPending
               ? "Queueing…"
               : `Run SERP scan for ${selectedIds.length}`}
+          </button>
+        </form>
+
+        <form action={adsAction} style={{ display: "inline-flex" }}>
+          <input
+            type="hidden"
+            name="businessIds"
+            value={selectedIds.join(",")}
+          />
+          <button
+            type="submit"
+            className="admin-btn"
+            data-variant="primary"
+            disabled={adsPending}
+            style={{ padding: "6px 12px", fontSize: 11 }}
+            title="Keyword costs + Google Ads Transparency for the selected businesses + competitors (inline, capped at 8/run). Meta refreshes weekly."
+          >
+            {adsPending ? "Running…" : `Run Ads for ${selectedIds.length}`}
+          </button>
+        </form>
+
+        <form action={websiteAction} style={{ display: "inline-flex" }}>
+          <input
+            type="hidden"
+            name="businessIds"
+            value={selectedIds.join(",")}
+          />
+          <button
+            type="submit"
+            className="admin-btn"
+            data-variant="primary"
+            disabled={websitePending}
+            style={{ padding: "6px 12px", fontSize: 11 }}
+            title="Lighthouse speed + Core Web Vitals + schema/NAP/booking checks for the selected businesses (inline, capped at 5/run · same as the weekly cron). Businesses without a website are skipped."
+          >
+            {websitePending
+              ? "Running…"
+              : `Run Website for ${selectedIds.length}`}
           </button>
         </form>
       </div>

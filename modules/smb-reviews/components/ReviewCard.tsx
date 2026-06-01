@@ -56,6 +56,14 @@ export interface ReviewCardLabels {
   ctaGenerate: string;
   /** "Post to Google" CTA. */
   ctaPost: string;
+  /** "Skip" CTA — moves the review to the Skipped tab. */
+  ctaSkip: string;
+  /** "Restore" CTA — shown in the Skipped tab to return a review. */
+  ctaUnskip: string;
+  /** "Save" CTA for the edited draft. */
+  ctaSave: string;
+  /** Confirmation shown after a draft save, e.g. "Saved". */
+  ctaSaved: string;
   /** "Edit draft" secondary action. */
   ctaEdit: string;
   /** "Regenerate" tertiary action. */
@@ -75,9 +83,21 @@ export interface ReviewCardLabels {
 export interface ReviewCardProps {
   review: ReviewItem;
   labels: ReviewCardLabels;
+  /** Business Google reviews URL (from googlePlaceId) · null → no Post button. */
+  googleReviewsUrl: string | null;
+  /** True in the Skipped tab · the queue button restores instead of skips. */
+  isSkippedTab: boolean;
+  /** Optimistic skip/restore handler owned by the parent list. */
+  onMove: (reviewId: string) => void;
 }
 
-export function ReviewCard({ review, labels }: ReviewCardProps) {
+export function ReviewCard({
+  review,
+  labels,
+  googleReviewsUrl,
+  isSkippedTab,
+  onMove,
+}: ReviewCardProps) {
   const accentBg = review.isUrgent
     ? "rgba(195, 85, 58, 0.06)"
     : "var(--color-bg-2)";
@@ -250,7 +270,13 @@ export function ReviewCard({ review, labels }: ReviewCardProps) {
       ) : review.text && review.text.trim().length > 0 ? (
         // Always render the draft panel for reviews with text — even when
         // there is no AI draft yet · the Generate button lives there.
-        <AIReplyDraft review={review} labels={labels} />
+        <AIReplyDraft
+          review={review}
+          labels={labels}
+          googleReviewsUrl={googleReviewsUrl}
+          isSkippedTab={isSkippedTab}
+          onMove={onMove}
+        />
       ) : null}
     </article>
   );
@@ -379,19 +405,22 @@ function OwnerReply({
 function AIReplyDraft({
   review,
   labels,
+  googleReviewsUrl,
+  isSkippedTab,
+  onMove,
 }: {
   review: ReviewItem;
   labels: ReviewCardLabels;
+  googleReviewsUrl: string | null;
+  isSkippedTab: boolean;
+  onMove: (reviewId: string) => void;
 }) {
-  // Renders three states:
-  //   1. No draft yet · just the Generate CTA (single prominent button)
-  //   2. Has draft · EN/ES toggle + Post/Edit/Regenerate actions
-  //
-  // The Post/Edit buttons stay disabled until the GBP (Google Business
-  // Profile) integration lands. Generate + Regenerate are functional
-  // today and route through regenerateReplyAction · which samples the
-  // owner's prior replies to match Maria's voice.
-  const hasDraft = Boolean(review.aiReplyDraftEn || review.aiReplyDraftEs);
+  // Renders two states:
+  //   1. No draft yet · the Generate CTA (samples the owner's prior
+  //      replies to match Maria's voice) + Skip/Restore.
+  //   2. Has draft · editable text + Save (in AIReplyDraftBody) + Post
+  //      to Google + Skip/Restore.
+  const hasDraft = Boolean(review.aiReplyDraftEn);
 
   return (
     <div
@@ -434,14 +463,9 @@ function AIReplyDraft({
       {hasDraft ? (
         <>
           <AIReplyDraftBody
+            reviewId={review.id}
             draftEn={review.aiReplyDraftEn}
-            draftEs={review.aiReplyDraftEs}
-            labelEn={labels.langEn}
-            labelEs={labels.langEs}
-            buildMeta={(text) => {
-              const words = text.split(/\s+/).filter(Boolean).length;
-              return `${words} words · ${text.length} chars`;
-            }}
+            labels={{ save: labels.ctaSave, saved: labels.ctaSaved }}
           />
           <div style={{ marginTop: 12 }} />
         </>
@@ -450,12 +474,14 @@ function AIReplyDraft({
       <ReplyActions
         reviewId={review.id}
         hasDraft={hasDraft}
+        googleReviewsUrl={googleReviewsUrl}
+        isSkippedTab={isSkippedTab}
+        onMove={onMove}
         labels={{
           generate: labels.ctaGenerate,
-          regenerate: labels.ctaRegenerate,
           post: labels.ctaPost,
-          edit: labels.ctaEdit,
-          comingSoon: labels.ctaComingSoon,
+          skip: labels.ctaSkip,
+          unskip: labels.ctaUnskip,
         }}
       />
     </div>

@@ -32,7 +32,6 @@ import {
   MAX_KEYWORDS,
   bestRank,
   ctrForBestRank,
-  deriveSearchQuickWins,
   estimatePatientsLost,
   type CompetitorRow,
   type KeywordRow,
@@ -41,6 +40,8 @@ import {
   type SearchGap,
   type SmbSearchData,
 } from "./types";
+import { getWeeklyQuickWins } from "./quick-wins";
+import { normalizeDomain } from "@/lib/url/normalize-domain";
 
 /** How many "you're not ranking for" gap rows to surface to Maria. */
 const MAX_SEARCH_GAPS = 5;
@@ -102,11 +103,13 @@ export async function getSmbSearchData(userId: string): Promise<SmbSearchData> {
         category: true,
         searchScanLastAt: true,
         businessKeywords: {
-          // S.6 · architecture C · the SMB page reads ONLY local-intent
-          // template-derived rows. Legacy "ranked" rows from the
-          // ranked_keywords portfolio stay in the DB for any future
-          // admin/footprint view but are excluded here.
-          where: { source: "template" },
+          // S.6.6 · exclude stale rows. `isLost=true` means the
+          // keyword USED to be in her ranked_keywords portfolio but
+          // wasn't returned by DfS on the latest scan (she dropped
+          // out of top-50 organic). Counting these as "still ranked
+          // top 3" would lie · discover-local-intent flips them on
+          // every scan (caveat #1 fix · Viktor 2026-05-28).
+          where: { isLost: false },
           orderBy: { latestEstTrafficUsd: { sort: "desc", nulls: "last" } },
           take: 200,
           select: {
@@ -147,6 +150,7 @@ export async function getSmbSearchData(userId: string): Promise<SmbSearchData> {
         ownedBusinessId: own.id,
         name: own.name,
         city: own.city,
+        country: own.country,
         category: own.category,
       };
     }
@@ -235,6 +239,7 @@ export async function getSmbSearchData(userId: string): Promise<SmbSearchData> {
         estPatientsLost: estLost,
         estVisits,
         isServiceKeyword: bk.templateOrigin === "service",
+        isTemplated: bk.templateOrigin != null,
       });
 
       const ms = bk.latestScanAt?.getTime() ?? null;
@@ -255,15 +260,28 @@ export async function getSmbSearchData(userId: string): Promise<SmbSearchData> {
       .slice(0, 5);
 
     // 3) Hero KPIs from the FULL set of rows (not just visible).
+    //    `mapsScannedCount` counts the subset of rows we actually
+    //    ran a Maps SERP query for · this is the templated set
+    //    (templateOrigin IS NOT NULL) · used as the denominator on
+    //    the "Top 3 in Maps · X of Y scanned" cell so we don't lie
+    //    about checking 205 keywords on Maps when we only did 12.
     let bestLocalPackRank: number | null = null;
     let keywordsInLocalPack = 0;
+    let topThreeMapsCount = 0;
+    let topThreeSearchCount = 0;
+    let mapsScannedCount = 0;
     let keywordsImproved = 0;
     for (const r of rows) {
+      if (r.isTemplated) mapsScannedCount += 1;
       if (r.localPackRank != null && r.localPackRank <= 3) {
         keywordsInLocalPack += 1;
+        topThreeMapsCount += 1;
         if (bestLocalPackRank === null || r.localPackRank < bestLocalPackRank) {
           bestLocalPackRank = r.localPackRank;
         }
+      }
+      if (r.organicRank != null && r.organicRank <= 3) {
+        topThreeSearchCount += 1;
       }
       const localImproved =
         r.prevLocalPackRank != null &&
@@ -280,11 +298,23 @@ export async function getSmbSearchData(userId: string): Promise<SmbSearchData> {
       }
     }
 
+    // "Customers you miss" · only sum over templated rows (the
+    // relevant-to-services curated set). Counting across her full
+    // 205-keyword ranked portfolio inflates the number with noise:
+    // Edmonton queries (wrong city), informational long-tail
+    // ("how long do lip injections last"), and generic terms with no
+    // commercial intent. Templated = industry × city × services = the
+    // honest local-intent opportunity set (Viktor 2026-05-28 · option B).
     const totalEstPatientsLost = rows.reduce(
-      (sum, r) => sum + r.estPatientsLost,
+      (sum, r) => sum + (r.isTemplated ? r.estPatientsLost : 0),
       0,
     );
-    const topQuickWins = deriveSearchQuickWins(rows);
+    // Quick wins · weekly assignment with 4-week rolling exclusion.
+    // Renders up to 3 cards · they refresh every Monday.
+    const topQuickWins = await getWeeklyQuickWins({
+      businessId: own.id,
+      rows,
+    });
 
     // 4) Demand-side + supply-side totals + rank-bucket breakdown.
     //    Uses the FULL row set (not visible-trimmed) so the totals are
@@ -332,10 +362,14 @@ export async function getSmbSearchData(userId: string): Promise<SmbSearchData> {
       ownedBusinessId: own.id,
       name: own.name,
       city: own.city,
+      country: own.country,
       category: own.category,
       bestLocalPackRank,
       keywordsTracked: rows.length,
       keywordsInLocalPack,
+      topThreeSearchCount,
+      topThreeMapsCount,
+      mapsScannedCount,
       keywordsImprovedThisWeek: keywordsImproved,
       keywords: visible,
       topByVolume,
@@ -454,9 +488,10 @@ async function buildCompetitorLeaderboard(input: {
     return { rows: [], ownRank: null, total: 0 };
   }
 
-  // Pull ALL businesses in cell + their per-keyword traffic value.
-  // We do this with a single findMany grouped by businessId so we
-  // can aggregate in memory · faster than N round-trips.
+  // Pull ALL businesses in cell + their per-keyword rank data + the
+  // website (for the Domain column). Aggregated in memory per biz.
+  // Excludes `isLost` rows · keywords that dropped out of a biz's
+  // ranked portfolio on the latest scan don't pollute the leaderboard.
   const cellBusinesses = await prisma.business.findMany({
     where: {
       city: input.city,
@@ -466,9 +501,10 @@ async function buildCompetitorLeaderboard(input: {
     select: {
       id: true,
       name: true,
+      website: true,
       businessKeywords: {
+        where: { isLost: false },
         select: {
-          latestEstTrafficUsd: true,
           latestEstMonthlyVisits: true,
           latestOrganicRank: true,
           latestMapsRank: true,
@@ -480,33 +516,35 @@ async function buildCompetitorLeaderboard(input: {
     take: 500,
   });
 
-  // Industry-baseline local conversion rate: ~2% of visits convert
-  // into bookings/customers. Used to turn "visits/mo" into the
-  // Maria-friendly "customers/mo" column.
-  const LOCAL_CONVERSION_RATE = 0.02;
-
-  // Aggregate per business.
+  // Aggregate per business · S.6.6 column rework (Viktor 2026-05-28).
+  // Sort key = monthlyVisitors desc · the trusted DfS-truth signal.
+  // estMonthlyCustomers DROPPED · Viktor doesn't trust the 2% conv
+  // baseline applied uniformly across industries.
   const aggregated: Array<{
     id: string;
     name: string;
-    estTrafficUsd: number;
+    website: string | null;
     totalSearchVolume: number;
-    keywordCount: number;
-    topThreeCount: number;
-    estMonthlyCustomers: number;
+    monthlyVisitors: number;
+    topThreeMaps: number;
+    topThreeSearch: number;
   }> = [];
   for (const b of cellBusinesses) {
     if (b.businessKeywords.length === 0) continue;
-    let estTraffic = 0;
     let searchVolume = 0;
-    let topThree = 0;
     let visits = 0;
+    let topThreeMaps = 0;
+    let topThreeSearch = 0;
     for (const bk of b.businessKeywords) {
-      estTraffic += bk.latestEstTrafficUsd ?? 0;
       searchVolume += bk.keyword?.searchVolume ?? 0;
+      if (bk.latestMapsRank != null && bk.latestMapsRank <= 3) {
+        topThreeMaps += 1;
+      }
+      if (bk.latestOrganicRank != null && bk.latestOrganicRank <= 3) {
+        topThreeSearch += 1;
+      }
+      // Visits = DfS truth (etv) when set, CTR fallback otherwise.
       const r = bestRank(bk.latestMapsRank, bk.latestOrganicRank);
-      if (r != null && r <= 3) topThree += 1;
-      // Visits = DfS truth when set, CTR fallback otherwise.
       visits +=
         bk.latestEstMonthlyVisits != null
           ? bk.latestEstMonthlyVisits
@@ -515,11 +553,11 @@ async function buildCompetitorLeaderboard(input: {
     aggregated.push({
       id: b.id,
       name: b.name,
-      estTrafficUsd: estTraffic,
+      website: b.website,
       totalSearchVolume: searchVolume,
-      keywordCount: b.businessKeywords.length,
-      topThreeCount: topThree,
-      estMonthlyCustomers: Math.round(visits * LOCAL_CONVERSION_RATE),
+      monthlyVisitors: Math.round(visits),
+      topThreeMaps,
+      topThreeSearch,
     });
   }
 
@@ -527,14 +565,14 @@ async function buildCompetitorLeaderboard(input: {
     return { rows: [], ownRank: null, total: 0 };
   }
 
-  // Sort by estMonthlyCustomers desc · tiebreak by topThreeCount desc.
-  // We sort by customers (not raw $ traffic) because that's the column
-  // Maria sees · keep the rank order honest to her display.
+  // Sort by monthlyVisitors desc · tiebreak by Σ top-3-everywhere desc.
   aggregated.sort((a, b) => {
-    if (b.estMonthlyCustomers !== a.estMonthlyCustomers) {
-      return b.estMonthlyCustomers - a.estMonthlyCustomers;
+    if (b.monthlyVisitors !== a.monthlyVisitors) {
+      return b.monthlyVisitors - a.monthlyVisitors;
     }
-    return b.topThreeCount - a.topThreeCount;
+    return (
+      b.topThreeMaps + b.topThreeSearch - (a.topThreeMaps + a.topThreeSearch)
+    );
   });
 
   const ownIndex = aggregated.findIndex((a) => a.id === input.ownBusinessId);
@@ -557,11 +595,11 @@ async function buildCompetitorLeaderboard(input: {
       rank: isOwn ? (ownRank ?? i + 1) : i + 1,
       kind: isOwn ? "you" : "competitor",
       name: isOwn ? input.ownName : a.name,
-      estTrafficUsd: a.estTrafficUsd,
       totalSearchVolume: a.totalSearchVolume,
-      keywordCount: a.keywordCount,
-      topThreeCount: a.topThreeCount,
-      estMonthlyCustomers: a.estMonthlyCustomers,
+      monthlyVisitors: a.monthlyVisitors,
+      topThreeMaps: a.topThreeMaps,
+      topThreeSearch: a.topThreeSearch,
+      domain: normalizeDomain(a.website),
     };
   });
 

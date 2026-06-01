@@ -13,6 +13,7 @@
  */
 
 import prisma, { Prisma } from "@/lib/prisma";
+import { cleanWebsiteUrl } from "@/lib/url/clean-website-url";
 
 import type { MapsBusinessRow } from "@/services/dataforseo/maps-search";
 
@@ -181,7 +182,8 @@ export function mapsRowToPersist(
 
     // Contact
     phone: row.phone ?? null,
-    website: row.url ?? null,
+    // Strip GMB/UTM tracking params — store the canonical link only.
+    website: cleanWebsiteUrl(row.url),
     domain: row.domain ?? null,
     contactInfo: asJson(row.contact_info),
 

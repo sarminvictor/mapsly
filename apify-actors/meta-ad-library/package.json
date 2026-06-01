@@ -1,0 +1,16 @@
+{
+  "name": "mapsly-meta-ad-library",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Scrapes the public Meta Ad Library for commercial ads by search term or Page ID.",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "node src/main.js"
+  },
+  "dependencies": {
+    "apify": "^3.2.6",
+    "crawlee": "^3.12.0",
+    "playwright": "^1.50.0"
+  },
+  "license": "UNLICENSED"
+}

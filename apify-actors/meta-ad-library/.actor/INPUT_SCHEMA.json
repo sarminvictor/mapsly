@@ -1,0 +1,79 @@
+{
+  "title": "Mapsly Meta Ad Library Scraper Input",
+  "type": "object",
+  "schemaVersion": 1,
+  "properties": {
+    "searchTerms": {
+      "title": "Search terms",
+      "type": "array",
+      "description": "Advertiser names or keywords to search the Ad Library for. Provide this OR pageIds (or both).",
+      "editor": "stringList",
+      "prefill": ["The Injectionist & Aesthetics"]
+    },
+    "pageIds": {
+      "title": "Facebook Page IDs",
+      "type": "array",
+      "description": "Exact Facebook Page IDs to pull every ad for (more precise than a keyword search).",
+      "editor": "stringList"
+    },
+    "pageUrls": {
+      "title": "Facebook Page URLs / handles",
+      "type": "array",
+      "description": "FB page handles or URLs (e.g. 'theinjectionistcanada' or 'https://www.facebook.com/theinjectionistcanada/'). Resolved to numeric page ids in the warmed session, then pulled like pageIds — the precise path seeded from a business's website Facebook link.",
+      "editor": "stringList"
+    },
+    "searchType": {
+      "title": "Search type (for searchTerms)",
+      "type": "string",
+      "description": "How searchTerms match: keyword_unordered / keyword_exact_phrase match AD TEXT (broad, noisy); page matches an advertiser PAGE NAME (precise).",
+      "editor": "select",
+      "enum": ["keyword_unordered", "keyword_exact_phrase", "page"],
+      "enumTitles": [
+        "Keyword (unordered)",
+        "Keyword (exact phrase)",
+        "Page name"
+      ],
+      "default": "keyword_unordered"
+    },
+    "countries": {
+      "title": "Countries (ISO alpha-2)",
+      "type": "array",
+      "description": "Country the ads reached, e.g. CA, US. The first entry drives the proxy geolocation.",
+      "editor": "stringList",
+      "default": ["CA"],
+      "prefill": ["CA"]
+    },
+    "activeStatus": {
+      "title": "Ad status",
+      "type": "string",
+      "description": "Which ads to return.",
+      "editor": "select",
+      "enum": ["all", "active", "inactive"],
+      "enumTitles": ["All", "Active only", "Inactive only"],
+      "default": "all"
+    },
+    "maxItems": {
+      "title": "Max ads per search",
+      "type": "integer",
+      "description": "Hard cap on ads collected per search term / page.",
+      "default": 100,
+      "minimum": 1,
+      "maximum": 1000
+    },
+    "delayMs": {
+      "title": "Delay between scroll steps (ms)",
+      "type": "integer",
+      "description": "Politeness delay between infinite-scroll steps.",
+      "default": 2000,
+      "minimum": 500
+    },
+    "proxyConfiguration": {
+      "title": "Proxy",
+      "type": "object",
+      "description": "Apify proxy configuration. Residential is strongly recommended for Meta.",
+      "editor": "proxy",
+      "default": { "useApifyProxy": true, "apifyProxyGroups": ["RESIDENTIAL"] }
+    }
+  },
+  "required": []
+}

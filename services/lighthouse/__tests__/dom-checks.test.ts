@@ -24,6 +24,7 @@ import {
   LOCAL_BUSINESS_TYPES,
   aboveFoldSlice,
   collectJsonLdTypes,
+  contentWithoutJs,
   extractJsonLdBlocks,
   extractPhoneNumbers,
   hasBookingCtaAboveFold,
@@ -414,7 +415,11 @@ describe("runDomChecks", () => {
       `<h1>Solea Brickell Spa</h1>` +
         `<p>1450 Brickell Ave, Miami, FL 33131</p>` +
         `<a href="tel:+13055550100">(305) 555-0100</a>` +
-        `<button>Book Now</button>`,
+        `<button>Book Now</button>` +
+        `<p>Solea Brickell Spa is Miami's premier medical spa offering Botox, ` +
+        `dermal fillers, facials, and laser treatments. Our licensed providers ` +
+        `deliver natural-looking results in a calm, welcoming setting. Book a ` +
+        `consultation today and see why Brickell patients trust our team.</p>`,
       jsonLdScript({ "@type": "MedicalBusiness" }) +
         jsonLdScript({ "@type": "FAQPage" }),
     );
@@ -433,6 +438,7 @@ describe("runDomChecks", () => {
       hasPhoneAboveFold: true,
       hasBookingCtaAboveFold: true,
       napConsistent: true,
+      contentWithoutJs: true,
     });
   });
   test("returns null napConsistent when input incomplete", () => {
@@ -449,6 +455,34 @@ describe("runDomChecks", () => {
       hasPhoneAboveFold: false,
       hasBookingCtaAboveFold: false,
       napConsistent: null,
+      contentWithoutJs: false,
     });
+  });
+});
+
+describe("contentWithoutJs", () => {
+  test("true when the raw HTML has real body text (server-rendered)", () => {
+    const html = wrap(
+      `<h1>Solea Brickell Spa</h1>` +
+        `<p>Miami's premier medical spa for Botox, dermal fillers, facials, and ` +
+        `laser treatments. Our licensed providers deliver natural-looking ` +
+        `results in a calm, welcoming setting. Book a consultation today and ` +
+        `see why patients across Brickell trust our team with their care.</p>`,
+    );
+    expect(contentWithoutJs(html)).toBe(true);
+  });
+
+  test("false for a JS-only shell (empty root + scripts)", () => {
+    const shell =
+      `<html><head><title>Spa</title></head><body>` +
+      `<div id="root"></div>` +
+      `<script>window.__APP__=${JSON.stringify("x".repeat(5000))};</script>` +
+      `<noscript>You need to enable JavaScript to run this app.</noscript>` +
+      `</body></html>`;
+    expect(contentWithoutJs(shell)).toBe(false);
+  });
+
+  test("false when HTML is empty", () => {
+    expect(contentWithoutJs("")).toBe(false);
   });
 });

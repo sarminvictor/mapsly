@@ -54,7 +54,9 @@ const MAPPING: Readonly<Record<string, IndustryKey>> = {
   "yoga studio": "gym",
 };
 
-export function industryForCategory(category: string | null): IndustryKey | null {
+export function industryForCategory(
+  category: string | null,
+): IndustryKey | null {
   if (!category) return null;
   const key = category.trim().toLowerCase();
   return MAPPING[key] ?? null;

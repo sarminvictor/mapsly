@@ -31,6 +31,7 @@ const row = (overrides: Partial<KeywordRow>): KeywordRow => ({
   estPatientsLost: 0,
   estVisits: 0,
   isServiceKeyword: false,
+  isTemplated: false,
   ...overrides,
 });
 
@@ -47,43 +48,86 @@ describe("estimatePatientsLost", () => {
     expect(estimatePatientsLost({ searchVolume: 1000, bestRank: 3 })).toBe(0);
   });
 
-  test("not in top 3 anywhere → volume × 0.25 × 0.02, rounded", () => {
-    // 1000 × 0.25 × 0.02 = 5
+  test("not in top 3 anywhere → volume × TOP_3_CTR × CONVERSION, rounded", () => {
+    // 1000 × 0.2233 × 0.02 ≈ 4.47 → 4
     expect(estimatePatientsLost({ searchVolume: 1000, bestRank: null })).toBe(
-      5,
+      4,
     );
-    // 400 × 0.25 × 0.02 = 2
+    // 400 × 0.2233 × 0.02 ≈ 1.79 → 2
     expect(estimatePatientsLost({ searchVolume: 400, bestRank: null })).toBe(2);
   });
 
   test("fringe rank (≥ 4) still counts as 'not in top 3'", () => {
+    // 800 × 0.2233 × 0.02 ≈ 3.57 → 4
     expect(estimatePatientsLost({ searchVolume: 800, bestRank: 7 })).toBe(4);
   });
 });
 
-describe("deriveSearchQuickWins", () => {
+describe("pickQuickWinCandidates (alias deriveSearchQuickWins)", () => {
   test("returns empty when no rows qualify", () => {
-    // Volume too low + already in pack — neither qualifies.
+    // Volume too low + not templated + already in pack — none qualify.
     expect(
       deriveSearchQuickWins([
-        row({ id: "a", searchVolume: 10 }),
-        row({ id: "b", searchVolume: 1000, localPackRank: 2 }),
+        row({ id: "a", searchVolume: 10, isTemplated: true }),
+        row({
+          id: "b",
+          searchVolume: 1000,
+          localPackRank: 2,
+          isTemplated: true,
+        }),
       ]),
     ).toEqual([]);
   });
 
-  test("picks fringe-local rows with volume ≥ 50", () => {
+  test("requires isTemplated · drops non-template rows", () => {
+    // Same fringe row · once with isTemplated=true, once false.
+    const tmpl = deriveSearchQuickWins([
+      row({
+        id: "tmpl",
+        searchVolume: 500,
+        localPackRank: 5,
+        estPatientsLost: 3,
+        isTemplated: true,
+      }),
+    ]);
+    const nonTmpl = deriveSearchQuickWins([
+      row({
+        id: "non",
+        searchVolume: 500,
+        localPackRank: 5,
+        estPatientsLost: 3,
+        isTemplated: false,
+      }),
+    ]);
+    expect(tmpl).toHaveLength(1);
+    expect(nonTmpl).toEqual([]);
+  });
+
+  test("picks fringe-maps rows · surface=maps · sorts by impact desc", () => {
     const wins = deriveSearchQuickWins([
-      row({ id: "a", searchVolume: 500, localPackRank: 4, estPatientsLost: 2 }),
-      row({ id: "b", searchVolume: 800, localPackRank: 6, estPatientsLost: 4 }),
+      row({
+        id: "a",
+        searchVolume: 500,
+        localPackRank: 4,
+        estPatientsLost: 2,
+        isTemplated: true,
+      }),
+      row({
+        id: "b",
+        searchVolume: 800,
+        localPackRank: 6,
+        estPatientsLost: 4,
+        isTemplated: true,
+      }),
     ]);
     expect(wins).toHaveLength(2);
     expect(wins[0]?.id).toBe("b"); // higher impact first
-    expect(wins[0]?.impact).toMatch(/\+4 patients\/mo/);
+    expect(wins[0]?.surface).toBe("maps");
+    expect(wins[0]?.estCustomersPerMo).toBe(4);
     expect(wins[1]?.id).toBe("a");
   });
 
-  test("picks fringe-organic rows when not in local pack", () => {
+  test("picks fringe-organic rows · surface=search · tight 4-10 range", () => {
     const wins = deriveSearchQuickWins([
       row({
         id: "a",
@@ -91,13 +135,25 @@ describe("deriveSearchQuickWins", () => {
         localPackRank: null,
         organicRank: 8,
         estPatientsLost: 3,
+        isTemplated: true,
+      }),
+      // Organic 12 is OUTSIDE the new tight 4-10 fringe · skip.
+      row({
+        id: "b",
+        searchVolume: 600,
+        localPackRank: null,
+        organicRank: 12,
+        estPatientsLost: 3,
+        isTemplated: true,
       }),
     ]);
     expect(wins).toHaveLength(1);
-    expect(wins[0]?.action.toLowerCase()).toMatch(/review/);
+    expect(wins[0]?.id).toBe("a");
+    expect(wins[0]?.surface).toBe("search");
+    expect(wins[0]?.actionKey).toBe("review_request");
   });
 
-  test("caps at 3", () => {
+  test("returns ALL qualifiers (slicing happens in the weekly layer)", () => {
     const wins = deriveSearchQuickWins(
       [4, 5, 6, 7, 8].map((rank) =>
         row({
@@ -105,19 +161,22 @@ describe("deriveSearchQuickWins", () => {
           searchVolume: 500,
           localPackRank: rank,
           estPatientsLost: rank,
+          isTemplated: true,
         }),
       ),
     );
-    expect(wins).toHaveLength(3);
+    // Pure picker no longer caps at 3 · returns all 5 fringe-maps rows.
+    expect(wins).toHaveLength(5);
   });
 
-  test("copy stays in Maria voice — no banned jargon", () => {
+  test("emits surface chips per row · no English copy baked in", () => {
     const wins = deriveSearchQuickWins([
       row({
         id: "a",
         searchVolume: 800,
         localPackRank: 4,
         estPatientsLost: 4,
+        isTemplated: true,
       }),
       row({
         id: "b",
@@ -125,11 +184,12 @@ describe("deriveSearchQuickWins", () => {
         localPackRank: null,
         organicRank: 9,
         estPatientsLost: 3,
+        isTemplated: true,
       }),
     ]);
-    const haystack = wins.map((w) => `${w.currentState} ${w.action}`).join(" ");
-    expect(haystack).not.toMatch(
-      /\b(LCP|INP|CLS|CTR|MSI|3-pack|local 3-pack|schema|NAP|GBP|SERP|organic rank)\b/i,
-    );
+    expect(wins[0]?.surface).toBe("maps");
+    expect(wins[0]?.stateKey).toBe("maps_fringe");
+    expect(wins[1]?.surface).toBe("search");
+    expect(wins[1]?.stateKey).toBe("search_fringe");
   });
 });

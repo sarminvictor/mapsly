@@ -13,11 +13,10 @@
 // businesses per run by default — Lighthouse is expensive ($0.05+ per
 // call after DOM fetch). MAX_LIMIT 60 protects against backfill bursts.
 
-import { revalidateTag } from "next/cache";
 import prisma from "@/lib/prisma";
 import { cronHandler } from "@/lib/middleware/no-live-api";
-import { lighthouseFullAudit, toPersistRow } from "@/services/lighthouse";
-import { runBatch, statusFromOutcome } from "../../_lib/batch";
+import { collectWebsiteForBatch } from "@/modules/website-intel/collect-website-intel";
+import { filterEligibleBusinesses } from "@/lib/reviews/should-collect";
 
 const JOB = "weekly:lighthouse-audit";
 const DEFAULT_LIMIT = 20;
@@ -26,15 +25,6 @@ const MAX_LIMIT = 60;
  *  the most expensive single API in our stack; re-running the same URL
  *  inside 6 days adds cost without insight. */
 const AUDIT_FRESH_MS = 6 * 24 * 60 * 60 * 1000;
-
-interface BusinessRow {
-  id: string;
-  slug: string;
-  name: string;
-  address: string | null;
-  phone: string | null;
-  website: string;
-}
 
 export const GET = cronHandler(JOB, async ({ runId }) => {
   const limit = clampLimitFromEnv(DEFAULT_LIMIT, MAX_LIMIT);
@@ -49,90 +39,32 @@ export const GET = cronHandler(JOB, async ({ runId }) => {
       website: { not: null },
       NOT: { lighthouseAudits: { some: { auditedAt: { gte: cutoff } } } },
     },
-    select: {
-      id: true,
-      slug: true,
-      name: true,
-      address: true,
-      phone: true,
-      website: true,
-    },
+    select: { id: true },
     take: limit,
     orderBy: { lastRefreshedAt: { sort: "asc", nulls: "first" } },
   });
 
-  const rows: BusinessRow[] = candidates
-    .filter(
-      (
-        c,
-      ): c is {
-        id: string;
-        slug: string;
-        name: string;
-        address: string | null;
-        phone: string | null;
-        website: string;
-      } => typeof c.website === "string" && c.website.length > 0,
-    )
-    .map((c) => ({
-      id: c.id,
-      slug: c.slug,
-      name: c.name,
-      address: c.address,
-      phone: c.phone,
-      website: c.website,
-    }));
+  // Paid-cell gate · only audit cells with a paid business (same gate as
+  // reviews + search). No-op while MAPSLY_COLLECT_REVIEWS_ALLOW_ALL=1.
+  const eligibleIds = await filterEligibleBusinesses(
+    candidates.map((c) => c.id),
+  );
 
-  const revalidatedSlugs = new Set<string>();
-  let auditsInserted = 0;
-  let skippedNoWebsite = 0;
-
-  const outcome = await runBatch(rows, async (biz: BusinessRow) => {
-    if (!biz.website) {
-      skippedNoWebsite += 1;
-      return;
-    }
-    const audit = await lighthouseFullAudit({
-      url: biz.website,
-      nap: {
-        name: biz.name,
-        address: biz.address ?? "",
-        phone: biz.phone ?? "",
-      },
-    });
-
-    const persist = toPersistRow(audit, biz.id);
-    await prisma.lighthouseAudit.create({
-      data: {
-        ...persist,
-        // rawJson is already serializable from the audit composer.
-      },
-    });
-    auditsInserted += 1;
-    revalidatedSlugs.add(biz.slug);
-  });
-
-  for (const slug of revalidatedSlugs) {
-    revalidateTag(`business-${slug}-lighthouse`, "weeks");
-    revalidateTag(`business-${slug}`, "weeks");
-  }
+  // Identical work to the admin "Run Website" trigger — one shared collector.
+  const result = await collectWebsiteForBatch(eligibleIds);
 
   return {
-    itemsProcessed: outcome.succeeded,
-    status: statusFromOutcome(outcome),
+    itemsProcessed: result.audited,
+    status: result.errors.length === 0 ? "OK" : "PARTIAL",
     meta: {
       runId,
       limit,
-      attempted: outcome.attempted,
-      succeeded: outcome.succeeded,
-      failed: outcome.failures.length,
-      auditsInserted,
-      skippedNoWebsite,
-      failureSample: outcome.failures.slice(0, 5).map((f) => ({
-        businessId: (f.item as BusinessRow).id,
-        website: (f.item as BusinessRow).website,
-        error: f.error,
-      })),
+      attempted: result.businesses,
+      succeeded: result.audited,
+      failed: result.errors.length,
+      auditsInserted: result.audited,
+      skippedNoWebsite: result.skippedNoWebsite,
+      failureSample: result.errors.slice(0, 5),
     },
   };
 });

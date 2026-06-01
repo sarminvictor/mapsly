@@ -62,6 +62,18 @@ export const DATAFORSEO_UNIT_COST_USD = {
    *  is roughly $0.0001 so larger limit calls scale proportionally.
    *  Adapter reads rawCostUsd from response; constant is the FALLBACK. */
   rankedKeywords: 0.013,
+
+  /** /v3/serp/google/ads_advertisers/live/advanced — $0.002 per call (Live;
+   *  Standard $0.0006). Returns advertisers running Google ads for a keyword
+   *  in a location (Google Ads Transparency Center). Billed even on the
+   *  40102 "No Search Results" empty case. Verified live 2026-05-28. */
+  adsAdvertisers: 0.002,
+
+  /** /v3/serp/google/ads_search/live/advanced — $0.002 per SERP of ≤40
+   *  creatives (Live; Standard $0.0006). Returns an advertiser's actual ad
+   *  creatives + first/last-shown dates, by advertiser_ids or target domain
+   *  (Google Ads Transparency Center). Verified live 2026-05-28. */
+  adsSearch: 0.002,
 } as const;
 
 export type DataForSeoOperation = keyof typeof DATAFORSEO_UNIT_COST_USD;

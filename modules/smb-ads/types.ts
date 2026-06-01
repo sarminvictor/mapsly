@@ -1,340 +1,549 @@
 /**
- * SMB ads · payload type definitions and pure-logic helpers.
+ * SMB /ads · "Ads in your area" payload + pure logic.
  *
- * `SmbAdsData` is the flat shape the `/(smb)/ads` page renders from. It
- * bundles Maria's own business identity + the active competitor / own-
- * business ads we've spotted, grouped into 14-keyword lanes per the
- * task description.
+ * Maria-facing market intelligence, split into two FUNDAMENTALLY DIFFERENT
+ * stories (the page renders them as two visually-distinct blocks):
  *
- * `EMPTY_SMB_ADS` is the build-phase / no-biz / error short-circuit
- * shape per `.claude/rules/cache-components.md` Pattern 1 — every field
- * of the interface is present so TypeScript catches partial returns
- * at literal-comparison time on Vercel build (see INC-25).
+ *   • GOOGLE  — what it costs to show up in Search: keyword CPC/competition,
+ *     who's outspending you (market leaderboard), and a budget simulator.
+ *   • META    — who's winning on Facebook/Instagram: which platforms rivals
+ *     run, their live creatives, and platform/creative suggestions.
  *
- * The two helpers (`isOffKeyword`, `groupIntoLanes`) are pure functions
- * exported from this module so the unit test in `__tests__/` can import
- * them without pulling in Prisma — keeps tests fast and side-effect
- * free per `.claude/rules/testing.md`.
+ * Data: DataForSEO (keyword costs + Google Ads Transparency, per business) +
+ * our Meta Ad Library actor (per market CELL → AdMarketAdvertiser). Collected by
+ * `modules/ads-intel` + the weekly crons.
+ *
+ * Pattern 1 (cache-components): `EMPTY_SMB_ADS` is the full shape so TS catches
+ * partial returns at build (INC-25). Pure helpers live here so the query, the
+ * client simulator, and the unit tests share one source of truth (no Prisma).
  */
 
-/**
- * Platform enum mirroring `AdPlatform` from Prisma. Re-declared here as
- * a string literal union so this types module stays free of Prisma
- * imports (lets the pure helpers + tests run without the generated
- * client). The page's query layer narrows from `AdPlatform` to this
- * union at the read boundary.
- */
-export type SmbAdPlatform = "META" | "GOOGLE";
+export type CompetitionBucket = "LOW" | "MEDIUM" | "HIGH";
+export type CompetitionLabel = "Low" | "Medium" | "High";
 
-/**
- * Single competitor ad creative. Shape matches what the page can
- * render — only the fields surfaced to Maria are kept; spend / target
- * fields are deliberately omitted because they're noise for the SMB
- * audience per `.claude/rules/ui-ux-smb.md`.
- */
-export interface AdEntry {
-  /** Stable identifier (AdLibraryEntry.id). React key. */
-  id: string;
-  /** Which ad network this came from. */
-  platform: SmbAdPlatform;
-  /** Ad copy body. Nullable when we have a record of the ad but no
-   * captured creative text yet (often during the first refresh). */
-  adCreativeBody: string | null;
-  /** Landing URL the ad clicks through to. Nullable when not parsed. */
-  landingUrl: string | null;
-  /** When we last saw this ad active. Used for the lane's "last seen"
-   * footer + the page-level "refreshed" header. */
-  lastSeenAt: Date;
-  /** Owning business name · null when this is Maria's own ad. The UI
-   * renders "{advertiser} · {timeAgo}" for competitor ads, just
-   * "{timeAgo}" for own ads. */
-  advertiserName: string | null;
-  /** True iff this is Maria's own ad (vs a competitor's). Drives a
-   * subtle visual distinction in the card. */
-  isOwn: boolean;
+// ---- shared ----------------------------------------------------------------
+
+export type AdSuggestionTone = "opportunity" | "gap" | "watch";
+
+/** A "what to do next" card. The page resolves copy via
+ *  `t(\`suggestion_${key}\`, params)` so this stays Prisma- + i18n-free. */
+export interface AdSuggestion {
+  key: string;
+  tone: AdSuggestionTone;
+  /** "google" | "meta" — which block (and which sidebar accent) it belongs to. */
+  network: "google" | "meta";
+  params: Record<string, string | number>;
 }
 
-/**
- * One keyword lane. The lane key is the matched keyword string we used
- * to surface these ads. The "unmatched" lane (`__unmatched__`) groups
- * ads where the cron couldn't tie the creative to any of Maria's
- * tracked keywords — these are flagged off-services by definition.
- *
- * `isOffKeyword` is computed up-front by the query layer so the
- * component doesn't have to re-derive it. A lane is off-keyword when:
- *   - keyword is the `__unmatched__` sentinel, OR
- *   - no service string in Maria's `Business.categories` overlaps
- *     (substring, case-insensitive) with the keyword.
- *
- * **Competitor intel (PR · Ads competitor intel):** in addition to
- * Maria's own ads, lanes now carry counts + names from competitor
- * businesses in the same `category` + `city`. `status` makes the
- * competitive picture scannable:
- *
- *   - `open`        · 0 competitor ads, 0 own ads → blue-ocean lane
- *   - `you-absent`  · ≥ 1 competitor ad, 0 own ads → "they're spending, you're not"
- *   - `present`     · own ads present, ≤ 2 competitors total in lane
- *   - `crowded`     · ≥ 3 competitor ads → tough lane regardless of your presence
- */
-export type AdLaneStatus = "open" | "you-absent" | "present" | "crowded";
+// ---- GOOGLE block ----------------------------------------------------------
 
-export interface AdLane {
-  /** Lane key. `__unmatched__` for the "couldn't match" bucket;
-   * a plain keyword string otherwise. */
+/** One row of the "what ads cost in your area" table. */
+export interface AdKeywordCost {
   keyword: string;
-  /** All ads in this lane — own + competitor. Capped per
-   * MAX_ADS_PER_LANE_VISIBLE in the UI; full list kept here so the
-   * page can show a "+N more" footer with an honest count. */
-  ads: AdEntry[];
-  /** Whether the lane should render with the off-service warning chip
-   * + coral-tinted border (per `.claude/rules/ui-ux-smb.md` —
-   * redundant cues, never color alone). */
-  isOffKeyword: boolean;
-  /** Count of Maria's own ads in this lane. */
-  ownCount: number;
-  /** Count of distinct competitor businesses with at least one ad in
-   * this lane. NOT the count of competitor ads (a single competitor
-   * with 4 creatives counts as 1). */
-  competitorCount: number;
-  /** Up to 3 competitor business names sorted by ad count (most
-   * advertised first). Empty when no competitors are running ads. */
-  topCompetitors: string[];
-  /** Computed status. See `AdLaneStatus`. */
-  status: AdLaneStatus;
+  searchVolume: number | null;
+  cpc: number | null;
+  competition: CompetitionBucket | null;
+  competitionIndex: number | null;
+  lowBid: number | null;
+  highBid: number | null;
+  /** Derived ranking score — higher = better opening. {@link opportunityScore} */
+  opportunity: number;
 }
 
-/**
- * Top-level page payload. The page reads:
- *   - `ownedBusinessId === ""` → onboarding empty state
- *   - `lanes.length === 0`     → "no ads we've spotted yet" state
- *   - otherwise               → the lane grid
- */
-export interface SmbAdsData {
-  /** Owned business id, or `""` for empty / build-phase. */
-  ownedBusinessId: string;
-  /** Owned business display name. */
+/** One row of the "top Google advertisers in your market" leaderboard. */
+export interface GoogleAdvertiserRow {
+  id: string;
   name: string;
-  /** Owned business primary category. */
-  category: string;
-  /** Total active ads — Maria's own only. Used in "Your active ads". */
-  totalActiveAds: number;
-  /** Total ads in off-keyword lanes (own only). Used in "Ads off your
-   * services" + to gate the warning alert. */
-  offKeywordCount: number;
-  /** Count of lanes where Maria has ≥ 1 own ad. */
-  lanesCovered: number;
-  /** Count of lanes where 0 ads are running (own + competitor) and the
-   * keyword is on-service for Maria — "blue ocean" opportunities. */
-  openLanes: number;
-  /** Distinct competitor businesses we've seen ads from in this market
-   * across all lanes. Used in the "Who else is advertising" KPI. */
-  competitorCount: number;
-  /** Lanes, ordered by ad count descending (most-active first). */
-  lanes: AdLane[];
-  /** Most recent `lastSeenAt` across all ads. Used in the "Refreshed"
-   * footer. Nullable for new / empty businesses. */
-  refreshedAt: Date | null;
+  rank: number;
+  isOwn: boolean;
+  /** Active Google creatives seen (Transparency). */
+  adCount: number;
+  domain: string | null;
 }
 
-/**
- * Canonical empty shape — every field present so TypeScript catches
- * shape drift at compile time (INC-25). Returned by `getSmbAdsData`
- * during Vercel build, when the user has no claimed business, or when
- * Prisma errors.
- */
+export interface GoogleAdsBlock {
+  /** Maria's own active Google ads. */
+  ownAdCount: number;
+  totalSearchVolume: number;
+  avgCpc: number | null;
+  competition: CompetitionLabel | null;
+  bestOpportunity: AdKeywordCost | null;
+  keywordCosts: AdKeywordCost[];
+  /** Market-wide leaderboard (top spenders by active ad count). */
+  topAdvertisers: GoogleAdvertiserRow[];
+  advertiserCount: number;
+  ownRank: number | null;
+  suggestions: AdSuggestion[];
+}
+
+// ---- META block ------------------------------------------------------------
+
+export interface MetaCreative {
+  externalAdId: string;
+  body: string | null;
+  previewUrl: string | null;
+  format: string | null;
+  landingUrl: string | null;
+  platforms: string[];
+}
+
+/** One advertiser in the Meta market (from AdMarketAdvertiser). */
+export interface MetaAdvertiserCard {
+  pageId: string;
+  name: string;
+  handle: string | null;
+  isOwn: boolean;
+  adCount: number;
+  platforms: string[];
+  runningSince: Date | null;
+  creatives: MetaCreative[];
+}
+
+/** How many market advertisers run on each platform — the optimization signal. */
+export interface MetaPlatformStat {
+  platform: string; // FACEBOOK / INSTAGRAM / MESSENGER / AUDIENCE_NETWORK / THREADS
+  advertisers: number;
+  share: number; // 0..1 of advertisers using it
+}
+
+// ---- structured market analysis (replaces the old prose AI insights) -------
+
+/** Format breakdown of the market's ads (deterministic, from displayFormat). */
+export interface AdFormatStat {
+  format: string; // "Video" | "Image" | "Carousel" | …
+  ads: number;
+  share: number; // 0..1
+}
+/** Which services the market advertises + whether Maria offers it (AI + her data). */
+export interface MarketServiceStat {
+  service: string;
+  ads: number;
+  share: number; // 0..1 of analyzed ads
+  youOffer: boolean;
+}
+/** A promotional offer seen in the market (AI-extracted; price only if stated). */
+export interface MarketPromo {
+  label: string;
+  offer: string;
+  price: string | null;
+}
+
+export interface MetaAdsBlock {
+  ownAdCount: number;
+  ownPlatforms: string[];
+  advertiserCount: number;
+  totalActiveAds: number;
+  platformSpread: MetaPlatformStat[];
+  advertisers: MetaAdvertiserCard[];
+  // structured "what's working" analysis
+  formatMix: AdFormatStat[];
+  serviceMix: MarketServiceStat[];
+  promos: MarketPromo[];
+  analyzedAt: Date | null;
+  /** Personalized actions (compare her ads/services to the market). */
+  suggestions: AdSuggestion[];
+}
+
+// ---- top-level payload -----------------------------------------------------
+
+export interface SmbAdsData {
+  ownedBusinessId: string;
+  name: string;
+  category: string;
+  city: string;
+  google: GoogleAdsBlock;
+  meta: MetaAdsBlock;
+  /** Curated sidebar actions (mix of google + meta), highest-impact first. */
+  quickWins: AdSuggestion[];
+  refreshedAt: Date | null;
+  hasData: boolean;
+}
+
+export const EMPTY_GOOGLE_BLOCK: GoogleAdsBlock = {
+  ownAdCount: 0,
+  totalSearchVolume: 0,
+  avgCpc: null,
+  competition: null,
+  bestOpportunity: null,
+  keywordCosts: [],
+  topAdvertisers: [],
+  advertiserCount: 0,
+  ownRank: null,
+  suggestions: [],
+};
+
+export const EMPTY_META_BLOCK: MetaAdsBlock = {
+  ownAdCount: 0,
+  ownPlatforms: [],
+  advertiserCount: 0,
+  totalActiveAds: 0,
+  platformSpread: [],
+  advertisers: [],
+  formatMix: [],
+  serviceMix: [],
+  promos: [],
+  analyzedAt: null,
+  suggestions: [],
+};
+
+/** Canonical empty shape — every field present (Pattern 1 / INC-25). */
 export const EMPTY_SMB_ADS: SmbAdsData = {
   ownedBusinessId: "",
   name: "",
   category: "",
-  totalActiveAds: 0,
-  offKeywordCount: 0,
-  lanesCovered: 0,
-  openLanes: 0,
-  competitorCount: 0,
-  lanes: [],
+  city: "",
+  google: EMPTY_GOOGLE_BLOCK,
+  meta: EMPTY_META_BLOCK,
+  quickWins: [],
   refreshedAt: null,
+  hasData: false,
 };
 
-/** Sentinel keyword for the "ads we couldn't match to any of your
- * tracked keywords" bucket. */
-export const UNMATCHED_KEYWORD = "__unmatched__";
+// ---- pure helpers ----------------------------------------------------------
 
 /**
- * Max number of lanes the page shows. Per the task description ("14-
- * keyword lane grid") and `.claude/rules/ui-ux-smb.md` which caps
- * information density on Maria's surfaces.
+ * Opportunity score · higher = a better opening to advertise on. Rewards
+ * demand + low competition, penalizes cost (Boxly's proven formula):
+ *   volume × (100 − competitionIndex) / max(1, cpc × 10)
  */
-export const MAX_LANES = 14;
+export function opportunityScore(input: {
+  searchVolume: number | null;
+  cpc: number | null;
+  competitionIndex: number | null;
+}): number {
+  const volume = input.searchVolume ?? 0;
+  if (volume <= 0) return 0;
+  const compIdx = input.competitionIndex ?? 50;
+  const cpc = input.cpc ?? 0;
+  const score = (volume * (100 - compIdx)) / Math.max(1, cpc * 10);
+  return Math.round(score);
+}
 
-/**
- * Max number of ads rendered inline per lane (before "+N more" tail).
- * Three keeps each lane card scannable on mobile (380px).
- */
-export const MAX_ADS_PER_LANE_VISIBLE = 3;
+export function competitionLabelFromIndex(
+  index: number | null,
+): CompetitionLabel | null {
+  if (index == null) return null;
+  if (index < 34) return "Low";
+  if (index < 67) return "Medium";
+  return "High";
+}
 
-/**
- * Whether a keyword is "off-services" — i.e. doesn't seem to match
- * Maria's `Business.categories`. Pure function, no IO, used by both
- * the query layer (to flag lanes) and the unit test.
- *
- * Rules (each is an OR — any one trips off-keyword):
- *   - `keyword` is null / empty / the UNMATCHED_KEYWORD sentinel
- *   - `services` is empty (no services to compare against → can't
- *     vouch, default to off — we'd rather show a chip than silently
- *     mis-classify)
- *   - No service string is a case-insensitive substring of the
- *     keyword (or vice-versa)
- *
- * Substring match is intentional — Maria's `categories` are things
- * like `["botox", "filler", "facials"]` while ad keywords are things
- * like `"botox specials brickell"`. We want the lane "botox specials
- * brickell" to be ON-services for a botox spa.
- */
-export function isOffKeyword(
-  keyword: string | null | undefined,
-  services: readonly string[],
-): boolean {
-  if (keyword == null) return true;
-  const trimmed = keyword.trim();
-  if (trimmed === "" || trimmed === UNMATCHED_KEYWORD) return true;
-  if (!services || services.length === 0) return true;
-  const lowered = trimmed.toLowerCase();
-  for (const svc of services) {
-    if (svc == null) continue;
-    const s = String(svc).trim().toLowerCase();
-    if (s === "") continue;
-    if (lowered.includes(s) || s.includes(lowered)) return false;
-  }
-  return true;
+export function competitionLabelFromBucket(
+  bucket: CompetitionBucket | null,
+): CompetitionLabel | null {
+  if (bucket === "LOW") return "Low";
+  if (bucket === "MEDIUM") return "Medium";
+  if (bucket === "HIGH") return "High";
+  return null;
 }
 
 /**
- * Group a flat list of ads into lanes keyed by `matchedKeyword`. Pure
- * function: no IO, no Prisma. Returned lanes are ordered by ad count
- * descending (most-active first), then by keyword alphabetically as a
- * stable tie-breaker so the page render is deterministic.
- *
- * The "unmatched" bucket — ads whose `matchedKeyword` is null / empty
- * — collapses to a single lane keyed by `UNMATCHED_KEYWORD`. It always
- * carries `isOffKeyword: true`.
- *
- * Truncates to `maxLanes` lanes so we never blow past the page's
- * density cap (Maria-friendly, per `.claude/rules/ui-ux-smb.md`).
+ * Best opening: the highest-opportunity keyword that's actually winnable for an
+ * SMB (not HIGH competition, real demand + cost). Falls back to top-opportunity.
  */
-export function groupIntoLanes(
-  ads: readonly AdEntry[],
-  services: readonly string[],
-  maxLanes: number,
-  rawKeywords?: ReadonlyArray<string | null | undefined>,
-): AdLane[] {
-  if (!ads || ads.length === 0) return [];
-  if (maxLanes <= 0) return [];
+export function pickBestOpportunity(
+  rows: readonly AdKeywordCost[],
+): AdKeywordCost | null {
+  if (rows.length === 0) return null;
+  const winnable = rows.filter(
+    (r) =>
+      r.competition !== "HIGH" &&
+      (r.searchVolume ?? 0) >= 100 &&
+      (r.cpc ?? 0) > 0,
+  );
+  const pool = winnable.length > 0 ? winnable : rows;
+  return [...pool].sort((a, b) => b.opportunity - a.opportunity)[0] ?? null;
+}
 
-  const buckets = new Map<string, AdEntry[]>();
-  ads.forEach((ad, idx) => {
-    // Prefer the explicit keyword array if the caller passed one
-    // (the query layer does — it gets the matchedKeyword off the
-    // raw Prisma row before normalising to AdEntry, which doesn't
-    // carry the keyword itself).
-    const raw = rawKeywords?.[idx];
-    const key = !raw || raw.trim() === "" ? UNMATCHED_KEYWORD : raw.trim();
-    const list = buckets.get(key);
-    if (list) {
-      list.push(ad);
-    } else {
-      buckets.set(key, [ad]);
-    }
-  });
+function fmtUsd(n: number | null): string {
+  return n == null ? "—" : `$${n.toFixed(2)}`;
+}
 
-  const lanes: AdLane[] = [];
-  for (const [keyword, laneAds] of buckets.entries()) {
-    lanes.push(deriveLaneStats(keyword, laneAds, services));
+// ---- suggestion builders (per block) ---------------------------------------
+
+export interface GoogleSuggestionsInput {
+  ownAdCount: number;
+  advertiserCount: number; // rivals running Google ads
+  bestOpportunity: AdKeywordCost | null;
+  topAdvertiser: { name: string; adCount: number } | null;
+}
+
+/** Google block "what to do" — cost/keyword focused. Capped at 3. */
+export function buildGoogleSuggestions(
+  input: GoogleSuggestionsInput,
+): AdSuggestion[] {
+  const out: AdSuggestion[] = [];
+
+  // Blue ocean: nobody advertises Google here AND we have a keyword to point at.
+  if (
+    input.ownAdCount === 0 &&
+    input.advertiserCount === 0 &&
+    input.bestOpportunity
+  ) {
+    out.push({
+      key: "g_blue_ocean",
+      tone: "opportunity",
+      network: "google",
+      params: {
+        keyword: input.bestOpportunity.keyword,
+        cpc: fmtUsd(input.bestOpportunity.cpc),
+      },
+    });
   }
+  // The cheapest winnable keyword to start on.
+  if (input.bestOpportunity) {
+    out.push({
+      key: "g_start_here",
+      tone: "opportunity",
+      network: "google",
+      params: {
+        keyword: input.bestOpportunity.keyword,
+        cpc: fmtUsd(input.bestOpportunity.cpc),
+        competition:
+          competitionLabelFromBucket(input.bestOpportunity.competition) ??
+          "Low",
+      },
+    });
+  }
+  // Gap: rivals run Google ads, you don't.
+  if (input.ownAdCount === 0 && input.advertiserCount > 0) {
+    out.push({
+      key: "g_gap",
+      tone: "gap",
+      network: "google",
+      params: { count: input.advertiserCount },
+    });
+  }
+  // Watch the top Google spender.
+  if (input.topAdvertiser) {
+    out.push({
+      key: "g_watch",
+      tone: "watch",
+      network: "google",
+      params: {
+        name: input.topAdvertiser.name,
+        count: input.topAdvertiser.adCount,
+      },
+    });
+  }
+  return out.slice(0, 3);
+}
 
-  lanes.sort((a, b) => {
-    // Most-active first; alphabetical fallback.
-    if (b.ads.length !== a.ads.length) return b.ads.length - a.ads.length;
-    return a.keyword.localeCompare(b.keyword);
-  });
+/** Fringe Meta surfaces — low-value for a local SMB vs. Facebook + Instagram. */
+const FRINGE_META_PLATFORMS = new Set([
+  "MESSENGER",
+  "WHATSAPP",
+  "AUDIENCE_NETWORK",
+]);
 
-  return lanes.slice(0, maxLanes);
+export interface PersonalMetaInput {
+  ownAdCount: number;
+  ownPlatforms: string[];
+  advertiserCount: number;
+  /** Maria's own services (BusinessService) — drives the "win" gap. */
+  ownServices: readonly string[];
+  formatMix: readonly AdFormatStat[];
+  serviceMix: readonly MarketServiceStat[];
+  promos: readonly MarketPromo[];
 }
 
 /**
- * Derive the full lane shape (counts, top advertisers, status) from a
- * keyword + its ads. Pure; tested via `__tests__/types.test.ts`.
- *
- * Status rules — first match wins:
- *   - `competitorCount >= 3`  → `crowded`
- *   - `competitorCount >= 1` and `ownCount === 0` → `you-absent`
- *   - `ownCount >= 1`         → `present`
- *   - else (no ads at all)    → `open`
+ * PERSONALIZED Meta actions — compares Maria's situation (her services, her own
+ * ads, her platforms) to the market analysis. Deterministic + testable; the
+ * page resolves copy via `t(\`suggestion_${key}\`, params)`. Capped at 4.
  */
-export function deriveLaneStats(
-  keyword: string,
-  laneAds: readonly AdEntry[],
-  services: readonly string[],
-): AdLane {
-  let ownCount = 0;
-  const competitorAdCounts = new Map<string, number>();
+export function buildPersonalizedMetaSuggestions(
+  input: PersonalMetaInput,
+): AdSuggestion[] {
+  const out: AdSuggestion[] = [];
 
-  for (const ad of laneAds) {
-    if (ad.isOwn) {
-      ownCount++;
-      continue;
-    }
-    const name = ad.advertiserName?.trim();
-    if (!name) continue;
-    competitorAdCounts.set(name, (competitorAdCounts.get(name) ?? 0) + 1);
+  // 1 · She's not on Meta at all, but the market is → start.
+  if (input.ownAdCount === 0 && input.advertiserCount > 0) {
+    out.push({
+      key: "m_start",
+      tone: "gap",
+      network: "meta",
+      params: { count: input.advertiserCount },
+    });
   }
 
-  const competitorCount = competitorAdCounts.size;
-  const topCompetitors = Array.from(competitorAdCounts.entries())
-    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-    .slice(0, 3)
-    .map(([n]) => n);
+  // 2 · Service WIN — services she offers that the market barely advertises
+  // (≤10% of ads, or absent entirely). Easy openings.
+  const advertisedShare = new Map(
+    input.serviceMix.map((s) => [s.service.toLowerCase(), s.share]),
+  );
+  const winServices = input.ownServices
+    .filter((svc) => (advertisedShare.get(svc.toLowerCase()) ?? 0) <= 0.1)
+    .slice(0, 3);
+  if (winServices.length > 0) {
+    out.push({
+      key: "m_service_win",
+      tone: "opportunity",
+      network: "meta",
+      params: { services: winServices.join(", ") },
+    });
+  }
 
-  let status: AdLaneStatus;
-  if (competitorCount >= 3) status = "crowded";
-  else if (competitorCount >= 1 && ownCount === 0) status = "you-absent";
-  else if (ownCount >= 1) status = "present";
-  else status = "open";
+  // 3 · Platform TRIM — she runs on fringe surfaces (Messenger / WhatsApp /
+  // Audience Network) that few local SMBs benefit from → focus FB + IG.
+  if (input.ownAdCount > 0) {
+    const fringe = input.ownPlatforms
+      .filter((p) => FRINGE_META_PLATFORMS.has(p.toUpperCase()))
+      .map(platformLabel);
+    if (fringe.length > 0) {
+      out.push({
+        key: "m_platform_trim",
+        tone: "opportunity",
+        network: "meta",
+        params: { platforms: fringe.join(", ") },
+      });
+    }
+  }
 
+  // 4 · Promo benchmark — the going rate, so she can price competitively.
+  const priced = input.promos.find((p) => p.price);
+  if (priced) {
+    out.push({
+      key: "m_promo_benchmark",
+      tone: "watch",
+      network: "meta",
+      params: { offer: priced.offer, price: priced.price ?? "" },
+    });
+  }
+
+  // 5 · Format — market is video-heavy → use video.
+  const video = input.formatMix.find((f) => /video/i.test(f.format));
+  if (video && video.share >= 0.4) {
+    out.push({
+      key: "m_format_video",
+      tone: "opportunity",
+      network: "meta",
+      params: { pct: Math.round(video.share * 100) },
+    });
+  }
+
+  return out.slice(0, 4);
+}
+
+/** Human label for a Meta publisher platform. */
+export function platformLabel(p: string): string {
+  switch (p.toUpperCase()) {
+    case "FACEBOOK":
+      return "Facebook";
+    case "INSTAGRAM":
+      return "Instagram";
+    case "MESSENGER":
+      return "Messenger";
+    case "AUDIENCE_NETWORK":
+      return "Audience Network";
+    case "THREADS":
+      return "Threads";
+    case "WHATSAPP":
+      return "WhatsApp";
+    default:
+      return p;
+  }
+}
+
+// ---- budget simulator (pure · shared with the client component) ------------
+
+/** Home-services benchmarks (LocaliQ 2025). Single source of truth. */
+export const BENCHMARK_CTR = 0.0637;
+export const BENCHMARK_CVR = 0.0733;
+
+function ctrForCompetition(bucket: CompetitionBucket | null): number {
+  const mult = bucket === "LOW" ? 1.4 : bucket === "HIGH" ? 0.7 : 1.0;
+  return BENCHMARK_CTR * mult;
+}
+
+export interface BudgetAllocation {
+  keyword: string;
+  spend: number;
+  clicks: number;
+}
+
+export interface BudgetSimulation {
+  spend: number;
+  unspent: number;
+  clicks: number;
+  leads: number;
+  effectiveCpc: number;
+  costPerLead: number;
+  allocations: BudgetAllocation[];
+}
+
+/**
+ * Spread a monthly budget across the best keywords (greedy by opportunity),
+ * capped at each keyword's monthly click capacity, and estimate clicks → leads.
+ * Pure; shared by the client simulator + unit tests.
+ */
+export function simulateAdBudget(
+  rows: readonly AdKeywordCost[],
+  budget: number,
+): BudgetSimulation {
+  const empty: BudgetSimulation = {
+    spend: 0,
+    unspent: Math.max(0, budget),
+    clicks: 0,
+    leads: 0,
+    effectiveCpc: 0,
+    costPerLead: 0,
+    allocations: [],
+  };
+  if (budget <= 0) return empty;
+
+  const usable = rows
+    .filter((r) => (r.cpc ?? 0) > 0 && (r.searchVolume ?? 0) > 0)
+    .sort((a, b) => b.opportunity - a.opportunity);
+  if (usable.length === 0) return empty;
+
+  let remaining = budget;
+  let totalClicks = 0;
+  let totalSpend = 0;
+  const allocations: BudgetAllocation[] = [];
+
+  for (const r of usable) {
+    if (remaining <= 0) break;
+    const cpc = r.cpc ?? 0;
+    const ctr = ctrForCompetition(r.competition);
+    const monthlyClickCapacity = Math.max(
+      1,
+      Math.round((r.searchVolume ?? 0) * ctr),
+    );
+    const affordableClicks = Math.floor(remaining / cpc);
+    const clicks = Math.min(monthlyClickCapacity, affordableClicks);
+    if (clicks <= 0) continue;
+    const spend = Math.round(clicks * cpc);
+    allocations.push({ keyword: r.keyword, spend, clicks });
+    totalClicks += clicks;
+    totalSpend += spend;
+    remaining -= spend;
+  }
+
+  const leads = Math.round(totalClicks * BENCHMARK_CVR);
   return {
-    keyword,
-    ads: [...laneAds],
-    isOffKeyword: isOffKeyword(keyword, services),
-    ownCount,
-    competitorCount,
-    topCompetitors,
-    status,
+    spend: totalSpend,
+    unspent: Math.max(0, budget - totalSpend),
+    clicks: totalClicks,
+    leads,
+    effectiveCpc: totalClicks > 0 ? totalSpend / totalClicks : 0,
+    costPerLead: leads > 0 ? totalSpend / leads : 0,
+    allocations,
   };
 }
 
-/**
- * Paradox detection · returns the alert label tier when Maria is
- * "spending without showing up" — many own ads but few covered lanes
- * relative to what's available in her market.
- *
- *   - `high`  · totalActiveAds ≥ 5 AND lanesCovered / max(1, totalLanes) < 0.25
- *   - `medium`· totalActiveAds ≥ 1 AND lanesCovered / max(1, totalLanes) < 0.5
- *   - null    · otherwise
- *
- * The component renders a coral alert for `high`, a gold alert for
- * `medium`, nothing for null.
- */
-export type ParadoxTier = "high" | "medium" | null;
-
-export function detectParadoxTier(input: {
-  totalActiveAds: number;
-  lanesCovered: number;
-  totalLanes: number;
-}): ParadoxTier {
-  const { totalActiveAds, lanesCovered, totalLanes } = input;
-  if (totalActiveAds === 0) return null;
-  const denom = Math.max(1, totalLanes);
-  const ratio = lanesCovered / denom;
-  if (totalActiveAds >= 5 && ratio < 0.25) return "high";
-  if (ratio < 0.5) return "medium";
-  return null;
+/** Curate the sidebar quick-wins: highest-impact suggestions across blocks,
+ *  opportunity > gap > watch, google + meta interleaved. Capped at 4. */
+export function curateQuickWins(
+  google: readonly AdSuggestion[],
+  meta: readonly AdSuggestion[],
+): AdSuggestion[] {
+  const toneRank: Record<AdSuggestionTone, number> = {
+    opportunity: 0,
+    gap: 1,
+    watch: 2,
+  };
+  return [...google, ...meta]
+    .sort((a, b) => toneRank[a.tone] - toneRank[b.tone])
+    .slice(0, 4);
 }

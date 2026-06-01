@@ -141,6 +141,9 @@ export async function regenerateReplyAction(
           reviewerName: review.reviewerName,
           tone: tone as ReplyTone,
           voiceExamples: voiceExamples.length > 0 ? voiceExamples : undefined,
+          // English-only for now — ES generation is disabled (kept in the
+          // service for future). Saves tokens; the UI shows EN only.
+          englishOnly: true,
         });
       },
     );
@@ -150,10 +153,16 @@ export async function regenerateReplyAction(
       where: { id: reviewId },
       data: {
         aiReplyDraftEn: drafts.en,
-        aiReplyDraftEs: drafts.es,
+        // English-only for now — clear any stale ES draft.
+        aiReplyDraftEs: null,
       },
     });
     revalidateTag(`business-${review.business.slug}-reviews`, "hours");
+    // SMB /reviews page (all tabs, via the shared per-user tag) so a posted
+    // reply surfaces immediately.
+    if (review.business.ownerUserId) {
+      revalidateTag(`smb-reviews-${review.business.ownerUserId}`, "minutes");
+    }
 
     return {
       ok: true,
@@ -172,6 +181,143 @@ export async function regenerateReplyAction(
       "[regenerateReplyAction] failed:",
       err instanceof Error ? err.message : err,
     );
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "unknown",
+    };
+  }
+}
+
+/** Owner edits the AI draft → persist the edited English text. */
+const SaveDraftSchema = z.object({
+  reviewId: z.string().min(1).max(128),
+  text: z.string().trim().min(1).max(2000),
+});
+
+export async function saveReplyDraftAction(
+  _prev: ActionResult<null> | null,
+  formData: FormData,
+): Promise<ActionResult<null>> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) return { ok: false, error: "unauthorized" };
+    const parsed = SaveDraftSchema.safeParse({
+      reviewId: formData.get("reviewId"),
+      text: formData.get("text"),
+    });
+    if (!parsed.success) return { ok: false, error: "invalid_input" };
+
+    const review = await prisma.review.findUnique({
+      where: { id: parsed.data.reviewId },
+      select: {
+        id: true,
+        business: { select: { slug: true, ownerUserId: true } },
+      },
+    });
+    if (!review) return { ok: false, error: "review_not_found" };
+    const isOwner = review.business.ownerUserId === session.user.id;
+    if (!isOwner && session.user.role !== "ADMIN") {
+      return { ok: false, error: "forbidden" };
+    }
+
+    await prisma.review.update({
+      where: { id: parsed.data.reviewId },
+      data: { aiReplyDraftEn: parsed.data.text },
+    });
+    revalidateTag(`business-${review.business.slug}-reviews`, "hours");
+    if (review.business.ownerUserId) {
+      revalidateTag(`smb-reviews-${review.business.ownerUserId}`, "minutes");
+    }
+    return { ok: true, data: null, message: "Saved." };
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "unknown",
+    };
+  }
+}
+
+/** Owner clicks "Skip" → move the review to the Skipped tab. A real owner
+ *  reply landing later (ownerReplied=true) takes precedence and shows it
+ *  under Replied. */
+const SkipSchema = z.object({ reviewId: z.string().min(1).max(128) });
+
+export async function skipReviewAction(
+  _prev: ActionResult<null> | null,
+  formData: FormData,
+): Promise<ActionResult<null>> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) return { ok: false, error: "unauthorized" };
+    const parsed = SkipSchema.safeParse({ reviewId: formData.get("reviewId") });
+    if (!parsed.success) return { ok: false, error: "invalid_input" };
+
+    const review = await prisma.review.findUnique({
+      where: { id: parsed.data.reviewId },
+      select: {
+        id: true,
+        business: { select: { slug: true, ownerUserId: true } },
+      },
+    });
+    if (!review) return { ok: false, error: "review_not_found" };
+    const isOwner = review.business.ownerUserId === session.user.id;
+    if (!isOwner && session.user.role !== "ADMIN") {
+      return { ok: false, error: "forbidden" };
+    }
+
+    await prisma.review.update({
+      where: { id: parsed.data.reviewId },
+      data: { skippedAt: new Date() },
+    });
+    revalidateTag(`business-${review.business.slug}-reviews`, "hours");
+    if (review.business.ownerUserId) {
+      revalidateTag(`smb-reviews-${review.business.ownerUserId}`, "minutes");
+    }
+    return { ok: true, data: null, message: "Moved to Skipped." };
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "unknown",
+    };
+  }
+}
+
+/** Owner clicks "Restore" on a skipped review → clears `skippedAt` so it
+ *  returns to the active queue (Unanswered / Negative). Inverse of
+ *  skipReviewAction · reuses the same schema + auth gate. */
+export async function unskipReviewAction(
+  _prev: ActionResult<null> | null,
+  formData: FormData,
+): Promise<ActionResult<null>> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) return { ok: false, error: "unauthorized" };
+    const parsed = SkipSchema.safeParse({ reviewId: formData.get("reviewId") });
+    if (!parsed.success) return { ok: false, error: "invalid_input" };
+
+    const review = await prisma.review.findUnique({
+      where: { id: parsed.data.reviewId },
+      select: {
+        id: true,
+        business: { select: { slug: true, ownerUserId: true } },
+      },
+    });
+    if (!review) return { ok: false, error: "review_not_found" };
+    const isOwner = review.business.ownerUserId === session.user.id;
+    if (!isOwner && session.user.role !== "ADMIN") {
+      return { ok: false, error: "forbidden" };
+    }
+
+    await prisma.review.update({
+      where: { id: parsed.data.reviewId },
+      data: { skippedAt: null },
+    });
+    revalidateTag(`business-${review.business.slug}-reviews`, "hours");
+    if (review.business.ownerUserId) {
+      revalidateTag(`smb-reviews-${review.business.ownerUserId}`, "minutes");
+    }
+    return { ok: true, data: null, message: "Back in your reviews." };
+  } catch (err) {
     return {
       ok: false,
       error: err instanceof Error ? err.message : "unknown",

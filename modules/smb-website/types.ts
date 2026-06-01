@@ -29,9 +29,15 @@ export type HealthTone = "good" | "warn" | "bad" | "neutral";
 export interface WebsiteSpeedSignal {
   /** Stable key matching the i18n label. */
   key: "page_show" | "buttons" | "steady" | "overall_speed";
-  /** Pre-formatted value Maria reads. */
+  /** Pre-formatted MOBILE value Maria reads. */
   value: string;
   tone: HealthTone;
+  /** Desktop counterpart value, e.g. "4.2s". Null = no desktop data yet
+   *  (hidden until the next re-audit, per the no-uncertain-results rule). */
+  desktopValue: string | null;
+  desktopTone: HealthTone;
+  /** The goal so it's clear what "good" looks like, e.g. "under 2.5s". */
+  target: string;
   /** Plain-English "what this means" line. */
   meaning: string;
 }
@@ -40,6 +46,7 @@ export interface WebsiteSpeedSignal {
 export interface WebsiteCheck {
   /** Stable key matching the i18n label. */
   key:
+    | "google_reads"
     | "google_tags"
     | "faq_tags"
     | "booking_top"
@@ -58,9 +65,18 @@ export interface WebsiteFix {
   action: string;
   /** Why it matters — one short sentence. */
   why: string;
-  /** "+15 minutes" / "About a day" / "Worth a dev call". */
-  effort: string;
   tone: "good" | "warn" | "neutral";
+}
+
+/** One row in the same-cell speed comparison table. */
+export interface WebsiteCompetitor {
+  /** Business name (the owner's row is flagged via `isYou`). */
+  name: string;
+  /** Speed score 0-100 (Lighthouse performance, most recent audit). */
+  score: number;
+  /** 1-based place within the cell, by score descending. */
+  rank: number;
+  isYou: boolean;
 }
 
 export interface SmbWebsiteData {
@@ -74,6 +90,11 @@ export interface SmbWebsiteData {
   overallVerdict: string;
   overallTone: HealthTone;
 
+  /** Lighthouse SEO score 0-100 · shown as "Findable on Google". Already
+   *  collected every audit — no extra run. Null until first audit. */
+  seoScore: number | null;
+  seoTone: HealthTone;
+
   /** 4 speed signals (page show / buttons / steady / overall). */
   speedSignals: WebsiteSpeedSignal[];
   /** 5 SEO/profile checks. */
@@ -82,6 +103,14 @@ export interface SmbWebsiteData {
   topFixes: WebsiteFix[];
   /** Tech stack tags from Wappalyzer (e.g. ["WordPress", "Stripe"]). */
   techStack: string[];
+
+  /** Same-cell speed ranking · top 10 by score (+ your row if outside it).
+   *  Empty until at least one competitor in the cell has a website score. */
+  competitors: WebsiteCompetitor[];
+  /** Your place among scored businesses in the cell · null if unranked. */
+  yourRank: number | null;
+  /** How many businesses in the cell have a score (the "of N"). */
+  rankedTotal: number;
 
   /** When the latest audit ran. */
   auditedAt: Date | null;
@@ -94,10 +123,15 @@ export const EMPTY_SMB_WEBSITE: SmbWebsiteData = {
   overallScore: null,
   overallVerdict: "",
   overallTone: "neutral",
+  seoScore: null,
+  seoTone: "neutral",
   speedSignals: [],
   checks: [],
   topFixes: [],
   techStack: [],
+  competitors: [],
+  yourRank: null,
+  rankedTotal: 0,
   auditedAt: null,
 };
 
@@ -121,6 +155,19 @@ export function verdictForPerf(score: number | null): {
   if (score >= 70) return { verdict: "OK", tone: "neutral" };
   if (score >= 50) return { verdict: "A bit slow", tone: "warn" };
   return { verdict: "Slow", tone: "bad" };
+}
+
+/**
+ * Lighthouse SEO score 0-100 → tone for the "Findable on Google" pill.
+ * Measures crawlability, title/description, mobile-friendliness + valid
+ * structured data — i.e. is the page set up to be found, not how fast it is.
+ */
+export function toneForSeo(score: number | null): HealthTone {
+  if (score == null) return "neutral";
+  if (score >= 90) return "good";
+  if (score >= 70) return "neutral";
+  if (score >= 50) return "warn";
+  return "bad";
 }
 
 /** LCP seconds → Maria-friendly tone + display value. */
@@ -183,7 +230,6 @@ export function deriveWebsiteFixes(input: DeriveFixesInput): WebsiteFix[] {
       priority: 1,
       action: "Speed up the first thing people see on your site",
       why: `Right now your page takes ${input.lcpSeconds.toFixed(1)} seconds to show up. People give up around 3 seconds.`,
-      effort: "Worth a dev call · few hours",
       tone: "warn",
     });
   } else if (input.performance != null && input.performance < 50) {
@@ -191,7 +237,6 @@ export function deriveWebsiteFixes(input: DeriveFixesInput): WebsiteFix[] {
       priority: 1,
       action: "Cut the heavy bits on your homepage",
       why: "Google scored your site below 50/100 for speed — that drops you in search results.",
-      effort: "Worth a dev call · few hours",
       tone: "warn",
     });
   }
@@ -201,7 +246,6 @@ export function deriveWebsiteFixes(input: DeriveFixesInput): WebsiteFix[] {
       priority: 2,
       action: "Make sure your name, address, and phone match everywhere",
       why: "When Google sees different versions of your phone or address across the web, it trusts the listing less.",
-      effort: "About an hour",
       tone: "warn",
     });
   }
@@ -211,7 +255,6 @@ export function deriveWebsiteFixes(input: DeriveFixesInput): WebsiteFix[] {
       priority: 3,
       action: "Add the hidden tags Google uses to understand your business",
       why: "Tiny invisible labels on your homepage help Google show your hours, rating, and phone in search results.",
-      effort: "About 30 minutes",
       tone: "good",
     });
   }
@@ -221,7 +264,6 @@ export function deriveWebsiteFixes(input: DeriveFixesInput): WebsiteFix[] {
       priority: 4,
       action: "Show your phone number at the top of every page",
       why: "About 40% of mobile searches still want to call you. A click-to-call link at the top doubles bookings.",
-      effort: "15 minutes",
       tone: "good",
     });
   }
@@ -231,7 +273,6 @@ export function deriveWebsiteFixes(input: DeriveFixesInput): WebsiteFix[] {
       priority: 5,
       action: "Put your booking button at the top of your homepage",
       why: "Most people decide whether to book in the first 5 seconds. Bury the button and they leave.",
-      effort: "15 minutes",
       tone: "good",
     });
   }
@@ -241,7 +282,6 @@ export function deriveWebsiteFixes(input: DeriveFixesInput): WebsiteFix[] {
       priority: 6,
       action: "Add a short FAQ section to your homepage",
       why: "Google can pull common questions straight into search results — free visibility for the answers your customers ask anyway.",
-      effort: "1 hour",
       tone: "good",
     });
   }
@@ -252,7 +292,6 @@ export function deriveWebsiteFixes(input: DeriveFixesInput): WebsiteFix[] {
     rank: (i + 1) as 1 | 2 | 3 | 4 | 5,
     action: c.action,
     why: c.why,
-    effort: c.effort,
     tone: c.tone,
   }));
 }

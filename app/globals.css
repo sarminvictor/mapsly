@@ -377,7 +377,9 @@ details[open] > summary::after {
    layout for voice consistency. */
 @media (max-width: 760px) {
   .smb-search-grid,
-  .smb-reviews-grid {
+  .smb-reviews-grid,
+  .smb-ads-grid,
+  .smb-website-grid {
     grid-template-columns: minmax(0, 1fr) !important;
   }
 }

@@ -25,7 +25,12 @@
 // Tabs trimmed to the three Maria actually uses · "all recent" was a
 // duplicate of unanswered+replied combined · "by-theme" never landed
 // useful UX (themes live in the right rail as cards now).
-export const REVIEW_TABS = ["unanswered", "negative", "replied"] as const;
+export const REVIEW_TABS = [
+  "unanswered",
+  "negative",
+  "replied",
+  "skipped",
+] as const;
 
 export type ReviewTab = (typeof REVIEW_TABS)[number];
 
@@ -97,6 +102,7 @@ export interface ReviewTabCounts {
   unanswered: number;
   negative: number;
   replied: number;
+  skipped: number;
 }
 
 /**
@@ -142,6 +148,8 @@ export interface SmbReviewsData {
   /** Owned business id, or `""` for empty / build-phase. */
   ownedBusinessId: string;
   businessName: string;
+  /** Business Google reviews page URL (from googlePlaceId) · null if none. */
+  googleReviewsUrl: string | null;
 
   /** Active tab; falls back to `unanswered` when the URL is missing. */
   activeTab: ReviewTab;
@@ -188,6 +196,7 @@ export const EMPTY_TAB_COUNTS: ReviewTabCounts = {
   unanswered: 0,
   negative: 0,
   replied: 0,
+  skipped: 0,
 };
 
 export const EMPTY_REVIEW_KPIS: ReviewKpis = {
@@ -201,6 +210,7 @@ export const EMPTY_REVIEW_KPIS: ReviewKpis = {
 export const EMPTY_SMB_REVIEWS: SmbReviewsData = {
   ownedBusinessId: "",
   businessName: "",
+  googleReviewsUrl: null,
   activeTab: DEFAULT_REVIEW_TAB,
   reviews: [],
   tabCounts: EMPTY_TAB_COUNTS,

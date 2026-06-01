@@ -88,3 +88,16 @@ export {
   type ModelChoice,
   type ModelTask,
 } from "./model-decision";
+
+export {
+  analyzeAdCreatives,
+  analyzeAdCreativesUncached,
+  AdInsightsSchema,
+  DEFAULT_AD_INSIGHTS_MODEL,
+  MIN_CREATIVES_TO_ANALYZE,
+  type AnalyzeAdCreativesInput,
+  type CreativeForAnalysis,
+  type AdInsightsResult,
+  type AdServiceCount,
+  type AdPromo,
+} from "./ad-creative-insights";

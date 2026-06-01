@@ -29,6 +29,7 @@ export interface ReviewTabsLabels {
   unanswered: string;
   negative: string;
   replied: string;
+  skipped: string;
 }
 
 export interface ReviewTabsProps {
@@ -59,6 +60,7 @@ export function ReviewTabs({ activeTab, counts, labels }: ReviewTabsProps) {
       alert: counts.negative > 0,
     },
     { id: "replied", label: labels.replied, count: counts.replied },
+    { id: "skipped", label: labels.skipped, count: counts.skipped },
   ];
 
   return (

@@ -40,7 +40,6 @@ import { auth } from "@/lib/auth";
 import { requirePortal } from "@/lib/portal-guard";
 import { redirect } from "@/i18n/navigation";
 import type { Locale } from "@/i18n/routing";
-import { ServiceContextChipForCurrentUser } from "@/components/smb/ServiceContextChipForCurrentUser";
 import {
   CompetitorBenchmarkCard,
   MentionedNamesCard,
@@ -59,6 +58,7 @@ import {
   type ServiceMentionsCardLabels,
   type ThemesCardLabels,
 } from "@/modules/smb-reviews/components";
+import { SmbPageHeader } from "@/components/smb/SmbPageHeader";
 import { getSmbReviewsData } from "@/modules/smb-reviews/queries";
 import { parseReviewTab } from "@/modules/smb-reviews/types";
 import { getCompetitorRanking } from "@/modules/scoring/competitor-ranking";
@@ -250,6 +250,7 @@ async function ReviewsBody({
     unanswered: t("tab_unanswered_label"),
     negative: t("tab_negative"),
     replied: t("tab_replied"),
+    skipped: t("tab_skipped"),
   };
 
   // Templates with `{var}` placeholders use `t.raw()` so we get the raw
@@ -267,6 +268,10 @@ async function ReviewsBody({
     aiDraftLabel: t("ai_draft_label"),
     ctaGenerate: t("ai_draft_generate"),
     ctaPost: t("ai_draft_post"),
+    ctaSkip: t("ai_draft_skip"),
+    ctaUnskip: t("ai_draft_unskip"),
+    ctaSave: t("ai_draft_save"),
+    ctaSaved: t("ai_draft_saved"),
     ctaEdit: t("ai_draft_edit"),
     ctaRegenerate: t("ai_draft_regenerate"),
     ctaComingSoon: t("ai_draft_coming_soon"),
@@ -347,42 +352,11 @@ async function ReviewsBody({
         padding: "32px 20px 64px",
       }}
     >
-      <header style={{ marginBottom: 20 }}>
-        <p
-          style={{
-            margin: 0,
-            fontFamily: "var(--font-mono)",
-            fontSize: 11,
-            textTransform: "uppercase",
-            letterSpacing: "0.08em",
-            color: "var(--color-text-3)",
-          }}
-        >
-          {t("eyebrow")}
-        </p>
-        <h1
-          id="reviews-heading"
-          style={{
-            fontFamily: "var(--font-serif)",
-            fontSize: "clamp(28px, 4vw, 36px)",
-            lineHeight: 1.1,
-            letterSpacing: "-0.02em",
-            margin: "6px 0 0",
-            color: "var(--color-text)",
-          }}
-        >
-          {t("title", { name: data.businessName })}
-        </h1>
-      </header>
-
-      {/* Service-context chip · "Reading this for: Botox · Lip filler · …"
-          Deep-links to /my-business so Maria can refine the lens. Wrapped
-          in Suspense so it streams independently from the KPI strip. */}
-      <div style={{ marginBottom: 20 }}>
-        <Suspense fallback={null}>
-          <ServiceContextChipForCurrentUser />
-        </Suspense>
-      </div>
+      <SmbPageHeader
+        userId={session.user.id}
+        namespace="smb.reviews"
+        titleId="reviews-heading"
+      />
 
       {/* 5-KPI state bar · Maria's first glance · Reply rate ·
           Unanswered · Avg rating · Reviews 30d · Sentiment 7d. */}
@@ -483,6 +457,8 @@ async function ReviewsBody({
             <PaginatedReviewList
               reviews={data.reviews}
               labels={cardLabels}
+              googleReviewsUrl={data.googleReviewsUrl}
+              activeTab={data.activeTab}
               showMoreLabel={t("show_more")}
               showingLabel={t.raw("showing_label") as string}
             />
@@ -654,7 +630,7 @@ function EmptyTab({
   tab,
   t,
 }: {
-  tab: "unanswered" | "negative" | "replied";
+  tab: "unanswered" | "negative" | "replied" | "skipped";
   t: (key: string) => string;
 }) {
   const titleKey = `empty_${tab}_title` as const;

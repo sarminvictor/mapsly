@@ -74,7 +74,7 @@ export function ReviewTrendCard({ data, labels }: Props) {
           const h = (b.count / maxCount) * INNER_H;
           const y = PADDING.top + (INNER_H - h);
           return (
-            <g key={b.month}>
+            <g key={`${b.month}-${i}`}>
               <rect
                 x={x}
                 y={y}

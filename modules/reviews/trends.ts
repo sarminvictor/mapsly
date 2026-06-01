@@ -98,7 +98,7 @@ export async function getReviewTrends(
 
 async function computeTrends(businessId: string): Promise<ReviewTrendsData> {
   const now = new Date();
-  const twelveMonthsAgo = monthFloor(addMonths(now, -11)); // include current month → 12 buckets
+  const twelveMonthsAgo = monthStart(now, 11); // first of the month 11 months back → 12 buckets incl. current
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 86_400_000);
   const sixtyDaysAgo = new Date(now.getTime() - 60 * 86_400_000);
   const ninetyDaysAgo = new Date(now.getTime() - 90 * 86_400_000);
@@ -244,14 +244,21 @@ async function computeTrends(businessId: string): Promise<ReviewTrendsData> {
 
 // ---- Helpers -------------------------------------------------------------
 
-function addMonths(d: Date, n: number): Date {
-  const x = new Date(d);
-  x.setUTCMonth(x.getUTCMonth() + n);
-  return x;
-}
-
-function monthFloor(d: Date): Date {
-  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1));
+/**
+ * First-of-month UTC `Date`, `monthsBack` months before `from`.
+ *
+ * Uses pure integer (year·12 + month) arithmetic instead of `Date.setUTCMonth`
+ * so the day-of-month can never overflow. The old `setUTCMonth(m - i)` kept the
+ * source day (e.g. 29) and, when the window crossed a short month (Feb 29 in a
+ * non-leap year), JS rolled it into the next month — skipping February and
+ * duplicating March. That produced two "2026-03" buckets and a React
+ * duplicate-key crash on the trend chart for any run on the 29th–31st.
+ */
+function monthStart(from: Date, monthsBack: number): Date {
+  const total = from.getUTCFullYear() * 12 + from.getUTCMonth() - monthsBack;
+  const year = Math.floor(total / 12);
+  const month = ((total % 12) + 12) % 12; // 0–11, normalized for negatives
+  return new Date(Date.UTC(year, month, 1));
 }
 
 function toMonthKey(d: Date): string {
@@ -261,8 +268,14 @@ function toMonthKey(d: Date): string {
 function buildEmpty12Months(now: Date = new Date()): MonthlyBucket[] {
   const out: MonthlyBucket[] = [];
   for (let i = 11; i >= 0; i--) {
-    const d = monthFloor(addMonths(now, -i));
-    out.push({ month: toMonthKey(d), count: 0, avgStars: null });
+    out.push({
+      month: toMonthKey(monthStart(now, i)),
+      count: 0,
+      avgStars: null,
+    });
   }
   return out;
 }
+
+/** Pure date helpers exposed for unit tests (INC-…-41 regression guard). */
+export const __test = { monthStart, toMonthKey, buildEmpty12Months };

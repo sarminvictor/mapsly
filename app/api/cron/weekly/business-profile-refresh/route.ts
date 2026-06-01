@@ -20,6 +20,7 @@
 import { revalidateTag } from "next/cache";
 import prisma from "@/lib/prisma";
 import { cronHandler } from "@/lib/middleware/no-live-api";
+import { cleanWebsiteUrl } from "@/lib/url/clean-website-url";
 import { mapsSearch } from "@/services/dataforseo";
 import type { MapsBusinessRow } from "@/services/dataforseo";
 import { runBatch, statusFromOutcome } from "../../_lib/batch";
@@ -194,7 +195,8 @@ export function mapsRowToProfileUpdate(row: MapsBusinessRow): {
     out.reviewCount = row.rating.votes_count;
   if (typeof row.phone === "string" && row.phone.length > 0)
     out.phone = row.phone;
-  if (typeof row.url === "string" && row.url.length > 0) out.website = row.url;
+  if (typeof row.url === "string" && row.url.length > 0)
+    out.website = cleanWebsiteUrl(row.url) ?? row.url;
   const address = row.address ?? row.address_info?.address;
   if (typeof address === "string" && address.length > 0) out.address = address;
   if (typeof row.address_info?.city === "string")

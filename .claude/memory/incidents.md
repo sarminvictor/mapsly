@@ -1300,3 +1300,45 @@ Functions can't be serialized through the server→client boundary. Same inciden
 **Confidence:** very high — Vercel runtime logs showed the exact error message on the exact route; the two function props are the only function-typed fields in the prop interface; replacement strategy mirrors `.claude/rules/i18n.md` "Usage in client components" prescription.
 
 **Tags:** cache-components, server-to-client-boundary, function-props, INC-26-recurrence, list-detail, hotfix
+
+### INC-2026-05-29-41 · Review trend chart duplicate-key crash · month-window day-overflow (date-dependent)
+
+**Status:** ✅ FIXED + ENCODED + TESTED — `modules/reviews/trends.ts` month math rewritten to pure integer arithmetic; regression test added; chart key hardened.
+
+**Symptom:** Console error on `/(smb)/reviews`, reported by Viktor on 2026-05-29:
+
+```
+Encountered two children with the same key, `2026-03`.
+  at ReviewTrendCard.tsx:77  (<g key={b.month}>)
+```
+
+Two bars rendered for `2026-03`; February 2026 silently missing from the 12-month trend.
+
+**Root cause:** `buildEmpty12Months` built each bucket via `addMonths(now, -i)` → `setUTCMonth(getUTCMonth() - i)`, which **preserves the source day-of-month**. Run on the 29th–31st, when the 12-month window crosses a short month the day overflows: from 2026-05-**29**, `i=3` targets Feb 2026 day 29 — but 2026 is not a leap year (Feb has 28 days) — so JS rolls it forward to **Mar 1** → `"2026-03"`. `i=2` (real March, day 29) also → `"2026-03"`. February is skipped, March duplicated, React keys collide. Purely **date-dependent**: invisible on days 1–28, fires on 29–31 whenever the trailing window straddles February (or any month shorter than the run day). Not caught by build/typecheck/tests because no test fixed the run date to a month-end.
+
+**Fix applied:**
+
+1. Replaced `addMonths`/`monthFloor` with one overflow-proof helper using integer `year*12 + month` arithmetic (no `Date` day to overflow):
+
+   ```ts
+   function monthStart(from: Date, monthsBack: number): Date {
+     const total = from.getUTCFullYear() * 12 + from.getUTCMonth() - monthsBack;
+     const year = Math.floor(total / 12);
+     const month = ((total % 12) + 12) % 12;
+     return new Date(Date.UTC(year, month, 1));
+   }
+   ```
+
+   Both the SQL lower bound (`twelveMonthsAgo`) and the bucket skeleton now use it.
+
+2. Hardened the chart key: `<g key={`${b.month}-${i}`}>` — defensive against any future dup.
+
+3. Added `modules/reviews/__tests__/trends-months.test.ts` — asserts 12 unique, strictly-sequential buckets (with February present) across 7 month-end/leap/year-boundary run dates.
+
+**Prevention:** **Never do month arithmetic with `setMonth`/`setUTCMonth` while preserving the day-of-month.** Use integer `year*12 + month` math and construct from day 1. Grep guard: `grep -rn "setUTCMonth\|setMonth" modules app services lib` should return zero arithmetic uses (the days-in-month idiom `new Date(y, m+1, 0).getDate()` is the only allowed `Date`-based month trick). Any new "trailing N months" / histogram helper MUST have a unit test that fixes the run date to a month-end (29/30/31) crossing February.
+
+**Where encoded:** `modules/reviews/trends.ts` (`monthStart` + comment), `modules/reviews/__tests__/trends-months.test.ts`, `modules/smb-reviews/components/ReviewTrendCard.tsx:77`, this entry.
+
+**Confidence:** very high — traced the exact `i=3`/`i=2` collision from the reported run date; regression test reproduces the old failure and passes on the fix across all risky dates.
+
+**Tags:** date-arithmetic, month-overflow, react-duplicate-key, smb-reviews, date-dependent, regression-test

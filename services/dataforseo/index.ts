@@ -105,3 +105,24 @@ export {
   type RankedKeywordsItem,
   type RankedKeywordsResult,
 } from "./ranked-keywords";
+
+// Google Ads Transparency Center pair — see `_design/product/ads-rework-preplan.html`.
+export {
+  adsAdvertisers,
+  adsAdvertisersUncached,
+  AdsAdvertisersQuerySchema,
+  AdsAdvertiserItemSchema,
+  type AdsAdvertisersQuery,
+  type AdsAdvertiserItem,
+  type AdsAdvertisersResult,
+} from "./ads-advertisers";
+
+export {
+  adsSearch,
+  adsSearchUncached,
+  AdsSearchQuerySchema,
+  AdsCreativeItemSchema,
+  type AdsSearchQuery,
+  type AdsCreativeItem,
+  type AdsSearchResult,
+} from "./ads-search";

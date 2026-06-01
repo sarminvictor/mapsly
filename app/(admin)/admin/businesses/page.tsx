@@ -22,6 +22,11 @@ import {
   type StatusFilter,
 } from "./queries";
 
+// The "Run Ads" row action runs the full collection inline (DataForSEO + a
+// Meta Ad Library Apify run, ~2-3 min), so server actions on this route need
+// headroom beyond the default.
+export const maxDuration = 300;
+
 interface PageSearch {
   status?: string;
   freshness?: string;

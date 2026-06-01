@@ -68,20 +68,25 @@ async function main() {
   console.log(`  city      = ${biz.city} (${biz.country})`);
   console.log(`  category  = ${biz.category}`);
   console.log(`  lat/lng   = ${biz.lat}, ${biz.lng}`);
-  console.log(`  googleCid = ${biz.googleCid ?? "(null · won't match in Maps)"}`);
+  console.log(
+    `  googleCid = ${biz.googleCid ?? "(null · won't match in Maps)"}`,
+  );
 
   // 2. Discover local-intent keywords for this business.
   console.log(`\n[1/2] discover-local-intent · upsert templated Keyword +`);
   console.log(`      BusinessKeyword rows + fetch DfS volumes...`);
-  const discover = await withCronRun(
-    "manual:run-local-intent-discover",
-    () => discoverLocalIntentForBusiness(biz.id),
+  const discover = await withCronRun("manual:run-local-intent-discover", () =>
+    discoverLocalIntentForBusiness(biz.id),
   );
-  console.log(`      status         = ${discover.status}`);
-  console.log(`      industry       = ${discover.industry}`);
-  console.log(`      keywordsBuilt  = ${discover.keywordsBuilt}`);
-  console.log(`      keywordsTracked= ${discover.keywordsTracked}`);
-  console.log(`      volumePopulated= ${discover.volumePopulated}`);
+  console.log(`      status                = ${discover.status}`);
+  console.log(`      industry              = ${discover.industry}`);
+  console.log(`      rankedKeywordsCount   = ${discover.rankedKeywordsCount}`);
+  console.log(`      templatesBuilt        = ${discover.templatesBuilt}`);
+  console.log(
+    `      templatesMatchedRanked= ${discover.templatesMatchedRanked}`,
+  );
+  console.log(`      templatesCreatedPure  = ${discover.templatesCreatedPure}`);
+  console.log(`      volumePopulated       = ${discover.volumePopulated}`);
 
   // 3. Aggregate-cell-maps · needs the centroid.
   if (biz.lat == null || biz.lng == null) {
@@ -90,20 +95,20 @@ async function main() {
     console.log(`\n[2/2] SKIPPED · business has no city/country`);
   } else {
     console.log(`\n[2/2] aggregate-cell-maps · Maps SERP per templated kw...`);
-    const aggregate = await withCronRun(
-      "manual:run-local-intent-cell",
-      () =>
-        aggregateCellMaps({
-          city: biz.city!,
-          country: biz.country!,
-          centroidLat: biz.lat!,
-          centroidLng: biz.lng!,
-        }),
+    const aggregate = await withCronRun("manual:run-local-intent-cell", () =>
+      aggregateCellMaps({
+        city: biz.city!,
+        country: biz.country!,
+        centroidLat: biz.lat!,
+        centroidLng: biz.lng!,
+      }),
     );
     console.log(`      cellBusinessCount  = ${aggregate.cellBusinessCount}`);
     console.log(`      keywordsQueried    = ${aggregate.keywordsQueried}`);
     console.log(`      serpRowsWritten    = ${aggregate.serpRowsWritten}`);
-    console.log(`      matchedBusinesses  = ${aggregate.matchedBusinessIds.length}`);
+    console.log(
+      `      matchedBusinesses  = ${aggregate.matchedBusinessIds.length}`,
+    );
     console.log(
       `      our biz in matches = ${aggregate.matchedBusinessIds.includes(biz.id) ? "YES ✓" : "no"}`,
     );
@@ -115,10 +120,18 @@ async function main() {
     where: { businessId: biz.id, source: "template" },
   });
   const mapsRanked = await prisma.businessKeyword.count({
-    where: { businessId: biz.id, source: "template", latestMapsRank: { not: null } },
+    where: {
+      businessId: biz.id,
+      source: "template",
+      latestMapsRank: { not: null },
+    },
   });
   const mapsTop3 = await prisma.businessKeyword.count({
-    where: { businessId: biz.id, source: "template", latestMapsRank: { lte: 3 } },
+    where: {
+      businessId: biz.id,
+      source: "template",
+      latestMapsRank: { lte: 3 },
+    },
   });
   const orgRanked = await prisma.businessKeyword.count({
     where: {

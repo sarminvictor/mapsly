@@ -52,7 +52,6 @@ import { auth } from "@/lib/auth";
 import { redirect } from "@/i18n/navigation";
 import type { Locale } from "@/i18n/routing";
 import { requirePortal } from "@/lib/portal-guard";
-import { ServiceContextChipForCurrentUser } from "@/components/smb/ServiceContextChipForCurrentUser";
 import {
   AlertCard,
   FixCard,
@@ -60,6 +59,7 @@ import {
   ScoreBreakdown,
   type ScoreDimension,
 } from "@/modules/smb-home/components";
+import { SmbPageHeader } from "@/components/smb/SmbPageHeader";
 import { getSmbHomeData } from "@/modules/smb-home/queries";
 import { MAPSLY_SCORE_MAX } from "@/modules/scoring";
 
@@ -280,55 +280,11 @@ async function DashboardBody({ params }: { params: Promise<PageParams> }) {
         padding: "32px 20px 64px",
       }}
     >
-      <header style={{ marginBottom: 28 }}>
-        <p
-          style={{
-            margin: 0,
-            fontFamily: "var(--font-mono)",
-            fontSize: 11,
-            textTransform: "uppercase",
-            letterSpacing: "0.08em",
-            color: "var(--color-text-3)",
-          }}
-        >
-          {t("eyebrow")}
-        </p>
-        <h1
-          id="dashboard-heading"
-          style={{
-            fontFamily: "var(--font-serif)",
-            fontSize: "clamp(28px, 4vw, 36px)",
-            lineHeight: 1.1,
-            letterSpacing: "-0.02em",
-            margin: "6px 0 0",
-            color: "var(--color-text)",
-          }}
-        >
-          {t("title", { name: data.name })}
-        </h1>
-        {data.city ? (
-          <p
-            style={{
-              margin: "8px 0 0",
-              color: "var(--color-text-2)",
-              fontSize: 14,
-            }}
-          >
-            {data.category}
-            {data.city ? ` · ${data.city}` : ""}
-            {data.province ? `, ${data.province}` : ""}
-          </p>
-        ) : null}
-      </header>
-
-      {/* Service-context chip · "Reading this for: Botox · …" deep-links
-          to /my-business so Maria can refine the lens that drives every
-          KPI on this page. */}
-      <div style={{ marginBottom: 20 }}>
-        <Suspense fallback={null}>
-          <ServiceContextChipForCurrentUser />
-        </Suspense>
-      </div>
+      <SmbPageHeader
+        userId={session.user.id}
+        namespace="smb.home"
+        titleId="dashboard-heading"
+      />
 
       {/* Hero KPI · Mapsly Score */}
       <div style={{ marginBottom: 24 }}>

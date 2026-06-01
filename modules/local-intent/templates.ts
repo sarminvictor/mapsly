@@ -50,48 +50,49 @@ export interface IndustryTemplates {
  * is a one-file change. Keep entries lowercase + free of accents so
  * that Google's case-insensitive matching gives consistent results.
  */
-export const INDUSTRY_TEMPLATES: Readonly<Record<IndustryKey, IndustryTemplates>> =
-  {
-    medspa: {
-      core: [
-        "med spa {city}",
-        "medical spa {city}",
-        "botox {city}",
-        "best med spa {city}",
-        "medspa near me",
-      ],
-      service: {
-        hasFillers: "dermal fillers {city}",
-        hasLipFillers: "lip injections {city}",
-        hasMicroneedling: "microneedling {city}",
-        hasLaserHair: "laser hair removal {city}",
-        hasBodySculpting: "body sculpting {city}",
-        hasBelkyra: "belkyra {city}",
-        hasCoolsculpting: "coolsculpting {city}",
-      },
+export const INDUSTRY_TEMPLATES: Readonly<
+  Record<IndustryKey, IndustryTemplates>
+> = {
+  medspa: {
+    core: [
+      "med spa {city}",
+      "medical spa {city}",
+      "botox {city}",
+      "best med spa {city}",
+      "medspa near me",
+    ],
+    service: {
+      hasFillers: "dermal fillers {city}",
+      hasLipFillers: "lip injections {city}",
+      hasMicroneedling: "microneedling {city}",
+      hasLaserHair: "laser hair removal {city}",
+      hasBodySculpting: "body sculpting {city}",
+      hasBelkyra: "belkyra {city}",
+      hasCoolsculpting: "coolsculpting {city}",
     },
-    restaurant: {
-      // S.6 stub · expand when first restaurant onboards
-      core: [],
-      service: {},
-    },
-    autobody: {
-      core: [],
-      service: {},
-    },
-    salon: {
-      core: [],
-      service: {},
-    },
-    dental: {
-      core: [],
-      service: {},
-    },
-    gym: {
-      core: [],
-      service: {},
-    },
-  } as const;
+  },
+  restaurant: {
+    // S.6 stub · expand when first restaurant onboards
+    core: [],
+    service: {},
+  },
+  autobody: {
+    core: [],
+    service: {},
+  },
+  salon: {
+    core: [],
+    service: {},
+  },
+  dental: {
+    core: [],
+    service: {},
+  },
+  gym: {
+    core: [],
+    service: {},
+  },
+} as const;
 
 /**
  * Replace the {city} placeholder in a template with the actual city
@@ -151,7 +152,10 @@ export function expandTemplatesForBusiness(input: {
   for (const [flag, template] of Object.entries(templates.service)) {
     const enabled = input.serviceFlags == null || input.serviceFlags[flag];
     if (!enabled) continue;
-    out.push({ keyword: fillCityTemplate(template, input.city), origin: "service" });
+    out.push({
+      keyword: fillCityTemplate(template, input.city),
+      origin: "service",
+    });
   }
 
   // Dedup · same keyword from multiple buckets keeps the first origin

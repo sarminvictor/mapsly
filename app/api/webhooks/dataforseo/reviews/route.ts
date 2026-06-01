@@ -94,6 +94,7 @@ async function handle(request: Request): Promise<Response> {
     select: {
       id: true,
       slug: true,
+      ownerUserId: true,
       latestReviewExternalId: true,
       reviewsFirstPulledAt: true,
     },
@@ -114,6 +115,7 @@ async function handle(request: Request): Promise<Response> {
         select: {
           id: true,
           slug: true,
+          ownerUserId: true,
           latestReviewExternalId: true,
           reviewsFirstPulledAt: true,
         },
@@ -193,6 +195,12 @@ async function handle(request: Request): Promise<Response> {
       // Revalidate cache tags · the /reviews page reads these.
       revalidateTag(`business-${business.slug}-reviews`, "hours");
       revalidateTag(`business-${business.slug}`, "hours");
+      // SMB /reviews page (per-user shared tag) + trend card · so new reviews
+      // surface immediately, not just on the cacheLife("minutes") expiry.
+      if (business.ownerUserId) {
+        revalidateTag(`smb-reviews-${business.ownerUserId}`, "minutes");
+      }
+      revalidateTag(`review-trends-${business.id}`, "minutes");
 
       return {
         items: result.items.length,

@@ -20,6 +20,7 @@
 import { revalidateTag } from "next/cache";
 import prisma from "@/lib/prisma";
 import { cronHandler } from "@/lib/middleware/no-live-api";
+import { filterEligibleBusinesses } from "@/lib/reviews/should-collect";
 import {
   computeMapslyScore,
   deriveBrandPresenceScore,
@@ -75,106 +76,110 @@ export const GET = cronHandler(JOB, async ({ runId }) => {
     orderBy: { lastRefreshedAt: { sort: "asc", nulls: "first" } },
   })) as BusinessForScoring[];
 
+  // Paid-cell gate · only snapshot cells with a paid business (same gate as the
+  // collection crons). No-op while MAPSLY_COLLECT_REVIEWS_ALLOW_ALL=1.
+  const eligible = new Set(
+    await filterEligibleBusinesses(businesses.map((b) => b.id)),
+  );
+  const scoped = businesses.filter((b) => eligible.has(b.id));
+
   const revalidatedSlugs = new Set<string>();
   let snapshotsWritten = 0;
 
-  const outcome = await runBatch(
-    businesses,
-    async (biz: BusinessForScoring) => {
-      const signals = await gatherSignals(biz);
+  const outcome = await runBatch(scoped, async (biz: BusinessForScoring) => {
+    const signals = await gatherSignals(biz);
 
-      const reputation = deriveReputationScore({
-        rating: signals.rating,
-        reviewCount: signals.reviewCount,
-        velocityLast30d: signals.velocityLast30d,
-      });
-      const communication = deriveCommunicationScore({
-        replyRate: signals.replyRate,
-        avgReplyLatencyHours: signals.avgReplyLatencyHours,
-      });
-      const profileCompleteness = deriveProfileCompletenessScore({
-        hasPhone: signals.hasPhone,
-        hasWebsite: signals.hasWebsite,
-        hasHours: signals.hasHours,
-        photosCount: signals.photosCount,
-        hasCategory: signals.hasCategory,
-        hasQandA: signals.hasQandA,
-      });
-      const trust = deriveTrustScore({
-        verified: signals.verified,
-        claimed: signals.claimed,
-        businessAgeYears: signals.businessAgeYears,
-        hasProfilePhoto: signals.hasProfilePhoto,
-        hasRecentReply: signals.hasRecentReply,
-      });
-      const pricingTransparency = derivePricingTransparencyScore({
-        hasPricingPage: signals.hasPricingPage,
-        hasServicesList: signals.hasServicesList,
-        hasGbpServices: signals.hasGbpServices,
-      });
-      const brandPresence = deriveBrandPresenceScore({
-        lighthousePerformance: signals.lighthousePerformance,
-        lighthouseSeo: signals.lighthouseSeo,
-        hasSchema: signals.hasSchema,
-        hasActiveAds: signals.hasActiveAds,
-        hasSocialLinks: signals.hasSocialLinks,
-      });
+    const reputation = deriveReputationScore({
+      rating: signals.rating,
+      reviewCount: signals.reviewCount,
+      velocityLast30d: signals.velocityLast30d,
+    });
+    const communication = deriveCommunicationScore({
+      replyRate: signals.replyRate,
+      avgReplyLatencyHours: signals.avgReplyLatencyHours,
+    });
+    const profileCompleteness = deriveProfileCompletenessScore({
+      hasPhone: signals.hasPhone,
+      hasWebsite: signals.hasWebsite,
+      hasHours: signals.hasHours,
+      photosCount: signals.photosCount,
+      hasCategory: signals.hasCategory,
+      hasQandA: signals.hasQandA,
+    });
+    const trust = deriveTrustScore({
+      verified: signals.verified,
+      claimed: signals.claimed,
+      businessAgeYears: signals.businessAgeYears,
+      hasProfilePhoto: signals.hasProfilePhoto,
+      hasRecentReply: signals.hasRecentReply,
+    });
+    const pricingTransparency = derivePricingTransparencyScore({
+      hasPricingPage: signals.hasPricingPage,
+      hasServicesList: signals.hasServicesList,
+      hasGbpServices: signals.hasGbpServices,
+    });
+    const brandPresence = deriveBrandPresenceScore({
+      lighthousePerformance: signals.lighthousePerformance,
+      lighthouseSeo: signals.lighthouseSeo,
+      hasSchema: signals.hasSchema,
+      hasActiveAds: signals.hasActiveAds,
+      hasSocialLinks: signals.hasSocialLinks,
+    });
 
-      const mapslyScore = computeMapslyScore({
-        reputation,
-        communication,
-        profileCompleteness,
-        trust,
-        pricingTransparency,
-        brandPresence,
-      });
+    const mapslyScore = computeMapslyScore({
+      reputation,
+      communication,
+      profileCompleteness,
+      trust,
+      pricingTransparency,
+      brandPresence,
+    });
 
-      // Day-granularity snapshot date so a daily re-run idempotent-upserts.
-      const snapshotDate = todayUtcMidnight();
+    // Day-granularity snapshot date so a daily re-run idempotent-upserts.
+    const snapshotDate = todayUtcMidnight();
 
-      await prisma.businessSnapshot.upsert({
-        where: {
-          businessId_snapshotDate: {
-            businessId: biz.id,
-            snapshotDate,
-          },
-        },
-        create: {
+    await prisma.businessSnapshot.upsert({
+      where: {
+        businessId_snapshotDate: {
           businessId: biz.id,
           snapshotDate,
-          rating: signals.rating,
-          reviewCount: signals.reviewCount,
-          photosCount: signals.photosCount,
-          replyRate: signals.replyRate,
-          velocityLast30d: signals.velocityLast30d,
-          mapslyScore,
-          reputationScore: reputation,
-          communicationScore: communication,
-          profileCompletenessScore: profileCompleteness,
-          trustScore: trust,
-          pricingTransparencyScore: pricingTransparency,
-          brandPresenceScore: brandPresence,
         },
-        update: {
-          rating: signals.rating,
-          reviewCount: signals.reviewCount,
-          photosCount: signals.photosCount,
-          replyRate: signals.replyRate,
-          velocityLast30d: signals.velocityLast30d,
-          mapslyScore,
-          reputationScore: reputation,
-          communicationScore: communication,
-          profileCompletenessScore: profileCompleteness,
-          trustScore: trust,
-          pricingTransparencyScore: pricingTransparency,
-          brandPresenceScore: brandPresence,
-        },
-      });
+      },
+      create: {
+        businessId: biz.id,
+        snapshotDate,
+        rating: signals.rating,
+        reviewCount: signals.reviewCount,
+        photosCount: signals.photosCount,
+        replyRate: signals.replyRate,
+        velocityLast30d: signals.velocityLast30d,
+        mapslyScore,
+        reputationScore: reputation,
+        communicationScore: communication,
+        profileCompletenessScore: profileCompleteness,
+        trustScore: trust,
+        pricingTransparencyScore: pricingTransparency,
+        brandPresenceScore: brandPresence,
+      },
+      update: {
+        rating: signals.rating,
+        reviewCount: signals.reviewCount,
+        photosCount: signals.photosCount,
+        replyRate: signals.replyRate,
+        velocityLast30d: signals.velocityLast30d,
+        mapslyScore,
+        reputationScore: reputation,
+        communicationScore: communication,
+        profileCompletenessScore: profileCompleteness,
+        trustScore: trust,
+        pricingTransparencyScore: pricingTransparency,
+        brandPresenceScore: brandPresence,
+      },
+    });
 
-      snapshotsWritten += 1;
-      revalidatedSlugs.add(biz.slug);
-    },
-  );
+    snapshotsWritten += 1;
+    revalidatedSlugs.add(biz.slug);
+  });
 
   for (const slug of revalidatedSlugs) {
     revalidateTag(`business-${slug}`, "weeks");
@@ -209,36 +214,49 @@ async function gatherSignals(biz: BusinessForScoring) {
     Date.now() - REVIEW_VELOCITY_WINDOW_DAYS * 24 * 60 * 60 * 1000,
   );
 
-  const [velocityLast30d, recentReviews, latestLighthouse, activeAdsCount] =
-    await Promise.all([
-      prisma.review.count({
-        where: { businessId: biz.id, postedAt: { gte: velocityCutoff } },
-      }),
-      prisma.review.findMany({
-        where: { businessId: biz.id },
-        select: {
-          ownerReplied: true,
-          ownerReplyAt: true,
-          postedAt: true,
-        },
-        orderBy: { postedAt: "desc" },
-        take: REPLY_LATENCY_LOOKBACK,
-      }),
-      prisma.lighthouseAudit.findFirst({
-        where: { businessId: biz.id },
-        orderBy: { auditedAt: "desc" },
-        select: {
-          performance: true,
-          seo: true,
-          hasLocalBusinessSchema: true,
-          hasBookingCtaAboveFold: true,
-          hasPhoneAboveFold: true,
-        },
-      }),
-      prisma.adLibraryEntry.count({
-        where: { businessId: biz.id, isActive: true },
-      }),
-    ]);
+  const [
+    velocityLast30d,
+    recentReviews,
+    latestLighthouse,
+    googleAdsCount,
+    metaAdsCount,
+  ] = await Promise.all([
+    prisma.review.count({
+      where: { businessId: biz.id, postedAt: { gte: velocityCutoff } },
+    }),
+    prisma.review.findMany({
+      where: { businessId: biz.id },
+      select: {
+        ownerReplied: true,
+        ownerReplyAt: true,
+        postedAt: true,
+      },
+      orderBy: { postedAt: "desc" },
+      take: REPLY_LATENCY_LOOKBACK,
+    }),
+    prisma.lighthouseAudit.findFirst({
+      where: { businessId: biz.id },
+      orderBy: { auditedAt: "desc" },
+      select: {
+        performance: true,
+        seo: true,
+        hasLocalBusinessSchema: true,
+        hasBookingCtaAboveFold: true,
+        hasPhoneAboveFold: true,
+      },
+    }),
+    // Google ads live on AdLibraryEntry (per business)…
+    prisma.adLibraryEntry.count({
+      where: { businessId: biz.id, isActive: true },
+    }),
+    // …own Meta ads live on AdMarketAdvertiser (the cell market, matched back to
+    // this business). Count both so "hasActiveAds" isn't blind to a Meta-only
+    // advertiser (cell-model migration moved Meta out of AdLibraryEntry).
+    prisma.adMarketAdvertiser.count({
+      where: { matchedBusinessId: biz.id, isActive: true },
+    }),
+  ]);
+  const activeAdsCount = googleAdsCount + metaAdsCount;
 
   const replyRate =
     recentReviews.length > 0

@@ -1,0 +1,560 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Mapsly · /ads Rework — Research &amp; Pre-Plan</title>
+<style>
+  :root{
+    --bg:#f6f7fb; --panel:#fff; --ink:#16181d; --ink2:#454a54; --ink3:#7b818d;
+    --line:#e6e8ef; --indigo:#5b3df5; --indigo-bg:#efeaff; --coral:#c3553a;
+    --green:#1f9d5b; --green-bg:#e6f6ec; --amber:#b67d00; --amber-bg:#fbf2dc;
+    --red:#c0392b; --red-bg:#fbe9e7; --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;}
+  .wrap{display:grid;grid-template-columns:248px minmax(0,1fr);gap:0;max-width:1320px;margin:0 auto;}
+  nav{position:sticky;top:0;align-self:start;height:100vh;overflow:auto;padding:24px 16px;border-right:1px solid var(--line);background:#fcfcfe;}
+  nav h2{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);margin:0 0 10px;}
+  nav a{display:block;padding:5px 8px;border-radius:7px;color:var(--ink2);text-decoration:none;font-size:13.5px;}
+  nav a:hover{background:var(--indigo-bg);color:var(--indigo);}
+  main{padding:32px 40px 96px;min-width:0;}
+  header.h{border-bottom:1px solid var(--line);padding-bottom:20px;margin-bottom:28px;}
+  header.h h1{font-size:30px;letter-spacing:-.02em;margin:0 0 6px;}
+  header.h .sub{color:var(--ink2);font-size:15px;}
+  header.h .meta{margin-top:12px;font-family:var(--mono);font-size:12px;color:var(--ink3);}
+  section{margin:0 0 40px;scroll-margin-top:16px;}
+  h2.s{font-size:21px;letter-spacing:-.01em;margin:0 0 4px;padding-top:8px;}
+  h2.s .n{color:var(--indigo);font-family:var(--mono);font-size:14px;margin-right:8px;}
+  h3{font-size:16px;margin:22px 0 8px;}
+  p{margin:8px 0;color:var(--ink2);} main p{max-width:none;}
+  .lede{font-size:16px;color:var(--ink);}
+  code{font-family:var(--mono);font-size:12.5px;background:#f0f1f6;padding:1px 5px;border-radius:5px;color:#2a2f3a;}
+  pre{background:#15171e;color:#e8eaf0;padding:14px 16px;border-radius:10px;overflow:auto;font-family:var(--mono);font-size:12px;line-height:1.5;}
+  pre .k{color:#9db4ff} pre .s{color:#9be7a2} pre .c{color:#7b818d}
+  table{border-collapse:collapse;width:100%;background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden;font-size:13.5px;margin:12px 0;}
+  th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top;}
+  th{background:#f3f4f9;font-size:12px;letter-spacing:.02em;color:var(--ink2);text-transform:uppercase;font-weight:600;}
+  tr:last-child td{border-bottom:0;}
+  tbody tr:nth-child(even){background:#fafbfd;}
+  .pill{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11.5px;font-weight:600;font-family:var(--mono);white-space:nowrap;}
+  .g{background:var(--green-bg);color:var(--green)} .a{background:var(--amber-bg);color:var(--amber)} .r{background:var(--red-bg);color:var(--red)} .i{background:var(--indigo-bg);color:var(--indigo)} .n{background:#eef0f4;color:var(--ink2)}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin:12px 0;}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  .callout{border-left:4px solid var(--indigo);background:#f7f5ff;border-radius:0 10px 10px 0;padding:12px 16px;margin:14px 0;}
+  .callout.warn{border-color:var(--amber);background:var(--amber-bg);}
+  .callout.bad{border-color:var(--red);background:var(--red-bg);}
+  .callout.good{border-color:var(--green);background:var(--green-bg);}
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:14px 0;}
+  .kpi{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px;}
+  .kpi .v{font-size:26px;font-weight:700;letter-spacing:-.02em;}
+  .kpi .l{font-size:12px;color:var(--ink3);margin-top:2px;}
+  ul{margin:8px 0;padding-left:20px;color:var(--ink2);} li{margin:4px 0;}
+  .small{font-size:12.5px;color:var(--ink3);}
+  .tag{font-family:var(--mono);font-size:11px;color:var(--ink3);}
+  hr{border:0;border-top:1px solid var(--line);margin:28px 0;}
+  .scorebar{height:7px;border-radius:4px;background:#eceef4;overflow:hidden;min-width:60px;}
+  .scorebar > i{display:block;height:100%;border-radius:4px;}
+  @media(max-width:900px){.wrap{grid-template-columns:1fr}nav{display:none}main{padding:20px}.kpis{grid-template-columns:1fr 1fr}.grid2{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<nav>
+  <h2>Contents</h2>
+  <a href="#tldr">0 · TL;DR &amp; verdict</a>
+  <a href="#v2" style="color:var(--indigo);font-weight:600">★ Build plan v2 (approved)</a>
+  <a href="#audit">1 · Current /ads audit</a>
+  <a href="#tests">2 · Live API test evidence</a>
+  <a href="#sources">3 · Data-source scorecard</a>
+  <a href="#transparency">4 · Transparency &amp; rate-limits</a>
+  <a href="#boxly">5 · Boxly vs Mapsly vs Target</a>
+  <a href="#arch">6 · Recommended architecture</a>
+  <a href="#pattern">7 · /search pattern alignment</a>
+  <a href="#schema">8 · Schema changes</a>
+  <a href="#cost">9 · Cost model</a>
+  <a href="#plan">10 · Phased plan</a>
+  <a href="#decisions">11 · Decisions for Viktor</a>
+  <a href="#appendix">12 · Appendix · raw I/O</a>
+</nav>
+<main>
+<header class="h">
+  <h1>/ads Rework — Research &amp; Pre-Plan</h1>
+  <div class="sub">From a broken "competitor creative gallery" to a <strong>Google&nbsp;Ads Market-Intelligence</strong> surface for Maria — built on DataForSEO, aligned to the <code>/search</code> pipeline pattern.</div>
+  <div class="meta">Prepared 2026-05-28 · Test business: <strong>The Injectionist &amp; Aesthetics</strong> (Calgary, AB · Medical spa · CID 10353653112714106373 · theinjectionist.ca) · 13 live API calls · total test spend ≈ $0.21</div>
+</header>
+
+<!-- ───────────────────────── 0 · TL;DR ───────────────────────── -->
+<section id="tldr">
+  <h2 class="s"><span class="n">0</span>TL;DR &amp; verdict</h2>
+  <p class="lede">The current <code>/ads</code> page is architecturally clean but <strong>functionally dead</strong> — all three of its data inputs are broken or stubbed, so it shows nothing real for any business. The fix is not "repair the pipes"; it's a <strong>strategic pivot</strong> in what the page is <em>for</em>.</p>
+
+  <div class="callout bad">
+    <strong>Three confirmed breakages (live-tested):</strong>
+    <ul>
+      <li><strong>Meta Ad Library token is invalid</strong> — the value in <code>.env.local</code> is 32 chars and doesn't start with <code>EAA</code>; it is not a Graph token. Every Meta call returns <code>400 · Invalid OAuth access token</code>. The daily <code>ad-library-diff</code> cron has therefore <em>never</em> returned data.</li>
+      <li><strong>Google Ads Transparency is a stub</strong> — <code>daily/google-ads-transparency</code> only marks 30-day-old rows inactive. No adapter exists (TODO C.4b). Google ad data is never collected.</li>
+      <li><strong>Keyword lanes are non-functional</strong> — the Meta cron never writes <code>matchedKeyword</code>, so every ad falls into the <code>__unmatched__</code> bucket → flagged off-keyword → the entire "14 keyword lanes" concept renders as noise.</li>
+    </ul>
+  </div>
+
+  <div class="callout good">
+    <strong>The opportunity (live-tested):</strong> the <em>actionable</em> ads product for a med-spa owner is not a gallery of competitors' Facebook images — it's <strong>Google Ads market intelligence</strong>: what each keyword costs to advertise on, who is bidding, where the cheap high-intent openings are, and "what would $X/mo get me?". DataForSEO delivers all of this cleanly, cheaply (~$0.08–0.12/business/refresh on the Standard queue), and with <strong>zero scraping/ban risk</strong>. This is exactly the model Boxly already ships.
+  </div>
+
+  <h3>The verdict in one line</h3>
+  <p>Rebuild <code>/ads</code> as <strong>"Ads &amp; market intelligence"</strong> powered by DataForSEO (keyword costs + Google Ads Transparency + paid-SERP), wired through the same cron→dispatcher→worker→DB pattern as <code>/search</code>. Treat Meta as out-of-scope for v1 (broken + API doesn't expose commercial ads outside the EU). Add a Google-Transparency competitor-creative panel where coverage exists.</p>
+
+  <div class="kpis">
+    <div class="kpi"><div class="v">$3.01</div><div class="l">CPC for "botox" in Canada (22,200 searches/mo, LOW competition)</div></div>
+    <div class="kpi"><div class="v">$0</div><div class="l">Paid-search spend by The Injectionist &amp; its local competitors → blue ocean</div></div>
+    <div class="kpi"><div class="v">20</div><div class="l">Verified advertisers returned for "med&nbsp;spa" (US) via Transparency — rich where markets are dense</div></div>
+    <div class="kpi"><div class="v">$0.002</div><div class="l">Per Transparency call (advertisers + creatives) — no scraping</div></div>
+  </div>
+</section>
+
+<!-- ───────────────────────── v2 · BUILD PLAN (APPROVED) ───────────────────────── -->
+<section id="v2">
+  <h2 class="s"><span class="n">v2</span>Build plan — approved &amp; in progress</h2>
+  <div class="callout good">
+    <strong>Status · 2026-05-29.</strong> Meta path resolved by <strong>building our own Apify actor</strong> (Viktor's directive — and the official API structurally can't return non-EU commercial ads). The actor is <strong>built, published &amp; proven on real data</strong>. DataForSEO ad endpoints validated + costed live. Maria-facing page design approved. Now implementing.
+  </div>
+
+  <h3>Meta = our own Apify actor</h3>
+  <p>The Apify account is dev-only (runs only its own actors), so we built <code>mapsly-meta-ad-library</code> mirroring the in-house Reddit actor. It scrapes the <em>public</em> Ad Library — capturing commercial FB/IG ads the official Graph API hides outside the EU.</p>
+  <table>
+    <tbody>
+      <tr><td>Actor</td><td><code>mapsly-meta-ad-library</code> · id <code>CcN2BafzaiuLOpCGg</code> · source <code>apify-actors/meta-ad-library/</code></td></tr>
+      <tr><td>Stack</td><td>Node + Crawlee PlaywrightCrawler on <code>apify/actor-node-playwright-chrome</code></td></tr>
+      <tr><td>Anti-403 trick</td><td><strong>Prime <code>facebook.com</code> first to get the <code>datr</code> cookie</strong>, then load the Ad Library. Proven: "botox" CA → 25 real ads.</td></tr>
+      <tr><td>Platforms</td><td>All 5 — Facebook · Instagram · Messenger · Audience Network · Threads (via <code>publisher_platform</code>)</td></tr>
+      <tr><td>Per-ad fields</td><td>pageName, creative body, CTA, format, image/video URL, platforms, start/end, isActive, collationCount, snapshotUrl</td></tr>
+      <tr><td>Remaining</td><td><span class="pill a">TODO</span> FB Page-ID resolution (name+city → page_id) — keyword search is noisy; precise pulls need <code>view_all_page_id</code></td></tr>
+    </tbody>
+  </table>
+
+  <h3>Scale &amp; rate-limit design (500 → 10,000 businesses/week)</h3>
+  <p>Governing constraint: Apify CUSTOM plan = <strong>$85/mo + 10 GB residential/mo</strong>.</p>
+  <table>
+    <thead><tr><th>Lever</th><th>Why</th></tr></thead>
+    <tbody>
+      <tr><td>Batch many businesses / warmed session</td><td>Prime <code>datr</code> once, loop dozens of Page IDs — amortizes the heavy FB JS bundle (the bandwidth cost driver)</td></tr>
+      <tr><td>Resolve Page ID once, cache it</td><td>One-time per business; only the ads-pull recurs</td></tr>
+      <tr><td>Pull by <code>view_all_page_id</code></td><td>The business's own ads, bounded, few scrolls — vs noisy keyword search</td></tr>
+      <tr><td>Block images/media/fonts</td><td>We keep creative URLs from JSON; don't download media → ~80-90% bandwidth cut <span class="pill g">shipped</span></td></tr>
+      <tr><td>Early-exit + 45s/target cap + jitter</td><td>Never burn compute on empty/dead targets; human-like pacing <span class="pill g">shipped</span></td></tr>
+      <tr><td>Paid-cell / active-subset gate + weekly staggered</td><td>Scan who matters, 1/7 per day — same gate as <code>/search</code></td></tr>
+      <tr><td>1 session/run · IP rotation · backoff on 613/403 · shard into parallel small runs</td><td>Ban-safety at scale</td></tr>
+      <tr><td>Cost-counter on Apify <code>usageTotalUsd</code> · 80% alert · auto-pause</td><td>Budget guardrails</td></tr>
+    </tbody>
+  </table>
+  <p class="small"><strong>Cost verdict:</strong> 500/wk trivial · 1,000/wk comfortable · <strong>10,000/wk is tight (~4-8 GB, compute near $85) → needs an Apify plan bump.</strong></p>
+
+  <h3>Maria's <code>/ads</code> page — "Ads in your area" (mirrors Search + Reviews)</h3>
+  <table>
+    <thead><tr><th>Block</th><th>Content</th><th>Source</th></tr></thead>
+    <tbody>
+      <tr><td>Hero state-bar (2×3)</td><td>Searches you could reach · Cost per click · Competition // Rivals advertising · Your ads running · Best opening</td><td>search_volume · ads_advertisers + Meta actor · competitors_domain</td></tr>
+      <tr><td>Insight banner</td><td>One honest verdict — e.g. "Neither you nor 4 nearby spas run Google ads — botox is ~$3/click and wide open."</td><td>derived</td></tr>
+      <tr><td>"What ads cost in your area" (table)</td><td>Service · searches/mo · cost/click · competition badge · rivals on it · 💡 best-value</td><td>search_volume + keyword_suggestions</td></tr>
+      <tr><td>"Who's advertising near you" (cards)</td><td>Competitor · platform chips · #ads · "running since" · creative thumbnail</td><td>Meta actor + Google ads_search</td></tr>
+      <tr><td>"What a budget could do" (simulator)</td><td>$300/$500/$1000 → ≈clicks → ≈new bookings (math on hover)</td><td>CPC×volume×benchmarks (no extra API)</td></tr>
+      <tr><td>Next step + footer</td><td>One CTA · "Refreshed weekly. We watch the ads running in your area."</td><td>—</td></tr>
+    </tbody>
+  </table>
+  <p class="small">Jargon-free ("cost per click", not "CPC"), one CTA, mobile-first; turns "you run no ads" into an <em>opportunity</em>. Reuses <code>KPITile</code>/<code>AlertCard</code>/<code>FixCard</code> + the <code>SearchStateBar</code> 2×3 pattern.</p>
+
+  <h3>Revised phases (each ≈ one session)</h3>
+  <table>
+    <thead><tr><th>Phase</th><th>Scope</th><th>Status</th></tr></thead>
+    <tbody>
+      <tr><td>M.1</td><td>Build Meta Ad Library actor (Playwright GraphQL-intercept + datr priming)</td><td><span class="pill g">DONE</span></td></tr>
+      <tr><td>M.2</td><td>Push + real-data test (botox CA → 25 ads) + scale-hardening (media-block, early-exit)</td><td><span class="pill g">DONE</span></td></tr>
+      <tr><td>M.3</td><td>FB Page-ID resolution (typeahead) + <code>services/apify/meta-ad-library.ts</code> consumer (cost-counter + cache + reconcile→AdLibraryEntry)</td><td><span class="pill a">NEXT</span></td></tr>
+      <tr><td>AD.1</td><td>DataForSEO ads adapters — <code>ads-advertisers.ts</code>, <code>ads-search.ts</code> (search_volume exists)</td><td><span class="pill i">queued</span></td></tr>
+      <tr><td>AD.2</td><td>Schema — <code>AdKeywordCost</code>, <code>AdvertiserCreative</code>, <code>Business.fbPageId</code>/<code>adsScanLastAt</code> + migration</td><td><span class="pill i">queued</span></td></tr>
+      <tr><td>AD.3</td><td>Cell-aggregate collection (cron→dispatcher→worker) mirroring <code>/search</code>, market-level dedup</td><td><span class="pill i">queued</span></td></tr>
+      <tr><td>AD.4-6</td><td>Query layer + page rework + budget simulator + Transparency cards</td><td><span class="pill i">queued</span></td></tr>
+      <tr><td>AD.7</td><td>i18n (es/fr-CA/en-CA) + validation</td><td><span class="pill i">queued</span></td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ───────────────────────── 1 · AUDIT ───────────────────────── -->
+<section id="audit">
+  <h2 class="s"><span class="n">1</span>Current <code>/ads</code> audit</h2>
+  <p>The page (<code>app/[locale]/(smb)/ads/page.tsx</code>) + query (<code>modules/smb-ads/queries.ts</code>) already follow cache-components Patterns 1&nbsp;&amp;&nbsp;2 correctly. The failure is entirely in the <strong>data layer</strong>.</p>
+
+  <table>
+    <thead><tr><th>Layer</th><th>File</th><th>State</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td>Page shell</td><td><code>(smb)/ads/page.tsx</code></td><td><span class="pill g">OK</span></td><td>Sync shell + Suspense body, auth + portal guard, onboarding empty state, KPI strip, lane grid, paradox alert. Matches <code>/search</code> shell.</td></tr>
+      <tr><td>Query layer</td><td><code>smb-ads/queries.ts</code></td><td><span class="pill g">OK</span></td><td><code>'use cache'</code> + <code>cacheTag(smb-ads-${'{'}userId{'}'})</code> + NEXT_PHASE guard + EMPTY shape + try/catch degrade. Reads own + same-category/city competitor <code>AdLibraryEntry</code> rows.</td></tr>
+      <tr><td>Types/logic</td><td><code>smb-ads/types.ts</code></td><td><span class="pill a">OK but unused</span></td><td>Pure lane/paradox/off-keyword helpers, unit-tested. Sound — but starved of real input.</td></tr>
+      <tr><td>Meta collection</td><td><code>daily/ad-library-diff</code> + <code>services/meta-ad-library</code></td><td><span class="pill r">BROKEN</span></td><td>Invalid token (400). Also: never sets <code>matchedKeyword</code>; never sets <code>ad_type</code> (Graph defaults to political-only); searches by business <em>name</em> only.</td></tr>
+      <tr><td>Google collection</td><td><code>daily/google-ads-transparency</code></td><td><span class="pill r">STUB</span></td><td>Stale-sweep only. No adapter. Header comment: "placeholder handler … replace when C.4b lands."</td></tr>
+      <tr><td>DataForSEO ad data</td><td>—</td><td><span class="pill r">ABSENT</span></td><td>8 DataForSEO adapters exist (serp, keyword-volume, ranked-keywords…), but <strong>none</strong> feed the ads page. CPC/competition/paid-SERP entirely untapped.</td></tr>
+      <tr><td>Manual trigger</td><td>—</td><td><span class="pill r">NONE</span></td><td>No refresh path (admin or user). <code>/search</code> has <code>trigger-search-scan</code>; <code>/ads</code> has nothing.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>5-dimension score · current implementation</h3>
+  <table>
+    <thead><tr><th>Dimension</th><th style="width:90px">Score</th><th>Bar</th><th>Reasoning</th></tr></thead>
+    <tbody>
+      <tr><td>Completion</td><td><span class="pill r">2/10</span></td><td><div class="scorebar"><i style="width:20%;background:var(--red)"></i></div></td><td>UI complete; data pipeline 0% functional. Page is empty for every real business.</td></tr>
+      <tr><td>Quality (code)</td><td><span class="pill g">8/10</span></td><td><div class="scorebar"><i style="width:80%;background:var(--green)"></i></div></td><td>Clean patterns, tested helpers, correct caching. The bones are good.</td></tr>
+      <tr><td>Audience-fit</td><td><span class="pill a">4/10</span></td><td><div class="scorebar"><i style="width:40%;background:var(--amber)"></i></div></td><td>"Competitor creative gallery" is low-value for Maria; she can't act on a competitor's FB image. No "what should I do" guidance.</td></tr>
+      <tr><td>Relevance (data)</td><td><span class="pill r">1/10</span></td><td><div class="scorebar"><i style="width:10%;background:var(--red)"></i></div></td><td>Meta excludes commercial ads outside EU; The Injectionist runs no ads; lanes mis-fire. Almost nothing true is shown.</td></tr>
+      <tr><td>Performance</td><td><span class="pill g">9/10</span></td><td><div class="scorebar"><i style="width:90%;background:var(--green)"></i></div></td><td>Cached server query, no live API in path, bounded reads. (Easy when there's no data.)</td></tr>
+    </tbody>
+  </table>
+  <p class="small">Aggregate ≈ <strong>4.8/10</strong> — a well-built shell around an empty, mis-targeted data model. The rework keeps the shell, replaces the data model and the page's <em>purpose</em>.</p>
+</section>
+
+<!-- ───────────────────────── 2 · LIVE TESTS ───────────────────────── -->
+<section id="tests">
+  <h2 class="s"><span class="n">2</span>Live API test evidence</h2>
+  <p>All calls run against <strong>The Injectionist &amp; Aesthetics</strong> / its Calgary market, using our real credentials via <code>curl</code> (the <code>dataforseo</code> &amp; <code>postgres</code> MCP servers are configured but not connected this session — and <code>.mcp.json</code> references <code>DATAFORSEO_USERNAME</code> while <code>.env.local</code> has <code>DATAFORSEO_LOGIN</code>, a mismatch worth fixing). Prices shown are <strong>Live-queue</strong> (what was actually billed); production crons should use the ~10× cheaper Standard queue.</p>
+
+  <h3>2a · DataForSEO — endpoints tested</h3>
+  <table>
+    <thead><tr><th>Endpoint</th><th>Tested input</th><th>Result</th><th>Live $</th><th>Std $ (catalog)</th><th>Value for /ads</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><code>/v3/serp/google/organic/live/advanced</code></td>
+        <td>"botox calgary", Calgary AB</td>
+        <td><span class="pill g">200</span> 19 organic, 3 local_pack, <strong>0 paid</strong></td>
+        <td>0.0035</td><td>0.0006</td>
+        <td>Extract <code>type=paid / shopping / popular_products</code> → who's advertising right now. Free piggyback on search scans. <em>(Sparse for this niche/market.)</em></td>
+      </tr>
+      <tr>
+        <td><code>/v3/keywords_data/google_ads/search_volume/live</code></td>
+        <td>8 service keywords, Canada</td>
+        <td><span class="pill g">200</span> rich CPC/bids (see below)</td>
+        <td>0.075/task</td><td>0.05/task<br><span class="small">(≤1000 kw)</span></td>
+        <td><strong>The core.</strong> CPC, competition, top-of-page bid range per keyword. Adapter already exists (<code>services/dataforseo/keyword-volume.ts</code>).</td>
+      </tr>
+      <tr>
+        <td><code>/v3/dataforseo_labs/google/keyword_suggestions/live</code></td>
+        <td>seed "botox", Canada, 15 rows</td>
+        <td><span class="pill g">200</span> e.g. <em>masseter botox</em> 12,100/$4.18</td>
+        <td>0.0115</td><td>0.01+$0.0001/row</td>
+        <td>Keyword discovery to build the cost table beyond the obvious terms.</td>
+      </tr>
+      <tr>
+        <td><code>/v3/serp/google/ads_advertisers/live/advanced</code><br><span class="tag">Google Ads Transparency · "who"</span></td>
+        <td>"botox calgary" CA → 0;<br>"med spa" US → <strong>20 advertisers</strong></td>
+        <td><span class="pill g">200</span> verified advertiser names + <code>advertiser_id</code></td>
+        <td>0.002</td><td>0.0006</td>
+        <td>Discover competitor advertisers by keyword+geo. <strong>Requires <code>location_code</code></strong> (not <code>location_name</code> → 40501).</td>
+      </tr>
+      <tr>
+        <td><code>/v3/serp/google/ads_search/live/advanced</code><br><span class="tag">Google Ads Transparency · "what"</span></td>
+        <td>MD&nbsp;Med&nbsp;Spa → <strong>7 creatives</strong>;<br>theinjectionist.ca → 0</td>
+        <td><span class="pill g">200</span> creative_id, format, first/last_shown, preview_image, url</td>
+        <td>0.002</td><td>0.0006</td>
+        <td>Actual competitor creatives + active-window detection. The compelling visual layer — where coverage exists.</td>
+      </tr>
+      <tr>
+        <td><code>/v3/dataforseo_labs/google/competitors_domain/live</code></td>
+        <td>theinjectionist.ca, Canada</td>
+        <td><span class="pill g">200</span> local competitors <code>paid=$0</code></td>
+        <td>0.011</td><td>0.01+rows</td>
+        <td>Surfaces <code>estimated_paid_traffic_cost</code> = est. competitor ad spend. <strong>Use <code>exclude_top_domains:true</code></strong> to drop instagram/facebook/reddit noise.</td>
+      </tr>
+      <tr>
+        <td><code>/v3/keywords_data/google/ad_traffic_by_keywords/live</code></td>
+        <td>4 kw, bid $5, phrase, CA</td>
+        <td><span class="pill a">50304</span> "function temporarily unavailable"</td>
+        <td>—</td><td>~0.05 tier <span class="small">(unconfirmed)</span></td>
+        <td>Optional budget forecaster. <strong>Not required</strong> — simulator math derives from search_volume CPC×volume×competition.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="grid2">
+    <div class="panel">
+      <h3 style="margin-top:0">Ad economics returned (search_volume, Canada)</h3>
+      <table style="margin:0">
+        <thead><tr><th>Keyword</th><th>Vol/mo</th><th>CPC</th><th>Comp</th><th>Top-bid</th></tr></thead>
+        <tbody>
+          <tr><td>botox</td><td>22,200</td><td>$3.01</td><td><span class="pill g">LOW</span></td><td>$1.06–3.91</td></tr>
+          <tr><td>laser hair removal</td><td>33,100</td><td>$2.66</td><td><span class="pill r">HIGH</span></td><td>$0.79–2.81</td></tr>
+          <tr><td>microneedling</td><td>33,100</td><td>$1.84</td><td><span class="pill r">HIGH</span></td><td>$0.28–1.96</td></tr>
+          <tr><td>lip filler</td><td>9,900</td><td>$2.79</td><td><span class="pill a">MED</span></td><td>$0.84–4.50</td></tr>
+          <tr><td>tattoo removal</td><td>6,600</td><td>$4.98</td><td><span class="pill a">MED</span></td><td>$0.87–18.74</td></tr>
+          <tr><td>coolsculpting</td><td>6,600</td><td>$2.98</td><td><span class="pill a">MED</span></td><td>$0.75–3.15</td></tr>
+          <tr><td>dermal filler</td><td>2,900</td><td>$3.19</td><td><span class="pill g">LOW</span></td><td>$0.68–2.93</td></tr>
+          <tr><td>medical spa calgary</td><td>590</td><td>$2.36</td><td><span class="pill a">MED</span></td><td>$0.89–2.79</td></tr>
+        </tbody>
+      </table>
+      <p class="small">Maria-facing translation: "Showing up for <strong>botox</strong> costs about <strong>$3 a click</strong> and competition is <strong>low</strong> — a cheap, winnable term. <strong>Laser hair removal</strong> is in demand but crowded."</p>
+    </div>
+    <div class="panel">
+      <h3 style="margin-top:0">Transparency creatives (ads_search · MD Med Spa, US)</h3>
+      <p class="small" style="margin-top:0">Fields per creative: <code>advertiser_id, creative_id, format, first_shown, last_shown, preview_image{'{'}url,w,h{'}'}, preview_url, url, verified, rank_group</code></p>
+      <table style="margin:0">
+        <thead><tr><th>Format</th><th>First shown</th><th>Last shown</th></tr></thead>
+        <tbody>
+          <tr><td>text</td><td>2025-10-11</td><td>2026-01-08</td></tr>
+          <tr><td>text</td><td>2025-10-22</td><td>2026-01-08</td></tr>
+          <tr><td>text</td><td>2025-10-22</td><td>2026-01-07</td></tr>
+          <tr><td colspan="3" class="small">… 7 total. <code>last_shown</code> within ~30d ⇒ "currently active".</td></tr>
+        </tbody>
+      </table>
+      <p class="small">"theinjectionist.ca" returned <strong>0</strong> creatives → <strong>The Injectionist runs no Google ads</strong>. Combined with competitors at <code>paid=$0</code>, the headline for Maria is a <strong>blue-ocean</strong> message, not a "you're behind" one.</p>
+    </div>
+  </div>
+
+  <h3>2b · Meta Ad Library — reality check</h3>
+  <table>
+    <thead><tr><th>Test</th><th>Result</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td>Token diagnosis (no leak)</td><td><span class="pill r">length=32 · prefix≠EAA</span></td><td>Not a Graph token. Placeholder/garbage. Real long-lived tokens are ~150–250 chars starting <code>EAA</code>.</td></tr>
+      <tr><td><code>ads_archive</code> search="The Injectionist", CA, ad_type=ALL</td><td><span class="pill r">400</span> Invalid OAuth access token</td><td>Same for every variant. Our Meta pipeline has never worked.</td></tr>
+      <tr><td>API coverage (documented)</td><td><span class="pill r">Commercial ads ≠ exposed</span></td><td>Outside the EU, the <code>ads_archive</code> API reliably returns only social-issue/election/political ads. A Calgary med-spa's FB/IG promos are visible on the <em>website</em> but <strong>not the API</strong>.</td></tr>
+    </tbody>
+  </table>
+  <div class="callout warn">Even with a valid token, Meta's Graph API would not return The Injectionist's (or its competitors') commercial ads in Canada. Meta data for this use case requires scraping the public Ad Library (ToS/ban risk, e.g. via Apify) — recommend <strong>defer to a later phase</strong>, not v1.</div>
+</section>
+
+<!-- ───────────────────────── 3 · SOURCE SCORECARD ───────────────────────── -->
+<section id="sources">
+  <h2 class="s"><span class="n">3</span>Data-source scorecard</h2>
+  <p>Scored 1–10 across six dimensions. <strong>Weighted total</strong> = Coverage×0.2 + Reliability×0.2 + Maria-value×0.25 + Cost-eff×0.1 + Compliance×0.15 + Effort×0.1.</p>
+  <table>
+    <thead><tr><th>Source / endpoint</th><th>Cover</th><th>Reliab.</th><th>Maria-value</th><th>Cost-eff</th><th>Compliance</th><th>Effort</th><th>Weighted</th><th>Verdict</th></tr></thead>
+    <tbody>
+      <tr><td><strong>DfS Keywords Data</strong> (CPC/bids)</td><td>9</td><td>9</td><td>9</td><td>8</td><td>10</td><td>9 <span class="small">(adapter exists)</span></td><td><span class="pill g">9.0</span></td><td><span class="pill g">CORE · ship first</span></td></tr>
+      <tr><td><strong>DfS Ads Transparency</strong> (advertisers+search)</td><td>7</td><td>8</td><td>8</td><td>9</td><td>10</td><td>6</td><td><span class="pill g">7.8</span></td><td><span class="pill g">SHIP · new adapter</span></td></tr>
+      <tr><td><strong>DfS paid-SERP items</strong> (organic scan)</td><td>6</td><td>8</td><td>7</td><td>10</td><td>10</td><td>9 <span class="small">(piggyback)</span></td><td><span class="pill g">7.5</span></td><td><span class="pill g">SHIP · free reuse</span></td></tr>
+      <tr><td><strong>DfS Labs</strong> (competitor spend est.)</td><td>7</td><td>7</td><td>7</td><td>8</td><td>10</td><td>7</td><td><span class="pill a">7.3</span></td><td><span class="pill a">PHASE 2 · nice signal</span></td></tr>
+      <tr><td><strong>Meta Ad Library</strong> (Graph API)</td><td>2</td><td>1</td><td>3</td><td>10</td><td>8</td><td>4</td><td><span class="pill r">3.2</span></td><td><span class="pill r">DEFER · broken+limited</span></td></tr>
+      <tr><td><strong>Apify scrape</strong> (Meta/Google)</td><td>8</td><td>5</td><td>7</td><td>5</td><td>3</td><td>5</td><td><span class="pill a">5.8</span></td><td><span class="pill a">LAST RESORT · ToS risk</span></td></tr>
+    </tbody>
+  </table>
+  <p class="small">DataForSEO wins on every axis that matters: it is a sanctioned reseller (no ban risk to us), one auth, one transport (<code>services/dataforseo/client.ts</code> already handles it), and it covers both the cost layer <em>and</em> the Transparency layer.</p>
+</section>
+
+<!-- ───────────────────────── 4 · TRANSPARENCY & LIMITS ───────────────────────── -->
+<section id="transparency">
+  <h2 class="s"><span class="n">4</span>Transparency access &amp; rate-limit discipline</h2>
+  <p>The user's explicit concern — "respect their limits, don't get banned." Key insight: <strong>route Google Ads Transparency through DataForSEO, never scrape Google directly.</strong> DataForSEO is the intermediary that absorbs Google's anti-bot posture; we only ever talk to DataForSEO's documented API.</p>
+  <table>
+    <thead><tr><th>What we want</th><th>How to get it</th><th>Rate limit</th><th>Ban risk</th><th>Verdict</th></tr></thead>
+    <tbody>
+      <tr><td>Keyword costs (CPC/bids/competition)</td><td>DfS <code>keywords_data/google_ads</code></td><td>Live <strong>12 req/min/acct</strong>; Standard much higher</td><td><span class="pill g">None</span></td><td><span class="pill g">✅ Use (Standard + cache)</span></td></tr>
+      <tr><td>Who is advertising (by keyword)</td><td>DfS <code>serp/google/ads_advertisers</code></td><td>SERP queue (Standard ≈2000/min)</td><td><span class="pill g">None</span></td><td><span class="pill g">✅ Use</span></td></tr>
+      <tr><td>Competitor ad creatives + run dates</td><td>DfS <code>serp/google/ads_search</code></td><td>SERP queue</td><td><span class="pill g">None</span></td><td><span class="pill g">✅ Use</span></td></tr>
+      <tr><td>Google Ads Transparency (direct)</td><td>Scrape adstransparency.google.com</td><td>—</td><td><span class="pill r">HIGH</span></td><td><span class="pill r">❌ Never</span></td></tr>
+      <tr><td>Meta ads (commercial, CA/US)</td><td>Graph <code>ads_archive</code></td><td>Per-app; needs ID-verified token</td><td><span class="pill a">Low but no coverage</span></td><td><span class="pill r">❌ v1 — API excludes commercial ads</span></td></tr>
+      <tr><td>Meta ads (if truly needed later)</td><td>Apify Ad-Library actor</td><td>Actor/compute units</td><td><span class="pill a">Medium (Meta ToS)</span></td><td><span class="pill a">⚠️ Phase 3 only, rate-capped</span></td></tr>
+    </tbody>
+  </table>
+  <h3>Discipline rules to encode (all already in our cost/cron infra)</h3>
+  <ul>
+    <li><strong>Standard queue by default</strong> (10× cheaper, ~5 min) per <code>cost-discipline.md</code>; Live reserved for explicit on-demand "refresh now".</li>
+    <li><strong>Batch</strong> search_volume up to 1,000 keywords for one flat price; <strong>cache 24h</strong> via <code>kvCache</code>; dedup by full query.</li>
+    <li><strong>Cap concurrency</strong> with <code>p-limit</code> (≤1 req/sec/handler) and the existing retry/backoff in <code>client.ts</code>.</li>
+    <li><strong>Cost-track every call</strong> via <code>withCostCounter</code> → throws outside a CronRun (enforces "no live API in user path"). Each call &lt; $5, no approval needed.</li>
+  </ul>
+</section>
+
+<!-- ───────────────────────── 5 · BOXLY COMPARISON ───────────────────────── -->
+<section id="boxly">
+  <h2 class="s"><span class="n">5</span>Boxly vs current Mapsly vs target</h2>
+  <p>Boxly's <code>/intelligence/ads</code> is a <strong>Google-Ads market-intelligence + budget planner</strong> built entirely on DataForSEO — no Meta, no Transparency-scraping, no Apify. It validates the recommended direction.</p>
+  <table>
+    <thead><tr><th>Aspect</th><th>Boxly (reference)</th><th>Mapsly /ads (now)</th><th>Mapsly /ads (target)</th></tr></thead>
+    <tbody>
+      <tr><td>Core question answered</td><td>"What do ads cost here &amp; what would I get?"</td><td>"What do competitors' ads look like?"</td><td><strong>Both</strong> — cost/opportunity first, creatives where available</td></tr>
+      <tr><td>Primary data source</td><td>DataForSEO only</td><td>Meta (broken) + Google stub</td><td>DataForSEO only (Meta deferred)</td></tr>
+      <tr><td>Headline metrics</td><td>Total kw · Avg CPC · kw with ads · advertisers</td><td>Active ads · lanes covered · open lanes · competitors</td><td>Avg CPC · cheapest winnable kw · who's bidding · est. monthly opportunity</td></tr>
+      <tr><td>Keyword cost table</td><td><span class="pill g">Yes</span> sortable, competition badges, bid range</td><td><span class="pill r">No</span></td><td><span class="pill g">Yes</span> (search_volume)</td></tr>
+      <tr><td>"Who's advertising"</td><td>From paid-SERP items + dead <code>ads_advertisers</code> table</td><td><span class="pill r">No</span></td><td>paid-SERP <strong>+</strong> live Transparency advertisers/creatives</td></tr>
+      <tr><td>Budget simulator</td><td><span class="pill g">Yes</span> (CTR 6.37% / CVR 7.33% benchmarks → clicks/leads/cost-per-lead)</td><td><span class="pill r">No</span></td><td><span class="pill g">Yes</span> (same approach, Maria-tuned copy)</td></tr>
+      <tr><td>Opportunity scoring</td><td><code>vol×(100−compIdx)/max(1,cpc×10)</code>; <code>clicksPer100</code></td><td>"paradox" heuristic only</td><td>Adopt Boxly formulas + "no-ads bonus" (blue-ocean)</td></tr>
+      <tr><td>Pipeline</td><td>Weekly cron chain → DB; user route reads DB only</td><td>Daily AdLibraryEntry sweep (no real source)</td><td><code>/search</code> pattern: cron→dispatcher→worker→DB</td></tr>
+      <tr><td>On-demand refresh</td><td><span class="pill r">None</span> (week-old data; "Try refreshing" with no button)</td><td><span class="pill r">None</span></td><td>Admin/worker re-trigger (Maria sees cadence copy)</td></tr>
+      <tr><td>Cost/run</td><td>~$0.15/run (city-batched)</td><td>$0 (nothing runs)</td><td>~$0.08–0.12/business/refresh (Standard)</td></tr>
+    </tbody>
+  </table>
+  <h3>Boxly mistakes to avoid</h3>
+  <ul>
+    <li><strong>Dead <code>AdCompetitor</code> table</strong> — Boxly pays for <code>ads_advertisers</code> but the UI reads advertisers from paid-SERP instead. Decide one read path and wire it.</li>
+    <li><strong>Contradictory benchmarks</strong> — API ships 3%/5% CTR/CVR, component hardcodes 6.37%/7.33%. Single source of truth.</li>
+    <li><strong>No on-demand refresh</strong> + unbounded <code>findMany</code> (no <code>take</code>) + Canada/en-only. We already have the discipline to avoid all three.</li>
+  </ul>
+</section>
+
+<!-- ───────────────────────── 6 · ARCHITECTURE ───────────────────────── -->
+<section id="arch">
+  <h2 class="s"><span class="n">6</span>Recommended architecture</h2>
+  <h3>The page: "Ads &amp; market intelligence"</h3>
+  <p>Keep the existing Suspense shell + cached query layer. Replace the lane grid with an SMB-voiced market-intelligence layout (mobile-first, one primary CTA):</p>
+  <table>
+    <thead><tr><th>Block</th><th>Content</th><th>Data source</th><th>Maria value</th></tr></thead>
+    <tbody>
+      <tr><td>KPI strip (4)</td><td>Avg cost-per-click · cheapest winnable keyword · who's advertising (count) · est. customers you could win</td><td>search_volume + paid-SERP/Transparency</td><td>Instant "is this market expensive/open?"</td></tr>
+      <tr><td>Headline insight</td><td>Blue-ocean vs crowded verdict ("Neither you nor 4 nearby spas run Google ads — botox is $3/click and wide open")</td><td>derived</td><td>The one thing to know</td></tr>
+      <tr><td>Keyword cost table</td><td>Service keyword · searches/mo · cost/click · competition badge · est. clicks for $100</td><td>search_volume + keyword_suggestions</td><td>What each term costs to win</td></tr>
+      <tr><td>Opportunity finder</td><td>Top 3 cheap, high-intent, low-competition keywords (the "start here" list)</td><td>opportunity score</td><td>Prioritized action</td></tr>
+      <tr><td>Budget simulator</td><td>"$300 / $500 / $1000 a month → ~N clicks → ~M new patients"</td><td>CPC×vol×competition + benchmarks</td><td>Turns CPC into a decision</td></tr>
+      <tr><td>Who's advertising (when present)</td><td>Competitor advertiser cards + creative thumbnails + "running since"</td><td>Transparency advertisers/ads_search</td><td>Proof + creative inspiration</td></tr>
+    </tbody>
+  </table>
+  <div class="callout">Off-keyword / paradox logic is retained but repurposed: instead of "your ads are off-service" (we have no ad inventory), it becomes "competitors advertising on services you don't list" — an upsell signal.</div>
+
+  <h3>Collection pipeline (mirror <code>/search</code> exactly)</h3>
+  <pre><span class="c">// cheap weekly cron tick — selects stale businesses, hands off, returns</span>
+app/api/cron/weekly/ads-intelligence/route.ts   <span class="c">→ cronHandler(JOB, …) → dispatchAdsScan({businessIds})</span>
+        │
+        ▼  <span class="c">dispatcher: paid-cell gate → group by (city,country) → enqueue worker jobs</span>
+modules/ads-intel/dispatch-ads-scan.ts
+        │
+        ▼  <span class="c">Boxly Worker callback (BOXLY_WORKER_AUTH_TOKEN), own CronRun each</span>
+app/api/internal/trigger-ads-scan/route.ts
+        │
+        ▼  <span class="c">per-business DataForSEO calls (cost-tracked, cached) → write DB → revalidateTag</span>
+modules/ads-intel/collect-keyword-costs.ts     <span class="c">keywords_data/google_ads/search_volume</span>
+modules/ads-intel/collect-paid-landscape.ts    <span class="c">ads_advertisers → ads_search (+ paid-SERP reuse)</span></pre>
+  <p class="small">Synergy: <code>SerpResult.paidBidders</code> (a <code>Json?</code> column that already exists) can be populated by the existing <code>/search</code> SERP scans — so "who bid on my keywords" comes <strong>free</strong> from search-visibility runs; the ads cron only adds the cost layer + Transparency.</p>
+</section>
+
+<!-- ───────────────────────── 7 · PATTERN ALIGNMENT ───────────────────────── -->
+<section id="pattern">
+  <h2 class="s"><span class="n">7</span><code>/search</code> pattern alignment checklist</h2>
+  <p><code>/ads</code> already passes A &amp; B. The rework is C–F.</p>
+  <table>
+    <thead><tr><th>#</th><th>Pattern</th><th>/search reference</th><th>/ads now</th><th>Action</th></tr></thead>
+    <tbody>
+      <tr><td>A</td><td>Sync shell + Suspense body, auth+portal, onboarding empty, no-CLS skeleton</td><td><code>search/page.tsx</code></td><td><span class="pill g">✓</span></td><td>Keep</td></tr>
+      <tr><td>B</td><td>Cached query: <code>'use cache'</code>+tag+NEXT_PHASE guard+EMPTY+try/catch</td><td><code>smb-search/queries.ts</code></td><td><span class="pill g">✓</span></td><td>Extend payload shape</td></tr>
+      <tr><td>C</td><td>Cron tick: <code>cronHandler</code>, stale-cursor batch, hands off, <code>POST=GET</code></td><td><code>weekly/search-visibility</code></td><td><span class="pill r">✗ (daily sweep)</span></td><td>New <code>weekly/ads-intelligence</code></td></tr>
+      <tr><td>D</td><td>Worker callback: <code>BOXLY_WORKER_AUTH_TOKEN</code>, Zod discriminated union, own <code>withCronRun</code></td><td><code>internal/trigger-search-scan</code></td><td><span class="pill r">✗ (none)</span></td><td>New <code>internal/trigger-ads-scan</code></td></tr>
+      <tr><td>E</td><td>Dispatcher: paid-cell gate, group by cell, sequential fallback</td><td><code>dispatch-bulk-scan.ts</code></td><td><span class="pill r">✗ (none)</span></td><td>New <code>dispatch-ads-scan.ts</code></td></tr>
+      <tr><td>F</td><td>Adapters wrapped in <code>withCostCounter</code>; revalidateTag two-arg after write</td><td><code>services/dataforseo/*</code></td><td><span class="pill a">partial</span></td><td>Add ads_advertisers/ads_search adapters; reuse keyword-volume</td></tr>
+      <tr><td>G</td><td>State-bar KPIs as pure server component, labels as plain strings (Pattern 4b)</td><td><code>SearchStateBar.tsx</code></td><td><span class="pill a">KPITile reuse</span></td><td>Build <code>AdsStateBar</code> same shape</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ───────────────────────── 8 · SCHEMA ───────────────────────── -->
+<section id="schema">
+  <h2 class="s"><span class="n">8</span>Schema changes</h2>
+  <p>The current <code>AdLibraryEntry</code> is creative-gallery-shaped (Meta-centric). The market-intelligence model needs a keyword-cost table + an advertiser/creative table. Proposed (mirrors <code>BusinessKeyword</code> / <code>SerpResult</code> conventions):</p>
+  <table>
+    <thead><tr><th>Model</th><th>Purpose</th><th>Key fields</th><th>Status</th></tr></thead>
+    <tbody>
+      <tr><td><code>AdKeywordCost</code> <span class="small">(new)</span></td><td>Per business-market keyword economics (the cost table)</td><td><code>businessId, keywordId, searchVolume, cpc, competition, competitionIndex, lowTopBid, highTopBid, opportunityScore, scannedAt</code></td><td><span class="pill i">add</span></td></tr>
+      <tr><td><code>AdvertiserCreative</code> <span class="small">(new)</span></td><td>Google Transparency advertiser + creative inventory</td><td><code>advertiserId, advertiserName, verified, creativeId, format, previewImageUrl, transparencyUrl, firstShownAt, lastShownAt, matchedKeyword, businessId?(competitor)</code></td><td><span class="pill i">add</span></td></tr>
+      <tr><td><code>SerpResult.paidBidders</code></td><td>Who bid on my keywords (free from /search scans)</td><td>already exists (<code>Json?</code>)</td><td><span class="pill g">reuse</span></td></tr>
+      <tr><td><code>AdLibraryEntry</code></td><td>Meta creative gallery</td><td>keep for Phase 3 (Meta), or retire</td><td><span class="pill a">park</span></td></tr>
+      <tr><td><code>Business.adsScanLastAt</code> <span class="small">(new)</span></td><td>Freshness cursor for the ads cron's stale-filter</td><td><code>DateTime?</code> + index</td><td><span class="pill i">add</span></td></tr>
+    </tbody>
+  </table>
+  <p class="small">Migration discipline per <code>prisma.md</code>: nullable numeric columns consumed by <code>{'{'}increment{'}'}</code> get <code>@default(0)</code>; <code>migrate dev</code> → commit migration → <code>migrate deploy</code> to Neon. Tag this task <code>requires:pnpm-install</code> + <code>requires:deploy-check</code>.</p>
+</section>
+
+<!-- ───────────────────────── 9 · COST ───────────────────────── -->
+<section id="cost">
+  <h2 class="s"><span class="n">9</span>Cost model</h2>
+  <p>Per business, per weekly refresh, on the <strong>Standard queue</strong> (production default):</p>
+  <table>
+    <thead><tr><th>Call</th><th>Qty</th><th>Unit (Std)</th><th>Subtotal</th></tr></thead>
+    <tbody>
+      <tr><td>search_volume (≤1000 kw batched)</td><td>1 task</td><td>$0.05</td><td>$0.050</td></tr>
+      <tr><td>keyword_suggestions (discovery, cached monthly)</td><td>~0.25 amortized</td><td>$0.01+rows</td><td>$0.005</td></tr>
+      <tr><td>ads_advertisers (top ~10 keywords)</td><td>10</td><td>$0.0006</td><td>$0.006</td></tr>
+      <tr><td>ads_search (per discovered advertiser, ~10)</td><td>10</td><td>$0.0006</td><td>$0.006</td></tr>
+      <tr><td>paid-SERP items</td><td>0</td><td>—</td><td>$0.000 <span class="small">(reused from /search)</span></td></tr>
+      <tr><td>competitors_domain (Phase 2)</td><td>1</td><td>$0.01+rows</td><td>$0.015</td></tr>
+      <tr style="font-weight:700"><td>Total per business / weekly refresh</td><td></td><td></td><td>≈ $0.08–0.12</td></tr>
+    </tbody>
+  </table>
+  <p class="small">At, say, 500 paid businesses scanned weekly → ≈ <strong>$40–60/week</strong>, fully inside tier ceilings and cost-tracked to <code>CronRun.costUsd</code>. Scales with <em>paid cells</em>, not the 2.1M catalog (paid-cell gate). This research session itself cost ≈ <strong>$0.21</strong> on the pricier Live queue.</p>
+</section>
+
+<!-- ───────────────────────── 10 · PLAN ───────────────────────── -->
+<section id="plan">
+  <h2 class="s"><span class="n">10</span>Phased plan (one phase = one session)</h2>
+  <table>
+    <thead><tr><th>Phase</th><th>Scope</th><th>Tags</th><th>Validation</th></tr></thead>
+    <tbody>
+      <tr><td><strong>AD.0</strong> Stop the bleeding</td><td>Fix <code>DATAFORSEO_USERNAME</code>/<code>LOGIN</code> mismatch in <code>.mcp.json</code>; guard/disable the broken Meta cron + Google stub so they stop polluting CronRun; document Meta-token reality.</td><td><span class="tag">env, docs</span></td><td>cron smoke tests</td></tr>
+      <tr><td><strong>AD.1</strong> DataForSEO ad adapters</td><td>New <code>services/dataforseo/ads-advertisers.ts</code> + <code>ads-search.ts</code> (cost-tracked, cached, Zod). Reuse <code>keyword-volume.ts</code>. Unit tests w/ mocked transport.</td><td><span class="tag">requires:deploy-check</span></td><td>unit + 1 live integration</td></tr>
+      <tr><td><strong>AD.2</strong> Schema + migration</td><td><code>AdKeywordCost</code>, <code>AdvertiserCreative</code>, <code>Business.adsScanLastAt</code>; migrate dev → deploy to Neon.</td><td><span class="tag">requires:pnpm-install</span></td><td>DB assert via psql</td></tr>
+      <tr><td><strong>AD.3</strong> Collection pipeline</td><td><code>weekly/ads-intelligence</code> cron + <code>dispatch-ads-scan</code> + <code>internal/trigger-ads-scan</code> worker callback + <code>collect-keyword-costs</code>/<code>collect-paid-landscape</code>. Mirror /search.</td><td><span class="tag">requires:deploy-check</span></td><td>cron integration + DB rows + cost log</td></tr>
+      <tr><td><strong>AD.4</strong> Query layer + page rework</td><td>Extend <code>smb-ads/queries.ts</code> + types; rebuild page: KPI strip, headline insight, keyword cost table, opportunity finder.</td><td><span class="tag">requires:browser, lighthouse</span></td><td>browser (anon/SMB), a11y, perf, copy-reviewer</td></tr>
+      <tr><td><strong>AD.5</strong> Budget simulator</td><td>Client component: CPC×vol×competition + benchmarks → clicks/leads/cost-per-lead, 3 tiers. Single benchmark source.</td><td><span class="tag">requires:browser</span></td><td>unit (math) + browser</td></tr>
+      <tr><td><strong>AD.6</strong> Transparency creatives panel</td><td>"Who's advertising" cards + creative thumbnails (where coverage exists) w/ honest empty state.</td><td><span class="tag">requires:browser</span></td><td>browser + ux-reviewer-smb</td></tr>
+      <tr><td><strong>AD.7</strong> i18n + polish</td><td>Strings to <code>messages/*.json</code> (es/fr-CA/en-CA), service-context chip, final scorecard.</td><td><span class="tag">i18n</span></td><td>4-locale browser</td></tr>
+      <tr><td class="small">AD.8 (later)</td><td class="small">Meta via Apify (only if validated demand) — rate-capped, ToS-aware.</td><td><span class="tag">human-required</span></td><td class="small">deferred</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ───────────────────────── 11 · DECISIONS ───────────────────────── -->
+<section id="decisions">
+  <h2 class="s"><span class="n">11</span>Decisions for Viktor</h2>
+  <ol>
+    <li><strong>Pivot confirmed?</strong> Rebuild <code>/ads</code> as "Ads &amp; market intelligence" (cost/opportunity/budget) rather than a competitor creative gallery. <em>(Strongly recommended.)</em></li>
+    <li><strong>Meta in v1?</strong> Recommend <strong>defer</strong> — token broken + Graph API doesn't expose commercial ads outside the EU. Confirm OK to drop from v1.</li>
+    <li><strong>Transparency depth?</strong> Include the competitor-creative panel in v1 (AD.6) or ship cost-intelligence first and add creatives later? It's cheap but coverage is thin in small CA markets.</li>
+    <li><strong>Refresh cadence?</strong> Weekly (matches /search, cheap) vs daily. Recommend weekly.</li>
+    <li><strong>Worker availability:</strong> confirm <code>BOXLY_WORKER_BASE_URL</code>/<code>BOXLY_WORKER_AUTH_TOKEN</code> are set for prod so AD.3 uses the worker fan-out (else sequential fallback).</li>
+  </ol>
+</section>
+
+<!-- ───────────────────────── 12 · APPENDIX ───────────────────────── -->
+<section id="appendix">
+  <h2 class="s"><span class="n">12</span>Appendix · raw request / response</h2>
+
+  <h3>A · ads_advertisers (Transparency · "who") — success (US)</h3>
+  <pre><span class="c"># POST https://api.dataforseo.com/v3/serp/google/ads_advertisers/live/advanced</span>
+[{ <span class="k">"keyword"</span>:<span class="s">"med spa"</span>, <span class="k">"location_code"</span>:2840, <span class="k">"language_code"</span>:<span class="s">"en"</span> }]
+<span class="c"># → 200 · cost $0.002 · 20 items</span>
+{ <span class="k">"title"</span>:<span class="s">"MD Med Spa"</span>, <span class="k">"advertiser_id"</span>:<span class="s">"AR06725872623227502593"</span>,
+  <span class="k">"verified"</span>:true, <span class="k">"type"</span>:<span class="s">"ads_advertiser"</span> }   <span class="c">// + 19 more</span>
+<span class="c"># NOTE: location_name → task error 40501 "Invalid Field"; must use location_code</span></pre>
+
+  <h3>B · ads_search (Transparency · "what") — success</h3>
+  <pre><span class="c"># POST /v3/serp/google/ads_search/live/advanced</span>
+[{ <span class="k">"advertiser_ids"</span>:[<span class="s">"AR06725872623227502593"</span>], <span class="k">"location_code"</span>:2840,
+   <span class="k">"platform"</span>:<span class="s">"all"</span>, <span class="k">"format"</span>:<span class="s">"all"</span>, <span class="k">"depth"</span>:40 }]
+<span class="c"># → 200 · cost $0.002 · 7 creatives</span>
+{ <span class="k">"creative_id"</span>:<span class="s">"…"</span>, <span class="k">"format"</span>:<span class="s">"text"</span>,
+  <span class="k">"first_shown"</span>:<span class="s">"2025-10-11 02:43:06 +00:00"</span>,
+  <span class="k">"last_shown"</span>:<span class="s">"2026-01-08 16:06:42 +00:00"</span>,
+  <span class="k">"preview_image"</span>:{<span class="k">"url"</span>:<span class="s">"https://tpc.googlesyndication.com/archive/simgad/…"</span>},
+  <span class="k">"url"</span>:<span class="s">"https://adstransparency.google.com/…"</span>, <span class="k">"verified"</span>:true }</pre>
+
+  <h3>C · search_volume — success (ad economics)</h3>
+  <pre><span class="c"># POST /v3/keywords_data/google_ads/search_volume/live</span>
+[{ <span class="k">"keywords"</span>:[<span class="s">"botox"</span>,<span class="s">"lip filler"</span>,…], <span class="k">"location_code"</span>:2124, <span class="k">"language_code"</span>:<span class="s">"en"</span> }]
+<span class="c"># → 200 · cost $0.075 (≤1000 kw same price)</span>
+{ <span class="k">"keyword"</span>:<span class="s">"botox"</span>, <span class="k">"search_volume"</span>:22200, <span class="k">"cpc"</span>:3.01, <span class="k">"competition"</span>:<span class="s">"LOW"</span>,
+  <span class="k">"low_top_of_page_bid"</span>:1.06, <span class="k">"high_top_of_page_bid"</span>:3.91 }</pre>
+
+  <h3>D · Meta ads_archive — failure</h3>
+  <pre><span class="c"># GET https://graph.facebook.com/v19.0/ads_archive?search_terms=…&ad_type=ALL&ad_reached_countries=["CA"]</span>
+<span class="c"># → 400</span>
+{ <span class="k">"error"</span>:{ <span class="k">"message"</span>:<span class="s">"Invalid OAuth access token - Cannot parse access token"</span> } }
+<span class="c"># token in .env.local: length 32, does not start with EAA → not a Graph token</span></pre>
+
+  <h3>E · competitors_domain — success (est. competitor spend)</h3>
+  <pre><span class="c"># POST /v3/dataforseo_labs/google/competitors_domain/live</span>
+[{ <span class="k">"target"</span>:<span class="s">"theinjectionist.ca"</span>, <span class="k">"location_code"</span>:2124, <span class="k">"language_code"</span>:<span class="s">"en"</span>, <span class="k">"limit"</span>:10 }]
+<span class="c"># → 200 · cost $0.011 · local competitors all paid=$0 (blue ocean);</span>
+<span class="c"># instagram/facebook/reddit dominate → set exclude_top_domains:true</span></pre>
+
+  <p class="small">Endpoints to still verify before relying on them: <code>ad_traffic_by_keywords</code> (was <code>50304</code> temporarily-unavailable at test time; optional). All Standard-queue prices are from DataForSEO pricing pages; Live prices above are what we were actually billed.</p>
+</section>
+
+<hr>
+<p class="small">Generated from: current-code audit (5 files) · 3 background research agents (Boxly teardown, /search pattern, DataForSEO catalog) · 13 live API calls against The Injectionist &amp; Aesthetics · 2026-05-28. No code changed — this is a pre-plan for approval.</p>
+</main>
+</div>
+</body>
+</html>

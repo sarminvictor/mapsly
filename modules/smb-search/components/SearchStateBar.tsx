@@ -20,30 +20,27 @@ export interface SearchStateBarLabels {
   estimatedVisits: string;
   /** Row 1, col 3 · "Free traffic value" */
   trafficValue: string;
-  /** Row 2, col 1 · "Top 3 keywords" */
-  inTopThree: string;
+  /** Row 2, col 1 · "Top 3 in Search" · counts organicRank ≤ 3 */
+  topThreeSearch: string;
   /** Row 2, col 2 · "Customers you miss" */
   missedCustomers: string;
-  /** Row 2, col 3 · "Best spot in Maps" */
-  bestSpot: string;
-  /** "of {total} keywords" · `{total}` is replaced inline. */
-  inTopThreeSublabel: string;
+  /** Row 2, col 3 · "Top 3 in Maps" · counts mapsRank ≤ 3 */
+  topThreeMaps: string;
+  /** "of {total} tracked" · sublabel for the Top-3-in-Search cell.
+   *  Denominator = all tracked keywords (Maria's full portfolio). */
+  topThreeSublabel: string;
+  /** "of {total} scanned in Maps" · sublabel for the Top-3-in-Maps
+   *  cell. Different denominator because Maps is only scanned over
+   *  the cell-aggregated template set, not her full portfolio. */
+  topThreeMapsSublabel: string;
   /** "Per month" · sublabel for the missed-customers cell. */
   missedCustomersSublabel: string;
   /** "What Google Ads would cost" · sublabel for traffic-value cell. */
   trafficValueSublabel: string;
-  /** Sub-line under the best-spot value · "for '{keyword}'" replaced
-   *  inline. When Maria isn't in Maps anywhere, the page passes the
-   *  `bestSpotNoneSublabel` instead. */
-  bestSpotSublabel: string;
-  /** Sub-line under best-spot when Maria isn't ranked anywhere yet. */
-  bestSpotNoneSublabel: string;
-  /** Sub-line under best-spot when Maps SERP scan never ran for this
-   *  business · TRUTHFUL framing per the PO review · "Scanning this
-   *  week" instead of misleading "Not in Maps yet". */
-  bestSpotNotScannedSublabel: string;
-  /** Big-number text shown when Maria isn't ranked in Maps at all. */
-  bestSpotNoneValue: string;
+  /** Sublabel when no Maps SERP scan has ever run for this business ·
+   *  separates "0 because we never asked" from "0 because she's not
+   *  in any Maps top 3". */
+  topThreeMapsNotScannedSublabel: string;
   /** Tip on the totalSearches cell. */
   totalSearchesTip: string;
   /** Tip on the visits cell. */
@@ -52,6 +49,10 @@ export interface SearchStateBarLabels {
   trafficValueTip: string;
   /** Tip on the missed-customers cell. */
   missedCustomersTip: string;
+  /** Tip on the Top-3-in-Search cell. */
+  topThreeSearchTip: string;
+  /** Tip on the Top-3-in-Maps cell. */
+  topThreeMapsTip: string;
 }
 
 export interface SearchStateBarProps {
@@ -60,19 +61,22 @@ export interface SearchStateBarProps {
   /** Σ DfS estimated_paid_traffic_cost · the dollar value of the
    *  visits Maria gets for free. Renders as "$X.Xk/mo" or "$XXX/mo". */
   totalEstTrafficUsd: number;
-  topThreeKeywords: number;
+  /** Count of tracked keywords where Maria ranks ≤ 3 in organic search. */
+  topThreeSearchCount: number;
+  /** Count of tracked keywords where Maria ranks ≤ 3 in Google Maps. */
+  topThreeMapsCount: number;
+  /** Total keywords tracked (Maria's full portfolio). */
   tracked: number;
-  /** Maria's best (lowest) Maps rank across all tracked keywords ·
-   *  null when she's not in any Maps result. */
-  bestMapsRank: number | null;
-  /** The keyword whose Maps rank equals bestMapsRank · for the
-   *  sublabel "for '{keyword}'". null when bestMapsRank is null. */
-  bestMapsKeyword: string | null;
-  /** Sum of est-patients-lost across all tracked keywords. */
+  /** Total keywords actually scanned for Maps rank · smaller than
+   *  `tracked` because Maps is only run on the cell-aggregated
+   *  template set. */
+  mapsScanned: number;
+  /** Sum of est-customers-missed across all tracked keywords. */
   missedCustomers: number;
   /** Whether ANY Maps SERP scan has ever run for this business. False
-   *  flips the best-spot sublabel to the truthful "Scanning this week"
-   *  copy instead of "Not in Maps yet". */
+   *  flips the Top-3-in-Maps sublabel to "Maps scan coming this week"
+   *  to separate "0 because not in Maps" from "0 because never asked
+   *  Google Maps". */
   hasMapsScans: boolean;
   labels: SearchStateBarLabels;
 }
@@ -95,10 +99,10 @@ export function SearchStateBar({
   totalSearchVolume,
   totalEstimatedVisits,
   totalEstTrafficUsd,
-  topThreeKeywords,
+  topThreeSearchCount,
+  topThreeMapsCount,
   tracked,
-  bestMapsRank,
-  bestMapsKeyword,
+  mapsScanned,
   missedCustomers,
   hasMapsScans,
   labels,
@@ -108,29 +112,18 @@ export function SearchStateBar({
       ? Math.round((totalEstimatedVisits / totalSearchVolume) * 100)
       : 0;
 
-  const bestSpotValue =
-    bestMapsRank != null ? `#${bestMapsRank}` : labels.bestSpotNoneValue;
-  // Truthful copy · "Scanning this week" when we never asked Google Maps
-  // for this business, vs "Not in Maps yet" when we asked and she was
-  // genuinely absent. The page sets hasMapsScans from mapsScanCount > 0.
-  const bestSpotSublabel =
-    bestMapsRank != null && bestMapsKeyword
-      ? labels.bestSpotSublabel.replace("{keyword}", bestMapsKeyword)
-      : hasMapsScans
-        ? labels.bestSpotNoneSublabel
-        : labels.bestSpotNotScannedSublabel;
-  const bestSpotTone =
-    bestMapsRank == null
-      ? "warn"
-      : bestMapsRank <= 3
-        ? "good"
-        : bestMapsRank <= 10
-          ? "neutral"
-          : "warn";
+  // Top-3-in-Maps cell truthful sublabel · separates "0 because we
+  // never asked Google Maps" from "0 because she's not in Maps top 3
+  // for any scanned keyword". Denominator = mapsScanned (typically
+  // ~12), NOT tracked (often 200) — Maps is only run on the
+  // cell-aggregated template set.
+  const topThreeMapsSublabelText = !hasMapsScans
+    ? labels.topThreeMapsNotScannedSublabel
+    : labels.topThreeMapsSublabel.replace("{total}", fmt(mapsScanned));
 
   // 2×3 desktop grid · 1 col on narrow screens.
   // Row 1: demand → visits → value (the funnel)
-  // Row 2: wins   → gaps   → benchmark (the scoreboard)
+  // Row 2: organic wins → misses → maps wins (the scoreboard)
   return (
     <section
       aria-label="Search visibility totals"
@@ -172,11 +165,11 @@ export function SearchStateBar({
 
       {/* Row 2 · the scoreboard */}
       <StateCell
-        label={labels.inTopThree}
-        value={fmt(topThreeKeywords)}
-        sublabel={labels.inTopThreeSublabel.replace("{total}", fmt(tracked))}
-        tip=""
-        tone={topThreeKeywords > 0 ? "good" : "neutral"}
+        label={labels.topThreeSearch}
+        value={fmt(topThreeSearchCount)}
+        sublabel={labels.topThreeSublabel.replace("{total}", fmt(tracked))}
+        tip={labels.topThreeSearchTip}
+        tone={topThreeSearchCount > 0 ? "good" : "neutral"}
       />
       <StateCell
         label={labels.missedCustomers}
@@ -186,11 +179,13 @@ export function SearchStateBar({
         tone={missedCustomers > 0 ? "warn" : "good"}
       />
       <StateCell
-        label={labels.bestSpot}
-        value={bestSpotValue}
-        sublabel={bestSpotSublabel}
-        tip=""
-        tone={bestSpotTone}
+        label={labels.topThreeMaps}
+        value={fmt(topThreeMapsCount)}
+        sublabel={topThreeMapsSublabelText}
+        tip={labels.topThreeMapsTip}
+        tone={
+          !hasMapsScans ? "warn" : topThreeMapsCount > 0 ? "good" : "neutral"
+        }
       />
     </section>
   );

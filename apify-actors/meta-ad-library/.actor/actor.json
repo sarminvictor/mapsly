@@ -1,0 +1,9 @@
+{
+  "actorSpecification": 1,
+  "name": "mapsly-meta-ad-library",
+  "title": "Mapsly Meta Ad Library Scraper",
+  "description": "Scrapes the public Meta (Facebook/Instagram) Ad Library for commercial ads by search term or Page ID. Captures the commercial ads the official Graph API ads_archive does NOT return outside the EU.",
+  "version": "0.1",
+  "input": "./INPUT_SCHEMA.json",
+  "dockerfile": "../Dockerfile"
+}

@@ -47,6 +47,7 @@ import {
 } from "@/modules/smb-my-business";
 
 import { ServicesEditor } from "@/components/smb/my-business/ServicesEditor";
+import { SmbPageHeader } from "@/components/smb/SmbPageHeader";
 
 export async function generateMetadata({
   params,
@@ -141,43 +142,11 @@ async function MyBusinessBody({ params }: { params: Promise<PageParams> }) {
         padding: "32px 20px 64px",
       }}
     >
-      <header style={{ marginBottom: 28 }}>
-        <p
-          style={{
-            margin: 0,
-            fontFamily: "var(--font-mono)",
-            fontSize: 11,
-            textTransform: "uppercase",
-            letterSpacing: "0.08em",
-            color: "var(--color-text-3)",
-          }}
-        >
-          {t("eyebrow")}
-        </p>
-        <h1
-          id="my-business-heading"
-          style={{
-            fontFamily: "var(--font-serif)",
-            fontSize: "clamp(28px, 4vw, 36px)",
-            lineHeight: 1.1,
-            letterSpacing: "-0.02em",
-            margin: "6px 0 0",
-            color: "var(--color-text)",
-          }}
-        >
-          {t("title")}
-        </h1>
-        <p
-          style={{
-            margin: "8px 0 0",
-            color: "var(--color-text-2)",
-            fontSize: 15,
-            lineHeight: 1.5,
-          }}
-        >
-          {t("subtitle")}
-        </p>
-      </header>
+      <SmbPageHeader
+        userId={session.user.id}
+        namespace="smb.my_business"
+        titleId="my-business-heading"
+      />
 
       {data.ownedBusinessId === "" ? (
         <EmptyBusinessCard

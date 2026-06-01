@@ -82,26 +82,43 @@ export interface KeywordRow {
    *  service" badge in the table per Boxly's pattern. False for core
    *  templates and legacy ranked rows. */
   isServiceKeyword: boolean;
+  /** True when the keyword has any template origin (core or service)
+   *  set · these are the keywords cell-aggregate-maps actually
+   *  scans on Maps. Drives the "Top 3 in Maps · X of Y scanned"
+   *  denominator on the State Bar (S.6.3). */
+  isTemplated: boolean;
 }
 
 /**
- * One row in the "Top 3 quick wins" panel. Surfaces high-volume
- * keywords where Maria is close-but-not-quite — fringe rank in
- * either local pack (4-10) or organic search (4-20).
+ * One row in the "Quick wins" right rail. S.6.5 (2026-05-28) ·
+ * carries i18n-resolvable keys + params rather than baked English
+ * strings so we can localize and so the persistence layer
+ * (QuickWinAssignment) can serialize a stable representation.
  */
+export type QuickWinSurface = "maps" | "search";
+
+export type QuickWinStateKey = "maps_fringe" | "search_fringe";
+
+export type QuickWinActionKey = "maps_signals" | "review_request";
+
 export interface SearchQuickWin {
   /** Stable id (keyword id). */
   id: string;
   /** The keyword Maria can win. */
   keyword: string;
-  /** Plain-English current-state line ("You're 4th in maps — one
-   * spot away from the top 3"). */
-  currentState: string;
-  /** Imperative action sentence ("Add Sunday hours and 3 photos —
-   * Google reads both as 'open spa' signals"). */
-  action: string;
-  /** Big impact value formatted ("+8 patients/mo"). */
-  impact: string;
+  /** Which surface this opportunity targets · drives the chip on
+   *  the card ("Google Maps" vs "Google Search"). */
+  surface: QuickWinSurface;
+  /** i18n key bucket for the "where you are now" sentence · the
+   *  page resolves via t(`quick_win_state_${stateKey}`, params). */
+  stateKey: QuickWinStateKey;
+  stateParams: Record<string, string | number>;
+  /** i18n key bucket for the action recommendation · resolved as
+   *  t(`quick_win_action_${actionKey}`). */
+  actionKey: QuickWinActionKey;
+  /** Estimated additional customers/mo if she reaches top 3 for
+   *  this keyword. Page formats with i18n plural. */
+  estCustomersPerMo: number;
 }
 
 /**
@@ -120,19 +137,36 @@ export interface SmbSearchData {
   name: string;
   /** Owned business city (used in copy and the hero headline). */
   city: string | null;
+  /** Owned business country code (CA / US / …) · S.6.2 added so the
+   *  cell-keyword-table query can resolve the DfS location_code. */
+  country: string | null;
   /** Owned business category as stored in the DB ("Medical spa" /
    *  "Restaurant" / …). Drives the "How customers search for X in Y"
    *  table heading. */
   category: string | null;
 
   /** Best (lowest) local-pack rank across all tracked keywords.
-   * `null` when Maria appears in zero local packs. */
+   * `null` when Maria appears in zero local packs. Retained for any
+   * downstream tooling that still wants the single-rank view; the
+   * S.6.2 State Bar uses the count-based topThreeMapsCount instead. */
   bestLocalPackRank: number | null;
   /** Total keywords currently being tracked for this business. */
   keywordsTracked: number;
   /** How many tracked keywords show Maria in the local pack
    * (localPackRank between 1 and 3 inclusive). */
   keywordsInLocalPack: number;
+  /** Count of tracked keywords where Maria's organic rank ≤ 3.
+   * Powers the "Top 3 in Search" State Bar cell (S.6.2). */
+  topThreeSearchCount: number;
+  /** Count of tracked keywords where Maria's Maps rank ≤ 3.
+   * Powers the "Top 3 in Maps" State Bar cell (S.6.2). */
+  topThreeMapsCount: number;
+  /** Count of keywords we ACTUALLY ran a Maps SERP query for ·
+   * smaller than keywordsTracked because Maps is cell-aggregated
+   * over the local-intent template set only (cost saver). Drives
+   * the "of N tracked" sublabel on the Top-3-in-Maps cell so the
+   * denominator is honest (S.6.3 fix · 2026-05-28). */
+  mapsScannedCount: number;
   /** How many keywords improved this week vs last week — improvement
    * is defined as a smaller rank number (closer to #1) in EITHER the
    * local pack or organic. Rows with no prior scan are not counted
@@ -233,19 +267,19 @@ export interface CompetitorRow {
   rank: number;
   /** Whether this row is Maria's business · the UI highlights it. */
   kind: "you" | "competitor";
-  /** Sum of latestEstTrafficUsd across this business's tracked
-   *  keywords · the leaderboard sort key. */
-  estTrafficUsd: number;
   /** Σ search_volume across this business's tracked keywords. */
   totalSearchVolume: number;
-  /** Total tracked keywords for this business. */
-  keywordCount: number;
-  /** Count of keywords this business ranks in top 3 (Maps or organic). */
-  topThreeCount: number;
-  /** Estimated monthly customers this business likely converts ·
-   *  Σ visits × 0.02 (industry-baseline local conversion rate).
-   *  This is the headline we show Maria, not raw "$ traffic value". */
-  estMonthlyCustomers: number;
+  /** Σ estimated monthly clicks (visits) across this business's
+   *  tracked keywords · DfS `etv` from ranked_keywords or
+   *  fallback (sv × CTR). Leaderboard sort key. */
+  monthlyVisitors: number;
+  /** Count of keywords this business ranks in Maps top 3. */
+  topThreeMaps: number;
+  /** Count of keywords this business ranks in organic search top 3. */
+  topThreeSearch: number;
+  /** Normalized domain (host only) for the Domain column. null when
+   *  the business has no website on file. */
+  domain: string | null;
 }
 
 /**
@@ -288,10 +322,14 @@ export const EMPTY_SMB_SEARCH: SmbSearchData = {
   ownedBusinessId: "",
   name: "",
   city: null,
+  country: null,
   category: null,
   bestLocalPackRank: null,
   keywordsTracked: 0,
   keywordsInLocalPack: 0,
+  topThreeSearchCount: 0,
+  topThreeMapsCount: 0,
+  mapsScannedCount: 0,
   keywordsImprovedThisWeek: 0,
   keywords: [],
   topByVolume: [],
@@ -355,14 +393,28 @@ export function bestRank(
 }
 
 /**
- * Per-keyword est-patients-lost heuristic.
- *   - In-top-3 CTR ≈ 30%, out-of-top-3 ≈ 5% (industry baseline for
- *     local search; close enough between Maps Pack and organic top 3
- *     that we collapse them into one "top 3" bucket)
- *   - Local conversion-rate ≈ 2% (visit → booking)
- *   - When Maria is in the top 3 EITHER in Maps OR organic, lost = 0
- *     — being #1 organic for "med spa miami" still means her customers
- *     find her, even if she's invisible in the Maps Pack.
+ * Per-keyword est-customers-missed (S.6.2 · function name kept for
+ * back-compat; concept is "missed customers", not "patients").
+ *
+ * Formula per Viktor's 2026-05-28 spec:
+ *   "Calculate volume for relevant keywords to services. From them
+ *    calculate missed opportunity where they are not in top 3."
+ *
+ *   missed = volume × TOP_3_CTR × CONVERSION
+ *
+ *   - `TOP_3_CTR` = (CTR(1) + CTR(2) + CTR(3)) / 3 ≈ 22% · the
+ *     fraction of clicks Maria would capture IF she reached top 3
+ *     (weighted average across positions 1-3 of the public CTR curve).
+ *     Honest framing: this is potential gain, not "you'd be #1".
+ *   - `CONVERSION` = 2% · industry-baseline visit→customer rate for
+ *     local services.
+ *   - Returns 0 when she's already top 3 (Maps OR organic). Being #1
+ *     organic for "med spa miami" already means her customers find
+ *     her, even if the Maps Pack is empty.
+ *
+ * The keyword set passed in is filtered by the caller to
+ * source="template" so it IS the relevant-to-her-services set by
+ * construction (industry-templated · core + service buckets).
  *
  * Pure. Used by both the query layer and the unit tests.
  */
@@ -374,62 +426,92 @@ export function estimatePatientsLost(input: {
 }): number {
   if (!input.searchVolume || input.searchVolume <= 0) return 0;
   if (input.bestRank != null && input.bestRank <= 3) return 0;
-  const CTR_GAP = 0.3 - 0.05;
+  const TOP_3_CTR = (0.39 + 0.18 + 0.1) / 3; // ≈ 0.2233
   const CONVERSION = 0.02;
-  return Math.round(input.searchVolume * CTR_GAP * CONVERSION);
+  return Math.round(input.searchVolume * TOP_3_CTR * CONVERSION);
 }
 
 /**
- * Pick the 3 highest-impact quick wins from a keyword list. A row
- * qualifies when:
- *   - searchVolume ≥ 50/mo (meaningful traffic), AND
- *   - Maria is fringe — local-pack rank 4-10 OR organic rank 4-20
- *     (i.e. close enough to break into top 3 with one fix)
+ * Pick quick-win CANDIDATES from a keyword list. Pure · returns
+ * everything that qualifies sorted by impact desc · the weekly-
+ * assignment layer (`quick-wins.ts`) handles dedup + slicing.
  *
- * Sorted by estPatientsLost descending so the biggest opportunity
- * surfaces first. Returns at most 3.
+ * S.6.5 rules (2026-05-28):
+ *   - **Templated only** (`isTemplated = true`) — local-intent
+ *     relevant-to-services keywords. Skips informational long-tail
+ *     like "how long do lip injections last" that would otherwise
+ *     pollute the recommendation list.
+ *   - `searchVolume ≥ 50/mo` — qualifying volume floor.
+ *   - NOT already in top 3 (Maps OR organic) — no opportunity gap.
+ *   - **Fringe** — Maps rank 4-10 OR organic rank 4-10 (tighter than
+ *     the v0.13.x 4-20 organic which was too loose).
+ *
+ * Surface tag · "maps" when she's fringe in Maps Pack, "search"
+ * when only fringe in organic. Drives chip + action template.
  */
-export function deriveSearchQuickWins(
+export function pickQuickWinCandidates(
   keywords: readonly KeywordRow[],
 ): SearchQuickWin[] {
-  const candidates: Array<{ row: KeywordRow; impact: number }> = [];
+  const candidates: Array<{ win: SearchQuickWin; impact: number }> = [];
 
   for (const row of keywords) {
+    if (!row.isTemplated) continue;
     if (!row.searchVolume || row.searchVolume < 50) continue;
-    const inPack = row.localPackRank != null && row.localPackRank <= 3;
-    if (inPack) continue;
-    const fringeLocal =
+
+    const inMapsTop3 = row.localPackRank != null && row.localPackRank <= 3;
+    const inOrgTop3 = row.organicRank != null && row.organicRank <= 3;
+    if (inMapsTop3 || inOrgTop3) continue;
+
+    const fringeMaps =
       row.localPackRank != null &&
       row.localPackRank > 3 &&
       row.localPackRank <= 10;
     const fringeOrganic =
-      row.organicRank != null && row.organicRank > 3 && row.organicRank <= 20;
-    if (!fringeLocal && !fringeOrganic) continue;
-    candidates.push({ row, impact: row.estPatientsLost });
+      row.organicRank != null && row.organicRank > 3 && row.organicRank <= 10;
+    if (!fringeMaps && !fringeOrganic) continue;
+
+    // Surface · Maps wins when she's close in the Pack (more leverage
+    // for local biz); organic when she's only close in blue links.
+    const surface: QuickWinSurface = fringeMaps ? "maps" : "search";
+    const stateKey: QuickWinStateKey =
+      surface === "maps" ? "maps_fringe" : "search_fringe";
+    const actionKey: QuickWinActionKey =
+      surface === "maps" ? "maps_signals" : "review_request";
+
+    const stateParams: Record<string, string | number> =
+      surface === "maps"
+        ? {
+            rank: row.localPackRank ?? 0,
+            ordinal: ordinal(row.localPackRank ?? 0),
+            gap: Math.max(1, (row.localPackRank ?? 4) - 3),
+          }
+        : {
+            rank: row.organicRank ?? 0,
+            ordinal: ordinal(row.organicRank ?? 0),
+          };
+
+    candidates.push({
+      impact: row.estPatientsLost,
+      win: {
+        id: row.id,
+        keyword: row.keyword,
+        surface,
+        stateKey,
+        stateParams,
+        actionKey,
+        estCustomersPerMo: row.estPatientsLost,
+      },
+    });
   }
 
   candidates.sort((a, b) => b.impact - a.impact);
-
-  return candidates.slice(0, 3).map(({ row }) => {
-    const inPackZone = row.localPackRank != null;
-    const currentState = inPackZone
-      ? `You're ${ordinal(row.localPackRank!)} in maps — ${row.localPackRank! - 3} spot${
-          row.localPackRank! - 3 === 1 ? "" : "s"
-        } away from the top 3.`
-      : `You show up further down on Google for this — most people stop reading after the first 10 results.`;
-    const action = inPackZone
-      ? "Add Sunday hours, 3 new photos, and a Google post this week. All three are 'we're really open' signals."
-      : "Ask 5 happy customers to mention this exact phrase in a review this week.";
-    return {
-      id: row.id,
-      keyword: row.keyword,
-      currentState,
-      action,
-      impact:
-        row.estPatientsLost > 0 ? `+${row.estPatientsLost} patients/mo` : "—",
-    };
-  });
+  return candidates.map((c) => c.win);
 }
+
+/** Legacy alias · keep for back-compat with anything still calling
+ *  the old name. Same return shape now that we refactored.
+ *  TODO(S.6.6): remove all callers + delete this alias. */
+export const deriveSearchQuickWins = pickQuickWinCandidates;
 
 function ordinal(n: number): string {
   const s = ["th", "st", "nd", "rd"];

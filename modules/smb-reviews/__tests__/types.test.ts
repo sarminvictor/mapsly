@@ -36,8 +36,14 @@ describe("smb-reviews/types", () => {
   test("REVIEW_TABS is exhaustive and stable", () => {
     // Dropped `all` + `by-theme` in PR #94 · Maria uses Unanswered /
     // Negative / Replied only; "All" was a redundant superset, "By theme"
-    // was research noise.
-    expect(REVIEW_TABS).toEqual(["unanswered", "negative", "replied"]);
+    // was research noise. Added `skipped` when Skip moved a review out of
+    // the active queue (a later owner reply promotes it to Replied).
+    expect(REVIEW_TABS).toEqual([
+      "unanswered",
+      "negative",
+      "replied",
+      "skipped",
+    ]);
   });
 });
 

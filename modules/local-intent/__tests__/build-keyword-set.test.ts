@@ -26,9 +26,9 @@ describe("buildKeywordSetForBusiness", () => {
     expect(r.industry).toBe("medspa");
     // 5 core + 7 service (default-all when serviceFlags is null/undefined)
     expect(r.keywords).toHaveLength(12);
-    expect(r.keywords.find((k) => k.keyword === "med spa calgary")?.origin).toBe(
-      "core",
-    );
+    expect(
+      r.keywords.find((k) => k.keyword === "med spa calgary")?.origin,
+    ).toBe("core");
     expect(
       r.keywords.find((k) => k.keyword === "dermal fillers calgary")?.origin,
     ).toBe("service");

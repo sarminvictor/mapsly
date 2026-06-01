@@ -1,150 +1,126 @@
 "use client";
 
 /**
- * AIReplyDraftBody · client island for the EN/ES draft body.
+ * AIReplyDraftBody · the editable English reply draft.
  *
- * Renders ONLY the language toggle + draft text + word/char meta —
- * the parent (ReviewCard) keeps the framing (label, action buttons)
- * server-side. Splitting this way means the rest of the review card
- * doesn't pull into the client bundle.
+ * English-only for now (the EN/ES toggle was removed; ES generation is
+ * disabled in the service but the column + code stay for the future). The
+ * draft renders in a textarea the owner can edit inline, with a Save button
+ * that persists the edit via `saveReplyDraftAction`.
  *
- * Default language priority:
- *   1. EN draft (if present)
- *   2. ES draft fallback
- *
- * Maria can toggle if both drafts exist — the toggle row is hidden
- * when only one is available so we don't show a single useless pill.
- *
- * Per `.claude/rules/ui-ux-smb.md`:
- *   - Tap targets ≥ 44px on mobile (button padding sized accordingly)
- *   - Warm, plain English — "English" / "Español" instead of locale
- *     codes
- *   - Aria-pressed conveys state to screen-readers in addition to color
+ * Per `.claude/rules/ui-ux-smb.md`: warm, plain, tap targets ≥ 44px.
  */
 
-import { useState } from "react";
+import { useActionState, useState } from "react";
+
+import {
+  saveReplyDraftAction,
+  type ActionResult,
+} from "@/app/[locale]/(smb)/reviews/actions";
 
 export interface AIReplyDraftBodyProps {
+  reviewId: string;
   draftEn: string | null;
-  draftEs: string | null;
-  labelEn: string;
-  labelEs: string;
-  /** "{count} words · {chars} chars" — caller formats. We pass the
-   * resolved string per language. */
-  buildMeta: (text: string) => string;
+  labels: { save: string; saved: string };
 }
 
-type Lang = "en" | "es";
+const initial: ActionResult<null> | null = null;
 
 export function AIReplyDraftBody({
+  reviewId,
   draftEn,
-  draftEs,
-  labelEn,
-  labelEs,
-  buildMeta,
+  labels,
 }: AIReplyDraftBodyProps) {
-  const hasEn = !!draftEn?.trim();
-  const hasEs = !!draftEs?.trim();
-  const initial: Lang = hasEn ? "en" : "es";
+  const [text, setText] = useState(draftEn ?? "");
+  const [state, formAction, pending] = useActionState(
+    saveReplyDraftAction,
+    initial,
+  );
 
-  const [lang, setLang] = useState<Lang>(initial);
-  const draft = lang === "en" ? (draftEn ?? "") : (draftEs ?? "");
+  if (!draftEn?.trim() && !text.trim()) return null;
 
-  if (!hasEn && !hasEs) return null;
-
-  const showToggle = hasEn && hasEs;
+  const words = text.split(/\s+/).filter(Boolean).length;
 
   return (
-    <>
-      {showToggle ? (
-        <div
-          role="group"
-          aria-label="Reply language"
-          style={{
-            display: "inline-flex",
-            gap: 4,
-            padding: 2,
-            background: "var(--color-bg-2)",
-            border: "1px solid var(--color-border)",
-            borderRadius: 999,
-            marginBottom: 10,
-          }}
-        >
-          <LangButton
-            active={lang === "en"}
-            onClick={() => setLang("en")}
-            disabled={!hasEn}
-            label={labelEn}
-          />
-          <LangButton
-            active={lang === "es"}
-            onClick={() => setLang("es")}
-            disabled={!hasEs}
-            label={labelEs}
-          />
-        </div>
-      ) : null}
-
-      <div
+    <form action={formAction}>
+      <input type="hidden" name="reviewId" value={reviewId} />
+      <textarea
+        name="text"
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        rows={4}
+        aria-label="Edit your reply"
         style={{
-          whiteSpace: "pre-wrap",
+          width: "100%",
+          boxSizing: "border-box",
+          resize: "vertical",
+          padding: "10px 12px",
+          fontFamily: "var(--font-sans)",
           fontSize: 13.5,
           lineHeight: 1.55,
           color: "var(--color-text)",
-          marginBottom: 8,
+          background: "var(--color-bg)",
+          border: "1px solid var(--color-border)",
+          borderRadius: 10,
         }}
-        data-testid="ai-reply-body"
-        lang={lang}
-      >
-        {draft}
-      </div>
-
-      <p
+      />
+      <div
         style={{
-          margin: 0,
-          fontFamily: "var(--font-mono)",
-          fontSize: 10,
-          color: "var(--color-text-3)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 12,
+          marginTop: 6,
         }}
       >
-        {buildMeta(draft)}
-      </p>
-    </>
-  );
-}
-
-function LangButton({
-  active,
-  onClick,
-  disabled,
-  label,
-}: {
-  active: boolean;
-  onClick: () => void;
-  disabled: boolean;
-  label: string;
-}) {
-  return (
-    <button
-      type="button"
-      aria-pressed={active}
-      onClick={onClick}
-      disabled={disabled}
-      style={{
-        padding: "5px 12px",
-        background: active ? "var(--color-coral)" : "transparent",
-        color: active ? "#fff" : "var(--color-text-2)",
-        border: "none",
-        borderRadius: 999,
-        fontFamily: "var(--font-sans)",
-        fontSize: 12,
-        fontWeight: active ? 600 : 500,
-        cursor: disabled ? "not-allowed" : "pointer",
-        opacity: disabled ? 0.4 : 1,
-        minHeight: 28,
-      }}
-    >
-      {label}
-    </button>
+        <span
+          style={{
+            fontFamily: "var(--font-mono)",
+            fontSize: 10,
+            color: "var(--color-text-3)",
+          }}
+        >
+          {words} words · {text.length} chars
+          {state?.ok ? (
+            <span style={{ color: "var(--color-success, #2d8659)" }}>
+              {" · "}
+              {labels.saved}
+            </span>
+          ) : null}
+        </span>
+        <button
+          type="submit"
+          disabled={pending || !text.trim()}
+          style={{
+            padding: "6px 14px",
+            background: "transparent",
+            color: "var(--color-coral)",
+            border: "1px solid var(--color-coral)",
+            borderRadius: 999,
+            fontFamily: "var(--font-sans)",
+            fontSize: 12,
+            fontWeight: 600,
+            cursor: pending ? "not-allowed" : "pointer",
+            opacity: pending || !text.trim() ? 0.6 : 1,
+          }}
+        >
+          {pending ? `${labels.save}…` : labels.save}
+        </button>
+      </div>
+      {state && !state.ok ? (
+        <div
+          role="status"
+          aria-live="polite"
+          style={{
+            marginTop: 6,
+            fontFamily: "var(--font-mono)",
+            fontSize: 11,
+            color: "#b1462f",
+          }}
+        >
+          {state.error}
+        </div>
+      ) : null}
+    </form>
   );
 }

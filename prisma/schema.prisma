@@ -37,18 +37,18 @@ model User {
   // tracks Stripe's subscription.status verbatim ("active", "past_due",
   // "canceled", etc.); `currentPeriodEnd` is the renewal anchor used for
   // feature gating + grace-period logic.
-  stripeCustomerId        String?   @unique
-  stripeSubscriptionId    String?   @unique
-  stripePlan              String?   // plan literal from modules/billing/plans.ts
-  stripeStatus            String?   // Stripe subscription.status
-  stripePriceId           String?   // current Stripe price id
-  currentPeriodEnd        DateTime?
-  cancelAtPeriodEnd       Boolean   @default(false)
+  stripeCustomerId     String?   @unique
+  stripeSubscriptionId String?   @unique
+  stripePlan           String? // plan literal from modules/billing/plans.ts
+  stripeStatus         String? // Stripe subscription.status
+  stripePriceId        String? // current Stripe price id
+  currentPeriodEnd     DateTime?
+  cancelAtPeriodEnd    Boolean   @default(false)
 
-  accounts      Account[]
-  sessions      Session[]
-  agencyMembers AgencyMember[]
-  ownedBusinesses Business[] @relation("BusinessOwner")
+  accounts        Account[]
+  sessions        Session[]
+  agencyMembers   AgencyMember[]
+  ownedBusinesses Business[]     @relation("BusinessOwner")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -90,6 +90,7 @@ model VerificationToken {
   identifier String
   token      String   @unique
   expires    DateTime
+
   @@unique([identifier, token])
 }
 
@@ -98,54 +99,54 @@ model VerificationToken {
 // ============================================================================
 
 model Agency {
-  id          String  @id @default(cuid())
-  name        String
-  slug        String  @unique
-  domain      String?
-  defaultMetro String?
+  id               String   @id @default(cuid())
+  name             String
+  slug             String   @unique
+  domain           String?
+  defaultMetro     String?
   categoriesServed String[] @default([])
 
   // Plan tier — written by the webhook handler when an agency subscription
   // becomes active (or upgrades / downgrades). Default SOLO covers the
   // pre-billing free state too — feature gating consults `stripeStatus`
   // before treating SOLO as paid.
-  plan        AgencyPlan @default(SOLO)
+  plan AgencyPlan @default(SOLO)
 
   // Stripe billing — agency plans bill against the agency, not the user.
   // See `.claude/rules/security.md` + modules/billing/webhook.ts for the
   // owner-role gate that protects these mutations.
-  stripeCustomerId        String?   @unique
-  stripeSubscriptionId    String?   @unique
-  stripePlan              String?   // plan literal from modules/billing/plans.ts
-  stripeStatus            String?   // Stripe subscription.status
-  stripePriceId           String?   // current Stripe price id
-  currentPeriodEnd        DateTime?
-  cancelAtPeriodEnd       Boolean   @default(false)
+  stripeCustomerId     String?   @unique
+  stripeSubscriptionId String?   @unique
+  stripePlan           String? // plan literal from modules/billing/plans.ts
+  stripeStatus         String? // Stripe subscription.status
+  stripePriceId        String? // current Stripe price id
+  currentPeriodEnd     DateTime?
+  cancelAtPeriodEnd    Boolean   @default(false)
 
-  members     AgencyMember[]
-  lists       List[]
-  leads       Lead[]
-  reports     Report[]
+  members AgencyMember[]
+  lists   List[]
+  leads   Lead[]
+  reports Report[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
 enum AgencyPlan {
-  SOLO        // $49
-  GROWTH      // $99
-  AGENCY_PRO  // $249
-  BOUTIQUE    // $499
+  SOLO // $49
+  GROWTH // $99
+  AGENCY_PRO // $249
+  BOUTIQUE // $499
 }
 
 model AgencyMember {
-  id        String        @id @default(cuid())
-  agencyId  String
-  userId    String
-  role      AgencyMemberRole @default(STAFF)
+  id       String           @id @default(cuid())
+  agencyId String
+  userId   String
+  role     AgencyMemberRole @default(STAFF)
 
-  agency    Agency @relation(fields: [agencyId], references: [id], onDelete: Cascade)
-  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  agency Agency @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   ownedLists List[]
 
@@ -165,88 +166,88 @@ enum AgencyMemberRole {
 // ============================================================================
 
 model Business {
-  id            String   @id @default(cuid())
-  googlePlaceId String?  @unique   // from DataForSEO Maps
-  googleCid     String?  @unique
+  id            String  @id @default(cuid())
+  googlePlaceId String? @unique // from DataForSEO Maps
+  googleCid     String? @unique
 
   // Identity
-  name          String
-  slug          String   @unique
-  category      String           // primary category
-  categories    String[] @default([])
-  address       String?
-  city          String?
-  province      String?  // state for US
-  country       String?
-  postalCode    String?
-  lat           Float?
-  lng           Float?
+  name       String
+  slug       String   @unique
+  category   String // primary category
+  categories String[] @default([])
+  address    String?
+  city       String?
+  province   String? // state for US
+  country    String?
+  postalCode String?
+  lat        Float?
+  lng        Float?
 
   // Contact
-  phone         String?
-  website       String?
-  email         String?  // verified owner email — see emailVerifiedAt
-  emailVerifiedAt DateTime?
-  instagramHandle String?
+  phone              String?
+  website            String?
+  email              String? // verified owner email — see emailVerifiedAt
+  emailVerifiedAt    DateTime?
+  instagramHandle    String?
   instagramFollowers Int?
 
   // Profile state (weekly snapshot of current values)
-  rating        Float?
-  reviewCount   Int?
-  photosCount   Int?
-  hours         Json?    // structured hours (DfS work_time.work_hours.timetable)
-  attributes    Json?    // DfS attributes — accessibility, payments, planning, etc.
-  isClaimed     Boolean  @default(false)
-  isActive      Boolean  @default(true)
+  rating            Float?
+  reviewCount       Int?
+  photosCount       Int?
+  hours             Json? // structured hours (DfS work_time.work_hours.timetable)
+  attributes        Json? // DfS attributes — accessibility, payments, planning, etc.
+  isClaimed         Boolean   @default(false)
+  isActive          Boolean   @default(true)
   firstSeenOnGoogle DateTime?
-  yearsOnGoogle Int?
+  yearsOnGoogle     Int?
 
   // Extended DfS capture · everything the Maps Listings response returns
   // that's worth indexable / queryable on its own. The full raw row is
   // preserved in `sourceRawJson` so any forensic re-extraction is cheap.
-  description           String?    @db.Text  // business bio (long-form)
-  originalTitle         String?              // alt-language title when present
-  featureId             String?              // Google internal feature_id (hex pair · distinct from CID)
-  domain                String?              // pre-extracted host from url
-  logoUrl               String?              // Google-hosted logo
-  mainImageUrl          String?              // primary photo
-  snippet               String?              // short rendered text (usually the address)
-  checkUrl              String?              // direct Google Maps URL for this listing
-  categoryIds           String[]  @default([])  // DfS category slugs (e.g. "medical_spa") — vs `categories[]` which is display names
-  ratingDistribution    Json?                // {1: n, 2: n, 3: n, 4: n, 5: n}
-  placeTopics           Json?                // {keyword: count} extracted by DfS from reviews · gold for review themes
-  peopleAlsoSearch      Json?                // top 5 competitor seeds Google's own algorithm surfaces
-  popularTimes          Json?                // hours-of-day occupancy histogram
-  localBusinessLinks    Json?                // booking, reservations, menu links
-  contactInfo           Json?                // typed contact channels with provenance
-  sourceLastUpdatedAt   DateTime?            // when DfS itself last refreshed this row
-  sourceRawJson         Json?                // entire DfS row · forensic recovery
+  description         String?   @db.Text // business bio (long-form)
+  originalTitle       String? // alt-language title when present
+  featureId           String? // Google internal feature_id (hex pair · distinct from CID)
+  domain              String? // pre-extracted host from url
+  logoUrl             String? // Google-hosted logo
+  mainImageUrl        String? // primary photo
+  snippet             String? // short rendered text (usually the address)
+  checkUrl            String? // direct Google Maps URL for this listing
+  categoryIds         String[]  @default([]) // DfS category slugs (e.g. "medical_spa") — vs `categories[]` which is display names
+  ratingDistribution  Json? // {1: n, 2: n, 3: n, 4: n, 5: n}
+  placeTopics         Json? // {keyword: count} extracted by DfS from reviews · gold for review themes
+  peopleAlsoSearch    Json? // top 5 competitor seeds Google's own algorithm surfaces
+  popularTimes        Json? // hours-of-day occupancy histogram
+  localBusinessLinks  Json? // booking, reservations, menu links
+  contactInfo         Json? // typed contact channels with provenance
+  sourceLastUpdatedAt DateTime? // when DfS itself last refreshed this row
+  sourceRawJson       Json? // entire DfS row · forensic recovery
 
   // Owner (if claimed in Mapsly by their SMB user)
-  ownerUserId   String?
-  owner         User?    @relation("BusinessOwner", fields: [ownerUserId], references: [id])
+  ownerUserId String?
+  owner       User?   @relation("BusinessOwner", fields: [ownerUserId], references: [id])
 
   // Provenance · which path created this row (admin discovery / manual seed /
   // SMB self-claim / future Hunter expand). Defaults to DISCOVERY since that's
   // the production path; manual seeds set it explicitly.
-  source        BusinessSource @default(DISCOVERY)
+  source BusinessSource @default(DISCOVERY)
 
   // Qualification · checked on /admin/discovery
-  qualificationStatus  QualificationStatus  @default(NOT_QUALIFIED)
-  qualificationFlags   String[]             @default([])  // ["unclaimed","low_reviews","no_email","no_website"]
-  qualifiedAt          DateTime?
-  qualifiedByUserId    String?
+  qualificationStatus QualificationStatus @default(NOT_QUALIFIED)
+  qualificationFlags  String[]            @default([]) // ["unclaimed","low_reviews","no_email","no_website"]
+  qualifiedAt         DateTime?
+  qualifiedByUserId   String?
 
   // Email discovery · best candidate found across scrape + RDAP
   emailDiscovered      String?
   emailDiscoverySource EmailDiscoverySource?
   emailDiscoveredAt    DateTime?
-  emailCandidates      Json?  // ranked array [{ email, source, score }, ...]
+  emailCandidates      Json? // ranked array [{ email, source, score }, ...]
 
   // Activity · checked on /admin/activity (separate page)
-  activityStatus       ActivityStatus  @default(NOT_CHECKED)
-  lastReviewAt         DateTime?
-  activityCheckedAt    DateTime?
+  activityStatus          ActivityStatus @default(NOT_CHECKED)
+  lastReviewAt            DateTime?
+  activityCheckedAt       DateTime?
   activityCheckedByUserId String?
 
   // Review collection cursor · drives the qualify→pull hook (R.2) +
@@ -258,31 +259,41 @@ model Business {
   // walks stop as soon as they hit a previously-seen review (no dupes,
   // bounded cost). `pendingReviewsTaskId` holds the DfS Standard-queue
   // task_id while a pull is in-flight · cleared in pingback handler.
-  reviewsFirstPulledAt    DateTime?
-  reviewsLastDeltaAt      DateTime?
-  latestReviewExternalId  String?
-  latestReviewPostedAt    DateTime?
-  pendingReviewsTaskId    String?   @unique
+  reviewsFirstPulledAt   DateTime?
+  reviewsLastDeltaAt     DateTime?
+  latestReviewExternalId String?
+  latestReviewPostedAt   DateTime?
+  pendingReviewsTaskId   String?   @unique
 
   // Search visibility cursor · drives the per-biz ranked_keywords pull
   // (admin trigger + weekly cron). `searchScanLastAt` is updated on
   // every successful scan · used by the cron to pick stalest cell
   // members first. No in-flight task_id field because ranked_keywords
   // is Live (synchronous) · pingbacks don't apply.
-  searchScanLastAt        DateTime?
+  searchScanLastAt DateTime?
+
+  // Ads intelligence (SMB /ads page · ads-rework)
+  // Resolved Facebook Page id (cached once · rarely changes) · lets the Meta
+  // Ad Library actor pull this business's OWN ads precisely via view_all_page_id
+  // instead of noisy keyword search.
+  fbPageId      String?
+  // Freshness cursor for the ads-intelligence scan · the cron picks the
+  // stalest businesses first (mirrors searchScanLastAt).
+  adsScanLastAt DateTime?
 
   // Linked records
-  snapshots     BusinessSnapshot[]
-  reviews       Review[]
-  lighthouseAudits LighthouseAudit[]
-  adLibraryEntries AdLibraryEntry[]
-  serpResults   SerpResult[]
-  businessKeywords BusinessKeyword[]
-  leads         Lead[]
-  services      BusinessService[]
+  snapshots           BusinessSnapshot[]
+  reviews             Review[]
+  lighthouseAudits    LighthouseAudit[]
+  adLibraryEntries    AdLibraryEntry[]
+  serpResults         SerpResult[]
+  businessKeywords    BusinessKeyword[]
+  quickWinAssignments QuickWinAssignment[]
+  leads               Lead[]
+  services            BusinessService[]
 
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
   lastRefreshedAt DateTime?
 
   @@index([category, city])
@@ -292,18 +303,18 @@ model Business {
 }
 
 enum BusinessSource {
-  DISCOVERY        // Admin-triggered discovery run
-  MANUAL_SEED      // One-off seed script (e.g., Solea)
-  ONBOARDING       // SMB self-claim during onboarding (future)
-  HUNTER_EXPAND    // Agency "expand to Google" affordance (future)
+  DISCOVERY // Admin-triggered discovery run
+  MANUAL_SEED // One-off seed script (e.g., Solea)
+  ONBOARDING // SMB self-claim during onboarding (future)
+  HUNTER_EXPAND // Agency "expand to Google" affordance (future)
 }
 
 enum QualificationStatus {
-  NOT_QUALIFIED  // default · never checked
-  QUALIFIED      // claimed + ≥10 reviews + email found
-  DISQUALIFIED   // fails ≥1 criterion but reachable
-  UNREACHABLE    // no email + no website
-  FAILED         // qualification call errored
+  NOT_QUALIFIED // default · never checked
+  QUALIFIED // claimed + ≥10 reviews + email found
+  DISQUALIFIED // fails ≥1 criterion but reachable
+  UNREACHABLE // no email + no website
+  FAILED // qualification call errored
 }
 
 enum EmailDiscoverySource {
@@ -324,9 +335,9 @@ enum EmailDiscoverySource {
 
 enum ActivityStatus {
   NOT_CHECKED
-  ACTIVE        // ≥1 review in last 90 days
-  STALE         // last review older than 90 days
-  NO_REVIEWS    // never reviewed
+  ACTIVE // ≥1 review in last 90 days
+  STALE // last review older than 90 days
+  NO_REVIEWS // never reviewed
   FAILED
 }
 
@@ -337,32 +348,32 @@ enum ActivityStatus {
 // and per-service website page checks. See `.claude/rules/ui-ux-smb.md`
 // and the SMB portal restructure (v0.8.x).
 model BusinessService {
-  id          String   @id @default(cuid())
-  businessId  String
-  business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  id         String   @id @default(cuid())
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
 
   // Display
-  name        String              // "Botox", "Lip filler", "Brow lamination"
-  category    String?             // "Injectables", "Skin care" — optional grouping
-  description String?  @db.Text  // Optional context for AI (review theming, ad analysis)
+  name        String // "Botox", "Lip filler", "Brow lamination"
+  category    String? // "Injectables", "Skin care" — optional grouping
+  description String? @db.Text // Optional context for AI (review theming, ad analysis)
 
   // Ordering + state
-  sortOrder   Int      @default(0)
-  isActive    Boolean  @default(true)
+  sortOrder Int     @default(0)
+  isActive  Boolean @default(true)
 
   // Provenance · "manual" (Maria typed it), "auto:google" (Google Business
   // category), "auto:dom" (extracted from her website). Auto entries can be
   // suppressed by setting isActive=false rather than deleted, so the
   // detector doesn't re-add them on the next cron pass.
-  source      String   @default("manual")
+  source String @default("manual")
 
   // Last time this service was mentioned in any Review row · updated by
   // R.4 service-mention extractor. Drives "stale service" tips on /reviews
   // (e.g. "Filler hasn't been mentioned in 4 months — consider promoting").
   lastMentionedAt DateTime?
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([businessId, sortOrder])
   @@index([businessId, isActive])
@@ -379,22 +390,22 @@ model BusinessSnapshot {
   photosCount     Int?
   replyRate       Float?
   velocityLast30d Int?
-  mapslyScore     Float?  // 0-10 composite
-  msiRank         Int?    // rank in metro
+  mapslyScore     Float? // 0-10 composite
+  msiRank         Int? // rank in metro
   msiTotal        Int?
   hoursPerWeek    Int?
 
   // Per-dimension sub-scores (denormalized for trend queries)
-  reputationScore   Float?
-  communicationScore Float?
+  reputationScore          Float?
+  communicationScore       Float?
   profileCompletenessScore Float?
-  trustScore        Float?
+  trustScore               Float?
   pricingTransparencyScore Float?
-  brandPresenceScore Float?
+  brandPresenceScore       Float?
 
-  raw           Json?    // full source payload for replay
+  raw Json? // full source payload for replay
 
-  business     Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
 
   @@unique([businessId, snapshotDate])
   @@index([businessId, snapshotDate])
@@ -405,29 +416,34 @@ model BusinessSnapshot {
 // ============================================================================
 
 model Review {
-  id           String   @id @default(cuid())
-  businessId   String
-  externalId   String?  // Google review ID
-  reviewerName String   // anonymized to initials
+  id                     String    @id @default(cuid())
+  businessId             String
+  externalId             String? // Google review ID
+  reviewerName           String // anonymized to initials
   reviewerProfileReviews Int? // signal of trustworthiness
-  stars        Int
-  text         String?  @db.Text
-  language     String?  // 'en' / 'es' / etc.
-  postedAt     DateTime
-  ownerReplied Boolean  @default(false)
-  ownerReplyText String? @db.Text
-  ownerReplyAt DateTime?
+  stars                  Int
+  text                   String?   @db.Text
+  language               String? // 'en' / 'es' / etc.
+  postedAt               DateTime
+  ownerReplied           Boolean   @default(false)
+  ownerReplyText         String?   @db.Text
+  ownerReplyAt           DateTime?
 
   // Sentiment is now derived from stars at upsert time (1-2 = NEGATIVE,
   // 3 = NEUTRAL, 4-5 = POSITIVE) via modules/reviews/sentiment-from-stars.
   // The classifier in services/ai/sentiment.ts is retired from the runtime
   // path; star-based mapping is free, instant, and equally useful for the
   // /reviews tabs (Negative / Replied / All / Unanswered).
-  sentiment    ReviewSentiment?
-  themes       String[] @default([]) // AI-extracted theme tags
-  isUrgent     Boolean  @default(false) // 1★ unanswered > 7d
-  aiReplyDraftEn String? @db.Text
-  aiReplyDraftEs String? @db.Text
+  sentiment      ReviewSentiment?
+  themes         String[]         @default([]) // AI-extracted theme tags
+  isUrgent       Boolean          @default(false) // 1★ unanswered > 7d
+  aiReplyDraftEn String?          @db.Text
+  aiReplyDraftEs String?          @db.Text
+
+  // Owner clicked "Skip" on the /reviews page → moves the review to the
+  // Skipped tab. Cleared (superseded) once a real owner reply lands
+  // (ownerReplied=true), which takes precedence and shows it under Replied.
+  skippedAt DateTime?
 
   // R.4 · AI-extracted entities. Populated by services/ai/extract-entities
   // during the daily backfill cron (modules/reviews/extract-entities-backfill).
@@ -442,9 +458,9 @@ model Review {
   mentionedServices   String[]  @default([])
   entitiesExtractedAt DateTime?
 
-  business     Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
 
-  collectedAt  DateTime @default(now())
+  collectedAt DateTime @default(now())
 
   @@unique([businessId, externalId])
   @@index([businessId, postedAt])
@@ -467,24 +483,32 @@ enum ReviewSentiment {
 // ============================================================================
 
 model LighthouseAudit {
-  id           String   @id @default(cuid())
-  businessId   String
-  auditedAt    DateTime @default(now())
+  id         String   @id @default(cuid())
+  businessId String
+  auditedAt  DateTime @default(now())
 
-  performance     Float? // 0-100
-  accessibility   Float?
-  bestPractices   Float?
-  seo             Float?
-  pwa             Float?
+  performance   Float? // 0-100
+  accessibility Float?
+  bestPractices Float?
+  seo           Float?
+  pwa           Float?
 
   // Core Web Vitals
-  lcp             Float? // seconds
-  cls             Float?
-  inp             Float? // ms
-  fcp             Float?
-  tbt             Float?
-  ttfb            Float?
-  totalBytes      Int?
+  lcp        Float? // seconds
+  cls        Float?
+  inp        Float? // ms
+  fcp        Float?
+  tbt        Float?
+  ttfb       Float?
+  totalBytes Int?
+
+  // Desktop preset scores (the set above is mobile — the primary view).
+  // Populated when the audit runs the second, desktop Lighthouse pass; null
+  // on mobile-only / pre-existing audits.
+  desktopPerformance Float?
+  desktopLcp         Float? // seconds
+  desktopInp         Float? // ms
+  desktopCls         Float?
 
   // Custom DOM checks
   hasLocalBusinessSchema Boolean?
@@ -492,11 +516,15 @@ model LighthouseAudit {
   hasBookingCtaAboveFold Boolean?
   hasPhoneAboveFold      Boolean?
   napConsistent          Boolean?
+  // True when the page's content is present in the raw (pre-JS) HTML — a
+  // crawler that doesn't execute JS still sees it. False = JS-only shell
+  // (Google-indexing risk). Null when the DOM-fetch leg failed.
+  contentWithoutJs       Boolean?
 
   // Tech stack (Wappalyzer)
-  techStack       String[] @default([])
+  techStack String[] @default([])
 
-  business     Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
 
   @@index([businessId, auditedAt])
 }
@@ -506,38 +534,54 @@ model LighthouseAudit {
 // ============================================================================
 
 model AdLibraryEntry {
-  id           String   @id @default(cuid())
+  id           String     @id @default(cuid())
   businessId   String?
   platform     AdPlatform
-  externalAdId String   @unique // Meta Ad ID or Google Transparency ID
+  externalAdId String     @unique // Meta Ad ID or Google Transparency ID
 
-  adCreativeBody String? @db.Text
-  landingUrl    String?
-  startedAt     DateTime?
-  endedAt       DateTime?
-  isActive      Boolean  @default(true)
+  adCreativeBody String?   @db.Text
+  landingUrl     String?
+  startedAt      DateTime?
+  endedAt        DateTime?
+  isActive       Boolean   @default(true)
 
   // Targeting
-  targetGeo     String?
-  targetGender  String?
-  targetAgeMin  Int?
-  targetAgeMax  Int?
+  targetGeo    String?
+  targetGender String?
+  targetAgeMin Int?
+  targetAgeMax Int?
 
   // Estimated metrics
-  impressionsMid Int?    // midpoint of banded estimate
+  impressionsMid Int? // midpoint of banded estimate
   spendMidLow    Float?
   spendMidHigh   Float?
 
   // Keyword-lane match (for "off-keyword" flag)
   matchedKeyword String?
 
-  business     Business? @relation(fields: [businessId], references: [id], onDelete: SetNull)
+  // Advertiser + creative detail · populated by the Apify Meta actor and the
+  // DataForSEO Google ads_search adapter so the SMB /ads page can render
+  // competitor ad cards (who · on what platforms · what the creative looks like).
+  advertiserName       String? // competitor display name
+  advertiserExternalId String? // Google Transparency advertiser_id / Meta page owner
+  pageId               String? // Facebook Page id (Meta)
+  displayFormat        String? // text | image | video
+  previewImageUrl      String? // creative thumbnail
+  linkTitle            String?
+  linkCaption          String?
+  ctaText              String?
+  platforms            String[] @default([]) // META: FACEBOOK/INSTAGRAM/THREADS/MESSENGER/AUDIENCE_NETWORK
+  collationCount       Int? // # of near-identical creatives grouped
 
-  firstSeenAt   DateTime @default(now())
-  lastSeenAt    DateTime @default(now())
+  business Business? @relation(fields: [businessId], references: [id], onDelete: SetNull)
+
+  firstSeenAt DateTime @default(now())
+  lastSeenAt  DateTime @default(now())
 
   @@index([businessId, platform])
+  @@index([businessId, isActive])
   @@index([matchedKeyword])
+  @@index([advertiserExternalId])
 }
 
 enum AdPlatform {
@@ -546,33 +590,110 @@ enum AdPlatform {
   TIKTOK
 }
 
+// One advertiser observed in a (category, city, country) MARKET CELL via the
+// Meta Ad Library service-keyword search (e.g. "botox miami"). This is the
+// market-intelligence layer for the SMB /ads page — who's advertising for a
+// service in a city, on which platforms, with what creatives — collected ONCE
+// per cell and shared across every business in it (the same cell-dedup pattern
+// as keyword costs + SERP). Distinct from AdLibraryEntry, which is per-business.
+model AdMarketAdvertiser {
+  id String @id @default(cuid())
+
+  // Market cell (matches Business.category / city / country).
+  category     String
+  city         String
+  country      String
+  locationCode Int // DataForSEO location code · cell-key parity with Keyword/SERP
+
+  platform AdPlatform @default(META)
+
+  // The advertiser, from the Ad Library.
+  pageId        String // FB Page id — the stable advertiser key
+  pageName      String
+  handle        String? // @handle (from linkUrl / profile uri) when captured
+  followerCount Int?
+  pageCategory  String? // e.g. "Medical Spa"
+
+  // Aggregate presence in this cell.
+  activeAdCount   Int       @default(0)
+  platforms       String[]  @default([]) // union across their ads: FACEBOOK/INSTAGRAM/…
+  matchedServices String[]  @default([]) // which searched services surfaced them
+  runningSince    DateTime?
+
+  // Up to ~6 representative creatives for the gallery + (later · P5) AI analysis.
+  // [{ externalAdId, body, previewUrl, format, landingUrl, platforms, startedAt }]
+  creatives Json?
+
+  // If this advertiser is one of our indexed businesses (matched by pageId /
+  // handle / name), link it so we can flag "you" + dedup against AdLibraryEntry.
+  matchedBusinessId String?
+
+  firstSeenAt DateTime @default(now())
+  lastSeenAt  DateTime @default(now())
+  isActive    Boolean  @default(true)
+
+  @@unique([category, city, country, platform, pageId])
+  @@index([category, city, country, isActive])
+  @@index([matchedBusinessId])
+  @@index([pageId])
+}
+
+// AI-derived, rule-bounded analysis of a market cell's Meta creatives (offers,
+// formats, angles + a few suggestions). ONE row per cell, generated in the
+// collection pipeline (cron/manual · cost-gated), read by the SMB /ads Meta
+// block. Never generated in the user request path. See services/ai/ad-creative-insights.
+model AdMarketInsight {
+  id           String     @id @default(cuid())
+  category     String
+  city         String
+  country      String
+  platform     AdPlatform @default(META)
+  // AI-extracted, rule-bounded. serviceMix: [{ service, ads }] · promos:
+  // [{ label, offer, price }]. Deterministic numbers (% video, platform spread,
+  // personalized gaps) are computed in the query layer, NOT stored here.
+  serviceMix   Json
+  promos       Json
+  creativesAnalyzed Int    @default(0)
+  model        String?
+  generatedAt  DateTime   @default(now())
+
+  @@unique([category, city, country, platform])
+  @@index([category, city, country])
+}
+
 // ============================================================================
 // SERP / SEARCH VISIBILITY · weekly per tracked keyword × tracked business
 // ============================================================================
 
 model Keyword {
-  id           String   @id @default(cuid())
+  id           String @id @default(cuid())
   keyword      String
-  locationCode Int      // DataForSEO location code
-  language     String   @default("en")
+  locationCode Int // DataForSEO location code
+  language     String @default("en")
 
   // Search volume + cost · sourced from ranked_keywords response
   // (no separate monthly batch · S.1 plan v2)
-  searchVolume Int?
-  cpc          Float?
-  competition  String?  // LOW / MEDIUM / HIGH
+  searchVolume     Int?
+  cpc              Float?
+  competition      String? // LOW / MEDIUM / HIGH
   competitionIndex Int?
+  // Top-of-page bid range (USD) · from google_ads search_volume · the "what
+  // ads cost" layer for the SMB /ads page. Market-level (per keyword+location),
+  // shared across every business in a city cell (see ads-rework dedup rule).
+  lowTopOfPageBid  Float?
+  highTopOfPageBid Float?
 
   // Monthly-refreshed trend · DEPRECATED in S.1 plan v2 · kept for
   // backwards compat with the old monthly cron which we may retire.
   trend12Month Json?
 
-  serpResults      SerpResult[]
-  businessKeywords BusinessKeyword[]
+  serpResults         SerpResult[]
+  businessKeywords    BusinessKeyword[]
+  quickWinAssignments QuickWinAssignment[]
 
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  refreshedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  refreshedAt DateTime?
 
   @@unique([keyword, locationCode, language])
 }
@@ -589,9 +710,9 @@ model Keyword {
 /// (business × keyword) pair · keeps the per-row admin/SMB table query
 /// to a single SELECT without a JOIN.
 model BusinessKeyword {
-  id           String   @id @default(cuid())
-  businessId   String
-  keywordId    String
+  id         String @id @default(cuid())
+  businessId String
+  keywordId  String
 
   /// Where this row came from.
   ///   "ranked"    — legacy · DfS ranked_keywords portfolio (S.1)
@@ -599,7 +720,7 @@ model BusinessKeyword {
   ///                 (industry × city × services). Source the SMB
   ///                 /search page reads. Maria-facing.
   ///   "manual"    — admin add (reserved)
-  source       String   @default("ranked")
+  source         String  @default("ranked")
   /// For source="template" rows, which template bucket produced this
   /// keyword. NULL for legacy "ranked" rows.
   ///   "core"      — always-on per industry (e.g. "med spa calgary")
@@ -608,69 +729,106 @@ model BusinessKeyword {
   templateOrigin String?
 
   // Latest cached ranks · refreshed by discovery + cell-aggregate
-  latestOrganicRank   Int?
-  latestMapsRank      Int?
-  latestLandingUrl    String?
+  latestOrganicRank      Int?
+  latestMapsRank         Int?
+  latestLandingUrl       String?
   /// DfS `estimated_paid_traffic_cost` — what the equivalent paid traffic
   /// would cost at this rank. Source of truth for the "Traffic value" /
   /// "Customers/mo" column. Falls back to (sv × cpc × CTR-curve) for
   /// pre-v0.12.11 rows until the next weekly cron refresh.
-  latestEstTrafficUsd Float?
+  latestEstTrafficUsd    Float?
   /// DfS `etv` — estimated monthly clicks (visits) at this rank. Source
   /// of truth for the "visits" headline. NULL for pre-v0.12.11 rows;
   /// queries layer falls back to (sv × CTR-curve) until next cron.
   latestEstMonthlyVisits Float?
-  latestScanAt        DateTime?
+  latestScanAt           DateTime?
 
   // ranked_keywords delta flags · captured per scan so the UI can show
   // "↑12 improved · ↓5 dropped · 3 new" without recomputing.
-  isNew        Boolean  @default(false)
-  isUp         Boolean  @default(false)
-  isDown       Boolean  @default(false)
-  isLost       Boolean  @default(false)
+  isNew  Boolean @default(false)
+  isUp   Boolean @default(false)
+  isDown Boolean @default(false)
+  isLost Boolean @default(false)
 
-  business     Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  keyword      Keyword  @relation(fields: [keywordId], references: [id], onDelete: Cascade)
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  keyword  Keyword  @relation(fields: [keywordId], references: [id], onDelete: Cascade)
 
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([businessId, keywordId])
-  @@index([businessId, latestEstTrafficUsd])  // sort table by value desc
-  @@index([keywordId])                         // cell-aggregate lookup
+  @@index([businessId, latestEstTrafficUsd]) // sort table by value desc
+  @@index([keywordId]) // cell-aggregate lookup
+}
+
+/// Weekly Quick-Win assignments per business · S.6.5 (2026-05-28).
+///
+/// Each row = "this keyword was offered to this business as one of
+/// the up-to-3 quick-win cards for the week starting Monday weekStart".
+///
+/// Why a separate table:
+///   - Maria sees up to 3 fresh cards per week. Last week's set is
+///     replaced with a new one even if she didn't act. The history
+///     here lets us avoid suggesting the same keyword 4 weeks in a
+///     row (rolling exclusion window).
+///   - Decouples picking (when the cron or page render assigns) from
+///     showing (the page just reads the current week's row set).
+model QuickWinAssignment {
+  id           String   @id @default(cuid())
+  businessId   String
+  keywordId    String
+  /// Monday 00:00 UTC of the assignment week.
+  weekStart    DateTime
+  /// Which surface drove the qualification · "maps" (she's fringe
+  /// in Maps Pack 4-10) or "search" (only organic 4-10 fringe).
+  /// Drives the chip on the card + which i18n key set we render.
+  surface      String
+  /// Snapshot of the estimated customers/mo if she reached top 3
+  /// for this keyword at assignment time. Carried with the assignment
+  /// so the card's impact number doesn't drift even if rank/volume
+  /// shifts mid-week.
+  estCustomers Int
+  createdAt    DateTime @default(now())
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  keyword  Keyword  @relation(fields: [keywordId], references: [id], onDelete: Cascade)
+
+  @@unique([businessId, weekStart, keywordId])
+  @@index([businessId, weekStart])
+  @@index([businessId, keywordId, weekStart]) // rolling-exclusion lookup
 }
 
 model SerpResult {
-  id           String   @id @default(cuid())
-  keywordId    String
-  businessId   String?  // nullable — could be a competitor not in our index yet
-  scannedAt    DateTime @default(now())
+  id         String   @id @default(cuid())
+  keywordId  String
+  businessId String? // nullable — could be a competitor not in our index yet
+  scannedAt  DateTime @default(now())
 
   /// Which surface this rank is for · ORGANIC = Google web search,
   /// MAPS = Google Maps 3-pack / Local Finder. Same keyword can have
   /// both kinds of rank · one row per kind per scan.
-  kind         SerpResultKind @default(ORGANIC)
+  kind SerpResultKind @default(ORGANIC)
 
-  localPackRank Int?     // 1-3 in the 3-pack, null if not in pack
-  organicRank   Int?     // organic position
-  organicAbsRank Int?    // absolute including ads
-  landingUrl    String?
+  localPackRank  Int? // 1-3 in the 3-pack, null if not in pack
+  organicRank    Int? // organic position
+  organicAbsRank Int? // absolute including ads
+  landingUrl     String?
 
   // Top 3 in local pack (for competitive view)
-  pack1Name    String?
-  pack2Name    String?
-  pack3Name    String?
+  pack1Name String?
+  pack2Name String?
+  pack3Name String?
 
   // Brand hijack flag — for "search business name" type queries
-  isBrandQuery Boolean  @default(false)
-  paidBidders  Json?    // [{ advertiserDomain, headline }]
+  isBrandQuery Boolean @default(false)
+  paidBidders  Json? // [{ advertiserDomain, headline }]
 
-  keyword      Keyword  @relation(fields: [keywordId], references: [id], onDelete: Cascade)
-  business     Business? @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  keyword  Keyword   @relation(fields: [keywordId], references: [id], onDelete: Cascade)
+  business Business? @relation(fields: [businessId], references: [id], onDelete: Cascade)
 
   @@index([keywordId, scannedAt])
   @@index([businessId, scannedAt])
-  @@index([businessId, kind, scannedAt])  // per-surface trend queries
+  @@index([businessId, kind, scannedAt]) // per-surface trend queries
 }
 
 enum SerpResultKind {
@@ -683,31 +841,31 @@ enum SerpResultKind {
 // ============================================================================
 
 model List {
-  id           String   @id @default(cuid())
-  agencyId     String
+  id            String @id @default(cuid())
+  agencyId      String
   ownerMemberId String
 
-  name         String
-  serviceType  ListServiceType
-  pitch        String?  @db.Text
-  filterJson   Json     // serialized filter expression
-  refreshCadence ListCadence @default(WEEKLY)
-  isActive     Boolean  @default(true)
+  name           String
+  serviceType    ListServiceType
+  pitch          String?         @db.Text
+  filterJson     Json // serialized filter expression
+  refreshCadence ListCadence     @default(WEEKLY)
+  isActive       Boolean         @default(true)
 
   // Target market
-  category     String?
-  metro        String?
-  radiusMi     Int?
+  category String?
+  metro    String?
+  radiusMi Int?
 
-  agency       Agency       @relation(fields: [agencyId], references: [id], onDelete: Cascade)
-  owner        AgencyMember @relation(fields: [ownerMemberId], references: [id])
-  leads        Lead[]
-  refreshes    ListRefresh[]
+  agency    Agency        @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  owner     AgencyMember  @relation(fields: [ownerMemberId], references: [id])
+  leads     Lead[]
+  refreshes ListRefresh[]
 
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
   lastRefreshedAt DateTime?
-  pausedAt     DateTime?
+  pausedAt        DateTime?
 }
 
 enum ListServiceType {
@@ -735,38 +893,38 @@ model ListRefresh {
 
   matchesBefore Int
   matchesAfter  Int
-  added         Int     // new qualifying businesses
-  removed       Int     // de-qualified
+  added         Int // new qualifying businesses
+  removed       Int // de-qualified
 
-  list        List     @relation(fields: [listId], references: [id], onDelete: Cascade)
+  list List @relation(fields: [listId], references: [id], onDelete: Cascade)
 
   @@index([listId, refreshedAt])
 }
 
 model Lead {
-  id           String   @id @default(cuid())
-  listId       String
-  agencyId     String
-  businessId   String
+  id         String @id @default(cuid())
+  listId     String
+  agencyId   String
+  businessId String
 
-  status       LeadStatus @default(NEW)
-  statusChangedAt DateTime @default(now())
-  notes        String?  @db.Text
-  matchScore   Float?
+  status          LeadStatus @default(NEW)
+  statusChangedAt DateTime   @default(now())
+  notes           String?    @db.Text
+  matchScore      Float?
 
   // Closed-loop tracking (for analytics)
-  contactedAt  DateTime?
-  repliedAt    DateTime?
-  wonAt        DateTime?
-  lostAt       DateTime?
-  lostReason   String?
+  contactedAt DateTime?
+  repliedAt   DateTime?
+  wonAt       DateTime?
+  lostAt      DateTime?
+  lostReason  String?
 
-  list         List     @relation(fields: [listId], references: [id], onDelete: Cascade)
-  agency       Agency   @relation(fields: [agencyId], references: [id], onDelete: Cascade)
-  business     Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  list     List     @relation(fields: [listId], references: [id], onDelete: Cascade)
+  agency   Agency   @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
 
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([listId, businessId])
   @@index([agencyId, status])
@@ -786,23 +944,23 @@ enum LeadStatus {
 // ============================================================================
 
 model Report {
-  id           String   @id @default(cuid())
-  agencyId     String
-  businessId   String?  // null for list-level reports
-  listId       String?
+  id         String  @id @default(cuid())
+  agencyId   String
+  businessId String? // null for list-level reports
+  listId     String?
 
-  type         ReportType
-  status       ReportStatus @default(READY)
-  publicShareId String?  @unique // for shareable links
+  type           ReportType
+  status         ReportStatus @default(READY)
+  publicShareId  String?      @unique // for shareable links
   shareExpiresAt DateTime?
 
-  storageUrl   String?  // for PDF / CSV in Vercel Blob
-  meta         Json?    // generation params
+  storageUrl String? // for PDF / CSV in Vercel Blob
+  meta       Json? // generation params
 
-  agency       Agency   @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  agency Agency @relation(fields: [agencyId], references: [id], onDelete: Cascade)
 
-  createdAt    DateTime @default(now())
-  viewCount    Int      @default(0)
+  createdAt DateTime @default(now())
+  viewCount Int      @default(0)
 }
 
 enum ReportType {
@@ -823,15 +981,15 @@ enum ReportStatus {
 // ============================================================================
 
 model CronRun {
-  id          String   @id @default(cuid())
-  job         String
-  startedAt   DateTime @default(now())
-  finishedAt  DateTime?
-  status      CronRunStatus @default(RUNNING)
-  itemsProcessed Int   @default(0)
-  costUsd     Float?
-  errorMessage String? @db.Text
-  meta        Json?
+  id             String        @id @default(cuid())
+  job            String
+  startedAt      DateTime      @default(now())
+  finishedAt     DateTime?
+  status         CronRunStatus @default(RUNNING)
+  itemsProcessed Int           @default(0)
+  costUsd        Float?
+  errorMessage   String?       @db.Text
+  meta           Json?
 
   @@index([job, startedAt])
 }
@@ -849,81 +1007,81 @@ enum CronRunStatus {
 // ============================================================================
 
 model TaskGroup {
-  id          String  @id            // "A" "B.smb-portal" — domain-flavored
-  name        String                  // "Foundation" · "SMB portal" · "Data collection"
-  description String? @db.Text
+  id          String     @id // "A" "B.smb-portal" — domain-flavored
+  name        String // "Foundation" · "SMB portal" · "Data collection"
+  description String?    @db.Text
   domain      TaskDomain
-  sortOrder   Int     @default(0)
-  ownerUrl    String? @db.Text        // dev surface for this group (e.g. /dev/tasks?group=E)
+  sortOrder   Int        @default(0)
+  ownerUrl    String?    @db.Text // dev surface for this group (e.g. /dev/tasks?group=E)
   targetDate  DateTime?
-  notes       String? @db.Text
+  notes       String?    @db.Text
 
-  tasks       Task[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  tasks     Task[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([domain, sortOrder])
 }
 
 enum TaskDomain {
-  FOUNDATION       // CI, deploy, schema, auth, dev dashboard
-  MARKETING        // public landing, SEO, sign-in
-  DATA             // external APIs, crons, cache, cost tracking
-  COMPUTE          // scoring, MSI, signal vocab, AI
-  SMB_PORTAL       // Maria's portal pages
-  AGENCY_PORTAL    // Tom's portal pages
-  BILLING          // Stripe, plans, tier enforcement
-  OPS              // dev dashboard, task tracker, incident system, observability
-  I18N             // locales, translations, hreflang
+  FOUNDATION // CI, deploy, schema, auth, dev dashboard
+  MARKETING // public landing, SEO, sign-in
+  DATA // external APIs, crons, cache, cost tracking
+  COMPUTE // scoring, MSI, signal vocab, AI
+  SMB_PORTAL // Maria's portal pages
+  AGENCY_PORTAL // Tom's portal pages
+  BILLING // Stripe, plans, tier enforcement
+  OPS // dev dashboard, task tracker, incident system, observability
+  I18N // locales, translations, hreflang
 }
 
 model Task {
-  id              String     @id     // free-form ID — kept human-readable e.g. "A.1" "smb.dashboard.kpi"
-  groupId         String
-  group           TaskGroup  @relation(fields: [groupId], references: [id])
+  id      String    @id // free-form ID — kept human-readable e.g. "A.1" "smb.dashboard.kpi"
+  groupId String
+  group   TaskGroup @relation(fields: [groupId], references: [id])
 
-  title           String     @db.Text
-  description     String?    @db.Text  // user story + acceptance criteria
-  effort          String?    // "S" | "M" | "L" | "XL"
-  status          TaskStatus @default(PENDING)
-  priority        Int        @default(50) // 0=highest, 100=lowest · controls loop pick order
-  deps            String?    // comma-separated task IDs
-  tags            String?    // comma-separated tags
-  sortOrder       Int        @default(0) // order within the group
+  title       String     @db.Text
+  description String?    @db.Text // user story + acceptance criteria
+  effort      String? // "S" | "M" | "L" | "XL"
+  status      TaskStatus @default(PENDING)
+  priority    Int        @default(50) // 0=highest, 100=lowest · controls loop pick order
+  deps        String? // comma-separated task IDs
+  tags        String? // comma-separated tags
+  sortOrder   Int        @default(0) // order within the group
 
   // Last-run summary (denormalized for fast list rendering)
-  scoreAvg        Float?
-  scoreCompletion Int?
-  scoreQuality    Int?
-  scoreAudience   Int?
-  scoreRelevance  Int?
+  scoreAvg         Float?
+  scoreCompletion  Int?
+  scoreQuality     Int?
+  scoreAudience    Int?
+  scoreRelevance   Int?
   scorePerformance Int?
-  lastPrNumber    Int?
-  lastPrUrl       String?    @db.Text
-  lastCommitSha   String?
-  lastSessionId   String?    // owner during IN_PROGRESS, last completer otherwise
+  lastPrNumber     Int?
+  lastPrUrl        String? @db.Text
+  lastCommitSha    String?
+  lastSessionId    String? // owner during IN_PROGRESS, last completer otherwise
 
-  notes           String?    @db.Text
+  notes String? @db.Text
 
   // Pre-computed task context (v0.7.0 · saves ~15 turns/tick by avoiding
   // runtime grep/match for related files, INCs, rules). Populated when
   // Task is created or modified — see scripts/compute-task-context.ts.
   // Loop's STEP 3 returns this inline; STEP 4 reads it instead of
   // re-deriving via subagent.
-  contextBundle   Json?
+  contextBundle Json?
 
   // Parallelism control (H.12)
-  parallelLane    String?    // "auth" | "data" | "compute" | "smb-ui" | "agency-ui" | "billing" | "ops" | "i18n" | "shared"
-  independent     Boolean    @default(false)   // can run alongside ANY other task
-  filesPlanned    String?    @db.Text          // JSON array of file paths the task will touch
+  parallelLane String? // "auth" | "data" | "compute" | "smb-ui" | "agency-ui" | "billing" | "ops" | "i18n" | "shared"
+  independent  Boolean @default(false) // can run alongside ANY other task
+  filesPlanned String? @db.Text // JSON array of file paths the task will touch
 
-  createdAt       DateTime   @default(now())
-  updatedAt       DateTime   @updatedAt
-  startedAt       DateTime?
-  completedAt     DateTime?
-  failureCount    Int        @default(0)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  startedAt    DateTime?
+  completedAt  DateTime?
+  failureCount Int       @default(0)
 
-  runs            TaskRun[]
+  runs TaskRun[]
 
   @@index([status, groupId, sortOrder])
   @@index([parallelLane, status])
@@ -942,13 +1100,13 @@ enum TaskStatus {
 
 // Per-attempt audit trail · one row per time the loop touches the task
 model TaskRun {
-  id             String   @id @default(cuid())
-  taskId         String
-  task           Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  sessionId      String                            // links to autonomous-build-loop session
-  startedAt      DateTime @default(now())
-  finishedAt     DateTime?
-  outcome        TaskRunOutcome @default(IN_PROGRESS)
+  id         String         @id @default(cuid())
+  taskId     String
+  task       Task           @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  sessionId  String // links to autonomous-build-loop session
+  startedAt  DateTime       @default(now())
+  finishedAt DateTime?
+  outcome    TaskRunOutcome @default(IN_PROGRESS)
 
   // Scoring
   scoreCompletion  Int?
@@ -959,14 +1117,14 @@ model TaskRun {
   scoreAggregate   Float?
 
   // Shipping
-  branchName     String?
-  prNumber       Int?
-  prUrl          String?  @db.Text
-  commitSha      String?
-  filesChanged   String?  @db.Text     // JSON array of file paths
-  linesAdded     Int?
-  linesDeleted   Int?
-  testsAdded     Int      @default(0)
+  branchName   String?
+  prNumber     Int?
+  prUrl        String? @db.Text
+  commitSha    String?
+  filesChanged String? @db.Text // JSON array of file paths
+  linesAdded   Int?
+  linesDeleted Int?
+  testsAdded   Int     @default(0)
 
   // Resume chain · when this run continued from a prior INCOMPLETE run
   resumedFromRunId String?
@@ -977,28 +1135,28 @@ model TaskRun {
   lighthousePassed Boolean?
 
   // Audit trail
-  agentsUsed       String?  @db.Text   // JSON array of agent names invoked
-  skillsUsed       String?  @db.Text   // JSON array of skill names invoked
-  rulesConsulted   String?  @db.Text   // JSON array of rule file paths read
-  mcpsUsed         String?  @db.Text   // JSON array of MCP server names
+  agentsUsed     String? @db.Text // JSON array of agent names invoked
+  skillsUsed     String? @db.Text // JSON array of skill names invoked
+  rulesConsulted String? @db.Text // JSON array of rule file paths read
+  mcpsUsed       String? @db.Text // JSON array of MCP server names
 
   // Cost / scale
-  tokensInput      Int?
-  tokensOutput     Int?
-  costUsd          Float?
-  durationSec      Int?
+  tokensInput  Int?
+  tokensOutput Int?
+  costUsd      Float?
+  durationSec  Int?
 
   // Failure + learning
-  incidentsLogged  String?  @db.Text   // JSON array of INC- IDs
-  errorMessage     String?  @db.Text
+  incidentsLogged String? @db.Text // JSON array of INC- IDs
+  errorMessage    String? @db.Text
 
   // Validation strategy + outcomes (see .claude/rules/validation.md)
-  validationStrategy String? @db.Text  // JSON: which modes were chosen + why
-  validationOutcomes String? @db.Text  // JSON: per-mode pass/fail + counts
-  validationNotes    String? @db.Text  // free-form reasoning chain
-  screenshotsUrls    String? @db.Text  // JSON array of dev-validation screenshots
-  testsAddedFiles    String? @db.Text  // JSON array of new test file paths
-  toolsInstalled     String? @db.Text  // JSON array of pkg names temporarily added
+  validationStrategy String? @db.Text // JSON: which modes were chosen + why
+  validationOutcomes String? @db.Text // JSON: per-mode pass/fail + counts
+  validationNotes    String? @db.Text // free-form reasoning chain
+  screenshotsUrls    String? @db.Text // JSON array of dev-validation screenshots
+  testsAddedFiles    String? @db.Text // JSON array of new test file paths
+  toolsInstalled     String? @db.Text // JSON array of pkg names temporarily added
 
   @@index([taskId, startedAt])
   @@index([sessionId])
@@ -1013,7 +1171,7 @@ enum TaskRunOutcome {
   FAILED
   ABORTED
   SKIPPED
-  INCOMPLETE   // hit token quota mid-task · resumable next session
+  INCOMPLETE // hit token quota mid-task · resumable next session
 }
 
 // ============================================================================
@@ -1022,17 +1180,17 @@ enum TaskRunOutcome {
 // ============================================================================
 
 model Notification {
-  id          String   @id @default(cuid())
-  level       NotificationLevel @default(INFO)
-  category    String   // "loop" | "merge" | "incident" | "cost" | "blocker" | "rollback"
-  title       String
-  body        String?  @db.Text
-  taskId      String?  // optional link to Task
-  incidentId  String?  // optional link to INC-
-  prNumber    Int?
-  url         String?  @db.Text
-  createdAt   DateTime @default(now())
-  readAt      DateTime?
+  id         String            @id @default(cuid())
+  level      NotificationLevel @default(INFO)
+  category   String // "loop" | "merge" | "incident" | "cost" | "blocker" | "rollback"
+  title      String
+  body       String?           @db.Text
+  taskId     String? // optional link to Task
+  incidentId String? // optional link to INC-
+  prNumber   Int?
+  url        String?           @db.Text
+  createdAt  DateTime          @default(now())
+  readAt     DateTime?
 
   @@index([readAt, createdAt])
   @@index([category, createdAt])
@@ -1051,29 +1209,29 @@ enum NotificationLevel {
 // ============================================================================
 
 model AgentInvocation {
-  id              String   @id @default(cuid())
-  taskRunId       String
-  agentName       String                  // "code-reviewer" / "scorer" / etc
-  startedAt       DateTime @default(now())
-  finishedAt      DateTime?
-  durationMs      Int?
-  status          AgentInvocationStatus @default(RUNNING)
+  id         String                @id @default(cuid())
+  taskRunId  String
+  agentName  String // "code-reviewer" / "scorer" / etc
+  startedAt  DateTime              @default(now())
+  finishedAt DateTime?
+  durationMs Int?
+  status     AgentInvocationStatus @default(RUNNING)
 
   // Replay-ability
-  inputSummary    String?  @db.Text       // truncated prompt (first 2KB)
-  outputSummary   String?  @db.Text       // truncated response (first 4KB)
+  inputSummary  String? @db.Text // truncated prompt (first 2KB)
+  outputSummary String? @db.Text // truncated response (first 4KB)
 
   // Resource accounting
-  tokensInput     Int?
-  tokensOutput    Int?
-  costUsd         Float?
+  tokensInput  Int?
+  tokensOutput Int?
+  costUsd      Float?
 
   // Verdict (when applicable)
-  verdict         String?                 // "PASS" | "WARN" | "FAIL" | "NEUTRAL"
-  scoreReturned   Float?                  // when this is a scoring agent
-  filesReviewed   String?  @db.Text       // JSON array of paths
+  verdict       String? // "PASS" | "WARN" | "FAIL" | "NEUTRAL"
+  scoreReturned Float? // when this is a scoring agent
+  filesReviewed String? @db.Text // JSON array of paths
 
-  errorMessage    String?  @db.Text
+  errorMessage String? @db.Text
 
   @@index([taskRunId, agentName])
   @@index([agentName, startedAt])
@@ -1086,45 +1244,43 @@ enum AgentInvocationStatus {
   TIMED_OUT
 }
 
-
 // ============================================================================
 // COST GOVERNANCE · per-day budget enforcement
 // Loop reads `currentSpendUsd` vs `dailyBudgetUsd` in supervisor pre-flight
 // ============================================================================
 
 model CostBudget {
-  id              String   @id @default(cuid())
-  scope           String   @unique  // "global" | "smb" | "agency-solo" | etc.
-  dailyBudgetUsd  Float
-  weeklyBudgetUsd Float?
-  monthlyBudgetUsd Float?
-  alertThresholdPct Float  @default(0.80)  // alert at 80% of daily
-  haltThresholdPct  Float  @default(1.00)  // halt loop at 100%
-  updatedAt       DateTime @updatedAt
-  createdAt       DateTime @default(now())
+  id                String   @id @default(cuid())
+  scope             String   @unique // "global" | "smb" | "agency-solo" | etc.
+  dailyBudgetUsd    Float
+  weeklyBudgetUsd   Float?
+  monthlyBudgetUsd  Float?
+  alertThresholdPct Float    @default(0.80) // alert at 80% of daily
+  haltThresholdPct  Float    @default(1.00) // halt loop at 100%
+  updatedAt         DateTime @updatedAt
+  createdAt         DateTime @default(now())
 }
-
 
 // ============================================================================
 // TOKEN USAGE · per-tick claude CLI consumption · feeds quota tracker
 // ============================================================================
 
 model TokenUsage {
-  id              String   @id @default(cuid())
-  sessionId       String?
-  taskRunId       String?
-  occurredAt      DateTime @default(now())
+  id         String   @id @default(cuid())
+  sessionId  String?
+  taskRunId  String?
+  occurredAt DateTime @default(now())
 
-  model           String   // "claude-opus-4-7" etc
-  tokensInput     Int      @default(0)
-  tokensOutput    Int      @default(0)
-  tokensCacheRead Int      @default(0)
-  tokensCacheWrite Int     @default(0)
-  costUsdEstimate Float?
+  model            String // "claude-opus-4-7" etc
+  tokensInput      Int    @default(0)
+  tokensOutput     Int    @default(0)
+  tokensCacheRead  Int    @default(0)
+  tokensCacheWrite Int    @default(0)
+  costUsdEstimate  Float?
 
   // Outcome for this tick (success / rate-limit-hit / error)
-  outcome         String   @default("success")  // "success" | "rate-limit" | "error"
-  errorMessage    String?  @db.Text
+  outcome      String  @default("success") // "success" | "rate-limit" | "error"
+  errorMessage String? @db.Text
 
   @@index([occurredAt])
   @@index([sessionId])
@@ -1150,15 +1306,15 @@ model TokenUsage {
 // ============================================================================
 
 model StripeWebhookEvent {
-  id            String   @id @default(cuid())
-  eventId       String   @unique  // Stripe Event.id — at-most-once key
-  type          String              // Stripe Event.type (e.g. "invoice.paid")
-  apiVersion    String?             // Stripe API version sent by the event
-  livemode      Boolean  @default(false)
-  receivedAt    DateTime @default(now())
-  processedAt   DateTime?
-  error         String?  @db.Text
-  payload       Json                // raw event body for forensics
+  id          String    @id @default(cuid())
+  eventId     String    @unique // Stripe Event.id — at-most-once key
+  type        String // Stripe Event.type (e.g. "invoice.paid")
+  apiVersion  String? // Stripe API version sent by the event
+  livemode    Boolean   @default(false)
+  receivedAt  DateTime  @default(now())
+  processedAt DateTime?
+  error       String?   @db.Text
+  payload     Json // raw event body for forensics
 
   @@index([type])
   @@index([receivedAt])
@@ -1177,13 +1333,13 @@ model StripeWebhookEvent {
 // confirm the category yields real businesses before insertion. No free
 // text — only legitimate, picked categories enter this table.
 model BusinessCategory {
-  id            String   @id @default(cuid())
-  dataforseoId  String   @unique          // DfS category slug (e.g. "medical_spa")
-  label         String                    // human-friendly: "Medical Spa"
-  groupKey      String?                   // optional meta-group: "beauty_and_wellness"
-  isActive      Boolean  @default(true)   // soft-disable without dropping history
-  verifiedAt    DateTime                  // when we confirmed via ping
-  createdAt     DateTime @default(now())
+  id              String   @id @default(cuid())
+  dataforseoId    String   @unique // DfS category slug (e.g. "medical_spa")
+  label           String // human-friendly: "Medical Spa"
+  groupKey        String? // optional meta-group: "beauty_and_wellness"
+  isActive        Boolean  @default(true) // soft-disable without dropping history
+  verifiedAt      DateTime // when we confirmed via ping
+  createdAt       DateTime @default(now())
   createdByUserId String?
 
   trackedLocations TrackedLocation[]
@@ -1198,44 +1354,44 @@ model BusinessCategory {
 // denormalized aggregate fields render the page without joining
 // DiscoveryRun on every load.
 model TrackedLocation {
-  id            String   @id @default(cuid())
-  categoryId    String
-  category      BusinessCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  id         String           @id @default(cuid())
+  categoryId String
+  category   BusinessCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
 
   // Location identity — geocoded + ping-verified at insertion
-  city          String
-  province      String?
-  country       String                    // ISO-2: "US", "CA"
-  lat           Float
-  lng           Float
-  radiusKm      Int      @default(5)
-  verifiedAt    DateTime                  // last successful ping (limit=1 mapsSearch)
+  city       String
+  province   String?
+  country    String // ISO-2: "US", "CA"
+  lat        Float
+  lng        Float
+  radiusKm   Int      @default(5)
+  verifiedAt DateTime // last successful ping (limit=1 mapsSearch)
 
   // Soft-disable so admin can pause a cell without losing run history
-  isActive      Boolean  @default(true)
+  isActive Boolean @default(true)
 
   // Denormalized aggregates — updated on each run completion
-  businessCount Int      @default(0)      // current Business rows matching this cell
+  businessCount Int       @default(0) // current Business rows matching this cell
   lastRunAt     DateTime?
-  totalRuns     Int      @default(0)
-  totalNewFound Int      @default(0)
-  totalCostUsd  Float    @default(0)
+  totalRuns     Int       @default(0)
+  totalNewFound Int       @default(0)
+  totalCostUsd  Float     @default(0)
 
   // Qualification aggregates · updated when admin runs Qualify
-  qualifiedCount       Int   @default(0)
-  disqualifiedCount    Int   @default(0)
-  unreachableCount     Int   @default(0)
-  lastQualifyAt        DateTime?
-  totalQualifyCostUsd  Float @default(0)
+  qualifiedCount      Int       @default(0)
+  disqualifiedCount   Int       @default(0)
+  unreachableCount    Int       @default(0)
+  lastQualifyAt       DateTime?
+  totalQualifyCostUsd Float     @default(0)
 
   // Activity aggregates · updated when admin runs Check Activity
-  activeCount          Int   @default(0)
-  staleCount           Int   @default(0)
-  noReviewsCount       Int   @default(0)
+  activeCount          Int       @default(0)
+  staleCount           Int       @default(0)
+  noReviewsCount       Int       @default(0)
   lastActivityCheckAt  DateTime?
-  totalActivityCostUsd Float @default(0)
+  totalActivityCostUsd Float     @default(0)
 
-  createdAt     DateTime @default(now())
+  createdAt       DateTime @default(now())
   createdByUserId String?
 
   discoveryRuns DiscoveryRun[]
@@ -1249,29 +1405,29 @@ model TrackedLocation {
 // what we asked, what we got, what was new vs dup, and the cost. Drives
 // the "Recent runs" table + per-cell drill-in.
 model DiscoveryRun {
-  id                String   @id @default(cuid())
+  id                String           @id @default(cuid())
   trackedLocationId String
-  trackedLocation   TrackedLocation @relation(fields: [trackedLocationId], references: [id], onDelete: Cascade)
-  categoryId        String                  // denormalized for filtering
+  trackedLocation   TrackedLocation  @relation(fields: [trackedLocationId], references: [id], onDelete: Cascade)
+  categoryId        String // denormalized for filtering
   category          BusinessCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
 
-  startedAt         DateTime @default(now())
+  startedAt         DateTime           @default(now())
   finishedAt        DateTime?
   status            DiscoveryRunStatus @default(RUNNING)
   triggeredByUserId String?
 
   // What we asked DataForSEO
-  radiusKm          Int
-  limitRequested    Int
+  radiusKm       Int
+  limitRequested Int
 
   // What we got back
-  totalReturned     Int      @default(0)
-  newBusinesses     Int      @default(0)
-  duplicates        Int      @default(0)
-  errors            Int      @default(0)
-  costUsd           Float    @default(0)
-  errorMessage      String?  @db.Text
-  meta              Json?
+  totalReturned Int     @default(0)
+  newBusinesses Int     @default(0)
+  duplicates    Int     @default(0)
+  errors        Int     @default(0)
+  costUsd       Float   @default(0)
+  errorMessage  String? @db.Text
+  meta          Json?
 
   @@index([trackedLocationId, startedAt(sort: Desc)])
   @@index([categoryId, startedAt(sort: Desc)])

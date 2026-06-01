@@ -4,6 +4,8 @@
  * Per-row action buttons for /admin/businesses.
  * - "Pull reviews"     · triggers a manual review-pull (DfS Standard).
  * - "Run SERP scan"    · triggers ranked_keywords + cell-aggregate Maps.
+ * - "Run Ads"          · triggers the ads DataForSEO pass (keyword costs +
+ *                        Google Ads Transparency for the biz + competitors).
  * - "Re-qualify"       · re-runs qualifyBusiness for this row.
  *
  * Each uses the project's existing useActionState + useActionToast wiring
@@ -21,10 +23,14 @@ import { useActionToast } from "@/components/admin-ui/use-action-toast";
 import {
   triggerReviewPullAction,
   triggerSearchScanAction,
+  triggerAdsScanAction,
+  triggerWebsiteScanAction,
   rerunQualifyAction,
   type ActionResult,
   type TriggerReviewPullActionResult,
   type SearchScanActionResult,
+  type AdsScanActionResult,
+  type WebsiteScanActionResult,
   type RerunQualifyActionResult,
 } from "../actions";
 
@@ -37,6 +43,8 @@ interface Props {
 
 const initialPull: ActionResult<TriggerReviewPullActionResult> | null = null;
 const initialSearch: ActionResult<SearchScanActionResult> | null = null;
+const initialAds: ActionResult<AdsScanActionResult> | null = null;
+const initialWebsite: ActionResult<WebsiteScanActionResult> | null = null;
 const initialQualify: ActionResult<RerunQualifyActionResult> | null = null;
 
 export function RowActionButtons({
@@ -53,6 +61,14 @@ export function RowActionButtons({
     triggerSearchScanAction,
     initialSearch,
   );
+  const [adsState, adsAction, adsPending] = useActionState(
+    triggerAdsScanAction,
+    initialAds,
+  );
+  const [websiteState, websiteAction, websitePending] = useActionState(
+    triggerWebsiteScanAction,
+    initialWebsite,
+  );
   const [qualifyState, qualifyAction, qualifyPending] = useActionState(
     rerunQualifyAction,
     initialQualify,
@@ -60,6 +76,8 @@ export function RowActionButtons({
 
   useActionToast(pullState);
   useActionToast(searchState);
+  useActionToast(adsState);
+  useActionToast(websiteState);
   useActionToast(qualifyState);
 
   return (
@@ -98,6 +116,36 @@ export function RowActionButtons({
           style={{ padding: "4px 8px", fontSize: 10 }}
         >
           {searchPending ? "…" : "Run SERP scan"}
+        </button>
+      </form>
+      <form action={adsAction}>
+        <input type="hidden" name="businessId" value={businessId} />
+        <button
+          type="submit"
+          className="admin-btn"
+          data-variant="ghost"
+          disabled={adsPending}
+          title="Run Ads · keyword costs (CPC/competition) + Google Ads Transparency for this business + competitors. Meta refreshes weekly."
+          style={{ padding: "4px 8px", fontSize: 10 }}
+        >
+          {adsPending ? "…" : "Run Ads"}
+        </button>
+      </form>
+      <form action={websiteAction}>
+        <input type="hidden" name="businessId" value={businessId} />
+        <button
+          type="submit"
+          className="admin-btn"
+          data-variant="ghost"
+          disabled={websitePending || !hasWebsite}
+          title={
+            !hasWebsite
+              ? "No website · Lighthouse needs a URL"
+              : "Run Website · Lighthouse speed + Core Web Vitals + schema/NAP/booking checks (same as the weekly cron)"
+          }
+          style={{ padding: "4px 8px", fontSize: 10 }}
+        >
+          {websitePending ? "…" : "Run Website"}
         </button>
       </form>
       <form action={qualifyAction}>

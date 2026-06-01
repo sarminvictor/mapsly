@@ -369,6 +369,31 @@ export function normalizeText(s: string): string {
     .trim();
 }
 
+/**
+ * True when the raw (pre-JS) HTML carries real body content — a crawler that
+ * doesn't run JavaScript still sees the page. False = JS-only shell (e.g. an
+ * empty `<div id="root">` + scripts), which is a Google-indexing risk.
+ *
+ * Heuristic: take the <body>, drop script/style/noscript bodies + all tags +
+ * entities, and count the visible text. SPA shells have almost none; a
+ * server-rendered page has hundreds-plus. Conservative threshold avoids
+ * false alarms on thin-but-real pages.
+ */
+export const MIN_SERVER_TEXT_CHARS = 250;
+export function contentWithoutJs(html: string): boolean {
+  const bodyMatch = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+  const body = bodyMatch?.[1] ?? html;
+  const text = body
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<noscript[\s\S]*?<\/noscript>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&[a-z#0-9]+;/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return text.length >= MIN_SERVER_TEXT_CHARS;
+}
+
 // ---- Combined surface ---------------------------------------------------
 
 export interface DomChecksInput {
@@ -385,6 +410,9 @@ export interface DomChecksResult {
   hasBookingCtaAboveFold: boolean;
   /** null when NAP input incomplete (cannot decide). */
   napConsistent: boolean | null;
+  /** True when the page's content is in the raw HTML (crawler-readable
+   *  without JS). False = JS-only shell (indexing risk). */
+  contentWithoutJs: boolean;
 }
 
 /** Run every DOM check on a single HTML payload. Each check is independent
@@ -401,5 +429,6 @@ export function runDomChecks(input: DomChecksInput): DomChecksResult {
     hasPhoneAboveFold: hasPhoneAboveFold(html),
     hasBookingCtaAboveFold: hasBookingCtaAboveFold(html),
     napConsistent: napFull ? napConsistent(html, napFull) : null,
+    contentWithoutJs: contentWithoutJs(html),
   };
 }

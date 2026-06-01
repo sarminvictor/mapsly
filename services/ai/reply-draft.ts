@@ -78,6 +78,9 @@ export interface DraftReplyInput {
   voiceNotes?: string;
   /** Override the default model — used for A/B testing (task D.8). */
   model?: SupportedModel;
+  /** Generate ONLY the English draft (skip Spanish generation). The product
+   *  is English-first for now; the ES path + schema stay for future use. */
+  englishOnly?: boolean;
 }
 
 export const ReplyDraftSchema = z.object({
@@ -85,6 +88,15 @@ export const ReplyDraftSchema = z.object({
   es: z.string().min(1).max(900),
 });
 export type ReplyDraftResult = z.infer<typeof ReplyDraftSchema>;
+
+/** English-only response shape (used when `englishOnly` is set). */
+const ReplyDraftEnOnlySchema = z.object({
+  en: z.string().min(1).max(900),
+});
+
+const ENGLISH_ONLY_OVERRIDE = `
+
+OVERRIDE: Return ONLY {"en": string} in US English. Do NOT include an "es" field or any Spanish text.`;
 
 const SYSTEM_PROMPT_WITH_EXAMPLES = `You write owner replies to Google reviews. The owner has prior replies
 shown as examples — MIMIC their style precisely. Copy their openers
@@ -191,10 +203,12 @@ export async function draftReplyUncached(
   // to defer to the few-shot examples rather than impose a generic
   // "warm and plain" template. No-examples mode keeps the original
   // strict voice rules.
-  const system =
+  const englishOnly = input.englishOnly === true;
+  const baseSystem =
     input.voiceExamples && input.voiceExamples.length > 0
       ? SYSTEM_PROMPT_WITH_EXAMPLES
       : SYSTEM_PROMPT_NO_EXAMPLES;
+  const system = englishOnly ? baseSystem + ENGLISH_ONLY_OVERRIDE : baseSystem;
   const { text } = await callOpenAi({
     operation: `ai.reply.draft[${model}]`,
     model,
@@ -209,6 +223,10 @@ export async function draftReplyUncached(
   });
 
   const parsed = safeParseJson(text, "draftReply");
+  if (englishOnly) {
+    const enOnly = ReplyDraftEnOnlySchema.parse(parsed);
+    return { en: enOnly.en, es: "" };
+  }
   return ReplyDraftSchema.parse(parsed);
 }
 

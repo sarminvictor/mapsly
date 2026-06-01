@@ -105,7 +105,11 @@ export async function getSmbReviewsData(
 ): Promise<SmbReviewsData> {
   "use cache";
   cacheLife("minutes");
+  // Per-tab tag (granular) + a shared per-user tag so the reviews pingback +
+  // reply action can revalidate ALL tabs at once (tags are exact-match, so a
+  // per-tab key alone can't be invalidated without knowing every tab).
   cacheTag(`smb-reviews-${userId}-${tab}`);
+  cacheTag(`smb-reviews-${userId}`);
 
   if (process.env.NEXT_PHASE === "phase-production-build") {
     return EMPTY_SMB_REVIEWS;
@@ -119,7 +123,7 @@ export async function getSmbReviewsData(
     const business = await prisma.business.findFirst({
       where: { ownerUserId: userId, isActive: true },
       orderBy: { createdAt: "asc" },
-      select: { id: true, name: true },
+      select: { id: true, name: true, googlePlaceId: true },
     });
 
     if (!business) {
@@ -131,11 +135,16 @@ export async function getSmbReviewsData(
     // sorting is consistent across tabs (urgent first, then newest).
     const baseWhere = { businessId: business.id } as const;
     const tabWhere: Record<ReviewTab, Record<string, unknown>> = {
-      unanswered: { ownerReplied: false },
+      // Skipped reviews drop out of unanswered + negative (terminal until a
+      // real owner reply lands → then ownerReplied=true shows them under
+      // Replied). Skipped tab itself = not-yet-replied + skippedAt set.
+      unanswered: { ownerReplied: false, skippedAt: null },
       negative: {
+        skippedAt: null,
         OR: [{ stars: { lte: 3 } }, { sentiment: "NEGATIVE" }],
       },
       replied: { ownerReplied: true },
+      skipped: { ownerReplied: false, skippedAt: { not: null } },
     };
 
     // Run the active-tab fetch alongside the aggregate queries
@@ -205,9 +214,16 @@ export async function getSmbReviewsData(
     const kpis = await loadReviewKpis(business.id, tabCounts);
     const pattern = derivePattern(themeRows);
 
+    // Google reviews page · where Maria pastes her reply. Built from the
+    // stored googlePlaceId; null when we don't have one (Post button hidden).
+    const googleReviewsUrl = business.googlePlaceId
+      ? `https://search.google.com/local/reviews?placeid=${business.googlePlaceId}`
+      : null;
+
     return {
       ownedBusinessId: business.id,
       businessName: business.name,
+      googleReviewsUrl,
       activeTab: tab,
       reviews,
       tabCounts,
@@ -229,17 +245,23 @@ export async function getSmbReviewsData(
 }
 
 async function loadTabCounts(businessId: string): Promise<ReviewTabCounts> {
-  const [unanswered, negative, replied] = await Promise.all([
-    prisma.review.count({ where: { businessId, ownerReplied: false } }),
+  const [unanswered, negative, replied, skipped] = await Promise.all([
+    prisma.review.count({
+      where: { businessId, ownerReplied: false, skippedAt: null },
+    }),
     prisma.review.count({
       where: {
         businessId,
+        skippedAt: null,
         OR: [{ stars: { lte: 3 } }, { sentiment: "NEGATIVE" }],
       },
     }),
     prisma.review.count({ where: { businessId, ownerReplied: true } }),
+    prisma.review.count({
+      where: { businessId, ownerReplied: false, skippedAt: { not: null } },
+    }),
   ]);
-  return { unanswered, negative, replied };
+  return { unanswered, negative, replied, skipped };
 }
 
 async function loadRatingDistribution(businessId: string) {

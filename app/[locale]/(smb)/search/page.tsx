@@ -48,7 +48,6 @@ import { auth } from "@/lib/auth";
 import { requirePortal } from "@/lib/portal-guard";
 import { redirect } from "@/i18n/navigation";
 import type { Locale } from "@/i18n/routing";
-import { ServiceContextChipForCurrentUser } from "@/components/smb/ServiceContextChipForCurrentUser";
 import {
   CompetitorLeaderboardCard,
   KeywordVisibilityTable,
@@ -62,7 +61,9 @@ import type {
   SearchStateBarLabels,
 } from "@/modules/smb-search/components";
 import { industryForCategory } from "@/modules/local-intent/category-to-industry";
+import { SmbPageHeader } from "@/components/smb/SmbPageHeader";
 import { getSmbSearchData } from "@/modules/smb-search/queries";
+import { getCellKeywordTable } from "@/modules/smb-search/cell-keyword-table";
 
 export async function generateMetadata({
   params,
@@ -191,20 +192,24 @@ function buildStateBarLabels(t: SmbSearchTranslator): SearchStateBarLabels {
     totalSearches: t("state_total_searches"),
     estimatedVisits: t("state_estimated_visits"),
     trafficValue: t("state_traffic_value"),
-    inTopThree: t("state_in_top_three"),
+    topThreeSearch: t("state_top_three_search"),
     missedCustomers: t("state_missed_customers"),
-    bestSpot: t("state_best_spot"),
-    inTopThreeSublabel: t("state_in_top_three_sublabel", { total: "{total}" }),
+    topThreeMaps: t("state_top_three_maps"),
+    topThreeSublabel: t("state_top_three_sublabel", { total: "{total}" }),
+    topThreeMapsSublabel: t("state_top_three_maps_sublabel", {
+      total: "{total}",
+    }),
     missedCustomersSublabel: t("state_missed_customers_sublabel"),
     trafficValueSublabel: t("state_traffic_value_sublabel"),
-    bestSpotSublabel: t("state_best_spot_sublabel", { keyword: "{keyword}" }),
-    bestSpotNoneSublabel: t("state_best_spot_none_sublabel"),
-    bestSpotNotScannedSublabel: t("state_best_spot_not_scanned_sublabel"),
-    bestSpotNoneValue: t("state_best_spot_none_value"),
+    topThreeMapsNotScannedSublabel: t(
+      "state_top_three_maps_not_scanned_sublabel",
+    ),
     totalSearchesTip: t("state_total_searches_tip"),
     estimatedVisitsTip: t("state_estimated_visits_tip"),
     trafficValueTip: t("state_traffic_value_tip"),
     missedCustomersTip: t("state_missed_customers_tip"),
+    topThreeSearchTip: t("state_top_three_search_tip"),
+    topThreeMapsTip: t("state_top_three_maps_tip"),
   };
 }
 
@@ -244,12 +249,16 @@ function buildCompetitorLeaderboardLabels(
     subtitleNoOwn: t("leaderboard_subtitle_no_own", { city: "{city}" }),
     colRank: t("leaderboard_col_rank"),
     colName: t("leaderboard_col_name"),
-    colKeywords: t("leaderboard_col_keywords"),
-    colTopThree: t("leaderboard_col_top_three"),
-    colCustomers: t("leaderboard_col_customers"),
-    topThreeHelp: t("leaderboard_top_three_help"),
-    customersHelp: t("leaderboard_customers_help"),
+    colTopThreeMaps: t("leaderboard_col_top_three_maps"),
+    colTopThreeSearch: t("leaderboard_col_top_three_search"),
+    colMonthlyVisitors: t("leaderboard_col_monthly_visitors"),
+    colDomain: t("leaderboard_col_domain"),
+    topThreeMapsHelp: t("leaderboard_top_three_maps_help"),
+    topThreeSearchHelp: t("leaderboard_top_three_search_help"),
+    monthlyVisitorsHelp: t("leaderboard_monthly_visitors_help"),
+    noDomain: t("leaderboard_no_domain"),
     empty: t("leaderboard_empty"),
+    columnsLegend: t("leaderboard_columns_legend"),
   };
 }
 
@@ -260,15 +269,21 @@ function buildVisibilityTableLabels(
 ): KeywordVisibilityTableLabels {
   return {
     heading: t("table_heading", { industry: industryLabel, city }),
-    subtitle: t("table_subtitle"),
+    subtitle: t("table_subtitle", { total: "{total}" }),
     colKeyword: t("table_col_keyword"),
     colSearches: t("table_col_searches"),
     colMaps: t("table_col_maps"),
     colOrganic: t("table_col_organic"),
     serviceBadge: t("table_service_badge"),
     empty: t("table_empty"),
+    emptyFiltered: t("table_empty_filtered"),
     legend: t("table_legend"),
     sortAriaTemplate: t("table_sort_aria", { column: "{column}" }),
+    filterToggleOn: t("table_filter_on"),
+    filterToggleOff: t("table_filter_off"),
+    pageOfTotal: t("table_page_of_total", { page: "{page}", total: "{total}" }),
+    prev: t("table_prev"),
+    next: t("table_next"),
   };
 }
 
@@ -335,25 +350,21 @@ async function SearchBody({ params }: { params: Promise<PageParams> }) {
     );
   }
 
-  // Pick the single keyword behind Maria's best Maps rank · feeds the
-  // State Bar's 4th cell sublabel ("for 'med spa miami'").
-  const bestMapsRow =
-    data.bestLocalPackRank != null
-      ? (data.allTrackedKeywords.find(
-          (k) => k.localPackRank === data.bestLocalPackRank,
-        ) ?? null)
-      : null;
-
-  const topThreeKeywords =
-    data.rankBuckets.find((b) => b.key === "top_3")?.keywordCount ?? 0;
-
-  // Industry label for the table heading "How customers search for X
-  // in Y" · use the friendly DB category ("Medical spa") instead of
-  // the internal IndustryKey ("medspa"). `industryForCategory` is
-  // imported only to flag the eventual "unknown industry" empty-state
-  // path (S.7 hook).
-  const industryLabel = data.category ?? "";
+  // Industry recognition · drives whether we render the table at all.
   const industryRecognised = industryForCategory(data.category) !== null;
+
+  // Cell-keyword-table data · server fetches ALL cell keywords with
+  // Maria's ranks (capped 500). The KeywordVisibilityTable client
+  // component holds sort/filter/page state locally for smooth UX
+  // (no page reload + scroll-to-top on filter/sort/page change).
+  const tableData = industryRecognised
+    ? await getCellKeywordTable({
+        ownBusinessId: data.ownedBusinessId,
+        city: data.city,
+        country: data.country,
+      })
+    : null;
+  const tableIndustryLabel = tableData?.industryLabel ?? data.category ?? "";
 
   return (
     <section
@@ -364,52 +375,12 @@ async function SearchBody({ params }: { params: Promise<PageParams> }) {
         padding: "32px 20px 64px",
       }}
     >
-      <header style={{ marginBottom: 28 }}>
-        <p
-          style={{
-            margin: 0,
-            fontFamily: "var(--font-mono)",
-            fontSize: 11,
-            textTransform: "uppercase",
-            letterSpacing: "0.08em",
-            color: "var(--color-text-3)",
-          }}
-        >
-          {t("eyebrow")}
-        </p>
-        <h1
-          id="search-heading"
-          style={{
-            fontFamily: "var(--font-serif)",
-            fontSize: "clamp(28px, 4vw, 36px)",
-            lineHeight: 1.1,
-            letterSpacing: "-0.02em",
-            margin: "6px 0 0",
-            color: "var(--color-text)",
-          }}
-        >
-          {t("title", { name: data.name })}
-        </h1>
-        {data.city ? (
-          <p
-            style={{
-              margin: "8px 0 0",
-              color: "var(--color-text-2)",
-              fontSize: 14,
-            }}
-          >
-            {t("subtitle", { city: data.city })}
-          </p>
-        ) : null}
-      </header>
-
-      {/* Service-context chip · "Reading this for: Botox · …" deep-links
-          to /my-business so Maria can refine the keyword-match lens. */}
-      <div style={{ marginBottom: 20 }}>
-        <Suspense fallback={null}>
-          <ServiceContextChipForCurrentUser />
-        </Suspense>
-      </div>
+      <SmbPageHeader
+        userId={session.user.id}
+        namespace="smb.search"
+        titleId="search-heading"
+        subtitleParams={{ city: data.city ?? "" }}
+      />
 
       {/* Two-column layout · left = analytics, right = quick wins rail.
           Mirrors the reviews-page layout for voice consistency. The
@@ -425,17 +396,18 @@ async function SearchBody({ params }: { params: Promise<PageParams> }) {
         }}
       >
         <main>
-          {/* State bar · 5 headline numbers · narrative collapsed into
-              the numbers per the PO review (the standalone "missed
-              customers" tile + narrative line were redundant). */}
+          {/* State bar · 6-cell 2×3 grid. Row 1 the funnel (demand →
+              visits → value), row 2 the scoreboard (organic wins →
+              misses → maps wins). S.6.2: replaced single-rank "Best in
+              Maps" cell with count-based "Top 3 in Maps". */}
           <SearchStateBar
             totalSearchVolume={data.totalSearchVolume}
             totalEstimatedVisits={data.totalEstimatedVisits}
             totalEstTrafficUsd={data.totalEstTrafficUsd}
-            topThreeKeywords={topThreeKeywords}
+            topThreeSearchCount={data.topThreeSearchCount}
+            topThreeMapsCount={data.topThreeMapsCount}
             tracked={data.keywordsTracked}
-            bestMapsRank={data.bestLocalPackRank}
-            bestMapsKeyword={bestMapsRow?.keyword ?? null}
+            mapsScanned={data.mapsScannedCount}
             missedCustomers={data.totalEstPatientsLost}
             hasMapsScans={data.mapsScanCount > 0}
             labels={buildStateBarLabels(t)}
@@ -447,17 +419,17 @@ async function SearchBody({ params }: { params: Promise<PageParams> }) {
             labels={buildRankBreakdownLabels(t)}
           />
 
-          {/* "How customers search for {industry} in {city}" · the
-              sortable Boxly-pattern table that replaces the old top-5
-              cards. Renders the local-intent template set with Maps +
-              organic rank per keyword; "your service" badge for
-              service-flagged rows. */}
-          {industryRecognised ? (
+          {/* "How customers search for {industry} in {city}" · S.6.4
+              cell-wide pool, all keywords any cell business has
+              (capped 500). Sort/filter/page handled client-side for
+              smooth UX (no router round-trip). Filter "show only
+              where I rank" ON by default. */}
+          {industryRecognised && tableData ? (
             <KeywordVisibilityTable
-              rows={data.allTrackedKeywords}
+              rows={tableData.rows}
               labels={buildVisibilityTableLabels(
                 t,
-                industryLabel,
+                tableIndustryLabel,
                 data.city ?? "",
               )}
             />
@@ -514,67 +486,111 @@ async function SearchBody({ params }: { params: Promise<PageParams> }) {
               >
                 {t("quick_wins_heading")}
               </h2>
-              {data.topQuickWins.map((win, idx) => (
-                <article
-                  key={win.id}
-                  style={{
-                    background: "var(--color-bg-2)",
-                    border: "1px solid var(--color-border)",
-                    borderRadius: 14,
-                    padding: "14px 16px",
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 8,
-                  }}
-                >
-                  <p
+              {data.topQuickWins.map((win, idx) => {
+                const stateText = t(
+                  `quick_win_state_${win.stateKey}`,
+                  win.stateParams,
+                );
+                const actionText = t(`quick_win_action_${win.actionKey}`);
+                const impactText = t("quick_win_impact", {
+                  count: win.estCustomersPerMo,
+                });
+                const chipLabel = t(`quick_win_chip_${win.surface}`);
+                const chipBg =
+                  win.surface === "maps"
+                    ? "rgba(195, 85, 58, 0.10)"
+                    : "rgba(59, 110, 196, 0.10)";
+                const chipColor =
+                  win.surface === "maps"
+                    ? "var(--color-coral)"
+                    : "var(--color-info, #3b6ec4)";
+                return (
+                  <article
+                    key={win.id}
                     style={{
-                      margin: 0,
-                      fontFamily: "var(--font-mono)",
-                      fontSize: 11,
-                      letterSpacing: "0.06em",
-                      textTransform: "uppercase",
-                      color: "var(--color-coral)",
-                      fontWeight: 600,
+                      background: "var(--color-bg-2)",
+                      border: "1px solid var(--color-border)",
+                      borderRadius: 14,
+                      padding: "14px 16px",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 8,
                     }}
                   >
-                    #{idx + 1} · {win.impact}
-                  </p>
-                  <h3
-                    style={{
-                      margin: 0,
-                      fontFamily: "var(--font-serif)",
-                      fontSize: 16,
-                      letterSpacing: "-0.01em",
-                      lineHeight: 1.25,
-                      color: "var(--color-text)",
-                    }}
-                  >
-                    {win.keyword}
-                  </h3>
-                  <p
-                    style={{
-                      margin: 0,
-                      fontSize: 13,
-                      lineHeight: 1.5,
-                      color: "var(--color-text-2)",
-                    }}
-                  >
-                    {win.currentState}
-                  </p>
-                  <p
-                    style={{
-                      margin: 0,
-                      fontSize: 13,
-                      lineHeight: 1.5,
-                      color: "var(--color-text)",
-                      fontWeight: 500,
-                    }}
-                  >
-                    {win.action}
-                  </p>
-                </article>
-              ))}
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: 8,
+                      }}
+                    >
+                      <p
+                        style={{
+                          margin: 0,
+                          fontFamily: "var(--font-mono)",
+                          fontSize: 11,
+                          letterSpacing: "0.06em",
+                          textTransform: "uppercase",
+                          color: "var(--color-coral)",
+                          fontWeight: 600,
+                        }}
+                      >
+                        #{idx + 1} · {impactText}
+                      </p>
+                      <span
+                        style={{
+                          padding: "2px 8px",
+                          borderRadius: 999,
+                          background: chipBg,
+                          color: chipColor,
+                          fontFamily: "var(--font-mono)",
+                          fontSize: 10,
+                          fontWeight: 600,
+                          textTransform: "uppercase",
+                          letterSpacing: "0.06em",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {chipLabel}
+                      </span>
+                    </div>
+                    <h3
+                      style={{
+                        margin: 0,
+                        fontFamily: "var(--font-serif)",
+                        fontSize: 16,
+                        letterSpacing: "-0.01em",
+                        lineHeight: 1.25,
+                        color: "var(--color-text)",
+                      }}
+                    >
+                      {win.keyword}
+                    </h3>
+                    <p
+                      style={{
+                        margin: 0,
+                        fontSize: 13,
+                        lineHeight: 1.5,
+                        color: "var(--color-text-2)",
+                      }}
+                    >
+                      {stateText}
+                    </p>
+                    <p
+                      style={{
+                        margin: 0,
+                        fontSize: 13,
+                        lineHeight: 1.5,
+                        color: "var(--color-text)",
+                        fontWeight: 500,
+                      }}
+                    >
+                      {actionText}
+                    </p>
+                  </article>
+                );
+              })}
             </>
           ) : null}
         </aside>

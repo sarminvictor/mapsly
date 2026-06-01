@@ -185,7 +185,10 @@ async function dispatchSequential(
       perBiz.push({
         businessId,
         status: r.status,
-        keywordsTracked: r.keywordsTracked,
+        // Unique BusinessKeyword rows touched = ranked-portfolio rows
+        // + pure-template rows (matched-template rows already counted
+        // in rankedKeywordsCount, just had templateOrigin stamped).
+        keywordsTracked: r.rankedKeywordsCount + r.templatesCreatedPure,
       });
       if (r.status === "ran") triggered += 1;
       else skipped += 1;
