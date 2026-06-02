@@ -59,6 +59,8 @@ export interface BusinessRow {
   keywordsTracked: number;
   servicesCount: number;
   reviewsInDb: number;
+  /** `/l/<slug>-<token>` when an ACTIVE landing exists, else null (hide link). */
+  landingPath: string | null;
 }
 
 export interface BusinessListResult {
@@ -166,6 +168,7 @@ export async function getBusinessList(
         pendingReviewsTaskId: true,
         latestReviewPostedAt: true,
         searchScanLastAt: true,
+        landingPage: { select: { token: true, slug: true, isActive: true } },
         _count: {
           select: {
             services: true,
@@ -242,6 +245,10 @@ export async function getBusinessList(
       keywordsTracked: r._count.businessKeywords,
       servicesCount: r._count.services,
       reviewsInDb: r._count.reviews,
+      landingPath:
+        r.landingPage && r.landingPage.isActive
+          ? `/l/${r.landingPage.slug}-${r.landingPage.token}`
+          : null,
     })),
     total,
     nextCursor: hasMore ? trimmed[trimmed.length - 1]!.id : null,

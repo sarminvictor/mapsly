@@ -6,21 +6,37 @@
  * page can honestly say "we don't track this for you yet" instead of faking a
  * number — and those gaps double as the reason to subscribe.
  *
+ * Shapes mirror the design (the emailed proposal): a hero score panel, a
+ * "what changed this week" summary, per-section blocks (search / ads / reviews
+ * / website) each with a market-relative "problem → solution" callout, a
+ * ranked fixes block, and the $29 pricing band.
+ *
  * `EMPTY_LANDING_DATA` is the build-phase / error shape per
- * `.claude/rules/cache-components.md` Pattern 1 (every field present so
- * TypeScript catches partial shapes at literal-comparison time on Vercel
- * build). A genuine "token not found" is handled with `notFound()`, not EMPTY.
+ * `.claude/rules/cache-components.md` Pattern 1. A genuine "token not found" is
+ * handled with `notFound()`, not EMPTY.
  */
 
-import type { SmbMarketChange, SmbOverviewFix } from "@/modules/smb-home/types";
+import type { SmbOverviewFix } from "@/modules/smb-home/types";
 
-/** Search / visibility detail (the "Where you show up on Google" block). */
+/** One "what changed this week" summary row (the hero-adjacent card). */
+export interface LandingChange {
+  id: string;
+  label: string;
+  value: string;
+  sub: string;
+  tone: "good" | "bad" | "neutral";
+}
+
+/** Search / visibility detail ("Where you show up on Google"). */
 export interface LandingSearchData {
   hasData: boolean;
   /** Best (lowest) organic OR maps rank across tracked keywords. */
   bestRank: number | null;
   keywordsTracked: number;
-  /** Top keywords by traffic value — the table rows. */
+  /** Monthly searches you actually capture (~30) vs total available (~3,020). */
+  searchesYouGet: number | null;
+  searchesTotal: number | null;
+  /** Top keywords by volume — the table rows. */
   topKeywords: {
     keyword: string;
     volume: number | null;
@@ -31,11 +47,14 @@ export interface LandingSearchData {
   pillar: number | null;
 }
 
-/** Ads detail (the "competitors pay to be the answer" block). */
+/** Ads detail ("competitors pay to be the answer"). */
 export interface LandingAdsData {
   hasData: boolean;
   ownAdCount: number;
-  /** Advertisers in the same market cell — the competitor table. */
+  /** Advertisers running in your market cell. */
+  marketAdvertiserCount: number;
+  /** Total active ads across those advertisers. */
+  marketActiveAds: number;
   competitors: {
     name: string;
     platforms: string[];
@@ -46,7 +65,7 @@ export interface LandingAdsData {
   adsApplicable: boolean | null;
 }
 
-/** Reviews / reputation detail (the "what patients praise" block). */
+/** Reviews / reputation detail ("what patients praise"). */
 export interface LandingReviewsData {
   hasData: boolean;
   rating: number | null;
@@ -54,13 +73,21 @@ export interface LandingReviewsData {
   /** 0–1 owner reply rate. */
   replyRate: number | null;
   unanswered: number;
-  /** Review themes (from Google's extracted place topics). */
+  /** New reviews in the last 30 days ("+53 this month"). */
+  trend30d: number;
+  /** Your position by review count in the cell ("#26"). */
+  yourRank: number | null;
+  rankedTotal: number | null;
+  /** Review themes (Google's extracted place topics). */
   themes: { label: string; count: number }[];
-  /** Small competitor comparison — top peers in the cell by review count. */
+  /** Competitor comparison — top peers in the cell + you. */
   competitors: {
     name: string;
     rating: number | null;
     reviewCount: number | null;
+    trend30d: number | null;
+    responseRate: number | null;
+    rank: number;
     isOwn: boolean;
   }[];
   pillar: number | null;
@@ -70,20 +97,31 @@ export interface LandingReviewsData {
 export interface LandingWebsiteCheck {
   key: string;
   label: string;
-  /** true = pass · false = fail · null = we couldn't measure it. */
+  /** true = pass · false = fail · null = couldn't measure. */
   pass: boolean | null;
+  /** Per-check evidence line ("Your LCP: 4.7s · median: under 2.5s"). */
+  detail: string | null;
 }
 
-/** Website detail (the "graded on 12 things" block). */
+/** Website detail ("graded on 12 things"). */
 export interface LandingWebsiteData {
   hasData: boolean;
   websiteUrl: string | null;
-  performance: number | null; // 0–100 (mobile Lighthouse)
-  seo: number | null; // 0–100
+  performance: number | null; // 0–100 your score
+  seo: number | null;
+  /** Market reference (top-10 cohort) — median + best. */
+  industryMedian: number | null;
+  industryBest: number | null;
   checks: LandingWebsiteCheck[];
   passCount: number;
   totalChecks: number;
   pillar: number | null;
+}
+
+/** A market-relative "problem → solution" callout (real, computed). */
+export interface LandingGap {
+  problem: string;
+  solution: string;
 }
 
 /** The full landing payload. */
@@ -97,14 +135,13 @@ export interface LandingData {
   address: string | null;
   city: string | null;
   province: string | null;
-  /** Human market label for the standing line ("Miami" / "Miami area"). */
   cellLabel: string | null;
 
-  // Hero metrics (all real, null when not yet scored / collected)
+  // Hero metrics
   mapslyScore: number | null; // 0–10 pillarScore
-  rank: number | null; // standing in the market cell
-  total: number | null; // "of N"
-  rankDelta: number | null; // weekly movement (warms up)
+  rank: number | null;
+  total: number | null;
+  rankDelta: number | null;
   googleRating: number | null;
   reviewCount: number | null;
 
@@ -116,8 +153,8 @@ export interface LandingData {
   profile: number | null;
   adsApplicable: boolean | null;
 
-  // "What changed in your area this week"
-  events: SmbMarketChange[];
+  // "What changed in your area this week" (summary rows)
+  changes: LandingChange[];
 
   // Section detail
   search: LandingSearchData;
@@ -128,9 +165,11 @@ export interface LandingData {
   // "Where you stand. What to fix."
   fixes: SmbOverviewFix[];
 
+  // Shared market-gap callout (you-capture vs market)
+  gap: LandingGap | null;
+
   // Meta
   lastSnapshotAt: Date | null;
-  /** True when at least one section has real data to show. */
   hasAnyData: boolean;
 }
 
@@ -138,6 +177,8 @@ export const EMPTY_LANDING_SEARCH: LandingSearchData = {
   hasData: false,
   bestRank: null,
   keywordsTracked: 0,
+  searchesYouGet: null,
+  searchesTotal: null,
   topKeywords: [],
   pillar: null,
 };
@@ -145,6 +186,8 @@ export const EMPTY_LANDING_SEARCH: LandingSearchData = {
 export const EMPTY_LANDING_ADS: LandingAdsData = {
   hasData: false,
   ownAdCount: 0,
+  marketAdvertiserCount: 0,
+  marketActiveAds: 0,
   competitors: [],
   pillar: null,
   adsApplicable: null,
@@ -156,6 +199,9 @@ export const EMPTY_LANDING_REVIEWS: LandingReviewsData = {
   reviewCount: null,
   replyRate: null,
   unanswered: 0,
+  trend30d: 0,
+  yourRank: null,
+  rankedTotal: null,
   themes: [],
   competitors: [],
   pillar: null,
@@ -166,6 +212,8 @@ export const EMPTY_LANDING_WEBSITE: LandingWebsiteData = {
   websiteUrl: null,
   performance: null,
   seo: null,
+  industryMedian: null,
+  industryBest: null,
   checks: [],
   passCount: 0,
   totalChecks: 0,
@@ -194,12 +242,13 @@ export const EMPTY_LANDING_DATA: LandingData = {
   website: null,
   profile: null,
   adsApplicable: null,
-  events: [],
+  changes: [],
   search: EMPTY_LANDING_SEARCH,
   adsDetail: EMPTY_LANDING_ADS,
   reviews: EMPTY_LANDING_REVIEWS,
   websiteDetail: EMPTY_LANDING_WEBSITE,
   fixes: [],
+  gap: null,
   lastSnapshotAt: null,
   hasAnyData: false,
 };
@@ -207,7 +256,7 @@ export const EMPTY_LANDING_DATA: LandingData = {
 /** The 12 website checks we grade, in display order. Labels are plain-English
  * (Maria's voice) — the DOM/Lighthouse booleans map onto these keys. */
 export const LANDING_WEBSITE_CHECK_LABELS: { key: string; label: string }[] = [
-  { key: "loadsFast", label: "Loads fast on phones" },
+  { key: "loadsFast", label: "Loads in under 3 seconds" },
   { key: "smoothScroll", label: "Doesn't jump while loading" },
   { key: "quickToRespond", label: "Responds quickly to taps" },
   { key: "foundOnGoogle", label: "Easy for Google to read" },

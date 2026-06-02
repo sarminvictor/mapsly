@@ -565,3 +565,16 @@ details[open] > summary::after {
   }
 }
 /* smb overview layout · loaded */
+
+/* Landing pages (/l/[token]) · responsive grids + decorative arrow */
+@media (max-width: 880px) {
+  .landing-hero-grid,
+  .landing-2col {
+    grid-template-columns: 1fr !important;
+  }
+}
+@media (min-width: 1180px) {
+  .landing-pricing-arrow {
+    display: block !important;
+  }
+}

@@ -139,6 +139,25 @@ function BusinessRowView({
         >
           {[row.city, row.country].filter(Boolean).join(" · ")} · {row.category}
         </div>
+        {row.landingPath ? (
+          <a
+            href={row.landingPath}
+            target="_blank"
+            rel="noreferrer"
+            style={{
+              display: "inline-block",
+              marginTop: 4,
+              fontFamily: "var(--font-mono)",
+              fontSize: 10,
+              fontWeight: 600,
+              color: "#c3553a",
+              textDecoration: "none",
+            }}
+            title="Open this business's personalized landing page"
+          >
+            Landing ↗
+          </a>
+        ) : null}
       </Td>
       <Td>
         <span

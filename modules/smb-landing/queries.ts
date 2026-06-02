@@ -1,19 +1,20 @@
 /**
  * Public landing-page server queries.
  *
- * `resolveLandingToken(param)` is the lookup gate: it parses the `/l/[param]`
- * segment, finds the LandingPage by its numeric token, checks it's active, and
- * verifies the cosmetic slug matches (mismatch → null → 404). Not cached — a
- * single indexed unique lookup, and it's the access gate.
+ * `resolveLandingToken(param)` is the lookup gate: parse the `/l/[param]`
+ * segment, find the LandingPage by its numeric token, check active, verify the
+ * cosmetic slug matches (mismatch → null → 404). Not cached — a single indexed
+ * unique lookup, and it's the access gate.
  *
  * `getLandingData(businessId)` assembles the page payload from the business's
- * REAL latest snapshot + section tables, reusing `buildOverviewForBusiness`
- * (the same market-overview core behind `/home`). Cached per business
- * (`landing-${businessId}`) so the cron's snapshot writes can revalidate it.
+ * REAL latest snapshot + section tables + the market-cell reference
+ * (CellMetric, AdMarketAdvertiser, peer reviews), reusing
+ * `buildOverviewForBusiness` (the same market-overview core behind `/home`).
+ * Cached per business (`landing-${businessId}`).
  *
  * Per `.claude/rules/cache-components.md` Pattern 1, both short-circuit during
- * the Vercel build phase (no Neon WebSocket) — returning `null`, which the
- * page renders as `notFound()`.
+ * the Vercel build phase (no Neon WebSocket) — returning `null`, which the page
+ * renders as `notFound()`.
  */
 
 import { cacheLife, cacheTag } from "next/cache";
@@ -29,12 +30,16 @@ import {
   EMPTY_LANDING_WEBSITE,
   LANDING_WEBSITE_CHECK_LABELS,
   type LandingAdsData,
+  type LandingChange,
   type LandingData,
+  type LandingGap,
   type LandingReviewsData,
   type LandingSearchData,
   type LandingWebsiteCheck,
   type LandingWebsiteData,
 } from "./types";
+
+const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
 
 export interface ResolvedLanding {
   landingPageId: string;
@@ -62,7 +67,6 @@ export async function resolveLandingToken(
       },
     });
     if (!lp || !lp.isActive) return null;
-    // Cosmetic slug must match the stored one — the link can't be edited to probe.
     if (lp.slug !== parsed.slug) return null;
     return {
       landingPageId: lp.id,
@@ -111,19 +115,25 @@ export async function getLandingData(
     if (!biz) return null;
 
     const inCell = Boolean(biz.city && biz.country);
+    const cellWhere = inCell
+      ? { category: biz.category, city: biz.city!, country: biz.country! }
+      : null;
 
     const [
       keywordRows,
       ownAdCount,
       adCompetitors,
+      adAgg,
       reviewTotal,
       reviewReplied,
-      reviewCompetitors,
+      reviewCohort,
       audit,
+      cellMetric,
+      betterReviewed,
     ] = await Promise.all([
       prisma.businessKeyword.findMany({
         where: { businessId },
-        take: 100,
+        take: 200,
         select: {
           latestOrganicRank: true,
           latestMapsRank: true,
@@ -131,17 +141,10 @@ export async function getLandingData(
           keyword: { select: { keyword: true, searchVolume: true } },
         },
       }),
-      prisma.adLibraryEntry.count({
-        where: { businessId, isActive: true },
-      }),
-      inCell
+      prisma.adLibraryEntry.count({ where: { businessId, isActive: true } }),
+      cellWhere
         ? prisma.adMarketAdvertiser.findMany({
-            where: {
-              category: biz.category,
-              city: biz.city!,
-              country: biz.country!,
-              isActive: true,
-            },
+            where: { ...cellWhere, isActive: true },
             orderBy: { activeAdCount: "desc" },
             take: 6,
             select: {
@@ -152,19 +155,20 @@ export async function getLandingData(
             },
           })
         : Promise.resolve([]),
+      cellWhere
+        ? prisma.adMarketAdvertiser.aggregate({
+            where: { ...cellWhere, isActive: true },
+            _count: { _all: true },
+            _sum: { activeAdCount: true },
+          })
+        : Promise.resolve(null),
       prisma.review.count({ where: { businessId } }),
       prisma.review.count({ where: { businessId, ownerReplied: true } }),
-      inCell
+      cellWhere
         ? prisma.business.findMany({
-            where: {
-              category: biz.category,
-              city: biz.city!,
-              country: biz.country!,
-              isActive: true,
-              reviewCount: { not: null },
-            },
+            where: { ...cellWhere, isActive: true, reviewCount: { not: null } },
             orderBy: { reviewCount: "desc" },
-            take: 5,
+            take: 8,
             select: { id: true, name: true, rating: true, reviewCount: true },
           })
         : Promise.resolve([]),
@@ -186,30 +190,101 @@ export async function getLandingData(
           auditedAt: true,
         },
       }),
+      cellWhere
+        ? prisma.cellMetric.findFirst({
+            where: cellWhere,
+            select: {
+              lighthousePerfP50: true,
+              reviewCountP50: true,
+              reviewCountP90: true,
+              ratingP50: true,
+              distributions: true,
+              sampleSize: true,
+            },
+          })
+        : Promise.resolve(null),
+      cellWhere && biz.reviewCount != null
+        ? prisma.business.count({
+            where: {
+              ...cellWhere,
+              isActive: true,
+              reviewCount: { gt: biz.reviewCount },
+            },
+          })
+        : Promise.resolve(0),
     ]);
+
+    // Per-peer review aggregates (reply rate + 30d trend) over the cohort + self.
+    const peerIds = Array.from(
+      new Set([businessId, ...reviewCohort.map((c) => c.id)]),
+    );
+    const since30 = new Date(Date.now() - THIRTY_DAYS_MS);
+    const [peerTotals, peerReplied, peerRecent] = await Promise.all([
+      prisma.review.groupBy({
+        by: ["businessId"],
+        where: { businessId: { in: peerIds } },
+        _count: { _all: true },
+      }),
+      prisma.review.groupBy({
+        by: ["businessId"],
+        where: { businessId: { in: peerIds }, ownerReplied: true },
+        _count: { _all: true },
+      }),
+      prisma.review.groupBy({
+        by: ["businessId"],
+        where: { businessId: { in: peerIds }, postedAt: { gte: since30 } },
+        _count: { _all: true },
+      }),
+    ]);
+    const totalsMap = new Map(
+      peerTotals.map((r) => [r.businessId, r._count._all]),
+    );
+    const repliedMap = new Map(
+      peerReplied.map((r) => [r.businessId, r._count._all]),
+    );
+    const recentMap = new Map(
+      peerRecent.map((r) => [r.businessId, r._count._all]),
+    );
 
     const search = buildSearch(keywordRows, overview?.visibility ?? null);
     const adsDetail = buildAds(
       ownAdCount,
       adCompetitors,
+      adAgg,
       businessId,
       overview?.ads ?? null,
       overview?.adsApplicable ?? null,
     );
-    const reviews = buildReviews(
-      biz.rating,
-      biz.reviewCount,
-      reviewTotal,
-      reviewReplied,
-      biz.placeTopics,
-      reviewCompetitors,
+    const reviews = buildReviews({
+      rating: biz.rating,
+      reviewCount: biz.reviewCount,
+      total: reviewTotal,
+      replied: reviewReplied,
+      placeTopics: biz.placeTopics,
+      cohort: reviewCohort,
       businessId,
-      overview?.reputation ?? null,
-    );
+      pillar: overview?.reputation ?? null,
+      yourRank: biz.reviewCount != null ? betterReviewed + 1 : null,
+      rankedTotal: cellMetric?.sampleSize ?? null,
+      trend30d: recentMap.get(businessId) ?? 0,
+      totalsMap,
+      repliedMap,
+      recentMap,
+    });
     const websiteDetail = buildWebsite(
       audit,
       biz.website,
       overview?.website ?? null,
+      cellMetric?.lighthousePerfP50 ?? null,
+      industryBestPerf(cellMetric?.distributions),
+    );
+    const gap = buildGap(biz.category, search);
+    const changes = buildChanges(
+      overview?.rankDelta ?? null,
+      biz.city ?? biz.province,
+      search,
+      adsDetail,
+      reviews,
     );
 
     const hasAnyData =
@@ -223,7 +298,7 @@ export async function getLandingData(
       businessId: biz.id,
       name: biz.name,
       slug: biz.slug,
-      token: "", // filled by the route from the resolved landing
+      token: "",
       category: biz.category,
       address: biz.address,
       city: biz.city,
@@ -241,12 +316,13 @@ export async function getLandingData(
       website: overview?.website ?? null,
       profile: overview?.profile ?? null,
       adsApplicable: overview?.adsApplicable ?? null,
-      events: overview?.events ?? [],
+      changes,
       search,
       adsDetail,
       reviews,
       websiteDetail,
       fixes: overview?.topFixes ?? [],
+      gap,
       lastSnapshotAt: overview?.lastSnapshotAt ?? null,
       hasAnyData,
     };
@@ -271,10 +347,14 @@ function buildSearch(
   if (rows.length === 0) return { ...EMPTY_LANDING_SEARCH, pillar };
 
   let bestRank: number | null = null;
+  let youGet = 0;
+  let total = 0;
   for (const r of rows) {
     for (const v of [r.latestOrganicRank, r.latestMapsRank]) {
       if (v != null && (bestRank == null || v < bestRank)) bestRank = v;
     }
+    if (r.latestEstMonthlyVisits) youGet += r.latestEstMonthlyVisits;
+    if (r.keyword.searchVolume) total += r.keyword.searchVolume;
   }
 
   const topKeywords = [...rows]
@@ -297,6 +377,8 @@ function buildSearch(
     hasData: true,
     bestRank,
     keywordsTracked: rows.length,
+    searchesYouGet: youGet > 0 ? Math.round(youGet) : null,
+    searchesTotal: total > 0 ? Math.round(total) : null,
     topKeywords,
     pillar,
   };
@@ -312,6 +394,10 @@ type AdvertiserRow = {
 function buildAds(
   ownAdCount: number,
   advertisers: AdvertiserRow[],
+  agg: {
+    _count: { _all: number };
+    _sum: { activeAdCount: number | null };
+  } | null,
   businessId: string,
   pillar: number | null,
   adsApplicable: boolean | null,
@@ -322,50 +408,111 @@ function buildAds(
     activeAds: a.activeAdCount,
     isOwn: a.matchedBusinessId === businessId,
   }));
+  const marketAdvertiserCount = agg?._count._all ?? 0;
+  const marketActiveAds = agg?._sum.activeAdCount ?? 0;
   const hasData = ownAdCount > 0 || competitors.length > 0;
-  if (!hasData) return { ...EMPTY_LANDING_ADS, pillar, adsApplicable };
-  return { hasData: true, ownAdCount, competitors, pillar, adsApplicable };
+  if (!hasData) {
+    return { ...EMPTY_LANDING_ADS, pillar, adsApplicable };
+  }
+  return {
+    hasData: true,
+    ownAdCount,
+    marketAdvertiserCount,
+    marketActiveAds,
+    competitors,
+    pillar,
+    adsApplicable,
+  };
 }
 
-type ReviewCompetitorRow = {
+type CohortRow = {
   id: string;
   name: string;
   rating: number | null;
   reviewCount: number | null;
 };
 
-function buildReviews(
-  rating: number | null,
-  reviewCount: number | null,
-  total: number,
-  replied: number,
-  placeTopics: unknown,
-  competitors: ReviewCompetitorRow[],
-  businessId: string,
-  pillar: number | null,
-): LandingReviewsData {
-  const replyRate = total > 0 ? replied / total : null;
-  const unanswered = Math.max(0, total - replied);
-  const themes = parseThemes(placeTopics);
+function buildReviews(p: {
+  rating: number | null;
+  reviewCount: number | null;
+  total: number;
+  replied: number;
+  placeTopics: unknown;
+  cohort: CohortRow[];
+  businessId: string;
+  pillar: number | null;
+  yourRank: number | null;
+  rankedTotal: number | null;
+  trend30d: number;
+  totalsMap: Map<string, number>;
+  repliedMap: Map<string, number>;
+  recentMap: Map<string, number>;
+}): LandingReviewsData {
+  const replyRate = p.total > 0 ? p.replied / p.total : null;
+  const unanswered = Math.max(0, p.total - p.replied);
+  const themes = parseThemes(p.placeTopics);
   const hasData =
-    rating != null || reviewCount != null || themes.length > 0 || total > 0;
+    p.rating != null ||
+    p.reviewCount != null ||
+    themes.length > 0 ||
+    p.total > 0;
 
-  if (!hasData) return { ...EMPTY_LANDING_REVIEWS, pillar };
+  if (!hasData) return { ...EMPTY_LANDING_REVIEWS, pillar: p.pillar };
+
+  // Top peers by review count + your own row (so the table shows "1,2,3 … you").
+  const ranked = [...p.cohort].sort(
+    (a, b) => (b.reviewCount ?? 0) - (a.reviewCount ?? 0),
+  );
+  const top = ranked.slice(0, 3).map((c, i) => peerRow(c, i + 1, p));
+  const ownInTop = ranked.slice(0, 3).some((c) => c.id === p.businessId);
+  const competitors = [...top];
+  if (!ownInTop && (p.yourRank != null || p.reviewCount != null)) {
+    competitors.push({
+      name: "Your business",
+      rating: p.rating,
+      reviewCount: p.reviewCount,
+      trend30d: p.trend30d,
+      responseRate: replyRate,
+      rank: p.yourRank ?? competitors.length + 1,
+      isOwn: true,
+    });
+  }
 
   return {
     hasData: true,
-    rating,
-    reviewCount,
+    rating: p.rating,
+    reviewCount: p.reviewCount,
     replyRate,
     unanswered,
+    trend30d: p.trend30d,
+    yourRank: p.yourRank,
+    rankedTotal: p.rankedTotal,
     themes,
-    competitors: competitors.map((c) => ({
-      name: c.name,
-      rating: c.rating,
-      reviewCount: c.reviewCount,
-      isOwn: c.id === businessId,
-    })),
-    pillar,
+    competitors,
+    pillar: p.pillar,
+  };
+}
+
+function peerRow(
+  c: CohortRow,
+  rank: number,
+  p: {
+    businessId: string;
+    totalsMap: Map<string, number>;
+    repliedMap: Map<string, number>;
+    recentMap: Map<string, number>;
+  },
+) {
+  const total = p.totalsMap.get(c.id) ?? 0;
+  const replied = p.repliedMap.get(c.id) ?? 0;
+  return {
+    name: c.name,
+    rating: c.rating,
+    reviewCount: c.reviewCount,
+    trend30d: p.recentMap.get(c.id) ?? 0,
+    responseRate: total > 0 ? replied / total : null,
+    rank,
+    isOwn: c.id === p.businessId,
   };
 }
 
@@ -399,11 +546,12 @@ function buildWebsite(
   audit: AuditRow | null,
   websiteUrl: string | null,
   pillar: number | null,
+  industryMedian: number | null,
+  industryBest: number | null,
 ): LandingWebsiteData {
   const hasWebsite = Boolean(websiteUrl);
   const isHttps = websiteUrl ? websiteUrl.startsWith("https://") : null;
 
-  // Map measurements onto the 12 plain-English checks (null = couldn't measure).
   const measured: Record<string, boolean | null> = {
     loadsFast: audit?.lcp != null ? audit.lcp <= 2.5 : null,
     smoothScroll: audit?.cls != null ? audit.cls <= 0.1 : null,
@@ -416,15 +564,50 @@ function buildWebsite(
     napConsistent: audit?.napConsistent ?? null,
     worksWithoutJs: audit?.contentWithoutJs ?? null,
     secure: hasWebsite ? isHttps : null,
-    hasWebsite: hasWebsite,
+    hasWebsite,
+  };
+  const detailFor: Record<string, string | null> = {
+    loadsFast:
+      audit?.lcp != null
+        ? `Your LCP: ${audit.lcp.toFixed(1)}s · good is under 2.5s`
+        : null,
+    smoothScroll:
+      audit?.cls != null
+        ? `Your CLS: ${audit.cls.toFixed(2)} · good is under 0.1`
+        : null,
+    quickToRespond:
+      audit?.inp != null
+        ? `Your INP: ${Math.round(audit.inp)}ms · good is under 200ms`
+        : null,
+    foundOnGoogle:
+      audit?.seo != null ? `SEO health: ${Math.round(audit.seo)}/100` : null,
+    phoneAboveFold: null,
+    bookingAboveFold: null,
+    localBusinessSchema: null,
+    faqSchema: null,
+    napConsistent: null,
+    worksWithoutJs: null,
+    secure: hasWebsite
+      ? isHttps
+        ? "Served over https"
+        : "Not secure (http)"
+      : null,
+    hasWebsite: hasWebsite ? websiteUrl : "No website on record",
   };
 
   const checks: LandingWebsiteCheck[] = LANDING_WEBSITE_CHECK_LABELS.map(
-    (c) => ({
-      key: c.key,
-      label: c.label,
-      pass: measured[c.key] ?? null,
-    }),
+    (c) => {
+      const pass = measured[c.key] ?? null;
+      let detail = detailFor[c.key];
+      if (detail == null)
+        detail =
+          pass === true
+            ? "Present"
+            : pass === false
+              ? "Missing"
+              : "Not measured";
+      return { key: c.key, label: c.label, pass, detail };
+    },
   );
   const passCount = checks.filter((c) => c.pass === true).length;
   const hasData = audit != null || hasWebsite;
@@ -436,9 +619,131 @@ function buildWebsite(
     websiteUrl,
     performance: audit?.performance ?? null,
     seo: audit?.seo ?? null,
+    industryMedian,
+    industryBest,
     checks,
     passCount,
     totalChecks: checks.length,
     pillar,
   };
+}
+
+/** Best (top-decile) cohort website performance from the CellMetric breakpoints. */
+function industryBestPerf(distributions: unknown): number | null {
+  if (distributions == null || typeof distributions !== "object") return null;
+  const d = distributions as Record<string, unknown>;
+  for (const key of [
+    "lighthousePerformance",
+    "websitePerformance",
+    "performance",
+    "lighthousePerf",
+  ]) {
+    const bucket = d[key];
+    if (bucket && typeof bucket === "object") {
+      const p90 = (bucket as Record<string, unknown>).p90;
+      if (typeof p90 === "number" && Number.isFinite(p90))
+        return Math.round(p90);
+    }
+  }
+  return null;
+}
+
+/** Market-gap "problem → solution" callout from the search split + missing keywords. */
+function buildGap(
+  category: string,
+  search: LandingSearchData,
+): LandingGap | null {
+  if (
+    !search.hasData ||
+    search.searchesYouGet == null ||
+    search.searchesTotal == null
+  ) {
+    return null;
+  }
+  const youGet = roundNice(search.searchesYouGet);
+  const others = roundNice(
+    Math.max(0, search.searchesTotal - search.searchesYouGet),
+  );
+  const cat = category.toLowerCase().replace(/_/g, " ");
+  const missing = search.topKeywords
+    .filter((k) => {
+      const best = [k.organicRank, k.mapsRank].filter(
+        (r): r is number => r != null,
+      );
+      return best.length === 0 || Math.min(...best) > 3;
+    })
+    .slice(0, 2)
+    .map((k) => `"${k.keyword}"`);
+
+  return {
+    problem: `You show up for ~${fmt(youGet)} searches a month. The other ~${fmt(others)} go to other ${cat}s.`,
+    solution:
+      missing.length > 0
+        ? `Win the searches you're missing — like ${missing.join(" and ")}.`
+        : `Climb into the top 3 for the searches that send patients to your competitors.`,
+  };
+}
+
+/** The "what changed in your area this week" summary rows. */
+function buildChanges(
+  rankDelta: number | null,
+  cellLabel: string | null,
+  search: LandingSearchData,
+  ads: LandingAdsData,
+  reviews: LandingReviewsData,
+): LandingChange[] {
+  const out: LandingChange[] = [];
+
+  if (rankDelta != null && rankDelta !== 0) {
+    const up = rankDelta > 0;
+    out.push({
+      id: "rank",
+      label: up ? "Your ranking is climbing" : "Your ranking is slipping",
+      value: `${up ? "▲" : "▼"} ${Math.abs(rankDelta)}`,
+      sub: cellLabel ? `spots in ${cellLabel}` : "spots this week",
+      tone: up ? "good" : "bad",
+    });
+  }
+
+  if (search.searchesTotal != null && search.searchesYouGet != null) {
+    const losing = Math.max(0, search.searchesTotal - search.searchesYouGet);
+    out.push({
+      id: "search",
+      label: "Searches going to others",
+      value: `~${fmt(roundNice(losing))}`,
+      sub: "a month you're not capturing",
+      tone: "bad",
+    });
+  }
+
+  if (ads.marketAdvertiserCount > 0) {
+    out.push({
+      id: "ads",
+      label: "Competitors running ads near you",
+      value: `${ads.marketAdvertiserCount}`,
+      sub: `${ads.marketActiveAds} active ads in your area`,
+      tone: "neutral",
+    });
+  }
+
+  if (reviews.trend30d > 0) {
+    out.push({
+      id: "reviews",
+      label: "New reviews across your market",
+      value: `+${reviews.trend30d}`,
+      sub: "in the last 30 days",
+      tone: "neutral",
+    });
+  }
+
+  return out;
+}
+
+function roundNice(n: number): number {
+  if (n < 10) return Math.max(0, Math.round(n));
+  if (n < 100) return Math.round(n / 5) * 5;
+  return Math.round(n / 10) * 10;
+}
+function fmt(n: number): string {
+  return new Intl.NumberFormat("en-US").format(n);
 }
