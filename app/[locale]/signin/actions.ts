@@ -22,6 +22,21 @@ export async function signInAction(
     return { error: "invalid_email" };
   }
 
+  // Carry a landing-driven checkout intent through the magic-link round-trip.
+  // `redirectTo` is baked into the email URL, so after the click /post-signin
+  // sees `?intent=smb&landing=<token>` and starts the $29 checkout. Validated +
+  // bounded so nothing arbitrary rides along.
+  const intent = formData.get("intent");
+  const landing = formData.get("landing");
+  let redirectTo = "/post-signin";
+  if (
+    intent === "smb" &&
+    typeof landing === "string" &&
+    /^[1-9][0-9]{15}$/.test(landing)
+  ) {
+    redirectTo = `/post-signin?intent=smb&landing=${landing}`;
+  }
+
   try {
     // NextAuth v5 server-action `signIn` for an email provider has TWO
     // distinct redirects:
@@ -41,7 +56,7 @@ export async function signInAction(
     // (ADMIN/SMB → /home, agency member → /lists).
     await signIn("resend", {
       email,
-      redirectTo: "/post-signin",
+      redirectTo,
     });
   } catch (err) {
     if (err instanceof AuthError) {

@@ -291,6 +291,7 @@ model Business {
   quickWinAssignments QuickWinAssignment[]
   leads               Lead[]
   services            BusinessService[]
+  landingPage         LandingPage?
 
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
@@ -1037,6 +1038,92 @@ enum ReportStatus {
   READY
   SHARED
   EXPIRED
+}
+
+// ============================================================================
+// LANDING PAGES · personalized public proposal pages (/l/[slug]-[token])
+//
+// One per qualified Business. The page renders that business's REAL latest
+// snapshot data as a marketing proposal we email to the owner — the conversion
+// surface that turns a discovered business into a paying SMB subscriber.
+//
+// `token` is a 16-digit numeric, unguessable lookup key (the only key we query
+// by); `slug` is the cosmetic business-name segment in the URL, verified
+// against the stored slug (mismatch → 404) so the link can't be edited to
+// probe. No-indexed, rate-limited, kept out of the sitemap. See modules/smb-landing.
+// ============================================================================
+
+model LandingPage {
+  id         String   @id @default(cuid())
+  businessId String   @unique // one landing per business
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  // Unguessable numeric lookup key (16 digits) + cosmetic URL slug.
+  token String @unique
+  slug  String
+
+  // Soft-revoke without deleting funnel history — flipping this 404s the link.
+  isActive Boolean @default(true)
+
+  // Denormalized open counter (fire-and-forget on render · cheap headline).
+  // The authoritative funnel metrics live in LandingEvent.
+  viewCount Int @default(0)
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  createdByUserId String?
+
+  events LandingEvent[]
+
+  @@index([businessId])
+}
+
+// One captured funnel event for a landing page. Client-side events (open,
+// section-viewed, CTA click, checkout opened) post to /api/landing-events;
+// SUBSCRIPTION_BOUGHT is emitted server-side from the Stripe webhook via the
+// landingToken carried in checkout metadata. Drives /admin/landing-pages.
+model LandingEvent {
+  id            String      @id @default(cuid())
+  landingPageId String
+  landingPage   LandingPage @relation(fields: [landingPageId], references: [id], onDelete: Cascade)
+
+  type LandingEventType
+  // For SECTION_VIEWED: which section scrolled into view ("hero", "changes",
+  // "search", "ads", "reviews", "website", "fixes", "pricing"). For
+  // CTA_CLICKED: which CTA ("top", "hero", "fixes", "pricing").
+  section String?
+
+  // Visitor context. `visitorId` is a client-minted anonymous id (localStorage)
+  // used to count UNIQUE visitors per funnel step; `sessionId` sequences one
+  // page-load's events. `ipHash` is a salted hash (never the raw IP, per the
+  // PII rule) for bot/duplicate filtering. `isBot` flags filtered traffic so
+  // the admin funnel can exclude it.
+  visitorId String?
+  sessionId String?
+  ipHash    String?
+  userAgent String? @db.Text
+  isBot     Boolean @default(false)
+
+  // Conversion linkage (CHECKOUT_OPENED / SUBSCRIPTION_BOUGHT).
+  stripeSessionId String?
+  convertedUserId String?
+
+  metadata Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([landingPageId, type, createdAt])
+  @@index([landingPageId, createdAt])
+  @@index([visitorId])
+  @@index([stripeSessionId])
+}
+
+enum LandingEventType {
+  PAGE_OPENED
+  SECTION_VIEWED
+  CTA_CLICKED
+  CHECKOUT_OPENED
+  SUBSCRIPTION_BOUGHT
 }
 
 // ============================================================================

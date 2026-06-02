@@ -39,6 +39,7 @@ import prisma from "@/lib/prisma";
 import stripeClient from "@/lib/stripe";
 import { rateLimit, WEBHOOK_LIMIT } from "@/lib/middleware/rate-limit";
 import { handleStripeEvent } from "@/modules/billing/webhook";
+import { recordLandingConversion } from "@/modules/smb-landing/conversion";
 
 export async function POST(req: Request): Promise<Response> {
   // ─── Rate limit (key by signature so each Stripe key gets its own bucket) ──
@@ -140,6 +141,9 @@ export async function POST(req: Request): Promise<Response> {
       where: { id: webhookRowId },
       data: { processedAt: new Date(), error: null },
     });
+    // Landing funnel attribution (best-effort, internally guarded) — records
+    // SUBSCRIPTION_BOUGHT when this conversion came from a /l/[token] proposal.
+    await recordLandingConversion(event);
     console.log(
       JSON.stringify({
         level: "info",

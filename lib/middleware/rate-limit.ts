@@ -170,7 +170,25 @@ export async function rateLimit(
     return null;
   }
 
-  const r = await limiter.limit(key);
+  let r: Awaited<ReturnType<Ratelimit["limit"]>>;
+  try {
+    r = await limiter.limit(key);
+  } catch (err) {
+    // The reachability check passed but the limiter call itself threw — the
+    // `@vercel/kv` client demands KV_REST_API_URL/TOKEN at call time (config
+    // mismatch), or Upstash is down / unreachable. Honor the module's
+    // documented fail-soft contract: ALLOW the request rather than 500 every
+    // caller (incl. the Stripe webhook). Production surfaces it via this log.
+    console.warn(
+      JSON.stringify({
+        level: "warn",
+        event: "rate_limit.limiter_failed",
+        profile: profile.name,
+        error: err instanceof Error ? err.message : String(err),
+      }),
+    );
+    return null;
+  }
   if (r.success) return null;
 
   const retryAfterSec = Math.max(0, Math.ceil((r.reset - Date.now()) / 1000));

@@ -1342,3 +1342,23 @@ Two bars rendered for `2026-03`; February 2026 silently missing from the 12-mont
 **Confidence:** very high — traced the exact `i=3`/`i=2` collision from the reported run date; regression test reproduces the old failure and passes on the fix across all risky dates.
 
 **Tags:** date-arithmetic, month-overflow, react-duplicate-key, smb-reviews, date-dependent, regression-test
+
+### INC-2026-06-02-42 · `prisma migrate dev` wants to RESET the drifted prod DB (near data-loss)
+
+**Symptom:** `pnpm prisma migrate dev --name add_landing_pages` against the live Neon DB printed a long "drift" report (Added column/index/FK for Review, SerpResult, BusinessKeyword, QuickWinAssignment, BusinessService…) then: _"We need to reset the 'public' schema… All data will be lost."_ It bailed in non-interactive mode (no reset ran), but a `y` would have dropped the entire 2.1M-business database.
+**Root cause:** The live DB has migration-history drift — parts of the schema were historically applied via `prisma db push` (no migration file), so replaying the 14 migration files onto `migrate dev`'s shadow DB doesn't reconstruct the live schema. `migrate dev` reads that as drift and wants to reset to reconcile. `migrate status` stays green because it only compares _recorded migrations vs files_, never _shadow-replay vs live schema_.
+**Fix applied:** NEVER `migrate dev` against this DB. For an additive change: (1) edit `schema.prisma`, (2) hand-write `prisma/migrations/<ts>_<slug>/migration.sql` (forward-only, additive), (3) `prisma db execute --file <sql>` with DB env loaded, (4) `prisma migrate resolve --applied <ts>_<slug>`, (5) `prisma generate`. Verified via `migrate status` → "15 migrations found · up to date".
+**Prevention:** Mechanical — `package.json db:migrate` = `prisma migrate dev`; do NOT run it against prod/Neon. Use the db-execute + migrate-resolve recipe above for additive migrations. SECONDARY trap that bit here: `cmd && echo` does NOT trip `set -e` (command is in an `&&` list), so a FAILED `db execute --schema` (invalid flag) still let the next `migrate resolve --applied` mark a migration applied whose DDL never ran — run the apply step on its own line and verify its exit code before resolving.
+**Where encoded:** this entry + `.claude/rules/prisma.md` §6 (db-push/migrate drift) — adds the migrate-dev-RESET danger + the execute+resolve recipe.
+**Confidence:** high
+**Tags:** prisma, migration, neon, db-push-drift, data-loss, set-e
+
+### INC-2026-06-02-43 · `rateLimit()` 500s when `isKvAvailable()` is true but `@vercel/kv` env is missing
+
+**Symptom:** every POST to a rate-limited route (`/api/landing-events`) returned HTTP 500 — `Error: @vercel/kv: Missing required environment variables KV_REST_API_URL and KV_REST_API_TOKEN`, thrown from `limiter.limit()` at `lib/middleware/rate-limit.ts:173` — even for malformed bodies that should 400 before any DB.
+**Root cause:** `getLimiter()` gates on `isKvAvailable()`, which returned true (looser env signal), so a `Ratelimit` was constructed. But `@vercel/kv`'s `kv` client throws at CALL time when `KV_REST_API_URL`/`TOKEN` are unset. `rateLimit()` only failed soft at the `isKvAvailable()` check, NOT around the actual `limiter.limit()` call → the throw propagated uncaught → 500. This would 500 EVERY rate-limited route (incl. the Stripe webhook → Stripe retries) whenever those two env checks disagree or Upstash is unreachable.
+**Fix applied:** wrapped `await limiter.limit(key)` in try/catch in `rate-limit.ts` — on throw, log `rate_limit.limiter_failed` + return null (ALLOW), honoring the module's already-documented fail-soft contract. Also defensively wrapped the `rateLimit` call in the landing-events route (best-effort analytics must never 500).
+**Prevention:** A rate limiter is a guard, not a dependency — its failure must degrade to "allow", never 500. `rateLimit()` is now fail-soft at config-check AND runtime-throw; every rate-limited route inherits it.
+**Where encoded:** this entry + `lib/middleware/rate-limit.ts` (the try/catch around `limiter.limit`).
+**Confidence:** high
+**Tags:** rate-limit, vercel-kv, upstash, fail-soft, webhook-resilience

@@ -21,6 +21,7 @@ const ITEMS: readonly NavItem[] = [
   { href: "/admin/discovery", label: "Discovery" },
   { href: "/admin/cells", label: "Cells" },
   { href: "/admin/businesses", label: "Businesses" },
+  { href: "/admin/landing-pages", label: "Landing pages" },
   { href: "/admin/cron-runs", label: "Cron runs" },
 ];
 

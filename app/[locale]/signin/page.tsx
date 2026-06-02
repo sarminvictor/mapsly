@@ -22,12 +22,20 @@ export async function generateMetadata({
 
 export default async function SignInPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ locale: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { locale } = await params;
   setRequestLocale(locale);
   const t = await getTranslations("auth.signin");
+
+  // Landing CTA carries `?intent=smb&landing=<token>` so the magic-link flow
+  // can resume into the $29 checkout after sign-in.
+  const sp = await searchParams;
+  const intent = typeof sp.intent === "string" ? sp.intent : undefined;
+  const landing = typeof sp.landing === "string" ? sp.landing : undefined;
 
   // If the visitor is already signed in, skip the form and route
   // through /post-signin which dispatches by role (admin / agency /
@@ -112,7 +120,7 @@ export default async function SignInPage({
           {t("subtitle")}
         </p>
 
-        <SignInForm />
+        <SignInForm intent={intent} landing={landing} />
 
         <p
           style={{

@@ -29,6 +29,7 @@ export default function robots(): MetadataRoute.Robots {
         allow: "/",
         disallow: [
           "/api/",
+          "/l/", // personalized landing proposals (no-index, unguessable token)
           "/dev",
           "/dev/",
           "/home",

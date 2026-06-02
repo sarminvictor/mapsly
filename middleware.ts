@@ -37,6 +37,13 @@ export default function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
+  // /l/[token] — public, no-index landing pages (the emailed SMB proposals).
+  // Outside the locale tree (a direct-share artifact like /admin), so pass it
+  // through untouched; the route resolves the token + 404s on mismatch.
+  if (url.pathname.startsWith("/l/")) {
+    return NextResponse.next();
+  }
+
   // Everything else → next-intl handles locale negotiation.
   return intlMiddleware(req);
 }

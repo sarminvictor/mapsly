@@ -6,7 +6,13 @@ import { useTranslations } from "next-intl";
 
 import { signInAction, type SignInState } from "./actions";
 
-export function SignInForm() {
+export function SignInForm({
+  intent,
+  landing,
+}: {
+  intent?: string;
+  landing?: string;
+}) {
   const t = useTranslations("auth.signin");
   const [state, formAction] = useActionState<SignInState, FormData>(
     signInAction,
@@ -22,6 +28,8 @@ export function SignInForm() {
 
   return (
     <form action={formAction} noValidate aria-describedby="signin-error">
+      {intent ? <input type="hidden" name="intent" value={intent} /> : null}
+      {landing ? <input type="hidden" name="landing" value={landing} /> : null}
       <label
         htmlFor="signin-email"
         style={{

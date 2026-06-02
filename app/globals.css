@@ -5,6 +5,14 @@
   --font-serif: "Fraunces", Georgia, serif;
   --font-mono: "JetBrains Mono", monospace;
 
+  /* Landing-page typography (the emailed proposal pages /l/[token]).
+   * Headings want FreightBig Pro (a licensed display serif we can't ship);
+   * until the licensed .woff2 files land in /public/fonts/ + an @font-face
+   * is added, the chain falls back to Fraunces — visually close, no 404.
+   * Body/labels use Montserrat (loaded via the Google Fonts link in layout). */
+  --font-landing-head: "FreightBig Pro", "Fraunces", Georgia, serif;
+  --font-landing-body: "Montserrat", "Inter", sans-serif;
+
   /* SMB palette · warm cream + coral */
   --color-bg: #faf6f1;
   --color-bg-2: #ffffff;

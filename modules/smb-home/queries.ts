@@ -62,9 +62,31 @@ export async function getSmbHomeData(userId: string): Promise<SmbOverviewData> {
   }
 
   try {
-    const business = await prisma.business.findFirst({
+    const owned = await prisma.business.findFirst({
       where: { ownerUserId: userId, isActive: true },
       orderBy: { createdAt: "asc" },
+      select: { id: true },
+    });
+    if (!owned) return EMPTY_SMB_OVERVIEW;
+    return (await buildOverviewForBusiness(owned.id)) ?? EMPTY_SMB_OVERVIEW;
+  } catch {
+    return EMPTY_SMB_OVERVIEW;
+  }
+}
+
+/**
+ * Shared market-overview assembler keyed by businessId — the core behind both
+ * the owner's `/home` (resolved by ownerUserId) and the public landing
+ * (`/l/[token]`, resolved by token). Returns null when the business is missing
+ * or inactive, or on error. Not cached itself; callers wrap it in their own
+ * `'use cache'` + tag.
+ */
+export async function buildOverviewForBusiness(
+  businessId: string,
+): Promise<SmbOverviewData | null> {
+  try {
+    const business = await prisma.business.findFirst({
+      where: { id: businessId, isActive: true },
       select: {
         id: true,
         slug: true,
@@ -90,7 +112,7 @@ export async function getSmbHomeData(userId: string): Promise<SmbOverviewData> {
       },
     });
 
-    if (!business) return EMPTY_SMB_OVERVIEW;
+    if (!business) return null;
     const snap = business.snapshots[0] ?? null;
 
     const now = new Date();
@@ -324,7 +346,7 @@ export async function getSmbHomeData(userId: string): Promise<SmbOverviewData> {
       events: events.slice(0, MAX_EVENTS),
     };
   } catch {
-    return EMPTY_SMB_OVERVIEW;
+    return null;
   }
 }
 

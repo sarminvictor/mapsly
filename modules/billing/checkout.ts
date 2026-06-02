@@ -45,6 +45,13 @@ export interface CreateCheckoutInput {
    * open-redirect attacks via Stripe-mediated post-checkout redirects.
    */
   returnUrl: string;
+  /**
+   * Optional landing-page token (16-digit) when this checkout originated from
+   * a personalized `/l/[token]` proposal. Carried into Stripe metadata so the
+   * webhook can attribute the conversion (SUBSCRIPTION_BOUGHT) to the landing's
+   * funnel. SMB plan only — ignored for agency checkouts.
+   */
+  landingToken?: string;
 }
 
 export interface CreateCheckoutResult {
@@ -159,16 +166,20 @@ async function checkoutForUser(
   input: CreateCheckoutInput,
 ): Promise<CreateCheckoutResult> {
   const customerId = await ensureUserCustomer(user);
+  const metadata: Record<string, string> = {
+    userId: user.id,
+    plan: input.plan,
+    audience: "smb",
+  };
+  // Landing attribution — carried to the subscription so the webhook can
+  // close the funnel loop (SUBSCRIPTION_BOUGHT) back to the originating page.
+  if (input.landingToken) metadata.landingToken = input.landingToken;
   const session = await createSession({
     customerId,
     priceId: getPriceId(input.plan),
     returnUrl: input.returnUrl,
     clientReferenceId: user.id,
-    metadata: {
-      userId: user.id,
-      plan: input.plan,
-      audience: "smb",
-    },
+    metadata,
   });
   return {
     sessionUrl: requireSessionUrl(session),
