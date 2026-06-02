@@ -164,6 +164,8 @@ export const GET = cronHandler(JOB, async ({ runId }) => {
       hasPhoneAboveFold: signals.hasPhoneAboveFold,
       napConsistent: signals.napConsistent,
       hasActiveAds: signals.hasActiveAds,
+      hasActiveGoogleAds: signals.hasActiveGoogleAds,
+      hasActiveMetaAds: signals.hasActiveMetaAds,
       metaAdCount: signals.metaAdCount,
       estMonthlyAdSpend: signals.estMonthlyAdSpend,
       brandHijack: signals.brandHijack,
@@ -255,7 +257,8 @@ async function gatherSignals(biz: BusinessForScoring) {
     recentReviews,
     latestLighthouse,
     googleAdsCount,
-    metaAdsCount,
+    metaLibCount,
+    metaMarketCount,
     businessKeywords,
     adSpendAgg,
   ] = await Promise.all([
@@ -285,13 +288,18 @@ async function gatherSignals(biz: BusinessForScoring) {
         hasPhoneAboveFold: true,
       },
     }),
-    // Google ads live on AdLibraryEntry (per business)…
+    // Google presence · Google Ads Transparency Center, stored per-business on
+    // AdLibraryEntry with platform=GOOGLE.
     prisma.adLibraryEntry.count({
-      where: { businessId: biz.id, isActive: true },
+      where: { businessId: biz.id, isActive: true, platform: "GOOGLE" },
     }),
-    // …own Meta ads live on AdMarketAdvertiser (the cell market, matched back to
-    // this business). Count both so "hasActiveAds" isn't blind to a Meta-only
-    // advertiser (cell-model migration moved Meta out of AdLibraryEntry).
+    // Meta presence · per-business AdLibraryEntry rows tagged platform=META…
+    prisma.adLibraryEntry.count({
+      where: { businessId: biz.id, isActive: true, platform: "META" },
+    }),
+    // …plus the cell-market table (AdMarketAdvertiser, META) matched back to this
+    // business — the cell-model migration moved most Meta data here, so a
+    // Meta-only advertiser still registers as advertising.
     prisma.adMarketAdvertiser.count({
       where: { matchedBusinessId: biz.id, isActive: true },
     }),
@@ -307,6 +315,7 @@ async function gatherSignals(biz: BusinessForScoring) {
       _sum: { spendMidHigh: true },
     }),
   ]);
+  const metaAdsCount = metaLibCount + metaMarketCount;
   const activeAdsCount = googleAdsCount + metaAdsCount;
 
   // Visibility signals derived from the business's tracked keywords.
@@ -376,6 +385,8 @@ async function gatherSignals(biz: BusinessForScoring) {
     napConsistent: latestLighthouse?.napConsistent ?? null,
     hasBookingCta: latestLighthouse?.hasBookingCtaAboveFold ?? null,
     hasPhoneAboveFold: latestLighthouse?.hasPhoneAboveFold ?? null,
+    hasActiveGoogleAds: googleAdsCount > 0,
+    hasActiveMetaAds: metaAdsCount > 0,
     metaAdCount: metaAdsCount,
     estMonthlyAdSpend,
     brandHijack: null,

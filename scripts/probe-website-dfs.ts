@@ -37,10 +37,17 @@ function pretty(v: unknown, max = 1400): string {
 function domainOf(website: string | null | undefined): string | null {
   if (!website) return null;
   try {
-    const u = new URL(website.startsWith("http") ? website : `https://${website}`);
+    const u = new URL(
+      website.startsWith("http") ? website : `https://${website}`,
+    );
     return u.hostname.replace(/^www\./, "");
   } catch {
-    return website.replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0] ?? null;
+    return (
+      website
+        .replace(/^https?:\/\//, "")
+        .replace(/^www\./, "")
+        .split("/")[0] ?? null
+    );
   }
 }
 function urlOf(website: string | null | undefined): string | null {
@@ -58,7 +65,10 @@ interface InstantSummary {
   costUsd: number;
 }
 
-async function instantPage(name: string, website: string): Promise<InstantSummary | null> {
+async function instantPage(
+  name: string,
+  website: string,
+): Promise<InstantSummary | null> {
   const url = urlOf(website);
   const domain = domainOf(website);
   if (!url || !domain) return null;
@@ -80,11 +90,24 @@ async function instantPage(name: string, website: string): Promise<InstantSummar
     // In DataForSEO on-page checks, a TRUE value on a "no_*"/"is_*"/"has_*"
     // problem flag means the issue is present. Surface the ones that are true.
     const PROBLEM = [
-      "no_title", "no_description", "no_h1_tag", "no_image_alt",
-      "no_favicon", "https_to_http_links", "is_http", "is_4xx_code",
-      "is_5xx_code", "canonical_chain", "no_doctype", "low_content_rate",
-      "title_too_long", "title_too_short", "no_content_encoding",
-      "high_loading_time", "small_page_size", "no_meta_viewport",
+      "no_title",
+      "no_description",
+      "no_h1_tag",
+      "no_image_alt",
+      "no_favicon",
+      "https_to_http_links",
+      "is_http",
+      "is_4xx_code",
+      "is_5xx_code",
+      "canonical_chain",
+      "no_doctype",
+      "low_content_rate",
+      "title_too_long",
+      "title_too_short",
+      "no_content_encoding",
+      "high_loading_time",
+      "small_page_size",
+      "no_meta_viewport",
     ];
     const failed = PROBLEM.filter((k) => checks[k] === true);
     return {
@@ -97,7 +120,9 @@ async function instantPage(name: string, website: string): Promise<InstantSummar
       costUsd: rawCostUsd ?? 0,
     };
   } catch (err) {
-    console.log(`   ✗ instant_pages(${domain}) failed: ${(err as Error).message}`);
+    console.log(
+      `   ✗ instant_pages(${domain}) failed: ${(err as Error).message}`,
+    );
     return null;
   }
 }
@@ -105,12 +130,19 @@ async function instantPage(name: string, website: string): Promise<InstantSummar
 async function main() {
   const arg = process.argv[2] ?? "Injection";
   const target = await prisma.business.findFirst({
-    where: arg.length > 24 && !arg.includes(" ")
-      ? { id: arg }
-      : { name: { contains: arg, mode: "insensitive" } },
+    where:
+      arg.length > 24 && !arg.includes(" ")
+        ? { id: arg }
+        : { name: { contains: arg, mode: "insensitive" } },
     select: {
-      id: true, name: true, website: true, category: true,
-      city: true, country: true, address: true, phone: true,
+      id: true,
+      name: true,
+      website: true,
+      category: true,
+      city: true,
+      country: true,
+      address: true,
+      phone: true,
     },
   });
   if (!target) {
@@ -121,7 +153,9 @@ async function main() {
   console.log("=".repeat(74));
   console.log(`TARGET  ${target.name}`);
   console.log(`  ${target.category} · ${target.city}, ${target.country}`);
-  console.log(`  website: ${target.website ?? "(none)"} → domain: ${domainOf(target.website) ?? "(none)"}`);
+  console.log(
+    `  website: ${target.website ?? "(none)"} → domain: ${domainOf(target.website) ?? "(none)"}`,
+  );
   console.log("=".repeat(74));
 
   if (!target.website) {
@@ -142,16 +176,25 @@ async function main() {
     orderBy: { reviewCount: "desc" },
     take: 3,
   });
-  console.log(`\nSame-cell competitors with a website (top ${competitors.length} by review count):`);
-  for (const c of competitors) console.log(`  · ${c.name} → ${domainOf(c.website)}`);
+  console.log(
+    `\nSame-cell competitors with a website (top ${competitors.length} by review count):`,
+  );
+  for (const c of competitors)
+    console.log(`  · ${c.name} → ${domainOf(c.website)}`);
 
   await withCronRun("probe:website-dfs", async () => {
     // ---- 1 · Lighthouse (prod composer) on the target ------------------
-    console.log(`\n${"-".repeat(74)}\n1 · on_page/lighthouse/live/json  (prod path · lighthouseFullAudit)\n${"-".repeat(74)}`);
+    console.log(
+      `\n${"-".repeat(74)}\n1 · on_page/lighthouse/live/json  (prod path · lighthouseFullAudit)\n${"-".repeat(74)}`,
+    );
     try {
       const lh = await lighthouseFullAudit({
         url: target.website!,
-        nap: { name: target.name, address: target.address ?? undefined, phone: target.phone ?? undefined },
+        nap: {
+          name: target.name,
+          address: target.address ?? undefined,
+          phone: target.phone ?? undefined,
+        },
       });
       console.log("scores:", pretty(lh.scores, 900));
       console.log("domChecks:", pretty(lh.domChecks, 600));
@@ -161,7 +204,9 @@ async function main() {
     }
 
     // ---- 2 · instant_pages on target + competitors (comparison) --------
-    console.log(`\n${"-".repeat(74)}\n2 · on_page/instant_pages  (NOT wired yet · target + competitors)\n${"-".repeat(74)}`);
+    console.log(
+      `\n${"-".repeat(74)}\n2 · on_page/instant_pages  (NOT wired yet · target + competitors)\n${"-".repeat(74)}`,
+    );
     const rows: InstantSummary[] = [];
     const t0 = await instantPage(`★ ${target.name}`, target.website!);
     if (t0) rows.push(t0);
@@ -172,7 +217,9 @@ async function main() {
     }
 
     // ---- 3 · technologies on the target --------------------------------
-    console.log(`\n${"-".repeat(74)}\n3 · domain_analytics/technologies  (NOT wired yet · target)\n${"-".repeat(74)}`);
+    console.log(
+      `\n${"-".repeat(74)}\n3 · domain_analytics/technologies  (NOT wired yet · target)\n${"-".repeat(74)}`,
+    );
     try {
       const { result, rawCostUsd } = await dataforSeoPost<{
         domain?: string;
@@ -191,12 +238,27 @@ async function main() {
 
     // ---- comparison table ----------------------------------------------
     if (rows.length > 0) {
-      const scores = rows.map((r) => r.onpageScore).filter((n): n is number => n != null);
-      const loads = rows.map((r) => r.domCompleteMs).filter((n): n is number => n != null);
-      const avgScore = scores.length ? scores.reduce((a, b) => a + b, 0) / scores.length : null;
-      const avgLoad = loads.length ? loads.reduce((a, b) => a + b, 0) / loads.length : null;
-      console.log(`\n${"=".repeat(74)}\nCOMPARISON · you vs competitors vs average (from instant_pages)\n${"=".repeat(74)}`);
-      console.log("business".padEnd(34), "onpage".padStart(7), "load(ms)".padStart(9), "  issues");
+      const scores = rows
+        .map((r) => r.onpageScore)
+        .filter((n): n is number => n != null);
+      const loads = rows
+        .map((r) => r.domCompleteMs)
+        .filter((n): n is number => n != null);
+      const avgScore = scores.length
+        ? scores.reduce((a, b) => a + b, 0) / scores.length
+        : null;
+      const avgLoad = loads.length
+        ? loads.reduce((a, b) => a + b, 0) / loads.length
+        : null;
+      console.log(
+        `\n${"=".repeat(74)}\nCOMPARISON · you vs competitors vs average (from instant_pages)\n${"=".repeat(74)}`,
+      );
+      console.log(
+        "business".padEnd(34),
+        "onpage".padStart(7),
+        "load(ms)".padStart(9),
+        "  issues",
+      );
       for (const r of rows) {
         console.log(
           r.name.slice(0, 33).padEnd(34),
@@ -212,11 +274,15 @@ async function main() {
         (avgLoad ? Math.round(avgLoad).toString() : "—").padStart(9),
       );
       const instantCost = rows.reduce((a, r) => a + r.costUsd, 0);
-      console.log(`\ninstant_pages total cost: $${instantCost.toFixed(5)} for ${rows.length} pages (~$${(instantCost / rows.length).toFixed(5)}/page)`);
+      console.log(
+        `\ninstant_pages total cost: $${instantCost.toFixed(5)} for ${rows.length} pages (~$${(instantCost / rows.length).toFixed(5)}/page)`,
+      );
     }
   });
 
-  console.log("\n✓ probe complete. (CronRun cost row written for audit trail.)");
+  console.log(
+    "\n✓ probe complete. (CronRun cost row written for audit trail.)",
+  );
 }
 
 main()

@@ -594,6 +594,12 @@ async function WebsiteBody({ params }: { params: Promise<PageParams> }) {
                           scope="col"
                           style={{ ...compareThStyle, textAlign: "right" }}
                         >
+                          {t("compare_col_score")}
+                        </th>
+                        <th
+                          scope="col"
+                          style={{ ...compareThStyle, textAlign: "right" }}
+                        >
                           {t("compare_col_speed")}
                         </th>
                       </tr>
@@ -641,10 +647,24 @@ async function WebsiteBody({ params }: { params: Promise<PageParams> }) {
                               fontFamily: "var(--font-serif)",
                               fontSize: 18,
                               fontWeight: 600,
-                              color: scoreColorFor(c.score),
+                              color: pillarScoreColor(c.score),
                             }}
                           >
-                            {c.score}
+                            {c.score.toFixed(1)}
+                          </td>
+                          <td
+                            style={{
+                              padding: "10px 12px",
+                              textAlign: "right",
+                              fontFamily: "var(--font-mono)",
+                              fontSize: 13,
+                              color:
+                                c.speed != null
+                                  ? scoreColorFor(c.speed)
+                                  : "var(--color-text-3)",
+                            }}
+                          >
+                            {c.speed != null ? c.speed : "—"}
                           </td>
                         </tr>
                       ))}
@@ -858,10 +878,17 @@ const youBadgeStyle: CSSProperties = {
   letterSpacing: "0.05em",
 };
 
-/** Speed-score colour for the compare table (same thresholds as the verdict). */
+/** Speed-score colour (0–100) for the compare table's speed column. */
 function scoreColorFor(score: number): string {
   if (score >= 90) return "var(--color-success)";
   if (score >= 50) return "var(--color-gold)";
+  return "var(--color-alert)";
+}
+
+/** Website pillar-score colour (0–10) — same thresholds as the pillar tiles. */
+function pillarScoreColor(score: number): string {
+  if (score >= 7) return "var(--color-success)";
+  if (score >= 4) return "var(--color-gold)";
   return "var(--color-alert)";
 }
 

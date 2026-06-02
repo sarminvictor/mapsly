@@ -53,6 +53,12 @@ export interface SmbMyBusinessData {
   businessPhone: string | null;
   isClaimed: boolean;
 
+  // Scored profile points (the Profile pillar inputs) — surfaced so Maria sees
+  // what we rate and where she stands on each.
+  photosCount: number | null;
+  hasHours: boolean;
+  categoryCount: number;
+
   // The actual services list — active first, ordered by sortOrder
   services: BusinessServiceRow[];
 }
@@ -67,5 +73,8 @@ export const EMPTY_SMB_MY_BUSINESS: SmbMyBusinessData = {
   businessWebsite: null,
   businessPhone: null,
   isClaimed: false,
+  photosCount: null,
+  hasHours: false,
+  categoryCount: 0,
   services: [],
 };

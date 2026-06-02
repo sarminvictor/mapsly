@@ -62,6 +62,9 @@ export async function getSmbMyBusinessData(
         website: true,
         phone: true,
         isClaimed: true,
+        photosCount: true,
+        hours: true,
+        categoryIds: true,
         services: {
           orderBy: [
             { isActive: "desc" },
@@ -105,6 +108,9 @@ export async function getSmbMyBusinessData(
       businessWebsite: business.website,
       businessPhone: business.phone,
       isClaimed: business.isClaimed,
+      photosCount: business.photosCount,
+      hasHours: business.hours != null,
+      categoryCount: business.categoryIds.length,
       services,
     };
   } catch {

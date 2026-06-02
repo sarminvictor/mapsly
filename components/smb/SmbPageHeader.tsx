@@ -113,22 +113,15 @@ export async function SmbPageHeader({
         : pillarScore >= 4
           ? "var(--color-gold)"
           : "var(--color-coral)";
-    const rankLabel =
-      standing.msiRank != null && standing.msiTotal != null
-        ? tShared("standing_rank", {
-            rank: standing.msiRank,
-            total: standing.msiTotal,
-          })
-        : null;
-    const topLabel =
-      standing.msiPercentile != null
-        ? standing.msiRank === 1
-          ? tShared("standing_leader")
-          : tShared("standing_top", {
-              pct: Math.max(1, 100 - Math.round(standing.msiPercentile)),
-            })
-        : null;
-    const standingLine = [rankLabel, topLabel].filter(Boolean).join(" · ");
+    // Show THIS page's pillar rank within the cell ("#2 of 5"), among the
+    // businesses ranked on that pillar — not the overall MSI standing.
+    const pr = standing.ranks ? standing.ranks[pillar] : undefined;
+    const standingLine =
+      pillar === "advertising" && standing.adsApplicable === false
+        ? tShared("not_advertising")
+        : pr
+          ? tShared("standing_rank", { rank: pr.rank, total: pr.of })
+          : "";
     badge = (
       <div style={{ flexShrink: 0, textAlign: "right" }}>
         <div

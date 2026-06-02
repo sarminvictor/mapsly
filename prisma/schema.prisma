@@ -421,6 +421,8 @@ model BusinessSnapshot {
   msiPercentile    Float? // 0–100 · inverse rank percentile (90 = top 10%)
   cellKey          String? // "category|city|country" the scores were graded against
   cellConfidence   String? // "high" | "low" (low when cell sampleSize < 8)
+  pillarRanks      Json? // { reputation, visibility, … } · rank within the cell per pillar
+  cellSize         Int? // businesses in the cell (the per-pillar rank denominator)
 
   raw Json? // full source payload for replay
 

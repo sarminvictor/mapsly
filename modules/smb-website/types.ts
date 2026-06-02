@@ -68,13 +68,15 @@ export interface WebsiteFix {
   tone: "good" | "warn" | "neutral";
 }
 
-/** One row in the same-cell speed comparison table. */
+/** One row in the same-cell website comparison table. */
 export interface WebsiteCompetitor {
   /** Business name (the owner's row is flagged via `isYou`). */
   name: string;
-  /** Speed score 0-100 (Lighthouse performance, most recent audit). */
+  /** Website pillar score 0–10 — the rank basis (matches the page header badge). */
   score: number;
-  /** 1-based place within the cell, by score descending. */
+  /** Lighthouse speed 0–100 (most recent audit), shown as a diagnostic column. */
+  speed: number | null;
+  /** 1-based place within the cell, by website score descending. */
   rank: number;
   isYou: boolean;
 }

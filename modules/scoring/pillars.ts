@@ -272,43 +272,35 @@ export function computeWebsitePillar(
 }
 
 /**
- * ADVERTISING · paid presence (rel, floored) 45 · brand protection (defensive)
- * 30 · coverage (rel) 25. Returns `applicable` (is the business advertising) as
+ * ADVERTISING · 20% live Google presence + 20% live Meta presence + 60% spread
+ * by relative ad volume. Returns `applicable` (is the business advertising) as
  * a display flag — it does NOT change the weight.
  *
- * The no-penalty floor: presence and coverage are floored by `1 − adPrevalence`,
- * so in a cell where few rivals advertise, NOT advertising scores high (fine);
- * in a cell where many do, not advertising scores low (a real, honest gap).
+ * STRICT + platform-weighted: not running ads → 0 (excluded from the master —
+ * advertising is an opt-in growth channel, shown on /ads as an opportunity).
+ * Running ads → 20% for a live Google presence + 20% for a live Meta presence
+ * + 60% spread by RELATIVE ad volume (your spend / creatives vs the cell's
+ * advertisers — the most-running climb the 60%, the least sit near its floor).
  */
 export function computeAdvertisingPillar(
   s: PillarSignals,
   cell: CellReference | null,
-): { readonly score: number; readonly applicable: boolean } {
-  const advertising = s.hasActiveAds === true;
-  // Floor = "how OK is it to not advertise here". Known low-ad cell → high
-  // floor (fine). Known high-ad cell → low floor (real gap). UNKNOWN market
-  // (no cell data) → neutral 0.5, so we neither reward nor punish on no evidence.
-  const adPrevKnown = cell != null && cell.adPrevalence != null;
-  const adPrev = clamp01(safeNum(cell?.adPrevalence));
-  const floor = adPrevKnown ? clamp01(1 - adPrev) : 0.5;
+): { readonly score: number | null; readonly applicable: boolean } {
+  const g = s.hasActiveGoogleAds;
+  const m = s.hasActiveMetaAds;
+  if (g == null && m == null) return { score: null, applicable: false }; // no data
+  const google = g === true;
+  const meta = m === true;
+  if (!google && !meta) return { score: 0, applicable: false }; // not advertising → 0
 
-  const yourPresence = advertising
-    ? Math.max(0.6, saturate(s.metaAdCount, 5))
-    : 0;
-  const presence = Math.max(yourPresence, floor);
-
-  const brandProtection = s.brandHijack === true ? 0 : 1; // defensive (universal)
-
-  const coverage = advertising
-    ? relOrAbs(s.estMonthlyAdSpend, cell?.estMonthlyAdSpend, (v) =>
-        saturate(v, 2000),
-      )
-    : floor;
-
-  const p01 = clamp01(
-    presence * 0.45 + brandProtection * 0.3 + coverage * 0.25,
+  // Running: 20% Google presence + 20% Meta presence + 60% relative volume.
+  const spendVol = relOrAbs(s.estMonthlyAdSpend, cell?.estMonthlyAdSpend, (v) =>
+    saturate(v, 2000),
   );
-  return { score: p01 * PILLAR_SCORE_MAX, applicable: advertising };
+  const countVol = saturate(s.metaAdCount, 5);
+  const volume = Math.max(spendVol, countVol); // "how much you run" vs the cell
+  const p01 = clamp01((google ? 0.2 : 0) + (meta ? 0.2 : 0) + volume * 0.6);
+  return { score: p01 * PILLAR_SCORE_MAX, applicable: true };
 }
 
 /**
@@ -340,7 +332,7 @@ export function computePillars(
     visibility: clampScore(computeVisibilityPillar(s, cell)),
     profile: clampScore(computeProfilePillar(s, cell)),
     website: clampScore(computeWebsitePillar(s, cell)),
-    advertising: clampScore(ads.score),
+    advertising: clampScore(ads.score ?? 0),
   };
   const measured: Record<Pillar, boolean> = {
     reputation: anyPresent(
@@ -372,12 +364,9 @@ export function computePillars(
       s.hasPhoneAboveFold,
       s.napConsistent,
     ),
-    advertising: anyPresent(
-      s.hasActiveAds,
-      s.metaAdCount,
-      s.estMonthlyAdSpend,
-      s.brandHijack,
-    ),
+    // Advertising counts toward the master ONLY when actually running ads — a
+    // non-advertiser's strict 0 is shown on /ads but excluded from the roll-up.
+    advertising: ads.applicable,
   };
 
   let weightedSum = 0;
@@ -395,7 +384,8 @@ export function computePillars(
     visibility: measured.visibility ? raw.visibility : null,
     profile: measured.profile ? raw.profile : null,
     website: measured.website ? raw.website : null,
-    advertising: measured.advertising ? raw.advertising : null,
+    // 0 (not advertising) · composite (advertising) · null (unknown / no data).
+    advertising: ads.score,
   };
   const breakdown = PILLARS.map((p) => {
     const weight = PILLAR_WEIGHTS[p];

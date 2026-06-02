@@ -113,6 +113,8 @@ export function signalsFromSnapshot(row: {
     hasPhoneAboveFold: bOrNull(j.hasPhoneAboveFold),
     napConsistent: bOrNull(j.napConsistent),
     hasActiveAds: bOrNull(j.hasActiveAds),
+    hasActiveGoogleAds: bOrNull(j.hasActiveGoogleAds),
+    hasActiveMetaAds: bOrNull(j.hasActiveMetaAds),
     metaAdCount: nOrNull(j.metaAdCount),
     estMonthlyAdSpend: nOrNull(j.estMonthlyAdSpend),
     brandHijack: bOrNull(j.brandHijack),

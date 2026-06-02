@@ -17,7 +17,11 @@ import prisma, { Prisma } from "@/lib/prisma";
 import {
   computePillars,
   msiPercentile,
+  PILLARS,
   rankByMsiInMetros,
+  type CellReference,
+  type Pillar,
+  type PillarResult,
   type PillarSignals,
 } from "@/modules/scoring";
 import {
@@ -102,8 +106,15 @@ export async function runPillarScoring(opts?: {
   const cellsUsed = new Set<string>();
   let withCellRef = 0;
 
-  const updates: { id: string; data: Prisma.BusinessSnapshotUpdateInput }[] =
-    [];
+  // Pass 1 · compute each business's pillar result + its cell.
+  interface Scored {
+    id: string;
+    businessId: string;
+    cellKey: string | null;
+    cellConfidence: string | null;
+    result: PillarResult;
+  }
+  const scored: Scored[] = [];
   for (const r of snapshots) {
     const { city, country } = r.business;
     const cellKey =
@@ -111,31 +122,89 @@ export async function runPillarScoring(opts?: {
         ? cellKeyOf(resolveMarketCategory(r.business, markets), city, country)
         : null;
     const cellRow = cellKey ? (cellMap.get(cellKey) ?? null) : null;
-    const cellRef = parseCellReference(cellRow ?? null);
+    const cellRef: CellReference | null = parseCellReference(cellRow ?? null);
     if (cellRef) {
       withCellRef += 1;
       if (cellKey) cellsUsed.add(cellKey);
     }
-
-    const result = computePillars(signalsById.get(r.id)!, cellRef);
-    const msi = msiMap.get(r.businessId);
-    const pct = msi ? msiPercentile(msi.msiRank, msi.msiTotal) : null;
-
-    updates.push({
+    scored.push({
       id: r.id,
+      businessId: r.businessId,
+      cellKey,
+      cellConfidence: cellRef?.confidence ?? null,
+      result: computePillars(signalsById.get(r.id)!, cellRef),
+    });
+  }
+
+  // Pass 2 · per-cell, per-pillar ranks — each page shows "your rank BY that
+  // pillar" (e.g. by reviews on /reviews), not the overall MSI rank. We rank
+  // over EVERY qualified business in the cell: a business with no score for a
+  // pillar is treated as 0 and sinks to the bottom (counted, never dropped) — so
+  // the denominator is always the full cell, e.g. "#2 of 25", not "#2 of 4".
+  // Standard competition ranking ("1 2 2 4"): tied scores (the field of 0s)
+  // share a rank instead of getting an arbitrary sequential order.
+  const ranksByBiz = new Map<
+    string,
+    Partial<Record<Pillar, { rank: number; of: number }>>
+  >();
+  const cellSizeByBiz = new Map<string, number>();
+  const byCell = new Map<string, Scored[]>();
+  for (const s of scored) {
+    const key = s.cellKey ?? "__none__";
+    let members = byCell.get(key);
+    if (!members) {
+      members = [];
+      byCell.set(key, members);
+    }
+    members.push(s);
+  }
+  for (const members of byCell.values()) {
+    const of = members.length; // every qualified business in the cell
+    for (const s of members) cellSizeByBiz.set(s.businessId, of);
+    for (const p of PILLARS) {
+      // null pillar score → 0 so unmeasured businesses are counted and ranked at
+      // the bottom rather than excluded from the denominator.
+      const sorted = members
+        .map((m) => ({ biz: m.businessId, v: m.result[p] ?? 0 }))
+        .sort((a, b) => b.v - a.v);
+      let prevValue: number | null = null;
+      let prevRank = 0;
+      sorted.forEach((entry, i) => {
+        const rank =
+          prevValue !== null && entry.v === prevValue ? prevRank : i + 1;
+        prevValue = entry.v;
+        prevRank = rank;
+        const rec = ranksByBiz.get(entry.biz) ?? {};
+        rec[p] = { rank, of };
+        ranksByBiz.set(entry.biz, rec);
+      });
+    }
+  }
+
+  // Pass 3 · build the writes.
+  const updates: { id: string; data: Prisma.BusinessSnapshotUpdateInput }[] =
+    [];
+  for (const s of scored) {
+    const msi = msiMap.get(s.businessId);
+    const pct = msi ? msiPercentile(msi.msiRank, msi.msiTotal) : null;
+    const ranks = ranksByBiz.get(s.businessId) ?? {};
+    updates.push({
+      id: s.id,
       data: {
-        reputationPillar: result.reputation,
-        visibilityPillar: result.visibility,
-        profilePillar: result.profile,
-        websitePillar: result.website,
-        adsPillar: result.advertising,
-        adsApplicable: result.adsApplicable,
-        pillarScore: result.master,
+        reputationPillar: s.result.reputation,
+        visibilityPillar: s.result.visibility,
+        profilePillar: s.result.profile,
+        websitePillar: s.result.website,
+        adsPillar: s.result.advertising,
+        adsApplicable: s.result.adsApplicable,
+        pillarScore: s.result.master,
         msiRank: msi?.msiRank ?? null,
         msiTotal: msi?.msiTotal ?? null,
         msiPercentile: pct,
-        cellKey,
-        cellConfidence: cellRef?.confidence ?? null,
+        cellKey: s.cellKey,
+        cellConfidence: s.cellConfidence,
+        pillarRanks: ranks as Prisma.InputJsonValue,
+        cellSize: cellSizeByBiz.get(s.businessId) ?? null,
       },
     });
   }

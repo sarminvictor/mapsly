@@ -196,15 +196,17 @@ export async function getSmbWebsiteData(
       napConsistent: audit.napConsistent,
     });
 
-    // Same-cell speed ranking · latest performance per business in the
-    // (category, city, country) cell. Data fills in as competitors get
-    // audited; the table is hidden until there's someone to compare to.
+    // Same-cell ranking by the Website PILLAR (the same number the page header
+    // badge shows) so the table and the badge can never disagree. Speed is a
+    // diagnostic column. Fills in as businesses are scored.
+    const ownSnap = await prisma.businessSnapshot.findFirst({
+      where: { businessId: own.id },
+      orderBy: { snapshotDate: "desc" },
+      select: { cellKey: true },
+    });
     const ranking = await buildCompetitorRanking({
       id: own.id,
-      name: own.name,
-      category: own.category,
-      city: own.city,
-      country: own.country,
+      cellKey: ownSnap?.cellKey ?? null,
     });
 
     return {
@@ -244,38 +246,38 @@ export async function getSmbWebsiteData(
  */
 async function buildCompetitorRanking(own: {
   id: string;
-  name: string;
-  category: string | null;
-  city: string | null;
-  country: string | null;
+  cellKey: string | null;
 }): Promise<{
   competitors: WebsiteCompetitor[];
   yourRank: number | null;
   rankedTotal: number;
 }> {
   const empty = { competitors: [], yourRank: null, rankedTotal: 0 };
-  if (!own.category || !own.city || !own.country) return empty;
+  if (!own.cellKey) return empty;
 
-  // Latest performance per same-cell business (DISTINCT ON newest audit).
-  const rows = await prisma.$queryRaw<
-    { id: string; name: string; performance: number }[]
-  >`
-    SELECT DISTINCT ON (b.id) b.id, b.name, la.performance
-    FROM "Business" b
-    JOIN "LighthouseAudit" la ON la."businessId" = b.id
-    WHERE b.category = ${own.category}
-      AND b.city = ${own.city}
-      AND b.country = ${own.country}
-      AND b."isActive" = true
-      AND la.performance IS NOT NULL
-    ORDER BY b.id, la."auditedAt" DESC
-  `;
+  // Latest snapshot per business in the owner's MARKET cell, with the Website
+  // pillar (rank basis) + speed (diagnostic, from the signal bag). EVERY
+  // qualified business in the cell is included — a business with no website
+  // score is treated as 0 and ranked at the bottom, so the table denominator
+  // matches the page-header badge ("#2 of 25", not "#2 of 4").
+  const snaps = await prisma.businessSnapshot.findMany({
+    where: { cellKey: own.cellKey },
+    distinct: ["businessId"],
+    orderBy: [{ businessId: "asc" }, { snapshotDate: "desc" }],
+    select: {
+      businessId: true,
+      websitePillar: true,
+      signalsJson: true,
+      business: { select: { name: true } },
+    },
+  });
 
-  const ranked = rows
-    .map((r) => ({
-      id: r.id,
-      name: r.name,
-      score: Math.round(Number(r.performance)),
+  const ranked = snaps
+    .map((s) => ({
+      id: s.businessId,
+      name: s.business.name,
+      score: Math.round((s.websitePillar ?? 0) * 10) / 10, // null → 0
+      speed: speedFromSignals(s.signalsJson),
     }))
     .sort((a, b) => b.score - a.score);
 
@@ -283,24 +285,39 @@ async function buildCompetitorRanking(own: {
   // Need at least the owner + one competitor for a meaningful comparison.
   if (rankedTotal <= 1) return { ...empty, rankedTotal };
 
+  // Standard competition ranking ("1 2 2 4") so the table matches the badge —
+  // the field of no-website businesses (score 0) shares one bottom rank instead
+  // of an arbitrary sequential order.
+  const rankByIndex: number[] = [];
+  let prevScore: number | null = null;
+  let prevRank = 0;
+  ranked.forEach((r, i) => {
+    const rank = prevScore !== null && r.score === prevScore ? prevRank : i + 1;
+    prevScore = r.score;
+    prevRank = rank;
+    rankByIndex[i] = rank;
+  });
+
   const yourIndex = ranked.findIndex((r) => r.id === own.id);
-  const yourRank = yourIndex >= 0 ? yourIndex + 1 : null;
+  const yourRank = yourIndex >= 0 ? (rankByIndex[yourIndex] ?? null) : null;
 
   const top10: WebsiteCompetitor[] = ranked.slice(0, 10).map((r, i) => ({
     name: r.name,
     score: r.score,
-    rank: i + 1,
+    speed: r.speed,
+    rank: rankByIndex[i]!,
     isYou: r.id === own.id,
   }));
 
   // Append the owner's own row when they rank outside the top 10.
   const competitors =
-    yourRank != null && yourRank > 10
+    yourRank != null && yourIndex >= 10
       ? [
           ...top10,
           {
-            name: own.name,
-            score: ranked[yourIndex].score,
+            name: ranked[yourIndex]!.name,
+            score: ranked[yourIndex]!.score,
+            speed: ranked[yourIndex]!.speed,
             rank: yourRank,
             isYou: true,
           },
@@ -308,4 +325,11 @@ async function buildCompetitorRanking(own: {
       : top10;
 
   return { competitors, yourRank, rankedTotal };
+}
+
+/** Lighthouse performance (0–100) from a snapshot's signal bag, or null. */
+function speedFromSignals(v: unknown): number | null {
+  if (v == null || typeof v !== "object" || Array.isArray(v)) return null;
+  const n = (v as Record<string, unknown>).lighthousePerformance;
+  return typeof n === "number" && Number.isFinite(n) ? Math.round(n) : null;
 }

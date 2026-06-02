@@ -151,7 +151,8 @@
       "this_page_score": "Your score",
       "standing_rank": "#{rank} of {total} nearby",
       "standing_top": "top {pct}% nearby",
-      "standing_leader": "#1 in your area"
+      "standing_leader": "#1 in your area",
+      "not_advertising": "Not running ads"
     },
     "reviews": {
       "meta": {
@@ -738,6 +739,17 @@
       "profile_website_label": "Website",
       "profile_phone_label": "Phone",
       "profile_source_note": "Updated weekly from Google Business Profile.",
+      "profile_checks_heading": "What we check on Google",
+      "profile_checks_subtitle": "These shape your Profile score. Green means you're set; red is worth a few minutes.",
+      "check_claimed": "Profile claimed on Google",
+      "check_phone": "Phone number listed",
+      "check_website": "Website linked",
+      "check_hours": "Business hours set",
+      "check_photos": "Photos",
+      "check_categories": "Categories",
+      "check_yes": "Yes",
+      "check_no": "No",
+      "check_photos_hint": "aim for 30+",
       "dash": "—"
     },
     "website": {
@@ -778,8 +790,9 @@
       "quick_wins_empty": "Your site looks healthy — nothing needs fixing right now. We'll flag anything new here.",
       "tech_heading": "What your site is built on",
       "compare_heading": "How you compare nearby",
-      "compare_subtitle": "Website speed score · {total} businesses near you measured so far",
+      "compare_subtitle": "Your overall website score vs others nearby · {total} measured so far",
       "compare_col_business": "Business",
+      "compare_col_score": "Website",
       "compare_col_speed": "Speed",
       "compare_you": "You",
       "footer_help": "Refreshed weekly. We check your homepage on mobile — the way most patients first see you."

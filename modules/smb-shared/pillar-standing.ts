@@ -33,6 +33,10 @@ export interface OwnerPillarStanding {
   msiRank: number | null;
   msiTotal: number | null;
   msiPercentile: number | null;
+  /** Per-pillar rank within the cell (1 = best) + how many were ranked on it. */
+  ranks: Partial<Record<PillarKey, { rank: number; of: number }>> | null;
+  /** Businesses in the cell (informational; the rank denominator is `of`). */
+  cellSize: number | null;
 }
 
 export const EMPTY_OWNER_PILLAR_STANDING: OwnerPillarStanding = {
@@ -46,7 +50,40 @@ export const EMPTY_OWNER_PILLAR_STANDING: OwnerPillarStanding = {
   msiRank: null,
   msiTotal: null,
   msiPercentile: null,
+  ranks: null,
+  cellSize: null,
 };
+
+function parseRanks(
+  v: unknown,
+): Partial<Record<PillarKey, { rank: number; of: number }>> | null {
+  if (v == null || typeof v !== "object" || Array.isArray(v)) return null;
+  const o = v as Record<string, unknown>;
+  const keys: PillarKey[] = [
+    "reputation",
+    "visibility",
+    "profile",
+    "website",
+    "advertising",
+  ];
+  const out: Partial<Record<PillarKey, { rank: number; of: number }>> = {};
+  for (const k of keys) {
+    const e = o[k];
+    if (e != null && typeof e === "object" && !Array.isArray(e)) {
+      const r = (e as Record<string, unknown>).rank;
+      const n = (e as Record<string, unknown>).of;
+      if (
+        typeof r === "number" &&
+        Number.isFinite(r) &&
+        typeof n === "number" &&
+        Number.isFinite(n)
+      ) {
+        out[k] = { rank: r, of: n };
+      }
+    }
+  }
+  return Object.keys(out).length > 0 ? out : null;
+}
 
 export async function getOwnerPillarStanding(
   userId: string,
@@ -81,6 +118,8 @@ export async function getOwnerPillarStanding(
             msiRank: true,
             msiTotal: true,
             msiPercentile: true,
+            pillarRanks: true,
+            cellSize: true,
           },
         },
       },
@@ -100,6 +139,8 @@ export async function getOwnerPillarStanding(
       msiRank: snap.msiRank,
       msiTotal: snap.msiTotal,
       msiPercentile: snap.msiPercentile,
+      ranks: parseRanks(snap.pillarRanks),
+      cellSize: snap.cellSize,
     };
   } catch {
     return EMPTY_OWNER_PILLAR_STANDING;

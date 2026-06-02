@@ -4,7 +4,7 @@
  * Invariant coverage (not snapshot churn). The pillar engine is pure, so these
  * lock the math + the two properties that make the redesign honest:
  *   - market-relativity: the SAME business scores differently in different cells
- *   - the Advertising no-penalty floor
+ *   - the Advertising strict-0 rule (not advertising = 0, excluded from master)
  */
 
 import { describe, expect, test } from "vitest";
@@ -50,6 +50,8 @@ function sig(overrides: Partial<PillarSignals> = {}): PillarSignals {
     hasPhoneAboveFold: null,
     napConsistent: null,
     hasActiveAds: null,
+    hasActiveGoogleAds: null,
+    hasActiveMetaAds: null,
     metaAdCount: null,
     estMonthlyAdSpend: null,
     brandHijack: null,
@@ -210,35 +212,85 @@ describe("market-relativity · the core mechanic", () => {
   });
 });
 
-describe("Advertising pillar · the no-penalty floor", () => {
-  test("non-advertiser is NOT penalized in a low-ad cell, but IS in a high-ad cell", () => {
-    const nonAdvertiser = sig({ hasActiveAds: false });
-    const lowAdCell = cell({ adPrevalence: 0.05 });
-    const highAdCell = cell({ adPrevalence: 0.8 });
-
-    const low = computeAdvertisingPillar(nonAdvertiser, lowAdCell);
-    const high = computeAdvertisingPillar(nonAdvertiser, highAdCell);
-
-    expect(low.score).toBeGreaterThan(high.score);
-    expect(low.score).toBeGreaterThanOrEqual(8); // few rivals advertise → fine
-    expect(high.score).toBeLessThan(6); // many rivals advertise → real gap
-    expect(low.applicable).toBe(false);
+describe("Advertising pillar · 20% Google + 20% Meta + 60% relative volume", () => {
+  test("not advertising on either platform → strict 0 + not applicable", () => {
+    const r = computeAdvertisingPillar(
+      sig({ hasActiveGoogleAds: false, hasActiveMetaAds: false }),
+      cell({ adPrevalence: 0.5 }),
+    );
+    expect(r.score).toBe(0);
+    expect(r.applicable).toBe(false);
   });
 
-  test("unknown market (no cell) is neutral, not max", () => {
-    const r = computeAdvertisingPillar(sig({ hasActiveAds: false }), null);
-    expect(r.score).toBeGreaterThan(4);
-    expect(r.score).toBeLessThan(8);
+  test("no ad data at all → null (unknown), not 0", () => {
+    const r = computeAdvertisingPillar(sig(), null); // both platform flags null
+    expect(r.score).toBeNull();
+    expect(r.applicable).toBe(false);
   });
 
-  test("brand-hijack drops the pillar vs being protected", () => {
-    const base = sig({ hasActiveAds: true, metaAdCount: 4 });
-    const protectedScore = computeAdvertisingPillar(base, null).score;
-    const hijackedScore = computeAdvertisingPillar(
-      { ...base, brandHijack: true },
+  test("running on either platform → an applicable score ≥ the 20% floor", () => {
+    const r = computeAdvertisingPillar(
+      sig({ hasActiveGoogleAds: true, hasActiveMetaAds: false }),
       null,
-    ).score;
-    expect(hijackedScore).toBeLessThan(protectedScore);
+    );
+    expect(r.applicable).toBe(true);
+    expect(r.score).not.toBeNull();
+    // 20% presence floor → at least 2.0/10 even with zero relative volume.
+    if (r.score != null) expect(r.score).toBeGreaterThanOrEqual(2);
+  });
+
+  test("both platforms beat one (the +20% presence baseline)", () => {
+    const both = computeAdvertisingPillar(
+      sig({ hasActiveGoogleAds: true, hasActiveMetaAds: true }),
+      null,
+    );
+    const one = computeAdvertisingPillar(
+      sig({ hasActiveGoogleAds: true, hasActiveMetaAds: false }),
+      null,
+    );
+    expect(both.applicable).toBe(true);
+    if (both.score != null && one.score != null) {
+      expect(both.score).toBeGreaterThan(one.score);
+    }
+  });
+
+  test("more ad volume climbs the 60% vs a quiet advertiser", () => {
+    const loud = computeAdvertisingPillar(
+      sig({ hasActiveMetaAds: true, metaAdCount: 8, estMonthlyAdSpend: 3000 }),
+      null,
+    );
+    const quiet = computeAdvertisingPillar(
+      sig({ hasActiveMetaAds: true, metaAdCount: 1, estMonthlyAdSpend: 100 }),
+      null,
+    );
+    if (loud.score != null && quiet.score != null) {
+      expect(loud.score).toBeGreaterThan(quiet.score);
+    }
+  });
+
+  test("a non-advertiser's master excludes the ads 0 (not dragged)", () => {
+    const r = computePillars(
+      sig({
+        rating: 4.8,
+        reviewCount: 300,
+        replyRate: 0.9,
+        hasPhone: true,
+        hasWebsite: true,
+        hasHours: true,
+        isClaimed: true,
+        photoCount: 30,
+        categoryCount: 3,
+        hasActiveGoogleAds: false,
+        hasActiveMetaAds: false,
+      }),
+      null,
+    );
+    expect(r.advertising).toBe(0); // shown as a strict 0
+    expect(r.adsApplicable).toBe(false);
+    expect(r.master).not.toBeNull();
+    // Master = reputation + profile re-normalized (≈8.6); if the ads 0 were
+    // counted it'd be ≈6.4. >7.5 proves the 0 is excluded, not dragging it.
+    if (r.master != null) expect(r.master).toBeGreaterThan(7.5);
   });
 });
 

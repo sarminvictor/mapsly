@@ -77,6 +77,10 @@ export interface PillarSignals {
 
   // ── Advertising ──
   readonly hasActiveAds: boolean | null;
+  /** Live Google ads (Transparency Center). */
+  readonly hasActiveGoogleAds: boolean | null;
+  /** Live Meta ads (Ad Library). */
+  readonly hasActiveMetaAds: boolean | null;
   readonly metaAdCount: number | null;
   readonly estMonthlyAdSpend: number | null;
   /** A competitor is bidding on this business's brand-name query. */

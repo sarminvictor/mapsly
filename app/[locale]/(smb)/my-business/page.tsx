@@ -197,6 +197,23 @@ async function MyBusinessBody({ params }: { params: Promise<PageParams> }) {
             }}
           />
 
+          <ProfileChecklistCard
+            data={data}
+            labels={{
+              heading: t("profile_checks_heading"),
+              subtitle: t("profile_checks_subtitle"),
+              claimed: t("check_claimed"),
+              phone: t("check_phone"),
+              website: t("check_website"),
+              hours: t("check_hours"),
+              photos: t("check_photos"),
+              categories: t("check_categories"),
+              yes: t("check_yes"),
+              no: t("check_no"),
+              photos_hint: t("check_photos_hint"),
+            }}
+          />
+
           <BusinessProfileCard
             data={data}
             labels={{
@@ -368,6 +385,148 @@ function BusinessProfileCard({
       <p style={footnoteStyle()}>{labels.source_note}</p>
     </section>
   );
+}
+
+// ─── Profile checklist · the scored Profile-pillar points ──────────────────
+
+interface ChecklistLabels {
+  heading: string;
+  subtitle: string;
+  claimed: string;
+  phone: string;
+  website: string;
+  hours: string;
+  photos: string;
+  categories: string;
+  yes: string;
+  no: string;
+  photos_hint: string;
+}
+
+function ProfileChecklistCard({
+  data,
+  labels,
+}: {
+  data: SmbMyBusinessData;
+  labels: ChecklistLabels;
+}) {
+  return (
+    <section aria-labelledby="profile-checks-heading" style={cardStyle()}>
+      <h2 id="profile-checks-heading" style={cardTitleStyle()}>
+        {labels.heading}
+      </h2>
+      <p style={cardSubtitleStyle()}>{labels.subtitle}</p>
+      <dl style={dlStyle()}>
+        <CheckRow
+          label={labels.claimed}
+          ok={data.isClaimed}
+          yes={labels.yes}
+          no={labels.no}
+        />
+        <CheckRow
+          label={labels.phone}
+          ok={Boolean(data.businessPhone)}
+          yes={labels.yes}
+          no={labels.no}
+        />
+        <CheckRow
+          label={labels.website}
+          ok={Boolean(data.businessWebsite)}
+          yes={labels.yes}
+          no={labels.no}
+        />
+        <CheckRow
+          label={labels.hours}
+          ok={data.hasHours}
+          yes={labels.yes}
+          no={labels.no}
+        />
+        <ValueRow
+          label={labels.photos}
+          value={`${data.photosCount ?? 0}`}
+          hint={labels.photos_hint}
+        />
+        <ValueRow label={labels.categories} value={`${data.categoryCount}`} />
+      </dl>
+    </section>
+  );
+}
+
+function CheckRow({
+  label,
+  ok,
+  yes,
+  no,
+}: {
+  label: string;
+  ok: boolean;
+  yes: string;
+  no: string;
+}) {
+  return (
+    <div style={checkRowStyle()}>
+      <dt style={checkLabelStyle()}>{label}</dt>
+      <dd
+        style={{
+          margin: 0,
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+          color: ok ? "var(--color-success)" : "var(--color-coral)",
+          fontSize: 14,
+          fontWeight: 600,
+        }}
+      >
+        <span aria-hidden>{ok ? "✓" : "✗"}</span>
+        {ok ? yes : no}
+      </dd>
+    </div>
+  );
+}
+
+function ValueRow({
+  label,
+  value,
+  hint,
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+}) {
+  return (
+    <div style={checkRowStyle()}>
+      <dt style={checkLabelStyle()}>{label}</dt>
+      <dd style={{ margin: 0, color: "var(--color-text)", fontSize: 14 }}>
+        {value}
+        {hint ? (
+          <span
+            style={{
+              color: "var(--color-text-3)",
+              fontSize: 12,
+              marginLeft: 6,
+            }}
+          >
+            {hint}
+          </span>
+        ) : null}
+      </dd>
+    </div>
+  );
+}
+
+function checkRowStyle(): React.CSSProperties {
+  return {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    padding: "10px 0",
+    borderTop: "1px solid var(--color-border)",
+  };
+}
+
+function checkLabelStyle(): React.CSSProperties {
+  return { margin: 0, color: "var(--color-text)", fontSize: 14 };
 }
 
 // ─── Shared subcomponents + styles ─────────────────────────────────────────
