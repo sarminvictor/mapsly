@@ -1,45 +1,22 @@
 /**
- * SMB settings · `/(smb)/settings` (locale-prefixed variants e.g.
- * `/es/configuracion`, `/fr/parametres` declared in `i18n/routing.ts`).
+ * SMB settings · `/(smb)/settings`.
  *
- * Audience: Maria. Per `.claude/rules/ui-ux-smb.md`:
- *   - Warm, plain English. "Your settings" not "Account configuration".
- *   - One focal section per visual block. Cards stack on mobile.
- *   - Mobile-first (380px tap targets).
- *   - Generous whitespace, no dense tables.
+ * Maria's account + housekeeping surface. Cards, in order:
  *
- * Per `.claude/rules/cache-components.md`:
- *   - Pattern 2: SYNC default export + Suspense'd async body. Auth, DB,
- *     and i18n all live inside the boundary so the shell prerenders.
- *   - Pattern 1: `modules/smb-settings/queries.ts` has the NEXT_PHASE
- *     guard returning EMPTY so Vercel's build worker can prerender.
+ *   1. Your account · email (read-only sign-in identity) + editable name + Save.
+ *   2. Language · English for now — a "Coming soon" placeholder. Locale
+ *      support stays wired for later (see `i18n/routing.ts`); there's no
+ *      switcher and no auto-detection — everyone gets English.
+ *   3. Billing · link to /settings/billing.
+ *   4. Sign out · server action invoking NextAuth `signOut()`.
  *
- * Per `.claude/rules/security.md`:
- *   - `auth()` at the top of the inner body; `unauthorized()` interrupt
- *     for anon visitors (Next 16 auth interrupts).
+ * (The old "Your business" card duplicated /my-business; the brand-voice and
+ * notifications placeholders were removed.)
  *
- * Per `.claude/rules/i18n.md`:
- *   - All copy in `messages/en.json` under `smb.settings.*`. ES + FR
- *     follow as separate i18n tasks per PLAN.md `i18n` tag.
+ * Per `.claude/rules/cache-components.md`: Pattern 2 (sync export + Suspense'd
+ * async body) and Pattern 1 (the cached query NEXT_PHASE-guards to EMPTY).
  *
- * Per `.claude/rules/copy-voice.md`:
- *   - Maria's voice — no jargon, outcome-first, single CTA per card.
- *   - "Coming soon" callouts honest about what's not yet editable.
- *
- * Scope (E.6 v1 — what ships in this PR):
- *
- *   1. Identity card · viewer email + display name (read-only).
- *   2. Business profile card · name, address, category, website, phone,
- *      Google-claimed status — READ-ONLY. Source of truth is Google
- *      Business Profile; the C.8/C.9 cron pipeline syncs from Google →
- *      Mapsly. Editing here would just drift from Google.
- *   3. Brand voice & reply tone card · placeholder with "Coming soon"
- *      callout. Schema follow-up tagged in PLAN.md.
- *   4. Notifications card · placeholder with "Coming soon" callout.
- *   5. Language card · locale switcher writing the NEXT_LOCALE cookie.
- *      Functional (no schema needed — next-intl reads the cookie).
- *   6. Billing card · link to existing `/settings/billing` sub-route.
- *   7. Sign-out card · server action invoking NextAuth `signOut()`.
+ * Per `.claude/rules/ui-ux-smb.md`: warm, plain English, 44px tap targets.
  */
 
 import { Suspense } from "react";
@@ -54,9 +31,8 @@ import type { Locale } from "@/i18n/routing";
 import {
   getSmbSettingsData,
   signOutFromSettings,
-  setPreferredLocale,
-  type SmbSettingsData,
 } from "@/modules/smb-settings";
+import { AccountCard } from "@/modules/smb-settings/components/AccountCard";
 
 export async function generateMetadata({
   params,
@@ -115,7 +91,7 @@ function SettingsSkeleton() {
           marginBottom: 24,
         }}
       />
-      {[1, 2, 3, 4, 5].map((i) => (
+      {[1, 2, 3, 4].map((i) => (
         <div
           key={i}
           style={{
@@ -153,7 +129,6 @@ async function SettingsBody({ params }: { params: Promise<PageParams> }) {
   }
 
   const t = await getTranslations("smb.settings.index");
-
   const data = await getSmbSettingsData(session.user.id);
 
   return (
@@ -203,75 +178,29 @@ async function SettingsBody({ params }: { params: Promise<PageParams> }) {
         </p>
       </header>
 
-      <IdentityCard
-        data={data}
+      <AccountCard
+        userEmail={data.userEmail}
+        userName={data.userName}
         labels={{
           heading: t("identity_heading"),
-          email_label: t("identity_email_label"),
-          name_label: t("identity_name_label"),
-          name_unset: t("identity_name_unset"),
-        }}
-      />
-
-      <BusinessProfileCard
-        data={data}
-        labels={{
-          heading: t("business_heading"),
-          subtitle: t("business_subtitle"),
-          empty_heading: t("business_empty_heading"),
-          empty_body: t("business_empty_body"),
-          finish_setup: t("business_finish_setup"),
-          name_label: t("business_name_label"),
-          address_label: t("business_address_label"),
-          category_label: t("business_category_label"),
-          website_label: t("business_website_label"),
-          phone_label: t("business_phone_label"),
-          status_label: t("business_status_label"),
-          status_claimed: t("business_status_claimed"),
-          status_unclaimed: t("business_status_unclaimed"),
-          source_note: t("business_source_note"),
-          dash: t("dash"),
-        }}
-      />
-
-      <BrandVoiceCard
-        labels={{
-          heading: t("brand_voice_heading"),
-          subtitle: t("brand_voice_subtitle"),
-          tone_label: t("brand_voice_tone_label"),
-          tone_warm: t("brand_voice_tone_warm"),
-          tone_professional: t("brand_voice_tone_professional"),
-          tone_casual: t("brand_voice_tone_casual"),
-          signature_label: t("brand_voice_signature_label"),
-          coming_soon: t("coming_soon"),
-        }}
-      />
-
-      <NotificationsCard
-        labels={{
-          heading: t("notifications_heading"),
-          subtitle: t("notifications_subtitle"),
-          digest_label: t("notifications_digest_label"),
-          digest_desc: t("notifications_digest_desc"),
-          urgent_label: t("notifications_urgent_label"),
-          urgent_desc: t("notifications_urgent_desc"),
-          weekly_label: t("notifications_weekly_label"),
-          weekly_desc: t("notifications_weekly_desc"),
-          coming_soon: t("coming_soon"),
+          emailLabel: t("identity_email_label"),
+          emailNote: t("identity_email_note"),
+          nameLabel: t("identity_name_label"),
+          namePlaceholder: t("identity_name_placeholder"),
+          saveCta: t("identity_save_cta"),
+          saving: t("identity_saving"),
+          saved: t("identity_saved"),
+          error: t("identity_error"),
         }}
       />
 
       <LanguageCard
-        currentLocale={locale as Locale}
         labels={{
           heading: t("language_heading"),
           subtitle: t("language_subtitle"),
           locale_label: t("language_locale_label"),
-          save_cta: t("language_save_cta"),
           locale_en: t("language_locale_en"),
-          locale_es: t("language_locale_es"),
-          locale_en_ca: t("language_locale_en_ca"),
-          locale_fr: t("language_locale_fr"),
+          coming_soon: t("coming_soon"),
         }}
       />
 
@@ -294,351 +223,29 @@ async function SettingsBody({ params }: { params: Promise<PageParams> }) {
   );
 }
 
-// ─── Identity card ─────────────────────────────────────────────────────────
-
-interface IdentityLabels {
-  heading: string;
-  email_label: string;
-  name_label: string;
-  name_unset: string;
-}
-
-function IdentityCard({
-  data,
-  labels,
-}: {
-  data: SmbSettingsData;
-  labels: IdentityLabels;
-}) {
-  return (
-    <section aria-labelledby="identity-heading" style={cardStyle()}>
-      <h2 id="identity-heading" style={cardTitleStyle()}>
-        {labels.heading}
-      </h2>
-      <dl style={dlStyle()}>
-        <Row label={labels.email_label} value={data.userEmail || "—"} />
-        <Row
-          label={labels.name_label}
-          value={data.userName || labels.name_unset}
-        />
-      </dl>
-    </section>
-  );
-}
-
-// ─── Business profile card ─────────────────────────────────────────────────
-
-interface BusinessProfileLabels {
-  heading: string;
-  subtitle: string;
-  empty_heading: string;
-  empty_body: string;
-  finish_setup: string;
-  name_label: string;
-  address_label: string;
-  category_label: string;
-  website_label: string;
-  phone_label: string;
-  status_label: string;
-  status_claimed: string;
-  status_unclaimed: string;
-  source_note: string;
-  dash: string;
-}
-
-function BusinessProfileCard({
-  data,
-  labels,
-}: {
-  data: SmbSettingsData;
-  labels: BusinessProfileLabels;
-}) {
-  if (data.ownedBusinessId === "") {
-    return (
-      <section aria-labelledby="business-heading" style={cardStyle()}>
-        <h2 id="business-heading" style={cardTitleStyle()}>
-          {labels.empty_heading}
-        </h2>
-        <p style={cardBodyTextStyle()}>{labels.empty_body}</p>
-        <Link href="/onboarding" style={primaryButtonStyle()}>
-          {labels.finish_setup}
-        </Link>
-      </section>
-    );
-  }
-
-  const addressLine = [
-    data.businessAddress,
-    data.businessCity,
-    data.businessProvince,
-  ]
-    .filter(Boolean)
-    .join(", ");
-
-  return (
-    <section aria-labelledby="business-heading" style={cardStyle()}>
-      <h2 id="business-heading" style={cardTitleStyle()}>
-        {labels.heading}
-      </h2>
-      <p style={cardSubtitleStyle()}>{labels.subtitle}</p>
-      <dl style={dlStyle()}>
-        <Row label={labels.name_label} value={data.businessName} />
-        <Row label={labels.address_label} value={addressLine || labels.dash} />
-        <Row
-          label={labels.category_label}
-          value={data.businessCategory || labels.dash}
-        />
-        <Row
-          label={labels.website_label}
-          value={
-            data.businessWebsite ? (
-              <a
-                href={data.businessWebsite}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={linkStyle()}
-              >
-                {data.businessWebsite}
-              </a>
-            ) : (
-              labels.dash
-            )
-          }
-        />
-        <Row
-          label={labels.phone_label}
-          value={data.businessPhone || labels.dash}
-        />
-        <Row
-          label={labels.status_label}
-          value={
-            data.isClaimed ? (
-              <StatusPill tone="success" label={labels.status_claimed} />
-            ) : (
-              <StatusPill tone="muted" label={labels.status_unclaimed} />
-            )
-          }
-        />
-      </dl>
-      <p style={footnoteStyle()}>{labels.source_note}</p>
-    </section>
-  );
-}
-
-// ─── Brand voice card ──────────────────────────────────────────────────────
-
-interface BrandVoiceLabels {
-  heading: string;
-  subtitle: string;
-  tone_label: string;
-  tone_warm: string;
-  tone_professional: string;
-  tone_casual: string;
-  signature_label: string;
-  coming_soon: string;
-}
-
-function BrandVoiceCard({ labels }: { labels: BrandVoiceLabels }) {
-  return (
-    <section aria-labelledby="brand-voice-heading" style={cardStyle()}>
-      <div style={cardHeadingRowStyle()}>
-        <h2 id="brand-voice-heading" style={cardTitleStyle()}>
-          {labels.heading}
-        </h2>
-        <ComingSoonPill label={labels.coming_soon} />
-      </div>
-      <p style={cardSubtitleStyle()}>{labels.subtitle}</p>
-      <fieldset
-        disabled
-        aria-disabled="true"
-        style={{
-          border: "none",
-          padding: 0,
-          margin: "12px 0 0",
-          opacity: 0.55,
-        }}
-      >
-        <label style={fieldLabelStyle()}>
-          {labels.tone_label}
-          <select disabled style={inputStyle()} defaultValue="warm">
-            <option value="warm">{labels.tone_warm}</option>
-            <option value="professional">{labels.tone_professional}</option>
-            <option value="casual">{labels.tone_casual}</option>
-          </select>
-        </label>
-        <label style={fieldLabelStyle()}>
-          {labels.signature_label}
-          <input disabled style={inputStyle()} placeholder="— Maria, Owner" />
-        </label>
-      </fieldset>
-    </section>
-  );
-}
-
-// ─── Notifications card ────────────────────────────────────────────────────
-
-interface NotificationsLabels {
-  heading: string;
-  subtitle: string;
-  digest_label: string;
-  digest_desc: string;
-  urgent_label: string;
-  urgent_desc: string;
-  weekly_label: string;
-  weekly_desc: string;
-  coming_soon: string;
-}
-
-function NotificationsCard({ labels }: { labels: NotificationsLabels }) {
-  return (
-    <section aria-labelledby="notifications-heading" style={cardStyle()}>
-      <div style={cardHeadingRowStyle()}>
-        <h2 id="notifications-heading" style={cardTitleStyle()}>
-          {labels.heading}
-        </h2>
-        <ComingSoonPill label={labels.coming_soon} />
-      </div>
-      <p style={cardSubtitleStyle()}>{labels.subtitle}</p>
-      <ul
-        style={{
-          listStyle: "none",
-          padding: 0,
-          margin: "12px 0 0",
-          opacity: 0.55,
-        }}
-      >
-        <NotificationItem
-          label={labels.digest_label}
-          desc={labels.digest_desc}
-        />
-        <NotificationItem
-          label={labels.urgent_label}
-          desc={labels.urgent_desc}
-        />
-        <NotificationItem
-          label={labels.weekly_label}
-          desc={labels.weekly_desc}
-        />
-      </ul>
-    </section>
-  );
-}
-
-function NotificationItem({ label, desc }: { label: string; desc: string }) {
-  return (
-    <li
-      style={{
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "flex-start",
-        gap: 16,
-        padding: "12px 0",
-        borderTop: "1px solid var(--color-border)",
-      }}
-    >
-      <div>
-        <div
-          style={{ fontSize: 14, fontWeight: 500, color: "var(--color-text)" }}
-        >
-          {label}
-        </div>
-        <div
-          style={{
-            fontSize: 13,
-            color: "var(--color-text-2)",
-            marginTop: 2,
-            lineHeight: 1.4,
-          }}
-        >
-          {desc}
-        </div>
-      </div>
-      <div
-        aria-hidden
-        style={{
-          width: 36,
-          height: 20,
-          background: "var(--color-bg-3)",
-          borderRadius: 999,
-          flexShrink: 0,
-          position: "relative",
-          border: "1px solid var(--color-border)",
-        }}
-      >
-        <div
-          style={{
-            width: 14,
-            height: 14,
-            background: "var(--color-bg-2)",
-            borderRadius: "50%",
-            position: "absolute",
-            top: 2,
-            left: 2,
-            border: "1px solid var(--color-border)",
-          }}
-        />
-      </div>
-    </li>
-  );
-}
-
-// ─── Language card ─────────────────────────────────────────────────────────
+// ─── Language card · disabled "coming soon" (English only for now) ──────────
 
 interface LanguageLabels {
   heading: string;
   subtitle: string;
   locale_label: string;
-  save_cta: string;
   locale_en: string;
-  locale_es: string;
-  locale_en_ca: string;
-  locale_fr: string;
+  coming_soon: string;
 }
 
-function LanguageCard({
-  currentLocale,
-  labels,
-}: {
-  currentLocale: Locale;
-  labels: LanguageLabels;
-}) {
-  // Map next-intl routing locales to display names from i18n keys.
-  const localeOptions: Array<{ value: Locale; label: string }> = [
-    { value: "en", label: labels.locale_en },
-    { value: "es", label: labels.locale_es },
-    { value: "en-CA", label: labels.locale_en_ca },
-    { value: "fr", label: labels.locale_fr },
-  ];
-
+function LanguageCard({ labels }: { labels: LanguageLabels }) {
   return (
     <section aria-labelledby="language-heading" style={cardStyle()}>
-      <h2 id="language-heading" style={cardTitleStyle()}>
-        {labels.heading}
-      </h2>
+      <div style={cardHeadingRowStyle()}>
+        <h2 id="language-heading" style={cardTitleStyle()}>
+          {labels.heading}
+        </h2>
+        <ComingSoonPill label={labels.coming_soon} />
+      </div>
       <p style={cardSubtitleStyle()}>{labels.subtitle}</p>
-      <form action={setPreferredLocale} style={{ marginTop: 12 }}>
-        <label style={fieldLabelStyle()}>
-          {labels.locale_label}
-          <select
-            name="locale"
-            defaultValue={currentLocale}
-            style={inputStyle()}
-            aria-label={labels.locale_label}
-          >
-            {localeOptions.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <button
-          type="submit"
-          style={{ ...primaryButtonStyle(), marginTop: 12 }}
-        >
-          {labels.save_cta}
-        </button>
-      </form>
+      <dl style={dlStyle()}>
+        <Row label={labels.locale_label} value={labels.locale_en} />
+      </dl>
     </section>
   );
 }
@@ -734,54 +341,6 @@ function Row({
   );
 }
 
-function StatusPill({
-  tone,
-  label,
-}: {
-  tone: "success" | "muted";
-  label: string;
-}) {
-  const palette =
-    tone === "success"
-      ? {
-          bg: "var(--color-success-bg, rgba(16, 156, 102, 0.08))",
-          fg: "var(--color-success)",
-          border: "var(--color-success)",
-        }
-      : {
-          bg: "var(--color-bg-3)",
-          fg: "var(--color-text-2)",
-          border: "var(--color-border)",
-        };
-  return (
-    <span
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 6,
-        padding: "2px 10px",
-        borderRadius: 999,
-        fontSize: 12,
-        fontWeight: 500,
-        background: palette.bg,
-        color: palette.fg,
-        border: `1px solid ${palette.border}`,
-      }}
-    >
-      <span
-        aria-hidden
-        style={{
-          width: 6,
-          height: 6,
-          borderRadius: "50%",
-          background: palette.fg,
-        }}
-      />
-      {label}
-    </span>
-  );
-}
-
 function ComingSoonPill({ label }: { label: string }) {
   return (
     <span
@@ -860,35 +419,6 @@ function dlStyle(): React.CSSProperties {
   };
 }
 
-function fieldLabelStyle(): React.CSSProperties {
-  return {
-    display: "flex",
-    flexDirection: "column",
-    gap: 6,
-    marginBottom: 12,
-    fontSize: 13,
-    fontFamily: "var(--font-mono)",
-    textTransform: "uppercase",
-    letterSpacing: "0.04em",
-    color: "var(--color-text-3)",
-  };
-}
-
-function inputStyle(): React.CSSProperties {
-  return {
-    height: 44,
-    padding: "0 12px",
-    fontSize: 15,
-    fontFamily: "var(--font-sans)",
-    textTransform: "none",
-    letterSpacing: 0,
-    color: "var(--color-text)",
-    background: "var(--color-bg)",
-    border: "1px solid var(--color-border)",
-    borderRadius: 8,
-  };
-}
-
 function primaryButtonStyle(): React.CSSProperties {
   return {
     display: "inline-flex",
@@ -923,21 +453,5 @@ function secondaryButtonStyle(): React.CSSProperties {
     fontWeight: 500,
     textDecoration: "none",
     cursor: "pointer",
-  };
-}
-
-function linkStyle(): React.CSSProperties {
-  return {
-    color: "var(--color-coral)",
-    textDecoration: "none",
-  };
-}
-
-function footnoteStyle(): React.CSSProperties {
-  return {
-    margin: "12px 0 0",
-    color: "var(--color-text-3)",
-    fontSize: 12,
-    lineHeight: 1.5,
   };
 }

@@ -59,13 +59,14 @@ async function SmbSidebarServer({ params }: { params: Promise<LayoutParams> }) {
   const labels: SmbSidebarLabels = {
     brand: t("brand"),
     audienceTag: t("audience_tag"),
+    menuOpen: t("menu_open"),
+    menuClose: t("menu_close"),
     sections: {
       main: t("section_main"),
       account: t("section_account"),
     },
     items: {
       home: t("item_home"),
-      how_you_compare: t("item_how_you_compare"),
       reviews: t("item_reviews"),
       search: t("item_search"),
       ads: t("item_ads"),

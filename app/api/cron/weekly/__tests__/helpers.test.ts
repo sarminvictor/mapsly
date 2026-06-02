@@ -79,7 +79,7 @@ describe("business-profile-refresh · mapsRowToProfileUpdate", () => {
       rating: 4.7,
       reviewCount: 312,
       phone: "+1 305-555-0123",
-      website: "https://soleaspa.example.com",
+      website: "https://soleaspa.example.com/",
       address: "123 Brickell Ave",
       city: "Miami",
       province: "FL",

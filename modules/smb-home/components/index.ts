@@ -9,16 +9,13 @@
  * See `.claude/rules/ui-ux-smb.md` for voice and density conventions and
  * `_design/product/home.html` for the original visual reference.
  *
- * E.0 ships:
- *   - KPITile · hero + standard variants for the dashboard state-bar
- *   - AlertCard · "needs your attention" rows
- *   - FixCard · numbered prioritized recommendations
- *   - ScoreBreakdown · 6-dim sub-score bar list
- *
- * Follow-ups (later phases):
- *   - Review reply card (modules/reviews/...)
- *   - Empty-state component (likely promoted to ui/ if reused agency-side)
- *   - Onboarding fix-card variant with primary CTA inline
+ * Ships:
+ *   - KPITile · hero + standard variants for the score summary
+ *   - AlertCard · gentle info rows (e.g. the empty-fixes state)
+ *   - FixCard · numbered prioritized quick wins
+ *   - PillarTiles · the 5 navigable section-score tiles
+ *   - MarketLeaderboardTable · interactive market competitor table
+ *   - MarketChangesFeed · "this week — what changed" events feed
  */
 
 export { KPITile } from "./KPITile";
@@ -35,16 +32,21 @@ export type { AlertCardProps, AlertTone } from "./AlertCard";
 export { FixCard } from "./FixCard";
 export type { FixCardProps, FixCardTone } from "./FixCard";
 
-export { ScoreBreakdown } from "./ScoreBreakdown";
-export type {
-  ScoreBreakdownProps,
-  ScoreDimension,
-  ScoreTone,
-} from "./ScoreBreakdown";
-
 export { PillarTiles } from "./PillarTiles";
 export type {
   PillarTileData,
   PillarTilesProps,
   PillarTileTone,
 } from "./PillarTiles";
+
+export { MarketLeaderboardTable } from "./MarketLeaderboardTable";
+export type {
+  MarketLeaderboardLabels,
+  MarketLeaderboardTableProps,
+} from "./MarketLeaderboardTable";
+
+export { MarketChangesFeed } from "./MarketChangesFeed";
+export type {
+  MarketChangesFeedLabels,
+  MarketChangesFeedProps,
+} from "./MarketChangesFeed";

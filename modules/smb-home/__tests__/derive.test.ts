@@ -1,154 +1,112 @@
 /**
- * Unit tests for the SMB dashboard derivation helpers.
+ * Unit tests · SMB overview quick-win derivation.
  *
- * Per `.claude/rules/testing.md` we cover the invariants Maria would
- * notice if they flipped — alert priority, fix selection, and the
- * voice-rule promise that no banned-jargon term leaks into copy.
+ * Per `.claude/rules/testing.md` we cover the invariants Maria would notice
+ * if they flipped — which section a fix comes from, the priority order, the
+ * cap, and the voice-rule promise that no banned jargon leaks into copy.
  */
 
 import { describe, expect, test } from "vitest";
 
-import { type DeriveInput, deriveAlerts, deriveTopFixes } from "../derive";
-import { MAX_ALERTS } from "../types";
+import { type OverviewFixInput, deriveOverviewFixes } from "../derive";
+import { MAX_FIXES } from "../types";
 
-const baseInput = (overrides: Partial<DeriveInput> = {}): DeriveInput => ({
+const base = (overrides: Partial<OverviewFixInput> = {}): OverviewFixInput => ({
+  reputation: 8,
+  visibility: 8,
+  profile: 8,
+  website: 8,
+  advertising: 8,
+  adsApplicable: true,
   unansweredReviewCount: 0,
-  reviewsLast30d: 0,
-  replyRate: 1,
-  rating: 4.6,
-  reviewCount: 200,
-  profileCompletenessScore: 0.9,
-  brandPresenceScore: 0.9,
-  brandHijackStatus: "clean",
-  msiRank: 5,
-  msiTotal: 40,
   ...overrides,
 });
 
-describe("deriveAlerts", () => {
-  test("returns no alerts when nothing's wrong", () => {
-    expect(deriveAlerts(baseInput())).toEqual([]);
+describe("deriveOverviewFixes", () => {
+  test("a healthy business has no quick wins", () => {
+    expect(deriveOverviewFixes(base())).toEqual([]);
   });
 
-  test("brand-hijack hit takes priority 1", () => {
-    const alerts = deriveAlerts(
-      baseInput({ brandHijackStatus: "hit", unansweredReviewCount: 12 }),
+  test("unanswered reviews lead and come from the reputation section", () => {
+    const fixes = deriveOverviewFixes(base({ unansweredReviewCount: 8 }));
+    expect(fixes[0]?.section).toBe("reputation");
+    expect(fixes[0]?.rank).toBe(1);
+    expect(fixes[0]?.action).toMatch(/reply to 8 unanswered reviews/i);
+  });
+
+  test("not advertising surfaces an advertising quick win", () => {
+    const fixes = deriveOverviewFixes(base({ adsApplicable: false }));
+    expect(fixes.some((f) => f.section === "advertising")).toBe(true);
+  });
+
+  test("a section that isn't 'strong' yet (below 7) gets a quick win", () => {
+    // 6.6 website was silent under the old < 5 rule — now it advises.
+    const fixes = deriveOverviewFixes(base({ website: 6.6 }));
+    expect(fixes.some((f) => f.section === "website")).toBe(true);
+  });
+
+  test("a strong section (>= 7) gets no quick win", () => {
+    const fixes = deriveOverviewFixes(base({ website: 7.2 }));
+    expect(fixes.some((f) => f.section === "website")).toBe(false);
+  });
+
+  test("the reply fix outranks the ads fix", () => {
+    const fixes = deriveOverviewFixes(
+      base({ unansweredReviewCount: 3, adsApplicable: false }),
     );
-    expect(alerts[0]?.id).toBe("brand-hijack-hit");
-    expect(alerts[0]?.tone).toBe("bad");
+    const rep = fixes.findIndex((f) => f.section === "reputation");
+    const ads = fixes.findIndex((f) => f.section === "advertising");
+    expect(rep).toBeGreaterThanOrEqual(0);
+    expect(ads).toBeGreaterThan(rep);
   });
 
-  test("unanswered reviews fall in the top 2 with 'warn' tone for low count", () => {
-    const alerts = deriveAlerts(baseInput({ unansweredReviewCount: 1 }));
-    expect(alerts).toHaveLength(1);
-    expect(alerts[0]?.tone).toBe("warn");
-    expect(alerts[0]?.body).toMatch(/1 review is waiting/);
+  test("reply impact scales with the unanswered count", () => {
+    const small = deriveOverviewFixes(base({ unansweredReviewCount: 1 }));
+    const big = deriveOverviewFixes(base({ unansweredReviewCount: 20 }));
+    const s = parseFloat(small[0]?.impact.replace("+", "") ?? "0");
+    const b = parseFloat(big[0]?.impact.replace("+", "") ?? "0");
+    expect(b).toBeGreaterThan(s);
   });
 
-  test("≥ 5 unanswered upgrades tone to 'bad'", () => {
-    const alerts = deriveAlerts(baseInput({ unansweredReviewCount: 8 }));
-    expect(alerts[0]?.tone).toBe("bad");
-    expect(alerts[0]?.body).toMatch(/8 reviews are waiting/);
-  });
-
-  test("low reply rate only triggers above review-count threshold", () => {
-    const lowVolume = deriveAlerts(
-      baseInput({ replyRate: 0.1, reviewCount: 3 }),
-    );
-    expect(lowVolume.find((a) => a.id === "low-reply-rate")).toBeUndefined();
-
-    const highVolume = deriveAlerts(
-      baseInput({ replyRate: 0.1, reviewCount: 30 }),
-    );
-    expect(highVolume.find((a) => a.id === "low-reply-rate")).toBeDefined();
-  });
-
-  test("caps at MAX_ALERTS even when many rules fire", () => {
-    const alerts = deriveAlerts(
-      baseInput({
-        brandHijackStatus: "hit",
-        unansweredReviewCount: 12,
-        replyRate: 0.1,
-        rating: 3.4,
-        profileCompletenessScore: 0.4,
-        reviewCount: 15,
+  test("never exceeds MAX_FIXES and ranks are 1..N", () => {
+    const fixes = deriveOverviewFixes(
+      base({
+        unansweredReviewCount: 5,
+        visibility: 2,
+        profile: 3,
+        website: 2,
+        advertising: 0,
+        adsApplicable: false,
       }),
     );
-    expect(alerts.length).toBeLessThanOrEqual(MAX_ALERTS);
-  });
-
-  test("body copy is Maria voice — no banned jargon", () => {
-    const alerts = deriveAlerts(
-      baseInput({
-        brandHijackStatus: "hit",
-        unansweredReviewCount: 6,
-        replyRate: 0.1,
-        rating: 3.7,
-        profileCompletenessScore: 0.3,
-        reviewCount: 50,
-      }),
-    );
-    const haystack = alerts.map((a) => `${a.body} ${a.meta ?? ""}`).join(" ");
-    expect(haystack).not.toMatch(
-      /\b(LCP|INP|CLS|CTR|MSI|3-pack|local 3-pack|schema|NAP|GBP|organic rank)\b/i,
-    );
-  });
-});
-
-describe("deriveTopFixes", () => {
-  test("returns at most 3 fixes ranked 1..3", () => {
-    const fixes = deriveTopFixes(
-      baseInput({
-        unansweredReviewCount: 8,
-        profileCompletenessScore: 0.5,
-        rating: 4.2,
-        brandPresenceScore: 0.3,
-      }),
-    );
-    expect(fixes.length).toBeLessThanOrEqual(3);
+    expect(fixes.length).toBeLessThanOrEqual(MAX_FIXES);
     fixes.forEach((f, i) => expect(f.rank).toBe(i + 1));
   });
 
-  test("returns empty when Maria's data is perfect", () => {
-    expect(
-      deriveTopFixes(
-        baseInput({
-          unansweredReviewCount: 0,
-          profileCompletenessScore: 0.95,
-          rating: 4.9,
-          brandPresenceScore: 0.95,
-        }),
-      ),
-    ).toEqual([]);
-  });
-
-  test("unanswered-reviews fix scales impact with count", () => {
-    const small = deriveTopFixes(baseInput({ unansweredReviewCount: 1 }));
-    const big = deriveTopFixes(baseInput({ unansweredReviewCount: 20 }));
-    const smallLift = parseFloat(small[0]?.impact.replace("+", "") ?? "0");
-    const bigLift = parseFloat(big[0]?.impact.replace("+", "") ?? "0");
-    expect(bigLift).toBeGreaterThan(smallLift);
-  });
-
-  test("brand-hijack pre-empts other fixes (priority 0)", () => {
-    const fixes = deriveTopFixes(
-      baseInput({
-        brandHijackStatus: "hit",
-        unansweredReviewCount: 8,
-        profileCompletenessScore: 0.4,
+  test("null section scores never trigger a fix (only measured gaps do)", () => {
+    const fixes = deriveOverviewFixes(
+      base({
+        reputation: null,
+        visibility: null,
+        profile: null,
+        website: null,
+        advertising: null,
+        adsApplicable: null,
+        unansweredReviewCount: 0,
       }),
     );
-    expect(fixes[0]?.action.toLowerCase()).toMatch(/your name/);
-    expect(fixes[0]?.tone).toBe("warn");
+    expect(fixes).toEqual([]);
   });
 
   test("action copy is Maria voice — no banned jargon", () => {
-    const fixes = deriveTopFixes(
-      baseInput({
+    const fixes = deriveOverviewFixes(
+      base({
         unansweredReviewCount: 5,
-        profileCompletenessScore: 0.5,
-        rating: 4.2,
-        brandPresenceScore: 0.3,
+        visibility: 2,
+        profile: 3,
+        website: 2,
+        advertising: 0,
+        adsApplicable: false,
       }),
     );
     const haystack = fixes

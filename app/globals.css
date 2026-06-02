@@ -204,34 +204,141 @@ details[open] > summary::after {
   flex-shrink: 0;
 }
 
-/* Mobile · sidebar collapses to a horizontal scroll-tab strip.
- * Brand + section labels hide; only the icon+label pills remain. */
+/* New nav chrome · hidden on desktop, shown/used on mobile (< 900px). */
+.smb-topbar {
+  display: none;
+}
+.smb-scrim {
+  display: none;
+}
+.smb-nav-close {
+  display: none;
+}
+
+/* Mobile (< 900px) · sticky burger top bar + a left-sliding drawer over a
+ * dimming scrim. The closed drawer is off-screen AND visibility:hidden so it
+ * leaves the tab order + a11y tree. */
 @media (max-width: 899px) {
   .smb-shell {
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: auto 1fr;
   }
-  .smb-nav {
-    flex-direction: row;
-    border-right: none;
-    border-bottom: 1px solid var(--color-border);
+
+  /* Top bar with the burger trigger. */
+  .smb-topbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
     padding: 8px 12px;
-    gap: 4px;
-    overflow-x: auto;
-    overflow-y: hidden;
-    max-height: none;
-    align-self: stretch;
     background: var(--color-bg-2);
+    border-bottom: 1px solid var(--color-border);
+    position: sticky;
+    top: 0;
+    z-index: 30;
   }
-  .smb-nav-brand,
-  .smb-nav-section-label {
-    display: none;
+  .smb-burger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    flex-shrink: 0;
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    background: var(--color-bg);
+    color: var(--color-text);
+    cursor: pointer;
   }
+  .smb-topbar-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--font-serif);
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--color-text);
+  }
+
+  /* Dimming scrim behind the open drawer. */
+  .smb-scrim {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(28, 25, 22, 0.45);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease;
+    z-index: 40;
+  }
+  .smb-scrim.is-open {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  /* The nav becomes the fixed left drawer. */
+  .smb-nav {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: min(84vw, 300px);
+    height: 100dvh;
+    max-height: 100dvh;
+    flex-direction: column;
+    gap: 2px;
+    padding: 12px 14px 24px;
+    border-right: 1px solid var(--color-border);
+    border-bottom: none;
+    background: var(--color-bg);
+    box-shadow: 2px 0 18px rgba(28, 25, 22, 0.14);
+    overflow-y: auto;
+    align-self: stretch;
+    z-index: 50;
+    transform: translateX(-100%);
+    visibility: hidden;
+    transition:
+      transform 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+      visibility 0s linear 0.28s;
+  }
+  .smb-nav.is-open {
+    transform: translateX(0);
+    visibility: visible;
+    transition:
+      transform 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+      visibility 0s;
+  }
+
+  /* Drawer keeps its brand + section labels; brand row gains a close (X). */
+  .smb-nav-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    margin-left: auto;
+    flex-shrink: 0;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--color-text-2);
+    cursor: pointer;
+  }
+  .smb-nav-close:hover {
+    background: rgba(28, 25, 22, 0.05);
+    color: var(--color-text);
+  }
+
   .smb-nav-item {
     min-height: 44px; /* WCAG tap target */
-    white-space: nowrap;
-    padding: 10px 14px;
-    flex-shrink: 0;
+  }
+}
+
+/* Respect reduced-motion · no slide/fade on the drawer + scrim. */
+@media (prefers-reduced-motion: reduce) {
+  .smb-nav,
+  .smb-scrim {
+    transition: none;
   }
 }
 
@@ -419,3 +526,34 @@ details[open] > summary::after {
     animation: none;
   }
 }
+
+/* SMB overview · main column + quick-wins rail. Mobile-first: the fixes rail
+   comes first (what to do), then the market table + feed. Desktop (≥ 900px):
+   table + feed on the left, a sticky fixes rail on the right. */
+.smb-ov-grid {
+  display: grid;
+  gap: 20px;
+  grid-template-columns: minmax(0, 1fr);
+}
+.smb-ov-main {
+  order: 2;
+  min-width: 0;
+}
+.smb-ov-rail {
+  order: 1;
+}
+@media (min-width: 900px) {
+  .smb-ov-grid {
+    grid-template-columns: minmax(0, 1fr) 300px;
+  }
+  .smb-ov-main {
+    order: 1;
+  }
+  .smb-ov-rail {
+    order: 2;
+    position: sticky;
+    top: 24px;
+    align-self: start;
+  }
+}
+/* smb overview layout · loaded */

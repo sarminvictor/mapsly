@@ -1,60 +1,64 @@
 /**
- * SMB dashboard · server queries.
+ * SMB weekly overview · server query.
  *
- * Surface: `getSmbHomeData(userId)` — returns the latest
- * `BusinessSnapshot` of the user's owned business denormalised into
- * the flat `SmbDashboardData` shape the page renders from, PLUS the
- * derived alert feed + top fixes + this-week market activity events.
+ * `getSmbHomeData(userId)` returns everything the consolidated `/home`
+ * page renders: the owner's Mapsly Score + market standing, the 5 section
+ * scores, quick wins across every section, the full market competitor
+ * table (ranked by Mapsly Score, with a weekly rank-movement column), and
+ * the "this week — what changed" events feed.
  *
- * Returns the EMPTY shape (ownedBusinessId === "") when:
+ * Reads only from `BusinessSnapshot` (latest + prior weekly rows in the
+ * owner's `cellKey` market) + a couple of cheap counts — no external API
+ * calls (`.claude/rules/cost-discipline.md`), no N+1.
  *
- *   - the user has no claimed business yet (post-signup state)
- *   - we're in Vercel's build phase (NEXT_PHASE guard, INC-27)
- *   - Prisma throws (degrades to "looks empty" rather than 500 crash)
+ * Cache: `'use cache'` + `cacheLife('minutes')` + `cacheTag('smb-home-${userId}')`
+ * per `.claude/rules/caching.md`. Cron revalidates on snapshot writes.
  *
- * Cache strategy per `.claude/rules/caching.md`:
+ * Per `.claude/rules/cache-components.md` Pattern 1, the NEXT_PHASE guard
+ * returns EMPTY (full shape) so Vercel's build worker prerenders without a
+ * Neon WebSocket.
  *
- *   - `'use cache'` + `cacheLife('minutes')` — Maria's daily check-in
- *     surface; minutes-fresh is plenty (snapshot refreshes weekly).
- *   - `cacheTag('smb-home-${userId}')` — per-user; cron jobs
- *     revalidate on snapshot writes.
- *
- * Per `.claude/rules/cache-components.md` Pattern 1, the EMPTY shape
- * is the full shape of the declared return type — TypeScript catches
- * partial shapes at literal-comparison time.
- *
- * Per `.claude/rules/performance.md`, `select`s are explicit and
- * counts are bounded.
+ * The pillar-score rank delta warms up: it diffs this week's live cell rank
+ * against last week's stored `pillarRanks.master` (written by the pillar-score
+ * pass). Until two comparable weeks exist it renders "new" — see the design
+ * note in `.claude/loop.md`-era decision "ship now, Δ warms up".
  */
 
 import { cacheLife, cacheTag } from "next/cache";
 
 import prisma from "@/lib/prisma";
 
-import { withDerivedFields } from "./derive";
+import { deriveOverviewFixes } from "./derive";
 import {
-  EMPTY_SMB_DASHBOARD,
-  MAX_MARKET_EVENTS,
-  type SmbDashboardData,
-  type SmbMarketEvent,
+  type BizWeek,
+  type SnapshotSignals,
+  deriveMarketChanges,
+} from "./events";
+import {
+  EMPTY_SMB_OVERVIEW,
+  MAX_EVENTS,
+  type ColumnRank,
+  type RankColumn,
+  type SmbCompetitorRow,
+  type SmbMarketChange,
+  type SmbOverviewData,
 } from "./types";
 
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
-const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+const COHORT_WINDOW_MS = 28 * 24 * 60 * 60 * 1000;
+const COHORT_CAP = 2000;
+const MAX_SERVICE_EVENTS = 5;
 
-export async function getSmbHomeData(
-  userId: string,
-): Promise<SmbDashboardData> {
+export async function getSmbHomeData(userId: string): Promise<SmbOverviewData> {
   "use cache";
   cacheLife("minutes");
   cacheTag(`smb-home-${userId}`);
 
   if (process.env.NEXT_PHASE === "phase-production-build") {
-    return EMPTY_SMB_DASHBOARD;
+    return EMPTY_SMB_OVERVIEW;
   }
-
   if (!userId || typeof userId !== "string") {
-    return EMPTY_SMB_DASHBOARD;
+    return EMPTY_SMB_OVERVIEW;
   }
 
   try {
@@ -68,24 +72,10 @@ export async function getSmbHomeData(
         category: true,
         city: true,
         province: true,
-        rating: true,
-        reviewCount: true,
-        isClaimed: true,
         snapshots: {
           take: 1,
           orderBy: { snapshotDate: "desc" },
           select: {
-            mapslyScore: true,
-            msiRank: true,
-            msiTotal: true,
-            replyRate: true,
-            velocityLast30d: true,
-            reputationScore: true,
-            communicationScore: true,
-            profileCompletenessScore: true,
-            trustScore: true,
-            pricingTransparencyScore: true,
-            brandPresenceScore: true,
             pillarScore: true,
             reputationPillar: true,
             visibilityPillar: true,
@@ -93,223 +83,292 @@ export async function getSmbHomeData(
             websitePillar: true,
             adsPillar: true,
             adsApplicable: true,
-            msiPercentile: true,
+            cellKey: true,
             snapshotDate: true,
           },
         },
       },
     });
 
-    if (!business) return EMPTY_SMB_DASHBOARD;
-
+    if (!business) return EMPTY_SMB_OVERVIEW;
     const snap = business.snapshots[0] ?? null;
+
     const now = new Date();
-    const cutoff30d = new Date(now.getTime() - THIRTY_DAYS_MS);
     const cutoff7d = new Date(now.getTime() - SEVEN_DAYS_MS);
 
-    // Counts on Review for this business — drive the unanswered KPI
-    // tile and the alerts/fixes derivation. Bounded queries (count
-    // only), no row fetch.
-    const [unansweredReviewCount, reviewsLast30d, brandHijackHits] =
-      await Promise.all([
-        prisma.review.count({
-          where: { businessId: business.id, ownerReplied: false },
-        }),
-        prisma.review.count({
-          where: { businessId: business.id, postedAt: { gte: cutoff30d } },
-        }),
-        // Brand-hijack proxy: ads from OTHER businesses whose creative
-        // matches a keyword overlapping Maria's name. Cheap heuristic
-        // until C.6 lands a dedicated brand-hijack table — uses the
-        // existing AdLibraryEntry.
-        prisma.adLibraryEntry.count({
-          where: {
-            businessId: { not: business.id },
-            isActive: true,
-            adCreativeBody: {
-              contains: business.name.split(" ")[0]!,
-              mode: "insensitive",
-            },
-          },
-        }),
-      ]);
-
-    const brandHijackStatus: SmbDashboardData["brandHijackStatus"] =
-      brandHijackHits >= 3 ? "hit" : brandHijackHits >= 1 ? "watch" : "clean";
-
-    // Market events · last 7 days · competitors in same category+city.
-    const marketActivity: SmbMarketEvent[] = await collectMarketEvents({
-      businessId: business.id,
-      category: business.category,
-      city: business.city,
-      cutoff: cutoff7d,
+    const unansweredReviewCount = await prisma.review.count({
+      where: { businessId: business.id, ownerReplied: false },
     });
 
-    const base: SmbDashboardData = {
+    const topFixes = deriveOverviewFixes({
+      reputation: snap?.reputationPillar ?? null,
+      visibility: snap?.visibilityPillar ?? null,
+      profile: snap?.profilePillar ?? null,
+      website: snap?.websitePillar ?? null,
+      advertising: snap?.adsPillar ?? null,
+      adsApplicable: snap?.adsApplicable ?? null,
+      unansweredReviewCount,
+    });
+
+    const base: SmbOverviewData = {
+      ...EMPTY_SMB_OVERVIEW,
       ownedBusinessId: business.id,
       slug: business.slug,
       name: business.name,
       category: business.category,
       city: business.city,
       province: business.province,
-      rating: business.rating,
-      reviewCount: business.reviewCount,
-      isClaimed: business.isClaimed,
-      mapslyScore: snap?.mapslyScore ?? null,
-      msiRank: snap?.msiRank ?? null,
-      msiTotal: snap?.msiTotal ?? null,
-      replyRate: snap?.replyRate ?? null,
-      velocityLast30d: snap?.velocityLast30d ?? null,
-      reputationScore: snap?.reputationScore ?? null,
-      communicationScore: snap?.communicationScore ?? null,
-      profileCompletenessScore: snap?.profileCompletenessScore ?? null,
-      trustScore: snap?.trustScore ?? null,
-      pricingTransparencyScore: snap?.pricingTransparencyScore ?? null,
-      brandPresenceScore: snap?.brandPresenceScore ?? null,
-      pillarScore: snap?.pillarScore ?? null,
-      reputationPillar: snap?.reputationPillar ?? null,
-      visibilityPillar: snap?.visibilityPillar ?? null,
-      profilePillar: snap?.profilePillar ?? null,
-      websitePillar: snap?.websitePillar ?? null,
-      adsPillar: snap?.adsPillar ?? null,
+      mapslyScore: snap?.pillarScore ?? null,
+      reputation: snap?.reputationPillar ?? null,
+      visibility: snap?.visibilityPillar ?? null,
+      profile: snap?.profilePillar ?? null,
+      website: snap?.websitePillar ?? null,
+      ads: snap?.adsPillar ?? null,
       adsApplicable: snap?.adsApplicable ?? null,
-      msiPercentile: snap?.msiPercentile ?? null,
       lastSnapshotAt: snap?.snapshotDate ?? null,
-      unansweredReviewCount,
-      reviewsLast30d,
-      brandHijackStatus,
-      alerts: [],
-      topFixes: [],
-      marketActivity,
+      topFixes,
     };
 
-    return withDerivedFields(base);
-  } catch {
-    return EMPTY_SMB_DASHBOARD;
-  }
-}
+    const cellKey = snap?.cellKey ?? null;
+    if (!cellKey) {
+      // Not graded into a market yet — show the hero + fixes, market fills in
+      // after the next cell-aggregate + pillar-score pass.
+      return base;
+    }
 
-/* ================================================ market events */
-
-interface MarketEventInput {
-  businessId: string;
-  category: string | null;
-  city: string | null;
-  cutoff: Date;
-}
-
-/**
- * Pull up to MAX_MARKET_EVENTS events from competitors' recent
- * activity. We keep this bounded + cheap by aggregating counts from
- * the existing Review + AdLibraryEntry tables. Each event is a
- * single line Maria reads at a glance ("Lux Med Spa launched 4 new
- * ads") so we don't need per-row drill-downs at this surface.
- */
-async function collectMarketEvents(
-  input: MarketEventInput,
-): Promise<SmbMarketEvent[]> {
-  const { businessId, category, city, cutoff } = input;
-  if (!category || !city) return [];
-
-  try {
-    // 1 · competitor businesses we'll look at (cap 30 for performance).
-    const competitors = await prisma.business.findMany({
+    // Latest + prior weekly snapshot per business in the owner's market.
+    const cohort = await prisma.businessSnapshot.findMany({
       where: {
-        category,
-        city,
-        isActive: true,
-        id: { not: businessId },
+        cellKey,
+        snapshotDate: { gte: new Date(now.getTime() - COHORT_WINDOW_MS) },
       },
-      take: 30,
-      orderBy: { reviewCount: "desc" },
-      select: { id: true, name: true },
+      orderBy: [{ businessId: "asc" }, { snapshotDate: "desc" }],
+      take: COHORT_CAP,
+      select: {
+        businessId: true,
+        snapshotDate: true,
+        pillarScore: true,
+        reputationPillar: true,
+        visibilityPillar: true,
+        profilePillar: true,
+        websitePillar: true,
+        adsPillar: true,
+        adsApplicable: true,
+        rating: true,
+        reviewCount: true,
+        photosCount: true,
+        signalsJson: true,
+        pillarRanks: true,
+        business: { select: { name: true } },
+      },
     });
-    if (competitors.length === 0) return [];
 
-    const idToName = new Map(competitors.map((c) => [c.id, c.name]));
-
-    // 2 · group reviews + ads by competitor + summarise.
-    const [recentReviewCounts, recentAdCounts] = await Promise.all([
-      prisma.review.groupBy({
-        by: ["businessId"],
-        where: {
-          businessId: { in: competitors.map((c) => c.id) },
-          postedAt: { gte: cutoff },
-        },
-        _count: { _all: true },
-        _max: { postedAt: true },
-      }),
-      prisma.adLibraryEntry.groupBy({
-        by: ["businessId"],
-        where: {
-          businessId: { in: competitors.map((c) => c.id) },
-          isActive: true,
-          startedAt: { gte: cutoff },
-        },
-        _count: { _all: true },
-        _max: { lastSeenAt: true },
-      }),
-    ]);
-
-    const events: SmbMarketEvent[] = [];
-
-    for (const row of recentReviewCounts) {
-      const name = idToName.get(row.businessId ?? "");
-      if (!name) continue;
-      const count = row._count._all;
-      if (count === 0) continue;
-      events.push({
-        id: `r-${row.businessId}`,
-        body:
-          count === 1
-            ? `${name} got 1 new review this week.`
-            : `${name} got ${count} new reviews this week.`,
-        at: row._max.postedAt ?? cutoff,
-        source: "reviews",
-      });
+    type Row = (typeof cohort)[number];
+    interface Grouped {
+      name: string;
+      current: Row;
+      prior: Row | null;
+    }
+    const byBiz = new Map<string, Grouped>();
+    for (const row of cohort) {
+      const g = byBiz.get(row.businessId);
+      if (!g) {
+        byBiz.set(row.businessId, {
+          name: row.business.name,
+          current: row,
+          prior: null,
+        });
+      } else if (
+        g.prior == null &&
+        row.snapshotDate.getTime() !== g.current.snapshotDate.getTime()
+      ) {
+        g.prior = row;
+      }
     }
 
-    for (const row of recentAdCounts) {
-      const name = idToName.get(row.businessId ?? "");
-      if (!name) continue;
-      const count = row._count._all;
-      if (count === 0) continue;
-      events.push({
-        id: `a-${row.businessId}`,
-        body:
-          count === 1
-            ? `${name} launched 1 new ad.`
-            : `${name} launched ${count} new ads.`,
-        at: row._max.lastSeenAt ?? cutoff,
-        source: "ads",
-      });
-    }
+    // Members of the cell (this + last week per business). We rank the WHOLE
+    // cell server-side on EVERY column (master + each pillar), so the table's
+    // "#" and "Δ" are authoritative across all pages for whichever column is
+    // sorted. Null score → 0; standard competition ranking ("1 2 2 4"). The
+    // delta diffs this week's live rank against last week's stored rank for the
+    // same column (warms up as weekly history accrues).
+    const members = [...byBiz.entries()].map(([id, g]) => ({
+      id,
+      name: g.name,
+      isOwn: id === business.id,
+      current: g.current,
+      prior: g.prior,
+    }));
+    type Member = (typeof members)[number];
 
-    // Newcomers — businesses created in the last 7 days.
-    const newcomers = await prisma.business.findMany({
-      where: {
-        category,
-        city,
-        isActive: true,
-        id: { not: businessId },
-        createdAt: { gte: cutoff },
+    const adsScoreOf = (m: Member): number =>
+      m.current.adsApplicable === false ? 0 : (m.current.adsPillar ?? 0);
+    const RANK_COLS: {
+      col: RankColumn;
+      score: (m: Member) => number;
+      priorKey: string;
+    }[] = [
+      {
+        col: "mapsly",
+        score: (m) => m.current.pillarScore ?? 0,
+        priorKey: "master",
       },
-      take: 3,
+      {
+        col: "reputation",
+        score: (m) => m.current.reputationPillar ?? 0,
+        priorKey: "reputation",
+      },
+      {
+        col: "visibility",
+        score: (m) => m.current.visibilityPillar ?? 0,
+        priorKey: "visibility",
+      },
+      { col: "ads", score: adsScoreOf, priorKey: "advertising" },
+      {
+        col: "website",
+        score: (m) => m.current.websitePillar ?? 0,
+        priorKey: "website",
+      },
+      {
+        col: "profile",
+        score: (m) => m.current.profilePillar ?? 0,
+        priorKey: "profile",
+      },
+    ];
+
+    // Per-column current rank (competition ranking) over the full cell.
+    const curRankByCol = new Map<RankColumn, Map<string, number>>();
+    for (const { col, score } of RANK_COLS) {
+      const sorted = members
+        .map((m) => ({ id: m.id, v: score(m) }))
+        .sort((a, b) => b.v - a.v);
+      const map = new Map<string, number>();
+      let prevV: number | null = null;
+      let prevR = 0;
+      sorted.forEach((e, i) => {
+        const rank = prevV !== null && e.v === prevV ? prevR : i + 1;
+        prevV = e.v;
+        prevR = rank;
+        map.set(e.id, rank);
+      });
+      curRankByCol.set(col, map);
+    }
+
+    const competitors: SmbCompetitorRow[] = members.map((m) => {
+      const ranks = {} as Record<RankColumn, ColumnRank>;
+      for (const { col, priorKey } of RANK_COLS) {
+        const rank = curRankByCol.get(col)!.get(m.id)!;
+        const prior = rankFromPillarRanks(m.prior?.pillarRanks, priorKey);
+        ranks[col] = { rank, delta: prior != null ? prior - rank : null };
+      }
+      const adsApplicable = m.current.adsApplicable ?? null;
+      return {
+        id: m.id,
+        name: m.name,
+        isOwn: m.isOwn,
+        mapslyScore: m.current.pillarScore ?? null,
+        reputation: m.current.reputationPillar ?? null,
+        visibility: m.current.visibilityPillar ?? null,
+        profile: m.current.profilePillar ?? null,
+        website: m.current.websitePillar ?? null,
+        ads: adsApplicable === false ? 0 : (m.current.adsPillar ?? null),
+        adsApplicable,
+        ranks,
+      };
+    });
+
+    const ownRow = competitors.find((c) => c.isOwn) ?? null;
+
+    // Market events — diff this week vs last week per business.
+    const weeks: BizWeek[] = members.map((m) => ({
+      businessId: m.id,
+      name: m.name,
+      isOwn: m.isOwn,
+      current: toSignals(m.current),
+      prior: m.prior ? toSignals(m.prior) : null,
+    }));
+    const events: SmbMarketChange[] = deriveMarketChanges(weeks);
+
+    // Owner service additions — owner-only (we don't detect competitor
+    // services), so they ride alongside the snapshot-diff events.
+    const newServices = await prisma.businessService.findMany({
+      where: {
+        businessId: business.id,
+        isActive: true,
+        createdAt: { gte: cutoff7d },
+      },
       orderBy: { createdAt: "desc" },
+      take: MAX_SERVICE_EVENTS,
       select: { id: true, name: true, createdAt: true },
     });
-    for (const n of newcomers) {
+    for (const s of newServices) {
       events.push({
-        id: `n-${n.id}`,
-        body: `${n.name} just opened nearby.`,
-        at: n.createdAt,
-        source: "market",
+        id: `services-${s.id}`,
+        type: "services",
+        businessId: business.id,
+        businessName: business.name,
+        isOwn: true,
+        body: `You added a new service: ${s.name}.`,
+        delta: "new",
+        tone: "neutral",
+        at: s.createdAt.toISOString(),
       });
     }
 
-    events.sort((a, b) => b.at.getTime() - a.at.getTime());
-    return events.slice(0, MAX_MARKET_EVENTS);
+    return {
+      ...base,
+      rank: ownRow?.ranks.mapsly.rank ?? null,
+      total: competitors.length || null,
+      rankDelta: ownRow?.ranks.mapsly.delta ?? null,
+      competitors,
+      events: events.slice(0, MAX_EVENTS),
+    };
   } catch {
-    return [];
+    return EMPTY_SMB_OVERVIEW;
   }
+}
+
+/* ---------------------------------------------------------------- helpers */
+
+/** Extract the diff-engine signal bundle from a snapshot row + its bag. */
+function toSignals(row: {
+  snapshotDate: Date;
+  rating: number | null;
+  reviewCount: number | null;
+  photosCount: number | null;
+  signalsJson: unknown;
+}): SnapshotSignals {
+  const j = asRecord(row.signalsJson);
+  return {
+    snapshotDate: row.snapshotDate,
+    rating: row.rating,
+    reviewCount: row.reviewCount,
+    photosCount: row.photosCount,
+    hasActiveGoogleAds: boolOrNull(j?.hasActiveGoogleAds),
+    hasActiveMetaAds: boolOrNull(j?.hasActiveMetaAds),
+    localPackRank: numOrNull(j?.localPackRank),
+    organicRankBest: numOrNull(j?.organicRankBest),
+    lighthousePerformance: numOrNull(j?.lighthousePerformance),
+  };
+}
+
+/** Read a stored per-column rank (e.g. "master", "profile") from last week's
+ * pillarRanks JSON — the prior-week baseline for that column's weekly delta. */
+function rankFromPillarRanks(v: unknown, key: string): number | null {
+  const o = asRecord(v);
+  const e = asRecord(o?.[key]);
+  const r = e?.rank;
+  return typeof r === "number" && Number.isFinite(r) ? r : null;
+}
+
+function asRecord(v: unknown): Record<string, unknown> | null {
+  return v != null && typeof v === "object" && !Array.isArray(v)
+    ? (v as Record<string, unknown>)
+    : null;
+}
+function numOrNull(v: unknown): number | null {
+  return typeof v === "number" && Number.isFinite(v) ? v : null;
+}
+function boolOrNull(v: unknown): boolean | null {
+  return typeof v === "boolean" ? v : null;
 }

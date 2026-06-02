@@ -25,8 +25,10 @@
 
 import { z } from "zod";
 import { cookies } from "next/headers";
+import { revalidateTag } from "next/cache";
 import { redirect } from "next/navigation";
 
+import prisma from "@/lib/prisma";
 import { auth, signOut } from "@/lib/auth";
 import { routing } from "@/i18n/routing";
 
@@ -89,4 +91,42 @@ export async function setPreferredLocale(formData: FormData): Promise<void> {
   // next-intl will pick up the cookie on the next page render. The
   // request-time pathname is the same so we just bounce back.
   redirect("/settings");
+}
+
+/* ============================================================ account */
+
+export type UpdateAccountState = { status: "idle" | "saved" | "error" };
+
+const UpdateAccountSchema = z.object({
+  name: z.string().trim().max(120),
+});
+
+/**
+ * Update the viewer's display name — the editable part of "Your account".
+ * Email is the magic-link identity and is NOT editable here. Returns a
+ * `useActionState` status the AccountCard renders inline, and revalidates the
+ * per-user settings cache tag so the new name shows on the next read.
+ */
+export async function updateSmbAccount(
+  _prev: UpdateAccountState,
+  formData: FormData,
+): Promise<UpdateAccountState> {
+  const session = await auth();
+  if (!session?.user?.id) return { status: "error" };
+
+  const parsed = UpdateAccountSchema.safeParse({
+    name: formData.get("name") ?? "",
+  });
+  if (!parsed.success) return { status: "error" };
+
+  try {
+    await prisma.user.update({
+      where: { id: session.user.id },
+      data: { name: parsed.data.name.length > 0 ? parsed.data.name : null },
+    });
+    revalidateTag(`smb-settings-${session.user.id}`, "minutes");
+    return { status: "saved" };
+  } catch {
+    return { status: "error" };
+  }
 }

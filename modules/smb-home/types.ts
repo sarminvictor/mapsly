@@ -1,81 +1,110 @@
 /**
- * SMB dashboard · payload type definitions.
+ * SMB weekly overview · payload types.
  *
- * `SmbDashboardData` is the flat shape the dashboard page renders from.
- * It denormalises one `Business` + its latest `BusinessSnapshot` into a
- * single object so the page doesn't have to drill through `snapshots[0]`
- * everywhere.
+ * One consolidated page (`/home`) — replaces the old dashboard + the
+ * separate "how you compare" page. Maria sees, top to bottom:
  *
- * `EMPTY_SMB_DASHBOARD` is the build-phase / no-biz / error short-circuit
- * shape per `.claude/rules/cache-components.md` Pattern 1. It MUST have
- * every field of the interface (including nullables) so TypeScript catches
- * partial shapes at literal-comparison time on Vercel build.
+ *   - her Mapsly Score + market standing (rank + weekly movement)
+ *   - the 5 section scores (navigable pillar tiles)
+ *   - quick wins drawn from every section (right rail)
+ *   - an interactive competitor table for her whole local market
+ *     (sortable by Mapsly Score + each section score, with a weekly
+ *     rank-movement column)
+ *   - a "this week — what changed" market-events feed
  *
- * Callers identify the empty state by `data.ownedBusinessId === ""`.
+ * `EMPTY_SMB_OVERVIEW` is the build-phase / no-business / error shape per
+ * `.claude/rules/cache-components.md` Pattern 1 — every field present so
+ * TypeScript catches partial shapes at literal-comparison time on Vercel
+ * build. Callers identify the empty state by `data.ownedBusinessId === ""`.
  */
 
-/**
- * One row in the "what needs your attention today" feed. Derived
- * from latest snapshot, recent reviews, brand-hijack scan, etc.
- * Always plain English; never raw metric jargon. The dashboard
- * shows the top `MAX_ALERTS` (4) in priority order.
- */
-export interface SmbDashboardAlert {
-  /** Stable id (deterministic from kind + key business field) so
-   * React reconciliation is stable across refreshes. */
-  id: string;
-  /** Severity drives AlertCard tone — "bad" = coral/red,
-   * "warn" = gold, "info" = blue, "good" = green. */
-  tone: "bad" | "warn" | "info" | "good";
-  /** Priority — 1 surfaces first. Lower priorities fall off
-   * the bottom of the 4-card cap. */
-  priority: number;
-  /** The body line Maria reads. */
-  body: string;
-  /** Optional source / impact meta line (mono, smaller). */
-  meta?: string;
-}
-
-/**
- * One "highest-impact fix" row in the numbered list. Always 3.
- * Computed from the same signals as the alerts but framed as an
- * action ("Reply to 8 unanswered reviews") with a quantified
- * impact value ("+0.7 Mapsly Score").
- */
-export interface SmbDashboardFix {
-  /** 1, 2, 3 (rank in priority order). */
-  rank: 1 | 2 | 3;
+/** One quick-win row — an action Maria can take, drawn from any section. */
+export interface SmbOverviewFix {
+  /** 1-based rank in the list. */
+  rank: number;
+  /** Which section it belongs to (drives the chip + the page it links to). */
+  section: "reputation" | "visibility" | "profile" | "website" | "advertising";
   /** Imperative action sentence Maria can act on. */
   action: string;
-  /** Optional meta line under the action — typically the signal
-   * trigger ("8 reviews unanswered · benchmark 89%"). */
+  /** Optional secondary line — the trigger ("8 reviews unanswered"). */
   meta?: string;
-  /** Big impact value — e.g. "+0.7", "+5 patients/mo". */
+  /** Big impact value — "+0.4", "Fast", "—". */
   impact: string;
   /** Smaller line under the impact value. */
   impactSub: string;
-  /** FixCard tone — good (green), warn (gold), neutral (text). */
   tone: "good" | "warn" | "neutral";
 }
 
-/**
- * One row in "This week in your market" — a competitor activity
- * event from the last 7 days. The dashboard surfaces up to 5.
- */
-export interface SmbMarketEvent {
-  /** Stable id. */
-  id: string;
-  /** Plain-English description ("Lux Med Spa launched 4 new ads"). */
-  body: string;
-  /** When it happened — `lastSeenAt` for ads, `snapshotDate` for
-   * BusinessSnapshot deltas, etc. Used for the relative timestamp. */
-  at: Date;
-  /** Source pill — "Reviews" / "Ads" / "Search" / "Market". Maps
-   * to the dashboard's source-chip palette. */
-  source: "reviews" | "ads" | "search" | "market";
+/** A sortable / ranked column in the market table. */
+export type RankColumn =
+  | "mapsly"
+  | "reputation"
+  | "visibility"
+  | "ads"
+  | "website"
+  | "profile";
+
+/** A business's standing on one column — computed server-side across the
+ * FULL cell (every page), so the table's "#" and "Δ" are authoritative no
+ * matter which page is shown or which column is sorted. */
+export interface ColumnRank {
+  /** 1-based rank in the cell by this column (competition ranking: ties share
+   * a rank, "1 2 2 4"). */
+  rank: number;
+  /** Weekly change in that rank — positive = moved up N spots, negative =
+   * dropped, 0 = held, null = no comparable prior week yet ("new"). */
+  delta: number | null;
 }
 
-export interface SmbDashboardData {
+/** One business row in the market competitor table. */
+export interface SmbCompetitorRow {
+  id: string;
+  name: string;
+  isOwn: boolean;
+  /** Master Mapsly Score 0–10 (null → treated as 0 for ranking). */
+  mapslyScore: number | null;
+  reputation: number | null;
+  visibility: number | null;
+  profile: number | null;
+  website: number | null;
+  ads: number | null;
+  /** Whether this business is actually advertising — so an ads 0 reads as
+   * "not running ads" rather than a real low score. */
+  adsApplicable: boolean | null;
+  /** Rank + weekly delta for EVERY column, computed server-side across the
+   * whole cell. The table shows the entry for whichever column is sorted, so
+   * the "#" and "Δ" always reflect the active ranking — cell-wide, every page. */
+  ranks: Record<RankColumn, ColumnRank>;
+}
+
+/** Event type — drives the feed filter chips + the source-pill colour. */
+export type SmbEventType =
+  | "rating"
+  | "reviews"
+  | "ads"
+  | "search"
+  | "photos"
+  | "website"
+  | "services";
+
+/** One "this week — what changed" row in the market-events feed. */
+export interface SmbMarketChange {
+  id: string;
+  type: SmbEventType;
+  businessId: string;
+  businessName: string;
+  isOwn: boolean;
+  /** Plain-English line Maria reads. */
+  body: string;
+  /** Short delta shown on the right ("+0.2", "+12", "▲", "Google"). */
+  delta: string | null;
+  /** Tone for the delta chip — good = green, bad = coral, neutral. */
+  tone: "good" | "bad" | "neutral";
+  /** ISO timestamp (the week's snapshot date, or a service's createdAt). */
+  at: string;
+}
+
+export interface SmbOverviewData {
   /** Owned business id, or `""` for empty / build-phase. */
   ownedBusinessId: string;
   slug: string;
@@ -84,113 +113,63 @@ export interface SmbDashboardData {
   city: string | null;
   province: string | null;
 
-  /** Current Google rating (0–5), nullable until the first snapshot. */
-  rating: number | null;
-  /** Total Google review count, nullable until first snapshot. */
-  reviewCount: number | null;
-  isClaimed: boolean;
-
-  /** Composite Mapsly Score 0–10, nullable until first snapshot. */
+  /** Master Mapsly Score 0–10 (= pillarScore), null until first scored. */
   mapslyScore: number | null;
-  msiRank: number | null;
-  msiTotal: number | null;
-  replyRate: number | null;
-  velocityLast30d: number | null;
+  /** Owner's standing rank in the cell (1 = best). */
+  rank: number | null;
+  /** Businesses ranked in the cell — the "of N" denominator. */
+  total: number | null;
+  /** Owner's weekly rank change (positive = up). Null = no comparable
+   * prior week yet (the column warms up over the first cycles). */
+  rankDelta: number | null;
 
-  /** Per-dimension sub-scores (0–1), nullable until first snapshot. */
-  reputationScore: number | null;
-  communicationScore: number | null;
-  profileCompletenessScore: number | null;
-  trustScore: number | null;
-  pricingTransparencyScore: number | null;
-  brandPresenceScore: number | null;
-
-  /** ── Scoring v2 · market-relative pillars. Null until the pillar-score
-   * pass runs; the dashboard falls back to the legacy mapslyScore + 6-dim
-   * breakdown while these are null. ── */
-  pillarScore: number | null;
-  reputationPillar: number | null;
-  visibilityPillar: number | null;
-  profilePillar: number | null;
-  websitePillar: number | null;
-  adsPillar: number | null;
-  /** Is the business actually advertising (display flag for the Ads tile). */
+  reputation: number | null;
+  visibility: number | null;
+  profile: number | null;
+  website: number | null;
+  ads: number | null;
   adsApplicable: boolean | null;
-  /** Inverse rank percentile · 90 = top 10% of the cell. */
-  msiPercentile: number | null;
 
   /** When the latest snapshot was written, nullable for new businesses. */
   lastSnapshotAt: Date | null;
 
-  /** Count of reviews with no owner reply — drives the unanswered
-   * KPI tile and seeds the top-priority alert + fix. Nullable when
-   * we have no Review rows yet. */
-  unansweredReviewCount: number | null;
-  /** Reviews collected in the last 30 days. Used for the velocity
-   * KPI tile and the rating-change alert. */
-  reviewsLast30d: number | null;
-  /** "Brand hijack" status — was a competitor running ads on
-   * Maria's brand keywords this week? Drives the brand-hijack KPI
-   * pill (Clean / Watch / Hit). */
-  brandHijackStatus: "clean" | "watch" | "hit";
-
-  /** Top-N alerts in priority order, capped at MAX_ALERTS. */
-  alerts: SmbDashboardAlert[];
-  /** Exactly 3 highest-impact fixes (or fewer if Maria's data is
-   * incomplete). Always rank 1..3. */
-  topFixes: SmbDashboardFix[];
-  /** Up to MAX_MARKET_EVENTS rows from the last 7 days. */
-  marketActivity: SmbMarketEvent[];
+  /** Quick wins across every section, capped at MAX_FIXES. */
+  topFixes: SmbOverviewFix[];
+  /** Every business in the owner's market, ranked. */
+  competitors: SmbCompetitorRow[];
+  /** This-week market changes, capped at MAX_EVENTS. */
+  events: SmbMarketChange[];
 }
 
-export const MAX_ALERTS = 4;
-export const MAX_MARKET_EVENTS = 5;
+/** Max quick-win rows surfaced in the rail. */
+export const MAX_FIXES = 5;
+/** Max market-change events sent to the client (it filters/sorts in-memory). */
+export const MAX_EVENTS = 60;
 
 /**
- * The canonical empty shape. Returned by `getSmbHomeData` for:
- *
- *   - the user has no claimed business yet
- *   - we're in Vercel's build phase (NEXT_PHASE === 'phase-production-build')
- *   - Prisma threw an error
- *
- * Every field must be present (per `.claude/rules/cache-components.md`
- * Pattern 1) so TypeScript fails at compile time if the shape drifts from
- * `SmbDashboardData`.
+ * The canonical empty shape — returned for no-business / build-phase /
+ * error. Every field present per `.claude/rules/cache-components.md`
+ * Pattern 1.
  */
-export const EMPTY_SMB_DASHBOARD: SmbDashboardData = {
+export const EMPTY_SMB_OVERVIEW: SmbOverviewData = {
   ownedBusinessId: "",
   slug: "",
   name: "",
   category: "",
   city: null,
   province: null,
-  rating: null,
-  reviewCount: null,
-  isClaimed: false,
   mapslyScore: null,
-  msiRank: null,
-  msiTotal: null,
-  replyRate: null,
-  velocityLast30d: null,
-  reputationScore: null,
-  communicationScore: null,
-  profileCompletenessScore: null,
-  trustScore: null,
-  pricingTransparencyScore: null,
-  brandPresenceScore: null,
-  pillarScore: null,
-  reputationPillar: null,
-  visibilityPillar: null,
-  profilePillar: null,
-  websitePillar: null,
-  adsPillar: null,
+  rank: null,
+  total: null,
+  rankDelta: null,
+  reputation: null,
+  visibility: null,
+  profile: null,
+  website: null,
+  ads: null,
   adsApplicable: null,
-  msiPercentile: null,
   lastSnapshotAt: null,
-  unansweredReviewCount: null,
-  reviewsLast30d: null,
-  brandHijackStatus: "clean",
-  alerts: [],
   topFixes: [],
-  marketActivity: [],
+  competitors: [],
+  events: [],
 };

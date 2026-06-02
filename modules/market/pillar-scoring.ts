@@ -145,7 +145,7 @@ export async function runPillarScoring(opts?: {
   // share a rank instead of getting an arbitrary sequential order.
   const ranksByBiz = new Map<
     string,
-    Partial<Record<Pillar, { rank: number; of: number }>>
+    Partial<Record<Pillar | "master", { rank: number; of: number }>>
   >();
   const cellSizeByBiz = new Map<string, number>();
   const byCell = new Map<string, Scored[]>();
@@ -176,6 +176,26 @@ export async function runPillarScoring(opts?: {
         prevRank = rank;
         const rec = ranksByBiz.get(entry.biz) ?? {};
         rec[p] = { rank, of };
+        ranksByBiz.set(entry.biz, rec);
+      });
+    }
+    // Overall standing rank — by the master (consolidated) score, same
+    // null→0 + competition-ranking rules. Stored under `master` so the
+    // weekly overview's "moved ▲/▼ N positions" delta has a stable
+    // per-week record to diff against next cycle (forward-only · no migration).
+    {
+      const sorted = members
+        .map((m) => ({ biz: m.businessId, v: m.result.master ?? 0 }))
+        .sort((a, b) => b.v - a.v);
+      let prevValue: number | null = null;
+      let prevRank = 0;
+      sorted.forEach((entry, i) => {
+        const rank =
+          prevValue !== null && entry.v === prevValue ? prevRank : i + 1;
+        prevValue = entry.v;
+        prevRank = rank;
+        const rec = ranksByBiz.get(entry.biz) ?? {};
+        rec.master = { rank, of };
         ranksByBiz.set(entry.biz, rec);
       });
     }

@@ -4,7 +4,10 @@ export const routing = defineRouting({
   locales: ["en", "es", "en-CA", "fr"],
   defaultLocale: "en",
   localePrefix: "as-needed",
-  localeDetection: true,
+  // English-only for now: no Accept-Language auto-detection, no switcher —
+  // everyone gets English. The 4 locales below stay wired so we can turn
+  // multi-language back on later without re-plumbing the routing.
+  localeDetection: false,
   pathnames: {
     "/": "/",
     "/for-businesses": {
@@ -144,12 +147,6 @@ export const routing = defineRouting({
       es: "/mi-negocio",
       "en-CA": "/my-business",
       fr: "/mon-entreprise",
-    },
-    "/how-you-compare": {
-      en: "/how-you-compare",
-      es: "/como-te-comparas",
-      "en-CA": "/how-you-compare",
-      fr: "/comment-tu-te-compares",
     },
     "/settings/billing": {
       en: "/settings/billing",

@@ -227,7 +227,9 @@ async function BillingBody({ params }: { params: Promise<PageParams> }) {
           colStatus: t("col_status"),
           colDownload: t("col_download"),
           downloadAction: t("download_action"),
-          downloadAriaLabel: t("download_aria"),
+          // Per-row template — the invoices table fills {date} via .replace().
+          // Pass the placeholder literal so next-intl keeps "{date}" intact.
+          downloadAriaLabel: t("download_aria", { date: "{date}" }),
           moreNote: t("invoices_more_note"),
           statusPaid: t("invoice_status_paid"),
           statusOpen: t("invoice_status_open"),

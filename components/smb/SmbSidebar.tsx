@@ -3,41 +3,40 @@
 /**
  * SMB portal sidebar · navigation between every Maria-facing page.
  *
- * Visible on every `/(smb)/*` route. Renders a fixed left rail on
- * desktop (≥ 900px) and collapses to a horizontal scroll-tab strip on
- * mobile so it still works under Maria's "checks the app between
- * client appointments" use case.
+ * Visible on every `/(smb)/*` route. Two responsive forms:
+ *   - Desktop (≥ 900px): a fixed 240px left rail, always open.
+ *   - Mobile (< 900px):  a sticky top bar with a burger button that opens a
+ *                        left-sliding drawer over a dimming scrim.
  *
- * 7 main items + Settings under "Account":
+ * 6 main items + Settings under "Account":
  *
- *   1. Home              · this week's recommendations + KPIs
- *   2. How you compare   · Mapsly Score + competitor table + medians
- *   3. Reviews
- *   4. Search visibility
- *   5. Ads visibility
- *   6. Website
- *   7. My Business       · services list + business profile
+ *   1. Home              · weekly overview: score, standing, fixes, market
+ *   2. Reviews
+ *   3. Search visibility
+ *   4. Ads visibility
+ *   5. Website
+ *   6. My Business       · services list + business profile
  *
  *   Account section:
  *   - Settings
  *
- * Per `.claude/rules/ui-ux-smb.md`:
+ * Per `.claude/rules/ui-ux-smb.md`: warm cream + coral, sentence-case labels,
+ * tap targets ≥ 44 × 44 px, mobile-first.
  *
- *   - Warm cream + coral palette via shared `--color-bg` / `--color-coral`.
- *   - Sentence case labels.
- *   - Big tap targets (≥ 44 × 44 px) for the mobile strip.
- *   - Plain-English category labels.
+ * Per `.claude/rules/accessibility.md` (mobile drawer best practices):
+ *   - Burger button: `aria-label` + `aria-expanded` + `aria-controls`.
+ *   - Drawer opens → focus moves inside; Tab is trapped; Escape closes;
+ *     scrim click closes; selecting an item or changing route closes.
+ *   - Body scroll locked while open; focus returns to the burger on close.
+ *   - Closed drawer is `visibility: hidden` (CSS) so it leaves the tab order
+ *     and the a11y tree on mobile.
+ *   - `prefers-reduced-motion` disables the slide transition.
  *
  * Per `.claude/rules/i18n.md` · all labels come from `messages/{locale}.json`
- * under `smb.nav.*`. The active-link rule reads the canonical (non-localized)
- * pathname via next-intl's `usePathname`.
- *
- * Per `.claude/rules/accessibility.md`:
- *
- *   - `<nav aria-label>` so screen-readers announce the region.
- *   - `aria-current="page"` on the active item.
- *   - Visible focus ring inherited from globals.css `a:focus-visible`.
+ * under `smb.nav.*`. Active-link rule reads the canonical pathname.
  */
+
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Link, usePathname } from "@/i18n/navigation";
 
@@ -45,7 +44,6 @@ import { Link, usePathname } from "@/i18n/navigation";
 
 type NavHref =
   | "/home"
-  | "/how-you-compare"
   | "/reviews"
   | "/search"
   | "/ads"
@@ -63,13 +61,15 @@ interface NavItem {
 export interface SmbSidebarLabels {
   brand: string;
   audienceTag: string;
+  /** Burger button labels (open / close the mobile menu). */
+  menuOpen: string;
+  menuClose: string;
   sections: {
     main: string;
     account: string;
   };
   items: {
     home: string;
-    how_you_compare: string;
     reviews: string;
     search: string;
     ads: string;
@@ -97,17 +97,6 @@ function IconHome() {
     <svg aria-hidden {...ICON_STROKE_PROPS}>
       <path d="M3 11l9-8 9 8" />
       <path d="M5 10v10h14V10" />
-    </svg>
-  );
-}
-
-function IconCompare() {
-  return (
-    <svg aria-hidden {...ICON_STROKE_PROPS}>
-      <path d="M3 20h18" />
-      <rect x="5" y="10" width="3.5" height="10" rx="0.5" />
-      <rect x="10.25" y="6" width="3.5" height="14" rx="0.5" />
-      <rect x="15.5" y="13" width="3.5" height="7" rx="0.5" />
     </svg>
   );
 }
@@ -166,15 +155,26 @@ function IconSettings() {
   );
 }
 
+function IconBurger() {
+  return (
+    <svg aria-hidden {...ICON_STROKE_PROPS} width={22} height={22}>
+      <path d="M3 6h18M3 12h18M3 18h18" />
+    </svg>
+  );
+}
+
+function IconClose() {
+  return (
+    <svg aria-hidden {...ICON_STROKE_PROPS} width={20} height={20}>
+      <path d="M6 6l12 12M18 6L6 18" />
+    </svg>
+  );
+}
+
 /* ----------------------------------------------- nav definitions */
 
 const MAIN_ITEMS: NavItem[] = [
   { href: "/home", labelKey: "home", icon: <IconHome /> },
-  {
-    href: "/how-you-compare",
-    labelKey: "how_you_compare",
-    icon: <IconCompare />,
-  },
   { href: "/reviews", labelKey: "reviews", icon: <IconReviews /> },
   { href: "/search", labelKey: "search", icon: <IconSearch /> },
   { href: "/ads", labelKey: "ads", icon: <IconAds /> },
@@ -194,6 +194,63 @@ export interface SmbSidebarProps {
 
 export function SmbSidebar({ labels }: SmbSidebarProps) {
   const pathname = usePathname();
+  const [open, setOpen] = useState(false);
+  const navRef = useRef<HTMLElement>(null);
+  const burgerRef = useRef<HTMLButtonElement>(null);
+
+  const closeMenu = useCallback(() => {
+    setOpen(false);
+    // Return focus to the trigger (only relevant on mobile, where it exists).
+    burgerRef.current?.focus();
+  }, []);
+
+  // Close the drawer on any route change (covers item taps + back/forward).
+  // Adjusted during render — the React-idiomatic alternative to calling
+  // setState inside an effect, so it doesn't trigger a cascading re-render.
+  const [seenPath, setSeenPath] = useState(pathname);
+  if (seenPath !== pathname) {
+    setSeenPath(pathname);
+    if (open) setOpen(false);
+  }
+
+  // While open: lock body scroll, move focus into the drawer, trap Tab, and
+  // close on Escape. Cleanup restores scroll + listeners.
+  useEffect(() => {
+    if (!open) return;
+
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    navRef.current?.querySelector<HTMLElement>("a[href], button")?.focus();
+
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        closeMenu();
+        return;
+      }
+      if (e.key !== "Tab" || !navRef.current) return;
+      const focusables = Array.from(
+        navRef.current.querySelectorAll<HTMLElement>(
+          "a[href], button:not([disabled])",
+        ),
+      );
+      if (focusables.length === 0) return;
+      const first = focusables[0]!;
+      const last = focusables[focusables.length - 1]!;
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
+
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open, closeMenu]);
 
   function isActive(href: NavHref): boolean {
     // `/settings/billing` should keep `/settings` highlighted; same for
@@ -210,6 +267,7 @@ export function SmbSidebar({ labels }: SmbSidebarProps) {
         aria-current={active ? "page" : undefined}
         className={`smb-nav-item${active ? " is-active" : ""}`}
         data-testid={`smb-nav-${item.labelKey}`}
+        onClick={() => setOpen(false)}
       >
         <span aria-hidden className="smb-nav-item-icon">
           {item.icon}
@@ -220,17 +278,59 @@ export function SmbSidebar({ labels }: SmbSidebarProps) {
   }
 
   return (
-    <nav aria-label={labels.audienceTag} className="smb-nav">
-      <div className="smb-nav-brand">
-        <span aria-hidden className="smb-nav-brand-dot" />
-        <span className="smb-nav-brand-text">{labels.brand}</span>
+    <>
+      {/* Mobile top bar · burger + brand (hidden on desktop via CSS). */}
+      <div className="smb-topbar">
+        <button
+          ref={burgerRef}
+          type="button"
+          className="smb-burger"
+          aria-label={labels.menuOpen}
+          aria-expanded={open}
+          aria-controls="smb-nav-drawer"
+          onClick={() => setOpen(true)}
+        >
+          <IconBurger />
+        </button>
+        <span className="smb-topbar-brand">
+          <span aria-hidden className="smb-nav-brand-dot" />
+          {labels.brand}
+        </span>
       </div>
 
-      <div className="smb-nav-section-label">{labels.sections.main}</div>
-      {MAIN_ITEMS.map(renderItem)}
+      {/* Scrim · dims the page behind the open drawer (mobile only). */}
+      <div
+        className={`smb-scrim${open ? " is-open" : ""}`}
+        aria-hidden="true"
+        onClick={closeMenu}
+      />
 
-      <div className="smb-nav-section-label">{labels.sections.account}</div>
-      {ACCOUNT_ITEMS.map(renderItem)}
-    </nav>
+      {/* Nav · static rail on desktop, left-sliding drawer on mobile. */}
+      <nav
+        id="smb-nav-drawer"
+        ref={navRef}
+        aria-label={labels.audienceTag}
+        className={`smb-nav${open ? " is-open" : ""}`}
+      >
+        <div className="smb-nav-brand">
+          <span aria-hidden className="smb-nav-brand-dot" />
+          <span className="smb-nav-brand-text">{labels.brand}</span>
+          <button
+            type="button"
+            className="smb-nav-close"
+            aria-label={labels.menuClose}
+            onClick={closeMenu}
+          >
+            <IconClose />
+          </button>
+        </div>
+
+        <div className="smb-nav-section-label">{labels.sections.main}</div>
+        {MAIN_ITEMS.map(renderItem)}
+
+        <div className="smb-nav-section-label">{labels.sections.account}</div>
+        {ACCOUNT_ITEMS.map(renderItem)}
+      </nav>
+    </>
   );
 }
