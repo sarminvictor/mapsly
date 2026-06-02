@@ -578,3 +578,28 @@ details[open] > summary::after {
     display: block !important;
   }
 }
+
+/* Landing hero · staggered score-card cluster (desktop) → stacked (mobile) */
+.landing-hero-cards {
+  position: relative;
+  min-height: 600px;
+}
+@media (max-width: 880px) {
+  .landing-hero-cards {
+    min-height: 0;
+    display: grid;
+    gap: 14px;
+  }
+  .landing-hero-cards > div {
+    position: static !important;
+    width: 100% !important;
+    top: auto !important;
+    left: auto !important;
+    right: auto !important;
+  }
+}
+@media (max-width: 720px) {
+  .landing-tagline {
+    display: none !important;
+  }
+}
