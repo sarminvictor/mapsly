@@ -1627,26 +1627,25 @@ function ReviewsSection({
           eyebrow="Why patients choose competitors?"
           title="What patients praise"
           emphasis="at the places they pick over you."
-          intro={
-            "We read every public review for your top competitors and counted what patients keep coming back to mention — what's pulling them in next door, and what they expect you to offer too."
-          }
+          intro="We read every public review for your top competitor and counted what patients keep coming back to mention. Pattern below shows what's pulling patients in next door — and what they expect you to offer too."
         />
 
         {reviews.hasData ? (
           <>
             <div
               style={{
-                ...CARD,
-                marginTop: 36,
+                marginTop: 40,
                 display: "flex",
                 flexWrap: "wrap",
                 alignItems: "center",
                 gap: 24,
+                justifyContent: "space-between",
                 background: "var(--color-bg-3)",
-                border: "none",
+                borderRadius: 18,
+                padding: "22px 34px",
               }}
             >
-              <span style={{ fontSize: 14, fontWeight: 600 }}>
+              <span style={{ fontSize: 15, fontWeight: 700 }}>
                 Your Google score:
               </span>
               <span
@@ -1674,34 +1673,32 @@ function ReviewsSection({
             <div
               className="landing-2col"
               style={{
-                marginTop: 18,
+                marginTop: 40,
                 display: "grid",
-                gap: 18,
-                gridTemplateColumns: "minmax(0, 1.55fr) minmax(240px, 1fr)",
+                gap: 48,
+                gridTemplateColumns: "minmax(0, 1.55fr) minmax(260px, 1fr)",
+                alignItems: "start",
               }}
             >
-              <div style={{ ...CARD, padding: 0, overflow: "hidden" }}>
+              <div>
                 <p
                   style={{
-                    ...miniLabel,
-                    padding: "16px 16px 0",
-                    textTransform: "none",
+                    margin: "0 0 8px",
                     fontFamily: SERIF,
-                    fontSize: 17,
-                    color: "var(--color-text)",
-                    letterSpacing: 0,
+                    fontSize: 24,
+                    fontWeight: 700,
                   }}
                 >
                   You compared to your competitors:
                 </p>
-                <table style={{ ...tableStyle, marginTop: 8 }}>
+                <table style={tableStyle}>
                   <thead>
                     <tr>
-                      <Th>Company</Th>
-                      <Th align="right">Score</Th>
-                      <Th align="right">Reviews</Th>
-                      <Th align="right">30d</Th>
-                      <Th align="right">Reply rate</Th>
+                      <Th>Company name</Th>
+                      <Th align="right">Google reviews score</Th>
+                      <Th align="right">Number of reviews</Th>
+                      <Th align="right">Review trend (last 30d)</Th>
+                      <Th align="right">Response rate</Th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1766,13 +1763,13 @@ function ReviewsSection({
                 </table>
               </div>
 
-              <div style={CARD}>
+              <div>
                 <p
                   style={{
                     margin: 0,
                     fontFamily: SERIF,
-                    fontSize: 17,
-                    fontWeight: 600,
+                    fontSize: 24,
+                    fontWeight: 700,
                   }}
                 >
                   What services clients mention in your reviews?
