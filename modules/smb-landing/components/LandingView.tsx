@@ -2148,10 +2148,16 @@ function FixesSection({
 }) {
   const top = fixes.slice(0, 3);
   return (
-    <section data-landing-section="fixes" style={sectionStyle("deep")}>
+    <section
+      data-landing-section="fixes"
+      style={{
+        background: "#f3f3f1",
+        padding: "clamp(56px, 8vw, 104px) 20px",
+      }}
+    >
       <div style={CONTAINER}>
         <SectionIntro
-          eyebrow="Your diagnosis · what to fix? what changes?"
+          eyebrow="Your diagnosis. What to fix? What changes?"
           title="Where you stand."
           emphasis="What to fix."
           suffix="What changes."
@@ -2173,22 +2179,29 @@ function FixesSection({
                 key={f.rank}
                 style={{
                   ...CARD,
+                  padding: 28,
+                  borderRadius: 20,
                   display: "flex",
                   flexDirection: "column",
                   gap: 16,
                 }}
               >
-                <span
+                <svg
+                  width={42}
+                  height={42}
+                  viewBox="0 0 42 42"
+                  fill="none"
                   aria-hidden
-                  style={{
-                    fontSize: 40,
-                    lineHeight: 1,
-                    color: "var(--color-gold-2)",
-                    fontWeight: 700,
-                  }}
+                  style={{ display: "block" }}
                 >
-                  ✓
-                </span>
+                  <path
+                    d="M9 22.5 L18 31 L34 12"
+                    stroke="var(--color-gold-2)"
+                    strokeWidth={5}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
                 <p
                   style={{
                     margin: 0,
@@ -2218,7 +2231,7 @@ function FixesSection({
                   style={{
                     margin: 0,
                     fontFamily: SERIF,
-                    fontSize: 26,
+                    fontSize: 30,
                     fontWeight: 600,
                     color:
                       f.tone === "good"
