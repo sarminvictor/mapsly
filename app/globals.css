@@ -610,3 +610,13 @@ details[open] > summary::after {
     display: none !important;
   }
 }
+
+/* Landing ads · the tan problem→solution connector arrow (wide screens only) */
+.landing-ps-arrow {
+  display: none;
+}
+@media (min-width: 1000px) {
+  .landing-ps-arrow {
+    display: block;
+  }
+}

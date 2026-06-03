@@ -1361,90 +1361,148 @@ const statCardUnit: CSSProperties = {
 function AdsSection({
   ads,
   gap,
+  name,
   ctaHref,
 }: {
   ads: LandingAdsData;
   gap: LandingGap | null;
+  name: string;
   ctaHref: string;
 }) {
   return (
     <section data-landing-section="ads" style={sectionStyle("cream")}>
       <div style={CONTAINER}>
         <SectionIntro
-          eyebrow="Who's paying to win your patients"
+          eyebrow="Who's running ads against you?"
           title="Patients search for your services."
-          emphasis="Competitors pay to be the answer."
-          intro={
-            ads.adsApplicable === false
-              ? "You're not running ads right now — here's who is, in your area, and what they're spending to reach the patients searching for you."
-              : "Here's who's buying the top of the page when patients search for what you offer."
-          }
+          emphasis="Three competitors pay to be the answer."
+          intro="We scan Meta Ad Library + Google Ads Transparency Center for every advertiser bidding on your services or your brand name in your market. You're not running ads — they are."
         />
 
         {ads.hasData ? (
-          <div style={{ marginTop: 40 }}>
+          <>
             <div
+              className="landing-2col"
               style={{
-                display: "flex",
-                flexWrap: "wrap",
-                gap: 14,
-                justifyContent: "center",
-                marginBottom: 22,
+                marginTop: 44,
+                display: "grid",
+                gap: 40,
+                gridTemplateColumns: "minmax(0, 1fr) minmax(320px, 0.95fr)",
+                alignItems: "start",
               }}
             >
-              <StatPill
-                value={ads.marketAdvertiserCount}
-                label="advertisers near you"
-              />
-              <StatPill
-                value={ads.marketActiveAds}
-                label="active ads in your market"
-              />
-              <StatPill
-                value={ads.ownAdCount}
-                label="ads you're running"
-                tone={ads.ownAdCount === 0 ? "bad" : "good"}
-              />
+              <div>
+                <p
+                  style={{
+                    margin: 0,
+                    fontFamily: SERIF,
+                    fontSize: 24,
+                    fontWeight: 700,
+                  }}
+                >
+                  {name} stats:
+                </p>
+                <div
+                  style={{
+                    display: "flex",
+                    flexWrap: "wrap",
+                    gap: 36,
+                    marginTop: 28,
+                  }}
+                >
+                  <AdStat
+                    label="Ads near you in your market"
+                    value={ads.marketActiveAds}
+                    unit="ads"
+                  />
+                  <AdStat
+                    label="Competitors advertising"
+                    value={ads.marketAdvertiserCount}
+                    unit={ads.marketAdvertiserCount === 1 ? "rival" : "rivals"}
+                  />
+                  <AdStat
+                    label="Ads you're running"
+                    value={ads.ownAdCount}
+                    unit={ads.ownAdCount === 1 ? "ad" : "ads"}
+                    coral
+                  />
+                </div>
+              </div>
+              {gap ? <ProblemSolutionStacked gap={gap} /> : <div />}
             </div>
-            <div style={{ ...CARD, padding: 0, overflow: "hidden" }}>
-              <p style={{ ...miniLabel, padding: "16px 16px 0" }}>
-                Ads running near you
+
+            <div style={{ marginTop: 52 }}>
+              <p
+                style={{
+                  margin: 0,
+                  fontFamily: SERIF,
+                  fontSize: 24,
+                  fontWeight: 700,
+                }}
+              >
+                Ads running near you:
               </p>
-              <table style={{ ...tableStyle, marginTop: 8 }}>
+              <table style={{ ...tableStyle, marginTop: 16 }}>
                 <thead>
                   <tr>
-                    <Th>Advertiser</Th>
-                    <Th>Where they run</Th>
+                    <Th>Advertiser near you</Th>
                     <Th align="right">Active ads</Th>
+                    <Th>Where</Th>
+                    <Th align="right">Yours?</Th>
                   </tr>
                 </thead>
                 <tbody>
                   {ads.competitors.map((c) => (
-                    <tr
-                      key={c.name}
-                      style={
-                        c.isOwn
-                          ? { background: "var(--color-bg-3)" }
-                          : undefined
-                      }
-                    >
+                    <tr key={c.name}>
                       <Td>
-                        {c.name}
-                        {c.isOwn ? <OwnTag /> : null}
-                      </Td>
-                      <Td color="var(--color-text-2)">
-                        {c.platforms.length ? c.platforms.join(", ") : "—"}
+                        <span style={{ fontWeight: 600 }}>{c.name}</span>
                       </Td>
                       <Td align="right">{fmtNum(c.activeAds)}</Td>
+                      <Td color="var(--color-text-3)">
+                        {c.platforms.length ? c.platforms.join(", ") : "—"}
+                      </Td>
+                      <Td
+                        align="right"
+                        color={
+                          c.isOwn
+                            ? "var(--color-success)"
+                            : "var(--color-coral)"
+                        }
+                      >
+                        {c.isOwn ? (
+                          <>
+                            yes ✓{" "}
+                            <span
+                              style={{
+                                color: "var(--color-text-3)",
+                                fontWeight: 400,
+                              }}
+                            >
+                              ({c.platforms.join(", ") || "—"})
+                            </span>
+                          </>
+                        ) : (
+                          "no"
+                        )}
+                      </Td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-            <div style={{ marginTop: 18, textAlign: "center" }}>
+
+            <div
+              style={{
+                marginTop: 36,
+                display: "grid",
+                gap: 22,
+                justifyItems: "center",
+              }}
+            >
               <ScoreLine value={ads.pillar} />
+              <CtaPill href={ctaHref} cta="ads" label="Start tracking" />
             </div>
-          </div>
+          </>
         ) : (
           <MissingNote>
             {
@@ -1452,51 +1510,101 @@ function AdsSection({
             }
           </MissingNote>
         )}
-
-        {gap ? <ProblemSolution gap={gap} /> : null}
-        <SectionFooterCta ctaHref={ctaHref} cta="ads" />
       </div>
     </section>
   );
 }
 
-function StatPill({
-  value,
+function AdStat({
   label,
-  tone,
+  value,
+  unit,
+  coral,
 }: {
-  value: number;
   label: string;
-  tone?: "good" | "bad";
+  value: number;
+  unit: string;
+  coral?: boolean;
 }) {
   return (
-    <div
-      style={{
-        ...CARD,
-        padding: "14px 22px",
-        display: "flex",
-        alignItems: "baseline",
-        gap: 10,
-      }}
-    >
-      <span
+    <div style={{ minWidth: 120 }}>
+      <p
         style={{
+          margin: 0,
+          fontSize: 13.5,
+          color: "var(--color-text-2)",
+          lineHeight: 1.3,
+          maxWidth: 130,
+        }}
+      >
+        {label}
+      </p>
+      <p
+        style={{
+          margin: "12px 0 0",
           fontFamily: SERIF,
-          fontSize: 34,
-          fontWeight: 600,
-          color:
-            tone === "bad"
-              ? "var(--color-coral)"
-              : tone === "good"
-                ? "var(--color-success)"
-                : "var(--color-text)",
+          fontSize: 40,
+          fontWeight: 700,
+          lineHeight: 1,
+          color: coral ? "var(--color-coral)" : "var(--color-text)",
         }}
       >
         {fmtNum(value)}
-      </span>
-      <span style={{ fontSize: 13, color: "var(--color-text-3)" }}>
-        {label}
-      </span>
+        <span style={{ fontSize: 20, fontWeight: 400 }}> {unit}</span>
+      </p>
+    </div>
+  );
+}
+
+/** Stacked "Your problem / Your solution" with a tan connecting arrow (ads). */
+function ProblemSolutionStacked({ gap }: { gap: LandingGap }) {
+  const box = (label: string, color: string, text: string) => (
+    <div
+      style={{
+        background: "var(--color-bg-3)",
+        borderRadius: 16,
+        padding: "18px 22px",
+        fontSize: 15,
+        lineHeight: 1.5,
+        color: "var(--color-text-2)",
+      }}
+    >
+      <strong style={{ color }}>{label}</strong> {text}
+    </div>
+  );
+  return (
+    <div style={{ position: "relative", display: "grid", gap: 14 }}>
+      {box("Your problem:", "var(--color-coral)", gap.problem)}
+      {box("Your solution:", "var(--color-success)", gap.solution)}
+      <div
+        className="landing-ps-arrow"
+        aria-hidden
+        style={{
+          position: "absolute",
+          right: -34,
+          top: "24%",
+          color: "var(--color-gold)",
+        }}
+      >
+        <svg width="54" height="96" viewBox="0 0 54 96" fill="none">
+          <path
+            d="M4 6c32 2 46 20 42 48-3 16-14 26-22 32"
+            stroke="currentColor"
+            strokeWidth="3"
+            fill="none"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <path
+            d="M14 82l10 4m-10-4l4-10"
+            stroke="currentColor"
+            strokeWidth="3"
+            fill="none"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </div>
     </div>
   );
 }
@@ -2427,7 +2535,12 @@ export function LandingView({ data }: { data: LandingData }) {
         category={data.category}
         ctaHref={ctaHref}
       />
-      <AdsSection ads={data.adsDetail} gap={data.gap} ctaHref={ctaHref} />
+      <AdsSection
+        ads={data.adsDetail}
+        gap={data.gap}
+        name={data.name}
+        ctaHref={ctaHref}
+      />
       <ReviewsSection reviews={data.reviews} gap={data.gap} ctaHref={ctaHref} />
       <WebsiteSection
         website={data.websiteDetail}
