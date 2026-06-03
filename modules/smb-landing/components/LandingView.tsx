@@ -190,6 +190,7 @@ function CtaPill({
   const base: CSSProperties = {
     display: "inline-flex",
     alignItems: "center",
+    justifyContent: "center",
     gap: 8,
     height: 52,
     padding: "0 26px",
@@ -524,7 +525,7 @@ function TopBar({ ctaHref }: { ctaHref: string }) {
           <Wordmark />
           <Tagline />
         </span>
-        <CtaPill href={ctaHref} cta="top" label="Start tracking · $29/mo" />
+        <CtaPill href={ctaHref} cta="top" label="Start tracking - $29/mo" />
       </div>
     </header>
   );
@@ -2316,7 +2317,7 @@ function PricingSection({ ctaHref }: { ctaHref: string }) {
               maxWidth: 480,
               fontSize: 17,
               lineHeight: 1.6,
-              color: "rgba(255,255,255,0.82)",
+              color: "rgba(255,255,255,0.72)",
             }}
           >
             {
@@ -2368,19 +2369,17 @@ function PricingSection({ ctaHref }: { ctaHref: string }) {
           <div
             style={{
               background: "#fff",
-              borderRadius: 24,
-              padding: "30px 28px",
+              borderRadius: 28,
+              padding: "38px 32px",
               textAlign: "center",
             }}
           >
             <p
               style={{
                 margin: 0,
-                fontFamily: MONO,
-                fontSize: 12,
+                fontFamily: "var(--font-landing-body)",
+                fontSize: 15,
                 fontWeight: 600,
-                textTransform: "uppercase",
-                letterSpacing: "0.06em",
                 color: "var(--color-coral)",
               }}
             >
@@ -2390,7 +2389,7 @@ function PricingSection({ ctaHref }: { ctaHref: string }) {
               style={{
                 margin: "14px 0 0",
                 fontFamily: SERIF,
-                fontSize: 40,
+                fontSize: 44,
                 fontWeight: 600,
                 lineHeight: 1,
               }}
@@ -2410,7 +2409,7 @@ function PricingSection({ ctaHref }: { ctaHref: string }) {
               style={{
                 margin: "2px 0 22px",
                 fontFamily: SERIF,
-                fontSize: 60,
+                fontSize: 64,
                 fontWeight: 600,
                 lineHeight: 1,
               }}
@@ -2433,14 +2432,14 @@ function PricingSection({ ctaHref }: { ctaHref: string }) {
                 <CtaPill
                   href={ctaHref}
                   cta="pricing"
-                  label="Start tracking · $29/mo"
+                  label="Start tracking - $29/mo"
                 />
               </span>
               <span style={{ display: "grid" }}>
                 <CtaPill
                   href={ctaHref}
                   cta="pricing-annual"
-                  label="Pay annually · save $120"
+                  label="Pay annually - Save $120"
                   variant="outline"
                 />
               </span>
@@ -2454,7 +2453,7 @@ function PricingSection({ ctaHref }: { ctaHref: string }) {
               }}
             >
               30-day money-back guarantee · cancel anytime · no contract · first
-              data refresh within 24 hours.
+              data refresh within 24 hours
             </p>
           </div>
         </div>
