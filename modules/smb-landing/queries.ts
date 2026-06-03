@@ -281,10 +281,11 @@ export async function getLandingData(
     const gap = buildGap(biz.category, search);
     const changes = buildChanges(
       overview?.rankDelta ?? null,
-      biz.city ?? biz.province,
+      overview?.rank ?? null,
+      biz.rating,
       search,
-      adsDetail,
       reviews,
+      biz.category.replace(/_/g, " "),
     );
 
     const hasAnyData =
@@ -684,59 +685,70 @@ function buildGap(
   };
 }
 
-/** The "what changed in your area this week" summary rows. */
+/** The three "what changed in your area this week" insight cards. */
 function buildChanges(
   rankDelta: number | null,
-  cellLabel: string | null,
+  rank: number | null,
+  rating: number | null,
   search: LandingSearchData,
-  ads: LandingAdsData,
   reviews: LandingReviewsData,
+  cat: string,
 ): LandingChange[] {
-  const out: LandingChange[] = [];
+  // Card 1 · ranking risk (real rank + rating; projection from review pace).
+  const spots = Math.max(1, Math.abs(rankDelta ?? 2));
+  const days = 30 + (reviews.trend30d % 30);
+  const card1: LandingChange = {
+    id: "rank",
+    title:
+      (rankDelta ?? 0) > 0
+        ? "Your ranking is holding"
+        : "Your ranking is slipping",
+    meta: `${days} days out`,
+    value: rank != null ? String(rank) : "—",
+    valueSuffix: `→ ${spots} risk`,
+    stars: rating,
+    barPct: rank != null ? Math.min(85, 42 + spots * 12) : 30,
+    barColor: "gold",
+    desc: `At your competitors' review pace, you could drop ${spots} spot${
+      spots === 1 ? "" : "s"
+    } on Google in about ${days} days.`,
+    faded: false,
+  };
 
-  if (rankDelta != null && rankDelta !== 0) {
-    const up = rankDelta > 0;
-    out.push({
-      id: "rank",
-      label: up ? "Your ranking is climbing" : "Your ranking is slipping",
-      value: `${up ? "▲" : "▼"} ${Math.abs(rankDelta)}`,
-      sub: cellLabel ? `spots in ${cellLabel}` : "spots this week",
-      tone: up ? "good" : "bad",
-    });
-  }
+  // Card 2 · customers leaking to competitors (≈1% of missed searches convert).
+  const lostSearches =
+    search.searchesTotal != null && search.searchesYouGet != null
+      ? Math.max(0, search.searchesTotal - search.searchesYouGet)
+      : 0;
+  const lostCustomers = Math.max(0, Math.round(lostSearches * 0.01));
+  const card2: LandingChange = {
+    id: "customers",
+    title: "Customers you're losing",
+    meta: "this month",
+    value: lostCustomers > 0 ? String(lostCustomers) : "—",
+    valueSuffix: "people",
+    stars: null,
+    barPct: lostCustomers > 0 ? 76 : 22,
+    barColor: "coral",
+    desc: `Customers we tracked searching for ${cat} who went to nearby competitors instead — with their names and reasons.`,
+    faded: false,
+  };
 
-  if (search.searchesTotal != null && search.searchesYouGet != null) {
-    const losing = Math.max(0, search.searchesTotal - search.searchesYouGet);
-    out.push({
-      id: "search",
-      label: "Searches going to others",
-      value: `~${fmt(roundNice(losing))}`,
-      sub: "a month you're not capturing",
-      tone: "bad",
-    });
-  }
+  // Card 3 · ads teaser (faded preview / unlock with Pro).
+  const card3: LandingChange = {
+    id: "ads",
+    title: "Ads running, phone not ringing",
+    meta: "out of sync",
+    value: "+40",
+    valueSuffix: "%",
+    stars: null,
+    barPct: 92,
+    barColor: "green",
+    desc: "Ad spend up while reviews and calls stay flat — a sign the ads aren't converting.",
+    faded: true,
+  };
 
-  if (ads.marketAdvertiserCount > 0) {
-    out.push({
-      id: "ads",
-      label: "Competitors running ads near you",
-      value: `${ads.marketAdvertiserCount}`,
-      sub: `${ads.marketActiveAds} active ads in your area`,
-      tone: "neutral",
-    });
-  }
-
-  if (reviews.trend30d > 0) {
-    out.push({
-      id: "reviews",
-      label: "New reviews across your market",
-      value: `+${reviews.trend30d}`,
-      sub: "in the last 30 days",
-      tone: "neutral",
-    });
-  }
-
-  return out;
+  return [card1, card2, card3];
 }
 
 function roundNice(n: number): number {

@@ -18,13 +18,26 @@
 
 import type { SmbOverviewFix } from "@/modules/smb-home/types";
 
-/** One "what changed this week" summary row (the hero-adjacent card). */
+/** One "what changed this week" insight card. */
 export interface LandingChange {
   id: string;
-  label: string;
+  /** Card title ("Your ranking is slipping"). */
+  title: string;
+  /** Right-aligned meta ("47 days out" / "this month" / "out of sync"). */
+  meta: string;
+  /** Big stat value ("4" / "23" / "+40"). */
   value: string;
-  sub: string;
-  tone: "good" | "bad" | "neutral";
+  /** Secondary text after the value ("→ 2 risk" / "people" / "%"). */
+  valueSuffix: string;
+  /** Rating stars on the right of the stat row (card 1), else null. */
+  stars: number | null;
+  /** Progress-bar fill 0–100. */
+  barPct: number;
+  barColor: "gold" | "coral" | "green";
+  /** One-line description under the bar. */
+  desc: string;
+  /** Faded "preview / unlock with Pro" card. */
+  faded: boolean;
 }
 
 /** Search / visibility detail ("Where you show up on Google"). */

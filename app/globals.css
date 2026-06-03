@@ -603,3 +603,10 @@ details[open] > summary::after {
     display: none !important;
   }
 }
+
+/* Landing "what changed" · hide the decorative arrow on stacked mobile */
+@media (max-width: 880px) {
+  .landing-changes-arrow {
+    display: none !important;
+  }
+}

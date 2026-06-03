@@ -401,23 +401,28 @@ function ScoreGauge({ value }: { value: number | null }) {
   );
 }
 
-function CurlyArrow({ flip }: { flip?: boolean }) {
+function CurlyArrow({ color = "#fff" }: { color?: string }) {
   return (
     <svg
-      width="92"
-      height="64"
-      viewBox="0 0 92 64"
+      width="150"
+      height="92"
+      viewBox="0 0 180 110"
       fill="none"
       aria-hidden
-      style={{
-        transform: flip ? "scaleX(-1)" : undefined,
-        color: "var(--color-gold)",
-      }}
+      style={{ color }}
     >
       <path
-        d="M4 14c14 22 30 30 50 24-10 6-15 12-15 12m15-12s-7-1-13-5"
+        d="M10 66C46 94 102 92 132 64c20-18 11-42-8-35-13 5-7 28 19 25 16-2 27-11 35-23"
         stroke="currentColor"
-        strokeWidth="2.5"
+        strokeWidth="3"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+      <path
+        d="M178 31l-13 4m13-4l-3 13"
+        stroke="currentColor"
+        strokeWidth="3"
         strokeLinecap="round"
         strokeLinejoin="round"
         fill="none"
@@ -883,123 +888,184 @@ function Hero({ data }: { data: LandingData }) {
 
 function ChangesSection({ changes }: { changes: LandingChange[] }) {
   return (
-    <section data-landing-section="changes" style={sectionStyle("deep")}>
+    <section
+      data-landing-section="changes"
+      style={{ background: "#e9e2d7", padding: "clamp(56px, 8vw, 104px) 20px" }}
+    >
       <div
         className="landing-2col"
         style={{
-          ...CONTAINER,
+          maxWidth: 1200,
+          margin: "0 auto",
           display: "grid",
-          gap: 48,
-          gridTemplateColumns: "minmax(0, 1fr) minmax(300px, 0.9fr)",
-          alignItems: "center",
+          gap: 56,
+          gridTemplateColumns: "minmax(0, 1fr) minmax(330px, 0.82fr)",
+          alignItems: "start",
         }}
       >
         <div>
-          <h2
+          <p
             style={{
               margin: 0,
+              fontFamily: MONO,
+              fontSize: 14,
+              fontWeight: 700,
+              letterSpacing: "0.02em",
+              color: "var(--color-coral)",
+            }}
+          >
+            This week in your market
+          </p>
+          <h2
+            style={{
+              margin: "20px 0 0",
               fontFamily: SERIF,
-              fontSize: "clamp(34px, 5vw, 56px)",
-              fontWeight: 600,
-              lineHeight: 1.04,
-              letterSpacing: "-0.015em",
+              fontSize: "clamp(40px, 5.6vw, 72px)",
+              fontWeight: 700,
+              lineHeight: 1.02,
+              letterSpacing: "-0.02em",
+              color: "var(--color-text)",
             }}
           >
             What changed in your area{" "}
-            <em style={{ fontStyle: "italic", color: "var(--color-coral)" }}>
+            <em
+              style={{
+                fontStyle: "italic",
+                fontWeight: 600,
+                color: "var(--color-coral)",
+              }}
+            >
               this week.
             </em>
           </h2>
           <p
             style={{
-              margin: "20px 0 0",
-              maxWidth: 460,
-              fontSize: 17,
+              margin: "26px 0 0",
+              maxWidth: 470,
+              fontSize: 18,
               lineHeight: 1.6,
               color: "var(--color-text-3)",
             }}
           >
-            {
-              "Every week we watch the businesses you compete with — new reviews, rating moves, ads starting and stopping, search positions shifting. Here's what just moved."
-            }
+            Weekly digest of every verified move your competitors made — new
+            reviews, new ads, ranking shifts, photo uploads. Refreshes every
+            Monday with Pro.
           </p>
-          <div style={{ marginTop: 18 }}>
+          <div
+            className="landing-changes-arrow"
+            style={{ marginTop: 28, paddingLeft: "42%" }}
+          >
             <CurlyArrow />
           </div>
         </div>
-        <div style={CARD}>
-          {changes.length === 0 ? (
-            <MissingNote>
-              {
-                "We'll show this week's market moves here once we've tracked your area for a full week."
-              }
-            </MissingNote>
-          ) : (
-            <ul
-              style={{
-                listStyle: "none",
-                margin: 0,
-                padding: 0,
-                display: "grid",
-                gap: 14,
-              }}
-            >
-              {changes.map((c) => (
-                <li
-                  key={c.id}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    gap: 14,
-                    paddingBottom: 14,
-                    borderBottom: "1px solid var(--color-border)",
-                  }}
-                >
-                  <div>
-                    <p
-                      style={{
-                        margin: 0,
-                        fontSize: 14.5,
-                        fontWeight: 600,
-                        color: "var(--color-text)",
-                      }}
-                    >
-                      {c.label}
-                    </p>
-                    <p
-                      style={{
-                        margin: "2px 0 0",
-                        fontSize: 12.5,
-                        color: "var(--color-text-3)",
-                      }}
-                    >
-                      {c.sub}
-                    </p>
-                  </div>
-                  <span
-                    style={{
-                      flexShrink: 0,
-                      fontFamily: SERIF,
-                      fontSize: 26,
-                      fontWeight: 600,
-                      color:
-                        c.tone === "good"
-                          ? "var(--color-success)"
-                          : c.tone === "bad"
-                            ? "var(--color-coral)"
-                            : "var(--color-text)",
-                    }}
-                  >
-                    {c.value}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
+
+        <div style={{ display: "grid", gap: 16 }}>
+          {changes.map((c) => (
+            <ChangeCard key={c.id} c={c} />
+          ))}
         </div>
       </div>
     </section>
+  );
+}
+
+function ChangeCard({ c }: { c: LandingChange }) {
+  const barHex =
+    c.barColor === "gold"
+      ? "#e7c24c"
+      : c.barColor === "coral"
+        ? "var(--color-coral)"
+        : "#a7b88c";
+  return (
+    <div
+      style={{
+        background: "#fbf9f5",
+        borderRadius: 20,
+        padding: "20px 24px",
+        boxShadow: c.faded ? "none" : "0 16px 40px -24px rgba(28,25,22,0.22)",
+        opacity: c.faded ? 0.45 : 1,
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          alignItems: "baseline",
+          justifyContent: "space-between",
+          gap: 12,
+        }}
+      >
+        <span
+          style={{
+            fontSize: 16.5,
+            fontWeight: 700,
+            color: "var(--color-text)",
+          }}
+        >
+          {c.title}
+        </span>
+        <span
+          style={{ fontSize: 13, color: "var(--color-text-3)", flexShrink: 0 }}
+        >
+          {c.meta}
+        </span>
+      </div>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 12,
+          marginTop: 14,
+        }}
+      >
+        <span
+          style={{ display: "inline-flex", alignItems: "baseline", gap: 10 }}
+        >
+          <span
+            style={{
+              fontFamily: SERIF,
+              fontSize: 46,
+              fontWeight: 700,
+              lineHeight: 1,
+            }}
+          >
+            {c.value}
+          </span>
+          <span style={{ fontSize: 19, color: "var(--color-text-2)" }}>
+            {c.valueSuffix}
+          </span>
+        </span>
+        {c.stars != null ? <Stars value={c.stars} /> : null}
+      </div>
+      <div
+        style={{
+          height: 8,
+          borderRadius: 999,
+          background: "rgba(28,25,22,0.1)",
+          marginTop: 16,
+          overflow: "hidden",
+        }}
+      >
+        <div
+          style={{
+            width: `${Math.max(0, Math.min(100, c.barPct))}%`,
+            height: "100%",
+            borderRadius: 999,
+            background: barHex,
+          }}
+        />
+      </div>
+      <p
+        style={{
+          margin: "16px 0 0",
+          fontSize: 13.5,
+          lineHeight: 1.5,
+          color: "var(--color-text-3)",
+        }}
+      >
+        {c.desc}
+      </p>
+    </div>
   );
 }
 
