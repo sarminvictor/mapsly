@@ -52,6 +52,8 @@ export interface LandingSearchData {
   /** Top keywords by volume — the table rows. */
   topKeywords: {
     keyword: string;
+    /** Service label derived from the keyword ("Microneedling"). */
+    service: string;
     volume: number | null;
     organicRank: number | null;
     mapsRank: number | null;

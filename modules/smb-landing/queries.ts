@@ -246,7 +246,11 @@ export async function getLandingData(
       peerRecent.map((r) => [r.businessId, r._count._all]),
     );
 
-    const search = buildSearch(keywordRows, overview?.visibility ?? null);
+    const search = buildSearch(
+      keywordRows,
+      overview?.visibility ?? null,
+      biz.city,
+    );
     const adsDetail = buildAds(
       ownAdCount,
       adCompetitors,
@@ -344,6 +348,7 @@ type KeywordRow = {
 function buildSearch(
   rows: KeywordRow[],
   pillar: number | null,
+  city: string | null,
 ): LandingSearchData {
   if (rows.length === 0) return { ...EMPTY_LANDING_SEARCH, pillar };
 
@@ -365,6 +370,7 @@ function buildSearch(
     .slice(0, 8)
     .map((r) => ({
       keyword: r.keyword.keyword,
+      service: deriveService(r.keyword.keyword, city),
       volume: r.keyword.searchVolume,
       organicRank: r.latestOrganicRank,
       mapsRank: r.latestMapsRank,
@@ -383,6 +389,18 @@ function buildSearch(
     topKeywords,
     pillar,
   };
+}
+
+/** Best-guess service label from a local-intent keyword (strip the city). */
+function deriveService(keyword: string, city: string | null): string {
+  let s = keyword;
+  if (city) {
+    const idx = s.toLowerCase().indexOf(city.toLowerCase());
+    if (idx >= 0) s = (s.slice(0, idx) + s.slice(idx + city.length)).trim();
+  }
+  s = s.replace(/\s+/g, " ").trim();
+  if (!s) s = keyword;
+  return s.replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 type AdvertiserRow = {

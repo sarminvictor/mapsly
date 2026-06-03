@@ -126,7 +126,7 @@ function SectionIntro({
         style={{
           margin: "16px 0 0",
           fontFamily: SERIF,
-          fontSize: "clamp(32px, 5vw, 56px)",
+          fontSize: "clamp(36px, 5.4vw, 64px)",
           fontWeight: 600,
           lineHeight: 1.05,
           letterSpacing: "-0.015em",
@@ -1074,87 +1074,197 @@ function ChangeCard({ c }: { c: LandingChange }) {
 function SearchSection({
   search,
   gap,
+  category,
   ctaHref,
 }: {
   search: LandingSearchData;
   gap: LandingGap | null;
+  category: string;
   ctaHref: string;
 }) {
+  const youGet = search.searchesYouGet;
+  const total = search.searchesTotal;
+  const others =
+    youGet != null && total != null ? Math.max(0, total - youGet) : null;
+  const cat = category.replace(/_/g, " ");
   return (
     <section data-landing-section="search" style={sectionStyle("white")}>
       <div style={CONTAINER}>
         <SectionIntro
-          eyebrow="What you sell · where Google sends patients"
+          eyebrow="What you sell? Where Google shows you?"
           title="What you offer."
           emphasis="Where you show up on Google."
-          intro={
-            search.searchesTotal != null
-              ? `Patients run thousands of searches for your services every month. Here's where you land — and where they go instead.`
-              : undefined
-          }
+          intro="Every service you offer matched against monthly Google searches in your area, and where you currently rank."
         />
 
         {search.hasData ? (
           <div
             className="landing-2col"
             style={{
-              marginTop: 40,
+              marginTop: 44,
               display: "grid",
-              gap: 18,
-              gridTemplateColumns: "minmax(220px, 0.8fr) minmax(0, 1.5fr)",
+              gap: 32,
+              gridTemplateColumns: "minmax(300px, 0.82fr) minmax(0, 1.45fr)",
+              alignItems: "start",
             }}
           >
-            <div style={CARD}>
-              <p style={miniLabel}>Your rank based on the services you offer</p>
-              <p
+            {/* LEFT · stat card */}
+            <div
+              style={{
+                background: "var(--color-bg-3)",
+                borderRadius: 22,
+                padding: 28,
+              }}
+            >
+              <div
                 style={{
-                  ...bigStat,
-                  fontSize: 46,
-                  marginTop: 10,
-                  color: "var(--color-coral)",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "flex-start",
+                  gap: 12,
                 }}
               >
-                {search.searchesYouGet != null
-                  ? `~${fmtNum(search.searchesYouGet)}`
-                  : "—"}
-              </p>
-              <p style={subStat}>
-                searches you win / mo
-                {search.searchesTotal != null
-                  ? ` · of ~${fmtNum(search.searchesTotal)} total`
-                  : ""}
+                <p
+                  style={{
+                    margin: 0,
+                    fontFamily: SERIF,
+                    fontSize: 21,
+                    fontWeight: 700,
+                    lineHeight: 1.2,
+                    maxWidth: 230,
+                  }}
+                >
+                  Your stats based on the services you offer
+                </p>
+                <GoogleLogo />
+              </div>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: 20,
+                  marginTop: 26,
+                }}
+              >
+                <div>
+                  <p style={statCardLabel}>monthly Google searches:</p>
+                  <p style={statCardBig}>
+                    {total != null ? fmtNum(total) : "—"}
+                    <span style={statCardUnit}> /mo</span>
+                  </p>
+                </div>
+                <div>
+                  <p style={statCardLabel}>Searches you show up only:</p>
+                  <p style={{ ...statCardBig, color: "var(--color-coral)" }}>
+                    {youGet != null ? fmtNum(youGet) : "—"}
+                    <span style={statCardUnit}> /mo</span>
+                  </p>
+                </div>
+              </div>
+              {youGet != null && others != null ? (
+                <p
+                  style={{
+                    margin: "24px 0 0",
+                    fontSize: 15,
+                    lineHeight: 1.5,
+                    color: "var(--color-text-2)",
+                  }}
+                >
+                  You show up for{" "}
+                  <strong style={{ color: "var(--color-coral)" }}>
+                    ~{fmtNum(youGet)} searches/mo.
+                  </strong>{" "}
+                  The other{" "}
+                  <strong style={{ color: "var(--color-coral)" }}>
+                    ~{fmtNum(others)}/mo
+                  </strong>{" "}
+                  go to other {cat}s.
+                </p>
+              ) : null}
+              <p
+                style={{
+                  margin: "16px 0 0",
+                  fontSize: 13,
+                  lineHeight: 1.5,
+                  color: "var(--color-text-3)",
+                }}
+              >
+                These are the searches your future patients run — Mapsly tracks
+                your position on every one, every week.
               </p>
               <div style={{ marginTop: 18 }}>
                 <ScoreLine value={search.pillar} />
               </div>
+              <div style={{ marginTop: 18 }}>
+                <CtaPill
+                  href={ctaHref}
+                  cta="search"
+                  label="Get map visibility"
+                />
+              </div>
             </div>
-            <div style={{ ...CARD, padding: 0, overflow: "hidden" }}>
-              <p style={{ ...miniLabel, padding: "16px 16px 0" }}>
+
+            {/* RIGHT · keyword table */}
+            <div>
+              <p
+                style={{
+                  margin: "4px 0 0",
+                  fontFamily: SERIF,
+                  fontSize: 22,
+                  fontWeight: 700,
+                }}
+              >
                 How do people search for you on Google?
               </p>
-              <table style={{ ...tableStyle, marginTop: 8 }}>
-                <thead>
-                  <tr>
-                    <Th>Keyword</Th>
-                    <Th align="right">Searches / mo</Th>
-                    <Th align="right">Your position</Th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {search.topKeywords.map((k) => {
-                    const rank = k.organicRank ?? k.mapsRank;
-                    return (
-                      <tr key={k.keyword}>
-                        <Td>{k.keyword}</Td>
-                        <Td align="right">{fmtNum(k.volume)}</Td>
-                        <Td align="right">
-                          <RankChip rank={rank} />
-                        </Td>
+              <div style={{ position: "relative", marginTop: 14 }}>
+                <div style={{ maxHeight: 440, overflow: "hidden" }}>
+                  <table style={tableStyle}>
+                    <thead>
+                      <tr>
+                        <Th>Your service</Th>
+                        <Th>Keywords</Th>
+                        <Th align="right">Searches/mo</Th>
+                        <Th align="right">Rate</Th>
                       </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                    </thead>
+                    <tbody>
+                      {search.topKeywords.map((k) => {
+                        const rate = rateLabel(
+                          bestOf(k.organicRank, k.mapsRank),
+                        );
+                        return (
+                          <tr key={k.keyword}>
+                            <Td>
+                              <span style={{ fontWeight: 600 }}>
+                                {k.service}
+                              </span>
+                            </Td>
+                            <Td color="var(--color-text-3)">{`"${k.keyword}"`}</Td>
+                            <Td align="right">{fmtNum(k.volume)}</Td>
+                            <Td align="right" color={rate.color}>
+                              {rate.label}
+                              {rate.ok ? " ✓" : ""}
+                            </Td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                <div
+                  aria-hidden
+                  style={{
+                    position: "absolute",
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    height: 80,
+                    background:
+                      "linear-gradient(to bottom, transparent, var(--color-bg-2))",
+                    pointerEvents: "none",
+                  }}
+                />
+              </div>
             </div>
           </div>
         ) : (
@@ -1166,38 +1276,85 @@ function SearchSection({
         )}
 
         {gap ? <ProblemSolution gap={gap} /> : null}
-        <SectionFooterCta ctaHref={ctaHref} cta="search" />
       </div>
     </section>
   );
 }
 
-function RankChip({ rank }: { rank: number | null }) {
-  if (rank == null) {
-    return (
-      <span style={{ fontSize: 12.5, color: "var(--color-text-3)" }}>
-        not ranking
-      </span>
-    );
-  }
-  const tone = rank <= 3 ? "good" : rank <= 10 ? "warn" : "bad";
-  const label = rank <= 3 ? "Top 3" : rank <= 10 ? "Top 10" : `#${rank}`;
+/** Multi-color Google wordmark. */
+function GoogleLogo() {
+  const letters = ["G", "o", "o", "g", "l", "e"];
+  const colors = [
+    "#4285F4",
+    "#EA4335",
+    "#FBBC05",
+    "#4285F4",
+    "#34A853",
+    "#EA4335",
+  ];
   return (
     <span
+      aria-label="Google"
       style={{
-        display: "inline-block",
-        padding: "2px 10px",
-        borderRadius: 999,
-        fontSize: 12,
-        fontWeight: 600,
-        color: toneColor(tone),
-        background: `color-mix(in srgb, ${toneColor(tone)} 14%, transparent)`,
+        fontFamily: "Arial, var(--font-landing-body)",
+        fontWeight: 500,
+        fontSize: 26,
+        letterSpacing: "-0.5px",
+        flexShrink: 0,
       }}
     >
-      {label}
+      {letters.map((ch, i) => (
+        <span key={i} style={{ color: colors[i] }}>
+          {ch}
+        </span>
+      ))}
     </span>
   );
 }
+
+function bestOf(a: number | null, b: number | null): number | null {
+  const vals = [a, b].filter((v): v is number => v != null);
+  return vals.length ? Math.min(...vals) : null;
+}
+
+/** Rank → "Rate" label + tone, matching the design (in TOP-10 ✓ / not in TOP-20). */
+function rateLabel(rank: number | null): {
+  label: string;
+  color: string;
+  ok: boolean;
+} {
+  if (rank == null || rank > 20) {
+    return { label: "not in TOP-20", color: "var(--color-coral)", ok: false };
+  }
+  if (rank <= 3) {
+    return { label: "in TOP-3", color: "var(--color-success)", ok: true };
+  }
+  if (rank <= 10) {
+    return { label: "in TOP-10", color: "var(--color-success)", ok: true };
+  }
+  return { label: "in TOP-20", color: "var(--color-gold)", ok: false };
+}
+
+const statCardLabel: CSSProperties = {
+  margin: 0,
+  fontSize: 14,
+  color: "var(--color-text-2)",
+  lineHeight: 1.3,
+};
+const statCardBig: CSSProperties = {
+  margin: "8px 0 0",
+  fontFamily: SERIF,
+  fontSize: 44,
+  fontWeight: 700,
+  lineHeight: 1,
+  color: "var(--color-text)",
+};
+const statCardUnit: CSSProperties = {
+  fontFamily: "var(--font-landing-body)",
+  fontSize: 15,
+  fontWeight: 400,
+  color: "var(--color-text-3)",
+};
 
 /* ------------------------------------------------------------- ads section */
 
@@ -2264,7 +2421,12 @@ export function LandingView({ data }: { data: LandingData }) {
       <TopBar ctaHref={ctaHref} />
       <Hero data={data} />
       <ChangesSection changes={data.changes} />
-      <SearchSection search={data.search} gap={data.gap} ctaHref={ctaHref} />
+      <SearchSection
+        search={data.search}
+        gap={data.gap}
+        category={data.category}
+        ctaHref={ctaHref}
+      />
       <AdsSection ads={data.adsDetail} gap={data.gap} ctaHref={ctaHref} />
       <ReviewsSection reviews={data.reviews} gap={data.gap} ctaHref={ctaHref} />
       <WebsiteSection
