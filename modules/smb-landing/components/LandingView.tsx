@@ -39,21 +39,6 @@ import { LandingAnalytics } from "./LandingAnalytics";
 function fmtScore(v: number | null): string {
   return v == null ? "—" : v.toFixed(1);
 }
-function scoreTone(v: number | null): "good" | "warn" | "bad" | "none" {
-  if (v == null) return "none";
-  if (v >= 7) return "good";
-  if (v >= 4) return "warn";
-  return "bad";
-}
-function toneColor(t: "good" | "warn" | "bad" | "none"): string {
-  return t === "good"
-    ? "var(--color-success)"
-    : t === "warn"
-      ? "var(--color-gold)"
-      : t === "bad"
-        ? "var(--color-coral)"
-        : "var(--color-text-3)";
-}
 function fmtRating(v: number | null): string {
   return v == null ? "—" : v.toFixed(1);
 }
@@ -1878,112 +1863,101 @@ function ReviewsSection({
 function WebsiteSection({
   website,
   gap,
+  city,
   ctaHref,
 }: {
   website: LandingWebsiteData;
   gap: LandingGap | null;
+  city: string | null;
   ctaHref: string;
 }) {
   const host = website.websiteUrl ? safeHost(website.websiteUrl) : null;
+  const perf = website.performance;
+  const yourColor =
+    perf == null
+      ? "var(--color-text)"
+      : perf < 70
+        ? "var(--color-coral)"
+        : perf >= 90
+          ? "var(--color-success)"
+          : "var(--color-gold)";
   return (
-    <section data-landing-section="website" style={sectionStyle("cream")}>
+    <section data-landing-section="website" style={sectionStyle("white")}>
       <div style={CONTAINER}>
         <SectionIntro
-          eyebrow="Your website · multi-check audit"
+          eyebrow="Your website. Multi-check audit."
           title="Your website,"
           emphasis="graded on 12 things patients notice."
-          intro={
-            "We check your site against the median of the top 10 websites in your metro — not just the #1. Each item below is a booking-driver patients silently judge you on."
-          }
+          intro="We check your site against the median of the top 10 websites in your metro — not just the #1. Each item below is a booking-driver patients silently judge you on."
         />
 
         {website.hasData ? (
           <div
             className="landing-2col"
             style={{
-              marginTop: 40,
+              marginTop: 44,
               display: "grid",
-              gap: 18,
-              gridTemplateColumns: "minmax(240px, 0.85fr) minmax(0, 1.6fr)",
+              gap: 40,
+              gridTemplateColumns: "minmax(280px, 0.92fr) minmax(0, 1.5fr)",
+              alignItems: "start",
             }}
           >
-            <div style={CARD}>
-              <p
+            <div
+              style={{
+                background: "var(--color-bg-3)",
+                borderRadius: 22,
+                padding: 28,
+              }}
+            >
+              <div
                 style={{
-                  margin: 0,
-                  fontFamily: SERIF,
-                  fontSize: 18,
-                  fontWeight: 600,
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: 18,
                 }}
               >
-                Score of your website:
-              </p>
-              <div style={{ marginTop: 16 }}>
-                <p style={miniLabel}>Your score</p>
                 <p
                   style={{
-                    ...bigStat,
-                    fontSize: 48,
-                    color: toneColor(
-                      scoreTone(
-                        website.performance != null
-                          ? website.performance / 10
-                          : null,
-                      ),
-                    ),
+                    margin: 0,
+                    fontFamily: SERIF,
+                    fontSize: 22,
+                    fontWeight: 700,
+                    lineHeight: 1.2,
                   }}
                 >
-                  {website.performance != null
-                    ? Math.round(website.performance)
-                    : "—"}
-                  <span
-                    style={{
-                      fontFamily: "var(--font-landing-body)",
-                      fontSize: 16,
-                      fontWeight: 400,
-                      color: "var(--color-text-3)",
-                    }}
-                  >
-                    {" "}
-                    /100
-                  </span>
+                  Score of your website:
                 </p>
-                {host ? <p style={subStat}>{host}</p> : null}
+                <WebStat
+                  label="Your score:"
+                  value={perf != null ? Math.round(perf) : null}
+                  sub={host ?? undefined}
+                  color={yourColor}
+                  big
+                />
               </div>
               <div
                 style={{
                   display: "grid",
                   gridTemplateColumns: "1fr 1fr",
-                  gap: 14,
-                  marginTop: 18,
+                  gap: 18,
+                  marginTop: 24,
                 }}
               >
-                <div>
-                  <p style={miniLabel}>Industry median</p>
-                  <p style={{ ...bigStat, fontSize: 30 }}>
-                    {website.industryMedian ?? "—"}
-                    <span style={slash}>/100</span>
-                  </p>
-                  <p style={subStat}>midpoint of top 10</p>
-                </div>
-                <div>
-                  <p style={miniLabel}>Industry best</p>
-                  <p
-                    style={{
-                      ...bigStat,
-                      fontSize: 30,
-                      color: "var(--color-success)",
-                    }}
-                  >
-                    {website.industryBest ?? "—"}
-                    <span style={slash}>/100</span>
-                  </p>
-                  <p style={subStat}>top of your category</p>
-                </div>
+                <WebStat
+                  label="Industry median (top 10):"
+                  value={website.industryMedian}
+                  sub={`midpoint of the top 10 sites${city ? ` in ${city}` : ""}`}
+                />
+                <WebStat
+                  label="Industry best (p95):"
+                  value={website.industryBest}
+                  sub="top 5% of websites in your category"
+                  color="var(--color-success)"
+                />
               </div>
               <p
                 style={{
-                  margin: "18px 0 0",
+                  margin: "22px 0 0",
                   fontSize: 12.5,
                   color: "var(--color-text-3)",
                   lineHeight: 1.5,
@@ -1995,16 +1969,22 @@ function WebsiteSection({
               <div style={{ marginTop: 16 }}>
                 <ScoreLine value={website.pillar} />
               </div>
+              <div style={{ marginTop: 18 }}>
+                <CtaPill
+                  href={ctaHref}
+                  cta="website"
+                  label="Full per-check breakdown"
+                />
+              </div>
             </div>
 
-            <div style={{ ...CARD, padding: 0, overflow: "hidden" }}>
+            <div>
               <p
                 style={{
-                  padding: "18px 18px 0",
                   margin: 0,
                   fontFamily: SERIF,
-                  fontSize: 19,
-                  fontWeight: 600,
+                  fontSize: 22,
+                  fontWeight: 700,
                   lineHeight: 1.25,
                 }}
               >
@@ -2013,53 +1993,70 @@ function WebsiteSection({
                   style={{
                     color: "var(--color-text-3)",
                     fontWeight: 400,
-                    fontSize: 15,
+                    fontSize: 16,
                   }}
                 >
                   Most top-10 sites pass 9+. What&apos;s missing:
                 </span>
               </p>
-              <table style={{ ...tableStyle, marginTop: 10 }}>
-                <thead>
-                  <tr>
-                    <Th>Check</Th>
-                    <Th>Your stats</Th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {website.checks.map((c) => {
-                    const ok = c.pass === true;
-                    const fail = c.pass === false;
-                    const col = ok
-                      ? "var(--color-success)"
-                      : fail
-                        ? "var(--color-coral)"
-                        : "var(--color-text-3)";
-                    return (
-                      <tr key={c.key}>
-                        <Td>
-                          <span
-                            style={{
-                              display: "inline-flex",
-                              alignItems: "center",
-                              gap: 8,
-                            }}
-                          >
-                            <span
-                              aria-hidden
-                              style={{ color: col, fontWeight: 700 }}
-                            >
-                              {ok ? "✓" : fail ? "✕" : "·"}
-                            </span>
-                            {c.label}
-                          </span>
-                        </Td>
-                        <Td color={col}>{c.detail}</Td>
+              <div style={{ position: "relative", marginTop: 16 }}>
+                <div style={{ maxHeight: 440, overflow: "hidden" }}>
+                  <table style={tableStyle}>
+                    <thead>
+                      <tr>
+                        <Th>Check</Th>
+                        <Th>Your stats:</Th>
                       </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                    </thead>
+                    <tbody>
+                      {website.checks.map((c) => {
+                        const ok = c.pass === true;
+                        const fail = c.pass === false;
+                        const col = ok
+                          ? "var(--color-success)"
+                          : fail
+                            ? "var(--color-coral)"
+                            : "var(--color-text-3)";
+                        return (
+                          <tr key={c.key}>
+                            <Td>
+                              <span
+                                style={{
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: 8,
+                                }}
+                              >
+                                <span
+                                  aria-hidden
+                                  style={{ color: col, fontWeight: 700 }}
+                                >
+                                  {ok ? "✓" : fail ? "✕" : "·"}
+                                </span>
+                                {c.label}
+                              </span>
+                            </Td>
+                            <Td color={col}>{c.detail}</Td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                <div
+                  aria-hidden
+                  style={{
+                    position: "absolute",
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    height: 80,
+                    background:
+                      "linear-gradient(to bottom, transparent, var(--color-bg-2))",
+                    pointerEvents: "none",
+                  }}
+                />
+              </div>
             </div>
           </div>
         ) : (
@@ -2071,13 +2068,72 @@ function WebsiteSection({
         )}
 
         {gap ? <ProblemSolution gap={gap} /> : null}
-        <SectionFooterCta
-          ctaHref={ctaHref}
-          cta="website"
-          label="Full per-check breakdown"
-        />
       </div>
     </section>
+  );
+}
+
+function WebStat({
+  label,
+  value,
+  sub,
+  color,
+  big,
+}: {
+  label: string;
+  value: number | null;
+  sub?: string;
+  color?: string;
+  big?: boolean;
+}) {
+  return (
+    <div>
+      <p
+        style={{
+          margin: 0,
+          fontSize: 13.5,
+          color: "var(--color-text-2)",
+          lineHeight: 1.3,
+        }}
+      >
+        {label}
+      </p>
+      <p
+        style={{
+          margin: "8px 0 0",
+          fontFamily: SERIF,
+          fontSize: big ? 48 : 34,
+          fontWeight: 700,
+          lineHeight: 1,
+          color: color ?? "var(--color-text)",
+        }}
+      >
+        {value ?? "—"}
+        <span
+          style={{
+            fontFamily: "var(--font-landing-body)",
+            fontSize: big ? 16 : 13,
+            fontWeight: 400,
+            color: "var(--color-text-3)",
+          }}
+        >
+          {" "}
+          /100
+        </span>
+      </p>
+      {sub ? (
+        <p
+          style={{
+            margin: "6px 0 0",
+            fontSize: 12,
+            color: "var(--color-text-3)",
+            lineHeight: 1.4,
+          }}
+        >
+          {sub}
+        </p>
+      ) : null}
+    </div>
   );
 }
 
@@ -2455,26 +2511,6 @@ function SectionFooterCta({
   );
 }
 
-function OwnTag() {
-  return (
-    <span
-      style={{
-        marginLeft: 8,
-        padding: "1px 7px",
-        borderRadius: 6,
-        background: "var(--color-coral)",
-        color: "#fff",
-        fontSize: 10,
-        fontWeight: 700,
-        textTransform: "uppercase",
-        letterSpacing: "0.04em",
-      }}
-    >
-      You
-    </span>
-  );
-}
-
 function safeHost(url: string): string | null {
   try {
     return new URL(url).host.replace(/^www\./, "");
@@ -2487,34 +2523,6 @@ function safeHost(url: string): string | null {
     );
   }
 }
-
-const miniLabel: CSSProperties = {
-  margin: 0,
-  fontFamily: MONO,
-  fontSize: 11,
-  textTransform: "uppercase",
-  letterSpacing: "0.06em",
-  color: "var(--color-text-3)",
-};
-const bigStat: CSSProperties = {
-  margin: "8px 0 0",
-  fontFamily: SERIF,
-  fontSize: 34,
-  fontWeight: 600,
-  color: "var(--color-text)",
-  lineHeight: 1,
-};
-const subStat: CSSProperties = {
-  margin: "4px 0 0",
-  fontSize: 12,
-  color: "var(--color-text-3)",
-};
-const slash: CSSProperties = {
-  fontFamily: "var(--font-landing-body)",
-  fontSize: 13,
-  fontWeight: 400,
-  color: "var(--color-text-3)",
-};
 
 /* ------------------------------------------------------------------- view */
 
@@ -2542,6 +2550,7 @@ export function LandingView({ data }: { data: LandingData }) {
       <WebsiteSection
         website={data.websiteDetail}
         gap={data.gap}
+        city={data.city}
         ctaHref={ctaHref}
       />
       <FixesSection fixes={data.fixes} ctaHref={ctaHref} />
