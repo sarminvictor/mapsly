@@ -64,3 +64,31 @@ export function getPriceId(plan: Plan): string {
   }
   return value;
 }
+
+/**
+ * SMB subscription billing term. The single SMB tier ($29/mo) bills monthly or
+ * annually ($248/yr) — two Stripe prices, one plan literal. Term selects the price.
+ */
+export type BillingTerm = "monthly" | "annual";
+
+const SMB_TERM_ENV: Record<BillingTerm, string> = {
+  monthly: "STRIPE_PRICE_SMB_PAID",
+  annual: "STRIPE_PRICE_SMB_PAID_YEAR",
+};
+
+/** Resolve the SMB Stripe price ID for a billing term (read at call-time). */
+export function getSmbPriceId(term: BillingTerm): string {
+  const envVar = SMB_TERM_ENV[term];
+  const value = process.env[envVar];
+  if (!value || value.length === 0) {
+    throw new Error(
+      `Missing Stripe price ID for SMB ${term}: env var ${envVar} is not set.`,
+    );
+  }
+  return value;
+}
+
+/** Parse a user-supplied `?term=` value; anything but "annual" → monthly. */
+export function parseBillingTerm(raw: string | null | undefined): BillingTerm {
+  return raw === "annual" ? "annual" : "monthly";
+}

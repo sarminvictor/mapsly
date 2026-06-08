@@ -28,7 +28,13 @@ import type Stripe from "stripe";
 import prisma from "@/lib/prisma";
 import stripeClient from "@/lib/stripe";
 
-import { getPriceId, planAudience, type Plan } from "./plans";
+import {
+  getPriceId,
+  getSmbPriceId,
+  planAudience,
+  type BillingTerm,
+  type Plan,
+} from "./plans";
 
 /** Input contract — `userId` is the authenticated session's user.id. */
 export interface CreateCheckoutInput {
@@ -157,6 +163,81 @@ export async function createCheckoutSession(
     return checkoutForAgency(user, input);
   }
   return checkoutForUser(user, input);
+}
+
+// ─── Anonymous (direct-from-landing) SMB checkout ──────────────────────────
+
+/**
+ * Input for a prospect checkout that has NO authenticated user yet. The
+ * prospect opens a personalized `/l/[token]` landing and pays directly; the
+ * User is find-or-created AFTER payment (see modules/billing/provision.ts),
+ * driven by the email Stripe confirms at checkout.
+ */
+export interface CreateAnonymousSmbCheckoutInput {
+  /** Prefill the Stripe email field (the discovered Business email). Editable by the prospect. */
+  customerEmail?: string | null;
+  /** Reuse this Stripe customer when the prefill email already belongs to a
+   * subscriber — avoids minting a duplicate Customer for a returning user. */
+  existingCustomerId?: string | null;
+  /** Landing token (16-digit) — attribution + which Business to claim post-payment. */
+  landingToken: string;
+  /** Cosmetic landing slug — used to build the cancel URL back to the landing. */
+  landingSlug: string;
+  /** The prospect Business id the landing is about. */
+  businessId: string;
+  /** Monthly ($29) or annual ($248). */
+  term: BillingTerm;
+  /** Absolute public origin (e.g. https://mapsly.ai) for success/cancel URLs. */
+  origin: string;
+  /** One-time nonce (also set as an httpOnly cookie at /api/checkout/start)
+   * binding the post-payment auto-login to the browser that started checkout. */
+  nonce: string;
+}
+
+/**
+ * Create a subscription Checkout Session for an UNAUTHENTICATED prospect.
+ *
+ * Unlike `createCheckoutSession`, this does NOT pre-create a Stripe Customer or
+ * require a User — subscription mode auto-creates the Customer, and we only
+ * PREFILL the email (the prospect confirms/edits it in Stripe). The webhook +
+ * the success-redirect read back `customer_details.email` as source of truth.
+ * `success_url` lands on /checkout/return which mints the session (auto-login).
+ */
+export async function createAnonymousSmbCheckout(
+  input: CreateAnonymousSmbCheckoutInput,
+): Promise<CreateCheckoutResult> {
+  // Host allow-list guard (same defense as authed checkouts).
+  validateReturnUrl(`${input.origin}/checkout/return`);
+
+  const metadata: Record<string, string> = {
+    audience: "smb",
+    plan: "smb_paid",
+    term: input.term,
+    landingToken: input.landingToken,
+    businessId: input.businessId,
+    nonce: input.nonce,
+  };
+  const session = await stripeClient.checkout.sessions.create({
+    mode: "subscription",
+    line_items: [{ price: getSmbPriceId(input.term), quantity: 1 }],
+    // Reuse a known customer when the prefill email is a returning subscriber;
+    // otherwise subscription mode auto-creates the Customer from the prefill email.
+    ...(input.existingCustomerId
+      ? { customer: input.existingCustomerId }
+      : { customer_email: input.customerEmail ?? undefined }),
+    client_reference_id: input.businessId,
+    success_url: `${input.origin}/checkout/return?session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${input.origin}/l/${input.landingSlug}-${input.landingToken}?canceled=1`,
+    metadata,
+    subscription_data: { metadata },
+    allow_promotion_codes: true,
+  });
+  const customer = session.customer;
+  return {
+    sessionUrl: requireSessionUrl(session),
+    sessionId: session.id,
+    customerId: typeof customer === "string" ? customer : (customer?.id ?? ""),
+  };
 }
 
 // ─── Audience-specific session creation ────────────────────────────────────

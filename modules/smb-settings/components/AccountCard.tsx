@@ -3,10 +3,11 @@
 /**
  * SMB settings · editable account card.
  *
- * Email is the magic-link sign-in identity — shown read-only (changing it
- * would orphan the session). The display name is editable + saved via the
- * `updateSmbAccount` server action. React 19 `useActionState` drives inline
- * pending + saved/error feedback (no full-page reload).
+ * Email + display name are both editable, saved via the `updateSmbAccount`
+ * server action. Email is the sign-in identity but the JWT keys off `User.id`
+ * (not the email string), so changing it does NOT orphan the session — the new
+ * address simply becomes the magic-link target next time. React 19
+ * `useActionState` drives inline pending + saved/error feedback.
  *
  * Per `.claude/rules/ui-ux-smb.md` — warm, plain English, 44px tap targets,
  * one clear action (Save). Styles are inline (this is a leaf client
@@ -49,6 +50,7 @@ export function AccountCard({
   // after the form action completes, which made a just-saved name look
   // unsaved until a manual refresh.
   const [name, setName] = useState(userName ?? "");
+  const [email, setEmail] = useState(userEmail);
   const [dirty, setDirty] = useState(false);
   const [seenStatus, setSeenStatus] = useState(state.status);
 
@@ -70,15 +72,17 @@ export function AccountCard({
         <label style={fieldLabel}>
           {labels.emailLabel}
           <input
+            name="email"
             type="email"
-            value={userEmail}
-            readOnly
-            aria-readonly="true"
-            style={{
-              ...input,
-              color: "var(--color-text-2)",
-              background: "var(--color-bg-3)",
+            value={email}
+            onChange={(e) => {
+              setEmail(e.currentTarget.value);
+              setDirty(true);
             }}
+            required
+            maxLength={254}
+            autoComplete="email"
+            style={input}
           />
         </label>
         <p style={note}>{labels.emailNote}</p>

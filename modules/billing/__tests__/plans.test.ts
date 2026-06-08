@@ -2,7 +2,14 @@
 
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 
-import { getPriceId, PLANS, PlanSchema, planAudience } from "../plans";
+import {
+  getPriceId,
+  getSmbPriceId,
+  parseBillingTerm,
+  PLANS,
+  PlanSchema,
+  planAudience,
+} from "../plans";
 
 describe("PlanSchema", () => {
   test("accepts all five canonical plan literals", () => {
@@ -91,5 +98,34 @@ describe("getPriceId", () => {
   test("empty string is treated as missing", () => {
     process.env.STRIPE_PRICE_SMB_PAID = "";
     expect(() => getPriceId("smb_paid")).toThrow(/STRIPE_PRICE_SMB_PAID/);
+  });
+});
+
+describe("SMB billing term", () => {
+  const saved = { ...process.env };
+  beforeEach(() => {
+    process.env.STRIPE_PRICE_SMB_PAID = "p_smb_month";
+    process.env.STRIPE_PRICE_SMB_PAID_YEAR = "p_smb_year";
+  });
+  afterEach(() => {
+    process.env = { ...saved };
+  });
+
+  test("parseBillingTerm defaults to monthly; only 'annual' opts in", () => {
+    expect(parseBillingTerm("annual")).toBe("annual");
+    expect(parseBillingTerm("monthly")).toBe("monthly");
+    expect(parseBillingTerm("")).toBe("monthly");
+    expect(parseBillingTerm(null)).toBe("monthly");
+    expect(parseBillingTerm("yearly")).toBe("monthly");
+  });
+
+  test("getSmbPriceId maps term → the right env price", () => {
+    expect(getSmbPriceId("monthly")).toBe("p_smb_month");
+    expect(getSmbPriceId("annual")).toBe("p_smb_year");
+  });
+
+  test("missing annual price throws naming the env var", () => {
+    delete process.env.STRIPE_PRICE_SMB_PAID_YEAR;
+    expect(() => getSmbPriceId("annual")).toThrow(/STRIPE_PRICE_SMB_PAID_YEAR/);
   });
 });

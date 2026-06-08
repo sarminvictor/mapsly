@@ -2176,9 +2176,11 @@ function FixesSection({
 function PricingSection({
   copy,
   ctaHref,
+  ctaHrefAnnual,
 }: {
   copy: LandingCopy["pricing"];
   ctaHref: string;
+  ctaHrefAnnual: string;
 }) {
   const props = [
     "Catch new competitor ads within 24h",
@@ -2342,7 +2344,7 @@ function PricingSection({
               </span>
               <span style={{ display: "grid" }}>
                 <CtaPill
-                  href={ctaHref}
+                  href={ctaHrefAnnual}
                   cta="pricing-annual"
                   label="Pay annually - Save $120"
                   variant="outline"
@@ -2443,7 +2445,12 @@ function safeHost(url: string): string | null {
 /* ------------------------------------------------------------------- view */
 
 export function LandingView({ data }: { data: LandingData }) {
-  const ctaHref = `/signin?intent=smb&landing=${encodeURIComponent(data.token)}`;
+  // Direct-from-landing checkout — no sign-in first. An anonymous Stripe
+  // subscription session; the prospect is auto-logged-in + their business
+  // claimed after payment (see /api/checkout/start → /checkout/return).
+  const checkoutBase = `/api/checkout/start?landing=${encodeURIComponent(data.token)}`;
+  const ctaHref = `${checkoutBase}&term=monthly`;
+  const ctaHrefAnnual = `${checkoutBase}&term=annual`;
   return (
     <main style={PAGE}>
       <LandingAnalytics token={data.token} />
@@ -2482,7 +2489,11 @@ export function LandingView({ data }: { data: LandingData }) {
         copy={data.copy.fixes}
         ctaHref={ctaHref}
       />
-      <PricingSection copy={data.copy.pricing} ctaHref={ctaHref} />
+      <PricingSection
+        copy={data.copy.pricing}
+        ctaHref={ctaHref}
+        ctaHrefAnnual={ctaHrefAnnual}
+      />
       <Footer />
     </main>
   );

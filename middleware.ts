@@ -44,6 +44,13 @@ export default function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
+  // /checkout/* — the direct-from-landing Stripe flow (start redirect lives
+  // under /api; the post-payment return page lives here). Locale-agnostic
+  // direct-share artifacts like /l/ — pass through untouched.
+  if (url.pathname.startsWith("/checkout")) {
+    return NextResponse.next();
+  }
+
   // Everything else → next-intl handles locale negotiation.
   return intlMiddleware(req);
 }

@@ -578,7 +578,7 @@
         "coming_soon": "Coming soon",
         "identity_heading": "Your account",
         "identity_email_label": "Email",
-        "identity_email_note": "This is your sign-in email — it can't be changed here.",
+        "identity_email_note": "This is your sign-in email. Change it and you'll use the new address to sign in next time.",
         "identity_name_label": "Name",
         "identity_name_placeholder": "Add your name",
         "identity_save_cta": "Save",

@@ -38,6 +38,7 @@ import type Stripe from "stripe";
 import prisma from "@/lib/prisma";
 import stripeClient from "@/lib/stripe";
 import { rateLimit, WEBHOOK_LIMIT } from "@/lib/middleware/rate-limit";
+import { provisionSmbFromCheckout } from "@/modules/billing/provision";
 import { handleStripeEvent } from "@/modules/billing/webhook";
 import { recordLandingConversion } from "@/modules/smb-landing/conversion";
 
@@ -136,7 +137,34 @@ export async function POST(req: Request): Promise<Response> {
 
   // ─── Dispatch to the pure handler ──────────────────────────────────────────
   try {
+    // Direct-from-landing flow: the User doesn't exist until they pay. On the
+    // completed checkout, find-or-create the User from the Stripe-confirmed
+    // email + claim the prospect Business — idempotent, mirrors the
+    // /checkout/return success-redirect login. Runs BEFORE handleStripeEvent so
+    // the subscription upsert finds the now-existing user by customer id.
+    await provisionSmbOnCheckoutCompleted(event);
     const outcome = await handleStripeEvent(event, prisma);
+
+    // Out-of-order delivery: a subscription/invoice event arrived before the
+    // checkout.session.completed that provisions the user. Drop the idempotency
+    // row so the retry re-processes, and 500 so Stripe retries this event after
+    // provisioning has happened — otherwise the carried state is lost forever.
+    if (outcome.kind === "skipped" && outcome.retryable) {
+      await prisma.stripeWebhookEvent
+        .delete({ where: { id: webhookRowId } })
+        .catch(() => {});
+      console.log(
+        JSON.stringify({
+          level: "info",
+          event: "billing.webhook.retry_pending",
+          stripeEventId: event.id,
+          type: event.type,
+          reason: outcome.reason,
+        }),
+      );
+      return Response.json({ error: "retry_pending" }, { status: 500 });
+    }
+
     await prisma.stripeWebhookEvent.update({
       where: { id: webhookRowId },
       data: { processedAt: new Date(), error: null },
@@ -180,5 +208,43 @@ export async function POST(req: Request): Promise<Response> {
     // 500 → Stripe retries with backoff. Better to be retried than to
     // silently drop a billing event.
     return Response.json({ error: "internal_error" }, { status: 500 });
+  }
+}
+
+/**
+ * Find-or-create the SMB User + claim the prospect Business from a completed
+ * direct-from-landing checkout. Internally guarded: a provisioning hiccup is
+ * logged but never fails the webhook — the /checkout/return redirect provisions
+ * the same user, so the subscription upsert still finds them (or a Stripe retry
+ * does). Source of truth for the email is `customer_details.email`.
+ */
+async function provisionSmbOnCheckoutCompleted(
+  event: Stripe.Event,
+): Promise<void> {
+  if (event.type !== "checkout.session.completed") return;
+  try {
+    const session = event.data.object as Stripe.Checkout.Session;
+    const md = (session.metadata ?? {}) as Record<string, string | undefined>;
+    if (md.audience !== "smb" || session.mode !== "subscription") return;
+    const email =
+      session.customer_details?.email ?? session.customer_email ?? null;
+    const customer = session.customer;
+    const customerId =
+      typeof customer === "string" ? customer : (customer?.id ?? null);
+    if (!email || !customerId) return;
+    await provisionSmbFromCheckout({
+      email,
+      customerId,
+      landingToken: md.landingToken,
+    });
+  } catch (err) {
+    console.error(
+      JSON.stringify({
+        level: "error",
+        event: "billing.webhook.provision_failed",
+        stripeEventId: event.id,
+        error: err instanceof Error ? err.message : String(err),
+      }),
+    );
   }
 }

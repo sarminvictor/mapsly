@@ -29,6 +29,7 @@ import { revalidateTag } from "next/cache";
 import { redirect } from "next/navigation";
 
 import prisma from "@/lib/prisma";
+import stripeClient from "@/lib/stripe";
 import { auth, signOut } from "@/lib/auth";
 import { routing } from "@/i18n/routing";
 
@@ -99,13 +100,16 @@ export type UpdateAccountState = { status: "idle" | "saved" | "error" };
 
 const UpdateAccountSchema = z.object({
   name: z.string().trim().max(120),
+  email: z.string().trim().toLowerCase().email().max(254),
 });
 
 /**
- * Update the viewer's display name — the editable part of "Your account".
- * Email is the magic-link identity and is NOT editable here. Returns a
- * `useActionState` status the AccountCard renders inline, and revalidates the
- * per-user settings cache tag so the new name shows on the next read.
+ * Update the viewer's display name + sign-in email — the editable parts of
+ * "Your account". Email is the JWT identity by `User.id` (not the email
+ * string), so changing it does NOT orphan the session. On change we enforce
+ * uniqueness, clear `emailVerified` (the new address re-verifies on the next
+ * magic-link), and sync the Stripe customer email so invoices reach them.
+ * Returns a `useActionState` status the AccountCard renders inline.
  */
 export async function updateSmbAccount(
   _prev: UpdateAccountState,
@@ -116,13 +120,41 @@ export async function updateSmbAccount(
 
   const parsed = UpdateAccountSchema.safeParse({
     name: formData.get("name") ?? "",
+    email: formData.get("email") ?? "",
   });
   if (!parsed.success) return { status: "error" };
+  const { name, email } = parsed.data;
 
   try {
+    const me = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { email: true, stripeCustomerId: true },
+    });
+    if (!me) return { status: "error" };
+
+    // Email change — only when it actually differs. Must be unique; sync Stripe.
+    if (email && email !== me.email.toLowerCase()) {
+      const taken = await prisma.user.findUnique({
+        where: { email },
+        select: { id: true },
+      });
+      if (taken && taken.id !== session.user.id) return { status: "error" };
+      await prisma.user.update({
+        where: { id: session.user.id },
+        data: { email, emailVerified: null },
+      });
+      if (me.stripeCustomerId) {
+        await stripeClient.customers
+          .update(me.stripeCustomerId, { email })
+          .catch(() => {
+            /* Stripe sync is best-effort — never fail the save on it */
+          });
+      }
+    }
+
     await prisma.user.update({
       where: { id: session.user.id },
-      data: { name: parsed.data.name.length > 0 ? parsed.data.name : null },
+      data: { name: name.length > 0 ? name : null },
     });
     revalidateTag(`smb-settings-${session.user.id}`, "minutes");
     return { status: "saved" };

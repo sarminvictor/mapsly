@@ -70,7 +70,19 @@ export type WebhookOutcome =
       targetId: string;
     }
   | { kind: "ignored"; event: string; reason: string }
-  | { kind: "skipped"; event: string; reason: string };
+  | {
+      kind: "skipped";
+      event: string;
+      reason: string;
+      /**
+       * True when the skip is because the target User/Agency doesn't exist YET
+       * (out-of-order delivery: a subscription/invoice event arrived before the
+       * checkout.session.completed that provisions the user). The route turns
+       * this into a 500 so Stripe RETRIES the event — otherwise the carried
+       * state (status, priceId, period end) would be silently lost.
+       */
+      retryable?: boolean;
+    };
 
 // ─── Prisma seam · structural type so tests can pass a fake ──────────────────
 //
@@ -264,6 +276,7 @@ async function handleSubscriptionDeleted(
       kind: "skipped",
       event: event.type,
       reason: `no ${audience} matches subscription ${sub.id}`,
+      retryable: true,
     };
   }
 
@@ -336,6 +349,7 @@ async function handleInvoicePaid(
       kind: "skipped",
       event: event.type,
       reason: `no ${audience} matches subscription ${subscriptionId}`,
+      retryable: true,
     };
   }
   const update = {
@@ -382,6 +396,7 @@ async function handleInvoicePaymentFailed(
       kind: "skipped",
       event: event.type,
       reason: `no ${audience} matches subscription ${subscriptionId}`,
+      retryable: true,
     };
   }
   const update = { stripeStatus: "past_due" } as const;
@@ -425,6 +440,7 @@ async function upsertSubscriptionRow(p: UpsertParams): Promise<WebhookOutcome> {
       kind: "skipped",
       event: p.event,
       reason: `no ${p.audience} matches customer ${p.customerId} / subscription ${p.subscriptionId}`,
+      retryable: true,
     };
   }
 
@@ -565,8 +581,18 @@ function subscriptionPeriodEnd(sub: Stripe.Subscription): Date | null {
   // exposes it at the top level for active subs and inside `items.data[]` —
   // we use the top-level field. Cast through unknown because Stripe's
   // generated types occasionally lag the live API.
-  const ts = (sub as unknown as { current_period_end?: number })
+  // Top-level `current_period_end` (≤ 2025-02 API) OR item-level (Basil
+  // 2025-03+, where Stripe moved it to items.data[].current_period_end).
+  // Read both so a dashboard API-version bump can't silently null the renewal
+  // anchor. Cast through unknown — Stripe's generated types lag the live API.
+  const top = (sub as unknown as { current_period_end?: number })
     .current_period_end;
+  const item = (
+    sub.items?.data?.[0] as unknown as
+      | { current_period_end?: number }
+      | undefined
+  )?.current_period_end;
+  const ts = typeof top === "number" ? top : item;
   if (typeof ts !== "number") return null;
   return new Date(ts * 1000);
 }
