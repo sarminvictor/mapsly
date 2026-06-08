@@ -107,6 +107,7 @@ export async function buildOverviewForBusiness(
             adsApplicable: true,
             cellKey: true,
             snapshotDate: true,
+            signalsJson: true,
           },
         },
       },
@@ -130,6 +131,9 @@ export async function buildOverviewForBusiness(
       advertising: snap?.adsPillar ?? null,
       adsApplicable: snap?.adsApplicable ?? null,
       unansweredReviewCount,
+      // Reply rate the reputation pillar actually scores on — drives the exact
+      // model-derived lift for the "reply to reviews" fix.
+      replyRate: numOrNull(asRecord(snap?.signalsJson)?.replyRate),
     });
 
     const base: SmbOverviewData = {

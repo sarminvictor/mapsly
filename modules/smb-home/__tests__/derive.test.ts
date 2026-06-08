@@ -19,6 +19,7 @@ const base = (overrides: Partial<OverviewFixInput> = {}): OverviewFixInput => ({
   advertising: 8,
   adsApplicable: true,
   unansweredReviewCount: 0,
+  replyRate: 0.5,
   ...overrides,
 });
 
@@ -60,12 +61,33 @@ describe("deriveOverviewFixes", () => {
     expect(ads).toBeGreaterThan(rep);
   });
 
-  test("reply impact scales with the unanswered count", () => {
-    const small = deriveOverviewFixes(base({ unansweredReviewCount: 1 }));
-    const big = deriveOverviewFixes(base({ unansweredReviewCount: 20 }));
-    const s = parseFloat(small[0]?.impact.replace("+", "") ?? "0");
-    const b = parseFloat(big[0]?.impact.replace("+", "") ?? "0");
-    expect(b).toBeGreaterThan(s);
+  test("reply impact scales with the reply-rate gap, not the raw count", () => {
+    // Model-derived: lift = (1 − replyRate) × responsiveness_weight, weighted
+    // into the master. A lower current reply rate ⇒ more headroom ⇒ bigger lift.
+    const nearlyDone = deriveOverviewFixes(
+      base({ unansweredReviewCount: 5, replyRate: 0.8 }),
+    );
+    const farBehind = deriveOverviewFixes(
+      base({ unansweredReviewCount: 5, replyRate: 0.2 }),
+    );
+    const a = parseFloat(nearlyDone[0]?.impact.replace("+", "") ?? "0");
+    const b = parseFloat(farBehind[0]?.impact.replace("+", "") ?? "0");
+    expect(b).toBeGreaterThan(a);
+  });
+
+  test("reply lift never reaches the old hard-coded +0.9 ceiling", () => {
+    // Even from a 0% reply rate, the reputation pillar's responsiveness term
+    // caps at 0.25 × 10 = 2.5 pillar points; through the master weight (0.30)
+    // and renormalisation (weightTotal ≤ 1) the absolute ceiling is
+    // 2.5 × 0.30 / 1.0 = 0.75 — strictly below the old fabricated "+0.9".
+    const maxed = deriveOverviewFixes(
+      base({ reputation: 0, unansweredReviewCount: 200, replyRate: 0 }),
+    );
+    const lift = parseFloat(
+      maxed.find((f) => f.section === "reputation")?.impact.replace("+", "") ??
+        "0",
+    );
+    expect(lift).toBeLessThan(0.9);
   });
 
   test("never exceeds MAX_FIXES and ranks are 1..N", () => {
