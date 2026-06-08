@@ -32,7 +32,6 @@ import {
   LANDING_WEBSITE_CHECK_LABELS,
   type LandingAdsData,
   type LandingData,
-  type LandingGap,
   type LandingReviewsData,
   type LandingSearchData,
   type LandingWebsiteCheck,
@@ -317,7 +316,6 @@ export async function getLandingData(
       cellMetric?.lighthousePerfP50 ?? null,
       industryBestPerf(cellMetric?.distributions),
     );
-    const gap = buildGap(biz.category, search);
 
     const hasAnyData =
       search.hasData ||
@@ -354,7 +352,6 @@ export async function getLandingData(
       reviews,
       websiteDetail,
       fixes: overview?.topFixes ?? [],
-      gap,
       lastSnapshotAt: overview?.lastSnapshotAt ?? null,
       hasAnyData,
     };
@@ -693,49 +690,4 @@ function industryBestPerf(distributions: unknown): number | null {
     }
   }
   return null;
-}
-
-/** Market-gap "problem → solution" callout from the search split + missing keywords. */
-function buildGap(
-  category: string,
-  search: LandingSearchData,
-): LandingGap | null {
-  if (
-    !search.hasData ||
-    search.searchesYouGet == null ||
-    search.searchesTotal == null
-  ) {
-    return null;
-  }
-  const youGet = roundNice(search.searchesYouGet);
-  const others = roundNice(
-    Math.max(0, search.searchesTotal - search.searchesYouGet),
-  );
-  const cat = category.toLowerCase().replace(/_/g, " ");
-  const missing = search.topKeywords
-    .filter((k) => {
-      const best = [k.organicRank, k.mapsRank].filter(
-        (r): r is number => r != null,
-      );
-      return best.length === 0 || Math.min(...best) > 3;
-    })
-    .slice(0, 2)
-    .map((k) => `"${k.keyword}"`);
-
-  return {
-    problem: `You show up for ~${fmt(youGet)} searches a month. The other ~${fmt(others)} go to other ${cat}s.`,
-    solution:
-      missing.length > 0
-        ? `Win the searches you're missing — like ${missing.join(" and ")}.`
-        : `Climb into the top 3 for the searches that send patients to your competitors.`,
-  };
-}
-
-function roundNice(n: number): number {
-  if (n < 10) return Math.max(0, Math.round(n));
-  if (n < 100) return Math.round(n / 5) * 5;
-  return Math.round(n / 10) * 10;
-}
-function fmt(n: number): string {
-  return new Intl.NumberFormat("en-US").format(n);
 }

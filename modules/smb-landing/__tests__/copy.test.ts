@@ -60,13 +60,31 @@ const maria = core({
   googleRating: 4.8,
   reviewCount: 489,
   search: searchWithGap,
-  adsDetail: { ...EMPTY_LANDING_ADS, marketAdvertiserCount: 60, ownAdCount: 0 },
+  adsDetail: {
+    ...EMPTY_LANDING_ADS,
+    hasData: true,
+    marketAdvertiserCount: 60,
+    marketActiveAds: 119,
+    ownAdCount: 0,
+  },
   websiteDetail: {
     ...EMPTY_LANDING_WEBSITE,
+    hasData: true,
     performance: 36,
     industryMedian: 42,
+    industryBest: 52,
+    totalChecks: 12,
+    passCount: 7,
   },
-  reviews: { ...EMPTY_LANDING_REVIEWS, yourRank: 1, rankedTotal: 25 },
+  reviews: {
+    ...EMPTY_LANDING_REVIEWS,
+    hasData: true,
+    rating: 4.8,
+    reviewCount: 489,
+    unanswered: 85,
+    yourRank: 1,
+    rankedTotal: 25,
+  },
 });
 
 // Elena — #9 of 26, runs ads, strong website, weaker reviews.
@@ -76,13 +94,31 @@ const elena = core({
   googleRating: 4.6,
   reviewCount: 210,
   search: searchWithGap,
-  adsDetail: { ...EMPTY_LANDING_ADS, marketAdvertiserCount: 60, ownAdCount: 4 },
+  adsDetail: {
+    ...EMPTY_LANDING_ADS,
+    hasData: true,
+    marketAdvertiserCount: 60,
+    marketActiveAds: 119,
+    ownAdCount: 4,
+  },
   websiteDetail: {
     ...EMPTY_LANDING_WEBSITE,
+    hasData: true,
     performance: 78,
     industryMedian: 42,
+    industryBest: 52,
+    totalChecks: 12,
+    passCount: 11,
   },
-  reviews: { ...EMPTY_LANDING_REVIEWS, yourRank: 14, rankedTotal: 25 },
+  reviews: {
+    ...EMPTY_LANDING_REVIEWS,
+    hasData: true,
+    rating: 4.6,
+    reviewCount: 210,
+    unanswered: 12,
+    yourRank: 14,
+    rankedTotal: 25,
+  },
 });
 
 describe("nounFor — campaign token by category", () => {
@@ -150,11 +186,92 @@ describe("buildLandingCopy — the leader (Maria) vs the climber (Elena)", () =>
     expect(all).not.toMatch(/\bcustomers\b/);
   });
 
+  test("each block has its OWN problem→solution, not one duplicated callout", () => {
+    const problems = [
+      m.search.gap?.problem,
+      m.ads.gap?.problem,
+      m.reviews.gap?.problem,
+      m.website.gap?.problem,
+    ];
+    expect(new Set(problems).size).toBe(4); // four distinct, none null
+    // each reflects ITS block's signals
+    expect(m.search.gap!.problem).toMatch(/searches a month/);
+    expect(m.ads.gap!.problem).toMatch(/ads/i);
+    expect(m.reviews.gap!.problem).toMatch(/reviews|unanswered/i);
+    expect(m.website.gap!.problem).toMatch(/site scores|booking-driver/i);
+    expect(m.fixes.gap).toBeNull();
+    // the climber's gaps differ from the leader's (truly per-recipient)
+    expect(e.ads.gap!.problem).not.toBe(m.ads.gap!.problem);
+    expect(e.website.gap!.problem).not.toBe(m.website.gap!.problem);
+  });
+
   test("pricing reflects the no-free-week / page-is-the-trial decision", () => {
     expect(m.pricing.body).toMatch(/free snapshot/i);
     expect(m.pricing.guarantee).toMatch(/money-back/i);
     expect(m.pricing.body).not.toMatch(/free (week|trial)/i);
     expect(m.pricing.guarantee).not.toMatch(/free (week|trial)/i);
+  });
+});
+
+describe("gap attitude covers the edge scenarios (first/not, ads/not, etc.)", () => {
+  test("search strong (ranks top-3 everywhere) → defend, not 'climb'", () => {
+    const strong = {
+      ...EMPTY_LANDING_SEARCH,
+      hasData: true,
+      searchesYouGet: 5000,
+      searchesTotal: 6000,
+      topKeywords: [
+        {
+          keyword: "a",
+          service: "A",
+          volume: 3000,
+          organicRank: 1,
+          mapsRank: 2,
+          estCustomers: null,
+        },
+        {
+          keyword: "b",
+          service: "B",
+          volume: 3000,
+          organicRank: 3,
+          mapsRank: null,
+          estCustomers: null,
+        },
+      ],
+    };
+    const g = buildLandingCopy(core({ rank: 1, total: 26, search: strong }))
+      .search.gap;
+    expect(g!.solution).toMatch(/Defend/);
+    expect(g!.solution).not.toMatch(/Climb into the top 3/);
+  });
+  test("ads run in a quiet market → 'head start', never '0 others'", () => {
+    const g = buildLandingCopy(
+      core({
+        adsDetail: {
+          ...EMPTY_LANDING_ADS,
+          hasData: true,
+          ownAdCount: 3,
+          marketAdvertiserCount: 0,
+          marketActiveAds: 0,
+        },
+      }),
+    ).ads.gap;
+    expect(g!.problem).toMatch(/head start/);
+    expect(g!.problem).not.toMatch(/\b0 other/);
+  });
+  test("website found but not yet scored → no gap (never falsely 'strong')", () => {
+    const g = buildLandingCopy(
+      core({
+        websiteDetail: {
+          ...EMPTY_LANDING_WEBSITE,
+          hasData: true,
+          performance: null,
+          totalChecks: 12,
+          passCount: 2,
+        },
+      }),
+    ).website.gap;
+    expect(g).toBeNull();
   });
 });
 

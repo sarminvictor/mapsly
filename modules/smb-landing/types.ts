@@ -123,6 +123,10 @@ interface LandingSectionCopy {
   title: string;
   emphasis: string;
   intro: string;
+  /** This block's OWN problem → solution callout, from its own signals
+   * (search gaps · competitor ads · review standing · website leaks) — not one
+   * search-derived callout duplicated under every block. Null when no data. */
+  gap: LandingGap | null;
 }
 
 /** The conditional, per-recipient copy — built by `buildLandingCopy` from the
@@ -198,10 +202,8 @@ export interface LandingData {
   // "Where you stand. What to fix."
   fixes: SmbOverviewFix[];
 
-  // Shared market-gap callout (you-capture vs market)
-  gap: LandingGap | null;
-
-  // Conditional, per-recipient copy (the noun + every section's prose)
+  // Conditional, per-recipient copy (the noun + every section's prose + each
+  // block's own problem → solution)
   copy: LandingCopy;
 
   // Meta
@@ -218,13 +220,14 @@ export const EMPTY_LANDING_COPY: LandingCopy = {
     title: "",
     emphasis: "",
     intro: "",
+    gap: null,
     futureLine: "",
     lossLine: null,
   },
-  ads: { eyebrow: "", title: "", emphasis: "", intro: "" },
-  reviews: { eyebrow: "", title: "", emphasis: "", intro: "" },
-  website: { eyebrow: "", title: "", emphasis: "", intro: "" },
-  fixes: { eyebrow: "", title: "", emphasis: "", intro: "" },
+  ads: { eyebrow: "", title: "", emphasis: "", intro: "", gap: null },
+  reviews: { eyebrow: "", title: "", emphasis: "", intro: "", gap: null },
+  website: { eyebrow: "", title: "", emphasis: "", intro: "", gap: null },
+  fixes: { eyebrow: "", title: "", emphasis: "", intro: "", gap: null },
   pricing: { titleLead: "", emphasis: "", body: "", guarantee: "" },
 };
 
@@ -303,7 +306,6 @@ export const EMPTY_LANDING_DATA: LandingData = {
   reviews: EMPTY_LANDING_REVIEWS,
   websiteDetail: EMPTY_LANDING_WEBSITE,
   fixes: [],
-  gap: null,
   copy: EMPTY_LANDING_COPY,
   lastSnapshotAt: null,
   hasAnyData: false,

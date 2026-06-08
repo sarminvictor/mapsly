@@ -951,14 +951,12 @@ function ChangesSection({
 
 function SearchSection({
   search,
-  gap,
   category,
   copy,
   noun,
   ctaHref,
 }: {
   search: LandingSearchData;
-  gap: LandingGap | null;
   category: string;
   copy: LandingCopy["search"];
   noun: string;
@@ -1167,7 +1165,7 @@ function SearchSection({
           </MissingNote>
         )}
 
-        {gap ? <ProblemSolution gap={gap} /> : null}
+        {copy.gap ? <ProblemSolution gap={copy.gap} /> : null}
       </div>
     </section>
   );
@@ -1252,14 +1250,12 @@ const statCardUnit: CSSProperties = {
 
 function AdsSection({
   ads,
-  gap,
   name,
   copy,
   noun,
   ctaHref,
 }: {
   ads: LandingAdsData;
-  gap: LandingGap | null;
   name: string;
   copy: LandingCopy["ads"];
   noun: string;
@@ -1324,7 +1320,7 @@ function AdsSection({
                   />
                 </div>
               </div>
-              {gap ? <ProblemSolutionStacked gap={gap} /> : <div />}
+              {copy.gap ? <ProblemSolutionStacked gap={copy.gap} /> : <div />}
             </div>
 
             <div style={{ marginTop: 52 }}>
@@ -1507,13 +1503,11 @@ function ProblemSolutionStacked({ gap }: { gap: LandingGap }) {
 
 function ReviewsSection({
   reviews,
-  gap,
   copy,
   noun,
   ctaHref,
 }: {
   reviews: LandingReviewsData;
-  gap: LandingGap | null;
   copy: LandingCopy["reviews"];
   noun: string;
   ctaHref: string;
@@ -1750,7 +1744,7 @@ function ReviewsSection({
               </div>
             </div>
 
-            {gap ? <ProblemSolution gap={gap} /> : null}
+            {copy.gap ? <ProblemSolution gap={copy.gap} /> : null}
             <div style={{ marginTop: 24, textAlign: "center" }}>
               <ScoreLine value={reviews.pillar} />
             </div>
@@ -1771,14 +1765,12 @@ function ReviewsSection({
 
 function WebsiteSection({
   website,
-  gap,
   city,
   copy,
   noun,
   ctaHref,
 }: {
   website: LandingWebsiteData;
-  gap: LandingGap | null;
   city: string | null;
   copy: LandingCopy["website"];
   noun: string;
@@ -1978,7 +1970,7 @@ function WebsiteSection({
           </MissingNote>
         )}
 
-        {gap ? <ProblemSolution gap={gap} /> : null}
+        {copy.gap ? <ProblemSolution gap={copy.gap} /> : null}
       </div>
     </section>
   );
@@ -2460,7 +2452,6 @@ export function LandingView({ data }: { data: LandingData }) {
       <ChangesSection events={data.events} copy={data.copy.changes} />
       <SearchSection
         search={data.search}
-        gap={data.gap}
         category={data.category}
         copy={data.copy.search}
         noun={data.copy.noun.many}
@@ -2468,7 +2459,6 @@ export function LandingView({ data }: { data: LandingData }) {
       />
       <AdsSection
         ads={data.adsDetail}
-        gap={data.gap}
         name={data.name}
         copy={data.copy.ads}
         noun={data.copy.noun.many}
@@ -2476,14 +2466,12 @@ export function LandingView({ data }: { data: LandingData }) {
       />
       <ReviewsSection
         reviews={data.reviews}
-        gap={data.gap}
         copy={data.copy.reviews}
         noun={data.copy.noun.many}
         ctaHref={ctaHref}
       />
       <WebsiteSection
         website={data.websiteDetail}
-        gap={data.gap}
         city={data.city}
         copy={data.copy.website}
         noun={data.copy.noun.many}

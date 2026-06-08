@@ -21,7 +21,12 @@
  * general click-through assumptions and is always shown as a hedged range.
  */
 
-import type { LandingCopy, LandingData, LandingSearchData } from "./types";
+import type {
+  LandingCopy,
+  LandingData,
+  LandingGap,
+  LandingSearchData,
+} from "./types";
 
 /* ----------------------------------------------------------------- nouns */
 
@@ -136,6 +141,16 @@ export function estimateLostBookings(
   return { low, high };
 }
 
+/** Round to a readable magnitude for "~1,360" / "~61,400" framing. */
+function roundNice(n: number): number {
+  if (n < 10) return Math.max(0, Math.round(n));
+  if (n < 100) return Math.round(n / 5) * 5;
+  return Math.round(n / 10) * 10;
+}
+function fmt(n: number): string {
+  return new Intl.NumberFormat("en-US").format(n);
+}
+
 /* ------------------------------------------------------------ the engine */
 
 type Core = Omit<LandingData, "copy">;
@@ -185,6 +200,102 @@ export function buildLandingCopy(core: Core): LandingCopy {
       const r = bestRank(k.organicRank, k.mapsRank);
       return r == null || r > 3;
     });
+
+  const scoreStr = perf != null ? String(Math.round(perf)) : null;
+  const failChecks =
+    core.websiteDetail.totalChecks - core.websiteDetail.passCount;
+
+  /* ---- per-section problem → solution · each reflects ITS block's signals,
+   *      not one search-derived callout duplicated under every block ---- */
+  const missingKw = core.search.topKeywords
+    .filter((k) => {
+      const r = bestRank(k.organicRank, k.mapsRank);
+      return r == null || r > 3;
+    })
+    .slice(0, 2)
+    .map((k) => `"${k.keyword}"`);
+
+  const searchGap: LandingGap | null =
+    !core.search.hasData ||
+    core.search.searchesYouGet == null ||
+    core.search.searchesTotal == null
+      ? null
+      : hasSearchGaps
+        ? {
+            // ranks below top-3 for some searches → the gap to win
+            problem: `You show up for ~${fmt(roundNice(core.search.searchesYouGet))} searches a month. The other ~${fmt(roundNice(Math.max(0, core.search.searchesTotal - core.search.searchesYouGet)))} go to other ${C.many}.`,
+            solution:
+              missingKw.length > 0
+                ? `Win the searches you're missing — like ${missingKw.join(" and ")}.`
+                : `Climb into the top 3 for the searches still sending ${noun.many} to your competitors.`,
+          }
+        : {
+            // already top-3 across the board → defend, don't "climb"
+            problem: `You rank up top for the searches that matter — already capturing ~${fmt(roundNice(core.search.searchesYouGet))} of the ~${fmt(roundNice(core.search.searchesTotal))} ${noun.many} look for each month.`,
+            solution: `Defend those spots — one slipped rank quietly hands those ${noun.many} to the ${C.many} below you.`,
+          };
+
+  const adsGap: LandingGap | null = !core.adsDetail.hasData
+    ? null
+    : runsAds
+      ? marketHasAds
+        ? {
+            // you advertise, so do many others → keep pace
+            problem: `You're advertising — but ${adsMarket} other ${C.many} are too, running ${core.adsDetail.marketActiveAds} ads for the same ${noun.many}.`,
+            solution: `See who's outspending you and on which services, so every dollar lands where it actually wins.`,
+          }
+        : {
+            // you advertise in a quiet market → a head start to protect
+            problem: `You're advertising while almost no other ${C.many} here are — a head start most don't have.`,
+            solution: `Hold the lane: we'll flag the moment a competitor starts bidding against you.`,
+          }
+      : marketHasAds
+        ? {
+            // you run none, rivals do → the leak
+            problem: `${adsMarket} ${C.many} near you run ${core.adsDetail.marketActiveAds} ads for services like yours. You run none — so when ${noun.many} search, they meet a competitor first.`,
+            solution: `You don't have to outspend them — but catch the moment a new one starts, before it quietly costs you bookings.`,
+          }
+        : null; // you run none, barely anyone does → the section's "open lane" intro covers it
+
+  const reviewsGap: LandingGap | null = !core.reviews.hasData
+    ? null
+    : reviewsStrong
+      ? {
+          problem:
+            core.reviews.unanswered > 0
+              ? `You lead on reviews — but ${core.reviews.unanswered} sit unanswered, and every unreplied one reads as a shrug to the next ${noun.one}.`
+              : `You lead on reviews — but the ${C.many} behind you gain them every week, and a lead left untended slips.`,
+          solution:
+            core.reviews.unanswered > 0
+              ? `Reply to those ${core.reviews.unanswered} first, then keep asking happy ${noun.many} — that's how #1 stays #1.`
+              : `Keep asking happy ${noun.many} and reply to every review — that's how #1 stays #1.`,
+        }
+      : {
+          problem: `The ${C.many} ranking above you have more reviews and reply faster — ${noun.many} read that as "more trusted."`,
+          solution: `Ask your last 10 happy ${noun.many} for a review and reply to every one — the quickest climb you've got.`,
+        };
+
+  const websiteGap: LandingGap | null =
+    !core.websiteDetail.hasData || perf == null
+      ? null // a site we found but haven't scored → don't claim weak OR strong
+      : siteWeak
+        ? {
+            problem:
+              scoreStr && median != null
+                ? `Your site scores ${scoreStr} — under the ${Math.round(median)} most ${C.many} in ${cityLabel} reach. ${failChecks} of ${core.websiteDetail.totalChecks} booking-drivers are missing, so ${noun.many} who click leave without booking.`
+                : `${failChecks} of ${core.websiteDetail.totalChecks} booking-drivers are missing, so ${noun.many} who click leave without booking.`,
+            solution: `Fix those ${failChecks} — start with speed and a booking button up top — and turn more clicks into appointments.`,
+          }
+        : {
+            problem:
+              core.websiteDetail.industryBest != null
+                ? `Your site's strong${scoreStr ? ` (${scoreStr})` : ""}, but the best in ${cityLabel} hit ${Math.round(core.websiteDetail.industryBest)}${failChecks > 0 ? ` — and ${failChecks} checks still cost you the odd booking` : ""}.`
+                : `Your site's strong${scoreStr ? ` (${scoreStr})` : ""}${failChecks > 0 ? `, but ${failChecks} checks still cost you the odd booking` : ""}.`,
+            solution:
+              failChecks > 0
+                ? `Close the last ${failChecks} and you're the site to beat.`
+                : `Review it weekly so a silent regression never quietly costs you bookings.`,
+          };
 
   /* ---- HERO ---- */
   const standing = isLeader
@@ -294,7 +405,6 @@ export function buildLandingCopy(core: Core): LandingCopy {
       };
 
   /* ---- WEBSITE ---- */
-  const scoreStr = perf != null ? String(Math.round(perf)) : null;
   const website = siteWeak
     ? {
         eyebrow: "Where the bookings leak",
@@ -351,5 +461,15 @@ export function buildLandingCopy(core: Core): LandingCopy {
       "Cancel anytime, no contract. 30-day money-back guarantee — if it doesn't earn its $29, we refund it.",
   };
 
-  return { noun, hero, changes, search, ads, reviews, website, fixes, pricing };
+  return {
+    noun,
+    hero,
+    changes,
+    search: { ...search, gap: searchGap },
+    ads: { ...ads, gap: adsGap },
+    reviews: { ...reviews, gap: reviewsGap },
+    website: { ...website, gap: websiteGap },
+    fixes: { ...fixes, gap: null },
+    pricing,
+  };
 }
