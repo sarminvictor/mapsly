@@ -22,6 +22,7 @@ import { cacheLife, cacheTag } from "next/cache";
 import prisma from "@/lib/prisma";
 import { buildOverviewForBusiness } from "@/modules/smb-home/queries";
 
+import { buildLandingCopy } from "./copy";
 import { parseLandingParam } from "./token";
 import {
   EMPTY_LANDING_ADS,
@@ -30,7 +31,6 @@ import {
   EMPTY_LANDING_WEBSITE,
   LANDING_WEBSITE_CHECK_LABELS,
   type LandingAdsData,
-  type LandingChange,
   type LandingData,
   type LandingGap,
   type LandingReviewsData,
@@ -40,6 +40,31 @@ import {
 } from "./types";
 
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+
+/** Max real market-events surfaced in the landing "what changed" band. */
+const LANDING_EVENT_CAP = 6;
+
+/** Split a snapshot `cellKey` ("Medical Spa|Calgary|CA") into its cell coords.
+ * The cell is keyed by the Discovery MARKET category (e.g. "Medical Spa"), which
+ * differs from the raw Google category on `Business` (e.g. "Medical spa") — so
+ * the `CellMetric` reference MUST be looked up by this key, not `biz.category`,
+ * or the lookup silently misses (INC: landing industry-median bug). Returns null
+ * for a malformed/empty key. */
+function parseCellKey(
+  key: string | null,
+): { category: string; city: string; country: string } | null {
+  if (!key) return null;
+  const parts = key.split("|");
+  if (parts.length < 3) return null;
+  const country = parts[parts.length - 1]!.trim();
+  const city = parts[parts.length - 2]!.trim();
+  const category = parts
+    .slice(0, parts.length - 2)
+    .join("|")
+    .trim();
+  if (!category || !city || !country) return null;
+  return { category, city, country };
+}
 
 export interface ResolvedLanding {
   landingPageId: string;
@@ -108,6 +133,11 @@ export async function getLandingData(
           rating: true,
           reviewCount: true,
           placeTopics: true,
+          snapshots: {
+            take: 1,
+            orderBy: { snapshotDate: "desc" },
+            select: { cellKey: true },
+          },
         },
       }),
     ]);
@@ -115,9 +145,13 @@ export async function getLandingData(
     if (!biz) return null;
 
     const inCell = Boolean(biz.city && biz.country);
+    // Ad + review cohorts are keyed by the RAW Google category (what those
+    // tables store). The market reference (CellMetric) is keyed by the Discovery
+    // MARKET category encoded in the snapshot cellKey — resolve it separately.
     const cellWhere = inCell
       ? { category: biz.category, city: biz.city!, country: biz.country! }
       : null;
+    const marketCell = parseCellKey(biz.snapshots[0]?.cellKey ?? null);
 
     const [
       keywordRows,
@@ -174,7 +208,8 @@ export async function getLandingData(
         : Promise.resolve([]),
       prisma.lighthouseAudit.findFirst({
         where: { businessId },
-        orderBy: { auditedAt: "desc" },
+        // id tiebreak keeps "latest" deterministic if two audits share a timestamp.
+        orderBy: [{ auditedAt: "desc" }, { id: "desc" }],
         select: {
           performance: true,
           seo: true,
@@ -190,9 +225,9 @@ export async function getLandingData(
           auditedAt: true,
         },
       }),
-      cellWhere
+      marketCell
         ? prisma.cellMetric.findFirst({
-            where: cellWhere,
+            where: marketCell,
             select: {
               lighthousePerfP50: true,
               reviewCountP50: true,
@@ -283,14 +318,6 @@ export async function getLandingData(
       industryBestPerf(cellMetric?.distributions),
     );
     const gap = buildGap(biz.category, search);
-    const changes = buildChanges(
-      overview?.rankDelta ?? null,
-      overview?.rank ?? null,
-      biz.rating,
-      search,
-      reviews,
-      biz.category.replace(/_/g, " "),
-    );
 
     const hasAnyData =
       search.hasData ||
@@ -299,7 +326,7 @@ export async function getLandingData(
       websiteDetail.hasData ||
       (overview?.mapslyScore ?? null) != null;
 
-    return {
+    const core: Omit<LandingData, "copy"> = {
       businessId: biz.id,
       name: biz.name,
       slug: biz.slug,
@@ -321,7 +348,7 @@ export async function getLandingData(
       website: overview?.website ?? null,
       profile: overview?.profile ?? null,
       adsApplicable: overview?.adsApplicable ?? null,
-      changes,
+      events: (overview?.events ?? []).slice(0, LANDING_EVENT_CAP),
       search,
       adsDetail,
       reviews,
@@ -331,6 +358,7 @@ export async function getLandingData(
       lastSnapshotAt: overview?.lastSnapshotAt ?? null,
       hasAnyData,
     };
+    return { ...core, copy: buildLandingCopy(core) };
   } catch {
     return null;
   }
@@ -701,72 +729,6 @@ function buildGap(
         ? `Win the searches you're missing — like ${missing.join(" and ")}.`
         : `Climb into the top 3 for the searches that send patients to your competitors.`,
   };
-}
-
-/** The three "what changed in your area this week" insight cards. */
-function buildChanges(
-  rankDelta: number | null,
-  rank: number | null,
-  rating: number | null,
-  search: LandingSearchData,
-  reviews: LandingReviewsData,
-  cat: string,
-): LandingChange[] {
-  // Card 1 · ranking risk (real rank + rating; projection from review pace).
-  const spots = Math.max(1, Math.abs(rankDelta ?? 2));
-  const days = 30 + (reviews.trend30d % 30);
-  const card1: LandingChange = {
-    id: "rank",
-    title:
-      (rankDelta ?? 0) > 0
-        ? "Your ranking is holding"
-        : "Your ranking is slipping",
-    meta: `${days} days out`,
-    value: rank != null ? String(rank) : "—",
-    valueSuffix: `→ ${spots} risk`,
-    stars: rating,
-    barPct: rank != null ? Math.min(85, 42 + spots * 12) : 30,
-    barColor: "gold",
-    desc: `At your competitors' review pace, you could drop ${spots} spot${
-      spots === 1 ? "" : "s"
-    } on Google in about ${days} days.`,
-    faded: false,
-  };
-
-  // Card 2 · customers leaking to competitors (≈1% of missed searches convert).
-  const lostSearches =
-    search.searchesTotal != null && search.searchesYouGet != null
-      ? Math.max(0, search.searchesTotal - search.searchesYouGet)
-      : 0;
-  const lostCustomers = Math.max(0, Math.round(lostSearches * 0.01));
-  const card2: LandingChange = {
-    id: "customers",
-    title: "Customers you're losing",
-    meta: "this month",
-    value: lostCustomers > 0 ? String(lostCustomers) : "—",
-    valueSuffix: "people",
-    stars: null,
-    barPct: lostCustomers > 0 ? 76 : 22,
-    barColor: "coral",
-    desc: `Customers we tracked searching for ${cat} who went to nearby competitors instead — with their names and reasons.`,
-    faded: false,
-  };
-
-  // Card 3 · ads teaser (faded preview / unlock with Pro).
-  const card3: LandingChange = {
-    id: "ads",
-    title: "Ads running, phone not ringing",
-    meta: "out of sync",
-    value: "+40",
-    valueSuffix: "%",
-    stars: null,
-    barPct: 92,
-    barColor: "green",
-    desc: "Ad spend up while reviews and calls stay flat — a sign the ads aren't converting.",
-    faded: true,
-  };
-
-  return [card1, card2, card3];
 }
 
 function roundNice(n: number): number {

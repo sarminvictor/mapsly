@@ -1,0 +1,425 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Mapsly · Landing Copy SYSTEM — one template, every business</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..700;1,9..144,400..600&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg:#faf6f1; --bg2:#fffdfa; --bg3:#f1e9df; --ink:#2b2620; --ink2:#5c5448; --ink3:#8a8175;
+        --coral:#c3553a; --coral-soft:#f3ddd4; --gold:#c98a2b; --green:#4f7a52; --line:#e6ddd0;
+        --indigo:#5b3df5; --teal:#1f7a7a;
+        --serif:"Fraunces",Georgia,serif; --body:"Inter",system-ui,sans-serif; --mono:"JetBrains Mono",monospace;
+      }
+      *{box-sizing:border-box} html{scroll-behavior:smooth}
+      body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);line-height:1.55;-webkit-font-smoothing:antialiased}
+      .wrap{max-width:1180px;margin:0 auto;padding:0 24px}
+      a{color:var(--coral)}
+      .mast{background:radial-gradient(60% 80% at 85% 10%,color-mix(in srgb,var(--coral) 10%,transparent),transparent 70%),var(--bg);border-bottom:1px solid var(--line);padding:56px 0 40px}
+      .eyebrow{font-family:var(--mono);font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--coral);margin:0 0 14px}
+      h1.mast-title{font-family:var(--serif);font-weight:600;line-height:1.04;font-size:clamp(32px,4.8vw,54px);letter-spacing:-.02em;margin:0}
+      h1.mast-title em{font-style:italic;color:var(--coral)}
+      .mast-sub{font-size:18px;color:var(--ink2);max-width:760px;margin:18px 0 0}
+      .scorebar{display:flex;flex-wrap:wrap;gap:18px;align-items:stretch;margin-top:34px}
+      .scorecard{background:var(--bg2);border:1px solid var(--line);border-radius:16px;padding:18px 22px;min-width:180px;flex:1 1 180px}
+      .scorecard .lab{font-size:12.5px;color:var(--ink3);margin:0 0 8px;font-weight:600}
+      .scorecard .val{font-family:var(--serif);font-weight:600;font-size:36px;line-height:1}
+      .delta{color:var(--green);font-weight:700;font-family:var(--mono);font-size:15px}
+      .bigidea{background:var(--coral);color:#fff;border-radius:18px;padding:22px 26px;flex:2 1 420px}
+      .bigidea .lab{color:rgba(255,255,255,.75);font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;margin:0 0 10px}
+      .bigidea p{margin:0;font-family:var(--serif);font-size:20px;line-height:1.32;font-weight:500}
+      .bigidea em{font-style:italic}
+
+      section{padding:44px 0}
+      .section-h{font-family:var(--serif);font-weight:600;font-size:clamp(23px,3vw,31px);letter-spacing:-.01em;margin:0 0 6px}
+      .section-note{color:var(--ink2);margin:0 0 22px;max-width:820px}
+
+      /* system panel */
+      .syscols{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+      .panel{background:var(--bg2);border:1px solid var(--line);border-radius:16px;padding:20px 22px}
+      .panel h3{font-family:var(--serif);font-size:18px;margin:0 0 12px;font-weight:600}
+      .panel ul{margin:0;padding-left:18px}
+      .panel li{margin:7px 0;font-size:14px;color:var(--ink2)}
+      .panel li b{color:var(--ink)}
+      .tok{font-family:var(--mono);font-size:.86em;background:#efe7da;color:var(--coral);border-radius:5px;padding:1px 6px;white-space:nowrap}
+
+      table.nouns{width:100%;border-collapse:collapse;margin-top:6px;font-size:13.5px}
+      table.nouns th,table.nouns td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line)}
+      table.nouns th{font-family:var(--mono);font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3);font-weight:600}
+      table.nouns td b{color:var(--coral)}
+      .pill-ok{display:inline-block;background:#dcefe2;color:#2f7d57;border-radius:999px;padding:2px 9px;font-size:11px;font-weight:700}
+
+      /* legend */
+      .legend{display:flex;flex-wrap:wrap;gap:8px;margin:18px 0 0}
+      .tag{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;border-radius:999px;padding:4px 11px}
+      .tag::before{content:"";width:8px;height:8px;border-radius:50%;background:currentColor;opacity:.9}
+      .t-story{color:#5b3df5;background:#ece8ff}.t-pas{color:#c3553a;background:var(--coral-soft)}
+      .t-loss{color:#c0392b;background:#f7dfdb}.t-proof{color:#2f7d57;background:#dcefe2}
+      .t-anchor{color:#a9791f;background:#f5e8cf}.t-endow{color:#1f7a7a;background:#d6efef}
+      .t-loop{color:#7b3fb0;background:#efe2f7}.t-risk{color:#2b6fb0;background:#dceaf7}
+      .t-spec{color:#b03f7b;background:#f7e2ef}.t-clear{color:#5c5448;background:#ece6dc}
+
+      /* screen cards */
+      .screen{background:var(--bg2);border:1px solid var(--line);border-radius:22px;padding:26px;margin:22px 0;box-shadow:0 2px 10px rgba(43,38,32,.03)}
+      .screen-head{display:flex;flex-wrap:wrap;align-items:center;gap:13px;margin-bottom:14px}
+      .snum{font-family:var(--serif);font-weight:700;font-size:16px;color:#fff;background:var(--coral);width:32px;height:32px;border-radius:50%;display:grid;place-items:center;flex-shrink:0}
+      .sname{font-family:var(--serif);font-weight:600;font-size:22px;letter-spacing:-.01em}
+      .role{font-family:var(--mono);font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink2);background:var(--bg3);border-radius:999px;padding:4px 10px}
+      .scorepill{margin-left:auto;font-family:var(--mono);font-weight:700;font-size:13.5px;background:var(--bg3);border-radius:999px;padding:6px 13px;white-space:nowrap}
+      .scorepill b{color:var(--green)}.scorepill s{color:var(--ink3);text-decoration:none;opacity:.6}
+
+      .tmpl{background:#fbf6ef;border:1px dashed #d8c7b3;border-radius:14px;padding:16px 18px;margin-bottom:16px}
+      .tmpl .th{font-family:var(--mono);font-size:10.5px;text-transform:uppercase;letter-spacing:.09em;color:var(--coral);font-weight:700;margin:0 0 10px}
+      .tline{margin:0 0 9px;font-size:13.5px}
+      .tline .lbl{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink3);display:inline-block;min-width:62px}
+      .branch{margin:5px 0 5px 66px;font-size:13px;color:var(--ink2);line-height:1.45}
+      .cond{font-family:var(--mono);font-size:10.5px;font-weight:700;color:var(--indigo);background:#ece8ff;border-radius:4px;padding:1px 6px;margin-right:7px}
+
+      .renders{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+      .rcard{border-radius:14px;padding:16px 18px;border:1px solid var(--line);background:#fff}
+      .rhead{display:flex;align-items:center;gap:8px;margin:0 0 12px}
+      .rdot{width:9px;height:9px;border-radius:50%}
+      .rdot.m{background:var(--coral)}.rdot.e{background:var(--teal)}
+      .rname{font-weight:700;font-size:13px}
+      .rmeta{font-family:var(--mono);font-size:10.5px;color:var(--ink3)}
+      .rl{margin:0 0 9px}.rl:last-child{margin-bottom:0}
+      .rl .k{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink3);display:block;margin-bottom:2px}
+      .rl .ev{font-family:var(--mono);font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--coral);font-weight:600}
+      .rl .hv{font-family:var(--serif);font-size:17px;font-weight:600;line-height:1.22}
+      .rl .sv{font-size:13.5px;color:var(--ink);line-height:1.45}
+      .rl .cv{display:inline-block;background:var(--coral);color:#fff;font-weight:600;font-size:12.5px;border-radius:999px;padding:6px 13px}
+
+      .why{margin:16px 0 0;background:var(--bg3);border-left:3px solid var(--coral);border-radius:0 12px 12px 0;padding:13px 17px;font-size:14px;color:var(--ink2)}
+      .why b{color:var(--ink)}
+      .princ{display:flex;flex-wrap:wrap;gap:7px;margin:14px 0 0}
+
+      .close{background:var(--ink);color:#f3ede4;padding:50px 0}
+      .close h2{font-family:var(--serif);font-weight:600;font-size:clamp(24px,3.2vw,34px);margin:0 0 16px;color:#fff}
+      .close h2 em{color:#e9a48f;font-style:italic}
+      .close p.k{color:rgba(243,237,228,.86);max-width:820px;font-size:16px}
+      .close ul{max-width:820px;color:rgba(243,237,228,.82);font-size:15px}
+      .close li{margin:9px 0}
+      .close b{color:#fff}
+
+      @media (max-width:880px){.syscols,.renders{grid-template-columns:1fr}.branch{margin-left:0}}
+    </style>
+  </head>
+  <body>
+    <header class="mast">
+      <div class="wrap">
+        <p class="eyebrow">Landing copy SYSTEM · one template → every business in a market</p>
+        <h1 class="mast-title">One template. <em>True for all 26.</em></h1>
+        <p class="mast-sub">
+          This page goes to <b>every med spa in Miami</b> — Maria at #1 running no ads, Elena at #9
+          running ads with a great website, and everyone between. So the copy can't be one business's
+          story; it's a <b>conditional engine</b>: campaign-level tokens (category, city, the customer
+          noun) and recipient-level branches (rank tier, ads status, each pillar's real strength). Same
+          template, personal &amp; <em>true</em> for each. Below: every screen's logic, with two live
+          renders so you can see it hold at #1 and at #9.
+        </p>
+        <div class="scorebar">
+          <div class="bigidea">
+            <p class="lab">The rule that makes it scale</p>
+            <p>
+              Every recipient has a <em>best pillar</em> and a <em>worst pillar</em>. Open on their real
+              strength, land the one sting on their real weakest spot, resolve into their real fix list.
+              The arc holds whether they're <em>#1 or #22</em> — because it's built from <em>their</em> data, not Maria's.
+            </p>
+          </div>
+          <div class="scorecard"><p class="lab">Static copy (one story)</p><div class="val">5.7</div></div>
+          <div class="scorecard"><p class="lab">Conditional system</p><div class="val">8.7 <span class="delta">▲ scales</span></div></div>
+        </div>
+      </div>
+    </header>
+
+    <!-- ===== personalization model ===== -->
+    <section>
+      <div class="wrap">
+        <h2 class="section-h">How the personalization works</h2>
+        <p class="section-note">Two layers. The first is set once per campaign; the second flexes for every row in the list.</p>
+        <div class="syscols">
+          <div class="panel">
+            <h3>① Campaign tokens — fixed for the whole Miami send</h3>
+            <ul>
+              <li><span class="tok">{{category}}</span> / <span class="tok">{{categoryPlural}}</span> — "med spa" / "med spas"</li>
+              <li><span class="tok">{{city}}</span> — "Miami"</li>
+              <li><span class="tok">{{total}}</span> — market size, e.g. 26. Used as honest authority + FOMO: <i>"we mapped all 26."</i></li>
+              <li><span class="tok">{{noun}}</span> — the customer word, chosen by category (see table). <b>This is the answer to "patients vs customers": adapt it, never hardcode.</b></li>
+            </ul>
+          </div>
+          <div class="panel">
+            <h3>② Recipient branches — vary per business row</h3>
+            <ul>
+              <li><b>Rank tier</b> — leader / top / upper-half / lower-half / unranked → reframes the hero (always positive-or-opportunity, never "you're failing").</li>
+              <li><b>Ads status</b> — runs ads vs not, market ad-heavy vs open lane → 3 different ad-screen stories.</li>
+              <li><b>Per-pillar strength</b> — each section (Search, Ads, Reviews, Website) detects strong-vs-weak <i>for this recipient</i> and frames itself as a <span class="pill-ok">win bigger</span> or a gap.</li>
+              <li><b>Biggest gap + fix list</b> — computed from their lowest pillar; powers the hero "blind spot" and the Fixes plan.</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="panel" style="margin-top:18px">
+          <h3>The customer noun — by category, with a safe default</h3>
+          <p style="margin:0 0 10px;font-size:14px;color:var(--ink2)">
+            Store it on each category (a <span class="tok">customerNoun</span> field on <span class="tok">BusinessCategory</span>), with a keyword fallback. <b>Recommendation:</b> "patients" for medical only; "clients" is the warm default for the salons / spas / wellness Mapsly mostly serves; "customers" is the absolute safe fallback.
+          </p>
+          <table class="nouns">
+            <thead><tr><th>Category family</th><th>Noun</th><th>Example render (hero)</th></tr></thead>
+            <tbody>
+              <tr><td>Med spa, dermatology, dental, clinic, injectables, IV / medical wellness</td><td><b>patients</b></td><td>"…sending <b>patients</b> to the other 25."</td></tr>
+              <tr><td>Hair / nail / lash / brow salon, barber, esthetics, beauty, day spa, waxing</td><td><b>clients</b></td><td>"…sending <b>clients</b> to the other 25."</td></tr>
+              <tr><td>Restaurant, café, bar, bakery</td><td><b>guests</b></td><td>"…sending <b>guests</b> to the other 25."</td></tr>
+              <tr><td>Gym, studio, yoga, pilates</td><td><b>members</b></td><td>"…losing <b>members</b> to the gym down the street."</td></tr>
+              <tr><td>Auto, trades, home services, anything else</td><td><b>customers</b> <span style="color:var(--ink3)">(default)</span></td><td>"…sending <b>customers</b> elsewhere."</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="legend" id="legend"></div>
+      </div>
+    </section>
+
+    <!-- ===== two example recipients ===== -->
+    <section style="padding-top:0">
+      <div class="wrap">
+        <h2 class="section-h">The two recipients we'll render against</h2>
+        <p class="section-note">Both in the same Miami / med-spa send (so <span class="tok">{{noun}}</span> = "patients" for both) — but opposite profiles, to prove the template tells each the truth.</p>
+        <div class="renders">
+          <div class="rcard"><div class="rhead"><span class="rdot m"></span><span class="rname">Maria — The Injectionist &amp; Aesthetics</span></div>
+            <p style="margin:0;font-size:13.5px;color:var(--ink2)"><b>#1 of 26</b> · 4.8★, 489 reviews · <b>runs 0 ads</b> (market: 60 advertisers) · website <b>36</b>/100 (weak). <br><span style="color:var(--coral)">Strength: rank + reviews. &nbsp; Sting: website.</span></p>
+          </div>
+          <div class="rcard"><div class="rhead"><span class="rdot e"></span><span class="rname">Elena — Glow Aesthetics</span></div>
+            <p style="margin:0;font-size:13.5px;color:var(--ink2)"><b>#9 of 26</b> · 4.6★, 210 reviews · <b>runs 4 ads</b> · website <b>78</b>/100 (strong). <br><span style="color:var(--teal)">Strength: website + ad-savvy. &nbsp; Sting: reviews / climbing rank.</span></p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== screens ===== -->
+    <section style="padding-top:0">
+      <div class="wrap" id="screens"></div>
+    </section>
+
+    <!-- ===== close ===== -->
+    <section class="close">
+      <div class="wrap">
+        <h2>Why a <em>system</em> beats one perfect landing</h2>
+        <ul>
+          <li><b>It's true for everyone.</b> Elena's website is great — the template praises it instead of inventing a "leak." Her sting lands where it's real (fewer reviews than the spas above her). Honesty scales; flattery and false alarms don't.</li>
+          <li><b>"We mapped all 26" is an asset, not a secret.</b> Stating the market-wide measurement up front is <b>authority + FOMO</b> — every owner wants to know where they rank when everyone's being scored. It also makes the personalization believable: this is data, not a hand-written compliment.</li>
+          <li><b>The noun travels.</b> Swap the campaign to Miami nail salons and every "patients" becomes "clients" automatically. One engine, every local category.</li>
+          <li><b>It stays honest.</b> No invented proof (Mapsly is pre-launch — no testimonials). Belief comes from <i>their own</i> verifiable numbers, the full-market authority, and a loud money-back guarantee.</li>
+          <li><b>No free week — the page <i>is</i> the trial.</b> The personalized report above is the sample. We give real, specific value first and only then ask — so reciprocity is already banked and the "does it actually work?" doubt is half-answered before she ever sees the price. Risk is reversed by money-back, not a giveaway.</li>
+        </ul>
+        <p class="k" style="margin-top:18px">
+          <b>To ship this:</b> the section copy moves from static strings into a computed <span class="tok" style="background:rgba(255,255,255,.12);color:#e9a48f">copy</span> object built server-side in <span class="tok" style="background:rgba(255,255,255,.12);color:#e9a48f">getLandingData</span> — a <span class="tok" style="background:rgba(255,255,255,.12);color:#e9a48f">nounFor(category)</span> helper plus the tier flags already implied by the data, with safe fallbacks (unranked, no website, brand-new). <span class="tok" style="background:rgba(255,255,255,.12);color:#e9a48f">LandingView</span> then renders <span class="tok" style="background:rgba(255,255,255,.12);color:#e9a48f">data.copy.heroSubhead</span> instead of a literal.
+        </p>
+      </div>
+    </section>
+
+    <script>
+      const P={story:["StoryBrand · she's the hero","t-story"],pas:["Problem–Agitate–Solve","t-pas"],loss:["Loss aversion / FOMO","t-loss"],proof:["Social proof / Authority","t-proof"],anchor:["Anchoring / ROI","t-anchor"],endow:["Endowment · their data","t-endow"],loop:["Open loop / Zeigarnik","t-loop"],risk:["Risk reversal","t-risk"],spec:["Specificity / Von Restorff","t-spec"],clear:["Clarity","t-clear"]};
+
+      const SCREENS=[
+        {
+          n:1,name:"Top bar",role:"Frame · calm authority",before:8,after:8,
+          tmpl:{
+            eyebrow:"",
+            head:[{when:"static",text:"Your business. Mapped."}],
+            sub:[{when:"static",text:"(no personalization — brand + single CTA only)"}],
+            cta:"Start tracking · $29/mo"
+          },
+          maria:{head:"Your business. Mapped.",cta:"Start tracking · $29/mo"},
+          elena:{head:"Your business. Mapped.",cta:"Start tracking · $29/mo"},
+          princ:["clear"],
+          why:"Identical for everyone — and that's right. The one fixed anchor (price-visible CTA, learned once) plus a warm, ownable tagline. Calm sets up the hero's personal punch."
+        },
+        {
+          n:2,name:"Hero",role:"Hook · real standing + the one gap",before:6,after:9,
+          tmpl:{
+            eyebrow:"✓ {{category}} · {{city}} · we ranked all {{total}}",
+            head:[{when:"static",text:"{{businessName}}"}],
+            sub:[
+              {when:"IF leader",text:"You're the #1 {{category}} in {{city}}. And one blind spot is quietly sending {{noun}} to the other {{total-1}}."},
+              {when:"IF top",text:"You're one of the top {{categoryPlural}} in {{city}} — #{{rank}} of {{total}}. And one blind spot is sending {{noun}} to the spas above you."},
+              {when:"IF upper",text:"You're #{{rank}} of {{total}} {{categoryPlural}} in {{city}} — ahead of {{total-rank}} others. And one blind spot is quietly sending {{noun}} to the spas around you."},
+              {when:"ELSE lower",text:"You're #{{rank}} of {{total}} {{categoryPlural}} in {{city}} — which means the fastest gains in your market are still yours to take. Here's the first."},
+              {when:"+ always (body)",text:"Mapsly shows you — every week — where you're winning, where you're losing {{noun}}, and the few fixes that bring them back. {{categoryPlural}} that close their gaps aim for up to 30% more {{noun}} in 3 months."}
+            ],
+            cta:"Start tracking · $29/mo"
+          },
+          maria:{eyebrow:"✓ Med spa · Miami · we ranked all 26",head:"The Injectionist & Aesthetics",sub:"You're the #1 med spa in Miami. And one blind spot is quietly sending patients to the other 25. — Mapsly shows you, every week, where you're winning, where you're losing patients, and the few fixes that bring them back.",cta:"Start tracking · $29/mo"},
+          elena:{eyebrow:"✓ Med spa · Miami · we ranked all 26",head:"Glow Aesthetics",sub:"You're #9 of 26 med spas in Miami — ahead of 17 others. And one blind spot is quietly sending patients to the spas around you. — Mapsly shows you, every week, where you're winning, where you're losing patients, and the few fixes that bring them back.",cta:"Start tracking · $29/mo"},
+          princ:["story","loop","endow","proof"],
+          why:"The fix that makes it scale. <b>Rank is always framed up</b> — leader gets a crown, mid-pack gets 'ahead of N others', a laggard gets 'the fastest gains are yours.' Then the <b>universal open loop</b> ('one blind spot') + the one-line product definition. 'We ranked all 26' is honest market-authority + FOMO. The blind spot is each recipient's real weakest pillar, revealed below."
+        },
+        {
+          n:3,name:"What changed this week",role:"Agitate (gently) · FOMO from real moves",before:6,after:8.5,
+          tmpl:{
+            eyebrow:"While you were with {{noun}}",
+            head:[{when:"static",text:"Here's what your market did this week."}],
+            sub:[{when:"static",text:"Every Monday, Mapsly shows you every verified move the {{categoryPlural}} around you made — new ads, new reviews, ranking shifts. The things you'd never catch between appointments."}],
+            cta:""
+          },
+          maria:{eyebrow:"While you were with patients",head:"Here's what your market did this week.",sub:"Every Monday, Mapsly shows the verified moves the med spas around you made. [Feed: a competitor started running ads · 6d ago …]"},
+          elena:{eyebrow:"While you were with patients",head:"Here's what your market did this week.",sub:"Same Miami-med-spa feed — but her own moves surface tinted 'You' (Elena runs ads, so her ad-starts show here)."},
+          princ:["loss","loop","proof"],
+          why:"Near-universal — the real feed does the work. The market-level events are shared across the batch; each recipient's <i>own</i> moves highlight (the <span class='tok'>isOwn</span> flag). 'While you were with {{noun}}' is the empathy line that names why she can't track this herself. ('with clients' for a salon.)"
+        },
+        {
+          n:4,name:"Search",role:"Endowment · their real ranking gap",before:6,after:9,
+          tmpl:{
+            eyebrow:"Where {{noun}} look for you",
+            head:[
+              {when:"IF has ranking gaps",text:"You own these searches. You're missing these."},
+              {when:"ELSE strong everywhere",text:"You show up where {{noun}} look. Here's how to stay on top."}
+            ],
+            sub:[{when:"body (dynamic)",text:"You capture ~{{youGet}} searches a month. The rest go to a {{category}} that isn't you — including '{{worstKeyword}},' where {{volume}} look and you're #{{kwRank}}. Top-3 results take most of the clicks."}],
+            cta:"Start tracking · $29/mo"
+          },
+          maria:{eyebrow:"Where patients look for you",head:"You own these searches. You're missing these.",sub:"You capture ~1,360 searches a month. The rest go to a med spa that isn't you — including 'microneedling near me,' where 5,400 look and you're #23. Top-3 take most of the clicks.",cta:"Start tracking · $29/mo"},
+          elena:{eyebrow:"Where patients look for you",head:"You own these searches. You're missing these.",sub:"You capture ~2,100 searches a month. The rest go to a med spa that isn't you — including 'lip filler Miami,' where 2,900 look and you're #14. Top-3 take most of the clicks.",cta:"Start tracking · $29/mo"},
+          princ:["endow","spec","loss"],
+          why:"Possession→loss is universal: everyone ranks for some terms and misses others, so 'you own these / you're missing these' is always true. The standout number (volume + their rank) is pulled from each recipient's worst real keyword — Maria's #23, Elena's #14. The 'top-3 gets most clicks' fact supplies the mechanism honestly."
+        },
+        {
+          n:5,name:"Ads",role:"Tension · 3 branches on ad status",before:5,after:8.5,
+          tmpl:{
+            eyebrow:"Who's paying to get found",
+            head:[
+              {when:"IF runs-no-ads + market-has-ads",text:"{{adsMarket}} {{categoryPlural}} near you are buying ads. You're running zero."},
+              {when:"IF runs-ads",text:"You're advertising — and so are {{adsMarket}} {{categoryPlural}} near you."},
+              {when:"IF nobody-advertises",text:"Almost no {{categoryPlural}} in {{city}} run ads. That's an open lane."}
+            ],
+            sub:[
+              {when:"→ no-ads",text:"You don't have to run ads to win — your {{rating}}★ and #{{rank}} rank prove it. But when {{adsMarket}} compete for the same {{noun}}, it pays to know who, where, and on which treatments — pulled live from Google's and Meta's own ad libraries."},
+              {when:"→ runs-ads",text:"Good — you're in the game. The real question is whether your spend keeps pace. Here's every {{category}} bidding on your treatments, how many ads they run, and where you stand — live from Google and Meta."},
+              {when:"→ open lane",text:"{{noun}} are searching and almost no one's paying to intercept them. Move first and the clicks come cheap — we'll flag the moment that changes."}
+            ],
+            cta:"Start tracking · $29/mo"
+          },
+          maria:{eyebrow:"Who's paying to get found",head:"60 med spas near you are buying ads. You're running zero.",sub:"You don't have to run ads to win — your 4.8★ and #1 rank prove it. But when 60 compete for the same patients, it pays to know who, where, and on which treatments — live from Google's and Meta's ad libraries.",cta:"Start tracking · $29/mo"},
+          elena:{eyebrow:"Who's paying to get found",head:"You're advertising — and so are 60 med spas near you.",sub:"Good — you're in the game. The real question is whether your spend keeps pace. Here's every med spa bidding on your treatments, how many ads they run, and where you stand — live from Google and Meta.",cta:"Start tracking · $29/mo"},
+          princ:["loss","spec","proof"],
+          why:"The screen that most needs branching — and where the old static copy broke hardest. Maria (no ads) gets warm permission + the 60/0 sting from the real number. Elena (runs ads) gets a peer, not a scold — 'is your spend keeping pace?' is a fresh open loop she actually wants answered. A third branch handles 'open lane' markets. No accusation in any."
+        },
+        {
+          n:6,name:"Reviews",role:"Pride OR catch-up · branches on review strength",before:5,after:8.5,
+          tmpl:{
+            eyebrow:"Your reputation",
+            head:[
+              {when:"IF reviews strong vs cell",text:"{{rating}}★, {{count}} reviews — you're winning here. Here's how to win bigger."},
+              {when:"ELSE behind the leaders",text:"{{rating}}★ is a strong start — but the {{categoryPlural}} pulling ahead have more {{noun}} saying it out loud."}
+            ],
+            sub:[
+              {when:"→ strong",text:"Your reviews are your best salesperson. We read what {{noun}} rave about at the top {{categoryPlural}} near you — so you can spot the few things they mention that you could own too."},
+              {when:"→ behind",text:"Reviews are the first thing {{noun}} check before booking. Here's what {{noun}} praise at the spas ranking above you — and the fastest way to close the gap."}
+            ],
+            cta:""
+          },
+          maria:{eyebrow:"Your reputation",head:"4.8★, 489 reviews — you're winning here. Here's how to win bigger.",sub:"Your reviews are your best salesperson. We read what patients rave about at the top med spas near you — so you can spot the few things they mention that you could own too."},
+          elena:{eyebrow:"Your reputation",head:"4.6★ is a strong start — but the med spas pulling ahead have more patients saying it out loud.",sub:"Reviews are the first thing patients check before booking. Here's what patients praise at the spas ranking above you — and the fastest way to close the gap."},
+          princ:["proof","endow","story"],
+          why:"Here the strong/weak flip is vivid: <b>reviews are Maria's pride beat and Elena's sting.</b> Maria gets affirmation + a free competitive gift; Elena gets an honest, hopeful catch-up frame (never 'you're losing' — 'a strong start', 'fastest way to close the gap'). Same section, opposite emotional job, both true."
+        },
+        {
+          n:7,name:"Website",role:"The sting OR a pride beat · branches on site score",before:6,after:9,
+          tmpl:{
+            eyebrow:[{when:"IF weak",text:"Where the bookings leak"},{when:"IF strong",text:"Where you're ahead"}],
+            head:[
+              {when:"IF site below market",text:"{{noun}} are sold — then they hit your website. It scores {{score}}."},
+              {when:"IF site at/above market",text:"Your website does its job — {{score}}/100, above most {{categoryPlural}} in {{city}}."}
+            ],
+            sub:[
+              {when:"→ weak",text:"Your reviews and rank do the hard part: they get {{noun}} to click. Then your site has three seconds to turn them into a booking. Yours scores {{score}} — under the {{median}} most {{categoryPlural}} reach. The good news: it's the most fixable thing on this page."},
+              {when:"→ strong",text:"When {{noun}} click through, your site turns them into bookings — an edge most {{categoryPlural}} don't have. Here's the one thing even strong sites miss, and how you stack up against the very best ({{best}}/100)."}
+            ],
+            cta:"Start tracking · $29/mo"
+          },
+          maria:{eyebrow:"Where the bookings leak",head:"Patients are sold — then they hit your website. It scores 36.",sub:"Your reviews and rank do the hard part: they get patients to click. Then your site has three seconds to turn them into a booking. Yours scores 36 — under the 42 most Miami med spas reach. The good news: it's the most fixable thing on this page.",cta:"Start tracking · $29/mo"},
+          elena:{eyebrow:"Where you're ahead",head:"Your website does its job — 78/100, above most med spas in Miami.",sub:"When patients click through, your site turns them into bookings — an edge most med spas don't have. Here's the one thing even strong sites miss, and how you stack up against the very best (in your market, that's 52/100 — you're already past it).",cta:"Start tracking · $29/mo"},
+          princ:["loss","spec","story"],
+          why:"This is the clearest proof the system must be conditional. The old copy told <i>everyone</i> 'your site is your biggest leak' — a lie to Elena. Now: <b>Maria's weak site is the deliberate sting</b> (loss of earned clicks, softened with 'most fixable'); <b>Elena's strong site is a pride beat</b> ('an edge most don't have'). The sting only fires where it's real — for Elena it lands on Reviews instead."
+        },
+        {
+          n:8,name:"Fixes",role:"Resolution · their real plan",before:6,after:8.5,
+          tmpl:{
+            eyebrow:"Your plan",
+            head:[{when:"static",text:"Three fixes, in order. Here's what each one moves."}],
+            sub:[{when:"static",text:"We did the diagnosis. The three highest-impact moves for your {{category}} right now — what to do, and how much each lifts your score. Start at the top."}],
+            cta:"Start tracking · $29/mo"
+          },
+          maria:{eyebrow:"Your plan",head:"Three fixes, in order. Here's what each one moves.",sub:"[Her real fixes:] Reply to your 85 unanswered reviews · est. +0.7 — Speed up your website · est. +0.3 — Turn on Google or Meta ads · Fast.",cta:"Start tracking · $29/mo"},
+          elena:{eyebrow:"Your plan",head:"Three fixes, in order. Here's what each one moves.",sub:"[Her real fixes:] Ask 10 happy patients for a review · est. +0.5 — Climb the map for 'lip filler' · est. +0.3 — Reply to your 12 unanswered reviews · est. +0.2.",cta:"Start tracking · $29/mo"},
+          princ:["clear","loop","spec"],
+          why:"Already fully dynamic — the fixes come from each recipient's real pillar scores (the model-derived engine we built). Maria fixes her website; Elena, whose site is fine, gets review + ranking fixes. Same closure, different plan. 'Start at the top' is the micro-commitment that pre-sells the subscription."
+        },
+        {
+          n:9,name:"Pricing",role:"Close · reciprocity + reverse risk",before:6,after:9,
+          tmpl:{
+            eyebrow:"",
+            head:[{when:"static",text:"More {{noun}}. Fewer surprises. $29 a month."}],
+            sub:[
+              {when:"reciprocity — the page IS the sample",text:"Everything above is today's free snapshot of your {{category}}. $29/month keeps it live — every Monday — and turns those gaps into fixes you can act on: one-click review replies, competitor-ad alerts, ranking watch."},
+              {when:"anchor",text:"A couple of new {{noun}} cover a year of it."},
+              {when:"risk reversal — money-back, no trial",text:"Cancel anytime, no contract. 30-day money-back guarantee: if it doesn't earn its $29, we refund it."}
+            ],
+            cta:"Start tracking · $29/mo"
+          },
+          maria:{head:"More patients. Fewer surprises. $29 a month.",sub:"Everything above is today's free snapshot of your med spa. $29/month keeps it live every Monday and turns those gaps into fixes — review replies, ad alerts, ranking watch. A couple of new patients cover a year. Cancel anytime · 30-day money-back.",cta:"Start tracking · $29/mo"},
+          elena:{head:"More patients. Fewer surprises. $29 a month.",sub:"Everything above is today's free snapshot of your med spa. $29/month keeps it live every Monday and turns those gaps into fixes — review replies, ad alerts, ranking watch. A couple of new patients cover a year. Cancel anytime · 30-day money-back.",cta:"Start tracking · $29/mo"},
+          princ:["proof","anchor","risk"],
+          why:"<b>No free trial — because the landing IS the trial.</b> She just read a real, personalized report for free, so reciprocity is already banked and the 'does it actually work?' doubt is half-answered (she's holding the proof). The ask reframes from 'try it' to 'keep it live + act on it.' Risk is reversed by money-back, not a free week — which also removes her last hesitation. Peak-end: she leaves having already received value, downside gone. The noun keeps it on-voice for any category ('More clients.' for a salon)."
+        }
+      ];
+
+      // legend
+      const legend=document.getElementById("legend");
+      Object.values(P).forEach(([label,cls])=>{const s=document.createElement("span");s.className="tag "+cls;s.textContent=label;legend.appendChild(s);});
+
+      const tok=(t)=>t.replace(/\{\{[^}]+\}\}/g,(m)=>'<span class="tok">'+m+"</span>");
+      const branchRows=(arr)=>arr.map((b)=>{
+        if(b.when==="static") return '<div class="branch">'+tok(b.text)+"</div>";
+        return '<div class="branch"><span class="cond">'+b.when+"</span>"+tok(b.text)+"</div>";
+      }).join("");
+
+      const renderCard=(who,cls,name,meta,r)=>{
+        return '<div class="rcard"><div class="rhead"><span class="rdot '+cls+'"></span><span class="rname">'+name+'</span><span class="rmeta">'+meta+'</span></div>'+
+          (r.eyebrow?'<div class="rl"><span class="k">Eyebrow</span><span class="ev">'+r.eyebrow+'</span></div>':'')+
+          (r.head?'<div class="rl"><span class="k">Headline</span><span class="hv">'+r.head+'</span></div>':'')+
+          (r.sub?'<div class="rl"><span class="k">Copy</span><span class="sv">'+r.sub+'</span></div>':'')+
+          (r.cta?'<div class="rl"><span class="k">CTA</span><span class="cv">'+r.cta+'</span></div>':'')+
+        "</div>";
+      };
+
+      const host=document.getElementById("screens");
+      SCREENS.forEach((s)=>{
+        const princ=s.princ.map((k)=>{const[label,cls]=P[k];return '<span class="tag '+cls+'">'+label+"</span>";}).join("");
+        const t=s.tmpl;
+        const tmplHtml=
+          (t.eyebrow!==undefined?'<div class="tline"><span class="lbl">Eyebrow</span> '+(Array.isArray(t.eyebrow)?'':tok(t.eyebrow))+'</div>'+(Array.isArray(t.eyebrow)?branchRows(t.eyebrow):''):'')+
+          '<div class="tline"><span class="lbl">Headline</span></div>'+branchRows(t.head)+
+          '<div class="tline"><span class="lbl">Copy</span></div>'+branchRows(t.sub)+
+          (t.cta?'<div class="tline"><span class="lbl">CTA</span> '+tok(t.cta)+'</div>':'');
+        const el=document.createElement("article");
+        el.className="screen";
+        el.innerHTML=
+          '<div class="screen-head"><span class="snum">'+s.n+'</span><span class="sname">'+s.name+'</span><span class="role">'+s.role+'</span><span class="scorepill"><s>'+s.before+'</s> → <b>'+s.after+'</b>/10</span></div>'+
+          '<div class="tmpl"><p class="th">▦ The template (logic)</p>'+tmplHtml+'</div>'+
+          '<div class="renders">'+
+            renderCard("maria","m","Maria","#1 · no ads · site 36",s.maria)+
+            renderCard("elena","e","Elena","#9 · runs ads · site 78",s.elena)+
+          '</div>'+
+          '<div class="why"><b>Why / how it scales.</b> '+s.why+'</div>'+
+          '<div class="princ">'+princ+'</div>';
+        host.appendChild(el);
+      });
+    </script>
+  </body>
+</html>

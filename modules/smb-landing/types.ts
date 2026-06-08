@@ -16,29 +16,7 @@
  * handled with `notFound()`, not EMPTY.
  */
 
-import type { SmbOverviewFix } from "@/modules/smb-home/types";
-
-/** One "what changed this week" insight card. */
-export interface LandingChange {
-  id: string;
-  /** Card title ("Your ranking is slipping"). */
-  title: string;
-  /** Right-aligned meta ("47 days out" / "this month" / "out of sync"). */
-  meta: string;
-  /** Big stat value ("4" / "23" / "+40"). */
-  value: string;
-  /** Secondary text after the value ("→ 2 risk" / "people" / "%"). */
-  valueSuffix: string;
-  /** Rating stars on the right of the stat row (card 1), else null. */
-  stars: number | null;
-  /** Progress-bar fill 0–100. */
-  barPct: number;
-  barColor: "gold" | "coral" | "green";
-  /** One-line description under the bar. */
-  desc: string;
-  /** Faded "preview / unlock with Pro" card. */
-  faded: boolean;
-}
+import type { SmbMarketChange, SmbOverviewFix } from "@/modules/smb-home/types";
 
 /** Search / visibility detail ("Where you show up on Google"). */
 export interface LandingSearchData {
@@ -139,6 +117,45 @@ export interface LandingGap {
   solution: string;
 }
 
+/** One section's personalized prose slot. */
+interface LandingSectionCopy {
+  eyebrow: string;
+  title: string;
+  emphasis: string;
+  intro: string;
+}
+
+/** The conditional, per-recipient copy — built by `buildLandingCopy` from the
+ * business's REAL data + the campaign's customer noun. Personal but true for
+ * every recipient (leader or laggard, runs-ads or not). */
+export interface LandingCopy {
+  /** Customer noun for this category ("patient"/"patients", "client"/"clients"…). */
+  noun: { one: string; many: string };
+  hero: { headline: string; body: string };
+  changes: {
+    eyebrow: string;
+    title: string;
+    emphasis: string;
+    subtitle: string;
+  };
+  search: LandingSectionCopy & {
+    /** "These are the searches your future {noun} run…" */
+    futureLine: string;
+    /** Defensible, hedged lost-bookings estimate, or null. */
+    lossLine: string | null;
+  };
+  ads: LandingSectionCopy;
+  reviews: LandingSectionCopy;
+  website: LandingSectionCopy;
+  fixes: LandingSectionCopy;
+  pricing: {
+    titleLead: string;
+    emphasis: string;
+    body: string;
+    guarantee: string;
+  };
+}
+
 /** The full landing payload. */
 export interface LandingData {
   // Identity + hero
@@ -168,8 +185,9 @@ export interface LandingData {
   profile: number | null;
   adsApplicable: boolean | null;
 
-  // "What changed in your area this week" (summary rows)
-  changes: LandingChange[];
+  // "This week — what changed" · real cell-wide market events (same source +
+  // shape as the /home MarketChangesFeed: own + competitor verified moves).
+  events: SmbMarketChange[];
 
   // Section detail
   search: LandingSearchData;
@@ -183,10 +201,32 @@ export interface LandingData {
   // Shared market-gap callout (you-capture vs market)
   gap: LandingGap | null;
 
+  // Conditional, per-recipient copy (the noun + every section's prose)
+  copy: LandingCopy;
+
   // Meta
   lastSnapshotAt: Date | null;
   hasAnyData: boolean;
 }
+
+export const EMPTY_LANDING_COPY: LandingCopy = {
+  noun: { one: "customer", many: "customers" },
+  hero: { headline: "", body: "" },
+  changes: { eyebrow: "", title: "", emphasis: "", subtitle: "" },
+  search: {
+    eyebrow: "",
+    title: "",
+    emphasis: "",
+    intro: "",
+    futureLine: "",
+    lossLine: null,
+  },
+  ads: { eyebrow: "", title: "", emphasis: "", intro: "" },
+  reviews: { eyebrow: "", title: "", emphasis: "", intro: "" },
+  website: { eyebrow: "", title: "", emphasis: "", intro: "" },
+  fixes: { eyebrow: "", title: "", emphasis: "", intro: "" },
+  pricing: { titleLead: "", emphasis: "", body: "", guarantee: "" },
+};
 
 export const EMPTY_LANDING_SEARCH: LandingSearchData = {
   hasData: false,
@@ -257,13 +297,14 @@ export const EMPTY_LANDING_DATA: LandingData = {
   website: null,
   profile: null,
   adsApplicable: null,
-  changes: [],
+  events: [],
   search: EMPTY_LANDING_SEARCH,
   adsDetail: EMPTY_LANDING_ADS,
   reviews: EMPTY_LANDING_REVIEWS,
   websiteDetail: EMPTY_LANDING_WEBSITE,
   fixes: [],
   gap: null,
+  copy: EMPTY_LANDING_COPY,
   lastSnapshotAt: null,
   hasAnyData: false,
 };

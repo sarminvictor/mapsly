@@ -21,10 +21,10 @@
 
 import type { CSSProperties, ReactNode } from "react";
 
-import type { SmbOverviewFix } from "@/modules/smb-home/types";
+import type { SmbMarketChange, SmbOverviewFix } from "@/modules/smb-home/types";
 import type {
   LandingAdsData,
-  LandingChange,
+  LandingCopy,
   LandingData,
   LandingGap,
   LandingReviewsData,
@@ -33,6 +33,7 @@ import type {
 } from "../types";
 
 import { LandingAnalytics } from "./LandingAnalytics";
+import { LandingChangesFeed } from "./LandingChangesFeed";
 
 /* ----------------------------------------------------------------- helpers */
 
@@ -715,26 +716,17 @@ function Hero({ data }: { data: LandingData }) {
                 color: "var(--color-text)",
               }}
             >
-              Get up to{" "}
-              <em
-                style={{
-                  fontFamily: SERIF,
-                  fontStyle: "italic",
-                  fontWeight: 600,
-                  color: "var(--color-coral)",
-                }}
-              >
-                30% more customers
-              </em>
+              {data.copy.hero.headline}
               <span
                 style={{
                   display: "block",
-                  marginTop: 4,
-                  fontSize: 19,
+                  marginTop: 10,
+                  fontSize: 17,
+                  lineHeight: 1.55,
                   color: "var(--color-text-2)",
                 }}
               >
-                with Mapsly in the next 3 months
+                {data.copy.hero.body}
               </span>
             </p>
           </div>
@@ -872,7 +864,13 @@ function Hero({ data }: { data: LandingData }) {
 
 /* --------------------------------------------------------- changes section */
 
-function ChangesSection({ changes }: { changes: LandingChange[] }) {
+function ChangesSection({
+  events,
+  copy,
+}: {
+  events: SmbMarketChange[];
+  copy: LandingCopy["changes"];
+}) {
   return (
     <section
       data-landing-section="changes"
@@ -900,7 +898,7 @@ function ChangesSection({ changes }: { changes: LandingChange[] }) {
               color: "var(--color-coral)",
             }}
           >
-            This week in your market
+            {copy.eyebrow}
           </p>
           <h2
             style={{
@@ -913,7 +911,7 @@ function ChangesSection({ changes }: { changes: LandingChange[] }) {
               color: "var(--color-text)",
             }}
           >
-            What changed in your area{" "}
+            {copy.title}{" "}
             <em
               style={{
                 fontStyle: "italic",
@@ -921,7 +919,7 @@ function ChangesSection({ changes }: { changes: LandingChange[] }) {
                 color: "var(--color-coral)",
               }}
             >
-              this week.
+              {copy.emphasis}
             </em>
           </h2>
           <p
@@ -933,9 +931,7 @@ function ChangesSection({ changes }: { changes: LandingChange[] }) {
               color: "var(--color-text-3)",
             }}
           >
-            Weekly digest of every verified move your competitors made — new
-            reviews, new ads, ranking shifts, photo uploads. Refreshes every
-            Monday with Pro.
+            {copy.subtitle}
           </p>
           <div
             className="landing-changes-arrow"
@@ -945,113 +941,9 @@ function ChangesSection({ changes }: { changes: LandingChange[] }) {
           </div>
         </div>
 
-        <div style={{ display: "grid", gap: 16 }}>
-          {changes.map((c) => (
-            <ChangeCard key={c.id} c={c} />
-          ))}
-        </div>
+        <LandingChangesFeed events={events} />
       </div>
     </section>
-  );
-}
-
-function ChangeCard({ c }: { c: LandingChange }) {
-  const barHex =
-    c.barColor === "gold"
-      ? "#e7c24c"
-      : c.barColor === "coral"
-        ? "var(--color-coral)"
-        : "#a7b88c";
-  return (
-    <div
-      style={{
-        background: "#fbf9f5",
-        borderRadius: 20,
-        padding: "20px 24px",
-        boxShadow: c.faded ? "none" : "0 16px 40px -24px rgba(28,25,22,0.22)",
-        opacity: c.faded ? 0.45 : 1,
-      }}
-    >
-      <div
-        style={{
-          display: "flex",
-          alignItems: "baseline",
-          justifyContent: "space-between",
-          gap: 12,
-        }}
-      >
-        <span
-          style={{
-            fontSize: 16.5,
-            fontWeight: 700,
-            color: "var(--color-text)",
-          }}
-        >
-          {c.title}
-        </span>
-        <span
-          style={{ fontSize: 13, color: "var(--color-text-3)", flexShrink: 0 }}
-        >
-          {c.meta}
-        </span>
-      </div>
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 12,
-          marginTop: 14,
-        }}
-      >
-        <span
-          style={{ display: "inline-flex", alignItems: "baseline", gap: 10 }}
-        >
-          <span
-            style={{
-              fontFamily: SERIF,
-              fontSize: 46,
-              fontWeight: 700,
-              lineHeight: 1,
-            }}
-          >
-            {c.value}
-          </span>
-          <span style={{ fontSize: 19, color: "var(--color-text-2)" }}>
-            {c.valueSuffix}
-          </span>
-        </span>
-        {c.stars != null ? <Stars value={c.stars} /> : null}
-      </div>
-      <div
-        style={{
-          height: 8,
-          borderRadius: 999,
-          background: "rgba(28,25,22,0.1)",
-          marginTop: 16,
-          overflow: "hidden",
-        }}
-      >
-        <div
-          style={{
-            width: `${Math.max(0, Math.min(100, c.barPct))}%`,
-            height: "100%",
-            borderRadius: 999,
-            background: barHex,
-          }}
-        />
-      </div>
-      <p
-        style={{
-          margin: "16px 0 0",
-          fontSize: 13.5,
-          lineHeight: 1.5,
-          color: "var(--color-text-3)",
-        }}
-      >
-        {c.desc}
-      </p>
-    </div>
   );
 }
 
@@ -1061,11 +953,15 @@ function SearchSection({
   search,
   gap,
   category,
+  copy,
+  noun,
   ctaHref,
 }: {
   search: LandingSearchData;
   gap: LandingGap | null;
   category: string;
+  copy: LandingCopy["search"];
+  noun: string;
   ctaHref: string;
 }) {
   const youGet = search.searchesYouGet;
@@ -1077,10 +973,10 @@ function SearchSection({
     <section data-landing-section="search" style={sectionStyle("white")}>
       <div style={CONTAINER}>
         <SectionIntro
-          eyebrow="What you sell? Where Google shows you?"
-          title="What you offer."
-          emphasis="Where you show up on Google."
-          intro="Every service you offer matched against monthly Google searches in your area, and where you currently rank."
+          eyebrow={copy.eyebrow}
+          title={copy.title}
+          emphasis={copy.emphasis}
+          intro={copy.intro}
         />
 
         {search.hasData ? (
@@ -1167,6 +1063,19 @@ function SearchSection({
                   go to other {cat}s.
                 </p>
               ) : null}
+              {copy.lossLine ? (
+                <p
+                  style={{
+                    margin: "18px 0 0",
+                    fontSize: 15.5,
+                    lineHeight: 1.5,
+                    fontWeight: 600,
+                    color: "var(--color-coral)",
+                  }}
+                >
+                  {copy.lossLine}
+                </p>
+              ) : null}
               <p
                 style={{
                   margin: "16px 0 0",
@@ -1175,8 +1084,7 @@ function SearchSection({
                   color: "var(--color-text-3)",
                 }}
               >
-                These are the searches your future patients run — Mapsly tracks
-                your position on every one, every week.
+                {copy.futureLine}
               </p>
               <div style={{ marginTop: 18 }}>
                 <ScoreLine value={search.pillar} />
@@ -1185,7 +1093,7 @@ function SearchSection({
                 <CtaPill
                   href={ctaHref}
                   cta="search"
-                  label="Get map visibility"
+                  label="Start tracking · $29/mo"
                 />
               </div>
             </div>
@@ -1255,9 +1163,7 @@ function SearchSection({
           </div>
         ) : (
           <MissingNote>
-            {
-              "We haven't scanned how you rank on Google yet. Start with Mapsly and we'll map every search patients use to find businesses like yours — and exactly where you land."
-            }
+            {`We haven't scanned how you rank on Google yet. Start with Mapsly and we'll map every search ${noun} use to find businesses like yours — and exactly where you land.`}
           </MissingNote>
         )}
 
@@ -1348,21 +1254,25 @@ function AdsSection({
   ads,
   gap,
   name,
+  copy,
+  noun,
   ctaHref,
 }: {
   ads: LandingAdsData;
   gap: LandingGap | null;
   name: string;
+  copy: LandingCopy["ads"];
+  noun: string;
   ctaHref: string;
 }) {
   return (
     <section data-landing-section="ads" style={sectionStyle("cream")}>
       <div style={CONTAINER}>
         <SectionIntro
-          eyebrow="Who's running ads against you?"
-          title="Patients search for your services."
-          emphasis="Three competitors pay to be the answer."
-          intro="We scan Meta Ad Library + Google Ads Transparency Center for every advertiser bidding on your services or your brand name in your market. You're not running ads — they are."
+          eyebrow={copy.eyebrow}
+          title={copy.title}
+          emphasis={copy.emphasis}
+          intro={copy.intro}
         />
 
         {ads.hasData ? (
@@ -1491,9 +1401,7 @@ function AdsSection({
           </>
         ) : (
           <MissingNote>
-            {
-              "We haven't mapped the ads running in your area yet. Mapsly tracks every competitor advertising on Google and Meta for your services — so you see who's buying the patients you could win."
-            }
+            {`We haven't mapped the ads running in your area yet. Mapsly tracks every competitor advertising on Google and Meta for your services — so you see who's buying the ${noun} you could win.`}
           </MissingNote>
         )}
       </div>
@@ -1600,20 +1508,24 @@ function ProblemSolutionStacked({ gap }: { gap: LandingGap }) {
 function ReviewsSection({
   reviews,
   gap,
+  copy,
+  noun,
   ctaHref,
 }: {
   reviews: LandingReviewsData;
   gap: LandingGap | null;
+  copy: LandingCopy["reviews"];
+  noun: string;
   ctaHref: string;
 }) {
   return (
     <section data-landing-section="reviews" style={sectionStyle("white")}>
       <div style={CONTAINER}>
         <SectionIntro
-          eyebrow="Why patients choose competitors?"
-          title="What patients praise"
-          emphasis="at the places they pick over you."
-          intro="We read every public review for your top competitor and counted what patients keep coming back to mention. Pattern below shows what's pulling patients in next door — and what they expect you to offer too."
+          eyebrow={copy.eyebrow}
+          title={copy.title}
+          emphasis={copy.emphasis}
+          intro={copy.intro}
         />
 
         {reviews.hasData ? (
@@ -1785,7 +1697,7 @@ function ReviewsSection({
                           <strong style={{ color: "var(--color-success)" }}>
                             {t.label}
                           </strong>{" "}
-                          mentioned by patients
+                          mentioned by {noun}
                         </span>
                         <span
                           style={{
@@ -1832,9 +1744,7 @@ function ReviewsSection({
                       color: "var(--color-text-3)",
                     }}
                   >
-                    {
-                      "We'll surface the services patients mention once your reviews are pulled."
-                    }
+                    {`We'll surface the services ${noun} mention once your reviews are pulled.`}
                   </p>
                 )}
               </div>
@@ -1847,9 +1757,7 @@ function ReviewsSection({
           </>
         ) : (
           <MissingNote>
-            {
-              "We haven't pulled your reviews yet. Mapsly reads every review you and your competitors get — what patients praise, what they complain about, and how fast owners reply."
-            }
+            {`We haven't pulled your reviews yet. Mapsly reads every review you and your competitors get — what ${noun} praise, what they complain about, and how fast owners reply.`}
           </MissingNote>
         )}
 
@@ -1865,11 +1773,15 @@ function WebsiteSection({
   website,
   gap,
   city,
+  copy,
+  noun,
   ctaHref,
 }: {
   website: LandingWebsiteData;
   gap: LandingGap | null;
   city: string | null;
+  copy: LandingCopy["website"];
+  noun: string;
   ctaHref: string;
 }) {
   const host = website.websiteUrl ? safeHost(website.websiteUrl) : null;
@@ -1886,10 +1798,10 @@ function WebsiteSection({
     <section data-landing-section="website" style={sectionStyle("white")}>
       <div style={CONTAINER}>
         <SectionIntro
-          eyebrow="Your website. Multi-check audit."
-          title="Your website,"
-          emphasis="graded on 12 things patients notice."
-          intro="We check your site against the median of the top 10 websites in your metro — not just the #1. Each item below is a booking-driver patients silently judge you on."
+          eyebrow={copy.eyebrow}
+          title={copy.title}
+          emphasis={copy.emphasis}
+          intro={copy.intro}
         />
 
         {website.hasData ? (
@@ -1950,9 +1862,9 @@ function WebsiteSection({
                   sub={`midpoint of the top 10 sites${city ? ` in ${city}` : ""}`}
                 />
                 <WebStat
-                  label="Industry best (p95):"
+                  label="Industry best (p90):"
                   value={website.industryBest}
-                  sub="top 5% of websites in your category"
+                  sub="top 10% of websites in your category"
                   color="var(--color-success)"
                 />
               </div>
@@ -1974,7 +1886,7 @@ function WebsiteSection({
                 <CtaPill
                   href={ctaHref}
                   cta="website"
-                  label="Full per-check breakdown"
+                  label="Start tracking · $29/mo"
                 />
               </div>
             </div>
@@ -2062,9 +1974,7 @@ function WebsiteSection({
           </div>
         ) : (
           <MissingNote>
-            {
-              "We haven't audited your website yet. Mapsly checks it against the 12 things patients (and Google) notice — speed, booking buttons, mobile, and more — every week."
-            }
+            {`We haven't audited your website yet. Mapsly checks it against the 12 things ${noun} (and Google) notice — speed, booking buttons, mobile, and more — every week.`}
           </MissingNote>
         )}
 
@@ -2142,9 +2052,11 @@ function WebStat({
 
 function FixesSection({
   fixes,
+  copy,
   ctaHref,
 }: {
   fixes: SmbOverviewFix[];
+  copy: LandingCopy["fixes"];
   ctaHref: string;
 }) {
   const top = fixes.slice(0, 3);
@@ -2158,13 +2070,10 @@ function FixesSection({
     >
       <div style={CONTAINER}>
         <SectionIntro
-          eyebrow="Your diagnosis. What to fix? What changes?"
-          title="Where you stand."
-          emphasis="What to fix."
-          suffix="What changes."
-          intro={
-            "Three steps, one flow. First: where you are now. Then: the three highest-impact fixes our algorithm surfaced. Finally: a live projection of what changes when you apply them."
-          }
+          eyebrow={copy.eyebrow}
+          title={copy.title}
+          emphasis={copy.emphasis}
+          intro={copy.intro}
         />
         {top.length > 0 ? (
           <div
@@ -2263,7 +2172,7 @@ function FixesSection({
           </MissingNote>
         )}
         <div style={{ marginTop: 40, textAlign: "center" }}>
-          <CtaPill href={ctaHref} cta="fixes" label="Start tracking" />
+          <CtaPill href={ctaHref} cta="fixes" label="Start tracking · $29/mo" />
         </div>
       </div>
     </section>
@@ -2272,7 +2181,13 @@ function FixesSection({
 
 /* --------------------------------------------------------- pricing section */
 
-function PricingSection({ ctaHref }: { ctaHref: string }) {
+function PricingSection({
+  copy,
+  ctaHref,
+}: {
+  copy: LandingCopy["pricing"];
+  ctaHref: string;
+}) {
   const props = [
     "Catch new competitor ads within 24h",
     "AI-draft a reply to every new review",
@@ -2308,8 +2223,8 @@ function PricingSection({ ctaHref }: { ctaHref: string }) {
               color: "#fff",
             }}
           >
-            More patients. Fewer surprises.{" "}
-            <em style={{ fontStyle: "italic" }}>$29/month.</em>
+            {copy.titleLead}{" "}
+            <em style={{ fontStyle: "italic" }}>{copy.emphasis}</em>
           </h2>
           <p
             style={{
@@ -2320,9 +2235,7 @@ function PricingSection({ ctaHref }: { ctaHref: string }) {
               color: "rgba(255,255,255,0.72)",
             }}
           >
-            {
-              "Reply to every Google review in one click. Watch your competitors while you sleep. Catch the moment a new ad targets your patients. Find the keywords quietly costing you bookings."
-            }
+            {copy.body}
           </p>
           <div
             style={{
@@ -2452,8 +2365,7 @@ function PricingSection({ ctaHref }: { ctaHref: string }) {
                 lineHeight: 1.5,
               }}
             >
-              30-day money-back guarantee · cancel anytime · no contract · first
-              data refresh within 24 hours
+              {copy.guarantee}
             </p>
           </div>
         </div>
@@ -2545,28 +2457,44 @@ export function LandingView({ data }: { data: LandingData }) {
       <LandingAnalytics token={data.token} />
       <TopBar ctaHref={ctaHref} />
       <Hero data={data} />
-      <ChangesSection changes={data.changes} />
+      <ChangesSection events={data.events} copy={data.copy.changes} />
       <SearchSection
         search={data.search}
         gap={data.gap}
         category={data.category}
+        copy={data.copy.search}
+        noun={data.copy.noun.many}
         ctaHref={ctaHref}
       />
       <AdsSection
         ads={data.adsDetail}
         gap={data.gap}
         name={data.name}
+        copy={data.copy.ads}
+        noun={data.copy.noun.many}
         ctaHref={ctaHref}
       />
-      <ReviewsSection reviews={data.reviews} gap={data.gap} ctaHref={ctaHref} />
+      <ReviewsSection
+        reviews={data.reviews}
+        gap={data.gap}
+        copy={data.copy.reviews}
+        noun={data.copy.noun.many}
+        ctaHref={ctaHref}
+      />
       <WebsiteSection
         website={data.websiteDetail}
         gap={data.gap}
         city={data.city}
+        copy={data.copy.website}
+        noun={data.copy.noun.many}
         ctaHref={ctaHref}
       />
-      <FixesSection fixes={data.fixes} ctaHref={ctaHref} />
-      <PricingSection ctaHref={ctaHref} />
+      <FixesSection
+        fixes={data.fixes}
+        copy={data.copy.fixes}
+        ctaHref={ctaHref}
+      />
+      <PricingSection copy={data.copy.pricing} ctaHref={ctaHref} />
       <Footer />
     </main>
   );
