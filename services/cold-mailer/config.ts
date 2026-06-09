@@ -60,7 +60,9 @@ export function getMailboxCreds(): ColdMailboxCred[] {
 const DEFAULT_SMTP_HOST = "smtp.zohocloud.ca"; // Zoho Canada region (matches MX)
 const DEFAULT_SMTP_PORT = 465;
 const FROM_NAME = "Mapsly";
-const BASE_URL = "https://mapsly.ai"; // /l/ report + /u/ unsubscribe links
+// Canonical host — the apex 307-redirects to www, so point report (/l/) and
+// one-click unsubscribe (/u/) links straight at www to avoid a redirect hop.
+const BASE_URL = "https://www.mapsly.ai";
 // CAN-SPAM / CASL legal footer — MUST be a real postal address.
 const PHYSICAL_ADDRESS = "Mapsly · 530 3 St SE, Calgary, AB, Canada";
 
