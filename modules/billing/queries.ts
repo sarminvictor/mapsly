@@ -158,6 +158,111 @@ async function loadBillingUser(userId: string): Promise<BillingUserRow | null> {
   })) as BillingUserRow | null;
 }
 
+// ─── Self-healing reconcile · live Stripe state → DB ───────────────────────
+//
+// The webhook is the PRIMARY sync path for subscription lifecycle, but it
+// depends on the Stripe endpoint being subscribed to the right event types — a
+// manual config that's easy to get wrong (e.g. forgetting customer.subscription.*
+// means a cancellation never reaches us). To make billing state un-droppable,
+// the (uncached, low-traffic) billing page retrieves the live subscription on
+// load and writes back any drift. Best-effort: a Stripe hiccup keeps DB values.
+
+interface LiveSub {
+  status: string;
+  cancelAtPeriodEnd: boolean;
+  currentPeriodEnd: Date | null;
+  priceId: string | null;
+}
+
+function subPeriodEndMs(sub: Stripe.Subscription): Date | null {
+  // Top-level (≤2025-02 API) or item-level (Basil 2025-03+).
+  const top = (sub as unknown as { current_period_end?: number })
+    .current_period_end;
+  const item = (
+    sub.items?.data?.[0] as unknown as
+      | { current_period_end?: number }
+      | undefined
+  )?.current_period_end;
+  const ts = typeof top === "number" ? top : item;
+  return typeof ts === "number" ? new Date(ts * 1000) : null;
+}
+
+async function fetchLiveSub(subId: string): Promise<LiveSub | null> {
+  try {
+    const sub = await stripeClient.subscriptions.retrieve(subId);
+    return {
+      status: sub.status,
+      cancelAtPeriodEnd: Boolean(sub.cancel_at_period_end),
+      currentPeriodEnd: subPeriodEndMs(sub),
+      priceId: sub.items?.data?.[0]?.price?.id ?? null,
+    };
+  } catch {
+    return null;
+  }
+}
+
+const dateMs = (d: Date | null): number | null => (d ? d.getTime() : null);
+
+/** Reconcile the SMB user's subscription from Stripe — mutates `user` in place
+ * to the live values and persists drift to the DB. Best-effort. */
+async function reconcileUserSubscription(user: BillingUserRow): Promise<void> {
+  if (!user.stripeSubscriptionId) return;
+  const live = await fetchLiveSub(user.stripeSubscriptionId);
+  if (!live) return;
+  const drifted =
+    live.status !== user.stripeStatus ||
+    live.cancelAtPeriodEnd !== user.cancelAtPeriodEnd ||
+    live.priceId !== user.stripePriceId ||
+    dateMs(live.currentPeriodEnd) !== dateMs(user.currentPeriodEnd);
+  if (!drifted) return;
+  user.stripeStatus = live.status;
+  user.cancelAtPeriodEnd = live.cancelAtPeriodEnd;
+  user.stripePriceId = live.priceId;
+  user.currentPeriodEnd = live.currentPeriodEnd;
+  await prisma.user
+    .update({
+      where: { id: user.id },
+      data: {
+        stripeStatus: live.status,
+        cancelAtPeriodEnd: live.cancelAtPeriodEnd,
+        stripePriceId: live.priceId,
+        currentPeriodEnd: live.currentPeriodEnd,
+      },
+    })
+    .catch(() => {});
+}
+
+/** Same reconcile for the agency row backing the agency billing page. */
+async function reconcileAgencySubscription(
+  user: BillingUserRow,
+): Promise<void> {
+  const agency = user.agencyMembers[0]?.agency;
+  if (!agency?.stripeSubscriptionId) return;
+  const live = await fetchLiveSub(agency.stripeSubscriptionId);
+  if (!live) return;
+  const drifted =
+    live.status !== agency.stripeStatus ||
+    live.cancelAtPeriodEnd !== agency.cancelAtPeriodEnd ||
+    live.priceId !== agency.stripePriceId ||
+    dateMs(live.currentPeriodEnd) !== dateMs(agency.currentPeriodEnd);
+  if (!drifted) return;
+  agency.stripeStatus = live.status;
+  agency.cancelAtPeriodEnd = live.cancelAtPeriodEnd;
+  agency.stripePriceId = live.priceId;
+  agency.currentPeriodEnd = live.currentPeriodEnd;
+  await prisma.agency
+    .update({
+      where: { id: agency.id },
+      data: {
+        stripeStatus: live.status,
+        cancelAtPeriodEnd: live.cancelAtPeriodEnd,
+        stripePriceId: live.priceId,
+        currentPeriodEnd: live.currentPeriodEnd,
+      },
+    })
+    .catch(() => {});
+}
+
 // ─── Public · Current plan ─────────────────────────────────────────────────
 
 /**
@@ -176,6 +281,8 @@ export async function getSmbCurrentPlan(
   try {
     const user = await loadBillingUser(userId);
     if (!user) return EMPTY_CURRENT_PLAN;
+    // Self-heal any drift from a missed webhook before shaping the view.
+    await reconcileUserSubscription(user);
     return shapeUserPlan(user);
   } catch {
     return EMPTY_CURRENT_PLAN;
@@ -197,6 +304,7 @@ export async function getAgencyCurrentPlan(
   try {
     const user = await loadBillingUser(userId);
     if (!user) return { ...EMPTY_CURRENT_PLAN, audience: "agency" };
+    await reconcileAgencySubscription(user);
     return shapeAgencyPlan(user);
   } catch {
     return { ...EMPTY_CURRENT_PLAN, audience: "agency" };
