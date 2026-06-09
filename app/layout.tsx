@@ -22,6 +22,14 @@ export default function RootLayout({
           href="https://fonts.gstatic.com"
           crossOrigin=""
         />
+        {/* Preload the landing headline face (Semibold) for faster LCP. */}
+        <link
+          rel="preload"
+          href="/fonts/freightbigpro-semibold.woff2"
+          as="font"
+          type="font/woff2"
+          crossOrigin="anonymous"
+        />
         {/* eslint-disable-next-line @next/next/no-page-custom-font -- App Router root layout (Next 13+) is the correct place; the lint rule is for pages/_document.js in Pages Router */}
         <link
           href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400..700&family=Inter:wght@400..800&family=JetBrains+Mono:wght@400..600&family=Montserrat:wght@400;500;600;700&display=swap"

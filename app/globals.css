@@ -6,9 +6,9 @@
   --font-mono: "JetBrains Mono", monospace;
 
   /* Landing-page typography (the emailed proposal pages /l/[token]).
-   * Headings want FreightBig Pro (a licensed display serif we can't ship);
-   * until the licensed .woff2 files land in /public/fonts/ + an @font-face
-   * is added, the chain falls back to Fraunces — visually close, no 404.
+   * Headings use FreightBig Pro — self-hosted woff2 in /public/fonts/ via the
+   * @font-face blocks below: Semibold for normal/black headings, Bold Italic
+   * for coral emphasis. Fraunces stays as the swap/fallback face.
    * Body/labels use Montserrat (loaded via the Google Fonts link in layout). */
   --font-landing-head: "FreightBig Pro", "Fraunces", Georgia, serif;
   --font-landing-body: "Montserrat", "Inter", sans-serif;
@@ -17,15 +17,15 @@
   --color-bg: #faf6f1;
   --color-bg-2: #ffffff;
   --color-bg-3: #f2ebe3;
-  --color-text: #1c1916;
-  --color-text-2: #5c544d;
-  --color-text-3: #9a9088;
+  --color-text: #000000;
+  --color-text-2: #909ba2;
+  --color-text-3: #909ba2;
   --color-border: #e8ddd0;
-  --color-coral: #c3553a;
+  --color-coral: #b96562;
   --color-berry: #8b3a2c;
   --color-gold: #d4a574;
   --color-gold-2: #e8c79b;
-  --color-success: #2d8659;
+  --color-success: #7da88b;
   --color-success-2: #5cf09a;
   --color-alert: #b53d47;
   --color-info: #3b6ec4;
@@ -35,6 +35,25 @@
   --color-agency-indigo: #5b3df5;
   --color-agency-indigo-2: #4729d8;
   --color-agency-teal: #0891b2;
+}
+
+/* FreightBig Pro · self-hosted display serif for landing headings.
+ * Normal/black headings → Semibold; coral italic emphasis → Bold Italic.
+ * Weight range 100–900 maps every heading weight onto the single shipped
+ * file per style (prevents faux-bold synthesis). */
+@font-face {
+  font-family: "FreightBig Pro";
+  src: url("/fonts/freightbigpro-semibold.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "FreightBig Pro";
+  src: url("/fonts/freightbigpro-bolditalic.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: italic;
+  font-display: swap;
 }
 
 html {
@@ -161,7 +180,7 @@ details[open] > summary::after {
   height: 9px;
   border-radius: 50%;
   background: var(--color-coral);
-  box-shadow: 0 0 10px rgba(195, 85, 58, 0.5);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--color-coral) 50%, transparent);
 }
 .smb-nav-brand-text {
   font-family: var(--font-serif);
@@ -199,7 +218,7 @@ details[open] > summary::after {
   color: var(--color-text);
 }
 .smb-nav-item.is-active {
-  background: rgba(195, 85, 58, 0.1);
+  background: color-mix(in srgb, var(--color-coral) 10%, transparent);
   color: var(--color-coral);
   font-weight: 600;
 }
@@ -520,13 +539,13 @@ details[open] > summary::after {
 }
 @keyframes smb-search-row-pulse {
   0% {
-    background: rgba(195, 85, 58, 0);
+    background: transparent;
   }
   20% {
-    background: rgba(195, 85, 58, 0.15);
+    background: color-mix(in srgb, var(--color-coral) 15%, transparent);
   }
   100% {
-    background: rgba(195, 85, 58, 0);
+    background: transparent;
   }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -579,23 +598,82 @@ details[open] > summary::after {
   }
 }
 
+/* Landing data tables · flush the outer column edges with the section text so
+ * the first column + divider lines line up with the section heading. */
+/* Scrollable table area · thin scrollbar in the table line color (#F1F4F6). */
+.landing-table-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #f1f4f6 transparent;
+}
+.landing-table-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.landing-table-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.landing-table-scroll::-webkit-scrollbar-thumb {
+  background: #f1f4f6;
+  border-radius: 999px;
+}
+
+.landing-table--nocaps th {
+  text-transform: none !important;
+}
+
+.landing-table th:first-child,
+.landing-table td:first-child {
+  padding-left: 0 !important;
+}
+.landing-table th:last-child,
+.landing-table td:last-child {
+  padding-right: 0 !important;
+}
+
 /* Landing hero · staggered score-card cluster (desktop) → stacked (mobile) */
 .landing-hero-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  align-items: center;
+  max-width: 571px;
+  margin-inline: auto;
   position: relative;
-  min-height: 600px;
+  z-index: 0;
+}
+/* Soft coral glow behind the score-card cluster (Figma: 633×608 ellipse,
+ * #B96562 @20%, layer-blur 300 → reproduced as a radial-gradient for GPU cost). */
+.landing-hero-cards::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  left: 50%;
+  top: 50%;
+  width: 1150px;
+  height: 1100px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(
+    closest-side,
+    color-mix(in srgb, var(--color-coral) 20%, transparent),
+    transparent 78%
+  );
+  pointer-events: none;
+}
+.hero-top-row {
+  display: flex;
+  gap: 14px;
+  align-items: flex-end;
+  width: 100%;
 }
 @media (max-width: 880px) {
-  .landing-hero-cards {
-    min-height: 0;
-    display: grid;
-    gap: 14px;
+  .hero-top-row {
+    flex-direction: column;
+    width: 100%;
   }
-  .landing-hero-cards > div {
-    position: static !important;
+  .hero-top-row > div,
+  .landing-hero-cards > .hero-card-3 {
     width: 100% !important;
-    top: auto !important;
-    left: auto !important;
-    right: auto !important;
   }
 }
 @media (max-width: 720px) {
