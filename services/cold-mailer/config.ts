@@ -75,14 +75,11 @@ export function getSmtpConfig(): ColdSmtpConfig {
 }
 
 export function getColdSenderConfig(): ColdSenderConfig {
-  const baseUrl = (
-    process.env.COLD_BASE_URL ??
-    process.env.NEXT_PUBLIC_APP_URL ??
-    BASE_URL
-  ).replace(/\/$/, "");
+  const baseUrl = (process.env.COLD_BASE_URL ?? BASE_URL).replace(/\/$/, ""); // do NOT inherit NEXT_PUBLIC_APP_URL (localhost/apex in some envs)
   return {
     fromName: process.env.COLD_FROM_NAME?.trim() || FROM_NAME,
-    physicalAddress: process.env.COLD_PHYSICAL_ADDRESS?.trim() || PHYSICAL_ADDRESS,
+    physicalAddress:
+      process.env.COLD_PHYSICAL_ADDRESS?.trim() || PHYSICAL_ADDRESS,
     baseUrl,
     // Reuse the app's existing secret — no new env var to manage.
     unsubscribeSecret:
