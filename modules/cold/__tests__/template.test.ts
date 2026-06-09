@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { buildFooter, renderTemplate } from "../template";
+import { buildTextFooter, renderTemplate, toHtmlBody } from "../template";
 
 describe("renderTemplate", () => {
   const tokens = {
@@ -42,18 +42,28 @@ describe("renderTemplate", () => {
   });
 });
 
-describe("buildFooter", () => {
-  test("includes address + unsubscribe link", () => {
-    const f = buildFooter("Mapsly, 1 Main St", "https://mapsly.ai/u/abc.def");
-    expect(f).toContain("Mapsly, 1 Main St");
-    expect(f).toContain("https://mapsly.ai/u/abc.def");
-    expect(f).toContain("Unsubscribe");
+describe("buildTextFooter", () => {
+  test("adds a minimal unsubscribe line, no postal address", () => {
+    const f = buildTextFooter("https://x/u/t");
+    expect(f).toContain("Unsubscribe: https://x/u/t");
+    expect(f).not.toMatch(/Calgary|St SE|Inc/);
+  });
+});
+
+describe("toHtmlBody", () => {
+  test("renders a compact unsubscribe link + linkifies body URLs", () => {
+    const html = toHtmlBody(
+      "See it: https://www.mapsly.ai/l/abc",
+      "https://www.mapsly.ai/u/t",
+    );
+    expect(html).toContain('<a href="https://www.mapsly.ai/u/t"');
+    expect(html).toContain(">Unsubscribe<");
+    expect(html).toContain('<a href="https://www.mapsly.ai/l/abc"');
   });
 
-  test("omits address line when blank", () => {
-    const f = buildFooter("", "https://x/u/t");
-    expect(f).toContain("https://x/u/t");
-    expect(f).toContain("Mapsly");
-    expect(f).not.toContain("Mapsly\n\n"); // no empty address line
+  test("escapes HTML in the body", () => {
+    expect(toHtmlBody("a <b> & c", "https://x/u/t")).toContain(
+      "a &lt;b&gt; &amp; c",
+    );
   });
 });

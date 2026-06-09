@@ -18,7 +18,11 @@ import { buildTokens } from "@/modules/cold/personalization";
 import { addDelay, withinSendWindow } from "@/modules/cold/scheduling";
 import { isGloballyPaused } from "@/modules/cold/settings";
 import { isSuppressed, suppress } from "@/modules/cold/suppression";
-import { buildFooter, renderTemplate } from "@/modules/cold/template";
+import {
+  buildTextFooter,
+  renderTemplate,
+  toHtmlBody,
+} from "@/modules/cold/template";
 import { unsubscribeUrlFor } from "@/modules/cold/token";
 import { acquireMailbox, sendViaMailbox } from "@/services/cold-mailer";
 import { getColdSenderConfig } from "@/services/cold-mailer/config";
@@ -175,9 +179,9 @@ export async function processColdSequences(
     const tokens = await buildTokens(r.businessId, { reportUrl, senderName });
     const subject = renderTemplate(step.subjectTemplate, tokens);
     const unsubUrl = unsubscribeUrlFor(r.email);
-    const text =
-      renderTemplate(step.bodyTemplate, tokens) +
-      buildFooter(sender.physicalAddress, unsubUrl);
+    const renderedBody = renderTemplate(step.bodyTemplate, tokens);
+    const text = renderedBody + buildTextFooter(unsubUrl);
+    const html = toHtmlBody(renderedBody, unsubUrl);
 
     const result = await sendViaMailbox(
       mailbox,
@@ -185,6 +189,7 @@ export async function processColdSequences(
         to: r.email,
         subject,
         text,
+        html,
         unsubscribeUrl: unsubUrl,
         fromName: senderName,
       },

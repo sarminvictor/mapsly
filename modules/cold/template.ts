@@ -23,11 +23,32 @@ export function renderTemplate(
   return out;
 }
 
-/** CAN-SPAM / CASL footer: sender identity + physical address + unsubscribe. */
-export function buildFooter(
-  physicalAddress: string,
-  unsubscribeUrl: string,
-): string {
-  const addr = physicalAddress ? `\n${physicalAddress}` : "";
-  return `\n\n—\nMapsly${addr}\nNot relevant? Unsubscribe here: ${unsubscribeUrl}`;
+/** Plain-text footer: a minimal unsubscribe line (no postal address). */
+export function buildTextFooter(unsubscribeUrl: string): string {
+  return `\n\nUnsubscribe: ${unsubscribeUrl}`;
+}
+
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function linkify(html: string): string {
+  return html.replace(
+    /(https?:\/\/[^\s<]+)/g,
+    (u) => `<a href="${u}">${u}</a>`,
+  );
+}
+
+/**
+ * Minimal HTML alternative: the plain body (URLs clickable, newlines preserved)
+ * + a small "Unsubscribe" link instead of a long raw URL.
+ */
+export function toHtmlBody(plainBody: string, unsubscribeUrl: string): string {
+  const body = linkify(escapeHtml(plainBody));
+  return (
+    `<div style="font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;` +
+    `font-size:14px;line-height:1.5;color:#222;white-space:pre-wrap">${body}</div>` +
+    `<p style="font-size:12px;color:#999;margin-top:22px">` +
+    `<a href="${escapeHtml(unsubscribeUrl)}" style="color:#999">Unsubscribe</a></p>`
+  );
 }

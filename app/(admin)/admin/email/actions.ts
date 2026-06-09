@@ -20,7 +20,11 @@ import {
 } from "@/modules/cold/enroll";
 import { setColdSetting } from "@/modules/cold/settings";
 import { suppress, unsuppress } from "@/modules/cold/suppression";
-import { buildFooter, renderTemplate } from "@/modules/cold/template";
+import {
+  buildTextFooter,
+  renderTemplate,
+  toHtmlBody,
+} from "@/modules/cold/template";
 import { unsubscribeUrlFor } from "@/modules/cold/token";
 import { sendViaMailbox, syncMailboxesFromEnv } from "@/services/cold-mailer";
 import {
@@ -256,13 +260,13 @@ export async function sendSeedTest(
   };
   const subject = renderTemplate(step0.subjectTemplate, tokens);
   const unsubUrl = unsubscribeUrlFor(to);
-  const text =
-    renderTemplate(step0.bodyTemplate, tokens) +
-    buildFooter(sender.physicalAddress, unsubUrl);
+  const renderedBody = renderTemplate(step0.bodyTemplate, tokens);
+  const text = renderedBody + buildTextFooter(unsubUrl);
+  const html = toHtmlBody(renderedBody, unsubUrl);
 
   const result = await sendViaMailbox(
     { address: cred.address, password: cred.password, displayName },
-    { to, subject, text, unsubscribeUrl: unsubUrl },
+    { to, subject, text, html, unsubscribeUrl: unsubUrl },
     new Date(),
   );
   touch();

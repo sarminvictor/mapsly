@@ -32,6 +32,8 @@ export interface ColdDispatchInput {
   to: string;
   subject: string;
   text: string;
+  /** Optional HTML alternative (multipart). Omit for pure plain-text. */
+  html?: string;
   /** HTTPS one-click unsubscribe URL → injected as List-Unsubscribe header. */
   unsubscribeUrl?: string;
   /** Override the From display name (else the mailbox display name). */
@@ -206,6 +208,7 @@ export async function sendViaMailbox(
       replyTo: mailbox.address,
       subject: input.subject,
       text: input.text,
+      ...(input.html ? { html: input.html } : {}),
       headers,
     });
     await recordSend(mailbox.address, true, now);
