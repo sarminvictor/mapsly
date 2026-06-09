@@ -2,7 +2,7 @@
 
 /**
  * Cold-email admin · server actions. Every action: assertAdmin() → Zod-validate
- * → mutate → revalidateTag("cold-email"). Drives the /dev/email control surface.
+ * → mutate → revalidateTag("cold-email"). Drives the /admin/email control surface.
  */
 import { revalidateTag } from "next/cache";
 import { z } from "zod";

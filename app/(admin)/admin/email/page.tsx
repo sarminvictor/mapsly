@@ -1,12 +1,12 @@
 /**
- * Cold-email admin · overview (dev.mapsly.ai/dev/email). Admin-gated by the
- * /dev layout. Sync export + Suspense'd async body (cache-components Pattern 2).
+ * Cold-email admin · overview (/admin/email). Admin-gated by the /admin layout.
+ * Sync export + Suspense'd async body (cache-components Pattern 2).
  */
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import AutoRefresh from "../AutoRefresh";
+import AutoRefresh from "./AutoRefresh";
 import {
   CreateDefaultButton,
   MailboxControls,
@@ -70,8 +70,8 @@ export default function ColdEmailAdminPage() {
         }}
       >
         <h1 style={{ fontSize: 20, margin: 0 }}>Cold Email · control panel</h1>
-        <Link href="/dev" style={{ fontSize: 13, color: "#5b3df5" }}>
-          ← dev dashboard
+        <Link href="/admin" style={{ fontSize: 13, color: "#5b3df5" }}>
+          ← admin home
         </Link>
       </header>
       <Suspense fallback={<p style={{ color: "#999" }}>Loading…</p>}>
@@ -252,7 +252,7 @@ async function Overview() {
                   <td style={td}>{c.recipients}</td>
                   <td style={td}>
                     <Link
-                      href={`/dev/email/campaigns/${c.id}`}
+                      href={`/admin/email/campaigns/${c.id}`}
                       style={{ color: "#5b3df5" }}
                     >
                       open →

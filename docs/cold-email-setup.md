@@ -2,7 +2,7 @@
 
 Self-hosted cold outreach on **`mapsly.xyz`** (throwaway domain), walled off from
 `mapsly.ai` + the Resend magic-link sender. Engine: `services/cold-mailer` +
-`app/api/cron/process-cold-sequences` + admin at **`dev.mapsly.ai/dev/email`**.
+`app/api/cron/process-cold-sequences` + admin at **`www.mapsly.ai/admin/email`**.
 
 > **Reality check:** brand-new, unwarmed mailboxes land a chunk in spam at first.
 > Do the 2–4 day mini warm-up (Step 4) before the first real cohort. Realistic:
@@ -61,7 +61,7 @@ COLD_MAILBOX_PASSWORD_5=<app password>
 - **The legal-footer postal address is hardcoded** in `config.ts` (`PHYSICAL_ADDRESS`)
   — make sure it's your real registered address (CAN-SPAM requires a valid one).
 
-## Step 3 · Wire it up (in the admin · `dev.mapsly.ai/dev/email`)
+## Step 3 · Wire it up (in the admin · `www.mapsly.ai/admin/email`)
 
 1. **Sync mailboxes from env** → creates a Mailbox row per `COLD_MAILBOX_*` (status WARMING).
 2. **Create default campaign** → the 3-touch US sequence; edit copy/settings/delays in the editor.

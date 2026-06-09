@@ -98,7 +98,7 @@ export function CreateDefaultButton() {
       onClick={() =>
         start(async () => {
           const r = await createDefaultCampaign();
-          router.push(`/dev/email/campaigns/${r.id}`);
+          router.push(`/admin/email/campaigns/${r.id}`);
         })
       }
     >

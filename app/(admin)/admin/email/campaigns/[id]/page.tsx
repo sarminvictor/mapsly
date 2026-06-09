@@ -1,13 +1,13 @@
 /**
  * Cold-email admin · campaign detail. Edit status, settings, the sequence
- * (copy + delays), and enroll cohorts. Admin-gated by the /dev layout.
+ * (copy + delays), and enroll cohorts. Admin-gated by the /admin layout.
  */
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import AutoRefresh from "../../../AutoRefresh";
+import AutoRefresh from "../../AutoRefresh";
 import { getCampaign } from "../../queries";
 import {
   EnrollForm,
@@ -73,7 +73,7 @@ async function Body({ params }: { params: Promise<{ id: string }> }) {
         }}
       >
         <h1 style={{ fontSize: 20, margin: 0 }}>{c.name}</h1>
-        <Link href="/dev/email" style={{ fontSize: 13, color: "#5b3df5" }}>
+        <Link href="/admin/email" style={{ fontSize: 13, color: "#5b3df5" }}>
           ← all campaigns
         </Link>
       </header>
