@@ -10,6 +10,10 @@ const withNextIntl = createNextIntlPlugin();
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  // nodemailer uses dynamic requires — keep it external so the cold-mailer
+  // (cron + admin seed test) works in the Vercel serverless runtime, not just
+  // local tsx. Without this, the bundled copy fails to send at runtime.
+  serverExternalPackages: ["nodemailer"],
   experimental: {
     cacheComponents: true,
     inlineCss: true,

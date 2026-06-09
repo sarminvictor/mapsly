@@ -24,37 +24,37 @@ import {
 
 async function main(): Promise<void> {
   const to = process.argv[2] ?? "test-cnyivhwfu@srv1.mail-tester.com";
-  const cred = getMailboxCreds()[0];
-  if (!cred) throw new Error("No COLD_MAILBOX_1 configured");
+  const mode = process.argv[3]; // "all" → send from EVERY configured mailbox
+  const creds = getMailboxCreds();
+  if (creds.length === 0) throw new Error("No COLD_MAILBOX_* configured");
   const step0 = DEFAULT_COLD_STEPS[0];
   if (!step0) throw new Error("No default step");
-
   const sender = getColdSenderConfig();
-  const displayName = cred.displayName ?? deriveDisplayName(cred.address);
-  const tokens: Record<string, string> = {
-    businessName: "Calgary Dental Studio",
-    city: "Calgary",
-    rating: "4.3",
-    reviewCount: "61",
-    unansweredCount: "7",
-    senderFirstName: displayName,
-    reportUrl: `${sender.baseUrl}/l/seed-test`,
-  };
-  const subject = renderTemplate(step0.subjectTemplate, tokens);
-  const unsubUrl = unsubscribeUrlFor(to);
-  const body = renderTemplate(step0.bodyTemplate, tokens);
-  const text = body + buildTextFooter(unsubUrl);
-  const html = toHtmlBody(body, unsubUrl);
+  const list = mode === "all" ? creds : creds.slice(0, 1);
 
-  console.log(`FROM ${cred.address}  →  TO ${to}`);
-  console.log(`SUBJECT: ${subject}`);
-  const result = await sendViaMailbox(
-    { address: cred.address, password: cred.password, displayName },
-    { to, subject, text, html, unsubscribeUrl: unsubUrl },
-    new Date(),
-  );
-  console.log("RESULT:", JSON.stringify(result));
-  process.exit(result.kind === "sent" ? 0 : 1);
+  for (const cred of list) {
+    const displayName = cred.displayName ?? deriveDisplayName(cred.address);
+    const tokens: Record<string, string> = {
+      businessName: "Calgary Dental Studio",
+      city: "Calgary",
+      rating: "4.3",
+      reviewCount: "61",
+      unansweredCount: "7",
+      senderFirstName: displayName,
+      reportUrl: `${sender.baseUrl}/l/seed-test`,
+    };
+    const subject = renderTemplate(step0.subjectTemplate, tokens);
+    const unsubUrl = unsubscribeUrlFor(to);
+    const body = renderTemplate(step0.bodyTemplate, tokens);
+    const text = body + buildTextFooter(unsubUrl);
+    const html = toHtmlBody(body, unsubUrl);
+    const result = await sendViaMailbox(
+      { address: cred.address, password: cred.password, displayName },
+      { to, subject, text, html, unsubscribeUrl: unsubUrl },
+      new Date(),
+    );
+    console.log(`${cred.address} → ${to} :: ${JSON.stringify(result)}`);
+  }
 }
 
 main().catch((err: unknown) => {
