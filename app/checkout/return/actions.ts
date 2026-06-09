@@ -12,8 +12,7 @@ import { redirect } from "next/navigation";
 
 import { signIn } from "@/lib/auth";
 
-export async function completeCheckoutLogin(formData: FormData): Promise<void> {
-  const sessionId = String(formData.get("session_id") ?? "");
+export async function completeCheckoutLogin(sessionId: string): Promise<void> {
   if (!sessionId.startsWith("cs_")) redirect("/signin?intent=smb");
 
   // Browser-binding nonce set by /api/checkout/start — proves this login comes

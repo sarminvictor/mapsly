@@ -1,22 +1,27 @@
 "use client";
 
-// Auto-submits the post-payment login the moment the page mounts (no click
-// needed) — the Stripe `session_id` is the credential. A <noscript> fallback
-// button keeps it working without JS.
+// Fires the post-payment login the moment the page mounts. Calls the server
+// action DIRECTLY (not via a <form action>) — a form's server-action binding
+// isn't guaranteed ready when useEffect first runs, which made an auto-
+// requestSubmit() hit React's native-submit guard and silently do nothing
+// (the hydration-race bug found in live testing). A direct RPC call has no such
+// timing dependency. The Stripe `session_id` is the credential; on success the
+// action redirects to /home, on failure to magic-link sign-in.
 
 import { useEffect, useRef } from "react";
 
 import { completeCheckoutLogin } from "./actions";
 
 export function CheckoutReturnLogin({ sessionId }: { sessionId: string }) {
-  const formRef = useRef<HTMLFormElement>(null);
+  const started = useRef(false);
 
   useEffect(() => {
-    if (!sessionId) return;
-    // Strip session_id from the address bar + history so a captured URL can't be
-    // replayed later (the form already holds the value for this submit).
+    if (!sessionId || started.current) return;
+    started.current = true;
+    // Strip session_id from the address bar / history so a captured URL can't
+    // be replayed (the value is already in hand for this call).
     window.history.replaceState(null, "", window.location.pathname);
-    formRef.current?.requestSubmit();
+    void completeCheckoutLogin(sessionId);
   }, [sessionId]);
 
   return (
@@ -46,26 +51,23 @@ export function CheckoutReturnLogin({ sessionId }: { sessionId: string }) {
         <p style={{ marginTop: 12, color: "var(--color-text-3, #8a8175)" }}>
           One moment. You&apos;ll land on your business in a second.
         </p>
-        <form ref={formRef} action={completeCheckoutLogin}>
-          <input type="hidden" name="session_id" value={sessionId} />
-          <noscript>
-            <button
-              type="submit"
-              style={{
-                marginTop: 18,
-                padding: "12px 22px",
-                borderRadius: 999,
-                border: "none",
-                background: "var(--color-coral, #c3553a)",
-                color: "#fff",
-                fontWeight: 600,
-                cursor: "pointer",
-              }}
-            >
-              Continue to your dashboard →
-            </button>
-          </noscript>
-        </form>
+        <noscript>
+          <a
+            href="/signin?intent=smb"
+            style={{
+              display: "inline-block",
+              marginTop: 18,
+              padding: "12px 22px",
+              borderRadius: 999,
+              background: "var(--color-coral, #c3553a)",
+              color: "#fff",
+              fontWeight: 600,
+              textDecoration: "none",
+            }}
+          >
+            Continue to your dashboard →
+          </a>
+        </noscript>
       </div>
     </main>
   );
