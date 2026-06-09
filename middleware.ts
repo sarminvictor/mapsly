@@ -44,6 +44,12 @@ export default function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
+  // /u/[token] — one-click cold-email unsubscribe (RFC 8058). Locale-agnostic,
+  // no auth; the route verifies the HMAC token and suppresses the address.
+  if (url.pathname.startsWith("/u/")) {
+    return NextResponse.next();
+  }
+
   // /checkout/* — the direct-from-landing Stripe flow (start redirect lives
   // under /api; the post-payment return page lives here). Locale-agnostic
   // direct-share artifacts like /l/ — pass through untouched.

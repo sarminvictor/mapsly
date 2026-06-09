@@ -1591,3 +1591,195 @@ enum DiscoveryRunStatus {
   PARTIAL
   FAILED
 }
+
+// ===================================================================
+// Cold Email Engine · self-hosted SMTP outreach (mapsly.xyz)
+// Patterns referenced from Boxly, re-implemented for Mapsly + cold.
+// Walled off from the Resend magic-link sender (mapsly.ai).
+// ===================================================================
+
+model ColdCampaign {
+  id                  String             @id @default(cuid())
+  name                String
+  status              ColdCampaignStatus @default(DRAFT)
+  locale              String             @default("en")
+  country             String             @default("US") // geo gate (CASL: keep CA out until consent records)
+  fromName            String? // optional per-campaign override of COLD_FROM_NAME
+  sendWindowStartHour Int                @default(9) // local hour, inclusive
+  sendWindowEndHour   Int                @default(17) // local hour, exclusive
+  sendTimezone        String             @default("America/New_York")
+  weekdaysOnly        Boolean            @default(true)
+  dailyEnrollCap      Int                @default(100)
+  steps               ColdStep[]
+  recipients          ColdRecipient[]
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+
+  @@index([status])
+}
+
+model ColdStep {
+  id              String       @id @default(cuid())
+  campaignId      String
+  campaign        ColdCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  stepOrder       Int // 0-based touch index
+  subjectTemplate String
+  bodyTemplate    String       @db.Text // plain-text with {{tokens}} + {{#if}}
+  delayDays       Int          @default(0) // delay AFTER the previous step
+  delayHours      Int          @default(0)
+  conditions      Json? // { skipIf: { replied, clicked, unsubscribed } }
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@unique([campaignId, stepOrder])
+}
+
+model ColdRecipient {
+  id          String              @id @default(cuid())
+  campaignId  String
+  campaign    ColdCampaign        @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  businessId  String? // soft ref to Business (no FK — keeps Business model untouched)
+  email       String
+  locale      String              @default("en")
+  status      ColdRecipientStatus @default(PENDING)
+  currentStep Int                 @default(0)
+  nextRunAt   DateTime?
+  reportToken String? // LandingPage.token for /l/[token]
+  stopReason  String?
+  lastError   String?
+  context     Json? // optional cached personalization snapshot
+  sends       ColdSend[]
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  @@unique([campaignId, email])
+  @@index([status, nextRunAt])
+  @@index([campaignId, status])
+  @@index([businessId])
+}
+
+model ColdSend {
+  id             String         @id @default(cuid())
+  recipientId    String
+  recipient      ColdRecipient  @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+  stepOrder      Int
+  mailboxAddress String? // which mailbox sent it
+  status         ColdSendStatus @default(PENDING)
+  scheduledFor   DateTime
+  sentAt         DateTime?
+  attempts       Int            @default(0)
+  idempotencyKey String         @unique // `${recipientId}:${stepOrder}` — prevents double-send
+  subject        String?
+  bounceReason   String?
+  errorMessage   String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@index([status, scheduledFor])
+  @@index([recipientId])
+}
+
+model ColdSuppression {
+  id        String                @id @default(cuid())
+  email     String                @unique
+  source    ColdSuppressionSource
+  reason    String?
+  createdAt DateTime              @default(now())
+
+  @@index([email])
+}
+
+model Mailbox {
+  id            String        @id @default(cuid())
+  address       String        @unique // matches a COLD_MAILBOX_n env value
+  domain        String
+  displayName   String?
+  dailyCap      Int           @default(30) // target cap once warmed
+  rampStartedAt DateTime? // null = ramp not started; effective cap derived from elapsed days
+  status        MailboxStatus @default(WARMING)
+  blockedUntil  DateTime? // set on provider block (e.g. 550 5.4.6) cooldown
+  notes         String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+}
+
+model MailboxStat {
+  id             String   @id @default(cuid())
+  mailboxAddress String
+  date           String // YYYY-MM-DD (UTC) — daily rotation/cap counter
+  sentCount      Int      @default(0)
+  failedCount    Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([mailboxAddress, date])
+  @@index([date])
+}
+
+model ConsentRecord {
+  id            String       @id @default(cuid())
+  email         String
+  businessId    String?
+  basis         ConsentBasis @default(CONSPICUOUS_PUBLICATION)
+  sourceUrl     String? // where the business email was publicly published
+  relevanceNote String? // why the message relates to the recipient's role
+  country       String       @default("US")
+  capturedAt    DateTime     @default(now())
+  expiresAt     DateTime?
+
+  @@index([email])
+}
+
+model ColdSetting {
+  key       String   @id // e.g. "globalPause"
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
+enum ColdCampaignStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  ARCHIVED
+}
+
+enum ColdRecipientStatus {
+  PENDING
+  ACTIVE
+  REPLIED
+  WARM
+  COMPLETED
+  UNSUBSCRIBED
+  BOUNCED
+  SKIPPED
+}
+
+enum ColdSendStatus {
+  PENDING
+  SENT
+  FAILED
+  SKIPPED
+}
+
+enum MailboxStatus {
+  WARMING
+  ACTIVE
+  PAUSED
+  BLOCKED
+}
+
+enum ColdSuppressionSource {
+  UNSUBSCRIBE
+  BOUNCE_HARD
+  COMPLAINT
+  MANUAL
+  ROLE_BLOCK
+  UNDELIVERABLE
+  CASL_EXPIRED
+}
+
+enum ConsentBasis {
+  CONSPICUOUS_PUBLICATION
+  EXISTING_BUSINESS_RELATIONSHIP
+  EXPRESS
+}
