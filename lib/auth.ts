@@ -4,7 +4,10 @@ import Credentials from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import prisma from "@/lib/prisma";
 import stripeClient from "@/lib/stripe";
-import { provisionSmbFromCheckout } from "@/modules/billing/provision";
+import {
+  provisionSmbFromCheckout,
+  recordSmbSubscriptionFromSession,
+} from "@/modules/billing/provision";
 
 /** Replay window for the Stripe-checkout login credential (defense-in-depth). */
 const STRIPE_LOGIN_MAX_AGE_MS = 15 * 60 * 1000; // 15m — a real redirect lands in seconds
@@ -47,8 +50,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           typeof credentials?.nonce === "string" ? credentials.nonce : null;
         if (!sessionId || !sessionId.startsWith("cs_")) return null;
         try {
-          const session =
-            await stripeClient.checkout.sessions.retrieve(sessionId);
+          const session = await stripeClient.checkout.sessions.retrieve(
+            sessionId,
+            { expand: ["subscription"] },
+          );
           if (session.status !== "complete") return null;
           if (
             typeof session.created === "number" &&
@@ -86,6 +91,13 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           // already owning this Stripe customer, may be signed in headlessly.
           // Email-matched users must verify via magic link.
           if (result.matchedBy === "email") return null;
+
+          // Record the subscription state immediately (webhook-independent) so
+          // the paid user is marked subscribed the instant they log in. The
+          // webhook keeps it in sync afterward. Best-effort — never block login.
+          await recordSmbSubscriptionFromSession(session, result.userId).catch(
+            () => {},
+          );
 
           const user = await prisma.user.findUnique({
             where: { id: result.userId },

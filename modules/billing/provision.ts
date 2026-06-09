@@ -12,6 +12,8 @@
 // Idempotent + race-safe: whichever of {redirect, webhook} runs first wins; the
 // other is a no-op. Email + stripeCustomerId are both UNIQUE columns.
 
+import type Stripe from "stripe";
+
 import prisma from "@/lib/prisma";
 
 export interface ProvisionInput {
@@ -132,4 +134,43 @@ export async function provisionSmbFromCheckout(
   }
 
   return { userId: user.id, businessId, created, claimed, matchedBy };
+}
+
+/**
+ * Record the SMB subscription state on a user DIRECTLY from the (expanded)
+ * checkout session — so the post-payment state is correct immediately, without
+ * depending on the async webhook (which may lag or, if misconfigured, never
+ * arrive). The webhook remains the source of truth for ongoing lifecycle
+ * (renewals, cancellations); this just guarantees the initial paid state.
+ *
+ * Requires the session to have been retrieved with `expand: ["subscription"]`.
+ * Best-effort: callers guard — a failure here must never block the login.
+ */
+export async function recordSmbSubscriptionFromSession(
+  session: Stripe.Checkout.Session,
+  userId: string,
+): Promise<void> {
+  const sub = session.subscription;
+  if (!sub || typeof sub === "string") return; // not expanded → nothing to write
+  const priceId = sub.items?.data?.[0]?.price?.id ?? null;
+  // current_period_end: top-level (≤2025-02 API) or item-level (Basil 2025-03+).
+  const top = (sub as unknown as { current_period_end?: number })
+    .current_period_end;
+  const item = (
+    sub.items?.data?.[0] as unknown as
+      | { current_period_end?: number }
+      | undefined
+  )?.current_period_end;
+  const ts = typeof top === "number" ? top : item;
+  await prisma.user.update({
+    where: { id: userId },
+    data: {
+      stripeSubscriptionId: sub.id,
+      stripePlan: "smb_paid",
+      stripeStatus: sub.status,
+      stripePriceId: priceId,
+      currentPeriodEnd: typeof ts === "number" ? new Date(ts * 1000) : null,
+      cancelAtPeriodEnd: Boolean(sub.cancel_at_period_end),
+    },
+  });
 }

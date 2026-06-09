@@ -17,7 +17,12 @@ const db = vi.hoisted(() => ({
 
 vi.mock("@/lib/prisma", () => ({ default: db }));
 
-import { provisionSmbFromCheckout } from "../provision";
+import type Stripe from "stripe";
+
+import {
+  provisionSmbFromCheckout,
+  recordSmbSubscriptionFromSession,
+} from "../provision";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -149,5 +154,39 @@ describe("provisionSmbFromCheckout · business claim", () => {
     });
     expect(db.business.update).not.toHaveBeenCalled();
     expect(r.claimed).toBe(false);
+  });
+});
+
+describe("recordSmbSubscriptionFromSession (webhook-independent state)", () => {
+  test("writes subscription state from an expanded session", async () => {
+    const session = {
+      subscription: {
+        id: "sub_1",
+        status: "active",
+        cancel_at_period_end: false,
+        current_period_end: 1893456000,
+        items: { data: [{ price: { id: "price_x" } }] },
+      },
+    } as unknown as Stripe.Checkout.Session;
+    await recordSmbSubscriptionFromSession(session, "u1");
+    expect(db.user.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "u1" },
+        data: expect.objectContaining({
+          stripeSubscriptionId: "sub_1",
+          stripePlan: "smb_paid",
+          stripeStatus: "active",
+          stripePriceId: "price_x",
+        }),
+      }),
+    );
+  });
+
+  test("no-op when subscription is only an id (not expanded)", async () => {
+    const session = {
+      subscription: "sub_1",
+    } as unknown as Stripe.Checkout.Session;
+    await recordSmbSubscriptionFromSession(session, "u1");
+    expect(db.user.update).not.toHaveBeenCalled();
   });
 });
