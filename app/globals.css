@@ -75,6 +75,37 @@ body {
   }
 }
 
+/* Cursor affordance · every interactive element shows a pointer.
+ * Browsers do NOT apply cursor:pointer to <button> (and Tailwind 4's
+ * preflight no longer restores it), so any button lacking an inline
+ * cursor falls back to the default arrow.
+ *
+ * Lives in @layer base so the cascade can't break component styles:
+ * unlayered CSS (admin.css, dev.css, the rest of this file) and inline
+ * style={} objects always win over layered rules — intentional cursors
+ * like the info-tip's `help`, RefreshButton's pending `wait`, and the
+ * sortable-<th> `default` are untouched. */
+@layer base {
+  button,
+  [role="button"],
+  a[href],
+  select,
+  summary,
+  label[for] {
+    cursor: pointer;
+  }
+
+  /* Disabled interactive elements signal "not now" instead. The
+   * attribute/pseudo-class selectors out-rank the element selectors
+   * above, so this wins regardless of source order. */
+  button:disabled,
+  select:disabled,
+  [disabled],
+  [aria-disabled="true"] {
+    cursor: not-allowed;
+  }
+}
+
 /* Marketing surface · focus rings + native disclosure affordance.
  * Per .claude/rules/accessibility.md — Link/<a> must show a visible focus
  * ring when keyboard-focused (WCAG 2.4.7). Default browser outline gets
@@ -606,6 +637,40 @@ details[open] > summary::after {
 @media (min-width: 1180px) {
   .landing-pricing-arrow {
     display: block !important;
+  }
+}
+
+/* Landing sticky top bar (/l) · transparent at the very top, solid white +
+ * hairline shadow once scrolled. The scrolled state is `data-landing-scrolled`
+ * on <html>, toggled by the inline bootstrap script in StickyHeader.tsx — it
+ * runs at HTML-parse time, so the bar keeps its background even before the
+ * app bundle hydrates (the old React-state version rendered transparent until
+ * hydration, which is why the background sometimes "disappeared"). */
+.landing-sticky-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  padding: 16px 0 0;
+  background: transparent;
+  box-shadow: none;
+  --landing-topbar-h: 66px;
+  transition:
+    background 0.25s ease,
+    box-shadow 0.25s ease,
+    padding 0.25s ease;
+}
+html[data-landing-scrolled] .landing-sticky-header {
+  padding-bottom: 16px;
+  background: #fff;
+  box-shadow: 0 1px 0 rgba(28, 25, 22, 0.06);
+}
+/* ≤560px · scrolled bar slims down: tighter paddings + shorter inner row
+ * (the inner row reads --landing-topbar-h). */
+@media (max-width: 560px) {
+  html[data-landing-scrolled] .landing-sticky-header {
+    padding-top: 8px;
+    padding-bottom: 8px;
+    --landing-topbar-h: 52px;
   }
 }
 

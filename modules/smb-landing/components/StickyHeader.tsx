@@ -1,50 +1,42 @@
-"use client";
-
-import { useEffect, useState } from "react";
-import type { CSSProperties, ReactNode } from "react";
+import type { ReactNode } from "react";
 
 /**
  * Landing top-bar shell. Transparent at the very top of the page, then fades to
  * a solid white background with a hairline divider once the user scrolls — so
- * the menu stays legible over content. SSR renders the transparent state (top
- * of page), the scroll listener takes over after hydration.
+ * the menu stays legible over content.
+ *
+ * The scrolled state is toggled by the tiny inline script below: it ships in
+ * the SSR HTML and executes the moment the parser reaches it — before the app
+ * bundle downloads or hydrates. It sets `data-landing-scrolled` on <html>;
+ * `app/globals.css` maps that attribute to the scrolled visuals (white bg,
+ * hairline shadow, paddings, compact row height ≤560px).
+ *
+ * Why not React state: the previous implementation computed the background
+ * from a `useState` + post-hydration scroll listener, so the SSR HTML always
+ * carried `background: transparent`. Any scroll before hydration finished
+ * (cold email click + immediate scroll, reload with scroll restoration, slow
+ * mobile network, a hydration error anywhere on the page) left the stuck bar
+ * transparent with content visibly scrolling beneath it. The attribute +
+ * CSS approach has no hydration dependency, so the bar can never lose its
+ * background again. Visuals are unchanged in both states.
  */
+
+const TOPBAR_BOOTSTRAP =
+  "(function(){" +
+  "if(window.__mapslyTopbar)return;window.__mapslyTopbar=1;" +
+  "var d=document.documentElement;" +
+  "var f=function(){" +
+  'if(window.scrollY>8){d.setAttribute("data-landing-scrolled","")}' +
+  'else{d.removeAttribute("data-landing-scrolled")}' +
+  "};" +
+  "f();" +
+  'window.addEventListener("scroll",f,{passive:true});' +
+  "})();";
+
 export function StickyHeader({ children }: { children: ReactNode }) {
-  const [scrolled, setScrolled] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
-
-  useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 8);
-    const onResize = () => setIsMobile(window.innerWidth <= 560);
-    onScroll();
-    onResize();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    window.addEventListener("resize", onResize, { passive: true });
-    return () => {
-      window.removeEventListener("scroll", onScroll);
-      window.removeEventListener("resize", onResize);
-    };
-  }, []);
-
-  // On mobile, once scrolled, slim the bar: shorter padding + a shorter inner
-  // row (the inner row reads the --landing-topbar-h custom property).
-  const compact = scrolled && isMobile;
-
-  const style: CSSProperties = {
-    position: "sticky",
-    top: 0,
-    zIndex: 20,
-    paddingTop: compact ? 8 : 16,
-    paddingBottom: compact ? 8 : scrolled ? 16 : 0,
-    background: scrolled ? "#fff" : "transparent",
-    boxShadow: scrolled ? "0 1px 0 rgba(28, 25, 22, 0.06)" : "none",
-    transition:
-      "background 0.25s ease, box-shadow 0.25s ease, padding 0.25s ease",
-    ["--landing-topbar-h" as string]: compact ? "52px" : "66px",
-  };
-
   return (
-    <header className="landing-sticky-header" style={style}>
+    <header className="landing-sticky-header">
+      <script dangerouslySetInnerHTML={{ __html: TOPBAR_BOOTSTRAP }} />
       {children}
     </header>
   );
