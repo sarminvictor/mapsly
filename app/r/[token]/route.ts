@@ -131,10 +131,16 @@ export async function POST(
   const email = lp.business.email?.toLowerCase() ?? null;
   if (email) await suppress(email, "UNSUBSCRIBE", "landing-removal");
 
+  // ColdRecipient.reportToken stores the FULL landing param ("slug-token",
+  // see modules/cold/enroll.ts) — match that via endsWith on the unique
+  // "-token" suffix, plus the bare token for any row written per the schema
+  // comment's older convention.
+  const tokenMatch = [
+    { reportToken: parsed.data },
+    { reportToken: { endsWith: `-${parsed.data}` } },
+  ];
   await prisma.coldRecipient.updateMany({
-    where: email
-      ? { OR: [{ email }, { reportToken: parsed.data }] }
-      : { reportToken: parsed.data },
+    where: email ? { OR: [{ email }, ...tokenMatch] } : { OR: tokenMatch },
     data: {
       status: "UNSUBSCRIBED",
       stopReason: "landing-removed",

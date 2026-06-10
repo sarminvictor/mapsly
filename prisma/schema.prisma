@@ -1644,7 +1644,7 @@ model ColdRecipient {
   status      ColdRecipientStatus @default(PENDING)
   currentStep Int                 @default(0)
   nextRunAt   DateTime?
-  reportToken String? // LandingPage.token for /l/[token]
+  reportToken String? // full landing param "slug-token" (modules/cold/enroll.ts) → /l/[reportToken]
   stopReason  String?
   lastError   String?
   context     Json? // optional cached personalization snapshot

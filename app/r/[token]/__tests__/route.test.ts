@@ -141,8 +141,16 @@ describe("POST /r/[token] · executes the removal", () => {
       "UNSUBSCRIBE",
       "landing-removal",
     );
+    // reportToken stores the full "slug-token" landing param (enroll.ts), so
+    // the stop must match the "-token" suffix, not just the bare token.
     expect(updateManyMock).toHaveBeenCalledWith({
-      where: { OR: [{ email: "owner@spa.com" }, { reportToken: TOKEN }] },
+      where: {
+        OR: [
+          { email: "owner@spa.com" },
+          { reportToken: TOKEN },
+          { reportToken: { endsWith: `-${TOKEN}` } },
+        ],
+      },
       data: {
         status: "UNSUBSCRIBED",
         stopReason: "landing-removed",
@@ -164,7 +172,12 @@ describe("POST /r/[token] · executes the removal", () => {
     });
     expect(suppressMock).not.toHaveBeenCalled();
     expect(updateManyMock).toHaveBeenCalledWith({
-      where: { reportToken: TOKEN },
+      where: {
+        OR: [
+          { reportToken: TOKEN },
+          { reportToken: { endsWith: `-${TOKEN}` } },
+        ],
+      },
       data: {
         status: "UNSUBSCRIBED",
         stopReason: "landing-removed",
