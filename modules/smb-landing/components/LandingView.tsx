@@ -19,6 +19,7 @@
  * (to be reworked) — the DATA is real.
  */
 
+import { Fragment } from "react";
 import type { CSSProperties, ReactNode } from "react";
 
 import type { SmbMarketChange, SmbOverviewFix } from "@/modules/smb-home/types";
@@ -34,6 +35,7 @@ import type {
 
 import { LandingAnalytics } from "./LandingAnalytics";
 import { LandingChangesFeed } from "./LandingChangesFeed";
+import { CountUp, ScoreGauge } from "./LandingCounters";
 import { StickyHeader } from "./StickyHeader";
 
 /* ----------------------------------------------------------------- helpers */
@@ -57,7 +59,6 @@ function fmtPct(v: number | null): string {
 
 const PAGE: CSSProperties = {
   background: "#fff",
-  overflowX: "clip",
   fontFamily: "var(--font-landing-body)",
   color: "var(--color-text)",
 };
@@ -137,15 +138,16 @@ function SectionIntro({
   intro?: string;
 }) {
   return (
-    <div style={{ textAlign: "center", maxWidth: 820, margin: "0 auto" }}>
+    <div style={{ textAlign: "center", maxWidth: 900, margin: "0 auto" }}>
       <p style={EYEBROW}>{eyebrow}</p>
       <h2
+        className="landing-section-h2"
         style={{
           margin: "16px 0 0",
           fontFamily: SERIF,
           fontSize: "clamp(40px, 7vw, 80px)",
           fontWeight: 600,
-          lineHeight: 1.05,
+          lineHeight: "80px",
           letterSpacing: "-0.015em",
           color: "var(--color-text)",
         }}
@@ -217,12 +219,14 @@ function CtaPill({
   href,
   cta,
   label,
+  mobileLabel,
   variant = "solid",
   height = 70,
 }: {
   href: string;
   cta: string;
   label: string;
+  mobileLabel?: string;
   variant?: "solid" | "outline" | "light";
   height?: number;
 }) {
@@ -256,16 +260,30 @@ function CtaPill({
             background: "#fff",
             color: "var(--color-coral)",
             border: "1px solid #fff",
+            boxShadow: "none",
           }
         : {
             ...base,
             background: "transparent",
             color: "var(--color-coral)",
             border: "1px solid var(--color-coral)",
+            boxShadow: "none",
           };
   return (
-    <a href={href} data-landing-cta={cta} style={style}>
-      {label}
+    <a
+      href={href}
+      data-landing-cta={cta}
+      className={`landing-cta-pill${variant === "outline" ? " landing-cta-pill--outline" : ""}`}
+      style={style}
+    >
+      {mobileLabel ? (
+        <>
+          <span className="landing-cta-label-lg">{label}</span>
+          <span className="landing-cta-label-sm">{mobileLabel}</span>
+        </>
+      ) : (
+        label
+      )}
       <svg
         width="25"
         height="12"
@@ -323,13 +341,14 @@ function ProblemSolution({ gap }: { gap: LandingGap }) {
   };
   return (
     <div
+      className="landing-ps-block"
       style={{
         position: "relative",
         display: "flex",
         flexWrap: "wrap",
         alignItems: "stretch",
         gap: 28,
-        marginTop: 18,
+        marginTop: 38,
       }}
     >
       <div style={{ ...box, background: "#F9F6F6" }}>
@@ -343,11 +362,12 @@ function ProblemSolution({ gap }: { gap: LandingGap }) {
         {gap.solution}
       </div>
       <div
+        className="landing-ps-arrow-main"
         aria-hidden
         style={{
           position: "absolute",
           left: "50%",
-          top: "50%",
+          top: "4%",
           transform: "translate(-50%, -50%)",
           zIndex: 2,
           display: "grid",
@@ -356,21 +376,41 @@ function ProblemSolution({ gap }: { gap: LandingGap }) {
         }}
       >
         <svg
-          width="46"
-          height="51"
-          viewBox="0 0 58 64"
+          className="landing-ps-svg-desktop"
+          width="72"
+          height="64"
+          viewBox="0 0 96 86"
           fill="none"
           style={{ display: "block" }}
         >
           <path
-            d="M23.8146 4.47144L48.9258 30.9653L23.7489 59.3576"
+            d="M5.05365 46.8099C32.0409 24.8242 62.1701 33.6625 73.8613 40.8298"
+            stroke="#ECE6DE"
+            strokeWidth="16"
+          />
+          <path
+            d="M51.8809 61.3122L83.0203 42.264L66.0974 8.29907"
             stroke="#ECE6DE"
             strokeWidth="13"
           />
+        </svg>
+        <svg
+          className="landing-ps-svg-mobile"
+          width="56"
+          height="90"
+          viewBox="0 0 82 132"
+          fill="none"
+          style={{ display: "block" }}
+        >
           <path
-            d="M42.4863 31.2214L0.486328 31.2214"
+            d="M0.792969 8.54392C35.9121 5.04395 72.6121 18.2439 73.4121 53.0439C74.2121 87.8439 48.7454 106.211 35.9121 111.044"
             stroke="#ECE6DE"
             strokeWidth="16"
+          />
+          <path
+            d="M33.2284 81.1192L29.161 117.395L66.3639 124.875"
+            stroke="#ECE6DE"
+            strokeWidth="13"
           />
         </svg>
       </div>
@@ -429,86 +469,6 @@ function Stars({ value }: { value: number | null }) {
   );
 }
 
-function ScoreGauge({ value }: { value: number | null }) {
-  const r = 50;
-  const C = 2 * Math.PI * r;
-  const arc = 0.75 * C; // 270° open-bottom sweep
-  const frac = value == null ? 0 : Math.max(0, Math.min(1, value / 10));
-  return (
-    <div
-      role="img"
-      aria-label={
-        value == null ? "Not scored yet" : `${value.toFixed(1)} out of 10`
-      }
-      style={{ position: "relative", width: 156, height: 138 }}
-    >
-      <svg
-        viewBox="0 0 120 120"
-        width="156"
-        height="156"
-        style={{ position: "absolute", top: 0, left: 0 }}
-      >
-        <circle
-          cx="60"
-          cy="60"
-          r={r}
-          fill="none"
-          stroke="var(--color-bg-3)"
-          strokeWidth="10"
-          strokeLinecap="round"
-          strokeDasharray={`${arc} ${C}`}
-          transform="rotate(135 60 60)"
-        />
-        <circle
-          cx="60"
-          cy="60"
-          r={r}
-          fill="none"
-          stroke="#fffd54"
-          strokeWidth="10"
-          strokeLinecap="round"
-          strokeDasharray={`${arc * frac} ${C}`}
-          transform="rotate(135 60 60)"
-        />
-      </svg>
-      <div
-        style={{
-          position: "absolute",
-          top: 10,
-          left: 0,
-          right: 0,
-          height: 130,
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        <span
-          style={{
-            fontFamily: SERIF,
-            fontSize: 44,
-            fontWeight: 700,
-            lineHeight: 1,
-          }}
-        >
-          {fmtScore(value)}
-        </span>
-        <span
-          style={{
-            fontSize: 13,
-            fontWeight: 600,
-            color: "var(--color-text)",
-            marginTop: 8,
-          }}
-        >
-          / 10
-        </span>
-      </div>
-    </div>
-  );
-}
-
 function CurlyArrow({ color = "#fff" }: { color?: string }) {
   return (
     <svg
@@ -541,10 +501,10 @@ function CurlyArrow({ color = "#fff" }: { color?: string }) {
 
 function RankBadge({ rank, isOwn }: { rank: number; isOwn?: boolean }) {
   const bg = isOwn
-    ? "var(--color-coral)"
+    ? "#7DA88B"
     : rank === 1
       ? "var(--color-success)"
-      : "var(--color-gold)";
+      : "#DE9B54";
   return (
     <span
       style={{
@@ -556,8 +516,9 @@ function RankBadge({ rank, isOwn }: { rank: number; isOwn?: boolean }) {
         background: bg,
         color: "#fff",
         fontSize: 11,
-        fontWeight: 700,
+        fontWeight: 600,
         flexShrink: 0,
+        boxShadow: `0 0 20px 0 ${bg}`,
       }}
     >
       {rank}
@@ -596,7 +557,7 @@ function Th({
         color: "var(--color-text-3)",
         borderBottom: "1px solid #F1F4F6",
         boxShadow: "inset 0 -1px 0 #F1F4F6",
-        fontWeight: 500,
+        fontWeight: 400,
       }}
     >
       {children}
@@ -608,10 +569,14 @@ function Td({
   children,
   align,
   color,
+  weight,
+  borderOpacity,
 }: {
   children: ReactNode;
   align?: "right" | "center";
   color?: string;
+  weight?: number;
+  borderOpacity?: number;
 }) {
   return (
     <td
@@ -619,8 +584,11 @@ function Td({
         textAlign: align ?? "left",
         padding: "12px 14px",
         fontSize: 14,
+        fontWeight: weight,
         color: color ?? "var(--color-text)",
-        borderBottom: "1px solid #F1F4F6",
+        // `opacity` on a <tr> doesn't reach collapsed borders, so fade the line
+        // here directly to match a dimmed row (#F1F4F6 = rgb(241,244,246)).
+        borderBottom: `1px solid rgba(241, 244, 246, ${borderOpacity ?? 1})`,
       }}
     >
       {children}
@@ -632,13 +600,15 @@ function TopBar({ ctaHref }: { ctaHref: string }) {
   return (
     <StickyHeader>
       <div
+        className="landing-topbar-inner"
         style={{
           ...CONTAINER,
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          height: 66,
+          height: "var(--landing-topbar-h, 66px)",
           padding: "0 20px",
+          transition: "height 0.25s ease",
         }}
       >
         <span style={{ display: "inline-flex", alignItems: "center", gap: 22 }}>
@@ -649,6 +619,7 @@ function TopBar({ ctaHref }: { ctaHref: string }) {
           href={ctaHref}
           cta="top"
           label="Start tracking - $29/mo"
+          mobileLabel="Start tracking · $29/mo"
           height={60}
         />
       </div>
@@ -787,7 +758,10 @@ function Hero({ data }: { data: LandingData }) {
       data-landing-section="hero"
       style={{
         background: "#fff",
-        padding: "clamp(20px, 3vw, 40px) 20px clamp(36px, 5vw, 64px)",
+        marginTop: -82,
+        padding:
+          "calc(82px + clamp(20px, 3vw, 40px)) 20px clamp(36px, 5vw, 64px)",
+        overflow: "clip",
       }}
     >
       <div
@@ -800,8 +774,9 @@ function Hero({ data }: { data: LandingData }) {
           alignItems: "center",
         }}
       >
-        <div>
+        <div style={{ position: "relative", zIndex: 1 }}>
           <p
+            className="landing-hero-meta"
             style={{
               display: "inline-flex",
               alignItems: "center",
@@ -811,23 +786,33 @@ function Hero({ data }: { data: LandingData }) {
               color: "var(--color-text)",
             }}
           >
-            <svg
-              width="11"
-              height="8"
-              viewBox="0 0 11 8"
-              fill="none"
-              aria-hidden
-              style={{ flexShrink: 0 }}
+            <span
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 10,
+                flexShrink: 0,
+              }}
             >
-              <path
-                d="M0.421875 2.98171L3.56473 6.41028L9.75335 0.410278"
-                stroke="var(--color-coral)"
-                strokeWidth="1.14286"
-              />
-            </svg>
-            <span style={{ color: "var(--color-text)" }}>{cat}</span>
+              <svg
+                width="11"
+                height="8"
+                viewBox="0 0 11 8"
+                fill="none"
+                aria-hidden
+                style={{ flexShrink: 0 }}
+              >
+                <path
+                  d="M0.421875 2.98171L3.56473 6.41028L9.75335 0.410278"
+                  stroke="var(--color-coral)"
+                  strokeWidth="1.14286"
+                />
+              </svg>
+              <span style={{ color: "var(--color-text)" }}>{cat}</span>
+            </span>
             <span
               aria-hidden
+              className="landing-hero-meta-dot"
               style={{
                 flexShrink: 0,
                 width: 4,
@@ -839,6 +824,7 @@ function Hero({ data }: { data: LandingData }) {
             <span>{addr}</span>
           </p>
           <h1
+            className="landing-hero-h1"
             style={{
               margin: "26px 0 0",
               fontFamily: SERIF,
@@ -862,11 +848,12 @@ function Hero({ data }: { data: LandingData }) {
               alignItems: "flex-start",
               gap: 18,
               marginTop: 34,
-              maxWidth: 680,
+              maxWidth: 760,
             }}
           >
             <span
               aria-hidden
+              className="landing-hero-rule"
               style={{
                 flexShrink: 0,
                 width: 90,
@@ -876,6 +863,7 @@ function Hero({ data }: { data: LandingData }) {
               }}
             />
             <p
+              className="landing-hero-body"
               style={{
                 margin: 0,
                 fontSize: 22,
@@ -885,6 +873,7 @@ function Hero({ data }: { data: LandingData }) {
             >
               {data.copy.hero.headline}
               <span
+                className="landing-hero-body"
                 style={{
                   display: "block",
                   marginTop: 4,
@@ -892,7 +881,44 @@ function Hero({ data }: { data: LandingData }) {
                   color: "var(--color-text)",
                 }}
               >
-                {data.copy.hero.body}
+                {(() => {
+                  const body = data.copy.hero.body;
+                  const m = body.match(
+                    /^([\s\S]*?)(up to 30% more \S+)([\s\S]*)$/,
+                  );
+                  if (!m) return body;
+                  return (
+                    <>
+                      {m[1]}
+                      <span
+                        className="landing-hero-body-em"
+                        style={{
+                          fontFamily: SERIF,
+                          fontSize: 40,
+                          fontStyle: "italic",
+                          lineHeight: 0.85,
+                          color: "var(--color-coral)",
+                        }}
+                      >
+                        {m[2].split("%").map((part, i, arr) => (
+                          <span key={i}>
+                            {part}
+                            {i < arr.length - 1 ? (
+                              <span
+                                style={{
+                                  WebkitTextStroke: "0.9px var(--color-coral)",
+                                }}
+                              >
+                                %
+                              </span>
+                            ) : null}
+                          </span>
+                        ))}
+                      </span>
+                      {m[3]}
+                    </>
+                  );
+                })()}
               </span>
             </p>
           </div>
@@ -909,9 +935,12 @@ function Hero({ data }: { data: LandingData }) {
                 textAlign: "center",
               }}
             >
-              <p style={heroCardTitle}>Mapsly score</p>
+              <p className="hero-card-title" style={heroCardTitle}>
+                Mapsly score
+              </p>
               <p style={heroCardSub}>your visibility to customers</p>
               <div
+                className="hero-gauge-wrap"
                 style={{
                   marginTop: 12,
                   display: "flex",
@@ -930,22 +959,26 @@ function Hero({ data }: { data: LandingData }) {
                 textAlign: "center",
               }}
             >
-              <p style={heroCardTitle}>{data.cellLabel ?? "Your market"}</p>
+              <p className="hero-card-title" style={heroCardTitle}>
+                City score
+              </p>
               <p
+                className="hero-card-num hero-card-num-city"
                 style={{
                   margin: "4px 0 0",
                   fontFamily: SERIF,
                   fontWeight: 700,
-                  fontSize: 64,
+                  fontSize: 52,
                   lineHeight: 1,
                   display: "flex",
                   justifyContent: "center",
                   alignItems: "center",
                 }}
               >
-                {data.rank ?? "—"}
+                {data.rank == null ? "—" : <CountUp value={data.rank} />}
                 {data.total != null ? (
                   <span
+                    className="hero-city-slash"
                     style={{
                       fontFamily: "var(--font-landing-body)",
                       fontSize: 13,
@@ -973,10 +1006,14 @@ function Hero({ data }: { data: LandingData }) {
               position: "static",
               width: "50%",
               textAlign: "center",
+              paddingBottom: 38,
             }}
           >
-            <p style={heroCardTitle}>Google</p>
+            <p className="hero-card-title" style={heroCardTitle}>
+              Google
+            </p>
             <p
+              className="hero-card-num hero-card-num-google"
               style={{
                 margin: "0",
                 fontFamily: SERIF,
@@ -985,16 +1022,26 @@ function Hero({ data }: { data: LandingData }) {
                 lineHeight: 1,
               }}
             >
-              {fmtRating(data.googleRating)}
+              {data.googleRating == null ? (
+                "—"
+              ) : (
+                <CountUp value={data.googleRating} decimals={1} />
+              )}
             </p>
             <div style={{ marginTop: 8 }}>
               <Stars value={data.googleRating} />
             </div>
             <p style={{ ...heroCardSub, marginTop: 18 }}>
-              {fmtNum(data.reviewCount)} reviews
+              {data.reviewCount == null ? (
+                "—"
+              ) : (
+                <CountUp value={data.reviewCount} grouping />
+              )}{" "}
+              reviews
             </p>
             {trend > 0 ? (
               <p
+                className="hero-card-trend"
                 style={{
                   margin: "8px 0 0",
                   color: "var(--color-success)",
@@ -1030,14 +1077,21 @@ function Hero({ data }: { data: LandingData }) {
                     strokeWidth="1.49732"
                   />
                 </svg>
-                +{trend} this month
+                <CountUp value={trend} prefix="+" /> this month
               </p>
             ) : null}
           </div>
         </div>
       </div>
 
-      <div style={{ textAlign: "center", marginTop: 24 }}>
+      <div
+        style={{
+          textAlign: "center",
+          marginTop: 24,
+          position: "relative",
+          zIndex: 2,
+        }}
+      >
         <p style={{ margin: 0, fontSize: 13, color: "var(--color-text-3)" }}>
           more info
         </p>
@@ -1084,7 +1138,7 @@ function ChangesSection({
       style={{ background: "#ECE6DE", padding: "clamp(56px, 8vw, 104px) 20px" }}
     >
       <div
-        className="landing-2col"
+        className="landing-2col landing-changes-grid"
         style={{
           ...CONTAINER,
           display: "grid",
@@ -1093,15 +1147,19 @@ function ChangesSection({
           alignItems: "center",
         }}
       >
-        <div style={{ marginTop: 30, maxWidth: 700 }}>
+        <div
+          className="landing-changes-intro"
+          style={{ marginTop: 30, maxWidth: 700 }}
+        >
           <p style={EYEBROW}>{copy.eyebrow}</p>
           <h2
+            className="landing-section-h2"
             style={{
               margin: "20px 0 0",
               fontFamily: SERIF,
               fontSize: "clamp(40px, 7vw, 80px)",
               fontWeight: 700,
-              lineHeight: 1.02,
+              lineHeight: "80px",
               letterSpacing: "-0.02em",
               color: "var(--color-text)",
             }}
@@ -1142,11 +1200,12 @@ function ChangesSection({
         </div>
 
         <div
+          className="landing-changes-feed"
           style={{
             transform: "translateX(-120px)",
-            maskImage: "linear-gradient(to bottom, #000 55%, transparent)",
+            maskImage: "linear-gradient(to bottom, #000 82%, transparent)",
             WebkitMaskImage:
-              "linear-gradient(to bottom, #000 55%, transparent)",
+              "linear-gradient(to bottom, #000 82%, transparent)",
           }}
         >
           <LandingChangesFeed events={events} />
@@ -1186,7 +1245,7 @@ function SearchSection({
 
         {search.hasData ? (
           <div
-            className="landing-2col"
+            className="landing-2col landing-search-2col"
             style={{
               marginTop: 44,
               display: "grid",
@@ -1227,6 +1286,7 @@ function SearchSection({
                   <GoogleLogo />
                 </div>
                 <div
+                  className="landing-search-stat-grid"
                   style={{
                     display: "grid",
                     gridTemplateColumns: "1fr 1fr",
@@ -1236,15 +1296,22 @@ function SearchSection({
                 >
                   <div>
                     <p style={statCardLabel}>monthly Google searches:</p>
-                    <p style={statCardBig}>
-                      {total != null ? fmtNum(total) : "—"}
+                    <p className="landing-stat-big" style={statCardBig}>
+                      {total != null ? <CountUp value={total} grouping /> : "—"}
                       <span style={statCardUnit}> / mo</span>
                     </p>
                   </div>
                   <div>
                     <p style={statCardLabel}>Searches you show up only:</p>
-                    <p style={{ ...statCardBig, color: "var(--color-coral)" }}>
-                      {youGet != null ? fmtNum(youGet) : "—"}
+                    <p
+                      className="landing-stat-big"
+                      style={{ ...statCardBig, color: "var(--color-coral)" }}
+                    >
+                      {youGet != null ? (
+                        <CountUp value={youGet} grouping critical />
+                      ) : (
+                        "—"
+                      )}
                       <span style={statCardUnit}> / mo</span>
                     </p>
                   </div>
@@ -1273,10 +1340,10 @@ function SearchSection({
                   <p
                     style={{
                       margin: "18px 0 0",
-                      fontSize: 15.5,
+                      fontSize: 12,
                       lineHeight: 1.5,
-                      fontWeight: 600,
-                      color: "var(--color-coral)",
+                      fontWeight: 400,
+                      color: "var(--color-text-3)",
                     }}
                   >
                     {copy.lossLine}
@@ -1284,6 +1351,7 @@ function SearchSection({
                 ) : null}
               </div>
               <p
+                className="landing-search-future"
                 style={{
                   margin: "40px auto 0",
                   maxWidth: 440,
@@ -1295,33 +1363,36 @@ function SearchSection({
               >
                 {copy.futureLine}
               </p>
-              <div
-                style={{
-                  marginTop: 18,
-                  display: "flex",
-                  justifyContent: "center",
-                }}
-              >
-                <ScoreLine value={search.pillar} />
-              </div>
-              <div
-                style={{
-                  marginTop: 6,
-                  display: "flex",
-                  justifyContent: "center",
-                }}
-              >
-                <CtaPill
-                  href={ctaHref}
-                  cta="search"
-                  label="Start tracking · $29/mo"
-                />
+              <div className="landing-cta-inline">
+                <div
+                  style={{
+                    marginTop: 18,
+                    display: "flex",
+                    justifyContent: "center",
+                  }}
+                >
+                  <ScoreLine value={search.pillar} />
+                </div>
+                <div
+                  style={{
+                    marginTop: 6,
+                    display: "flex",
+                    justifyContent: "center",
+                  }}
+                >
+                  <CtaPill
+                    href={ctaHref}
+                    cta="search"
+                    label="Start tracking · $29/mo"
+                  />
+                </div>
               </div>
             </div>
 
             {/* RIGHT · keyword table */}
             <div>
               <p
+                className="landing-subhead"
                 style={{
                   margin: "4px 0 0",
                   fontFamily: SERIF,
@@ -1334,7 +1405,7 @@ function SearchSection({
               <div style={{ position: "relative", marginTop: 14 }}>
                 <div
                   className="landing-table-scroll"
-                  style={{ maxHeight: 380, overflow: "auto" }}
+                  style={{ maxHeight: 440, overflow: "hidden" }}
                 >
                   <table className="landing-table" style={tableStyle}>
                     <thead>
@@ -1362,7 +1433,7 @@ function SearchSection({
                               <span
                                 style={{
                                   fontWeight: 600,
-                                  fontSize: 16,
+                                  fontSize: 14,
                                   color: "var(--color-text)",
                                 }}
                               >
@@ -1377,7 +1448,7 @@ function SearchSection({
                                   justifyContent: "flex-end",
                                   gap: 6,
                                   fontWeight: 600,
-                                  fontSize: 16,
+                                  fontSize: 14,
                                 }}
                               >
                                 {rate.label}
@@ -1420,6 +1491,30 @@ function SearchSection({
                 />
               </div>
               {copy.gap ? <ProblemSolution gap={copy.gap} /> : null}
+              <div className="landing-cta-stacked">
+                <div
+                  style={{
+                    marginTop: 18,
+                    display: "flex",
+                    justifyContent: "center",
+                  }}
+                >
+                  <ScoreLine value={search.pillar} />
+                </div>
+                <div
+                  style={{
+                    marginTop: 6,
+                    display: "flex",
+                    justifyContent: "center",
+                  }}
+                >
+                  <CtaPill
+                    href={ctaHref}
+                    cta="search"
+                    label="Start tracking · $29/mo"
+                  />
+                </div>
+              </div>
             </div>
           </div>
         ) : (
@@ -1447,7 +1542,7 @@ function GoogleLogo() {
       aria-label="Google"
       style={{
         fontFamily: "Arial, var(--font-landing-body)",
-        fontWeight: 500,
+        fontWeight: 400,
         fontSize: 26,
         letterSpacing: "-0.5px",
         flexShrink: 0,
@@ -1539,7 +1634,7 @@ function AdsSection({
         {ads.hasData ? (
           <>
             <div
-              className="landing-2col"
+              className="landing-2col landing-ads-grid"
               style={{
                 marginTop: 44,
                 display: "grid",
@@ -1550,6 +1645,7 @@ function AdsSection({
             >
               <div>
                 <p
+                  className="landing-subhead"
                   style={{
                     margin: 0,
                     fontFamily: SERIF,
@@ -1585,10 +1681,13 @@ function AdsSection({
                   />
                 </div>
               </div>
-              {copy.gap ? <ProblemSolutionStacked gap={copy.gap} /> : <div />}
+              <div className="landing-ads-ps-desktop">
+                {copy.gap ? <ProblemSolutionStacked gap={copy.gap} /> : <div />}
+              </div>
             </div>
 
             <div
+              className="landing-ads-table-block"
               style={{
                 marginTop: 52,
                 maxWidth: 840,
@@ -1596,6 +1695,7 @@ function AdsSection({
               }}
             >
               <p
+                className="landing-subhead"
                 style={{
                   margin: 0,
                   fontFamily: SERIF,
@@ -1605,76 +1705,86 @@ function AdsSection({
               >
                 Ads running near you:
               </p>
-              <table
-                className="landing-table landing-table--nocaps"
-                style={{
-                  ...tableStyle,
-                  marginTop: 16,
-                  width: "100%",
-                }}
-              >
-                <thead>
-                  <tr>
-                    <Th>Advertiser near you</Th>
-                    <Th align="right">Active ads</Th>
-                    <Th>Where</Th>
-                    <Th align="right">Yours?</Th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {ads.competitors.map((c) => (
-                    <tr key={c.name}>
-                      <Td>
-                        <span style={{ fontWeight: 600 }}>{c.name}</span>
-                      </Td>
-                      <Td align="right">
-                        <span style={{ fontWeight: 600 }}>
-                          {fmtNum(c.activeAds)}
-                        </span>
-                      </Td>
-                      <Td color="var(--color-text-3)">
-                        {c.platforms.length
-                          ? c.platforms
-                              .map((p) =>
-                                p
-                                  .toLowerCase()
-                                  .replace(/_/g, " ")
-                                  .replace(/\b\w/g, (ch) => ch.toUpperCase()),
-                              )
-                              .join(", ")
-                          : "—"}
-                      </Td>
-                      <Td
-                        align="right"
-                        color={
-                          c.isOwn
-                            ? "var(--color-success)"
-                            : "var(--color-coral)"
-                        }
-                      >
-                        <span style={{ fontWeight: 600 }}>
-                          {c.isOwn ? (
-                            <>
-                              yes ✓{" "}
-                              <span
-                                style={{
-                                  color: "var(--color-text-3)",
-                                  fontWeight: 400,
-                                }}
-                              >
-                                ({c.platforms.join(", ") || "—"})
-                              </span>
-                            </>
-                          ) : (
-                            "no"
-                          )}
-                        </span>
-                      </Td>
+              <div className="landing-table-scroll">
+                <table
+                  className="landing-table"
+                  style={{
+                    ...tableStyle,
+                    marginTop: 16,
+                    width: "100%",
+                  }}
+                >
+                  <thead>
+                    <tr>
+                      <Th>Advertiser near you</Th>
+                      <Th align="right">
+                        <span style={{ whiteSpace: "nowrap" }}>Active ads</span>
+                      </Th>
+                      <Th>Where</Th>
+                      <Th align="right">Yours?</Th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {ads.competitors.map((c) => (
+                      <tr key={c.name}>
+                        <Td>
+                          <span style={{ fontWeight: 600 }}>{c.name}</span>
+                        </Td>
+                        <Td align="right">
+                          <span style={{ fontWeight: 600 }}>
+                            {fmtNum(c.activeAds)}
+                          </span>
+                        </Td>
+                        <Td color="var(--color-text-3)">
+                          {c.platforms.length
+                            ? c.platforms
+                                .map((p) =>
+                                  p
+                                    .toLowerCase()
+                                    .replace(/_/g, " ")
+                                    .replace(/\b\w/g, (ch) => ch.toUpperCase()),
+                                )
+                                .join(", ")
+                            : "—"}
+                        </Td>
+                        <Td
+                          align="right"
+                          color={
+                            c.isOwn
+                              ? "var(--color-success)"
+                              : "var(--color-coral)"
+                          }
+                        >
+                          <span style={{ fontWeight: 600 }}>
+                            {c.isOwn ? (
+                              <>
+                                yes ✓{" "}
+                                <span
+                                  style={{
+                                    color: "var(--color-text-3)",
+                                    fontWeight: 400,
+                                  }}
+                                >
+                                  ({c.platforms.join(", ") || "—"})
+                                </span>
+                              </>
+                            ) : (
+                              "no"
+                            )}
+                          </span>
+                        </Td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
+
+            {copy.gap ? (
+              <div className="landing-ads-ps-mobile">
+                <ProblemSolutionStacked gap={copy.gap} />
+              </div>
+            ) : null}
 
             <div
               style={{
@@ -1724,6 +1834,7 @@ function AdStat({
         {label}
       </p>
       <p
+        className="landing-adstat-num"
         style={{
           margin: "12px 0 0",
           fontFamily: SERIF,
@@ -1733,8 +1844,12 @@ function AdStat({
           color: coral ? "var(--color-coral)" : "var(--color-text)",
         }}
       >
-        {fmtNum(value)}
-        <span style={{ fontSize: 50, fontWeight: 400 }}> {unit}</span>
+        <CountUp
+          value={value}
+          grouping
+          critical={coral}
+          unit={<span style={{ fontSize: 50, fontWeight: 400 }}> {unit}</span>}
+        />
       </p>
     </div>
   );
@@ -1749,7 +1864,10 @@ function ProblemSolutionStacked({ gap }: { gap: LandingGap }) {
     color: "var(--color-text)",
   };
   return (
-    <div style={{ position: "relative", display: "grid", gap: 14 }}>
+    <div
+      className="landing-ps-block"
+      style={{ position: "relative", display: "grid", gap: 14 }}
+    >
       <div style={{ ...baseBox, background: "#F9F6F6" }}>
         <strong style={{ color: "var(--color-coral)" }}>Your problem:</strong>{" "}
         {boldValues(gap.problem)}
@@ -1798,6 +1916,12 @@ function ReviewsSection({
   noun: string;
   ctaHref: string;
 }) {
+  // Scenario 1 (you're in the top 3): competitors are ranks 1–5 and the
+  // table fades out below. Scenario 2 (below 3): ranks 1–3 then your row at
+  // its real rank after a "⋮" gap, no fade.
+  const ownRow = reviews.competitors.find((c) => c.isOwn);
+  const ownBelowTop3 = ownRow != null && ownRow.rank > 3;
+  const fadeTable = !ownBelowTop3;
   return (
     <section data-landing-section="reviews" style={sectionStyle("white")}>
       <div style={CONTAINER}>
@@ -1811,6 +1935,7 @@ function ReviewsSection({
         {reviews.hasData ? (
           <>
             <div
+              className="landing-reviews-score"
               style={{
                 marginTop: 40,
                 display: "flex",
@@ -1825,11 +1950,15 @@ function ReviewsSection({
                 marginInline: "auto",
               }}
             >
-              <span style={{ fontSize: 15, fontWeight: 700 }}>
+              <span
+                className="landing-reviews-score-label"
+                style={{ fontSize: 15, fontWeight: 600 }}
+              >
                 Your Google score:
               </span>
               <span
-                style={{ fontFamily: SERIF, fontSize: 40, fontWeight: 600 }}
+                className="landing-reviews-score-num"
+                style={{ fontFamily: SERIF, fontSize: 45, fontWeight: 600 }}
               >
                 {fmtRating(reviews.rating)}
               </span>
@@ -1879,7 +2008,7 @@ function ReviewsSection({
             </div>
 
             <div
-              className="landing-2col"
+              className="landing-2col landing-reviews-grid"
               style={{
                 marginTop: 40,
                 display: "grid",
@@ -1890,6 +2019,7 @@ function ReviewsSection({
             >
               <div>
                 <p
+                  className="landing-subhead"
                   style={{
                     margin: "0 0 8px",
                     fontFamily: SERIF,
@@ -1899,107 +2029,268 @@ function ReviewsSection({
                 >
                   You compared to your competitors:
                 </p>
-                <table className="landing-table" style={tableStyle}>
-                  <colgroup>
-                    <col style={{ width: "40%" }} />
-                  </colgroup>
-                  <thead>
-                    <tr>
-                      <Th>
-                        <span style={{ display: "inline-block", maxWidth: 70 }}>
-                          Company name
-                        </span>
-                      </Th>
-                      <Th>Google reviews score</Th>
-                      <Th>Number of reviews</Th>
-                      <Th>Review trend (last 30d)</Th>
-                      <Th>Response rate</Th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {reviews.competitors.map((c, i) => {
-                      const own = c.isOwn;
-                      const txt = own
-                        ? "var(--color-coral)"
-                        : "var(--color-text)";
-                      const prevRank = reviews.competitors[i - 1]?.rank;
-                      const gapRow = prevRank != null && c.rank > prevRank + 1;
-                      return (
-                        <tr key={`${c.name}-${c.rank}`}>
-                          <Td color={txt}>
-                            <span
-                              style={{
-                                display: "inline-flex",
-                                alignItems: "center",
-                                gap: 10,
-                              }}
-                            >
+                <div className="landing-table-scroll landing-table-scroll-glow">
+                  <table className="landing-table" style={tableStyle}>
+                    <colgroup>
+                      <col style={{ width: "40%" }} />
+                    </colgroup>
+                    <thead>
+                      <tr>
+                        <Th>
+                          <span
+                            style={{
+                              display: "inline-block",
+                              maxWidth: 70,
+                              marginLeft: 32,
+                            }}
+                          >
+                            Company name
+                          </span>
+                        </Th>
+                        <Th>Google reviews score</Th>
+                        <Th>Number of reviews</Th>
+                        <Th>Review trend (last 30d)</Th>
+                        <Th>Response rate</Th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {reviews.competitors.map((c, i) => {
+                        const own = c.isOwn;
+                        const txt = "var(--color-text)";
+                        const prevRank = reviews.competitors[i - 1]?.rank;
+                        const gapRow =
+                          prevRank != null && c.rank > prevRank + 1;
+                        // Scenario 1: fade the bottom rows instead of a mask —
+                        // the 5th at 40% opacity, the 4th at 70%.
+                        const lastIdx = reviews.competitors.length - 1;
+                        const rowOpacity = !fadeTable
+                          ? undefined
+                          : i === lastIdx
+                            ? 0.4
+                            : i === lastIdx - 1
+                              ? 0.7
+                              : undefined;
+
+                        // Your-business row — REAL metrics, highlighted "You"
+                        // styling. Present only when you're not already in the
+                        // top 3 (gated by buildReviews in queries.ts).
+                        if (own) {
+                          // Top-3 → green (you're winning); below 3 → coral with
+                          // red low values (you're behind).
+                          const accent =
+                            c.rank <= 3
+                              ? "var(--color-success)"
+                              : "var(--color-coral)";
+                          const lowVal =
+                            c.rank <= 3
+                              ? "var(--color-text)"
+                              : "var(--color-coral)";
+                          return (
+                            <Fragment key={`${c.name}-${c.rank}`}>
                               {gapRow ? (
-                                <span
-                                  style={{ color: "var(--color-text-3)" }}
-                                  aria-hidden
-                                >
-                                  ⋮
-                                </span>
+                                <tr>
+                                  <Td color="var(--color-text-3)">
+                                    <span
+                                      aria-hidden
+                                      style={{
+                                        paddingLeft: 6,
+                                        fontSize: 18,
+                                        lineHeight: 1,
+                                      }}
+                                    >
+                                      ⋮
+                                    </span>
+                                  </Td>
+                                  <Td>{""}</Td>
+                                  <Td>{""}</Td>
+                                  <Td>{""}</Td>
+                                  <Td>{""}</Td>
+                                </tr>
                               ) : null}
-                              <RankBadge rank={c.rank} isOwn={own} />
-                              <span style={{ fontWeight: own ? 700 : 400 }}>
-                                {c.name}
-                              </span>
-                              {own ? (
-                                <em
-                                  style={{
-                                    color: "var(--color-coral)",
-                                    fontStyle: "italic",
-                                    fontWeight: 700,
-                                  }}
-                                >
-                                  You!
-                                </em>
-                              ) : null}
-                            </span>
-                          </Td>
-                          <Td color={txt}>
-                            {fmtRating(c.rating)}{" "}
-                            <svg
-                              width="13"
-                              height="12"
-                              viewBox="0 0 18 17"
-                              fill="none"
-                              aria-hidden
-                              style={{
-                                display: "inline-block",
-                                verticalAlign: "-1px",
-                              }}
+                              <tr>
+                                <Td color={accent} weight={600}>
+                                  <span
+                                    style={{
+                                      display: "inline-flex",
+                                      alignItems: "center",
+                                      gap: 10,
+                                    }}
+                                  >
+                                    <span
+                                      style={{
+                                        display: "inline-grid",
+                                        placeItems: "center",
+                                        width: 22,
+                                        height: 22,
+                                        borderRadius: "50%",
+                                        background: accent,
+                                        color: "#fff",
+                                        fontSize: 11,
+                                        fontWeight: 600,
+                                        flexShrink: 0,
+                                        boxShadow: `0 0 20px 0 ${accent}`,
+                                      }}
+                                    >
+                                      {c.rank}
+                                    </span>
+                                    <span
+                                      style={{
+                                        fontWeight: 600,
+                                        color: "var(--color-text)",
+                                      }}
+                                    >
+                                      {c.name}
+                                    </span>
+                                    <em
+                                      style={{
+                                        fontFamily: SERIF,
+                                        fontSize: 24,
+                                        color: accent,
+                                        fontStyle: "italic",
+                                        fontWeight: 700,
+                                      }}
+                                    >
+                                      (You!)
+                                    </em>
+                                  </span>
+                                </Td>
+                                <Td color="var(--color-text)" weight={600}>
+                                  {fmtRating(c.rating)}{" "}
+                                  <svg
+                                    width="13"
+                                    height="12"
+                                    viewBox="0 0 18 17"
+                                    fill="none"
+                                    aria-hidden
+                                    style={{
+                                      display: "inline-block",
+                                      verticalAlign: "-1px",
+                                    }}
+                                  >
+                                    <path
+                                      d={STAR_D}
+                                      fill="#FCC800"
+                                      stroke="#FCC800"
+                                      strokeWidth="1.42452"
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                    />
+                                  </svg>
+                                </Td>
+                                <Td color={lowVal} weight={600}>
+                                  {fmtNum(c.reviewCount)}
+                                </Td>
+                                <Td color={lowVal} weight={600}>
+                                  {c.trend30d ?? 0}
+                                </Td>
+                                <Td color="var(--color-text)" weight={600}>
+                                  {fmtPct(c.responseRate)}
+                                </Td>
+                              </tr>
+                            </Fragment>
+                          );
+                        }
+
+                        return (
+                          <tr
+                            key={`${c.name}-${c.rank}`}
+                            style={
+                              rowOpacity != null
+                                ? { opacity: rowOpacity }
+                                : undefined
+                            }
+                          >
+                            <Td
+                              color="var(--color-text)"
+                              weight={600}
+                              borderOpacity={rowOpacity}
                             >
-                              <path
-                                d={STAR_D}
-                                fill="#FCC800"
-                                stroke="#FCC800"
-                                strokeWidth="1.42452"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                              />
-                            </svg>
-                          </Td>
-                          <Td color={txt}>{fmtNum(c.reviewCount)}</Td>
-                          <Td color={txt}>{c.trend30d ?? 0}</Td>
-                          <Td color={txt}>{fmtPct(c.responseRate)}</Td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                              <span
+                                style={{
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: 10,
+                                }}
+                              >
+                                {gapRow ? (
+                                  <span
+                                    style={{ color: "var(--color-text-3)" }}
+                                    aria-hidden
+                                  >
+                                    ⋮
+                                  </span>
+                                ) : null}
+                                <RankBadge rank={c.rank} isOwn={own} />
+                                <span style={{ fontWeight: 600 }}>
+                                  {c.name}
+                                </span>
+                              </span>
+                            </Td>
+                            <Td
+                              color={txt}
+                              weight={600}
+                              borderOpacity={rowOpacity}
+                            >
+                              {fmtRating(c.rating)}{" "}
+                              <svg
+                                width="13"
+                                height="12"
+                                viewBox="0 0 18 17"
+                                fill="none"
+                                aria-hidden
+                                style={{
+                                  display: "inline-block",
+                                  verticalAlign: "-1px",
+                                }}
+                              >
+                                <path
+                                  d={STAR_D}
+                                  fill="#FCC800"
+                                  stroke="#FCC800"
+                                  strokeWidth="1.42452"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                />
+                              </svg>
+                            </Td>
+                            <Td
+                              color={txt}
+                              weight={600}
+                              borderOpacity={rowOpacity}
+                            >
+                              {fmtNum(c.reviewCount)}
+                            </Td>
+                            <Td
+                              color={txt}
+                              weight={600}
+                              borderOpacity={rowOpacity}
+                            >
+                              {c.trend30d ?? 0}
+                            </Td>
+                            <Td
+                              color={txt}
+                              weight={600}
+                              borderOpacity={rowOpacity}
+                            >
+                              {fmtPct(c.responseRate)}
+                            </Td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               </div>
 
               <div
                 style={{
-                  borderLeft: "1px solid #E5E5E5",
+                  borderLeft: "1px solid #F1F4F6",
                   paddingLeft: 24,
                   marginLeft: -24,
                 }}
               >
                 <p
+                  className="landing-subhead"
                   style={{
                     margin: 0,
                     fontFamily: SERIF,
@@ -2011,38 +2302,55 @@ function ReviewsSection({
                   What services clients mention in your reviews?
                 </p>
                 {reviews.themes.length > 0 ? (
-                  <div style={{ display: "grid", gap: 16, marginTop: 16 }}>
-                    {reviews.themes.slice(0, 5).map((t) => (
+                  <div
+                    style={{
+                      display: "grid",
+                      gap: 7,
+                      marginTop: 16,
+                      maxWidth: 520,
+                    }}
+                  >
+                    {reviews.themes.slice(0, 3).map((t) => (
                       <div
                         key={t.label}
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "space-between",
-                          gap: 12,
-                          background: "#F5F5F5",
-                          borderRadius: 14,
-                          padding: "22px 28px",
-                        }}
+                        style={{ display: "flex", alignItems: "center" }}
                       >
-                        <span
-                          style={{
-                            fontSize: 16,
-                            color: "var(--color-text-2)",
-                            lineHeight: 1.3,
-                          }}
-                        >
-                          <strong style={{ color: "var(--color-success)" }}>
-                            {t.label}
-                          </strong>{" "}
-                          mentioned by {noun}
-                        </span>
-                        <span
+                        <div
+                          className="landing-theme-card"
                           style={{
                             display: "flex",
                             alignItems: "center",
-                            gap: 6,
+                            height: 87,
+                            padding: "0 28px",
+                            width: 380,
                             flexShrink: 0,
+                            boxSizing: "border-box",
+                            background: "#F5F5F5",
+                            borderRadius: "22px 22px 22px 0",
+                          }}
+                        >
+                          <span
+                            style={{
+                              fontSize: 16,
+                              color: "var(--color-text-2)",
+                              lineHeight: 1.3,
+                            }}
+                          >
+                            <strong style={{ color: "var(--color-success)" }}>
+                              {t.label}
+                            </strong>{" "}
+                            mentioned by {noun}
+                          </span>
+                        </div>
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 10,
+                            flexShrink: 0,
+                            marginLeft: -13,
+                            position: "relative",
+                            zIndex: 1,
                           }}
                         >
                           <span
@@ -2054,23 +2362,34 @@ function ReviewsSection({
                             aria-hidden
                           />
                           <span
+                            className="landing-theme-numwrap"
                             style={{
-                              fontFamily: SERIF,
-                              fontSize: 40,
-                              fontWeight: 600,
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 10,
                             }}
                           >
-                            {t.count}
+                            <span
+                              className="landing-theme-count"
+                              style={{
+                                fontFamily: SERIF,
+                                fontSize: 50,
+                                fontWeight: 600,
+                              }}
+                            >
+                              <CountUp value={t.count} />
+                            </span>
+                            <span
+                              style={{
+                                fontSize: 13,
+                                fontWeight: 600,
+                                color: "var(--color-text)",
+                              }}
+                            >
+                              times
+                            </span>
                           </span>
-                          <span
-                            style={{
-                              fontSize: 13,
-                              color: "var(--color-text-3)",
-                            }}
-                          >
-                            times
-                          </span>
-                        </span>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -2153,115 +2472,139 @@ function WebsiteSection({
               alignItems: "start",
             }}
           >
-            <div
-              style={{
-                background: "var(--color-bg-3)",
-                borderRadius: 21,
-                padding: 28,
-              }}
-            >
+            <div>
               <div
                 style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: 18,
+                  background: "#F5F5F5",
+                  borderRadius: 21,
+                  padding: "44px 28px",
                 }}
               >
-                <p
+                <div
                   style={{
-                    margin: 0,
-                    fontFamily: SERIF,
-                    fontSize: 22,
-                    fontWeight: 700,
-                    lineHeight: 1.2,
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: 18,
+                    alignItems: "start",
                   }}
                 >
-                  Score of your website:
+                  <p
+                    className="landing-subhead"
+                    style={{
+                      margin: 0,
+                      fontFamily: SERIF,
+                      fontSize: 30,
+                      fontWeight: 700,
+                      lineHeight: 1.2,
+                    }}
+                  >
+                    Score of your website:
+                  </p>
+                  <WebStat
+                    label="Your score:"
+                    value={perf != null ? Math.round(perf) : null}
+                    sub={host ?? undefined}
+                    color={yourColor}
+                    pulse={yourColor === "var(--color-coral)"}
+                    big
+                  />
+                </div>
+                <div
+                  className="landing-web-industry-grid"
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: 18,
+                    marginTop: 24,
+                  }}
+                >
+                  <WebStat
+                    label={
+                      <>
+                        Industry median <br className="landing-br-mobile" />
+                        (top 10):
+                      </>
+                    }
+                    value={website.industryMedian}
+                    sub={`midpoint of the top 10 sites${city ? ` in ${city}` : ""}`}
+                  />
+                  <WebStat
+                    label={
+                      <>
+                        Industry best <br className="landing-br-mobile" />
+                        (p90):
+                      </>
+                    }
+                    value={website.industryBest}
+                    sub="top 10% of websites in your category"
+                  />
+                </div>
+              </div>
+              <div className="landing-web-cta-desktop">
+                <p
+                  style={{
+                    margin: "40px auto 0",
+                    maxWidth: 440,
+                    textAlign: "center",
+                    fontSize: 14,
+                    color: "var(--color-text-3)",
+                    lineHeight: 1.5,
+                  }}
+                >
+                  Full per-check breakdown with fix steps + weekly tracking
+                  available on Mapsly Pro.
                 </p>
-                <WebStat
-                  label="Your score:"
-                  value={perf != null ? Math.round(perf) : null}
-                  sub={host ?? undefined}
-                  color={yourColor}
-                  big
-                />
-              </div>
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: 18,
-                  marginTop: 24,
-                }}
-              >
-                <WebStat
-                  label="Industry median (top 10):"
-                  value={website.industryMedian}
-                  sub={`midpoint of the top 10 sites${city ? ` in ${city}` : ""}`}
-                />
-                <WebStat
-                  label="Industry best (p90):"
-                  value={website.industryBest}
-                  sub="top 10% of websites in your category"
-                  color="var(--color-success)"
-                />
-              </div>
-              <p
-                style={{
-                  margin: "22px 0 0",
-                  fontSize: 12.5,
-                  color: "var(--color-text-3)",
-                  lineHeight: 1.5,
-                }}
-              >
-                Full per-check breakdown with fix steps + weekly tracking
-                available on Mapsly Pro.
-              </p>
-              <div
-                style={{
-                  marginTop: 36,
-                  display: "grid",
-                  gap: 6,
-                  justifyItems: "center",
-                }}
-              >
-                <ScoreLine value={website.pillar} />
-                <CtaPill
-                  href={ctaHref}
-                  cta="website"
-                  label="Full per-check breakdown"
-                />
+                <div
+                  style={{
+                    marginTop: 18,
+                    display: "grid",
+                    gap: 6,
+                    justifyItems: "center",
+                  }}
+                >
+                  <ScoreLine value={website.pillar} />
+                  <CtaPill
+                    href={ctaHref}
+                    cta="website"
+                    label="Full per-check breakdown"
+                  />
+                </div>
               </div>
             </div>
 
             <div>
               <p
+                className="landing-subhead"
                 style={{
                   margin: 0,
                   fontFamily: SERIF,
-                  fontSize: 22,
+                  fontSize: 30,
                   fontWeight: 700,
                   lineHeight: 1.25,
                 }}
               >
                 {website.passCount} of {website.totalChecks} checks passing.{" "}
                 <span
+                  className="landing-subhead"
                   style={{
-                    color: "var(--color-text-3)",
+                    color: "var(--color-text)",
                     fontWeight: 400,
-                    fontSize: 16,
+                    fontSize: 30,
                   }}
                 >
                   Most top-10 sites pass 9+. What&apos;s missing:
                 </span>
               </p>
               <div style={{ position: "relative", marginTop: 16 }}>
-                <div style={{ maxHeight: 440, overflow: "hidden" }}>
+                <div
+                  className="landing-table-scroll landing-web-checks-scroll"
+                  style={{ maxHeight: 440, overflow: "hidden" }}
+                >
                   <table className="landing-table" style={tableStyle}>
                     <thead>
                       <tr>
                         <Th>Check</Th>
-                        <Th>Your stats:</Th>
+                        <Th>Your stats</Th>
                       </tr>
                     </thead>
                     <tbody>
@@ -2273,8 +2616,37 @@ function WebsiteSection({
                           : fail
                             ? "var(--color-coral)"
                             : "var(--color-text-3)";
+                        const detailNode = fail
+                          ? (() => {
+                              const m = c.detail?.match(
+                                /^(.*?:\s*)([^·]+?)(\s*·[\s\S]*)$/,
+                              );
+                              const red = (
+                                <strong
+                                  style={{
+                                    color: "var(--color-coral)",
+                                    fontWeight: 600,
+                                  }}
+                                >
+                                  {m ? m[2].trim() : c.detail}
+                                </strong>
+                              );
+                              return m ? (
+                                <>
+                                  {m[1]}
+                                  {red}
+                                  {m[3]}
+                                </>
+                              ) : (
+                                red
+                              );
+                            })()
+                          : c.detail;
                         return (
                           <tr key={c.key}>
+                            <Td>
+                              <span style={{ fontWeight: 600 }}>{c.label}</span>
+                            </Td>
                             <Td>
                               <span
                                 style={{
@@ -2285,14 +2657,43 @@ function WebsiteSection({
                               >
                                 <span
                                   aria-hidden
-                                  style={{ color: col, fontWeight: 700 }}
+                                  style={{
+                                    color: col,
+                                    fontWeight: 600,
+                                    width: 18,
+                                    flexShrink: 0,
+                                    display: "inline-flex",
+                                    justifyContent: "center",
+                                  }}
                                 >
-                                  {ok ? "✓" : fail ? "✕" : "·"}
+                                  {ok ? (
+                                    <svg
+                                      width="16"
+                                      height="12"
+                                      viewBox="0 0 17 13"
+                                      fill="none"
+                                      style={{
+                                        display: "inline-block",
+                                        verticalAlign: "middle",
+                                      }}
+                                    >
+                                      <path
+                                        d="M0.701172 4.96943L5.93927 10.6837L16.2536 0.683716"
+                                        stroke="#7DA88B"
+                                        strokeWidth="1.90476"
+                                      />
+                                    </svg>
+                                  ) : fail ? (
+                                    "✕"
+                                  ) : (
+                                    "·"
+                                  )}
                                 </span>
-                                {c.label}
+                                <span style={{ color: "var(--color-text-3)" }}>
+                                  {detailNode}
+                                </span>
                               </span>
                             </Td>
-                            <Td color={col}>{c.detail}</Td>
                           </tr>
                         );
                       })}
@@ -2313,6 +2714,37 @@ function WebsiteSection({
                   }}
                 />
               </div>
+              {copy.gap ? <ProblemSolution gap={copy.gap} /> : null}
+              <div className="landing-web-cta-mobile">
+                <p
+                  style={{
+                    margin: "28px auto 0",
+                    maxWidth: 440,
+                    textAlign: "center",
+                    fontSize: 14,
+                    color: "var(--color-text-3)",
+                    lineHeight: 1.5,
+                  }}
+                >
+                  Full per-check breakdown with fix steps + weekly tracking
+                  available on Mapsly Pro.
+                </p>
+                <div
+                  style={{
+                    marginTop: 18,
+                    display: "grid",
+                    gap: 6,
+                    justifyItems: "center",
+                  }}
+                >
+                  <ScoreLine value={website.pillar} />
+                  <CtaPill
+                    href={ctaHref}
+                    cta="website"
+                    label="Full per-check breakdown"
+                  />
+                </div>
+              </div>
             </div>
           </div>
         ) : (
@@ -2320,8 +2752,6 @@ function WebsiteSection({
             {`We haven't audited your website yet. Mapsly checks it against the 12 things ${noun} (and Google) notice — speed, booking buttons, mobile, and more — every week.`}
           </MissingNote>
         )}
-
-        {copy.gap ? <ProblemSolution gap={copy.gap} /> : null}
       </div>
     </section>
   );
@@ -2332,21 +2762,23 @@ function WebStat({
   value,
   sub,
   color,
-  big,
+  pulse,
 }: {
-  label: string;
+  label: ReactNode;
   value: number | null;
   sub?: string;
   color?: string;
   big?: boolean;
+  pulse?: boolean;
 }) {
   return (
     <div>
       <p
         style={{
           margin: 0,
-          fontSize: 13.5,
-          color: "var(--color-text-2)",
+          fontSize: 12,
+          fontWeight: 600,
+          color: "var(--color-text)",
           lineHeight: 1.3,
         }}
       >
@@ -2356,30 +2788,30 @@ function WebStat({
         style={{
           margin: "8px 0 0",
           fontFamily: SERIF,
-          fontSize: big ? 48 : 34,
+          fontSize: 70,
           fontWeight: 700,
           lineHeight: 1,
           color: color ?? "var(--color-text)",
         }}
       >
-        {value ?? "—"}
+        {value == null ? "—" : <CountUp value={value} critical={pulse} />}
         <span
           style={{
             fontFamily: "var(--font-landing-body)",
-            fontSize: big ? 16 : 13,
-            fontWeight: 400,
-            color: "var(--color-text-3)",
+            fontSize: 15,
+            fontWeight: 600,
+            color: "var(--color-text)",
           }}
         >
           {" "}
-          /100
+          / 100
         </span>
       </p>
       {sub ? (
         <p
           style={{
             margin: "6px 0 0",
-            fontSize: 12,
+            fontSize: 16,
             color: "var(--color-text-3)",
             lineHeight: 1.4,
           }}
@@ -2407,7 +2839,7 @@ function FixesSection({
     <section
       data-landing-section="fixes"
       style={{
-        background: "#f3f3f1",
+        background: "#F5F5F5",
         padding: "clamp(56px, 8vw, 104px) 20px",
       }}
     >
@@ -2432,33 +2864,32 @@ function FixesSection({
                 key={f.rank}
                 style={{
                   ...CARD,
-                  padding: 28,
-                  borderRadius: 20,
+                  border: "none",
+                  padding: "36px 52px",
+                  borderRadius: 22,
                   display: "flex",
                   flexDirection: "column",
                   gap: 16,
                 }}
               >
                 <svg
-                  width={42}
-                  height={42}
-                  viewBox="0 0 42 42"
+                  width={74}
+                  height={48}
+                  viewBox="0 0 73 48"
                   fill="none"
                   aria-hidden
                   style={{ display: "block" }}
                 >
                   <path
-                    d="M9 22.5 L18 31 L34 12"
-                    stroke="var(--color-gold-2)"
-                    strokeWidth={5}
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
+                    d="M4.29492 18.2854L27.7949 38.9785L68.2949 4.97852"
+                    stroke="#ECE6DE"
+                    strokeWidth={13}
                   />
                 </svg>
                 <p
                   style={{
                     margin: 0,
-                    fontSize: 16.5,
+                    fontSize: 18,
                     fontWeight: 600,
                     color: "var(--color-text)",
                     lineHeight: 1.4,
@@ -2471,7 +2902,7 @@ function FixesSection({
                       style={{
                         display: "block",
                         marginTop: 6,
-                        fontSize: 13,
+                        fontSize: 16,
                         fontWeight: 400,
                         color: "var(--color-text-3)",
                       }}
@@ -2484,24 +2915,21 @@ function FixesSection({
                   style={{
                     margin: 0,
                     fontFamily: SERIF,
-                    fontSize: 30,
+                    fontSize: 40,
                     fontWeight: 600,
-                    color:
-                      f.tone === "good"
-                        ? "var(--color-success)"
-                        : "var(--color-coral)",
+                    color: "var(--color-text)",
                   }}
                 >
                   {f.impact}{" "}
                   <span
                     style={{
                       fontFamily: "var(--font-landing-body)",
-                      fontSize: 12,
-                      fontWeight: 400,
-                      color: "var(--color-text-3)",
+                      fontSize: 16,
+                      fontWeight: 600,
+                      color: "var(--color-text)",
                     }}
                   >
-                    {f.impactSub}
+                    / {f.impactSub}
                   </span>
                 </p>
               </div>
@@ -2551,12 +2979,13 @@ function PricingSection({
           ...CONTAINER,
           display: "grid",
           gap: 56,
-          gridTemplateColumns: "minmax(0, 1.3fr) minmax(300px, 1fr)",
+          gridTemplateColumns: "minmax(0, 1.6fr) minmax(300px, 1fr)",
           alignItems: "center",
         }}
       >
         <div>
           <h2
+            className="landing-section-h2"
             style={{
               margin: 0,
               fontFamily: SERIF,
@@ -2567,15 +2996,17 @@ function PricingSection({
             }}
           >
             {copy.titleLead}{" "}
-            <em style={{ fontStyle: "italic" }}>{copy.emphasis}</em>
+            <em style={{ fontStyle: "italic", color: "#ECE6DE" }}>
+              {copy.emphasis}
+            </em>
           </h2>
           <p
             style={{
               margin: "22px 0 0",
-              maxWidth: 480,
+              maxWidth: 560,
               fontSize: 18,
               lineHeight: 1.6,
-              color: "rgba(255,255,255,0.72)",
+              color: "#DCB2B0",
             }}
           >
             {copy.body}
@@ -2598,12 +3029,24 @@ function PricingSection({
                   alignItems: "flex-start",
                   color: "rgba(255,255,255,0.95)",
                   fontSize: 15,
+                  fontWeight: 600,
                   lineHeight: 1.4,
                 }}
               >
-                <span aria-hidden style={{ color: "#fff", fontWeight: 700 }}>
-                  ✓
-                </span>
+                <svg
+                  width="13"
+                  height="10"
+                  viewBox="0 0 13 10"
+                  fill="none"
+                  aria-hidden
+                  style={{ flexShrink: 0, marginTop: 7 }}
+                >
+                  <path
+                    d="M0.736328 3.71777L4.40299 7.71777L11.623 0.717773"
+                    stroke="#ECE6DE"
+                    strokeWidth="2"
+                  />
+                </svg>
                 {p}
               </span>
             ))}
@@ -2614,20 +3057,25 @@ function PricingSection({
           <div
             style={{
               position: "absolute",
-              left: -86,
-              bottom: 40,
+              left: -240,
+              bottom: 0,
               display: "none",
             }}
             className="landing-pricing-arrow"
           >
-            <CurlyArrow />
+            <CurlyArrow color="#ECE6DE" />
           </div>
           <div
+            className="landing-pricing-card"
             style={{
               background: "#fff",
               borderRadius: 28,
-              padding: "38px 32px",
+              padding: "60px 44px",
               textAlign: "center",
+              width: 420,
+              maxWidth: "100%",
+              margin: "50px auto 0",
+              transform: "translateX(-40px)",
             }}
           >
             <p
@@ -2645,7 +3093,7 @@ function PricingSection({
               style={{
                 margin: "14px 0 0",
                 fontFamily: SERIF,
-                fontSize: 44,
+                fontSize: 60,
                 fontWeight: 600,
                 lineHeight: 1,
               }}
@@ -2654,7 +3102,7 @@ function PricingSection({
             </p>
             <p
               style={{
-                margin: "16px 0 0",
+                margin: "30px 0 0",
                 fontSize: 13,
                 color: "var(--color-text-3)",
               }}
@@ -2665,7 +3113,7 @@ function PricingSection({
               style={{
                 margin: "2px 0 22px",
                 fontFamily: SERIF,
-                fontSize: 64,
+                fontSize: 80,
                 fontWeight: 600,
                 lineHeight: 1,
               }}
@@ -2674,21 +3122,29 @@ function PricingSection({
               <span
                 style={{
                   fontFamily: "var(--font-landing-body)",
-                  fontSize: 18,
-                  fontWeight: 400,
-                  color: "var(--color-text-3)",
+                  fontSize: 16,
+                  fontWeight: 600,
+                  color: "var(--color-text)",
                 }}
               >
                 {" "}
-                /mo
+                / mo
               </span>
             </p>
-            <div style={{ display: "grid", gap: 12 }}>
+            <div
+              style={{
+                display: "grid",
+                gap: 12,
+                maxWidth: 300,
+                marginInline: "auto",
+              }}
+            >
               <span style={{ display: "grid" }}>
                 <CtaPill
                   href={ctaHref}
                   cta="pricing"
                   label="Start tracking - $29/mo"
+                  height={60}
                 />
               </span>
               <span style={{ display: "grid" }}>
@@ -2697,6 +3153,7 @@ function PricingSection({
                   cta="pricing-annual"
                   label="Pay annually - Save $120"
                   variant="outline"
+                  height={60}
                 />
               </span>
             </div>
@@ -2720,9 +3177,11 @@ function PricingSection({
 function Footer() {
   return (
     <footer
-      style={{ background: "var(--color-coral)", padding: "0 20px 40px" }}
+      className="landing-footer"
+      style={{ background: "var(--color-coral)", padding: "64px 20px 40px" }}
     >
       <div
+        className="landing-footer-inner"
         style={{
           ...CONTAINER,
           display: "flex",
@@ -2735,11 +3194,20 @@ function Footer() {
       >
         <span style={{ display: "inline-flex", alignItems: "center", gap: 16 }}>
           <Wordmark light />
-          <span style={{ color: "rgba(255,255,255,0.78)", fontSize: 15 }}>
+          <span
+            style={{
+              fontFamily: SERIF,
+              fontSize: 22,
+              fontWeight: 700,
+              color: "rgba(255,255,255,0.92)",
+              whiteSpace: "nowrap",
+            }}
+          >
             Your business. <em style={{ fontStyle: "italic" }}>Mapped.</em>
           </span>
         </span>
         <span
+          className="landing-footer-menu"
           style={{
             display: "inline-flex",
             gap: 24,
@@ -2802,49 +3270,51 @@ export function LandingView({ data }: { data: LandingData }) {
     <main style={PAGE}>
       <LandingAnalytics token={data.token} />
       <TopBar ctaHref={ctaHref} />
-      <Hero data={data} />
-      <ChangesSection events={data.events} copy={data.copy.changes} />
-      <SearchSection
-        search={data.search}
-        category={data.category}
-        copy={data.copy.search}
-        noun={data.copy.noun.many}
-        ctaHref={ctaHref}
-      />
-      <SectionDivider />
-      <AdsSection
-        ads={data.adsDetail}
-        name={data.name}
-        copy={data.copy.ads}
-        noun={data.copy.noun.many}
-        ctaHref={ctaHref}
-      />
-      <SectionDivider />
-      <ReviewsSection
-        reviews={data.reviews}
-        copy={data.copy.reviews}
-        noun={data.copy.noun.many}
-        ctaHref={ctaHref}
-      />
-      <SectionDivider />
-      <WebsiteSection
-        website={data.websiteDetail}
-        city={data.city}
-        copy={data.copy.website}
-        noun={data.copy.noun.many}
-        ctaHref={ctaHref}
-      />
-      <FixesSection
-        fixes={data.fixes}
-        copy={data.copy.fixes}
-        ctaHref={ctaHref}
-      />
-      <PricingSection
-        copy={data.copy.pricing}
-        ctaHref={ctaHref}
-        ctaHrefAnnual={ctaHrefAnnual}
-      />
-      <Footer />
+      <div style={{ overflowX: "clip" }}>
+        <Hero data={data} />
+        <ChangesSection events={data.events} copy={data.copy.changes} />
+        <SearchSection
+          search={data.search}
+          category={data.category}
+          copy={data.copy.search}
+          noun={data.copy.noun.many}
+          ctaHref={ctaHref}
+        />
+        <SectionDivider />
+        <AdsSection
+          ads={data.adsDetail}
+          name={data.name}
+          copy={data.copy.ads}
+          noun={data.copy.noun.many}
+          ctaHref={ctaHref}
+        />
+        <SectionDivider />
+        <ReviewsSection
+          reviews={data.reviews}
+          copy={data.copy.reviews}
+          noun={data.copy.noun.many}
+          ctaHref={ctaHref}
+        />
+        <SectionDivider />
+        <WebsiteSection
+          website={data.websiteDetail}
+          city={data.city}
+          copy={data.copy.website}
+          noun={data.copy.noun.many}
+          ctaHref={ctaHref}
+        />
+        <FixesSection
+          fixes={data.fixes}
+          copy={data.copy.fixes}
+          ctaHref={ctaHref}
+        />
+        <PricingSection
+          copy={data.copy.pricing}
+          ctaHref={ctaHref}
+          ctaHrefAnnual={ctaHrefAnnual}
+        />
+        <Footer />
+      </div>
     </main>
   );
 }

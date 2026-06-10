@@ -503,14 +503,18 @@ function buildReviews(p: {
 
   if (!hasData) return { ...EMPTY_LANDING_REVIEWS, pillar: p.pillar };
 
-  // Top peers by review count + your own row (so the table shows "1,2,3 … you").
+  // Cohort ranked by review count. Two display scenarios:
+  //  · you're in the top 3 → show ranks 1–5 (the table fades out below)
+  //  · you're below 3      → show ranks 1–3, then your real row after a gap
   const ranked = [...p.cohort].sort(
     (a, b) => (b.reviewCount ?? 0) - (a.reviewCount ?? 0),
   );
-  const top = ranked.slice(0, 3).map((c, i) => peerRow(c, i + 1, p));
-  const ownInTop = ranked.slice(0, 3).some((c) => c.id === p.businessId);
+  const ownInTop3 = ranked.slice(0, 3).some((c) => c.id === p.businessId);
+  const top = ranked
+    .slice(0, ownInTop3 ? 5 : 3)
+    .map((c, i) => peerRow(c, i + 1, p));
   const competitors = [...top];
-  if (!ownInTop && (p.yourRank != null || p.reviewCount != null)) {
+  if (!ownInTop3 && (p.yourRank != null || p.reviewCount != null)) {
     competitors.push({
       name: "Your business",
       rating: p.rating,
