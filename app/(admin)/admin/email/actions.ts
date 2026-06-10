@@ -197,6 +197,37 @@ export async function removeSuppression(email: string): Promise<void> {
   touch();
 }
 
+/**
+ * Mark recipients as REPLIED — instantly stops their follow-ups (the sequence
+ * cron's TERMINAL gate honors REPLIED). Manual stopgap; the poll-cold-inboxes
+ * cron sets this automatically when it sees a human reply.
+ */
+export async function markReplied(raw: string): Promise<{ marked: number }> {
+  await assertAdmin();
+  const emails = raw
+    .split(/[\s,;]+/)
+    .map((e) => e.trim().toLowerCase())
+    .filter((e) => e.includes("@"));
+  let marked = 0;
+  for (const email of emails) {
+    const r = await prisma.coldRecipient.updateMany({
+      where: { email, status: { in: ["PENDING", "ACTIVE"] } },
+      data: {
+        status: "REPLIED",
+        stopReason: "replied (manual)",
+        nextRunAt: null,
+      },
+    });
+    marked += r.count;
+    await prisma.coldSend.updateMany({
+      where: { recipient: { email }, status: "PENDING" },
+      data: { status: "SKIPPED", errorMessage: "recipient replied" },
+    });
+  }
+  touch();
+  return { marked };
+}
+
 export async function syncMailboxes(): Promise<{ total: number }> {
   await assertAdmin();
   const r = await syncMailboxesFromEnv();

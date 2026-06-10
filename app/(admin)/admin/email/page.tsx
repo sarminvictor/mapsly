@@ -10,6 +10,7 @@ import AutoRefresh from "./AutoRefresh";
 import {
   CreateDefaultButton,
   MailboxControls,
+  MarkRepliedForm,
   PauseToggle,
   RemoveSuppressionButton,
   SeedTestForm,
@@ -263,6 +264,11 @@ async function Overview() {
             </tbody>
           </table>
         )}
+      </section>
+
+      <section style={card}>
+        <h2 style={h2}>Mark replied (stops their follow-ups instantly)</h2>
+        <MarkRepliedForm />
       </section>
 
       <section style={card}>

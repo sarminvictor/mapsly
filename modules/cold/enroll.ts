@@ -30,6 +30,10 @@ function buildWhere(filter: EnrollFilter): Prisma.BusinessWhereInput {
   const where: Prisma.BusinessWhereInput = {
     country: filter.country ?? "US",
     email: { not: null },
+    // SMTP-probed by the monthly email-verification cron. Unverified addresses
+    // are the #1 bounce-rate driver — bounce rate >2% suppresses the whole
+    // domain's inbox placement (audit 2026-06-09 finding 3).
+    emailVerifiedAt: { not: null },
     landingPage: { is: { isActive: true } },
   };
   if (filter.category) where.category = filter.category;

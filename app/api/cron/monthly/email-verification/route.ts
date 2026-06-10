@@ -20,6 +20,7 @@
 import { revalidateTag } from "next/cache";
 import prisma from "@/lib/prisma";
 import { cronHandler } from "@/lib/middleware/no-live-api";
+import { suppress } from "@/modules/cold/suppression";
 import { smtpVerifyEmail } from "@/services/email-verify";
 import {
   resolveBatchLimit,
@@ -82,6 +83,7 @@ export async function processMonthlyEmailVerification(
   let undeliverable = 0;
   let inconclusive = 0;
   let clearedEmails = 0;
+  let coldStopped = 0;
   const revalidatedSlugs = new Set<string>();
 
   const outcome = await runBatch(rows, async (biz: BusinessEmailRow) => {
@@ -99,6 +101,22 @@ export async function processMonthlyEmailVerification(
         data: { email: null, emailVerifiedAt: now },
       });
       clearedEmails += 1;
+      // Feed the verdict into the cold-email pipeline: suppress globally and
+      // stop any in-flight sequence — a proven-dead address must never get
+      // touch 2-3 (audit 2026-06-09 finding 3).
+      await suppress(biz.email, "UNDELIVERABLE", "monthly smtp probe");
+      const stopped = await prisma.coldRecipient.updateMany({
+        where: {
+          email: biz.email.toLowerCase(),
+          status: { in: ["PENDING", "ACTIVE"] },
+        },
+        data: {
+          status: "BOUNCED",
+          stopReason: "email undeliverable (monthly probe)",
+          nextRunAt: null,
+        },
+      });
+      if (stopped.count > 0) coldStopped += stopped.count;
     } else {
       if (result.verdict === "deliverable") deliverable += 1;
       else inconclusive += 1;
@@ -127,6 +145,7 @@ export async function processMonthlyEmailVerification(
       undeliverable,
       inconclusive,
       clearedEmails,
+      coldStopped,
       failureSample: outcome.failures.slice(0, 5).map((f) => ({
         businessId: (f.item as BusinessEmailRow).id,
         error: f.error,

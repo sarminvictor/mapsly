@@ -11,6 +11,7 @@ import { useRouter } from "next/navigation";
 import {
   addSuppression,
   createDefaultCampaign,
+  markReplied,
   removeSuppression,
   sendSeedTest,
   setGlobalPause,
@@ -215,6 +216,45 @@ export function SuppressionForm() {
         }
       >
         {pending ? "…" : "Suppress"}
+      </button>
+      {msg && <span style={{ fontSize: 12, color: "#666" }}>{msg}</span>}
+    </div>
+  );
+}
+
+export function MarkRepliedForm() {
+  const [pending, start] = useTransition();
+  const [val, setVal] = useState("");
+  const [msg, setMsg] = useState("");
+  const router = useRouter();
+  return (
+    <div
+      style={{
+        display: "flex",
+        gap: 8,
+        alignItems: "flex-start",
+        flexWrap: "wrap",
+      }}
+    >
+      <textarea
+        style={{ ...input, width: 320, height: 56, fontFamily: "inherit" }}
+        placeholder="emails that replied (comma / space / newline separated)"
+        value={val}
+        onChange={(e) => setVal(e.target.value)}
+      />
+      <button
+        style={btnPrimary}
+        disabled={pending || !val.includes("@")}
+        onClick={() =>
+          start(async () => {
+            const r = await markReplied(val);
+            setMsg(`${r.marked} marked replied — follow-ups stopped`);
+            setVal("");
+            router.refresh();
+          })
+        }
+      >
+        {pending ? "…" : "Mark replied"}
       </button>
       {msg && <span style={{ fontSize: 12, color: "#666" }}>{msg}</span>}
     </div>

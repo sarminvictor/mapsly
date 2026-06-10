@@ -30,6 +30,8 @@ import { getColdSenderConfig } from "@/services/cold-mailer/config";
 const JOB = "cold:process-sequences";
 const BATCH = 8; // small batches per 15-min tick → less bursty (Zoho-friendly)
 const MAX_ATTEMPTS = 3;
+/** SENDING claims older than this are crashed invocations — outcome unknown. */
+const STALE_CLAIM_MINUTES = 20;
 
 const TERMINAL: ReadonlySet<string> = new Set([
   "REPLIED",
@@ -87,6 +89,21 @@ export async function processColdSequences(
     meta.paused = true;
     return meta;
   }
+
+  // Sweep stale SENDING claims (invocation crashed mid-dispatch). We do NOT
+  // requeue them: the SMTP send may have succeeded before the crash, so a
+  // retry could double-send. FAILED + errorMessage = human decides.
+  const stale = await prisma.coldSend.updateMany({
+    where: {
+      status: "SENDING",
+      updatedAt: { lt: new Date(now.getTime() - STALE_CLAIM_MINUTES * 60_000) },
+    },
+    data: {
+      status: "FAILED",
+      errorMessage: "stale SENDING claim — outcome unknown (crashed mid-dispatch)",
+    },
+  });
+  if (stale.count > 0) meta.staleClaims = stale.count;
 
   const sender = getColdSenderConfig();
 
@@ -172,6 +189,16 @@ export async function processColdSequences(
       break; // out of capacity → stop this tick
     }
 
+    // Atomic claim BEFORE SMTP: only one invocation wins the PENDING→SENDING
+    // flip, so overlapping ticks can never double-send the same row. attempts
+    // increments here (pre-send) so MAX_ATTEMPTS engages even if the
+    // post-send DB write fails (audit 2026-06-09 finding 7).
+    const claimed = await prisma.coldSend.updateMany({
+      where: { id: send.id, status: "PENDING" },
+      data: { status: "SENDING", attempts: { increment: 1 } },
+    });
+    if (claimed.count === 0) continue; // another invocation owns this row
+
     const senderName = campaign.fromName ?? mailbox.displayName;
     const reportUrl = r.reportToken
       ? `${sender.baseUrl}/l/${r.reportToken}`
@@ -211,7 +238,7 @@ export async function processColdSequences(
             sentAt: now,
             mailboxAddress: result.mailboxAddress,
             subject,
-            attempts: { increment: 1 },
+            // attempts already incremented by the pre-send claim
           },
         });
         if (nextStep) {
@@ -252,7 +279,7 @@ export async function processColdSequences(
       await prisma.coldSend.update({
         where: { id: send.id },
         data: {
-          attempts: { increment: 1 },
+          status: "PENDING", // release the claim — retry once the mailbox cools
           errorMessage: "provider block; mailbox cooled down",
           mailboxAddress: result.mailboxAddress,
         },
@@ -260,16 +287,19 @@ export async function processColdSequences(
       break; // likely IP-wide; stop this tick
     } else if (result.kind === "no_capacity") {
       meta.noCapacity++;
+      await prisma.coldSend.update({
+        where: { id: send.id },
+        data: { status: "PENDING" }, // release the claim
+      });
       break;
     } else {
       meta.failed++;
-      const attempts = send.attempts + 1;
+      const attempts = send.attempts + 1; // mirrors the pre-send claim increment
       if (result.permanent) {
         await prisma.coldSend.update({
           where: { id: send.id },
           data: {
             status: "FAILED",
-            attempts,
             bounceReason: result.error,
             errorMessage: result.error,
             mailboxAddress: result.mailboxAddress,
@@ -289,7 +319,6 @@ export async function processColdSequences(
           where: { id: send.id },
           data: {
             status: attempts >= MAX_ATTEMPTS ? "FAILED" : "PENDING",
-            attempts,
             errorMessage: result.error,
             mailboxAddress: result.mailboxAddress,
           },

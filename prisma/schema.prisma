@@ -1756,6 +1756,7 @@ enum ColdRecipientStatus {
 
 enum ColdSendStatus {
   PENDING
+  SENDING // atomically claimed by a cron invocation (crash/concurrency guard)
   SENT
   FAILED
   SKIPPED
