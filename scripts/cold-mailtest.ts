@@ -43,11 +43,12 @@ async function main(): Promise<void> {
       senderFirstName: displayName,
       reportUrl: `${sender.baseUrl}/l/seed-test`,
     };
-    const subject = renderTemplate(step0.subjectTemplate, tokens);
+    const spinSeed = `mailtest:${cred.address}`;
+    const subject = renderTemplate(step0.subjectTemplate, tokens, spinSeed);
     const unsubUrl = unsubscribeUrlFor(to);
-    const body = renderTemplate(step0.bodyTemplate, tokens);
-    const text = body + buildTextFooter(unsubUrl);
-    const html = toHtmlBody(body, unsubUrl);
+    const body = renderTemplate(step0.bodyTemplate, tokens, spinSeed);
+    const text = body + buildTextFooter(unsubUrl, sender.physicalAddress);
+    const html = toHtmlBody(body, unsubUrl, sender.physicalAddress);
     const result = await sendViaMailbox(
       { address: cred.address, password: cred.password, displayName },
       { to, subject, text, html, unsubscribeUrl: unsubUrl },

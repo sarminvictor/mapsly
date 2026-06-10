@@ -177,11 +177,13 @@ export async function processColdSequences(
       ? `${sender.baseUrl}/l/${r.reportToken}`
       : "";
     const tokens = await buildTokens(r.businessId, { reportUrl, senderName });
-    const subject = renderTemplate(step.subjectTemplate, tokens);
+    // Spintax seed = recipient:step → retries render the identical copy.
+    const spinSeed = `${r.id}:${send.stepOrder}`;
+    const subject = renderTemplate(step.subjectTemplate, tokens, spinSeed);
     const unsubUrl = unsubscribeUrlFor(r.email);
-    const renderedBody = renderTemplate(step.bodyTemplate, tokens);
-    const text = renderedBody + buildTextFooter(unsubUrl);
-    const html = toHtmlBody(renderedBody, unsubUrl);
+    const renderedBody = renderTemplate(step.bodyTemplate, tokens, spinSeed);
+    const text = renderedBody + buildTextFooter(unsubUrl, sender.physicalAddress);
+    const html = toHtmlBody(renderedBody, unsubUrl, sender.physicalAddress);
 
     const result = await sendViaMailbox(
       mailbox,

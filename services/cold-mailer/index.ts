@@ -196,8 +196,10 @@ export async function sendViaMailbox(
   const fromName = input.fromName ?? mailbox.displayName;
   const headers: Record<string, string> = {};
   if (input.unsubscribeUrl) {
-    headers["List-Unsubscribe"] =
-      `<${input.unsubscribeUrl}>, <mailto:${mailbox.address}?subject=unsubscribe>`;
+    // HTTPS one-click only — RFC 8058 + the Gmail/Yahoo bulk-sender rules are
+    // fully satisfied without a mailto URI. Advertising a mailto channel that
+    // nothing processes is worse than omitting it (audit 2026-06-09).
+    headers["List-Unsubscribe"] = `<${input.unsubscribeUrl}>`;
     headers["List-Unsubscribe-Post"] = "List-Unsubscribe=One-Click";
   }
 

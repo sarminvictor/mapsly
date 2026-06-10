@@ -258,11 +258,11 @@ export async function sendSeedTest(
     senderFirstName: displayName,
     reportUrl: `${sender.baseUrl}/l/seed-test`,
   };
-  const subject = renderTemplate(step0.subjectTemplate, tokens);
+  const subject = renderTemplate(step0.subjectTemplate, tokens, `seed:${to}`);
   const unsubUrl = unsubscribeUrlFor(to);
-  const renderedBody = renderTemplate(step0.bodyTemplate, tokens);
-  const text = renderedBody + buildTextFooter(unsubUrl);
-  const html = toHtmlBody(renderedBody, unsubUrl);
+  const renderedBody = renderTemplate(step0.bodyTemplate, tokens, `seed:${to}`);
+  const text = renderedBody + buildTextFooter(unsubUrl, sender.physicalAddress);
+  const html = toHtmlBody(renderedBody, unsubUrl, sender.physicalAddress);
 
   const result = await sendViaMailbox(
     { address: cred.address, password: cred.password, displayName },
