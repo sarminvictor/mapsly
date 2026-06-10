@@ -52,6 +52,7 @@ export function CheckoutReturnLogin({ sessionId }: { sessionId: string }) {
           One moment. You&apos;ll land on your business in a second.
         </p>
         <noscript>
+          {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- noscript fallback: <Link> needs JS; a plain anchor is the point here */}
           <a
             href="/signin?intent=smb"
             style={{
