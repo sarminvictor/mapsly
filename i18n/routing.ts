@@ -22,12 +22,6 @@ export const routing = defineRouting({
       "en-CA": "/for-agencies",
       fr: "/pour-agences",
     },
-    "/pricing": {
-      en: "/pricing",
-      es: "/precios",
-      "en-CA": "/pricing",
-      fr: "/tarifs",
-    },
     "/privacy": {
       en: "/privacy",
       es: "/privacidad",

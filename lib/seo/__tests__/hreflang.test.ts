@@ -73,24 +73,20 @@ describe("locale mapping tables", () => {
 describe("resolveTranslatedPath", () => {
   test("returns the English path for the default locale", () => {
     expect(resolveTranslatedPath("/for-agencies", "en")).toBe("/for-agencies");
-    expect(resolveTranslatedPath("/pricing", "en")).toBe("/pricing");
   });
 
   test("returns the Spanish translated path", () => {
     expect(resolveTranslatedPath("/for-agencies", "es")).toBe("/para-agencias");
-    expect(resolveTranslatedPath("/pricing", "es")).toBe("/precios");
   });
 
   test("returns the French translated path", () => {
     expect(resolveTranslatedPath("/for-agencies", "fr")).toBe("/pour-agences");
-    expect(resolveTranslatedPath("/pricing", "fr")).toBe("/tarifs");
   });
 
   test("en-CA inherits the English path (Canadian English shares routes)", () => {
     expect(resolveTranslatedPath("/for-agencies", "en-CA")).toBe(
       "/for-agencies",
     );
-    expect(resolveTranslatedPath("/pricing", "en-CA")).toBe("/pricing");
   });
 
   test("the homepage is always '/'", () => {
@@ -121,11 +117,9 @@ describe("localizedPath", () => {
     expect(localizedPath("/for-agencies", "fr")).toBe("/fr/pour-agences");
   });
 
-  test("/pricing URLs per locale", () => {
-    expect(localizedPath("/pricing", "en")).toBe("/pricing");
-    expect(localizedPath("/pricing", "es")).toBe("/es/precios");
-    expect(localizedPath("/pricing", "en-CA")).toBe("/en-ca/pricing");
-    expect(localizedPath("/pricing", "fr")).toBe("/fr/tarifs");
+  test("/privacy URLs per locale", () => {
+    expect(localizedPath("/privacy", "en")).toBe("/privacy");
+    expect(localizedPath("/privacy", "en-CA")).toBe("/en-ca/privacy");
   });
 
   test("/privacy URLs per locale", () => {
@@ -166,7 +160,7 @@ describe("buildHreflang", () => {
   });
 
   test("x-default equals the default-locale URL", () => {
-    for (const logical of ["/", "/pricing", "/privacy", "/terms"]) {
+    for (const logical of ["/", "/for-agencies", "/privacy", "/terms"]) {
       const langs = buildHreflang(logical);
       expect(langs["x-default"]).toBe(
         langs[LOCALE_TO_BCP47[routing.defaultLocale]],

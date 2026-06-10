@@ -116,7 +116,6 @@ describe("LOCALE_TO_BCP47", () => {
 describe("getLocalizedPath", () => {
   test("default locale gets no prefix (as-needed)", () => {
     expect(getLocalizedPath("/for-agencies", "en")).toBe("/for-agencies");
-    expect(getLocalizedPath("/pricing", "en")).toBe("/pricing");
     expect(getLocalizedPath("/", "en")).toBe("/");
   });
 
@@ -142,8 +141,6 @@ describe("getLocalizedPath", () => {
   });
 
   test("translated routes use the per-locale segment", () => {
-    expect(getLocalizedPath("/pricing", "es")).toBe("/es/precios");
-    expect(getLocalizedPath("/pricing", "fr")).toBe("/fr/tarifs");
     expect(getLocalizedPath("/lists", "es")).toBe("/es/listas");
     expect(getLocalizedPath("/lists", "fr")).toBe("/fr/listes");
     expect(getLocalizedPath("/home", "es")).toBe("/es/inicio");
@@ -206,16 +203,6 @@ describe("getLocaleAlternates", () => {
     });
   });
 
-  test("pricing alternates match the expected paths", () => {
-    expect(getLocaleAlternates("/pricing")).toEqual({
-      "en-US": "/pricing",
-      "es-US": "/es/precios",
-      "en-CA": "/en-ca/pricing",
-      "fr-CA": "/fr/tarifs",
-      "x-default": "/pricing",
-    });
-  });
-
   test("root alternates match the expected paths", () => {
     expect(getLocaleAlternates("/")).toEqual({
       "en-US": "/",
@@ -231,7 +218,6 @@ describe("getLocaleAlternates", () => {
       "/",
       "/for-businesses",
       "/for-agencies",
-      "/pricing",
       "/privacy",
       "/terms",
       "/cookies",
@@ -271,9 +257,9 @@ describe("getPathsByLocale", () => {
   });
 
   test("matches getLocalizedPath for each locale", () => {
-    const paths = getPathsByLocale("/pricing");
+    const paths = getPathsByLocale("/for-agencies");
     for (const locale of ALL_LOCALES) {
-      expect(paths[locale]).toBe(getLocalizedPath("/pricing", locale));
+      expect(paths[locale]).toBe(getLocalizedPath("/for-agencies", locale));
     }
   });
 });
