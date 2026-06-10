@@ -133,12 +133,14 @@ export function Hero({ locale: _locale, t }: HeroProps) {
             borderTop: "1px solid var(--color-border)",
           }}
         >
-          <Stat value="2.1M" label={t("hero.stats_businesses")} />
-          <Stat value="65" label={t("hero.stats_metros")} />
           <Stat value="74" label={t("hero.stats_signals")} />
           <Stat
             value={t("hero.stats_refresh_value")}
             label={t("hero.stats_refresh")}
+          />
+          <Stat
+            value={t("hero.stats_sources_value")}
+            label={t("hero.stats_sources")}
           />
         </dl>
       </div>

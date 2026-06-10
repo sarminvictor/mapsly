@@ -1515,7 +1515,7 @@
       "signin": "Sign in"
     },
     "hero": {
-      "eyebrow": "Refreshed weekly across 65 metros",
+      "eyebrow": "Refreshed weekly · market by market",
       "title_lead": "Every local business has a",
       "title_emph": "hidden scoreboard.",
       "sub": "We map every local business in North America. We show owners the patients, calls, and customers they're losing — and the reviews, ads, and competitors behind it. Agencies see the same data, inverted: who needs help, right now.",
@@ -1525,23 +1525,23 @@
       "smb_card_cta": "See my reality",
       "agency_card_label": "For agencies",
       "agency_card_title": "Find local businesses ready to switch",
-      "agency_card_sub": "Query 2M+ SMBs by signal — declining reviews, slow site, no ads. Verified contacts. 50 free leads.",
+      "agency_card_sub": "Query SMBs by signal — declining reviews, slow site, no ads. Verified contacts. 50 free leads.",
       "agency_card_cta": "See 50 free leads",
-      "stats_businesses": "Businesses indexed",
-      "stats_metros": "Metros covered",
       "stats_signals": "Signals per business",
       "stats_refresh": "Refresh cadence",
       "stats_refresh_value": "Weekly",
+      "stats_sources": "Data sources",
+      "stats_sources_value": "Google + web",
       "aria_choose_audience": "Choose your path",
       "aria_stats": "Coverage stats"
     },
     "pipeline": {
       "eyebrow": "How it works",
       "title": "The same data engine. Two completely different products.",
-      "sub": "We crawl every local business in North America, run 70+ signals across them, and turn raw data into named diagnoses anyone can act on.",
+      "sub": "We crawl every local business in North America, run 74 signals across them, and turn raw data into named diagnoses anyone can act on.",
       "step_1_num": "01 / Index",
       "step_1_title": "We map them.",
-      "step_1_desc": "Every local business across 65 NA metros. Reviews, listings, ads, web, social, hiring, news — pulled and re-pulled weekly.",
+      "step_1_desc": "One market at a time. Reviews, listings, ads, web, social, hiring, news — pulled and re-pulled weekly.",
       "step_2_num": "02 / Score",
       "step_2_title": "We diagnose them.",
       "step_2_desc": "74 signals turn into named diagnoses: Customers Slipping Away, Ranking at Risk, Ad Spend Misfiring. Not numbers — verdicts.",
@@ -1567,7 +1567,7 @@
       "agency_eyebrow": "For agencies",
       "agency_title": "Hunter",
       "agency_desc": "Skip the database. Skip the spray-and-pray. Hunter shows you which local SMBs need exactly what you sell — right now.",
-      "agency_f1": "Query 2M+ businesses by signal — declining reviews, no ads, slow site",
+      "agency_f1": "Query businesses by signal — declining reviews, no ads, slow site",
       "agency_f2": "Verified owner emails + phones, refreshed weekly",
       "agency_f3": "Weekly new-opportunities email per saved search",
       "agency_f4": "White-label one-pager exports for your pitches",
@@ -1619,7 +1619,7 @@
       "q3": "How is this different from other reputation tools?",
       "a3": "Most tools tell you about your own reviews. Mapsly tells you how you compare to every competitor in your city — with the names, the reasons, and the fixes. No sales call. No annual contract. Cancel anytime.",
       "q4": "What cities and verticals are covered?",
-      "a4": "At launch: med spa, HVAC, real estate, chiropractor, vet, roofing, plumbing, auto repair — across the top 30 metros in the US and Canada. Expanding to 65 metros and 20+ verticals through Year 1. You can request coverage of a vertical or city from inside the product.",
+      "a4": "At launch: med spa, HVAC, real estate, chiropractor, vet, roofing, plumbing, auto repair. We map one market at a time and expand weekly. You can request coverage of a vertical or city from inside the product.",
       "q5": "Will my data be sold to anyone?",
       "a5": "We use publicly observable signals only. When you sign up as a business, you opt into our network. Agencies see your business in lead searches if you match their criteria — that's the deal that funds your $29/mo. You can opt out of agency surfacing at any time."
     },
@@ -1632,10 +1632,10 @@
   },
   "for_agencies": {
     "meta": {
-      "title": "Mapsly for agencies · 2M+ qualified SMB leads, refreshed weekly",
-      "description": "Query 2M+ local businesses by signal — declining reviews, slow LCP, no Meta ads, missing schema. Verified contacts. CSV + CRM export. 50 free leads.",
+      "title": "Mapsly for agencies · qualified SMB leads, refreshed weekly",
+      "description": "Query local businesses by signal — declining reviews, slow LCP, no Meta ads, missing schema. Verified contacts. CSV + CRM export. 50 free leads.",
       "og_title": "Mapsly for agencies · Signal-based SMB prospecting",
-      "og_description": "Apollo gives you titles. Mapsly gives you intent. 70+ signals · 2M+ SMBs · 50 free leads, no credit card."
+      "og_description": "Apollo gives you titles. Mapsly gives you intent. 74 signals · 50 free leads, no credit card."
     },
     "nav": {
       "for_smb": "For businesses",
@@ -1644,21 +1644,21 @@
       "signin": "Sign in"
     },
     "hero": {
-      "eyebrow": "2,114,402 SMBs indexed · 74 signals · refresh ≤ 7d",
+      "eyebrow": "74 signals per business · refresh ≤ 7d",
       "title_lead": "Local SMBs",
       "title_emph": "ready to switch.",
       "title_trail": "With reasons. With contacts. Right now.",
-      "sub": "Skip the Apollo spray. Hunter queries 2M+ businesses by signal — declining reviews, slow LCP, zero Meta ads, broken schema, drifting 3-pack rank. Verified contacts. 50 free leads, no card.",
+      "sub": "Skip the Apollo spray. Hunter queries businesses by signal — declining reviews, slow LCP, zero Meta ads, broken schema, drifting 3-pack rank. Verified contacts. 50 free leads, no card.",
       "cta_primary": "See 50 free leads",
       "cta_secondary": "Browse signal taxonomy →",
-      "stat_1_num": "2.1M",
-      "stat_1_label": "SMBs indexed",
+      "stat_1_num": "Google + web",
+      "stat_1_label": "Data sources",
       "stat_2_num": "74",
       "stat_2_label": "Signals tracked",
       "stat_3_num": "≤7d",
       "stat_3_label": "Refresh cadence",
-      "stat_4_num": "65",
-      "stat_4_label": "Metros (US + CA)"
+      "stat_4_num": "US + CA",
+      "stat_4_label": "Coverage, expanding weekly"
     },
     "pitch": {
       "eyebrow": "// the old way vs the mapsly way",
@@ -1854,7 +1854,7 @@
       "og_description": "Type your business name. We've already pulled the data. 30 seconds, no signup."
     },
     "hero": {
-      "eyebrow": "Refreshed weekly · 2.1M local businesses indexed",
+      "eyebrow": "Refreshed weekly · built from Google and the public web",
       "title_lead": "See the customers",
       "title_emph": "you're losing",
       "title_trail": "this month.",

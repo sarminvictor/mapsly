@@ -4,7 +4,7 @@ import { Link } from "@/i18n/navigation";
 /**
  * AgencyHero · Tom's voice. Cool gray + indigo per `.claude/rules/ui-ux-agency.md`.
  *
- * Tone: numbers over adjectives ("2.1M SMBs · 74 signals · ≤7d refresh").
+ * Tone: numbers over adjectives ("74 signals · ≤7d refresh").
  * Imperative CTAs ("See 50 free leads"). No exclamation marks.
  *
  * Pure server component · no client JS · static SVG glyphs only.
