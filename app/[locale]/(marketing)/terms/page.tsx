@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { setRequestLocale, getTranslations } from "next-intl/server";
 
+import { Link } from "@/i18n/navigation";
+
 // Terms of Service · public marketing page.
 
 const CANONICAL_ORIGIN = "https://mapsly.ai";
@@ -101,23 +103,27 @@ export default async function TermsPage({
 
       <Section heading={t("s3_heading")}>
         <p>{t("s3_p1")}</p>
-        <ul style={listStyle}>
-          <li>{t("s3_b1")}</li>
-          <li>{t("s3_b2")}</li>
-          <li>{t("s3_b3")}</li>
-          <li>{t("s3_b4")}</li>
-          <li>{t("s3_b5")}</li>
-        </ul>
+        <p>{t("s3_p2")}</p>
       </Section>
 
       <Section heading={t("s4_heading")}>
         <p>{t("s4_p1")}</p>
-        <p>{t("s4_p2")}</p>
+        <ul style={listStyle}>
+          <li>{t("s4_b1")}</li>
+          <li>{t("s4_b2")}</li>
+          <li>{t("s4_b3")}</li>
+          <li>{t("s4_b4")}</li>
+          <li>{t("s4_b5")}</li>
+        </ul>
       </Section>
 
       <Section heading={t("s5_heading")}>
         <p>{t("s5_p1")}</p>
-        <p>{t("s5_p2")}</p>
+        <p>
+          <Link href="/refunds" style={linkStyle}>
+            {t("s5_refunds_link")}
+          </Link>
+        </p>
       </Section>
 
       <Section heading={t("s6_heading")}>
@@ -126,11 +132,11 @@ export default async function TermsPage({
 
       <Section heading={t("s7_heading")}>
         <p>{t("s7_p1")}</p>
-        <p>{t("s7_p2")}</p>
       </Section>
 
       <Section heading={t("s8_heading")}>
         <p>{t("s8_p1")}</p>
+        <p>{t("s8_p2")}</p>
       </Section>
 
       <Section heading={t("s9_heading")}>
@@ -139,9 +145,13 @@ export default async function TermsPage({
 
       <Section heading={t("s10_heading")}>
         <p>{t("s10_p1")}</p>
+      </Section>
+
+      <Section heading={t("s11_heading")}>
+        <p>{t("s11_p1")}</p>
         <p>
-          <a href="mailto:legal@mapsly.ai" style={linkStyle}>
-            legal@mapsly.ai
+          <a href="mailto:support@mapsly.ai" style={linkStyle}>
+            support@mapsly.ai
           </a>
         </p>
       </Section>

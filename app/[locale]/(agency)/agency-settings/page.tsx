@@ -488,7 +488,7 @@ function PrivacyCard({
         </li>
         <li>
           <a
-            href="mailto:privacy@mapsly.ai?subject=Data%20export%20request"
+            href="mailto:support@mapsly.ai?subject=Data%20export%20request"
             style={styles.linkButton}
             data-testid="agency-settings-export-request"
           >

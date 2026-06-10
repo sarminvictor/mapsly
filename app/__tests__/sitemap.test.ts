@@ -38,10 +38,11 @@ import { CANONICAL_ORIGIN } from "@/lib/seo/canonical";
 describe("app/sitemap.ts", () => {
   test("emits at least one entry per (path × locale)", async () => {
     const entries = await sitemap();
-    // 4 static public paths today (/, /privacy, /terms, /cookies) × 4 locales
-    // = 16. Biz profile entries may add more in production, but `0` in test
-    // env (Prisma proxy throws without DATABASE_URL, caught + returns []).
-    expect(entries.length).toBeGreaterThanOrEqual(routing.locales.length * 4);
+    // 5 static public paths today (/, /privacy, /terms, /cookies, /refunds)
+    // × 4 locales = 20. Biz profile entries may add more in production, but
+    // `0` in test env (Prisma proxy throws without DATABASE_URL, caught +
+    // returns []).
+    expect(entries.length).toBeGreaterThanOrEqual(routing.locales.length * 5);
   });
 
   test("every URL is absolute on the canonical origin", async () => {

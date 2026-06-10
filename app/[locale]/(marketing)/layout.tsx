@@ -306,6 +306,15 @@ async function MarketingFooter({ params }: { params: Promise<LayoutParams> }) {
           >
             {t("cookies")}
           </Link>
+          <Link
+            href="/refunds"
+            style={{
+              color: "var(--color-text-2)",
+              textDecoration: "none",
+            }}
+          >
+            {t("refunds")}
+          </Link>
         </nav>
       </div>
     </footer>

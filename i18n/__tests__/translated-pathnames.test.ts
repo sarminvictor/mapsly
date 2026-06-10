@@ -221,6 +221,7 @@ describe("getLocaleAlternates", () => {
       "/privacy",
       "/terms",
       "/cookies",
+      "/refunds",
       "/signin",
       "/home",
       "/lists",

@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import { setRequestLocale, getTranslations } from "next-intl/server";
 
-// Cookies Policy · public marketing page.
+// Cancellation + refund policy · public marketing page.
+// Mirrors the privacy/terms/cookies legal-page shape: long-form static
+// content, cached aggressively under cacheComponents PPR.
 
 const CANONICAL_ORIGIN = "https://mapsly.ai";
 
@@ -11,18 +13,18 @@ export async function generateMetadata({
   params: Promise<{ locale: string }>;
 }): Promise<Metadata> {
   const { locale } = await params;
-  const t = await getTranslations({ locale, namespace: "legal.cookies" });
+  const t = await getTranslations({ locale, namespace: "legal.refunds" });
   return {
     title: `${t("title")} · Mapsly`,
     description: t("subtitle"),
     alternates: {
-      canonical: `${CANONICAL_ORIGIN}/cookies`,
+      canonical: `${CANONICAL_ORIGIN}/refunds`,
       languages: {
-        "en-US": "/cookies",
-        "es-US": "/es/cookies",
-        "en-CA": "/en-ca/cookies",
-        "fr-CA": "/fr/temoins",
-        "x-default": "/cookies",
+        "en-US": "/refunds",
+        "es-US": "/es/reembolsos",
+        "en-CA": "/en-ca/refunds",
+        "fr-CA": "/fr/remboursements",
+        "x-default": "/refunds",
       },
     },
     openGraph: {
@@ -35,14 +37,14 @@ export async function generateMetadata({
   };
 }
 
-export default async function CookiesPage({
+export default async function RefundsPage({
   params,
 }: {
   params: Promise<{ locale: string }>;
 }) {
   const { locale } = await params;
   setRequestLocale(locale);
-  const t = await getTranslations("legal.cookies");
+  const t = await getTranslations("legal.refunds");
   const tShared = await getTranslations("legal.shared");
 
   return (
@@ -96,19 +98,6 @@ export default async function CookiesPage({
 
       <Section heading={t("s2_heading")}>
         <p>{t("s2_p1")}</p>
-        <h3 style={subheadingStyle}>{t("s2_essential_heading")}</h3>
-        <p>{t("s2_essential_p1")}</p>
-        <ul style={listStyle}>
-          <li>{t("s2_essential_b1")}</li>
-          <li>{t("s2_essential_b2")}</li>
-          <li>{t("s2_essential_b3")}</li>
-          <li>{t("s2_essential_b4")}</li>
-        </ul>
-        <h3 style={subheadingStyle}>{t("s2_analytics_heading")}</h3>
-        <p>{t("s2_analytics_p1")}</p>
-        <p>{t("s2_analytics_p2")}</p>
-        <h3 style={subheadingStyle}>{t("s2_third_party_heading")}</h3>
-        <p>{t("s2_third_party_p1")}</p>
       </Section>
 
       <Section heading={t("s3_heading")}>
@@ -163,19 +152,6 @@ function Section({
     </section>
   );
 }
-
-const subheadingStyle: React.CSSProperties = {
-  fontFamily: "var(--font-sans)",
-  fontSize: 16,
-  fontWeight: 700,
-  color: "var(--color-text)",
-  margin: "16px 0 6px",
-};
-
-const listStyle: React.CSSProperties = {
-  margin: "8px 0 12px",
-  paddingLeft: 22,
-};
 
 const linkStyle: React.CSSProperties = {
   color: "var(--color-coral)",

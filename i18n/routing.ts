@@ -40,6 +40,12 @@ export const routing = defineRouting({
       "en-CA": "/cookies",
       fr: "/temoins",
     },
+    "/refunds": {
+      en: "/refunds",
+      es: "/reembolsos",
+      "en-CA": "/refunds",
+      fr: "/remboursements",
+    },
     "/home": {
       en: "/home",
       es: "/inicio",

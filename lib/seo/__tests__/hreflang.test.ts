@@ -119,14 +119,16 @@ describe("localizedPath", () => {
 
   test("/privacy URLs per locale", () => {
     expect(localizedPath("/privacy", "en")).toBe("/privacy");
-    expect(localizedPath("/privacy", "en-CA")).toBe("/en-ca/privacy");
-  });
-
-  test("/privacy URLs per locale", () => {
-    expect(localizedPath("/privacy", "en")).toBe("/privacy");
     expect(localizedPath("/privacy", "es")).toBe("/es/privacidad");
     expect(localizedPath("/privacy", "en-CA")).toBe("/en-ca/privacy");
     expect(localizedPath("/privacy", "fr")).toBe("/fr/confidentialite");
+  });
+
+  test("/refunds URLs per locale", () => {
+    expect(localizedPath("/refunds", "en")).toBe("/refunds");
+    expect(localizedPath("/refunds", "es")).toBe("/es/reembolsos");
+    expect(localizedPath("/refunds", "en-CA")).toBe("/en-ca/refunds");
+    expect(localizedPath("/refunds", "fr")).toBe("/fr/remboursements");
   });
 
   test("unknown paths get the locale prefix without translation", () => {
@@ -160,7 +162,13 @@ describe("buildHreflang", () => {
   });
 
   test("x-default equals the default-locale URL", () => {
-    for (const logical of ["/", "/for-agencies", "/privacy", "/terms"]) {
+    for (const logical of [
+      "/",
+      "/for-agencies",
+      "/privacy",
+      "/terms",
+      "/refunds",
+    ]) {
       const langs = buildHreflang(logical);
       expect(langs["x-default"]).toBe(
         langs[LOCALE_TO_BCP47[routing.defaultLocale]],
