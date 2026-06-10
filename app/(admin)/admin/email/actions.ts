@@ -204,7 +204,10 @@ export async function removeSuppression(email: string): Promise<void> {
  */
 export async function markReplied(raw: string): Promise<{ marked: number }> {
   await assertAdmin();
-  const emails = raw
+  const emails = z
+    .string()
+    .max(10_000)
+    .parse(raw)
     .split(/[\s,;]+/)
     .map((e) => e.trim().toLowerCase())
     .filter((e) => e.includes("@"));

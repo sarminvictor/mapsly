@@ -81,7 +81,7 @@ const DEFAULT_IMAP_PORT = 993;
 
 export function getImapConfig(): ColdSmtpConfig {
   const host = process.env.COLD_IMAP_HOST?.trim() || DEFAULT_IMAP_HOST;
-  const port = Number(process.env.COLD_IMAP_PORT ?? DEFAULT_IMAP_PORT);
+  const port = Number(process.env.COLD_IMAP_PORT?.trim() || DEFAULT_IMAP_PORT);
   return { host, port, secure: true };
 }
 

@@ -10,9 +10,11 @@
  *   unsubscribe text  → suppress(UNSUBSCRIBE) + recipient UNSUBSCRIBED
  *   auto-reply / OOO  → ignored (sequence continues — standard practice)
  *
- * Everything processed is flagged \Seen; unprocessable messages are flagged
- * too (a human reads the shared inbox for edge cases). Per-mailbox failures
- * are isolated — one dead mailbox must not stop the others.
+ * Successfully handled messages are flagged \Seen (unmatched ones too — a
+ * human reads the shared inbox for edge cases); messages whose handling
+ * failed stay UNSEEN and retry next tick. Per-message and per-mailbox
+ * failures are isolated — one poisoned message or dead mailbox must not
+ * stop the others.
  */
 import { ImapFlow } from "imapflow";
 
@@ -27,6 +29,12 @@ import { getImapConfig, getMailboxCreds } from "@/services/cold-mailer/config";
 const JOB = "cold:poll-inboxes";
 /** Per-mailbox per-tick cap — keeps a flood from blowing the cron window. */
 const MAX_PER_MAILBOX = 50;
+
+/** Attacker-controlled text headed into an alert: one line, bounded length. */
+function sanitize(s: string): string {
+  // eslint-disable-next-line no-control-regex
+  return s.replace(/[\u0000-\u001f\u007f]+/g, " ").slice(0, 200);
+}
 
 interface PollMeta {
   mailboxes: number;
@@ -101,71 +109,108 @@ export async function pollColdInboxes(): Promise<PollMeta> {
         const unseen = await client.search({ seen: false }, { uid: true });
         const batch = (unseen || []).slice(0, MAX_PER_MAILBOX);
         for (const uid of batch) {
-          const msg = await client.fetchOne(
-            String(uid),
-            { uid: true, envelope: true, source: true },
-            { uid: true },
-          );
-          // Flag \Seen FIRST so a crash mid-handling can't reprocess (the
-          // handlers below are idempotent anyway — suppress() upserts).
-          await client.messageFlagsAdd(String(uid), ["\\Seen"], { uid: true });
-          if (!msg || !msg.source) continue;
-          meta.messages++;
+          // Per-message isolation: a failure on one message (DB blip,
+          // malformed source) is recorded and the message stays UNSEEN so the
+          // next tick retries it — it must never abort the rest of the batch.
+          // \Seen is flagged AFTER successful handling; the handlers are
+          // idempotent (suppress() upserts, stopSequence() is status-guarded)
+          // so a crash between handling and flagging reprocesses harmlessly.
+          try {
+            const msg = await client.fetchOne(
+              String(uid),
+              { uid: true, envelope: true, source: true },
+              { uid: true },
+            );
+            if (msg && msg.source) {
+              meta.messages++;
 
-          const from =
-            msg.envelope?.from?.[0]?.address?.toLowerCase().trim() ?? "";
-          const subject = msg.envelope?.subject ?? "";
-          const source = msg.source.toString("utf8").slice(0, 100_000);
-          const c = classifyInbound({ from, subject, source });
+              const from =
+                msg.envelope?.from?.[0]?.address?.toLowerCase().trim() ?? "";
+              const subject = msg.envelope?.subject ?? "";
+              const source = msg.source.toString("utf8").slice(0, 100_000);
+              const c = classifyInbound({ from, subject, source });
 
-          if (c.kind === "bounce") {
-            if (!c.hardBounce) {
-              meta.softBounces++; // transient — sender-side retry handles it
-            } else if (c.bouncedEmail) {
-              await suppress(
-                c.bouncedEmail,
-                "BOUNCE_HARD",
-                `NDR via ${cred.address}`,
-              );
-              await stopSequence(
-                c.bouncedEmail,
-                "BOUNCED",
-                "hard bounce (NDR)",
-              );
-              meta.bounces++;
-            } else {
-              meta.unmatched++; // NDR we couldn't parse — visible in the inbox
+              if (c.kind === "bounce") {
+                // Only action NDRs for addresses we actually mailed — a forged
+                // NDR naming an arbitrary address must never suppress it or
+                // feed the bounce-rate breaker (security review M-1/M-2).
+                const wasMailed =
+                  c.hardBounce && c.bouncedEmail
+                    ? (await prisma.coldSend.count({
+                        where: {
+                          recipient: { email: c.bouncedEmail },
+                          status: "SENT",
+                        },
+                      })) > 0
+                    : false;
+                if (!c.hardBounce) {
+                  meta.softBounces++; // transient — sender-side retry handles it
+                } else if (c.bouncedEmail && wasMailed) {
+                  await suppress(
+                    c.bouncedEmail,
+                    "BOUNCE_HARD",
+                    `NDR via ${cred.address}`,
+                  );
+                  await stopSequence(
+                    c.bouncedEmail,
+                    "BOUNCED",
+                    "hard bounce (NDR)",
+                  );
+                  meta.bounces++;
+                } else {
+                  meta.unmatched++; // unparsable or never-mailed — inbox keeps it
+                }
+              } else if (c.kind === "auto-reply") {
+                meta.autoReplies++;
+              } else if (c.kind === "unsubscribe") {
+                // Same gate: only honor opt-outs from addresses we enrolled.
+                const known = from
+                  ? (await prisma.coldRecipient.count({
+                      where: { email: from },
+                    })) > 0
+                  : false;
+                if (known) {
+                  await suppress(from, "UNSUBSCRIBE", "reply/mailto opt-out");
+                  await stopSequence(
+                    from,
+                    "UNSUBSCRIBED",
+                    "unsubscribed (reply)",
+                  );
+                  meta.unsubscribes++;
+                } else {
+                  meta.unmatched++;
+                }
+              } else {
+                // Human reply — only meaningful if we actually mailed them.
+                const stopped = from
+                  ? await stopSequence(from, "REPLIED", "replied")
+                  : 0;
+                const known =
+                  stopped > 0 ||
+                  (from
+                    ? (await prisma.coldRecipient.count({
+                        where: { email: from },
+                      })) > 0
+                    : false);
+                if (known) {
+                  meta.replies++;
+                  await sendOpsAlert(
+                    "INFO",
+                    `Cold reply from ${from}`,
+                    `Subject: ${sanitize(subject)}\nMailbox: ${cred.address}\nSequence stopped — reply from the ${cred.address} inbox.`,
+                  );
+                } else {
+                  meta.unmatched++;
+                }
+              }
             }
-          } else if (c.kind === "auto-reply") {
-            meta.autoReplies++;
-          } else if (c.kind === "unsubscribe") {
-            if (from) {
-              await suppress(from, "UNSUBSCRIBE", "reply/mailto opt-out");
-              await stopSequence(from, "UNSUBSCRIBED", "unsubscribed (reply)");
-              meta.unsubscribes++;
-            }
-          } else {
-            // Human reply — only meaningful if we actually mailed this person.
-            const stopped = from
-              ? await stopSequence(from, "REPLIED", "replied")
-              : 0;
-            const known =
-              stopped > 0 ||
-              (from
-                ? (await prisma.coldRecipient.count({
-                    where: { email: from },
-                  })) > 0
-                : false);
-            if (known) {
-              meta.replies++;
-              await sendOpsAlert(
-                "INFO",
-                `Cold reply from ${from}`,
-                `Subject: ${subject}\nMailbox: ${cred.address}\nSequence stopped — reply from the ${cred.address} inbox.`,
-              );
-            } else {
-              meta.unmatched++;
-            }
+            await client.messageFlagsAdd(String(uid), ["\\Seen"], {
+              uid: true,
+            });
+          } catch (err) {
+            meta.errors.push(
+              `${cred.address} uid ${uid}: ${err instanceof Error ? err.message : String(err)}`,
+            );
           }
         }
       } finally {

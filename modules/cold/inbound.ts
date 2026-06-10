@@ -67,8 +67,9 @@ export function classifyInbound(msg: InboundMessage): InboundClassification {
     BOUNCE_SUBJECT.test(msg.subject);
   if (isBounce) {
     const status = msg.source.match(/^Status:\s*([45])\.\d+\.\d+/im);
-    // No parsable DSN status → treat failure-subject NDRs as final (most are).
-    const hard = status ? status[1] === "5" : true;
+    // No parsable DSN status → treat failure-subject NDRs as final (most
+    // are), EXCEPT explicit delay notifications — those are transient.
+    const hard = status ? status[1] === "5" : !/delay/i.test(msg.subject);
     return {
       kind: "bounce",
       bouncedEmail: extractBouncedEmail(msg.source),
@@ -86,10 +87,18 @@ export function classifyInbound(msg: InboundMessage): InboundClassification {
     return { kind: "auto-reply", bouncedEmail: null, hardBounce: false };
   }
 
-  // Opt-out intent in the subject or the first chunk of the body.
-  const bodyStart = msg.source
-    .slice(msg.source.indexOf("\r\n\r\n"))
-    .slice(0, 1000);
+  // Opt-out intent in the subject or the first chunk of the body. Replies
+  // quote OUR footer ("Unsubscribe: https://…"), so strip quoted lines and
+  // the footer pattern first — otherwise every "yes, send it" reply to
+  // touch 2-3 would be misclassified as an unsubscribe.
+  const sep = msg.source.indexOf("\r\n\r\n");
+  const bodyStart = (
+    sep === -1 ? "" : msg.source.slice(sep + 4, sep + 4 + 2000)
+  )
+    .split(/\r?\n/)
+    .filter((l) => !/^\s*>/.test(l) && !/^On .+ wrote:/.test(l))
+    .join("\n")
+    .replace(/unsubscribe:?\s*https?:\/\/\S+/gi, "");
   if (UNSUB_INTENT.test(msg.subject) || UNSUB_INTENT.test(bodyStart)) {
     return { kind: "unsubscribe", bouncedEmail: null, hardBounce: false };
   }

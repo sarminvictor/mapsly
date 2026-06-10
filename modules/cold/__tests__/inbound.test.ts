@@ -136,6 +136,81 @@ describe("classifyInbound · unsubscribes + replies", () => {
       }).kind,
     ).toBe("reply");
   });
+
+  test("interested reply quoting OUR footer ('> Unsubscribe: …') → reply, not unsubscribe", () => {
+    const source = raw(
+      { From: "owner@biz.com", Subject: "Re: last note, Acme" },
+      [
+        "Sounds good, send it over!",
+        "",
+        "On Mon, Jun 8, 2026 at 10:02 AM Ava wrote:",
+        "> I'll leave it here so I'm not cluttering your inbox.",
+        "> ",
+        "> Mapsly · 530 3 St SE, Calgary, AB, Canada",
+        "> Unsubscribe: https://www.mapsly.ai/u/abc123",
+      ].join(CRLF),
+    );
+    expect(
+      classifyInbound({
+        from: "owner@biz.com",
+        subject: "Re: last note, Acme",
+        source,
+      }).kind,
+    ).toBe("reply");
+  });
+
+  test("Outlook-style top-post with UNQUOTED footer line → reply", () => {
+    const source = raw(
+      { From: "owner@biz.com", Subject: "RE: your snapshot" },
+      [
+        "Interesting — who am I speaking with?",
+        "",
+        "From: Ava <ava@mapsly.xyz>",
+        "Sent: Monday, June 8, 2026",
+        "Unsubscribe: https://www.mapsly.ai/u/abc123",
+      ].join(CRLF),
+    );
+    expect(
+      classifyInbound({
+        from: "owner@biz.com",
+        subject: "RE: your snapshot",
+        source,
+      }).kind,
+    ).toBe("reply");
+  });
+
+  test("explicit opt-out in a fresh (unquoted) line still → unsubscribe", () => {
+    const source = raw(
+      { From: "owner@biz.com", Subject: "Re: your snapshot" },
+      "Please remove me from your list.\r\n\r\n> Unsubscribe: https://www.mapsly.ai/u/abc123",
+    );
+    expect(
+      classifyInbound({
+        from: "owner@biz.com",
+        subject: "Re: your snapshot",
+        source,
+      }).kind,
+    ).toBe("unsubscribe");
+  });
+});
+
+describe("classifyInbound · delay DSNs", () => {
+  test("'Delivery Status Notification (Delay)' without Status → soft, not hard", () => {
+    const source = raw(
+      {
+        From: "mailer-daemon@zohocloud.ca",
+        Subject: "Delivery Status Notification (Delay)",
+      },
+      "Your message has been delayed; delivery will be retried.",
+    );
+    const c = classifyInbound({
+      from: "mailer-daemon@zohocloud.ca",
+      subject: "Delivery Status Notification (Delay)",
+      source,
+    });
+    expect(c.kind).toBe("bounce");
+    expect(c.hardBounce).toBe(false);
+  });
 });
 
 describe("extractBouncedEmail", () => {
