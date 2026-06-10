@@ -30,6 +30,8 @@ export default function robots(): MetadataRoute.Robots {
         disallow: [
           "/api/",
           "/l/", // personalized landing proposals (no-index, unguessable token)
+          "/r/", // landing removal flow (token-keyed, no SEO value)
+          "/u/", // cold-email unsubscribe (token-keyed, no SEO value)
           "/dev",
           "/dev/",
           "/home",

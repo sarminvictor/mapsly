@@ -50,6 +50,12 @@ export default function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
+  // /r/[token] — landing-page removal ("Not your business?"). Locale-agnostic
+  // like /u; GET confirms, POST deactivates the landing + suppresses email.
+  if (url.pathname.startsWith("/r/")) {
+    return NextResponse.next();
+  }
+
   // /checkout/* — the direct-from-landing Stripe flow (start redirect lives
   // under /api; the post-payment return page lives here). Locale-agnostic
   // direct-share artifacts like /l/ — pass through untouched.

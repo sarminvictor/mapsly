@@ -21,6 +21,7 @@
 
 import { Fragment } from "react";
 import type { CSSProperties, ReactNode } from "react";
+import Link from "next/link";
 
 import type { SmbMarketChange, SmbOverviewFix } from "@/modules/smb-home/types";
 import type {
@@ -911,163 +912,185 @@ function Hero({ data }: { data: LandingData }) {
           </div>
         </div>
 
-        <div className="landing-hero-cards">
-          <div className="hero-top-row">
-            <div
-              className="hero-card-1"
-              style={{
-                ...heroCard,
-                position: "static",
-                width: "52%",
-                textAlign: "center",
-              }}
-            >
-              <p className="hero-card-title" style={heroCardTitle}>
-                Mapsly score
-              </p>
-              <p style={heroCardSub}>your visibility to customers</p>
+        <div>
+          <div className="landing-hero-cards">
+            <div className="hero-top-row">
               <div
-                className="hero-gauge-wrap"
+                className="hero-card-1"
                 style={{
-                  marginTop: 12,
-                  display: "flex",
-                  justifyContent: "center",
+                  ...heroCard,
+                  position: "static",
+                  width: "52%",
+                  textAlign: "center",
                 }}
               >
-                <ScoreGauge value={data.mapslyScore} />
+                <p className="hero-card-title" style={heroCardTitle}>
+                  Mapsly score
+                </p>
+                <p style={heroCardSub}>your visibility to customers</p>
+                <div
+                  className="hero-gauge-wrap"
+                  style={{
+                    marginTop: 12,
+                    display: "flex",
+                    justifyContent: "center",
+                  }}
+                >
+                  <ScoreGauge value={data.mapslyScore} />
+                </div>
+              </div>
+              <div
+                className="hero-card-2"
+                style={{
+                  ...heroCard,
+                  position: "static",
+                  width: "calc(48% - 14px)",
+                  textAlign: "center",
+                }}
+              >
+                <p className="hero-card-title" style={heroCardTitle}>
+                  City score
+                </p>
+                <p
+                  className="hero-card-num hero-card-num-city"
+                  style={{
+                    margin: "4px 0 0",
+                    fontFamily: SERIF,
+                    fontWeight: 700,
+                    fontSize: 52,
+                    lineHeight: 1,
+                    display: "flex",
+                    justifyContent: "center",
+                    alignItems: "center",
+                  }}
+                >
+                  {data.rank == null ? "—" : <CountUp value={data.rank} />}
+                  {data.total != null ? (
+                    <span
+                      className="hero-city-slash"
+                      style={{
+                        fontFamily: "var(--font-landing-body)",
+                        fontSize: 13,
+                        fontWeight: 600,
+                        lineHeight: 1,
+                        color: "var(--color-text)",
+                        transform: "translateY(10px)",
+                      }}
+                    >
+                      {" "}
+                      / {data.total}
+                    </span>
+                  ) : null}
+                </p>
+                <p style={{ ...heroCardSub, marginTop: 21 }}>
+                  Your position across all {cat}s in{" "}
+                  {data.cellLabel ?? "your area"}
+                </p>
               </div>
             </div>
             <div
-              className="hero-card-2"
+              className="hero-card-3"
               style={{
                 ...heroCard,
                 position: "static",
-                width: "calc(48% - 14px)",
+                width: "50%",
                 textAlign: "center",
+                paddingBottom: 38,
               }}
             >
               <p className="hero-card-title" style={heroCardTitle}>
-                City score
+                Google
               </p>
               <p
-                className="hero-card-num hero-card-num-city"
+                className="hero-card-num hero-card-num-google"
                 style={{
-                  margin: "4px 0 0",
+                  margin: "0",
                   fontFamily: SERIF,
                   fontWeight: 700,
                   fontSize: 52,
                   lineHeight: 1,
-                  display: "flex",
-                  justifyContent: "center",
-                  alignItems: "center",
                 }}
               >
-                {data.rank == null ? "—" : <CountUp value={data.rank} />}
-                {data.total != null ? (
-                  <span
-                    className="hero-city-slash"
-                    style={{
-                      fontFamily: "var(--font-landing-body)",
-                      fontSize: 13,
-                      fontWeight: 600,
-                      lineHeight: 1,
-                      color: "var(--color-text)",
-                      transform: "translateY(10px)",
-                    }}
-                  >
-                    {" "}
-                    / {data.total}
-                  </span>
-                ) : null}
+                {data.googleRating == null ? (
+                  "—"
+                ) : (
+                  <CountUp value={data.googleRating} decimals={1} />
+                )}
               </p>
-              <p style={{ ...heroCardSub, marginTop: 21 }}>
-                Your position across all {cat}s in{" "}
-                {data.cellLabel ?? "your area"}
+              <div style={{ marginTop: 8 }}>
+                <Stars value={data.googleRating} />
+              </div>
+              <p style={{ ...heroCardSub, marginTop: 18 }}>
+                {data.reviewCount == null ? (
+                  "—"
+                ) : (
+                  <CountUp value={data.reviewCount} grouping />
+                )}{" "}
+                reviews
               </p>
-            </div>
-          </div>
-          <div
-            className="hero-card-3"
-            style={{
-              ...heroCard,
-              position: "static",
-              width: "50%",
-              textAlign: "center",
-              paddingBottom: 38,
-            }}
-          >
-            <p className="hero-card-title" style={heroCardTitle}>
-              Google
-            </p>
-            <p
-              className="hero-card-num hero-card-num-google"
-              style={{
-                margin: "0",
-                fontFamily: SERIF,
-                fontWeight: 700,
-                fontSize: 52,
-                lineHeight: 1,
-              }}
-            >
-              {data.googleRating == null ? (
-                "—"
-              ) : (
-                <CountUp value={data.googleRating} decimals={1} />
-              )}
-            </p>
-            <div style={{ marginTop: 8 }}>
-              <Stars value={data.googleRating} />
-            </div>
-            <p style={{ ...heroCardSub, marginTop: 18 }}>
-              {data.reviewCount == null ? (
-                "—"
-              ) : (
-                <CountUp value={data.reviewCount} grouping />
-              )}{" "}
-              reviews
-            </p>
-            {trend > 0 ? (
-              <p
-                className="hero-card-trend"
-                style={{
-                  margin: "8px 0 0",
-                  color: "var(--color-success)",
-                  fontSize: 14,
-                  fontWeight: 600,
-                }}
-              >
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 16 16"
-                  fill="none"
-                  aria-hidden
+              {trend > 0 ? (
+                <p
+                  className="hero-card-trend"
                   style={{
-                    display: "inline-block",
-                    verticalAlign: "-2px",
-                    marginRight: 4,
+                    margin: "8px 0 0",
+                    color: "var(--color-success)",
+                    fontSize: 14,
+                    fontWeight: 600,
                   }}
                 >
-                  <path
-                    d="M3.65039 12.1366L12.1205 3.66652"
-                    stroke="var(--color-success)"
-                    strokeWidth="1.49732"
-                  />
-                  <path
-                    d="M11.9258 3.43972V11.2258"
-                    stroke="var(--color-success)"
-                    strokeWidth="1.49732"
-                  />
-                  <path
-                    d="M12.3789 3.89323H4.59285"
-                    stroke="var(--color-success)"
-                    strokeWidth="1.49732"
-                  />
-                </svg>
-                <CountUp value={trend} prefix="+" /> this month
-              </p>
-            ) : null}
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    aria-hidden
+                    style={{
+                      display: "inline-block",
+                      verticalAlign: "-2px",
+                      marginRight: 4,
+                    }}
+                  >
+                    <path
+                      d="M3.65039 12.1366L12.1205 3.66652"
+                      stroke="var(--color-success)"
+                      strokeWidth="1.49732"
+                    />
+                    <path
+                      d="M11.9258 3.43972V11.2258"
+                      stroke="var(--color-success)"
+                      strokeWidth="1.49732"
+                    />
+                    <path
+                      d="M12.3789 3.89323H4.59285"
+                      stroke="var(--color-success)"
+                      strokeWidth="1.49732"
+                    />
+                  </svg>
+                  <CountUp value={trend} prefix="+" /> this month
+                </p>
+              ) : null}
+            </div>
           </div>
+          <p
+            style={{
+              margin: "16px 0 0",
+              textAlign: "center",
+              fontSize: 13,
+              color: "var(--color-text-3)",
+            }}
+          >
+            Built from public data —{" "}
+            <a
+              href="#data-sources"
+              style={{
+                color: "inherit",
+                textDecoration: "underline",
+                textUnderlineOffset: 3,
+              }}
+            >
+              see how
+            </a>
+          </p>
         </div>
       </div>
 
@@ -3161,7 +3184,20 @@ function PricingSection({
   );
 }
 
-function Footer() {
+/** Footer link · white-on-coral, subtly underlined so link-ness reads. */
+const FOOTER_LINK: CSSProperties = {
+  color: "rgba(255,255,255,0.78)",
+  textDecoration: "underline",
+  textDecorationColor: "rgba(255,255,255,0.35)",
+  textUnderlineOffset: 3,
+};
+
+/**
+ * Trust footer. Exported for unit tests (modules/smb-landing/__tests__).
+ * `token` is the landing token — the removal link (/r/[token]) is keyed by it.
+ * The hero's "see how" line anchors to #data-sources here.
+ */
+export function LandingFooter({ token }: { token: string }) {
   return (
     <footer
       className="landing-footer"
@@ -3180,7 +3216,13 @@ function Footer() {
         }}
       >
         <span style={{ display: "inline-flex", alignItems: "center", gap: 16 }}>
-          <Wordmark light />
+          <a
+            href="https://www.mapsly.ai"
+            aria-label="Mapsly home"
+            style={{ display: "inline-flex", color: "inherit" }}
+          >
+            <Wordmark light />
+          </a>
           <span
             style={{
               fontFamily: SERIF,
@@ -3199,15 +3241,62 @@ function Footer() {
             display: "inline-flex",
             gap: 24,
             flexWrap: "wrap",
-            color: "rgba(255,255,255,0.78)",
             fontSize: 13,
           }}
         >
-          <span>Google stats</span>
-          <span>Ads</span>
-          <span>Reviews stats</span>
-          <span>Website stats</span>
+          <Link href="/privacy" style={FOOTER_LINK}>
+            Privacy
+          </Link>
+          <Link href="/terms" style={FOOTER_LINK}>
+            Terms
+          </Link>
+          <Link href="/refunds" style={FOOTER_LINK}>
+            Cancellation & refunds
+          </Link>
         </span>
+      </div>
+      <div
+        style={{
+          ...CONTAINER,
+          marginTop: 36,
+          display: "grid",
+          gap: 14,
+          borderTop: "1px solid rgba(255,255,255,0.18)",
+          paddingTop: 24,
+        }}
+      >
+        <p
+          id="data-sources"
+          style={{
+            margin: 0,
+            maxWidth: 640,
+            fontSize: 13,
+            lineHeight: 1.6,
+            color: "rgba(255,255,255,0.78)",
+          }}
+        >
+          Every number here comes from public sources: your Google listing, ad
+          libraries, and your public website.
+        </p>
+        {/* PHYSICAL ADDRESS · placeholder slot — owned by the separate
+            postal-address scope. It drops the mailing-address line here
+            (CAN-SPAM/CASL) between the provenance line and the © row. */}
+        <p
+          style={{
+            margin: 0,
+            display: "flex",
+            gap: 24,
+            flexWrap: "wrap",
+            alignItems: "center",
+            fontSize: 13,
+            color: "rgba(255,255,255,0.6)",
+          }}
+        >
+          <span>© 2026 Mapsly</span>
+          <a href={`/r/${token}`} style={FOOTER_LINK}>
+            Not your business? Remove this page
+          </a>
+        </p>
       </div>
     </footer>
   );
@@ -3300,7 +3389,7 @@ export function LandingView({ data }: { data: LandingData }) {
           ctaHref={ctaHref}
           ctaHrefAnnual={ctaHrefAnnual}
         />
-        <Footer />
+        <LandingFooter token={data.token} />
       </div>
     </main>
   );
