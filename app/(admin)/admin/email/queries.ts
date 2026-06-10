@@ -29,6 +29,8 @@ export interface ColdOverview {
   suppressedTotal: number;
   activeCampaigns: number;
   totalRecipients: number;
+  /** Σ dailyCap over ACTIVE mailboxes × 5 weekdays — steady-state ceiling. */
+  projectedWeekly: number;
   mailboxes: MailboxRow[];
 }
 
@@ -40,6 +42,7 @@ export const EMPTY_OVERVIEW: ColdOverview = {
   suppressedTotal: 0,
   activeCampaigns: 0,
   totalRecipients: 0,
+  projectedWeekly: 0,
   mailboxes: [],
 };
 
@@ -91,6 +94,13 @@ export async function getColdOverview(): Promise<ColdOverview> {
       todayStats.map((s) => [s.mailboxAddress, s.sentCount]),
     );
 
+    // Steady-state weekly ceiling (post-ramp): Σ dailyCap of ACTIVE boxes ×
+    // 5 weekdays. Surfaced so a sub-1k/week config is visible, not silent.
+    const projectedWeekly =
+      mailboxes
+        .filter((m) => m.status === "ACTIVE")
+        .reduce((sum, m) => sum + m.dailyCap, 0) * 5;
+
     return {
       globalPaused: process.env.COLD_GLOBAL_PAUSE === "1" || pause === "1",
       sentToday: sentTodayAgg._sum.sentCount ?? 0,
@@ -99,6 +109,7 @@ export async function getColdOverview(): Promise<ColdOverview> {
       suppressedTotal,
       activeCampaigns,
       totalRecipients,
+      projectedWeekly,
       mailboxes: mailboxes.map((m) => ({
         address: m.address,
         domain: m.domain,

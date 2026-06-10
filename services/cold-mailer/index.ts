@@ -196,10 +196,12 @@ export async function sendViaMailbox(
   const fromName = input.fromName ?? mailbox.displayName;
   const headers: Record<string, string> = {};
   if (input.unsubscribeUrl) {
-    // HTTPS one-click only — RFC 8058 + the Gmail/Yahoo bulk-sender rules are
-    // fully satisfied without a mailto URI. Advertising a mailto channel that
-    // nothing processes is worse than omitting it (audit 2026-06-09).
-    headers["List-Unsubscribe"] = `<${input.unsubscribeUrl}>`;
+    // HTTPS one-click (RFC 8058) + mailto. The mailto channel is PROCESSED:
+    // app/api/cron/poll-cold-inboxes classifies unsubscribe-intent inbound
+    // mail and suppresses — never advertise an opt-out nothing reads
+    // (audit 2026-06-09 finding 9).
+    headers["List-Unsubscribe"] =
+      `<${input.unsubscribeUrl}>, <mailto:${mailbox.address}?subject=unsubscribe>`;
     headers["List-Unsubscribe-Post"] = "List-Unsubscribe=One-Click";
   }
 

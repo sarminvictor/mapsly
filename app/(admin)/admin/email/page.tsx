@@ -161,6 +161,11 @@ async function Overview() {
         />
         <Stat label="suppressed" value={String(overview.suppressedTotal)} />
         <Stat label="recipients" value={String(overview.totalRecipients)} />
+        <Stat
+          label="capacity · wk"
+          value={String(overview.projectedWeekly)}
+          warn={overview.projectedWeekly < 1000}
+        />
       </div>
 
       <section style={card}>

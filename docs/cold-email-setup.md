@@ -14,7 +14,7 @@ Self-hosted cold outreach on **`mapsly.xyz`** (throwaway domain), walled off fro
 
 1. Register **`mapsly.xyz`**.
 2. Add email — **Google Workspace** (best deliverability, ~$7/mbox/mo) or **Zoho**.
-   Create ~5 mailboxes with human first names: `ava@`, `noah@`, `mia@`, `leo@`, `zoe@`.
+   Create ~5 mailboxes with human first names: `ava@`, `noah@`, `mia@`, `leo@`, `sofia@`.
 3. For each mailbox: enable SMTP + create an **app password**
    (Google: 2-Step Verification → App passwords; Zoho: Application-Specific Password).
 
@@ -76,7 +76,8 @@ accounts; have them open, reply, and mark **Not spam**. Ramp slightly daily.
 1. **Seed test** (admin): send to 2–3 of your own inboxes → confirm **Inbox** (not spam),
    that SPF/DKIM/DMARC pass (Gmail → Show original), and the report link works.
 2. In each Mailbox row: **Activate + ramp** (starts the per-mailbox ramp clock; caps go
-   10 → 15 → 20 → 25 → 30/day over the first week).
+   3 → 4 → 5 → 7 → 9 → 12 → 15 → 18/day over the first 8 days, then the target
+   `dailyCap` (default 30) — see `services/cold-mailer/ramp.ts`).
 3. On the campaign: **Enroll cohort** — start small (limit 50–100), preview first.
 
 ## Step 6 · Launch (Monday)
@@ -89,11 +90,44 @@ accounts; have them open, reply, and mark **Not spam**. Ramp slightly daily.
 
 - **Caps/ramp:** per mailbox, enforced by the rotation (lowest-usage mailbox under its
   effective cap is chosen each send). Blocked mailboxes (550/5.4.6) cool down 2h automatically.
-- **Stop conditions:** hard bounce → suppress + recipient BOUNCED; unsubscribe (one-click
-  `/u/[token]`) → global suppression; campaign PAUSED → no sends.
+- **Crash/concurrency safety:** each ColdSend is atomically claimed (PENDING→SENDING)
+  before SMTP, so overlapping cron ticks can never double-send; stale claims (>20 min)
+  sweep to FAILED and are never requeued (the send may have gone out).
+- **Stop conditions:** hard bounce (SMTP **or** NDR via the inbox poller) → suppress +
+  recipient BOUNCED; human reply → recipient REPLIED (follow-ups stop, INFO alert);
+  unsubscribe (one-click `/u/[token]`, or reply/mailto processed by the poller) →
+  global suppression; campaign PAUSED → no sends.
+- **Inbox poller** (`/api/cron/poll-cold-inboxes`, every 15 min offset from the sender):
+  polls each mailbox over IMAP (`imap.zohocloud.ca`, override `COLD_IMAP_HOST`) and
+  classifies NDR bounces / replies / opt-outs / out-of-office (OOO does NOT stop a
+  sequence). Edge cases stay flagged-seen in the shared inbox.
+- **Alerts + circuit breakers:** mailbox block → WARN; whole fleet blocked with due
+  sends → CRITICAL; trailing-24h hard-bounce rate > 3% (min 25 sends) → **auto-pause**
+  with a CRITICAL alert. Alerts go to `OPS_ALERT_EMAIL` (default sarminvictor@gmail.com)
+  via the Resend transactional path (never via Zoho) + a Notification row on the dev dashboard.
 - **Suppression** is checked before **every** send (global, across all campaigns).
+- **Enrollment** requires `Business.emailVerifiedAt` (the monthly SMTP-probe cron);
+  `undeliverable` verdicts auto-suppress + stop in-flight sequences.
+- **Copy variation:** templates support deterministic `{{a|b|c}}` spintax (seeded per
+  recipient+step) so bodies aren't byte-identical at scale.
 - **Report link** = the existing `/l/[slug]-[token]` landing page; engagement shows in
   `LandingEvent` (we deliberately omit email open-pixels for cold deliverability).
+- **Footer** carries the physical postal address (hardcoded `PHYSICAL_ADDRESS` in
+  `services/cold-mailer/config.ts`, override `COLD_PHYSICAL_ADDRESS`) — CAN-SPAM
+  requires it in every email; do not remove it again (audit 2026-06-09 finding 1).
+
+## Scaling to 1,000+/week
+
+Defaults ceiling: 5 boxes × 30/day × 5 weekdays = **750/week** (the admin overview
+shows "capacity · wk" and warns under 1,000). To close the gap, do NOT raise per-box
+caps past ~30-40 on one fresh domain — add a **second cold domain** instead:
+
+1. Register a lookalike (prefer `.com`, e.g. `trymapsly.com`), redirect it to mapsly.ai.
+2. Repeat Step 0-1 (mailboxes + SPF/DKIM/DMARC) on the new domain.
+3. Add `COLD_MAILBOX_6..8` + passwords in Vercel env → admin **Sync mailboxes** →
+   **Activate + ramp** each. 7-8 boxes × 25-30/day × 5 days = 875-1,200/week with
+   per-box volume unchanged and half the blast radius.
+4. Register the new domain in Google Postmaster Tools (mapsly.xyz already is).
 
 ## Compliance
 
@@ -102,7 +136,8 @@ accounts; have them open, reply, and mark **Not spam**. Ramp slightly daily.
 - **Canada (CASL)** is **off by default** (campaign `country=US`). Before enabling CA, we add
   per-contact `ConsentRecord` provenance — ask when you want it on.
 
-## Deferred (week 2, zero rework)
+## Deferred (zero rework)
 
-IMAP reply auto-detect (auto-stop on reply), automatic cold→warm flip into the portal/Resend,
-Canada/CASL automation, more domains/mailboxes for scale.
+Automatic cold→warm flip into the portal/Resend, Canada/CASL automation, daily
+auto-enroll cron (dailyEnrollCap is stored but enrollment is still a manual admin
+action). ~~IMAP reply auto-detect~~ — shipped as `/api/cron/poll-cold-inboxes` (v0.15.8).

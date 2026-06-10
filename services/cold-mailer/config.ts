@@ -74,6 +74,17 @@ export function getSmtpConfig(): ColdSmtpConfig {
   return { host, port, secure };
 }
 
+// IMAP — same mailboxes, inbound side (replies, NDRs, mailto opt-outs).
+// Zoho Canada pairs smtp.zohocloud.ca with imap.zohocloud.ca.
+const DEFAULT_IMAP_HOST = "imap.zohocloud.ca";
+const DEFAULT_IMAP_PORT = 993;
+
+export function getImapConfig(): ColdSmtpConfig {
+  const host = process.env.COLD_IMAP_HOST?.trim() || DEFAULT_IMAP_HOST;
+  const port = Number(process.env.COLD_IMAP_PORT ?? DEFAULT_IMAP_PORT);
+  return { host, port, secure: true };
+}
+
 export function getColdSenderConfig(): ColdSenderConfig {
   const baseUrl = (process.env.COLD_BASE_URL ?? BASE_URL).replace(/\/$/, ""); // do NOT inherit NEXT_PUBLIC_APP_URL (localhost/apex in some envs)
   return {

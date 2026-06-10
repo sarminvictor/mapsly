@@ -14,6 +14,7 @@ import { randomInt } from "node:crypto";
 import { cronHandler } from "@/lib/middleware/no-live-api";
 import prisma from "@/lib/prisma";
 
+import { runColdCircuitBreakers } from "@/modules/cold/circuit-breakers";
 import { buildTokens } from "@/modules/cold/personalization";
 import { addDelay, withinSendWindow } from "@/modules/cold/scheduling";
 import { isGloballyPaused } from "@/modules/cold/settings";
@@ -100,7 +101,8 @@ export async function processColdSequences(
     },
     data: {
       status: "FAILED",
-      errorMessage: "stale SENDING claim — outcome unknown (crashed mid-dispatch)",
+      errorMessage:
+        "stale SENDING claim — outcome unknown (crashed mid-dispatch)",
     },
   });
   if (stale.count > 0) meta.staleClaims = stale.count;
@@ -209,7 +211,8 @@ export async function processColdSequences(
     const subject = renderTemplate(step.subjectTemplate, tokens, spinSeed);
     const unsubUrl = unsubscribeUrlFor(r.email);
     const renderedBody = renderTemplate(step.bodyTemplate, tokens, spinSeed);
-    const text = renderedBody + buildTextFooter(unsubUrl, sender.physicalAddress);
+    const text =
+      renderedBody + buildTextFooter(unsubUrl, sender.physicalAddress);
     const html = toHtmlBody(renderedBody, unsubUrl, sender.physicalAddress);
 
     const result = await sendViaMailbox(
@@ -329,6 +332,18 @@ export async function processColdSequences(
     // Random gap between sends — Zoho punishes machine-regular cadence/bursts.
     await sleep(randomInt(2000, 8000));
   }
+
+  // Push alerts + auto-pause on bounce spikes / fleet-wide blocks. Best-effort
+  // by design — never blocks or fails the tick (audit 2026-06-09 finding 4).
+  await runColdCircuitBreakers(
+    {
+      due: meta.due,
+      sent: meta.sent,
+      blocked: meta.blocked,
+      noCapacity: meta.noCapacity,
+    },
+    now,
+  );
 
   return meta;
 }

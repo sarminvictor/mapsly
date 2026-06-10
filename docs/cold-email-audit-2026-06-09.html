@@ -1,0 +1,1501 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Mapsly Cold Email System · Expert Audit · 2026-06-09</title>
+    <style>
+      :root {
+        --ink: #1a1d23;
+        --muted: #6b7280;
+        --faint: #9ca3af;
+        --bg: #f7f8fa;
+        --card: #ffffff;
+        --line: #e5e7eb;
+        --accent: #4338ca;
+        --good: #15803d;
+        --goodbg: #ecfdf3;
+        --warn: #b45309;
+        --warnbg: #fffbeb;
+        --bad: #b91c1c;
+        --badbg: #fef2f2;
+        --crit: #7f1d1d;
+        --mono: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font:
+          15px/1.6 -apple-system,
+          "Segoe UI",
+          Roboto,
+          Helvetica,
+          Arial,
+          sans-serif;
+        color: var(--ink);
+        background: var(--bg);
+      }
+      .wrap {
+        max-width: 1080px;
+        margin: 0 auto;
+        padding: 48px 28px 80px;
+      }
+      header.hero {
+        background: linear-gradient(
+          135deg,
+          #1e1b4b 0%,
+          #312e81 60%,
+          #4338ca 100%
+        );
+        color: #fff;
+        border-radius: 18px;
+        padding: 42px 44px;
+        margin-bottom: 30px;
+      }
+      header.hero h1 {
+        margin: 0 0 6px;
+        font-size: 30px;
+        letter-spacing: -0.4px;
+      }
+      header.hero .sub {
+        color: #c7d2fe;
+        font-size: 15px;
+      }
+      header.hero .meta {
+        margin-top: 18px;
+        display: flex;
+        gap: 22px;
+        flex-wrap: wrap;
+        font-size: 13px;
+        color: #a5b4fc;
+      }
+      header.hero .meta b {
+        color: #e0e7ff;
+        font-weight: 600;
+      }
+      h2 {
+        font-size: 21px;
+        margin: 46px 0 14px;
+        letter-spacing: -0.3px;
+      }
+      h3 {
+        font-size: 16px;
+        margin: 26px 0 8px;
+      }
+      p {
+        margin: 10px 0;
+      }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 26px 30px;
+        margin: 18px 0;
+      }
+      .grid {
+        display: grid;
+        gap: 16px;
+      }
+      .g2 {
+        grid-template-columns: 1fr 1fr;
+      }
+      .g3 {
+        grid-template-columns: 1fr 1fr 1fr;
+      }
+      @media (max-width: 820px) {
+        .g2,
+        .g3 {
+          grid-template-columns: 1fr;
+        }
+      }
+      /* score donut */
+      .scoreflex {
+        display: flex;
+        gap: 36px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      .donut {
+        width: 168px;
+        height: 168px;
+        border-radius: 50%;
+        background: conic-gradient(#ef4444 0 42%, #e5e7eb 42% 100%);
+        display: grid;
+        place-items: center;
+        flex: 0 0 auto;
+      }
+      .donut .hole {
+        width: 124px;
+        height: 124px;
+        border-radius: 50%;
+        background: var(--card);
+        display: grid;
+        place-items: center;
+        text-align: center;
+      }
+      .donut .num {
+        font-size: 36px;
+        font-weight: 800;
+        letter-spacing: -1px;
+        line-height: 1;
+      }
+      .donut .of {
+        font-size: 12px;
+        color: var(--muted);
+      }
+      /* score bars */
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        font-size: 14px;
+      }
+      th,
+      td {
+        padding: 9px 12px;
+        text-align: left;
+        border-bottom: 1px solid var(--line);
+        vertical-align: top;
+      }
+      th {
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--muted);
+        font-weight: 600;
+      }
+      .bar {
+        height: 9px;
+        border-radius: 5px;
+        background: #eef0f3;
+        position: relative;
+        min-width: 130px;
+      }
+      .bar i {
+        position: absolute;
+        inset: 0 auto 0 0;
+        border-radius: 5px;
+      }
+      .num {
+        font-variant-numeric: tabular-nums;
+      }
+      .pill {
+        display: inline-block;
+        padding: 2px 10px;
+        border-radius: 999px;
+        font-size: 11.5px;
+        font-weight: 700;
+        letter-spacing: 0.03em;
+        white-space: nowrap;
+      }
+      .p-crit {
+        background: #450a0a;
+        color: #fecaca;
+      }
+      .p-high {
+        background: var(--badbg);
+        color: var(--bad);
+        border: 1px solid #fecaca;
+      }
+      .p-med {
+        background: var(--warnbg);
+        color: var(--warn);
+        border: 1px solid #fde68a;
+      }
+      .p-low {
+        background: #f1f5f9;
+        color: #475569;
+        border: 1px solid #e2e8f0;
+      }
+      .p-good {
+        background: var(--goodbg);
+        color: var(--good);
+        border: 1px solid #bbf7d0;
+      }
+      .ok {
+        color: var(--good);
+        font-weight: 700;
+      }
+      .mid {
+        color: var(--warn);
+        font-weight: 700;
+      }
+      .no {
+        color: var(--bad);
+        font-weight: 700;
+      }
+      code {
+        font-family: var(--mono);
+        font-size: 12.5px;
+        background: #f1f3f7;
+        border: 1px solid #e5e7eb;
+        border-radius: 5px;
+        padding: 1px 5px;
+      }
+      details {
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        margin: 10px 0;
+        background: var(--card);
+      }
+      details summary {
+        cursor: pointer;
+        padding: 14px 18px;
+        font-weight: 600;
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      details[open] summary {
+        border-bottom: 1px solid var(--line);
+      }
+      details .body {
+        padding: 14px 20px 18px;
+        font-size: 14px;
+      }
+      .verdictbox {
+        border-left: 4px solid var(--accent);
+        background: #eef2ff;
+        border-radius: 0 12px 12px 0;
+        padding: 16px 22px;
+        margin: 16px 0;
+      }
+      .req {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 14px;
+        padding: 13px 16px;
+        border: 1px solid var(--line);
+        border-radius: 11px;
+        background: var(--card);
+      }
+      .kbd {
+        font-family: var(--mono);
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .small {
+        font-size: 13px;
+        color: var(--muted);
+      }
+      .arch {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 12px;
+      }
+      .arch .node {
+        border: 1px solid var(--line);
+        border-radius: 11px;
+        padding: 13px 15px;
+        background: #fafbfc;
+        font-size: 13.5px;
+      }
+      .arch .node b {
+        display: block;
+        margin-bottom: 4px;
+        font-size: 13.5px;
+      }
+      .footer {
+        margin-top: 60px;
+        color: var(--faint);
+        font-size: 12.5px;
+        border-top: 1px solid var(--line);
+        padding-top: 18px;
+      }
+      ul {
+        margin: 8px 0;
+        padding-left: 22px;
+      }
+      li {
+        margin: 5px 0;
+      }
+      .twocol {
+        column-count: 2;
+        column-gap: 34px;
+      }
+      @media (max-width: 820px) {
+        .twocol {
+          column-count: 1;
+        }
+      }
+      a {
+        color: var(--accent);
+      }
+      .legend {
+        font-size: 12px;
+        color: var(--muted);
+        margin-top: 6px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header class="hero">
+        <h1>Cold Email System — Expert Audit</h1>
+        <div class="sub">
+          Mapsly self-hosted cold outreach engine · deep code analysis vs. 2026
+          industry best practices
+        </div>
+        <div class="meta">
+          <span><b>Audited:</b> v0.15.5 (commit 0ce1668)</span>
+          <span><b>Date:</b> June 9, 2026</span>
+          <span
+            ><b>Method:</b> 27-agent audit — 6 code analysts · 4 best-practice
+            researchers · adversarial verification of every finding (14/14
+            confirmed, 0 refuted) · 3-lens expert scoring panel</span
+          >
+        </div>
+      </header>
+
+      <!-- ============ EXEC SUMMARY ============ -->
+      <div class="card">
+        <div class="scoreflex">
+          <div class="donut">
+            <div class="hole">
+              <div>
+                <div class="num">4.2</div>
+                <div class="of">/ 10 overall</div>
+              </div>
+            </div>
+          </div>
+          <div style="flex: 1; min-width: 300px">
+            <h3 style="margin-top: 0">Executive verdict</h3>
+            <p>
+              This is
+              <b>impressively disciplined engineering of the outbound half</b>
+              of a cold-email system — and it is <b>exactly half a system</b>.
+              The send-side hygiene (separate cold domain, plain-text-first, no
+              tracking pixels, link-free first touch, conservative ramp, mailbox
+              rotation, jitter, correct RFC 8058 one-click unsubscribe) reflects
+              real deliverability literacy, above most DIY builds.
+            </p>
+            <p>
+              But measured against your three stated requirements, it fails all
+              three as shipped:
+              <b>1,000/week is mathematically unreachable</b> (hard ceiling
+              750/week at defaults, earliest 1k-week is week 3 after manual
+              changes that have no UI);
+              <b>deliverability is flown blind</b> (zero feedback loops —
+              bounces, replies, and complaints are all invisible); and
+              <b
+                >"fully automated" is contradicted by mandatory daily manual
+                triage</b
+              >
+              of 5 Zoho inboxes. On top of that,
+              <b>every email currently sent violates CAN-SPAM</b> (postal
+              address deliberately removed in v0.15.3, with a unit test locking
+              the violation in), on a provider — Zoho —
+              <b>whose usage policy bans bulk cold email outright</b>.
+            </p>
+            <p>
+              The good news: the fixes are cheap and the architecture
+              anticipates them. One footer rewire (hours), one IMAP poller cron
+              (days), one alert helper (days), and a second sending domain close
+              most of the gap — <i>or</i> a $47/mo sequencer closes all of it
+              this week.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ REQUIREMENTS ============ -->
+      <h2>Your three requirements — verdict</h2>
+      <div class="grid g3">
+        <div class="req">
+          <div>
+            <b>1 · Fastest start to 1k/week</b>
+            <div class="small">
+              750/wk hard ceiling at defaults (5 boxes × 30/day × 5 weekdays).
+              Week 1 ramp ≈ 140 emails. First possible 1,000-email week:
+              <b>week 3</b>, and only after manual cap/mailbox changes.
+            </div>
+          </div>
+          <span class="pill p-high">FAIL</span>
+        </div>
+        <div class="req">
+          <div>
+            <b>2 · Robust spam-filter delivery</b>
+            <div class="small">
+              Prevention is genuinely good (domain split, plain-text, ramp,
+              jitter, one-click unsub). Detection doesn't exist: no bounce,
+              reply, or complaint feedback — the metrics that actually keep
+              domains alive.
+            </div>
+          </div>
+          <span class="pill p-med">PARTIAL</span>
+        </div>
+        <div class="req">
+          <div>
+            <b>3 · Fully automated, zero manual</b>
+            <div class="small">
+              Outbound loop is hands-off. Everything inbound is human: daily
+              sweeps of 5 Zoho inboxes for replies/NDRs, manual warm-up, manual
+              enrollment, manual cap raises, pull-only "watch the dashboard"
+              alerting.
+            </div>
+          </div>
+          <span class="pill p-high">FAIL</span>
+        </div>
+      </div>
+
+      <!-- ============ SCORECARD ============ -->
+      <h2>Scorecard</h2>
+      <div class="card">
+        <table>
+          <thead>
+            <tr>
+              <th>Dimension</th>
+              <th style="width: 230px"></th>
+              <th class="num">Avg</th>
+              <th class="num">Deliverability expert</th>
+              <th class="num">Automation / ops</th>
+              <th class="num">Growth pragmatist</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>
+                <b>Speed to 1k/week</b>
+                <div class="small">time-to-goal, capacity math</div>
+              </td>
+              <td>
+                <div class="bar">
+                  <i style="width: 37%; background: #ef4444"></i>
+                </div>
+              </td>
+              <td class="num"><b>3.7</b></td>
+              <td class="num">4</td>
+              <td class="num">4</td>
+              <td class="num">3</td>
+            </tr>
+            <tr>
+              <td>
+                <b>Deliverability</b>
+                <div class="small">inbox placement readiness</div>
+              </td>
+              <td>
+                <div class="bar">
+                  <i style="width: 43%; background: #f59e0b"></i>
+                </div>
+              </td>
+              <td class="num"><b>4.3</b></td>
+              <td class="num">4</td>
+              <td class="num">5</td>
+              <td class="num">4</td>
+            </tr>
+            <tr>
+              <td>
+                <b>Automation</b>
+                <div class="small">zero-manual operation</div>
+              </td>
+              <td>
+                <div class="bar">
+                  <i style="width: 40%; background: #ef4444"></i>
+                </div>
+              </td>
+              <td class="num"><b>4.0</b></td>
+              <td class="num">4</td>
+              <td class="num">4</td>
+              <td class="num">4</td>
+            </tr>
+            <tr>
+              <td>
+                <b>Compliance risk</b>
+                <div class="small">10 = fully compliant</div>
+              </td>
+              <td>
+                <div class="bar">
+                  <i style="width: 30%; background: #b91c1c"></i>
+                </div>
+              </td>
+              <td class="num"><b>3.0</b></td>
+              <td class="num">3</td>
+              <td class="num">3</td>
+              <td class="num">3</td>
+            </tr>
+            <tr>
+              <td>
+                <b>Architecture &amp; observability</b>
+                <div class="small">code quality, telemetry</div>
+              </td>
+              <td>
+                <div class="bar">
+                  <i style="width: 50%; background: #f59e0b"></i>
+                </div>
+              </td>
+              <td class="num"><b>5.0</b></td>
+              <td class="num">5</td>
+              <td class="num">5</td>
+              <td class="num">5</td>
+            </tr>
+            <tr>
+              <td>
+                <b>Scalability &amp; cost</b>
+                <div class="small">cost per send, scaling path</div>
+              </td>
+              <td>
+                <div class="bar">
+                  <i style="width: 50%; background: #f59e0b"></i>
+                </div>
+              </td>
+              <td class="num"><b>5.0</b></td>
+              <td class="num">5</td>
+              <td class="num">6</td>
+              <td class="num">4</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="legend">
+          Three independent expert judges scored from a shared dossier of
+          verified findings. All 14 top-severity claims survived adversarial
+          verification against the actual code; zero were refuted.
+        </div>
+      </div>
+
+      <!-- ============ HOW IT'S BUILT ============ -->
+      <h2>How the system is built today</h2>
+      <div class="card">
+        <div class="arch">
+          <div class="node">
+            <b>Sending domain</b>Separate throwaway <code>mapsly.xyz</code> —
+            walls cold reputation off from <code>mapsly.ai</code> / Resend
+            transactional. SPF + DKIM + DMARC (p=none) via manual runbook.
+          </div>
+          <div class="node">
+            <b>Mailboxes</b>5 Zoho boxes with human names (ava@, mia@, noah@,
+            leo@, sofia@), app-password SMTP via
+            <code>smtp.zohocloud.ca:465</code>. Env supports up to 50
+            (<code>COLD_MAILBOX_1..50</code>).
+          </div>
+          <div class="node">
+            <b>Sender</b><code>services/cold-mailer</code> — nodemailer 7.
+            DB-driven rotation: lowest-usage ACTIVE mailbox under its effective
+            daily cap, re-acquired before every send.
+          </div>
+          <div class="node">
+            <b>Ramp &amp; caps</b>Warm-up ramp [3,4,5,7,9,12,15,18]/day over 8
+            days, then <code>dailyCap</code> (default 30). Zero sends until
+            admin clicks "Activate + ramp".
+          </div>
+          <div class="node">
+            <b>Orchestration</b>Vercel cron <code>*/15</code> → batch of 8 due
+            sends, 2–8s random sleep between sends, 9–17 ET weekday window, 0–4h
+            jitter on follow-ups.
+          </div>
+          <div class="node">
+            <b>Sequences</b>3-touch default campaign (touch 1 link-free, report
+            link on 2–3, delays 3/4 days). Idempotency key per recipient:step;
+            transactional step advance.
+          </div>
+          <div class="node">
+            <b>Content</b>Plain-text-first multipart, no open pixels, no
+            click-wrapping. Signal personalization (rating, review count,
+            unanswered reviews) from the Mapsly DB.
+          </div>
+          <div class="node">
+            <b>Unsubscribe</b>Stateless HMAC token → <code>/u/[token]</code>.
+            GET page + RFC 8058 POST one-click; honored instantly, global
+            suppression. <code>List-Unsubscribe</code> +
+            <code>List-Unsubscribe-Post</code> headers.
+          </div>
+          <div class="node">
+            <b>Failure handling</b>Provider block (421/5.4.6/"unusual sending")
+            → 2h mailbox cooldown + tick abort. Hard SMTP bounce → suppress +
+            recipient BOUNCED. Transient → retry ≤3.
+          </div>
+          <div class="node">
+            <b>Admin</b><code>/admin/email</code> — mailbox sync/activate,
+            campaign editor, manual cohort enrollment (≤5,000), seed test,
+            pause-all, suppression list. Dual kill switches (env + DB).
+          </div>
+        </div>
+        <p class="small" style="margin-top: 14px">
+          Models:
+          <code
+            >ColdCampaign · ColdStep · ColdRecipient · ColdSend ·
+            ColdSuppression · ColdSetting · Mailbox · MailboxStat ·
+            ConsentRecord</code
+          >. Cost: ≈ $10–15/mo (domain + Zoho) and $0 marginal per send.
+        </p>
+      </div>
+
+      <!-- ============ STRENGTHS ============ -->
+      <h2>
+        What's done right
+        <span class="pill p-good" style="vertical-align: middle">verified</span>
+      </h2>
+      <div class="card">
+        <div class="twocol">
+          <ul>
+            <li>
+              <b>Separate cold domain.</b> The single most important decision in
+              cold email — <code>mapsly.ai</code> and Resend transactional
+              reputation are fully isolated. Most DIY builds get this wrong.
+            </li>
+            <li>
+              <b>Plain-text-first, zero tracking.</b> No open pixels, no
+              click-wrap redirects, minimal HTML alternative, link-free first
+              touch — exactly the 2026 playbook (HTML-heavy cold email bounces
+              ~6.5× more per Hunter's 2.2M-email study).
+            </li>
+            <li>
+              <b>Correct RFC 8058 one-click unsubscribe</b>, honored instantly
+              (beats the 10-business-day legal floor), with global suppression
+              checked before <i>every</i> send.
+            </li>
+            <li>
+              <b>Conservative, Zoho-tuned ramp</b> with a hard
+              zero-until-activated gate; unit-tested.
+            </li>
+            <li>
+              <b>Self-balancing mailbox rotation</b> — lowest-usage box
+              re-acquired per send; capacity exhaustion cleanly stops the tick.
+            </li>
+            <li>
+              <b>Provider-block circuit breaker</b> — catches Zoho's 421/"5.4.6
+              unusual sending activity", cools the box 2h, aborts the tick as
+              likely IP-wide.
+            </li>
+            <li>
+              <b>Humanized cadence</b> — small batches, random 2–8s gaps, 0–4h
+              follow-up jitter, business-hours weekday window.
+            </li>
+            <li>
+              <b>Double-send protection by design intent</b> — unique
+              idempotency key + transactional step advance (with one verified
+              hole, see finding #6).
+            </li>
+            <li>
+              <b>Layered kill switches</b> — env hard-override + DB toggle,
+              checked at the top of every tick.
+            </li>
+            <li>
+              <b>Best-in-class cash cost</b> — ~$10–15/mo vs ~$90–110/mo for the
+              equivalent tool stack.
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- ============ FINDINGS ============ -->
+      <h2>Verified findings</h2>
+      <p class="small">
+        Every finding below was independently re-verified by an adversarial
+        agent instructed to refute it against the actual code. All survived.
+        Ordered by severity for your three goals.
+      </p>
+
+      <details open>
+        <summary>
+          <span class="pill p-crit">CRITICAL · LEGAL</span> 1 · Every email sent
+          violates CAN-SPAM — postal address deliberately removed
+        </summary>
+        <div class="body">
+          <p>
+            <b>What the code does:</b> <code>buildTextFooter()</code> returns
+            only an unsubscribe link; <code>toHtmlBody()</code> appends only an
+            "Unsubscribe" anchor (<code>modules/cold/template.ts:26–54</code>).
+            The hardcoded <code>PHYSICAL_ADDRESS</code> ("Mapsly · 530 3 St SE,
+            Calgary…", <code>config.ts:67</code>) has <b>zero consumers</b> —
+            dead code that contradicts its own comment ("MUST be a real postal
+            address"). Commit <code>8d69832</code> ("drop postal address from
+            footer") removed it, and a unit test now
+            <i>asserts the address is absent</i> — documented willfulness in git
+            history. The setup doc still claims compliance ("legal cold with a
+            real postal address").
+          </p>
+          <p>
+            <b>Why it matters:</b> CAN-SPAM (15 U.S.C. §7704(a)(5)) requires a
+            valid physical postal address in <i>every</i> commercial email, B2B
+            included. Statutory maximum is <b>$53,088 per email</b>. At 1k/week
+            that's 52,000 violations/year stamped into your own database. CASL
+            (you're a Calgary company) additionally requires a mailing address
+            valid 60+ days in every CEM.
+          </p>
+          <p>
+            <b>Fix (~15 lines, hours):</b> wire
+            <code>getColdSenderConfig().physicalAddress</code> into both
+            footers, update the 3 call sites, and
+            <b>invert the regression test</b>. A single muted gray line keeps
+            the personal look while satisfying the statute.
+          </p>
+        </div>
+      </details>
+
+      <details open>
+        <summary>
+          <span class="pill p-high">HIGH</span> 2 · Replies never stop a
+          sequence — your hottest leads get robotic follow-ups
+        </summary>
+        <div class="body">
+          <p>
+            <b>What the code does:</b> the cron's TERMINAL gate honors
+            <code>REPLIED</code>/<code>WARM</code> statuses
+            (<code>route.ts:34–41,142</code>) — but
+            <b>no code path ever sets them</b>. They are dead enum values. There
+            is no IMAP polling, no inbound webhook, and not even an admin "mark
+            replied" button. A prospect who replies "yes, send me the report"
+            receives touch 2 and touch 3 anyway.
+          </p>
+          <p>
+            <b>Why it matters:</b> beyond burning your warmest leads, follow-ups
+            to repliers provoke spam-button clicks — and complaint rate is the
+            #1 domain-killing signal (Gmail hard ceiling 0.3%, target &lt;0.1%).
+            At a 3.4% average reply rate, ~34 people per 1,000 reply — every one
+            of them then gets ignored and re-mailed.
+          </p>
+          <p>
+            <b>Fix:</b> stopgap (15 min): admin <code>markReplied</code> action
+            — the consuming side already works. Real fix (days): one
+            <code>imapflow</code> cron polling
+            <code>imap.zoho.com:993</code> with the existing creds — which also
+            solves findings 3 and 9 in the same file.
+          </p>
+        </div>
+      </details>
+
+      <details open>
+        <summary>
+          <span class="pill p-high">HIGH</span> 3 · Bounce rate is effectively
+          blind — async bounces never suppress
+        </summary>
+        <div class="body">
+          <p>
+            <b>What the code does:</b> bounce capture is SMTP-submission-time
+            only. Zoho is a relay: it answers 250-OK, then the remote server's
+            rejection ("550 user unknown") arrives
+            <i>minutes later as an NDR email</i> into the Zoho inbox — which
+            nothing reads. The async-bounced address stays "delivered" in your
+            data and receives touches 2–3.
+            <code>UNDELIVERABLE</code> suppression-source exists in the schema
+            but is never written.
+          </p>
+          <p>
+            <b>Why it matters:</b> sustained bounce rate &gt;2% suppresses inbox
+            placement for the whole domain; &gt;5% is long-term destructive. You
+            cannot manage what you cannot measure — and right now the real
+            bounce rate is invisible. Enrollment also doesn't require verified
+            emails (<code>enroll.ts</code> only checks
+            <code>email != null</code> despite its own comment claiming
+            "VERIFIED owner email").
+          </p>
+          <p>
+            <b>Fix:</b> (a) same-day: gate enrollment on
+            <code>emailVerifiedAt</code> + feed the existing monthly
+            email-verification cron's "undeliverable" verdicts into
+            <code>suppress()</code>; (b) days: NDR ingestion in the same IMAP
+            poller (parse RFC 3464 DSNs → <code>BOUNCE_HARD</code>).
+          </p>
+        </div>
+      </details>
+
+      <details open>
+        <summary>
+          <span class="pill p-high">HIGH</span> 4 · Alerting is pull-only —
+          blocks, bounce spikes, and stalls are silent
+        </summary>
+        <div class="body">
+          <p>
+            <b>What the code does:</b> a provider block writes
+            <code>blockedUntil</code> and breaks the tick; the cron closes
+            "PARTIAL" but still returns HTTP 200, so even Vercel's cron-failure
+            indicators never fire. No Sentry, no Notification rows, no email
+            alert — grep-verified. The runbook's mitigation is literally "watch
+            the overview… hit Pause all sending".
+          </p>
+          <p>
+            <b>Why it matters:</b> a fully-blocked fleet, a bounce spike, or a
+            multi-day stall is discovered only when you happen to open
+            <code>/admin/email</code>. That is the antithesis of "fully
+            automated" — the system can't protect itself or call for help.
+          </p>
+          <p>
+            <b>Fix (days):</b> <code>sendOpsAlert()</code> via the existing
+            <b>Resend</b> transactional path (never via the Zoho boxes that may
+            themselves be the failure) + Notification rows for the dev
+            dashboard. Wire three triggers: mailbox blocked → WARN; zero
+            capacity while sends due → CRITICAL; trailing-24h hard-bounce rate
+            &gt;3% → <b>auto-set global pause</b> (the kill switch already
+            exists — automate pulling it).
+          </p>
+        </div>
+      </details>
+
+      <details open>
+        <summary>
+          <span class="pill p-high">HIGH · GOAL</span> 5 · 1,000/week is
+          mathematically unreachable — hard ceiling 750/week
+        </summary>
+        <div class="body">
+          <p>
+            <b>The math:</b> 5 mailboxes × <code>dailyCap 30</code> × 5 weekdays
+            = <b>750/week, permanently</b>. Week 1 of the ramp delivers ≈140
+            emails; week 2 ≈690; the first possible 1,000-email week is
+            <b>week 3</b> — and only after raising caps via a server action that
+            has <i>no UI</i>, or adding mailboxes nobody has provisioned.
+            Nothing in the product flags the 25% shortfall. (The runbook itself
+            only promises "~1k <i>cumulative</i> by week 2" — cumulative, never
+            weekly.) Cron headroom is also thin: 8/tick × 32 in-window ticks =
+            256/day ceiling vs the 200/day the goal needs.
+          </p>
+          <p>
+            <b>Fix — capacity the safe way:</b> do <b>not</b> raise caps to
+            40/day on one fresh .xyz domain (concentrates 200/day on a single
+            reputation; best practice is 2–3 boxes per domain, 20–50/day per
+            box). Add 2–3 mailboxes on a <b>second lookalike domain</b> (config
+            already supports <code>COLD_MAILBOX_6..50</code>): 7–8 boxes ×
+            25–30/day × 5 days = 875–1,200/week with per-box volume unchanged
+            and blast radius halved.
+          </p>
+        </div>
+      </details>
+
+      <details>
+        <summary>
+          <span class="pill p-high">HIGH · STRATEGIC</span> 6 · The whole
+          operation rides on a provider whose policy bans it (Zoho)
+        </summary>
+        <div class="body">
+          <p>
+            Zoho's usage policy prohibits unsolicited bulk email outright, and
+            SMTP is throttled to a dynamic, reputation-based
+            <b>50–500 emails/hour per mailbox</b>. Ban probability scales with
+            exactly the volume you're targeting; a suspension zeroes throughput
+            with no programmatic recourse — and the code's own ramp comment
+            acknowledges Zoho's "unusual sending activity" detector trips early.
+            Industry consensus for cold infrastructure is Google Workspace
+            mailboxes (better deliverability into Gmail, where most of your SMB
+            owners live) or a dedicated sequencer. This is a strategic risk, not
+            a bug — but it caps how far this system can ever be pushed.
+          </p>
+        </div>
+      </details>
+
+      <details>
+        <summary>
+          <span class="pill p-med">MEDIUM</span> 7 · Dispatch is not crash- or
+          concurrency-safe — the same email can send twice
+        </summary>
+        <div class="body">
+          <p>
+            Due rows are fetched as PENDING with no atomic claim (no SENDING
+            state, no <code>SELECT … FOR UPDATE SKIP LOCKED</code>); SMTP fires
+            <i>before</i> the DB write. A crash or transient Neon failure
+            between SMTP-accept and commit leaves the row PENDING → re-sent next
+            tick. Worse: <code>attempts</code> increments inside the post-send
+            transaction, so sustained DB trouble means MAX_ATTEMPTS never
+            engages → unbounded duplicates. The idempotency key doesn't help —
+            re-processing reuses the same row. <b>Fix (hours):</b> add
+            <code>SENDING</code> status + conditional
+            <code>updateMany</code> claim before SMTP + a tick-start sweeper for
+            stale SENDING rows.
+          </p>
+        </div>
+      </details>
+
+      <details>
+        <summary>
+          <span class="pill p-med">MEDIUM</span> 8 · Zero copy variation —
+          byte-identical bodies fingerprint the template
+        </summary>
+        <div class="body">
+          <p>
+            The template engine supports tokens/conditionals but no spintax;
+            every recipient gets an ~85% byte-identical body and 3 fixed subject
+            skeletons from one fresh domain. Duplicate-content fingerprinting is
+            a classic bulk signal; 2026 practice is 3–5 spintax blocks per
+            email. The subject "quick question" is among the most saturated
+            cold-email patterns in existence. <b>Fix (hours):</b> ~15-line
+            <code>{{a|b|c}}</code> spintax pass seeded from
+            <code>recipientId+stepOrder</code> (deterministic across retries),
+            plus 2–3 phrasings per sentence in the 3 default touches.
+          </p>
+        </div>
+      </details>
+
+      <details>
+        <summary>
+          <span class="pill p-med">MEDIUM</span> 9 · No complaint loop, and a
+          mailto: unsubscribe that nothing processes
+        </summary>
+        <div class="body">
+          <p>
+            The <code>COMPLAINT</code> suppression source is dead code; the
+            domain isn't registered in Google Postmaster Tools, so the only
+            complaint metric Gmail provides at this volume is unwatched.
+            Meanwhile the <code>List-Unsubscribe</code> header advertises a
+            <code>mailto:</code> channel that lands in a Zoho inbox nobody reads
+            — advertising an opt-out you don't process is strictly worse than
+            not advertising it (the HTTPS one-click alone satisfies RFC 8058 and
+            Gmail/Yahoo). <b>Fix:</b> register Postmaster Tools today (~30 min);
+            drop the mailto term (one line) until the IMAP poller processes it.
+          </p>
+        </div>
+      </details>
+
+      <details>
+        <summary>
+          <span class="pill p-low">LOW</span> 10 · Manual enrollment;
+          dailyEnrollCap is dead config — plus 45 minor findings
+        </summary>
+        <div class="body">
+          <p>
+            Enrollment is an admin button click; <code>dailyEnrollCap</code> is
+            stored, validated, editable — and enforces nothing. For "fully
+            automated", add a daily auto-enroll cron that tops campaigns up to
+            their cap. Notable among the further 45 lower-priority findings:
+            links point at <code>mapsly.ai</code> from a
+            <code>mapsly.xyz</code> sender (re-coupling the reputations the
+            domain split was meant to isolate); GET unsubscribe fires on
+            link-prefetch scanners (false unsubscribes — POST-only confirm for
+            GET is safer); enrollment doesn't exclude existing customers/claimed
+            businesses; send window is campaign-global, not recipient-timezone;
+            no automated DNS/auth preflight; warm-up is entirely manual and
+            unenforced; setup doc's ramp numbers contradict the code (10→30 vs
+            3→18); UTC cap reset vs ET send window; per-mailbox health
+            (failedCount) recorded but never displayed.
+          </p>
+        </div>
+      </details>
+
+      <!-- ============ BEST PRACTICE COMPARISON ============ -->
+      <h2>Best-practice comparison (2026 consensus)</h2>
+      <div class="card">
+        <table>
+          <thead>
+            <tr>
+              <th>Dimension</th>
+              <th>Industry best practice (sourced)</th>
+              <th>Mapsly today</th>
+              <th style="width: 64px">Verdict</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Domain strategy</td>
+              <td>Never the main domain; 2–3 lookalike secondary domains</td>
+              <td>
+                Separate <code>mapsly.xyz</code> ✓ — but only one, all eggs in
+                one basket; body links re-couple to mapsly.ai
+              </td>
+              <td class="mid">△</td>
+            </tr>
+            <tr>
+              <td>Mailboxes per domain</td>
+              <td>2 (max 3) per domain; 4+ looks like a sending farm</td>
+              <td>5 on one domain</td>
+              <td class="no">✗</td>
+            </tr>
+            <tr>
+              <td>Daily volume per box</td>
+              <td>20–50/day (20–49/day yields best reply rates)</td>
+              <td>30/day cap ✓, ramped from 3</td>
+              <td class="ok">✓</td>
+            </tr>
+            <tr>
+              <td>Mailbox provider</td>
+              <td>
+                Google Workspace (or sequencer-managed); never a provider whose
+                AUP bans cold
+              </td>
+              <td>
+                Zoho — AUP bans bulk cold email; 50–500/hr dynamic throttle
+              </td>
+              <td class="no">✗</td>
+            </tr>
+            <tr>
+              <td>Warm-up</td>
+              <td>2–4 weeks minimum (unwarmed = 61% vs 94% inbox placement)</td>
+              <td>8-day code ramp + optional 4-day manual mini warm-up</td>
+              <td class="mid">△</td>
+            </tr>
+            <tr>
+              <td>SPF / DKIM / DMARC</td>
+              <td>
+                Mandatory, aligned (Gmail Nov-2025 SMTP-level rejections;
+                Outlook May-2025)
+              </td>
+              <td>
+                Documented runbook, manual Gmail-header verification, no
+                automated preflight
+              </td>
+              <td class="mid">△</td>
+            </tr>
+            <tr>
+              <td>Email verification pre-send</td>
+              <td>Verify every address (~$0.4–4/1k); bounce &lt;2%</td>
+              <td>None at enroll — only <code>email != null</code></td>
+              <td class="no">✗</td>
+            </tr>
+            <tr>
+              <td>Bounce detection</td>
+              <td>
+                IMAP/DSN ingestion (RFC 3464), auto-suppress, auto-pause &gt;~2%
+              </td>
+              <td>Synchronous SMTP errors only; async NDRs rot unread</td>
+              <td class="no">✗</td>
+            </tr>
+            <tr>
+              <td>Reply detection</td>
+              <td>Instant sequence stop on reply; OOO classified separately</td>
+              <td>None — repliers keep getting follow-ups</td>
+              <td class="no">✗</td>
+            </tr>
+            <tr>
+              <td>Complaint monitoring</td>
+              <td>
+                Google Postmaster Tools v2 + Microsoft SNDS + blacklist
+                monitors; spam rate &lt;0.1%
+              </td>
+              <td>None registered, none watched</td>
+              <td class="no">✗</td>
+            </tr>
+            <tr>
+              <td>Content format</td>
+              <td>
+                Plain-text-first, no pixels, minimal links, link-free touch 1
+              </td>
+              <td>Exactly this</td>
+              <td class="ok">✓</td>
+            </tr>
+            <tr>
+              <td>Copy variation</td>
+              <td>3–5 spintax blocks/email + real personalization</td>
+              <td>
+                Real signal personalization ✓ · zero structural variation ✗
+              </td>
+              <td class="mid">△</td>
+            </tr>
+            <tr>
+              <td>Unsubscribe</td>
+              <td>RFC 8058 one-click + visible link, honored ≤2 days</td>
+              <td>
+                One-click + instant honoring (better than required); dead mailto
+                advertised
+              </td>
+              <td class="ok">✓</td>
+            </tr>
+            <tr>
+              <td>CAN-SPAM footer</td>
+              <td>Valid physical postal address in every email</td>
+              <td>Deliberately removed; test asserts absence</td>
+              <td class="no">✗</td>
+            </tr>
+            <tr>
+              <td>Ops automation</td>
+              <td>
+                Mailbox health scoring, auto-pause circuit breakers, push alerts
+              </td>
+              <td>Pull-only dashboard; "watch and hit Pause" runbook</td>
+              <td class="no">✗</td>
+            </tr>
+            <tr>
+              <td>Sending cadence</td>
+              <td>Randomized gaps, business hours, recipient timezone</td>
+              <td>
+                2–8s jitter + 9–17 ET window ✓ (campaign-global, not
+                per-recipient)
+              </td>
+              <td class="ok">✓</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="legend">
+          Score: 4 ✓ · 4 △ · 8 ✗ across 16 dimensions — strong content/cadence
+          fundamentals, systematically missing feedback loops and list hygiene.
+        </div>
+      </div>
+
+      <!-- ============ HOW I WOULD BUILD IT ============ -->
+      <h2>How I would build it — expert recommendation</h2>
+
+      <div class="verdictbox">
+        <b>The honest call:</b> for your exact three requirements — fastest
+        start, robust deliverability, near-zero manual —
+        <b>buy the sending engine, keep Mapsly as the brain.</b> The $50–90/mo
+        you save by self-hosting has already been spent several times over in
+        build and launch-day fixes, and the riskiest engineering (inbound loops,
+        warm-up, health scoring) is still ahead. Your actual moat —
+        signal-driven lists, personalization data, and the
+        <code>/l/[token]</code> landing pages — stays in-house either way. SMTP
+        plumbing is a commodity someone else operates better for $47/month.
+      </div>
+
+      <div class="grid g2">
+        <div class="card" style="margin: 0">
+          <h3 style="margin-top: 0">
+            Path A · Recommended — hybrid "buy engine, keep brain"
+          </h3>
+          <p class="small">
+            Time to first send: ~1 day setup · full 1k/week: ~3–4 weeks (warm-up
+            gated — irreducible on any path) · ~$100–110/mo all-in · manual ops
+            ≈ 15 min/week
+          </p>
+          <ul>
+            <li>
+              <b>Day 0:</b> register 2–3 lookalike domains (prefer .com: e.g.
+              <code>trymapsly.com</code>, <code>getmapsly.com</code>) + redirect
+              to mapsly.ai. Set SPF/DKIM/DMARC.
+            </li>
+            <li>
+              <b>Day 0:</b> 6 Google Workspace mailboxes (2/domain, ~$50/mo) —
+              Gmail-to-Gmail deliverability where your SMB owners live.
+            </li>
+            <li>
+              <b>Day 0–1:</b> Instantly Growth ($47/mo, 5k emails/mo — exactly
+              fits 1k/wk) or Smartlead Basic ($39/mo). Connect boxes, enable
+              managed warm-up network (the one thing you structurally
+              <i>cannot</i> self-build — Google killed API warm-up; a solo
+              sender has no peer pool).
+            </li>
+            <li>
+              <b>Day 1:</b> wire Mapsly → tool via API: enroll cohorts from your
+              signal engine with personalization variables +
+              <code>/l/[token]</code> report links; consume
+              reply/bounce/unsubscribe webhooks back into
+              <code>ColdSuppression</code> (your suppression stays the source of
+              truth).
+            </li>
+            <li>
+              <b>Weeks 1–3:</b> warm-up runs unattended; start campaigns at low
+              volume in week 2, full volume week 3–4.
+            </li>
+            <li>
+              <b>You get for free:</b> reply detection + auto-stop, NDR/bounce
+              parsing, complaint handling, ESP matching, unified inbox,
+              per-mailbox health scores with auto-pause, deliverability
+              monitoring.
+            </li>
+          </ul>
+          <p class="small">
+            <b>Note:</b> the CAN-SPAM postal address must be in the templates on
+            this path too — fix it in the copy regardless.
+          </p>
+        </div>
+        <div class="card" style="margin: 0">
+          <h3 style="margin-top: 0">
+            Path B · If staying self-built — the 2-week hardening plan
+          </h3>
+          <p class="small">
+            Keeps $0/send economics and full control; accepts Zoho/ops risk. Do
+            not ramp volume until items 1–4 ship.
+          </p>
+          <ul>
+            <li>
+              <b>Day 0 (hours):</b> ① restore postal address to both footers +
+              invert the test · ② drop dead <code>mailto:</code> from
+              List-Unsubscribe · ③ register Google Postmaster Tools · ④ gate
+              enrollment on <code>emailVerifiedAt</code> + suppress
+              "undeliverable" verdicts from the existing verification cron.
+            </li>
+            <li>
+              <b>Days 1–3:</b> the single highest-leverage build —
+              <b>one IMAP poller cron</b> (<code>imapflow</code>,
+              imap.zoho.com:993, existing creds): RFC 3464 DSN parsing →
+              auto-suppress bounces; human replies → REPLIED (the gate already
+              honors it); OOO classified separately; mailto opt-outs honored.
+            </li>
+            <li>
+              <b>Days 3–5:</b> push alerting via Resend (<i>never</i> via the
+              cold boxes) + Notification rows; auto-pause circuit breaker on 24h
+              bounce-rate &gt;3% or fleet-wide blocks.
+            </li>
+            <li>
+              <b>Week 2:</b> ⑤ second cold domain + 2–3 mailboxes → 1,050+/week
+              capacity with smaller blast radius · ⑥ SENDING claim state (kill
+              the double-send window) · ⑦ seeded spintax + de-clichéd copy · ⑧
+              daily auto-enroll cron making <code>dailyEnrollCap</code> real.
+            </li>
+            <li>
+              <b>Strongly consider:</b> migrating boxes Zoho → Google Workspace
+              while the fleet is still small; Zoho's AUP ban is a standing
+              existential risk to the whole channel.
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- ============ PRIORITIZED RECS ============ -->
+      <h2>All recommendations, ranked</h2>
+      <div class="card">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Recommendation</th>
+              <th>Impact</th>
+              <th>Effort</th>
+              <th>Closes</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>1</td>
+              <td>
+                <b>Restore postal address to every footer</b> — wire the dead
+                config through, invert the test. Do this today regardless of
+                path.
+              </td>
+              <td><span class="pill p-crit">critical</span></td>
+              <td>hours</td>
+              <td>Finding 1 · legal exposure</td>
+            </tr>
+            <tr>
+              <td>2</td>
+              <td>
+                <b>Decide build-vs-buy explicitly</b> — Path A
+                (Instantly/Smartlead + Workspace) is the fit for your
+                requirements; staying DIY is a deliberate trade, not a default.
+              </td>
+              <td><span class="pill p-crit">critical</span></td>
+              <td>days</td>
+              <td>All three requirements</td>
+            </tr>
+            <tr>
+              <td>3</td>
+              <td>
+                <b>One IMAP poller cron</b> — replies, NDR bounces, mailto
+                opt-outs in a single build (only if Path B).
+              </td>
+              <td><span class="pill p-crit">critical</span></td>
+              <td>days</td>
+              <td>Findings 2, 3, 9</td>
+            </tr>
+            <tr>
+              <td>4</td>
+              <td>
+                <b>Push alerting + auto-pause circuit breakers</b> — Resend ops
+                alerts, bounce-spike auto-pause, blocked-fleet CRITICAL.
+              </td>
+              <td><span class="pill p-high">high</span></td>
+              <td>days</td>
+              <td>Finding 4</td>
+            </tr>
+            <tr>
+              <td>5</td>
+              <td>
+                <b>Capacity to 1k/week via second domain</b> (not cap raises) —
+                7–8 boxes × 25–30/day; surface projected weekly capacity in
+                admin.
+              </td>
+              <td><span class="pill p-high">high</span></td>
+              <td>days</td>
+              <td>Finding 5</td>
+            </tr>
+            <tr>
+              <td>6</td>
+              <td>
+                <b>Verified-emails-only enrollment</b> + undeliverable-verdict
+                suppression + catch-all quarantine.
+              </td>
+              <td><span class="pill p-high">high</span></td>
+              <td>hours</td>
+              <td>Finding 3 (prevention half)</td>
+            </tr>
+            <tr>
+              <td>7</td>
+              <td>
+                <b>SENDING claim state</b> — atomic claim before SMTP, attempts
+                increment pre-send, stale-claim sweeper.
+              </td>
+              <td><span class="pill p-high">high</span></td>
+              <td>hours</td>
+              <td>Finding 7</td>
+            </tr>
+            <tr>
+              <td>8</td>
+              <td>
+                <b
+                  >Postmaster Tools + drop dead mailto + blacklist monitoring</b
+                >
+                — the cheap visibility bundle.
+              </td>
+              <td><span class="pill p-high">high</span></td>
+              <td>hours</td>
+              <td>Finding 9</td>
+            </tr>
+            <tr>
+              <td>9</td>
+              <td>
+                <b>Seeded spintax + copy refresh</b> — kill "quick question",
+                add 2–3 variants per block, deterministic per recipient.
+              </td>
+              <td><span class="pill p-med">medium</span></td>
+              <td>hours</td>
+              <td>Finding 8</td>
+            </tr>
+            <tr>
+              <td>10</td>
+              <td>
+                <b>Daily auto-enroll cron</b> — make
+                <code>dailyEnrollCap</code> real; exclude existing users/claimed
+                businesses.
+              </td>
+              <td><span class="pill p-med">medium</span></td>
+              <td>hours</td>
+              <td>Finding 10</td>
+            </tr>
+            <tr>
+              <td>11</td>
+              <td>
+                <b>Migrate Zoho → Google Workspace</b> (or let the sequencer
+                manage boxes) — remove the AUP-ban existential risk.
+              </td>
+              <td><span class="pill p-med">medium</span></td>
+              <td>days</td>
+              <td>Finding 6</td>
+            </tr>
+            <tr>
+              <td>12</td>
+              <td>
+                <b>Inbox-placement seed tests</b> (GlockApps/MailReach) before
+                each volume step-up; weekly Postmaster review until automated.
+              </td>
+              <td><span class="pill p-med">medium</span></td>
+              <td>hours</td>
+              <td>Ongoing assurance</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- ============ COMPLIANCE BOX ============ -->
+      <h2>Compliance snapshot</h2>
+      <div class="card">
+        <table>
+          <thead>
+            <tr>
+              <th>Rule</th>
+              <th>Requirement</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>CAN-SPAM · postal address</td>
+              <td>
+                Valid physical address in every commercial email
+                (≤$53,088/email)
+              </td>
+              <td class="no">✗ Violated — removed in v0.15.3</td>
+            </tr>
+            <tr>
+              <td>CAN-SPAM · opt-out</td>
+              <td>
+                Working opt-out, honored ≤10 business days, functional ≥30 days
+              </td>
+              <td class="ok">✓ Honored instantly</td>
+            </tr>
+            <tr>
+              <td>CAN-SPAM · headers/subject</td>
+              <td>Truthful From/subject</td>
+              <td class="ok">
+                ✓ (sender identification in body is thin — first-name sign-off
+                only)
+              </td>
+            </tr>
+            <tr>
+              <td>CASL (Canada)</td>
+              <td>
+                Opt-in regime; implied-consent lanes narrow; $10M/violation
+                corporate max
+              </td>
+              <td class="mid">
+                △ US-only campaign gate is a default, not a control;
+                ConsentRecord exists but unused
+              </td>
+            </tr>
+            <tr>
+              <td>Gmail/Yahoo bulk-sender</td>
+              <td>SPF+DKIM+DMARC, RFC 8058 one-click, spam rate &lt;0.3%</td>
+              <td class="mid">
+                △ Headers ✓ · DNS manual ✓ · spam rate unmonitored ✗
+              </td>
+            </tr>
+            <tr>
+              <td>Provider AUP</td>
+              <td>Sending provider permits the workload</td>
+              <td class="no">✗ Zoho bans unsolicited bulk email</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- ============ SOURCES ============ -->
+      <h2>Key sources</h2>
+      <div class="card small">
+        <div class="twocol">
+          <ul>
+            <li>
+              FTC — CAN-SPAM Act Compliance Guide for Business (postal address,
+              opt-out rules)
+            </li>
+            <li>FTC — 2025 inflation-adjusted civil penalty ($53,088/email)</li>
+            <li>
+              CRTC — CASL guidance (implied consent, per-CEM requirements,
+              penalties)
+            </li>
+            <li>
+              Google — Email sender guidelines &amp; bulk-sender requirements
+              (support.google.com/a/answer/81126, /14229414)
+            </li>
+            <li>
+              Yahoo Sender Hub — best practices &amp; one-click unsubscribe
+              requirements
+            </li>
+            <li>
+              Microsoft — Outlook high-volume sender requirements (May 2025, 550
+              5.7.515 rejections)
+            </li>
+            <li>
+              Zoho Mail — usage policy &amp; SMTP rate limits (50–500/hr
+              dynamic, bulk-cold ban)
+            </li>
+            <li>
+              Hunter.io — HTML vs plain-text cold-email bounce analysis (2.2M
+              emails)
+            </li>
+            <li>
+              Instantly — 2026 reply-rate benchmark report (3.43% avg); pricing
+            </li>
+            <li>
+              Smartlead — warm-up guidance &amp; mailbox health scoring; pricing
+            </li>
+            <li>
+              Woodpecker — per-mailbox daily volume vs reply-rate data
+              (20–49/day optimum)
+            </li>
+            <li>
+              ScaledMail / Topo.io — inboxes-per-domain &amp; safe sending
+              limits
+            </li>
+            <li>Prospeo — warm-up placement study (61% vs 94% inbox)</li>
+            <li>
+              RFC 3464 (delivery status notifications) · RFC 8058 (one-click
+              unsubscribe)
+            </li>
+            <li>
+              Google Postmaster Tools v2 · Microsoft SNDS · MXToolbox/Spamhaus
+              monitoring
+            </li>
+            <li>
+              MillionVerifier / ZeroBounce / NeverBounce verification pricing
+              comparisons
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="footer">
+        Generated 2026-06-09 by a 27-agent audit (6 code analysts → 14
+        adversarially-verified findings, 0 refuted, 45 additional minor findings
+        → 4 sourced researchers → 3-judge scoring panel). Audited tree: mapsly
+        v0.15.5 @ 0ce1668. Evidence citations reference file:line in the repo at
+        audit time.
+      </div>
+    </div>
+  </body>
+</html>
