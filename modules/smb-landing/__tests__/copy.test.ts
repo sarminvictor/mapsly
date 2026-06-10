@@ -140,7 +140,7 @@ describe("categoryLabel — pluralization + fallback (renders in the hero)", () 
   const heroFor = (category: string) =>
     buildLandingCopy(core({ category, rank: 9, total: 26 })).hero;
   test("regular English plurals render correctly", () => {
-    expect(heroFor("Bakery").body).toMatch(/Bakeries/);
+    expect(heroFor("Bakery").body).toMatch(/bakeries/);
     expect(heroFor("Brewery").headline).toMatch(/breweries/);
     expect(heroFor("Nail salon").headline).toMatch(/nail salons/);
     expect(heroFor("Church").headline).toMatch(/churches/);
@@ -166,6 +166,15 @@ describe("buildLandingCopy — the leader (Maria) vs the climber (Elena)", () =>
     expect(m.ads.title).toMatch(/60 .* are buying ads/i);
     expect(m.ads.emphasis).toMatch(/running zero/i);
     expect(e.ads.title).toMatch(/you're advertising/i);
+  });
+
+  test("hero never makes the unbacked +30% claim — hedged estimate only", () => {
+    expect(m.hero.body).not.toMatch(/30% more/);
+    // Maria has real search gaps → the capped lost-bookings range appears.
+    expect(m.hero.body).toMatch(/roughly \d+–\d+ more patients a month/);
+    // No search data → no estimate, body still reads complete.
+    const bare = buildLandingCopy(core({ rank: 9, total: 26 })).hero.body;
+    expect(bare).toMatch(/bring them back\.$/);
   });
 
   test("website branch: weak = the leak, strong = a pride beat", () => {
@@ -243,6 +252,43 @@ describe("gap attitude covers the edge scenarios (first/not, ads/not, etc.)", ()
       .search.gap;
     expect(g!.solution).toMatch(/Defend/);
     expect(g!.solution).not.toMatch(/Climb into the top 3/);
+  });
+  test("ads score 0 + strong rank → zero explained as strength, never 'don't need ads'", () => {
+    const c = buildLandingCopy(
+      core({
+        rank: 1,
+        total: 26,
+        adsDetail: {
+          ...EMPTY_LANDING_ADS,
+          hasData: true,
+          marketAdvertiserCount: 60,
+          marketActiveAds: 119,
+          ownAdCount: 0,
+          pillar: 0,
+        },
+      }),
+    ).ads;
+    expect(c.intro).toMatch(/#1 without paid ads/);
+    expect(c.intro).toMatch(/zero paid presence, not failure/);
+    expect(c.intro).not.toMatch(/don't have to run ads/i);
+  });
+  test("ads score 0 + weak rank → zero still explained, no 'don't need ads'", () => {
+    const c = buildLandingCopy(
+      core({
+        rank: 20,
+        total: 26,
+        adsDetail: {
+          ...EMPTY_LANDING_ADS,
+          hasData: true,
+          marketAdvertiserCount: 60,
+          marketActiveAds: 119,
+          ownAdCount: 0,
+          pillar: 0,
+        },
+      }),
+    ).ads;
+    expect(c.intro).toMatch(/zero paid presence, not failure/);
+    expect(c.intro).not.toMatch(/don't have to run ads/i);
   });
   test("ads run in a quiet market → 'head start', never '0 others'", () => {
     const g = buildLandingCopy(

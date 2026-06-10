@@ -176,6 +176,10 @@ export function buildLandingCopy(core: Core): LandingCopy {
   const runsAds = core.adsDetail.ownAdCount > 0;
   const marketHasAds = core.adsDetail.marketAdvertiserCount >= 3;
   const adsMarket = core.adsDetail.marketAdvertiserCount;
+  // The ads section's score line shows adsDetail.pillar. When it reads 0.0/10
+  // the intro must explain the zero — never "you don't need ads" next to it.
+  const adsScoreZero =
+    core.adsDetail.pillar != null && core.adsDetail.pillar < 0.5;
 
   const perf = core.websiteDetail.performance;
   const median = core.websiteDetail.industryMedian;
@@ -314,11 +318,18 @@ export function buildLandingCopy(core: Core): LandingCopy {
   const authority =
     total != null ? `We ranked all ${total} ${C.many} in ${cityLabel}. ` : "";
 
+  // The only forward-looking number we allow ourselves: the hedged, capped
+  // lost-bookings estimate (also cited in the search section). Never "+30%".
+  const loss = estimateLostBookings(core.search);
+
   const hero = {
     headline: standing + gap,
     body:
       `${authority}Mapsly shows you — every week — where you're winning, where you're losing ${noun.many}, ` +
-      `and the few fixes that bring them back. ${cap(C.many)} that close their gaps aim for up to 30% more ${noun.many} in 3 months.`,
+      `and the few fixes that bring them back.` +
+      (loss
+        ? ` The searches you're missing could mean roughly ${loss.low}–${loss.high} more ${noun.many} a month.`
+        : ""),
   };
 
   /* ---- CHANGES ---- */
@@ -332,7 +343,6 @@ export function buildLandingCopy(core: Core): LandingCopy {
   };
 
   /* ---- SEARCH ---- */
-  const loss = estimateLostBookings(core.search);
   const search = {
     eyebrow: `Where ${noun.many} look for you`,
     title: hasSearchGaps
@@ -367,10 +377,15 @@ export function buildLandingCopy(core: Core): LandingCopy {
             eyebrow: "Who's paying to get found",
             title: `${adsMarket} ${C.many} near you are buying ads.`,
             emphasis: "You're running zero.",
-            intro:
-              `You don't have to run ads to win${ratingStr ? ` — your ${ratingStr}★ and ${rankPhrase} prove it` : ""}. ` +
-              `But when ${adsMarket} compete for the same ${noun.many}, it pays to know who, where, and on which services — ` +
-              `pulled live from Google's and Meta's own ad libraries.`,
+            intro: adsScoreZero
+              ? (isLeader || isTop) && rank != null
+                ? `You rank #${rank} without paid ads — that's real strength. The 0/10 below means zero paid presence, not failure. ` +
+                  `Still, ${adsMarket} ${C.many} are buying attention every day — worth knowing who, where, and on which services.`
+                : `The 0/10 below means zero paid presence, not failure. ` +
+                  `But ${adsMarket} ${C.many} near you are buying attention every day — it pays to know who, where, and on which services.`
+              : `You don't have to run ads to win${ratingStr ? ` — your ${ratingStr}★ and ${rankPhrase} prove it` : ""}. ` +
+                `But when ${adsMarket} compete for the same ${noun.many}, it pays to know who, where, and on which services — ` +
+                `pulled live from Google's and Meta's own ad libraries.`,
           }
         : {
             eyebrow: "Who's paying to get found",

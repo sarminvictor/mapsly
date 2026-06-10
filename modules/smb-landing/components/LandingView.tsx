@@ -312,7 +312,7 @@ function CtaPill({
   );
 }
 
-/** Bold the numeric values and their unit (~1,360 searches a month · $29 · 89%). */
+/** Bold the numeric values and their unit (~1,360 searches a month · $29). */
 
 function boldValues(text: string): ReactNode[] {
   return text
@@ -884,7 +884,7 @@ function Hero({ data }: { data: LandingData }) {
                 {(() => {
                   const body = data.copy.hero.body;
                   const m = body.match(
-                    /^([\s\S]*?)(up to 30% more \S+)([\s\S]*)$/,
+                    /^([\s\S]*?)(roughly \d+–\d+ more \S+)([\s\S]*)$/,
                   );
                   if (!m) return body;
                   return (
@@ -900,20 +900,7 @@ function Hero({ data }: { data: LandingData }) {
                           color: "var(--color-coral)",
                         }}
                       >
-                        {m[2].split("%").map((part, i, arr) => (
-                          <span key={i}>
-                            {part}
-                            {i < arr.length - 1 ? (
-                              <span
-                                style={{
-                                  WebkitTextStroke: "0.9px var(--color-coral)",
-                                }}
-                              >
-                                %
-                              </span>
-                            ) : null}
-                          </span>
-                        ))}
+                        {m[2]}
                       </span>
                       {m[3]}
                     </>
@@ -2592,7 +2579,7 @@ function WebsiteSection({
                     fontSize: 30,
                   }}
                 >
-                  Most top-10 sites pass 9+. What&apos;s missing:
+                  What&apos;s missing:
                 </span>
               </p>
               <div style={{ position: "relative", marginTop: 16 }}>

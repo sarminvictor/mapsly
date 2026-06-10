@@ -43,6 +43,17 @@ const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
 /** Max real market-events surfaced in the landing "what changed" band. */
 const LANDING_EVENT_CAP = 6;
 
+/** /l cites no unbacked benchmarks: strip the hardcoded "~89%" reply-rate
+ * claim from fix metas (built in smb-home/derive.ts for the signed-in portal)
+ * until per-cell computed benchmarks ship (improvement plan #5). */
+function stripUnbackedMeta<F extends { meta?: string }>(fix: F): F {
+  if (!fix.meta?.includes("89%")) return fix;
+  const meta = fix.meta
+    .replace(/Most businesses reply to about 89%(\s*·\s*)?/, "")
+    .trim();
+  return { ...fix, meta: meta || undefined };
+}
+
 /** Split a snapshot `cellKey` ("Medical Spa|Calgary|CA") into its cell coords.
  * The cell is keyed by the Discovery MARKET category (e.g. "Medical Spa"), which
  * differs from the raw Google category on `Business` (e.g. "Medical spa") — so
@@ -351,7 +362,7 @@ export async function getLandingData(
       adsDetail,
       reviews,
       websiteDetail,
-      fixes: overview?.topFixes ?? [],
+      fixes: (overview?.topFixes ?? []).map(stripUnbackedMeta),
       lastSnapshotAt: overview?.lastSnapshotAt ?? null,
       hasAnyData,
     };
