@@ -15,7 +15,7 @@
  * passed through `<main>` synchronously, so the page's own Suspense
  * boundary controls when its body resolves.
  *
- * For static routes (e.g. `/pricing`, `/for-businesses`), the chrome
+ * For static routes (e.g. `/for-agencies`, `/for-businesses`), the chrome
  * Suspense boundaries resolve synchronously at build time — no perceived
  * deferral, the route fully prerenders. For dynamic descendants
  * (`/biz/[slug]`), the chrome defers at request time while the rest of
@@ -180,17 +180,6 @@ async function MarketingHeader({ params }: { params: Promise<LayoutParams> }) {
           }}
         >
           {t("nav_for_agencies")}
-        </Link>
-        <Link
-          href="/pricing"
-          style={{
-            color: "var(--color-text-2)",
-            textDecoration: "none",
-            fontSize: 14,
-            fontWeight: 500,
-          }}
-        >
-          {t("nav_pricing")}
         </Link>
         {portal ? (
           // /admin lives outside next-intl pathnames — use a plain

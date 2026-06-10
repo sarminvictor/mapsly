@@ -292,7 +292,7 @@ function CurrentPlanCard({
         >
           {labels.freeBody}
         </p>
-        <Link href="/pricing" style={primaryButtonStyle()}>
+        <Link href="/for-businesses" style={primaryButtonStyle()}>
           {labels.subscribeCta}
         </Link>
       </section>
