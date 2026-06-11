@@ -97,6 +97,14 @@ accounts; have them open, reply, and mark **Not spam**. Ramp slightly daily.
   recipient BOUNCED; human reply → recipient REPLIED (follow-ups stop, INFO alert);
   unsubscribe (one-click `/u/[token]`, or reply/mailto processed by the poller) →
   global suppression; campaign PAUSED → no sends.
+- **Unsubscribe flow (`/u/[token]`, scanner-safe):** GET shows a one-button confirm
+  card and **never writes** — security gateways (Barracuda, SafeLinks, Mimecast)
+  prefetch every emailed link, and an instant-honor GET let them mass-unsubscribe
+  recipients who never clicked. POST executes the opt-out instantly for both paths:
+  the RFC 8058 one-click header (`List-Unsubscribe-Post: List-Unsubscribe=One-Click`
+  — mail providers POST with zero human interaction) and the confirm-card button.
+  Still satisfies CAN-SPAM §7704(a)(3)/(a)(5) + CASL s.11 (10-day floor; we honor
+  the POST instantly).
 - **Inbox poller** (`/api/cron/poll-cold-inboxes`, every 15 min offset from the sender):
   polls each mailbox over IMAP (`imap.zohocloud.ca`, override `COLD_IMAP_HOST`) and
   classifies NDR bounces / replies / opt-outs / out-of-office (OOO does NOT stop a
@@ -111,7 +119,15 @@ accounts; have them open, reply, and mark **Not spam**. Ramp slightly daily.
 - **Copy variation:** templates support deterministic `{{a|b|c}}` spintax (seeded per
   recipient+step) so bodies aren't byte-identical at scale.
 - **Report link** = the existing `/l/[slug]-[token]` landing page; engagement shows in
-  `LandingEvent` (we deliberately omit email open-pixels for cold deliverability).
+  `LandingEvent`.
+- **Open tracking (`/o/[token]` pixel):** each cold send embeds a per-ColdSend 1x1
+  GIF in the HTML part only (plain-text untouched; never in Resend/mapsly.ai mail).
+  The route always answers the GIF (invalid token, DB error, rate-limited — never a
+  broken image) and records raw fields on ColdSend (`firstOpenedAt`, `lastOpenedAt`,
+  `openCount`, `firstOpenUserAgent`); `suspectedPrefetch` flags opens that look like
+  machine prefetch (<5s after send or proxy/scanner UA — `lib/bot-detect`) and clears
+  on the first human-looking open. Treat opens as a fuzzy upper bound (Apple MPP
+  inflates ~50%); clicks/landing visits are the truth.
 - **Footer** carries the physical postal address (hardcoded `PHYSICAL_ADDRESS` in
   `services/cold-mailer/config.ts`, override `COLD_PHYSICAL_ADDRESS`) — CAN-SPAM
   requires it in every email; do not remove it again (audit 2026-06-09 finding 1).
@@ -131,8 +147,10 @@ caps past ~30-40 on one fresh domain — add a **second cold domain** instead:
 
 ## Compliance
 
-- **US-first** (CAN-SPAM): legal cold with a real postal address + working opt-out (we honor
-  instantly). Set `COLD_PHYSICAL_ADDRESS`.
+- **US-first** (CAN-SPAM): legal cold with a real postal address + working opt-out —
+  the `/u` POST (one-click header or confirm button) is honored instantly; the GET
+  confirm step exists only so scanner prefetches can't forge opt-outs. Set
+  `COLD_PHYSICAL_ADDRESS`.
 - **Canada (CASL)** is **off by default** (campaign `country=US`). Before enabling CA, we add
   per-contact `ConsentRecord` provenance — ask when you want it on.
 

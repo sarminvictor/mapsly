@@ -95,18 +95,29 @@ function linkify(html: string): string {
  * Minimal HTML alternative: the plain body (URLs clickable, newlines preserved)
  * + a muted footer line carrying the postal address (legally required) and a
  * compact "Unsubscribe" link instead of a long raw URL.
+ *
+ * `openPixelUrl` (plan #7): when provided, appends the 1x1 open-tracking
+ * pixel (`/o/[token]`, modules/cold/token.openPixelUrlFor). HTML part ONLY —
+ * the plain-text alternative stays untracked by design, and no pixel ever
+ * goes into Resend/mapsly.ai transactional mail (this builder is cold-only).
  */
 export function toHtmlBody(
   plainBody: string,
   unsubscribeUrl: string,
   physicalAddress: string,
+  openPixelUrl?: string,
 ): string {
   const body = linkify(escapeHtml(plainBody));
+  const pixel = openPixelUrl
+    ? `<img src="${escapeHtml(openPixelUrl)}" width="1" height="1" alt="" ` +
+      `style="display:block;width:1px;height:1px;border:0">`
+    : "";
   return (
     `<div style="font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;` +
     `font-size:14px;line-height:1.5;color:#222;white-space:pre-wrap">${body}</div>` +
     `<p style="font-size:12px;color:#999;margin-top:22px">` +
     `${escapeHtml(physicalAddress)} · ` +
-    `<a href="${escapeHtml(unsubscribeUrl)}" style="color:#999">Unsubscribe</a></p>`
+    `<a href="${escapeHtml(unsubscribeUrl)}" style="color:#999">Unsubscribe</a></p>` +
+    pixel
   );
 }

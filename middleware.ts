@@ -56,6 +56,12 @@ export default function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
+  // /o/[token] — cold-email open-tracking pixel. Locale-agnostic like /u;
+  // always answers a 1x1 GIF (mail clients fetch it as an inline image).
+  if (url.pathname.startsWith("/o/")) {
+    return NextResponse.next();
+  }
+
   // /checkout/* — the direct-from-landing Stripe flow (start redirect lives
   // under /api; the post-payment return page lives here). Locale-agnostic
   // direct-share artifacts like /l/ — pass through untouched.

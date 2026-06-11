@@ -32,6 +32,7 @@ export default function robots(): MetadataRoute.Robots {
           "/l/", // personalized landing proposals (no-index, unguessable token)
           "/r/", // landing removal flow (token-keyed, no SEO value)
           "/u/", // cold-email unsubscribe (token-keyed, no SEO value)
+          "/o/", // cold-email open pixel (token-keyed, returns a 1x1 GIF)
           "/dev",
           "/dev/",
           "/home",

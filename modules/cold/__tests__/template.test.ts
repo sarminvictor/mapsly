@@ -103,4 +103,20 @@ describe("toHtmlBody", () => {
       "a &lt;b&gt; &amp; c",
     );
   });
+
+  test("appends the 1x1 open pixel when openPixelUrl is provided", () => {
+    const html = toHtmlBody(
+      "Hi",
+      "https://x/u/t",
+      ADDRESS,
+      "https://www.mapsly.ai/o/abc.def",
+    );
+    expect(html).toContain('<img src="https://www.mapsly.ai/o/abc.def"');
+    expect(html).toContain('width="1" height="1" alt=""');
+    expect(html.endsWith(">")).toBe(true);
+  });
+
+  test("no pixel without openPixelUrl (admin/test sends stay untracked)", () => {
+    expect(toHtmlBody("Hi", "https://x/u/t", ADDRESS)).not.toContain("<img");
+  });
 });
