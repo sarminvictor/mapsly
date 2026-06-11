@@ -24,7 +24,7 @@
 
 import { isHumanMedicalCategory } from "@/services/ai/medical-category";
 
-import type { PhiMatchKind, PhiRiskLevel } from "./phi-check";
+import type { PrivacyMatchKind, PhiRiskLevel } from "./phi-check";
 
 // Tabs trimmed to the three Maria actually uses · "all recent" was a
 // duplicate of unanswered+replied combined · "by-theme" never landed
@@ -65,11 +65,17 @@ export interface ReviewPrivacyRisk {
    *  the tooltip on the per-review hint so Maria sees exactly what to
    *  edit. Locale-neutral (quotes her own reply). */
   hint: string;
-  /** S5 · EVERY flagged excerpt (capped server-side in
-   *  `summarizeReplyRisks`). `ReviewCard` marks each occurrence inline
-   *  inside the rendered reply text — Maria sees the exact phrases to
-   *  edit, not just the first one. Locale-neutral (quotes her reply). */
-  matches: { kind: PhiMatchKind; excerpt: string }[];
+  /** S5 · EVERY flagged match (capped server-side in
+   *  `summarizeReplyRisks`). `ReviewCard` marks each match's bare
+   *  `phrase` inline inside the rendered reply text — Maria sees the
+   *  exact phrases to edit, not just the first one. `excerpt` carries
+   *  the padded context for tooltips ONLY — marking it produced
+   *  mid-word marks in production. Locale-neutral (quotes her reply).
+   *  F3 · `kind: "ai-sentence"` entries are whole sentences the AI
+   *  pass identified on already-flagged replies; their `phrase` is the
+   *  verbatim sentence and renders through the same mark machinery
+   *  (overlapping sentence + phrase ranges merge into one mark). */
+  matches: { kind: PrivacyMatchKind; phrase: string; excerpt: string }[];
 }
 
 /**

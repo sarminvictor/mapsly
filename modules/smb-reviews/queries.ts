@@ -41,6 +41,7 @@ import { cacheLife, cacheTag } from "next/cache";
 import prisma from "@/lib/prisma";
 import { isHumanMedicalCategory } from "@/services/ai/medical-category";
 
+import { enrichRisksWithAiSentences } from "./phi-ai-enrich";
 import { summarizeReplyRisks } from "./phi-check";
 import {
   DEFAULT_REVIEW_TAB,
@@ -257,6 +258,23 @@ export async function getSmbReviewsData(
       publishedReplies.map((r) => ({ id: r.id, text: r.ownerReplyText })),
       { serviceNames },
     );
+
+    // F3 · AI sentence-level pass over the ALREADY-flagged replies only.
+    // Deterministic regexes can't catch paraphrased disclosures ("after
+    // reviewing footage… we are perplexed why you voiced frustration"
+    // admits the reviewer was there) — the nano model names the
+    // offending sentences and they merge into the same mark machinery.
+    // Empty map (non-medical / no flags) → returns immediately, zero AI
+    // calls. Cost: KV-cached per reply text, billed to the
+    // `manual:smb-phi-sentence-scan` CronRun on the rare miss; runs only
+    // on a Next-cache miss of this 'use cache' function on top of that.
+    // Failure/timeout degrades silently to the deterministic marks.
+    if (privacyRiskById.size > 0) {
+      await enrichRisksWithAiSentences(
+        privacyRiskById,
+        publishedReplies.map((r) => ({ id: r.id, text: r.ownerReplyText })),
+      );
+    }
 
     const toItem = (r: (typeof rows)[number]): ReviewItem => ({
       id: r.id,

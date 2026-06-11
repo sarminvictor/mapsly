@@ -83,6 +83,15 @@ export {
 } from "./extract-entities";
 
 export {
+  extractPhiSentences,
+  extractPhiSentencesUncached,
+  PhiSentencesSchema,
+  DEFAULT_PHI_SENTENCES_MODEL,
+  type ExtractPhiSentencesInput,
+  type PhiSentencesResult,
+} from "./phi-sentences";
+
+export {
   MODEL_DECISION,
   pickModelFor,
   getChoiceFor,

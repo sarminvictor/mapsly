@@ -1,6 +1,11 @@
 import { describe, expect, test } from "vitest";
 
-import { detectPhiRisk, summarizeReplyRisks } from "../phi-check";
+import {
+  detectPhiRisk,
+  mergeAiSentenceMatches,
+  summarizeReplyRisks,
+  type PrivacyMatch,
+} from "../phi-check";
 
 /**
  * Detector contract:
@@ -147,6 +152,43 @@ describe("detectPhiRisk · positives", () => {
     );
     const statusMatch = result.matches.find((m) => m.kind === "patient-status");
     expect(statusMatch?.excerpt).toContain("your consent");
+    // The phrase is the BARE match — no padding, no ellipses.
+    expect(statusMatch?.phrase).toBe("your consent");
+  });
+
+  test("phrase is the bare matched text · no excerpt padding, no ellipses", () => {
+    const text =
+      "Since 2016 we have refrained to offered 1/4 syringe after your appointment.";
+    const result = detectPhiRisk(text);
+    expect(result.flagged).toBe(true);
+    for (const m of result.matches) {
+      expect(m.phrase).not.toContain("…");
+      expect(m.phrase).toBe(m.phrase.trim());
+      // Every phrase occurs verbatim in the source text.
+      expect(text.toLowerCase()).toContain(m.phrase.toLowerCase());
+    }
+    const treatment = result.matches.find((m) => m.kind === "treatment");
+    expect(treatment?.phrase).toBe("syringe");
+    // The excerpt keeps the context window for tooltips.
+    expect(treatment?.excerpt).toContain("syringe");
+    expect(treatment?.excerpt.length).toBeGreaterThan("syringe".length);
+  });
+
+  test("every distinct body-part mention is captured, not just the first alternation hit", () => {
+    const result = detectPhiRisk(
+      "You wanted any left over in your face and the height you wanted in your lips.",
+    );
+    const phrases = result.matches.map((m) => m.phrase.toLowerCase());
+    expect(phrases).toContain("your face");
+    expect(phrases).toContain("your lips");
+  });
+
+  test("repeated identical phrases dedupe to a single match", () => {
+    const result = detectPhiRisk("Botox is safe. Botox is quick.");
+    const botox = result.matches.filter(
+      (m) => m.phrase.toLowerCase() === "botox",
+    );
+    expect(botox).toHaveLength(1);
   });
 
   test("matches are capped and deduped", () => {
@@ -156,8 +198,143 @@ describe("detectPhiRisk · positives", () => {
         "your recovery, your consent, coming in, $100, refund, deposit.",
     );
     expect(result.matches.length).toBeLessThanOrEqual(8);
-    const keys = result.matches.map((m) => `${m.kind}:${m.excerpt}`);
+    const keys = result.matches.map(
+      (m) => `${m.kind}:${m.phrase.toLowerCase()}`,
+    );
     expect(new Set(keys).size).toBe(keys.length);
+  });
+});
+
+/**
+ * 2026-06 production fixtures · three real replies (lightly paraphrased)
+ * that Viktor's screenshot review exposed. These lock in the vocabulary
+ * broadening — if any stops flagging (or Jessie starts), that's a
+ * regression against live data.
+ */
+describe("detectPhiRisk · production fixtures (2026-06 screenshots)", () => {
+  const SERENA =
+    "Since 2016 we have refrained to offered 1/4 syringe. You wanted any " +
+    "left over in your face and the height you wanted in your lips, and " +
+    "opted not to return.";
+
+  const NADINE =
+    "Botox and Dysport are priced per unit. We only offered what was " +
+    "needed. We request that all clients complete the intake forms sent " +
+    "with the post treatment instructions before your first appointment " +
+    "with us.";
+
+  const JESSIE = "Thanks Jessie! We appreciate you coming in and sharing this.";
+
+  test("Serena reply flags high via your-face / your-lips + syringe", () => {
+    const result = detectPhiRisk(SERENA);
+    expect(result.flagged).toBe(true);
+    expect(result.level).toBe("high");
+    const phrases = result.matches.map((m) => m.phrase.toLowerCase());
+    expect(phrases).toEqual(
+      expect.arrayContaining(["your face", "your lips", "syringe"]),
+    );
+    // The old padded excerpts covered innocuous connectives (", and
+    // opted") — bare phrases never include them.
+    for (const p of phrases) {
+      expect(p).not.toContain("opted");
+      expect(p).not.toContain("refrained");
+    }
+  });
+
+  test("Nadine reply flags high via post treatment + dysport + intake forms (botox already)", () => {
+    const result = detectPhiRisk(NADINE);
+    expect(result.flagged).toBe(true);
+    expect(result.level).toBe("high");
+    const phrases = result.matches.map((m) => m.phrase.toLowerCase());
+    expect(phrases).toEqual(
+      expect.arrayContaining([
+        "botox",
+        "dysport",
+        "intake forms",
+        "post treatment",
+        "your first appointment",
+      ]),
+    );
+  });
+
+  test("Jessie reply unchanged · still flags only via the pre-existing pattern", () => {
+    const result = detectPhiRisk(JESSIE);
+    expect(result.flagged).toBe(true);
+    // The broadened vocabulary must add NOTHING here — exactly the one
+    // phrase that flagged before this round.
+    expect(result.matches.map((m) => m.phrase.toLowerCase())).toEqual([
+      "coming in",
+    ]);
+  });
+});
+
+describe("detectPhiRisk · 2026-06 vocabulary broadening", () => {
+  test.each([
+    "Everyone responds to the post treatment instructions differently.",
+    "Post-treatment care was emailed the same day.",
+    "A touch up is included within two weeks.",
+    "Touch-ups are complimentary for members.",
+    "The toxin we use is FDA approved.",
+    "The dose was exactly what we discussed.",
+    "Our dosage recommendations are conservative.",
+    "We are deliberately careful with dosing.",
+    "Please complete the intake form before arriving.",
+    "All clients sign intake forms first.",
+    "The numbing cream needs twenty minutes.",
+    "We went over the aftercare together.",
+    "Some swelling and bruising is normal for a few days.",
+    "Dysport lasts about three months.",
+    "Juvederm results vary by area.",
+    "Restylane was the better option for you.",
+    "Sculptra builds collagen gradually.",
+    "Kybella requires multiple sessions.",
+    "Xeomin is a great alternative.",
+    "The lip flip turned out beautifully.",
+  ])("new treatment vocabulary flags high: %s", (text) => {
+    const result = detectPhiRisk(text);
+    expect(result.flagged).toBe(true);
+    expect(result.level).toBe("high");
+    expect(result.matches.map((m) => m.kind)).toContain("treatment");
+  });
+
+  test.each([
+    "You wanted any left over in your face.",
+    "We added the height you wanted in your lips.",
+    "Your lip looked great when you left.",
+    "Your skin responded well to the peel.",
+    "We kept your forehead conservative.",
+    "Your cheeks needed less product this time.",
+    "We balanced your chin and jawline.",
+    "Your brows healed nicely.",
+    "Your brow mapping was precise.",
+    "We avoided your under-eyes entirely.",
+  ])("possessive + body part flags high (patient-status): %s", (text) => {
+    const result = detectPhiRisk(text);
+    expect(result.flagged).toBe(true);
+    expect(result.level).toBe("high");
+    expect(result.matches.map((m) => m.kind)).toContain("patient-status");
+  });
+
+  test.each([
+    "We reviewed everything at your first appointment.",
+    "See you at your next appointment.",
+    "Your last appointment ran long — sorry about that.",
+    "This was your first appointment with us.",
+    "That morning was the first appointment for us.",
+  ])("appointment variants flag high (patient-status): %s", (text) => {
+    const result = detectPhiRisk(text);
+    expect(result.flagged).toBe(true);
+    expect(result.level).toBe("high");
+    expect(result.matches.map((m) => m.kind)).toContain("patient-status");
+  });
+
+  test("strict-bar judgment · service marketing inside a reply still flags", () => {
+    // In a reply addressed to a reviewer, naming treatments IS the risk
+    // pattern — see the module-header judgment note. The detector only
+    // ever runs on medical businesses' reply text.
+    const result = detectPhiRisk("We offer Botox and touch ups every day.");
+    expect(result.flagged).toBe(true);
+    expect(result.level).toBe("high");
   });
 });
 
@@ -175,6 +352,13 @@ describe("detectPhiRisk · negatives (false-positive guard)", () => {
     "We'd love to welcome you back anytime.",
     // "treatments" alone is generic marketing speak, not PHI.
     "We offer many treatments and our team is happy to answer questions.",
+    // 2026-06 precision guards for the broadened vocabulary:
+    // plural "toxins" = detox marketing, not botulinum toxin.
+    "Our detox tea helps flush out toxins.",
+    // past-tense "touched up" (decor, paint) ≠ "touch up" the procedure.
+    "We touched up the paint in the lobby last week.",
+    // bare "swelling" without the aftercare pairing stays clean.
+    "We're sorry to hear about the swelling.",
   ])("does not flag: %s", (text) => {
     const result = detectPhiRisk(text);
     expect(result.flagged).toBe(false);
@@ -241,5 +425,106 @@ describe("summarizeReplyRisks", () => {
 
   test("empty input → empty map", () => {
     expect(summarizeReplyRisks([]).size).toBe(0);
+  });
+});
+
+/**
+ * F3 · merge contract: AI sentences join the deterministic marks as
+ * `ai-sentence` matches IFF they appear VERBATIM in the reply (same
+ * normalization as the detector + the UI marker). Pure, no AI here —
+ * the model call is tested in services/ai/__tests__/phi-sentences and
+ * the server seam in __tests__/phi-ai-enrich.
+ */
+describe("mergeAiSentenceMatches", () => {
+  const reply =
+    "After reviewing footage from that afternoon, we are perplexed why you voiced frustration. Thanks for coming in.";
+  const sentence =
+    "After reviewing footage from that afternoon, we are perplexed why you voiced frustration.";
+  const phraseMatch: PrivacyMatch = {
+    kind: "patient-status",
+    phrase: "coming in",
+    excerpt: "…Thanks for coming in.",
+  };
+
+  test("appends a located sentence as an ai-sentence match", () => {
+    const out = mergeAiSentenceMatches([phraseMatch], [sentence], reply);
+    expect(out).toHaveLength(2);
+    expect(out[1]).toEqual({
+      kind: "ai-sentence",
+      phrase: sentence,
+      excerpt: sentence,
+    });
+  });
+
+  test("returns a NEW array — never mutates the deterministic matches", () => {
+    const matches = [phraseMatch];
+    const out = mergeAiSentenceMatches(matches, [sentence], reply);
+    expect(matches).toHaveLength(1);
+    expect(out).not.toBe(matches);
+  });
+
+  test("drops sentences not present verbatim (model paraphrased)", () => {
+    const out = mergeAiSentenceMatches(
+      [phraseMatch],
+      ["We reviewed the footage and saw your frustration."],
+      reply,
+    );
+    expect(out).toEqual([phraseMatch]);
+  });
+
+  test("locates sentences across curly/straight apostrophe variants", () => {
+    const curlyReply = "We weren’t aware of your concerns until today.";
+    const out = mergeAiSentenceMatches(
+      [],
+      ["We weren't aware of your concerns until today."],
+      curlyReply,
+    );
+    expect(out).toHaveLength(1);
+    expect(out[0]!.kind).toBe("ai-sentence");
+  });
+
+  test("dedupes repeated sentences and sentences equal to an existing phrase", () => {
+    const out = mergeAiSentenceMatches(
+      [phraseMatch],
+      [sentence, sentence.toUpperCase(), "Thanks for coming in."],
+      reply + " Thanks for coming in.",
+    );
+    // The repeated sentence collapses; "Thanks for coming in." is new
+    // (only the bare phrase "coming in" was marked deterministically).
+    const aiPhrases = out
+      .filter((m) => m.kind === "ai-sentence")
+      .map((m) => m.phrase.toLowerCase());
+    expect(aiPhrases).toEqual([
+      sentence.toLowerCase(),
+      "thanks for coming in.",
+    ]);
+    // A sentence identical to an existing phrase never doubles up.
+    const dupOut = mergeAiSentenceMatches([phraseMatch], ["coming in"], reply);
+    expect(dupOut).toEqual([phraseMatch]);
+  });
+
+  test("caps the merged list at the payload bound (10)", () => {
+    const longReply = Array.from(
+      { length: 14 },
+      (_, i) => `Unique offending sentence number ${i}.`,
+    ).join(" ");
+    const sentences = Array.from(
+      { length: 14 },
+      (_, i) => `Unique offending sentence number ${i}.`,
+    );
+    const out = mergeAiSentenceMatches([phraseMatch], sentences, longReply);
+    expect(out.length).toBeLessThanOrEqual(10);
+    // Deterministic match always survives the cap (it sits first).
+    expect(out[0]).toEqual(phraseMatch);
+  });
+
+  test("empty sentences / empty reply → deterministic matches unchanged", () => {
+    expect(mergeAiSentenceMatches([phraseMatch], [], reply)).toEqual([
+      phraseMatch,
+    ]);
+    expect(mergeAiSentenceMatches([phraseMatch], [sentence], "")).toEqual([
+      phraseMatch,
+    ]);
+    expect(mergeAiSentenceMatches([], ["", "   "], reply)).toEqual([]);
   });
 });

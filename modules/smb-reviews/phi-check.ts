@@ -39,6 +39,24 @@
  * the reviewer); only "treatment plan" matches. English-only vocabulary
  * for now — see the caveat in the module tests.
  *
+ * Judgment call (2026-06 · production review): the vocabulary runs ONLY
+ * on medical businesses' REPLY text — words the business addresses to
+ * an identifiable reviewer in public — where the bar is deliberately
+ * strict. Even generic-sounding service marketing inside a reply ("we
+ * offer Botox and touch ups") flags on purpose: naming treatments while
+ * speaking TO a reviewer is exactly the pattern regulators fined. The
+ * false-positive budget is spent on warm non-medical language instead.
+ *
+ * Precision-judged vocabulary (kept vs. dropped):
+ *   - "toxin" (singular) flags — in a med-spa reply it means botulinum
+ *     toxin. Plural "toxins" stays clean (detox marketing: "flush out
+ *     toxins").
+ *   - Bare "swelling" / "bruising" stay clean (too generic alone — they
+ *     describe a condition, not a procedure). The aftercare pairing
+ *     "swelling and bruising" and the word "aftercare" itself flag.
+ *   - "touched up" (past tense, e.g. paint) stays clean; "touch up(s)"
+ *     / "touch-up(s)" flag.
+ *
  * Whether the detector runs at all is gated UPSTREAM by
  * `isHumanMedicalCategory` (services/ai/medical-category.ts) — the same
  * matcher that flips the PHI guardrail on AI drafts, so the published
@@ -55,8 +73,15 @@ export type PhiMatchKind =
 
 export interface PhiMatch {
   kind: PhiMatchKind;
+  /** The BARE matched text (regex `match[0]` / the service-name hit) —
+   *  no context padding. This is what the UI marks inline, so marks
+   *  always begin and end on the matched phrase's own word boundaries
+   *  (production screenshots showed mid-word marks when the padded
+   *  excerpt was marked instead). */
+  phrase: string;
   /** Short verbatim snippet around the matched phrase (with `…` when
-   *  trimmed). Locale-neutral — it quotes the owner's own reply. */
+   *  trimmed). For tooltips/context ONLY — never for inline marking.
+   *  Locale-neutral — it quotes the owner's own reply. */
   excerpt: string;
 }
 
@@ -65,6 +90,27 @@ export interface PhiRiskResult {
   /** Meaningful only when `flagged` — defaults to `caution` otherwise. */
   level: PhiRiskLevel;
   matches: PhiMatch[];
+}
+
+/**
+ * F3 · the payload-level match kind: every deterministic kind PLUS
+ * `ai-sentence` — a whole sentence the AI pass (services/ai/
+ * phi-sentences.ts) identified on an ALREADY-FLAGGED reply. One type,
+ * one highlight system: `PrivacyMarkedReplyText` marks AI sentences
+ * identically to phrase marks and merges overlapping ranges, so a
+ * sentence containing a flagged phrase renders as one mark.
+ */
+export type PrivacyMatchKind = PhiMatchKind | "ai-sentence";
+
+/** Payload-level match shape · superset of `PhiMatch` (every PhiMatch
+ *  is assignable). For `ai-sentence` entries, `phrase` IS the verbatim
+ *  sentence (it's located in the reply with the same indexOf +
+ *  normalization machinery as phrase marks) and `excerpt` quotes it for
+ *  tooltips. */
+export interface PrivacyMatch {
+  kind: PrivacyMatchKind;
+  phrase: string;
+  excerpt: string;
 }
 
 /** Cap so a worst-case rant doesn't build an unbounded match list. */
@@ -96,6 +142,16 @@ const PATIENT_STATUS_PATTERNS: readonly RegExp[] = [
   /\bfollow[ -]?up with us\b/i,
   /\byour results\b/i,
   /\byour recovery\b/i,
+  // Possessive + body part — discussing the reviewer's own face/lips/
+  // skin in public confirms they were treated there ("left over in
+  // your face", "the height you wanted in your lips"). High-precision:
+  // the possessive pins it to THIS reviewer's body, unlike generic
+  // service talk.
+  /\byour (?:face|lips?|skin|forehead|cheeks|chin|jawline|brows?|under-?eyes?)\b/i,
+  // Appointment variants — "your appointment" already matches above;
+  // these cover the ordinal forms real replies use.
+  /\byour (?:first|next|last) appointment\b/i,
+  /\bfirst appointment (?:for|with) us\b/i,
 ];
 
 // Generic medical-procedure vocabulary. Plain "treatment(s)" is
@@ -112,6 +168,25 @@ const TREATMENT_PATTERNS: readonly RegExp[] = [
   /\bprocedures?\b/i,
   /\bsurger(?:y|ies)\b/i,
   /\btreatment plans?\b/i,
+  // 2026-06 additions · vocabulary three real production replies used.
+  /\bpost[ -]?treatments?\b/i,
+  /\btouch[ -]?ups?\b/i,
+  // Singular only — plural "toxins" is detox marketing (see header).
+  /\btoxin\b/i,
+  /\bdos(?:e|es|age|ing)\b/i,
+  /\bintake forms?\b/i,
+  /\bnumbing\b/i,
+  /\baftercare\b/i,
+  // The aftercare pairing flags; bare "swelling"/"bruising" stay clean.
+  /\b(?:swelling and bruising|bruising and swelling)\b/i,
+  // Injectable brand names (botox/filler already above).
+  /\bdysport\b/i,
+  /\bjuv[eé]derm\b/i,
+  /\brestylane\b/i,
+  /\bsculptra\b/i,
+  /\bkybella\b/i,
+  /\bxeomin\b/i,
+  /\blip flips?\b/i,
 ];
 
 const MONTH =
@@ -181,14 +256,26 @@ export function detectPhiRisk(
 
   const scan = (patterns: readonly RegExp[], kind: PhiMatchKind): void => {
     for (const re of patterns) {
-      if (matches.length >= MAX_MATCHES) return;
-      const m = re.exec(normalized);
-      if (!m || !m[0]) continue;
-      const excerpt = excerptAround(normalized, m.index, m[0].length);
-      const key = `${kind}:${excerpt}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      matches.push({ kind, excerpt });
+      // ALL occurrences per pattern, not just the first — alternation
+      // patterns ("your face|lips|…") must surface every distinct
+      // phrase so the UI can mark each one. Dedup below collapses
+      // repeats of the same phrase ("Botox … Botox" → one match).
+      const global = new RegExp(re.source, `${re.flags}g`);
+      for (const m of normalized.matchAll(global)) {
+        if (matches.length >= MAX_MATCHES) return;
+        const phrase = m[0];
+        if (!phrase) continue;
+        const key = `${kind}:${phrase.toLowerCase()}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        matches.push({
+          kind,
+          phrase,
+          // `index` is always set for matchAll results; `?? 0` is for
+          // the TS lib type only.
+          excerpt: excerptAround(normalized, m.index ?? 0, phrase.length),
+        });
+      }
     }
   };
 
@@ -223,9 +310,11 @@ export interface ReplyRiskEntry {
   /** Verbatim excerpt from the reply that triggered the flag. */
   hint: string;
   /** S5 · ALL flagged matches (capped) — the review card marks each
-   *  excerpt inline inside the rendered reply text so Maria sees
-   *  exactly which phrases to edit, not just the first one. */
-  matches: PhiMatch[];
+   *  match's bare `phrase` inline inside the rendered reply text so
+   *  Maria sees exactly which phrases to edit, not just the first one.
+   *  (`excerpt` stays for tooltips only.) F3 · may also carry
+   *  `ai-sentence` entries appended by `mergeAiSentenceMatches`. */
+  matches: PrivacyMatch[];
 }
 
 /** Per-reply payload cap for `matches`. The detector already stops at
@@ -247,6 +336,55 @@ export function summarizeReplyRisks(
       hint: risk.matches[0]?.excerpt ?? "",
       matches: risk.matches.slice(0, MAX_ENTRY_MATCHES),
     });
+  }
+  return out;
+}
+
+/**
+ * F3 · merge AI-identified sentences into an entry's deterministic
+ * matches. Pure + client-safe like the rest of this module (the AI
+ * call itself lives server-side in `phi-ai-enrich.ts`; only the merge
+ * is here, next to the match types it produces).
+ *
+ * Safety properties:
+ *   - Sentences are located with the SAME normalization as the
+ *     detector + the UI marker (curly apostrophes → straight,
+ *     case-insensitive `indexOf`). A sentence the reply doesn't
+ *     contain verbatim is DROPPED — the model paraphrased; an
+ *     unlocatable mark is dead weight.
+ *   - Dedupe against existing phrases AND prior sentences (case-
+ *     insensitive) so a sentence already marked never doubles up.
+ *     Overlap (sentence CONTAINING a flagged phrase) is fine — the
+ *     renderer merges overlapping ranges into one mark.
+ *   - Total marks stay capped at the same payload bound as the
+ *     deterministic list (MAX_ENTRY_MATCHES) so the AI pass can't
+ *     bloat the page data.
+ *
+ * Returns a NEW array; never mutates `matches`.
+ */
+export function mergeAiSentenceMatches(
+  matches: readonly PrivacyMatch[],
+  sentences: readonly string[],
+  replyText: string,
+): PrivacyMatch[] {
+  const out: PrivacyMatch[] = matches.slice(0, MAX_ENTRY_MATCHES);
+  if (out.length >= MAX_ENTRY_MATCHES || sentences.length === 0) return out;
+
+  const haystack = (replyText ?? "").replace(/[‘’]/g, "'").toLowerCase();
+  if (!haystack.trim()) return out;
+
+  const seen = new Set(
+    out.map((m) => m.phrase.replace(/[‘’]/g, "'").trim().toLowerCase()),
+  );
+  for (const raw of sentences) {
+    if (out.length >= MAX_ENTRY_MATCHES) break;
+    const sentence = (raw ?? "").replace(/[‘’]/g, "'").trim();
+    if (!sentence) continue;
+    const key = sentence.toLowerCase();
+    if (seen.has(key)) continue;
+    if (!haystack.includes(key)) continue;
+    seen.add(key);
+    out.push({ kind: "ai-sentence", phrase: sentence, excerpt: sentence });
   }
   return out;
 }

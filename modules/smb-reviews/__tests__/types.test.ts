@@ -165,7 +165,13 @@ describe("filterPrivacyReviews", () => {
         privacyRisk: {
           level: "caution",
           hint: "…on March 12…",
-          matches: [{ kind: "visit-or-date", excerpt: "…on March 12…" }],
+          matches: [
+            {
+              kind: "visit-or-date",
+              phrase: "on March 12",
+              excerpt: "…on March 12…",
+            },
+          ],
         },
       }),
     ]);
@@ -179,7 +185,7 @@ describe("filterPrivacyReviews", () => {
         privacyRisk: {
           level: "caution",
           hint: "…$50…",
-          matches: [{ kind: "payment", excerpt: "…$50…" }],
+          matches: [{ kind: "payment", phrase: "$50", excerpt: "…$50…" }],
         },
       }),
       makeReview({
@@ -187,7 +193,13 @@ describe("filterPrivacyReviews", () => {
         privacyRisk: {
           level: "high",
           hint: "…your visit…",
-          matches: [{ kind: "patient-status", excerpt: "…your visit…" }],
+          matches: [
+            {
+              kind: "patient-status",
+              phrase: "your visit",
+              excerpt: "…your visit…",
+            },
+          ],
         },
       }),
       makeReview({ id: "clean" }),
@@ -196,7 +208,7 @@ describe("filterPrivacyReviews", () => {
         privacyRisk: {
           level: "high",
           hint: "…botox…",
-          matches: [{ kind: "treatment", excerpt: "…botox…" }],
+          matches: [{ kind: "treatment", phrase: "botox", excerpt: "…botox…" }],
         },
       }),
       makeReview({
@@ -204,7 +216,7 @@ describe("filterPrivacyReviews", () => {
         privacyRisk: {
           level: "caution",
           hint: "…refund…",
-          matches: [{ kind: "payment", excerpt: "…refund…" }],
+          matches: [{ kind: "payment", phrase: "refund", excerpt: "…refund…" }],
         },
       }),
     ]);
@@ -219,6 +231,39 @@ describe("filterPrivacyReviews", () => {
   test("returns empty array when nothing is flagged (tab falls back)", () => {
     expect(filterPrivacyReviews([makeReview({ id: "a" })])).toEqual([]);
     expect(filterPrivacyReviews([])).toEqual([]);
+  });
+
+  test("F3 · ai-sentence matches flow through ReviewPrivacyRisk + the privacy tab", () => {
+    // Type-level: `kind: "ai-sentence"` is part of PrivacyMatchKind, so
+    // a payload mixing phrase marks + AI sentence marks compiles AND
+    // filters like any other flagged review (one mark system).
+    const out = filterPrivacyReviews([
+      makeReview({
+        id: "ai-flagged",
+        privacyRisk: {
+          level: "high",
+          hint: "…coming in…",
+          matches: [
+            {
+              kind: "patient-status",
+              phrase: "coming in",
+              excerpt: "…coming in…",
+            },
+            {
+              kind: "ai-sentence",
+              phrase:
+                "After reviewing footage from that afternoon, we are perplexed why you voiced frustration.",
+              excerpt:
+                "After reviewing footage from that afternoon, we are perplexed why you voiced frustration.",
+            },
+          ],
+        },
+      }),
+    ]);
+    expect(out.map((r) => r.id)).toEqual(["ai-flagged"]);
+    expect(out[0]!.privacyRisk!.matches.map((m) => m.kind)).toContain(
+      "ai-sentence",
+    );
   });
 });
 
