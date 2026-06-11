@@ -1,9 +1,32 @@
 // modules/smb-reviews/components/PrivacyMarkedReplyText.tsx
 //
-// S5 · Renders a published owner reply with every privacy-flagged
-// PHRASE visibly marked inline — light coral background + coral
-// underline — so Maria sees the EXACT phrases to edit, right inside the
-// reply, instead of hunting for them from a tooltip quote.
+// S5/S6 · Renders a published owner reply with privacy-flagged ranges
+// visibly marked inline, so Maria sees exactly what to edit right
+// inside the reply, instead of hunting for it from a tooltip quote.
+//
+// Two tiers of mark (2026-06 production feedback — every mark carried a
+// 2px underline, so a reply with several flagged sentences read as an
+// unreadable picket fence):
+//
+//   - PRECISE (range ≤ PRECISE_MARK_MAX_CHARS) · light coral wash +
+//     coral underline. These are the short phrase hits ("Botox",
+//     "your visit") — the useful pointers.
+//   - BROAD (longer ranges · AI sentences / coalesced spans) · the SAME
+//     wash, NO underline. A flagged sentence reads as a calm tinted
+//     block, not a fence of underlines.
+//
+// Adjacent ranges separated only by whitespace / light punctuation
+// (gap ≤ 3 chars of [\s,.;:·—-]) coalesce into ONE span — neighbouring
+// phrase hits become a continuous mark instead of broken fragments.
+//
+// Saturation collapse: when more than SATURATION_THRESHOLD of the
+// reply's characters sit inside marks, inline marking is noise — the
+// component renders the reply WITHOUT marks. The parent (ReviewCard's
+// OwnerReply) detects the same condition via the exported pure
+// `computePrivacyMarkLayout` and swaps the hint line to the stronger
+// "replace this reply" message. Pure-function seam (no callback during
+// render): both sides derive the verdict from the same inputs, so they
+// can never disagree.
 //
 // Marks the BARE matched phrase (`PhiMatch.phrase`), never the padded
 // `excerpt`. Production screenshots showed excerpt-marking starting and
@@ -53,6 +76,41 @@ export interface PrivacyMarkedReplyTextProps {
   markTitle?: string;
 }
 
+/** Ranges at or under this length render the PRECISE tier (wash +
+ *  underline). Longer ranges — AI sentences and coalesced spans —
+ *  render wash-only so they read as a tinted block, not a fence. */
+export const PRECISE_MARK_MAX_CHARS = 40;
+
+/** Marked-character coverage above which inline marks collapse
+ *  entirely — at that point the marks are noise, and the hint line
+ *  (ReviewCard) escalates to the "replace this reply" message. */
+export const SATURATION_THRESHOLD = 0.55;
+
+/** Max gap (in chars) bridged when coalescing adjacent ranges. */
+const COALESCE_MAX_GAP = 3;
+
+/** A gap merges only when EVERY char is whitespace / light
+ *  punctuation — never across words. */
+const COALESCE_GAP = /^[\s,.;:·—-]*$/;
+
+/** One final marked range over the original text (slice indices). */
+export interface PrivacyMarkRange {
+  start: number;
+  end: number;
+}
+
+/** Pure layout verdict shared by the component and ReviewCard. */
+export interface PrivacyMarkLayout {
+  /** Non-overlapping, coalesced ranges in text order. Empty when no
+   *  phrase locates cleanly. */
+  ranges: PrivacyMarkRange[];
+  /** Fraction (0–1) of the reply's characters inside `ranges`. */
+  coverage: number;
+  /** True when coverage exceeds SATURATION_THRESHOLD — render the
+   *  reply without inline marks and escalate the hint line instead. */
+  saturated: boolean;
+}
+
 /** Same normalization as `detectPhiRisk` · curly apostrophes →
  *  straight. 1:1 char replacement so indices map onto the original. */
 function normalize(s: string): string {
@@ -88,15 +146,20 @@ function indexOfWordAligned(haystack: string, needle: string): number {
   return -1;
 }
 
-export function PrivacyMarkedReplyText({
-  text,
-  phrases,
-  markTitle,
-}: PrivacyMarkedReplyTextProps) {
+/**
+ * Locate, merge, and coalesce every flagged phrase into final marked
+ * ranges, plus the coverage / saturation verdict. Pure — ReviewCard
+ * calls this to decide the hint-line copy; the component calls it to
+ * render. Same inputs, same verdict, no drift.
+ */
+export function computePrivacyMarkLayout(
+  text: string,
+  phrases: string[],
+): PrivacyMarkLayout {
   const haystack = normalize(text).toLowerCase();
 
   // Locate the first occurrence of each distinct phrase.
-  const ranges: Array<{ start: number; end: number }> = [];
+  const ranges: PrivacyMarkRange[] = [];
   const seen = new Set<string>();
   for (const raw of phrases) {
     const needle = normalize(raw ?? "")
@@ -115,12 +178,12 @@ export function PrivacyMarkedReplyText({
   }
 
   if (ranges.length === 0) {
-    return <>{text}</>;
+    return { ranges: [], coverage: 0, saturated: false };
   }
 
   // Merge overlapping ranges so marks never nest or collide.
   ranges.sort((a, b) => a.start - b.start);
-  const merged: Array<{ start: number; end: number }> = [];
+  const merged: PrivacyMarkRange[] = [];
   for (const r of ranges) {
     const last = merged[merged.length - 1];
     if (last && r.start <= last.end) {
@@ -130,9 +193,69 @@ export function PrivacyMarkedReplyText({
     }
   }
 
+  // Coalesce neighbours separated only by a tiny whitespace /
+  // punctuation gap ("Botox, Dysport") into one continuous span — the
+  // gap chars are pulled INSIDE the mark, so reconstruction (plain +
+  // marked slices rejoin byte-for-byte) is preserved.
+  const coalesced: PrivacyMarkRange[] = [];
+  for (const r of merged) {
+    const last = coalesced[coalesced.length - 1];
+    if (last) {
+      const gap = text.slice(last.end, r.start);
+      if (gap.length <= COALESCE_MAX_GAP && COALESCE_GAP.test(gap)) {
+        last.end = r.end;
+        continue;
+      }
+    }
+    coalesced.push({ ...r });
+  }
+
+  const markedChars = coalesced.reduce((n, r) => n + (r.end - r.start), 0);
+  const coverage = text.length > 0 ? markedChars / text.length : 0;
+  return {
+    ranges: coalesced,
+    coverage,
+    saturated: coverage > SATURATION_THRESHOLD,
+  };
+}
+
+// Light coral wash · same accent family as the card's urgent state and
+// the privacy hint line. Browsers default <mark> to yellow — override
+// explicitly. BROAD ranges get exactly this — a calm tinted block.
+const broadMarkStyle: React.CSSProperties = {
+  background: "rgba(195, 85, 58, 0.14)",
+  color: "inherit",
+  borderRadius: 3,
+  padding: "0 1px",
+};
+
+// PRECISE ranges (short phrase hits) add the coral underline — the
+// pointer that says "this exact phrase".
+const preciseMarkStyle: React.CSSProperties = {
+  ...broadMarkStyle,
+  textDecorationLine: "underline",
+  textDecorationColor: "var(--color-coral)",
+  textDecorationThickness: 2,
+  textUnderlineOffset: 2,
+};
+
+export function PrivacyMarkedReplyText({
+  text,
+  phrases,
+  markTitle,
+}: PrivacyMarkedReplyTextProps) {
+  const layout = computePrivacyMarkLayout(text, phrases);
+
+  // No locatable phrase → plain text. Saturated → plain text too: when
+  // most of the reply is flagged, inline marks are noise; the hint line
+  // (ReviewCard, via the same pure layout) carries the message instead.
+  if (layout.ranges.length === 0 || layout.saturated) {
+    return <>{text}</>;
+  }
+
   const parts: React.ReactNode[] = [];
   let cursor = 0;
-  merged.forEach((r, i) => {
+  layout.ranges.forEach((r, i) => {
     if (r.start > cursor) {
       parts.push(
         <React.Fragment key={`plain-${i}`}>
@@ -140,23 +263,12 @@ export function PrivacyMarkedReplyText({
         </React.Fragment>,
       );
     }
+    const precise = r.end - r.start <= PRECISE_MARK_MAX_CHARS;
     parts.push(
       <mark
         key={`mark-${i}`}
         title={markTitle}
-        style={{
-          // Light coral wash + coral underline · same accent family as
-          // the card's urgent state and the privacy hint line. Browsers
-          // default <mark> to yellow — override explicitly.
-          background: "rgba(195, 85, 58, 0.14)",
-          color: "inherit",
-          borderRadius: 3,
-          padding: "0 1px",
-          textDecorationLine: "underline",
-          textDecorationColor: "var(--color-coral)",
-          textDecorationThickness: 2,
-          textUnderlineOffset: 2,
-        }}
+        style={precise ? preciseMarkStyle : broadMarkStyle}
       >
         {text.slice(r.start, r.end)}
       </mark>,

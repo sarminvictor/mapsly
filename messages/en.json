@@ -286,6 +286,7 @@
       "privacy_summary_info": "Public replies that confirm someone was a patient or mention their treatment can break US health-privacy law (HIPAA). Regulators have fined practices $10,000–$50,000 for exactly this. Editing these replies removes the risk.",
       "privacy_hint_high": "May confirm a patient relationship — consider an edit",
       "privacy_hint_caution": "Worth a quick look — this reply mentions a date or a payment",
+      "privacy_hint_saturated": "Most of this reply discusses this reviewer's care. We suggest replacing it with a privacy-safe version.",
       "privacy_fix_cta": "Draft a safer reply",
       "privacy_confirm_title": "This reply may mention a treatment or confirm someone was a patient.",
       "privacy_confirm_edit": "Edit reply",

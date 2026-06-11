@@ -306,6 +306,7 @@ async function ReviewsBody({
           hipaaTooltip: t("ai_draft_hipaa_tooltip"),
           privacyHintHigh: t("privacy_hint_high"),
           privacyHintCaution: t("privacy_hint_caution"),
+          privacyHintSaturated: t("privacy_hint_saturated"),
           privacyFixCta: t("privacy_fix_cta"),
           privacyConfirmTitle: t("privacy_confirm_title"),
           privacyConfirmEdit: t("privacy_confirm_edit"),

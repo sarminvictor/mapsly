@@ -6,7 +6,10 @@ import { useState } from "react";
 import { Pill } from "@/components/ui";
 import { AIReplyDraftBody } from "./AIReplyDraftBody";
 import { HighlightedReviewText } from "./HighlightedReviewText";
-import { PrivacyMarkedReplyText } from "./PrivacyMarkedReplyText";
+import {
+  computePrivacyMarkLayout,
+  PrivacyMarkedReplyText,
+} from "./PrivacyMarkedReplyText";
 import { ReplyActions } from "./ReplyActions";
 import { StarRating } from "./StarRating";
 import type { ReviewItem, ReviewPrivacyRisk } from "../types";
@@ -102,6 +105,11 @@ export interface ReviewCardLabels {
   privacyHintHigh?: string;
   /** Per-review hint, caution level (date / payment reference). */
   privacyHintCaution?: string;
+  /** S6 · escalated hint when the marks saturate the reply (> 55% of
+   *  its characters flagged): inline marks collapse and this stronger
+   *  "replace it with a privacy-safe version" line shows instead.
+   *  Falls back to the high/caution hint when unset. */
+  privacyHintSaturated?: string;
   /** Generate-CTA label on the flagged-reply fix path ("Draft a safer
    *  reply"). Falls back to `ctaGenerate` when unset. */
   privacyFixCta?: string;
@@ -421,10 +429,21 @@ function OwnerReply({
    *  Null = clean (or non-medical business — labels absent then too). */
   privacyRisk: ReviewPrivacyRisk | null;
 }) {
+  // S6 saturation seam · the SAME pure layout the marker component
+  // renders from. When most of the reply's characters sit inside marks
+  // (> 55%), `PrivacyMarkedReplyText` collapses to plain text and the
+  // hint line escalates to the "replace this reply" message. Pure
+  // function on both sides — no callback-during-render, no drift.
+  const phrases = privacyRisk?.matches?.map((m) => m.phrase) ?? [];
+  const saturated =
+    phrases.length > 0 && computePrivacyMarkLayout(text, phrases).saturated;
+
   const privacyHintLabel = privacyRisk
-    ? privacyRisk.level === "high"
-      ? labels.privacyHintHigh
-      : labels.privacyHintCaution
+    ? saturated && labels.privacyHintSaturated
+      ? labels.privacyHintSaturated
+      : privacyRisk.level === "high"
+        ? labels.privacyHintHigh
+        : labels.privacyHintCaution
     : undefined;
 
   return (
@@ -463,17 +482,18 @@ function OwnerReply({
         {/* Optional-chain on matches: defends against a stale cached
             payload (minutes window post-deploy) that predates the S5
             `matches` field — degrade to plain text, never crash. */}
-        {privacyRisk && (privacyRisk.matches?.length ?? 0) > 0 ? (
+        {privacyRisk && phrases.length > 0 ? (
           // S5 · mark the exact flagged phrases inside the reply so
           // Maria sees what to edit without hunting. BARE phrases only
           // — marking the padded excerpt produced mid-word marks in
           // production. The hint line below carries the same meaning in
           // plain text (touch + keyboard + AT — the mark styling is
           // never the only signal) and its tooltip keeps the excerpt
-          // for context.
+          // for context. When saturated, the component itself renders
+          // plain text — the escalated hint line above does the work.
           <PrivacyMarkedReplyText
             text={text}
-            phrases={privacyRisk.matches.map((m) => m.phrase)}
+            phrases={phrases}
             markTitle={privacyHintLabel}
           />
         ) : (

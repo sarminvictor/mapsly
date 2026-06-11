@@ -25,7 +25,12 @@ import { describe, expect, test } from "vitest";
 import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
-import { PrivacyMarkedReplyText } from "../components/PrivacyMarkedReplyText";
+import {
+  computePrivacyMarkLayout,
+  PRECISE_MARK_MAX_CHARS,
+  PrivacyMarkedReplyText,
+  SATURATION_THRESHOLD,
+} from "../components/PrivacyMarkedReplyText";
 import { detectPhiRisk } from "../phi-check";
 
 const countMarks = (html: string): number =>
@@ -213,7 +218,11 @@ describe("PrivacyMarkedReplyText", () => {
   });
 
   test("overlapping and duplicate phrases merge into non-nested marks", () => {
-    const text = "We loved having you as a patient at our clinic.";
+    // Fixture padded past the saturation threshold — the union span is
+    // 38 chars; in a 48-char reply that's 79% coverage, which now
+    // correctly collapses (see the saturation tests below).
+    const text =
+      "We loved having you as a patient at our clinic. Thanks so much for the kind note about our front desk team as well.";
     const html = renderToStaticMarkup(
       <PrivacyMarkedReplyText
         text={text}
@@ -273,5 +282,123 @@ describe("PrivacyMarkedReplyText", () => {
     );
     expect(countMarks(html)).toBe(0);
     expect(html).toBe(renderToStaticMarkup(<>{text}</>));
+  });
+
+  // ---- S6 · two-tier styling -----------------------------------------
+
+  test("two-tier styling · short phrase keeps wash + underline, long sentence is wash-only", () => {
+    const sentence =
+      "You signed the consent form before we adjusted the filler that afternoon at the clinic.";
+    expect(sentence.length).toBeGreaterThan(PRECISE_MARK_MAX_CHARS);
+    const text = `${sentence} Some clients also love pairing it with our botox special and the seasonal facial packages we run through the spring months for everybody.`;
+    const html = renderToStaticMarkup(
+      <PrivacyMarkedReplyText
+        text={text}
+        phrases={[sentence, "botox"]}
+        markTitle="hint"
+      />,
+    );
+    const marks = Array.from(
+      html.matchAll(/<mark[^>]*style="([^"]*)"[^>]*>([^<]*)<\/mark>/g),
+      (m) => ({ style: m[1]!, content: m[2]! }),
+    );
+    expect(marks).toHaveLength(2);
+
+    const broad = marks.find((m) => m.content === sentence)!;
+    const precise = marks.find((m) => m.content === "botox")!;
+    expect(broad).toBeDefined();
+    expect(precise).toBeDefined();
+
+    // Precise tier · the pointer — wash + 2px coral underline.
+    expect(precise.style).toContain("background:rgba(195, 85, 58, 0.14)");
+    expect(precise.style).toContain("text-decoration-line:underline");
+
+    // Broad tier · calm tinted block — SAME wash, NO underline. This is
+    // the picket-fence fix: a flagged sentence no longer reads as a
+    // wall of underlined fragments.
+    expect(broad.style).toContain("background:rgba(195, 85, 58, 0.14)");
+    expect(broad.style).not.toContain("underline");
+  });
+
+  // ---- S6 · range coalescing -----------------------------------------
+
+  test("adjacent hits separated only by punctuation/whitespace coalesce into one mark", () => {
+    const text =
+      "We offered Botox, Dysport at the spring event alongside the usual skincare lines our guests already know and love from us.";
+    const html = renderToStaticMarkup(
+      <PrivacyMarkedReplyText
+        text={text}
+        phrases={["Botox", "Dysport"]}
+        markTitle="hint"
+      />,
+    );
+    // ", " gap (≤ 3 chars of whitespace/punctuation) → ONE continuous
+    // mark, not two fragments split by an unmarked comma.
+    expect(countMarks(html)).toBe(1);
+    expect(html).toMatch(/<mark[^>]*>Botox, Dysport<\/mark>/);
+    // Reconstruction invariant · stripping the tags rejoins the text
+    // byte-for-byte (the gap chars moved INSIDE the mark, never lost).
+    expect(html.replace(/<\/?mark[^>]*>/g, "")).toBe(
+      renderToStaticMarkup(<>{text}</>),
+    );
+  });
+
+  test("hits separated by words do NOT coalesce", () => {
+    const text =
+      "We offered Botox and Dysport at the spring event alongside the usual skincare lines our guests already know and love from us.";
+    const html = renderToStaticMarkup(
+      <PrivacyMarkedReplyText
+        text={text}
+        phrases={["Botox", "Dysport"]}
+        markTitle="hint"
+      />,
+    );
+    // " and " gap contains word chars → two separate marks.
+    expect(countMarks(html)).toBe(2);
+    expect(html).toMatch(/<mark[^>]*>Botox<\/mark>/);
+    expect(html).toMatch(/<mark[^>]*>Dysport<\/mark>/);
+  });
+
+  // ---- S6 · saturation collapse ----------------------------------------
+
+  test("saturation collapse · a mostly-flagged reply (Serena-like) renders without inline marks", () => {
+    const s1 =
+      "You wanted any left over in your face and the height you wanted in your lips.";
+    const s2 =
+      "Since 2016 we have refrained to offer a quarter syringe to anyone.";
+    const text = `${s1} ${s2} Thanks.`;
+    const layout = computePrivacyMarkLayout(text, [s1, s2]);
+    expect(layout.coverage).toBeGreaterThan(SATURATION_THRESHOLD);
+    expect(layout.saturated).toBe(true);
+
+    const html = renderToStaticMarkup(
+      <PrivacyMarkedReplyText
+        text={text}
+        phrases={[s1, s2]}
+        markTitle="hint"
+      />,
+    );
+    // > 55% of the reply inside marks → marks are noise. Plain text;
+    // ReviewCard's hint line escalates via the same layout verdict.
+    expect(countMarks(html)).toBe(0);
+    expect(html).toBe(renderToStaticMarkup(<>{text}</>));
+  });
+
+  test("lightly-marked reply (Nadine-like) stays below saturation and keeps inline marks", () => {
+    const text =
+      "Botox and Dysport are priced per unit. We only offered what was needed. We request that all clients complete the intake forms sent with the post treatment instructions before your first appointment with us.";
+    const risk = detectPhiRisk(text);
+    expect(risk.flagged).toBe(true);
+    const phrases = risk.matches.map((m) => m.phrase);
+
+    const layout = computePrivacyMarkLayout(text, phrases);
+    expect(layout.saturated).toBe(false);
+    expect(layout.coverage).toBeLessThanOrEqual(SATURATION_THRESHOLD);
+
+    const html = renderToStaticMarkup(
+      <PrivacyMarkedReplyText text={text} phrases={phrases} markTitle="hint" />,
+    );
+    expect(countMarks(html)).toBeGreaterThanOrEqual(1);
+    expectMarksAtWordBoundaries(html);
   });
 });

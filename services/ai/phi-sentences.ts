@@ -33,8 +33,22 @@ import type { SupportedModel } from "@/services/ai/pricing";
 
 export const DEFAULT_PHI_SENTENCES_MODEL: SupportedModel = "gpt-5.4-nano";
 
-/** Output cap · a worst-case rant must not return an unbounded list. */
-const MAX_PHI_SENTENCES = 6;
+/**
+ * Prompt version · lives in the KV-cache key prefix so bumping it
+ * invalidates every cached verdict (90d TTL) and forces a re-scan
+ * under the new instructions. Bump on EVERY SYSTEM_PROMPT change.
+ *
+ * v2 (2026-06-10): reviewer-specific only — general/educational
+ * statements excluded; at most 3 most-serious sentences.
+ */
+export const PHI_SENTENCES_PROMPT_VERSION = "v2";
+
+/** Output cap, enforced in code regardless of what the model returns.
+ *  3 marked sentences is the readability ceiling — production replies
+ *  with 5-6 flagged sentences rendered as an unreadable wall. The
+ *  prompt asks for the 3 MOST SERIOUS; the post-filter keeps the first
+ *  3 that survive the verbatim check. */
+export const MAX_PHI_SENTENCES = 3;
 
 export const PhiSentencesSchema = z.object({
   /** Sentences copied VERBATIM from the reply that disclose (or imply)
@@ -59,21 +73,27 @@ Schema:
 }
 
 Rules:
-- Return ONLY sentences from the reply that do at least one of:
-  - confirm, deny, or imply that the reviewer was or was not a patient or
-    client of the practice — including indirect admissions ("after
-    reviewing footage of the incident", "we have no record of you",
-    "when you stopped by") that place the reviewer at the practice
-  - reference the reviewer's treatment, procedure, appointment, results,
-    recovery, condition, or medication
-  - reference the reviewer's payment, refund, deposit, or pricing
-    discussion
-  - otherwise disclose or imply a care relationship with the reviewer
+- Return ONLY sentences that disclose something about THE REVIEWER
+  SPECIFICALLY — their visit, treatment, procedure, appointment,
+  results, recovery, condition, medication, dates, payments, refunds,
+  body, consent, or care relationship with the practice — whether the
+  sentence CONFIRMS or DENIES it. Indirect admissions qualify ("after
+  reviewing footage of the incident", "we have no record of you",
+  "when you stopped by") because they place the reviewer at the
+  practice or deny a record of them.
+- EXCLUDE general policy or educational statements that mention no
+  detail about the reviewer. Examples of general statements to exclude:
+  "Toxin takes a full 14 days to take effect"
+  "All injectors state a follow up could be needed"
+  Exclude these even when the surrounding reply discusses the reviewer.
+- Generic marketing language that says nothing about THIS reviewer
+  ("We work hard to give everyone a great experience") does NOT qualify.
+- Return AT MOST the 3 most serious sentences — the ones that most
+  directly disclose the reviewer's care. If more than 3 qualify,
+  return only the 3 most serious.
 - Copy each qualifying sentence VERBATIM — exact characters from the
   reply, complete sentences as written, no paraphrasing, no rewording,
   no merging or splitting sentences.
-- Generic marketing language that says nothing about THIS reviewer
-  ("We work hard to give everyone a great experience") does NOT qualify.
 - Return an empty array if no sentence qualifies.
 - Never invent text that is not in the reply.`;
 
@@ -126,13 +146,14 @@ export async function extractPhiSentencesUncached(
 
 /**
  * Public · cached on (reply text + prompt version). The prompt version
- * lives in the key prefix — bump `v1` whenever SYSTEM_PROMPT changes so
- * stale verdicts re-scan. 90-day TTL ≈ "billed once ever" for a given
- * reply text: flagged replies either get fixed (text changes → new key)
- * or age out of the page long before the TTL recycles.
+ * (PHI_SENTENCES_PROMPT_VERSION) lives in the key prefix — bumping it
+ * whenever SYSTEM_PROMPT changes makes stale verdicts re-scan. 90-day
+ * TTL ≈ "billed once ever" for a given reply text: flagged replies
+ * either get fixed (text changes → new key) or age out of the page
+ * long before the TTL recycles.
  */
 export const extractPhiSentences = kvCache(
-  "ai:phi:sentences:v1",
+  `ai:phi:sentences:${PHI_SENTENCES_PROMPT_VERSION}`,
   { ttl: 90 * 86_400 },
   extractPhiSentencesUncached,
 );
