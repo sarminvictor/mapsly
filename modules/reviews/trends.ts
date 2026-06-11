@@ -14,6 +14,7 @@
 
 import { cacheLife, cacheTag } from "next/cache";
 import prisma from "@/lib/prisma";
+import { monthStart } from "@/lib/review-window";
 import { canonicalizeNames } from "./canonicalize-names";
 
 export interface MonthlyBucket {
@@ -244,22 +245,8 @@ async function computeTrends(businessId: string): Promise<ReviewTrendsData> {
 
 // ---- Helpers -------------------------------------------------------------
 
-/**
- * First-of-month UTC `Date`, `monthsBack` months before `from`.
- *
- * Uses pure integer (year·12 + month) arithmetic instead of `Date.setUTCMonth`
- * so the day-of-month can never overflow. The old `setUTCMonth(m - i)` kept the
- * source day (e.g. 29) and, when the window crossed a short month (Feb 29 in a
- * non-leap year), JS rolled it into the next month — skipping February and
- * duplicating March. That produced two "2026-03" buckets and a React
- * duplicate-key crash on the trend chart for any run on the 29th–31st.
- */
-function monthStart(from: Date, monthsBack: number): Date {
-  const total = from.getUTCFullYear() * 12 + from.getUTCMonth() - monthsBack;
-  const year = Math.floor(total / 12);
-  const month = ((total % 12) + 12) % 12; // 0–11, normalized for negatives
-  return new Date(Date.UTC(year, month, 1));
-}
+// monthStart moved to lib/review-window.ts — shared with the /l landing so
+// service-mention counts can never use different windows again.
 
 function toMonthKey(d: Date): string {
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;

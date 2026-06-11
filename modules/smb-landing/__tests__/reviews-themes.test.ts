@@ -11,7 +11,7 @@
  *
  *  1. **Aggregation mapping** — the unnest rows ({ name, count: bigint })
  *     become the stable `{ label, count: number }[]` themes shape, order
- *     preserved (SQL already sorts DESC and caps at 6), no 12-month window
+ *     preserved (SQL already sorts DESC and caps at 6), portal-identical 12-month window
  *     and the businessId is bound as a parameter.
  *  2. **Zero rows → empty themes** — NO fallback to placeTopics. The noise
  *     being removed must never leak back, even if the business row carries
@@ -27,6 +27,7 @@
  */
 
 import { createElement } from "react";
+import { serviceMentionWindowStart } from "@/lib/review-window";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
@@ -116,7 +117,7 @@ describe("getLandingData · themes from Review.mentionedServices", () => {
     ]);
   });
 
-  test("aggregation is parameterized by businessId, capped at 6, no 12-month window", async () => {
+  test("aggregation is parameterized by businessId, capped at 6, portal-identical 12-month window", async () => {
     seedPrisma([]);
     await getLandingData(BIZ_ID);
 
@@ -130,8 +131,12 @@ describe("getLandingData · themes from Review.mentionedServices", () => {
     expect(sql).toContain("GROUP BY name");
     expect(sql).toContain("ORDER BY count DESC");
     expect(sql).toContain("LIMIT 6");
-    // Landing aggregates ALL collected reviews — no postedAt window.
-    expect(sql).not.toContain("postedAt");
+    // MUST use the same window as the portal's ServiceMentionsCard —
+    // /l and /reviews showing different counts for the same business
+    // reads as fake data (caught live 2026-06-10: 25 vs 21).
+    expect(sql).toContain('"postedAt" >=');
+    const windowParam = values.find((v) => v instanceof Date) as Date;
+    expect(windowParam).toEqual(serviceMentionWindowStart());
     expect(values).toContain(BIZ_ID);
   });
 

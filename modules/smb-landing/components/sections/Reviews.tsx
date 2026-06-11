@@ -485,6 +485,18 @@ export function ReviewsSection({
                         </div>
                       </div>
                     ))}
+                    {/* Same 12-calendar-month window as the portal's
+                        "Your services in reviews" card (lib/review-window) —
+                        the two surfaces must always show identical counts. */}
+                    <p
+                      style={{
+                        margin: "6px 0 0",
+                        fontSize: 11,
+                        color: "var(--color-text-3)",
+                      }}
+                    >
+                      From your Google reviews · last 12 months
+                    </p>
                   </div>
                 ) : (
                   <p

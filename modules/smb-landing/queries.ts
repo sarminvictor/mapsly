@@ -20,6 +20,7 @@
 import { cacheLife, cacheTag } from "next/cache";
 
 import prisma from "@/lib/prisma";
+import { serviceMentionWindowStart } from "@/lib/review-window";
 import { buildOverviewForBusiness } from "@/modules/smb-home/queries";
 
 import { buildLandingCopy } from "./copy";
@@ -260,12 +261,13 @@ export async function getLandingData(
       // Review themes · AI-tagged Review.mentionedServices (canonical
       // BusinessService names), aggregated over ALL collected reviews — the
       // landing wants the full picture, no 12-month window. Same unnest+GROUP
-      // BY shape as modules/reviews/trends.ts. Replaces Google's noisy
+      // BY shape AND the same 12-calendar-bucket window as modules/reviews/trends.ts (shared via lib/review-window) so /l and /reviews always show identical counts. Replaces Google's noisy
       // placeTopics ("YYC 18", "april 9") as the themes source.
       prisma.$queryRaw<{ name: string; count: bigint }[]>`
         SELECT name, COUNT(*)::bigint AS count
         FROM "Review", unnest("mentionedServices") AS name
         WHERE "businessId" = ${businessId}
+          AND "postedAt" >= ${serviceMentionWindowStart()}
         GROUP BY name
         ORDER BY count DESC
         LIMIT 6
