@@ -37,7 +37,7 @@ const ENDPOINTS: readonly Endpoint[] = [
       'When you click "Run" on a tracked location, we send this. DataForSEO returns up to 1000 businesses matching the category within the radius. We pipe each row through mapsRowToPersist → persistBusinessRow.',
     cost: "Variable · DfS bills per row + base. ~$0.0109 at limit=3 · scales linearly. Stored in Business.sourceRawJson + DiscoveryRun.costUsd (real DfS-reported cost).",
     cache:
-      "24h KV cache on identical (categories, coord, limit). Re-running same cell within a day returns cached payload at $0.",
+      "24h KV cache on identical (categories, coord, limit, offset) — each pagination page caches independently. Re-running same cell within a day returns cached payload at $0.",
     triggeredBy:
       "/admin/discovery → RunDiscoveryButton → server action runDiscovery → modules/business-discovery/run.ts → mapsSearch",
     sampleRequest: `[

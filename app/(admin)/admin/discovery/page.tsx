@@ -246,8 +246,29 @@ function LocationRow({ loc }: { loc: AdminLocationRow }) {
           ({loc.lat.toFixed(4)}, {loc.lng.toFixed(4)}) · {loc.radiusKm}km
         </span>
       </div>
-      <span className="admin-row-num">
-        {loc.businessCount.toLocaleString()} biz
+      <span
+        className="admin-row-num"
+        title={
+          loc.lastTotalAvailable !== null
+            ? `${loc.businessCount} indexed of ${loc.lastTotalAvailable} listed on Google in this cell`
+            : "Run discovery to learn how many listings Google has in this cell"
+        }
+      >
+        {loc.businessCount.toLocaleString()}
+        {loc.lastTotalAvailable !== null ? (
+          <span
+            style={{
+              color:
+                loc.businessCount < loc.lastTotalAvailable
+                  ? "var(--admin-warn)"
+                  : "var(--admin-ok)",
+            }}
+          >
+            {" / "}
+            {loc.lastTotalAvailable.toLocaleString()}
+          </span>
+        ) : null}{" "}
+        biz
       </span>
       <span
         className="admin-row-num admin-muted"
@@ -308,7 +329,7 @@ function RecentRunsTable({ rows }: { rows: RecentRunRow[] }) {
             <th>Category</th>
             <th>City</th>
             <th>Status</th>
-            <th>Returned</th>
+            <th title="Returned / available on Google in the cell">Returned</th>
             <th>New</th>
             <th>Duplicates</th>
             <th>Errors</th>
@@ -331,7 +352,12 @@ function RecentRunsTable({ rows }: { rows: RecentRunRow[] }) {
                   {r.status.toLowerCase()}
                 </span>
               </td>
-              <td className="admin-mono">{r.totalReturned}</td>
+              <td className="admin-mono">
+                {r.totalReturned}
+                {r.totalAvailable !== null ? (
+                  <span className="admin-muted"> / {r.totalAvailable}</span>
+                ) : null}
+              </td>
               <td className="admin-mono">+{r.newBusinesses}</td>
               <td className="admin-mono admin-muted">{r.duplicates}</td>
               <td className="admin-mono admin-muted">{r.errors}</td>

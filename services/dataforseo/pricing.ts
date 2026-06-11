@@ -21,9 +21,13 @@
 // pricing page.
 
 export const DATAFORSEO_UNIT_COST_USD = {
-  /** /v3/business_data/business_listings/search/live — $0.001 per call,
-   *  up to 1000 listings returned. */
-  mapsSearch: 0.001,
+  /** /v3/business_data/business_listings/search/live — VARIABLE COST.
+   *  Observed billing: ~$0.01 base per call + ~$0.0003 per returned
+   *  listing (limit=25 → $0.0175, limit=50 → $0.025 · verified against
+   *  DiscoveryRun history 2026-05-26). The adapter bills `task.cost`
+   *  from the response; this constant is the per-call base FALLBACK
+   *  used only when the envelope omits cost. */
+  mapsSearch: 0.01,
 
   /** /v3/serp/google/organic/live/advanced — $0.002 per query (Live tier;
    *  Standard would be $0.0002). */

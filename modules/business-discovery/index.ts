@@ -29,3 +29,19 @@ export { geocodeLocation, type GeocodeResult } from "./geocode";
 export { pingValidateLocation, type PingValidateResult } from "./ping-validate";
 
 export { runDiscoveryForLocation, type DiscoveryRunSummary } from "./run";
+
+export {
+  DFS_PAGE_SIZE,
+  MAX_DISCOVERY_LIMIT,
+  DEFAULT_DISCOVERY_LIMIT,
+  clampLimit,
+  nextPageLimit,
+  estimateDiscoveryCostUsd,
+} from "./pagination";
+
+export {
+  boundingBoxForCell,
+  cellMembershipWhere,
+  type BoundingBox,
+  type CellGeometry,
+} from "./cell-membership";

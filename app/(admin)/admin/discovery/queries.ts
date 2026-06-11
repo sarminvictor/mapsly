@@ -30,6 +30,9 @@ export interface AdminLocationRow {
   radiusKm: number;
   isActive: boolean;
   businessCount: number;
+  /** DfS total_count from the latest run — null until a run reports it.
+   *  businessCount vs this = how saturated our index is for the cell. */
+  lastTotalAvailable: number | null;
   lastRunAt: Date | null;
   totalRuns: number;
   totalNewFound: number;
@@ -62,6 +65,7 @@ export interface RecentRunRow {
   finishedAt: Date | null;
   status: "RUNNING" | "OK" | "PARTIAL" | "FAILED";
   totalReturned: number;
+  totalAvailable: number | null;
   newBusinesses: number;
   duplicates: number;
   errors: number;
@@ -122,6 +126,7 @@ export async function getDiscoveryRegistry(): Promise<AdminCategoryGroup[]> {
           radiusKm: true,
           isActive: true,
           businessCount: true,
+          lastTotalAvailable: true,
           lastRunAt: true,
           totalRuns: true,
           totalNewFound: true,
@@ -177,6 +182,7 @@ export async function getRecentDiscoveryRuns(): Promise<RecentRunRow[]> {
     finishedAt: r.finishedAt,
     status: r.status,
     totalReturned: r.totalReturned,
+    totalAvailable: r.totalAvailable,
     newBusinesses: r.newBusinesses,
     duplicates: r.duplicates,
     errors: r.errors,

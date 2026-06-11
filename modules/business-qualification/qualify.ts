@@ -29,6 +29,7 @@ import prisma from "@/lib/prisma";
 
 import { findEmailViaAi } from "@/services/ai";
 import { detectAndPersistServices } from "@/services/business-services-detect";
+import { cellMembershipWhere } from "@/modules/business-discovery";
 import {
   triggerReviewPullForBusiness,
   type TriggerReviewPullResult,
@@ -327,6 +328,9 @@ export async function qualifyCell(
       city: true,
       country: true,
       province: true,
+      lat: true,
+      lng: true,
+      radiusKm: true,
       category: { select: { dataforseoId: true } },
     },
   });
@@ -334,15 +338,19 @@ export async function qualifyCell(
     throw new Error(`TrackedLocation ${trackedLocationId} not found`);
   }
 
-  // Cell membership · category appears in categoryIds, same city + country.
-  // We use `category_ids` (DfS slug array) because primary `category` is
-  // the display name which doesn't match our cell's dataforseoId slug.
+  // Cell membership · shared geo bounding-box definition — see
+  // modules/business-discovery/cell-membership.ts. Previously exact
+  // city match, which silently skipped radius-discovered businesses
+  // whose Google city differs (Coral Gables in a Miami cell).
   const businesses = await prisma.business.findMany({
-    where: {
-      categoryIds: { has: cell.category.dataforseoId },
+    where: cellMembershipWhere({
+      dataforseoCategoryId: cell.category.dataforseoId,
+      lat: cell.lat,
+      lng: cell.lng,
+      radiusKm: cell.radiusKm,
       city: cell.city,
       country: cell.country,
-    },
+    }),
     select: { id: true },
   });
 
@@ -430,6 +438,9 @@ export async function recomputeCellAggregates(
       id: true,
       city: true,
       country: true,
+      lat: true,
+      lng: true,
+      radiusKm: true,
       category: { select: { dataforseoId: true } },
     },
   });
@@ -439,11 +450,14 @@ export async function recomputeCellAggregates(
 
   const counts = await prisma.business.groupBy({
     by: ["qualificationStatus"],
-    where: {
-      categoryIds: { has: cell.category.dataforseoId },
+    where: cellMembershipWhere({
+      dataforseoCategoryId: cell.category.dataforseoId,
+      lat: cell.lat,
+      lng: cell.lng,
+      radiusKm: cell.radiusKm,
       city: cell.city,
       country: cell.country,
-    },
+    }),
     _count: { id: true },
   });
   const tally = (s: QualificationStatusValue): number =>

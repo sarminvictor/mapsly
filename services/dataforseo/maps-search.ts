@@ -5,11 +5,14 @@
 // modules/business-discovery). Also used by weekly/competitor-diff to
 // scan an anchored market for entrants/exits.
 //
-// Cache: 24h. Repeated calls with identical (categories, coord, limit)
-// return the same payload — dedup window prevents accidental rebill.
+// Cache: 24h. Repeated calls with identical (categories, coord, limit,
+// offset) return the same payload — dedup window prevents accidental
+// rebill, and each pagination page caches independently.
 //
-// Cost: $0.001 per call (Live tier). Standard queue would be $0.0001 with
-// polling — tracked as future optimization.
+// Cost: row-priced on Live tier — observed ~$0.01 base per call +
+// ~$0.0003 per returned listing (limit=25 → $0.0175, limit=50 → $0.025,
+// verified against DiscoveryRun history 2026-05-26). The adapter bills
+// the actual `task.cost` DfS reports, so the ledger matches the invoice.
 
 import { z } from "zod";
 import { kvCache } from "@/lib/cache";
@@ -37,6 +40,11 @@ export const MapsSearchQuerySchema = z.object({
   language_code: z.string().min(2).default("en"),
   /** Max results returned. Hard-capped at 1000 by DataForSEO. */
   limit: z.number().int().min(1).max(1000).default(100),
+  /** Offset into the result set — DfS pagination for cells with more
+   *  than 1000 listings. Sound up to ~10k per DfS docs; beyond that
+   *  they recommend offset_token (not needed at city-cell scale).
+   *  Part of the KV cache key, so each page caches independently. */
+  offset: z.number().int().min(0).max(9000).default(0),
 });
 export type MapsSearchQuery = z.input<typeof MapsSearchQuerySchema>;
 

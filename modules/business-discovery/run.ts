@@ -4,17 +4,27 @@
  * Invoked by `/admin/discovery` server action when the admin clicks
  * "Run discovery" on a `TrackedLocation` row. Wraps:
  *   1. Open a `DiscoveryRun` row (status: RUNNING)
- *   2. Call DataForSEO Maps with the cell's coords + category + radius
- *   3. Pipe results through `mapsRowToPersist` + `persistBusinessRow`
+ *   2. Page through DataForSEO Maps (≤1000/call, offset pagination)
+ *      until the requested limit, the cell's `total_count`, or a short
+ *      page stops the loop — dense cells no longer truncate at one call
+ *   3. Batch-dedup each page (ONE query) then pipe new rows through
+ *      `mapsRowToPersist` + `persistBusinessRow`
  *   4. Tally new vs duplicate vs error counts
- *   5. Close the run (status: OK / PARTIAL / FAILED) + cost
+ *   5. Close the run (status: OK / PARTIAL / FAILED) + cost +
+ *      `totalAvailable` (DfS total_count → cell saturation visibility)
  *   6. Update the cell's denormalized aggregates
  *   7. Revalidate cache tags so the admin page reflects the new state
  *
- * Cost: $0.001 per run (one Maps call, regardless of limit up to 1000).
- * The 24h KV cache on `mapsSearch` means re-running the same cell
- * within a day returns cached rows at zero additional cost — admin can
- * safely retry without rebilling.
+ * Cost: row-priced — ~$0.01 base per page + ~$0.0003 per listing
+ * (observed; the adapter bills DfS's actual task.cost). Worst case at
+ * MAX_DISCOVERY_LIMIT=10000 ≈ $3.10, under the $5 approval ceiling.
+ *
+ * Crash-safety: progress CHECKPOINTS after every page — run counts and
+ * cell aggregates persist incrementally, so a Vercel 300s timeout on a
+ * fully-new 10k pull loses nothing (the run row just stays RUNNING
+ * without a finishedAt). Re-clicking resumes cheaply: the 24h KV cache
+ * keys per page (re-fetch is free) and batch dedup fast-forwards past
+ * already-persisted rows.
  */
 
 import { revalidateTag } from "next/cache";
@@ -24,15 +34,20 @@ import prisma from "@/lib/prisma";
 import { mapsSearch } from "@/services/dataforseo";
 import { DATAFORSEO_UNIT_COST_USD } from "@/services/dataforseo/pricing";
 
-import { mapsRowToPersist, persistBusinessRow } from "./persist";
-
-const DEFAULT_LIMIT = 100;
-const MAX_LIMIT = 200;
+import { clampLimit, nextPageLimit } from "./pagination";
+import {
+  findExistingBusinessKeys,
+  mapsRowToPersist,
+  persistBusinessRow,
+} from "./persist";
 
 export interface DiscoveryRunSummary {
   runId: string;
   status: "OK" | "PARTIAL" | "FAILED";
   totalReturned: number;
+  /** DfS `total_count` — how many listings exist in the cell, null if
+   *  the envelope omitted it. Drives the saturation display. */
+  totalAvailable: number | null;
   newBusinesses: number;
   duplicates: number;
   errors: number;
@@ -51,7 +66,7 @@ export async function runDiscoveryForLocation(input: {
   triggeredByUserId: string | null;
   limit?: number;
 }): Promise<DiscoveryRunSummary> {
-  const limit = clampLimit(input.limit ?? DEFAULT_LIMIT);
+  const limit = clampLimit(input.limit ?? NaN);
 
   const cell = await prisma.trackedLocation.findUnique({
     where: { id: input.trackedLocationId },
@@ -84,13 +99,14 @@ export async function runDiscoveryForLocation(input: {
   });
 
   let totalReturned = 0;
+  let totalAvailable: number | null = null;
   let newBusinesses = 0;
   let duplicates = 0;
   let errors = 0;
   let errorMessage: string | null = null;
-  // Default to the flat estimate; we'll overwrite with the actual billed
-  // cost reported by DfS once the response lands. If the API throws
-  // before reporting cost, the estimate is the safest under-attribution
+  // Default to the flat estimate; pages overwrite with the sum of
+  // actual billed costs reported by DfS. If the API throws before
+  // reporting cost, the estimate is the safest under-attribution
   // (CronRun.costUsd still increments correctly via incrementCost
   // inside mapsSearch — see services/dataforseo/maps-search.ts).
   let costUsd: number = DATAFORSEO_UNIT_COST_USD.mapsSearch;
@@ -100,38 +116,107 @@ export async function runDiscoveryForLocation(input: {
     // run inside an open CronRun. Admin-triggered runs use a dedicated
     // job name ("admin:discovery-run") so the unified cost ledger can
     // distinguish admin clicks from scheduled cron work in reports.
+    // ONE CronRun wraps the whole pagination loop — the run's full cost
+    // lands on a single ledger row.
     //
     // Two ledgers, one truth:
     //   - CronRun.costUsd · charged by mapsSearch via incrementCost with
     //     DfS's actual `task.cost` (matches the invoice exactly).
-    //   - DiscoveryRun.costUsd · we copy `result.rawCostUsd` below so the
-    //     per-cell audit row carries the same exact value.
-    const result = await withCronRun("admin:discovery-run", () =>
-      mapsSearch({
-        categories: [cell.category.dataforseoId],
-        location_coordinate: `${cell.lat.toFixed(6)},${cell.lng.toFixed(6)},${cell.radiusKm}`,
-        language_code: "en",
-        limit,
-      }),
-    );
-    totalReturned = result.items.length;
-    costUsd = result.rawCostUsd;
+    //   - DiscoveryRun.costUsd · we sum `rawCostUsd` per page below so
+    //     the per-cell audit row carries the same exact value.
+    await withCronRun("admin:discovery-run", async () => {
+      let pagesCost = 0;
+      let offset = 0;
 
-    for (const row of result.items) {
-      const shape = mapsRowToPersist(row, {
-        city: cell.city,
-        province: cell.province,
-        country: cell.country,
-      });
-      if (!shape) {
-        errors += 1;
-        continue;
+      for (;;) {
+        const pageLimit = nextPageLimit({
+          requestedLimit: limit,
+          fetched: totalReturned,
+          totalAvailable,
+        });
+        if (pageLimit === 0) break;
+
+        const page = await mapsSearch({
+          categories: [cell.category.dataforseoId],
+          location_coordinate: `${cell.lat.toFixed(6)},${cell.lng.toFixed(6)},${cell.radiusKm}`,
+          language_code: "en",
+          limit: pageLimit,
+          offset,
+        });
+
+        pagesCost += page.rawCostUsd;
+        costUsd = pagesCost;
+        if (typeof page.totalCount === "number") {
+          totalAvailable = page.totalCount;
+        }
+        totalReturned += page.items.length;
+        offset += page.items.length;
+
+        // Batch dedup — one query per page instead of one per row, so
+        // mostly-known pages (re-runs, buffer pulls) stay fast.
+        const known = await findExistingBusinessKeys({
+          cids: page.items.map((r) => r.cid).filter((v): v is string => !!v),
+          placeIds: page.items
+            .map((r) => r.place_id)
+            .filter((v): v is string => !!v),
+        });
+
+        let pageNew = 0;
+        for (const row of page.items) {
+          const shape = mapsRowToPersist(row, {
+            city: cell.city,
+            province: cell.province,
+            country: cell.country,
+          });
+          if (!shape) {
+            errors += 1;
+            continue;
+          }
+          if (
+            (shape.googleCid && known.cids.has(shape.googleCid)) ||
+            (shape.googlePlaceId && known.placeIds.has(shape.googlePlaceId))
+          ) {
+            duplicates += 1;
+            continue;
+          }
+          const outcome = await persistBusinessRow(shape, "DISCOVERY");
+          if (outcome === "created") {
+            newBusinesses += 1;
+            pageNew += 1;
+          } else if (outcome === "duplicate") duplicates += 1;
+          else errors += 1;
+        }
+
+        // CHECKPOINT · persist this page's progress so a function
+        // timeout mid-pull can't lose counts or cell aggregates. The
+        // run stays RUNNING until the final close below; increments
+        // here are per-page deltas (the close does NOT re-add them).
+        await prisma.$transaction([
+          prisma.discoveryRun.update({
+            where: { id: run.id },
+            data: {
+              totalReturned,
+              totalAvailable,
+              newBusinesses,
+              duplicates,
+              errors,
+              costUsd,
+            },
+          }),
+          prisma.trackedLocation.update({
+            where: { id: cell.id },
+            data: {
+              businessCount: { increment: pageNew },
+              totalNewFound: { increment: pageNew },
+              totalCostUsd: { increment: page.rawCostUsd },
+            },
+          }),
+        ]);
+
+        // Short page = cell exhausted (also covers missing total_count).
+        if (page.items.length < pageLimit) break;
       }
-      const outcome = await persistBusinessRow(shape, "DISCOVERY");
-      if (outcome === "created") newBusinesses += 1;
-      else if (outcome === "duplicate") duplicates += 1;
-      else errors += 1;
-    }
+    });
   } catch (err) {
     errorMessage = err instanceof Error ? err.message : "Discovery run failed.";
   }
@@ -142,6 +227,8 @@ export async function runDiscoveryForLocation(input: {
     errors,
   });
 
+  // Final close. Counts/cost on the cell were already incremented by
+  // the per-page checkpoints — only run-level closure fields here.
   await prisma.$transaction([
     prisma.discoveryRun.update({
       where: { id: run.id },
@@ -149,6 +236,7 @@ export async function runDiscoveryForLocation(input: {
         finishedAt: new Date(),
         status,
         totalReturned,
+        totalAvailable,
         newBusinesses,
         duplicates,
         errors,
@@ -161,9 +249,8 @@ export async function runDiscoveryForLocation(input: {
       data: {
         lastRunAt: new Date(),
         totalRuns: { increment: 1 },
-        totalNewFound: { increment: newBusinesses },
-        totalCostUsd: { increment: costUsd },
-        businessCount: { increment: newBusinesses },
+        // Saturation denormalized onto the cell — only when DfS told us
+        lastTotalAvailable: totalAvailable ?? undefined,
         // Re-affirm "verified" — cell is still yielding live rows
         verifiedAt: totalReturned > 0 ? new Date() : undefined,
       },
@@ -179,17 +266,13 @@ export async function runDiscoveryForLocation(input: {
     runId: run.id,
     status,
     totalReturned,
+    totalAvailable,
     newBusinesses,
     duplicates,
     errors,
     costUsd,
     errorMessage,
   };
-}
-
-function clampLimit(raw: number): number {
-  if (!Number.isFinite(raw) || raw <= 0) return DEFAULT_LIMIT;
-  return Math.min(Math.max(1, Math.floor(raw)), MAX_LIMIT);
 }
 
 function chooseStatus(input: {

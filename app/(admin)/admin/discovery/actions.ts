@@ -26,6 +26,7 @@ import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 
 import {
+  cellMembershipWhere,
   geocodeLocation,
   getKnownCategory,
   pingValidateLocation,
@@ -237,7 +238,10 @@ export async function addLocation(
 
 const RunDiscoverySchema = z.object({
   trackedLocationId: z.string().min(1),
-  limit: z.coerce.number().int().min(1).max(200).default(100),
+  // Runner paginates internally in ≤1000-row DfS pages; 10000 = DfS's
+  // offset ceiling — full coverage of even the densest city cell
+  // (see modules/business-discovery/pagination.ts).
+  limit: z.coerce.number().int().min(1).max(10_000).default(100),
 });
 
 export type RunDiscoveryResult = {
@@ -245,6 +249,7 @@ export type RunDiscoveryResult = {
   newBusinesses: number;
   duplicates: number;
   totalReturned: number;
+  totalAvailable: number | null;
   status: "OK" | "PARTIAL" | "FAILED";
 };
 
@@ -282,11 +287,16 @@ export async function runDiscovery(
         newBusinesses: summary.newBusinesses,
         duplicates: summary.duplicates,
         totalReturned: summary.totalReturned,
+        totalAvailable: summary.totalAvailable,
         status: summary.status,
       },
       message:
         summary.status === "OK"
-          ? `Found ${summary.totalReturned} businesses · ${summary.newBusinesses} new · ${summary.duplicates} known.`
+          ? `Found ${summary.totalReturned}${
+              summary.totalAvailable !== null
+                ? ` of ${summary.totalAvailable} available`
+                : ""
+            } · ${summary.newBusinesses} new · ${summary.duplicates} known.`
           : (summary.errorMessage ?? "Run completed with errors."),
     };
   } catch (err) {
@@ -349,6 +359,9 @@ export async function runQualifyCell(
       id: true,
       city: true,
       country: true,
+      lat: true,
+      lng: true,
+      radiusKm: true,
       category: { select: { dataforseoId: true } },
     },
   });
@@ -356,15 +369,19 @@ export async function runQualifyCell(
     return { ok: false, error: "Location not found." };
   }
 
-  // Match cell membership the same way `qualifyCell()` does: by
-  // (DfS-slug in categoryIds[], city, country). Keeps the worker-driven
-  // path identical to the direct path so tests/smoke scripts stay valid.
+  // Cell membership shared with `qualifyCell()` — geo bounding box, see
+  // modules/business-discovery/cell-membership.ts. Keeps the worker-
+  // driven path identical to the direct path so tests/smoke scripts
+  // stay valid.
   const businesses = await prisma.business.findMany({
-    where: {
-      categoryIds: { has: cell.category.dataforseoId },
+    where: cellMembershipWhere({
+      dataforseoCategoryId: cell.category.dataforseoId,
+      lat: cell.lat,
+      lng: cell.lng,
+      radiusKm: cell.radiusKm,
       city: cell.city,
       country: cell.country,
-    },
+    }),
     select: { id: true },
   });
 

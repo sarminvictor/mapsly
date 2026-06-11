@@ -1537,6 +1537,9 @@ model TrackedLocation {
   totalRuns     Int       @default(0)
   totalNewFound Int       @default(0)
   totalCostUsd  Float     @default(0)
+  // DfS total_count from the latest run — how many listings Google has
+  // in this cell. businessCount vs this = coverage / saturation.
+  lastTotalAvailable Int?
 
   // Qualification aggregates · updated when admin runs Qualify
   qualifiedCount      Int       @default(0)
@@ -1583,6 +1586,9 @@ model DiscoveryRun {
 
   // What we got back
   totalReturned Int     @default(0)
+  // DfS total_count — listings available in the cell at run time.
+  // totalReturned < totalAvailable ⇒ the cell wasn't fully pulled.
+  totalAvailable Int?
   newBusinesses Int     @default(0)
   duplicates    Int     @default(0)
   errors        Int     @default(0)

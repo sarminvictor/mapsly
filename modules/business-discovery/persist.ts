@@ -274,6 +274,45 @@ export async function mintUniqueSlug(name: string): Promise<string> {
 }
 
 /**
+ * Batch dedup pre-filter · ONE query per page instead of one per row.
+ *
+ * `persistBusinessRow` checks (CID, placeId) individually — fine at
+ * limit≤200, but a 1000-row page of mostly-known businesses would burn
+ * 1000 sequential round-trips. The runner calls this first and only
+ * routes genuinely-new rows into `persistBusinessRow` (which keeps its
+ * own re-check as the race guard).
+ */
+export async function findExistingBusinessKeys(rows: {
+  cids: string[];
+  placeIds: string[];
+}): Promise<{ cids: Set<string>; placeIds: Set<string> }> {
+  if (rows.cids.length === 0 && rows.placeIds.length === 0) {
+    return { cids: new Set(), placeIds: new Set() };
+  }
+  const existing = await prisma.business.findMany({
+    where: {
+      OR: [
+        rows.cids.length
+          ? { googleCid: { in: rows.cids } }
+          : { id: "__never__" },
+        rows.placeIds.length
+          ? { googlePlaceId: { in: rows.placeIds } }
+          : { id: "__never__" },
+      ],
+    },
+    select: { googleCid: true, googlePlaceId: true },
+  });
+  return {
+    cids: new Set(
+      existing.map((e) => e.googleCid).filter((v): v is string => !!v),
+    ),
+    placeIds: new Set(
+      existing.map((e) => e.googlePlaceId).filter((v): v is string => !!v),
+    ),
+  };
+}
+
+/**
  * Outcome of attempting to insert one row. Lets the caller tally
  * new vs duplicate vs error counts for the `DiscoveryRun` audit row.
  */
