@@ -665,19 +665,19 @@ model AdMarketAdvertiser {
 // collection pipeline (cron/manual · cost-gated), read by the SMB /ads Meta
 // block. Never generated in the user request path. See services/ai/ad-creative-insights.
 model AdMarketInsight {
-  id           String     @id @default(cuid())
-  category     String
-  city         String
-  country      String
-  platform     AdPlatform @default(META)
+  id                String     @id @default(cuid())
+  category          String
+  city              String
+  country           String
+  platform          AdPlatform @default(META)
   // AI-extracted, rule-bounded. serviceMix: [{ service, ads }] · promos:
   // [{ label, offer, price }]. Deterministic numbers (% video, platform spread,
   // personalized gaps) are computed in the query layer, NOT stored here.
-  serviceMix   Json
-  promos       Json
-  creativesAnalyzed Int    @default(0)
-  model        String?
-  generatedAt  DateTime   @default(now())
+  serviceMix        Json
+  promos            Json
+  creativesAnalyzed Int        @default(0)
+  model             String?
+  generatedAt       DateTime   @default(now())
 
   @@unique([category, city, country, platform])
   @@index([category, city, country])
@@ -1087,7 +1087,7 @@ model LandingEvent {
   landingPageId String
   landingPage   LandingPage @relation(fields: [landingPageId], references: [id], onDelete: Cascade)
 
-  type LandingEventType
+  type    LandingEventType
   // For SECTION_VIEWED: which section scrolled into view ("hero", "changes",
   // "search", "ads", "reviews", "website", "fixes", "pricing"). For
   // CTA_CLICKED: which CTA ("top", "hero", "fixes", "pricing").
@@ -1103,6 +1103,12 @@ model LandingEvent {
   ipHash    String?
   userAgent String? @db.Text
   isBot     Boolean @default(false)
+  // WHY isBot was set (plan #17 anti-bot stats) — null when isBot=false.
+  // Values minted by lib/bot-detect.ts: "ua-scanner" (security scanner /
+  // crawler UA) · "ua-proxy" (mail-provider image proxy) · "datacenter-ip"
+  // (reserved · needs raw IP at ingest) · "no-engagement" (reserved ·
+  // retro-classified sessions with PAGE_OPENED but zero SECTION_VIEWED).
+  botReason String?
 
   // Conversion linkage (CHECKOUT_OPENED / SUBSCRIPTION_BOUGHT).
   stripeSessionId String?
@@ -1124,6 +1130,11 @@ enum LandingEventType {
   CTA_CLICKED
   CHECKOUT_OPENED
   SUBSCRIPTION_BOUGHT
+  // Free weekly-score signup (plan #7). Emitted SERVER-SIDE by the subscribe
+  // endpoint (like SUBSCRIPTION_BOUGHT via the Stripe webhook) — NEVER
+  // accepted from the client beacon at /api/landing-events; a client can't be
+  // trusted to claim a conversion.
+  FREE_SIGNUP
 }
 
 // ============================================================================
@@ -1672,11 +1683,29 @@ model ColdSend {
   subject        String?
   bounceReason   String?
   errorMessage   String?
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
+
+  // ── Open tracking · /o/[token] pixel (plan #7) ─────────────────────────
+  // RAW signals only — classification lives in lib/bot-detect.ts so the
+  // heuristics can evolve and stats can be re-derived retroactively. Opens
+  // are a FUZZY UPPER BOUND (Apple MPP + Gmail image proxies auto-fetch,
+  // inflating ~50%) — clicks/landing visits are the truth (plan #17).
+  firstOpenedAt      DateTime?
+  lastOpenedAt       DateTime?
+  openCount          Int       @default(0) // NOT NULL — incremented (prisma.md §5b)
+  firstOpenUserAgent String?   @db.Text
+  // True while EVERY open so far looks like machine prefetch (<5s after
+  // sentAt or a known image-proxy UA — lib/bot-detect.isPrefetchOpen).
+  // Cleared by the pixel route the first time a human-looking open arrives.
+  // Denormalized hint for cheap human-open stats; raw fields above stay
+  // authoritative for reclassification.
+  suspectedPrefetch  Boolean   @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([status, scheduledFor])
   @@index([recipientId])
+  @@index([firstOpenedAt])
 }
 
 model ColdSuppression {
@@ -1728,6 +1757,43 @@ model ConsentRecord {
   expiresAt     DateTime?
 
   @@index([email])
+}
+
+// Free weekly-score email list (plan #7) — the ENGAGED / nurture list. Lives
+// fully OUTSIDE the cold engine by Viktor's decision: never counted against
+// cold caps, never enrolled in ColdCampaign sequences, sent via the Resend
+// transactional path (plan #10 shares the digest template). Unsubscribe is
+// PER-SUBSCRIPTION (does NOT write ColdSuppression — opting out of the free
+// digest must not also block transactional mail, and vice versa).
+// Every signup writes a ConsentRecord with basis EXPRESS in the same
+// transaction (soft-linked via consentRecordId).
+model WeeklyScoreSubscriber {
+  id            String  @id @default(cuid())
+  email         String
+  businessId    String? // soft ref to Business (same convention as ColdRecipient.businessId)
+  landingPageId String? // soft ref to LandingPage — which landing captured the signup (attribution)
+
+  // Unguessable random token minted at signup (crypto.randomBytes(16)
+  // .toString("base64url") — STORED, unlike the stateless HMAC /u tokens,
+  // because revocation is per-subscription row, not per-email).
+  // → /wu/[token] unsubscribe link in every weekly email.
+  unsubToken String @unique
+
+  // Soft ref to the EXPRESS ConsentRecord written at signup (CASL/CAN-SPAM
+  // defense file — proves the opt-in for this exact email + business).
+  consentRecordId String?
+
+  source         String    @default("landing") // "landing" today · future: "portal", "import"
+  createdAt      DateTime  @default(now())
+  unsubscribedAt DateTime? // null = active · re-subscribe clears it (row is reused, token rotates)
+
+  // Weekly digest bookkeeping (plan #10 sender cron).
+  lastSentAt DateTime?
+  sendCount  Int       @default(0) // NOT NULL — incremented (prisma.md §5b)
+
+  @@unique([email, businessId]) // re-submits are idempotent upserts
+  @@index([businessId])
+  @@index([unsubscribedAt, lastSentAt]) // digest cron: active subscribers due a send
 }
 
 model ColdSetting {
