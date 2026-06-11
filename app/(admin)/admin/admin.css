@@ -364,7 +364,11 @@
 
 .admin-row-actions {
   display: grid;
-  grid-template-columns: 140px 110px 80px;
+  /* First track holds select+Run; sized for the widest limit label
+     ("10,000 · $3.10" at 11px) NEXT TO the pending "Running…" button
+     so the select can never bleed into the Qualify column (broke
+     2026-06-11 when cost labels widened it). */
+  grid-template-columns: 200px 110px 80px;
   gap: 8px;
   justify-content: end;
 }
@@ -376,12 +380,24 @@
 .admin-row-actions > form {
   display: flex;
   width: 100%;
+  min-width: 0;
   gap: 6px;
 }
 
 .admin-row-actions > form > button {
   flex: 1;
   white-space: nowrap;
+}
+
+/* The limit select shrinks (clipping its label) rather than overflowing
+   its grid track — overlap is never an acceptable failure mode. */
+.admin-row-actions > form > select {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.admin-row-actions > form > button[type="submit"]:not(:only-child) {
+  flex: 0 0 auto;
 }
 
 .admin-msg-ok {

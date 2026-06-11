@@ -32,7 +32,9 @@ const LIMIT_OPTIONS = [25, 50, 100, 200, 500, 1000, 2000, 5000, 10_000];
 
 function optionLabel(n: number): string {
   const cost = estimateDiscoveryCostUsd(n);
-  return `${n.toLocaleString()} · ~$${cost.toFixed(2)}`;
+  // Compact on purpose — the closed select must fit its 190px grid
+  // track in .admin-row-actions ("10,000 · $3.10" is the widest case).
+  return `${n.toLocaleString("en-US")} · $${cost.toFixed(2)}`;
 }
 
 const initial: ActionResult<RunDiscoveryResult> | null = null;
