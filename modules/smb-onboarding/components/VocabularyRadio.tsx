@@ -1,21 +1,31 @@
+"use client";
+
 /**
- * Vocabulary radio group · server component.
+ * Vocabulary radio group · client component.
  *
- * Form-submit-only (no live interactivity) — sits inside the page's
- * step-2 <form>. A native <input type="radio"> means we stay a server
- * component (no `'use client'`), which keeps the route streamable.
+ * `'use client'` because selecting a medical vocabulary (med-spa,
+ * dental) reveals a quiet reassurance line under the selector — reply
+ * drafts are HIPAA-aware and never confirm someone was a patient. That
+ * needs live selection state. The radios stay native and submit through
+ * the surrounding step <form>; this is a leaf component so the route
+ * stays streamable (per `.claude/rules/performance.md`).
  *
  * Per `.claude/rules/accessibility.md`:
  *   - <fieldset> + <legend> groups the choices
  *   - native radios → built-in keyboard arrow navigation
  *   - visible focus ring via `:focus-visible` (handled by globals.css)
+ *   - the medical note lives in an always-mounted `aria-live="polite"`
+ *     region so screen readers announce it when it appears
  *
- * Per `.claude/rules/ui-ux-smb.md` — warm cream cards, no jargon. The
- * labels are passed from the parent page so all copy stays in the i18n
- * messages file.
+ * Per `.claude/rules/ui-ux-smb.md` — warm cream cards, no jargon. All
+ * copy (labels + note) is passed from the parent page as plain strings
+ * so it stays in the i18n messages file and no function props cross the
+ * server→client boundary (cache-components Pattern 4).
  */
 
-import type { Vocabulary } from "../types";
+import { useState } from "react";
+
+import { MEDICAL_VOCABULARIES, type Vocabulary } from "../types";
 
 interface VocabularyOption {
   value: Vocabulary;
@@ -27,12 +37,24 @@ export function VocabularyRadio({
   options,
   defaultValue,
   legend,
+  medicalNote,
 }: {
   name: string;
   options: ReadonlyArray<VocabularyOption>;
   defaultValue?: Vocabulary;
   legend: string;
+  /** Quiet line shown under the selector when a medical vocabulary
+   *  (see `MEDICAL_VOCABULARIES`) is selected. Pre-resolved string. */
+  medicalNote?: string;
 }) {
+  const [selected, setSelected] = useState<Vocabulary | undefined>(
+    defaultValue,
+  );
+  const showMedicalNote =
+    medicalNote !== undefined &&
+    selected !== undefined &&
+    MEDICAL_VOCABULARIES.includes(selected);
+
   return (
     <fieldset
       style={{
@@ -60,7 +82,7 @@ export function VocabularyRadio({
         }}
       >
         {options.map((opt) => {
-          const checked = opt.value === defaultValue;
+          const checked = opt.value === selected;
           return (
             <label
               key={opt.value}
@@ -83,7 +105,8 @@ export function VocabularyRadio({
                 type="radio"
                 name={name}
                 value={opt.value}
-                defaultChecked={checked}
+                checked={checked}
+                onChange={() => setSelected(opt.value)}
                 style={{
                   width: 18,
                   height: 18,
@@ -95,6 +118,19 @@ export function VocabularyRadio({
           );
         })}
       </div>
+      {medicalNote !== undefined && (
+        <p
+          aria-live="polite"
+          style={{
+            margin: "12px 0 0",
+            fontSize: 13,
+            lineHeight: 1.5,
+            color: "var(--color-text-2)",
+          }}
+        >
+          {showMedicalNote ? medicalNote : ""}
+        </p>
+      )}
     </fieldset>
   );
 }

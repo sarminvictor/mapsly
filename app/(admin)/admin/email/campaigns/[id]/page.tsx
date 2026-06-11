@@ -33,6 +33,20 @@ const h2: React.CSSProperties = {
   margin: "0 0 12px",
   fontWeight: 600,
 };
+const th: React.CSSProperties = {
+  textAlign: "left",
+  fontSize: 11,
+  textTransform: "uppercase",
+  letterSpacing: 0.4,
+  color: "#999",
+  padding: "6px 10px",
+  borderBottom: "1px solid #ece7df",
+};
+const td: React.CSSProperties = {
+  padding: "8px 10px",
+  fontSize: 13,
+  borderBottom: "1px solid #f4f0e9",
+};
 
 export default function CampaignDetailPage({
   params,
@@ -103,6 +117,48 @@ async function Body({ params }: { params: Promise<{ id: string }> }) {
             </span>
           )}
         </div>
+      </section>
+
+      <section style={card}>
+        <h2 style={h2}>Opens by step</h2>
+        {c.openStats.length === 0 ? (
+          <p style={{ fontSize: 13, color: "#999" }}>no sends yet</p>
+        ) : (
+          <>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead>
+                <tr>
+                  <th style={th}>step</th>
+                  <th style={th}>sent</th>
+                  <th style={th}>opens (incl. prefetch)</th>
+                  <th style={th}>likely human opens</th>
+                  <th style={th}>human open rate</th>
+                </tr>
+              </thead>
+              <tbody>
+                {c.openStats.map((s) => (
+                  <tr key={s.stepOrder}>
+                    <td style={td}>#{s.stepOrder}</td>
+                    <td style={td}>{s.sent}</td>
+                    <td style={td}>{s.openedRaw}</td>
+                    <td style={td}>{s.openedHuman}</td>
+                    <td style={td}>
+                      {s.sent > 0
+                        ? `${Math.round((s.openedHuman / s.sent) * 100)}%`
+                        : "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <p style={{ fontSize: 12, color: "#999", margin: "10px 0 0" }}>
+              Raw opens include Apple MPP / Gmail proxy prefetch (~50%
+              inflation) — diagnostic upper bound only. Human = first open after
+              the 5s prefetch window from a non-proxy UA (lib/bot-detect).
+              Clicks + landing visits are the truth.
+            </p>
+          </>
+        )}
       </section>
 
       <section style={card}>

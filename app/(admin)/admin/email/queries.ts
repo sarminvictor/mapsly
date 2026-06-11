@@ -26,6 +26,15 @@ export interface ColdOverview {
   sentToday: number;
   sent7d: number;
   failed7d: number;
+  /**
+   * Open tracking (plan #7/#17) — sends from the last 7d with a pixel fetch.
+   * `opens7dRaw` counts EVERY first open (Apple MPP / Gmail proxies prefetch,
+   * inflating ~50% — fuzzy upper bound). `opens7dHuman` is the cheap-path
+   * human estimate: firstOpenedAt set AND suspectedPrefetch=false (the /o
+   * route clears the flag when any open looks human — lib/bot-detect).
+   */
+  opens7dRaw: number;
+  opens7dHuman: number;
   suppressedTotal: number;
   activeCampaigns: number;
   totalRecipients: number;
@@ -39,6 +48,8 @@ export const EMPTY_OVERVIEW: ColdOverview = {
   sentToday: 0,
   sent7d: 0,
   failed7d: 0,
+  opens7dRaw: 0,
+  opens7dHuman: 0,
   suppressedTotal: 0,
   activeCampaigns: 0,
   totalRecipients: 0,
@@ -62,6 +73,8 @@ export async function getColdOverview(): Promise<ColdOverview> {
       sentTodayAgg,
       sent7d,
       failed7d,
+      opens7dRaw,
+      opens7dHuman,
       suppressedTotal,
       activeCampaigns,
       totalRecipients,
@@ -78,6 +91,16 @@ export async function getColdOverview(): Promise<ColdOverview> {
       }),
       prisma.coldSend.count({
         where: { status: "FAILED", updatedAt: { gte: since7d } },
+      }),
+      prisma.coldSend.count({
+        where: { sentAt: { gte: since7d }, firstOpenedAt: { not: null } },
+      }),
+      prisma.coldSend.count({
+        where: {
+          sentAt: { gte: since7d },
+          firstOpenedAt: { not: null },
+          suspectedPrefetch: false,
+        },
       }),
       prisma.coldSuppression.count(),
       prisma.coldCampaign.count({ where: { status: "ACTIVE" } }),
@@ -106,6 +129,8 @@ export async function getColdOverview(): Promise<ColdOverview> {
       sentToday: sentTodayAgg._sum.sentCount ?? 0,
       sent7d,
       failed7d,
+      opens7dRaw,
+      opens7dHuman,
       suppressedTotal,
       activeCampaigns,
       totalRecipients,
@@ -180,6 +205,19 @@ export interface StepRow {
   delayHours: number;
 }
 
+/**
+ * Per-step delivery + open stats (plan #7/#17). `openedRaw` = any pixel
+ * fetch (incl. MPP/proxy prefetch — upper bound); `openedHuman` = cheap-path
+ * human opens (firstOpenedAt set, suspectedPrefetch=false). Both re-derivable
+ * from the raw ColdSend fields via lib/bot-detect if the heuristic moves.
+ */
+export interface StepOpenStats {
+  stepOrder: number;
+  sent: number;
+  openedRaw: number;
+  openedHuman: number;
+}
+
 export interface CampaignDetail {
   id: string;
   name: string;
@@ -194,6 +232,7 @@ export interface CampaignDetail {
   dailyEnrollCap: number;
   steps: StepRow[];
   statusCounts: Record<string, number>;
+  openStats: StepOpenStats[];
 }
 
 export async function getCampaign(id: string): Promise<CampaignDetail | null> {
@@ -209,11 +248,35 @@ export async function getCampaign(id: string): Promise<CampaignDetail | null> {
     });
     if (!c) return null;
 
-    const grouped = await prisma.coldRecipient.groupBy({
-      by: ["status"],
-      where: { campaignId: id },
-      _count: true,
-    });
+    const [grouped, openRows] = await Promise.all([
+      prisma.coldRecipient.groupBy({
+        by: ["status"],
+        where: { campaignId: id },
+        _count: true,
+      }),
+      // Counts cast ::int per INC-08 (Neon adapter deserialization).
+      prisma.$queryRaw<
+        {
+          step_order: number;
+          sent: number;
+          opened_raw: number;
+          opened_human: number;
+        }[]
+      >`
+        SELECT s."stepOrder" AS step_order,
+               COUNT(*) FILTER (WHERE s.status = 'SENT')::int AS sent,
+               COUNT(*) FILTER (WHERE s.status = 'SENT'
+                 AND s."firstOpenedAt" IS NOT NULL)::int AS opened_raw,
+               COUNT(*) FILTER (WHERE s.status = 'SENT'
+                 AND s."firstOpenedAt" IS NOT NULL
+                 AND s."suspectedPrefetch" = false)::int AS opened_human
+        FROM "ColdSend" s
+        JOIN "ColdRecipient" r ON r.id = s."recipientId"
+        WHERE r."campaignId" = ${id}
+        GROUP BY s."stepOrder"
+        ORDER BY s."stepOrder"
+      `,
+    ]);
     const statusCounts: Record<string, number> = {};
     for (const g of grouped) statusCounts[g.status] = g._count;
 
@@ -238,6 +301,12 @@ export async function getCampaign(id: string): Promise<CampaignDetail | null> {
         delayHours: s.delayHours,
       })),
       statusCounts,
+      openStats: openRows.map((r) => ({
+        stepOrder: r.step_order,
+        sent: r.sent,
+        openedRaw: r.opened_raw,
+        openedHuman: r.opened_human,
+      })),
     };
   } catch {
     return null;

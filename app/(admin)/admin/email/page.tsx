@@ -154,6 +154,16 @@ async function Overview() {
       >
         <Stat label="sent today" value={String(overview.sentToday)} />
         <Stat label="sent · 7d" value={String(overview.sent7d)} />
+        {/* Raw opens include MPP/proxy prefetch — fuzzy upper bound (plan #17).
+            Human = firstOpenedAt set + suspectedPrefetch=false (cheap path). */}
+        <Stat
+          label="opens · 7d (incl. prefetch)"
+          value={String(overview.opens7dRaw)}
+        />
+        <Stat
+          label="likely human opens · 7d"
+          value={String(overview.opens7dHuman)}
+        />
         <Stat
           label="failed · 7d"
           value={String(overview.failed7d)}

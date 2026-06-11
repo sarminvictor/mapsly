@@ -31,6 +31,17 @@ export const VOCABULARY_OPTIONS: ReadonlyArray<Vocabulary> = [
 ];
 
 /**
+ * Vocabularies that imply a medical practice. Selecting one surfaces a
+ * quiet reassurance line in the onboarding wizard: reply drafts are
+ * written to never confirm someone was a patient (HIPAA awareness, see
+ * `services/ai/medical-category.ts` for the runtime category check).
+ */
+export const MEDICAL_VOCABULARIES: ReadonlyArray<Vocabulary> = [
+  "medspa",
+  "dental",
+];
+
+/**
  * What the page needs to render. Sourced from a single cached query so
  * the build-phase guard returns one well-typed empty value.
  */

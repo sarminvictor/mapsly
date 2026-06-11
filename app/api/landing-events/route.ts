@@ -10,6 +10,13 @@
  * Zod-validated. The raw IP is never stored: only a salted hash (`ipHash`),
  * per `.claude/rules/security.md` PII handling. Always returns 200 (analytics
  * must never surface an error to the visitor) except on rate-limit / bad input.
+ *
+ * Bot classification (plan #17) is shared with the stats queries via
+ * lib/bot-detect.ts — `classifyUserAgent` flags scanner / image-proxy UAs at
+ * write time and the WHY lands in `LandingEvent.botReason`. The raw event +
+ * userAgent are ALWAYS stored, so classification stays re-derivable when the
+ * heuristics evolve ("no-engagement" sessions are retro-classified at query
+ * time over per-session aggregates, never at ingest).
  */
 
 import { createHash } from "node:crypto";
@@ -17,8 +24,11 @@ import { createHash } from "node:crypto";
 import { z } from "zod";
 
 import prisma from "@/lib/prisma";
+import { classifyUserAgent } from "@/lib/bot-detect";
 import { PUBLIC_LIMIT, ipKey, rateLimit } from "@/lib/middleware/rate-limit";
 
+// FREE_SIGNUP and SUBSCRIPTION_BOUGHT are deliberately NOT in this enum —
+// both are server-emitted conversions (subscribe endpoint / Stripe webhook).
 const Body = z.object({
   token: z.string().regex(/^[1-9][0-9]{15}$/),
   type: z.enum([
@@ -32,9 +42,6 @@ const Body = z.object({
   sessionId: z.string().max(64).optional(),
   stripeSessionId: z.string().max(160).optional(),
 });
-
-const BOT_RE =
-  /bot|crawl|spider|slurp|headless|preview|facebookexternalhit|embedly|quora link|whatsapp|telegrambot|bingbot|googlebot|applebot|semrush|ahrefs|lighthouse/i;
 
 function hashIp(ip: string): string {
   const salt = process.env.AUTH_SECRET ?? "mapsly-landing";
@@ -70,7 +77,7 @@ export async function POST(req: Request): Promise<Response> {
     if (!landing || !landing.isActive) return Response.json({ ok: true });
 
     const ua = req.headers.get("user-agent") ?? "";
-    const isBot = BOT_RE.test(ua);
+    const verdict = classifyUserAgent(ua);
 
     await prisma.landingEvent.create({
       data: {
@@ -82,12 +89,13 @@ export async function POST(req: Request): Promise<Response> {
         stripeSessionId: input.stripeSessionId ?? null,
         ipHash: hashIp(ipKey(req)),
         userAgent: ua.slice(0, 400) || null,
-        isBot,
+        isBot: verdict.isBot,
+        botReason: verdict.reason,
       },
     });
 
     // Cheap denormalized open counter (real visitors only).
-    if (input.type === "PAGE_OPENED" && !isBot) {
+    if (input.type === "PAGE_OPENED" && !verdict.isBot) {
       await prisma.landingPage.update({
         where: { id: landing.id },
         data: { viewCount: { increment: 1 } },
