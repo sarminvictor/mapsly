@@ -14,10 +14,19 @@
  *
  * Flags surfaced on Business.qualificationFlags so admin can see WHY
  * a business was disqualified at a glance:
- *   - "unclaimed"   · is_claimed === false
- *   - "low_reviews" · reviewCount < 3
- *   - "no_email"    · scrape + RDAP returned nothing
- *   - "no_website"  · Business.website is null
+ *   - "unclaimed"           · is_claimed === false
+ *   - "low_reviews"         · reviewCount < 3
+ *   - "no_email"            · no electable candidate from any tier
+ *   - "no_website"          · Business.website is null
+ *   - "website_unreachable" · website set but every fetch failed
+ *                             (WAF block / dead site — distinguishes
+ *                             "blocked at the door" from "no email
+ *                             published")
+ *   - "rdap_proxied"        · WHOIS privacy-proxied, RDAP tier useless
+ *   - "ai_attempted"        · paid AI email search ran (billing guard —
+ *                             persists across runs)
+ *   - "email_undeliverable" · SMTP probe hard-bounced the discovered
+ *                             email (set by verify-promote)
  *
  * Per `.claude/rules/scalability.md` we cap parallelism at 5
  * concurrent businesses inside a cell — polite to host sites + keeps
@@ -29,14 +38,21 @@ import prisma from "@/lib/prisma";
 
 import { findEmailViaAi } from "@/services/ai";
 import { detectAndPersistServices } from "@/services/business-services-detect";
-import { cellMembershipWhere } from "@/modules/business-discovery";
+import {
+  boundingBoxForCell,
+  cellMembershipWhere,
+} from "@/modules/business-discovery";
 import {
   triggerReviewPullForBusiness,
   type TriggerReviewPullResult,
 } from "@/modules/reviews/trigger-pull";
 
 import { rdapLookup } from "./rdap";
-import { scrapeEmailsFromWebsite, type EmailCandidate } from "./scrape-email";
+import {
+  isGenericLocalPart,
+  scrapeEmailsFromWebsite,
+  type EmailCandidate,
+} from "./scrape-email";
 
 // Lowered from 10 → 3 after Calgary smoke run · businesses with 5–9
 // real reviews (e.g. Southport Skin Studio, Pure Medical Aesthetics)
@@ -66,8 +82,13 @@ export interface QualifyOutcome {
   servicesCreated: number;
   // R.2 · review-pull trigger result (the qualify-time hook). Tells the
   // caller (admin UI / loop) whether reviews are being collected for
-  // this business, with a structured skip reason on no-op.
-  reviewPull: TriggerReviewPullResult;
+  // this business, with a structured skip reason on no-op. Null when
+  // the run was skipped as already-settled (no pull evaluation ran).
+  reviewPull: TriggerReviewPullResult | null;
+  // True when the run short-circuited because the row was already
+  // settled (QUALIFIED/DISQUALIFIED/UNREACHABLE) and force wasn't set —
+  // the outcome echoes stored state, no scrape/AI/services work ran.
+  skippedSettled?: boolean;
 }
 
 export interface CellQualifyResult {
@@ -84,11 +105,22 @@ export interface CellQualifyResult {
 /* --------------------------------------------------------- one business */
 
 /**
- * Qualify a single business. Idempotent: re-running on the same
- * business overwrites the prior status + flags + email candidates.
+ * Qualify a single business.
+ *
+ * Settled rows (QUALIFIED / DISQUALIFIED / UNREACHABLE) short-circuit
+ * and echo their stored state — re-running the full pipeline on them
+ * cost real money (AI re-bills) and could DESTROY data (a transient
+ * site outage nulled a previously discovered email, see 2026-06-11
+ * audit). Pass `force: true` for a deliberate re-audit (the per-row
+ * admin button); NOT_QUALIFIED and FAILED rows always run.
+ *
+ * Idempotent in state: a forced re-run overwrites status + flags +
+ * candidates — but NEVER erases a previously discovered email with
+ * null (found-before beats found-nothing-now).
  */
 export async function qualifyBusiness(
   businessId: string,
+  options?: { force?: boolean },
 ): Promise<QualifyOutcome> {
   const biz = await prisma.business.findUnique({
     where: { id: businessId },
@@ -108,11 +140,39 @@ export async function qualifyBusiness(
       categoryIds: true,
       description: true,
       placeTopics: true,
-      // Idempotency · skip the AI tier if it already ran for this row
+      // Settled-row guard + idempotency inputs
+      qualificationStatus: true,
+      qualificationFlags: true,
+      emailDiscovered: true,
+      emailDiscoveredAt: true,
       emailDiscoverySource: true,
     },
   });
   if (!biz) throw new Error(`Business ${businessId} not found`);
+
+  // Settled-row guard · worker retries, duplicate fan-outs and bulk
+  // re-clicks all funnel through here — only NOT_QUALIFIED + FAILED
+  // proceed without force.
+  if (
+    !options?.force &&
+    biz.qualificationStatus !== "NOT_QUALIFIED" &&
+    biz.qualificationStatus !== "FAILED"
+  ) {
+    return {
+      businessId: biz.id,
+      status: biz.qualificationStatus as QualificationStatusValue,
+      flags: biz.qualificationFlags,
+      emailDiscovered: biz.emailDiscovered,
+      emailDiscoverySource:
+        (biz.emailDiscoverySource as EmailCandidate["source"] | null) ?? null,
+      candidatesFound: 0,
+      websiteUnreachable: false,
+      servicesDetected: 0,
+      servicesCreated: 0,
+      reviewPull: null,
+      skippedSettled: true,
+    };
+  }
 
   const flags: string[] = [];
   if (!biz.isClaimed) flags.push("unclaimed");
@@ -134,6 +194,17 @@ export async function qualifyBusiness(
   let candidates: EmailCandidate[] = [];
   let aiAttempted = false;
 
+  // Election gate · a candidate may only WIN (become emailDiscovered →
+  // the cold-outreach target) when it's domain-aligned with the
+  // business, a free-provider inbox, or the business has no known
+  // domain to align against. Unaligned custom-domain emails — web
+  // designer footer credits, embedded booking-platform vendors — stay
+  // in the audit list but never get elected (2026-06-11 audit: the
+  // scrape tier lacked the gate the AI tier already enforces; a
+  // CAN-SPAM wrong-target risk).
+  const electable = (list: EmailCandidate[]): EmailCandidate[] =>
+    list.filter((c) => c.isDomainAligned || c.isFreeProvider || !biz.domain);
+
   if (biz.website) {
     const scrape = await scrapeEmailsFromWebsite({
       website: biz.website,
@@ -142,22 +213,35 @@ export async function qualifyBusiness(
     scrapeRan = true;
     websiteUnreachable = scrape.websiteUnreachable;
     candidates = scrape.candidates;
+    if (scrapeRan && websiteUnreachable) flags.push("website_unreachable");
   } else {
     flags.push("no_website");
   }
 
-  if (candidates.length === 0 && biz.domain) {
+  if (electable(candidates).length === 0 && biz.domain) {
     const rdap = await rdapLookup(biz.domain);
-    candidates = rdap.candidates;
+    if (rdap.proxiedOnly) flags.push("rdap_proxied");
+    candidates = [...candidates, ...rdap.candidates];
   }
 
   // Tier 3 · AI fallback. Conditions:
   //   1. No candidates from scrape OR RDAP
-  //   2. AI hasn't already run for this row (idempotency)
+  //   2. AI hasn't already run for this row (idempotency) — BOTH the
+  //      success marker (emailDiscoverySource) AND the attempt marker
+  //      (the persisted "ai_attempted" flag). Checking only the source
+  //      meant every re-run of a no-email row re-billed the AI
+  //      (~$0.027/biz · 2026-06-11 audit: ~$5/click on a 430-cell).
   //   3. We have enough context to search (name + city are required;
   //      a business without a name shouldn't reach here, but defensive)
-  const alreadyAiQualified = biz.emailDiscoverySource === "AI_WEB_SEARCH";
-  if (candidates.length === 0 && !alreadyAiQualified && biz.name && biz.city) {
+  const alreadyAiAttempted =
+    biz.emailDiscoverySource === "AI_WEB_SEARCH" ||
+    biz.qualificationFlags.includes("ai_attempted");
+  if (
+    electable(candidates).length === 0 &&
+    !alreadyAiAttempted &&
+    biz.name &&
+    biz.city
+  ) {
     aiAttempted = true;
     try {
       const ai = await findEmailViaAi({
@@ -189,10 +273,9 @@ export async function qualifyBusiness(
             email: ai.email,
             source: "AI_WEB_SEARCH",
             score: ai.confidence === "high" ? 90 : 70,
-            isPersonal:
-              !/^(info|contact|hello|admin|support|sales|book|booking|appointments|reception)/.test(
-                localPart,
-              ),
+            // Same generic-inbox vocabulary as the scrape tier so the
+            // emailCandidates audit labels stay consistent across tiers.
+            isPersonal: !isGenericLocalPart(localPart),
             isDomainAligned,
             isFreeProvider:
               /@(gmail|yahoo|hotmail|outlook|icloud|me|live|aol|protonmail|msn|proton)\./.test(
@@ -200,6 +283,7 @@ export async function qualifyBusiness(
               ),
             aiCitation: ai.source,
           },
+          ...candidates,
         ];
       }
     } catch (err) {
@@ -211,15 +295,36 @@ export async function qualifyBusiness(
     }
   }
 
-  const best = candidates[0] ?? null;
-  if (!best) flags.push("no_email");
-  if (aiAttempted) flags.push("ai_attempted");
+  // Election: best ELECTABLE candidate wins; unelectable ones remain
+  // in the persisted audit list only.
+  const best = electable(candidates)[0] ?? null;
 
-  // Status arbitration · order matters
+  // Email ratchet · "found before" beats "found nothing now". A re-run
+  // whose scrape transiently fails (site down, WAF block) or whose AI
+  // tier is skipped by the idempotency guard must never null out a
+  // previously discovered email — that data cost money and is the
+  // product's core asset.
+  const keptEmail = best?.email ?? biz.emailDiscovered;
+  const keptSource =
+    best?.source ??
+    (biz.emailDiscoverySource as EmailCandidate["source"] | null) ??
+    null;
+
+  if (!keptEmail) flags.push("no_email");
+  // The attempt marker persists across runs — it's the tier-3 billing
+  // guard, so losing it on a flag rewrite would re-arm the AI spend.
+  if (aiAttempted || alreadyAiAttempted) flags.push("ai_attempted");
+
+  // Status arbitration · order matters · judged on the KEPT email so a
+  // transient scrape failure can't downgrade a previously good row.
   let status: QualificationStatusValue;
-  if (!biz.website && !best) {
+  if (!biz.website && !keptEmail) {
     status = "UNREACHABLE";
-  } else if (best && biz.isClaimed && (biz.reviewCount ?? 0) >= MIN_REVIEWS) {
+  } else if (
+    keptEmail &&
+    biz.isClaimed &&
+    (biz.reviewCount ?? 0) >= MIN_REVIEWS
+  ) {
     status = "QUALIFIED";
   } else {
     status = "DISQUALIFIED";
@@ -232,17 +337,19 @@ export async function qualifyBusiness(
       qualificationStatus: status,
       qualificationFlags: flags,
       qualifiedAt: new Date(),
-      emailDiscovered: best?.email ?? null,
-      emailDiscoverySource: best?.source ?? null,
-      emailDiscoveredAt: best ? new Date() : null,
+      emailDiscovered: keptEmail,
+      emailDiscoverySource: keptSource,
+      emailDiscoveredAt: best ? new Date() : (biz.emailDiscoveredAt ?? null),
       // Persist the top-10 candidates (audit · "why did we pick this one").
+      // When this run found none but a prior email is being kept, skip
+      // the column entirely so the prior candidate audit trail survives.
       // Cast through unknown · EmailCandidate is structurally JSON-safe
       // but TS can't prove that — the index signature on InputJsonValue
       // is what trips the strict check.
-      emailCandidates: candidates.slice(
-        0,
-        10,
-      ) as unknown as Prisma.InputJsonValue,
+      emailCandidates:
+        candidates.length === 0 && keptEmail
+          ? undefined
+          : (candidates.slice(0, 10) as unknown as Prisma.InputJsonValue),
     },
   });
 
@@ -300,8 +407,8 @@ export async function qualifyBusiness(
     businessId: biz.id,
     status,
     flags,
-    emailDiscovered: best?.email ?? null,
-    emailDiscoverySource: best?.source ?? null,
+    emailDiscovered: keptEmail,
+    emailDiscoverySource: keptSource,
     candidatesFound: candidates.length,
     websiteUnreachable: scrapeRan && websiteUnreachable,
     servicesDetected,
@@ -420,14 +527,15 @@ export async function qualifyCell(
 
 /**
  * Recompute (qualified / disqualified / unreachable) tallies on a
- * TrackedLocation from fresh Business rows. Cheap — a single groupBy
- * on indexed columns. Called both at the end of `qualifyCell()` and
- * after every per-business callback from Boxly Worker so the UI keeps
- * pace with the worker fan-out.
+ * TrackedLocation from fresh Business rows. Called both at the end of
+ * `qualifyCell()` and after every per-business callback from Boxly
+ * Worker so the UI keeps pace with the fan-out.
  *
- * Concurrent callers (25 worker callbacks racing) are safe: each runs
- * its own groupBy + UPDATE; last write wins and last write is correct
- * (groupBy reads committed state including the prior callback's update).
+ * Concurrent callers (25 worker callbacks racing) are safe because the
+ * read and the write are ONE SQL statement — each caller's UPDATE
+ * counts committed state at its own execution time, so the last commit
+ * is genuinely the freshest tally (a separate groupBy-then-update pair
+ * did NOT have this property — see the in-function comment).
  */
 export async function recomputeCellAggregates(
   trackedLocationId: string,
@@ -448,30 +556,38 @@ export async function recomputeCellAggregates(
     throw new Error(`TrackedLocation ${trackedLocationId} not found`);
   }
 
-  const counts = await prisma.business.groupBy({
-    by: ["qualificationStatus"],
-    where: cellMembershipWhere({
-      dataforseoCategoryId: cell.category.dataforseoId,
-      lat: cell.lat,
-      lng: cell.lng,
-      radiusKm: cell.radiusKm,
-      city: cell.city,
-      country: cell.country,
-    }),
-    _count: { id: true },
+  // ONE statement, read + write atomic. The previous groupBy-then-
+  // update pair raced under the worker fan-out (10-25 concurrent
+  // callbacks): the last UPDATE to commit could carry a STALE groupBy
+  // snapshot, permanently undercounting until the next qualify — the
+  // old "last write wins and last write is correct" comment was wrong
+  // about the second half. Membership matches cellMembershipWhere
+  // (geo box + null-coordinate city fallback) — keep in lock-step.
+  const box = boundingBoxForCell({
+    lat: cell.lat,
+    lng: cell.lng,
+    radiusKm: cell.radiusKm,
   });
-  const tally = (s: QualificationStatusValue): number =>
-    counts.find((c) => c.qualificationStatus === s)?._count.id ?? 0;
-
   const finishedAt = new Date();
-  await prisma.trackedLocation.update({
-    where: { id: cell.id },
-    data: {
-      qualifiedCount: tally("QUALIFIED"),
-      disqualifiedCount: tally("DISQUALIFIED"),
-      unreachableCount: tally("UNREACHABLE"),
-      lastQualifyAt: finishedAt,
-    },
-  });
+  await prisma.$executeRaw`
+    UPDATE "TrackedLocation" t SET
+      "qualifiedCount"    = s.q,
+      "disqualifiedCount" = s.d,
+      "unreachableCount"  = s.u,
+      "lastQualifyAt"     = ${finishedAt}
+    FROM (
+      SELECT
+        COUNT(*) FILTER (WHERE b."qualificationStatus" = 'QUALIFIED')    AS q,
+        COUNT(*) FILTER (WHERE b."qualificationStatus" = 'DISQUALIFIED') AS d,
+        COUNT(*) FILTER (WHERE b."qualificationStatus" = 'UNREACHABLE')  AS u
+      FROM "Business" b
+      WHERE b."categoryIds" @> ARRAY[${cell.category.dataforseoId}]::text[]
+        AND (
+          (b.lat BETWEEN ${box.latMin} AND ${box.latMax}
+            AND b.lng BETWEEN ${box.lngMin} AND ${box.lngMax})
+          OR (b.lat IS NULL AND b.city = ${cell.city} AND b.country = ${cell.country})
+        )
+    ) s
+    WHERE t.id = ${cell.id}`;
   return finishedAt;
 }

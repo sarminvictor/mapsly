@@ -21,6 +21,7 @@ import { DeleteCategoryButton } from "./components/DeleteCategoryButton";
 import { DeleteLocationButton } from "./components/DeleteLocationButton";
 import { QualifyCellButton } from "./components/QualifyCellButton";
 import { RunDiscoveryButton } from "./components/RunDiscoveryButton";
+import { VerifyEmailsButton } from "./components/VerifyEmailsButton";
 
 /**
  * /admin/discovery · the manual-trigger discovery panel.
@@ -298,6 +299,10 @@ function LocationRow({ loc }: { loc: AdminLocationRow }) {
         <QualifyCellButton
           trackedLocationId={loc.id}
           pendingCount={pendingCount}
+        />
+        <VerifyEmailsButton
+          trackedLocationId={loc.id}
+          promotableCount={loc.promotableEmailCount}
         />
         <DeleteLocationButton
           trackedLocationId={loc.id}

@@ -375,8 +375,16 @@ export async function findEmailViaAi(
 
   const parsed = parseAiOutput(response.text);
 
-  // Gate 1: confidence must be high or medium
-  if (parsed.confidence !== "high" && parsed.confidence !== "medium") {
+  // Gate 1: confidence must be high or medium. When the business has
+  // NO domain to align against, the custom-domain trust shortcut in
+  // isAcceptableDomain (gate 4) is doing extra lifting — require HIGH
+  // confidence there so a same-named business in another market can't
+  // slip in at medium (2026-06-11 audit · wrong-target risk for
+  // franchise/common-name businesses).
+  const minConfidence: FindEmailConfidence[] = input.domain
+    ? ["high", "medium"]
+    : ["high"];
+  if (!minConfidence.includes(parsed.confidence)) {
     return {
       email: null,
       confidence: parsed.confidence,
@@ -386,7 +394,7 @@ export async function findEmailViaAi(
       webSearchCalls: response.webSearchCalls,
       rawEmail: parsed.email,
       rejectReason: parsed.email
-        ? `low-confidence (${parsed.confidence})`
+        ? `low-confidence (${parsed.confidence}${input.domain ? "" : " · no-domain requires high"})`
         : "no-email-found",
     };
   }

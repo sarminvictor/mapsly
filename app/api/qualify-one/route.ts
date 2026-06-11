@@ -21,6 +21,7 @@ import { z } from "zod";
 
 import { verifyBoxlyWorkerAuth } from "@/lib/boxly-worker/client";
 import { withCronRun } from "@/lib/cost/cost-counter";
+import prisma from "@/lib/prisma";
 import {
   qualifyBusiness,
   recomputeCellAggregates,
@@ -43,17 +44,16 @@ export async function POST(request: Request): Promise<Response> {
   // 1. Verify Bearer auth · the worker sends the AUTH_TOKEN
   const authHeader = request.headers.get("authorization");
   if (!verifyBoxlyWorkerAuth(authHeader)) {
-    // Diagnostic logging · safe to ship · logs length + 4-char fingerprint
-    // (NOT the full token) so config mismatches are obvious in Vercel
-    // Logs without leaking the secret.
+    // Diagnostic logging · ONLY fingerprints the ATTACKER-supplied
+    // token. Never echo material from the expected secret — this is a
+    // public endpoint, so a failed-auth log line is attacker-triggered
+    // and prefix/suffix/length of the real token would leak 8 chars +
+    // length into Vercel logs (2026-06-11 audit).
     const incoming = authHeader?.match(/^Bearer\s+(.+)$/i)?.[1] ?? "";
-    const expected = process.env.BOXLY_WORKER_AUTH_TOKEN ?? "";
     console.warn(
       `[/api/qualify-one] 401 · incoming-token len=${incoming.length} ` +
-        `prefix=${incoming.slice(0, 4)} suffix=${incoming.slice(-4)} · ` +
-        `expected len=${expected.length} ` +
-        `prefix=${expected.slice(0, 4)} suffix=${expected.slice(-4)} · ` +
-        `env-set=${expected.length > 0}`,
+        `prefix=${incoming.slice(0, 4)} · ` +
+        `env-set=${(process.env.BOXLY_WORKER_AUTH_TOKEN ?? "").length > 0}`,
     );
     return Response.json({ error: "unauthorized" }, { status: 401 });
   }
@@ -134,6 +134,20 @@ export async function POST(request: Request): Promise<Response> {
       "[/api/qualify-one] qualifyBusiness threw:",
       err instanceof Error ? err.stack : err,
     );
+    // Best-effort FAILED marker so a row whose retries all crash is
+    // distinguishable from "never attempted" (it stays eligible — the
+    // enqueue filter includes FAILED, and a later successful retry
+    // overwrites this). Without it, dead rows sat invisibly in
+    // pendingCount forever (2026-06-11 audit).
+    await prisma.business
+      .update({
+        where: { id: parsed.businessId },
+        data: { qualificationStatus: "FAILED", qualifiedAt: new Date() },
+      })
+      .catch(() => {
+        // Secondary failure (the DB is the likely culprit anyway) must
+        // not mask the primary error response.
+      });
     return Response.json(
       {
         error: "internal_error",

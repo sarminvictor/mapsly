@@ -24,6 +24,8 @@ import { z } from "zod";
 
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { withCronRun } from "@/lib/cost/cost-counter";
+import { verifyAndPromoteCellEmails } from "@/modules/business-qualification";
 
 import {
   cellMembershipWhere,
@@ -332,9 +334,10 @@ export type QualifyCellResult = {
  * Failure modes:
  *   - Worker unreachable / 401 → user sees the error inline
  *   - Worker partial-success → reported via { queued, failed }
- *   - Per-business job failures → captured in BusinessQualification
- *     state (FAILED status) when /api/qualify-one returns 5xx after
- *     the worker exhausts retries · admin can re-run later
+ *   - Per-business job failures → /api/qualify-one marks the row
+ *     FAILED on every 5xx (best-effort, overwritten by a later
+ *     successful retry) · FAILED rows stay in the pending filter so
+ *     the next Qualify click retries exactly them
  */
 export async function runQualifyCell(
   _prev: ActionResult<QualifyCellResult> | null,
@@ -373,15 +376,25 @@ export async function runQualifyCell(
   // modules/business-discovery/cell-membership.ts. Keeps the worker-
   // driven path identical to the direct path so tests/smoke scripts
   // stay valid.
+  //
+  // PENDING ONLY · the button label promises "Qualify (pending)", so
+  // the enqueue matches it: NOT_QUALIFIED + FAILED. Settled rows
+  // (QUALIFIED/DISQUALIFIED/UNREACHABLE) are excluded — re-processing
+  // them re-billed AI and risked erasing discovered emails (the
+  // "Qualify (4) sent 380+ jobs" incident, 2026-06-11). qualifyBusiness
+  // has its own settled-row guard as defence-in-depth.
   const businesses = await prisma.business.findMany({
-    where: cellMembershipWhere({
-      dataforseoCategoryId: cell.category.dataforseoId,
-      lat: cell.lat,
-      lng: cell.lng,
-      radiusKm: cell.radiusKm,
-      city: cell.city,
-      country: cell.country,
-    }),
+    where: {
+      ...cellMembershipWhere({
+        dataforseoCategoryId: cell.category.dataforseoId,
+        lat: cell.lat,
+        lng: cell.lng,
+        radiusKm: cell.radiusKm,
+        city: cell.city,
+        country: cell.country,
+      }),
+      qualificationStatus: { in: ["NOT_QUALIFIED", "FAILED"] },
+    },
     select: { id: true },
   });
 
@@ -389,7 +402,8 @@ export async function runQualifyCell(
     return {
       ok: true,
       data: { queued: 0, failed: 0, cellBusinessCount: 0 },
-      message: "No businesses indexed for this cell yet — run discovery first.",
+      message:
+        "Nothing pending — every indexed business in this cell is already qualified. Run discovery to find more.",
     };
   }
 
@@ -403,24 +417,37 @@ export async function runQualifyCell(
     url: `${callbackUrl}/api/qualify-one`,
     payload: { businessId: b.id, trackedLocationId: cell.id },
     callerLabel: `mapsly:qualify-business`,
-    timeoutSec: 90, // per-business work is 30-60s · 90s gives slack
+    // Worst-case server time (slow-site scrape + rescue pass + AI web
+    // search + service detection) can clear 90s — a 90s worker timeout
+    // fired retries while the original invocation was still running
+    // (duplicate concurrent qualifies). 120s is the worker's max.
+    timeoutSec: 120,
   }));
 
   try {
-    const result = await enqueueCallbackWebhooks(jobs);
+    // The worker rejects batches > 500 jobs outright ("Batch too
+    // large") — a dense cell post-10k-discovery would make the Qualify
+    // button hard-fail with ZERO jobs queued. Chunk and accumulate.
+    let queued = 0;
+    let failed = 0;
+    for (let i = 0; i < jobs.length; i += 500) {
+      const result = await enqueueCallbackWebhooks(jobs.slice(i, i + 500));
+      queued += result.queued;
+      failed += result.failed;
+    }
     revalidateTag("admin-discovery", "seconds");
     revalidatePath("/admin/discovery");
     return {
       ok: true,
       data: {
-        queued: result.queued,
-        failed: result.failed,
+        queued,
+        failed,
         cellBusinessCount: businesses.length,
       },
       message:
-        result.failed === 0
-          ? `Queued ${result.queued} businesses · processing in background · refresh in a few minutes to see progress.`
-          : `Queued ${result.queued}/${businesses.length} · ${result.failed} rejected by worker · check logs.`,
+        failed === 0
+          ? `Queued ${queued} pending businesses · processing in background · refresh in a few minutes to see progress.`
+          : `Queued ${queued}/${businesses.length} · ${failed} rejected by worker · check logs.`,
     };
   } catch (err) {
     if (err instanceof BoxlyWorkerError) {
@@ -432,6 +459,77 @@ export async function runQualifyCell(
     return {
       ok: false,
       error: err instanceof Error ? err.message : "Worker enqueue failed.",
+    };
+  }
+}
+
+/* ----------------------------------------------------- verify + promote */
+
+const VerifyPromoteSchema = z.object({
+  trackedLocationId: z.string().min(1),
+});
+
+export type VerifyPromoteActionResult = {
+  processed: number;
+  promoted: number;
+  undeliverable: number;
+  errors: number;
+  remaining: number;
+};
+
+/**
+ * SMTP-verify discovered emails for the cell's QUALIFIED businesses
+ * and promote the good ones to `Business.email` + `emailVerifiedAt` —
+ * the columns the cold-email enroll gate reads. Processes one bounded
+ * batch per click (~60 rows, 1-2 min); the button label shows what's
+ * left, the admin clicks until 0. The monthly email-verification cron
+ * maintains promoted rows afterwards.
+ */
+export async function runVerifyPromoteEmails(
+  _prev: ActionResult<VerifyPromoteActionResult> | null,
+  formData: FormData,
+): Promise<ActionResult<VerifyPromoteActionResult>> {
+  try {
+    await requireAdminSession();
+  } catch (err) {
+    return { ok: false, error: (err as Error).message };
+  }
+
+  const parsed = VerifyPromoteSchema.safeParse({
+    trackedLocationId: formData.get("trackedLocationId"),
+  });
+  if (!parsed.success) {
+    return { ok: false, error: "Invalid request." };
+  }
+
+  try {
+    // SMTP probes are cost-counter-tracked → need an open CronRun.
+    const result = await withCronRun("admin:verify-promote-emails", () =>
+      verifyAndPromoteCellEmails({
+        trackedLocationId: parsed.data.trackedLocationId,
+      }),
+    );
+    revalidateTag("admin-discovery", "seconds");
+    revalidatePath("/admin/discovery");
+    const promoted = result.promotedDeliverable + result.promotedInconclusive;
+    return {
+      ok: true,
+      data: {
+        processed: result.processed,
+        promoted,
+        undeliverable: result.undeliverable,
+        errors: result.errors,
+        remaining: result.remaining,
+      },
+      message:
+        result.remaining === 0
+          ? `Verified ${result.processed} · ${promoted} promoted · ${result.undeliverable} undeliverable · all done.`
+          : `Verified ${result.processed} · ${promoted} promoted · ${result.undeliverable} undeliverable · ${result.remaining} left — click again.`,
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "Email verification failed.",
     };
   }
 }

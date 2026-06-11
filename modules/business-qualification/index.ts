@@ -18,3 +18,8 @@ export {
   type CellQualifyResult,
   type QualificationStatusValue,
 } from "./qualify";
+
+export {
+  verifyAndPromoteCellEmails,
+  type VerifyPromoteResult,
+} from "./verify-promote";

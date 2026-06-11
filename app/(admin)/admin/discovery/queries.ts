@@ -10,6 +10,7 @@
 import { unstable_noStore as noStore } from "next/cache";
 
 import prisma from "@/lib/prisma";
+import { cellMembershipWhere } from "@/modules/business-discovery";
 
 export interface DiscoveryStats {
   totalRuns: number;
@@ -43,6 +44,9 @@ export interface AdminLocationRow {
   disqualifiedCount: number;
   unreachableCount: number;
   lastQualifyAt: Date | null;
+  /** QUALIFIED members with emailDiscovered set but Business.email
+   *  still null — what the "Verify emails (N)" button will process. */
+  promotableEmailCount: number;
 }
 
 export interface AdminCategoryGroup {
@@ -141,6 +145,34 @@ export async function getDiscoveryRegistry(): Promise<AdminCategoryGroup[]> {
     },
   });
 
+  // Per-cell promotable-email counts (drives "Verify emails (N)").
+  // One count query per cell — the registry holds a handful of cells,
+  // and the membership box hits the (lat, lng) index.
+  const promotable = new Map<string, number>();
+  await Promise.all(
+    categories.flatMap((c) =>
+      c.trackedLocations.map(async (loc) => {
+        const n = await prisma.business.count({
+          where: {
+            ...cellMembershipWhere({
+              dataforseoCategoryId: c.dataforseoId,
+              lat: loc.lat,
+              lng: loc.lng,
+              radiusKm: loc.radiusKm,
+              city: loc.city,
+              country: loc.country,
+            }),
+            qualificationStatus: "QUALIFIED",
+            emailDiscovered: { not: null },
+            email: null,
+            NOT: { qualificationFlags: { has: "email_undeliverable" } },
+          },
+        });
+        promotable.set(loc.id, n);
+      }),
+    ),
+  );
+
   return categories.map((c) => {
     const totalBusinesses = c.trackedLocations.reduce(
       (sum, l) => sum + l.businessCount,
@@ -157,7 +189,10 @@ export async function getDiscoveryRegistry(): Promise<AdminCategoryGroup[]> {
       groupKey: c.groupKey,
       isActive: c.isActive,
       createdAt: c.createdAt,
-      locations: c.trackedLocations,
+      locations: c.trackedLocations.map((loc) => ({
+        ...loc,
+        promotableEmailCount: promotable.get(loc.id) ?? 0,
+      })),
       locationCount: c.trackedLocations.length,
       totalBusinesses,
       totalCostUsd,

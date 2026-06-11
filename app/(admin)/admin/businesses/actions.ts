@@ -208,8 +208,10 @@ export async function rerunQualifyAction(
 
   let outcome;
   try {
+    // force: this button IS the deliberate per-row re-audit — the only
+    // path allowed past qualifyBusiness's settled-row guard.
     outcome = await withCronRun("admin:rerun-qualify", async () =>
-      qualifyBusiness(parsed.data.businessId),
+      qualifyBusiness(parsed.data.businessId, { force: true }),
     );
   } catch (err) {
     return {
@@ -226,7 +228,7 @@ export async function rerunQualifyAction(
       status: outcome.status,
       flags: outcome.flags,
       emailDiscovered: outcome.emailDiscovered,
-      reviewPullTriggered: outcome.reviewPull.triggered,
+      reviewPullTriggered: outcome.reviewPull?.triggered ?? false,
     },
     message: `Re-qualified · ${outcome.status}`,
   };

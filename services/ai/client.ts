@@ -201,14 +201,17 @@ export async function callOpenAi(
   };
   const costUsd = computeUsd(model, usage);
 
+  // Bill BEFORE the ceiling check — the API already responded, the money
+  // is spent. Throwing first left ceiling violations invisible to the
+  // CronRun ledger (cost-discipline rule 3: can't track ⇒ don't call).
+  await incrementCost(costUsd, operation);
+
   if (costUsd > costCeilingUsd) {
     throw new Error(
       `[ai] "${operation}" cost ${costUsd.toFixed(6)} USD exceeded ceiling ${costCeilingUsd.toFixed(4)} USD. ` +
         `Tune the prompt or raise costCeilingUsd. Tokens: input=${usage.inputTokens} output=${usage.outputTokens}.`,
     );
   }
-
-  await incrementCost(costUsd, operation);
 
   return {
     text,
@@ -373,14 +376,15 @@ export async function callOpenAiResponses(
   const searchCost = (webSearchCalls / 1000) * WEB_SEARCH_USD_PER_K_CALLS;
   const costUsd = Number((tokenCost + searchCost).toFixed(8));
 
+  // Bill BEFORE the ceiling check — see callOpenAi above (same rationale).
+  await incrementCost(costUsd, operation);
+
   if (costUsd > costCeilingUsd) {
     throw new Error(
       `[ai] "${operation}" cost ${costUsd.toFixed(6)} USD exceeded ceiling ${costCeilingUsd.toFixed(4)} USD. ` +
         `Tokens in=${usage.inputTokens} out=${usage.outputTokens}, searches=${webSearchCalls}.`,
     );
   }
-
-  await incrementCost(costUsd, operation);
 
   return {
     text,

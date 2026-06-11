@@ -24,6 +24,16 @@ import { decodeHtmlEntities } from "@/lib/text/html-entities";
 const USER_AGENT =
   "Mozilla/5.0 (compatible; MapslyBot/0.1; +https://mapsly.ai/bot · sarminvictor@gmail.com)";
 
+/**
+ * Fallback UA for the rescue pass. Some WAFs (Cloudflare bot-fight,
+ * Sucuri, GoDaddy firewall) hard-block anything self-identifying as a
+ * bot. We always try the polite UA first; only when the ENTIRE site
+ * yielded nothing do we retry the 3 highest-value pages presenting as
+ * a regular browser — one-off contact discovery, not a crawl.
+ */
+const BROWSER_UA =
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
+
 const FETCH_TIMEOUT_MS = 6_000;
 
 /**
@@ -270,6 +280,67 @@ export async function scrapeEmailsFromWebsite(input: {
     }
   }
 
+  // Rescue pass · the polite bot UA got stonewalled on EVERY probe
+  // (WAF bot-block, not a dead site — dead sites also land here, the
+  // retry just fails again cheaply). Re-try the 3 highest-value pages
+  // as a regular browser before declaring the site unreachable. This
+  // is the difference between "no email" and "blocked at the door" for
+  // Cloudflare-bot-fight/Sucuri-fronted SMB sites.
+  if (visitedUrls.length === 0) {
+    const rescueProbes: Array<{ url: string; source: EmailScrapeSource }> = [
+      { url: homepage, source: "SCRAPE_HOMEPAGE" },
+      { url: baseClean + "/contact", source: "SCRAPE_CONTACT" },
+      { url: baseClean + "/contact-us", source: "SCRAPE_CONTACT" },
+    ];
+    const rescueResults = await Promise.all(
+      rescueProbes.map((p) =>
+        fetchAndExtract(p.url, p.source, domain, BROWSER_UA).catch(
+          (): FetchResult => ({
+            url: p.url,
+            source: p.source,
+            candidates: [],
+            ok: false,
+          }),
+        ),
+      ),
+    );
+    for (const r of rescueResults) {
+      if (r.ok) {
+        visitedUrls.push(r.url);
+        all.push(...r.candidates);
+      }
+    }
+    // Footer + JS-bundle passes for the rescued homepage, same as the
+    // primary pass.
+    const rescuedHome = rescueResults.find(
+      (r) => r.source === "SCRAPE_HOMEPAGE" && r.ok,
+    );
+    if (rescuedHome?.footerEmails?.length) {
+      for (const email of rescuedHome.footerEmails) {
+        all.push(buildCandidate(email, "SCRAPE_FOOTER", domain));
+      }
+    }
+    if (rescuedHome?.html) {
+      const scriptUrls = extractSameOriginScriptUrls(
+        rescuedHome.html,
+        baseClean,
+      ).slice(0, MAX_JS_BUNDLES);
+      const jsResults = await Promise.all(
+        scriptUrls.map((url) =>
+          fetchJsBundle(url, domain, BROWSER_UA).catch(
+            (): JsBundleResult => ({ url, ok: false, candidates: [] }),
+          ),
+        ),
+      );
+      for (const j of jsResults) {
+        if (j.ok) {
+          visitedUrls.push(j.url);
+          all.push(...j.candidates);
+        }
+      }
+    }
+  }
+
   return {
     candidates: rankAndDedup(all),
     visitedUrls,
@@ -329,10 +400,11 @@ function extractSameOriginScriptUrls(html: string, base: string): string[] {
 async function fetchJsBundle(
   url: string,
   domain: string | null,
+  userAgent: string = USER_AGENT,
 ): Promise<JsBundleResult> {
   const res = await fetch(url, {
     headers: {
-      "User-Agent": USER_AGENT,
+      "User-Agent": userAgent,
       Accept: "application/javascript,*/*",
       "Accept-Language": "en-US,en;q=0.9",
     },
@@ -376,10 +448,11 @@ async function fetchAndExtract(
   url: string,
   source: EmailScrapeSource,
   domain: string | null,
+  userAgent: string = USER_AGENT,
 ): Promise<FetchResult> {
   const res = await fetch(url, {
     headers: {
-      "User-Agent": USER_AGENT,
+      "User-Agent": userAgent,
       Accept: "text/html,application/xhtml+xml",
       "Accept-Language": "en-US,en;q=0.9",
     },
@@ -398,9 +471,13 @@ async function fetchAndExtract(
   const mailtos = extractMailtoEmails(html);
   const inline = extractInlineEmails(html);
   const cloudflare = extractCloudflareEmails(html);
-  const candidates = uniq([...mailtos, ...inline, ...cloudflare]).map((email) =>
-    buildCandidate(email, source, domain),
-  );
+  const deobfuscated = extractObfuscatedEmails(html);
+  const candidates = uniq([
+    ...mailtos,
+    ...inline,
+    ...cloudflare,
+    ...deobfuscated,
+  ]).map((email) => buildCandidate(email, source, domain));
 
   // Footer = last 2KB of body (rough but effective for most sites)
   const footerEmails =
@@ -492,6 +569,41 @@ function decodeCloudflareHex(hex: string): string | null {
     out += String.fromCharCode(byte);
   }
   return out.includes("@") ? out : null;
+}
+
+/**
+ * Anti-spam obfuscation patterns humans write on contact pages:
+ *   "info [at] glowspa [dot] com"  ·  "info(at)glowspa(dot)com"
+ *   "info {at} glowspa {dot} com"  ·  "info at glowspa dot com"
+ *
+ * To keep false positives out of prose ("meet us at noon...") the
+ * bare-word form is only accepted when BOTH the "at" and at least one
+ * "dot" are worded; bracketed/parenthesised "at" is accepted with
+ * either worded or literal dots.
+ */
+const OBFUSCATED_BRACKET_RE =
+  /\b([A-Za-z0-9._%+-]+)\s*[\[({]\s*at\s*[\])}]\s*((?:[A-Za-z0-9-]+\s*(?:[\[({]\s*dot\s*[\])}]|\.)\s*)+[A-Za-z]{2,})\b/gi;
+const OBFUSCATED_WORDED_RE =
+  /\b([A-Za-z0-9._%+-]+)\s+at\s+((?:[A-Za-z0-9-]+\s+dot\s+)+[A-Za-z]{2,})\b/gi;
+
+function extractObfuscatedEmails(html: string): string[] {
+  // Strip tags so "info <span>[at]</span> spa [dot] com" still matches.
+  const text = decodeHtmlEntities(html.replace(/<[^>]+>/g, " "));
+  const out: string[] = [];
+  for (const re of [OBFUSCATED_BRACKET_RE, OBFUSCATED_WORDED_RE]) {
+    for (const m of text.matchAll(re)) {
+      const local = (m[1] ?? "").toLowerCase();
+      const hostRaw = (m[2] ?? "").toLowerCase();
+      const host = hostRaw
+        .replace(/[\[({]\s*dot\s*[\])}]/g, ".")
+        .replace(/\s+dot\s+/g, ".")
+        .replace(/\s+/g, "")
+        .replace(/\.{2,}/g, ".");
+      const email = `${local}@${host}`;
+      if (isValidEmailShape(email)) out.push(email);
+    }
+  }
+  return Array.from(new Set(out));
 }
 
 function safeDecodeUriComponent(s: string): string {
@@ -637,7 +749,7 @@ const JUNK_LOCALS =
  *     theme footers ("Sent via Mailchimp", etc.)
  */
 const JUNK_HOSTS =
-  /(?:example|sample|test|placeholder|domain|email|wordpress|sentry|cloudflare|squarespace-cdn|wixpress|wixstatic|wix\.com|ingest\.sentry|mailchimp|sendgrid|mailgun|amazonaws|cloudfront|googleusercontent|gstatic|gtag|googletag)\./i;
+  /(?:example|sample|test|placeholder|domain|email|wordpress|sentry|cloudflare|squarespace-cdn|wixpress|wixstatic|wix\.com|ingest\.sentry|mailchimp|sendgrid|mailgun|amazonaws|cloudfront|googleusercontent|gstatic|gtag|googletag|godaddysites|wixsite|square\.site|weeblysite|weebly\.com|myshopify)\./i;
 
 /**
  * Hex-string local-parts of 16+ characters are nearly always
@@ -646,6 +758,13 @@ const JUNK_HOSTS =
  * JUNK_HOSTS filter above.
  */
 const HEX_LOCAL_RE = /^[a-f0-9]{16,}$/i;
+
+/** Shared generic-inbox classifier · ONE vocabulary for every tier so
+ *  emailCandidates audit rows label isPersonal consistently (the AI
+ *  tier used to run its own narrower regex). */
+export function isGenericLocalPart(local: string): boolean {
+  return GENERIC_LOCALS.has(local.toLowerCase());
+}
 
 /** Build a fully-scored candidate from a raw email string. */
 export function buildCandidate(
@@ -658,14 +777,19 @@ export function buildCandidate(
   const safeHost = host ?? "";
 
   const isFreeProvider = FREE_PROVIDERS.has(safeHost);
-  const isGeneric = GENERIC_LOCALS.has(local);
-  const isPersonal = !isGeneric;
+  const isPersonal = !isGenericLocalPart(local);
+  // Alignment = email host equals (or is a subdomain of) the business's
+  // own domain. The stored domain often carries a `www.` prefix —
+  // normalize it instead of the old reverse-inclusion branch, which
+  // made `anything@godaddysites.com` "aligned" for a business hosted
+  // at `mybiz.godaddysites.com` (2026-06-11 audit).
+  const normalizedOwner = (ownerDomain ?? "")
+    .toLowerCase()
+    .replace(/^www\./, "");
   const isDomainAligned = !!(
-    ownerDomain &&
+    normalizedOwner &&
     safeHost &&
-    (safeHost === ownerDomain.toLowerCase() ||
-      safeHost.endsWith("." + ownerDomain.toLowerCase()) ||
-      ownerDomain.toLowerCase().endsWith("." + safeHost))
+    (safeHost === normalizedOwner || safeHost.endsWith("." + normalizedOwner))
   );
 
   let score = 0;

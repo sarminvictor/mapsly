@@ -368,7 +368,7 @@
      ("10,000 · $3.10" at 11px) NEXT TO the pending "Running…" button
      so the select can never bleed into the Qualify column (broke
      2026-06-11 when cost labels widened it). */
-  grid-template-columns: 200px 110px 80px;
+  grid-template-columns: 200px 110px 135px 80px;
   gap: 8px;
   justify-content: end;
 }

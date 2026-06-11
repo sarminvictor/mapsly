@@ -243,7 +243,7 @@ describe("callOpenAi", () => {
     expect(row.costUsd).toBeCloseTo(0.2, 6);
   });
 
-  test("rejects when computed cost exceeds ceiling (does NOT bill)", async () => {
+  test("rejects when computed cost exceeds ceiling — but BILLS the real spend first", async () => {
     __setFetchForTesting(
       vi.fn(async () =>
         okResponse({
@@ -264,10 +264,13 @@ describe("callOpenAi", () => {
         }),
       ),
     ).rejects.toThrow(/exceeded ceiling/);
-    // The withCronRun wrapper marks the run FAILED but cost should be 0
-    // because the ceiling check throws BEFORE incrementCost.
+    // The API already responded — the money is SPENT. The ceiling
+    // throw must not hide that spend from the CronRun ledger
+    // (2026-06-11 audit: ceiling violations were paid to OpenAI but
+    // recorded as $0, violating cost-discipline rule 3). The run is
+    // marked FAILED; the cost on it is the real one.
     const row = Array.from(fakeDb.rows.values())[0]!;
-    expect(row.costUsd).toBe(0);
+    expect(row.costUsd).toBeCloseTo(4.0, 2);
   });
 
   test("explicit costCeilingUsd overrides default", async () => {
