@@ -46,6 +46,7 @@ import {
   triggerReviewPullForBusiness,
   type TriggerReviewPullResult,
 } from "@/modules/reviews/trigger-pull";
+import { ensureLandingForBusiness } from "@/modules/smb-landing/mint";
 
 import { rdapLookup } from "./rdap";
 import {
@@ -352,6 +353,21 @@ export async function qualifyBusiness(
           : (candidates.slice(0, 10) as unknown as Prisma.InputJsonValue),
     },
   });
+
+  // Every QUALIFIED business gets a landing page, automatically — the cold
+  // pipeline (enroll.ts) hard-requires an active LandingPage, and a missing
+  // landing was a silent enrollment blocker for the entire Miami cohort.
+  // Idempotent (ensureLandingForBusiness returns the existing row) and
+  // non-fatal: a mint hiccup must never fail qualification itself.
+  if (status === "QUALIFIED") {
+    try {
+      await ensureLandingForBusiness(biz.id);
+    } catch (err) {
+      console.warn(
+        `[qualify] landing mint failed for ${biz.id}: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }
 
   // Service detection (4-layer pipeline · place_topics + description
   // + website /services scrape + Google starter list). Runs against
