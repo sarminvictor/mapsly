@@ -71,7 +71,8 @@ export interface LandingReviewsData {
   /** Your position by review count in the cell ("#26"). */
   yourRank: number | null;
   rankedTotal: number | null;
-  /** Review themes (Google's extracted place topics). */
+  /** Review themes — AI-tagged service mentions (Review.mentionedServices),
+   * counted across all collected reviews. Empty when none tagged yet. */
   themes: { label: string; count: number }[];
   /** Competitor comparison — top peers in the cell + you. */
   competitors: {

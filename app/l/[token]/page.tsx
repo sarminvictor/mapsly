@@ -21,7 +21,14 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
+// Landing-scoped stylesheet — the desktop values + breakpoint overrides for
+// every `landing-*` / `hero-*` class. Lives next to the components that use
+// it; this page is the only route that renders LandingView.
+import "@/modules/smb-landing/landing.css";
+
+import { ConsentBar } from "@/modules/smb-landing/components/ConsentBar";
 import { LandingView } from "@/modules/smb-landing/components/LandingView";
+import { RetargetingPixels } from "@/modules/smb-landing/components/RetargetingPixels";
 import {
   getLandingData,
   resolveLandingToken,
@@ -54,9 +61,16 @@ export default function LandingTokenPage({
   params: Promise<{ token: string }>;
 }) {
   return (
-    <Suspense fallback={null}>
-      <LandingBody params={params} />
-    </Suspense>
+    <>
+      <Suspense fallback={null}>
+        <LandingBody params={params} />
+      </Suspense>
+      {/* Client leaves, /l only (never the global layout): the ad-cookie
+          consent bar + the consent-gated Meta/Google pixels (plan #7). Both
+          are NO-OPs until the visitor chooses / the env ids exist. */}
+      <ConsentBar />
+      <RetargetingPixels />
+    </>
   );
 }
 

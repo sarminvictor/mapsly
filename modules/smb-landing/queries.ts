@@ -142,7 +142,6 @@ export async function getLandingData(
           website: true,
           rating: true,
           reviewCount: true,
-          placeTopics: true,
           snapshots: {
             take: 1,
             orderBy: { snapshotDate: "desc" },
@@ -174,6 +173,7 @@ export async function getLandingData(
       audit,
       cellMetric,
       betterReviewed,
+      serviceMentionRows,
     ] = await Promise.all([
       prisma.businessKeyword.findMany({
         where: { businessId },
@@ -257,6 +257,19 @@ export async function getLandingData(
             },
           })
         : Promise.resolve(0),
+      // Review themes · AI-tagged Review.mentionedServices (canonical
+      // BusinessService names), aggregated over ALL collected reviews — the
+      // landing wants the full picture, no 12-month window. Same unnest+GROUP
+      // BY shape as modules/reviews/trends.ts. Replaces Google's noisy
+      // placeTopics ("YYC 18", "april 9") as the themes source.
+      prisma.$queryRaw<{ name: string; count: bigint }[]>`
+        SELECT name, COUNT(*)::bigint AS count
+        FROM "Review", unnest("mentionedServices") AS name
+        WHERE "businessId" = ${businessId}
+        GROUP BY name
+        ORDER BY count DESC
+        LIMIT 6
+      `,
     ]);
 
     // Per-peer review aggregates (reply rate + 30d trend) over the cohort + self.
@@ -309,7 +322,7 @@ export async function getLandingData(
       reviewCount: biz.reviewCount,
       total: reviewTotal,
       replied: reviewReplied,
-      placeTopics: biz.placeTopics,
+      serviceMentions: mapServiceMentions(serviceMentionRows),
       cohort: reviewCohort,
       businessId,
       pillar: overview?.reputation ?? null,
@@ -492,7 +505,7 @@ function buildReviews(p: {
   reviewCount: number | null;
   total: number;
   replied: number;
-  placeTopics: unknown;
+  serviceMentions: { label: string; count: number }[];
   cohort: CohortRow[];
   businessId: string;
   pillar: number | null;
@@ -505,7 +518,7 @@ function buildReviews(p: {
 }): LandingReviewsData {
   const replyRate = p.total > 0 ? p.replied / p.total : null;
   const unanswered = Math.max(0, p.total - p.replied);
-  const themes = parseThemes(p.placeTopics);
+  const themes = p.serviceMentions;
   const hasData =
     p.rating != null ||
     p.reviewCount != null ||
@@ -575,15 +588,20 @@ function peerRow(
   };
 }
 
-/** Google's extracted place topics: { "botox": 12, "lip filler": 8, ... }. */
-function parseThemes(v: unknown): { label: string; count: number }[] {
-  if (v == null || typeof v !== "object" || Array.isArray(v)) return [];
+/** AI-tagged service mentions (the unnest+count rows over
+ * `Review.mentionedServices`) → the themes shape. Deliberately NO fallback to
+ * Google's raw placeTopics ("YYC 18", "april 9" — the noise this replaced):
+ * zero rows = empty themes, and the section shows its empty-state copy. */
+function mapServiceMentions(
+  rows: { name: string; count: bigint | number }[],
+): { label: string; count: number }[] {
   const out: { label: string; count: number }[] = [];
-  for (const [label, raw] of Object.entries(v as Record<string, unknown>)) {
-    const count = typeof raw === "number" ? raw : Number(raw);
-    if (Number.isFinite(count) && count > 0) out.push({ label, count });
+  for (const r of rows) {
+    const count = Number(r.count);
+    if (r.name && Number.isFinite(count) && count > 0)
+      out.push({ label: r.name, count });
   }
-  return out.sort((a, b) => b.count - a.count).slice(0, 6);
+  return out;
 }
 
 type AuditRow = {
