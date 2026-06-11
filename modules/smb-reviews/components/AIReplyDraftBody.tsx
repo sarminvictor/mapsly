@@ -11,12 +11,13 @@
  * Per `.claude/rules/ui-ux-smb.md`: warm, plain, tap targets ≥ 44px.
  */
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 
 import {
   saveReplyDraftAction,
   type ActionResult,
 } from "@/app/[locale]/(smb)/reviews/actions";
+import { shouldAdoptIncomingDraft } from "../draft-sync";
 
 export interface AIReplyDraftBodyProps {
   reviewId: string;
@@ -44,7 +45,24 @@ export function AIReplyDraftBody({
     initial,
   );
 
-  if (!draftEn?.trim() && !text.trim()) return null;
+  // Sync the textarea when a NEW draft arrives via props after mount
+  // (freshly generated reply lifted through ReviewCard, or an updated
+  // server payload). `lastAppliedDraft` tracks the draft we last set
+  // into the textarea so the pure helper can tell "user typed since"
+  // (never clobber) apart from "still showing the previous draft"
+  // (safe to adopt). Decision logic lives in ../draft-sync (unit-tested
+  // — static-markup component tests never run effects).
+  const lastAppliedDraft = useRef(draftEn ?? "");
+  useEffect(() => {
+    const incoming = draftEn ?? "";
+    if (shouldAdoptIncomingDraft(lastAppliedDraft.current, incoming, text)) {
+      lastAppliedDraft.current = incoming;
+      setText(incoming);
+      // Keep the parent's S3 current-draft-text tracking on the new
+      // baseline so the pre-publish PHI check sees the adopted draft.
+      onTextChange?.(incoming);
+    }
+  }, [draftEn, text, onTextChange]);
 
   const words = text.split(/\s+/).filter(Boolean).length;
 

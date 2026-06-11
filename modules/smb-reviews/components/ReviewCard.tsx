@@ -465,12 +465,15 @@ function OwnerReply({
             `matches` field — degrade to plain text, never crash. */}
         {privacyRisk && (privacyRisk.matches?.length ?? 0) > 0 ? (
           // S5 · mark the exact flagged phrases inside the reply so
-          // Maria sees what to edit without hunting. The hint line
-          // below carries the same meaning in plain text (touch +
-          // keyboard + AT — the mark styling is never the only signal).
+          // Maria sees what to edit without hunting. BARE phrases only
+          // — marking the padded excerpt produced mid-word marks in
+          // production. The hint line below carries the same meaning in
+          // plain text (touch + keyboard + AT — the mark styling is
+          // never the only signal) and its tooltip keeps the excerpt
+          // for context.
           <PrivacyMarkedReplyText
             text={text}
-            excerpts={privacyRisk.matches.map((m) => m.excerpt)}
+            phrases={privacyRisk.matches.map((m) => m.phrase)}
             markTitle={privacyHintLabel}
           />
         ) : (
@@ -522,14 +525,29 @@ function AIReplyDraft({
   //      replies to match Maria's voice) + Skip/Restore.
   //   2. Has draft · editable text + Save (in AIReplyDraftBody) + Post
   //      to Google + Skip/Restore.
-  const hasDraft = Boolean(review.aiReplyDraftEn);
+  //
+  // `freshDraft` holds a just-generated reply lifted out of ReplyActions
+  // (onGenerated). It renders IMMEDIATELY — the server-rendered
+  // `review.aiReplyDraftEn` lags one pass because `revalidateTag` is
+  // stale-while-revalidate, which is why the draft used to appear only
+  // after a manual refresh. Fresh draft wins until the server payload
+  // catches up.
+  const [freshDraft, setFreshDraft] = useState<string | null>(null);
+  const effectiveDraftEn = freshDraft ?? review.aiReplyDraftEn;
+  const hasDraft = Boolean(effectiveDraftEn);
 
   // S3 · track the CURRENT draft text for the pre-publish privacy check.
-  // `editedText` stays null until Maria types, so a freshly regenerated
-  // draft (new `review.aiReplyDraftEn` from revalidation) is what gets
-  // checked — not a stale snapshot from mount time.
+  // `editedText` stays null until Maria types, so a freshly generated
+  // draft is what gets checked — not a stale snapshot from mount time.
   const [editedText, setEditedText] = useState<string | null>(null);
-  const currentText = editedText ?? review.aiReplyDraftEn ?? "";
+  const currentText = editedText ?? effectiveDraftEn ?? "";
+
+  const handleGenerated = (draftEn: string) => {
+    setFreshDraft(draftEn);
+    // The fresh draft is the new baseline for the S3 pre-publish PHI
+    // check — drop any edit snapshot taken against the previous draft.
+    setEditedText(null);
+  };
 
   return (
     <div
@@ -578,7 +596,7 @@ function AIReplyDraft({
         <>
           <AIReplyDraftBody
             reviewId={review.id}
-            draftEn={review.aiReplyDraftEn}
+            draftEn={effectiveDraftEn}
             labels={{ save: labels.ctaSave, saved: labels.ctaSaved }}
             onTextChange={setEditedText}
           />
@@ -595,6 +613,7 @@ function AIReplyDraft({
         currentText={currentText}
         serviceNames={review.mentionedServices}
         hideQueue={hideQueue}
+        onGenerated={handleGenerated}
         labels={{
           generate: generateLabelOverride ?? labels.ctaGenerate,
           post: labels.ctaPost,

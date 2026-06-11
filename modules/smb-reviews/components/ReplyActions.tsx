@@ -28,7 +28,13 @@
  * simply don't set `privacyConfirmTitle` and the check never runs.
  */
 
-import { useActionState, useState, type MouseEvent } from "react";
+import {
+  useActionState,
+  useEffect,
+  useRef,
+  useState,
+  type MouseEvent,
+} from "react";
 
 import {
   regenerateReplyAction,
@@ -54,6 +60,13 @@ interface Props {
   /** Hide the Skip/Restore queue button. Used by the published-reply
    *  fix path, where skipping an already-replied review makes no sense. */
   hideQueue?: boolean;
+  /**
+   * Fires once per successful generation with the fresh draft text.
+   * The parent (ReviewCard) lifts it into state so the draft renders
+   * IMMEDIATELY — the server-rendered `aiReplyDraftEn` lags one pass
+   * because `revalidateTag` refreshes stale-while-revalidate.
+   */
+  onGenerated?: (draftEn: string) => void;
   labels: {
     generate: string;
     post: string;
@@ -76,6 +89,7 @@ export function ReplyActions({
   currentText,
   serviceNames,
   hideQueue,
+  onGenerated,
   labels,
 }: Props) {
   // Initial-state type must match the action's exact return type — a wider
@@ -84,6 +98,19 @@ export function ReplyActions({
     regenerateReplyAction,
     null as Awaited<ReturnType<typeof regenerateReplyAction>> | null,
   );
+
+  // Surface the freshly generated draft to the parent exactly once per
+  // result. useActionState returns a NEW state object per completed
+  // action, so identity comparison against the last handled result is
+  // the dedupe — re-renders with the same state object don't re-fire.
+  const lastHandledGenState = useRef<typeof genState>(null);
+  useEffect(() => {
+    if (!genState || genState === lastHandledGenState.current) return;
+    lastHandledGenState.current = genState;
+    if (genState.ok && genState.data.draftEn) {
+      onGenerated?.(genState.data.draftEn);
+    }
+  }, [genState, onGenerated]);
 
   // S3 · inline privacy confirm. Enabled only when the page set the
   // privacy labels (human-medical businesses).

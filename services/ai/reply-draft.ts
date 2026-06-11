@@ -106,9 +106,16 @@ OVERRIDE: Return ONLY {"en": string} in US English. Do NOT include an "es" field
  *
  * WHY: US regulators have fined practices $10k–$50k for review replies
  * that confirmed the reviewer was a patient or echoed their treatment.
- * These rules deliberately OVERRIDE the base prompts' "reference at
- * least one specific detail from the review" instruction — for medical
- * categories, generic is the only safe register.
+ * The CONTENT RULES deliberately OVERRIDE the base prompts' "reference
+ * at least one specific detail from the review" instruction where they
+ * conflict.
+ *
+ * v2 (2026-06 voice audit): split into two labeled sections. The old
+ * single-blob version over-suppressed — models read "OVERRIDE every
+ * other instruction" as covering tone too and produced corporate-
+ * generic replies for energetic owners. CONTENT RULES govern WHAT the
+ * reply may say (plus an explicit allow-list of non-clinical review
+ * details); VOICE RULES state that HOW it sounds is never restricted.
  *
  * Exported so trap-case unit tests can assert the exact text lands in
  * the prompt (and only for medical categories).
@@ -120,6 +127,9 @@ PRIVACY RULES — this business is a healthcare practice. US privacy law
 rules OVERRIDE every other instruction in this conversation — including
 "reference a specific detail from the review", "mimic the style of
 these exactly", and the style of any prior-reply examples:
+
+CONTENT RULES (these override "reference a specific detail" when they
+conflict):
 - NEVER confirm, deny, or imply that the reviewer was or was not a
   patient or client of the practice. No "thanks for coming in", "we
   loved having you", "since your visit" — and equally no "we have no
@@ -129,16 +139,24 @@ these exactly", and the style of any prior-reply examples:
   medications, results, appointment dates, visit dates, or payments —
   even if the reviewer wrote about them. Do not echo those details
   back in any form.
-- Thank them generically and speak to service quality in general terms
-  ("We work hard to give everyone a great experience").
+- OK to reference from the review: wait time, scheduling or booking
+  experience, staff friendliness or demeanor, facility cleanliness or
+  atmosphere, general service quality — these are not patient
+  information.
 - For negative reviews, invite offline contact WITHOUT acknowledging
   any care relationship: "We'd welcome the chance to talk — please call
   our office." Never "about your appointment" or "your treatment".
-- The owner's prior replies (if shown above) are style guides ONLY —
-  match their tone, length, and sign-off, but if an example confirms a
-  patient relationship or names a treatment, do NOT imitate that
-  content.
-- Apply these rules to BOTH the English and the Spanish drafts.`;
+
+VOICE RULES (NEVER overridden by privacy rules):
+- Copy the owner's greeting style (e.g. greeting the reviewer by their
+  public first name — that is voice, not a disclosure), emoji use or
+  absence, punctuation energy, sentence length, sign-off and signature
+  phrases from the prior-reply examples.
+- Privacy rules govern WHAT you say, never HOW you sound. A
+  privacy-safe reply in the owner's energetic voice is the goal —
+  generic corporate phrasing is a failure.
+
+Apply these rules to BOTH the English and the Spanish drafts.`;
 
 const SYSTEM_PROMPT_WITH_EXAMPLES = `You write owner replies to Google reviews. The owner has prior replies
 shown as examples — MIMIC their style precisely. Copy their openers
@@ -176,6 +194,122 @@ Always:
 - Never include unfilled placeholders like "[your name]".
 - If the reviewer name is an initial, write "Hi there" or skip the greeting.`;
 
+/** Mode (most frequent value) with first-seen tie-breaking · null on []. */
+function modeOf(values: string[]): { value: string; count: number } | null {
+  if (values.length === 0) return null;
+  const counts = new Map<string, number>();
+  for (const v of values) counts.set(v, (counts.get(v) ?? 0) + 1);
+  let best: { value: string; count: number } | null = null;
+  for (const [value, count] of counts) {
+    if (!best || count > best.count) best = { value, count };
+  }
+  return best;
+}
+
+/** Unicode emoji + text emoticons (:-) :) ;) :D …) — sampling, not parsing. */
+const EMOJI_RE =
+  /[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}]|[:;]-?[)(DPp]/u;
+
+const SALUTATIONS = new Set(["hi", "hey", "hello", "hola"]);
+
+/**
+ * VOICE PROFILE · tiny deterministic summary of the owner's reply style,
+ * computed from the few-shot examples and injected into the user message
+ * right after the examples block — for ALL businesses with examples, not
+ * only medical (privacy rules constrain content, never voice).
+ *
+ * WHY: examples alone under-transfer voice once the PHI guardrail is in
+ * play — the model plays it safe and goes corporate. Naming the voice
+ * features explicitly ("uses emoji", `greets with "Hey {name}!"`) gives
+ * it both permission and a checklist. Heuristics are deliberately simple
+ * and robust (first-word greeting mode, exclamation density, emoji
+ * regex incl. :-) forms, short-closer mode, median sentence count) —
+ * this is a nudge, not NLP.
+ *
+ * Exported for unit tests. Returns "" when no usable examples exist.
+ */
+export function buildVoiceProfile(examples: VoiceExample[]): string {
+  const replies = examples
+    .map((e) => e.ownerReply.trim())
+    .filter((r) => r.length > 0);
+  if (replies.length === 0) return "";
+
+  const parts: string[] = [];
+
+  // Greeting · mode of the first word across replies (≥ half must agree).
+  const firstWords = replies
+    .map((r) => /^[^A-Za-zÀ-ÿ]*([A-Za-zÀ-ÿ']+)/.exec(r)?.[1] ?? "")
+    .filter(Boolean);
+  const greeting = modeOf(firstWords.map((w) => w.toLowerCase()));
+  if (greeting && greeting.count * 2 >= firstWords.length) {
+    const original =
+      firstWords.find((w) => w.toLowerCase() === greeting.value) ??
+      greeting.value;
+    if (SALUTATIONS.has(greeting.value)) {
+      // Salutation + name pattern. "!" only when the owner actually
+      // punches the greeting (salutation, name, then an exclamation).
+      const energetic = replies.some((r) =>
+        new RegExp(`^${original}[\\s,]+[^\\s.!?]+!`, "i").test(r),
+      );
+      parts.push(`greets with "${original} {name}${energetic ? "!" : ""}"`);
+    } else {
+      parts.push(`often opens with "${original} …"`);
+    }
+  }
+
+  // Exclamation energy · density across all replies.
+  const exclamations = replies.join("").split("!").length - 1;
+  const perReply = exclamations / replies.length;
+  parts.push(
+    perReply >= 1
+      ? "uses exclamation marks freely"
+      : perReply > 0
+        ? "uses an occasional exclamation mark"
+        : "no exclamation marks",
+  );
+
+  // Emoji / emoticons · sample the first one seen so the model copies
+  // the owner's actual flavor (🌸 vs :-)).
+  const emojiSample = replies
+    .map((r) => EMOJI_RE.exec(r)?.[0])
+    .find((m): m is string => Boolean(m));
+  parts.push(emojiSample ? `uses emoji (${emojiSample})` : "no emoji");
+
+  // Sign-off · most common SHORT closing sentence (must repeat to count
+  // as a signature phrase, otherwise it's just that one reply's ending).
+  const closers = replies
+    .map((r) => {
+      const sentences = r
+        .split(/(?<=[.!?…])\s+|\n+/)
+        .map((s) => s.trim())
+        .filter(Boolean);
+      return sentences[sentences.length - 1] ?? "";
+    })
+    .filter((s) => s.length > 0 && s.length <= 60);
+  const closer = modeOf(closers.map((s) => s.toLowerCase()));
+  if (closer && closer.count >= 2) {
+    const original = closers.find((s) => s.toLowerCase() === closer.value)!;
+    parts.push(`typical sign-off: "${original}"`);
+  }
+
+  // Reply length · median sentence count (robust to one rambling reply).
+  const sentenceCounts = replies
+    .map(
+      (r) =>
+        r
+          .split(/[.!?…]+/)
+          .map((s) => s.trim())
+          .filter(Boolean).length,
+    )
+    .sort((a, b) => a - b);
+  const median = sentenceCounts[Math.floor(sentenceCounts.length / 2)] ?? 1;
+  parts.push(
+    `average reply length ~${median} sentence${median === 1 ? "" : "s"}`,
+  );
+
+  return `VOICE PROFILE (computed from the owner's replies): ${parts.join(" · ")}.`;
+}
+
 function formatVoiceExamples(examples: VoiceExample[]): string {
   return examples
     .map((ex, i) => {
@@ -200,10 +334,18 @@ function buildPrompt(input: DraftReplyInput, isMedical: boolean): string {
   // notes. For medical categories the header must NOT re-issue "mimic
   // exactly" — the user message arrives after the system prompt, and a
   // later unqualified imperative can win over the PHI guardrail. The
-  // medical header scopes the examples to tone only, in-band.
+  // medical header scopes imitation to VOICE (greeting, emoji,
+  // punctuation, sign-off) and bans imitating clinical content, in-band.
   const examplesHeader = isMedical
-    ? `=== OWNER'S PRIOR REPLIES (tone, length, and sign-off reference ONLY — the PRIVACY RULES override their content) ===`
+    ? `=== OWNER'S PRIOR REPLIES (mimic the VOICE: greeting style, emoji, punctuation, sign-off. Privacy rules govern content only — never imitate clinical details from these examples.) ===`
     : `=== OWNER'S PRIOR REPLIES (mimic the style of these exactly) ===`;
+  // VOICE PROFILE · injected right after the examples for ALL businesses
+  // with examples — explicit feature naming transfers voice better than
+  // raw examples alone (esp. under the medical guardrail).
+  const voiceProfile =
+    input.voiceExamples && input.voiceExamples.length > 0
+      ? buildVoiceProfile(input.voiceExamples)
+      : "";
   const examplesBlock =
     input.voiceExamples && input.voiceExamples.length > 0
       ? `${examplesHeader}
@@ -211,18 +353,22 @@ ${formatVoiceExamples(input.voiceExamples)}
 
 === END EXAMPLES ===
 
-`
+${voiceProfile ? `${voiceProfile}\n\n` : ""}`
       : input.voiceNotes
         ? `Voice notes: ${input.voiceNotes}\n\n`
         : "";
 
-  // Same recency concern for the closing line: the non-medical variant
-  // says "match the examples as precisely as you can", which for a
-  // medical business would be the LAST instruction the model reads.
+  // Same recency concern for the closing line: it is the LAST instruction
+  // the model reads. The medical variant restates BOTH halves — voice is
+  // mandatory (greeting/emoji/punctuation/sign-off), clinical content is
+  // banned, and the non-clinical allow-list is safe — so recency works
+  // FOR the guardrail instead of against it.
   const closing = isMedical
-    ? `Write the owner's reply in English AND Spanish. Match the tone and
-length of the prior-reply examples above, but the PRIVACY RULES in the
-system instructions override everything else. Return JSON.`
+    ? `Write the owner's reply in English AND Spanish. ALWAYS mimic the owner's
+greeting style, emoji use, punctuation, and sign-off from the examples
+above. Never mention treatments, procedures, conditions, dates, or
+payments. Non-clinical specifics from the review (wait time, staff
+friendliness, atmosphere) are safe to reference. Return JSON.`
     : `Write the owner's reply in English AND Spanish. Match the style of the
 prior-reply examples above as precisely as you can. Return JSON.`;
 
@@ -279,6 +425,9 @@ export async function draftReplyUncached(
     operation: `ai.reply.draft[${model}]`,
     model,
     maxTokens: 800,
+    // NOTE: gpt-5.x models reject explicit temperature values, so the
+    // client OMITS the param for them entirely (see services/ai/client.ts)
+    // — this 0.4 only takes effect if a non-gpt-5 model is configured.
     temperature: 0.4,
     system,
     prompt: buildPrompt(input, medical),

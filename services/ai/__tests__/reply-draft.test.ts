@@ -42,7 +42,11 @@ vi.mock("@/lib/prisma", () => ({
 
 import { withCronRun } from "@/lib/cost/cost-counter";
 import { __setApiKeyForTesting, __setFetchForTesting } from "../client";
-import { PHI_REPLY_GUARDRAIL, draftReplyUncached } from "../reply-draft";
+import {
+  PHI_REPLY_GUARDRAIL,
+  buildVoiceProfile,
+  draftReplyUncached,
+} from "../reply-draft";
 
 function reply(content: string) {
   return new Response(
@@ -313,8 +317,14 @@ describe("draftReplyUncached · PHI guardrail", () => {
     // Few-shot base prompt + guardrail stacked.
     expect(sys).toMatch(/MIMIC their style/i);
     expect(sys).toContain(PHI_REPLY_GUARDRAIL);
-    // Examples are style guides only — content must not be imitated.
-    expect(sys).toMatch(/style guides ONLY/);
+    // v2 guardrail · CONTENT RULES govern what the reply may say; VOICE
+    // RULES keep the owner's sound — a PHI-laden example contributes
+    // voice only, never clinical content.
+    expect(sys).toContain("CONTENT RULES");
+    expect(sys).toContain("VOICE RULES");
+    expect(sys).toMatch(
+      /Privacy rules govern WHAT you say, never HOW you sound/,
+    );
   });
 
   test("non-medical category · no guardrail, natural style kept", async () => {
@@ -365,6 +375,28 @@ describe("draftReplyUncached · PHI guardrail", () => {
     expect(PHI_REPLY_GUARDRAIL).toMatch(/"mimic the style of\s+these exactly"/);
     // Bilingual coverage.
     expect(PHI_REPLY_GUARDRAIL).toMatch(/BOTH the English and the Spanish/);
+    // v2 structure · two labeled sections so privacy can't bleed into
+    // voice (the corporate-generic failure mode from the 2026-06 audit).
+    expect(PHI_REPLY_GUARDRAIL).toMatch(
+      /CONTENT RULES \(these override "reference a specific detail" when they\s+conflict\)/,
+    );
+    expect(PHI_REPLY_GUARDRAIL).toMatch(
+      /VOICE RULES \(NEVER overridden by privacy rules\)/,
+    );
+    // Greeting the reviewer by their public first name is voice, not a
+    // disclosure — explicitly allowed.
+    expect(PHI_REPLY_GUARDRAIL).toMatch(
+      /greeting the reviewer by their\s+public first name — that is voice, not a disclosure/,
+    );
+    // Allow-list · non-clinical review details are safe to reference.
+    expect(PHI_REPLY_GUARDRAIL).toMatch(
+      /OK to reference from the review: wait time, scheduling or booking\s+experience, staff friendliness or demeanor, facility cleanliness or\s+atmosphere, general service quality/,
+    );
+    expect(PHI_REPLY_GUARDRAIL).toMatch(/these are not patient\s+information/);
+    // Corporate-generic phrasing is named as a FAILURE, not a refuge.
+    expect(PHI_REPLY_GUARDRAIL).toMatch(
+      /generic corporate phrasing is a failure/,
+    );
   });
 
   test("englishOnly · guardrail precedes the EN-only override", async () => {
@@ -409,9 +441,13 @@ describe("draftReplyUncached · PHI guardrail", () => {
     expect(sys).toContain(PHI_REPLY_GUARDRAIL);
     // Negative path: offline invite must not acknowledge care.
     expect(sys).toMatch(/invite offline contact WITHOUT acknowledging/);
-    // The user message's LAST instruction defers to the privacy rules
-    // (not "match the examples as precisely as you can").
-    expect(user).toMatch(/PRIVACY RULES[\s\S]*override everything else/);
+    // The user message's LAST instruction is the medical closing — it
+    // restates the clinical-content ban so recency works FOR the
+    // guardrail (not "match the examples as precisely as you can").
+    expect(user).toMatch(
+      /Never mention treatments, procedures, conditions, dates, or\s+payments/,
+    );
+    expect(user).not.toContain("as precisely as you can");
   });
 
   test("trap · Spanish-language review with treatment terms still gated (category, not text)", async () => {
@@ -455,12 +491,23 @@ describe("draftReplyUncached · PHI guardrail", () => {
       ],
     });
     // The examples header + closing are the LAST instructions the model
-    // reads. For medical they must scope examples to tone and defer to
-    // the privacy rules — a trailing unqualified "mimic exactly" could
-    // win on recency over the system guardrail.
-    expect(user).toContain("tone, length, and sign-off reference ONLY");
+    // reads. For medical they must scope imitation to VOICE and restate
+    // the clinical-content ban — a trailing unqualified "mimic exactly"
+    // could win on recency over the system guardrail.
+    expect(user).toContain(
+      "mimic the VOICE: greeting style, emoji, punctuation, sign-off",
+    );
+    expect(user).toMatch(/Privacy rules govern content only/);
+    expect(user).toMatch(/never imitate clinical details/);
     expect(user).not.toContain("mimic the style of these exactly");
-    expect(user).toMatch(/PRIVACY RULES/);
+    // The closing mandates the owner's voice features by name.
+    expect(user).toMatch(
+      /ALWAYS mimic the owner's\s+greeting style, emoji use, punctuation, and sign-off/,
+    );
+    // …and re-opens the non-clinical allow-list.
+    expect(user).toMatch(
+      /Non-clinical specifics from the review \(wait time, staff\s+friendliness, atmosphere\) are safe to reference/,
+    );
   });
 
   test("few-shot + non-medical · 'mimic exactly' framing is kept", async () => {
@@ -480,5 +527,117 @@ describe("draftReplyUncached · PHI guardrail", () => {
   test("normalization end-to-end · 'Med-Spa' (hyphen + case) still triggers the guardrail", async () => {
     const { sys } = await promptsFor("Med-Spa");
     expect(sys).toContain(PHI_REPLY_GUARDRAIL);
+  });
+
+  // ── Voice profile injection ───────────────────────────────────────
+
+  const energeticExamples = [
+    {
+      reviewStars: 5,
+      reviewText: "amazing!",
+      ownerReply:
+        "Hey Sarah! Thanks a million 🌸 You made our day. See you soon!",
+    },
+    {
+      reviewStars: 4,
+      reviewText: null,
+      ownerReply: "Hey Mike! So glad you had fun. See you soon!",
+    },
+  ];
+
+  test("voice profile · injected into the user message when examples exist (medical)", async () => {
+    const { user } = await promptsFor("med spa", {
+      voiceExamples: energeticExamples,
+    });
+    expect(user).toContain(
+      "VOICE PROFILE (computed from the owner's replies):",
+    );
+    // Profile sits AFTER the examples block, BEFORE the new review.
+    expect(user.indexOf("VOICE PROFILE")).toBeGreaterThan(
+      user.indexOf("=== END EXAMPLES ==="),
+    );
+    expect(user.indexOf("VOICE PROFILE")).toBeLessThan(
+      user.indexOf("NEW REVIEW"),
+    );
+  });
+
+  test("voice profile · also injected for non-medical businesses", async () => {
+    const { user } = await promptsFor("restaurant", {
+      voiceExamples: energeticExamples,
+    });
+    expect(user).toContain(
+      "VOICE PROFILE (computed from the owner's replies):",
+    );
+  });
+
+  test("voice profile · absent without examples (legacy voiceNotes path too)", async () => {
+    const bare = await promptsFor("med spa");
+    expect(bare.user).not.toContain("VOICE PROFILE");
+    const notes = await promptsFor("med spa", { voiceNotes: "formal usted" });
+    expect(notes.user).not.toContain("VOICE PROFILE");
+  });
+});
+
+/**
+ * buildVoiceProfile · pure heuristics over the owner's prior replies.
+ * Pinned on fixtures so prompt-visible output is an explicit decision.
+ */
+describe("buildVoiceProfile", () => {
+  const ex = (ownerReply: string, reviewStars = 5) => ({
+    reviewStars,
+    reviewText: "great",
+    ownerReply,
+  });
+
+  test("energetic owner · greeting mode, exclamation density, emoji sample, repeated sign-off", () => {
+    const profile = buildVoiceProfile([
+      ex("Hey Sarah! Thanks a million 🌸 You made our day. See you soon!"),
+      ex("Hey Mike! So glad you had fun. See you soon!"),
+      ex("Hey! Wow, thank you. See you soon!"),
+    ]);
+    expect(profile).toContain(
+      "VOICE PROFILE (computed from the owner's replies):",
+    );
+    expect(profile).toContain('greets with "Hey {name}!"');
+    expect(profile).toContain("uses exclamation marks freely");
+    expect(profile).toContain("uses emoji (🌸)");
+    expect(profile).toContain('typical sign-off: "See you soon!"');
+    expect(profile).toMatch(/average reply length ~\d+ sentences?/);
+  });
+
+  test("text emoticons count as emoji (:-) style)", () => {
+    const profile = buildVoiceProfile([
+      ex("Hi Ana! Glad you enjoyed it :-) Come back any time!"),
+      ex("Hi Tom! Thanks for the love :-)"),
+    ]);
+    expect(profile).toContain("uses emoji (:-))");
+    expect(profile).toContain('greets with "Hi {name}!"');
+  });
+
+  test("flat formal owner · no exclamation, no emoji, no fabricated sign-off", () => {
+    const profile = buildVoiceProfile([
+      ex("Thank you for your feedback. We appreciate your business."),
+      ex("Thank you for taking the time to review us. We value your input."),
+    ]);
+    expect(profile).toContain("no exclamation marks");
+    expect(profile).toContain("no emoji");
+    // Closers differ → no signature phrase is invented.
+    expect(profile).not.toContain("typical sign-off");
+    // "Thank" is not a salutation — reported as an opener, not a greeting.
+    expect(profile).toContain('often opens with "Thank …"');
+  });
+
+  test("median sentence count is robust to one rambling reply", () => {
+    const profile = buildVoiceProfile([
+      ex("Thanks. Come again."),
+      ex("Thanks. We loved it."),
+      ex("Thanks. One. Two. Three. Four. Five. Six. Seven. Eight. Nine. Ten."),
+    ]);
+    expect(profile).toContain("average reply length ~2 sentences");
+  });
+
+  test("empty or blank examples → empty string (nothing injected)", () => {
+    expect(buildVoiceProfile([])).toBe("");
+    expect(buildVoiceProfile([ex("   ")])).toBe("");
   });
 });
