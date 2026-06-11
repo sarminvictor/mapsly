@@ -22,6 +22,12 @@ export interface AIReplyDraftBodyProps {
   reviewId: string;
   draftEn: string | null;
   labels: { save: string; saved: string };
+  /**
+   * S3 · notifies the parent of every edit so the pre-publish privacy
+   * check (ReplyActions) always sees the CURRENT text, not the
+   * server-stored draft. Optional — non-medical flows skip it.
+   */
+  onTextChange?: (text: string) => void;
 }
 
 const initial: ActionResult<null> | null = null;
@@ -30,6 +36,7 @@ export function AIReplyDraftBody({
   reviewId,
   draftEn,
   labels,
+  onTextChange,
 }: AIReplyDraftBodyProps) {
   const [text, setText] = useState(draftEn ?? "");
   const [state, formAction, pending] = useActionState(
@@ -47,7 +54,10 @@ export function AIReplyDraftBody({
       <textarea
         name="text"
         value={text}
-        onChange={(e) => setText(e.target.value)}
+        onChange={(e) => {
+          setText(e.target.value);
+          onTextChange?.(e.target.value);
+        }}
         rows={4}
         aria-label="Edit your reply"
         style={{

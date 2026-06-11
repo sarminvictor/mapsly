@@ -39,7 +39,9 @@
 import { cacheLife, cacheTag } from "next/cache";
 
 import prisma from "@/lib/prisma";
+import { isHumanMedicalCategory } from "@/services/ai/medical-category";
 
+import { summarizeReplyRisks } from "./phi-check";
 import {
   DEFAULT_REVIEW_TAB,
   EMPTY_REVIEW_KPIS,
@@ -123,12 +125,30 @@ export async function getSmbReviewsData(
     const business = await prisma.business.findFirst({
       where: { ownerUserId: userId, isActive: true },
       orderBy: { createdAt: "asc" },
-      select: { id: true, name: true, googlePlaceId: true },
+      select: {
+        id: true,
+        name: true,
+        category: true,
+        googlePlaceId: true,
+        // S2 privacy check · active service names sharpen the treatment
+        // vocabulary ("HydraFacial" etc). Tiny table, cheap include.
+        services: {
+          where: { isActive: true },
+          select: { name: true },
+        },
+      },
     });
 
     if (!business) {
       return EMPTY_SMB_REVIEWS;
     }
+
+    // S2 · privacy check runs for human-medical businesses ONLY — the
+    // same matcher that flips the PHI draft guardrail + HIPAA badge, so
+    // the three surfaces can never drift. Non-medical: zero behavior
+    // change (no extra query, privacyRisk stays null, count stays 0).
+    const isMedical = isHumanMedicalCategory(business.category);
+    const serviceNames = business.services.map((s) => s.name);
 
     // Build the active-tab WHERE clause from the user's choice. The
     // tabs intentionally narrow the result set rather than re-sort it;
@@ -151,41 +171,71 @@ export async function getSmbReviewsData(
     // concurrently. Each runs against indexed columns
     // (`businessId+postedAt`, `businessId+ownerReplied`) — see
     // `.claude/rules/scalability.md` indexes section.
-    const [rows, tabCounts, distribution, themeRows, lastSnapshot] =
-      await Promise.all([
-        prisma.review.findMany({
-          where: { ...baseWhere, ...tabWhere[tab] },
-          orderBy: [{ isUrgent: "desc" }, { postedAt: "desc" }],
-          take: MAX_REVIEWS_PER_TAB,
-          select: {
-            id: true,
-            reviewerName: true,
-            reviewerProfileReviews: true,
-            stars: true,
-            text: true,
-            language: true,
-            postedAt: true,
-            ownerReplied: true,
-            ownerReplyText: true,
-            ownerReplyAt: true,
-            sentiment: true,
-            themes: true,
-            isUrgent: true,
-            aiReplyDraftEn: true,
-            aiReplyDraftEs: true,
-            mentionedPeople: true,
-            mentionedServices: true,
-          },
-        }),
-        loadTabCounts(business.id),
-        loadRatingDistribution(business.id),
-        loadThemeBuckets(business.id),
-        prisma.review.findFirst({
-          where: baseWhere,
-          orderBy: { collectedAt: "desc" },
-          select: { collectedAt: true },
-        }),
-      ]);
+    const [
+      rows,
+      tabCounts,
+      distribution,
+      themeRows,
+      lastSnapshot,
+      publishedReplies,
+    ] = await Promise.all([
+      prisma.review.findMany({
+        where: { ...baseWhere, ...tabWhere[tab] },
+        orderBy: [{ isUrgent: "desc" }, { postedAt: "desc" }],
+        take: MAX_REVIEWS_PER_TAB,
+        select: {
+          id: true,
+          reviewerName: true,
+          reviewerProfileReviews: true,
+          stars: true,
+          text: true,
+          language: true,
+          postedAt: true,
+          ownerReplied: true,
+          ownerReplyText: true,
+          ownerReplyAt: true,
+          sentiment: true,
+          themes: true,
+          isUrgent: true,
+          aiReplyDraftEn: true,
+          aiReplyDraftEs: true,
+          mentionedPeople: true,
+          mentionedServices: true,
+        },
+      }),
+      loadTabCounts(business.id),
+      loadRatingDistribution(business.id),
+      loadThemeBuckets(business.id),
+      prisma.review.findFirst({
+        where: baseWhere,
+        orderBy: { collectedAt: "desc" },
+        select: { collectedAt: true },
+      }),
+      // S2 · ALL published replies for the business (not just the
+      // active tab) so the privacy summary count is tab-independent.
+      // Medical businesses only; everyone else skips the query.
+      isMedical
+        ? prisma.review.findMany({
+            where: {
+              ...baseWhere,
+              ownerReplied: true,
+              ownerReplyText: { not: null },
+            },
+            orderBy: { postedAt: "desc" },
+            take: MAX_REVIEWS_PER_TAB,
+            select: { id: true, ownerReplyText: true },
+          })
+        : Promise.resolve(
+            [] as Array<{ id: string; ownerReplyText: string | null }>,
+          ),
+    ]);
+
+    // S2 · run the pure detector over the published replies. Map is
+    // empty for non-medical businesses (publishedReplies is []).
+    const privacyRiskById = summarizeReplyRisks(
+      publishedReplies.map((r) => ({ id: r.id, text: r.ownerReplyText })),
+      { serviceNames },
+    );
 
     const reviews: ReviewItem[] = rows.map((r) => ({
       id: r.id,
@@ -206,6 +256,7 @@ export async function getSmbReviewsData(
       aiReplyDraftEs: r.aiReplyDraftEs,
       mentionedPeople: r.mentionedPeople ?? [],
       mentionedServices: r.mentionedServices ?? [],
+      privacyRisk: privacyRiskById.get(r.id) ?? null,
     }));
 
     // KPI strip · cheap aggregate counts driven by the same Review
@@ -223,6 +274,7 @@ export async function getSmbReviewsData(
     return {
       ownedBusinessId: business.id,
       businessName: business.name,
+      businessCategory: business.category ?? null,
       googleReviewsUrl,
       activeTab: tab,
       reviews,
@@ -234,6 +286,7 @@ export async function getSmbReviewsData(
         : null,
       kpis,
       pattern,
+      privacyRiskCount: privacyRiskById.size,
     };
   } catch (err) {
     // Log so the failure surfaces in Vercel / Sentry rather than only

@@ -54,12 +54,15 @@ export {
   draftReplyUncached,
   ReplyDraftSchema,
   DEFAULT_REPLY_DRAFT_MODEL,
+  PHI_REPLY_GUARDRAIL,
   REPLY_TONES,
   type DraftReplyInput,
   type ReplyDraftResult,
   type ReplyTone,
   type VoiceExample,
 } from "./reply-draft";
+
+export { isHumanMedicalCategory } from "./medical-category";
 
 export {
   generateOnePager,

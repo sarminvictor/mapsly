@@ -22,6 +22,8 @@
  * she's looking at), and works without JS on first paint.
  */
 
+import type { PhiRiskLevel } from "./phi-check";
+
 // Tabs trimmed to the three Maria actually uses · "all recent" was a
 // duplicate of unanswered+replied combined · "by-theme" never landed
 // useful UX (themes live in the right rail as cards now).
@@ -37,6 +39,23 @@ export type ReviewTab = (typeof REVIEW_TABS)[number];
 export const DEFAULT_REVIEW_TAB: ReviewTab = "unanswered";
 
 export type ReviewSentiment = "POSITIVE" | "NEUTRAL" | "NEGATIVE";
+
+/**
+ * S2 · privacy-check flag on a PUBLISHED owner reply. Computed
+ * server-side in `queries.ts` by running `detectPhiRisk` (phi-check.ts)
+ * over `ownerReplyText` — for human-medical businesses only
+ * (`isHumanMedicalCategory`). Null for non-medical businesses and for
+ * clean replies, so non-medical behavior doesn't change at all.
+ */
+export interface ReviewPrivacyRisk {
+  /** `high` = confirms patient relationship or names a treatment;
+   *  `caution` = date / payment reference only. */
+  level: PhiRiskLevel;
+  /** Verbatim excerpt from the reply that triggered the flag — shown as
+   *  the tooltip on the per-review hint so Maria sees exactly what to
+   *  edit. Locale-neutral (quotes her own reply). */
+  hint: string;
+}
 
 /**
  * Flat per-review row shape rendered by `ReviewCard`. Denormalises the
@@ -69,6 +88,9 @@ export interface ReviewItem {
    *  by ReviewCard to highlight service mentions inline + by the
    *  ServiceMentionsCard for the "stale service" tips. */
   mentionedServices: string[];
+  /** S2 · privacy flag on the published owner reply. Null when clean,
+   *  when there's no published reply, or for non-medical businesses. */
+  privacyRisk: ReviewPrivacyRisk | null;
 }
 
 /**
@@ -148,6 +170,13 @@ export interface SmbReviewsData {
   /** Owned business id, or `""` for empty / build-phase. */
   ownedBusinessId: string;
   businessName: string;
+  /**
+   * Business category (e.g. "med spa"). Drives the "HIPAA-aware" badge
+   * on the AI-draft panel for human-medical categories — the same
+   * matcher (`isHumanMedicalCategory`) that flips the PHI guardrail in
+   * `services/ai/reply-draft.ts`. Null when unknown.
+   */
+  businessCategory: string | null;
   /** Business Google reviews page URL (from googlePlaceId) · null if none. */
   googleReviewsUrl: string | null;
 
@@ -181,6 +210,13 @@ export interface SmbReviewsData {
   /** Operational-pattern callout for the right rail. Null when nothing
    * notable shows up. */
   pattern: ReviewPattern | null;
+
+  /**
+   * S2 · count of PUBLISHED replies flagged by the privacy check across
+   * the whole business (not just the active tab). Always 0 for
+   * non-medical businesses. Drives the summary card on /reviews.
+   */
+  privacyRiskCount: number;
 }
 
 export const EMPTY_RATING_DISTRIBUTION: RatingDistribution = {
@@ -210,6 +246,7 @@ export const EMPTY_REVIEW_KPIS: ReviewKpis = {
 export const EMPTY_SMB_REVIEWS: SmbReviewsData = {
   ownedBusinessId: "",
   businessName: "",
+  businessCategory: null,
   googleReviewsUrl: null,
   activeTab: DEFAULT_REVIEW_TAB,
   reviews: [],
@@ -219,6 +256,7 @@ export const EMPTY_SMB_REVIEWS: SmbReviewsData = {
   lastSnapshotAt: null,
   kpis: EMPTY_REVIEW_KPIS,
   pattern: null,
+  privacyRiskCount: 0,
 };
 
 /**

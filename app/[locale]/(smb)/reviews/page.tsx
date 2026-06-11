@@ -59,6 +59,7 @@ import {
   type ThemesCardLabels,
 } from "@/modules/smb-reviews/components";
 import { SmbPageHeader } from "@/components/smb/SmbPageHeader";
+import { isHumanMedicalCategory } from "@/services/ai/medical-category";
 import { getSmbReviewsData } from "@/modules/smb-reviews/queries";
 import { parseReviewTab } from "@/modules/smb-reviews/types";
 import { getCompetitorRanking } from "@/modules/scoring/competitor-ranking";
@@ -279,6 +280,22 @@ async function ReviewsBody({
     noText: t("no_text"),
     langEn: t("ai_draft_lang_en"),
     langEs: t("ai_draft_lang_es"),
+    // "HIPAA-aware" badge + S2/S3 privacy-check labels · only for
+    // human-medical businesses. Same matcher that flips the PHI
+    // guardrail in services/ai/reply-draft.ts so the badge, the hints,
+    // the pre-publish check, and the prompt behavior can never drift.
+    ...(isHumanMedicalCategory(data.businessCategory)
+      ? {
+          hipaaBadge: t("ai_draft_hipaa_badge"),
+          hipaaTooltip: t("ai_draft_hipaa_tooltip"),
+          privacyHintHigh: t("privacy_hint_high"),
+          privacyHintCaution: t("privacy_hint_caution"),
+          privacyFixCta: t("privacy_fix_cta"),
+          privacyConfirmTitle: t("privacy_confirm_title"),
+          privacyConfirmEdit: t("privacy_confirm_edit"),
+          privacyConfirmPost: t("privacy_confirm_post"),
+        }
+      : {}),
   };
 
   const ratingLabels: RatingDistributionCardLabels = {
@@ -435,6 +452,36 @@ async function ReviewsBody({
           }
         />
       </div>
+
+      {/* S2 · privacy-check summary. Only renders when the server
+          detector flagged at least one PUBLISHED reply (count is always
+          0 for non-medical businesses). The title attr carries the
+          one-line explainer — same lightweight tooltip pattern as the
+          HIPAA badge. */}
+      {data.privacyRiskCount > 0 ? (
+        <article
+          title={t("privacy_summary_tooltip")}
+          style={{
+            background: "rgba(195, 85, 58, 0.08)",
+            border: "1px solid var(--color-coral)",
+            borderRadius: 14,
+            padding: "12px 16px",
+            marginBottom: 18,
+            cursor: "help",
+          }}
+        >
+          <p
+            style={{
+              margin: 0,
+              fontSize: 14,
+              lineHeight: 1.5,
+              color: "var(--color-text)",
+            }}
+          >
+            {t("privacy_summary", { count: data.privacyRiskCount })}
+          </p>
+        </article>
+      ) : null}
 
       <ReviewTabs
         activeTab={data.activeTab}

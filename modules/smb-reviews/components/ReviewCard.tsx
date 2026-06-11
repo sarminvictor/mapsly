@@ -1,4 +1,7 @@
+"use client";
+
 import * as React from "react";
+import { useState } from "react";
 
 import { Pill } from "@/components/ui";
 import { AIReplyDraftBody } from "./AIReplyDraftBody";
@@ -78,6 +81,36 @@ export interface ReviewCardLabels {
   langEn: string;
   /** "Español" label for the AI-reply language toggle. */
   langEs: string;
+  /**
+   * "HIPAA-aware" badge on the AI-draft panel. Set ONLY for
+   * human-medical businesses (the page gates on `isHumanMedicalCategory`
+   * — same matcher that flips the PHI guardrail in the draft prompt).
+   * Undefined → no badge.
+   */
+  hipaaBadge?: string;
+  /** Plain-English hover tooltip for the badge ("Drafts never confirm
+   *  someone was a patient or mention treatments."). */
+  hipaaTooltip?: string;
+  /**
+   * S2/S3 · privacy-check labels. Set ONLY for human-medical businesses
+   * (same gate as `hipaaBadge`). Undefined → no hint line on published
+   * replies, no pre-publish confirm, zero behavior change.
+   */
+  /** Per-review hint on a flagged published reply, high level ("May
+   *  confirm a patient relationship — consider an edit"). */
+  privacyHintHigh?: string;
+  /** Per-review hint, caution level (date / payment reference). */
+  privacyHintCaution?: string;
+  /** Generate-CTA label on the flagged-reply fix path ("Draft a safer
+   *  reply"). Falls back to `ctaGenerate` when unset. */
+  privacyFixCta?: string;
+  /** S3 · inline confirm headline shown at post-click when the draft
+   *  still flags. Presence of this label enables the check. */
+  privacyConfirmTitle?: string;
+  /** S3 · default confirm action ("Edit reply"). */
+  privacyConfirmEdit?: string;
+  /** S3 · escape hatch ("Post anyway"). */
+  privacyConfirmPost?: string;
 }
 
 export interface ReviewCardProps {
@@ -262,11 +295,31 @@ export function ReviewCard({
       ) : null}
 
       {review.ownerReplied && review.ownerReplyText ? (
-        <OwnerReply
-          text={review.ownerReplyText}
-          when={review.ownerReplyAt}
-          labels={labels}
-        />
+        <>
+          <OwnerReply
+            text={review.ownerReplyText}
+            when={review.ownerReplyAt}
+            labels={labels}
+            privacyRisk={review.privacyRisk}
+          />
+          {/* S2 fix path · a flagged published reply gets the same draft
+              panel: "Draft a safer reply" runs the existing regenerate
+              action; once a draft exists Maria edits it inline and posts
+              the replacement to Google (with the S3 check). */}
+          {review.privacyRisk &&
+          review.text &&
+          review.text.trim().length > 0 ? (
+            <AIReplyDraft
+              review={review}
+              labels={labels}
+              googleReviewsUrl={googleReviewsUrl}
+              isSkippedTab={isSkippedTab}
+              onMove={onMove}
+              hideQueue
+              generateLabelOverride={labels.privacyFixCta}
+            />
+          ) : null}
+        </>
       ) : review.text && review.text.trim().length > 0 ? (
         // Always render the draft panel for reviews with text — even when
         // there is no AI draft yet · the Generate button lives there.
@@ -357,12 +410,22 @@ function formatRelativeAgoShort(daysAgo: number): string {
 function OwnerReply({
   text,
   when,
-  labels: _labels,
+  labels,
+  privacyRisk,
 }: {
   text: string;
   when: string | null;
   labels: ReviewCardLabels;
+  /** S2 · privacy flag computed server-side over this published reply.
+   *  Null = clean (or non-medical business — labels absent then too). */
+  privacyRisk: { level: "high" | "caution"; hint: string } | null;
 }) {
+  const privacyHintLabel = privacyRisk
+    ? privacyRisk.level === "high"
+      ? labels.privacyHintHigh
+      : labels.privacyHintCaution
+    : undefined;
+
   return (
     <div
       style={{
@@ -398,6 +461,23 @@ function OwnerReply({
       >
         {text}
       </div>
+      {privacyRisk && privacyHintLabel ? (
+        // S2 · small coral hint. The tooltip quotes the exact phrase that
+        // triggered the flag so Maria knows what to edit.
+        <p
+          title={privacyRisk.hint ? `“${privacyRisk.hint}”` : undefined}
+          style={{
+            margin: "8px 0 0",
+            fontSize: 12,
+            fontWeight: 600,
+            lineHeight: 1.45,
+            color: "var(--color-coral)",
+            cursor: privacyRisk.hint ? "help" : undefined,
+          }}
+        >
+          {privacyHintLabel}
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -408,12 +488,18 @@ function AIReplyDraft({
   googleReviewsUrl,
   isSkippedTab,
   onMove,
+  hideQueue,
+  generateLabelOverride,
 }: {
   review: ReviewItem;
   labels: ReviewCardLabels;
   googleReviewsUrl: string | null;
   isSkippedTab: boolean;
   onMove: (reviewId: string) => void;
+  /** S2 fix path · hide Skip/Restore (already-replied reviews). */
+  hideQueue?: boolean;
+  /** S2 fix path · "Draft a safer reply" instead of "Generate reply". */
+  generateLabelOverride?: string;
 }) {
   // Renders two states:
   //   1. No draft yet · the Generate CTA (samples the owner's prior
@@ -421,6 +507,13 @@ function AIReplyDraft({
   //   2. Has draft · editable text + Save (in AIReplyDraftBody) + Post
   //      to Google + Skip/Restore.
   const hasDraft = Boolean(review.aiReplyDraftEn);
+
+  // S3 · track the CURRENT draft text for the pre-publish privacy check.
+  // `editedText` stays null until Maria types, so a freshly regenerated
+  // draft (new `review.aiReplyDraftEn` from revalidation) is what gets
+  // checked — not a stale snapshot from mount time.
+  const [editedText, setEditedText] = useState<string | null>(null);
+  const currentText = editedText ?? review.aiReplyDraftEn ?? "";
 
   return (
     <div
@@ -458,6 +551,11 @@ function AIReplyDraft({
           <span aria-hidden>✦</span>
           {labels.aiDraftLabel}
         </span>
+        {labels.hipaaBadge ? (
+          <Pill tone="good" size="sm" dot={false} title={labels.hipaaTooltip}>
+            {labels.hipaaBadge}
+          </Pill>
+        ) : null}
       </div>
 
       {hasDraft ? (
@@ -466,6 +564,7 @@ function AIReplyDraft({
             reviewId={review.id}
             draftEn={review.aiReplyDraftEn}
             labels={{ save: labels.ctaSave, saved: labels.ctaSaved }}
+            onTextChange={setEditedText}
           />
           <div style={{ marginTop: 12 }} />
         </>
@@ -477,11 +576,17 @@ function AIReplyDraft({
         googleReviewsUrl={googleReviewsUrl}
         isSkippedTab={isSkippedTab}
         onMove={onMove}
+        currentText={currentText}
+        serviceNames={review.mentionedServices}
+        hideQueue={hideQueue}
         labels={{
-          generate: labels.ctaGenerate,
+          generate: generateLabelOverride ?? labels.ctaGenerate,
           post: labels.ctaPost,
           skip: labels.ctaSkip,
           unskip: labels.ctaUnskip,
+          privacyConfirmTitle: labels.privacyConfirmTitle,
+          privacyConfirmEdit: labels.privacyConfirmEdit,
+          privacyConfirmPost: labels.privacyConfirmPost,
         }}
       />
     </div>

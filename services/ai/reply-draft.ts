@@ -19,6 +19,7 @@
 import { z } from "zod";
 import { kvCache } from "@/lib/cache";
 import { callOpenAi } from "@/services/ai/client";
+import { isHumanMedicalCategory } from "@/services/ai/medical-category";
 import type { SupportedModel } from "@/services/ai/pricing";
 
 export const DEFAULT_REPLY_DRAFT_MODEL: SupportedModel = "gpt-5.4-mini";
@@ -98,6 +99,47 @@ const ENGLISH_ONLY_OVERRIDE = `
 
 OVERRIDE: Return ONLY {"en": string} in US English. Do NOT include an "es" field or any Spanish text.`;
 
+/**
+ * PHI guardrail · appended to BOTH system prompts (with-examples and
+ * no-examples) when the business category is human-medical per
+ * `isHumanMedicalCategory`. Applies to BOTH the EN and ES drafts.
+ *
+ * WHY: US regulators have fined practices $10k–$50k for review replies
+ * that confirmed the reviewer was a patient or echoed their treatment.
+ * These rules deliberately OVERRIDE the base prompts' "reference at
+ * least one specific detail from the review" instruction — for medical
+ * categories, generic is the only safe register.
+ *
+ * Exported so trap-case unit tests can assert the exact text lands in
+ * the prompt (and only for medical categories).
+ */
+export const PHI_REPLY_GUARDRAIL = `
+
+PRIVACY RULES — this business is a healthcare practice. US privacy law
+(HIPAA) forbids disclosing patient information in public replies. These
+rules OVERRIDE every other instruction in this conversation — including
+"reference a specific detail from the review", "mimic the style of
+these exactly", and the style of any prior-reply examples:
+- NEVER confirm, deny, or imply that the reviewer was or was not a
+  patient or client of the practice. No "thanks for coming in", "we
+  loved having you", "since your visit" — and equally no "we have no
+  record of you" or "you were never a patient here". Confirming AND
+  denying a care relationship are both disclosures.
+- NEVER mention, confirm, or repeat treatments, procedures, conditions,
+  medications, results, appointment dates, visit dates, or payments —
+  even if the reviewer wrote about them. Do not echo those details
+  back in any form.
+- Thank them generically and speak to service quality in general terms
+  ("We work hard to give everyone a great experience").
+- For negative reviews, invite offline contact WITHOUT acknowledging
+  any care relationship: "We'd welcome the chance to talk — please call
+  our office." Never "about your appointment" or "your treatment".
+- The owner's prior replies (if shown above) are style guides ONLY —
+  match their tone, length, and sign-off, but if an example confirms a
+  patient relationship or names a treatment, do NOT imitate that
+  content.
+- Apply these rules to BOTH the English and the Spanish drafts.`;
+
 const SYSTEM_PROMPT_WITH_EXAMPLES = `You write owner replies to Google reviews. The owner has prior replies
 shown as examples — MIMIC their style precisely. Copy their openers
 (e.g. "Hi {name}!", "Thanks so much, {name}!", "Thank you for sharing"),
@@ -148,16 +190,23 @@ Owner's reply: ${ex.ownerReply.trim().slice(0, 800)}`;
     .join("\n\n");
 }
 
-function buildPrompt(input: DraftReplyInput): string {
+function buildPrompt(input: DraftReplyInput, isMedical: boolean): string {
   const tone = input.tone ?? "warm";
   const reviewerLine = input.reviewerName
     ? `Reviewer name: ${input.reviewerName}`
     : "Reviewer name: (anonymous)";
 
-  // Few-shot pattern · materially better tone match than free-text voice notes.
+  // Few-shot pattern · materially better tone match than free-text voice
+  // notes. For medical categories the header must NOT re-issue "mimic
+  // exactly" — the user message arrives after the system prompt, and a
+  // later unqualified imperative can win over the PHI guardrail. The
+  // medical header scopes the examples to tone only, in-band.
+  const examplesHeader = isMedical
+    ? `=== OWNER'S PRIOR REPLIES (tone, length, and sign-off reference ONLY — the PRIVACY RULES override their content) ===`
+    : `=== OWNER'S PRIOR REPLIES (mimic the style of these exactly) ===`;
   const examplesBlock =
     input.voiceExamples && input.voiceExamples.length > 0
-      ? `=== OWNER'S PRIOR REPLIES (mimic the style of these exactly) ===
+      ? `${examplesHeader}
 ${formatVoiceExamples(input.voiceExamples)}
 
 === END EXAMPLES ===
@@ -166,6 +215,16 @@ ${formatVoiceExamples(input.voiceExamples)}
       : input.voiceNotes
         ? `Voice notes: ${input.voiceNotes}\n\n`
         : "";
+
+  // Same recency concern for the closing line: the non-medical variant
+  // says "match the examples as precisely as you can", which for a
+  // medical business would be the LAST instruction the model reads.
+  const closing = isMedical
+    ? `Write the owner's reply in English AND Spanish. Match the tone and
+length of the prior-reply examples above, but the PRIVACY RULES in the
+system instructions override everything else. Return JSON.`
+    : `Write the owner's reply in English AND Spanish. Match the style of the
+prior-reply examples above as precisely as you can. Return JSON.`;
 
   return `Business: ${input.businessName}
 Category: ${input.category}
@@ -176,8 +235,7 @@ ${examplesBlock}=== NEW REVIEW (write the owner's reply now) ===
 Stars: ${input.stars}/5
 Text: ${input.text || "(stars only · no written feedback)"}
 
-Write the owner's reply in English AND Spanish. Match the style of the
-prior-reply examples above as precisely as you can. Return JSON.`;
+${closing}`;
 }
 
 /**
@@ -208,14 +266,22 @@ export async function draftReplyUncached(
     input.voiceExamples && input.voiceExamples.length > 0
       ? SYSTEM_PROMPT_WITH_EXAMPLES
       : SYSTEM_PROMPT_NO_EXAMPLES;
-  const system = englishOnly ? baseSystem + ENGLISH_ONLY_OVERRIDE : baseSystem;
+  // PHI guardrail · human-medical categories only (vets keep the
+  // natural style — see services/ai/medical-category.ts). Appended
+  // AFTER the base prompt so its OVERRIDE framing covers both the
+  // generic rules and the few-shot examples. The SAME flag also softens
+  // the user message (buildPrompt) so no later instruction re-issues
+  // "mimic exactly" after the guardrail.
+  const medical = isHumanMedicalCategory(input.category);
+  const guarded = medical ? baseSystem + PHI_REPLY_GUARDRAIL : baseSystem;
+  const system = englishOnly ? guarded + ENGLISH_ONLY_OVERRIDE : guarded;
   const { text } = await callOpenAi({
     operation: `ai.reply.draft[${model}]`,
     model,
     maxTokens: 800,
     temperature: 0.4,
     system,
-    prompt: buildPrompt(input),
+    prompt: buildPrompt(input, medical),
     jsonMode: true,
     // Reply-draft prompts are short; allow a small headroom for verbose
     // reviewers + bilingual output.

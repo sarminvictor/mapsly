@@ -31,6 +31,8 @@ describe("smb-reviews/types", () => {
     expect(EMPTY_SMB_REVIEWS.lastSnapshotAt).toBeNull();
     expect(EMPTY_SMB_REVIEWS.kpis).toEqual(EMPTY_REVIEW_KPIS);
     expect(EMPTY_SMB_REVIEWS.pattern).toBeNull();
+    // S2 · privacy check is a no-op in the empty/build-phase shape.
+    expect(EMPTY_SMB_REVIEWS.privacyRiskCount).toBe(0);
   });
 
   test("REVIEW_TABS is exhaustive and stable", () => {
