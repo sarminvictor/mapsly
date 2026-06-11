@@ -24,7 +24,7 @@ import {
   renderTemplate,
   toHtmlBody,
 } from "@/modules/cold/template";
-import { unsubscribeUrlFor } from "@/modules/cold/token";
+import { openPixelUrlFor, unsubscribeUrlFor } from "@/modules/cold/token";
 import { acquireMailbox, sendViaMailbox } from "@/services/cold-mailer";
 import { getColdSenderConfig } from "@/services/cold-mailer/config";
 
@@ -213,7 +213,14 @@ export async function processColdSequences(
     const renderedBody = renderTemplate(step.bodyTemplate, tokens, spinSeed);
     const text =
       renderedBody + buildTextFooter(unsubUrl, sender.physicalAddress);
-    const html = toHtmlBody(renderedBody, unsubUrl, sender.physicalAddress);
+    // Open pixel is per-ColdSend (the row exists pre-dispatch) so step-1 vs
+    // step-2 opens stay distinguishable. HTML part only (plan #7).
+    const html = toHtmlBody(
+      renderedBody,
+      unsubUrl,
+      sender.physicalAddress,
+      openPixelUrlFor(send.id),
+    );
 
     const result = await sendViaMailbox(
       mailbox,
