@@ -47,6 +47,8 @@ import {
   EMPTY_REVIEW_KPIS,
   EMPTY_SMB_REVIEWS,
   derivePattern,
+  filterPrivacyReviews,
+  resolvePrivacyTab,
   type ReviewItem,
   type ReviewKpis,
   type ReviewSentiment,
@@ -61,6 +63,31 @@ import {
 // from this set via PaginatedReviewList (5 initial → +10 each click).
 const MAX_REVIEWS_PER_TAB = 500;
 const MAX_THEMES = 8;
+
+/**
+ * Columns every tab's review card renders. Shared by the active-tab
+ * fetch and the S4 privacy-tab fallback refetch so the two selects
+ * can't drift.
+ */
+const REVIEW_ROW_SELECT = {
+  id: true,
+  reviewerName: true,
+  reviewerProfileReviews: true,
+  stars: true,
+  text: true,
+  language: true,
+  postedAt: true,
+  ownerReplied: true,
+  ownerReplyText: true,
+  ownerReplyAt: true,
+  sentiment: true,
+  themes: true,
+  isUrgent: true,
+  aiReplyDraftEn: true,
+  aiReplyDraftEs: true,
+  mentionedPeople: true,
+  mentionedServices: true,
+} as const;
 
 /**
  * Anonymise a Google-supplied reviewer name into `F.L.` initials, per
@@ -165,7 +192,19 @@ export async function getSmbReviewsData(
       },
       replied: { ownerReplied: true },
       skipped: { ownerReplied: false, skippedAt: { not: null } },
+      // S4 · privacy tab = published replies; the JS-side detector
+      // (`summarizeReplyRisks`) narrows to flagged ones after the fetch
+      // — risk isn't a DB column, it's computed from the reply text.
+      privacy: { ownerReplied: true, ownerReplyText: { not: null } },
     };
+
+    // S4 · `?tab=privacy` only means something for medical businesses.
+    // Resolve BEFORE the fetch for non-medical (flagged count is 0 by
+    // definition — the detector never runs); medical resolves again
+    // after the detector below.
+    const fetchTab: ReviewTab = isMedical
+      ? tab
+      : resolvePrivacyTab(tab, business.category, 0);
 
     // Run the active-tab fetch alongside the aggregate queries
     // concurrently. Each runs against indexed columns
@@ -180,28 +219,10 @@ export async function getSmbReviewsData(
       publishedReplies,
     ] = await Promise.all([
       prisma.review.findMany({
-        where: { ...baseWhere, ...tabWhere[tab] },
+        where: { ...baseWhere, ...tabWhere[fetchTab] },
         orderBy: [{ isUrgent: "desc" }, { postedAt: "desc" }],
         take: MAX_REVIEWS_PER_TAB,
-        select: {
-          id: true,
-          reviewerName: true,
-          reviewerProfileReviews: true,
-          stars: true,
-          text: true,
-          language: true,
-          postedAt: true,
-          ownerReplied: true,
-          ownerReplyText: true,
-          ownerReplyAt: true,
-          sentiment: true,
-          themes: true,
-          isUrgent: true,
-          aiReplyDraftEn: true,
-          aiReplyDraftEs: true,
-          mentionedPeople: true,
-          mentionedServices: true,
-        },
+        select: REVIEW_ROW_SELECT,
       }),
       loadTabCounts(business.id),
       loadRatingDistribution(business.id),
@@ -237,7 +258,7 @@ export async function getSmbReviewsData(
       { serviceNames },
     );
 
-    const reviews: ReviewItem[] = rows.map((r) => ({
+    const toItem = (r: (typeof rows)[number]): ReviewItem => ({
       id: r.id,
       reviewerInitials: toInitials(r.reviewerName),
       reviewerPriorReviews: r.reviewerProfileReviews,
@@ -257,7 +278,35 @@ export async function getSmbReviewsData(
       mentionedPeople: r.mentionedPeople ?? [],
       mentionedServices: r.mentionedServices ?? [],
       privacyRisk: privacyRiskById.get(r.id) ?? null,
-    }));
+    });
+
+    let activeTab: ReviewTab = fetchTab;
+    let reviews: ReviewItem[] = rows.map(toItem);
+
+    // S4 · privacy tab — narrow to flagged replies (high level first).
+    // When the LAST flagged reply got fixed since the URL was minted
+    // (stale bookmark / just-edited reply), fall back to the default
+    // tab's list so Maria never lands on an orphan empty view. The
+    // refetch only fires in that rare edge.
+    if (fetchTab === "privacy") {
+      const flagged = filterPrivacyReviews(reviews);
+      activeTab = resolvePrivacyTab(
+        fetchTab,
+        business.category,
+        flagged.length,
+      );
+      if (activeTab === "privacy") {
+        reviews = flagged;
+      } else {
+        const fallbackRows = await prisma.review.findMany({
+          where: { ...baseWhere, ...tabWhere[activeTab] },
+          orderBy: [{ isUrgent: "desc" }, { postedAt: "desc" }],
+          take: MAX_REVIEWS_PER_TAB,
+          select: REVIEW_ROW_SELECT,
+        });
+        reviews = fallbackRows.map(toItem);
+      }
+    }
 
     // KPI strip · cheap aggregate counts driven by the same Review
     // table. Bounded with `_avg` + a couple of count queries; no row
@@ -276,7 +325,7 @@ export async function getSmbReviewsData(
       businessName: business.name,
       businessCategory: business.category ?? null,
       googleReviewsUrl,
-      activeTab: tab,
+      activeTab,
       reviews,
       tabCounts,
       ratingDistribution: distribution,

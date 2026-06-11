@@ -2,6 +2,7 @@ import * as React from "react";
 
 import { Link } from "@/i18n/navigation";
 
+import { PrivacyWarnIcon } from "./PrivacyWarnIcon";
 import type { ReviewTab, ReviewTabCounts } from "../types";
 
 /**
@@ -16,8 +17,16 @@ import type { ReviewTab, ReviewTabCounts } from "../types";
  * Per `.claude/rules/ui-ux-smb.md`:
  *   - Tab labels in plain English (no jargon)
  *   - Count badges use bad-tone (alert background) only for unanswered +
- *     negative; the rest are neutral
+ *     negative + privacy; the rest are neutral
  *   - Active tab gets a coral underline
+ *
+ * S4 · the Privacy tab is CONDITIONAL — it renders only when
+ * `privacyCount > 0` (the page gates the count through
+ * `isPrivacyTabVisible`, i.e. human-medical businesses only). It sits
+ * LAST so the four stable tabs never shift position when it appears or
+ * disappears. The coral warning icon is decorative (`aria-hidden`) —
+ * meaning is carried by the label text + count badge, never color
+ * alone.
  *
  * Per `.claude/rules/accessibility.md`:
  *   - role="tablist" + role="tab" semantics, aria-current="page" on the
@@ -30,12 +39,17 @@ export interface ReviewTabsLabels {
   negative: string;
   replied: string;
   skipped: string;
+  privacy: string;
 }
 
 export interface ReviewTabsProps {
   activeTab: ReviewTab;
   counts: ReviewTabCounts;
   labels: ReviewTabsLabels;
+  /** S4 · flagged-reply count. 0 (the default) hides the Privacy tab —
+   *  the page passes a non-zero value only for human-medical
+   *  businesses via `isPrivacyTabVisible`. */
+  privacyCount?: number;
 }
 
 interface TabSpec {
@@ -43,9 +57,15 @@ interface TabSpec {
   label: string;
   count?: number;
   alert?: boolean;
+  warnIcon?: boolean;
 }
 
-export function ReviewTabs({ activeTab, counts, labels }: ReviewTabsProps) {
+export function ReviewTabs({
+  activeTab,
+  counts,
+  labels,
+  privacyCount = 0,
+}: ReviewTabsProps) {
   const tabs: TabSpec[] = [
     {
       id: "unanswered",
@@ -61,6 +81,19 @@ export function ReviewTabs({ activeTab, counts, labels }: ReviewTabsProps) {
     },
     { id: "replied", label: labels.replied, count: counts.replied },
     { id: "skipped", label: labels.skipped, count: counts.skipped },
+    // S4 · conditional Privacy tab — last, so the stable four never
+    // shift when it appears/disappears.
+    ...(privacyCount > 0
+      ? [
+          {
+            id: "privacy" as const,
+            label: labels.privacy,
+            count: privacyCount,
+            alert: true,
+            warnIcon: true,
+          },
+        ]
+      : []),
   ];
 
   return (
@@ -104,6 +137,7 @@ export function ReviewTabs({ activeTab, counts, labels }: ReviewTabsProps) {
               transition: "border-color 0.15s ease, color 0.15s ease",
             }}
           >
+            {tab.warnIcon ? <PrivacyWarnIcon /> : null}
             <span>{tab.label}</span>
             {tab.count != null && tab.count > 0 ? (
               <span

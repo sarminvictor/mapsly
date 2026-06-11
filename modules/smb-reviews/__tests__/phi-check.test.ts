@@ -211,6 +211,26 @@ describe("summarizeReplyRisks", () => {
     expect(map.get("r4")?.level).toBe("caution");
   });
 
+  test("carries ALL match excerpts (S5 · inline marking) — hint stays the first", () => {
+    const map = summarizeReplyRisks([
+      {
+        id: "r1",
+        text: "We loved having you as a patient. The botox units were on us.",
+      },
+    ]);
+    const entry = map.get("r1");
+    expect(entry).toBeDefined();
+    // Two different kinds flagged → both excerpts present for marking.
+    expect(entry!.matches.length).toBeGreaterThanOrEqual(2);
+    const kinds = entry!.matches.map((m) => m.kind);
+    expect(kinds).toContain("patient-status");
+    expect(kinds).toContain("treatment");
+    // Back-compat: hint is still the first match's excerpt.
+    expect(entry!.hint).toBe(entry!.matches[0]!.excerpt);
+    // Payload cap: never more than 10 per reply.
+    expect(entry!.matches.length).toBeLessThanOrEqual(10);
+  });
+
   test("passes service names through to the detector", () => {
     const map = summarizeReplyRisks(
       [{ id: "r1", text: "Sorry the HydraFacial ran late." }],

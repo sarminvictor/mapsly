@@ -46,3 +46,10 @@ export {
 } from "./MentionedNamesCard";
 export { HighlightedReviewText } from "./HighlightedReviewText";
 export { PaginatedReviewList } from "./PaginatedReviewList";
+export { PrivacyMarkedReplyText } from "./PrivacyMarkedReplyText";
+export {
+  PrivacySummaryCard,
+  type PrivacySummaryCardLabels,
+  type PrivacySummaryCardProps,
+} from "./PrivacySummaryCard";
+export { PrivacyWarnIcon } from "./PrivacyWarnIcon";

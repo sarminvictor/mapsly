@@ -6,9 +6,10 @@ import { useState } from "react";
 import { Pill } from "@/components/ui";
 import { AIReplyDraftBody } from "./AIReplyDraftBody";
 import { HighlightedReviewText } from "./HighlightedReviewText";
+import { PrivacyMarkedReplyText } from "./PrivacyMarkedReplyText";
 import { ReplyActions } from "./ReplyActions";
 import { StarRating } from "./StarRating";
-import type { ReviewItem } from "../types";
+import type { ReviewItem, ReviewPrivacyRisk } from "../types";
 
 /**
  * ReviewCard · single review on the SMB reviews page.
@@ -418,7 +419,7 @@ function OwnerReply({
   labels: ReviewCardLabels;
   /** S2 · privacy flag computed server-side over this published reply.
    *  Null = clean (or non-medical business — labels absent then too). */
-  privacyRisk: { level: "high" | "caution"; hint: string } | null;
+  privacyRisk: ReviewPrivacyRisk | null;
 }) {
   const privacyHintLabel = privacyRisk
     ? privacyRisk.level === "high"
@@ -459,7 +460,22 @@ function OwnerReply({
           whiteSpace: "pre-line",
         }}
       >
-        {text}
+        {/* Optional-chain on matches: defends against a stale cached
+            payload (minutes window post-deploy) that predates the S5
+            `matches` field — degrade to plain text, never crash. */}
+        {privacyRisk && (privacyRisk.matches?.length ?? 0) > 0 ? (
+          // S5 · mark the exact flagged phrases inside the reply so
+          // Maria sees what to edit without hunting. The hint line
+          // below carries the same meaning in plain text (touch +
+          // keyboard + AT — the mark styling is never the only signal).
+          <PrivacyMarkedReplyText
+            text={text}
+            excerpts={privacyRisk.matches.map((m) => m.excerpt)}
+            markTitle={privacyHintLabel}
+          />
+        ) : (
+          text
+        )}
       </div>
       {privacyRisk && privacyHintLabel ? (
         // S2 · small coral hint. The tooltip quotes the exact phrase that

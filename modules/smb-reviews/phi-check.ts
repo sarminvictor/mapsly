@@ -222,7 +222,16 @@ export interface ReplyRiskEntry {
   level: PhiRiskLevel;
   /** Verbatim excerpt from the reply that triggered the flag. */
   hint: string;
+  /** S5 · ALL flagged matches (capped) — the review card marks each
+   *  excerpt inline inside the rendered reply text so Maria sees
+   *  exactly which phrases to edit, not just the first one. */
+  matches: PhiMatch[];
 }
+
+/** Per-reply payload cap for `matches`. The detector already stops at
+ *  MAX_MATCHES (8); this is a second explicit bound at the payload
+ *  boundary so a future detector change can't bloat the page data. */
+const MAX_ENTRY_MATCHES = 10;
 
 export function summarizeReplyRisks(
   replies: ReadonlyArray<{ id: string; text: string | null }>,
@@ -236,6 +245,7 @@ export function summarizeReplyRisks(
     out.set(reply.id, {
       level: risk.level,
       hint: risk.matches[0]?.excerpt ?? "",
+      matches: risk.matches.slice(0, MAX_ENTRY_MATCHES),
     });
   }
   return out;

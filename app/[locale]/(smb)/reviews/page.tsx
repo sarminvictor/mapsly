@@ -44,6 +44,7 @@ import {
   CompetitorBenchmarkCard,
   MentionedNamesCard,
   PaginatedReviewList,
+  PrivacySummaryCard,
   RatingDistributionCard,
   ReviewTabs,
   ReviewTrendCard,
@@ -61,7 +62,12 @@ import {
 import { SmbPageHeader } from "@/components/smb/SmbPageHeader";
 import { isHumanMedicalCategory } from "@/services/ai/medical-category";
 import { getSmbReviewsData } from "@/modules/smb-reviews/queries";
-import { parseReviewTab } from "@/modules/smb-reviews/types";
+import {
+  DEFAULT_REVIEW_TAB,
+  isPrivacyTabVisible,
+  parseReviewTab,
+  type ReviewTab,
+} from "@/modules/smb-reviews/types";
 import { getCompetitorRanking } from "@/modules/scoring/competitor-ranking";
 import { getReviewTrends } from "@/modules/reviews/trends";
 
@@ -252,7 +258,17 @@ async function ReviewsBody({
     negative: t("tab_negative"),
     replied: t("tab_replied"),
     skipped: t("tab_skipped"),
+    privacy: t("tab_privacy"),
   };
+
+  // S4 · Privacy tab visibility — human-medical businesses with ≥1
+  // flagged published reply. Same gate as the per-reply hints and the
+  // summary card; the count is always 0 for non-medical businesses but
+  // the explicit category check keeps the rule readable + tested.
+  const privacyTabVisible = isPrivacyTabVisible(
+    data.businessCategory,
+    data.privacyRiskCount,
+  );
 
   // Templates with `{var}` placeholders use `t.raw()` so we get the raw
   // ICU string back. Downstream components do `.replace("{var}", value)`
@@ -453,40 +469,28 @@ async function ReviewsBody({
         />
       </div>
 
-      {/* S2 · privacy-check summary. Only renders when the server
-          detector flagged at least one PUBLISHED reply (count is always
-          0 for non-medical businesses). The title attr carries the
-          one-line explainer — same lightweight tooltip pattern as the
-          HIPAA badge. */}
-      {data.privacyRiskCount > 0 ? (
-        <article
-          title={t("privacy_summary_tooltip")}
-          style={{
-            background: "rgba(195, 85, 58, 0.08)",
-            border: "1px solid var(--color-coral)",
-            borderRadius: 14,
-            padding: "12px 16px",
-            marginBottom: 18,
-            cursor: "help",
+      {/* S2/S4/S5 · privacy-check summary — the SHORTCUT to the
+          Privacy tab. Shown only on the default tab (the tab strip
+          carries the count everywhere else) and only while the tab is
+          visible. Same Link mechanism the tabs use (`?tab=privacy`).
+          S5 swapped the hover-only title tooltip for a tap-friendly
+          info-tip (phones never see `title`) — see PrivacySummaryCard. */}
+      {privacyTabVisible && data.activeTab === DEFAULT_REVIEW_TAB ? (
+        <PrivacySummaryCard
+          labels={{
+            summary: t("privacy_summary", { count: data.privacyRiskCount }),
+            cta: t("privacy_summary_cta"),
+            infoButton: t("privacy_summary_info_button"),
+            infoNote: t("privacy_summary_info"),
           }}
-        >
-          <p
-            style={{
-              margin: 0,
-              fontSize: 14,
-              lineHeight: 1.5,
-              color: "var(--color-text)",
-            }}
-          >
-            {t("privacy_summary", { count: data.privacyRiskCount })}
-          </p>
-        </article>
+        />
       ) : null}
 
       <ReviewTabs
         activeTab={data.activeTab}
         counts={data.tabCounts}
         labels={tabsLabels}
+        privacyCount={privacyTabVisible ? data.privacyRiskCount : 0}
       />
 
       <div
@@ -674,13 +678,7 @@ function KpiCell({
  * exactly what's empty and why ("Great news — no unanswered reviews"
  * vs "No replied reviews yet").
  */
-function EmptyTab({
-  tab,
-  t,
-}: {
-  tab: "unanswered" | "negative" | "replied" | "skipped";
-  t: (key: string) => string;
-}) {
+function EmptyTab({ tab, t }: { tab: ReviewTab; t: (key: string) => string }) {
   const titleKey = `empty_${tab}_title` as const;
   const bodyKey = `empty_${tab}_body` as const;
   return (

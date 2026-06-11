@@ -22,16 +22,26 @@
  * she's looking at), and works without JS on first paint.
  */
 
-import type { PhiRiskLevel } from "./phi-check";
+import { isHumanMedicalCategory } from "@/services/ai/medical-category";
+
+import type { PhiMatchKind, PhiRiskLevel } from "./phi-check";
 
 // Tabs trimmed to the three Maria actually uses · "all recent" was a
 // duplicate of unanswered+replied combined · "by-theme" never landed
 // useful UX (themes live in the right rail as cards now).
+//
+// `privacy` (S4) is CONDITIONAL: it only renders for human-medical
+// businesses with ≥1 flagged published reply (`isPrivacyTabVisible`).
+// It's in the canonical list so `parseReviewTab` accepts the URL value;
+// the server falls back to the default tab when it doesn't apply
+// (`resolvePrivacyTab`) so a stale `?tab=privacy` bookmark never
+// renders an orphan view.
 export const REVIEW_TABS = [
   "unanswered",
   "negative",
   "replied",
   "skipped",
+  "privacy",
 ] as const;
 
 export type ReviewTab = (typeof REVIEW_TABS)[number];
@@ -55,6 +65,11 @@ export interface ReviewPrivacyRisk {
    *  the tooltip on the per-review hint so Maria sees exactly what to
    *  edit. Locale-neutral (quotes her own reply). */
   hint: string;
+  /** S5 · EVERY flagged excerpt (capped server-side in
+   *  `summarizeReplyRisks`). `ReviewCard` marks each occurrence inline
+   *  inside the rendered reply text — Maria sees the exact phrases to
+   *  edit, not just the first one. Locale-neutral (quotes her reply). */
+  matches: { kind: PhiMatchKind; excerpt: string }[];
 }
 
 /**
@@ -301,4 +316,53 @@ export function parseReviewTab(
   return (REVIEW_TABS as readonly string[]).includes(raw)
     ? (raw as ReviewTab)
     : DEFAULT_REVIEW_TAB;
+}
+
+/**
+ * S4 · whether the Privacy tab exists at all. Same gate as the rest of
+ * the privacy check: human-medical category (the matcher that flips the
+ * PHI draft guardrail + HIPAA badge) AND at least one flagged published
+ * reply. Pure — shared by the page (tab strip + summary card) and the
+ * unit tests so the visibility rule can't drift between surfaces.
+ */
+export function isPrivacyTabVisible(
+  businessCategory: string | null,
+  privacyRiskCount: number,
+): boolean {
+  return isHumanMedicalCategory(businessCategory) && privacyRiskCount > 0;
+}
+
+/**
+ * S4 · server-side fallback for `?tab=privacy`. The tab only exists
+ * while `isPrivacyTabVisible` holds — a stale bookmark (the last
+ * flagged reply got fixed, or the business was recategorised) falls
+ * back to the default tab instead of rendering an orphan empty view.
+ * Non-privacy tabs pass through untouched.
+ */
+export function resolvePrivacyTab(
+  tab: ReviewTab,
+  businessCategory: string | null,
+  flaggedCount: number,
+): ReviewTab {
+  if (tab !== "privacy") return tab;
+  return isPrivacyTabVisible(businessCategory, flaggedCount)
+    ? "privacy"
+    : DEFAULT_REVIEW_TAB;
+}
+
+/**
+ * S4 · the Privacy tab's list: only reviews whose published reply got
+ * flagged, `high` level first (the patterns regulators actually fine),
+ * `caution` after. Order WITHIN each level preserves the caller's
+ * ordering (urgent first, then newest — same as every other tab).
+ * Pure — unit-tested in `__tests__/types.test.ts`.
+ */
+export function filterPrivacyReviews(
+  reviews: readonly ReviewItem[],
+): ReviewItem[] {
+  const flagged = reviews.filter((r) => r.privacyRisk != null);
+  return [
+    ...flagged.filter((r) => r.privacyRisk?.level === "high"),
+    ...flagged.filter((r) => r.privacyRisk?.level !== "high"),
+  ];
 }
