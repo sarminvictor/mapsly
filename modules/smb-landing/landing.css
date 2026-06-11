@@ -1,0 +1,932 @@
+/* ============================================================
+ * Landing pages (/l/[token]) · scoped stylesheet
+ *
+ * Every selector here is landing-only (used exclusively under
+ * modules/smb-landing). Imported by app/l/[token]/page.tsx — the
+ * only route that renders LandingView. Moved out of app/globals.css
+ * so non-landing routes never ship these rules.
+ *
+ * STRUCTURE CONTRACT (load-bearing — do not reorder casually):
+ * desktop/base class rules come FIRST. They carry the desktop
+ * literal values that used to live in inline style={} objects, so
+ * the breakpoint blocks BELOW can win by plain source order —
+ * media queries don't add specificity. That's what lets the mobile
+ * overrides work WITHOUT !important. A new desktop rule must go
+ * above the media blocks; a new mobile override goes below.
+ * ============================================================ */
+
+/* Landing sticky top bar (/l) · transparent at the very top, solid white +
+ * hairline shadow once scrolled. The scrolled state is `data-landing-scrolled`
+ * on <html>, toggled by the inline bootstrap script in StickyHeader.tsx — it
+ * runs at HTML-parse time, so the bar keeps its background even before the
+ * app bundle hydrates (the old React-state version rendered transparent until
+ * hydration, which is why the background sometimes "disappeared"). */
+.landing-sticky-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  padding: 16px 0 0;
+  background: transparent;
+  box-shadow: none;
+  --landing-topbar-h: 66px;
+  transition:
+    background 0.25s ease,
+    box-shadow 0.25s ease,
+    padding 0.25s ease;
+}
+html[data-landing-scrolled] .landing-sticky-header {
+  padding-bottom: 16px;
+  background: #fff;
+  box-shadow: 0 1px 0 rgba(28, 25, 22, 0.06);
+}
+/* ≤560px · scrolled bar slims down: tighter paddings + shorter inner row
+ * (the inner row reads --landing-topbar-h). */
+@media (max-width: 560px) {
+  html[data-landing-scrolled] .landing-sticky-header {
+    padding-top: 8px;
+    padding-bottom: 8px;
+    --landing-topbar-h: 52px;
+  }
+}
+
+/* Critical (red) stat values pulse to a brighter, glowing red — a gentle alarm
+ * that the number is in the danger zone. The animation overrides the element's
+ * inline coral color while running; the inline color is the static fallback. */
+@keyframes landing-critical-pulse {
+  0%,
+  100% {
+    color: var(--color-coral);
+    text-shadow: none;
+  }
+  50% {
+    color: #a43b37;
+    text-shadow: 0 0 16px rgba(164, 59, 55, 0.4);
+  }
+}
+.landing-critical-pulse {
+  animation: landing-critical-pulse 1.45s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .landing-critical-pulse {
+    animation: none;
+  }
+}
+/* Tab hidden → freeze the pulse (no background-tab CPU/battery burn).
+ * `data-landing-hidden` is toggled on <html> by a visibilitychange listener
+ * inside LandingCounters.tsx (the island that applies the pulse class). */
+html[data-landing-hidden] .landing-critical-pulse {
+  animation-play-state: paused;
+}
+
+/* Landing data tables · flush the outer column edges with the section text so
+ * the first column + divider lines line up with the section heading. */
+/* Scrollable table area · thin scrollbar in the table line color (#F1F4F6). */
+.landing-table-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #f1f4f6 transparent;
+}
+.landing-table-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.landing-table-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.landing-table-scroll::-webkit-scrollbar-thumb {
+  background: #f1f4f6;
+  border-radius: 999px;
+}
+
+/* Clipped table flavor (search keywords + website checks): fixed height under
+ * a fade overlay. The 560px block re-opens horizontal scrolling on it. */
+.landing-table-clip {
+  max-height: 440px;
+  overflow: hidden;
+}
+
+/* These two KEEP !important: Th/Td render their padding as inline styles
+ * (component-level), and the flush-edge override must beat inline. */
+.landing-table th:first-child,
+.landing-table td:first-child {
+  padding-left: 0 !important;
+}
+.landing-table th:last-child,
+.landing-table td:last-child {
+  padding-right: 0 !important;
+}
+
+/* Landing CTA pill · static chrome (padding + type size) lives here; the
+ * variant colors/shadow and the dynamic height prop stay inline in CtaPill. */
+.landing-cta-pill {
+  padding: 0 38px;
+  font-size: 15px;
+  transition:
+    box-shadow 0.2s ease,
+    background-color 0.2s ease,
+    color 0.2s ease,
+    transform 0.2s ease;
+}
+/* Shadow intensifies on hover. KEEPS !important: the solid pill's resting
+ * box-shadow is an inline style (variant-dependent), and :hover can't be
+ * expressed inline. */
+.landing-cta-pill:hover {
+  box-shadow: 0 16px 44px
+    color-mix(in srgb, var(--color-coral) 55%, transparent) !important;
+}
+/* Outline CTA (e.g. "Pay annually"): no shadow on hover — fill with coral.
+ * KEEPS !important for the same reason (beats the variant's inline colors). */
+.landing-cta-pill--outline:hover {
+  box-shadow: none !important;
+  background: var(--color-coral) !important;
+  color: #fff !important;
+}
+/* Responsive CTA label: long on desktop, short on small screens. */
+.landing-cta-label-sm {
+  display: none;
+}
+/* Mobile-only line break inside the industry-stat labels (shows in the 560px
+ * block); hidden on desktop so the label stays on one line. */
+.landing-br-mobile {
+  display: none;
+}
+/* The stacked (mobile-only) section CTA is hidden on desktop; the inline one
+ * (under the stat card) shows. They swap on mobile (see the 560px block). */
+.landing-cta-stacked {
+  display: none;
+}
+/* Ads problem→solution: desktop keeps it beside the stats; mobile moves it
+ * below the table (see the 560px block). */
+.landing-ads-ps-mobile {
+  display: none;
+}
+/* Website score+CTA: desktop keeps it under the score stats; mobile moves it
+ * below the checks table. */
+.landing-web-cta-mobile {
+  display: none;
+}
+/* Problem→solution arrow: horizontal curl on desktop, the vertical down-arrow
+ * (same as the ads block) on mobile. Both svgs are display-managed here (no
+ * inline display), so the 560px swap needs no !important. */
+.landing-ps-svg-desktop {
+  display: block;
+}
+.landing-ps-svg-mobile {
+  display: none;
+}
+
+/* ---- hero · desktop values migrated off inline style={} ---- */
+.landing-hero-grid {
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+}
+.landing-hero-meta {
+  align-items: center;
+}
+.landing-hero-h1 {
+  font-size: clamp(48px, 10vw, 100px);
+  text-decoration-thickness: 14px;
+}
+.landing-hero-body {
+  font-size: 22px;
+}
+.landing-hero-body-em {
+  font-size: 40px;
+}
+.landing-hero-rule {
+  width: 90px;
+}
+
+/* Landing hero · staggered score-card cluster (desktop) → stacked (mobile) */
+.landing-hero-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  align-items: center;
+  max-width: 571px;
+  margin-inline: auto;
+  position: relative;
+  z-index: 0;
+}
+/* Soft coral glow behind the score-card cluster (Figma: 633×608 ellipse,
+ * #B96562 @20%, layer-blur 300 → reproduced as a radial-gradient for GPU cost). */
+.landing-hero-cards::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  left: 50%;
+  top: 55%;
+  width: 1700px;
+  height: 1120px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(
+    ellipse 800px 520px at 50% 50%,
+    color-mix(in srgb, var(--color-coral) 20%, transparent),
+    transparent 80%
+  );
+  pointer-events: none;
+}
+/* Diagonal 90×90 white grid · sits in FRONT of the coral glow (same z-index,
+ * painted after ::before) but BEHIND the score cards. Rotated 45° to match
+ * the design (a 90° rotation would look identical to a straight grid). */
+.landing-hero-cards::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  left: 50%;
+  top: 50%;
+  width: 2800px;
+  height: 2800px;
+  transform: translate(-50%, -50%) rotate(45deg);
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      rgba(255, 255, 255, 0.9) 0 1px,
+      transparent 1px 90px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.9) 0 1px,
+      transparent 1px 90px
+    );
+  pointer-events: none;
+}
+.hero-top-row {
+  display: flex;
+  gap: 14px;
+  align-items: flex-end;
+  width: 100%;
+}
+/* Hero score cards · desktop chrome (was inline). Per-card width/positioning
+ * stays inline in Hero.tsx (only the values below have mobile overrides). */
+.hero-card-1,
+.hero-card-2,
+.hero-card-3 {
+  border-radius: 21px;
+  padding: 26px 22px;
+}
+.hero-card-2 {
+  width: calc(48% - 14px);
+}
+.hero-card-3 {
+  padding-bottom: 38px;
+}
+.hero-card-title {
+  font-size: 36px;
+}
+.hero-card-num {
+  font-size: 52px;
+}
+.hero-card-num-google {
+  margin: 0;
+}
+.hero-card-trend {
+  margin: 8px 0 0;
+}
+.hero-gauge-wrap {
+  margin-top: 12px;
+}
+.hero-gauge-slash {
+  font-size: 13px;
+}
+.hero-city-slash {
+  font-size: 13px;
+  line-height: 1;
+}
+
+/* ---- section headings · desktop values migrated off inline style={} ----
+ * Base = the SectionIntro flavor; --changes / --pricing carry the two
+ * call sites whose desktop margin/line-height differ. */
+.landing-section-h2 {
+  margin: 16px 0 0;
+  font-size: clamp(40px, 7vw, 80px);
+  line-height: 80px;
+}
+.landing-section-h2--changes {
+  margin: 20px 0 0;
+}
+.landing-section-h2--pricing {
+  margin: 0;
+  line-height: 1.02;
+}
+/* In-section sub-headings ("How do people search…", "Score of your website:",
+ * etc.). Base carries the shared 30px size; modifiers carry the per-call-site
+ * desktop margin/line-height that used to be inline. */
+.landing-subhead {
+  font-size: 30px;
+}
+.landing-subhead--search {
+  margin: 4px 0 0;
+}
+.landing-subhead--themes {
+  line-height: 30px;
+}
+.landing-subhead--web-score {
+  line-height: 1.2;
+}
+.landing-subhead--web-checks {
+  line-height: 1.25;
+}
+
+/* ---- "what changed" section · desktop values ---- */
+.landing-changes-intro {
+  margin-top: 30px;
+}
+.landing-changes-arrow {
+  display: flex;
+}
+.landing-changes-feed {
+  transform: translateX(-120px);
+}
+/* Landing "what changed" ticker viewport — desktop fits ~3 cards + a teaser. */
+.landing-changes-viewport {
+  height: 640px;
+}
+.landing-changes-grid {
+  grid-template-columns: minmax(0, 1fr) 366px;
+  gap: 160px;
+}
+
+/* ---- per-section grids + stats · desktop values ---- */
+.landing-search-2col {
+  grid-template-columns: minmax(340px, 0.95fr) minmax(0, 1.35fr);
+  gap: 32px;
+}
+.landing-search-stat-grid {
+  grid-template-columns: 1fr 1fr;
+  gap: 44px;
+}
+.landing-stat-big {
+  margin: 8px 0 0;
+}
+.landing-search-future {
+  margin: 40px auto 0;
+}
+.landing-ads-grid {
+  margin-top: 44px;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 0.95fr);
+  gap: 40px;
+}
+.landing-ads-table-block {
+  margin-top: 52px;
+}
+.landing-adstat-num {
+  margin: 12px 0 0;
+}
+.landing-reviews-grid {
+  margin-top: 40px;
+  grid-template-columns: minmax(0, 1.85fr) minmax(240px, 1fr);
+  gap: 48px;
+}
+.landing-reviews-score {
+  gap: 24px;
+  justify-content: space-between;
+  padding: 22px 34px;
+}
+.landing-reviews-score-label {
+  font-size: 15px;
+}
+.landing-reviews-score-num {
+  font-size: 45px;
+}
+.landing-theme-card {
+  width: 380px;
+  padding: 0 28px;
+  flex-shrink: 0;
+}
+.landing-theme-count {
+  font-size: 50px;
+}
+.landing-theme-numwrap {
+  align-items: center;
+  gap: 10px;
+}
+.landing-web-grid {
+  grid-template-columns: minmax(280px, 0.92fr) minmax(0, 1.5fr);
+  gap: 40px;
+}
+.landing-web-industry-grid {
+  gap: 18px;
+}
+[data-landing-section="pricing"] {
+  padding: clamp(56px, 8vw, 104px) 20px;
+}
+.landing-pricing-grid {
+  grid-template-columns: minmax(0, 1.6fr) minmax(300px, 1fr);
+  gap: 56px;
+}
+.landing-pricing-card {
+  box-sizing: border-box;
+  width: 420px;
+  max-width: 100%;
+  margin: 50px auto 0;
+  padding: 60px 44px;
+  transform: translateX(-40px);
+}
+.landing-pricing-arrow {
+  display: none;
+}
+.landing-footer {
+  padding: 64px 20px 40px;
+}
+.landing-footer-inner {
+  align-items: center;
+  gap: 16px;
+  padding-top: 8px;
+}
+.landing-footer-menu {
+  display: inline-flex;
+  gap: 24px;
+}
+/* Problem→solution blocks. Base gap = the side-by-side flavor; the stacked
+ * flavor keeps its (identical-to-mobile) 14px gap inline. */
+.landing-ps-block {
+  gap: 28px;
+}
+.landing-ps-arrow-main {
+  left: 50%;
+  top: 4%;
+  transform: translate(-50%, -50%);
+}
+/* Landing ads · the tan problem→solution connector arrow: hidden by default,
+ * shown on wide screens (≥1000px, below) and re-positioned on mobile (560px
+ * block). Desktop offsets migrated off inline style. */
+.landing-ps-arrow {
+  display: none;
+  right: -34px;
+  top: 24%;
+}
+
+/* ============================================================
+ * Breakpoint blocks — order matters (they out-cascade the desktop
+ * rules above by source order, not specificity).
+ * ============================================================ */
+
+/* Landing pages · responsive grids + decorative arrow */
+@media (max-width: 880px) {
+  .landing-hero-grid,
+  .landing-2col {
+    grid-template-columns: 1fr;
+  }
+  /* Let stacked grid items shrink to the viewport (min-width:auto otherwise
+   * stretches a column to its widest child — a wide table — pushing headings
+   * off-screen and stopping the table's own horizontal scroll). */
+  .landing-2col > * {
+    min-width: 0;
+  }
+  /* Uniform vertical gap between stacked grid rows (drives the spacing before
+   * the second column's sub-heading). */
+  .landing-2col:not(.landing-changes-grid) {
+    gap: 52px;
+  }
+}
+@media (min-width: 1180px) {
+  .landing-pricing-arrow {
+    display: block;
+  }
+}
+
+@media (max-width: 560px) {
+  .landing-cta-label-lg {
+    display: none;
+  }
+  .landing-cta-label-sm {
+    display: inline;
+  }
+  /* Compact the sticky-header CTA so it never overflows the viewport.
+   * height KEEPS !important: CtaPill's height is a dynamic prop (inline). */
+  [data-landing-cta="top"] {
+    padding-left: 20px;
+    padding-right: 20px;
+    font-size: 14px;
+    height: 48px !important;
+  }
+  /* Drop the arrow in the sticky-header button on mobile (saves room). */
+  [data-landing-cta="top"] svg {
+    display: none;
+  }
+}
+
+/* Hero score cards keep the desktop arrangement on mobile too — two cards on
+ * top (Mapsly + City), Google below — just compacted on narrow phones so the
+ * row fits without overflow. */
+@media (max-width: 560px) {
+  .hero-card-1,
+  .hero-card-2,
+  .hero-card-3 {
+    padding: 16px 10px;
+    border-radius: 12px;
+  }
+  /* A bit more breathing room at the bottom of the Google card. */
+  .hero-card-3 {
+    padding-bottom: 24px;
+  }
+  /* Pull the cards closer: 7px gaps (and re-balance card-2 to match). */
+  .landing-hero-cards {
+    gap: 7px;
+  }
+  .hero-top-row {
+    gap: 7px;
+  }
+  .hero-card-2 {
+    width: calc(48% - 7px);
+  }
+  .hero-card-title {
+    font-size: 23px;
+  }
+  .hero-card-num {
+    font-size: 34px;
+  }
+  /* City "1" a touch larger; a bit more breathing room under "Google". */
+  .hero-card-num-city {
+    font-size: 46px;
+  }
+  .hero-card-num-google {
+    margin-top: 10px;
+  }
+  .hero-gauge-wrap {
+    transform: scale(0.74);
+    transform-origin: top center;
+    margin-top: 2px;
+    margin-bottom: -24px;
+  }
+  /* A little gap between "N reviews" and "+N this month". */
+  .hero-card-trend {
+    margin-top: 4px;
+  }
+  /* Keep both denominators ("/ 10", "/ 25") the same rendered size. The gauge
+   * "/ 10" lives inside the 0.74-scaled gauge, so 17.5px renders ≈ 13px to
+   * match the unscaled city "/ 25" (13px, set in the desktop rules above). */
+  .hero-gauge-slash {
+    font-size: 17.5px;
+    line-height: 1;
+  }
+  /* Mobile background: denser 45×45 grid + a smaller coral glow. */
+  .landing-hero-cards::after {
+    background-image:
+      repeating-linear-gradient(
+        0deg,
+        rgba(255, 255, 255, 0.9) 0 1px,
+        transparent 1px 45px
+      ),
+      repeating-linear-gradient(
+        90deg,
+        rgba(255, 255, 255, 0.9) 0 1px,
+        transparent 1px 45px
+      );
+  }
+  .landing-hero-cards::before {
+    top: 46%;
+    width: 720px;
+    height: 1080px;
+    background: radial-gradient(
+      ellipse 330px 400px at 50% 50%,
+      color-mix(in srgb, var(--color-coral) 20%, transparent),
+      transparent 78%
+    );
+  }
+  /* Section headings (all but the hero): a touch larger, tighter leading, and
+   * the eyebrow pulled closer to the heading. */
+  .landing-section-h2 {
+    font-size: clamp(42px, 12vw, 50px);
+    line-height: 1.05;
+    margin-top: 6px;
+  }
+  /* Uniform section top-spacing (56px to first text) across all blocks:
+   * the changes intro drops its desktop 30px offset, and the eyebrow-less
+   * pricing heading drops the 6px meant for eyebrow→heading. */
+  .landing-changes-intro {
+    margin-top: 0;
+  }
+  [data-landing-section="pricing"] .landing-section-h2 {
+    margin-top: 0;
+  }
+  /* Pricing card: drop the desktop left-nudge and let it fill + center on mobile
+   * (was overflowing the right edge). */
+  .landing-pricing-card {
+    width: 100%;
+    transform: none;
+    padding: 44px 24px;
+    margin-top: 0;
+  }
+  /* Tighten the gap between the benefit list and the pricing card on mobile. */
+  [data-landing-section="pricing"] .landing-2col {
+    gap: 36px;
+  }
+  /* Footer (mobile): less space above it, more room between logo and menu, and
+   * the menu laid out in two columns. */
+  [data-landing-section="pricing"] {
+    padding-bottom: 28px;
+  }
+  .landing-footer {
+    padding-top: 28px;
+  }
+  .landing-footer-inner {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 30px;
+    padding-top: 0;
+  }
+  .landing-footer-menu {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    width: 100%;
+    gap: 16px;
+    margin: 0;
+  }
+  /* In-section sub-headings — smaller on mobile. */
+  .landing-subhead {
+    font-size: 26px;
+    line-height: 1.1;
+    margin-top: 0;
+  }
+  /* Ads stats grid — same uniform gap above "{name} stats:". */
+  .landing-ads-grid {
+    margin-top: 52px;
+  }
+  /* Reviews grid — same uniform gap above "You compared to your competitors:". */
+  .landing-reviews-grid {
+    margin-top: 52px;
+  }
+  /* All data tables scroll horizontally on mobile (instead of being clipped).
+   * Cells keep their natural width (no wrapping/squishing) — you swipe. */
+  .landing-table-scroll {
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+  .landing-table-scroll th,
+  .landing-table-scroll td {
+    white-space: nowrap;
+  }
+  /* Problem→solution blocks: uniform on mobile — cards closer, and the arrow
+   * sits on the right between them, pointing down. */
+  .landing-ps-block {
+    gap: 14px;
+  }
+  .landing-ps-arrow-main {
+    left: auto;
+    right: -18px;
+    top: 50%;
+    transform: translateY(-50%);
+  }
+  .landing-ps-svg-desktop {
+    display: none;
+  }
+  .landing-ps-svg-mobile {
+    display: block;
+  }
+  .landing-ps-arrow {
+    display: block;
+    right: -18px;
+    top: 50%;
+    transform: translateY(-50%);
+  }
+  /* Tighter gap above the "future searches" line, a bit more below it. */
+  .landing-search-future {
+    margin-top: 18px;
+    margin-bottom: 0;
+  }
+  /* Pull the big ads stat numbers up closer to their labels (more compact). */
+  .landing-adstat-num {
+    margin-top: -6px;
+  }
+  /* Reviews "Your Google score" card: centered vertical stack on mobile. */
+  .landing-reviews-score {
+    flex-direction: column;
+    justify-content: center;
+    text-align: center;
+    gap: 12px;
+    padding: 28px 20px;
+  }
+  .landing-reviews-score-label {
+    font-family: var(--font-landing-head);
+    font-size: 28px;
+  }
+  .landing-reviews-score-num {
+    font-size: 56px;
+    margin-top: -22px;
+  }
+  /* Website per-check table: drop the horizontal-scroll line a row lower so it
+   * lands on a clean divider (like the other mobile tables). */
+  .landing-web-checks-scroll {
+    max-height: 456px;
+  }
+  /* Review-theme cards have a fixed 380px width — let them shrink to fit. */
+  .landing-theme-card {
+    width: auto;
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 0 18px;
+  }
+  /* Theme bar counts ("35", "22"…) a touch smaller. */
+  .landing-theme-count {
+    font-size: 38px;
+  }
+  /* Stack "times" under the number, left-aligned, on mobile. */
+  .landing-theme-numwrap {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0;
+    line-height: 1;
+  }
+  /* Industry median / best stay side-by-side on mobile; an explicit break
+   * before the parenthetical puts each label on two clean lines. */
+  .landing-web-industry-grid {
+    gap: 14px;
+  }
+  .landing-br-mobile {
+    display: inline;
+  }
+  /* Room on the left for the rank-badge glow; no bottom padding so the scroll
+   * line sits on the table's bottom edge (like the other tables). */
+  .landing-table-scroll-glow {
+    padding: 0 0 0 20px;
+  }
+  /* Move the section score+CTA below the problem→solution block on mobile:
+   * hide the inline (under-stat-card) one, show the stacked copy at the end. */
+  .landing-cta-inline {
+    display: none;
+  }
+  .landing-cta-stacked {
+    display: block;
+    margin-top: 32px;
+  }
+  .landing-ads-ps-desktop {
+    display: none;
+  }
+  .landing-ads-ps-mobile {
+    display: block;
+    margin-top: 28px;
+  }
+  .landing-web-cta-desktop {
+    display: none;
+  }
+  .landing-web-cta-mobile {
+    display: block;
+  }
+}
+@media (max-width: 720px) {
+  .landing-tagline {
+    display: none;
+  }
+}
+
+/* Landing "what changed" · hide the decorative arrow on stacked mobile */
+@media (max-width: 880px) {
+  .landing-changes-arrow {
+    display: none;
+  }
+  /* Narrow phones: shorter viewport (cards wrap taller, ~3 still show). */
+  .landing-changes-viewport {
+    height: 400px;
+  }
+  /* Stacked: drop the desktop column gap, the left-shift, and the bottom
+   * fade-mask (which otherwise hides the lower cards on the tall mobile stack). */
+  .landing-changes-grid {
+    gap: 44px;
+  }
+  .landing-changes-feed {
+    transform: none;
+    max-height: 430px;
+    overflow: hidden;
+    -webkit-mask-image: linear-gradient(to bottom, #000 62%, transparent);
+    mask-image: linear-gradient(to bottom, #000 62%, transparent);
+  }
+}
+/* Landing search · the two big-number stats stack on narrow screens so the
+ * second column ("searches you show up for") doesn't clip off-screen. */
+@media (max-width: 560px) {
+  .landing-search-stat-grid {
+    grid-template-columns: 1fr;
+    gap: 40px;
+  }
+  /* Tighter label→number inside each stat group (the bigger grid gap above
+   * separates the two groups). */
+  .landing-stat-big {
+    margin-top: 2px;
+  }
+  /* Hero meta: stack category + address onto two lines (drop the inline dot). */
+  .landing-hero-meta {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .landing-hero-meta-dot {
+    display: none;
+  }
+  /* Hero name: larger on mobile, with a 30%-thinner coral underline (14→10px). */
+  .landing-hero-h1 {
+    font-size: clamp(50px, 14vw, 62px);
+    text-decoration-thickness: 10px;
+  }
+  /* Hero body copy: smaller on mobile (desktop keeps 22px / 40px accent). */
+  .landing-hero-body {
+    font-size: 18px;
+  }
+  .landing-hero-body-em {
+    font-size: 30px;
+  }
+  /* Halve the little coral rule beside the hero copy. */
+  .landing-hero-rule {
+    width: 45px;
+  }
+}
+/* Landing search · stacked, the single column must be allowed to shrink to the
+ * container (min-width:0) — otherwise the stat card's min-content expands the
+ * track past the viewport and clips. */
+@media (max-width: 880px) {
+  .landing-search-2col {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .landing-search-2col > * {
+    min-width: 0;
+  }
+}
+@media (min-width: 1000px) {
+  .landing-ps-arrow {
+    display: block;
+  }
+}
+
+/* ── Free weekly-score CTA (plan #7) ───────────────────────────────────────
+ * The SECONDARY option inside the white pricing card: a quiet text trigger
+ * that expands into a one-field email form. Deliberately muted next to the
+ * coral $29 pills. */
+.landing-free-weekly {
+  margin: 22px auto 0;
+  max-width: 300px;
+  font-family: var(--font-landing-body);
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--color-text-3);
+  text-align: center;
+}
+.landing-free-weekly-trigger {
+  appearance: none;
+  background: none;
+  border: 0;
+  padding: 10px 4px; /* ≥44px tap height with the line box */
+  min-height: 44px;
+  font: inherit;
+  color: var(--color-text-3);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.landing-free-weekly-trigger:hover {
+  color: var(--color-coral);
+}
+.landing-free-weekly-lead {
+  margin: 0 0 10px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+.landing-free-weekly-row {
+  display: grid;
+  gap: 8px;
+}
+.landing-free-weekly-input {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  font: inherit;
+  color: var(--color-text);
+  background: #fff;
+  text-align: center;
+}
+.landing-free-weekly-input:focus-visible {
+  outline: 2px solid var(--color-coral);
+  outline-offset: 2px;
+}
+.landing-free-weekly-submit {
+  box-sizing: border-box;
+  min-height: 44px;
+  padding: 10px 16px;
+  border: 1px solid var(--color-text-3);
+  border-radius: 999px;
+  background: transparent;
+  font: inherit;
+  font-weight: 600;
+  color: var(--color-text);
+  cursor: pointer;
+}
+.landing-free-weekly-submit:hover {
+  border-color: var(--color-coral);
+  color: var(--color-coral);
+}
+.landing-free-weekly-error {
+  margin: 8px 0 0;
+  color: var(--color-coral);
+}
+
+/* Consent bar (plan #7): on small screens let the buttons wrap under the
+ * copy and keep them full-width tappable. */
+@media (max-width: 560px) {
+  .landing-consent-inner > div {
+    width: 100%;
+  }
+  .landing-consent-inner > div > button {
+    flex: 1 1 0;
+  }
+}

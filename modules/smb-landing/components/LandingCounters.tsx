@@ -20,6 +20,29 @@ const SERIF = "var(--font-landing-head)";
 const nf = new Intl.NumberFormat("en-US");
 
 /**
+ * Pause the infinite critical-pulse animation while the tab is hidden (no
+ * CPU/battery burn in background tabs). One module-level listener toggles
+ * `data-landing-hidden` on <html>; landing.css maps that attribute to
+ * `animation-play-state: paused`. Installed lazily by the first critical
+ * CountUp that mounts — lives inside this existing client island, never a
+ * new one. The listener is page-global and intentionally never removed.
+ */
+let visibilityPauseInstalled = false;
+function installVisibilityPause() {
+  if (visibilityPauseInstalled || typeof document === "undefined") return;
+  visibilityPauseInstalled = true;
+  const sync = () => {
+    if (document.visibilityState === "hidden") {
+      document.documentElement.setAttribute("data-landing-hidden", "");
+    } else {
+      document.documentElement.removeAttribute("data-landing-hidden");
+    }
+  };
+  document.addEventListener("visibilitychange", sync);
+  sync();
+}
+
+/**
  * Returns a callback ref + the current animated value. Starts at `target`
  * (SSR/hydration parity), resets to 0 on mount, and eases to `target` the first
  * time the node intersects the viewport.
@@ -98,6 +121,13 @@ export function CountUp({
   unit?: ReactNode;
 }) {
   const { setNode, val, done } = useScrollCount(value, durationMs);
+
+  // Critical numbers pulse forever once landed — make sure the pulse freezes
+  // whenever the tab goes to the background.
+  useEffect(() => {
+    if (critical) installVisibilityPause();
+  }, [critical]);
+
   const fmt = (n: number) =>
     grouping ? nf.format(Math.round(n)) : n.toFixed(decimals);
   const finalText = `${prefix}${fmt(value)}${suffix}`;
@@ -213,7 +243,6 @@ export function ScoreGauge({ value }: { value: number | null }) {
         <span
           className="hero-gauge-slash"
           style={{
-            fontSize: 13,
             fontWeight: 600,
             color: "var(--color-text)",
             marginTop: 8,

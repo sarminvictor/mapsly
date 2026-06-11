@@ -7,8 +7,9 @@
  *   - the removal link points at /r/[token] with THIS landing's token
  *   - © line is brand-only "Mapsly" — no corporate suffix, no person named
  *     (Viktor's explicit legal-identity decision)
- *   - the provenance line + its #data-sources anchor target exist (the hero's
- *     "see how" link depends on the id)
+ *   - © + provenance are ONE merged line (Viktor's improvement-plan call) and
+ *     the #data-sources anchor target exists (the hero's "see how" link
+ *     depends on the id)
  *
  * Rendered via react-dom/server (node env, no DOM) — `createElement` instead
  * of JSX so this stays a plain .ts file like the rest of the module's tests.
@@ -50,11 +51,13 @@ describe("LandingFooter · trust block", () => {
     expect(out).not.toMatch(/Mapsly,? (Inc|LLC|Ltd|Corp|GmbH)/i);
   });
 
-  test("provenance line renders with the #data-sources anchor target", () => {
+  test("© + provenance render as one continuous merged line with the #data-sources anchor target", () => {
     const out = html();
     expect(out).toContain('id="data-sources"');
+    // Single text node — © and provenance must be one uninterrupted flow,
+    // not two separate blocks.
     expect(out).toContain(
-      "Every number here comes from public sources: your Google listing, ad libraries, and your public website.",
+      "© 2026 Mapsly · Every number here comes from public sources: your Google listing, ad libraries, and your public website.",
     );
   });
 });
