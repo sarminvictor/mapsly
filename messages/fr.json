@@ -136,7 +136,7 @@
       "s2_essential_b4": "mapsly_checkout_nonce — créé pour 30 minutes au départ vers le paiement, pour confirmer que la personne qui revient de Stripe est celle qui est partie. Envoyé seulement sur les pages de paiement.",
       "s2_analytics_heading": "Mesure d'audience",
       "s2_analytics_p1": "Mapsly n'utilise aucun témoin d'analyse aujourd'hui. Nos pages d'atterrissage comptent les visiteurs avec un identifiant aléatoire gardé dans le stockage local de votre navigateur — il reste sur notre site et ne sert jamais à vous suivre ailleurs sur le web.",
-      "s2_analytics_p2": "Nous pourrions ajouter des pixels d'analyse ou de publicité plus tard. Le cas échéant, une bannière vous demandera d'abord et cette page les listera.",
+      "s2_analytics_p2": "Sur nos pages de rapport, une bannière vous demande d'abord. Si vous acceptez, nous chargeons deux balises publicitaires — le pixel Meta (Facebook) et la balise Google Ads — pour mesurer les résultats et afficher des annonces pertinentes. Si vous refusez, elles restent désactivées. Aucune autre page ne charge de balises publicitaires.",
       "s2_third_party_heading": "Témoins de tiers",
       "s2_third_party_p1": "Au paiement, Stripe dépose des témoins sur ses pages pour prévenir la fraude. Nous ne les contrôlons pas — voir stripe.com/cookies-policy.",
       "s3_heading": "3. Gérer les témoins",
@@ -163,6 +163,9 @@
     }
   },
   "smb": {
+    "onboarding": {
+      "vocab_medical_note": "Cabinet médical ? Les brouillons de réponse sont pensés pour la confidentialité — ils ne confirment jamais qu'une personne a été patiente."
+    },
     "reviews": {
       "title": "Avis",
       "tab_unanswered": "{count, plural, =0 {Aucun sans réponse} one {# sans réponse} other {# sans réponse}}",
@@ -173,6 +176,8 @@
       "ai_draft_post": "Publier sur Google",
       "ai_draft_edit": "Modifier",
       "ai_draft_regenerate": "Régénérer",
+      "ai_draft_hipaa_badge": "Pensé pour la confidentialité",
+      "ai_draft_hipaa_tooltip": "Les brouillons sont rédigés pour éviter de confirmer qu'une personne a été patiente ou de nommer un traitement. Relisez chacun avant de publier.",
       "kpi_reply_rate": "Taux de réponse",
       "kpi_unanswered": "Sans réponse",
       "kpi_avg_rating": "Note moyenne",
@@ -180,7 +185,15 @@
       "kpi_sentiment_7d": "Contents cette semaine",
       "ai_draft_lang_en": "English",
       "ai_draft_lang_es": "Español",
-      "pattern_eyebrow": "Tendance détectée"
+      "pattern_eyebrow": "Tendance détectée",
+      "privacy_summary": "Vérification de confidentialité : {count, plural, one {1 de vos réponses mérite peut-être une retouche — elle mentionne un traitement ou confirme qu'une personne a été patiente} other {# de vos réponses méritent peut-être une retouche — elles mentionnent des traitements ou confirment qu'une personne a été patiente}}.",
+      "privacy_summary_tooltip": "Les règles de confidentialité médicale veulent qu'une réponse publique ne confirme pas qu'une personne précise a été soignée. Les amendes commencent autour de 10 000 $ — une retouche rapide vous protège.",
+      "privacy_hint_high": "Pourrait confirmer une relation de soin — pensez à une retouche",
+      "privacy_hint_caution": "À relire — cette réponse mentionne une date ou un paiement",
+      "privacy_fix_cta": "Rédiger une réponse plus prudente",
+      "privacy_confirm_title": "Cette réponse pourrait mentionner un traitement ou confirmer qu'une personne a été patiente.",
+      "privacy_confirm_edit": "Modifier la réponse",
+      "privacy_confirm_post": "Publier quand même"
     },
     "search": {
       "meta": {
@@ -1022,6 +1035,7 @@
       "f4": "Top 3 fixes ranked by impact, every week",
       "f5": "Competitor watch (new openings, ads, reviews)",
       "f6": "Email summary every Monday, 5 minutes to read",
+      "f7": "Réponses aux avis pensées pour la confidentialité des cabinets médicaux — les brouillons ne confirment jamais qu'une personne a été patiente.",
       "cta_primary": "Get my free report",
       "cta_secondary": "See a sample report"
     },

@@ -13,7 +13,7 @@ interface SmbPricingProps {
   t: (key: string) => string;
 }
 
-const FEATURES = ["f1", "f2", "f3", "f4", "f5", "f6"] as const;
+const FEATURES = ["f1", "f2", "f3", "f4", "f5", "f6", "f7"] as const;
 
 export function SmbPricing({ t }: SmbPricingProps) {
   return (

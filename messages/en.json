@@ -144,7 +144,7 @@
       "s2_essential_b4": "mapsly_checkout_nonce — set for 30 minutes when you start checkout, so we know the person coming back from Stripe is the one who left. Only sent on checkout pages.",
       "s2_analytics_heading": "Analytics",
       "s2_analytics_p1": "Mapsly sets no analytics cookies today. Our landing pages count visitors with a random id kept in your browser's local storage — it stays on our site and is never used to follow you around the web.",
-      "s2_analytics_p2": "We may add analytics or advertising pixels later. If we do, a banner will ask you first and this page will list them.",
+      "s2_analytics_p2": "On our report pages a banner asks first. If you accept, we load two advertising tags — the Meta (Facebook) pixel and the Google Ads tag — to measure results and show relevant ads. If you decline, they stay off. No other pages load advertising tags.",
       "s2_third_party_heading": "Third-party cookies",
       "s2_third_party_p1": "When you pay, Stripe sets cookies on its checkout pages for fraud prevention. We don't control those — see stripe.com/cookies-policy.",
       "s3_heading": "3. Managing cookies",
@@ -214,6 +214,8 @@
       "ai_draft_edit": "Edit draft",
       "ai_draft_regenerate": "Regenerate",
       "ai_draft_coming_soon": "Coming soon — connect Google to post directly",
+      "ai_draft_hipaa_badge": "HIPAA-aware",
+      "ai_draft_hipaa_tooltip": "Drafts are written to avoid confirming anyone was a patient or naming treatments. Give each one a quick read before posting.",
       "rail_aside_label": "Review summary",
       "rail_rating_title": "Star breakdown",
       "rail_rating_subtitle": "All-time · {total} reviews",
@@ -274,7 +276,15 @@
       "names_empty": "We'll surface names here as your team gets called out by customers.",
       "names_count_label": "{count} mentions",
       "show_more": "Show more",
-      "showing_label": "Showing {shown} of {total}"
+      "showing_label": "Showing {shown} of {total}",
+      "privacy_summary": "Privacy check: {count, plural, one {1 of your replies may need an edit — it mentions a treatment or confirms someone was a patient} other {# of your replies may need an edit — they mention treatments or confirm someone was a patient}}.",
+      "privacy_summary_tooltip": "Privacy rules for medical businesses say a public reply shouldn't confirm a specific person was treated. Fines start around $10,000 — a quick edit keeps you safe.",
+      "privacy_hint_high": "May confirm a patient relationship — consider an edit",
+      "privacy_hint_caution": "Worth a quick look — this reply mentions a date or a payment",
+      "privacy_fix_cta": "Draft a safer reply",
+      "privacy_confirm_title": "This reply may mention a treatment or confirm someone was a patient.",
+      "privacy_confirm_edit": "Edit reply",
+      "privacy_confirm_post": "Post anyway"
     },
     "search": {
       "meta": {
@@ -526,6 +536,7 @@
       "vocab_dental": "Dental or orthodontics",
       "vocab_gym": "Gym or fitness studio",
       "vocab_other": "Something else",
+      "vocab_medical_note": "Medical practice? Reply drafts are HIPAA-aware — they never confirm someone was a patient.",
       "google_what_we_use": "We'll only ask for what's needed to read your reviews and post replies.",
       "google_cta": "Connect with Google",
       "google_coming_soon": "Coming soon",
@@ -1961,6 +1972,7 @@
       "f4": "Top 3 fixes ranked by impact, every week",
       "f5": "Competitor watch (new openings, ads, reviews)",
       "f6": "Email summary every Monday, 5 minutes to read",
+      "f7": "HIPAA-aware review replies for medical practices — drafts never confirm someone was a patient.",
       "cta_primary": "Get my free report",
       "cta_secondary": "See a sample report"
     },

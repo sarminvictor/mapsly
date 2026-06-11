@@ -228,6 +228,7 @@ function VocabularyStep({ t }: { t: (k: string) => string }) {
         name="vocabulary"
         options={options}
         legend={t("vocab_legend")}
+        medicalNote={t("vocab_medical_note")}
       />
     </>
   );
