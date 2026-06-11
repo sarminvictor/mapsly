@@ -21,6 +21,7 @@ import {
 
 import {
   gateVerdict,
+  secretShopperSendExclusion,
   summarizeLandingSessions,
   type LandingSessionAgg,
 } from "../queries";
@@ -214,5 +215,24 @@ describe("gateVerdict · thresholds display logic", () => {
       paid: 0,
     });
     expect(gateVerdict(VERDICT_MIN_SENDS, results)).toBe("fallback");
+  });
+});
+
+describe("secretShopperSendExclusion · gate-denominator filter", () => {
+  test("no secret-shopper businesses → empty fragment (no filter added)", () => {
+    expect(secretShopperSendExclusion([])).toEqual({});
+  });
+
+  test("excludes via NOT (keeps null-businessId recipients), not notIn", () => {
+    const frag = secretShopperSendExclusion(["biz_secret_1", "biz_secret_2"]);
+    // Must be NOT-wrapped: a ColdRecipient with businessId=null has to stay
+    // counted (null IN ids = false → NOT true). `notIn` would silently drop
+    // every null-businessId send from the denominator.
+    expect(frag).toEqual({
+      NOT: {
+        recipient: { businessId: { in: ["biz_secret_1", "biz_secret_2"] } },
+      },
+    });
+    expect(JSON.stringify(frag).includes("notIn")).toBe(false);
   });
 });

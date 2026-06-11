@@ -70,6 +70,20 @@ export const FUNNEL_GATES: readonly FunnelGate[] = [
 ] as const;
 
 /**
+ * Businesses carrying this qualification flag are MYSTERY-SHOPPER rows —
+ * a real business slot assigned to an internal tester's own inbox (e.g.
+ * Azala Skin Clinic → sarminvictor+miami@gmail.com, 2026-06-11) so the
+ * operator receives + QA's the real cold email / landing / portal flow.
+ *
+ * Their opens, clicks, and (self-refunded) payment are NOT real prospect
+ * behavior, so every funnel denominator AND numerator must exclude them —
+ * one test buyer alone nearly satisfies the 0.5% paid gate on a ~250-send
+ * cohort, which would fake a "launch is working" verdict. The funnel
+ * queries filter on this flag on both sides (events + sends).
+ */
+export const SECRET_SHOPPER_FLAG = "secret_shopper";
+
+/**
  * The named fallback (decision log #17): if the gates still fail after the
  * verdict window of cold sends, cold-direct is judged missed — pivot to
  * white-labeling the audit engine to agencies.

@@ -22,6 +22,7 @@ import {
   evaluateFunnelGates,
   type FunnelCounts,
   type GateResult,
+  SECRET_SHOPPER_FLAG,
   VERDICT_MIN_SENDS,
 } from "@/lib/funnel-thresholds";
 
@@ -217,6 +218,10 @@ export async function getLandingFunnel(): Promise<LandingFunnel> {
   // sessionId) each stand alone via the synthetic `evt:` key. Counts cast
   // ::int per INC-08. LIMIT bounds the scan — at cold-email scale (hundreds
   // of landings) this is far above any realistic session count.
+  // Exclude mystery-shopper landings (SECRET_SHOPPER_FLAG) on BOTH sides of
+  // the funnel — their operator's opens/clicks/payment aren't real prospect
+  // behavior (see lib/funnel-thresholds). `landingPageId` is non-null, so the
+  // NOT IN subquery is safe; an empty subquery keeps every row.
   const rows = await prisma.$queryRaw<SessionRow[]>`
     SELECT COALESCE("sessionId", 'evt:' || id)            AS session_key,
            MAX("visitorId")                               AS visitor_id,
@@ -230,6 +235,11 @@ export async function getLandingFunnel(): Promise<LandingFunnel> {
            BOOL_OR(type = 'CHECKOUT_OPENED')              AS checkout_opened,
            COUNT(*) FILTER (WHERE type = 'SUBSCRIPTION_BOUGHT')::int AS subscribed_count
     FROM "LandingEvent"
+    WHERE "landingPageId" NOT IN (
+      SELECT lp.id FROM "LandingPage" lp
+      JOIN "Business" b ON b.id = lp."businessId"
+      WHERE ${SECRET_SHOPPER_FLAG} = ANY(b."qualificationFlags")
+    )
     GROUP BY COALESCE("sessionId", 'evt:' || id)
     LIMIT 50000
   `;
@@ -252,6 +262,22 @@ export async function getLandingFunnel(): Promise<LandingFunnel> {
 }
 
 // ─── Funnel gates (plan #17 thresholds) ─────────────────────────────────────
+
+/**
+ * Prisma `where` fragment that drops mystery-shopper sends from the gate
+ * denominators. Pure + exported for unit tests.
+ *
+ * Uses `NOT { recipient: { businessId: { in } } }` rather than `notIn` so a
+ * ColdRecipient with a NULL businessId is KEPT: `null IN ids` is false, and
+ * `NOT false` is true. Empty ids → empty fragment (no filter), so the common
+ * "no secret-shopper rows" case adds nothing to the query.
+ */
+export function secretShopperSendExclusion(
+  secretBusinessIds: string[],
+): Record<string, unknown> {
+  if (secretBusinessIds.length === 0) return {};
+  return { NOT: { recipient: { businessId: { in: secretBusinessIds } } } };
+}
 
 export interface FunnelGateView {
   results: GateResult[];
@@ -287,9 +313,21 @@ export async function getFunnelGates(
   // here. Post-send NDRs currently mark the ColdRecipient (inbound poller),
   // not the send — so this is a slight upper bound, which only makes the
   // email_to_page gate STRICTER. Fine.
+  // Mystery-shopper sends are excluded from the gate denominators too, to
+  // match the event-side exclusion (see secretShopperSendExclusion).
+  const secretBizIds = (
+    await prisma.business.findMany({
+      where: { qualificationFlags: { has: SECRET_SHOPPER_FLAG } },
+      select: { id: true },
+    })
+  ).map((b) => b.id);
+  const excludeSecret = secretShopperSendExclusion(secretBizIds);
+
   const [delivered, totalSent] = await Promise.all([
-    prisma.coldSend.count({ where: { status: "SENT", bounceReason: null } }),
-    prisma.coldSend.count({ where: { status: "SENT" } }),
+    prisma.coldSend.count({
+      where: { status: "SENT", bounceReason: null, ...excludeSecret },
+    }),
+    prisma.coldSend.count({ where: { status: "SENT", ...excludeSecret } }),
   ]);
 
   const counts: FunnelCounts = {
