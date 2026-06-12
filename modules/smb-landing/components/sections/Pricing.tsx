@@ -196,7 +196,7 @@ export function PricingSection({
                 <CtaPill
                   href={ctaHrefAnnual}
                   cta="pricing-annual"
-                  label="Pay annually - Save $120"
+                  label="Pay annually - Save $100"
                   variant="outline"
                   height={60}
                 />
