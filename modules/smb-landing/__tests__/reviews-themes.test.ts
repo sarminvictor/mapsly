@@ -90,6 +90,9 @@ function seedPrisma(serviceRows: { name: string; count: bigint }[]) {
   });
   prismaMock.businessKeyword.findMany.mockResolvedValue([]);
   prismaMock.adLibraryEntry.count.mockResolvedValue(0);
+  prismaMock.adMarketAdvertiser.aggregate.mockResolvedValue({
+    _sum: { activeAdCount: 0 },
+  });
   prismaMock.review.count.mockResolvedValue(0);
   prismaMock.review.groupBy.mockResolvedValue([]);
   prismaMock.lighthouseAudit.findFirst.mockResolvedValue(null);

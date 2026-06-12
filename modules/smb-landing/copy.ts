@@ -226,11 +226,12 @@ export function buildLandingCopy(core: Core): LandingCopy {
       ? null
       : hasSearchGaps
         ? {
-            // ranks below top-3 for some searches → the gap to win
-            problem: `You show up for ~${fmt(roundNice(core.search.searchesYouGet))} searches a month. The other ~${fmt(roundNice(Math.max(0, core.search.searchesTotal - core.search.searchesYouGet)))} go to other ${C.many}.`,
+            // visible (top-10) for many searches but below top-3 on some → the
+            // gap is winning the click, not showing up at all.
+            problem: `You show up for ~${fmt(roundNice(core.search.searchesYouGet))} searches a month, but you're below the top 3 on some — and the top 3 take most of the clicks.`,
             solution:
               missingKw.length > 0
-                ? `Win the searches you're missing — like ${missingKw.join(" and ")}.`
+                ? `Climb into the top 3 for ${missingKw.join(" and ")} — you show up, but the top 3 take the clicks.`
                 : `Climb into the top 3 for the searches still sending ${noun.many} to your competitors.`,
           }
         : {

@@ -182,7 +182,8 @@ export async function getLandingData(
 
     const [
       keywordRows,
-      ownAdCount,
+      ownGoogleAdCount,
+      ownMetaAdsAgg,
       adCompetitors,
       adAgg,
       reviewTotal,
@@ -204,6 +205,13 @@ export async function getLandingData(
         },
       }),
       prisma.adLibraryEntry.count({ where: { businessId, isActive: true } }),
+      // Own META ads live in AdMarketAdvertiser (matched by businessId), NOT
+      // AdLibraryEntry (Google only). A Meta-only advertiser would otherwise
+      // show "0 ads / you run none" while the table lists it running 9.
+      prisma.adMarketAdvertiser.aggregate({
+        where: { matchedBusinessId: businessId, isActive: true },
+        _sum: { activeAdCount: true },
+      }),
       marketCell
         ? prisma.adMarketAdvertiser.findMany({
             where: { ...marketCell, isActive: true },
@@ -332,6 +340,9 @@ export async function getLandingData(
       overview?.visibility ?? null,
       biz.city,
     );
+    // "Ads you're running" = own Google ads + own Meta ads (matched advertiser).
+    const ownAdCount =
+      ownGoogleAdCount + (ownMetaAdsAgg._sum.activeAdCount ?? 0);
     const adsDetail = buildAds(
       ownAdCount,
       adCompetitors,
@@ -428,11 +439,22 @@ function buildSearch(
   let youGet = 0;
   let total = 0;
   for (const r of rows) {
+    // Per-keyword best rank across organic + Maps.
+    let rowRank: number | null = null;
     for (const v of [r.latestOrganicRank, r.latestMapsRank]) {
-      if (v != null && (bestRank == null || v < bestRank)) bestRank = v;
+      if (v != null && (rowRank == null || v < rowRank)) rowRank = v;
     }
-    if (r.latestEstMonthlyVisits) youGet += r.latestEstMonthlyVisits;
-    if (r.keyword.searchVolume) total += r.keyword.searchVolume;
+    if (rowRank != null && (bestRank == null || rowRank < bestRank)) {
+      bestRank = rowRank;
+    }
+    const sv = r.keyword.searchVolume ?? 0;
+    if (sv) total += sv;
+    // "Searches you show up for" = the search volume of keywords where you're
+    // visible on page 1 (rank ≤ 10) — matching the "in TOP-10 ✓" badges. NOT
+    // estimated clicks: a business ranking #8 for a 90k-volume Maps keyword
+    // shows up for those 90k searches (etv is also null for Maps rankings, so
+    // summing clicks zeroed out local-pack visibility entirely).
+    if (rowRank != null && rowRank <= 10 && sv) youGet += sv;
   }
 
   const topKeywords = [...rows]
