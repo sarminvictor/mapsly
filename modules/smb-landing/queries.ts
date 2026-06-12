@@ -22,6 +22,7 @@ import { cacheLife, cacheTag } from "next/cache";
 import prisma from "@/lib/prisma";
 import { serviceMentionWindowStart } from "@/lib/review-window";
 import { buildOverviewForBusiness } from "@/modules/smb-home/queries";
+import { ctrForBestRank } from "@/modules/smb-search/types";
 
 import { buildLandingCopy } from "./copy";
 import { parseLandingParam } from "./token";
@@ -449,12 +450,14 @@ function buildSearch(
     }
     const sv = r.keyword.searchVolume ?? 0;
     if (sv) total += sv;
-    // "Searches you show up for" = the search volume of keywords where you're
-    // visible on page 1 (rank ≤ 10) — matching the "in TOP-10 ✓" badges. NOT
-    // estimated clicks: a business ranking #8 for a 90k-volume Maps keyword
-    // shows up for those 90k searches (etv is also null for Maps rankings, so
-    // summing clicks zeroed out local-pack visibility entirely).
-    if (rowRank != null && rowRank <= 10 && sv) youGet += sv;
+    // Captured traffic (NOT raw volume): a top-3 business gets a CTR share of a
+    // keyword, never 100% of its searches — summing raw volume claimed "you took
+    // all the traffic." Use DfS estimated visits when present; else CTR-weight by
+    // best rank (etv is null for Maps rankings, which had zeroed local-pack
+    // capture and undercounted "near me" terms).
+    youGet +=
+      r.latestEstMonthlyVisits ??
+      (rowRank != null ? sv * ctrForBestRank(rowRank) : 0);
   }
 
   const topKeywords = [...rows]

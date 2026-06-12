@@ -226,9 +226,8 @@ export function buildLandingCopy(core: Core): LandingCopy {
       ? null
       : hasSearchGaps
         ? {
-            // visible (top-10) for many searches but below top-3 on some → the
-            // gap is winning the click, not showing up at all.
-            problem: `You show up for ~${fmt(roundNice(core.search.searchesYouGet))} searches a month, but you're below the top 3 on some — and the top 3 take most of the clicks.`,
+            // capture (CTR-weighted) is below total → real gap to win.
+            problem: `You capture ~${fmt(roundNice(core.search.searchesYouGet))} of the ~${fmt(roundNice(core.search.searchesTotal))} searches ${noun.many} run each month — the rest go to other ${C.many}.`,
             solution:
               missingKw.length > 0
                 ? `Climb into the top 3 for ${missingKw.join(" and ")} — you show up, but the top 3 take the clicks.`

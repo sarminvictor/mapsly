@@ -204,7 +204,7 @@ describe("buildLandingCopy — the leader (Maria) vs the climber (Elena)", () =>
     ];
     expect(new Set(problems).size).toBe(4); // four distinct, none null
     // each reflects ITS block's signals
-    expect(m.search.gap!.problem).toMatch(/searches a month/);
+    expect(m.search.gap!.problem).toMatch(/searches .*month/);
     expect(m.ads.gap!.problem).toMatch(/ads/i);
     expect(m.reviews.gap!.problem).toMatch(/reviews|unanswered/i);
     expect(m.website.gap!.problem).toMatch(/site scores|booking-driver/i);
