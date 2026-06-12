@@ -256,12 +256,13 @@ async function buildCompetitorRanking(own: {
   if (!own.cellKey) return empty;
 
   // Latest snapshot per business in the owner's MARKET cell, with the Website
-  // pillar (rank basis) + speed (diagnostic, from the signal bag). EVERY
-  // qualified business in the cell is included — a business with no website
-  // score is treated as 0 and ranked at the bottom, so the table denominator
-  // matches the page-header badge ("#2 of 25", not "#2 of 4").
+  // pillar (rank basis) + speed (diagnostic, from the signal bag). Only
+  // businesses that have ACTUALLY been website-scored (`websitePillar != null`)
+  // are included — a business whose site was never audited would otherwise show
+  // a fake 0.0 and inflate the "measured" denominator (the table read as broken
+  // when most of the cell was unmeasured). "X measured so far" now means X.
   const snaps = await prisma.businessSnapshot.findMany({
-    where: { cellKey: own.cellKey },
+    where: { cellKey: own.cellKey, websitePillar: { not: null } },
     distinct: ["businessId"],
     orderBy: [{ businessId: "asc" }, { snapshotDate: "desc" }],
     select: {
@@ -276,7 +277,7 @@ async function buildCompetitorRanking(own: {
     .map((s) => ({
       id: s.businessId,
       name: s.business.name,
-      score: Math.round((s.websitePillar ?? 0) * 10) / 10, // null → 0
+      score: Math.round((s.websitePillar ?? 0) * 10) / 10,
       speed: speedFromSignals(s.signalsJson),
     }))
     .sort((a, b) => b.score - a.score);

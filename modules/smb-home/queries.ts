@@ -44,10 +44,8 @@ import {
   type SmbOverviewData,
 } from "./types";
 
-const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 const COHORT_WINDOW_MS = 28 * 24 * 60 * 60 * 1000;
 const COHORT_CAP = 2000;
-const MAX_SERVICE_EVENTS = 5;
 
 export async function getSmbHomeData(userId: string): Promise<SmbOverviewData> {
   "use cache";
@@ -117,7 +115,6 @@ export async function buildOverviewForBusiness(
     const snap = business.snapshots[0] ?? null;
 
     const now = new Date();
-    const cutoff7d = new Date(now.getTime() - SEVEN_DAYS_MS);
 
     const unansweredReviewCount = await prisma.review.count({
       where: { businessId: business.id, ownerReplied: false },
@@ -313,33 +310,11 @@ export async function buildOverviewForBusiness(
       current: toSignals(m.current),
       prior: m.prior ? toSignals(m.prior) : null,
     }));
+    // "This week" is a MARKET-MOVES feed (competitor activity from the
+    // snapshot diff). Owner self-events were removed — our own
+    // service-detection additions ("You added a new service: X") are not
+    // market activity and only buried the real competitor moves as noise.
     const events: SmbMarketChange[] = deriveMarketChanges(weeks);
-
-    // Owner service additions — owner-only (we don't detect competitor
-    // services), so they ride alongside the snapshot-diff events.
-    const newServices = await prisma.businessService.findMany({
-      where: {
-        businessId: business.id,
-        isActive: true,
-        createdAt: { gte: cutoff7d },
-      },
-      orderBy: { createdAt: "desc" },
-      take: MAX_SERVICE_EVENTS,
-      select: { id: true, name: true, createdAt: true },
-    });
-    for (const s of newServices) {
-      events.push({
-        id: `services-${s.id}`,
-        type: "services",
-        businessId: business.id,
-        businessName: business.name,
-        isOwn: true,
-        body: `You added a new service: ${s.name}.`,
-        delta: "new",
-        tone: "neutral",
-        at: s.createdAt.toISOString(),
-      });
-    }
 
     return {
       ...base,

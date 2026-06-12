@@ -29,7 +29,7 @@ import {
   parseCellReference,
   signalsFromSnapshot,
 } from "./cell-metrics";
-import { loadTrackedMarkets, resolveMarketCategory } from "./market-category";
+import { loadTrackedMarkets, resolveMarketCell } from "./market-category";
 
 const DEFAULT_LIMIT = 5000;
 const WRITE_CHUNK = 25;
@@ -69,6 +69,8 @@ export async function runPillarScoring(opts?: {
           city: true,
           province: true,
           country: true,
+          lat: true,
+          lng: true,
         },
       },
     },
@@ -116,10 +118,10 @@ export async function runPillarScoring(opts?: {
   }
   const scored: Scored[] = [];
   for (const r of snapshots) {
-    const { city, country } = r.business;
+    const cell = resolveMarketCell(r.business, markets);
     const cellKey =
-      city && country
-        ? cellKeyOf(resolveMarketCategory(r.business, markets), city, country)
+      cell.category && cell.city && cell.country
+        ? cellKeyOf(cell.category, cell.city, cell.country)
         : null;
     const cellRow = cellKey ? (cellMap.get(cellKey) ?? null) : null;
     const cellRef: CellReference | null = parseCellReference(cellRow ?? null);

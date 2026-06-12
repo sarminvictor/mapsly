@@ -55,26 +55,30 @@ interface BusinessForScoring {
   firstSeenOnGoogle: Date | null;
 }
 
+/** The exact column set `writeSnapshotForBusiness` needs. Shared by the cron's
+ *  oldest-first scan and the by-id path so both gather identical signals. */
+const BUSINESS_SCORING_SELECT = {
+  id: true,
+  slug: true,
+  rating: true,
+  reviewCount: true,
+  photosCount: true,
+  phone: true,
+  website: true,
+  hours: true,
+  attributes: true,
+  isClaimed: true,
+  category: true,
+  categories: true,
+  firstSeenOnGoogle: true,
+} as const;
+
 export const GET = cronHandler(JOB, async ({ runId }) => {
   const limit = clampLimitFromEnv(DEFAULT_LIMIT, MAX_LIMIT);
 
   const businesses = (await prisma.business.findMany({
     where: { isActive: true },
-    select: {
-      id: true,
-      slug: true,
-      rating: true,
-      reviewCount: true,
-      photosCount: true,
-      phone: true,
-      website: true,
-      hours: true,
-      attributes: true,
-      isClaimed: true,
-      category: true,
-      categories: true,
-      firstSeenOnGoogle: true,
-    },
+    select: BUSINESS_SCORING_SELECT,
     take: limit,
     orderBy: { lastRefreshedAt: { sort: "asc", nulls: "first" } },
   })) as BusinessForScoring[];
@@ -90,133 +94,9 @@ export const GET = cronHandler(JOB, async ({ runId }) => {
   let snapshotsWritten = 0;
 
   const outcome = await runBatch(scoped, async (biz: BusinessForScoring) => {
-    const signals = await gatherSignals(biz);
-
-    const reputation = deriveReputationScore({
-      rating: signals.rating,
-      reviewCount: signals.reviewCount,
-      velocityLast30d: signals.velocityLast30d,
-    });
-    const communication = deriveCommunicationScore({
-      replyRate: signals.replyRate,
-      avgReplyLatencyHours: signals.avgReplyLatencyHours,
-    });
-    const profileCompleteness = deriveProfileCompletenessScore({
-      hasPhone: signals.hasPhone,
-      hasWebsite: signals.hasWebsite,
-      hasHours: signals.hasHours,
-      photosCount: signals.photosCount,
-      hasCategory: signals.hasCategory,
-      hasQandA: signals.hasQandA,
-    });
-    const trust = deriveTrustScore({
-      verified: signals.verified,
-      claimed: signals.claimed,
-      businessAgeYears: signals.businessAgeYears,
-      hasProfilePhoto: signals.hasProfilePhoto,
-      hasRecentReply: signals.hasRecentReply,
-    });
-    const pricingTransparency = derivePricingTransparencyScore({
-      hasPricingPage: signals.hasPricingPage,
-      hasServicesList: signals.hasServicesList,
-      hasGbpServices: signals.hasGbpServices,
-    });
-    const brandPresence = deriveBrandPresenceScore({
-      lighthousePerformance: signals.lighthousePerformance,
-      lighthouseSeo: signals.lighthouseSeo,
-      hasSchema: signals.hasSchema,
-      hasActiveAds: signals.hasActiveAds,
-      hasSocialLinks: signals.hasSocialLinks,
-    });
-
-    const mapslyScore = computeMapslyScore({
-      reputation,
-      communication,
-      profileCompleteness,
-      trust,
-      pricingTransparency,
-      brandPresence,
-    });
-
-    // Scoring v2 · persist the raw pillar-input bag so cell-aggregate +
-    // pillar-scoring read one row (no Serp/Lighthouse/Ads re-join). The pillars
-    // themselves are graded later, against the cell reference.
-    const pillarSignals = {
-      rating: signals.rating,
-      reviewCount: signals.reviewCount,
-      velocityLast30d: signals.velocityLast30d,
-      replyRate: signals.replyRate,
-      localPackRank: signals.localPackRank,
-      organicRankBest: signals.organicRankBest,
-      shareOfVoice: signals.shareOfVoice,
-      keywordsRanked: signals.keywordsRanked,
-      hasPhone: signals.hasPhone,
-      hasWebsite: signals.hasWebsite,
-      hasHours: signals.hasHours,
-      isClaimed: signals.claimed,
-      photoCount: signals.photosCount,
-      categoryCount: signals.categoryCount,
-      lighthousePerformance: signals.lighthousePerformance,
-      lighthouseSeo: signals.lighthouseSeo,
-      lcpSeconds: signals.lcpSeconds,
-      hasSchema: signals.hasSchema,
-      hasBookingCta: signals.hasBookingCta,
-      hasPhoneAboveFold: signals.hasPhoneAboveFold,
-      napConsistent: signals.napConsistent,
-      hasActiveAds: signals.hasActiveAds,
-      hasActiveGoogleAds: signals.hasActiveGoogleAds,
-      hasActiveMetaAds: signals.hasActiveMetaAds,
-      metaAdCount: signals.metaAdCount,
-      estMonthlyAdSpend: signals.estMonthlyAdSpend,
-      brandHijack: signals.brandHijack,
-    } satisfies PillarSignals;
-
-    // Day-granularity snapshot date so a daily re-run idempotent-upserts.
-    const snapshotDate = todayUtcMidnight();
-
-    await prisma.businessSnapshot.upsert({
-      where: {
-        businessId_snapshotDate: {
-          businessId: biz.id,
-          snapshotDate,
-        },
-      },
-      create: {
-        businessId: biz.id,
-        snapshotDate,
-        rating: signals.rating,
-        reviewCount: signals.reviewCount,
-        photosCount: signals.photosCount,
-        replyRate: signals.replyRate,
-        velocityLast30d: signals.velocityLast30d,
-        mapslyScore,
-        reputationScore: reputation,
-        communicationScore: communication,
-        profileCompletenessScore: profileCompleteness,
-        trustScore: trust,
-        pricingTransparencyScore: pricingTransparency,
-        brandPresenceScore: brandPresence,
-        signalsJson: pillarSignals as Prisma.InputJsonValue,
-      },
-      update: {
-        rating: signals.rating,
-        reviewCount: signals.reviewCount,
-        photosCount: signals.photosCount,
-        replyRate: signals.replyRate,
-        velocityLast30d: signals.velocityLast30d,
-        mapslyScore,
-        reputationScore: reputation,
-        communicationScore: communication,
-        profileCompletenessScore: profileCompleteness,
-        trustScore: trust,
-        pricingTransparencyScore: pricingTransparency,
-        brandPresenceScore: brandPresence,
-        signalsJson: pillarSignals as Prisma.InputJsonValue,
-      },
-    });
-
+    const slug = await writeSnapshotForBusiness(biz);
     snapshotsWritten += 1;
-    revalidatedSlugs.add(biz.slug);
+    revalidatedSlugs.add(slug);
   });
 
   for (const slug of revalidatedSlugs) {
@@ -240,6 +120,186 @@ export const GET = cronHandler(JOB, async ({ runId }) => {
     },
   };
 });
+
+/**
+ * Write (idempotent-upsert) today's BusinessSnapshot for ONE business —
+ * gathers signals, derives the legacy sub-scores + Mapsly Score, and persists
+ * the Scoring-v2 `signalsJson` pillar-input bag. Returns the business slug for
+ * cache revalidation. Shared by the weekly cron and the by-id path so a
+ * freshly-scanned business can be re-snapshotted on demand (without waiting for
+ * the oldest-first weekly sweep to reach it).
+ */
+export async function writeSnapshotForBusiness(
+  biz: BusinessForScoring,
+): Promise<string> {
+  const signals = await gatherSignals(biz);
+
+  const reputation = deriveReputationScore({
+    rating: signals.rating,
+    reviewCount: signals.reviewCount,
+    velocityLast30d: signals.velocityLast30d,
+  });
+  const communication = deriveCommunicationScore({
+    replyRate: signals.replyRate,
+    avgReplyLatencyHours: signals.avgReplyLatencyHours,
+  });
+  const profileCompleteness = deriveProfileCompletenessScore({
+    hasPhone: signals.hasPhone,
+    hasWebsite: signals.hasWebsite,
+    hasHours: signals.hasHours,
+    photosCount: signals.photosCount,
+    hasCategory: signals.hasCategory,
+    hasQandA: signals.hasQandA,
+  });
+  const trust = deriveTrustScore({
+    verified: signals.verified,
+    claimed: signals.claimed,
+    businessAgeYears: signals.businessAgeYears,
+    hasProfilePhoto: signals.hasProfilePhoto,
+    hasRecentReply: signals.hasRecentReply,
+  });
+  const pricingTransparency = derivePricingTransparencyScore({
+    hasPricingPage: signals.hasPricingPage,
+    hasServicesList: signals.hasServicesList,
+    hasGbpServices: signals.hasGbpServices,
+  });
+  const brandPresence = deriveBrandPresenceScore({
+    lighthousePerformance: signals.lighthousePerformance,
+    lighthouseSeo: signals.lighthouseSeo,
+    hasSchema: signals.hasSchema,
+    hasActiveAds: signals.hasActiveAds,
+    hasSocialLinks: signals.hasSocialLinks,
+  });
+
+  const mapslyScore = computeMapslyScore({
+    reputation,
+    communication,
+    profileCompleteness,
+    trust,
+    pricingTransparency,
+    brandPresence,
+  });
+
+  // Scoring v2 · persist the raw pillar-input bag so cell-aggregate +
+  // pillar-scoring read one row (no Serp/Lighthouse/Ads re-join). The pillars
+  // themselves are graded later, against the cell reference.
+  const pillarSignals = {
+    rating: signals.rating,
+    reviewCount: signals.reviewCount,
+    velocityLast30d: signals.velocityLast30d,
+    replyRate: signals.replyRate,
+    localPackRank: signals.localPackRank,
+    organicRankBest: signals.organicRankBest,
+    shareOfVoice: signals.shareOfVoice,
+    keywordsRanked: signals.keywordsRanked,
+    hasPhone: signals.hasPhone,
+    hasWebsite: signals.hasWebsite,
+    hasHours: signals.hasHours,
+    isClaimed: signals.claimed,
+    photoCount: signals.photosCount,
+    categoryCount: signals.categoryCount,
+    lighthousePerformance: signals.lighthousePerformance,
+    lighthouseSeo: signals.lighthouseSeo,
+    lcpSeconds: signals.lcpSeconds,
+    hasSchema: signals.hasSchema,
+    hasBookingCta: signals.hasBookingCta,
+    hasPhoneAboveFold: signals.hasPhoneAboveFold,
+    napConsistent: signals.napConsistent,
+    hasActiveAds: signals.hasActiveAds,
+    hasActiveGoogleAds: signals.hasActiveGoogleAds,
+    hasActiveMetaAds: signals.hasActiveMetaAds,
+    metaAdCount: signals.metaAdCount,
+    estMonthlyAdSpend: signals.estMonthlyAdSpend,
+    brandHijack: signals.brandHijack,
+  } satisfies PillarSignals;
+
+  // Day-granularity snapshot date so a daily re-run idempotent-upserts.
+  const snapshotDate = todayUtcMidnight();
+
+  await prisma.businessSnapshot.upsert({
+    where: {
+      businessId_snapshotDate: {
+        businessId: biz.id,
+        snapshotDate,
+      },
+    },
+    create: {
+      businessId: biz.id,
+      snapshotDate,
+      rating: signals.rating,
+      reviewCount: signals.reviewCount,
+      photosCount: signals.photosCount,
+      replyRate: signals.replyRate,
+      velocityLast30d: signals.velocityLast30d,
+      mapslyScore,
+      reputationScore: reputation,
+      communicationScore: communication,
+      profileCompletenessScore: profileCompleteness,
+      trustScore: trust,
+      pricingTransparencyScore: pricingTransparency,
+      brandPresenceScore: brandPresence,
+      signalsJson: pillarSignals as Prisma.InputJsonValue,
+    },
+    update: {
+      rating: signals.rating,
+      reviewCount: signals.reviewCount,
+      photosCount: signals.photosCount,
+      replyRate: signals.replyRate,
+      velocityLast30d: signals.velocityLast30d,
+      mapslyScore,
+      reputationScore: reputation,
+      communicationScore: communication,
+      profileCompletenessScore: profileCompleteness,
+      trustScore: trust,
+      pricingTransparencyScore: pricingTransparency,
+      brandPresenceScore: brandPresence,
+      signalsJson: pillarSignals as Prisma.InputJsonValue,
+    },
+  });
+
+  return biz.slug;
+}
+
+/**
+ * Re-snapshot a specific set of businesses by id (bounded by `take`), running
+ * the SAME `writeSnapshotForBusiness` path the weekly cron uses. Lets a
+ * freshly-scanned cohort get scored immediately instead of waiting for the
+ * oldest-first weekly sweep to reach it. Returns counts + slugs (caller
+ * decides whether to revalidate / run pillar scoring). Honors the paid-cell
+ * gate unless `skipGate` is set.
+ */
+export async function writeSnapshotsForBusinessIds(
+  ids: string[],
+  opts: { skipGate?: boolean } = {},
+): Promise<{ attempted: number; written: number; slugs: string[] }> {
+  if (ids.length === 0) return { attempted: 0, written: 0, slugs: [] };
+
+  const businesses = (await prisma.business.findMany({
+    where: { id: { in: ids }, isActive: true },
+    select: BUSINESS_SCORING_SELECT,
+  })) as BusinessForScoring[];
+
+  const scopedIds = opts.skipGate
+    ? new Set(businesses.map((b) => b.id))
+    : new Set(await filterEligibleBusinesses(businesses.map((b) => b.id)));
+  const scoped = businesses.filter((b) => scopedIds.has(b.id));
+
+  const slugs: string[] = [];
+  const outcome = await runBatch(scoped, async (biz: BusinessForScoring) => {
+    slugs.push(await writeSnapshotForBusiness(biz));
+  });
+
+  // revalidateTag only works inside a Next request/render scope (cron route,
+  // admin action). From a standalone backfill script it throws — swallow it;
+  // the rows are written and the next cached read picks them up.
+  try {
+    for (const slug of slugs) revalidateTag(`business-${slug}`, "weeks");
+  } catch {
+    /* non-request scope */
+  }
+
+  return { attempted: outcome.attempted, written: outcome.succeeded, slugs };
+}
 
 /**
  * Aggregate the raw signals required to derive sub-scores. Pulls reviews

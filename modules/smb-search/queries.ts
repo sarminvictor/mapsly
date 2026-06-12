@@ -497,6 +497,12 @@ async function buildCompetitorLeaderboard(input: {
       city: input.city,
       country: input.country,
       isActive: true,
+      // Real competitors have a website. Excludes generic/aggregator GBP
+      // stubs (e.g. a listing literally named "Medical Spa" with no domain)
+      // whose single rank-1 high-volume keyword would otherwise top the
+      // leaderboard via the CTR fallback. The owner always has a website,
+      // so this never drops them.
+      website: { not: null },
     },
     select: {
       id: true,

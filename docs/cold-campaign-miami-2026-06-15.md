@@ -128,3 +128,24 @@ All four are `{{#if}}`-guarded — sequence ships unchanged even if data is miss
 - Footer: postal address (`COLD_PHYSICAL_ADDRESS` env, default "Mapsly · 530 3 St SE, Calgary, AB, Canada") + unsubscribe link — auto-appended by the send path. Subjects are non-deceptive. Touch 1 is link-free.
 - T3's "reply no thanks and I won't email again" requires the inbound poller (`app/api/cron/poll-cold-inboxes`) to be live so opt-out replies actually suppress — verify before Monday.
 - Azala Skin Clinic (secret shopper, `sarminvictor+miami@gmail.com`) will be enrolled with everyone — Viktor receives all 3 touches live. Funnel metrics already exclude the `secret_shopper` flag (v0.15.22).
+
+## Cost (actual)
+
+**Apify Meta = ~$23** (vendor-billed, per Viktor 2026-06-12) for the 53-cell run — i.e. **~$0.43/cell**, NOT the $0.02/cell our ledger recorded. ⚠️ The `CronRun` ledger captured only **$1.10** for Apify — a ~20× under-count, because the Apify adapter's `usageTotalUsd` re-fetch read $0 (Apify finalizes usage >1.5s after the run goes terminal, worse under concurrency) and fell back to the $0.02/run constant. See **INC-2026-06-11-46**. The ledger cannot currently be trusted for Apify spend.
+
+Corrected breakdown for this launch-prep window:
+
+| Item                                                | Cost                             |
+| --------------------------------------------------- | -------------------------------- |
+| **Apify Meta (53 cells, 910 advertisers)**          | **~$23 (vendor) · $1.10 ledger** |
+| Bulk scans (SERP discover + ads + website workers)  | ~$5.32 ledger                    |
+| SERP/ads/website gap-fill + cell aggregates (local) | ~$1.64 ledger                    |
+| admin search-scan-bulk + single                     | ~$2.19 ledger                    |
+| Review-pull recovery pingbacks (7,151 reviews)      | ~$1.06 ledger                    |
+| Review entity extraction (1,363 reviews)            | $0.21 ledger                     |
+| snapshot-write / cell-aggregate / pillar-score      | $0.00 (pure compute)             |
+| **All-in (Apify vendor + rest ledger)**             | **~$33–34**                      |
+
+Separate from the above, the earlier qualification work (`admin:qualify-one` $27.45 + `requalify-recover` $3.12 = **$30.57**) was the prior INC-44 double-pass + email recovery — NOT part of this launch-prep cost.
+
+Forward run-rate: Apify Meta is the dominant cost at ~$0.43/cell — for this 53-cell cohort that's ~$23/refresh, so the weekly `ads-meta` cron should be **cell-deduped + frequency-capped** (it already dedups; confirm it's not re-running unchanged cells weekly). Everything else (scoring, deltas) is cheap.

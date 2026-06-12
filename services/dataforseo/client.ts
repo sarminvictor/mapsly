@@ -33,8 +33,14 @@ const DEFAULT_BASE_URL =
   "https://api.dataforseo.com";
 
 /** Default per-call timeout. DataForSEO Live SERP responds in 1-3s typically;
- *  Lighthouse can take 30s+. Per-adapter override via options. */
-const DEFAULT_TIMEOUT_MS = 10_000;
+ *  Lighthouse can take 30s+. Per-adapter override via options. Env override
+ *  (DATAFORSEO_TIMEOUT_MS) exists for local/script runs where network latency
+ *  pushes Maps Live past 10s — discovered during the 2026-06-11 Miami
+ *  cell-aggregate gap-fill (every serp.local-pack call aborted at 10s). */
+const DEFAULT_TIMEOUT_MS =
+  Number(process.env.DATAFORSEO_TIMEOUT_MS) > 0
+    ? Number(process.env.DATAFORSEO_TIMEOUT_MS)
+    : 10_000;
 
 /** Default retry budget · 2 retries on 5xx / 408 / 429, exponential backoff. */
 const DEFAULT_RETRIES = 2;

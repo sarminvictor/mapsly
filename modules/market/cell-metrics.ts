@@ -21,7 +21,7 @@ import type {
   CellReference,
   PillarSignals,
 } from "@/modules/scoring";
-import { loadTrackedMarkets, resolveMarketCategory } from "./market-category";
+import { loadTrackedMarkets, resolveMarketCell } from "./market-category";
 
 /** Cells below this sample size are flagged `confidence: "low"`. */
 export const CELL_MIN_SAMPLE = 8;
@@ -205,19 +205,22 @@ export async function runCellAggregation(opts?: {
           categoryIds: true,
           city: true,
           country: true,
+          lat: true,
+          lng: true,
         },
       },
     },
   });
 
-  // Group into cells by Discovery MARKET (not the raw Google category) so
-  // /admin/cells aligns with /admin/discovery.
+  // Group into cells by Discovery MARKET GEO (the radius is the market, not the
+  // administrative city) so /admin/cells aligns with /admin/discovery — one
+  // discovery (Medical Spa · Miami · 10km · US) = one cell, even though its
+  // radius spills into Coral Gables / Miami Beach / etc.
   const markets = await loadTrackedMarkets();
   const buckets = new Map<string, CellBucket>();
   for (const snap of snapshots) {
-    const category = resolveMarketCategory(snap.business, markets);
-    const city = snap.business.city;
-    const country = snap.business.country;
+    const cell = resolveMarketCell(snap.business, markets);
+    const { category, city, country } = cell;
     if (!category || !city || !country) continue;
     const key = cellKeyOf(category, city, country);
     let bucket = buckets.get(key);
