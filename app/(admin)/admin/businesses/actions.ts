@@ -31,6 +31,8 @@ import {
   runPillarScoring,
   type PillarScoringSummary,
 } from "@/modules/market/pillar-scoring";
+import { runCellAggregation } from "@/modules/market/cell-metrics";
+import { writeSnapshotsForBusinessIds } from "@/app/api/cron/weekly/snapshot-write/route";
 
 export type ActionResult<T = null> =
   | { ok: true; data: T; message?: string }
@@ -708,5 +710,63 @@ export async function recomputeScoresAction(
     ok: true,
     data: summary,
     message: `Recomputed pillars + MSI for ${summary.businessesScored} business(es) across ${summary.metrosRanked} metro(s) · ${summary.withCellRef} graded vs cell.`,
+  };
+}
+
+export interface RecomputeAllActionResult {
+  snapshots: number;
+  cells: number;
+  businessesScored: number;
+}
+
+// Full scoring pipeline from EXISTING data — NO DataForSEO. Rebuilds every
+// qualified business's signalsJson (BusinessKeyword ranks, reviews, Lighthouse
+// already collected · pure DB recompute) → cell medians → pillar scores + MSI.
+// Use after a scoring-formula change to roll it out to the whole index without
+// waiting for the weekly snapshot sweep and without spending on scans.
+// ────────────────────────────────────────────────────────────────────────
+export async function recomputeAllFromExistingDataAction(
+  _prev: ActionResult<RecomputeAllActionResult> | null,
+  _formData: FormData,
+): Promise<ActionResult<RecomputeAllActionResult>> {
+  try {
+    await requireAdminSession();
+  } catch (err) {
+    return { ok: false, error: (err as Error).message };
+  }
+
+  let result: RecomputeAllActionResult;
+  try {
+    result = await withCronRun("admin:recompute-all", async () => {
+      // 1. Rebuild signalsJson for every qualified business from existing data.
+      const ids = (
+        await prisma.business.findMany({
+          where: { isActive: true, qualificationStatus: "QUALIFIED" },
+          select: { id: true },
+        })
+      ).map((b) => b.id);
+      const snap = await writeSnapshotsForBusinessIds(ids, { skipGate: true });
+      // 2. Rebuild cell medians from the fresh snapshots.
+      const cells = await runCellAggregation();
+      // 3. Re-score pillars + MSI against the fresh cells.
+      const pillars = await runPillarScoring();
+      return {
+        snapshots: snap.written,
+        cells: cells.cellsWritten,
+        businessesScored: pillars.businessesScored,
+      };
+    });
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "Unknown error",
+    };
+  }
+
+  revalidatePath("/admin/businesses");
+  return {
+    ok: true,
+    data: result,
+    message: `Recomputed from existing data (no DfS) · ${result.snapshots} snapshots → ${result.cells} cells → ${result.businessesScored} scored.`,
   };
 }

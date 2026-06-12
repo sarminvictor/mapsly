@@ -15,6 +15,7 @@ import { connection } from "next/server";
 import { BusinessTable } from "./components/BusinessTable";
 import { FilterBar } from "./components/FilterBar";
 import { RecomputeScoresButton } from "./components/RecomputeScoresButton";
+import { RecomputeAllButton } from "./components/RecomputeAllButton";
 import {
   getBusinessList,
   getFilterFacets,
@@ -63,7 +64,10 @@ export default function BusinessesPage({
             rows.
           </p>
         </div>
-        <RecomputeScoresButton />
+        <div style={{ display: "inline-flex", gap: 8 }}>
+          <RecomputeAllButton />
+          <RecomputeScoresButton />
+        </div>
       </header>
       <Suspense fallback={<LoadingPanel />}>
         <BusinessesBody searchParams={searchParams} />

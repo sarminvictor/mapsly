@@ -210,36 +210,25 @@ export function computeReputationPillar(
 /**
  * VISIBILITY · best-position rank 70 · share-of-voice (rel) 30.
  *
- * Rank term: the best position the business holds. Maps weighs more than
- * organic for local intent (0.45 vs 0.25 WHEN BOTH EXIST), but a MISSING
- * channel is EXCLUDED and the rank weight re-normalized over the present
- * channel(s) — a missing channel must never be scored as "ranked worst"
- * (rankToScore(null) === 0). Without this, a business that dominates ORGANIC
- * search but has no Maps-pack data scored ~2.5/10 (45% maps + 30% maps-only
- * share-of-voice both collapsed to 0) despite ranking top-3 everywhere.
- * A genuinely poor rank (e.g. #25, score 0) still counts — only ABSENT data
- * is excluded.
+ * Rank term: the BEST position the business holds across channels. rankToScore
+ * is monotonic (better rank → higher score), so max(maps, organic) is the
+ * stronger channel's score. Ranking top-3 in EITHER Maps or organic means the
+ * business IS visible for that search — a missing OR poor channel just loses to
+ * the stronger one and never drags it down (this is the "best of" the /search +
+ * landing tables already show). Previously the score was 45% Maps + 30%
+ * Maps-only share-of-voice + 25% organic, so a business dominating ORGANIC with
+ * no/weak Maps-pack data scored ~2.5/10 despite ranking top-3 everywhere.
+ * A genuinely poor position in BOTH channels (e.g. #25, score 0) still scores
+ * low — only being absent from one channel is forgiven.
  */
 export function computeVisibilityPillar(
   s: PillarSignals,
   cell: CellReference | null,
 ): number {
-  const hasMaps = s.localPackRank != null;
-  const hasOrganic = s.organicRankBest != null;
-  const maps = rankToScore(s.localPackRank, 20);
-  const organic = rankToScore(s.organicRankBest, 20);
-
-  let rankScore: number;
-  if (hasMaps && hasOrganic) {
-    // Maps-preferred blend (0.45 / 0.25 re-normalized to the 0.70 rank term).
-    rankScore = maps * (0.45 / 0.7) + organic * (0.25 / 0.7);
-  } else if (hasMaps) {
-    rankScore = maps;
-  } else if (hasOrganic) {
-    rankScore = organic;
-  } else {
-    rankScore = 0;
-  }
+  const rankScore = Math.max(
+    rankToScore(s.localPackRank, 20),
+    rankToScore(s.organicRankBest, 20),
+  );
 
   // Share-of-voice · breadth of top-3 across EITHER channel (the snapshot
   // builder now counts best(organic, maps) ≤ 3, not Maps-only).

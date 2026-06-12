@@ -332,14 +332,25 @@ describe("computeVisibilityPillar · missing-channel must not crater the score",
     expect(v).toBeGreaterThan(9); // dominant organic presence ≈ market leader
   });
 
-  test("both channels present is backward-compatible (~unchanged)", () => {
+  test("both channels present keeps well-ranked businesses high", () => {
     // localPackRank 1 + organicRankBest 2 + sov 70 scored ~9.87 pre-fix; the
-    // re-normalized Maps-preferred blend must keep well-ranked businesses high.
+    // best-position rank term must keep well-ranked businesses high.
     const v = computeVisibilityPillar(
       sig({ localPackRank: 1, organicRankBest: 2, shareOfVoice: 70 }),
       null,
     );
     expect(v).toBeGreaterThan(9.5);
+  });
+
+  test("present-but-POOR Maps doesn't drag a strong organic position", () => {
+    // The case the conservative blend got wrong: a real #30 Maps rank (score 0)
+    // alongside a #2 organic rank. Best-of-position scores the #2; the weaker
+    // channel never pulls a strong position down.
+    const v = computeVisibilityPillar(
+      sig({ localPackRank: 30, organicRankBest: 2, shareOfVoice: 0 }),
+      null,
+    );
+    expect(v).toBeGreaterThan(6); // rankToScore(2)=0.95 * 0.70 ≈ 6.65
   });
 
   test("genuinely absent from search still scores ~0", () => {
