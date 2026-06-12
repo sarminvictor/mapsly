@@ -46,9 +46,12 @@ export async function runPillarScoring(opts?: {
 }): Promise<PillarScoringSummary> {
   const limit = Math.max(1, opts?.limit ?? DEFAULT_LIMIT);
 
-  // Latest snapshot per active business + the geo we rank/grade within.
+  // Latest snapshot per active, QUALIFIED business + the geo we rank/grade
+  // within. Comparison/ranking is QUALIFIED-only everywhere — unclaimed,
+  // review-less, or unreachable listings are not real competitors and must
+  // never inflate a cell's denominator ("#X of N nearby" counts qualified).
   const snapshots = await prisma.businessSnapshot.findMany({
-    where: { business: { isActive: true } },
+    where: { business: { isActive: true, qualificationStatus: "QUALIFIED" } },
     orderBy: [{ businessId: "asc" }, { snapshotDate: "desc" }],
     distinct: ["businessId"],
     take: limit,

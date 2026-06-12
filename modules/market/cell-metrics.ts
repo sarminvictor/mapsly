@@ -184,10 +184,18 @@ export async function runCellAggregation(opts?: {
 }): Promise<CellAggregationSummary> {
   const limit = Math.max(1, opts?.limit ?? DEFAULT_SCAN_LIMIT);
 
-  // Latest snapshot per active, geo-complete business.
+  // Latest snapshot per active, geo-complete, QUALIFIED business. The cell
+  // reference (medians/percentiles + sampleSize) is built from QUALIFIED
+  // businesses only — junk/unclaimed/review-less listings would skew the
+  // market distribution a real business is graded against.
   const snapshots = await prisma.businessSnapshot.findMany({
     where: {
-      business: { isActive: true, city: { not: null }, country: { not: null } },
+      business: {
+        isActive: true,
+        qualificationStatus: "QUALIFIED",
+        city: { not: null },
+        country: { not: null },
+      },
     },
     orderBy: [{ businessId: "asc" }, { snapshotDate: "desc" }],
     distinct: ["businessId"],

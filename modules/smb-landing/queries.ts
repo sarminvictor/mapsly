@@ -170,7 +170,10 @@ export async function getLandingData(
     const cellMemberIds = ownCellKey
       ? (
           await prisma.businessSnapshot.findMany({
-            where: { cellKey: ownCellKey, business: { isActive: true } },
+            where: {
+              cellKey: ownCellKey,
+              business: { isActive: true, qualificationStatus: "QUALIFIED" },
+            },
             distinct: ["businessId"],
             select: { businessId: true },
           })

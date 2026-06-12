@@ -262,7 +262,11 @@ async function buildCompetitorRanking(own: {
   // a fake 0.0 and inflate the "measured" denominator (the table read as broken
   // when most of the cell was unmeasured). "X measured so far" now means X.
   const snaps = await prisma.businessSnapshot.findMany({
-    where: { cellKey: own.cellKey, websitePillar: { not: null } },
+    where: {
+      cellKey: own.cellKey,
+      websitePillar: { not: null },
+      business: { qualificationStatus: "QUALIFIED" },
+    },
     distinct: ["businessId"],
     orderBy: [{ businessId: "asc" }, { snapshotDate: "desc" }],
     select: {

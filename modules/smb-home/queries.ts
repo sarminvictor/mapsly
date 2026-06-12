@@ -159,11 +159,14 @@ export async function buildOverviewForBusiness(
       return base;
     }
 
-    // Latest + prior weekly snapshot per business in the owner's market.
+    // Latest + prior weekly snapshot per QUALIFIED business in the owner's
+    // market. Comparison is qualified-only — the cell denominator never counts
+    // unclaimed/review-less listings.
     const cohort = await prisma.businessSnapshot.findMany({
       where: {
         cellKey,
         snapshotDate: { gte: new Date(now.getTime() - COHORT_WINDOW_MS) },
+        business: { isActive: true, qualificationStatus: "QUALIFIED" },
       },
       orderBy: [{ businessId: "asc" }, { snapshotDate: "desc" }],
       take: COHORT_CAP,
@@ -182,6 +185,7 @@ export async function buildOverviewForBusiness(
         photosCount: true,
         signalsJson: true,
         pillarRanks: true,
+        cellSize: true,
         business: { select: { name: true } },
       },
     });
@@ -279,9 +283,20 @@ export async function buildOverviewForBusiness(
 
     const competitors: SmbCompetitorRow[] = members.map((m) => {
       const ranks = {} as Record<RankColumn, ColumnRank>;
+      // Week-over-week rank delta is only meaningful when the cohort definition
+      // is unchanged. After a cell redefinition (e.g. geo-radius + qualified-only
+      // rollout) the prior week's rank was over a different field, so diffing
+      // produces a phantom "▼ N spots". Suppress the delta until both weeks share
+      // the same cohort size; it resumes honestly next cycle.
+      const cohortStable =
+        m.prior?.cellSize != null &&
+        m.current.cellSize != null &&
+        m.prior.cellSize === m.current.cellSize;
       for (const { col, priorKey } of RANK_COLS) {
         const rank = curRankByCol.get(col)!.get(m.id)!;
-        const prior = rankFromPillarRanks(m.prior?.pillarRanks, priorKey);
+        const prior = cohortStable
+          ? rankFromPillarRanks(m.prior?.pillarRanks, priorKey)
+          : null;
         ranks[col] = { rank, delta: prior != null ? prior - rank : null };
       }
       const adsApplicable = m.current.adsApplicable ?? null;
