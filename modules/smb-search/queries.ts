@@ -102,6 +102,11 @@ export async function getSmbSearchData(userId: string): Promise<SmbSearchData> {
         country: true,
         category: true,
         searchScanLastAt: true,
+        snapshots: {
+          take: 1,
+          orderBy: { snapshotDate: "desc" },
+          select: { cellKey: true },
+        },
         businessKeywords: {
           // S.6.6 · exclude stale rows. `isLost=true` means the
           // keyword USED to be in her ranked_keywords portfolio but
@@ -325,9 +330,24 @@ export async function getSmbSearchData(userId: string): Promise<SmbSearchData> {
     //    (city, country) cell rank for that she does NOT. Zero new
     //    API calls · derived entirely from existing BusinessKeyword
     //    data.
+    // Competitor cohort = the unified GEO cell (every business sharing the
+    // owner's snapshot cellKey, e.g. "Medical Spa|Miami|US"), so the leaderboard
+    // + gaps span the whole discovery radius — not just the owner's admin city.
+    const ownCellKey = own.snapshots[0]?.cellKey ?? null;
+    const cellMemberIds = ownCellKey
+      ? (
+          await prisma.businessSnapshot.findMany({
+            where: { cellKey: ownCellKey, business: { isActive: true } },
+            distinct: ["businessId"],
+            select: { businessId: true },
+          })
+        ).map((s) => s.businessId)
+      : [];
+
     const searchGaps = await buildSearchGaps({
       ownBusinessId: own.id,
       ownKeywordIds: new Set(own.businessKeywords.map((bk) => bk.keywordId)),
+      memberIds: cellMemberIds,
       city: own.city,
       country: own.country,
     });
@@ -338,6 +358,7 @@ export async function getSmbSearchData(userId: string): Promise<SmbSearchData> {
     const leaderboard = await buildCompetitorLeaderboard({
       ownBusinessId: own.id,
       ownName: own.name,
+      memberIds: cellMemberIds,
       city: own.city,
       country: own.country,
     });
@@ -477,6 +498,8 @@ function computeTotals(rows: readonly KeywordRow[]): {
 async function buildCompetitorLeaderboard(input: {
   ownBusinessId: string;
   ownName: string;
+  /** Unified GEO-cell member ids (preferred). Empty → city/country fallback. */
+  memberIds: string[];
   city: string | null;
   country: string | null;
 }): Promise<{
@@ -484,24 +507,21 @@ async function buildCompetitorLeaderboard(input: {
   ownRank: number | null;
   total: number;
 }> {
-  if (!input.city || !input.country) {
+  // Membership: prefer the unified geo cell (member ids span the whole
+  // discovery radius); fall back to raw city/country for businesses without a
+  // snapshot yet. Real competitors have a website — the `website: not null`
+  // filter drops generic/aggregator GBP stubs (e.g. a no-domain "Medical Spa"
+  // listing that the CTR fallback would otherwise float to #1).
+  const useCell = input.memberIds.length > 0;
+  if (!useCell && (!input.city || !input.country)) {
     return { rows: [], ownRank: null, total: 0 };
   }
-
-  // Pull ALL businesses in cell + their per-keyword rank data + the
-  // website (for the Domain column). Aggregated in memory per biz.
-  // Excludes `isLost` rows · keywords that dropped out of a biz's
-  // ranked portfolio on the latest scan don't pollute the leaderboard.
   const cellBusinesses = await prisma.business.findMany({
     where: {
-      city: input.city,
-      country: input.country,
+      ...(useCell
+        ? { id: { in: input.memberIds } }
+        : { city: input.city!, country: input.country! }),
       isActive: true,
-      // Real competitors have a website. Excludes generic/aggregator GBP
-      // stubs (e.g. a listing literally named "Medical Spa" with no domain)
-      // whose single rank-1 high-volume keyword would otherwise top the
-      // leaderboard via the CTR fallback. The owner always has a website,
-      // so this never drops them.
       website: { not: null },
     },
     select: {
@@ -625,22 +645,26 @@ async function buildCompetitorLeaderboard(input: {
 async function buildSearchGaps(input: {
   ownBusinessId: string;
   ownKeywordIds: Set<string>;
+  /** Unified GEO-cell member ids (preferred). Empty → city/country fallback. */
+  memberIds: string[];
   city: string | null;
   country: string | null;
 }): Promise<SearchGap[]> {
-  if (!input.city || !input.country) return [];
+  const useCell = input.memberIds.length > 0;
+  if (!useCell && (!input.city || !input.country)) return [];
 
-  // Find other businesses in the same cell · scoped by city + country
-  // is intentionally narrow · matches dispatchSearchScan's cell shape.
+  // Cell-mates = the unified geo cell (whole discovery radius) when available,
+  // else the raw city/country fallback.
   const cellMates = await prisma.business.findMany({
     where: {
-      city: input.city,
-      country: input.country,
+      ...(useCell
+        ? { id: { in: input.memberIds } }
+        : { city: input.city!, country: input.country! }),
       isActive: true,
       id: { not: input.ownBusinessId },
     },
     select: { id: true },
-    take: 200,
+    take: 500,
   });
   if (cellMates.length === 0) return [];
 

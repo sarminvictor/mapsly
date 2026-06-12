@@ -154,14 +154,28 @@ export async function getLandingData(
 
     if (!biz) return null;
 
-    const inCell = Boolean(biz.city && biz.country);
-    // Ad + review cohorts are keyed by the RAW Google category (what those
-    // tables store). The market reference (CellMetric) is keyed by the Discovery
-    // MARKET category encoded in the snapshot cellKey — resolve it separately.
-    const cellWhere = inCell
-      ? { category: biz.category, city: biz.city!, country: biz.country! }
-      : null;
+    // Every cohort (reviews, ads, market reference) is keyed by the unified
+    // GEO market cell encoded in the snapshot cellKey ("Medical Spa|Miami|US"),
+    // so a Beauty-salon and a Medical-spa inside the same discovery radius
+    // compare against the SAME market.
     const marketCell = parseCellKey(biz.snapshots[0]?.cellKey ?? null);
+
+    // Review-comparison cohort + rank are drawn from the unified GEO cell (the
+    // discovery radius), NOT the raw category×city — so a Beauty-salon and a
+    // Medical-spa inside Miami's radius compare against the SAME market. The
+    // members are every business sharing the owner's snapshot cellKey (e.g.
+    // "Medical Spa|Miami|US"). Matches the rankedTotal, which already uses the
+    // geo CellMetric.sampleSize.
+    const ownCellKey = biz.snapshots[0]?.cellKey ?? null;
+    const cellMemberIds = ownCellKey
+      ? (
+          await prisma.businessSnapshot.findMany({
+            where: { cellKey: ownCellKey, business: { isActive: true } },
+            distinct: ["businessId"],
+            select: { businessId: true },
+          })
+        ).map((s) => s.businessId)
+      : [];
 
     const [
       keywordRows,
@@ -187,9 +201,9 @@ export async function getLandingData(
         },
       }),
       prisma.adLibraryEntry.count({ where: { businessId, isActive: true } }),
-      cellWhere
+      marketCell
         ? prisma.adMarketAdvertiser.findMany({
-            where: { ...cellWhere, isActive: true },
+            where: { ...marketCell, isActive: true },
             orderBy: { activeAdCount: "desc" },
             take: 6,
             select: {
@@ -200,18 +214,22 @@ export async function getLandingData(
             },
           })
         : Promise.resolve([]),
-      cellWhere
+      marketCell
         ? prisma.adMarketAdvertiser.aggregate({
-            where: { ...cellWhere, isActive: true },
+            where: { ...marketCell, isActive: true },
             _count: { _all: true },
             _sum: { activeAdCount: true },
           })
         : Promise.resolve(null),
       prisma.review.count({ where: { businessId } }),
       prisma.review.count({ where: { businessId, ownerReplied: true } }),
-      cellWhere
+      cellMemberIds.length > 0
         ? prisma.business.findMany({
-            where: { ...cellWhere, isActive: true, reviewCount: { not: null } },
+            where: {
+              id: { in: cellMemberIds },
+              isActive: true,
+              reviewCount: { not: null },
+            },
             orderBy: { reviewCount: "desc" },
             take: 8,
             select: { id: true, name: true, rating: true, reviewCount: true },
@@ -249,10 +267,10 @@ export async function getLandingData(
             },
           })
         : Promise.resolve(null),
-      cellWhere && biz.reviewCount != null
+      cellMemberIds.length > 0 && biz.reviewCount != null
         ? prisma.business.count({
             where: {
-              ...cellWhere,
+              id: { in: cellMemberIds },
               isActive: true,
               reviewCount: { gt: biz.reviewCount },
             },

@@ -148,12 +148,25 @@ export async function getSmbAdsData(userId: string): Promise<SmbAdsData> {
         city: true,
         country: true,
         adsScanLastAt: true,
+        snapshots: {
+          take: 1,
+          orderBy: { snapshotDate: "desc" },
+          select: { cellKey: true },
+        },
       },
     });
     if (!own) return EMPTY_SMB_ADS;
 
     const locationCode = locationCodeForCountry(own.country);
-    const cell = { category: own.category, city: own.city };
+    // Cell = the unified GEO market (snapshot cellKey "Medical Spa|Miami|US"),
+    // so the advertiser leaderboard + AI insights span the whole discovery
+    // radius — not the owner's raw admin category/city. Falls back to raw when
+    // there's no snapshot yet.
+    const cellKeyParts = own.snapshots[0]?.cellKey?.split("|");
+    const cell =
+      cellKeyParts && cellKeyParts.length === 3
+        ? { category: cellKeyParts[0]!, city: cellKeyParts[1]! }
+        : { category: own.category, city: own.city };
 
     // ─── GOOGLE · keyword costs ────────────────────────────────────────────
     const keywordSet = adsServiceKeywords({
