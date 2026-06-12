@@ -563,17 +563,21 @@ function buildAds(
   pillar: number | null,
   adsApplicable: boolean | null,
 ): LandingAdsData {
-  // Merge Meta (AdMarketAdvertiser) + Google (AdLibraryEntry) advertisers into
-  // one ranked table — top 6 by active-ad count across both platforms.
-  const competitors = [...metaAdvertisers, ...googleAdvertisers]
-    .map((a) => ({
-      name: a.pageName,
-      platforms: a.platforms,
-      activeAds: a.activeAdCount,
-      isOwn: a.matchedBusinessId === businessId,
-    }))
-    .sort((a, b) => b.activeAds - a.activeAds)
-    .slice(0, 6);
+  // "Ads running near you" — top 3 Google advertisers, then top 3 Meta
+  // advertisers (Google first per request · not merged-by-count). A platform
+  // with fewer than 3 just contributes fewer rows.
+  const toRow = (a: AdvertiserRow) => ({
+    name: a.pageName,
+    platforms: a.platforms,
+    activeAds: a.activeAdCount,
+    isOwn: a.matchedBusinessId === businessId,
+  });
+  const byAdsDesc = (a: AdvertiserRow, b: AdvertiserRow) =>
+    b.activeAdCount - a.activeAdCount;
+  const competitors = [
+    ...[...googleAdvertisers].sort(byAdsDesc).slice(0, 3).map(toRow),
+    ...[...metaAdvertisers].sort(byAdsDesc).slice(0, 3).map(toRow),
+  ];
   // Market totals span both platforms so the stats match the merged table.
   const googleActiveAds = googleAdvertisers.reduce(
     (s, a) => s + a.activeAdCount,
