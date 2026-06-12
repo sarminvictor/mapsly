@@ -126,7 +126,7 @@ export function AdsSection({
                   </thead>
                   <tbody>
                     {ads.competitors.map((c) => (
-                      <tr key={c.name}>
+                      <tr key={`${c.platforms.join("-")}-${c.name}`}>
                         <Td>
                           <span style={{ fontWeight: 600 }}>{c.name}</span>
                         </Td>

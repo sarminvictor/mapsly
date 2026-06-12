@@ -21,6 +21,7 @@ import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { withCronRun } from "@/lib/cost/cost-counter";
 import { triggerReviewPullForBusiness } from "@/modules/reviews/trigger-pull";
+import { harvestPendingReviewsForBusiness } from "@/modules/reviews/harvest-pending";
 import { dispatchBulkReviewPull } from "@/modules/reviews/dispatch-bulk-pull";
 import { dispatchSearchScan } from "@/modules/search-visibility/dispatch-bulk-scan";
 import { dispatchAdsScan } from "@/modules/ads-intel/dispatch-ads-scan";
@@ -83,6 +84,13 @@ export interface RerunQualifyActionResult {
   reviewPullTriggered: boolean;
 }
 
+export interface HarvestReviewsActionResult {
+  harvested: boolean;
+  items?: number;
+  inserted?: number;
+  reason?: string;
+}
+
 /**
  * Trigger a manual review-pull for one business. Fires task_post against
  * DataForSEO Standard queue; the pingback handler upserts the result.
@@ -131,6 +139,60 @@ export async function triggerReviewPullAction(
     ok: false,
     error: `Skipped: ${result.reason}`,
   };
+}
+
+/**
+ * Harvest a business's in-flight review task DIRECTLY via DataForSEO task_get
+ * — bypasses the pingback (which has proven unreliable in prod, leaving tasks
+ * stuck with pendingReviewsTaskId set). Click after "Pull reviews" once the
+ * Standard-queue task has had a minute or two to run.
+ */
+export async function triggerHarvestReviewsAction(
+  _prev: ActionResult<HarvestReviewsActionResult> | null,
+  formData: FormData,
+): Promise<ActionResult<HarvestReviewsActionResult>> {
+  try {
+    await requireAdminSession();
+  } catch (err) {
+    return { ok: false, error: (err as Error).message };
+  }
+
+  const parsed = SingleBizSchema.safeParse({
+    businessId: formData.get("businessId"),
+  });
+  if (!parsed.success) {
+    return { ok: false, error: "Invalid request." };
+  }
+
+  let result;
+  try {
+    result = await withCronRun("admin:reviews-harvest", async () =>
+      harvestPendingReviewsForBusiness(parsed.data.businessId),
+    );
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "Unknown error",
+    };
+  }
+
+  revalidatePath("/admin/businesses");
+
+  if (result.harvested) {
+    return {
+      ok: true,
+      data: { harvested: true, items: result.items, inserted: result.inserted },
+      message: `Harvested ${result.items} reviews · ${result.inserted} new`,
+    };
+  }
+  if (result.reason === "not_ready") {
+    return {
+      ok: true,
+      data: { harvested: false, reason: result.reason },
+      message: "Task still running · try again in a minute",
+    };
+  }
+  return { ok: false, error: `Nothing harvested: ${result.reason}` };
 }
 
 /**

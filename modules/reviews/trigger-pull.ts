@@ -82,9 +82,15 @@ export async function triggerReviewPullForBusiness(
 
   // Paid-location gate · saves money in cells with no paid relationship.
   // Bypassable via MAPSLY_COLLECT_REVIEWS_ALLOW_ALL=1.
-  const eligible = await shouldCollectReviewsForBusiness(businessId);
-  if (!eligible) {
-    return { triggered: false, reason: "no_paid_in_location" };
+  // Manual admin pulls bypass it entirely: the gate guards *automatic* bulk
+  // collection (qualify-time + weekly cron), not a deliberate one-business
+  // admin click. An admin pressing "Pull reviews" should never be silently
+  // skipped because the cell has no paying customer yet (e.g. pre-launch).
+  if (options.mode !== "manual") {
+    const eligible = await shouldCollectReviewsForBusiness(businessId);
+    if (!eligible) {
+      return { triggered: false, reason: "no_paid_in_location" };
+    }
   }
 
   // Submit the task. dataforSeoPost's assertCronContext will throw if

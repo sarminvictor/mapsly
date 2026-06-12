@@ -73,6 +73,14 @@ export async function dispatchWebsiteScan(
     return { ...zeroResult(), requested, eligibleBusinesses: 0 };
   }
 
+  // Manual single-row scans run inline — a direct DataForSEO Lighthouse Live
+  // call (~15-40s) whose LighthouseAudit row lands synchronously. The worker
+  // path is for bulk, where inline would be too slow; routing a manual click
+  // through it means the audit silently never lands if the worker is down.
+  if (input.mode === "manual") {
+    return dispatchSequential(requested, eligibleIds);
+  }
+
   if (workerAvailable()) {
     const result = await dispatchViaWorker(input, requested, eligibleIds);
     if (result) return result;

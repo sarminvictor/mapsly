@@ -187,6 +187,7 @@ export async function getLandingData(
       ownMetaAdsAgg,
       adCompetitors,
       adAgg,
+      googleAdRows,
       reviewTotal,
       reviewReplied,
       reviewCohort,
@@ -233,6 +234,26 @@ export async function getLandingData(
             _sum: { activeAdCount: true },
           })
         : Promise.resolve(null),
+      // Google advertisers in the cell. Meta competitors come from
+      // AdMarketAdvertiser (Meta-only); Google ads live per-creative in
+      // AdLibraryEntry, so we pull the cell's qualified members' active Google
+      // creatives here and aggregate them into the same "Ads running near you"
+      // table. Scoped by cellMemberIds (geo cell · qualified) — NOT raw
+      // category/city, which would silently miss (market category "Medical Spa"
+      // ≠ raw Business.category "Medical spa"; see parseCellKey note).
+      cellMemberIds.length > 0
+        ? prisma.adLibraryEntry.findMany({
+            where: {
+              platform: "GOOGLE",
+              isActive: true,
+              businessId: { in: cellMemberIds },
+            },
+            select: {
+              businessId: true,
+              business: { select: { name: true } },
+            },
+          })
+        : Promise.resolve([]),
       prisma.review.count({ where: { businessId } }),
       prisma.review.count({ where: { businessId, ownerReplied: true } }),
       cellMemberIds.length > 0
@@ -344,9 +365,32 @@ export async function getLandingData(
     // "Ads you're running" = own Google ads + own Meta ads (matched advertiser).
     const ownAdCount =
       ownGoogleAdCount + (ownMetaAdsAgg._sum.activeAdCount ?? 0);
+    // Aggregate the cell's Google creatives into per-advertiser rows (one per
+    // business that runs Google ads), shaped like the Meta advertiser rows so
+    // both platforms merge into one "Ads running near you" table.
+    const googleByBiz = new Map<string, { name: string; adCount: number }>();
+    for (const row of googleAdRows) {
+      if (!row.businessId) continue;
+      const g = googleByBiz.get(row.businessId);
+      if (g) g.adCount += 1;
+      else
+        googleByBiz.set(row.businessId, {
+          name: row.business?.name ?? "A nearby business",
+          adCount: 1,
+        });
+    }
+    const googleAdvertisers: AdvertiserRow[] = [...googleByBiz.entries()].map(
+      ([bizId, g]) => ({
+        pageName: g.name,
+        platforms: ["GOOGLE"],
+        activeAdCount: g.adCount,
+        matchedBusinessId: bizId,
+      }),
+    );
     const adsDetail = buildAds(
       ownAdCount,
       adCompetitors,
+      googleAdvertisers,
       adAgg,
       businessId,
       overview?.ads ?? null,
@@ -509,7 +553,8 @@ type AdvertiserRow = {
 
 function buildAds(
   ownAdCount: number,
-  advertisers: AdvertiserRow[],
+  metaAdvertisers: AdvertiserRow[],
+  googleAdvertisers: AdvertiserRow[],
   agg: {
     _count: { _all: number };
     _sum: { activeAdCount: number | null };
@@ -518,14 +563,25 @@ function buildAds(
   pillar: number | null,
   adsApplicable: boolean | null,
 ): LandingAdsData {
-  const competitors = advertisers.map((a) => ({
-    name: a.pageName,
-    platforms: a.platforms,
-    activeAds: a.activeAdCount,
-    isOwn: a.matchedBusinessId === businessId,
-  }));
-  const marketAdvertiserCount = agg?._count._all ?? 0;
-  const marketActiveAds = agg?._sum.activeAdCount ?? 0;
+  // Merge Meta (AdMarketAdvertiser) + Google (AdLibraryEntry) advertisers into
+  // one ranked table — top 6 by active-ad count across both platforms.
+  const competitors = [...metaAdvertisers, ...googleAdvertisers]
+    .map((a) => ({
+      name: a.pageName,
+      platforms: a.platforms,
+      activeAds: a.activeAdCount,
+      isOwn: a.matchedBusinessId === businessId,
+    }))
+    .sort((a, b) => b.activeAds - a.activeAds)
+    .slice(0, 6);
+  // Market totals span both platforms so the stats match the merged table.
+  const googleActiveAds = googleAdvertisers.reduce(
+    (s, a) => s + a.activeAdCount,
+    0,
+  );
+  const marketAdvertiserCount =
+    (agg?._count._all ?? 0) + googleAdvertisers.length;
+  const marketActiveAds = (agg?._sum.activeAdCount ?? 0) + googleActiveAds;
   const hasData = ownAdCount > 0 || competitors.length > 0;
   if (!hasData) {
     return { ...EMPTY_LANDING_ADS, pillar, adsApplicable };

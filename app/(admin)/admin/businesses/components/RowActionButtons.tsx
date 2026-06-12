@@ -22,12 +22,14 @@ import { useActionToast } from "@/components/admin-ui/use-action-toast";
 
 import {
   triggerReviewPullAction,
+  triggerHarvestReviewsAction,
   triggerSearchScanAction,
   triggerAdsScanAction,
   triggerWebsiteScanAction,
   rerunQualifyAction,
   type ActionResult,
   type TriggerReviewPullActionResult,
+  type HarvestReviewsActionResult,
   type SearchScanActionResult,
   type AdsScanActionResult,
   type WebsiteScanActionResult,
@@ -42,6 +44,7 @@ interface Props {
 }
 
 const initialPull: ActionResult<TriggerReviewPullActionResult> | null = null;
+const initialHarvest: ActionResult<HarvestReviewsActionResult> | null = null;
 const initialSearch: ActionResult<SearchScanActionResult> | null = null;
 const initialAds: ActionResult<AdsScanActionResult> | null = null;
 const initialWebsite: ActionResult<WebsiteScanActionResult> | null = null;
@@ -56,6 +59,10 @@ export function RowActionButtons({
   const [pullState, pullAction, pullPending] = useActionState(
     triggerReviewPullAction,
     initialPull,
+  );
+  const [harvestState, harvestAction, harvestPending] = useActionState(
+    triggerHarvestReviewsAction,
+    initialHarvest,
   );
   const [searchState, searchAction, searchPending] = useActionState(
     triggerSearchScanAction,
@@ -75,6 +82,7 @@ export function RowActionButtons({
   );
 
   useActionToast(pullState);
+  useActionToast(harvestState);
   useActionToast(searchState);
   useActionToast(adsState);
   useActionToast(websiteState);
@@ -99,6 +107,23 @@ export function RowActionButtons({
           style={{ padding: "4px 8px", fontSize: 10 }}
         >
           {pullPending ? "…" : hasInFlight ? "Pulling…" : "Pull reviews"}
+        </button>
+      </form>
+      <form action={harvestAction}>
+        <input type="hidden" name="businessId" value={businessId} />
+        <button
+          type="submit"
+          className="admin-btn"
+          data-variant="ghost"
+          disabled={harvestPending || !hasInFlight}
+          title={
+            !hasInFlight
+              ? "No in-flight pull to harvest"
+              : "Harvest reviews · fetch the in-flight task directly from DataForSEO (skips the pingback)"
+          }
+          style={{ padding: "4px 8px", fontSize: 10 }}
+        >
+          {harvestPending ? "…" : "Harvest"}
         </button>
       </form>
       <form action={searchAction}>
