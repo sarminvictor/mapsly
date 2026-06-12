@@ -13,6 +13,7 @@ import {
   computePillars,
   computeProfilePillar,
   computeReputationPillar,
+  computeVisibilityPillar,
   msiPercentile,
   PILLAR_SCORE_MAX,
   PILLAR_WEIGHTS,
@@ -306,5 +307,56 @@ describe("msiPercentile", () => {
   });
   test("a cell of one is its own leader", () => {
     expect(msiPercentile(1, 1)).toBe(100);
+  });
+});
+
+describe("computeVisibilityPillar · missing-channel must not crater the score", () => {
+  // The visibility-2.5 bug: a business that ranks top-3 ORGANICALLY but has no
+  // Maps-pack data scored ~2.4/10 — the old formula put 45% on Maps rank +
+  // 30% on Maps-only share-of-voice, both → 0 when Maps data is absent.
+  test("organic-only top-3 (no Maps, sov 0) scores well, not ~2.5", () => {
+    const v = computeVisibilityPillar(
+      sig({ localPackRank: null, organicRankBest: 2, shareOfVoice: 0 }),
+      null,
+    );
+    // Old formula: organic(0.95)*0.25 = ~2.4. New: organic carries the full
+    // rank term (Maps excluded, not zeroed) → 0.95*0.70 = ~6.65.
+    expect(v).toBeGreaterThan(6);
+  });
+
+  test("organic-only with top-3 breadth (sov from either channel) scores high", () => {
+    const v = computeVisibilityPillar(
+      sig({ localPackRank: null, organicRankBest: 1, shareOfVoice: 60 }),
+      null,
+    );
+    expect(v).toBeGreaterThan(9); // dominant organic presence ≈ market leader
+  });
+
+  test("both channels present is backward-compatible (~unchanged)", () => {
+    // localPackRank 1 + organicRankBest 2 + sov 70 scored ~9.87 pre-fix; the
+    // re-normalized Maps-preferred blend must keep well-ranked businesses high.
+    const v = computeVisibilityPillar(
+      sig({ localPackRank: 1, organicRankBest: 2, shareOfVoice: 70 }),
+      null,
+    );
+    expect(v).toBeGreaterThan(9.5);
+  });
+
+  test("genuinely absent from search still scores ~0", () => {
+    const v = computeVisibilityPillar(
+      sig({ localPackRank: null, organicRankBest: null, shareOfVoice: null }),
+      null,
+    );
+    expect(v).toBe(0);
+  });
+
+  test("ranked-but-poor (#25) counts as poor, unlike absent", () => {
+    // A real but poor Maps rank (score 0 at >20) is included, not excluded —
+    // only ABSENT data is dropped. With organic also poor, score stays low.
+    const poor = computeVisibilityPillar(
+      sig({ localPackRank: 25, organicRankBest: 25, shareOfVoice: 0 }),
+      null,
+    );
+    expect(poor).toBeLessThan(2);
   });
 });

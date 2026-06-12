@@ -385,13 +385,26 @@ async function gatherSignals(biz: BusinessForScoring) {
   const organicRanks = businessKeywords
     .map((k) => k.latestOrganicRank)
     .filter((x): x is number => x != null);
+  // Per-keyword BEST position across both channels (the position the business
+  // actually holds — same best-of the /search + landing tables show). Used for
+  // share-of-voice so an organic-dominant business registers; Maps-only
+  // share-of-voice scored top-3-organic businesses as 0 (visibility-2.5 bug).
+  const bestRanks = businessKeywords
+    .map((k) => {
+      const m = k.latestMapsRank;
+      const o = k.latestOrganicRank;
+      if (m == null) return o;
+      if (o == null) return m;
+      return Math.min(m, o);
+    })
+    .filter((x): x is number => x != null);
   const localPackRank = mapsRanks.length > 0 ? Math.min(...mapsRanks) : null;
   const organicRankBest =
     organicRanks.length > 0 ? Math.min(...organicRanks) : null;
   const trackedKw = businessKeywords.length;
   const shareOfVoice =
     trackedKw > 0
-      ? (mapsRanks.filter((r) => r <= 3).length / trackedKw) * 100
+      ? (bestRanks.filter((r) => r <= 3).length / trackedKw) * 100
       : null;
   const keywordsRanked = organicRanks.filter((r) => r <= 10).length;
   const estMonthlyAdSpend = adSpendAgg._sum.spendMidHigh ?? null;

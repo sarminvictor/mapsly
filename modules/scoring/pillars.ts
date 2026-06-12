@@ -208,20 +208,45 @@ export function computeReputationPillar(
 }
 
 /**
- * VISIBILITY · Maps presence 45 · share-of-demand (rel) 30 · organic 25.
- * Ranks are inherently relative already, so they stay absolute (rank → score);
- * share-of-voice carries the cell-relative blend.
+ * VISIBILITY · best-position rank 70 · share-of-voice (rel) 30.
+ *
+ * Rank term: the best position the business holds. Maps weighs more than
+ * organic for local intent (0.45 vs 0.25 WHEN BOTH EXIST), but a MISSING
+ * channel is EXCLUDED and the rank weight re-normalized over the present
+ * channel(s) — a missing channel must never be scored as "ranked worst"
+ * (rankToScore(null) === 0). Without this, a business that dominates ORGANIC
+ * search but has no Maps-pack data scored ~2.5/10 (45% maps + 30% maps-only
+ * share-of-voice both collapsed to 0) despite ranking top-3 everywhere.
+ * A genuinely poor rank (e.g. #25, score 0) still counts — only ABSENT data
+ * is excluded.
  */
 export function computeVisibilityPillar(
   s: PillarSignals,
   cell: CellReference | null,
 ): number {
+  const hasMaps = s.localPackRank != null;
+  const hasOrganic = s.organicRankBest != null;
   const maps = rankToScore(s.localPackRank, 20);
   const organic = rankToScore(s.organicRankBest, 20);
+
+  let rankScore: number;
+  if (hasMaps && hasOrganic) {
+    // Maps-preferred blend (0.45 / 0.25 re-normalized to the 0.70 rank term).
+    rankScore = maps * (0.45 / 0.7) + organic * (0.25 / 0.7);
+  } else if (hasMaps) {
+    rankScore = maps;
+  } else if (hasOrganic) {
+    rankScore = organic;
+  } else {
+    rankScore = 0;
+  }
+
+  // Share-of-voice · breadth of top-3 across EITHER channel (the snapshot
+  // builder now counts best(organic, maps) ≤ 3, not Maps-only).
   const sov = relOrAbs(s.shareOfVoice, cell?.shareOfVoice, (v) =>
     clamp01(v / 60),
   ); // 60% share-of-voice ≈ market leader
-  const p01 = clamp01(maps * 0.45 + sov * 0.3 + organic * 0.25);
+  const p01 = clamp01(rankScore * 0.7 + sov * 0.3);
   return p01 * PILLAR_SCORE_MAX;
 }
 
