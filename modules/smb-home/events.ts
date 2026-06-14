@@ -45,9 +45,12 @@ export interface BizWeek {
   prior: SnapshotSignals | null;
 }
 
-/** Notability thresholds — keep the feed to "main changes", not noise. */
+/** Notability thresholds — keep the feed to "main changes", not noise.
+ * Reviews are NOT here: they come from real Review.postedAt activity over a
+ * rolling 7-day window (deriveReviewActivity), not snapshot-to-snapshot deltas,
+ * so the feed shows actual new reviews even before weekly snapshot history
+ * accrues (Viktor 2026-06-14 — snapshot diffs collapsed to a 1-day window). */
 const RATING_MIN = 0.1;
-const REVIEWS_MIN = 3;
 const PHOTOS_MIN = 3;
 const WEBSITE_MIN = 10;
 
@@ -103,6 +106,9 @@ export function deriveMarketChanges(
 
     if (!prior) continue;
 
+    // Reviews are sourced from real 7-day activity (deriveReviewActivity), not
+    // the snapshot reviewCount delta — see the threshold note above.
+
     // Rating moved.
     if (current.rating != null && prior.rating != null) {
       const d = round1(current.rating - prior.rating);
@@ -114,21 +120,6 @@ export function deriveMarketChanges(
           `${d > 0 ? "+" : ""}${d.toFixed(1)}`,
           d > 0 ? "good" : "bad",
           Math.abs(d) * 12,
-        );
-      }
-    }
-
-    // New reviews.
-    if (current.reviewCount != null && prior.reviewCount != null) {
-      const d = current.reviewCount - prior.reviewCount;
-      if (d >= REVIEWS_MIN) {
-        push(
-          "reviews",
-          "d",
-          `${name} gained ${d} new review${d === 1 ? "" : "s"} this week.`,
-          `+${d}`,
-          "good",
-          d,
         );
       }
     }
@@ -251,4 +242,49 @@ export function deriveMarketChanges(
 
 function round1(n: number): number {
   return Math.round(n * 10) / 10;
+}
+
+/** One business's REAL new-review activity over the rolling 7-day window —
+ * counted from `Review.postedAt` (not a snapshot delta). */
+export interface ReviewActivity {
+  businessId: string;
+  name: string;
+  isOwn: boolean;
+  /** New reviews posted in the window. */
+  newReviews: number;
+  /** Most-recent new review's posted date — drives the feed's recency sort. */
+  latestPostedAt: Date;
+}
+
+/**
+ * Build "gained N new reviews this week" events from real 7-day review
+ * activity, one per business with at least one new review. Unlike the
+ * snapshot-diff engine, this sees actual reviews the moment they land — so the
+ * feed is rich at launch, before any week-over-week snapshot history exists.
+ * Owner-boosted + significance-sorted like deriveMarketChanges, so a downstream
+ * cap keeps the strongest signals; the client re-sorts for display.
+ */
+export function deriveReviewActivity(
+  rows: readonly ReviewActivity[],
+): SmbMarketChange[] {
+  const out: Weighted[] = [];
+  for (const r of rows) {
+    if (r.newReviews < 1) continue;
+    out.push({
+      event: {
+        id: `reviews-7d-${r.businessId}`,
+        type: "reviews",
+        businessId: r.businessId,
+        businessName: r.name,
+        isOwn: r.isOwn,
+        body: `${r.name} gained ${r.newReviews} new review${r.newReviews === 1 ? "" : "s"} this week.`,
+        delta: `+${r.newReviews}`,
+        tone: "good",
+        at: r.latestPostedAt.toISOString(),
+      },
+      weight: r.newReviews + (r.isOwn ? 100 : 0),
+    });
+  }
+  out.sort((a, b) => b.weight - a.weight);
+  return out.map((w) => w.event);
 }

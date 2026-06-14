@@ -527,7 +527,11 @@ export function ReviewsSection({
           </MissingNote>
         )}
 
-        <SectionFooterCta ctaHref={ctaHref} cta="reviews" />
+        <SectionFooterCta
+          ctaHref={ctaHref}
+          cta="reviews"
+          label="Reply to reviews faster"
+        />
       </div>
     </section>
   );

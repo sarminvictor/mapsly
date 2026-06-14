@@ -39,6 +39,7 @@
 import { cacheLife, cacheTag } from "next/cache";
 
 import prisma from "@/lib/prisma";
+import { serviceMentionWindowStart } from "@/lib/review-window";
 import { isHumanMedicalCategory } from "@/services/ai/medical-category";
 
 import { enrichRisksWithAiSentences } from "./phi-ai-enrich";
@@ -385,12 +386,19 @@ async function loadTabCounts(businessId: string): Promise<ReviewTabCounts> {
 }
 
 async function loadRatingDistribution(businessId: string) {
+  // Scope to the last 12 calendar months — the SAME canonical window as the
+  // service-mention themes (lib/review-window) so the star breakdown, the
+  // themes, and the /l landing all describe the same recent reviews. The card
+  // labels it "Last 12 months · N reviews": an honest, current count rather
+  // than a partial-of-Google-total that read as a wrong number (Viktor caught
+  // the all-time "216" vs Google "413" mismatch on Azala, 2026-06-14).
+  //
   // groupBy preserves both performance (single SQL query under the
   // hood) and explicit column selection. Faster than five separate
   // count() calls for the same grouping.
   const groups = await prisma.review.groupBy({
     by: ["stars"],
-    where: { businessId },
+    where: { businessId, postedAt: { gte: serviceMentionWindowStart() } },
     _count: { _all: true },
   });
 

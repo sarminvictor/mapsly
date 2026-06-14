@@ -195,7 +195,11 @@ export function AdsSection({
               }}
             >
               <ScoreLine value={ads.pillar} />
-              <CtaPill href={ctaHref} cta="ads" label="Start tracking" />
+              <CtaPill
+                href={ctaHref}
+                cta="ads"
+                label="Know when rivals run ads"
+              />
             </div>
           </>
         ) : (

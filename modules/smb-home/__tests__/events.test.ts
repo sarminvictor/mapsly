@@ -11,8 +11,10 @@ import { describe, expect, test } from "vitest";
 
 import {
   type BizWeek,
+  type ReviewActivity,
   type SnapshotSignals,
   deriveMarketChanges,
+  deriveReviewActivity,
 } from "../events";
 
 const WEEK = new Date("2026-06-01T00:00:00Z");
@@ -72,15 +74,12 @@ describe("deriveMarketChanges", () => {
     ).toEqual([]);
   });
 
-  test("reviews surface at +3, not at +2", () => {
+  test("reviews are NOT sourced from snapshot deltas (real activity instead)", () => {
+    // reviewCount jumped +3 between snapshots, but reviews now come from
+    // deriveReviewActivity (real postedAt), so the diff engine emits nothing.
     expect(
       deriveMarketChanges([
         biz(sig({ reviewCount: 12 }), sig({ reviewCount: 9 })),
-      ])[0]?.type,
-    ).toBe("reviews");
-    expect(
-      deriveMarketChanges([
-        biz(sig({ reviewCount: 11 }), sig({ reviewCount: 9 })),
       ]),
     ).toEqual([]);
   });
@@ -144,12 +143,51 @@ describe("deriveMarketChanges", () => {
       businessId: "c",
       name: "Rival",
     }); // big rating weight
-    const owner = biz(sig({ reviewCount: 12 }), sig({ reviewCount: 9 }), {
+    const owner = biz(sig({ rating: 4.6 }), sig({ rating: 4.5 }), {
       businessId: "me",
       name: "You",
       isOwn: true,
-    }); // small weight, but boosted
+    }); // tiny rating move, but boosted
     const events = deriveMarketChanges([competitor, owner]);
+    expect(events[0]?.isOwn).toBe(true);
+  });
+});
+
+describe("deriveReviewActivity (real last-7-days reviews)", () => {
+  const POSTED = new Date("2026-06-13T00:00:00Z");
+  const row = (o: Partial<ReviewActivity> = {}): ReviewActivity => ({
+    businessId: "b1",
+    name: "Acme",
+    isOwn: false,
+    newReviews: 2,
+    latestPostedAt: POSTED,
+    ...o,
+  });
+
+  test("one good event per business, with the real count + posted date", () => {
+    const [e] = deriveReviewActivity([row({ newReviews: 5 })]);
+    expect(e?.type).toBe("reviews");
+    expect(e?.tone).toBe("good");
+    expect(e?.delta).toBe("+5");
+    expect(e?.body).toMatch(/gained 5 new reviews this week/);
+    expect(e?.at).toBe(POSTED.toISOString());
+  });
+
+  test("singular phrasing at exactly one new review", () => {
+    expect(deriveReviewActivity([row({ newReviews: 1 })])[0]?.body).toMatch(
+      /gained 1 new review this week/,
+    );
+  });
+
+  test("zero new reviews → no event (every business with >=1 shows)", () => {
+    expect(deriveReviewActivity([row({ newReviews: 0 })])).toEqual([]);
+  });
+
+  test("the owner's reviews are weighted to the front", () => {
+    const events = deriveReviewActivity([
+      row({ businessId: "c", name: "Rival", newReviews: 9 }),
+      row({ businessId: "me", name: "You", isOwn: true, newReviews: 1 }),
+    ]);
     expect(events[0]?.isOwn).toBe(true);
   });
 });

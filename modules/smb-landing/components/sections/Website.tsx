@@ -154,7 +154,7 @@ export function WebsiteSection({
                   <CtaPill
                     href={ctaHref}
                     cta="website"
-                    label="Full per-check breakdown"
+                    label="See what to fix on your site"
                   />
                 </div>
               </div>
@@ -316,7 +316,7 @@ export function WebsiteSection({
                   <CtaPill
                     href={ctaHref}
                     cta="website"
-                    label="Full per-check breakdown"
+                    label="See what to fix on your site"
                   />
                 </div>
               </div>

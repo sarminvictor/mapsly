@@ -136,7 +136,7 @@ interface LandingSectionCopy {
 export interface LandingCopy {
   /** Customer noun for this category ("patient"/"patients", "client"/"clients"…). */
   noun: { one: string; many: string };
-  hero: { headline: string; body: string };
+  hero: { headline: string; emphasis: string; body: string };
   changes: {
     eyebrow: string;
     title: string;
@@ -214,7 +214,7 @@ export interface LandingData {
 
 export const EMPTY_LANDING_COPY: LandingCopy = {
   noun: { one: "customer", many: "customers" },
-  hero: { headline: "", body: "" },
+  hero: { headline: "", emphasis: "", body: "" },
   changes: { eyebrow: "", title: "", emphasis: "", subtitle: "" },
   search: {
     eyebrow: "",

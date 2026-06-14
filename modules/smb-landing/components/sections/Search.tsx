@@ -181,7 +181,7 @@ export function SearchSection({
                   <CtaPill
                     href={ctaHref}
                     cta="search"
-                    label="Start tracking · $29/mo"
+                    label="See how to rank higher · $29/mo"
                   />
                 </div>
               </div>
@@ -292,7 +292,7 @@ export function SearchSection({
                   <CtaPill
                     href={ctaHref}
                     cta="search"
-                    label="Start tracking · $29/mo"
+                    label="See how to rank higher · $29/mo"
                   />
                 </div>
               </div>
@@ -372,9 +372,12 @@ const statCardLabel: CSSProperties = {
 };
 
 // margin lives on .landing-stat-big in landing.css (tightens at ≤560px).
+// Fluid size: the two stats sit in narrow 2-up cells, so a 6-digit number
+// (e.g. "131,850 / mo") overflowed at a fixed 65px. clamp shrinks it to fit the
+// cell while staying prominent on wide screens (Viktor 2026-06-14).
 const statCardBig: CSSProperties = {
   fontFamily: SERIF,
-  fontSize: 65,
+  fontSize: "clamp(36px, 4vw, 48px)",
   fontWeight: 700,
   lineHeight: 1,
   color: "var(--color-text)",

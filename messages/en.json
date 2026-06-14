@@ -219,7 +219,7 @@
       "ai_draft_hipaa_tooltip": "Drafts are written to avoid confirming anyone was a patient or naming treatments. Give each one a quick read before posting.",
       "rail_aside_label": "Review summary",
       "rail_rating_title": "Star breakdown",
-      "rail_rating_subtitle": "All-time · {total} reviews",
+      "rail_rating_subtitle": "Last 12 months · {total} reviews",
       "rail_rating_empty": "No reviews yet. We'll show the breakdown once they come in.",
       "rail_star_row_label": "{n}-star",
       "rail_themes_title": "What people talk about",

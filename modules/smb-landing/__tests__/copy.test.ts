@@ -140,7 +140,9 @@ describe("categoryLabel — pluralization + fallback (renders in the hero)", () 
   const heroFor = (category: string) =>
     buildLandingCopy(core({ category, rank: 9, total: 26 })).hero;
   test("regular English plurals render correctly", () => {
-    expect(heroFor("Bakery").body).toMatch(/bakeries/);
+    // The category plural now lives in the headline (standing line); the body
+    // is the shared "what Mapsly does" sentence.
+    expect(heroFor("Bakery").headline).toMatch(/bakeries/);
     expect(heroFor("Brewery").headline).toMatch(/breweries/);
     expect(heroFor("Nail salon").headline).toMatch(/nail salons/);
     expect(heroFor("Church").headline).toMatch(/churches/);
@@ -156,10 +158,14 @@ describe("buildLandingCopy — the leader (Maria) vs the climber (Elena)", () =>
   const m = buildLandingCopy(maria);
   const e = buildLandingCopy(elena);
 
-  test("hero frames rank truthfully for each", () => {
+  test("hero frames standing as opportunity, never duplicating the cards", () => {
+    // Leader gets the crown; the climber gets the gap-to-#1 hook.
     expect(m.hero.headline).toMatch(/#1 (med spa|medical spa) in Miami/i);
-    expect(e.hero.headline).toMatch(/#9 of 26/);
-    expect(e.hero.headline).toMatch(/ahead of 17 others/);
+    expect(e.hero.headline).toMatch(/top med spas/i);
+    expect(e.hero.headline).toMatch(/gap between you and #1/i);
+    // The rank/total numbers live in the score cards — the prose must NOT
+    // restate them (that read as duplication).
+    expect(e.hero.headline).not.toMatch(/#9|of 26|ahead of/);
   });
 
   test("ads branch: no-ads sting vs runs-ads peer", () => {
@@ -168,13 +174,19 @@ describe("buildLandingCopy — the leader (Maria) vs the climber (Elena)", () =>
     expect(e.ads.title).toMatch(/you're advertising/i);
   });
 
-  test("hero never makes the unbacked +30% claim — hedged estimate only", () => {
+  test("hero carries no forward-looking number — the estimate lives in search", () => {
+    // The hero stays a clean opportunity hook: no "+30%", no patient range.
     expect(m.hero.body).not.toMatch(/30% more/);
-    // Maria has real search gaps → the capped lost-bookings range appears.
-    expect(m.hero.body).toMatch(/roughly \d+–\d+ more patients a month/);
-    // No search data → no estimate, body still reads complete.
+    expect(m.hero.body).not.toMatch(/roughly|\d+–\d+/);
+    // The shared body always reads complete (with or without search data).
+    expect(m.hero.body).toMatch(/No marketing know-how needed\.$/);
     const bare = buildLandingCopy(core({ rank: 9, total: 26 })).hero.body;
-    expect(bare).toMatch(/bring them back\.$/);
+    expect(bare).toMatch(/^Every Monday/);
+    expect(bare).toMatch(/No marketing know-how needed\.$/);
+    // The accent phrase must appear verbatim so Hero.tsx can emphasize it.
+    expect(m.hero.body).toContain(m.hero.emphasis);
+    // The hedged estimate, when there is one, belongs to the search block.
+    expect(m.search.lossLine).toMatch(/roughly \d+–\d+ more patients/);
   });
 
   test("website branch: weak = the leak, strong = a pride beat", () => {

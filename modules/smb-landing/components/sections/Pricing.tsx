@@ -188,7 +188,7 @@ export function PricingSection({
                 <CtaPill
                   href={ctaHref}
                   cta="pricing"
-                  label="Start tracking - $29/mo"
+                  label="See what to fix first - $29/mo"
                   height={60}
                 />
               </span>

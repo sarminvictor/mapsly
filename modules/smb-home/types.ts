@@ -143,8 +143,10 @@ export interface SmbOverviewData {
 
 /** Max quick-win rows surfaced in the rail. */
 export const MAX_FIXES = 5;
-/** Max market-change events sent to the client (it filters/sorts in-memory). */
-export const MAX_EVENTS = 60;
+/** Max market-change events sent to the client (it filters/sorts/paginates
+ * in-memory). Generous so the paginated feed covers the whole cell — one
+ * review event per business + the snapshot-diff moves. */
+export const MAX_EVENTS = 300;
 
 /**
  * The canonical empty shape — returned for no-business / build-phase /

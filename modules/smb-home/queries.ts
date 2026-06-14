@@ -31,8 +31,10 @@ import prisma from "@/lib/prisma";
 import { deriveOverviewFixes } from "./derive";
 import {
   type BizWeek,
+  type ReviewActivity,
   type SnapshotSignals,
   deriveMarketChanges,
+  deriveReviewActivity,
 } from "./events";
 import {
   EMPTY_SMB_OVERVIEW,
@@ -325,11 +327,44 @@ export async function buildOverviewForBusiness(
       current: toSignals(m.current),
       prior: m.prior ? toSignals(m.prior) : null,
     }));
-    // "This week" is a MARKET-MOVES feed (competitor activity from the
-    // snapshot diff). Owner self-events were removed — our own
-    // service-detection additions ("You added a new service: X") are not
-    // market activity and only buried the real competitor moves as noise.
-    const events: SmbMarketChange[] = deriveMarketChanges(weeks);
+    // New reviews this week — sourced from REAL Review.postedAt activity over a
+    // rolling 7-day window for the whole cell, NOT the snapshot reviewCount
+    // delta. Snapshot diffs collapse to ~1 day when multiple snapshots land in
+    // a week (and need a week-old baseline that doesn't exist at launch), so
+    // they surfaced almost nothing; the real postedAt timeline shows every
+    // business's new reviews from day one (Viktor 2026-06-14).
+    const since7d = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const newReviewRows = await prisma.review.groupBy({
+      by: ["businessId"],
+      where: {
+        businessId: { in: members.map((m) => m.id) },
+        postedAt: { gte: since7d },
+      },
+      _count: { _all: true },
+      _max: { postedAt: true },
+    });
+    const memberById = new Map(members.map((m) => [m.id, m]));
+    const reviewActivity: ReviewActivity[] = [];
+    for (const r of newReviewRows) {
+      const m = memberById.get(r.businessId);
+      if (!m || r._max.postedAt == null) continue;
+      reviewActivity.push({
+        businessId: r.businessId,
+        name: m.name,
+        isOwn: m.isOwn,
+        newReviews: r._count._all,
+        latestPostedAt: r._max.postedAt,
+      });
+    }
+
+    // "This week" feed = real new-review activity (the rich, always-fresh
+    // signal) + the snapshot-diff market moves (rating / ads / search / website
+    // shifts) once weekly history accrues. Owner self-events are excluded as
+    // noise. Review events lead — they're the strongest at launch.
+    const events: SmbMarketChange[] = [
+      ...deriveReviewActivity(reviewActivity),
+      ...deriveMarketChanges(weeks),
+    ];
 
     return {
       ...base,

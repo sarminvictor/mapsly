@@ -561,7 +561,7 @@ export function Td({
 export function SectionFooterCta({
   ctaHref,
   cta,
-  label = "Start tracking",
+  label = "See what to fix first",
 }: {
   ctaHref: string;
   cta: string;

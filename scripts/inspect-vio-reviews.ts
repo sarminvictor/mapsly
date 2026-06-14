@@ -30,9 +30,7 @@ async function main() {
     const ok = !!d && !Number.isNaN(d.getTime()) && now - d.getTime() < YR;
     if (ok) within++;
     const rating = (it.rating as { value?: number } | undefined)?.value;
-    console.log(
-      JSON.stringify({ id: it.review_id, ts, rating, withinYr: ok }),
-    );
+    console.log(JSON.stringify({ id: it.review_id, ts, rating, withinYr: ok }));
   }
   console.log("==== WITHIN 12 MONTHS:", within, "of", res.items.length, "====");
   process.exit(0);

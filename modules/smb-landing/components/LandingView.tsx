@@ -15,7 +15,7 @@
  * track this yet" notes stand in for any missing section.
  *
  * Per `.claude/rules/ui-ux-smb.md`: warm, plain English, Maria's vocabulary,
- * one clear action (Start tracking · $29/mo). Headline copy is template-level
+ * one clear action (See what to fix first · $29/mo). Headline copy is template-level
  * (to be reworked) — the DATA is real.
  *
  * This file is the composing shell — each block lives in ./sections/ (split

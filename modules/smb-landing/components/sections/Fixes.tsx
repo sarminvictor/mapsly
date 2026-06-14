@@ -119,7 +119,11 @@ export function FixesSection({
           </MissingNote>
         )}
         <div style={{ marginTop: 40, textAlign: "center" }}>
-          <CtaPill href={ctaHref} cta="fixes" label="Start tracking · $29/mo" />
+          <CtaPill
+            href={ctaHref}
+            cta="fixes"
+            label="See what to fix first · $29/mo"
+          />
         </div>
       </div>
     </section>

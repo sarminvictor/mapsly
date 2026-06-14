@@ -40,6 +40,11 @@ export interface MarketChangesFeedLabels {
   agoDays: string;
   agoHours: string;
   agoNow: string;
+  /** Pagination (same pattern as the search table) — "Page {page} of {total}"
+   * + the prev/next button text. */
+  pageOfTotal: string;
+  prev: string;
+  next: string;
 }
 
 export interface MarketChangesFeedProps {
@@ -60,11 +65,15 @@ const TYPE_ORDER: SmbEventType[] = [
   "services",
 ];
 
+/** Rows per page — matches the search KeywordVisibilityTable. */
+const PAGE_SIZE = 10;
+
 export function MarketChangesFeed({ events, labels }: MarketChangesFeedProps) {
   const [types, setTypes] = React.useState<Set<SmbEventType>>(new Set());
   const [scope, setScope] = React.useState<Scope>("all");
   const [company, setCompany] = React.useState<string>("all");
   const [sort, setSort] = React.useState<SortMode>("recent");
+  const [page, setPage] = React.useState(1);
 
   const typeLabel = React.useCallback(
     (t: SmbEventType): string =>
@@ -107,6 +116,23 @@ export function MarketChangesFeed({ events, labels }: MarketChangesFeedProps) {
     });
     return list;
   }, [events, types, scope, company, sort]);
+
+  // Reset to page 1 whenever the filter/scope/company/sort changes — adjusted
+  // during render (not in an effect) so we never land on an empty page. Same
+  // pattern as the search KeywordVisibilityTable.
+  const filterKey = `${[...types].sort().join(",")}|${scope}|${company}|${sort}`;
+  const [prevFilterKey, setPrevFilterKey] = React.useState(filterKey);
+  if (prevFilterKey !== filterKey) {
+    setPrevFilterKey(filterKey);
+    setPage(1);
+  }
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const safePage = Math.min(Math.max(1, page), totalPages);
+  const visible = React.useMemo(
+    () => filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE),
+    [filtered, safePage],
+  );
 
   const toggleType = (t: SmbEventType) =>
     setTypes((prev) => {
@@ -219,7 +245,7 @@ export function MarketChangesFeed({ events, labels }: MarketChangesFeedProps) {
             overflow: "hidden",
           }}
         >
-          {filtered.map((e, idx) => (
+          {visible.map((e, idx) => (
             <li
               key={e.id}
               style={{
@@ -298,7 +324,97 @@ export function MarketChangesFeed({ events, labels }: MarketChangesFeedProps) {
           ))}
         </ul>
       )}
+
+      {totalPages > 1 ? (
+        <footer
+          style={{
+            display: "flex",
+            justifyContent: "flex-end",
+            padding: "12px 4px 2px",
+          }}
+        >
+          <Pagination
+            page={safePage}
+            totalPages={totalPages}
+            onPrev={() => setPage(safePage - 1)}
+            onNext={() => setPage(safePage + 1)}
+            labels={labels}
+          />
+        </footer>
+      ) : null}
     </section>
+  );
+}
+
+/* ---- pagination (same pattern as the search KeywordVisibilityTable) ------- */
+
+function Pagination({
+  page,
+  totalPages,
+  onPrev,
+  onNext,
+  labels,
+}: {
+  page: number;
+  totalPages: number;
+  onPrev: () => void;
+  onNext: () => void;
+  labels: MarketChangesFeedLabels;
+}) {
+  return (
+    <nav
+      aria-label="pagination"
+      style={{ display: "flex", alignItems: "center", gap: 8 }}
+    >
+      <PageBtn disabled={page <= 1} onClick={onPrev} label={labels.prev} />
+      <span
+        style={{
+          fontSize: 11.5,
+          fontFamily: "var(--font-mono)",
+          color: "var(--color-text-2)",
+          whiteSpace: "nowrap",
+        }}
+      >
+        {labels.pageOfTotal
+          .replace("{page}", String(page))
+          .replace("{total}", String(totalPages))}
+      </span>
+      <PageBtn
+        disabled={page >= totalPages}
+        onClick={onNext}
+        label={labels.next}
+      />
+    </nav>
+  );
+}
+
+function PageBtn({
+  disabled,
+  onClick,
+  label,
+}: {
+  disabled: boolean;
+  onClick: () => void;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={disabled ? undefined : onClick}
+      style={{
+        padding: "4px 10px",
+        borderRadius: 8,
+        border: "1px solid var(--color-border)",
+        fontSize: 12,
+        fontFamily: "inherit",
+        cursor: disabled ? "default" : "pointer",
+        color: disabled ? "var(--color-text-3)" : "var(--color-text)",
+        background: disabled ? "var(--color-bg-3)" : "var(--color-bg-2)",
+      }}
+    >
+      {label}
+    </button>
   );
 }
 

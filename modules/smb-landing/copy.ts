@@ -301,35 +301,40 @@ export function buildLandingCopy(core: Core): LandingCopy {
                 : `Review it weekly so a silent regression never quietly costs you bookings.`,
           };
 
-  /* ---- HERO ---- */
-  const standing = isLeader
-    ? `You're the #1 ${C.one} in ${cityLabel}.`
-    : isTop && rank != null && total != null
-      ? `You're one of the top ${C.many} in ${cityLabel} — #${rank} of ${total}.`
-      : isUpper && rank != null && total != null
-        ? `You're #${rank} of ${total} ${C.many} in ${cityLabel} — ahead of ${total - rank} others.`
+  /* ---- HERO ----
+   * Sells the OPPORTUNITY, not the cards. The three hero score cards already
+   * show the rank, the score, and the rating + review count — so the prose
+   * NEVER repeats a number (restating them read as duplication; Viktor
+   * 2026-06-14). Instead: one scenario-true standing line that frames Mapsly as
+   * the way to close the gap, then a shared line that says what Mapsly is, what
+   * it does, and the simple, weekly benefit. No forward-looking number lives
+   * here — the hedged estimate, when there is one, stays in the search block
+   * (search.lossLine), because it's search-only. */
+  const heroHeadline = isLeader
+    ? `You're the #1 ${C.one} in ${cityLabel} — and Mapsly keeps you there, spotting who's coming for your ${noun.many} before they arrive.`
+    : isTop
+      ? `You're one of the top ${C.many} in ${cityLabel}, and #1 is within reach — Mapsly shows you exactly what stands between you and the top.`
+      : isUpper
+        ? `You're already one of ${cityLabel}'s top ${C.many} — and Mapsly shows you the gap between you and #1, so you can close it.`
         : rank != null && total != null
-          ? `You're #${rank} of ${total} ${C.many} in ${cityLabel} — and the fastest gains in your market are still yours to take.`
-          : `We mapped every ${C.one} in ${cityLabel}. Here's where you stand.`;
-  const gap =
-    isLeader && total != null
-      ? ` And one blind spot is quietly sending ${noun.many} to the other ${total - 1}.`
-      : ` And one blind spot is quietly sending ${noun.many} to the ${C.many} around you.`;
-  const authority =
-    total != null ? `We ranked all ${total} ${C.many} in ${cityLabel}. ` : "";
+          ? `You're climbing among ${cityLabel}'s ${C.many} — and Mapsly shows you the fastest way up, before your competitors find it.`
+          : `Mapsly mapped the ${C.many} across ${cityLabel} to show you exactly where you stand — and where the easy wins are.`;
 
-  // The only forward-looking number we allow ourselves: the hedged, capped
-  // lost-bookings estimate (also cited in the search section). Never "+30%".
+  // Coral-italic accent phrase — must appear verbatim in heroBody (Hero.tsx
+  // wraps the first occurrence). The de-risking promise, not a metric.
+  const heroEmphasis = "one simple fix";
+  const heroBody =
+    `Every Monday, Mapsly hands you ${heroEmphasis} — across your reviews, search, and website — ` +
+    `to win more ${noun.many}. No marketing know-how needed.`;
+
+  // Search-only, so it belongs to the search block (search.lossLine), never the
+  // hero. Always a hedged, capped range — never "+30%".
   const loss = estimateLostBookings(core.search);
 
   const hero = {
-    headline: standing + gap,
-    body:
-      `${authority}Mapsly shows you — every week — where you're winning, where you're losing ${noun.many}, ` +
-      `and the few fixes that bring them back.` +
-      (loss
-        ? ` The searches you're missing could mean roughly ${loss.low}–${loss.high} more ${noun.many} a month.`
-        : ""),
+    headline: heroHeadline,
+    emphasis: heroEmphasis,
+    body: heroBody,
   };
 
   /* ---- CHANGES ---- */

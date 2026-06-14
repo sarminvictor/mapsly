@@ -165,14 +165,15 @@ export function Hero({ data }: { data: LandingData }) {
                 }}
               >
                 {(() => {
-                  const body = data.copy.hero.body;
-                  const m = body.match(
-                    /^([\s\S]*?)(roughly \d+–\d+ more \S+)([\s\S]*)$/,
-                  );
-                  if (!m) return body;
+                  // Wrap the copy's chosen accent phrase (hero.emphasis) in the
+                  // coral-italic serif. Falls back to plain text when the phrase
+                  // is absent/empty.
+                  const { body, emphasis } = data.copy.hero;
+                  const idx = emphasis ? body.indexOf(emphasis) : -1;
+                  if (idx < 0) return body;
                   return (
                     <>
-                      {m[1]}
+                      {body.slice(0, idx)}
                       <span
                         className="landing-hero-body-em"
                         style={{
@@ -182,9 +183,9 @@ export function Hero({ data }: { data: LandingData }) {
                           color: "var(--color-coral)",
                         }}
                       >
-                        {m[2]}
+                        {emphasis}
                       </span>
-                      {m[3]}
+                      {body.slice(idx + emphasis.length)}
                     </>
                   );
                 })()}
@@ -259,7 +260,7 @@ export function Hero({ data }: { data: LandingData }) {
                   ) : null}
                 </p>
                 <p style={{ ...heroCardSub, marginTop: 21 }}>
-                  Your position across all {cat}s in{" "}
+                  Your rank among the {cat}s we track in{" "}
                   {data.cellLabel ?? "your area"}
                 </p>
               </div>

@@ -1,5 +1,5 @@
 /**
- * Sticky top bar — brand lockup + the always-visible "Start tracking" pill.
+ * Sticky top bar — brand lockup + the always-visible "See what to fix first" pill.
  * Extracted verbatim from LandingView.tsx during the per-section split.
  */
 
@@ -31,8 +31,8 @@ export function TopBar({ ctaHref }: { ctaHref: string }) {
         <CtaPill
           href={ctaHref}
           cta="top"
-          label="Start tracking - $29/mo"
-          mobileLabel="Start tracking · $29/mo"
+          label="See what to fix first - $29/mo"
+          mobileLabel="See what to fix · $29/mo"
           height={60}
         />
       </div>

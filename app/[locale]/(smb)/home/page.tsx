@@ -312,6 +312,10 @@ async function OverviewBody({ params }: { params: Promise<PageParams> }) {
     agoDays: t("ago_days", { n: "{n}" }),
     agoHours: t("ago_hours", { n: "{n}" }),
     agoNow: t("ago_now"),
+    // Pagination · reuse the existing smb.home pager strings.
+    pageOfTotal: t("page_of_total"),
+    prev: t("prev"),
+    next: t("next"),
   };
 
   return (
