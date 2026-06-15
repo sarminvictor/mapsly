@@ -45,8 +45,21 @@ interface PollMeta {
   unsubscribes: number;
   autoReplies: number;
   unmatched: number;
+  /** SENT cold-sends missing their sender attribution at the start of the tick. */
+  attributionPending?: number;
+  /** How many of those this tick recovered from a mailbox's Sent folder. */
+  attributionFilled?: number;
   errors: string[];
   [key: string]: number | string[] | undefined;
+}
+
+/** A SENT cold-send whose sending mailbox was never recorded — recoverable
+ *  from whichever mailbox's Sent folder holds the message. */
+interface PendingAttribution {
+  id: string;
+  email: string;
+  subject: string;
+  sentAt: Date;
 }
 
 export const GET = cronHandler(JOB, async () => {
@@ -77,6 +90,66 @@ async function stopSequence(
   return r.count;
 }
 
+/**
+ * Self-heal sender attribution: scan THIS mailbox's Sent folder for any
+ * cold-send that was logged SENT but never recorded its mailboxAddress
+ * (normally none — the sender records it inline; this covers a post-send DB
+ * write that failed). A Sent message to the recipient with the same subject,
+ * dated near sentAt, means this mailbox sent it. Mutates `pending`, dropping
+ * rows it attributes so the next mailbox doesn't re-scan them. Best-effort.
+ */
+async function backfillFromSent(
+  client: ImapFlow,
+  address: string,
+  pending: PendingAttribution[],
+  meta: PollMeta,
+): Promise<void> {
+  const folders = await client.list();
+  const sent =
+    folders.find((f) => f.specialUse === "\\Sent") ??
+    folders.find((f) => /^sent/i.test(f.path));
+  if (!sent) return;
+
+  const lock = await client.getMailboxLock(sent.path);
+  try {
+    for (const p of [...pending]) {
+      // Bound the search: this recipient, from a day-and-a-half before sentAt.
+      const since = new Date(p.sentAt.getTime() - 36 * 3_600_000);
+      let uids: number[] = [];
+      try {
+        uids =
+          (await client.search({ to: p.email, since }, { uid: true })) || [];
+      } catch {
+        uids = [];
+      }
+      let matched = false;
+      // Newest first — the touch we're attributing is the most recent match.
+      for (const uid of uids.slice(-10).reverse()) {
+        const msg = await client.fetchOne(
+          String(uid),
+          { uid: true, envelope: true },
+          { uid: true },
+        );
+        if (msg && (msg.envelope?.subject ?? "") === p.subject) {
+          matched = true;
+          break;
+        }
+      }
+      if (matched) {
+        await prisma.coldSend.update({
+          where: { id: p.id },
+          data: { mailboxAddress: address },
+        });
+        meta.attributionFilled = (meta.attributionFilled ?? 0) + 1;
+        const idx = pending.indexOf(p);
+        if (idx >= 0) pending.splice(idx, 1);
+      }
+    }
+  } finally {
+    lock.release();
+  }
+}
+
 export async function pollColdInboxes(): Promise<PollMeta> {
   const meta: PollMeta = {
     mailboxes: 0,
@@ -89,6 +162,31 @@ export async function pollColdInboxes(): Promise<PollMeta> {
     unmatched: 0,
     errors: [],
   };
+
+  // Attribution self-heal: load SENT cold-sends missing their sender once
+  // (normally empty). Each mailbox's Sent scan below fills the ones it owns.
+  const gapRows = await prisma.coldSend.findMany({
+    where: {
+      status: "SENT",
+      mailboxAddress: null,
+      subject: { not: null },
+      sentAt: { not: null },
+    },
+    select: {
+      id: true,
+      subject: true,
+      sentAt: true,
+      recipient: { select: { email: true } },
+    },
+    take: 500,
+  });
+  const pending: PendingAttribution[] = gapRows.map((g) => ({
+    id: g.id,
+    email: g.recipient.email,
+    subject: g.subject as string,
+    sentAt: g.sentAt as Date,
+  }));
+  meta.attributionPending = pending.length;
 
   const { host, port, secure } = getImapConfig();
   const creds = getMailboxCreds();
@@ -215,6 +313,16 @@ export async function pollColdInboxes(): Promise<PollMeta> {
         }
       } finally {
         lock.release();
+      }
+      // Same connection: recover any missing sender attribution from Sent.
+      if (pending.length > 0) {
+        try {
+          await backfillFromSent(client, cred.address, pending, meta);
+        } catch (err) {
+          meta.errors.push(
+            `${cred.address} sent-scan: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        }
       }
       await client.logout();
     } catch (err) {

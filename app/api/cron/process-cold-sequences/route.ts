@@ -134,6 +134,12 @@ export async function processColdSequences(
           businessId: true,
           reportToken: true,
           status: true,
+          // Prior touches' senders — rotate so this touch goes from a mailbox
+          // the recipient hasn't been emailed from yet.
+          sends: {
+            where: { status: "SENT" },
+            select: { mailboxAddress: true },
+          },
           campaign: {
             select: {
               fromName: true,
@@ -191,7 +197,13 @@ export async function processColdSequences(
       continue;
     }
 
-    const mailbox = await acquireMailbox(now);
+    // Rotate the sender: exclude mailboxes that already emailed this recipient.
+    const usedMailboxes = [
+      ...new Set(
+        r.sends.map((s) => s.mailboxAddress).filter((a): a is string => !!a),
+      ),
+    ];
+    const mailbox = await acquireMailbox(now, usedMailboxes);
     if (!mailbox) {
       meta.noCapacity++;
       break; // out of capacity → stop this tick

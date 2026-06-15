@@ -100,9 +100,51 @@ export function isHardBounce(message: string, code?: number): boolean {
   );
 }
 
-/** Pick the under-cap, un-blocked mailbox with the lowest usage today. */
+/** Mailbox row shape consumed by the pure selector (subset of the Mailbox model). */
+export interface MailboxRow {
+  address: string;
+  displayName: string | null;
+  dailyCap: number;
+  rampStartedAt: Date | null;
+  blockedUntil: Date | null;
+}
+
+/**
+ * Pure mailbox selection: the under-cap, un-blocked row with the lowest usage
+ * today. `exclude` lists addresses already used for THIS recipient's prior
+ * touches — we prefer a not-yet-used mailbox so each touch comes from a
+ * different sender (touch-1 Ava → touch-2 Leo → touch-3 Mia), but fall back to
+ * the best eligible mailbox if every fresh one is at cap/blocked, so a touch is
+ * never skipped purely to avoid sender reuse. Exported for unit tests.
+ */
+export function pickMailbox(
+  rows: readonly MailboxRow[],
+  sentByAddr: ReadonlyMap<string, number>,
+  exclude: ReadonlySet<string>,
+  now: Date,
+): MailboxRow | null {
+  const eligible = rows
+    .filter((r) => !r.blockedUntil || r.blockedUntil <= now)
+    .map((r) => ({
+      row: r,
+      sent: sentByAddr.get(r.address) ?? 0,
+      cap: effectiveDailyCap(r.dailyCap, r.rampStartedAt, now),
+    }))
+    .filter((x) => x.cap > 0 && x.sent < x.cap)
+    .sort((a, b) => a.sent - b.sent);
+  // Prefer a sender this recipient hasn't seen; else the lowest-usage eligible.
+  const fresh = eligible.find((x) => !exclude.has(x.row.address));
+  return (fresh ?? eligible[0])?.row ?? null;
+}
+
+/**
+ * Pick a mailbox to send from. `exclude` = addresses already used for this
+ * recipient (rotate the sender across touches). Returns null only when NO
+ * eligible mailbox has capacity at all.
+ */
 export async function acquireMailbox(
   now: Date = new Date(),
+  exclude: readonly string[] = [],
 ): Promise<ResolvedMailbox | null> {
   const creds = getMailboxCreds();
   if (creds.length === 0) return null;
@@ -130,27 +172,20 @@ export async function acquireMailbox(
   });
   const sentByAddr = new Map(stats.map((s) => [s.mailboxAddress, s.sentCount]));
 
-  const candidate = rows
-    .filter((r) => !r.blockedUntil || r.blockedUntil <= now)
-    .filter((r) => credByAddr.has(r.address))
-    .map((r) => ({
-      row: r,
-      sent: sentByAddr.get(r.address) ?? 0,
-      cap: effectiveDailyCap(r.dailyCap, r.rampStartedAt, now),
-    }))
-    .filter((x) => x.cap > 0 && x.sent < x.cap)
-    .sort((a, b) => a.sent - b.sent)[0];
-
-  if (!candidate) return null;
-  const cred = credByAddr.get(candidate.row.address);
+  // Rows are already cred-scoped (queried by cred addresses), but keep the
+  // guard explicit so a stale Mailbox row without a cred can't be chosen.
+  const credRows = rows.filter((r) => credByAddr.has(r.address));
+  const chosen = pickMailbox(credRows, sentByAddr, new Set(exclude), now);
+  if (!chosen) return null;
+  const cred = credByAddr.get(chosen.address);
   if (!cred) return null;
   return {
-    address: candidate.row.address,
+    address: chosen.address,
     password: cred.password,
     displayName:
-      candidate.row.displayName ??
+      chosen.displayName ??
       cred.displayName ??
-      deriveDisplayName(candidate.row.address),
+      deriveDisplayName(chosen.address),
   };
 }
 
