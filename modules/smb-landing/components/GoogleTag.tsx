@@ -1,18 +1,19 @@
 "use client";
 
 /**
- * GA4 Google tag (gtag.js) for the public landing pages (`/l/[token]`).
+ * GA4 Google tag (gtag.js) — SITE-WIDE. Mounted in the root `app/layout.tsx`
+ * `<body>`, so it loads on every route (marketing, landings, checkout, portals,
+ * admin, dev) under one GA4 property — the standard "put this on every page"
+ * gtag snippet.
  *
- * First-party analytics — loaded on EVERY landing view (not consent-gated):
- * distinct from the ad-RETARGETING pixels in RetargetingPixels.tsx, which stay
- * behind the ad-cookie consent bar. GA4 is page-measurement, and the cold
- * campaign is US-only, so it runs always-on to capture all traffic (the same
- * behavior as a standard gtag snippet). If EU/consent coverage is ever needed,
- * gate this on `mapsly_consent.analytics` like the retargeting pixels do.
+ * First-party page analytics, always-on (not consent-gated) — distinct from the
+ * ad-RETARGETING pixels in RetargetingPixels.tsx (those stay behind the /l
+ * ad-cookie consent bar). The campaign is US-focused, so it runs always-on to
+ * capture all traffic, matching a standard gtag install. If EU coverage is ever
+ * needed, gate this on a site-wide consent choice.
  *
  * Id comes from NEXT_PUBLIC_GA4_ID, defaulting to the mapsly GA4 property so it
- * ships via the gitlab→Vercel deploy without a separate env change. Mounted on
- * app/l/[token]/page.tsx only — never the global app layout.
+ * ships via the gitlab→Vercel deploy without a separate env change.
  */
 
 import Script from "next/script";

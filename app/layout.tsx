@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import "./globals.css";
 
+import { GoogleTag } from "@/modules/smb-landing/components/GoogleTag";
+
 export const metadata: Metadata = {
   title: "Mapsly — Local business intelligence",
   description:
@@ -49,7 +51,11 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body>{children}</body>
+      <body>
+        {children}
+        {/* GA4 (gtag.js) · site-wide first-party analytics — every route. */}
+        <GoogleTag />
+      </body>
     </html>
   );
 }
