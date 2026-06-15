@@ -6,7 +6,7 @@
  * Breakers:
  *   1. Mailbox blocked            → WARN  (deduped per state by cold-alerts)
  *   2. Whole fleet blocked + due  → CRITICAL
- *   3. 24h hard-bounce rate > 3%  → auto-set globalPause + CRITICAL
+ *   3. 24h hard bounces ≥ 5 AND rate > 3%  → auto-set globalPause + CRITICAL
  */
 import { sendOpsAlert } from "@/lib/cold-alerts";
 import prisma from "@/lib/prisma";
@@ -17,6 +17,16 @@ import { isGloballyPaused, setColdSetting } from "./settings";
 export const BOUNCE_BREAKER_RATE = 0.03;
 /** Don't trip the bounce breaker on tiny samples. */
 export const BOUNCE_BREAKER_MIN_SENT = 25;
+/**
+ * Absolute floor of hard bounces required to trip — paired with the rate so a
+ * single ordinary bounce on a small early-launch sample (e.g. 1/30 = 3.3%)
+ * can't pause the campaign. Only a genuine spike (≥5 hard bounces AND >3%)
+ * trips. Worst case this lets ≤4 bounces through before the breaker can fire —
+ * negligible for reputation, and the instant per-mailbox provider-block breaker
+ * above is unaffected. Tuned after the 2026-06-15 Miami launch kept tripping on
+ * the normal ~2% cold-email bounce tail while daily volume was still <100.
+ */
+export const BOUNCE_BREAKER_MIN_BOUNCES = 5;
 
 export interface BreakerInput {
   due: number;
@@ -74,6 +84,7 @@ export async function runColdCircuitBreakers(
     ]);
     if (
       sent24h >= BOUNCE_BREAKER_MIN_SENT &&
+      bounces24h >= BOUNCE_BREAKER_MIN_BOUNCES &&
       bounces24h / sent24h > BOUNCE_BREAKER_RATE &&
       !(await isGloballyPaused())
     ) {
