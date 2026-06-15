@@ -162,6 +162,50 @@ async function Body({ params }: { params: Promise<{ id: string }> }) {
       </section>
 
       <section style={card}>
+        <h2 style={h2}>Funnel · clicks → conversion</h2>
+        {(() => {
+          const f = c.funnel;
+          const pct = (n: number) =>
+            f.sentRecipients > 0
+              ? `${Math.round((n / f.sentRecipients) * 100)}%`
+              : "—";
+          const rows: [string, number, string][] = [
+            ["Sent (recipients)", f.sentRecipients, "100%"],
+            ["Clicked report", f.visited, pct(f.visited)],
+            ["Clicked a CTA", f.ctaClicked, pct(f.ctaClicked)],
+            ["Opened checkout", f.checkoutOpened, pct(f.checkoutOpened)],
+            ["Converted", f.converted, pct(f.converted)],
+          ];
+          return (
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead>
+                <tr>
+                  <th style={th}>stage</th>
+                  <th style={th}>recipients</th>
+                  <th style={th}>of sent</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map(([label, n, p]) => (
+                  <tr key={label}>
+                    <td style={td}>{label}</td>
+                    <td style={td}>{n}</td>
+                    <td style={td}>{p}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          );
+        })()}
+        <p style={{ fontSize: 12, color: "#999", margin: "10px 0 0" }}>
+          Clicks = non-bot visits to the recipient&apos;s /l report (the link
+          ships only in the email). Distinct recipients, campaign-level — the 3
+          touches share one report link by design, so clicks aren&apos;t
+          per-touch.
+        </p>
+      </section>
+
+      <section style={card}>
         <h2 style={h2}>Settings</h2>
         <SettingsForm campaign={c} />
       </section>

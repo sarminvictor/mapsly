@@ -218,6 +218,27 @@ export interface StepOpenStats {
   openedHuman: number;
 }
 
+/**
+ * Click → conversion funnel (plan #7/#17 — "clicks + landing visits are the
+ * truth"). Attributed via the recipient's report link: ColdRecipient.businessId
+ * → LandingPage → LandingEvent. The /l report link is distributed ONLY in the
+ * cold email (no-indexed, not in the sitemap), so a non-bot landing visit ≈ an
+ * email click. Counts are DISTINCT recipients (campaign-level, not per-touch —
+ * all 3 touches share the same /l link by design).
+ */
+export interface CampaignFunnel {
+  /** Distinct recipients with ≥1 SENT send (the funnel denominator). */
+  sentRecipients: number;
+  /** …who then opened their report page (non-bot PAGE_OPENED) = clicked. */
+  visited: number;
+  /** …who clicked a CTA on the report. */
+  ctaClicked: number;
+  /** …who opened Stripe checkout. */
+  checkoutOpened: number;
+  /** …who converted (subscribed or took the free weekly signup). */
+  converted: number;
+}
+
 export interface CampaignDetail {
   id: string;
   name: string;
@@ -233,6 +254,7 @@ export interface CampaignDetail {
   steps: StepRow[];
   statusCounts: Record<string, number>;
   openStats: StepOpenStats[];
+  funnel: CampaignFunnel;
 }
 
 export async function getCampaign(id: string): Promise<CampaignDetail | null> {
@@ -248,7 +270,7 @@ export async function getCampaign(id: string): Promise<CampaignDetail | null> {
     });
     if (!c) return null;
 
-    const [grouped, openRows] = await Promise.all([
+    const [grouped, openRows, sentRecipRows, funnelRows] = await Promise.all([
       prisma.coldRecipient.groupBy({
         by: ["status"],
         where: { campaignId: id },
@@ -276,9 +298,45 @@ export async function getCampaign(id: string): Promise<CampaignDetail | null> {
         GROUP BY s."stepOrder"
         ORDER BY s."stepOrder"
       `,
+      // Funnel denominator — distinct recipients with at least one SENT send.
+      prisma.$queryRaw<{ n: number }[]>`
+        SELECT COUNT(DISTINCT s."recipientId")::int AS n
+        FROM "ColdSend" s
+        JOIN "ColdRecipient" r ON r.id = s."recipientId"
+        WHERE r."campaignId" = ${id} AND s.status = 'SENT'
+      `,
+      // Click → conversion: distinct recipients whose report page saw each
+      // event. Joined recipient.businessId → LandingPage → LandingEvent. The /l
+      // link ships only in the email, so a non-bot PAGE_OPENED ≈ an email click.
+      prisma.$queryRaw<
+        {
+          visited: number;
+          cta_clicked: number;
+          checkout_opened: number;
+          converted: number;
+        }[]
+      >`
+        SELECT
+          COUNT(DISTINCT r.id) FILTER (WHERE e.type = 'PAGE_OPENED' AND e."isBot" = false)::int AS visited,
+          COUNT(DISTINCT r.id) FILTER (WHERE e.type = 'CTA_CLICKED' AND e."isBot" = false)::int AS cta_clicked,
+          COUNT(DISTINCT r.id) FILTER (WHERE e.type = 'CHECKOUT_OPENED')::int AS checkout_opened,
+          COUNT(DISTINCT r.id) FILTER (WHERE e.type IN ('SUBSCRIPTION_BOUGHT', 'FREE_SIGNUP'))::int AS converted
+        FROM "ColdRecipient" r
+        JOIN "LandingPage" lp ON lp."businessId" = r."businessId"
+        JOIN "LandingEvent" e ON e."landingPageId" = lp.id
+        WHERE r."campaignId" = ${id}
+      `,
     ]);
     const statusCounts: Record<string, number> = {};
     for (const g of grouped) statusCounts[g.status] = g._count;
+    const f = funnelRows[0];
+    const funnel: CampaignFunnel = {
+      sentRecipients: sentRecipRows[0]?.n ?? 0,
+      visited: f?.visited ?? 0,
+      ctaClicked: f?.cta_clicked ?? 0,
+      checkoutOpened: f?.checkout_opened ?? 0,
+      converted: f?.converted ?? 0,
+    };
 
     return {
       id: c.id,
@@ -307,6 +365,7 @@ export async function getCampaign(id: string): Promise<CampaignDetail | null> {
         openedRaw: r.opened_raw,
         openedHuman: r.opened_human,
       })),
+      funnel,
     };
   } catch {
     return null;
