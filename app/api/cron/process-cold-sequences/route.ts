@@ -15,7 +15,9 @@ import { cronHandler } from "@/lib/middleware/no-live-api";
 import prisma from "@/lib/prisma";
 
 import { runColdCircuitBreakers } from "@/modules/cold/circuit-breakers";
+import { buildColdEmail } from "@/modules/cold/copy";
 import { buildTokens } from "@/modules/cold/personalization";
+import { gatherColdSignals } from "@/modules/cold/signals";
 import { addDelay, withinSendWindow } from "@/modules/cold/scheduling";
 import { isGloballyPaused } from "@/modules/cold/settings";
 import { isSuppressed, suppress } from "@/modules/cold/suppression";
@@ -209,12 +211,29 @@ export async function processColdSequences(
     const reportUrl = r.reportToken
       ? `${sender.baseUrl}/l/${r.reportToken}`
       : "";
-    const tokens = await buildTokens(r.businessId, { reportUrl, senderName });
-    // Spintax seed = recipient:step → retries render the identical copy.
+    // Spin seed = recipient:step → a retry renders identical copy.
     const spinSeed = `${r.id}:${send.stepOrder}`;
-    const subject = renderTemplate(step.subjectTemplate, tokens, spinSeed);
+    // Copy is generated in code (modules/cold/copy.ts) from the business's REAL
+    // signals — it branches per recipient (rank tier, sharpest pain) and per
+    // sender (dynamic signature). The DB ColdStep rows are kept only for the
+    // step delays; we fall back to their stored template if signals are missing.
+    const signals = r.businessId ? await gatherColdSignals(r.businessId) : null;
+    let subject: string;
+    let renderedBody: string;
+    if (signals) {
+      const email = buildColdEmail(signals, send.stepOrder, {
+        senderName,
+        reportUrl,
+        spinSeed,
+      });
+      subject = email.subject;
+      renderedBody = email.body;
+    } else {
+      const tokens = await buildTokens(r.businessId, { reportUrl, senderName });
+      subject = renderTemplate(step.subjectTemplate, tokens, spinSeed);
+      renderedBody = renderTemplate(step.bodyTemplate, tokens, spinSeed);
+    }
     const unsubUrl = unsubscribeUrlFor(r.email);
-    const renderedBody = renderTemplate(step.bodyTemplate, tokens, spinSeed);
     const text =
       renderedBody + buildTextFooter(unsubUrl, sender.physicalAddress);
     // Open pixel is per-ColdSend (the row exists pre-dispatch) so step-1 vs
