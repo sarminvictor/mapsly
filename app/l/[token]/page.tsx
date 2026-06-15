@@ -27,6 +27,7 @@ import { notFound } from "next/navigation";
 import "@/modules/smb-landing/landing.css";
 
 import { ConsentBar } from "@/modules/smb-landing/components/ConsentBar";
+import { GoogleTag } from "@/modules/smb-landing/components/GoogleTag";
 import { LandingView } from "@/modules/smb-landing/components/LandingView";
 import { RetargetingPixels } from "@/modules/smb-landing/components/RetargetingPixels";
 import {
@@ -70,6 +71,8 @@ export default function LandingTokenPage({
           are NO-OPs until the visitor chooses / the env ids exist. */}
       <ConsentBar />
       <RetargetingPixels />
+      {/* GA4 first-party analytics (gtag.js) — always-on, landing-only. */}
+      <GoogleTag />
     </>
   );
 }
