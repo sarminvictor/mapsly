@@ -29,7 +29,11 @@ import { acquireMailbox, sendViaMailbox } from "@/services/cold-mailer";
 import { getColdSenderConfig } from "@/services/cold-mailer/config";
 
 const JOB = "cold:process-sequences";
-const BATCH = 8; // small batches per 15-min tick → less bursty (Zoho-friendly)
+// Per-tick send cap. 12 × ~30 in-window ticks ≈ 360/day ceiling — comfortably
+// above the ~226 Miami launch volume so the day clears with recovery headroom
+// if a tick is lost to a block cooldown. Still gentle: ~2–3 sends/mailbox per
+// 15-min tick (round-robin × 5 boxes), each spaced by the 2–8s per-send sleep.
+const BATCH = 12;
 const MAX_ATTEMPTS = 3;
 /** SENDING claims older than this are crashed invocations — outcome unknown. */
 const STALE_CLAIM_MINUTES = 20;
