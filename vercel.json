@@ -2,38 +2,6 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "crons": [
     {
-      "path": "/api/cron/weekly/reviews-delta",
-      "schedule": "30 11 * * 1"
-    },
-    {
-      "path": "/api/cron/weekly/search-visibility",
-      "schedule": "0 12 * * 1"
-    },
-    {
-      "path": "/api/cron/weekly/lighthouse-audit",
-      "schedule": "30 12 * * 1"
-    },
-    {
-      "path": "/api/cron/weekly/snapshot-write",
-      "schedule": "30 13 * * 1"
-    },
-    {
-      "path": "/api/cron/weekly/cell-aggregate",
-      "schedule": "0 14 * * 1"
-    },
-    {
-      "path": "/api/cron/weekly/pillar-score",
-      "schedule": "30 14 * * 1"
-    },
-    {
-      "path": "/api/cron/weekly/ads-intelligence",
-      "schedule": "0 15 * * 1"
-    },
-    {
-      "path": "/api/cron/weekly/ads-meta",
-      "schedule": "30 15 * * 1"
-    },
-    {
       "path": "/api/cron/process-cold-sequences",
       "schedule": "*/15 * * * *"
     },
