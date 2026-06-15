@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 import { GtmContainer } from "@/modules/analytics/GtmContainer";
-import { GoogleTag } from "@/modules/smb-landing/components/GoogleTag";
 
 export const metadata: Metadata = {
   title: "Mapsly — Local business intelligence",
@@ -54,10 +53,10 @@ export default function RootLayout({
       </head>
       <body>
         {children}
-        {/* GA4 (gtag.js) · site-wide first-party analytics — every route. */}
-        <GoogleTag />
-        {/* Google Tag Manager (Smartlook, etc.) · USER pages only — excludes
-            /admin, /dev, and the dev.mapsly.ai host (gated in the component). */}
+        {/* Google Tag Manager · USER pages only — excludes /admin, /dev, and
+            the dev.mapsly.ai host (gated in the component). GTM owns ALL tags:
+            GA4 (G-N2RQLN3KED), Meta Pixel (1809319550066351), Smartlook. The
+            direct GA4 gtag was removed — GTM is the single source (no dupes). */}
         <GtmContainer />
       </body>
     </html>
