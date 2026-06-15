@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 
+import { GtmContainer } from "@/modules/analytics/GtmContainer";
 import { GoogleTag } from "@/modules/smb-landing/components/GoogleTag";
 
 export const metadata: Metadata = {
@@ -55,6 +56,9 @@ export default function RootLayout({
         {children}
         {/* GA4 (gtag.js) · site-wide first-party analytics — every route. */}
         <GoogleTag />
+        {/* Google Tag Manager (Smartlook, etc.) · USER pages only — excludes
+            /admin, /dev, and the dev.mapsly.ai host (gated in the component). */}
+        <GtmContainer />
       </body>
     </html>
   );
