@@ -98,6 +98,54 @@ describe("classifyInbound · auto-replies", () => {
       }).kind,
     ).toBe("auto-reply");
   });
+
+  test("auto-acknowledgement ('We have received your email!') → auto-reply, not a human reply", () => {
+    // Real case (Grace Surgical Arts, 2026-06-15): a fresh-subject ack with no
+    // Auto-Submitted header. Pre-fix this was mis-tagged as a human reply and
+    // wrongly stopped the sequence.
+    const source = raw(
+      {
+        From: "info@surgicalarts.miami",
+        Subject: "We have received your email!",
+      },
+      "Hello!\r\nWe have received your email. Thank you for emailing us! Please give us 24-48 hours to respond. One of our specialists will review your email and respond accordingly.",
+    );
+    expect(
+      classifyInbound({
+        from: "info@surgicalarts.miami",
+        subject: "We have received your email!",
+        source,
+      }).kind,
+    ).toBe("auto-reply");
+  });
+
+  test("machine-ack body phrasing → auto-reply even under a generic subject", () => {
+    const source = raw(
+      { From: "office@clinic.com", Subject: "Your inquiry" },
+      "Thanks for reaching out. One of our specialists will respond within 1 business day.",
+    );
+    expect(
+      classifyInbound({
+        from: "office@clinic.com",
+        subject: "Your inquiry",
+        source,
+      }).kind,
+    ).toBe("auto-reply");
+  });
+
+  test("human 'Re:' reply that merely mentions receiving → still reply (no false auto-ack)", () => {
+    const source = raw(
+      { From: "owner@biz.com", Subject: "Re: your snapshot" },
+      "Got it, I received your email — happy to chat, send the details.",
+    );
+    expect(
+      classifyInbound({
+        from: "owner@biz.com",
+        subject: "Re: your snapshot",
+        source,
+      }).kind,
+    ).toBe("reply");
+  });
 });
 
 describe("classifyInbound · unsubscribes + replies", () => {

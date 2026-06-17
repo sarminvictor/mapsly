@@ -34,6 +34,15 @@ const AUTO_SUBJECT =
   /out of (the )?office|automatic reply|auto-?reply|autoreply|vacation|away from (the )?office|on leave/i;
 const UNSUB_INTENT =
   /unsubscribe|opt[ -]?out|remove me|stop (emailing|sending|contacting)/i;
+// Auto-acknowledgements ("We have received your email — give us 24-48h, one of
+// our specialists will respond"). Machines, not humans — the sequence must
+// CONTINUE, same as OOO. These carry no standard Auto-Submitted header and a
+// fresh (non-"Re:") subject, so the OOO patterns above miss them (INC: Grace
+// Surgical Arts auto-ack was mis-tagged as a human reply, 2026-06-15).
+const AUTO_ACK_SUBJECT =
+  /\bwe('ve| have)? received your\b|\bthank(s| you)? for (contacting|emailing|reaching out)\b|\byour (email|message|request|inquiry) (has been|was) received\b|\bauto[- ]?(reply|ack|response|acknowledge?ment)\b|\bautomated response\b/i;
+const AUTO_ACK_BODY =
+  /\bwe('ve| have)? (just )?received your (email|message|inquiry|request)\b|\bone of our (specialists|team|representatives|staff|associates|agents) will\b|\b(please )?(give|allow) us \d+\s*[-–to ]+\s*\d*\s*(business )?(hours|days) to (respond|reply|get back)\b|\bthis is an automated\b/i;
 
 /** First `Header:` value in the raw source (headers end at the blank line). */
 function header(source: string, name: string): string | null {
@@ -77,20 +86,10 @@ export function classifyInbound(msg: InboundMessage): InboundClassification {
     };
   }
 
-  const autoSubmitted = header(msg.source, "Auto-Submitted");
-  if (
-    (autoSubmitted && autoSubmitted.toLowerCase() !== "no") ||
-    header(msg.source, "X-Autoreply") != null ||
-    header(msg.source, "X-Autorespond") != null ||
-    AUTO_SUBJECT.test(msg.subject)
-  ) {
-    return { kind: "auto-reply", bouncedEmail: null, hardBounce: false };
-  }
-
-  // Opt-out intent in the subject or the first chunk of the body. Replies
-  // quote OUR footer ("Unsubscribe: https://…"), so strip quoted lines and
-  // the footer pattern first — otherwise every "yes, send it" reply to
-  // touch 2-3 would be misclassified as an unsubscribe.
+  // Cleaned first chunk of the body — quoted lines + our footer stripped, so
+  // neither the auto-ack nor the unsubscribe check trips on quoted content.
+  // Replies quote OUR footer ("Unsubscribe: https://…"); without this, every
+  // "yes, send it" reply to touch 2-3 would look like an unsubscribe.
   const sep = msg.source.indexOf("\r\n\r\n");
   const bodyStart = (
     sep === -1 ? "" : msg.source.slice(sep + 4, sep + 4 + 2000)
@@ -99,6 +98,23 @@ export function classifyInbound(msg: InboundMessage): InboundClassification {
     .filter((l) => !/^\s*>/.test(l) && !/^On .+ wrote:/.test(l))
     .join("\n")
     .replace(/unsubscribe:?\s*https?:\/\/\S+/gi, "");
+
+  const autoSubmitted = header(msg.source, "Auto-Submitted");
+  // A genuine human reply is "Re: <our subject>"; auto-acks carry a fresh
+  // subject — so only honor a subject-based ack when it is NOT a reply prefix.
+  const replyPrefix = /^\s*(re|aw|sv|ref|fwd?)\s*:/i.test(msg.subject ?? "");
+  if (
+    (autoSubmitted && autoSubmitted.toLowerCase() !== "no") ||
+    header(msg.source, "X-Autoreply") != null ||
+    header(msg.source, "X-Autorespond") != null ||
+    AUTO_SUBJECT.test(msg.subject) ||
+    (!replyPrefix && AUTO_ACK_SUBJECT.test(msg.subject)) ||
+    AUTO_ACK_BODY.test(bodyStart)
+  ) {
+    return { kind: "auto-reply", bouncedEmail: null, hardBounce: false };
+  }
+
+  // Opt-out intent in the subject or the cleaned body.
   if (UNSUB_INTENT.test(msg.subject) || UNSUB_INTENT.test(bodyStart)) {
     return { kind: "unsubscribe", bouncedEmail: null, hardBounce: false };
   }
