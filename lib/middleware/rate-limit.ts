@@ -90,6 +90,19 @@ export const WEBHOOK_LIMIT: LimitProfile = {
   prefix: "rl:webhook",
 };
 
+/**
+ * Visitor-facing transactional email (e.g. the free-report confirmation) —
+ * 2 per hour PER RECIPIENT EMAIL. Bounds email-bombing of any one address and
+ * protects sending reputation: the IP limit alone can't stop an attacker
+ * rotating IPs to hammer a single victim, so this is keyed on the email.
+ */
+export const LEAD_EMAIL_LIMIT: LimitProfile = {
+  name: "lead-email",
+  limit: 2,
+  window: "1 h",
+  prefix: "rl:lead-email",
+};
+
 // Lazy limiter cache. Keyed by prefix so two profiles with the same prefix
 // would share an instance (which is fine — they'd be misconfigured anyway).
 const limiterCache = new Map<string, Ratelimit>();

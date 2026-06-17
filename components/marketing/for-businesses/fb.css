@@ -452,6 +452,201 @@
   }
 }
 
+/* ── Search autosuggest ────────────────────────────────────────────────
+ * The form keeps its glass-pill look; the wrap is the positioning context
+ * for the dropdown (a solid light card so results read on any background). */
+.fb-search-wrap {
+  position: relative;
+  max-width: 560px;
+  margin: 34px auto 0;
+}
+.fb-search-wrap .fb-search {
+  margin: 0;
+  max-width: none;
+  width: 100%;
+}
+.fb-suggest {
+  position: absolute;
+  top: calc(100% + 12px);
+  left: 0;
+  right: 0;
+  z-index: 30;
+  margin: 0;
+  padding: 8px;
+  list-style: none;
+  background: var(--fb-paper);
+  border-radius: 28px; /* echoes the page's big card radii */
+  box-shadow: 0 14px 40px rgba(34, 39, 28, 0.12); /* page is flat — keep it soft */
+  text-align: left;
+}
+.fb-suggest-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 18px;
+  min-height: 52px;
+  border-radius: 20px;
+  cursor: pointer;
+  color: var(--fb-ink);
+}
+.fb-suggest-row.is-active,
+.fb-suggest-row:hover {
+  background: #f1f4f6; /* the page's soft card surface (.fb-review-card) */
+}
+.fb-suggest-name {
+  font-weight: 600;
+  font-size: 18px;
+}
+.fb-suggest-city {
+  color: var(--fb-ink-70); /* page's muted-text token */
+  font-size: 14px;
+}
+.fb-suggest-go {
+  margin-left: auto;
+  display: inline-flex;
+  color: var(--fb-ink);
+  opacity: 0;
+}
+.fb-suggest-row.is-active .fb-suggest-go,
+.fb-suggest-row:hover .fb-suggest-go {
+  opacity: 1;
+}
+.fb-suggest-go svg {
+  width: 18px;
+  height: auto;
+  display: block;
+}
+/* Visually-hidden polite status region for the autosuggest. */
+.fb-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ── Lead-report modal ─────────────────────────────────────────────────── */
+.fb-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(34, 39, 28, 0.5);
+  backdrop-filter: blur(3px); /* echoes the hero search pill's glass */
+}
+.fb-modal {
+  position: relative;
+  width: 100%;
+  max-width: 480px;
+  max-height: calc(100dvh - 40px);
+  overflow-y: auto;
+  background: var(--fb-paper);
+  color: var(--fb-ink);
+  border-radius: 40px; /* matches .fb-review-card / .fb-price-card */
+  padding: 40px 44px 36px;
+  box-shadow: 0 24px 70px rgba(34, 39, 28, 0.2);
+  text-align: left;
+}
+.fb-modal-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  background: rgba(34, 39, 28, 0.06);
+  color: var(--fb-ink);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.fb-modal-close:hover {
+  background: rgba(34, 39, 28, 0.12);
+}
+.fb-modal-title {
+  font-family: var(--fb-body); /* Space Grotesk, like .fb-h1/.fb-h2 base */
+  font-size: 30px;
+  line-height: 1.05;
+  font-weight: 700;
+  letter-spacing: -0.04em; /* site-wide tracking */
+  margin: 0 0 10px;
+}
+.fb-modal-sub {
+  color: var(--fb-ink-70); /* matches .fb-price-sub / .fb-sub */
+  font-size: 16px;
+  line-height: 1.45;
+  margin: 0 0 26px;
+}
+.fb-modal-req {
+  color: var(--fb-accent-red);
+}
+.fb-modal-form {
+  display: flex;
+  flex-direction: column;
+}
+.fb-modal-label {
+  font-size: 14px;
+  font-weight: 600;
+  margin-top: 18px;
+  margin-bottom: 8px;
+}
+.fb-modal-input {
+  font: inherit;
+  font-size: 17px;
+  padding: 15px 18px;
+  border: none;
+  border-radius: 16px;
+  background: #f1f4f6; /* the page's soft card surface */
+  color: var(--fb-ink);
+}
+.fb-modal-input::placeholder {
+  color: var(--fb-ink-70);
+}
+.fb-modal-input:focus,
+.fb-modal-input:focus-visible {
+  /* same dual-tone ring as .fb-btn:focus-visible (ink outline + yellow halo) */
+  outline: 2px solid var(--fb-ink);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 5px var(--fb-yellow);
+}
+.fb-modal-error {
+  color: #b3261e;
+  font-size: 14px;
+  margin: 12px 0 0;
+}
+.fb-modal-submit {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 24px; /* matches .fb-price-card .fb-btn */
+}
+.fb-modal-submit:disabled {
+  opacity: 0.65;
+  cursor: progress;
+}
+.fb-modal-success {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  text-align: center;
+  padding: 8px 0;
+}
+.fb-modal-check {
+  display: inline-flex;
+}
+
 /* Decorative scattered glow-dots (Group 56.svg as CSS: 26px halo at 20%
  * red + 12px solid core with red glow). */
 .fb-dot {

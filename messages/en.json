@@ -2040,7 +2040,7 @@
       "f4": "Top 3 fixes ranked by impact, every week",
       "f5": "Competitor watch — new openings, ads, reviews",
       "f6": "5-minute email summary every Monday",
-      "cta": "Get my Free Report",
+      "cta": "Get my free report",
       "note": "Cancel anytime · 30-day money back"
     },
     "faq": {
@@ -2061,7 +2061,28 @@
       "title_lead": "See your reality.",
       "title_emph": "30 seconds. Free.",
       "sub": "Type your business name. We've already pulled the data. You'll know your score, your city ranking, and the customers you've been losing this month.",
-      "primary": "Get my Free Report"
+      "primary": "Get my free report"
+    },
+    "search": {
+      "results_label": "Businesses we've already analyzed",
+      "no_match_title": "We haven't checked “%NAME%” yet.",
+      "no_match_cta": "Get my free report"
+    },
+    "lead_form": {
+      "title": "Get your free report",
+      "subtitle": "We haven't analyzed your business yet. Tell us where to send your free report and we'll email it within one business day — no card, no signup.",
+      "business_label": "Business name",
+      "business_placeholder": "e.g. Glow Aesthetics",
+      "email_label": "Email",
+      "email_placeholder": "you@yourbusiness.com",
+      "submit": "Send my report",
+      "sending": "Sending…",
+      "success_title": "Check your inbox",
+      "success_body": "Your free report is on the way. We'll email it to you within one business day.",
+      "error_invalid": "Enter your business name and a valid email.",
+      "error_rate_limited": "Too many tries. Give it a minute and try again.",
+      "error_generic": "Something went wrong. Try again in a moment.",
+      "close": "Close"
     }
   },
   "pricing": {

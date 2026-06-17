@@ -1,6 +1,5 @@
-import { Link } from "@/i18n/navigation";
-
-import { ArrowGlyph, Dot } from "./fb-shared";
+import { FocusSearchCta } from "./FocusSearchCta";
+import { Dot } from "./fb-shared";
 
 /**
  * SmbCTA · "See your reality. 30 seconds. Free."
@@ -33,9 +32,11 @@ export function SmbCTA({ t }: SmbCTAProps) {
               <em className="fb-em fb-ylw">{t("cta.title_emph")}</em>
             </h2>
             <p className="fb-sub fb-sub--light">{t("cta.sub")}</p>
-            <Link href="/signin" className="fb-btn">
-              {t("cta.primary")} <ArrowGlyph />
-            </Link>
+            <FocusSearchCta
+              label={t("cta.primary")}
+              className="fb-btn"
+              withArrow
+            />
           </div>
         </div>
       </div>

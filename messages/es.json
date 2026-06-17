@@ -1125,6 +1125,27 @@
       "title_emph": "30 segundos. Gratis.",
       "sub": "Escribe el nombre de tu negocio. Ya tenemos tus datos. Vas a saber tu puntaje, tu posición en la ciudad y los clientes que has estado perdiendo este mes.",
       "primary": "Quiero mi reporte gratis"
+    },
+    "search": {
+      "results_label": "Negocios que ya analizamos",
+      "no_match_title": "Todavía no revisamos “%NAME%”.",
+      "no_match_cta": "Quiero mi reporte gratis"
+    },
+    "lead_form": {
+      "title": "Recibe tu reporte gratis",
+      "subtitle": "Todavía no analizamos tu negocio. Dinos a dónde enviar tu reporte gratis y te lo mandamos por correo en un día hábil — sin tarjeta, sin registro.",
+      "business_label": "Nombre del negocio",
+      "business_placeholder": "ej. Glow Aesthetics",
+      "email_label": "Correo",
+      "email_placeholder": "tu@tunegocio.com",
+      "submit": "Enviar mi reporte",
+      "sending": "Enviando…",
+      "success_title": "Revisa tu correo",
+      "success_body": "Tu reporte gratis va en camino. Te lo enviaremos por correo en un día hábil.",
+      "error_invalid": "Escribe el nombre de tu negocio y un correo válido.",
+      "error_rate_limited": "Demasiados intentos. Espera un minuto e inténtalo de nuevo.",
+      "error_generic": "Algo salió mal. Inténtalo de nuevo en un momento.",
+      "close": "Cerrar"
     }
   },
   "marketing_v2": {

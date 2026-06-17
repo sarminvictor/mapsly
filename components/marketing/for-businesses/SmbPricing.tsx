@@ -1,5 +1,4 @@
-import { Link } from "@/i18n/navigation";
-
+import { FocusSearchCta } from "./FocusSearchCta";
 import { PriceCheck } from "./fb-shared";
 
 /**
@@ -52,9 +51,7 @@ export function SmbPricing({ t }: SmbPricingProps) {
             ))}
           </ul>
 
-          <Link href="/signin" className="fb-btn">
-            {t("pricing.cta")}
-          </Link>
+          <FocusSearchCta label={t("pricing.cta")} className="fb-btn" />
           <p className="fb-price-note">{t("pricing.note")}</p>
         </div>
       </div>

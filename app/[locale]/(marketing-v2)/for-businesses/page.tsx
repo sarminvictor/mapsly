@@ -79,10 +79,6 @@ export default async function ForBusinessesPage({
   setRequestLocale(locale);
   const t = await getTranslations("for_businesses");
 
-  // The hero search form posts (GET) into the signin funnel — plain
-  // string action, so resolve the locale-prefixed path server-side.
-  const signinPath = getLocalizedPath("/signin", locale as Locale);
-
   // Organization JSON-LD · helps Google bind brand + sitelinks across pages.
   // FAQPage JSON-LD lives in <SmbFAQ> so its key list stays co-located with
   // the rendered Q&A copy (one source of truth, less drift risk).
@@ -96,7 +92,7 @@ export default async function ForBusinessesPage({
 
   return (
     <>
-      <SmbHero t={t} signinPath={signinPath} />
+      <SmbHero t={t} locale={locale} />
       <SmbProof t={t} />
       {/* Sticky-stacking group: these three overlap on scroll, then release
           at the group's bottom. */}

@@ -1,24 +1,51 @@
 import Image from "next/image";
 
 import { Dot } from "./fb-shared";
-import { SmbSearch } from "./SmbSearch";
+import { SmbSearch, type SmbSearchLabels } from "./SmbSearch";
 
 /**
  * SmbHero · 2026-06 redesign. Centered headline over a pink→teal gradient
  * mesh, social-proof pill, and the business-name search pill (the page's
- * single CTA — it leads into the signin/report funnel as a plain GET form,
- * zero client JS).
+ * single CTA). The search autosuggests businesses we've already analyzed and
+ * links to their personalized landing; no match opens a free-report lead form
+ * (see SmbSearch). Labels are resolved here (server) into a plain object so no
+ * function prop crosses the client boundary.
  *
  * Heading mixes the two brand faces: Space Grotesk base + Bricolage
  * Grotesque accent spans in brand yellow (per design).
  */
 interface SmbHeroProps {
   t: (key: string) => string;
-  /** Locale-prefixed signin path — plain string for the <form action>. */
-  signinPath: string;
+  /** App locale — recorded on captured leads. */
+  locale: string;
 }
 
-export function SmbHero({ t, signinPath }: SmbHeroProps) {
+export function SmbHero({ t, locale }: SmbHeroProps) {
+  const searchLabels: SmbSearchLabels = {
+    placeholder: t("hero.search_placeholder"),
+    ariaLabel: t("hero.search_label"),
+    cta: t("hero.search_cta"),
+    resultsLabel: t("search.results_label"),
+    noMatchTitle: t("search.no_match_title"),
+    noMatchCta: t("search.no_match_cta"),
+    modal: {
+      title: t("lead_form.title"),
+      subtitle: t("lead_form.subtitle"),
+      businessLabel: t("lead_form.business_label"),
+      businessPlaceholder: t("lead_form.business_placeholder"),
+      emailLabel: t("lead_form.email_label"),
+      emailPlaceholder: t("lead_form.email_placeholder"),
+      submit: t("lead_form.submit"),
+      sending: t("lead_form.sending"),
+      successTitle: t("lead_form.success_title"),
+      successBody: t("lead_form.success_body"),
+      errorInvalid: t("lead_form.error_invalid"),
+      errorRateLimited: t("lead_form.error_rate_limited"),
+      errorGeneric: t("lead_form.error_generic"),
+      close: t("lead_form.close"),
+    },
+  };
+
   return (
     <section className="fb-hero" aria-labelledby="fb-hero-title">
       <Dot style={{ top: "18%", left: "9%" }} />
@@ -63,12 +90,7 @@ export function SmbHero({ t, signinPath }: SmbHeroProps) {
 
         <p className="fb-sub">{t("hero.sub")}</p>
 
-        <SmbSearch
-          signinPath={signinPath}
-          placeholder={t("hero.search_placeholder")}
-          ariaLabel={t("hero.search_label")}
-          cta={t("hero.search_cta")}
-        />
+        <SmbSearch labels={searchLabels} locale={locale} />
       </div>
     </section>
   );

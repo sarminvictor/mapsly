@@ -1125,6 +1125,27 @@
       "title_emph": "30 secondes. Gratuit.",
       "sub": "Tapez le nom de votre entreprise. On a déjà vos données. Vous saurez votre score, votre rang dans la ville et les clients que vous perdez ce mois-ci.",
       "primary": "Obtenir mon rapport gratuit"
+    },
+    "search": {
+      "results_label": "Les entreprises que nous avons déjà analysées",
+      "no_match_title": "Nous n'avons pas encore vérifié « %NAME% ».",
+      "no_match_cta": "Obtenir mon rapport gratuit"
+    },
+    "lead_form": {
+      "title": "Recevez votre rapport gratuit",
+      "subtitle": "Nous n'avons pas encore analysé votre entreprise. Dites-nous où envoyer votre rapport gratuit et nous vous l'enverrons par courriel sous un jour ouvrable — sans carte, sans inscription.",
+      "business_label": "Nom de l'entreprise",
+      "business_placeholder": "ex. Glow Aesthetics",
+      "email_label": "Courriel",
+      "email_placeholder": "vous@votreentreprise.com",
+      "submit": "Envoyer mon rapport",
+      "sending": "Envoi en cours…",
+      "success_title": "Vérifiez votre boîte de réception",
+      "success_body": "Votre rapport gratuit est en route. Nous vous l'enverrons par courriel sous un jour ouvrable.",
+      "error_invalid": "Saisissez le nom de votre entreprise et un courriel valide.",
+      "error_rate_limited": "Trop de tentatives. Attendez une minute et réessayez.",
+      "error_generic": "Une erreur s'est produite. Réessayez dans un instant.",
+      "close": "Fermer"
     }
   },
   "marketing_v2": {

@@ -1802,6 +1802,36 @@ model WeeklyScoreSubscriber {
   @@index([unsubscribedAt, lastSentAt]) // digest cron: active subscribers due a send
 }
 
+/// Inbound marketing lead · an UNDISCOVERED business owner who typed their
+/// business name + email on /for-businesses to "get a free report by email"
+/// (the autosuggest found no landing for them). Distinct from `Lead` (agency
+/// CRM) and `WeeklyScoreSubscriber` (already-indexed businesses). MVP =
+/// capture + confirmation email + ops alert; the report itself is produced
+/// and sent afterward (no live data pull at submit time).
+model InboundLeadRequest {
+  id           String  @id @default(cuid())
+  businessName String
+  email        String
+  city         String?
+  country      String  @default("US")
+
+  // PENDING → CONTACTED → CONVERTED · BOUNCED (free-form, like other status cols)
+  status String @default("PENDING")
+
+  sourceUrl       String? // the /for-businesses URL the request came from
+  locale          String? // visitor locale at submit (en · es · en-CA · fr)
+  businessId      String? // soft ref to Business if later matched/created
+  consentRecordId String? // soft ref to the EXPRESS ConsentRecord written at submit
+  ipHash          String? // salted IP hash (never the raw IP) — same recipe as landing-events
+
+  reportSentAt DateTime? // set when the report email actually goes out
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@unique([email, businessName]) // re-submits are idempotent upserts
+  @@index([status, createdAt])
+}
+
 model ColdSetting {
   key       String   @id // e.g. "globalPause"
   value     String
