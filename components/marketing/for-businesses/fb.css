@@ -1,0 +1,1845 @@
+/* ============================================================
+ * /for-businesses · marketing-v2 design system · scoped stylesheet
+ *
+ * Every selector is prefixed `fb-` and used exclusively by the
+ * (marketing-v2) route group. Imported by the group layout so
+ * non-migrated routes never ship these rules.
+ *
+ * Brand tokens (from the 2026-06 redesign):
+ *   yellow  #FFFD54   ink  #22271C
+ * Section tints are first-pass approximations of the mock — the
+ * client iterates on them ("остальные цвета поправим потом").
+ *
+ * STRUCTURE CONTRACT (same as landing.css): desktop/base rules
+ * come FIRST, breakpoint overrides LAST, so media blocks win by
+ * source order without !important.
+ * ============================================================ */
+
+.fb-scope {
+  /* palette */
+  --fb-yellow: #fffd54;
+  --fb-yellow-deep: #f0ec3a; /* same hue, enough contrast on white cards */
+  --fb-ink: #22271c;
+  --fb-ink-70: #909ba2; /* all muted/gray text uses this per design */
+  --fb-ink-50: #909ba2;
+  --fb-ink-12: rgba(34, 39, 28, 0.12);
+  --fb-paper: #ffffff;
+  --fb-cream: #f4efe6;
+  --fb-red: #f81b1e; /* brand pin red · decor dots */
+  --fb-accent-red: #e2574c; /* heading accents */
+  --fb-star: #f3b53b;
+  --fb-white-70: rgba(255, 255, 255, 0.74);
+  --fb-white-12: rgba(255, 255, 255, 0.14);
+
+  /* uniform white gap between the colored bands */
+  --fb-band-gap: clamp(96px, 11vw, 160px);
+  /* band corner radius · scales with viewport (≈half on phones, full on
+     desktop) */
+  --fb-band-radius: clamp(50px, 7vw, 100px);
+
+  /* section backdrops */
+  --fb-teal-1: #41635c;
+  --fb-teal-2: #28443f;
+  --fb-green-1: #7fac8e;
+  --fb-green-2: #4e7d62;
+  --fb-purple-1: #cbbcf0;
+  --fb-purple-2: #9678d6; /* darker text-side stop — white copy stays readable */
+
+  /* type */
+  --fb-head: var(--font-fb-bric), "Bricolage Grotesque", sans-serif;
+  --fb-body: var(--font-fb-sg), "Space Grotesk", sans-serif;
+
+  font-family: var(--fb-body);
+  color: var(--fb-ink);
+  background: var(--fb-paper);
+  letter-spacing: -0.04em; /* −4% tracking site-wide per design */
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  -webkit-font-smoothing: antialiased;
+}
+
+.fb-container {
+  /* Matches the /l/[token] landing grid: 1280px content column + 20px
+   * side gutters (style-tokens.ts CONTAINER + sectionStyle). Border-box,
+   * so 1280 + 2×20 = 1320. */
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 0 20px;
+  width: 100%;
+}
+
+/* ------------------------------------------------ typography */
+
+/* Headings mix the two faces: base words in Space Grotesk Bold, the
+ * accent span (.fb-em) switches to Bricolage Grotesque (the colored word).
+ * 70px on desktop. */
+.fb-h1 {
+  margin: 0;
+  font-family: var(--fb-body);
+  font-weight: 700;
+  font-size: clamp(36px, 5.5vw, 70px);
+  line-height: 1; /* line-height = font size per design */
+  letter-spacing: -0.04em;
+}
+.fb-h2 {
+  margin: 0;
+  font-family: var(--fb-body);
+  font-weight: 700;
+  font-size: clamp(36px, 5.5vw, 70px);
+  line-height: 1; /* line-height = font size per design */
+  letter-spacing: -0.04em;
+}
+/* the colored accent word · Bricolage Grotesque */
+.fb-em {
+  font-family: var(--fb-head);
+  font-weight: 600;
+  font-style: normal;
+}
+.fb-ylw {
+  color: var(--fb-yellow);
+}
+.fb-redacc {
+  color: var(--fb-accent-red);
+}
+.fb-blueacc {
+  color: #8298ad;
+}
+.fb-iceacc {
+  color: #b6d8e7;
+}
+/* yellow marker highlight (light backgrounds) */
+.fb-mark {
+  background: var(--fb-yellow);
+  color: var(--fb-ink);
+  padding: 0 0.18em;
+  border-radius: 6px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+.fb-sub {
+  margin: 18px 0 0;
+  font-size: 22px;
+  line-height: 24px;
+  color: #909ba2;
+  max-width: 640px;
+}
+.fb-sub--light {
+  color: var(--fb-white-70);
+}
+
+/* ------------------------------------------------ buttons */
+
+.fb-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 73px;
+  padding: 22px 40px;
+  border: none;
+  border-radius: 999px; /* all buttons are pills */
+  background: var(--fb-yellow);
+  color: var(--fb-ink);
+  font-family: var(--fb-body);
+  font-size: 17px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease,
+    background 0.15s ease;
+}
+/* hover · fill drops to 28% + a twin inner glow in the button's own colour
+ * (per Figma). Variants below repeat the pattern with their own colour. */
+.fb-btn:hover {
+  background: rgba(255, 253, 84, 0.28);
+  box-shadow:
+    inset -4px -4px 30px 0 #fffd54,
+    inset 4px 4px 30px 0 #fffd54;
+}
+/* Dual-tone focus ring: ink outline reads on light surfaces, the yellow
+ * halo reads on dark ones — visible everywhere (WCAG 2.4.7). */
+.fb-btn:focus-visible,
+.fb-navlink:focus-visible,
+.fb-faq-item summary:focus-visible,
+.fb-footer a:focus-visible {
+  outline: 2px solid var(--fb-ink);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 5px var(--fb-yellow);
+}
+
+/* ------------------------------------------------ header */
+
+.fb-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  /* transparent at the very top — the glass pill appears once scrolled */
+  padding: 22px 0;
+}
+.fb-header-row {
+  transition:
+    padding 0.3s ease,
+    background 0.3s ease,
+    box-shadow 0.3s ease,
+    border-radius 0.3s ease;
+}
+/* scrolled · frosted-glass pill with the search input's exact params
+ * (no manual -webkit- prefix — Lightning CSS handles it, see .fb-search) */
+.fb-header.is-scrolled .fb-header-row {
+  padding: 12px 34px;
+  border-radius: 999px;
+  background: rgba(225, 230, 249, 0.1);
+  backdrop-filter: blur(30px);
+  box-shadow:
+    inset -4.82px -4.82px 24.12px 0 #b6d8e7,
+    inset 19.3px 19.3px 72.37px 0 rgba(199, 207, 240, 0.2);
+}
+/* over white/light sections · warm-gray frosted glass (BBB7B2 tint + BBB7B2
+ * inner shadow) so the pill reads against white */
+.fb-header.is-scrolled.is-over-light .fb-header-row {
+  background: rgba(187, 183, 178, 0.6);
+  box-shadow:
+    inset -4.82px -4.82px 24.12px 0 #bbb7b2,
+    inset 19.3px 19.3px 72.37px 0 rgba(187, 183, 178, 0.2);
+}
+.fb-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+.fb-nav {
+  display: flex;
+  align-items: center;
+  gap: 40px;
+}
+.fb-navlink {
+  font-size: 17px;
+  font-weight: 600;
+  color: #fff;
+  text-decoration: none;
+  opacity: 0.85;
+  transition: opacity 0.15s ease;
+}
+.fb-navlink:hover {
+  opacity: 1;
+}
+.fb-navlink[aria-current="page"] {
+  color: var(--fb-yellow);
+  opacity: 1;
+  position: relative;
+}
+/* yellow underline marks the active page · shorter than the word, centered */
+.fb-navlink[aria-current="page"]::after {
+  content: "";
+  position: absolute;
+  left: 14%;
+  right: 14%;
+  bottom: -9px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--fb-yellow);
+}
+.fb-btn--nav {
+  min-height: 48px;
+  padding: 12px 26px;
+  font-size: 15px;
+  background: #fff;
+}
+.fb-btn--nav:hover {
+  background: rgba(255, 255, 255, 0.28);
+  box-shadow:
+    inset -4px -4px 30px 0 #fff,
+    inset 4px 4px 30px 0 #fff;
+}
+
+/* ------------------------------------------------ hero */
+
+.fb-hero {
+  position: relative;
+  overflow: hidden;
+  padding: 180px 0 280px;
+  text-align: center;
+  color: #fff;
+  background:
+    /* linear fade to white toward the bottom (top-most overlay) ·
+     * lower + shorter transition for a sharper edge */
+    linear-gradient(
+      to bottom,
+      transparent 55%,
+      rgba(255, 255, 255, 0.55) 80%,
+      rgba(255, 255, 255, 0.9) 93%,
+      #ffffff 100%
+    ),
+    /* 3-color corner blend: F8BABA top-left · 07A5A5 top-right · F81B1E bottom */
+    radial-gradient(
+        155% 145% at 0% 0%,
+        #f8baba 0%,
+        rgba(248, 186, 186, 0.55) 38%,
+        rgba(248, 186, 186, 0) 80%
+      ),
+    radial-gradient(120% 110% at 100% 0%, #07a5a5 0%, rgba(7, 165, 165, 0) 58%),
+    radial-gradient(
+      circle 1020px at 50% 114%,
+      #f81b1e 0%,
+      #f81b1e 38%,
+      rgba(248, 27, 30, 0) 78%
+    ),
+    linear-gradient(165deg, #f8baba 0%, #07a5a5 48%, #f8baba 100%);
+}
+/* 90×90 white grid over the gradient, behind the content */
+.fb-hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.2) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.2) 1px, transparent 1px);
+  background-size: 90px 90px;
+  /* radial mask: full grid at the center, fading out toward the edges */
+  -webkit-mask-image: radial-gradient(
+    ellipse at center,
+    #000 0%,
+    transparent 100%
+  );
+  mask-image: radial-gradient(ellipse at center, #000 0%, transparent 100%);
+  pointer-events: none;
+  z-index: 0;
+}
+.fb-hero-inner {
+  position: relative;
+  z-index: 1;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+/* Hero headline base words — pale aqua per design; yellow accents stay. */
+.fb-hero .fb-h1 {
+  color: #caecec;
+}
+.fb-hero-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 15px;
+  font-weight: 400;
+  margin-bottom: 26px;
+}
+.fb-pill-lines {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+  line-height: 1.4;
+}
+/* the "1,247 med spa owners" lead stands out against the regular copy */
+.fb-pill-strong {
+  font-weight: 600;
+}
+.fb-avatars {
+  display: inline-flex;
+}
+.fb-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid #fff;
+  object-fit: cover;
+}
+.fb-avatar + .fb-avatar {
+  margin-left: -10px;
+}
+.fb-hero .fb-sub {
+  margin-left: auto;
+  margin-right: auto;
+  color: rgba(255, 255, 255, 0.88);
+  max-width: 700px;
+  /* 26/28 per design; scales down on phones */
+  font-size: clamp(18px, 1.81vw, 26px);
+  line-height: 1.08;
+}
+
+/* search pill · glass per Figma: fill E1E6F9 10% + two inner shadows
+ * (B6D8E7 100% / C7CFF0 20%) + background blur 30 */
+.fb-search {
+  margin: 34px auto 0;
+  max-width: 560px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 8px 8px 40px;
+  border-radius: 999px;
+  background: rgba(225, 230, 249, 0.1);
+  box-shadow:
+    inset -4.82px -4.82px 24.12px 0 #b6d8e7,
+    inset 19.3px 19.3px 72.37px 0 rgba(199, 207, 240, 0.2);
+  /* No manual -webkit- prefix: Lightning CSS dedupes the pair down to the
+   * prefixed form only, which current Chrome no longer aliases — the blur
+   * silently disappears. Let the build add prefixes per targets. */
+  backdrop-filter: blur(30px);
+}
+/* the magnifier only — direct child; the Search button's arrow keeps ink */
+.fb-search > svg {
+  flex: none;
+  color: #fff;
+}
+.fb-search input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: none;
+  font-family: var(--fb-body);
+  font-size: 22px;
+  color: #fff;
+  padding: 10px 4px;
+  /* native caret hidden — a custom 5px yellow bar (.fb-caret) stands in,
+   * since CSS has no caret-width lever. */
+  caret-color: transparent;
+}
+.fb-search input::placeholder {
+  color: #fff;
+}
+.fb-search input:focus,
+.fb-search input:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+.fb-search .fb-btn {
+  flex: none;
+}
+/* custom fat caret · the input + an off-screen text mirror live here */
+.fb-search-field {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+}
+.fb-search-mirror {
+  position: absolute;
+  left: 4px;
+  top: 0;
+  visibility: hidden;
+  pointer-events: none;
+  white-space: pre;
+  font-family: var(--fb-body);
+  font-size: 22px;
+}
+.fb-caret {
+  position: absolute;
+  top: 50%;
+  width: 5px;
+  height: 28px;
+  margin-top: -14px;
+  border-radius: 2.5px;
+  background: var(--fb-yellow);
+  pointer-events: none;
+  animation: fb-caret-blink 1.06s steps(1, end) infinite;
+}
+@keyframes fb-caret-blink {
+  0%,
+  50% {
+    opacity: 1;
+  }
+  50.01%,
+  100% {
+    opacity: 0;
+  }
+}
+
+/* Decorative scattered glow-dots (Group 56.svg as CSS: 26px halo at 20%
+ * red + 12px solid core with red glow). */
+.fb-dot {
+  position: absolute;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(248, 27, 30, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+.fb-dot::after {
+  content: "";
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--fb-red);
+  box-shadow: 0 0 10px var(--fb-red);
+}
+/* dots gently shrink and return — staggered so they pulse out of sync */
+@keyframes fb-dot-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(0.45);
+  }
+}
+.fb-dot {
+  animation: fb-dot-pulse 2.6s ease-in-out infinite;
+}
+.fb-dot:nth-of-type(2) {
+  animation-delay: 0.4s;
+}
+.fb-dot:nth-of-type(3) {
+  animation-delay: 0.9s;
+}
+.fb-dot:nth-of-type(4) {
+  animation-delay: 1.3s;
+}
+.fb-dot:nth-of-type(5) {
+  animation-delay: 1.7s;
+}
+.fb-dot:nth-of-type(6) {
+  animation-delay: 2.1s;
+}
+
+/* ---- closing CTA · hero-style rounded card ----
+ * Dark card with a 90×90 grid (radial-masked, like the hero), a blurred red
+ * glow over the grid at the bottom, a hairline border, and pulsing dots. */
+.fb-cta-box {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--fb-band-radius);
+  border: 1px solid rgba(241, 244, 246, 0.1);
+  background: var(--fb-ink);
+  padding: clamp(48px, 6vw, 90px) clamp(32px, 6vw, 96px);
+  text-align: center;
+}
+/* 90×90 white grid behind the content, visible in the centre */
+.fb-cta-box::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.1) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.1) 1px, transparent 1px);
+  background-size: 90px 90px;
+  -webkit-mask-image: radial-gradient(
+    ellipse at center,
+    #000 0%,
+    transparent 100%
+  );
+  mask-image: radial-gradient(ellipse at center, #000 0%, transparent 100%);
+  pointer-events: none;
+  z-index: 0;
+}
+/* blurred red circle over the grid, anchored to the bottom */
+.fb-cta-box::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    ellipse 56% 98% at 50% 92%,
+    rgba(248, 27, 30, 0.62) 0%,
+    rgba(248, 27, 30, 0.3) 40%,
+    rgba(248, 27, 30, 0) 86%
+  );
+  pointer-events: none;
+  z-index: 1;
+}
+.fb-cta-inner {
+  position: relative;
+  z-index: 2;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+/* dots sit above the grid + glow */
+.fb-cta-box .fb-dot {
+  z-index: 2;
+}
+/* heading lead aqua (yellow accent stays), sub copy white */
+.fb-cta .fb-h2 {
+  color: #caecec;
+}
+.fb-cta .fb-sub {
+  color: #fff;
+}
+
+/* ------------------------------------------------ shared section shell */
+
+.fb-section {
+  padding: clamp(64px, 9vw, 120px) 0;
+}
+/* proof block sits tighter under the tall hero */
+.fb-section--proof {
+  padding-top: clamp(8px, 2vw, 28px);
+  /* gap before the teal band rises */
+  padding-bottom: var(--fb-band-gap);
+}
+.fb-section--rounded {
+  border-radius: 32px;
+  overflow: hidden;
+  position: relative;
+}
+/* rounded color bands sit inside a white page with a gutter, like the mock */
+.fb-band-wrap {
+  padding: 12px;
+  background: #fff;
+}
+.fb-band-wrap + .fb-band-wrap {
+  padding-top: 0;
+}
+
+/* ---- sticky-stacking cards · full-width bands that overlap on scroll ----
+ * Each card sticks to the top; the next one scrolls up and covers it (later
+ * DOM order paints on top). Rounded top only, square bottom. */
+.fb-stack-card {
+  position: sticky;
+  top: 0;
+  border-radius: var(--fb-band-radius) var(--fb-band-radius) 0 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+/* the three stacking bands share one height (matches the Mirror block) */
+.fb-mirror,
+.fb-signals,
+.fb-reviews {
+  min-height: 1034px;
+}
+
+/* ------------------------------------------------ proof (white) */
+
+.fb-proof-head {
+  max-width: 1040px;
+}
+.fb-proof-head .fb-sub {
+  max-width: 820px;
+}
+.fb-cards3 {
+  margin-top: 48px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+/* slider pagination dots · only shown on the mobile carousel */
+.fb-cards-dots {
+  display: none;
+}
+.fb-review-card {
+  background: #f1f4f6;
+  border: none;
+  border-radius: 40px;
+  padding: 34px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+/* quote mark · nudged up 50 / right 30 from its in-flow spot;
+ * negative margin pulls the name row up so the gap stays tight */
+.fb-quote-mark {
+  transform: translate(30px, -50px);
+  margin-bottom: -38px;
+}
+.fb-review-card .fb-review-name {
+  font-size: 22px;
+  color: #22271c;
+}
+.fb-review-card .fb-review-meta {
+  font-size: 14px;
+  color: #909ba2;
+}
+.fb-review-card .fb-review-text {
+  font-size: 18px;
+  color: #22271c;
+}
+.fb-review-card .fb-review-chose {
+  font-size: 18px;
+  color: #909ba2;
+}
+.fb-review-id {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.fb-review-name {
+  font-weight: 600;
+  font-size: 15px;
+}
+.fb-review-meta {
+  font-size: 12.5px;
+  color: var(--fb-ink-50);
+}
+.fb-review-text {
+  margin: 0;
+  font-size: 14.5px;
+  line-height: 1.55;
+  color: var(--fb-ink-70);
+}
+.fb-review-chose {
+  margin-top: auto;
+  padding-top: 8px;
+  font-size: 13px;
+  font-weight: 400;
+  color: #909ba2;
+}
+.fb-chose-name {
+  color: #9e5f60;
+  font-weight: 600;
+}
+.fb-stars {
+  display: inline-flex;
+  gap: 2px;
+  color: var(--fb-yellow);
+}
+.fb-footnote {
+  margin: 26px 0 0;
+  font-size: 12.5px;
+  line-height: 1.3;
+  color: var(--fb-ink-50);
+}
+.fb-section--proof .fb-footnote {
+  margin-top: 40px;
+  font-size: 18px;
+  color: #909ba2;
+  text-align: center;
+}
+
+/* ------------------------------------------------ mirror (deep teal) */
+
+.fb-mirror {
+  background: linear-gradient(to top, #2c505c 0%, #5d7d98 100%);
+  color: #fff;
+  /* taller block per design */
+  padding-top: clamp(80px, 11vw, 160px);
+  padding-bottom: clamp(80px, 11vw, 160px);
+}
+/* mirror sub copy is pure white per design */
+.fb-mirror .fb-sub {
+  color: #fff;
+}
+/* lift the whole block's content up per design */
+.fb-mirror .fb-container {
+  transform: translateY(-50px);
+}
+.fb-mirror-legacy {
+  background:
+    radial-gradient(
+      70% 90% at 8% 0%,
+      rgba(255, 255, 255, 0.1) 0%,
+      transparent 55%
+    ),
+    linear-gradient(155deg, var(--fb-teal-1) 0%, var(--fb-teal-2) 78%);
+  color: #fff;
+}
+.fb-mirror-top {
+  display: grid;
+  grid-template-columns: 1.25fr 0.75fr;
+  gap: clamp(32px, 5vw, 72px);
+  align-items: center;
+}
+.fb-score-card {
+  background: #fff;
+  color: var(--fb-ink);
+  border-radius: 80px;
+  padding: 40px 36px;
+  text-align: center;
+  justify-self: end;
+  width: 426px;
+  max-width: 100%;
+  height: 400px;
+  transform: translateX(-96px); /* nudged left per design */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.fb-gauge {
+  position: relative;
+  width: 217px;
+  height: 217px;
+  margin: 0 auto;
+}
+.fb-gauge svg {
+  width: 100%;
+  height: 100%;
+}
+.fb-gauge-value {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+}
+.fb-gauge-num {
+  font-family: var(--fb-head);
+  font-size: 80px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+.fb-gauge-unit {
+  font-size: 18px;
+  color: var(--fb-ink-50);
+  font-weight: 600;
+}
+.fb-score-label {
+  margin: 4px 0 6px;
+  font-weight: 600;
+  font-size: 22px;
+}
+.fb-score-desc {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.5;
+  color: #909ba2;
+}
+.fb-mirror-stats {
+  margin-top: clamp(44px, 6vw, 72px);
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: clamp(24px, 4vw, 56px);
+}
+/* icon on the left, the text block (number · label · desc) on the right */
+.fb-mstat {
+  display: flex;
+  align-items: flex-start;
+  gap: 18px;
+  padding-top: 0;
+}
+.fb-mstat-icon {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  margin-top: 0;
+}
+.fb-mstat-icon svg {
+  width: 58px;
+  height: 58px;
+}
+.fb-mstat-body {
+  min-width: 0;
+  max-width: 300px;
+}
+.fb-mstat-num {
+  font-family: var(--fb-head);
+  font-size: 56px;
+  font-weight: 600;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #fff;
+}
+.fb-mstat-glyph {
+  display: inline-flex;
+  align-items: center;
+}
+.fb-mstat-label {
+  margin: 14px 0 6px;
+  font-weight: 600;
+  font-size: 24px;
+  color: #fff;
+}
+.fb-mstat-desc {
+  margin: 0;
+  font-size: 18px;
+  line-height: 24px;
+  color: #fff;
+}
+.fb-mstat-desc a {
+  color: var(--fb-yellow);
+}
+
+/* ------------------------------------------------ signals (cream) */
+
+.fb-signals {
+  /* warm cream per design */
+  background: #f3efea;
+  color: var(--fb-ink);
+}
+/* "Plain English." accent · warm tan per design */
+.fb-signals .fb-redacc {
+  color: #ae8355;
+}
+.fb-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: clamp(36px, 6vw, 88px);
+  align-items: center;
+}
+/* nudge the heading column inward (right) per design */
+.fb-signals .fb-split > div:first-child,
+.fb-pricing .fb-split > div:first-child {
+  padding-left: clamp(0px, 4vw, 72px);
+}
+/* lift the signals text block up per design */
+.fb-signals .fb-split > div:first-child {
+  transform: translateY(-100px);
+}
+/* step-and-hold feed · top card fades out, the rest climb one slot, hold ~5s,
+ * then the next. 7 cards rendered twice → translateY(-50%) lands the duplicate
+ * on the original for a seamless loop. */
+.fb-stat-stack {
+  position: relative;
+  width: 100%; /* fills the grid column (aligned with the Pitch card) */
+  height: 600px;
+  overflow: hidden;
+  /* hard top edge (no fade), cards fade out only at the bottom */
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    #000 0%,
+    #000 80%,
+    transparent 100%
+  );
+  mask-image: linear-gradient(to bottom, #000 0%, #000 80%, transparent 100%);
+}
+.fb-stat-track {
+  display: flex;
+  flex-direction: column;
+  animation: fb-stat-step 40s cubic-bezier(0.5, 0, 0.1, 1) infinite;
+  will-change: transform;
+}
+/* fixed height so each step lands exactly one card up; margin (not gap) keeps
+ * the duplicate set seamless at translateY(-50%). */
+.fb-stat-track .fb-stat-card {
+  flex: none;
+  height: 220px;
+  margin-bottom: 7px;
+}
+/* 7 steps · each holds ~5s (12.3% of 40s) then rises one slot (1/14 = 7.143%) */
+@keyframes fb-stat-step {
+  0%,
+  12.29% {
+    transform: translateY(0);
+  }
+  14.29%,
+  26.57% {
+    transform: translateY(-7.143%);
+  }
+  28.57%,
+  40.86% {
+    transform: translateY(-14.286%);
+  }
+  42.86%,
+  55.14% {
+    transform: translateY(-21.429%);
+  }
+  57.14%,
+  69.43% {
+    transform: translateY(-28.571%);
+  }
+  71.43%,
+  83.71% {
+    transform: translateY(-35.714%);
+  }
+  85.71%,
+  98% {
+    transform: translateY(-42.857%);
+  }
+  100% {
+    transform: translateY(-50%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fb-stat-track {
+    animation: none !important;
+  }
+}
+/* cards sized like the landing's second screen · off-white on cream */
+.fb-stat-card {
+  background: #fafafa;
+  border: none;
+  border-radius: 30px;
+  padding: 28px 30px;
+}
+.fb-stat-card-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 18px;
+}
+.fb-stat-card-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--fb-ink);
+  margin: 0;
+}
+.fb-stat-card-tag {
+  font-size: 12px;
+  font-weight: 400;
+  color: #8298ad;
+  white-space: nowrap;
+}
+.fb-stat-card-num {
+  font-family: var(--fb-head);
+  font-size: 48px;
+  font-weight: 600;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.fb-stat-value {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+}
+.fb-stat-arrow {
+  flex: none;
+}
+.fb-stat-card-num .fb-unit {
+  font-family: var(--fb-body);
+  font-size: 22px;
+  font-weight: 600;
+  color: #909ba2;
+}
+.fb-stat-card-num .fb-stars {
+  margin-left: auto;
+}
+.fb-stat-card-num--red {
+  color: var(--fb-accent-red);
+}
+.fb-stat-bar {
+  margin-top: 16px;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(34, 39, 28, 0.1);
+  overflow: hidden;
+}
+.fb-stat-bar i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+}
+.fb-stat-card-desc {
+  margin: 16px 0 0;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.5;
+  color: #909ba2;
+}
+
+/* ------------------------------------------------ reviews (green) */
+
+/* review cards fade up (staggered) when the section scrolls into view.
+ * Default = visible (SSR / no-JS / reduced-motion); the Reveal client adds/
+ * removes `is-in`. */
+.fb-reveal .fb-review-row {
+  transition:
+    opacity 0.55s ease,
+    transform 0.55s ease;
+}
+.fb-reveal:not(.is-in) .fb-review-row {
+  opacity: 0;
+  transform: translateY(28px);
+}
+
+.fb-reviews {
+  /* linear gradient bottom → up per design */
+  background: linear-gradient(to top, #3d625f 0%, #7da88b 100%);
+  color: #fff;
+}
+/* "you haven't answered yet." accent · mint per design */
+.fb-reviews .fb-mintacc {
+  color: #d7f0df;
+}
+/* sub copy white · inline ★ glyphs go brand yellow */
+.fb-reviews-sub {
+  color: #fff;
+}
+.fb-inline-star {
+  color: #fffd54;
+}
+/* reviews · narrow text column + wider cards, top-aligned */
+.fb-reviews .fb-split {
+  grid-template-columns: 0.8fr 1.2fr;
+  align-items: start;
+}
+/* signals + pricing · text column stays far-left (477px, unchanged); the card
+   is 510px wide and right-aligned with a gutter that matches the Pitch
+   "with Mapsly" card (right column of the max-width:1040 centered grid). The
+   gutter % resolves against the grid container's 1280px content box → 120px. */
+.fb-signals .fb-split,
+.fb-pricing .fb-split {
+  grid-template-columns: minmax(0, 477px) 1fr;
+}
+.fb-signals .fb-stat-stack,
+.fb-pricing .fb-price-card {
+  width: 510px;
+  margin-left: auto;
+  /* gutter = (container-content − 1040)/2, where container-content =
+     min(1280px, viewport − 80px). At desktop → 120px, matching the Pitch grid. */
+  margin-right: max(0px, calc((min(1280px, 100vw - 80px) - 1040px) / 2));
+}
+/* the pricing card runs a touch narrower than the signals cards */
+.fb-pricing .fb-price-card {
+  width: 466px;
+}
+.fb-review-rows {
+  display: grid;
+  gap: 7px;
+}
+.fb-review-row {
+  background: #fff;
+  color: var(--fb-ink);
+  border-radius: 44px;
+  padding: 26px 32px;
+  display: flex;
+  align-items: flex-start;
+  gap: 18px;
+}
+.fb-review-avatar {
+  flex: none;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  object-fit: cover;
+  align-self: flex-start;
+}
+.fb-review-row-body {
+  flex: 1;
+  min-width: 0;
+}
+.fb-review-row-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.fb-review-row .fb-review-name {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--fb-ink);
+}
+.fb-review-row .fb-review-meta {
+  font-size: 14px;
+  color: #909ba2;
+}
+.fb-review-row .fb-review-text {
+  margin-top: 10px;
+  font-size: 16px;
+  color: var(--fb-ink);
+}
+/* "Reply with AI" · mint green button (same green as the accent text) */
+.fb-btn--reply {
+  min-height: 56px;
+  padding: 14px 30px;
+  font-size: 15px;
+  flex: none;
+  align-self: center;
+  margin-left: 40px; /* more space between text and button */
+  background: #d7f0df;
+  color: var(--fb-ink);
+}
+.fb-btn--reply:hover {
+  background: rgba(215, 240, 223, 0.28);
+  box-shadow:
+    inset -4px -4px 30px 0 #d7f0df,
+    inset 4px 4px 30px 0 #d7f0df;
+}
+.fb-reviews .fb-footnote {
+  color: var(--fb-white-70);
+  text-align: center;
+  font-size: 16px;
+  max-width: 540px;
+  margin: 32px auto 0; /* narrower block, centered under the cards */
+}
+
+/* ------------------------------------------------ scoreboard (white) */
+
+/* pitch is a stack card too — needs an opaque fill to cover the card below */
+.fb-pitch {
+  background: #ffffff;
+  padding-top: var(--fb-band-gap);
+  /* extra room before the pricing band rises */
+  padding-bottom: clamp(130px, 13.5vw, 192px);
+}
+/* "We just show it to you." accent · warm red per design */
+.fb-pitch .fb-redacc {
+  color: #9e5f60;
+}
+.fb-board-head {
+  text-align: center;
+  max-width: 1040px; /* wider heading */
+  margin: 0 auto;
+}
+.fb-board-head .fb-sub {
+  margin-left: auto;
+  margin-right: auto;
+}
+.fb-board-grid {
+  margin: 48px auto 0;
+  max-width: 1040px; /* narrower, centered to the grid */
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  align-items: stretch;
+}
+.fb-board-card {
+  box-sizing: border-box;
+  border-radius: 60px;
+  padding: 32px 36px;
+  background: #f1f4f6;
+  /* both cards carry a 16px border; left is transparent, right is yellow */
+  border: 16px solid transparent;
+}
+.fb-board-card--now h3 {
+  color: var(--fb-ink);
+}
+.fb-board-card--mapsly {
+  border-color: #fffd54;
+}
+.fb-board-card h3 {
+  margin: 0 0 14px;
+  font-size: 30px;
+  font-weight: 600;
+  font-family: var(--fb-body); /* Space Grotesk per design */
+  letter-spacing: -0.02em;
+}
+.fb-board-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.fb-board-list li {
+  display: flex;
+  gap: 12px;
+  font-size: 16px;
+  line-height: 1.5;
+  color: #909ba2;
+  padding: 16px 0;
+  border-bottom: 1px solid rgba(34, 39, 28, 0.08);
+}
+.fb-board-list li:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+.fb-board-list li svg {
+  flex: none;
+  /* line up with the first text line */
+  margin-top: 7px;
+}
+.fb-board-card--mapsly .fb-board-list li {
+  color: #909ba2;
+}
+
+/* ------------------------------------------------ pricing (purple) */
+
+.fb-pricing {
+  /* linear gradient bottom → up per design */
+  background: linear-gradient(to top, #98a7bb 0%, #beb1d9 100%);
+  color: var(--fb-ink);
+  /* rounded top kept from the old stacking treatment, no sticky animation */
+  border-radius: var(--fb-band-radius) var(--fb-band-radius) 0 0;
+  /* taller band · extra vertical padding keeps the content centred */
+  padding-block: clamp(120px, 14vw, 200px);
+}
+.fb-pricing .fb-h2 {
+  color: #fff;
+}
+/* "That's it." accent · pale aqua per design */
+.fb-pricing .fb-ylw {
+  color: #caecec;
+}
+.fb-pricing .fb-sub {
+  color: #fff;
+}
+.fb-price-card {
+  position: relative;
+  background: #fff;
+  border-radius: 60px;
+  padding: 38px 52px 34px 52px; /* symmetric left/right inset */
+  width: 100%; /* fills the grid column (aligned with the Pitch card) */
+}
+.fb-price-badge {
+  position: absolute;
+  top: -26px;
+  left: 52px;
+  background: var(--fb-yellow);
+  color: var(--fb-ink);
+  border-radius: 999px;
+  padding: 11px 22px;
+  font-size: 15px;
+  font-weight: 600;
+}
+.fb-price-plan {
+  margin: 6px 0 2px;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--fb-ink);
+}
+.fb-price-amount {
+  font-family: var(--fb-head);
+  font-size: 50px;
+  font-weight: 600;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  color: var(--fb-ink);
+}
+.fb-price-amount .fb-unit {
+  font-family: var(--fb-body);
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--fb-ink);
+}
+.fb-price-sub {
+  margin: 6px 0 0;
+  font-size: 16px;
+  color: var(--fb-ink-70);
+}
+.fb-price-list {
+  margin: 22px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.fb-price-list li {
+  display: flex;
+  gap: 12px;
+  font-size: 14px;
+  line-height: 1.45;
+  color: #909ba2;
+  padding: 9px 0;
+  border-bottom: 1px solid rgba(34, 39, 28, 0.08);
+}
+.fb-price-list li:last-child {
+  border-bottom: none;
+}
+.fb-price-list li svg {
+  flex: none;
+  margin-top: 2px;
+}
+.fb-price-card .fb-btn {
+  width: 100%;
+  margin-top: 24px;
+  background: #caecec;
+  color: var(--fb-ink);
+}
+.fb-price-card .fb-btn:hover {
+  background: rgba(202, 236, 236, 0.28);
+  box-shadow:
+    inset -4px -4px 30px 0 #caecec,
+    inset 4px 4px 30px 0 #caecec;
+}
+.fb-price-note {
+  margin: 14px 0 0;
+  text-align: center;
+  font-size: 12.5px;
+  color: var(--fb-ink-50);
+}
+
+/* ------------------------------------------------ faq + cta + footer (ink) */
+
+.fb-dark {
+  background: var(--fb-ink);
+  color: #fff;
+}
+/* more breathing room above the FAQ heading */
+#faq {
+  padding-top: clamp(140px, 14vw, 200px);
+}
+.fb-faq-head {
+  text-align: center;
+  margin-bottom: 44px;
+}
+/* "Quick answers." accent · pale aqua per design */
+#faq .fb-ylw {
+  color: #caecec;
+}
+.fb-faq-list {
+  max-width: 760px;
+  margin: 0 auto;
+  display: grid;
+}
+.fb-faq-item {
+  border-bottom: 1px solid var(--fb-white-12);
+}
+.fb-faq-item summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 22px 4px;
+  font-size: 22px;
+  font-weight: 600;
+}
+.fb-faq-item summary::-webkit-details-marker {
+  display: none;
+}
+/* globals.css restores a `›` chevron on every details>summary — this FAQ
+ * ships its own rotating plus glyph instead, so mute the global one. */
+.fb-faq-item summary::after {
+  content: none;
+}
+.fb-faq-plus {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  position: relative;
+  opacity: 0.7;
+}
+.fb-faq-plus::before,
+.fb-faq-plus::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  background: currentColor;
+  transition: transform 0.2s ease;
+}
+.fb-faq-plus::before {
+  width: 14px;
+  height: 2px;
+}
+.fb-faq-plus::after {
+  width: 2px;
+  height: 14px;
+}
+.fb-faq-item[open] .fb-faq-plus::after {
+  transform: rotate(90deg);
+}
+.fb-faq-answer {
+  margin: 0;
+  padding: 0 36px 22px 4px;
+  font-size: 14.5px;
+  line-height: 1.6;
+  color: var(--fb-white-70);
+}
+
+.fb-cta {
+  position: relative;
+  overflow: hidden;
+  text-align: center;
+  padding-top: clamp(16px, 2.5vw, 40px);
+}
+.fb-cta .fb-sub {
+  margin-left: auto;
+  margin-right: auto;
+  max-width: 820px;
+}
+.fb-cta .fb-btn {
+  margin-top: 32px;
+}
+/* on hover the button goes translucent over the dark-red glow — flip the
+ * label + arrow to white so they read */
+.fb-cta .fb-btn:hover {
+  color: #fff;
+}
+
+.fb-footer {
+  padding: 4px 0 30px;
+  font-size: 14.5px;
+}
+.fb-footer-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+.fb-footer-nav {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  flex-wrap: wrap;
+}
+.fb-footer a {
+  color: #909ba2;
+  text-decoration: none;
+  display: inline-block;
+  padding: 12px 0; /* lifts tap target toward 44px on touch */
+}
+.fb-footer a:hover {
+  color: #fff;
+}
+.fb-footer-rights {
+  color: #909ba2;
+}
+
+/* ------------------------------------------------ motion safety */
+
+/* smooth scroll for the in-page "Price" nav anchor (#pricing) */
+html:has(.fb-scope) {
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:has(.fb-scope) {
+    scroll-behavior: auto;
+  }
+  .fb-scope *,
+  .fb-scope *::before,
+  .fb-scope *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
+
+/* ============================================================
+ * Breakpoints · overrides only below this line
+ * ============================================================ */
+
+@media (max-width: 900px) {
+  /* proof cards become a horizontal swipe slider with dots */
+  .fb-cards3 {
+    display: flex;
+    grid-template-columns: none;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    gap: 14px;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    /* smaller gap above the cards; the padding-top holds the (nudged-up,
+       desktop-style) quote mark so it isn't clipped by the slider */
+    margin-top: 8px;
+    padding-top: 50px;
+  }
+  .fb-cards3::-webkit-scrollbar {
+    display: none;
+  }
+  .fb-cards3 > .fb-review-card {
+    flex: 0 0 100%;
+    scroll-snap-align: center;
+  }
+  .fb-cards-dots {
+    display: flex;
+    justify-content: center;
+    gap: 9px;
+    margin-top: 22px;
+  }
+  .fb-cards-dots button {
+    width: 8px;
+    height: 8px;
+    padding: 0;
+    border: none;
+    border-radius: 999px;
+    background: rgba(130, 152, 173, 0.4);
+    cursor: pointer;
+    transition:
+      width 0.25s ease,
+      background 0.25s ease;
+  }
+  .fb-cards-dots button.is-active {
+    width: 24px;
+    /* the blue-gray from the quote mark */
+    background: #8298ad;
+  }
+  /* mobile: drop the sticky stack so each band scrolls fully before the next
+     one comes up (no clipped content) */
+  .fb-stack-card {
+    position: static;
+  }
+  .fb-mirror,
+  .fb-signals,
+  .fb-reviews {
+    min-height: auto;
+    /* same top padding as the pricing band (all rounded bands match) */
+    padding-top: 74px;
+  }
+  /* extend the blue mirror band a little lower before the cream band rises */
+  .fb-mirror {
+    padding-bottom: 124px;
+  }
+  /* each lower colored band overlaps the previous by its corner radius, so the
+     rounded top sits on the band above — no white wedges at the side corners */
+  .fb-signals,
+  .fb-reviews {
+    margin-top: calc(var(--fb-band-radius) * -1);
+    position: relative;
+    z-index: 1;
+  }
+  /* no block ENTRANCE animations on mobile · review cards visible immediately
+     (no fade-up reveal). The Signals feed keeps its auto-rising slider, and the
+     Mirror counters jump to their final value (handled in mirror-anim.tsx). */
+  .fb-reveal .fb-review-row {
+    transition: none;
+  }
+  .fb-reveal:not(.is-in) .fb-review-row {
+    opacity: 1;
+    transform: none;
+  }
+  /* the desktop "lift" transforms don't belong in normal flow */
+  .fb-mirror .fb-container,
+  .fb-signals .fb-split > div:first-child {
+    transform: none;
+  }
+  /* mirror · centered, narrower score card, smaller gauge */
+  .fb-mirror-top {
+    grid-template-columns: 1fr;
+    text-align: center;
+  }
+  .fb-score-card {
+    justify-self: center;
+    width: 100%;
+    max-width: 360px;
+    height: auto;
+    transform: none;
+    margin: 10px auto 0;
+    padding: 30px 24px;
+    border-radius: 44px;
+  }
+  .fb-gauge {
+    width: 168px;
+    height: 168px;
+  }
+  .fb-gauge-num {
+    font-size: 60px;
+  }
+  .fb-mirror-stats {
+    grid-template-columns: 1fr;
+    gap: 26px;
+    justify-items: center;
+    padding-inline: 16px;
+  }
+  .fb-mstat {
+    justify-content: flex-start;
+    width: 100%;
+    max-width: 360px;
+  }
+  .fb-mstat-icon svg {
+    width: 48px;
+    height: 48px;
+  }
+  .fb-mstat-num {
+    font-size: 44px;
+  }
+  .fb-mstat-label {
+    font-size: 20px;
+    margin-top: 4px;
+  }
+  .fb-mstat-desc {
+    font-size: 15px;
+    line-height: 1.25;
+  }
+  /* selectors must out-specify the base 2-col split rules (.fb-signals etc.) */
+  .fb-split,
+  .fb-signals .fb-split,
+  .fb-pricing .fb-split,
+  .fb-reviews .fb-split {
+    grid-template-columns: 1fr;
+  }
+  /* the fixed-width cards go full-width once the split stacks */
+  .fb-signals .fb-stat-stack,
+  .fb-pricing .fb-price-card {
+    width: 100%;
+    margin-right: 0;
+  }
+  .fb-board-grid {
+    grid-template-columns: 1fr;
+  }
+  .fb-price-card {
+    justify-self: start;
+  }
+  /* touch devices keep the solid light-blue fill — no sticky hover glass
+     (mobile :hover sticks after a tap, which made the button look broken) */
+  .fb-price-card .fb-btn:hover {
+    background: #caecec;
+    box-shadow: none;
+  }
+}
+
+@media (max-width: 560px) {
+  .fb-header {
+    padding: 16px 0;
+  }
+  .fb-nav {
+    gap: 16px;
+  }
+  /* keep logo + sign-in; middle links live in the footer on phones */
+  .fb-navlink {
+    display: none;
+  }
+  .fb-hero {
+    padding: 120px 0 84px;
+    /* same gradient stack as desktop, but the red glow sits a bit lower */
+    background:
+      linear-gradient(
+        to bottom,
+        transparent 55%,
+        rgba(255, 255, 255, 0.55) 80%,
+        rgba(255, 255, 255, 0.9) 93%,
+        #ffffff 100%
+      ),
+      radial-gradient(
+        155% 145% at 0% 0%,
+        #f8baba 0%,
+        rgba(248, 186, 186, 0.55) 38%,
+        rgba(248, 186, 186, 0) 80%
+      ),
+      radial-gradient(
+        120% 110% at 100% 0%,
+        #07a5a5 0%,
+        rgba(7, 165, 165, 0) 58%
+      ),
+      radial-gradient(
+        circle 1020px at 50% 143%,
+        #f81b1e 0%,
+        #f81b1e 38%,
+        rgba(248, 27, 30, 0) 78%
+      ),
+      linear-gradient(165deg, #f8baba 0%, #07a5a5 48%, #f8baba 100%);
+  }
+  /* tighter 45×45 grid on phones */
+  .fb-hero::before {
+    background-size: 45px 45px;
+  }
+  .fb-hero-pill {
+    font-size: 12px;
+  }
+  /* narrower text block so the whole pill (avatars + copy) is compact and
+     reads as clearly centered, with visible margins each side */
+  .fb-pill-lines {
+    max-width: 162px;
+  }
+  .fb-pill-lines span {
+    text-wrap: balance;
+  }
+  /* center the proof pill on phones */
+  .fb-hero-pill {
+    display: flex;
+    width: fit-content;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  /* tighter line-height inside the comparison cards */
+  .fb-board-card h3 {
+    line-height: 1.05;
+  }
+  .fb-board-list li {
+    line-height: 1.3;
+  }
+  /* keep the desktop input (icon left · left-aligned text · custom yellow
+     caret) and just wrap the Search button onto its own full-width row */
+  /* symmetric padding so the wrapped Search button is centered */
+  .fb-search {
+    flex-wrap: wrap;
+    border-radius: 26px;
+    padding: 12px 14px;
+    gap: 10px;
+  }
+  .fb-search-field {
+    flex: 1 1 100px;
+  }
+  .fb-search .fb-btn {
+    flex: 1 0 100%;
+  }
+  /* logo a touch smaller */
+  .fb-header-row > a {
+    display: inline-flex;
+    transform: scale(0.85);
+    transform-origin: left center;
+  }
+  /* drop the second proof line on phones */
+  .fb-pill-lines span:nth-child(2) {
+    display: none;
+  }
+  /* all under-heading copy matches the hero sub (size + line-height) */
+  .fb-sub {
+    font-size: 18px;
+    line-height: 1.08;
+  }
+  /* footnotes a step smaller than the subs */
+  .fb-section--proof .fb-footnote,
+  .fb-reviews .fb-footnote {
+    font-size: 14px;
+  }
+  /* review card · avatar + (name·date / stars) header, text below full-width
+     aligned with the photo, reply full-width */
+  .fb-review-row {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    grid-template-areas:
+      "avatar header"
+      "text   text"
+      "reply  reply";
+    column-gap: 14px;
+    row-gap: 14px;
+    align-items: center;
+  }
+  .fb-review-avatar {
+    grid-area: avatar;
+    align-self: center;
+  }
+  .fb-review-row-body {
+    display: contents;
+  }
+  .fb-review-row-top {
+    grid-area: header;
+    row-gap: 4px;
+    column-gap: 10px;
+  }
+  .fb-review-row-top .fb-review-name {
+    order: 1;
+  }
+  .fb-review-row-top .fb-review-meta {
+    order: 2;
+  }
+  .fb-review-row-top .fb-stars {
+    order: 3;
+    flex-basis: 100%;
+  }
+  .fb-review-row .fb-review-text {
+    grid-area: text;
+    margin-top: 0;
+  }
+  .fb-btn--reply {
+    grid-area: reply;
+    width: 100%;
+    margin-left: 0;
+  }
+  /* white gap before the pricing band on phones */
+  .fb-pitch {
+    padding-bottom: 92px;
+  }
+  .fb-pricing {
+    padding-block: 74px 96px;
+  }
+  /* more room between the copy and the card (for the floating badge) */
+  .fb-pricing .fb-split {
+    gap: 56px;
+  }
+  /* FAQ heading sits much higher on phones */
+  #faq {
+    padding-top: 90px;
+  }
+  /* pricing card · roomier padding, smaller corners, tighter list line-height */
+  .fb-price-card {
+    padding: 44px 30px 34px;
+    border-radius: 36px;
+  }
+  .fb-price-list li {
+    line-height: 1.25;
+  }
+  .fb-footer-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 18px;
+  }
+  /* same 18px vertical rhythm between every footer row (incl. wrapped links) */
+  .fb-footer-nav {
+    row-gap: 18px;
+    column-gap: 22px;
+  }
+  /* a bit more breathing room under the green reviews band */
+  .fb-reviews {
+    padding-bottom: 92px;
+  }
+  /* wider red glow behind the closing CTA on phones */
+  .fb-cta-box::after {
+    background: radial-gradient(
+      ellipse 92% 98% at 50% 92%,
+      rgba(248, 27, 30, 0.62) 0%,
+      rgba(248, 27, 30, 0.3) 40%,
+      rgba(248, 27, 30, 0) 86%
+    );
+  }
+}

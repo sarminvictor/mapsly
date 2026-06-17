@@ -1,5 +1,5 @@
 /**
- * SMB landing copy-voice invariants.
+ * SMB landing copy-voice invariants · 2026-06 redesign shape.
  *
  * Maria's voice rules (per `.claude/rules/copy-voice.md` + `ui-ux-smb.md`)
  * are non-negotiable on this surface. Banned words = an immediate test
@@ -15,9 +15,11 @@ import en from "../../../../messages/en.json";
 interface ForBusinessesShape {
   meta: Record<string, string>;
   hero: Record<string, string>;
-  pitch: Record<string, string>;
+  proof: Record<string, string>;
   mirror: Record<string, string>;
   signals: Record<string, string>;
+  reviews: Record<string, string>;
+  pitch: Record<string, string>;
   pricing: Record<string, string>;
   faq: Record<string, string>;
   cta: Record<string, string>;
@@ -45,13 +47,16 @@ const BANNED = [
 
 // Required sections — if a future refactor accidentally drops one of
 // these, getTranslations() would throw on render. This test catches it
-// at build time instead.
+// at build time instead. Section order mirrors the page: hero → proof →
+// mirror → signals → reviews → pitch → pricing → faq → cta.
 const REQUIRED_SECTIONS: ReadonlyArray<keyof ForBusinessesShape> = [
   "meta",
   "hero",
-  "pitch",
+  "proof",
   "mirror",
   "signals",
+  "reviews",
+  "pitch",
   "pricing",
   "faq",
   "cta",
@@ -100,16 +105,25 @@ describe("for_businesses copy-voice invariants", () => {
     ).toEqual([]);
   });
 
-  test("hero has 4 stat tiles (mobile-first density limit per ui-ux-smb)", () => {
-    for (const i of [1, 2, 3, 4]) {
-      expect(fb.hero[`stat_${i}_num`]).toBeTruthy();
-      expect(fb.hero[`stat_${i}_label`]).toBeTruthy();
-    }
-    // 5th stat would violate the Maria density rule
-    expect(fb.hero["stat_5_num"]).toBeUndefined();
+  test("hero carries the search funnel (placeholder + label + cta)", () => {
+    expect(fb.hero.search_placeholder).toBeTruthy();
+    expect(fb.hero.search_label).toBeTruthy();
+    expect(fb.hero.search_cta).toBeTruthy();
+    // The redesigned hero has NO stat tiles — search pill is the single CTA
+    expect(fb.hero["stat_1_num"]).toBeUndefined();
   });
 
-  test("mirror has exactly 4 blocks (matches Maria's dashboard mockup)", () => {
+  test("proof has exactly 3 competitor-review cards + honesty footnote", () => {
+    for (const i of [1, 2, 3]) {
+      expect(fb.proof[`r${i}_name`]).toBeTruthy();
+      expect(fb.proof[`r${i}_text`]).toBeTruthy();
+      expect(fb.proof[`r${i}_chose`]).toBeTruthy();
+    }
+    expect(fb.proof["r4_name"]).toBeUndefined();
+    expect(fb.proof.footnote).toBeTruthy();
+  });
+
+  test("mirror has exactly 4 blocks (score gauge + 3 stat columns)", () => {
     for (const i of [1, 2, 3, 4]) {
       expect(fb.mirror[`block_${i}_label`]).toBeTruthy();
       expect(fb.mirror[`block_${i}_number`]).toBeTruthy();
@@ -119,18 +133,35 @@ describe("for_businesses copy-voice invariants", () => {
     expect(fb.mirror["block_5_label"]).toBeUndefined();
   });
 
-  test("signals has exactly 6 cards (c1..c6 — matches mockup)", () => {
-    for (const i of [1, 2, 3, 4, 5, 6]) {
+  test("signals has exactly 3 plain-English stat cards (c1..c3 — matches mock)", () => {
+    for (const i of [1, 2, 3]) {
       expect(fb.signals[`c${i}_label`]).toBeTruthy();
-      expect(fb.signals[`c${i}_pill`]).toBeTruthy();
+      expect(fb.signals[`c${i}_stat`]).toBeTruthy();
+      expect(fb.signals[`c${i}_unit`]).toBeTruthy();
       expect(fb.signals[`c${i}_desc`]).toBeTruthy();
     }
-    expect(fb.signals["c7_label"]).toBeUndefined();
+    expect(fb.signals["c4_label"]).toBeUndefined();
+  });
+
+  test("reviews has exactly 3 unanswered rows with mixed star ratings", () => {
+    const stars: number[] = [];
+    for (const i of [1, 2, 3]) {
+      expect(fb.reviews[`r${i}_name`]).toBeTruthy();
+      expect(fb.reviews[`r${i}_text`]).toBeTruthy();
+      const value = Number(fb.reviews[`r${i}_stars`]);
+      expect(value).toBeGreaterThanOrEqual(1);
+      expect(value).toBeLessThanOrEqual(5);
+      stars.push(value);
+    }
+    expect(fb.reviews["r4_name"]).toBeUndefined();
+    expect(fb.reviews.reply_cta).toBeTruthy();
+    // Mixed on purpose: the backlog story is about ALL reviews
+    expect(new Set(stars).size).toBeGreaterThan(1);
   });
 
   test("pricing surfaces single $29 plan (Maria gets one plan, not a comparison)", () => {
     expect(fb.pricing.price).toBe("$29");
-    expect(fb.pricing.title).toMatch(/\$29/);
+    expect(fb.pricing.title_lead).toMatch(/\$29/);
     // Should NOT have separate tiered prices that would imply a comparison
     expect(fb.pricing["solo_price"]).toBeUndefined();
     expect(fb.pricing["pro_price"]).toBeUndefined();
@@ -144,11 +175,9 @@ describe("for_businesses copy-voice invariants", () => {
     expect(fb.faq["q6"]).toBeUndefined();
   });
 
-  test("CTA has 3 trust signals (money-back · no-card · cancel)", () => {
-    expect(fb.cta.trust_1).toBeTruthy();
-    expect(fb.cta.trust_2).toBeTruthy();
-    expect(fb.cta.trust_3).toBeTruthy();
-    expect(fb.cta["trust_4"]).toBeUndefined();
+  test("CTA has a single primary action (one decision per screen — Maria rule)", () => {
+    expect(fb.cta.primary).toBeTruthy();
+    expect(fb.cta["secondary"]).toBeUndefined();
   });
 });
 
@@ -176,5 +205,43 @@ describe("for_businesses locale key parity", () => {
     expect(
       (enCa as { for_businesses?: unknown }).for_businesses,
     ).toBeUndefined();
+  });
+
+  test("es and fr carry no banned jargon either (same scan as en)", async () => {
+    const { default: es } = await import("../../../../messages/es.json");
+    const { default: fr } = await import("../../../../messages/fr.json");
+
+    for (const [name, locale] of [
+      ["es", es],
+      ["fr", fr],
+    ] as const) {
+      const strings = flatten(
+        (locale as { for_businesses: object }).for_businesses,
+      );
+      const offenders: string[] = [];
+      for (const [path, value] of strings) {
+        for (const re of BANNED) {
+          if (re.test(value)) offenders.push(`${name}:${path} /${re.source}/`);
+        }
+      }
+      expect(offenders).toEqual([]);
+    }
+  });
+
+  test("review star counts stay numeric 1-5 in every locale (NaN would dim all stars)", async () => {
+    const { default: es } = await import("../../../../messages/es.json");
+    const { default: fr } = await import("../../../../messages/fr.json");
+
+    for (const locale of [en, es, fr]) {
+      const reviews = (
+        locale as { for_businesses: { reviews: Record<string, string> } }
+      ).for_businesses.reviews;
+      for (const i of [1, 2, 3]) {
+        const value = Number(reviews[`r${i}_stars`]);
+        expect(Number.isInteger(value)).toBe(true);
+        expect(value).toBeGreaterThanOrEqual(1);
+        expect(value).toBeLessThanOrEqual(5);
+      }
+    }
   });
 });

@@ -1,11 +1,9 @@
-import * as React from "react";
-
 /**
- * SmbFAQ · 5 questions Maria asks before signing up.
+ * SmbFAQ · "Common questions. Quick answers."
  *
- * Uses native <details>/<summary> for the accordion — no client JS, no
- * hydration, no JS-disabled fallback needed. FAQPage JSON-LD emitted
- * inline so Google can render rich snippets (per `.claude/rules/seo.md`).
+ * Dark ink band. Native <details>/<summary> accordion — no client JS, no
+ * hydration. FAQPage JSON-LD emitted inline so Google can render rich
+ * snippets (per `.claude/rules/seo.md`).
  *
  * Pure server component.
  */
@@ -32,107 +30,34 @@ export function SmbFAQ({ t }: SmbFAQProps) {
   return (
     <section
       id="faq"
-      aria-labelledby="for-businesses-faq-title"
-      style={{
-        padding: "96px 24px",
-        background: "var(--color-bg-3)",
-      }}
+      className="fb-section fb-dark"
+      aria-labelledby="fb-faq-title"
     >
-      <div style={{ maxWidth: 800, margin: "0 auto" }}>
-        <div style={{ textAlign: "center", marginBottom: 48 }}>
-          <div
-            style={{
-              fontFamily: "var(--font-mono)",
-              fontSize: 12,
-              color: "var(--color-coral)",
-              textTransform: "uppercase",
-              letterSpacing: "0.12em",
-              marginBottom: 12,
-            }}
-          >
-            {t("faq.eyebrow")}
-          </div>
-          <h2
-            id="for-businesses-faq-title"
-            style={{
-              fontFamily: "var(--font-serif)",
-              fontSize: "clamp(32px, 4vw, 48px)",
-              fontWeight: 700,
-              letterSpacing: "-0.03em",
-              lineHeight: 1.1,
-              margin: 0,
-              color: "var(--color-text)",
-            }}
-          >
-            {t("faq.title")}
+      <div className="fb-container">
+        <div className="fb-faq-head">
+          <h2 id="fb-faq-title" className="fb-h2">
+            {t("faq.title_lead")}{" "}
+            <em className="fb-em fb-ylw">{t("faq.title_emph")}</em>
           </h2>
         </div>
 
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: 12,
-          }}
-        >
+        <div className="fb-faq-list">
           {ITEMS.map((q) => (
-            <details
-              key={q}
-              style={{
-                background: "var(--color-bg-2)",
-                borderRadius: 12,
-                border: "1px solid var(--color-border)",
-                overflow: "hidden",
-              }}
-            >
-              <summary
-                style={{
-                  cursor: "pointer",
-                  padding: "20px 24px",
-                  fontSize: 17,
-                  fontWeight: 600,
-                  color: "var(--color-text)",
-                  listStyle: "none",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  gap: 16,
-                  minHeight: 44,
-                }}
-              >
+            <details key={q} className="fb-faq-item">
+              <summary>
                 {t(`faq.${q}`)}
-                <span
-                  aria-hidden
-                  style={{
-                    flex: "0 0 auto",
-                    fontFamily: "var(--font-mono)",
-                    color: "var(--color-coral)",
-                    fontSize: 18,
-                    fontWeight: 700,
-                  }}
-                >
-                  +
-                </span>
+                <span className="fb-faq-plus" aria-hidden />
               </summary>
-              <div
-                style={{
-                  padding: "0 24px 22px",
-                  fontSize: 15,
-                  lineHeight: 1.6,
-                  color: "var(--color-text-2)",
-                }}
-              >
-                {t(`faq.${q.replace("q", "a")}`)}
-              </div>
+              <p className="fb-faq-answer">{t(`faq.${q.replace("q", "a")}`)}</p>
             </details>
           ))}
         </div>
-
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
-        />
       </div>
+
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
+      />
     </section>
   );
 }

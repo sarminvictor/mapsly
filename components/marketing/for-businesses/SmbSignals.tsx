@@ -1,11 +1,11 @@
-import * as React from "react";
+import { StatArrow } from "./fb-shared";
 
 /**
- * SmbSignals · 6 example signals in Maria's language.
+ * SmbSignals · "Not metrics. Plain English."
  *
- * Each card pairs a plain-English label, a concrete sample pill, and a
- * one-sentence explanation of what we'd show. NEVER uses signal jargon
- * (no MSI, CTR, schema, NAP, 3-pack) — outcome-first phrasing throughout.
+ * Cream rounded band (landing's second-screen palette): pitch on the left,
+ * three signal cards on the right — each a plain-English fact with a colored
+ * progress bar, not a dashboard metric.
  *
  * Pure server component.
  */
@@ -13,131 +13,77 @@ interface SmbSignalsProps {
   t: (key: string) => string;
 }
 
-const CARDS = ["c1", "c2", "c3", "c4", "c5", "c6"] as const;
+// Per-card accent + bar fill. Yellow / red / purple match the signal type.
+const CARDS = [
+  { n: 1, bar: 60, color: "var(--fb-yellow-deep)" },
+  { n: 2, bar: 75, color: "#f81b1e" },
+  { n: 3, bar: 55, color: "#a78fdf" },
+  { n: 4, bar: 68, color: "#5fae8a" },
+  { n: 5, bar: 40, color: "#f81b1e" },
+  { n: 6, bar: 50, color: "var(--fb-yellow-deep)" },
+  { n: 7, bar: 35, color: "#a78fdf" },
+] as const;
+
+/** Render a stat string, swapping a literal "→" for the SVG arrow glyph. */
+function StatText({ value }: { value: string }) {
+  if (!value.includes("→")) return <>{value}</>;
+  const [from, to] = value.split("→");
+  return (
+    <span className="fb-stat-value">
+      <span>{from.trim()}</span>
+      <StatArrow />
+      <span>{to.trim()}</span>
+    </span>
+  );
+}
 
 export function SmbSignals({ t }: SmbSignalsProps) {
   return (
     <section
-      id="signals"
-      aria-labelledby="for-businesses-signals-title"
-      style={{
-        padding: "96px 24px",
-        background: "var(--color-bg)",
-      }}
+      className="fb-section fb-stack-card fb-signals"
+      aria-labelledby="fb-signals-title"
+      data-fb-tone="light"
     >
-      <div style={{ maxWidth: 1120, margin: "0 auto" }}>
-        <div style={{ textAlign: "center", marginBottom: 56 }}>
-          <div
-            style={{
-              fontFamily: "var(--font-mono)",
-              fontSize: 12,
-              color: "var(--color-coral)",
-              textTransform: "uppercase",
-              letterSpacing: "0.12em",
-              marginBottom: 12,
-            }}
-          >
-            {t("signals.eyebrow")}
-          </div>
-          <h2
-            id="for-businesses-signals-title"
-            style={{
-              fontFamily: "var(--font-serif)",
-              fontSize: "clamp(32px, 4vw, 52px)",
-              fontWeight: 700,
-              letterSpacing: "-0.03em",
-              lineHeight: 1.05,
-              margin: "0 auto 20px",
-              color: "var(--color-text)",
-              maxWidth: 720,
-            }}
-          >
-            {t("signals.title")}
+      <div className="fb-container fb-split">
+        <div>
+          <h2 id="fb-signals-title" className="fb-h2">
+            {t("signals.title_lead")}{" "}
+            <em className="fb-em fb-redacc">{t("signals.title_emph")}</em>
           </h2>
-          <p
-            style={{
-              fontSize: 18,
-              color: "var(--color-text-2)",
-              lineHeight: 1.55,
-              margin: "0 auto",
-              maxWidth: 720,
-            }}
-          >
-            {t("signals.sub")}
-          </p>
+          <p className="fb-sub">{t("signals.sub")}</p>
         </div>
 
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
-            gap: 16,
-          }}
-        >
-          {CARDS.map((c) => (
-            <article
-              key={c}
-              style={{
-                padding: "28px 24px",
-                background: "var(--color-bg-2)",
-                borderRadius: 14,
-                border: "1px solid var(--color-border)",
-                display: "flex",
-                flexDirection: "column",
-                gap: 14,
-                minHeight: 180,
-              }}
-            >
+        {/* Auto-rising feed: the 7 cards are rendered twice so the upward
+            scroll loops seamlessly (translateY(-50%) lands the duplicate on
+            the original). The second copy is aria-hidden. Pauses for
+            prefers-reduced-motion. */}
+        <div className="fb-stat-stack">
+          <div className="fb-stat-track">
+            {[...CARDS, ...CARDS].map(({ n, bar, color }, idx) => (
               <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  gap: 12,
-                  flexWrap: "wrap",
-                }}
+                key={idx}
+                className="fb-stat-card"
+                aria-hidden={idx >= CARDS.length || undefined}
               >
-                <h3
-                  style={{
-                    margin: 0,
-                    fontFamily: "var(--font-serif)",
-                    fontSize: 19,
-                    fontWeight: 600,
-                    letterSpacing: "-0.01em",
-                    color: "var(--color-text)",
-                  }}
-                >
-                  {t(`signals.${c}_label`)}
-                </h3>
-                <span
-                  style={{
-                    padding: "4px 10px",
-                    borderRadius: 999,
-                    background: "var(--color-coral-dim, rgba(195,85,58,0.1))",
-                    color: "var(--color-coral)",
-                    fontFamily: "var(--font-mono)",
-                    fontSize: 11,
-                    fontWeight: 600,
-                    textTransform: "uppercase",
-                    letterSpacing: "0.06em",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {t(`signals.${c}_pill`)}
-                </span>
+                <div className="fb-stat-card-head">
+                  <p className="fb-stat-card-label">
+                    {t(`signals.c${n}_label`)}
+                  </p>
+                  <span className="fb-stat-card-tag">
+                    {t(`signals.c${n}_tag`)}
+                  </span>
+                </div>
+                <div className="fb-stat-card-num">
+                  <StatText value={t(`signals.c${n}_stat`)} />
+                  <span className="fb-unit">{t(`signals.c${n}_unit`)}</span>
+                </div>
+                <div className="fb-stat-bar" aria-hidden>
+                  <i style={{ width: `${bar}%`, background: color }} />
+                </div>
+                <p className="fb-stat-card-desc">{t(`signals.c${n}_desc`)}</p>
               </div>
-              <p
-                style={{
-                  margin: 0,
-                  fontSize: 14,
-                  lineHeight: 1.55,
-                  color: "var(--color-text-2)",
-                }}
-              >
-                {t(`signals.${c}_desc`)}
-              </p>
-            </article>
-          ))}
+            ))}
+          </div>
         </div>
       </div>
     </section>
