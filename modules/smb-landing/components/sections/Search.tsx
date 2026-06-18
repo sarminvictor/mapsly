@@ -371,13 +371,13 @@ const statCardLabel: CSSProperties = {
   maxWidth: 128,
 };
 
-// margin lives on .landing-stat-big in landing.css (tightens at ≤560px).
-// Fluid size: the two stats sit in narrow 2-up cells, so a 6-digit number
-// (e.g. "131,850 / mo") overflowed at a fixed 65px. clamp shrinks it to fit the
-// cell while staying prominent on wide screens (Viktor 2026-06-14).
+// margin + font-size live on .landing-stat-big in landing.css.
+// Fluid size: on desktop the two stats sit in narrow 2-up cells, so a 6-digit
+// number (e.g. "131,850 / mo") overflowed at a fixed 65px — clamp shrinks it to
+// fit the cell. On mobile (≤560px) they stack full-width, so landing.css bumps
+// the size back up for readability (Viktor 2026-06-14, mobile 2026-06-17).
 const statCardBig: CSSProperties = {
   fontFamily: SERIF,
-  fontSize: "clamp(36px, 4vw, 48px)",
   fontWeight: 700,
   lineHeight: 1,
   color: "var(--color-text)",

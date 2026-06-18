@@ -118,8 +118,8 @@ export function PricingSection({
           <div
             style={{
               position: "absolute",
-              left: -240,
-              bottom: 0,
+              left: -200,
+              bottom: 40,
             }}
             className="landing-pricing-arrow"
           >
@@ -188,7 +188,7 @@ export function PricingSection({
                 <CtaPill
                   href={ctaHref}
                   cta="pricing"
-                  label="See what to fix first - $29/mo"
+                  label="See what to fix - $29/mo"
                   height={60}
                 />
               </span>

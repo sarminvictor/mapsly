@@ -357,6 +357,8 @@ html[data-landing-hidden] .landing-critical-pulse {
 }
 .landing-stat-big {
   margin: 8px 0 0;
+  /* narrow 2-up cells on desktop — clamp keeps 6-digit numbers from overflowing */
+  font-size: clamp(36px, 4vw, 48px);
 }
 .landing-search-future {
   margin: 40px auto 0;
@@ -418,9 +420,9 @@ html[data-landing-hidden] .landing-critical-pulse {
   box-sizing: border-box;
   width: 420px;
   max-width: 100%;
+  /* auto margins center the card (and its CTAs) within the right column */
   margin: 50px auto 0;
   padding: 60px 44px;
-  transform: translateX(-40px);
 }
 .landing-pricing-arrow {
   display: none;
@@ -800,9 +802,11 @@ html[data-landing-hidden] .landing-critical-pulse {
     gap: 40px;
   }
   /* Tighter label→number inside each stat group (the bigger grid gap above
-   * separates the two groups). */
+   * separates the two groups). Stats stack full-width here, so the number
+   * scales up well past the desktop cap for readability on phones. */
   .landing-stat-big {
     margin-top: 2px;
+    font-size: clamp(54px, 16vw, 66px);
   }
   /* Hero meta: stack category + address onto two lines (drop the inline dot). */
   .landing-hero-meta {
