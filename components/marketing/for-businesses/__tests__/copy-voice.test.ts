@@ -133,14 +133,15 @@ describe("for_businesses copy-voice invariants", () => {
     expect(fb.mirror["block_5_label"]).toBeUndefined();
   });
 
-  test("signals has exactly 3 plain-English stat cards (c1..c3 — matches mock)", () => {
-    for (const i of [1, 2, 3]) {
+  test("signals has exactly 7 plain-English stat cards (c1..c7 — the rising feed)", () => {
+    for (const i of [1, 2, 3, 4, 5, 6, 7]) {
       expect(fb.signals[`c${i}_label`]).toBeTruthy();
+      expect(fb.signals[`c${i}_tag`]).toBeTruthy();
       expect(fb.signals[`c${i}_stat`]).toBeTruthy();
       expect(fb.signals[`c${i}_unit`]).toBeTruthy();
       expect(fb.signals[`c${i}_desc`]).toBeTruthy();
     }
-    expect(fb.signals["c4_label"]).toBeUndefined();
+    expect(fb.signals["c8_label"]).toBeUndefined();
   });
 
   test("reviews has exactly 3 unanswered rows with mixed star ratings", () => {

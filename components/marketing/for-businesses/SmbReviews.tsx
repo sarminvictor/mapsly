@@ -84,10 +84,7 @@ export function SmbReviews({ t }: SmbReviewsProps) {
                     </div>
                     <p className="fb-review-text">{t(`reviews.r${i}_text`)}</p>
                   </div>
-                  <span
-                    className="fb-btn fb-btn--reply"
-                    aria-hidden="true"
-                  >
+                  <span className="fb-btn fb-btn--reply" aria-hidden="true">
                     {t("reviews.reply_cta")}
                   </span>
                 </article>

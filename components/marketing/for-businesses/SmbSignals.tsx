@@ -4,8 +4,8 @@ import { StatArrow } from "./fb-shared";
  * SmbSignals · "Not metrics. Plain English."
  *
  * Cream rounded band (landing's second-screen palette): pitch on the left,
- * three signal cards on the right — each a plain-English fact with a colored
- * progress bar, not a dashboard metric.
+ * seven signal cards in an auto-rising feed on the right — each a plain-English
+ * fact with a colored progress bar, not a dashboard metric.
  *
  * Pure server component.
  */
