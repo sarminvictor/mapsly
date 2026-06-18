@@ -1330,12 +1330,9 @@
   margin-left: 40px; /* more space between text and button */
   background: #d7f0df;
   color: var(--fb-ink);
-}
-.fb-btn--reply:hover {
-  background: rgba(215, 240, 223, 0.28);
-  box-shadow:
-    inset -4px -4px 30px 0 #d7f0df,
-    inset 4px 4px 30px 0 #d7f0df;
+  /* decorative only — illustrates the product, never navigates or reacts */
+  cursor: default;
+  pointer-events: none;
 }
 .fb-reviews .fb-footnote {
   color: var(--fb-white-70);

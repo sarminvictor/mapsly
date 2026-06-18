@@ -1,7 +1,5 @@
 import Image from "next/image";
 
-import { Link } from "@/i18n/navigation";
-
 import { Stars } from "./fb-shared";
 import { Reveal } from "./Reveal";
 
@@ -9,8 +7,8 @@ import { Reveal } from "./Reveal";
  * SmbReviews · "Eight reviews you haven't answered yet."
  *
  * Green gradient band: pitch on the left, three unanswered-review cards on
- * the right, each with a "Reply with AI" pill (links into the signin
- * funnel — the product does the real thing). Mixed ratings on purpose:
+ * the right, each with a decorative "Reply with AI" pill (non-interactive —
+ * it illustrates the product, it doesn't navigate). Mixed ratings on purpose:
  * the unanswered-backlog story is about ALL reviews, not just angry ones.
  *
  * Pure server component.
@@ -86,9 +84,12 @@ export function SmbReviews({ t }: SmbReviewsProps) {
                     </div>
                     <p className="fb-review-text">{t(`reviews.r${i}_text`)}</p>
                   </div>
-                  <Link href="/signin" className="fb-btn fb-btn--reply">
+                  <span
+                    className="fb-btn fb-btn--reply"
+                    aria-hidden="true"
+                  >
                     {t("reviews.reply_cta")}
-                  </Link>
+                  </span>
                 </article>
               </Reveal>
             ))}
