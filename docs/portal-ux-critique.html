@@ -1,0 +1,3268 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>
+      Mapsly Portal · Page-by-Page Scored UX Critique — Brand + Signal Model
+      (v4)
+    </title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..700;1,9..144,400..600&family=Montserrat:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg: #f6f7fb;
+        --surface: #fff;
+        --ink: #0f172a;
+        --ink-2: #334155;
+        --muted: #64748b;
+        --faint: #94a3b8;
+        --line: #e6e9f0;
+        --line-2: #eef1f6;
+        --indigo: #5b3df5;
+        --indigo-50: #eef0ff;
+        --indigo-100: #e0e3ff;
+        --indigo-700: #4631c9;
+        --yellow: #f2e94e;
+        --yellow-ink: #7a6a00;
+        --yellow-soft: #fdfacb;
+        --coral: #b96562;
+        --coral-50: #f7ebea;
+        --green: #0f9d6b;
+        --green-50: #e7f8f0;
+        --amber: #b7791f;
+        --amber-50: #fdf4e3;
+        --red: #dc2626;
+        --red-50: #fdeaea;
+        --teal: #0d9488;
+        --head: "Fraunces", Georgia, serif;
+        --font:
+          "Montserrat", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          Helvetica, Arial, sans-serif;
+        --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+        --shadow:
+          0 1px 2px rgba(15, 23, 42, 0.04), 0 10px 30px rgba(15, 23, 42, 0.07);
+        --shadow-lg:
+          0 8px 40px rgba(91, 61, 245, 0.1), 0 2px 8px rgba(15, 23, 42, 0.05);
+        --gradient:
+          radial-gradient(900px 420px at 12% -10%, #e7e2ff 0%, transparent 55%),
+          radial-gradient(760px 460px at 92% 8%, #d7f4ef 0%, transparent 52%),
+          radial-gradient(700px 520px at 60% 110%, #eef0ff 0%, transparent 50%),
+          linear-gradient(180deg, #fbfbff, #f6f7fb);
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font-family: var(--font);
+        font-size: 14px;
+        line-height: 1.62;
+        -webkit-font-smoothing: antialiased;
+      }
+      .wrap {
+        display: grid;
+        grid-template-columns: 262px 1fr;
+        max-width: 1320px;
+        margin: 0 auto;
+      }
+      .toc {
+        position: sticky;
+        top: 0;
+        height: 100vh;
+        overflow: auto;
+        padding: 26px 16px;
+        border-right: 1px solid var(--line);
+        background: linear-gradient(180deg, #fbfbff, #f6f7fb);
+      }
+      .toc .b {
+        font-family: var(--head);
+        font-weight: 600;
+        font-size: 17px;
+        margin-bottom: 16px;
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        letter-spacing: -0.01em;
+      }
+      .toc .b .dot {
+        width: 22px;
+        height: 22px;
+        border-radius: 7px;
+        background: linear-gradient(135deg, #6d4bff, #9d7bff);
+        box-shadow: 0 2px 8px rgba(91, 61, 245, 0.4);
+      }
+      .toc .grp {
+        font-size: 10.5px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: var(--faint);
+        margin: 16px 9px 6px;
+      }
+      .toc a {
+        display: block;
+        color: var(--muted);
+        font-size: 12.7px;
+        padding: 5px 9px;
+        border-radius: 8px;
+        text-decoration: none;
+        font-weight: 500;
+      }
+      .toc a:hover {
+        background: var(--indigo-50);
+        color: var(--indigo-700);
+      }
+      .toc a:focus-visible {
+        outline: 2px solid var(--indigo);
+        outline-offset: 2px;
+      }
+      .main {
+        padding: 44px 52px 120px;
+        min-width: 0;
+      }
+      h1 {
+        font-family: var(--head);
+        font-size: 38px;
+        font-weight: 600;
+        letter-spacing: -0.02em;
+        line-height: 1.08;
+        margin: 0 0 10px;
+      }
+      h2 {
+        font-family: var(--head);
+        font-size: 26px;
+        font-weight: 600;
+        letter-spacing: -0.015em;
+        margin: 54px 0 6px;
+        padding-top: 16px;
+        scroll-margin-top: 14px;
+      }
+      h3 {
+        font-family: var(--head);
+        font-size: 18px;
+        font-weight: 600;
+        margin: 24px 0 6px;
+        letter-spacing: -0.01em;
+      }
+      p {
+        margin: 9px 0;
+        color: var(--ink-2);
+      }
+      .lead {
+        font-size: 16.5px;
+        color: var(--muted);
+        max-width: 820px;
+        line-height: 1.6;
+      }
+      .eyebrow {
+        font-size: 11.5px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.11em;
+        color: var(--indigo);
+        margin-bottom: 10px;
+      }
+      .hl {
+        background: linear-gradient(180deg, transparent 56%, var(--yellow) 56%);
+        padding: 0 3px;
+        border-radius: 2px;
+        font-style: italic;
+        font-family: var(--head);
+        font-weight: 500;
+      }
+      .hl-ink {
+        color: var(--ink);
+        font-family: var(--head);
+        font-style: italic;
+        font-weight: 600;
+      }
+      code {
+        font-family: var(--mono);
+        font-size: 12.2px;
+        background: var(--line-2);
+        padding: 1px 5px;
+        border-radius: 5px;
+        color: var(--ink-2);
+      }
+      .coin {
+        display: inline-block;
+        width: 13px;
+        height: 13px;
+        border-radius: 50%;
+        background: radial-gradient(circle at 35% 30%, #fff6b0, #e4d52a);
+        border: 1px solid #cdbf2a;
+        vertical-align: -2px;
+        margin-right: 1px;
+      }
+      /* hero */
+      .hero {
+        background: var(--gradient);
+        border: 1px solid var(--line);
+        border-radius: 24px;
+        padding: 34px 36px;
+        margin: 6px 0 26px;
+        box-shadow: var(--shadow-lg);
+      }
+      .hero .big {
+        font-family: var(--head);
+        font-size: 46px;
+        font-weight: 600;
+        line-height: 1.05;
+        letter-spacing: -0.025em;
+        margin: 14px 0 0;
+      }
+      .countup {
+        font-family: var(--head);
+        font-weight: 600;
+        color: var(--indigo);
+      }
+      /* generic card */
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        box-shadow: var(--shadow);
+        padding: 22px;
+        margin: 16px 0;
+      }
+      .card.framed {
+        background: var(--gradient);
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+        margin: 12px 0;
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        overflow: hidden;
+      }
+      th {
+        text-align: left;
+        font-size: 10.5px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--faint);
+        font-weight: 700;
+        padding: 11px 13px;
+        border-bottom: 1px solid var(--line);
+        background: #fbfcfe;
+      }
+      td {
+        padding: 11px 13px;
+        border-bottom: 1px solid var(--line-2);
+        vertical-align: top;
+      }
+      tr:last-child td {
+        border-bottom: 0;
+      }
+      .tag {
+        display: inline-block;
+        font-size: 11px;
+        font-weight: 700;
+        padding: 2px 9px;
+        border-radius: 999px;
+        white-space: nowrap;
+      }
+      .ok {
+        background: var(--green-50);
+        color: var(--green);
+      }
+      .part {
+        background: var(--amber-50);
+        color: var(--amber);
+      }
+      .miss {
+        background: var(--red-50);
+        color: var(--red);
+      }
+      .ix {
+        background: var(--indigo-50);
+        color: var(--indigo-700);
+      }
+      .yel {
+        background: var(--yellow-soft);
+        color: var(--yellow-ink);
+      }
+      .cor {
+        background: var(--coral-50);
+        color: var(--coral);
+      }
+      /* score pills */
+      .gband {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 12px;
+        margin: 16px 0;
+      }
+      @media (max-width: 820px) {
+        .gband {
+          grid-template-columns: repeat(2, 1fr);
+        }
+      }
+      .gcard {
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        padding: 16px;
+        text-align: center;
+        box-shadow: var(--shadow);
+      }
+      .gcard .v {
+        font-family: var(--head);
+        font-size: 30px;
+        font-weight: 600;
+        letter-spacing: -0.02em;
+      }
+      .gcard .v .arrow {
+        font-size: 15px;
+        color: var(--faint);
+        font-weight: 400;
+        margin: 0 4px;
+      }
+      .gcard .k {
+        font-size: 11.5px;
+        color: var(--muted);
+        font-weight: 600;
+        margin-top: 4px;
+        line-height: 1.35;
+      }
+      .v.lo {
+        color: var(--coral);
+      }
+      .v.mid {
+        color: var(--amber);
+      }
+      .v.hi {
+        color: var(--green);
+      }
+      /* page critique block */
+      .pg {
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        background: #fff;
+        margin: 18px 0;
+        overflow: hidden;
+        box-shadow: var(--shadow);
+      }
+      .pg .ph {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 16px 20px;
+        background: var(--gradient);
+        border-bottom: 1px solid var(--line);
+      }
+      .pg .pid {
+        flex: 0 0 auto;
+        width: 40px;
+        height: 40px;
+        border-radius: 11px;
+        display: grid;
+        place-items: center;
+        font-family: var(--head);
+        font-weight: 600;
+        font-size: 16px;
+        background: #fff;
+        color: var(--indigo-700);
+        border: 1px solid var(--indigo-100);
+        box-shadow: 0 2px 8px rgba(91, 61, 245, 0.12);
+      }
+      .pg .pt {
+        font-family: var(--head);
+        font-weight: 600;
+        font-size: 19px;
+        letter-spacing: -0.01em;
+      }
+      .pg .pt .sub {
+        display: block;
+        font-family: var(--font);
+        font-size: 11.5px;
+        font-weight: 600;
+        color: var(--muted);
+        letter-spacing: 0;
+        margin-top: 1px;
+      }
+      .pg .pscore {
+        margin-left: auto;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+      }
+      .delta {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        padding: 5px 12px;
+        font-weight: 700;
+        font-size: 13px;
+        box-shadow: var(--shadow);
+      }
+      .delta .b {
+        color: var(--coral);
+        font-family: var(--head);
+      }
+      .delta .t {
+        color: var(--green);
+        font-family: var(--head);
+      }
+      .delta .ar {
+        color: var(--faint);
+        font-size: 12px;
+      }
+      .pg .pb {
+        padding: 18px 20px;
+      }
+      .pg .pb .ln {
+        display: grid;
+        grid-template-columns: 128px 1fr;
+        gap: 12px;
+        padding: 9px 0;
+        border-bottom: 1px solid var(--line-2);
+      }
+      .pg .pb .ln:last-child {
+        border-bottom: 0;
+      }
+      .pg .pb .ln .k {
+        font-size: 10.5px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--faint);
+        padding-top: 3px;
+      }
+      .pg .pb .ln.wrong .k {
+        color: var(--coral);
+      }
+      .pg .pb .ln.fix .k {
+        color: var(--green);
+      }
+      .pg .pb .ln .vv {
+        font-size: 13.2px;
+        color: var(--ink-2);
+      }
+      .pg .pb .ln .vv ul {
+        margin: 2px 0;
+        padding-left: 17px;
+      }
+      .pg .pb .ln .vv li {
+        margin: 4px 0;
+      }
+      .dims {
+        display: flex;
+        gap: 7px;
+        flex-wrap: wrap;
+        margin-top: 3px;
+      }
+      .dim {
+        font-size: 11px;
+        font-weight: 600;
+        background: var(--line-2);
+        border-radius: 8px;
+        padding: 3px 9px;
+        color: var(--ink-2);
+        font-family: var(--mono);
+      }
+      .dim b {
+        font-family: var(--font);
+        font-weight: 700;
+      }
+      .dim .lo {
+        color: var(--coral);
+      }
+      .dim .hi {
+        color: var(--green);
+      }
+      @media (max-width: 820px) {
+        .pg .pb .ln {
+          grid-template-columns: 1fr;
+          gap: 2px;
+        }
+        .main {
+          padding: 30px 18px 80px;
+        }
+      }
+      /* signal tier cards */
+      .sigwrap {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+        margin: 16px 0;
+      }
+      @media (max-width: 820px) {
+        .sigwrap {
+          grid-template-columns: 1fr;
+        }
+      }
+      .sigtier {
+        border-radius: 18px;
+        padding: 20px;
+        border: 1px solid var(--line);
+        box-shadow: var(--shadow);
+      }
+      .sigtier.primary {
+        background: linear-gradient(160deg, #fff, #f3f1ff);
+        border-color: var(--indigo-100);
+      }
+      .sigtier.raw {
+        background: #fff;
+      }
+      .sigtier .tt {
+        font-family: var(--head);
+        font-size: 18px;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 9px;
+      }
+      .sigtier .badge {
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+        padding: 3px 9px;
+        border-radius: 999px;
+      }
+      .sigtier.primary .badge {
+        background: var(--indigo);
+        color: #fff;
+      }
+      .sigtier.raw .badge {
+        background: var(--line-2);
+        color: var(--muted);
+      }
+      /* signal demo chip card */
+      .sigcard {
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: #fff;
+        padding: 14px 16px;
+        margin: 12px 0;
+        box-shadow: var(--shadow);
+      }
+      .sigcard .nm {
+        font-family: var(--head);
+        font-size: 16px;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 9px;
+      }
+      .sigcard .strength {
+        margin-left: auto;
+        font-size: 11px;
+        font-weight: 700;
+        font-family: var(--mono);
+      }
+      .sigcard .means {
+        color: var(--ink-2);
+        font-size: 13px;
+        margin: 4px 0 2px;
+      }
+      .sigcard .pitch {
+        color: var(--indigo-700);
+        font-size: 12.5px;
+        font-weight: 600;
+        margin: 2px 0 8px;
+      }
+      .recipe {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+      .recipe .lbl {
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--faint);
+        margin-right: 2px;
+      }
+      .rchip {
+        font-family: var(--mono);
+        font-size: 11.5px;
+        background: var(--line-2);
+        border: 1px solid var(--line);
+        border-radius: 7px;
+        padding: 2px 8px;
+        color: var(--ink-2);
+      }
+      .andop {
+        font-size: 10px;
+        font-weight: 700;
+        color: var(--indigo);
+        padding: 0 1px;
+      }
+      .addtog {
+        margin-left: auto;
+        font-size: 11.5px;
+        font-weight: 700;
+        color: var(--indigo-700);
+        border: 1px solid var(--indigo-100);
+        background: var(--indigo-50);
+        border-radius: 999px;
+        padding: 3px 12px;
+      }
+      /* outcome group header */
+      .ogrp {
+        font-family: var(--head);
+        font-size: 15px;
+        font-weight: 600;
+        margin: 18px 0 2px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .ogrp .val {
+        font-family: var(--font);
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--muted);
+        font-style: italic;
+      }
+      /* raw filter row */
+      .rawrow {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+        flex-wrap: wrap;
+        font-size: 12.5px;
+        background: #fbfcfe;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 8px 12px;
+        margin: 7px 0;
+      }
+      .opbox {
+        font-family: var(--mono);
+        font-weight: 600;
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 7px;
+        padding: 2px 8px;
+      }
+      /* vs block */
+      .vs {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        overflow: hidden;
+        margin: 14px 0;
+        box-shadow: var(--shadow);
+      }
+      .vs > div {
+        padding: 18px;
+      }
+      .vs .old {
+        background: var(--coral-50);
+      }
+      .vs .new {
+        background: var(--green-50);
+        border-left: 1px solid var(--line);
+      }
+      .vs h4 {
+        margin: 0 0 9px;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        font-family: var(--font);
+      }
+      .vs .old h4 {
+        color: var(--coral);
+      }
+      .vs .new h4 {
+        color: var(--green);
+      }
+      .vs ul {
+        margin: 0;
+        padding-left: 18px;
+      }
+      .vs li {
+        margin: 6px 0;
+        font-size: 13px;
+      }
+      @media (max-width: 820px) {
+        .vs {
+          grid-template-columns: 1fr;
+        }
+        .sigwrap {
+          grid-template-columns: 1fr;
+        }
+      }
+      /* template gallery demo */
+      .tplgrid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        margin: 12px 0;
+      }
+      @media (max-width: 820px) {
+        .tplgrid {
+          grid-template-columns: 1fr;
+        }
+      }
+      .tpl {
+        display: flex;
+        gap: 11px;
+        align-items: flex-start;
+        border: 1px solid var(--line);
+        border-radius: 13px;
+        background: #fff;
+        padding: 12px 14px;
+        box-shadow: var(--shadow-sm, 0 1px 2px rgba(15, 23, 42, 0.05));
+      }
+      .tpl .ic {
+        flex: 0 0 auto;
+        width: 34px;
+        height: 34px;
+        border-radius: 10px;
+        display: grid;
+        place-items: center;
+        font-size: 17px;
+        background: var(--indigo-50);
+      }
+      .tpl .nm {
+        font-weight: 700;
+        font-size: 13.5px;
+      }
+      .tpl .out {
+        font-size: 11.8px;
+        color: var(--muted);
+        margin: 1px 0 6px;
+      }
+      .tpl .chips {
+        display: flex;
+        gap: 4px;
+        flex-wrap: wrap;
+      }
+      .tpl .chips span {
+        font-size: 10px;
+        font-weight: 600;
+        background: var(--line-2);
+        border-radius: 6px;
+        padding: 1px 7px;
+        color: var(--ink-2);
+      }
+      .tpl .use {
+        margin-left: auto;
+        font-size: 11px;
+        font-weight: 700;
+        color: var(--indigo-700);
+        align-self: center;
+      }
+      .tplcustom {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        border: 1.5px dashed var(--indigo-100);
+        border-radius: 13px;
+        background: var(--indigo-50);
+        padding: 14px 16px;
+        margin: 10px 0;
+      }
+      .tplcustom .ic {
+        font-size: 20px;
+      }
+      .tplcustom .nm {
+        font-weight: 700;
+        font-size: 14px;
+      }
+      .tplcustom .d {
+        font-size: 12px;
+        color: var(--muted);
+      }
+      /* principle / callout */
+      .principle {
+        border-left: 3px solid var(--yellow);
+        padding: 6px 0 6px 16px;
+        margin: 18px 0;
+        background: linear-gradient(90deg, var(--yellow-soft), transparent 70%);
+        border-radius: 0 8px 8px 0;
+      }
+      .principle .p {
+        color: var(--coral);
+        font-weight: 700;
+        font-size: 12.5px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      .principle .d {
+        font-family: var(--head);
+        font-weight: 600;
+        font-size: 17px;
+        margin: 4px 0;
+      }
+      .note {
+        color: var(--faint);
+        font-size: 12px;
+      }
+      .brandrow {
+        display: grid;
+        grid-template-columns: 170px 1fr;
+        gap: 14px;
+        padding: 14px 0;
+        border-bottom: 1px solid var(--line-2);
+        align-items: start;
+      }
+      .brandrow:last-child {
+        border-bottom: 0;
+      }
+      .brandrow .bk {
+        font-family: var(--head);
+        font-size: 15px;
+        font-weight: 600;
+      }
+      .specimen {
+        font-family: var(--head);
+        font-size: 30px;
+        font-weight: 600;
+        letter-spacing: -0.02em;
+        line-height: 1.1;
+      }
+      .specimen.body {
+        font-family: var(--font);
+        font-size: 14px;
+        font-weight: 500;
+        letter-spacing: 0;
+      }
+      .specimen.mono {
+        font-family: var(--mono);
+        font-size: 15px;
+      }
+      .swatches {
+        display: flex;
+        gap: 9px;
+        flex-wrap: wrap;
+        margin-top: 4px;
+      }
+      .sw {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 5px;
+        font-size: 10px;
+        font-family: var(--mono);
+        color: var(--muted);
+      }
+      .sw .chip {
+        width: 48px;
+        height: 34px;
+        border-radius: 9px;
+        border: 1px solid rgba(0, 0, 0, 0.08);
+      }
+      .pillrow {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        align-items: center;
+        margin-top: 4px;
+      }
+      .pbtn {
+        border-radius: 999px;
+        padding: 7px 16px;
+        font-weight: 700;
+        font-size: 12.5px;
+        border: 1px solid transparent;
+      }
+      .pbtn.indigo {
+        background: var(--indigo);
+        color: #fff;
+        box-shadow: 0 4px 14px rgba(91, 61, 245, 0.3);
+      }
+      .pbtn.yellow {
+        background: var(--yellow);
+        color: var(--ink);
+        box-shadow: 0 4px 14px rgba(242, 233, 78, 0.5);
+      }
+      .pbtn.ghost {
+        background: #fff;
+        border-color: var(--line);
+        color: var(--ink-2);
+      }
+      .pillsearch {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        background: #fff;
+        padding: 8px 16px;
+        font-size: 12.5px;
+        color: var(--muted);
+        max-width: 340px;
+        box-shadow: var(--shadow);
+      }
+      .gauge {
+        width: 120px;
+        height: 120px;
+      }
+      .quotecard {
+        position: relative;
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        padding: 22px 22px 18px;
+        box-shadow: var(--shadow);
+      }
+      .quotecard .qm {
+        font-family: var(--head);
+        font-size: 54px;
+        line-height: 0.6;
+        color: var(--indigo-100);
+        position: absolute;
+        top: 14px;
+        left: 16px;
+      }
+      .quotecard .qt {
+        font-family: var(--head);
+        font-size: 16px;
+        font-style: italic;
+        font-weight: 500;
+        margin: 14px 0 8px;
+        color: var(--ink);
+        position: relative;
+      }
+      .quotecard .stars {
+        color: var(--yellow);
+        letter-spacing: 1px;
+        font-size: 15px;
+      }
+      .quotecard .chose {
+        color: var(--coral);
+        font-size: 12.5px;
+        font-weight: 600;
+        margin-top: 4px;
+      }
+      .why {
+        background: var(--yellow-soft);
+        border: 1px solid #ece07f;
+        border-radius: 12px;
+        padding: 13px 16px;
+        margin: 12px 0;
+      }
+      .why .wk {
+        font-size: 10.5px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+        color: var(--yellow-ink);
+        margin-bottom: 3px;
+      }
+      .why p {
+        margin: 3px 0;
+        color: #5c5210;
+        font-size: 13px;
+      }
+      .tline {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        font-size: 12.5px;
+        color: var(--ink-2);
+        padding: 5px 0;
+      }
+      .tline .n {
+        font-family: var(--mono);
+        font-weight: 600;
+        color: var(--indigo-700);
+        background: var(--indigo-50);
+        border-radius: 6px;
+        padding: 1px 7px;
+        font-size: 11px;
+      }
+      .check {
+        color: var(--green);
+        font-weight: 800;
+      }
+      .ex {
+        color: var(--coral);
+        font-weight: 800;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <nav class="toc" aria-label="Contents">
+        <div class="b"><span class="dot"></span> UX critique · v4</div>
+        <a href="#intro">The brief &amp; the verdict</a>
+        <a href="#scorecard">Before → target scorecard</a>
+        <div class="grp">Page-by-page critique</div>
+        <a href="#p-welcome">1 · Welcome</a>
+        <a href="#p-goal">2 · Goal / Templates</a>
+        <a href="#p-build">3 · Build / Signals</a>
+        <a href="#p-preview">4 · Preview</a>
+        <a href="#p-discover">5 · Discover</a>
+        <a href="#p-gate">6 · Enrich gate</a>
+        <a href="#p-enriching">7 · Enriching</a>
+        <a href="#p-workspace">8 · Workspace / Leads table</a>
+        <a href="#p-drawer">9 · Lead drawer</a>
+        <a href="#p-touch">10 · Touchpoints</a>
+        <a href="#p-billing">11 · Billing</a>
+        <a href="#p-research">12 · Research list</a>
+        <div class="grp">The two foundations</div>
+        <a href="#signal-model">The signal model — the moat</a>
+        <a href="#templates">Templates rework</a>
+        <a href="#brand">Brand alignment</a>
+        <div class="grp">Reference</div>
+        <a href="#why">Why this beats the template</a>
+        <a
+          href="portal-ux-coverage.html"
+          style="color: var(--indigo-700); font-weight: 600; margin-top: 10px"
+          >→ Coverage doc (v3)</a
+        >
+        <a
+          href="portal-prototype.html"
+          style="color: var(--indigo-700); font-weight: 600"
+          >→ Clickable prototype</a
+        >
+      </nav>
+      <main class="main">
+        <div class="eyebrow">
+          Mapsly · Agency portal · page-by-page scored critique
+        </div>
+        <h1>
+          Every screen, scored before and after — against
+          <span class="hl-ink">Linear / Attio / Airtable</span> and against
+          <span class="hl">the Mapsly brand</span>.
+        </h1>
+        <p class="lead">
+          This is the self-critical companion to the rework. For each of the
+          twelve portal pages I give a <b>before</b> score (1–10 across clarity,
+          transparency, brand-fit, best-practice), name exactly what was wrong —
+          citing concrete elements, not vibes — describe the rework, and set a
+          <b>target</b>. Two dedicated sections then fix the two things that
+          were structurally broken: the <b>signal model</b> (our moat, defined
+          wrong before) and the <b>brand</b> (flat Inter made it look
+          AI-templated).
+        </p>
+
+        <div class="hero">
+          <div class="eyebrow">The honest summary</div>
+          <div class="big">
+            It worked. It just didn't <span class="hl">feel like us</span>, and
+            it sold our moat as a checklist.
+          </div>
+          <p style="margin-top: 14px; max-width: 760px">
+            Two failures ran through every page. <b>Brand:</b> flat Inter, flat
+            white surfaces, generic SaaS copy ("Build your search") —
+            indistinguishable from a Webflow template, which actively undercuts
+            a product whose pitch is editorial confidence. <b>Substance:</b> we
+            presented <i>raw data</i> as if it were the product, and worse,
+            defined "signals" wrong (<code
+              >Active business = &gt;30 reviews</code
+            >) — collapsing our expert composites into a number any scraper can
+            return. The reworks below raise the average page from
+            <b class="countup">5.4</b> to a target <b class="countup">9.3</b>.
+          </p>
+        </div>
+
+        <!-- SCORECARD -->
+        <h2 id="scorecard">Before → target, at a glance</h2>
+        <p class="note">
+          Each page scored 1–10 as the mean of four dimensions:
+          <b>Clarity</b> (does the user know what's happening?),
+          <b>Transparency</b> (can they see the recipe / cost / why?),
+          <b>Brand-fit</b> (does it feel like Mapsly, not a template?),
+          <b>Best-practice</b> (vs Linear/Attio/Airtable patterns). Scores are
+          design-completeness of the reworked prototype, not
+          production-validated.
+        </p>
+        <table>
+          <thead>
+            <tr>
+              <th>Page</th>
+              <th>Before</th>
+              <th>Clarity</th>
+              <th>Transp.</th>
+              <th>Brand</th>
+              <th>Best-prac.</th>
+              <th>Target</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>1 · Welcome</td>
+              <td><span class="tag cor">5.0</span></td>
+              <td>6</td>
+              <td>5</td>
+              <td>4</td>
+              <td>5</td>
+              <td><span class="tag ok">9.5</span></td>
+            </tr>
+            <tr>
+              <td>2 · Goal / Templates</td>
+              <td><span class="tag cor">4.3</span></td>
+              <td>5</td>
+              <td>4</td>
+              <td>4</td>
+              <td>4</td>
+              <td><span class="tag ok">9.3</span></td>
+            </tr>
+            <tr>
+              <td>3 · Build / Signals</td>
+              <td><span class="tag cor">4.0</span></td>
+              <td>4</td>
+              <td>3</td>
+              <td>4</td>
+              <td>5</td>
+              <td><span class="tag ok">9.5</span></td>
+            </tr>
+            <tr>
+              <td>4 · Preview</td>
+              <td><span class="tag part">6.0</span></td>
+              <td>6</td>
+              <td>7</td>
+              <td>4</td>
+              <td>7</td>
+              <td><span class="tag ok">9.3</span></td>
+            </tr>
+            <tr>
+              <td>5 · Discover</td>
+              <td><span class="tag part">6.3</span></td>
+              <td>7</td>
+              <td>7</td>
+              <td>4</td>
+              <td>7</td>
+              <td><span class="tag ok">9.0</span></td>
+            </tr>
+            <tr>
+              <td>6 · Enrich gate</td>
+              <td><span class="tag cor">5.0</span></td>
+              <td>5</td>
+              <td>6</td>
+              <td>4</td>
+              <td>5</td>
+              <td><span class="tag ok">9.4</span></td>
+            </tr>
+            <tr>
+              <td>7 · Enriching</td>
+              <td><span class="tag part">6.5</span></td>
+              <td>7</td>
+              <td>6</td>
+              <td>5</td>
+              <td>8</td>
+              <td><span class="tag ok">9.0</span></td>
+            </tr>
+            <tr>
+              <td>8 · Workspace / Leads table</td>
+              <td><span class="tag cor">4.5</span></td>
+              <td>5</td>
+              <td>4</td>
+              <td>4</td>
+              <td>5</td>
+              <td><span class="tag ok">9.6</span></td>
+            </tr>
+            <tr>
+              <td>9 · Lead drawer</td>
+              <td><span class="tag part">6.0</span></td>
+              <td>6</td>
+              <td>6</td>
+              <td>5</td>
+              <td>7</td>
+              <td><span class="tag ok">9.4</span></td>
+            </tr>
+            <tr>
+              <td>10 · Touchpoints</td>
+              <td><span class="tag cor">5.3</span></td>
+              <td>5</td>
+              <td>6</td>
+              <td>5</td>
+              <td>5</td>
+              <td><span class="tag ok">9.2</span></td>
+            </tr>
+            <tr>
+              <td>11 · Billing</td>
+              <td><span class="tag part">6.0</span></td>
+              <td>6</td>
+              <td>7</td>
+              <td>4</td>
+              <td>7</td>
+              <td><span class="tag ok">9.0</span></td>
+            </tr>
+            <tr>
+              <td>12 · Research list</td>
+              <td><span class="tag part">6.0</span></td>
+              <td>6</td>
+              <td>6</td>
+              <td>5</td>
+              <td>7</td>
+              <td><span class="tag ok">9.2</span></td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="gband">
+          <div class="gcard">
+            <div class="v lo">
+              5.4<span class="arrow">→</span
+              ><span style="color: var(--green)">9.3</span>
+            </div>
+            <div class="k">Average page score</div>
+          </div>
+          <div class="gcard">
+            <div class="v lo">
+              4.3<span class="arrow">→</span
+              ><span style="color: var(--green)">9.4</span>
+            </div>
+            <div class="k">Brand-fit (the worst dimension)</div>
+          </div>
+          <div class="gcard">
+            <div class="v mid">
+              5.3<span class="arrow">→</span
+              ><span style="color: var(--green)">9.4</span>
+            </div>
+            <div class="k">Transparency (signal recipes)</div>
+          </div>
+          <div class="gcard">
+            <div class="v mid">
+              5.9<span class="arrow">→</span
+              ><span style="color: var(--green)">9.3</span>
+            </div>
+            <div class="k">Best-practice (vs Linear/Attio)</div>
+          </div>
+        </div>
+
+        <h2 id="intro">How to read each page block</h2>
+        <div class="card">
+          <p>
+            Every block carries the page's <b>before → target</b> delta and a
+            per-dimension breakdown. The
+            <span style="color: var(--coral); font-weight: 700"
+              >What was wrong</span
+            >
+            line cites concrete on-screen elements and the best-practice or
+            brand rule it violated. The
+            <span style="color: var(--green); font-weight: 700">Rework</span>
+            line is what shipped in the v4 prototype. I am deliberately harsh on
+            our own past work — a generous critique teaches nothing.
+          </p>
+          <div class="principle">
+            <div class="p">The bar we're scoring against</div>
+            <div class="d">
+              "Would Tom say this is faster than his last tool — and would he
+              screenshot it because it looks like a product with a point of
+              view?"
+            </div>
+          </div>
+        </div>
+
+        <!-- ===================== PAGE 1 · WELCOME ===================== -->
+        <h2 id="p-welcome">Page-by-page critique</h2>
+
+        <div class="pg">
+          <div class="ph">
+            <span class="pid">1</span
+            ><span class="pt"
+              >Welcome<span class="sub"
+                >First screen · sets scope + the brand impression in 3
+                seconds</span
+              ></span
+            >
+            <span class="pscore"
+              ><span class="delta"
+                ><span class="b">5.0</span><span class="ar">→</span
+                ><span class="t">9.5</span></span
+              ></span
+            >
+          </div>
+          <div class="pb">
+            <div class="ln">
+              <div class="k">Dimensions</div>
+              <div class="vv">
+                <div class="dims">
+                  <span class="dim">Clarity <b class="lo">6→10</b></span
+                  ><span class="dim">Transp. <b class="lo">5→9</b></span
+                  ><span class="dim">Brand <b class="lo">4→10</b></span
+                  ><span class="dim">Best-prac. <b class="lo">5→9</b></span>
+                </div>
+              </div>
+            </div>
+            <div class="ln wrong">
+              <div class="k">What was wrong</div>
+              <div class="vv">
+                <ul>
+                  <li>
+                    <b>Generic SaaS opener.</b> "Build your search" / "Welcome
+                    to Mapsly" is the copy of every onboarding screen ever
+                    shipped. It says nothing about <i>what</i> we map or
+                    <i>why it's worth money</i> — and the brand voice
+                    (confident, second-person, outcome-framed) was absent.
+                  </li>
+                  <li>
+                    <b>Flat white slab.</b> No gradient atmosphere, Inter
+                    headline. The live <code>/for-businesses</code> brand leads
+                    with a big editorial serif and a yellow-highlighted punch
+                    phrase; the portal welcome looked like a different company.
+                  </li>
+                  <li>
+                    <b>Scope buried.</b> "We map local businesses on Google"
+                    appeared as body text, not as the hero promise — so
+                    transparency about the actual data universe was weak.
+                  </li>
+                </ul>
+              </div>
+            </div>
+            <div class="ln fix">
+              <div class="k">Rework</div>
+              <div class="vv">
+                <ul>
+                  <li>
+                    Editorial hero on the <b>soft cool gradient</b>:
+                    <span style="font-family: var(--head); font-style: italic"
+                      >"See the
+                      <span class="hl">64 med spas in Miami</span> losing
+                      bookings to a slow site."</span
+                    >
+                    — Fraunces display, yellow highlight behind the punch, the
+                    real scope number animated count-up.
+                  </li>
+                  <li>
+                    Outcome-framed, second-person, specific — matches the brand
+                    voice rule, kills "Build your search."
+                  </li>
+                  <li>
+                    One yellow pill CTA ("Set up — 2 min") + the honest scope
+                    line as a frosted sub-caption: "We map local businesses on
+                    Google. ~420 med spas indexed in Miami, refreshed every 6
+                    months."
+                  </li>
+                </ul>
+              </div>
+            </div>
+            <div class="ln">
+              <div class="k">Best-practice cite</div>
+              <div class="vv">
+                Linear's marketing-into-product continuity: the first authed
+                screen should feel like the landing page's confident sibling,
+                not a blank form. We had a discontinuity; now the type system
+                carries through.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="vs">
+          <div class="old">
+            <h4>✗ Before — welcome copy</h4>
+            <ul>
+              <li>"Build your search" (generic, action-not-outcome)</li>
+              <li>Inter 24px headline on flat white</li>
+              <li>Scope as a footnote</li>
+              <li>Indigo button, no brand punch</li>
+            </ul>
+          </div>
+          <div class="new">
+            <h4>✓ After — welcome copy</h4>
+            <ul>
+              <li>
+                <i
+                  >"See the <b>64 med spas in Miami</b> losing bookings to a
+                  slow site."</i
+                >
+              </li>
+              <li>Fraunces 46px + yellow highlight on the gradient mesh</li>
+              <li>Scope is the hero promise + a refresh-cadence line</li>
+              <li>Yellow pill CTA — the brand signature</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- ===================== PAGE 2 · GOAL / TEMPLATES ===================== -->
+        <div class="pg">
+          <div class="ph">
+            <span class="pid">2</span
+            ><span class="pt"
+              >Goal / Templates<span class="sub"
+                >Pick a preset bundle of signals for what you sell</span
+              ></span
+            >
+            <span class="pscore"
+              ><span class="delta"
+                ><span class="b">4.3</span><span class="ar">→</span
+                ><span class="t">9.3</span></span
+              ></span
+            >
+          </div>
+          <div class="pb">
+            <div class="ln">
+              <div class="k">Dimensions</div>
+              <div class="vv">
+                <div class="dims">
+                  <span class="dim">Clarity <b class="lo">5→9</b></span
+                  ><span class="dim">Transp. <b class="lo">4→9</b></span
+                  ><span class="dim">Brand <b class="lo">4→9</b></span
+                  ><span class="dim">Best-prac. <b class="lo">4→10</b></span>
+                </div>
+              </div>
+            </div>
+            <div class="ln wrong">
+              <div class="k">What was wrong</div>
+              <div class="vv">
+                <ul>
+                  <li>
+                    <b>Cards too fat, won't scale.</b> Big padded cards in a
+                    loose grid topped out at ~5 before the page felt heavy. We
+                    need 10+ templates; the layout fought that. Airtable's
+                    template gallery proves a compact, searchable list scales to
+                    dozens.
+                  </li>
+                  <li>
+                    <b>"Custom" buried as a card.</b> Starting from scratch was
+                    mixed in among presets as if it were just another vertical —
+                    so power users (Dev, the booking-SaaS seller) had to hunt
+                    for it. That's a distinct intent and deserves a distinct,
+                    always-visible entry.
+                  </li>
+                  <li>
+                    <b>Templates didn't show what they <i>are.</i></b> A
+                    template is a named bundle of signals, but the cards showed
+                    a title + blurb, not the preset signal chips. The user
+                    couldn't judge value before clicking.
+                  </li>
+                </ul>
+              </div>
+            </div>
+            <div class="ln fix">
+              <div class="k">Rework</div>
+              <div class="vv">
+                <ul>
+                  <li>
+                    <b>Compact 2-col scannable gallery</b>, searchable +
+                    categorizable, scales to 10+. Each row: icon · name ·
+                    one-line <i>outcome</i> · the preset signal chips · Use.
+                  </li>
+                  <li>
+                    <b
+                      >"Custom / Start from scratch" is its own separated row</b
+                    >
+                    above the gallery — dashed indigo, always visible, never a
+                    card among templates.
+                  </li>
+                  <li>
+                    ~10 templates shipped (below), each showing its signal
+                    bundle inline so value is legible at a glance.
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <h3>The reworked gallery — compact, signal-bearing, scalable</h3>
+        <div class="tplcustom">
+          <span class="ic">✎</span>
+          <div>
+            <div class="nm">Custom / Start from scratch</div>
+            <div class="d">
+              Build a query from the signal library — operator + value on any
+              signal or raw field.
+            </div>
+          </div>
+          <span class="use" style="margin-left: auto">Start →</span>
+        </div>
+        <div class="pillsearch" style="margin: 8px 0 12px">
+          🔎 Search templates…
+          <span class="note" style="margin-left: auto"
+            >10 templates · All categories ▾</span
+          >
+        </div>
+        <div class="tplgrid">
+          <div class="tpl">
+            <span class="ic">🌐</span>
+            <div>
+              <div class="nm">Website redesign</div>
+              <div class="out">Slow, dated sites on doing-well businesses</div>
+              <div class="chips">
+                <span>Overdue for redesign</span
+                ><span>Active &amp; growing</span>
+              </div>
+            </div>
+            <span class="use">Use</span>
+          </div>
+          <div class="tpl">
+            <span class="ic">📍</span>
+            <div>
+              <div class="nm">Local SEO</div>
+              <div class="out">Should rank locally and doesn't</div>
+              <div class="chips">
+                <span>Invisible locally</span><span>Active &amp; growing</span>
+              </div>
+            </div>
+            <span class="use">Use</span>
+          </div>
+          <div class="tpl">
+            <span class="ic">📣</span>
+            <div>
+              <div class="nm">Paid ads</div>
+              <div class="out">Spending on ads they can't measure</div>
+              <div class="chips">
+                <span>Wasting ad spend</span><span>Active &amp; growing</span>
+              </div>
+            </div>
+            <span class="use">Use</span>
+          </div>
+          <div class="tpl">
+            <span class="ic">⭐</span>
+            <div>
+              <div class="nm">Reputation</div>
+              <div class="out">Reputation leaking, owner not replying</div>
+              <div class="chips"><span>Reputation slipping</span></div>
+            </div>
+            <span class="use">Use</span>
+          </div>
+          <div class="tpl">
+            <span class="ic">📅</span>
+            <div>
+              <div class="nm">Booking-tool SaaS</div>
+              <div class="out">No booking tool, DIY site</div>
+              <div class="chips">
+                <span>Flying blind</span><span>raw: has_booking = no</span>
+              </div>
+            </div>
+            <span class="use">Use</span>
+          </div>
+          <div class="tpl">
+            <span class="ic">📱</span>
+            <div>
+              <div class="nm">Social media</div>
+              <div class="out">Active business, thin social presence</div>
+              <div class="chips">
+                <span>Active &amp; growing</span
+                ><span>Weak online presence</span>
+              </div>
+            </div>
+            <span class="use">Use</span>
+          </div>
+          <div class="tpl">
+            <span class="ic">✍️</span>
+            <div>
+              <div class="nm">Content / blog</div>
+              <div class="out">Low organic, no content engine</div>
+              <div class="chips"><span>Invisible locally</span></div>
+            </div>
+            <span class="use">Use</span>
+          </div>
+          <div class="tpl">
+            <span class="ic">🧰</span>
+            <div>
+              <div class="nm">Full-service</div>
+              <div class="out">Under-instrumented across the board</div>
+              <div class="chips">
+                <span>Flying blind</span><span>Weak online presence</span>
+              </div>
+            </div>
+            <span class="use">Use</span>
+          </div>
+          <div class="tpl">
+            <span class="ic">🔁</span>
+            <div>
+              <div class="nm">Reactivation</div>
+              <div class="out">Was growing, now slipping</div>
+              <div class="chips">
+                <span>Reputation slipping</span><span>review velocity ↓</span>
+              </div>
+            </div>
+            <span class="use">Use</span>
+          </div>
+          <div class="tpl">
+            <span class="ic">📲</span>
+            <div>
+              <div class="nm">Mobile-first rebuild</div>
+              <div class="out">Losing bookings on phones</div>
+              <div class="chips"><span>Losing mobile customers</span></div>
+            </div>
+            <span class="use">Use</span>
+          </div>
+        </div>
+        <p class="note">
+          Full reasoning for the template model is in the
+          <a
+            href="#templates"
+            style="color: var(--indigo-700); font-weight: 600"
+            >Templates rework</a
+          >
+          section.
+        </p>
+
+        <!-- ===================== PAGE 3 · BUILD / SIGNALS ===================== -->
+        <div class="pg">
+          <div class="ph">
+            <span class="pid">3</span
+            ><span class="pt"
+              >Build / Signals<span class="sub"
+                >The query builder — where the moat lives or dies</span
+              ></span
+            >
+            <span class="pscore"
+              ><span class="delta"
+                ><span class="b">4.0</span><span class="ar">→</span
+                ><span class="t">9.5</span></span
+              ></span
+            >
+          </div>
+          <div class="pb">
+            <div class="ln">
+              <div class="k">Dimensions</div>
+              <div class="vv">
+                <div class="dims">
+                  <span class="dim">Clarity <b class="lo">4→9</b></span
+                  ><span class="dim">Transp. <b class="lo">3→10</b></span
+                  ><span class="dim">Brand <b class="lo">4→9</b></span
+                  ><span class="dim">Best-prac. <b class="lo">5→10</b></span>
+                </div>
+              </div>
+            </div>
+            <div class="ln wrong">
+              <div class="k">What was wrong</div>
+              <div class="vv">
+                <ul>
+                  <li>
+                    <b
+                      >The single worst screen — it sold our moat as a
+                      checklist.</b
+                    >
+                    Signals and raw fields were one flat, alphabetical,
+                    equal-weight list of toggles. A composite like "Overdue for
+                    a redesign" sat next to "review_count" with identical visual
+                    weight, so the user couldn't tell expertise from atomic
+                    data.
+                  </li>
+                  <li>
+                    <b>Wrong definitions baked in.</b> The library literally
+                    defined <code>Active business = &gt;30 reviews</code>. That
+                    is a raw threshold, not a signal — it threw away the very
+                    logic that makes us defensible, and it's <i>wrong</i> (a
+                    business with 200 stale reviews and nothing new in a year is
+                    not active).
+                  </li>
+                  <li>
+                    <b>No recipe, no trust.</b> Signals didn't show their
+                    inputs. The user had to take "this signal is good" on faith
+                    — the opposite of transparency, and it killed the chance to
+                    drill in and tune.
+                  </li>
+                  <li>
+                    <b>No grouping by value.</b> Nothing told the user "this
+                    finds businesses worth your time" vs "this finds reputation
+                    risk." The library answered "here are 90 things" not "here's
+                    what's valuable to you."
+                  </li>
+                </ul>
+              </div>
+            </div>
+            <div class="ln fix">
+              <div class="k">Rework</div>
+              <div class="vv">
+                <ul>
+                  <li>
+                    <b>Two visually distinct tiers.</b> SIGNALS are primary,
+                    prominent, grouped by <b>outcome</b>, value-framed, each
+                    rendering name · what-it-means · why-to-pitch · the
+                    <b>raw recipe as chips</b> · strength · Add. RAW DATA is
+                    demoted to an "Advanced: add a raw filter" expander —
+                    compact, lower accent, operator + value.
+                  </li>
+                  <li>
+                    <b>Definitions corrected</b> to the real expert composites
+                    (e.g. "Active &amp; growing" = velocity trending up AND a
+                    review in 30d AND open-now — never a count). Full list in
+                    the signal-model section.
+                  </li>
+                  <li>
+                    Every signal exposes its recipe so the user trusts it and
+                    can drill to tune the underlying thresholds.
+                  </li>
+                  <li>
+                    Outcome groups with a value line each, replacing the
+                    alphabetical mess.
+                  </li>
+                </ul>
+              </div>
+            </div>
+            <div class="ln">
+              <div class="k">Best-practice cite</div>
+              <div class="vv">
+                Attio &amp; Linear both lead with curated, opinionated objects
+                and tuck the raw field-level filter behind an "advanced"
+                affordance. We had inverted that — raw fields had equal billing
+                with our expertise. Full design in
+                <a
+                  href="#signal-model"
+                  style="color: var(--indigo-700); font-weight: 600"
+                  >the signal model</a
+                >.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===================== PAGE 4 · PREVIEW ===================== -->
+        <div class="pg">
+          <div class="ph">
+            <span class="pid">4</span
+            ><span class="pt"
+              >Preview<span class="sub"
+                >Match estimate, scope, credit pre-flight before you spend</span
+              ></span
+            >
+            <span class="pscore"
+              ><span class="delta"
+                ><span class="b">6.0</span><span class="ar">→</span
+                ><span class="t">9.3</span></span
+              ></span
+            >
+          </div>
+          <div class="pb">
+            <div class="ln">
+              <div class="k">Dimensions</div>
+              <div class="vv">
+                <div class="dims">
+                  <span class="dim">Clarity <b class="lo">6→9</b></span
+                  ><span class="dim">Transp. <b class="hi">7→10</b></span
+                  ><span class="dim">Brand <b class="lo">4→9</b></span
+                  ><span class="dim">Best-prac. <b class="hi">7→9</b></span>
+                </div>
+              </div>
+            </div>
+            <div class="ln wrong">
+              <div class="k">What was wrong</div>
+              <div class="vv">
+                <ul>
+                  <li>
+                    <b>Functionally honest, brand-mute.</b> The credit
+                    pre-flight and known-vs-new split were already good
+                    (transparency was the one decent dimension) — but the big
+                    number ("~420 local businesses") sat in flat Inter with no
+                    editorial weight. The most exciting moment in the flow
+                    looked like a spreadsheet cell.
+                  </li>
+                  <li>
+                    <b>No count-up, no gradient.</b> The reveal of the market
+                    size is a brand moment; we rendered it as static plain text.
+                  </li>
+                  <li>
+                    <b>Multi-cell matrix dense but joyless</b> — correct data,
+                    zero hierarchy, no "here's the better cell" call.
+                  </li>
+                </ul>
+              </div>
+            </div>
+            <div class="ln fix">
+              <div class="k">Rework</div>
+              <div class="vv">
+                <ul>
+                  <li>
+                    Preview is a <b>framed editorial surface</b> (gradient): the
+                    match number is a large Fraunces <b>count-up</b> with the
+                    scope line beneath; the estimate gets a rounded gauge.
+                  </li>
+                  <li>
+                    Credits shown with the coin (<span class="coin"></span>),
+                    known/new split kept, per-cell matrix gets a yellow "best
+                    value" marker on the strongest cell.
+                  </li>
+                  <li>
+                    Honest "real count before you pay to enrich" line retained —
+                    transparency was already a strength, we kept it and dressed
+                    it.
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===================== PAGE 5 · DISCOVER ===================== -->
+        <div class="pg">
+          <div class="ph">
+            <span class="pid">5</span
+            ><span class="pt"
+              >Discover<span class="sub"
+                >The cheap map — raw discovered list before enrichment</span
+              ></span
+            >
+            <span class="pscore"
+              ><span class="delta"
+                ><span class="b">6.3</span><span class="ar">→</span
+                ><span class="t">9.0</span></span
+              ></span
+            >
+          </div>
+          <div class="pb">
+            <div class="ln">
+              <div class="k">Dimensions</div>
+              <div class="vv">
+                <div class="dims">
+                  <span class="dim">Clarity <b class="hi">7→9</b></span
+                  ><span class="dim">Transp. <b class="hi">7→9</b></span
+                  ><span class="dim">Brand <b class="lo">4→9</b></span
+                  ><span class="dim">Best-prac. <b class="hi">7→9</b></span>
+                </div>
+              </div>
+            </div>
+            <div class="ln wrong">
+              <div class="k">What was wrong</div>
+              <div class="vv">
+                <ul>
+                  <li>
+                    <b>Decent, but didn't bridge to the workbench.</b> Discover
+                    showed the raw list well, but the visual language broke
+                    between here (still flat) and the workspace table to come —
+                    two different design languages for the same rows.
+                  </li>
+                  <li>
+                    <b>Brand-mute header.</b> Scope line present (good, from R1)
+                    but in body type; the count wasn't a brand moment.
+                  </li>
+                  <li>
+                    Free filters were on/off, not the operator+value language
+                    the rest of the product now speaks.
+                  </li>
+                </ul>
+              </div>
+            </div>
+            <div class="ln fix">
+              <div class="k">Rework</div>
+              <div class="vv">
+                <ul>
+                  <li>
+                    Discover now
+                    <b>previews the same crisp white work-table</b> as the
+                    workspace, so there's one tooling altitude end-to-end — the
+                    user learns the table once.
+                  </li>
+                  <li>
+                    Frosted sticky header with the scope line + Fraunces count
+                    of discovered businesses.
+                  </li>
+                  <li>
+                    Free filters use the same operator+value chips; "Enrich
+                    these N" is the single yellow CTA forward.
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===================== PAGE 6 · ENRICH GATE ===================== -->
+        <div class="pg">
+          <div class="ph">
+            <span class="pid">6</span
+            ><span class="pt"
+              >Enrich gate<span class="sub"
+                >The credit checkpoint before the expensive run</span
+              ></span
+            >
+            <span class="pscore"
+              ><span class="delta"
+                ><span class="b">5.0</span><span class="ar">→</span
+                ><span class="t">9.4</span></span
+              ></span
+            >
+          </div>
+          <div class="pb">
+            <div class="ln">
+              <div class="k">Dimensions</div>
+              <div class="vv">
+                <div class="dims">
+                  <span class="dim">Clarity <b class="lo">5→10</b></span
+                  ><span class="dim">Transp. <b class="part">6→9</b></span
+                  ><span class="dim">Brand <b class="lo">4→9</b></span
+                  ><span class="dim">Best-prac. <b class="lo">5→10</b></span>
+                </div>
+              </div>
+            </div>
+            <div class="ln wrong">
+              <div class="k">What was wrong</div>
+              <div class="vv">
+                <ul>
+                  <li>
+                    <b>A fork mid-flow.</b> The gate was a 3-card decision page
+                    that <i>stopped</i> the run and made the user choose between
+                    options — a decision when all they needed was a meter
+                    reading and one fix. Stripe/Linear never interrupt a flow
+                    with a full page when an inline strip will do.
+                  </li>
+                  <li>
+                    <b>Dollars made it feel like a checkout.</b> "$2.50 to
+                    enrich" mid-run read as being billed again, not metered.
+                  </li>
+                  <li>
+                    No server-enforce reassurance, so the user feared a half-run
+                    or a surprise charge.
+                  </li>
+                </ul>
+              </div>
+            </div>
+            <div class="ln fix">
+              <div class="k">Rework</div>
+              <div class="vv">
+                <ul>
+                  <li>
+                    <b>One inline strip:</b> "Enrich 61 leads =
+                    <span class="coin"></span>73 credits · you have
+                    <span class="coin"></span>50 · [Top up] [Upgrade plan]" —
+                    single primary action, credits not dollars.
+                  </li>
+                  <li>
+                    One-line server-enforce note: "a run that can't be covered
+                    won't start" — kills the surprise-charge fear.
+                  </li>
+                  <li>
+                    Top-up button is the yellow punch; the strip sits on white
+                    so it reads as tooling, not a sales page.
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===================== PAGE 7 · ENRICHING ===================== -->
+        <div class="pg">
+          <div class="ph">
+            <span class="pid">7</span
+            ><span class="pt"
+              >Enriching<span class="sub"
+                >Background orchestration progress</span
+              ></span
+            >
+            <span class="pscore"
+              ><span class="delta"
+                ><span class="b">6.5</span><span class="ar">→</span
+                ><span class="t">9.0</span></span
+              ></span
+            >
+          </div>
+          <div class="pb">
+            <div class="ln">
+              <div class="k">Dimensions</div>
+              <div class="vv">
+                <div class="dims">
+                  <span class="dim">Clarity <b class="hi">7→9</b></span
+                  ><span class="dim">Transp. <b class="part">6→9</b></span
+                  ><span class="dim">Brand <b class="lo">5→9</b></span
+                  ><span class="dim">Best-prac. <b class="hi">8→9</b></span>
+                </div>
+              </div>
+            </div>
+            <div class="ln wrong">
+              <div class="k">What was wrong</div>
+              <div class="vv">
+                <ul>
+                  <li>
+                    <b>Solid mechanics, generic skin.</b> The "you can close
+                    this page, we'll keep working" pattern was already
+                    best-practice. But the progress UI was a plain bar + spinner
+                    — no sense of the <i>substance</i> being gathered, and no
+                    brand warmth during a wait.
+                  </li>
+                  <li>
+                    The wait didn't teach. A user staring at a bar learns
+                    nothing about the signals being computed for them.
+                  </li>
+                </ul>
+              </div>
+            </div>
+            <div class="ln fix">
+              <div class="k">Rework</div>
+              <div class="vv">
+                <ul>
+                  <li>
+                    Progress framed on the gradient with a Fraunces count-up of
+                    <b>businesses enriched / signals computed</b>, and a
+                    rotating "now checking: Lighthouse · ad pixels · review
+                    velocity" line so the wait demonstrates the depth of the
+                    work.
+                  </li>
+                  <li>
+                    Jobs tray + "close page, we'll keep working" kept (it was
+                    good); <code>prefers-reduced-motion</code> honored on the
+                    count-up.
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===================== PAGE 8 · WORKSPACE / LEADS TABLE ===================== -->
+        <div class="pg">
+          <div class="ph">
+            <span class="pid">8</span
+            ><span class="pt"
+              >Workspace / Leads table<span class="sub"
+                >The workbench — where the work actually happens</span
+              ></span
+            >
+            <span class="pscore"
+              ><span class="delta"
+                ><span class="b">4.5</span><span class="ar">→</span
+                ><span class="t">9.6</span></span
+              ></span
+            >
+          </div>
+          <div class="pb">
+            <div class="ln">
+              <div class="k">Dimensions</div>
+              <div class="vv">
+                <div class="dims">
+                  <span class="dim">Clarity <b class="lo">5→10</b></span
+                  ><span class="dim">Transp. <b class="lo">4→9</b></span
+                  ><span class="dim">Brand <b class="lo">4→9</b></span
+                  ><span class="dim">Best-prac. <b class="lo">5→10</b></span>
+                </div>
+              </div>
+            </div>
+            <div class="ln wrong">
+              <div class="k">What was wrong</div>
+              <div class="vv">
+                <ul>
+                  <li>
+                    <b>A read-only list pretending to be a tool.</b> No sortable
+                    headers, no column picker, no bulk select, no filter bar. It
+                    answered "here are rows," not "what do I do with this
+                    market." Against Airtable/Attio this wasn't even in the same
+                    category.
+                  </li>
+                  <li>
+                    <b>Signal columns absent.</b> The whole value — seeing
+                    reviews, Lighthouse, 3-pack rank color-coded vs the cell
+                    across the set — wasn't on the table, so the user had to
+                    open leads one by one.
+                  </li>
+                  <li>
+                    <b>No set-level read.</b> No summary strip, no
+                    market-standards benchmark; the cohort picture lived
+                    nowhere.
+                  </li>
+                  <li>
+                    <b>Wrong altitude for brand.</b> This is the one screen that
+                    should stay <b>crisp white</b> for scannability — that part
+                    was right — but it lacked the frosted sticky bar and pill
+                    controls that tie it to the brand system.
+                  </li>
+                </ul>
+              </div>
+            </div>
+            <div class="ln fix">
+              <div class="k">Rework</div>
+              <div class="vv">
+                <ul>
+                  <li>
+                    Full power table: <b>sortable headers</b> (aria-sort),
+                    <b>filter bar</b> of operator+value chips ("showing N of
+                    M"), <b>Columns ▾</b> picker including signal columns
+                    color-coded vs the cell, <b>bulk select</b> → sticky bulk
+                    bar (Generate touches · Set status · Save to list · Enrich
+                    more · Export · Hide), <b>Group by</b> cell, density toggle,
+                    sticky header.
+                  </li>
+                  <li>
+                    Above it: summary strip (total / reachable / matched /
+                    hidden) + collapsible <b>Market standards</b> (cell p50/p90
+                    vs your leads).
+                  </li>
+                  <li>
+                    Stays clean white for density; brand comes in via the
+                    <b>frosted sticky top bar</b>, pill search, pill buttons,
+                    and Fraunces for the section title and big counts only —
+                    never inside dense rows.
+                  </li>
+                </ul>
+              </div>
+            </div>
+            <div class="ln">
+              <div class="k">Best-practice cite</div>
+              <div class="vv">
+                This is the Linear/Attio/Airtable lesson applied directly:
+                agencies work <i>sets</i>, not rows. Shape (sort/filter/columns)
+                + act (select/bulk) on one surface is the fastest path from
+                market to outreach.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===================== PAGE 9 · LEAD DRAWER ===================== -->
+        <div class="pg">
+          <div class="ph">
+            <span class="pid">9</span
+            ><span class="pt"
+              >Lead drawer<span class="sub"
+                >Single-business detail, over the table — never lose
+                context</span
+              ></span
+            >
+            <span class="pscore"
+              ><span class="delta"
+                ><span class="b">6.0</span><span class="ar">→</span
+                ><span class="t">9.4</span></span
+              ></span
+            >
+          </div>
+          <div class="pb">
+            <div class="ln">
+              <div class="k">Dimensions</div>
+              <div class="vv">
+                <div class="dims">
+                  <span class="dim">Clarity <b class="part">6→9</b></span
+                  ><span class="dim">Transp. <b class="part">6→10</b></span
+                  ><span class="dim">Brand <b class="lo">5→9</b></span
+                  ><span class="dim">Best-prac. <b class="hi">7→10</b></span>
+                </div>
+              </div>
+            </div>
+            <div class="ln wrong">
+              <div class="k">What was wrong</div>
+              <div class="vv">
+                <ul>
+                  <li>
+                    <b>Was a full page that lost the list.</b> Before the drawer
+                    rework, drilling in navigated away — every
+                    sort/filter/selection you'd built was gone on return. (v3
+                    fixed the drawer mechanics; v4 fixes the
+                    <i>content and skin.</i>)
+                  </li>
+                  <li>
+                    <b>Signals shown as facts, not findings.</b> The "why
+                    qualified" block listed raw metrics without the composite
+                    framing — same sin as the build page. The user saw "rating
+                    3.9, reply rate 12%" not "Reputation slipping — here's the
+                    recipe and the pitch."
+                  </li>
+                  <li>
+                    <b>Reviews block was plain.</b> No brand quote treatment;
+                    the single most persuasive closing asset (a real review)
+                    rendered as gray body text.
+                  </li>
+                </ul>
+              </div>
+            </div>
+            <div class="ln fix">
+              <div class="k">Rework</div>
+              <div class="vv">
+                <ul>
+                  <li>
+                    Drawer over the table with prev/next,
+                    <code>role="dialog"</code> + focus trap (kept from v3). One
+                    scroll: header pill ·
+                    <b>Why-qualified as composite signal cards with recipes</b>
+                    · Reviews as <b>brand quote cards</b> (big quote mark,
+                    yellow stars, coral "chose competitor" line) ·
+                    Website/Lighthouse · Ads · SERP · Services · AI research ·
+                    Contacts · Touches.
+                  </li>
+                  <li>
+                    The why-qualified block now leads with the firing signals
+                    and their recipes — drill-down to the raw inputs inline.
+                  </li>
+                  <li>
+                    Reviews use the quote-card component from the brand system
+                    (see Brand section).
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3 style="margin-top: 4px">The drawer's review block, in brand</h3>
+          <div class="quotecard" style="max-width: 520px">
+            <span class="qm">&ldquo;</span>
+            <div class="qt">
+              Booked a facial, the site took forever to load on my phone so I
+              almost gave up. Place was fine but the online experience felt
+              dated.
+            </div>
+            <div class="stars">★★★☆☆</div>
+            <div class="chose">
+              — A.R. · chose a competitor with online booking
+            </div>
+          </div>
+          <p class="note" style="margin-top: 10px">
+            Yellow stars, big Fraunces quote mark, coral "chose a competitor"
+            line — the same component the brand uses for social proof,
+            repurposed as the agency's closing evidence. A review is the pitch;
+            it should look like one.
+          </p>
+        </div>
+
+        <!-- ===================== PAGE 10 · TOUCHPOINTS ===================== -->
+        <div class="pg">
+          <div class="ph">
+            <span class="pid">10</span
+            ><span class="pt"
+              >Touchpoints<span class="sub"
+                >Generated outreach drafts grounded in signals</span
+              ></span
+            >
+            <span class="pscore"
+              ><span class="delta"
+                ><span class="b">5.3</span><span class="ar">→</span
+                ><span class="t">9.2</span></span
+              ></span
+            >
+          </div>
+          <div class="pb">
+            <div class="ln">
+              <div class="k">Dimensions</div>
+              <div class="vv">
+                <div class="dims">
+                  <span class="dim">Clarity <b class="lo">5→9</b></span
+                  ><span class="dim">Transp. <b class="part">6→9</b></span
+                  ><span class="dim">Brand <b class="lo">5→9</b></span
+                  ><span class="dim">Best-prac. <b class="lo">5→10</b></span>
+                </div>
+              </div>
+            </div>
+            <div class="ln wrong">
+              <div class="k">What was wrong</div>
+              <div class="vv">
+                <ul>
+                  <li>
+                    <b>Lived in its own world.</b> A top-level Touchpoints nav,
+                    disconnected from the leads the drafts are about — so the
+                    "why" (the firing signal) was severed from the message.
+                  </li>
+                  <li>
+                    <b>No bulk.</b> Drafts were reviewed one at a time; an
+                    agency generating 60 needs approve-all / regenerate /
+                    mark-sent in bulk.
+                  </li>
+                  <li>
+                    <b>Draft didn't cite its signal.</b> Transparency gap: the
+                    user couldn't see <i>which</i> signal a line was grounded
+                    in, so trust in the AI copy was low.
+                  </li>
+                </ul>
+              </div>
+            </div>
+            <div class="ln fix">
+              <div class="k">Rework</div>
+              <div class="vv">
+                <ul>
+                  <li>
+                    A <b>Touchpoints tab inside the workspace</b>; drafts
+                    <b>generated as a bulk action</b> from selected leads. The
+                    tab is a bulk table (business · channel · predicted-reply ·
+                    body preview · status) with row select + bulk bar (Approve
+                    all · Edit · Regenerate · Mark sent · Export) +
+                    status/channel filters.
+                  </li>
+                  <li>
+                    Clicking a draft opens the
+                    <b>same lead drawer scrolled to Touches</b>, so the draft is
+                    always tied to the signals it cites.
+                  </li>
+                  <li>
+                    Each draft shows the firing signal as a chip ("grounded in:
+                    Overdue for a redesign") — transparency restored.
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===================== PAGE 11 · BILLING ===================== -->
+        <div class="pg">
+          <div class="ph">
+            <span class="pid">11</span
+            ><span class="pt"
+              >Billing<span class="sub"
+                >Allowance + top-up, credits-only ledger</span
+              ></span
+            >
+            <span class="pscore"
+              ><span class="delta"
+                ><span class="b">6.0</span><span class="ar">→</span
+                ><span class="t">9.0</span></span
+              ></span
+            >
+          </div>
+          <div class="pb">
+            <div class="ln">
+              <div class="k">Dimensions</div>
+              <div class="vv">
+                <div class="dims">
+                  <span class="dim">Clarity <b class="part">6→9</b></span
+                  ><span class="dim">Transp. <b class="hi">7→9</b></span
+                  ><span class="dim">Brand <b class="lo">4→9</b></span
+                  ><span class="dim">Best-prac. <b class="hi">7→9</b></span>
+                </div>
+              </div>
+            </div>
+            <div class="ln wrong">
+              <div class="k">What was wrong</div>
+              <div class="vv">
+                <ul>
+                  <li>
+                    <b>Was a vague "Wallet."</b> Mixed dollars and meter so the
+                    user couldn't tell their monthly burn from a real charge.
+                    The model (allowance vs top-up) wasn't legible.
+                  </li>
+                  <li>
+                    <b>Brand-mute and a little cold.</b> A money page on flat
+                    white with a dollar everywhere reads transactional, not like
+                    a confident product framing a budget.
+                  </li>
+                </ul>
+              </div>
+            </div>
+            <div class="ln fix">
+              <div class="k">Rework</div>
+              <div class="vv">
+                <ul>
+                  <li>
+                    <b>Framed (gradient) Billing page:</b> plan card with
+                    monthly allowance · usage bar (used / remaining this cycle,
+                    the meter) · one-time top-up (<b
+                      >the only place a <code>$</code> appears</b
+                    >) · a credits-only ledger.
+                  </li>
+                  <li>
+                    Balance + allowance in Fraunces with the coin; CTA to top-up
+                    is the yellow pill. The single $ price is deliberately the
+                    lone transactional element, everything else is the meter.
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===================== PAGE 12 · RESEARCH LIST ===================== -->
+        <div class="pg">
+          <div class="ph">
+            <span class="pid">12</span
+            ><span class="pt"
+              >Research list<span class="sub"
+                >My research — the home of all workspaces</span
+              ></span
+            >
+            <span class="pscore"
+              ><span class="delta"
+                ><span class="b">6.0</span><span class="ar">→</span
+                ><span class="t">9.2</span></span
+              ></span
+            >
+          </div>
+          <div class="pb">
+            <div class="ln">
+              <div class="k">Dimensions</div>
+              <div class="vv">
+                <div class="dims">
+                  <span class="dim">Clarity <b class="part">6→9</b></span
+                  ><span class="dim">Transp. <b class="part">6→9</b></span
+                  ><span class="dim">Brand <b class="lo">5→9</b></span
+                  ><span class="dim">Best-prac. <b class="hi">7→10</b></span>
+                </div>
+              </div>
+            </div>
+            <div class="ln wrong">
+              <div class="k">What was wrong</div>
+              <div class="vv">
+                <ul>
+                  <li>
+                    <b>Read as a folder list.</b> Plain rows of research names
+                    with little to distinguish a hot, freshly-matched research
+                    from a stale one — so the user couldn't triage where to
+                    spend attention.
+                  </li>
+                  <li>
+                    <b>No re-entry promise.</b> It didn't reassure that opening
+                    a research drops you back into the exact table state you
+                    left (the v3 win wasn't surfaced here).
+                  </li>
+                  <li>
+                    Brand-mute; the editorial framing that suits a "home"
+                    surface was missing.
+                  </li>
+                </ul>
+              </div>
+            </div>
+            <div class="ln fix">
+              <div class="k">Rework</div>
+              <div class="vv">
+                <ul>
+                  <li>
+                    Framed editorial header ("Pick up where you left off") with
+                    each research as a rounded card: cell scope · lead count ·
+                    <b>new-this-week</b> count in yellow · last-worked ·
+                    pipeline mini-bar.
+                  </li>
+                  <li>
+                    "Open" returns to preserved table state — stated on the
+                    card. Archive/duplicate as hover-reveal actions (agency
+                    density pattern).
+                  </li>
+                  <li>
+                    Empty state with brand voice + one yellow CTA: "Find your
+                    first market →".
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===================== SIGNAL MODEL ===================== -->
+        <h2 id="signal-model">
+          The signal model — the moat (and what we got wrong)
+        </h2>
+        <div class="card framed">
+          <div class="eyebrow">Why this is the whole game</div>
+          <p style="font-size: 15px; color: var(--ink-2)">
+            <b
+              >Apollo and ZoomInfo can return a phone number. They cannot tell
+              you that a business's site loads slow <i>and</i> its reply rate is
+              0% <i>and</i> a competitor with online booking just moved into the
+              neighborhood.</b
+            >
+            That composite judgment is the product. So the single most damaging
+            thing the old portal did was render our composites as if they were
+            raw fields — and define one of them as a review count. That hands
+            the moat back to every scraper on the market.
+          </p>
+          <div class="principle">
+            <div class="p">The correction in one line</div>
+            <div class="d">
+              A signal is <span class="hl">expert judgment encoded</span> —
+              multiple raw points + thresholds + logic. Raw data is an atomic
+              fact. They are not peers, and the UI must never let them look like
+              peers.
+            </div>
+          </div>
+        </div>
+
+        <div class="sigwrap">
+          <div class="sigtier primary">
+            <div class="tt">
+              <span class="badge">Tier 1 · primary</span> Signal
+            </div>
+            <p style="margin: 10px 0 0">
+              An <b>expert composite</b> built from multiple raw points +
+              thresholds + logic. It <b>is our expertise</b>. The user
+              <b>cannot change its composition</b> (only optionally tune exposed
+              sensitivity); they <b>can see the raw recipe</b> and why it
+              matters.
+            </p>
+            <p style="margin: 8px 0 0">
+              <b>In the UI:</b> prominent, grouped by <b>outcome</b>,
+              value-framed, searchable. Each renders name · one-line "what it
+              means" · "why it matters / what to pitch" · the recipe as small
+              chips · a strength/confidence · an Add toggle.
+            </p>
+          </div>
+          <div class="sigtier raw">
+            <div class="tt">
+              <span class="badge">Tier 2 · secondary</span> Raw data
+            </div>
+            <p style="margin: 10px 0 0">
+              An <b>atomic single-source fact</b>, filterable with operator +
+              value (<code>&gt; &gt;= &lt; &lt;= = between</code>). Deliberately
+              <b>de-emphasized</b> — an "Advanced: add a raw filter" expander,
+              compact, lower visual accent.
+            </p>
+            <p style="margin: 8px 0 0">
+              <b>Examples:</b> <span class="rchip">review_count</span>
+              <span class="rchip">rating</span>
+              <span class="rchip">review_velocity_30d</span>
+              <span class="rchip">owner_reply_rate</span>
+              <span class="rchip">lighthouse_perf</span>
+              <span class="rchip">lighthouse_a11y</span>
+              <span class="rchip">cms_platform</span>
+              <span class="rchip">has_meta_pixel</span>
+              <span class="rchip">ad_count</span>
+              <span class="rchip">local_pack_rank</span>
+              <span class="rchip">organic_traffic_est</span>
+              <span class="rchip">site_age_years</span>
+              <span class="rchip">photo_count</span>
+            </p>
+          </div>
+        </div>
+
+        <div class="vs">
+          <div class="old">
+            <h4>✗ Before — signals defined as raw thresholds</h4>
+            <ul>
+              <li>
+                <code>Active business = &gt;30 reviews</code> — wrong; a count,
+                not a signal
+              </li>
+              <li>Flat alphabetical list, equal weight with raw fields</li>
+              <li>No recipe shown — trust on faith</li>
+              <li>No value framing — "here are 90 things"</li>
+            </ul>
+          </div>
+          <div class="new">
+            <h4>✓ After — signals as expert composites</h4>
+            <ul>
+              <li>
+                <code
+                  >Active &amp; growing = velocity ↑ AND review &lt;30d AND
+                  open-now</code
+                >
+              </li>
+              <li>Primary tier, grouped by outcome, raw fields demoted</li>
+              <li>Every signal shows its recipe chips + strength</li>
+              <li>Value line per group — "is this valuable to me?" answered</li>
+            </ul>
+          </div>
+        </div>
+
+        <h3>The corrected signal definitions — with recipes</h3>
+        <p class="note">
+          Each signal renders exactly like this in the library and the drawer:
+          name · what it means · what to pitch · recipe chips (the raw inputs) ·
+          strength · Add.
+        </p>
+
+        <div class="ogrp">
+          🌱 Growing &amp; worth your time
+          <span class="val"
+            >— a real, growing business, not a dead listing</span
+          >
+        </div>
+        <div class="sigcard">
+          <div class="nm">
+            Active &amp; growing
+            <span class="strength" style="color: var(--green)"
+              >●●●● strong</span
+            >
+          </div>
+          <div class="means">
+            A real, growing business worth your time — review momentum is up and
+            the doors are open.
+          </div>
+          <div class="pitch">
+            ↳ Pitch: lead with growth — "you're clearly busy, let's make sure
+            the funnel keeps up."
+          </div>
+          <div class="recipe">
+            <span class="lbl">recipe</span
+            ><span class="rchip">review_velocity_90d ↑ vs prior 90d</span
+            ><span class="andop">AND</span
+            ><span class="rchip">last_review &lt; 30d</span
+            ><span class="andop">AND</span
+            ><span class="rchip">open_now = true</span
+            ><span class="addtog">+ Add</span>
+          </div>
+          <p class="note" style="margin: 8px 0 0">
+            <b style="color: var(--coral)">NOT</b>
+            <code>review_count &gt; 30</code> — a business with 200 stale
+            reviews and nothing new in a year is not active.
+          </p>
+        </div>
+
+        <div class="ogrp">
+          📉 Reputation at risk
+          <span class="val"
+            >— reputation is leaking; reputation-management pitch</span
+          >
+        </div>
+        <div class="sigcard">
+          <div class="nm">
+            Reputation slipping
+            <span class="strength" style="color: var(--amber)"
+              >●●●○ medium</span
+            >
+          </div>
+          <div class="means">
+            Reputation is leaking — rating is trending down and the owner isn't
+            responding.
+          </div>
+          <div class="pitch">
+            ↳ Pitch: reputation management — "let's stop the slide and answer
+            what's open."
+          </div>
+          <div class="recipe">
+            <span class="lbl">recipe</span
+            ><span class="rchip">rating_trend_90d ↓</span
+            ><span class="andop">AND</span
+            ><span class="rchip">owner_reply_rate &lt; 25%</span
+            ><span class="andop">AND</span
+            ><span class="rchip">unanswered ≤2★ aged &gt; 14d ≥ 1</span
+            ><span class="addtog">+ Add</span>
+          </div>
+        </div>
+
+        <div class="ogrp">
+          💻 Weak online presence
+          <span class="val"
+            >— their site/visibility is hurting them; web + SEO pitch</span
+          >
+        </div>
+        <div class="sigcard">
+          <div class="nm">
+            Overdue for a redesign
+            <span class="strength" style="color: var(--green)"
+              >●●●● strong</span
+            >
+          </div>
+          <div class="means">
+            A slow, dated site dragging down an otherwise doing-well business —
+            the strongest web pitch.
+          </div>
+          <div class="pitch">
+            ↳ Pitch: website rebuild — "you're doing well despite the site,
+            imagine with one that converts."
+          </div>
+          <div class="recipe">
+            <span class="lbl">recipe</span
+            ><span class="rchip">lighthouse_perf &lt; 50</span
+            ><span class="andop">AND</span
+            ><span class="rchip">(site_age ≥ 3y OR DIY platform)</span
+            ><span class="andop">AND</span
+            ><span class="rchip">Active &amp; growing</span
+            ><span class="addtog">+ Add</span>
+          </div>
+        </div>
+        <div class="sigcard">
+          <div class="nm">
+            Invisible locally
+            <span class="strength" style="color: var(--amber)"
+              >●●●○ medium</span
+            >
+          </div>
+          <div class="means">
+            Should rank locally and doesn't — clear local-SEO upside.
+          </div>
+          <div class="pitch">
+            ↳ Pitch: local SEO — "you have a site but you're not in the map
+            pack; that's fixable."
+          </div>
+          <div class="recipe">
+            <span class="lbl">recipe</span
+            ><span class="rchip">local_pack_rank = none</span
+            ><span class="andop">AND</span
+            ><span class="rchip">organic_traffic &lt; cell median</span
+            ><span class="andop">AND</span
+            ><span class="rchip">has_website = true</span
+            ><span class="addtog">+ Add</span>
+          </div>
+        </div>
+        <div class="sigcard">
+          <div class="nm">
+            Losing mobile customers
+            <span class="strength" style="color: var(--green)"
+              >●●●● strong</span
+            >
+          </div>
+          <div class="means">
+            Losing bookings on phones — mobile site is failing where most local
+            traffic is.
+          </div>
+          <div class="pitch">
+            ↳ Pitch: mobile-first rebuild — "most of your visitors are on a
+            phone and the site can't keep up."
+          </div>
+          <div class="recipe">
+            <span class="lbl">recipe</span
+            ><span class="rchip">lighthouse_mobile_perf &lt; 40</span
+            ><span class="andop">AND</span
+            ><span class="rchip">mobile_usability_issues = true</span
+            ><span class="addtog">+ Add</span>
+          </div>
+        </div>
+
+        <div class="ogrp">
+          💸 Wasting money
+          <span class="val">— paying for things they can't measure or use</span>
+        </div>
+        <div class="sigcard">
+          <div class="nm">
+            Wasting ad spend
+            <span class="strength" style="color: var(--green)"
+              >●●●● strong</span
+            >
+          </div>
+          <div class="means">
+            Paying for ads they cannot measure — running ads with no tracking
+            pixel.
+          </div>
+          <div class="pitch">
+            ↳ Pitch: tracking + ad management — "you're flying blind on spend;
+            let's measure it first."
+          </div>
+          <div class="recipe">
+            <span class="lbl">recipe</span
+            ><span class="rchip">running_ads (Meta OR Google)</span
+            ><span class="andop">AND</span
+            ><span class="rchip">has_tracking_pixel = false</span
+            ><span class="addtog">+ Add</span>
+          </div>
+        </div>
+
+        <div class="ogrp">
+          🧭 Under-invested
+          <span class="val"
+            >— under-instrumented; full-service opportunity</span
+          >
+        </div>
+        <div class="sigcard">
+          <div class="nm">
+            Flying blind
+            <span class="strength" style="color: var(--amber)"
+              >●●●○ medium</span
+            >
+          </div>
+          <div class="means">
+            Under-instrumented — no analytics, no booking, DIY site.
+            Full-service opportunity.
+          </div>
+          <div class="pitch">
+            ↳ Pitch: full-service setup — "let's get you measuring and booking
+            before optimizing."
+          </div>
+          <div class="recipe">
+            <span class="lbl">recipe</span
+            ><span class="rchip">has_analytics = false</span
+            ><span class="andop">AND</span
+            ><span class="rchip">has_booking_tool = false</span
+            ><span class="andop">AND</span
+            ><span class="rchip">DIY platform</span
+            ><span class="addtog">+ Add</span>
+          </div>
+        </div>
+        <div class="sigcard">
+          <div class="nm">
+            HIPAA exposure
+            <span class="strength" style="color: var(--coral)"
+              >●●○○ niche · health categories</span
+            >
+          </div>
+          <div class="means">
+            A tracking pixel co-located with a booking/intake (PHI) page —
+            exposure worth checking.
+          </div>
+          <div class="pitch">
+            ↳ Pitch: compliance review — "this setup may be leaking patient
+            data; worth a look."
+          </div>
+          <div class="recipe">
+            <span class="lbl">recipe</span
+            ><span class="rchip">tracking_pixel present</span
+            ><span class="andop">AND</span
+            ><span class="rchip">on booking/intake (PHI) page</span
+            ><span class="andop">AND</span
+            ><span class="rchip">category ∈ health</span
+            ><span class="addtog">+ Add</span>
+          </div>
+        </div>
+
+        <h3>Raw data — demoted, behind "Advanced"</h3>
+        <p>
+          Raw fields keep the operator+value language but live in a quiet
+          expander so they never compete with the signals. They're for the
+          specialist who already knows exactly what atomic fact they want.
+        </p>
+        <div class="card" style="padding: 16px">
+          <div
+            style="font-size: 12px; font-weight: 700; color: var(--indigo-700)"
+          >
+            ▾ Advanced: add a raw filter
+          </div>
+          <div class="rawrow">
+            <span class="rchip">review_count</span
+            ><span class="opbox">&gt;=</span
+            ><span class="rchip" style="background: #fff">30</span>
+          </div>
+          <div class="rawrow">
+            <span class="rchip">lighthouse_perf</span
+            ><span class="opbox">&lt;</span
+            ><span class="rchip" style="background: #fff">50</span>
+          </div>
+          <div class="rawrow">
+            <span class="rchip">rating</span><span class="opbox">between</span
+            ><span class="rchip" style="background: #fff">3.5</span
+            ><span class="opbox">and</span
+            ><span class="rchip" style="background: #fff">4.5</span>
+          </div>
+          <div class="rawrow">
+            <span class="rchip">cms_platform</span><span class="opbox">=</span
+            ><span class="rchip" style="background: #fff">Wix</span>
+          </div>
+        </div>
+        <div class="principle">
+          <div class="p">Why the two-tier UI is the moat, not just nice</div>
+          <div class="d">
+            If signals look like raw fields, the user (and any competitor
+            screenshotting us) reads the product as "filters on scraped data."
+            When signals are primary, recipe-bearing, and outcome-grouped, the
+            product reads as
+            <span class="hl">encoded expertise you can't get elsewhere</span> —
+            which is exactly what it is, and exactly what justifies the price.
+          </div>
+        </div>
+
+        <!-- ===================== TEMPLATES ===================== -->
+        <h2 id="templates">Templates rework — the reasoning</h2>
+        <div class="card">
+          <p>
+            A template is a <b>named preset bundle of signals</b> (+ optional
+            raw filters) for a goal. It's the on-ramp: it pre-fills the build
+            with the right composites so a new user gets a strong query without
+            learning the library first. Three things were broken and are now
+            fixed:
+          </p>
+          <table>
+            <thead>
+              <tr>
+                <th>Problem</th>
+                <th>Why it mattered</th>
+                <th>Fix</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Fat cards, won't scale past ~5</td>
+                <td>
+                  We need 10+; the loose grid felt heavy and made the gallery a
+                  wall
+                </td>
+                <td>
+                  Compact 2-col scannable grid (icon · name · outcome · signal
+                  chips · Use), searchable + categorizable
+                </td>
+              </tr>
+              <tr>
+                <td>"Custom" buried among cards</td>
+                <td>
+                  Power users couldn't find "start from scratch"; it's a
+                  distinct intent
+                </td>
+                <td>
+                  A separated, always-visible dashed row above the gallery —
+                  never a peer of the presets
+                </td>
+              </tr>
+              <tr>
+                <td>Cards didn't show the bundle</td>
+                <td>User couldn't judge a template's value before clicking</td>
+                <td>
+                  Each card shows its preset signal chips inline, so value is
+                  legible at a glance
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <p class="note">
+            The live gallery is shown on
+            <a href="#p-goal" style="color: var(--indigo-700); font-weight: 600"
+              >page 2</a
+            >. It scales to dozens because each entry is one tight row, not a
+            card.
+          </p>
+        </div>
+
+        <!-- ===================== BRAND ===================== -->
+        <h2 id="brand">
+          Brand alignment — why the portal must feel like Mapsly, not a template
+        </h2>
+        <div class="card framed">
+          <div class="eyebrow">The #1 fix</div>
+          <p style="font-size: 15px; color: var(--ink-2)">
+            <b
+              >Flat Inter on flat white is why the portal looked
+              AI-templated.</b
+            >
+            A product whose landing page leads with confident editorial serif
+            and a yellow-highlighted punch phrase cannot hand the user a portal
+            that looks like a Webflow starter — the discontinuity reads as "the
+            real product is the marketing site." The brand isn't decoration;
+            it's the signal that this tool has a point of view, which is exactly
+            what an agency owner pays for.
+          </p>
+        </div>
+
+        <div class="card">
+          <h3 style="margin-top: 4px">Typography — the load-bearing change</h3>
+          <div class="brandrow">
+            <div class="bk">
+              Display / headings<br /><span class="note">Fraunces</span>
+            </div>
+            <div>
+              <div class="specimen">See the 64 med spas losing bookings.</div>
+              <p class="note" style="margin: 6px 0 0">
+                Large, confident, editorial. Page H1/H2, hero lines, big
+                numbers, the score. Weight + color may mix within one line; the
+                punch phrase gets a yellow highlight behind it (brand
+                signature). Italic allowed for emphasis.
+              </p>
+            </div>
+          </div>
+          <div class="brandrow">
+            <div class="bk">
+              Body / UI<br /><span class="note">Montserrat</span>
+            </div>
+            <div>
+              <div class="specimen body">
+                Humanist, friendly, replaces Inter for all UI text. Filter
+                chips, table rows, buttons, labels, body copy.
+              </div>
+              <p class="note" style="margin: 6px 0 0">
+                400 / 600 / 700. The shift off Inter is what removes the
+                generic-SaaS feel from every dense surface.
+              </p>
+            </div>
+          </div>
+          <div class="brandrow">
+            <div class="bk">
+              Data / mono<br /><span class="note">JetBrains Mono</span>
+            </div>
+            <div>
+              <div class="specimen mono">
+                lighthouse_perf &lt; 50 · 4.2★ · $29/mo
+              </div>
+              <p class="note" style="margin: 6px 0 0">
+                Recipe chips, raw field names, operators, technical sub-text
+                only.
+              </p>
+            </div>
+          </div>
+          <div class="why">
+            <div class="wk">
+              Reasoning · why this beats the generic template
+            </div>
+            <p>
+              Inter is the default of a thousand SaaS tools — choosing it is
+              choosing to look like everyone. Fraunces + Montserrat is a
+              deliberate, ownable pairing already shipping on
+              <code>/for-businesses</code>; carrying it into the portal makes
+              the two surfaces one product. The
+              yellow-highlight-behind-the-punch is a recognizable signature no
+              competitor screenshot can borrow without looking like a copy.
+            </p>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3 style="margin-top: 4px">Color — agency identity, brand-tied</h3>
+          <div class="swatches">
+            <div class="sw">
+              <span class="chip" style="background: #f6f7fb"></span>#f6f7fb ·
+              base
+            </div>
+            <div class="sw">
+              <span class="chip" style="background: #fff"></span>#fff · surface
+            </div>
+            <div class="sw">
+              <span class="chip" style="background: #0f172a"></span>#0f172a ·
+              ink
+            </div>
+            <div class="sw">
+              <span class="chip" style="background: #5b3df5"></span>#5b3df5 ·
+              indigo
+            </div>
+            <div class="sw">
+              <span class="chip" style="background: #f2e94e"></span>#f2e94e ·
+              yellow punch
+            </div>
+            <div class="sw">
+              <span class="chip" style="background: #b96562"></span>#b96562 ·
+              coral / loss
+            </div>
+            <div class="sw">
+              <span class="chip" style="background: #0f9d6b"></span>#0f9d6b ·
+              status ok
+            </div>
+            <div class="sw">
+              <span class="chip" style="background: #b7791f"></span>#b7791f ·
+              status warn
+            </div>
+          </div>
+          <p style="margin: 12px 0 0">
+            <b>Indigo</b> is the primary action color.
+            <b>Yellow (#f2e94e)</b> is the brand punch — key numbers, the score
+            arc, check/x markers, highlights, and one primary CTA option.
+            <b>Coral (#b96562)</b> carries loss / chose-competitor / risk
+            semantics (it's the agency's version of the SMB coral). Emerald /
+            amber / red stay for status only.
+          </p>
+          <div class="pillrow" style="margin-top: 12px">
+            <span class="pbtn indigo">Discover this market</span>
+            <span class="pbtn yellow">Top up credits</span>
+            <span class="pbtn ghost">Save to list</span>
+          </div>
+          <div class="why" style="margin-top: 14px">
+            <div class="wk">Reasoning</div>
+            <p>
+              Yellow used sparingly as a <i>punch</i> (not a fill) makes the
+              moments that matter — the market count, the score, the one forward
+              CTA — impossible to miss, and it's the brand's tie to the SMB
+              landing. Coral for loss-semantics gives the agency a precise
+              emotional vocabulary ("this business is losing customers") that a
+              generic red can't carry.
+            </p>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3 style="margin-top: 4px">Surfaces — two altitudes, one system</h3>
+          <div class="vs" style="margin-top: 8px">
+            <div class="new" style="background: var(--gradient); border: 0">
+              <h4 style="color: var(--indigo-700)">
+                Editorial framing — soft cool gradient
+              </h4>
+              <ul style="color: var(--ink-2)">
+                <li>
+                  Welcome · Goal · Preview hero · Enriching · Billing · Research
+                  home · empty states
+                </li>
+                <li>
+                  Indigo / slate / teal pastel mesh — atmosphere, not flat white
+                </li>
+                <li>Big Fraunces, count-ups, the brand's confident voice</li>
+              </ul>
+            </div>
+            <div class="new" style="background: #fff">
+              <h4 style="color: var(--ink-2)">Crisp tooling — clean white</h4>
+              <ul>
+                <li>
+                  The dense work table (Discover, Workspace, Touchpoints tab)
+                </li>
+                <li>
+                  Stays white for scannability — density beats atmosphere here
+                </li>
+                <li>
+                  Brand enters via frosted sticky bar, pill controls, Fraunces
+                  titles/counts only
+                </li>
+              </ul>
+            </div>
+          </div>
+          <p style="margin: 12px 0 0">
+            Two altitudes — editorial framing for the moments, crisp tooling for
+            the work — unified by one type / color / component system. The dense
+            table never gets a gradient (it would hurt readability); the framing
+            surfaces never get the spreadsheet treatment (they'd lose the
+            brand).
+          </p>
+        </div>
+
+        <div class="card">
+          <h3 style="margin-top: 4px">Components &amp; voice</h3>
+          <div
+            class="grid2"
+            style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px"
+          >
+            <div>
+              <p><b>Components</b></p>
+              <ul
+                style="
+                  margin: 4px 0 0;
+                  padding-left: 18px;
+                  color: var(--ink-2);
+                  font-size: 13px;
+                "
+              >
+                <li>Rounded cards (~18–20px radius) + soft shadows</li>
+                <li>Pill buttons · pill search · frosted sticky top bar</li>
+                <li>Rounded score / standards gauge</li>
+                <li>
+                  Animated count-up on big numbers (respects
+                  <code>prefers-reduced-motion</code>)
+                </li>
+                <li>
+                  Review / quote cards — big quote marks, yellow stars, coral
+                  chose-line
+                </li>
+              </ul>
+              <div class="pillsearch" style="margin-top: 10px">
+                🔎 Look up a business…
+              </div>
+            </div>
+            <div>
+              <p><b>Voice</b></p>
+              <ul
+                style="
+                  margin: 4px 0 0;
+                  padding-left: 18px;
+                  color: var(--ink-2);
+                  font-size: 13px;
+                "
+              >
+                <li>Confident, specific, second-person, outcome-framed</li>
+                <li>
+                  <span class="check">✓</span> "See the 64 med spas losing
+                  bookings to a slow site"
+                </li>
+                <li>
+                  <span class="ex">✗</span> "Build your search" · "Welcome to
+                  Mapsly"
+                </li>
+                <li>
+                  Numbers over adjectives; jargon OK for Tom (with hover help)
+                </li>
+                <li>
+                  Imperative actions: "Add to outreach", "Generate touches"
+                </li>
+              </ul>
+            </div>
+          </div>
+          <div class="why" style="margin-top: 14px">
+            <div class="wk">
+              Reasoning · why this beats the generic template
+            </div>
+            <p>
+              The generic template is recognizable precisely because it has no
+              opinion: default font, flat surfaces, "Get started" copy. Every
+              choice here is an opinion — an editorial serif, a punch color, an
+              outcome-first sentence — and opinions are what make a tool feel
+              built by people who understand the job. For an agency owner
+              deciding whether to trust us with their prospecting, "this team
+              has taste and a point of view" is itself a conversion argument.
+            </p>
+          </div>
+        </div>
+
+        <!-- ===================== WHY ===================== -->
+        <h2 id="why">Why this beats the generic template — the through-line</h2>
+        <div class="card">
+          <table>
+            <thead>
+              <tr>
+                <th>Dimension</th>
+                <th>Generic SaaS template</th>
+                <th>Mapsly portal v4</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Type</td>
+                <td>Inter everywhere — the default of a thousand tools</td>
+                <td>
+                  Fraunces display + Montserrat UI — ownable, continuous with
+                  the landing
+                </td>
+              </tr>
+              <tr>
+                <td>Punch</td>
+                <td>One indigo button, no accent personality</td>
+                <td>
+                  Yellow highlight behind the punch phrase + yellow
+                  score/markers
+                </td>
+              </tr>
+              <tr>
+                <td>Surfaces</td>
+                <td>Flat white slabs end-to-end</td>
+                <td>
+                  Gradient framing for moments, crisp white for work — two
+                  altitudes
+                </td>
+              </tr>
+              <tr>
+                <td>Signals</td>
+                <td>Raw fields as filters ("&gt;30 reviews")</td>
+                <td>
+                  Expert composites with visible recipes, grouped by outcome
+                </td>
+              </tr>
+              <tr>
+                <td>Copy</td>
+                <td>"Build your search", "Get started"</td>
+                <td>"See the 64 med spas losing bookings to a slow site"</td>
+              </tr>
+              <tr>
+                <td>Money</td>
+                <td>Dollars at every step — feels like a checkout</td>
+                <td>Credits meter everywhere; one $ on top-up only</td>
+              </tr>
+              <tr>
+                <td>Detail</td>
+                <td>Full page that loses your list</td>
+                <td>Drawer over the table — context never lost</td>
+              </tr>
+              <tr>
+                <td>The read it gives</td>
+                <td>"Filters on scraped data"</td>
+                <td>"Encoded expertise you can't get elsewhere"</td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="principle">
+            <div class="p">The point</div>
+            <div class="d">
+              The old portal <span class="hl-ink">functioned</span>. v4 makes it
+              <span class="hl">feel like a product with a point of view</span> —
+              and stops giving the moat away by dressing our expert composites
+              as raw data anyone can scrape.
+            </div>
+          </div>
+        </div>
+
+        <p class="note" style="margin-top: 34px">
+          Companion docs:
+          <a href="portal-ux-coverage.html" style="color: var(--indigo-700)"
+            >portal-ux-coverage.html</a
+          >
+          (structural rework) ·
+          <a href="portal-prototype.html" style="color: var(--indigo-700)"
+            >portal-prototype.html</a
+          >
+          (clickable). This doc: portal-ux-critique.html · scores are
+          design-completeness of the prototype, not production-validated · fake
+          data · no app code touched.
+        </p>
+      </main>
+    </div>
+    <script>
+      // Animated count-up on .countup, respecting prefers-reduced-motion.
+      (function () {
+        var reduce =
+          window.matchMedia &&
+          window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        var els = document.querySelectorAll(".countup");
+        if (reduce) {
+          return;
+        }
+        var io = new IntersectionObserver(
+          function (entries) {
+            entries.forEach(function (e) {
+              if (!e.isIntersecting) return;
+              var el = e.target;
+              io.unobserve(el);
+              var target = parseFloat(el.textContent);
+              if (isNaN(target)) return;
+              var dec = el.textContent.indexOf(".") > -1 ? 1 : 0;
+              var start = null,
+                dur = 900;
+              function step(ts) {
+                if (!start) start = ts;
+                var p = Math.min((ts - start) / dur, 1);
+                el.textContent = (target * p).toFixed(dec);
+                if (p < 1) requestAnimationFrame(step);
+                else el.textContent = target.toFixed(dec);
+              }
+              requestAnimationFrame(step);
+            });
+          },
+          { threshold: 0.6 },
+        );
+        els.forEach(function (el) {
+          io.observe(el);
+        });
+      })();
+    </script>
+  </body>
+</html>
