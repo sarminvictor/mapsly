@@ -141,8 +141,8 @@ describe("getLocalizedPath", () => {
   });
 
   test("translated routes use the per-locale segment", () => {
-    expect(getLocalizedPath("/lists", "es")).toBe("/es/listas");
-    expect(getLocalizedPath("/lists", "fr")).toBe("/fr/listes");
+    expect(getLocalizedPath("/for-agencies", "es")).toBe("/es/para-agencias");
+    expect(getLocalizedPath("/for-agencies", "fr")).toBe("/fr/pour-agences");
     expect(getLocalizedPath("/home", "es")).toBe("/es/inicio");
     expect(getLocalizedPath("/home", "fr")).toBe("/fr/accueil");
   });
@@ -224,7 +224,7 @@ describe("getLocaleAlternates", () => {
       "/refunds",
       "/signin",
       "/home",
-      "/lists",
+      "/discover",
     ]) {
       const alts = getLocaleAlternates(canonical);
       expect(

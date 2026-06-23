@@ -82,13 +82,8 @@ async function AgencySidebarServer({
       account: t("section_account"),
     },
     items: {
-      lists: t("item_lists"),
-      hunter: t("item_hunter"),
       discover: t("item_discover"),
       campaigns: t("item_campaigns"),
-      list_analytics: t("item_list_analytics"),
-      list_activity: t("item_list_activity"),
-      reports: t("item_reports"),
       touchpoints: t("item_touchpoints"),
       agency_settings: t("item_agency_settings"),
       team_billing: t("item_team_billing"),

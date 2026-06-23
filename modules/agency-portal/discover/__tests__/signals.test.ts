@@ -6,6 +6,7 @@
 import { describe, expect, test } from "vitest";
 import {
   buildSignalRows,
+  buildSingleBusinessSignals,
   cellBand,
   percentileOf,
   quantile,
@@ -154,6 +155,39 @@ describe("buildSignalRows", () => {
     expect(alpha.findings[0].signalKey).toBe("hipaa-pixel-on-phi-page");
     // businesses without findings get an empty array.
     expect(rows.find((r) => r.id === "b2")!.findings).toHaveLength(0);
+  });
+});
+
+describe("buildSingleBusinessSignals", () => {
+  const cohort = [5, 50, 100, 200, 300, 400, 500];
+
+  test("emits a reviews signal with a band + percentile vs the cohort", () => {
+    const signals = buildSingleBusinessSignals({ reviewCount: 100 }, cohort);
+    expect(signals).toHaveLength(1);
+    expect(signals[0].key).toBe("reviews");
+    expect(signals[0].value).toBe(100);
+    expect(signals[0].band).not.toBeNull();
+    // 100 is 3rd of 7 → roughly mid-low percentile.
+    expect(signals[0].percentile).toBeGreaterThan(0);
+    expect(signals[0].percentile).toBeLessThan(100);
+  });
+
+  test("omits the band when the cohort is too small", () => {
+    const signals = buildSingleBusinessSignals({ reviewCount: 10 }, [10, 20]);
+    expect(signals[0].band).toBeNull();
+    expect(signals[0].value).toBe(10);
+  });
+
+  test("returns an empty array when reviewCount is null", () => {
+    expect(buildSingleBusinessSignals({ reviewCount: null }, cohort)).toEqual(
+      [],
+    );
+  });
+
+  test("ranks a high value above a low value within the same cohort", () => {
+    const low = buildSingleBusinessSignals({ reviewCount: 5 }, cohort)[0];
+    const high = buildSingleBusinessSignals({ reviewCount: 500 }, cohort)[0];
+    expect(low.percentile).toBeLessThan(high.percentile);
   });
 });
 

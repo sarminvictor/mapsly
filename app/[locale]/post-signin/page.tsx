@@ -13,7 +13,7 @@ import { startSmbCheckoutFromLanding } from "@/modules/smb-landing/checkout-inte
 //
 // Order of precedence:
 //   1. ADMIN → /admin (outside next-intl tree — native redirect)
-//   2. AgencyMember row exists    → /lists
+//   2. AgencyMember row exists    → /discover (demand-driven agency entry)
 //   3. Default                    → /home (SMB)
 //
 // Under cacheComponents (PPR), the outer page must be sync — async work
@@ -66,7 +66,7 @@ async function PostSignInRedirect({
   }
 
   if (user.agencyMembers.length > 0) {
-    redirect({ href: "/lists", locale });
+    redirect({ href: "/discover", locale });
   }
 
   // Landing-driven SMB checkout intent — best-effort. A freshly-authed visitor

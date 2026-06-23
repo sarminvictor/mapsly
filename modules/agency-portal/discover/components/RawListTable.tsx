@@ -9,10 +9,12 @@
 // `<EnrichPanel>`. Per `.claude/rules/ui-ux-agency.md`: dense, indigo accent,
 // numbers over adjectives, imperative actions. Copy is English-only for now.
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 
+import { useRouter } from "@/i18n/navigation";
 import { Link } from "@/i18n/navigation";
 import { ALL_ENRICHMENT_TYPES } from "@/modules/cost/pricing";
+import { saveAsListAction } from "@/modules/discovery/save-list-actions";
 import {
   applyClientFilters,
   type ClientFilters,
@@ -45,6 +47,8 @@ export interface RawListTableProps {
   rows: RawListTableRow[];
   /** Cells the raw list spans (passed through to the enrich panel). */
   cellKeys: string[];
+  /** The owning discovery — drives save-as-list + per-row detail links. */
+  discoveryId: string;
   /** Cursor for the next page (null at end) — surfaced as a hint for now. */
   nextCursor?: string | null;
   /** Agency wallet balance in USD (optional — gates the enrich run). */
@@ -102,12 +106,17 @@ function EnrichmentDots({ state }: { state?: Record<string, boolean> | null }) {
 export function RawListTable({
   rows,
   cellKeys,
+  discoveryId,
   nextCursor,
   walletUsd,
 }: RawListTableProps) {
+  const router = useRouter();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [filters, setFilters] = useState<ClientFilters>({});
   const [enrichOpen, setEnrichOpen] = useState(false);
+  const [listName, setListName] = useState("Untitled list");
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saving, startSave] = useTransition();
 
   const visibleRows = useMemo(
     () => applyClientFilters(rows, filters),
@@ -146,6 +155,31 @@ export function RawListTable({
   function clearSelection() {
     setSelected(new Set());
     setEnrichOpen(false);
+    setSaveError(null);
+  }
+
+  function handleSaveAsList() {
+    if (selectedIds.length === 0 || saving) return;
+    setSaveError(null);
+    startSave(async () => {
+      const result = await saveAsListAction({
+        discoveryId,
+        businessIds: selectedIds,
+        name: listName.trim() || "Untitled list",
+      });
+      if (result.status === "ok") {
+        router.push({
+          pathname: "/discover/[discoveryId]/lists/[listId]",
+          params: { discoveryId, listId: result.listId },
+        });
+        return;
+      }
+      setSaveError(
+        result.status === "invalid_input"
+          ? result.message
+          : "Couldn't save the list. Try again.",
+      );
+    });
   }
 
   const reachActive = filters.reachability ?? [];
@@ -330,10 +364,11 @@ export function RawListTable({
                       <td className="px-3 py-2 text-right align-top">
                         <Link
                           href={{
-                            pathname: "/prospect/[businessId]",
-                            params: { businessId: r.id },
+                            pathname:
+                              "/discover/[discoveryId]/business/[businessId]",
+                            params: { discoveryId, businessId: r.id },
                           }}
-                          className="text-xs font-medium text-indigo-600 hover:underline"
+                          className="text-xs font-medium text-indigo-600 hover:text-indigo-700"
                         >
                           Open →
                         </Link>
@@ -357,6 +392,11 @@ export function RawListTable({
           <div className="sticky bottom-0 mt-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white/95 p-3 backdrop-blur">
             <span className="text-sm text-slate-700">
               <b>{selectedIds.length}</b> selected
+              {saveError ? (
+                <span className="ml-2 text-xs font-medium text-red-600">
+                  {saveError}
+                </span>
+              ) : null}
             </span>
             <div className="flex items-center gap-2">
               <button
@@ -366,14 +406,23 @@ export function RawListTable({
               >
                 Clear
               </button>
-              {/* Save-as-list is a stub until the list-save action lands. */}
+              {/* Save-as-list · name input + create. Pure DB write → routes to
+                  the new list's pipeline view on success. */}
+              <input
+                type="text"
+                value={listName}
+                onChange={(e) => setListName(e.target.value)}
+                aria-label="List name"
+                placeholder="Untitled list"
+                className="w-40 rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+              />
               <button
                 type="button"
-                disabled
-                title="Save as list — coming soon"
-                className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-400"
+                onClick={handleSaveAsList}
+                disabled={saving}
+                className="rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-100 disabled:opacity-50"
               >
-                Save as list
+                {saving ? "Saving…" : "Save as list"}
               </button>
               <button
                 type="button"

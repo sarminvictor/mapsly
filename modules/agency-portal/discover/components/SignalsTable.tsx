@@ -16,9 +16,11 @@ import { confidencePillClass, type SignalRow } from "../signals";
 
 export interface SignalsTableProps {
   rows: SignalRow[];
+  /** The owning discovery — drives the per-row business-detail link. */
+  discoveryId: string;
 }
 
-export function SignalsTable({ rows }: SignalsTableProps) {
+export function SignalsTable({ rows, discoveryId }: SignalsTableProps) {
   if (rows.length === 0) {
     return (
       <div className="rounded-xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">
@@ -121,10 +123,10 @@ export function SignalsTable({ rows }: SignalsTableProps) {
               <td className="px-3 py-3 text-right">
                 <Link
                   href={{
-                    pathname: "/prospect/[businessId]",
-                    params: { businessId: r.id },
+                    pathname: "/discover/[discoveryId]/business/[businessId]",
+                    params: { discoveryId, businessId: r.id },
                   }}
-                  className="text-xs font-medium text-indigo-600 hover:underline"
+                  className="text-xs font-medium text-indigo-600 hover:text-indigo-700"
                 >
                   Open →
                 </Link>

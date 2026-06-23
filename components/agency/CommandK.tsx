@@ -157,13 +157,13 @@ export function CommandK() {
   }, [query]);
 
   // ─── Selection (Enter / click) ───────────────────────────────────────
+  // The supply-driven prospect-detail route was demolished in the
+  // demand-driven rework. Until the new per-business detail surface
+  // lands, selecting a result routes to Discover (the new entry point).
   const select = React.useCallback(
-    (match: BusinessMatch) => {
+    (_match: BusinessMatch) => {
       closeModal();
-      router.push({
-        pathname: "/prospect/[businessId]",
-        params: { businessId: match.id },
-      });
+      router.push({ pathname: "/discover" });
     },
     [router, closeModal],
   );

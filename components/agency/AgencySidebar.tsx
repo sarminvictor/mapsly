@@ -34,13 +34,8 @@ import { Link, usePathname } from "@/i18n/navigation";
 /* ------------------------------------------------------------ types */
 
 type NavHref =
-  | "/lists"
-  | "/hunter"
   | "/discover"
   | "/campaigns"
-  | "/list-analytics"
-  | "/list-activity"
-  | "/reports"
   | "/touchpoints"
   | "/agency-settings"
   | "/team/billing";
@@ -60,13 +55,8 @@ export interface AgencySidebarLabels {
     account: string;
   };
   items: {
-    lists: string;
-    hunter: string;
     discover: string;
     campaigns: string;
-    list_analytics: string;
-    list_activity: string;
-    reports: string;
     touchpoints: string;
     agency_settings: string;
     team_billing: string;
@@ -85,23 +75,6 @@ const ICON_STROKE_PROPS = {
   strokeLinecap: "round" as const,
   strokeLinejoin: "round" as const,
 };
-
-function IconLists() {
-  return (
-    <svg aria-hidden {...ICON_STROKE_PROPS}>
-      <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />
-    </svg>
-  );
-}
-
-function IconHunter() {
-  return (
-    <svg aria-hidden {...ICON_STROKE_PROPS}>
-      <circle cx="11" cy="11" r="8" />
-      <path d="m21 21-4.3-4.3" />
-    </svg>
-  );
-}
 
 function IconDiscover() {
   return (
@@ -129,32 +102,6 @@ function IconTouchpoints() {
   );
 }
 
-function IconAnalytics() {
-  return (
-    <svg aria-hidden {...ICON_STROKE_PROPS}>
-      <path d="M3 3v18h18" />
-      <path d="M18 17V9M13 17v-5M8 17v-3" />
-    </svg>
-  );
-}
-
-function IconActivity() {
-  return (
-    <svg aria-hidden {...ICON_STROKE_PROPS}>
-      <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
-    </svg>
-  );
-}
-
-function IconReports() {
-  return (
-    <svg aria-hidden {...ICON_STROKE_PROPS}>
-      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-      <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" />
-    </svg>
-  );
-}
-
 function IconSettings() {
   return (
     <svg aria-hidden {...ICON_STROKE_PROPS}>
@@ -176,24 +123,11 @@ function IconBilling() {
 /* ----------------------------------------------- nav definitions */
 
 const WORKSPACE_ITEMS: NavItem[] = [
-  { href: "/lists", labelKey: "lists", icon: <IconLists /> },
-  { href: "/hunter", labelKey: "hunter", icon: <IconHunter /> },
   { href: "/discover", labelKey: "discover", icon: <IconDiscover /> },
   { href: "/campaigns", labelKey: "campaigns", icon: <IconCampaigns /> },
 ];
 
 const INSIGHT_ITEMS: NavItem[] = [
-  {
-    href: "/list-analytics",
-    labelKey: "list_analytics",
-    icon: <IconAnalytics />,
-  },
-  {
-    href: "/list-activity",
-    labelKey: "list_activity",
-    icon: <IconActivity />,
-  },
-  { href: "/reports", labelKey: "reports", icon: <IconReports /> },
   {
     href: "/touchpoints",
     labelKey: "touchpoints",
@@ -220,10 +154,8 @@ export function AgencySidebar({ labels }: AgencySidebarProps) {
   const pathname = usePathname();
 
   function isActive(href: NavHref): boolean {
-    if (href === "/lists") {
-      // `/lists/:id` should keep /lists highlighted.
-      return pathname === "/lists" || pathname.startsWith("/lists/");
-    }
+    // Sub-routes keep their parent nav item highlighted
+    // (e.g. `/discover/:id`, `/campaigns/new`).
     return pathname === href || pathname.startsWith(`${href}/`);
   }
 

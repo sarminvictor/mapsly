@@ -1,45 +1,26 @@
 /**
  * Agency onboarding · shared types + EMPTY constant for cache-components
- * Pattern 1 (build-phase short-circuit). The page reads this shape from
- * `getAgencyOnboardingData` and renders a step accordingly.
+ * Pattern 1 (build-phase short-circuit).
  *
- * Step state lives in `?step=1..3` so the route stays streamable
- * (URL-driven), per cache-components Pattern 3.
+ * Reworked for the demand-driven portal: onboarding is now a single lean
+ * profile step that captures the agency's `defaultMetro` +
+ * `categoriesServed` and then drops Tom into `/discover`. The old
+ * 3-step wizard (template picking + lead preview that seeded a List)
+ * is gone along with the supply-driven lists portal.
  */
 
-export const ONBOARDING_STEPS = [1, 2, 3] as const;
-export type OnboardingStep = (typeof ONBOARDING_STEPS)[number];
-export const TOTAL_STEPS = ONBOARDING_STEPS.length;
-
 /**
- * Sample lead preview row · used in step 3 to show top-rated businesses
- * in the agency's default metro (or globally if no metro set).
- */
-export interface AgencyOnboardingLeadPreview {
-  id: string;
-  name: string;
-  city: string;
-  category: string;
-  rating: number;
-  reviewCount: number;
-}
-
-/**
- * What the page needs to render. Sourced from a single cached query so
- * the build-phase guard returns one well-typed empty value.
+ * What the setup page needs to render. Sourced from a single cached query
+ * so the build-phase guard returns one well-typed empty value.
  */
 export interface AgencyOnboardingData {
-  /** Empty string when user has no AgencyMember row (Tom's first visit OR stray SMB user). */
+  /** Empty string when user has no AgencyMember row (stray SMB user). */
   agencyId: string;
   agencyName: string;
-  /** Optional, from Agency.defaultMetro. */
+  /** Current value of `Agency.defaultMetro` · pre-fills the form. */
   defaultMetro: string;
-  /** ServiceTemplate keys that already have a List · so we can disable them in step 2. */
-  serviceTemplatesUsed: string[];
-  /** First 50 sample leads preview · step 3. */
-  sampleLeads: AgencyOnboardingLeadPreview[];
-  /** Total addressable count beyond the 50 shown. */
-  moreAvailable: number;
+  /** Current `Agency.categoriesServed` joined for the comma-separated input. */
+  categoriesServed: string;
 }
 
 /**
@@ -56,18 +37,5 @@ export const EMPTY_AGENCY_ONBOARDING: AgencyOnboardingData = {
   agencyId: "",
   agencyName: "",
   defaultMetro: "",
-  serviceTemplatesUsed: [],
-  sampleLeads: [],
-  moreAvailable: 0,
+  categoriesServed: "",
 };
-
-/**
- * Parse the `?step=` searchParam into a valid step number. Anything
- * unrecognised falls back to step 1.
- */
-export function parseStep(raw: string | string[] | undefined): OnboardingStep {
-  const value = Array.isArray(raw) ? raw[0] : raw;
-  const n = Number(value);
-  if (n === 1 || n === 2 || n === 3) return n;
-  return 1;
-}

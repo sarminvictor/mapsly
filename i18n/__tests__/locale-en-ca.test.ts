@@ -52,15 +52,11 @@ describe("messages/en-CA.json · sparse override file", () => {
     expect(Array.isArray(enCAMessages)).toBe(false);
   });
 
-  test("Canadian spelling: agency.lists.service_templates.brand is 'Brand defence'", () => {
-    // The en baseline uses American 'defense'; en-CA overrides to 'defence'.
-    expect(enMessages.agency.lists.service_templates.brand).toBe(
-      "Brand defense",
-    );
-    expect(enCAMessages.agency.lists.service_templates.brand).toBe(
-      "Brand defence",
-    );
-  });
+  // The former Canadian-spelling example (agency.lists.service_templates.brand
+  // → "Brand defence") was removed when the supply-driven agency lists portal
+  // was demolished in the demand-driven rework. en-CA.json is currently an
+  // empty sparse-override file; the structural tests below still pin the
+  // override contract so a future Canada-specific string lands correctly.
 
   test("override file is SPARSE — does not duplicate untouched en keys", () => {
     // Sparse-override discipline: every key present in en-CA must represent

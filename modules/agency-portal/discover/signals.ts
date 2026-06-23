@@ -172,6 +172,41 @@ export function buildSignalRows(
   });
 }
 
+/**
+ * Build the comparative signals for a SINGLE business against a cohort sample
+ * (the rest of its cell). Used by the business-detail view, which loads one
+ * business plus the cohort's reviewCount distribution. Pure — unit-testable.
+ *
+ * The cohort sample is the reviewCount of every business in the cell (including
+ * this one); the band is omitted when the cohort is too small (graceful).
+ * Returns an empty array when the business has no comparable value (null
+ * reviewCount), matching `buildSignalRows`' behavior.
+ */
+export function buildSingleBusinessSignals(
+  business: Pick<SignalBusinessInput, "reviewCount">,
+  cohortReviewCounts: number[],
+): ComparativeSignal[] {
+  const reviews =
+    typeof business.reviewCount === "number" &&
+    Number.isFinite(business.reviewCount)
+      ? business.reviewCount
+      : null;
+  if (reviews === null) return [];
+
+  const sample = cohortReviewCounts.filter((v) => Number.isFinite(v));
+  const sortedReviews = [...sample].sort((a, b) => a - b);
+  return [
+    {
+      key: "reviews",
+      label: "Reviews",
+      value: reviews,
+      unit: "",
+      percentile: percentileOf(sortedReviews, reviews),
+      band: cellBand(sample),
+    },
+  ];
+}
+
 /** Tailwind class fragment for a finding-confidence pill. */
 export function confidencePillClass(confidence: string): string {
   switch (confidence.toLowerCase()) {

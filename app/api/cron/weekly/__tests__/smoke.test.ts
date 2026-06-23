@@ -1,4 +1,4 @@
-// Smoke tests for the 7 weekly cron handlers.
+// Smoke tests for the weekly cron handlers.
 //
 // Asserts each route module:
 //   1. Loads without throwing
@@ -34,7 +34,6 @@ const ROUTES = [
   "lighthouse-audit",
   "competitor-diff",
   "snapshot-write",
-  "list-refresh-weekly",
 ] as const;
 
 describe("weekly handlers · smoke", () => {

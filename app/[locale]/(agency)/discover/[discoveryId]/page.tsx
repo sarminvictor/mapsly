@@ -28,7 +28,7 @@ import { notFound, unauthorized } from "next/navigation";
 import { setRequestLocale } from "next-intl/server";
 
 import { auth } from "@/lib/auth";
-import { redirect } from "@/i18n/navigation";
+import { Link, redirect } from "@/i18n/navigation";
 import prisma from "@/lib/prisma";
 import { getRawList, getRawListSummary } from "@/modules/discovery/raw-list";
 import { getResearchOverview } from "@/modules/agency-portal/discover/overview";
@@ -95,10 +95,41 @@ async function DiscoveryDetailBody({ params }: PageProps) {
 
   const cellKeys = discovery.cellKeys;
 
-  const [summary, firstPage] = await Promise.all([
+  const [summary, firstPage, savedLists] = await Promise.all([
     getRawListSummary({ cellKeys }),
     getRawList({ cellKeys }, { take: 50 }),
+    // Saved (non-raw) lists carved out of this discovery, with a per-status
+    // rollup so the overview shows pipeline progress at a glance.
+    prisma.list.findMany({
+      where: { discoveryId: discovery.id, agencyId, isRaw: false },
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        name: true,
+        createdAt: true,
+        leads: { select: { status: true } },
+      },
+    }),
   ]);
+
+  // Pre-resolve each saved list into a plain serializable shape (no function
+  // props cross the boundary — but this section renders server-side anyway).
+  const savedListRows = savedLists.map((l) => {
+    const counts: Record<string, number> = {};
+    for (const lead of l.leads) {
+      counts[lead.status] = (counts[lead.status] ?? 0) + 1;
+    }
+    return {
+      id: l.id,
+      name: l.name,
+      total: l.leads.length,
+      newCount: counts.NEW ?? 0,
+      contactedCount: counts.CONTACTED ?? 0,
+      repliedCount: counts.REPLIED ?? 0,
+      wonCount: counts.WON ?? 0,
+      lostCount: counts.LOST ?? 0,
+    };
+  });
 
   const rows: RawListTableRow[] = firstPage.rows.map((r) => ({
     id: r.id,
@@ -192,6 +223,49 @@ async function DiscoveryDetailBody({ params }: PageProps) {
         ) : null}
       </section>
 
+      {/* Saved lists · pipelines carved out of this discovery */}
+      {savedListRows.length > 0 ? (
+        <section className="mb-5">
+          <h2 className="mb-2 text-sm font-semibold text-slate-700">
+            Saved lists
+          </h2>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {savedListRows.map((l) => (
+              <Link
+                key={l.id}
+                href={{
+                  pathname: "/discover/[discoveryId]/lists/[listId]",
+                  params: { discoveryId: discovery.id, listId: l.id },
+                }}
+                className="rounded-xl border border-slate-200 bg-white p-4 hover:border-indigo-300 hover:shadow-sm"
+              >
+                <div className="font-medium text-slate-800">{l.name}</div>
+                <div className="mt-1 font-mono text-xs text-slate-500">
+                  {l.total.toLocaleString()} leads
+                </div>
+                <div className="mt-2 flex flex-wrap gap-1.5 font-mono text-[11px]">
+                  <span className="rounded bg-slate-100 px-1.5 py-0.5 text-slate-600">
+                    {l.newCount} new
+                  </span>
+                  <span className="rounded bg-indigo-50 px-1.5 py-0.5 text-indigo-700">
+                    {l.contactedCount} contacted
+                  </span>
+                  <span className="rounded bg-amber-50 px-1.5 py-0.5 text-amber-700">
+                    {l.repliedCount} replied
+                  </span>
+                  <span className="rounded bg-emerald-50 px-1.5 py-0.5 text-emerald-700">
+                    {l.wonCount} won
+                  </span>
+                  <span className="rounded bg-red-50 px-1.5 py-0.5 text-red-700">
+                    {l.lostCount} lost
+                  </span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
       <div className="mb-4">
         <ReachabilityBanner counts={bannerCounts} />
       </div>
@@ -199,6 +273,7 @@ async function DiscoveryDetailBody({ params }: PageProps) {
       <RawListTable
         rows={rows}
         cellKeys={cellKeys}
+        discoveryId={discovery.id}
         nextCursor={firstPage.nextCursor}
       />
     </div>

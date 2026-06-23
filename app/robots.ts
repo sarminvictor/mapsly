@@ -5,7 +5,7 @@
  *   - `/api/`         · API routes (defense in depth · headers already noindex)
  *   - `/dev`, `/dev/` · the autonomous-build dashboard (host-gated, but belt+braces)
  *   - `/home*`   · SMB portal (authenticated)
- *   - `/lists*`       · agency portal (authenticated)
+ *   - `/discover*`    · agency portal (authenticated · demand-driven entry)
  *   - `/signin*`      · auth flow (no SEO value, may leak short-lived tokens)
  *   - `/post-signin*` · post-auth bounce
  *
@@ -37,8 +37,8 @@ export default function robots(): MetadataRoute.Robots {
           "/dev/",
           "/home",
           "/home/",
-          "/lists",
-          "/lists/",
+          "/discover",
+          "/discover/",
           "/signin",
           "/signin/",
           "/post-signin",

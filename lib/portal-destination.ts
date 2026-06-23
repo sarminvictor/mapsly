@@ -8,7 +8,7 @@
  * Mirrors the dispatch logic in `app/[locale]/post-signin/page.tsx`:
  *
  *   1. ADMIN → /admin
- *   2. AgencyMember row exists → /lists
+ *   2. AgencyMember row exists → /discover (demand-driven agency entry)
  *   3. Default → /home (SMB)
  *
  * Returns a label-key (resolved by the caller via getTranslations)
@@ -21,7 +21,7 @@
 
 import prisma from "@/lib/prisma";
 
-export type PortalDestinationHref = "/home" | "/lists" | "/admin";
+export type PortalDestinationHref = "/home" | "/discover" | "/admin";
 
 export type PortalDestinationLabelKey =
   | "open_dashboard"
@@ -61,7 +61,7 @@ export async function getPortalDestination(
     }
     if (user.agencyMembers.length > 0) {
       return {
-        href: "/lists",
+        href: "/discover",
         labelKey: "open_workspace",
         external: false,
       };

@@ -117,7 +117,7 @@ describe("app/robots.ts", () => {
     const disallow = wildcard.disallow as string[];
     expect(disallow).toContain("/api/");
     expect(disallow).toContain("/home");
-    expect(disallow).toContain("/lists");
+    expect(disallow).toContain("/discover");
     expect(disallow).toContain("/signin");
     expect(disallow).toContain("/dev");
   });

@@ -177,7 +177,7 @@ async function DiscoverySignalsBody({ params }: PageProps) {
         </p>
       </header>
 
-      <SignalsTable rows={rows} />
+      <SignalsTable rows={rows} discoveryId={discovery.id} />
     </div>
   );
 }
