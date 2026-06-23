@@ -234,7 +234,9 @@ async function BillingBody({ params }: { params: Promise<PageParams> }) {
           colStatus: t("col_status"),
           colAction: t("col_action"),
           openAction: t("open_action"),
-          openAriaLabel: t("open_aria"),
+          // Literal "{date}" placeholder → template the client fills per invoice
+          // (see line ~653: openAriaLabel.replace("{date}", date)).
+          openAriaLabel: t("open_aria", { date: "{date}" }),
           moreNote: t("invoices_more_note"),
           statusPaid: t("invoice_status_paid"),
           statusOpen: t("invoice_status_open"),

@@ -190,6 +190,42 @@ export const routing = defineRouting({
       "en-CA": "/reports",
       fr: "/rapports",
     },
+    "/discover": {
+      en: "/discover",
+      es: "/descubrir",
+      "en-CA": "/discover",
+      fr: "/decouvrir",
+    },
+    "/discover/[discoveryId]": {
+      en: "/discover/[discoveryId]",
+      es: "/descubrir/[discoveryId]",
+      "en-CA": "/discover/[discoveryId]",
+      fr: "/decouvrir/[discoveryId]",
+    },
+    "/discover/[discoveryId]/signals": {
+      en: "/discover/[discoveryId]/signals",
+      es: "/descubrir/[discoveryId]/senales",
+      "en-CA": "/discover/[discoveryId]/signals",
+      fr: "/decouvrir/[discoveryId]/signaux",
+    },
+    "/touchpoints": {
+      en: "/touchpoints",
+      es: "/contactos",
+      "en-CA": "/touchpoints",
+      fr: "/points-de-contact",
+    },
+    "/campaigns": {
+      en: "/campaigns",
+      es: "/campanas",
+      "en-CA": "/campaigns",
+      fr: "/campagnes",
+    },
+    "/campaigns/new": {
+      en: "/campaigns/new",
+      es: "/campanas/nueva",
+      "en-CA": "/campaigns/new",
+      fr: "/campagnes/nouvelle",
+    },
   },
 });
 

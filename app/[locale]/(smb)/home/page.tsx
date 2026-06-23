@@ -312,8 +312,10 @@ async function OverviewBody({ params }: { params: Promise<PageParams> }) {
     agoDays: t("ago_days", { n: "{n}" }),
     agoHours: t("ago_hours", { n: "{n}" }),
     agoNow: t("ago_now"),
-    // Pagination · reuse the existing smb.home pager strings.
-    pageOfTotal: t("page_of_total"),
+    // Pagination · reuse the existing smb.home pager strings. Pass literal
+    // "{page}"/"{total}" placeholders so the ICU formats to a template the
+    // client pager fills (matches the leaderboard labels above + MarketChangesFeed).
+    pageOfTotal: t("page_of_total", { page: "{page}", total: "{total}" }),
     prev: t("prev"),
     next: t("next"),
   };

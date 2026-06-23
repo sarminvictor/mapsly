@@ -432,3 +432,60 @@ export function msiPercentile(rank: number, total: number): number {
   const clampedRank = Math.min(Math.max(rank, 1), total);
   return Math.round(((total - clampedRank) / (total - 1)) * 100);
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ComplianceRisk · the INFORMATIONAL 6th pillar (weight 0) · §4.15
+//
+// Surfacing-only: this is NOT one of the 5 PILLARS, carries ZERO weight, and is
+// intentionally absent from PILLAR_WEIGHTS + computePillars so it can NEVER move
+// the master `pillarScore` roll-up. It is computed separately from the expert
+// layer's PlaybookFinding confidences and persisted to
+// BusinessSnapshot.complianceRiskPillar / complianceRiskPercentile purely for
+// display + agency filtering.
+//
+// 0–10 where HIGHER = MORE risk (the inverse direction of the 5 pillars, which
+// are higher-is-better). A high-confidence finding contributes the most; a
+// low-confidence one barely moves the needle. The score saturates so a long tail
+// of findings can't push it past 10.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** The weight of the ComplianceRisk pillar in the master roll-up: ALWAYS 0. */
+export const COMPLIANCE_RISK_WEIGHT = 0 as const;
+
+/** Risk points each flagged finding contributes, by confidence tier. */
+export const COMPLIANCE_RISK_POINTS: Readonly<
+  Record<"high" | "medium" | "low", number>
+> = Object.freeze({ high: 4, medium: 2, low: 1 });
+
+/**
+ * The minimal finding shape computeComplianceRisk reads. Only flagged findings
+ * (status "flagged") carry risk; "not_checked" rows are ignored by the caller
+ * (or pass status !== "flagged" and are skipped here defensively).
+ */
+export interface ComplianceFindingInput {
+  readonly confidence: "high" | "medium" | "low";
+  /** "flagged" | "not_checked" — only flagged findings count toward risk. */
+  readonly status?: string;
+}
+
+/**
+ * Compute the informational 0–10 ComplianceRisk score (higher = more risk) from
+ * a business's playbook findings. Pure · null-tolerant · saturating:
+ *
+ *   risk10 = min(10, Σ points(confidence) over flagged findings)
+ *
+ * with points high=4, medium=2, low=1. No findings (or none flagged) → 0 (no
+ * KNOWN risk — distinct from "not checked", which the finding layer tracks
+ * separately and the caller filters out before calling this).
+ */
+export function computeComplianceRisk(
+  findings: readonly ComplianceFindingInput[] | null | undefined,
+): number {
+  if (!findings || findings.length === 0) return 0;
+  let points = 0;
+  for (const f of findings) {
+    if (f.status !== undefined && f.status !== "flagged") continue;
+    points += COMPLIANCE_RISK_POINTS[f.confidence] ?? 0;
+  }
+  return clampScore(points);
+}

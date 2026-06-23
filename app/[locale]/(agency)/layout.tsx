@@ -21,6 +21,8 @@ import { Suspense, type ReactNode } from "react";
 import { getTranslations } from "next-intl/server";
 
 import { CommandK } from "@/components/agency/CommandK";
+import { WalletPill } from "@/components/agency/WalletPill";
+import { JobsTray } from "@/components/agency/JobsTray";
 import {
   AgencySidebar,
   type AgencySidebarLabels,
@@ -82,9 +84,12 @@ async function AgencySidebarServer({
     items: {
       lists: t("item_lists"),
       hunter: t("item_hunter"),
+      discover: t("item_discover"),
+      campaigns: t("item_campaigns"),
       list_analytics: t("item_list_analytics"),
       list_activity: t("item_list_activity"),
       reports: t("item_reports"),
+      touchpoints: t("item_touchpoints"),
       agency_settings: t("item_agency_settings"),
       team_billing: t("item_team_billing"),
     },
@@ -133,7 +138,13 @@ async function AgencyHeader({ params }: { params: Promise<LayoutParams> }) {
       >
         {t("topbar_tag")}
       </span>
-      <CommandK />
+      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <Suspense fallback={null}>
+          <WalletPill />
+        </Suspense>
+        <JobsTray />
+        <CommandK />
+      </div>
     </header>
   );
 }

@@ -36,9 +36,12 @@ import { Link, usePathname } from "@/i18n/navigation";
 type NavHref =
   | "/lists"
   | "/hunter"
+  | "/discover"
+  | "/campaigns"
   | "/list-analytics"
   | "/list-activity"
   | "/reports"
+  | "/touchpoints"
   | "/agency-settings"
   | "/team/billing";
 
@@ -59,9 +62,12 @@ export interface AgencySidebarLabels {
   items: {
     lists: string;
     hunter: string;
+    discover: string;
+    campaigns: string;
     list_analytics: string;
     list_activity: string;
     reports: string;
+    touchpoints: string;
     agency_settings: string;
     team_billing: string;
   };
@@ -93,6 +99,32 @@ function IconHunter() {
     <svg aria-hidden {...ICON_STROKE_PROPS}>
       <circle cx="11" cy="11" r="8" />
       <path d="m21 21-4.3-4.3" />
+    </svg>
+  );
+}
+
+function IconDiscover() {
+  return (
+    <svg aria-hidden {...ICON_STROKE_PROPS}>
+      <circle cx="12" cy="12" r="10" />
+      <path d="m16.2 7.8-2 6.3-6.4 2.1 2-6.3z" />
+    </svg>
+  );
+}
+
+function IconCampaigns() {
+  return (
+    <svg aria-hidden {...ICON_STROKE_PROPS}>
+      <path d="m3 11 18-5v12L3 14v-3z" />
+      <path d="M11.6 16.8a3 3 0 1 1-5.8-1.6" />
+    </svg>
+  );
+}
+
+function IconTouchpoints() {
+  return (
+    <svg aria-hidden {...ICON_STROKE_PROPS}>
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
     </svg>
   );
 }
@@ -146,6 +178,8 @@ function IconBilling() {
 const WORKSPACE_ITEMS: NavItem[] = [
   { href: "/lists", labelKey: "lists", icon: <IconLists /> },
   { href: "/hunter", labelKey: "hunter", icon: <IconHunter /> },
+  { href: "/discover", labelKey: "discover", icon: <IconDiscover /> },
+  { href: "/campaigns", labelKey: "campaigns", icon: <IconCampaigns /> },
 ];
 
 const INSIGHT_ITEMS: NavItem[] = [
@@ -160,6 +194,11 @@ const INSIGHT_ITEMS: NavItem[] = [
     icon: <IconActivity />,
   },
   { href: "/reports", labelKey: "reports", icon: <IconReports /> },
+  {
+    href: "/touchpoints",
+    labelKey: "touchpoints",
+    icon: <IconTouchpoints />,
+  },
 ];
 
 const ACCOUNT_ITEMS: NavItem[] = [

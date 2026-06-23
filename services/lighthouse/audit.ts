@@ -27,6 +27,7 @@
 
 import { z } from "zod";
 import { kvCache } from "@/lib/cache";
+import prisma from "@/lib/prisma";
 import { withCostCounter } from "@/lib/cost/cost-counter";
 import {
   lighthouseAuditUncached,
@@ -37,6 +38,10 @@ import {
   type DomChecksResult,
   type NapInput,
 } from "./dom-checks";
+import {
+  extractOpportunities,
+  type LighthouseResult as RawLighthouseResult,
+} from "./extract-opportunities";
 import { LIGHTHOUSE_UNIT_COST_USD } from "./pricing";
 
 // ---- Constants ----------------------------------------------------------
@@ -454,6 +459,94 @@ export function toPersistRow(
     techStack: [],
     rawJson: result.legs.lighthouseOk ? (result.scores.raw ?? null) : null,
   };
+}
+
+// ---- Opportunity mining + persistence -----------------------------------
+
+/** Extra desktop-preset columns the collector layers onto the create. */
+export interface LighthouseDesktopExtras {
+  desktopPerformance?: number | null;
+  desktopLcp?: number | null;
+  desktopInp?: number | null;
+  desktopCls?: number | null;
+}
+
+/** What `persistLighthouseAudit` reports back. */
+export interface PersistLighthouseResult {
+  /** The created LighthouseAudit row id. */
+  auditId: string;
+  /** Number of LighthouseOpportunity rows created. */
+  opportunitiesCreated: number;
+}
+
+/**
+ * Persist a full audit result + mine the discarded ~95% of the Lighthouse blob
+ * for pitchable wins. ONE additive flow on top of the existing column mapping:
+ *
+ *   1. `toPersistRow` maps the scores + DOM checks (existing behavior).
+ *   2. `extractOpportunities(rawJson)` mines the failing audits → rollups
+ *      (perfSavingsMs, a11yViolationCount, a11yCriticalCount, isOnHttps,
+ *      hasVulnerableLibrary, formFactor) + per-audit Opportunity rows.
+ *   3. Create the LighthouseAudit row with scores + rollups (rawJson stripped —
+ *      the model has no column for it).
+ *   4. Create one LighthouseOpportunity row per mined opportunity.
+ *
+ * The opportunity mining is best-effort: if the raw blob is missing or
+ * unparseable, the audit row is still created (rollups null, no opportunities).
+ * MUST run inside an open CronRun (the audit that produced `result` already did).
+ */
+export async function persistLighthouseAudit(
+  result: LighthouseFullAuditResult,
+  businessId: string,
+  desktop: LighthouseDesktopExtras = {},
+): Promise<PersistLighthouseResult> {
+  const { rawJson, ...row } = toPersistRow(result, businessId);
+
+  // Mine the raw blob for opportunities + rollups. Only attempt when the
+  // Lighthouse leg succeeded AND a raw object is present.
+  const raw =
+    result.legs.lighthouseOk && rawJson != null
+      ? (rawJson as RawLighthouseResult)
+      : null;
+  const mined = raw ? extractOpportunities(raw) : null;
+
+  const created = await prisma.lighthouseAudit.create({
+    data: {
+      ...row,
+      ...desktop,
+      ...(mined
+        ? {
+            perfSavingsMs: mined.rollups.perfSavingsMs,
+            a11yViolationCount: mined.rollups.a11yViolationCount,
+            a11yCriticalCount: mined.rollups.a11yCriticalCount,
+            isOnHttps: mined.rollups.isOnHttps,
+            hasVulnerableLibrary: mined.rollups.hasVulnerableLibrary,
+            formFactor: mined.rollups.formFactor,
+          }
+        : {}),
+    },
+    select: { id: true },
+  });
+
+  let opportunitiesCreated = 0;
+  if (mined && mined.opportunities.length > 0) {
+    await prisma.lighthouseOpportunity.createMany({
+      data: mined.opportunities.map((o) => ({
+        lighthouseAuditId: created.id,
+        businessId,
+        bucket: o.bucket,
+        auditKey: o.auditKey,
+        score: o.score,
+        savingsMs: o.savingsMs,
+        savingsBytes: o.savingsBytes,
+        displayValue: o.displayValue,
+        itemCount: o.itemCount,
+      })),
+    });
+    opportunitiesCreated = mined.opportunities.length;
+  }
+
+  return { auditId: created.id, opportunitiesCreated };
 }
 
 // ---- Internals ----------------------------------------------------------

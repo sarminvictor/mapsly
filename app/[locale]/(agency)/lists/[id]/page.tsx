@@ -43,6 +43,7 @@ import { notFound, unauthorized } from "next/navigation";
 import { setRequestLocale, getTranslations } from "next-intl/server";
 
 import { auth } from "@/lib/auth";
+import prisma from "@/lib/prisma";
 import { Link } from "@/i18n/navigation";
 import {
   FilterTagsCard,
@@ -68,13 +69,28 @@ export async function generateMetadata({
 }: {
   params: Promise<{ locale: string; id: string }>;
 }): Promise<Metadata> {
-  const { locale } = await params;
+  const { locale, id } = await params;
   const t = await getTranslations({
     locale,
     namespace: "agency.list_detail.meta",
   });
+  // The meta title is "{listName} · Mapsly" — supply the name. Build-safe per
+  // cache-components.md: skip the DB during prerender (Neon WS can't open from
+  // the build worker) and fall back to a generic tab title on any miss.
+  let listName = "List";
+  if (process.env.NEXT_PHASE !== "phase-production-build") {
+    try {
+      const list = await prisma.list.findUnique({
+        where: { id },
+        select: { name: true },
+      });
+      if (list?.name) listName = list.name;
+    } catch {
+      // ignore — generic fallback title
+    }
+  }
   return {
-    title: t("title"),
+    title: t("title", { listName }),
     description: t("description"),
     // Authenticated surface — keep out of search results.
     robots: { index: false, follow: false },

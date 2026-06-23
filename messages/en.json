@@ -1461,9 +1461,12 @@
       "section_account": "Account",
       "item_lists": "Lists",
       "item_hunter": "Hunter",
+      "item_discover": "Discover",
+      "item_campaigns": "Campaigns",
       "item_list_analytics": "List analytics",
       "item_list_activity": "List activity",
       "item_reports": "Reports",
+      "item_touchpoints": "Touchpoints",
       "item_agency_settings": "Agency settings",
       "item_team_billing": "Team & billing"
     }

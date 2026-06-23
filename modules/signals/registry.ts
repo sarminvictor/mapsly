@@ -22,6 +22,7 @@ import {
   STRING_COMPARATORS,
 } from "./comparators";
 import type { SignalCategory, SignalDefinition } from "./types";
+import { agencySignals } from "./agency-signals";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 1. PROFILE COMPLETENESS — Google Business Profile fields
@@ -1115,6 +1116,7 @@ const allSignals: readonly SignalDefinition[] = [
   ...competitiveSignals,
   ...qualifierSignals,
   ...exclusionSignals,
+  ...agencySignals, // demand-driven rework: reachability, tech, comparative reviews, expert/compliance, freshness
 ];
 
 /**

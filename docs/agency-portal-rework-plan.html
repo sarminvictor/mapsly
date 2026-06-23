@@ -1,0 +1,4277 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>
+      Mapsly Agency Portal — Demand-Driven Rework · Implementation Plan
+    </title>
+    <style>
+      :root {
+        --bg: #f6f7fb;
+        --surface: #fff;
+        --surface2: #fbfbfe;
+        --indigo: #5b3df5;
+        --indigo-soft: #ece9ff;
+        --ink: #191b2a;
+        --muted: #6b7180;
+        --faint: #9aa0b0;
+        --border: #e6e8f0;
+        --border2: #eef0f6;
+        --green: #1f9d61;
+        --green-bg: #e7f6ee;
+        --amber: #b7791f;
+        --amber-bg: #fdf3e2;
+        --red: #d2453d;
+        --red-bg: #fdecea;
+        --code-bg: #1c1f2e;
+        --code-ink: #e7e9f5;
+        --code-key: #9db4ff;
+        --code-str: #c0e5a8;
+        --code-com: #7d8499;
+        --mono:
+          "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+        --sans:
+          Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          Helvetica, Arial, sans-serif;
+        --shadow:
+          0 1px 2px rgba(20, 22, 40, 0.04), 0 4px 16px rgba(20, 22, 40, 0.05);
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html {
+        scroll-behavior: smooth;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font-family: var(--sans);
+        font-size: 15px;
+        line-height: 1.6;
+        -webkit-font-smoothing: antialiased;
+      }
+      a {
+        color: var(--indigo);
+        text-decoration: none;
+      }
+      a:hover {
+        text-decoration: underline;
+      }
+      code,
+      pre,
+      .mono {
+        font-family: var(--mono);
+      }
+      /* layout */
+      .wrap {
+        display: grid;
+        grid-template-columns: 288px 1fr;
+        max-width: 1500px;
+        margin: 0 auto;
+      }
+      .toc {
+        position: sticky;
+        top: 0;
+        align-self: start;
+        height: 100vh;
+        overflow-y: auto;
+        padding: 22px 14px 60px;
+        border-right: 1px solid var(--border);
+        background: var(--surface);
+      }
+      .toc .brand {
+        font-weight: 700;
+        font-size: 15px;
+        letter-spacing: -0.2px;
+        padding: 6px 10px 14px;
+        display: flex;
+        gap: 9px;
+        align-items: center;
+      }
+      .toc .brand .dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 3px;
+        background: var(--indigo);
+      }
+      .toc a {
+        display: block;
+        color: var(--muted);
+        padding: 5px 10px;
+        border-radius: 7px;
+        font-size: 13px;
+        font-weight: 500;
+        border-left: 2px solid transparent;
+      }
+      .toc a:hover {
+        background: var(--surface2);
+        text-decoration: none;
+        color: var(--ink);
+      }
+      .toc a.active {
+        color: var(--indigo);
+        background: var(--indigo-soft);
+        border-left-color: var(--indigo);
+      }
+      .toc .grp {
+        font-size: 10.5px;
+        text-transform: uppercase;
+        letter-spacing: 0.09em;
+        color: var(--faint);
+        font-weight: 700;
+        padding: 16px 10px 4px;
+      }
+      main {
+        padding: 0 44px 120px;
+        min-width: 0;
+      }
+      /* hero */
+      .hero {
+        padding: 54px 0 26px;
+        border-bottom: 1px solid var(--border);
+      }
+      .hero h1 {
+        font-size: 34px;
+        line-height: 1.15;
+        letter-spacing: -0.6px;
+        margin: 0 0 10px;
+      }
+      .hero .sub {
+        font-size: 17px;
+        color: var(--muted);
+        max-width: 760px;
+      }
+      .hero .meta {
+        margin-top: 18px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
+        font-weight: 600;
+        padding: 5px 11px;
+        border-radius: 999px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+      }
+      .pill.indigo {
+        background: var(--indigo);
+        color: #fff;
+        border-color: var(--indigo);
+      }
+      .pill.green {
+        background: var(--green-bg);
+        color: var(--green);
+        border-color: transparent;
+      }
+      section {
+        padding: 40px 0;
+        border-bottom: 1px solid var(--border2);
+        scroll-margin-top: 14px;
+      }
+      section > h2 {
+        font-size: 24px;
+        letter-spacing: -0.4px;
+        margin: 0 0 6px;
+      }
+      section > .lead {
+        color: var(--muted);
+        margin: 0 0 22px;
+        max-width: 820px;
+      }
+      h3 {
+        font-size: 17px;
+        margin: 26px 0 10px;
+        letter-spacing: -0.2px;
+      }
+      h4 {
+        font-size: 14px;
+        margin: 18px 0 7px;
+        color: var(--ink);
+      }
+      p {
+        margin: 0 0 12px;
+      }
+      ul {
+        margin: 6px 0 14px;
+        padding-left: 20px;
+      }
+      li {
+        margin: 4px 0;
+      }
+      .muted {
+        color: var(--muted);
+      }
+      /* cards */
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        box-shadow: var(--shadow);
+        margin: 14px 0;
+        overflow: hidden;
+      }
+      .card > .head {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 15px 18px;
+        cursor: pointer;
+        user-select: none;
+      }
+      .card > .head:hover {
+        background: var(--surface2);
+      }
+      .card > .head .num {
+        font: 600 12px/1 var(--mono);
+        color: var(--indigo);
+        background: var(--indigo-soft);
+        padding: 5px 8px;
+        border-radius: 7px;
+        min-width: 34px;
+        text-align: center;
+      }
+      .card > .head .t {
+        font-weight: 650;
+        font-size: 15.5px;
+        flex: 1;
+      }
+      .card > .head .reqs {
+        display: flex;
+        gap: 5px;
+        flex-wrap: wrap;
+      }
+      .tag {
+        font: 600 10.5px/1 var(--mono);
+        color: var(--muted);
+        background: var(--surface2);
+        border: 1px solid var(--border);
+        padding: 4px 6px;
+        border-radius: 6px;
+      }
+      .chev {
+        transition: transform 0.2s;
+        color: var(--faint);
+        font-size: 13px;
+      }
+      .card.open .chev {
+        transform: rotate(90deg);
+      }
+      .card > .body {
+        display: none;
+        padding: 4px 20px 20px;
+        border-top: 1px solid var(--border2);
+      }
+      .card.open > .body {
+        display: block;
+      }
+      .lbl {
+        font: 700 10.5px/1 var(--mono);
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--faint);
+        margin: 16px 0 6px;
+      }
+      /* code */
+      pre {
+        background: var(--code-bg);
+        color: var(--code-ink);
+        border-radius: 11px;
+        padding: 15px 17px;
+        overflow-x: auto;
+        font-size: 12.5px;
+        line-height: 1.6;
+        margin: 8px 0 14px;
+      }
+      pre .k {
+        color: #9db4ff;
+      }
+      .pre .t {
+        color: #7fd3c0;
+      }
+      code.inl {
+        background: var(--indigo-soft);
+        color: #4327d6;
+        padding: 1.5px 6px;
+        border-radius: 5px;
+        font-size: 12.5px;
+      }
+      /* tables */
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        font-size: 13px;
+        margin: 8px 0 16px;
+        background: var(--surface);
+      }
+      th,
+      td {
+        text-align: left;
+        padding: 9px 12px;
+        border-bottom: 1px solid var(--border2);
+        vertical-align: top;
+      }
+      th {
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--muted);
+        font-weight: 700;
+        background: var(--surface2);
+        position: sticky;
+        top: 0;
+      }
+      tbody tr:hover {
+        background: var(--surface2);
+      }
+      td code,
+      th code {
+        font-size: 12px;
+        color: #4327d6;
+      }
+      .tbl-wrap {
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        overflow: auto;
+        max-height: 560px;
+        box-shadow: var(--shadow);
+      }
+      /* status chips */
+      .st {
+        font: 700 11px/1 var(--mono);
+        padding: 4px 8px;
+        border-radius: 6px;
+        white-space: nowrap;
+      }
+      .st.full {
+        background: var(--green-bg);
+        color: var(--green);
+      }
+      .st.part {
+        background: var(--amber-bg);
+        color: var(--amber);
+      }
+      .st.gap {
+        background: var(--red-bg);
+        color: var(--red);
+      }
+      .st.new {
+        background: var(--indigo-soft);
+        color: #4327d6;
+      }
+      /* callouts */
+      .callout {
+        border-radius: 12px;
+        padding: 14px 16px;
+        margin: 14px 0;
+        font-size: 14px;
+        border: 1px solid var(--border);
+      }
+      .callout.key {
+        background: var(--indigo-soft);
+        border-color: #d9d2ff;
+      }
+      .callout.warn {
+        background: var(--amber-bg);
+        border-color: #f1e0bf;
+      }
+      .callout.note {
+        background: var(--surface2);
+      }
+      .callout b {
+        color: var(--ink);
+      }
+      /* checklist */
+      .chk {
+        display: flex;
+        gap: 10px;
+        align-items: flex-start;
+        padding: 8px 12px;
+        border-radius: 9px;
+        border: 1px solid transparent;
+      }
+      .chk:hover {
+        background: var(--surface2);
+      }
+      .chk input {
+        margin-top: 3px;
+        width: 16px;
+        height: 16px;
+        accent-color: var(--indigo);
+        cursor: pointer;
+        flex-shrink: 0;
+      }
+      .chk label {
+        cursor: pointer;
+        font-size: 13.5px;
+      }
+      .chk.done label {
+        color: var(--faint);
+        text-decoration: line-through;
+      }
+      .chk .id {
+        font: 700 11px/1 var(--mono);
+        color: var(--indigo);
+        margin-right: 6px;
+      }
+      .grp-h {
+        font-weight: 700;
+        font-size: 13px;
+        margin: 18px 0 4px;
+        color: var(--ink);
+      }
+      .progress {
+        height: 8px;
+        border-radius: 999px;
+        background: var(--border);
+        overflow: hidden;
+        margin: 6px 0 2px;
+      }
+      .progress > i {
+        display: block;
+        height: 100%;
+        background: var(--indigo);
+        width: 0;
+        transition: width 0.3s;
+      }
+      /* controls */
+      .ctrls {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        align-items: center;
+        margin: 8px 0 12px;
+      }
+      .ctrls input[type="search"] {
+        flex: 1;
+        min-width: 200px;
+        padding: 8px 12px;
+        border: 1px solid var(--border);
+        border-radius: 9px;
+        font: inherit;
+        font-size: 13px;
+      }
+      .fbtn {
+        font: 600 12px/1 var(--sans);
+        padding: 7px 12px;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        background: var(--surface);
+        cursor: pointer;
+        color: var(--muted);
+      }
+      .fbtn.on {
+        background: var(--indigo);
+        color: #fff;
+        border-color: var(--indigo);
+      }
+      /* phases */
+      .phase {
+        display: grid;
+        grid-template-columns: 64px 1fr;
+        gap: 14px;
+        padding: 14px 0;
+        border-bottom: 1px solid var(--border2);
+      }
+      .phase .badge {
+        font: 700 12px/1 var(--mono);
+        color: #fff;
+        background: var(--indigo);
+        border-radius: 9px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 38px;
+      }
+      .phase .badge.m {
+        background: #d2453d;
+      }
+      .phase .badge.a {
+        background: var(--green);
+      }
+      .phase h4 {
+        margin: 0 0 3px;
+      }
+      .phase .dep {
+        font-size: 12px;
+        color: var(--faint);
+      }
+      figure {
+        margin: 18px 0;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 18px;
+        box-shadow: var(--shadow);
+        overflow-x: auto;
+      }
+      figure figcaption {
+        font-size: 12px;
+        color: var(--muted);
+        margin-top: 8px;
+        text-align: center;
+      }
+      .svg-flow text {
+        font-family: var(--sans);
+        fill: var(--ink);
+      }
+      .top-actions {
+        display: flex;
+        gap: 8px;
+        margin: 16px 0 0;
+      }
+      .btn {
+        font: 600 13px/1 var(--sans);
+        padding: 9px 14px;
+        border-radius: 9px;
+        border: 1px solid var(--border);
+        background: var(--surface);
+        cursor: pointer;
+        color: var(--ink);
+      }
+      .btn.primary {
+        background: var(--indigo);
+        color: #fff;
+        border-color: var(--indigo);
+      }
+      .kpi-row {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 12px;
+        margin: 18px 0;
+      }
+      .kpi {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 14px 16px;
+        box-shadow: var(--shadow);
+      }
+      .kpi .n {
+        font-size: 26px;
+        font-weight: 700;
+        letter-spacing: -0.5px;
+      }
+      .kpi .l {
+        font-size: 12px;
+        color: var(--muted);
+        margin-top: 2px;
+      }
+      @media (max-width: 900px) {
+        .wrap {
+          grid-template-columns: 1fr;
+        }
+        .toc {
+          display: none;
+        }
+        main {
+          padding: 0 18px 80px;
+        }
+        .kpi-row {
+          grid-template-columns: repeat(2, 1fr);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <!-- ============ TOC ============ -->
+      <nav class="toc" id="toc">
+        <div class="brand"><span class="dot"></span> Agency Portal Rework</div>
+        <a href="#summary">Executive summary</a>
+        <div class="grp">Plan</div>
+        <a href="#checklist">1 · TODO checklist</a>
+        <a href="#current">2 · Current system</a>
+        <a href="#architecture">3 · Target architecture</a>
+        <div class="grp">Domain designs (4)</div>
+        <a href="#d-competitors">4.1 Competitors</a>
+        <a href="#d-location">4.2 Location / metro</a>
+        <a href="#d-cell">4.3 Cell &amp; Discovery</a>
+        <a href="#d-cost">4.4 Cost pre-flight</a>
+        <a href="#d-contacts">4.5 Contacts &amp; gate</a>
+        <a href="#d-dom">4.6 DOM / tech</a>
+        <a href="#d-services">4.7 Services</a>
+        <a href="#d-reviews">4.8 Reviews rearch</a>
+        <a href="#d-revsig">4.9 Review signals</a>
+        <a href="#d-meta">4.10 Meta ads</a>
+        <a href="#d-gads">4.11 Google ads</a>
+        <a href="#d-serp">4.12 SERP / search</a>
+        <a href="#d-lh">4.13 Lighthouse + DfS</a>
+        <a href="#d-ai">4.14 AI research</a>
+        <a href="#d-expert">4.15 Expert layer</a>
+        <a href="#d-intent">4.16 Demand / intent</a>
+        <a href="#d-touch">4.17 Personalized touch</a>
+        <a href="#d-scale">4.18 Scalability</a>
+        <a href="#d-portal">4.19 Portal UX</a>
+        <a href="#d-standards">4.20 Cell Standards</a>
+        <a href="#playbook-detail">▸ Playbook detection (rules)</a>
+        <a href="#portal-v2">▸ Portal UX v2 (scenarios)</a>
+        <div class="grp">Reference</div>
+        <a href="#datamodel">5 · Data model</a>
+        <a href="#signals">6 · Signals</a>
+        <a href="#defaults">7 · Defaults</a>
+        <a href="#roadmap">8 · Roadmap</a>
+        <a href="#risks">9 · Risks</a>
+        <a href="#coverage">10 · Coverage proof</a>
+        <a href="#verify">11 · Verification</a>
+        <a href="#clarify">13 · Resolved clarifications</a>
+      </nav>
+
+      <main>
+        <!-- ============ HERO ============ -->
+        <header class="hero" id="top">
+          <h1>
+            Mapsly Agency Portal — Demand-Driven Discovery, Enrichment &amp;
+            Expert Signals
+          </h1>
+          <p class="sub">
+            A complete implementation plan: switch from supply/cron crawling to
+            <b>on-demand</b> discovery of the live Google-Maps market by metro
+            &times; category (Cells), enrich it selectively with cost-gated
+            background jobs, surface a per-vertical
+            <b>expert signal layer</b> (med-spa HIPAA, ADA risk, &hellip;), and
+            generate <b>personalized first-touch</b> — beating Apollo / ZoomInfo
+            / BrightLocal / Origami on the signals they can&rsquo;t see.
+          </p>
+          <div class="meta">
+            <span class="pill indigo">19 domains designed</span>
+            <span class="pill green">26 / 26 requirements covered</span>
+            <span class="pill">10-phase roadmap</span>
+            <span class="pill">~60 new signals</span>
+            <span class="pill">Plan v1.1 · post-critique</span>
+          </div>
+          <div class="top-actions">
+            <button
+              class="btn"
+              onclick="
+                document
+                  .querySelectorAll('.card')
+                  .forEach((c) => c.classList.add('open'))
+              "
+            >
+              Expand all
+            </button>
+            <button
+              class="btn"
+              onclick="
+                document
+                  .querySelectorAll('.card')
+                  .forEach((c) => c.classList.remove('open'))
+              "
+            >
+              Collapse all
+            </button>
+            <button class="btn" onclick="resetChecks()">Reset checklist</button>
+          </div>
+        </header>
+
+        <!-- ============ SUMMARY ============ -->
+        <section id="summary">
+          <h2>Executive summary</h2>
+          <p class="lead">
+            Mapsly is <b>supply-driven</b> today (admin seeds cells &rarr; crons
+            crawl &rarr; portal filters whatever is indexed). The rework flips
+            it to <b>demand-driven</b>: the user states intent &rarr; picks
+            metros + categories &rarr; Mapsly discovers the live market on
+            demand &rarr; shows a complete <em>raw</em> list &rarr; the user
+            spends money selectively to <em>enrich</em> it &rarr; reads
+            comparative, explained signals &rarr; generates personalized
+            first-touch.
+          </p>
+          <div class="callout key">
+            <b>Key finding from the live-code audit:</b> the substrate is more
+            built than assumed — and that <em>de-risks</em> the rework.
+            <code class="inl">TrackedLocation</code> already <b>is</b> the Cell
+            (<code class="inl"
+              >@@unique([categoryId, city, province, country])</code
+            >
+            + <code class="inl">lat/lng/radiusKm</code>). Discovery is already
+            on-demand (<code class="inl">DiscoveryRun</code>). Raw DfS capture
+            is already rich (<code class="inl">sourceRawJson</code>, hours,
+            attributes, <code class="inl">isClaimed</code>). Scoring v2 already
+            grades 5 market-relative pillars by cell percentile. The agency
+            routes (hunter/lists/list-detail/prospect) are
+            <b>fully built, not stubs</b>.
+            <b
+              >The rework is mostly additive layering — the only risky migration
+              is one unique-constraint swap (city &rarr; metro).</b
+            >
+          </div>
+          <div class="kpi-row">
+            <div class="kpi">
+              <div class="n">182d</div>
+              <div class="l">
+                Cell discovery freshness (serve-from-DB if newer)
+              </div>
+            </div>
+            <div class="kpi">
+              <div class="n">30d</div>
+              <div class="l">Meta + Google ads cache (run once per cell)</div>
+            </div>
+            <div class="kpi">
+              <div class="n">$0.05</div>
+              <div class="l">Internal credit price (Apollo ≈ $0.20)</div>
+            </div>
+            <div class="kpi">
+              <div class="n">5 / 12</div>
+              <div class="l">Expert playbooks at launch / specced</div>
+            </div>
+          </div>
+          <h4>The moat (why we beat the four competitors)</h4>
+          <p>
+            Not the data volume — Apollo/ZoomInfo have more contacts. It&rsquo;s
+            (1)
+            <b>local-business signals competitors are structurally blind to</b>
+            (reviews, ads, SERP, Lighthouse, DOM/tech), (2) a per-vertical
+            <b>expert layer</b> (regulations &amp; nuances — HIPAA cues from
+            reviews), and (3) <b>signal-grounded outreach</b> (~25% reply vs ~2%
+            cold). Positioning:
+            <em
+              >&ldquo;Origami finds them; Mapsly tells you why to call and what
+              to say.&rdquo;</em
+            >
+          </p>
+        </section>
+
+        <!-- ============ 1 · CHECKLIST ============ -->
+        <section id="checklist">
+          <h2>1 · TODO checklist — every point, decomposed</h2>
+          <p class="lead">
+            Live checkboxes (saved in your browser). Progress drives the bar
+            below and the roadmap.
+          </p>
+          <div class="progress"><i id="progbar"></i></div>
+          <div class="muted" style="font-size: 13px">
+            <span id="progtxt">0 / 0</span> complete
+          </div>
+          <div id="checks"></div>
+        </section>
+
+        <!-- ============ 2 · CURRENT SYSTEM ============ -->
+        <section id="current">
+          <h2>2 · Current system analysis</h2>
+          <p class="lead">
+            What exists today vs the gap the demand model needs. Most rows are
+            <em>additive</em>.
+          </p>
+          <div class="tbl-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Area</th>
+                  <th>Today</th>
+                  <th>Gap for demand model</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><b>Cell</b></td>
+                  <td>
+                    <code>TrackedLocation</code> unique
+                    (categoryId,city,province,country) + radiusKm@5 —
+                    <em>is</em> the cell, admin-keyed by raw city
+                  </td>
+                  <td>
+                    Reframe metro-level &amp; user-facing; add
+                    <b>6-month freshness</b> (only 24h Redis cache today); add
+                    <code>Discovery</code>/<code>DiscoveryCell</code> union
+                  </td>
+                </tr>
+                <tr>
+                  <td><b>Discovery</b></td>
+                  <td>
+                    On-demand <code>DiscoveryRun</code> via
+                    <code>maps-search.ts</code> (Live, paginated, 24h Redis
+                    cache)
+                  </td>
+                  <td>
+                    Agency multi-cell fan-out + pre-flight cost + raw-list
+                    result
+                  </td>
+                </tr>
+                <tr>
+                  <td><b>Raw DfS capture</b></td>
+                  <td>
+                    <code>sourceRawJson</code> +
+                    hours/attributes/<code>isClaimed</code>/<code>contactInfo</code>/<code
+                      >placeTopics</code
+                    >
+                  </td>
+                  <td>
+                    <b>closed-status not extracted</b> to a column (only in raw
+                    JSON)
+                  </td>
+                </tr>
+                <tr>
+                  <td><b>Contacts</b></td>
+                  <td>
+                    single
+                    <code>phone</code
+                    >/<code>website</code>/<code>email</code>/<code
+                      >instagramHandle</code
+                    >
+                    + <code>emailCandidates</code>; sophisticated scraper (30+
+                    paths, RDAP, AI)
+                  </td>
+                  <td>
+                    <b>No multi-contact tables; no reachability boolean gate</b>
+                  </td>
+                </tr>
+                <tr>
+                  <td><b>Services</b></td>
+                  <td>
+                    4-layer detector &rarr; <code>BusinessService</code>,
+                    <b>med-spa taxonomy only</b>
+                  </td>
+                  <td>
+                    Generalize all categories; persist confidence; cell
+                    prevalence
+                  </td>
+                </tr>
+                <tr>
+                  <td><b>DOM / tech</b></td>
+                  <td>
+                    only Lighthouse DOM checks; <code>techStack[]</code>
+                    <b>empty</b>
+                  </td>
+                  <td>
+                    Wappalyzer-style fingerprint
+                    (frameworks/CDN/analytics/pixels/booking/chat)
+                  </td>
+                </tr>
+                <tr>
+                  <td><b>Reviews</b></td>
+                  <td>
+                    <code>task_post</code>+pingback+harvest;
+                    <b>confirmed gaps:</b> swallowed
+                    <code>task_post</code> failure, worker outcomes not
+                    surfaced, <b>no reconciliation sweep</b>, depth-capped
+                    (500/50)
+                  </td>
+                  <td>
+                    Durable job state machine + retry/backoff + token bucket +
+                    reconciliation + pagination
+                  </td>
+                </tr>
+                <tr>
+                  <td><b>Lighthouse</b></td>
+                  <td>
+                    DfS <code>on_page/lighthouse</code>, 5 scores + CWV;
+                    <b>discards ~95%</b> of the blob
+                  </td>
+                  <td>
+                    Persist <code>rawJson</code> + extract failing audits as
+                    pitchable fixes
+                  </td>
+                </tr>
+                <tr>
+                  <td><b>Meta ads</b></td>
+                  <td>
+                    Apify actor, per-business + per-cell
+                    <code>AdMarketAdvertiser</code>, <b>6h</b> cache
+                  </td>
+                  <td>
+                    Per-cell <b>1-month</b> gate; capture more fields; richer
+                    signals
+                  </td>
+                </tr>
+                <tr>
+                  <td><b>Google ads</b></td>
+                  <td>
+                    DfS <code>ads_advertisers</code>+<code>ads_search</code>,
+                    per-business
+                  </td>
+                  <td>Per-cell <b>1-month</b> gate; richer signals</td>
+                </tr>
+                <tr>
+                  <td><b>SERP/search</b></td>
+                  <td>
+                    <code>ranked_keywords</code>(etv) +
+                    <code>serp_organic</code>/<code>local_pack</code> +
+                    <code>keyword_volume</code>
+                  </td>
+                  <td>
+                    Cheap <b>per-cell</b> SERP engine + reverse-attribution
+                  </td>
+                </tr>
+                <tr>
+                  <td><b>Signals</b></td>
+                  <td><b>74–89</b> signals, 8 groups, Hunter filter UI</td>
+                  <td>
+                    Add expert/comparative/freshness/tech/reachability signals
+                    (9th group)
+                  </td>
+                </tr>
+                <tr>
+                  <td><b>Scoring</b></td>
+                  <td>
+                    Mapsly Score + Pillars v2 (5, market-relative) + MSI +
+                    match-score
+                  </td>
+                  <td>
+                    Informational <b>ComplianceRisk</b> pillar; per-category
+                    weight overrides
+                  </td>
+                </tr>
+                <tr>
+                  <td><b>Outreach</b></td>
+                  <td>
+                    <code>modules/cold</code> (3-touch copy) +
+                    <code>cold-mailer</code> (SMTP rotation)
+                  </td>
+                  <td><b>No intent/pitch capture; no enrollment UI</b></td>
+                </tr>
+                <tr>
+                  <td><b>Cost</b></td>
+                  <td>
+                    post-hoc <code>CronRun.costUsd</code> ledger; rough admin
+                    estimate
+                  </td>
+                  <td>
+                    <b>Pre-flight estimate shown to user</b>; credit wallet;
+                    snapshot dedup
+                  </td>
+                </tr>
+                <tr>
+                  <td><b>Portal</b></td>
+                  <td>hunter/lists/list-detail/prospect <b>fully built</b></td>
+                  <td>
+                    New <code>/discover</code> + <code>/campaigns</code> +
+                    <code>/touchpoints</code>; reuse
+                    List/Lead/leads-table/registry/eval-engine
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- ============ 3 · ARCHITECTURE ============ -->
+        <section id="architecture">
+          <h2>3 · Target architecture</h2>
+          <p class="lead">
+            The demand loop, and how we keep the hard rule
+            <em>&ldquo;no live external API in the user request path&rdquo;</em>
+            intact.
+          </p>
+          <figure>
+            <svg
+              class="svg-flow"
+              viewBox="0 0 980 150"
+              width="100%"
+              height="150"
+              role="img"
+              aria-label="Demand loop"
+            >
+              <defs>
+                <marker
+                  id="ar"
+                  markerWidth="9"
+                  markerHeight="9"
+                  refX="7"
+                  refY="3"
+                  orient="auto"
+                >
+                  <path d="M0,0 L7,3 L0,6 Z" fill="#5b3df5" />
+                </marker>
+              </defs>
+              <!-- stages -->
+              <g font-size="12" font-weight="600">
+                <g>
+                  <rect
+                    x="6"
+                    y="40"
+                    width="138"
+                    height="62"
+                    rx="11"
+                    fill="#ece9ff"
+                    stroke="#d9d2ff"
+                  />
+                  <text x="75" y="66" text-anchor="middle">Campaign</text>
+                  <text
+                    x="75"
+                    y="83"
+                    text-anchor="middle"
+                    font-size="10"
+                    font-weight="400"
+                    fill="#6b7180"
+                  >
+                    intent · pitch · pain
+                  </text>
+                </g>
+                <g>
+                  <rect
+                    x="172"
+                    y="40"
+                    width="138"
+                    height="62"
+                    rx="11"
+                    fill="#fff"
+                    stroke="#e6e8f0"
+                  />
+                  <text x="241" y="66" text-anchor="middle">Discover</text>
+                  <text
+                    x="241"
+                    y="83"
+                    text-anchor="middle"
+                    font-size="10"
+                    font-weight="400"
+                    fill="#6b7180"
+                  >
+                    metros × categories
+                  </text>
+                </g>
+                <g>
+                  <rect
+                    x="338"
+                    y="40"
+                    width="138"
+                    height="62"
+                    rx="11"
+                    fill="#fff"
+                    stroke="#e6e8f0"
+                  />
+                  <text x="407" y="66" text-anchor="middle">Raw List</text>
+                  <text
+                    x="407"
+                    y="83"
+                    text-anchor="middle"
+                    font-size="10"
+                    font-weight="400"
+                    fill="#6b7180"
+                  >
+                    full market · free filters
+                  </text>
+                </g>
+                <g>
+                  <rect
+                    x="504"
+                    y="40"
+                    width="138"
+                    height="62"
+                    rx="11"
+                    fill="#fff"
+                    stroke="#e6e8f0"
+                  />
+                  <text x="573" y="66" text-anchor="middle">Enrich (bg)</text>
+                  <text
+                    x="573"
+                    y="83"
+                    text-anchor="middle"
+                    font-size="10"
+                    font-weight="400"
+                    fill="#6b7180"
+                  >
+                    paid · snapshot-guarded
+                  </text>
+                </g>
+                <g>
+                  <rect
+                    x="670"
+                    y="40"
+                    width="138"
+                    height="62"
+                    rx="11"
+                    fill="#fff"
+                    stroke="#e6e8f0"
+                  />
+                  <text x="739" y="66" text-anchor="middle">Signals</text>
+                  <text
+                    x="739"
+                    y="83"
+                    text-anchor="middle"
+                    font-size="10"
+                    font-weight="400"
+                    fill="#6b7180"
+                  >
+                    comparative + expert
+                  </text>
+                </g>
+                <g>
+                  <rect
+                    x="836"
+                    y="40"
+                    width="138"
+                    height="62"
+                    rx="11"
+                    fill="#ece9ff"
+                    stroke="#d9d2ff"
+                  />
+                  <text x="905" y="66" text-anchor="middle">Touchpoints</text>
+                  <text
+                    x="905"
+                    y="83"
+                    text-anchor="middle"
+                    font-size="10"
+                    font-weight="400"
+                    fill="#6b7180"
+                  >
+                    personalized bulk
+                  </text>
+                </g>
+              </g>
+              <g stroke="#5b3df5" stroke-width="1.6" marker-end="url(#ar)">
+                <line x1="146" y1="71" x2="170" y2="71" />
+                <line x1="312" y1="71" x2="336" y2="71" />
+                <line x1="478" y1="71" x2="502" y2="71" />
+                <line x1="644" y1="71" x2="668" y2="71" />
+                <line x1="810" y1="71" x2="834" y2="71" />
+              </g>
+              <text
+                x="490"
+                y="128"
+                text-anchor="middle"
+                font-size="11"
+                fill="#6b7180"
+              >
+                every $ move → pre-flight quote (server re-quote) →
+                credit-wallet hold/settle → snapshot guard blocks re-spend on
+                fresh data
+              </text>
+            </svg>
+            <figcaption>
+              The demand loop. Discovery is cheap (Maps listings); the spend is
+              enrichment — always quoted before it runs.
+            </figcaption>
+          </figure>
+          <h3>Reconciling the hard rule (no live API in request path)</h3>
+          <p>
+            The rule stays verbatim. Every external call (DfS, Apify, AI, SMTP)
+            runs in <b>air-gapped background workers</b>; the request only mints
+            a job row + publishes a message and returns a
+            <code class="inl">jobId</code>; the UI
+            <b>polls (TanStack 3–5s) or SSE-streams</b> progress + partial
+            results.
+          </p>
+          <figure>
+            <svg
+              class="svg-flow"
+              viewBox="0 0 960 220"
+              width="100%"
+              height="220"
+              role="img"
+              aria-label="Enrichment orchestration"
+            >
+              <defs>
+                <marker
+                  id="ar2"
+                  markerWidth="9"
+                  markerHeight="9"
+                  refX="7"
+                  refY="3"
+                  orient="auto"
+                >
+                  <path d="M0,0 L7,3 L0,6 Z" fill="#6b7180" />
+                </marker>
+              </defs>
+              <g font-size="12">
+                <rect
+                  x="20"
+                  y="30"
+                  width="150"
+                  height="54"
+                  rx="10"
+                  fill="#ece9ff"
+                  stroke="#d9d2ff"
+                />
+                <text x="95" y="61" text-anchor="middle" font-weight="600">
+                  User request
+                </text>
+                <rect
+                  x="20"
+                  y="120"
+                  width="150"
+                  height="54"
+                  rx="10"
+                  fill="#fff"
+                  stroke="#e6e8f0"
+                />
+                <text x="95" y="143" text-anchor="middle" font-weight="600">
+                  UI poll / SSE
+                </text>
+                <text
+                  x="95"
+                  y="160"
+                  text-anchor="middle"
+                  font-size="10"
+                  fill="#6b7180"
+                >
+                  X of Y · partial
+                </text>
+                <rect
+                  x="250"
+                  y="30"
+                  width="160"
+                  height="54"
+                  rx="10"
+                  fill="#fff"
+                  stroke="#e6e8f0"
+                />
+                <text x="330" y="53" text-anchor="middle" font-weight="600">
+                  mint Job + publish
+                </text>
+                <text
+                  x="330"
+                  y="70"
+                  text-anchor="middle"
+                  font-size="10"
+                  fill="#6b7180"
+                >
+                  returns jobId
+                </text>
+                <rect
+                  x="470"
+                  y="30"
+                  width="170"
+                  height="54"
+                  rx="10"
+                  fill="#fff"
+                  stroke="#e6e8f0"
+                />
+                <text x="555" y="53" text-anchor="middle" font-weight="600">
+                  Queue / Workflow
+                </text>
+                <text
+                  x="555"
+                  y="70"
+                  text-anchor="middle"
+                  font-size="10"
+                  fill="#6b7180"
+                >
+                  retry · sleep+resume
+                </text>
+                <rect
+                  x="470"
+                  y="120"
+                  width="170"
+                  height="60"
+                  rx="10"
+                  fill="#fdf3e2"
+                  stroke="#f1e0bf"
+                />
+                <text x="555" y="143" text-anchor="middle" font-weight="600">
+                  air-gapped consumer
+                </text>
+                <text
+                  x="555"
+                  y="160"
+                  text-anchor="middle"
+                  font-size="10"
+                  fill="#6b7180"
+                >
+                  token bucket · DfS/Apify/AI
+                </text>
+                <rect
+                  x="700"
+                  y="120"
+                  width="160"
+                  height="60"
+                  rx="10"
+                  fill="#e7f6ee"
+                  stroke="#cdebd9"
+                />
+                <text x="780" y="143" text-anchor="middle" font-weight="600">
+                  Neon DB
+                </text>
+                <text
+                  x="780"
+                  y="160"
+                  text-anchor="middle"
+                  font-size="10"
+                  fill="#6b7180"
+                >
+                  commit + revalidateTag
+                </text>
+                <rect
+                  x="700"
+                  y="30"
+                  width="160"
+                  height="54"
+                  rx="10"
+                  fill="#fff"
+                  stroke="#e6e8f0"
+                />
+                <text x="780" y="61" text-anchor="middle" font-weight="600">
+                  Sentry / cost ledger
+                </text>
+              </g>
+              <g
+                stroke="#6b7180"
+                stroke-width="1.5"
+                marker-end="url(#ar2)"
+                fill="none"
+              >
+                <line x1="170" y1="57" x2="248" y2="57" />
+                <line x1="410" y1="57" x2="468" y2="57" />
+                <path d="M555,84 L555,118" />
+                <line x1="640" y1="150" x2="698" y2="150" />
+                <path d="M555,180 L555,200 L95,200 L95,176" />
+                <path
+                  d="M640,150 L660,150 L660,57 L698,57"
+                  stroke-dasharray="3 3"
+                />
+              </g>
+            </svg>
+            <figcaption>
+              Request → job + message → consumer does the external call →
+              commits to DB → UI polls/streams. The request path never blocks on
+              a 3rd-party API.
+            </figcaption>
+          </figure>
+          <p>
+            <b>Orchestration:</b> Vercel <b>Queues</b> for single-shot jobs,
+            Vercel <b>Workflow DevKit</b> for durable multi-step / callback
+            flows (retries, <code class="inl">sleep</code>+<code class="inl"
+              >hook.resume</code
+            >
+            for DfS pingbacks) — retiring the Boxly worker for reviews.
+            <b>Redis token buckets</b> (the existing
+            <code class="inl">lib/cache</code> ioredis layer /
+            <code class="inl">@upstash/ratelimit</code> on Redis) enforce DfS
+            10&nbsp;req/s, AI ~50&nbsp;rpm, Apify concurrency.
+          </p>
+          <div class="callout note">
+            <b>The Cell decision (resolved fork):</b> reuse
+            <code class="inl">TrackedLocation</code> as the Cell (no destructive
+            rename) + add freshness columns + introduce
+            <code class="inl">Discovery</code>/<code class="inl"
+              >DiscoveryCell</code
+            >. Add <code class="inl">metroSlug</code> and migrate the unique key
+            <code class="inl">city → metroSlug</code> (the one risky migration:
+            <b>backfill then tighten</b>).
+          </div>
+        </section>
+
+        <!-- ============ 4 · DOMAIN DESIGNS ============ -->
+        <section id="domains">
+          <h2>4 · Domain designs</h2>
+          <p class="lead">
+            Click any card to expand: recommendation · data model · signals ·
+            cost/cadence · failure handling.
+            <span class="muted">(19 domains)</span>
+          </p>
+          <div id="cards"></div>
+        </section>
+
+        <!-- ============ Diagrams: Cell ER + ReviewJob + Waterfall ============ -->
+        <section id="diagrams">
+          <h2>Schematics</h2>
+          <figure>
+            <svg
+              viewBox="0 0 920 300"
+              width="100%"
+              height="300"
+              role="img"
+              aria-label="Cell and Discovery ER"
+            >
+              <g font-size="11.5" font-family="JetBrains Mono, monospace">
+                <rect
+                  x="20"
+                  y="30"
+                  width="200"
+                  height="120"
+                  rx="10"
+                  fill="#fff"
+                  stroke="#5b3df5"
+                />
+                <text x="30" y="52" font-weight="700" fill="#4327d6">
+                  TrackedLocation (Cell)
+                </text>
+                <text x="30" y="74" fill="#191b2a">+ metroSlug, cbsaGeoid</text>
+                <text x="30" y="92" fill="#191b2a">
+                  + radiusTier, geocodeSource
+                </text>
+                <text x="30" y="110" fill="#191b2a">+ lastDiscoveredAt</text>
+                <text x="30" y="128" fill="#191b2a">+ nextStaleAt (+182d)</text>
+                <rect
+                  x="360"
+                  y="20"
+                  width="190"
+                  height="90"
+                  rx="10"
+                  fill="#ece9ff"
+                  stroke="#d9d2ff"
+                />
+                <text x="370" y="42" font-weight="700" fill="#4327d6">
+                  Discovery
+                </text>
+                <text x="370" y="63" fill="#191b2a">idempotencyKey</text>
+                <text x="370" y="80" fill="#191b2a">status · totalCostUsd</text>
+                <text x="370" y="97" fill="#191b2a">
+                  freshCount · refetched
+                </text>
+                <rect
+                  x="360"
+                  y="150"
+                  width="190"
+                  height="86"
+                  rx="10"
+                  fill="#fff"
+                  stroke="#e6e8f0"
+                />
+                <text x="370" y="172" font-weight="700" fill="#4327d6">
+                  DiscoveryCell
+                </text>
+                <text x="370" y="193" fill="#191b2a">
+                  outcome (DB|REFETCH|NEW)
+                </text>
+                <text x="370" y="210" fill="#191b2a">dfsCostUsd</text>
+                <rect
+                  x="680"
+                  y="30"
+                  width="210"
+                  height="104"
+                  rx="10"
+                  fill="#fff"
+                  stroke="#e6e8f0"
+                />
+                <text x="690" y="52" font-weight="700" fill="#4327d6">
+                  Business
+                </text>
+                <text x="690" y="73" fill="#191b2a">+ metroSlug, cellKey</text>
+                <text x="690" y="90" fill="#191b2a">+ openStatus (enum)</text>
+                <text x="690" y="107" fill="#191b2a">
+                  + reachability, isHidden
+                </text>
+                <text x="690" y="124" fill="#191b2a">+ crossMetroDupe</text>
+                <rect
+                  x="680"
+                  y="170"
+                  width="210"
+                  height="70"
+                  rx="10"
+                  fill="#fbfbfe"
+                  stroke="#e6e8f0"
+                />
+                <text x="690" y="192" font-weight="700" fill="#4327d6">
+                  CellSnapshot
+                </text>
+                <text x="690" y="213" fill="#191b2a">coverage trend / run</text>
+              </g>
+              <g stroke="#6b7180" stroke-width="1.4" fill="none">
+                <line x1="455" y1="110" x2="455" y2="150" />
+                <text x="462" y="135" font-size="10" fill="#6b7180">1..N</text>
+                <line
+                  x1="220"
+                  y1="90"
+                  x2="358"
+                  y2="70"
+                  stroke-dasharray="3 3"
+                />
+                <line x1="550" y1="190" x2="678" y2="120" />
+                <text x="585" y="150" font-size="10" fill="#6b7180">
+                  members
+                </text>
+                <line x1="120" y1="150" x2="120" y2="205" />
+                <line x1="120" y1="205" x2="678" y2="205" />
+              </g>
+            </svg>
+            <figcaption>
+              Cell / Discovery / DiscoveryCell / Business / CellSnapshot. The
+              Cell is the reused <code>TrackedLocation</code>; a Discovery fans
+              out across cells and serves the union.
+            </figcaption>
+          </figure>
+
+          <figure>
+            <svg
+              viewBox="0 0 940 200"
+              width="100%"
+              height="200"
+              role="img"
+              aria-label="ReviewJob state machine"
+            >
+              <defs>
+                <marker
+                  id="ar3"
+                  markerWidth="9"
+                  markerHeight="9"
+                  refX="7"
+                  refY="3"
+                  orient="auto"
+                >
+                  <path d="M0,0 L7,3 L0,6 Z" fill="#5b3df5" />
+                </marker>
+              </defs>
+              <g font-size="11.5" font-weight="600" text-anchor="middle">
+                <g>
+                  <rect
+                    x="10"
+                    y="80"
+                    width="110"
+                    height="42"
+                    rx="21"
+                    fill="#fff"
+                    stroke="#e6e8f0"
+                  />
+                  <text x="65" y="105">QUEUED</text>
+                </g>
+                <g>
+                  <rect
+                    x="160"
+                    y="80"
+                    width="120"
+                    height="42"
+                    rx="21"
+                    fill="#fff"
+                    stroke="#e6e8f0"
+                  />
+                  <text x="220" y="105">SUBMITTED</text>
+                </g>
+                <g>
+                  <rect
+                    x="320"
+                    y="80"
+                    width="170"
+                    height="42"
+                    rx="21"
+                    fill="#ece9ff"
+                    stroke="#d9d2ff"
+                  />
+                  <text x="405" y="105">AWAITING_PINGBACK</text>
+                </g>
+                <g>
+                  <rect
+                    x="530"
+                    y="80"
+                    width="110"
+                    height="42"
+                    rx="21"
+                    fill="#fff"
+                    stroke="#e6e8f0"
+                  />
+                  <text x="585" y="105">FETCHING</text>
+                </g>
+                <g>
+                  <rect
+                    x="680"
+                    y="80"
+                    width="90"
+                    height="42"
+                    rx="21"
+                    fill="#e7f6ee"
+                    stroke="#cdebd9"
+                  />
+                  <text x="725" y="105" fill="#1f9d61">DONE</text>
+                </g>
+                <g>
+                  <rect
+                    x="810"
+                    y="20"
+                    width="110"
+                    height="40"
+                    rx="20"
+                    fill="#fdecea"
+                    stroke="#f5cfcc"
+                  />
+                  <text x="865" y="44" fill="#d2453d">FAILED</text>
+                </g>
+                <g>
+                  <rect
+                    x="810"
+                    y="140"
+                    width="110"
+                    height="40"
+                    rx="20"
+                    fill="#fdf3e2"
+                    stroke="#f1e0bf"
+                  />
+                  <text x="865" y="164" fill="#b7791f">RECONCILED</text>
+                </g>
+              </g>
+              <g
+                stroke="#5b3df5"
+                stroke-width="1.5"
+                marker-end="url(#ar3)"
+                fill="none"
+              >
+                <line x1="120" y1="101" x2="158" y2="101" />
+                <line x1="280" y1="101" x2="318" y2="101" />
+                <line x1="490" y1="101" x2="528" y2="101" />
+                <line x1="640" y1="101" x2="678" y2="101" />
+                <path
+                  d="M220,80 C220,40 760,40 808,40"
+                  stroke="#d2453d"
+                  stroke-dasharray="4 3"
+                />
+                <text
+                  x="500"
+                  y="34"
+                  font-size="9.5"
+                  fill="#d2453d"
+                  text-anchor="middle"
+                >
+                  429/5xx → retry+backoff, then FAILED
+                </text>
+                <path
+                  d="M405,122 C405,160 760,160 808,160"
+                  stroke="#b7791f"
+                  stroke-dasharray="4 3"
+                />
+                <text
+                  x="560"
+                  y="178"
+                  font-size="9.5"
+                  fill="#b7791f"
+                  text-anchor="middle"
+                >
+                  stuck pendingTaskId → reconciliation sweep
+                </text>
+              </g>
+            </svg>
+            <figcaption>
+              <code>ReviewJob</code> state machine — fixes the
+              swallowed-failure, no-retry, and stuck-task gaps. Multi-pass
+              pagination for 1000+ reviews lives inside FETCHING.
+            </figcaption>
+          </figure>
+
+          <figure>
+            <svg
+              viewBox="0 0 360 470"
+              width="100%"
+              height="470"
+              role="img"
+              aria-label="Portal 8-stage waterfall"
+            >
+              <defs>
+                <marker
+                  id="ar4"
+                  markerWidth="9"
+                  markerHeight="9"
+                  refX="7"
+                  refY="3"
+                  orient="auto"
+                >
+                  <path d="M0,0 L7,3 L0,6 Z" fill="#5b3df5" />
+                </marker>
+              </defs>
+              <g font-size="12.5" font-weight="600">
+                <g>
+                  <rect
+                    x="40"
+                    y="14"
+                    width="280"
+                    height="40"
+                    rx="9"
+                    fill="#ece9ff"
+                    stroke="#d9d2ff"
+                  />
+                  <text x="60" y="39">1 · Campaign / intent (optional)</text>
+                </g>
+                <g>
+                  <rect
+                    x="40"
+                    y="70"
+                    width="280"
+                    height="40"
+                    rx="9"
+                    fill="#fff"
+                    stroke="#e6e8f0"
+                  />
+                  <text x="60" y="95">2 · Metros + fixed radius</text>
+                </g>
+                <g>
+                  <rect
+                    x="40"
+                    y="126"
+                    width="280"
+                    height="40"
+                    rx="9"
+                    fill="#fff"
+                    stroke="#e6e8f0"
+                  />
+                  <text x="60" y="151">3 · Categories (primary/secondary)</text>
+                </g>
+                <g>
+                  <rect
+                    x="40"
+                    y="182"
+                    width="280"
+                    height="40"
+                    rx="9"
+                    fill="#fdf3e2"
+                    stroke="#f1e0bf"
+                  />
+                  <text x="60" y="207">4 · Discovery preview ($ gate)</text>
+                </g>
+                <g>
+                  <rect
+                    x="40"
+                    y="238"
+                    width="280"
+                    height="40"
+                    rx="9"
+                    fill="#fff"
+                    stroke="#e6e8f0"
+                  />
+                  <text x="60" y="263">5 · Raw List (free filters)</text>
+                </g>
+                <g>
+                  <rect
+                    x="40"
+                    y="294"
+                    width="280"
+                    height="40"
+                    rx="9"
+                    fill="#fdf3e2"
+                    stroke="#f1e0bf"
+                  />
+                  <text x="60" y="319">6 · Enrich (paid · snapshot guard)</text>
+                </g>
+                <g>
+                  <rect
+                    x="40"
+                    y="350"
+                    width="280"
+                    height="40"
+                    rx="9"
+                    fill="#fff"
+                    stroke="#e6e8f0"
+                  />
+                  <text x="60" y="375">7 · Signals (comparative + expert)</text>
+                </g>
+                <g>
+                  <rect
+                    x="40"
+                    y="406"
+                    width="280"
+                    height="40"
+                    rx="9"
+                    fill="#ece9ff"
+                    stroke="#d9d2ff"
+                  />
+                  <text x="60" y="431">8 · Touchpoints (bulk first-touch)</text>
+                </g>
+              </g>
+              <g stroke="#5b3df5" stroke-width="1.6" marker-end="url(#ar4)">
+                <line x1="180" y1="54" x2="180" y2="68" />
+                <line x1="180" y1="110" x2="180" y2="124" />
+                <line x1="180" y1="166" x2="180" y2="180" />
+                <line x1="180" y1="222" x2="180" y2="236" />
+                <line x1="180" y1="278" x2="180" y2="292" />
+                <line x1="180" y1="334" x2="180" y2="348" />
+                <line x1="180" y1="390" x2="180" y2="404" />
+              </g>
+            </svg>
+            <figcaption>
+              The resumable portal waterfall (backed by
+              <code>Discovery</code> state). Amber = a money gate. Each section
+              is also independently reachable from the sidebar.
+            </figcaption>
+          </figure>
+
+          <figure>
+            <svg
+              viewBox="0 0 720 220"
+              width="100%"
+              height="220"
+              role="img"
+              aria-label="Discovery cost/freshness matrix"
+            >
+              <g font-size="12">
+                <text x="20" y="24" font-weight="700">
+                  Discovery preview — per-cell freshness + cost (example)
+                </text>
+                <!-- header -->
+                <g font-weight="600" fill="#6b7180" font-size="11">
+                  <text x="200" y="56">Medical spa</text>
+                  <text x="360" y="56">Day spa</text>
+                  <text x="520" y="56">Aesthetics</text>
+                </g>
+                <!-- rows -->
+                <g font-size="11.5">
+                  <text x="20" y="92" font-weight="600">Miami</text>
+                  <rect
+                    x="160"
+                    y="76"
+                    width="150"
+                    height="26"
+                    rx="6"
+                    fill="#e7f6ee"
+                  />
+                  <text x="170" y="93" fill="#1f9d61">● fresh · 412 · $0</text>
+                  <rect
+                    x="320"
+                    y="76"
+                    width="150"
+                    height="26"
+                    rx="6"
+                    fill="#fdf3e2"
+                  />
+                  <text x="330" y="93" fill="#b7791f">◐ 5mo · 180 · $0</text>
+                  <rect
+                    x="480"
+                    y="76"
+                    width="160"
+                    height="26"
+                    rx="6"
+                    fill="#fdecea"
+                  />
+                  <text x="490" y="93" fill="#d2453d">
+                    ○ stale · ~150 · $0.90
+                  </text>
+
+                  <text x="20" y="130" font-weight="600">Ft. Laud.</text>
+                  <rect
+                    x="160"
+                    y="114"
+                    width="150"
+                    height="26"
+                    rx="6"
+                    fill="#fdecea"
+                  />
+                  <text x="170" y="131" fill="#d2453d">
+                    ○ never · ~140 · $0.84
+                  </text>
+                  <rect
+                    x="320"
+                    y="114"
+                    width="150"
+                    height="26"
+                    rx="6"
+                    fill="#e7f6ee"
+                  />
+                  <text x="330" y="131" fill="#1f9d61">● fresh · 96 · $0</text>
+                  <rect
+                    x="480"
+                    y="114"
+                    width="160"
+                    height="26"
+                    rx="6"
+                    fill="#fdecea"
+                  />
+                  <text x="490" y="131" fill="#d2453d">
+                    ○ never · ~60 · $0.36
+                  </text>
+
+                  <text x="20" y="168" font-weight="600">W. Palm</text>
+                  <rect
+                    x="160"
+                    y="152"
+                    width="150"
+                    height="26"
+                    rx="6"
+                    fill="#fdf3e2"
+                  />
+                  <text x="170" y="169" fill="#b7791f">◐ 4mo · 71 · $0</text>
+                  <rect
+                    x="320"
+                    y="152"
+                    width="150"
+                    height="26"
+                    rx="6"
+                    fill="#fdecea"
+                  />
+                  <text x="330" y="169" fill="#d2453d">
+                    ○ never · ~40 · $0.24
+                  </text>
+                  <rect
+                    x="480"
+                    y="152"
+                    width="160"
+                    height="26"
+                    rx="6"
+                    fill="#e7f6ee"
+                  />
+                  <text x="490" y="169" fill="#1f9d61">● fresh · 33 · $0</text>
+                </g>
+                <text
+                  x="20"
+                  y="205"
+                  font-size="11.5"
+                  fill="#191b2a"
+                  font-weight="600"
+                >
+                  Pre-flight: from DB 1,001 · $0 — will fetch ~410 across 4
+                  cells · $2.34 → wallet $142.50 → $140.16
+                </text>
+              </g>
+            </svg>
+            <figcaption>
+              ● fresh (&lt;6mo, served from DB, $0) · ◐ aging · ○ stale/never
+              (refetch, costed). The user sees the exact spend before running.
+            </figcaption>
+          </figure>
+        </section>
+
+        <!-- ============ 5 · DATA MODEL ============ -->
+        <section id="portal-v2">
+          <h2>
+            Portal UX v2 — visual-first, validated
+            <span class="muted" style="font-size: 14px">(§4.19 detail)</span>
+          </h2>
+          <p class="lead">
+            Modern, intuitive, fast-read. Lead with a
+            <b>comprehension layer</b> (cards, charts, distribution bars) and
+            drill into the existing dense tables on demand — never a wall of
+            tables from the start. Validated by running 10 real user workflows
+            through the design.
+          </p>
+
+          <h3>The organizing idea — two altitudes</h3>
+          <div class="tbl-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Altitude</th>
+                  <th>Answers</th>
+                  <th>Default view</th>
+                  <th>Escape hatch</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><b>Comprehension</b> (top)</td>
+                  <td>
+                    "What is this market, what's worth my time, what do I do
+                    next?"
+                  </td>
+                  <td>
+                    Cards · distribution bars · cohort tiles · sparklines ·
+                    cell-standards panel
+                  </td>
+                  <td>—</td>
+                </tr>
+                <tr>
+                  <td><b>Work</b> (drill-down)</td>
+                  <td>"Operate on these specific rows"</td>
+                  <td>
+                    The existing dense leads table + bulk bar + status pills
+                  </td>
+                  <td>press <code class="inl">t</code> from any visual</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="callout key">
+            <b>Progressive-disclosure contract:</b> every aggregate visual is
+            click-through to its constituent rows — a distribution-bar segment →
+            the businesses in that bucket; a cohort tile → that cohort as a
+            filtered table; a cell-standards row → the leaders.
+            <b>Nothing is a dead-end chart.</b> Visual is the entry altitude,
+            not a ceiling: Tom keeps Compact density + keyboard.
+          </div>
+
+          <h3>IA — research-scoped sidebar + a new visual home</h3>
+          <pre>RESEARCH SWITCHER   ◆ Miami med-spas ▾        <span style="color:#7d8499">// pinned + recent, ⌘1…9</span>
+THIS RESEARCH
+  ▣ Overview        <span style="color:#7d8499">// NEW visual home: hero · loop stepper · cohort cards · cell-standards · next-actions</span>
+  ① Campaign  ② Discover  ③ Raw list  ④ Enrich  ⑤ Signals  ⑥ Touchpoints
+SAVED         ▤ Lists → /lists/[id] (existing table)   ▦ Prospects
+ACROSS ALL    ⚖ Compare cells   📊 Usage & wallet   ⚙ Settings/Team/Billing
+TOPBAR        ⌘K search   ·   💳 Wallet pill   ·   ⚙ Jobs tray</pre>
+
+          <h3>Research workspace — run several, switch, hide, never re-pay</h3>
+          <ul>
+            <li>
+              <b
+                >Research = the user-facing wrapper over a
+                <code>Discovery</code></b
+              >
+              (recommend extending <code>Discovery</code>, not a parallel
+              model). Switcher shows name · cohort size · freshness
+              traffic-light · spend-to-date · last-opened.
+            </li>
+            <li>
+              <b>Archive, never delete</b> — paid snapshots stay in the DB;
+              re-opening serves from cache at <b>$0</b> while fresh. Confirm
+              copy: "Your enriched data stays saved — re-open anytime at no cost
+              while it's fresh."
+            </li>
+            <li>
+              <b>"Paid results are permanent" spine</b> surfaced wherever money
+              was spent: lock badge on Overview, "Served from your saved data ·
+              $0" on return, visible snapshot-guard at enrich, and
+              <b>freshness-not-expiry</b> language ("fresh until {date}", never
+              "expired").
+            </li>
+          </ul>
+
+          <h3>Cost + usage HUD</h3>
+          <ul>
+            <li>
+              <b>Wallet pill</b> (topbar) — balance, amber &lt;$2, never blocks
+              reading saved data (only spending).
+            </li>
+            <li>
+              <b>One <code>&lt;CostQuote&gt;</code> at every spend</b> — "$4.40
+              · 88×contacts $0.05 · 120 already fresh (not charged) · wallet
+              $12.40 → $8.00 · valid 15 min". Gates: auto &lt;$2 · confirm ≥$2 ·
+              approval &gt;$5 · server re-quotes on &gt;10% drift.
+              Snapshot-guard savings shown as a <em>delight</em>, not fine
+              print. Insufficient funds → partial-run offer (best leads first) +
+              top-up.
+            </li>
+            <li>
+              <b>Jobs tray</b> — per-job X-of-Y + per-cell sub-progress +
+              partial-results link; survives navigation; failed/partial show
+              retry + reason.
+            </li>
+            <li>
+              <b>Usage &amp; wallet page</b> — spend-by-research / by-type, full
+              <code>CreditLedger</code> (HOLD/SETTLE/REFUND/TOPUP) with
+              refund-diff highlighted ("quoted $4.40, actual $3.90, refunded
+              $0.50").
+            </li>
+          </ul>
+
+          <h3>Visual components</h3>
+          <div class="tbl-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Component</th>
+                  <th>Shows</th>
+                  <th>Drill-down</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>
+                    <code>&lt;VsCellBar&gt;</code>
+                    <span class="tag">flagship</span>
+                  </td>
+                  <td>
+                    value marker + p25–p75 "typical" band + p90 leaders tick +
+                    percentile label ("100 reviews · typical 240 · leaders 400+
+                    · 22nd pct")
+                  </td>
+                  <td>→ the cell leaders (≥p90)</td>
+                </tr>
+                <tr>
+                  <td><code>&lt;VsCellPrevalence&gt;</code></td>
+                  <td>
+                    boolean/enum sibling: "this: NO · cell: 60% lack it · you
+                    target the majority"
+                  </td>
+                  <td>→ that segment as a list</td>
+                </tr>
+                <tr>
+                  <td><code>&lt;CohortCard&gt;</code></td>
+                  <td>
+                    one-line pitch + count + 12-wk sparkline ("Slow site +
+                    paying for ads · 41")
+                  </td>
+                  <td>→ filtered table; Save as list</td>
+                </tr>
+                <tr>
+                  <td><code>&lt;ReachabilityDonut&gt;</code></td>
+                  <td>total / reachable / phone-only / hidden</td>
+                  <td>segment → filtered table; hidden → "why hidden"</td>
+                </tr>
+                <tr>
+                  <td><code>&lt;CellStandardsPanel&gt;</code></td>
+                  <td>
+                    sample + confidence + headline distributions + top-5 leaders
+                    + last-updated
+                  </td>
+                  <td>
+                    any distribution → leaders/laggards; Compare = two
+                    side-by-side w/ deltas
+                  </td>
+                </tr>
+                <tr>
+                  <td><code>&lt;FreshnessChip&gt;</code></td>
+                  <td>
+                    🟢 fresh (until date) / 🟡 aging / 🔴 stale + "$0 to serve"
+                  </td>
+                  <td>tooltip with discovery age</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="muted" style="font-size: 13px">
+            All read existing data (<code>CellMetric.distributions</code>,
+            <code>CellServicePrevalence</code>, reachability fields). Color is
+            always paired with text (a11y); low-confidence cells (sample &lt;8)
+            dim to "absolute thresholds — sample too small".
+          </p>
+
+          <h3>Tips + next-best-action (discoverability)</h3>
+          <p>
+            3 tiers: empty-state microcopy that teaches ·
+            <code class="inl">info-tip</code> glossary on every signal &amp;
+            cell-standard term (jargon + plain-English on hover) · first-time
+            "what is this?" card for the vs-cell frame. Plus a deterministic,
+            value-ranked <b>Next actions</b> strip:
+          </p>
+          <div class="tbl-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Situation</th>
+                  <th>Surfaced action</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Raw list saved, nothing enriched</td>
+                  <td>"Enrich contacts for 88 reachable ($4.40)"</td>
+                </tr>
+                <tr>
+                  <td>Contacts done, no signals</td>
+                  <td>"Pull reviews + Lighthouse to score this cohort"</td>
+                </tr>
+                <tr>
+                  <td>Signals done, cohort identified</td>
+                  <td>"Generate touches for 'slow-site + ads' (41) →"</td>
+                </tr>
+                <tr>
+                  <td>Two cells in research</td>
+                  <td>"Compare Miami vs Tampa standards →"</td>
+                </tr>
+                <tr>
+                  <td>Cell aging</td>
+                  <td>
+                    "Miami is aging — refresh ($0.18) to update standards"
+                  </td>
+                </tr>
+                <tr>
+                  <td>Low wallet mid-flow</td>
+                  <td>"Top up to finish enriching 292 →"</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3>Validation — 10 scenarios run end-to-end</h3>
+          <div class="tbl-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Scenario</th>
+                  <th>Result</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>1</td>
+                  <td>
+                    First-time user, guided — stepper + next-action + teaching
+                    cards carry a cold user through the whole loop
+                  </td>
+                  <td><span class="st full">PASS</span></td>
+                </tr>
+                <tr>
+                  <td>2</td>
+                  <td>
+                    Power user skips the wizard via ⌘K, jumps to the table with
+                    <code>t</code>
+                  </td>
+                  <td>
+                    <span class="st part">+fix</span> add ⌘K command grammar +
+                    per-research <code>viewPref</code>
+                  </td>
+                </tr>
+                <tr>
+                  <td>3</td>
+                  <td>
+                    Selling marketing services — SERP/Lighthouse enrich →
+                    auto-cohort "page 2+, slow site" → touches
+                  </td>
+                  <td><span class="st full">PASS</span></td>
+                </tr>
+                <tr>
+                  <td>4</td>
+                  <td>
+                    Selling a SaaS booking tool — DOM
+                    <code>has_booking_widget=false</code> cohort
+                  </td>
+                  <td>
+                    <span class="st part">+fix</span> add
+                    <code>&lt;VsCellPrevalence&gt;</code> for boolean/enum
+                    signals
+                  </td>
+                </tr>
+                <tr>
+                  <td>5</td>
+                  <td>
+                    Multi-metro × multi-category (6 cells), mixed freshness
+                    matrix; 5 served free
+                  </td>
+                  <td>
+                    <span class="st part">+fix</span> Overview defaults to
+                    dominant cell + cell-picker; bars scope to each business's
+                    own cell
+                  </td>
+                </tr>
+                <tr>
+                  <td>6</td>
+                  <td>
+                    Returning days later to a paid research — instant, $0, lock
+                    badge, never "expired"
+                  </td>
+                  <td><span class="st full">PASS</span> (the trust spine)</td>
+                </tr>
+                <tr>
+                  <td>7</td>
+                  <td>
+                    Low credits mid-enrich — partial-run offer, no hard wall,
+                    clear resume
+                  </td>
+                  <td>
+                    <span class="st part">+fix</span> partial run picks best
+                    leads by match-score &amp; says so
+                  </td>
+                </tr>
+                <tr>
+                  <td>8</td>
+                  <td>
+                    Unreachable-heavy cell — hidden explained + recoverable;
+                    enrich excludes hidden, not charged
+                  </td>
+                  <td>
+                    <span class="st full">PASS</span> (quote shows "34 hidden
+                    excluded")
+                  </td>
+                </tr>
+                <tr>
+                  <td>9</td>
+                  <td>
+                    Compare two cells' standards — side-by-side with deltas +
+                    one-line takeaway
+                  </td>
+                  <td>
+                    <span class="st full">PASS</span> (low-confidence cells
+                    caveated, never hidden)
+                  </td>
+                </tr>
+                <tr>
+                  <td>10</td>
+                  <td>
+                    Bulk-generate personalized touches + handoff to existing
+                    cold-campaign machinery
+                  </td>
+                  <td>
+                    <span class="st full">PASS</span> (drops un-grounded tokens;
+                    never empty merge fields)
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p>
+            <b>Tally: 7 clean PASS · 3 PASS-with-fix · 0 blocking gaps.</b> The
+            4 net-new fixes (⌘K command grammar,
+            <code>&lt;VsCellPrevalence&gt;</code>, partial-run-by-match-score,
+            force-enrich-hidden opt-in) are folded into the design above.
+          </p>
+        </section>
+
+        <section id="playbook-detail">
+          <h2>
+            Playbook detection — accuracy, rules &amp; scalability
+            <span class="muted" style="font-size: 14px">(§4.15 detail)</span>
+          </h2>
+          <p class="lead">
+            The expert layer is a
+            <b>deterministic-first, evidence-mandatory</b> engine. The product
+            promise is <b>"never an unverified accusation"</b> — every finding
+            carries the literal evidence, a computed confidence tier, and
+            exposure-framed language.
+          </p>
+          <div class="callout key">
+            <b>Four invariants:</b> (1) <b>deterministic by default</b> —
+            gpt-5.4-nano only where no rule can decide (nuanced text), and only
+            as a <em>vote paired with the exact text it read</em>. (2)
+            <b><code class="inl">null</code> is first-class</b> = "not checked"
+            (missing enrichment or below floor) — never "clean", never
+            "violation". (3) <b>evidence is mandatory</b> — a non-null verdict
+            with empty evidence fails the test suite. (4)
+            <b>confidence is computed</b>, not asserted.
+          </div>
+
+          <h3>The <code>detect()</code> contract</h3>
+          <pre>interface PlaybookSignal {
+  key: string;                         <span style="color:#7d8499">// "hipaa.tracking_pixel_on_phi_page"</span>
+  group: "compliance"|"reputation"|"tech"|"competitive"|"ops";
+  detect(ev: EvidenceBundle): SignalVerdict | null;   <span style="color:#7d8499">// pure; null = insufficient evidence</span>
+  falsePositiveGuards: ((ev) =&gt; {tripped: boolean; reason: string})[];
+  pitchAngle: string;
+  requiresEnrichments: ("tech"|"lighthouse"|"reviews"|"ads"|"cell"|"licenses")[];
+  maxConfidence: "high"|"medium"|"low";   <span style="color:#7d8499">// new signals ship capped at "low"</span>
+  regulationRefs: string[];
+}
+interface SignalVerdict {
+  value: number|boolean|string;
+  confidence: "high"|"medium"|"low";
+  evidence: EvidenceItem[];            <span style="color:#7d8499">// NEVER empty when non-null</span>
+  explanation: string;                 <span style="color:#7d8499">// exposure-framed, copy-linted</span>
+  corroborationCount: number;
+}
+<span style="color:#7d8499">// EvidenceItem.kind: review_quote | detected_script | failing_audit | dom_fingerprint
+//   | license_lookup | ad_creative | cell_percentile | attribute | nano_reading
+// Each carries the literal detail (the quote / script / audit id) + optional sourceUrl.</span></pre>
+
+          <h3>Confidence tiers (deterministic)</h3>
+          <div class="tbl-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Tier</th>
+                  <th>Requirement</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><span class="st full">high</span></td>
+                  <td>
+                    ≥2 independent evidence kinds, ≥1
+                    <b>hard artifact</b> (script/audit/license/fingerprint),
+                    thresholds cleared with margin, cell sample ≥30 (when
+                    cell-based)
+                  </td>
+                </tr>
+                <tr>
+                  <td><span class="st part">medium</span></td>
+                  <td>
+                    exactly 1 hard artifact OR 2 soft signals agreeing;
+                    threshold cleared
+                  </td>
+                </tr>
+                <tr>
+                  <td><span class="st new">low</span></td>
+                  <td>
+                    nano reading, OR a single soft signal, OR a hard artifact
+                    with a known ambiguity
+                  </td>
+                </tr>
+                <tr>
+                  <td><span class="st gap">null</span></td>
+                  <td>
+                    below floor → surfaced as <b>"not checked"</b> with the
+                    missing-enrichment reason
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="muted" style="font-size: 13px">
+            The driver enforces
+            <code class="inl">min(computedTier, signal.maxConfidence)</code> — a
+            maturing signal can never over-claim. A buggy
+            <code>detect()</code> that throws is caught → <code>null</code>,
+            never a false flag.
+          </p>
+
+          <h3>No-false-alarm — the 6 mechanics</h3>
+          <ol>
+            <li>
+              <b>Corroboration floor before HIGH</b> — one signal alone caps at
+              <code class="inl">medium</code>; nano-only caps at
+              <code class="inl">low</code>.
+            </li>
+            <li>
+              <b>Confidence tiers</b> tied to evidence strength (table above).
+            </li>
+            <li>
+              <b>Conservative defaults</b> — absence ≠ evidence (no license row
+              ≠ unlicensed → <code class="inl">null</code> unless that state
+              board is covered).
+            </li>
+            <li>
+              <b>Evidence always shown</b> — the exact review quote
+              (initials/stars/date), the named script (<code class="inl"
+                >fbq('track','Lead') on /booking</code
+              >), the failing audit (<code class="inl"
+                >color-contrast: 14 nodes</code
+              >), with a click-through.
+            </li>
+            <li>
+              <b>Exposure phrasing</b> — a copy-lint (<code class="inl"
+                >scripts/playbook-copy-lint.ts</code
+              >) fails the build on absolutes ("is violating / illegal /
+              non-compliant / guilty").
+            </li>
+            <li>
+              <b>Cell-sample gating</b> — any cell-percentile signal returns
+              <code class="inl">null</code> when the benchmark sample &lt; 30.
+            </li>
+          </ol>
+
+          <h3>
+            Flagship: HIPAA — pixel on a PHI page
+            <span class="muted">(contested → exposure-framed)</span>
+          </h3>
+          <p>
+            Composite: <b>health category</b> +
+            <b>third-party tracker</b> (Meta/TikTok pixel, weight 0.55; GA4 on
+            health, 0.30)
+            <b>co-located with a PHI page</b> (booking/intake/portal tool on a
+            path like
+            <code class="inl">/book·/appointment·/intake·/patient·/portal</code
+            >, weight 0.40). <code class="inl">high</code> only when tracker +
+            PHI-page co-location is confirmed on the same path;
+            <code class="inl">medium</code> when pixel + booking present but
+            co-location unconfirmed.
+          </p>
+          <p>
+            <b>False-positive guards (all must pass):</b> marketing-only page
+            where the tracker fires (no PHI path on origin) →
+            <code class="inl">null</code>; no website / no tech →
+            <code class="inl">null</code>; aggregator host (Yelp/Healthgrades) →
+            <code class="inl">null</code>; consent manager detected
+            (OneTrust/Cookiebot) → drop one tier, never
+            <code class="inl">high</code>.
+          </p>
+          <div class="callout warn">
+            <b>Why exposure, not violation:</b> the
+            <b>June-2024 <i>AHA v. HHS</i></b> ruling vacated OCR's "proscribed
+            combination" pixel guidance (OCR withdrew its appeal Aug-2024), so
+            the <b>federal theory is genuinely contested</b> — but the
+            <b>class-action / state-privacy exposure is very real</b> ($100M+ in
+            2023–25 settlements: Advocate Aurora $12.225M, HealthPartners $6M,
+            URMC $2.85M). We flag it as
+            <i>"potential exposure worth checking"</i> with a "legal landscape
+            evolving" footnote — flagging a certainty would be both wrong and a
+            liability.
+          </div>
+
+          <h3>
+            ADA web-accessibility risk
+            <span class="muted">(cross-vertical, every playbook)</span>
+          </h3>
+          <p>
+            3,117 federal web-accessibility suits in 2025 (+27% YoY); we score
+            <b>only the audits cited in complaints</b>, by
+            <b>failing-node count</b>:
+          </p>
+          <div class="tbl-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Lighthouse audit</th>
+                  <th>Complaint mapping</th>
+                  <th>Severity</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>image-alt</code></td>
+                  <td>alt-text (89% of complaints)</td>
+                  <td>serious</td>
+                </tr>
+                <tr>
+                  <td><code>label</code></td>
+                  <td>form labels (72%)</td>
+                  <td>serious</td>
+                </tr>
+                <tr>
+                  <td><code>link-name</code> / <code>button-name</code></td>
+                  <td>keyboard/SR nav (61%)</td>
+                  <td>serious</td>
+                </tr>
+                <tr>
+                  <td><code>color-contrast</code></td>
+                  <td>contrast (68%)</td>
+                  <td>serious</td>
+                </tr>
+                <tr>
+                  <td><code>meta-viewport</code></td>
+                  <td>zoom (mobile)</td>
+                  <td>serious</td>
+                </tr>
+                <tr>
+                  <td>
+                    <code>tap-targets</code>, <code>document-title</code>,
+                    <code>html-has-lang</code>
+                  </td>
+                  <td>SR/mobile orientation</td>
+                  <td>moderate (never alone raises risk)</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p>
+            <b>Tiers:</b> <span class="st full">high</span> = ≥3 serious audits
+            failing &amp; ≥25 failing nodes ·
+            <span class="st part">medium</span> = 2 audits OR 10–24 nodes ·
+            <span class="st new">low</span> = 1 audit &lt;10 nodes ·
+            <span class="st gap">null</span> = 0 serious failures (we never flag
+            "clean enough"). Restaurants lead all filings → ADA is the headline
+            signal for that playbook.
+          </p>
+
+          <h3>The 5 launch playbooks</h3>
+          <div class="tbl-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Vertical</th>
+                  <th>Regulations</th>
+                  <th>Vertical-specific signals (confidence)</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><b>Med-spa</b></td>
+                  <td>
+                    HIPAA · medical-director/physician-supervision disclosure
+                    (state) · FTC claims · before/after rules
+                  </td>
+                  <td>
+                    <code>medical_director_undisclosed</code> (med) ·
+                    <code>before_after_claims_unsubstantiated</code> (low, nano)
+                    · <code>review_complaint_cluster</code> (med→high) ·
+                    <code>no_owner_reply</code> (high, cell)
+                  </td>
+                </tr>
+                <tr>
+                  <td><b>HVAC</b></td>
+                  <td>
+                    state contractor license display · EPA 608 cert · financing
+                    disclosure
+                  </td>
+                  <td>
+                    <code>license_number_absent_from_site</code> (med) ·
+                    <code>epa608_not_referenced</code> (low) ·
+                    <code>no_online_booking</code> (med) ·
+                    <code>no_conversion_tracking</code> = ads+no pixel (high) ·
+                    <code>review_response_gap</code>
+                  </td>
+                </tr>
+                <tr>
+                  <td><b>Dental</b></td>
+                  <td>HIPAA (covered entity) · dental-board ad rules · ADA</td>
+                  <td>
+                    HIPAA composite (high hit rate) ·
+                    <code>specialist_claim_unverified</code> (med, nano+license)
+                    · <code>testimonial_claims</code> (low) ·
+                    <code>no_online_scheduling</code> ·
+                    <code>review_response_gap</code>
+                  </td>
+                </tr>
+                <tr>
+                  <td><b>Restaurant</b></td>
+                  <td>
+                    health-inspection posting · allergen (CA SB-68) · alcohol
+                    license · <b>ADA = #1 suit target</b>
+                  </td>
+                  <td>
+                    ADA (headline) ·
+                    <code>menu_no_allergen_info</code> (low/med, nano) ·
+                    <code>no_online_ordering</code> (high) ·
+                    <code>no_reservation_tool</code> ·
+                    <code>review_sentiment_decline</code> ·
+                    <code>no_pixel_with_ads</code> (high)
+                  </td>
+                </tr>
+                <tr>
+                  <td><b>Auto-body</b></td>
+                  <td>
+                    state shop license/BAR · EPA refinish NESHAP + VOC ·
+                    I-CAR/OEM cert
+                  </td>
+                  <td>
+                    <code>bar_registration_absent</code> (med) ·
+                    <code>no_icar_oem_cert_displayed</code> (low) ·
+                    <code>no_estimate_request_tool</code> ·
+                    <code>no_pixel_with_ads</code> (high) ·
+                    <code>review_response_gap</code>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="muted" style="font-size: 13px">
+            Shared cross-vertical signals (<code>adaWebRisk</code>,
+            <code>reviewResponseGap</code>, <code>noPixelWithAds</code>) are
+            imported, not re-written. Absence-based signals (license/disclosure)
+            are gated by per-state <b>coverage maps</b> — an uncovered state
+            returns <code class="inl">null</code>, not a false flag.
+          </p>
+
+          <h3>Extension recipe (ship a 6th vertical)</h3>
+          <ol>
+            <li>
+              Create
+              <code class="inl"
+                >modules/playbooks/definitions/{vertical}.ts</code
+              >
+              exporting a <code>CellPlaybook</code> (id, version 1,
+              categorySlugs, regulations, signals).
+            </li>
+            <li>
+              Import the shared signals; write only the vertical-specific ones.
+            </li>
+            <li>
+              Register in
+              <code class="inl">modules/playbooks/registry.ts</code>
+              (categorySlug → playbook) — the cron picks it up, no pipeline
+              change.
+            </li>
+            <li>
+              Add golden fixtures (<code class="inl"
+                >positive_high · positive_medium · negative_clean ·
+                negative_guard_* · insufficient_null</code
+              >) and run <code class="inl">pnpm test:playbooks</code>.
+            </li>
+            <li>
+              Extend the state coverage maps so uncovered states return
+              <code class="inl">null</code>.
+            </li>
+          </ol>
+          <p>
+            <b>Confidence graduation:</b> a signal ships
+            <code class="inl">maxConfidence:"low"</code>; thumbs-down telemetry
+            + golden fixtures validate its false-positive rate before raising
+            the cap. <b>Backlog</b> (<code class="inl"
+              >modules/playbooks/BACKLOG.md</code
+            >) lists what we deliberately don't fake yet: live health-inspection
+            scores, actual on-wire PHI (we detect pixel+PHI-page co-location,
+            not the payload → capped at <code class="inl">medium</code>),
+            license <em>validity</em> (we detect display, not currency).
+          </p>
+
+          <h3>Reliability for the user — what we do &amp; don't claim</h3>
+          <ul>
+            <li>
+              <b>Every finding</b> = confidence pill + evidence drawer (literal
+              artifacts + click-through source URLs) + the cited regulation. Tom
+              verifies in 10 seconds before he says it to a prospect.
+            </li>
+            <li>
+              <b>"Not checked" shown honestly</b> with the reason — never
+              implies a business is clean.
+            </li>
+            <li>
+              <b>We never claim</b> a business <em>is</em> violating any law;
+              that a license is <em>invalid</em> (only that it isn't displayed);
+              that PHI is <em>actually</em> leaking (only that the litigated
+              pattern is present); anything from nano without showing the text
+              it read.
+            </li>
+          </ul>
+
+          <h3>Data model</h3>
+          <pre>model PlaybookFinding {
+  id              String   @id @default(cuid())
+  businessId      String
+  playbookId      String   <span style="color:#7d8499">// "med-spa"</span>
+  playbookVersion Int
+  signalKey       String   <span style="color:#7d8499">// "hipaa.tracking_pixel_on_phi_page"</span>
+  group           String
+  value           String
+  confidence      String   <span style="color:#7d8499">// high|medium|low</span>
+  corroboration   Int
+  evidenceJson    Json     <span style="color:#7d8499">// EvidenceItem[]</span>
+  explanation     String   @db.Text
+  pitchAngle      String   @db.Text
+  status          String   <span style="color:#7d8499">// flagged | not_checked</span>
+  notCheckedReason String?
+  feedback        String?  <span style="color:#7d8499">// up | down  (false-positive telemetry → graduation)</span>
+  computedAt      DateTime @default(now())
+  @@unique([businessId, signalKey])
+  @@index([signalKey, feedback])
+}
+<span style="color:#7d8499">// BusinessTech += trackerPaths Json (tracker → URL paths, enables HIPAA co-location) + consentManager
+// If trackerPaths not yet captured, HIPAA caps at "medium" (site-wide pixel + booking) — co-location "high" stays null (backlog).</span></pre>
+        </section>
+
+        <section id="datamodel">
+          <h2>5 · Master data-model deltas</h2>
+          <p class="lead">
+            New models (additive) and altered models. Only one risky migration
+            (Cell unique-key swap).
+          </p>
+          <h4>Core new models (representative Prisma)</h4>
+          <pre>model Discovery {                       <span style="color:#7d8499">// the user request spanning cells</span>
+  id              String   @id @default(cuid())
+  requestedBy     String                       <span style="color:#7d8499">// userId / agencyId</span>
+  idempotencyKey  String   @unique             <span style="color:#7d8499">// hash(sortedCellIds, limit, requester) → snapshot guard</span>
+  status          DiscoveryStatus @default(PENDING)  <span style="color:#7d8499">// PENDING RUNNING READY PARTIAL FAILED</span>
+  cellCount       Int @default(0)
+  freshCount      Int @default(0)              <span style="color:#7d8499">// served from DB, $0</span>
+  refetchedCount  Int @default(0)
+  totalBusinesses Int @default(0)
+  totalCostUsd    Float @default(0)
+  workflowRunId   String?
+  cells           DiscoveryCell[]
+  @@index([requestedBy, createdAt(sort: Desc)])
+}
+model DiscoveryCell {
+  discoveryId       String
+  trackedLocationId String                     <span style="color:#7d8499">// the Cell</span>
+  outcome           DiscoveryCellOutcome       <span style="color:#7d8499">// SERVED_FROM_DB | REFETCHED | DISCOVERED_NEW | FAILED</span>
+  discoveryRunId    String?
+  businessCount     Int @default(0)
+  dfsCostUsd        Float @default(0)
+  @@unique([discoveryId, trackedLocationId])
+}</pre>
+          <pre>model Contact {                         <span style="color:#7d8499">// multi email/phone/social — replaces single columns</span>
+  id              String @id @default(cuid())
+  businessId      String
+  channel         ContactChannel   <span style="color:#7d8499">// EMAIL PHONE WHATSAPP FACEBOOK INSTAGRAM LINKEDIN TIKTOK YOUTUBE X YELP BOOKING_URL</span>
+  value           String
+  normalizedValue String           <span style="color:#7d8499">// E.164 / lowercased email / canonical URL — dedup key</span>
+  role            ContactRole @default(UNKNOWN)   <span style="color:#7d8499">// OWNER FRONT_DESK PERSONAL GENERIC ...</span>
+  source          ContactSource
+  confidence      Int @default(0)  <span style="color:#7d8499">// 0–100</span>
+  verifiedStatus  VerifiedStatus @default(UNVERIFIED)  <span style="color:#7d8499">// VALID CATCH_ALL RISKY INVALID ...</span>
+  isPrimary       Boolean @default(false)
+  meta            Json?            <span style="color:#7d8499">// follower count, carrier type, mx host …</span>
+  @@unique([businessId, channel, normalizedValue])
+  @@index([channel, verifiedStatus])
+}
+<span style="color:#7d8499">// Business += reachability, reachableChannelCount, contactScanStatus, isHidden, hiddenReason,</span>
+<span style="color:#7d8499">//            permanentlyClosed, temporarilyClosed, openStatus(enum), metroSlug, cellKey, crossMetroDupe</span></pre>
+          <pre>model ReviewJob {                       <span style="color:#7d8499">// durable, retrying review pulls</span>
+  id            String @id @default(cuid())
+  businessId    String
+  mode          String          <span style="color:#7d8499">// initial | delta | manual</span>
+  status        ReviewJobStatus <span style="color:#7d8499">// QUEUED SUBMITTED AWAITING_PINGBACK FETCHING DONE FAILED RECONCILED</span>
+  taskId        String?
+  depth         Int             <span style="color:#7d8499">// recency ladder 50→200→700→2000→4490; stop at 365d cutoff or cursor</span>
+  attempts      Int @default(0)
+  windowDays    Int @default(365)
+  errorMessage  String?
+  workflowRunId String?
+  @@index([status])
+}
+model CostEstimate {                    <span style="color:#7d8499">// the quote = single-use spend authorization (server re-quotes)</span>
+  id              String @id @default(cuid())
+  agencyId        String
+  scopeKind       String          <span style="color:#7d8499">// businesses | cells | discovery</span>
+  enrichmentsJson Json
+  grossUsd        Decimal @db.Decimal(10,4) @default(0)
+  freshHitUsd     Decimal @db.Decimal(10,4) @default(0)   <span style="color:#7d8499">// deduped → $0</span>
+  netUsd          Decimal @db.Decimal(10,4) @default(0)   <span style="color:#7d8499">// @default(0) per INC-32</span>
+  upperBoundUsd   Decimal? @db.Decimal(10,4)
+  status          String @default("QUOTED")  <span style="color:#7d8499">// QUOTED|AUTHORIZED|CONSUMED|EXPIRED|VOID</span>
+  expiresAt       DateTime        <span style="color:#7d8499">// 15 min TTL</span>
+}</pre>
+          <h4>All deltas at a glance</h4>
+          <p>
+            <b>New models:</b> <code>Discovery</code>,
+            <code>DiscoveryCell</code>, <code>CellSnapshot</code>,
+            <code>Contact</code>, <code>BusinessTech</code>,
+            <code>ServiceTaxonomy</code>, <code>CellServicePrevalence</code>,
+            <code>ReviewJob</code>, <code>LighthouseOpportunity</code>,
+            <code>AdMarketRun</code>, <code>CostEstimate</code>,
+            <code>EnrichmentRun</code>, <code>EnrichmentJob</code>,
+            <code>AgencyWallet</code>, <code>CreditLedger</code>,
+            <code>CategoryProfile</code>, <code>BusinessLicense</code>,
+            <code>ExpertSignal</code>/<code>ComplianceFinding</code>,
+            <code>Campaign</code
+            >/<code>CampaignPainPoint</code>/<code>StrategyTemplate</code>/<code>ResearchPlan</code>,
+            <code>OutreachCampaign</code
+            >/<code>OutreachDraft</code>/<code>OutreachRun</code>/<code>OutreachOutcome</code>/<code>OutreachSequence</code>/<code>SequenceEnrollment</code>/<code>OutreachEvent</code>/<code>PitchIntent</code>,
+            <code>LocationSelection</code>,
+            <code>BusinessEnrichment</code>/<code>EnrichmentStageRun</code>.
+          </p>
+          <p>
+            <b>Altered:</b> <code>TrackedLocation</code> (metro + freshness),
+            <code>Business</code> (cellKey/metro, openStatus,
+            reachability/hidden, contacts denorm,
+            categoryProfileSlug/complianceFlags, techScanLastAt,
+            enrichmentFreshness), <code>CellMetric</code> (metroSlug),
+            <code>BusinessSnapshot</code> (review-trend,
+            GBP/authority/ETV/SERP-presence, complianceRisk pillar),
+            <code>BusinessService</code> (canonicalKey/confidence/detectedVia),
+            <code>LighthouseAudit</code> (rawJson + rollups + techStack),
+            <code>AdLibraryEntry</code>/<code>AdMarketAdvertiser</code>,
+            <code>DiscoveryRun</code> (cost/coverage), <code>List</code>/<code
+              >Lead</code
+            >
+            (raw/discovery/enrichmentState),
+            <code>Agency</code> (wallet/caps/mailingAddress).
+          </p>
+          <div class="callout warn">
+            <b>Migration risk:</b> only the
+            <code class="inl">TrackedLocation</code> unique
+            <code class="inl">(city)→(metroSlug)</code> swap is non-trivial —
+            run
+            <em
+              >add nullable → backfill via resolver with dry-run diff → review
+              collisions → tighten</em
+            >; rollback = drop new unique, keep old (both coexist). Everything
+            else is additive. Wallet/Stripe mapping is
+            <code class="inl">human-required</code>.
+          </div>
+        </section>
+
+        <!-- ============ 6 · SIGNALS ============ -->
+        <section id="signals">
+          <h2>6 · New signals (~60)</h2>
+          <p class="lead">
+            The expert/comparative layer. Filter by group or search. These are
+            what Apollo/ZoomInfo cannot express.
+          </p>
+          <div class="ctrls">
+            <input type="search" id="sigsearch" placeholder="Search signals…" />
+            <button class="fbtn on" data-g="all">All</button>
+            <button class="fbtn" data-g="Reachability">Reachability</button>
+            <button class="fbtn" data-g="Tech">Tech</button>
+            <button class="fbtn" data-g="Reviews">Reviews</button>
+            <button class="fbtn" data-g="Ads">Ads</button>
+            <button class="fbtn" data-g="SERP">SERP</button>
+            <button class="fbtn" data-g="Website">Website</button>
+            <button class="fbtn" data-g="Expert">Expert</button>
+            <button class="fbtn" data-g="Geo/Money">Geo/Money</button>
+          </div>
+          <div class="tbl-wrap">
+            <table id="sigtable">
+              <thead>
+                <tr>
+                  <th>Group</th>
+                  <th>Signal key</th>
+                  <th>How computed</th>
+                  <th>Example filter</th>
+                </tr>
+              </thead>
+              <tbody id="sigbody"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- ============ 7 · DEFAULTS ============ -->
+        <section id="defaults">
+          <h2>7 · Decided defaults</h2>
+          <p class="lead">
+            Opinionated, baked-in. The two post-critique conflict resolutions
+            are highlighted.
+          </p>
+          <div class="tbl-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Default</th>
+                  <th>Value</th>
+                  <th>Why</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Metros seeded</td>
+                  <td><b>150</b> US (of 393 CBSA)</td>
+                  <td>&gt;85% population; long tail later, zero migration</td>
+                </tr>
+                <tr>
+                  <td>Metro radius</td>
+                  <td>
+                    <b>30 km</b> headline · tiered 12–40 · cap 40 ·
+                    <b>display-only</b>
+                  </td>
+                  <td>reaches named suburbs, no bleed into adjacent metros</td>
+                </tr>
+                <tr>
+                  <td>Cell identity</td>
+                  <td>
+                    <code>@@unique([categoryId, metroSlug])</code> (reuse
+                    TrackedLocation)
+                  </td>
+                  <td>
+                    structurally forbids duplicate-Miami; no destructive rename
+                  </td>
+                </tr>
+                <tr style="background: var(--indigo-soft)">
+                  <td><b>Cell discovery freshness</b></td>
+                  <td><b>182 days (6 mo)</b></td>
+                  <td>your ask; existence changes slowly</td>
+                </tr>
+                <tr>
+                  <td>Meta / Google ads freshness</td>
+                  <td><b>30 days</b> (gads 60d if empty)</td>
+                  <td>ads rotate monthly</td>
+                </tr>
+                <tr>
+                  <td>SERP freshness</td>
+                  <td>monthly (14d active-outreach)</td>
+                  <td>ranks shift, not daily</td>
+                </tr>
+                <tr>
+                  <td>Reviews freshness</td>
+                  <td>7d delta / 90d full window</td>
+                  <td>reputation honesty</td>
+                </tr>
+                <tr style="background: var(--amber-bg)">
+                  <td><b>Lighthouse / tech freshness</b></td>
+                  <td>
+                    <b>30 days</b>
+                    <span class="muted">(resolved 30-vs-90 → 30)</span>
+                  </td>
+                  <td>matches DfS tech-refresh cadence</td>
+                </tr>
+                <tr>
+                  <td>Contacts freshness</td>
+                  <td>90d (re-verify 30–60d pre-campaign)</td>
+                  <td>emails rarely change</td>
+                </tr>
+                <tr>
+                  <td>Cost gate</td>
+                  <td>
+                    auto &lt; $2 · confirm above · <b>&gt;$5 approval</b> ·
+                    quote TTL 15 min
+                  </td>
+                  <td>frictionless small, safe large</td>
+                </tr>
+                <tr>
+                  <td>Credit price</td>
+                  <td><b>$0.05/credit</b> (Apollo ≈ $0.20)</td>
+                  <td>undercut 4× at ~50% margin</td>
+                </tr>
+                <tr>
+                  <td>Charge model</td>
+                  <td>
+                    hold → settle actual → refund diff; never above upper bound
+                  </td>
+                  <td>fair, anti-Apollo</td>
+                </tr>
+                <tr>
+                  <td>Orchestration</td>
+                  <td>
+                    Queues (single-shot) + Workflow DevKit (durable/callback)
+                  </td>
+                  <td>right granularity; fixes reviews</td>
+                </tr>
+                <tr>
+                  <td>DfS rate limit</td>
+                  <td>
+                    <b>10 req/s</b> token bucket; consumer maxConcurrency ≤ 30
+                  </td>
+                  <td>under DfS caps</td>
+                </tr>
+                <tr>
+                  <td>Reviews depth</td>
+                  <td>
+                    <b>recency-governed ladder</b> 50→200→700→2000→4490; STOP at
+                    the first page crossing the 365-day cutoff or the delta
+                    cursor — <b>never escalate on lifetime count</b>
+                  </td>
+                  <td>only pay for the last-year prefix</td>
+                </tr>
+                <tr>
+                  <td>Negative review · stale</td>
+                  <td>≤2★ · stale-no-reviews 120d</td>
+                  <td>3★ is neutral</td>
+                </tr>
+                <tr>
+                  <td>AI model</td>
+                  <td>
+                    <b>OpenAI gpt-5.4-nano only</b> (already connected via
+                    <code>services/ai</code>) — no Claude/Sonnet/Opus or other
+                    LLM; web_search banned (free web_fetch)
+                  </td>
+                  <td>one model, lowest cost, already wired</td>
+                </tr>
+                <tr>
+                  <td>Reachability gate</td>
+                  <td>
+                    contactScanStatus=OK &amp; channels=0 → hidden + block;
+                    <b>FAILED ≠ UNREACHABLE</b>; catch-all throttled 2–5%
+                  </td>
+                  <td>save spend, never hide on error</td>
+                </tr>
+                <tr>
+                  <td>Tech detection</td>
+                  <td>
+                    deterministic fingerprint (not AI); DfS $0.01 fallback;
+                    &ldquo;unknown&rdquo; ≠ &ldquo;false&rdquo;
+                  </td>
+                  <td>cheaper + honest</td>
+                </tr>
+                <tr>
+                  <td>Launch verticals</td>
+                  <td>
+                    <b>5 deep</b> (med-spa, HVAC, dental, restaurant,
+                    auto-body); 12 specced; 18 seed metros
+                  </td>
+                  <td>depth over breadth</td>
+                </tr>
+                <tr>
+                  <td>Compliance pillar</td>
+                  <td>
+                    informational, <b>weight 0</b> (shown as percentile badge)
+                  </td>
+                  <td>surfacing risk = pitch; deducting = noise</td>
+                </tr>
+                <tr>
+                  <td>Playbooks</td>
+                  <td><b>code (versioned)</b>, not DB</td>
+                  <td>type-checked, tested, CI&rsquo;d</td>
+                </tr>
+                <tr>
+                  <td>Outreach metric · handoff</td>
+                  <td>
+                    <b>reply rate</b> (not opens) · Copy/CSV default
+                    (cold-mailer opt-in)
+                  </td>
+                  <td>Apple Mail preload noise; zero deliverability risk</td>
+                </tr>
+                <tr style="background: var(--indigo-soft)">
+                  <td><b>Primary/secondary category rule</b></td>
+                  <td>
+                    benchmark/score in <b>primary</b> cell only (no CellMetric
+                    double-count); secondary = discoverable + filterable
+                  </td>
+                  <td>resolves the open ambiguity</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- ============ 8 · ROADMAP ============ -->
+        <section id="roadmap">
+          <h2>8 · Phased roadmap (10 phases)</h2>
+          <p class="lead">
+            One phase ≈ one shippable slice, dependency-ordered.
+            <span class="st new">M</span> migration ·
+            <span class="st full">A</span> additive.
+          </p>
+          <div id="phases"></div>
+        </section>
+
+        <!-- ============ 9 · RISKS ============ -->
+        <section id="risks">
+          <h2>9 · Top risks &amp; mitigations</h2>
+          <div class="tbl-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Risk</th>
+                  <th>Mitigation</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>
+                    &ldquo;No live API in request path&rdquo; vs demand model
+                    (Fluid 300s)
+                  </td>
+                  <td>
+                    Workflow DevKit + Queues; request mints job + returns
+                    <code>jobId</code>; UI polls/SSE; all external calls in
+                    consumers
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+                    DfS reliability (silent expiry, no retry, 429, 1000+
+                    reviews)
+                  </td>
+                  <td>
+                    Durable <code>ReviewJob</code>/<code>EnrichmentRun</code> +
+                    retry 3× + Redis token bucket + reconciliation sweep +
+                    depth-from-count + multi-pass
+                  </td>
+                </tr>
+                <tr>
+                  <td>Runaway cost / abuse</td>
+                  <td>
+                    Pre-flight gate + estimate-as-capability-token (server
+                    re-quote) + per-job ceiling + per-agency daily cap + $5 rule
+                    + atomic hold/settle
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+                    Vercel build can&rsquo;t open Neon WS + cacheComponents PPR
+                  </td>
+                  <td>
+                    <code>NEXT_PHASE</code> guard + exact-shape
+                    <code>EMPTY_*</code>; Suspense-wrap async bodies;
+                    pre-resolve function props; enrichment runs at runtime only
+                  </td>
+                </tr>
+                <tr>
+                  <td>Duplicate businesses across overlapping metro radii</td>
+                  <td>
+                    3-layer dedup: identity upsert + nearest-anchor metro stamp
+                    (<code>crossMetroDupe</code>) + 24h call dedup
+                  </td>
+                </tr>
+                <tr>
+                  <td>MetroSlug migration (collisions on backfill)</td>
+                  <td>
+                    add nullable → backfill with dry-run diff → review
+                    &gt;1-metro/alias collisions → tighten; rollback keeps old
+                    unique
+                  </td>
+                </tr>
+                <tr>
+                  <td>HIPAA/PHI handling in expert layer</td>
+                  <td>
+                    B2B-to-owner framing; store only public data; AI never
+                    confirms patient identity; signal is &ldquo;exposure
+                    risk&rdquo;, not PHI
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- ============ 10 · COVERAGE ============ -->
+        <section id="coverage">
+          <h2>10 · Coverage proof</h2>
+          <p class="lead">
+            All 26 decomposed requirements, mapped to a design section and
+            verified by an independent completeness critic.
+          </p>
+          <div class="ctrls">
+            <button class="fbtn on" data-cov="all">All</button>
+            <button class="fbtn" data-cov="FULL">Full</button>
+            <button class="fbtn" data-cov="PART">Partial</button>
+          </div>
+          <div class="tbl-wrap">
+            <table id="covtable">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Requirement</th>
+                  <th>Section</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="covbody"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- ============ 11 · VERIFY ============ -->
+        <section id="verify">
+          <h2>11 · Verification</h2>
+          <ul>
+            <li>
+              <b>Per phase:</b> Vitest for pure logic (<code>estimateRun</code>
+              golden snapshots, freshness predicate, metro resolver, percentile
+              signals); integration tests on a Neon test branch for
+              jobs/cron/webhooks (seed <code>test+…@mapsly.ai</code>, assert,
+              cleanup); browser validation via Chrome MCP on
+              <code>/discover</code> (anon blocked, agency reaches, mobile
+              380px, no console errors, Lighthouse mobile ≥90 / a11y ≥95); DB
+              validation via Postgres MCP (row counts, cost ledger, reachability
+              gate enforced server-side).
+            </li>
+            <li>
+              <b>End-to-end demo:</b> seed a med-spa Miami cell → run discovery
+              (assert <b>$0 on 2nd run</b> via freshness gate) → raw list shows
+              reachability banner → enrich contacts+reviews (assert pre-flight
+              quote, snapshot guard blocks re-run, partial-result resume) →
+              signals show HIPAA/comparative → generate one first-touch with
+              CAN-SPAM footer.
+            </li>
+          </ul>
+        </section>
+
+        <!-- ============ 13 · CLARIFY ============ -->
+        <section id="clarify">
+          <h2>13 · Resolved clarifications (post-critique)</h2>
+          <p class="lead">
+            The completeness critic flagged 7 refinements + 1 critical
+            under-specification; all resolved here.
+          </p>
+          <div class="card open">
+            <div class="head">
+              <span class="num">13.1</span
+              ><span class="t"
+                >Reachability gate — full semantics (blocks Phase 4)</span
+              ><span class="chev">▶</span>
+            </div>
+            <div class="body">
+              <p>
+                Distinguish <em>scan failed</em> from
+                <em>scanned-and-empty</em> with
+                <code class="inl">Business.contactScanStatus</code>
+                (PENDING|OK|FAILED|PARTIAL).
+                <code class="inl">isHidden</code> is set
+                <b
+                  >only when contactScanStatus=OK AND reachableChannelCount=0</b
+                >
+                — a FAILED scan never hides (retried). <b>Staleness:</b> a fresh
+                discovery (&gt;90d or re-discovery) resets
+                <code class="inl">contactScanStatus=PENDING</code>;
+                <code class="inl">isHidden</code> recomputed each scan, never
+                sticky. <b><code>assertEnrichable</code>:</b> in a batch it
+                silently skips hidden (records
+                <code class="inl">unitsSkippedHidden</code>, never charges); on
+                a direct call it returns HTTP 400
+                <code class="inl">{error:"unreachable"}</code>; never cancels
+                the batch. <b>Override:</b> explicit logged
+                <code class="inl">forceEnrichUnreachable</code> admin action
+                (audit in <code class="inl">EnrichmentRun.meta</code>) — default
+                UI has none. &ldquo;Why hidden&rdquo; shows
+                <code class="inl">hiddenReason</code>.
+              </p>
+            </div>
+          </div>
+          <div class="card">
+            <div class="head">
+              <span class="num">13.3</span
+              ><span class="t">AI model — gpt-5.4-nano only</span
+              ><span class="chev">▶</span>
+            </div>
+            <div class="body">
+              <p>
+                <b>OpenAI <code class="inl">gpt-5.4-nano</code> ONLY</b> for
+                every AI step (intent/entity extraction, classification,
+                copy/first-touch, any synthesis) — already connected via
+                <code class="inl">services/ai</code>; no Claude/Sonnet/Opus or
+                other LLM. <code class="inl">web_search</code> banned (free
+                <code class="inl">web_fetch</code> only). Where nano isn't
+                reliable enough, prefer a deterministic rule or defer the
+                feature rather than switch models.
+              </p>
+            </div>
+          </div>
+          <div class="card">
+            <div class="head">
+              <span class="num">13.4</span
+              ><span class="t"
+                >Primary/secondary category rule — enforced in membership</span
+              ><span class="chev">▶</span>
+            </div>
+            <div class="body">
+              <p>
+                Enforced in <code class="inl">cellMembershipWhere</code> / the
+                persist-time <code class="inl">cellKey</code> stamp: primary
+                category drives <code class="inl">CellMetric</code> attribution
+                (no double-count); <code class="inl">categoryIds[]</code> powers
+                secondary filtering.
+              </p>
+            </div>
+          </div>
+          <div class="card">
+            <div class="head">
+              <span class="num">13.6</span
+              ><span class="t">Wallet settlement</span
+              ><span class="chev">▶</span>
+            </div>
+            <div class="body">
+              <p>
+                All settlement is internal
+                <code class="inl">CreditLedger</code> journal entries (instant),
+                never live Stripe refunds.
+                <code class="inl"
+                  >type ∈ {HOLD, SETTLE, REFUND, TOPUP, EXPIRE, ADJUST}</code
+                >. Authorize → HOLD; complete → SETTLE actual + REFUND diff; a
+                failed/timed-out job refunds the entire hold. Stripe touched
+                only on TOPUP (the only
+                <code class="inl">human-required</code> payments surface).
+              </p>
+            </div>
+          </div>
+          <div class="card">
+            <div class="head">
+              <span class="num">13.7</span
+              ><span class="t">Compliance pillar surfacing</span
+              ><span class="chev">▶</span>
+            </div>
+            <div class="body">
+              <p>
+                Weight 0 in the composite score (never deducts) but shown as a
+                comparative percentile badge + drives expert-signal filters and
+                pitch angles. A compliance gap surfaces as a pitch hook, never
+                silently lowers a number.
+              </p>
+            </div>
+          </div>
+          <div class="card">
+            <div class="head">
+              <span class="num">13.9</span
+              ><span class="t">Portal flow shape</span
+              ><span class="chev">▶</span>
+            </div>
+            <div class="body">
+              <p>
+                The 8 stages are a resumable linear waterfall backed by
+                <code class="inl">Discovery</code> state, but each section
+                (<code class="inl">/lists</code>,
+                <code class="inl">/prospect</code>,
+                <code class="inl">/signals</code>,
+                <code class="inl">/touchpoints</code>) is also independently
+                reachable from the sidebar.
+              </p>
+            </div>
+          </div>
+          <div class="card">
+            <div class="head">
+              <span class="num">13.10</span
+              ><span class="t">Closed-status extraction</span
+              ><span class="chev">▶</span>
+            </div>
+            <div class="body">
+              <p>
+                <code class="inl">Business.openStatus</code> extracted at
+                persist from DfS
+                <code class="inl">work_time.work_hours.current_status</code>;
+                additive column (no risky migration); part of Phase 2.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <p class="muted" style="margin-top: 30px; font-size: 13px">
+          Plan v1.1 · 19-domain deep-research pass + live-code audit +
+          completeness critique · generated <span id="gen"></span>. Source
+          blueprint:
+          <code>.claude/plans/now-we-should-build-immutable-waterfall.md</code>.
+        </p>
+      </main>
+    </div>
+
+    <script>
+      /* ---------- data ---------- */
+      const CHECKLIST = [
+        [
+          "A · Demand model & foundations",
+          [
+            ["A1", "Switch from supply/cron to demand-driven gathering"],
+            [
+              "A2",
+              "Reconcile with no-live-API-in-request-path rule (background jobs + streaming)",
+            ],
+            ["A3", "Show cost of every request before running"],
+            [
+              "A4",
+              "Snapshots per run + server-side guard against re-running fresh data",
+            ],
+          ],
+        ],
+        [
+          "B · Location",
+          [
+            ["B1", "US only; multi-select locations + radius"],
+            [
+              "B2",
+              "Consolidate into one big metro (Miami=1, not suburbs); one list item",
+            ],
+            ["B3", "Fixed default radius (recommended, not user-tweakable)"],
+          ],
+        ],
+        [
+          "C · Categories",
+          [
+            ["C1", "Google categories; 1 primary + several secondary"],
+            [
+              "C2",
+              "Multi-select; define primary/secondary cell-membership rule",
+            ],
+          ],
+        ],
+        [
+          "D · Cell & Discovery",
+          [
+            ["D1", "Cell = 1 metro + 1 category; multi = many cells"],
+            [
+              "D2",
+              "Discovery Result = union of cells (local Google-Maps only)",
+            ],
+            [
+              "D3",
+              "Serve from DB if discovered; 6-month freshness; refetch if older",
+            ],
+            [
+              "D4",
+              "Store ALL DfS data (hours, claimed, permanently/temporarily closed)",
+            ],
+            [
+              "D5",
+              "Raw list: full market marked raw; filter + manual select + custom list",
+            ],
+            [
+              "D6",
+              "Cell standards/benchmarks per cell (category × metro), shown in UX, updated every snapshot",
+            ],
+          ],
+        ],
+        [
+          "E · Enrichment",
+          [
+            [
+              "E1",
+              "Contacts: multi email/phone/social from DOM; verify; reachability gate",
+            ],
+            ["E2", "Services: extend med-spa to all categories"],
+            [
+              "E3",
+              "DOM/tech review (cheap fingerprint: CDN, GA, pixels, booking…)",
+            ],
+            [
+              "E4",
+              "Reviews: fix architecture (rate limits, retry, 1000+, reconciliation)",
+            ],
+            [
+              "E4b",
+              "Review window: last 12 months, depth governed by recency (not lifetime count)",
+            ],
+            [
+              "E5",
+              "Review signals: trend, 30d momentum, comparative, dying/stale, mentions",
+            ],
+            [
+              "E6",
+              "Meta ads: once per cell, 1mo cache, audit Apify, richer signals",
+            ],
+            ["E7", "Google ads: per-cell, <1mo, store ALL, more signals"],
+            [
+              "E8",
+              "Google/Maps search: cheap per-cell traffic/keywords/positions",
+            ],
+            ["E9", "Lighthouse: store ALL + more valuable signals"],
+            ["E10", "What else with DfS (non-overlapping)"],
+            ["E11", "AI research signals"],
+            [
+              "E12",
+              "Scalability of enrichment (robust, fast, cheap, no re-run)",
+            ],
+          ],
+        ],
+        [
+          "F · Differentiation & intelligence",
+          [
+            ["F1", "Signal = expert layer (explain, not raw numbers)"],
+            [
+              "F2",
+              "Personalization per cell (HIPAA flagship); candidate Cell/category/metro list",
+            ],
+            [
+              "F3",
+              "Demand/intent: understand user's sell/targets; smart filters; propose research",
+            ],
+            [
+              "F4",
+              "Personalized touch: bulk first-touch across channels; show effectiveness",
+            ],
+          ],
+        ],
+        [
+          "G · Competitors & process",
+          [
+            ["G1", "Beat Apollo/ZoomInfo/BrightLocal/Origami"],
+            ["G2", "Act as expert; propose, don't ask"],
+            [
+              "G3",
+              "Deliver TODO + analysis + research + interactive HTML proof",
+            ],
+          ],
+        ],
+      ];
+
+      const DOMAINS = [
+        {
+          id: "d-competitors",
+          n: "4.1",
+          t: "Competitors & positioning",
+          reqs: ["G1", "F1"],
+          rec: "Don't out-database Apollo/ZoomInfo (LinkedIn-blind to ~70% of local biz; ZoomInfo $15k/yr floor) or out-breadth Origami (generic, weak native outreach). Win by going deeper on bounded local verticals: local signals + expert layer + grounded first-touch. Benchmark head-to-head against Origami; use Apollo/ZoomInfo as the 'can't even see local' foil. Metric = reply rate, not open rate.",
+          dm: null,
+          sig: [],
+          cost: "n/a — strategy",
+          fail: "n/a",
+        },
+        {
+          id: "d-location",
+          n: "4.2",
+          t: "Location / metro",
+          reqs: ["B1", "B2", "B3", "C2"],
+          rec: "Frozen lib/geo/us-metros.ts gazetteer (top 150 US metros of 393 CBSA, >85% population). Alias-collapse resolver maps typed city → parent metro (Brickell/Miami Beach → 'Miami, FL'); one chip per metro. Fixed tiered radius 12–40km (headline 30km), display-only; mega cap 40km. Geocode: gazetteer → Nominatim (30d Redis cache) → Mapbox.",
+          dm: "TrackedLocation += metroSlug, cbsaGeoid, radiusTier, geocodeSource; backfill then @@unique([categoryId, metroSlug]). Business += metroSlug, cellKey, anchorDistanceKm, crossMetroDupe. CellMetric += metroSlug.",
+          sig: [
+            [
+              "metro",
+              "user metro stamped on each Business",
+              "metro = 'Miami, FL'",
+            ],
+            [
+              "in_metro_core",
+              "distance÷radius <0.5 core",
+              "in_metro_core = true",
+            ],
+            [
+              "home_city",
+              "granular Google label preserved",
+              "home_city = 'Coral Gables'",
+            ],
+            [
+              "cross_metro_dupe",
+              "nearest-anchor tie in overlap",
+              "cross_metro_dupe = false",
+            ],
+          ],
+          cost: "discovery cheap; geocode $0 happy path",
+          fail: "3-layer dedup: identity upsert + nearest-anchor stamp + 24h call dedup",
+        },
+        {
+          id: "d-cell",
+          n: "4.3",
+          t: "Cell & Discovery",
+          reqs: ["D1", "D2", "D3", "D4", "D5", "A4"],
+          rec: "Reuse TrackedLocation as Cell + lib/cell.ts (cellKey + freshness predicate). Cell = categoryId × metroSlug. Discovery = the user request spanning cells; result = union query. 6-month (182d) freshness: COLD/STALE>182d → refetch (costed); FRESH<182d → serve from DB ($0). Closed-status: add Business.openStatus from DfS current_status. Raw list = union query badged is_raw; discovery-time filters; multi-select → freeze into List+Lead.",
+          dm: "TrackedLocation += lastDiscoveredAt, nextStaleAt (+182d), rawDataVersion. Business += openStatus(enum), openStatusAt. New Discovery(idempotencyKey, status, freshCount, refetchedCount, totalCostUsd) + DiscoveryCell(outcome) + CellSnapshot. Snapshot guard: idempotencyKey + conditional-UPDATE lock.",
+          sig: [
+            [
+              "open_status",
+              "DfS current_status → enum",
+              "open_status = OPEN (default exclude CLOSED_FOREVER)",
+            ],
+            [
+              "cell_freshness_days",
+              "now − lastDiscoveredAt",
+              "cells refreshed < 90d",
+            ],
+            [
+              "cell_saturation",
+              "businessCount/totalAvailable",
+              "cell_saturation < 0.8",
+            ],
+            ["is_raw", "not yet in a saved List", "show only raw"],
+            [
+              "discovery_recency",
+              "DiscoveryCell.outcome=NEW",
+              "new since last discovery",
+            ],
+          ],
+          cost: "Maps listings only (~$0.01 base + ~$0.0003/row); fresh cell = $0",
+          fail: "per-page checkpointing; per-cell DiscoveryCell.outcome — one cell failing never blocks others",
+        },
+        {
+          id: "d-cost",
+          n: "4.4",
+          t: "Cost pre-flight & money",
+          reqs: ["A3", "A4"],
+          rec: "Pure estimateRun(scope, enrichments) reading a versioned pricing.ts. UI shows 'This will cost $X · wallet $Y → $Z' before every spend. The estimate is a single-use capability token: server re-quotes on authorize, ignores the client number; >10% drift forces re-confirm. Wallet: hold → settle actual → refund diff (never above upper bound). Auto < $2; confirm above; >$5 approval.",
+          dm: "CostEstimate (QUOTED|AUTHORIZED|CONSUMED|EXPIRED|VOID, netUsd@default(0), expiresAt=15min), EnrichmentRun (estimated/actual, creditsHeld/Charged, unitsSkippedFresh), AgencyWallet, CreditLedger.",
+          sig: [
+            [
+              "data_freshness_days",
+              "now − lastRefreshedAt",
+              "data_freshness_days < 30",
+            ],
+            [
+              "served_from_cache",
+              "all enrichments fresh",
+              "badge 'cached — $0'",
+            ],
+            [
+              "est_refresh_cost_usd",
+              "sum stale per-business enrichments",
+              "< $0.05 (cheap-to-enrich first)",
+            ],
+            ["is_stale", "OR over per-signal windows", "exclusion: hide stale"],
+          ],
+          cost: "the engine itself is the cost layer; credit $0.05 internal",
+          fail: "holds-vs-charges drift surfaced as abuse signal on dev dashboard",
+        },
+        {
+          id: "d-contacts",
+          n: "4.5",
+          t: "Contacts & reachability gate",
+          reqs: ["E1"],
+          rec: "Normalized Contact model (multi email/phone/social/booking). One DOM pass, 4 extractors (mailto/tel, JSON-LD, social-meta, JS-bundle) — no 3rd-party; DfS contact_info for website-less. At discovery show 'X of Y reachable'. Gate: contactScanStatus=OK & reachableChannelCount=0 → isHidden, never enrichable (server-enforced assertEnrichable), default-hidden, visible via '⊘ why' filter. FAILED ≠ UNREACHABLE. Catch-all reachable but throttled.",
+          dm: "Contact(channel,value,normalizedValue,role,source,confidence,verifiedStatus,isPrimary) @@unique([businessId,channel,normalizedValue]). Business += reachability, reachableChannelCount, contactScanStatus, isHidden, hiddenReason, permanentlyClosed, temporarilyClosed. Migrate email/phone/instagram/contactInfo/emailCandidates → Contact.",
+          sig: [
+            ["reachability", "Contact rollup enum", "reachability = RICH"],
+            ["is_reachable", "reachableChannelCount>0", "default-on"],
+            ["has_owner_contact", "role∈{OWNER,PERSONAL} conf≥60", "= true"],
+            ["phone_only", "phone & website null", "= true (pitch a website)"],
+            ["social_channel_count", "distinct social channels", "≥ 2"],
+            ["is_hidden", "the gate flag", "= true (the 'why' filter)"],
+          ],
+          cost: "scrape ≈ $0; SMTP verify free; AI finder ~$0.027 only on scrape+RDAP miss; freshness 90d",
+          fail: "FAILED scan retried, never hides; staleness resets scan on re-discovery",
+        },
+        {
+          id: "d-dom",
+          n: "4.6",
+          t: "DOM / tech review",
+          reqs: ["E3"],
+          rec: "Fold a Wappalyzer-style deterministic fingerprint into the existing scrape fetch (one request, $0, not AI). Detect CMS/builder, framework, CDN/security (Cloudflare/Akamai/Fastly), analytics (GA4/GTM), pixels (Meta/TikTok), booking (Calendly/Acuity/Vagaro/Mindbody/Boulevard/Square/OpenTable), chat/CRM, ecommerce. DfS domain_technologies ($0.01) flagged fallback for JS sites. 'Unknown' treated as unknown — never claim 'no booking tool' from a failed scan.",
+          dm: "New BusinessTech(name, category∈CMS|ANALYTICS|PIXEL|CDN|BOOKING|CHAT|ECOMMERCE|HOSTING|FRAMEWORK, confidence, source). Business += techScanLastAt. LighthouseAudit.techStack backfilled from LHR js-libraries.",
+          sig: [
+            [
+              "cms_platform",
+              "BusinessTech CMS",
+              "IN (Wix, GoDaddy) → DIY upsell",
+            ],
+            [
+              "has_booking_widget",
+              "BOOKING present",
+              "= false (SaaS-booking target)",
+            ],
+            ["has_analytics", "GA4/GTM", "= false (flying blind)"],
+            [
+              "ads_without_pixel",
+              "Meta ads + no Pixel",
+              "= true (wasting spend)",
+            ],
+            ["has_chat_widget", "Intercom/Drift/tawk", "= false"],
+          ],
+          cost: "$0 marginal (rides the scrape); freshness 30d",
+          fail: "unknown ≠ false; DfS fallback only when scrape inconclusive",
+        },
+        {
+          id: "d-services",
+          n: "4.7",
+          t: "Services — all categories",
+          reqs: ["E2"],
+          rec: "Replace hardcoded med-spa taxonomy with AI open-extraction + a self-building ServiceTaxonomy + embedding merge (cosine 0.86); promote a surface form to canonical after ≥3 businesses. Keep the 4-layer detector; persist confidence. Cell-level service prevalence as comparative signal.",
+          dm: "BusinessService += canonicalKey, confidence, detectedVia[], rawNames[]. New ServiceTaxonomy(categorySlug, canonicalKey, synonyms, embedding, status, occurrences) + CellServicePrevalence(canonicalKey, prevalence, rank).",
+          sig: [
+            [
+              "offers_service",
+              "BusinessService canonicalKey",
+              "offers 'botox'",
+            ],
+            ["service_count", "count detected", "≥ 5"],
+            [
+              "rare_service_in_cell",
+              "CellServicePrevalence",
+              "prevalence < 0.1 (niche)",
+            ],
+          ],
+          cost: "gpt-5.4-nano + Batch; cache 90d or on content-hash change",
+          fail: "confidence persisted; promotion threshold avoids noise",
+        },
+        {
+          id: "d-reviews",
+          n: "4.8",
+          t: "Reviews rearchitecture",
+          reqs: ["E4"],
+          rec: "Durable ReviewJob state machine on Queues + Workflow DevKit, retiring Boxly for reviews. Retry+backoff on 429/5xx; Redis token bucket (10 req/s); pingback-first + a reconciliation cron sweep catching stuck pendingReviewsTaskId (no silent loss → Sentry). Depth governed by RECENCY, never lifetime count: DfS returns newest-first, so the last-12-month window is a prefix. Adaptive ladder — first rung clamp(ceil(reviewCount/10)*10, 50, 200), fetch newest, STOP the instant a page's oldest review crosses 365d OR the page returns fewer than depth (all captured); escalate 200→700→2000→4490 ONLY while the page is full AND its tail is still inside the window. A 5,000-review business getting 80/yr is pulled at depth ~200, never 4490. Trim to timestamp ≥ now−365d; zero in-window → DORMANT on the first cheap page. Deltas walk depth=50 until cursor OR cutoff. Idempotency + snapshot. Per-business and per-discovery progress (X of Y); partial results committed.",
+          dm: "ReviewJob(mode, status QUEUED|SUBMITTED|AWAITING_PINGBACK|FETCHING|DONE|FAILED|RECONCILED, taskId, depth, attempts, windowDays). Business review-window/coverage cols. DiscoveryRun review-progress counters.",
+          sig: [],
+          cost: "Standard queue 50% cheaper; serve from DB if fresh (7d delta/90d window)",
+          fail: "swallowed task_post → retried job; 429 → backoff; stuck → reconciliation sweep + alert; 1000+ → multi-pass; worker outcomes → surfaced via ReviewJob rows",
+        },
+        {
+          id: "d-revsig",
+          n: "4.9",
+          t: "Review signals (comparative)",
+          reqs: ["E5"],
+          rec: "Lifecycle/trajectory classifiers (trending/dying/stale/no-reviews); 30d-vs-prev-30d momentum; two comparative frames — Frame-A (vs cell via CellMetric percentiles) and Frame-B (vs the user's current selection); reply-rate & unanswered-negative-aged; theme/sentiment mix from placeTopics/mentionedServices.",
+          dm: "BusinessSnapshot += review-trend scalars + ReviewLifecycle/qualityTrajectory enums.",
+          sig: [
+            ["review_lifecycle", "classifier", "= DYING"],
+            ["velocity_vs_prev_30d", "30d vs prev 30d", "< 0 (declining)"],
+            ["reviews_vs_cell_pct", "percentile in cell", "bottom 20%"],
+            [
+              "reviews_vs_selection_pct",
+              "vs current selection",
+              "bottom quartile",
+            ],
+            ["unanswered_negative_aged", "≤2★ unanswered >90d", "≥ 1"],
+            ["stale_no_reviews", "no review in 120d", "= true"],
+          ],
+          cost: "computed from Review table + snapshots ($0 marginal)",
+          fail: "per-cell stale boundary override for seasonal categories",
+        },
+        {
+          id: "d-meta",
+          n: "4.10",
+          t: "Meta ads — per cell",
+          reqs: ["E6"],
+          rec: "Run once per cell (resolve advertiser pages by category/keyword, attribute by page/domain), 30-day gate, serve from DB if fresh. Apify-actor audit verdict: we drop cards/collationId/spend-impression bands/region/CTA detail — capture them. Signals beyond running/not: platform mix, creative-format mix, ad count & variant testing, advertising tenure, content themes (AI on creative), landing sophistication, market ad-prevalence percentile, competitor-outspending-you.",
+          dm: "New AdMarketRun(cellKey, platform, ranAt, status, cost). Extend AdLibraryEntry (spendBandUsd, cards, collationCount) & AdMarketAdvertiser.",
+          sig: [
+            ["meta_format_mix", "video/image/text", "has video creative"],
+            ["meta_ad_variants", "collationCount", "≥ 3 (testing maturity)"],
+            [
+              "meta_ad_tenure_days",
+              "newest ad age",
+              "> 90 (committed advertiser)",
+            ],
+            ["ad_prevalence_pct", "cell percentile", "top decile spender"],
+            ["competitor_outspending", "vs same-cell rivals", "= true"],
+          ],
+          cost: "Apify ≈ free; counted; freshness 30d",
+          fail: "per-cell run isolates failures; serve from DB if fresh",
+        },
+        {
+          id: "d-gads",
+          n: "4.11",
+          t: "Google ads — per cell",
+          reqs: ["E7"],
+          rec: "Per-cell advertiser discovery via category keywords + attribution; 30-day gate (60d for empty cells). Capture-audit: store all creative fields (formats, first/last shown, variations). Signals beyond running/not: ad tenure, format mix, # variations (testing maturity), brand-hijack (competitor bidding on brand), spend estimate via existing Keyword/CPC, market prevalence.",
+          dm: "Reuse AdLibraryEntry(platform=GOOGLE) + AdMarketRun.",
+          sig: [
+            ["has_active_google_ads", "any active", "= true"],
+            ["gads_variations", "creative_id count", "≥ 4 (mature)"],
+            ["brand_hijack", "competitor on brand SERP", "= true"],
+            ["est_google_spend", "via CPC × keywords", "band ≥ $1K"],
+          ],
+          cost: "DfS $0.002/call; 30d cache",
+          fail: "Google Transparency lacks spend → estimate via CPC",
+        },
+        {
+          id: "d-serp",
+          n: "4.12",
+          t: "SERP / search — per cell",
+          reqs: ["E8"],
+          rec: "3-tier cell SERP engine: (1) one local_pack/organic scan of the cell's top keyword set reveals the 3-pack + top organic for the whole cell at once (reverse-attribution → per-business ranks free); (2) ranked_keywords only on enriched/selected (etv, est visits, est traffic value); (3) keyword_volume batched monthly. ~$0.16/cell.",
+          dm: "Reuse Keyword/SerpResult/BusinessKeyword; Business += serpVisibilityJson; Cell += serpLastScanAt.",
+          sig: [
+            ["local_pack_rank", "best 3-pack rank", "≤ 3"],
+            ["share_of_voice", "% keywords in pack vs cell", "bottom quartile"],
+            ["organic_traffic", "etv", "< 50 (invisible)"],
+            ["rank_drop_30d", "positions lost", "> 3"],
+            ["ranks_well_no_ads", "top organic, no ads", "= true (upsell)"],
+          ],
+          cost: "~$0.16/cell; monthly (14d active-outreach; keyword set quarterly)",
+          fail: "reverse-attribution caps per-business cost",
+        },
+        {
+          id: "d-lh",
+          n: "4.13",
+          t: "Lighthouse + extra DfS",
+          reqs: ["E9", "E10"],
+          rec: "Lighthouse: we pay $0.0025 for the full blob and discard ~95%. Persist rawJson + a normalized LighthouseOpportunity table of failing audits only, bucketed: Speed wins / ADA-a11y risk / Security-trust / Mobile-SEO / Third-party drag — each a pitchable fix. Backfill techStack from LHR js-libraries. For bulk index health use instant_pages BASIC ($0.000125/page, 34× cheaper). Extra DfS must-add: my_business_info ($0.0015, GBP — booking-link presence, hours, categories, photos) + SERP presence flags ($0, read items[].type: ai_overview/featured_snippet/local_pack/paid). Already covered (no new spend): organic traffic value + est. monthly visits already come from ranked_keywords (etv + estimated_paid_traffic_cost → BusinessKeyword.latestEstMonthlyVisits/latestEstTrafficUsd), surfaced on the SMB /search page today — reuse per-cell; no bulk_traffic_estimation needed. Skip now: backlinks/domain-authority, Trustpilot/Tripadvisor, Social, Merchant, Hotels.",
+          dm: "LighthouseAudit += perfSavingsMs, a11yViolationCount, a11yCriticalCount, isOnHttps, hasVulnerableLibrary, formFactor. New LighthouseOpportunity(bucket, score, weight, savingsMs/Bytes). BusinessSnapshot += GBP-completeness + domain-authority + organic-ETV + SERP-presence.",
+          sig: [
+            ["perf_savings_ms", "sum opportunity ms", "≥ 2000"],
+            ["a11y_violations", "failing a11y audits", "≥ 5 (ADA-risk lead)"],
+            ["no_https", "is-on-https=false", "= true"],
+            ["gbp_no_booking", "my_business_info", "= true"],
+            [
+              "organic_traffic",
+              "ranked_keywords etv (already captured)",
+              "< 50 (invisible)",
+            ],
+            ["serp_not_in_local_pack", "SERP flags", "= true"],
+          ],
+          cost: "Lighthouse: no new spend — extract more from the $0.0025 we already pay. GBP my_business_info + Q&A ~$0.003 per selected prospect, on demand. Traffic value/visits already captured by ranked_keywords ($0 new). No backlinks, no index-wide sweep.",
+          fail: "defensive Zod parse (notApplicable/error/absent audits); bulk batched ≤1000 + resume cursor",
+        },
+        {
+          id: "d-ai",
+          n: "4.14",
+          t: "AI research",
+          reqs: ["E11"],
+          rec: "5-stage entity-research pipeline producing signals raw APIs can't: (ER-1) sub-type & sophistication; (ER-2) site positioning/pricing-transparency; (ER-3) compliance/regulatory cues (feeds expert layer); (ER-4) pain-point hypotheses (feeds outreach); (ER-5) competitive positioning vs cell leader. Model: OpenAI gpt-5.4-nano ONLY (already connected) — no Claude/other LLM; web_search banned (free web_fetch); batch + cache; per-stage freshness (ER-1 180d → ER-5 on cell shift); where nano isn't reliable enough, use a deterministic rule or defer.",
+          dm: "New BusinessEnrichment / EnrichmentStageRun; results feed snapshot + expert signals. New 9th signal group 'AI Research'.",
+          sig: [
+            ["business_sophistication", "ER-1 classify", "= low (high-intent)"],
+            ["pricing_transparency", "ER-2 site read", "= opaque"],
+            ["pain_hypotheses", "ER-4", "CONTAINS 'no online booking'"],
+          ],
+          cost: "batch + cache; per-stage freshness; gpt-5.4-nano only (no tiering)",
+          fail: "deterministic-vs-AI verdict per stage; idempotent via entitiesExtractedAt-style markers",
+        },
+        {
+          id: "d-expert",
+          n: "4.15",
+          t: "Expert layer (the moat)",
+          reqs: ["F1", "F2"],
+          rec: "A CellPlaybook registry in code (versioned), not DB. Each playbook (by category, optionally region) declares: regulations/compliance, expert signals to compute, benchmarks, pitch angles. Flagship: med-spa HIPAA — Meta Pixel on a health site + PHI-adjacent review content = privacy-exposure signal; ADA website-accessibility lawsuit risk from Lighthouse a11y violations (cross-vertical). New informational 6th pillar ComplianceRisk (market-relative percentile, weight 0). Launch 5 deep playbooks (med-spa, HVAC, dental, restaurant, auto-body); 12 specced; 18 seed metros. DETECTION is deterministic-first: each signal is detect(evidence)→verdict|null over data we already store; gpt-5.4-nano only for nuanced review/ad/menu text (a vote paired with the exact quote it read); null = 'not checked', never 'clean' or 'violation'. Accuracy: corroboration floor before high · conservative defaults (absence≠evidence) · evidence mandatory + shown with source URLs · exposure phrasing enforced by a copy-lint · cell-sample≥30 gating. See the dedicated 'Playbook detection' section for the schema, confidence tiers, HIPAA/ADA detectors and the 5 launch playbooks.",
+          dm: "CellPlaybook/PlaybookSignal/EvidenceBundle/SignalVerdict (code, versioned). New PlaybookFinding(businessId, playbookId+version, signalKey, value, confidence, corroboration, evidenceJson, explanation, pitchAngle, status flagged|not_checked, notCheckedReason, feedback up|down) @@unique([businessId, signalKey]). BusinessTech += trackerPaths (Json tracker→paths, enables HIPAA co-location) + consentManager. CategoryProfile(vocabulary, regulations, benchmarks, pitchNuances, licenseSource, scoringWeightOverrides), BusinessLicense, BusinessSnapshot.complianceRisk*, Business.categoryProfileSlug/complianceFlags[]. Coverage maps = code constants (modules/playbooks/coverage/*.ts).",
+          sig: [
+            [
+              "hipaa_pixel_risk",
+              "Meta Pixel on health site",
+              "= true (flagship pitch)",
+            ],
+            ["ada_risk", "a11y violations ≥ threshold", "= high"],
+            [
+              "compliance_gap",
+              "regs cross-checked vs creatives",
+              "CONTAINS 'MISSING_CA_PHYSICIAN_DISCLOSURE'",
+            ],
+            [
+              "license_status",
+              "state board lookup",
+              "= NOT_FOUND (competitor angle)",
+            ],
+            [
+              "category_benchmark_gap",
+              "vs CategoryProfile benchmark",
+              "= true",
+            ],
+          ],
+          cost: "playbooks are code ($0); deterministic detection ($0); bounded gpt-5.4-nano only for text-reading signals (cost-counted); license via native state-board API where covered, nano-web-search elsewhere (90d cache)",
+          fail: "PHI never stored; B2B-to-owner framing; nano never confirms patient identity; null on missing evidence; thumbs-down telemetry → confidence graduation",
+        },
+        {
+          id: "d-intent",
+          n: "4.16",
+          t: "Demand / intent",
+          reqs: ["F3"],
+          rec: "A Campaign intake (what are you selling? to whom? pitch & pain points? budget hint) → an intent→strategy mapper (rules-first + LLM-advisor) proposing categories, metros, enrichments, signal weights, filters, and a costed research plan. Example A (selling marketing) → weak-website/no-ads/low-review cells; Example B (selling a SaaS booking tool) → DOM has_booking_widget=false targets. Offer reweighting applied at read/scoring time (snapshots stay campaign-agnostic). Learning loop tunes the mapper from outcomes.",
+          dm: "Campaign(sellingWhat, buyerIcp, painPoints, budgetHint, proposedPlanJson, signalWeightsJson), CampaignPainPoint, StrategyTemplate, ResearchPlan.",
+          sig: [
+            [
+              "intent_fit_score",
+              "mapper match",
+              "top decile for this campaign",
+            ],
+            ["proposed_enrichments", "plan output", "(UI)"],
+          ],
+          cost: "intent parse gpt-5.4-nano on-blur ~$0.01–0.03/campaign, cached by hash",
+          fail: "rules-first ensures reproducibility; LLM is advisory",
+        },
+        {
+          id: "d-touch",
+          n: "4.17",
+          t: "Personalized touch",
+          reqs: ["F4"],
+          rec: "Capture purpose + per-business pain synthesis (unanswered reviews / slow site / no ads while competitors advertise / no booking tool / declining reputation). Bulk-generate first-touch or short sequence, channel-aware (email / phone-DM / social DM), grounded ONLY in real signals (deterministic skeleton + AI fill + fact-check + fallback → honesty). Show 'why this works' + predicted effectiveness tier. Handoff default Copy/CSV (opt-in send via existing cold-mailer). Mandatory CAN-SPAM footer guard on every send/export; reply/bounce via OutreachEvent; bounce breaker WARN-only.",
+          dm: "OutreachCampaign/OutreachDraft/OutreachRun/OutreachOutcome, OutreachSequence/SequenceEnrollment/OutreachEvent, PitchIntent, Agency.mailingAddress.",
+          sig: [
+            ["personalization_depth", "count citable signals", "≥ 3"],
+            ["outreach_reachable", "verified email OR phone", "= true"],
+            ["reply_status", "latest OutreachEvent", "= REPLIED"],
+            ["bounce_status", "BOUNCED present", "suppress"],
+            ["not_yet_contacted", "no enrollment", "cold"],
+          ],
+          cost: "gpt-5.4-nano (OpenAI, already connected); AI tokens costed in pre-flight",
+          fail: "fact-check + fallback guarantees no hallucinated facts; CAN-SPAM guard on export",
+        },
+        {
+          id: "d-scale",
+          n: "4.18",
+          t: "Scalability & robustness",
+          reqs: ["E12", "A2"],
+          rec: "Reference architecture: request → mint job + publish → air-gapped consumer does the external call → poll/SSE results. Vercel Queues (single-shot) + Workflow DevKit (durable steps, sleep+hook.resume for pingbacks, auto-retry 3×). Redis token buckets (DfS 10/s, AI 50/min, Apify). Failure isolation (one business never fails the batch; completed items committed). Freshness-epoch idempotency dedup. Per-job costCeilingUsd + per-agency daily cap + $5 approval. cacheComponents discipline (NEXT_PHASE guard, EMPTY_* constants, Suspense, 2-arg revalidateTag, nullable-numeric @default(0)).",
+          dm: "EnrichmentJob + Business.enrichmentFreshness(Json) + typed *LastAt columns; status enums.",
+          sig: [],
+          cost: "per-job ceiling + daily cap",
+          fail: "failure isolation; partial results committed; reconciliation sweeps",
+        },
+        {
+          id: "d-portal",
+          n: "4.19",
+          t: "Agency portal UX (build #1)",
+          reqs: ["D5", "A3", "F1", "F2", "F3", "F4"],
+          rec: "VISUAL-FIRST, TWO ALTITUDES: lead with a comprehension layer (cards · vs-cell distribution bars · cohort tiles · sparklines · cell-standards panels), drill DOWN into the existing dense work tables (press t from any visual; every aggregate is click-through to its rows, never a dead-end chart). Funnel-ordered IA + always-mounted Wallet pill + Jobs tray (SSE). New /discover (replaces filter-first Hunter; /hunter → redirect then deprecate) + /campaigns + /touchpoints; reuse List/Lead, leads table, status machine, signal registry, eval engine, prospect view verbatim. 8-stage resumable waterfall (Campaign → Metros → Categories → Discovery preview with per-cell freshness/cost matrix → Raw List 14-column table with reachability banner + free filters + ⊘ unreachable filter + Save-as-list → Enrich side panel with per-enrichment cost/freshness/snapshot-guard + streaming → Signals comparative chips + playbook banner → Touchpoints bulk generation).",
+          dm: "Research = extend Discovery (add name, status ACTIVE|ARCHIVED, isPinned, lastOpenedAt, viewPref, denormalized rollups cohortSize/cellCount/spendToDateUsd/freshness/loopProgress) — user-facing name 'Research', one source of cell scope. Campaign; List += discoveryId?, isRaw; Lead += enrichmentStateJson; AgencyWallet/CreditLedger; CostEstimate; EnrichmentRun/EnrichmentJob/ReviewJob (jobs tray). Cohorts compute on-the-fly from the signal registry (no model in v1).",
+          sig: [],
+          cost: "cost surfaced everywhere money moves; $0 loud for cached; see 'Portal UX v2' section for the validated visual-first design + 10 scenario walkthroughs",
+          fail: "jobs tray (X of Y, ETA); streaming partial results; virtualized table; server-enforced gates mirrored in UI; 10 scenarios run end-to-end → 7 PASS / 3 PASS-with-fix",
+        },
+        {
+          id: "d-standards",
+          n: "4.20",
+          t: "Cell Standards (benchmarks)",
+          reqs: ["F1", "D3", "E5"],
+          rec: "A raw number is meaningless without its cell baseline — 100 reviews is strong for a law firm, weak for a restaurant; strong in a small metro, weak in a big one. Elevate the existing CellMetric (keyed by category × metro, holding per-signal distributions p10..p90 + medians + sampleSize + confidence) into a user-facing, continuously-updated Standards layer. Every signal shows value + cell-typical (p50) + leaders (p90) + the business's percentile/rank, always against its OWN cell (e.g. '100 reviews · typical 240 · leaders 400+ · bottom 25% in Miami med-spas'). Surfaced as comparative chips + hover distribution on the Raw List/Signals view, a 'vs {metro} {category}' panel on prospect detail, and a Cell Standards card. Frame-A (vs cell, durable) + Frame-B (vs current selection, dynamic).",
+          dm: "CellMetric += lastSnapshotAt, metricsVersion, metricsDirty; extend distributions to every new signal family (review velocity, reply rate, Lighthouse perf, organic traffic, ad/tech prevalence). CellServicePrevalence = service-level standard. Recompute trigger: post-write recomputeCellMetric(cellKey) job, bounded by cell size.",
+          sig: [
+            [
+              "vs_cell_percentile",
+              "any signal's rank in its cell",
+              "bottom 25%",
+            ],
+            ["is_above_cell_median", "value > cell p50", "= false"],
+            [
+              "cell_p50 / cell_p90",
+              "typical / leaders reference values",
+              "display",
+            ],
+            ["cell_sample_confidence", "sampleSize ≥ 8", "= high"],
+          ],
+          cost: "recompute is internal aggregation over the cell's snapshots ($0); fires on every discovery/enrichment snapshot",
+          fail: "sampleSize < 8 → 'limited sample', fall back to national CategoryProfile.benchmarks",
+        },
+      ];
+
+      const SIGNALS = [
+        [
+          "Reachability",
+          "reachability",
+          "Contact rollup enum",
+          "reachability = RICH",
+        ],
+        [
+          "Reachability",
+          "is_reachable",
+          "reachableChannelCount>0",
+          "default-on",
+        ],
+        [
+          "Reachability",
+          "has_owner_contact",
+          "role∈{OWNER,PERSONAL}",
+          "= true",
+        ],
+        ["Reachability", "phone_only", "phone & no website", "= true"],
+        ["Reachability", "social_channel_count", "distinct socials", "≥ 2"],
+        ["Reachability", "is_hidden", "gate flag", "= true (why filter)"],
+        ["Tech", "cms_platform", "BusinessTech CMS", "IN (Wix, GoDaddy)"],
+        [
+          "Tech",
+          "has_booking_widget",
+          "BOOKING present",
+          "= false (SaaS target)",
+        ],
+        ["Tech", "has_analytics", "GA4/GTM", "= false"],
+        ["Tech", "has_meta_pixel", "fbevents.js", "= false"],
+        ["Tech", "ads_without_pixel", "Meta ads + no Pixel", "= true"],
+        ["Tech", "has_chat_widget", "Intercom/Drift", "= false"],
+        ["Tech", "ecommerce_enabled", "Shopify/Woo", "= false"],
+        ["Reviews", "review_lifecycle", "classifier", "= DYING"],
+        ["Reviews", "velocity_vs_prev_30d", "30d vs prev 30d", "< 0"],
+        ["Reviews", "reviews_vs_cell_pct", "percentile in cell", "bottom 20%"],
+        [
+          "Reviews",
+          "reviews_vs_selection_pct",
+          "vs selection",
+          "bottom quartile",
+        ],
+        ["Reviews", "unanswered_negative_aged", "≤2★ unanswered >90d", "≥ 1"],
+        ["Reviews", "stale_no_reviews", "no review 120d", "= true"],
+        ["Ads", "meta_format_mix", "video/image/text", "has video"],
+        ["Ads", "meta_ad_variants", "collationCount", "≥ 3"],
+        ["Ads", "meta_ad_tenure_days", "newest ad age", "> 90"],
+        ["Ads", "ad_prevalence_pct", "cell percentile", "top decile"],
+        ["Ads", "competitor_outspending", "vs cell rivals", "= true"],
+        ["Ads", "brand_hijack", "competitor on brand SERP", "= true"],
+        ["Ads", "est_google_spend", "CPC × keywords", "band ≥ $1K"],
+        ["SERP", "local_pack_rank", "best 3-pack", "≤ 3"],
+        ["SERP", "share_of_voice", "% in pack vs cell", "bottom quartile"],
+        ["SERP", "organic_traffic", "etv", "< 50 (invisible)"],
+        ["SERP", "rank_drop_30d", "positions lost", "> 3"],
+        ["SERP", "ranks_well_no_ads", "top organic, no ads", "= true"],
+        ["SERP", "serp_not_in_local_pack", "SERP flags", "= true"],
+        ["Website", "perf_savings_ms", "sum opportunity ms", "≥ 2000"],
+        ["Website", "a11y_violations", "failing a11y audits", "≥ 5 (ADA risk)"],
+        ["Website", "no_https", "is-on-https=false", "= true"],
+        ["Website", "gbp_no_booking", "my_business_info", "= true"],
+        ["Website", "gbp_unanswered_qna", "Q&A", "≥ 1"],
+        ["Expert", "hipaa_pixel_risk", "Pixel on health site", "= true"],
+        ["Expert", "ada_risk", "a11y violations", "= high"],
+        ["Expert", "compliance_gap", "regs vs creatives", "CONTAINS gap"],
+        ["Expert", "license_status", "state board", "= NOT_FOUND"],
+        ["Expert", "category_benchmark_gap", "vs CategoryProfile", "= true"],
+        ["Expert", "business_sophistication", "AI ER-1", "= low"],
+        ["Expert", "pain_hypotheses", "AI ER-4", "CONTAINS 'no booking'"],
+        ["Geo/Money", "metro", "gazetteer stamp", "= 'Miami, FL'"],
+        ["Geo/Money", "in_metro_core", "distance÷radius", "= true"],
+        ["Geo/Money", "data_freshness_days", "now − lastRefreshedAt", "< 30"],
+        ["Geo/Money", "served_from_cache", "all fresh", "badge $0"],
+        ["Geo/Money", "est_refresh_cost_usd", "stale enrichments", "< $0.05"],
+        ["Geo/Money", "open_status", "DfS current_status", "= OPEN"],
+      ];
+
+      const PHASES = [
+        [
+          "0",
+          "A",
+          "Cost engine & pricing",
+          "canonical versioned pricing.ts, CostEstimate, EnrichmentRun, pure estimateRun() + golden tests",
+          "Everything downstream quotes from here.",
+        ],
+        [
+          "1",
+          "M",
+          "Location & Cell",
+          "us-metros.ts gazetteer + resolver; metro columns; backfill metroSlug then swap unique; primary/secondary rule",
+          "Risky migration (the only one).",
+        ],
+        [
+          "2",
+          "M",
+          "Demand discovery + Raw List",
+          "Discovery/DiscoveryCell, 182-day decision tree, openStatus, pre-flight gate, snapshot lock, raw-list union + filters + Save-as-list",
+          "Depends on 0, 1.",
+        ],
+        [
+          "3",
+          "M",
+          "Background orchestration",
+          "Queues + Workflow DevKit, EnrichmentJob, Redis token buckets, poll/SSE progress, abuse gates",
+          "The rail all enrichment rides.",
+        ],
+        [
+          "4",
+          "M",
+          "Contacts + reachability gate",
+          "Contact model + migration; reachability/hidden + contactScanStatus; scrape-contacts (4 extractors); assertEnrichable; coverage stats; hidden filter",
+          "Highest cost-saving lever. Depends on 2,3.",
+        ],
+        [
+          "5",
+          "M",
+          "Reviews rearchitecture",
+          "ReviewJob state machine, retry/backoff/token-bucket, reconciliation sweep, 1000+ pagination, review signals; retire Boxly for reviews",
+          "Depends on 3.",
+        ],
+        [
+          "6",
+          "M",
+          "Cell intelligence",
+          "Meta ads (30d) + Google ads (30d) + 3-tier SERP + DOM/tech fingerprint + Lighthouse opportunities + generalized services",
+          "Parallel sub-slices. Depends on 1,3.",
+        ],
+        [
+          "7",
+          "M",
+          "Expert layer + AI research",
+          "CellPlaybook (5 verticals) + HIPAA/ADA detectors + ComplianceRisk pillar + 5-stage AI pipeline",
+          "Depends on 6.",
+        ],
+        [
+          "8",
+          "M",
+          "Intent → Strategy → Touch",
+          "Campaign intake, mapper, costed plan; OutreachCampaign bulk first-touch + fact-check + handoff + CAN-SPAM guard",
+          "Depends on 4,6,7.",
+        ],
+        [
+          "9",
+          "M",
+          "Portal UX + wallet",
+          "new /discover + /campaigns + /touchpoints, jobs tray, wallet pill, credit hold/settle/refund, plan-tier mapping",
+          "Wallet is human-required (payments).",
+        ],
+      ];
+
+      const COVERAGE = [
+        ["A1", "Demand model", "4.3, 4.16, 4.18", "FULL"],
+        ["A2", "Reconcile no-live-API", "4.18, Part 3", "FULL"],
+        ["A3", "Cost shown pre-flight", "4.4, 4.19", "FULL"],
+        ["A4", "Snapshots + server guard", "4.3, 4.4, 4.18", "FULL"],
+        ["B1–B3", "Metros, multi-select, fixed radius", "4.2", "FULL"],
+        [
+          "C1–C2",
+          "Google categories, multi, primary/secondary",
+          "4.2, 4.7, Defaults",
+          "FULL",
+        ],
+        ["D1–D2", "Cell + Discovery union, local-only", "4.3", "FULL"],
+        ["D3", "6-month cache, serve-from-DB", "4.3, 4.4", "FULL"],
+        ["D4", "Store ALL DfS (closed status)", "4.3", "FULL"],
+        ["D5", "Raw list + filter + select + custom list", "4.3, 4.19", "FULL"],
+        [
+          "D6",
+          "Cell standards/benchmarks per cell, updated every snapshot",
+          "4.20",
+          "FULL",
+        ],
+        ["E1", "Contacts multi + reachability gate", "4.5", "FULL"],
+        ["E2", "Services all categories", "4.7", "FULL"],
+        ["E3", "DOM/tech review", "4.6", "FULL"],
+        ["E4", "Reviews rearchitecture", "4.8", "FULL"],
+        ["E5", "Review signals comparative", "4.9", "FULL"],
+        ["E6", "Meta ads per-cell", "4.10", "FULL"],
+        ["E7", "Google ads per-cell", "4.11", "FULL"],
+        ["E8", "Google/Maps search per-cell", "4.12", "FULL"],
+        ["E9", "Lighthouse store-all + signals", "4.13", "FULL"],
+        ["E10", "What else with DfS", "4.13", "FULL"],
+        ["E11", "AI research", "4.14", "FULL"],
+        ["E12", "Scalability", "4.18", "FULL"],
+        ["F1", "Signal = expert layer", "4.1, 4.15", "FULL"],
+        ["F2", "Personalization per cell (HIPAA)", "4.15", "FULL"],
+        ["F3", "Demand/intent + booking example", "4.16", "FULL"],
+        ["F4", "Personalized touch", "4.17", "FULL"],
+        ["G1", "Competitor differentiation", "4.1", "FULL"],
+        ["G2", "Expert, propose", "whole plan", "FULL"],
+        ["G3", "TODO + analysis + research + HTML", "Parts 1–13", "FULL"],
+      ];
+
+      /* ---------- render ---------- */
+      function el(t, c, h) {
+        const e = document.createElement(t);
+        if (c) e.className = c;
+        if (h != null) e.innerHTML = h;
+        return e;
+      }
+      const esc = (s) =>
+        String(s)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;");
+
+      // checklist
+      const checksEl = document.getElementById("checks");
+      let total = 0;
+      CHECKLIST.forEach(([grp, items]) => {
+        checksEl.appendChild(el("div", "grp-h", esc(grp)));
+        items.forEach(([id, txt]) => {
+          total++;
+          const key = "mapsly-rework-" + id;
+          const done = localStorage.getItem(key) === "1";
+          const row = el("div", "chk" + (done ? " done" : ""));
+          row.innerHTML = `<input type="checkbox" id="c-${id}" ${done ? "checked" : ""}><label for="c-${id}"><span class="id">${id}</span>${esc(txt)}</label>`;
+          row.querySelector("input").addEventListener("change", (e) => {
+            localStorage.setItem(key, e.target.checked ? "1" : "0");
+            row.classList.toggle("done", e.target.checked);
+            updateProg();
+          });
+          checksEl.appendChild(row);
+        });
+      });
+      function updateProg() {
+        let d = 0;
+        CHECKLIST.forEach(([, items]) =>
+          items.forEach(([id]) => {
+            if (localStorage.getItem("mapsly-rework-" + id) === "1") d++;
+          }),
+        );
+        const pct = total ? Math.round((d / total) * 100) : 0;
+        document.getElementById("progbar").style.width = pct + "%";
+        document.getElementById("progtxt").textContent =
+          `${d} / ${total} (${pct}%)`;
+      }
+      function resetChecks() {
+        CHECKLIST.forEach(([, items]) =>
+          items.forEach(([id]) =>
+            localStorage.removeItem("mapsly-rework-" + id),
+          ),
+        );
+        document
+          .querySelectorAll("#checks input")
+          .forEach((i) => (i.checked = false));
+        document
+          .querySelectorAll("#checks .chk")
+          .forEach((r) => r.classList.remove("done"));
+        updateProg();
+      }
+      updateProg();
+
+      // domain cards
+      const cardsEl = document.getElementById("cards");
+      DOMAINS.forEach((d) => {
+        const c = el("div", "card");
+        c.id = d.id;
+        let body = `<div class="lbl">Recommendation</div><p>${esc(d.rec)}</p>`;
+        if (d.dm) {
+          body += `<div class="lbl">Data model</div><pre>${esc(d.dm)}</pre>`;
+        }
+        if (d.sig && d.sig.length) {
+          body += `<div class="lbl">Key signals</div><div class="tbl-wrap"><table><thead><tr><th>Signal</th><th>How computed</th><th>Example filter</th></tr></thead><tbody>`;
+          d.sig.forEach(
+            (s) =>
+              (body += `<tr><td><code>${esc(s[0])}</code></td><td>${esc(s[1])}</td><td>${esc(s[2])}</td></tr>`),
+          );
+          body += `</tbody></table></div>`;
+        }
+        body += `<div class="lbl">Cost &amp; cadence</div><p>${esc(d.cost)}</p>`;
+        body += `<div class="lbl">Failure handling</div><p>${esc(d.fail)}</p>`;
+        c.innerHTML = `<div class="head"><span class="num">${d.n}</span><span class="t">${esc(d.t)}</span><span class="reqs">${d.reqs.map((r) => `<span class="tag">${r}</span>`).join("")}</span><span class="chev">▶</span></div><div class="body">${body}</div>`;
+        c.querySelector(".head").addEventListener("click", () =>
+          c.classList.toggle("open"),
+        );
+        cardsEl.appendChild(c);
+      });
+
+      // signals table
+      const sigbody = document.getElementById("sigbody");
+      function renderSig(group, q) {
+        sigbody.innerHTML = "";
+        SIGNALS.filter(
+          (s) =>
+            (group === "all" || s[0] === group) &&
+            (!q || (s[1] + s[2] + s[3]).toLowerCase().includes(q)),
+        ).forEach((s) => {
+          sigbody.appendChild(
+            el(
+              "tr",
+              null,
+              `<td><span class="tag">${esc(s[0])}</span></td><td><code>${esc(s[1])}</code></td><td>${esc(s[2])}</td><td>${esc(s[3])}</td>`,
+            ),
+          );
+        });
+      }
+      renderSig("all", "");
+      let sigGroup = "all";
+      document
+        .querySelectorAll("#defaults,#signals .fbtn,[data-g]")
+        .forEach(() => {});
+      document.querySelectorAll(".fbtn[data-g]").forEach((b) =>
+        b.addEventListener("click", () => {
+          document
+            .querySelectorAll(".fbtn[data-g]")
+            .forEach((x) => x.classList.remove("on"));
+          b.classList.add("on");
+          sigGroup = b.dataset.g;
+          renderSig(
+            sigGroup,
+            document.getElementById("sigsearch").value.toLowerCase(),
+          );
+        }),
+      );
+      document
+        .getElementById("sigsearch")
+        .addEventListener("input", (e) =>
+          renderSig(sigGroup, e.target.value.toLowerCase()),
+        );
+
+      // phases
+      const phasesEl = document.getElementById("phases");
+      PHASES.forEach((p) => {
+        phasesEl.appendChild(
+          el(
+            "div",
+            "phase",
+            `<div class="badge ${p[1] === "M" ? "m" : "a"}">P${p[0]}</div><div><h4>Phase ${p[0]} — ${esc(p[2])} <span class="st ${p[1] === "M" ? "new" : "full"}">${p[1]}</span></h4><p style="margin:0 0 4px">${esc(p[3])}</p><div class="dep">${esc(p[4])}</div></div>`,
+          ),
+        );
+      });
+
+      // coverage
+      const covbody = document.getElementById("covbody");
+      function renderCov(f) {
+        covbody.innerHTML = "";
+        COVERAGE.filter(
+          (c) =>
+            f === "all" ||
+            (f === "FULL" && c[3] === "FULL") ||
+            (f === "PART" && c[3] !== "FULL"),
+        ).forEach((c) => {
+          covbody.appendChild(
+            el(
+              "tr",
+              null,
+              `<td><b>${esc(c[0])}</b></td><td>${esc(c[1])}</td><td class="muted">${esc(c[2])}</td><td><span class="st ${c[3] === "FULL" ? "full" : "part"}">${c[3]}</span></td>`,
+            ),
+          );
+        });
+      }
+      renderCov("all");
+      document.querySelectorAll(".fbtn[data-cov]").forEach((b) =>
+        b.addEventListener("click", () => {
+          document
+            .querySelectorAll(".fbtn[data-cov]")
+            .forEach((x) => x.classList.remove("on"));
+          b.classList.add("on");
+          renderCov(b.dataset.cov);
+        }),
+      );
+
+      // clarify cards toggle
+      document
+        .querySelectorAll("#clarify .card .head")
+        .forEach((h) =>
+          h.addEventListener("click", () =>
+            h.parentElement.classList.toggle("open"),
+          ),
+        );
+
+      // scroll-spy
+      const links = [...document.querySelectorAll(".toc a")];
+      const map = {};
+      links.forEach((a) => {
+        const id = a.getAttribute("href").slice(1);
+        map[id] = a;
+      });
+      const obs = new IntersectionObserver(
+        (es) => {
+          es.forEach((e) => {
+            if (e.isIntersecting) {
+              links.forEach((l) => l.classList.remove("active"));
+              const a = map[e.target.id];
+              if (a) a.classList.add("active");
+            }
+          });
+        },
+        { rootMargin: "-10% 0px -80% 0px" },
+      );
+      document
+        .querySelectorAll("section[id], header[id]")
+        .forEach((s) => obs.observe(s));
+      document.querySelectorAll(".card[id]").forEach((s) => obs.observe(s));
+
+      document.getElementById("gen").textContent = new Date()
+        .toISOString()
+        .slice(0, 10);
+    </script>
+  </body>
+</html>

@@ -123,6 +123,12 @@ model Agency {
   currentPeriodEnd     DateTime?
   cancelAtPeriodEnd    Boolean   @default(false)
 
+  // ── Agency rework (additive) · CAN-SPAM mailing address + per-agency
+  // concurrency / daily cost caps for background enrichment (§4.17, §4.18).
+  mailingAddress    String?
+  maxConcurrentRuns Int?
+  dailyCostCapUsd   Float?
+
   members AgencyMember[]
   lists   List[]
   leads   Lead[]
@@ -281,6 +287,31 @@ model Business {
   // stalest businesses first (mirrors searchScanLastAt).
   adsScanLastAt DateTime?
 
+  // ── Agency rework (additive) · open-status, metro/cell geo, reachability,
+  // contacts denorm, compliance, enrichment freshness. Scalar columns only;
+  // new related rows use plain-FK models (Contact, BusinessTech, etc.).
+  openStatus             BusinessOpenStatus @default(UNKNOWN)
+  openStatusAt           DateTime?
+  holidayHours           Json?
+  metroSlug              String?
+  cbsaGeoid              String?
+  cellKey                String? // "medical_spa|miami|US"
+  anchorDistanceKm       Float?
+  crossMetroDupe         Boolean            @default(false)
+  techScanLastAt         DateTime?
+  reachability           ReachabilityStatus @default(UNKNOWN)
+  reachableChannelCount  Int                @default(0)
+  reachabilityComputedAt DateTime?
+  contactScanStatus      ContactScanStatus  @default(PENDING)
+  isHidden               Boolean            @default(false)
+  hiddenReason           String?
+  permanentlyClosed      Boolean            @default(false)
+  temporarilyClosed      Boolean            @default(false)
+  contactsExtractedAt    DateTime?
+  categoryProfileSlug    String?
+  complianceFlags        String[]           @default([])
+  enrichmentFreshness    Json?
+
   // Linked records
   snapshots           BusinessSnapshot[]
   reviews             Review[]
@@ -301,6 +332,10 @@ model Business {
   @@index([country, province, city])
   @@index([lat, lng])
   @@index([category, country])
+  @@index([openStatus])
+  @@index([metroSlug])
+  @@index([cellKey])
+  @@index([isHidden])
 }
 
 enum BusinessSource {
@@ -373,11 +408,20 @@ model BusinessService {
   // (e.g. "Filler hasn't been mentioned in 4 months — consider promoting").
   lastMentionedAt DateTime?
 
+  // ── Agency rework (additive) · self-building all-category taxonomy.
+  canonicalKey String? // resolved ServiceTaxonomy.canonicalKey
+  confidence   Float?
+  detectedVia  String[] @default([]) // which extractor layers found it
+  rawNames     String[] @default([]) // surface forms collapsed into this row
+  embeddingId  String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([businessId, sortOrder])
   @@index([businessId, isActive])
+  @@index([businessId, canonicalKey])
+  @@index([canonicalKey])
 }
 
 // Weekly snapshot — preserves history for trend analysis
@@ -424,6 +468,14 @@ model BusinessSnapshot {
   cellConfidence   String? // "high" | "low" (low when cell sampleSize < 8)
   pillarRanks      Json? // { reputation, visibility, … } · rank within the cell per pillar
   cellSize         Int? // businesses in the cell (the per-pillar rank denominator)
+
+  // ── Agency rework (additive) · informational ComplianceRisk pillar
+  // (weight 0) + review trajectory scalars (§4.9, §4.15).
+  complianceRiskPillar     Float?
+  complianceRiskPercentile Float?
+  reviewLifecycle          String? // TRENDING | STABLE | DYING | DORMANT
+  qualityTrajectory        String?
+  velocityPrev30d          Int?
 
   raw Json? // full source payload for replay
 
@@ -546,6 +598,20 @@ model LighthouseAudit {
   // Tech stack (Wappalyzer)
   techStack String[] @default([])
 
+  // ── Agency rework (additive) · persist the discarded ~95% of the LHR blob
+  // as pitchable wins + rollups (§4.13). Detail rows live in
+  // LighthouseOpportunity (plain-FK model).
+  opportunities        Json?
+  diagnostics          Json?
+  techDetectedAt       DateTime?
+  techSource           String?
+  perfSavingsMs        Int?
+  a11yViolationCount   Int?
+  a11yCriticalCount    Int?
+  isOnHttps            Boolean?
+  hasVulnerableLibrary Boolean?
+  formFactor           String? // "mobile" | "desktop"
+
   business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
 
   @@index([businessId, auditedAt])
@@ -594,6 +660,11 @@ model AdLibraryEntry {
   ctaText              String?
   platforms            String[] @default([]) // META: FACEBOOK/INSTAGRAM/THREADS/MESSENGER/AUDIENCE_NETWORK
   collationCount       Int? // # of near-identical creatives grouped
+
+  // ── Agency rework (additive) · Apify-actor audit captured more fields (§4.10).
+  spendBandUsd String? // banded spend label (e.g. "$1k–$5k")
+  cards        Json? // multi-card creative payload
+  region       String?
 
   business Business? @relation(fields: [businessId], references: [id], onDelete: SetNull)
 
@@ -718,11 +789,18 @@ model CellMetric {
   // by percentileRank in pillar scoring. Shape = CellDistributions.
   distributions Json?
 
+  // ── Agency rework (additive) · Cell Standards layer (§4.20).
+  metroSlug      String?
+  lastSnapshotAt DateTime?
+  metricsVersion Int       @default(1)
+  metricsDirty   Boolean   @default(false)
+
   computedAt DateTime @default(now())
 
   @@unique([category, city, country])
   @@index([cellKey])
   @@index([category, city, country])
+  @@index([metroSlug])
 }
 
 // ============================================================================
@@ -921,6 +999,11 @@ model List {
   metro    String?
   radiusMi Int?
 
+  // ── Agency rework (additive) · raw-list provenance (§4.19). Scalar FK to
+  // Discovery (no relation — Discovery is a plain-FK model).
+  discoveryId String?
+  isRaw       Boolean @default(false)
+
   agency    Agency        @relation(fields: [agencyId], references: [id], onDelete: Cascade)
   owner     AgencyMember  @relation(fields: [ownerMemberId], references: [id])
   leads     Lead[]
@@ -930,6 +1013,8 @@ model List {
   updatedAt       DateTime  @updatedAt
   lastRefreshedAt DateTime?
   pausedAt        DateTime?
+
+  @@index([discoveryId])
 }
 
 enum ListServiceType {
@@ -982,6 +1067,9 @@ model Lead {
   wonAt       DateTime?
   lostAt      DateTime?
   lostReason  String?
+
+  // ── Agency rework (additive) · per-lead enrichment state for the jobs tray.
+  enrichmentStateJson Json?
 
   list     List     @relation(fields: [listId], references: [id], onDelete: Cascade)
   agency   Agency   @relation(fields: [agencyId], references: [id], onDelete: Cascade)
@@ -1532,11 +1620,11 @@ model TrackedLocation {
   isActive Boolean @default(true)
 
   // Denormalized aggregates — updated on each run completion
-  businessCount Int       @default(0) // current Business rows matching this cell
-  lastRunAt     DateTime?
-  totalRuns     Int       @default(0)
-  totalNewFound Int       @default(0)
-  totalCostUsd  Float     @default(0)
+  businessCount      Int       @default(0) // current Business rows matching this cell
+  lastRunAt          DateTime?
+  totalRuns          Int       @default(0)
+  totalNewFound      Int       @default(0)
+  totalCostUsd       Float     @default(0)
   // DfS total_count from the latest run — how many listings Google has
   // in this cell. businessCount vs this = coverage / saturation.
   lastTotalAvailable Int?
@@ -1555,6 +1643,19 @@ model TrackedLocation {
   lastActivityCheckAt  DateTime?
   totalActivityCostUsd Float     @default(0)
 
+  // ── Agency rework (additive) · metro-keying + 182-day discovery freshness
+  // (§4.2, §4.3). The metro unique-key swap is a SEPARATE guarded migration —
+  // the existing @@unique below stays UNCHANGED here.
+  metroSlug           String?
+  cbsaGeoid           String?
+  radiusTier          String?
+  geocodeSource       String?
+  lastDiscoveredAt    DateTime?
+  lastDiscoveryStatus DiscoveryRunStatus?
+  nextStaleAt         DateTime? // denormalized = lastDiscoveredAt + 182d
+  rawDataVersion      Int                 @default(1)
+  geohash             String?
+
   createdAt       DateTime @default(now())
   createdByUserId String?
 
@@ -1563,6 +1664,8 @@ model TrackedLocation {
   @@unique([categoryId, city, province, country])
   @@index([categoryId, lastRunAt])
   @@index([isActive])
+  @@index([metroSlug])
+  @@index([nextStaleAt])
 }
 
 // Audit trail — one row per admin-triggered discovery click. Captures
@@ -1585,16 +1688,16 @@ model DiscoveryRun {
   limitRequested Int
 
   // What we got back
-  totalReturned Int     @default(0)
+  totalReturned  Int     @default(0)
   // DfS total_count — listings available in the cell at run time.
   // totalReturned < totalAvailable ⇒ the cell wasn't fully pulled.
   totalAvailable Int?
-  newBusinesses Int     @default(0)
-  duplicates    Int     @default(0)
-  errors        Int     @default(0)
-  costUsd       Float   @default(0)
-  errorMessage  String? @db.Text
-  meta          Json?
+  newBusinesses  Int     @default(0)
+  duplicates     Int     @default(0)
+  errors         Int     @default(0)
+  costUsd        Float   @default(0)
+  errorMessage   String? @db.Text
+  meta           Json?
 
   @@index([trackedLocationId, startedAt(sort: Desc)])
   @@index([categoryId, startedAt(sort: Desc)])
@@ -1885,4 +1988,704 @@ enum ConsentBasis {
   CONSPICUOUS_PUBLICATION
   EXISTING_BUSINESS_RELATIONSHIP
   EXPRESS
+}
+
+// ============================================================================
+// AGENCY PORTAL REWORK · demand-driven discovery, enrichment & expert signals
+// Additive layer (Part 5 of the rework plan). New models use PLAIN SCALAR FK
+// columns + @@index (no Prisma @relation) so existing models stay untouched.
+// Numeric increment-targets are non-null @default(0) per INC-32.
+// ============================================================================
+
+// ── Enums ───────────────────────────────────────────────────────────────────
+
+enum BusinessOpenStatus {
+  OPEN
+  CLOSED
+  TEMPORARILY_CLOSED
+  CLOSED_FOREVER
+  UNKNOWN
+}
+
+enum ReachabilityStatus {
+  UNREACHABLE
+  EMAIL_ONLY
+  PHONE_ONLY
+  MULTI
+  RICH
+  UNKNOWN
+}
+
+enum ContactScanStatus {
+  PENDING
+  OK
+  FAILED
+  PARTIAL
+}
+
+enum ContactChannel {
+  EMAIL
+  PHONE
+  WHATSAPP
+  FACEBOOK
+  INSTAGRAM
+  LINKEDIN
+  TIKTOK
+  YOUTUBE
+  X
+  YELP
+  BOOKING_URL
+  WEBSITE
+}
+
+enum ContactRole {
+  OWNER
+  FRONT_DESK
+  PERSONAL
+  GENERIC
+  SUPPORT
+  BOOKING
+  SOCIAL
+  UNKNOWN
+}
+
+enum ContactSource {
+  DFS_LISTING
+  DFS_MAPS
+  SCRAPE_HOMEPAGE
+  SCRAPE_CONTACT
+  SCRAPE_ABOUT
+  SCRAPE_TEAM
+  SCRAPE_FOOTER
+  SCRAPE_JSBUNDLE
+  SCRAPE_JSONLD
+  SCRAPE_MAILTO
+  SCRAPE_TEL
+  SCRAPE_SOCIAL_META
+  RDAP
+  AI_WEB_SEARCH
+  MANUAL
+}
+
+enum VerifiedStatus {
+  UNVERIFIED
+  VALID
+  CATCH_ALL
+  RISKY
+  INVALID
+  UNREACHABLE_MX
+}
+
+enum ReviewJobStatus {
+  QUEUED
+  SUBMITTED
+  AWAITING_PINGBACK
+  FETCHING
+  DONE
+  FAILED
+  RECONCILED
+}
+
+enum DiscoveryStatus {
+  PENDING
+  RUNNING
+  READY
+  PARTIAL
+  FAILED
+}
+
+enum DiscoveryCellOutcome {
+  SERVED_FROM_DB
+  REFETCHED
+  DISCOVERED_NEW
+  FAILED
+}
+
+enum ResearchStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum EnrichmentFamily {
+  CONTACTS
+  SERVICES
+  TECH
+  REVIEWS
+  META_ADS
+  GOOGLE_ADS
+  SERP
+  LIGHTHOUSE
+  AI_RESEARCH
+  PLAYBOOK
+}
+
+enum EnrichmentJobStatus {
+  QUEUED
+  RUNNING
+  DONE
+  FAILED
+  SKIPPED_FRESH
+}
+
+enum BusinessTechCategory {
+  CMS
+  FRAMEWORK
+  CDN
+  ANALYTICS
+  PIXEL
+  BOOKING
+  CHAT
+  ECOMMERCE
+  HOSTING
+  PAYMENT
+  CONSENT
+  OTHER
+}
+
+enum CreditLedgerType {
+  HOLD
+  SETTLE
+  REFUND
+  TOPUP
+  EXPIRE
+  ADJUST
+}
+
+enum CostEstimateStatus {
+  QUOTED
+  AUTHORIZED
+  CONSUMED
+  EXPIRED
+  VOID
+}
+
+enum EnrichmentRunStatus {
+  PENDING
+  RUNNING
+  PARTIAL
+  OK
+  FAILED
+}
+
+// ── Cost engine & wallet (§4.4) ──────────────────────────────────────────────
+
+// Pre-flight cost quote. Single-use capability token: the server re-quotes on
+// authorize and ignores the client number. USD/credit columns are non-null
+// @default(0) (INC-32). TTL = 15 min (expiresAt).
+model CostEstimate {
+  id               String             @id @default(cuid())
+  agencyId         String
+  scopeKind        String
+  enrichmentsJson  Json
+  scopeRefsJson    Json
+  grossUsd         Decimal            @default(0) @db.Decimal(10, 4)
+  freshHitUsd      Decimal            @default(0) @db.Decimal(10, 4)
+  netUsd           Decimal            @default(0) @db.Decimal(10, 4)
+  netCredits       Int                @default(0)
+  upperBoundUsd    Decimal?           @db.Decimal(10, 4)
+  confidence       String
+  priceListVersion String
+  freshnessAsOf    DateTime
+  status           CostEstimateStatus @default(QUOTED)
+  expiresAt        DateTime
+  createdByUserId  String
+  createdAt        DateTime           @default(now())
+  consumedByRunId  String?
+
+  @@index([agencyId, status])
+  @@index([expiresAt])
+}
+
+// A user-authorized enrichment spend → fans out to per-business EnrichmentJob
+// rows. Credit/USD/count columns are non-null @default(0) (INC-32).
+model EnrichmentRun {
+  id                 String              @id @default(cuid())
+  agencyId           String
+  estimateId         String?             @unique
+  triggeredByUserId  String
+  enrichmentsJson    Json
+  scopeKind          String
+  scopeRefsJson      Json
+  status             EnrichmentRunStatus @default(PENDING)
+  estimatedUsd       Decimal             @default(0) @db.Decimal(10, 4)
+  actualUsd          Decimal             @default(0) @db.Decimal(10, 4)
+  creditsHeld        Int                 @default(0)
+  creditsCharged     Int                 @default(0)
+  unitsRequested     Int                 @default(0)
+  unitsCompleted     Int                 @default(0)
+  unitsSkippedFresh  Int                 @default(0)
+  unitsSkippedHidden Int                 @default(0)
+  startedAt          DateTime            @default(now())
+  finishedAt         DateTime?
+  errorMessage       String?             @db.Text
+  workflowRunId      String?
+  meta               Json?
+
+  @@index([agencyId, status])
+  @@index([startedAt])
+}
+
+// One enrichment family applied to one business — the unit the jobs tray polls.
+model EnrichmentJob {
+  id            String              @id @default(cuid())
+  businessId    String
+  family        EnrichmentFamily
+  status        EnrichmentJobStatus @default(QUEUED)
+  costUsd       Decimal             @default(0) @db.Decimal(10, 4)
+  runId         String?
+  workflowRunId String?
+  attempts      Int                 @default(0)
+  startedAt     DateTime?
+  finishedAt    DateTime?
+  errorMessage  String?             @db.Text
+  createdAt     DateTime            @default(now())
+
+  @@index([businessId, family])
+  @@index([status])
+}
+
+// Credit wallet per agency. Credit columns are non-null @default(0) (INC-32).
+model AgencyWallet {
+  id               String   @id @default(cuid())
+  agencyId         String   @unique
+  planCredits      Int      @default(0)
+  purchasedCredits Int      @default(0)
+  rolloverCredits  Int      @default(0)
+  heldCredits      Int      @default(0)
+  cycleResetAt     DateTime
+  overageEnabled   Boolean  @default(false)
+  overageCapUsd    Decimal? @db.Decimal(10, 2)
+  updatedAt        DateTime @updatedAt
+}
+
+// Append-only credit movements (hold → settle → refund-diff).
+model CreditLedger {
+  id        String           @id @default(cuid())
+  agencyId  String
+  type      CreditLedgerType
+  credits   Int              @default(0)
+  usd       Decimal          @default(0) @db.Decimal(10, 4)
+  runId     String?
+  note      String?
+  createdAt DateTime         @default(now())
+
+  @@index([agencyId, createdAt])
+}
+
+// ── Discovery (§4.3, §4.19) ──────────────────────────────────────────────────
+
+// The user request spanning cells (user-facing "Research"). Snapshot-guarded by
+// idempotencyKey. Count/USD rollups are non-null @default(0).
+model Discovery {
+  id                String          @id @default(cuid())
+  agencyId          String
+  requestedByUserId String
+  name              String?
+  intentCampaignId  String?
+  idempotencyKey    String          @unique
+  status            DiscoveryStatus @default(PENDING)
+  researchStatus    ResearchStatus  @default(ACTIVE)
+  isPinned          Boolean         @default(false)
+  viewPref          String?
+  lastOpenedAt      DateTime?
+  cellKeys          String[]        @default([])
+  cellCount         Int             @default(0)
+  freshCount        Int             @default(0)
+  refetchedCount    Int             @default(0)
+  totalBusinesses   Int             @default(0)
+  totalCostUsd      Float           @default(0)
+  cohortSize        Int             @default(0)
+  spendToDateUsd    Float           @default(0)
+  freshnessJson     Json?
+  loopProgressJson  Json?
+  workflowRunId     String?
+  createdAt         DateTime        @default(now())
+  finishedAt        DateTime?
+
+  @@index([agencyId, createdAt])
+  @@index([agencyId, researchStatus])
+  @@index([status])
+}
+
+// Per-cell outcome within a Discovery (served-from-DB vs refetched vs new).
+model DiscoveryCell {
+  id                String               @id @default(cuid())
+  discoveryId       String
+  trackedLocationId String
+  cellKey           String
+  outcome           DiscoveryCellOutcome
+  discoveryRunId    String?
+  businessCount     Int                  @default(0)
+  dfsCostUsd        Float                @default(0)
+  createdAt         DateTime             @default(now())
+
+  @@unique([discoveryId, trackedLocationId])
+  @@index([trackedLocationId])
+}
+
+// Per-run coverage snapshot of a cell (trend of market size over time).
+model CellSnapshot {
+  id                 String   @id @default(cuid())
+  trackedLocationId  String
+  cellKey            String
+  discoveryRunId     String?
+  capturedAt         DateTime @default(now())
+  businessCount      Int      @default(0)
+  totalAvailable     Int?
+  openCount          Int      @default(0)
+  closedForeverCount Int      @default(0)
+
+  @@index([trackedLocationId, capturedAt(sort: Desc)])
+}
+
+// ── Contacts & reachability (§4.5) ───────────────────────────────────────────
+
+// Normalized multi-channel contact (email/phone/social/booking) per business.
+model Contact {
+  id              String         @id @default(cuid())
+  businessId      String
+  channel         ContactChannel
+  value           String
+  normalizedValue String
+  role            ContactRole    @default(UNKNOWN)
+  source          ContactSource
+  confidence      Int            @default(0)
+  verifiedStatus  VerifiedStatus @default(UNVERIFIED)
+  verifiedAt      DateTime?
+  isPrimary       Boolean        @default(false)
+  meta            Json?
+  firstSeenAt     DateTime       @default(now())
+  lastSeenAt      DateTime       @default(now())
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@unique([businessId, channel, normalizedValue])
+  @@index([businessId, channel])
+  @@index([channel, verifiedStatus])
+  @@index([businessId, isPrimary])
+}
+
+// ── Reviews rearchitecture (§4.8) ────────────────────────────────────────────
+
+// Durable review-pull state machine (Vercel Queues + Workflow DevKit).
+model ReviewJob {
+  id            String          @id @default(cuid())
+  businessId    String
+  mode          String // "full" | "delta"
+  status        ReviewJobStatus @default(QUEUED)
+  taskId        String?
+  depth         Int             @default(200)
+  attempts      Int             @default(0)
+  windowDays    Int             @default(365)
+  lastError     String?         @db.Text
+  workflowRunId String?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  @@index([status])
+  @@index([businessId])
+}
+
+// ── DOM / tech fingerprint (§4.6) ────────────────────────────────────────────
+
+// Wappalyzer-style detected technology per business (mirrors BusinessService).
+model BusinessTech {
+  id         String               @id @default(cuid())
+  businessId String
+  name       String
+  category   BusinessTechCategory
+  confidence Float                @default(0)
+  source     String
+  detectedAt DateTime             @default(now())
+
+  @@index([businessId, category])
+  @@index([name])
+}
+
+// ── Ads — per cell (§4.10, §4.11) ────────────────────────────────────────────
+
+// Per-cell ad-market run (30-day gate) — serve from DB if fresh.
+model AdMarketRun {
+  id              String   @id @default(cuid())
+  cellKey         String
+  platform        String
+  ranAt           DateTime @default(now())
+  status          String
+  costUsd         Float    @default(0)
+  advertiserCount Int      @default(0)
+  adCount         Int      @default(0)
+
+  @@index([cellKey, platform, ranAt(sort: Desc)])
+}
+
+// ── Services taxonomy (§4.7) ─────────────────────────────────────────────────
+
+// Self-building, all-category service taxonomy with embedding merge.
+model ServiceTaxonomy {
+  id           String   @id @default(cuid())
+  categorySlug String
+  canonicalKey String
+  displayName  String
+  group        String?
+  synonyms     String[] @default([])
+  embedding    Float[]  @default([])
+  status       String   @default("seed")
+  occurrences  Int      @default(0)
+  source       String   @default("seed")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([categorySlug, canonicalKey])
+  @@index([categorySlug, status])
+}
+
+// Cell-level service prevalence — the comparative "X% of the cell offers this".
+model CellServicePrevalence {
+  id           String   @id @default(cuid())
+  cellKey      String
+  category     String
+  city         String
+  country      String
+  canonicalKey String
+  displayName  String
+  prevalence   Float    @default(0)
+  rank         Int      @default(0)
+  sampleSize   Int      @default(0)
+  source       String   @default("internal")
+  computedAt   DateTime @default(now())
+
+  @@unique([cellKey, canonicalKey])
+  @@index([cellKey, rank])
+}
+
+// ── Lighthouse opportunities (§4.13) ─────────────────────────────────────────
+
+// One failing/pitchable Lighthouse audit, normalized out of the LHR blob.
+model LighthouseOpportunity {
+  id                String   @id @default(cuid())
+  lighthouseAuditId String
+  businessId        String
+  bucket            String // Speed | ADA | Security | Mobile-SEO | Third-party
+  auditKey          String
+  score             Float?
+  weight            Float?
+  savingsMs         Int?
+  savingsBytes      Int?
+  displayValue      String?
+  itemCount         Int?
+  createdAt         DateTime @default(now())
+
+  @@index([businessId, bucket])
+  @@index([auditKey])
+}
+
+// ── Expert layer / playbooks (§4.15) ─────────────────────────────────────────
+
+// Per-vertical profile (vocabulary, regulations, benchmarks) — code-versioned.
+model CategoryProfile {
+  id                     String   @id @default(cuid())
+  categorySlug           String
+  displayName            String
+  version                Int      @default(1)
+  vocabulary             Json?
+  regulations            Json?
+  benchmarks             Json?
+  pitchNuances           Json?
+  licenseSource          Json?
+  scoringWeightOverrides Json?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  @@unique([categorySlug, version])
+}
+
+// State-board license record (feeds license_status signal).
+model BusinessLicense {
+  id            String    @id @default(cuid())
+  businessId    String
+  state         String
+  licenseNumber String?
+  trade         String?
+  status        String
+  verifiedAt    DateTime?
+  source        String?
+  createdAt     DateTime  @default(now())
+
+  @@index([businessId])
+}
+
+// Evidence-mandatory playbook finding (compliance/expert signal verdict).
+model PlaybookFinding {
+  id               String   @id @default(cuid())
+  businessId       String
+  playbookId       String
+  playbookVersion  Int      @default(1)
+  signalKey        String
+  group            String
+  value            String
+  confidence       String
+  corroboration    Int      @default(0)
+  evidenceJson     Json?
+  explanation      String   @db.Text
+  pitchAngle       String   @db.Text
+  status           String
+  notCheckedReason String?
+  feedback         String?
+  computedAt       DateTime @default(now())
+
+  @@unique([businessId, signalKey])
+  @@index([playbookId, signalKey, confidence])
+  @@index([businessId, status])
+  @@index([signalKey, feedback])
+}
+
+// ── Demand / intent → strategy (§4.16) ───────────────────────────────────────
+
+// Agency campaign intake (selling-what / buyer-ICP / pain-points / budget).
+model Campaign {
+  id                String   @id @default(cuid())
+  agencyId          String
+  createdByUserId   String
+  name              String?
+  sellingWhat       String?  @db.Text
+  buyerIcp          String?  @db.Text
+  painPoints        String?  @db.Text
+  budgetHintUsd     Float?
+  proposedPlanJson  Json?
+  signalWeightsJson Json?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([agencyId])
+}
+
+// A pain point mapped to the signal keys that detect it.
+model CampaignPainPoint {
+  id         String   @id @default(cuid())
+  campaignId String
+  label      String
+  signalKeys String[] @default([])
+  createdAt  DateTime @default(now())
+
+  @@index([campaignId])
+}
+
+// Reusable intent → strategy template (e.g. "sell websites").
+model StrategyTemplate {
+  id                     String   @id @default(cuid())
+  slug                   String   @unique
+  name                   String
+  sellingWhat            String?
+  recommendedCategories  String[] @default([])
+  recommendedEnrichments String[] @default([])
+  signalWeightsJson      Json?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+}
+
+// Costed research plan derived from a campaign.
+model ResearchPlan {
+  id               String   @id @default(cuid())
+  campaignId       String
+  discoveryId      String?
+  planJson         Json
+  estimatedCostUsd Float    @default(0)
+  createdAt        DateTime @default(now())
+
+  @@index([campaignId])
+}
+
+// ── Personalized touch (§4.17) ───────────────────────────────────────────────
+
+// A generated first-touch / sequence step grounded in real signals.
+model OutreachDraft {
+  id            String   @id @default(cuid())
+  businessId    String
+  campaignId    String?
+  leadId        String?
+  channel       String
+  subject       String?
+  body          String   @db.Text
+  whyJson       Json?
+  predictedTier String?
+  status        String   @default("draft")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([campaignId])
+  @@index([businessId])
+}
+
+// Outreach lifecycle event (sent / open / reply / bounce) — reply/bounce truth.
+model OutreachEvent {
+  id         String   @id @default(cuid())
+  draftId    String?
+  leadId     String?
+  type       String
+  occurredAt DateTime @default(now())
+  raw        Json?
+
+  @@index([draftId, type])
+  @@index([leadId, type])
+}
+
+// Raw pitch intent capture (free-text → parsed JSON).
+model PitchIntent {
+  id         String   @id @default(cuid())
+  agencyId   String
+  campaignId String?
+  raw        String?  @db.Text
+  parsedJson Json?
+  createdAt  DateTime @default(now())
+
+  @@index([agencyId])
+}
+
+// ── Location selection (§4.2) ────────────────────────────────────────────────
+
+// Saved multi-metro × multi-category pick.
+model LocationSelection {
+  id          String   @id @default(cuid())
+  ownerId     String
+  name        String
+  metroSlugs  String[] @default([])
+  categoryIds String[] @default([])
+  createdAt   DateTime @default(now())
+
+  @@index([ownerId])
+}
+
+// ── AI research enrichment (§4.14) ───────────────────────────────────────────
+
+// Per-business rollup of the 5-stage AI research pipeline (gpt-5.4-nano).
+model BusinessEnrichment {
+  id                     String   @id @default(cuid())
+  businessId             String   @unique
+  subType                String? // ER-1 sub-type classification
+  sophistication         String? // ER-1 sophistication (low|medium|high)
+  pricingTransparency    String? // ER-2 (transparent|opaque|unknown)
+  positioningSummary     String?  @db.Text // ER-2
+  complianceCues         String[] @default([]) // ER-3 regulatory cues
+  painHypotheses         String[] @default([]) // ER-4 outreach pain points
+  competitivePositioning String?  @db.Text // ER-5 vs cell leader
+  model                  String?
+  costUsd                Float    @default(0)
+  computedAt             DateTime @default(now())
+
+  @@index([businessId])
+}
+
+// One row per AI-research stage run (audit + per-stage freshness + cost).
+model EnrichmentStageRun {
+  id           String   @id @default(cuid())
+  businessId   String
+  stage        String // "ER-1".."ER-5"
+  status       String   @default("OK") // OK|FAILED|SKIPPED_FRESH
+  outputJson   Json?
+  model        String?
+  costUsd      Float    @default(0)
+  errorMessage String?  @db.Text
+  computedAt   DateTime @default(now())
+
+  @@index([businessId, stage])
 }
