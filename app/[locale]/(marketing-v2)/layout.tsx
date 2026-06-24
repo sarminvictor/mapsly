@@ -24,6 +24,7 @@ import { setRequestLocale, getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 import { FbLogo } from "@/components/marketing/for-businesses/FbLogo";
 import { StickyHeader } from "@/components/marketing/for-businesses/StickyHeader";
+import { V2NavLinks } from "@/components/marketing/for-businesses/V2NavLinks";
 import "@/components/marketing/for-businesses/fb.css";
 
 const spaceGrotesk = Space_Grotesk({
@@ -76,32 +77,17 @@ async function V2Header({ params }: { params: Promise<LayoutParams> }) {
           {/* 140px wide per design (SVG is 141×40 → height 40 ≈ width 140) */}
           <FbLogo height={40} />
         </Link>
-        <nav aria-label={t("nav_aria")} className="fb-nav">
-          {/* FIXME before a second route migrates into (marketing-v2):
-              derive aria-current from the active segment instead of
-              pinning it — today the group hosts only /for-businesses. */}
-          <Link
-            href="/for-businesses"
-            className="fb-navlink"
-            aria-current="page"
-          >
-            {t("for_businesses")}
-          </Link>
-          <Link href="/for-agencies" className="fb-navlink">
-            {t("for_agencies")}
-          </Link>
-          {/* In-page anchor to the pricing band — plain <a>, not a route. */}
-          <a href="#pricing" className="fb-navlink">
-            {t("price")}
-          </a>
-          <Link
-            href="/signin"
-            className="fb-btn fb-btn--nav"
-            data-testid="marketing-signin-cta"
-          >
-            {t("signin")}
-          </Link>
-        </nav>
+        {/* Active page derived client-side from the route — both
+            /for-businesses and /for-agencies now live in this group. */}
+        <V2NavLinks
+          labels={{
+            forBusinesses: t("for_businesses"),
+            forAgencies: t("for_agencies"),
+            price: t("price"),
+            signin: t("signin"),
+            navAria: t("nav_aria"),
+          }}
+        />
       </div>
     </StickyHeader>
   );

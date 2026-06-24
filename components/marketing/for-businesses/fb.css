@@ -1764,6 +1764,10 @@ html:has(.fb-scope) {
   .fb-signals .fb-split > div:first-child {
     transform: none;
   }
+  /* inset the reviews text column to match the signals block on mobile */
+  .fb-reviews .fb-split > div:first-child {
+    padding-left: clamp(0px, 4vw, 72px);
+  }
   /* mirror · centered, narrower score card, smaller gauge */
   .fb-mirror-top {
     grid-template-columns: 1fr;

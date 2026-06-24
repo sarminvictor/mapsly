@@ -1,0 +1,666 @@
+/* ============================================================
+ * /for-agencies · marketing-v2 design system · AGENCY overrides
+ *
+ * The /for-agencies page reuses the for-businesses design system
+ * (`fb.css`, imported by the (marketing-v2) group layout): same
+ * chrome, fonts, yellow #FFFD54, logo and sticky-header behaviour.
+ * This file only adds the AGENCY-specific colour theme (cool indigo
+ * hero + violet heading accents) and the few layouts the agency page
+ * has that the SMB page doesn't (CTA-only hero, 3-up pricing, the
+ * Hunter product demo, the "every kind of agency" columns).
+ *
+ * Every selector is prefixed `fb-ag-` (or qualifies an existing fb-
+ * class with an `--ag` modifier) so nothing here leaks into
+ * /for-businesses. Overrides that must beat a base fb.css rule carry
+ * an extra ancestor class for specificity (no !important).
+ *
+ * STRUCTURE CONTRACT (same as fb.css): desktop/base first,
+ * breakpoint overrides last, so media blocks win by source order.
+ * ============================================================ */
+
+.fb-scope {
+  /* agency accent palette · cool indigo/violet (the /(agency) brand) */
+  --fb-ag-indigo: #5b3df5;
+  --fb-ag-indigo-soft: #7a5bf0;
+  --fb-ag-lav: #e7e2ff; /* pale lavender · hero headline base */
+}
+
+/* ------------------------------------------------ hero (indigo) */
+
+/* Same structure as .fb-hero — only the gradient + headline tint
+ * change, so the grid overlay, fade-to-white and dots all carry over. */
+.fb-hero--ag {
+  /* desktop: land the headline at the same height as /for-businesses (its
+     hero pad is a fixed 180px; our pill is taller so 155px lines the H1 up).
+     Mobile reduces this in the ≤560 block. */
+  padding-top: 155px;
+  background:
+    /* fade to white toward the bottom (top-most overlay) */
+    linear-gradient(
+      to bottom,
+      transparent 55%,
+      rgba(255, 255, 255, 0.55) 80%,
+      rgba(255, 255, 255, 0.9) 93%,
+      #ffffff 100%
+    ),
+    /* light-blue top-left · indigo top-right · coral glow bottom */
+    radial-gradient(
+        155% 145% at 0% 0%,
+        #b6d8e7 0%,
+        rgba(182, 216, 231, 0.55) 38%,
+        rgba(182, 216, 231, 0) 80%
+      ),
+    radial-gradient(120% 110% at 100% 0%, #5b3df5 0%, rgba(91, 61, 245, 0) 58%),
+    radial-gradient(
+      circle 1020px at 50% 100%,
+      #f04361 0%,
+      #f04361 36%,
+      rgba(240, 67, 97, 0) 78%
+    ),
+    linear-gradient(165deg, #b7c0ee 0%, #6a57df 48%, #c4b6e8 100%);
+}
+/* hero headline base words · pale cyan */
+.fb-hero--ag .fb-h1 {
+  color: #caecec;
+}
+/* CTA-only hero (no search pill): center the single Start-free button */
+.fb-ag-hero-cta {
+  margin-top: 36px;
+  display: flex;
+  justify-content: center;
+}
+/* text-only social-proof pill (no avatars) · glass capsule, 67px tall.
+ * Same Figma glass spec as the hero search pill / scrolled header:
+ * fill E1E6F9 10% + two inner shadows (B6D8E7 100% / C7CFF0 20%) +
+ * background blur 30. No manual -webkit- prefix — Lightning CSS adds it
+ * (see .fb-search in fb.css). */
+.fb-ag-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 67px;
+  padding: 0 30px;
+  border-radius: 999px;
+  background: rgba(225, 230, 249, 0.1);
+  box-shadow:
+    inset -4.82px -4.82px 24.12px 0 #b6d8e7,
+    inset 19.3px 19.3px 72.37px 0 rgba(199, 207, 240, 0.2);
+  backdrop-filter: blur(30px);
+  color: #fff;
+  font-size: 17px;
+  font-weight: 500;
+  margin-bottom: 26px;
+}
+.fb-ag-pill-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--fb-yellow);
+  flex: none;
+  /* gently grows and shrinks (paused under prefers-reduced-motion via the
+     global fb.css rule) */
+  animation: fb-ag-dot-pulse 1.8s ease-in-out infinite;
+}
+@keyframes fb-ag-dot-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.45);
+  }
+}
+
+/* ------------------------------------------------ pitch (white) */
+
+/* normal white section · pulled up tight under the tall hero, with a tall
+ * bottom gap before the green Hunter band rises (matches the SMB pitch
+ * block's bottom padding, a touch more) */
+.fb-ag-pitch {
+  background: #fff;
+  text-align: left;
+  padding-top: clamp(8px, 2vw, 32px);
+  /* same bottom padding as the Platform block (.fb-ag-platform) */
+  padding-bottom: clamp(130px, 13.5vw, 192px);
+}
+/* heading left · sub right, split across the full container width ·
+ * the heading column runs wider so the title wraps less */
+.fb-ag-pitch-head {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr;
+  gap: clamp(32px, 6vw, 80px);
+  align-items: start;
+}
+.fb-ag-pitch-head .fb-sub {
+  max-width: 520px;
+}
+/* darkened clause inside the sub paragraph */
+.fb-ag-pitch-emph {
+  color: #22271c;
+}
+/* default agacc (the platform section) · agency indigo */
+.fb-em.fb-agacc {
+  color: var(--fb-ag-indigo);
+}
+/* "Start hunting with intent." accent · warm red #9E5F60 per design */
+.fb-ag-pitch .fb-em.fb-agacc {
+  color: #9e5f60;
+}
+/* tighter title line-height inside the comparison cards (desktop) */
+.fb-ag-pitch .fb-board-card h3 {
+  line-height: 1.08;
+}
+/* small eyebrow label above each card title ("the old way" / "the mapsly way") */
+.fb-ag-card-eyebrow {
+  margin: 0 0 12px;
+  font-size: 22px;
+  font-weight: 700;
+}
+.fb-ag-card-eyebrow--old {
+  color: #9e5f60;
+}
+.fb-ag-card-eyebrow--new {
+  color: #597277;
+}
+/* tighter list rows · shorter comparison cards */
+.fb-ag-pitch .fb-board-list li {
+  padding: 9px 0;
+}
+/* red ✕ for the cold-list column */
+.fb-ag-x {
+  flex: none;
+}
+
+/* ------------------------------------------------ hunter (green) */
+
+.fb-ag-hunter {
+  /* same green as the SMB reviews band · sticky stack card: rounded top
+     only (square bottom), taller, so the pricing band scrolls up over it.
+     Fixed height + top-aligned content + overflow:hidden (from stack-card)
+     clips the demo panel so it bleeds off the bottom edge. */
+  background: linear-gradient(to top, #3d625f 0%, #7da88b 100%);
+  color: #fff;
+  border-radius: var(--fb-band-radius) var(--fb-band-radius) 0 0;
+  /* at least a full viewport tall so the green always fills the screen while
+     pinned — no white slivers behind the rising pricing band's rounded
+     corners — and the pin lasts longer, so pricing rises later */
+  min-height: 100vh;
+  justify-content: flex-start;
+  padding-top: clamp(112px, 12vw, 168px);
+  padding-bottom: 0;
+}
+/* "you'd be using tomorrow." accent · mint, like the SMB reviews band */
+.fb-ag-hunter .fb-em.fb-mintacc {
+  color: #d7f0df;
+}
+.fb-ag-hunter .fb-sub {
+  color: #fff;
+  /* narrow text column, like the signals block sub */
+  max-width: 640px;
+}
+.fb-ag-hunter-top {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: clamp(32px, 5vw, 72px);
+  align-items: start;
+}
+/* 2×2 stat block, top-right */
+.fb-ag-stats {
+  display: grid;
+  grid-template-columns: repeat(2, auto);
+  gap: 22px 56px;
+}
+.fb-ag-stat-num {
+  font-family: var(--fb-head);
+  font-size: 60px;
+  font-weight: 600;
+  line-height: 1;
+  color: #d7f0df;
+}
+.fb-ag-stat-label {
+  margin: 8px 0 0;
+  font-size: 15px;
+  line-height: 1.25;
+  color: rgba(255, 255, 255, 0.82);
+  max-width: 150px;
+}
+
+/* ---- Hunter product demo · stylised dark UI panel ---- */
+.fb-ag-demo {
+  margin-top: clamp(36px, 5vw, 56px);
+  background: #1b2522;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  /* rounded top only · bottom is clipped by the green block's edge */
+  border-radius: 28px 28px 0 0;
+  overflow: hidden;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.28);
+}
+.fb-ag-demo-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 22px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.fb-ag-demo-dots {
+  display: inline-flex;
+  gap: 7px;
+  flex: none;
+}
+.fb-ag-demo-dots i {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+}
+.fb-ag-demo-query {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 16px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 14px;
+  font-family: var(--fb-body);
+}
+.fb-ag-demo-query svg {
+  flex: none;
+  opacity: 0.7;
+}
+.fb-ag-demo-refresh {
+  flex: none;
+  font-size: 12.5px;
+  color: rgba(255, 255, 255, 0.5);
+}
+.fb-ag-demo-body {
+  display: grid;
+  grid-template-columns: 232px 1fr;
+}
+.fb-ag-demo-rail {
+  padding: 22px 20px;
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.fb-ag-rail-label {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.42);
+  margin: 0 0 4px;
+}
+.fb-ag-chip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 11px 14px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  font-size: 13px;
+  font-family: var(--fb-body);
+  color: rgba(255, 255, 255, 0.86);
+}
+.fb-ag-chip b {
+  font-weight: 600;
+  color: var(--fb-yellow);
+}
+.fb-ag-demo-table {
+  padding: 8px 0;
+  overflow-x: auto;
+}
+.fb-ag-trow {
+  display: grid;
+  grid-template-columns: 1.5fr 2fr auto;
+  align-items: center;
+  gap: 16px;
+  padding: 15px 24px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+.fb-ag-trow:last-child {
+  border-bottom: none;
+}
+.fb-ag-trow--head {
+  padding-top: 12px;
+  padding-bottom: 12px;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.4);
+}
+.fb-ag-tname {
+  font-size: 15px;
+  font-weight: 600;
+  color: #fff;
+}
+.fb-ag-tmeta {
+  margin: 3px 0 0;
+  font-size: 12.5px;
+  color: rgba(255, 255, 255, 0.5);
+}
+.fb-ag-tsignals {
+  font-size: 13px;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.72);
+}
+.fb-ag-tmatch {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 46px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: rgba(215, 240, 223, 0.16);
+  color: #d7f0df;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* ------------------------------------------------ pricing (purple · 3-up) */
+
+/* reuse the SMB purple band, but full-rounded card and a 3-card grid
+ * instead of the text+single-card split */
+/* isolate the stack so its z-index war stays contained (and the next
+ * white section still paints over the whole group on release) */
+.fb-ag-stack {
+  isolation: isolate;
+}
+/* the Pricing band is a *positioned* element above the sticky Hunter card,
+ * so it paints OVER the green block as it scrolls up (sticky makes Hunter
+ * positioned too — without this, Hunter would paint over Pricing) */
+.fb-pricing--ag {
+  position: relative;
+  z-index: 1;
+  /* rounded top only · square bottom (no bottom rounding) */
+  border-radius: var(--fb-band-radius) var(--fb-band-radius) 0 0;
+  /* more top padding above the heading */
+  padding-top: clamp(80px, 9vw, 140px);
+}
+/* heading centered */
+.fb-pricing--ag .fb-board-head {
+  text-align: center;
+  max-width: 1080px;
+  margin: 0 auto;
+}
+.fb-pricing--ag .fb-board-head .fb-h2 {
+  color: #fff;
+}
+.fb-pricing--ag .fb-board-head .fb-ylw {
+  color: #caecec;
+}
+.fb-pricing--ag .fb-board-head .fb-sub {
+  color: #fff;
+}
+.fb-ag-price-grid {
+  margin: clamp(24px, 3.5vw, 44px) auto 0;
+  max-width: 1080px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 22px;
+  align-items: start;
+}
+/* the agency cards fill their grid cell (override fb.css' fixed widths) */
+.fb-ag-price-grid .fb-price-card {
+  width: 100%;
+  padding: 36px 34px 30px;
+}
+/* highlighted middle card · subtle yellow ring */
+.fb-ag-price-grid .fb-price-card--featured {
+  outline: 3px solid var(--fb-yellow);
+  outline-offset: 0;
+}
+.fb-ag-price-grid .fb-price-card .fb-price-badge {
+  top: -20px;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+/* ------------------------------------------------ platform (white · 3 cols) */
+
+.fb-ag-platform {
+  background: #fff;
+  /* same top/bottom padding as the SMB pitch block (.fb-pitch) */
+  padding-top: var(--fb-band-gap);
+  padding-bottom: clamp(130px, 13.5vw, 192px);
+}
+.fb-ag-platform .fb-board-head {
+  text-align: left;
+  max-width: 760px;
+  /* override the base `margin: 0 auto` so it sits at the page's left edge,
+     aligned with the columns below */
+  margin: 0;
+}
+/* sub flush-left with the heading (base centers it via margin:auto) */
+.fb-ag-platform .fb-board-head .fb-sub {
+  margin-left: 0;
+  margin-right: 0;
+}
+/* "Every kind of agency." accent · warm tan */
+.fb-ag-platform .fb-em.fb-agacc {
+  color: #ae8355;
+}
+.fb-ag-plat-grid {
+  margin-top: clamp(40px, 5vw, 64px);
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+}
+.fb-ag-plat {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+/* gradient glyph icons stand on their own (no tinted box) */
+.fb-ag-plat-icon {
+  display: inline-flex;
+}
+.fb-ag-plat-icon svg {
+  width: 56px;
+  height: 56px;
+}
+.fb-ag-plat-label {
+  margin: 4px 0 0;
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--fb-ink);
+}
+.fb-ag-plat-desc {
+  /* extra bottom margin → more space before the quote card */
+  margin: 0 0 18px;
+  font-size: 18px;
+  line-height: 1.3;
+  color: #909ba2;
+}
+.fb-ag-plat-quote {
+  position: relative;
+  /* pin to the column bottom so all three quote cards align by their bottom
+     edge (the columns stretch to equal height in the grid) */
+  margin: auto 0 0;
+  padding: 36px 26px 24px;
+  border-radius: 22px;
+  background: #f3efea;
+}
+/* the quote mark sits over (overlaps) the card's top-left corner */
+.fb-ag-plat-qmark {
+  position: absolute;
+  top: -8px;
+  left: 26px;
+}
+.fb-ag-plat-quote-text {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.5;
+  color: #ae8355;
+}
+
+/* ------------------------------------------------ closing CTA (ink · 2 btns) */
+
+.fb-ag-cta-actions {
+  margin-top: 32px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  justify-content: center;
+  /* bound the row so the two equal-width buttons stay compact */
+  max-width: 600px;
+  margin-left: auto;
+  margin-right: auto;
+}
+/* both buttons share the row equally → identical width (they stack
+   full-width once the row is too narrow, e.g. on mobile) */
+.fb-ag-cta-actions .fb-btn {
+  margin-top: 0;
+  flex: 1 1 280px;
+}
+/* secondary button · outlined on the dark card */
+.fb-btn--ghost {
+  background: transparent;
+  color: var(--fb-yellow);
+  /* yellow border at 30% opacity */
+  box-shadow: inset 0 0 0 0.5px rgba(255, 253, 84, 0.3);
+}
+/* hover · same treatment as every other button (28% fill + twin inner
+   glow), but in E1E6F9 instead of yellow. Label stays yellow. */
+.fb-btn--ghost:hover,
+.fb-cta .fb-btn--ghost:hover {
+  background: rgba(225, 230, 249, 0.06);
+  box-shadow:
+    inset -4px -4px 30px 0 rgba(225, 230, 249, 0.55),
+    inset 4px 4px 30px 0 rgba(225, 230, 249, 0.55);
+  /* frosted-glass background blur on hover (no manual -webkit- prefix —
+     Lightning CSS adds it; see .fb-search) */
+  backdrop-filter: blur(30px);
+  color: var(--fb-yellow);
+}
+
+/* ============================================================
+ * Breakpoints · overrides only below this line
+ * ============================================================ */
+
+@media (max-width: 900px) {
+  /* stack the pitch heading + sub · gap 0 so the heading→sub spacing is just
+     the sub's 18px margin (matches for-businesses) */
+  .fb-ag-pitch-head {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+  .fb-ag-pitch-head .fb-sub {
+    max-width: none;
+  }
+  /* sticky stack drops to static on mobile (fb.css) — no clip, show the full
+     demo with normal padding */
+  .fb-ag-hunter {
+    min-height: auto;
+    padding-top: 74px;
+    /* more green below the demo before the pricing band overlaps it */
+    padding-bottom: 145px;
+  }
+  .fb-ag-demo {
+    border-radius: 28px;
+  }
+  /* without the desktop sticky overlap, pull the purple band up over the
+     green one by the corner radius so there's no white gap between the two
+     coloured bands (matches the for-businesses stacked-band treatment) */
+  .fb-pricing--ag {
+    margin-top: calc(var(--fb-band-radius) * -1);
+  }
+  .fb-ag-hunter-top {
+    grid-template-columns: 1fr;
+    gap: 32px;
+    /* match the Signals block's text-column inset (4vw) so the heading, sub
+       AND the stats line up — same width as "Not metrics. Plain English."
+       (the demo panel sits outside hunter-top, so it stays full width) */
+    padding-left: clamp(0px, 4vw, 72px);
+  }
+  .fb-pricing--ag .fb-board-head {
+    padding-inline: clamp(0px, 2vw, 36px);
+  }
+  .fb-ag-stats {
+    gap: 22px 32px;
+  }
+  /* demo: drop the filter rail, let the table breathe full-width */
+  .fb-ag-demo-body {
+    grid-template-columns: 1fr;
+  }
+  .fb-ag-demo-rail {
+    display: none;
+  }
+  .fb-ag-price-grid {
+    grid-template-columns: 1fr;
+    /* more vertical gap between stacked cards · room for the floating badge */
+    gap: 44px;
+  }
+  /* platform columns become a horizontal swipe slider (like the proof cards);
+     the Carousel renders the dots, fb.css styles .fb-cards-dots on mobile */
+  .fb-ag-plat-grid {
+    display: flex;
+    grid-template-columns: none;
+    align-items: flex-start;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    gap: 16px;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .fb-ag-plat-grid::-webkit-scrollbar {
+    display: none;
+  }
+  .fb-ag-plat-grid > .fb-ag-plat {
+    flex: 0 0 100%;
+    scroll-snap-align: center;
+  }
+  /* keep the featured ring from clipping when cards stack */
+  .fb-ag-price-grid .fb-price-card--featured {
+    outline-offset: 0;
+  }
+}
+
+@media (max-width: 560px) {
+  /* mobile keeps the lifted hero padding (desktop uses the fixed 155px) */
+  .fb-hero--ag {
+    padding-top: 100px;
+  }
+  /* smaller hero pill on phones */
+  .fb-ag-pill {
+    min-height: 52px;
+    padding: 0 22px;
+    font-size: 13px;
+  }
+  /* tighter gap between the stacked CTA buttons */
+  .fb-ag-cta-actions {
+    gap: 10px;
+  }
+  /* section paddings tuned to the for-businesses mobile rhythm */
+  .fb-ag-pitch {
+    padding-bottom: 96px;
+  }
+  .fb-pricing--ag {
+    padding-top: 74px;
+  }
+  .fb-ag-platform {
+    padding-bottom: 96px;
+  }
+  .fb-ag-stat-num {
+    font-size: 38px;
+  }
+  .fb-ag-trow {
+    grid-template-columns: 1fr auto;
+    gap: 10px;
+  }
+  /* signals column drops on the narrowest screens — name + match stay */
+  .fb-ag-trow .fb-ag-tsignals {
+    display: none;
+  }
+  .fb-ag-trow--head {
+    display: none;
+  }
+}
