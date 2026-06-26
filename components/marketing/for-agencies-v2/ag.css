@@ -61,7 +61,7 @@
 }
 /* hero headline base words · pale cyan */
 .fb-hero--ag .fb-h1 {
-  color: #caecec;
+  color: #ffffff;
 }
 /* CTA-only hero (no search pill): center the single Start-free button */
 .fb-ag-hero-cta {
@@ -404,12 +404,18 @@
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 22px;
-  align-items: start;
+  align-items: stretch;
 }
 /* the agency cards fill their grid cell (override fb.css' fixed widths) */
 .fb-ag-price-grid .fb-price-card {
   width: 100%;
   padding: 36px 34px 30px;
+  display: flex;
+  flex-direction: column;
+}
+/* equal-height cards: the feature list grows so every CTA lands on the same baseline */
+.fb-ag-price-grid .fb-price-list {
+  flex: 1;
 }
 /* highlighted middle card · subtle yellow ring */
 .fb-ag-price-grid .fb-price-card--featured {

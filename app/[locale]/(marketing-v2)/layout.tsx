@@ -105,8 +105,6 @@ async function V2Footer({ params }: { params: Promise<LayoutParams> }) {
           <FbLogo height={32} />
         </Link>
         <nav aria-label={t("footer.nav_aria")} className="fb-footer-nav">
-          <Link href="/for-businesses">{t("header.for_businesses")}</Link>
-          <Link href="/for-agencies">{t("header.for_agencies")}</Link>
           <Link href="/privacy">{t("footer.privacy")}</Link>
           <Link href="/terms">{t("footer.terms")}</Link>
           <Link href="/cookies">{t("footer.cookies")}</Link>

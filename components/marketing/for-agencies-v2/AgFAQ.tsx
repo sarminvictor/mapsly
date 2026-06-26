@@ -12,7 +12,7 @@ interface AgFAQProps {
   t: (key: string) => string;
 }
 
-const ITEMS = ["q1", "q2", "q3", "q4", "q5"] as const;
+const ITEMS = ["q1", "q2", "q3", "q4", "q5", "q6"] as const;
 
 export function AgFAQ({ t }: AgFAQProps) {
   const faqSchema = {

@@ -4,10 +4,14 @@ import { setRequestLocale, getTranslations } from "next-intl/server";
 import { AgLanding } from "@/components/marketing/for-agencies-v2/AgLanding";
 import { getLocaleAlternates } from "@/i18n/pathnames";
 
-// /for-agencies · the same agency landing as the homepage, kept as a stable
-// URL for inbound links + the localized pathnames (/para-agencias,
-// /pour-agences). Canonicalises to `/` so search engines consolidate on the
-// homepage. Renders the shared <AgLanding> (no redirect → no flash).
+// Homepage · mapsly.ai/ — the agency landing IS the homepage (agencies are
+// the primary channel, 2026-06). Rendered directly (no redirect) so there's
+// no flash of a prior page. The SMB landing lives at /for-businesses, unlinked
+// from nav + footer. The same content is also served at /for-agencies, which
+// canonicalises here.
+//
+// Lives in (marketing-v2) so it gets the new dark chrome + fonts. The legacy
+// (marketing) group keeps the cream chrome for /privacy, /terms, etc.
 
 const CANONICAL_ORIGIN = "https://mapsly.ai";
 
@@ -23,7 +27,6 @@ export async function generateMetadata({
     title: t("title"),
     description: t("description"),
     alternates: {
-      // Dedup to the homepage — the agency landing's canonical home is `/`.
       canonical: `${CANONICAL_ORIGIN}/`,
       languages: getLocaleAlternates("/"),
     },
@@ -43,7 +46,7 @@ export async function generateMetadata({
   };
 }
 
-export default async function ForAgenciesPage({
+export default async function HomePage({
   params,
 }: {
   params: Promise<{ locale: string }>;

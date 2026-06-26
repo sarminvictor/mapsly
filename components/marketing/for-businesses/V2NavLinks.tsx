@@ -26,20 +26,6 @@ export function V2NavLinks({ labels }: { labels: V2NavLabels }) {
 
   return (
     <nav aria-label={labels.navAria} className="fb-nav">
-      <Link
-        href="/for-businesses"
-        className="fb-navlink"
-        aria-current={pathname === "/for-businesses" ? "page" : undefined}
-      >
-        {labels.forBusinesses}
-      </Link>
-      <Link
-        href="/for-agencies"
-        className="fb-navlink"
-        aria-current={pathname === "/for-agencies" ? "page" : undefined}
-      >
-        {labels.forAgencies}
-      </Link>
       {/* In-page anchor to the pricing band — plain <a>, not a route. */}
       <a href="#pricing" className="fb-navlink">
         {labels.price}

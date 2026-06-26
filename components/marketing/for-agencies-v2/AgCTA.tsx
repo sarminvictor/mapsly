@@ -42,9 +42,6 @@ export function AgCTA({ t }: AgCTAProps) {
               <Link href="/signin" className="fb-btn">
                 {t("cta.primary")} <ArrowGlyph />
               </Link>
-              <Link href="/signin" className="fb-btn fb-btn--ghost">
-                {t("cta.secondary")}
-              </Link>
             </div>
           </div>
         </div>
