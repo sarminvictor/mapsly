@@ -21,12 +21,25 @@
 
 import prisma from "@/lib/prisma";
 
-import {
-  buildFirstTouch,
-  type FirstTouch,
-  type TouchChannel,
-  type TouchSignals,
-} from "./first-touch";
+import { type TouchSignals } from "./first-touch";
+import { buildChannelTouch, type OutreachChannel } from "./channels";
+
+/** The channel the action exposes (UI selector). Mapped to the renderer's
+ *  OutreachChannel so phone/social render as a call script / DM, not an email. */
+export type GenerateChannel = "email" | "dm" | "phone" | "social";
+
+function toOutreachChannel(c: GenerateChannel): OutreachChannel {
+  switch (c) {
+    case "email":
+      return "email";
+    case "phone":
+      return "phone_script";
+    case "social":
+    case "dm":
+    default:
+      return "social_dm";
+  }
+}
 
 /** Map of category → customer noun (mirrors modules/cold/signals.ts). */
 function nounFor(category: string | null): string {
@@ -165,7 +178,7 @@ export async function gatherTouchSignals(
 export interface GenerateTouchesOptions {
   /** What the agency is selling (appears in the opener). */
   sellingWhat: string;
-  channel: TouchChannel;
+  channel: GenerateChannel;
   /** Required for email per CAN-SPAM (physical address). */
   mailingAddress?: string | null;
   unsubscribeUrl?: string | null;
@@ -192,14 +205,18 @@ export async function generateTouchesForLeads(
   opts: GenerateTouchesOptions,
 ): Promise<GeneratedTouch[]> {
   const out: GeneratedTouch[] = [];
+  const channel = toOutreachChannel(opts.channel);
 
   for (const businessId of businessIds) {
-    let touch: FirstTouch;
+    let touch: ReturnType<typeof buildChannelTouch>;
     try {
       const signals = await gatherTouchSignals(businessId);
-      touch = buildFirstTouch(signals, {
+      // Channel-aware: email → full skeleton + CAN-SPAM footer; phone → call
+      // script; social/dm → short DM. (Was buildFirstTouch — phone/social
+      // rendered as an email.)
+      touch = buildChannelTouch(signals, {
+        channel,
         sellingWhat: opts.sellingWhat,
-        channel: opts.channel,
         mailingAddress: opts.mailingAddress ?? null,
         unsubscribeUrl: opts.unsubscribeUrl ?? null,
       });
@@ -212,7 +229,7 @@ export async function generateTouchesForLeads(
       data: {
         businessId,
         campaignId: opts.campaignId ?? null,
-        channel: opts.channel,
+        channel,
         subject: touch.subject ?? null,
         body: touch.body,
         whyJson: {
