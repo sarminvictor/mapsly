@@ -170,12 +170,27 @@ async function handle(request: Request): Promise<Response> {
         },
       });
 
-      // Recompute aggregates (reviewCount/rating/replyRate/velocity30d).
+      // Recompute aggregates (reviewCount/rating/replyRate/velocity30d +
+      // E5 lifecycle/momentum signals).
       await recomputeReviewAggregates(
         business.id,
         result.totalReviewsCount,
         result.aggregateRating,
       );
+
+      // Resolve the durable ReviewJob (when this pull came through the
+      // submitReviewJob path) so the state machine reflects the happy-path
+      // completion and the reconcile sweep never marks it FAILED. No-op for
+      // legacy trigger-pull businesses that have no ReviewJob row.
+      await prisma.reviewJob.updateMany({
+        where: {
+          taskId,
+          status: {
+            in: ["QUEUED", "SUBMITTED", "AWAITING_PINGBACK", "FETCHING"],
+          },
+        },
+        data: { status: "DONE" },
+      });
 
       // Event-driven AI entity extraction · NEW reviews only · skips
       // entirely when 0 new (cheapest possible idle path). Replaces

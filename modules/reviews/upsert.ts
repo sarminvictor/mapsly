@@ -30,6 +30,7 @@ import prisma from "@/lib/prisma";
 import type { ReviewItem } from "@/services/dataforseo";
 import { reviewItemToPersist } from "./persist-helpers";
 import { sentimentFromStars } from "./sentiment-from-stars";
+import { classifyLifecycle } from "./comparative-signals";
 
 export interface UpsertReviewBatchOptions {
   /** Reviews older than this date are skipped (and trigger early stop). */
@@ -223,7 +224,8 @@ export async function recomputeReviewAggregates(
   remoteRating: number | null,
 ): Promise<void> {
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-  const [total, last30d] = await Promise.all([
+  const sixtyDaysAgo = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000);
+  const [total, last30d, prev30d, latest] = await Promise.all([
     // Total review count for replyRate denominator. Plain count is the
     // right primitive · prisma.review.aggregate({ _count: { _all: true } })
     // doesn't accept a sibling `_sum: {}` placeholder (Prisma throws on
@@ -231,6 +233,18 @@ export async function recomputeReviewAggregates(
     prisma.review.count({ where: { businessId } }),
     prisma.review.count({
       where: { businessId, postedAt: { gte: thirtyDaysAgo } },
+    }),
+    // Prior 30-day window (60..30 days ago) for the momentum signal.
+    prisma.review.count({
+      where: {
+        businessId,
+        postedAt: { gte: sixtyDaysAgo, lt: thirtyDaysAgo },
+      },
+    }),
+    prisma.review.findFirst({
+      where: { businessId },
+      orderBy: { postedAt: "desc" },
+      select: { postedAt: true },
     }),
   ]);
 
@@ -240,6 +254,19 @@ export async function recomputeReviewAggregates(
 
   const replyRate = total === 0 ? 0 : repliedCount / total;
 
+  // E5 lifecycle/momentum: classify TRENDING/STABLE/DYING/DORMANT/NONE so the
+  // signal registry + outreach grounding read real values instead of nulls.
+  const lastReviewAt = latest?.postedAt ?? null;
+  const lastReviewAgeDays = lastReviewAt
+    ? Math.floor((Date.now() - lastReviewAt.getTime()) / 86_400_000)
+    : null;
+  const reviewLifecycle = classifyLifecycle({
+    reviewCount: remoteReviewCount ?? total,
+    velocity30d: last30d,
+    velocityPrev30d: prev30d,
+    lastReviewAgeDays,
+  });
+
   await prisma.business.update({
     where: { id: businessId },
     data: {
@@ -248,6 +275,8 @@ export async function recomputeReviewAggregates(
       // and our local count would lag). Fall back to local DB count.
       ...(remoteReviewCount != null ? { reviewCount: remoteReviewCount } : {}),
       ...(remoteRating != null ? { rating: remoteRating } : {}),
+      // Powers the stale_no_reviews signal (was never written → always stale).
+      ...(lastReviewAt ? { lastReviewAt } : {}),
     },
   });
 
@@ -268,12 +297,16 @@ export async function recomputeReviewAggregates(
       rating: remoteRating,
       replyRate,
       velocityLast30d: last30d,
+      velocityPrev30d: prev30d,
+      reviewLifecycle,
     },
     update: {
       reviewCount: remoteReviewCount ?? total,
       rating: remoteRating,
       replyRate,
       velocityLast30d: last30d,
+      velocityPrev30d: prev30d,
+      reviewLifecycle,
     },
   });
 }
