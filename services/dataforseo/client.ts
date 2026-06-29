@@ -25,6 +25,7 @@
 // daily-fast (1h), weekly (12h), monthly (24h+). See data-cadence.md.
 
 import { assertCronContext } from "@/lib/cost/cost-counter";
+import { acquireVendorToken } from "@/lib/enrichment/token-bucket-redis";
 
 // ---- Constants ----------------------------------------------------------
 
@@ -186,6 +187,10 @@ export async function dataforSeoPost<TaskResult>(
   taskId: string | undefined;
 }> {
   assertCronContext(options.operation);
+
+  // Pace under DataForSEO's req/s cap across concurrent workers (Redis token
+  // bucket). No-op when Redis isn't configured (degrades open).
+  await acquireVendorToken("dataforseo");
 
   const { username, password } = getCredentials();
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
