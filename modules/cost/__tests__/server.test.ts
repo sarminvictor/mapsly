@@ -176,13 +176,20 @@ vi.mock("@/lib/prisma", () => {
         where,
         select,
       }: {
-        where: { runId?: string; type?: string };
+        where: {
+          runId?: string;
+          type?: string;
+          agencyId?: string;
+          note?: string;
+        };
         select?: any;
       }) => {
         const row = db.ledger.find(
           (l) =>
             (where.runId == null || l.runId === where.runId) &&
-            (where.type == null || l.type === where.type),
+            (where.type == null || l.type === where.type) &&
+            (where.agencyId == null || l.agencyId === where.agencyId) &&
+            (where.note == null || l.note === where.note),
         );
         if (!row) return null;
         return select ? pick(row, select) : row;
@@ -271,7 +278,10 @@ import {
   authorizeEstimate,
   createCostEstimate,
   getOrCreateWallet,
+  grantFreeTierIfNew,
+  grantPlanCredits,
   holdCredits,
+  reconcileRunCredits,
   refundHold,
   settleRun,
   WalletError,
@@ -313,9 +323,9 @@ describe("createCostEstimate", () => {
     );
 
     expect(estimate.status).toBe("QUOTED");
-    // 10 × $0.0025 = $0.025 net.
-    expect(result.netUsd).toBeCloseTo(0.025, 6);
-    expect(Number(estimate.netUsd)).toBeCloseTo(0.025, 6);
+    // 10 × $0.00425 (live-verified lighthouse cost) = $0.0425 net.
+    expect(result.netUsd).toBeCloseTo(0.0425, 6);
+    expect(Number(estimate.netUsd)).toBeCloseTo(0.0425, 6);
     // 15-minute TTL from `now`.
     expect(estimate.expiresAt.getTime()).toBe(NOW.getTime() + 15 * 60_000);
   });
@@ -359,12 +369,12 @@ describe("authorizeEstimate · anti-tamper", () => {
     db.estimates.get(estimate.id)!.netUsd = 0.0001;
 
     const res = await authorizeEstimate(estimate.id, "u1", NOW);
-    // Live re-quote (0.025) drifts massively from the tampered stored 0.0001 →
+    // Live re-quote (0.0425) drifts massively from the tampered stored 0.0001 →
     // needs_requote (the anti-tamper catch).
     expect(res.status).toBe("needs_requote");
     if (res.status === "needs_requote") {
       expect(res.reason).toBe("drift");
-      expect(res.result.netUsd).toBeCloseTo(0.025, 6);
+      expect(res.result.netUsd).toBeCloseTo(0.0425, 6);
     }
   });
 
@@ -457,7 +467,8 @@ describe("settleRun", () => {
     expect(res.refunded).toBe(15);
     const w = await getOrCreateWallet("a1", NOW);
     expect(w.heldCredits).toBe(0); // hold fully released
-    expect(w.purchasedCredits).toBe(-25); // 25 drawn down (seeded plan, none purchased)
+    expect(w.planCredits).toBe(75); // 25 drawn from the plan bucket first
+    expect(w.purchasedCredits).toBe(0); // purchased untouched
     expect(db.ledger.filter((l) => l.type === "SETTLE")).toHaveLength(1);
     expect(db.ledger.filter((l) => l.type === "REFUND")).toHaveLength(1);
   });
@@ -486,5 +497,130 @@ describe("refundHold", () => {
     const w = await getOrCreateWallet("a1", NOW);
     expect(w.heldCredits).toBe(0);
     expect(db.ledger.filter((l) => l.type === "REFUND")).toHaveLength(1);
+  });
+});
+
+// ─── Plan grants + free tier ─────────────────────────────────────────────────
+
+describe("grantFreeTierIfNew", () => {
+  test("grants the one-time free credits exactly once", async () => {
+    await grantFreeTierIfNew("a1");
+    let w = await getOrCreateWallet("a1", NOW);
+    expect(w.planCredits).toBe(50);
+    expect(w.availableCredits).toBe(50);
+    await grantFreeTierIfNew("a1"); // idempotent
+    w = await getOrCreateWallet("a1", NOW);
+    expect(w.planCredits).toBe(50);
+    expect(db.ledger.filter((l) => l.note === "free-tier-grant")).toHaveLength(
+      1,
+    );
+  });
+
+  test("skips agencies already funded by a paid grant", async () => {
+    await grantPlanCredits("a1", "SOLO", null, "p1");
+    await grantFreeTierIfNew("a1");
+    const w = await getOrCreateWallet("a1", NOW);
+    expect(w.planCredits).toBe(600); // unchanged by the free grant
+  });
+});
+
+describe("grantPlanCredits", () => {
+  test("sets the plan bucket to the tier amount", async () => {
+    await grantPlanCredits("a1", "GROWTH", null, "p1");
+    const w = await getOrCreateWallet("a1", NOW);
+    expect(w.planCredits).toBe(1600);
+  });
+
+  test("is idempotent per (agency, tier, period)", async () => {
+    await grantPlanCredits("a1", "SOLO", null, "period-1");
+    await grantPlanCredits("a1", "SOLO", null, "period-1"); // replay
+    const w = await getOrCreateWallet("a1", NOW);
+    expect(w.planCredits).toBe(600);
+    expect(db.ledger.filter((l) => l.type === "TOPUP")).toHaveLength(1);
+  });
+
+  test("rolls the prior period's unused plan credits over (1-cycle)", async () => {
+    await grantPlanCredits("a1", "SOLO", null, "period-1"); // plan=600
+    await grantPlanCredits("a1", "SOLO", null, "period-2"); // re-grant
+    const w = await getOrCreateWallet("a1", NOW);
+    expect(w.planCredits).toBe(600);
+    expect(w.rolloverCredits).toBe(600);
+    expect(w.availableCredits).toBe(1200);
+  });
+});
+
+// ─── Run close-out ───────────────────────────────────────────────────────────
+
+describe("reconcileRunCredits", () => {
+  test("charges the full hold when the run made progress", async () => {
+    seedWallet("a1", 100);
+    await holdCredits("a1", 30, "run1");
+    await reconcileRunCredits("run1", { hadProgress: true });
+    const w = await getOrCreateWallet("a1", NOW);
+    expect(w.heldCredits).toBe(0);
+    expect(w.availableCredits).toBe(70); // 30 charged
+    expect(db.ledger.filter((l) => l.type === "SETTLE")).toHaveLength(1);
+  });
+
+  test("refunds the entire hold when the run produced nothing", async () => {
+    seedWallet("a1", 100);
+    await holdCredits("a1", 30, "run1");
+    await reconcileRunCredits("run1", { hadProgress: false });
+    const w = await getOrCreateWallet("a1", NOW);
+    expect(w.heldCredits).toBe(0);
+    expect(w.availableCredits).toBe(100); // nothing charged
+  });
+
+  test("charges only the actual when supplied (refunds the diff)", async () => {
+    seedWallet("a1", 100);
+    await holdCredits("a1", 40, "run1");
+    await reconcileRunCredits("run1", { actualCredits: 10, hadProgress: true });
+    const w = await getOrCreateWallet("a1", NOW);
+    expect(w.availableCredits).toBe(90); // 10 charged, 30 refunded
+  });
+
+  test("is a no-op for a run with no hold", async () => {
+    seedWallet("a1", 100);
+    await reconcileRunCredits("ghost", { hadProgress: true });
+    const w = await getOrCreateWallet("a1", NOW);
+    expect(w.availableCredits).toBe(100);
+  });
+});
+
+describe("authorizeEstimate · discovery scope", () => {
+  test("re-quotes discovery from stored cells, not empty enrichment lines", async () => {
+    const { estimate } = await createCostEstimate(
+      {
+        agencyId: "a1",
+        userId: "u1",
+        scopeKind: "discovery",
+        enrichments: [],
+        scopeRefs: {
+          kind: "discovery",
+          cells: [
+            {
+              cellKey: "x|miami|US",
+              lastDiscoveredAt: null,
+              expectedListings: 100,
+            },
+          ],
+          lines: [],
+        },
+        lines: [],
+        freshnessAsOf: NOW,
+      },
+      NOW,
+    );
+    // Mimic the action: overwrite the empty-line $0 quote with the plan number
+    // (base 0.01 + 100 × 0.0003 = 0.04).
+    db.estimates.get(estimate.id)!.netUsd = 0.04;
+
+    const res = await authorizeEstimate(estimate.id, "u1", NOW);
+    // The discovery re-quote recomputes 0.04 from the stored cells and is stable;
+    // a plain estimateRun([]) would have re-quoted to $0 and force-drifted.
+    expect(res.status).toBe("authorized");
+    if (res.status === "authorized") {
+      expect(res.result.netUsd).toBeCloseTo(0.04, 4);
+    }
   });
 });

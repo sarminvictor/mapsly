@@ -105,11 +105,25 @@ export function DiscoverFlow({
   }
 
   function run() {
+    if (!quote) return;
     setError(null);
     startTransition(async () => {
-      const r = await runDiscoveryAction({ cells });
-      if (r.status === "ok") setDiscoveryId(r.discoveryId);
-      else setError(`Couldn't start discovery (${r.status}).`);
+      const r = await runDiscoveryAction({ estimateId: quote.estimateId });
+      if (r.status === "ok") {
+        setDiscoveryId(r.discoveryId);
+      } else if (r.status === "needs_requote") {
+        setQuote(null);
+        setError("Prices changed — preview the cost again.");
+      } else if (r.status === "quote_expired") {
+        setQuote(null);
+        setError("This quote expired — preview the cost again.");
+      } else if (r.status === "needs_approval") {
+        setError("This run is over $5 and needs owner approval.");
+      } else if (r.status === "insufficient_credits") {
+        setError("Not enough credits — add credits to run this.");
+      } else {
+        setError(`Couldn't start discovery (${r.status}).`);
+      }
     });
   }
 

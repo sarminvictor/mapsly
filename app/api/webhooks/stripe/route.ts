@@ -39,8 +39,13 @@ import prisma from "@/lib/prisma";
 import stripeClient from "@/lib/stripe";
 import { rateLimit, WEBHOOK_LIMIT } from "@/lib/middleware/rate-limit";
 import { provisionSmbFromCheckout } from "@/modules/billing/provision";
-import { handleStripeEvent } from "@/modules/billing/webhook";
+import {
+  handleStripeEvent,
+  type WebhookOutcome,
+} from "@/modules/billing/webhook";
 import { recordLandingConversion } from "@/modules/smb-landing/conversion";
+import { grantPlanCredits } from "@/modules/cost/server";
+import { PLAN_CREDITS, type AgencyPlanTier } from "@/modules/cost/pricing";
 
 export async function POST(req: Request): Promise<Response> {
   // ─── Rate limit (key by signature so each Stripe key gets its own bucket) ──
@@ -169,6 +174,19 @@ export async function POST(req: Request): Promise<Response> {
       where: { id: webhookRowId },
       data: { processedAt: new Date(), error: null },
     });
+    // Grant the agency's plan credits to its wallet (best-effort, idempotent
+    // per billing period). Without this the cost engine's wallets stay at 0 and
+    // every enrichment run would fail insufficient_credits.
+    await grantAgencyCreditsFromEvent(event, outcome).catch((err) => {
+      console.error(
+        JSON.stringify({
+          level: "error",
+          event: "billing.webhook.credit_grant_failed",
+          stripeEventId: event.id,
+          error: err instanceof Error ? err.message : String(err),
+        }),
+      );
+    });
     // Landing funnel attribution (best-effort, internally guarded) — records
     // SUBSCRIPTION_BOUGHT when this conversion came from a /l/[token] proposal.
     await recordLandingConversion(event);
@@ -247,4 +265,43 @@ async function provisionSmbOnCheckoutCompleted(
       }),
     );
   }
+}
+
+/**
+ * Grant an agency's plan credits to its wallet after a subscription event that
+ * established or renewed the plan. Idempotent per billing period (grantPlanCredits
+ * dedupes on the period key), so checkout + subscription.created + invoice.paid
+ * all converging on the same period grant exactly once. Runs AFTER handleStripeEvent
+ * has written Agency.plan + currentPeriodEnd, so it reads the now-current tier.
+ */
+async function grantAgencyCreditsFromEvent(
+  event: Stripe.Event,
+  outcome: WebhookOutcome,
+): Promise<void> {
+  const GRANT_EVENTS = new Set<string>([
+    "checkout.session.completed",
+    "customer.subscription.created",
+    "customer.subscription.updated",
+    "invoice.paid",
+  ]);
+  if (!GRANT_EVENTS.has(event.type)) return;
+  if (outcome.kind !== "handled" || outcome.targetType !== "agency") return;
+
+  const agency = await prisma.agency.findUnique({
+    where: { id: outcome.targetId },
+    select: { plan: true, currentPeriodEnd: true },
+  });
+  const plan = agency?.plan;
+  if (!plan || !(plan in PLAN_CREDITS)) return;
+
+  const periodEnd = agency.currentPeriodEnd ?? null;
+  // Dedupe per billing period: a renewal (new period end) grants fresh credits,
+  // but replays of the same period don't double-grant. Fall back to the event id.
+  const dedupeKey = periodEnd ? periodEnd.toISOString() : event.id;
+  await grantPlanCredits(
+    outcome.targetId,
+    plan as AgencyPlanTier,
+    periodEnd,
+    dedupeKey,
+  );
 }

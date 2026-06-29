@@ -22,8 +22,12 @@ import { NextResponse } from "next/server";
 
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { CREDIT_USD } from "@/modules/cost/pricing";
+import { grantFreeTierIfNew } from "@/modules/cost/server";
 
-const CREDIT_TO_USD = 0.01; // 1 credit ≈ $0.01 · glance-only conversion.
+// 1 credit's USD value — the single canonical price from modules/cost/pricing
+// (was a divergent hardcoded $0.01 here · pricing source-of-truth fork, fixed).
+const CREDIT_TO_USD = CREDIT_USD;
 
 export async function GET(): Promise<NextResponse> {
   const session = await auth();
@@ -41,6 +45,10 @@ export async function GET(): Promise<NextResponse> {
   }
 
   try {
+    // Lazily fund a brand-new agency with its one-time free-tier credits so the
+    // pill shows a real balance before the first spend. Idempotent + best-effort.
+    await grantFreeTierIfNew(member.agencyId).catch(() => {});
+
     const wallet = await prisma.agencyWallet.findUnique({
       where: { agencyId: member.agencyId },
       select: {

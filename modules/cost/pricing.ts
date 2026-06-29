@@ -38,6 +38,23 @@ export const COST_GATE = {
   reQuoteDriftPct: 0.1,
 } as const;
 
+/**
+ * Monthly plan credit grants. 1 credit = 1 fully-enriched lead. The free tier
+ * is a one-time 50-credit grant (no Stripe subscription); paid tiers re-grant
+ * each billing cycle. Keys match the AgencyPlan enum in prisma/schema.prisma.
+ * Source of truth: docs/pricing-strategy.md / docs/enrichment-cost-model.md.
+ */
+export const FREE_TIER_CREDITS = 50;
+
+export type AgencyPlanTier = "SOLO" | "GROWTH" | "AGENCY_PRO" | "BOUTIQUE";
+
+export const PLAN_CREDITS: Record<AgencyPlanTier, number> = {
+  SOLO: 600,
+  GROWTH: 1_600,
+  AGENCY_PRO: 5_000,
+  BOUTIQUE: 12_000,
+};
+
 export type EnrichmentType =
   | "contacts"
   | "services"

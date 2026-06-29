@@ -24,7 +24,13 @@ import { z } from "zod";
 
 import { auth } from "@/lib/auth";
 import prisma, { Prisma } from "@/lib/prisma";
-import { createCostEstimate } from "@/modules/cost/server";
+import {
+  createCostEstimate,
+  authorizeEstimate,
+  holdCredits,
+  grantFreeTierIfNew,
+  WalletError,
+} from "@/modules/cost/server";
 import {
   ALL_ENRICHMENT_TYPES,
   type EnrichmentType,
@@ -48,6 +54,17 @@ const EnrichInput = z.object({
 });
 
 export type EnrichActionInput = z.input<typeof EnrichInput>;
+
+/**
+ * The run action takes ONLY the estimateId. The scope (businesses, cells,
+ * families) is reconstructed from the AUTHORIZED estimate server-side — a
+ * tampered client can't enrich a larger/different set than was quoted.
+ */
+const RunEnrichInput = z.object({
+  estimateId: z.string().min(1).max(64),
+});
+
+export type RunEnrichActionInput = z.input<typeof RunEnrichInput>;
 
 // ── Result shapes ───────────────────────────────────────────────────────────
 
@@ -81,6 +98,10 @@ export type RunEnrichResult =
   | { status: "unauthorized" }
   | { status: "forbidden" }
   | { status: "invalid_input"; message: string }
+  | { status: "needs_requote"; netUsd: number; netCredits: number }
+  | { status: "needs_approval"; netUsd: number; netCredits: number }
+  | { status: "quote_expired" }
+  | { status: "insufficient_credits"; netCredits: number }
   | { status: "error" };
 
 async function callerAgencyId(userId: string): Promise<string | null> {
@@ -177,9 +198,11 @@ export async function preflightEnrichAction(
 }
 
 /**
- * Enqueue an enrichment run. Creates a PENDING EnrichmentRun row and returns its
- * id. The internal worker routes (`/api/internal/scan-contacts`, etc.) execute
- * the families inside cron context; this action NEVER calls external APIs.
+ * Enqueue an enrichment run from an authorized estimate. Authorizes the quote
+ * (server re-quote + anti-tamper + gate), holds the credits, creates a PENDING
+ * EnrichmentRun, and marks the estimate CONSUMED (single-use). The internal
+ * dispatch cron executes the families + settles the hold; this action NEVER
+ * calls external APIs and never charges above the held amount.
  */
 export async function runEnrichAction(
   input: unknown,
@@ -187,7 +210,7 @@ export async function runEnrichAction(
   const session = await auth();
   if (!session?.user?.id) return { status: "unauthorized" };
 
-  const parsed = EnrichInput.safeParse(input);
+  const parsed = RunEnrichInput.safeParse(input);
   if (!parsed.success) {
     return {
       status: "invalid_input",
@@ -199,20 +222,62 @@ export async function runEnrichAction(
     const agencyId = await callerAgencyId(session.user.id);
     if (!agencyId) return { status: "forbidden" };
 
-    const freshByEnrichment = await countFreshForRun({
-      enrichments: parsed.data.enrichments,
-      businessIds: parsed.data.businessIds,
-      cellKeys: parsed.data.cellKeys,
+    await grantFreeTierIfNew(agencyId);
+
+    // Authorize: server re-quotes from the stored inputs (ignores any client
+    // number) and flips the estimate AUTHORIZED, or tells us to re-quote.
+    const authz = await authorizeEstimate(
+      parsed.data.estimateId,
+      session.user.id,
+    );
+    switch (authz.status) {
+      case "not_found":
+        return { status: "invalid_input", message: "estimate not found" };
+      case "forbidden":
+        return { status: "forbidden" };
+      case "expired":
+        return { status: "quote_expired" };
+      case "already_consumed":
+        return { status: "invalid_input", message: "estimate already used" };
+      case "needs_requote":
+        return {
+          status: "needs_requote",
+          netUsd: authz.result.netUsd,
+          netCredits: authz.result.netCredits,
+        };
+    }
+    const result = authz.result;
+    // $5 rule: spends above the approval threshold need owner/Viktor sign-off,
+    // not self-serve. Enforced server-side, not just in the UI.
+    if (result.gate === "approval") {
+      return {
+        status: "needs_approval",
+        netUsd: result.netUsd,
+        netCredits: result.netCredits,
+      };
+    }
+
+    // Reconstruct the run scope from the AUTHORIZED estimate (anti-tamper).
+    const est = await prisma.costEstimate.findUnique({
+      where: { id: parsed.data.estimateId },
+      select: { enrichmentsJson: true, scopeRefsJson: true },
     });
-    const lines = buildEnrichLines({
-      enrichments: parsed.data.enrichments,
-      businessCount: parsed.data.businessIds.length,
-      cellCount: parsed.data.cellKeys.length,
-      freshByEnrichment,
-    });
-    const unitsRequested = lines.reduce((s, l) => s + l.total, 0);
-    const unitsSkippedFresh = parsed.data.enrichments.reduce(
-      (s, e) => s + Math.min(freshByEnrichment[e] ?? 0, unitsRequested),
+    if (!est) return { status: "invalid_input", message: "estimate not found" };
+
+    const families = (
+      Array.isArray(est.enrichmentsJson) ? est.enrichmentsJson : []
+    ) as EnrichmentType[];
+    const scope = (est.scopeRefsJson ?? {}) as {
+      businessIds?: string[];
+      cellKeys?: string[];
+      lines?: { total?: number; fresh?: number }[];
+    };
+    const businessIds = scope.businessIds ?? [];
+    const cellKeys = scope.cellKeys ?? [];
+    const lines = Array.isArray(scope.lines) ? scope.lines : [];
+    const unitsRequested = lines.reduce((s, l) => s + (l.total ?? 0), 0);
+    const unitsSkippedFresh = lines.reduce(
+      (s, l) => s + Math.min(l.fresh ?? 0, l.total ?? 0),
       0,
     );
 
@@ -220,19 +285,45 @@ export async function runEnrichAction(
       data: {
         agencyId,
         triggeredByUserId: session.user.id,
-        enrichmentsJson: parsed.data
-          .enrichments as unknown as Prisma.InputJsonValue,
+        estimateId: parsed.data.estimateId,
+        enrichmentsJson: families as unknown as Prisma.InputJsonValue,
         scopeKind: "enrichment",
         scopeRefsJson: {
           kind: "enrichment",
-          businessIds: parsed.data.businessIds,
-          cellKeys: parsed.data.cellKeys,
+          businessIds,
+          cellKeys,
         } as Prisma.InputJsonValue,
         status: "PENDING",
+        estimatedUsd: result.netUsd,
+        creditsHeld: result.netCredits,
         unitsRequested,
         unitsSkippedFresh,
       },
       select: { id: true },
+    });
+
+    // Reserve credits. A $0 run (everything fresh) needs no hold.
+    if (result.netCredits > 0) {
+      try {
+        await holdCredits(agencyId, result.netCredits, run.id, result.netUsd);
+      } catch (err) {
+        if (err instanceof WalletError && err.code === "insufficient_credits") {
+          await prisma.enrichmentRun
+            .delete({ where: { id: run.id } })
+            .catch(() => {});
+          return {
+            status: "insufficient_credits",
+            netCredits: result.netCredits,
+          };
+        }
+        throw err;
+      }
+    }
+
+    // Single-use: mark the estimate consumed so it can't be replayed.
+    await prisma.costEstimate.update({
+      where: { id: parsed.data.estimateId },
+      data: { status: "CONSUMED", consumedByRunId: run.id },
     });
 
     return { status: "ok", runId: run.id };

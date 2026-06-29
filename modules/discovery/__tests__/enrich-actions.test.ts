@@ -38,6 +38,7 @@ interface FakeEstimate {
   status: string;
   expiresAt: Date;
   priceListVersion: string;
+  createdByUserId: string;
 }
 
 interface FakeRun {
@@ -117,9 +118,37 @@ vi.mock("@/lib/prisma", () => {
           status: (data.status as string) ?? "QUOTED",
           expiresAt: data.expiresAt as Date,
           priceListVersion: data.priceListVersion as string,
+          createdByUserId: data.createdByUserId as string,
         };
         db.estimates.push(row);
         return pick(row, select);
+      },
+    ),
+    findUnique: vi.fn(
+      async ({
+        where,
+        select,
+      }: {
+        where: { id: string };
+        select?: Record<string, boolean>;
+      }) => {
+        const row = db.estimates.find((e) => e.id === where.id);
+        if (!row) return null;
+        return select ? pick(row, select) : row;
+      },
+    ),
+    update: vi.fn(
+      async ({
+        where,
+        data,
+      }: {
+        where: { id: string };
+        data: Record<string, unknown>;
+      }) => {
+        const row = db.estimates.find((e) => e.id === where.id);
+        if (!row) throw new Error("estimate not found");
+        Object.assign(row, data);
+        return { ...row };
       },
     ),
   };
@@ -152,6 +181,23 @@ vi.mock("@/lib/prisma", () => {
   return {
     default: { agencyMember, costEstimate, enrichmentRun },
     Prisma: {},
+  };
+});
+
+// Keep the cost-engine math real (createCostEstimate + authorizeEstimate re-quote
+// against the in-memory prisma above) but stub the wallet side — credit hold /
+// grant invariants are covered in modules/cost/__tests__/server.test.ts.
+vi.mock("@/modules/cost/server", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@/modules/cost/server")>();
+  return {
+    ...actual,
+    grantFreeTierIfNew: vi.fn(async () => {}),
+    holdCredits: vi.fn(async () => ({
+      wallet: null,
+      ledgerId: "led_1",
+      held: 1,
+    })),
   };
 });
 
@@ -246,12 +292,17 @@ describe("preflightEnrichAction", () => {
 // ─── runEnrichAction ─────────────────────────────────────────────────────────
 
 describe("runEnrichAction", () => {
-  test("creates a PENDING EnrichmentRun with unitsRequested = sum of totals", async () => {
-    const r = await runEnrichAction({
+  test("authorizes the estimate + creates a PENDING EnrichmentRun", async () => {
+    // Preflight mints the estimate (real math); run consumes it by id.
+    const pf = await preflightEnrichAction({
       businessIds: ["b1", "b2", "b3"],
       cellKeys: ["c1", "c2"],
       enrichments: ["contacts", "meta_ads"],
     });
+    expect(pf.status).toBe("ok");
+    if (pf.status !== "ok") return;
+
+    const r = await runEnrichAction({ estimateId: pf.estimateId });
     expect(r.status).toBe("ok");
     if (r.status !== "ok") return;
 
@@ -261,15 +312,27 @@ describe("runEnrichAction", () => {
     // contacts (per-business → 3) + meta_ads (per-cell → 2) = 5 units.
     expect(run?.unitsRequested).toBe(5);
     expect(run?.triggeredByUserId).toBe("user-1");
+
+    // Single-use: the estimate is CONSUMED once the run is created.
+    const est = db.estimates.find((e) => e.id === pf.estimateId);
+    expect(est?.status).toBe("CONSUMED");
   });
 
-  test("rejects an unauthenticated caller", async () => {
-    SESSION = null;
-    const r = await runEnrichAction({
+  test("rejects an already-consumed estimate (single-use)", async () => {
+    const pf = await preflightEnrichAction({
       businessIds: ["b1"],
       cellKeys: [],
       enrichments: ["contacts"],
     });
+    if (pf.status !== "ok") throw new Error("preflight failed");
+    await runEnrichAction({ estimateId: pf.estimateId }); // first use
+    const again = await runEnrichAction({ estimateId: pf.estimateId });
+    expect(again.status).toBe("invalid_input");
+  });
+
+  test("rejects an unauthenticated caller", async () => {
+    SESSION = null;
+    const r = await runEnrichAction({ estimateId: "est_x" });
     expect(r.status).toBe("unauthorized");
   });
 });

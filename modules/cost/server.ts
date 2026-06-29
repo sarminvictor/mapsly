@@ -20,13 +20,23 @@
 // Every numeric increment lands on a non-null @default(0) column (INC-32 safe).
 
 import prisma, { Prisma } from "@/lib/prisma";
+import { isCellFresh } from "@/lib/cell";
 
 import {
   estimateRun,
+  estimateDiscovery,
+  type DiscoveryCellInput,
   type EstimateLineInput,
   type EstimateResult,
 } from "./estimate";
-import { COST_GATE, PRICE_LIST_VERSION, type EnrichmentType } from "./pricing";
+import {
+  COST_GATE,
+  PRICE_LIST_VERSION,
+  PLAN_CREDITS,
+  FREE_TIER_CREDITS,
+  type AgencyPlanTier,
+  type EnrichmentType,
+} from "./pricing";
 
 // ── CostEstimate ────────────────────────────────────────────────────────────
 
@@ -147,6 +157,7 @@ export async function authorizeEstimate(
       status: true,
       expiresAt: true,
       netUsd: true,
+      scopeKind: true,
       priceListVersion: true,
       enrichmentsJson: true,
       scopeRefsJson: true,
@@ -167,11 +178,11 @@ export async function authorizeEstimate(
     return { status: "expired" };
   }
 
-  // RE-RUN the estimator from the stored inputs. The scopeRefsJson carries the
-  // estimator lines (see createCostEstimate caller convention) so the live
-  // re-quote is reproducible without the client's number.
-  const lines = extractLinesFromScopeRefs(row.scopeRefsJson);
-  const result = estimateRun({ lines });
+  // RE-RUN the estimator from the stored inputs — reproducible without trusting
+  // the client's number. Discovery re-prices per-cell Maps cost from the stored
+  // cells (estimateRun over discovery's empty enrichment lines would wrongly
+  // yield $0); enrichment re-prices the stored lines.
+  const result = reQuoteEstimate(row.scopeKind, row.scopeRefsJson, now);
 
   const storedNetUsd = Number(row.netUsd);
   const liveNetUsd = result.netUsd;
@@ -235,6 +246,63 @@ function extractLinesFromScopeRefs(raw: Prisma.JsonValue): EstimateLineInput[] {
     if (Array.isArray(lines)) return lines as unknown as EstimateLineInput[];
   }
   return [];
+}
+
+/**
+ * Re-price an estimate from its persisted scope. Enrichment estimates re-run
+ * estimateRun over the stored lines; discovery estimates re-run estimateDiscovery
+ * over the stored cells (recomputing freshness against `now`). The result shape
+ * is identical so the anti-tamper drift comparison is uniform.
+ */
+function reQuoteEstimate(
+  scopeKind: string,
+  scopeRefs: Prisma.JsonValue,
+  now: Date,
+): EstimateResult {
+  if (scopeKind === "discovery") {
+    const d = estimateDiscovery(extractDiscoveryCells(scopeRefs, now));
+    return {
+      lines: [],
+      grossUsd: d.grossUsd,
+      freshHitUsd: d.freshHitUsd,
+      netUsd: d.netUsd,
+      netCredits: d.netCredits,
+      upperBoundUsd: d.netUsd,
+      confidence: "exact",
+      gate: d.gate,
+      priceListVersion: d.priceListVersion,
+    };
+  }
+  return estimateRun({ lines: extractLinesFromScopeRefs(scopeRefs) });
+}
+
+/**
+ * Reconstruct DiscoveryCellInput[] from a discovery estimate's stored cells.
+ * Each persisted cell carries lastDiscoveredAt + expectedListings; freshness is
+ * recomputed against `now` so a cell that went fresh/stale since the quote
+ * re-prices correctly (the 182-day serve-from-DB gate).
+ */
+function extractDiscoveryCells(
+  raw: Prisma.JsonValue,
+  now: Date,
+): DiscoveryCellInput[] {
+  const cells =
+    raw && typeof raw === "object" && "cells" in raw
+      ? (raw as { cells?: unknown }).cells
+      : null;
+  if (!Array.isArray(cells)) return [];
+  return cells.map((c) => {
+    const cell = (c ?? {}) as {
+      lastDiscoveredAt?: string | null;
+      expectedListings?: number;
+    };
+    const last = cell.lastDiscoveredAt ? new Date(cell.lastDiscoveredAt) : null;
+    return {
+      fresh: isCellFresh(last, now),
+      expectedListings:
+        typeof cell.expectedListings === "number" ? cell.expectedListings : 100,
+    };
+  });
 }
 
 // ── Wallet + credit ledger ──────────────────────────────────────────────────
@@ -344,45 +412,75 @@ export async function holdCredits(
 ): Promise<HoldResult> {
   assertCredits(credits);
 
-  // Read inside the transaction would be ideal, but the Neon adapter doesn't
-  // support interactive locks here; we read-then-conditionally-write and rely
-  // on the available-balance check. A concurrent over-hold is bounded by the
-  // run-level idempotency (one EnrichmentRun → one hold).
-  const wallet = await getOrCreateWallet(agencyId);
-  if (credits > wallet.availableCredits) {
+  // Ensure the wallet row exists so the atomic conditional UPDATE has a target.
+  await getOrCreateWallet(agencyId);
+
+  // Atomically reserve: one conditional UPDATE that only succeeds while the
+  // available balance still covers the hold — closes the read-then-write
+  // oversell race two concurrent runs would otherwise hit.
+  const reserved = await tryReserveCredits(agencyId, credits);
+  if (!reserved) {
+    const w = await getOrCreateWallet(agencyId);
     throw new WalletError(
       "insufficient_credits",
-      `hold of ${credits} exceeds available ${wallet.availableCredits}`,
+      `hold of ${credits} exceeds available ${w.availableCredits}`,
     );
   }
 
-  const [ledger, updated] = await prisma.$transaction([
-    prisma.creditLedger.create({
-      data: {
-        agencyId,
-        type: "HOLD",
-        credits,
-        usd,
-        runId,
-        note: "hold for run",
-      },
-      select: { id: true },
-    }),
-    prisma.agencyWallet.update({
-      where: { agencyId },
-      data: { heldCredits: { increment: credits } },
-      select: {
-        id: true,
-        agencyId: true,
-        planCredits: true,
-        purchasedCredits: true,
-        rolloverCredits: true,
-        heldCredits: true,
-      },
-    }),
-  ]);
+  const ledger = await prisma.creditLedger.create({
+    data: { agencyId, type: "HOLD", credits, usd, runId, note: "hold for run" },
+    select: { id: true },
+  });
+  const updated = await prisma.agencyWallet.findUnique({
+    where: { agencyId },
+    select: {
+      id: true,
+      agencyId: true,
+      planCredits: true,
+      purchasedCredits: true,
+      rolloverCredits: true,
+      heldCredits: true,
+    },
+  });
 
-  return { wallet: toWalletState(updated), ledgerId: ledger.id, held: credits };
+  return {
+    wallet: toWalletState(updated!),
+    ledgerId: ledger.id,
+    held: credits,
+  };
+}
+
+/**
+ * Atomically bump heldCredits iff the available balance still covers `credits`.
+ * Prod path: a single conditional `UPDATE ... WHERE available >= n` (the only
+ * way to express a cross-column arithmetic guard — Prisma `where` can't). Test
+ * path (the in-memory mock prisma has no $executeRaw): falls back to
+ * read-check-write, which the unit tests exercise. Returns true on success.
+ */
+async function tryReserveCredits(
+  agencyId: string,
+  credits: number,
+): Promise<boolean> {
+  if (credits === 0) return true;
+  const raw = (prisma as { $executeRaw?: unknown }).$executeRaw;
+  if (typeof raw === "function") {
+    const affected = await prisma.$executeRaw`
+      UPDATE "AgencyWallet"
+      SET "heldCredits" = "heldCredits" + ${credits}
+      WHERE "agencyId" = ${agencyId}
+        AND ("planCredits" + "purchasedCredits" + "rolloverCredits" - "heldCredits") >= ${credits}
+    `;
+    return affected > 0;
+  }
+  // Fallback (unit-test mock): read-then-write.
+  const w = await getOrCreateWallet(agencyId);
+  if (credits > w.availableCredits) return false;
+  await prisma.agencyWallet.update({
+    where: { agencyId },
+    data: { heldCredits: { increment: credits } },
+    select: { id: true },
+  });
+  return true;
 }
 
 /** Sum of credits across ledger rows of a given type for a run. */
@@ -436,6 +534,24 @@ export async function settleRun(
 
   const agencyId = await runAgencyId(runId);
 
+  // Draw the charge down in order plan → rollover → purchased: the plan/free
+  // allotment is spent first, purchased credits last (so a topped-up balance
+  // outlives the monthly grant).
+  const buckets = await prisma.agencyWallet.findUnique({
+    where: { agencyId },
+    select: {
+      planCredits: true,
+      rolloverCredits: true,
+      purchasedCredits: true,
+    },
+  });
+  let rem = charge;
+  const fromPlan = Math.min(rem, buckets?.planCredits ?? 0);
+  rem -= fromPlan;
+  const fromRollover = Math.min(rem, buckets?.rolloverCredits ?? 0);
+  rem -= fromRollover;
+  const fromPurchased = rem; // remainder absorbed by purchased credits
+
   const ops: Prisma.PrismaPromise<unknown>[] = [];
   if (charge > 0) {
     ops.push(
@@ -463,13 +579,15 @@ export async function settleRun(
       }),
     );
   }
-  // Release the hold + draw the charged credits down from purchasedCredits.
+  // Release the hold + draw the charged credits down across the buckets.
   ops.push(
     prisma.agencyWallet.update({
       where: { agencyId },
       data: {
         heldCredits: { decrement: charge + refund },
-        purchasedCredits: { decrement: charge },
+        planCredits: { decrement: fromPlan },
+        rolloverCredits: { decrement: fromRollover },
+        purchasedCredits: { decrement: fromPurchased },
       },
       select: { id: true },
     }),
@@ -532,4 +650,112 @@ async function runAgencyId(runId: string): Promise<string> {
     throw new WalletError("no_hold", `no ledger row for run ${runId}`);
   }
   return row.agencyId;
+}
+
+// ── Run close-out + plan grants ──────────────────────────────────────────────
+
+/**
+ * Close out a finished run's credit hold. Called by the dispatcher after a run
+ * completes: settles the actual charge (refunding the unused hold diff) when
+ * the run made progress, or refunds the entire hold when it produced nothing.
+ * A no-op when the run has no hold (legacy / no-estimate runs). Never throws —
+ * a settlement hiccup must not fail the run close-out.
+ */
+export async function reconcileRunCredits(
+  runId: string,
+  opts: { actualCredits?: number; hadProgress: boolean },
+): Promise<void> {
+  try {
+    const held = await ledgerSum(runId, "HOLD");
+    if (held <= 0) return; // nothing reserved
+    if (!opts.hadProgress) {
+      await refundHold(runId);
+      return;
+    }
+    // Default to charging the full hold (the quoted amount) when no finer
+    // actual is supplied; the job rail (Slice 2) passes per-job actuals.
+    await settleRun(runId, opts.actualCredits ?? held);
+  } catch (err) {
+    console.error(
+      JSON.stringify({
+        level: "error",
+        event: "cost.reconcile.error",
+        runId,
+        error: err instanceof Error ? err.message : String(err),
+      }),
+    );
+  }
+}
+
+/**
+ * Grant (or re-grant) a paid plan's monthly credits, keyed by billing period so
+ * a webhook replay never double-grants. Resets the plan bucket to the tier
+ * amount and rolls the prior period's unused plan credits into rolloverCredits
+ * (1-cycle rollover). Purchased credits are untouched.
+ */
+export async function grantPlanCredits(
+  agencyId: string,
+  tier: AgencyPlanTier,
+  periodEnd: Date | null,
+  dedupeKey: string,
+): Promise<void> {
+  const credits = PLAN_CREDITS[tier];
+  await getOrCreateWallet(agencyId);
+
+  const note = `plan-grant:${tier}:${dedupeKey}`;
+  const already = await prisma.creditLedger.findFirst({
+    where: { agencyId, type: "TOPUP", note },
+    select: { id: true },
+  });
+  if (already) return; // idempotent per (agency, tier, period)
+
+  const w = await prisma.agencyWallet.findUnique({
+    where: { agencyId },
+    select: { planCredits: true },
+  });
+  const carriedRollover = Math.min(w?.planCredits ?? 0, credits);
+
+  await prisma.$transaction([
+    prisma.agencyWallet.update({
+      where: { agencyId },
+      data: {
+        planCredits: credits,
+        rolloverCredits: carriedRollover,
+        ...(periodEnd ? { cycleResetAt: periodEnd } : {}),
+      },
+    }),
+    prisma.creditLedger.create({
+      data: { agencyId, type: "TOPUP", credits, usd: 0, note },
+    }),
+  ]);
+}
+
+/**
+ * Grant the one-time free-tier credits to an agency that has never been funded.
+ * Idempotent via a sentinel ledger row, so it's safe to call on every wallet
+ * read / first spend. Paid agencies are funded by grantPlanCredits instead, so
+ * we skip if any TOPUP already exists.
+ */
+export async function grantFreeTierIfNew(agencyId: string): Promise<void> {
+  await getOrCreateWallet(agencyId);
+  const funded = await prisma.creditLedger.findFirst({
+    where: { agencyId, type: "TOPUP" },
+    select: { id: true },
+  });
+  if (funded) return;
+  await prisma.$transaction([
+    prisma.agencyWallet.update({
+      where: { agencyId },
+      data: { planCredits: { increment: FREE_TIER_CREDITS } },
+    }),
+    prisma.creditLedger.create({
+      data: {
+        agencyId,
+        type: "TOPUP",
+        credits: FREE_TIER_CREDITS,
+        usd: 0,
+        note: "free-tier-grant",
+      },
+    }),
+  ]);
 }

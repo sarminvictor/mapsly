@@ -24,7 +24,13 @@ import { cellKey as makeCellKey } from "@/lib/cell";
 import { auth } from "@/lib/auth";
 import { metroBySlug } from "@/lib/geo/resolve-metro";
 import prisma from "@/lib/prisma";
-import { createCostEstimate } from "@/modules/cost/server";
+import {
+  createCostEstimate,
+  authorizeEstimate,
+  holdCredits,
+  grantFreeTierIfNew,
+  WalletError,
+} from "@/modules/cost/server";
 import { decideDiscoveryPlan } from "@/modules/discovery/freshness-decision";
 import {
   discoveryIdempotencyKey,
@@ -59,11 +65,21 @@ export type PreflightDiscoveryResult =
   | { status: "invalid_input"; message: string }
   | { status: "error" };
 
+/** The run action takes ONLY the estimateId — the cell scope is reconstructed
+ *  from the AUTHORIZED estimate server-side (anti-tamper). */
+const RunDiscoveryInput = z.object({
+  estimateId: z.string().min(1).max(64),
+});
+
 export type RunDiscoveryActionResult =
   | { status: "ok"; discoveryId: string }
   | { status: "unauthorized" }
   | { status: "forbidden" }
   | { status: "invalid_input"; message: string }
+  | { status: "needs_requote"; netUsd: number; netCredits: number }
+  | { status: "needs_approval"; netUsd: number; netCredits: number }
+  | { status: "quote_expired" }
+  | { status: "insufficient_credits"; netCredits: number }
   | { status: "error" };
 
 async function callerAgencyId(userId: string): Promise<string | null> {
@@ -190,9 +206,11 @@ export async function preflightDiscoveryAction(
 }
 
 /**
- * Enqueue a discovery run. Creates a PENDING Discovery row (idempotent by the
- * sorted cellKeys + requester) and returns its id. The internal worker route
- * executes it inside cron context.
+ * Enqueue a discovery run from an authorized estimate. Authorizes the quote
+ * (server re-quote + gate), creates/updates a PENDING Discovery (idempotent by
+ * sorted cellKeys + requester), holds the credits, and marks the estimate
+ * CONSUMED. The dispatch cron executes maps-search + settles the hold against
+ * the actual fetch cost (fresh cells refund to $0).
  */
 export async function runDiscoveryAction(
   input: unknown,
@@ -200,7 +218,7 @@ export async function runDiscoveryAction(
   const session = await auth();
   if (!session?.user?.id) return { status: "unauthorized" };
 
-  const parsed = DiscoveryInput.safeParse(input);
+  const parsed = RunDiscoveryInput.safeParse(input);
   if (!parsed.success) {
     return {
       status: "invalid_input",
@@ -212,13 +230,52 @@ export async function runDiscoveryAction(
     const agencyId = await callerAgencyId(session.user.id);
     if (!agencyId) return { status: "forbidden" };
 
-    const cellKeys = parsed.data.cells.map((c) =>
-      makeCellKey(
-        c.categorySlug,
-        c.metroSlug,
-        (c.country ?? "US").toUpperCase(),
-      ),
+    await grantFreeTierIfNew(agencyId);
+
+    const authz = await authorizeEstimate(
+      parsed.data.estimateId,
+      session.user.id,
     );
+    switch (authz.status) {
+      case "not_found":
+        return { status: "invalid_input", message: "estimate not found" };
+      case "forbidden":
+        return { status: "forbidden" };
+      case "expired":
+        return { status: "quote_expired" };
+      case "already_consumed":
+        return { status: "invalid_input", message: "estimate already used" };
+      case "needs_requote":
+        return {
+          status: "needs_requote",
+          netUsd: authz.result.netUsd,
+          netCredits: authz.result.netCredits,
+        };
+    }
+    const result = authz.result;
+    if (result.gate === "approval") {
+      return {
+        status: "needs_approval",
+        netUsd: result.netUsd,
+        netCredits: result.netCredits,
+      };
+    }
+
+    // Reconstruct cell scope from the AUTHORIZED estimate (anti-tamper).
+    const est = await prisma.costEstimate.findUnique({
+      where: { id: parsed.data.estimateId },
+      select: { scopeRefsJson: true },
+    });
+    const scope = (est?.scopeRefsJson ?? {}) as {
+      cells?: { cellKey?: string }[];
+    };
+    const cellKeys = (scope.cells ?? [])
+      .map((c) => c.cellKey)
+      .filter((k): k is string => typeof k === "string" && k.length > 0);
+    if (cellKeys.length === 0) {
+      return { status: "invalid_input", message: "estimate has no cells" };
+    }
+
     const idempotencyKey = discoveryIdempotencyKey(cellKeys, session.user.id);
 
     const discovery = await prisma.discovery.upsert({
@@ -233,6 +290,47 @@ export async function runDiscoveryAction(
       },
       update: {},
       select: { id: true },
+    });
+
+    // Reserve credits (idempotent: skip if this discovery already has a hold,
+    // e.g. an idempotent re-submit). A $0 (all-fresh) discovery needs no hold.
+    if (result.netCredits > 0) {
+      const existingHold = await prisma.creditLedger.findFirst({
+        where: { runId: discovery.id, type: "HOLD" },
+        select: { id: true },
+      });
+      if (!existingHold) {
+        try {
+          await holdCredits(
+            agencyId,
+            result.netCredits,
+            discovery.id,
+            result.netUsd,
+          );
+        } catch (err) {
+          if (
+            err instanceof WalletError &&
+            err.code === "insufficient_credits"
+          ) {
+            await prisma.discovery
+              .update({
+                where: { id: discovery.id },
+                data: { status: "FAILED" },
+              })
+              .catch(() => {});
+            return {
+              status: "insufficient_credits",
+              netCredits: result.netCredits,
+            };
+          }
+          throw err;
+        }
+      }
+    }
+
+    await prisma.costEstimate.update({
+      where: { id: parsed.data.estimateId },
+      data: { status: "CONSUMED", consumedByRunId: discovery.id },
     });
 
     return { status: "ok", discoveryId: discovery.id };

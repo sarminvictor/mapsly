@@ -15,6 +15,8 @@
 import prisma from "@/lib/prisma";
 import { parseCellKey } from "@/lib/cell";
 import type { EnrichmentType } from "@/modules/cost/pricing";
+import { reconcileRunCredits } from "@/modules/cost/server";
+import { usdToCredits } from "@/modules/cost/estimate";
 import { runDiscovery } from "@/modules/discovery/run-discovery";
 import { scanBusinessContacts } from "@/modules/contacts/scan";
 import { submitReviewJob } from "@/modules/reviews/review-job";
@@ -133,6 +135,11 @@ export async function processEnrichmentRun(
       finishedAt: new Date(),
     },
   });
+
+  // Settle the credit hold: charge the quoted credits if any unit completed,
+  // else refund the entire hold. Per-job actuals land with the job rail.
+  await reconcileRunCredits(runId, { hadProgress: done > 0 });
+
   return { done, failed };
 }
 
@@ -182,6 +189,7 @@ export async function processDiscovery(discoveryId: string): Promise<boolean> {
         where: { id: d.id },
         data: { status: "FAILED" },
       });
+      await reconcileRunCredits(d.id, { hadProgress: false });
       return false;
     }
 
@@ -190,12 +198,24 @@ export async function processDiscovery(discoveryId: string): Promise<boolean> {
       userId: d.requestedByUserId,
       cells,
     });
+
+    // Settle against the actual DfS fetch cost — fresh cells served from the DB
+    // refund to $0 (the execution-side no-double-spend guard).
+    const after = await prisma.discovery.findUnique({
+      where: { id: d.id },
+      select: { totalCostUsd: true },
+    });
+    await reconcileRunCredits(d.id, {
+      actualCredits: usdToCredits(after?.totalCostUsd ?? 0),
+      hadProgress: true,
+    });
     return true;
   } catch (err) {
     logErr("discovery", discoveryId, err);
     await prisma.discovery
       .update({ where: { id: d.id }, data: { status: "FAILED" } })
       .catch(() => {});
+    await reconcileRunCredits(d.id, { hadProgress: false });
     return false;
   }
 }

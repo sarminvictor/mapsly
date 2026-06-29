@@ -14,7 +14,8 @@ import { CREDIT_USD, ENRICHMENT_PRICES } from "../pricing";
 describe("price list (golden)", () => {
   test("unit costs are the agreed values", () => {
     expect(ENRICHMENT_PRICES.reviews.usdPerUnit).toBeCloseTo(0.015, 6);
-    expect(ENRICHMENT_PRICES.lighthouse.usdPerUnit).toBeCloseTo(0.0025, 6);
+    // Live-verified DfS invoice charge ($0.00425, not the $0.0025 public page).
+    expect(ENRICHMENT_PRICES.lighthouse.usdPerUnit).toBeCloseTo(0.00425, 6);
     expect(ENRICHMENT_PRICES.contacts.usdPerUnit).toBeCloseTo(0.008, 6);
     expect(ENRICHMENT_PRICES.serp.usdPerUnit).toBeCloseTo(0.16, 6);
     expect(ENRICHMENT_PRICES.google_ads.usdPerUnit).toBeCloseTo(0.052, 6);
@@ -63,17 +64,17 @@ describe("estimateRun", () => {
     expect(r.gate).toBe("auto");
   });
 
-  test("lighthouse ×100 with 20 fresh → fresh saves $0.05, exact", () => {
+  test("lighthouse ×100 with 20 fresh → fresh saves $0.085, exact", () => {
     const r = estimateRun({
       lines: [{ enrichment: "lighthouse", total: 100, fresh: 20 }],
     });
     const line = r.lines[0];
     expect(line.billable).toBe(80);
-    expect(line.grossUsd).toBeCloseTo(0.25, 4);
-    expect(line.freshHitUsd).toBeCloseTo(0.05, 4);
-    expect(r.netUsd).toBeCloseTo(0.2, 4);
-    expect(r.upperBoundUsd).toBeCloseTo(0.2, 4); // fixed cost
-    expect(r.netCredits).toBe(4);
+    expect(line.grossUsd).toBeCloseTo(0.425, 4);
+    expect(line.freshHitUsd).toBeCloseTo(0.085, 4);
+    expect(r.netUsd).toBeCloseTo(0.34, 4);
+    expect(r.upperBoundUsd).toBeCloseTo(0.34, 4); // fixed cost
+    expect(r.netCredits).toBe(7);
     expect(r.confidence).toBe("exact");
     expect(r.gate).toBe("auto");
   });
@@ -89,15 +90,15 @@ describe("estimateRun", () => {
   test("combined run → confirm gate, deduped freshness", () => {
     const r = estimateRun({
       lines: [
-        { enrichment: "lighthouse", total: 100, fresh: 20 }, // net 0.20
+        { enrichment: "lighthouse", total: 100, fresh: 20 }, // net 0.34
         { enrichment: "serp", total: 9 }, // net 1.44
         { enrichment: "reviews", total: 50, fresh: 10 }, // net 0.60
       ],
     });
-    expect(r.netUsd).toBeCloseTo(2.24, 4);
+    expect(r.netUsd).toBeCloseTo(2.38, 4);
     expect(r.gate).toBe("confirm");
     expect(r.confidence).toBe("bounded"); // reviews is variable
-    expect(r.netCredits).toBe(45); // ceil(2.24/0.05)
+    expect(r.netCredits).toBe(48); // ceil(2.38/0.05)
   });
 
   test("all fresh → net $0 but freshHit shows the saving", () => {
