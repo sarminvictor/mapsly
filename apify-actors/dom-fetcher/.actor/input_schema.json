@@ -1,0 +1,44 @@
+{
+  "title": "Mapsly DOM Fetcher",
+  "type": "object",
+  "schemaVersion": 1,
+  "properties": {
+    "url": {
+      "title": "URL",
+      "type": "string",
+      "description": "A single page URL to fetch.",
+      "editor": "textfield"
+    },
+    "urls": {
+      "title": "URLs",
+      "type": "array",
+      "description": "Many page URLs — batch a whole cell in one run.",
+      "editor": "stringList"
+    },
+    "country": {
+      "title": "Proxy country",
+      "type": "string",
+      "description": "Residential proxy country code.",
+      "default": "US",
+      "editor": "textfield"
+    },
+    "cfWaitMs": {
+      "title": "Cloudflare wait (ms)",
+      "type": "integer",
+      "description": "Max time to wait for the JS challenge to clear before retrying on a fresh IP.",
+      "default": 14000
+    },
+    "maxConcurrency": {
+      "title": "Max concurrency",
+      "type": "integer",
+      "description": "Parallel browsers. Scale with run memory (~1 per GB).",
+      "default": 10
+    },
+    "retireBrowserAfterPageCount": {
+      "title": "Retire browser after N pages",
+      "type": "integer",
+      "description": "Recycle the browser to avoid memory leaks on long runs.",
+      "default": 20
+    }
+  }
+}

@@ -23,8 +23,12 @@ export {
   metaAdLibrarySearch,
   metaAdLibrarySearchUncached,
   MetaAdRowSchema,
+  MetaAdvertiserSchema,
+  MetaResolutionSchema,
   MetaAdLibraryQuerySchema,
   type MetaAdRow,
+  type MetaAdvertiser,
+  type MetaPageResolution,
   type MetaAdLibraryQuery,
   type MetaAdLibraryResult,
 } from "./meta-ad-library";

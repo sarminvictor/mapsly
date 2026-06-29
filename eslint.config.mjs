@@ -11,6 +11,7 @@ const eslintConfig = [
       "lib/generated/**",
       "_design/**",
       "prisma/migrations/**",
+      "apify-actors/**",
     ],
   },
   {

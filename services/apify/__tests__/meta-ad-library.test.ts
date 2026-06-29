@@ -146,6 +146,85 @@ describe("metaAdLibrarySearchUncached", () => {
     // Only the valid row survives; { id: 123 } fails (id must be string).
     expect(out.rows).toHaveLength(1);
     expect(out.rows[0]!.id).toBe("2818188265033120");
+    expect(out.advertisers).toEqual([]);
+  });
+
+  test("partitions advertiser-facet records into `advertisers`, never `rows`", async () => {
+    // A keyword search now returns the advertiser facet (the real signal) and
+    // usually NO creative rows. The advertiser record has no `id`, so it must
+    // not leak into `rows`; the discriminated `recordType` check fires first.
+    const ADVERTISER = {
+      recordType: "advertiser",
+      pageId: "515259585001220",
+      pageName: "French Pharmacy",
+      adCount: 12,
+      searchTerm: "dentist San Francisco",
+      country: "US",
+    };
+    __setFetchForTesting(
+      mockApify(
+        [
+          ADVERTISER,
+          {
+            recordType: "advertiser",
+            pageId: "999",
+            pageName: null,
+            adCount: null,
+            searchTerm: null,
+            country: null,
+          },
+        ],
+        0.0086,
+      ),
+    );
+    const out = await withCronRun("test", () =>
+      metaAdLibrarySearchUncached({
+        searchTerms: ["dentist San Francisco"],
+        countries: ["US"],
+      }),
+    );
+    expect(out.rows).toEqual([]);
+    expect(out.advertisers).toHaveLength(2);
+    expect(out.advertisers[0]).toMatchObject({
+      pageId: "515259585001220",
+      pageName: "French Pharmacy",
+      adCount: 12,
+    });
+    // Nullable fields tolerated (Meta omits ad counts on some facet rows).
+    expect(out.advertisers[1]).toMatchObject({
+      pageId: "999",
+      pageName: null,
+      adCount: null,
+    });
+  });
+
+  test("a keyword run can carry BOTH advertiser facet + creative rows", async () => {
+    __setFetchForTesting(
+      mockApify(
+        [
+          SAMPLE_AD,
+          {
+            recordType: "advertiser",
+            pageId: "ADV_1",
+            pageName: "Rival Co",
+            adCount: 5,
+            searchTerm: "botox",
+            country: "CA",
+          },
+        ],
+        0.02,
+      ),
+    );
+    const out = await withCronRun("test", () =>
+      metaAdLibrarySearchUncached({
+        searchTerms: ["botox"],
+        countries: ["CA"],
+      }),
+    );
+    expect(out.rows).toHaveLength(1);
+    expect(out.rows[0]!.id).toBe("2818188265033120");
+    expect(out.advertisers).toHaveLength(1);
+    expect(out.advertisers[0]!.pageId).toBe("ADV_1");
   });
 
   test("rejects a query with neither searchTerms nor pageIds", async () => {

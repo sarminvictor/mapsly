@@ -72,6 +72,25 @@ export interface MetaPageResolution {
   pageId: string;
 }
 
+/**
+ * One advertiser from the Ad Library's facet
+ * (`data.ad_library_main.dynamic_filter_options.pages`) — Meta returns this
+ * "who advertises for this search" list even when it withholds the per-creative
+ * results GraphQL from an automated session, so for keyword searches it's the
+ * PRIMARY signal (page id + name + ad count), not the creative rows. Must stay
+ * in lockstep with the actor's advertiser push in
+ * `apify-actors/meta-ad-library/src/main.js`.
+ */
+export const MetaAdvertiserSchema = z.object({
+  recordType: z.literal("advertiser"),
+  pageId: z.string(),
+  pageName: z.string().nullable(),
+  adCount: z.number().nullable(),
+  searchTerm: z.string().nullable(),
+  country: z.string().nullable(),
+});
+export type MetaAdvertiser = z.infer<typeof MetaAdvertiserSchema>;
+
 export const MetaAdLibraryQuerySchema = z
   .object({
     /** Keyword/advertiser-name search (broad — matches ad text). */
@@ -101,6 +120,9 @@ export interface MetaAdLibraryResult {
   rows: MetaAdRow[];
   /** handle→page-id mappings for every resolved pageUrl (incl. 0-ad pages). */
   resolutions: MetaPageResolution[];
+  /** Advertiser facet — the "who advertises for this search" list. For keyword
+   *  searches this is usually the only signal (creative rows are withheld). */
+  advertisers: MetaAdvertiser[];
   runId: string;
   usageTotalUsd: number;
 }
@@ -117,11 +139,15 @@ async function metaAdLibrarySearchRaw(
     input: parsed,
     fallbackCostUsd: FALLBACK_COST_USD,
   });
-  // Partition: resolution markers (handle→id) vs ads. Tolerate per-row drift —
-  // skip any malformed item rather than failing the whole batch (Meta reshapes
-  // its payload over time).
+  // Partition: resolution markers (handle→id), advertiser facet rows, and ads.
+  // Tolerate per-row drift — skip any malformed item rather than failing the
+  // whole batch (Meta reshapes its payload over time). Order matters: the
+  // discriminated `recordType` literals are checked BEFORE the ad-row schema so
+  // a facet advertiser (no `id`, but lenient adjacent fields) can never be
+  // mis-bucketed as an ad.
   const rows: MetaAdRow[] = [];
   const resolutions: MetaPageResolution[] = [];
+  const advertisers: MetaAdvertiser[] = [];
   for (const it of items) {
     const res = MetaResolutionSchema.safeParse(it);
     if (res.success) {
@@ -131,10 +157,15 @@ async function metaAdLibrarySearchRaw(
       });
       continue;
     }
+    const adv = MetaAdvertiserSchema.safeParse(it);
+    if (adv.success) {
+      advertisers.push(adv.data);
+      continue;
+    }
     const r = MetaAdRowSchema.safeParse(it);
     if (r.success) rows.push(r.data);
   }
-  return { rows, resolutions, runId, usageTotalUsd };
+  return { rows, resolutions, advertisers, runId, usageTotalUsd };
 }
 
 /** Uncached. Bills the open CronRun for the run's usage (via `runActor`). */

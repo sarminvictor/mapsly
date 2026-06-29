@@ -57,8 +57,14 @@ export const DATAFORSEO_UNIT_COST_USD = {
    *  but billing is at the call level so we charge $0.05 to the open run. */
   keywordVolume: 0.05,
 
-  /** /v3/on_page/lighthouse/live/json — $0.0025 per audit. */
-  lighthouse: 0.0025,
+  /** /v3/on_page/lighthouse/live/json — $0.00425 per audit (live-verified
+   *  charge, 2026 · the public page lists $0.0025 but the invoice bills
+   *  $0.00425). NOTE: on Cloudflare-walled sites the audit hits the challenge
+   *  page (HTTP 403, "blocked from indexing", SEO≈40 + meta-refresh) → the
+   *  scores are JUNK. Route walled sites to the actor's in-browser Lighthouse
+   *  instead (services/dom-fetcher fetchLighthouse · modules/discovery/
+   *  enrich-lighthouse.ts). */
+  lighthouse: 0.00425,
 
   /** /v3/dataforseo_labs/google/ranked_keywords/live — VARIABLE COST.
    *  Live tier · ~$0.013 per call for limit=100 (verified 2026-05-27 on

@@ -34,6 +34,7 @@ const ROUTES = [
   "lighthouse-audit",
   "competitor-diff",
   "snapshot-write",
+  "contact-enrich",
 ] as const;
 
 describe("weekly handlers · smoke", () => {

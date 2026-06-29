@@ -8,10 +8,16 @@
 // Cache: 24h. A site's CWV doesn't change minute-to-minute; a daily ceiling
 // is more than enough.
 //
-// Cost: $0.0025 per audit (Live tier). DataForSEO charges per audit
-// regardless of audit depth (categories included). We always request all
-// 4 categories (performance, accessibility, best_practices, seo) and
-// score breakdowns happen client-side from the JSON.
+// Cost: $0.00425 per audit (Live tier · live-verified invoice charge; the
+// public pricing page lists $0.0025). DataForSEO charges per audit regardless
+// of audit depth (categories included). We always request all 4 categories
+// (performance, accessibility, best_practices, seo) and score breakdowns happen
+// client-side from the JSON.
+//
+// CAVEAT: on Cloudflare-walled sites DfS audits the CHALLENGE page (HTTP 403,
+// "blocked from indexing", SEO≈40 + meta-refresh) → the scores are junk. The
+// decoupled Lighthouse orchestrator (modules/discovery/enrich-lighthouse.ts)
+// detects that signature and re-runs the audit in a real browser via the actor.
 //
 // Timeout: 60s · Lighthouse audits routinely take 10-25s, occasionally
 // stretching to 40s on slow targets. Overrides the 10s default in the

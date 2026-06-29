@@ -80,6 +80,10 @@ function buildUrl(target) {
   u.searchParams.set("ad_type", "all");
   u.searchParams.set("country", country);
   u.searchParams.set("media_type", "all");
+  // Meta's Ad Library UI sets this on every keyword search; WITHOUT it the
+  // results GraphQL never fires (only the `ad_library_main` shell loads) and
+  // the scrape returns 0 ads even for terms with many live advertisers.
+  u.searchParams.set("is_targeted_country", "false");
   if (target.label === "page") {
     u.searchParams.set("view_all_page_id", target.subject);
     u.searchParams.set("search_type", "page");
@@ -280,6 +284,8 @@ async function scrapeTarget(page, target) {
   const store = {
     ads: [],
     seen: new Set(),
+    advertisers: [],
+    advSeen: new Set(),
     target,
     graphqlHits: 0,
     keysLogged: false,
@@ -293,10 +299,31 @@ async function scrapeTarget(page, target) {
     } catch {
       return;
     }
-    if (
-      !text ||
-      !/ad_archive_id|adArchiveID|ad_library|collated_results/i.test(text)
-    ) {
+    if (!text) return;
+    // DIAG: log the shape of every GraphQL response so we can see where the ad
+    // nodes live now (Meta reshapes this). Logs len + whether it carries an ad
+    // id + the top-level data keys, for the first ~30 responses per target.
+    if ((store.diagCount ?? 0) < 30) {
+      store.diagCount = (store.diagCount ?? 0) + 1;
+      const hasAdId = /ad_archive_id|adArchiveID/i.test(text);
+      let dk = "";
+      try {
+        const jj = parseFbJson(text);
+        const ss = Array.isArray(jj) ? jj[0] : jj;
+        dk = Object.keys(ss?.data ?? ss ?? {})
+          .slice(0, 8)
+          .join(",");
+      } catch {
+        /* diag only */
+      }
+      log.info(
+        `[diag] gql#${store.diagCount} len=${text.length} adId=${hasAdId} keys=[${dk}]`,
+      );
+      if (text.length < 4000) {
+        log.info(`[diag] body#${store.diagCount}: ${text.slice(0, 3500)}`);
+      }
+    }
+    if (!/ad_archive_id|adArchiveID|ad_library|collated_results/i.test(text)) {
       return;
     }
     store.graphqlHits += 1;
@@ -312,6 +339,26 @@ async function scrapeTarget(page, target) {
         /* diagnostic only */
       }
       store.keysLogged = true;
+    }
+    // Extract the advertiser facet (data.ad_library_main.dynamic_filter_options
+    // .pages) — the RELIABLE "who advertises for this search" signal. Meta
+    // returns it even when it withholds the per-creative results query from an
+    // automated session, so it's our primary cell-market signal (page id + name
+    // + ad count, matchable to our indexed businesses).
+    for (const obj of Array.isArray(json) ? json : [json]) {
+      const pages = obj?.data?.ad_library_main?.dynamic_filter_options?.pages;
+      if (!Array.isArray(pages)) continue;
+      for (const p of pages) {
+        const pid = String(p?.key ?? "");
+        if (pid && !store.advSeen.has(pid)) {
+          store.advSeen.add(pid);
+          store.advertisers.push({
+            pageId: pid,
+            pageName: p?.display_name ?? null,
+            adCount: typeof p?.count === "number" ? p.count : null,
+          });
+        }
+      }
     }
     collectAds(json, store);
   };
@@ -337,49 +384,58 @@ async function scrapeTarget(page, target) {
           timeout: 60000,
         })
         .catch(() => {});
-      await page.waitForTimeout(2500);
+      await page.waitForTimeout(1500);
       resp = await page
         .goto(gotoUrl, { waitUntil: "domcontentloaded", timeout: 90000 })
         .catch(() => null);
       status = resp ? resp.status() : "n/a";
     }
-    await page.waitForTimeout(delayMs);
-
-    // Bounded, self-terminating scroll: stop on maxItems, on 3 stagnant rounds
-    // (results connection exhausted), on a 45s per-target time cap, or
-    // immediately if nothing loaded after the first couple rounds (blocked /
-    // empty) — so a bulk run never burns time/compute on dead targets.
-    // Bounded, self-terminating scroll. Key nuance: do NOT treat "no ads yet"
-    // as "exhausted" — Meta's first results GraphQL can take 10-15s. So we give
-    // a first-result grace window and only count stagnation AFTER ads start
-    // arriving. Hard 45s/target cap is the backstop so a bulk run never hangs.
-    const deadline = Date.now() + 45_000;
-    const firstResultGrace = Date.now() + 18_000;
-    let stagnant = 0;
-    for (let i = 0; store.ads.length < maxItems && Date.now() < deadline; i++) {
-      if (store.ads.length === 0) {
-        if (Date.now() > firstResultGrace) break; // nothing after 18s → blocked/empty
-      } else if (stagnant >= 3) {
-        break; // had results, connection now exhausted
-      }
-      const before = store.ads.length;
-      await page.mouse.wheel(0, 6000).catch(() => {});
-      await page.waitForTimeout(delayMs + Math.floor(Math.random() * 600));
-      if (store.ads.length > 0 && store.ads.length === before) stagnant += 1;
-      else stagnant = 0;
+    // The Ad Library page can show its OWN cookie/consent overlay that blocks
+    // the React app from firing the results query. Dismiss it here too (not just
+    // on the priming hop) and give the SPA a beat to hydrate + query.
+    await dismissCookieBanner(page).catch(() => {});
+    // The advertiser facet (dynamic_filter_options.pages) arrives with the FIRST
+    // GraphQL response; Meta withholds the per-creative results query from
+    // automated sessions, so there's nothing to scroll for. Poll briefly until
+    // advertisers (or, rarely, creatives) appear, then stop — no fixed multi-
+    // second waits, no scrolling. Falls through after 9s on a truly empty target.
+    const waitDeadline = Date.now() + 9000;
+    while (
+      Date.now() < waitDeadline &&
+      store.advertisers.length === 0 &&
+      store.ads.length === 0
+    ) {
+      await page.waitForTimeout(400);
+    }
+    // Brief settle so a multi-burst facet finishes streaming before we read it.
+    if (store.advertisers.length > 0 || store.ads.length > 0) {
+      await page.waitForTimeout(700);
     }
 
     const ads = store.ads.slice(0, maxItems);
+    const advertisers = store.advertisers;
     log.info(
-      `${target.label} "${target.subject}" [${country}]: ${ads.length} ads (status=${status}, graphqlHits=${store.graphqlHits})`,
+      `${target.label} "${target.subject}" [${country}]: ${ads.length} ads, ${advertisers.length} advertisers (status=${status}, graphqlHits=${store.graphqlHits})`,
     );
-    if (ads.length === 0) {
+    if (ads.length === 0 && advertisers.length === 0) {
       const title = await page.title().catch(() => "");
       log.warning(
-        `No ads for "${target.subject}" — status=${status}, title="${title}", graphqlHits=${store.graphqlHits}.`,
+        `No ads/advertisers for "${target.subject}" — status=${status}, title="${title}", graphqlHits=${store.graphqlHits}.`,
       );
     }
     if (ads.length) await Actor.pushData(ads);
+    if (advertisers.length) {
+      await Actor.pushData(
+        advertisers.map((a) => ({
+          recordType: "advertiser",
+          pageId: a.pageId,
+          pageName: a.pageName,
+          adCount: a.adCount,
+          searchTerm: target.label === "search" ? target.subject : null,
+          country,
+        })),
+      );
+    }
   } finally {
     page.off("response", onResponse);
   }
@@ -414,7 +470,12 @@ const crawler = new PlaywrightCrawler({
     async ({ page }) => {
       await page.route("**/*", (route) => {
         const t = route.request().resourceType();
-        if (t === "image" || t === "media" || t === "font") {
+        if (
+          t === "image" ||
+          t === "media" ||
+          t === "font" ||
+          t === "stylesheet"
+        ) {
           return route.abort();
         }
         return route.continue();

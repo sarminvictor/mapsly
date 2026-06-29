@@ -15,7 +15,11 @@
 // MUST run inside an open CronRun (the Apify adapter enforces this).
 
 import prisma, { Prisma } from "@/lib/prisma";
-import { metaAdLibrarySearch, type MetaAdRow } from "@/services/apify";
+import {
+  metaAdLibrarySearch,
+  type MetaAdRow,
+  type MetaAdvertiser,
+} from "@/services/apify";
 import {
   analyzeAdCreatives,
   DEFAULT_AD_INSIGHTS_MODEL,
@@ -73,7 +77,10 @@ interface Agg {
   pageId: string;
   pageName: string;
   handle: string | null;
+  /** Deduped count of creative rows seen for this page (0 for facet-only pages). */
   adCount: number;
+  /** Ad count reported by the advertiser facet (Meta's own total), if present. */
+  facetAdCount: number | null;
   /** Distinct ad ids seen — dedupes adCount + creatives across search terms. */
   seenAdIds: Set<string>;
   platforms: Set<string>;
@@ -129,9 +136,13 @@ export async function collectCellMeta(
   const searchTerms = serviceNames.map((s) => `${s} ${cell.city}`.trim());
   result.searchTerms = searchTerms;
 
-  // 2 · ONE Meta market run for the cell.
+  // 2 · ONE Meta market run for the cell. Meta withholds the per-creative
+  // results query from automated sessions for keyword searches, so the
+  // advertiser FACET (`advertisers`) is now the primary signal; creative `rows`
+  // are usually empty for keyword searches but still ingested when present.
   const country2 = (cell.country ?? "US").toUpperCase().slice(0, 2);
   let rows: MetaAdRow[] = [];
+  let advertisers: MetaAdvertiser[] = [];
   try {
     const out = await metaAdLibrarySearch({
       searchTerms,
@@ -140,6 +151,7 @@ export async function collectCellMeta(
       maxItems: META_MAX_ITEMS,
     });
     rows = out.rows;
+    advertisers = out.advertisers;
     result.runUsd = out.usageTotalUsd;
   } catch (e) {
     result.errors.push(`cell-meta:${(e as Error).message}`.slice(0, 200));
@@ -158,6 +170,7 @@ export async function collectCellMeta(
         pageName: r.pageName ?? "(unknown)",
         handle: null,
         adCount: 0,
+        facetAdCount: null,
         seenAdIds: new Set<string>(),
         platforms: new Set<string>(),
         services: new Set<string>(),
@@ -195,6 +208,52 @@ export async function collectCellMeta(
           startedAt: r.startDate ?? null,
         });
       }
+    }
+  }
+
+  // 3b · merge in the advertiser FACET — the "who advertises for this search"
+  // list Meta returns even when it withholds the per-creative results query.
+  // For keyword searches this is typically the ONLY signal (no creative rows),
+  // so we ensure a byPage entry per facet advertiser. When creatives DO exist
+  // for the page we keep them; the facet just contributes pageName + adCount.
+  for (const a of advertisers) {
+    const pid = a.pageId || "";
+    if (!pid) continue;
+    let g = byPage.get(pid);
+    if (!g) {
+      g = {
+        pageId: pid,
+        pageName: a.pageName ?? "(unknown)",
+        handle: null,
+        adCount: 0,
+        facetAdCount: null,
+        // Facet-only advertisers have no creatives → no platforms / runningSince.
+        seenAdIds: new Set<string>(),
+        platforms: new Set<string>(),
+        services: new Set<string>(),
+        runningSince: null,
+        creatives: [],
+      };
+      byPage.set(pid, g);
+    }
+    // Prefer a real page name over the "(unknown)" placeholder.
+    if ((g.pageName === "(unknown)" || !g.pageName) && a.pageName) {
+      g.pageName = a.pageName;
+    }
+    if (typeof a.adCount === "number") {
+      g.facetAdCount = Math.max(g.facetAdCount ?? 0, a.adCount);
+    }
+    if (a.searchTerm) g.services.add(a.searchTerm);
+  }
+
+  // Resolve each page's reported active-ad count: prefer the facet's total when
+  // there are no creative rows (the keyword-search case); otherwise take the
+  // larger of the deduped creative count and the facet total (safest).
+  for (const g of byPage.values()) {
+    if (g.adCount === 0 && g.facetAdCount !== null) {
+      g.adCount = g.facetAdCount;
+    } else if (g.facetAdCount !== null) {
+      g.adCount = Math.max(g.adCount, g.facetAdCount);
     }
   }
 
@@ -293,6 +352,9 @@ export async function collectCellMeta(
   // 6 · AI · rule-bounded creative analysis for the cell (P5). Cost-gated: only
   // when there's enough signal; cached 7d so it runs once per cell per refresh,
   // never per business. Best-effort — never fail the collection on AI.
+  // Advertiser-only runs (no creative rows — the common keyword-search case)
+  // have an empty `creativesForAi` and fall below MIN_CREATIVES_TO_ANALYZE, so
+  // they simply skip AI here (no AdMarketInsight is written).
   if (opts.ai !== false) {
     const creativesForAi = top
       .flatMap((g) => g.creatives)
