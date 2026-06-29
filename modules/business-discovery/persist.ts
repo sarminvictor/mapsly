@@ -29,6 +29,31 @@ export type BusinessSourceValue =
   | "ONBOARDING"
   | "HUNTER_EXPAND";
 
+/** local_business_links `type` values that mean "book/reserve an appointment"
+ *  on the Google profile. Excludes menu/order (food links ≠ booking). */
+const GBP_BOOKING_LINK_TYPES = new Set([
+  "reservations",
+  "reservation",
+  "appointment",
+  "appointments",
+  "book_online",
+  "booking",
+]);
+
+/**
+ * Derive whether a Google profile exposes a reservation/appointment booking link
+ * from the DfS `local_business_links` array ([{ type, title, url }]). Pure +
+ * null-tolerant. Powers the gbp_no_booking signal at $0 (the data is already
+ * captured at discovery — no extra API call).
+ */
+export function gbpHasBookingFromLinks(links: unknown): boolean {
+  if (!Array.isArray(links)) return false;
+  return links.some((l) => {
+    const t = (l as { type?: unknown } | null)?.type;
+    return typeof t === "string" && GBP_BOOKING_LINK_TYPES.has(t.toLowerCase());
+  });
+}
+
 /**
  * Result of normalising one DataForSEO row into the shape required by
  * `prisma.business.create`. Null when the minimum identity (`name` +
@@ -90,6 +115,8 @@ export interface PersistShape {
   peopleAlsoSearch: Prisma.InputJsonValue | undefined;
   popularTimes: Prisma.InputJsonValue | undefined;
   localBusinessLinks: Prisma.InputJsonValue | undefined;
+  /** Derived from localBusinessLinks — GBP exposes a booking/reservation link. */
+  gbpHasBooking: boolean;
 
   // Provenance
   checkUrl: string | null;
@@ -225,6 +252,7 @@ export function mapsRowToPersist(
     peopleAlsoSearch: asJson(row.people_also_search),
     popularTimes: asJson(row.popular_times),
     localBusinessLinks: asJson(row.local_business_links),
+    gbpHasBooking: gbpHasBookingFromLinks(row.local_business_links),
 
     // Provenance
     checkUrl: row.check_url ?? null,
@@ -362,6 +390,8 @@ export async function persistBusinessRow(
     // refresh the open/closed status (it's cheap + current).
     const cellData: Record<string, unknown> = { lastRefreshedAt: new Date() };
     if (shape.openStatus !== undefined) cellData.openStatus = shape.openStatus;
+    if (typeof shape.gbpHasBooking === "boolean")
+      cellData.gbpHasBooking = shape.gbpHasBooking;
     if (!existing.cellKey && shape.cellKey) {
       cellData.cellKey = shape.cellKey;
       if (shape.metroSlug !== undefined) cellData.metroSlug = shape.metroSlug;

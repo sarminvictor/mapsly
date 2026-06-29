@@ -153,6 +153,19 @@ export const agencySignals: readonly SignalDefinition[] = [
     column: "BusinessTech.category",
   },
   {
+    key: "gbp_no_booking",
+    label: "No Google booking link",
+    helpTooltip:
+      "The Google Business Profile exposes no reservation/appointment booking link (derived from its listing at discovery, $0). A target for a 'turn on Google booking' pitch — distinct from has_booking_widget (the on-site tool).",
+    category: "profile",
+    type: "boolean",
+    comparators: BOOLEAN_COMPARATORS,
+    defaultValue: false,
+    source: "discovery",
+    cadence: "on-demand",
+    column: "Business.gbpHasBooking",
+  },
+  {
     key: "has_analytics",
     label: "Analytics installed",
     helpTooltip: "GA4/GTM/Plausible detected. False = flying blind on traffic.",

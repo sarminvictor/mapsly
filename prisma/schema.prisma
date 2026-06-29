@@ -225,6 +225,10 @@ model Business {
   peopleAlsoSearch    Json? // top 5 competitor seeds Google's own algorithm surfaces
   popularTimes        Json? // hours-of-day occupancy histogram
   localBusinessLinks  Json? // booking, reservations, menu links
+  // Derived from localBusinessLinks at persist: does the Google profile expose a
+  // reservation/appointment/booking link? Powers the gbp_no_booking signal (E10)
+  // — distinct from has_booking_widget (the on-site DOM booking tool).
+  gbpHasBooking       Boolean?
   contactInfo         Json? // typed contact channels with provenance
   sourceLastUpdatedAt DateTime? // when DfS itself last refreshed this row
   sourceRawJson       Json? // entire DfS row · forensic recovery
