@@ -96,6 +96,22 @@ export interface PersistShape {
   firstSeenOnGoogle: Date | null; // DfS's first_seen
   sourceLastUpdatedAt: Date | null; // DfS's last_updated_time
   sourceRawJson: Prisma.InputJsonValue; // entire row, untyped
+
+  // Cell membership + discovery-time status — stamped by the demand-discovery
+  // runner (run-discovery.refetchCell) before persisting. Optional because the
+  // admin qualify path persists rows without them.
+  cellKey?: string;
+  metroSlug?: string;
+  // Mirrors the BusinessOpenStatus enum (string-literal union keeps this module
+  // import-free of the generated Prisma enum while staying assignable to it).
+  openStatus?:
+    | "OPEN"
+    | "CLOSED"
+    | "TEMPORARILY_CLOSED"
+    | "CLOSED_FOREVER"
+    | "UNKNOWN";
+  anchorDistanceKm?: number | null;
+  crossMetroDupe?: boolean;
 }
 
 /**
@@ -336,9 +352,34 @@ export async function persistBusinessRow(
           : { id: "__never__" },
       ],
     },
-    select: { id: true },
+    select: { id: true, cellKey: true },
   });
-  if (existing) return "duplicate";
+  if (existing) {
+    // Re-stamp cell membership for a row discovered before it had a cell (a
+    // legacy/admin-seeded business with a null cellKey would otherwise be
+    // silently absent from the demand raw-list union). Don't move a business
+    // that already owns a cell (respect its existing primary cell). Always
+    // refresh the open/closed status (it's cheap + current).
+    const cellData: Record<string, unknown> = { lastRefreshedAt: new Date() };
+    if (shape.openStatus !== undefined) cellData.openStatus = shape.openStatus;
+    if (!existing.cellKey && shape.cellKey) {
+      cellData.cellKey = shape.cellKey;
+      if (shape.metroSlug !== undefined) cellData.metroSlug = shape.metroSlug;
+      if (shape.anchorDistanceKm !== undefined)
+        cellData.anchorDistanceKm = shape.anchorDistanceKm;
+      if (shape.crossMetroDupe !== undefined)
+        cellData.crossMetroDupe = shape.crossMetroDupe;
+    }
+    await prisma.business
+      .update({
+        where: { id: existing.id },
+        data: cellData as Prisma.BusinessUpdateInput,
+      })
+      .catch(() => {
+        // A re-stamp hiccup must never fail the discovery batch.
+      });
+    return "duplicate";
+  }
 
   const slug = await mintUniqueSlug(shape.name);
   try {

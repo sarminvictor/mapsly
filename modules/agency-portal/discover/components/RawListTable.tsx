@@ -15,6 +15,7 @@ import { useRouter } from "@/i18n/navigation";
 import { Link } from "@/i18n/navigation";
 import { ALL_ENRICHMENT_TYPES } from "@/modules/cost/pricing";
 import { saveAsListAction } from "@/modules/discovery/save-list-actions";
+import { fetchRawListAction } from "@/modules/discovery/raw-list-actions";
 import {
   applyClientFilters,
   type ClientFilters,
@@ -118,10 +119,46 @@ export function RawListTable({
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saving, startSave] = useTransition();
 
+  // Server-side pagination + show-hidden: the page renders the first 50; we
+  // append more (and swap the hidden view) via fetchRawListAction so the user
+  // browses the FULL market, not just the first page filtered client-side.
+  const [allRows, setAllRows] = useState<RawListTableRow[]>(rows);
+  const [cursor, setCursor] = useState<string | null>(nextCursor ?? null);
+  const [includeHidden, setIncludeHidden] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+
   const visibleRows = useMemo(
-    () => applyClientFilters(rows, filters),
-    [rows, filters],
+    () => applyClientFilters(allRows, filters),
+    [allRows, filters],
   );
+
+  function loadMore() {
+    if (!cursor || loadingMore) return;
+    setLoadingMore(true);
+    fetchRawListAction({ discoveryId, cursor, includeHidden })
+      .then((r) => {
+        if (r.status === "ok") {
+          setAllRows((prev) => [...prev, ...r.rows]);
+          setCursor(r.nextCursor);
+        }
+      })
+      .finally(() => setLoadingMore(false));
+  }
+
+  function toggleHidden() {
+    const next = !includeHidden;
+    setIncludeHidden(next);
+    setLoadingMore(true);
+    fetchRawListAction({ discoveryId, includeHidden: next })
+      .then((r) => {
+        if (r.status === "ok") {
+          setAllRows(r.rows);
+          setCursor(r.nextCursor);
+          setSelected(new Set()); // selection is stale after a reload
+        }
+      })
+      .finally(() => setLoadingMore(false));
+  }
 
   const allVisibleSelected =
     visibleRows.length > 0 && visibleRows.every((r) => selected.has(r.id));
@@ -252,8 +289,21 @@ export function RawListTable({
             </button>
           ))}
 
-          <span className="ml-auto font-mono text-xs text-slate-400">
-            {visibleRows.length} / {rows.length} shown
+          <button
+            type="button"
+            onClick={toggleHidden}
+            disabled={loadingMore}
+            title="Show unreachable / suppressed businesses"
+            className={`ml-auto rounded-full border px-2.5 py-1 text-xs font-medium disabled:opacity-50 ${
+              includeHidden
+                ? "border-amber-400 bg-amber-50 text-amber-700"
+                : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
+            }`}
+          >
+            {includeHidden ? "⊘ hidden: on" : "⊘ show hidden"}
+          </button>
+          <span className="font-mono text-xs text-slate-400">
+            {visibleRows.length} / {allRows.length} loaded
           </span>
         </div>
 
@@ -381,10 +431,17 @@ export function RawListTable({
           </table>
         </div>
 
-        {nextCursor ? (
-          <p className="mt-2 font-mono text-xs text-slate-400">
-            More rows available — pagination loads on scroll (follow-up).
-          </p>
+        {cursor ? (
+          <div className="mt-2">
+            <button
+              type="button"
+              onClick={loadMore}
+              disabled={loadingMore}
+              className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+            >
+              {loadingMore ? "Loading…" : "Load more"}
+            </button>
+          </div>
         ) : null}
 
         {/* Sticky bulk-action bar */}

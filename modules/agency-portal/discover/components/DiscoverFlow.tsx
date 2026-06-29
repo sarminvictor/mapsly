@@ -134,7 +134,7 @@ export function DiscoverFlow({
         <h2 className="mb-2 text-sm font-semibold text-slate-900">
           1 · Metros{" "}
           <span className="font-normal text-slate-500">
-            ({metroSlugs.length} selected · fixed ~30km radius)
+            ({metroSlugs.length} selected · fixed radius per metro)
           </span>
         </h2>
         <div className="flex flex-wrap gap-2">
