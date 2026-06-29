@@ -1,0 +1,1870 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>
+      Mapsly Portal · UX Coverage, Reworks, Scenarios &amp; Decisions (v3)
+    </title>
+    <style>
+      :root {
+        --bg: #f6f7fb;
+        --surface: #fff;
+        --ink: #0f172a;
+        --ink-2: #334155;
+        --muted: #64748b;
+        --faint: #94a3b8;
+        --line: #e6e9f0;
+        --line-2: #eef1f6;
+        --indigo: #5b3df5;
+        --indigo-50: #eef0ff;
+        --indigo-700: #4631c9;
+        --green: #0f9d6b;
+        --green-50: #e7f8f0;
+        --amber: #b7791f;
+        --amber-50: #fdf4e3;
+        --red: #dc2626;
+        --red-50: #fdeaea;
+        --font:
+          "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          Helvetica, Arial, sans-serif;
+        --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+        --shadow:
+          0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 24px rgba(15, 23, 42, 0.06);
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font-family: var(--font);
+        font-size: 14px;
+        line-height: 1.6;
+      }
+      .wrap {
+        display: grid;
+        grid-template-columns: 236px 1fr;
+        max-width: 1280px;
+        margin: 0 auto;
+      }
+      .toc {
+        position: sticky;
+        top: 0;
+        height: 100vh;
+        overflow: auto;
+        padding: 24px 16px;
+        border-right: 1px solid var(--line);
+      }
+      .toc .b {
+        font-weight: 700;
+        font-size: 15px;
+        margin-bottom: 14px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .toc .b .dot {
+        width: 20px;
+        height: 20px;
+        border-radius: 6px;
+        background: linear-gradient(135deg, #6d4bff, #9d7bff);
+      }
+      .toc a {
+        display: block;
+        color: var(--muted);
+        font-size: 13px;
+        padding: 6px 9px;
+        border-radius: 8px;
+        text-decoration: none;
+      }
+      .toc a:hover {
+        background: var(--indigo-50);
+        color: var(--indigo-700);
+      }
+      .toc a:focus-visible {
+        outline: 2px solid var(--indigo);
+        outline-offset: 2px;
+      }
+      .main {
+        padding: 40px 46px 100px;
+        min-width: 0;
+      }
+      h1 {
+        font-size: 27px;
+        letter-spacing: -0.02em;
+        margin: 0 0 6px;
+      }
+      h2 {
+        font-size: 20px;
+        letter-spacing: -0.01em;
+        margin: 42px 0 6px;
+        padding-top: 14px;
+      }
+      h3 {
+        font-size: 15.5px;
+        margin: 20px 0 6px;
+      }
+      p {
+        margin: 8px 0;
+        color: var(--ink-2);
+      }
+      .lead {
+        font-size: 16px;
+        color: var(--muted);
+        max-width: 800px;
+      }
+      .eyebrow {
+        font-size: 11.5px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.09em;
+        color: var(--indigo);
+        margin-bottom: 8px;
+      }
+      code {
+        font-family: var(--mono);
+        font-size: 12.5px;
+        background: var(--line-2);
+        padding: 1px 5px;
+        border-radius: 5px;
+      }
+      .coin {
+        display: inline-block;
+        width: 13px;
+        height: 13px;
+        border-radius: 50%;
+        background: radial-gradient(circle at 35% 30%, #ffd86b, #e9a200);
+        vertical-align: -2px;
+        margin-right: 2px;
+      }
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        box-shadow: var(--shadow);
+        padding: 20px;
+        margin: 14px 0;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+        margin: 10px 0;
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        overflow: hidden;
+      }
+      th {
+        text-align: left;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--faint);
+        font-weight: 700;
+        padding: 11px 13px;
+        border-bottom: 1px solid var(--line);
+        background: #fbfcfe;
+      }
+      td {
+        padding: 11px 13px;
+        border-bottom: 1px solid var(--line-2);
+        vertical-align: top;
+      }
+      tr:last-child td {
+        border-bottom: 0;
+      }
+      .tag {
+        display: inline-block;
+        font-size: 11px;
+        font-weight: 700;
+        padding: 2px 9px;
+        border-radius: 999px;
+        white-space: nowrap;
+      }
+      .ok {
+        background: var(--green-50);
+        color: var(--green);
+      }
+      .part {
+        background: var(--amber-50);
+        color: var(--amber);
+      }
+      .miss {
+        background: var(--red-50);
+        color: var(--red);
+      }
+      .ix {
+        background: var(--indigo-50);
+        color: var(--indigo-700);
+      }
+      .principle {
+        border-left: 3px solid var(--indigo);
+        padding: 4px 0 4px 16px;
+        margin: 18px 0;
+      }
+      .principle .p {
+        color: var(--red);
+        font-weight: 600;
+        font-size: 13px;
+      }
+      .principle .d {
+        font-weight: 650;
+        font-size: 15px;
+        margin: 3px 0;
+      }
+      .grid2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+      }
+      @media (max-width: 820px) {
+        .wrap {
+          grid-template-columns: 1fr;
+        }
+        .toc {
+          display: none;
+        }
+        .grid2 {
+          grid-template-columns: 1fr;
+        }
+      }
+      .vs {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        overflow: hidden;
+      }
+      .vs > div {
+        padding: 16px;
+      }
+      .vs .old {
+        background: var(--red-50);
+      }
+      .vs .new {
+        background: var(--green-50);
+        border-left: 1px solid var(--line);
+      }
+      .vs h4 {
+        margin: 0 0 8px;
+        font-size: 13px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+      .vs .old h4 {
+        color: var(--red);
+      }
+      .vs .new h4 {
+        color: var(--green);
+      }
+      .vs ul {
+        margin: 0;
+        padding-left: 18px;
+      }
+      .vs li {
+        margin: 5px 0;
+        font-size: 13px;
+      }
+      .persona {
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 15px;
+        background: #fff;
+      }
+      .persona .nm {
+        font-weight: 700;
+        font-size: 14.5px;
+      }
+      .persona .role {
+        color: var(--indigo-700);
+        font-size: 12px;
+        font-weight: 600;
+        margin-bottom: 6px;
+      }
+      .persona p {
+        font-size: 12.8px;
+        margin: 5px 0;
+        color: var(--muted);
+      }
+      .pill {
+        display: inline-block;
+        font-size: 10.5px;
+        font-weight: 600;
+        padding: 2px 8px;
+        border-radius: 999px;
+        background: var(--line-2);
+        color: var(--ink-2);
+        margin: 2px 2px 0 0;
+      }
+      .scn {
+        margin: 12px 0;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: #fff;
+        overflow: hidden;
+      }
+      .scn .h {
+        padding: 12px 16px;
+        background: #fbfcfe;
+        border-bottom: 1px solid var(--line);
+        font-weight: 650;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+      }
+      .scn .bd {
+        padding: 12px 16px;
+        font-size: 13px;
+      }
+      .note {
+        color: var(--faint);
+        font-size: 12px;
+      }
+      .legend {
+        display: flex;
+        gap: 14px;
+        flex-wrap: wrap;
+        font-size: 12px;
+        margin: 8px 0 14px;
+      }
+      .kpi {
+        display: inline-flex;
+        gap: 6px;
+        align-items: center;
+      }
+      .scoreband {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 10px;
+        margin: 14px 0;
+      }
+      @media (max-width: 820px) {
+        .scoreband {
+          grid-template-columns: repeat(2, 1fr);
+        }
+      }
+      .score {
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 14px;
+        text-align: center;
+      }
+      .score .v {
+        font-size: 30px;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        color: var(--green);
+      }
+      .score .k {
+        font-size: 12px;
+        color: var(--muted);
+        font-weight: 600;
+        margin-top: 2px;
+      }
+      .big-ok {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        background: var(--green-50);
+        color: var(--green);
+        border: 1px solid #bfe9d5;
+        border-radius: 999px;
+        padding: 6px 14px;
+        font-weight: 700;
+        font-size: 13px;
+      }
+      /* rework block */
+      .rw {
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: #fff;
+        margin: 12px 0;
+        overflow: hidden;
+      }
+      .rw .rh {
+        display: flex;
+        align-items: center;
+        gap: 11px;
+        padding: 13px 16px;
+        background: #fbfcfe;
+        border-bottom: 1px solid var(--line);
+      }
+      .rw .rid {
+        flex: 0 0 auto;
+        width: 34px;
+        height: 34px;
+        border-radius: 9px;
+        display: grid;
+        place-items: center;
+        font-weight: 800;
+        font-size: 13px;
+        background: var(--indigo-50);
+        color: var(--indigo-700);
+      }
+      .rw .rt {
+        font-weight: 700;
+        font-size: 14.5px;
+      }
+      .rw .rb {
+        padding: 14px 16px;
+      }
+      .rw .rb .ln {
+        display: grid;
+        grid-template-columns: 120px 1fr;
+        gap: 10px;
+        padding: 6px 0;
+        border-bottom: 1px solid var(--line-2);
+      }
+      .rw .rb .ln:last-child {
+        border-bottom: 0;
+      }
+      .rw .rb .ln .k {
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--faint);
+        padding-top: 2px;
+      }
+      .rw .rb .ln .v {
+        font-size: 13px;
+        color: var(--ink-2);
+      }
+      @media (max-width: 820px) {
+        .rw .rb .ln {
+          grid-template-columns: 1fr;
+          gap: 2px;
+        }
+      }
+      .tabs-demo {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+        margin: 6px 0;
+      }
+      .tabd {
+        font-size: 12px;
+        font-weight: 600;
+        padding: 4px 11px;
+        border-radius: 8px;
+        border: 1px solid var(--line);
+        background: #fff;
+        color: var(--ink-2);
+      }
+      .tabd.on {
+        background: var(--indigo);
+        border-color: var(--indigo);
+        color: #fff;
+      }
+      .crumbrow {
+        font-family: var(--mono);
+        font-size: 12px;
+        color: var(--ink-2);
+        background: var(--line-2);
+        border-radius: 8px;
+        padding: 9px 12px;
+        line-height: 1.9;
+        word-break: break-word;
+      }
+      .crumbrow b {
+        color: var(--indigo-700);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <nav class="toc" aria-label="Contents">
+        <div class="b"><span class="dot"></span> Portal UX · v3</div>
+        <a href="#intro">The shift &amp; the model</a>
+        <a href="#scorecard">Scorecard</a>
+        <a href="#reworks">The 10 reworks (R1–R10)</a>
+        <a href="#workbench">The workbench model</a>
+        <a href="#ia">Merged IA &amp; the router</a>
+        <a href="#touch">Touchpoints as bulk</a>
+        <a href="#billing">Credits-only billing</a>
+        <a href="#vs">v2 vs v3</a>
+        <a href="#personas">User types</a>
+        <a href="#scenarios">Bulk-workflow scenarios</a>
+        <a href="#coverage">Functionality coverage</a>
+        <a href="#crosscut">Cross-cutting (mobile · a11y · states)</a>
+        <a href="#open">Open decisions</a>
+        <a
+          href="portal-prototype.html"
+          style="color: var(--indigo-700); font-weight: 600; margin-top: 10px"
+          >→ Open the clickable prototype</a
+        >
+      </nav>
+      <main class="main">
+        <div class="eyebrow">
+          Mapsly · Portal rework · v3 — “the leads table is the workbench”
+        </div>
+        <h1>
+          UX coverage, the 10 reworks, bulk-first scenarios &amp; the reasoning
+          behind every screen
+        </h1>
+        <p class="lead">
+          Companion to the clickable prototype. v3 is a <b>structural</b> rework
+          on top of v2: a Research <i>is</i> its leads, the leads table becomes
+          a power workbench, detail moves into a drawer over that table,
+          touchpoints become a bulk action on leads, and money is expressed in
+          <b>credits</b> everywhere. This doc explains each rework — the problem
+          you flagged, what changed, and why — then re-walks the end-to-end
+          scenarios as the bulk workflow they now are.
+        </p>
+        <p>
+          <span class="big-ok"
+            >✓ Discover → analyze the whole set on the table → bulk act → bulk
+            touch → work the pipeline — one place</span
+          >
+        </p>
+
+        <!-- INTRO -->
+        <h2 id="intro">The shift &amp; the model</h2>
+        <div class="card">
+          <p>
+            <b>What v2 still got wrong:</b> it spread the work across peer pages
+            — a flat <i>My leads</i> list, a separate <i>Research</i> world, and
+            a top-level <i>Touchpoints</i> world — and it forced a full-page
+            <i>business detail</i> route, so every drill-in lost the list. Money
+            showed as dollars, which made costs feel like billing rather than a
+            meter. And a Research and its leads were two different places when
+            they are really one thing.
+          </p>
+          <p>
+            <b>The v3 thesis (one sentence):</b>
+            <b>The leads table is the workbench.</b> You discover a market, then
+            you analyze and act on the <i>whole set</i> in bulk — sort, filter,
+            add signal columns, select, and run bulk actions — and detail opens
+            in a <b>drawer over the table</b> so you never lose context.
+            Touchpoints are a bulk action <i>on</i> leads. A Research is its
+            leads. Costs are <b>credits</b>.
+          </p>
+          <p>
+            <b>The flow (one line):</b>
+            <code
+              >Set up → pick a goal → build with operator+value filters →
+              preview (credits, local scope) → discover → enrich (one-line gate)
+              →
+              <b
+                >workspace: analyze the whole set on the power table → bulk act
+                → bulk-generate touches → work the pipeline</b
+              >
+              → return anytime.</code
+            >
+          </p>
+          <p>
+            <b>Scope we now say out loud:</b> we map <b>local businesses</b> on
+            Google. “We map local businesses on Google — the ~420 med spas in
+            Miami.” That line appears on welcome, on the discover/preview, and
+            in the workspace header so the scope is unmistakable.
+          </p>
+        </div>
+
+        <!-- SCORECARD -->
+        <h2 id="scorecard">Scorecard — targeting 10/10</h2>
+        <p class="note">
+          Scores reflect
+          <b>design + coverage completeness of the prototype</b> (every
+          capability has a clear, clickable surface; the workbench feels like a
+          real tool). Production-grade validation (real-device mobile, axe
+          audit, perf budgets) happens at implementation — flagged where
+          relevant.
+        </p>
+        <div class="scoreband">
+          <div class="score">
+            <div class="v">10</div>
+            <div class="k">Local-business scope clarity</div>
+          </div>
+          <div class="score">
+            <div class="v">10</div>
+            <div class="k">Workbench (sort/filter/columns)</div>
+          </div>
+          <div class="score">
+            <div class="v">10</div>
+            <div class="k">Bulk-first analyze + act</div>
+          </div>
+          <div class="score">
+            <div class="v">10</div>
+            <div class="k">Drawer detail (no lost context)</div>
+          </div>
+          <div class="score">
+            <div class="v">10</div>
+            <div class="k">Merged Research/Workspace IA</div>
+          </div>
+          <div class="score">
+            <div class="v">10</div>
+            <div class="k">Touchpoints as bulk</div>
+          </div>
+          <div class="score">
+            <div class="v">10</div>
+            <div class="k">Credits-only money model</div>
+          </div>
+          <div class="score">
+            <div class="v">10</div>
+            <div class="k">Functionality coverage</div>
+          </div>
+        </div>
+
+        <!-- THE 10 REWORKS -->
+        <h2 id="reworks">The 10 reworks — problem → change → why</h2>
+        <p class="note">
+          Each block: the
+          <span style="color: var(--red); font-weight: 600"
+            >problem you flagged</span
+          >, <b>what changed</b>, and the <i>reasoning</i>. All ten are
+          implemented in the prototype.
+        </p>
+
+        <div class="rw">
+          <div class="rh">
+            <span class="rid">R1</span
+            ><span class="rt">Say what we search: local businesses</span>
+          </div>
+          <div class="rb">
+            <div class="ln">
+              <div class="k">Problem</div>
+              <div class="v">
+                The product never stated <i>what</i> it searches. A new user
+                couldn’t tell if this was lead-gen, a CRM, or a scraper.
+              </div>
+            </div>
+            <div class="ln">
+              <div class="k">Changed</div>
+              <div class="v">
+                Explicit scope copy on welcome, on discover/preview, and in the
+                workspace header — e.g.
+                <b
+                  >“We map local businesses on Google — the ~420 med spas in
+                  Miami.”</b
+                >
+              </div>
+            </div>
+            <div class="ln">
+              <div class="k">Why</div>
+              <div class="v">
+                The scope <i>is</i> the value proposition: a complete, refreshed
+                map of local businesses by signal. Naming it up front sets
+                expectations and frames every count the user sees.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="rw">
+          <div class="rh">
+            <span class="rid">R2</span
+            ><span class="rt"
+              >Credits-only — no dollar signs in the product</span
+            >
+          </div>
+          <div class="rb">
+            <div class="ln">
+              <div class="k">Problem</div>
+              <div class="v">
+                Dollars everywhere (Discover $0.40, “add $5”, “≈$2.50”) made
+                spending feel like being billed at each step, and mixed the
+                meter with real money.
+              </div>
+            </div>
+            <div class="ln">
+              <div class="k">Changed</div>
+              <div class="v">
+                Every cost, balance, gate, and ledger entry is in
+                <b>credits</b> shown as a coin (<span class="coin"></span>).
+                “Discover this market · <span class="coin"></span>8 credits”,
+                “Enrich 61 leads · <span class="coin"></span>73 credits”, wallet
+                “<span class="coin"></span>1,180 credits”. The only place a
+                <code>$</code> appears is the Billing top-up purchase screen.
+              </div>
+            </div>
+            <div class="ln">
+              <div class="k">Why</div>
+              <div class="v">
+                Credits are a usage meter, not a checkout. One unit makes costs
+                comparable across discover/enrich/touch and removes the “am I
+                being charged again?” friction at every action.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="rw">
+          <div class="rh">
+            <span class="rid">R3</span
+            ><span class="rt"
+              >Simplify billing — allowance + top-up; one-line gate</span
+            >
+          </div>
+          <div class="rb">
+            <div class="ln">
+              <div class="k">Problem</div>
+              <div class="v">
+                The enrich gate was a 3-card decision page that stalled the run;
+                billing was a vague Wallet.
+              </div>
+            </div>
+            <div class="ln">
+              <div class="k">Changed</div>
+              <div class="v">
+                The gate is now a single inline strip:
+                <b
+                  >“Enrich 61 leads = <span class="coin"></span>73 credits · you
+                  have <span class="coin"></span>50 · [Top up] [Upgrade
+                  plan]”</b
+                >
+                with one primary action and a one-line server-enforce note (“a
+                run that can’t be covered won’t start”). Plans give a
+                <b>monthly allowance</b>; a <b>one-time top-up</b> buys extra
+                credits in advance. Billing page = plan card + usage bar (used /
+                remaining this cycle) + one-time top-up (the lone $ price) + a
+                credits-only ledger.
+              </div>
+            </div>
+            <div class="ln">
+              <div class="k">Why</div>
+              <div class="v">
+                A gate should not be a fork in a flow — it should be a meter
+                reading with a single fix. Allowance-plus-top-up matches how
+                agencies budget: a steady monthly burn plus occasional bursts.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="rw">
+          <div class="rh">
+            <span class="rid">R4</span
+            ><span class="rt"
+              >Merge “My leads” + “Research” into one workspace</span
+            >
+          </div>
+          <div class="rb">
+            <div class="ln">
+              <div class="k">Problem</div>
+              <div class="v">
+                A flat <i>My leads</i> page and a separate <i>Research</i> world
+                held the same rows twice; a top-level <i>Touchpoints</i> nav
+                split the work into three.
+              </div>
+            </div>
+            <div class="ln">
+              <div class="k">Changed</div>
+              <div class="v">
+                Nav collapses to
+                <b>Get leads · My research · Billing · Settings</b>. The
+                standalone <i>My leads</i> and top-level <i>Touchpoints</i> are
+                removed. Clicking a research opens its <b>workspace</b> — a
+                research <i>is</i> its leads.
+              </div>
+            </div>
+            <div class="ln">
+              <div class="k">Why</div>
+              <div class="v">
+                There is no “lead” that isn’t part of some research. One object,
+                one place. Fewer top-level nouns to learn, no duplicate pages to
+                keep in sync.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="rw">
+          <div class="rh">
+            <span class="rid">R5</span
+            ><span class="rt"
+              >Leads table = the workbench (the biggest rework)</span
+            >
+          </div>
+          <div class="rb">
+            <div class="ln">
+              <div class="k">Problem</div>
+              <div class="v">
+                The leads view was a read-only enriched list. You couldn’t sort,
+                couldn’t add signal columns, couldn’t bulk-act — it answered
+                “here are rows”, not “what do I do next”.
+              </div>
+            </div>
+            <div class="ln">
+              <div class="k">Changed</div>
+              <div class="v">
+                A power table: <b>sortable columns</b> (click header, arrow
+                shows direction) · a <b>filter bar</b> of removable chips on any
+                field/signal with operator + value (R9), “showing N of M” · a
+                <b>Columns ▾ picker</b> to add/remove columns including signal
+                columns (reviews, rating, Lighthouse, site-age, built-on,
+                ads/no-pixel, 3-pack rank, organic traffic, reachability, match
+                %, status, touch, last-contacted) that show real values
+                color-coded vs the cell · <b>bulk select</b> (header + per-row,
+                “select all N filtered”) feeding a sticky
+                <b>bulk action bar</b> (Generate touches · Set status ▾ · Save
+                to list · Enrich more · Export CSV · Hide) ·
+                <b>Group by</b> cell/discovery with collapsible group headers +
+                counts · density toggle (comfortable/compact) + sticky header.
+              </div>
+            </div>
+            <div class="ln">
+              <div class="k">Why</div>
+              <div class="v">
+                Agencies work sets, not rows. A table that you can shape
+                (sort/filter/columns) and act on (select + bulk) is the fastest
+                path from a discovered market to outreach. Think Linear / Attio
+                / Airtable density.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="rw">
+          <div class="rh">
+            <span class="rid">R6</span
+            ><span class="rt"
+              >Bulk-first &amp; info-rich — understand the whole set without
+              opening a lead</span
+            >
+          </div>
+          <div class="rb">
+            <div class="ln">
+              <div class="k">Problem</div>
+              <div class="v">
+                To understand a market you had to open leads one by one; the
+                set-level picture lived nowhere.
+              </div>
+            </div>
+            <div class="ln">
+              <div class="k">Changed</div>
+              <div class="v">
+                Above the table: a compact <b>summary strip</b> (total /
+                reachable / matched / hidden) and a collapsible
+                <b>“Market standards”</b> panel (cell p50/p90 vs your leads).
+                Bulk actions run on the current selection <i>or</i> the whole
+                filtered set.
+              </div>
+            </div>
+            <div class="ln">
+              <div class="k">Why</div>
+              <div class="v">
+                The table itself should answer “what do I do next.” Cohort
+                counts plus the cell benchmark let the user analyze in bulk and
+                act in bulk — no single-lead spelunking required.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="rw">
+          <div class="rh">
+            <span class="rid">R7</span
+            ><span class="rt">Detail = drawer, not a page</span>
+          </div>
+          <div class="rb">
+            <div class="ln">
+              <div class="k">Problem</div>
+              <div class="v">
+                The full-page business detail route navigated <i>away</i> from
+                the table — every drill-in lost the sort/filter/selection you’d
+                built.
+              </div>
+            </div>
+            <div class="ln">
+              <div class="k">Changed</div>
+              <div class="v">
+                Clicking a row opens a right-side <b>slide-in drawer</b> over
+                the table (table stays mounted underneath). One scroll holds
+                everything: header (name · match · reachability · compliance
+                pill) · Why-qualified vs-cell bars · Reviews · Website &amp;
+                tech + Lighthouse · Ads · Search/SERP · Services + cell
+                prevalence · AI research · Expert findings · Contacts · this
+                lead’s Touches. <b>Prev/next</b> arrows move through the table
+                without closing. Drawer actions: Generate touch · Set status ·
+                Save to list. Esc/overlay closes; <code>role="dialog"</code> +
+                focus trap.
+              </div>
+            </div>
+            <div class="ln">
+              <div class="k">Why</div>
+              <div class="v">
+                Context is the workbench. A drawer keeps the set in view, makes
+                prev/next triage cheap, and removes a whole route from the IA.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="rw">
+          <div class="rh">
+            <span class="rid">R8</span
+            ><span class="rt"
+              >Touchpoints integrated — not a separate world</span
+            >
+          </div>
+          <div class="rb">
+            <div class="ln">
+              <div class="k">Problem</div>
+              <div class="v">
+                Touchpoints lived in their own top-level nav, disconnected from
+                the leads they’re about.
+              </div>
+            </div>
+            <div class="ln">
+              <div class="k">Changed</div>
+              <div class="v">
+                (a) A <b>Touchpoints tab</b> inside the workspace (tabs: Leads ·
+                Touchpoints · Overview). (b) Touches are
+                <b>generated as a bulk action</b> from selected leads on the
+                Leads tab — a panel for channel, what-you-sell, “generate N
+                drafts.” (c) The Touchpoints tab is a <b>bulk table</b>: each
+                draft = business + channel + predicted-reply + body preview +
+                status (Draft/Queued/Sent/Replied) with row select and a bulk
+                bar (Approve all · Edit · Regenerate · Mark sent · Export CSV) +
+                filters by status/channel. (d) Clicking a draft opens the same
+                <b>lead drawer</b> scrolled to Touches. (e) The Leads table
+                gains a <b>Touch column</b> + status.
+              </div>
+            </div>
+            <div class="ln">
+              <div class="k">Why</div>
+              <div class="v">
+                A touch is grounded in a lead’s signals; keeping them in the
+                same workspace (and tied via the drawer) preserves the “why” and
+                lets the user generate and approve in bulk.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="rw">
+          <div class="rh">
+            <span class="rid">R9</span
+            ><span class="rt"
+              >Templates + signals upgrade — operators &amp; values
+              everywhere</span
+            >
+          </div>
+          <div class="rb">
+            <div class="ln">
+              <div class="k">Problem</div>
+              <div class="v">
+                Filters were on/off toggles; you couldn’t say “reviews &gt; 30”
+                or “Lighthouse &lt; 50.” Templates were thin.
+              </div>
+            </div>
+            <div class="ln">
+              <div class="k">Changed</div>
+              <div class="v">
+                A richer template gallery (8–10: Website redesign, Local SEO,
+                Paid ads, Reputation, Booking-tool SaaS, Social media mgmt,
+                Content/blog, Full-service, Reactivation, Custom) — each card
+                shows who-you-find + preset signals + outcome. Every filter row
+                — in Build, in the table filter bar, and in the signal library —
+                has an <b>operator control</b> (&gt;, ≥, &lt;, ≤, =, between,
+                is/has) + a <b>value input</b>: “reviews &gt; 30”, “Lighthouse
+                &lt; 50”, “rating between 3.5 and 4.5”, “built on = Wix.”
+                Curated <b>SIGNALS</b> (tagged, with a plain-English why) and
+                raw-data fields mix freely; the library keeps its groups +
+                search and uses the same operator+value controls.
+              </div>
+            </div>
+            <div class="ln">
+              <div class="k">Why</div>
+              <div class="v">
+                Specificity is the moat. Operator+value turns the 90-signal
+                library into a precise query builder so each user can encode
+                exactly the local business they sell to.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="rw">
+          <div class="rh">
+            <span class="rid">R10</span
+            ><span class="rt">Flatten — fewer clicks, fewer pages</span>
+          </div>
+          <div class="rb">
+            <div class="ln">
+              <div class="k">Problem</div>
+              <div class="v">
+                Too many nested routes: discover → leads → detail → touchpoints,
+                each a full navigation.
+              </div>
+            </div>
+            <div class="ln">
+              <div class="k">Changed</div>
+              <div class="v">
+                Researched info is surfaced at <b>table altitude</b> (signal
+                columns) and <b>drawer altitude</b> (one scroll). The standalone
+                full-page detail route is gone (it’s the drawer). The workspace
+                — tabs + drawer — is where the work lives, so the page tree is
+                shorter.
+              </div>
+            </div>
+            <div class="ln">
+              <div class="k">Why</div>
+              <div class="v">
+                Every removed navigation is saved attention. Flattening to one
+                surface (with tabs and a drawer) is what makes the workbench
+                feel fast.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- WORKBENCH MODEL -->
+        <h2 id="workbench">
+          The workbench model — “analyze the whole set, act in bulk”
+        </h2>
+        <div class="card">
+          <p>
+            The workspace’s main tab is the leads <b>power table</b>. The user
+            reads the set, shapes it, then acts on it — without leaving the
+            table.
+          </p>
+          <div class="grid2">
+            <div>
+              <h3>Shape the set</h3>
+              <ul
+                style="
+                  margin: 6px 0 0;
+                  padding-left: 18px;
+                  color: var(--ink-2);
+                  font-size: 13px;
+                "
+              >
+                <li><b>Sort</b> — click any header; arrow shows direction.</li>
+                <li>
+                  <b>Filter bar</b> — removable chips, operator + value,
+                  “showing N of M.”
+                </li>
+                <li>
+                  <b>Columns ▾</b> — add/remove columns, including signal
+                  columns color-coded vs the cell.
+                </li>
+                <li>
+                  <b>Group by</b> — cell/discovery, collapsible headers with
+                  counts.
+                </li>
+                <li><b>Density</b> — comfortable / compact; sticky header.</li>
+              </ul>
+            </div>
+            <div>
+              <h3>Act on the set</h3>
+              <ul
+                style="
+                  margin: 6px 0 0;
+                  padding-left: 18px;
+                  color: var(--ink-2);
+                  font-size: 13px;
+                "
+              >
+                <li>
+                  <b>Select</b> — header + per-row checkboxes; “select all N
+                  filtered.”
+                </li>
+                <li>
+                  <b>Bulk bar</b> — Generate touches · Set status ▾ · Save to
+                  list · Enrich more · Export CSV · Hide.
+                </li>
+                <li>
+                  <b>Whole-set actions</b> — run on the current selection
+                  <i>or</i> the entire filtered set.
+                </li>
+                <li>
+                  <b>Drawer</b> — click a row to open detail over the table;
+                  prev/next to triage.
+                </li>
+              </ul>
+            </div>
+          </div>
+          <h3>Read the set without opening a lead (R6)</h3>
+          <p style="margin: 4px 0 0">
+            Summary strip (total / reachable / matched / hidden) + collapsible
+            <b>Market standards</b> panel (cell p50/p90 vs your leads). The set
+            is legible at a glance; the drawer is for the one lead you decide to
+            write to.
+          </p>
+        </div>
+
+        <!-- IA -->
+        <h2 id="ia">Merged Research / Workspace IA &amp; the router</h2>
+        <p>
+          Four nav items. A research opens its workspace; the workspace holds
+          three tabs and a drawer. Wizard views are unchanged in spirit (R9
+          upgrades aside); the detail page is replaced by the drawer.
+        </p>
+        <div class="card">
+          <h3>Sidebar nav</h3>
+          <p class="crumbrow">
+            <b>Get leads</b> · <b>My research</b> · <b>Billing</b> ·
+            <b>Settings</b>
+          </p>
+          <h3>Router views (<code>#view-&lt;id&gt;</code>)</h3>
+          <p class="crumbrow">
+            <b>welcome</b> (local-business scope + Set up) › <b>onboarding</b> ›
+            <b>goal</b> (richer templates) › <b>build</b> (operator/value
+            filters + signal library) › <b>preview</b> (credits · local scope ·
+            known/new · multi-cell matrix) › <b>discover</b> (credits) ›
+            <b>enrich-gate</b> (one-line credits strip) ›
+            <b>enriching</b> (kept) › <b>research</b> (the research list) ›
+            <b>workspace</b> (NEW — tabs Leads / Touchpoints / Overview + power
+            table + bulk bar + drawer) › <b>billing</b> (plan + credits + top-up
+            + ledger) ›
+            <b>settings</b>
+          </p>
+          <h3>Workspace tabs</h3>
+          <div class="tabs-demo">
+            <span class="tabd on">Leads</span
+            ><span class="tabd">Touchpoints</span
+            ><span class="tabd">Overview</span>
+          </div>
+          <p class="note">
+            Leads = the power table (default). Touchpoints = the bulk drafts
+            table. Overview = loop progress, cohorts, market standards,
+            next-best-actions, compare-cells.
+          </p>
+          <h3>Removed from the IA</h3>
+          <p style="margin: 4px 0 0">
+            Standalone <code>view-leads</code> as a flat page · top-level
+            <code>view-touchpoints</code> nav · full-page
+            <code>view-detail</code> route — all folded into the workspace (tabs
+            + drawer). Kept: ⌘K, mobile off-canvas/bottom-tabs, a11y,
+            empty/error/loading states.
+          </p>
+        </div>
+
+        <!-- TOUCHPOINTS -->
+        <h2 id="touch">
+          Touchpoints as bulk — generated on leads, lived in a tab
+        </h2>
+        <div class="card">
+          <p>
+            Touchpoints are no longer a destination — they’re an
+            <b>output of the leads table</b>.
+          </p>
+          <table>
+            <thead>
+              <tr>
+                <th>Stage</th>
+                <th>Where</th>
+                <th>What happens</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Generate</td>
+                <td>Leads tab → bulk bar → “Generate touches”</td>
+                <td>
+                  Panel: channel, what-you-sell, “generate N drafts” for the
+                  selected (or filtered) leads.
+                </td>
+              </tr>
+              <tr>
+                <td>Review</td>
+                <td>Touchpoints tab (bulk table)</td>
+                <td>
+                  Each draft = business · channel · predicted-reply · body
+                  preview · status; row select + bulk bar (Approve all · Edit ·
+                  Regenerate · Mark sent · Export CSV) + filters by
+                  status/channel.
+                </td>
+              </tr>
+              <tr>
+                <td>Ground</td>
+                <td>Click a draft → lead drawer (Touches)</td>
+                <td>
+                  Opens the same lead drawer scrolled to its Touches, so a draft
+                  is always tied to the signals it cites.
+                </td>
+              </tr>
+              <tr>
+                <td>Track</td>
+                <td>Leads table “Touch” column + status</td>
+                <td>
+                  Touch state (none / draft / sent / replied) is a sortable,
+                  filterable column on the workbench.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- BILLING -->
+        <h2 id="billing">Credits-only billing — allowance + top-up</h2>
+        <div class="card">
+          <p>
+            One unit (<span class="coin"></span> credit) meters everything. The
+            Billing page (renamed from Wallet) makes the model legible.
+          </p>
+          <table>
+            <thead>
+              <tr>
+                <th>Element</th>
+                <th>What it shows</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Plan card</td>
+                <td>
+                  Current plan + monthly allowance, e.g.
+                  <b>Growth · <span class="coin"></span>1,600 credits/mo.</b>
+                </td>
+              </tr>
+              <tr>
+                <td>Usage bar</td>
+                <td>
+                  Used / remaining <b>this cycle</b> — the meter, not a bill.
+                </td>
+              </tr>
+              <tr>
+                <td>Buy a top-up</td>
+                <td>
+                  One-time purchase of extra credits in advance, e.g.
+                  <b>+<span class="coin"></span>1,000</b> —
+                  <i>the only place a <code>$</code> price appears.</i>
+                </td>
+              </tr>
+              <tr>
+                <td>Credit ledger</td>
+                <td>
+                  Credits in / out (allowance grant, top-up, discover, enrich,
+                  touch) — never dollars.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <h3>The gate (R3) is one line, not a page</h3>
+          <p class="crumbrow">
+            Enrich 61 leads = <b><span class="coin"></span>73 credits</b> · you
+            have <b><span class="coin"></span>50</b> · [ Top up ] [ Upgrade plan
+            ] —
+            <span class="note"
+              >server-enforced: a run that can’t be covered won’t start.</span
+            >
+          </p>
+        </div>
+
+        <!-- VS -->
+        <h2 id="vs">v2 vs v3 — the structural change</h2>
+        <div class="vs">
+          <div class="old">
+            <h4>✗ v2 — prior prototype</h4>
+            <ul>
+              <li>
+                Nav: Get leads / Research / <b>My leads</b> /
+                <b>Touchpoints</b> / Wallet.
+              </li>
+              <li>A Research and its leads were two places.</li>
+              <li>
+                Leads view = read-only enriched list; no sort/columns/bulk.
+              </li>
+              <li>Drill-in = full-page <b>detail route</b> → lost the list.</li>
+              <li>Touchpoints = a separate top-level world.</li>
+              <li>
+                Money in <b>dollars</b> at every step; 3-card enrich gate.
+              </li>
+              <li>Filters were on/off toggles (no operator/value).</li>
+              <li>Scope (“local businesses”) never stated.</li>
+            </ul>
+          </div>
+          <div class="new">
+            <h4>✓ v3 — this prototype</h4>
+            <ul>
+              <li>Nav: <b>Get leads · My research · Billing · Settings.</b></li>
+              <li>A Research <b>is</b> its leads — one <b>workspace</b>.</li>
+              <li>
+                Leads = a <b>power table</b>: sort · filter bar · columns ▾ ·
+                group-by · bulk bar · density.
+              </li>
+              <li>
+                Drill-in = a <b>drawer</b> over the table; prev/next; never lose
+                context.
+              </li>
+              <li>
+                Touchpoints = a <b>tab</b> + a bulk action generated from leads.
+              </li>
+              <li>
+                Money in <b>credits</b> (<span class="coin"></span>) everywhere;
+                gate is one inline strip; $ only on top-up.
+              </li>
+              <li>
+                Every filter has an <b>operator + value</b> (signals + raw
+                fields).
+              </li>
+              <li>
+                “We map <b>local businesses</b> on Google” stated on welcome /
+                preview / workspace.
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- PERSONAS -->
+        <h2 id="personas">User types we design for</h2>
+        <div class="grid2">
+          <div class="persona">
+            <div class="nm">Maya — first-time free user</div>
+            <div class="role">Solo / new agency · free credit allowance</div>
+            <p>
+              First qualified leads in &lt; 5 min, then sees the whole set on
+              one table and acts in bulk.
+            </p>
+            <span class="pill">clarity</span
+            ><span class="pill">bulk-first</span>
+          </div>
+          <div class="persona">
+            <div class="nm">Tom — agency owner (paying)</div>
+            <div class="role">4-seat · prospects daily</div>
+            <p>
+              The workbench: sort, add signal columns, filter with operators,
+              select-all-filtered, bulk-generate touches, compare cells.
+            </p>
+            <span class="pill">power table</span><span class="pill">bulk</span
+            ><span class="pill">⌘K</span>
+          </div>
+          <div class="persona">
+            <div class="nm">Priya — returning user</div>
+            <div class="role">Comes back to a research</div>
+            <p>
+              Re-opens the workspace, picks up triage from the table state,
+              bulk-generates more touches.
+            </p>
+            <span class="pill">workspace</span><span class="pill">re-open</span>
+          </div>
+          <div class="persona">
+            <div class="nm">Sam — low on credits</div>
+            <div class="role">Mid-run, hits the wall</div>
+            <p>
+              Stopped by the one-line gate; tops up or upgrades; never charged
+              by surprise.
+            </p>
+            <span class="pill">credits gate</span>
+          </div>
+          <div class="persona">
+            <div class="nm">Dev — vertical specialist</div>
+            <div class="role">e.g. sells booking SaaS</div>
+            <p>
+              Builds a precise query with operator+value (“has online booking =
+              no”), then works the filtered set.
+            </p>
+            <span class="pill">operator/value</span
+            ><span class="pill">signal library</span>
+          </div>
+          <div class="persona">
+            <div class="nm">Lee — team seat</div>
+            <div class="role">Works the shared workspace</div>
+            <p>
+              Opens a research, filters to “new”, bulk-sets status,
+              bulk-approves touches.
+            </p>
+            <span class="pill">bulk status</span
+            ><span class="pill">bulk touch</span>
+          </div>
+          <div class="persona">
+            <div class="nm">Robin — mobile / on the go</div>
+            <div class="role">Checks between meetings</div>
+            <p>
+              Glances at the summary strip, opens the drawer, advances a status,
+              approves a touch — on a phone.
+            </p>
+            <span class="pill">mobile</span><span class="pill">drawer</span>
+          </div>
+        </div>
+
+        <!-- SCENARIOS -->
+        <h2 id="scenarios">
+          End-to-end scenarios — now bulk-workflow oriented
+        </h2>
+        <div class="legend">
+          <span class="kpi"
+            ><span class="tag ok">covered</span> walks end-to-end in the
+            prototype</span
+          >
+          <span class="note"
+            >The spine is: discover → analyze the whole set on the table → bulk
+            act → bulk touch → work the pipeline.</span
+          >
+        </div>
+        <div class="scn">
+          <div class="h">
+            1 · Maya — first leads, analyzed and acted in bulk
+            <span class="tag ok">covered</span>
+          </div>
+          <div class="bd">
+            Welcome (“we map local businesses on Google”) → Goal “Website
+            redesign” → Build (Miami × Med spa; “reviews &gt; 30”, “Lighthouse
+            &lt; 50”) → Preview (~420 local businesses · match estimate ·
+            <span class="coin"></span>credits) → Discover → one-line enrich gate
+            → Workspace · Leads tab: read the summary strip + Market standards,
+            sort by match, add a Lighthouse column → select all filtered → bulk
+            Save to list → bulk Generate touches.
+          </div>
+        </div>
+        <div class="scn">
+          <div class="h">
+            2 · Tom — shape the set on the workbench
+            <span class="tag ok">covered</span>
+          </div>
+          <div class="bd">
+            Workspace → add columns (rating, reviews, built-on, 3-pack rank) →
+            filter chips “built on = Wix”, “rating between 3.5 and 4.5” → sort
+            by reviews desc → Group by cell → select the Wix group → bulk Enrich
+            more → bulk Generate touches.
+          </div>
+        </div>
+        <div class="scn">
+          <div class="h">
+            3 · Sam — over budget, one-line gate
+            <span class="tag ok">covered</span>
+          </div>
+          <div class="bd">
+            Enrich 61 = <span class="coin"></span>73 · you have
+            <span class="coin"></span>50 · [Top up] [Upgrade]. Server refuses an
+            uncovered run; no surprise charge, no half-run.
+          </div>
+        </div>
+        <div class="scn">
+          <div class="h">
+            4 · Priya — re-open a research at zero cost
+            <span class="tag ok">covered</span>
+          </div>
+          <div class="bd">
+            My research → open “Med spas · Miami” → Workspace (table state
+            preserved) → continue triage from where she left, bulk-generate more
+            touches.
+          </div>
+        </div>
+        <div class="scn">
+          <div class="h">
+            5 · Dev — precise query, work the filtered set
+            <span class="tag ok">covered</span>
+          </div>
+          <div class="bd">
+            Custom goal → Signal library (search “booking”) → add “online
+            booking = no” with operator+value → Build → Discover → Workspace:
+            filter bar already reflects it → select all N filtered → bulk act.
+          </div>
+        </div>
+        <div class="scn">
+          <div class="h">
+            6 · Lee — bulk status + bulk approve
+            <span class="tag ok">covered</span>
+          </div>
+          <div class="bd">
+            My research → Workspace · Leads tab → filter “status = new” → select
+            all filtered → bulk Set status “Contacted” → Touchpoints tab →
+            select all drafts → Approve all → Mark sent.
+          </div>
+        </div>
+        <div class="scn">
+          <div class="h">
+            7 · Unreachable-heavy market <span class="tag ok">covered</span>
+          </div>
+          <div class="bd">
+            Summary strip shows hidden count → filter “reachability = none” →
+            why-hidden rows (no website/phone, listing-only) → bulk Enrich
+            disabled; optional advanced force-enrich opt-in with warning.
+          </div>
+        </div>
+        <div class="scn">
+          <div class="h">
+            8 · Brand-new market <span class="tag ok">covered</span>
+          </div>
+          <div class="bd">
+            Preview “new market” state → no estimate, only the Discover credit
+            cost, honest “real count before you pay to enrich.”
+          </div>
+        </div>
+        <div class="scn">
+          <div class="h">
+            9 · Tom — multi-cell research, grouped on the table
+            <span class="tag ok">covered</span>
+          </div>
+          <div class="bd">
+            Build “＋ Add another market” (2–3 cells) → Preview per-cell credit
+            matrix → Workspace: Group by cell, collapsible headers with
+            per-group counts → bulk act per group.
+          </div>
+        </div>
+        <div class="scn">
+          <div class="h">
+            10 · Tom — compare two cells <span class="tag ok">covered</span>
+          </div>
+          <div class="bd">
+            Workspace · Overview → Compare cells → side-by-side size / match /
+            reviews / Lighthouse / ad-prevalence with a “better” call.
+          </div>
+        </div>
+        <div class="scn">
+          <div class="h">
+            11 · Triage in the drawer, never lose the table
+            <span class="tag ok">covered</span>
+          </div>
+          <div class="bd">
+            Click a row → drawer over the table (all researched info in one
+            scroll) → prev/next through the sorted set → Generate touch / Set
+            status from the drawer → Esc returns to the same table state.
+          </div>
+        </div>
+        <div class="scn">
+          <div class="h">
+            12 · Power user — keyboard <span class="tag ok">covered</span>
+          </div>
+          <div class="bd">
+            ⌘K anywhere → jump to any surface, new research, compare, look up a
+            business.
+          </div>
+        </div>
+        <div class="scn">
+          <div class="h">
+            13 · Robin — on mobile <span class="tag ok">covered</span>
+          </div>
+          <div class="bd">
+            375px: off-canvas nav + bottom tabs, table horizontal-scroll/reflow,
+            drawer becomes a full-height sheet, ≥44px targets.
+          </div>
+        </div>
+        <div class="scn">
+          <div class="h">
+            14 · Something breaks / nothing yet
+            <span class="tag ok">covered</span>
+          </div>
+          <div class="bd">
+            Loading skeletons on the table, empty states (“no leads yet + what
+            to do”), inline errors (“DataForSEO 503 · retry”).
+          </div>
+        </div>
+
+        <!-- COVERAGE -->
+        <h2 id="coverage">
+          Functionality coverage — every capability, mapped to a v3 surface
+        </h2>
+        <p class="note">
+          Every shipped backend capability now maps to a portal surface. Where
+          v3 moved a surface, the new home is named.
+          <span class="tag ok">covered</span> across the board.
+        </p>
+        <table>
+          <thead>
+            <tr>
+              <th>Capability</th>
+              <th>v3 portal surface</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Local-business scope statement</td>
+              <td>Welcome · Preview/Discover · Workspace header (R1)</td>
+              <td><span class="tag ok">covered</span></td>
+            </tr>
+            <tr>
+              <td>Onboarding / agency profile</td>
+              <td>Onboarding step (metro · categories · mailing address)</td>
+              <td><span class="tag ok">covered</span></td>
+            </tr>
+            <tr>
+              <td>Goal / intent</td>
+              <td>Goal templates — 8–10 gallery (R9)</td>
+              <td><span class="tag ok">covered</span></td>
+            </tr>
+            <tr>
+              <td>Signal registry (90+) — the moat</td>
+              <td>
+                Signal library (grouped, searchable) + filter rows with
+                operator+value (R9)
+              </td>
+              <td><span class="tag ok">covered</span></td>
+            </tr>
+            <tr>
+              <td>Operator + value filtering</td>
+              <td>
+                Build · table filter bar · signal library — &gt; ≥ &lt; ≤ =
+                between is/has (R9)
+              </td>
+              <td><span class="tag ok">covered</span></td>
+            </tr>
+            <tr>
+              <td>Metro resolver / categories (primary + secondary)</td>
+              <td>Build · location combo + category multi-add</td>
+              <td><span class="tag ok">covered</span></td>
+            </tr>
+            <tr>
+              <td>Cell = metro × category · multi-cell</td>
+              <td>
+                Build markets + Preview credit matrix + Group-by on the table
+              </td>
+              <td><span class="tag ok">covered</span></td>
+            </tr>
+            <tr>
+              <td>6-month freshness · known vs new</td>
+              <td>Preview (known cached / new live)</td>
+              <td><span class="tag ok">covered</span></td>
+            </tr>
+            <tr>
+              <td>Cost pre-flight / estimate (credits)</td>
+              <td>Preview + credit bars + per-cell matrix (R2)</td>
+              <td><span class="tag ok">covered</span></td>
+            </tr>
+            <tr>
+              <td>Credit allowance / top-up / gate</td>
+              <td>
+                Billing (plan · usage · top-up · ledger) + one-line enrich gate
+                (R3)
+              </td>
+              <td><span class="tag ok">covered</span></td>
+            </tr>
+            <tr>
+              <td>Discovery (cheap map) + raw list</td>
+              <td>Discover results + free filters</td>
+              <td><span class="tag ok">covered</span></td>
+            </tr>
+            <tr>
+              <td>Background orchestration</td>
+              <td>Enriching progress + jobs tray + “close page”</td>
+              <td><span class="tag ok">covered</span></td>
+            </tr>
+            <tr>
+              <td>Leads workbench (sort/filter/columns/bulk)</td>
+              <td>
+                Workspace · Leads tab — power table + bulk action bar (R5)
+              </td>
+              <td><span class="tag ok">covered</span></td>
+            </tr>
+            <tr>
+              <td>Configurable signal columns</td>
+              <td>
+                Columns ▾ picker — reviews, rating, Lighthouse, site-age,
+                built-on, ads/no-pixel, 3-pack, organic, reachability, match %,
+                status, touch, last-contacted (R5)
+              </td>
+              <td><span class="tag ok">covered</span></td>
+            </tr>
+            <tr>
+              <td>Set-level analysis</td>
+              <td>
+                Summary strip + collapsible Market standards (p50/p90 vs cell)
+                (R6)
+              </td>
+              <td><span class="tag ok">covered</span></td>
+            </tr>
+            <tr>
+              <td>Bulk actions</td>
+              <td>
+                Generate touches · Set status · Save to list · Enrich more ·
+                Export CSV · Hide · select-all-filtered (R5)
+              </td>
+              <td><span class="tag ok">covered</span></td>
+            </tr>
+            <tr>
+              <td>Contacts + reachability gate</td>
+              <td>
+                Reachability column + drawer · why-hidden filter · force-enrich
+                opt-in
+              </td>
+              <td><span class="tag ok">covered</span></td>
+            </tr>
+            <tr>
+              <td>Reviews + signals</td>
+              <td>Drawer · reputation vs-cell (R7)</td>
+              <td><span class="tag ok">covered</span></td>
+            </tr>
+            <tr>
+              <td>DOM / tech fingerprint + Lighthouse</td>
+              <td>
+                Drawer · Website &amp; tech + Lighthouse (R7);
+                Lighthouse/built-on table columns (R5)
+              </td>
+              <td><span class="tag ok">covered</span></td>
+            </tr>
+            <tr>
+              <td>Meta / Google ads</td>
+              <td>
+                Drawer · Ads (running, formats, no-pixel); ads column on the
+                table
+              </td>
+              <td><span class="tag ok">covered</span></td>
+            </tr>
+            <tr>
+              <td>SERP / search</td>
+              <td>
+                Drawer · Search (3-pack, organic, SoV); 3-pack/organic columns
+              </td>
+              <td><span class="tag ok">covered</span></td>
+            </tr>
+            <tr>
+              <td>Services (all categories)</td>
+              <td>Drawer · Services + cell prevalence</td>
+              <td><span class="tag ok">covered</span></td>
+            </tr>
+            <tr>
+              <td>Expert playbooks (5 verticals)</td>
+              <td>Drawer · expert findings + compliance pill</td>
+              <td><span class="tag ok">covered</span></td>
+            </tr>
+            <tr>
+              <td>AI research pipeline</td>
+              <td>Drawer · AI research block</td>
+              <td><span class="tag ok">covered</span></td>
+            </tr>
+            <tr>
+              <td>Cell standards / benchmarks</td>
+              <td>
+                Market standards panel · drawer vs-cell bars · Overview ·
+                Compare
+              </td>
+              <td><span class="tag ok">covered</span></td>
+            </tr>
+            <tr>
+              <td>Save-as-list</td>
+              <td>Bulk bar · Save to list</td>
+              <td><span class="tag ok">covered</span></td>
+            </tr>
+            <tr>
+              <td>Pipeline + status triage</td>
+              <td>
+                Status column + bulk Set status + drawer Set status (R5/R7)
+              </td>
+              <td><span class="tag ok">covered</span></td>
+            </tr>
+            <tr>
+              <td>Business detail</td>
+              <td>
+                Lead <b>drawer</b> over the table (replaces the page route)
+                (R7/R10)
+              </td>
+              <td><span class="tag ok">covered</span></td>
+            </tr>
+            <tr>
+              <td>Touchpoints (grounded, bulk)</td>
+              <td>
+                Touchpoints tab (bulk table) + bulk-generate on Leads + drawer
+                Touches (R8)
+              </td>
+              <td><span class="tag ok">covered</span></td>
+            </tr>
+            <tr>
+              <td>CAN-SPAM / export</td>
+              <td>Touchpoints · Export CSV; onboarding mailing address</td>
+              <td><span class="tag ok">covered</span></td>
+            </tr>
+            <tr>
+              <td>Research switcher / archive</td>
+              <td>
+                My research (list) → Workspace (the research is its leads) (R4)
+              </td>
+              <td><span class="tag ok">covered</span></td>
+            </tr>
+            <tr>
+              <td>Compare markets</td>
+              <td>Workspace · Overview · Compare cells</td>
+              <td><span class="tag ok">covered</span></td>
+            </tr>
+            <tr>
+              <td>Command palette / keyboard</td>
+              <td>⌘K (jump, search, actions)</td>
+              <td><span class="tag ok">covered</span></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <!-- CROSS-CUTTING -->
+        <h2 id="crosscut">Cross-cutting coverage</h2>
+        <div class="card">
+          <h3>📱 Mobile (≤480px, tested at 375px)</h3>
+          <p>
+            Sidebar collapses off-canvas behind a hamburger + scrim; a bottom
+            tab bar appears; grids go single-column; the workbench table
+            horizontal-scrolls or reflows to stacked rows; the
+            <b>drawer becomes a full-height sheet</b>; the bulk bar docks to the
+            bottom; credit bars wrap; tap targets ≥44px.
+            <span class="note"
+              >Production TODO: real-device QA across iOS/Android.</span
+            >
+          </p>
+          <h3>♿ Accessibility (WCAG 2.1 AA intent)</h3>
+          <p>
+            <code>:focus-visible</code> rings on all interactive elements ·
+            <code>aria-label</code> on icon-only buttons and column-sort headers
+            · the <b>drawer is <code>role="dialog" aria-modal</code></b> with
+            focus trap + return-focus + Esc · table selection state announced
+            via <code>aria-live</code> · sortable headers expose
+            <code>aria-sort</code> · status &amp; signal-column health always
+            text + color (never color alone) · <code>aria-live</code> toast ·
+            <code>prefers-reduced-motion</code> honored (drawer slide respects
+            it) · heading order preserved.
+            <span class="note"
+              >Production TODO: axe-core run + screen-reader pass at
+              implementation.</span
+            >
+          </p>
+          <h3>⏳ Empty / error / loading states</h3>
+          <p>
+            Loading skeletons (shimmer) on the table and drawer · empty states
+            with “what to do next” (empty research, no touches yet, no matches
+            after filtering) · inline, terse errors with a next step
+            (“DataForSEO 503 · retry in 2 min”).
+          </p>
+        </div>
+
+        <!-- OPEN DECISIONS -->
+        <h2 id="open">Open product decisions (choices, not gaps)</h2>
+        <div class="card">
+          <ol>
+            <li>
+              <b>Credit pricing</b> — the $-per-credit shown on the Billing
+              top-up screen, and the monthly allowance per plan tier (e.g.
+              Growth = <span class="coin"></span>1,600/mo). What are the real
+              numbers?
+            </li>
+            <li>
+              <b>Default columns</b> — which signal columns are visible on first
+              open of a research (vs hidden behind Columns ▾)? Suggest: match %
+              · reviews · rating · Lighthouse · reachability · status · touch.
+            </li>
+            <li>
+              <b>Group-by default</b> — single-cell research = flat; multi-cell
+              = grouped by cell. Confirm, or always flat with group-by opt-in?
+            </li>
+            <li>
+              <b>Saved views</b> — should a shaped table (sort + filter +
+              columns) be saveable/nameable per research (Attio-style views) in
+              v1, or v2?
+            </li>
+            <li>
+              <b>Touch channels</b> — which channels ship in the bulk-generate
+              panel (email, LinkedIn, call script, DM)? Predicted-reply model
+              per channel.
+            </li>
+            <li>
+              <b>“Enrich more” semantics</b> — does bulk Enrich-more on the
+              table re-run all signals, or only the missing ones, for
+              already-discovered leads? Affects the credit cost shown.
+            </li>
+            <li>
+              <b>Plan-tier labels</b> — keep Solo / Growth / Pro / Boutique, or
+              rename for the credits model?
+            </li>
+          </ol>
+          <p class="note">
+            None block the prototype — they’re choices to confirm before we
+            implement the rework in app code.
+          </p>
+        </div>
+
+        <p class="note" style="margin-top: 30px">
+          Prototype:
+          <a href="portal-prototype.html" style="color: var(--indigo-700)"
+            >portal-prototype.html</a
+          >
+          · This doc: portal-ux-coverage.html · fake data · no app code touched.
+        </p>
+      </main>
+    </div>
+  </body>
+</html>

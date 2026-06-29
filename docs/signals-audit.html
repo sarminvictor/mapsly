@@ -1,0 +1,2086 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Mapsly · Signals & Data Audit</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg: #f6f7fb;
+        --surface: #fff;
+        --surface-2: #fafbff;
+        --ink: #0f172a;
+        --ink-2: #3a4660;
+        --muted: #64708c;
+        --faint: #97a1bb;
+        --line: #e6e9f3;
+        --line-2: #eef1f8;
+        --indigo: #5b3df5;
+        --indigo-50: #eeebff;
+        --indigo-700: #4226c9;
+        --yellow: #f2e94e;
+        --yellow-50: #fdfbd6;
+        --yellow-ink: #6b6406;
+        --mint: #caecec;
+        --mint-50: #edf7f7;
+        --mint-ink: #1d4d4d;
+        --coral: #b96562;
+        --coral-50: #faecec;
+        --green: #18b663;
+        --green-50: #e7f7ee;
+        --amber: #c98a16;
+        --amber-50: #fdf3df;
+        --display: "Fraunces", Georgia, serif;
+        --mono: "JetBrains Mono", ui-monospace, monospace;
+        --radius: 16px;
+        --shadow:
+          0 1px 2px rgba(15, 23, 42, 0.04),
+          0 8px 24px -16px rgba(15, 23, 42, 0.18);
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font-family:
+          Inter,
+          -apple-system,
+          system-ui,
+          sans-serif;
+        font-size: 14px;
+        line-height: 1.5;
+      }
+      .wrap {
+        display: grid;
+        grid-template-columns: 220px 1fr;
+        max-width: 1340px;
+        margin: 0 auto;
+      }
+      nav.toc {
+        position: sticky;
+        top: 0;
+        align-self: start;
+        height: 100vh;
+        overflow-y: auto;
+        padding: 26px 16px;
+        border-right: 1px solid var(--line);
+        background: #0d1020;
+      }
+      nav.toc .brand {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        color: #fff;
+        font-family: var(--display);
+        font-weight: 600;
+        font-size: 18px;
+        margin-bottom: 4px;
+      }
+      nav.toc .brand .lm {
+        width: 26px;
+        height: 26px;
+        border-radius: 50%;
+        box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.16);
+      }
+      nav.toc .tag {
+        font-size: 11px;
+        color: #7c84a3;
+        margin-bottom: 20px;
+      }
+      nav.toc a {
+        display: block;
+        color: #aab2cc;
+        text-decoration: none;
+        font-size: 12.5px;
+        font-weight: 600;
+        padding: 8px 10px;
+        border-radius: 9px;
+      }
+      nav.toc a:hover {
+        background: #191d33;
+        color: #fff;
+      }
+      nav.toc a .n {
+        color: var(--faint);
+        font-family: var(--mono);
+        font-size: 10px;
+        margin-right: 7px;
+      }
+      nav.toc .sep {
+        height: 1px;
+        background: #23273c;
+        margin: 12px 6px;
+      }
+      main {
+        padding: 34px 40px 120px;
+        min-width: 0;
+      }
+      .eyebrow {
+        font-size: 11.5px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: var(--indigo);
+        margin-bottom: 9px;
+      }
+      h1 {
+        font-family: var(--display);
+        font-size: 34px;
+        font-weight: 600;
+        letter-spacing: -0.02em;
+        line-height: 1.08;
+        margin: 0 0 12px;
+      }
+      h2 {
+        font-family: var(--display);
+        font-size: 23px;
+        font-weight: 600;
+        letter-spacing: -0.015em;
+        margin: 0 0 6px;
+      }
+      h3 {
+        font-family: var(--display);
+        font-size: 17px;
+        font-weight: 600;
+        margin: 22px 0 8px;
+      }
+      p.lead {
+        font-size: 15px;
+        color: var(--ink-2);
+        max-width: 80ch;
+        line-height: 1.6;
+      }
+      .sub {
+        color: var(--muted);
+        max-width: 86ch;
+        margin: 0 0 16px;
+      }
+      section {
+        margin: 0 0 46px;
+        scroll-margin-top: 18px;
+      }
+      .shead {
+        border-top: 2px solid var(--ink);
+        padding-top: 14px;
+        margin-bottom: 14px;
+      }
+      .pill {
+        display: inline-block;
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        padding: 2px 7px;
+        border-radius: 6px;
+        white-space: nowrap;
+      }
+      .p-sig {
+        color: var(--indigo-700);
+        background: var(--indigo-50);
+      }
+      .p-data {
+        color: var(--mint-ink);
+        background: var(--mint-50);
+      }
+      /* real-data verdict */
+      .r-real {
+        color: #0a7d4e;
+        background: var(--green-50);
+      }
+      .r-deriv {
+        color: var(--mint-ink);
+        background: var(--mint-50);
+      }
+      .r-partial {
+        color: var(--amber);
+        background: var(--amber-50);
+      }
+      .r-empty {
+        color: var(--coral);
+        background: var(--coral-50);
+      }
+      .r-none {
+        color: var(--faint);
+        background: var(--line-2);
+      }
+      /* decision */
+      .d-in {
+        color: #0a7d4e;
+        background: var(--green-50);
+      }
+      .d-setting {
+        color: var(--indigo-700);
+        background: var(--indigo-50);
+      }
+      .d-new {
+        color: var(--yellow-ink);
+        background: var(--yellow-50);
+      }
+      .d-filter {
+        color: var(--mint-ink);
+        background: var(--mint-50);
+      }
+      .d-drop {
+        color: var(--faint);
+        background: var(--line-2);
+      }
+      .stats {
+        display: flex;
+        gap: 26px;
+        flex-wrap: wrap;
+        margin: 18px 0 4px;
+      }
+      .stat .n {
+        font-family: var(--display);
+        font-size: 30px;
+        font-weight: 600;
+        line-height: 1;
+      }
+      .stat .l {
+        font-size: 12px;
+        color: var(--muted);
+        margin-top: 4px;
+        max-width: 22ch;
+      }
+      .tbl-tools {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin: 12px 0;
+        align-items: center;
+      }
+      .chip {
+        font-size: 12px;
+        font-weight: 600;
+        border: 1px solid var(--line);
+        background: #fff;
+        color: var(--ink-2);
+        border-radius: 999px;
+        padding: 5px 12px;
+        cursor: pointer;
+      }
+      .chip.on {
+        background: var(--ink);
+        color: #fff;
+        border-color: var(--ink);
+      }
+      .tblwrap {
+        overflow-x: auto;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--surface);
+        box-shadow: var(--shadow);
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 12.4px;
+      }
+      thead th {
+        position: sticky;
+        top: 0;
+        background: var(--surface-2);
+        text-align: left;
+        font-size: 10.5px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--faint);
+        font-weight: 700;
+        padding: 11px 13px;
+        border-bottom: 1px solid var(--line);
+        white-space: nowrap;
+      }
+      tbody td {
+        padding: 10px 13px;
+        border-bottom: 1px solid var(--line-2);
+        vertical-align: top;
+      }
+      tbody tr:last-child td {
+        border-bottom: 0;
+      }
+      tbody tr:hover {
+        background: var(--surface-2);
+      }
+      .fld {
+        font-family: var(--mono);
+        font-size: 11.4px;
+        color: var(--ink);
+        font-weight: 600;
+      }
+      .grp td {
+        font-family: var(--display);
+        font-size: 13.5px;
+        font-weight: 700;
+        background: var(--surface-2) !important;
+        padding-top: 14px;
+      }
+      .mono {
+        font-family: var(--mono);
+        font-size: 11px;
+        color: var(--ink-2);
+      }
+      .muted {
+        color: var(--muted);
+      }
+      .recipe {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+      }
+      .recipe code {
+        font-family: var(--mono);
+        font-size: 10.5px;
+        background: var(--surface-2);
+        border: 1px solid var(--line-2);
+        border-radius: 5px;
+        padding: 1px 6px;
+        width: fit-content;
+        color: var(--ink-2);
+      }
+      .recipe .and {
+        font-size: 9px;
+        color: var(--faint);
+        font-weight: 700;
+      }
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        padding: 18px 20px;
+        margin-bottom: 14px;
+      }
+      .card.accent {
+        border-left: 4px solid var(--indigo);
+      }
+      .card.warn {
+        border-left: 4px solid var(--amber);
+      }
+      .card.gap {
+        border-left: 4px solid var(--coral);
+      }
+      .card.good {
+        border-left: 4px solid var(--green);
+      }
+      .card h3 {
+        margin-top: 0;
+      }
+      .two {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+      }
+      .ex {
+        background: var(--surface-2);
+        border: 1px solid var(--line-2);
+        border-radius: 10px;
+        padding: 12px 14px;
+        font-size: 13px;
+      }
+      .ex b {
+        color: var(--ink);
+      }
+      ul.tight {
+        margin: 8px 0;
+        padding-left: 20px;
+      }
+      ul.tight li {
+        margin: 5px 0;
+        color: var(--ink-2);
+      }
+      .legend {
+        display: flex;
+        gap: 14px;
+        flex-wrap: wrap;
+        font-size: 12px;
+        color: var(--muted);
+        margin: 10px 0 0;
+      }
+      .legend span {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+      }
+      .callout {
+        background: var(--mint-50);
+        border: 1px solid var(--mint);
+        border-radius: 12px;
+        padding: 13px 16px;
+        font-size: 13px;
+        color: var(--mint-ink);
+        margin: 14px 0;
+      }
+      .callout.warn {
+        background: var(--coral-50);
+        border-color: var(--coral-100, #f3d3d2);
+        color: #8a3b39;
+      }
+      /* settings demo controls */
+      .seg {
+        display: inline-flex;
+        border: 1px solid var(--line);
+        border-radius: 9px;
+        overflow: hidden;
+        background: #fff;
+      }
+      .seg button {
+        font-size: 11.5px;
+        font-weight: 600;
+        border: 0;
+        background: #fff;
+        color: var(--ink-2);
+        padding: 6px 11px;
+        cursor: pointer;
+      }
+      .seg button.on {
+        background: var(--indigo);
+        color: #fff;
+      }
+      .seg button + button {
+        border-left: 1px solid var(--line);
+      }
+      @media (max-width: 900px) {
+        .wrap {
+          grid-template-columns: 1fr;
+        }
+        nav.toc {
+          position: static;
+          height: auto;
+          border-right: 0;
+          border-bottom: 1px solid var(--line);
+        }
+        main {
+          padding: 24px 16px 80px;
+        }
+        .two {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <nav class="toc">
+        <div class="brand">
+          <span class="lm">
+            <svg viewBox="0 0 39 39" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="19.5" cy="19.5" r="19.5" fill="#000" />
+              <path
+                d="M8.03119 27.5316V19.1098L8 11.4055H10.5889L10.2146 17.9246H10.6201C10.8073 16.3442 11.1192 15.0445 11.5559 14.0256C12.0133 13.0067 12.5956 12.2477 13.3026 11.7486C14.0304 11.2495 14.883 11 15.8603 11C16.9416 11 17.8046 11.2807 18.4492 11.8422C19.1146 12.3828 19.5929 13.173 19.884 14.2127C20.1752 15.2317 20.2895 16.4585 20.2271 17.8934H20.6014C20.7886 16.3546 21.1005 15.0757 21.5372 14.0568C21.9947 13.0379 22.5977 12.2789 23.3463 11.7798C24.0949 11.2599 24.9787 11 25.9976 11C26.8502 11 27.5884 11.1664 28.2122 11.4991C28.8361 11.811 29.3559 12.2893 29.7718 12.9339C30.2085 13.5577 30.5308 14.3479 30.7387 15.3045C30.9467 16.261 31.0507 17.3735 31.0507 18.642V27.5316H28.181V19.0475C28.181 17.7998 28.0771 16.7809 27.8691 15.9907C27.6612 15.1797 27.3388 14.587 26.9022 14.2127C26.4863 13.8176 25.9352 13.6201 25.249 13.6201C24.3964 13.6201 23.6478 13.932 23.0032 14.5559C22.3794 15.1797 21.8907 16.0635 21.5372 17.2071C21.1837 18.3508 20.9861 19.7025 20.9446 21.2621V27.5316H18.1373V19.0786C18.1373 17.8518 18.0229 16.8328 17.7942 16.0219C17.5862 15.2109 17.2639 14.6078 16.8272 14.2127C16.4114 13.8176 15.8707 13.6201 15.2053 13.6201C14.3319 13.6201 13.5833 13.932 12.9595 14.5559C12.3356 15.1797 11.847 16.0738 11.4935 17.2383C11.14 18.382 10.932 19.7441 10.8696 21.3244V27.5316H8.03119Z"
+                fill="#fff"
+              />
+            </svg>
+          </span>
+          Mapsly
+        </div>
+        <div class="tag">Signals &amp; Data Audit · v2 · coverage tracker</div>
+        <a href="#summary"><span class="n">00</span>Summary + reality check</a>
+        <a href="#data"><span class="n">A</span>Every raw data field</a>
+        <a href="#signals"><span class="n">B</span>Every current signal</a>
+        <a href="#ideas"><span class="n">C</span>Your ideas — processed</a>
+        <a href="#flex"><span class="n">D</span>The flexibility model</a>
+        <a href="#ux"><span class="n">E</span>UX: filters &amp; library</a>
+        <a href="#recs"><span class="n">F</span>Plan</a>
+        <div class="sep"></div>
+        <a href="portal-prototype.html"
+          ><span class="n">↩</span>Back to prototype</a
+        >
+      </nav>
+
+      <main>
+        <header id="summary">
+          <div class="eyebrow">Internal review · grounded in live DB</div>
+          <h1>
+            Signals &amp; data — every field considered,<br />against real Miami
+            med-spa data
+          </h1>
+          <p class="lead">
+            Every raw field and every signal below carries a
+            <b>Considered → decision + reasoning</b> column, so nothing you
+            raised slips through. Crucially, each is checked against
+            <b>what's actually populated</b> for the live cohort of
+            <b>226 Miami medical spas</b> — not just what the schema could hold.
+            Real data changes the verdict a lot.
+          </p>
+          <div class="stats">
+            <div class="stat">
+              <div class="n">226</div>
+              <div class="l">
+                Miami med spas in the live DB (313 nationally)
+              </div>
+            </div>
+            <div class="stat">
+              <div class="n">104</div>
+              <div class="l">signals defined in code (registry + agency)</div>
+            </div>
+            <div class="stat">
+              <div class="n" style="color: var(--green)">~58</div>
+              <div class="l">data fields backed by real data today</div>
+            </div>
+            <div class="stat">
+              <div class="n" style="color: var(--coral)">4</div>
+              <div class="l">
+                whole enrichment tables still EMPTY for the cohort
+              </div>
+            </div>
+          </div>
+
+          <div class="callout warn" style="margin-top: 18px">
+            <b>Reality check — the big one.</b> Four enrichment layers are
+            <b>empty</b> for Miami med spas right now, so every signal that
+            depends on them is <b>aspirational, not real</b>:
+            <ul class="tight" style="margin: 8px 0 0">
+              <li>
+                <code class="mono">BusinessTech</code> = 0 rows →
+                <b
+                  >no pixel / analytics / chat / e-commerce / booking-tool-name
+                  / CMS</b
+                >
+                detection. So <i>Wasting ad spend</i>, <i>Flying blind</i>,
+                <i>No booking tool</i>, <i>HIPAA</i> are <b>not backed yet</b>.
+                (CMS is partially recoverable from
+                <code class="mono">LighthouseAudit.techStack</code>.)
+              </li>
+              <li>
+                <code class="mono">Contact</code> = 0 → multi-contact model
+                unused (legacy email/phone on Business; reachability IS computed
+                100%).
+              </li>
+              <li>
+                <code class="mono">PlaybookFinding</code> = 0 → no compliance /
+                HIPAA / ADA findings generated.
+              </li>
+              <li>
+                <code class="mono">BusinessEnrichment</code> = 0 →
+                <b>no AI research</b> (sub-type, positioning,
+                pricing-transparency, pain hypotheses) on the cohort.
+              </li>
+            </ul>
+          </div>
+
+          <div class="legend">
+            <span
+              ><span class="pill r-real">real</span> populated now (% of
+              cohort)</span
+            >
+            <span
+              ><span class="pill r-deriv">derivable</span> raw rows exist,
+              compute needed</span
+            >
+            <span
+              ><span class="pill r-partial">partial</span> proxy / sparse</span
+            >
+            <span
+              ><span class="pill r-empty">empty</span> column exists, 0
+              data</span
+            >
+            <span><span class="pill r-none">no col</span> not in schema</span>
+          </div>
+          <div class="legend" style="margin-top: 6px">
+            <span><span class="pill d-in">in a signal</span></span>
+            <span><span class="pill d-setting">→ flexible setting</span></span>
+            <span><span class="pill d-new">→ new signal</span></span>
+            <span><span class="pill d-filter">filter only</span></span>
+            <span><span class="pill d-drop">park (no data)</span></span>
+          </div>
+        </header>
+
+        <!-- ===== A · DATA ===== -->
+        <section id="data">
+          <div class="shead">
+            <h2>A · Every raw data field — considered &amp; decided</h2>
+            <p class="sub">
+              The coverage checklist. <b>Real?</b> = populated for the 226 Miami
+              med spas. <b>Decision</b> = what I'm doing with it.
+              <b>Reasoning</b> = why. Filter by decision to scan the gaps.
+            </p>
+          </div>
+          <div class="tbl-tools" id="dataTools"></div>
+          <div class="tblwrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Field</th>
+                  <th>What it is</th>
+                  <th>Real? (Miami med spa)</th>
+                  <th>Decision</th>
+                  <th>Reasoning</th>
+                </tr>
+              </thead>
+              <tbody id="dataBody"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- ===== B · SIGNALS ===== -->
+        <section id="signals">
+          <div class="shead">
+            <h2>B · Every current prototype signal — verdict</h2>
+            <p class="sub">
+              The prototype ships ~33 of the 104 coded signals. Each gets a
+              real-data check + a flexibility verdict + an action.
+            </p>
+          </div>
+          <div class="tbl-tools" id="sigTools"></div>
+          <div class="tblwrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Signal</th>
+                  <th>Type</th>
+                  <th>Built from</th>
+                  <th>Real?</th>
+                  <th>Action</th>
+                  <th>Reasoning</th>
+                </tr>
+              </thead>
+              <tbody id="sigBody"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- ===== C · IDEAS ===== -->
+        <section id="ideas">
+          <div class="shead">
+            <h2>C · Your ideas — every one processed</h2>
+            <p class="sub">
+              Each thing you raised, mapped to a decision + the real-data
+              verdict. This is the "nothing slipped" checklist.
+            </p>
+          </div>
+          <div class="tblwrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Your idea</th>
+                  <th>Verdict</th>
+                  <th>What we do</th>
+                </tr>
+              </thead>
+              <tbody id="ideaBody"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- ===== D · FLEX MODEL ===== -->
+        <section id="flex">
+          <div class="shead">
+            <h2>D · The flexibility model — expertise + simple settings</h2>
+          </div>
+          <p class="sub">
+            Your core point: show our expertise, but let users sculpt it with
+            <b>simple settings</b>, not raw operator dropdowns. The answer is a
+            small set of <b>setting types</b>. Every signal uses one — no
+            free-text, no <code class="mono">&lt; = ≥</code> pickers in the
+            common path.
+          </p>
+
+          <div class="card accent">
+            <h3>The 5 setting types</h3>
+            <ul class="tight">
+              <li>
+                <b>1 · Position scale</b> (market-relative) — replaces a dozen
+                "few / many" signals with one. Multi-select chips vs the cell:
+                <span style="display: inline-flex; gap: 0; margin: 6px 0 0">
+                  <span class="seg"
+                    ><button>Bottom 10%</button><button>Below avg</button
+                    ><button class="on">Around avg</button
+                    ><button>Above avg</button><button>Top 10%</button></span
+                  ></span
+                >
+                <div class="muted" style="margin-top: 6px">
+                  Powers <b>Market position</b> (rating+reviews),
+                  <b>Search visibility</b> (rank/traffic), <b>Ad volume</b>,
+                  etc. — all on real CellMetric percentiles.
+                </div>
+              </li>
+              <li>
+                <b>2 · Direction / mode switch</b> — for things that move. One
+                signal, pick the state:
+                <span style="display: inline-flex; margin: 6px 0 0">
+                  <span class="seg"
+                    ><button class="on">Growing now</button
+                    ><button>Losing momentum</button
+                    ><button>Seasonal peak coming</button
+                    ><button>Stalled</button></span
+                  ></span
+                >
+                <div class="muted" style="margin-top: 6px">
+                  This <b>fixes "Active &amp; growing"</b> — "growing now" =
+                  velocity↑ last 30d (real); "momentum" / "seasonal" derive from
+                  the review history (your seasonality point).
+                </div>
+              </li>
+              <li>
+                <b>3 · Platform multi-select</b> — replaces the
+                <code class="mono">= Wix</code> text box. "Built on one of […]"
+                with a real list (Wix, Squarespace, WordPress, Shopify, GoDaddy,
+                Webflow…) + a <b>Not detected</b> option. Same pattern for
+                booking tools, chat, payments.
+              </li>
+              <li>
+                <b>4 · Presence toggle</b> — <code class="mono">Has</code> /
+                <code class="mono">Doesn't have</code> (website, booking,
+                schema, analytics, pixel…). Fixes "Has a website" only having
+                the yes side.
+              </li>
+              <li>
+                <b>5 · Strictness</b> (today's "sensitivity") — Looser /
+                Balanced / Stricter, shown with the <b>actual numbers</b> it
+                moves. Used only where a real numeric threshold exists.
+              </li>
+            </ul>
+            <div class="callout">
+              Plus, for composites: a <b>match mode</b> (Require all / any) and
+              <b>per-condition toggles</b> inside "How it works" — so any bundle
+              can be broken into its parts without touching raw fields.
+            </div>
+          </div>
+
+          <div class="two">
+            <div class="card warn">
+              <h3>Before · rigid</h3>
+              <div class="mono">Active &amp; growing</div>
+              <ul class="tight">
+                <li>3 conditions welded with AND</li>
+                <li>only a sensitivity slider</li>
+                <li>can't ask "active, not growing"</li>
+                <li>seasonal businesses misread</li>
+              </ul>
+            </div>
+            <div class="card good">
+              <h3>After · flexible</h3>
+              <div class="mono">Review momentum</div>
+              <ul class="tight">
+                <li>mode: growing / losing / seasonal / stalled</li>
+                <li>＋ optional "operating now" toggle</li>
+                <li>one signal covers every intent</li>
+                <li>seasonal handled by the year-trend mode</li>
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===== E · UX ===== -->
+        <section id="ux">
+          <div class="shead">
+            <h2>E · UX — raw-data filters &amp; the library</h2>
+          </div>
+          <div class="card gap">
+            <h3>Raw-data filters are too technical</h3>
+            <p style="margin-top: 0">
+              Today: <code class="mono">field</code> · operator dropdown (<code
+                class="mono"
+                >&lt; = ≥ between</code
+              >) · a value box · a unit. That's a query builder, not a tool a
+              marketer enjoys.
+            </p>
+            <ul class="tight">
+              <li>
+                <b>Make it a sentence, not a form.</b> "Mobile speed is
+                <u>below</u> <u>50</u>" with the two underlined parts as inline
+                taps — no separate operator column.
+              </li>
+              <li>
+                <b>Hide raw fields by default.</b> 90% of users live in signals.
+                Raw stays a thin "Advanced" drawer.
+              </li>
+              <li>
+                <b>Prefer a setting over a raw field</b> whenever one exists
+                (position scale instead of "reviews ≥ 50").
+              </li>
+            </ul>
+          </div>
+          <div class="card gap">
+            <h3>The signal &amp; field library is a wall of text</h3>
+            <ul class="tight">
+              <li>
+                <b>Compact rows</b> (name + one-line + add), not full cards.
+              </li>
+              <li>
+                <b>Lead with ~8 starred signals</b>; everything else behind
+                collapsed groups.
+              </li>
+              <li>
+                <b>Search-first</b> with example queries ("pixel", "slow",
+                "reviews"). Group chips to filter.
+              </li>
+              <li>
+                <b>Separate the two tiers visually</b> — SIGNALS (big,
+                explained) vs raw DATA (small, secondary).
+              </li>
+            </ul>
+          </div>
+        </section>
+
+        <!-- ===== F · PLAN ===== -->
+        <section id="recs">
+          <div class="shead">
+            <h2>F · The plan (in order)</h2>
+          </div>
+          <div class="card good">
+            <h3>1 · Ship the flexibility model (no new data needed)</h3>
+            <p style="margin-top: 0">
+              Position scale, mode switch, platform multi-select, presence
+              toggle, match-mode + per-condition toggles. Rework "Active &amp;
+              growing", "Reputation slipping", "Flying blind"; merge the
+              ad-pixel duplicates. All on data we already have.
+            </p>
+          </div>
+          <div class="card good">
+            <h3>2 · Mine the data we already have into new signals</h3>
+            <p style="margin-top: 0">
+              Backed today (Section A/C): <b>No website at all</b>,
+              <b>Not SEO-friendly</b> (seo_score),
+              <b>Losing rankings</b> (rank-trend), <b>Branded-only traffic</b>,
+              <b>Runs video/image ads</b>, <b>Ads point at homepage</b>,
+              <b>Unclaimed / sparse profile</b>,
+              <b>Recurring complaint theme</b>, <b>Service gap vs market</b>,
+              <b>Reputation fire</b> (negative spike).
+            </p>
+          </div>
+          <div class="card warn">
+            <h3>3 · Unblock the empty layers (then their signals turn real)</h3>
+            <p style="margin-top: 0">
+              Run <code class="mono">BusinessTech</code> (pixel / analytics /
+              booking / chat / e-commerce / CMS),
+              <code class="mono">BusinessEnrichment</code> (AI research), and
+              <code class="mono">PlaybookFinding</code> (HIPAA/ADA) on the
+              cohort. Until then those signals stay flagged "not backed."
+            </p>
+          </div>
+          <div class="card gap">
+            <h3>4 · Park what we can't back</h3>
+            <p style="margin-top: 0">
+              No data source today: <b>backlinks</b>,
+              <b>ad spend band / variations / brand-hijack</b>,
+              <b>price tier</b>, <b>hiring</b>, <b>affluent ZIP / density</b>,
+              <b>multi-location</b>. Don't ship signals that quietly match
+              nothing.
+            </p>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script>
+      /* real codes: real|deriv|partial|empty|none  (+ note)
+         dec  codes: in|setting|new|filter|drop */
+      const R = {
+        real: (n) => `<span class="pill r-real">real${n ? " " + n : ""}</span>`,
+        deriv: () => `<span class="pill r-deriv">derivable</span>`,
+        partial: (n) =>
+          `<span class="pill r-partial">partial${n ? " " + n : ""}</span>`,
+        empty: () => `<span class="pill r-empty">empty</span>`,
+        none: () => `<span class="pill r-none">no col</span>`,
+      };
+      const D = {
+        in: '<span class="pill d-in">in a signal</span>',
+        setting: '<span class="pill d-setting">→ setting</span>',
+        new: '<span class="pill d-new">→ new signal</span>',
+        filter: '<span class="pill d-filter">filter only</span>',
+        drop: '<span class="pill d-drop">park</span>',
+      };
+
+      /* [field, what, realCode, realNote, decCode, reasoning] */
+      const DATA = [
+        ["Discovery · Google Maps", null],
+        [
+          "name / category",
+          "Identity + primary Google category",
+          "real",
+          "100%",
+          "in",
+          "Targeting + drives the cell benchmark.",
+        ],
+        [
+          "secondary_categories",
+          "Other categories it appears under",
+          "real",
+          "",
+          "filter",
+          "Widens discoverability; doesn't change benchmark.",
+        ],
+        [
+          "rating",
+          "Average stars",
+          "real",
+          "88%",
+          "setting",
+          "Feeds the Market-position scale (vs cell), not a standalone signal.",
+        ],
+        [
+          "review_count",
+          "Total reviews",
+          "real",
+          "88%",
+          "setting",
+          "Market-position + size proxy. Pairs with cell percentiles.",
+        ],
+        [
+          "price_level",
+          "$–$$$$ tier",
+          "none",
+          "",
+          "drop",
+          "NOT captured — attributes JSON holds only available/unavailable attribute lists, no price. Park until a price source exists.",
+        ],
+        [
+          "website (present?)",
+          "Has a site or not",
+          "real",
+          "84% · 36 have none",
+          "new",
+          "16% have NO website — backs the missing 'No website at all' signal.",
+        ],
+        [
+          "phone",
+          "Listed number",
+          "real",
+          "93%",
+          "filter",
+          "Reachability + phone-only pitch.",
+        ],
+        [
+          "open_status",
+          "Open / temp / permanently closed",
+          "real",
+          "100%",
+          "new",
+          "'Operating' condition + exclude closed. Fully backed.",
+        ],
+        [
+          "is_claimed",
+          "Owner claimed the GBP",
+          "real",
+          "100%",
+          "new",
+          "Backs 'Unclaimed/unverified profile' + 'legit operating business'. Fully backed.",
+        ],
+        [
+          "photos_count",
+          "# photos on listing",
+          "real",
+          "97%",
+          "new",
+          "Your point: invests-in-digital-presence vs neglected. Trend/last-added not stored — needs history.",
+        ],
+        [
+          "place_topics",
+          "Review keyword chips",
+          "real",
+          "75%",
+          "new",
+          "Feeds 'mentioned theme' signal alongside review themes.",
+        ],
+        [
+          "rating_distribution",
+          "Star histogram",
+          "real",
+          "88%",
+          "new",
+          "% of 1–2★ → reputation depth, better than average alone.",
+        ],
+        [
+          "firstSeenOnGoogle",
+          "First seen date",
+          "real",
+          "100%",
+          "setting",
+          "Derive tenure / 'established' qualifier (yearsOnGoogle column is empty — compute from this).",
+        ],
+        [
+          "attributes",
+          "GBP attribute lists",
+          "real",
+          "100%",
+          "filter",
+          "Niche filters (e.g. wheelchair). No price inside.",
+        ],
+        [
+          "popular_times",
+          "Foot-traffic curve",
+          "partial",
+          "6%",
+          "drop",
+          "Too sparse to signal.",
+        ],
+        [
+          "instagram_followers",
+          "IG follower count",
+          "empty",
+          "",
+          "drop",
+          "Column exists, 0 populated.",
+        ],
+
+        ["Cell standards (computed)", null],
+        [
+          "cell percentiles p10–p90",
+          "Distribution per category×metro",
+          "real",
+          "CellMetric exists",
+          "setting",
+          "The engine behind every Position-scale setting.",
+        ],
+        [
+          "vs_cell_percentile",
+          "This biz's rank in its cell",
+          "real",
+          "",
+          "setting",
+          "How 'above avg / top 10%' is decided.",
+        ],
+        [
+          "service_prevalence",
+          "% of cell offering a service",
+          "partial",
+          "CellServicePrevalence",
+          "new",
+          "Backs 'missing a service peers offer'.",
+        ],
+
+        ["Reviews (5,404 rows · all fields 100%)", null],
+        [
+          "review_velocity_30d",
+          "New reviews last 30d",
+          "real",
+          "100%",
+          "setting",
+          "'Growing now' mode. Stored as velocityLast30d.",
+        ],
+        [
+          "momentum (vel vs prior)",
+          "Rising vs falling vs prior period",
+          "deriv",
+          "",
+          "setting",
+          "velocityPrev30d column EMPTY — derive from postedAt history. Your point: this is momentum, not 'growing'.",
+        ],
+        [
+          "review_lifecycle",
+          "Trending / dying / seasonal",
+          "deriv",
+          "lifecycle col empty",
+          "setting",
+          "Derive from the postedAt series; powers the seasonal mode.",
+        ],
+        [
+          "owner_reply_rate",
+          "% reviews with a reply",
+          "real",
+          "77% of snaps",
+          "setting",
+          "Reputation AND 'actively managed' (your point — someone's already on marketing).",
+        ],
+        [
+          "response_lag_days",
+          "Avg days to reply",
+          "partial",
+          "ownerReplied bool only",
+          "new",
+          "Have the boolean; reply timestamp uncertain. Quick reply = staff/automation; slow = pitch.",
+        ],
+        [
+          "negative_spike",
+          "Cluster of 1–2★",
+          "deriv",
+          "",
+          "new",
+          "Derive from stars+postedAt. Your point: reputation fire / staffing / quality issue.",
+        ],
+        [
+          "rating_trend_90d",
+          "Avg rating direction",
+          "deriv",
+          "",
+          "in",
+          "Reputation-slipping condition. Derive from history.",
+        ],
+        [
+          "unanswered_negative_aged",
+          "Old ≤2★ with no reply",
+          "deriv",
+          "",
+          "in",
+          "Strongest reputation condition.",
+        ],
+        [
+          "review_themes / sentiment",
+          "What reviews say (NLP)",
+          "real",
+          "100%",
+          "new",
+          "Review.themes + sentiment populated! Backs 'recurring complaint theme' — high value, currently unused.",
+        ],
+        [
+          "new_reviews_90d = 0",
+          "Stalled",
+          "deriv",
+          "",
+          "setting",
+          "The 'stalled' mode of the momentum signal.",
+        ],
+
+        ["Website / Tech — BusinessTech EMPTY (0 rows)", null],
+        [
+          "has_website",
+          "Site present",
+          "real",
+          "84%",
+          "new",
+          "Add the 'doesn't have' side (presence toggle).",
+        ],
+        [
+          "cms_platform",
+          "Wix / WP / Shopify…",
+          "partial",
+          "LighthouseAudit.techStack 156",
+          "setting",
+          "Recoverable from LH techStack JSON (not BusinessTech). Powers the platform multi-select.",
+        ],
+        [
+          "analytics (GA/GTM)",
+          "Traffic measured",
+          "empty",
+          "",
+          "drop",
+          "BusinessTech=0. 'Flying blind' NOT backed until tech enrichment runs.",
+        ],
+        [
+          "meta_pixel / tiktok_pixel",
+          "Ad pixels present",
+          "empty",
+          "",
+          "drop",
+          "⚠ 'Wasting ad spend' / 'no pixel' NOT backed — pixel detection not run.",
+        ],
+        [
+          "booking_tool",
+          "Calendly / Vagaro / none",
+          "partial",
+          "hasBookingCtaAboveFold",
+          "setting",
+          "Presence (CTA) is in LH; WHICH tool needs detection. Your point: extend to a big list + code-signature detection.",
+        ],
+        [
+          "chat_widget",
+          "Intercom / tawk / custom",
+          "empty",
+          "",
+          "drop",
+          "Not detected. Your point: many options + custom detection — needs tech enrichment.",
+        ],
+        [
+          "ecommerce / payments",
+          "Store / Stripe etc.",
+          "empty",
+          "",
+          "drop",
+          "Not detected. Your point: signal the platform (Stripe…) once captured.",
+        ],
+        [
+          "ssl / https",
+          "Secure",
+          "empty",
+          "isOnHttps empty",
+          "drop",
+          "Easy add; web-dev pain point. Not stored yet.",
+        ],
+        [
+          "structured_data / schema",
+          "schema.org markup",
+          "real",
+          "151 LH",
+          "in",
+          "hasLocalBusinessSchema / hasFaqSchema populated — backs 'thin SEO / no schema'.",
+        ],
+        [
+          "nap_consistent",
+          "Name/addr/phone match",
+          "real",
+          "151 LH",
+          "new",
+          "NAP inconsistency = local-SEO pain. Backed, unused.",
+        ],
+        [
+          "broken_links / 404s",
+          "Dead links",
+          "empty",
+          "",
+          "drop",
+          "Not captured. Web-dev pain if added.",
+        ],
+
+        ["Lighthouse (150 biz · 66%)", null],
+        [
+          "perf_score",
+          "Mobile performance",
+          "real",
+          "144",
+          "in",
+          "Slow-site / overdue / losing-mobile core input.",
+        ],
+        [
+          "seo_score",
+          "On-page SEO 0–100",
+          "real",
+          "144",
+          "new",
+          "Your point: 'Not SEO-friendly site' — backed, currently unused as a signal!",
+        ],
+        [
+          "a11y_score",
+          "Accessibility 0–100",
+          "real",
+          "144",
+          "new",
+          "ADA-risk signal (score backed; violation COUNT empty so tiering is coarse).",
+        ],
+        [
+          "LCP / CLS / INP",
+          "Core Web Vitals",
+          "real",
+          "144",
+          "in",
+          "Mobile experience detail.",
+        ],
+        [
+          "perf_savings_ms",
+          "Recoverable load time",
+          "empty",
+          "",
+          "drop",
+          "Would quantify the pitch ($ value of speed). Not extracted.",
+        ],
+        [
+          "a11y_violation_count",
+          "# serious a11y fails",
+          "empty",
+          "",
+          "drop",
+          "Needed for honest ADA tiering. Not extracted.",
+        ],
+        [
+          "vulnerable_library",
+          "Known-vuln JS lib",
+          "empty",
+          "",
+          "drop",
+          "Strong web-dev/security pain. Not extracted.",
+        ],
+
+        ["Search / SERP (15k+ rows · rich)", null],
+        [
+          "organic_rank",
+          "Organic position",
+          "real",
+          "15,211",
+          "setting",
+          "'Search visibility' position scale. Huge real dataset.",
+        ],
+        [
+          "local_pack_rank",
+          "Maps 3-pack rank",
+          "real",
+          "159 where ranked",
+          "in",
+          "'Invisible locally' / 'not in 3-pack'.",
+        ],
+        [
+          "organic_traffic_est",
+          "Est. monthly visits",
+          "real",
+          "13,479",
+          "setting",
+          "Traffic scale. latestEstMonthlyVisits.",
+        ],
+        [
+          "est_traffic_value $",
+          "$ value of organic traffic",
+          "real",
+          "9,707",
+          "new",
+          "'High lost-traffic-value' pitch / qualifier. Backed, unused.",
+        ],
+        [
+          "rank_trend_90d",
+          "Gaining / losing positions",
+          "real",
+          "isUp/isDown/isNew/isLost",
+          "new",
+          "Your check: WE HAVE IT (BusinessKeyword flags). Backs 'Losing rankings'.",
+        ],
+        [
+          "branded_only",
+          "Ranks only for own name",
+          "real",
+          "isBrandQuery",
+          "new",
+          "Your check: WE HAVE IT (SerpResult.isBrandQuery). Backs 'no category reach'.",
+        ],
+        [
+          "ranked_keyword_count",
+          "# terms it ranks for",
+          "real",
+          "count",
+          "setting",
+          "'Ranks for few / many' position scale.",
+        ],
+        [
+          "share_of_voice",
+          "Visibility vs cell",
+          "deriv",
+          "",
+          "new",
+          "Your point: compute from ranks vs the cell. Not stored, derivable.",
+        ],
+        [
+          "backlinks / ref_domains",
+          "Off-site authority",
+          "none",
+          "",
+          "drop",
+          "Your check: we do NOT have this. Park.",
+        ],
+        [
+          "serp_presence_flags",
+          "AI overview / snippet / paid",
+          "partial",
+          "kind only",
+          "drop",
+          "Limited; paidBidders empty. Defer.",
+        ],
+
+        ["Ads — 36 advertisers (16%), sparse but real", null],
+        [
+          "running_ads",
+          "Currently advertising",
+          "real",
+          "36 biz",
+          "in",
+          "Advertising / not. Most med spas DON'T (the common case).",
+        ],
+        [
+          "ad_count",
+          "# live creatives",
+          "real",
+          "442 rows",
+          "setting",
+          "Ad-volume scale vs cell.",
+        ],
+        [
+          "ad_formats",
+          "Video / image / text",
+          "real",
+          "displayFormat 442",
+          "new",
+          "Your check: WE HAVE IT. Backs 'runs video ads' for creative sellers.",
+        ],
+        [
+          "ad_landing_page",
+          "LP vs homepage",
+          "real",
+          "landingUrl 442",
+          "new",
+          "Your check: WE HAVE IT. Backs 'ads point at homepage'.",
+        ],
+        [
+          "ad_creative_age",
+          "Stale creative",
+          "real",
+          "startedAt/endedAt",
+          "new",
+          "Backs 'stale ad / fatigue'.",
+        ],
+        [
+          "ad_themes",
+          "Promo / seasonal",
+          "deriv",
+          "adCreativeBody",
+          "new",
+          "Derive via NLP on the creative body (which we store). Not pre-computed.",
+        ],
+        [
+          "competitor_ad_count",
+          "Rivals advertising in cell",
+          "real",
+          "cell agg",
+          "new",
+          "Competitor-pressure signal.",
+        ],
+        [
+          "spend_band",
+          "Meta spend range",
+          "empty",
+          "",
+          "drop",
+          "Your check: NOT backed (spendBandUsd / spendMid null).",
+        ],
+        [
+          "ad_variations",
+          "# variants (cards)",
+          "empty",
+          "",
+          "drop",
+          "Your check: NOT backed (cards / collationCount null).",
+        ],
+        [
+          "competitor_outspend",
+          "Rivals outspending",
+          "empty",
+          "needs spend",
+          "drop",
+          "Not backed (no spend data).",
+        ],
+        [
+          "brand_hijack",
+          "Rival bids on their brand",
+          "empty",
+          "paidBidders null",
+          "drop",
+          "Your check: NOT backed.",
+        ],
+
+        ["Contacts — Contact table EMPTY", null],
+        [
+          "reachability",
+          "Reachable / phone-only / none",
+          "real",
+          "100%",
+          "in",
+          "Computed on Business; the enrichment gate.",
+        ],
+        [
+          "emails / phones / socials",
+          "Channels",
+          "partial",
+          "legacy on Business",
+          "filter",
+          "Contact table=0; legacy email/phone used. Multi-contact not populated.",
+        ],
+        [
+          "owner / decision_maker",
+          "Named person",
+          "empty",
+          "",
+          "filter",
+          "Your point: use as filter — once populated.",
+        ],
+
+        ["Services (185 biz · 82%)", null],
+        [
+          "detected_services",
+          "Services offered",
+          "real",
+          "1,156 rows",
+          "new",
+          "Backs 'offers / missing service X'. Your point — high value.",
+        ],
+        [
+          "service_gap_vs_cell",
+          "Misses a service peers offer",
+          "deriv",
+          "vs prevalence",
+          "new",
+          "Compute vs CellServicePrevalence. Strong consultant pitch.",
+        ],
+        [
+          "hidden_pricing",
+          "No prices on site",
+          "empty",
+          "needs AI",
+          "drop",
+          "Needs AI research (empty).",
+        ],
+
+        ["AI research — BusinessEnrichment EMPTY", null],
+        [
+          "sub_type / sophistication",
+          "Sub-category + tier",
+          "empty",
+          "",
+          "drop",
+          "Your check: NO real data — AI research not run on cohort.",
+        ],
+        [
+          "premium_positioning",
+          "Luxury copy cues",
+          "empty",
+          "",
+          "drop",
+          "Not run. Park until pipeline runs.",
+        ],
+        [
+          "weak_value_prop / no_cta",
+          "Conversion gaps",
+          "empty",
+          "",
+          "drop",
+          "Not run. Backs CRO signals later.",
+        ],
+        [
+          "outdated_branding / thin pages",
+          "Design / content gaps",
+          "empty",
+          "",
+          "drop",
+          "Not run.",
+        ],
+        [
+          "pain_hypotheses",
+          "AI-guessed pains",
+          "empty",
+          "",
+          "drop",
+          "Not run. Feeds outreach once available.",
+        ],
+
+        ["Compliance — PlaybookFinding EMPTY", null],
+        [
+          "hipaa_pixel_on_phi",
+          "Tracker on intake page",
+          "empty",
+          "",
+          "drop",
+          "Needs pixel + tech (both empty). HIPAA NOT backed today.",
+        ],
+        [
+          "ada_serious_failures",
+          "Serious a11y fails",
+          "partial",
+          "score only",
+          "drop",
+          "a11y score real; failure detail empty. Coarse only.",
+        ],
+        [
+          "privacy / cookie / license",
+          "Legal gaps",
+          "empty",
+          "",
+          "drop",
+          "Not generated. Your point: needs per-region/state/category rules — a real project.",
+        ],
+
+        ["Geo / qualifiers", null],
+        [
+          "years_in_business",
+          "Tenure",
+          "deriv",
+          "firstSeenOnGoogle",
+          "filter",
+          "Derive from firstSeen (yearsOnGoogle col empty).",
+        ],
+        [
+          "high_ticket_category",
+          "Premium vertical",
+          "partial",
+          "category heuristic",
+          "filter",
+          "From category, not a stored flag.",
+        ],
+        [
+          "in_metro_core",
+          "Core vs fringe",
+          "empty",
+          "anchorDistanceKm 0",
+          "drop",
+          "Computable from lat/lng+anchor; not stored yet.",
+        ],
+        [
+          "competitor_moved_nearby",
+          "New rival within 1km",
+          "empty",
+          "",
+          "drop",
+          "Derive from firstSeen delta + proximity later.",
+        ],
+        [
+          "multi_location",
+          "2+ locations",
+          "none",
+          "",
+          "drop",
+          "No column (crossMetroDupe is a weak proxy).",
+        ],
+        [
+          "affluent_zip / density / hiring",
+          "Wealth / busyness / growth",
+          "none",
+          "",
+          "drop",
+          "No source. Park.",
+        ],
+      ];
+
+      /* current prototype signals: [name, type, [recipe], realCode, realNote, action, reasoning] */
+      const ACT = {
+        keep: '<span class="pill d-in">keep</span>',
+        setting: '<span class="pill d-setting">make flexible</span>',
+        split: '<span class="pill d-new">split</span>',
+        merge: '<span class="pill r-partial">merge</span>',
+        block: '<span class="pill r-empty">not backed</span>',
+      };
+      const SIGS = [
+        [
+          "Active & growing",
+          "SIGNAL",
+          ["velocity_90d ↑ vs prior 90d", "review ≤ 30d", "open now"],
+          "partial",
+          "vel30d real; prior+lifecycle derive",
+          "split",
+          "Conflates Active + Growing. Rebuild as 'Review momentum' (mode switch) + optional 'operating' toggle.",
+        ],
+        [
+          "Overdue for a redesign",
+          "SIGNAL",
+          ["perf < 50", "site 3y+ OR DIY", "active"],
+          "partial",
+          "perf real; DIY via techStack",
+          "setting",
+          "Good pitch. DIY half leans on LH techStack (BusinessTech empty). Add per-condition toggles.",
+        ],
+        [
+          "Losing mobile customers",
+          "SIGNAL",
+          ["mobile_perf < 40", "mobile_usability = fail"],
+          "real",
+          "LH 66%",
+          "keep",
+          "Backed where Lighthouse ran. Solid.",
+        ],
+        [
+          "Invisible locally",
+          "SIGNAL",
+          ["local_pack_rank > 3", "below cell traffic", "has site"],
+          "real",
+          "SERP + cell",
+          "keep",
+          "Fully backed. Strong.",
+        ],
+        [
+          "Thin on-page SEO",
+          "SIGNAL",
+          ["title/meta missing", "schema = none"],
+          "real",
+          "LH schema flags",
+          "keep",
+          "Backed via LH schema checks. Add seo_score as a sibling.",
+        ],
+        [
+          "Wasting ad spend",
+          "SIGNAL",
+          ["running_ads = yes", "pixel = none"],
+          "block",
+          "pixel EMPTY",
+          "block",
+          "⚠ NOT backed — pixel detection not run. Identical to 'Runs ads without a pixel' → merge once backed.",
+        ],
+        [
+          "Runs ads without a pixel",
+          "SIGNAL",
+          ["running_ads = yes", "meta_pixel = no"],
+          "block",
+          "pixel EMPTY",
+          "merge",
+          "Duplicate of above; both blocked on pixel data.",
+        ],
+        [
+          "Reputation slipping",
+          "SIGNAL",
+          ["rating_trend down", "reply_rate < 25%", "aged unanswered ≤2★"],
+          "deriv",
+          "from Review rows",
+          "split",
+          "Conflates 3. Make composable (match mode + toggles). All derivable from real reviews.",
+        ],
+        [
+          "Flying blind",
+          "SIGNAL",
+          ["analytics = none", "booking = none", "DIY"],
+          "block",
+          "tech EMPTY",
+          "block",
+          "Depends on BusinessTech (empty). Not backed; also AND-of-3 too narrow — loosen to 'any 2'.",
+        ],
+        [
+          "HIPAA exposure",
+          "SIGNAL",
+          ["pixel present", "on PHI page"],
+          "block",
+          "tech+playbook EMPTY",
+          "block",
+          "Not backed — needs pixel + page detection. Keep as roadmap flagship.",
+        ],
+        [
+          "Slow site (Lighthouse)",
+          "DATA",
+          ["perf < 50"],
+          "real",
+          "LH 66%",
+          "setting",
+          "Fold into the perf strictness setting.",
+        ],
+        [
+          "Built on DIY platform",
+          "DATA",
+          ["cms ∈ {Wix…}"],
+          "partial",
+          "LH techStack",
+          "setting",
+          "Becomes the platform multi-select.",
+        ],
+        [
+          "Has a website",
+          "DATA",
+          ["has_website = yes"],
+          "real",
+          "84%",
+          "split",
+          "Add the 'no website' side (presence toggle) — backs a missing signal.",
+        ],
+        [
+          "Not in local 3-pack",
+          "DATA",
+          ["local_pack_rank > 3"],
+          "real",
+          "SERP",
+          "keep",
+          "Backed.",
+        ],
+        [
+          "Low organic traffic",
+          "DATA",
+          ["traffic < 400/mo"],
+          "real",
+          "BizKeyword",
+          "setting",
+          "Fold into the traffic position scale.",
+        ],
+        [
+          "Low owner reply rate",
+          "DATA",
+          ["reply_rate < 25%"],
+          "real",
+          "snapshots",
+          "setting",
+          "Fold into reputation + 'actively managed'.",
+        ],
+        [
+          "Reviews stalled",
+          "DATA",
+          ["new_reviews_90d = 0"],
+          "deriv",
+          "from reviews",
+          "setting",
+          "The 'stalled' mode of momentum.",
+        ],
+        [
+          "Reviews trending up",
+          "DATA",
+          ["velocity ↑"],
+          "real",
+          "vel30d",
+          "setting",
+          "The 'growing now' mode of momentum.",
+        ],
+        [
+          "No analytics installed",
+          "DATA",
+          ["analytics = none"],
+          "block",
+          "tech EMPTY",
+          "block",
+          "Not backed (tech enrichment).",
+        ],
+        [
+          "No online booking tool",
+          "DATA",
+          ["booking = none"],
+          "partial",
+          "CTA proxy",
+          "setting",
+          "Presence proxy via LH; exact tool needs detection.",
+        ],
+        [
+          "Not advertising",
+          "DATA",
+          ["ad_count = 0"],
+          "real",
+          "ads",
+          "keep",
+          "Backed; common for med spas.",
+        ],
+        [
+          "Stale social profile",
+          "DATA",
+          ["last_post > 60d"],
+          "empty",
+          "no social data",
+          "block",
+          "Not backed — no social posting data captured.",
+        ],
+      ];
+
+      /* your ideas → decision */
+      const IDEAS = [
+        [
+          "rating + reviews + cell → above-avg / top-10% / bottom-10%, one flexible signal",
+          "✓ adopted",
+          "Becomes the <b>Market-position scale</b> setting (Section D). Real data.",
+        ],
+        [
+          "price_level → cheap / luxury signal",
+          "✗ no data",
+          "priceLevel not captured (attributes has no price). Park until a source is added.",
+        ],
+        [
+          "open_status, is_claimed → real/verified/operating",
+          "✓ adopted, backed",
+          "New 'Legit operating business' + 'Unclaimed profile' signals. Both 100% populated.",
+        ],
+        [
+          "unclaimed_gbp / gbp_completeness",
+          "✓ partial",
+          "isClaimed (real) → unclaimed signal; completeness from photos/hours/schema (partial).",
+        ],
+        [
+          "photo_count → cares about digital presence; trend if we have it",
+          "✓ adopted (level), trend later",
+          "photosCount 97% real. Last-added/trend needs history we don't store yet.",
+        ],
+        [
+          "owner_reply_rate / response_lag → actively-managed / marketing signal",
+          "✓ adopted",
+          "reply_rate real → 'Actively managed'. response_lag partial (have the bool, not timing).",
+        ],
+        [
+          "review_velocity_30d = growing; vel-vs-prior = momentum; seasonal handling",
+          "✓ adopted — core fix",
+          "Drives the <b>momentum mode switch</b> (growing/losing/seasonal/stalled). vel30d real; rest derivable.",
+        ],
+        [
+          "review_lifecycle → momentum / seasonal-peak-incoming",
+          "✓ adopted",
+          "Feeds the seasonal mode; derive from review history (lifecycle col empty).",
+        ],
+        [
+          "negative_spike → reputation/quality/staffing signal",
+          "✓ adopted, derivable",
+          "New 'Reputation fire' signal from stars+postedAt.",
+        ],
+        [
+          "new_reviews_90d = 0 → not-active / momentum setting",
+          "✓ adopted",
+          "The 'stalled' mode.",
+        ],
+        [
+          "cms_platform → pick platforms you target + 'not detected'",
+          "✓ adopted (partial data)",
+          "Platform multi-select. Data via LH techStack (BusinessTech empty).",
+        ],
+        [
+          "booking_tool → huge robust list + code-signature detection",
+          "✓ adopted, needs data",
+          "Presence backed (CTA); tool-name list + detection is a tech-enrichment task.",
+        ],
+        [
+          "chat_widget → many options + custom detection",
+          "✓ planned, needs data",
+          "Same — needs BusinessTech enrichment.",
+        ],
+        [
+          "ecommerce / payments → which platform (Stripe…)",
+          "✓ planned, needs data",
+          "Signal the platform once tech detection runs.",
+        ],
+        [
+          "ssl/https, broken_links, vulnerable_library → web-dev pain points",
+          "◐ planned",
+          "All empty today; cheap to extract from the LH blob we already pay for.",
+        ],
+        [
+          "seo_score → 'Not SEO-friendly website'",
+          "✓ adopted, backed",
+          "New signal — seo_score is real (144 biz), currently unused!",
+        ],
+        [
+          "organic_rank / share_of_voice / ranked_keyword_count → SEO signals",
+          "✓ adopted",
+          "Position scales (rank, traffic, kw-count) real; SoV derivable vs cell.",
+        ],
+        [
+          "rank_trend_90d, branded_only, backlinks → check real data",
+          "✓ rank-trend & branded REAL; ✗ backlinks",
+          "rank-trend (isUp/Down/New/Lost) + branded (isBrandQuery) backed. Backlinks NOT in DB.",
+        ],
+        [
+          "ad_count, ad_creative_age, competitor_ad_count → compute vs cell",
+          "✓ adopted, backed",
+          "All real for the 36 advertisers. Compare-vs-cell setting.",
+        ],
+        [
+          "ad_formats → creative/PPC sellers",
+          "✓ adopted, backed",
+          "displayFormat real. New 'runs video/image ads' signal.",
+        ],
+        [
+          "ad_variations, spend_band, ad_themes, competitor_outspend, brand_hijack, ad_landing_page → check data",
+          "mixed",
+          "landing_page REAL; ad_themes derivable; variations/spend/outspend/brand-hijack EMPTY.",
+        ],
+        [
+          "owner / decision_maker → filter",
+          "✓ planned",
+          "Use as a filter once Contact model is populated.",
+        ],
+        [
+          "detected_services, service_gap_vs_cell → signals / pain points",
+          "✓ adopted, backed",
+          "Services real (82%). Gap-vs-cell via prevalence — strong consultant pitch.",
+        ],
+        [
+          "AI research fields → check real data on Miami med spa",
+          "✗ none",
+          "BusinessEnrichment empty — AI research not run. All AI signals parked until it runs.",
+        ],
+        [
+          "ada / privacy / cookie / license → part of HIPAA + per-region rules",
+          "◐ roadmap",
+          "PlaybookFinding empty. Needs region/state/category rule sets — a dedicated build.",
+        ],
+        [
+          "geo/qualifiers (core, competitor-near, density, affluent, multi-loc, years, hiring, high-ticket) → check data",
+          "mostly ✗",
+          "years (derive from firstSeen) + high-ticket (category) usable; the rest have no source today.",
+        ],
+        [
+          "raw-data selectors are too technical",
+          "✓ fixing",
+          "Sentence-style inline editing; raw hidden in Advanced (Section E).",
+        ],
+        [
+          "signal & field library too complicated",
+          "✓ fixing",
+          "Compact rows, starred-first, search-first, two visual tiers (Section E).",
+        ],
+      ];
+
+      function rcell(code, note) {
+        const f = R[code] || R.none;
+        return f(note);
+      }
+      let dataFilter = "all";
+      function renderData() {
+        let html = "";
+        DATA.forEach((row) => {
+          if (row[1] === null) {
+            html += `<tr class="grp"><td colspan="5">${row[0]}</td></tr>`;
+            return;
+          }
+          const [f, what, rc, rn, dc, why] = row;
+          if (dataFilter !== "all" && dc !== dataFilter) return;
+          html += `<tr><td class="fld">${f}</td><td>${what}</td><td>${rcell(rc, rn)}</td><td>${D[dc]}</td><td class="muted">${why}</td></tr>`;
+        });
+        document.getElementById("dataBody").innerHTML = html;
+      }
+      function dataTools() {
+        const o = [
+          ["all", "All"],
+          ["new", "→ new signal"],
+          ["setting", "→ setting"],
+          ["in", "in a signal"],
+          ["filter", "filter only"],
+          ["drop", "parked"],
+        ];
+        document.getElementById("dataTools").innerHTML = o
+          .map(
+            ([k, l]) =>
+              `<button class="chip ${k === "all" ? "on" : ""}" data-k="${k}" onclick="setDF('${k}')">${l}</button>`,
+          )
+          .join("");
+      }
+      function setDF(k) {
+        dataFilter = k;
+        document
+          .querySelectorAll("#dataTools .chip")
+          .forEach((c) => c.classList.toggle("on", c.dataset.k === k));
+        renderData();
+      }
+
+      let sigFilter = "all";
+      function renderSig() {
+        document.getElementById("sigBody").innerHTML = SIGS.filter((s) => {
+          if (sigFilter === "all") return true;
+          if (sigFilter === "block")
+            return s[3] === "block" || s[3] === "empty";
+          if (sigFilter === "fix")
+            return ["split", "merge", "setting"].includes(s[5]);
+          return s[1] === sigFilter;
+        })
+          .map((s) => {
+            const recipe = s[2]
+              .map(
+                (r, i) =>
+                  `${i ? '<span class="and">AND</span>' : ""}<code>${r}</code>`,
+              )
+              .join("");
+            const tp =
+              s[1] === "SIGNAL"
+                ? '<span class="pill p-sig">SIGNAL</span>'
+                : '<span class="pill p-data">DATA</span>';
+            return `<tr><td><b>${s[0]}</b></td><td>${tp}</td><td><div class="recipe">${recipe}</div></td><td>${rcell(s[3], s[4])}</td><td>${ACT[s[5]]}</td><td class="muted">${s[6]}</td></tr>`;
+          })
+          .join("");
+      }
+      function sigTools() {
+        const o = [
+          ["all", "All"],
+          ["SIGNAL", "Composites"],
+          ["DATA", "Raw"],
+          ["fix", "Needs rework"],
+          ["block", "Not backed"],
+        ];
+        document.getElementById("sigTools").innerHTML = o
+          .map(
+            ([k, l]) =>
+              `<button class="chip ${k === "all" ? "on" : ""}" data-k="${k}" onclick="setSF('${k}')">${l}</button>`,
+          )
+          .join("");
+      }
+      function setSF(k) {
+        sigFilter = k;
+        document
+          .querySelectorAll("#sigTools .chip")
+          .forEach((c) => c.classList.toggle("on", c.dataset.k === k));
+        renderSig();
+      }
+
+      function renderIdeas() {
+        document.getElementById("ideaBody").innerHTML = IDEAS.map((i) => {
+          const v = i[1];
+          const cls = v.startsWith("✓")
+            ? "r-real"
+            : v.startsWith("✗")
+              ? "r-empty"
+              : "r-partial";
+          return `<tr><td>${i[0]}</td><td><span class="pill ${cls}">${v}</span></td><td class="muted">${i[2]}</td></tr>`;
+        }).join("");
+      }
+
+      dataTools();
+      renderData();
+      sigTools();
+      renderSig();
+      renderIdeas();
+    </script>
+  </body>
+</html>
