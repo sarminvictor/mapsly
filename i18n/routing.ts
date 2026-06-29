@@ -130,6 +130,12 @@ export const routing = defineRouting({
       "en-CA": "/team/billing",
       fr: "/equipe/facturation",
     },
+    "/usage": {
+      en: "/usage",
+      es: "/uso",
+      "en-CA": "/usage",
+      fr: "/utilisation",
+    },
     "/website": {
       en: "/website",
       es: "/sitio",

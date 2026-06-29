@@ -21,9 +21,7 @@ import { Link } from "@/i18n/navigation";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 
-const CREDIT_TO_USD = 0.01; // glance-only conversion · matches /api/agency/wallet
-
-async function readBalanceUsd(): Promise<number | null> {
+async function readCredits(): Promise<number | null> {
   try {
     const session = await auth();
     if (!session?.user?.id) return null;
@@ -46,37 +44,34 @@ async function readBalanceUsd(): Promise<number | null> {
     });
     if (!wallet) return 0;
 
-    const credits = Math.max(
+    return Math.max(
       0,
       wallet.planCredits +
         wallet.purchasedCredits +
         wallet.rolloverCredits -
         wallet.heldCredits,
     );
-    return Number((credits * CREDIT_TO_USD).toFixed(2));
   } catch {
-    // Read failed — show the top-up affordance, never crash the topbar.
+    // Read failed — show the empty affordance, never crash the topbar.
     return 0;
   }
 }
 
 export async function WalletPill() {
-  const balanceUsd = await readBalanceUsd();
+  const credits = await readCredits();
 
   // Non-member (or signed-out) → omit the pill entirely.
-  if (balanceUsd === null) return null;
+  if (credits === null) return null;
 
-  const empty = balanceUsd <= 0;
+  const empty = credits <= 0;
   const label = empty
-    ? "$0.00 — add credits"
-    : `$${balanceUsd.toFixed(2)} credits`;
+    ? "0 credits — add"
+    : `${credits.toLocaleString()} credits`;
 
   return (
     <Link
-      href="/team/billing"
-      aria-label={
-        empty ? "Wallet empty — add credits" : `Wallet balance ${label}`
-      }
+      href="/usage"
+      aria-label={empty ? "Wallet empty — add credits" : `Wallet ${label}`}
       style={{
         display: "inline-flex",
         alignItems: "center",
