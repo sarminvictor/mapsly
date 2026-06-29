@@ -42,6 +42,7 @@ import type {
 import {
   reachabilityFromContacts,
   computeHidden,
+  normalizePhone,
 } from "@/modules/contacts/reachability";
 import type {
   ReachabilityStatus,
@@ -242,9 +243,44 @@ export async function scanBusinessContacts(
 
   // ── No website ────────────────────────────────────────────────────────────
   if (!website) {
+    // DfS-listing fallback: a website-less business still has its DfS phone —
+    // persist it as a DFS_LISTING Contact so it's reachable (PHONE_ONLY), not
+    // silently dropped from every list.
+    const dfsPhone = normalizePhone(business.phone ?? "");
+    if (dfsPhone) {
+      const now = new Date();
+      await upsertContact(businessId, {
+        channel: "PHONE",
+        value: (business.phone ?? "").trim(),
+        normalizedValue: dfsPhone,
+        source: "DFS_LISTING",
+        confidence: 80,
+      });
+      await prisma.business.update({
+        where: { id: businessId },
+        data: {
+          reachability: "PHONE_ONLY",
+          reachableChannelCount: 1,
+          reachabilityComputedAt: now,
+          contactScanStatus: "OK",
+          contactsExtractedAt: now,
+          isHidden: false,
+          hiddenReason: null,
+        },
+      });
+      return {
+        businessId,
+        status: "OK",
+        contactsUpserted: 1,
+        techUpserted: 0,
+        reachability: "PHONE_ONLY",
+        reachableChannelCount: 1,
+        isHidden: false,
+      };
+    }
     if (hasDfsContactInfo(business.contactInfo)) {
-      // DfS already has contact channels — the scan is "OK" from the website's
-      // perspective; the DfS-listing extractor (separate path) handles the rows.
+      // DfS has some contact channels but no usable phone — mark OK so the
+      // business isn't re-fetched; richer DfS-contactInfo parsing is a follow-up.
       await prisma.business.update({
         where: { id: businessId },
         data: { contactScanStatus: "OK", contactsExtractedAt: new Date() },

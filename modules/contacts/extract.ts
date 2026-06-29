@@ -399,30 +399,153 @@ export function extractSocials(
   const byKey = new Map<string, ExtractedContact>();
 
   const consider = (rawUrl: string) => {
-    const url = toUrl(rawUrl, baseUrl);
-    if (!url) return;
-    if (isExcludedSocialPath(url.pathname)) return;
-    for (const m of SOCIAL_MATCHERS) {
-      if (!m.hosts.some((h) => hostMatches(url.host, h))) continue;
-      if (!m.isProfile(url.pathname)) continue;
-      const normalizedValue = canonicalizeSocialUrl(m.channel, url);
-      const key = m.channel + "|" + normalizedValue;
-      if (byKey.has(key)) return;
-      byKey.set(key, {
-        channel: m.channel,
-        value: url.toString(),
-        normalizedValue,
-        source: "SCRAPE_SOCIAL_META",
-        confidence: CONF_SOCIAL,
-      });
-      return;
-    }
+    const c = classifySocialUrl(
+      rawUrl,
+      baseUrl,
+      "SCRAPE_SOCIAL_META",
+      CONF_SOCIAL,
+    );
+    if (!c) return;
+    const key = c.channel + "|" + c.normalizedValue;
+    if (!byKey.has(key)) byKey.set(key, c);
   };
 
   for (const m of html.matchAll(ANY_HREF_RE)) consider(m[1]);
   for (const m of html.matchAll(BARE_URL_RE)) consider(m[0]);
 
   return [...byKey.values()];
+}
+
+/**
+ * Classify a single raw URL as a social-profile contact, or null if it isn't a
+ * recognised profile (share/intent/widget links are excluded). Shared by
+ * extractSocials (href + bare-URL harvest) and extractJsonLd (sameAs[]), with
+ * the source + confidence varying by where the URL came from.
+ */
+function classifySocialUrl(
+  rawUrl: string,
+  baseUrl: string | undefined,
+  source: ContactSource,
+  confidence: number,
+): ExtractedContact | null {
+  const url = toUrl(rawUrl, baseUrl);
+  if (!url) return null;
+  if (isExcludedSocialPath(url.pathname)) return null;
+  for (const m of SOCIAL_MATCHERS) {
+    if (!m.hosts.some((h) => hostMatches(url.host, h))) continue;
+    if (!m.isProfile(url.pathname)) continue;
+    return {
+      channel: m.channel,
+      value: url.toString(),
+      normalizedValue: canonicalizeSocialUrl(m.channel, url),
+      source,
+      confidence,
+    };
+  }
+  return null;
+}
+
+// ─── JSON-LD structured-data extraction ───────────────────────────────────────
+
+/** <script type="application/ld+json"> … </script> blocks (schema.org markup). */
+const JSONLD_RE =
+  /<script[^>]*type\s*=\s*["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
+
+/** JSON-LD is structured + author-published → higher confidence than plaintext,
+ *  just below an explicit mailto:/tel: href. */
+const CONF_JSONLD = 90;
+
+/**
+ * Extract contacts from schema.org JSON-LD blocks. Walks every parsed object
+ * for `email`, `telephone`/`phone`, and `sameAs` (social profile URLs), incl.
+ * nested `contactPoint` / `@graph` / `address` shapes. Malformed JSON is skipped
+ * (a broken block must never throw). De-duped within this pass; the unified
+ * roll-up dedupes across passes by (channel, normalizedValue, highest confidence).
+ */
+export function extractJsonLd(
+  html: string,
+  baseUrl?: string,
+): ExtractedContact[] {
+  if (!html) return [];
+  const out: ExtractedContact[] = [];
+  const seen = new Set<string>();
+
+  const pushEmail = (raw: string) => {
+    const value = stripEntities(raw.replace(/^mailto:/i, "")).trim();
+    if (!value || isJunkEmail(value)) return;
+    const normalizedValue = normalizeEmail(value);
+    if (!normalizedValue.includes("@") || isJunkEmail(normalizedValue)) return;
+    const key = "EMAIL|" + normalizedValue;
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push({
+      channel: "EMAIL",
+      value,
+      normalizedValue,
+      source: "SCRAPE_JSONLD",
+      confidence: CONF_JSONLD,
+    });
+  };
+  const pushPhone = (raw: string) => {
+    const value = stripEntities(raw).trim();
+    const normalizedValue = normalizePhone(value);
+    if (!normalizedValue) return;
+    const key = "PHONE|" + normalizedValue;
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push({
+      channel: "PHONE",
+      value,
+      normalizedValue,
+      source: "SCRAPE_JSONLD",
+      confidence: CONF_JSONLD,
+    });
+  };
+  const pushSocial = (raw: string) => {
+    const c = classifySocialUrl(raw, baseUrl, "SCRAPE_JSONLD", CONF_JSONLD);
+    if (!c) return;
+    const key = c.channel + "|" + c.normalizedValue;
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push(c);
+  };
+
+  const walk = (node: unknown): void => {
+    if (!node) return;
+    if (Array.isArray(node)) {
+      for (const x of node) walk(x);
+      return;
+    }
+    if (typeof node !== "object") return;
+    for (const [k, v] of Object.entries(node as Record<string, unknown>)) {
+      const key = k.toLowerCase();
+      if (key === "email" && typeof v === "string") pushEmail(v);
+      else if (
+        (key === "telephone" || key === "phone") &&
+        (typeof v === "string" || typeof v === "number")
+      )
+        pushPhone(String(v));
+      else if (key === "sameas") {
+        if (typeof v === "string") pushSocial(v);
+        else if (Array.isArray(v))
+          for (const u of v) if (typeof u === "string") pushSocial(u);
+      } else {
+        walk(v); // recurse into nested contactPoint / @graph / address / …
+      }
+    }
+  };
+
+  for (const m of html.matchAll(JSONLD_RE)) {
+    const raw = m[1].trim();
+    if (!raw) continue;
+    try {
+      walk(JSON.parse(raw));
+    } catch {
+      // Malformed JSON-LD — skip silently (never throw on a broken block).
+    }
+  }
+
+  return out;
 }
 
 /**
@@ -465,6 +588,7 @@ export function extractContactsFromHtml(
     ...extractEmails(html),
     ...extractPhones(html),
     ...extractSocials(html, baseUrl),
+    ...extractJsonLd(html, baseUrl),
   ];
 
   const byKey = new Map<string, ExtractedContact>();

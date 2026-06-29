@@ -220,6 +220,25 @@ export async function fanOutRun(
     }
   }
 
+  // ── Reachability gate (Phase 4) ──
+  // Server-enforced: hidden/unreachable businesses are silently skipped here —
+  // never enriched, never billed — and counted on the run. isHidden already
+  // encodes both the explicit hide and the OK-scan-zero-reach case
+  // (computeHidden), so a single indexed filter covers the gate.
+  let enrichableIds = businessIds;
+  let skippedHidden = 0;
+  if (businessIds.length > 0) {
+    const hidden = await prisma.business.findMany({
+      where: { id: { in: businessIds }, isHidden: true },
+      select: { id: true },
+    });
+    if (hidden.length > 0) {
+      const hiddenSet = new Set(hidden.map((b) => b.id));
+      enrichableIds = businessIds.filter((id) => !hiddenSet.has(id));
+      skippedHidden = hidden.length;
+    }
+  }
+
   // ── Per-business families → EnrichmentJob rows ──
   const plan = buildJobPlan(has);
   const jobRows: {
@@ -229,7 +248,7 @@ export async function fanOutRun(
     costUsd: number;
     runId: string;
   }[] = [];
-  for (const id of businessIds) {
+  for (const id of enrichableIds) {
     const pb = fresh.perBusiness.get(id) ?? {};
     for (const entry of plan) {
       const cursorVal = entry.cursor ? pb[entry.cursor] : null;
@@ -248,10 +267,11 @@ export async function fanOutRun(
     await prisma.enrichmentJob.createMany({ data: jobRows.slice(i, i + 1000) });
   }
 
-  // Seed actualUsd with the cell cost (job costs are added at close).
+  // Seed actualUsd with the cell cost (job costs are added at close) + record
+  // the hidden businesses skipped by the gate.
   await prisma.enrichmentRun.update({
     where: { id: runId },
-    data: { actualUsd: cellCostUsd },
+    data: { actualUsd: cellCostUsd, unitsSkippedHidden: skippedHidden },
   });
 
   return { jobsCreated: jobRows.length, cellCostUsd };

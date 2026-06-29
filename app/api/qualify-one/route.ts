@@ -26,6 +26,10 @@ import {
   qualifyBusiness,
   recomputeCellAggregates,
 } from "@/modules/business-qualification";
+import {
+  isEnrichable,
+  type ContactScanStatus,
+} from "@/modules/contacts/reachability";
 
 // Per-business qualify can take ~30-60s (email scrape + RDAP + service
 // detection + JS bundle). Vercel default is 300s — generous headroom.
@@ -75,6 +79,33 @@ export async function POST(request: Request): Promise<Response> {
     parsed = result.data;
   } catch {
     return Response.json({ error: "malformed_json" }, { status: 400 });
+  }
+
+  // 2b. Reachability gate (Phase 4) · never spend enrichment on a hidden /
+  //     unreachable business. 400 = non-retryable to the worker (a hidden row
+  //     won't become reachable on retry). FAILED/PENDING scans pass through
+  //     (FAILED ≠ UNREACHABLE).
+  const gate = await prisma.business.findUnique({
+    where: { id: parsed.businessId },
+    select: {
+      contactScanStatus: true,
+      reachableChannelCount: true,
+      isHidden: true,
+    },
+  });
+  if (
+    gate &&
+    !isEnrichable({
+      contactScanStatus: (gate.contactScanStatus ??
+        "PENDING") as ContactScanStatus,
+      reachableChannelCount: gate.reachableChannelCount ?? 0,
+      isHidden: gate.isHidden,
+    })
+  ) {
+    return Response.json(
+      { error: "unreachable", businessId: parsed.businessId },
+      { status: 400 },
+    );
   }
 
   // 3. Run qualification · this is the long-running work the worker

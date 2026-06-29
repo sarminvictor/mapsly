@@ -28,7 +28,7 @@ vi.mock("@/lib/prisma", () => ({
       updateMany: vi.fn(),
     },
     businessCategory: { findFirst: vi.fn() },
-    business: { findUnique: vi.fn() },
+    business: { findUnique: vi.fn(), findMany: vi.fn() },
   },
 }));
 vi.mock("@/modules/discovery/enrich-fresh-db", () => ({
@@ -80,6 +80,7 @@ beforeEach(() => {
   p.enrichmentJob.createMany.mockResolvedValue({ count: 0 });
   p.enrichmentJob.update.mockResolvedValue({});
   p.business.findUnique.mockResolvedValue({ contactsExtractedAt: null });
+  p.business.findMany.mockResolvedValue([]); // no hidden businesses by default
   p.discovery.update.mockResolvedValue({});
 });
 
@@ -121,6 +122,31 @@ describe("fanOutRun", () => {
     const out = await fanOutRun("r1");
     expect(out.jobsCreated).toBe(0);
     expect(p.enrichmentJob.createMany).not.toHaveBeenCalled();
+  });
+
+  test("reachability gate: skips hidden businesses + records unitsSkippedHidden", async () => {
+    p.enrichmentRun.findUnique.mockResolvedValue({
+      id: "r1",
+      status: "PENDING",
+      enrichmentsJson: ["contacts"],
+      scopeRefsJson: { businessIds: ["b1", "b2"], cellKeys: [] },
+    });
+    p.business.findMany.mockResolvedValue([{ id: "b2" }]); // b2 is hidden
+
+    const out = await fanOutRun("r1", new Date());
+
+    const rows = p.enrichmentJob.createMany.mock.calls[0][0].data;
+    expect(rows).toHaveLength(1); // only b1 — b2 gated out
+    expect(rows[0].businessId).toBe("b1");
+    expect(out.jobsCreated).toBe(1);
+    const updates = p.enrichmentRun.update.mock.calls.map(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (c: any) => c[0].data,
+    );
+    expect(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      updates.some((d: any) => d.unitsSkippedHidden === 1),
+    ).toBe(true);
   });
 });
 

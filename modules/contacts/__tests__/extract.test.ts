@@ -18,6 +18,7 @@ import {
   extractEmails,
   extractPhones,
   extractSocials,
+  extractJsonLd,
   normalizeEmail,
   normalizePhone,
   type ContactChannel,
@@ -259,5 +260,59 @@ describe("extractContactsFromHtml", () => {
 
   test("empty html → empty list", () => {
     expect(extractContactsFromHtml("")).toEqual([]);
+  });
+});
+
+describe("extractJsonLd", () => {
+  const LD = (obj: unknown) =>
+    `<script type="application/ld+json">${JSON.stringify(obj)}</script>`;
+
+  test("pulls email, telephone, and sameAs socials from LocalBusiness markup", () => {
+    const html = LD({
+      "@context": "https://schema.org",
+      "@type": "LocalBusiness",
+      name: "Solea Spa",
+      email: "hello@soleaspa.com",
+      telephone: "+1 (305) 555-0199",
+      sameAs: [
+        "https://www.facebook.com/soleaspa",
+        "https://instagram.com/soleaspa",
+      ],
+    });
+    const out = extractJsonLd(html);
+    const emails = out.filter((c) => c.channel === "EMAIL");
+    const phones = out.filter((c) => c.channel === "PHONE");
+    const socials = out.filter(
+      (c) => c.channel === "FACEBOOK" || c.channel === "INSTAGRAM",
+    );
+    expect(emails[0]?.normalizedValue).toBe("hello@soleaspa.com");
+    expect(emails[0]?.source).toBe("SCRAPE_JSONLD");
+    expect(phones[0]?.normalizedValue).toBe("+13055550199");
+    expect(socials).toHaveLength(2);
+  });
+
+  test("recurses into a nested contactPoint", () => {
+    const html = LD({
+      "@type": "Organization",
+      contactPoint: { "@type": "ContactPoint", telephone: "305-555-0123" },
+    });
+    const out = extractJsonLd(html);
+    expect(out.find((c) => c.channel === "PHONE")?.normalizedValue).toBe(
+      "+13055550123",
+    );
+  });
+
+  test("malformed JSON-LD is skipped, never throws", () => {
+    const bad = '<script type="application/ld+json">{bad</script>';
+    expect(() => extractJsonLd(bad)).not.toThrow();
+    expect(extractJsonLd(bad)).toEqual([]);
+  });
+
+  test("JSON-LD contacts flow through the unified roll-up", () => {
+    const html = LD({ "@type": "LocalBusiness", email: "x@y.com" });
+    const all = extractContactsFromHtml(html);
+    expect(
+      all.some((c) => c.channel === "EMAIL" && c.normalizedValue === "x@y.com"),
+    ).toBe(true);
   });
 });
