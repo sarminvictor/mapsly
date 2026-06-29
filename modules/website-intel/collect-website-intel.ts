@@ -18,7 +18,10 @@
 
 import { revalidateTag } from "next/cache";
 import prisma from "@/lib/prisma";
-import { lighthouseFullAudit, toPersistRow } from "@/services/lighthouse";
+import {
+  lighthouseFullAudit,
+  persistLighthouseAudit,
+} from "@/services/lighthouse";
 import { lighthouseAudit } from "@/services/dataforseo/lighthouse";
 
 export interface CollectWebsiteResult {
@@ -78,11 +81,6 @@ export async function collectWebsiteForBatch(
           phone: biz.phone ?? "",
         },
       });
-      // `toPersistRow` carries a `rawJson` field that LighthouseAudit has no
-      // column for — strip it before create (Prisma rejects unknown args at
-      // runtime; the previous inline cron spread relied on it being ignored).
-      const { rawJson: _rawJson, ...row } = toPersistRow(audit, biz.id);
-
       // Second, desktop-preset Lighthouse pass (scores only — DOM checks are
       // preset-independent so we don't re-run them). Best-effort: a desktop
       // failure must not lose the mobile audit. The DOM/HTML leg is NOT re-run.
@@ -108,7 +106,10 @@ export async function collectWebsiteForBatch(
         // Desktop is supplementary; keep nulls and ship the mobile audit.
       }
 
-      await prisma.lighthouseAudit.create({ data: { ...row, ...desktop } });
+      // Persist via persistLighthouseAudit so the raw LHR blob is mined into
+      // LighthouseOpportunity rows + the perf/a11y/security rollup columns the
+      // agency signals read (previously a raw create that wrote scores only).
+      await persistLighthouseAudit(audit, biz.id, desktop);
       result.audited += 1;
       slugsToRevalidate.add(biz.slug);
       if (biz.ownerUserId) ownersToRevalidate.add(biz.ownerUserId);

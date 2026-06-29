@@ -56,6 +56,10 @@ vi.mock("@/modules/ai-research/pipeline", () => ({
 }));
 vi.mock("@/modules/services-general/extract", () => ({
   extractServicesForBusiness: vi.fn(),
+  recomputeCellServicePrevalence: vi.fn(),
+}));
+vi.mock("@/modules/cell-intel/recompute-metrics", () => ({
+  recomputeCellMetric: vi.fn(),
 }));
 
 import prisma from "@/lib/prisma";

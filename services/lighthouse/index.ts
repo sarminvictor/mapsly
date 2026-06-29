@@ -38,9 +38,12 @@ export {
   type LighthouseFullAuditResult,
   // Errors
   LighthouseHtmlFetchError,
-  // Persistence helper
+  // Persistence helpers
   toPersistRow,
+  persistLighthouseAudit,
   type LighthouseAuditPersistRow,
+  type LighthouseDesktopExtras,
+  type PersistLighthouseResult,
   // Test seams
   __setFetchForTesting,
   __setSleepForTesting,

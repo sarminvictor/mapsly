@@ -37,7 +37,11 @@ import { runGoogleAdsForCell } from "@/modules/cell-intel/google-ads";
 import { runSerpForCell } from "@/modules/cell-intel/serp";
 import { runPlaybooksForBusiness } from "@/modules/playbooks/run";
 import { runAiResearchForBusiness } from "@/modules/ai-research/pipeline";
-import { extractServicesForBusiness } from "@/modules/services-general/extract";
+import {
+  extractServicesForBusiness,
+  recomputeCellServicePrevalence,
+} from "@/modules/services-general/extract";
+import { recomputeCellMetric } from "@/modules/cell-intel/recompute-metrics";
 
 // ── Tunables ──────────────────────────────────────────────────────────────
 const MAX_JOB_ATTEMPTS = 3;
@@ -89,6 +93,33 @@ function isFresh(
 ): boolean {
   if (!at || days <= 0) return false;
   return (now.getTime() - at.getTime()) / MS_PER_DAY < days;
+}
+
+/**
+ * Refresh a cell's standards (CellMetric distributions → CellStandardsPanel /
+ * VsCellBar) and, when services ran, its service prevalence ("X% of the cell
+ * offers this"). Best-effort: a recompute hiccup must never fail the run /
+ * discovery close. Without this the standards panels render empty for every
+ * freshly discovered/enriched demand cell.
+ */
+async function recomputeCells(
+  cellKeys: readonly string[],
+  opts: { withPrevalence: boolean } = { withPrevalence: false },
+): Promise<void> {
+  for (const k of cellKeys) {
+    try {
+      await recomputeCellMetric(k);
+    } catch (err) {
+      logErr("recompute-metric", k, err);
+    }
+    if (opts.withPrevalence) {
+      try {
+        await recomputeCellServicePrevalence(k);
+      } catch (err) {
+        logErr("recompute-prevalence", k, err);
+      }
+    }
+  }
 }
 
 // ── Per-business job plan ────────────────────────────────────────────────────
@@ -410,7 +441,13 @@ export async function closeRunIfDone(
 
   const run = await prisma.enrichmentRun.findUnique({
     where: { id: runId },
-    select: { id: true, status: true, actualUsd: true },
+    select: {
+      id: true,
+      status: true,
+      actualUsd: true,
+      scopeRefsJson: true,
+      enrichmentsJson: true,
+    },
   });
   if (!run || run.status !== "RUNNING") return false;
 
@@ -450,6 +487,16 @@ export async function closeRunIfDone(
   await reconcileRunCredits(runId, {
     actualCredits: usdToCredits(totalUsd),
     hadProgress,
+  });
+
+  // Refresh the cell standards (+ service prevalence when services ran) so the
+  // comparative UI reflects the freshly enriched data.
+  const scope = (run.scopeRefsJson ?? {}) as ScopeRefs;
+  const families = (
+    Array.isArray(run.enrichmentsJson) ? run.enrichmentsJson : []
+  ) as EnrichmentType[];
+  await recomputeCells(scope.cellKeys ?? [], {
+    withPrevalence: families.includes("services"),
   });
   return true;
 }
@@ -520,6 +567,10 @@ export async function processDiscovery(discoveryId: string): Promise<boolean> {
       actualCredits: usdToCredits(after?.totalCostUsd ?? 0),
       hadProgress: true,
     });
+
+    // Seed/refresh the cell standards for the freshly discovered cells so the
+    // CellStandardsPanel / VsCellBar render data (not empty) on first open.
+    await recomputeCells(d.cellKeys);
     return true;
   } catch (err) {
     logErr("discovery", discoveryId, err);
