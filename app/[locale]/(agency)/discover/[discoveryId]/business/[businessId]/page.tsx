@@ -162,6 +162,21 @@ async function BusinessDetailBody({ params }: PageProps) {
     take: 50,
   });
 
+  // AI research rollup (the 5-stage gpt-5.4-nano pipeline) — persisted but
+  // previously never surfaced. Drives the "why call them" pitch.
+  const research = await prisma.businessEnrichment.findUnique({
+    where: { businessId: business.id },
+    select: {
+      subType: true,
+      sophistication: true,
+      pricingTransparency: true,
+      positioningSummary: true,
+      painHypotheses: true,
+      competitivePositioning: true,
+      complianceCues: true,
+    },
+  });
+
   const addressLine = [
     business.address,
     business.city,
@@ -335,6 +350,73 @@ async function BusinessDetailBody({ params }: PageProps) {
           </div>
         )}
       </section>
+
+      {/* AI research (gpt-5.4-nano pipeline rollup) */}
+      {research ? (
+        <section className="mt-6">
+          <h2 className="mb-2 text-sm font-semibold text-slate-700">
+            AI research
+          </h2>
+          <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4">
+            <div className="flex flex-wrap gap-2">
+              {research.subType ? (
+                <span className="inline-flex rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 font-mono text-[11px] text-slate-600">
+                  {research.subType}
+                </span>
+              ) : null}
+              {research.sophistication ? (
+                <span className="inline-flex rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 font-mono text-[11px] text-slate-600">
+                  sophistication: {research.sophistication}
+                </span>
+              ) : null}
+              {research.pricingTransparency ? (
+                <span className="inline-flex rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 font-mono text-[11px] text-slate-600">
+                  pricing: {research.pricingTransparency}
+                </span>
+              ) : null}
+            </div>
+            {research.positioningSummary ? (
+              <p className="text-sm text-slate-700">
+                {research.positioningSummary}
+              </p>
+            ) : null}
+            {research.painHypotheses.length > 0 ? (
+              <div>
+                <div className="mb-1 font-mono text-[11px] uppercase tracking-wide text-slate-400">
+                  Pain hypotheses
+                </div>
+                <ul className="list-disc pl-5 text-sm text-slate-700">
+                  {research.painHypotheses.map((p) => (
+                    <li key={p}>{p}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+            {research.competitivePositioning ? (
+              <p className="border-l-2 border-indigo-200 pl-3 text-sm text-indigo-700">
+                {research.competitivePositioning}
+              </p>
+            ) : null}
+            {research.complianceCues.length > 0 ? (
+              <div>
+                <div className="mb-1 font-mono text-[11px] uppercase tracking-wide text-slate-400">
+                  Compliance cues
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {research.complianceCues.map((c) => (
+                    <span
+                      key={c}
+                      className="inline-flex rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-xs text-amber-700"
+                    >
+                      {c}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+          </div>
+        </section>
+      ) : null}
     </div>
   );
 }
