@@ -41,8 +41,6 @@ export function EnrichingStep({
 }) {
   const router = useRouter();
   const [pct, setPct] = useState(2);
-  const [done, setDone] = useState(0);
-  const [total, setTotal] = useState(leadCount);
   const [finished, setFinished] = useState(false);
   const [stages, setStages] = useState<EnrichStage[] | null>(null);
   const [etaMin, setEtaMin] = useState(Math.max(1, Math.round(leadCount / 70)));
@@ -66,23 +64,27 @@ export function EnrichingStep({
         if (!cancelled && data.stages) setStages(data.stages);
         const job = data.jobs.find((j) => j.id === runId);
         if (!cancelled && job) {
-          const t = job.total > 0 ? job.total : leadCount;
-          const d = Math.min(job.done, t);
-          setTotal(t);
-          setDone(d);
-          setPct(t > 0 ? Math.round((d / t) * 100) : 2);
+          // Progress is UNIT-based: job.total/done count enrichment tasks
+          // (businesses × families), so they drive the % only — never the
+          // headline, which counts LEADS (businesses). Showing the unit total as
+          // "leads" over-reports (e.g. "200 leads" for an 89-business market).
+          const unitTotal = job.total > 0 ? job.total : 1;
+          const unitDone = Math.min(job.done, unitTotal);
+          setPct(Math.round((unitDone / unitTotal) * 100));
           const elapsedMin = (Date.now() - startedAt) / 60000;
           if (!job.running) {
             setPct(100);
-            setDone(t);
             setFinished(true);
             setEtaMin(0);
             return; // stop polling
           }
           setEtaMin(
-            d > 0
-              ? Math.max(1, Math.round(elapsedMin * ((t - d) / d)))
-              : Math.max(1, Math.round(t / 70)),
+            unitDone > 0
+              ? Math.max(
+                  1,
+                  Math.round(elapsedMin * ((unitTotal - unitDone) / unitDone)),
+                )
+              : Math.max(1, Math.round(leadCount / 70)),
           );
         }
       } catch {
@@ -106,7 +108,8 @@ export function EnrichingStep({
   return (
     <section style={{ paddingBottom: 40 }}>
       <h1>
-        Enriching <span className="hl">{total.toLocaleString()} leads</span>…
+        Enriching <span className="hl">{leadCount.toLocaleString()} leads</span>
+        …
       </h1>
       <p className="sub">
         You can <b>close this page</b> — work continues on our servers and
@@ -125,8 +128,7 @@ export function EnrichingStep({
         >
           <b>{pct}%</b>
           <span className="note">
-            {done.toLocaleString()} of {total.toLocaleString()} leads
-            {finished ? " · done" : ` · ~${etaMin} min left`}
+            {finished ? "done" : `~${etaMin} min left`}
           </span>
         </div>
         <div

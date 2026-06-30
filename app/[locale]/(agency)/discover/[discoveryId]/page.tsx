@@ -1,23 +1,37 @@
 /**
- * Agency Discovery detail · `/(agency)/discover/[discoveryId]` (Phase 9).
+ * Agency Discovery WORKSPACE ·
+ * `/(agency)/discover/[discoveryId]` (the leads workbench, whole-discovery scope).
  *
- * The Raw List result view: after a Discovery populates its cells, the user
- * browses the raw businesses before spending credits to enrich them. This page
- * loads the Discovery row + its cellKeys, computes the reachability summary
- * (`getRawListSummary`) + the first page of rows (`getRawList`), and hands them
- * to the client `<RawListTable>` (multi-select → bulk enrich / save-as-list) +
- * the `<EnrichPanel>` (the 9 enrichments, per-row cost, live total).
+ * This is the surface reached by "My research → Open" and the journey's "See the
+ * leads workbench" button. In the prototype it is `#view-workspace`: a dense
+ * two-tab workspace (Leads · Touchpoints) over the discovery's mapped market —
+ * NOT a raw-list overview. We reuse the exact Phase 4 workbench the sibling
+ * `lists/[listId]` page uses (`WorkbenchShell` + `LeadsWorkbench` +
+ * `TouchpointsTab` + the pure `leads-workbench` read-model); the only difference
+ * is scope: a List page builds rows from `list.leads`, this page builds the SAME
+ * `WorkbenchLeadRow[]` from the discovery's BUSINESSES (no List needed).
+ *
+ * Businesses aren't leads, so each row defaults to status NEW. Where a business
+ * already has a `Lead` in one of THIS discovery's saved lists, we adopt that
+ * Lead's real id + status so the status pill is wired (the optimistic mutation
+ * goes through `setLeadStatusAction`). Where no Lead exists yet, the row's id
+ * falls back to the business id: the pill still renders + cycles optimistically,
+ * but the action finds no Lead and reverts gracefully — effectively display-only
+ * until the business is saved into a list. (See the page summary.)
  *
  * Per `.claude/rules/cache-components.md`:
  *   - Pattern 2 · default export is SYNC; the async body (auth + DB) lives in a
  *     Suspense boundary so the shell prerenders.
- *   - Pattern 4 · no function props cross the client boundary — rows are plain
- *     serialized data; the table/panel resolve their own copy.
+ *   - Pattern 4 · no function props cross the client boundary — rows/touches/
+ *     stats are plain serialized data; the client components import their own
+ *     server actions.
  *   - Pattern 5 · no `export const dynamic`; Suspense is the dynamic signal.
  *
- * Auth mirrors `/(agency)/discover/page.tsx`: no session → `unauthorized()`;
- * session but no AgencyMember → `redirect('/home')`. A Discovery owned by a
- * different agency is treated as not-found (`notFound()`).
+ * Auth: no session → `unauthorized()`; session but no AgencyMember →
+ * `redirect('/home')`. A discovery owned by a different agency reads as
+ * not-found (`notFound()`); we never confirm another agency's data. Every query
+ * is agency-scoped so a cross-agency leak is impossible
+ * (`.claude/rules/security.md`). No external API in the request path.
  *
  * Copy is English-only for now (the app runs English-only — see i18n/routing.ts).
  */
@@ -30,20 +44,32 @@ import { setRequestLocale } from "next-intl/server";
 import { auth } from "@/lib/auth";
 import { Link, redirect } from "@/i18n/navigation";
 import prisma from "@/lib/prisma";
-import { getRawList, getRawListSummary } from "@/modules/discovery/raw-list";
-import { getResearchOverview } from "@/modules/agency-portal/discover/overview";
-import { ReachabilityBanner } from "@/modules/agency-portal/discover/components/ReachabilityBanner";
-import { CohortCard } from "@/modules/agency-portal/discover/components/CohortCard";
-import { CellStandardsPanel } from "@/modules/agency-portal/discover/components/CellStandardsPanel";
-import { Sparkline } from "@/modules/agency-portal/discover/components/Sparkline";
-import { FreshnessChip } from "@/modules/agency-portal/discover/components/FreshnessChip";
 import {
-  RawListTable,
-  type RawListTableRow,
-} from "@/modules/agency-portal/discover/components/RawListTable";
+  cellFreshnessState,
+  parseCellKey,
+  type FreshnessState,
+} from "@/lib/cell";
+import { US_METROS } from "@/lib/geo/us-metros";
+import { usdToCredits } from "@/modules/cost/estimate";
+import { rawListWhere } from "@/modules/discovery/raw-list";
+import { cellBand } from "@/modules/agency-portal/discover/signals";
+import {
+  deriveMatchPct,
+  painGroupClass,
+  type CellBand,
+  type LeadStatus,
+  type TouchState,
+  type WorkbenchLeadRow,
+} from "@/modules/agency-portal/discover/leads-workbench";
+import {
+  WorkbenchShell,
+  type WorkbenchShellProps,
+} from "@/modules/agency-portal/discover/components/WorkbenchShell";
+import type { WorkbenchTouch } from "@/modules/agency-portal/discover/components/TouchpointsTab";
+import { parseWhyJson } from "@/modules/agency-portal/discover/touchpoints";
 
 export const metadata: Metadata = {
-  title: "Raw list · Mapsly",
+  title: "Workspace · Mapsly",
   robots: { index: false, follow: false },
 };
 
@@ -51,15 +77,26 @@ interface PageProps {
   params: Promise<{ locale: string; discoveryId: string }>;
 }
 
-export default function DiscoveryDetailPage({ params }: PageProps) {
+/**
+ * Hard cap on businesses rendered into the workbench. The workbench paginates
+ * client-side, so a bounded server fetch (scalability rule) is enough; very
+ * large discoveries surface a "showing first N" note.
+ */
+const MAX_BUSINESSES = 200;
+
+const METRO_NAME_BY_SLUG = new Map(
+  US_METROS.map((m) => [m.slug.toLowerCase(), m.name] as const),
+);
+
+export default function DiscoveryWorkspacePage({ params }: PageProps) {
   return (
     <Suspense fallback={null}>
-      <DiscoveryDetailBody params={params} />
+      <DiscoveryWorkspaceBody params={params} />
     </Suspense>
   );
 }
 
-async function DiscoveryDetailBody({ params }: PageProps) {
+async function DiscoveryWorkspaceBody({ params }: PageProps) {
   const { locale, discoveryId } = await params;
   setRequestLocale(locale);
 
@@ -82,200 +119,432 @@ async function DiscoveryDetailBody({ params }: PageProps) {
       id: true,
       agencyId: true,
       name: true,
-      status: true,
       cellKeys: true,
-      cellCount: true,
+      spendToDateUsd: true,
       totalBusinesses: true,
+      createdAt: true,
+      finishedAt: true,
     },
   });
 
-  // Cross-agency access (or missing row) reads as not-found, not forbidden — we
-  // never confirm the existence of another agency's discovery.
+  // Cross-agency access (or missing row) reads as not-found — we never confirm
+  // the existence of another agency's discovery.
   if (!discovery || discovery.agencyId !== agencyId) notFound();
 
   const cellKeys = discovery.cellKeys;
 
-  const [summary, firstPage, savedLists] = await Promise.all([
-    getRawListSummary({ cellKeys }),
-    getRawList({ cellKeys }, { take: 50 }),
-    // Saved (non-raw) lists carved out of this discovery, with a per-status
-    // rollup so the overview shows pipeline progress at a glance.
-    prisma.list.findMany({
-      where: { discoveryId: discovery.id, agencyId, isRaw: false },
-      orderBy: { createdAt: "desc" },
-      select: {
-        id: true,
-        name: true,
-        createdAt: true,
-        leads: { select: { status: true } },
-      },
-    }),
-  ]);
+  // The discovery's businesses (the same hidden/closed gate as the raw list, so
+  // the workbench shows the same default market). Ordered like getRawList
+  // (reviewCount desc, id asc) for a stable, useful first page.
+  const businesses =
+    cellKeys.length === 0
+      ? []
+      : await prisma.business.findMany({
+          where: rawListWhere({ cellKeys }),
+          orderBy: [{ reviewCount: "desc" }, { id: "asc" }],
+          take: MAX_BUSINESSES,
+          select: {
+            id: true,
+            name: true,
+            address: true,
+            city: true,
+            cellKey: true,
+            rating: true,
+            reviewCount: true,
+            reachability: true,
+            reachableChannelCount: true,
+            phone: true,
+            email: true,
+          },
+        });
 
-  // Pre-resolve each saved list into a plain serializable shape (no function
-  // props cross the boundary — but this section renders server-side anyway).
-  const savedListRows = savedLists.map((l) => {
-    const counts: Record<string, number> = {};
-    for (const lead of l.leads) {
-      counts[lead.status] = (counts[lead.status] ?? 0) + 1;
+  // The whole-market count (for the meta line + "showing first N" note). Falls
+  // back to the denormalized total when there are no cells.
+  const totalBusinesses =
+    cellKeys.length === 0
+      ? discovery.totalBusinesses
+      : await prisma.business.count({ where: rawListWhere({ cellKeys }) });
+
+  const businessIds = businesses.map((b) => b.id);
+
+  // Parallel side loads (all scoped to this discovery's businesses):
+  //   - existing Leads in THIS discovery's saved lists → real leadId + status
+  //   - latest snapshot / Lighthouse audit per business (vs-cell + perf proxy)
+  //   - flagged PlaybookFindings (pain chips + match derivation + "why")
+  //   - CMS tech (built-on)
+  //   - contacts (phones / emails + reachable)
+  //   - OutreachDrafts (the Touchpoints tab + per-lead touch state)
+  const [existingLeads, snapshots, audits, findings, techs, contacts, drafts] =
+    businessIds.length === 0
+      ? [[], [], [], [], [], [], []]
+      : await Promise.all([
+          prisma.lead.findMany({
+            where: {
+              agencyId,
+              businessId: { in: businessIds },
+              list: { discoveryId: discovery.id },
+            },
+            orderBy: { statusChangedAt: "desc" },
+            select: { id: true, businessId: true, status: true },
+          }),
+          prisma.businessSnapshot.findMany({
+            where: { businessId: { in: businessIds } },
+            orderBy: { snapshotDate: "desc" },
+            select: {
+              businessId: true,
+              reviewCount: true,
+              rating: true,
+              snapshotDate: true,
+            },
+          }),
+          prisma.lighthouseAudit.findMany({
+            where: { businessId: { in: businessIds } },
+            orderBy: { auditedAt: "desc" },
+            select: { businessId: true, performance: true, auditedAt: true },
+          }),
+          prisma.playbookFinding.findMany({
+            where: { businessId: { in: businessIds }, status: "flagged" },
+            orderBy: { confidence: "asc" },
+            select: {
+              businessId: true,
+              signalKey: true,
+              group: true,
+              confidence: true,
+              explanation: true,
+              pitchAngle: true,
+            },
+          }),
+          prisma.businessTech.findMany({
+            where: { businessId: { in: businessIds }, category: "CMS" },
+            orderBy: { confidence: "desc" },
+            select: { businessId: true, name: true },
+          }),
+          prisma.contact.findMany({
+            where: { businessId: { in: businessIds } },
+            select: { businessId: true, channel: true, value: true },
+          }),
+          prisma.outreachDraft.findMany({
+            where: { businessId: { in: businessIds } },
+            orderBy: { createdAt: "asc" },
+            select: {
+              id: true,
+              businessId: true,
+              leadId: true,
+              channel: true,
+              subject: true,
+              body: true,
+              status: true,
+              whyJson: true,
+            },
+          }),
+        ]);
+
+  // First (=latest) row per business for the "latest snapshot/audit" pattern.
+  const latestSnapshot = firstByBusiness(snapshots);
+  const latestAudit = firstByBusiness(audits);
+
+  // Existing Lead per business (most-recently-changed wins) → real id + status.
+  const leadByBusiness = new Map<string, { id: string; status: LeadStatus }>();
+  for (const l of existingLeads) {
+    if (!leadByBusiness.has(l.businessId)) {
+      leadByBusiness.set(l.businessId, {
+        id: l.id,
+        status: l.status as LeadStatus,
+      });
     }
+  }
+
+  // CMS built-on (highest-confidence first row wins).
+  const builtOnById = new Map<string, string>();
+  for (const t of techs)
+    if (!builtOnById.has(t.businessId)) builtOnById.set(t.businessId, t.name);
+
+  // Contacts → phones / emails per business.
+  const phonesById = new Map<string, string[]>();
+  const emailsById = new Map<string, string[]>();
+  for (const c of contacts) {
+    if (c.channel === "PHONE" || c.channel === "WHATSAPP") {
+      push(phonesById, c.businessId, c.value);
+    } else if (c.channel === "EMAIL") {
+      push(emailsById, c.businessId, c.value);
+    }
+  }
+
+  // Flagged findings → pain chips per business (most-confident first).
+  const painsById = new Map<
+    string,
+    { group: string; label: string; title: string }[]
+  >();
+  for (const f of findings) {
+    const label = signalKeyLabel(f.signalKey);
+    push(painsById, f.businessId, {
+      group: f.group,
+      label,
+      title: f.explanation || f.pitchAngle || label,
+    });
+  }
+
+  // Touch state per business (the most-advanced draft status drives the pill).
+  const touchByBusiness = new Map<string, TouchState>();
+  for (const d of drafts) {
+    const t: TouchState = d.status === "sent" ? "Sent" : "Draft";
+    const cur = touchByBusiness.get(d.businessId);
+    if (!cur || rankTouch(t) > rankTouch(cur))
+      touchByBusiness.set(d.businessId, t);
+  }
+
+  // ── Build the workbench rows (one per business) ────────────────────────────
+  const rows: WorkbenchLeadRow[] = businesses.map((b) => {
+    const snap = latestSnapshot.get(b.id);
+    const audit = latestAudit.get(b.id);
+    const reviews = snap?.reviewCount ?? b.reviewCount ?? null;
+    const rating = snap?.rating ?? b.rating ?? null;
+    const perf = audit?.performance ?? null;
+    const phones = phonesById.get(b.id) ?? (b.phone ? [b.phone] : []);
+    const emails = emailsById.get(b.id) ?? (b.email ? [b.email] : []);
+    const pains = painsById.get(b.id) ?? [];
+    const cell = prettyCell(b.cellKey);
+    const lead = leadByBusiness.get(b.id) ?? null;
+    // No stored Lead.matchScore at the discovery scope → derive from pains.
+    const { match, derived } = deriveMatchPct(null, pains.length);
+
     return {
-      id: l.id,
-      name: l.name,
-      total: l.leads.length,
-      newCount: counts.NEW ?? 0,
-      contactedCount: counts.CONTACTED ?? 0,
-      repliedCount: counts.REPLIED ?? 0,
-      wonCount: counts.WON ?? 0,
-      lostCount: counts.LOST ?? 0,
+      // Real Lead id when this business already lives in a saved list (wired
+      // status pill); else the business id keeps the row key unique + the pill
+      // reverts gracefully when the action finds no Lead (display-only).
+      leadId: lead?.id ?? b.id,
+      businessId: b.id,
+      name: b.name,
+      addr: [b.address ?? b.city ?? "", cell].filter(Boolean).join(" · "),
+      cell,
+      status: lead?.status ?? "NEW",
+      match,
+      matchDerived: derived,
+      pains: pains.map((p) => ({ ...p, group: painGroupClass(p.group) })),
+      reachability: b.reachability,
+      reachable:
+        (b.reachableChannelCount ?? 0) > 0 ||
+        phones.length > 0 ||
+        emails.length > 0,
+      builtOn: builtOnById.get(b.id) ?? null,
+      touch: touchByBusiness.get(b.id) ?? "None",
+      reviews,
+      rating,
+      perf,
+      phones,
+      emails,
+      families: {
+        identity: true,
+        reviews: reviews != null,
+        website: perf != null || builtOnById.has(b.id),
+        contacts: phones.length > 0 || emails.length > 0,
+        ads: false,
+        search: false,
+      },
     };
   });
 
-  const rows: RawListTableRow[] = firstPage.rows.map((r) => ({
-    id: r.id,
-    name: r.name,
-    category: r.category,
-    city: r.city,
-    province: r.province,
-    metroSlug: r.metroSlug,
-    rating: r.rating,
-    reviewCount: r.reviewCount,
-    website: r.website,
-    phone: r.phone,
-    reachability: r.reachability,
-    reachableChannelCount: r.reachableChannelCount,
-  }));
-
-  // The reachability banner counts the WHOLE cell set; "unreachable" is the
-  // suppressed-from-default remainder (total − reachable − phoneOnly), floored.
-  const bannerCounts = {
-    total: summary.total,
-    reachable: summary.reachable,
-    phoneOnly: summary.phoneOnly,
-    unreachable: Math.max(
-      0,
-      summary.total - summary.reachable - summary.phoneOnly,
-    ),
+  // ── vs-cell bands (computed from this discovery's own cohort) ───────────────
+  const bands: Partial<Record<string, CellBand>> = {
+    match: cellBand(rows.map((r) => r.match)) ?? undefined,
+    reviews: cellBand(rows.map((r) => r.reviews).filter(isNum)) ?? undefined,
+    rating: cellBand(rows.map((r) => r.rating).filter(isNum)) ?? undefined,
+    perf: cellBand(rows.map((r) => r.perf).filter(isNum)) ?? undefined,
   };
 
-  // Comprehension layer (§4.19/4.20): cohort tiles + per-cell freshness + the
-  // cell-standards reference panel + a distribution sparkline. A just-completed
-  // discovery's cells are FRESH (served within the 182-day window).
-  const overview = await getResearchOverview({ cellKeys, summary });
+  // ── Touchpoints tab read-model ─────────────────────────────────────────────
+  const nameById = new Map(businesses.map((b) => [b.id, b.name]));
+
+  const touches: WorkbenchTouch[] = drafts.map((d) => {
+    const lead = leadByBusiness.get(d.businessId) ?? null;
+    const { why } = parseWhyJson(d.whyJson);
+    const findingPains = (painsById.get(d.businessId) ?? []).map((p) => ({
+      group: p.group,
+      label: p.label,
+      title: p.title,
+    }));
+    // Merge grounding why-strings (as neutral chips) after the flagged-finding
+    // pains so every drafted step shows what it leans on.
+    const whyPains = why.map((w) => ({ group: "more", label: w, title: w }));
+    return {
+      draftId: d.id,
+      businessId: d.businessId,
+      businessName: nameById.get(d.businessId) ?? "Business",
+      leadId: lead?.id ?? d.leadId ?? null,
+      leadStatus: (lead?.status ?? "NEW") as LeadStatus,
+      channel: d.channel,
+      subject: d.subject,
+      body: d.body,
+      sent: d.status === "sent",
+      pains: [...findingPains, ...whyPains].slice(0, 5),
+      phones: phonesById.get(d.businessId) ?? [],
+      emails: emailsById.get(d.businessId) ?? [],
+    };
+  });
+
+  // Stat strip — computed from the discovery's businesses + drafts.
+  const stats = {
+    reachable: rows.filter((r) => r.reachable).length,
+    enriched: rows.length,
+    touches: touches.length,
+    businesses: new Set(touches.map((t) => t.businessId)).size,
+    contacted: rows.filter((r) =>
+      (["CONTACTED", "REPLIED", "WON", "LOST"] as LeadStatus[]).includes(
+        r.status,
+      ),
+    ).length,
+    won: rows.filter((r) => r.status === "WON").length,
+  };
+
+  const shell: WorkbenchShellProps = {
+    leads: { rows, discoveryId, bands },
+    touchpoints: { touches, stats },
+  };
+
+  // ── Header: "{Category} · {Metro}" from the first cell ──────────────────────
+  const firstCell = cellKeys[0] ? parseCellKey(cellKeys[0]) : null;
+  const categoryLabel = firstCell
+    ? await resolveCategoryLabel(firstCell.categorySlug)
+    : null;
+  const metroLabel = firstCell ? resolveMetroLabel(firstCell.metroSlug) : null;
+  const title =
+    categoryLabel && metroLabel
+      ? `${categoryLabel} · ${metroLabel}`
+      : (discovery.name ?? "Workspace");
+
+  // Meta line: mapped freshness + spend-to-date credits.
+  const mappedAt = discovery.finishedAt ?? discovery.createdAt;
+  const now = new Date();
+  const freshness = cellFreshnessState(mappedAt, now);
+  const fresh = freshnessLabel(freshness);
+  const credits = usdToCredits(discovery.spendToDateUsd);
+  const showingNote =
+    totalBusinesses > rows.length
+      ? `Showing first ${rows.length.toLocaleString()} of ${totalBusinesses.toLocaleString()}`
+      : `${rows.length.toLocaleString()} businesses`;
 
   return (
-    <div className="mx-auto max-w-7xl p-6">
-      <header className="mb-5">
-        <h1 className="text-xl font-semibold text-slate-900">
-          {discovery.name ?? "Raw list"}
-        </h1>
-        <p className="mt-1 font-mono text-xs text-slate-500">
-          {discovery.cellCount} cells · {summary.total.toLocaleString()}{" "}
-          businesses · status {discovery.status.toLowerCase()}
+    <div className="view full">
+      <header className="section">
+        <Link href={{ pathname: "/research" }} className="lk">
+          ← All research
+        </Link>
+        <h1 style={{ marginTop: 6 }}>{title}</h1>
+        <p className="note" style={{ marginTop: 6 }}>
+          {showingNote} ·{" "}
+          <span
+            className={`freshdot ${fresh.dot}`}
+            style={{
+              display: "inline-block",
+              width: 9,
+              height: 9,
+              borderRadius: "50%",
+              verticalAlign: "middle",
+            }}
+            aria-hidden="true"
+          />{" "}
+          <span style={{ color: fresh.color, fontWeight: 600 }}>
+            {fresh.label}
+          </span>{" "}
+          · mapped {relativeDays(mappedAt)} · spend to date{" "}
+          <span className="cr">
+            <span className="ic-coin sm" aria-hidden="true" />
+            {credits.toLocaleString()} credits
+          </span>
         </p>
       </header>
 
-      {/* Research overview · cohorts + freshness + cell standards */}
-      <section className="mb-5 space-y-4">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          {overview.cohorts.map((c) => (
-            <CohortCard
-              key={c.toneLabel}
-              pitch={c.pitch}
-              count={c.count}
-              reachableCount={c.reachableCount}
-              tone={c.tone}
-              toneLabel={c.toneLabel}
-              footnote={c.footnote}
-            />
-          ))}
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs font-medium text-slate-500">Cells:</span>
-          {cellKeys.map((k) => (
-            <span key={k} className="inline-flex items-center gap-1.5">
-              <FreshnessChip state="fresh" />
-              <span className="font-mono text-xs text-slate-500">{k}</span>
-            </span>
-          ))}
-        </div>
-
-        {overview.standardRows.length > 0 ? (
-          <div className="space-y-2">
-            <CellStandardsPanel
-              cellLabel={overview.cellLabel}
-              rows={overview.standardRows}
-              sampleSize={overview.sampleSize}
-            />
-            {overview.distributionSeries.length > 0 ? (
-              <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2">
-                <span className="text-xs text-slate-500">
-                  Review-count spread (p10→p90)
-                </span>
-                <Sparkline
-                  values={overview.distributionSeries}
-                  label="cell review-count distribution"
-                />
-              </div>
-            ) : null}
-          </div>
-        ) : null}
-      </section>
-
-      {/* Saved lists · pipelines carved out of this discovery */}
-      {savedListRows.length > 0 ? (
-        <section className="mb-5">
-          <h2 className="mb-2 text-sm font-semibold text-slate-700">
-            Saved lists
-          </h2>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {savedListRows.map((l) => (
-              <Link
-                key={l.id}
-                href={{
-                  pathname: "/discover/[discoveryId]/lists/[listId]",
-                  params: { discoveryId: discovery.id, listId: l.id },
-                }}
-                className="rounded-xl border border-slate-200 bg-white p-4 hover:border-indigo-300 hover:shadow-sm"
-              >
-                <div className="font-medium text-slate-800">{l.name}</div>
-                <div className="mt-1 font-mono text-xs text-slate-500">
-                  {l.total.toLocaleString()} leads
-                </div>
-                <div className="mt-2 flex flex-wrap gap-1.5 font-mono text-[11px]">
-                  <span className="rounded bg-slate-100 px-1.5 py-0.5 text-slate-600">
-                    {l.newCount} new
-                  </span>
-                  <span className="rounded bg-indigo-50 px-1.5 py-0.5 text-indigo-700">
-                    {l.contactedCount} contacted
-                  </span>
-                  <span className="rounded bg-amber-50 px-1.5 py-0.5 text-amber-700">
-                    {l.repliedCount} replied
-                  </span>
-                  <span className="rounded bg-emerald-50 px-1.5 py-0.5 text-emerald-700">
-                    {l.wonCount} won
-                  </span>
-                  <span className="rounded bg-red-50 px-1.5 py-0.5 text-red-700">
-                    {l.lostCount} lost
-                  </span>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </section>
-      ) : null}
-
-      <div className="mb-4">
-        <ReachabilityBanner counts={bannerCounts} />
-      </div>
-
-      <RawListTable
-        rows={rows}
-        cellKeys={cellKeys}
-        discoveryId={discovery.id}
-        nextCursor={firstPage.nextCursor}
-      />
+      <WorkbenchShell {...shell} />
     </div>
   );
+}
+
+// ── Server-side helpers (pure shaping) ───────────────────────────────────────
+
+/** "medical_spa|miami|US" → "Medical spa · Miami" (best-effort, no DB). */
+function prettyCell(cellKey: string | null): string {
+  if (!cellKey) return "this market";
+  const parsed = parseCellKey(cellKey);
+  if (!parsed) return cellKey;
+  const cat = parsed.categorySlug.replace(/_/g, " ");
+  const metro = parsed.metroSlug.replace(/[_-]/g, " ");
+  const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+  return `${cap(cat)} · ${cap(metro)}`;
+}
+
+/** Resolve a category slug → human label from BusinessCategory (else slug). */
+async function resolveCategoryLabel(slug: string): Promise<string> {
+  const cat = await prisma.businessCategory.findUnique({
+    where: { dataforseoId: slug },
+    select: { label: true },
+  });
+  return cat?.label ?? titleCaseSlug(slug);
+}
+
+/** Resolve a metro slug → "Miami" (drops the trailing state for the header). */
+function resolveMetroLabel(slug: string): string {
+  const name = METRO_NAME_BY_SLUG.get(slug.toLowerCase());
+  return (name ?? titleCaseSlug(slug)).split(",")[0].trim();
+}
+
+/** "medical_spa" → "Medical Spa" — slug fallback when no DB label is found. */
+function titleCaseSlug(slug: string): string {
+  return slug
+    .split(/[_-]+/)
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+}
+
+/** Freshness → dot modifier + label + color (mirrors the prototype meta line). */
+function freshnessLabel(state: FreshnessState): {
+  dot: string;
+  label: string;
+  color: string;
+} {
+  switch (state) {
+    case "fresh":
+      return { dot: "fresh", label: "Fresh", color: "var(--green)" };
+    case "aging":
+      return { dot: "aging", label: "Aging", color: "var(--amber)" };
+    case "stale":
+      return { dot: "stale", label: "Stale", color: "var(--red)" };
+    default:
+      return { dot: "new", label: "Not mapped", color: "var(--faint)" };
+  }
+}
+
+function firstByBusiness<T extends { businessId: string }>(
+  rows: T[],
+): Map<string, T> {
+  const m = new Map<string, T>();
+  for (const r of rows) if (!m.has(r.businessId)) m.set(r.businessId, r);
+  return m;
+}
+
+function push<T>(map: Map<string, T[]>, key: string, value: T) {
+  const arr = map.get(key);
+  if (arr) arr.push(value);
+  else map.set(key, [value]);
+}
+
+function isNum(v: number | null): v is number {
+  return typeof v === "number" && Number.isFinite(v);
+}
+
+function rankTouch(t: TouchState): number {
+  return ["None", "Draft", "Queued", "Sent", "Replied"].indexOf(t);
+}
+
+/** "perf_savings_ms" → "Perf savings ms" (best-effort signal-key label). */
+function signalKeyLabel(key: string): string {
+  const words = key.replace(/_/g, " ");
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+function relativeDays(d: Date): string {
+  const days = Math.floor((Date.now() - d.getTime()) / 86_400_000);
+  if (days <= 0) return "today";
+  if (days === 1) return "1 day ago";
+  return `${days} days ago`;
 }

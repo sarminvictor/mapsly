@@ -24,6 +24,7 @@ import { z } from "zod";
 
 import { auth } from "@/lib/auth";
 import prisma, { Prisma } from "@/lib/prisma";
+import { rawListWhere } from "./raw-list";
 import {
   createCostEstimate,
   authorizeEstimate,
@@ -140,15 +141,14 @@ export async function preflightEnrichAction(
     // resolve the cells' enrichable businesses here so the estimate, the stored
     // scope (re-quote on run), and the fan-out all price/enrich the SAME real
     // set. Without this the per-business cost was 0 → nothing billed or enriched.
-    // `isHidden: { not: true }` keeps unscanned (null) + reachable (false) and
-    // drops only scanned-and-unreachable (true) — the server-enforced gate.
+    // Resolve via rawListWhere so the enriched set is EXACTLY the visible raw
+    // market: excludes hidden/unreachable AND permanently-closed listings (a
+    // plain `isHidden: { not: true }` would wrongly include CLOSED_FOREVER rows,
+    // paying to enrich dead businesses).
     let businessIds = parsed.data.businessIds;
     if (businessIds.length === 0 && parsed.data.cellKeys.length > 0) {
       const inCell = await prisma.business.findMany({
-        where: {
-          cellKey: { in: parsed.data.cellKeys },
-          isHidden: { not: true },
-        },
+        where: rawListWhere({ cellKeys: parsed.data.cellKeys }),
         select: { id: true },
         take: 5000,
       });

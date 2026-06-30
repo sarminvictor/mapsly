@@ -30,6 +30,7 @@ import { reconcileRunCredits } from "@/modules/cost/server";
 import { usdToCredits } from "@/modules/cost/estimate";
 import { loadFreshTimestamps } from "@/modules/discovery/enrich-fresh-db";
 import { runDiscovery } from "@/modules/discovery/run-discovery";
+import { rawListWhere } from "@/modules/discovery/raw-list";
 import { scanBusinessContacts } from "@/modules/contacts/scan";
 import { submitReviewJob } from "@/modules/reviews/review-job";
 import { runMetaAdsForCell } from "@/modules/cell-intel/meta-ads";
@@ -270,12 +271,12 @@ export async function fanOutRun(
     }
   } else if (cellKeys.length > 0) {
     // "Enrich the market" — no explicit business ids, so resolve the cells'
-    // enrichable businesses here. Without this a cellKeys-only run created ZERO
-    // per-business jobs (it enriched nothing, then settled instantly as "done").
-    // `isHidden: { not: true }` keeps unscanned (null) + reachable (false) and
-    // drops only scanned-and-unreachable (true) — the server-enforced gate.
+    // enrichable businesses here (defensive: preflightEnrichAction already
+    // resolves these into scopeRefs.businessIds, but a cellKeys-only run from
+    // any other path must still work). Use rawListWhere so the set matches the
+    // visible raw market — excludes hidden/unreachable AND permanently-closed.
     const inCell = await prisma.business.findMany({
-      where: { cellKey: { in: [...cellKeys] }, isHidden: { not: true } },
+      where: rawListWhere({ cellKeys: [...cellKeys] }),
       select: { id: true },
       take: 5000,
     });
