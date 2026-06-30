@@ -46,7 +46,7 @@ export interface AgencyChromeLabels {
 
 interface NavItem {
   key: string;
-  href: "/discover" | "/research" | "/team/billing" | "/agency-settings";
+  href: "/welcome" | "/research" | "/team/billing" | "/agency-settings";
   /** Internal (non-localized) pathname prefixes that light this item. */
   match: string[];
   label: string;
@@ -75,8 +75,8 @@ function buildNav(l: AgencyChromeLabels): NavItem[] {
   return [
     {
       key: "get_leads",
-      href: "/discover",
-      match: ["/discover", "/welcome"],
+      href: "/welcome",
+      match: ["/welcome", "/discover"],
       label: l.getLeads,
       icon: (
         <svg viewBox="0 0 24 24" {...stroke}>

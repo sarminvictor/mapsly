@@ -21,7 +21,7 @@
 
 import prisma from "@/lib/prisma";
 
-export type PortalDestinationHref = "/home" | "/discover" | "/admin";
+export type PortalDestinationHref = "/home" | "/welcome" | "/admin";
 
 export type PortalDestinationLabelKey =
   | "open_dashboard"
@@ -61,7 +61,7 @@ export async function getPortalDestination(
     }
     if (user.agencyMembers.length > 0) {
       return {
-        href: "/discover",
+        href: "/welcome",
         labelKey: "open_workspace",
         external: false,
       };

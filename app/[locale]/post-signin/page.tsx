@@ -66,7 +66,7 @@ async function PostSignInRedirect({
   }
 
   if (user.agencyMembers.length > 0) {
-    redirect({ href: "/discover", locale });
+    redirect({ href: "/welcome", locale });
   }
 
   // Landing-driven SMB checkout intent — best-effort. A freshly-authed visitor

@@ -67,7 +67,7 @@ export type AdminGuardResult =
  */
 export interface PortalMismatch {
   /** Where the user should go. */
-  redirectTo: "/home" | "/discover";
+  redirectTo: "/home" | "/welcome";
   /**
    * Short reason · "agency-member-on-smb" / "smb-on-agency". Useful
    * for telemetry / Sentry tags so we can see how often each side
@@ -128,7 +128,7 @@ export async function requirePortal(
     if (requested === "smb" && isAgencyMember) {
       // Agency member trying to load an SMB route — push them back
       // to their workbench (the demand-driven /discover entry point).
-      return { redirectTo: "/discover", reason: "agency-member-on-smb" };
+      return { redirectTo: "/welcome", reason: "agency-member-on-smb" };
     }
     if (requested === "agency" && !isAgencyMember) {
       // SMB user (no agency membership) trying to load an agency
