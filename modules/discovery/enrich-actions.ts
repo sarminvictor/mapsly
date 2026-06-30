@@ -136,15 +136,33 @@ export async function preflightEnrichAction(
     if (!agencyId) return { status: "forbidden" };
 
     const now = new Date();
+    // "Enrich the market" passes cellKeys with no explicit businessIds —
+    // resolve the cells' enrichable businesses here so the estimate, the stored
+    // scope (re-quote on run), and the fan-out all price/enrich the SAME real
+    // set. Without this the per-business cost was 0 → nothing billed or enriched.
+    // `isHidden: { not: true }` keeps unscanned (null) + reachable (false) and
+    // drops only scanned-and-unreachable (true) — the server-enforced gate.
+    let businessIds = parsed.data.businessIds;
+    if (businessIds.length === 0 && parsed.data.cellKeys.length > 0) {
+      const inCell = await prisma.business.findMany({
+        where: {
+          cellKey: { in: parsed.data.cellKeys },
+          isHidden: { not: true },
+        },
+        select: { id: true },
+        take: 5000,
+      });
+      businessIds = inCell.map((b) => b.id);
+    }
     const freshByEnrichment = await countFreshForRun({
       enrichments: parsed.data.enrichments,
-      businessIds: parsed.data.businessIds,
+      businessIds,
       cellKeys: parsed.data.cellKeys,
       now,
     });
     const lines = buildEnrichLines({
       enrichments: parsed.data.enrichments,
-      businessCount: parsed.data.businessIds.length,
+      businessCount: businessIds.length,
       cellCount: parsed.data.cellKeys.length,
       freshByEnrichment,
     });
@@ -157,7 +175,7 @@ export async function preflightEnrichAction(
         enrichments: parsed.data.enrichments,
         scopeRefs: {
           kind: "enrichment",
-          businessIds: parsed.data.businessIds,
+          businessIds,
           cellKeys: parsed.data.cellKeys,
           // Persist the estimator inputs so authorizeEstimate can re-quote.
           lines: lines as unknown as Prisma.InputJsonValue,

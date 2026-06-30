@@ -268,6 +268,18 @@ export async function fanOutRun(
       enrichableIds = businessIds.filter((id) => !hiddenSet.has(id));
       skippedHidden = hidden.length;
     }
+  } else if (cellKeys.length > 0) {
+    // "Enrich the market" — no explicit business ids, so resolve the cells'
+    // enrichable businesses here. Without this a cellKeys-only run created ZERO
+    // per-business jobs (it enriched nothing, then settled instantly as "done").
+    // `isHidden: { not: true }` keeps unscanned (null) + reachable (false) and
+    // drops only scanned-and-unreachable (true) — the server-enforced gate.
+    const inCell = await prisma.business.findMany({
+      where: { cellKey: { in: [...cellKeys] }, isHidden: { not: true } },
+      select: { id: true },
+      take: 5000,
+    });
+    enrichableIds = inCell.map((b) => b.id);
   }
 
   // ── Per-business families → EnrichmentJob rows ──
