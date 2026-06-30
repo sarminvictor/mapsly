@@ -62,7 +62,12 @@ export function rawListWhere(
   where.cellKey =
     opts.cellKeys.length > 0 ? { in: opts.cellKeys } : { in: ["__never__"] };
 
-  if (!opts.includeHidden) where.isHidden = false;
+  // "Hidden" means SCANNED-and-unreachable (isHidden === true). Freshly
+  // discovered businesses haven't been contact-scanned yet, so isHidden is NULL
+  // — those are part of the raw market and MUST stay visible. `{ not: true }`
+  // matches false AND null; `isHidden: false` would (wrongly) drop the entire
+  // just-discovered market, since SQL/Prisma `= false` never matches NULL.
+  if (!opts.includeHidden) where.isHidden = { not: true };
   if (!opts.includeClosed) {
     where.openStatus = { not: "CLOSED_FOREVER" };
   }

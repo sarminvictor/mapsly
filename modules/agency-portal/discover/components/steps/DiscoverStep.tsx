@@ -1,14 +1,20 @@
 "use client";
 
-// DiscoverStep · "Found ~N local businesses" (step 4) — the raw market. Loads
-// the real raw list (fetchRawListAction) for the just-created discovery, shows
-// 4 KPI cards (Discovered / Have a website / Active on Google / Owner-claimed),
-// the raw market table (5-col teaser), and a sticky dark "Enrich the market"
-// costbar. "Enrich →" preflights + runs enrichment (the families the active
-// signals need), then advances to the Enriching step with the runId.
+// DiscoverStep · "Found N local businesses" (step 4) — the raw market. Loads
+// the real raw list (fetchRawListAction) + the REAL KPI summary
+// (getDiscoverySummary) for the just-created discovery, shows 4 KPI cards
+// (Discovered / Have a website / Active on Google / Owner-claimed), the raw
+// market table (5-col teaser), and a sticky dark "Enrich the market" costbar.
 //
-// Uses ported classes (.steps via the flow stepper, .stat/.callout/.costbar,
-// table styles). English-only for now.
+// HONESTY RULE: while the worker is still mapping the market (no real rows yet),
+// we show NOTHING for the counts ("—" / "mapping…") rather than estimates — fake
+// numbers are worse than no numbers. The KPI cards, headline, table total, and
+// Enrich button only show real figures once getDiscoverySummary returns a real
+// count (> 0); until then Enrich is disabled (there's nothing to enrich yet).
+//
+// "Enrich →" preflights + runs enrichment (the families the active signals need),
+// then advances to the Enriching step with the runId. Uses ported classes
+// (.stat/.callout/.costbar, table styles). English-only for now.
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 
@@ -26,7 +32,6 @@ import type { EnrichmentType } from "@/modules/cost/pricing";
 import { SIG_META, familiesForSignals } from "../../goal-templates";
 import {
   enrichCreditsFor,
-  estBizCount,
   fmtCredits,
   type GoalState,
   type MarketCell,
@@ -42,10 +47,6 @@ interface RawRow {
   reviewCount: number | null;
   website: string | null;
 }
-
-const WEB_PCT = 86;
-const ACTIVE_PCT = 45;
-const CLAIMED_PCT = 78;
 
 export function DiscoverStep({
   discoveryId,
@@ -64,7 +65,6 @@ export function DiscoverStep({
   onToast: (msg: string) => void;
 }) {
   const [rows, setRows] = useState<RawRow[]>([]);
-  const [total, setTotal] = useState<number | null>(null);
   const [summary, setSummary] = useState<DiscoverySummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -72,9 +72,9 @@ export function DiscoverStep({
   const [running, startRun] = useTransition();
 
   // Load the raw list (first page) + the REAL KPI summary for the discovery.
-  // The worker may still be populating cells; we poll a couple of times so the
-  // counts settle. getDiscoverySummary returns exact Prisma counts over the
-  // discovery's cells — the table teaser shows the top rows.
+  // The worker may still be populating cells; poll a few times while it's empty
+  // so the counts settle. getDiscoverySummary returns exact Prisma counts over
+  // the discovery's cells — no estimates.
   useEffect(() => {
     let cancelled = false;
     let tries = 0;
@@ -98,15 +98,12 @@ export function DiscoverStep({
             website: row.website,
           })),
         );
-        // The raw-list action returns a page, not a total; the REAL total comes
-        // from the summary. Use the loaded page as a floor until it settles.
-        const realTotal = s.status === "ok" ? s.summary.total : 0;
-        setTotal((prev) => Math.max(prev ?? 0, realTotal, r.rows.length));
         setLoading(false);
-        // Retry a few times while the worker fills cells (still empty).
-        if (realTotal === 0 && r.rows.length === 0 && tries < 4) {
+        // Keep polling while the worker is still mapping (no real data yet).
+        const realTotal = s.status === "ok" ? s.summary.total : 0;
+        if (realTotal === 0 && r.rows.length === 0 && tries < 8) {
           tries += 1;
-          setTimeout(load, 2500);
+          setTimeout(load, 3000);
         }
       } else {
         setLoadError(
@@ -123,24 +120,20 @@ export function DiscoverStep({
     };
   }, [discoveryId]);
 
-  // The REAL market size from the summary; fall back to the deterministic
-  // per-cell estimate only until the worker has populated the cells.
-  const estTotal = useMemo(
-    () => cells.reduce((s, _, i) => s + estBizCount(i), 0),
-    [cells],
-  );
-  // True once the summary has a real total — drives the "~" on the headline.
-  const isReal = summary != null && summary.total > 0;
-  const marketTotal = isReal
-    ? summary.total
-    : Math.max(total ?? 0, estTotal, rows.length);
+  // REAL data only — "mapped" is true once the summary reports a real count.
+  // Until then every count renders as a placeholder, never an estimate.
+  const mapped = summary != null && summary.total > 0;
+  const total = mapped ? summary.total : null;
 
   const cellKeys = useMemo(
     () => cells.map((c) => makeCellKey(c.categorySlug, c.metroSlug, "US")),
     [cells],
   );
 
-  const activeSignals = goal.filters.filter((f) => f.on);
+  const activeSignals = useMemo(
+    () => goal.filters.filter((f) => f.on),
+    [goal.filters],
+  );
   const sigCount = activeSignals.length;
   const families: EnrichmentType[] = useMemo(
     () =>
@@ -152,12 +145,15 @@ export function DiscoverStep({
     [activeSignals],
   );
 
-  const enrichCredits = enrichCreditsFor(families, marketTotal, cells.length);
-  const minutes = Math.max(2, Math.round(marketTotal / 70));
+  const enrichCredits = mapped
+    ? enrichCreditsFor(families, summary.total, cells.length)
+    : 0;
+  const minutes = mapped ? Math.max(2, Math.round(summary.total / 70)) : 0;
   const haveCredits = walletCredits == null || enrichCredits <= walletCredits;
 
   function enrich() {
     setRunError(null);
+    if (!mapped) return;
     if (!haveCredits) {
       onToast("Not enough credits — add credits to enrich");
       return;
@@ -177,7 +173,7 @@ export function DiscoverStep({
       }
       const run = await runEnrichAction({ estimateId: pre.estimateId });
       if (run.status === "ok") {
-        onEnriching({ runId: run.runId, leadCount: marketTotal });
+        onEnriching({ runId: run.runId, leadCount: summary.total });
       } else if (run.status === "needs_approval") {
         setRunError("This enrichment is over the auto limit — needs approval.");
       } else if (run.status === "insufficient_credits") {
@@ -197,15 +193,20 @@ export function DiscoverStep({
   return (
     <div style={{ paddingBottom: 120 }}>
       <h1>
-        Found{" "}
-        <span className="hl">
-          {isReal ? "" : "~"}
-          {marketTotal.toLocaleString()} local businesses
-        </span>
-        {cells.length > 1 ? ` across ${cells.length} markets` : ""}
+        {mapped ? (
+          <>
+            Found{" "}
+            <span className="hl">
+              {total!.toLocaleString()} local businesses
+            </span>
+            {cells.length > 1 ? ` across ${cells.length} markets` : ""}
+          </>
+        ) : (
+          <span className="hl">Mapping the market…</span>
+        )}
       </h1>
       <p className="sub">
-        This is the <b>raw market we found on Google &amp; Maps</b> — names,
+        This is the <b>raw market we find on Google &amp; Maps</b> — names,
         categories, ratings, review counts. It&apos;s not yet enriched, so your
         signals and contacts aren&apos;t here yet. Enrichment is the next step.
       </p>
@@ -220,36 +221,28 @@ export function DiscoverStep({
         </div>
       ) : null}
 
-      {/* 4 KPI cards — REAL counts from the discovery summary once it lands;
-          percentage placeholders only during the brief worker-populate poll. */}
+      {/* 4 KPI cards — REAL counts from the discovery summary only. While the
+          worker is still mapping, each shows "—" / "mapping…", never an estimate. */}
       <div className="grid g4 section">
-        <DiscStat k="Discovered" to={marketTotal} d="whole market" />
+        <DiscStat
+          k="Discovered"
+          value={mapped ? summary.total : null}
+          d="whole market"
+        />
         <DiscStat
           k="Have a website"
-          to={
-            isReal
-              ? summary.withWebsite
-              : Math.round((marketTotal * WEB_PCT) / 100)
-          }
-          d={isReal ? "from the listing" : `${WEB_PCT}% — from the listing`}
+          value={mapped ? summary.withWebsite : null}
+          d="from the listing"
         />
         <DiscStat
           k="Active on Google"
-          to={
-            isReal
-              ? summary.activeOnGoogle
-              : Math.round((marketTotal * ACTIVE_PCT) / 100)
-          }
+          value={mapped ? summary.activeOnGoogle : null}
           d="recent reviews · open now"
         />
         <DiscStat
           k="Owner-claimed"
-          to={
-            isReal
-              ? summary.ownerClaimed
-              : Math.round((marketTotal * CLAIMED_PCT) / 100)
-          }
-          d={isReal ? "verified listings" : `${CLAIMED_PCT}% verified listings`}
+          value={mapped ? summary.ownerClaimed : null}
+          d="verified listings"
         />
       </div>
 
@@ -257,7 +250,9 @@ export function DiscoverStep({
       <div className="card section">
         <div style={{ marginBottom: 6 }}>
           <h2 style={{ margin: 0 }}>
-            The market — {marketTotal.toLocaleString()} businesses{" "}
+            {mapped
+              ? `The market — ${total!.toLocaleString()} businesses`
+              : "Mapping the market…"}{" "}
             <span className="note">
               Raw discovery data — your signals apply after enrichment.
             </span>
@@ -307,8 +302,8 @@ export function DiscoverStep({
           </table>
         </div>
         <p className="note" style={{ marginTop: 10 }}>
-          Showing {rows.length} of {marketTotal.toLocaleString()} · raw
-          discovery data. Enrich to apply your signals and reveal contacts.
+          Showing {rows.length} of {mapped ? total!.toLocaleString() : "…"} ·
+          raw discovery data. Enrich to apply your signals and reveal contacts.
         </p>
       </div>
 
@@ -333,40 +328,67 @@ export function DiscoverStep({
       <div className="costbar">
         <div>
           <div className="big">
-            <span className="ic-coin" aria-hidden="true" /> Enrich the market —{" "}
-            {marketTotal.toLocaleString()} businesses
-            <span className="small">
-              {" "}
-              · ~{fmtCredits(enrichCredits)} credits
-            </span>
+            <span className="ic-coin" aria-hidden="true" />{" "}
+            {mapped ? (
+              <>
+                Enrich the market — {total!.toLocaleString()} businesses
+                <span className="small">
+                  {" "}
+                  · ~{fmtCredits(enrichCredits)} credits
+                </span>
+              </>
+            ) : (
+              "Mapping the market…"
+            )}
           </div>
           <div className="small">
-            {haveCredits
-              ? `We apply your ${sigCount} signal${sigCount === 1 ? "" : "s"} to the enriched data and reveal your matches + contacts. ~${minutes} min. You can close this page — we keep working and email you.`
-              : `Not enough credits — this needs ~${fmtCredits(enrichCredits)}, you have ${fmtCredits(walletCredits ?? 0)}. Add credits to run it.`}
+            {!mapped
+              ? "Discovery is still running — enrichment unlocks the moment the market is mapped."
+              : haveCredits
+                ? `We apply your ${sigCount} signal${sigCount === 1 ? "" : "s"} to the enriched data and reveal your matches + contacts. ~${minutes} min. You can close this page — we keep working and email you.`
+                : `Not enough credits — this needs ~${fmtCredits(enrichCredits)}, you have ${fmtCredits(walletCredits ?? 0)}. Add credits to run it.`}
           </div>
         </div>
         <span className="spacer" />
         <button
           type="button"
           className="btn primary big"
-          disabled={running || loading}
+          disabled={running || loading || !mapped}
           onClick={enrich}
         >
-          {running ? "Starting…" : haveCredits ? "Enrich →" : "Add credits →"}
+          {!mapped
+            ? "Mapping…"
+            : running
+              ? "Starting…"
+              : haveCredits
+                ? "Enrich →"
+                : "Add credits →"}
         </button>
       </div>
     </div>
   );
 }
 
-function DiscStat({ k, to, d }: { k: string; to: number; d: string }) {
-  const v = useCountUp(to);
+function DiscStat({
+  k,
+  value,
+  d,
+}: {
+  k: string;
+  value: number | null;
+  d: string;
+}) {
+  // Hook is always called (count-up to 0 when there's no real value yet); the
+  // render shows a placeholder rather than the estimate while mapping.
+  const v = useCountUp(value ?? 0);
+  const ready = value != null;
   return (
     <div className="stat">
       <div className="k">{k}</div>
-      <div className="v">{v.toLocaleString()}</div>
-      <div className="d">{d}</div>
+      <div className="v" style={ready ? undefined : { color: "var(--faint)" }}>
+        {ready ? v.toLocaleString() : "—"}
+      </div>
+      <div className="d">{ready ? d : "mapping…"}</div>
     </div>
   );
 }
