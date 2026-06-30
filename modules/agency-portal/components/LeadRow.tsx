@@ -171,7 +171,6 @@ export function LeadRow({
           dwell={statusDwell}
           onClick={onStatusClick}
           as={onStatusClick ? "button" : "span"}
-          showDisclosure={onStatusClick != null}
         />
       </LeadsTableCell>
 

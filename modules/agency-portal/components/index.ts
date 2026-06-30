@@ -29,11 +29,7 @@
  */
 
 export { StatusPill } from "./StatusPill";
-export type {
-  StatusPillProps,
-  StatusPillSize,
-  LeadStatusValue,
-} from "./StatusPill";
+export type { StatusPillProps, LeadStatusValue } from "./StatusPill";
 
 export { FilterRow } from "./FilterRow";
 export type {
