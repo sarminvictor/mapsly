@@ -17,17 +17,19 @@
 // bulk actions mandatory. English-only copy.
 
 import {
+  useCallback,
   useMemo,
   useOptimistic,
   useState,
   useTransition,
-  type CSSProperties,
 } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { Link } from "@/i18n/navigation";
 import { setLeadStatusAction } from "@/modules/discovery/save-list-actions";
 import { StatusPill } from "@/modules/agency-portal/components/StatusPill";
 import { BulkActionBar } from "@/modules/agency-portal/components/BulkActionBar";
+import { LeadDrawer } from "./LeadDrawer";
 import {
   COLUMNS,
   DATA_FAMILIES,
@@ -134,6 +136,30 @@ export function LeadsWorkbench({
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [lastIdx, setLastIdx] = useState<number | null>(null);
 
+  // ── Lead drawer (URL-driven · ?lead=<businessId>) ─────────────────────────
+  const sp = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  const openLead = sp.get("lead");
+
+  /** Open a lead in the drawer, preserving any other existing query params. */
+  const setLead = useCallback(
+    (businessId: string) => {
+      const params = new URLSearchParams(sp.toString());
+      params.set("lead", businessId);
+      router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+    },
+    [sp, router, pathname],
+  );
+
+  /** Close the drawer — clears ?lead while keeping every other param. */
+  const clearLead = useCallback(() => {
+    const params = new URLSearchParams(sp.toString());
+    params.delete("lead");
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }, [sp, router, pathname]);
+
   // The active column defs in render order.
   const cols = useMemo(
     () => COLUMNS.filter((c) => activeCols.includes(c.key)),
@@ -170,6 +196,19 @@ export function LeadsWorkbench({
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(
     new Set(),
   );
+
+  // The drawer's prev/next walk the VISIBLE order: the grouped (cell-ordered)
+  // sequence when grouping, else the filtered+sorted page sequence. We step
+  // across the whole filtered set (not just the current page) so next/prev keep
+  // working past a page boundary in flat mode.
+  const orderedIds = useMemo(() => {
+    if (group === "cell" && grouped) {
+      return grouped.flatMap(([, cellRows]) =>
+        cellRows.map((r) => r.businessId),
+      );
+    }
+    return filtered.map((r) => r.businessId);
+  }, [group, grouped, filtered]);
 
   // ── Selection helpers ─────────────────────────────────────────────────────
   function toggleRow(leadId: string, rowIndex: number, shiftKey: boolean) {
@@ -444,15 +483,17 @@ export function LeadsWorkbench({
   // The body rows (flat or grouped).
   function renderRow(r: WorkbenchLeadRow, idx: number) {
     const isSel = selected.has(r.leadId);
+    const isActive = r.businessId === openLead;
+    // activerow (the open lead) wins visually over selrow; both share the
+    // indigo-50 wash but activerow adds the left accent rule.
+    const cls = [isActive ? "activerow" : "", isSel ? "selrow" : ""]
+      .filter(Boolean)
+      .join(" ");
     return (
       <tr
         key={r.leadId}
-        className={isSel ? "selrow" : undefined}
-        style={
-          isSel
-            ? ({ background: "var(--indigo-50)" } as CSSProperties)
-            : undefined
-        }
+        className={cls || undefined}
+        onClick={() => setLead(r.businessId)}
       >
         <td className="sel" onClick={(e) => e.stopPropagation()}>
           <input
@@ -981,6 +1022,14 @@ export function LeadsWorkbench({
           Clear
         </button>
       </BulkActionBar>
+
+      {/* ── Lead detail drawer (URL-driven · ?lead=<businessId>) ───────────── */}
+      <LeadDrawer
+        businessId={openLead}
+        orderedIds={orderedIds}
+        onClose={clearLead}
+        onNav={setLead}
+      />
     </div>
   );
 }
