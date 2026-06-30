@@ -72,7 +72,10 @@ export function PreviewStep({
   const [running, startRun] = useTransition();
 
   const estimates = useMemo(() => buildCellEstimates(cells), [cells]);
-  const activeSignals = goal.filters.filter((f) => f.on);
+  const activeSignals = useMemo(
+    () => goal.filters.filter((f) => f.on),
+    [goal.filters],
+  );
   const sigCount = activeSignals.length;
 
   // The active goal's registry signal keys — passed to the preflight so it can
@@ -85,8 +88,18 @@ export function PreviewStep({
     [activeSignals],
   );
 
-  // Real preflight quote on mount (and when cells/signals change). All state
-  // mutation lives inside the transition callback (never synchronously here).
+  // Content key — fire the price effect ONLY when the actual cell/signal SET
+  // changes. Depending on the array refs (`cells`, `signalKeys`) re-fired every
+  // render — the active-signal/cell arrays are rebuilt each render — which
+  // looped preflightDiscoveryAction infinitely. A string compares by value, so
+  // an unchanged selection yields an unchanged dep and the effect stays put.
+  const priceKey = JSON.stringify({
+    cells: toDiscoveryCells(cells),
+    signalKeys,
+  });
+
+  // Real preflight quote when the selection changes. All state mutation lives
+  // inside the transition callback (never synchronously here).
   useEffect(() => {
     startPrice(async () => {
       setError(null);
@@ -112,7 +125,9 @@ export function PreviewStep({
         );
       }
     });
-  }, [cells, signalKeys]);
+    // priceKey is the stable content proxy for [cells, signalKeys].
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [priceKey]);
 
   // Per-cell business count: REAL from the quote for in-DB cells, deterministic
   // estimate for never-discovered cells (keyed by request order). The credit
