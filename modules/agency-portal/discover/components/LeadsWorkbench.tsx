@@ -34,7 +34,6 @@ import {
   DEFAULT_ACTIVE_COLUMNS,
   FILTER_FIELDS,
   PAGE_SIZES,
-  SEED_FILTERS,
   STATUS_ORDER,
   fmtDelta,
   getPageNumbers,
@@ -109,7 +108,11 @@ export function LeadsWorkbench({
   const [fieldsOpen, setFieldsOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [coverageOpen, setCoverageOpen] = useState(false);
-  const [filters, setFilters] = useState<LeadFilter[]>(SEED_FILTERS);
+  // Open with NO filters so the workbench shows every discovered/enriched lead
+  // by default — the user adds filters from the rail. (Previously seeded with
+  // the prototype's demo filters, which hid all real leads on first open,
+  // especially before a signal like Lighthouse had finished enriching.)
+  const [filters, setFilters] = useState<LeadFilter[]>([]);
 
   // ── Sort ──────────────────────────────────────────────────────────────────
   const [sortKey, setSortKey] = useState<string>("match");

@@ -193,7 +193,7 @@ async function buildEnrichStages(
 ): Promise<EnrichStage[]> {
   const run = await prisma.enrichmentRun.findFirst({
     where: { id: runId, agencyId },
-    select: { status: true },
+    select: { status: true, enrichmentsJson: true },
   });
   // Cross-agency / missing run → all pending (no leak, graceful).
   if (!run) {
@@ -229,7 +229,34 @@ async function buildEnrichStages(
     familyTotals.set(g.family, entry);
   }
 
-  return STAGE_DEFS.map((def) => {
+  // Honest checklist: show ONLY the stages this run actually performs.
+  //  - "mapped": discovery always ran.
+  //  - "contacts": the CONTACTS fetch (also fingerprints tech) — when contacts
+  //    or tech is requested.
+  //  - "tech": website/tech + Lighthouse runs inline — when tech or lighthouse
+  //    is requested.
+  //  - "reviews": only when reviews were selected.
+  //  - "expert": playbooks auto-run ($0) for every business that got
+  //    per-business enrichment (dispatch.ts closeRunIfDone).
+  //  - "touches": NEVER part of enrichment — first-touch drafts are a separate
+  //    user action on the Touchpoints tab — so it is omitted here entirely.
+  const types = (
+    Array.isArray(run.enrichmentsJson) ? run.enrichmentsJson : []
+  ) as string[];
+  const has = (t: string) => types.includes(t);
+  const perBusiness =
+    has("contacts") ||
+    has("tech") ||
+    has("reviews") ||
+    has("services") ||
+    has("ai_research");
+  const activeKeys = new Set<string>(["mapped"]);
+  if (has("contacts") || has("tech")) activeKeys.add("contacts");
+  if (has("tech") || has("lighthouse")) activeKeys.add("tech");
+  if (has("reviews")) activeKeys.add("reviews");
+  if (perBusiness) activeKeys.add("expert");
+
+  return STAGE_DEFS.filter((def) => activeKeys.has(def.key)).map((def) => {
     let done = 0;
     let total = 0;
     for (const fam of def.families) {

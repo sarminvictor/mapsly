@@ -1,25 +1,29 @@
 /**
  * WalletPill · the topbar HUD credit balance (Phase 9).
  *
- * Server component: reads the caller's AgencyWallet directly (no API hop) and
- * renders a compact pill linking to team billing. When the agency has no wallet
- * (or a zero balance) it shows "$0.00 — add credits" so the affordance to top
- * up is always present.
+ * Server component: reads the caller's AgencyWallet directly (no API hop) for a
+ * correct first paint, then hands the value to the `WalletPillLive` client
+ * island, which polls `GET /api/agency/wallet` so the number stays fresh after a
+ * HOLD or SETTLE (the static server render alone would go stale until the user
+ * navigated). When the agency has no wallet (or a zero balance) the pill shows
+ * "0 credits — add" so the affordance to top up is always present.
  *
  * Per `.claude/rules/cache-components.md` Pattern 2 · this is an async component
  * mounted inside a `<Suspense>` boundary in the layout topbar, so the shell can
- * prerender while the wallet read streams in.
+ * prerender while the wallet read streams in. No `export const dynamic`.
  *
  * Per `.claude/rules/security.md` · agency resolved from the session; no wallet
- * for non-members → renders nothing (the topbar simply omits the pill).
+ * for non-members → renders nothing (the topbar simply omits the pill, and the
+ * live island never mounts for them).
  *
  * Degrades gracefully: any read failure renders the "add credits" pill rather
  * than throwing (keeps the topbar — and the build — green).
  */
 
-import { Link } from "@/i18n/navigation";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+
+import { WalletPillLive } from "./WalletPillLive";
 
 async function readCredits(): Promise<number | null> {
   try {
@@ -63,19 +67,6 @@ export async function WalletPill() {
   // Non-member (or signed-out) → omit the pill entirely.
   if (credits === null) return null;
 
-  const empty = credits <= 0;
-  const label = empty
-    ? "0 credits — add"
-    : `${credits.toLocaleString()} credits`;
-
-  return (
-    <Link
-      href="/usage"
-      className={`wallet${empty ? " low" : ""}`}
-      aria-label={empty ? "Wallet empty — add credits" : `Wallet ${label}`}
-    >
-      <span className="coin" aria-hidden />
-      <span>{label}</span>
-    </Link>
-  );
+  // Correct SSR value, then the client island keeps it live.
+  return <WalletPillLive initial={credits} />;
 }

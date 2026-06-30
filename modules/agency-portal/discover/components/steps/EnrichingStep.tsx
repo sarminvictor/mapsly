@@ -63,27 +63,40 @@ export function EnrichingStep({
         const data: JobsResponse = await res.json();
         if (!cancelled && data.stages) setStages(data.stages);
         const job = data.jobs.find((j) => j.id === runId);
-        if (!cancelled && job) {
-          // Progress is UNIT-based: job.total/done count enrichment tasks
-          // (businesses × families), so they drive the % only — never the
-          // headline, which counts LEADS (businesses). Showing the unit total as
-          // "leads" over-reports (e.g. "200 leads" for an 89-business market).
-          const unitTotal = job.total > 0 ? job.total : 1;
-          const unitDone = Math.min(job.done, unitTotal);
-          setPct(Math.round((unitDone / unitTotal) * 100));
-          const elapsedMin = (Date.now() - startedAt) / 60000;
-          if (!job.running) {
+        const running = job ? job.running : true;
+        // Progress comes from the REAL per-stage rollup (data.stages), NOT the
+        // run's unitsCompleted — that's only written at close, so a unit-based %
+        // sits at 0 the whole run then jumps to 100. Equal-weight each visible
+        // stage (job stages by done/total; inline stages by their status).
+        const sts = data.stages ?? [];
+        if (!cancelled) {
+          if (!running) {
             setPct(100);
             setFinished(true);
             setEtaMin(0);
             return; // stop polling
           }
+          const frac =
+            sts.length > 0
+              ? sts.reduce(
+                  (s, st) =>
+                    s +
+                    (st.total > 0
+                      ? st.done / st.total
+                      : st.status === "done"
+                        ? 1
+                        : st.status === "running"
+                          ? 0.5
+                          : 0),
+                  0,
+                ) / sts.length
+              : 0;
+          const p = Math.max(2, Math.min(99, Math.round(frac * 100)));
+          const elapsedMin = (Date.now() - startedAt) / 60000;
+          setPct(p);
           setEtaMin(
-            unitDone > 0
-              ? Math.max(
-                  1,
-                  Math.round(elapsedMin * ((unitTotal - unitDone) / unitDone)),
-                )
+            p > 2
+              ? Math.max(1, Math.round((elapsedMin * (100 - p)) / p))
               : Math.max(1, Math.round(leadCount / 70)),
           );
         }
