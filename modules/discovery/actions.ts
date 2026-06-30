@@ -33,10 +33,7 @@ import {
   WalletError,
 } from "@/modules/cost/server";
 import { decideDiscoveryPlan } from "@/modules/discovery/freshness-decision";
-import {
-  discoveryIdempotencyKey,
-  type RunDiscoverySummary,
-} from "@/modules/discovery/run-discovery";
+import { discoveryIdempotencyKey } from "@/modules/discovery/run-discovery";
 
 const CellInput = z.object({
   categorySlug: z.string().min(1).max(120),
@@ -512,5 +509,7 @@ export async function runDiscoveryAction(
   }
 }
 
-// Re-export the summary type so callers of the internal route can type results.
-export type { RunDiscoverySummary };
+// NOTE: do NOT re-export types from this "use server" file — Next's server-action
+// transform mishandles `export type { ... }` re-exports and emits a runtime value
+// reference (ReferenceError at module eval). Import RunDiscoverySummary directly
+// from "@/modules/discovery/run-discovery" instead.
