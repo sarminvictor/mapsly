@@ -16,6 +16,7 @@ import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import {
   getRawList,
+  rawListWhere,
   type RawListFilters,
   type ReachabilityFilter,
 } from "@/modules/discovery/raw-list";
@@ -140,6 +141,108 @@ export async function fetchRawListAction(
       JSON.stringify({
         level: "error",
         event: "raw-list.fetch.error",
+        error: err instanceof Error ? err.message : String(err),
+      }),
+    );
+    return { status: "error" };
+  }
+}
+
+// ── Discovery summary (Discover step KPI header) ─────────────────────────────
+
+const SummaryInput = z.object({
+  discoveryId: z.string().min(1).max(64),
+});
+
+export type GetDiscoverySummaryActionInput = z.input<typeof SummaryInput>;
+
+/** Real KPI counts for the just-discovered market (Discover step header). */
+export interface DiscoverySummary {
+  /** Total businesses in the discovery's cells (default-excluded view). */
+  total: number;
+  /** Businesses with a website on the listing. */
+  withWebsite: number;
+  /** Active on Google = recent reviews and/or openStatus = OPEN. */
+  activeOnGoogle: number;
+  /** Owner-claimed listings (isClaimed). */
+  ownerClaimed: number;
+}
+
+export type GetDiscoverySummaryResult =
+  | { status: "ok"; summary: DiscoverySummary }
+  | { status: "unauthorized" }
+  | { status: "forbidden" }
+  | { status: "invalid_input"; message: string }
+  | { status: "error" };
+
+/** Recency window for "active on Google" (~6 months, no new-review staleness). */
+const ACTIVE_REVIEW_DAYS = 182;
+
+/**
+ * REAL headline KPIs for a discovery's market. Agency-scoped exactly like
+ * fetchRawListAction (the discovery must belong to the caller's agency), and
+ * counted over the same cellKeys + default exclusions (rawListWhere) that the
+ * raw-list table uses — so the header is an exact count of the rows the table
+ * browses, not an estimate. Pure Prisma reads (no external API).
+ */
+export async function getDiscoverySummary(
+  input: unknown,
+): Promise<GetDiscoverySummaryResult> {
+  const session = await auth();
+  if (!session?.user?.id) return { status: "unauthorized" };
+
+  const parsed = SummaryInput.safeParse(input);
+  if (!parsed.success) {
+    return {
+      status: "invalid_input",
+      message: parsed.error.issues[0]?.message ?? "invalid input",
+    };
+  }
+
+  try {
+    const member = await prisma.agencyMember.findFirst({
+      where: { userId: session.user.id },
+      select: { agencyId: true },
+    });
+    if (!member) return { status: "forbidden" };
+
+    // Agency-scope: the discovery must belong to the caller's agency.
+    const discovery = await prisma.discovery.findUnique({
+      where: { id: parsed.data.discoveryId },
+      select: { agencyId: true, cellKeys: true },
+    });
+    if (!discovery || discovery.agencyId !== member.agencyId) {
+      return { status: "forbidden" };
+    }
+
+    const base = rawListWhere({ cellKeys: discovery.cellKeys });
+    const activeSince = new Date(Date.now() - ACTIVE_REVIEW_DAYS * 86_400_000);
+
+    const [total, withWebsite, activeOnGoogle, ownerClaimed] =
+      await prisma.$transaction([
+        prisma.business.count({ where: base }),
+        prisma.business.count({ where: { ...base, website: { not: null } } }),
+        prisma.business.count({
+          where: {
+            ...base,
+            OR: [
+              { lastReviewAt: { gte: activeSince } },
+              { openStatus: "OPEN" },
+            ],
+          },
+        }),
+        prisma.business.count({ where: { ...base, isClaimed: true } }),
+      ]);
+
+    return {
+      status: "ok",
+      summary: { total, withWebsite, activeOnGoogle, ownerClaimed },
+    };
+  } catch (err) {
+    console.error(
+      JSON.stringify({
+        level: "error",
+        event: "discovery.summary.error",
         error: err instanceof Error ? err.message : String(err),
       }),
     );

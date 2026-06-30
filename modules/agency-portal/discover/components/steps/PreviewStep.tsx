@@ -15,9 +15,12 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 
+import { cellKey as makeCellKey } from "@/lib/cell";
 import {
   preflightDiscoveryAction,
   runDiscoveryAction,
+  type PreviewCell,
+  type PreviewKpis,
 } from "@/modules/discovery/actions";
 import { SIG_META } from "../../goal-templates";
 import {
@@ -36,6 +39,10 @@ interface Quote {
   netCredits: number;
   freshCount: number;
   refetchCount: number;
+  /** Per-cell rows — REAL business counts for cells already in the DB. */
+  cells: PreviewCell[];
+  /** Aggregate KPI inputs (real from in-DB cells + estimate from new cells). */
+  kpis: PreviewKpis;
 }
 
 const FRESH_LABEL: Record<string, string> = {
@@ -65,25 +72,28 @@ export function PreviewStep({
   const [running, startRun] = useTransition();
 
   const estimates = useMemo(() => buildCellEstimates(cells), [cells]);
-  const totBiz = estimates.reduce((s, c) => s + c.bizEstimate, 0);
-  const activeGoogle = Math.round(totBiz * 0.45);
   const activeSignals = goal.filters.filter((f) => f.on);
   const sigCount = activeSignals.length;
-  const matchEst = Math.round(totBiz * 0.16);
 
-  const knownCells = estimates.filter(
-    (c) => c.freshness === "fresh" || c.freshness === "aging",
-  ).length;
-  const newCells = estimates.length - knownCells;
+  // The active goal's registry signal keys — passed to the preflight so it can
+  // count "Match your signals" over the REAL businesses of in-DB cells.
+  const signalKeys = useMemo(
+    () =>
+      activeSignals
+        .map((f) => SIG_META[f.key]?.signalKey)
+        .filter((k): k is string => Boolean(k)),
+    [activeSignals],
+  );
 
-  // Real preflight quote on mount (and when cells change). All state mutation
-  // lives inside the transition callback (never synchronously in the effect).
+  // Real preflight quote on mount (and when cells/signals change). All state
+  // mutation lives inside the transition callback (never synchronously here).
   useEffect(() => {
     startPrice(async () => {
       setError(null);
       setQuote(null);
       const r = await preflightDiscoveryAction({
         cells: toDiscoveryCells(cells),
+        signalKeys,
       });
       if (r.status === "ok") {
         setQuote({
@@ -91,6 +101,8 @@ export function PreviewStep({
           netCredits: r.netCredits,
           freshCount: r.freshCount,
           refetchCount: r.refetchCount,
+          cells: r.cells,
+          kpis: r.kpis,
         });
       } else {
         setError(
@@ -100,7 +112,61 @@ export function PreviewStep({
         );
       }
     });
-  }, [cells]);
+  }, [cells, signalKeys]);
+
+  // Per-cell business count: REAL from the quote for in-DB cells, deterministic
+  // estimate for never-discovered cells (keyed by request order). The credit
+  // columns + freshness come from the cost estimate (buildCellEstimates).
+  const bizByKey = useMemo(() => {
+    const m = new Map<string, { count: number; isEstimate: boolean }>();
+    for (const c of quote?.cells ?? []) {
+      m.set(c.cellKey, { count: c.existingBizCount, isEstimate: c.isEstimate });
+    }
+    return m;
+  }, [quote]);
+
+  // Aggregate totals. Before the quote lands, fall back to the deterministic
+  // estimate sum so the matrix renders immediately; after, the per-cell real
+  // counts replace the estimate for in-DB cells.
+  const cellKeys = useMemo(
+    () => cells.map((c) => makeCellKey(c.categorySlug, c.metroSlug, "US")),
+    [cells],
+  );
+  const totBiz = useMemo(() => {
+    if (!quote) return estimates.reduce((s, c) => s + c.bizEstimate, 0);
+    return cellKeys.reduce((s, k, i) => {
+      const real = bizByKey.get(k);
+      return s + (real ? real.count : (estimates[i]?.bizEstimate ?? 0));
+    }, 0);
+  }, [quote, estimates, cellKeys, bizByKey]);
+
+  const kpis = quote?.kpis ?? null;
+  // KPI cards prefer REAL aggregates from the quote; the estimate contribution
+  // from new cells is added on top, with a "~" only when estimate cells exist.
+  const localBiz = kpis
+    ? kpis.localBusinessesReal + kpis.localBusinessesEstimate
+    : totBiz;
+  const activeGoogle = kpis
+    ? kpis.activeOnGoogleReal
+    : Math.round(totBiz * 0.45);
+  const matchReal = kpis ? kpis.matchSignalsReal : 0;
+  const hasEstimate = kpis ? kpis.hasEstimateCells : true;
+  const haveContactsPct = kpis
+    ? kpis.localBusinessesReal > 0
+      ? Math.round((kpis.haveContactsReal / kpis.localBusinessesReal) * 100)
+      : 0
+    : 74;
+
+  const knownCells = useMemo(
+    () =>
+      quote
+        ? quote.cells.filter((c) => !c.isEstimate).length
+        : estimates.filter(
+            (c) => c.freshness === "fresh" || c.freshness === "aging",
+          ).length,
+    [quote, estimates],
+  );
+  const newCells = (quote?.cells.length ?? estimates.length) - knownCells;
 
   function run() {
     if (!quote) return;
@@ -152,7 +218,7 @@ export function PreviewStep({
         <div className="callout amber section" role="status">
           <span aria-hidden="true">🕗</span>
           <div>
-            <b>Mixed markets</b> — {knownCells} already mapped (estimates from
+            <b>Mixed markets</b> — {knownCells} already mapped (real counts from
             cache), {newCells} mapped live on Discover (approximate).
           </div>
         </div>
@@ -173,38 +239,49 @@ export function PreviewStep({
         </div>
       )}
 
-      {/* 4 KPI cards */}
+      {/* 4 KPI cards — REAL aggregates from in-DB cells; a "~" appears only when
+          never-discovered cells contribute an estimate (honest mixing). */}
       <div className="grid g4 section">
         <StatCard
           k="Local businesses in market"
-          to={totBiz}
+          to={localBiz}
+          estimate={hasEstimate}
           d={`across ${cells.length} cell${cells.length === 1 ? "" : "s"}`}
         />
         <StatCard
           k="Have contacts"
-          to={74}
+          to={haveContactsPct}
           suffix="%"
-          d="est. reachable by email/phone/social"
+          estimate={hasEstimate || knownCells === 0}
+          d={
+            knownCells > 0
+              ? "reachable by email/phone/social"
+              : "est. reachable by email/phone/social"
+          }
         />
         <StatCard
           k="Active on Google"
           to={activeGoogle}
+          estimate={hasEstimate || knownCells === 0}
           d="recent reviews, open now"
         />
         <StatCard
           k="Match your signals"
-          to={knownCells > 0 ? matchEst : 0}
+          to={matchReal}
           emDash={knownCells === 0}
+          estimate={false}
           indigo
           d={
             knownCells === 0
               ? "computed after discovery"
-              : `your ${sigCount} signal${sigCount === 1 ? "" : "s"} applied (estimate)`
+              : `your ${sigCount} signal${sigCount === 1 ? "" : "s"} applied`
           }
         />
       </div>
       <p className="note section">
-        Estimates — confirmed live on Discover before you spend on enrichment.
+        {hasEstimate
+          ? "Real counts where the market is already mapped; new cells (~) are confirmed live on Discover."
+          : "Real counts from our latest snapshot — confirmed live on Discover before you spend on enrichment."}
       </p>
 
       {/* Per-cell credit matrix */}
@@ -222,33 +299,41 @@ export function PreviewStep({
               </tr>
             </thead>
             <tbody>
-              {estimates.map((c) => (
-                <tr key={c.name}>
-                  <td className="biz">{c.name}</td>
-                  <td>
-                    <span className="freshlbl">
-                      <span
-                        className={`freshdot ${c.freshness}`}
-                        aria-hidden="true"
-                      />
-                      {FRESH_LABEL[c.freshness]}
-                    </span>
-                  </td>
-                  <td>~{c.bizEstimate}</td>
-                  <td>
-                    <span className="cr">
-                      <span className="ic-coin sm" aria-hidden="true" />
-                      {c.discoverCredits}
-                    </span>
-                  </td>
-                  <td>
-                    <span className="cr">
-                      <span className="ic-coin sm" aria-hidden="true" />~
-                      {c.enrichCreditsEstimate}
-                    </span>
-                  </td>
-                </tr>
-              ))}
+              {estimates.map((c, i) => {
+                const real = bizByKey.get(cellKeys[i]);
+                const bizCount = real ? real.count : c.bizEstimate;
+                const bizIsEstimate = real ? real.isEstimate : true;
+                return (
+                  <tr key={c.name}>
+                    <td className="biz">{c.name}</td>
+                    <td>
+                      <span className="freshlbl">
+                        <span
+                          className={`freshdot ${c.freshness}`}
+                          aria-hidden="true"
+                        />
+                        {FRESH_LABEL[c.freshness]}
+                      </span>
+                    </td>
+                    <td>
+                      {bizIsEstimate ? "~" : ""}
+                      {bizCount.toLocaleString()}
+                    </td>
+                    <td>
+                      <span className="cr">
+                        <span className="ic-coin sm" aria-hidden="true" />
+                        {c.discoverCredits}
+                      </span>
+                    </td>
+                    <td>
+                      <span className="cr">
+                        <span className="ic-coin sm" aria-hidden="true" />~
+                        {c.enrichCreditsEstimate}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
             <tfoot>
               <tr>
@@ -256,7 +341,10 @@ export function PreviewStep({
                   Total ({cells.length} cell{cells.length === 1 ? "" : "s"})
                 </td>
                 <td />
-                <td>~{totBiz}</td>
+                <td>
+                  {hasEstimate ? "~" : ""}
+                  {totBiz.toLocaleString()}
+                </td>
                 <td>
                   <span className="cr">
                     <span className="ic-coin sm" aria-hidden="true" />
@@ -385,6 +473,7 @@ function StatCard({
   d,
   indigo,
   emDash,
+  estimate = true,
 }: {
   k: string;
   to: number;
@@ -392,6 +481,8 @@ function StatCard({
   d: string;
   indigo?: boolean;
   emDash?: boolean;
+  /** Prefix the value with "~" (an estimate). Real counts pass false. */
+  estimate?: boolean;
 }) {
   const v = useCountUp(to);
   return (
@@ -405,7 +496,8 @@ function StatCard({
           "—"
         ) : (
           <>
-            ~{v.toLocaleString()}
+            {estimate ? "~" : ""}
+            {v.toLocaleString()}
             {suffix ?? ""}
           </>
         )}

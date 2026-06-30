@@ -12,7 +12,11 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 
-import { fetchRawListAction } from "@/modules/discovery/raw-list-actions";
+import {
+  fetchRawListAction,
+  getDiscoverySummary,
+  type DiscoverySummary,
+} from "@/modules/discovery/raw-list-actions";
 import {
   preflightEnrichAction,
   runEnrichAction,
@@ -61,20 +65,27 @@ export function DiscoverStep({
 }) {
   const [rows, setRows] = useState<RawRow[]>([]);
   const [total, setTotal] = useState<number | null>(null);
+  const [summary, setSummary] = useState<DiscoverySummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [runError, setRunError] = useState<string | null>(null);
   const [running, startRun] = useTransition();
 
-  // Load the raw list (first page) for the discovery. The worker may still be
-  // populating cells; we poll a couple of times so the count settles.
+  // Load the raw list (first page) + the REAL KPI summary for the discovery.
+  // The worker may still be populating cells; we poll a couple of times so the
+  // counts settle. getDiscoverySummary returns exact Prisma counts over the
+  // discovery's cells — the table teaser shows the top rows.
   useEffect(() => {
     let cancelled = false;
     let tries = 0;
 
     async function load() {
-      const r = await fetchRawListAction({ discoveryId });
+      const [r, s] = await Promise.all([
+        fetchRawListAction({ discoveryId }),
+        getDiscoverySummary({ discoveryId }),
+      ]);
       if (cancelled) return;
+      if (s.status === "ok") setSummary(s.summary);
       if (r.status === "ok") {
         setRows(
           r.rows.slice(0, 6).map((row) => ({
@@ -87,12 +98,13 @@ export function DiscoverStep({
             website: row.website,
           })),
         );
-        // The action returns a page, not a total; use the loaded page as a
-        // floor and the deterministic per-cell estimate as the market size.
-        setTotal((prev) => Math.max(prev ?? 0, r.rows.length));
+        // The raw-list action returns a page, not a total; the REAL total comes
+        // from the summary. Use the loaded page as a floor until it settles.
+        const realTotal = s.status === "ok" ? s.summary.total : 0;
+        setTotal((prev) => Math.max(prev ?? 0, realTotal, r.rows.length));
         setLoading(false);
-        // Retry a few times while the worker fills cells (rows still 0).
-        if (r.rows.length === 0 && tries < 4) {
+        // Retry a few times while the worker fills cells (still empty).
+        if (realTotal === 0 && r.rows.length === 0 && tries < 4) {
           tries += 1;
           setTimeout(load, 2500);
         }
@@ -111,13 +123,17 @@ export function DiscoverStep({
     };
   }, [discoveryId]);
 
-  // Estimate the market size: the real loaded rows are a teaser, so display the
-  // deterministic per-cell estimate sum as the "found ~N" headline.
+  // The REAL market size from the summary; fall back to the deterministic
+  // per-cell estimate only until the worker has populated the cells.
   const estTotal = useMemo(
     () => cells.reduce((s, _, i) => s + estBizCount(i), 0),
     [cells],
   );
-  const marketTotal = Math.max(total ?? 0, estTotal, rows.length);
+  // True once the summary has a real total — drives the "~" on the headline.
+  const isReal = summary != null && summary.total > 0;
+  const marketTotal = isReal
+    ? summary.total
+    : Math.max(total ?? 0, estTotal, rows.length);
 
   const cellKeys = useMemo(
     () => cells.map((c) => makeCellKey(c.categorySlug, c.metroSlug, "US")),
@@ -183,7 +199,8 @@ export function DiscoverStep({
       <h1>
         Found{" "}
         <span className="hl">
-          ~{marketTotal.toLocaleString()} local businesses
+          {isReal ? "" : "~"}
+          {marketTotal.toLocaleString()} local businesses
         </span>
         {cells.length > 1 ? ` across ${cells.length} markets` : ""}
       </h1>
@@ -203,23 +220,36 @@ export function DiscoverStep({
         </div>
       ) : null}
 
-      {/* 4 KPI cards */}
+      {/* 4 KPI cards — REAL counts from the discovery summary once it lands;
+          percentage placeholders only during the brief worker-populate poll. */}
       <div className="grid g4 section">
         <DiscStat k="Discovered" to={marketTotal} d="whole market" />
         <DiscStat
           k="Have a website"
-          to={Math.round((marketTotal * WEB_PCT) / 100)}
-          d={`${WEB_PCT}% — from the listing`}
+          to={
+            isReal
+              ? summary.withWebsite
+              : Math.round((marketTotal * WEB_PCT) / 100)
+          }
+          d={isReal ? "from the listing" : `${WEB_PCT}% — from the listing`}
         />
         <DiscStat
           k="Active on Google"
-          to={Math.round((marketTotal * ACTIVE_PCT) / 100)}
+          to={
+            isReal
+              ? summary.activeOnGoogle
+              : Math.round((marketTotal * ACTIVE_PCT) / 100)
+          }
           d="recent reviews · open now"
         />
         <DiscStat
           k="Owner-claimed"
-          to={Math.round((marketTotal * CLAIMED_PCT) / 100)}
-          d={`${CLAIMED_PCT}% verified listings`}
+          to={
+            isReal
+              ? summary.ownerClaimed
+              : Math.round((marketTotal * CLAIMED_PCT) / 100)
+          }
+          d={isReal ? "verified listings" : `${CLAIMED_PCT}% verified listings`}
         />
       </div>
 

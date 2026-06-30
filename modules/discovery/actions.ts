@@ -20,10 +20,11 @@
 
 import { z } from "zod";
 
-import { cellKey as makeCellKey } from "@/lib/cell";
+import { cellKey as makeCellKey, cellFreshnessState } from "@/lib/cell";
 import { auth } from "@/lib/auth";
 import { metroBySlug } from "@/lib/geo/resolve-metro";
 import prisma from "@/lib/prisma";
+import { rawListWhere } from "@/modules/discovery/raw-list";
 import {
   createCostEstimate,
   authorizeEstimate,
@@ -47,9 +48,41 @@ const CellInput = z.object({
 const DiscoveryInput = z.object({
   cells: z.array(CellInput).min(1).max(50),
   limitPerCell: z.number().int().min(1).max(1000).optional(),
+  /** Active goal signal registry keys — used to count "Match your signals"
+   *  over the REAL businesses of in-DB cells (flagged PlaybookFindings). */
+  signalKeys: z.array(z.string().min(1).max(120)).max(40).optional(),
 });
 
 export type DiscoveryActionInput = z.input<typeof DiscoveryInput>;
+
+/** Per-cell preview row: REAL business count for in-DB cells, estimate else. */
+export interface PreviewCell {
+  cellKey: string;
+  /** UI freshness chip state (never / fresh / aging / stale). */
+  freshness: "never" | "fresh" | "aging" | "stale";
+  /** Businesses in this cell — REAL Prisma count when isEstimate=false. */
+  existingBizCount: number;
+  /** False = real count from the DB; true = deterministic new-cell estimate. */
+  isEstimate: boolean;
+}
+
+/** Aggregate KPI inputs for the Preview cards. `*Real` come from in-DB cells'
+ *  real businesses; `*Estimate` add the new-cell deterministic contribution so
+ *  the cards can show a "~" total only when estimates are mixed in. */
+export interface PreviewKpis {
+  /** REAL businesses summed across in-DB cells. */
+  localBusinessesReal: number;
+  /** Estimated businesses summed across never-discovered cells. */
+  localBusinessesEstimate: number;
+  /** REAL businesses with a reachable contact channel (in-DB cells). */
+  haveContactsReal: number;
+  /** REAL "active on Google" businesses (in-DB cells). */
+  activeOnGoogleReal: number;
+  /** REAL businesses with a flagged finding for an active signal (in-DB cells). */
+  matchSignalsReal: number;
+  /** True when any requested cell is a new-cell estimate (drives "~"). */
+  hasEstimateCells: boolean;
+}
 
 export type PreflightDiscoveryResult =
   | {
@@ -59,6 +92,10 @@ export type PreflightDiscoveryResult =
       netCredits: number;
       freshCount: number;
       refetchCount: number;
+      /** Per-cell preview rows (real where the cell is already in the DB). */
+      cells: PreviewCell[];
+      /** Aggregate KPI inputs (real from in-DB cells + estimate from new). */
+      kpis: PreviewKpis;
     }
   | { status: "unauthorized" }
   | { status: "forbidden" }
@@ -88,6 +125,122 @@ async function callerAgencyId(userId: string): Promise<string | null> {
     select: { agencyId: true },
   });
   return member?.agencyId ?? null;
+}
+
+/** Deterministic new-cell business estimate — mirrors flow-types.estBizCount so
+ *  the server estimate matches the client's per-cell estimate for new cells. */
+function estBizCount(index: number): number {
+  return 120 + ((index * 137) % 341);
+}
+
+/** "Active on Google" recency window (~6 months), mirrors getDiscoverySummary. */
+const ACTIVE_REVIEW_DAYS = 182;
+
+/**
+ * Build the per-cell preview rows + aggregate KPIs. For each requested cell:
+ *   - already in the DB (has businesses) → REAL Prisma counts, isEstimate=false
+ *   - never discovered (count 0)         → deterministic estimate, isEstimate=true
+ *
+ * Aggregate KPIs come from the REAL businesses of in-DB cells (+ a clearly-
+ * flagged estimate contribution from new cells via localBusinessesEstimate).
+ * "Match your signals" counts in-DB businesses with a flagged PlaybookFinding
+ * for one of the active signal keys (reuses the same finding store the signals
+ * view reads). All pure Prisma reads — no external API in the request path.
+ */
+async function buildPreview(
+  cells: { cellKey: string; lastDiscoveredAt: Date | null; index: number }[],
+  signalKeys: string[],
+  now: Date,
+): Promise<{ previewCells: PreviewCell[]; kpis: PreviewKpis }> {
+  const previewCells = await Promise.all(
+    cells.map(async (c) => {
+      const base = rawListWhere({ cellKeys: [c.cellKey] });
+      const real = await prisma.business.count({ where: base });
+      const inDb = real > 0;
+      return {
+        cellKey: c.cellKey,
+        freshness: cellFreshnessState(c.lastDiscoveredAt, now),
+        existingBizCount: inDb ? real : estBizCount(c.index),
+        isEstimate: !inDb,
+        _base: base,
+      };
+    }),
+  );
+
+  // The in-DB cells we count real KPIs over.
+  const inDbKeys = previewCells
+    .filter((c) => !c.isEstimate)
+    .map((c) => c.cellKey);
+
+  let haveContactsReal = 0;
+  let activeOnGoogleReal = 0;
+  let matchSignalsReal = 0;
+  let localBusinessesReal = 0;
+
+  if (inDbKeys.length > 0) {
+    const base = rawListWhere({ cellKeys: inDbKeys });
+    const activeSince = new Date(Date.now() - ACTIVE_REVIEW_DAYS * 86_400_000);
+
+    const businessIds = await prisma.business.findMany({
+      where: base,
+      select: { id: true },
+    });
+    const idSet = businessIds.map((b) => b.id);
+    localBusinessesReal = idSet.length;
+
+    const [contacts, active] = await prisma.$transaction([
+      prisma.business.count({
+        where: { ...base, reachableChannelCount: { gt: 0 } },
+      }),
+      prisma.business.count({
+        where: {
+          ...base,
+          OR: [{ lastReviewAt: { gte: activeSince } }, { openStatus: "OPEN" }],
+        },
+      }),
+    ]);
+    haveContactsReal = contacts;
+    activeOnGoogleReal = active;
+
+    // "Match your signals" = distinct businesses (in these cells) with a flagged
+    // finding for one of the active signal keys. Counted via the same store the
+    // signals view reads (PlaybookFinding status="flagged").
+    if (signalKeys.length > 0 && idSet.length > 0) {
+      const flagged = await prisma.playbookFinding.findMany({
+        where: {
+          businessId: { in: idSet },
+          status: "flagged",
+          signalKey: { in: signalKeys },
+        },
+        select: { businessId: true },
+        distinct: ["businessId"],
+      });
+      matchSignalsReal = flagged.length;
+    }
+  }
+
+  const localBusinessesEstimate = previewCells
+    .filter((c) => c.isEstimate)
+    .reduce((s, c) => s + c.existingBizCount, 0);
+
+  const kpis: PreviewKpis = {
+    localBusinessesReal,
+    localBusinessesEstimate,
+    haveContactsReal,
+    activeOnGoogleReal,
+    matchSignalsReal,
+    hasEstimateCells: previewCells.some((c) => c.isEstimate),
+  };
+
+  // Strip the internal `_base` field from the returned rows.
+  const cleaned: PreviewCell[] = previewCells.map((c) => ({
+    cellKey: c.cellKey,
+    freshness: c.freshness,
+    existingBizCount: c.existingBizCount,
+    isEstimate: c.isEstimate,
+  }));
+
+  return { previewCells: cleaned, kpis };
 }
 
 /**
@@ -185,6 +338,17 @@ export async function preflightDiscoveryAction(
       },
     });
 
+    // ── REAL per-cell counts (for cells already in the DB) + KPI aggregation ──
+    // A cell's businesses are shared market data keyed by cellKey (exactly what
+    // the raw-list + signals views count); the agency scope is the Discovery row
+    // (validated above). For a cell already in the DB we COUNT for real; for a
+    // never-discovered cell we keep the deterministic estimate (isEstimate=true).
+    const { previewCells, kpis } = await buildPreview(
+      planInputs.map((p, i) => ({ ...p, index: i })),
+      parsed.data.signalKeys ?? [],
+      now,
+    );
+
     return {
       status: "ok",
       estimateId: estimate.id,
@@ -192,6 +356,8 @@ export async function preflightDiscoveryAction(
       netCredits: plan.estimate.netCredits,
       freshCount: plan.freshCount,
       refetchCount: plan.refetchCount,
+      cells: previewCells,
+      kpis,
     };
   } catch (err) {
     console.error(

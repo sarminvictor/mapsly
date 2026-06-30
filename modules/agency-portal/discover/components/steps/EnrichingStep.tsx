@@ -4,18 +4,19 @@
 // run is authorized: hero count + "you can close this page, we'll email you" +
 // an editorial progress card (gradient bar + % + ETA + a six-stage checklist) +
 // two CTAs ("See the leads workbench →" / "Close — notify me"). Polls the real
-// /api/agency/jobs feed for THIS run's overall progress (the feed reports run-
-// level done/total, not per-stage — see the backend note in the build summary;
-// the six stages are derived from overall pct).
+// /api/agency/jobs?runId= feed for THIS run's overall progress AND its per-stage
+// rollup (real done/total per stage grouped from the run's EnrichmentJob rows;
+// inline/post-close stages gate on the run lifecycle — see the route).
 //
 // Uses ported classes (.editorial/.bar/.joblist/.job/.check/.spin). English-only.
 
 import { useEffect, useState } from "react";
 
 import { useRouter } from "@/i18n/navigation";
-import type { AgencyJob } from "@/app/api/agency/jobs/route";
+import type { AgencyJob, EnrichStage } from "@/app/api/agency/jobs/route";
 
-const STAGES = [
+/** Display labels (fallback before the first real stage payload lands). */
+const STAGE_LABELS = [
   "Mapped market & applied filters",
   "Contacts extracted",
   "Website & tech signals + Lighthouse",
@@ -26,6 +27,7 @@ const STAGES = [
 
 interface JobsResponse {
   jobs: AgencyJob[];
+  stages?: EnrichStage[];
 }
 
 export function EnrichingStep({
@@ -42,10 +44,12 @@ export function EnrichingStep({
   const [done, setDone] = useState(0);
   const [total, setTotal] = useState(leadCount);
   const [finished, setFinished] = useState(false);
+  const [stages, setStages] = useState<EnrichStage[] | null>(null);
   const [etaMin, setEtaMin] = useState(Math.max(1, Math.round(leadCount / 70)));
 
-  // Poll the jobs feed every 4s for this run's overall progress. ETA is derived
-  // here (in the effect, never during render) from elapsed × remaining/done.
+  // Poll the jobs feed every 4s for this run's overall progress + per-stage
+  // rollup. ETA is derived here (in the effect, never during render) from
+  // elapsed × remaining/done.
   useEffect(() => {
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
@@ -53,9 +57,13 @@ export function EnrichingStep({
 
     async function poll() {
       try {
-        const res = await fetch("/api/agency/jobs", { cache: "no-store" });
+        const res = await fetch(
+          `/api/agency/jobs?runId=${encodeURIComponent(runId)}`,
+          { cache: "no-store" },
+        );
         if (!res.ok) throw new Error(String(res.status));
         const data: JobsResponse = await res.json();
+        if (!cancelled && data.stages) setStages(data.stages);
         const job = data.jobs.find((j) => j.id === runId);
         if (!cancelled && job) {
           const t = job.total > 0 ? job.total : leadCount;
@@ -89,14 +97,11 @@ export function EnrichingStep({
     };
   }, [runId, leadCount]);
 
-  // Derive the six stage states from overall pct (no per-stage feed).
-  function stageState(i: number): "done" | "running" | "pending" {
-    const threshold = ((i + 1) / STAGES.length) * 100;
-    const prev = (i / STAGES.length) * 100;
-    if (pct >= threshold) return "done";
-    if (pct >= prev) return "running";
-    return "pending";
-  }
+  // The checklist rows: REAL per-stage rollup once it lands; before then,
+  // labels-only placeholders (all pending) so the card renders immediately.
+  const stageRows: { label: string; status: EnrichStage["status"] }[] = stages
+    ? stages.map((s) => ({ label: s.label, status: s.status }))
+    : STAGE_LABELS.map((label) => ({ label, status: "pending" as const }));
 
   return (
     <section style={{ paddingBottom: 40 }}>
@@ -135,27 +140,24 @@ export function EnrichingStep({
         </div>
 
         <div className="joblist">
-          {STAGES.map((label, i) => {
-            const state = stageState(i);
-            return (
-              <div
-                className="job"
-                key={label}
-                style={state === "pending" ? { opacity: 0.5 } : undefined}
-              >
-                {state === "done" ? (
-                  <span className="check" aria-hidden="true">
-                    ✓
-                  </span>
-                ) : state === "running" ? (
-                  <span className="spin" aria-hidden="true" />
-                ) : (
-                  <span style={{ width: 16 }} aria-hidden="true" />
-                )}
-                {label}
-              </div>
-            );
-          })}
+          {stageRows.map(({ label, status }) => (
+            <div
+              className="job"
+              key={label}
+              style={status === "pending" ? { opacity: 0.5 } : undefined}
+            >
+              {status === "done" ? (
+                <span className="check" aria-hidden="true">
+                  ✓
+                </span>
+              ) : status === "running" ? (
+                <span className="spin" aria-hidden="true" />
+              ) : (
+                <span style={{ width: 16 }} aria-hidden="true" />
+              )}
+              {label}
+            </div>
+          ))}
         </div>
       </div>
 
