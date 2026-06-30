@@ -1,1 +1,13 @@
-{}
+{
+  "agency": {
+    "nav": {
+      "item_get_leads": "Get leads",
+      "item_my_research": "My research",
+      "item_billing": "Billing",
+      "item_settings": "Settings",
+      "search_jump": "Search or jump…",
+      "open_menu": "Open menu",
+      "rail_toggle": "Expand or collapse sidebar"
+    }
+  }
+}

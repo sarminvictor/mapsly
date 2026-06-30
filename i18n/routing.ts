@@ -148,6 +148,18 @@ export const routing = defineRouting({
       "en-CA": "/discover",
       fr: "/decouvrir",
     },
+    "/welcome": {
+      en: "/welcome",
+      es: "/bienvenida",
+      "en-CA": "/welcome",
+      fr: "/bienvenue",
+    },
+    "/research": {
+      en: "/research",
+      es: "/investigaciones",
+      "en-CA": "/research",
+      fr: "/recherches",
+    },
     "/discover/[discoveryId]": {
       en: "/discover/[discoveryId]",
       es: "/descubrir/[discoveryId]",

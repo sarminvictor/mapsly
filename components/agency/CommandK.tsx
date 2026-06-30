@@ -201,27 +201,14 @@ export function CommandK() {
       <button
         ref={triggerRef}
         type="button"
+        className="kbtn"
         onClick={() => setOpen(true)}
         aria-label={t("triggerAriaLabel")}
         data-testid="agency-commandk-trigger"
-        style={{
-          display: "inline-flex",
-          alignItems: "center",
-          gap: 8,
-          padding: "6px 10px",
-          borderRadius: 8,
-          border: "1px solid var(--color-border)",
-          background: "var(--color-bg)",
-          color: "var(--color-text-2)",
-          fontFamily: "var(--font-sans)",
-          fontSize: 12,
-          cursor: "pointer",
-        }}
       >
-        <span aria-hidden style={{ fontSize: 13 }}>
-          ⌘K
-        </span>
-        <span>{t("trigger")}</span>
+        <span aria-hidden>🔎</span>
+        <span className="kbtn-lbl">{t("trigger")}</span>
+        <kbd>⌘K</kbd>
       </button>
 
       <Modal

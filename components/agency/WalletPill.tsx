@@ -71,29 +71,11 @@ export async function WalletPill() {
   return (
     <Link
       href="/usage"
+      className={`wallet${empty ? " low" : ""}`}
       aria-label={empty ? "Wallet empty — add credits" : `Wallet ${label}`}
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 6,
-        padding: "4px 10px",
-        borderRadius: 999,
-        fontFamily: "var(--font-mono)",
-        fontSize: 12,
-        fontWeight: 600,
-        border: empty
-          ? "1px solid var(--color-agency-indigo, #5b3df5)"
-          : "1px solid var(--color-border)",
-        color: empty
-          ? "var(--color-agency-indigo, #5b3df5)"
-          : "var(--color-text-2)",
-        background: "var(--color-bg)",
-        textDecoration: "none",
-        whiteSpace: "nowrap",
-      }}
     >
-      <span aria-hidden>◈</span>
-      {label}
+      <span className="coin" aria-hidden />
+      <span>{label}</span>
     </Link>
   );
 }

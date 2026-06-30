@@ -1010,7 +1010,14 @@
       "item_campaigns": "Campaigns",
       "item_touchpoints": "Touchpoints",
       "item_agency_settings": "Agency settings",
-      "item_team_billing": "Team & billing"
+      "item_team_billing": "Team & billing",
+      "item_get_leads": "Get leads",
+      "item_my_research": "My research",
+      "item_billing": "Billing",
+      "item_settings": "Settings",
+      "search_jump": "Search or jump…",
+      "open_menu": "Open menu",
+      "rail_toggle": "Expand or collapse sidebar"
     }
   },
   "common": {
