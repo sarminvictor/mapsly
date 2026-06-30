@@ -460,20 +460,12 @@ export function LeadsWorkbench({
             className="ck rowck"
             checked={isSel}
             aria-label={`Select ${r.name}`}
-            onChange={(e) =>
-              toggleRow(
-                r.leadId,
-                idx,
-                (e.nativeEvent as MouseEvent).shiftKey ?? false,
-              )
-            }
-            onClick={(e) =>
-              toggleRow(
-                r.leadId,
-                idx,
-                (e.nativeEvent as MouseEvent).shiftKey ?? false,
-              )
-            }
+            // Toggle on CLICK only (its MouseEvent carries shiftKey for
+            // range-select). onChange is a no-op required for a controlled
+            // checkbox — having BOTH call toggleRow double-fired it, so every
+            // click toggled then un-toggled and the box never changed.
+            onChange={() => {}}
+            onClick={(e) => toggleRow(r.leadId, idx, e.shiftKey)}
           />
         </td>
         {cols.map((c) => renderCell(c, r))}

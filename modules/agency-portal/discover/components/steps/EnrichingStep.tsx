@@ -112,6 +112,20 @@ export function EnrichingStep({
     };
   }, [runId, leadCount]);
 
+  // On completion, auto-advance to the leads workspace (the results) after a
+  // brief "done" beat — the enriching screen is a progress view, not a
+  // destination. The buttons below stay for an immediate jump / closing.
+  useEffect(() => {
+    if (!finished) return;
+    const t = setTimeout(() => {
+      router.push({
+        pathname: "/discover/[discoveryId]",
+        params: { discoveryId },
+      });
+    }, 1400);
+    return () => clearTimeout(t);
+  }, [finished, router, discoveryId]);
+
   // The checklist rows: REAL per-stage rollup once it lands; before then,
   // labels-only placeholders (all pending) so the card renders immediately.
   const stageRows: { label: string; status: EnrichStage["status"] }[] = stages
