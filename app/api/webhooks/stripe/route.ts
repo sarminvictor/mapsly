@@ -44,7 +44,7 @@ import {
   type WebhookOutcome,
 } from "@/modules/billing/webhook";
 import { recordLandingConversion } from "@/modules/smb-landing/conversion";
-import { grantPlanCredits } from "@/modules/cost/server";
+import { grantPlanCredits, grantTopUpCredits } from "@/modules/cost/server";
 import { PLAN_CREDITS, type AgencyPlanTier } from "@/modules/cost/pricing";
 
 export async function POST(req: Request): Promise<Response> {
@@ -187,6 +187,20 @@ export async function POST(req: Request): Promise<Response> {
         }),
       );
     });
+    // Top-up purchase: a one-time `mode=payment` checkout with `kind=topup`
+    // metadata adds credits to the agency's purchased (never-expiring) bucket.
+    // Idempotent per Stripe session id. Independent of `handleStripeEvent`
+    // (which only handles subscription lifecycle), so we read the event directly.
+    await grantTopUpFromEvent(event).catch((err) => {
+      console.error(
+        JSON.stringify({
+          level: "error",
+          event: "billing.webhook.topup_grant_failed",
+          stripeEventId: event.id,
+          error: err instanceof Error ? err.message : String(err),
+        }),
+      );
+    });
     // Landing funnel attribution (best-effort, internally guarded) — records
     // SUBSCRIPTION_BOUGHT when this conversion came from a /l/[token] proposal.
     await recordLandingConversion(event);
@@ -304,4 +318,32 @@ async function grantAgencyCreditsFromEvent(
     periodEnd,
     dedupeKey,
   );
+}
+
+/**
+ * Grant a top-up pack's credits to the agency's purchased bucket on a completed
+ * one-time payment checkout. Reads `metadata.kind=topup`, `metadata.agencyId`,
+ * and `metadata.credits` written by `startTopUpCheckout`. Idempotent per Stripe
+ * session id. Returns silently for any non-top-up event.
+ */
+async function grantTopUpFromEvent(event: Stripe.Event): Promise<void> {
+  if (event.type !== "checkout.session.completed") return;
+  const session = event.data.object as Stripe.Checkout.Session;
+  if (session.mode !== "payment") return;
+  const md = (session.metadata ?? {}) as Record<string, string | undefined>;
+  if (md.kind !== "topup") return;
+
+  const agencyId = md.agencyId;
+  const credits = Number.parseInt(md.credits ?? "", 10);
+  if (!agencyId || !Number.isFinite(credits) || credits <= 0) return;
+
+  // Confirm the agency exists before crediting (out-of-order safety).
+  const agency = await prisma.agency.findUnique({
+    where: { id: agencyId },
+    select: { id: true },
+  });
+  if (!agency) return;
+
+  const usd = (session.amount_total ?? 0) / 100;
+  await grantTopUpCredits(agencyId, credits, usd, session.id);
 }

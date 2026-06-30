@@ -1,803 +1,359 @@
 /**
- * Agency billing settings · `/(agency)/team/billing` (path renamed to avoid (smb)/(agency) URL collision).
+ * Agency · unified "Billing & credits" page · `/(agency)/team/billing`.
  *
- * Audience: Tom. Per `.claude/rules/ui-ux-agency.md`:
- *   - Tool-y, dense, jargon-OK. "Subscription · Growth · $99/mo · renews
- *     2026-06-18" is the tone.
- *   - Cool gray + indigo palette tokens.
- *   - Tables are first-class (invoices fit naturally).
- *   - Imperative actions ("Manage subscription", "Open invoice").
+ * This is the prototype's single credit-economy screen (docs/portal-prototype.html
+ * #view-billing) rebuilt on the `.agency-portal` design system. It UNIFIES what
+ * was previously split across /team/billing (Stripe subscription) and /usage
+ * (wallet + ledger). /usage now redirects here.
  *
- * Per `.claude/rules/cache-components.md`:
- *   - Pattern 2: sync default export + Suspense'd async body.
- *   - Pattern 1: queries return EMPTY during build / on Prisma failure.
+ * Top-to-bottom composition:
+ *   1. Header + credit explainer
+ *   2. Current-plan + wallet card (usage bar, Plan/Top-up balance tiles, lock)
+ *   3. Plans grid (Free / Starter / Growth · featured / Scale)
+ *   4. What-a-credit-buys + Top-up packs (2-up)
+ *   5. Why-Mapsly-is-cheaper compare
+ *   6. Credit ledger (running balance)
+ *   7. Stripe invoices (manage subscription · open invoices)
  *
- * Per `.claude/rules/security.md`:
- *   - `auth()` + `unauthorized()` interrupt at the inner body's top.
- *   - Cross-agency leakage protected by the queries' AgencyMember scope
- *     (queries look up the user's first membership).
+ * Pricing is the canonical prototype model in modules/cost/pricing.ts
+ * (PLAN_CARDS / TOPUP_PACKS / CREDIT_MEANING). The display layer is decoupled
+ * from the Prisma AgencyPlan enum via planKeyForEnum() — the live grant engine
+ * (PLAN_CREDITS) and the Stripe enum are untouched (see the build summary for
+ * what remains human-required).
  *
- * Tier-change UX: STAFF members see the data but can't open the portal —
- * we hide the "Manage" CTA and render an explanation instead. OWNER/ADMIN
- * get a form-action that opens Stripe's customer portal.
+ * Per `.claude/rules/cache-components.md` Pattern 2 — sync default export, async
+ * body in a Suspense boundary doing auth + DB reads (no `export const dynamic`,
+ * no function props across a client boundary; the CTAs are server-action forms).
+ *
+ * Auth mirrors /(agency)/touchpoints: no session → unauthorized(); session but
+ * no AgencyMember → redirect('/home'). Copy is English-only (i18n/routing.ts).
  */
 
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import { unauthorized } from "next/navigation";
-import { setRequestLocale, getTranslations } from "next-intl/server";
+import { setRequestLocale } from "next-intl/server";
 
 import { auth } from "@/lib/auth";
-import { Link } from "@/i18n/navigation";
+import { redirect } from "@/i18n/navigation";
+import prisma from "@/lib/prisma";
 import { openBillingPortal } from "@/modules/billing/actions";
 import {
-  getAgencyCurrentPlan,
+  isPlanCheckoutConfigured,
+  isTopUpConfigured,
+} from "@/modules/billing/credit-checkout";
+import {
   getAgencyInvoices,
-  type CurrentPlanData,
   type InvoiceRow,
   type InvoicesData,
 } from "@/modules/billing/queries";
-import type { Plan } from "@/modules/billing/plans";
+import { grantFreeTierIfNew } from "@/modules/cost/server";
+import {
+  PLAN_CARDS,
+  planKeyForEnum,
+  type AgencyPlanTier,
+  type PlanKey,
+  type TopUpPack,
+} from "@/modules/cost/pricing";
 
-export async function generateMetadata({
-  params,
-}: {
+import { CreditExplainer } from "@/components/agency/billing/CreditExplainer";
+import { CurrentPlanWalletCard } from "@/components/agency/billing/CurrentPlanWalletCard";
+import { PlansGrid } from "@/components/agency/billing/PlansGrid";
+import { WhatACreditBuys } from "@/components/agency/billing/WhatACreditBuys";
+import { TopUpPacks } from "@/components/agency/billing/TopUpPacks";
+import { WhyCheaper } from "@/components/agency/billing/WhyCheaper";
+import {
+  CreditLedgerTable,
+  type LedgerRow,
+} from "@/components/agency/billing/CreditLedgerTable";
+
+export const metadata: Metadata = {
+  title: "Billing & credits · Mapsly",
+  robots: { index: false, follow: false },
+};
+
+interface PageProps {
   params: Promise<{ locale: string }>;
-}): Promise<Metadata> {
-  const { locale } = await params;
-  const t = await getTranslations({
-    locale,
-    namespace: "agency.settings.billing.meta",
-  });
-  return {
-    title: t("title"),
-    description: t("description"),
-    robots: { index: false, follow: false },
-  };
 }
 
-interface PageParams {
-  locale: string;
-}
-
-export default function AgencyBillingPage({
-  params,
-}: {
-  params: Promise<PageParams>;
-}) {
+export default function AgencyBillingPage({ params }: PageProps) {
   return (
-    <Suspense fallback={<BillingSkeleton />}>
+    <Suspense fallback={null}>
       <BillingBody params={params} />
     </Suspense>
   );
 }
 
-function BillingSkeleton() {
-  return (
-    <section
-      aria-hidden
-      style={{
-        maxWidth: 1000,
-        margin: "0 auto",
-        padding: "32px 24px 64px",
-      }}
-    >
-      <div
-        style={{
-          height: 22,
-          width: 180,
-          background: "var(--color-bg-3)",
-          borderRadius: 6,
-          marginBottom: 20,
-        }}
-      />
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr",
-          gap: 16,
-          marginBottom: 20,
-        }}
-      >
-        <div
-          style={{
-            height: 140,
-            background: "var(--color-bg-2)",
-            borderRadius: 10,
-          }}
-        />
-        <div
-          style={{
-            height: 140,
-            background: "var(--color-bg-2)",
-            borderRadius: 10,
-          }}
-        />
-      </div>
-      <div
-        style={{
-          height: 280,
-          background: "var(--color-bg-2)",
-          borderRadius: 10,
-        }}
-      />
-    </section>
-  );
-}
-
-async function BillingBody({ params }: { params: Promise<PageParams> }) {
+async function BillingBody({ params }: PageProps) {
   const { locale } = await params;
   setRequestLocale(locale);
 
   const session = await auth();
-  if (!session?.user?.id) {
-    unauthorized();
+  if (!session?.user?.id) unauthorized();
+
+  const member = await prisma.agencyMember.findFirst({
+    where: { userId: session.user.id },
+    select: { agencyId: true },
+  });
+  if (!member) {
+    redirect({ href: "/home", locale });
+    return null;
   }
+  const agencyId = member.agencyId;
 
-  const t = await getTranslations("agency.settings.billing");
+  // Fund a brand-new agency's free tier so the wallet shows a real balance.
+  await grantFreeTierIfNew(agencyId).catch(() => {});
 
-  const [plan, invoices] = await Promise.all([
-    getAgencyCurrentPlan(session.user.id),
-    getAgencyInvoices(session.user.id),
-  ]);
+  const [wallet, agency, ledger, invoices, planCfg, topUpCfg] =
+    await Promise.all([
+      prisma.agencyWallet.findUnique({
+        where: { agencyId },
+        select: {
+          planCredits: true,
+          purchasedCredits: true,
+          rolloverCredits: true,
+          heldCredits: true,
+        },
+      }),
+      prisma.agency.findUnique({
+        where: { id: agencyId },
+        select: { plan: true, currentPeriodEnd: true, stripeStatus: true },
+      }),
+      prisma.creditLedger.findMany({
+        where: { agencyId },
+        orderBy: { createdAt: "desc" },
+        take: 50,
+        select: {
+          id: true,
+          type: true,
+          credits: true,
+          note: true,
+          createdAt: true,
+        },
+      }),
+      getAgencyInvoices(session.user.id),
+      Promise.all([
+        isPlanCheckoutConfigured("starter"),
+        isPlanCheckoutConfigured("growth"),
+        isPlanCheckoutConfigured("scale"),
+      ]),
+      Promise.all([
+        isTopUpConfigured("pack_1000"),
+        isTopUpConfigured("pack_5000"),
+      ]),
+    ]);
 
-  const returnUrl = absoluteReturnUrl(locale);
+  const planBucket =
+    (wallet?.planCredits ?? 0) + (wallet?.rolloverCredits ?? 0);
+  const topUpBalance = wallet?.purchasedCredits ?? 0;
+  const held = wallet?.heldCredits ?? 0;
+  const availableBalance = Math.max(0, planBucket + topUpBalance - held);
+
+  // A SOLO/GROWTH/etc. AgencyPlan only counts as a PAID plan when the Stripe
+  // subscription is actually live — feature-gating consults stripeStatus, and
+  // the default plan (SOLO) covers the pre-billing free state. Without an
+  // active subscription the agency is on Free regardless of the enum value.
+  const subActive =
+    agency?.stripeStatus === "active" || agency?.stripeStatus === "trialing";
+  const activePlanKey: PlanKey = subActive
+    ? planKeyForEnum((agency?.plan as AgencyPlanTier | null | undefined) ?? null)
+    : "free";
+  const activeCard = PLAN_CARDS[activePlanKey];
+
+  // Renewal date label (e.g. "Jul 1"). Free tier shows none.
+  const renewsLabel =
+    !activeCard.oneTime && agency?.currentPeriodEnd
+      ? formatRenew(agency.currentPeriodEnd)
+      : null;
+
+  const ledgerRows: LedgerRow[] = ledger.map((l) => ({
+    id: l.id,
+    type: l.type,
+    credits: l.credits,
+    note: l.note,
+    createdAt: l.createdAt,
+  }));
+
+  const planConfigured: Record<Exclude<PlanKey, "free">, boolean> = {
+    starter: planCfg[0],
+    growth: planCfg[1],
+    scale: planCfg[2],
+  };
+  const topUpConfigured: Record<TopUpPack["key"], boolean> = {
+    pack_1000: topUpCfg[0],
+    pack_5000: topUpCfg[1],
+  };
 
   return (
-    <section
-      aria-labelledby="billing-heading"
-      style={{
-        maxWidth: 1000,
-        margin: "0 auto",
-        padding: "32px 24px 64px",
-      }}
-    >
-      <header style={{ marginBottom: 24 }}>
-        <p
-          style={{
-            margin: 0,
-            fontFamily: "var(--font-mono)",
-            fontSize: 11,
-            textTransform: "uppercase",
-            letterSpacing: "0.08em",
-            color: "var(--color-text-3)",
-          }}
-        >
-          {t("eyebrow")}
-        </p>
-        <h1
-          id="billing-heading"
-          style={{
-            fontFamily: "var(--font-sans)",
-            fontSize: 26,
-            fontWeight: 600,
-            lineHeight: 1.15,
-            letterSpacing: "-0.01em",
-            margin: "4px 0 0",
-            color: "var(--color-text)",
-          }}
-        >
-          {t("title")}
-        </h1>
-        {plan.displayName ? (
-          <p
-            style={{
-              margin: "6px 0 0",
-              color: "var(--color-text-2)",
-              fontSize: 13,
-              fontFamily: "var(--font-mono)",
-            }}
-          >
-            {plan.displayName}
-          </p>
-        ) : null}
-      </header>
+    <div className="view">
+      <CreditExplainer />
 
-      <CurrentPlanCard
-        plan={plan}
-        returnUrl={returnUrl}
-        labels={{
-          headingActive: t("current_plan_heading"),
-          headingFree: t("free_plan_heading"),
-          freeBody: t("free_plan_body"),
-          subscribeCta: t("subscribe_cta"),
-          manageCta: t("manage_cta"),
-          manageStaffNote: t("manage_staff_note"),
-          planLabel: t("plan_label"),
-          statusLabel: t("status_label"),
-          renewsLabel: t("renews_label"),
-          endsLabel: t("ends_label"),
-          pendingCancelLabel: t("pending_cancel"),
-          monthlySuffix: t("per_month"),
-          statusActive: t("status_active"),
-          statusPastDue: t("status_past_due"),
-          statusCanceled: t("status_canceled"),
-          statusTrialing: t("status_trialing"),
-          statusOther: t("status_other"),
-          planSolo: t("plan_solo"),
-          planGrowth: t("plan_growth"),
-          planPro: t("plan_pro"),
-          planBoutique: t("plan_boutique"),
-          planFallback: t("plan_fallback"),
-          locale,
-        }}
+      <CurrentPlanWalletCard
+        planName={activeCard.displayName}
+        featured={activeCard.featured}
+        monthlyCredits={activeCard.monthlyCredits}
+        oneTime={activeCard.oneTime}
+        renewsLabel={renewsLabel}
+        planBalance={planBucket}
+        topUpBalance={topUpBalance}
       />
+
+      <PlansGrid
+        activePlan={activePlanKey}
+        configured={planConfigured}
+        locale={locale}
+      />
+
+      <div
+        className="grid"
+        style={{
+          gridTemplateColumns: "1fr 1fr",
+          marginTop: 16,
+          alignItems: "stretch",
+        }}
+      >
+        <WhatACreditBuys />
+        <TopUpPacks configured={topUpConfigured} locale={locale} />
+      </div>
+
+      <WhyCheaper />
+
+      <CreditLedgerTable rows={ledgerRows} currentBalance={availableBalance} />
 
       <InvoicesSection
         invoices={invoices}
-        labels={{
-          heading: t("invoices_heading"),
-          empty: t("invoices_empty"),
-          colDate: t("col_date"),
-          colInvoice: t("col_invoice"),
-          colAmount: t("col_amount"),
-          colStatus: t("col_status"),
-          colAction: t("col_action"),
-          openAction: t("open_action"),
-          // Literal "{date}" placeholder → template the client fills per invoice
-          // (see line ~653: openAriaLabel.replace("{date}", date)).
-          openAriaLabel: t("open_aria", { date: "{date}" }),
-          moreNote: t("invoices_more_note"),
-          statusPaid: t("invoice_status_paid"),
-          statusOpen: t("invoice_status_open"),
-          statusVoid: t("invoice_status_void"),
-          statusUncollectible: t("invoice_status_uncollectible"),
-          statusDraft: t("invoice_status_draft"),
-          locale,
-        }}
+        returnUrl={billingReturnUrl(locale)}
       />
-    </section>
+    </div>
   );
 }
 
-// ─── Current plan card ─────────────────────────────────────────────────────
-
-interface CurrentPlanLabels {
-  headingActive: string;
-  headingFree: string;
-  freeBody: string;
-  subscribeCta: string;
-  manageCta: string;
-  manageStaffNote: string;
-  planLabel: string;
-  statusLabel: string;
-  renewsLabel: string;
-  endsLabel: string;
-  pendingCancelLabel: string;
-  monthlySuffix: string;
-  statusActive: string;
-  statusPastDue: string;
-  statusCanceled: string;
-  statusTrialing: string;
-  statusOther: string;
-  planSolo: string;
-  planGrowth: string;
-  planPro: string;
-  planBoutique: string;
-  planFallback: string;
-  locale: string;
-}
-
-function CurrentPlanCard({
-  plan,
-  returnUrl,
-  labels,
-}: {
-  plan: CurrentPlanData;
-  returnUrl: string;
-  labels: CurrentPlanLabels;
-}) {
-  const isActive = plan.hasCustomer && (plan.subscriptionId || plan.status);
-
-  if (!isActive) {
-    return (
-      <section aria-labelledby="current-plan-heading" style={cardStyle()}>
-        <h2 id="current-plan-heading" style={cardTitleStyle()}>
-          {labels.headingFree}
-        </h2>
-        <p
-          style={{
-            margin: "8px 0 16px",
-            color: "var(--color-text-2)",
-            fontSize: 14,
-            lineHeight: 1.5,
-          }}
-        >
-          {labels.freeBody}
-        </p>
-        <Link href="/for-agencies" style={primaryButtonStyle()}>
-          {labels.subscribeCta}
-        </Link>
-      </section>
-    );
-  }
-
-  const planName = formatPlanName(plan.plan, labels);
-  const amount = formatAmount(plan.amountCents, plan.currency, labels.locale);
-  const statusLabel = formatStatus(plan.status, labels);
-  const renewDate = plan.currentPeriodEnd
-    ? formatDate(plan.currentPeriodEnd, labels.locale)
-    : null;
-  const renewLine = renewDate
-    ? plan.cancelAtPeriodEnd
-      ? `${labels.endsLabel} ${renewDate}`
-      : `${labels.renewsLabel} ${renewDate}`
-    : null;
-
-  return (
-    <section aria-labelledby="current-plan-heading" style={cardStyle()}>
-      <h2 id="current-plan-heading" style={cardTitleStyle()}>
-        {labels.headingActive}
-      </h2>
-
-      <dl
-        style={{
-          margin: "14px 0 18px",
-          display: "grid",
-          gridTemplateColumns: "max-content 1fr",
-          columnGap: 16,
-          rowGap: 8,
-          fontSize: 14,
-        }}
-      >
-        <dt style={dtStyle()}>{labels.planLabel}</dt>
-        <dd style={ddStyle()}>
-          <span style={{ fontWeight: 600 }}>{planName}</span>
-          {amount ? (
-            <span
-              style={{
-                marginLeft: 8,
-                color: "var(--color-text-2)",
-              }}
-            >
-              · {amount} {labels.monthlySuffix}
-            </span>
-          ) : null}
-        </dd>
-
-        {statusLabel ? (
-          <>
-            <dt style={dtStyle()}>{labels.statusLabel}</dt>
-            <dd style={ddStyle()}>
-              <StatusPill status={plan.status} label={statusLabel} />
-              {plan.cancelAtPeriodEnd ? (
-                <span
-                  style={{
-                    marginLeft: 8,
-                    color: "var(--color-text-3)",
-                    fontSize: 12,
-                  }}
-                >
-                  · {labels.pendingCancelLabel}
-                </span>
-              ) : null}
-            </dd>
-          </>
-        ) : null}
-
-        {renewLine ? (
-          <>
-            <dt style={dtStyle()}>
-              {plan.cancelAtPeriodEnd ? labels.endsLabel : labels.renewsLabel}
-            </dt>
-            <dd style={ddStyle()}>{renewDate}</dd>
-          </>
-        ) : null}
-      </dl>
-
-      {plan.canManage ? (
-        <form action={openBillingPortal} style={{ marginTop: 4 }}>
-          <input type="hidden" name="returnUrl" value={returnUrl} />
-          <button type="submit" style={primaryButtonStyle()}>
-            {labels.manageCta}
-          </button>
-        </form>
-      ) : (
-        <p
-          style={{
-            margin: "8px 0 0",
-            color: "var(--color-text-3)",
-            fontSize: 13,
-            fontStyle: "italic",
-          }}
-        >
-          {labels.manageStaffNote}
-        </p>
-      )}
-    </section>
-  );
-}
-
-function formatPlanName(
-  plan: Plan | null,
-  labels: Pick<
-    CurrentPlanLabels,
-    "planSolo" | "planGrowth" | "planPro" | "planBoutique" | "planFallback"
-  >,
-): string {
-  switch (plan) {
-    case "agency_solo":
-      return labels.planSolo;
-    case "agency_growth":
-      return labels.planGrowth;
-    case "agency_pro":
-      return labels.planPro;
-    case "agency_boutique":
-      return labels.planBoutique;
-    default:
-      return labels.planFallback;
-  }
-}
-
-function StatusPill({
-  status,
-  label,
-}: {
-  status: string | null;
-  label: string;
-}) {
-  const tone = statusTone(status);
-  return (
-    <span
-      role="status"
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 6,
-        padding: "2px 9px",
-        borderRadius: 6,
-        fontSize: 12,
-        fontWeight: 500,
-        background: tone.bg,
-        color: tone.fg,
-        border: `1px solid ${tone.border}`,
-      }}
-    >
-      <span
-        aria-hidden
-        style={{
-          width: 6,
-          height: 6,
-          borderRadius: "50%",
-          background: tone.fg,
-        }}
-      />
-      {label}
-    </span>
-  );
-}
-
-function statusTone(status: string | null): {
-  bg: string;
-  fg: string;
-  border: string;
-} {
-  switch (status) {
-    case "active":
-    case "trialing":
-      return {
-        bg: "var(--color-success-bg, rgba(16, 156, 102, 0.08))",
-        fg: "var(--color-success)",
-        border: "var(--color-success)",
-      };
-    case "past_due":
-    case "unpaid":
-      return {
-        bg: "var(--color-alert-bg, rgba(195, 85, 58, 0.08))",
-        fg: "var(--color-alert)",
-        border: "var(--color-alert)",
-      };
-    case "canceled":
-    case "incomplete_expired":
-      return {
-        bg: "var(--color-bg-3)",
-        fg: "var(--color-text-3)",
-        border: "var(--color-border)",
-      };
-    default:
-      return {
-        bg: "var(--color-bg-3)",
-        fg: "var(--color-text-2)",
-        border: "var(--color-border)",
-      };
-  }
-}
-
-function formatStatus(
-  status: string | null,
-  labels: Pick<
-    CurrentPlanLabels,
-    | "statusActive"
-    | "statusPastDue"
-    | "statusCanceled"
-    | "statusTrialing"
-    | "statusOther"
-  >,
-): string | null {
-  if (!status) return null;
-  switch (status) {
-    case "active":
-      return labels.statusActive;
-    case "trialing":
-      return labels.statusTrialing;
-    case "past_due":
-    case "unpaid":
-      return labels.statusPastDue;
-    case "canceled":
-    case "incomplete_expired":
-      return labels.statusCanceled;
-    default:
-      return labels.statusOther;
-  }
-}
-
-// ─── Invoices section ──────────────────────────────────────────────────────
-
-interface InvoicesLabels {
-  heading: string;
-  empty: string;
-  colDate: string;
-  colInvoice: string;
-  colAmount: string;
-  colStatus: string;
-  colAction: string;
-  openAction: string;
-  openAriaLabel: string;
-  moreNote: string;
-  statusPaid: string;
-  statusOpen: string;
-  statusVoid: string;
-  statusUncollectible: string;
-  statusDraft: string;
-  locale: string;
-}
+// ─── Invoices (Stripe subscription management) ──────────────────────────────
 
 function InvoicesSection({
   invoices,
-  labels,
+  returnUrl,
 }: {
   invoices: InvoicesData;
-  labels: InvoicesLabels;
+  returnUrl: string;
 }) {
-  if (invoices.invoices.length === 0) {
-    return (
-      <section aria-labelledby="invoices-heading" style={cardStyle()}>
-        <h2 id="invoices-heading" style={cardTitleStyle()}>
-          {labels.heading}
-        </h2>
-        <p
-          style={{
-            margin: "8px 0 0",
-            color: "var(--color-text-2)",
-            fontSize: 14,
-          }}
-        >
-          {labels.empty}
-        </p>
-      </section>
-    );
-  }
-
   return (
-    <section aria-labelledby="invoices-heading" style={cardStyle()}>
-      <h2 id="invoices-heading" style={cardTitleStyle()}>
-        {labels.heading}
-      </h2>
-      <div style={{ marginTop: 14, overflowX: "auto" }}>
-        <table
-          style={{
-            width: "100%",
-            borderCollapse: "collapse",
-            fontSize: 13,
-            fontFamily: "var(--font-mono)",
-          }}
-        >
+    <div className="card" style={{ marginTop: 16 }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "flex-start",
+          justifyContent: "space-between",
+          gap: 10,
+          flexWrap: "wrap",
+        }}
+      >
+        <div>
+          <h2>Invoices</h2>
+          <p className="note" style={{ marginTop: -4 }}>
+            Your Stripe billing history — receipts and the card on file.
+          </p>
+        </div>
+        <form action={openBillingPortal} style={{ margin: 0 }}>
+          <input type="hidden" name="returnUrl" value={returnUrl} />
+          <button type="submit" className="btn sm">
+            Manage subscription
+          </button>
+        </form>
+      </div>
+
+      {invoices.invoices.length === 0 ? (
+        <p className="note" style={{ marginTop: 10 }}>
+          No invoices yet. Subscription receipts appear here once you upgrade.
+        </p>
+      ) : (
+        <table style={{ marginTop: 8 }}>
           <thead>
-            <tr style={{ textAlign: "left", color: "var(--color-text-3)" }}>
-              <th scope="col" style={thStyle()}>
-                {labels.colDate}
-              </th>
-              <th scope="col" style={thStyle()}>
-                {labels.colInvoice}
-              </th>
-              <th scope="col" style={thStyle()}>
-                {labels.colAmount}
-              </th>
-              <th scope="col" style={thStyle()}>
-                {labels.colStatus}
-              </th>
-              <th scope="col" style={{ ...thStyle(), textAlign: "right" }}>
-                <span className="sr-only">{labels.colAction}</span>
+            <tr>
+              <th>Date</th>
+              <th>Invoice</th>
+              <th style={{ textAlign: "right" }}>Amount</th>
+              <th>Status</th>
+              <th style={{ textAlign: "right" }}>
+                <span className="sr-only">Open</span>
               </th>
             </tr>
           </thead>
           <tbody>
             {invoices.invoices.map((row) => (
-              <InvoiceRowComponent
-                key={
-                  row.id ||
-                  `${row.createdAt.toISOString()}-${row.amountPaidCents}`
-                }
-                row={row}
-                labels={labels}
-              />
+              <InvoiceRowView key={invoiceKey(row)} row={row} />
             ))}
           </tbody>
         </table>
-      </div>
+      )}
       {invoices.hasMore ? (
-        <p
-          style={{
-            margin: "10px 0 0",
-            color: "var(--color-text-3)",
-            fontSize: 12,
-            fontFamily: "var(--font-mono)",
-          }}
-        >
-          {labels.moreNote}
+        <p className="note" style={{ marginTop: 10 }}>
+          Older invoices are available in the Stripe portal.
         </p>
       ) : null}
-    </section>
+    </div>
   );
 }
 
-function InvoiceRowComponent({
-  row,
-  labels,
-}: {
-  row: InvoiceRow;
-  labels: InvoicesLabels;
-}) {
-  const date = formatDate(row.createdAt, labels.locale);
-  const amount = formatAmount(row.amountPaidCents, row.currency, labels.locale);
-  const status = invoiceStatusLabel(row.status, labels);
+function InvoiceRowView({ row }: { row: InvoiceRow }) {
+  const date = formatInvoiceDate(row.createdAt);
+  const amount = formatAmount(row.amountPaidCents, row.currency);
   const downloadHref = row.hostedInvoiceUrl ?? row.invoicePdfUrl ?? null;
-  const ariaLabel = labels.openAriaLabel.replace("{date}", date);
-
   return (
-    <tr style={{ borderTop: "1px solid var(--color-border)" }}>
-      <td style={tdStyle()}>{date}</td>
-      <td style={tdStyle()}>
-        {row.number ?? <span style={{ color: "var(--color-text-3)" }}>—</span>}
+    <tr>
+      <td>{date}</td>
+      <td>{row.number ?? "—"}</td>
+      <td style={{ textAlign: "right", fontFamily: "var(--mono)" }}>
+        {amount}
       </td>
-      <td style={tdStyle()}>{amount}</td>
-      <td style={tdStyle()}>{status}</td>
-      <td style={{ ...tdStyle(), textAlign: "right" }}>
+      <td>{row.status ?? "—"}</td>
+      <td style={{ textAlign: "right" }}>
         {downloadHref ? (
           <a
             href={downloadHref}
             target="_blank"
             rel="noopener noreferrer"
-            aria-label={ariaLabel}
-            style={{
-              color: "var(--color-agency-indigo)",
-              fontWeight: 500,
-              textDecoration: "none",
-            }}
+            aria-label={`Open invoice from ${date}`}
+            style={{ color: "var(--indigo)", fontWeight: 600 }}
           >
-            {labels.openAction}
+            Open →
           </a>
         ) : (
-          <span style={{ color: "var(--color-text-3)" }}>—</span>
+          "—"
         )}
       </td>
     </tr>
   );
 }
 
-function invoiceStatusLabel(
-  status: string | null,
-  labels: Pick<
-    InvoicesLabels,
-    | "statusPaid"
-    | "statusOpen"
-    | "statusVoid"
-    | "statusUncollectible"
-    | "statusDraft"
-  >,
-): string {
-  switch (status) {
-    case "paid":
-      return labels.statusPaid;
-    case "open":
-      return labels.statusOpen;
-    case "void":
-      return labels.statusVoid;
-    case "uncollectible":
-      return labels.statusUncollectible;
-    case "draft":
-      return labels.statusDraft;
-    default:
-      return status ?? "—";
+// ─── Helpers ────────────────────────────────────────────────────────────────
+
+function formatRenew(d: Date): string {
+  try {
+    return new Intl.DateTimeFormat("en-US", {
+      month: "short",
+      day: "numeric",
+    }).format(d);
+  } catch {
+    return d.toISOString().slice(0, 10);
   }
 }
 
-// ─── Styles + helpers ──────────────────────────────────────────────────────
-
-function cardStyle(): React.CSSProperties {
-  return {
-    padding: "20px 22px 22px",
-    background: "var(--color-bg-2)",
-    border: "1px solid var(--color-border)",
-    borderRadius: 10,
-    marginBottom: 16,
-  };
-}
-
-function cardTitleStyle(): React.CSSProperties {
-  return {
-    margin: 0,
-    fontFamily: "var(--font-sans)",
-    fontSize: 16,
-    fontWeight: 600,
-    letterSpacing: "-0.005em",
-    color: "var(--color-text)",
-  };
-}
-
-function primaryButtonStyle(): React.CSSProperties {
-  return {
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    height: 38,
-    padding: "0 14px",
-    background: "var(--color-agency-indigo)",
-    color: "#fff",
-    border: "1px solid var(--color-agency-indigo)",
-    borderRadius: 7,
-    fontSize: 13,
-    fontWeight: 500,
-    fontFamily: "var(--font-sans)",
-    textDecoration: "none",
-    cursor: "pointer",
-  };
-}
-
-function dtStyle(): React.CSSProperties {
-  return {
-    margin: 0,
-    color: "var(--color-text-3)",
-    fontSize: 12,
-    textTransform: "uppercase",
-    letterSpacing: "0.04em",
-    fontFamily: "var(--font-mono)",
-    paddingTop: 2,
-  };
-}
-
-function ddStyle(): React.CSSProperties {
-  return {
-    margin: 0,
-    color: "var(--color-text)",
-  };
-}
-
-function thStyle(): React.CSSProperties {
-  return {
-    padding: "8px 12px 8px 0",
-    fontSize: 11,
-    fontWeight: 500,
-    textTransform: "uppercase",
-    letterSpacing: "0.06em",
-  };
-}
-
-function tdStyle(): React.CSSProperties {
-  return {
-    padding: "9px 12px 9px 0",
-    color: "var(--color-text)",
-  };
-}
-
-function formatAmount(
-  cents: number | null,
-  currency: string,
-  locale: string,
-): string | null {
-  if (cents == null) return null;
+function formatInvoiceDate(d: Date): string {
   try {
-    return new Intl.NumberFormat(jsLocale(locale), {
+    return new Intl.DateTimeFormat("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    }).format(d);
+  } catch {
+    return d.toISOString().slice(0, 10);
+  }
+}
+
+function formatAmount(cents: number, currency: string): string {
+  try {
+    return new Intl.NumberFormat("en-US", {
       style: "currency",
       currency: currency.toUpperCase(),
     }).format(cents / 100);
@@ -806,34 +362,11 @@ function formatAmount(
   }
 }
 
-function formatDate(date: Date, locale: string): string {
-  try {
-    return new Intl.DateTimeFormat(jsLocale(locale), {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    }).format(date);
-  } catch {
-    return date.toISOString().slice(0, 10);
-  }
+function invoiceKey(row: InvoiceRow): string {
+  return row.id || `${row.createdAt.toISOString()}-${row.amountPaidCents}`;
 }
 
-function jsLocale(locale: string): string {
-  switch (locale) {
-    case "en":
-      return "en-US";
-    case "es":
-      return "es-US";
-    case "en-CA":
-      return "en-CA";
-    case "fr":
-      return "fr-CA";
-    default:
-      return locale;
-  }
-}
-
-function absoluteReturnUrl(locale: string): string {
+function billingReturnUrl(locale: string): string {
   const base = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
   const prefix = locale === "en" ? "" : `/${locale}`;
   return `${base}${prefix}/team/billing`;

@@ -55,6 +55,210 @@ export const PLAN_CREDITS: Record<AgencyPlanTier, number> = {
   BOUTIQUE: 12_000,
 };
 
+// ─── Canonical plan registry · the portal-prototype pricing model ───────────
+//
+// The agency billing UI (the prototype's "Billing & credits" screen) is the
+// single source of truth for what plans are DISPLAYED, priced, and how many
+// credits each grants. This is deliberately DECOUPLED from the Prisma
+// `AgencyPlan` enum (SOLO/GROWTH/AGENCY_PRO/BOUTIQUE) and from PLAN_CREDITS
+// above, because:
+//
+//   1. The enum + PLAN_CREDITS drive the live credit-grant engine
+//      (modules/cost/server.ts grantPlanCredits) and the existing Stripe
+//      webhook — renaming them is a live-Stripe + schema cutover that is
+//      `human-required` (payments). We don't touch them here.
+//   2. The display names / prices / credit amounts the prototype specifies
+//      (Free $0 / Starter $19 / Growth $99 / Scale $299) don't all have an
+//      enum home (there's no "Starter"/"Scale" enum value), so the display
+//      layer carries its own keys and maps to the enum where one exists.
+//
+// `PLAN_TIER_MAP` is the bridge: it maps each display plan key to the existing
+// AgencyPlan enum value used at grant time, so the UI can highlight the
+// active plan by reading `Agency.plan` and matching it back to a display card.
+
+/** Display-layer plan keys (the prototype's four tiers). */
+export type PlanKey = "free" | "starter" | "growth" | "scale";
+
+/** What one credit means — the prototype's credit definition, verbatim. */
+export const CREDIT_MEANING = {
+  /** Credits for one lead WITH contacts (email · phone · socials). */
+  contacts: 1,
+  /** Credits for one FULLY-enriched lead (reviews, ads, SERP, AI, compliance). */
+  fullEnrichment: 3,
+  /** Credits for 100 first-touch messages. */
+  firstTouchPer100: 10,
+} as const;
+
+export interface PlanCard {
+  key: PlanKey;
+  /** Display name shown on the plan card + current-plan header. */
+  displayName: string;
+  /** Monthly price in whole USD (0 for Free). */
+  priceUsd: number;
+  /** Monthly credit grant (or one-time grant for Free). */
+  monthlyCredits: number;
+  /** True when the grant is one-time (Free), not a recurring monthly allowance. */
+  oneTime: boolean;
+  /** Derived headline: how many fully-enriched leads the grant buys. */
+  fullyEnriched: number;
+  /** Derived headline: how many leads-with-contacts the grant buys. */
+  withContacts: number;
+  /** Short effective-rate string (e.g. "$0.05 / enriched lead"). */
+  rate: string;
+  /** Whether this is the recommended / best-value tier (renders the ribbon). */
+  featured: boolean;
+  /** ✓-bulleted feature list (last entry may be a "muted" note). */
+  features: string[];
+  /** Worked-example blurb shown in the indigo .plan-calc box. */
+  calc: string;
+}
+
+/**
+ * The four canonical plans, EXACTLY matching docs/portal-prototype.html
+ * (lines 8052–8188). `fullyEnriched` = floor(credits / 3) and `withContacts`
+ * = credits (1 credit = 1 lead-with-contacts), matching the prototype's
+ * hand-written numbers.
+ */
+export const PLAN_CARDS: Record<PlanKey, PlanCard> = {
+  free: {
+    key: "free",
+    displayName: "Free",
+    priceUsd: 0,
+    monthlyCredits: 50,
+    oneTime: true,
+    fullyEnriched: 16,
+    withContacts: 50,
+    rate: "Never expire · no card",
+    featured: false,
+    features: [
+      "Discovery — unlimited, free",
+      "Contacts on every lead",
+      "Full enrichment + first-touch",
+      "Never expire",
+    ],
+    calc: "Map any market free → fully enrich 50 leads, or pull contacts on 150. Enough to win your first client.",
+  },
+  starter: {
+    key: "starter",
+    displayName: "Starter",
+    priceUsd: 19,
+    monthlyCredits: 900,
+    oneTime: false,
+    fullyEnriched: 300,
+    withContacts: 900,
+    rate: "from $0.06 / enriched lead",
+    featured: false,
+    features: [
+      "Discovery — unlimited, free",
+      "Contacts on every lead",
+      "Full enrichment + first-touch",
+    ],
+    calc: "≈ 300 fully enriched, or 900 with contacts — e.g. 3 markets · ~100 each.",
+  },
+  growth: {
+    key: "growth",
+    displayName: "Growth",
+    priceUsd: 99,
+    monthlyCredits: 6_000,
+    oneTime: false,
+    fullyEnriched: 2_000,
+    withContacts: 6_000,
+    rate: "$0.05 / enriched lead",
+    featured: true,
+    features: [
+      "Discovery — unlimited, free",
+      "Contacts on every lead",
+      "Deep audit included (speed + keywords)",
+    ],
+    calc: "≈ 2,000 fully enriched, or 6,000 with contacts · dozens of markets · 3 teammates.",
+  },
+  scale: {
+    key: "scale",
+    displayName: "Scale",
+    priceUsd: 299,
+    monthlyCredits: 24_000,
+    oneTime: false,
+    fullyEnriched: 8_000,
+    withContacts: 24_000,
+    rate: "from $0.037 / enriched lead",
+    featured: false,
+    features: [
+      "Discovery — unlimited, free",
+      "Contacts on every lead",
+      "Deep audit included (speed + keywords)",
+      "Priority support",
+    ],
+    calc: "≈ 8,000 fully enriched, or 24,000 with contacts · high-volume prospecting at the lowest rate.",
+  },
+};
+
+/** Ordered display list (Free → Starter → Growth → Scale). */
+export const PLAN_CARD_ORDER: PlanKey[] = [
+  "free",
+  "starter",
+  "growth",
+  "scale",
+];
+
+/**
+ * Bridge from the display plan key → the existing Prisma `AgencyPlan` enum
+ * value used at grant time. `free` has no enum home (free agencies have a
+ * `null` plan), so it maps to `null`. The paid tiers map to the closest
+ * existing enum value. NOTE: this map is the seam the human will revisit when
+ * the AgencyPlan enum is eventually renamed (see the human-required note in
+ * the build summary) — the UI stays correct regardless of the enum's labels.
+ */
+export const PLAN_TIER_MAP: Record<PlanKey, AgencyPlanTier | null> = {
+  free: null,
+  starter: "SOLO",
+  growth: "GROWTH",
+  scale: "BOUTIQUE",
+};
+
+/** Reverse bridge: given an `Agency.plan` enum value, which display card? */
+export function planKeyForEnum(
+  enumValue: AgencyPlanTier | null | undefined,
+): PlanKey {
+  if (!enumValue) return "free";
+  const hit = PLAN_CARD_ORDER.find((k) => PLAN_TIER_MAP[k] === enumValue);
+  return hit ?? "free";
+}
+
+export interface TopUpPack {
+  /** Stable key (used for the checkout action + env price-id lookup). */
+  key: "pack_1000" | "pack_5000";
+  /** Credits added to purchasedCredits on purchase. */
+  credits: number;
+  /** One-time price in whole USD. */
+  priceUsd: number;
+  /** Effective per-credit rate string (e.g. "$0.05 / credit"). */
+  rate: string;
+  /** Whether the pack renders with the primary (filled) CTA. */
+  primary: boolean;
+}
+
+/**
+ * One-time top-up packs — the prototype's "the only place real money is
+ * spent" surface. Purchased credits land in `AgencyWallet.purchasedCredits`
+ * and never expire.
+ */
+export const TOPUP_PACKS: TopUpPack[] = [
+  {
+    key: "pack_1000",
+    credits: 1_000,
+    priceUsd: 50,
+    rate: "$0.05 / credit",
+    primary: false,
+  },
+  {
+    key: "pack_5000",
+    credits: 5_000,
+    priceUsd: 200,
+    rate: "$0.04 / credit",
+    primary: true,
+  },
+];
+
 export type EnrichmentType =
   | "contacts"
   | "services"

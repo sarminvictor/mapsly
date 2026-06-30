@@ -759,3 +759,38 @@ export async function grantFreeTierIfNew(agencyId: string): Promise<void> {
     }),
   ]);
 }
+
+/**
+ * Grant a one-time top-up pack's credits to an agency's PURCHASED bucket
+ * (never expires). Idempotent per Stripe session: the dedupe note is keyed on
+ * the checkout session id so a webhook replay never double-grants.
+ *
+ * Unlike a plan grant (which resets the plan bucket), this INCREMENTS
+ * purchasedCredits and is additive to whatever is already there.
+ */
+export async function grantTopUpCredits(
+  agencyId: string,
+  credits: number,
+  usd: number,
+  dedupeKey: string,
+): Promise<void> {
+  if (credits <= 0) return;
+  await getOrCreateWallet(agencyId);
+
+  const note = `topup-purchase:${dedupeKey}`;
+  const already = await prisma.creditLedger.findFirst({
+    where: { agencyId, type: "TOPUP", note },
+    select: { id: true },
+  });
+  if (already) return; // idempotent per Stripe session
+
+  await prisma.$transaction([
+    prisma.agencyWallet.update({
+      where: { agencyId },
+      data: { purchasedCredits: { increment: credits } },
+    }),
+    prisma.creditLedger.create({
+      data: { agencyId, type: "TOPUP", credits, usd, note },
+    }),
+  ]);
+}
