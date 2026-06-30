@@ -82,15 +82,26 @@ function parseCells(
 }
 
 /** Reconstruct the working GOAL from its template key + the on-signal set. */
-function decodeGoal(goalKey: string | null, sig: string | null): GoalState | null {
+function decodeGoal(
+  goalKey: string | null,
+  sig: string | null,
+): GoalState | null {
   if (!goalKey) return null;
   const tpl = templateByKey(goalKey);
   if (!tpl) return null;
   const g = loadGoalFrom(tpl);
   if (sig != null) {
     const on = new Set(sig.split(",").filter(Boolean));
+    // The template's DEFAULT on-set, captured before the URL sig is applied.
+    const defaultOn = new Set(g.filters.filter((f) => f.on).map((f) => f.key));
     g.filters = g.filters.map((f) => ({ ...f, on: on.has(f.key) }));
-    g.customized = true;
+    // "Customized" ONLY when the chosen signal set actually differs from the
+    // template default — not merely because a sig is present in the URL (it
+    // always is, since we persist the on-set there). Compare the sets by value.
+    const currentOn = g.filters.filter((f) => f.on).map((f) => f.key);
+    g.customized =
+      currentOn.length !== defaultOn.size ||
+      currentOn.some((k) => !defaultOn.has(k));
   }
   return g;
 }
@@ -118,10 +129,7 @@ export function GetLeadsFlow({
   const pathname = usePathname();
 
   // ── Derive ALL flow state from the URL ──────────────────────────────────
-  const goal = useMemo(
-    () => decodeGoal(sp.get("goal"), sp.get("sig")),
-    [sp],
-  );
+  const goal = useMemo(() => decodeGoal(sp.get("goal"), sp.get("sig")), [sp]);
   const cells = useMemo(
     () => parseCells(sp.get("cells"), metros, categories),
     [sp, metros, categories],
@@ -148,7 +156,10 @@ export function GetLeadsFlow({
 
   // ── URL writers ─────────────────────────────────────────────────────────
   const setParams = useCallback(
-    (patch: Record<string, string | number | null | undefined>, push = false) => {
+    (
+      patch: Record<string, string | number | null | undefined>,
+      push = false,
+    ) => {
       const next = new URLSearchParams(sp.toString());
       for (const [k, v] of Object.entries(patch)) {
         if (v == null || v === "") next.delete(k);
@@ -162,8 +173,10 @@ export function GetLeadsFlow({
   );
 
   const goTo = useCallback(
-    (s: FlowStep, extra: Record<string, string | number | null | undefined> = {}) =>
-      setParams({ step: s, ...extra }, true),
+    (
+      s: FlowStep,
+      extra: Record<string, string | number | null | undefined> = {},
+    ) => setParams({ step: s, ...extra }, true),
     [setParams],
   );
   const setGoal = useCallback(
