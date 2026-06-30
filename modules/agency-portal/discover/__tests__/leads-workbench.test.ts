@@ -31,6 +31,8 @@ function row(over: Partial<WorkbenchLeadRow> = {}): WorkbenchLeadRow {
     status: "NEW",
     match: 80,
     matchDerived: false,
+    matchFromSignals: false,
+    perSignal: {},
     pains: [],
     reachability: "RICH",
     reachable: true,

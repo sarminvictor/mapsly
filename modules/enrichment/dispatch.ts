@@ -29,6 +29,7 @@ import { ENRICHMENT_PRICES, type EnrichmentType } from "@/modules/cost/pricing";
 import { reconcileRunCredits } from "@/modules/cost/server";
 import { usdToCredits } from "@/modules/cost/estimate";
 import { loadFreshTimestamps } from "@/modules/discovery/enrich-fresh-db";
+import { enrichLighthouseForBusinesses } from "@/modules/discovery/enrich-lighthouse";
 import { runDiscovery } from "@/modules/discovery/run-discovery";
 import { rawListWhere } from "@/modules/discovery/raw-list";
 import { scanBusinessContacts } from "@/modules/contacts/scan";
@@ -125,8 +126,13 @@ async function recomputeCells(
 
 // ── Per-business job plan ────────────────────────────────────────────────────
 
-type JobFamily = "CONTACTS" | "SERVICES" | "REVIEWS" | "AI_RESEARCH";
-type FreshCursor = "contacts" | "reviews" | null;
+type JobFamily =
+  | "CONTACTS"
+  | "SERVICES"
+  | "REVIEWS"
+  | "AI_RESEARCH"
+  | "LIGHTHOUSE";
+type FreshCursor = "contacts" | "reviews" | "lighthouse" | null;
 
 interface JobPlanEntry {
   family: JobFamily;
@@ -142,6 +148,12 @@ const WORKER: Record<JobFamily, (businessId: string) => Promise<unknown>> = {
   SERVICES: (id) => extractServicesForBusiness(id),
   REVIEWS: (id) => submitReviewJob(id, "manual"),
   AI_RESEARCH: (id) => runAiResearchForBusiness(id),
+  // One business per job. enrichLighthouseForBusinesses does open-first (cheap
+  // DfS, ~$0.004) and only runs the $0.06 walled actor on a Cloudflare-challenge
+  // result — walledLimit:1 + maxUsageUsd:0.1 hard-cap a single business so it
+  // can't run away (the dispatch cron supplies the required open CronRun).
+  LIGHTHOUSE: (id) =>
+    enrichLighthouseForBusinesses([id], { walledLimit: 1, maxUsageUsd: 0.1 }),
 };
 
 /** Build the per-business job plan from the run's selected families. Contacts +
@@ -173,6 +185,14 @@ function buildJobPlan(has: (f: EnrichmentType) => boolean): JobPlanEntry[] {
       plannedUsd: ENRICHMENT_PRICES.reviews.usdPerUnit,
       cursor: "reviews",
       freshDays: ENRICHMENT_PRICES.reviews.freshnessDays,
+    });
+  }
+  if (has("lighthouse")) {
+    plan.push({
+      family: "LIGHTHOUSE",
+      plannedUsd: ENRICHMENT_PRICES.lighthouse.usdPerUnit,
+      cursor: "lighthouse",
+      freshDays: ENRICHMENT_PRICES.lighthouse.freshnessDays,
     });
   }
   if (has("ai_research")) {
@@ -347,6 +367,21 @@ async function unitFreshAtProcess(
     return isFresh(
       b?.reviewsLastDeltaAt,
       ENRICHMENT_PRICES.reviews.freshnessDays,
+      now,
+    );
+  }
+  if (family === "LIGHTHOUSE") {
+    // The latest LighthouseAudit is the freshness cursor (enrichLighthouse-
+    // ForBusinesses re-checks this too, but gating here keeps the no-op cheap:
+    // a now-fresh unit is SKIPPED_FRESH at $0, never a DONE job billed $0.00425).
+    const last = await prisma.lighthouseAudit.findFirst({
+      where: { businessId },
+      orderBy: { auditedAt: "desc" },
+      select: { auditedAt: true },
+    });
+    return isFresh(
+      last?.auditedAt,
+      ENRICHMENT_PRICES.lighthouse.freshnessDays,
       now,
     );
   }
@@ -661,8 +696,24 @@ export async function dispatchPending(limit = 10): Promise<DispatchResult> {
     res.enrichmentRunsProcessed++;
   }
 
-  // Work a batch of QUEUED jobs across all RUNNING runs.
-  const queued = await prisma.enrichmentJob.findMany({
+  // Work a batch of QUEUED jobs, DEPENDENCY-ORDERED. The DAG rule "we can't
+  // enrich with AI before we have the DOM" is enforced here without a schema
+  // change: a business's DOM-dependent families (SERVICES, AI_RESEARCH — they
+  // read the captured DOM / its derived facts) are not claimed until that
+  // business's CONTACTS (DOM root) job is terminal. Roots (CONTACTS/REVIEWS) and
+  // LIGHTHOUSE (own fetch) are never gated, so the chain always makes progress
+  // (no deadlock). Over-fetch, order roots-first (stable sort preserves the
+  // createdAt order within a priority), gate the dependents, take JOB_BATCH.
+  const FAMILY_PRIORITY: Record<string, number> = {
+    CONTACTS: 0,
+    REVIEWS: 0,
+    LIGHTHOUSE: 1,
+    SERVICES: 2,
+    AI_RESEARCH: 2,
+  };
+  const DOM_DEPENDENT = new Set(["SERVICES", "AI_RESEARCH"]);
+
+  const pool = await prisma.enrichmentJob.findMany({
     where: { status: "QUEUED" },
     select: {
       id: true,
@@ -671,9 +722,38 @@ export async function dispatchPending(limit = 10): Promise<DispatchResult> {
       attempts: true,
       costUsd: true,
     },
-    take: JOB_BATCH,
+    take: JOB_BATCH * 3,
     orderBy: { createdAt: "asc" },
   });
+  pool.sort(
+    (a, b) =>
+      (FAMILY_PRIORITY[a.family] ?? 1) - (FAMILY_PRIORITY[b.family] ?? 1),
+  );
+
+  // A dependent business is blocked this tick iff it still has a non-terminal
+  // CONTACTS job (it stays QUEUED for the next tick, once the DOM lands).
+  const depBizIds = [
+    ...new Set(
+      pool.filter((j) => DOM_DEPENDENT.has(j.family)).map((j) => j.businessId),
+    ),
+  ];
+  const blocked = new Set<string>();
+  if (depBizIds.length > 0) {
+    const pendingContacts = await prisma.enrichmentJob.findMany({
+      where: {
+        businessId: { in: depBizIds },
+        family: "CONTACTS",
+        status: { in: ["QUEUED", "RUNNING"] },
+      },
+      select: { businessId: true },
+    });
+    for (const c of pendingContacts) blocked.add(c.businessId);
+  }
+
+  const queued = pool
+    .filter((j) => !DOM_DEPENDENT.has(j.family) || !blocked.has(j.businessId))
+    .slice(0, JOB_BATCH);
+
   for (const job of queued) {
     const outcome = await processJob(job, new Date());
     if (outcome === "done") res.unitsDone++;

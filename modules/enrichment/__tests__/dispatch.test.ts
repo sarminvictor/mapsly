@@ -29,6 +29,7 @@ vi.mock("@/lib/prisma", () => ({
     },
     businessCategory: { findFirst: vi.fn() },
     business: { findUnique: vi.fn(), findMany: vi.fn() },
+    lighthouseAudit: { findFirst: vi.fn() },
   },
 }));
 vi.mock("@/modules/discovery/enrich-fresh-db", () => ({
@@ -39,6 +40,9 @@ vi.mock("@/modules/discovery/enrich-fresh-db", () => ({
 }));
 vi.mock("@/modules/cost/server", () => ({ reconcileRunCredits: vi.fn() }));
 vi.mock("@/modules/discovery/run-discovery", () => ({ runDiscovery: vi.fn() }));
+vi.mock("@/modules/discovery/enrich-lighthouse", () => ({
+  enrichLighthouseForBusinesses: vi.fn(),
+}));
 vi.mock("@/modules/contacts/scan", () => ({ scanBusinessContacts: vi.fn() }));
 vi.mock("@/modules/reviews/review-job", () => ({ submitReviewJob: vi.fn() }));
 vi.mock("@/modules/cell-intel/meta-ads", () => ({
@@ -65,6 +69,7 @@ vi.mock("@/modules/cell-intel/recompute-metrics", () => ({
 import prisma from "@/lib/prisma";
 import { reconcileRunCredits } from "@/modules/cost/server";
 import { runDiscovery } from "@/modules/discovery/run-discovery";
+import { enrichLighthouseForBusinesses } from "@/modules/discovery/enrich-lighthouse";
 import { scanBusinessContacts } from "@/modules/contacts/scan";
 import { runSerpForCell } from "@/modules/cell-intel/serp";
 import { runPlaybooksForBusiness } from "@/modules/playbooks/run";
@@ -85,6 +90,7 @@ beforeEach(() => {
   p.enrichmentJob.update.mockResolvedValue({});
   p.business.findUnique.mockResolvedValue({ contactsExtractedAt: null });
   p.business.findMany.mockResolvedValue([]); // no hidden businesses by default
+  p.lighthouseAudit.findFirst.mockResolvedValue(null); // never audited by default
   p.discovery.update.mockResolvedValue({});
 });
 
@@ -152,6 +158,60 @@ describe("fanOutRun", () => {
       updates.some((d: any) => d.unitsSkippedHidden === 1),
     ).toBe(true);
   });
+
+  test("lighthouse selection creates a LIGHTHOUSE job priced per unit", async () => {
+    p.enrichmentRun.findUnique.mockResolvedValue({
+      id: "r1",
+      status: "PENDING",
+      enrichmentsJson: ["lighthouse"],
+      scopeRefsJson: { businessIds: ["b1"], cellKeys: [] },
+    });
+
+    const out = await fanOutRun("r1", new Date());
+
+    const rows = p.enrichmentJob.createMany.mock.calls[0][0].data;
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toEqual(
+      expect.objectContaining({
+        businessId: "b1",
+        family: "LIGHTHOUSE",
+        status: "QUEUED",
+        // $0.00425 = ENRICHMENT_PRICES.lighthouse.usdPerUnit (DfS lighthouse).
+        costUsd: 0.00425,
+      }),
+    );
+    expect(out.jobsCreated).toBe(1);
+  });
+
+  test("a fresh lighthouse unit is SKIPPED_FRESH at $0 (no re-audit, no charge)", async () => {
+    const { loadFreshTimestamps } =
+      await import("@/modules/discovery/enrich-fresh-db");
+    // Business b1 was audited just now → within the 30-day window.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (loadFreshTimestamps as any).mockResolvedValueOnce({
+      perBusiness: new Map([["b1", { lighthouse: new Date() }]]),
+      perCell: new Map(),
+    });
+    p.enrichmentRun.findUnique.mockResolvedValue({
+      id: "r1",
+      status: "PENDING",
+      enrichmentsJson: ["lighthouse"],
+      scopeRefsJson: { businessIds: ["b1"], cellKeys: [] },
+    });
+
+    await fanOutRun("r1", new Date());
+
+    const rows = p.enrichmentJob.createMany.mock.calls[0][0].data;
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toEqual(
+      expect.objectContaining({
+        businessId: "b1",
+        family: "LIGHTHOUSE",
+        status: "SKIPPED_FRESH",
+        costUsd: 0,
+      }),
+    );
+  });
 });
 
 describe("processJob", () => {
@@ -191,6 +251,45 @@ describe("processJob", () => {
     );
     expect(out).toBe("skipped");
     expect(scanBusinessContacts).not.toHaveBeenCalled();
+  });
+
+  test("routes a LIGHTHOUSE job to enrichLighthouseForBusinesses and marks DONE", async () => {
+    const out = await processJob(
+      {
+        id: "j1",
+        businessId: "b1",
+        family: "LIGHTHOUSE",
+        attempts: 0,
+        costUsd: 0.00425,
+      },
+      new Date(),
+    );
+    expect(enrichLighthouseForBusinesses).toHaveBeenCalledWith(
+      ["b1"],
+      expect.objectContaining({ walledLimit: 1, maxUsageUsd: 0.1 }),
+    );
+    expect(out).toBe("done");
+    expect(p.enrichmentJob.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ status: "DONE" }),
+      }),
+    );
+  });
+
+  test("skips a now-fresh LIGHTHOUSE unit (no re-audit / re-bill)", async () => {
+    p.lighthouseAudit.findFirst.mockResolvedValue({ auditedAt: new Date() });
+    const out = await processJob(
+      {
+        id: "j1",
+        businessId: "b1",
+        family: "LIGHTHOUSE",
+        attempts: 0,
+        costUsd: 0.00425,
+      },
+      new Date(),
+    );
+    expect(out).toBe("skipped");
+    expect(enrichLighthouseForBusinesses).not.toHaveBeenCalled();
   });
 
   test("requeues on failure, then fails terminally at max attempts", async () => {

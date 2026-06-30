@@ -21,6 +21,7 @@ import type { Breakpoints, CellDistributions } from "@/modules/scoring";
 import { parseCellKey } from "@/lib/cell";
 import {
   CELL_MIN_SAMPLE,
+  organicDistributionsForBusinesses,
   quantiles,
   signalsFromSnapshot,
 } from "@/modules/market/cell-metrics";
@@ -76,6 +77,7 @@ export async function recomputeCellMetric(
     distinct: ["businessId"],
     take: MAX_CELL_SNAPSHOTS,
     select: {
+      businessId: true,
       snapshotDate: true,
       signalsJson: true,
       rating: true,
@@ -114,6 +116,10 @@ export async function recomputeCellMetric(
   const bpShareOfVoice = quantiles(vals((s) => s.shareOfVoice));
   const bpPerf = quantiles(vals((s) => s.lighthousePerformance));
   const bpSpend = quantiles(vals((s) => s.estMonthlyAdSpend));
+  // Cluster-C organic distributions from already-stored BusinessKeyword +
+  // SerpResult rows (ZERO external cost). One value per business in the cell.
+  const { organicTraffic: bpOrganicTraffic, organicRank: bpOrganicRank } =
+    await organicDistributionsForBusinesses(snapshots.map((s) => s.businessId));
 
   const adFlags = rows
     .map((s) => s.hasActiveAds)
@@ -129,6 +135,8 @@ export async function recomputeCellMetric(
     ...(bpShareOfVoice ? { shareOfVoice: bpShareOfVoice } : {}),
     ...(bpPerf ? { lighthousePerformance: bpPerf } : {}),
     ...(bpSpend ? { estMonthlyAdSpend: bpSpend } : {}),
+    ...(bpOrganicTraffic ? { organicTraffic: bpOrganicTraffic } : {}),
+    ...(bpOrganicRank ? { organicRank: bpOrganicRank } : {}),
   };
 
   const lastSnapshotAt =

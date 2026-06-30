@@ -53,14 +53,24 @@ import { US_METROS } from "@/lib/geo/us-metros";
 import { usdToCredits } from "@/modules/cost/estimate";
 import { rawListWhere } from "@/modules/discovery/raw-list";
 import { cellBand } from "@/modules/agency-portal/discover/signals";
+import { deriveFamilyCoverage } from "@/modules/agency-portal/discover/family-coverage";
 import {
-  deriveMatchPct,
+  loadCoverageMatrix,
+  coverageMatrixToMap,
+} from "@/modules/agency-portal/discover/coverage-matrix";
+import {
+  resolveLeadMatch,
   painGroupClass,
   type CellBand,
   type LeadStatus,
   type TouchState,
   type WorkbenchLeadRow,
 } from "@/modules/agency-portal/discover/leads-workbench";
+import {
+  hydrateBusinessForSignals,
+  resolveMatches,
+} from "@/modules/agency-portal/discover/signal-eval";
+import { activeSignalsFromJson } from "@/modules/agency-portal/discover/discovery-signals";
 import {
   WorkbenchShell,
   type WorkbenchShellProps,
@@ -120,6 +130,7 @@ async function DiscoveryWorkspaceBody({ params }: PageProps) {
       agencyId: true,
       name: true,
       cellKeys: true,
+      signalsJson: true,
       spendToDateUsd: true,
       totalBusinesses: true,
       createdAt: true,
@@ -174,9 +185,19 @@ async function DiscoveryWorkspaceBody({ params }: PageProps) {
   //   - CMS tech (built-on)
   //   - contacts (phones / emails + reachable)
   //   - OutreachDrafts (the Touchpoints tab + per-lead touch state)
-  const [existingLeads, snapshots, audits, findings, techs, contacts, drafts] =
+  const [
+    existingLeads,
+    snapshots,
+    audits,
+    findings,
+    techs,
+    contacts,
+    drafts,
+    ads,
+    serps,
+  ] =
     businessIds.length === 0
-      ? [[], [], [], [], [], [], []]
+      ? [[], [], [], [], [], [], [], [], []]
       : await Promise.all([
           prisma.lead.findMany({
             where: {
@@ -237,7 +258,38 @@ async function DiscoveryWorkspaceBody({ params }: PageProps) {
               whyJson: true,
             },
           }),
+          // Ads + Search presence — the SAME real rows the lead drawer reads
+          // (adsEnriched = ads.length > 0 · serpEnriched = serp != null). These
+          // feed the coverage map so the table no longer fakes ads/search as
+          // never-covered. Existence-only (distinct businessId).
+          prisma.adLibraryEntry.findMany({
+            where: { businessId: { in: businessIds } },
+            select: { businessId: true },
+            distinct: ["businessId"],
+          }),
+          prisma.serpResult.findMany({
+            where: { businessId: { in: businessIds } },
+            select: { businessId: true },
+            distinct: ["businessId"],
+          }),
         ]);
+
+  // Ads / Search presence sets (one membership test per business below).
+  const adsByBusiness = new Set(ads.map((r) => r.businessId));
+  const serpByBusiness = new Set(serps.map((r) => r.businessId));
+
+  // ── Real signal evaluation (P3) ────────────────────────────────────────────
+  // The research's persisted signals → ActiveSignal[] via SIG_META. When present,
+  // we hydrate every business ONCE (batched, read-only, snapshots only) and
+  // resolveMatches per lead for a REAL match% + per-signal verdicts — replacing
+  // the pain-count heuristic. signalsJson absent / no active signals → empty
+  // ActiveSignal[] → the per-row fallback keeps deriveMatchPct (nothing breaks).
+  const activeSignals = activeSignalsFromJson(discovery.signalsJson);
+  const hydrated =
+    activeSignals.length > 0 && businessIds.length > 0
+      ? await hydrateBusinessForSignals(businessIds)
+      : null;
+  const evalNow = new Date();
 
   // First (=latest) row per business for the "latest snapshot/audit" pattern.
   const latestSnapshot = firstByBusiness(snapshots);
@@ -305,8 +357,15 @@ async function DiscoveryWorkspaceBody({ params }: PageProps) {
     const pains = painsById.get(b.id) ?? [];
     const cell = prettyCell(b.cellKey);
     const lead = leadByBusiness.get(b.id) ?? null;
-    // No stored Lead.matchScore at the discovery scope → derive from pains.
-    const { match, derived } = deriveMatchPct(null, pains.length);
+    // REAL signal eval when the research persisted signals; else (no signals /
+    // not-computable) fall back to the pain-count heuristic. No stored
+    // Lead.matchScore at the discovery scope.
+    const evalResult =
+      hydrated && hydrated.get(b.id)
+        ? resolveMatches(activeSignals, hydrated.get(b.id)!, evalNow)
+        : null;
+    const { match, matchFromSignals, matchDerived, perSignal } =
+      resolveLeadMatch(evalResult, null, pains.length);
 
     return {
       // Real Lead id when this business already lives in a saved list (wired
@@ -319,7 +378,9 @@ async function DiscoveryWorkspaceBody({ params }: PageProps) {
       cell,
       status: lead?.status ?? "NEW",
       match,
-      matchDerived: derived,
+      matchDerived,
+      matchFromSignals,
+      perSignal,
       pains: pains.map((p) => ({ ...p, group: painGroupClass(p.group) })),
       reachability: b.reachability,
       reachable:
@@ -333,14 +394,16 @@ async function DiscoveryWorkspaceBody({ params }: PageProps) {
       perf,
       phones,
       emails,
-      families: {
-        identity: true,
+      // All six families derived from the SAME real data the drawer uses — no
+      // hardcoded ads/search negatives. deriveFamilyCoverage is the single
+      // source of truth shared with the drawer + the coverage endpoint.
+      families: deriveFamilyCoverage({
         reviews: reviews != null,
         website: perf != null || builtOnById.has(b.id),
         contacts: phones.length > 0 || emails.length > 0,
-        ads: false,
-        search: false,
-      },
+        ads: adsByBusiness.has(b.id),
+        search: serpByBusiness.has(b.id),
+      }),
     };
   });
 
@@ -396,8 +459,16 @@ async function DiscoveryWorkspaceBody({ params }: PageProps) {
     won: rows.filter((r) => r.status === "WON").length,
   };
 
+  // ── Coverage matrix (the doc's batched GET /research/:id/coverage) ─────────
+  // Fetched server-side via the SHARED loader the endpoint also uses, then
+  // passed to the client workbench as a PLAIN `{ businessId: families[] }` map
+  // (Pattern 4 — no functions cross the boundary). Drives the per-row dot-strip.
+  // Same rawListWhere + ordering as the rows above, so it aligns row-for-row.
+  const coverageRows = await loadCoverageMatrix(discovery.id, agencyId);
+  const coverage = coverageRows ? coverageMatrixToMap(coverageRows) : {};
+
   const shell: WorkbenchShellProps = {
-    leads: { rows, discoveryId, bands },
+    leads: { rows, discoveryId, bands, coverage },
     touchpoints: { touches, stats },
   };
 

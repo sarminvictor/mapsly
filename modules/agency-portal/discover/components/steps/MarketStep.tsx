@@ -12,12 +12,7 @@
 import { useMemo, useState } from "react";
 
 import { SIG_META } from "../../goal-templates";
-import {
-  estBizCount,
-  estFreshness,
-  type GoalState,
-  type MarketCell,
-} from "../../flow-types";
+import { type GoalState, type MarketCell } from "../../flow-types";
 import { MarketCombobox, type ComboOption } from "../MarketCombobox";
 
 export interface MetroOption {
@@ -218,16 +213,13 @@ export function MarketStep({
                       className="cellrow"
                       key={`${c.metroSlug}-${c.categoryId}`}
                     >
-                      <span
-                        className={`freshdot ${estFreshness(i)}`}
-                        aria-hidden="true"
-                      />
+                      <span className="freshdot new" aria-hidden="true" />
                       <div style={{ minWidth: 0 }}>
                         <div style={{ fontWeight: 600 }}>
                           {c.category} · {c.city.split(",")[0]}
                         </div>
                         <div className="note">
-                          ~{estBizCount(i)} local businesses
+                          Counts &amp; freshness on the next step
                         </div>
                       </div>
                       <button

@@ -46,6 +46,20 @@ export interface WorkbenchLeadRow {
   match: number;
   /** Whether match was stored (true) or derived from finding count (false). */
   matchDerived: boolean;
+  /**
+   * True when `match` came from evaluating the research's persisted signals
+   * (resolveMatches over the discovery's signalsJson) rather than the pain-count
+   * heuristic. False for older discoveries / lists with no persisted signals.
+   */
+  matchFromSignals: boolean;
+  /**
+   * Per-signal verdict for the research's chosen signals, keyed by SIG_META key:
+   * true = fired · false = didn't · null = not computable yet (data absent —
+   * honest "enrich to unlock", never a fake match). Empty when no signals were
+   * persisted (the match% then comes from the heuristic). Plain serializable
+   * data — crosses the client boundary as-is (Pattern 4, no functions).
+   */
+  perSignal: Record<string, boolean | null>;
   /** Pain-point chips (flagged findings), most-confident first. */
   pains: PainChip[];
   /** Reachability tier (RICH / MULTI / PHONE_ONLY / …). */
@@ -141,6 +155,58 @@ export function deriveMatchPct(
   return { match: Math.min(95, base), derived: true };
 }
 
+/** A signal-eval roll-up shape, mirrored here so this pure module stays free of
+ *  a `signal-eval` import (it carries no DB). The page passes the real
+ *  `MatchResult` from `resolveMatches`; only these fields are read. */
+export interface SignalMatchResult {
+  perSignal: Record<string, boolean | null>;
+  matchedCount: number;
+  applicableCount: number;
+  matchPct: number;
+}
+
+/**
+ * Resolve a lead's match for the workbench, preferring the REAL signal-eval
+ * result over the pain-count heuristic (P3).
+ *
+ * When `evalResult` has at least one APPLICABLE (computable) signal, the match%
+ * is the real `matchPct × 100` (honest: null/not-computable signals are already
+ * excluded from that denominator inside resolveMatches). Otherwise — no
+ * persisted signals, or every signal was not-computable for this lead — we fall
+ * back to {@link deriveMatchPct} so the column never reads a misleading 0.
+ *
+ * Returns the display match, whether it came from signals, whether it's derived,
+ * and the per-signal verdict map (empty when there were no signals). Pure.
+ */
+export function resolveLeadMatch(
+  evalResult: SignalMatchResult | null,
+  storedScore: number | null | undefined,
+  painCount: number,
+): {
+  match: number;
+  matchFromSignals: boolean;
+  matchDerived: boolean;
+  perSignal: Record<string, boolean | null>;
+} {
+  if (evalResult && evalResult.applicableCount > 0) {
+    return {
+      match: Math.max(0, Math.min(100, Math.round(evalResult.matchPct * 100))),
+      matchFromSignals: true,
+      matchDerived: false,
+      perSignal: evalResult.perSignal,
+    };
+  }
+  // No computable signals → heuristic (still surface any null verdicts so the
+  // drawer/tooltip can show "enrich to unlock" honestly).
+  const { match, derived } = deriveMatchPct(storedScore, painCount);
+  return {
+    match,
+    matchFromSignals: false,
+    matchDerived: derived,
+    perSignal: evalResult?.perSignal ?? {},
+  };
+}
+
 // ── vs-cell delta formatting ─────────────────────────────────────────────────
 
 export type DeltaDir = "up" | "dn" | "flat";
@@ -210,7 +276,8 @@ export type ColumnKind =
   | "text" // plain text (built-on)
   | "contact" // contact links
   | "status" // status pill
-  | "touch"; // touch pill
+  | "touch" // touch pill
+  | "cov"; // per-row enrichment coverage dot-strip
 
 export interface ColumnDef {
   /** Stable key (also the WorkbenchLeadRow field for num/text columns). */
@@ -334,6 +401,15 @@ export const COLUMNS: readonly ColumnDef[] = [
     defaultOn: false,
     group: "enriched",
     family: "contacts",
+  },
+  {
+    key: "cov",
+    label: "Enriched",
+    fullLabel: "Enrichment coverage (data families have / not yet)",
+    kind: "cov",
+    sortable: false,
+    defaultOn: true,
+    group: "workflow",
   },
   {
     key: "status",

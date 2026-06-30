@@ -9,6 +9,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 // ---- prisma mock --------------------------------------------------------
 interface Snap {
+  businessId: string;
   snapshotDate: Date;
   signalsJson: unknown;
   rating: number | null;
@@ -22,6 +23,11 @@ const db = vi.hoisted(() => {
   const upserts: Array<Record<string, unknown>> = [];
   const updateManys: Array<Record<string, unknown>> = [];
   let snapshots: Snap[] = [];
+  let keywordRows: Array<{
+    businessId: string;
+    latestEstMonthlyVisits: number | null;
+  }> = [];
+  let serpRows: Array<{ businessId: string; organicRank: number | null }> = [];
   return {
     upserts,
     updateManys,
@@ -31,6 +37,20 @@ const db = vi.hoisted(() => {
     getSnapshots() {
       return snapshots;
     },
+    setKeywordRows(
+      r: Array<{ businessId: string; latestEstMonthlyVisits: number | null }>,
+    ) {
+      keywordRows = r;
+    },
+    getKeywordRows() {
+      return keywordRows;
+    },
+    setSerpRows(r: Array<{ businessId: string; organicRank: number | null }>) {
+      serpRows = r;
+    },
+    getSerpRows() {
+      return serpRows;
+    },
   };
 });
 
@@ -38,6 +58,14 @@ vi.mock("@/lib/prisma", () => ({
   default: {
     businessSnapshot: {
       findMany: vi.fn(async () => db.getSnapshots()),
+    },
+    // Organic distribution pull (Cluster C) — empty in these tests; the helper
+    // simply contributes no organic breakpoints, which is what we assert below.
+    businessKeyword: {
+      findMany: vi.fn(async () => db.getKeywordRows()),
+    },
+    serpResult: {
+      findMany: vi.fn(async () => db.getSerpRows()),
     },
     cellMetric: {
       upsert: vi.fn(async (args: Record<string, unknown>) => {
@@ -53,14 +81,18 @@ vi.mock("@/lib/prisma", () => ({
   Prisma: { JsonNull: null },
 }));
 
-import { quantiles } from "@/modules/market/cell-metrics";
+import {
+  organicDistributionsForBusinesses,
+  quantiles,
+} from "@/modules/market/cell-metrics";
 import { recomputeCellMetric } from "../recompute-metrics";
 
 const CELL = "medical_spa|miami|US";
 const NOW = new Date("2026-06-22T12:00:00.000Z");
 
-function snap(rating: number, reviewCount: number): Snap {
+function snap(rating: number, reviewCount: number, businessId = "b0"): Snap {
   return {
+    businessId,
     snapshotDate: NOW,
     signalsJson: null,
     rating,
@@ -75,6 +107,8 @@ beforeEach(() => {
   db.upserts.length = 0;
   db.updateManys.length = 0;
   db.setSnapshots([]);
+  db.setKeywordRows([]);
+  db.setSerpRows([]);
 });
 
 afterEach(() => vi.clearAllMocks());
@@ -157,5 +191,65 @@ describe("recomputeCellMetric · confidence by sample size", () => {
     await expect(recomputeCellMetric("bad-key", { now: NOW })).rejects.toThrow(
       /malformed cellKey/,
     );
+  });
+
+  test("folds organic-traffic + organic-rank distributions into the written row", async () => {
+    db.setSnapshots(
+      Array.from({ length: 8 }, (_, i) => snap(4.5, 50, `b${i}`)),
+    );
+    // 2 keyword rows for one business → its organic-traffic value = 30+12 = 42.
+    db.setKeywordRows([
+      { businessId: "b0", latestEstMonthlyVisits: 30 },
+      { businessId: "b0", latestEstMonthlyVisits: 12 },
+      { businessId: "b1", latestEstMonthlyVisits: 100 },
+    ]);
+    // best (lowest) organic rank per business.
+    db.setSerpRows([
+      { businessId: "b0", organicRank: 8 },
+      { businessId: "b0", organicRank: 3 },
+      { businessId: "b1", organicRank: 5 },
+    ]);
+    await recomputeCellMetric(CELL, { now: NOW });
+    const create = (db.upserts[0] as { create: Record<string, unknown> })
+      .create;
+    const dist = create.distributions as Record<
+      string,
+      { p50: number } | undefined
+    >;
+    expect(dist.organicTraffic).toBeDefined();
+    expect(dist.organicRank).toBeDefined();
+    // organic-traffic values [42, 100] → p50 = 71.
+    expect(dist.organicTraffic!.p50).toBeCloseTo(71, 6);
+    // best-rank values [3, 5] → p50 = 4.
+    expect(dist.organicRank!.p50).toBeCloseTo(4, 6);
+  });
+});
+
+describe("organicDistributionsForBusinesses", () => {
+  test("sums est visits per business + takes best organic rank per business", async () => {
+    db.setKeywordRows([
+      { businessId: "b1", latestEstMonthlyVisits: 30 },
+      { businessId: "b1", latestEstMonthlyVisits: 20 }, // b1 → 50
+      { businessId: "b2", latestEstMonthlyVisits: 200 }, // b2 → 200
+      { businessId: "b3", latestEstMonthlyVisits: null }, // ignored
+    ]);
+    db.setSerpRows([
+      { businessId: "b1", organicRank: 12 },
+      { businessId: "b1", organicRank: 4 }, // b1 best → 4
+      { businessId: "b2", organicRank: 9 }, // b2 best → 9
+      { businessId: "b3", organicRank: null }, // ignored
+    ]);
+    const { organicTraffic, organicRank } =
+      await organicDistributionsForBusinesses(["b1", "b2", "b3"]);
+    // traffic values [50, 200] → p50 = 125.
+    expect(organicTraffic!.p50).toBeCloseTo(125, 6);
+    // rank values [4, 9] → p50 = 6.5.
+    expect(organicRank!.p50).toBeCloseTo(6.5, 6);
+  });
+
+  test("empty id list → both null (no query)", async () => {
+    const r = await organicDistributionsForBusinesses([]);
+    expect(r.organicTraffic).toBeNull();
+    expect(r.organicRank).toBeNull();
   });
 });

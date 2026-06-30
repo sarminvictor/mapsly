@@ -36,11 +36,15 @@ import type {
   LeadDomainBlock,
   LeadEvidenceRow,
   LeadFiredSignal,
+  LeadSignalVerdict,
 } from "../lead-detail";
 
 export interface LeadDrawerProps {
   /** The open lead's businessId, or null when the drawer is closed. */
   businessId: string | null;
+  /** The discovery this workbench is scoped to — selects whose persisted signals
+   *  the lead is evaluated against for the "why this qualifies" verdicts (P3). */
+  discoveryId: string;
   /** The CURRENT visible (filtered + sorted, flattened if grouped) row ids. */
   orderedIds: string[];
   /** Close the drawer (clears ?lead). */
@@ -62,6 +66,7 @@ type Loaded =
 
 export function LeadDrawer({
   businessId,
+  discoveryId,
   orderedIds,
   onClose,
   onNav,
@@ -79,7 +84,7 @@ export function LeadDrawer({
   useEffect(() => {
     if (businessId == null) return;
     const token = ++reqToken.current;
-    getLeadDetailAction(businessId)
+    getLeadDetailAction(businessId, discoveryId)
       .then((res: GetLeadDetailResult) => {
         if (token !== reqToken.current) return; // superseded
         if (res.status === "ok") {
@@ -101,7 +106,7 @@ export function LeadDrawer({
           message: "Couldn't load this lead.",
         });
       });
-  }, [businessId]);
+  }, [businessId, discoveryId]);
 
   // ── Escape closes · focus the close button on open ─────────────────────────
   useEffect(() => {
@@ -365,11 +370,20 @@ function DrawerBody({ lead, dimmed }: { lead: LeadDetail; dimmed: boolean }) {
           Expert signals · composites
         </div>
         <h2 style={{ margin: "0 0 10px" }}>Why this lead qualifies</h2>
+
+        {/* The research's chosen signals, with honest per-lead verdicts (P3):
+            fired / didn't / not computable yet ("enrich to unlock"). */}
+        {lead.signalVerdicts.length > 0 ? (
+          <SignalVerdicts verdicts={lead.signalVerdicts} />
+        ) : null}
+
         {lead.firedSignals.length === 0 ? (
-          <p className="note" style={{ margin: 0 }}>
-            No composite signals fired — this lead matched on raw qualifiers
-            only. Open the data sections below for the raw evidence.
-          </p>
+          lead.signalVerdicts.length === 0 ? (
+            <p className="note" style={{ margin: 0 }}>
+              No composite signals fired — this lead matched on raw qualifiers
+              only. Open the data sections below for the raw evidence.
+            </p>
+          ) : null
         ) : (
           lead.firedSignals.map((s) => <FiredSignal key={s.key} signal={s} />)
         )}
@@ -572,6 +586,73 @@ function ContactLinks({
         </span>
       ) : null}
     </>
+  );
+}
+
+// ── Research signal verdicts (the chosen signals + honest per-lead result) ────
+
+/**
+ * The research's signals, each with its honest verdict for this lead (P3):
+ *   - fired   · green dot  · this signal matched (a real qualifier)
+ *   - didn't  · neutral    · evaluated, did not fire
+ *   - not yet · amber dot  · not computable — the backing data isn't enriched
+ *     (shown as "enrich to unlock", never a fake match).
+ * Sorted fired → not-computable → didn't so the strongest qualifiers lead.
+ */
+function SignalVerdicts({ verdicts }: { verdicts: LeadSignalVerdict[] }) {
+  const rank = (m: boolean | null): number =>
+    m === true ? 0 : m === null ? 1 : 2;
+  const ordered = [...verdicts].sort(
+    (a, b) => rank(a.matched) - rank(b.matched),
+  );
+  const firedCount = verdicts.filter((v) => v.matched === true).length;
+  const pendingCount = verdicts.filter((v) => v.matched === null).length;
+
+  return (
+    <div className="sigverdicts" style={{ margin: "0 0 12px" }}>
+      <div className="note" style={{ margin: "0 0 8px" }}>
+        {firedCount} of {verdicts.length} of your signals fired
+        {pendingCount > 0
+          ? ` · ${pendingCount} need${pendingCount === 1 ? "s" : ""} enrichment`
+          : ""}
+      </div>
+      {ordered.map((v) => (
+        <SignalVerdictRow key={v.key} verdict={v} />
+      ))}
+    </div>
+  );
+}
+
+function SignalVerdictRow({ verdict }: { verdict: LeadSignalVerdict }) {
+  const { tone, label } =
+    verdict.matched === true
+      ? { tone: "green" as const, label: "Fired" }
+      : verdict.matched === null
+        ? { tone: "amber" as const, label: "Enrich to unlock" }
+        : { tone: "" as const, label: "Didn’t fire" };
+  return (
+    <div
+      className="sig"
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        padding: "5px 0",
+      }}
+    >
+      <span style={{ flex: 1, minWidth: 0 }}>
+        <span
+          className="name"
+          style={{ display: "block" }}
+          title={verdict.means}
+        >
+          {verdict.title}
+        </span>
+      </span>
+      <span className={`pill ${tone} dot`.trim()} style={{ flexShrink: 0 }}>
+        {label}
+      </span>
+    </div>
   );
 }
 

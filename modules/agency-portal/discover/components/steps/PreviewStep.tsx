@@ -7,15 +7,19 @@
 // costbar. "Discover →" runs runDiscoveryAction (scoped to discovery only;
 // enrichment is confirmed later with real counts).
 //
-// NOTE: the backend preflight returns only aggregate {netCredits, freshCount,
-// refetchCount}; per-cell business/enrich estimates are deterministic (mirrors
-// the prototype, clearly marked ~). The headline Discover credit total is the
-// REAL quote. Uses ported classes (.stat/.matrix/.costbar/.freshdot). English-
-// only for now.
+// HONESTY · every number in the matrix is derived from the REAL preflight quote
+// (preflightDiscoveryAction → PreviewCell[]): per-cell freshness is the cell's
+// real cellFreshnessState; the business count is a real Business.count for
+// already-mapped cells (an estimate, flagged `~`, only for never-discovered
+// cells); the per-cell ENRICH credit is computed over that count × the resolved
+// research families (researchesForSignals) via the canonical ENRICHMENT_PRICES
+// — NOT the old `biz × 0.18` + positional `index % 4` fabrication. Cached cells
+// re-serve discovery free; stale/never cells need a fetch (the exact discovery
+// total is the REAL aggregate netCredits). Uses ported classes
+// (.stat/.matrix/.costbar/.freshdot). English-only for now.
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 
-import { cellKey as makeCellKey } from "@/lib/cell";
 import {
   preflightDiscoveryAction,
   runDiscoveryAction,
@@ -23,15 +27,17 @@ import {
   type PreviewKpis,
 } from "@/modules/discovery/actions";
 import { SIG_META } from "../../goal-templates";
+import { researchesForSignals } from "../../researches";
+import { buildDiscoverySignals } from "../../discovery-signals";
 import {
-  buildCellEstimates,
-  enrichCreditsFor,
+  buildCellRows,
   fmtCredits,
+  freshDotClass,
   toDiscoveryCells,
   type GoalState,
   type MarketCell,
+  type QuoteCell,
 } from "../../flow-types";
-import { familiesForSignals } from "../../goal-templates";
 import { useCountUp } from "../useCountUp";
 
 interface Quote {
@@ -45,6 +51,8 @@ interface Quote {
   kpis: PreviewKpis;
 }
 
+// Keyed by the `.freshdot` CSS class (freshDotClass maps the quote's `never`
+// state → `new`). `new` = never mapped, so its counts are an estimate.
 const FRESH_LABEL: Record<string, string> = {
   fresh: "● fresh",
   aging: "◐ aging",
@@ -71,12 +79,18 @@ export function PreviewStep({
   const [pricing, startPrice] = useTransition();
   const [running, startRun] = useTransition();
 
-  const estimates = useMemo(() => buildCellEstimates(cells), [cells]);
   const activeSignals = useMemo(
     () => goal.filters.filter((f) => f.on),
     [goal.filters],
   );
   const sigCount = activeSignals.length;
+
+  // The research families the active signals depend on (dependency chains
+  // expanded) — the canonical input to every enrich-credit computation below.
+  const families = useMemo(
+    () => researchesForSignals(activeSignals),
+    [activeSignals],
+  );
 
   // The active goal's registry signal keys — passed to the preflight so it can
   // count "Match your signals" over the REAL businesses of in-DB cells.
@@ -88,14 +102,26 @@ export function PreviewStep({
     [activeSignals],
   );
 
+  // The active goal signals (SIG_META key + tune/conds/match) — threaded to the
+  // preflight so they ride the authorized estimate and get persisted onto the
+  // Discovery for the workbench evaluator (P3). buildDiscoverySignals keeps only
+  // on:true filters + the fields the goal actually set.
+  const persistedSignals = useMemo(
+    () => buildDiscoverySignals(goal.filters).signals,
+    [goal.filters],
+  );
+
   // Content key — fire the price effect ONLY when the actual cell/signal SET
   // changes. Depending on the array refs (`cells`, `signalKeys`) re-fired every
   // render — the active-signal/cell arrays are rebuilt each render — which
   // looped preflightDiscoveryAction infinitely. A string compares by value, so
   // an unchanged selection yields an unchanged dep and the effect stays put.
+  // persistedSignals is included so a tune/conds/match edit (which leaves the
+  // registry signalKeys unchanged) still re-quotes and re-carries the new tune.
   const priceKey = JSON.stringify({
     cells: toDiscoveryCells(cells),
     signalKeys,
+    persistedSignals,
   });
 
   // Real preflight quote when the selection changes. All state mutation lives
@@ -107,6 +133,7 @@ export function PreviewStep({
       const r = await preflightDiscoveryAction({
         cells: toDiscoveryCells(cells),
         signalKeys,
+        signals: persistedSignals,
       });
       if (r.status === "ok") {
         setQuote({
@@ -129,31 +156,40 @@ export function PreviewStep({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [priceKey]);
 
-  // Per-cell business count: REAL from the quote for in-DB cells, deterministic
-  // estimate for never-discovered cells (keyed by request order). The credit
-  // columns + freshness come from the cost estimate (buildCellEstimates).
-  const bizByKey = useMemo(() => {
-    const m = new Map<string, { count: number; isEstimate: boolean }>();
+  // Per-cell rows built ENTIRELY from the REAL preflight quote: real freshness,
+  // real DB business count (or a flagged estimate for never-discovered cells),
+  // and per-cell enrich credits computed over that count × the resolved research
+  // families. Empty until the quote lands → the matrix shows a pricing state
+  // rather than fabricated numbers.
+  const quoteByKey = useMemo(() => {
+    const m = new Map<string, QuoteCell>();
     for (const c of quote?.cells ?? []) {
-      m.set(c.cellKey, { count: c.existingBizCount, isEstimate: c.isEstimate });
+      m.set(c.cellKey, {
+        cellKey: c.cellKey,
+        freshness: c.freshness,
+        existingBizCount: c.existingBizCount,
+        isEstimate: c.isEstimate,
+      });
     }
     return m;
   }, [quote]);
 
-  // Aggregate totals. Before the quote lands, fall back to the deterministic
-  // estimate sum so the matrix renders immediately; after, the per-cell real
-  // counts replace the estimate for in-DB cells.
-  const cellKeys = useMemo(
-    () => cells.map((c) => makeCellKey(c.categorySlug, c.metroSlug, "US")),
-    [cells],
+  const rows = useMemo(
+    () => (quote ? buildCellRows(cells, quoteByKey, families) : []),
+    [quote, cells, quoteByKey, families],
   );
-  const totBiz = useMemo(() => {
-    if (!quote) return estimates.reduce((s, c) => s + c.bizEstimate, 0);
-    return cellKeys.reduce((s, k, i) => {
-      const real = bizByKey.get(k);
-      return s + (real ? real.count : (estimates[i]?.bizEstimate ?? 0));
-    }, 0);
-  }, [quote, estimates, cellKeys, bizByKey]);
+
+  // Aggregate business count = sum of the per-cell (real-or-estimated) counts.
+  const totBiz = useMemo(
+    () => rows.reduce((s, r) => s + r.bizCount, 0),
+    [rows],
+  );
+  // Aggregate enrich credits = sum of the per-cell enrich credits, so the matrix
+  // footer + the cost summary always equal the rows above them.
+  const totEnr = useMemo(
+    () => rows.reduce((s, r) => s + r.enrichCredits, 0),
+    [rows],
+  );
 
   const kpis = quote?.kpis ?? null;
   // KPI cards prefer REAL aggregates from the quote; the estimate contribution
@@ -172,16 +208,13 @@ export function PreviewStep({
       : 0
     : 74;
 
+  // Already-mapped (real counts) vs never-discovered (estimate) cells — drives
+  // the freshness callout. Derived from the REAL quote; 0 until it lands.
   const knownCells = useMemo(
-    () =>
-      quote
-        ? quote.cells.filter((c) => !c.isEstimate).length
-        : estimates.filter(
-            (c) => c.freshness === "fresh" || c.freshness === "aging",
-          ).length,
-    [quote, estimates],
+    () => (quote ? quote.cells.filter((c) => !c.isEstimate).length : 0),
+    [quote],
   );
-  const newCells = (quote?.cells.length ?? estimates.length) - knownCells;
+  const newCells = (quote?.cells.length ?? 0) - knownCells;
 
   function run() {
     if (!quote) return;
@@ -206,14 +239,6 @@ export function PreviewStep({
       }
     });
   }
-
-  // Per-research enrichment estimate (credits) for the summary.
-  const families = familiesForSignals(
-    activeSignals
-      .map((f) => SIG_META[f.key]?.signalKey)
-      .filter((k): k is string => Boolean(k)),
-  );
-  const totEnrEstimate = enrichCreditsFor(families, totBiz, cells.length);
 
   const totDiscoverCredits = quote?.netCredits ?? 0;
 
@@ -314,41 +339,56 @@ export function PreviewStep({
               </tr>
             </thead>
             <tbody>
-              {estimates.map((c, i) => {
-                const real = bizByKey.get(cellKeys[i]);
-                const bizCount = real ? real.count : c.bizEstimate;
-                const bizIsEstimate = real ? real.isEstimate : true;
-                return (
-                  <tr key={c.name}>
-                    <td className="biz">{c.name}</td>
-                    <td>
-                      <span className="freshlbl">
-                        <span
-                          className={`freshdot ${c.freshness}`}
-                          aria-hidden="true"
-                        />
-                        {FRESH_LABEL[c.freshness]}
-                      </span>
-                    </td>
-                    <td>
-                      {bizIsEstimate ? "~" : ""}
-                      {bizCount.toLocaleString()}
-                    </td>
-                    <td>
-                      <span className="cr">
-                        <span className="ic-coin sm" aria-hidden="true" />
-                        {c.discoverCredits}
-                      </span>
-                    </td>
-                    <td>
-                      <span className="cr">
-                        <span className="ic-coin sm" aria-hidden="true" />~
-                        {c.enrichCreditsEstimate}
-                      </span>
-                    </td>
-                  </tr>
-                );
-              })}
+              {rows.length === 0 ? (
+                <tr>
+                  <td className="biz" colSpan={5}>
+                    {pricing
+                      ? "Pricing this market…"
+                      : "Add markets to see the per-cell breakdown."}
+                  </td>
+                </tr>
+              ) : (
+                rows.map((r) => {
+                  const dot = freshDotClass(r.freshness);
+                  return (
+                    <tr key={r.name}>
+                      <td className="biz">{r.name}</td>
+                      <td>
+                        <span className="freshlbl">
+                          <span
+                            className={`freshdot ${dot}`}
+                            aria-hidden="true"
+                          />
+                          {FRESH_LABEL[dot]}
+                        </span>
+                      </td>
+                      <td>
+                        {r.isEstimate ? "~" : ""}
+                        {r.bizCount.toLocaleString()}
+                      </td>
+                      <td>
+                        {r.discoverIsFree ? (
+                          <span className="cr">
+                            <span className="ic-coin sm" aria-hidden="true" />0
+                          </span>
+                        ) : (
+                          // Stale/never cell — needs a (re)fetch; the exact
+                          // per-cell cost is in the REAL aggregate total below.
+                          <span className="cr">~</span>
+                        )}
+                      </td>
+                      <td>
+                        <span className="cr">
+                          <span className="ic-coin sm" aria-hidden="true" />
+                          {/* Real count → plain; estimated count → ~ */}
+                          {r.isEstimate ? "~" : ""}
+                          {r.enrichCredits.toLocaleString()}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
             <tfoot>
               <tr>
@@ -368,8 +408,9 @@ export function PreviewStep({
                 </td>
                 <td>
                   <span className="cr">
-                    <span className="ic-coin sm" aria-hidden="true" />~
-                    {totEnrEstimate}
+                    <span className="ic-coin sm" aria-hidden="true" />
+                    {hasEstimate ? "~" : ""}
+                    {totEnr.toLocaleString()}
                   </span>
                 </td>
               </tr>
@@ -377,8 +418,11 @@ export function PreviewStep({
           </table>
         </div>
         <p className="note" style={{ marginTop: 10 }}>
-          Enrich credits are approximate — they scale with the real business
-          count we find on Discover.
+          Enrich credits are projected over each cell&apos;s business count and
+          the research your signals need. Already-mapped cells use real counts;
+          never-mapped cells (~) are confirmed live on Discover. Cached cells
+          (fresh/aging) re-serve discovery for free; stale/never cells (~) need
+          a fetch — the exact discovery total is in the row above.
         </p>
       </div>
 
@@ -430,7 +474,7 @@ export function PreviewStep({
             <span className="lbl">② Enrich — after discovery</span>
             <span className="cr">
               <span className="ic-coin sm" aria-hidden="true" />~
-              {totEnrEstimate}
+              {fmtCredits(totEnr)}
             </span>
           </div>
           <div className="enr-sub" style={{ paddingLeft: 0, fontWeight: 700 }}>
@@ -439,7 +483,7 @@ export function PreviewStep({
             </span>
             <span className="cr" style={{ color: "var(--ink)" }}>
               <span className="ic-coin sm" aria-hidden="true" />~
-              {fmtCredits(totDiscoverCredits + totEnrEstimate)}
+              {fmtCredits(totDiscoverCredits + totEnr)}
             </span>
           </div>
         </div>

@@ -110,6 +110,19 @@ export interface CellDistributions {
   readonly shareOfVoice?: Breakpoints;
   readonly lighthousePerformance?: Breakpoints;
   readonly estMonthlyAdSpend?: Breakpoints;
+  /**
+   * Estimated monthly organic visits per business (sum of the portfolio's
+   * `BusinessKeyword.latestEstMonthlyVisits`). Cluster-C organic distribution —
+   * the cell band `low_organic_traffic` / `search_visibility` grade against.
+   * Higher = more organic demand captured.
+   */
+  readonly organicTraffic?: Breakpoints;
+  /**
+   * Best (lowest) organic SERP position per business across the cell's scanned
+   * keywords. Lower = better. Used by `search_visibility` / `invisible_locally`
+   * to place a business's organic rank in its cell.
+   */
+  readonly organicRank?: Breakpoints;
 }
 
 /**

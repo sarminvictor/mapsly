@@ -42,14 +42,24 @@ import { Link, redirect } from "@/i18n/navigation";
 import prisma from "@/lib/prisma";
 import { parseCellKey } from "@/lib/cell";
 import { cellBand } from "@/modules/agency-portal/discover/signals";
+import { deriveFamilyCoverage } from "@/modules/agency-portal/discover/family-coverage";
 import {
-  deriveMatchPct,
+  loadCoverageMatrix,
+  coverageMatrixToMap,
+} from "@/modules/agency-portal/discover/coverage-matrix";
+import {
+  resolveLeadMatch,
   painGroupClass,
   type CellBand,
   type LeadStatus,
   type TouchState,
   type WorkbenchLeadRow,
 } from "@/modules/agency-portal/discover/leads-workbench";
+import {
+  hydrateBusinessForSignals,
+  resolveMatches,
+} from "@/modules/agency-portal/discover/signal-eval";
+import { activeSignalsFromJson } from "@/modules/agency-portal/discover/discovery-signals";
 import {
   WorkbenchShell,
   type WorkbenchShellProps,
@@ -153,6 +163,23 @@ async function ListWorkbenchBody({ params }: PageProps) {
 
   const businessIds = list.leads.map((l) => l.business.id);
 
+  // ── Real signal evaluation (P3) ────────────────────────────────────────────
+  // The list belongs to a discovery; that discovery's persisted signals are the
+  // research's chosen set. Build ActiveSignal[] via SIG_META, hydrate this list's
+  // businesses ONCE (batched, read-only), and resolveMatches per lead for a REAL
+  // match% + per-signal verdicts. signalsJson absent / no signals → empty
+  // ActiveSignal[] → the per-row fallback keeps the stored-score/heuristic path.
+  const discoveryRow = await prisma.discovery.findUnique({
+    where: { id: discoveryId },
+    select: { signalsJson: true },
+  });
+  const activeSignals = activeSignalsFromJson(discoveryRow?.signalsJson);
+  const hydrated =
+    activeSignals.length > 0 && businessIds.length > 0
+      ? await hydrateBusinessForSignals(businessIds)
+      : null;
+  const evalNow = new Date();
+
   // Parallel side loads (all scoped to this list's businesses):
   //   - latest snapshot per business (reviewCount / rating / website pillar →
   //     used for vs-cell + perf proxy)
@@ -161,9 +188,9 @@ async function ListWorkbenchBody({ params }: PageProps) {
   //   - CMS tech (built-on)
   //   - contacts (phones / emails for the contact columns + reachable count)
   //   - OutreachDrafts (the Touchpoints tab + per-lead touch state)
-  const [snapshots, audits, findings, techs, contacts, drafts] =
+  const [snapshots, audits, findings, techs, contacts, drafts, ads, serps] =
     businessIds.length === 0
-      ? [[], [], [], [], [], []]
+      ? [[], [], [], [], [], [], [], []]
       : await Promise.all([
           prisma.businessSnapshot.findMany({
             where: { businessId: { in: businessIds } },
@@ -216,7 +243,24 @@ async function ListWorkbenchBody({ params }: PageProps) {
               whyJson: true,
             },
           }),
+          // Ads + Search presence — the SAME real rows the lead drawer reads
+          // (adsEnriched = ads.length > 0 · serpEnriched = serp != null). Feeds
+          // the coverage map so the table no longer fakes ads/search negatives.
+          prisma.adLibraryEntry.findMany({
+            where: { businessId: { in: businessIds } },
+            select: { businessId: true },
+            distinct: ["businessId"],
+          }),
+          prisma.serpResult.findMany({
+            where: { businessId: { in: businessIds } },
+            select: { businessId: true },
+            distinct: ["businessId"],
+          }),
         ]);
+
+  // Ads / Search presence sets (one membership test per business below).
+  const adsByBusiness = new Set(ads.map((r) => r.businessId));
+  const serpByBusiness = new Set(serps.map((r) => r.businessId));
 
   // First (=latest) row per business for the "latest snapshot/audit" pattern.
   const latestSnapshot = firstByBusiness(snapshots);
@@ -273,7 +317,14 @@ async function ListWorkbenchBody({ params }: PageProps) {
     const emails = emailsById.get(b.id) ?? (b.email ? [b.email] : []);
     const pains = painsById.get(b.id) ?? [];
     const cell = prettyCell(b.cellKey);
-    const { match, derived } = deriveMatchPct(lead.matchScore, pains.length);
+    // REAL signal eval when the discovery persisted signals; else fall back to
+    // the stored Lead.matchScore (when present) or the pain-count heuristic.
+    const evalResult =
+      hydrated && hydrated.get(b.id)
+        ? resolveMatches(activeSignals, hydrated.get(b.id)!, evalNow)
+        : null;
+    const { match, matchFromSignals, matchDerived, perSignal } =
+      resolveLeadMatch(evalResult, lead.matchScore, pains.length);
 
     return {
       leadId: lead.id,
@@ -283,7 +334,9 @@ async function ListWorkbenchBody({ params }: PageProps) {
       cell,
       status: lead.status as LeadStatus,
       match,
-      matchDerived: derived,
+      matchDerived,
+      matchFromSignals,
+      perSignal,
       pains: pains.map((p) => ({ ...p, group: painGroupClass(p.group) })),
       reachability: b.reachability,
       reachable:
@@ -297,14 +350,16 @@ async function ListWorkbenchBody({ params }: PageProps) {
       perf,
       phones,
       emails,
-      families: {
-        identity: true,
+      // All six families derived from the SAME real data the drawer uses — no
+      // hardcoded ads/search negatives. deriveFamilyCoverage is the single
+      // source of truth shared with the drawer + the coverage endpoint.
+      families: deriveFamilyCoverage({
         reviews: reviews != null,
         website: perf != null || builtOnById.has(b.id),
         contacts: phones.length > 0 || emails.length > 0,
-        ads: false,
-        search: false,
-      },
+        ads: adsByBusiness.has(b.id),
+        search: serpByBusiness.has(b.id),
+      }),
     };
   });
 
@@ -368,8 +423,16 @@ async function ListWorkbenchBody({ params }: PageProps) {
     won: rows.filter((r) => r.status === "WON").length,
   };
 
+  // Coverage matrix (the doc's batched GET /research/:id/coverage) — fetched
+  // server-side via the SHARED loader the endpoint uses, passed to the client as
+  // a PLAIN `{ businessId: families[] }` map (Pattern 4). It is keyed by
+  // businessId over the whole discovery; this list's businesses are a subset, so
+  // each renders its real dot-strip.
+  const coverageRows = await loadCoverageMatrix(discoveryId, agencyId);
+  const coverage = coverageRows ? coverageMatrixToMap(coverageRows) : {};
+
   const shell: WorkbenchShellProps = {
-    leads: { rows, discoveryId, bands },
+    leads: { rows, discoveryId, bands, coverage },
     touchpoints: { touches, stats },
   };
 

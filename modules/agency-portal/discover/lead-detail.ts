@@ -33,6 +33,13 @@ import {
   type PainGroup,
 } from "./leads-workbench";
 import { parseWhyJson } from "./touchpoints";
+import {
+  hydrateBusinessForSignals,
+  resolveMatches,
+  type ActiveSignal,
+} from "./signal-eval";
+import { activeSignalsFromJson } from "./discovery-signals";
+import { SIG_META } from "./goal-templates";
 
 // ── Serializable sub-shapes ──────────────────────────────────────────────────
 
@@ -82,6 +89,26 @@ export interface LeadPainChip {
   group: PainGroup;
   label: string;
   title: string;
+}
+
+/**
+ * One of the RESEARCH's signals evaluated against this lead (P3). Unlike
+ * {@link LeadFiredSignal} (a flagged playbook composite with evidence), this is
+ * the honest per-lead verdict for each signal the goal actually chose:
+ *   - matched=true  · the signal fired for this lead (a real qualifier)
+ *   - matched=false · evaluated, did not fire
+ *   - matched=null  · NOT computable yet (the backing data isn't enriched) —
+ *     shown as "enrich to unlock", never a fake match.
+ */
+export interface LeadSignalVerdict {
+  /** SIG_META key. */
+  key: string;
+  /** Human title (SIG_META.title). */
+  title: string;
+  /** Plain-English "what it means" (SIG_META.means). */
+  means: string;
+  /** true = fired · false = didn't · null = not computable (enrich to unlock). */
+  matched: boolean | null;
 }
 
 /**
@@ -163,6 +190,12 @@ export interface LeadDetail {
   match: number;
   /** True when match was derived (not a stored score). */
   matchDerived: boolean;
+  /**
+   * True when `match` came from evaluating the research's signals against this
+   * lead (resolveMatches over the discovery's signalsJson) rather than the
+   * pain-count heuristic. Drives the gauge's "real match" framing.
+   */
+  matchFromSignals: boolean;
   facts: LeadFact[];
   phones: LeadContact[];
   emails: LeadContact[];
@@ -171,6 +204,12 @@ export interface LeadDetail {
   contactsEnriched: boolean;
   // ── 4. Why this lead qualifies ──
   firedSignals: LeadFiredSignal[];
+  /**
+   * The research's chosen signals, each with its honest per-lead verdict (P3).
+   * Empty when the lead wasn't opened from a discovery with persisted signals
+   * (the drawer then falls back to the finding-based `firedSignals` only).
+   */
+  signalVerdicts: LeadSignalVerdict[];
   // ── 5. Other angles ──
   angles: LeadPainChip[];
   // ── 6. Data-domain accordions ──
@@ -189,15 +228,25 @@ export interface LeadDetail {
  * Returns null when the business doesn't exist OR doesn't live in any of the
  * calling agency's discovered cells (cross-agency / out-of-scope — we never
  * confirm another agency's data). Pure read; no external API.
+ *
+ * When `discoveryId` is given and that discovery has persisted signals
+ * (signalsJson), the drawer's "why this lead qualifies" surfaces the honest
+ * per-lead verdict for each chosen signal, and the match gauge reflects the REAL
+ * resolveMatches % (P3). Without it (or for an older discovery with no signals),
+ * the loader falls back to the pain-count heuristic + finding-based composites.
  */
 export async function getLeadDetail(
   businessId: string,
   agencyId: string,
+  discoveryId?: string,
 ): Promise<LeadDetail | null> {
   // The agency's discovered cells define its visible universe of businesses.
+  // Pull each discovery's id + signalsJson too so we can evaluate the lead
+  // against the research's signals (preferring the discovery the drawer was
+  // opened from, falling back to any agency discovery whose cell holds it).
   const discoveries = await prisma.discovery.findMany({
     where: { agencyId },
-    select: { cellKeys: true },
+    select: { id: true, cellKeys: true, signalsJson: true },
   });
   const cellKeys = Array.from(new Set(discoveries.flatMap((d) => d.cellKeys)));
   if (cellKeys.length === 0) return null;
@@ -410,7 +459,59 @@ export async function getLeadDetail(
     label: signalKeyLabel(f.signalKey),
     title: f.explanation || f.pitchAngle || signalKeyLabel(f.signalKey),
   }));
-  const { match, derived } = deriveMatchPct(null, pains.length);
+
+  // ── The research's signals → honest per-lead verdicts + REAL match% (P3) ──
+  // Prefer the discovery the drawer was opened from; else the first agency
+  // discovery (whose cell holds this business) that has persisted signals.
+  const sourceDiscovery =
+    (discoveryId ? discoveries.find((d) => d.id === discoveryId) : undefined) ??
+    discoveries.find(
+      (d) =>
+        business.cellKey != null &&
+        d.cellKeys.includes(business.cellKey) &&
+        activeSignalsFromJson(d.signalsJson).length > 0,
+    );
+  const activeSignals: ActiveSignal[] = sourceDiscovery
+    ? activeSignalsFromJson(sourceDiscovery.signalsJson)
+    : [];
+
+  let signalVerdicts: LeadSignalVerdict[] = [];
+  let matchFromSignals = false;
+  let match: number;
+  let derived: boolean;
+
+  if (activeSignals.length > 0) {
+    // Evaluate the real signals against THIS lead's stored data (one hydrate).
+    const hydrated = (await hydrateBusinessForSignals([businessId])).get(
+      businessId,
+    );
+    if (hydrated) {
+      const result = resolveMatches(activeSignals, hydrated);
+      signalVerdicts = activeSignals.map((sig) => {
+        const meta = SIG_META[sig.key];
+        return {
+          key: sig.key,
+          title: meta?.title ?? signalKeyLabel(sig.key),
+          means: meta?.means ?? "",
+          matched: result.perSignal[sig.key] ?? null,
+        };
+      });
+      // A null-only cohort (nothing computable yet) → no honest %; fall back to
+      // the heuristic so the gauge isn't a misleading 0.
+      if (result.applicableCount > 0) {
+        match = Math.round(result.matchPct * 100);
+        derived = false;
+        matchFromSignals = true;
+      } else {
+        ({ match, derived } = deriveMatchPct(null, pains.length));
+      }
+    } else {
+      ({ match, derived } = deriveMatchPct(null, pains.length));
+    }
+  } else {
+    // No persisted signals (older discovery / none active) → heuristic fallback.
+    ({ match, derived } = deriveMatchPct(null, pains.length));
+  }
 
   // ── Compliance flag: a flagged HIPAA finding OR (runs ads + no pixel) ──
   const hipaaFinding = findings.some(
@@ -802,12 +903,14 @@ export async function getLeadDetail(
     complianceFlag,
     match,
     matchDerived: derived,
+    matchFromSignals,
     facts,
     phones,
     emails,
     socials,
     contactsEnriched,
     firedSignals,
+    signalVerdicts,
     angles,
     domains,
     expertFindings,

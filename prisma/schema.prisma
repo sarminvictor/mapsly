@@ -2302,6 +2302,11 @@ model Discovery {
   spendToDateUsd    Float           @default(0)
   freshnessJson     Json?
   loopProgressJson  Json?
+  // The research's active signal set + per-signal tune values, persisted from
+  // the goal step so the workbench can EVALUATE each lead against the chosen
+  // signals (match % from signal-eval, not a heuristic). Shape:
+  // { signals: Array<{ key, tune?, conds?, match? }> }.
+  signalsJson       Json?
   workflowRunId     String?
   createdAt         DateTime        @default(now())
   finishedAt        DateTime?

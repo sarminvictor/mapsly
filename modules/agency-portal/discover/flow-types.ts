@@ -4,9 +4,9 @@
 // thread state between steps and produce the estimate numbers the Preview/
 // Discover screens render. English-only for now.
 
+import { cellKey as makeCellKey, type FreshnessState } from "@/lib/cell";
 import {
   CREDIT_USD,
-  DISCOVERY_PRICE,
   ENRICHMENT_PRICES,
   type EnrichmentType,
 } from "@/modules/cost/pricing";
@@ -23,6 +23,19 @@ export const FLOW_STEPS: { key: FlowStep; label: string }[] = [
   { key: "enriching", label: "Enrich" },
 ];
 
+/**
+ * The output of a per-signal tune control — one variant per setting type the
+ * card can render (mirrors the prototype's `f.sset`, typed). Captured on the
+ * working GoalFilter so the controls are live + the chosen value is held in the
+ * goal model. (Persisting to the URL + using it in eval is a later phase.)
+ */
+export type SignalTuneValue =
+  | { kind: "strictness"; level: "loose" | "balanced" | "strict" }
+  | { kind: "scale"; bands: string[] }
+  | { kind: "mode"; value: string }
+  | { kind: "platform"; values: string[] }
+  | { kind: "presence"; value: "has" | "hasnt" };
+
 /** A single active filter inside the working GOAL state. */
 export interface GoalFilter {
   /** SIG_META key. */
@@ -31,6 +44,18 @@ export interface GoalFilter {
   on: boolean;
   /** Why it's here (shown in the card). */
   why: string;
+  /**
+   * The chosen value of this signal's tune control (the prototype's `f.sset`),
+   * seeded lazily from the SIG_META default. Optional so nothing else breaks.
+   */
+  tune?: SignalTuneValue;
+  /**
+   * Composites only · per-condition include toggles, keyed by recipe-line
+   * index ("0", "1", …). A line is on unless explicitly `false`.
+   */
+  conds?: Record<string, boolean>;
+  /** Composites only · whether the conditions match "all" or "any". */
+  match?: "all" | "any";
 }
 
 /**
@@ -73,54 +98,99 @@ export interface MarketCell {
 }
 
 /**
- * Per-cell estimate row the Preview matrix renders. The backend preflight
- * returns only aggregate {netUsd, netCredits, freshCount, refetchCount} — it
- * does NOT return per-cell estimates — so the deterministic per-cell numbers
- * here mirror the prototype's approach (estimate-only, clearly marked ~). The
- * aggregate credit total still comes from the REAL preflight quote.
+ * The CSS freshness class for the Preview matrix dot. The preflight's
+ * {@link FreshnessState} (`never | fresh | aging | stale`) maps to the ported
+ * `.freshdot` classes (`fresh | aging | stale | new`) — a never-discovered cell
+ * renders as the faint `new` dot.
  */
-export interface CellEstimate {
+export type FreshDot = "fresh" | "aging" | "stale" | "new";
+
+/** Map the preflight freshness state → its `.freshdot` CSS class. */
+export function freshDotClass(state: FreshnessState): FreshDot {
+  return state === "never" ? "new" : state;
+}
+
+/**
+ * A per-cell row the Preview matrix renders — built ENTIRELY from the REAL
+ * preflight quote (`PreviewCell`), never from positional fabrication. Each field
+ * is either a real DB-derived number (`isEstimate === false`) or an estimate for
+ * a not-yet-discovered cell (`isEstimate === true`), and the row carries that
+ * flag so the UI can mark estimates with a `~`.
+ *
+ *   - `freshness`  — REAL `cellFreshnessState` of the cell's TrackedLocation.
+ *   - `bizCount`   — REAL `Business.count` for discovered cells; an estimate for
+ *                    never-discovered cells (`isEstimate`).
+ *   - `enrichCredits` — per-business families × `bizCount` + per-cell families
+ *                    once, over the REAL count (a `~` projection when the count
+ *                    itself is an estimate).
+ *   - `discoverIsFree` — owned-free vs new framing: a cell within its freshness
+ *                    window (`fresh`/`aging`) serves discovery from cache ($0);
+ *                    a `stale`/`never` cell needs a (re)fetch (cost in the REAL
+ *                    aggregate `netCredits`, not split per-cell here).
+ */
+export interface CellRow {
   name: string;
-  freshness: "fresh" | "aging" | "stale" | "new";
-  bizEstimate: number;
-  discoverCredits: number;
-  enrichCreditsEstimate: number;
+  freshness: FreshnessState;
+  bizCount: number;
+  /** False = real DB count; true = estimate for a never-discovered cell. */
+  isEstimate: boolean;
+  /** Per-cell enrich credits over the cell's (real or estimated) count. */
+  enrichCredits: number;
+  /** True when discovery serves from cache for this cell (owned → free). */
+  discoverIsFree: boolean;
 }
 
-/** Deterministic business-count estimate for a market index (120–460). */
-export function estBizCount(index: number): number {
-  return 120 + ((index * 137) % 341);
+/** The minimal real per-cell quote shape the Preview matrix consumes (a subset
+ *  of `PreviewCell` from modules/discovery/actions.ts — kept inline so this
+ *  pure module has no dependency on the "use server" actions file). */
+export interface QuoteCell {
+  cellKey: string;
+  freshness: FreshnessState;
+  existingBizCount: number;
+  isEstimate: boolean;
 }
 
-/** Deterministic freshness rotation (no Math.random — PPR-safe). */
-export function estFreshness(index: number): CellEstimate["freshness"] {
-  return (["aging", "fresh", "new", "stale"] as const)[index % 4];
+/**
+ * Per-cell enrich credits for a single market: per-business families bill over
+ * `bizCount`; per-cell families bill once. Derived from the canonical
+ * {@link ENRICHMENT_PRICES} + {@link CREDIT_USD} — no fabricated multiplier.
+ */
+export function enrichCreditsForCell(
+  families: EnrichmentType[],
+  bizCount: number,
+): number {
+  return enrichCreditsFor(families, bizCount, 1);
 }
 
-const FRESH_DISCOVER_CREDITS = 0; // served from cache → free
-const FETCH_DISCOVER_CREDITS = Math.max(
-  1,
-  Math.ceil(
-    (DISCOVERY_PRICE.baseUsd + 250 * DISCOVERY_PRICE.perListingUsd) /
-      CREDIT_USD,
-  ),
-);
-
-/** Build the per-cell estimate rows for the Preview matrix. */
-export function buildCellEstimates(cells: MarketCell[]): CellEstimate[] {
-  return cells.map((c, i) => {
-    const fresh = estFreshness(i);
-    const biz = estBizCount(i);
-    const isFresh = fresh === "fresh" || fresh === "aging";
+/**
+ * Build the per-cell rows for the Preview matrix from the REAL preflight quote.
+ *
+ * `cells` (the user's market selection, for display names) is zipped with the
+ * quote's per-cell rows by `cellKey`. Each row's business count, freshness, and
+ * enrich credits come from real DB data (or a clearly-flagged estimate for a
+ * never-discovered cell); the enrich credit is computed over the REAL count via
+ * the canonical price list. Returns `[]` when there is no quote yet so the
+ * matrix shows a pricing state instead of fabricated numbers.
+ */
+export function buildCellRows(
+  cells: MarketCell[],
+  quoteByKey: Map<string, QuoteCell>,
+  families: EnrichmentType[],
+): CellRow[] {
+  return cells.map((c) => {
+    const key = makeCellKey(c.categorySlug, c.metroSlug, "US");
+    const q = quoteByKey.get(key);
+    const bizCount = q?.existingBizCount ?? 0;
+    const freshness = q?.freshness ?? "never";
     return {
       name: `${c.category} · ${c.city.split(",")[0]}`,
-      freshness: fresh,
-      bizEstimate: biz,
-      discoverCredits: isFresh
-        ? FRESH_DISCOVER_CREDITS
-        : FETCH_DISCOVER_CREDITS,
-      // Enrich credits scale with the real business count we find on Discover.
-      enrichCreditsEstimate: Math.max(1, Math.round(biz * 0.18)),
+      freshness,
+      bizCount,
+      isEstimate: q?.isEstimate ?? true,
+      enrichCredits: enrichCreditsForCell(families, bizCount),
+      // Owned-free vs new: a cell within its freshness window is served from
+      // cache → discovery is free. Stale/never cells need a (re)fetch.
+      discoverIsFree: freshness === "fresh" || freshness === "aging",
     };
   });
 }

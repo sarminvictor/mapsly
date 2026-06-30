@@ -3,14 +3,16 @@
 // GoalStep · "What do you sell?" — the goal-template picker (step 1 of the
 // Get-leads flow). LEFT: a searchable list of goal templates, each a saved
 // bundle of expert signals. RIGHT: an editable signal-detail panel showing
-// exactly which signals the picked goal uses, grouped by outcome, with on/off
-// switches + the recipe behind each. Picking a goal sets the active signal set
-// (the GoalState — the single source of truth read read-only downstream).
+// exactly which signals the picked goal uses, grouped by outcome, as expandable
+// cards: a collapsed row (toggle + name + badges + means + a How-it-works/Tune
+// affordance) that opens into the recipe, the per-signal tune control, and (for
+// composites) match-mode + per-condition toggles. Picking a goal sets the active
+// signal set (the GoalState — the single source of truth read read-only later).
 //
-// Uses the prototype's ported classes (.goalsplit/.tplrow/.sigcard/.badge-sig …
+// Uses the prototype's ported classes (.goalsplit/.tplrow/.sigc/.badge-sig …
 // from agency-portal.css). English-only for now (the app runs English-only).
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import {
   GOAL_TEMPLATES,
@@ -18,8 +20,15 @@ import {
   SIG_META,
   templateByKey,
   type OutcomeGroup,
+  type SigMeta,
+  type SignalSetting,
 } from "../../goal-templates";
-import { loadGoalFrom, type GoalState } from "../../flow-types";
+import {
+  loadGoalFrom,
+  type GoalFilter,
+  type GoalState,
+  type SignalTuneValue,
+} from "../../flow-types";
 
 export function GoalStep({
   goal,
@@ -31,6 +40,7 @@ export function GoalStep({
   onContinue: () => void;
 }) {
   const [search, setSearch] = useState("");
+  const [libOpen, setLibOpen] = useState(false);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -171,6 +181,23 @@ export function GoalStep({
             <SignalGroups goal={goal} onChange={onChange} />
           </div>
 
+          <button
+            type="button"
+            className="btn"
+            style={{ marginTop: 6 }}
+            onClick={() => setLibOpen(true)}
+          >
+            ＋ Add signal or raw data
+          </button>
+
+          {libOpen ? (
+            <SignalLibrary
+              goal={goal}
+              onChange={onChange}
+              onClose={() => setLibOpen(false)}
+            />
+          ) : null}
+
           <div className="gd-reassure">
             ✓ No pressure — the preset is a great start. Tune signals here, or
             later on your leads table.
@@ -223,7 +250,84 @@ export function GoalStep({
   );
 }
 
-/** Render the active filters grouped by OUTCOME bucket. */
+// ─────────────────────────────────────────────────────────────────────────────
+// Signal-card helpers · faithfully ported from the prototype's
+// isComposite / confDots / dataStatusBadge / defaultTune / setting renderers.
+// (docs/portal-prototype.html ~10097–13012). The prototype keyed everything by
+// the signal TITLE and used positional option arrays; here we key by SIG_META
+// key and read the typed `{value,label,desc}` option objects.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** A SIGNAL is a composite — ≥2 recipe inputs, or it declares a defaultMatch. */
+function isComposite(meta: SigMeta): boolean {
+  return (
+    (Array.isArray(meta.recipe) && meta.recipe.length >= 2) ||
+    !!meta.defaultMatch
+  );
+}
+
+/** Confidence dots, capped to the recipe length so a 1-input read can't show 3. */
+function confDots(meta: SigMeta): number {
+  const recipeLen = Array.isArray(meta.recipe) ? meta.recipe.length : 1;
+  return Math.max(1, Math.min(meta.conf || 1, recipeLen, 3));
+}
+
+/** The effective setting for a signal — defaults to a plain strictness slider. */
+function settingFor(meta: SigMeta): SignalSetting {
+  return meta.setting ?? { type: "strictness" };
+}
+
+/** Lazily seed the tune value from the setting's default (prototype defaultSset). */
+function defaultTune(setting: SignalSetting): SignalTuneValue {
+  switch (setting.type) {
+    case "scale":
+      return { kind: "scale", bands: (setting.def ?? []).slice() };
+    case "platform":
+      return { kind: "platform", values: (setting.def ?? []).slice() };
+    case "mode":
+      return { kind: "mode", value: setting.def };
+    case "presence":
+      return { kind: "presence", value: setting.def ?? "has" };
+    case "strictness":
+    default: {
+      const lvl =
+        setting.type === "strictness" && setting.def ? setting.def : "balanced";
+      return { kind: "strictness", level: lvl };
+    }
+  }
+}
+
+/** Does a recipe carry a numeric cutoff a strictness slider can move? */
+function hasNumericThreshold(meta: SigMeta): boolean {
+  const joined = (meta.recipe ?? []).join(" · ");
+  return /([<>≥≤])\s*[0-9]/.test(joined);
+}
+
+/** The data-status badge — computed / needs data / live data (prototype). */
+function DataStatusBadge({ status }: { status: SigMeta["status"] }) {
+  if (status === "deriv")
+    return (
+      <span className="ds ds-deriv" title="Computed from data we have">
+        computed
+      </span>
+    );
+  if (status === "roadmap")
+    return (
+      <span
+        className="ds ds-road"
+        title="Needs an enrichment we don’t run yet — shown for planning"
+      >
+        needs data
+      </span>
+    );
+  return (
+    <span className="ds ds-real" title="Backed by live data for this market">
+      live data
+    </span>
+  );
+}
+
+/** Render the active filters grouped by OUTCOME bucket as expandable cards. */
 function SignalGroups({
   goal,
   onChange,
@@ -238,6 +342,14 @@ function SignalGroups({
       filters: goal.filters.map((f) =>
         f.key === key ? { ...f, on: !f.on } : f,
       ),
+    });
+  }
+
+  function remove(key: string) {
+    onChange({
+      ...goal,
+      customized: true,
+      filters: goal.filters.filter((f) => f.key !== key),
     });
   }
 
@@ -259,59 +371,741 @@ function SignalGroups({
             <h4>{g.label}</h4>
             <span className="ov">{g.value}</span>
           </div>
-          {(byGroup.get(g.key) ?? []).map((f) => {
-            const meta = SIG_META[f.key]!;
-            return (
-              <div className={`sigcard${f.on ? " added" : ""}`} key={f.key}>
-                <div className="sctop">
-                  <div className="scname">
-                    {meta.title}
-                    <span
-                      className={
-                        meta.kind === "signal" ? "badge-sig" : "badge-data"
-                      }
-                    >
-                      {meta.kind === "signal" ? "SIGNAL" : "DATA"}
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={f.on}
-                    aria-label={`Toggle ${meta.title}`}
-                    className={`sigc-sw${f.on ? " on" : ""}`}
-                    style={{ marginLeft: "auto" }}
-                    onClick={() => toggle(f.key)}
-                  />
-                </div>
-                <div className="scmeans">{meta.means}</div>
-                <div className="scpitch">{meta.pitch}</div>
-                <div className="screcipe">
-                  <span className="rlabel">How it works</span>
-                  {meta.recipe.map((r, i) => (
-                    <span className="rchip" key={i}>
-                      {r}
-                    </span>
-                  ))}
-                </div>
-                <div className="scfoot">
-                  <span className="scstrength">
-                    Confidence
-                    <span className="conf">
-                      {[1, 2, 3].map((n) => (
-                        <i key={n} className={n <= meta.conf ? "on" : ""} />
-                      ))}
-                    </span>
-                  </span>
-                  <span className="note" style={{ marginLeft: "auto" }}>
-                    {f.why}
-                  </span>
-                </div>
-              </div>
-            );
-          })}
+          {(byGroup.get(g.key) ?? []).map((f) => (
+            <SignalCard
+              key={f.key}
+              filter={f}
+              meta={SIG_META[f.key]!}
+              onToggle={() => toggle(f.key)}
+              onRemove={() => remove(f.key)}
+              onChange={(next) =>
+                onChange({
+                  ...goal,
+                  customized: true,
+                  filters: goal.filters.map((x) =>
+                    x.key === f.key ? next : x,
+                  ),
+                })
+              }
+            />
+          ))}
         </div>
       ))}
     </>
+  );
+}
+
+/**
+ * One expandable signal card — collapsed row (toggle + name + badges + means +
+ * a How-it-works/Tune affordance) and, when open, the recipe, the per-type
+ * setting control, (composites) match-mode + per-condition toggles, the 🔒
+ * expertise note, and a Remove button. Mirrors the prototype's `sigCardHtml`.
+ */
+function SignalCard({
+  filter,
+  meta,
+  onToggle,
+  onRemove,
+  onChange,
+}: {
+  filter: GoalFilter;
+  meta: SigMeta;
+  onToggle: () => void;
+  onRemove: () => void;
+  onChange: (next: GoalFilter) => void;
+}) {
+  const [open, setOpen] = useState(false);
+
+  const on = filter.on !== false;
+  const setting = settingFor(meta);
+  const composite = isComposite(meta);
+  const recipe =
+    meta.recipe.length > 0 ? meta.recipe : [meta.comparator + " " + meta.value];
+
+  // The control is empty for "none"-style settings (e.g. a pure boolean signal
+  // with no numeric cutoff). When empty, the recipe block teaches what it reads.
+  const hasControl = setting.type !== "strictness" || hasNumericThreshold(meta);
+  const showRecipe = composite || !hasControl;
+  const howLabel = open
+    ? "Hide details"
+    : composite || !hasControl
+      ? "How it works"
+      : "Tune signal";
+
+  // Seed tune lazily (prototype ensureSetState) without mutating during render.
+  const tune = filter.tune ?? defaultTune(setting);
+  const match: "all" | "any" = filter.match ?? meta.defaultMatch ?? "all";
+
+  return (
+    <div className={`sigc ${on ? "" : "sigc-off"}`}>
+      <div className="sigc-row">
+        <button
+          type="button"
+          className={`sigc-sw ${on ? "on" : ""}`}
+          role="switch"
+          aria-checked={on}
+          aria-label={`Toggle ${meta.title}`}
+          onClick={onToggle}
+        />
+        <button
+          type="button"
+          className="sigc-main"
+          aria-expanded={open}
+          onClick={() => setOpen((v) => !v)}
+        >
+          <span className="sigc-head">
+            <span className="sigc-name">{meta.title}</span>{" "}
+            {meta.kind === "signal" ? (
+              <span className="badge-sig">SIGNAL</span>
+            ) : (
+              <span className="badge-data">DATA</span>
+            )}{" "}
+            <DataStatusBadge status={meta.status} />{" "}
+            {composite ? (
+              <span
+                className="conf"
+                aria-label={`confidence ${confDots(meta)} of 3`}
+              >
+                {[1, 2, 3].map((n) => (
+                  <i key={n} className={n <= confDots(meta) ? "on" : ""} />
+                ))}
+              </span>
+            ) : null}
+          </span>
+          <span className="sigc-mean">{meta.means || filter.why || ""}</span>
+          <span className="sigc-how">
+            {howLabel}{" "}
+            <span
+              className={`sigc-chev ${open ? "open" : ""}`}
+              aria-hidden="true"
+            >
+              ▾
+            </span>
+          </span>
+        </button>
+      </div>
+
+      {open ? (
+        <div className="sigc-exp">
+          {showRecipe ? (
+            <>
+              <div className="sigc-exp-h">How it works</div>
+              {composite ? (
+                <>
+                  <MatchModeControl
+                    value={match}
+                    onChange={(m) => onChange({ ...filter, match: m })}
+                  />
+                  <ConditionLines
+                    recipe={recipe}
+                    conds={filter.conds}
+                    onToggle={(idx) => {
+                      const cur: Record<string, boolean> = { ...filter.conds };
+                      const isOn = cur[String(idx)] !== false;
+                      const next = { ...cur, [String(idx)]: !isOn };
+                      // keep ≥1 condition on
+                      const anyOn = recipe.some(
+                        (_, j) => next[String(j)] !== false,
+                      );
+                      if (anyOn) onChange({ ...filter, conds: next });
+                    }}
+                  />
+                </>
+              ) : (
+                <RecipeInputs recipe={recipe} />
+              )}
+            </>
+          ) : null}
+
+          {composite ? (
+            <div className="sigc-lock">
+              🔒 What it’s built from is our expertise — you choose which
+              conditions count, not the recipe itself.
+            </div>
+          ) : null}
+
+          {hasControl ? (
+            <SettingControl
+              setting={setting}
+              value={tune}
+              onChange={(t) => onChange({ ...filter, tune: t })}
+            />
+          ) : null}
+
+          <button
+            type="button"
+            className="sigc-remove"
+            aria-label={`Remove ${meta.title}`}
+            onClick={onRemove}
+          >
+            Remove signal
+          </button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Recipe rendering · plain-English condition lines + read-only recipe inputs.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Wrap operator glyphs in <span class="op"> for accent, as the prototype does. */
+function recipeCode(code: string) {
+  const parts = code.split(/([<>≥≤=∈↑↓])/g);
+  return parts.map((p, i) =>
+    /^[<>≥≤=∈↑↓]$/.test(p) ? (
+      <span className="op" key={i}>
+        {p}
+      </span>
+    ) : (
+      <span key={i}>{p}</span>
+    ),
+  );
+}
+
+/** Read-only recipe inputs (single-input cards). Mirrors recipeInputsHtml. */
+function RecipeInputs({ recipe }: { recipe: string[] }) {
+  return (
+    <div className="ingrid">
+      {recipe.map((r, i) => (
+        <div className="ingred" key={i}>
+          <span className="igtext">
+            {r}
+            <span className="igcode">{recipeCode(r)}</span>
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Composite per-condition toggle rows. Mirrors condLinesHtml. */
+function ConditionLines({
+  recipe,
+  conds,
+  onToggle,
+}: {
+  recipe: string[];
+  conds: Record<string, boolean> | undefined;
+  onToggle: (idx: number) => void;
+}) {
+  return (
+    <div className="ingrid">
+      {recipe.map((r, idx) => {
+        const cur = conds ?? {};
+        const lineOn = cur[String(idx)] !== false;
+        return (
+          <div className={`condline ${lineOn ? "" : "off"}`} key={idx}>
+            <button
+              type="button"
+              className={`condtog ${lineOn ? "on" : ""}`}
+              role="switch"
+              aria-checked={lineOn}
+              aria-label={`Use condition: ${r}`}
+              onClick={() => onToggle(idx)}
+            />
+            <div className="ingred">
+              <span className="igtext">
+                {r}
+                <span className="igcode">{recipeCode(r)}</span>
+              </span>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Composite match-mode (all / any). Mirrors matchModeHtml. */
+function MatchModeControl({
+  value,
+  onChange,
+}: {
+  value: "all" | "any";
+  onChange: (v: "all" | "any") => void;
+}) {
+  return (
+    <div className="setrow">
+      <span className="setl">Match</span>
+      <span className="seg2" role="radiogroup" aria-label="Match mode">
+        <button
+          type="button"
+          role="radio"
+          aria-checked={value === "all"}
+          className={value === "all" ? "on" : ""}
+          onClick={() => onChange("all")}
+        >
+          All conditions
+        </button>
+        <button
+          type="button"
+          role="radio"
+          aria-checked={value === "any"}
+          className={value === "any" ? "on" : ""}
+          onClick={() => onChange("any")}
+        >
+          Any condition
+        </button>
+      </span>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SettingControl · renders one of the 6 setting types (strictness / scale /
+// mode / platform / presence / none). Mirrors settingControlHtml + its
+// per-type renderers. Bound to the GoalFilter.tune value; emits a typed update.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const STRICTNESS_STOPS: {
+  key: "loose" | "balanced" | "strict";
+  label: string;
+}[] = [
+  { key: "loose", label: "Looser" },
+  { key: "balanced", label: "Balanced" },
+  { key: "strict", label: "Stricter" },
+];
+
+function SettingControl({
+  setting,
+  value,
+  onChange,
+}: {
+  setting: SignalSetting;
+  value: SignalTuneValue;
+  onChange: (next: SignalTuneValue) => void;
+}) {
+  // ── scale · 5-band multi-select chips ──
+  if (setting.type === "scale") {
+    const sel = value.kind === "scale" ? value.bands : (setting.def ?? []);
+    const labels = sel
+      .map((k) => setting.bands.find((b) => b.value === k)?.label ?? k)
+      .join(" + ");
+    const band =
+      sel.length === 1
+        ? setting.bands.find((b) => b.value === sel[0])?.desc
+        : "pick more bands to widen, fewer to narrow.";
+    function pick(k: string) {
+      const arr = sel.slice();
+      const at = arr.indexOf(k);
+      if (at >= 0) {
+        if (arr.length > 1) arr.splice(at, 1); // keep ≥1 selected
+      } else arr.push(k);
+      onChange({ kind: "scale", bands: arr });
+    }
+    return (
+      <div className="setrow">
+        <span className="setl">{setting.label ?? "Position vs market"}</span>
+        <div className="chipset">
+          {setting.bands.map((b) => {
+            const isOn = sel.indexOf(b.value) >= 0;
+            return (
+              <button
+                type="button"
+                key={b.value}
+                className={`ch ${isOn ? "on" : ""}`}
+                title={b.desc}
+                aria-pressed={isOn}
+                onClick={() => pick(b.value)}
+              >
+                {b.label}
+              </button>
+            );
+          })}
+        </div>
+        <div className="sethint">
+          Targeting: <b>{labels || "—"}</b> — {band}{" "}
+          <span className="sethint-note">Wider = more leads.</span>
+        </div>
+      </div>
+    );
+  }
+
+  // ── mode · N-option single-select with descriptions ──
+  if (setting.type === "mode") {
+    const cur = value.kind === "mode" ? value.value : setting.def;
+    const hint =
+      setting.options.find((o) => o.value === cur)?.desc ??
+      "Pick the state that fits your pitch.";
+    return (
+      <div className="setrow">
+        <span className="setl">{setting.label ?? "State"}</span>
+        <div className="chipset">
+          {setting.options.map((o) => {
+            const isOn = o.value === cur;
+            return (
+              <button
+                type="button"
+                key={o.value}
+                className={`ch ${isOn ? "on" : ""}`}
+                title={o.desc}
+                aria-pressed={isOn}
+                onClick={() => onChange({ kind: "mode", value: o.value })}
+              >
+                {o.label}
+              </button>
+            );
+          })}
+        </div>
+        <div className="sethint">{hint}</div>
+      </div>
+    );
+  }
+
+  // ── platform · multi-select chips + optional Any / None ──
+  if (setting.type === "platform") {
+    const sel = value.kind === "platform" ? value.values : (setting.def ?? []);
+    const ANY = "__any__";
+    const NONE = "__none__";
+    function toggle(k: string) {
+      let arr = sel.slice();
+      if (k === NONE) {
+        arr = arr.indexOf(NONE) >= 0 ? [] : [NONE];
+        if (!arr.length) arr = [NONE];
+      } else if (k === ANY) {
+        arr = arr.indexOf(ANY) >= 0 ? [] : [ANY];
+        if (!arr.length) arr = [ANY];
+      } else {
+        arr = arr.filter((x) => x !== NONE && x !== ANY);
+        const at = arr.indexOf(k);
+        if (at >= 0) {
+          if (arr.length > 1) arr.splice(at, 1);
+        } else arr.push(k);
+      }
+      onChange({ kind: "platform", values: arr });
+    }
+    let hint: ReactNode;
+    if (setting.allowAny && sel.indexOf(ANY) >= 0) {
+      hint = "Matches if ANY tool is detected.";
+    } else if (setting.allowNone && sel.indexOf(NONE) >= 0) {
+      hint = "Matches when none is found.";
+    } else {
+      const labels = sel
+        .map((k) => setting.options.find((o) => o.value === k)?.label ?? k)
+        .join(", ");
+      const hasOther = setting.options.some((o) => o.value === "other");
+      hint = (
+        <>
+          Matches: <b>{labels || "—"}</b>.{" "}
+          <span className="sethint-note">
+            Add more{hasOther ? " (or ‘Other’)" : ""} to widen.
+          </span>
+        </>
+      );
+    }
+    return (
+      <div className="setrow">
+        <span className="setl">{setting.label ?? "Built on"}</span>
+        <div className="chipset">
+          {setting.allowAny ? (
+            <button
+              type="button"
+              className={`ch any ${sel.indexOf(ANY) >= 0 ? "on" : ""}`}
+              title="Matches if ANY tool is detected."
+              aria-pressed={sel.indexOf(ANY) >= 0}
+              onClick={() => toggle(ANY)}
+            >
+              Any
+            </button>
+          ) : null}
+          {setting.options.map((o) => {
+            const isOn = sel.indexOf(o.value) >= 0;
+            return (
+              <button
+                type="button"
+                key={o.value}
+                className={`ch ${isOn ? "on" : ""}`}
+                title={o.desc}
+                aria-pressed={isOn}
+                onClick={() => toggle(o.value)}
+              >
+                {o.label}
+              </button>
+            );
+          })}
+          {setting.allowNone ? (
+            <button
+              type="button"
+              className={`ch none ${sel.indexOf(NONE) >= 0 ? "on" : ""}`}
+              title="Matches when none is found."
+              aria-pressed={sel.indexOf(NONE) >= 0}
+              onClick={() => toggle(NONE)}
+            >
+              Not detected
+            </button>
+          ) : null}
+        </div>
+        <div className="sethint">{hint}</div>
+      </div>
+    );
+  }
+
+  // ── presence · has / hasn't toggle with a per-side hint ──
+  if (setting.type === "presence") {
+    const cur =
+      value.kind === "presence" ? value.value : (setting.def ?? "has");
+    const hint =
+      cur === "hasnt"
+        ? (setting.presenceHint?.hasnt ??
+          `Matches businesses that are “${setting.hasntLabel}”.`)
+        : (setting.presenceHint?.has ??
+          `Matches businesses that are “${setting.hasLabel}”.`);
+    return (
+      <div className="setrow">
+        <span className="setl">{setting.label ?? "Presence"}</span>
+        <span
+          className="seg2"
+          role="radiogroup"
+          aria-label={setting.label ?? "Presence"}
+        >
+          <button
+            type="button"
+            role="radio"
+            aria-checked={cur === "has"}
+            className={cur === "has" ? "on" : ""}
+            onClick={() => onChange({ kind: "presence", value: "has" })}
+          >
+            {setting.hasLabel ?? "Has one"}
+          </button>
+          <button
+            type="button"
+            role="radio"
+            aria-checked={cur === "hasnt"}
+            className={cur === "hasnt" ? "on" : ""}
+            onClick={() => onChange({ kind: "presence", value: "hasnt" })}
+          >
+            {setting.hasntLabel ?? "Doesn’t have one"}
+          </button>
+        </span>
+        <div className="sethint">{hint}</div>
+      </div>
+    );
+  }
+
+  // ── strictness (default) · only when there's a numeric cutoff to move ──
+  if (!stricEligible(setting)) return null;
+  const level = value.kind === "strictness" ? value.level : "balanced";
+  return (
+    <div className="setrow">
+      <span className="setl">How strict</span>
+      <div className="seg3" role="radiogroup" aria-label="Signal sensitivity">
+        {STRICTNESS_STOPS.map((s) => (
+          <button
+            type="button"
+            key={s.key}
+            role="radio"
+            aria-checked={s.key === level}
+            className={s.key === level ? "on" : ""}
+            onClick={() => onChange({ kind: "strictness", level: s.key })}
+          >
+            {s.label}
+          </button>
+        ))}
+      </div>
+      <div className="sethint">
+        <b>Looser</b> = wider net, more leads; <b>Stricter</b> = higher bar,
+        fewer but stronger.{" "}
+        <span className="sethint-note">Same data — we only move the line.</span>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Strictness controls render only when the SettingControl is wrapped by a card
+ * whose recipe has a numeric cutoff. The card decides this via
+ * {@link hasNumericThreshold}; this guard is a belt-and-suspenders default so a
+ * `strictness` setting passed without a numeric recipe shows nothing rather
+ * than a no-op slider (mirrors the prototype's `hasNumericThreshold` gate).
+ */
+function stricEligible(setting: SignalSetting): boolean {
+  return setting.type === "strictness";
+}
+
+/**
+ * SignalLibrary · the "＋ Add signal or raw data" picker. A centered dialog
+ * listing every SIG_META entry NOT already in the goal, grouped by outcome
+ * (collapsible sections; the first is open + all auto-open while searching).
+ * Adding a row appends it to the goal (ON) — the row then disappears since the
+ * list is derived from `goal.filters`. Stays open for multi-add. Closes via the
+ * ✕ button, Escape, or clicking the scrim. The search input is focused on open.
+ */
+function SignalLibrary({
+  goal,
+  onChange,
+  onClose,
+}: {
+  goal: GoalState;
+  onChange: (next: GoalState) => void;
+  onClose: () => void;
+}) {
+  const [query, setQuery] = useState("");
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  // Focus the search on open + close on Escape.
+  useEffect(() => {
+    searchRef.current?.focus();
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  function add(key: string) {
+    const meta = SIG_META[key];
+    if (!meta) return;
+    onChange({
+      ...goal,
+      customized: true,
+      filters: [
+        ...goal.filters,
+        { key, on: true, why: meta.pitch || meta.means },
+      ],
+    });
+  }
+
+  // The catalog: every SIG_META key not already in the goal, bucketed by group.
+  const inGoal = new Set(goal.filters.map((f) => f.key));
+  const q = query.trim().toLowerCase();
+  const searching = q.length > 0;
+
+  const byGroup = new Map<OutcomeGroup, { key: string; meta: SigMeta }[]>();
+  for (const [key, meta] of Object.entries(SIG_META)) {
+    if (inGoal.has(key)) continue;
+    if (searching) {
+      const hay = `${meta.title} ${meta.means} ${key}`.toLowerCase();
+      if (!hay.includes(q)) continue;
+    }
+    const arr = byGroup.get(meta.group) ?? [];
+    arr.push({ key, meta });
+    byGroup.set(meta.group, arr);
+  }
+
+  const groups = OUTCOME_GROUPS.filter((g) => byGroup.has(g.key));
+  const available = Array.from(byGroup.values()).reduce(
+    (n, rows) => n + rows.length,
+    0,
+  );
+
+  return (
+    <div
+      className="overlay center"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div
+        className="modal wide"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="sigLibTitle"
+      >
+        <div className="mhead">
+          <h2 id="sigLibTitle">Signal &amp; field library</h2>
+          <span className="note">Every signal &amp; raw field — your moat</span>
+          <button
+            type="button"
+            className="x"
+            aria-label="Close"
+            onClick={onClose}
+          >
+            ×
+          </button>
+        </div>
+
+        <div className="mbody">
+          <input
+            ref={searchRef}
+            className="msearch"
+            placeholder="Search signals — pixel, slow, reviews, rankings…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            autoComplete="off"
+            aria-label="Search signals"
+          />
+          <p className="note" style={{ margin: "11px 0 2px" }}>
+            A <span className="badge-sig">SIGNAL</span> is an expert read on a
+            business. A <span className="badge-data">DATA</span> field is a
+            single raw fact. Open a section to browse, or search across all of
+            them.
+          </p>
+
+          <div className="siglib siglib-compact">
+            {groups.length === 0 ? (
+              <div className="note" style={{ padding: "30px 2px" }}>
+                {searching
+                  ? `No signals match “${query}”.`
+                  : "Every signal is already in this goal."}
+              </div>
+            ) : (
+              groups.map((g, gi) => {
+                const rows = byGroup.get(g.key) ?? [];
+                return (
+                  <details
+                    className="siglib-grp"
+                    key={g.key}
+                    open={searching || gi === 0}
+                  >
+                    <summary className="siglib-head">
+                      <span className="siglib-gname">{g.label}</span>
+                      <span className="siglib-count">{rows.length}</span>
+                      <span className="siglib-chev" aria-hidden="true">
+                        ▾
+                      </span>
+                    </summary>
+                    <div className="siglib-rows">
+                      {rows.map(({ key, meta }) => {
+                        const isSig = meta.kind === "signal";
+                        return (
+                          <div
+                            className={`siglib-row ${isSig ? "is-sig" : "is-data"}`}
+                            key={key}
+                          >
+                            <div className="siglib-meta">
+                              <span className="siglib-name">{meta.title}</span>
+                              <span
+                                className={isSig ? "badge-sig" : "badge-data"}
+                              >
+                                {isSig ? "SIGNAL" : "DATA"}
+                              </span>
+                              <span className="siglib-desc">{meta.means}</span>
+                            </div>
+                            <button
+                              type="button"
+                              className="siglib-add"
+                              aria-label={`Add ${meta.title}`}
+                              onClick={() => add(key)}
+                            >
+                              ＋ Add
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </details>
+                );
+              })
+            )}
+          </div>
+        </div>
+
+        <div className="mfoot">
+          <span className="note">
+            {available} available{searching ? ` · matching “${query}”` : ""}
+          </span>
+          <button
+            type="button"
+            className="btn primary"
+            style={{ marginLeft: "auto" }}
+            onClick={onClose}
+          >
+            Done
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }

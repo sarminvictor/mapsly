@@ -7,30 +7,30 @@ The single source of truth for plans, credit pricing, and competitive positionin
 
 ## 1 · Competitive comparison
 
-| | Apollo | Origami | Mapsly (us) |
-|---|---|---|---|
-| Billing model | **per seat** | flat subscription | flat subscription |
-| Entry paid plan | $49/user/mo (annual; $59 monthly) | $29/mo | $49/mo |
-| Plan ladder | Basic $49 · Pro $79 · Org $119 (per user) | Starter $29/2K · Pro $129/9K · Scale $499/40K | Starter $19 · Growth $99 · Scale $299 |
-| What 1 credit buys | 1 data reveal / export | **1 micro-action** (0.5–15 cr/action) | **1 fully-enriched lead** |
-| Credits to fully enrich 1 lead | 2–4 (email + mobile + export) | **~20–35** (email 3, phone 15, maps 0.8, tech 1, ads 1+1, traffic 2, reviews 0.2/ea, research 1…) | **1** |
-| Effective $/fully-enriched local lead | $0.10–0.20 (contacts only) (+ per-seat) | **$0.20 (light) – $0.50 (full)** | **$0.037–0.063** |
-| Data depth | B2B contacts / firmographics | per-action enrichment (no local expert layer) | **local signals** — reviews, ads, SERP, tech, services, compliance |
-| Local-business coverage | weak (LinkedIn-blind to ~70% of local) | generic via Maps/scrape | **native, 2.1M local** |
-| Credit expiry | expire, forfeited | end of cycle | **rollover 60d** |
-| Personalized outreach | add-on / weak | basic | signal-grounded first-touch |
+|                                       | Apollo                                    | Origami                                                                                           | Mapsly (us)                                                        |
+| ------------------------------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| Billing model                         | **per seat**                              | flat subscription                                                                                 | flat subscription                                                  |
+| Entry paid plan                       | $49/user/mo (annual; $59 monthly)         | $29/mo                                                                                            | $49/mo                                                             |
+| Plan ladder                           | Basic $49 · Pro $79 · Org $119 (per user) | Starter $29/2K · Pro $129/9K · Scale $499/40K                                                     | Starter $19 · Growth $99 · Scale $299                              |
+| What 1 credit buys                    | 1 data reveal / export                    | **1 micro-action** (0.5–15 cr/action)                                                             | **1 fully-enriched lead**                                          |
+| Credits to fully enrich 1 lead        | 2–4 (email + mobile + export)             | **~20–35** (email 3, phone 15, maps 0.8, tech 1, ads 1+1, traffic 2, reviews 0.2/ea, research 1…) | **1**                                                              |
+| Effective $/fully-enriched local lead | $0.10–0.20 (contacts only) (+ per-seat)   | **$0.20 (light) – $0.50 (full)**                                                                  | **$0.037–0.063**                                                   |
+| Data depth                            | B2B contacts / firmographics              | per-action enrichment (no local expert layer)                                                     | **local signals** — reviews, ads, SERP, tech, services, compliance |
+| Local-business coverage               | weak (LinkedIn-blind to ~70% of local)    | generic via Maps/scrape                                                                           | **native, 2.1M local**                                             |
+| Credit expiry                         | expire, forfeited                         | end of cycle                                                                                      | **rollover 60d**                                                   |
+| Personalized outreach                 | add-on / weak                             | basic                                                                                             | signal-grounded first-touch                                        |
 
 ### Cost to fully enrich ONE local lead (apples-to-apples)
 
-| Component | Mapsly | Origami (credits → $ @ Pro $0.0143) | Apollo |
-|---|---|---|---|
-| Find business | bundled | 0.8 → $0.01 | — |
-| Email + phone | bundled | 18 → $0.26 (phone alone = 15 cr) | ~$0.10–0.20 |
-| Tech + Google ads + Meta ads + traffic | bundled | 5 → $0.07 | ✗ |
-| Reviews (~50, analyzed) | bundled | 10 → $0.14 | ✗ |
-| AI research | bundled | 1 → $0.01 | ✗ |
-| Services + compliance | bundled | ✗ (none) | ✗ |
-| **Total / lead** | **$0.05–0.08** | **$0.20–0.50** | $0.10–0.20 (contacts only) |
+| Component                              | Mapsly         | Origami (credits → $ @ Pro $0.0143) | Apollo                     |
+| -------------------------------------- | -------------- | ----------------------------------- | -------------------------- |
+| Find business                          | bundled        | 0.8 → $0.01                         | —                          |
+| Email + phone                          | bundled        | 18 → $0.26 (phone alone = 15 cr)    | ~$0.10–0.20                |
+| Tech + Google ads + Meta ads + traffic | bundled        | 5 → $0.07                           | ✗                          |
+| Reviews (~50, analyzed)                | bundled        | 10 → $0.14                          | ✗                          |
+| AI research                            | bundled        | 1 → $0.01                           | ✗                          |
+| Services + compliance                  | bundled        | ✗ (none)                            | ✗                          |
+| **Total / lead**                       | **$0.05–0.08** | **$0.20–0.50**                      | $0.10–0.20 (contacts only) |
 
 **We are 4–10× cheaper per complete local lead than Origami** — they meter every action (verified phone alone is 15 credits / $0.21; reviews are 0.2 credit each), while we bundle a whole lead into 1 credit. Local businesses publish phones publicly, so ours rides the free listing/DOM — no 9-provider B2B phone waterfall.
 
@@ -42,10 +42,10 @@ Sources: apollo.io/pricing + salesmotion.io / saleshandy.com (Apollo 2026); orig
 
 Apollo bills per user. A 4-seat agency (our Tom persona):
 
-| Tier | Apollo (4 seats) | Mapsly (flat) | Mapsly saving |
-|---|---|---|---|
-| Basic / Solo | 4 × $49 = $196/mo | $49/mo | ~4× |
-| Professional / Growth | 4 × $79 = $316/mo | $99/mo | ~3× |
+| Tier                  | Apollo (4 seats)  | Mapsly (flat) | Mapsly saving |
+| --------------------- | ----------------- | ------------- | ------------- |
+| Basic / Solo          | 4 × $49 = $196/mo | $49/mo        | ~4×           |
+| Professional / Growth | 4 × $79 = $316/mo | $99/mo        | ~3×           |
 
 Same team, 3–4× cheaper, plus signals Apollo can't see. This is the headline wedge — lead with it.
 
@@ -53,15 +53,16 @@ Same team, 3–4× cheaper, plus signals Apollo can't see. This is the headline 
 
 **One rule:** 1 credit = 1 fully-enriched lead — contacts, reviews, tech, ads, SERP rank, services, AI research, compliance, all included. No per-action metering. Discovery (raw list) is free. The expensive ⚡ deep audit (full site-speed + keyword footprint) is included on Growth & Scale only, keeping Starter's per-lead cost safe (~$0.015).
 
-| Plan | $/mo | Complete leads/mo | $/lead | Cost/lead | Gross margin |
-|---|---|---|---|---|---|
-| Free | $0 | 50 (one-time) | — | $0.015 | acquisition (−$0.75 CAC) |
-| Starter | $19 | 300 | $0.063 | $0.015 | 76% |
-| Growth | $99 | 2,000 | $0.050 | $0.015 | 70% |
-| Scale | $299 | 8,000 | $0.037 | $0.015 | 60% |
-| Top-up | $0.10/lead | — | $0.10 | $0.015 | 85% |
+| Plan    | $/mo       | Complete leads/mo | $/lead | Cost/lead | Gross margin             |
+| ------- | ---------- | ----------------- | ------ | --------- | ------------------------ |
+| Free    | $0         | 50 (one-time)     | —      | $0.015    | acquisition (−$0.75 CAC) |
+| Starter | $19        | 300               | $0.063 | $0.015    | 76%                      |
+| Growth  | $99        | 2,000             | $0.050 | $0.015    | 70%                      |
+| Scale   | $299       | 8,000             | $0.037 | $0.015    | 60%                      |
+| Top-up  | $0.10/lead | —                 | $0.10  | $0.015    | 85%                      |
 
 Design principles:
+
 - **Just under Origami at every tier** ($19<$29 · $99<$129 · $299<$499) — easy head-to-head.
 - **3–5× more complete leads** than the matching Origami tier (Starter 300 vs ~80) — because our credit is a whole lead, theirs a micro-action.
 - **Generous entry on purpose** — $19/300 leads is the land-grab to pull triers off Origami/Apollo. Margin still 76%.

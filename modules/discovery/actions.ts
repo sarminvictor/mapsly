@@ -23,8 +23,9 @@ import { z } from "zod";
 import { cellKey as makeCellKey, cellFreshnessState } from "@/lib/cell";
 import { auth } from "@/lib/auth";
 import { metroBySlug } from "@/lib/geo/resolve-metro";
-import prisma from "@/lib/prisma";
+import prisma, { Prisma } from "@/lib/prisma";
 import { rawListWhere } from "@/modules/discovery/raw-list";
+import { parseDiscoverySignals } from "@/modules/agency-portal/discover/discovery-signals";
 import {
   createCostEstimate,
   authorizeEstimate,
@@ -42,12 +43,27 @@ const CellInput = z.object({
   country: z.string().min(2).max(3).optional(),
 });
 
+/** The active goal signals, threaded from the journey so the run can persist
+ *  them on `Discovery.signalsJson` for the workbench evaluator (P3). Only the
+ *  SIG_META key + the user's tune/conds/match are carried; comparator/value/
+ *  registryKey are re-derived from SIG_META at read time. Loosely validated
+ *  (the eval layer guards every field again) but bounded for safety. */
+const PersistedSignalInput = z.object({
+  key: z.string().min(1).max(120),
+  tune: z.unknown().optional(),
+  conds: z.record(z.string(), z.boolean()).optional(),
+  match: z.enum(["all", "any"]).optional(),
+});
+
 const DiscoveryInput = z.object({
   cells: z.array(CellInput).min(1).max(50),
   limitPerCell: z.number().int().min(1).max(1000).optional(),
   /** Active goal signal registry keys — used to count "Match your signals"
    *  over the REAL businesses of in-DB cells (flagged PlaybookFindings). */
   signalKeys: z.array(z.string().min(1).max(120)).max(40).optional(),
+  /** Active goal signals (SIG_META key + tune/conds/match) — persisted onto the
+   *  Discovery so the workbench can evaluate each lead for a REAL match%. */
+  signals: z.array(PersistedSignalInput).max(40).optional(),
 });
 
 export type DiscoveryActionInput = z.input<typeof DiscoveryInput>;
@@ -310,13 +326,22 @@ export async function preflightDiscoveryAction(
         userId: session.user.id,
         scopeKind: "discovery",
         enrichments: [],
+        // The `signals` carry the goal's tune (typed `unknown` at the Zod
+        // boundary), so the literal isn't statically an InputJsonValue; cast at
+        // the seam like the other JSON scope payloads (cf. enrichmentsJson).
         scopeRefs: {
           kind: "discovery",
           cells: planInputs,
           lines: [],
           planNetUsd: plan.estimate.netUsd,
           planNetCredits: plan.estimate.netCredits,
-        },
+          // Carry the active goal signals through the authorized estimate so the
+          // run (which only gets the estimateId, anti-tamper) can persist them
+          // onto Discovery.signalsJson for the workbench evaluator (P3). Extra
+          // scopeRefs keys are ignored by the discovery re-quote (it reads only
+          // `cells`), so this is safe alongside the anti-tamper path.
+          signals: parsed.data.signals ?? [],
+        } as unknown as Prisma.InputJsonValue,
         lines: [],
         freshnessAsOf: now,
       },
@@ -431,6 +456,7 @@ export async function runDiscoveryAction(
     });
     const scope = (est?.scopeRefsJson ?? {}) as {
       cells?: { cellKey?: string }[];
+      signals?: unknown;
     };
     const cellKeys = (scope.cells ?? [])
       .map((c) => c.cellKey)
@@ -438,6 +464,16 @@ export async function runDiscoveryAction(
     if (cellKeys.length === 0) {
       return { status: "invalid_input", message: "estimate has no cells" };
     }
+
+    // The active goal signals carried through the estimate → persisted onto the
+    // Discovery so the workbench evaluates each lead against them (P3). Parsed
+    // defensively; an empty/absent set stores null so the workbench falls back
+    // to the pain-count heuristic.
+    const parsedSignals = parseDiscoverySignals({ signals: scope.signals });
+    const signalsJson: Prisma.InputJsonValue | undefined =
+      parsedSignals && parsedSignals.signals.length > 0
+        ? (parsedSignals as unknown as Prisma.InputJsonValue)
+        : undefined;
 
     const idempotencyKey = discoveryIdempotencyKey(cellKeys, session.user.id);
 
@@ -450,8 +486,11 @@ export async function runDiscoveryAction(
         status: "PENDING",
         cellKeys,
         cellCount: cellKeys.length,
+        ...(signalsJson ? { signalsJson } : {}),
       },
-      update: {},
+      // On an idempotent re-submit, refresh the persisted signals (the user may
+      // have re-tuned between attempts); leave everything else untouched.
+      update: signalsJson ? { signalsJson } : {},
       select: { id: true },
     });
 

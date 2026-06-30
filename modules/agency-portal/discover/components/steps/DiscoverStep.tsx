@@ -29,7 +29,7 @@ import {
 } from "@/modules/discovery/enrich-actions";
 import { cellKey as makeCellKey } from "@/lib/cell";
 import type { EnrichmentType } from "@/modules/cost/pricing";
-import { SIG_META, familiesForSignals } from "../../goal-templates";
+import { researchesForSignals } from "../../researches";
 import {
   enrichCreditsFor,
   fmtCredits,
@@ -135,13 +135,12 @@ export function DiscoverStep({
     [goal.filters],
   );
   const sigCount = activeSignals.length;
+  // The research families the active signals depend on — every enrichment the
+  // workflow must run so the toggled signals can be evaluated (dependency chains
+  // expanded, e.g. tech → contacts). Same EnrichmentType[] shape the preflight,
+  // credit estimate, and dispatch all consume.
   const families: EnrichmentType[] = useMemo(
-    () =>
-      familiesForSignals(
-        activeSignals
-          .map((f) => SIG_META[f.key]?.signalKey)
-          .filter((k): k is string => Boolean(k)),
-      ),
+    () => researchesForSignals(activeSignals),
     [activeSignals],
   );
 

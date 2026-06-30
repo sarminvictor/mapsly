@@ -45,17 +45,27 @@ import {
   sortRows,
   type CellBand,
   type ColumnDef,
+  type DataFamily,
   type LeadFilter,
   type LeadStatus,
   type NumericFilterField,
   type WorkbenchLeadRow,
 } from "../leads-workbench";
+import { enrichTypesForFamilies } from "../family-coverage";
 
 export interface LeadsWorkbenchProps {
   rows: WorkbenchLeadRow[];
   discoveryId: string;
   /** vs-cell distribution bands per numeric column key (null when cohort small). */
   bands: Partial<Record<string, CellBand>>;
+  /**
+   * Per-business COVERED families from the batched coverage matrix
+   * (GET /research/:id/coverage), fetched server-side and passed as a plain map
+   * (Pattern 4 — no functions cross the boundary). Drives the per-row dot-strip.
+   * A business missing from the map falls back to its row's own `families`
+   * (both derive from the same `deriveFamilyCoverage` source of truth).
+   */
+  coverage: Record<string, DataFamily[]>;
 }
 
 type Density = "comfortable" | "compact";
@@ -64,7 +74,26 @@ export function LeadsWorkbench({
   rows,
   discoveryId,
   bands,
+  coverage,
 }: LeadsWorkbenchProps) {
+  /**
+   * Covered families for one row: prefer the batched matrix (keyed by
+   * businessId), fall back to the row's own `families` map. Returns the ordered
+   * `Record<DataFamily, boolean>` the dot-strip + missing-family math consume.
+   */
+  const coveredFamilies = useCallback(
+    (r: WorkbenchLeadRow): Record<DataFamily, boolean> => {
+      const fromMatrix = coverage[r.businessId];
+      if (fromMatrix) {
+        const set = new Set(fromMatrix);
+        return Object.fromEntries(
+          DATA_FAMILIES.map((f) => [f.key, set.has(f.key)]),
+        ) as Record<DataFamily, boolean>;
+      }
+      return r.families;
+    },
+    [coverage],
+  );
   // ── Status (optimistic) ──────────────────────────────────────────────────
   const [committed, setCommitted] = useState<Record<string, LeadStatus>>(() =>
     Object.fromEntries(rows.map((r) => [r.leadId, r.status])),
@@ -293,18 +322,46 @@ export function LeadsWorkbench({
     URL.revokeObjectURL(url);
   }
 
-  // ── Coverage (families "have" only when every visible lead has it) ─────────
-  const coverage = useMemo(() => {
+  // ── Coverage summary (set-wide) + the missing families to enrich ──────────
+  // A family is "have" (set-wide) only when EVERY visible lead has it — same
+  // honest rule as before, but now sourced from the batched coverage matrix via
+  // coveredFamilies (so ads/search are real, not faked). `missingKeys` are the
+  // families NOT covered across the whole visible set — the enrich-more target.
+  const coverageSummary = useMemo(() => {
     const have: string[] = [];
     const notYet: string[] = [];
+    const missingKeys: DataFamily[] = [];
     for (const fam of DATA_FAMILIES) {
       const all =
-        filtered.length > 0 && filtered.every((r) => r.families[fam.key]);
+        filtered.length > 0 &&
+        filtered.every((r) => coveredFamilies(r)[fam.key]);
       if (all) have.push(fam.label);
-      else notYet.push(fam.label);
+      else {
+        notYet.push(fam.label);
+        missingKeys.push(fam.key);
+      }
     }
-    return { have, notYet };
-  }, [filtered]);
+    return { have, notYet, missingKeys };
+  }, [filtered, coveredFamilies]);
+
+  /**
+   * Deep-link to the discover/enrich flow, scoped to the families still missing
+   * across the visible set, via `?enrich=<types>` (the enrichment-type tokens
+   * those families need). NOTE: the flow (GetLeadsFlow) does not yet CONSUME this
+   * param to pre-select families — it starts at the Goal step — so today this is
+   * an honest, scoped deep-link to the right place rather than a one-click
+   * per-family re-enrich (which has no action yet). Tracked as a follow-up.
+   * Only rendered when missing families exist, so `enrich` is always populated.
+   */
+  const enrichHref = useMemo(
+    () => ({
+      pathname: "/discover" as const,
+      query: {
+        enrich: enrichTypesForFamilies(coverageSummary.missingKeys).join(","),
+      },
+    }),
+    [coverageSummary.missingKeys],
+  );
 
   // ── Fields menu helpers ───────────────────────────────────────────────────
   function toggleCol(key: string) {
@@ -468,6 +525,37 @@ export function LeadsWorkbench({
             )}
           </td>
         );
+      case "cov": {
+        // Per-row enrichment dot-strip (prototype .covstrip / .covfrac /
+        // .covdots): one dot per data family, filled when covered. Source =
+        // the batched coverage matrix, falling back to the row's families.
+        const cov = coveredFamilies(r);
+        const have = DATA_FAMILIES.filter((f) => cov[f.key]).length;
+        return (
+          <td key={col.key}>
+            <span
+              className="covstrip"
+              title={`${have} of ${DATA_FAMILIES.length} data families enriched`}
+            >
+              <span className="covfrac">
+                {have}/{DATA_FAMILIES.length}
+              </span>
+              <span
+                className="covdots"
+                aria-label={`${have} of ${DATA_FAMILIES.length} data families enriched`}
+              >
+                {DATA_FAMILIES.map((f) => (
+                  <i
+                    key={f.key}
+                    className={cov[f.key] ? "done" : undefined}
+                    title={`${f.label}: ${cov[f.key] ? "have" : "not yet"}`}
+                  />
+                ))}
+              </span>
+            </span>
+          </td>
+        );
+      }
       default:
         return <td key={col.key} />;
     }
@@ -650,7 +738,7 @@ export function LeadsWorkbench({
         >
           ▤
           <span className="cbadge alt">
-            {coverage.have.length}/{DATA_FAMILIES.length}
+            {coverageSummary.have.length}/{DATA_FAMILIES.length}
           </span>
         </button>
       </div>
@@ -778,34 +866,28 @@ export function LeadsWorkbench({
             <span className="cl-lbl" style={{ color: "var(--green)" }}>
               Have:
             </span>
-            {coverage.have.length === 0 ? (
+            {coverageSummary.have.length === 0 ? (
               <span className="note">—</span>
             ) : (
-              coverage.have.map((label) => (
+              coverageSummary.have.map((label) => (
                 <span key={label} className="covtag done">
                   <span className="cv">✓</span>
                   {label}
                 </span>
               ))
             )}
-            {coverage.notYet.length > 0 ? (
+            {coverageSummary.notYet.length > 0 ? (
               <>
                 <span className="cl-lbl" style={{ marginLeft: 6 }}>
                   Not yet:
                 </span>
-                {coverage.notYet.map((label) => (
+                {coverageSummary.notYet.map((label) => (
                   <span key={label} className="covtag todo">
                     {label}
                   </span>
                 ))}
-                <Link
-                  href={{
-                    pathname: "/discover/[discoveryId]",
-                    params: { discoveryId },
-                  }}
-                  className="clenrich"
-                >
-                  Enrich →
+                <Link href={enrichHref} className="clenrich">
+                  Enrich {coverageSummary.notYet.join(" · ")} →
                 </Link>
               </>
             ) : (
@@ -1026,6 +1108,7 @@ export function LeadsWorkbench({
       {/* ── Lead detail drawer (URL-driven · ?lead=<businessId>) ───────────── */}
       <LeadDrawer
         businessId={openLead}
+        discoveryId={discoveryId}
         orderedIds={orderedIds}
         onClose={clearLead}
         onNav={setLead}

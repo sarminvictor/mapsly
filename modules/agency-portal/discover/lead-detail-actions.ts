@@ -20,7 +20,13 @@ import prisma from "@/lib/prisma";
 
 import { getLeadDetail, type LeadDetail } from "./lead-detail";
 
-const Input = z.object({ businessId: z.string().min(1).max(64) });
+const Input = z.object({
+  businessId: z.string().min(1).max(64),
+  /** The discovery the drawer was opened from — selects whose persisted signals
+   *  to evaluate this lead against (P3). Optional: omitted falls back to any
+   *  agency discovery holding the lead, then to the heuristic. */
+  discoveryId: z.string().min(1).max(64).optional(),
+});
 
 export type GetLeadDetailResult =
   | { status: "ok"; lead: LeadDetail }
@@ -32,11 +38,12 @@ export type GetLeadDetailResult =
 
 export async function getLeadDetailAction(
   businessId: string,
+  discoveryId?: string,
 ): Promise<GetLeadDetailResult> {
   const session = await auth();
   if (!session?.user?.id) return { status: "unauthorized" };
 
-  const parsed = Input.safeParse({ businessId });
+  const parsed = Input.safeParse({ businessId, discoveryId });
   if (!parsed.success) return { status: "invalid_input" };
 
   try {
@@ -46,7 +53,11 @@ export async function getLeadDetailAction(
     });
     if (!member) return { status: "forbidden" };
 
-    const lead = await getLeadDetail(parsed.data.businessId, member.agencyId);
+    const lead = await getLeadDetail(
+      parsed.data.businessId,
+      member.agencyId,
+      parsed.data.discoveryId,
+    );
     if (!lead) return { status: "not_found" };
 
     return { status: "ok", lead };

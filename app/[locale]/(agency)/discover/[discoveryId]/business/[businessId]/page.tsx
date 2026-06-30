@@ -119,7 +119,9 @@ async function BusinessDetailBody({ params }: PageProps) {
     notFound();
   }
 
-  const lead = await getLeadDetail(businessId, agencyId);
+  // Pass discoveryId so the page evaluates the lead against THIS research's
+  // persisted signals (real match% + per-signal verdicts), matching the drawer.
+  const lead = await getLeadDetail(businessId, agencyId, discoveryId);
   if (!lead) notFound();
 
   return (
@@ -267,11 +269,58 @@ async function BusinessDetailBody({ params }: PageProps) {
         <h2 className="mb-2 text-sm font-semibold text-slate-700">
           Why this lead qualifies
         </h2>
-        {lead.firedSignals.length === 0 ? (
-          <div className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-500">
-            No composite signals fired — this lead matched on raw qualifiers
-            only.
+
+        {/* The research's chosen signals, with honest per-lead verdicts (P3). */}
+        {lead.signalVerdicts.length > 0 ? (
+          <div className="mb-3 rounded-xl border border-slate-200 bg-white p-4">
+            <p className="mb-2 text-xs text-slate-500">
+              {lead.signalVerdicts.filter((v) => v.matched === true).length} of{" "}
+              {lead.signalVerdicts.length} of your signals fired
+            </p>
+            <ul className="flex flex-col gap-1.5">
+              {lead.signalVerdicts.map((v) => {
+                const cls =
+                  v.matched === true
+                    ? "bg-green-50 text-green-700 border-green-200"
+                    : v.matched === null
+                      ? "bg-amber-50 text-amber-700 border-amber-200"
+                      : "bg-slate-50 text-slate-500 border-slate-200";
+                const label =
+                  v.matched === true
+                    ? "Fired"
+                    : v.matched === null
+                      ? "Enrich to unlock"
+                      : "Didn’t fire";
+                return (
+                  <li
+                    key={v.key}
+                    className="flex items-center justify-between gap-2"
+                  >
+                    <span
+                      className="truncate text-sm text-slate-700"
+                      title={v.means}
+                    >
+                      {v.title}
+                    </span>
+                    <span
+                      className={`shrink-0 rounded-full border px-2 py-0.5 text-[11px] ${cls}`}
+                    >
+                      {label}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
           </div>
+        ) : null}
+
+        {lead.firedSignals.length === 0 ? (
+          lead.signalVerdicts.length === 0 ? (
+            <div className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-500">
+              No composite signals fired — this lead matched on raw qualifiers
+              only.
+            </div>
+          ) : null
         ) : (
           <div className="flex flex-col gap-3">
             {lead.firedSignals.map((s) => (

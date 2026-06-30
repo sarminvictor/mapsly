@@ -154,6 +154,8 @@ export function parseCellReference(
     shareOfVoice: bp("shareOfVoice"),
     lighthousePerformance: bp("lighthousePerformance"),
     estMonthlyAdSpend: bp("estMonthlyAdSpend"),
+    organicTraffic: bp("organicTraffic"),
+    organicRank: bp("organicRank"),
   };
 }
 
@@ -164,11 +166,71 @@ export interface CellAggregationSummary {
   highConfidenceCells: number;
 }
 
+/**
+ * Cluster-C organic distributions for a set of businesses, computed from already
+ * stored search data — ZERO external-API cost (pure Postgres reads):
+ *
+ *   - `organicTraffic` · one value per business = SUM of its
+ *     `BusinessKeyword.latestEstMonthlyVisits` (the portfolio's estimated
+ *     monthly visits). Higher = more organic demand captured.
+ *   - `organicRank` · one value per business = the BEST (lowest) ORGANIC
+ *     `SerpResult.organicRank` across its scanned keywords. Lower = better.
+ *
+ * Returns `{ organicTraffic, organicRank }` breakpoints (each null when too few
+ * businesses have the data to form a spread). The caller folds these into the
+ * cell's `distributions` bag. Businesses with no keyword/serp rows simply don't
+ * contribute a value — the distribution stays honest to what's actually scanned.
+ */
+export async function organicDistributionsForBusinesses(
+  businessIds: readonly string[],
+): Promise<{
+  organicTraffic: Breakpoints | null;
+  organicRank: Breakpoints | null;
+}> {
+  const ids = Array.from(new Set(businessIds)).filter((id) => id.length > 0);
+  if (ids.length === 0) return { organicTraffic: null, organicRank: null };
+
+  const [keywordRows, serpRows] = await Promise.all([
+    prisma.businessKeyword.findMany({
+      where: { businessId: { in: ids } },
+      select: { businessId: true, latestEstMonthlyVisits: true },
+    }),
+    prisma.serpResult.findMany({
+      where: { businessId: { in: ids }, kind: "ORGANIC" },
+      select: { businessId: true, organicRank: true },
+    }),
+  ]);
+
+  // Sum est monthly visits per business (one organic-traffic value each).
+  const trafficByBiz = new Map<string, number>();
+  for (const k of keywordRows) {
+    const v = k.latestEstMonthlyVisits;
+    if (v == null || !Number.isFinite(v)) continue;
+    trafficByBiz.set(k.businessId, (trafficByBiz.get(k.businessId) ?? 0) + v);
+  }
+
+  // Best (lowest) organic rank per business (one organic-rank value each).
+  const rankByBiz = new Map<string, number>();
+  for (const s of serpRows) {
+    const r = s.organicRank;
+    if (r == null || !Number.isFinite(r) || s.businessId == null) continue;
+    const cur = rankByBiz.get(s.businessId);
+    if (cur == null || r < cur) rankByBiz.set(s.businessId, r);
+  }
+
+  return {
+    organicTraffic: quantiles(Array.from(trafficByBiz.values())),
+    organicRank: quantiles(Array.from(rankByBiz.values())),
+  };
+}
+
 interface CellBucket {
   category: string;
   city: string;
   country: string;
   rows: PillarSignals[];
+  /** businessIds in the cell · drives the organic distribution pull. */
+  businessIds: string[];
 }
 
 /**
@@ -201,6 +263,7 @@ export async function runCellAggregation(opts?: {
     distinct: ["businessId"],
     take: limit,
     select: {
+      businessId: true,
       signalsJson: true,
       rating: true,
       reviewCount: true,
@@ -233,10 +296,11 @@ export async function runCellAggregation(opts?: {
     const key = cellKeyOf(category, city, country);
     let bucket = buckets.get(key);
     if (!bucket) {
-      bucket = { category, city, country, rows: [] };
+      bucket = { category, city, country, rows: [], businessIds: [] };
       buckets.set(key, bucket);
     }
     bucket.rows.push(signalsFromSnapshot(snap));
+    bucket.businessIds.push(snap.businessId);
   }
 
   let cellsWritten = 0;
@@ -262,6 +326,10 @@ export async function runCellAggregation(opts?: {
     const bpShareOfVoice = quantiles(vals((s) => s.shareOfVoice));
     const bpPerf = quantiles(vals((s) => s.lighthousePerformance));
     const bpSpend = quantiles(vals((s) => s.estMonthlyAdSpend));
+    // Cluster-C organic distributions from already-stored BusinessKeyword +
+    // SerpResult rows (ZERO external cost). One value per business in the cell.
+    const { organicTraffic: bpOrganicTraffic, organicRank: bpOrganicRank } =
+      await organicDistributionsForBusinesses(bucket.businessIds);
 
     const adFlags = rows
       .map((s) => s.hasActiveAds)
@@ -280,6 +348,8 @@ export async function runCellAggregation(opts?: {
       ...(bpShareOfVoice ? { shareOfVoice: bpShareOfVoice } : {}),
       ...(bpPerf ? { lighthousePerformance: bpPerf } : {}),
       ...(bpSpend ? { estMonthlyAdSpend: bpSpend } : {}),
+      ...(bpOrganicTraffic ? { organicTraffic: bpOrganicTraffic } : {}),
+      ...(bpOrganicRank ? { organicRank: bpOrganicRank } : {}),
     };
 
     const cellKey = cellKeyOf(category, city, country);
