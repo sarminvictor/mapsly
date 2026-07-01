@@ -16,44 +16,49 @@ export interface ComboOption {
   meta?: string;
 }
 
+/** How many rows to show — a larger default list (no query yet) so the first
+ *  screenful is genuinely useful over hundreds of options; a tighter cap once
+ *  the user is filtering (a typed query already narrows the field for you). */
+const MAX_DEFAULT_OPTIONS = 12;
+const MAX_FILTERED_OPTIONS = 20;
+
 export function MarketCombobox({
   id,
   label,
   placeholder,
   options,
   note,
-  value,
   onPick,
 }: {
   id: string;
   label: string;
   placeholder: string;
+  /** Pre-sorted best-first (e.g. most prospected / largest first) — both the
+   *  no-query default list and filtered matches preserve this order. */
   options: ComboOption[];
   note?: string;
-  /** The currently-typed text. */
-  value: string;
   /** Called with the picked option (fills the input only). */
   onPick: (opt: ComboOption) => void;
 }) {
-  const [query, setQuery] = useState(value);
+  // Fully self-contained — no controlled `value` prop. A parent that needs to
+  // clear this field (e.g. after "Add market") does so by changing this
+  // component's `key`, which remounts it with a fresh, empty `query`. (A
+  // controlled `value` that the parent only updates on pick/reset — never on
+  // keystroke — caused every render to look like "the parent cleared the
+  // field", wiping each character the instant it was typed.)
+  const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
-
-  // Keep local text in sync when the parent resets it (e.g. after Add market).
-  if (value !== query && value === "") {
-    // parent cleared the field
-    setQuery("");
-  }
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const base = q
-      ? options.filter(
-          (o) =>
-            o.label.toLowerCase().includes(q) ||
-            (o.meta ?? "").toLowerCase().includes(q),
-        )
-      : options;
-    return base.slice(0, 8);
+    if (!q) return options.slice(0, MAX_DEFAULT_OPTIONS);
+    return options
+      .filter(
+        (o) =>
+          o.label.toLowerCase().includes(q) ||
+          (o.meta ?? "").toLowerCase().includes(q),
+      )
+      .slice(0, MAX_FILTERED_OPTIONS);
   }, [query, options]);
 
   return (

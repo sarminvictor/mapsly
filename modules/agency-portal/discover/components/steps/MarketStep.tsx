@@ -24,6 +24,8 @@ export interface CategoryOption {
   id: string;
   slug: string;
   label: string;
+  /** Meta-group for display context in the dropdown (e.g. "Home services"). */
+  groupLabel?: string;
 }
 
 const MAX_MARKETS = 9;
@@ -58,10 +60,11 @@ export function MarketStep({
   onContinue: () => void;
   onToast: (msg: string) => void;
 }) {
-  const [cityInput, setCityInput] = useState("");
-  const [catInput, setCatInput] = useState("");
   const [pickedMetro, setPickedMetro] = useState<MetroOption | null>(null);
   const [pickedCat, setPickedCat] = useState<CategoryOption | null>(null);
+  // Bumped after every "Add market" to remount both comboboxes (clears their
+  // typed text + picked highlight) without fighting a controlled-value prop.
+  const [comboResetKey, setComboResetKey] = useState(0);
 
   const cityOpts: ComboOption[] = useMemo(
     () =>
@@ -77,6 +80,7 @@ export function MarketStep({
       categories.map((c) => ({
         value: c.id,
         label: c.label,
+        meta: c.groupLabel,
       })),
     [categories],
   );
@@ -109,10 +113,9 @@ export function MarketStep({
       },
     ]);
     onToast(`Added · ${pickedCat.label} · ${pickedMetro.name.split(",")[0]}`);
-    setCityInput("");
-    setCatInput("");
     setPickedMetro(null);
     setPickedCat(null);
+    setComboResetKey((k) => k + 1);
   }
 
   function removeMarket(i: number) {
@@ -170,25 +173,23 @@ export function MarketStep({
 
               <div className="mkt-add">
                 <MarketCombobox
+                  key={`city-${comboResetKey}`}
                   id="mktCityInput"
                   label="City"
-                  placeholder="City or metro"
+                  placeholder="Type any US or Canada city…"
                   options={cityOpts}
-                  value={cityInput}
                   onPick={(o) => {
-                    setCityInput(o.label);
                     const found = metros.find((m) => m.slug === o.value);
                     if (found) setPickedMetro(found);
                   }}
                 />
                 <MarketCombobox
+                  key={`cat-${comboResetKey}`}
                   id="mktCatInput"
                   label="Category"
-                  placeholder="Category of local business"
+                  placeholder="Type a business category…"
                   options={catOpts}
-                  value={catInput}
                   onPick={(o) => {
-                    setCatInput(o.label);
                     const found = categories.find((c) => c.id === o.value);
                     if (found) setPickedCat(found);
                   }}

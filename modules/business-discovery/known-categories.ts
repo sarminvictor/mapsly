@@ -40,7 +40,30 @@ export interface KnownCategory {
   /** Niche score from preplan § 3.1 — higher is more attractive. Optional for
    *  the same reason as `phase`. */
   score?: number;
+  /** Prevalence rank from the DfS category CSV (0 = most common overall, e.g.
+   *  "restaurant"). Lower is more prospected/common. Used to order the Market
+   *  step's category picker so the default (no-query) list leads with the
+   *  categories agencies actually search for, not alphabetical order. */
+  rank?: number;
 }
+
+/** Human-readable label for a category's `groupKey` — shown as the dropdown's
+ *  meta text (e.g. "Home services") so a search result carries context. */
+export const CATEGORY_GROUP_LABELS: Record<string, string> = {
+  health: "Health",
+  beauty_and_wellness: "Beauty & wellness",
+  home_services: "Home services",
+  professional_services: "Professional services",
+  automotive: "Automotive",
+  food_and_dining: "Food & dining",
+  fitness: "Fitness",
+  pets: "Pets",
+  education: "Education",
+  events: "Events",
+  retail: "Retail",
+  hospitality: "Hospitality",
+  other: "Other",
+};
 
 /**
  * The curated catalog — the full DfS-verified US + Canada local-business set

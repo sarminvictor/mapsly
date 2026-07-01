@@ -30,8 +30,24 @@ import { setRequestLocale } from "next-intl/server";
 import { auth } from "@/lib/auth";
 import { redirect } from "@/i18n/navigation";
 import prisma from "@/lib/prisma";
-import { US_METROS } from "@/lib/geo/us-metros";
+import { US_METROS, RADIUS_KM_BY_TIER } from "@/lib/geo/us-metros";
+import {
+  KNOWN_CATEGORIES,
+  CATEGORY_GROUP_LABELS,
+} from "@/modules/business-discovery/known-categories";
 import { GetLeadsFlow } from "@/modules/agency-portal/discover/components/GetLeadsFlow";
+
+/** Bigger metro first — a proxy for "most valuable" in the default (no-query)
+ *  combobox view. Array.sort is stable, so within a tier the curated majors
+ *  (inserted first, already roughly biggest-first) precede the generated
+ *  cities (already population-sorted among themselves). */
+const TIER_RANK = Object.keys(RADIUS_KM_BY_TIER).reduce<Record<string, number>>(
+  (acc, tier, i) => {
+    acc[tier] = i;
+    return acc;
+  },
+  {},
+);
 
 export const metadata: Metadata = {
   title: "Get leads · Mapsly",
@@ -84,16 +100,39 @@ async function DiscoverBody({ params }: PageProps) {
     }),
   ]);
 
-  const metros = US_METROS.map((m) => ({
-    slug: m.slug,
-    name: m.name,
-    country: m.country ?? "US",
-  }));
-  const cats = categories.map((c) => ({
-    id: c.id,
-    slug: c.dataforseoId,
-    label: c.label,
-  }));
+  const metros = [...US_METROS]
+    .sort((a, b) => TIER_RANK[a.radiusTier]! - TIER_RANK[b.radiusTier]!)
+    .map((m) => ({
+      slug: m.slug,
+      name: m.name,
+      country: m.country ?? "US",
+    }));
+
+  // Cross-reference the curated catalog for prevalence rank + a display group
+  // label, so the default (no-query) picker leads with the categories
+  // agencies actually search for — not alphabetical DB order.
+  const catMeta = new Map(
+    KNOWN_CATEGORIES.map((c) => [
+      c.dataforseoId,
+      { rank: c.rank ?? Number.MAX_SAFE_INTEGER, groupKey: c.groupKey },
+    ]),
+  );
+  const cats = categories
+    .map((c) => ({
+      id: c.id,
+      slug: c.dataforseoId,
+      label: c.label,
+      rank: catMeta.get(c.dataforseoId)?.rank ?? Number.MAX_SAFE_INTEGER,
+      groupLabel:
+        CATEGORY_GROUP_LABELS[catMeta.get(c.dataforseoId)?.groupKey ?? ""],
+    }))
+    .sort((a, b) => a.rank - b.rank || a.label.localeCompare(b.label))
+    .map(({ id, slug, label, groupLabel }) => ({
+      id,
+      slug,
+      label,
+      groupLabel,
+    }));
 
   const walletCredits = wallet
     ? Math.max(
