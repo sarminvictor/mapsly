@@ -41,9 +41,22 @@ export interface PersistedSignal {
   match?: "all" | "any";
 }
 
-/** The `Discovery.signalsJson` payload. */
+/** The `Discovery.signalsJson` payload. `goalName`/`goalBase` persist the
+ *  research's goal identity so "My research" can resume the flow with the real
+ *  goal (not "Custom") — stored here in the existing Json column rather than a
+ *  new schema column, so there is no migration / drift risk. */
 export interface DiscoverySignals {
   signals: PersistedSignal[];
+  /** The goal's display name (GoalState.name) at run time. */
+  goalName?: string;
+  /** The goal's base template key (GoalState.base) — rebuilds the flow goal. */
+  goalBase?: string;
+}
+
+/** The goal-identity subset of the payload (for the research directory). */
+export interface DiscoveryGoalMeta {
+  goalName: string | null;
+  goalBase: string | null;
 }
 
 /** A goal filter as it lives in the working GoalState (the shape we persist FROM). */
@@ -64,6 +77,7 @@ export interface GoalFilterLike {
  */
 export function buildDiscoverySignals(
   filters: readonly GoalFilterLike[],
+  meta?: { goalName?: string; goalBase?: string },
 ): DiscoverySignals {
   const signals: PersistedSignal[] = [];
   for (const f of filters) {
@@ -74,7 +88,10 @@ export function buildDiscoverySignals(
     if (f.match) entry.match = f.match;
     signals.push(entry);
   }
-  return { signals };
+  const out: DiscoverySignals = { signals };
+  if (meta?.goalName) out.goalName = meta.goalName;
+  if (meta?.goalBase) out.goalBase = meta.goalBase;
+  return out;
 }
 
 /**
@@ -101,7 +118,27 @@ export function parseDiscoverySignals(raw: unknown): DiscoverySignals | null {
     if (match === "all" || match === "any") entry.match = match;
     signals.push(entry);
   }
-  return { signals };
+  const out: DiscoverySignals = { signals };
+  const goalName = (raw as { goalName?: unknown }).goalName;
+  if (typeof goalName === "string" && goalName.length > 0)
+    out.goalName = goalName;
+  const goalBase = (raw as { goalBase?: unknown }).goalBase;
+  if (typeof goalBase === "string" && goalBase.length > 0)
+    out.goalBase = goalBase;
+  return out;
+}
+
+/**
+ * Read just the goal identity ({@link DiscoveryGoalMeta}) from a
+ * `Discovery.signalsJson` value — for the research directory's goal label +
+ * resume link. Returns nulls when absent (older discoveries predate this).
+ */
+export function goalMetaFromJson(raw: unknown): DiscoveryGoalMeta {
+  const parsed = parseDiscoverySignals(raw);
+  return {
+    goalName: parsed?.goalName ?? null,
+    goalBase: parsed?.goalBase ?? null,
+  };
 }
 
 /**

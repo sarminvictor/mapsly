@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { decodeGoal, encodeGoal } from "../goal-url";
+import { buildResumeGoalG, decodeGoal, encodeGoal } from "../goal-url";
 import { loadGoalFrom, type GoalState } from "../flow-types";
 import { templateByKey } from "../goal-templates";
 
@@ -112,5 +112,36 @@ describe("goal-url lossless round-trip", () => {
   it("returns null when nothing resolves", () => {
     expect(decodeGoal(null, null, null)).toBeNull();
     expect(decodeGoal("nope-not-a-template", "", null)).toBeNull();
+  });
+});
+
+describe("buildResumeGoalG (research resume)", () => {
+  it("rebuilds a g that decodeGoal reads back into a functional goal", () => {
+    const g = buildResumeGoalG("website", "Website redesign", [
+      { key: "has_website" },
+      { key: "overdue_redesign", match: "all" },
+    ]);
+    const goal = decodeGoal(null, null, g);
+    expect(goal).not.toBeNull();
+    expect(goal!.base).toBe("website");
+    expect(goal!.name).toBe("Website redesign");
+    // Persisted signals come back on:true; the second keeps its combine mode.
+    const keys = goal!.filters.map((f) => f.key);
+    expect(keys).toContain("has_website");
+    expect(keys).toContain("overdue_redesign");
+    expect(goal!.filters.every((f) => f.on)).toBe(true);
+  });
+
+  it("falls back to the template title when the name wasn't persisted", () => {
+    const g = buildResumeGoalG("website", null, [{ key: "has_website" }]);
+    const goal = decodeGoal(null, null, g);
+    expect(goal!.name).toBe(templateByKey("website")?.title ?? "Custom");
+  });
+
+  it("empty base + no name → a decodable 'Custom' goal", () => {
+    const g = buildResumeGoalG(null, null, [{ key: "has_website" }]);
+    const goal = decodeGoal(null, null, g);
+    expect(goal).not.toBeNull();
+    expect(goal!.name).toBe("Custom");
   });
 });

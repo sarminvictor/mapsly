@@ -93,6 +93,41 @@ export function encodeGoal(goal: GoalState): Record<string, string> {
 }
 
 /**
+ * Rebuild the `g` param from a research's PERSISTED goal identity + signals
+ * (Discovery.signalsJson → goalBase / goalName / signals) so "My research" can
+ * deep-link back into the flow with the real goal. The persisted signals are
+ * all active (on:true) — off signals aren't stored, and don't matter for a
+ * resume (the eval + display only read the on set). Falls back to the template
+ * title (or "Custom") when the name wasn't persisted (older discoveries).
+ */
+export function buildResumeGoalG(
+  goalBase: string | null,
+  goalName: string | null,
+  signals: readonly {
+    key: string;
+    tune?: SignalTuneValue;
+    conds?: Record<string, boolean>;
+    match?: "all" | "any";
+  }[],
+): string {
+  const wire: GoalWire = {
+    b: goalBase ?? "",
+    n:
+      goalName ??
+      (goalBase ? (templateByKey(goalBase)?.title ?? "Custom") : "Custom"),
+    c: true,
+    f: signals.map((s) => ({
+      k: s.key,
+      on: true,
+      ...(s.match ? { m: s.match } : {}),
+      ...(s.conds ? { cd: s.conds } : {}),
+      ...(s.tune ? { t: s.tune } : {}),
+    })),
+  };
+  return toB64Url(JSON.stringify(wire));
+}
+
+/**
  * Reconstruct the working goal from the URL — the lossless `g` payload first,
  * else the legacy template-key + on-signal-set (older shared links). Returns
  * null when neither resolves to a known template.

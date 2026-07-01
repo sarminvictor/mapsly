@@ -50,8 +50,10 @@ import {
   type FreshnessState,
 } from "@/lib/cell";
 import { US_METROS } from "@/lib/geo/us-metros";
+import { enrichmentNeedsWebsite } from "@/modules/cost/pricing";
 import { usdToCredits } from "@/modules/cost/estimate";
 import { rawListWhere } from "@/modules/discovery/raw-list";
+import { researchesForSignals } from "@/modules/agency-portal/discover/researches";
 import { cellBand } from "@/modules/agency-portal/discover/signals";
 import { deriveFamilyCoverage } from "@/modules/agency-portal/discover/family-coverage";
 import {
@@ -145,15 +147,33 @@ async function DiscoveryWorkspaceBody({ params }: PageProps) {
 
   const cellKeys = discovery.cellKeys;
 
+  // If the goal's researches need a live website (Lighthouse/contacts/tech/…),
+  // website-less businesses were never enriched (the enrich scope excludes
+  // them), so they'd be dead, contact-less rows in the workbench. Hide them for
+  // those goals so the visible list == the enrichable list. Goals that don't
+  // read the site (reviews/ads/serp only) keep every business visible.
+  const activeSignals = activeSignalsFromJson(discovery.signalsJson);
+  const goalNeedsWebsite = enrichmentNeedsWebsite(
+    researchesForSignals(activeSignals),
+  );
+  const listWhere = rawListWhere({
+    cellKeys,
+    filters: goalNeedsWebsite ? { hasWebsite: true } : undefined,
+  });
+
   // The discovery's businesses (the same hidden/closed gate as the raw list, so
   // the workbench shows the same default market). Ordered like getRawList
-  // (reviewCount desc, id asc) for a stable, useful first page.
+  // (reviewCount desc NULLS LAST, id asc) so the strongest leads lead — Postgres
+  // sinks NULL review counts (see modules/discovery/raw-list.ts).
   const businesses =
     cellKeys.length === 0
       ? []
       : await prisma.business.findMany({
-          where: rawListWhere({ cellKeys }),
-          orderBy: [{ reviewCount: "desc" }, { id: "asc" }],
+          where: listWhere,
+          orderBy: [
+            { reviewCount: { sort: "desc", nulls: "last" } },
+            { id: "asc" },
+          ],
           take: MAX_BUSINESSES,
           select: {
             id: true,
@@ -175,7 +195,7 @@ async function DiscoveryWorkspaceBody({ params }: PageProps) {
   const totalBusinesses =
     cellKeys.length === 0
       ? discovery.totalBusinesses
-      : await prisma.business.count({ where: rawListWhere({ cellKeys }) });
+      : await prisma.business.count({ where: listWhere });
 
   const businessIds = businesses.map((b) => b.id);
 
@@ -290,7 +310,7 @@ async function DiscoveryWorkspaceBody({ params }: PageProps) {
   // resolveMatches per lead for a REAL match% + per-signal verdicts — replacing
   // the pain-count heuristic. signalsJson absent / no active signals → empty
   // ActiveSignal[] → the per-row fallback keeps deriveMatchPct (nothing breaks).
-  const activeSignals = activeSignalsFromJson(discovery.signalsJson);
+  // `activeSignals` is computed once, above (also drives the website filter).
   const hydrated =
     activeSignals.length > 0 && businessIds.length > 0
       ? await hydrateBusinessForSignals(businessIds)

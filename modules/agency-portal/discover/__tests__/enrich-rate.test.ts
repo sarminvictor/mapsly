@@ -2,13 +2,19 @@ import { describe, expect, test } from "vitest";
 
 import {
   buildCellRows,
+  enrichableCountForCell,
   enrichCellFeeCredits,
   enrichCreditsFor,
   enrichRatePerLead,
+  type CellRow,
   type MarketCell,
   type QuoteCell,
 } from "../flow-types";
-import type { EnrichmentType } from "@/modules/cost/pricing";
+import {
+  enrichmentNeedsWebsite,
+  WEBSITE_DEPENDENT,
+  type EnrichmentType,
+} from "@/modules/cost/pricing";
 
 // enrichRatePerLead / enrichCellFeeCredits back the Preview step's honest
 // per-lead pricing (docs/pricing-strategy.md: "1 credit = 1 fully-enriched
@@ -118,6 +124,7 @@ describe("buildCellRows — honesty contract", () => {
           cellKey: key,
           freshness: "fresh",
           existingBizCount: 342,
+          websiteBizCount: 300,
           neverDiscovered: false,
         },
       ],
@@ -144,6 +151,7 @@ describe("buildCellRows — honesty contract", () => {
           cellKey: key,
           freshness: "fresh",
           existingBizCount: 250,
+          websiteBizCount: 210,
           neverDiscovered: false,
         },
       ],
@@ -154,5 +162,59 @@ describe("buildCellRows — honesty contract", () => {
     // silently rendered as "never discovered" even after a real Discover run.
     expect(rows[0]!.neverDiscovered).toBe(false);
     expect(rows[0]!.bizCount).toBe(250);
+  });
+});
+
+describe("enrichmentNeedsWebsite / WEBSITE_DEPENDENT", () => {
+  test("site-reading families need a website", () => {
+    for (const f of [
+      "lighthouse",
+      "contacts",
+      "tech",
+      "services",
+      "ai_research",
+    ] as EnrichmentType[]) {
+      expect(WEBSITE_DEPENDENT.has(f)).toBe(true);
+      expect(enrichmentNeedsWebsite([f])).toBe(true);
+    }
+  });
+
+  test("Google-presence families do NOT need a website", () => {
+    for (const f of [
+      "reviews",
+      "meta_ads",
+      "google_ads",
+      "serp",
+    ] as EnrichmentType[]) {
+      expect(WEBSITE_DEPENDENT.has(f)).toBe(false);
+      expect(enrichmentNeedsWebsite([f])).toBe(false);
+    }
+  });
+
+  test("a mixed set needs a website if ANY member does", () => {
+    expect(enrichmentNeedsWebsite(["reviews", "lighthouse"])).toBe(true);
+    expect(enrichmentNeedsWebsite(["reviews", "serp"])).toBe(false);
+    expect(enrichmentNeedsWebsite([])).toBe(false);
+  });
+});
+
+describe("enrichableCountForCell", () => {
+  const row: CellRow = {
+    name: "Dentist · Calgary",
+    freshness: "fresh",
+    bizCount: 731,
+    websiteBizCount: 613,
+    neverDiscovered: false,
+    discoverIsFree: true,
+  };
+
+  test("website-dependent research → only website-havers are enrichable", () => {
+    expect(enrichableCountForCell(row, ["lighthouse"])).toBe(613);
+    expect(enrichableCountForCell(row, ["contacts", "reviews"])).toBe(613);
+  });
+
+  test("no website-dependent research → the whole cell is enrichable", () => {
+    expect(enrichableCountForCell(row, ["reviews"])).toBe(731);
+    expect(enrichableCountForCell(row, ["meta_ads", "serp"])).toBe(731);
   });
 });

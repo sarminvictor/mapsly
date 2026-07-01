@@ -14,6 +14,7 @@ import { cellKey as makeCellKey, type FreshnessState } from "@/lib/cell";
 import {
   CREDIT_USD,
   ENRICHMENT_PRICES,
+  enrichmentNeedsWebsite,
   type EnrichmentType,
 } from "@/modules/cost/pricing";
 import { templateByKey, type GoalTemplate } from "./goal-templates";
@@ -135,6 +136,9 @@ export interface CellRow {
   name: string;
   freshness: FreshnessState;
   bizCount: number;
+  /** Businesses in this cell WITH a website — the enrichable subset for
+   *  website-dependent researches. 0 when never discovered. */
+  websiteBizCount: number;
   /** True = business count is genuinely unknown (never discovered). */
   neverDiscovered: boolean;
   /** True when discovery serves from cache for this cell (owned → instant). */
@@ -148,6 +152,7 @@ export interface QuoteCell {
   cellKey: string;
   freshness: FreshnessState;
   existingBizCount: number;
+  websiteBizCount: number;
   neverDiscovered: boolean;
 }
 
@@ -186,6 +191,21 @@ export function enrichCellFeeCredits(
 }
 
 /**
+ * The number of businesses in a cell that will ACTUALLY be enriched for the
+ * selected researches: website-havers only when any research needs a live site
+ * (Lighthouse/contacts/tech/services/AI), else every business. This is the
+ * count the enrich cost + the matrix Enrich column must use — enriching a
+ * website-less business for a site-reading research produces nothing, so it's
+ * neither charged nor queued (mirrors the server preflight scope).
+ */
+export function enrichableCountForCell(
+  row: CellRow,
+  families: EnrichmentType[],
+): number {
+  return enrichmentNeedsWebsite(families) ? row.websiteBizCount : row.bizCount;
+}
+
+/**
  * Build the per-cell rows for the Preview matrix from the REAL preflight quote.
  *
  * `cells` (the user's market selection, for display names) is zipped with the
@@ -207,6 +227,7 @@ export function buildCellRows(
       name: `${c.category} · ${c.city.split(",")[0]}`,
       freshness,
       bizCount,
+      websiteBizCount: q?.websiteBizCount ?? 0,
       neverDiscovered: q?.neverDiscovered ?? true,
       // Owned-free vs new: a cell within its freshness window is served from
       // cache → discovery is instant. Stale/never cells need a (re)fetch —

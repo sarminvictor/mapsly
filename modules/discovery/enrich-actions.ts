@@ -22,9 +22,12 @@
 
 import { z } from "zod";
 
+import { after } from "next/server";
+
 import { auth } from "@/lib/auth";
 import prisma, { Prisma } from "@/lib/prisma";
 import { rawListWhere } from "./raw-list";
+import { kickDispatch } from "@/modules/enrichment/kick-dispatch";
 import {
   createCostEstimate,
   authorizeEstimate,
@@ -34,6 +37,7 @@ import {
 } from "@/modules/cost/server";
 import {
   ALL_ENRICHMENT_TYPES,
+  enrichmentNeedsWebsite,
   type EnrichmentType,
 } from "@/modules/cost/pricing";
 import { buildEnrichLines } from "@/modules/discovery/enrich-lines";
@@ -147,8 +151,19 @@ export async function preflightEnrichAction(
     // paying to enrich dead businesses).
     let businessIds = parsed.data.businessIds;
     if (businessIds.length === 0 && parsed.data.cellKeys.length > 0) {
+      // Scope to website-havers when ANY selected family needs a live site
+      // (Lighthouse/contacts/tech/services/AI can't run without one). This is
+      // the authoritative gate: `businessIds` here becomes the estimate's
+      // stored scope, which runEnrichAction reconstructs from (anti-tamper),
+      // so the priced set, the held credits, AND the fanned-out jobs all become
+      // the enrichable subset in one place — no website-less business is ever
+      // charged for or queued for a research it can't complete.
+      const needsWebsite = enrichmentNeedsWebsite(parsed.data.enrichments);
       const inCell = await prisma.business.findMany({
-        where: rawListWhere({ cellKeys: parsed.data.cellKeys }),
+        where: rawListWhere({
+          cellKeys: parsed.data.cellKeys,
+          filters: needsWebsite ? { hasWebsite: true } : undefined,
+        }),
         select: { id: true },
         take: 5000,
       });
@@ -343,6 +358,15 @@ export async function runEnrichAction(
       where: { id: parsed.data.estimateId },
       data: { status: "CONSUMED", consumedByRunId: run.id },
     });
+
+    // Kick the dispatch drain post-response so enrichment starts near-instantly
+    // instead of waiting for the */2 cron. Best-effort (see kickDispatch).
+    // Guarded: `after()` throws outside a request scope (e.g. unit tests).
+    try {
+      after(() => kickDispatch());
+    } catch {
+      /* no request scope — the cron drains it */
+    }
 
     return { status: "ok", runId: run.id };
   } catch (err) {

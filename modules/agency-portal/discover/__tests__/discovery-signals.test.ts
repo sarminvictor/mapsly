@@ -17,6 +17,7 @@ import { describe, expect, test } from "vitest";
 import {
   buildDiscoverySignals,
   parseDiscoverySignals,
+  goalMetaFromJson,
   toActiveSignals,
   activeSignalsFromJson,
   type PersistedSignal,
@@ -297,5 +298,41 @@ describe("end-to-end · workbench match from signalsJson", () => {
     const heur = deriveMatchPct(null, 3);
     expect(m.matchFromSignals).toBe(false);
     expect(m.match).toBe(heur.match); // 85 for 3 pains
+  });
+});
+
+describe("goalName / goalBase round-trip (research resume)", () => {
+  test("buildDiscoverySignals persists goal identity when provided", () => {
+    const out = buildDiscoverySignals([{ key: "has_website", on: true }], {
+      goalName: "Website redesign",
+      goalBase: "website",
+    });
+    expect(out.goalName).toBe("Website redesign");
+    expect(out.goalBase).toBe("website");
+    expect(out.signals).toEqual([{ key: "has_website" }]);
+  });
+
+  test("omits goal identity when not provided (back-compat)", () => {
+    const out = buildDiscoverySignals([{ key: "has_website", on: true }]);
+    expect(out.goalName).toBeUndefined();
+    expect(out.goalBase).toBeUndefined();
+  });
+
+  test("parseDiscoverySignals reads goal identity back", () => {
+    const parsed = parseDiscoverySignals({
+      signals: [{ key: "has_website" }],
+      goalName: "Sell websites",
+      goalBase: "website",
+    });
+    expect(parsed?.goalName).toBe("Sell websites");
+    expect(parsed?.goalBase).toBe("website");
+  });
+
+  test("goalMetaFromJson returns nulls for older discoveries (no identity)", () => {
+    expect(goalMetaFromJson({ signals: [{ key: "has_website" }] })).toEqual({
+      goalName: null,
+      goalBase: null,
+    });
+    expect(goalMetaFromJson(null)).toEqual({ goalName: null, goalBase: null });
   });
 });

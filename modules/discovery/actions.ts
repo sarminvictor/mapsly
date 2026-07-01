@@ -20,11 +20,14 @@
 
 import { z } from "zod";
 
+import { after } from "next/server";
+
 import { cellKey as makeCellKey, cellFreshnessState } from "@/lib/cell";
 import { auth } from "@/lib/auth";
 import { metroBySlug } from "@/lib/geo/resolve-metro";
 import prisma, { Prisma } from "@/lib/prisma";
 import { rawListWhere } from "@/modules/discovery/raw-list";
+import { discoveryPhaseWhere } from "@/modules/discovery/discovery-phase-match";
 import { parseDiscoverySignals } from "@/modules/agency-portal/discover/discovery-signals";
 import {
   createCostEstimate,
@@ -35,6 +38,7 @@ import {
 } from "@/modules/cost/server";
 import { decideDiscoveryPlan } from "@/modules/discovery/freshness-decision";
 import { discoveryIdempotencyKey } from "@/modules/discovery/run-discovery";
+import { kickDispatch } from "@/modules/enrichment/kick-dispatch";
 
 const CellInput = z.object({
   categorySlug: z.string().min(1).max(120),
@@ -64,6 +68,10 @@ const DiscoveryInput = z.object({
   /** Active goal signals (SIG_META key + tune/conds/match) — persisted onto the
    *  Discovery so the workbench can evaluate each lead for a REAL match%. */
   signals: z.array(PersistedSignalInput).max(40).optional(),
+  /** The goal's display name + base template key — persisted onto the Discovery
+   *  (signalsJson) so "My research" can resume the flow with the real goal. */
+  goalName: z.string().min(1).max(120).optional(),
+  goalBase: z.string().min(1).max(64).optional(),
 });
 
 export type DiscoveryActionInput = z.input<typeof DiscoveryInput>;
@@ -75,6 +83,10 @@ export interface PreviewCell {
   freshness: "never" | "fresh" | "aging" | "stale";
   /** Businesses in this cell — REAL Prisma count; 0 when neverDiscovered. */
   existingBizCount: number;
+  /** Businesses in this cell WITH a website — the enrichable subset for
+   *  website-dependent researches. REAL count; 0 when neverDiscovered. Drives
+   *  the per-cell Enrich column so its cost reflects only leads we can enrich. */
+  websiteBizCount: number;
   /** True when this cell has never been discovered — its business count is
    *  genuinely UNKNOWN (never a guessed number; the UI shows "—" until the
    *  real Discover step reveals it). Renamed from the old `isEstimate` to make
@@ -91,10 +103,20 @@ export interface PreviewKpis {
   localBusinessesReal: number;
   /** REAL businesses with a reachable contact channel (in-DB cells). */
   haveContactsReal: number;
+  /** REAL businesses with a website on the Google/Maps listing (in-DB cells).
+   *  Known at discovery ($0) — drives the "Have a website" KPI. */
+  haveWebsiteReal: number;
   /** REAL "active on Google" businesses (in-DB cells). */
   activeOnGoogleReal: number;
-  /** REAL businesses with a flagged finding for an active signal (in-DB cells). */
+  /** REAL businesses with a flagged finding for an active signal (in-DB cells).
+   *  Populated only once enrichment has run — 0 pre-enrichment. */
   matchSignalsReal: number;
+  /** "~N passing so-far": businesses passing the signals evaluable at
+   *  discovery time (website/open/phone — see discovery-phase-match.ts). An
+   *  honest upper bound shown as "~N" before enrichment. `null` when NONE of
+   *  the active signals is discovery-evaluable (UI shows "computed after
+   *  enrichment" instead of a fabricated number). */
+  matchSoFarReal: number | null;
   /** True when any requested cell has never been discovered (drives the
    *  "+ N more markets, not yet mapped" note instead of a fake number). */
   hasUnknownCells: boolean;
@@ -166,12 +188,16 @@ async function buildPreview(
   const previewCells = await Promise.all(
     cells.map(async (c) => {
       const base = rawListWhere({ cellKeys: [c.cellKey] });
-      const real = await prisma.business.count({ where: base });
+      const [real, web] = await prisma.$transaction([
+        prisma.business.count({ where: base }),
+        prisma.business.count({ where: { ...base, website: { not: null } } }),
+      ]);
       const inDb = real > 0;
       return {
         cellKey: c.cellKey,
         freshness: cellFreshnessState(c.lastDiscoveredAt, now),
         existingBizCount: inDb ? real : 0,
+        websiteBizCount: inDb ? web : 0,
         neverDiscovered: !inDb,
         _base: base,
       };
@@ -184,8 +210,10 @@ async function buildPreview(
     .map((c) => c.cellKey);
 
   let haveContactsReal = 0;
+  let haveWebsiteReal = 0;
   let activeOnGoogleReal = 0;
   let matchSignalsReal = 0;
+  let matchSoFarReal: number | null = null;
   let localBusinessesReal = 0;
 
   if (inDbKeys.length > 0) {
@@ -199,9 +227,18 @@ async function buildPreview(
     const idSet = businessIds.map((b) => b.id);
     localBusinessesReal = idSet.length;
 
-    const [contacts, active] = await prisma.$transaction([
+    // The discovery-evaluable signal subset → a cheap "~N passing so-far"
+    // count. `null` when no active signal is discovery-evaluable (UI shows
+    // "computed after enrichment"). Computed via a WHERE fragment ANDed with
+    // the cell scope — one count, no per-business hydration.
+    const dpWhere = discoveryPhaseWhere(signalKeys);
+
+    const [contacts, website, active, matchSoFar] = await prisma.$transaction([
       prisma.business.count({
         where: { ...base, reachableChannelCount: { gt: 0 } },
+      }),
+      prisma.business.count({
+        where: { ...base, website: { not: null } },
       }),
       prisma.business.count({
         where: {
@@ -209,13 +246,19 @@ async function buildPreview(
           OR: [{ lastReviewAt: { gte: activeSince } }, { openStatus: "OPEN" }],
         },
       }),
+      dpWhere
+        ? prisma.business.count({ where: { ...base, ...dpWhere } })
+        : prisma.business.count({ where: { id: "__never__" } }),
     ]);
     haveContactsReal = contacts;
+    haveWebsiteReal = website;
     activeOnGoogleReal = active;
+    matchSoFarReal = dpWhere ? matchSoFar : null;
 
-    // "Match your signals" = distinct businesses (in these cells) with a flagged
-    // finding for one of the active signal keys. Counted via the same store the
-    // signals view reads (PlaybookFinding status="flagged").
+    // "Match your signals" (exact, post-enrichment) = distinct businesses with a
+    // flagged finding for one of the active signal keys. Counted via the same
+    // store the signals view reads (PlaybookFinding status="flagged"). This is
+    // 0 until enrichment runs — the UI falls back to matchSoFarReal ("~N") then.
     if (signalKeys.length > 0 && idSet.length > 0) {
       const flagged = await prisma.playbookFinding.findMany({
         where: {
@@ -233,8 +276,10 @@ async function buildPreview(
   const kpis: PreviewKpis = {
     localBusinessesReal,
     haveContactsReal,
+    haveWebsiteReal,
     activeOnGoogleReal,
     matchSignalsReal,
+    matchSoFarReal,
     hasUnknownCells: previewCells.some((c) => c.neverDiscovered),
   };
 
@@ -243,6 +288,7 @@ async function buildPreview(
     cellKey: c.cellKey,
     freshness: c.freshness,
     existingBizCount: c.existingBizCount,
+    websiteBizCount: c.websiteBizCount,
     neverDiscovered: c.neverDiscovered,
   }));
 
@@ -334,6 +380,10 @@ export async function preflightDiscoveryAction(
           // scopeRefs keys are ignored by the discovery re-quote (it reads only
           // `cells`), so this is safe alongside the anti-tamper path.
           signals: parsed.data.signals ?? [],
+          // The goal identity — persisted onto signalsJson so "My research" can
+          // resume the flow with the real goal name/template (not "Custom").
+          goalName: parsed.data.goalName ?? null,
+          goalBase: parsed.data.goalBase ?? null,
         } as unknown as Prisma.InputJsonValue,
         lines: [],
         freshnessAsOf: now,
@@ -450,6 +500,8 @@ export async function runDiscoveryAction(
     const scope = (est?.scopeRefsJson ?? {}) as {
       cells?: { cellKey?: string }[];
       signals?: unknown;
+      goalName?: string | null;
+      goalBase?: string | null;
     };
     const cellKeys = (scope.cells ?? [])
       .map((c) => c.cellKey)
@@ -458,14 +510,29 @@ export async function runDiscoveryAction(
       return { status: "invalid_input", message: "estimate has no cells" };
     }
 
-    // The active goal signals carried through the estimate → persisted onto the
-    // Discovery so the workbench evaluates each lead against them (P3). Parsed
-    // defensively; an empty/absent set stores null so the workbench falls back
-    // to the pain-count heuristic.
+    // The active goal signals + goal identity carried through the estimate →
+    // persisted onto the Discovery so the workbench evaluates each lead against
+    // them (P3) AND "My research" can resume the flow with the real goal.
+    // Parsed defensively. We persist whenever there ARE signals OR a goalName
+    // (so the goal identity is stored even for a signal-less goal); an empty
+    // payload stores null and the workbench falls back to the pain heuristic.
     const parsedSignals = parseDiscoverySignals({ signals: scope.signals });
+    const goalName =
+      typeof scope.goalName === "string" && scope.goalName.length > 0
+        ? scope.goalName
+        : undefined;
+    const goalBase =
+      typeof scope.goalBase === "string" && scope.goalBase.length > 0
+        ? scope.goalBase
+        : undefined;
+    const hasSignals = !!parsedSignals && parsedSignals.signals.length > 0;
     const signalsJson: Prisma.InputJsonValue | undefined =
-      parsedSignals && parsedSignals.signals.length > 0
-        ? (parsedSignals as unknown as Prisma.InputJsonValue)
+      hasSignals || goalName || goalBase
+        ? ({
+            signals: parsedSignals?.signals ?? [],
+            ...(goalName ? { goalName } : {}),
+            ...(goalBase ? { goalBase } : {}),
+          } as unknown as Prisma.InputJsonValue)
         : undefined;
 
     const idempotencyKey = discoveryIdempotencyKey(cellKeys, session.user.id);
@@ -527,6 +594,17 @@ export async function runDiscoveryAction(
       where: { id: parsed.data.estimateId },
       data: { status: "CONSUMED", consumedByRunId: discovery.id },
     });
+
+    // Kick the dispatch drain AFTER the response is sent so PENDING → RUNNING is
+    // near-instant instead of waiting up to 2 min for the cron. Best-effort —
+    // the */2 cron is the guaranteed fallback (see kickDispatch). Guarded:
+    // `after()` throws outside a request scope (e.g. unit tests), and the kick
+    // must never break the enqueue.
+    try {
+      after(() => kickDispatch());
+    } catch {
+      /* no request scope — the cron drains it */
+    }
 
     return { status: "ok", discoveryId: discovery.id };
   } catch (err) {

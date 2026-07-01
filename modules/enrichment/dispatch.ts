@@ -25,7 +25,11 @@
 
 import prisma from "@/lib/prisma";
 import { parseCellKey } from "@/lib/cell";
-import { ENRICHMENT_PRICES, type EnrichmentType } from "@/modules/cost/pricing";
+import {
+  ENRICHMENT_PRICES,
+  enrichmentNeedsWebsite,
+  type EnrichmentType,
+} from "@/modules/cost/pricing";
 import { reconcileRunCredits } from "@/modules/cost/server";
 import { usdToCredits } from "@/modules/cost/estimate";
 import { loadFreshTimestamps } from "@/modules/discovery/enrich-fresh-db";
@@ -295,8 +299,14 @@ export async function fanOutRun(
     // resolves these into scopeRefs.businessIds, but a cellKeys-only run from
     // any other path must still work). Use rawListWhere so the set matches the
     // visible raw market — excludes hidden/unreachable AND permanently-closed.
+    // Mirror preflight's website scoping: a family that needs a live site can't
+    // run on a website-less listing, so never queue those jobs.
+    const needsWebsite = enrichmentNeedsWebsite(families);
     const inCell = await prisma.business.findMany({
-      where: rawListWhere({ cellKeys: [...cellKeys] }),
+      where: rawListWhere({
+        cellKeys: [...cellKeys],
+        filters: needsWebsite ? { hasWebsite: true } : undefined,
+      }),
       select: { id: true },
       take: 5000,
     });

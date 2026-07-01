@@ -399,3 +399,32 @@ export const DISCOVERY_PRICE = {
 export const ALL_ENRICHMENT_TYPES = Object.keys(
   ENRICHMENT_PRICES,
 ) as EnrichmentType[];
+
+/**
+ * Enrichment families that CANNOT run on a business with no website — they all
+ * read the live site (Lighthouse audits it, contacts/tech fingerprint scrape
+ * its DOM, services/ai_research read its page text). Enriching a website-less
+ * business for any of these just burns a queued job that produces nothing, and
+ * mis-scopes the cost (we'd charge for leads we can't actually enrich).
+ *
+ * The cell-basis families (meta_ads/google_ads/serp) and reviews are NOT here
+ * — they're keyed off the business's Google presence, not its website, so a
+ * phone-only listing is still a valid target for them.
+ *
+ * Used to scope an enrich run (and its quote) to website-havers whenever any
+ * selected family requires a site. See modules/discovery/enrich-actions.ts.
+ */
+export const WEBSITE_DEPENDENT: ReadonlySet<EnrichmentType> = new Set([
+  "lighthouse",
+  "contacts",
+  "tech",
+  "services",
+  "ai_research",
+]);
+
+/** True if ANY of the selected families needs a live website to run. */
+export function enrichmentNeedsWebsite(
+  enrichments: readonly EnrichmentType[],
+): boolean {
+  return enrichments.some((e) => WEBSITE_DEPENDENT.has(e));
+}

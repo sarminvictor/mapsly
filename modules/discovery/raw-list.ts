@@ -143,7 +143,13 @@ export async function getRawList(
 
   const rows = await prisma.business.findMany({
     where,
-    orderBy: [{ reviewCount: "desc" }, { id: "asc" }],
+    // NULLS LAST is load-bearing: Postgres sorts NULLs FIRST on DESC by
+    // default, so without this the ~15% of listings with no reviewCount
+    // (solo practitioners, labs, suppliers — which also tend to lack a
+    // website) float to the very top and bury the strongest leads. Sinking
+    // them makes both the Preview sample AND the workbench show the
+    // most-reviewed, most-complete businesses first.
+    orderBy: [{ reviewCount: { sort: "desc", nulls: "last" } }, { id: "asc" }],
     take: take + 1,
     ...(page.cursor ? { cursor: { id: page.cursor }, skip: 1 } : {}),
     select: RAW_LIST_SELECT,

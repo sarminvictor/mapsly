@@ -60,12 +60,14 @@ import {
   groupSignalsByResearch,
   researchesForSignals,
   RESEARCH_LABELS,
+  RESEARCH_SOURCES,
 } from "../../researches";
 import { buildDiscoverySignals } from "../../discovery-signals";
 import {
   buildCellRows,
   enrichCellFeeCredits,
   enrichCreditsFor,
+  enrichableCountForCell,
   enrichRatePerLead,
   fmtCredits,
   freshDotClass,
@@ -209,6 +211,8 @@ export function PreviewStep({
         cells: toDiscoveryCells(cells),
         signalKeys,
         signals: persistedSignals,
+        goalName: goal.name,
+        goalBase: goal.base,
       });
       if (requestIdRef.current !== requestId) return null;
       if (r.status === "ok") {
@@ -241,6 +245,7 @@ export function PreviewStep({
   const [jobStatus, setJobStatus] = useState<JobStatus | null>(null);
   const [jobError, setJobError] = useState<string | null>(null);
   const [elapsedSec, setElapsedSec] = useState(0);
+  const [liveCount, setLiveCount] = useState(0);
   const [sampleRows, setSampleRows] = useState<SampleRow[]>([]);
   const [starting, startStarting] = useTransition();
 
@@ -257,6 +262,7 @@ export function PreviewStep({
       setJobError(null);
       setSampleRows([]);
       setElapsedSec(0);
+      setLiveCount(0);
       await quotePreflight(myId, { resetFirst: true });
     });
     // priceKey is the stable content proxy for the selection; quotePreflight
@@ -322,15 +328,20 @@ export function PreviewStep({
       if (cancelled || requestIdRef.current !== myId) return;
       setElapsedSec(Math.round((Date.now() - startedAt) / 1000));
       if (s.status !== "ok") {
-        timer = setTimeout(poll, 3000); // transient read error — keep trying
+        timer = setTimeout(poll, 2000); // transient read error — keep trying
         return;
       }
       setJobStatus(s.summary.jobStatus);
+      // The REAL count of businesses persisted so far — climbs live as the
+      // worker inserts rows (getDiscoverySummary counts them). This is the
+      // honest progress signal on the mapping screen, not a fake percentage.
+      setLiveCount(s.summary.total);
       if (
         s.summary.jobStatus === "PENDING" ||
         s.summary.jobStatus === "RUNNING"
       ) {
-        timer = setTimeout(poll, 3000);
+        // Poll faster while mapping so the count climbs visibly.
+        timer = setTimeout(poll, 2000);
         return;
       }
       if (
@@ -379,6 +390,7 @@ export function PreviewStep({
         cellKey: c.cellKey,
         freshness: c.freshness,
         existingBizCount: c.existingBizCount,
+        websiteBizCount: c.websiteBizCount,
         neverDiscovered: c.neverDiscovered,
       });
     }
@@ -390,56 +402,84 @@ export function PreviewStep({
     [quote, cells, quoteByKey],
   );
 
-  // Aggregate business count = sum of ONLY the known (already-discovered)
-  // cells' real counts. Never-discovered cells contribute nothing here — their
-  // count is unknown, not zero, so it must never be summed into a total. Once
-  // `mapped`, every requested cell has been through the run, so this becomes
-  // the real market total.
-  const totBiz = useMemo(
-    () =>
-      rows
-        .filter((r) => !r.neverDiscovered)
-        .reduce((s, r) => s + r.bizCount, 0),
+  const knownRows = useMemo(
+    () => rows.filter((r) => !r.neverDiscovered),
     [rows],
   );
 
+  // Aggregate business count = sum of ONLY the known (already-discovered)
+  // cells' real counts. Never-discovered cells contribute nothing here — their
+  // count is unknown, not zero. Once `mapped`, every requested cell has been
+  // through the run, so this becomes the real market total.
+  const totBiz = useMemo(
+    () => knownRows.reduce((s, r) => s + r.bizCount, 0),
+    [knownRows],
+  );
+
+  // The ENRICHABLE count — website-havers only when a selected research needs a
+  // live site (else all). This is what the enrich cost + costbar price, since
+  // Lighthouse/contacts/tech/etc. can't run on a website-less listing.
+  const enrichableTotal = useMemo(
+    () =>
+      knownRows.reduce((s, r) => s + enrichableCountForCell(r, families), 0),
+    [knownRows, families],
+  );
+  // How many mapped leads are excluded from enrichment for lack of a website —
+  // surfaced honestly so the count drop ("731 found → 613 enrichable") isn't a
+  // silent mystery.
+  const notEnrichable = totBiz - enrichableTotal;
+
   // The per-lead enrich rate + one-time cell fee — both knowable WITHOUT a
-  // business count (see enrichRatePerLead/enrichCellFeeCredits docs). This is
-  // what the "What it costs" card shows before the market is mapped.
+  // business count (see enrichRatePerLead/enrichCellFeeCredits docs).
   const enrichRate = useMemo(() => enrichRatePerLead(families), [families]);
   const enrichCellFee = useMemo(
     () => enrichCellFeeCredits(families, cells.length),
     [families, cells.length],
   );
-  // The REAL enrich total once mapped; an honest per-lead-rate projection
-  // (over known cells only) before that.
-  const knownEnrichTotal = totBiz * enrichRate + enrichCellFee;
+  // The REAL enrich total once mapped (over the ENRICHABLE subset); an honest
+  // per-lead-rate projection over known cells before that.
+  const knownEnrichTotal = enrichableTotal * enrichRate + enrichCellFee;
   const enrichCredits = mapped
-    ? enrichCreditsFor(families, totBiz, cells.length)
+    ? enrichCreditsFor(families, enrichableTotal, cells.length)
     : knownEnrichTotal;
-  const enrichMinutes = mapped ? Math.max(2, Math.round(totBiz / 70)) : 0;
+  const enrichMinutes = mapped
+    ? Math.max(2, Math.round(enrichableTotal / 70))
+    : 0;
   const haveCredits = walletCredits == null || enrichCredits <= walletCredits;
 
   // The "② Enrich" card's per-research breakdown (matches the prototype's
   // split-by-research design) — one row per family the active signals need,
-  // labeled via RESEARCH_LABELS, tagged by its billing basis.
+  // labeled via RESEARCH_LABELS, with its REAL per-cell/whole-market credit
+  // cost once mapped.
   const researchRows = useMemo(
     () =>
-      families.map((f) => ({
-        family: f,
-        label: RESEARCH_LABELS[f],
-        basis: ENRICHMENT_PRICES[f].unit,
-      })),
-    [families],
+      families.map((f) => {
+        const basis = ENRICHMENT_PRICES[f].unit;
+        const units = basis === "cell" ? cells.length : enrichableTotal;
+        return {
+          family: f,
+          label: RESEARCH_LABELS[f],
+          basis,
+          credits: enrichCreditsFor([f], enrichableTotal, cells.length),
+          units,
+        };
+      }),
+    [families, enrichableTotal, cells.length],
   );
 
   const kpis = quote?.kpis ?? null;
   const localBiz = kpis ? kpis.localBusinessesReal : totBiz;
   const activeGoogle = kpis ? kpis.activeOnGoogleReal : 0;
-  const matchReal = kpis ? kpis.matchSignalsReal : 0;
-  const haveContactsPct = kpis
+  // "Match your signals": the EXACT flagged-finding count once enrichment has
+  // run (matchSignalsReal > 0), else the discovery-phase "~N passing so-far"
+  // estimate. `null` matchSoFar → "—" ("computed after enrichment").
+  const matchExact = kpis ? kpis.matchSignalsReal : 0;
+  const matchSoFar = kpis ? kpis.matchSoFarReal : null;
+  const matchIsEstimate = matchExact === 0;
+  const matchValue = matchExact > 0 ? matchExact : matchSoFar;
+  const haveWebsitePct = kpis
     ? kpis.localBusinessesReal > 0
-      ? Math.round((kpis.haveContactsReal / kpis.localBusinessesReal) * 100)
+      ? Math.round((kpis.haveWebsiteReal / kpis.localBusinessesReal) * 100)
       : 0
     : 0;
 
@@ -551,23 +591,41 @@ export function PreviewStep({
         </div>
       ) : stillMapping ? (
         <div className="callout section" role="status">
-          <span aria-hidden="true">🗺️</span>
+          <span aria-hidden="true">🔎</span>
           <div style={{ flex: 1 }}>
-            <div style={{ marginBottom: 8 }}>
-              <b>
-                Mapping {cells.length} market{cells.length === 1 ? "" : "s"}
-              </b>{" "}
-              — usually under 2 minutes.{" "}
-              {elapsedSec > 0 ? `${elapsedSec}s elapsed. ` : ""}
-              You can leave this page — we keep working and pick up where you
-              left off.
-            </div>
             <div
-              className="bar indeterminate"
-              role="progressbar"
-              aria-label="Mapping the market"
+              style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}
+              aria-live="polite"
             >
-              <i />
+              {liveCount > 0
+                ? `Found ${liveCount.toLocaleString()} local businesses so far…`
+                : `Querying Google Maps across ${cells.length} market${cells.length === 1 ? "" : "s"}…`}
+            </div>
+            <div className="note" style={{ marginBottom: 8 }}>
+              Pulling every business listing in your{" "}
+              {cells.length === 1 ? "market" : "markets"} — usually under 2
+              minutes{elapsedSec > 0 ? ` · ${elapsedSec}s` : ""}.
+            </div>
+            {/* Honest "what we're doing" narrative — each step's state is
+                derived from REAL signals (the live persisted count + jobStatus),
+                never a fabricated percentage or timer. */}
+            <div className="joblist" style={{ marginTop: 0 }}>
+              <MapStage
+                label="Connected to Google Maps"
+                state={liveCount > 0 || elapsedSec >= 3 ? "done" : "running"}
+              />
+              <MapStage
+                label={
+                  liveCount > 0
+                    ? `Pulling business listings — ${liveCount.toLocaleString()} found`
+                    : "Pulling business listings"
+                }
+                state="running"
+              />
+              <MapStage
+                label="Applying your signals & building the market"
+                state="pending"
+              />
             </div>
           </div>
         </div>
@@ -598,12 +656,12 @@ export function PreviewStep({
           d={stillMapping ? "mapping…" : "the whole market"}
         />
         <StatCard
-          k="Have contacts"
-          to={haveContactsPct}
+          k="Have a website"
+          to={haveWebsitePct}
           suffix="%"
           loading={stillMapping && knownCells === 0}
           dash={jobFailed && knownCells === 0}
-          d="reachable by email/phone/social"
+          d="a site you can improve"
         />
         <StatCard
           k="Active on Google"
@@ -614,18 +672,28 @@ export function PreviewStep({
         />
         <StatCard
           k="Match your signals"
-          to={matchReal}
+          to={matchValue ?? 0}
           loading={stillMapping && knownCells === 0}
-          dash={jobFailed && knownCells === 0}
+          dash={
+            (jobFailed && knownCells === 0) || (mapped && matchValue == null)
+          }
+          estimate={matchIsEstimate && matchValue != null}
           indigo
-          d={`your ${sigCount} signal${sigCount === 1 ? "" : "s"} applied`}
+          d={
+            mapped && matchValue == null
+              ? "computed after enrichment"
+              : matchIsEstimate
+                ? `est. ${sigCount} signal${sigCount === 1 ? "" : "s"} · exact after enrichment`
+                : `your ${sigCount} signal${sigCount === 1 ? "" : "s"} applied`
+          }
         />
       </div>
 
-      {/* Per-cell market composition — freshness + real business count (or a
-          skeleton while that specific cell is still being mapped). */}
+      {/* Per-cell credit matrix — freshness + real business count + the per-cell
+          Discover (free) and Enrich (real credits over the enrichable subset)
+          cost, once the market is mapped. Skeletons per cell while mapping. */}
       <div className="card section">
-        <h2 style={{ margin: "0 0 6px" }}>Per-cell market composition</h2>
+        <h2 style={{ margin: "0 0 6px" }}>Per-cell credit matrix</h2>
         <div className="scroll-x">
           <table className="matrix">
             <thead>
@@ -633,12 +701,14 @@ export function PreviewStep({
                 <th>Market</th>
                 <th>Freshness</th>
                 <th>Businesses</th>
+                <th>Discover</th>
+                <th>Enrich</th>
               </tr>
             </thead>
             <tbody>
               {rows.length === 0 ? (
                 <tr>
-                  <td className="biz" colSpan={3}>
+                  <td className="biz" colSpan={5}>
                     {pricing
                       ? "Pricing this market…"
                       : "Add markets to see the per-cell breakdown."}
@@ -651,6 +721,18 @@ export function PreviewStep({
                   // mapped (skeleton), the run failed so this cell was never
                   // actually checked ("—", not a fake 0), or a real count.
                   const rowLoading = r.neverDiscovered && stillMapping;
+                  const cellEnrichable = enrichableCountForCell(r, families);
+                  const cellEnrich = enrichCreditsFor(
+                    families,
+                    cellEnrichable,
+                    1,
+                  );
+                  const skel = (w: number) => (
+                    <span
+                      className="skel"
+                      style={{ width: w, display: "inline-block" }}
+                    />
+                  );
                   return (
                     <tr key={r.name}>
                       <td className="biz">{r.name}</td>
@@ -664,15 +746,25 @@ export function PreviewStep({
                         </span>
                       </td>
                       <td>
+                        {rowLoading
+                          ? skel(40)
+                          : r.neverDiscovered
+                            ? "—"
+                            : r.bizCount.toLocaleString()}
+                      </td>
+                      <td>
+                        <span className="cr free">free</span>
+                      </td>
+                      <td>
                         {rowLoading ? (
-                          <span
-                            className="skel"
-                            style={{ width: 40, display: "inline-block" }}
-                          />
+                          skel(48)
                         ) : r.neverDiscovered ? (
                           "—"
                         ) : (
-                          r.bizCount.toLocaleString()
+                          <span className="cr">
+                            <span className="ic-coin sm" aria-hidden="true" />
+                            {fmtCredits(cellEnrich)}
+                          </span>
                         )}
                       </td>
                     </tr>
@@ -696,10 +788,34 @@ export function PreviewStep({
                     totBiz.toLocaleString()
                   )}
                 </td>
+                <td>
+                  <span className="cr free">free</span>
+                </td>
+                <td>
+                  {stillMapping && knownCells === 0 ? (
+                    <span
+                      className="skel"
+                      style={{ width: 50, display: "inline-block" }}
+                    />
+                  ) : (
+                    <span className="cr">
+                      <span className="ic-coin sm" aria-hidden="true" />
+                      {fmtCredits(enrichCredits)}
+                    </span>
+                  )}
+                </td>
               </tr>
             </tfoot>
           </table>
         </div>
+        {notEnrichable > 0 ? (
+          <p className="note" style={{ marginTop: 8 }}>
+            {notEnrichable.toLocaleString()} of {totBiz.toLocaleString()} have
+            no website, so they can&apos;t be enriched for your site-based
+            research — enrich prices the {enrichableTotal.toLocaleString()} with
+            a site.
+          </p>
+        ) : null}
       </div>
 
       {/* Sample of the market — a handful of real rows once mapped (was
@@ -812,72 +928,68 @@ export function PreviewStep({
           </div>
         </div>
         <div className="card">
-          <div className="eyebrow">What it costs</div>
-          <div className="enr-sub" style={{ paddingLeft: 0 }}>
-            <span className="lbl">
-              ① Discover {cells.length} market{cells.length === 1 ? "" : "s"}
-            </span>
-            <span className="cr free">free</span>
+          <h2 style={{ margin: "0 0 4px" }}>What it costs</h2>
+          <div className="sig">
+            <div className="row">
+              <span className="name">
+                ① Discover {cells.length} market{cells.length === 1 ? "" : "s"}
+              </span>
+              <span className="val cr free">free</span>
+            </div>
+            <div className="note">
+              Always free — the whole raw market, before you spend anything.
+            </div>
           </div>
-          <p className="note" style={{ margin: "2px 0 10px" }}>
-            Always free — runs automatically, before you spend anything.
-          </p>
-          <div className="enr-sub" style={{ paddingLeft: 0 }}>
-            <span className="lbl">② Enrich — per research</span>
+          <div className="sig">
+            <div className="row">
+              <span className="name">② Enrich — per research</span>
+              <span className="val cr">
+                <span className="ic-coin sm" aria-hidden="true" />~
+                {fmtCredits(enrichCredits)}
+              </span>
+            </div>
+            <div style={{ marginTop: 8 }}>
+              {researchRows.length > 0 ? (
+                researchRows.map((r) => (
+                  <div className="enr-sub" key={r.family}>
+                    <span className="lbl">
+                      {r.label}{" "}
+                      <span className="src">
+                        · {RESEARCH_SOURCES[r.family]}
+                      </span>
+                    </span>
+                    <span className="cr">
+                      {mapped || knownCells > 0
+                        ? `~${fmtCredits(r.credits)} cr`
+                        : r.basis === "cell"
+                          ? "per market"
+                          : "per lead"}
+                    </span>
+                  </div>
+                ))
+              ) : (
+                <p className="note">
+                  No enrichment research — add signals on the Goal step.
+                </p>
+              )}
+            </div>
           </div>
-          <div style={{ margin: "8px 0" }}>
-            {researchRows.length > 0 ? (
-              researchRows.map((r) => (
-                <div className="enr-sub" key={r.family}>
-                  <span className="lbl">{r.label}</span>
-                  <span className="cr">
-                    {r.basis === "cell"
-                      ? "shared across this market"
-                      : "included per lead"}
-                  </span>
-                </div>
-              ))
-            ) : (
-              <p className="note">
-                No enrichment research — add signals on the Goal step.
-              </p>
-            )}
+          <div className="sig">
+            <div className="row">
+              <span className="name">Estimated total</span>
+              <span className="val cr" style={{ fontSize: 15 }}>
+                <span className="ic-coin sm" aria-hidden="true" />~
+                {fmtCredits(enrichCredits)}
+              </span>
+            </div>
+            <div className="note">
+              {mapped
+                ? `Enrich all ${enrichableTotal.toLocaleString()} businesses with a website — or pick exactly which leads next. ≈${fmtCredits(enrichRate)} credits/lead.`
+                : knownCells > 0
+                  ? "Firms up the moment the rest of the market finishes mapping."
+                  : "Confirmed the moment mapping finishes — you pay only for the leads you choose to enrich."}
+            </div>
           </div>
-          <div className="enr-sub" style={{ paddingLeft: 0, fontWeight: 700 }}>
-            <span className="lbl" style={{ color: "var(--ink)" }}>
-              ≈{fmtCredits(enrichRate)} credits per lead you enrich
-            </span>
-            <span className="cr" style={{ color: "var(--ink)" }}>
-              <span className="ic-coin sm" aria-hidden="true" />
-              {fmtCredits(enrichRate)}
-            </span>
-          </div>
-          {enrichCellFee > 0 ? (
-            <p className="note" style={{ margin: "4px 0 0" }}>
-              + {fmtCredits(enrichCellFee)} credits one-time for this
-              market&apos;s ad/SERP data, shared across every lead.
-            </p>
-          ) : null}
-          {mapped ? (
-            <p className="note" style={{ margin: "10px 0 0" }}>
-              For all {totBiz.toLocaleString()} business
-              {totBiz === 1 ? "" : "es"} found, that&apos;s ≈
-              {fmtCredits(enrichCredits)} credits to enrich everything — but you
-              choose exactly which leads to enrich next.
-            </p>
-          ) : knownCells > 0 ? (
-            <p className="note" style={{ margin: "10px 0 0" }}>
-              At the {totBiz.toLocaleString()} already-mapped business
-              {totBiz === 1 ? "" : "es"} found so far, that&apos;s ≈
-              {fmtCredits(knownEnrichTotal)} credits — the exact total updates
-              once the rest of the market finishes mapping.
-            </p>
-          ) : (
-            <p className="note" style={{ margin: "10px 0 0" }}>
-              The exact lead count is confirmed the moment mapping finishes —
-              you pay only for the leads you choose to enrich.
-            </p>
-          )}
         </div>
       </div>
 
@@ -902,12 +1014,11 @@ export function PreviewStep({
               "Mapping failed"
             ) : mapped ? (
               <>
-                Enrich {totBiz.toLocaleString()} business
-                {totBiz === 1 ? "" : "es"}
+                Enrich {enrichableTotal.toLocaleString()} business
+                {enrichableTotal === 1 ? "" : "es"}
                 <span className="small">
                   {" "}
-                  · ~{fmtCredits(enrichCredits)} credits (
-                  {fmtCredits(enrichRate)}/lead)
+                  · ~{fmtCredits(enrichCredits)} credits
                 </span>
               </>
             ) : (
@@ -951,6 +1062,34 @@ export function PreviewStep({
   );
 }
 
+/** One line of the "what we're doing" mapping narrative — reuses the ported
+ *  .job/.check/.spin classes (same as the Enriching step's stage list). */
+function MapStage({
+  label,
+  state,
+}: {
+  label: string;
+  state: "done" | "running" | "pending";
+}) {
+  return (
+    <div
+      className="job"
+      style={state === "pending" ? { opacity: 0.5 } : undefined}
+    >
+      {state === "done" ? (
+        <span className="check" aria-hidden="true">
+          ✓
+        </span>
+      ) : state === "running" ? (
+        <span className="spin" aria-hidden="true" />
+      ) : (
+        <span style={{ width: 16 }} aria-hidden="true" />
+      )}
+      {label}
+    </div>
+  );
+}
+
 function StatCard({
   k,
   to,
@@ -959,6 +1098,7 @@ function StatCard({
   indigo,
   loading,
   dash,
+  estimate,
 }: {
   k: string;
   to: number;
@@ -971,6 +1111,9 @@ function StatCard({
   /** Show "—" instead of the number — the run failed, so this was never
    *  actually checked. Never render 0 for "unknown"; 0 means a real zero. */
   dash?: boolean;
+  /** Prefix the number with "~" — it's an honest estimate that firms up after
+   *  enrichment (e.g. "match your signals" pre-enrichment). */
+  estimate?: boolean;
 }) {
   const v = useCountUp(to);
   return (
@@ -989,6 +1132,7 @@ function StatCard({
           "—"
         ) : (
           <>
+            {estimate ? "~" : ""}
             {v.toLocaleString()}
             {suffix ?? ""}
           </>

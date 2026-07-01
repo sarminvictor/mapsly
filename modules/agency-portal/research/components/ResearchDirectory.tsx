@@ -19,10 +19,24 @@
 
 import { useMemo, useState, useEffect, useRef } from "react";
 
-import { Link } from "@/i18n/navigation";
-import type { ResearchCard } from "../queries";
+import { useRouter } from "next/navigation";
+
+import type { ResearchCard, ResearchStatus } from "../queries";
 
 type FilterDim = "loc" | "cat";
+
+/** Status → pill colour + label + the "Open" button's verb. The CTA verb
+ *  matches where the card routes (see buildResearchHref): resume the flow, or
+ *  open the workbench when enriched. */
+const RESEARCH_STATUS_META: Record<
+  ResearchStatus,
+  { label: string; pill: string; cta: string }
+> = {
+  draft: { label: "Draft", pill: "", cta: "Resume →" },
+  discovered: { label: "Discovered", pill: "indigo", cta: "Enrich →" },
+  enriching: { label: "Enriching", pill: "amber", cta: "View progress →" },
+  enriched: { label: "Enriched", pill: "green", cta: "Open →" },
+};
 
 interface Props {
   pinned: ResearchCard[];
@@ -220,6 +234,10 @@ function ResearchRow({
   open: boolean;
   onToggle: () => void;
 }) {
+  // next/navigation router (not next-intl's typed Link) so a status-specific
+  // string href with query params (the resume deep-link) navigates client-side.
+  // The app is English-only, so no locale prefix is needed on the path.
+  const router = useRouter();
   const nCells = card.cells.length;
   const meta = [
     card.goal ? `${card.goal} goal` : null,
@@ -247,7 +265,15 @@ function ResearchRow({
       >
         <span className={`freshdot ${card.freshness}`} aria-hidden="true" />
         <div style={{ flex: 1 }}>
-          <div className="nm">{card.title}</div>
+          <div className="nm">
+            {card.title}
+            <span
+              className={`pill ${RESEARCH_STATUS_META[card.status].pill}`}
+              style={{ marginLeft: 8, verticalAlign: "middle" }}
+            >
+              {RESEARCH_STATUS_META[card.status].label}
+            </span>
+          </div>
           <div className="mk">{meta}</div>
         </div>
         <div className="sp">
@@ -258,16 +284,20 @@ function ResearchRow({
           credits to date
         </div>
         <div className="sp">opened {card.opened}</div>
-        <Link
-          href={{
-            pathname: "/discover/[discoveryId]",
-            params: { discoveryId: card.id },
-          }}
+        <a
+          href={card.href}
           className="btn sm"
-          onClick={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            // Preserve cmd/ctrl/middle-click "open in new tab"; otherwise
+            // navigate client-side.
+            if (e.metaKey || e.ctrlKey || e.button === 1) return;
+            e.preventDefault();
+            router.push(card.href);
+          }}
         >
-          Open →
-        </Link>
+          {RESEARCH_STATUS_META[card.status].cta}
+        </a>
         <span className="rchev" aria-hidden="true">
           ▶
         </span>

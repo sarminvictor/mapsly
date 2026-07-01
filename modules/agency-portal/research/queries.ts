@@ -37,6 +37,18 @@ import {
 } from "@/lib/cell";
 import { US_METROS } from "@/lib/geo/us-metros";
 import { usdToCredits } from "@/modules/cost/estimate";
+import { goalMetaFromJson } from "@/modules/agency-portal/discover/discovery-signals";
+import {
+  buildResearchHref,
+  deriveResearchStatus,
+  type EnrichInfo,
+  type ResearchStatus,
+} from "./status";
+
+// Re-export so existing importers (the client directory) keep resolving the
+// status type from queries — the definition now lives in the pure `status`
+// module (server-only-free, unit-tested).
+export type { ResearchStatus } from "./status";
 
 /** One informational cell sub-row (location coverage) inside a research card. */
 export interface ResearchCardCell {
@@ -54,6 +66,12 @@ export interface ResearchCard {
   title: string;
   /** Optional goal label (omitted unless we can derive one). */
   goal: string | null;
+  /** Lifecycle status — drives the pill + where "Open" routes. */
+  status: ResearchStatus;
+  /** Pre-computed deep-link target (plain string — no function crosses the
+   *  'use client' boundary). Resumes the flow at the right step, or the
+   *  workbench when enriched. */
+  href: string;
   /** Freshness dot state (fresh|aging|stale|never). */
   freshness: FreshnessState;
   /** "2 days ago" — when the market was mapped. */
@@ -132,8 +150,10 @@ function relativeTime(at: Date | null, now: Date): string {
 interface DiscoveryRow {
   id: string;
   name: string | null;
+  status: "PENDING" | "RUNNING" | "READY" | "PARTIAL" | "FAILED";
   isPinned: boolean;
   cellKeys: string[];
+  signalsJson: unknown;
   totalBusinesses: number;
   spendToDateUsd: number;
   lastOpenedAt: Date | null;
@@ -149,6 +169,8 @@ function toResearchCard(
   d: DiscoveryRow,
   leadCountByCell: Map<string, number>,
   categoryLabelBySlug: Map<string, string>,
+  categoryIdBySlug: Map<string, string>,
+  enrich: EnrichInfo,
   now: Date,
 ): ResearchCard {
   const metros: string[] = [];
@@ -194,10 +216,16 @@ function toResearchCard(
     ? `${titleCategory} · ${firstMetro}`
     : d.name || titleCategory;
 
+  const status = deriveResearchStatus(d.status, enrich);
+  const href = buildResearchHref(d, status, enrich, categoryIdBySlug);
+  const goalLabel = goalMetaFromJson(d.signalsJson).goalName;
+
   return {
     id: d.id,
     title,
-    goal: null, // No schema home for a goal label yet — omit per build spec.
+    goal: goalLabel, // the persisted goal name (null on older discoveries)
+    status,
+    href,
     freshness,
     mapped: relativeTime(mappedAt, now),
     opened: relativeTime(d.lastOpenedAt ?? mappedAt, now),
@@ -208,6 +236,63 @@ function toResearchCard(
     isPinned: d.isPinned,
     cells,
   };
+}
+
+/**
+ * Resolve each discovery's enrichment phase by cellKey overlap. There is no
+ * discoveryId FK on EnrichmentRun, so we match `EnrichmentRun.scopeRefsJson
+ * .cellKeys` against each `Discovery.cellKeys`. One findMany over the agency's
+ * recent runs (bounded), bucketed in JS. DONE (OK/PARTIAL) wins over ACTIVE
+ * (PENDING/RUNNING) — a completed enrichment routes to the workbench even if a
+ * re-enrich is later queued.
+ */
+async function resolveEnrichPhases(
+  agencyId: string,
+  discoveries: { id: string; cellKeys: string[] }[],
+): Promise<Map<string, EnrichInfo>> {
+  const out = new Map<string, EnrichInfo>();
+  const runs = await prisma.enrichmentRun.findMany({
+    where: { agencyId },
+    orderBy: { startedAt: "desc" },
+    take: 500,
+    select: {
+      id: true,
+      status: true,
+      unitsRequested: true,
+      scopeRefsJson: true,
+    },
+  });
+  // Pre-parse each run's cellKeys once.
+  const parsedRuns = runs.map((r) => {
+    const scope = (r.scopeRefsJson ?? {}) as { cellKeys?: unknown };
+    const cellKeys = Array.isArray(scope.cellKeys)
+      ? (scope.cellKeys.filter((k) => typeof k === "string") as string[])
+      : [];
+    return { ...r, cellKeys: new Set(cellKeys) };
+  });
+
+  for (const d of discoveries) {
+    let phase: EnrichInfo["phase"] = "none";
+    let activeRunId: string | undefined;
+    let activeUnits: number | undefined;
+    for (const r of parsedRuns) {
+      // Overlap = the run touches at least one of this discovery's cells.
+      const overlaps = d.cellKeys.some((k) => r.cellKeys.has(k));
+      if (!overlaps) continue;
+      if (r.status === "OK" || r.status === "PARTIAL") {
+        phase = "done";
+        break; // DONE wins — stop scanning
+      }
+      if (r.status === "PENDING" || r.status === "RUNNING") {
+        phase = "active";
+        activeRunId = r.id;
+        activeUnits = r.unitsRequested;
+        // keep scanning in case a DONE run also overlaps (it would win)
+      }
+    }
+    out.set(d.id, { phase, activeRunId, activeUnits });
+  }
+  return out;
 }
 
 /**
@@ -235,8 +320,10 @@ export async function getResearchList(agencyId: string): Promise<ResearchList> {
       select: {
         id: true,
         name: true,
+        status: true,
         isPinned: true,
         cellKeys: true,
+        signalsJson: true,
         totalBusinesses: true,
         spendToDateUsd: true,
         lastOpenedAt: true,
@@ -253,6 +340,7 @@ export async function getResearchList(agencyId: string): Promise<ResearchList> {
     );
     const leadCountByCell = new Map<string, number>();
     const categoryLabelBySlug = new Map<string, string>();
+    const categoryIdBySlug = new Map<string, string>();
 
     if (allCellKeys.length > 0) {
       const grouped = await prisma.business.groupBy({
@@ -264,7 +352,8 @@ export async function getResearchList(agencyId: string): Promise<ResearchList> {
         if (g.cellKey) leadCountByCell.set(g.cellKey, g._count._all);
       }
 
-      // Resolve category slug → human label from BusinessCategory.
+      // Resolve category slug → human label + live id from BusinessCategory
+      // (the id rebuilds the `cells=metroSlug:categoryId` resume param).
       const catSlugs = Array.from(
         new Set(
           allCellKeys
@@ -275,20 +364,34 @@ export async function getResearchList(agencyId: string): Promise<ResearchList> {
       if (catSlugs.length > 0) {
         const cats = await prisma.businessCategory.findMany({
           where: { dataforseoId: { in: catSlugs } },
-          select: { dataforseoId: true, label: true },
+          select: { id: true, dataforseoId: true, label: true },
         });
         for (const c of cats) {
           categoryLabelBySlug.set(c.dataforseoId.toLowerCase(), c.label);
+          categoryIdBySlug.set(c.dataforseoId.toLowerCase(), c.id);
         }
       }
     }
+
+    // Enrichment phase per discovery — resolved by cellKey overlap (there is no
+    // discoveryId FK on EnrichmentRun; its scopeRefsJson.cellKeys overlap the
+    // discovery's cellKeys). One findMany over the agency's recent runs, bucketed
+    // in JS. A DONE run (OK/PARTIAL) beats an ACTIVE one (a re-enrich in flight).
+    const enrichByDiscovery = await resolveEnrichPhases(agencyId, discoveries);
 
     // `now` is read once at request time — the function is uncached at runtime
     // (cacheLife('minutes')) so this is a request-scoped read, PPR-safe.
     const now = new Date();
 
     const cards = discoveries.map((d) =>
-      toResearchCard(d, leadCountByCell, categoryLabelBySlug, now),
+      toResearchCard(
+        d,
+        leadCountByCell,
+        categoryLabelBySlug,
+        categoryIdBySlug,
+        enrichByDiscovery.get(d.id) ?? { phase: "none" },
+        now,
+      ),
     );
 
     return {
