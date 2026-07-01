@@ -28,12 +28,11 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   FLOW_STEPS,
   fallbackGoal,
-  loadGoalFrom,
   type FlowStep,
   type GoalState,
   type MarketCell,
 } from "../flow-types";
-import { templateByKey } from "../goal-templates";
+import { decodeGoal, encodeGoal } from "../goal-url";
 import { GoalStep } from "./steps/GoalStep";
 import {
   MarketStep,
@@ -76,43 +75,10 @@ function parseCells(
       category: c.label,
       categoryId: c.id,
       categorySlug: c.slug,
+      country: m.country,
     });
   }
   return out;
-}
-
-/** Reconstruct the working GOAL from its template key + the on-signal set. */
-function decodeGoal(
-  goalKey: string | null,
-  sig: string | null,
-): GoalState | null {
-  if (!goalKey) return null;
-  const tpl = templateByKey(goalKey);
-  if (!tpl) return null;
-  const g = loadGoalFrom(tpl);
-  if (sig != null) {
-    const on = new Set(sig.split(",").filter(Boolean));
-    // The template's DEFAULT on-set, captured before the URL sig is applied.
-    const defaultOn = new Set(g.filters.filter((f) => f.on).map((f) => f.key));
-    g.filters = g.filters.map((f) => ({ ...f, on: on.has(f.key) }));
-    // "Customized" ONLY when the chosen signal set actually differs from the
-    // template default — not merely because a sig is present in the URL (it
-    // always is, since we persist the on-set there). Compare the sets by value.
-    const currentOn = g.filters.filter((f) => f.on).map((f) => f.key);
-    g.customized =
-      currentOn.length !== defaultOn.size ||
-      currentOn.some((k) => !defaultOn.has(k));
-  }
-  return g;
-}
-function encodeGoal(goal: GoalState): { goal: string; sig: string } {
-  return {
-    goal: goal.base,
-    sig: goal.filters
-      .filter((f) => f.on)
-      .map((f) => f.key)
-      .join(","),
-  };
 }
 
 export function GetLeadsFlow({
@@ -129,7 +95,10 @@ export function GetLeadsFlow({
   const pathname = usePathname();
 
   // ── Derive ALL flow state from the URL ──────────────────────────────────
-  const goal = useMemo(() => decodeGoal(sp.get("goal"), sp.get("sig")), [sp]);
+  const goal = useMemo(
+    () => decodeGoal(sp.get("goal"), sp.get("sig"), sp.get("g")),
+    [sp],
+  );
   const cells = useMemo(
     () => parseCells(sp.get("cells"), metros, categories),
     [sp, metros, categories],

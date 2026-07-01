@@ -11,7 +11,9 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 interface FakeBiz {
   id: string;
   cellKey: string | null;
-  isHidden: boolean;
+  // null = unscanned (freshly discovered) — must stay VISIBLE; only a
+  // scanned-and-unreachable row (true) is hidden. See rawListWhere `{ not: true }`.
+  isHidden: boolean | null;
   openStatus: string;
   reachableChannelCount: number;
   reachability: string;
@@ -34,6 +36,8 @@ function matches(b: FakeBiz, where: any): boolean {
   }
   if (where.isHidden === false && b.isHidden) return false;
   if (where.isHidden === true && !b.isHidden) return false;
+  // `{ not: true }` — exclude ONLY scanned-hidden rows; unscanned (null) stays.
+  if (where.isHidden?.not === true && b.isHidden === true) return false;
   if (where.openStatus?.not && b.openStatus === where.openStatus.not) {
     return false;
   }
@@ -119,7 +123,8 @@ describe("rawListWhere · default exclusions", () => {
   test("scopes to cellKeys and excludes hidden + closed-forever by default", () => {
     const where = rawListWhere({ cellKeys: ["medical_spa|miami|US"] });
     expect(where.cellKey).toEqual({ in: ["medical_spa|miami|US"] });
-    expect(where.isHidden).toBe(false);
+    // `{ not: true }` (not `false`) so unscanned (isHidden null) rows stay visible.
+    expect(where.isHidden).toEqual({ not: true });
     expect(where.openStatus).toEqual({ not: "CLOSED_FOREVER" });
   });
 
@@ -202,6 +207,15 @@ describe("getRawList", () => {
     const page = await getRawList({ cellKeys: ["c1"] }, { take: 10 });
     expect(page.rows.map((r) => r.id)).toEqual(["b1"]);
     expect(page.nextCursor).toBeNull();
+  });
+
+  test("keeps unscanned (isHidden null) businesses visible", async () => {
+    seed({ id: "scanned", isHidden: false, reviewCount: 10 });
+    seed({ id: "unscanned", isHidden: null, reviewCount: 20 });
+    seed({ id: "hidden", isHidden: true, reviewCount: 99 });
+    const page = await getRawList({ cellKeys: ["c1"] }, { take: 10 });
+    // Only the scanned-and-hidden row is dropped; the unscanned (null) row stays.
+    expect(page.rows.map((r) => r.id)).toEqual(["unscanned", "scanned"]);
   });
 });
 

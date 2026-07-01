@@ -153,12 +153,11 @@ export function GoalStep({
               {templateByKey(goal.base)?.icon ?? "⚙️"}
             </span>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <input
-                className="gd-nameinput"
+              <GoalNameInput
+                key={goal.base}
                 value={goal.name}
-                aria-label="Goal name"
-                onChange={(e) =>
-                  onChange({ ...goal, name: e.target.value, customized: true })
+                onCommit={(name) =>
+                  onChange({ ...goal, name, customized: true })
                 }
               />
               <div className="gd-sub">
@@ -247,6 +246,41 @@ export function GoalStep({
         </aside>
       )}
     </div>
+  );
+}
+
+/**
+ * Goal-name field — buffered locally so typing stays smooth even though the goal
+ * round-trips through the URL (every edit re-serializes the whole goal). Commits
+ * on blur / Enter. Adopts an external value change (switching template) without
+ * clobbering in-progress typing, and ignores the echo of its own commit so a
+ * laggy URL update can never revert what the user just typed.
+ */
+function GoalNameInput({
+  value,
+  onCommit,
+}: {
+  value: string;
+  onCommit: (name: string) => void;
+}) {
+  // `value` seeds the buffer; the call site keys this component by `goal.base`,
+  // so switching template remounts it with the new name. Within a goal, typing
+  // stays local (smooth — no per-keystroke URL write) and commits to the
+  // URL-backed goal on blur / Enter.
+  const [local, setLocal] = useState(value);
+  return (
+    <input
+      className="gd-nameinput"
+      value={local}
+      aria-label="Goal name"
+      onChange={(e) => setLocal(e.target.value)}
+      onBlur={() => {
+        if (local !== value) onCommit(local);
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") e.currentTarget.blur();
+      }}
+    />
   );
 }
 
