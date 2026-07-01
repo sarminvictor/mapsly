@@ -95,7 +95,9 @@ export function MarketCombobox({
                   onPick(o);
                 }}
               >
-                <span className="opt-label">{o.label}</span>
+                <span className="opt-label" title={o.label}>
+                  {o.label}
+                </span>
                 {o.meta ? <span className="meta">{o.meta}</span> : null}
               </div>
             ))}

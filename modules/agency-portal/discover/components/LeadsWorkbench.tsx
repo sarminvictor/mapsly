@@ -35,8 +35,10 @@ import {
   DATA_FAMILIES,
   DEFAULT_ACTIVE_COLUMNS,
   FILTER_FIELDS,
+  FILTER_FIELD_DEFAULTS,
   PAGE_SIZES,
   STATUS_ORDER,
+  buildSignalColumns,
   fmtDelta,
   getPageNumbers,
   matchesSearch,
@@ -66,6 +68,14 @@ export interface LeadsWorkbenchProps {
    * (both derive from the same `deriveFamilyCoverage` source of truth).
    */
   coverage: Record<string, DataFamily[]>;
+  /**
+   * The signals chosen on the Goal step (SIG_META key + title). Rendered as
+   * one column per signal, right after Match % (docs/portal-prototype.html's
+   * goalCols/makeSigCol) — reading `row.perSignal[key]` for the verdict. We
+   * do NOT use these to auto-FILTER the row set: a signal still mid-
+   * enrichment would otherwise silently hide real, not-yet-enriched leads.
+   */
+  goalSignals?: { key: string; title: string }[];
 }
 
 type Density = "comfortable" | "compact";
@@ -75,6 +85,7 @@ export function LeadsWorkbench({
   discoveryId,
   bands,
   coverage,
+  goalSignals = [],
 }: LeadsWorkbenchProps) {
   /**
    * Covered families for one row: prefer the batched matrix (keyed by
@@ -112,7 +123,10 @@ export function LeadsWorkbench({
     setError(null);
     startTransition(async () => {
       applyOptimistic({ leadId, status });
-      const result = await setLeadStatusAction({ leadId, status });
+      // discoveryId lets the action lazily create a Lead when `leadId` is
+      // actually a raw Business id (a discovered row that was never saved
+      // into a list) — see setLeadStatusAction's fallback doc.
+      const result = await setLeadStatusAction({ leadId, status, discoveryId });
       if (result.status === "ok") {
         setCommitted((p) => ({ ...p, [leadId]: status }));
       } else {
@@ -189,11 +203,27 @@ export function LeadsWorkbench({
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
   }, [sp, router, pathname]);
 
-  // The active column defs in render order.
-  const cols = useMemo(
-    () => COLUMNS.filter((c) => activeCols.includes(c.key)),
-    [activeCols],
+  // One column per active goal signal (always shown, not part of the Fields
+  // toggle set — see LeadsWorkbenchProps.goalSignals doc).
+  const signalCols = useMemo(
+    () => buildSignalColumns(goalSignals),
+    [goalSignals],
   );
+
+  // The active column defs in render order: static columns filtered by the
+  // Fields-menu selection, with the goal-signal columns spliced in right
+  // after Match % (docs/portal-prototype.html's activeCols insertion point).
+  const cols = useMemo(() => {
+    const base = COLUMNS.filter((c) => activeCols.includes(c.key));
+    if (signalCols.length === 0) return base;
+    const matchIdx = base.findIndex((c) => c.key === "match");
+    if (matchIdx === -1) return [...base, ...signalCols];
+    return [
+      ...base.slice(0, matchIdx + 1),
+      ...signalCols,
+      ...base.slice(matchIdx + 1),
+    ];
+  }, [activeCols, signalCols]);
 
   // ── Filtered + sorted rows ────────────────────────────────────────────────
   const filtered = useMemo(() => {
@@ -282,7 +312,9 @@ export function LeadsWorkbench({
     startTransition(async () => {
       for (const id of ids) applyOptimistic({ leadId: id, status });
       const results = await Promise.all(
-        ids.map((id) => setLeadStatusAction({ leadId: id, status })),
+        ids.map((id) =>
+          setLeadStatusAction({ leadId: id, status, discoveryId }),
+        ),
       );
       const okIds = ids.filter((_, i) => results[i]?.status === "ok");
       if (okIds.length) {
@@ -375,11 +407,12 @@ export function LeadsWorkbench({
     setFilters((prev) => prev.filter((_, i) => i !== idx));
     setPage(1);
   }
-  function addFilter() {
-    setFilters((prev) => [
-      ...prev,
-      { field: "match" as NumericFilterField, op: "≥", value: 50 },
-    ]);
+  /** Add a filter for a CHOSEN field, seeded with that field's sensible
+   *  default op/value (never a one-size-fits-all blind default — the picker
+   *  UI below lets the user choose the field before anything is added). */
+  function addFilter(field: NumericFilterField) {
+    const d = FILTER_FIELD_DEFAULTS[field];
+    setFilters((prev) => [...prev, { field, op: d.op, value: d.value }]);
     setPage(1);
   }
   function editFilter(idx: number, patch: Partial<LeadFilter>) {
@@ -556,6 +589,46 @@ export function LeadsWorkbench({
           </td>
         );
       }
+      case "sig": {
+        // One goal-signal verdict per column (docs/portal-prototype.html's
+        // goalMatchCell): true = fired, false = evaluated + didn't match,
+        // null = not yet computable (honest "enrich to unlock", never a
+        // fake match — the same null-handling every other cell here uses).
+        const verdict = col.sigKey ? r.perSignal[col.sigKey] : undefined;
+        if (verdict == null) {
+          return (
+            <td key={col.key}>
+              <span className="needsenr">— enrich</span>
+            </td>
+          );
+        }
+        return (
+          <td key={col.key}>
+            {verdict ? (
+              <span className="gmatch g">
+                <span className="gk">✓</span>match
+              </span>
+            ) : (
+              <span className="gmatch miss">—</span>
+            )}
+          </td>
+        );
+      }
+      case "lastC":
+        return (
+          <td key={col.key} className="num">
+            {r.lastContactedAt ? (
+              <span className="cellval">
+                {new Date(r.lastContactedAt).toLocaleDateString("en-US", {
+                  month: "short",
+                  day: "numeric",
+                })}
+              </span>
+            ) : (
+              <span className="ppnone">—</span>
+            )}
+          </td>
+        );
       default:
         return <td key={col.key} />;
     }
@@ -824,9 +897,26 @@ export function LeadsWorkbench({
                 </button>
               </span>
             ))}
-            <button type="button" className="add" onClick={addFilter}>
-              ＋ Add filter
-            </button>
+            <select
+              className="add"
+              aria-label="Add filter"
+              value=""
+              onChange={(e) => {
+                if (e.target.value) {
+                  addFilter(e.target.value as NumericFilterField);
+                  e.target.value = "";
+                }
+              }}
+            >
+              <option value="" disabled>
+                ＋ Add filter
+              </option>
+              {FILTER_FIELDS.map((m) => (
+                <option key={m.field} value={m.field}>
+                  {m.label}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
       ) : filters.length ? (

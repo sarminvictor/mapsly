@@ -71,6 +71,7 @@ import {
   resolveMatches,
 } from "@/modules/agency-portal/discover/signal-eval";
 import { activeSignalsFromJson } from "@/modules/agency-portal/discover/discovery-signals";
+import { SIG_META } from "@/modules/agency-portal/discover/goal-templates";
 import {
   WorkbenchShell,
   type WorkbenchShellProps,
@@ -206,7 +207,12 @@ async function DiscoveryWorkspaceBody({ params }: PageProps) {
               list: { discoveryId: discovery.id },
             },
             orderBy: { statusChangedAt: "desc" },
-            select: { id: true, businessId: true, status: true },
+            select: {
+              id: true,
+              businessId: true,
+              status: true,
+              contactedAt: true,
+            },
           }),
           prisma.businessSnapshot.findMany({
             where: { businessId: { in: businessIds } },
@@ -290,18 +296,34 @@ async function DiscoveryWorkspaceBody({ params }: PageProps) {
       ? await hydrateBusinessForSignals(businessIds)
       : null;
   const evalNow = new Date();
+  // The goal's active signals (key + title) — the workbench renders one
+  // column per signal (docs/portal-prototype.html's goalCols/makeSigCol) so
+  // what you searched for on the Goal step is directly answered per lead. We
+  // never auto-FILTER by them (a signal still mid-enrichment would otherwise
+  // silently hide real leads) — only the column is signal-driven, not the
+  // row set.
+  const goalSignals = activeSignals
+    .map((s) => {
+      const title = SIG_META[s.key]?.title;
+      return title ? { key: s.key, title } : null;
+    })
+    .filter((s): s is { key: string; title: string } => s !== null);
 
   // First (=latest) row per business for the "latest snapshot/audit" pattern.
   const latestSnapshot = firstByBusiness(snapshots);
   const latestAudit = firstByBusiness(audits);
 
   // Existing Lead per business (most-recently-changed wins) → real id + status.
-  const leadByBusiness = new Map<string, { id: string; status: LeadStatus }>();
+  const leadByBusiness = new Map<
+    string,
+    { id: string; status: LeadStatus; contactedAt: Date | null }
+  >();
   for (const l of existingLeads) {
     if (!leadByBusiness.has(l.businessId)) {
       leadByBusiness.set(l.businessId, {
         id: l.id,
         status: l.status as LeadStatus,
+        contactedAt: l.contactedAt,
       });
     }
   }
@@ -389,6 +411,7 @@ async function DiscoveryWorkspaceBody({ params }: PageProps) {
         emails.length > 0,
       builtOn: builtOnById.get(b.id) ?? null,
       touch: touchByBusiness.get(b.id) ?? "None",
+      lastContactedAt: lead?.contactedAt?.toISOString() ?? null,
       reviews,
       rating,
       perf,
@@ -468,7 +491,7 @@ async function DiscoveryWorkspaceBody({ params }: PageProps) {
   const coverage = coverageRows ? coverageMatrixToMap(coverageRows) : {};
 
   const shell: WorkbenchShellProps = {
-    leads: { rows, discoveryId, bands, coverage },
+    leads: { rows, discoveryId, bands, coverage, goalSignals },
     touchpoints: { touches, stats },
   };
 

@@ -166,6 +166,16 @@ export interface DiscoverySummary {
   activeOnGoogle: number;
   /** Owner-claimed listings (isClaimed). */
   ownerClaimed: number;
+  /**
+   * The Discovery row's REAL job status — the honest completion signal.
+   * PENDING/RUNNING = still mapping (the cron drains it, poll indefinitely).
+   * READY/PARTIAL = done — `total` is the final answer, even if it's 0 (a
+   * genuinely empty market is a valid real answer, not a stuck state).
+   * FAILED = the run errored — stop polling, surface an error + retry.
+   * Replaces the old `total > 0` completion guess, which could (a) show a
+   * partial in-progress count as if final, and (b) never detect a real error.
+   */
+  jobStatus: "PENDING" | "RUNNING" | "READY" | "PARTIAL" | "FAILED";
 }
 
 export type GetDiscoverySummaryResult =
@@ -209,7 +219,7 @@ export async function getDiscoverySummary(
     // Agency-scope: the discovery must belong to the caller's agency.
     const discovery = await prisma.discovery.findUnique({
       where: { id: parsed.data.discoveryId },
-      select: { agencyId: true, cellKeys: true },
+      select: { agencyId: true, cellKeys: true, status: true },
     });
     if (!discovery || discovery.agencyId !== member.agencyId) {
       return { status: "forbidden" };
@@ -236,7 +246,13 @@ export async function getDiscoverySummary(
 
     return {
       status: "ok",
-      summary: { total, withWebsite, activeOnGoogle, ownerClaimed },
+      summary: {
+        total,
+        withWebsite,
+        activeOnGoogle,
+        ownerClaimed,
+        jobStatus: discovery.status,
+      },
     };
   } catch (err) {
     console.error(

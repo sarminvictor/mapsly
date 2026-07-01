@@ -68,33 +68,36 @@ const DiscoveryInput = z.object({
 
 export type DiscoveryActionInput = z.input<typeof DiscoveryInput>;
 
-/** Per-cell preview row: REAL business count for in-DB cells, estimate else. */
+/** Per-cell preview row: REAL business count for in-DB cells, unknown else. */
 export interface PreviewCell {
   cellKey: string;
   /** UI freshness chip state (never / fresh / aging / stale). */
   freshness: "never" | "fresh" | "aging" | "stale";
-  /** Businesses in this cell — REAL Prisma count when isEstimate=false. */
+  /** Businesses in this cell — REAL Prisma count; 0 when neverDiscovered. */
   existingBizCount: number;
-  /** False = real count from the DB; true = deterministic new-cell estimate. */
-  isEstimate: boolean;
+  /** True when this cell has never been discovered — its business count is
+   *  genuinely UNKNOWN (never a guessed number; the UI shows "—" until the
+   *  real Discover step reveals it). Renamed from the old `isEstimate` to make
+   *  the honesty contract explicit: this flags "unknown", never "estimated". */
+  neverDiscovered: boolean;
 }
 
-/** Aggregate KPI inputs for the Preview cards. `*Real` come from in-DB cells'
- *  real businesses; `*Estimate` add the new-cell deterministic contribution so
- *  the cards can show a "~" total only when estimates are mixed in. */
+/** Aggregate KPI inputs for the Preview cards. All figures are REAL counts
+ *  from already-discovered (in-DB) cells only — never a guessed number for a
+ *  never-discovered cell. When `hasUnknownCells` is true, the UI notes that
+ *  more markets exist whose real counts aren't known yet (not zero, unknown). */
 export interface PreviewKpis {
   /** REAL businesses summed across in-DB cells. */
   localBusinessesReal: number;
-  /** Estimated businesses summed across never-discovered cells. */
-  localBusinessesEstimate: number;
   /** REAL businesses with a reachable contact channel (in-DB cells). */
   haveContactsReal: number;
   /** REAL "active on Google" businesses (in-DB cells). */
   activeOnGoogleReal: number;
   /** REAL businesses with a flagged finding for an active signal (in-DB cells). */
   matchSignalsReal: number;
-  /** True when any requested cell is a new-cell estimate (drives "~"). */
-  hasEstimateCells: boolean;
+  /** True when any requested cell has never been discovered (drives the
+   *  "+ N more markets, not yet mapped" note instead of a fake number). */
+  hasUnknownCells: boolean;
 }
 
 export type PreflightDiscoveryResult =
@@ -140,28 +143,23 @@ async function callerAgencyId(userId: string): Promise<string | null> {
   return member?.agencyId ?? null;
 }
 
-/** Deterministic new-cell business estimate — mirrors flow-types.estBizCount so
- *  the server estimate matches the client's per-cell estimate for new cells. */
-function estBizCount(index: number): number {
-  return 120 + ((index * 137) % 341);
-}
-
 /** "Active on Google" recency window (~6 months), mirrors getDiscoverySummary. */
 const ACTIVE_REVIEW_DAYS = 182;
 
 /**
  * Build the per-cell preview rows + aggregate KPIs. For each requested cell:
- *   - already in the DB (has businesses) → REAL Prisma counts, isEstimate=false
- *   - never discovered (count 0)         → deterministic estimate, isEstimate=true
+ *   - already in the DB (has businesses) → REAL Prisma counts, neverDiscovered=false
+ *   - never discovered                   → count is genuinely UNKNOWN, existingBizCount=0,
+ *                                           neverDiscovered=true (never a guessed number)
  *
- * Aggregate KPIs come from the REAL businesses of in-DB cells (+ a clearly-
- * flagged estimate contribution from new cells via localBusinessesEstimate).
- * "Match your signals" counts in-DB businesses with a flagged PlaybookFinding
- * for one of the active signal keys (reuses the same finding store the signals
- * view reads). All pure Prisma reads — no external API in the request path.
+ * Aggregate KPIs come ONLY from the REAL businesses of in-DB cells — no fake
+ * contribution from never-discovered cells. "Match your signals" counts in-DB
+ * businesses with a flagged PlaybookFinding for one of the active signal keys
+ * (reuses the same finding store the signals view reads). All pure Prisma
+ * reads — no external API in the request path.
  */
 async function buildPreview(
-  cells: { cellKey: string; lastDiscoveredAt: Date | null; index: number }[],
+  cells: { cellKey: string; lastDiscoveredAt: Date | null }[],
   signalKeys: string[],
   now: Date,
 ): Promise<{ previewCells: PreviewCell[]; kpis: PreviewKpis }> {
@@ -173,8 +171,8 @@ async function buildPreview(
       return {
         cellKey: c.cellKey,
         freshness: cellFreshnessState(c.lastDiscoveredAt, now),
-        existingBizCount: inDb ? real : estBizCount(c.index),
-        isEstimate: !inDb,
+        existingBizCount: inDb ? real : 0,
+        neverDiscovered: !inDb,
         _base: base,
       };
     }),
@@ -182,7 +180,7 @@ async function buildPreview(
 
   // The in-DB cells we count real KPIs over.
   const inDbKeys = previewCells
-    .filter((c) => !c.isEstimate)
+    .filter((c) => !c.neverDiscovered)
     .map((c) => c.cellKey);
 
   let haveContactsReal = 0;
@@ -232,17 +230,12 @@ async function buildPreview(
     }
   }
 
-  const localBusinessesEstimate = previewCells
-    .filter((c) => c.isEstimate)
-    .reduce((s, c) => s + c.existingBizCount, 0);
-
   const kpis: PreviewKpis = {
     localBusinessesReal,
-    localBusinessesEstimate,
     haveContactsReal,
     activeOnGoogleReal,
     matchSignalsReal,
-    hasEstimateCells: previewCells.some((c) => c.isEstimate),
+    hasUnknownCells: previewCells.some((c) => c.neverDiscovered),
   };
 
   // Strip the internal `_base` field from the returned rows.
@@ -250,7 +243,7 @@ async function buildPreview(
     cellKey: c.cellKey,
     freshness: c.freshness,
     existingBizCount: c.existingBizCount,
-    isEstimate: c.isEstimate,
+    neverDiscovered: c.neverDiscovered,
   }));
 
   return { previewCells: cleaned, kpis };
@@ -364,9 +357,9 @@ export async function preflightDiscoveryAction(
     // A cell's businesses are shared market data keyed by cellKey (exactly what
     // the raw-list + signals views count); the agency scope is the Discovery row
     // (validated above). For a cell already in the DB we COUNT for real; for a
-    // never-discovered cell we keep the deterministic estimate (isEstimate=true).
+    // never-discovered cell the count is genuinely unknown (neverDiscovered=true).
     const { previewCells, kpis } = await buildPreview(
-      planInputs.map((p, i) => ({ ...p, index: i })),
+      planInputs,
       parsed.data.signalKeys ?? [],
       now,
     );

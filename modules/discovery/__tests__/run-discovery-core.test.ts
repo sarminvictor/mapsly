@@ -43,7 +43,7 @@ describe("discoveryIdempotencyKey", () => {
 });
 
 describe("decideDiscoveryPlan · the gate runDiscovery uses", () => {
-  test("a cell discovered within 182d serves from DB ($0); older re-fetches", () => {
+  test("a cell discovered within 182d serves from DB; older cells re-fetch — always free", () => {
     const plan = decideDiscoveryPlan(
       [
         {
@@ -70,8 +70,9 @@ describe("decideDiscoveryPlan · the gate runDiscovery uses", () => {
     expect(plan.cells[2].outcome).toBe("REFETCH");
     expect(plan.freshCount).toBe(1);
     expect(plan.refetchCount).toBe(2);
-    // Fresh cell contributes $0; two cells billed.
-    expect(plan.estimate.freshHitUsd).toBeGreaterThan(0);
-    expect(plan.estimate.netUsd).toBeGreaterThan(0);
+    // Discovery is always free to the agency, fresh or refetched alike.
+    expect(plan.estimate.freshHitUsd).toBe(0);
+    expect(plan.estimate.netUsd).toBe(0);
+    expect(plan.estimate.netCredits).toBe(0);
   });
 });

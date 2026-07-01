@@ -59,11 +59,16 @@ interface FakeLead {
   lostAt: Date | null;
 }
 
+interface FakeBusiness {
+  id: string;
+}
+
 const db = {
   members: [] as FakeMember[],
   discoveries: [] as FakeDiscovery[],
   lists: [] as FakeList[],
   leads: [] as FakeLead[],
+  businesses: [] as FakeBusiness[],
   seq: 0,
   id(p: string) {
     this.seq += 1;
@@ -80,6 +85,7 @@ const db = {
     ];
     this.lists = [];
     this.leads = [];
+    this.businesses = [{ id: "raw-biz-1" }, { id: "raw-biz-2" }];
     this.seq = 0;
   },
 };
@@ -165,6 +171,38 @@ vi.mock("@/lib/prisma", () => {
         return row ? pick(row, select) : null;
       },
     ),
+    findFirst: vi.fn(
+      async ({
+        where,
+        select,
+      }: {
+        where: { agencyId: string; discoveryId: string; isRaw: boolean };
+        select?: Record<string, boolean>;
+      }) => {
+        const row = db.lists.find(
+          (l) =>
+            l.agencyId === where.agencyId &&
+            l.discoveryId === where.discoveryId &&
+            l.isRaw === where.isRaw,
+        );
+        return row ? pick(row, select) : null;
+      },
+    ),
+  };
+
+  const business = {
+    findUnique: vi.fn(
+      async ({
+        where,
+        select,
+      }: {
+        where: { id: string };
+        select?: Record<string, boolean>;
+      }) => {
+        const row = db.businesses.find((b) => b.id === where.id);
+        return row ? pick(row, select) : null;
+      },
+    ),
   };
 
   const lead = {
@@ -225,10 +263,44 @@ vi.mock("@/lib/prisma", () => {
         return row;
       },
     ),
+    upsert: vi.fn(
+      async ({
+        where,
+        create,
+        update,
+      }: {
+        where: { listId_businessId: { listId: string; businessId: string } };
+        create: Record<string, unknown>;
+        update: Record<string, unknown>;
+      }) => {
+        const { listId, businessId } = where.listId_businessId;
+        const existing = db.leads.find(
+          (l) => l.listId === listId && l.businessId === businessId,
+        );
+        if (existing) {
+          Object.assign(existing, update);
+          return existing;
+        }
+        const row: FakeLead = {
+          id: db.id("lead"),
+          listId: create.listId as string,
+          agencyId: create.agencyId as string,
+          businessId: create.businessId as string,
+          status: create.status as string,
+          statusChangedAt: create.statusChangedAt as Date,
+          contactedAt: (create.contactedAt as Date) ?? null,
+          repliedAt: (create.repliedAt as Date) ?? null,
+          wonAt: (create.wonAt as Date) ?? null,
+          lostAt: (create.lostAt as Date) ?? null,
+        };
+        db.leads.push(row);
+        return row;
+      },
+    ),
   };
 
   return {
-    default: { agencyMember, discovery, list, lead },
+    default: { agencyMember, discovery, list, lead, business },
     Prisma: {},
   };
 });
@@ -405,5 +477,98 @@ describe("setLeadStatusAction", () => {
     const leadId = await seedLead();
     const r = await setLeadStatusAction({ leadId, status: "BOGUS" });
     expect(r.status).toBe("invalid_input");
+  });
+
+  // The demand-flow workbench shows every discovered business, most of which
+  // have no Lead row yet (Lead.listId is required — a Lead can't float free of
+  // a List). Without discoveryId, "leadId" for an unsaved row IS the raw
+  // Business id, which never resolves to a Lead → "Couldn't update the lead"
+  // (the exact prod bug this locks in place).
+  describe("businessId fallback (discoveryId provided)", () => {
+    test("without discoveryId, an unsaved row's businessId-as-leadId is forbidden (the prod bug)", async () => {
+      const r = await setLeadStatusAction({
+        leadId: "raw-biz-1",
+        status: "CONTACTED",
+      });
+      expect(r.status).toBe("forbidden");
+    });
+
+    test("with discoveryId, upserts a Lead into the discovery's raw list instead of failing", async () => {
+      const r = await setLeadStatusAction({
+        leadId: "raw-biz-1",
+        status: "CONTACTED",
+        discoveryId: "disc-1",
+      });
+      expect(r.status).toBe("ok");
+
+      const list = db.lists.find((l) => l.discoveryId === "disc-1" && l.isRaw);
+      expect(list).toBeDefined();
+
+      const lead = db.leads.find(
+        (l) => l.listId === list!.id && l.businessId === "raw-biz-1",
+      );
+      expect(lead).toBeDefined();
+      expect(lead!.status).toBe("CONTACTED");
+      expect(lead!.agencyId).toBe("agency-1");
+      expect(lead!.contactedAt).toBeInstanceOf(Date);
+    });
+
+    test("reuses the SAME raw list across multiple businesses (doesn't fork one per call)", async () => {
+      await setLeadStatusAction({
+        leadId: "raw-biz-1",
+        status: "CONTACTED",
+        discoveryId: "disc-1",
+      });
+      await setLeadStatusAction({
+        leadId: "raw-biz-2",
+        status: "CONTACTED",
+        discoveryId: "disc-1",
+      });
+      const rawLists = db.lists.filter(
+        (l) => l.discoveryId === "disc-1" && l.isRaw,
+      );
+      expect(rawLists).toHaveLength(1);
+    });
+
+    test("a second status change on the same business UPDATES the same Lead, not a duplicate", async () => {
+      await setLeadStatusAction({
+        leadId: "raw-biz-1",
+        status: "CONTACTED",
+        discoveryId: "disc-1",
+      });
+      await setLeadStatusAction({
+        leadId: "raw-biz-1",
+        status: "WON",
+        discoveryId: "disc-1",
+      });
+      const matches = db.leads.filter((l) => l.businessId === "raw-biz-1");
+      expect(matches).toHaveLength(1);
+      expect(matches[0]!.status).toBe("WON");
+      expect(matches[0]!.contactedAt).toBeInstanceOf(Date); // stamped earlier, not cleared
+      expect(matches[0]!.wonAt).toBeInstanceOf(Date);
+    });
+
+    test("rejects when the discovery belongs to another agency", async () => {
+      db.discoveries.push({
+        id: "disc-other",
+        agencyId: "other-agency",
+        cellKeys: [],
+      });
+      const r = await setLeadStatusAction({
+        leadId: "raw-biz-1",
+        status: "CONTACTED",
+        discoveryId: "disc-other",
+      });
+      expect(r.status).toBe("forbidden");
+    });
+
+    test("rejects when leadId matches neither a Lead nor a real Business", async () => {
+      const r = await setLeadStatusAction({
+        leadId: "not-a-real-id",
+        status: "CONTACTED",
+        discoveryId: "disc-1",
+      });
+      expect(r.status).toBe("forbidden");
+    });
   });
 });

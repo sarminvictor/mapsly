@@ -65,6 +65,19 @@ export type SaveLeadStatus = z.infer<typeof LeadStatusEnum>;
 const SetLeadStatusInput = z.object({
   leadId: z.string().min(1).max(64),
   status: LeadStatusEnum,
+  /**
+   * Optional — the discovery this lead is being triaged from. The demand-flow
+   * workbench shows every discovered business, but a `Lead` row (required:
+   * `Lead.listId` is non-null) only exists for businesses explicitly saved via
+   * `saveAsListAction`. For an unsaved row the workbench passes the BUSINESS id
+   * as `leadId` (see app/[locale]/(agency)/discover/[discoveryId]/page.tsx's
+   * `leadId: lead?.id ?? b.id`) — without `discoveryId`, that id never resolves
+   * to a Lead and the status click fails ("Couldn't update the lead"). When
+   * provided and the initial Lead lookup misses, we upsert a Lead into this
+   * discovery's auto-created RAW list (List.isRaw) instead of failing. Callers
+   * that always pass a real Lead id (e.g. TouchpointsTab) can omit this.
+   */
+  discoveryId: z.string().min(1).max(64).optional(),
 });
 
 export type SetLeadStatusInputType = z.input<typeof SetLeadStatusInput>;
@@ -208,8 +221,49 @@ function closedLoopStamp(
 }
 
 /**
+ * Find (or lazily create) the discovery's auto-managed RAW list — the implicit
+ * "every discovered business is a triageable lead" list the demand-flow
+ * workbench needs so a status click works WITHOUT an explicit "Save as list"
+ * step first. One per discovery (idempotent: a concurrent double-create is
+ * caught by the retry below rather than by a unique constraint, since
+ * `List` has no unique key on `discoveryId` — the rare race just leaves two
+ * raw lists, harmless, and the next call reuses the first found).
+ */
+async function getOrCreateRawList(
+  agencyId: string,
+  memberId: string,
+  discoveryId: string,
+): Promise<string> {
+  const existing = await prisma.list.findFirst({
+    where: { agencyId, discoveryId, isRaw: true },
+    select: { id: true },
+  });
+  if (existing) return existing.id;
+
+  const created = await prisma.list.create({
+    data: {
+      agencyId,
+      ownerMemberId: memberId,
+      name: "Raw discovery",
+      serviceType: DEFAULT_SERVICE_TYPE,
+      filterJson: {},
+      discoveryId,
+      isRaw: true,
+    },
+    select: { id: true },
+  });
+  return created.id;
+}
+
+/**
  * Flip a lead's status. Agency-scoped: the lead's own `agencyId` must match the
  * caller's agency, else forbidden. Pure DB write — safe in the request path.
+ *
+ * FALLBACK (the demand-flow workbench shows every discovered business, most of
+ * which have no `Lead` row yet — see `SetLeadStatusInput.discoveryId` doc):
+ * when `leadId` doesn't resolve to an existing Lead AND `discoveryId` was
+ * given, treat `leadId` as a Business id, verify it belongs to that discovery's
+ * agency, and upsert a Lead into the discovery's raw list instead of failing.
  */
 export async function setLeadStatusAction(
   input: unknown,
@@ -229,19 +283,64 @@ export async function setLeadStatusAction(
     const membership = await callerMembership(session.user.id);
     if (!membership) return { status: "forbidden" };
 
+    const now = new Date();
     const lead = await prisma.lead.findUnique({
       where: { id: parsed.data.leadId },
       select: { id: true, agencyId: true },
     });
-    // Missing or another agency's lead reads as forbidden.
-    if (!lead || lead.agencyId !== membership.agencyId) {
+
+    if (lead) {
+      // Another agency's lead reads as forbidden — never confirm its existence.
+      if (lead.agencyId !== membership.agencyId) {
+        return { status: "forbidden" };
+      }
+      await prisma.lead.update({
+        where: { id: lead.id },
+        data: {
+          status: parsed.data.status,
+          statusChangedAt: now,
+          ...closedLoopStamp(parsed.data.status, now),
+        },
+      });
+      return { status: "ok" };
+    }
+
+    // No Lead with this id — try the businessId fallback (workbench-only path).
+    if (!parsed.data.discoveryId) {
       return { status: "forbidden" };
     }
 
-    const now = new Date();
-    await prisma.lead.update({
-      where: { id: lead.id },
-      data: {
+    const discovery = await prisma.discovery.findUnique({
+      where: { id: parsed.data.discoveryId },
+      select: { id: true, agencyId: true },
+    });
+    if (!discovery || discovery.agencyId !== membership.agencyId) {
+      return { status: "forbidden" };
+    }
+
+    const business = await prisma.business.findUnique({
+      where: { id: parsed.data.leadId },
+      select: { id: true },
+    });
+    if (!business) return { status: "forbidden" };
+
+    const listId = await getOrCreateRawList(
+      membership.agencyId,
+      membership.memberId,
+      discovery.id,
+    );
+
+    await prisma.lead.upsert({
+      where: { listId_businessId: { listId, businessId: business.id } },
+      create: {
+        listId,
+        agencyId: membership.agencyId,
+        businessId: business.id,
+        status: parsed.data.status,
+        statusChangedAt: now,
+        ...closedLoopStamp(parsed.data.status, now),
+      },
+      update: {
         status: parsed.data.status,
         statusChangedAt: now,
         ...closedLoopStamp(parsed.data.status, now),

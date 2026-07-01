@@ -42,7 +42,7 @@ describe("open status", () => {
 });
 
 describe("decideDiscoveryPlan — 6-month gate", () => {
-  test("fresh cells serve from DB ($0); stale/never re-fetch (billed)", () => {
+  test("fresh cells serve from DB; stale/never cells re-fetch — discovery is always free", () => {
     const plan = decideDiscoveryPlan(
       [
         {
@@ -68,11 +68,14 @@ describe("decideDiscoveryPlan — 6-month gate", () => {
     expect(plan.cells[0].outcome).toBe("SERVED_FROM_DB");
     expect(plan.cells[1].outcome).toBe("REFETCH");
     expect(plan.cells[2].outcome).toBe("REFETCH");
-    // Only the 2 re-fetched cells are billed; the fresh one is $0.
+    // Discovery (the raw market list) is ALWAYS free to the agency — the
+    // fresh-vs-refetch GATE still runs (it decides whether WE need to re-hit
+    // DfS), but it never charges credits either way.
     expect(plan.estimate.fetchCells).toBe(2);
     expect(plan.estimate.freshCells).toBe(1);
-    expect(plan.estimate.netUsd).toBeGreaterThan(0);
-    expect(plan.estimate.freshHitUsd).toBeGreaterThan(0);
+    expect(plan.estimate.netUsd).toBe(0);
+    expect(plan.estimate.freshHitUsd).toBe(0);
+    expect(plan.estimate.netCredits).toBe(0);
   });
 
   test("all-fresh discovery is free", () => {

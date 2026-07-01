@@ -376,12 +376,23 @@ export const ENRICHMENT_PRICES: Record<EnrichmentType, EnrichmentPrice> = {
   },
 };
 
-/** Discovery (Google Maps listings) per-cell cost model. Variable: a base
- *  fee plus a per-returned-listing fee. A cell discovered within its freshness
- *  window serves from the DB for $0. */
+/**
+ * Discovery (the raw market list) is FREE to the agency — always $0 / 0
+ * credits, per docs/pricing-strategy.md § 3 and docs/enrichment-cost-model.md
+ * ("Discovery (raw list) is free"). The `usdPerListingUsd`/`baseUsd` fields
+ * are kept at 0 (not deleted) so `estimateDiscovery`'s per-cell math still
+ * runs unchanged — it always nets to $0/0 credits.
+ *
+ * This does NOT touch what WE pay DataForSEO for the maps-search call — that
+ * real external cost is tracked separately via `incrementCost` inside
+ * `services/dataforseo/maps-search.ts` onto the open CronRun (see
+ * lib/cost/cost-counter.ts). We absorb that small per-cell cost ourselves
+ * (a few cents) rather than charge it to the agency's wallet; discovery
+ * freshness (182-day) still gates whether a re-fetch happens at all.
+ */
 export const DISCOVERY_PRICE = {
-  baseUsd: DATAFORSEO_UNIT_COST_USD.mapsSearch, // ~$0.01 base per cell
-  perListingUsd: 0.0003,
+  baseUsd: 0,
+  perListingUsd: 0,
   freshnessDays: 182, // 6 months
 } as const;
 

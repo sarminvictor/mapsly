@@ -135,16 +135,20 @@ describe("estimateRun", () => {
 });
 
 describe("estimateDiscovery", () => {
-  test("fresh cells serve from DB ($0); fetch cells billed by listings", () => {
+  test("discovery is always free — fresh and fetch cells alike ($0)", () => {
+    // DISCOVERY_PRICE is $0/listing (docs/pricing-strategy.md: "Discovery is
+    // free"); the fresh-vs-refetch split still tracks WHICH cells need a real
+    // DfS re-fetch (that decision drives run-discovery.ts), it just never
+    // charges credits either way.
     const r = estimateDiscovery([
-      { fresh: true, expectedListings: 138 }, // 0.0514, saved
-      { fresh: false, expectedListings: 100 }, // 0.04, billed
+      { fresh: true, expectedListings: 138 },
+      { fresh: false, expectedListings: 100 },
     ]);
     expect(r.freshCells).toBe(1);
     expect(r.fetchCells).toBe(1);
-    expect(r.netUsd).toBeCloseTo(0.04, 4);
-    expect(r.freshHitUsd).toBeCloseTo(0.0514, 4);
-    expect(r.netCredits).toBe(1);
+    expect(r.netUsd).toBe(0);
+    expect(r.freshHitUsd).toBe(0);
+    expect(r.netCredits).toBe(0);
     expect(r.gate).toBe("auto");
   });
 });

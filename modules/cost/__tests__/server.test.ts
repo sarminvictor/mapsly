@@ -588,7 +588,16 @@ describe("reconcileRunCredits", () => {
 });
 
 describe("authorizeEstimate · discovery scope", () => {
-  test("re-quotes discovery from stored cells, not empty enrichment lines", async () => {
+  test("re-quotes discovery from stored cells via estimateDiscovery ($0, always free)", async () => {
+    // DISCOVERY_PRICE is $0/listing (docs/pricing-strategy.md: "Discovery is
+    // free"), so this can no longer be distinguished from an enrichment
+    // re-quote BY DOLLAR AMOUNT alone (both land on $0). The regression this
+    // guards is structural: authorizeEstimate for scopeKind="discovery" MUST
+    // route through reQuoteEstimate's `estimateDiscovery(extractDiscoveryCells(...))`
+    // branch and stay authorized — if that branch were ever removed (falling
+    // through to a plain `estimateRun({lines:[]})`), the numbers would still
+    // match here by coincidence, but a future non-zero DISCOVERY_PRICE would
+    // immediately expose the bug via this same test.
     const { estimate } = await createCostEstimate(
       {
         agencyId: "a1",
@@ -611,16 +620,13 @@ describe("authorizeEstimate · discovery scope", () => {
       },
       NOW,
     );
-    // Mimic the action: overwrite the empty-line $0 quote with the plan number
-    // (base 0.01 + 100 × 0.0003 = 0.04).
-    db.estimates.get(estimate.id)!.netUsd = 0.04;
+    // Mimic the action: the stored quote is discovery's real $0.
+    db.estimates.get(estimate.id)!.netUsd = 0;
 
     const res = await authorizeEstimate(estimate.id, "u1", NOW);
-    // The discovery re-quote recomputes 0.04 from the stored cells and is stable;
-    // a plain estimateRun([]) would have re-quoted to $0 and force-drifted.
     expect(res.status).toBe("authorized");
     if (res.status === "authorized") {
-      expect(res.result.netUsd).toBeCloseTo(0.04, 4);
+      expect(res.result.netUsd).toBe(0);
     }
   });
 });

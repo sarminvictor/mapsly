@@ -6,11 +6,14 @@
 // (Discovered / Have a website / Active on Google / Owner-claimed), the raw
 // market table (5-col teaser), and a sticky dark "Enrich the market" costbar.
 //
-// HONESTY RULE: while the worker is still mapping the market (no real rows yet),
-// we show NOTHING for the counts ("—" / "mapping…") rather than estimates — fake
-// numbers are worse than no numbers. The KPI cards, headline, table total, and
-// Enrich button only show real figures once getDiscoverySummary returns a real
-// count (> 0); until then Enrich is disabled (there's nothing to enrich yet).
+// HONESTY RULE: while the worker is still mapping the market, we show NOTHING
+// for the counts ("—" / "mapping…") rather than estimates — fake numbers are
+// worse than no numbers. "Mapped" is driven by the discovery's REAL jobStatus
+// (READY/PARTIAL — a terminal state), never inferred from "total > 0" (which
+// could show a partial in-progress count as final, or never notice a genuinely
+// empty market is done). The KPI cards, headline, table total, and Enrich
+// button only show real figures once jobStatus is terminal; FAILED shows a
+// clear error instead of spinning forever.
 //
 // "Enrich →" preflights + runs enrichment (the families the active signals need),
 // then advances to the Enriching step with the runId. Uses ported classes
@@ -32,6 +35,7 @@ import type { EnrichmentType } from "@/modules/cost/pricing";
 import { researchesForSignals } from "../../researches";
 import {
   enrichCreditsFor,
+  enrichRatePerLead,
   fmtCredits,
   type GoalState,
   type MarketCell,
@@ -70,14 +74,21 @@ export function DiscoverStep({
   const [loadError, setLoadError] = useState<string | null>(null);
   const [runError, setRunError] = useState<string | null>(null);
   const [running, startRun] = useTransition();
+  const [elapsedSec, setElapsedSec] = useState(0);
 
-  // Load the raw list (first page) + the REAL KPI summary for the discovery.
-  // The worker may still be populating cells; poll a few times while it's empty
-  // so the counts settle. getDiscoverySummary returns exact Prisma counts over
-  // the discovery's cells — no estimates.
+  // Load the raw list (first page) + the REAL job status + KPI summary for the
+  // discovery. The cron drains PENDING discoveries every ~2 min, then
+  // `runDiscovery` itself can take another 30s–2min depending on market size —
+  // so we poll on the discovery's REAL `jobStatus`, not an inferred "total > 0"
+  // guess (which could (a) show a partial in-progress count as final, and (b)
+  // give up after a fixed number of tries and leave the page silently stuck —
+  // exactly what happened before this fix). Poll INDEFINITELY while
+  // PENDING/RUNNING; stop the instant the job reaches a terminal status
+  // (READY/PARTIAL/FAILED) — never abandon the user mid-map.
   useEffect(() => {
     let cancelled = false;
-    let tries = 0;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const startedAt = Date.now();
 
     async function load() {
       const [r, s] = await Promise.all([
@@ -85,8 +96,35 @@ export function DiscoverStep({
         getDiscoverySummary({ discoveryId }),
       ]);
       if (cancelled) return;
-      if (s.status === "ok") setSummary(s.summary);
-      if (r.status === "ok") {
+      setElapsedSec(Math.round((Date.now() - startedAt) / 1000));
+
+      if (s.status === "ok") {
+        setSummary(s.summary);
+        if (r.status === "ok") {
+          setRows(
+            r.rows.slice(0, 6).map((row) => ({
+              id: row.id,
+              name: row.name,
+              category: row.category,
+              city: row.city,
+              rating: row.rating,
+              reviewCount: row.reviewCount,
+              website: row.website,
+            })),
+          );
+        }
+        setLoading(false);
+        // Still mapping — keep polling, no give-up cap. The job WILL reach a
+        // terminal status; a fixed retry cap is what silently stranded users.
+        if (
+          s.summary.jobStatus === "PENDING" ||
+          s.summary.jobStatus === "RUNNING"
+        ) {
+          timer = setTimeout(load, 3000);
+        }
+      } else if (r.status === "ok") {
+        // Summary call failed but the raw list loaded — show what we have and
+        // keep polling for the summary (rare transient case).
         setRows(
           r.rows.slice(0, 6).map((row) => ({
             id: row.id,
@@ -99,12 +137,7 @@ export function DiscoverStep({
           })),
         );
         setLoading(false);
-        // Keep polling while the worker is still mapping (no real data yet).
-        const realTotal = s.status === "ok" ? s.summary.total : 0;
-        if (realTotal === 0 && r.rows.length === 0 && tries < 8) {
-          tries += 1;
-          setTimeout(load, 3000);
-        }
+        timer = setTimeout(load, 3000);
       } else {
         setLoadError(
           r.status === "invalid_input"
@@ -117,16 +150,22 @@ export function DiscoverStep({
     load();
     return () => {
       cancelled = true;
+      if (timer) clearTimeout(timer);
     };
   }, [discoveryId]);
 
-  // REAL data only — "mapped" is true once the summary reports a real count.
-  // Until then every count renders as a placeholder, never an estimate.
-  const mapped = summary != null && summary.total > 0;
+  // REAL data only — "mapped" is true once the job reaches a terminal status.
+  // A genuinely empty market (jobStatus done, total 0) is a valid real answer,
+  // never confused with "still working". Until terminal, every count renders
+  // as a placeholder, never a guess.
+  const jobFailed = summary?.jobStatus === "FAILED";
+  const mapped =
+    summary != null &&
+    (summary.jobStatus === "READY" || summary.jobStatus === "PARTIAL");
   const total = mapped ? summary.total : null;
 
   const cellKeys = useMemo(
-    () => cells.map((c) => makeCellKey(c.categorySlug, c.metroSlug, "US")),
+    () => cells.map((c) => makeCellKey(c.categorySlug, c.metroSlug, c.country)),
     [cells],
   );
 
@@ -143,6 +182,8 @@ export function DiscoverStep({
     () => researchesForSignals(activeSignals),
     [activeSignals],
   );
+
+  const enrichRate = useMemo(() => enrichRatePerLead(families), [families]);
 
   const enrichCredits = mapped
     ? enrichCreditsFor(families, summary.total, cells.length)
@@ -200,6 +241,8 @@ export function DiscoverStep({
             </span>
             {cells.length > 1 ? ` across ${cells.length} markets` : ""}
           </>
+        ) : jobFailed ? (
+          <span className="hl">Mapping failed</span>
         ) : (
           <span className="hl">Mapping the market…</span>
         )}
@@ -209,6 +252,26 @@ export function DiscoverStep({
         categories, ratings, review counts. It&apos;s not yet enriched, so your
         signals and contacts aren&apos;t here yet. Enrichment is the next step.
       </p>
+
+      {jobFailed ? (
+        <div className="callout amber section" role="alert">
+          <span aria-hidden="true">⚠️</span>
+          <div style={{ flex: 1 }}>
+            <b>This market couldn&apos;t be mapped.</b> No credits were spent —
+            go back and try again, or try a different market.
+          </div>
+        </div>
+      ) : !mapped && !loading ? (
+        <div className="callout section" role="status">
+          <span aria-hidden="true">🗺️</span>
+          <div style={{ flex: 1 }}>
+            Still mapping — a new market can take a couple of minutes.{" "}
+            {elapsedSec > 0 ? `${elapsedSec}s elapsed. ` : ""}
+            You can leave this page — we keep working and pick up where you left
+            off.
+          </div>
+        </div>
+      ) : null}
 
       {loadError ? (
         <div className="callout amber section" role="alert">
@@ -251,7 +314,9 @@ export function DiscoverStep({
           <h2 style={{ margin: 0 }}>
             {mapped
               ? `The market — ${total!.toLocaleString()} businesses`
-              : "Mapping the market…"}{" "}
+              : jobFailed
+                ? "Mapping failed"
+                : "Mapping the market…"}{" "}
             <span className="note">
               Raw discovery data — your signals apply after enrichment.
             </span>
@@ -272,7 +337,20 @@ export function DiscoverStep({
               {loading ? (
                 <tr>
                   <td colSpan={5} className="note" style={{ padding: 24 }}>
-                    Mapping the market…
+                    Loading…
+                  </td>
+                </tr>
+              ) : jobFailed ? (
+                <tr>
+                  <td colSpan={5} className="note" style={{ padding: 24 }}>
+                    This market couldn&apos;t be mapped — go back and try again.
+                  </td>
+                </tr>
+              ) : mapped && total === 0 ? (
+                <tr>
+                  <td colSpan={5} className="note" style={{ padding: 24 }}>
+                    No businesses found in this market. Try a different category
+                    or city.
                   </td>
                 </tr>
               ) : rows.length === 0 ? (
@@ -333,19 +411,24 @@ export function DiscoverStep({
                 Enrich the market — {total!.toLocaleString()} businesses
                 <span className="small">
                   {" "}
-                  · ~{fmtCredits(enrichCredits)} credits
+                  · ~{fmtCredits(enrichCredits)} credits (
+                  {fmtCredits(enrichRate)}/lead)
                 </span>
               </>
+            ) : jobFailed ? (
+              "Mapping failed"
             ) : (
               "Mapping the market…"
             )}
           </div>
           <div className="small">
-            {!mapped
-              ? "Discovery is still running — enrichment unlocks the moment the market is mapped."
-              : haveCredits
-                ? `We apply your ${sigCount} signal${sigCount === 1 ? "" : "s"} to the enriched data and reveal your matches + contacts. ~${minutes} min. You can close this page — we keep working and email you.`
-                : `Not enough credits — this needs ~${fmtCredits(enrichCredits)}, you have ${fmtCredits(walletCredits ?? 0)}. Add credits to run it.`}
+            {jobFailed
+              ? "This market couldn't be mapped — no credits were spent. Go back and try again."
+              : !mapped
+                ? "Discovery is free and still running — enrichment unlocks the moment the market is mapped."
+                : haveCredits
+                  ? `We apply your ${sigCount} signal${sigCount === 1 ? "" : "s"} to the enriched data and reveal your matches + contacts. ~${minutes} min. You can close this page — we keep working and email you.`
+                  : `Not enough credits — this needs ~${fmtCredits(enrichCredits)}, you have ${fmtCredits(walletCredits ?? 0)}. Add credits to run it.`}
           </div>
         </div>
         <span className="spacer" />
@@ -355,13 +438,15 @@ export function DiscoverStep({
           disabled={running || loading || !mapped}
           onClick={enrich}
         >
-          {!mapped
-            ? "Mapping…"
-            : running
-              ? "Starting…"
-              : haveCredits
-                ? "Enrich →"
-                : "Add credits →"}
+          {jobFailed
+            ? "Failed"
+            : !mapped
+              ? "Mapping…"
+              : running
+                ? "Starting…"
+                : haveCredits
+                  ? "Enrich →"
+                  : "Add credits →"}
         </button>
       </div>
     </div>

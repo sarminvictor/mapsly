@@ -81,11 +81,27 @@ export function discoveryIdempotencyKey(
   return createHash("sha256").update(payload).digest("hex").slice(0, 40);
 }
 
+/**
+ * Default per-cell fetch cap. Raised from the old 100 (which silently
+ * truncated every real market — e.g. "100 dental clinics in Toronto" was
+ * never the real count, just wherever the fetch stopped) to DfS's max
+ * single-call limit. Discovery is free to the agency (DISCOVERY_PRICE is $0 —
+ * docs/pricing-strategy.md), so completeness costs us a few cents, not them.
+ * `refetchCell` paginates beyond this via `offset` for markets bigger than
+ * one page (docs/enrichment-cost-model.md's own worked example goes to 1442).
+ */
+const DEFAULT_PER_PAGE_LIMIT = 1000;
+
 function clampLimit(n: number | undefined): number {
-  const v = n ?? 100;
-  if (!Number.isFinite(v)) return 100;
+  const v = n ?? DEFAULT_PER_PAGE_LIMIT;
+  if (!Number.isFinite(v)) return DEFAULT_PER_PAGE_LIMIT;
   return Math.min(1000, Math.max(1, Math.floor(v)));
 }
+
+/** Hard ceiling on TOTAL listings fetched per cell across all pages — bounds
+ *  worst-case cost/time for a pathological cell while comfortably covering
+ *  every realistic market (the cost model's largest worked example is 1442). */
+const MAX_TOTAL_PER_CELL = 3000;
 
 /**
  * Run a multi-cell Discovery. Upserts the Discovery row by idempotency key
@@ -405,68 +421,96 @@ interface RefetchCellResult {
 /**
  * Re-fetch one cell from DataForSEO inside a CronRun, persist each row with the
  * cell's metro/cellKey/openStatus/anchorDistance stamped on, and return the
- * snapshot counts. ONE CronRun wraps the call so the cost lands on one ledger
+ * snapshot counts. ONE CronRun wraps ALL pages so the cost lands on one ledger
  * row (matches the run.ts admin-discovery pattern).
+ *
+ * PAGINATION: a full first page (returned === limit) means the market likely
+ * has more listings than one page — DfS's own reported `total_count` confirms
+ * how many. We page via `offset` until we've covered `totalAvailable` or hit
+ * {@link MAX_TOTAL_PER_CELL}, so "the raw market" is the REAL market, not
+ * whatever happened to fit in the first page (the old fixed 100-limit silently
+ * truncated every real market to at most 100 rows, regardless of how many
+ * businesses actually existed).
  */
 async function refetchCell(
   input: RefetchCellInput,
 ): Promise<RefetchCellResult> {
   return withCronRun("agency:discovery", async () => {
-    const page = await mapsSearch({
-      categories: [input.cell.categorySlug],
-      location_coordinate: `${input.metroLat.toFixed(6)},${input.metroLng.toFixed(
-        6,
-      )},${input.radiusKm}`,
-      language_code: "en",
-      limit: input.limit,
-    });
-
     let created = 0;
     let openCount = 0;
     let closedForeverCount = 0;
+    let costUsd = 0;
+    let totalAvailable: number | null = null;
+    let returned = 0;
+    let offset = 0;
 
-    for (const row of page.items) {
-      // extractOpenStatus reads work_time.work_hours.current_status. DfS types
-      // work_time as `unknown` (passthrough), so hand it the narrowed shape its
-      // signature expects — a plain structural pass, no double-cast.
-      const openStatus: OpenStatus = extractOpenStatus({
-        work_time: row.work_time as {
-          work_hours?: { current_status?: string | null } | null;
-        } | null,
+    while (true) {
+      const page = await mapsSearch({
+        categories: [input.cell.categorySlug],
+        location_coordinate: `${input.metroLat.toFixed(6)},${input.metroLng.toFixed(
+          6,
+        )},${input.radiusKm}`,
+        language_code: "en",
+        limit: input.limit,
+        offset,
       });
-      if (openStatus === "OPEN") openCount += 1;
-      if (openStatus === "CLOSED_FOREVER") closedForeverCount += 1;
 
-      const shape = mapsRowToPersist(row, {
-        city: input.metroName,
-        province: null,
-        country: input.country,
-      });
-      if (!shape) continue;
+      costUsd += page.rawCostUsd;
+      totalAvailable = page.totalCount ?? totalAvailable;
+      returned += page.items.length;
 
-      // Stamp the discovery-time geo + status onto the persisted row.
-      const anchor =
-        shape.lat != null && shape.lng != null
-          ? nearestMetro(shape.lat, shape.lng)
-          : null;
-      const stamped = {
-        ...shape,
-        metroSlug: input.cell.metroSlug,
-        cellKey: input.cellKey,
-        openStatus,
-        anchorDistanceKm: anchor?.distanceKm ?? null,
-        crossMetroDupe: (anchor?.containingSlugs.length ?? 0) > 1,
-      };
+      for (const row of page.items) {
+        // extractOpenStatus reads work_time.work_hours.current_status. DfS
+        // types work_time as `unknown` (passthrough), so hand it the narrowed
+        // shape its signature expects — a plain structural pass, no double-cast.
+        const openStatus: OpenStatus = extractOpenStatus({
+          work_time: row.work_time as {
+            work_hours?: { current_status?: string | null } | null;
+          } | null,
+        });
+        if (openStatus === "OPEN") openCount += 1;
+        if (openStatus === "CLOSED_FOREVER") closedForeverCount += 1;
 
-      const outcome = await persistBusinessRow(stamped, "DISCOVERY");
-      if (outcome === "created") created += 1;
+        const shape = mapsRowToPersist(row, {
+          city: input.metroName,
+          province: null,
+          country: input.country,
+        });
+        if (!shape) continue;
+
+        // Stamp the discovery-time geo + status onto the persisted row.
+        const anchor =
+          shape.lat != null && shape.lng != null
+            ? nearestMetro(shape.lat, shape.lng)
+            : null;
+        const stamped = {
+          ...shape,
+          metroSlug: input.cell.metroSlug,
+          cellKey: input.cellKey,
+          openStatus,
+          anchorDistanceKm: anchor?.distanceKm ?? null,
+          crossMetroDupe: (anchor?.containingSlugs.length ?? 0) > 1,
+        };
+
+        const outcome = await persistBusinessRow(stamped, "DISCOVERY");
+        if (outcome === "created") created += 1;
+      }
+
+      // Stop when: this page wasn't full (that WAS the whole market), or
+      // we've covered DfS's reported total, or we've hit the safety ceiling.
+      const pageWasFull = page.items.length >= input.limit;
+      const coveredTotal = totalAvailable != null && returned >= totalAvailable;
+      if (!pageWasFull || coveredTotal || returned >= MAX_TOTAL_PER_CELL) {
+        break;
+      }
+      offset += input.limit;
     }
 
     return {
-      returned: page.items.length,
+      returned,
       created,
-      costUsd: page.rawCostUsd,
-      totalAvailable: page.totalCount,
+      costUsd,
+      totalAvailable,
       openCount,
       closedForeverCount,
     };

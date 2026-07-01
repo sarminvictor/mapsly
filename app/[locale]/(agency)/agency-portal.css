@@ -1095,8 +1095,10 @@
   position: absolute;
   z-index: 5;
   left: 0;
-  right: 0;
   top: calc(100% + 5px);
+  width: max-content;
+  min-width: 100%;
+  max-width: min(420px, 90vw);
   background: #fff;
   border: 1px solid var(--line);
   border-radius: 11px;

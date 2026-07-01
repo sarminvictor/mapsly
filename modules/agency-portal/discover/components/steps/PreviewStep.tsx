@@ -1,21 +1,21 @@
 "use client";
 
-// PreviewStep · "Before you spend — here's the market" (step 3). Quotes the
-// REAL discovery cost from preflightDiscoveryAction (estimateId + netCredits +
-// fresh/refetch counts) and frames the market with KPI cards + a per-cell
-// credit matrix + a what-you-picked / what-it-costs summary + a sticky dark
-// costbar. "Discover →" runs runDiscoveryAction (scoped to discovery only;
-// enrichment is confirmed later with real counts).
+// PreviewStep · "Before you spend — here's the market" (step 3). Discovery is
+// ALWAYS free (DISCOVERY_PRICE is $0 — docs/pricing-strategy.md); this step
+// frames the market with KPI cards + a per-cell composition table + a
+// what-you-picked / what-it-costs summary (split by research, per lead) + a
+// sticky dark costbar. "Discover →" runs runDiscoveryAction; enrichment is a
+// separate, later confirmation once the real lead count is known.
 //
-// HONESTY · every number in the matrix is derived from the REAL preflight quote
-// (preflightDiscoveryAction → PreviewCell[]): per-cell freshness is the cell's
-// real cellFreshnessState; the business count is a real Business.count for
-// already-mapped cells (an estimate, flagged `~`, only for never-discovered
-// cells); the per-cell ENRICH credit is computed over that count × the resolved
-// research families (researchesForSignals) via the canonical ENRICHMENT_PRICES
-// — NOT the old `biz × 0.18` + positional `index % 4` fabrication. Cached cells
-// re-serve discovery free; stale/never cells need a fetch (the exact discovery
-// total is the REAL aggregate netCredits). Uses ported classes
+// HONESTY · a never-discovered cell's business count is genuinely UNKNOWN —
+// NEVER a guessed number (no `120 + index*137 % 341` fabrication, no `biz ×
+// 0.18` positional fabrication). KPI cards + the composition table show "—"
+// for anything not yet real. Enrichment is priced as a per-lead RATE (business-
+// basis families' unit costs, summed once via enrichRatePerLead) + a one-time
+// per-cell fee (cell-basis families via enrichCellFeeCredits) — both computed
+// from the resolved research families (researchesForSignals) over the
+// canonical ENRICHMENT_PRICES, and both knowable WITHOUT guessing a lead
+// count, unlike a pre-multiplied total. Uses ported classes
 // (.stat/.matrix/.costbar/.freshdot). English-only for now.
 
 import { useEffect, useMemo, useState, useTransition } from "react";
@@ -26,11 +26,14 @@ import {
   type PreviewCell,
   type PreviewKpis,
 } from "@/modules/discovery/actions";
+import { ENRICHMENT_PRICES } from "@/modules/cost/pricing";
 import { SIG_META } from "../../goal-templates";
-import { researchesForSignals } from "../../researches";
+import { researchesForSignals, RESEARCH_LABELS } from "../../researches";
 import { buildDiscoverySignals } from "../../discovery-signals";
 import {
   buildCellRows,
+  enrichCellFeeCredits,
+  enrichRatePerLead,
   fmtCredits,
   freshDotClass,
   toDiscoveryCells,
@@ -156,11 +159,10 @@ export function PreviewStep({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [priceKey]);
 
-  // Per-cell rows built ENTIRELY from the REAL preflight quote: real freshness,
-  // real DB business count (or a flagged estimate for never-discovered cells),
-  // and per-cell enrich credits computed over that count × the resolved research
-  // families. Empty until the quote lands → the matrix shows a pricing state
-  // rather than fabricated numbers.
+  // Per-cell rows built ENTIRELY from the REAL preflight quote: real freshness
+  // and real DB business count. A never-discovered cell's count is genuinely
+  // UNKNOWN — never a guessed number. Empty until the quote lands → the matrix
+  // shows a pricing state rather than fabricated numbers.
   const quoteByKey = useMemo(() => {
     const m = new Map<string, QuoteCell>();
     for (const c of quote?.cells ?? []) {
@@ -168,50 +170,71 @@ export function PreviewStep({
         cellKey: c.cellKey,
         freshness: c.freshness,
         existingBizCount: c.existingBizCount,
-        isEstimate: c.isEstimate,
+        neverDiscovered: c.neverDiscovered,
       });
     }
     return m;
   }, [quote]);
 
   const rows = useMemo(
-    () => (quote ? buildCellRows(cells, quoteByKey, families) : []),
-    [quote, cells, quoteByKey, families],
+    () => (quote ? buildCellRows(cells, quoteByKey) : []),
+    [quote, cells, quoteByKey],
   );
 
-  // Aggregate business count = sum of the per-cell (real-or-estimated) counts.
+  // Aggregate business count = sum of ONLY the known (already-discovered)
+  // cells' real counts. Never-discovered cells contribute nothing here — their
+  // count is unknown, not zero, so it must never be summed into a total.
   const totBiz = useMemo(
-    () => rows.reduce((s, r) => s + r.bizCount, 0),
+    () =>
+      rows
+        .filter((r) => !r.neverDiscovered)
+        .reduce((s, r) => s + r.bizCount, 0),
     [rows],
   );
-  // Aggregate enrich credits = sum of the per-cell enrich credits, so the matrix
-  // footer + the cost summary always equal the rows above them.
-  const totEnr = useMemo(
-    () => rows.reduce((s, r) => s + r.enrichCredits, 0),
-    [rows],
+
+  // The per-lead enrich rate + one-time cell fee — both knowable WITHOUT a
+  // business count (see enrichRatePerLead/enrichCellFeeCredits docs). This is
+  // what actually answers "what does enrichment cost" honestly before Discover
+  // reveals how many businesses exist.
+  const enrichRate = useMemo(() => enrichRatePerLead(families), [families]);
+  const enrichCellFee = useMemo(
+    () => enrichCellFeeCredits(families, cells.length),
+    [families, cells.length],
+  );
+  // A real projected total is only honest for cells whose count we KNOW.
+  const knownEnrichTotal = totBiz * enrichRate + enrichCellFee;
+
+  // The "② Enrich" card's per-research breakdown (matches the prototype's
+  // split-by-research design) — one row per family the active signals need,
+  // labeled via RESEARCH_LABELS, tagged by its billing basis.
+  const researchRows = useMemo(
+    () =>
+      families.map((f) => ({
+        family: f,
+        label: RESEARCH_LABELS[f],
+        basis: ENRICHMENT_PRICES[f].unit,
+      })),
+    [families],
   );
 
   const kpis = quote?.kpis ?? null;
-  // KPI cards prefer REAL aggregates from the quote; the estimate contribution
-  // from new cells is added on top, with a "~" only when estimate cells exist.
-  const localBiz = kpis
-    ? kpis.localBusinessesReal + kpis.localBusinessesEstimate
-    : totBiz;
-  const activeGoogle = kpis
-    ? kpis.activeOnGoogleReal
-    : Math.round(totBiz * 0.45);
+  // KPI cards show ONLY real aggregates from already-discovered cells — never
+  // a guessed contribution from never-discovered cells (hasUnknownCells drives
+  // a "+N more markets" note instead of inflating the number).
+  const localBiz = kpis ? kpis.localBusinessesReal : totBiz;
+  const activeGoogle = kpis ? kpis.activeOnGoogleReal : 0;
   const matchReal = kpis ? kpis.matchSignalsReal : 0;
-  const hasEstimate = kpis ? kpis.hasEstimateCells : true;
+  const hasUnknown = kpis ? kpis.hasUnknownCells : true;
   const haveContactsPct = kpis
     ? kpis.localBusinessesReal > 0
       ? Math.round((kpis.haveContactsReal / kpis.localBusinessesReal) * 100)
       : 0
-    : 74;
+    : 0;
 
-  // Already-mapped (real counts) vs never-discovered (estimate) cells — drives
+  // Already-mapped (real counts) vs never-discovered (unknown) cells — drives
   // the freshness callout. Derived from the REAL quote; 0 until it lands.
   const knownCells = useMemo(
-    () => (quote ? quote.cells.filter((c) => !c.isEstimate).length : 0),
+    () => (quote ? quote.cells.filter((c) => !c.neverDiscovered).length : 0),
     [quote],
   );
   const newCells = (quote?.cells.length ?? 0) - knownCells;
@@ -240,17 +263,15 @@ export function PreviewStep({
     });
   }
 
-  const totDiscoverCredits = quote?.netCredits ?? 0;
-
   return (
     <div style={{ paddingBottom: 120 }}>
       <h1>
         Before you spend — <span className="hl">here&apos;s the market</span>
       </h1>
       <p className="sub">
-        Here&apos;s an estimate of what this will find and cost — nothing is
-        charged until you confirm. New or aging markets are mapped live, so
-        their numbers are approximate (~).
+        Discovering the market is always free. Below is what enriching a lead
+        costs — nothing is charged until you confirm, and you choose which leads
+        to enrich after Discover shows you the real count.
       </p>
 
       {/* Freshness callout */}
@@ -259,15 +280,15 @@ export function PreviewStep({
           <span aria-hidden="true">🕗</span>
           <div>
             <b>Mixed markets</b> — {knownCells} already mapped (real counts from
-            cache), {newCells} mapped live on Discover (approximate).
+            cache), {newCells} not yet mapped (counted live on Discover — free).
           </div>
         </div>
       ) : newCells > 0 ? (
         <div className="callout amber section" role="status">
           <span aria-hidden="true">🆕</span>
           <div>
-            <b>New markets</b> — we map them live on Discover, so every number
-            here is an estimate.
+            <b>New markets</b> — none of these have been mapped yet, so we
+            don&apos;t know the real business count until Discover runs (free).
           </div>
         </div>
       ) : (
@@ -279,30 +300,34 @@ export function PreviewStep({
         </div>
       )}
 
-      {/* 4 KPI cards — REAL aggregates from in-DB cells; a "~" appears only when
-          never-discovered cells contribute an estimate (honest mixing). */}
+      {/* 4 KPI cards — REAL counts only, from already-discovered cells. Never a
+          guessed number: knownCells===0 shows "—" (matches the DiscoverStep
+          honesty pattern), a mix shows the real known-cell sum with a note. */}
       <div className="grid g4 section">
         <StatCard
           k="Local businesses in market"
           to={localBiz}
-          estimate={hasEstimate}
-          d={`across ${cells.length} cell${cells.length === 1 ? "" : "s"}`}
+          emDash={knownCells === 0}
+          estimate={false}
+          d={
+            knownCells === 0
+              ? "not yet mapped"
+              : `${knownCells} of ${cells.length} cell${cells.length === 1 ? "" : "s"} mapped`
+          }
         />
         <StatCard
           k="Have contacts"
           to={haveContactsPct}
           suffix="%"
-          estimate={hasEstimate || knownCells === 0}
-          d={
-            knownCells > 0
-              ? "reachable by email/phone/social"
-              : "est. reachable by email/phone/social"
-          }
+          emDash={knownCells === 0}
+          estimate={false}
+          d="reachable by email/phone/social"
         />
         <StatCard
           k="Active on Google"
           to={activeGoogle}
-          estimate={hasEstimate || knownCells === 0}
+          emDash={knownCells === 0}
+          estimate={false}
           d="recent reviews, open now"
         />
         <StatCard
@@ -319,14 +344,18 @@ export function PreviewStep({
         />
       </div>
       <p className="note section">
-        {hasEstimate
-          ? "Real counts where the market is already mapped; new cells (~) are confirmed live on Discover."
-          : "Real counts from our latest snapshot — confirmed live on Discover before you spend on enrichment."}
+        {knownCells === 0
+          ? "No real data yet — every market here is new. Discover (free) reveals the real counts."
+          : hasUnknown
+            ? `Real counts from ${knownCells} already-mapped cell${knownCells === 1 ? "" : "s"}; ${newCells} more will be counted after Discover (free).`
+            : "Real counts from our latest snapshot — confirmed live on Discover before you spend on enrichment."}
       </p>
 
-      {/* Per-cell credit matrix */}
+      {/* Per-cell market composition — freshness + real-or-unknown business
+          count only. Discovery is always free and enrich prices per lead
+          (below), so this table's job is composition, not cost math. */}
       <div className="card section">
-        <h2 style={{ margin: "0 0 6px" }}>Per-cell credit matrix</h2>
+        <h2 style={{ margin: "0 0 6px" }}>Per-cell market composition</h2>
         <div className="scroll-x">
           <table className="matrix">
             <thead>
@@ -334,14 +363,12 @@ export function PreviewStep({
                 <th>Market</th>
                 <th>Freshness</th>
                 <th>Businesses</th>
-                <th>Discover</th>
-                <th>Enrich</th>
               </tr>
             </thead>
             <tbody>
               {rows.length === 0 ? (
                 <tr>
-                  <td className="biz" colSpan={5}>
+                  <td className="biz" colSpan={3}>
                     {pricing
                       ? "Pricing this market…"
                       : "Add markets to see the per-cell breakdown."}
@@ -363,27 +390,7 @@ export function PreviewStep({
                         </span>
                       </td>
                       <td>
-                        {r.isEstimate ? "~" : ""}
-                        {r.bizCount.toLocaleString()}
-                      </td>
-                      <td>
-                        {r.discoverIsFree ? (
-                          <span className="cr">
-                            <span className="ic-coin sm" aria-hidden="true" />0
-                          </span>
-                        ) : (
-                          // Stale/never cell — needs a (re)fetch; the exact
-                          // per-cell cost is in the REAL aggregate total below.
-                          <span className="cr">~</span>
-                        )}
-                      </td>
-                      <td>
-                        <span className="cr">
-                          <span className="ic-coin sm" aria-hidden="true" />
-                          {/* Real count → plain; estimated count → ~ */}
-                          {r.isEstimate ? "~" : ""}
-                          {r.enrichCredits.toLocaleString()}
-                        </span>
+                        {r.neverDiscovered ? "—" : r.bizCount.toLocaleString()}
                       </td>
                     </tr>
                   );
@@ -397,32 +404,20 @@ export function PreviewStep({
                 </td>
                 <td />
                 <td>
-                  {hasEstimate ? "~" : ""}
-                  {totBiz.toLocaleString()}
-                </td>
-                <td>
-                  <span className="cr">
-                    <span className="ic-coin sm" aria-hidden="true" />
-                    {pricing ? "…" : totDiscoverCredits}
-                  </span>
-                </td>
-                <td>
-                  <span className="cr">
-                    <span className="ic-coin sm" aria-hidden="true" />
-                    {hasEstimate ? "~" : ""}
-                    {totEnr.toLocaleString()}
-                  </span>
+                  {knownCells === 0
+                    ? "—"
+                    : hasUnknown
+                      ? `${totBiz.toLocaleString()}+`
+                      : totBiz.toLocaleString()}
                 </td>
               </tr>
             </tfoot>
           </table>
         </div>
         <p className="note" style={{ marginTop: 10 }}>
-          Enrich credits are projected over each cell&apos;s business count and
-          the research your signals need. Already-mapped cells use real counts;
-          never-mapped cells (~) are confirmed live on Discover. Cached cells
-          (fresh/aging) re-serve discovery for free; stale/never cells (~) need
-          a fetch — the exact discovery total is in the row above.
+          Businesses shown are real counts for already-mapped cells; a market
+          marked &ldquo;—&rdquo; hasn&apos;t been discovered yet — Discover
+          (free) reveals its real count.
         </p>
       </div>
 
@@ -462,30 +457,60 @@ export function PreviewStep({
             <span className="lbl">
               ① Discover {cells.length} market{cells.length === 1 ? "" : "s"}
             </span>
-            <span className="cr">
-              <span className="ic-coin sm" aria-hidden="true" />
-              {pricing ? "…" : totDiscoverCredits}
-            </span>
+            <span className="cr free">free</span>
           </div>
           <p className="note" style={{ margin: "2px 0 10px" }}>
-            The only exact cost — runs first. ~30 sec per cell.
+            Always free — see the whole raw market before you spend anything.
           </p>
           <div className="enr-sub" style={{ paddingLeft: 0 }}>
-            <span className="lbl">② Enrich — after discovery</span>
-            <span className="cr">
-              <span className="ic-coin sm" aria-hidden="true" />~
-              {fmtCredits(totEnr)}
-            </span>
+            <span className="lbl">② Enrich — per research</span>
+          </div>
+          <div style={{ margin: "8px 0" }}>
+            {researchRows.length > 0 ? (
+              researchRows.map((r) => (
+                <div className="enr-sub" key={r.family}>
+                  <span className="lbl">{r.label}</span>
+                  <span className="cr">
+                    {r.basis === "cell"
+                      ? "shared across this market"
+                      : "included per lead"}
+                  </span>
+                </div>
+              ))
+            ) : (
+              <p className="note">
+                No enrichment research — add signals on the Goal step.
+              </p>
+            )}
           </div>
           <div className="enr-sub" style={{ paddingLeft: 0, fontWeight: 700 }}>
             <span className="lbl" style={{ color: "var(--ink)" }}>
-              Estimated total
+              ≈{fmtCredits(enrichRate)} credits per lead you enrich
             </span>
             <span className="cr" style={{ color: "var(--ink)" }}>
-              <span className="ic-coin sm" aria-hidden="true" />~
-              {fmtCredits(totDiscoverCredits + totEnr)}
+              <span className="ic-coin sm" aria-hidden="true" />
+              {fmtCredits(enrichRate)}
             </span>
           </div>
+          {enrichCellFee > 0 ? (
+            <p className="note" style={{ margin: "4px 0 0" }}>
+              + {fmtCredits(enrichCellFee)} credits one-time for this
+              market&apos;s ad/SERP data, shared across every lead.
+            </p>
+          ) : null}
+          {knownCells > 0 ? (
+            <p className="note" style={{ margin: "10px 0 0" }}>
+              At the {totBiz.toLocaleString()} already-mapped business
+              {totBiz === 1 ? "" : "es"} found so far, that&apos;s ≈
+              {fmtCredits(knownEnrichTotal)} credits to enrich all of them — but
+              you choose exactly which leads to enrich after Discover.
+            </p>
+          ) : (
+            <p className="note" style={{ margin: "10px 0 0" }}>
+              The exact lead count is confirmed after Discover (free) — you pay
+              only for the leads you choose to enrich.
+            </p>
+          )}
         </div>
       </div>
 
@@ -495,17 +520,16 @@ export function PreviewStep({
         </p>
       ) : null}
 
-      {/* Sticky dark costbar — prices ONLY discovery */}
+      {/* Sticky dark costbar — Discover is always free */}
       <div className="costbar">
         <div>
           <div className="big">
             <span className="ic-coin" aria-hidden="true" /> Discover{" "}
-            {cells.length} market{cells.length === 1 ? "" : "s"} —{" "}
-            {pricing ? "pricing…" : `${fmtCredits(totDiscoverCredits)} credits`}
+            {cells.length} market{cells.length === 1 ? "" : "s"} — free
           </div>
           <div className="small">
-            Only Discover runs now — you confirm enrichment after, with real
-            counts.
+            Only Discover runs now, at no cost — you choose which leads to
+            enrich after, ≈{fmtCredits(enrichRate)} credits each.
           </div>
         </div>
         <span className="spacer" />

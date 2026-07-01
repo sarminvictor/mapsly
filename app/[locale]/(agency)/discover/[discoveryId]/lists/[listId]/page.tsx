@@ -60,6 +60,7 @@ import {
   resolveMatches,
 } from "@/modules/agency-portal/discover/signal-eval";
 import { activeSignalsFromJson } from "@/modules/agency-portal/discover/discovery-signals";
+import { SIG_META } from "@/modules/agency-portal/discover/goal-templates";
 import {
   WorkbenchShell,
   type WorkbenchShellProps,
@@ -135,6 +136,7 @@ async function ListWorkbenchBody({ params }: PageProps) {
           id: true,
           status: true,
           matchScore: true,
+          contactedAt: true,
           business: {
             select: {
               id: true,
@@ -179,6 +181,14 @@ async function ListWorkbenchBody({ params }: PageProps) {
       ? await hydrateBusinessForSignals(businessIds)
       : null;
   const evalNow = new Date();
+  // The goal's active signals (key + title) — drives the per-signal verdict
+  // columns (see the discoveryId workspace page for the full rationale).
+  const goalSignals = activeSignals
+    .map((s) => {
+      const title = SIG_META[s.key]?.title;
+      return title ? { key: s.key, title } : null;
+    })
+    .filter((s): s is { key: string; title: string } => s !== null);
 
   // Parallel side loads (all scoped to this list's businesses):
   //   - latest snapshot per business (reviewCount / rating / website pillar →
@@ -345,6 +355,7 @@ async function ListWorkbenchBody({ params }: PageProps) {
         emails.length > 0,
       builtOn: builtOnById.get(b.id) ?? null,
       touch: touchByBusiness.get(b.id) ?? "None",
+      lastContactedAt: lead.contactedAt?.toISOString() ?? null,
       reviews,
       rating,
       perf,
@@ -432,7 +443,7 @@ async function ListWorkbenchBody({ params }: PageProps) {
   const coverage = coverageRows ? coverageMatrixToMap(coverageRows) : {};
 
   const shell: WorkbenchShellProps = {
-    leads: { rows, discoveryId, bands, coverage },
+    leads: { rows, discoveryId, bands, coverage, goalSignals },
     touchpoints: { touches, stats },
   };
 

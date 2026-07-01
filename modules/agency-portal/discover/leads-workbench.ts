@@ -70,6 +70,8 @@ export interface WorkbenchLeadRow {
   builtOn: string | null;
   /** Touch state for this lead's business ("None" | "Draft" | "Sent" | …). */
   touch: TouchState;
+  /** Lead.contactedAt, ISO string (plain-serializable) — null until contacted. */
+  lastContactedAt: string | null;
   // Raw numeric facts (null when the family isn't enriched on this lead).
   reviews: number | null;
   rating: number | null;
@@ -277,7 +279,9 @@ export type ColumnKind =
   | "contact" // contact links
   | "status" // status pill
   | "touch" // touch pill
-  | "cov"; // per-row enrichment coverage dot-strip
+  | "cov" // per-row enrichment coverage dot-strip
+  | "sig" // one goal-signal verdict (✓ fired / — didn't / needs enrichment)
+  | "lastC"; // last-contacted timestamp
 
 export interface ColumnDef {
   /** Stable key (also the WorkbenchLeadRow field for num/text columns). */
@@ -299,6 +303,8 @@ export interface ColumnDef {
   higherIsBetter?: boolean;
   /** For num columns: the value unit shown after the number. */
   unit?: string;
+  /** For "sig" columns only: the SIG_META key to read from row.perSignal. */
+  sigKey?: string;
 }
 
 /**
@@ -408,7 +414,10 @@ export const COLUMNS: readonly ColumnDef[] = [
     fullLabel: "Enrichment coverage (data families have / not yet)",
     kind: "cov",
     sortable: false,
-    defaultOn: true,
+    // Off by default per the prototype's B7 decision — this info lives in the
+    // coverage line (Have/Not yet) above the table instead of repeating a dot
+    // strip on every row. Still selectable via the Fields menu.
+    defaultOn: false,
     group: "workflow",
   },
   {
@@ -427,7 +436,37 @@ export const COLUMNS: readonly ColumnDef[] = [
     defaultOn: true,
     group: "workflow",
   },
+  {
+    key: "lastContactedAt",
+    label: "Last contacted",
+    kind: "lastC",
+    sortable: true,
+    defaultOn: true,
+    group: "workflow",
+  },
 ] as const;
+
+/**
+ * Build one column per active goal signal (docs/portal-prototype.html's
+ * `goalCols()`/`makeSigCol` — the signals chosen on the Goal step show up as
+ * columns, right after Match %, so what you searched for is visibly answered
+ * per lead). Always shown — not part of the Fields-menu toggle set, since
+ * they're driven by the goal itself rather than a display preference.
+ */
+export function buildSignalColumns(
+  signals: readonly { key: string; title: string }[],
+): ColumnDef[] {
+  return signals.map((s) => ({
+    key: `goal:${s.key}`,
+    label: s.title,
+    fullLabel: s.title,
+    kind: "sig",
+    sortable: false,
+    defaultOn: true,
+    group: "workflow",
+    sigKey: s.key,
+  }));
+}
 
 export const DEFAULT_ACTIVE_COLUMNS: string[] = COLUMNS.filter(
   (c) => c.defaultOn,
@@ -465,6 +504,23 @@ export const SEED_FILTERS: LeadFilter[] = [
   { field: "perf", op: "<", value: 50 },
   { field: "reviews", op: "≥", value: 20 },
 ];
+
+/**
+ * The sensible starting op/value for a NEWLY ADDED filter on each field —
+ * mirrors the prototype's `SIG_FILTER_DEFAULT` (each field opens with a
+ * reasonable threshold, not a blind one-size-fits-all default). Used by the
+ * add-filter picker: the user chooses the FIELD, this supplies the starting
+ * op/value, then they can fine-tune it via the chip's inline controls.
+ */
+export const FILTER_FIELD_DEFAULTS: Record<
+  NumericFilterField,
+  { op: FilterOp; value: number }
+> = {
+  match: { op: "≥", value: 50 },
+  reviews: { op: "≥", value: 20 },
+  rating: { op: "≥", value: 4 },
+  perf: { op: "<", value: 50 },
+};
 
 function fieldValue(
   row: WorkbenchLeadRow,
@@ -548,6 +604,10 @@ export function sortRows(
         return r.rating ?? -Infinity;
       case "perf":
         return r.perf ?? -Infinity;
+      case "lastC":
+        return r.lastContactedAt
+          ? new Date(r.lastContactedAt).getTime()
+          : -Infinity;
       default:
         return 0;
     }

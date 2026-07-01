@@ -115,31 +115,24 @@ export function freshDotClass(state: FreshnessState): FreshDot {
 
 /**
  * A per-cell row the Preview matrix renders — built ENTIRELY from the REAL
- * preflight quote (`PreviewCell`), never from positional fabrication. Each field
- * is either a real DB-derived number (`isEstimate === false`) or an estimate for
- * a not-yet-discovered cell (`isEstimate === true`), and the row carries that
- * flag so the UI can mark estimates with a `~`.
+ * preflight quote (`PreviewCell`), never from positional fabrication. A
+ * never-discovered cell's business count is genuinely UNKNOWN (never a guessed
+ * number) — the row carries `neverDiscovered` so the UI shows "—" for it.
  *
  *   - `freshness`  — REAL `cellFreshnessState` of the cell's TrackedLocation.
- *   - `bizCount`   — REAL `Business.count` for discovered cells; an estimate for
- *                    never-discovered cells (`isEstimate`).
- *   - `enrichCredits` — per-business families × `bizCount` + per-cell families
- *                    once, over the REAL count (a `~` projection when the count
- *                    itself is an estimate).
- *   - `discoverIsFree` — owned-free vs new framing: a cell within its freshness
- *                    window (`fresh`/`aging`) serves discovery from cache ($0);
- *                    a `stale`/`never` cell needs a (re)fetch (cost in the REAL
- *                    aggregate `netCredits`, not split per-cell here).
+ *   - `bizCount`   — REAL `Business.count` for discovered cells; 0 (unused) for
+ *                    never-discovered cells — always read `neverDiscovered` first.
+ *   - `discoverIsFree` — discovery is ALWAYS free (see DISCOVERY_PRICE); this
+ *                    field is kept for freshness-callout framing (fresh/aging
+ *                    cells serve from cache instantly, stale/never re-fetch).
  */
 export interface CellRow {
   name: string;
   freshness: FreshnessState;
   bizCount: number;
-  /** False = real DB count; true = estimate for a never-discovered cell. */
-  isEstimate: boolean;
-  /** Per-cell enrich credits over the cell's (real or estimated) count. */
-  enrichCredits: number;
-  /** True when discovery serves from cache for this cell (owned → free). */
+  /** True = business count is genuinely unknown (never discovered). */
+  neverDiscovered: boolean;
+  /** True when discovery serves from cache for this cell (owned → instant). */
   discoverIsFree: boolean;
 }
 
@@ -150,13 +143,47 @@ export interface QuoteCell {
   cellKey: string;
   freshness: FreshnessState;
   existingBizCount: number;
-  isEstimate: boolean;
+  neverDiscovered: boolean;
 }
 
 /**
- * Per-cell enrich credits for a single market: per-business families bill over
- * `bizCount`; per-cell families bill once. Derived from the canonical
- * {@link ENRICHMENT_PRICES} + {@link CREDIT_USD} — no fabricated multiplier.
+ * Per-lead enrich RATE (credits per business you choose to enrich) — the
+ * business-basis families' unit costs, summed and converted ONCE. This does
+ * NOT depend on how many businesses are in the market, so it's honestly
+ * knowable even before Discover reveals the real count (unlike a projected
+ * total, which would require guessing the lead count).
+ */
+export function enrichRatePerLead(families: EnrichmentType[]): number {
+  let usd = 0;
+  for (const fam of families) {
+    const price = ENRICHMENT_PRICES[fam];
+    if (price.unit === "business") usd += price.usdPerUnit;
+  }
+  return Math.ceil(usd / CREDIT_USD);
+}
+
+/**
+ * One-time fee for cell-basis families (meta_ads / google_ads / serp) — a flat
+ * cost that covers the WHOLE market once, shared across however many leads end
+ * up enriched from it. Independent of business count for the same reason as
+ * {@link enrichRatePerLead}.
+ */
+export function enrichCellFeeCredits(
+  families: EnrichmentType[],
+  cellCount: number,
+): number {
+  let usd = 0;
+  for (const fam of families) {
+    const price = ENRICHMENT_PRICES[fam];
+    if (price.unit === "cell") usd += price.usdPerUnit * cellCount;
+  }
+  return Math.ceil(usd / CREDIT_USD);
+}
+
+/**
+ * Per-cell enrich credits for a single market with a REAL, known business
+ * count — used where the count is legitimately known (e.g. DiscoverStep,
+ * after the market is mapped). Never call this with a guessed count.
  */
 export function enrichCreditsForCell(
   families: EnrichmentType[],
@@ -169,19 +196,17 @@ export function enrichCreditsForCell(
  * Build the per-cell rows for the Preview matrix from the REAL preflight quote.
  *
  * `cells` (the user's market selection, for display names) is zipped with the
- * quote's per-cell rows by `cellKey`. Each row's business count, freshness, and
- * enrich credits come from real DB data (or a clearly-flagged estimate for a
- * never-discovered cell); the enrich credit is computed over the REAL count via
- * the canonical price list. Returns `[]` when there is no quote yet so the
+ * quote's per-cell rows by `cellKey`. Each row's business count and freshness
+ * come from real DB data; a never-discovered cell's count is left unknown
+ * (never a guessed number). Returns `[]` when there is no quote yet so the
  * matrix shows a pricing state instead of fabricated numbers.
  */
 export function buildCellRows(
   cells: MarketCell[],
   quoteByKey: Map<string, QuoteCell>,
-  families: EnrichmentType[],
 ): CellRow[] {
   return cells.map((c) => {
-    const key = makeCellKey(c.categorySlug, c.metroSlug, "US");
+    const key = makeCellKey(c.categorySlug, c.metroSlug, c.country);
     const q = quoteByKey.get(key);
     const bizCount = q?.existingBizCount ?? 0;
     const freshness = q?.freshness ?? "never";
@@ -189,10 +214,10 @@ export function buildCellRows(
       name: `${c.category} · ${c.city.split(",")[0]}`,
       freshness,
       bizCount,
-      isEstimate: q?.isEstimate ?? true,
-      enrichCredits: enrichCreditsForCell(families, bizCount),
+      neverDiscovered: q?.neverDiscovered ?? true,
       // Owned-free vs new: a cell within its freshness window is served from
-      // cache → discovery is free. Stale/never cells need a (re)fetch.
+      // cache → discovery is instant. Stale/never cells need a (re)fetch —
+      // still free either way (DISCOVERY_PRICE is $0), just slower.
       discoverIsFree: freshness === "fresh" || freshness === "aging",
     };
   });

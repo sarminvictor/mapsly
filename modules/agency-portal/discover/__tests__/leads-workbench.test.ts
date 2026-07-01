@@ -7,6 +7,7 @@ import { describe, expect, test } from "vitest";
 import {
   COLUMNS,
   DEFAULT_ACTIVE_COLUMNS,
+  buildSignalColumns,
   deriveMatchPct,
   evalFilter,
   filterLabel,
@@ -43,6 +44,7 @@ function row(over: Partial<WorkbenchLeadRow> = {}): WorkbenchLeadRow {
     perf: 42,
     phones: ["+13055550100"],
     emails: ["maria@solea.com"],
+    lastContactedAt: null,
     families: {
       identity: true,
       reviews: true,
@@ -186,6 +188,19 @@ describe("sortRows", () => {
       "x",
     ]);
   });
+
+  test("sorts by lastContactedAt desc; never-contacted sinks", () => {
+    const rows = [
+      row({ leadId: "never", lastContactedAt: null }),
+      row({ leadId: "old", lastContactedAt: "2026-01-01T00:00:00.000Z" }),
+      row({ leadId: "recent", lastContactedAt: "2026-06-01T00:00:00.000Z" }),
+    ];
+    expect(sortRows(rows, "lastC", -1).map((r) => r.leadId)).toEqual([
+      "recent",
+      "old",
+      "never",
+    ]);
+  });
 });
 
 describe("matchesSearch", () => {
@@ -242,5 +257,36 @@ describe("column registry", () => {
   test("raw numeric facts are off by default (Fields-menu toggles)", () => {
     const reviews = COLUMNS.find((c) => c.key === "reviews");
     expect(reviews?.defaultOn).toBe(false);
+  });
+});
+
+describe("buildSignalColumns", () => {
+  test("builds one always-on 'sig' column per active goal signal", () => {
+    const cols = buildSignalColumns([
+      { key: "no_website", title: "No website" },
+      { key: "low_reviews", title: "Low reviews" },
+    ]);
+    expect(cols).toEqual([
+      expect.objectContaining({
+        key: "goal:no_website",
+        label: "No website",
+        kind: "sig",
+        sortable: false,
+        defaultOn: true,
+        sigKey: "no_website",
+      }),
+      expect.objectContaining({
+        key: "goal:low_reviews",
+        label: "Low reviews",
+        kind: "sig",
+        sortable: false,
+        defaultOn: true,
+        sigKey: "low_reviews",
+      }),
+    ]);
+  });
+
+  test("empty signal list yields no columns", () => {
+    expect(buildSignalColumns([])).toEqual([]);
   });
 });
