@@ -18,8 +18,8 @@ interface PickableCategory {
   dataforseoId: string;
   label: string;
   groupKey: string;
-  phase: number;
-  score: number;
+  phase?: number;
+  score?: number;
 }
 
 interface Props {
@@ -45,11 +45,11 @@ export function AddCategoryForm({ available }: Props) {
     );
   }
 
-  // Sort by phase, then score (highest first)
-  const sorted = [...available].sort((a, b) => {
-    if (a.phase !== b.phase) return a.phase - b.phase;
-    return b.score - a.score;
-  });
+  // Sort by group, then label (the curated catalog has no phase/score).
+  const sorted = [...available].sort(
+    (a, b) =>
+      a.groupKey.localeCompare(b.groupKey) || a.label.localeCompare(b.label),
+  );
 
   return (
     <form action={formAction} className="admin-form">
@@ -66,7 +66,7 @@ export function AddCategoryForm({ available }: Props) {
         >
           {sorted.map((c) => (
             <option key={c.dataforseoId} value={c.dataforseoId}>
-              Phase {c.phase} · {c.label} ({c.score}/100)
+              {c.label} · {c.groupKey}
             </option>
           ))}
         </select>

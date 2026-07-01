@@ -71,7 +71,7 @@ async function DiscoverBody({ params }: PageProps) {
       where: { isActive: true },
       select: { id: true, dataforseoId: true, label: true },
       orderBy: { label: "asc" },
-      take: 400,
+      take: 1000,
     }),
     prisma.agencyWallet.findUnique({
       where: { agencyId: member.agencyId },
@@ -84,7 +84,11 @@ async function DiscoverBody({ params }: PageProps) {
     }),
   ]);
 
-  const metros = US_METROS.map((m) => ({ slug: m.slug, name: m.name }));
+  const metros = US_METROS.map((m) => ({
+    slug: m.slug,
+    name: m.name,
+    country: m.country ?? "US",
+  }));
   const cats = categories.map((c) => ({
     id: c.id,
     slug: c.dataforseoId,

@@ -12,8 +12,8 @@ interface PickableCategory {
   dataforseoId: string;
   label: string;
   groupKey: string;
-  phase: number;
-  score: number;
+  phase?: number;
+  score?: number;
 }
 
 interface Props {

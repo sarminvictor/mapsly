@@ -12,6 +12,8 @@
 // (Census CBSA + SimpleMaps) — additive, zero migration. Radius is DERIVED
 // from the tier and is display-only (never user-editable).
 
+import { GENERATED_CITIES } from "./places.generated";
+
 export type RadiusTier = "MEGA" | "LARGE" | "MID" | "SMALL" | "MICRO";
 
 /** Fixed radius (km) per tier. Headline metro = LARGE = 30km. Mega capped at
@@ -31,11 +33,14 @@ export interface UsMetro {
   lat: number;
   lng: number;
   radiusTier: RadiusTier;
+  /** ISO-2 country. Optional — absent means "US" (the curated majors predate
+   *  the US+CA expansion). The generated cities always set it explicitly. */
+  country?: "US" | "CA";
   /** Lowercased sub-cities/neighborhoods that collapse into this metro. */
   aliases: string[];
 }
 
-export const US_METROS: readonly UsMetro[] = [
+export const CURATED_METROS: readonly UsMetro[] = [
   {
     slug: "new-york",
     name: "New York, NY",
@@ -457,6 +462,18 @@ export const US_METROS: readonly UsMetro[] = [
     aliases: ["oro valley", "marana"],
   },
 ] as const;
+
+/**
+ * The full gazetteer the app selects from: the curated majors (rich aliases +
+ * stable slugs) FIRST, then the generated US + Canada cities ≥100k population
+ * (deduped against the curated set in scripts/build-places-gazetteer.ts). The
+ * Market step, `metroBySlug`, and discovery all read this — so adding a city
+ * here makes it selectable AND discoverable with no other wiring.
+ */
+export const US_METROS: readonly UsMetro[] = [
+  ...CURATED_METROS,
+  ...GENERATED_CITIES,
+];
 
 /** Radius (km) for a metro, derived from its tier. */
 export function radiusKmForMetro(metro: UsMetro): number {

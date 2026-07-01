@@ -95,6 +95,9 @@ export interface MarketCell {
   categoryId: string;
   /** Category slug (dataforseo id) — feeds the discovery cells input. */
   categorySlug: string;
+  /** ISO-2 country of the metro ("US" | "CA") — feeds the cellKey + discovery
+   *  so Canadian businesses are stamped CA, not the old hardcoded US. */
+  country: "US" | "CA";
 }
 
 /**
@@ -214,7 +217,7 @@ export function toDiscoveryCells(cells: MarketCell[]): {
     categorySlug: c.categorySlug,
     categoryId: c.categoryId,
     metroSlug: c.metroSlug,
-    country: "US",
+    country: c.country,
   }));
 }
 

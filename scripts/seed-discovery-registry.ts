@@ -37,78 +37,72 @@ const prisma = new PrismaClient({ adapter });
 async function main(): Promise<void> {
   console.log("[seed-discovery-registry] starting…");
 
-  // 1. Seed the Phase-1 category (Med Spa)
-  const phase1 = KNOWN_CATEGORIES.find((c) => c.phase === 1);
-  if (!phase1) {
-    throw new Error(
-      "No Phase 1 category in known-categories.ts — preplan §3.2 expects Med Spa.",
-    );
-  }
-  const category = await prisma.businessCategory.upsert({
-    where: { dataforseoId: phase1.dataforseoId },
-    create: {
-      dataforseoId: phase1.dataforseoId,
-      label: phase1.label,
-      groupKey: phase1.groupKey,
-      verifiedAt: new Date(),
-    },
-    update: {
-      // Keep verifiedAt + label fresh; don't blow away createdByUserId
-      label: phase1.label,
-      groupKey: phase1.groupKey,
-    },
-    select: { id: true, dataforseoId: true, label: true },
+  // 1. Upsert the ENTIRE curated catalog into BusinessCategory (active +
+  //    verified). The agency /discover Market step lists every active row, so
+  //    this is what makes the full ~400 categories selectable. createMany
+  //    skipDuplicates keeps existing rows (and their createdByUserId/verifiedAt)
+  //    intact while inserting every new slug. Every slug is a real DfS category
+  //    (curated from the DfS Business Listings category CSV).
+  const now = new Date();
+  const inserted = await prisma.businessCategory.createMany({
+    data: KNOWN_CATEGORIES.map((c) => ({
+      dataforseoId: c.dataforseoId,
+      label: c.label,
+      groupKey: c.groupKey,
+      verifiedAt: now,
+    })),
+    skipDuplicates: true,
   });
   console.log(
-    `[seed-discovery-registry] category · ${category.label} (${category.dataforseoId}) · id=${category.id}`,
+    `[seed-discovery-registry] categories · inserted ${inserted.count} new · ${KNOWN_CATEGORIES.length} total in catalog`,
   );
 
-  // 2. Seed the 4 Phase-1 launch cities
-  let created = 0;
-  let skipped = 0;
-  for (const city of PHASE_1_LAUNCH_CITIES) {
-    const existing = await prisma.trackedLocation.findUnique({
-      where: {
-        categoryId_city_province_country: {
-          categoryId: category.id,
+  // 2. Seed the Phase-1 launch cities as TrackedLocation rows under Med Spa
+  //    (for /admin/discovery). The AGENCY flow reads metros from the gazetteer
+  //    (lib/geo), not TrackedLocation, so this is admin-only convenience.
+  const medspa = await prisma.businessCategory.findUnique({
+    where: { dataforseoId: "medical_spa" },
+    select: { id: true, label: true },
+  });
+  if (medspa) {
+    let created = 0;
+    let skipped = 0;
+    for (const city of PHASE_1_LAUNCH_CITIES) {
+      const existing = await prisma.trackedLocation.findUnique({
+        where: {
+          categoryId_city_province_country: {
+            categoryId: medspa.id,
+            city: city.city,
+            province: city.province,
+            country: city.country,
+          },
+        },
+        select: { id: true },
+      });
+      if (existing) {
+        skipped += 1;
+        continue;
+      }
+      await prisma.trackedLocation.create({
+        data: {
+          categoryId: medspa.id,
           city: city.city,
           province: city.province,
           country: city.country,
+          lat: city.lat,
+          lng: city.lng,
+          radiusKm: city.radiusKm,
+          verifiedAt: now,
         },
-      },
-      select: { id: true },
-    });
-    if (existing) {
-      skipped += 1;
-      continue;
+      });
+      created += 1;
     }
-    await prisma.trackedLocation.create({
-      data: {
-        categoryId: category.id,
-        city: city.city,
-        province: city.province,
-        country: city.country,
-        lat: city.lat,
-        lng: city.lng,
-        radiusKm: city.radiusKm,
-        verifiedAt: new Date(),
-      },
-    });
-    created += 1;
+    console.log(
+      `[seed-discovery-registry] med-spa launch cities · created=${created} · skipped=${skipped}`,
+    );
   }
-  console.log(
-    `[seed-discovery-registry] locations · created=${created} · skipped=${skipped} (already present)`,
-  );
 
-  // Hint to the operator
-  const phase1Count = PHASE_1_LAUNCH_CITIES.length;
-  const otherCats = KNOWN_CATEGORIES.filter((c) => c.phase !== 1).length;
-  console.log(
-    `[seed-discovery-registry] done · ${phase1Count} Phase-1 cells under ${category.label} ready to run from /admin/discovery.`,
-  );
-  console.log(
-    `[seed-discovery-registry] ${otherCats} more curated verticals (Phases 2–5) are pickable in the UI when ready.`,
-  );
+  console.log("[seed-discovery-registry] done.");
 }
 
 main()

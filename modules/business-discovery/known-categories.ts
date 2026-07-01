@@ -22,6 +22,8 @@
  * Score is the niche-scoring index (1-100) from preplan § 3.1.
  */
 
+import { CURATED_CATEGORIES } from "./curated-categories.generated";
+
 export type LaunchPhase = 1 | 2 | 3 | 4 | 5;
 
 export interface KnownCategory {
@@ -31,133 +33,22 @@ export interface KnownCategory {
   label: string;
   /** Optional meta-group for visual grouping (e.g. "beauty_and_wellness"). */
   groupKey: string;
-  /** Plan phase this vertical lands in (preplan § 3.2). */
-  phase: LaunchPhase;
-  /** Niche score from preplan § 3.1 — higher is more attractive. */
-  score: number;
+  /** Plan phase this vertical lands in (preplan § 3.2). Optional — the curated
+   *  US+CA catalog (curated-categories.generated.ts) omits it; only the original
+   *  launch verticals carry one. */
+  phase?: LaunchPhase;
+  /** Niche score from preplan § 3.1 — higher is more attractive. Optional for
+   *  the same reason as `phase`. */
+  score?: number;
 }
 
 /**
- * The curated list. Phase 1 is the only one seeded as a real
- * `BusinessCategory` row in `seed-discovery-registry.ts`; the rest
- * are pickable in the admin UI to opt in when ready.
+ * The curated catalog — the full DfS-verified US + Canada local-business set
+ * (curated-categories.generated.ts, sourced from the DfS category CSV). The
+ * agency Market step + admin discovery both read this; the seed upserts every
+ * entry into BusinessCategory.
  */
-export const KNOWN_CATEGORIES: readonly KnownCategory[] = [
-  // Phase 1 · launch vertical
-  {
-    dataforseoId: "medical_spa",
-    label: "Medical Spa",
-    groupKey: "beauty_and_wellness",
-    phase: 1,
-    score: 79,
-  },
-
-  // Phase 2 · M3–4
-  {
-    dataforseoId: "real_estate_agency",
-    label: "Real Estate Agency",
-    groupKey: "professional_services",
-    phase: 2,
-    score: 74,
-  },
-  {
-    dataforseoId: "hvac_contractor",
-    label: "HVAC Contractor",
-    groupKey: "home_services",
-    phase: 2,
-    score: 70,
-  },
-
-  // Phase 3 · M5–6
-  {
-    dataforseoId: "chiropractor",
-    label: "Chiropractor",
-    groupKey: "health",
-    phase: 3,
-    score: 69,
-  },
-  {
-    dataforseoId: "veterinary_care",
-    label: "Veterinary Care",
-    groupKey: "health",
-    phase: 3,
-    score: 69,
-  },
-  {
-    dataforseoId: "roofing_contractor",
-    label: "Roofing Contractor",
-    groupKey: "home_services",
-    phase: 3,
-    score: 68,
-  },
-
-  // Phase 4 · M7–9
-  {
-    dataforseoId: "plumber",
-    label: "Plumber",
-    groupKey: "home_services",
-    phase: 4,
-    score: 68,
-  },
-  {
-    dataforseoId: "auto_repair_shop",
-    label: "Auto Repair Shop",
-    groupKey: "automotive",
-    phase: 4,
-    score: 67,
-  },
-  {
-    dataforseoId: "landscaper",
-    label: "Landscaper",
-    groupKey: "home_services",
-    phase: 4,
-    score: 65,
-  },
-  {
-    dataforseoId: "dental_clinic",
-    label: "Dental Clinic",
-    groupKey: "health",
-    phase: 4,
-    score: 63,
-  },
-
-  // Phase 5 · M10–12 (kept curated; expand here as plan evolves)
-  {
-    dataforseoId: "personal_injury_attorney",
-    label: "Personal Injury Attorney",
-    groupKey: "professional_services",
-    phase: 5,
-    score: 61,
-  },
-  {
-    dataforseoId: "restaurant",
-    label: "Restaurant",
-    groupKey: "food_and_dining",
-    phase: 5,
-    score: 57,
-  },
-  {
-    dataforseoId: "hair_salon",
-    label: "Hair Salon",
-    groupKey: "beauty_and_wellness",
-    phase: 5,
-    score: 60,
-  },
-  {
-    dataforseoId: "nail_salon",
-    label: "Nail Salon",
-    groupKey: "beauty_and_wellness",
-    phase: 5,
-    score: 58,
-  },
-  {
-    dataforseoId: "beauty_salon",
-    label: "Beauty Salon",
-    groupKey: "beauty_and_wellness",
-    phase: 5,
-    score: 58,
-  },
-] as const;
+export const KNOWN_CATEGORIES: readonly KnownCategory[] = CURATED_CATEGORIES;
 
 /** Index lookup by DataForSEO ID. Throws if absent — admin UI prevents free text. */
 export function getKnownCategory(dataforseoId: string): KnownCategory {

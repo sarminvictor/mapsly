@@ -18,6 +18,7 @@ import { MarketCombobox, type ComboOption } from "../MarketCombobox";
 export interface MetroOption {
   slug: string;
   name: string;
+  country: "US" | "CA";
 }
 export interface CategoryOption {
   id: string;
@@ -67,7 +68,7 @@ export function MarketStep({
       metros.map((m) => ({
         value: m.slug,
         label: m.name,
-        meta: "metro",
+        meta: m.country === "CA" ? "Canada" : "USA",
       })),
     [metros],
   );
@@ -104,6 +105,7 @@ export function MarketStep({
         category: pickedCat.label,
         categoryId: pickedCat.id,
         categorySlug: pickedCat.slug,
+        country: pickedMetro.country,
       },
     ]);
     onToast(`Added · ${pickedCat.label} · ${pickedMetro.name.split(",")[0]}`);
@@ -175,7 +177,8 @@ export function MarketStep({
                   value={cityInput}
                   onPick={(o) => {
                     setCityInput(o.label);
-                    setPickedMetro({ slug: o.value, name: o.label });
+                    const found = metros.find((m) => m.slug === o.value);
+                    if (found) setPickedMetro(found);
                   }}
                 />
                 <MarketCombobox
