@@ -89,6 +89,23 @@ export const RESEARCH_LABELS: Record<Research, string> = {
 };
 
 /**
+ * RESEARCH_SOURCES · short "where this comes from" subtitle, paired with
+ * {@link RESEARCH_LABELS} for the research-grouped UI (Preview's "What you
+ * picked" — docs/portal-prototype.html's `<span class="src">` pattern).
+ */
+export const RESEARCH_SOURCES: Record<Research, string> = {
+  contacts: "DOM scan of the business website",
+  tech: "DOM scan of the business website",
+  reviews: "DataForSEO Google reviews pull",
+  meta_ads: "Meta Ad Library",
+  google_ads: "Google Ads Transparency Center",
+  serp: "Google search results",
+  lighthouse: "On-page Lighthouse audit",
+  services: "AI read of the site + listing",
+  ai_research: "AI read of the site + listing",
+};
+
+/**
  * resolveResearches · pure transitive closure over {@link RESEARCH_DEPS}.
  *
  * Given a seed set of researches, returns every research that must run — the
@@ -136,4 +153,56 @@ export function researchesForSignals(
     for (const r of meta.researches) seed.add(r);
   }
   return resolveResearches([...seed]);
+}
+
+/** One research-grouped row for the "What you picked" panel. */
+export interface PickedGroup {
+  /** "discovery" (synthetic, free) or a real Research key. */
+  key: string;
+  label: string;
+  source: string;
+  /** Signal titles that read from this research — see groupSignalsByResearch. */
+  titles: string[];
+}
+
+/**
+ * groupSignalsByResearch · docs/portal-prototype.html's `pickedGroups`
+ * pattern, driven by REAL `SIG_META.researches` (not the prototype's mock
+ * signal→research mapping). A signal with NO researches is read straight off
+ * the free Google Maps listing, so it surfaces under a synthetic "discovery"
+ * group; a signal needing more than one research appears under EACH —
+ * showing every place we'll actually go get that fact, not just the first.
+ *
+ * `families` should be `researchesForSignals(activeSignals)` — passed in
+ * rather than recomputed so callers that already have it (every current
+ * caller does) get one canonical ordering instead of two independent passes.
+ */
+export function groupSignalsByResearch(
+  activeSignals: { key: string }[],
+  families: Research[],
+): PickedGroup[] {
+  const byResearch = new Map<string, string[]>();
+  for (const f of activeSignals) {
+    const meta = SIG_META[f.key];
+    if (!meta) continue;
+    const researches: string[] = meta.researches.length
+      ? meta.researches
+      : ["discovery"];
+    for (const r of researches) {
+      const titles = byResearch.get(r);
+      if (titles) titles.push(meta.title);
+      else byResearch.set(r, [meta.title]);
+    }
+  }
+  return ["discovery", ...families]
+    .filter((r) => byResearch.has(r))
+    .map((r) => ({
+      key: r,
+      label: r === "discovery" ? "Discovery" : RESEARCH_LABELS[r as Research],
+      source:
+        r === "discovery"
+          ? "Google Maps listing"
+          : RESEARCH_SOURCES[r as Research],
+      titles: byResearch.get(r)!,
+    }));
 }

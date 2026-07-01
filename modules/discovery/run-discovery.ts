@@ -17,6 +17,8 @@
 
 import { createHash } from "node:crypto";
 
+import pLimit from "p-limit";
+
 import { cellKey as makeCellKey, nextStaleAt } from "@/lib/cell";
 import { withCronRun } from "@/lib/cost/cost-counter";
 import { metroBySlug, nearestMetro } from "@/lib/geo/resolve-metro";
@@ -104,10 +106,42 @@ function clampLimit(n: number | undefined): number {
 const MAX_TOTAL_PER_CELL = 3000;
 
 /**
+ * How many cells run concurrently. The Get-leads flow caps a request at 3
+ * markets (MarketStep.tsx's MAX_MARKETS), so this bound is rarely the limiting
+ * factor there — every cell in a normal request runs in parallel. It exists
+ * for the inline admin path (up to 50 cells), keeping worst-case concurrent
+ * DfS calls well under DataForSEO's 10 req/s account-wide limit
+ * (.claude/rules/mcp-dataforseo.md) — each `refetchCell` already paginates
+ * sequentially within itself, so this bounds cross-CELL concurrency only.
+ */
+const CELL_CONCURRENCY = 5;
+
+/** One cell's outcome — returned by {@link runOneCell} so `runDiscovery` can
+ *  run cells concurrently via `Promise.all` and aggregate afterward instead of
+ *  mutating shared totals mid-loop. */
+interface CellRunResult {
+  summary: DiscoveryCellSummary;
+  /** What `totalBusinesses` accumulates — the full DB count for a
+   *  SERVED_FROM_DB cell, or only the NEWLY created rows for a refetch (the
+   *  existing semantics this preserves; `summary.businessCount` uses
+   *  `returned`, not `created`, for a refetch — the two intentionally differ). */
+  businessCountForTotal: number;
+  costUsd: number;
+  isFresh: boolean;
+  /** True the moment this cell committed to the refetch path, even if the
+   *  fetch itself then failed — mirrors the sequential version's `refetchedCount
+   *  += 1` running before the (possibly-throwing) `await refetchCell(...)`. */
+  isRefetch: boolean;
+  failed: boolean;
+}
+
+/**
  * Run a multi-cell Discovery. Upserts the Discovery row by idempotency key
  * (re-running the same request resumes the existing row instead of forking a
- * second one), then processes each cell: fresh cells serve from the DB,
- * stale/never cells re-fetch from DfS inside a CronRun.
+ * second one), then processes each cell CONCURRENTLY (bounded by
+ * {@link CELL_CONCURRENCY}): fresh cells serve from the DB, stale/never cells
+ * re-fetch from DfS inside their own CronRun (AsyncLocalStorage-scoped, so
+ * concurrent cells never cross-contaminate cost attribution).
  */
 export async function runDiscovery(
   input: RunDiscoveryInput,
@@ -136,173 +170,31 @@ export async function runDiscovery(
     select: { id: true },
   });
 
-  const cellSummaries: DiscoveryCellSummary[] = [];
+  // Every cell is independent (distinct TrackedLocation row, own CronRun via
+  // AsyncLocalStorage), so they run CONCURRENTLY — bounded by CELL_CONCURRENCY
+  // — instead of one-by-one. `Promise.all` preserves input order regardless of
+  // completion order, so `results[i]` still corresponds to `input.cells[i]`.
+  const concurrency = pLimit(CELL_CONCURRENCY);
+  const results = await Promise.all(
+    input.cells.map((cell, i) =>
+      concurrency(() =>
+        runOneCell(cell, cellKeys[i], discovery.id, limit, now, country0),
+      ),
+    ),
+  );
+
+  const cellSummaries: DiscoveryCellSummary[] = results.map((r) => r.summary);
   let totalBusinesses = 0;
   let totalCostUsd = 0;
   let freshCount = 0;
   let refetchedCount = 0;
   let anyFailed = false;
-
-  for (let i = 0; i < input.cells.length; i += 1) {
-    const cell = input.cells[i];
-    const country = country0(cell.country);
-    const key = cellKeys[i];
-
-    try {
-      const metro = metroBySlug(cell.metroSlug);
-      if (!metro) {
-        throw new Error(`unknown metro "${cell.metroSlug}"`);
-      }
-      const radiusKm = radiusKmForMetro(metro);
-
-      // Find/create the cell's TrackedLocation. The existing unique key is
-      // (categoryId, city, province, country) — we use the metro NAME as the
-      // `city` value (the metro-key swap is a separate guarded migration).
-      const tracked = await upsertTrackedLocation({
-        categoryId: cell.categoryId,
-        metroSlug: cell.metroSlug,
-        metroName: metro.name,
-        country,
-        lat: metro.lat,
-        lng: metro.lng,
-        radiusKm,
-        now,
-      });
-
-      // Decide fresh-vs-refetch for this single cell.
-      const plan = decideDiscoveryPlan(
-        [
-          {
-            cellKey: key,
-            lastDiscoveredAt: tracked.lastDiscoveredAt,
-            expectedListings: tracked.lastTotalAvailable ?? limit,
-          },
-        ],
-        now,
-      );
-      const decision = plan.cells[0];
-
-      if (decision.outcome === "SERVED_FROM_DB") {
-        freshCount += 1;
-        const count = await prisma.business.count({ where: { cellKey: key } });
-        totalBusinesses += count;
-        await prisma.discoveryCell.upsert({
-          where: {
-            discoveryId_trackedLocationId: {
-              discoveryId: discovery.id,
-              trackedLocationId: tracked.id,
-            },
-          },
-          create: {
-            discoveryId: discovery.id,
-            trackedLocationId: tracked.id,
-            cellKey: key,
-            outcome: "SERVED_FROM_DB",
-            businessCount: count,
-            dfsCostUsd: 0,
-          },
-          update: { outcome: "SERVED_FROM_DB", businessCount: count },
-        });
-        cellSummaries.push({
-          cellKey: key,
-          trackedLocationId: tracked.id,
-          outcome: "SERVED_FROM_DB",
-          businessCount: count,
-          dfsCostUsd: 0,
-          errorMessage: null,
-        });
-        continue;
-      }
-
-      // REFETCH path · the only external call, inside a CronRun.
-      refetchedCount += 1;
-      const fetchResult = await refetchCell({
-        cell,
-        metroLat: metro.lat,
-        metroLng: metro.lng,
-        radiusKm,
-        country,
-        cellKey: key,
-        metroName: metro.name,
-        limit,
-      });
-
-      totalBusinesses += fetchResult.created;
-      totalCostUsd += fetchResult.costUsd;
-
-      const outcome: "REFETCHED" | "DISCOVERED_NEW" =
-        fetchResult.created > 0 ? "DISCOVERED_NEW" : "REFETCHED";
-
-      await prisma.$transaction([
-        prisma.trackedLocation.update({
-          where: { id: tracked.id },
-          data: {
-            lastDiscoveredAt: now,
-            nextStaleAt: nextStaleAt(now),
-            lastDiscoveryStatus: "OK",
-            lastTotalAvailable: fetchResult.totalAvailable ?? undefined,
-            lastRunAt: now,
-            totalRuns: { increment: 1 },
-            totalNewFound: { increment: fetchResult.created },
-            businessCount: { increment: fetchResult.created },
-            totalCostUsd: { increment: fetchResult.costUsd },
-          },
-        }),
-        prisma.discoveryCell.upsert({
-          where: {
-            discoveryId_trackedLocationId: {
-              discoveryId: discovery.id,
-              trackedLocationId: tracked.id,
-            },
-          },
-          create: {
-            discoveryId: discovery.id,
-            trackedLocationId: tracked.id,
-            cellKey: key,
-            outcome,
-            businessCount: fetchResult.returned,
-            dfsCostUsd: fetchResult.costUsd,
-          },
-          update: {
-            outcome,
-            businessCount: fetchResult.returned,
-            dfsCostUsd: fetchResult.costUsd,
-          },
-        }),
-        prisma.cellSnapshot.create({
-          data: {
-            trackedLocationId: tracked.id,
-            cellKey: key,
-            capturedAt: now,
-            businessCount: fetchResult.returned,
-            totalAvailable: fetchResult.totalAvailable ?? undefined,
-            openCount: fetchResult.openCount,
-            closedForeverCount: fetchResult.closedForeverCount,
-          },
-        }),
-      ]);
-
-      cellSummaries.push({
-        cellKey: key,
-        trackedLocationId: tracked.id,
-        outcome,
-        businessCount: fetchResult.returned,
-        dfsCostUsd: fetchResult.costUsd,
-        errorMessage: null,
-      });
-    } catch (err) {
-      anyFailed = true;
-      const message =
-        err instanceof Error ? err.message : "discovery cell failed";
-      cellSummaries.push({
-        cellKey: key,
-        trackedLocationId: "",
-        outcome: "FAILED",
-        businessCount: 0,
-        dfsCostUsd: 0,
-        errorMessage: message,
-      });
-    }
+  for (const r of results) {
+    totalBusinesses += r.businessCountForTotal;
+    totalCostUsd += r.costUsd;
+    if (r.isFresh) freshCount += 1;
+    if (r.isRefetch) refetchedCount += 1;
+    if (r.failed) anyFailed = true;
   }
 
   const ok = cellSummaries.some((c) => c.outcome !== "FAILED");
@@ -334,6 +226,198 @@ export async function runDiscovery(
     totalCostUsd,
     cells: cellSummaries,
   };
+}
+
+/**
+ * Discover ONE cell: fresh serves from the DB ($0), stale/never re-fetches
+ * from DfS inside its own CronRun. Extracted from `runDiscovery`'s old
+ * sequential loop body verbatim so cells can run concurrently via
+ * `Promise.all` — a per-cell failure returns a FAILED summary rather than
+ * throwing, so one bad cell never aborts the others.
+ */
+async function runOneCell(
+  cell: DiscoveryCellRequest,
+  key: string,
+  discoveryId: string,
+  limit: number,
+  now: Date,
+  country0: (c?: string) => string,
+): Promise<CellRunResult> {
+  const country = country0(cell.country);
+  // Set true the moment this cell commits to the refetch path — mirrors the
+  // old sequential code's `refetchedCount += 1` running BEFORE the (possibly
+  // throwing) `await refetchCell(...)`, so a failed refetch still counts.
+  let isRefetch = false;
+
+  try {
+    const metro = metroBySlug(cell.metroSlug);
+    if (!metro) {
+      throw new Error(`unknown metro "${cell.metroSlug}"`);
+    }
+    const radiusKm = radiusKmForMetro(metro);
+
+    // Find/create the cell's TrackedLocation. The existing unique key is
+    // (categoryId, city, province, country) — we use the metro NAME as the
+    // `city` value (the metro-key swap is a separate guarded migration).
+    const tracked = await upsertTrackedLocation({
+      categoryId: cell.categoryId,
+      metroSlug: cell.metroSlug,
+      metroName: metro.name,
+      country,
+      lat: metro.lat,
+      lng: metro.lng,
+      radiusKm,
+      now,
+    });
+
+    // Decide fresh-vs-refetch for this single cell.
+    const plan = decideDiscoveryPlan(
+      [
+        {
+          cellKey: key,
+          lastDiscoveredAt: tracked.lastDiscoveredAt,
+          expectedListings: tracked.lastTotalAvailable ?? limit,
+        },
+      ],
+      now,
+    );
+    const decision = plan.cells[0];
+
+    if (decision.outcome === "SERVED_FROM_DB") {
+      const count = await prisma.business.count({ where: { cellKey: key } });
+      await prisma.discoveryCell.upsert({
+        where: {
+          discoveryId_trackedLocationId: {
+            discoveryId,
+            trackedLocationId: tracked.id,
+          },
+        },
+        create: {
+          discoveryId,
+          trackedLocationId: tracked.id,
+          cellKey: key,
+          outcome: "SERVED_FROM_DB",
+          businessCount: count,
+          dfsCostUsd: 0,
+        },
+        update: { outcome: "SERVED_FROM_DB", businessCount: count },
+      });
+      return {
+        summary: {
+          cellKey: key,
+          trackedLocationId: tracked.id,
+          outcome: "SERVED_FROM_DB",
+          businessCount: count,
+          dfsCostUsd: 0,
+          errorMessage: null,
+        },
+        businessCountForTotal: count,
+        costUsd: 0,
+        isFresh: true,
+        isRefetch: false,
+        failed: false,
+      };
+    }
+
+    // REFETCH path · the only external call, inside a CronRun.
+    isRefetch = true;
+    const fetchResult = await refetchCell({
+      cell,
+      metroLat: metro.lat,
+      metroLng: metro.lng,
+      radiusKm,
+      country,
+      cellKey: key,
+      metroName: metro.name,
+      limit,
+    });
+
+    const outcome: "REFETCHED" | "DISCOVERED_NEW" =
+      fetchResult.created > 0 ? "DISCOVERED_NEW" : "REFETCHED";
+
+    await prisma.$transaction([
+      prisma.trackedLocation.update({
+        where: { id: tracked.id },
+        data: {
+          lastDiscoveredAt: now,
+          nextStaleAt: nextStaleAt(now),
+          lastDiscoveryStatus: "OK",
+          lastTotalAvailable: fetchResult.totalAvailable ?? undefined,
+          lastRunAt: now,
+          totalRuns: { increment: 1 },
+          totalNewFound: { increment: fetchResult.created },
+          businessCount: { increment: fetchResult.created },
+          totalCostUsd: { increment: fetchResult.costUsd },
+        },
+      }),
+      prisma.discoveryCell.upsert({
+        where: {
+          discoveryId_trackedLocationId: {
+            discoveryId,
+            trackedLocationId: tracked.id,
+          },
+        },
+        create: {
+          discoveryId,
+          trackedLocationId: tracked.id,
+          cellKey: key,
+          outcome,
+          businessCount: fetchResult.returned,
+          dfsCostUsd: fetchResult.costUsd,
+        },
+        update: {
+          outcome,
+          businessCount: fetchResult.returned,
+          dfsCostUsd: fetchResult.costUsd,
+        },
+      }),
+      prisma.cellSnapshot.create({
+        data: {
+          trackedLocationId: tracked.id,
+          cellKey: key,
+          capturedAt: now,
+          businessCount: fetchResult.returned,
+          totalAvailable: fetchResult.totalAvailable ?? undefined,
+          openCount: fetchResult.openCount,
+          closedForeverCount: fetchResult.closedForeverCount,
+        },
+      }),
+    ]);
+
+    return {
+      summary: {
+        cellKey: key,
+        trackedLocationId: tracked.id,
+        outcome,
+        businessCount: fetchResult.returned,
+        dfsCostUsd: fetchResult.costUsd,
+        errorMessage: null,
+      },
+      businessCountForTotal: fetchResult.created,
+      costUsd: fetchResult.costUsd,
+      isFresh: false,
+      isRefetch: true,
+      failed: false,
+    };
+  } catch (err) {
+    const message =
+      err instanceof Error ? err.message : "discovery cell failed";
+    return {
+      summary: {
+        cellKey: key,
+        trackedLocationId: "",
+        outcome: "FAILED",
+        businessCount: 0,
+        dfsCostUsd: 0,
+        errorMessage: message,
+      },
+      businessCountForTotal: 0,
+      costUsd: 0,
+      isFresh: false,
+      isRefetch,
+      failed: true,
+    };
+  }
 }
 
 interface UpsertTrackedInput {

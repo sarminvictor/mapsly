@@ -1,8 +1,14 @@
-// flow-types.ts · the shared state model for the "Get leads" 5-step journey
-// (Goal ▸ Market ▸ Preview ▸ Discover ▸ Enrich). The flow is a single client
-// component; this module holds the plain data shapes + the pure helpers that
-// thread state between steps and produce the estimate numbers the Preview/
-// Discover screens render. English-only for now.
+// flow-types.ts · the shared state model for the "Get leads" 4-step journey
+// (Goal ▸ Market ▸ Preview ▸ Enrich). The flow is a single client component;
+// this module holds the plain data shapes + the pure helpers that thread
+// state between steps and produce the estimate numbers Preview renders.
+//
+// There is deliberately no separate "Discover" step: Preview auto-triggers
+// discovery the moment it mounts (right after Market's "Preview & credits →")
+// and shows loading skeletons + a progress bar in place of real numbers while
+// it maps, then the sticky bottom bar swaps itself from "Mapping…" to
+// "Enrich →" once the market is real — one fewer step, a more informative
+// Preview. See PreviewStep.tsx for the merged implementation. English-only.
 
 import { cellKey as makeCellKey, type FreshnessState } from "@/lib/cell";
 import {
@@ -12,14 +18,13 @@ import {
 } from "@/modules/cost/pricing";
 import { templateByKey, type GoalTemplate } from "./goal-templates";
 
-export type FlowStep = "goal" | "market" | "preview" | "discover" | "enriching";
+export type FlowStep = "goal" | "market" | "preview" | "enriching";
 
-/** The 5-step registry (key + label) — drives the stepper. */
+/** The 4-step registry (key + label) — drives the stepper. */
 export const FLOW_STEPS: { key: FlowStep; label: string }[] = [
   { key: "goal", label: "Goal" },
   { key: "market", label: "Market" },
   { key: "preview", label: "Preview" },
-  { key: "discover", label: "Discover" },
   { key: "enriching", label: "Enrich" },
 ];
 
@@ -178,18 +183,6 @@ export function enrichCellFeeCredits(
     if (price.unit === "cell") usd += price.usdPerUnit * cellCount;
   }
   return Math.ceil(usd / CREDIT_USD);
-}
-
-/**
- * Per-cell enrich credits for a single market with a REAL, known business
- * count — used where the count is legitimately known (e.g. DiscoverStep,
- * after the market is mapped). Never call this with a guessed count.
- */
-export function enrichCreditsForCell(
-  families: EnrichmentType[],
-  bizCount: number,
-): number {
-  return enrichCreditsFor(families, bizCount, 1);
 }
 
 /**

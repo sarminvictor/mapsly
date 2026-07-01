@@ -3,7 +3,7 @@ import { describe, expect, test } from "vitest";
 import {
   buildCellRows,
   enrichCellFeeCredits,
-  enrichCreditsForCell,
+  enrichCreditsFor,
   enrichRatePerLead,
   type MarketCell,
   type QuoteCell,
@@ -72,11 +72,24 @@ describe("enrichCellFeeCredits", () => {
   });
 });
 
-describe("enrichCreditsForCell (real, known business count)", () => {
-  test("scales with business count — for use ONLY where the count is real", () => {
-    const small = enrichCreditsForCell(["contacts"], 10);
-    const large = enrichCreditsForCell(["contacts"], 1000);
+describe("enrichCreditsFor (real, known business + cell count)", () => {
+  // Preview's post-mapping "Enrich N businesses — ~X credits" costbar line
+  // calls this directly once the market is real (never before — see the
+  // per-lead-rate functions above for the pre-mapping honest estimate).
+  test("scales with business count for business-basis families", () => {
+    const small = enrichCreditsFor(["contacts"], 10, 1);
+    const large = enrichCreditsFor(["contacts"], 1000, 1);
     expect(large).toBeGreaterThan(small);
+  });
+
+  test("scales with cell count for cell-basis families, independent of business count", () => {
+    const oneCell = enrichCreditsFor(["meta_ads"], 500, 1);
+    const threeCells = enrichCreditsFor(["meta_ads"], 500, 3);
+    expect(threeCells).toBeGreaterThan(oneCell);
+  });
+
+  test("zero businesses and a business-only family costs 0", () => {
+    expect(enrichCreditsFor(["contacts"], 0, 1)).toBe(0);
   });
 });
 

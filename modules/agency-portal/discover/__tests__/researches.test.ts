@@ -9,6 +9,8 @@ import { describe, expect, test } from "vitest";
 import {
   RESEARCH_DEPS,
   RESEARCH_LABELS,
+  RESEARCH_SOURCES,
+  groupSignalsByResearch,
   resolveResearches,
   researchesForSignals,
   type Research,
@@ -168,5 +170,74 @@ describe("RESEARCH_LABELS · UI coverage", () => {
     for (const t of ALL_ENRICHMENT_TYPES) {
       expect(RESEARCH_LABELS[t]).toBeTruthy();
     }
+  });
+});
+
+describe("RESEARCH_SOURCES · UI coverage", () => {
+  test("every EnrichmentType has a source subtitle", () => {
+    for (const t of ALL_ENRICHMENT_TYPES) {
+      expect(RESEARCH_SOURCES[t]).toBeTruthy();
+    }
+  });
+});
+
+describe("groupSignalsByResearch · Preview's 'What you picked' grouping", () => {
+  test("a discovery-only signal (no researches) lands under the synthetic 'discovery' group", () => {
+    const families = researchesForSignals([{ key: "operating_business" }]);
+    const groups = groupSignalsByResearch(
+      [{ key: "operating_business" }],
+      families,
+    );
+    expect(groups).toEqual([
+      {
+        key: "discovery",
+        label: "Discovery",
+        source: "Google Maps listing",
+        titles: ["Operating business"],
+      },
+    ]);
+  });
+
+  test("a signal needing one research lands only in that group (no fake duplication)", () => {
+    const active = [{ key: "overdue_redesign" }]; // researches: ["lighthouse"]
+    const families = researchesForSignals(active);
+    const groups = groupSignalsByResearch(active, families);
+    expect(groups.map((g) => g.key)).toEqual(["lighthouse"]);
+    expect(groups[0].titles).toEqual(["Overdue for a redesign"]);
+  });
+
+  test("a signal needing multiple researches appears under EACH (duplication is intentional)", () => {
+    // ads_without_pixel declares meta_ads + tech (tech pulls in contacts).
+    const active = [{ key: "ads_without_pixel" }];
+    const families = researchesForSignals(active);
+    const groups = groupSignalsByResearch(active, families);
+    const keys = groups.map((g) => g.key);
+    expect(keys).toContain("tech");
+    expect(keys).toContain("meta_ads");
+    expect(groups.find((g) => g.key === "tech")?.titles).toContain(
+      "Runs Meta ads without a pixel",
+    );
+    expect(groups.find((g) => g.key === "meta_ads")?.titles).toContain(
+      "Runs Meta ads without a pixel",
+    );
+  });
+
+  test("mixed discovery + enrichment signals: discovery group always sorts first", () => {
+    const active = [
+      { key: "overdue_redesign" }, // → lighthouse
+      { key: "has_website" }, // → discovery
+    ];
+    const families = researchesForSignals(active);
+    const groups = groupSignalsByResearch(active, families);
+    expect(groups[0].key).toBe("discovery");
+    expect(groups.map((g) => g.key)).toContain("lighthouse");
+  });
+
+  test("unknown signal keys contribute no group", () => {
+    expect(groupSignalsByResearch([{ key: "not_a_signal" }], [])).toEqual([]);
+  });
+
+  test("empty selection → no groups", () => {
+    expect(groupSignalsByResearch([], [])).toEqual([]);
   });
 });

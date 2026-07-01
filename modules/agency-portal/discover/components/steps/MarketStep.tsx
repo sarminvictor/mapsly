@@ -2,7 +2,7 @@
 
 // MarketStep · "Where should we look?" — step 2 of the Get-leads flow. Two
 // entry modes via a .seg2 tablist: "Target markets" (city + category combobox →
-// Add market → curated "Your markets" list, cap 9) and "Search everywhere".
+// Add market → curated "Your markets" list, cap 3) and "Search everywhere".
 // RIGHT: a read-only "Your goal" rail showing the active signals + Edit signals
 // (jumps back to Goal). Continue advances to Preview.
 //
@@ -28,7 +28,7 @@ export interface CategoryOption {
   groupLabel?: string;
 }
 
-const MAX_MARKETS = 9;
+const MAX_MARKETS = 3;
 const LEAD_PRESETS = [25, 50, 100, 250, 500, 1000];
 
 export function MarketStep({
@@ -91,7 +91,7 @@ export function MarketStep({
       return;
     }
     if (cells.length >= MAX_MARKETS) {
-      onToast("Up to 9 markets — keeps your spend predictable");
+      onToast("Up to 3 markets — keeps your spend predictable");
       return;
     }
     const dupe = cells.some(
@@ -239,7 +239,7 @@ export function MarketStep({
                 )}
               </div>
               <div className="note" style={{ marginTop: 8 }}>
-                Each market = one city × one category. Add up to 9 — keeps your
+                Each market = one city × one category. Add up to 3 — keeps your
                 spend predictable.
               </div>
             </div>

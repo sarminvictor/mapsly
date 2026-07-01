@@ -2225,6 +2225,21 @@
   border-radius: 6px;
   transition: width 0.4s;
 }
+/* Indeterminate variant — for background work with no real % to show (e.g.
+   discovery mapping a market). A honest "working on it" sweep, never a fake
+   number. `i` ignores its width style when this modifier is present. */
+.agency-portal .bar.indeterminate > i {
+  width: 40% !important;
+  animation: barsweep 1.4s ease-in-out infinite;
+}
+@keyframes barsweep {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(250%);
+  }
+}
 .agency-portal .joblist {
   display: flex;
   flex-direction: column;

@@ -1,17 +1,21 @@
 "use client";
 
-// GetLeadsFlow · the resumable 5-step "Get leads" journey
-// (Goal ▸ Market ▸ Preview ▸ Discover ▸ Enrich). One client component owns the
-// flow and switches views — but the flow state lives in the URL (search params),
-// not React state, so a refresh / Back / shared link RESUMES exactly where the
+// GetLeadsFlow · the resumable 4-step "Get leads" journey
+// (Goal ▸ Market ▸ Preview ▸ Enrich). One client component owns the flow and
+// switches views — but the flow state lives in the URL (search params), not
+// React state, so a refresh / Back / shared link RESUMES exactly where the
 // user was instead of restarting at Goal.
 //
+// There is deliberately no separate "Discover" step: Preview auto-triggers
+// discovery in the background the moment it mounts and reveals real numbers
+// as the market maps — see PreviewStep.tsx for the merged implementation.
+//
 // URL is the source of truth (same /discover route, query params):
-//   ?step=goal|market|preview|discover|enriching
+//   ?step=goal|market|preview|enriching
 //   ?goal=<templateKey>            (the GoalState reconstructs via loadGoalFrom)
 //   ?sig=<onKey,onKey,…>           (which signals are toggled on — preserves edits)
 //   ?cells=<metroSlug:categoryId,…> (the curated markets; rebuilt from the props)
-//   ?d=<discoveryId>               (set once discovery runs)
+//   ?d=<discoveryId>               (set once enrichment starts, for the Enriching step)
 //   ?run=<runId>&n=<leadCount>     (set once enrichment runs)
 //
 // We `replace` for in-step selection (no history spam) and `push` for step
@@ -19,8 +23,8 @@
 // clamped to what the available state actually supports, so a stale/deep link
 // can never land on a blank step.
 //
-// State threading still flows GOAL → MARKET → PREVIEW → DISCOVER → ENRICHING,
-// wiring the REAL server actions. Uses the prototype's ported classes. English-only.
+// State threading flows GOAL → MARKET → PREVIEW → ENRICHING, wiring the REAL
+// server actions. Uses the prototype's ported classes. English-only.
 
 import { useCallback, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -40,7 +44,6 @@ import {
   type MetroOption,
 } from "./steps/MarketStep";
 import { PreviewStep } from "./steps/PreviewStep";
-import { DiscoverStep } from "./steps/DiscoverStep";
 import { EnrichingStep } from "./steps/EnrichingStep";
 
 const FLOW_KEYS = FLOW_STEPS.map((s) => s.key);
@@ -112,8 +115,6 @@ export function GetLeadsFlow({
   const rawStep = sp.get("step");
   let step: FlowStep = isFlowStep(rawStep) ? rawStep : "goal";
   if (step === "enriching" && (!runId || !discoveryId))
-    step = discoveryId ? "discover" : cells.length ? "preview" : "market";
-  if (step === "discover" && !discoveryId)
     step = cells.length ? "preview" : "market";
   if (step === "preview" && cells.length === 0) step = "market";
   if (step === "market" && !goal) step = "goal";
@@ -218,20 +219,14 @@ export function GetLeadsFlow({
         <PreviewStep
           goal={activeGoal}
           cells={cells}
-          onBack={() => goTo("market")}
-          onDiscovered={(id) => goTo("discover", { d: id })}
-          onToast={showToast}
-        />
-      ) : null}
-
-      {step === "discover" && discoveryId ? (
-        <DiscoverStep
-          discoveryId={discoveryId}
-          goal={activeGoal}
-          cells={cells}
           walletCredits={walletCredits}
+          onBack={() => goTo("market")}
           onEnriching={(info) =>
-            goTo("enriching", { run: info.runId, n: info.leadCount })
+            goTo("enriching", {
+              run: info.runId,
+              n: info.leadCount,
+              d: info.discoveryId,
+            })
           }
           onToast={showToast}
         />
