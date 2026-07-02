@@ -23,6 +23,8 @@
 // aborts the batch — it's retried up to MAX_JOB_ATTEMPTS, then marked FAILED and
 // the run closes PARTIAL. A crashed tick is recovered by reconcileStuck.
 
+import pLimit from "p-limit";
+
 import prisma from "@/lib/prisma";
 import { parseCellKey } from "@/lib/cell";
 import {
@@ -55,6 +57,16 @@ const JOB_BATCH =
   Number(process.env.ENRICHMENT_JOB_BATCH) > 0
     ? Number(process.env.ENRICHMENT_JOB_BATCH)
     : 25;
+// How many jobs run CONCURRENTLY within a batch. Each job is a long, I/O-bound
+// external call (a DfS Lighthouse audit is ~10-30s), so running them one-at-a-
+// time is the throughput floor (73 × ~10s ≈ 12 min). Concurrency collapses
+// that to ~batch/concurrency waves. Kept conservative: even at 8-wide the
+// effective request rate is well under DfS's 10 req/s (each call is seconds
+// long), and per-family cost ceilings still bound spend.
+const JOB_CONCURRENCY =
+  Number(process.env.ENRICHMENT_JOB_CONCURRENCY) > 0
+    ? Number(process.env.ENRICHMENT_JOB_CONCURRENCY)
+    : 6;
 const STUCK_JOB_MINUTES = 10;
 const STUCK_DISCOVERY_MINUTES = 30;
 const RUNNING_RUN_CLOSE_LIMIT = 50;
@@ -73,6 +85,10 @@ export interface DispatchResult {
   jobsRequeued: number;
   /** Runs closed (OK/PARTIAL) + settled this tick. */
   runsClosed: number;
+  /** True when work remains AND this tick made progress — the caller should
+   *  immediately re-kick the dispatch (self-chain) so batches run back-to-back
+   *  instead of waiting for the next 2-min cron tick. */
+  hasMoreWork: boolean;
 }
 
 interface ScopeRefs {
@@ -677,6 +693,7 @@ export async function dispatchPending(limit = 10): Promise<DispatchResult> {
     unitsFailed: 0,
     jobsRequeued: 0,
     runsClosed: 0,
+    hasMoreWork: false,
   };
   const now = new Date();
 
@@ -764,15 +781,24 @@ export async function dispatchPending(limit = 10): Promise<DispatchResult> {
     .filter((j) => !DOM_DEPENDENT.has(j.family) || !blocked.has(j.businessId))
     .slice(0, JOB_BATCH);
 
-  for (const job of queued) {
-    const outcome = await processJob(job, new Date());
+  // Process the batch CONCURRENTLY (bounded by JOB_CONCURRENCY). Each job is a
+  // long external call; sequential processing was the 12-min-for-73 floor. Safe:
+  // dependents were already excluded above (a business's DOM-dependent job never
+  // shares a batch with its not-yet-terminal CONTACTS root), and each processJob
+  // touches only its own job + business rows, so concurrency introduces no race.
+  const jobLimit = pLimit(JOB_CONCURRENCY);
+  const outcomes = await Promise.all(
+    queued.map((job) => jobLimit(() => processJob(job, new Date()))),
+  );
+  for (const outcome of outcomes) {
     if (outcome === "done") res.unitsDone++;
     else if (outcome === "failed") res.unitsFailed++;
     else if (outcome === "requeued") res.jobsRequeued++;
   }
 
-  // Close any RUNNING runs whose jobs are all terminal (also recovers a run
-  // whose last-job-close crashed on a prior tick).
+  // Advance each RUNNING run's progress counter (so the header + Enriching page
+  // climb honestly this tick, not just at close), then close any run whose jobs
+  // are all terminal (also recovers a run whose last-job-close crashed).
   const runningRuns = await prisma.enrichmentRun.findMany({
     where: { status: "RUNNING" },
     select: { id: true },
@@ -780,8 +806,47 @@ export async function dispatchPending(limit = 10): Promise<DispatchResult> {
     orderBy: { startedAt: "asc" },
   });
   for (const r of runningRuns) {
+    await updateRunProgress(r.id);
     if (await closeRunIfDone(r.id, new Date())) res.runsClosed++;
   }
 
+  // Self-chain signal: work remains AND we made progress this tick. `pool` was
+  // fetched with `take: JOB_BATCH * 3`, so >JOB_BATCH pooled means more QUEUED
+  // jobs exist beyond what this batch drained. Requiring "made progress" avoids
+  // tight-looping when everything left is blocked on a dependency (the next
+  // cron tick picks it up once the root lands).
+  const madeProgress =
+    res.unitsDone + res.unitsFailed + res.jobsRequeued > 0 ||
+    res.discoveriesRun > 0 ||
+    res.enrichmentRunsProcessed > 0;
+  res.hasMoreWork = madeProgress && pool.length > queued.length;
+
   return res;
+}
+
+/**
+ * Advance one RUNNING run's `unitsCompleted` to real progress: the number of
+ * requested businesses that have NO outstanding (QUEUED/RUNNING) job left.
+ * Monotonic, reaches `unitsRequested` when every job is terminal. Display-only
+ * (the header + Enriching page read it) — credit settlement uses `actualUsd`,
+ * never this — so updating it mid-run is safe. Replaces the old behaviour where
+ * `unitsCompleted` was written only at close, so the bar sat at 0 then jumped.
+ * Exported for unit testing.
+ */
+export async function updateRunProgress(runId: string): Promise<void> {
+  const run = await prisma.enrichmentRun.findUnique({
+    where: { id: runId },
+    select: { unitsRequested: true },
+  });
+  if (!run) return;
+  const inProgress = await prisma.enrichmentJob.findMany({
+    where: { runId, status: { in: ["QUEUED", "RUNNING"] } },
+    select: { businessId: true },
+    distinct: ["businessId"],
+  });
+  const completed = Math.max(0, run.unitsRequested - inProgress.length);
+  await prisma.enrichmentRun.update({
+    where: { id: runId },
+    data: { unitsCompleted: completed },
+  });
 }

@@ -1,0 +1,785 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Mapsly · Agency enrichment architecture</title>
+    <style>
+      :root {
+        --bg: #f6f7fb;
+        --ink: #0d1020;
+        --ink-2: #2b3050;
+        --muted: #5b6484;
+        --faint: #8b93ad;
+        --line: #e4e7f0;
+        --line-2: #eef1f7;
+        --indigo: #5b3df5;
+        --indigo-50: #efeaff;
+        --amber: #e08a00;
+        --amber-50: #fff5e0;
+        --mint: #10a37f;
+        --mint-50: #e4f8f1;
+        --red: #d1435b;
+        --red-50: #fdecef;
+        --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font:
+          15px/1.6 "Inter",
+          system-ui,
+          -apple-system,
+          sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+      .wrap {
+        max-width: 1080px;
+        margin: 0 auto;
+        padding: 44px 24px 120px;
+      }
+      header.top {
+        margin-bottom: 28px;
+      }
+      .eyebrow {
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--indigo);
+      }
+      h1 {
+        font-size: 32px;
+        line-height: 1.15;
+        margin: 6px 0 10px;
+        letter-spacing: -0.02em;
+      }
+      h2 {
+        font-size: 21px;
+        margin: 44px 0 6px;
+        letter-spacing: -0.01em;
+        scroll-margin-top: 20px;
+      }
+      h3 {
+        font-size: 16px;
+        margin: 22px 0 6px;
+      }
+      p {
+        margin: 8px 0;
+        color: var(--ink-2);
+      }
+      .sub {
+        color: var(--muted);
+        font-size: 16px;
+        max-width: 78ch;
+      }
+      code,
+      .mono {
+        font-family: var(--mono);
+        font-size: 0.88em;
+      }
+      code {
+        background: #edeff6;
+        padding: 1px 5px;
+        border-radius: 5px;
+        color: var(--ink);
+      }
+      .card {
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 20px 22px;
+        margin: 16px 0;
+      }
+      .callout {
+        border-radius: 12px;
+        padding: 14px 18px;
+        margin: 14px 0;
+        display: flex;
+        gap: 12px;
+        align-items: flex-start;
+      }
+      .callout .ic {
+        font-size: 18px;
+        line-height: 1.4;
+      }
+      .callout p {
+        margin: 0;
+      }
+      .callout.key {
+        background: var(--indigo-50);
+        border: 1px solid #d9cffb;
+      }
+      .callout.warn {
+        background: var(--amber-50);
+        border: 1px solid #f1dba6;
+      }
+      .callout.good {
+        background: var(--mint-50);
+        border: 1px solid #b7e6d6;
+      }
+      .grid2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+      }
+      @media (max-width: 760px) {
+        .grid2 {
+          grid-template-columns: 1fr;
+        }
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13.5px;
+        margin: 12px 0;
+      }
+      th,
+      td {
+        text-align: left;
+        padding: 9px 11px;
+        border-bottom: 1px solid var(--line-2);
+        vertical-align: top;
+      }
+      th {
+        font-size: 11.5px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--faint);
+        font-weight: 700;
+      }
+      tr:last-child td {
+        border-bottom: none;
+      }
+      .tag {
+        display: inline-block;
+        font-size: 11px;
+        font-weight: 700;
+        padding: 2px 8px;
+        border-radius: 999px;
+        white-space: nowrap;
+      }
+      .tag.sync {
+        background: var(--red-50);
+        color: var(--red);
+      }
+      .tag.async {
+        background: var(--mint-50);
+        color: var(--mint);
+      }
+      .tag.inline {
+        background: var(--amber-50);
+        color: var(--amber);
+      }
+      .tag.free {
+        background: #edeff6;
+        color: var(--muted);
+      }
+      .tag.biz {
+        background: var(--indigo-50);
+        color: var(--indigo);
+      }
+      .tag.cell {
+        background: #e9f0ff;
+        color: #2f5bd0;
+      }
+      figure {
+        margin: 18px 0;
+        text-align: center;
+      }
+      figcaption {
+        font-size: 12.5px;
+        color: var(--faint);
+        margin-top: 8px;
+      }
+      svg {
+        max-width: 100%;
+        height: auto;
+      }
+      .legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 14px;
+        font-size: 12.5px;
+        color: var(--muted);
+        margin: 8px 0 0;
+        justify-content: center;
+      }
+      .legend span {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .sw {
+        width: 12px;
+        height: 12px;
+        border-radius: 3px;
+        display: inline-block;
+      }
+      .toc {
+        font-size: 13.5px;
+        color: var(--muted);
+        columns: 2;
+        margin: 4px 0 0;
+      }
+      .toc a {
+        color: var(--ink-2);
+        text-decoration: none;
+        display: block;
+        padding: 2px 0;
+      }
+      .toc a:hover {
+        color: var(--indigo);
+      }
+      ul.tight li {
+        margin: 4px 0;
+        color: var(--ink-2);
+      }
+      .kbd {
+        font-family: var(--mono);
+        font-size: 12px;
+        background: #edeff6;
+        border-radius: 5px;
+        padding: 1px 6px;
+      }
+      .path {
+        font-family: var(--mono);
+        font-size: 12px;
+        color: var(--muted);
+      }
+      hr {
+        border: none;
+        border-top: 1px solid var(--line);
+        margin: 40px 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header class="top">
+        <div class="eyebrow">Mapsly · Agency portal</div>
+        <h1>How enrichment actually runs</h1>
+        <p class="sub">
+          The get-leads enrichment engine — how Lighthouse and every other
+          research family is executed, the dependency order between them, and
+          the honest answer to “why a cron and not the Boxly Worker queue?”
+        </p>
+      </header>
+
+      <div class="card">
+        <div class="eyebrow" style="color: var(--faint)">On this page</div>
+        <div class="toc">
+          <a href="#tldr">① The short answer</a>
+          <a href="#two">② Two background systems</a>
+          <a href="#pipeline">③ The enrichment pipeline</a>
+          <a href="#dag">④ The dependency order (DAG)</a>
+          <a href="#families">⑤ Per-family reference</a>
+          <a href="#lighthouse">⑥ Lighthouse deep-dive</a>
+          <a href="#future">⑦ What’s fixed · what’s next</a>
+        </div>
+      </div>
+
+      <!-- ───────────────────────── 1 · TL;DR ───────────────────────── -->
+      <h2 id="tldr">① The short answer</h2>
+      <div class="callout key">
+        <span class="ic">🎯</span>
+        <p>
+          There are <b>two separate background systems</b>. The <b>Boxly
+          Worker</b> (a real Redis queue with concurrency + retry) handles the
+          <i>older</i> flows — website scans, search scans, ad scans, bulk
+          review pulls, business qualification. But the <b>new agency get-leads
+          enrichment</b> (contacts, Lighthouse, reviews, services, AI) does
+          <b>not</b> use the Boxly Worker — it has its own <b>cron-drained job
+          rail</b> (<code>EnrichmentRun</code> → <code>EnrichmentJob</code> rows
+          in Postgres, drained by <code>/api/cron/internal/dispatch</code>).
+          That’s the source of the confusion.
+        </p>
+      </div>
+      <div class="grid2">
+        <div class="card">
+          <h3 style="margin-top: 0">Why it was slow (before the fix)</h3>
+          <ul class="tight">
+            <li>
+              Each Lighthouse audit is a <b>synchronous</b> DfS <i>Live</i> call
+              (<code>/on_page/lighthouse/live/json</code>) that blocks
+              <b>~10–30&nbsp;s</b> while DfS runs the real audit.
+            </li>
+            <li>
+              Jobs ran <b>one-at-a-time</b>, 25 per tick, and a tick only fired
+              on the <b>every-2-minute</b> cron.
+            </li>
+            <li>73 × ~10&nbsp;s sequential ≈ <b>12+ minutes</b>. 😖</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3 style="margin-top: 0">Why reviews were already fine</h3>
+          <ul class="tight">
+            <li>
+              Reviews use DfS <b>Standard queue</b> +
+              <b>pingback webhook</b>: we submit the task and DfS <b>calls us
+              back</b> when it’s done — no blocking.
+            </li>
+            <li>
+              So the “webhook per business” model you were thinking of
+              <b>already exists — for reviews</b>. Lighthouse just never adopted
+              it (it uses the blocking Live call).
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- ───────────────────── 2 · TWO SYSTEMS ───────────────────── -->
+      <h2 id="two">② Two background systems</h2>
+      <p>
+        Both exist to keep long work out of the user’s request (the hard rule:
+        <i>no live external API in a user request path</i>). They differ in
+        <b>who runs the queue</b>.
+      </p>
+
+      <figure>
+        <svg viewBox="0 0 960 340" xmlns="http://www.w3.org/2000/svg" role="img"
+             aria-label="Two background systems: Boxly Worker vs cron job rail">
+          <defs>
+            <marker id="ar" markerWidth="9" markerHeight="9" refX="7" refY="3"
+                    orient="auto">
+              <path d="M0,0 L7,3 L0,6 Z" fill="#8b93ad" />
+            </marker>
+          </defs>
+          <!-- Mapsly -->
+          <rect x="20" y="140" width="150" height="60" rx="12" fill="#0d1020" />
+          <text x="95" y="166" fill="#fff" font-size="14" font-weight="700"
+                text-anchor="middle">Mapsly</text>
+          <text x="95" y="184" fill="#aab2cc" font-size="11"
+                text-anchor="middle">Vercel functions</text>
+
+          <!-- System A: Boxly -->
+          <rect x="330" y="30" width="600" height="120" rx="14" fill="#fff"
+                stroke="#d9cffb" stroke-width="1.5" />
+          <text x="350" y="55" fill="#5b3df5" font-size="12" font-weight="700"
+                letter-spacing="0.05em">SYSTEM A · BOXLY WORKER (Redis queue)</text>
+          <rect x="350" y="70" width="150" height="56" rx="10" fill="#efeaff" />
+          <text x="425" y="93" fill="#0d1020" font-size="12" font-weight="600"
+                text-anchor="middle">Redis queue</text>
+          <text x="425" y="110" fill="#5b6484" font-size="10"
+                text-anchor="middle">concurrency + retry</text>
+          <text x="530" y="95" fill="#5b6484" font-size="11">callbacks →</text>
+          <rect x="620" y="70" width="290" height="56" rx="10" fill="#f6f7fb" />
+          <text x="765" y="90" fill="#2b3050" font-size="11" text-anchor="middle"
+                font-weight="600">website · search · ads scans</text>
+          <text x="765" y="108" fill="#2b3050" font-size="11"
+                text-anchor="middle">bulk reviews · qualify-business</text>
+
+          <!-- System B: cron rail -->
+          <rect x="330" y="190" width="600" height="120" rx="14" fill="#fff"
+                stroke="#f1dba6" stroke-width="1.5" />
+          <text x="350" y="215" fill="#b06a00" font-size="12" font-weight="700"
+                letter-spacing="0.05em">SYSTEM B · CRON JOB RAIL (Postgres)</text>
+          <rect x="350" y="230" width="180" height="56" rx="10" fill="#fff5e0" />
+          <text x="440" y="253" fill="#0d1020" font-size="12" font-weight="600"
+                text-anchor="middle">EnrichmentJob rows</text>
+          <text x="440" y="270" fill="#5b6484" font-size="10"
+                text-anchor="middle">drained every 2&nbsp;min + on kick</text>
+          <text x="560" y="255" fill="#5b6484" font-size="11">runs →</text>
+          <rect x="640" y="230" width="270" height="56" rx="10" fill="#f6f7fb" />
+          <text x="775" y="250" fill="#2b3050" font-size="11" text-anchor="middle"
+                font-weight="600">AGENCY get-leads enrichment</text>
+          <text x="775" y="268" fill="#2b3050" font-size="11"
+                text-anchor="middle">contacts · lighthouse · reviews · AI</text>
+
+          <!-- arrows -->
+          <path d="M172 158 C 250 120, 260 95, 348 92" fill="none"
+                stroke="#8b93ad" stroke-width="1.5" marker-end="url(#ar)" />
+          <path d="M172 182 C 250 220, 260 250, 348 255" fill="none"
+                stroke="#8b93ad" stroke-width="1.5" marker-end="url(#ar)" />
+        </svg>
+        <figcaption>
+          Same goal (background work), two different queue owners. Your mental
+          model matches <b>System A</b>; agency enrichment is <b>System B</b>.
+        </figcaption>
+      </figure>
+
+      <table>
+        <thead>
+          <tr><th>&nbsp;</th><th>System A · Boxly Worker</th><th>System B · Cron job rail</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><b>Queue lives in</b></td>
+            <td>Redis (the sibling Boxly product)</td>
+            <td>Postgres — <code>EnrichmentJob</code> rows (status QUEUED→RUNNING→DONE)</td>
+          </tr>
+          <tr>
+            <td><b>Who drains it</b></td>
+            <td>The Boxly worker process (its own concurrency + retry), calls back to Mapsly endpoints</td>
+            <td><code>/api/cron/internal/dispatch</code> → <code>dispatchPending()</code></td>
+          </tr>
+          <tr>
+            <td><b>Trigger</b></td>
+            <td>Mapsly POSTs jobs on enqueue; worker runs immediately</td>
+            <td>Every-2-min Vercel cron <b>+</b> an immediate kick on enqueue <b>+</b> self-chain</td>
+          </tr>
+          <tr>
+            <td><b>Used by</b></td>
+            <td><span class="path">website-intel · search-visibility · ads-intel · reviews bulk-pull · qualify-one</span></td>
+            <td><span class="path">the agency Get-leads “Enrich” button</span></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- ───────────────────── 3 · PIPELINE ───────────────────── -->
+      <h2 id="pipeline">③ The enrichment pipeline (System B)</h2>
+      <p>
+        What happens from the moment you click <b>Enrich</b>. The heavy work
+        never runs in your click — the action only writes a <code>PENDING</code>
+        row and returns; the dispatch drains it.
+      </p>
+
+      <figure>
+        <svg viewBox="0 0 980 470" xmlns="http://www.w3.org/2000/svg" role="img"
+             aria-label="Enrichment pipeline flow">
+          <defs>
+            <marker id="a2" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto">
+              <path d="M0,0 L7,3 L0,6 Z" fill="#5b3df5" />
+            </marker>
+            <marker id="a3" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto">
+              <path d="M0,0 L7,3 L0,6 Z" fill="#8b93ad" />
+            </marker>
+          </defs>
+
+          <!-- 1 enqueue -->
+          <rect x="20" y="24" width="220" height="72" rx="12" fill="#0d1020" />
+          <text x="130" y="50" fill="#fff" font-size="13" font-weight="700" text-anchor="middle">1 · You click “Enrich”</text>
+          <text x="130" y="70" fill="#aab2cc" font-size="10.5" text-anchor="middle">runEnrichAction: creates a</text>
+          <text x="130" y="85" fill="#aab2cc" font-size="10.5" text-anchor="middle">PENDING EnrichmentRun · returns</text>
+
+          <!-- kick -->
+          <rect x="300" y="24" width="200" height="72" rx="12" fill="#efeaff" stroke="#d9cffb" />
+          <text x="400" y="50" fill="#5b3df5" font-size="12.5" font-weight="700" text-anchor="middle">2 · kickDispatch()</text>
+          <text x="400" y="70" fill="#5b6484" font-size="10.5" text-anchor="middle">fire-and-forget POST to</text>
+          <text x="400" y="85" fill="#5b6484" font-size="10.5" text-anchor="middle">the dispatch route</text>
+
+          <!-- cron -->
+          <rect x="560" y="24" width="200" height="72" rx="12" fill="#fff5e0" stroke="#f1dba6" />
+          <text x="660" y="50" fill="#b06a00" font-size="12.5" font-weight="700" text-anchor="middle">⏱ every-2-min cron</text>
+          <text x="660" y="70" fill="#5b6484" font-size="10.5" text-anchor="middle">the guaranteed backstop —</text>
+          <text x="660" y="85" fill="#5b6484" font-size="10.5" text-anchor="middle">runs even if a kick is lost</text>
+
+          <path d="M240 60 L298 60" stroke="#5b3df5" stroke-width="1.6" marker-end="url(#a2)" />
+          <path d="M560 60 L502 60" stroke="#8b93ad" stroke-width="1.4" stroke-dasharray="4 3" marker-end="url(#a3)" />
+
+          <!-- dispatch box -->
+          <rect x="60" y="130" width="860" height="250" rx="16" fill="#fff" stroke="#e4e7f0" stroke-width="1.5" />
+          <text x="82" y="156" fill="#5b3df5" font-size="12" font-weight="700" letter-spacing="0.05em">dispatchPending()  ·  one tick</text>
+
+          <!-- steps inside -->
+          <g font-size="11.5">
+            <rect x="82" y="172" width="180" height="58" rx="10" fill="#f6f7fb" />
+            <text x="172" y="194" text-anchor="middle" fill="#0d1020" font-weight="600">a · reconcileStuck</text>
+            <text x="172" y="211" text-anchor="middle" fill="#5b6484">reset crashed jobs → QUEUED</text>
+
+            <rect x="278" y="172" width="180" height="58" rx="10" fill="#f6f7fb" />
+            <text x="368" y="194" text-anchor="middle" fill="#0d1020" font-weight="600">b · drain discoveries</text>
+            <text x="368" y="211" text-anchor="middle" fill="#5b6484">map markets (if any)</text>
+
+            <rect x="474" y="172" width="200" height="58" rx="10" fill="#efeaff" />
+            <text x="574" y="190" text-anchor="middle" fill="#0d1020" font-weight="600">c · fanOutRun</text>
+            <text x="574" y="206" text-anchor="middle" fill="#5b6484">cell families INLINE +</text>
+            <text x="574" y="221" text-anchor="middle" fill="#5b6484">per-business jobs → QUEUED</text>
+
+            <rect x="690" y="172" width="212" height="58" rx="10" fill="#e9f0ff" />
+            <text x="796" y="190" text-anchor="middle" fill="#0d1020" font-weight="600">d · work a batch of jobs</text>
+            <text x="796" y="206" text-anchor="middle" fill="#2f5bd0" font-weight="600">NOW PARALLEL (p-limit 6)</text>
+            <text x="796" y="221" text-anchor="middle" fill="#5b6484">dependency-ordered</text>
+
+            <rect x="278" y="248" width="200" height="52" rx="10" fill="#f6f7fb" />
+            <text x="378" y="269" text-anchor="middle" fill="#0d1020" font-weight="600">e · updateRunProgress</text>
+            <text x="378" y="285" text-anchor="middle" fill="#5b6484">unitsCompleted climbs ✅</text>
+
+            <rect x="494" y="248" width="200" height="52" rx="10" fill="#e4f8f1" />
+            <text x="594" y="266" text-anchor="middle" fill="#0d1020" font-weight="600">f · closeRunIfDone</text>
+            <text x="594" y="282" text-anchor="middle" fill="#10a37f">playbooks + settle credits</text>
+          </g>
+
+          <!-- self chain -->
+          <rect x="82" y="316" width="820" height="46" rx="10" fill="#fff5e0" stroke="#f1dba6" />
+          <text x="492" y="337" text-anchor="middle" fill="#b06a00" font-size="12" font-weight="700">g · self-chain — jobs remain &amp; we made progress? re-kick immediately (no 2-min wait)</text>
+          <text x="492" y="352" text-anchor="middle" fill="#5b6484" font-size="10.5">so batches run back-to-back until the run is done</text>
+
+          <path d="M660 96 C 660 112, 500 118, 490 128" fill="none" stroke="#8b93ad" stroke-width="1.4" marker-end="url(#a3)" />
+          <path d="M400 96 C 400 110, 470 118, 486 128" fill="none" stroke="#5b3df5" stroke-width="1.6" marker-end="url(#a2)" />
+          <!-- chain loop arrow -->
+          <path d="M82 339 C 40 339, 40 60, 300 60" fill="none" stroke="#e0a52a" stroke-width="1.5" stroke-dasharray="5 3" marker-end="url(#a3)" />
+        </svg>
+        <figcaption>
+          Steps <b>e</b> (progress) and <b>g</b> (self-chain), plus the
+          <b>parallel</b> job loop in <b>d</b>, are the fixes just shipped.
+        </figcaption>
+      </figure>
+
+      <!-- ───────────────────── 4 · DAG ───────────────────── -->
+      <h2 id="dag">④ The dependency order (DAG)</h2>
+      <p>
+        Not every family is independent. The <b>DOM scrape</b> (the Contacts
+        job) is the root: it captures the page once, and two families read that
+        captured DOM — so they can’t start until Contacts finishes for that
+        business. The dispatch enforces this without a schema: a business’s
+        dependent jobs aren’t claimed until its Contacts job is terminal.
+      </p>
+
+      <figure>
+        <svg viewBox="0 0 940 360" xmlns="http://www.w3.org/2000/svg" role="img"
+             aria-label="Enrichment family dependency graph">
+          <defs>
+            <marker id="a4" markerWidth="10" markerHeight="10" refX="8" refY="3.5" orient="auto">
+              <path d="M0,0 L8,3.5 L0,7 Z" fill="#5b3df5" />
+            </marker>
+          </defs>
+
+          <!-- Contacts root -->
+          <rect x="40" y="150" width="200" height="72" rx="12" fill="#efeaff" stroke="#5b3df5" stroke-width="1.6" />
+          <text x="140" y="176" text-anchor="middle" fill="#0d1020" font-size="13.5" font-weight="700">CONTACTS  (DOM root)</text>
+          <text x="140" y="196" text-anchor="middle" fill="#5b6484" font-size="10.5">one page fetch →</text>
+          <text x="140" y="211" text-anchor="middle" fill="#5b6484" font-size="10.5">emails·phones·socials <b>+ tech</b></text>
+
+          <!-- dependents -->
+          <rect x="360" y="90" width="200" height="60" rx="12" fill="#fff" stroke="#d9cffb" />
+          <text x="460" y="115" text-anchor="middle" fill="#0d1020" font-size="12.5" font-weight="600">SERVICES</text>
+          <text x="460" y="132" text-anchor="middle" fill="#5b6484" font-size="10.5">AI reads the captured DOM</text>
+
+          <rect x="360" y="222" width="200" height="60" rx="12" fill="#fff" stroke="#d9cffb" />
+          <text x="460" y="247" text-anchor="middle" fill="#0d1020" font-size="12.5" font-weight="600">AI_RESEARCH</text>
+          <text x="460" y="264" text-anchor="middle" fill="#5b6484" font-size="10.5">AI reads the captured DOM</text>
+
+          <path d="M240 175 C 300 150, 300 128, 358 122" fill="none" stroke="#5b3df5" stroke-width="1.8" marker-end="url(#a4)" />
+          <path d="M240 197 C 300 225, 300 248, 358 252" fill="none" stroke="#5b3df5" stroke-width="1.8" marker-end="url(#a4)" />
+
+          <!-- independents -->
+          <rect x="700" y="30" width="210" height="58" rx="12" fill="#fdecef" stroke="#f0b8c2" />
+          <text x="805" y="53" text-anchor="middle" fill="#0d1020" font-size="12.5" font-weight="600">LIGHTHOUSE</text>
+          <text x="805" y="70" text-anchor="middle" fill="#d1435b" font-size="10.5">own DfS Live audit · SYNC · slow</text>
+
+          <rect x="700" y="110" width="210" height="58" rx="12" fill="#e4f8f1" stroke="#b7e6d6" />
+          <text x="805" y="133" text-anchor="middle" fill="#0d1020" font-size="12.5" font-weight="600">REVIEWS</text>
+          <text x="805" y="150" text-anchor="middle" fill="#10a37f" font-size="10.5">DfS Standard + pingback · ASYNC</text>
+
+          <rect x="700" y="200" width="210" height="58" rx="12" fill="#fff5e0" stroke="#f1dba6" />
+          <text x="805" y="220" text-anchor="middle" fill="#0d1020" font-size="12.5" font-weight="600">META / GOOGLE ADS · SERP</text>
+          <text x="805" y="237" text-anchor="middle" fill="#b06a00" font-size="10.5">per-CELL, run INLINE (not per-biz)</text>
+
+          <rect x="700" y="288" width="210" height="52" rx="12" fill="#edeff6" />
+          <text x="805" y="308" text-anchor="middle" fill="#0d1020" font-size="12.5" font-weight="600">PLAYBOOK (expert layer)</text>
+          <text x="805" y="325" text-anchor="middle" fill="#5b6484" font-size="10.5">$0 · auto-runs at run close</text>
+
+          <text x="620" y="200" fill="#8b93ad" font-size="11" font-style="italic">independent — no root needed</text>
+        </svg>
+        <div class="legend">
+          <span><i class="sw" style="background:#efeaff;border:1px solid #5b3df5"></i> DOM root</span>
+          <span><i class="sw" style="background:#fff;border:1px solid #d9cffb"></i> depends on Contacts</span>
+          <span><i class="sw" style="background:#fdecef;border:1px solid #f0b8c2"></i> sync (slow)</span>
+          <span><i class="sw" style="background:#e4f8f1;border:1px solid #b7e6d6"></i> async (pingback)</span>
+          <span><i class="sw" style="background:#fff5e0;border:1px solid #f1dba6"></i> per-cell inline</span>
+        </div>
+      </figure>
+
+      <div class="callout key">
+        <span class="ic">🔗</span>
+        <p>
+          <b>Tech has no job of its own.</b> Selecting the “tech / DOM” signal
+          just adds cost to the <b>Contacts</b> job — one page fetch produces
+          both the contacts <i>and</i> the tech fingerprint. That’s why the
+          checklist bucket is “Contacts” + a combined “Website &amp; tech”
+          row.
+        </p>
+      </div>
+
+      <!-- ───────────────────── 5 · FAMILIES ───────────────────── -->
+      <h2 id="families">⑤ Per-family reference</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Family</th><th>What it does</th><th>Source</th>
+            <th>Scope</th><th>Mode</th><th>~$/unit</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><b>Contacts</b></td>
+            <td>Scrape the site DOM → emails / phones / socials <i>and</i> the tech fingerprint</td>
+            <td>Our own fetch (+ rare AI email fallback)</td>
+            <td><span class="tag biz">per business</span></td>
+            <td><span class="tag sync">sync</span></td>
+            <td>$0.008</td>
+          </tr>
+          <tr>
+            <td><b>Lighthouse</b></td>
+            <td>Full mobile site-speed / a11y / SEO audit</td>
+            <td>DfS <code>/on_page/lighthouse/live/json</code></td>
+            <td><span class="tag biz">per business</span></td>
+            <td><span class="tag sync">sync · ~10-30s</span></td>
+            <td>$0.00425</td>
+          </tr>
+          <tr>
+            <td><b>Reviews</b></td>
+            <td>Pull the last-12-months of Google reviews + reputation signals</td>
+            <td>DfS Standard queue + <b>pingback</b></td>
+            <td><span class="tag biz">per business</span></td>
+            <td><span class="tag async">async</span></td>
+            <td>~$0.011</td>
+          </tr>
+          <tr>
+            <td><b>Services</b></td>
+            <td>Extract the business’s service menu from the captured DOM</td>
+            <td>AI (gpt-nano) over stored DOM</td>
+            <td><span class="tag biz">per business</span></td>
+            <td><span class="tag sync">sync</span></td>
+            <td>$0.002</td>
+          </tr>
+          <tr>
+            <td><b>AI research</b></td>
+            <td>Sub-type / positioning / pain-point synthesis</td>
+            <td>AI (gpt-nano) over stored facts</td>
+            <td><span class="tag biz">per business</span></td>
+            <td><span class="tag sync">sync</span></td>
+            <td>$0.01</td>
+          </tr>
+          <tr>
+            <td><b>Meta / Google ads</b></td>
+            <td>Who’s advertising in the market + attribution</td>
+            <td>Apify / DfS ads</td>
+            <td><span class="tag cell">per cell</span></td>
+            <td><span class="tag inline">inline</span></td>
+            <td>$0.05 / cell</td>
+          </tr>
+          <tr>
+            <td><b>SERP / search</b></td>
+            <td>Local-pack + organic ranks for the cell’s keywords</td>
+            <td>DfS SERP</td>
+            <td><span class="tag cell">per cell</span></td>
+            <td><span class="tag inline">inline</span></td>
+            <td>~$0.16 / cell</td>
+          </tr>
+          <tr>
+            <td><b>Playbook</b></td>
+            <td>Expert/compliance signals (HIPAA, ADA…) — deterministic</td>
+            <td>Over already-collected data</td>
+            <td><span class="tag biz">per business</span></td>
+            <td><span class="tag free">at close · $0</span></td>
+            <td>$0</td>
+          </tr>
+        </tbody>
+      </table>
+      <p class="sub">
+        <b>Per-cell inline</b> families run once for the whole market during
+        fan-out (73 businesses share one Meta-ads scan). <b>Per-business</b>
+        families become one <code>EnrichmentJob</code> row each.
+      </p>
+
+      <!-- ───────────────────── 6 · LIGHTHOUSE ───────────────────── -->
+      <h2 id="lighthouse">⑥ Lighthouse deep-dive (the slow one)</h2>
+      <div class="grid2">
+        <div class="card">
+          <h3 style="margin-top: 0">One Lighthouse job, step by step</h3>
+          <ol class="tight" style="padding-left: 18px">
+            <li>Job claimed <code>QUEUED → RUNNING</code>.</li>
+            <li>Freshness re-check — audited &lt;30 days ago? <code>SKIPPED_FRESH</code>, $0.</li>
+            <li>No website? skipped (can’t audit).</li>
+            <li>
+              Open site → cheap DfS <b>Live</b> audit (blocks ~10-30&nbsp;s).
+            </li>
+            <li>
+              Cloudflare-walled → fall back to the paid Apify Lighthouse actor
+              (hard-capped per run).
+            </li>
+            <li>Persist the audit → <code>DONE</code>.</li>
+          </ol>
+        </div>
+        <div class="card">
+          <h3 style="margin-top: 0">Why 73 took 12+ minutes</h3>
+          <p style="margin-top: 0">
+            The audit itself is the cost — <b>DfS runs a real Chrome Lighthouse
+            pass server-side</b>. Ours were fully <b>sequential</b>, and only 25
+            ran per 2-minute cron tick. So throughput was
+            <code>~1 audit / 10s</code> in a single line.
+          </p>
+          <p><b>73 × 10s = 730s ≈ 12 min.</b> Exactly what you saw.</p>
+        </div>
+      </div>
+
+      <div class="callout good">
+        <span class="ic">✅</span>
+        <p>
+          <b>Fix shipped:</b> the per-tick job loop now runs
+          <b>6 audits concurrently</b> (safe — each call is long, so the request
+          rate stays well under DfS’s 10/s), and the dispatch <b>self-chains</b>
+          (re-kicks itself instead of waiting for the next cron). 73 Lighthouse
+          audits should now finish in <b>~2-3 minutes</b>, and the progress bar
+          climbs honestly the whole time.
+        </p>
+      </div>
+
+      <!-- ───────────────────── 7 · FUTURE ───────────────────── -->
+      <h2 id="future">⑦ What’s fixed · what’s next</h2>
+      <div class="card">
+        <h3 style="margin-top: 0">Just shipped</h3>
+        <ul class="tight">
+          <li><b>Parallel job loop</b> (p-limit 6) — the throughput fix.</li>
+          <li><b>Self-chaining dispatch</b> — no 2-min gaps between batches.</li>
+          <li>
+            <b>Live progress</b> — <code>unitsCompleted</code> advances every
+            tick, so the header + Enriching page climb <code>0 → 73</code>
+            instead of jumping at the end.
+          </li>
+          <li>Honest copy (no fake “we’ll email you”, no “Jobs tray”), stable ETA.</li>
+        </ul>
+      </div>
+
+      <div class="callout warn">
+        <span class="ic">🧭</span>
+        <p>
+          <b>The real architectural question you raised.</b> There are two
+          cleaner long-term options, both worth a decision:
+        </p>
+      </div>
+      <div class="grid2">
+        <div class="card">
+          <h3 style="margin-top: 0">Option A · Lighthouse → async pingback</h3>
+          <p style="margin-top: 0">
+            Move Lighthouse from the blocking <b>Live</b> call to DfS’s
+            <b>Standard queue + pingback</b> — <i>exactly what Reviews already
+            does</i>. Submit all 73 at once, DfS calls us back per business as
+            each audit finishes. No blocking, no parallel-tuning, per-business
+            progress for free.
+          </p>
+          <p class="sub">Smaller change · reuses the proven review-pingback rail.</p>
+        </div>
+        <div class="card">
+          <h3 style="margin-top: 0">Option B · route enrichment via Boxly Worker</h3>
+          <p style="margin-top: 0">
+            Hand the per-business jobs to the <b>Boxly Worker</b> (System A) —
+            the Redis queue that already does concurrency + retry + callbacks
+            for the other flows. The cron rail becomes a thin fallback.
+          </p>
+          <p class="sub">Bigger change · unifies both systems into one queue.</p>
+        </div>
+      </div>
+      <p class="sub" style="margin-top: 18px">
+        My recommendation: <b>Option A for Lighthouse</b> (fast, low-risk,
+        matches Reviews) now that the parallel+self-chain fix has bought us
+        headroom — and revisit Option B only if we later want a single unified
+        queue across all flows.
+      </p>
+
+      <hr />
+      <p class="path">
+        Sources · modules/enrichment/dispatch.ts · app/api/cron/internal/dispatch/route.ts
+        · app/api/agency/jobs/route.ts · modules/discovery/enrich-lighthouse.ts ·
+        services/dataforseo/lighthouse.ts · modules/reviews/review-job.ts ·
+        lib/boxly-worker/client.ts
+      </p>
+    </div>
+  </body>
+</html>

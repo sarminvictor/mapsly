@@ -1007,7 +1007,11 @@ export function PreviewStep({
       {/* Sticky dark costbar — swaps from "Mapping…" to "Enrich →" itself,
           the moment the market is real. No separate Discover step/click. */}
       <div className="costbar">
-        <div>
+        {/* min-width:0 lets this block actually shrink/wrap inside the flex
+            row instead of forcing the container wider than the buttons can
+            afford — without it, a longer message pushes the button group
+            right up against the text with no breathing room. */}
+        <div style={{ minWidth: 0, flex: "1 1 auto" }}>
           <div className="big">
             <span className="ic-coin" aria-hidden="true" />{" "}
             {jobFailed ? (
@@ -1031,32 +1035,36 @@ export function PreviewStep({
               : !mapped
                 ? "Discovery is free and runs automatically — enrichment unlocks the moment the market is mapped."
                 : haveCredits
-                  ? `We apply your ${sigCount} signal${sigCount === 1 ? "" : "s"} to the enriched data and reveal your matches + contacts. ~${enrichMinutes} min. You can close this page — we keep working and email you.`
+                  ? `Applies your ${sigCount} signal${sigCount === 1 ? "" : "s"} and reveals contacts · ~${enrichMinutes} min`
                   : `Not enough credits — this needs ~${fmtCredits(enrichCredits)}, you have ${fmtCredits(walletCredits ?? 0)}. Add credits to run it.`}
           </div>
         </div>
         <span className="spacer" />
-        <button type="button" className="btn" onClick={onBack}>
-          ← Back
-        </button>
-        <button
-          type="button"
-          className="btn primary big"
-          disabled={
-            jobFailed || !mapped || runningEnrich || starting || pricing
-          }
-          onClick={enrich}
-        >
-          {jobFailed
-            ? "Failed"
-            : !mapped
-              ? "Mapping…"
-              : runningEnrich
-                ? "Starting…"
-                : haveCredits
-                  ? "Enrich →"
-                  : "Add credits →"}
-        </button>
+        {/* flexShrink:0 + its own gap so the buttons keep consistent spacing
+            from each other no matter how the text block above shrinks/wraps. */}
+        <div style={{ display: "flex", gap: 12, flexShrink: 0 }}>
+          <button type="button" className="btn" onClick={onBack}>
+            ← Back
+          </button>
+          <button
+            type="button"
+            className="btn primary big"
+            disabled={
+              jobFailed || !mapped || runningEnrich || starting || pricing
+            }
+            onClick={enrich}
+          >
+            {jobFailed
+              ? "Failed"
+              : !mapped
+                ? "Mapping…"
+                : runningEnrich
+                  ? "Starting…"
+                  : haveCredits
+                    ? "Enrich →"
+                    : "Add credits →"}
+          </button>
+        </div>
       </div>
     </div>
   );

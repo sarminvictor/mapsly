@@ -78,6 +78,7 @@ import {
   processJob,
   closeRunIfDone,
   processDiscovery,
+  updateRunProgress,
 } from "../dispatch";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -424,5 +425,61 @@ describe("processDiscovery", () => {
       "d2",
       expect.objectContaining({ hadProgress: false }),
     );
+  });
+});
+
+describe("updateRunProgress (mid-run header/page progress)", () => {
+  test("unitsCompleted = requested − businesses with an outstanding job", async () => {
+    p.enrichmentRun.findUnique.mockResolvedValue({ unitsRequested: 73 });
+    // 20 distinct businesses still have a QUEUED/RUNNING job → 53 done.
+    p.enrichmentJob.findMany.mockResolvedValue(
+      Array.from({ length: 20 }, (_, i) => ({ businessId: `b${i}` })),
+    );
+    p.enrichmentRun.update.mockResolvedValue({});
+
+    await updateRunProgress("run_1");
+
+    expect(p.enrichmentRun.update).toHaveBeenCalledWith({
+      where: { id: "run_1" },
+      data: { unitsCompleted: 53 },
+    });
+  });
+
+  test("reaches unitsRequested when no jobs are outstanding", async () => {
+    p.enrichmentRun.findUnique.mockResolvedValue({ unitsRequested: 73 });
+    p.enrichmentJob.findMany.mockResolvedValue([]);
+    p.enrichmentRun.update.mockResolvedValue({});
+
+    await updateRunProgress("run_1");
+
+    expect(p.enrichmentRun.update).toHaveBeenCalledWith({
+      where: { id: "run_1" },
+      data: { unitsCompleted: 73 },
+    });
+  });
+
+  test("never goes negative (clamped at 0)", async () => {
+    p.enrichmentRun.findUnique.mockResolvedValue({ unitsRequested: 5 });
+    // More outstanding businesses than requested (shouldn't happen, but guard).
+    p.enrichmentJob.findMany.mockResolvedValue(
+      Array.from({ length: 8 }, (_, i) => ({ businessId: `b${i}` })),
+    );
+    p.enrichmentRun.update.mockResolvedValue({});
+
+    await updateRunProgress("run_1");
+
+    expect(p.enrichmentRun.update).toHaveBeenCalledWith({
+      where: { id: "run_1" },
+      data: { unitsCompleted: 0 },
+    });
+  });
+
+  test("no-op when the run is gone", async () => {
+    p.enrichmentRun.findUnique.mockResolvedValue(null);
+    p.enrichmentRun.update.mockClear();
+
+    await updateRunProgress("run_gone");
+
+    expect(p.enrichmentRun.update).not.toHaveBeenCalled();
   });
 });

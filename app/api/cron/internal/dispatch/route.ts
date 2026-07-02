@@ -11,8 +11,11 @@
 // .claude/rules/scalability.md). Schedule frequently via Vercel cron; also
 // POST-triggerable from the admin tool / right after an enqueue.
 
+import { after } from "next/server";
+
 import { withCronRun } from "@/lib/cost/cost-counter";
 import { dispatchPending } from "@/modules/enrichment/dispatch";
+import { kickDispatch } from "@/modules/enrichment/kick-dispatch";
 
 const JOB = "enrichment:dispatch";
 
@@ -40,6 +43,20 @@ async function handle(req: Request): Promise<Response> {
       : DEFAULT_LIMIT;
 
   const result = await withCronRun(JOB, () => dispatchPending(limit));
+
+  // Self-chain: if this batch drained work AND more QUEUED jobs remain, re-kick
+  // the dispatch immediately (post-response) so batches run back-to-back instead
+  // of waiting up to 2 min for the next cron tick. Best-effort — the */2 cron is
+  // the guaranteed backstop; `hasMoreWork` requires progress, so a fully-blocked
+  // state can't tight-loop. Guarded (after() throws outside a request scope).
+  if (result.hasMoreWork) {
+    try {
+      after(() => kickDispatch());
+    } catch {
+      /* no request scope — the cron drains the rest */
+    }
+  }
+
   return Response.json({ ok: true, ...result });
 }
 

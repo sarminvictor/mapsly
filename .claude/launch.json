@@ -1,0 +1,20 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "portal-proto",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "-e",
+        "const http=require('http'),fs=require('fs'),p=require('path');http.createServer((q,s)=>{let u=q.url.split('?')[0];if(u==='/')u='/portal-prototype.html';const f=p.join(process.cwd(),'docs',u);fs.readFile(f,(e,d)=>{if(e){s.writeHead(404);return s.end('not found');}s.writeHead(200,{'content-type':'text/html; charset=utf-8'});s.end(d);});}).listen(4599,()=>console.log('serving docs on 4599'));"
+      ],
+      "port": 4599
+    },
+    {
+      "name": "mapsly-dev",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["dev"],
+      "port": 3000
+    }
+  ]
+}

@@ -27,6 +27,7 @@ import { NextResponse } from "next/server";
 
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { buildTechStageLabel } from "./stage-label";
 
 const RECENT_DONE_WINDOW_MS = 60_000;
 
@@ -63,8 +64,14 @@ const STAGE_DEFS: { key: string; label: string; families: string[] }[] = [
   { key: "mapped", label: "Mapped market & applied filters", families: [] },
   { key: "contacts", label: "Contacts extracted", families: ["CONTACTS"] },
   {
+    // Label is a fallback only — the "tech" stage's REAL label is computed
+    // per-run below (buildTechStageLabel), since "tech" and "lighthouse" are
+    // two independent families that happen to share one display bucket. A
+    // Lighthouse-only run (e.g. the default Website-redesign goal) must never
+    // say "Website & tech signals" — that implies a DOM/tech scan that didn't
+    // run (see INC: Enriching checklist overclaimed families for that goal).
     key: "tech",
-    label: "Website & tech signals + Lighthouse",
+    label: "Site speed & tech signals",
     families: ["TECH", "LIGHTHOUSE"],
   },
   {
@@ -285,6 +292,11 @@ async function buildEnrichStages(
       status = finished ? "done" : fannedOut ? "running" : "pending";
     }
 
-    return { key: def.key, label: def.label, done, total, status };
+    const label =
+      def.key === "tech"
+        ? buildTechStageLabel(has("tech"), has("lighthouse"))
+        : def.label;
+
+    return { key: def.key, label, done, total, status };
   });
 }
