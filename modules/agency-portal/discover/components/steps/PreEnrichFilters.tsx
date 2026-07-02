@@ -14,30 +14,13 @@
 
 import { marketFiltersActive, type MarketFilters } from "../../flow-types";
 
-/** "Reachable at all" = any tier with ≥1 contact channel. */
-const REACHABLE_TIERS: NonNullable<MarketFilters["reachability"]> = [
-  "EMAIL_ONLY",
-  "PHONE_ONLY",
-  "MULTI",
-  "RICH",
-];
-/** "Multi-channel" = 2+ channels (the strongest outreach targets). */
-const MULTI_TIERS: NonNullable<MarketFilters["reachability"]> = [
-  "MULTI",
-  "RICH",
-];
-
 const RATING_STOPS = [3.5, 4, 4.5] as const;
 const REVIEW_STOPS = [10, 25, 50, 100] as const;
 
-function sameTiers(
-  a: MarketFilters["reachability"],
-  b: NonNullable<MarketFilters["reachability"]>,
-): boolean {
-  if (!a || a.length !== b.length) return false;
-  const set = new Set(a);
-  return b.every((t) => set.has(t));
-}
+// NOTE: no Reachability filter here (removed) — reachability is the OUTPUT of
+// the contact scan and is `UNKNOWN` for every business until it's enriched, so
+// filtering the pre-enrich market by it would exclude the entire market. It
+// belongs on the workbench (post-enrichment), never on this pre-spend screen.
 
 export function PreEnrichFilters({
   filters,
@@ -45,6 +28,7 @@ export function PreEnrichFilters({
   total,
   matching,
   enrichable,
+  hideWebsite = false,
 }: {
   filters: MarketFilters;
   onChange: (next: MarketFilters) => void;
@@ -55,6 +39,10 @@ export function PreEnrichFilters({
   matching: number | null;
   /** The subset the run would actually enrich (website gate applied). */
   enrichable: number | null;
+  /** Hide the Website chip when the goal already REQUIRES a website (site-based
+   *  research): the enrich scope excludes website-less businesses anyway, so the
+   *  chip would be a redundant no-op. Only shown for non-site goals. */
+  hideWebsite?: boolean;
 }) {
   const active = marketFiltersActive(filters);
 
@@ -118,21 +106,26 @@ export function PreEnrichFilters({
         ) : null}
       </div>
 
-      <div className="setrow" style={{ marginTop: 10 }}>
-        <span className="setl">Website</span>
-        <div className="chipset">
-          {chip(!filters.hasWebsite, "Any", () =>
-            patch({ hasWebsite: undefined }),
-          )}
-          {chip(filters.hasWebsite === true, "Has a website", () =>
-            patch({
-              hasWebsite: filters.hasWebsite === true ? undefined : true,
-            }),
-          )}
+      {hideWebsite ? null : (
+        <div className="setrow" style={{ marginTop: 10 }}>
+          <span className="setl">Website</span>
+          <div className="chipset">
+            {chip(!filters.hasWebsite, "Any", () =>
+              patch({ hasWebsite: undefined }),
+            )}
+            {chip(filters.hasWebsite === true, "Has a website", () =>
+              patch({
+                hasWebsite: filters.hasWebsite === true ? undefined : true,
+              }),
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
-      <div className="setrow">
+      <div
+        className="setrow"
+        style={hideWebsite ? { marginTop: 10 } : undefined}
+      >
         <span className="setl">Rating</span>
         <div className="chipset">
           {chip(!filters.minRating, "Any", () =>
@@ -158,35 +151,6 @@ export function PreEnrichFilters({
                 minReviewCount: filters.minReviewCount === n ? undefined : n,
               }),
             ),
-          )}
-        </div>
-      </div>
-
-      <div className="setrow">
-        <span className="setl">Reachability</span>
-        <div className="chipset">
-          {chip(!filters.reachability, "Any", () =>
-            patch({ reachability: undefined }),
-          )}
-          {chip(
-            sameTiers(filters.reachability, REACHABLE_TIERS),
-            "Reachable",
-            () =>
-              patch({
-                reachability: sameTiers(filters.reachability, REACHABLE_TIERS)
-                  ? undefined
-                  : [...REACHABLE_TIERS],
-              }),
-          )}
-          {chip(
-            sameTiers(filters.reachability, MULTI_TIERS),
-            "Multi-channel",
-            () =>
-              patch({
-                reachability: sameTiers(filters.reachability, MULTI_TIERS)
-                  ? undefined
-                  : [...MULTI_TIERS],
-              }),
           )}
         </div>
       </div>

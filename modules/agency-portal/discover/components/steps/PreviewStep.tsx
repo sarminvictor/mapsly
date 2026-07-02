@@ -57,7 +57,11 @@ import { countFilteredMarketAction } from "@/modules/discovery/market-filter-act
 import { otherAgenciesOnCellsAction } from "@/modules/discovery/collision-actions";
 import { cellKey as makeCellKey } from "@/lib/cell";
 import { Icon } from "@/components/agency/Icon";
-import { ENRICHMENT_PRICES, type EnrichmentType } from "@/modules/cost/pricing";
+import {
+  ENRICHMENT_PRICES,
+  enrichmentNeedsWebsite,
+  type EnrichmentType,
+} from "@/modules/cost/pricing";
 import { usdToCredits } from "@/modules/cost/estimate";
 import { SIG_META } from "../../goal-templates";
 import {
@@ -183,6 +187,13 @@ export function PreviewStep({
     // extraKey is the content proxy for extraEnrichTypes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [activeSignals, extraKey],
+  );
+
+  // A site-based goal already excludes website-less businesses from the enrich
+  // scope, so the pre-enrich "Website" filter chip would be a no-op — hide it.
+  const goalNeedsWebsite = useMemo(
+    () => enrichmentNeedsWebsite(families),
+    [families],
   );
 
   // "What you picked" grouped by research (docs/portal-prototype.html's
@@ -628,6 +639,14 @@ export function PreviewStep({
 
   const kpis = quote?.kpis ?? null;
   const localBiz = kpis ? kpis.localBusinessesReal : totBiz;
+  // Honest market-completeness signal: DfS's real total_count vs what we
+  // actually mapped (capped at 3,000/cell). When the real market is materially
+  // larger, we mapped the "top N" — don't claim "the whole market". A small
+  // slack absorbs default-exclusion gaps so we never false-flag a complete pull.
+  const totalAvailable = kpis?.totalAvailableReal ?? null;
+  const marketCapped =
+    totalAvailable != null &&
+    totalAvailable > Math.max(localBiz + 50, localBiz * 1.02);
   const activeGoogle = kpis ? kpis.activeOnGoogleReal : 0;
   // "Match your signals": the EXACT flagged-finding count once enrichment has
   // run (matchSignalsReal > 0), else the discovery-phase "~N passing so-far"
@@ -964,7 +983,15 @@ export function PreviewStep({
           to={localBiz}
           loading={stillMapping && knownCells === 0}
           dash={jobFailed && knownCells === 0}
-          d={stillMapping ? "mapping…" : "the whole market"}
+          d={
+            stillMapping
+              ? "mapping…"
+              : marketCapped
+                ? `top ${localBiz.toLocaleString()} of ~${totalAvailable!.toLocaleString()}`
+                : totalAvailable != null
+                  ? "the whole market"
+                  : "found in this market"
+          }
         />
         <StatCard
           k="Have a website"
@@ -1178,6 +1205,7 @@ export function PreviewStep({
               ? (filteredForKey?.enrichable ?? null)
               : enrichableTotal
           }
+          hideWebsite={goalNeedsWebsite}
         />
       ) : null}
 
@@ -1358,57 +1386,25 @@ export function PreviewStep({
         </div>
       </div>
 
-      {/* WP2-2 · lead-count control. Cap the run to the best N (most-reviewed
-          first — the workbench default sort). Defaults to everything the
-          wallet can fund; reducible even when it covers all (spend control).
-          The exact total is re-quoted server-side before anything is held. */}
+      {/* WP2-2 · lead-count cap — a COMPACT control that sits right above the
+          costbar. Deliberately carries NO heading/price/"you have X": the
+          sticky footer below is the single source of "Enrich best N of M ·
+          credits", so this block is just the slider (no duplicate numbers).
+          Ranked most-reviewed-first; the exact total is re-quoted server-side
+          before anything is held. */}
       {mapped && effEnrichable > 0 ? (
         <div className="card section">
           <div
             style={{
               display: "flex",
-              alignItems: "baseline",
-              gap: 10,
+              alignItems: "center",
+              gap: 12,
               flexWrap: "wrap",
             }}
           >
-            <h2 style={{ margin: 0 }}>
-              Enrich your best {selectedN.toLocaleString()} of{" "}
-              {effEnrichable.toLocaleString()}
-              {filtersActive ? " filtered" : ""}
-            </h2>
-            {/* WP4-6 · show the NET (fresh-adjusted) price the moment the server
-                quote lands — no leading "~" since it's server-authoritative;
-                fall back to the gross display estimate while it's in flight. */}
-            <span className="cr">
-              <span className="ic-coin sm" aria-hidden="true" />
-              {netCredits != null
-                ? fmtCredits(netCredits)
-                : `~${fmtCredits(selectedCredits)}`}{" "}
-              credits
+            <span className="setl" style={{ whiteSpace: "nowrap" }}>
+              Cap the run to your best
             </span>
-            {freshSaved > 0 ? (
-              <span
-                className="pill green dot"
-                title="Already-fresh units are served from cache at no charge"
-              >
-                {fmtCredits(freshSaved)} saved from fresh cache
-              </span>
-            ) : null}
-            {walletCredits != null ? (
-              <span className="note">
-                · you have {fmtCredits(walletCredits)}
-              </span>
-            ) : null}
-          </div>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 12,
-              marginTop: 10,
-            }}
-          >
             <input
               type="range"
               min={1}
@@ -1437,6 +1433,10 @@ export function PreviewStep({
               aria-label="Number of leads to enrich (exact)"
               style={{ width: 90 }}
             />
+            <span className="note" style={{ whiteSpace: "nowrap" }}>
+              of {effEnrichable.toLocaleString()}
+              {filtersActive ? " filtered" : ""} · busiest first
+            </span>
             {capped && affordableN >= effEnrichable ? (
               <button
                 type="button"
@@ -1448,11 +1448,12 @@ export function PreviewStep({
             ) : null}
           </div>
           <p className="note" style={{ margin: "8px 0 0" }}>
-            Ranked by review count — the busiest businesses first.{" "}
+            Ranked by review count.{" "}
             {walletCredits != null && affordableN < effEnrichable
               ? `Your ${fmtCredits(walletCredits)} credits cover your best ${affordableN.toLocaleString()}.`
               : "Dial down to control spend."}{" "}
-            Exact total is re-quoted before anything is charged.
+            The total and credits are shown below — and re-quoted before
+            anything is charged.
           </p>
         </div>
       ) : null}

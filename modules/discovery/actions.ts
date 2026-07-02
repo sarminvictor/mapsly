@@ -52,6 +52,20 @@ const CellInput = z.object({
   country: z.string().min(2).max(3).optional(),
 });
 
+/**
+ * Pre-flight listing-count estimate for a cell we've NEVER discovered and whose
+ * size we can't yet know (no TrackedLocation anchor, no caller-supplied limit).
+ *
+ * This is ONLY a cost-estimate seed: after the real map runs, the count is
+ * re-quoted server-side against DfS's actual `total_count`, so this figure never
+ * caps the fetch and never reaches the UI as a market size. It's a defensible
+ * midpoint for a typical local-market cell (worked cost examples span a few
+ * hundred to ~1,442; the hard fetch ceiling is 3,000). Deliberately NOT 100 —
+ * the old lowball under-held credits and seeded the stale "100 · whole market"
+ * display bug on truncated cells.
+ */
+const UNKNOWN_MARKET_ESTIMATE_LISTINGS = 500;
+
 /** The active goal signals, threaded from the journey so the run can persist
  *  them on `Discovery.signalsJson` for the workbench evaluator (P3). Only the
  *  SIG_META key + the user's tune/conds/match are carried; comparator/value/
@@ -104,8 +118,14 @@ export interface PreviewCell {
  *  never-discovered cell. When `hasUnknownCells` is true, the UI notes that
  *  more markets exist whose real counts aren't known yet (not zero, unknown). */
 export interface PreviewKpis {
-  /** REAL businesses summed across in-DB cells. */
+  /** REAL businesses summed across in-DB cells (what we actually mapped —
+   *  capped at 3,000/cell). */
   localBusinessesReal: number;
+  /** DfS-reported real market size across the in-DB cells (`total_count`).
+   *  `null` when unknown (never discovered, or discovered before we captured
+   *  it, or mixed). When it exceeds `localBusinessesReal` the market was capped
+   *  and the UI says "top N of ~M" instead of "the whole market". */
+  totalAvailableReal: number | null;
   /** REAL businesses with a reachable contact channel (in-DB cells). */
   haveContactsReal: number;
   /** REAL businesses with a website on the Google/Maps listing (in-DB cells).
@@ -186,7 +206,12 @@ const ACTIVE_REVIEW_DAYS = 182;
  * reads — no external API in the request path.
  */
 async function buildPreview(
-  cells: { cellKey: string; lastDiscoveredAt: Date | null }[],
+  cells: {
+    cellKey: string;
+    lastDiscoveredAt: Date | null;
+    /** DfS-reported real market size for this cell (null = unknown). */
+    lastTotalAvailable?: number | null;
+  }[],
   signalKeys: string[],
   now: Date,
 ): Promise<{ previewCells: PreviewCell[]; kpis: PreviewKpis }> {
@@ -278,8 +303,22 @@ async function buildPreview(
     }
   }
 
+  // Real DfS market size across the in-DB cells — the anchor for the honest
+  // "whole market" vs "top N of ~M" label. Null when ANY in-DB cell lacks a
+  // captured total (summing partial data would understate the market, so the UI
+  // shows a neutral "found in this market" instead of a wrong number).
+  const inDbSet = new Set(inDbKeys);
+  const inDbTotals = cells
+    .filter((c) => inDbSet.has(c.cellKey))
+    .map((c) => c.lastTotalAvailable ?? null);
+  const totalAvailableReal =
+    inDbTotals.length > 0 && inDbTotals.every((t) => t != null)
+      ? inDbTotals.reduce((sum: number, t) => sum + (t as number), 0)
+      : null;
+
   const kpis: PreviewKpis = {
     localBusinessesReal,
+    totalAvailableReal,
     haveContactsReal,
     haveWebsiteReal,
     activeOnGoogleReal,
@@ -350,7 +389,14 @@ export async function preflightDiscoveryAction(
           cellKey: cellKeys[i],
           lastDiscoveredAt: tracked?.lastDiscoveredAt ?? null,
           expectedListings:
-            tracked?.lastTotalAvailable ?? parsed.data.limitPerCell ?? 100,
+            tracked?.lastTotalAvailable ??
+            parsed.data.limitPerCell ??
+            UNKNOWN_MARKET_ESTIMATE_LISTINGS,
+          // The REAL DfS-reported market size (total_count) — distinct from the
+          // estimate fallback above. `null` when we've never discovered the cell
+          // (or discovered it before we captured total_count). Drives the honest
+          // "whole market" vs "top N of ~M" label on Preview.
+          lastTotalAvailable: tracked?.lastTotalAvailable ?? null,
         };
       }),
     );
