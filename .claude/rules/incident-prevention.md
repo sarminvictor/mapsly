@@ -60,6 +60,10 @@ If the same INC- record gets cited 3+ times, that's a process failure, not a kno
 
 Process-enhancer flags this automatically when it sees the same INC- ID twice in `build-log.md`.
 
+## Archival policy
+
+When a rule file fully absorbs an INC cluster — the prevention is mechanical and lives in `.claude/rules/*` — move those entries to `.claude/memory/incidents-archive.md`, leaving a one-line index stub per entry under `## Archived index` in the active file (`INC-29 · FUSE unlink wall → archive + loop-discipline.md §1` style). Sessions read the ACTIVE `incidents.md` fully and grep the archive on demand (`grep -n "INC-29" .claude/memory/incidents-archive.md`). The active file stays ≤ 600 lines. Never archive an entry that is recent, unresolved, or whose prevention is not yet mechanically encoded.
+
 ## What NOT to log as an incident
 
 - Routine task completion (use build-log.md)

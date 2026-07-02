@@ -1,0 +1,34 @@
+{
+  "product": "boxly",
+  "domain": "https://boxly.ca",
+  "repo": {
+    "_comment": "origin = https://github.com/sarminvictor/boxly_app.git (single remote, no mirror). Push to main = production deploy via Vercel.",
+    "primaryRemote": "origin",
+    "mirror": null,
+    "deployBranch": "main",
+    "pushPolicy": "propose-and-wait"
+  },
+  "deployGate": "npm run pre-push-check && npm run build",
+  "_comment_deployGate": "pre-push-check = format:check + ts:check; build includes prisma generate. npm scripts, not pnpm.",
+  "stackPack": "next16-prisma7-neon-vercel",
+  "db": {
+    "envVar": "bxl_POSTGRES_URL",
+    "dialect": "postgresql"
+  },
+  "budgets": {
+    "_todo": "TODO-Viktor: no budgets documented in the Boxly repo — these are the stack-pack defaults; confirm or adjust.",
+    "lighthouseMobile": 90,
+    "lcpMs": 2000,
+    "cls": 0.05,
+    "inpMs": 150,
+    "firstLoadKb": 200,
+    "maxSingleApiCallUsd": 5
+  },
+  "observability": {
+    "sentry": true
+  },
+  "testDataConvention": "TODO-Viktor: none documented — suggest test+{taskId}@boxly.ca greppable emails + cleanup script",
+  "dashboards": ["https://boxly.ca/admin"],
+  "_comment_dashboards": "TODO-Viktor: confirm — admin panel inferred from the Feature Map; no dedicated dev dashboard exists.",
+  "locales": ["en", "fr-CA"]
+}

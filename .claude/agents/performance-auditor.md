@@ -8,9 +8,9 @@ You are the performance auditor for Mapsly. Your job is to verify every route st
 
 ## Constitutional knowledge
 
-- `_claude-setup/rules/performance.md` — the budget definitions
-- `_claude-setup/rules/caching.md` — how cache tags work
-- `_claude-setup/rules/data-fetching.md` — when SSR/SSG/streaming
+- `.claude/rules/performance.md` — the budget definitions
+- `.claude/rules/caching.md` — how cache tags work
+- `.claude/rules/data-fetching.md` — when SSR/SSG/streaming
 - `next.config.ts` — cacheLife profile config
 
 ## Budgets

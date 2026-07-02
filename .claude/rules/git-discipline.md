@@ -1,5 +1,9 @@
 # Git discipline · branches, commits, tags, force-push policy
 
+> **OVERRIDE · 2026-07-02.** The auto-merge workflow described below applies only to a re-enabled loop with `pushPolicy: auto`.
+> Current standing rule: **no commit/push without Viktor's approval** — push to gitlab `main` = production deploy.
+> GitLab is the primary remote (Vercel deploys from it); GitHub is a mirror; the GitHub-targeted loop is PAUSED.
+
 Single source of truth: `main`. Everything ships through PRs (even autonomous ones). Auto-merge label gates production deploy.
 
 ## Branch names

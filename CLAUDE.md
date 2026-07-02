@@ -4,11 +4,13 @@ Project-level rules. Loaded automatically by Claude Code on every session.
 
 > **Performance is the #1 product requirement.** Every page · every route · every interaction. Slow = broken. See `.claude/rules/performance.md`.
 
-> **All autonomous development runs on Claude Pro Max 20x via `/loop` in an open Claude Code session · NEVER the OpenAI API.** Use the entire 5h token budget per session — the plan is paid, idle quota is wasted. The canonical scheduler is `/loop 5m` reading `.claude/loop.md`; launchd is kept as a fallback. See `.claude/skills/autonomous-build-loop/SKILL.md`, `.claude/loop.md`, and `docs/permissions.md`.
+> **All autonomous development runs on Claude Pro Max via `/loop` in an open Claude Code session · never the metered API.** Use the entire 5h token budget per session — the plan is paid, idle quota is wasted. The canonical scheduler is `/loop 5m` reading `.claude/loop.md`; launchd is kept as a fallback. See `.claude/skills/autonomous-build-loop/SKILL.md`, `.claude/loop.md`, and `docs/permissions.md`.
 
-> **Model pin · always the latest Opus, always max effort.** The launchd wrapper sets `--model "$CLAUDE_MODEL"` (default `claude-opus-4-7`; 1M context auto-enabled on Pro Max) and `--effort "$CLAUDE_EFFORT_LEVEL"` (default `max`). Both overridable via `.env.local`. Plus `--dangerously-skip-permissions` is required in headless mode — see INC-19. Bump model as new releases ship. Sonnet is faster but lower-quality for orchestration; Haiku is too small for the agent-spawning logic. Opus + max effort is required for the loop's quality bar — session budget is the cap, not per-call cost, so we want the deepest reasoning per tick.
+> **GitLab is the primary remote (Vercel deploys from GitLab `main`); GitHub is a mirror; the GitHub-targeted loop is PAUSED.**
 
-> **Auto-merge is default.** When all gates pass, the loop merges itself to `main`. Viktor watches via `dev.mapsly.ai` and daily GitHub digest, not per-PR review. See `docs/dev-dashboard.md`.
+> **Model pin · always the latest Opus-class model, always max effort.** The launchd wrapper sets `--model "$CLAUDE_MODEL"` (latest Opus-class model — alias `opus`; bump as releases ship; 1M context auto-enabled on Pro Max) and `--effort "$CLAUDE_EFFORT_LEVEL"` (default `max`). Both overridable via `.env.local`. Plus `--dangerously-skip-permissions` is required in headless mode — see INC-19. Sonnet is faster but lower-quality for orchestration; Haiku is too small for the agent-spawning logic. Opus + max effort is required for the loop's quality bar — session budget is the cap, not per-call cost, so we want the deepest reasoning per tick.
+
+> **Auto-merge is the loop's default** — when all gates pass, a running loop merges itself to `main`. With the loop PAUSED, the standing rule applies: no commit/push without Viktor's approval. Viktor watches via `dev.mapsly.ai` and the daily digest, not per-PR review. See `docs/dev-dashboard.md`.
 
 ---
 
@@ -74,8 +76,6 @@ Every TS/TSX file you touch loads the relevant rule docs as context. Read them b
 - `.claude/rules/realtime-and-optimistic.md` — useOptimistic · SSE patterns
 - `.claude/rules/seo.md` — marketing/blog/public pages
 - `.claude/rules/accessibility.md` — WCAG 2.1 AA
-- `.claude/rules/browser-testing.md` — every UI phase validated via Claude in Chrome before merge
-- `.claude/rules/validation.md` — loop decides per-task: unit/integration/browser/DB/email/perf/a11y · records strategy + outcomes
 - `.claude/rules/versioning.md` — every auto-merge bumps package.json patch; phase close bumps minor
 - `.claude/rules/i18n.md` — translations
 - `.claude/rules/testing.md` — what to test, what NOT to test
@@ -84,6 +84,12 @@ Every TS/TSX file you touch loads the relevant rule docs as context. Read them b
 - `.claude/rules/ui-ux-agency.md` — `/(agency)/` routes
 - `.claude/rules/mcp-postgres.md` — when querying via MCP
 - `.claude/rules/mcp-dataforseo.md` — when calling DataForSEO
+
+### Loop-only rules (moved)
+
+The 8 loop-only rules live under `.claude/skills/autonomous-build-loop/rules/` — loaded by the loop, not by interactive sessions: `loop-discipline`, `capability-routing`, `compound-steps`, `no-verify`, `agent-orchestration`, `validation`, `test-scenarios`, `browser-testing`.
+
+Note: frontmatter globs in rule files are NOT honored by Claude Code — everything under `.claude/rules` loads every session. Keep that set lean.
 
 ---
 
@@ -101,10 +107,10 @@ You ARE the orchestrator. Every non-trivial request goes through:
    - `ux-reviewer-agency` (if `/(agency)/` touched)
    - `copy-reviewer` (if user-visible copy changed)
 4. **Score.** Spawn the `scorer` agent on the completed phase. Produces 5-dim scorecard (Completion · Quality · Audience-fit · Relevance · Performance). Append to PLAN.md.
-5. **Auto-merge is the default.** If CI green AND deploy-check passed AND no critical reviewer veto AND no new Sentry errors AND Task is not tagged `human-required` → **auto-merge to main**. The scorer's aggregate is informational (logged on TaskRun for DORA trends), not a merge gate. PRs only stay at `needs-review` for explicit `human-required` tasks (payments, major schema) or hard reviewer vetos. Per `.claude/loop.md` v0.6.1.
+5. **Ship.** In interactive sessions (and while the loop is PAUSED — current state): show results, wait for Viktor's approval, push only via `/ship`. Auto-merge applies ONLY to a running loop with `pushPolicy: auto` in `.claude/loop-config.json`: if CI green AND deploy-check passed AND no critical reviewer veto AND no new Sentry errors AND Task is not tagged `human-required` → auto-merge to main. The scorer's aggregate is informational (logged on TaskRun for DORA trends), not a merge gate. Per `.claude/loop.md` v0.7.7.
 6. **Iterate.** Pick next task. Loop until token budget low or time exhausted.
 
-**Auto-merge means `mapsly.ai` always reflects latest autonomous code.** Viktor reviews already-shipped code via `dev.mapsly.ai` dashboard + daily GitHub digest email. Quality gates do the gatekeeping.
+**When the loop runs with `pushPolicy: auto`, auto-merge means `mapsly.ai` reflects the latest autonomous code** and Viktor reviews already-shipped code via `dev.mapsly.ai` + daily digest. With the loop PAUSED (current state), nothing reaches gitlab `main` except via `/ship` after explicit approval.
 
 **Always recommend, never ask.** Research yourself. Present with reasoning.
 
@@ -161,20 +167,23 @@ _design/                            # original HTML mockups (reference)
 
 ## Feature map (live)
 
-| Feature                | Module                | Routes                                           | Status   |
-| ---------------------- | --------------------- | ------------------------------------------------ | -------- |
-| Landing (SMB)          | —                     | `app/[locale]/(marketing)/page.tsx`              | scaffold |
-| Landing (Agency)       | —                     | `app/[locale]/(marketing)/for-agencies/page.tsx` | scaffold |
-| SMB dashboard          | modules/smb-dashboard | `app/[locale]/(smb)/dashboard`                   | pending  |
-| SMB reviews            | modules/reviews       | `app/[locale]/(smb)/reviews`                     | pending  |
-| Agency lists           | modules/lists         | `app/[locale]/(agency)/lists`                    | pending  |
-| Agency search (hunter) | modules/hunter        | `app/[locale]/(agency)/search`                   | pending  |
-| Prospect detail        | modules/prospect      | `app/[locale]/(agency)/prospect/[id]`            | pending  |
-| Reports (CSV/PDF/link) | modules/reports       | `app/[locale]/(agency)/reports`                  | pending  |
-| Cron jobs              | —                     | `app/api/cron/**`                                | pending  |
-| Stripe                 | modules/billing       | `app/api/webhooks/stripe`                        | pending  |
-| Auth                   | modules/auth          | NextAuth handlers                                | pending  |
-| i18n                   | —                     | next-intl + middleware                           | scaffold |
+Statuses as of 2026-07-02.
+
+| Feature                    | Module                                       | Routes                                                                                  | Status |
+| -------------------------- | -------------------------------------------- | ---------------------------------------------------------------------------------------- | ------ |
+| Marketing (landing v2)     | modules/smb-landing, landing-search          | `app/[locale]/(marketing-v2)/` — `/`, `/for-businesses`, `/for-agencies`, `/compare/*`  | live   |
+| Public biz profile + legal | modules/biz-profile                          | `app/[locale]/(marketing)/biz/[slug]` + terms/privacy/cookies/refunds                   | live   |
+| SMB portal                 | modules/smb-\*                               | `app/[locale]/(smb)/` — home · reviews · my-business · website · ads · search · settings | live   |
+| SMB onboarding             | modules/smb-onboarding                       | `app/[locale]/(smb)/onboarding`                                                          | live   |
+| Agency portal (Discover)   | modules/{agency-portal,discovery,enrichment} | `app/[locale]/(agency)/discover/[discoveryId]/…` — lists · business detail · report     | live   |
+| Agency ops                 | modules/{campaign,outreach,agency-settings}  | `(agency)/` — research · campaigns · touchpoints · usage · team · setup · settings      | live   |
+| Cold outreach              | modules/{cold,opt-out}                       | `app/api/cron/{poll-cold-inboxes,process-cold-sequences}` + `/o /r /u /l /s` token pages | live   |
+| Admin ops                  | —                                            | `app/(admin)/admin/` — businesses · cells · discovery · cron-runs · email · landing-pages | live   |
+| Dev dashboard              | —                                            | `app/(dev)/dev/`                                                                         | live   |
+| Cron jobs                  | —                                            | `app/api/cron/**` — daily · weekly · monthly · internal dispatch                        | live   |
+| Stripe billing             | modules/billing                              | `app/api/webhooks/stripe` + `/api/checkout/start` + `/api/billing/checkout`             | live   |
+| Auth                       | `lib/auth.ts`                                | `app/[locale]/signin` + `app/api/auth/[...nextauth]` + `/post-signin`                   | live   |
+| i18n                       | —                                            | next-intl + middleware (en · es · en-CA · fr)                                            | live   |
 
 See `PLAN.md` for phased priorities.
 
@@ -242,12 +251,14 @@ Every API call logs to `CronRun.costUsd`. Tier ceilings enforced — never silen
 | `copy-reviewer`          | Voice + tone per audience                                             | Read, Grep, Glob                                                        |
 | `scorer`                 | 5-dim score per phase, appends to PLAN.md                             | Read, Grep, Glob, Bash                                                  |
 | `seo-auditor`            | GSC + on-page SEO health                                              | `mcp__gsc__*`, `mcp__postgres__query`                                   |
-| `competitive-researcher` | External market research                                              | WebFetch, WebSearch                                                     |
-| `analytics-analyst`      | GA4 funnels, attribution                                              | `mcp__ga__*`, `mcp__postgres__query`                                    |
 | `sentry-monitor`         | Daily error triage                                                    | `mcp__sentry__*`                                                        |
 | `security-auditor`       | Auth, CSRF, RBAC, rate limits                                         | Read, Grep, Bash                                                        |
 | `payments-auditor`       | Stripe webhook + idempotency                                          | Read, Grep, Bash                                                        |
 | `a11y-reviewer`          | WCAG 2.1 AA                                                           | Read, Grep, Bash                                                        |
+| `loop-implementer`       | SUPERSEDED (loop.md v0.7.7 inline prompts) · kept for history         | —                                                                       |
+| `loop-validator`         | SUPERSEDED (loop.md v0.7.7 inline prompts) · kept for history         | —                                                                       |
+
+Universal agents (all products — e.g. competitive research, analytics) live in `~/.claude/agents` once `.claude/universal/install.sh` is run.
 
 ---
 
@@ -257,8 +268,6 @@ Every API call logs to `CronRun.costUsd`. Tier ceilings enforced — never silen
 | --------------------------- | -------------------------- | ------------------------------------ |
 | `mapsly`                    | `/mapsly`                  | Menu — list all skills               |
 | `new-feature`               | `/new-feature [name]`      | Orchestrated feature build           |
-| `change-feature`            | `/change-feature [module]` | Orchestrated modification            |
-| `new-signal`                | `/new-signal [name]`       | Add a new signal                     |
 | `deploy-check`              | `/deploy-check`            | format + types + lint + build + cost |
 | `db-snapshot`               | `/db-snapshot`             | Metrics baseline to memory/          |
 | **`autonomous-build-loop`** | `/autonomous-build-loop`   | The scheduled self-driving loop      |
@@ -301,7 +310,7 @@ Registered in `.mcp.json`. Per-server rules in `.claude/rules/mcp-*.md`.
 A "blocker" surfaces on dev.mapsly.ai ONLY when there is no programmatic path I have access to. This means:
 
 - ✅ Block-list it if: requires ID verification (Meta Business, Stripe identity), requires logging into a third-party UI that has no API, requires a credential I genuinely don't have.
-- ❌ DO NOT block-list: anything I can do via API token, CLI, or MCP. Set env var, push commit, run a script, configure a service via its REST API — those are mine to do, logged to `build-log.md`, not surfaced as a Viktor action.
+- ❌ DO NOT block-list: anything I can do via API token, CLI, or MCP. Set env var, stage a commit and request `/ship` approval, run a script, configure a service via its REST API — those are mine to do, logged to `build-log.md`, not surfaced as a Viktor action. (Pushing itself always goes through `/ship` + approval.)
 
 When in doubt, attempt programmatically first. Only after a real failure (auth denied, no API exists) does it become a blocker.
 
@@ -326,16 +335,17 @@ auto-enhance signals + per-route CWV trends on the dashboard.
 
 ## Hard reminders
 
-1. **Performance is the #1 product requirement.** Slow page = broken page.
-2. **SMB and Agency have different UX languages.** Don't mix them.
-3. **Mapsly stops at "qualified lead."** No outreach automation in v1.
-4. **Cost discipline is non-negotiable.** Every external call cost-tracked. > $5 needs approval.
-5. **Autonomous dev runs on Pro Max x5 only.** Never the API.
-6. **Tests cover invariants, not coverage %.** See `.claude/rules/testing.md`.
-7. **i18n from day 1.** Strings in `messages/*.json`. No hardcoded English.
-8. **Accessibility is part of "done."** ≥ 95 Lighthouse a11y on every route.
-9. **Every change scored, but score is informational.** 5-dim scorecard logged on every TaskRun for DORA + Plan trends. Merge gate is objective (CI green · deploy-check · no critical reviewer veto · no `human-required` tag), not subjective. Per `.claude/loop.md` v0.6.1.
-10. **Boxly is reference, not source.** Read it for patterns; don't copy proprietary logic.
+1. **No git commit/push without Viktor's explicit approval.** Push to gitlab `main` = production deploy. `/ship` is the only sanctioned push path.
+2. **Performance is the #1 product requirement.** Slow page = broken page.
+3. **SMB and Agency have different UX languages.** Don't mix them.
+4. **Mapsly stops at "qualified lead."** No outreach automation in v1.
+5. **Cost discipline is non-negotiable.** Every external call cost-tracked. > $5 needs approval.
+6. **Autonomous dev runs on Claude Pro Max only.** Never the metered API.
+7. **Tests cover invariants, not coverage %.** See `.claude/rules/testing.md`.
+8. **i18n from day 1.** Strings in `messages/*.json`. No hardcoded English.
+9. **Accessibility is part of "done."** ≥ 95 Lighthouse a11y on every route.
+10. **Every change scored, but score is informational.** 5-dim scorecard logged on every TaskRun for DORA + Plan trends. Merge gate is objective (CI green · deploy-check · no critical reviewer veto · no `human-required` tag), not subjective — and applies when the loop runs; interactive merges go through `/ship`. Per `.claude/loop.md` v0.7.7.
+11. **Boxly is reference, not source.** Read it for patterns; don't copy proprietary logic.
 
 ---
 

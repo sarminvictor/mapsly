@@ -44,6 +44,6 @@ In every case, document the split on TaskRun.notes so process-enhancer can audit
 ## Cites
 
 - INC-36 (v0.7.0 · prose ≠ enforcement · the lesson that prompted this rule)
-- `.claude/rules/no-verify.md` (companion · the same enforcement philosophy)
+- `.claude/skills/autonomous-build-loop/rules/no-verify.md` (companion · the same enforcement philosophy)
 - `.claude/loop.md` v0.7.0 (every step cites this rule)
-- `.claude/rules/agent-orchestration.md` (already established the ONE-MESSAGE batch rule for parallel agents)
+- `.claude/skills/autonomous-build-loop/rules/agent-orchestration.md` (already established the ONE-MESSAGE batch rule for parallel agents)

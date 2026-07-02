@@ -40,7 +40,7 @@ Encoded in `.claude/loop.md` STEP 0a.1. **Mechanical check:** every tick logs `[
 
 ## 4 · Capability gaps narrow eligibility, never halt the loop (INC-30)
 
-Removed in v0.6.5+: the v0.6.4 binary "halt the whole queue for 4h" pattern. Replaced with a capability-aware filter (`.claude/rules/capability-routing.md`).
+Removed in v0.6.5+: the v0.6.4 binary "halt the whole queue for 4h" pattern. Replaced with a capability-aware filter (`.claude/skills/autonomous-build-loop/rules/capability-routing.md`).
 
 Cooldown is reserved for CATASTROPHIC failures, never for capability gaps:
 
@@ -116,6 +116,6 @@ INC-16 (model pin), 18 (honest quota), 19/20 (claim discipline · SUPERSEDED by 
 
 - `.claude/loop.md` — the per-iteration prompt (the loop body)
 - `.claude/skills/autonomous-build-loop/SKILL.md` — agent-facing implementation guide
-- `.claude/rules/capability-routing.md` — capability vocabulary + task-tag convention
-- `.claude/rules/agent-orchestration.md` — concurrency budget + sequencing
+- `.claude/skills/autonomous-build-loop/rules/capability-routing.md` — capability vocabulary + task-tag convention
+- `.claude/skills/autonomous-build-loop/rules/agent-orchestration.md` — concurrency budget + sequencing
 - `.claude/rules/incident-prevention.md` — how lessons get written down

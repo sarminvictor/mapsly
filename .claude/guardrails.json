@@ -1,0 +1,17 @@
+[
+  {
+    "pattern": "from ['\"]@/lib/generated/prisma",
+    "message": "Use @/lib/prisma / @/lib/prisma-types / @/lib/prisma-script",
+    "filePattern": "*.ts,*.tsx"
+  },
+  {
+    "pattern": "revalidateTag\\([^,)]*\\)$",
+    "message": "revalidateTag requires 2 args (tag, profile) — INC-13",
+    "filePattern": "*.ts,*.tsx"
+  },
+  {
+    "pattern": "new PrismaClient\\(",
+    "message": "Module-scope client — use the lazy Proxy in lib/prisma.ts (INC-07)",
+    "filePattern": "*.ts"
+  }
+]

@@ -6,7 +6,7 @@
       "runtimeExecutable": "node",
       "runtimeArgs": [
         "-e",
-        "const http=require('http'),fs=require('fs'),p=require('path');http.createServer((q,s)=>{let u=q.url.split('?')[0];if(u==='/')u='/portal-prototype.html';const f=p.join(process.cwd(),'docs',u);fs.readFile(f,(e,d)=>{if(e){s.writeHead(404);return s.end('not found');}s.writeHead(200,{'content-type':'text/html; charset=utf-8'});s.end(d);});}).listen(4599,()=>console.log('serving docs on 4599'));"
+        "const http=require('http'),fs=require('fs'),p=require('path');const root=p.resolve(process.cwd(),'docs');http.createServer((q,s)=>{let u;try{u=decodeURIComponent(q.url.split('?')[0]);}catch(e){s.writeHead(400);return s.end('bad request');}if(u==='/')u='/portal-prototype.html';const f=p.resolve(root,'.'+u);if(f!==root&&!f.startsWith(root+p.sep)){s.writeHead(403);return s.end('forbidden');}fs.readFile(f,(e,d)=>{if(e){s.writeHead(404);return s.end('not found');}s.writeHead(200,{'content-type':'text/html; charset=utf-8'});s.end(d);});}).listen(4599,'127.0.0.1',()=>console.log('serving docs on 127.0.0.1:4599'));"
       ],
       "port": 4599
     },

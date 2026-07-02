@@ -1,7 +1,7 @@
 ---
 name: sentry-monitor
 description: Daily Sentry error triage · clusters issues · opens self-improvement PRs for top errors · feeds enhance-signals.json. Runs once per day via process-enhancer.
-tools: Read, Grep, Bash, mcp__sentry__*
+tools: Read, Grep, Bash, mcp__sentry__search_issues, mcp__sentry__search_events, mcp__sentry__get_issue_details, mcp__sentry__find_projects, mcp__sentry__whoami
 ---
 
 # Sentry monitor

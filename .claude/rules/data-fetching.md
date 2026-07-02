@@ -6,6 +6,10 @@ alwaysApply: true
 
 # Data fetching · pick the right pattern
 
+> **OVERRIDE · 2026-07-02.** Pattern 5 (SSE) is **SUPERSEDED for long-running enrichment runs** by
+> `.claude/rules/realtime-runs-adr.md` — poll + Redis counters with ETag/304, not SSE, on this stack.
+> SSE remains valid only for genuinely sub-second collaborative surfaces (none shipped today).
+
 There are 5 ways to fetch data in this app. Use the most aggressive one consistent with freshness needs.
 
 ## Decision tree

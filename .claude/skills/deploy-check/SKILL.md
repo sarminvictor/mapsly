@@ -1,73 +1,52 @@
 ---
 name: deploy-check
-description: Pre-push validation. Runs format → typecheck → lint → build → cost-budget audit. Use before every commit. Required by autonomous-build-loop.
+description: Pre-push validation. Runs format → typecheck → lint → migrate-status → build via `pnpm deploy-check`. Use before every commit. Required by autonomous-build-loop.
 ---
 
 # Deploy check
 
-Single command that runs the full pre-push validation.
+Single command: `pnpm deploy-check`. Documents the REAL script — keep this file in sync with `package.json`.
 
-## What it does
+## What it actually runs
 
-1. `pnpm prettier --check .` — formatting
-2. `pnpm typecheck` — TypeScript strict
-3. `pnpm lint` — ESLint
-4. `pnpm build` — Next.js production build
-5. Cost-budget audit — `pnpm tsx scripts/cost-budget-audit.ts`
+`"deploy-check": "pnpm format && pnpm typecheck && pnpm lint && pnpm db:status && pnpm build"`
 
-If any step fails, print the error + exit non-zero.
+1. `pnpm format` — `prettier --write .` · rewrites files in place (NOT `--check`). If it reformats anything, those changes belong in the commit.
+2. `pnpm typecheck` — `tsc --noEmit`, strict.
+3. `pnpm lint` — `eslint .`
+4. `pnpm db:status` — `prisma migrate status` · fails on drift between local migrations and Neon (INC-23 prevention). Needs `DATABASE_URL`/`DIRECT_URL` in the environment.
+5. `pnpm build` — `prisma generate && next build`.
 
-## Cost-budget audit
+If any step fails, the chain stops and exits non-zero. Fix and re-run.
 
-Runs:
+## Cost-budget audit · TODO — script not yet written
 
-```sql
-SELECT job, SUM("costUsd") AS spend_last_24h
-FROM "CronRun"
-WHERE "startedAt" > NOW() - INTERVAL '24 hours'
-GROUP BY job
-ORDER BY spend_last_24h DESC;
-```
-
-For each job, compare to `docs/data-cadence.md` expected ceiling.
-
-If any job is >2× expected:
-
-- Yellow warning in output
-- Add a note to `.claude/memory/build-log.md` for review
-- Don't block the build (but flag)
-
-If any job is >5× expected:
-
-- Red alert
-- BLOCK the deploy check
-- Suggest reviewing the cron handler for runaway loop
+`scripts/cost-budget-audit.ts` does not exist yet, so no cost gate runs in deploy-check. Intended behavior once written: sum last-24h `CronRun."costUsd"` per job, compare to `docs/data-cadence.md` ceilings, warn at >2×, block at >5×. Until then, use the `/cost-audit` skill for a manual last-7d check.
 
 ## When to run
 
-- After every code change before commit
+- After every code change, before commit
 - Auto-invoked by `autonomous-build-loop`
-- Manually after pulling from main (sanity check)
-- As pre-commit hook (configurable in `.husky/pre-commit`)
+- After pulling from main (sanity check)
 
 ## Output format
 
 ```
-✓ Format       (0.3s)
-✓ Typecheck    (4.2s)
-✓ Lint         (1.8s)
-✓ Build        (28.7s)
-✓ Cost audit   (last 24h: $1.23 — within budget)
+✓ Format          (prettier --write)
+✓ Typecheck       (tsc --noEmit)
+✓ Lint            (eslint)
+✓ Migrate status  (no drift)
+✓ Build           (next build)
 
-Deploy check passed in 35.0s
+Deploy check passed
 ```
 
-Or on failure:
+On failure, print the failing step's error verbatim and stop:
 
 ```
-✓ Format       (0.3s)
-✓ Typecheck    (4.2s)
-✗ Lint         (1.8s)
+✓ Format
+✓ Typecheck
+✗ Lint
 
 modules/hunter/filters.ts:42:5
   '_unused' is defined but never used  no-unused-vars

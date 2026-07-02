@@ -5,6 +5,10 @@ globs: ["app/**/*.tsx", "modules/**/*.tsx"]
 
 # Realtime + optimistic updates
 
+> **OVERRIDE · 2026-07-02.** The SSE guidance below is **SUPERSEDED for long-running enrichment runs** by
+> `.claude/rules/realtime-runs-adr.md` — poll + Redis counters with ETag/304, not SSE, on this stack
+> (Vercel `maxDuration` cuts long-held functions; Upstash-REST Redis can't `SUBSCRIBE`).
+
 Two distinct concerns. **Optimistic** = "show the change before the server confirms." **Realtime** = "push from server when something changes."
 
 ## Optimistic updates · `useOptimistic`

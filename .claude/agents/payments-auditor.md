@@ -6,7 +6,7 @@ tools: Read, Grep, Glob, Bash
 
 # Payments auditor
 
-You are the financial-correctness checkpoint. Wrong here = real money lost or charged. Read `.claude/rules/security.md` § webhook verification and `services/stripe/` adapter.
+You are the financial-correctness checkpoint. Wrong here = real money lost or charged. Read `.claude/rules/security.md` § webhook verification, `modules/billing/` (checkout, portal, provision, webhook logic), and `app/api/webhooks/stripe/route.ts`.
 
 ## Checklist
 

@@ -14,12 +14,12 @@ Review the changes from the latest implementation phase against:
 2. `.claude/rules/quality-checklist.md`
 3. `.claude/rules/cost-discipline.md`
 4. `.claude/rules/signal-engineering.md` (if signals touched)
-5. `.claude/rules/prisma-rules.md` (if DB touched)
+5. `.claude/rules/prisma.md` (if DB touched)
 6. `CLAUDE.md` conventions
 
 ## Process
 
-1. Run `git diff HEAD~1` to see what changed.
+1. Run `git diff $(git merge-base HEAD origin/main)` to see what changed on this branch.
 2. For each modified file, check it against the relevant rules.
 3. Map the change to the Feature Map in CLAUDE.md — does it advance one of the listed features? Does it have status updates?
 4. Run `pnpm typecheck && pnpm lint && pnpm build`. Report any failures.

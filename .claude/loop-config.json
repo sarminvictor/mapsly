@@ -1,0 +1,14 @@
+{
+  "remoteName": "gitlab",
+  "mirrorRemote": "github",
+  "repoUrl": "https://gitlab.com/sarminvictor/mapsly.git",
+  "prMechanism": "none",
+  "deployBranch": "main",
+  "pushPolicy": "propose-and-wait",
+  "dbEnvVar": "DATABASE_URL",
+  "tmpPrefix": "mapsly",
+  "branchPrefix": "auto/",
+  "dashboardUrl": "dev.mapsly.ai",
+  "testEmailDomain": "test+@mapsly.ai",
+  "status": "paused"
+}

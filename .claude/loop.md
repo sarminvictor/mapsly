@@ -1,3 +1,5 @@
+> **PAUSED · 2026-07-02 — this loop targets the GitHub mirror; GitLab is primary and pushes require approval. Do not run until re-pointed via `.claude/loop-config.json` (pushPolicy) and explicitly re-enabled by Viktor.**
+
 # Mapsly autonomous build loop · v0.7.7 · PARENT-DELEGATES-EVERYTHING · `general-purpose` subagent · INC-39
 
 > **Architecture · option B.** Parent session does ~11 turns of orchestration. Heavy work delegated to `loop-implementer` + `loop-validator` subagents (each with its OWN 100-turn budget per [Anthropic docs](https://platform.claude.com/docs/en/agent-sdk/subagents): _"Each subagent runs in its own fresh conversation. Intermediate tool calls and results stay inside the subagent; only its final message returns to the parent."_). Review agents (code-reviewer, test-writer, scorer, etc.) all spawn from the parent in ONE message, each with their own fresh session. The Claude Code 100-turn cap on the parent is no longer a constraint because parent's tool calls cap at ~11.
@@ -10,7 +12,7 @@ Read by the Cowork desktop scheduled task → fires every 5 min → executes thi
 
 ## STEP 0 · COMPOUND BOOTSTRAP · ONE bash heredoc
 
-Per `.claude/rules/compound-steps.md`, STEP 0 is exactly ONE `Bash` tool call. Outputs structured JSON the parent parses.
+Per `.claude/skills/autonomous-build-loop/rules/compound-steps.md`, STEP 0 is exactly ONE `Bash` tool call. Outputs structured JSON the parent parses.
 
 ```bash
 {
@@ -62,6 +64,7 @@ Per `.claude/rules/compound-steps.md`, STEP 0 is exactly ONE `Bash` tool call. O
     [ -f "$PWD/.env.local" ] && { set -a; . "$PWD/.env.local" 2>/dev/null; set +a; }
     if [ ! -d "$WORK_DIR/.git" ]; then
       rm -rf "$WORK_DIR" 2>/dev/null
+      # repo URL + remote hardcoded here — canonical values per .claude/loop-config.json (repoUrl, remoteName, mirrorRemote)
       git clone "https://x-access-token:${GITHUB_TOKEN}@github.com/sarminvictor/mapsly.git" "$WORK_DIR" >/dev/null 2>&1
     else
       cd "$WORK_DIR" && git fetch origin main >/dev/null 2>&1 && git reset --hard origin/main >/dev/null 2>&1 && git clean -fd >/dev/null 2>&1
@@ -212,7 +215,7 @@ TASK_TITLE: ${TASK_TITLE}
 TASK_LANE: ${TASK_LANE}
 TASK_TAGS: ${TASK_TAGS}
 WORK_DIR: ${WORK_DIR}
-BRANCH: ${RESUME_BRANCH:-auto/$(date +%Y-%m-%d)-${TASK_ID}-1}
+BRANCH: ${RESUME_BRANCH:-auto/$(date +%Y-%m-%d)-${TASK_ID}-1}   (branch prefix per .claude/loop-config.json branchPrefix)
 RESUME_FROM_RUN: ${RESUME_RUN_ID:-none}
 CONTEXT_BUNDLE: ${CONTEXT_BUNDLE:-(none — do focused exploration via Read/Grep/Glob)}
 
@@ -233,7 +236,7 @@ verified exist (via \`ls\` inside a \`cd\` heredoc) and only when you have
 their exact current content.
 
 # Step-by-step
-1. \`cd "${WORK_DIR}" && cat .claude/memory/incidents.md CLAUDE.md PLAN.md .claude/memory/MEMORY.md .claude/rules/cache-components.md 2>/dev/null | head -c 200000\` — read boot files in ONE call.
+1. \`cd "${WORK_DIR}" && cat .claude/rules/cache-components.md .claude/memory/MEMORY.md CLAUDE.md PLAN.md .claude/memory/incidents.md 2>/dev/null | head -c 200000\` — read boot files in ONE call. incidents.md is deliberately LAST: the 200KB cap truncates the tail, so it clips old incident history first instead of rules/plan.
 2. Read or grep the codebase to understand patterns. Cheap here (your private budget).
 3. Plan implementation: files to create, files to modify, tests, edge cases.
 4. Write files via bash heredocs (\`cat > file <<EOF ... EOF\`) — NOT via Write/Edit.
@@ -241,7 +244,7 @@ their exact current content.
 6. Stage + commit: \`cd "${WORK_DIR}" && git checkout -b "${BRANCH}" && git add -A && git commit -m "feat(${TASK_LANE}): ${TASK_ID} · ${TASK_TITLE}"\`.
 
 # DO NOT verify your own writes
-Per \`.claude/rules/no-verify.md\` — \`Write\`/\`Edit\`/bash heredocs throw on
+Per \`.claude/skills/autonomous-build-loop/rules/no-verify.md\` — \`Write\`/\`Edit\`/bash heredocs throw on
 failure. No \`wc -l\`, \`ls -la\`, \`cat <just-written>\` for verification.
 
 # Final summary back to parent · structured
@@ -303,6 +306,7 @@ Parent total: 2 turns (one for the parallel batch, one for scorer).
 ## STEP 5 · Push branch + open PR · ONE bash
 
 ```bash
+# gh CLI + GitHub PR flow — remote + PR mechanism per .claude/loop-config.json (remoteName, prMechanism)
 git push -u origin "$BRANCH" 2>&1
 PR_URL=$(gh pr create --fill --label autonomous 2>&1 | tail -1)
 PR=$(echo "$PR_URL" | grep -oE '[0-9]+$')
@@ -316,6 +320,7 @@ echo "$PR" > /tmp/mapsly-pr-number
 ## STEP 6 · Wait for CI · ONE bash with exponential backoff loop (sleeps INSIDE)
 
 ```bash
+# gh CLI (GitHub CI rollup) — per .claude/loop-config.json (prMechanism)
 PR=$(cat /tmp/mapsly-pr-number)
 CI_STATUS="pending"
 for d in 15 30 60 120 240; do
@@ -369,7 +374,7 @@ EXPECTED_ASSERTIONS: <derived from task spec — hero copy, key selectors, perf 
 5. Lighthouse mobile preset (if available) — record Performance, A11y, SEO + LCP/CLS/INP.
 6. axe-core (if available) — count violations + list critical ones.
 7. \`resize_window\` to 380px for mobile pass; re-check no horizontal scroll.
-8. Validate as multiple user types if route has auth (see .claude/rules/browser-testing.md).
+8. Validate as multiple user types if route has auth (see .claude/skills/autonomous-build-loop/rules/browser-testing.md).
 
 # Final summary · structured
 STATUS: pass | fail | warn
@@ -399,6 +404,7 @@ If validator returns STATUS=fail → block auto-merge → close as INCOMPLETE fo
 ## STEP 8 · Auto-merge · ONE bash
 
 ```bash
+# gh CLI merge to GitHub — merge target + push policy per .claude/loop-config.json (deployBranch, pushPolicy)
 gh pr merge "$PR" --auto --squash --delete-branch 2>&1
 MERGED_SHA=$(gh pr view "$PR" --json mergeCommit --jq '.mergeCommit.oid' 2>&1 | head -c 7)
 echo "MERGED_SHA=$MERGED_SHA"
@@ -450,7 +456,7 @@ cat > .claude/memory/loop-lock.json <<EOF
 }
 EOF
 
-# Commit + push the chore commit on main
+# Commit + push the chore commit on main — deploy branch + push policy per .claude/loop-config.json (deployBranch, pushPolicy)
 NEW_VER=$(node -p "require('./package.json').version")
 git add package.json .claude/memory/build-log.md .claude/memory/loop-lock.json
 git commit -m "chore(loop): close session · ${TASK_ID} ${OUTCOME} · v${NEW_VER}"

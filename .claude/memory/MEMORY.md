@@ -4,8 +4,10 @@ Read at the start of every session. Append carefully — this is the long-term m
 
 ## Hard preferences
 
-- **Pro Max 20x only.** Never the Anthropic API. The plan is paid; idle quota is wasted.
-- **Auto-merge is default.** When gates pass, ship to main without waiting for review.
+- **Pro Max 20x only.** Never the metered API. The plan is paid; idle quota is wasted.
+- **NO commit/push without Viktor approval.** Push to gitlab `main` = production deploy. GitLab is primary, GitHub is a mirror. The GitHub-targeted `/loop` stays paused.
+- **Viktor tests UI manually in the browser** — no automated browser checks in interactive sessions; verify at code level, then wait for his report.
+- **Reviewer scores are informational**, not merge gates.
 - **Mapsly stops at "qualified lead."** No outreach automation in v1.
 - **Performance is the #1 requirement.** Slow = broken.
 - **One step at a time when Viktor is watching.** Don't batch unrelated work into one walkthrough; pause between distinct setup steps for confirmation.
@@ -17,7 +19,7 @@ Read at the start of every session. Append carefully — this is the long-term m
 - Score everything · 5-dim scorecard appended to PLAN.md per phase.
 - Phased plans · one phase = one session = one PR.
 - Scale to complexity · a typo fix doesn't need 5 research agents.
-- Always commit + push at end of session, even partial work.
+- Leave work uncommitted at end of session; show results and wait for Viktor's approval before any push.
 
 ## What's been built
 

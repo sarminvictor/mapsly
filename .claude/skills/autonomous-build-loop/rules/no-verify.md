@@ -41,5 +41,5 @@ LLM agents are trained on patterns where "verify your work" is a virtue. Telling
 ## Cites
 
 - INC-36 (v0.7.0 · prose ≠ enforcement)
-- `.claude/rules/compound-steps.md` (the other half of the enforcement model)
+- `.claude/skills/autonomous-build-loop/rules/compound-steps.md` (the other half of the enforcement model)
 - `.claude/loop.md` STEP 4, STEP 6, STEP 8 — every one cites this rule

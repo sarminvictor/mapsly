@@ -1,0 +1,42 @@
+{
+  "_comment": "Product constants read by universal agents. Copy to <repo>/.claude/product-spec.json, replace every <placeholder>, keep the key names exactly as-is. _comment* keys are documentation and may be deleted once filled.",
+  "product": "<product-slug>",
+  "_comment_product": "Lowercase product name, e.g. 'acme'.",
+  "domain": "<https://example.com>",
+  "_comment_domain": "Production domain - canonical URLs, health checks, sitemap base.",
+  "repo": {
+    "_comment": "primaryRemote is where pushes go; mirror (or null) is auto-mirrored; a push to deployBranch on primaryRemote IS a production deploy; pushPolicy 'propose-and-wait' = never push without explicit approval, 'auto' = an opted-in loop may push itself.",
+    "primaryRemote": "<gitlab|origin>",
+    "mirror": "<github-remote-name-or-null>",
+    "deployBranch": "main",
+    "pushPolicy": "propose-and-wait"
+  },
+  "deployGate": "<pnpm deploy-check>",
+  "_comment_deployGate": "The single command that must pass before any push (format + typecheck + lint + build + audits).",
+  "stackPack": "<nextjs-16-prisma-7>",
+  "_comment_stackPack": "Which shared rule pack in ~/.claude/rule-packs/ applies to this repo.",
+  "db": {
+    "_comment": "envVar names the connection-string env var; dialect drives SQL quirks (quoting, casts, adapters).",
+    "envVar": "DATABASE_URL",
+    "dialect": "postgresql"
+  },
+  "budgets": {
+    "_comment": "Per-route performance budgets plus the external-API cost ceiling. Numbers, not strings. Any single external call estimated above maxSingleApiCallUsd requires explicit owner approval.",
+    "lighthouseMobile": 90,
+    "lcpMs": 2000,
+    "cls": 0.05,
+    "inpMs": 150,
+    "firstLoadKb": 200,
+    "maxSingleApiCallUsd": 5
+  },
+  "observability": {
+    "_comment": "sentry true/false - whether Sentry is wired, so reviewers know to tag errors and check post-deploy health.",
+    "sentry": true
+  },
+  "testDataConvention": "<test+{taskId}@example.com>",
+  "_comment_testDataConvention": "Greppable pattern ALL seeded test records must follow so cleanup never touches real data.",
+  "dashboards": ["<https://dev.example.com>"],
+  "_comment_dashboards": "URLs the owner watches - where status and blockers surface.",
+  "locales": ["en"],
+  "_comment_locales": "Supported locales; first entry is the default."
+}

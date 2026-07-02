@@ -1,0 +1,32 @@
+{
+  "product": "Mapsly",
+  "domain": "mapsly.ai",
+  "repo": {
+    "primaryRemote": "gitlab",
+    "mirror": "github",
+    "deployBranch": "main",
+    "pushPolicy": "propose-and-wait"
+  },
+  "deployGate": "pnpm deploy-check",
+  "stackPack": "next16-react19-ts5-tailwind4-prisma7-neon",
+  "db": {
+    "envVar": "DATABASE_URL",
+    "dialect": "postgresql"
+  },
+  "budgets": {
+    "lighthouseMobile": 90,
+    "lcpMs": 2000,
+    "cls": 0.05,
+    "inpMs": 150,
+    "firstLoadKb": 200,
+    "maxSingleApiCallUsd": 5
+  },
+  "observability": {
+    "sentry": true
+  },
+  "testDataConvention": "test+{taskId}@mapsly.ai",
+  "dashboards": {
+    "dev": "dev.mapsly.ai"
+  },
+  "locales": ["en", "es", "en-CA", "fr"]
+}

@@ -1,5 +1,9 @@
 # Versioning · every merge bumps the patch
 
+> **OVERRIDE · 2026-07-02.** Version bumps happen inside approved `/ship` pushes — never as standalone autonomous commits.
+> The auto-merge bump discipline below applies only to a re-enabled loop with `pushPolicy: auto`.
+> Standing rule: no commit/push without Viktor's approval.
+
 Every successful auto-merge to main bumps `package.json` version. This is how Viktor sees what's live without checking commit SHAs.
 
 ## Schema

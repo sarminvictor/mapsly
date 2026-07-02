@@ -1,25 +1,21 @@
 {
   "$schema": "https://docs.claude.com/schema/mcp.json",
-  "_comment": "Rename this file to .mcp.json after cloning. Sensitive — env vars referenced are read from .env.local at MCP startup. Restart Claude Code after changes.",
+  "_comment": "Claude Code does NOT read .env.local at MCP startup, so ${VAR} interpolation never resolves. Servers that need secrets are wrapped in `sh -c` which sources .env.local itself (Boxly pattern). gsc/ga use the shared service-account file directly. Restart Claude Code after changes.",
   "mcpServers": {
     "postgres": {
       "type": "stdio",
-      "command": "npx",
+      "command": "sh",
       "args": [
-        "-y",
-        "@modelcontextprotocol/server-postgres",
-        "${DATABASE_URL}"
-      ],
-      "env": {
-        "DATABASE_URL": "${DATABASE_URL}"
-      }
+        "-c",
+        "set -a && . /Users/Viktor/Documents/Claude/Projects/mapsly/.env.local && set +a && exec npx -y @modelcontextprotocol/server-postgres \"$DATABASE_URL\""
+      ]
     },
     "gsc": {
       "type": "stdio",
       "command": "npx",
       "args": ["-y", "mcp-google-search-console"],
       "env": {
-        "GOOGLE_APPLICATION_CREDENTIALS": "${GOOGLE_APPLICATION_CREDENTIALS}"
+        "GOOGLE_APPLICATION_CREDENTIALS": "/Users/Viktor/.config/gsc/service-account.json"
       }
     },
     "ga": {
@@ -28,17 +24,16 @@
       "args": ["-y", "mcp-google-analytics-oauth2"],
       "env": {
         "GOOGLE_AUTH_MODE": "service_account",
-        "GOOGLE_CREDENTIALS_PATH": "${GOOGLE_APPLICATION_CREDENTIALS}"
+        "GOOGLE_CREDENTIALS_PATH": "/Users/Viktor/.config/gsc/service-account.json"
       }
     },
     "dataforseo": {
       "type": "stdio",
-      "command": "npx",
-      "args": ["-y", "@dataforseo/mcp-server"],
-      "env": {
-        "DATAFORSEO_USERNAME": "${DATAFORSEO_USERNAME}",
-        "DATAFORSEO_PASSWORD": "${DATAFORSEO_PASSWORD}"
-      }
+      "command": "sh",
+      "args": [
+        "-c",
+        "set -a && . /Users/Viktor/Documents/Claude/Projects/mapsly/.env.local && set +a && DATAFORSEO_USERNAME=\"$DATAFORSEO_LOGIN\" exec npx -y @dataforseo/mcp-server"
+      ]
     },
     "context7": {
       "type": "stdio",

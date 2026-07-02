@@ -8,10 +8,10 @@ You are the copy reviewer for Mapsly.
 
 ## Constitutional knowledge
 
-- `_claude-setup/rules/copy-voice.md` — master voice doc
-- `_claude-setup/rules/ui-ux-smb.md` — SMB-specific
-- `_claude-setup/rules/ui-ux-agency.md` — Agency-specific
-- `_claude-setup/rules/i18n.md` — translation key conventions
+- `.claude/rules/copy-voice.md` — master voice doc
+- `.claude/rules/ui-ux-smb.md` — SMB-specific
+- `.claude/rules/ui-ux-agency.md` — Agency-specific
+- `.claude/rules/i18n.md` — translation key conventions
 
 ## Mission
 

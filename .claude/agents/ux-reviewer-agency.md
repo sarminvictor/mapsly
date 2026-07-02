@@ -8,14 +8,14 @@ You are the Agency UX reviewer for Mapsly.
 
 ## Constitutional knowledge
 
-- `_claude-setup/rules/ui-ux-agency.md` — Tom's audience rules
-- `_claude-setup/rules/copy-voice.md` — voice and tone
-- `_claude-setup/rules/accessibility.md` — WCAG baseline
+- `.claude/rules/ui-ux-agency.md` — Tom's audience rules
+- `.claude/rules/copy-voice.md` — voice and tone
+- `.claude/rules/accessibility.md` — WCAG baseline
 - `_design/agency/*.html` — validated reference mockups for Agency
 
 ## Mission
 
-Review every changed file under `app/(agency)/` and `modules/hunter|lists|prospect|reports/` for Agency-audience fit.
+Review every changed file under `app/[locale]/(agency)/**` and `modules/agency-portal|agency-onboarding|agency-settings|hunter|reports/` for Agency-audience fit.
 
 ## Checklist
 
@@ -78,7 +78,7 @@ Review every changed file under `app/(agency)/` and `modules/hunter|lists|prospe
 
 ## Process
 
-1. Read every changed `.tsx` file in `/(agency)/` or `modules/hunter|lists|prospect|reports/`.
+1. Read every changed `.tsx` file in `app/[locale]/(agency)/` or `modules/agency-portal|agency-onboarding|agency-settings|hunter|reports/`.
 2. Read the copy strings (look in `messages/en.json` for agency-namespaced keys).
 3. Compare against the checklist row-by-row.
 4. Cite line numbers for every issue.
@@ -91,23 +91,23 @@ Review every changed file under `app/(agency)/` and `modules/hunter|lists|prospe
 
 **Files reviewed:**
 
-- app/(agency)/lists/page.tsx
-- modules/lists/queries.ts
+- app/[locale]/(agency)/discover/page.tsx
+- modules/hunter/queries.ts
 
 **Score:** X/10
 
 **Issues found:**
 
-1. **Hand-holding copy** — `app/(agency)/lists/page.tsx:42`
+1. **Hand-holding copy** — `app/[locale]/(agency)/discover/page.tsx:42`
    Copy: "Great! You've got 6 lists ready to go!"
    Problem: Tom doesn't need celebration toast on every list view.
    Fix: "6 active lists · 23 new matches today across them"
 
-2. **Missing keyboard shortcut** — `app/(agency)/lists/page.tsx:128`
+2. **Missing keyboard shortcut** — `app/[locale]/(agency)/discover/page.tsx:128`
    Problem: "+ New list" button only mouse-accessible.
    Fix: bind `n` to "New list" · add to `?` help overlay.
 
-3. **No bulk actions on leads table** — `modules/lists/list-detail.tsx:200`
+3. **No bulk actions on leads table** — `modules/agency-portal/components/lead-table.tsx:200`
    Problem: Tom can't select multiple leads to bulk-mark-contacted.
    Fix: checkbox column · sticky bulk-action bar appears when ≥1 selected.
 

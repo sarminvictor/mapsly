@@ -56,7 +56,7 @@ For each phase:
 
 ### Phase 4 · Browser validation
 
-Per `.claude/rules/browser-testing.md` + `.claude/rules/validation.md` — multi-user verify.
+Per `.claude/skills/autonomous-build-loop/rules/browser-testing.md` + `.claude/skills/autonomous-build-loop/rules/validation.md` — multi-user verify.
 
 ### Phase 5 · Close
 

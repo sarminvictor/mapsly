@@ -33,7 +33,7 @@ Pick whichever apply. Skipping is OK — but record WHY ("doc-only change, no va
 - Seed test data → call handler → assert DB state → cleanup in `afterEach`
 - Skip when: not crossing a service boundary
 
-### Browser validation (Claude in Chrome MCP) · `.claude/rules/browser-testing.md`
+### Browser validation (Claude in Chrome MCP) · `.claude/skills/autonomous-build-loop/rules/browser-testing.md`
 
 - Any user-visible route: navigate to preview URL, read page text, click interactive elements, take screenshot
 - Validate as anonymous + SMB + agency + admin where relevant

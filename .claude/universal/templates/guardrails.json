@@ -1,0 +1,12 @@
+[
+  {
+    "pattern": "new (PrismaClient|Stripe|Resend|Anthropic)\\(",
+    "message": "Module-scope client instantiation reads env vars at build time and crashes the deploy build - use a lazy Proxy singleton in lib/. Adjust the client list per stack; delete if not applicable.",
+    "filePattern": "**/*.{ts,tsx}"
+  },
+  {
+    "pattern": "console\\.(log|error|warn)\\([^)]*process\\.env",
+    "message": "Never log env vars - secrets end up in build and deploy logs.",
+    "filePattern": "**/*.{ts,tsx,js,mjs}"
+  }
+]

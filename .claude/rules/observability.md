@@ -1,5 +1,9 @@
 # Observability · how Mapsly knows what's happening in production
 
+> **OVERRIDE · 2026-07-02.** The post-merge health check's auto-revert (§ below) requires an approved push —
+> **propose the revert to Viktor, do not push it.** Push to gitlab `main` = production deploy;
+> standing rule is no commit/push without approval.
+
 Three pillars: **errors** (Sentry), **traces** (request-scoped correlation IDs), **metrics** (Postgres aggregates + Vercel Analytics). Every error is actionable; every cron run is replay-able; every cost spike is attributable.
 
 ## Sentry

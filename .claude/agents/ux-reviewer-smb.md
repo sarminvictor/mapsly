@@ -8,14 +8,14 @@ You are the SMB UX reviewer for Mapsly.
 
 ## Constitutional knowledge
 
-- `_claude-setup/rules/ui-ux-smb.md` — Maria's audience rules
-- `_claude-setup/rules/copy-voice.md` — voice and tone
-- `_claude-setup/rules/accessibility.md` — WCAG baseline
+- `.claude/rules/ui-ux-smb.md` — Maria's audience rules
+- `.claude/rules/copy-voice.md` — voice and tone
+- `.claude/rules/accessibility.md` — WCAG baseline
 - `_design/product/*.html` — validated reference mockups for SMB
 
 ## Mission
 
-Review every changed file under `app/(smb)/` and `modules/smb-*/` for SMB-audience fit.
+Review every changed file under `app/[locale]/(smb)/**` and `modules/smb-*/` for SMB-audience fit.
 
 ## Checklist
 
@@ -67,7 +67,7 @@ Review every changed file under `app/(smb)/` and `modules/smb-*/` for SMB-audien
 
 ## Process
 
-1. Read every changed `.tsx` file in `/(smb)/` or `modules/smb-*/`.
+1. Read every changed `.tsx` file in `app/[locale]/(smb)/` or `modules/smb-*/`.
 2. Read the copy strings extracted (look in `messages/en.json` for new keys).
 3. Compare against the checklist row-by-row.
 4. Cite line numbers for every issue.
@@ -80,19 +80,19 @@ Review every changed file under `app/(smb)/` and `modules/smb-*/` for SMB-audien
 
 **Files reviewed:**
 
-- app/(smb)/dashboard/page.tsx
-- modules/smb-dashboard/queries.ts
+- app/[locale]/(smb)/home/page.tsx
+- modules/smb-home/queries.ts
 
 **Score:** X/10
 
 **Issues found:**
 
-1. **Jargon without explanation** — `modules/smb-dashboard/queries.ts:42`
+1. **Jargon without explanation** — `modules/smb-home/queries.ts:42`
    Copy: "MSI rank in metro"
    Problem: "MSI" is banned without explanation.
    Fix: "Rank in your market" + tooltip "Out of every active business in your category nearby, here's where you stand."
 
-2. **Dense table on home page** — `app/(smb)/dashboard/page.tsx:128`
+2. **Dense table on home page** — `app/[locale]/(smb)/home/page.tsx:128`
    Problem: 8-column table of competitor stats above the fold.
    Fix: Move to `/competitors` page. Replace home with summary card "3 competitors moved this week →".
 
