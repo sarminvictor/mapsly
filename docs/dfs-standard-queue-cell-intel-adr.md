@@ -1,15 +1,49 @@
-# WP10-8 · DfS Standard queue for cell-intel SERP/ads — decision + seam
+# WP10-8 · DfS Standard queue for cell-intel SERP/ads — DECISION: keep Live
 
-**Status:** PARTIAL (documented seam + follow-up plan). Cell intel keeps running on
-the DfS **Live** tier for now; moving it to the Standard queue is a dedicated,
-migration-bearing work package, not a fold-in — see the feasibility verdict below.
+**Status: DECIDED — KEEP LIVE (Viktor, 2026-07-02). Not a deferral; the correct answer.**
+Cell intel stays on the DfS **Live** tier. No code change. This replaces an earlier
+framing that called it a "PARTIAL follow-up" with a flawed cost rationale.
 
-## The ask (tracker WP10-8)
+## The decision and why
 
-> Run 30-day-freshness SERP/ads cell intel on the DfS **Standard** queue
-> (`task_post`/`task_get` like reviews) instead of the **Live** tier, where
-> latency allows. Standard is ~2× cheaper and sidesteps the 300s function
-> timeout.
+The item's own qualifier is "Standard **where latency allows**." For cell intel,
+**latency does not allow** — and that's the whole answer:
+
+- **Cell intel runs on the interactive demand path.** `serp`/`google_ads`/`meta_ads`
+  collectors run inside `fanOutRun` the moment a user requests a research; the user is
+  actively waiting for their market to map.
+- **The DfS Standard queue is cheaper *because* it's slow (~45-min SLA).** On Standard,
+  the market bands wouldn't appear for up to ~45 minutes during a live research.
+  **Users won't wait 40 minutes** — they abandon. The snappy Live market view is worth
+  the cost.
+
+## Correcting the earlier rationale (it was wrong)
+
+The first draft deferred this partly because "30-day freshness gates cell intel to $0
+on repeat." **That was wrong, and the code proves it:**
+
+- **There is no auto-refresh.** `ads-meta` / `ads-intelligence` / `cell-aggregate` are
+  **not scheduled** in `vercel.json`. Cell intel runs **only** on user demand.
+- `freshnessDays: 30` is a **dedup** window (same cell re-requested within 30 days →
+  $0), **not** an update cycle. In a prospecting tool where agencies explore *new*
+  markets, that dedup rarely fires — so most demand pays full Live price.
+
+So keeping Live is **not** because "it's basically free" — it's because **cell intel is
+interactive and Standard's latency is unacceptable there.**
+
+## Cost accepted (post-WP10-7, per cell)
+
+`serp` **$0.043** · `google_ads` **$0.004** · `meta_ads` **$0.05** (Apify actor — not a
+DfS-Standard candidate at all). Only `serp` is a meaningfully-priced DfS-Standard
+candidate; keeping it Live accepts ~$0.043/serp-cell for an instant market view. If a
+future **background** market-refresh path is ever added (a cron re-pull NOT on the
+interactive path), *that* path would be the right place to use Standard. The seam below
+is kept for that hypothetical only.
+
+## The ask (tracker WP10-8, original)
+
+> Run SERP/ads cell intel on the DfS **Standard** queue (`task_post`/`task_get`
+> like reviews) instead of the **Live** tier, where latency allows.
 
 ## Current state
 
