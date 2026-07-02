@@ -93,11 +93,16 @@ const PLAINTEXT_EMAIL_RE =
   /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g;
 
 /**
- * US/CA phone. Tolerates +1, parens, spaces, dots, dashes. We post-validate
- * the digit count in `normalizePhone` so a bogus 4-digit run is rejected.
+ * US/CA phone in a PLAINTEXT context. Requires real phone formatting — parens
+ * around the area code, or a separator (space/dot/dash) between BOTH groups —
+ * so a bare 10-digit run (`1730683766`, a timestamp/id) can't match. Correctly-
+ * formatted numbers still match: `(250) 491-9467`, `250 491-9467`,
+ * `250.491.9467`, `+1 250-491-9467`. Bare-but-real numbers are still recovered
+ * from the higher-confidence `tel:` href + JSON-LD lanes. `normalizePhone` then
+ * NANP-validates. (Was: all separators optional → grabbed every numeric string.)
  */
 const PLAINTEXT_PHONE_RE =
-  /(?:\+?1[\s.\-]?)?\(?\d{3}\)?[\s.\-]?\d{3}[\s.\-]?\d{4}\b/g;
+  /(?:\+?1[\s.\-])?(?:\(\d{3}\)\s?|\d{3}[\s.\-])\d{3}[\s.\-]\d{4}(?!\d)/g;
 
 /** Any href="..." or href='...' — used to harvest candidate social URLs. */
 const ANY_HREF_RE = /href\s*=\s*["']([^"']+)["']/gi;
@@ -115,14 +120,19 @@ const BARE_URL_RE = /https?:\/\/[^\s"'<>)\]]+/gi;
 const JUNK_EMAIL_DOMAINS = [
   "sentry.io",
   "sentry-cdn.com",
+  "sentry.wixpress.com",
+  "sentry-next.wixpress.com", // Wix's error-reporting host (hash@… leaks into pages)
+  "wix.com",
   "example.com",
   "example.org",
   "example.net",
+  "exemple.com", // French placeholder ("nom@exemple.com")
   "domain.com",
   "yourdomain.com",
+  "mysite.com", // Wix/site-builder placeholder ("example@mysite.com")
+  "yoursite.com",
   "email.com",
-  "sentry.wixpress.com",
-  "wix.com",
+  "test.com",
   "schema.org",
   "w3.org",
   "googleapis.com",
@@ -130,20 +140,47 @@ const JUNK_EMAIL_DOMAINS = [
 ];
 
 /**
+ * Local parts that mark a template placeholder, not a real inbox. `example@…`,
+ * `nom@exemple.com` (French "name@"), `yourname@…`, etc. survived the domain
+ * denylist because the domain looked plausible.
+ */
+const PLACEHOLDER_EMAIL_LOCALS = new Set([
+  "example",
+  "exemple",
+  "yourname",
+  "your-name",
+  "youremail",
+  "your-email",
+  "firstname",
+  "lastname",
+  "nom",
+  "name",
+  "email",
+  "test",
+  "placeholder",
+]);
+
+/**
  * Local-part / value substrings that mark an address as machine noise rather
  * than a human inbox: image sprites encoded as "x@2x.png", CSS data, etc.
  */
-function isJunkEmail(email: string): boolean {
+export function isJunkEmail(email: string): boolean {
   const lower = email.toLowerCase();
   // Image / asset artefacts: "logo@2x.png", "sprite.png@..." etc.
   if (/\.(png|jpe?g|gif|svg|webp|css|js|woff2?)\b/.test(lower)) return true;
   if (/@\d+x\b/.test(lower)) return true; // "@2x", "@3x" retina markers
-  const domain = lower.split("@")[1] ?? "";
+  const [local = "", domain = ""] = lower.split("@");
   if (!domain) return true;
   if (JUNK_EMAIL_DOMAINS.some((d) => domain === d || domain.endsWith("." + d)))
     return true;
-  // sentry/example local-or-host markers commonly embedded in templates.
-  if (domain.startsWith("sentry.") || domain.includes(".sentry.")) return true;
+  // Sentry error-reporting hosts embedded in templates — sentry.*, sentry-next.*,
+  // *.sentry.*, anything on a wixpress sentry host.
+  if (domain.startsWith("sentry")) return true;
+  if (domain.includes(".sentry.")) return true;
+  // Template placeholder local parts (example@, nom@exemple, yourname@…).
+  if (PLACEHOLDER_EMAIL_LOCALS.has(local)) return true;
+  // A 32-hex-char local part is a machine hash (Sentry/Wix event id), not a person.
+  if (/^[0-9a-f]{32}$/.test(local)) return true;
   return false;
 }
 
@@ -199,9 +236,20 @@ export function extractEmails(html: string): ExtractedContact[] {
  */
 export function normalizePhone(raw: string): string | null {
   const digits = raw.replace(/[^\d]/g, "");
-  if (digits.length === 10) return "+1" + digits;
-  if (digits.length === 11 && digits.startsWith("1")) return "+" + digits;
-  return null;
+  let ten: string | null = null;
+  if (digits.length === 10) ten = digits;
+  else if (digits.length === 11 && digits.startsWith("1"))
+    ten = digits.slice(1);
+  else return null;
+  // NANP structural validity: area code AND exchange must each be [2-9] then two
+  // digits — N is never 0 or 1 in a real assigned number. This rejects the flood
+  // of bogus 10-digit runs the plaintext lane used to grab (timestamps like
+  // 1730683766, tracking ids, prices, zip+phone concatenations) that a
+  // length-only check let through as "+1XXXXXXXXXX". Also reject N11 service
+  // codes (211/311/…/911) as the exchange. See docs/discover-workbench-research.
+  if (!/^[2-9]\d{2}[2-9]\d{6}$/.test(ten)) return null;
+  if (/^\d{3}(\d)11/.test(ten)) return null; // exchange is an N11 service code
+  return "+1" + ten;
 }
 
 /**
@@ -260,6 +308,14 @@ const SOCIAL_EXCLUDE_PATH = [
   "signup",
   "home",
   "watch", // youtube video, not a channel
+  // A logged-in admin/management URL leaked into the page (e.g. LinkedIn
+  // /company/123/admin/page-posts/published) is NOT the public profile.
+  "admin",
+  "wp-admin",
+  "settings",
+  "analytics",
+  "insights",
+  "dashboard",
 ];
 
 interface SocialMatcher {
@@ -555,7 +611,10 @@ export function extractJsonLd(
  * www, and trailing-slash variants.
  */
 function canonicalizeSocialUrl(channel: ContactChannel, url: URL): string {
-  const host = url.host.toLowerCase().replace(/^www\./, "");
+  let host = url.host.toLowerCase().replace(/^www\./, "");
+  // Unify Twitter/X hosts so twitter.com/handle and x.com/handle dedupe to one.
+  if (channel === "X")
+    host = host.replace(/^(mobile\.)?twitter\.com$/, "x.com");
   let path = url.pathname.replace(/\/+$/, "");
   if (path === "") path = "/";
 

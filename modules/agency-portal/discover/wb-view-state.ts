@@ -23,6 +23,7 @@ import {
   FILTER_FIELDS,
   PAGE_SIZES,
   type LeadFilter,
+  type NumericLeadFilter,
   type NumericFilterField,
 } from "./leads-workbench";
 
@@ -60,9 +61,9 @@ function sanitizeFilters(raw: unknown): LeadFilter[] | null {
     if (typeof field !== "string" || !VALID_FIELDS.has(field)) continue;
     if (typeof op !== "string" || !FILTER_OPS.has(op)) continue;
     if (typeof value !== "number" || !Number.isFinite(value)) continue;
-    const clean: LeadFilter = {
+    const clean: NumericLeadFilter = {
       field: field as NumericFilterField,
-      op: op as LeadFilter["op"],
+      op: op as NumericLeadFilter["op"],
       value,
     };
     if (typeof value2 === "number" && Number.isFinite(value2))
@@ -152,7 +153,9 @@ export const DEFAULT_SORT_KEY = "match";
 export const DEFAULT_SORT_DIR: 1 | -1 = -1;
 
 // Filter ops use ASCII tokens in the URL (`≤`/`≥` are non-URL-friendly).
-const OP_TO_TOKEN: Record<LeadFilter["op"], string> = {
+// Only NUMERIC filters serialize to the URL; goal-signal filters are in-session
+// only for now (they'd need the goal signal set to re-hydrate a shared link).
+const OP_TO_TOKEN: Record<NumericLeadFilter["op"], string> = {
   "<": "lt",
   "≤": "lte",
   "=": "eq",
@@ -160,7 +163,7 @@ const OP_TO_TOKEN: Record<LeadFilter["op"], string> = {
   ">": "gt",
   between: "between",
 };
-const TOKEN_TO_OP: Record<string, LeadFilter["op"]> = {
+const TOKEN_TO_OP: Record<string, NumericLeadFilter["op"]> = {
   lt: "<",
   lte: "≤",
   eq: "=",
@@ -169,22 +172,26 @@ const TOKEN_TO_OP: Record<string, LeadFilter["op"]> = {
   between: "between",
 };
 
-/** One filter → its `f` param value: `field:op:value[:value2]`. Pure. */
-export function serializeFilterParam(f: LeadFilter): string {
+/** One numeric filter → its `f` param value: `field:op:value[:value2]`. Pure. */
+export function serializeFilterParam(f: NumericLeadFilter): string {
   const parts = [f.field, OP_TO_TOKEN[f.op], String(f.value)];
   if (f.op === "between") parts.push(String(f.value2 ?? f.value));
   return parts.join(":");
 }
 
-/** Parse one `f` param value back into a filter. null when malformed. Pure. */
-export function parseFilterParam(raw: string): LeadFilter | null {
+/** Parse one `f` param value back into a numeric filter. null when malformed. */
+export function parseFilterParam(raw: string): NumericLeadFilter | null {
   const [field, opToken, valueRaw, value2Raw] = raw.split(":");
   if (!field || !VALID_FIELDS.has(field)) return null;
   const op = opToken ? TOKEN_TO_OP[opToken] : undefined;
   if (!op) return null;
   const value = Number(valueRaw);
   if (!Number.isFinite(value)) return null;
-  const out: LeadFilter = { field: field as NumericFilterField, op, value };
+  const out: NumericLeadFilter = {
+    field: field as NumericFilterField,
+    op,
+    value,
+  };
   if (op === "between") {
     const value2 = Number(value2Raw);
     if (!Number.isFinite(value2)) return null;
@@ -210,7 +217,10 @@ export function viewToSearchParams(
     params.set("sort", view.sortKey);
     params.set("dir", view.sortDir === 1 ? "asc" : "desc");
   }
-  for (const f of view.filters) params.append("f", serializeFilterParam(f));
+  for (const f of view.filters) {
+    if (f.kind === "signal") continue; // signal filters are in-session only
+    params.append("f", serializeFilterParam(f));
+  }
   return params;
 }
 

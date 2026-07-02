@@ -5,7 +5,7 @@
 
 import { describe, expect, test } from "vitest";
 
-import type { LeadFilter } from "../leads-workbench";
+import type { LeadFilter, NumericLeadFilter } from "../leads-workbench";
 import {
   DEFAULT_SORT_DIR,
   DEFAULT_SORT_KEY,
@@ -17,7 +17,7 @@ import {
 
 describe("serializeFilterParam / parseFilterParam", () => {
   test("round-trips every op token", () => {
-    const filters: LeadFilter[] = [
+    const filters: NumericLeadFilter[] = [
       { field: "perf", op: "<", value: 50 },
       { field: "reviews", op: "≥", value: 20 },
       { field: "rating", op: "≤", value: 4 },

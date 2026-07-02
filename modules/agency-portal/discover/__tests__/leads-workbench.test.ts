@@ -107,6 +107,37 @@ describe("evalFilter / passesFilters", () => {
       filterLabel({ field: "reviews", op: "between", value: 10, value2: 20 }),
     ).toBe("Reviews 10–20");
   });
+
+  test("signal filter matches on the per-lead verdict already on the row", () => {
+    const matched = row({ perSignal: { no_booking: true } });
+    const missed = row({ perSignal: { no_booking: false } });
+    const notComputed = row({ perSignal: {} });
+    const wantMatch = {
+      kind: "signal" as const,
+      sigKey: "no_booking",
+      sigLabel: "No booking tool",
+      want: "match" as const,
+    };
+    const wantMiss = { ...wantMatch, want: "miss" as const };
+    expect(evalFilter(matched, wantMatch)).toBe(true);
+    expect(evalFilter(missed, wantMatch)).toBe(false);
+    expect(evalFilter(matched, wantMiss)).toBe(false);
+    expect(evalFilter(missed, wantMiss)).toBe(true);
+    // not-yet-computed (null/absent) never satisfies either — opt-in honesty.
+    expect(evalFilter(notComputed, wantMatch)).toBe(false);
+    expect(evalFilter(notComputed, wantMiss)).toBe(false);
+  });
+
+  test("filterLabel renders a signal-filter chip", () => {
+    expect(
+      filterLabel({
+        kind: "signal",
+        sigKey: "slow_site",
+        sigLabel: "Slow site",
+        want: "match",
+      }),
+    ).toBe("Slow site: matched");
+  });
 });
 
 describe("fmtDelta", () => {

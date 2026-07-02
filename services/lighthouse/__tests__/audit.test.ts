@@ -405,7 +405,9 @@ describe("toPersistRow", () => {
     expect(row.fcp).toBe(1.2);
     expect(row.cls).toBeCloseTo(0.04);
     expect(row.tbt).toBe(120);
-    expect(row.inp).toBe(120); // INP proxied to TBT
+    // INP is a field metric lab Lighthouse can't measure — left null now (no
+    // longer proxied to TBT, which is honestly stored in `tbt` above).
+    expect(row.inp).toBeNull();
     expect(row.hasLocalBusinessSchema).toBe(true);
     expect(row.hasFaqSchema).toBe(true);
     expect(row.hasBookingCtaAboveFold).toBe(true);

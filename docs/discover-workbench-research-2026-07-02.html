@@ -1,0 +1,1577 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Mapsly · Discover Workbench + Signal Research · 2026-07-02</title>
+    <style>
+      :root {
+        --bg: #f6f7fb;
+        --card: #fff;
+        --ink: #16181d;
+        --mut: #6b7280;
+        --line: #e5e7eb;
+        --indigo: #5b3df5;
+        --indigo-soft: #eeeafe;
+        --green: #0f766e;
+        --green-soft: #e7f6f4;
+        --red: #b91c1c;
+        --red-soft: #fdeaea;
+        --amber: #92400e;
+        --amber-soft: #fdf3e0;
+        --mono:
+          "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font:
+          15px/1.55 Inter,
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          sans-serif;
+      }
+      .wrap {
+        max-width: 1120px;
+        margin: 0 auto;
+        padding: 40px 28px 120px;
+      }
+      h1 {
+        font-size: 30px;
+        line-height: 1.15;
+        margin: 0 0 6px;
+      }
+      h2 {
+        font-size: 21px;
+        margin: 54px 0 12px;
+        padding-top: 18px;
+        border-top: 2px solid var(--line);
+      }
+      h3 {
+        font-size: 16px;
+        margin: 26px 0 8px;
+      }
+      p {
+        margin: 8px 0;
+      }
+      .sub {
+        color: var(--mut);
+        font-size: 13.5px;
+      }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 18px 20px;
+        margin: 14px 0;
+      }
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        font-size: 13px;
+        background: #fff;
+      }
+      .tw {
+        overflow-x: auto;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        margin: 12px 0;
+      }
+      th {
+        background: #f2f3f8;
+        text-align: left;
+        padding: 8px 10px;
+        font-size: 11px;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: #4b5563;
+        border-bottom: 1px solid var(--line);
+        white-space: nowrap;
+      }
+      td {
+        padding: 8px 10px;
+        border-bottom: 1px solid #f0f1f5;
+        vertical-align: top;
+      }
+      tr:last-child td {
+        border-bottom: none;
+      }
+      code,
+      .mono {
+        font-family: var(--mono);
+        font-size: 12px;
+      }
+      code {
+        background: #f1f2f6;
+        border-radius: 4px;
+        padding: 1px 5px;
+      }
+      .pill {
+        display: inline-block;
+        border-radius: 999px;
+        padding: 2px 9px;
+        font-size: 11px;
+        font-weight: 600;
+        white-space: nowrap;
+      }
+      .pgreen {
+        background: var(--green-soft);
+        color: var(--green);
+      }
+      .pred {
+        background: var(--red-soft);
+        color: var(--red);
+      }
+      .pamber {
+        background: var(--amber-soft);
+        color: var(--amber);
+      }
+      .pindigo {
+        background: var(--indigo-soft);
+        color: var(--indigo);
+      }
+      .good {
+        color: var(--green);
+        font-weight: 600;
+      }
+      .bad {
+        color: var(--red);
+        font-weight: 600;
+      }
+      .warn {
+        color: var(--amber);
+        font-weight: 600;
+      }
+      .callout {
+        border-left: 4px solid var(--indigo);
+        background: var(--indigo-soft);
+        border-radius: 0 10px 10px 0;
+        padding: 12px 16px;
+        margin: 14px 0;
+      }
+      .callout.red {
+        border-color: var(--red);
+        background: var(--red-soft);
+      }
+      .callout.green {
+        border-color: var(--green);
+        background: var(--green-soft);
+      }
+      .callout.amber {
+        border-color: var(--amber);
+        background: var(--amber-soft);
+      }
+      .k {
+        font-family: var(--mono);
+        font-weight: 700;
+      }
+      .scorebar {
+        height: 8px;
+        border-radius: 4px;
+        background: #e9eaf0;
+        overflow: hidden;
+        min-width: 80px;
+      }
+      .scorebar > i {
+        display: block;
+        height: 100%;
+        border-radius: 4px;
+      }
+      .toc {
+        columns: 2;
+        column-gap: 28px;
+        font-size: 13.5px;
+      }
+      .toc a {
+        color: var(--indigo);
+        text-decoration: none;
+      }
+      .toc li {
+        margin: 3px 0;
+      }
+      @media (max-width: 700px) {
+        .toc {
+          columns: 1;
+        }
+      }
+      .tag {
+        font-family: var(--mono);
+        font-size: 10.5px;
+        color: var(--mut);
+      }
+      .grid2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+      }
+      @media (max-width: 860px) {
+        .grid2 {
+          grid-template-columns: 1fr;
+        }
+      }
+      ol li,
+      ul li {
+        margin: 5px 0;
+      }
+      .foot {
+        color: var(--mut);
+        font-size: 12px;
+        margin-top: 60px;
+        border-top: 1px solid var(--line);
+        padding-top: 14px;
+      }
+      .big {
+        font-size: 26px;
+        font-weight: 800;
+        font-family: var(--mono);
+      }
+      .kpi {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 12px;
+        margin: 16px 0;
+      }
+      .kpi .card {
+        margin: 0;
+        padding: 14px 16px;
+      }
+      .kpi .lab {
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--mut);
+      }
+      .cmp {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <h1>
+        Discover: leads workbench + signal library — research &amp; rework
+      </h1>
+      <p class="sub">
+        Mapsly · 2026-07-02 · a full audit of the Discover journey from Goal →
+        Preview → Leads workbench, the signal/field library, every column &amp;
+        filter &amp; enrich layer, per-research collection quality, and real
+        data quality — each scored and compared to Apollo / Clay / Cognism /
+        Localo best practice, ending in a reworked
+        <b>personalised</b> approach.<br />
+        Method: 8 specialist agents — 6 reading the live codebase (every claim
+        carries a <span class="tag">file:line</span>) + 2 web-research (sources
+        linked) + live Neon queries against your discovery
+        <code>cmr427qzq…</code> (Car Repair · Kelowna).
+      </p>
+
+      <div class="callout red">
+        <b>The one-paragraph verdict.</b> The problem you felt is real and it
+        has one shape:
+        <b
+          >a rich, guided front door opens onto a generic, depersonalised
+          room.</b
+        >
+        The Goal step lets you pick from a 44-card signal library backed by a
+        104-signal registry and a schema that captures
+        <b>~5× more raw data than it ever exposes</b> — but on the Leads page
+        your chosen signals become read-only <i>columns</i>, never
+        <i>filters</i>; the filter rail offers 4 generic numeric levers
+        unrelated to your search; contacts are hidden by default; you can't tell
+        what enriched vs failed; and the contact data that <i>is</i> shown is
+        ~90% junk phones from a naive regex. The engineering underneath is
+        genuinely strong (a 7/10 data-collection foundation); the exposure, UX,
+        and validation layer on top is a 3/10.
+        <b
+          >None of this needs a rewrite — the expensive parts already work; the
+          cheap last mile was skipped.</b
+        >
+      </div>
+
+      <h3>Contents</h3>
+      <ol class="toc">
+        <li>
+          <a href="#diag">1 · The core diagnosis (your journey, broken)</a>
+        </li>
+        <li><a href="#score">2 · Scorecard (every dimension)</a></li>
+        <li>
+          <a href="#complaints">3 · Your leads page — complaint by complaint</a>
+        </li>
+        <li>
+          <a href="#library"
+            >4 · Signal &amp; field library — where's the email?</a
+          >
+        </li>
+        <li>
+          <a href="#filters">5 · Filters &amp; personalisation (the P0)</a>
+        </li>
+        <li>
+          <a href="#status">6 · Enrichment status — what enriched / failed?</a>
+        </li>
+        <li>
+          <a href="#research"
+            >7 · Every research, scored (+ booking-tools deep dive)</a
+          >
+        </li>
+        <li><a href="#quality">8 · Data quality beyond phones</a></li>
+        <li><a href="#market">9 · Best-practice comparison</a></li>
+        <li><a href="#rework">10 · The reworked, personalised workbench</a></li>
+        <li><a href="#roadmap">11 · Prioritised roadmap</a></li>
+      </ol>
+
+      <!-- ============================================================ -->
+      <h2 id="diag">1 · The core diagnosis — your journey, broken</h2>
+
+      <p>
+        You described it exactly:
+        <i
+          >"We started with step-by-step guidance, selected a lot of what, but
+          finished with a general, not personalised list."</i
+        >
+        Here's what actually happens to your intent as it travels:
+      </p>
+
+      <div class="tw">
+        <table>
+          <tr>
+            <th>Stage</th>
+            <th>What you do</th>
+            <th>What the system keeps</th>
+            <th>Health</th>
+          </tr>
+          <tr>
+            <td><b>Goal</b></td>
+            <td>
+              Pick a template + tune signals (e.g. "No online booking tool" +
+              "Operating business" + "Has a website")
+            </td>
+            <td>
+              Persisted <b>losslessly</b> to
+              <code>Discovery.signalsJson</code> + a URL param. Round-trips on
+              back/refresh. <span class="tag">discovery-signals.ts:78</span>
+            </td>
+            <td><span class="pill pgreen">9/10</span></td>
+          </tr>
+          <tr>
+            <td><b>Preview</b></td>
+            <td>Map the market, filter, cap, enrich</td>
+            <td>
+              Real market count, honest pricing (just shipped), the enrich scope
+            </td>
+            <td><span class="pill pgreen">fixed</span></td>
+          </tr>
+          <tr>
+            <td><b>Evaluate</b></td>
+            <td>—</td>
+            <td>
+              Every lead gets a per-signal verdict (<code
+                >perSignal: ✓/✗/null</code
+              >) computed and attached to its row.
+              <span class="tag">signal-eval.ts:306</span>
+            </td>
+            <td><span class="pill pgreen">9/10</span></td>
+          </tr>
+          <tr>
+            <td><b>Workbench</b></td>
+            <td>Read your leads</td>
+            <td>
+              Chosen signals render as read-only <b>columns</b>. But they are
+              <b>0 of N</b> filterable; the filter rail is 4 generic levers;
+              contacts + status are off by default.
+            </td>
+            <td><span class="pill pred">3/10</span></td>
+          </tr>
+        </table>
+      </div>
+
+      <div class="callout">
+        <b>The disconnect in one line:</b> your per-signal verdict is
+        <i>already on every row that reaches the browser</i> — the code reads it
+        only to paint a ✓, then never lets you filter, sort-to-top, or
+        add-as-column by it. The doc comment even says so out loud:
+        <span class="tag">LeadsWorkbench.tsx:99</span>
+        <i>"We do NOT use these to auto-FILTER the row set."</i> That was a
+        sound instinct against <i>hiding</i> not-yet-enriched leads — but it
+        also blocked <b>opt-in</b> filtering, which is exactly what you want.
+        <b
+          >The 90% expensive work (persist → hydrate → evaluate → display)
+          shipped; the 10% last mile (turn the verdict already on the row into a
+          filter) was consciously deferred.</b
+        >
+      </div>
+
+      <!-- ============================================================ -->
+      <h2 id="score">2 · Scorecard</h2>
+
+      <div class="tw">
+        <table>
+          <tr>
+            <th>Dimension</th>
+            <th style="width: 130px">Score</th>
+            <th></th>
+            <th>One-line rationale</th>
+          </tr>
+          <tr>
+            <td>Data collection foundation (plumbing)</td>
+            <td class="k">7 / 10</td>
+            <td>
+              <div class="scorebar">
+                <i style="width: 70%; background: var(--green)"></i>
+              </div>
+            </td>
+            <td>
+              Cost-guarded, freshness-deduped, SSRF-safe, failure-isolated.
+              Genuinely well-built.
+            </td>
+          </tr>
+          <tr>
+            <td>Goal → persist → evaluate continuity</td>
+            <td class="k">9 / 10</td>
+            <td>
+              <div class="scorebar">
+                <i style="width: 90%; background: var(--green)"></i>
+              </div>
+            </td>
+            <td>
+              Signals round-trip losslessly and every lead is scored. The hard
+              half is done.
+            </td>
+          </tr>
+          <tr>
+            <td>Signals as <b>columns</b></td>
+            <td class="k">7 / 10</td>
+            <td>
+              <div class="scorebar">
+                <i style="width: 70%; background: var(--green)"></i>
+              </div>
+            </td>
+            <td>
+              All chosen signals become verdict columns — but uncapped,
+              always-on, unhideable.
+            </td>
+          </tr>
+          <tr>
+            <td>Signals as <b>filters</b></td>
+            <td class="k">1 / 10</td>
+            <td>
+              <div class="scorebar">
+                <i style="width: 10%; background: var(--red)"></i>
+              </div>
+            </td>
+            <td>
+              Zero of N chosen signals are filterable. Filter model hardcodes 4
+              numeric fields.
+            </td>
+          </tr>
+          <tr>
+            <td>Signal &amp; field library coverage</td>
+            <td class="k">4 / 10</td>
+            <td>
+              <div class="scorebar">
+                <i style="width: 40%; background: var(--amber)"></i>
+              </div>
+            </td>
+            <td>
+              Schema captures ~5× the raw data the 44 cards expose. Email has no
+              card.
+            </td>
+          </tr>
+          <tr>
+            <td>Column set (useful, personalised, legible)</td>
+            <td class="k">4 / 10</td>
+            <td>
+              <div class="scorebar">
+                <i style="width: 40%; background: var(--amber)"></i>
+              </div>
+            </td>
+            <td>
+              Solid table engine; wrong columns — no website URL, empty pains,
+              decorative dots.
+            </td>
+          </tr>
+          <tr>
+            <td>Enrichment status transparency</td>
+            <td class="k">3 / 10</td>
+            <td>
+              <div class="scorebar">
+                <i style="width: 30%; background: var(--red)"></i>
+              </div>
+            </td>
+            <td>
+              Rich state machine collapsed to one boolean; failed ≡ never-run;
+              receipt vanishes.
+            </td>
+          </tr>
+          <tr>
+            <td>Contacts visibility (UX)</td>
+            <td class="k">3 / 10</td>
+            <td>
+              <div class="scorebar">
+                <i style="width: 30%; background: var(--red)"></i>
+              </div>
+            </td>
+            <td>
+              Phone/Email columns off by default; extra phones/emails hidden
+              even in the drawer.
+            </td>
+          </tr>
+          <tr>
+            <td>Data quality — phones</td>
+            <td class="k">1 / 10</td>
+            <td>
+              <div class="scorebar">
+                <i style="width: 10%; background: var(--red)"></i>
+              </div>
+            </td>
+            <td>
+              ~90% junk; avg 5.7, max 108 fake numbers/business. Regex grabs any
+              10-digit run.
+            </td>
+          </tr>
+          <tr>
+            <td>Data quality — emails / verification</td>
+            <td class="k">3 / 10</td>
+            <td>
+              <div class="scorebar">
+                <i style="width: 30%; background: var(--red)"></i>
+              </div>
+            </td>
+            <td>20% junk emails; 100% UNVERIFIED; role permanently UNKNOWN.</td>
+          </tr>
+          <tr>
+            <td>Data quality — socials / tech</td>
+            <td class="k">8 / 10</td>
+            <td>
+              <div class="scorebar">
+                <i style="width: 80%; background: var(--green)"></i>
+              </div>
+            </td>
+            <td>
+              Real profile URLs + accurate tech fingerprint. One LinkedIn /admin
+              leak.
+            </td>
+          </tr>
+          <tr>
+            <td>Research method rigor (avg)</td>
+            <td class="k">6.5 / 10</td>
+            <td>
+              <div class="scorebar">
+                <i style="width: 65%; background: var(--amber)"></i>
+              </div>
+            </td>
+            <td>
+              Reviews 8, Lighthouse 7, AI 7, cell-intel 6, contacts/booking 6.
+            </td>
+          </tr>
+          <tr>
+            <td>vs best-practice extraction (Hunter/Clay/ZeroBounce)</td>
+            <td class="k">5 / 10</td>
+            <td>
+              <div class="scorebar">
+                <i style="width: 50%; background: var(--amber)"></i>
+              </div>
+            </td>
+            <td>
+              Homepage-only, no JS render, no subpages, no email verify, no NANP
+              validation.
+            </td>
+          </tr>
+          <tr>
+            <td style="font-weight: 700">Overall experience</td>
+            <td class="k" style="font-size: 17px">3.6 / 10</td>
+            <td>
+              <div class="scorebar">
+                <i style="width: 36%; background: var(--indigo)"></i>
+              </div>
+            </td>
+            <td style="font-weight: 600">
+              A strong engine driving a generic, low-trust cockpit. The fixes
+              are wiring + validation, not rebuild.
+            </td>
+          </tr>
+        </table>
+      </div>
+
+      <!-- ============================================================ -->
+      <h2 id="complaints">3 · Your leads page — complaint by complaint</h2>
+      <p class="sub">
+        Every complaint is a real, code-confirmed defect. Note first: several
+        columns you're seeing (Phone, Email, Lighthouse, Enriched) are
+        <b>off by default</b> — a prior session toggled them on and the view
+        persisted (<span class="tag">leads-workbench.ts:480</span>). That itself
+        is a finding: the default view shows
+        <i>no contacts and no enrichment status at all</i>.
+      </p>
+
+      <div class="tw">
+        <table>
+          <tr>
+            <th>Your words</th>
+            <th>What's happening (code)</th>
+            <th>The fix</th>
+          </tr>
+          <tr>
+            <td><b>"Has a website — match. why not the website itself?"</b></td>
+            <td>
+              There is <b>no website-URL column</b>.
+              <code>r.website</code> exists but is emitted <b>only to CSV</b>.
+              On screen you see "Built on" (the <b>CMS name</b>, not the URL)
+              and a "Website" <i>coverage badge</i>.
+              <span class="tag">leads-workbench.ts:71,713 · page.tsx:401</span>
+            </td>
+            <td>
+              Add a real Website column rendering the domain as a clickable
+              link; keep CMS as a sub-line.
+            </td>
+          </tr>
+          <tr>
+            <td><b>"Painpoints are empty. why?"</b></td>
+            <td>
+              Pains come only from <code>PlaybookFinding</code> rows flagged
+              during a playbook step that <b>didn't run</b> for these leads →
+              every cell is <code>—</code>. Column is default-on, prime real
+              estate. <span class="tag">page.tsx:290,437</span>
+            </td>
+            <td>
+              Derive pain chips from the per-signal verdicts you already have,
+              or hide the column until findings exist.
+            </td>
+          </tr>
+          <tr>
+            <td><b>"Reachable — what the value?"</b></td>
+            <td>
+              A bare green/red <b>Yes/No</b> pill with no tooltip. The richer
+              reachability <i>tier</i> (Phone-only / Phone+email / Rich) exists
+              on the row but is <b>thrown away in the table</b>.
+              <span class="tag">page.tsx:495 · LeadsWorkbench.tsx:712</span>
+            </td>
+            <td>
+              Render the tier ("Phone + email") or an info-tip; and recompute it
+              after the phone/email cleanup (today it's inflated by junk).
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <b
+                >"Lighthouse — enrich, can't click to enrich. Why show it if no
+                data?"</b
+              >
+            </td>
+            <td>
+              The empty <code>— enrich</code> cell has <b>no onClick</b> — none
+              of the "enrich" spans are interactive. Enrichment only happens
+              from the coverage-line CTA. And it's not truly default-on; your
+              saved view enabled it.
+              <span class="tag">LeadsWorkbench.tsx:728</span>
+            </td>
+            <td>
+              Make every <code>— enrich</code> cell a button that opens the
+              enrich sheet scoped to that lead + family (the event bus already
+              exists).
+            </td>
+          </tr>
+          <tr>
+            <td><b>"Enriched — dots. why? value?"</b></td>
+            <td>
+              A 6-dot strip that
+              <b>duplicates the coverage line above the table</b> — the code
+              comment admits it. Two states only (have / not-yet); failure and
+              staleness are invisible; no action on click.
+              <span class="tag">leads-workbench.ts:421</span>
+            </td>
+            <td>
+              Either drop it, or turn it into a real per-family
+              <i>status</i> (done / stale / failed / pending) with
+              click-to-enrich.
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <b
+                >"Phone — the +44 aren't reachable; more phones exist but I
+                can't see them, even in the lead card."</b
+              >
+            </td>
+            <td>
+              <b>Two bugs.</b> (1) The "+44" is a
+              <b>"+44 more" overflow badge</b> — Kelowna Hyundai has ~46 phones,
+              ~90% junk (see §8). (2) The table shows only
+              <code>phones[0]</code> + a hover-only "+N";
+              <b>the drawer does the same</b> — phones 2..N live only in a
+              tooltip <code>title</code>.
+              <span class="tag">LeadDrawer.tsx:837</span>
+            </td>
+            <td>
+              Purge junk phones (NANP validation); render every phone/email as
+              its own <code>tel:</code>/<code>mailto:</code> link in the drawer,
+              with per-number "report wrong".
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <b>"I can't tell how to see contacts, or if I need to enrich."</b>
+            </td>
+            <td>
+              Phone/Email columns are <b>off by default</b>, so a fresh view
+              shows no contacts — only "Reachable: Yes". The value sits behind
+              the Fields menu or the drawer; an empty cell reads
+              <code>— enrich</code> whether it was scanned-and-empty or
+              never-scanned. <span class="tag">leads-workbench.ts:407,418</span>
+            </td>
+            <td>
+              One default-on <b>Contacts</b> column (phone + email inline, or a
+              count + expand); distinguish "scanned, none found" from "not
+              enriched".
+            </td>
+          </tr>
+        </table>
+      </div>
+
+      <!-- ============================================================ -->
+      <h2 id="library">
+        4 · Signal &amp; field library — "I can't even find the email"
+      </h2>
+
+      <p>
+        <b>You're right, and here's the exact reason.</b> Email is a research
+        <i>output</i> (a column + a drawer entry), <b>not a signal</b>. There is
+        no goal card for it (<code>grep has_email</code> in the goal library =
+        0). The only way to "filter by email" is the coarse
+        <code>reachability = EMAIL_ONLY</code> tier — which can't express "has
+        any email", "has a <i>verified</i> email", or "has an
+        <i>owner</i> email". For an outbound agency,
+        <b
+          >a verified owner email is the single most valuable field — and it has
+          no filter.</b
+        >
+        <span class="tag">Email exposure score: 2/10</span>
+      </p>
+
+      <h3>The shape of the gap: captured ≫ exposed</h3>
+      <p>
+        The schema captures roughly
+        <b>5× more queryable data than the 44 goal cards expose</b>. Of those 44
+        cards, ~12 are roadmap (evaluate to <code>null</code>), 8 are synthetic,
+        and 2 are effectively <b>dead</b> against real data (<code
+          >branded_only_traffic</code
+        >
+        — the brand-query scan never runs;
+        <code>recurring_complaint_theme</code> — the AI theme pass was retired).
+        What we collect and then <b>throw away at the filter layer</b>:
+      </p>
+
+      <div class="tw">
+        <table>
+          <tr>
+            <th>Captured raw data (stored today)</th>
+            <th>Prospecting value</th>
+            <th>Exposed as signal/filter?</th>
+          </tr>
+          <tr>
+            <td>
+              <b>Email discovery pipeline</b> — <code>emailDiscovered</code>,
+              <code>emailCandidates</code>, <code>emailDiscoverySource</code>,
+              <code>Contact.verifiedStatus</code>
+              (VALID/CATCH_ALL/RISKY/INVALID)
+            </td>
+            <td class="good">Highest — a deliverable owner inbox</td>
+            <td><span class="pill pred">No — invisible</span></td>
+          </tr>
+          <tr>
+            <td>
+              <b>Per-social channel</b> — Facebook / Instagram / LinkedIn /
+              TikTok / YouTube / X / Yelp; <code>instagramFollowers</code>
+            </td>
+            <td>Channel-fit + brand/budget proxy</td>
+            <td><span class="pill pred">No — collapsed to one count</span></td>
+          </tr>
+          <tr>
+            <td>
+              <b>BusinessEnrichment (AI tier)</b> —
+              <code>pricingTransparency</code>, <code>sophistication</code>,
+              <code>painHypotheses</code>, <code>subType</code>,
+              <code>positioningSummary</code>
+            </td>
+            <td class="good">
+              Most differentiated data we hold; feeds outreach copy
+            </td>
+            <td><span class="pill pred">No — zero signals</span></td>
+          </tr>
+          <tr>
+            <td>
+              <b>Lighthouse sub-metrics</b> — SEO, a11y, LCP/CLS/INP,
+              <code>isOnHttps</code>, schema flags, desktop preset
+            </td>
+            <td>Multiple pitchable wins</td>
+            <td>
+              <span class="pill pamber">Only "performance" backs a card</span>
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <b>Ad spend + creative</b> — <code>spendBandUsd</code>,
+              <code>impressionsMid</code>, <code>adCreativeBody</code>,
+              <code>ctaText</code>, targeting, platforms[]
+            </td>
+            <td class="good">Proven budget = qualified lead</td>
+            <td>
+              <span class="pill pred">No — only active-count/format</span>
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <b>GBP fields (free at discovery)</b> — <code>hours</code>,
+              <code>photosCount</code>, <code>attributes</code>,
+              <code>popularTimes</code>, <code>peopleAlsoSearch</code>,
+              <code>ratingDistribution</code>
+            </td>
+            <td>Profile-neglect, competitor seeds — $0 to collect</td>
+            <td><span class="pill pred">No — none is a card</span></td>
+          </tr>
+        </table>
+      </div>
+
+      <div class="callout amber">
+        <b>Why this is structural, not cosmetic:</b> the signal vocabulary
+        <i>is</i> Mapsly's moat — "a prospect whose site loads slow + reply rate
+        0% + a competitor moved into their building." But the moat data is
+        collected and discarded at the filter layer, leaving a thin,
+        sales-curated 44 cards where the most valuable outbound field (a
+        verified email) can't even be targeted. Most fixes here are
+        <b>wiring</b> — the registry signals and resolver cases often already
+        exist; no new data collection.
+      </div>
+
+      <!-- ============================================================ -->
+      <h2 id="filters">5 · Filters &amp; personalisation — the P0 fix</h2>
+
+      <div class="grid2">
+        <div class="card">
+          <h3 style="margin-top: 0">Today</h3>
+          <ul>
+            <li>
+              Workbench opens with an <b>empty filter rail</b> (the seed-filters
+              code is dead / never imported).
+            </li>
+            <li>
+              The "+ Add filter" menu offers <b>4 fields only</b>: match,
+              reviews, rating, perf.
+            </li>
+            <li>
+              None of your reputation / ads / profile / tech signals are
+              filterable — even though every one is already scored on the row.
+            </li>
+            <li>
+              Signal columns are <b>uncapped &amp; always-on</b> → a 10-signal
+              goal walls the table with ✓/— columns you can't hide or reorder.
+            </li>
+          </ul>
+          <p class="sub">
+            Signals-as-filters score: <span class="k">1/10</span> ·
+            Personalisation: <span class="k">4/10</span>
+          </p>
+        </div>
+        <div class="card">
+          <h3 style="margin-top: 0">The fix (no new data, no schema change)</h3>
+          <ul>
+            <li>
+              Add a <code>SignalVerdictFilter</code> that reads
+              <code>row.perSignal[key]</code> — <b>already on every row</b>.
+            </li>
+            <li>
+              List your chosen signals as a <b>"Narrow by your goal"</b> opt-in
+              filter group above the 4 numeric fields.
+            </li>
+            <li>
+              Put a "filter to matched" funnel on each signal column header —
+              one click from the column you're reading.
+            </li>
+            <li>
+              <code>null</code> (not-yet-enriched) rows excluded from a
+              "matched" filter, with an honest "12 not yet enriched — enrich to
+              include" chip (preserves the instinct the current code was
+              protecting).
+            </li>
+            <li>Cap always-on signal columns (first 5 + "＋N more").</li>
+          </ul>
+          <p class="sub">
+            Effort: a self-contained change to <code>leads-workbench.ts</code> +
+            <code>LeadsWorkbench.tsx</code> + the view-state serializer.
+          </p>
+        </div>
+      </div>
+
+      <!-- ============================================================ -->
+      <h2 id="status">
+        6 · Enrichment status — "what was enriched, what failed?"
+      </h2>
+
+      <p>
+        The DB has a genuinely rich per-lead, per-family state machine —
+        <code
+          >EnrichmentRun.unitsCompleted / unitsSkippedFresh /
+          creditsCharged</code
+        >,
+        <code>EnrichmentJob.status</code>
+        (QUEUED/RUNNING/DONE/FAILED/SKIPPED_FRESH) + <code>errorMessage</code>,
+        per-AI-stage rows.
+        <b
+          >The UI throws all of it away and derives one boolean: "is there
+          data?"</b
+        >
+        <span class="tag">family-coverage.ts:75</span>
+        <span class="tag">Transparency score: 3/10</span>
+      </p>
+
+      <div class="tw">
+        <table>
+          <tr>
+            <th>Blind spot</th>
+            <th>Consequence (exactly what you hit)</th>
+            <th>Fix</th>
+          </tr>
+          <tr>
+            <td>
+              <b>Failed ≡ never-run</b> — coverage excludes all non-DONE jobs
+            </td>
+            <td>
+              An errored contact scan looks identical to an untouched one;
+              <code>errorMessage</code> is never shown.
+            </td>
+            <td>
+              Add per-family status (done / stale / failed / pending / none);
+              red dot on failure with the error on hover.
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <b>Partial run reads as "nothing enriched"</b> — the set summary
+              uses an all-or-nothing rule
+            </td>
+            <td>
+              You enriched some leads (best-N), but the family stays "Not yet"
+              because the un-enriched remainder lacks it.
+            </td>
+            <td>
+              Per-family fraction: "Contacts 148/200 · 12 failed · 40 not run" +
+              a top-line "N of M fully enriched".
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <b>The run receipt vanishes</b> — auto-advances in 1.4s; the
+              workbench forgets the run 60s after it finishes
+            </td>
+            <td>
+              You come back to explore results and there's <b>no trace</b> of
+              what the run did.
+            </td>
+            <td>
+              A persistent, dismissible "Last enrichment · N enriched · K failed
+              · P refunded credits" strip above the table.
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <b>Contacts hidden after enrichment</b> — Phone/Email off by
+              default
+            </td>
+            <td>
+              You enrich contacts, then can't find them → "did it even work?"
+            </td>
+            <td>
+              Turn a Contacts column on once a contacts run exists; distinguish
+              "found none" from "not scanned".
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <b>Stale ≡ fresh</b> — <code>enrichmentFreshness</code> is never
+              read
+            </td>
+            <td>A dot filled 200 days ago looks identical to today's.</td>
+            <td>
+              Render a "stale — re-enrich" state past each family's cadence.
+            </td>
+          </tr>
+        </table>
+      </div>
+      <p class="sub">
+        The good news: the per-run summary component
+        (<code>EnrichingStep</code>) is genuinely well-built (7/10) — honest
+        OK/PARTIAL/FAILED copy, a done/failed bar, a credit-refund receipt. The
+        failure is <b>placement</b>: it's only reachable <i>during</i> the run
+        and for 1.4s after, never when you return.
+      </p>
+
+      <!-- ============================================================ -->
+      <h2 id="research">
+        7 · Every research, scored — how we collect, how good
+      </h2>
+
+      <p>
+        Cross-cutting theme: every family's <b>plumbing is strong</b> (cost
+        discipline, freshness dedup, SSRF guarding, failure isolation). Every
+        family's
+        <b
+          >detection/attribution layer is regex / substring / fuzzy-match over a
+          single static artifact</b
+        >
+        — one homepage, one keyword, one listing blurb. The highest-ROI upgrades
+        are all the same shape:
+        <b>render JS + look past the homepage before asserting a negative</b>,
+        and <b>attach confidence to fuzzy attribution</b>.
+      </p>
+
+      <div class="tw">
+        <table>
+          <tr>
+            <th>Research</th>
+            <th style="width: 70px">Score</th>
+            <th>Method (as built)</th>
+            <th>Biggest weakness</th>
+            <th>Improvement</th>
+          </tr>
+          <tr>
+            <td>
+              <b>Contacts + Tech<br />(booking tools)</b>
+            </td>
+            <td class="k">6/10</td>
+            <td>
+              One homepage fetch (free → paid actor if blocked) feeds regex
+              email/phone/social + a Wappalyzer-style tech fingerprint.
+            </td>
+            <td>
+              Homepage-only + JS rendered <i>only on the blocked path</i> + 8
+              booking-vendor signatures.
+            </td>
+            <td>
+              Render JS + probe <code>/book,/appointments,/contact</code> before
+              asserting "no booking".
+            </td>
+          </tr>
+          <tr>
+            <td><b>Reviews</b></td>
+            <td class="k">8/10</td>
+            <td>
+              Durable DfS jobs; a <b>recency-bounded depth ladder</b> [200→4490]
+              that escalates only within a 365-day window; $0 star sentiment.
+            </td>
+            <td>
+              Sentiment ignores text ("5★ but waited 2h" = positive); hard CID
+              dependency.
+            </td>
+            <td>Aspect sentiment on the negative subset only.</td>
+          </tr>
+          <tr>
+            <td><b>Lighthouse</b></td>
+            <td class="k">7/10</td>
+            <td>
+              Dual-leg (DfS scores + $0 DOM checks), walled-site actor
+              escalation, opportunity mining.
+            </td>
+            <td>
+              <b>INP is faked</b> — TBT persisted as INP; brittle verb-substring
+              CTA heuristic.
+            </td>
+            <td>Leave INP null until real field data (planned Sentry RUM).</td>
+          </tr>
+          <tr>
+            <td><b>SERP / Google&nbsp;ads / Meta&nbsp;ads</b></td>
+            <td class="k">6/10</td>
+            <td>
+              Scan once per cell, 30-day freshness, reverse-attribute to leads.
+            </td>
+            <td>
+              Attribution is fuzzy name/domain match;
+              <b>Google ads = brand-stem substring</b> (no domain on creatives).
+              One keyword/cell.
+            </td>
+            <td>
+              Attach an attribution-confidence tier; don't present
+              low-confidence as fact.
+            </td>
+          </tr>
+          <tr>
+            <td><b>AI research</b></td>
+            <td class="k">7/10</td>
+            <td>
+              Disciplined 5-stage gpt-5.4-nano pipeline, per-stage freshness,
+              prompt-injection fenced.
+            </td>
+            <td>
+              Reasons over the DfS <b>listing blurb</b>, not the real site copy
+              → plausible but weakly grounded.
+            </td>
+            <td>
+              Feed it the already-fetched rendered DOM (near-zero marginal
+              cost).
+            </td>
+          </tr>
+        </table>
+      </div>
+
+      <div class="callout">
+        <b>Booking-tools deep dive (your example), answered at code level.</b>
+        The "No online booking tool" card evaluates
+        <code>has_booking_widget</code> →
+        <code>BusinessTech.category = 'BOOKING'</code> — i.e. the
+        <b>on-site fingerprint</b>, not the free GBP flag. That's the right
+        choice for the pitch, but it inherits three fragilities:
+        <b>(1)</b> booking widgets usually live on <code>/book</code> or
+        <code>/appointments</code>, not the homepage — a homepage-only fetch
+        never sees them; <b>(2)</b> a JS-injected Calendly/Acuity widget leaves
+        no <code>calendly.com</code> string in the raw HTML, and JS only renders
+        when the page is <i>blocked</i> — so an open site with a JS widget is
+        fetched statically and <b>mis-flagged "no booking"</b>; <b>(3)</b> only
+        8 vendors have signatures (SimplyBook, Booksy, Fresha, Setmore, Zenoti,
+        Jane… all produce false "no booking").
+        <b
+          >Net: the flagship booking list has a materially high false-positive
+          rate.</b
+        >
+        Best-practice (Wappalyzer-Next) renders headless Chromium + keys on
+        vendor script-src hosts. Fix: gate
+        <code>has_booking_widget = false</code> to "not computable" unless the
+        DOM came from the JS-rendering actor, and probe booking subpages.
+      </div>
+
+      <!-- ============================================================ -->
+      <h2 id="quality">
+        8 · Data quality beyond phones (Car Repair · Kelowna, live)
+      </h2>
+      <p class="sub">
+        94 businesses in the cell; 21 contact-scanned; 614 contacts. Ranked
+        worst-first.
+      </p>
+
+      <div class="tw">
+        <table>
+          <tr>
+            <th>Field</th>
+            <th>Populated</th>
+            <th>Valid</th>
+            <th>Verdict</th>
+            <th>The problem</th>
+          </tr>
+          <tr>
+            <td><b>Phone</b></td>
+            <td>21/21 scanned</td>
+            <td>~5–10%</td>
+            <td><span class="pill pred">1/10 broken</span></td>
+            <td>
+              532 rows, avg 5.7, <b>max 108</b> fake numbers;
+              <code>+10003147565</code>. Regex grabs any 10-digit run;
+              <code>normalizePhone</code> checks length only.
+            </td>
+          </tr>
+          <tr>
+            <td><b>Verification status</b></td>
+            <td>614/614</td>
+            <td>n/a</td>
+            <td><span class="pill pred">1/10 dead</span></td>
+            <td>
+              <b>100% UNVERIFIED</b> — the VALID/CATCH_ALL/RISKY enum is never
+              written. No email/phone verification ever runs.
+            </td>
+          </tr>
+          <tr>
+            <td><b>Contact role</b></td>
+            <td>614/614</td>
+            <td>n/a</td>
+            <td><span class="pill pred">1/10 dead</span></td>
+            <td>
+              <b>100% UNKNOWN</b> — the "role refiner" the code defers to was
+              never built. Can't tell <code>info@</code> from a named owner.
+            </td>
+          </tr>
+          <tr>
+            <td><b>Email</b></td>
+            <td>15/21 scanned</td>
+            <td>~72%</td>
+            <td><span class="pill pamber">5/10 junky</span></td>
+            <td>
+              20% hard junk: Wix-Sentry hashes (<code
+                >…@sentry-next.wixpress.com</code
+              >
+              — a one-word denylist gap), <code>example@mysite.com</code>,
+              <code>nom@exemple.com</code>; plus vendor-agency emails
+              mis-attributed as the business.
+            </td>
+          </tr>
+          <tr>
+            <td><b>Business.email / emailDiscovered</b></td>
+            <td>0/94</td>
+            <td>—</td>
+            <td><span class="pill pamber">gap</span></td>
+            <td>
+              The scalar "best email" columns belong to a separate admin
+              pipeline that never runs for agency discoveries — so the 25 real
+              Contact emails are never promoted to a headline inbox.
+            </td>
+          </tr>
+          <tr>
+            <td><b>Reachability</b></td>
+            <td>21/21</td>
+            <td>inflated</td>
+            <td><span class="pill pamber">4/10</span></td>
+            <td>
+              RICH/MULTI verdicts rest on the poisoned phone channel — Kelowna
+              Subaru reads "RICH" on 108 fake phones.
+            </td>
+          </tr>
+          <tr>
+            <td><b>Socials</b></td>
+            <td>20/21</td>
+            <td>~98%</td>
+            <td><span class="pill pgreen">8/10 good</span></td>
+            <td>
+              Real profile URLs. One LinkedIn
+              <code>/admin/page-posts</code> leak (path not validated past first
+              segment); <code>x.com</code>+<code>twitter.com</code> stored
+              twice.
+            </td>
+          </tr>
+          <tr>
+            <td><b>Tech fingerprint</b></td>
+            <td>20/94</td>
+            <td>~95%</td>
+            <td><span class="pill pgreen">8/10 good</span></td>
+            <td>
+              Accurate (GTM, GA4, WordPress, Meta Pixel). Only weakness is 21%
+              coverage.
+            </td>
+          </tr>
+          <tr>
+            <td><b>Reviews / Lighthouse / SERP / Ads / AI</b></td>
+            <td>0/94</td>
+            <td>—</td>
+            <td><span class="pill pindigo">not run</span></td>
+            <td>
+              These stages never ran for this discovery (contacts-only
+              enrichment). 22,713 Google reviews sit unpulled. A coverage
+              question, not corruption — but every signal group except contacts
+              + partial tech is empty.
+            </td>
+          </tr>
+        </table>
+      </div>
+
+      <div class="callout red">
+        <b>One root cause, many symptoms.</b> The same naive pattern —
+        <b>a regex over one homepage's static HTML with no validation</b> —
+        produces the junk phones, the junk emails, the missed booking widgets,
+        and the mis-attributed vendor contacts. The single highest-leverage fix
+        in the whole product is upgrading the contact/tech extractor:
+        <b
+          >NANP phone validation, 4-stage email verification, schema.org JSON-LD
+          parsing first, subpage crawling, and JS rendering.</b
+        >
+        Everything below the extractor (dedup, freshness, cost, storage) is
+        already good.
+      </div>
+
+      <!-- ============================================================ -->
+      <h2 id="market">9 · Best-practice comparison</h2>
+
+      <div class="tw">
+        <table>
+          <tr>
+            <th>Dimension</th>
+            <th>What a 10 looks like (exemplar)</th>
+            <th>Mapsly today</th>
+            <th></th>
+          </tr>
+          <tr>
+            <td><b>Columns</b></td>
+            <td>
+              Default set + user add/remove/reorder + custom fields + per-view
+              persistence + <b>signal-derived personalised columns</b> (Clay
+              config + Localo signal columns)
+            </td>
+            <td>
+              Fixed set, wrong defaults, no config, but signal-verdict columns
+              exist
+            </td>
+            <td><span class="pill pamber">4/10</span></td>
+          </tr>
+          <tr>
+            <td><b>Filters</b></td>
+            <td>
+              Search signals re-appear as in-view left-rail filters +
+              saved/shareable/alert-able views + a match-score filter (Cognism +
+              Apollo + Ocean.io)
+            </td>
+            <td>
+              4 generic numeric filters; signals not filterable; no saved views
+            </td>
+            <td><span class="pill pred">2/10</span></td>
+          </tr>
+          <tr>
+            <td><b>Enrichment status</b></td>
+            <td>
+              Per-row verified badge + blank-on-fail + waterfall/provider trace
+              on click + explicit enrich affordance (Cognism Diamond + Clay +
+              Apollo)
+            </td>
+            <td>
+              Binary "have data" dot; failed ≡ never-run; no verification marks
+            </td>
+            <td><span class="pill pred">3/10</span></td>
+          </tr>
+          <tr>
+            <td><b>Contacts</b></td>
+            <td>
+              Inline click-to-reveal primary + detail drawer with all
+              emails/phones/socials + per-channel verification +
+              cost-before-reveal (Apollo record view)
+            </td>
+            <td>
+              Off by default; only phone[0]/email[0]; rest hidden in a tooltip;
+              no verification
+            </td>
+            <td><span class="pill pred">3/10</span></td>
+          </tr>
+          <tr>
+            <td><b>Personalisation</b></td>
+            <td>
+              Results carry ICP/signal intent per row — a "why this lead
+              qualifies" evidence block tied to the searched signals + a match
+              score (<b>a market gap</b> — Localo/Ocean.io only partial)
+            </td>
+            <td>
+              Verdict columns are a <i>real head-start</i> here; just not
+              filterable or scored-to-top
+            </td>
+            <td><span class="pill pamber">4/10 — with the wedge</span></td>
+          </tr>
+        </table>
+      </div>
+
+      <div class="callout green">
+        <b>The opportunity.</b> Personalisation is the
+        <b>weakest dimension across the entire market</b> — no generic tool
+        (Apollo, Clay, Cognism, ZoomInfo) renders a per-row "why this lead
+        qualifies" block tied to the exact signals you searched. Mapsly's
+        signal-eval already computes it per lead.
+        <b
+          >The single move that turns this workbench from "generic table" into a
+          category-defining one is finishing the last mile you already 90%
+          built:</b
+        >
+        make the searched signals the row's evidence <i>and</i> its filters,
+        sorted best-match-first. Beat Localo's light version. That's the wedge.
+      </div>
+
+      <!-- ============================================================ -->
+      <h2 id="rework">10 · The reworked, personalised workbench</h2>
+
+      <p>
+        Start from <b>why the user is here</b>: an agency owner searched a
+        market with a specific pitch in mind (e.g. "med-spas with no booking
+        tool + a slow site") and needs a
+        <b>short, trustworthy, reachable</b> shortlist to sell to. The workbench
+        should feel like
+        <i
+          >"here are your matches, here's the proof, here's how to reach
+          them."</i
+        >
+        Not a generic grid.
+      </p>
+
+      <div class="grid2">
+        <div class="card">
+          <h3 style="margin-top: 0">1 · The list reflects the search</h3>
+          <ul>
+            <li>
+              Your chosen signals are the <b>evidence columns</b> — and each is
+              a <b>filter</b> and a sort key (best-match first, already
+              default).
+            </li>
+            <li>
+              A "Narrow by your goal" rail of one-click chips: your signals +
+              "has verified email", "reachable", verification quality.
+            </li>
+            <li>
+              Column manager + saved, shareable views (Apollo/Clay parity).
+            </li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3 style="margin-top: 0">
+            2 · Contacts are the point, so lead with them
+          </h3>
+          <ul>
+            <li>
+              A default <b>Contacts</b> column: verified email + best phone
+              inline, with a verification badge; "＋N" opens the drawer.
+            </li>
+            <li>
+              Drawer lists <b>every</b> email/phone/social as its own link, each
+              with a verification mark + "report wrong".
+            </li>
+            <li>
+              Empty contact cell = a clear <b>click-to-enrich</b> button, not a
+              dead "— enrich".
+            </li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3 style="margin-top: 0">3 · Status you can trust</h3>
+          <ul>
+            <li>
+              Per-family status chips: <span class="good">fresh</span> /
+              <span class="warn">stale</span> /
+              <span class="bad">failed</span> / pending / none — failure hover
+              shows the error.
+            </li>
+            <li>
+              A persistent run receipt: "Last enrichment · 26 enriched · 3
+              failed · 5 refunded".
+            </li>
+            <li>
+              Partial runs read as progress: "Contacts 148/200 · 12 failed · 40
+              not run".
+            </li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3 style="margin-top: 0">4 · Data you can send</h3>
+          <ul>
+            <li>
+              NANP-validated phones (junk gone), schema.org-first extraction,
+              subpage crawl, JS render.
+            </li>
+            <li>
+              4-stage email verification → a "valid emails only" filter that
+              actually means something.
+            </li>
+            <li>
+              Role classification: owner / front-desk / generic — so "reach a
+              decision-maker" is a filter.
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- ============================================================ -->
+      <h2 id="roadmap">11 · Prioritised roadmap</h2>
+
+      <div class="tw">
+        <table>
+          <tr>
+            <th>Pri</th>
+            <th>Item</th>
+            <th>Why</th>
+            <th>Effort</th>
+          </tr>
+          <tr>
+            <td><span class="pill pred">P0</span></td>
+            <td>
+              <b>Contact-extractor rebuild</b> — NANP phone validation + drop
+              bare plaintext; 4-stage email verify; schema.org JSON-LD first;
+              email junk-denylist fixes; social path hardening. Purge existing
+              junk + recompute reachability.
+            </td>
+            <td>
+              Kills the ~90% junk phones, 20% junk emails, and the "+44"; makes
+              reachability + lists trustworthy. This is the biggest single
+              quality lever.
+            </td>
+            <td>~3–4 days + a cleanup script</td>
+          </tr>
+          <tr>
+            <td><span class="pill pred">P0</span></td>
+            <td>
+              <b>Signals as filters</b> — <code>SignalVerdictFilter</code> over
+              <code>row.perSignal</code>; "Narrow by your goal" rail; funnel on
+              signal columns; cap always-on columns.
+            </td>
+            <td>
+              Closes the core "not personalised / can't filter my signals"
+              complaint. No new data.
+            </td>
+            <td>~1–2 days</td>
+          </tr>
+          <tr>
+            <td><span class="pill pamber">P1</span></td>
+            <td>
+              <b>Contacts + status UX</b> — default Contacts column; full
+              multi-phone/email list in the drawer; click-to-enrich empty cells;
+              per-family status chips; persistent run receipt; partial-aware
+              coverage.
+            </td>
+            <td>
+              Answers "how do I see contacts / what enriched / what failed".
+            </td>
+            <td>~2–3 days</td>
+          </tr>
+          <tr>
+            <td><span class="pill pamber">P1</span></td>
+            <td>
+              <b>Expose the hidden library</b> — wire email cards
+              (has-verified-email, email-count), per-social-channel, ad-spend,
+              Lighthouse sub-metrics, AI-tier signals (pricing-transparency,
+              sophistication, pain). Fix/retire the 2 dead cards.
+            </td>
+            <td>
+              Unlocks the moat data already collected; makes "email" a
+              first-class target.
+            </td>
+            <td>~2–3 days (mostly wiring)</td>
+          </tr>
+          <tr>
+            <td><span class="pill pamber">P1</span></td>
+            <td>
+              <b>Booking/tech detection</b> — JS-render + booking-subpage probe
+              before asserting "no booking"; expand vendor signatures; gate to
+              "not computable" on static fetch.
+            </td>
+            <td>Fixes the flagship booking pitch's false-positive rate.</td>
+            <td>~2 days</td>
+          </tr>
+          <tr>
+            <td><span class="pill pindigo">P2</span></td>
+            <td>
+              Column manager + saved/shareable views; attribution-confidence
+              tiers on ads/SERP; feed AI stages the rendered DOM; stop
+              persisting TBT as INP; velocity/recency review signals.
+            </td>
+            <td>Best-practice parity + research-quality polish.</td>
+            <td>~1 wk total</td>
+          </tr>
+        </table>
+      </div>
+
+      <div class="callout">
+        <b>Sequence:</b> P0-extractor → P0-signal-filters (parallel; different
+        files) → P1 UX + library wiring → P1 booking → P2. The two P0s together
+        transform the felt experience: <i>trustworthy contacts</i> +
+        <i>a list that reflects your search</i>. Everything is additive to a
+        foundation that already works.
+      </div>
+
+      <p class="foot">
+        Internal sources (file:line throughout):
+        modules/agency-portal/discover/{goal-templates,signal-eval,leads-workbench,discovery-signals,researches,family-coverage}.ts
+        · components/{LeadsWorkbench,LeadDrawer,EnrichingStep}.tsx ·
+        app/[locale]/(agency)/discover/[discoveryId]/{page,lists/[listId]/page}.tsx
+        · modules/contacts/extract.ts ·
+        services/{dom-fetcher,tech-fingerprint,lighthouse}/* ·
+        modules/{reviews,ai-research,cell-intel}/* · prisma/schema.prisma · live
+        Neon queries on discovery cmr427qzq… External: Apollo, Clay, Cognism,
+        Instantly, Ocean.io, ZoomInfo, Localo, BrightLocal (leads-UX) ·
+        Hunter.io, Wappalyzer/BuiltWith, ZeroBounce/NeverBounce, Google
+        libphonenumber, schema.org, GBP best-practice guides (extraction) — all
+        URLs in the underlying agent reports. Generated 2026-07-02 · 8 research
+        agents (6 code + 2 market) + live DB analysis.
+      </p>
+    </div>
+  </body>
+</html>

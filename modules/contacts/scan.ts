@@ -106,12 +106,55 @@ interface BusinessForScan {
   permanentlyClosed: boolean;
 }
 
+/** Generic role-inbox local parts → GENERIC (not a specific person). */
+const GENERIC_EMAIL_LOCALS = new Set([
+  "info",
+  "contact",
+  "hello",
+  "hi",
+  "admin",
+  "sales",
+  "office",
+  "team",
+  "service",
+  "services",
+  "mail",
+  "email",
+  "general",
+  "marketing",
+  "accounts",
+  "accounting",
+  "billing",
+  "hr",
+  "careers",
+  "jobs",
+  "reception",
+  "frontdesk",
+  "front-desk",
+  "enquiries",
+  "inquiries",
+  "enquiry",
+  "inquiry",
+  "bookings",
+  "booking",
+  "appointments",
+  "noreply",
+  "no-reply",
+  "donotreply",
+  "webmaster",
+  "postmaster",
+]);
+const SUPPORT_EMAIL_LOCALS = new Set(["support", "help", "helpdesk", "care"]);
+
 /**
- * Map an extracted contact channel to a coarse ContactRole. Social → SOCIAL,
- * booking → BOOKING, everything else (email/phone/whatsapp/website) → UNKNOWN
- * (the role refiner runs later; the scan only needs to persist a sane default).
+ * Classify an extracted contact into a ContactRole. Socials → SOCIAL, booking →
+ * BOOKING. For EMAIL we now actually refine (was always UNKNOWN — the deferred
+ * "role refiner" never existed): a generic role inbox (`info@`, `sales@`) →
+ * GENERIC, a support inbox → SUPPORT, and a name-shaped local part
+ * (`maria@`, `maria.gomez@`) → PERSONAL. Phones stay UNKNOWN (a number carries
+ * no role signal). Lets the workbench filter "reach a person, not a mailbox".
  */
-function roleForChannel(channel: ContactChannel): ContactRole {
+function roleForContact(channel: ContactChannel, value: string): ContactRole {
   switch (channel) {
     case "FACEBOOK":
     case "INSTAGRAM":
@@ -123,6 +166,16 @@ function roleForChannel(channel: ContactChannel): ContactRole {
       return "SOCIAL";
     case "BOOKING_URL":
       return "BOOKING";
+    case "EMAIL": {
+      const local = (value.split("@")[0] ?? "").toLowerCase().trim();
+      if (!local) return "UNKNOWN";
+      if (GENERIC_EMAIL_LOCALS.has(local)) return "GENERIC";
+      if (SUPPORT_EMAIL_LOCALS.has(local)) return "SUPPORT";
+      // A single name token, or first.last / first_last / first-last → a person.
+      if (/^[a-z]{2,20}$/.test(local)) return "PERSONAL";
+      if (/^[a-z]+[._-][a-z]+$/.test(local)) return "PERSONAL";
+      return "UNKNOWN";
+    }
     default:
       return "UNKNOWN";
   }
@@ -161,7 +214,7 @@ async function upsertContact(
       channel: c.channel,
       value: c.value,
       normalizedValue: c.normalizedValue,
-      role: roleForChannel(c.channel),
+      role: roleForContact(c.channel, c.value),
       source: c.source as ContactSource,
       confidence: Math.round(c.confidence),
       firstSeenAt: now,

@@ -67,6 +67,7 @@ import {
   type ColumnDef,
   type DataFamily,
   type LeadFilter,
+  type NumericLeadFilter,
   type LeadStatus,
   type NumericFilterField,
   type WorkbenchLeadRow,
@@ -631,17 +632,47 @@ export function LeadsWorkbench({
     setFilters((prev) => [...prev, { field, op: d.op, value: d.value }]);
     setPage(1);
   }
+  /** Add a goal-signal verdict filter ("matched" by default) unless one for the
+   *  same signal is already applied — the personalisation unlock. */
+  function addSignalFilter(sigKey: string, sigLabel: string) {
+    const nf: LeadFilter = {
+      kind: "signal",
+      sigKey,
+      sigLabel,
+      want: "match",
+    };
+    setFilters((prev) =>
+      prev.some((f) => f.kind === "signal" && f.sigKey === sigKey)
+        ? prev
+        : [...prev, nf],
+    );
+    setPage(1);
+  }
+  /** Flip a signal filter between "matched" and "not matched". */
+  function toggleSignalWant(idx: number) {
+    setFilters((prev) =>
+      prev.map((f, i) => {
+        if (i !== idx || f.kind !== "signal") return f;
+        const want: "match" | "miss" = f.want === "match" ? "miss" : "match";
+        return { ...f, want };
+      }),
+    );
+    setPage(1);
+  }
   /** WP5-13 · Fields-menu funnel — open the filter editor pre-set to this
    *  field (adds the field's default filter unless one is already applied). */
   function openFieldFilter(field: NumericFilterField) {
-    if (!filters.some((f) => f.field === field)) addFilter(field);
+    if (!filters.some((f) => f.kind !== "signal" && f.field === field))
+      addFilter(field);
     setFieldsOpen(false);
     setCoverageOpen(false);
     setFiltersOpen(true);
   }
-  function editFilter(idx: number, patch: Partial<LeadFilter>) {
+  function editFilter(idx: number, patch: Partial<NumericLeadFilter>) {
     setFilters((prev) =>
-      prev.map((f, i) => (i === idx ? { ...f, ...patch } : f)),
+      prev.map((f, i) =>
+        i === idx && f.kind !== "signal" ? { ...f, ...patch } : f,
+      ),
     );
     setPage(1);
   }
@@ -1011,7 +1042,9 @@ export function LeadsWorkbench({
                     <FieldFunnel
                       field={c.key as NumericFilterField}
                       label={c.label}
-                      active={filters.some((f) => f.field === c.key)}
+                      active={filters.some(
+                        (f) => f.kind !== "signal" && f.field === c.key,
+                      )}
                       onOpen={openFieldFilter}
                     />
                   ) : null}
@@ -1030,7 +1063,9 @@ export function LeadsWorkbench({
                     <FieldFunnel
                       field={c.key as NumericFilterField}
                       label={c.label}
-                      active={filters.some((f) => f.field === c.key)}
+                      active={filters.some(
+                        (f) => f.kind !== "signal" && f.field === c.key,
+                      )}
                       onOpen={openFieldFilter}
                     />
                   ) : null}
@@ -1102,89 +1137,136 @@ export function LeadsWorkbench({
             </button>
           </div>
           <div className="cp-body">
-            {filters.map((f, i) => (
-              <span key={i} className="fchip data" title="Edit filter">
-                <select
-                  aria-label="Field"
-                  value={f.field}
-                  onChange={(e) =>
-                    editFilter(i, {
-                      field: e.target.value as NumericFilterField,
-                    })
-                  }
-                  style={{
-                    border: "none",
-                    background: "transparent",
-                    font: "inherit",
-                  }}
-                >
-                  {FILTER_FIELDS.map((m) => (
-                    <option key={m.field} value={m.field}>
-                      {m.label}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  aria-label="Operator"
-                  value={f.op}
-                  onChange={(e) =>
-                    editFilter(i, { op: e.target.value as LeadFilter["op"] })
-                  }
-                  style={{
-                    border: "none",
-                    background: "transparent",
-                    font: "inherit",
-                  }}
-                >
-                  {["<", "≤", "=", "≥", ">"].map((o) => (
-                    <option key={o} value={o}>
-                      {o}
-                    </option>
-                  ))}
-                </select>
-                <input
-                  aria-label="Value"
-                  type="number"
-                  value={f.value}
-                  onChange={(e) =>
-                    editFilter(i, { value: Number(e.target.value) || 0 })
-                  }
-                  style={{
-                    width: 56,
-                    border: "none",
-                    background: "transparent",
-                    font: "inherit",
-                  }}
-                />
-                <button
-                  type="button"
-                  className="x"
-                  aria-label={`Remove ${filterLabel(f)}`}
-                  onClick={() => removeFilter(i)}
-                >
-                  ×
-                </button>
-              </span>
-            ))}
+            {filters.map((f, i) =>
+              f.kind === "signal" ? (
+                <span key={i} className="fchip sig" title="Goal-signal filter">
+                  <span style={{ fontWeight: 600 }}>{f.sigLabel}</span>
+                  <button
+                    type="button"
+                    onClick={() => toggleSignalWant(i)}
+                    aria-label="Toggle matched / not matched"
+                    style={{
+                      border: "none",
+                      background: "transparent",
+                      font: "inherit",
+                      cursor: "pointer",
+                      color: f.want === "match" ? "var(--green)" : "var(--red)",
+                    }}
+                  >
+                    {f.want === "match" ? "matched" : "not matched"}
+                  </button>
+                  <button
+                    type="button"
+                    className="x"
+                    aria-label={`Remove ${filterLabel(f)}`}
+                    onClick={() => removeFilter(i)}
+                  >
+                    ×
+                  </button>
+                </span>
+              ) : (
+                <span key={i} className="fchip data" title="Edit filter">
+                  <select
+                    aria-label="Field"
+                    value={f.field}
+                    onChange={(e) =>
+                      editFilter(i, {
+                        field: e.target.value as NumericFilterField,
+                      })
+                    }
+                    style={{
+                      border: "none",
+                      background: "transparent",
+                      font: "inherit",
+                    }}
+                  >
+                    {FILTER_FIELDS.map((m) => (
+                      <option key={m.field} value={m.field}>
+                        {m.label}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    aria-label="Operator"
+                    value={f.op}
+                    onChange={(e) =>
+                      editFilter(i, {
+                        op: e.target.value as NumericLeadFilter["op"],
+                      })
+                    }
+                    style={{
+                      border: "none",
+                      background: "transparent",
+                      font: "inherit",
+                    }}
+                  >
+                    {["<", "≤", "=", "≥", ">"].map((o) => (
+                      <option key={o} value={o}>
+                        {o}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    aria-label="Value"
+                    type="number"
+                    value={f.value}
+                    onChange={(e) =>
+                      editFilter(i, { value: Number(e.target.value) || 0 })
+                    }
+                    style={{
+                      width: 56,
+                      border: "none",
+                      background: "transparent",
+                      font: "inherit",
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className="x"
+                    aria-label={`Remove ${filterLabel(f)}`}
+                    onClick={() => removeFilter(i)}
+                  >
+                    ×
+                  </button>
+                </span>
+              ),
+            )}
             <select
               className="add"
               aria-label="Add filter"
               value=""
               onChange={(e) => {
-                if (e.target.value) {
-                  addFilter(e.target.value as NumericFilterField);
-                  e.target.value = "";
+                const v = e.target.value;
+                if (!v) return;
+                if (v.startsWith("sig:")) {
+                  const key = v.slice(4);
+                  const sig = goalSignals.find((s) => s.key === key);
+                  if (sig) addSignalFilter(sig.key, sig.title);
+                } else {
+                  addFilter(v as NumericFilterField);
                 }
+                e.target.value = "";
               }}
             >
               <option value="" disabled>
                 ＋ Add filter
               </option>
-              {FILTER_FIELDS.map((m) => (
-                <option key={m.field} value={m.field}>
-                  {m.label}
-                </option>
-              ))}
+              {goalSignals.length > 0 ? (
+                <optgroup label="Narrow by your goal signals">
+                  {goalSignals.map((s) => (
+                    <option key={s.key} value={`sig:${s.key}`}>
+                      {s.title}
+                    </option>
+                  ))}
+                </optgroup>
+              ) : null}
+              <optgroup label="Metrics">
+                {FILTER_FIELDS.map((m) => (
+                  <option key={m.field} value={m.field}>
+                    {m.label}
+                  </option>
+                ))}
+              </optgroup>
             </select>
           </div>
         </div>

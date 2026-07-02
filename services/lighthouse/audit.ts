@@ -475,10 +475,12 @@ export function toPersistRow(
     pwa: result.scores.pwa,
     lcp: msToSeconds(result.scores.lcpMs),
     cls: result.scores.cls,
-    // INP isn't reported by lab Lighthouse — TBT is the documented proxy.
-    // We persist TBT-as-inp until field data lands (see observability.md
-    // §RUM); both columns mean "user-input latency" semantically.
-    inp: result.scores.tbtMs,
+    // INP is a FIELD metric that lab Lighthouse cannot measure. We used to
+    // persist TBT here as a proxy, which silently let INP-named signals trust a
+    // different metric. Leave it null until real field data lands (the planned
+    // Sentry browser-SDK RUM, observability.md §RUM); the true lab TBT is still
+    // stored in the `tbt` column below.
+    inp: null,
     fcp: msToSeconds(result.scores.fcpMs),
     tbt: result.scores.tbtMs,
     ttfb: null,

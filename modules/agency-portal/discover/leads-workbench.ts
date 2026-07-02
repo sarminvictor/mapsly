@@ -404,7 +404,10 @@ export const COLUMNS: readonly ColumnDef[] = [
     label: "Phone",
     kind: "contact",
     sortable: false,
-    defaultOn: false,
+    // Contacts are what the agency paid to enrich — show them by default so a
+    // fresh workbench answers "how do I see the contacts?" without hunting the
+    // Fields menu. (Junk phones are now purged + NANP-validated at the source.)
+    defaultOn: true,
     group: "enriched",
     family: "contacts",
   },
@@ -413,7 +416,7 @@ export const COLUMNS: readonly ColumnDef[] = [
     label: "Email",
     kind: "contact",
     sortable: false,
-    defaultOn: false,
+    defaultOn: true,
     group: "enriched",
     family: "contacts",
   },
@@ -462,16 +465,22 @@ export const COLUMNS: readonly ColumnDef[] = [
  * per lead). Always shown — not part of the Fields-menu toggle set, since
  * they're driven by the goal itself rather than a display preference.
  */
+/** Cap the number of goal-signal columns that are ON by default. A rich goal
+ *  (10+ signals) otherwise walls the table with ✓/— columns; the rest stay
+ *  toggle-able in the Fields menu. */
+export const MAX_DEFAULT_SIGNAL_COLUMNS = 5;
+
 export function buildSignalColumns(
   signals: readonly { key: string; title: string }[],
 ): ColumnDef[] {
-  return signals.map((s) => ({
+  return signals.map((s, i) => ({
     key: `goal:${s.key}`,
     label: s.title,
     fullLabel: s.title,
     kind: "sig",
     sortable: false,
-    defaultOn: true,
+    // Only the first N are on by default — the rest are opt-in via Fields menu.
+    defaultOn: i < MAX_DEFAULT_SIGNAL_COLUMNS,
     group: "workflow",
     sigKey: s.key,
   }));
@@ -485,7 +494,10 @@ export const DEFAULT_ACTIVE_COLUMNS: string[] = COLUMNS.filter(
 
 export type FilterOp = "<" | "≤" | "=" | "≥" | ">" | "between";
 
-export interface LeadFilter {
+/** A numeric threshold filter on a WorkbenchLeadRow field. `kind` is optional
+ *  for back-compat — an absent kind means numeric. */
+export interface NumericLeadFilter {
+  kind?: "numeric";
   /** A numeric WorkbenchLeadRow field key (reviews / rating / perf / match). */
   field: NumericFilterField;
   op: FilterOp;
@@ -493,6 +505,25 @@ export interface LeadFilter {
   /** Upper bound for the "between" op. */
   value2?: number;
 }
+
+/**
+ * A GOAL-SIGNAL verdict filter — narrows to leads where one of the user's chosen
+ * signals matched (or explicitly didn't). Reads the per-lead verdict already on
+ * every row (`row.perSignal[sigKey]`), so no new data/query is needed. This is
+ * what turns the workbench from a generic table into one personalised to the
+ * search: the signals you picked on the Goal step become filters here.
+ */
+export interface SignalLeadFilter {
+  kind: "signal";
+  sigKey: string;
+  sigLabel: string;
+  /** "match" = signal fired for this lead; "miss" = evaluated but didn't fire.
+   *  A not-yet-computed (null) verdict never satisfies either — opt-in, so a
+   *  filter never silently hides leads that just haven't been enriched. */
+  want: "match" | "miss";
+}
+
+export type LeadFilter = NumericLeadFilter | SignalLeadFilter;
 
 export type NumericFilterField = "match" | "reviews" | "rating" | "perf";
 
@@ -549,6 +580,12 @@ function fieldValue(
 
 /** Evaluate one filter against a row. A null backing value never matches. Pure. */
 export function evalFilter(row: WorkbenchLeadRow, f: LeadFilter): boolean {
+  if (f.kind === "signal") {
+    const verdict = row.perSignal[f.sigKey];
+    // null/undefined = not-yet-computed → never matches (opt-in honesty).
+    if (verdict == null) return false;
+    return f.want === "match" ? verdict === true : verdict === false;
+  }
   const v = fieldValue(row, f.field);
   if (v == null || !Number.isFinite(v)) return false;
   switch (f.op) {
@@ -577,6 +614,9 @@ export function passesFilters(
 
 /** A human label for a filter chip, e.g. "Lighthouse < 50". Pure. */
 export function filterLabel(f: LeadFilter): string {
+  if (f.kind === "signal") {
+    return `${f.sigLabel}: ${f.want === "match" ? "matched" : "not matched"}`;
+  }
   const meta = FILTER_FIELDS.find((m) => m.field === f.field);
   const name = meta?.label ?? f.field;
   if (f.op === "between") return `${name} ${f.value}–${f.value2 ?? f.value}`;

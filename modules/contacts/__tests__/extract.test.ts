@@ -57,6 +57,18 @@ describe("normalizePhone", () => {
   test("too many digits → null", () => {
     expect(normalizePhone("+44 20 7946 0958 99")).toBeNull();
   });
+  test("bare 10-digit runs with invalid NANP structure → null (the junk bug)", () => {
+    // These are the exact garbage values found in prod: timestamps, ids, etc.
+    // normalized to +1XXXXXXXXXX by the old length-only check.
+    expect(normalizePhone("1730683766")).toBeNull(); // area 173 invalid
+    expect(normalizePhone("0003147565")).toBeNull(); // area 000 invalid
+    expect(normalizePhone("1103207403")).toBeNull(); // area 110 invalid
+    expect(normalizePhone("2110000000")).toBeNull(); // 211 N11 area
+  });
+  test("valid NANP with a 9 as area-code 2nd digit is kept (919, 909)", () => {
+    expect(normalizePhone("919 555 0142")).toBe("+19195550142");
+    expect(normalizePhone("(909) 555-0142")).toBe("+19095550142");
+  });
 });
 
 describe("extractEmails", () => {
@@ -109,6 +121,16 @@ describe("extractEmails", () => {
     const out = extractEmails(html);
     expect(out[0].normalizedValue).toBe("hi@solea-spa.com");
   });
+
+  test("drops the new junk classes (Wix-Sentry hash, placeholders)", () => {
+    const html = `
+      <span>605a7baede844d278b89dc95ae0a9123@sentry-next.wixpress.com</span>
+      <span>example@mysite.com</span>
+      <span>nom@exemple.com</span>
+      <span>maria@solea-spa.com</span>`;
+    const out = extractEmails(html).map((o) => o.normalizedValue);
+    expect(out).toEqual(["maria@solea-spa.com"]);
+  });
 });
 
 describe("extractPhones", () => {
@@ -147,6 +169,22 @@ describe("extractPhones", () => {
   test("ignores non-NANP junk runs", () => {
     const html = `<p>order #12-34 ref 999</p>`;
     expect(extractPhones(html)).toHaveLength(0);
+  });
+
+  test("ignores bare 10-digit numeric strings in page text (the +44-overflow bug)", () => {
+    // A homepage full of timestamps / ids / prices must NOT become phones.
+    const html = `<script>var t=1730683766;var id=3851262851;</script>
+      <p>Est. 2003 · 5555266225 · order 8118512285</p>`;
+    expect(extractPhones(html)).toHaveLength(0);
+  });
+
+  test("still keeps a correctly-formatted plaintext number", () => {
+    const html = `<p>Call us: 250 491-9467 or (250) 860-6500</p>`;
+    const out = extractPhones(html);
+    expect(out.map((c) => c.normalizedValue).sort()).toEqual([
+      "+12504919467",
+      "+12508606500",
+    ]);
   });
 });
 
@@ -226,6 +264,27 @@ describe("extractSocials", () => {
       <a href="https://www.facebook.com/soleaspa">b</a>`;
     const out = extractSocials(html);
     expect(out).toHaveLength(1);
+  });
+
+  test("excludes a leaked LinkedIn /admin management URL", () => {
+    const html = `<a href="https://www.linkedin.com/company/19010443/admin/page-posts/published/">li</a>`;
+    expect(extractSocials(html)).toHaveLength(0);
+  });
+
+  test("keeps a clean LinkedIn company profile", () => {
+    const html = `<a href="https://www.linkedin.com/company/solea-spa/">li</a>`;
+    const out = extractSocials(html);
+    expect(out).toHaveLength(1);
+    expect(out[0].channel).toBe("LINKEDIN");
+  });
+
+  test("unifies twitter.com and x.com for the same handle", () => {
+    const html = `
+      <a href="https://twitter.com/soleaspa">t</a>
+      <a href="https://x.com/soleaspa">x</a>`;
+    const out = extractSocials(html);
+    expect(out).toHaveLength(1);
+    expect(out[0].normalizedValue).toBe("https://x.com/soleaspa");
   });
 });
 
