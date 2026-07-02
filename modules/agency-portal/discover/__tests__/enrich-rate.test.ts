@@ -47,10 +47,10 @@ describe("enrichRatePerLead", () => {
     expect(enrichRatePerLead([])).toBe(0);
   });
 
-  test("a realistic full bundle rounds to a small, non-zero credit rate", () => {
-    // Every business-basis family together should land near "1 credit per
-    // lead" (docs/pricing-strategy.md's headline number) since the per-unit
-    // $ costs were sized to bundle to roughly $0.05 (=1 credit) all-in.
+  test("a full bundle sums the per-family CREDIT_PRICES (tech rides contacts)", () => {
+    // Under CREDIT_PRICES each chargeable business family = 1 credit; tech = 0
+    // (it rides the contacts DOM scan). So the full business bundle
+    // contacts+services+reviews+lighthouse+ai_research (+tech=0) = 5 credits.
     const all: EnrichmentType[] = [
       "contacts",
       "services",
@@ -59,9 +59,11 @@ describe("enrichRatePerLead", () => {
       "lighthouse",
       "ai_research",
     ];
-    const rate = enrichRatePerLead(all);
-    expect(rate).toBeGreaterThanOrEqual(1);
-    expect(rate).toBeLessThan(5); // sanity ceiling — never a runaway number
+    expect(enrichRatePerLead(all)).toBe(5);
+  });
+
+  test("booking-tool bundle (contacts + tech) is exactly 1 credit/lead", () => {
+    expect(enrichRatePerLead(["contacts", "tech"])).toBe(1);
   });
 });
 

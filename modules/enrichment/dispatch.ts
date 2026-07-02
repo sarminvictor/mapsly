@@ -31,11 +31,11 @@ import prisma from "@/lib/prisma";
 import { parseCellKey } from "@/lib/cell";
 import {
   ENRICHMENT_PRICES,
+  CREDIT_PRICES,
   enrichmentNeedsWebsite,
   type EnrichmentType,
 } from "@/modules/cost/pricing";
 import { reconcileRunCredits } from "@/modules/cost/server";
-import { usdToCredits } from "@/modules/cost/estimate";
 import { trackProductEvent } from "@/lib/analytics/product-events";
 import { loadFreshTimestamps } from "@/modules/discovery/enrich-fresh-db";
 import { enrichLighthouseForBusinesses } from "@/modules/discovery/enrich-lighthouse";
@@ -352,6 +352,69 @@ function buildJobPlan(has: (f: EnrichmentType) => boolean): JobPlanEntry[] {
     });
   }
   return plan;
+}
+
+// ── Credit billing (CREDIT_PRICES) — settle side ─────────────────────────────
+// Settle bills WHOLE CREDITS from CREDIT_PRICES (the customer price), mirroring
+// the quote (modules/cost/estimate.ts), NOT usdToCredits(vendorUSD). This is
+// what gives us margin instead of cost pass-through.
+
+const CELL_FAMILIES: readonly EnrichmentType[] = [
+  "meta_ads",
+  "google_ads",
+  "serp",
+];
+
+/** Credits one completed per-business job bills, given the run's selected
+ *  families. The CONTACTS scan job covers contacts+tech (one DOM fetch), so it
+ *  sums whichever of those the run selected — exactly matching the quote's
+ *  per-line credit sum. */
+function creditsForBusinessJob(
+  family: JobFamily,
+  has: (f: EnrichmentType) => boolean,
+): number {
+  switch (family) {
+    case "CONTACTS":
+      return (
+        (has("contacts") ? CREDIT_PRICES.contacts : 0) +
+        (has("tech") ? CREDIT_PRICES.tech : 0)
+      );
+    case "SERVICES":
+      return CREDIT_PRICES.services;
+    case "REVIEWS":
+      return CREDIT_PRICES.reviews;
+    case "LIGHTHOUSE":
+      return CREDIT_PRICES.lighthouse;
+    case "AI_RESEARCH":
+      return CREDIT_PRICES.ai_research;
+  }
+}
+
+/** Cell-family credits for a run, from the persisted quote scope. Cell families
+ *  bill per (metro×category) cell; billing the as-held amount (fresh cells
+ *  already excluded in the quote's line.fresh) keeps settle == the hold's cell
+ *  portion. Falls back to families × cellCount when lines aren't persisted. */
+function cellCreditsForRun(
+  scopeRefsJson: unknown,
+  families: readonly EnrichmentType[],
+): number {
+  const scope = (scopeRefsJson ?? {}) as {
+    cellCount?: number;
+    lines?: { enrichment?: EnrichmentType; total?: number; fresh?: number }[];
+  };
+  const lines = Array.isArray(scope.lines) ? scope.lines : [];
+  if (lines.length > 0) {
+    return lines.reduce((s, l) => {
+      const f = l.enrichment;
+      if (!f || !CELL_FAMILIES.includes(f)) return s;
+      const billable = Math.max(0, (l.total ?? 0) - (l.fresh ?? 0));
+      return s + billable * CREDIT_PRICES[f];
+    }, 0);
+  }
+  const cellCount = scope.cellCount ?? 0;
+  return families
+    .filter((f) => CELL_FAMILIES.includes(f))
+    .reduce((s, f) => s + CREDIT_PRICES[f] * cellCount, 0);
 }
 
 /**
@@ -1017,7 +1080,7 @@ export async function closeRunIfDone(
 
   const jobs = await prisma.enrichmentJob.findMany({
     where: { runId },
-    select: { status: true, businessId: true, costUsd: true },
+    select: { status: true, businessId: true, costUsd: true, family: true },
   });
 
   // WP1-4 · crash-safe fan-out. A RUNNING run with ZERO jobs is EITHER a run
@@ -1094,8 +1157,19 @@ export async function closeRunIfDone(
   // truthful close receipt (held / charged / refunded) for the workbench header
   // + Enriching done-state. reconcileRunCredits now returns the SettleResult;
   // `?? {}` keeps close-out safe if it degrades to void on a settle hiccup.
+  // Bill WHOLE CREDITS from CREDIT_PRICES (customer price), NOT usdToCredits of
+  // the vendor USD. Per-business: each DONE job bills its family's credit
+  // (job-precise, actual). Per-cell: bill the as-held cell credits. Settle is
+  // still clamped to the hold, so this never charges above what was authorized.
+  const hasFam = (f: EnrichmentType) => families.includes(f);
+  const businessCredits = done.reduce(
+    (s, j) => s + creditsForBusinessJob(j.family as JobFamily, hasFam),
+    0,
+  );
+  const cellCredits = cellCreditsForRun(run.scopeRefsJson, families);
+  const actualCredits = businessCredits + cellCredits;
   const settle = (await reconcileRunCredits(runId, {
-    actualCredits: usdToCredits(totalUsd),
+    actualCredits,
     hadProgress,
   })) ?? { charged: 0, refunded: 0 };
   await prisma.enrichmentRun.update({
@@ -1227,14 +1301,12 @@ export async function processDiscovery(
       cells,
     });
 
-    // Settle against the actual DfS fetch cost — fresh cells served from the DB
-    // refund to $0 (the execution-side no-double-spend guard).
-    const after = await prisma.discovery.findUnique({
-      where: { id: d.id },
-      select: { totalCostUsd: true },
-    });
+    // Discovery is ALWAYS free to the agency (DISCOVERY_PRICE = $0/0 credits) —
+    // the DfS fetch cost (Discovery.totalCostUsd) is our absorbed COGS, never
+    // billed to the wallet. So settle at 0 credits; reconcile still releases the
+    // (zero) hold and closes the run cleanly.
     await reconcileRunCredits(d.id, {
-      actualCredits: usdToCredits(after?.totalCostUsd ?? 0),
+      actualCredits: 0,
       hadProgress: true,
     });
 

@@ -21,10 +21,11 @@
 
 import { DATAFORSEO_UNIT_COST_USD } from "@/services/dataforseo/pricing";
 
-// WP10-7 · re-derived serp/google_ads from the REAL call graph + set the
-// lighthouse upper bound to the honest walled worst-case. Bumped from
-// "2026-06-22.1".
-export const PRICE_LIST_VERSION = "2026-07-02.1";
+// 2026-07-02.2 · billing now runs off CREDIT_PRICES (whole customer credits),
+// decoupled from ENRICHMENT_PRICES.usdPerUnit (raw COGS). Any change to either
+// table must bump this so in-flight 15-min quotes re-quote.
+// (Prior: "2026-07-02.1" WP10-7 re-derived serp/google_ads + walled lighthouse.)
+export const PRICE_LIST_VERSION = "2026-07-02.2";
 
 /** Internal credit price. Apollo charges ~$0.20/credit; we undercut 4×. */
 export const CREDIT_USD = 0.05;
@@ -137,12 +138,12 @@ export const ROLLOVER_CAP_MULTIPLE = 3;
 /** Display-layer plan keys (the prototype's four tiers). */
 export type PlanKey = "free" | "starter" | "growth" | "scale";
 
-/** What one credit means — the prototype's credit definition, verbatim. */
+/** What one credit means — see CREDIT_PRICES for the per-family schedule. */
 export const CREDIT_MEANING = {
-  /** Credits for one lead WITH contacts (email · phone · socials). */
+  /** Credits for one lead WITH contacts (the website scan). */
   contacts: 1,
-  /** Credits for one FULLY-enriched lead (reviews, ads, SERP, AI, compliance). */
-  fullEnrichment: 3,
+  /** Credits for one FULLY-enriched lead = scan + reviews + speed + AI (1+1+1+1). */
+  fullEnrichment: 4,
   /** Credits for 100 first-touch messages. */
   firstTouchPer100: 10,
 } as const;
@@ -184,7 +185,7 @@ export const PLAN_CARDS: Record<PlanKey, PlanCard> = {
     priceUsd: 0,
     monthlyCredits: 50,
     oneTime: true,
-    fullyEnriched: 16,
+    fullyEnriched: 12,
     withContacts: 50,
     rate: "Never expire · no card",
     featured: false,
@@ -194,10 +195,10 @@ export const PLAN_CARDS: Record<PlanKey, PlanCard> = {
       "Full enrichment + first-touch",
       "Never expire",
     ],
-    // WP2-5 · honest math: 50 credits ÷ 3/full-enrich = 16 fully enriched, or
-    // 50 leads with contacts (1 credit each). The old line promised "fully
-    // enrich 50 / contacts on 150" — 3× the real grant.
-    calc: "Map any market free → fully enrich your best 16 leads, or pull contacts on 50. Enough to win your first client.",
+    // Honest math on the CREDIT_PRICES schedule: 1 credit = 1 lead with contacts;
+    // a fully-enriched lead (scan + reviews + speed + AI) = 4 credits. 50 credits
+    // ÷ 4 = 12 fully enriched, or 50 with contacts.
+    calc: "Map any market free → fully enrich your best 12 leads, or pull contacts on 50. Enough to win your first client.",
   },
   starter: {
     key: "starter",
@@ -205,9 +206,9 @@ export const PLAN_CARDS: Record<PlanKey, PlanCard> = {
     priceUsd: 19,
     monthlyCredits: 900,
     oneTime: false,
-    fullyEnriched: 300,
+    fullyEnriched: 225,
     withContacts: 900,
-    rate: "from $0.06 / enriched lead",
+    rate: "from $0.08 / enriched lead",
     featured: false,
     features: [
       "Discovery — unlimited, free",
@@ -215,7 +216,7 @@ export const PLAN_CARDS: Record<PlanKey, PlanCard> = {
       "Full enrichment + first-touch",
       "Unused credits roll over (up to 3× your monthly credits)",
     ],
-    calc: "≈ 300 fully enriched, or 900 with contacts — e.g. 3 markets · ~100 each.",
+    calc: "≈ 225 fully enriched, or 900 with contacts — e.g. 3 markets · ~75 each.",
   },
   growth: {
     key: "growth",
@@ -223,9 +224,9 @@ export const PLAN_CARDS: Record<PlanKey, PlanCard> = {
     priceUsd: 99,
     monthlyCredits: 6_000,
     oneTime: false,
-    fullyEnriched: 2_000,
+    fullyEnriched: 1_500,
     withContacts: 6_000,
-    rate: "$0.05 / enriched lead",
+    rate: "$0.07 / enriched lead",
     featured: true,
     features: [
       "Discovery — unlimited, free",
@@ -233,7 +234,7 @@ export const PLAN_CARDS: Record<PlanKey, PlanCard> = {
       "Deep audit included (speed + keywords)",
       "Unused credits roll over (up to 3× your monthly credits)",
     ],
-    calc: "≈ 2,000 fully enriched, or 6,000 with contacts · dozens of markets · 3 teammates.",
+    calc: "≈ 1,500 fully enriched, or 6,000 with contacts · dozens of markets · 3 teammates.",
   },
   scale: {
     key: "scale",
@@ -241,9 +242,9 @@ export const PLAN_CARDS: Record<PlanKey, PlanCard> = {
     priceUsd: 299,
     monthlyCredits: 24_000,
     oneTime: false,
-    fullyEnriched: 8_000,
+    fullyEnriched: 6_000,
     withContacts: 24_000,
-    rate: "from $0.037 / enriched lead",
+    rate: "from $0.05 / enriched lead",
     featured: false,
     features: [
       "Discovery — unlimited, free",
@@ -252,7 +253,7 @@ export const PLAN_CARDS: Record<PlanKey, PlanCard> = {
       "Unused credits roll over (up to 3× your monthly credits)",
       "Priority support",
     ],
-    calc: "≈ 8,000 fully enriched, or 24,000 with contacts · high-volume prospecting at the lowest rate.",
+    calc: "≈ 6,000 fully enriched, or 24,000 with contacts · high-volume prospecting at the lowest rate.",
   },
 };
 
@@ -481,6 +482,47 @@ export const DISCOVERY_PRICE = {
   perListingUsd: 0,
   freshnessDays: 182, // 6 months
 } as const;
+
+// ─── CREDIT_PRICES · the CUSTOMER price (whole credits per unit) ─────────────
+//
+// This is what quote + settle BILL. It is deliberately SEPARATE from
+// ENRICHMENT_PRICES.usdPerUnit (our raw vendor COGS / telemetry). Before this
+// split, billing was `ceil(vendorUSD / $0.05)` — i.e. we charged customers our
+// cost, rounded, which left ~0% margin on reviews/serp/google_ads/lighthouse
+// and negative tails. Whole credits also make the UX honest: "1 credit = 1
+// scanned lead" is now literally true, so the per-lead rate is an integer and
+// the affordability slider stops using a pessimistic ceil. See
+// docs/credits-economics-review-2026-07-02.html.
+//
+// Schedule (business = per lead, cell = per market):
+//   website scan (contacts, +tech rides it)  1 / lead
+//   services (AI)                             1 / lead
+//   reviews                                   1 / lead
+//   site speed (Lighthouse)                   1 / lead
+//   AI research                               1 / lead
+//   google ads intel                          1 / cell
+//   meta ads intel                            3 / cell
+//   search / SERP intel                       4 / cell
+//
+// tech = 0: it rides the one contacts DOM fetch, so a booking-tool goal
+// (contacts+tech) is 1 credit/lead, not 2. When a signal declares only tech,
+// resolveResearches pulls contacts (which carries the 1 credit).
+export const CREDIT_PRICES: Record<EnrichmentType, number> = {
+  contacts: 1,
+  tech: 0,
+  services: 1,
+  reviews: 1,
+  lighthouse: 1,
+  ai_research: 1,
+  google_ads: 1,
+  meta_ads: 3,
+  serp: 4,
+};
+
+/** Credits one unit of an enrichment bills (per business or per cell). */
+export function creditsPerUnit(enrichment: EnrichmentType): number {
+  return CREDIT_PRICES[enrichment];
+}
 
 export const ALL_ENRICHMENT_TYPES = Object.keys(
   ENRICHMENT_PRICES,

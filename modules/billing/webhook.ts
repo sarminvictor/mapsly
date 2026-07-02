@@ -195,12 +195,12 @@ async function handleCheckoutCompleted(
     string | undefined
   >;
   const audience = metadata.audience as "smb" | "agency" | undefined;
-  const plan = parsePlan(metadata.plan);
+  const plan = resolvePlanFromMetadata(metadata);
   if (!plan) {
     return {
       kind: "skipped",
       event: event.type,
-      reason: `unknown plan literal ${metadata.plan}`,
+      reason: `unknown plan (plan=${metadata.plan} planKey=${metadata.planKey})`,
     };
   }
   const customerId = asString(session.customer);
@@ -234,8 +234,7 @@ async function handleSubscriptionUpsert(
   const sub = event.data.object as Stripe.Subscription;
   const metadata = (sub.metadata ?? {}) as Record<string, string | undefined>;
   const audienceMaybe = metadata.audience as "smb" | "agency" | undefined;
-  const planLiteral = metadata.plan;
-  const plan = parsePlan(planLiteral);
+  const plan = resolvePlanFromMetadata(metadata);
   const priceId = sub.items.data[0]?.price?.id ?? null;
   const periodEnd = subscriptionPeriodEnd(sub);
 
@@ -540,6 +539,30 @@ function parsePlan(value: string | undefined): Plan | null {
   if (!value) return null;
   const parsed = PlanSchema.safeParse(value);
   return parsed.success ? parsed.data : null;
+}
+
+// B1 · the new credit-billing UI (modules/billing/credit-checkout.ts) writes
+// `metadata.planKey` (the display key starter/growth/scale) instead of the
+// legacy `metadata.plan` literal. Map it back to the legacy Plan so the
+// subscription upsert → Agency.plan tier sync → credit grant all fire for
+// new-pricing checkouts. Without this, `parsePlan(metadata.plan)` returned null,
+// the upsert was SKIPPED, Agency.plan stayed SOLO, and a $299 Scale buyer was
+// granted 900 credits instead of 24,000. Keys mirror PLAN_TIER_MAP in pricing.ts
+// (starter→SOLO, growth→GROWTH, scale→BOUTIQUE) via the agency_* literals.
+const PLAN_KEY_TO_PLAN: Record<string, Plan> = {
+  starter: "agency_solo",
+  growth: "agency_growth",
+  scale: "agency_boutique",
+};
+
+/** Legacy `metadata.plan` literal if present, else the new `metadata.planKey`. */
+function resolvePlanFromMetadata(
+  metadata: Record<string, string | undefined>,
+): Plan | null {
+  return (
+    parsePlan(metadata.plan) ??
+    (metadata.planKey ? (PLAN_KEY_TO_PLAN[metadata.planKey] ?? null) : null)
+  );
 }
 
 function inferAudience(plan: Plan): "smb" | "agency" {

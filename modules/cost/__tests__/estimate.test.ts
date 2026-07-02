@@ -11,6 +11,8 @@ import {
 } from "../estimate";
 import {
   CREDIT_USD,
+  CREDIT_PRICES,
+  CREDIT_MEANING,
   ENRICHMENT_PRICES,
   PLAN_CARDS,
   PLAN_CREDITS,
@@ -57,12 +59,47 @@ describe("plan-credit parity (WP1-12)", () => {
     expect(PLAN_CREDITS.BOUTIQUE).toBe(24_000);
   });
 
-  test("fullyEnriched headline is floor(credits / 3) for every card", () => {
+  test("fullyEnriched headline is floor(credits / 4) for every card", () => {
+    // A fully-enriched lead is 4 credits (scan + reviews + speed + AI) under the
+    // CREDIT_PRICES schedule — see CREDIT_MEANING.fullEnrichment.
     for (const key of PLAN_CARD_ORDER) {
       expect(PLAN_CARDS[key].fullyEnriched).toBe(
-        Math.floor(PLAN_CARDS[key].monthlyCredits / 3),
+        Math.floor(PLAN_CARDS[key].monthlyCredits / 4),
       );
     }
+  });
+});
+
+describe("CREDIT_PRICES (customer billing schedule)", () => {
+  test("the whole-credit schedule is the agreed values", () => {
+    expect(CREDIT_PRICES.contacts).toBe(1);
+    expect(CREDIT_PRICES.tech).toBe(0); // rides the contacts scan
+    expect(CREDIT_PRICES.services).toBe(1);
+    expect(CREDIT_PRICES.reviews).toBe(1);
+    expect(CREDIT_PRICES.lighthouse).toBe(1);
+    expect(CREDIT_PRICES.ai_research).toBe(1);
+    expect(CREDIT_PRICES.google_ads).toBe(1);
+    expect(CREDIT_PRICES.meta_ads).toBe(3);
+    expect(CREDIT_PRICES.serp).toBe(4);
+  });
+
+  test("a fully-enriched lead = 4 credits (scan + reviews + speed + AI)", () => {
+    expect(
+      CREDIT_PRICES.contacts +
+        CREDIT_PRICES.reviews +
+        CREDIT_PRICES.lighthouse +
+        CREDIT_PRICES.ai_research,
+    ).toBe(CREDIT_MEANING.fullEnrichment);
+  });
+
+  test("booking-tool goal (contacts+tech) is 1 credit/lead, not 2", () => {
+    const r = estimateRun({
+      lines: [
+        { enrichment: "contacts", total: 84 },
+        { enrichment: "tech", total: 84 },
+      ],
+    });
+    expect(r.netCredits).toBe(84); // 84 × (1 + 0)
   });
 });
 
@@ -112,7 +149,7 @@ describe("estimateRun", () => {
     expect(r.freshHitUsd).toBe(0);
     expect(r.netUsd).toBeCloseTo(0.8, 4);
     expect(r.upperBoundUsd).toBeCloseTo(2.7, 4); // 100 × 0.008 × 3.375
-    expect(r.netCredits).toBe(16); // ceil(0.8 / 0.05)
+    expect(r.netCredits).toBe(100); // CREDIT_PRICES: 100 billable × 1 credit
     expect(r.confidence).toBe("bounded");
     expect(r.gate).toBe("confirm"); // WP1-11: any positive net → confirm
   });
@@ -130,17 +167,17 @@ describe("estimateRun", () => {
     // 0.00425 open), so the upper bound reflects a cell of Cloudflare-walled
     // sites honestly: 80 billable × 0.00425 × 14.117647 = 0.34 × 14.117647 = 4.80.
     expect(r.upperBoundUsd).toBeCloseTo(4.8, 4);
-    expect(r.netCredits).toBe(7); // still ceil(0.34/0.05) — settle bills open cost
+    expect(r.netCredits).toBe(80); // CREDIT_PRICES: 80 billable × 1 credit
     // Confidence is now "bounded" (lighthouse has upperMultiplier > 1 · a
     // billable walled audit can cost up to ~14× the open quote).
     expect(r.confidence).toBe("bounded");
     expect(r.gate).toBe("confirm"); // WP1-11: any positive net → confirm
   });
 
-  test("reviews ×500 → $7.50, confirm gate (no approval), bounded", () => {
+  test("reviews ×500 → $7.50 COGS, confirm gate (no approval), bounded", () => {
     const r = estimateRun({ lines: [{ enrichment: "reviews", total: 500 }] });
-    expect(r.netUsd).toBeCloseTo(7.5, 4);
-    expect(r.netCredits).toBe(150);
+    expect(r.netUsd).toBeCloseTo(7.5, 4); // COGS telemetry unchanged
+    expect(r.netCredits).toBe(500); // CREDIT_PRICES: 500 × 1 credit
     // WP1-11: a $7.50 run no longer needs approval — wallet balance is the gate.
     expect(r.gate).toBe("confirm");
     expect(r.confidence).toBe("bounded");
@@ -155,10 +192,11 @@ describe("estimateRun", () => {
       ],
     });
     // WP10-7 · serp is now $0.043/unit (was $0.16): 0.34 + 0.387 + 0.60 = 1.327.
-    expect(r.netUsd).toBeCloseTo(1.327, 4);
+    expect(r.netUsd).toBeCloseTo(1.327, 4); // COGS telemetry unchanged
     expect(r.gate).toBe("confirm");
     expect(r.confidence).toBe("bounded"); // reviews + lighthouse are variable
-    expect(r.netCredits).toBe(27); // ceil(1.327/0.05)
+    // CREDIT_PRICES: lighthouse 80×1 + serp 9×4 + reviews 40×1 = 80 + 36 + 40.
+    expect(r.netCredits).toBe(156);
   });
 
   test("all fresh → net $0 but freshHit shows the saving", () => {

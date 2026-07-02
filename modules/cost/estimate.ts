@@ -15,6 +15,7 @@
 
 import {
   ENRICHMENT_PRICES,
+  CREDIT_PRICES,
   DISCOVERY_PRICE,
   CREDIT_USD,
   PRICE_LIST_VERSION,
@@ -138,6 +139,16 @@ export function estimateRun(input: {
   const netUsd = round4(lines.reduce((s, l) => s + l.netUsd, 0));
   const upperBoundUsd = round4(lines.reduce((s, l) => s + l.upperBoundUsd, 0));
 
+  // Credits are billed from CREDIT_PRICES (the customer price), NOT usdToCredits
+  // of the vendor COGS. Each billable unit costs a whole credit per its family;
+  // fresh units (billable already excludes them) cost 0. The USD figures above
+  // remain as COGS telemetry / the upper-bound quote. Settle uses the same
+  // CREDIT_PRICES schedule (see modules/enrichment/dispatch.ts).
+  const netCredits = lines.reduce(
+    (s, l) => s + l.billable * CREDIT_PRICES[l.enrichment],
+    0,
+  );
+
   // Bounded if any BILLABLE line has variable cost (upperMultiplier > 1).
   const confidence: EstimateConfidence = lines.some(
     (l) =>
@@ -151,7 +162,7 @@ export function estimateRun(input: {
     grossUsd,
     freshHitUsd,
     netUsd,
-    netCredits: usdToCredits(netUsd),
+    netCredits,
     upperBoundUsd,
     confidence,
     gate: gateFor(netUsd),

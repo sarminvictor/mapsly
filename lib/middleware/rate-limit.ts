@@ -321,6 +321,20 @@ export const ENRICH_RUN_IP_LIMIT: LimitProfile = {
   prefix: "rl:enrich-ip",
 };
 
+/**
+ * B4 · discovery-RUN creation cap keyed by IP (in addition to the per-user
+ * ACTION_ENQUEUE_LIMIT). Discovery is FREE to the agency but costs US real
+ * DataForSEO $ per never-seen cell, and any STAFF seat can trigger it. A per-IP
+ * window blunts account-rotation farming that burns our vendor spend behind one
+ * IP, independent of the user key. Generous for a real multi-seat office.
+ */
+export const DISCOVERY_RUN_IP_LIMIT: LimitProfile = {
+  name: "discovery-run-ip",
+  limit: 20,
+  window: "1 m",
+  prefix: "rl:discovery-ip",
+};
+
 // ─── Per-route decorator ────────────────────────────────────────────────────
 
 type Handler = (req: Request) => Promise<Response> | Response;

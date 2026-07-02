@@ -13,7 +13,7 @@
 import { cellKey as makeCellKey, type FreshnessState } from "@/lib/cell";
 import {
   ALL_ENRICHMENT_TYPES,
-  CREDIT_USD,
+  CREDIT_PRICES,
   ENRICHMENT_PRICES,
   enrichmentNeedsWebsite,
   type EnrichmentType,
@@ -199,12 +199,14 @@ export interface QuoteCell {
  * total, which would require guessing the lead count).
  */
 export function enrichRatePerLead(families: EnrichmentType[]): number {
-  let usd = 0;
+  // Whole-credit per-lead rate = sum of the business-basis families' CREDIT_PRICES.
+  // Now EXACT (an integer), not the old pessimistic ceil of blended vendor USD —
+  // so the affordability slider (affordableN) computes the true max leads.
+  let credits = 0;
   for (const fam of families) {
-    const price = ENRICHMENT_PRICES[fam];
-    if (price.unit === "business") usd += price.usdPerUnit;
+    if (ENRICHMENT_PRICES[fam].unit === "business") credits += CREDIT_PRICES[fam];
   }
-  return Math.ceil(usd / CREDIT_USD);
+  return credits;
 }
 
 /**
@@ -217,12 +219,12 @@ export function enrichCellFeeCredits(
   families: EnrichmentType[],
   cellCount: number,
 ): number {
-  let usd = 0;
+  let credits = 0;
   for (const fam of families) {
-    const price = ENRICHMENT_PRICES[fam];
-    if (price.unit === "cell") usd += price.usdPerUnit * cellCount;
+    if (ENRICHMENT_PRICES[fam].unit === "cell")
+      credits += CREDIT_PRICES[fam] * cellCount;
   }
-  return Math.ceil(usd / CREDIT_USD);
+  return credits;
 }
 
 /**
@@ -353,17 +355,17 @@ export function marketFiltersActive(f: MarketFilters): boolean {
   );
 }
 
-/** The enrichment families' credit total for a set of businesses. */
+/** The enrichment families' whole-credit total for a set of businesses/cells.
+ *  Uses CREDIT_PRICES (customer price) — matches the server quote + settle. */
 export function enrichCreditsFor(
   families: EnrichmentType[],
   businessCount: number,
   cellCount: number,
 ): number {
-  let usd = 0;
+  let credits = 0;
   for (const fam of families) {
-    const price = ENRICHMENT_PRICES[fam];
-    const units = price.unit === "cell" ? cellCount : businessCount;
-    usd += units * price.usdPerUnit;
+    const units = ENRICHMENT_PRICES[fam].unit === "cell" ? cellCount : businessCount;
+    credits += CREDIT_PRICES[fam] * units;
   }
-  return Math.ceil(usd / CREDIT_USD);
+  return credits;
 }

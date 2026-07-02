@@ -17,7 +17,7 @@ The single source of truth for plans, credit pricing, and competitive positionin
 | Effective $/fully-enriched local lead | $0.10–0.20 (contacts only) (+ per-seat)   | **$0.20 (light) – $0.50 (full)**                                                                  | **$0.037–0.063**                                                   |
 | Data depth                            | B2B contacts / firmographics              | per-action enrichment (no local expert layer)                                                     | **local signals** — reviews, ads, SERP, tech, services, compliance |
 | Local-business coverage               | weak (LinkedIn-blind to ~70% of local)    | generic via Maps/scrape                                                                           | **native, 2.1M local**                                             |
-| Credit expiry                         | expire, forfeited                         | end of cycle                                                                                      | **rollover 60d**                                                   |
+| Credit expiry                         | expire, forfeited                         | end of cycle                                                                                      | **rollover (up to 3× monthly grant); purchased never expire**      |
 | Personalized outreach                 | add-on / weak                             | basic                                                                                             | signal-grounded first-touch                                        |
 
 ### Cost to fully enrich ONE local lead (apples-to-apples)
@@ -81,6 +81,6 @@ Design principles:
 
 - **Generosity lever:** at $0.015 cost we can double every plan's credits and still hold ~50% margin — keep in reserve for a price war or aggressive growth push.
 - **Deep-signal surcharge:** ⚡ Lighthouse(walled) + ranked_keywords ≈ $0.07 → bill as +1 credit or gate to Pro/Boutique. Never free inside a base credit (a power user would erode the 64% floor).
-- **Breakage upside:** unused credits roll 60d then expire → improves realized margin without an Apollo-style hard forfeit.
+- **Breakage upside:** unused plan credits roll over (accumulating up to 3× the monthly grant) rather than a hard cycle forfeit; purchased top-up credits never expire → improves realized margin without Apollo's use-it-or-lose-it.
 - **Scale upside:** fixed infra (~$50–150/mo) amortizes; early cohorts ~60–70% margin, mature ~80–90%.
 - **Free-tier optics:** 100 free credits (= 100 full leads) reads competitively against Origami's "1,000 free" (which is only ~100–200 full leads at 5–10 credits each).

@@ -25,17 +25,18 @@ import { Link } from "@/i18n/navigation";
 import { showToast } from "@/components/agency/Toast";
 import {
   ALL_ENRICHMENT_TYPES,
+  CREDIT_PRICES,
   ENRICHMENT_PRICES,
   type EnrichmentType,
   type ScopeUnit,
 } from "@/modules/cost/pricing";
-import { usdToCredits } from "@/modules/cost/estimate";
 import {
   preflightEnrichAction,
   runEnrichAction,
 } from "@/modules/discovery/enrich-actions";
 import { getEnrichScopeAction } from "../enrich-scope-actions";
-import { fmtCredits } from "../flow-types";
+import { resolveResearches } from "../researches";
+import { enrichCreditsFor, fmtCredits } from "../flow-types";
 import type { EnrichSheetRequest } from "../enrich-sheet-bus";
 
 type ScopeChoice = "selected" | "visible" | "all";
@@ -128,24 +129,24 @@ export function EnrichMoreSheet({
     scope === "all" ? (scopeInfo?.marketCount ?? 0) : scopeIds.length;
   const cellCount = scopeInfo?.cellKeys.length ?? 0;
 
+  // Resolve dependencies (tech → +contacts) exactly like the get-leads flow, so
+  // the sheet quotes + bills the same families the dispatch will run — a
+  // tech-only pick pulls the contacts scan it rides on (and its 1 credit),
+  // instead of quoting a free tech-only run (tech = 0 credits on its own).
   const enrichments = useMemo(
-    () => ALL_ENRICHMENT_TYPES.filter((k) => selected.has(k)),
+    () => resolveResearches([...selected]),
     [selected],
   );
   // Any family/scope change invalidates a standing quote.
   const quoteKey = `${scope}:${scopeCount}:${enrichments.join(",")}`;
   const activeQuote = quote && quote.forKey === quoteKey ? quote : null;
 
-  // Client-side GROSS estimate per row + total (the server preflight returns
-  // the honest NET once priced — fresh units are served from cache at 0).
-  const grossCredits = useMemo(() => {
-    let usd = 0;
-    for (const k of enrichments) {
-      const p = ENRICHMENT_PRICES[k];
-      usd += p.usdPerUnit * (p.unit === "cell" ? cellCount : scopeCount);
-    }
-    return usdToCredits(usd);
-  }, [enrichments, cellCount, scopeCount]);
+  // Client-side GROSS estimate (CREDIT_PRICES) — the server preflight returns
+  // the honest NET once priced (fresh units served from cache at 0 credits).
+  const grossCredits = useMemo(
+    () => enrichCreditsFor(enrichments, scopeCount, cellCount),
+    [enrichments, cellCount, scopeCount],
+  );
 
   function toggle(key: EnrichmentType) {
     setSelected((prev) => {
@@ -174,7 +175,8 @@ export function EnrichMoreSheet({
           forKey,
           estimateId: r.estimateId,
           netCredits: r.netCredits,
-          freshCredits: usdToCredits(r.freshHitUsd),
+          // Credits saved by fresh-cache dedup = gross (all units) − server NET.
+          freshCredits: Math.max(0, grossCredits - r.netCredits),
         });
         if (r.netCredits > scopeInfo.walletCredits) {
           setDeficit(r.netCredits - scopeInfo.walletCredits);
@@ -311,7 +313,7 @@ export function EnrichMoreSheet({
             {ALL_ENRICHMENT_TYPES.map((key) => {
               const price = ENRICHMENT_PRICES[key];
               const count = price.unit === "cell" ? cellCount : scopeCount;
-              const lineCredits = usdToCredits(count * price.usdPerUnit);
+              const lineCredits = CREDIT_PRICES[key] * count;
               const on = selected.has(key);
               return (
                 <li key={key}>
@@ -340,8 +342,14 @@ export function EnrichMoreSheet({
                       </span>
                     </span>
                     <span className="cr" style={{ flexShrink: 0 }}>
-                      <span className="ic-coin sm" aria-hidden="true" />
-                      {fmtCredits(lineCredits)}
+                      {lineCredits === 0 ? (
+                        "incl." // e.g. tech rides the contacts scan
+                      ) : (
+                        <>
+                          <span className="ic-coin sm" aria-hidden="true" />
+                          {fmtCredits(lineCredits)}
+                        </>
+                      )}
                     </span>
                   </label>
                 </li>

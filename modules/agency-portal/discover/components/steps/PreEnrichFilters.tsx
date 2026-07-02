@@ -12,6 +12,8 @@
 // Per .claude/rules/ui-ux-agency.md: dense, numbers over adjectives.
 // English-only.
 
+import type { ReactNode } from "react";
+
 import { marketFiltersActive, type MarketFilters } from "../../flow-types";
 
 const RATING_STOPS = [3.5, 4, 4.5] as const;
@@ -29,6 +31,7 @@ export function PreEnrichFilters({
   matching,
   enrichable,
   hideWebsite = false,
+  capControl,
 }: {
   filters: MarketFilters;
   onChange: (next: MarketFilters) => void;
@@ -43,6 +46,11 @@ export function PreEnrichFilters({
    *  research): the enrich scope excludes website-less businesses anyway, so the
    *  chip would be a redundant no-op. Only shown for non-site goals. */
   hideWebsite?: boolean;
+  /** The best-N cap control, rendered as the last row of this same card so the
+   *  two "narrow what you enrich" surfaces (free filters + paid cap) live in ONE
+   *  block instead of two. Both PreviewStep and this component are 'use client',
+   *  so passing JSX is fine (no server→client serialization). */
+  capControl?: ReactNode;
 }) {
   const active = marketFiltersActive(filters);
 
@@ -157,8 +165,20 @@ export function PreEnrichFilters({
 
       <p className="note" style={{ margin: "8px 0 0" }}>
         Filters are free — they narrow which leads the enrich run prices and
-        queues. The best-N cap below applies within the filtered set.
+        queues. The cap below applies within the filtered set.
       </p>
+
+      {capControl ? (
+        <div
+          style={{
+            marginTop: 14,
+            paddingTop: 14,
+            borderTop: "1px solid var(--line, #e5e7eb)",
+          }}
+        >
+          {capControl}
+        </div>
+      ) : null}
     </div>
   );
 }

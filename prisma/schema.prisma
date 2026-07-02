@@ -2307,6 +2307,11 @@ model AgencyWallet {
   purchasedCredits Int      @default(0)
   rolloverCredits  Int      @default(0)
   heldCredits      Int      @default(0)
+  // DEAD (B8): cycleResetAt is written but never read; overageEnabled/overageCapUsd
+  // are never read or written (the CreditLedgerType.EXPIRE enum is likewise never
+  // emitted). Rollover is handled at grant time (server.ts nextRolloverCredits),
+  // not via a cycle-reset cron. Kept to avoid a destructive migration; drop them
+  // in a deliberate schema-cleanup migration (human-required).
   cycleResetAt     DateTime
   overageEnabled   Boolean  @default(false)
   overageCapUsd    Decimal? @db.Decimal(10, 2)

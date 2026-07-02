@@ -836,14 +836,14 @@ describe("closeRunIfDone", () => {
 
 describe("processDiscovery", () => {
   test("reconstructs cells + calls runDiscovery + settles", async () => {
-    p.discovery.findUnique
-      .mockResolvedValueOnce({
-        id: "d1",
-        agencyId: "a1",
-        requestedByUserId: "u1",
-        cellKeys: ["medical_spa|miami|US"],
-      })
-      .mockResolvedValueOnce({ totalCostUsd: 0.04 });
+    // Discovery is free, so processDiscovery no longer re-fetches totalCostUsd
+    // to settle — it settles at 0 credits directly. Only the initial findUnique.
+    p.discovery.findUnique.mockResolvedValueOnce({
+      id: "d1",
+      agencyId: "a1",
+      requestedByUserId: "u1",
+      cellKeys: ["medical_spa|miami|US"],
+    });
     p.businessCategory.findFirst.mockResolvedValue({ id: "cat1" });
 
     const ok = await processDiscovery("d1");
@@ -865,7 +865,8 @@ describe("processDiscovery", () => {
     );
     expect(reconcileRunCredits).toHaveBeenCalledWith(
       "d1",
-      expect.objectContaining({ hadProgress: true }),
+      // Discovery settles at 0 credits (free) — never bills the absorbed COGS.
+      expect.objectContaining({ hadProgress: true, actualCredits: 0 }),
     );
   });
 

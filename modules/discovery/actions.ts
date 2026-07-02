@@ -21,6 +21,7 @@
 import { z } from "zod";
 
 import { after } from "next/server";
+import { headers } from "next/headers";
 
 import { cellKey as makeCellKey, cellFreshnessState } from "@/lib/cell";
 import { auth } from "@/lib/auth";
@@ -28,6 +29,8 @@ import { metroBySlug } from "@/lib/geo/resolve-metro";
 import prisma, { Prisma } from "@/lib/prisma";
 import {
   ACTION_ENQUEUE_LIMIT,
+  ACTION_MUTATE_LIMIT,
+  DISCOVERY_RUN_IP_LIMIT,
   rateLimitAction,
 } from "@/lib/middleware/rate-limit";
 import { rawListWhere } from "@/modules/discovery/raw-list";
@@ -54,6 +57,26 @@ const CellInput = z.object({
   metroSlug: z.string().min(1).max(120),
   country: z.string().min(2).max(3).optional(),
 });
+
+// B4 · the user-facing discovery cap. Mirrors MarketStep.tsx's MAX_MARKETS = 3
+// so the server can't be driven past what the UI allows. Discovery is free to
+// the agency but costs US ~$0.04–0.93 of DfS per never-seen cell, so a
+// hand-rolled caller sending 50 cells was a ~$46/enqueue free-vendor-spend hole.
+const MAX_DISCOVERY_CELLS = 3;
+
+/** Best-effort client IP from request headers (rate-limit keying only). */
+async function requestIpKey(): Promise<string> {
+  try {
+    const h = await headers();
+    const first = h.get("x-forwarded-for")?.split(",")[0]?.trim();
+    if (first) return first;
+    const xri = h.get("x-real-ip");
+    if (xri) return xri.trim();
+  } catch {
+    // headers() unavailable (test / non-request context) — fall through.
+  }
+  return "ip:unknown";
+}
 
 /**
  * Pre-flight listing-count estimate for a cell we've NEVER discovered and whose
@@ -82,7 +105,7 @@ const PersistedSignalInput = z.object({
 });
 
 const DiscoveryInput = z.object({
-  cells: z.array(CellInput).min(1).max(50),
+  cells: z.array(CellInput).min(1).max(MAX_DISCOVERY_CELLS),
   limitPerCell: z.number().int().min(1).max(1000).optional(),
   /** Active goal signal registry keys — used to count "Match your signals"
    *  over the REAL businesses of in-DB cells (flagged PlaybookFindings). */
@@ -352,6 +375,14 @@ export async function preflightDiscoveryAction(
   const session = await auth();
   if (!session?.user?.id) return { status: "unauthorized" };
 
+  // B4 · the preflight mints a CostEstimate row + runs per-cell DB counts on
+  // every call (fires on each market/filter change). It was UNBOUNDED — a
+  // per-user cap blunts CostEstimate-row / DB-count amplification. Bursty by
+  // design (debounced filter tweaks), so the generous mutate window, not the
+  // tight enqueue one.
+  const rl = await rateLimitAction(ACTION_MUTATE_LIMIT, session.user.id);
+  if (rl.limited) return { status: "error" };
+
   const parsed = DiscoveryInput.safeParse(input);
   if (!parsed.success) {
     return {
@@ -522,6 +553,14 @@ export async function runDiscoveryAction(
   // WP8-2 · bound discovery-run creation floods per user.
   const rl = await rateLimitAction(ACTION_ENQUEUE_LIMIT, session.user.id);
   if (rl.limited) return { status: "rate_limited", retryAfter: rl.retryAfter };
+
+  // B4 · additional per-IP cap — discovery is free to the agency but costs US
+  // DfS $ per never-seen cell, and any STAFF seat can trigger it. Blunts
+  // account-rotation farming behind one IP (orthogonal to the per-user cap).
+  const ipRl = await rateLimitAction(DISCOVERY_RUN_IP_LIMIT, await requestIpKey());
+  if (ipRl.limited) {
+    return { status: "rate_limited", retryAfter: ipRl.retryAfter };
+  }
 
   const parsed = RunDiscoveryInput.safeParse(input);
   if (!parsed.success) {

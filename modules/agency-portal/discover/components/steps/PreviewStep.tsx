@@ -1206,6 +1206,72 @@ export function PreviewStep({
               : enrichableTotal
           }
           hideWebsite={goalNeedsWebsite}
+          capControl={
+            effEnrichable > 0 ? (
+              <>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 12,
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <span className="setl" style={{ whiteSpace: "nowrap" }}>
+                    Cap the run to your best
+                  </span>
+                  <input
+                    type="range"
+                    min={1}
+                    max={effEnrichable}
+                    step={1}
+                    value={Math.max(1, selectedN)}
+                    onChange={(e) => {
+                      setPickedN(Number(e.target.value) || 1);
+                      setCreditWall(null);
+                    }}
+                    aria-label="Number of leads to enrich"
+                    style={{ flex: "1 1 auto", minWidth: 120 }}
+                  />
+                  <input
+                    type="number"
+                    min={1}
+                    max={effEnrichable}
+                    value={Math.max(1, selectedN)}
+                    onChange={(e) => {
+                      const n = Math.floor(Number(e.target.value));
+                      if (Number.isFinite(n)) {
+                        setPickedN(Math.max(1, Math.min(n, effEnrichable)));
+                        setCreditWall(null);
+                      }
+                    }}
+                    aria-label="Number of leads to enrich (exact)"
+                    style={{ width: 90 }}
+                  />
+                  <span className="note" style={{ whiteSpace: "nowrap" }}>
+                    of {effEnrichable.toLocaleString()}
+                    {filtersActive ? " filtered" : ""} · busiest first
+                  </span>
+                  {capped && affordableN >= effEnrichable ? (
+                    <button
+                      type="button"
+                      className="btn sm"
+                      onClick={() => setPickedN(effEnrichable)}
+                    >
+                      All {effEnrichable.toLocaleString()}
+                    </button>
+                  ) : null}
+                </div>
+                <p className="note" style={{ margin: "8px 0 0" }}>
+                  Ranked by review count — 1 credit per lead.{" "}
+                  {walletCredits != null && affordableN < effEnrichable
+                    ? `Your ${fmtCredits(walletCredits)} credits cover your best ${affordableN.toLocaleString()}.`
+                    : "Dial down to control spend."}{" "}
+                  The total is re-quoted before anything is charged.
+                </p>
+              </>
+            ) : null
+          }
         />
       ) : null}
 
@@ -1351,7 +1417,9 @@ export function PreviewStep({
                     </span>
                     <span className="cr">
                       {mapped || knownCells > 0
-                        ? `~${fmtCredits(r.credits)} cr`
+                        ? r.credits === 0
+                          ? "included" // e.g. tech rides the contacts scan
+                          : `~${fmtCredits(r.credits)} cr`
                         : r.basis === "cell"
                           ? "per market"
                           : "per lead"}
@@ -1377,7 +1445,7 @@ export function PreviewStep({
               {/* WP2-5 · honest copy: the real subset path is the best-N cap
                   below (WP2-2), not a per-lead hand-pick (that's WP5). */}
               {mapped
-                ? `Enrich all ${enrichableTotal.toLocaleString()} businesses with a website — or cap the run to your best N below. ≈${fmtCredits(enrichRate)} credits/lead.`
+                ? `Enrich all ${enrichableTotal.toLocaleString()} businesses with a website — or cap the run to your best N below. ≈${fmtCredits(enrichRate)} credit${enrichRate === 1 ? "" : "s"}/lead.`
                 : knownCells > 0
                   ? "Firms up the moment the rest of the market finishes mapping."
                   : "Confirmed the moment mapping finishes — you pay only for the leads you choose to enrich."}
@@ -1385,78 +1453,6 @@ export function PreviewStep({
           </div>
         </div>
       </div>
-
-      {/* WP2-2 · lead-count cap — a COMPACT control that sits right above the
-          costbar. Deliberately carries NO heading/price/"you have X": the
-          sticky footer below is the single source of "Enrich best N of M ·
-          credits", so this block is just the slider (no duplicate numbers).
-          Ranked most-reviewed-first; the exact total is re-quoted server-side
-          before anything is held. */}
-      {mapped && effEnrichable > 0 ? (
-        <div className="card section">
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 12,
-              flexWrap: "wrap",
-            }}
-          >
-            <span className="setl" style={{ whiteSpace: "nowrap" }}>
-              Cap the run to your best
-            </span>
-            <input
-              type="range"
-              min={1}
-              max={effEnrichable}
-              step={1}
-              value={Math.max(1, selectedN)}
-              onChange={(e) => {
-                setPickedN(Number(e.target.value) || 1);
-                setCreditWall(null);
-              }}
-              aria-label="Number of leads to enrich"
-              style={{ flex: "1 1 auto", minWidth: 120 }}
-            />
-            <input
-              type="number"
-              min={1}
-              max={effEnrichable}
-              value={Math.max(1, selectedN)}
-              onChange={(e) => {
-                const n = Math.floor(Number(e.target.value));
-                if (Number.isFinite(n)) {
-                  setPickedN(Math.max(1, Math.min(n, effEnrichable)));
-                  setCreditWall(null);
-                }
-              }}
-              aria-label="Number of leads to enrich (exact)"
-              style={{ width: 90 }}
-            />
-            <span className="note" style={{ whiteSpace: "nowrap" }}>
-              of {effEnrichable.toLocaleString()}
-              {filtersActive ? " filtered" : ""} · busiest first
-            </span>
-            {capped && affordableN >= effEnrichable ? (
-              <button
-                type="button"
-                className="btn sm"
-                onClick={() => setPickedN(effEnrichable)}
-              >
-                All {effEnrichable.toLocaleString()}
-              </button>
-            ) : null}
-          </div>
-          <p className="note" style={{ margin: "8px 0 0" }}>
-            Ranked by review count.{" "}
-            {walletCredits != null && affordableN < effEnrichable
-              ? `Your ${fmtCredits(walletCredits)} credits cover your best ${affordableN.toLocaleString()}.`
-              : "Dial down to control spend."}{" "}
-            The total and credits are shown below — and re-quoted before
-            anything is charged.
-          </p>
-        </div>
-      ) : null}
 
       {error ? (
         <p className="callout amber section" role="alert">
@@ -1532,7 +1528,7 @@ export function PreviewStep({
               : !mapped
                 ? "Discovery is free and runs automatically — enrichment unlocks the moment the market is mapped."
                 : canAfford && selectedN > 0
-                  ? `Applies your ${sigCount} signal${sigCount === 1 ? "" : "s"} and reveals contacts · ~${enrichMinutes} min`
+                  ? `Applies your ${sigCount} signal${sigCount === 1 ? "" : "s"}${families.includes("contacts") ? " and reveals contacts" : ""} · ~${enrichMinutes} min`
                   : `Needs ~${fmtCredits(selectedN > 0 ? (netCredits ?? selectedCredits) : minRunCredits)} credits — you have ${fmtCredits(walletCredits ?? 0)}. Options open on click.`}
           </div>
         </div>

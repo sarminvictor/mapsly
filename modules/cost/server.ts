@@ -21,6 +21,7 @@
 
 import prisma, { Prisma } from "@/lib/prisma";
 import { isCellFresh } from "@/lib/cell";
+import { canonicalEmail } from "@/lib/email/canonical";
 
 import {
   estimateRun,
@@ -793,6 +794,62 @@ export async function grantFreeTierIfNew(agencyId: string): Promise<void> {
     select: { id: true },
   });
   if (funded) return;
+
+  // B6 · anti-farming: a plus-addressed / Gmail-dot variant of a mailbox that
+  // already claimed the free grant (tom+1@ · t.o.m@) must not claim a second.
+  // Canonicalize this agency's owner email and skip the grant if a sibling
+  // already got one. Runs only on the FIRST grant per agency (after the cheap
+  // TOPUP check above), and fails OPEN — a lookup hiccup never blocks a real
+  // signup's grant. Bounded scan over already-granted agencies; if that set
+  // grows large, promote to an indexed User.canonicalEmail column.
+  try {
+    const owner = await prisma.agencyMember.findFirst({
+      where: { agencyId, role: "OWNER" },
+      orderBy: { createdAt: "asc" },
+      select: { user: { select: { email: true } } },
+    });
+    const canon = owner?.user?.email
+      ? canonicalEmail(owner.user.email)
+      : null;
+    if (canon) {
+      // CreditLedger is a plain-FK model (no relation to Agency), so resolve in
+      // two steps: agencyIds that already got a free grant → their OWNER emails.
+      const grantedAgencyIds = (
+        await prisma.creditLedger.findMany({
+          where: {
+            type: "TOPUP",
+            note: "free-tier-grant",
+            agencyId: { not: agencyId },
+          },
+          select: { agencyId: true },
+          take: 5000,
+        })
+      ).map((r) => r.agencyId);
+      const priorOwners = grantedAgencyIds.length
+        ? await prisma.agencyMember.findMany({
+            where: { role: "OWNER", agencyId: { in: grantedAgencyIds } },
+            select: { user: { select: { email: true } } },
+          })
+        : [];
+      const sibling = priorOwners.some(
+        (o) => o.user?.email && canonicalEmail(o.user.email) === canon,
+      );
+      if (sibling) {
+        console.warn(
+          JSON.stringify({
+            level: "warn",
+            event: "free_tier.sibling_skip",
+            agencyId,
+            canonical: canon,
+          }),
+        );
+        return;
+      }
+    }
+  } catch {
+    // Fail open — never block a legitimate grant on the anti-farm lookup.
+  }
+
   await prisma.$transaction([
     prisma.agencyWallet.update({
       where: { agencyId },

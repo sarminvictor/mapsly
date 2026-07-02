@@ -282,6 +282,71 @@ describe("handleStripeEvent · checkout.session.completed", () => {
     });
   });
 
+  // B1 · the new credit-billing checkout writes metadata.planKey (display key),
+  // NOT metadata.plan (legacy literal). Before the fix these mapped to no plan →
+  // the upsert was skipped → Agency.plan stayed SOLO → a Scale buyer got 900
+  // credits. Each display key must resolve to the right tier.
+  test.each([
+    ["starter", "SOLO", "agency_solo"],
+    ["growth", "GROWTH", "agency_growth"],
+    ["scale", "BOUTIQUE", "agency_boutique"],
+  ] as const)(
+    "planKey=%s resolves Agency.plan → %s",
+    async (planKey, tier, legacyLiteral) => {
+      const ctx = makePrisma({
+        agencies: [
+          {
+            id: "a1",
+            stripeCustomerId: "cus_agency_1",
+            stripeSubscriptionId: null,
+            plan: "SOLO",
+          },
+        ],
+      });
+
+      const out = await handleStripeEvent(
+        checkoutCompleted({
+          customer: "cus_agency_1",
+          subscription: "sub_agency_1",
+          // NOTE: no `plan` key — only the new `planKey`.
+          metadata: { agencyId: "a1", planKey, audience: "agency" },
+        }),
+        ctx.seam,
+      );
+
+      expect(out.kind).toBe("handled");
+      expect(ctx.agencyUpdates[0].data).toMatchObject({
+        plan: tier,
+        stripePlan: legacyLiteral,
+      });
+    },
+  );
+
+  test("planKey also flows through subscription.updated (renewal/upgrade)", async () => {
+    const ctx = makePrisma({
+      agencies: [
+        {
+          id: "a1",
+          stripeCustomerId: "cus_agency_1",
+          stripeSubscriptionId: "sub_agency_1",
+          plan: "SOLO",
+        },
+      ],
+    });
+
+    const out = await handleStripeEvent(
+      subscriptionEvent("customer.subscription.updated", {
+        id: "sub_agency_1",
+        customer: "cus_agency_1",
+        metadata: { agencyId: "a1", planKey: "scale", audience: "agency" },
+      }),
+      ctx.seam,
+    );
+
+    expect(out.kind).toBe("handled");
+    expect(ctx.agencyUpdates[0].data).toMatchObject({ plan: "BOUTIQUE" });
+  });
+
   test("ignores non-subscription mode sessions (one-time payment)", async () => {
     const ctx = makePrisma({
       users: [
