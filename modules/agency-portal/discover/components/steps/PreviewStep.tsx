@@ -618,23 +618,24 @@ export function PreviewStep({
   const haveCredits = walletCredits == null || selectedCredits <= walletCredits;
 
   // The "② Enrich" card's per-research breakdown (matches the prototype's
-  // split-by-research design) — one row per family the active signals need,
-  // labeled via RESEARCH_LABELS, with its REAL per-cell/whole-market credit
-  // cost once mapped.
+  // split-by-research design) — one row per family, priced over the ACTUAL run:
+  // the capped/filtered selection (selectedN businesses), NOT the whole market.
+  // This keeps the cost panel consistent with the cap slider + the footer costbar
+  // instead of quoting "enrich everything". Cell families stay per-cell.
   const researchRows = useMemo(
     () =>
       families.map((f) => {
         const basis = ENRICHMENT_PRICES[f].unit;
-        const units = basis === "cell" ? cells.length : enrichableTotal;
+        const units = basis === "cell" ? cells.length : selectedN;
         return {
           family: f,
           label: RESEARCH_LABELS[f],
           basis,
-          credits: enrichCreditsFor([f], enrichableTotal, cells.length),
+          credits: enrichCreditsFor([f], selectedN, cells.length),
           units,
         };
       }),
-    [families, enrichableTotal, cells.length],
+    [families, selectedN, cells.length],
   );
 
   const kpis = quote?.kpis ?? null;
@@ -1402,7 +1403,7 @@ export function PreviewStep({
               <span className="name">② Enrich — per research</span>
               <span className="val cr">
                 <span className="ic-coin sm" aria-hidden="true" />~
-                {fmtCredits(enrichCredits)}
+                {fmtCredits(selectedCredits)}
               </span>
             </div>
             <div style={{ marginTop: 8 }}>
@@ -1438,14 +1439,18 @@ export function PreviewStep({
               <span className="name">Estimated total</span>
               <span className="val cr" style={{ fontSize: 15 }}>
                 <span className="ic-coin sm" aria-hidden="true" />~
-                {fmtCredits(enrichCredits)}
+                {fmtCredits(selectedCredits)}
               </span>
             </div>
             <div className="note">
-              {/* WP2-5 · honest copy: the real subset path is the best-N cap
-                  below (WP2-2), not a per-lead hand-pick (that's WP5). */}
+              {/* Reflects the ACTUAL run — the capped/filtered selection set by
+                  the cap slider, not the whole market. Matches the footer costbar. */}
               {mapped
-                ? `Enrich all ${enrichableTotal.toLocaleString()} businesses with a website — or cap the run to your best N below. ≈${fmtCredits(enrichRate)} credit${enrichRate === 1 ? "" : "s"}/lead.`
+                ? `${
+                    capped
+                      ? `Enriching your best ${selectedN.toLocaleString()} of ${effEnrichable.toLocaleString()}`
+                      : `Enriching all ${effEnrichable.toLocaleString()}`
+                  }${filtersActive ? " filtered" : ""} lead${selectedN === 1 ? "" : "s"} · ≈${fmtCredits(enrichRate)} credit${enrichRate === 1 ? "" : "s"}/lead. Adjust the cap to change it.`
                 : knownCells > 0
                   ? "Firms up the moment the rest of the market finishes mapping."
                   : "Confirmed the moment mapping finishes — you pay only for the leads you choose to enrich."}
