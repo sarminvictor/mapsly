@@ -74,19 +74,30 @@ export const metadata: Metadata = {
 
 interface PageProps {
   params: Promise<{ locale: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }
 
-export default function AgencyBillingPage({ params }: PageProps) {
+export default function AgencyBillingPage({ params, searchParams }: PageProps) {
   return (
     <Suspense fallback={null}>
-      <BillingBody params={params} />
+      <BillingBody params={params} searchParams={searchParams} />
     </Suspense>
   );
 }
 
-async function BillingBody({ params }: PageProps) {
+async function BillingBody({ params, searchParams }: PageProps) {
   const { locale } = await params;
   setRequestLocale(locale);
+
+  // WP2-3 · `?deficit=N` arrives from the Preview credit wall / cost bars —
+  // the run the buyer just tried was N credits short. Frames the header so
+  // the context survives the navigation. Bounded parse; garbage → ignored.
+  const sp = await searchParams;
+  const deficitRaw = typeof sp.deficit === "string" ? Number(sp.deficit) : NaN;
+  const deficit =
+    Number.isFinite(deficitRaw) && deficitRaw > 0 && deficitRaw <= 1_000_000
+      ? Math.ceil(deficitRaw)
+      : null;
 
   const session = await auth();
   if (!session?.user?.id) unauthorized();
@@ -156,7 +167,9 @@ async function BillingBody({ params }: PageProps) {
   const subActive =
     agency?.stripeStatus === "active" || agency?.stripeStatus === "trialing";
   const activePlanKey: PlanKey = subActive
-    ? planKeyForEnum((agency?.plan as AgencyPlanTier | null | undefined) ?? null)
+    ? planKeyForEnum(
+        (agency?.plan as AgencyPlanTier | null | undefined) ?? null,
+      )
     : "free";
   const activeCard = PLAN_CARDS[activePlanKey];
 
@@ -186,6 +199,16 @@ async function BillingBody({ params }: PageProps) {
 
   return (
     <div className="view">
+      {deficit != null ? (
+        <div className="callout amber" style={{ marginBottom: 12 }}>
+          <span aria-hidden="true">🪙</span>
+          <div>
+            <b>Your run needs {deficit.toLocaleString()} more credits.</b> Top
+            up below — the pack lands instantly and your Preview picks up where
+            you left it.
+          </div>
+        </div>
+      ) : null}
       <CreditExplainer />
 
       <CurrentPlanWalletCard

@@ -31,11 +31,27 @@ export interface AgencyMemberRow {
   role: AgencyMemberRoleValue;
 }
 
+/** A pending seat invite (WP5-8 · Team card). */
+export interface AgencyInviteRow {
+  id: string;
+  email: string;
+  role: AgencyMemberRoleValue;
+  expiresAt: string; // ISO — serializable across the client boundary
+}
+
+/** Seat usage (WP5-8 · cap = maxSeats ?? plan default, Free state = 1). */
+export interface AgencySeatState {
+  cap: number;
+  used: number;
+}
+
 export interface AgencySettingsAgency {
   id: string;
   name: string;
   defaultMetro: string | null;
   categoriesServed: string[];
+  /** WP7-4 · the compliance-footer postal address (null = email sends blocked). */
+  mailingAddress: string | null;
   plan: AgencyPlanValue;
 }
 
@@ -50,6 +66,10 @@ export interface AgencySettingsData {
   agency: AgencySettingsAgency;
   membership: { role: AgencyMemberRoleValue };
   members: AgencyMemberRow[];
+  /** Pending (unaccepted, unexpired) seat invites (WP5-8). */
+  invites: AgencyInviteRow[];
+  /** Seat usage for the invite gate + the "N of M seats" line (WP5-8). */
+  seats: AgencySeatState;
   /** Effective locale read from the NEXT_LOCALE cookie or the URL. */
   locale: string;
 }
@@ -70,9 +90,12 @@ export const EMPTY_AGENCY_SETTINGS: AgencySettingsData = {
     name: "",
     defaultMetro: null,
     categoriesServed: [],
+    mailingAddress: null,
     plan: "SOLO",
   },
   membership: { role: "STAFF" },
   members: [],
+  invites: [],
+  seats: { cap: 1, used: 0 },
   locale: "en",
 };

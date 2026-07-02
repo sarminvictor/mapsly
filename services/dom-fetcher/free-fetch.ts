@@ -20,7 +20,10 @@
 // See:
 //   - services/dom-fetcher/fetcher.ts — the paid fallback (Apify actor)
 //   - modules/discovery/enrich-contacts.ts — the consumer (free-first routing)
+//   - lib/net/ssrf-guard.ts — the SSRF gate (WP8-1): every hop is re-validated
 //   - .claude/rules/cost-discipline.md — free path first, pay only when blocked
+
+import { safeFetch } from "@/lib/net/ssrf-guard";
 
 /** Desktop UA — some sites serve a stripped/blocked page to obvious bots. */
 const USER_AGENT =
@@ -114,7 +117,12 @@ export async function freeFetchDom(
   if (!target) return { blocked: true };
 
   try {
-    const res = await fetch(target, {
+    // WP8-1: route through the SSRF guard — validates the URL + every redirect
+    // hop against private/loopback/link-local/metadata ranges (incl. DNS
+    // rebinding). A blocked URL throws SsrfBlockedError, which the catch below
+    // collapses to { blocked: true } → the paid actor (Apify infra, not our
+    // egress), the safe default.
+    const res = await safeFetch(target, {
       headers: {
         "User-Agent": USER_AGENT,
         Accept:
@@ -122,7 +130,6 @@ export async function freeFetchDom(
         "Accept-Language": "en-US,en;q=0.9",
       },
       signal: AbortSignal.timeout(timeoutMs),
-      redirect: "follow",
     });
 
     const status = res.status;

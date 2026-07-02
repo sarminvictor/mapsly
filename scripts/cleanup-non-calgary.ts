@@ -31,6 +31,7 @@ config({ path: ".env.local" });
 import { PrismaNeon } from "@prisma/adapter-neon";
 
 import { PrismaClient } from "../lib/generated/prisma/client";
+import { deleteBusinessDeep } from "../lib/db/delete-business";
 
 const adapter = new PrismaNeon({
   connectionString: process.env.DATABASE_URL!,
@@ -99,15 +100,28 @@ async function main(): Promise<void> {
   // ---- 2. Execute -------------------------------------------------------
   console.log("\n[cleanup-non-calgary] DELETING…");
 
-  // Single deleteMany on Business — Prisma cascades handle the children
-  // because Review/BusinessSnapshot/BusinessService/Lead/LighthouseAudit
-  // all declare onDelete: Cascade in schema.prisma. AdLibraryEntry uses
-  // SetNull (the businessId becomes null, the row survives). SerpResult
-  // also cascades via the FK declaration.
-  const result = await prisma.business.deleteMany({
+  // WP9-2 · deleteBusinessDeep is the ONLY sanctioned delete path: it drops the
+  // plain-FK children (Contact/EnrichmentJob/BusinessTech/PlaybookFinding/
+  // LighthouseOpportunity/BusinessLicense/BusinessEnrichment/EnrichmentStageRun)
+  // that carry NO onDelete cascade, then the businesses (whose declared-relation
+  // children — Review/BusinessSnapshot/BusinessService/Lead/LighthouseAudit/
+  // SerpResult/AdLibraryEntry — cascade via their FK). A bare business.deleteMany
+  // would orphan the plain-FK rows.
+  const doomed = await prisma.business.findMany({
     where: { NOT: KEEP_FILTER },
+    select: { id: true },
   });
-  console.log(`[cleanup-non-calgary] deleted ${result.count} Business rows`);
+  const result = await deleteBusinessDeep(
+    prisma,
+    doomed.map((b) => b.id),
+  );
+  console.log(
+    `[cleanup-non-calgary] deleted ${result.businesses} Business rows + children ` +
+      `(contacts ${result.contacts}, jobs ${result.enrichmentJobs}, tech ${result.businessTech}, ` +
+      `findings ${result.playbookFindings}, lhOpps ${result.lighthouseOpportunities}, ` +
+      `licenses ${result.businessLicenses}, enrichments ${result.businessEnrichments}, ` +
+      `stageRuns ${result.enrichmentStageRuns})`,
+  );
 
   // ---- 3. Post-state audit ---------------------------------------------
   console.log("\n=== AFTER ===");

@@ -313,14 +313,16 @@ export async function scanBusinessContacts(
   // ── Fetch failed → FAILED, NEVER hidden ─────────────────────────────────────
   if (!fetched.ok) {
     // A FAILED scan means "we know nothing" — explicitly do NOT touch isHidden
-    // / reachability (FAILED ≠ UNREACHABLE). Only record the failed status so
-    // the next tick can retry, and stamp contactsExtractedAt so freshness
-    // cursors advance (we did attempt it).
+    // / reachability (FAILED ≠ UNREACHABLE). WP1-7: do NOT stamp
+    // contactsExtractedAt on a FAILED fetch — the freshness cursor must stay
+    // untouched so a transient site-down doesn't lock this business out of a
+    // re-scan for 90 days. The dispatch CONTACTS worker maps this FAILED result
+    // to a non-billable outcome (WP1-2), so the 3-attempt retry ladder + the
+    // stuck-reset re-attempt it, and the run's settle refunds it.
     await prisma.business.update({
       where: { id: businessId },
       data: {
         contactScanStatus: "FAILED",
-        contactsExtractedAt: new Date(),
       },
     });
     return {

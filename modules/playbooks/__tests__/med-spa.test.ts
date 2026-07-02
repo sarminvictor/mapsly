@@ -29,8 +29,9 @@ describe("playbook registry", () => {
   test("resolves med-spa categories (case-insensitive)", () => {
     expect(playbookForCategory("Medical Spa")?.id).toBe("med-spa");
     expect(playbookForCategory("med-spa")?.id).toBe("med-spa");
-    expect(playbookForCategory("plumber")).toBeNull();
-    expect(playbookForBusiness(["plumber", "med spa"])?.id).toBe("med-spa");
+    // "florist" is claimed by no playbook (plumber → roofing since WP6-11).
+    expect(playbookForCategory("florist")).toBeNull();
+    expect(playbookForBusiness(["florist", "med spa"])?.id).toBe("med-spa");
   });
 });
 

@@ -15,6 +15,7 @@
 // Schedule this hourly via Vercel cron; also POST-triggerable from the admin
 // tool without changing the schedule.
 
+import { verifyCronAuth } from "@/lib/auth/cron-secret";
 import { withCronRun } from "@/lib/cost/cost-counter";
 import { reconcileStuckReviewJobs } from "@/modules/reviews/review-job";
 
@@ -24,15 +25,14 @@ const JOB = "reviews:reconcile";
 const DEFAULT_OLDER_THAN_MINUTES = 120;
 
 export async function GET(req: Request): Promise<Response> {
-  const expected = process.env.CRON_SECRET;
-  if (!expected) {
-    return Response.json(
-      { error: "internal_error", message: "CRON_SECRET not configured" },
-      { status: 500 },
-    );
-  }
-  const auth = req.headers.get("authorization");
-  if (auth !== `Bearer ${expected}`) {
+  const authResult = verifyCronAuth(req);
+  if (!authResult.ok) {
+    if (authResult.reason === "not_configured") {
+      return Response.json(
+        { error: "internal_error", message: "CRON_SECRET not configured" },
+        { status: 500 },
+      );
+    }
     return Response.json({ error: "unauthorized" }, { status: 401 });
   }
 

@@ -53,6 +53,8 @@ function mockBusinesses() {
       province: "FL",
       postalCode: "33131",
       email: "owner@glowspa.com",
+      phone: "+1 305 555 0100",
+      website: "https://glowspa.example",
       landingPage: { slug: "glow-spa", token: "tok1" },
     },
     {
@@ -63,6 +65,8 @@ function mockBusinesses() {
       province: "FL",
       postalCode: null,
       email: "owner@noaddr.com",
+      phone: null,
+      website: null,
       landingPage: { slug: "no-addr", token: "tok2" },
     },
   ]);
@@ -131,6 +135,32 @@ describe("exportDraftsCsv", () => {
       unsubscribeNote: "Email stop@mapsly.ai to opt out.",
     });
     expect(res.csv).toContain("Email stop@mapsly.ai to opt out.");
+  });
+
+  test("WP6-6 · includes contact + evidence merge-field columns", async () => {
+    mockBusinesses();
+    const withEvidence = {
+      ...draftWithAddr,
+      whyJson: {
+        why: ["Unanswered negative reviews", "Slow LCP"],
+        usedSignals: ["unanswered_negative", "slow_site"],
+        sequenceStep: 1,
+        sequenceOf: 3,
+      },
+    };
+    const res = await exportDraftsCsv([withEvidence]);
+    const header = res.csv.split("\n")[0];
+    // Contact columns (Instantly/Smartlead lead fields).
+    expect(header).toContain("phone");
+    expect(header).toContain("website");
+    // Evidence merge fields carry usedSignals + the sequence position.
+    expect(header).toContain("signals");
+    expect(header).toContain("sequenceOf");
+    // The row carries the real contact + signal values.
+    expect(res.csv).toContain("+1 305 555 0100");
+    expect(res.csv).toContain("https://glowspa.example");
+    expect(res.csv).toContain("unanswered_negative;slow_site");
+    expect(res.csv).toContain("Unanswered negative reviews | Slow LCP");
   });
 });
 

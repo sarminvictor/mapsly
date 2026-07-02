@@ -321,6 +321,10 @@ export interface FetchLighthouseResult {
 export interface FetchLighthouseOptions {
   /** Residential proxy country code. Default "US". */
   country?: string;
+  /** Hard cap on the actor run (seconds). Default RUN_TIMEOUT_SECS (600s).
+   *  The dispatch job rail passes ~240s (WP1-8) so a single walled Lighthouse
+   *  job can't outlive the tick budget and loop forever paying the actor. */
+  timeoutSecs?: number;
 }
 
 /** Map the actor's raw lighthouse block → our normalized ActorLighthouse. */
@@ -370,7 +374,7 @@ export async function fetchLighthouse(
       maxConcurrency: 1,
     },
     memoryMbytes: DOM_MEMORY_MB.lighthouse,
-    timeoutSecs: RUN_TIMEOUT_SECS,
+    timeoutSecs: opts.timeoutSecs ?? RUN_TIMEOUT_SECS,
     fallbackCostUsd: 0.06,
   });
   const first = items[0];

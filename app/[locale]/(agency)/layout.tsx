@@ -20,9 +20,16 @@ import { Suspense, type ReactNode } from "react";
 import { Inter, Space_Grotesk, JetBrains_Mono } from "next/font/google";
 import { getTranslations } from "next-intl/server";
 
+import { auth } from "@/lib/auth";
+import prisma from "@/lib/prisma";
 import { CommandK } from "@/components/agency/CommandK";
 import { WalletPill } from "@/components/agency/WalletPill";
 import { JobsTray } from "@/components/agency/JobsTray";
+import { ToastHost } from "@/components/agency/Toast";
+import {
+  getRecentResearchLinks,
+  type RecentResearchLink,
+} from "@/modules/agency-portal/research/queries";
 import {
   AgencyChrome,
   type AgencyChromeLabels,
@@ -67,6 +74,9 @@ export default function AgencyLayout({
       <Suspense fallback={<ChromeFallback>{children}</ChromeFallback>}>
         <ChromeServer params={params}>{children}</ChromeServer>
       </Suspense>
+      {/* WP4-11 · single toast host for the whole agency subtree — every
+          client component fires via showToast() from @/components/agency/Toast. */}
+      <ToastHost />
     </div>
   );
 }
@@ -107,10 +117,25 @@ async function ChromeServer({
     skipToContent: t("search_jump"),
   };
 
+  // Recent researches for the ⌘K palette (WP4-7). Agency-scoped + cached
+  // (getResearchList uses cacheLife("minutes")); [] when the user isn't on a
+  // team yet or the read fails — the palette still shows jump commands + search.
+  let recentResearches: RecentResearchLink[] = [];
+  const session = await auth();
+  if (session?.user?.id) {
+    const member = await prisma.agencyMember.findFirst({
+      where: { userId: session.user.id },
+      select: { agencyId: true },
+    });
+    if (member) {
+      recentResearches = await getRecentResearchLinks(member.agencyId);
+    }
+  }
+
   return (
     <AgencyChrome
       labels={labels}
-      cmdk={<CommandK />}
+      cmdk={<CommandK recentResearches={recentResearches} />}
       wallet={
         <Suspense fallback={null}>
           <WalletPill />

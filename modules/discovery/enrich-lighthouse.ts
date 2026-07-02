@@ -73,6 +73,10 @@ export interface EnrichLighthouseOptions {
   walledLimit?: number;
   /** Override the per-invocation cumulative-cost ceiling (USD). Default 2. */
   maxUsageUsd?: number;
+  /** Hard cap on the WALLED actor run (ms), converted to the actor's timeout.
+   *  The single-business dispatch job rail passes ~240s (WP1-8) so one walled
+   *  Lighthouse can't outlive the tick budget. Unset → the actor default (600s). */
+  maxWaitMs?: number;
 }
 
 /** What the orchestrator reports back to the caller / cron summary. */
@@ -227,10 +231,14 @@ export async function enrichLighthouseForBusinesses(
         continue;
       }
       walledUsed += 1;
-      const actor = await fetchLighthouse(
-        url,
-        opts.country != null ? { country: opts.country } : {},
-      );
+      const actor = await fetchLighthouse(url, {
+        ...(opts.country != null ? { country: opts.country } : {}),
+        // WP1-8 · bound the walled run so a single dispatch job stays under the
+        // tick budget (default 600s → ~240s from the job rail).
+        ...(opts.maxWaitMs != null
+          ? { timeoutSecs: Math.ceil(opts.maxWaitMs / 1000) }
+          : {}),
+      });
       usageTotalUsd += actor.usageTotalUsd;
       if (actor.lighthouse && actor.lighthouse.ok) {
         await persistActorAudit(business.id, actor.lighthouse, now);

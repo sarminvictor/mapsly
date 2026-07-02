@@ -14,6 +14,7 @@
 
 import { z } from "zod";
 
+import { verifyCronAuth } from "@/lib/auth/cron-secret";
 import { withCronRun } from "@/lib/cost/cost-counter";
 import { runMetaAdsForCell } from "@/modules/cell-intel/meta-ads";
 import { runGoogleAdsForCell } from "@/modules/cell-intel/google-ads";
@@ -31,11 +32,9 @@ const PayloadSchema = z.object({
 });
 
 export async function POST(request: Request): Promise<Response> {
-  const auth = request.headers.get("authorization");
-  if (
-    !process.env.CRON_SECRET ||
-    auth !== `Bearer ${process.env.CRON_SECRET}`
-  ) {
+  // Preserve the existing shape: this route returns 401 for both a missing
+  // CRON_SECRET and a bad/absent token (no separate 500 branch).
+  if (!verifyCronAuth(request).ok) {
     return Response.json({ error: "unauthorized" }, { status: 401 });
   }
 

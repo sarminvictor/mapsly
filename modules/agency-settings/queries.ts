@@ -38,6 +38,7 @@
 import { cacheLife, cacheTag } from "next/cache";
 
 import prisma from "@/lib/prisma";
+import { seatCapFor } from "@/modules/agency-portal/team/seats";
 
 import {
   EMPTY_AGENCY_SETTINGS,
@@ -82,7 +83,11 @@ export async function getAgencySettings(
             name: true,
             defaultMetro: true,
             categoriesServed: true,
+            mailingAddress: true,
             plan: true,
+            // WP5-8 · seat-cap inputs (maxSeats override + Free-state check).
+            maxSeats: true,
+            stripeStatus: true,
           },
         },
       },
@@ -90,17 +95,30 @@ export async function getAgencySettings(
 
     if (!membership?.agency) return EMPTY_AGENCY_SETTINGS;
 
-    const members = await prisma.agencyMember.findMany({
-      where: { agencyId: membership.agency.id },
-      orderBy: [{ role: "asc" }, { createdAt: "asc" }],
-      take: MEMBER_TAKE,
-      select: {
-        id: true,
-        userId: true,
-        role: true,
-        user: { select: { name: true, email: true } },
-      },
-    });
+    const [members, invites] = await Promise.all([
+      prisma.agencyMember.findMany({
+        where: { agencyId: membership.agency.id },
+        orderBy: [{ role: "asc" }, { createdAt: "asc" }],
+        take: MEMBER_TAKE,
+        select: {
+          id: true,
+          userId: true,
+          role: true,
+          user: { select: { name: true, email: true } },
+        },
+      }),
+      // WP5-8 · pending (unaccepted, unexpired) invites for the Team card.
+      prisma.agencyInvite.findMany({
+        where: {
+          agencyId: membership.agency.id,
+          acceptedAt: null,
+          expiresAt: { gt: new Date() },
+        },
+        orderBy: { createdAt: "asc" },
+        take: MEMBER_TAKE,
+        select: { id: true, email: true, role: true, expiresAt: true },
+      }),
+    ]);
 
     return {
       agency: {
@@ -108,6 +126,7 @@ export async function getAgencySettings(
         name: membership.agency.name ?? "",
         defaultMetro: membership.agency.defaultMetro,
         categoriesServed: membership.agency.categoriesServed ?? [],
+        mailingAddress: membership.agency.mailingAddress ?? null,
         plan: (membership.agency.plan ?? "SOLO") as AgencyPlanValue,
       },
       membership: {
@@ -120,6 +139,16 @@ export async function getAgencySettings(
         userEmail: m.user?.email ?? "",
         role: (m.role ?? "STAFF") as AgencyMemberRoleValue,
       })),
+      invites: invites.map((i) => ({
+        id: i.id,
+        email: i.email,
+        role: (i.role ?? "STAFF") as AgencyMemberRoleValue,
+        expiresAt: i.expiresAt.toISOString(),
+      })),
+      seats: {
+        cap: seatCapFor(membership.agency),
+        used: members.length,
+      },
       // Locale stays as the EMPTY default · page overlays request cookie.
       locale: EMPTY_AGENCY_SETTINGS.locale,
     };

@@ -21,9 +21,12 @@
  * See:
  *   - modules/contacts/scan.ts — the consumer (contacts + tech in one pass)
  *   - modules/business-qualification/scrape-email.ts — politeness reference
+ *   - lib/net/ssrf-guard.ts — the SSRF gate (WP8-1): every hop is re-validated
  *   - .claude/rules/cost-discipline.md — no live API in user request path
  *   - .claude/rules/scalability.md — bounded per-request timeout
  */
+
+import { safeFetch } from "@/lib/net/ssrf-guard";
 
 /** Self-identifying crawl UA so site owners can recognise + contact us. */
 const USER_AGENT =
@@ -109,7 +112,11 @@ export async function fetchSiteHtml(
   if (!target) return FAILED;
 
   try {
-    const res = await fetch(target, {
+    // WP8-1: route through the SSRF guard — validates the URL + every redirect
+    // hop against private/loopback/link-local/metadata ranges (incl. DNS
+    // rebinding). A blocked URL throws SsrfBlockedError, which the catch below
+    // collapses to FAILED (SSRF block == treat as unreachable).
+    const res = await safeFetch(target, {
       headers: {
         "User-Agent": USER_AGENT,
         Accept:
@@ -117,7 +124,6 @@ export async function fetchSiteHtml(
         "Accept-Language": "en-US,en;q=0.9",
       },
       signal: AbortSignal.timeout(timeoutMs),
-      redirect: "follow",
     });
 
     if (!res.ok) return FAILED;

@@ -46,11 +46,11 @@ import {
 } from "@/modules/agency-settings/actions";
 import { getAgencySettings } from "@/modules/agency-settings/queries";
 import type {
-  AgencyMemberRoleValue,
   AgencyPlanValue,
   AgencySettingsData,
 } from "@/modules/agency-settings/types";
 import { SettingsSection } from "@/modules/agency-settings/components/SettingsSection";
+import { TeamManagePanel } from "@/modules/agency-settings/components/TeamManagePanel";
 
 export async function generateMetadata({
   params,
@@ -140,7 +140,7 @@ async function SettingsBody({ params }: { params: Promise<PageParams> }) {
 
       <ProfileCard t={t} data={data} canEdit={canEditProfile} />
       <PlanCard t={t} plan={data.agency.plan} />
-      <TeamCard t={t} members={data.members} />
+      <TeamCard t={t} data={data} selfUserId={session.user.id} />
       <LocaleCard t={t} currentLocale={locale as Locale} />
       <NotificationsCard t={t} />
       <PrivacyCard t={t} />
@@ -215,6 +215,33 @@ function ProfileCard({
         />
         <p style={styles.helpText}>{t("sections.profile.helpCategories")}</p>
 
+        {/* WP7-4 · compliance-footer address. Email touchpoints won't generate
+            without it (CAN-SPAM/CASL both require a physical address); the
+            amber callout is the blocking "add your address to send" state. */}
+        {!data.agency.mailingAddress ? (
+          <p style={styles.warnCallout} role="status">
+            {t("sections.profile.mailingAddressMissing")}
+          </p>
+        ) : null}
+        <FieldLabel htmlFor="agency-settings-mailing">
+          {t("sections.profile.fields.mailingAddress")}
+        </FieldLabel>
+        <input
+          id="agency-settings-mailing"
+          name="mailingAddress"
+          type="text"
+          maxLength={300}
+          defaultValue={data.agency.mailingAddress ?? ""}
+          placeholder="123 Main St, Suite 4, Toronto, ON M5V 2T6"
+          disabled={!canEdit}
+          aria-disabled={!canEdit || undefined}
+          aria-invalid={!data.agency.mailingAddress || undefined}
+          style={styles.input}
+        />
+        <p style={styles.helpText}>
+          {t("sections.profile.helpMailingAddress")}
+        </p>
+
         {canEdit ? (
           <button type="submit" style={styles.primaryButton}>
             {t("sections.profile.save")}
@@ -257,38 +284,35 @@ function PlanCard({
   );
 }
 
+/**
+ * Team · WP5-8 makes this FUNCTIONAL: roster + role pills, remove member
+ * (OWNER only, never self), pending invites with revoke, and the invite form
+ * gated by role + seat cap. The interactive body is the TeamManagePanel
+ * client component (plain serialized props — Pattern 4).
+ */
 function TeamCard({
   t,
-  members,
+  data,
+  selfUserId,
 }: {
   t: (key: string, vars?: Record<string, string | number>) => string;
-  members: AgencySettingsData["members"];
+  data: AgencySettingsData;
+  selfUserId: string;
 }) {
+  const role = data.membership.role;
   return (
     <SettingsSection
       headingId="agency-settings-team-heading"
       heading={t("sections.team.heading")}
     >
-      {members.length === 0 ? (
-        <p style={styles.emptyText}>—</p>
-      ) : (
-        <ul style={styles.memberList}>
-          {members.map((m) => (
-            <li key={m.id} style={styles.memberRow}>
-              <span aria-hidden style={styles.memberAvatar}>
-                {(m.userName ?? m.userEmail ?? "?").slice(0, 1).toUpperCase()}
-              </span>
-              <span style={styles.memberBody}>
-                <span style={styles.memberName}>
-                  {m.userName ?? m.userEmail}
-                </span>
-                <span style={styles.memberEmail}>{m.userEmail}</span>
-              </span>
-              <RolePill role={m.role} t={t} />
-            </li>
-          ))}
-        </ul>
-      )}
+      <TeamManagePanel
+        members={data.members}
+        invites={data.invites}
+        seats={data.seats}
+        canManage={role === "OWNER" || role === "ADMIN"}
+        isOwner={role === "OWNER"}
+        selfUserId={selfUserId}
+      />
     </SettingsSection>
   );
 }
@@ -551,40 +575,6 @@ function FieldLabel({
       {children}
     </label>
   );
-}
-
-function RolePill({
-  role,
-  t,
-}: {
-  role: AgencyMemberRoleValue;
-  t: (key: string, vars?: Record<string, string | number>) => string;
-}) {
-  const roleStyle: CSSProperties =
-    role === "OWNER"
-      ? {
-          background: "var(--color-agency-indigo, #5b3df5)",
-          color: "#fff",
-          borderColor: "transparent",
-        }
-      : role === "ADMIN"
-        ? {
-            background: "#475569",
-            color: "#fff",
-            borderColor: "transparent",
-          }
-        : {
-            background: "var(--color-bg)",
-            color: "var(--color-text-2)",
-            borderColor: "var(--color-border)",
-          };
-  const label =
-    role === "OWNER"
-      ? t("sections.team.role.owner")
-      : role === "ADMIN"
-        ? t("sections.team.role.admin")
-        : t("sections.team.role.staff");
-  return <span style={{ ...styles.rolePill, ...roleStyle }}>{label}</span>;
 }
 
 function planLiteral(
@@ -895,6 +885,17 @@ const styles: Record<string, CSSProperties> = {
   },
   dangerCalloutBody: {
     margin: 0,
+    fontSize: 13.5,
+    color: "var(--color-text)",
+    lineHeight: 1.5,
+  },
+  /* WP7-4 · amber "add your address to send" blocking state. */
+  warnCallout: {
+    margin: "6px 0 4px",
+    padding: "12px 14px",
+    borderRadius: 10,
+    border: "1px solid rgba(180,120,10,.28)",
+    background: "rgba(200,140,20,.07)",
     fontSize: 13.5,
     color: "var(--color-text)",
     lineHeight: 1.5,

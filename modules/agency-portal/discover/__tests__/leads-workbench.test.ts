@@ -6,8 +6,11 @@ import { describe, expect, test } from "vitest";
 
 import {
   COLUMNS,
+  CSV_HEADERS,
   DEFAULT_ACTIVE_COLUMNS,
   buildSignalColumns,
+  csvEscape,
+  csvLine,
   deriveMatchPct,
   evalFilter,
   filterLabel,
@@ -16,8 +19,10 @@ import {
   matchesSearch,
   painGroupClass,
   passesFilters,
+  rowToCsvRecord,
   sortRows,
   toneForPercentile,
+  topCsvSignals,
   type LeadFilter,
   type WorkbenchLeadRow,
 } from "../leads-workbench";
@@ -38,6 +43,8 @@ function row(over: Partial<WorkbenchLeadRow> = {}): WorkbenchLeadRow {
     reachability: "RICH",
     reachable: true,
     builtOn: "Wix",
+    website: "https://solea.com",
+    pitchAngle: null,
     touch: "None",
     reviews: 120,
     rating: 4.4,
@@ -288,5 +295,116 @@ describe("buildSignalColumns", () => {
 
   test("empty signal list yields no columns", () => {
     expect(buildSignalColumns([])).toEqual([]);
+  });
+});
+
+// ── CSV export mapping (WP4-4 · shared by client export + server route) ──────
+
+describe("csvEscape / csvLine", () => {
+  test("quote-wraps and doubles inner quotes", () => {
+    expect(csvEscape('He said "hi"')).toBe('"He said ""hi"""');
+  });
+
+  test("null/undefined → empty cell", () => {
+    expect(csvEscape(null)).toBe('""');
+    expect(csvEscape(undefined)).toBe('""');
+  });
+
+  test("commas and newlines survive inside one cell", () => {
+    expect(csvLine(["a,b", "c\nd", 5])).toBe('"a,b","c\nd","5"');
+  });
+});
+
+describe("rowToCsvRecord", () => {
+  const goalSignals = [
+    { key: "slow_site", title: "Slow site (Lighthouse)" },
+    { key: "no_pixel", title: "No tracking pixel" },
+  ];
+
+  test("maps the 13 columns in CSV_HEADERS order", () => {
+    const r = row({
+      perSignal: { slow_site: true, no_pixel: false },
+      pitchAngle: "Site loads in 9s",
+    });
+    const record = rowToCsvRecord(r, goalSignals);
+    expect(record).toHaveLength(CSV_HEADERS.length);
+    expect(record).toEqual([
+      "Solea Brickell Spa",
+      "100 Main St · Medical spa · Miami",
+      80,
+      "NEW",
+      "Yes",
+      "maria@solea.com",
+      "+13055550100",
+      "https://solea.com",
+      4.4,
+      120,
+      42,
+      "Slow site (Lighthouse)",
+      "Site loads in 9s",
+    ]);
+  });
+
+  test("multi-value contacts are semicolon-joined", () => {
+    const r = row({
+      emails: ["a@x.com", "b@x.com"],
+      phones: ["+1", "+2", "+3"],
+    });
+    const record = rowToCsvRecord(r, []);
+    expect(record[5]).toBe("a@x.com; b@x.com");
+    expect(record[6]).toBe("+1; +2; +3");
+  });
+
+  test("null facts export as empty cells after escaping", () => {
+    const r = row({
+      website: null,
+      rating: null,
+      reviews: null,
+      perf: null,
+      pitchAngle: null,
+      emails: [],
+      phones: [],
+      reachable: false,
+    });
+    const line = csvLine(rowToCsvRecord(r, []));
+    expect(line).toContain('"No"');
+    expect(line.endsWith('"","",""')).toBe(true); // perf, top signals, pitch
+  });
+});
+
+describe("topCsvSignals", () => {
+  const goalSignals = [
+    { key: "a", title: "A" },
+    { key: "b", title: "B" },
+    { key: "c", title: "C" },
+    { key: "d", title: "D" },
+  ];
+
+  test("prefers FIRED goal signals (true verdicts only)", () => {
+    const r = row({
+      perSignal: { a: true, b: false, c: null, d: true },
+      pains: [{ group: "more", label: "Pain", title: "Pain" }],
+    });
+    expect(topCsvSignals(r, goalSignals)).toBe("A; D");
+  });
+
+  test("falls back to pain labels when nothing fired", () => {
+    const r = row({
+      perSignal: { a: false, b: null },
+      pains: [
+        { group: "more", label: "Slow site", title: "t" },
+        { group: "more", label: "No pixel", title: "t" },
+      ],
+    });
+    expect(topCsvSignals(r, goalSignals)).toBe("Slow site; No pixel");
+  });
+
+  test("caps at 3", () => {
+    const r = row({ perSignal: { a: true, b: true, c: true, d: true } });
+    expect(topCsvSignals(r, goalSignals)).toBe("A; B; C");
+  });
+
+  test("empty when no signals and no pains", () => {
+    expect(topCsvSignals(row(), [])).toBe("");
   });
 });

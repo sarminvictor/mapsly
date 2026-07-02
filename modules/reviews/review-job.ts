@@ -333,6 +333,9 @@ export interface FetchReviewJobResult {
   itemsInWindow: number;
   /** New depth when outcome === "escalated". */
   escalatedToDepth?: number;
+  /** IDs of newly-inserted Review rows this persist (drives entity extraction
+   *  in the pingback path — WP1-10). Empty on noop. */
+  insertedIds: string[];
 }
 
 /**
@@ -361,7 +364,13 @@ export async function fetchReviewJob(
     throw new Error(`[reviews:fetchReviewJob] job not found: ${jobId}`);
   }
   if (job.status === "DONE" || job.status === "FAILED") {
-    return { job, outcome: "noop", itemsReturned: 0, itemsInWindow: 0 };
+    return {
+      job,
+      outcome: "noop",
+      itemsReturned: 0,
+      itemsInWindow: 0,
+      insertedIds: [],
+    };
   }
   if (!job.taskId) {
     const failed = await prisma.reviewJob.update({
@@ -376,7 +385,13 @@ export async function fetchReviewJob(
         businessId: job.businessId,
       }),
     );
-    return { job: failed, outcome: "noop", itemsReturned: 0, itemsInWindow: 0 };
+    return {
+      job: failed,
+      outcome: "noop",
+      itemsReturned: 0,
+      itemsInWindow: 0,
+      insertedIds: [],
+    };
   }
 
   await prisma.reviewJob.update({
@@ -390,10 +405,13 @@ export async function fetchReviewJob(
 }
 
 /**
- * Shared persist + escalate path used by both fetchReviewJob and the reconcile
- * sweep (so a reconciled-ready task finishes identically to a pingback one).
+ * Shared persist + escalate path used by fetchReviewJob, the reconcile sweep,
+ * AND the pingback webhook (WP1-10) — so a task finishes identically no matter
+ * which path resolves it, including running the depth-escalation ladder. The
+ * pingback webhook already has the `ReviewsTaskGetResult` in hand, so it calls
+ * this directly (no second reviewsTaskGet) to avoid a duplicate DfS fetch.
  */
-async function persistFetchResult(
+export async function persistFetchResult(
   job: ReviewJob,
   result: ReviewsTaskGetResult,
   now: Date,
@@ -476,6 +494,7 @@ async function persistFetchResult(
       itemsReturned: result.items.length,
       itemsInWindow: inWindowItems.length,
       escalatedToDepth: deeper,
+      insertedIds: upsertResult.insertedIds,
     };
   }
 
@@ -489,6 +508,7 @@ async function persistFetchResult(
     outcome: "done",
     itemsReturned: result.items.length,
     itemsInWindow: inWindowItems.length,
+    insertedIds: upsertResult.insertedIds,
   };
 }
 

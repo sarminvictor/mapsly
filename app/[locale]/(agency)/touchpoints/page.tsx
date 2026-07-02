@@ -6,10 +6,11 @@
  * Read-only — the page never calls external APIs. Bulk generation runs out-of-
  * band via `generateTouchesForLeads` (a note on the page points there).
  *
- * Agency scoping · OutreachDraft has no direct agencyId, so we scope through the
- * agency's discoveries → their cellKeys → the businesses in those cells →
- * drafts for those businesses. This keeps the boundary honest (you only see
- * touches for prospects your agency actually discovered).
+ * Agency scoping · discoveries → cellKeys → businesses in those cells, then
+ * the WP5 agencyId filter on the drafts themselves (strict match, with the
+ * legacy null-agencyId arm kept during the backfill transition — see
+ * modules/outreach/draft-scope.ts). Two agencies sharing a cellKey no longer
+ * see each other's drafts.
  *
  * Per `.claude/rules/cache-components.md`:
  *   - Pattern 2 · default export is SYNC; the async body (auth + DB) lives in a
@@ -32,6 +33,7 @@ import { setRequestLocale } from "next-intl/server";
 import { auth } from "@/lib/auth";
 import { redirect } from "@/i18n/navigation";
 import prisma from "@/lib/prisma";
+import { draftWhereForAgency } from "@/modules/outreach/draft-scope";
 import { toTouchpointDraft } from "@/modules/agency-portal/discover/touchpoints";
 import {
   TouchpointsList,
@@ -96,7 +98,7 @@ async function TouchpointsBody({ params }: PageProps) {
 
     if (businessIds.length > 0) {
       const rows = await prisma.outreachDraft.findMany({
-        where: { businessId: { in: businessIds } },
+        where: draftWhereForAgency(agencyId, businessIds),
         orderBy: { createdAt: "desc" },
         take: MAX_DRAFTS,
         select: {

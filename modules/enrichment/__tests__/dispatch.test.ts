@@ -13,14 +13,25 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 
 vi.mock("@/lib/prisma", () => ({
   default: {
-    enrichmentRun: { findUnique: vi.fn(), update: vi.fn(), findMany: vi.fn() },
+    enrichmentRun: {
+      findUnique: vi.fn(),
+      findFirst: vi.fn(),
+      update: vi.fn(),
+      updateMany: vi.fn(),
+      findMany: vi.fn(),
+      count: vi.fn(),
+      groupBy: vi.fn(),
+    },
     enrichmentJob: {
       createMany: vi.fn(),
+      findUnique: vi.fn(),
       findMany: vi.fn(),
       count: vi.fn(),
       update: vi.fn(),
       updateMany: vi.fn(),
+      groupBy: vi.fn(),
     },
+    reviewJob: { findFirst: vi.fn() },
     discovery: {
       findUnique: vi.fn(),
       update: vi.fn(),
@@ -30,7 +41,35 @@ vi.mock("@/lib/prisma", () => ({
     businessCategory: { findFirst: vi.fn() },
     business: { findUnique: vi.fn(), findMany: vi.fn() },
     lighthouseAudit: { findFirst: vi.fn() },
+    agency: { findMany: vi.fn() },
   },
+}));
+// WP3-3 · run-progress counters degrade open (no Redis in tests) — mock to no-ops
+// so they never touch a real KV client.
+vi.mock("@/modules/enrichment/run-progress-counter", () => ({
+  incrRunProgress: vi.fn(async () => undefined),
+  seedRunProgress: vi.fn(async () => undefined),
+  readRunProgress: vi.fn(async () => null),
+}));
+// WP3-2 · worker dispatch is unavailable in tests (no BOXLY env) — mock so
+// fanOutRun/closeRunIfDone take the inline/tick-drain fallback paths.
+vi.mock("@/modules/enrichment/enrich-worker-dispatch", () => ({
+  enrichWorkerAvailable: vi.fn(() => false),
+  enqueueRootJobs: vi.fn(async () => ({
+    enqueued: false,
+    queued: 0,
+    failed: 0,
+  })),
+  enqueueCellJobs: vi.fn(async () => ({
+    enqueued: false,
+    queued: 0,
+    failed: 0,
+  })),
+}));
+// WP3-12 · close-playbooks dispatcher — mock so closeRunIfDone can assert the
+// call without running the real (worker/inline) implementation.
+vi.mock("@/modules/enrichment/close-playbooks-dispatch", () => ({
+  enqueueClosePlaybooks: vi.fn(async () => "inline"),
 }));
 vi.mock("@/modules/discovery/enrich-fresh-db", () => ({
   loadFreshTimestamps: vi.fn(async () => ({
@@ -38,7 +77,12 @@ vi.mock("@/modules/discovery/enrich-fresh-db", () => ({
     perCell: new Map(),
   })),
 }));
-vi.mock("@/modules/cost/server", () => ({ reconcileRunCredits: vi.fn() }));
+// WP4-6 · reconcileRunCredits now returns the settle result (charged/refunded)
+// so closeRunIfDone can persist the run's close receipt. Default to a benign
+// zero-charge result; per-test overrides assert the receipt write.
+vi.mock("@/modules/cost/server", () => ({
+  reconcileRunCredits: vi.fn(async () => ({ charged: 0, refunded: 0 })),
+}));
 vi.mock("@/modules/discovery/run-discovery", () => ({ runDiscovery: vi.fn() }));
 vi.mock("@/modules/discovery/enrich-lighthouse", () => ({
   enrichLighthouseForBusinesses: vi.fn(),
@@ -71,28 +115,100 @@ import { reconcileRunCredits } from "@/modules/cost/server";
 import { runDiscovery } from "@/modules/discovery/run-discovery";
 import { enrichLighthouseForBusinesses } from "@/modules/discovery/enrich-lighthouse";
 import { scanBusinessContacts } from "@/modules/contacts/scan";
+import { submitReviewJob } from "@/modules/reviews/review-job";
 import { runSerpForCell } from "@/modules/cell-intel/serp";
-import { runPlaybooksForBusiness } from "@/modules/playbooks/run";
+import { enqueueClosePlaybooks } from "@/modules/enrichment/close-playbooks-dispatch";
+import { incrRunProgress } from "@/modules/enrichment/run-progress-counter";
 import {
   fanOutRun,
   processJob,
   closeRunIfDone,
   processDiscovery,
+  dispatchPending,
+  reconcileStuck,
   updateRunProgress,
+  claimAndProcessJob,
 } from "../dispatch";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const p = prisma as any;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const anyMock = (fn: unknown) => fn as any;
 
 beforeEach(() => {
   vi.clearAllMocks();
   p.enrichmentRun.update.mockResolvedValue({});
+  // WP1-3 · closeRunIfDone claims the run via a conditional updateMany (finishedAt
+  // CAS) before settling — default to a winning claim (count 1).
+  p.enrichmentRun.updateMany.mockResolvedValue({ count: 1 });
   p.enrichmentJob.createMany.mockResolvedValue({ count: 0 });
   p.enrichmentJob.update.mockResolvedValue({});
+  // WP1-1 · dispatchPending claims each QUEUED job via updateMany; WP1-9 ·
+  // reconcileReviewJobs runs no-op when no parked REVIEWS jobs exist.
+  p.enrichmentJob.updateMany.mockResolvedValue({ count: 1 });
+  p.enrichmentJob.findMany.mockResolvedValue([]);
+  p.enrichmentJob.findUnique.mockResolvedValue(null);
+  p.enrichmentJob.groupBy.mockResolvedValue([]); // WP3-3 · progress seed
+  p.reviewJob.findFirst.mockResolvedValue(null);
   p.business.findUnique.mockResolvedValue({ contactsExtractedAt: null });
-  p.business.findMany.mockResolvedValue([]); // no hidden businesses by default
+  // WP9-5 · fanOutRun's scope gate now fetches { id, isHidden } for the scoped
+  // ids to BOTH validate existence (drop stale/deleted ids) and gate hidden
+  // ones. Default: echo back every requested id as existing + visible, so the
+  // existence filter passes for any scoped id (matching the pre-WP9-5 default of
+  // "no hidden businesses"). Tests that exercise the hidden gate or a
+  // stale/missing id override this per-case. Non-scope findMany callers
+  // (reviewCount ordering, cell resolution) also hit this — they select `id`
+  // (and reviewCount), which the echoed rows satisfy.
+  // WP7-2 · fanOutRun's scope gate now also selects `suppressedAt` and drops
+  // suppressed (do-not-sell) businesses (b.suppressedAt === null). The default
+  // echo returns suppressedAt:null so a scoped id passes both gates; per-case
+  // overrides set it when exercising suppression.
+  p.business.findMany.mockImplementation(
+    async (args: {
+      where?: { id?: { in?: string[] } };
+    }): Promise<
+      Array<{ id: string; isHidden: boolean; suppressedAt: Date | null }>
+    > => {
+      const ids = args?.where?.id?.in ?? [];
+      return ids.map((id) => ({ id, isHidden: false, suppressedAt: null }));
+    },
+  );
   p.lighthouseAudit.findFirst.mockResolvedValue(null); // never audited by default
   p.discovery.update.mockResolvedValue({});
+  // WP3-5 · processDiscovery claims the PENDING row via updateMany — default to
+  // a winning claim (count 1); tests that assert "not claimable" override it.
+  p.discovery.updateMany.mockResolvedValue({ count: 1 });
+  // WP3-10 · fairness helpers — default to no running runs + default caps.
+  p.enrichmentRun.groupBy.mockResolvedValue([]);
+  p.enrichmentRun.findFirst.mockResolvedValue(null);
+  p.agency.findMany.mockResolvedValue([]);
+
+  // WP1-2 · workers return a WorkerResult now (not raw values). Give the common
+  // workers billable-success defaults; individual tests override per-outcome.
+  anyMock(scanBusinessContacts).mockResolvedValue({
+    businessId: "b1",
+    status: "OK",
+    contactsUpserted: 1,
+    techUpserted: 0,
+    reachability: "PHONE_ONLY",
+    reachableChannelCount: 1,
+    isHidden: false,
+  });
+  anyMock(enrichLighthouseForBusinesses).mockResolvedValue({
+    processed: 1,
+    openAudited: 1,
+    walledAudited: 0,
+    skippedFresh: 0,
+    skippedNoWebsite: 0,
+    skippedWalledOverCap: 0,
+    skippedOverBudget: 0,
+    failed: 0,
+    usageTotalUsd: 0.00425,
+  });
+  anyMock(submitReviewJob).mockResolvedValue({
+    id: "rj1",
+    status: "AWAITING_PINGBACK",
+  });
 });
 
 describe("fanOutRun", () => {
@@ -123,6 +239,37 @@ describe("fanOutRun", () => {
     expect(out.jobsCreated).toBe(2);
   });
 
+  // WP1-6 · the cell cost is accrued OUTCOME-based. A collector that DIDN'T
+  // collect (served-from-db / failed → non-"collected" outcome) bills nothing.
+  test("cell cost bills only when the collector actually collected (WP1-6)", async () => {
+    p.enrichmentRun.findUnique.mockResolvedValue({
+      id: "r1",
+      status: "PENDING",
+      enrichmentsJson: ["serp"],
+      scopeRefsJson: { businessIds: [], cellKeys: ["spa|miami|US"] },
+    });
+    // Collector returns but did NOT collect (e.g. wrote a FAILED AdMarketRun).
+    anyMock(runSerpForCell).mockResolvedValue({ outcome: "skipped" });
+
+    const out = await fanOutRun("r1", new Date());
+
+    expect(out.cellCostUsd).toBe(0); // not billed on a non-collection
+  });
+
+  test("cell cost bills when the collector collected (WP1-6)", async () => {
+    p.enrichmentRun.findUnique.mockResolvedValue({
+      id: "r1",
+      status: "PENDING",
+      enrichmentsJson: ["serp"],
+      scopeRefsJson: { businessIds: [], cellKeys: ["spa|miami|US"] },
+    });
+    anyMock(runSerpForCell).mockResolvedValue({ outcome: "collected" });
+
+    const out = await fanOutRun("r1", new Date());
+
+    expect(out.cellCostUsd).toBeGreaterThan(0); // serp unit price accrued
+  });
+
   test("skips a run that isn't PENDING", async () => {
     p.enrichmentRun.findUnique.mockResolvedValue({
       id: "r1",
@@ -142,7 +289,12 @@ describe("fanOutRun", () => {
       enrichmentsJson: ["contacts"],
       scopeRefsJson: { businessIds: ["b1", "b2"], cellKeys: [] },
     });
-    p.business.findMany.mockResolvedValue([{ id: "b2" }]); // b2 is hidden
+    // WP9-5 · the gate query now returns { id, isHidden } for BOTH scoped ids
+    // (existence + hidden in one findMany): b1 exists+visible, b2 exists+hidden.
+    p.business.findMany.mockResolvedValue([
+      { id: "b1", isHidden: false, suppressedAt: null },
+      { id: "b2", isHidden: true, suppressedAt: null },
+    ]);
 
     const out = await fanOutRun("r1", new Date());
 
@@ -157,6 +309,38 @@ describe("fanOutRun", () => {
     expect(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       updates.some((d: any) => d.unitsSkippedHidden === 1),
+    ).toBe(true);
+  });
+
+  // WP9-5 · a scoped id that no longer resolves to a Business (stale quote /
+  // deleted between preflight and fan-out) is dropped by the existence
+  // validation — it never mints an orphan job that would fail at worker time.
+  test("scope validation: a stale/deleted business id is dropped, not queued (WP9-5)", async () => {
+    p.enrichmentRun.findUnique.mockResolvedValue({
+      id: "r1",
+      status: "PENDING",
+      enrichmentsJson: ["contacts"],
+      scopeRefsJson: { businessIds: ["b1", "ghost"], cellKeys: [] },
+    });
+    // Only b1 still exists; "ghost" was deleted → absent from the gate query.
+    p.business.findMany.mockResolvedValue([
+      { id: "b1", isHidden: false, suppressedAt: null },
+    ]);
+
+    const out = await fanOutRun("r1", new Date());
+
+    const rows = p.enrichmentJob.createMany.mock.calls[0][0].data;
+    expect(rows).toHaveLength(1); // only b1 — the stale "ghost" id produced no job
+    expect(rows[0].businessId).toBe("b1");
+    expect(out.jobsCreated).toBe(1);
+    // Existence-drop is NOT counted as a hidden skip.
+    const updates = p.enrichmentRun.update.mock.calls.map(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (c: any) => c[0].data,
+    );
+    expect(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      updates.some((d: any) => d.unitsSkippedHidden === 0),
     ).toBe(true);
   });
 
@@ -313,17 +497,131 @@ describe("processJob", () => {
     });
     expect(last).toBe("failed");
   });
+
+  // WP1-2 · a CONTACTS worker that returns status FAILED (transient site-down, no
+  // throw) is NOT billed — the job goes FAILED at cost 0 so the retry ladder +
+  // the run settle refund it.
+  test("does NOT bill a CONTACTS unit whose scan returned FAILED", async () => {
+    anyMock(scanBusinessContacts).mockResolvedValue({
+      businessId: "b1",
+      status: "FAILED",
+      contactsUpserted: 0,
+      techUpserted: 0,
+      reachability: null,
+      reachableChannelCount: 0,
+      isHidden: false,
+    });
+    const out = await processJob({
+      id: "j1",
+      businessId: "b1",
+      family: "CONTACTS",
+      attempts: 0,
+      costUsd: 0.008,
+    });
+    expect(out).toBe("failed");
+    expect(p.enrichmentJob.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ status: "FAILED", costUsd: 0 }),
+      }),
+    );
+  });
+
+  // WP1-2 · a LIGHTHOUSE worker that produced 0 audits is NOT billed.
+  test("does NOT bill a LIGHTHOUSE unit that produced 0 audits", async () => {
+    anyMock(enrichLighthouseForBusinesses).mockResolvedValue({
+      processed: 1,
+      openAudited: 0,
+      walledAudited: 0,
+      skippedFresh: 0,
+      skippedNoWebsite: 0,
+      skippedWalledOverCap: 0,
+      skippedOverBudget: 0,
+      failed: 1,
+      usageTotalUsd: 0,
+    });
+    const out = await processJob({
+      id: "j1",
+      businessId: "b1",
+      family: "LIGHTHOUSE",
+      attempts: 0,
+      costUsd: 0.00425,
+    });
+    expect(out).toBe("failed");
+    expect(p.enrichmentJob.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ status: "FAILED", costUsd: 0 }),
+      }),
+    );
+  });
+
+  // WP1-9 · REVIEWS submit does NOT mark the job DONE — it parks it non-terminal
+  // (RUNNING, cost 0) until the ReviewJob lands via the pingback.
+  test("parks a REVIEWS job non-terminal on submit (billed only on landing)", async () => {
+    const out = await processJob({
+      id: "j1",
+      businessId: "b1",
+      family: "REVIEWS",
+      attempts: 0,
+      costUsd: 0.015,
+    });
+    expect(submitReviewJob).toHaveBeenCalledWith("b1", "manual");
+    expect(out).toBe("awaiting");
+    expect(p.enrichmentJob.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ status: "RUNNING", costUsd: 0 }),
+      }),
+    );
+    // Never marked DONE at submit time.
+    expect(p.enrichmentJob.update).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ status: "DONE" }),
+      }),
+    );
+  });
+
+  // WP1-9 · a REVIEWS submit that itself FAILED (no CID / task_post exhausted) is
+  // terminal-non-billable (no async landing will ever come).
+  test("marks a REVIEWS job FAILED (unbilled) when submit failed", async () => {
+    anyMock(submitReviewJob).mockResolvedValue({ id: "rj1", status: "FAILED" });
+    const out = await processJob({
+      id: "j1",
+      businessId: "b1",
+      family: "REVIEWS",
+      attempts: 0,
+      costUsd: 0.015,
+    });
+    expect(out).toBe("failed");
+    expect(p.enrichmentJob.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ status: "FAILED", costUsd: 0 }),
+      }),
+    );
+  });
 });
 
 describe("closeRunIfDone", () => {
+  // enrichmentJob.findMany is called twice per close: once by reconcileReviewJobs
+  // (where.family==='REVIEWS' & status==='RUNNING' → no parked jobs here) and
+  // once for the main jobs list. Route by `where` so the review-reconcile query
+  // returns [] while the main query returns the run's jobs.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  function routeJobFindMany(jobs: any[]) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    p.enrichmentJob.findMany.mockImplementation(async (args: any) => {
+      if (args?.where?.family === "REVIEWS") return []; // no parked reviews
+      return jobs;
+    });
+  }
+
   test("settles + closes OK when all jobs are terminal", async () => {
     p.enrichmentJob.count.mockResolvedValue(0);
     p.enrichmentRun.findUnique.mockResolvedValue({
       id: "r1",
       status: "RUNNING",
       actualUsd: 0,
+      enrichmentsJson: ["contacts"],
     });
-    p.enrichmentJob.findMany.mockResolvedValue([
+    routeJobFindMany([
       { status: "DONE", businessId: "b1", costUsd: 0.008 },
       { status: "DONE", businessId: "b2", costUsd: 0.008 },
     ]);
@@ -331,7 +629,18 @@ describe("closeRunIfDone", () => {
     const closed = await closeRunIfDone("r1", new Date());
 
     expect(closed).toBe(true);
-    expect(runPlaybooksForBusiness).toHaveBeenCalledTimes(2);
+    // WP1-3 · the close claim (finishedAt CAS) fired and won.
+    expect(p.enrichmentRun.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ status: "RUNNING", finishedAt: null }),
+      }),
+    );
+    // WP3-12 · playbooks are enqueued off the critical tick (settle-first), not
+    // run inline in closeRunIfDone. Assert the enqueue with the touched set.
+    expect(enqueueClosePlaybooks).toHaveBeenCalledWith(
+      "r1",
+      expect.arrayContaining(["b1", "b2"]),
+    );
     expect(reconcileRunCredits).toHaveBeenCalledWith(
       "r1",
       expect.objectContaining({ hadProgress: true }),
@@ -349,8 +658,9 @@ describe("closeRunIfDone", () => {
       id: "r1",
       status: "RUNNING",
       actualUsd: 0,
+      enrichmentsJson: ["contacts"],
     });
-    p.enrichmentJob.findMany.mockResolvedValue([
+    routeJobFindMany([
       { status: "DONE", businessId: "b1", costUsd: 0.008 },
       { status: "FAILED", businessId: "b2", costUsd: 0 },
     ]);
@@ -364,9 +674,163 @@ describe("closeRunIfDone", () => {
     );
   });
 
+  // WP4-3 · unitsCompleted + the terminal seed are in the BUSINESS unit: a
+  // 2-business × 3-family run (6 job rows, all terminal) closes at 2 of 2, not
+  // 6 of 6. A business with a mix of DONE + FAILED families still counts DONE
+  // (it produced some evidence); only an all-FAILED business is PARTIAL-failed.
+  test("multi-family run rolls job rows down to one verdict per business", async () => {
+    p.enrichmentJob.count.mockResolvedValue(0);
+    p.enrichmentRun.findUnique.mockResolvedValue({
+      id: "r1",
+      status: "RUNNING",
+      actualUsd: 0,
+      enrichmentsJson: ["contacts", "reviews", "lighthouse"],
+      unitsRequested: 2,
+    });
+    routeJobFindMany([
+      // b1: contacts DONE, reviews DONE, lighthouse FAILED → business DONE
+      { status: "DONE", businessId: "b1", costUsd: 0.008 },
+      { status: "DONE", businessId: "b1", costUsd: 0.015 },
+      { status: "FAILED", businessId: "b1", costUsd: 0 },
+      // b2: all three families DONE → business DONE
+      { status: "DONE", businessId: "b2", costUsd: 0.008 },
+      { status: "DONE", businessId: "b2", costUsd: 0.015 },
+      { status: "SKIPPED_FRESH", businessId: "b2", costUsd: 0 },
+    ]);
+
+    await closeRunIfDone("r1", new Date());
+
+    // 2 businesses done (not 6 rows); no all-failed business → OK, 2 of 2.
+    expect(p.enrichmentRun.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ status: "OK", unitsCompleted: 2 }),
+      }),
+    );
+  });
+
+  // WP4-6 · the close persists the settle receipt (creditsCharged) so the
+  // workbench header + Enriching done-state can show held/charged/refunded.
+  test("persists the settle receipt (creditsCharged) on close", async () => {
+    p.enrichmentJob.count.mockResolvedValue(0);
+    p.enrichmentRun.findUnique.mockResolvedValue({
+      id: "r1",
+      status: "RUNNING",
+      actualUsd: 0.05,
+      enrichmentsJson: ["contacts"],
+      unitsRequested: 1,
+    });
+    routeJobFindMany([{ status: "DONE", businessId: "b1", costUsd: 0.008 }]);
+    anyMock(reconcileRunCredits).mockResolvedValue({
+      charged: 3,
+      refunded: 7,
+    });
+
+    await closeRunIfDone("r1", new Date());
+
+    expect(p.enrichmentRun.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ creditsCharged: 3 }),
+      }),
+    );
+  });
+
   test("is a no-op while jobs remain", async () => {
     p.enrichmentJob.count.mockResolvedValue(3);
     expect(await closeRunIfDone("r1")).toBe(false);
+  });
+
+  // WP1-4 · a RUNNING run with ZERO jobs whose plan was NOT cell-only is a
+  // half-fanned phantom — must NOT close (never a phantom OK with 0 units).
+  test("refuses to close a zero-job RUNNING run when the plan needs jobs", async () => {
+    p.enrichmentJob.count.mockResolvedValue(0);
+    p.enrichmentRun.findUnique.mockResolvedValue({
+      id: "r1",
+      status: "RUNNING",
+      actualUsd: 0,
+      enrichmentsJson: ["contacts"], // per-business plan → expects jobs
+    });
+    routeJobFindMany([]); // no jobs at all
+
+    const closed = await closeRunIfDone("r1", new Date());
+
+    expect(closed).toBe(false);
+    expect(reconcileRunCredits).not.toHaveBeenCalled();
+    expect(p.enrichmentRun.updateMany).not.toHaveBeenCalled(); // never claimed
+  });
+
+  // WP1-4 · a genuinely cell-only run (meta/google/serp only) legitimately has
+  // no per-business jobs — it MUST close (settling the cell cost).
+  test("closes a zero-job cell-only run", async () => {
+    p.enrichmentJob.count.mockResolvedValue(0);
+    p.enrichmentRun.findUnique.mockResolvedValue({
+      id: "r1",
+      status: "RUNNING",
+      actualUsd: 0.05, // one meta_ads cell collected
+      enrichmentsJson: ["meta_ads"], // cell-only plan → 0 per-business jobs
+    });
+    routeJobFindMany([]);
+
+    const closed = await closeRunIfDone("r1", new Date());
+
+    expect(closed).toBe(true);
+    expect(reconcileRunCredits).toHaveBeenCalledWith(
+      "r1",
+      expect.objectContaining({ hadProgress: true }),
+    );
+  });
+
+  // WP1-3 · a concurrent close that LOSES the finishedAt CAS (updateMany count 0)
+  // must NOT settle — exactly one close settles.
+  test("does not settle when the close claim is lost (CAS count 0)", async () => {
+    p.enrichmentJob.count.mockResolvedValue(0);
+    p.enrichmentRun.findUnique.mockResolvedValue({
+      id: "r1",
+      status: "RUNNING",
+      actualUsd: 0,
+      enrichmentsJson: ["contacts"],
+    });
+    routeJobFindMany([{ status: "DONE", businessId: "b1", costUsd: 0.008 }]);
+    p.enrichmentRun.updateMany.mockResolvedValue({ count: 0 }); // lost the race
+
+    const closed = await closeRunIfDone("r1", new Date());
+
+    expect(closed).toBe(false);
+    expect(reconcileRunCredits).not.toHaveBeenCalled();
+  });
+
+  // WP1-9 · a parked REVIEWS job whose ReviewJob has LANDED (DONE) is flipped to
+  // DONE + billed; a run whose only work is such a job then closes.
+  test("bills a landed REVIEWS job on data-landing (WP1-9)", async () => {
+    p.enrichmentJob.count.mockResolvedValue(0);
+    p.enrichmentRun.findUnique.mockResolvedValue({
+      id: "r1",
+      status: "RUNNING",
+      actualUsd: 0,
+      enrichmentsJson: ["reviews"],
+    });
+    // reconcileReviewJobs sees one parked REVIEWS job; its ReviewJob is DONE.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    p.enrichmentJob.findMany.mockImplementation(async (args: any) => {
+      if (args?.where?.family === "REVIEWS") {
+        return [
+          { id: "ej1", businessId: "b1", costUsd: 0, startedAt: new Date() },
+        ];
+      }
+      // After reconcile flips it, the main jobs query sees it DONE + billed.
+      return [{ status: "DONE", businessId: "b1", costUsd: 0.015 }];
+    });
+    p.reviewJob.findFirst.mockResolvedValue({ status: "DONE" });
+
+    const closed = await closeRunIfDone("r1", new Date());
+
+    expect(closed).toBe(true);
+    // The parked reviews EnrichmentJob was flipped DONE + billed the reviews unit.
+    expect(p.enrichmentJob.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "ej1" },
+        data: expect.objectContaining({ status: "DONE", costUsd: 0.015 }),
+      }),
+    );
   });
 });
 
@@ -429,12 +893,24 @@ describe("processDiscovery", () => {
 });
 
 describe("updateRunProgress (mid-run header/page progress)", () => {
+  // WP9-9 · unitsCompleted is now derived from the SAME groupBy that seeds the
+  // Redis counters (the separate distinct findMany was removed). Each groupBy
+  // row is { businessId, status, _count }; a QUEUED/RUNNING row makes a business
+  // "outstanding". These helpers mint the rows the fold reads.
+  const outstandingRows = (n: number) =>
+    Array.from({ length: n }, (_, i) => ({
+      businessId: `b${i}`,
+      status: "QUEUED",
+      _count: { _all: 1 },
+    }));
+
   test("unitsCompleted = requested − businesses with an outstanding job", async () => {
-    p.enrichmentRun.findUnique.mockResolvedValue({ unitsRequested: 73 });
+    p.enrichmentRun.findUnique.mockResolvedValue({
+      unitsRequested: 73,
+      status: "RUNNING",
+    });
     // 20 distinct businesses still have a QUEUED/RUNNING job → 53 done.
-    p.enrichmentJob.findMany.mockResolvedValue(
-      Array.from({ length: 20 }, (_, i) => ({ businessId: `b${i}` })),
-    );
+    p.enrichmentJob.groupBy.mockResolvedValue(outstandingRows(20));
     p.enrichmentRun.update.mockResolvedValue({});
 
     await updateRunProgress("run_1");
@@ -446,8 +922,11 @@ describe("updateRunProgress (mid-run header/page progress)", () => {
   });
 
   test("reaches unitsRequested when no jobs are outstanding", async () => {
-    p.enrichmentRun.findUnique.mockResolvedValue({ unitsRequested: 73 });
-    p.enrichmentJob.findMany.mockResolvedValue([]);
+    p.enrichmentRun.findUnique.mockResolvedValue({
+      unitsRequested: 73,
+      status: "RUNNING",
+    });
+    p.enrichmentJob.groupBy.mockResolvedValue([]);
     p.enrichmentRun.update.mockResolvedValue({});
 
     await updateRunProgress("run_1");
@@ -459,11 +938,12 @@ describe("updateRunProgress (mid-run header/page progress)", () => {
   });
 
   test("never goes negative (clamped at 0)", async () => {
-    p.enrichmentRun.findUnique.mockResolvedValue({ unitsRequested: 5 });
+    p.enrichmentRun.findUnique.mockResolvedValue({
+      unitsRequested: 5,
+      status: "RUNNING",
+    });
     // More outstanding businesses than requested (shouldn't happen, but guard).
-    p.enrichmentJob.findMany.mockResolvedValue(
-      Array.from({ length: 8 }, (_, i) => ({ businessId: `b${i}` })),
-    );
+    p.enrichmentJob.groupBy.mockResolvedValue(outstandingRows(8));
     p.enrichmentRun.update.mockResolvedValue({});
 
     await updateRunProgress("run_1");
@@ -481,5 +961,415 @@ describe("updateRunProgress (mid-run header/page progress)", () => {
     await updateRunProgress("run_gone");
 
     expect(p.enrichmentRun.update).not.toHaveBeenCalled();
+  });
+});
+
+describe("dispatchPending (WP1-1 · atomic QUEUED→RUNNING claim)", () => {
+  // The tick claims each candidate via a conditional updateMany
+  // (`WHERE id AND status='QUEUED'` → RUNNING). A claim LOST to a concurrent
+  // tick (count 0) must drop the job — its worker is never invoked, so two
+  // overlapping ticks can never double-process (= double-bill) a unit. The
+  // won claim (count 1) is processed exactly once.
+  test("a lost claim (count 0) is never processed; a won claim (count 1) runs once", async () => {
+    // reconcileStuck finds nothing; no discoveries / runs pending or running.
+    p.discovery.findMany.mockResolvedValue([]);
+    p.discovery.updateMany.mockResolvedValue({ count: 0 });
+    p.enrichmentRun.findMany.mockResolvedValue([]);
+    // Two QUEUED CONTACTS jobs in the pool; every other findMany (stuck jobs,
+    // DOM-dependency gate) returns [].
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    p.enrichmentJob.findMany.mockImplementation(async (args: any) =>
+      args?.where?.status === "QUEUED"
+        ? [
+            {
+              id: "j1",
+              businessId: "b1",
+              family: "CONTACTS",
+              attempts: 0,
+              costUsd: 0.008,
+            },
+            {
+              id: "j2",
+              businessId: "b2",
+              family: "CONTACTS",
+              attempts: 0,
+              costUsd: 0.008,
+            },
+          ]
+        : [],
+    );
+    // j1's claim is LOST (a concurrent tick already flipped it RUNNING);
+    // j2's claim WINS.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    p.enrichmentJob.updateMany.mockImplementation(async (args: any) =>
+      args?.where?.id === "j1" ? { count: 0 } : { count: 1 },
+    );
+
+    const out = await dispatchPending();
+
+    // Both candidates were claimed CONDITIONALLY on still being QUEUED…
+    expect(p.enrichmentJob.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "j1", status: "QUEUED" },
+        data: expect.objectContaining({ status: "RUNNING" }),
+      }),
+    );
+    expect(p.enrichmentJob.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "j2", status: "QUEUED" },
+        data: expect.objectContaining({ status: "RUNNING" }),
+      }),
+    );
+    // …but only the winner's worker ran — exactly once, and never for b1.
+    expect(scanBusinessContacts).toHaveBeenCalledTimes(1);
+    expect(scanBusinessContacts).toHaveBeenCalledWith("b2");
+    expect(out.unitsDone).toBe(1);
+  });
+});
+
+describe("reconcileStuck (WP1-4 · half-fanned run recovery)", () => {
+  // A run whose fan-out crashed AFTER the RUNNING flip but BEFORE createMany
+  // sits RUNNING with zero jobs forever. reconcileStuck resets it to PENDING
+  // (re-fan-out) once it's older than the fan-out cutoff; a RUNNING run that
+  // HAS jobs is a normal in-flight run and must be left alone.
+  test("resets a stale zero-job RUNNING run to PENDING; leaves a run with jobs alone", async () => {
+    const now = new Date("2026-07-01T12:00:00Z");
+    p.discovery.updateMany.mockResolvedValue({ count: 0 });
+    // No stuck RUNNING jobs; two RUNNING runs matched the stuck-run query.
+    p.enrichmentJob.findMany.mockResolvedValue([]);
+    p.enrichmentRun.findMany.mockResolvedValue([
+      { id: "r1", enrichmentsJson: ["contacts"] }, // crashed pre-createMany
+      { id: "r2", enrichmentsJson: ["contacts"] }, // fanned out fine
+    ]);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    p.enrichmentJob.count.mockImplementation(async (args: any) =>
+      args?.where?.runId === "r1" ? 0 : 3,
+    );
+
+    await reconcileStuck(now);
+
+    // The stuck-run query targets RUNNING runs older than the fan-out cutoff
+    // (STUCK_RUN_FANOUT_MINUTES = 15) that never finished.
+    expect(p.enrichmentRun.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          status: "RUNNING",
+          finishedAt: null,
+          startedAt: { lt: new Date(now.getTime() - 15 * 60_000) },
+        }),
+      }),
+    );
+    // r1 (zero jobs + per-business plan) re-fans-out: PENDING, cell cost reset
+    // so the re-run re-accrues it.
+    expect(p.enrichmentRun.update).toHaveBeenCalledWith({
+      where: { id: "r1" },
+      data: { status: "PENDING", actualUsd: 0 },
+    });
+    // r2 has jobs — not half-fanned, left RUNNING (no other update fired).
+    expect(p.enrichmentRun.update).toHaveBeenCalledTimes(1);
+  });
+
+  // WP3-5 · the stuck-discovery reset anchors on startedAt (real run-start),
+  // NOT createdAt — with a NULL-startedAt fallback to createdAt for legacy rows.
+  test("stuck-discovery recovery filters on startedAt (WP3-5)", async () => {
+    const now = new Date("2026-07-01T12:00:00Z");
+    p.enrichmentJob.findMany.mockResolvedValue([]); // no stuck jobs
+    p.enrichmentRun.findMany.mockResolvedValue([]); // no stuck runs
+
+    await reconcileStuck(now);
+
+    const cutoff = new Date(now.getTime() - 30 * 60_000); // STUCK_DISCOVERY_MINUTES
+    expect(p.discovery.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          status: "RUNNING",
+          finishedAt: null,
+          OR: [
+            { startedAt: { lt: cutoff } },
+            { startedAt: null, createdAt: { lt: cutoff } },
+          ],
+        }),
+        data: expect.objectContaining({ status: "PENDING" }),
+      }),
+    );
+  });
+});
+
+describe("processJob (WP3-6 backoff · WP3-3 counters)", () => {
+  // WP3-6 · a requeue (worker threw, under max attempts) stamps
+  // nextAttemptAt = now + 2^attempts min so the pool claim delays the retry.
+  test("requeue stamps an exponential nextAttemptAt", async () => {
+    const now = new Date("2026-07-01T12:00:00Z");
+    anyMock(scanBusinessContacts).mockRejectedValueOnce(new Error("boom"));
+
+    const outcome = await processJob(
+      {
+        id: "j1",
+        businessId: "b1",
+        family: "CONTACTS",
+        attempts: 0,
+        costUsd: 0.008,
+        runId: "r1",
+      },
+      now,
+    );
+
+    expect(outcome).toBe("requeued");
+    // attempts 0 → next 1 → 2^1 = 2 min.
+    const expected = new Date(now.getTime() + 2 * 60_000);
+    expect(p.enrichmentJob.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "j1" },
+        data: expect.objectContaining({
+          status: "QUEUED",
+          attempts: 1,
+          nextAttemptAt: expected,
+        }),
+      }),
+    );
+  });
+
+  // WP3-6 · backoff is capped (2^attempts minutes, ≤ 60 min).
+  test("backoff is capped at ~60 minutes", async () => {
+    const now = new Date("2026-07-01T12:00:00Z");
+    anyMock(scanBusinessContacts).mockRejectedValueOnce(new Error("boom"));
+
+    // attempts 8 → next 9 → 2^9 = 512 min, capped to 60.
+    await processJob(
+      {
+        id: "j1",
+        businessId: "b1",
+        family: "CONTACTS",
+        attempts: 1,
+        costUsd: 0.008,
+        runId: "r1",
+      },
+      now,
+    );
+    const call = p.enrichmentJob.update.mock.calls.find(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (c: any) => c[0]?.data?.status === "QUEUED",
+    );
+    const stamped: Date = call[0].data.nextAttemptAt;
+    // attempts 1 → next 2 → 2^2 = 4 min (still under cap).
+    expect(stamped.getTime()).toBe(now.getTime() + 4 * 60_000);
+  });
+
+  // WP3-3 · a terminal DONE transition bumps the run's Redis "done" counter.
+  test("a DONE transition bumps the run progress counter (WP3-3)", async () => {
+    const now = new Date();
+    anyMock(scanBusinessContacts).mockResolvedValue({
+      businessId: "b1",
+      status: "OK",
+      contactsUpserted: 1,
+      techUpserted: 0,
+      reachability: "PHONE_ONLY",
+      reachableChannelCount: 1,
+      isHidden: false,
+    });
+
+    const outcome = await processJob(
+      {
+        id: "j1",
+        businessId: "b1",
+        family: "CONTACTS",
+        attempts: 0,
+        costUsd: 0.008,
+        runId: "r1",
+      },
+      now,
+    );
+
+    expect(outcome).toBe("done");
+    expect(incrRunProgress).toHaveBeenCalledWith("r1", "done");
+  });
+});
+
+describe("processDiscovery (WP3-5 · atomic claim)", () => {
+  // WP3-5 · the discovery is claimed via a conditional updateMany
+  // (`WHERE status='PENDING'` → RUNNING + startedAt). A lost claim (count 0 —
+  // a concurrent tick already claimed it) returns false WITHOUT running it.
+  test("a lost claim (count 0) returns false and never runs the discovery", async () => {
+    p.discovery.updateMany.mockResolvedValue({ count: 0 });
+
+    const ok = await processDiscovery("d1", new Date());
+
+    expect(ok).toBe(false);
+    expect(runDiscovery).not.toHaveBeenCalled();
+    // The claim WAS attempted, conditional on PENDING + stamping startedAt.
+    expect(p.discovery.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "d1", status: "PENDING" },
+        data: expect.objectContaining({ status: "RUNNING" }),
+      }),
+    );
+  });
+
+  test("a won claim stamps startedAt then runs the discovery", async () => {
+    const now = new Date("2026-07-01T12:00:00Z");
+    p.discovery.updateMany.mockResolvedValue({ count: 1 });
+    p.discovery.findUnique
+      .mockResolvedValueOnce({
+        id: "d1",
+        agencyId: "a1",
+        requestedByUserId: "u1",
+        cellKeys: ["medical_spa|miami|US"],
+      })
+      .mockResolvedValueOnce({ totalCostUsd: 0.04 });
+    p.businessCategory.findFirst.mockResolvedValue({ id: "cat1" });
+
+    const ok = await processDiscovery("d1", now);
+
+    expect(ok).toBe(true);
+    expect(p.discovery.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "d1", status: "PENDING" },
+        data: { status: "RUNNING", startedAt: now },
+      }),
+    );
+    expect(runDiscovery).toHaveBeenCalled();
+  });
+});
+
+describe("claimAndProcessJob (WP3-2 · worker callback idempotency)", () => {
+  // WP3-2 · the enrich-job worker callback claims a QUEUED job via a conditional
+  // updateMany. A DOUBLE DELIVERY (worker retry / racing tick) that loses the
+  // claim (count!==1) is a NO-OP: the worker never runs a second time.
+  test("a double-delivery that loses the claim is a no-op", async () => {
+    p.enrichmentJob.updateMany.mockResolvedValue({ count: 0 }); // already claimed
+
+    const outcome = await claimAndProcessJob("j1", new Date());
+
+    expect(outcome).toBe("not-claimable");
+    expect(scanBusinessContacts).not.toHaveBeenCalled();
+    expect(p.enrichmentJob.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "j1", status: "QUEUED" },
+        data: expect.objectContaining({ status: "RUNNING" }),
+      }),
+    );
+  });
+
+  test("a won claim loads the job and processes it once (idempotent single-run)", async () => {
+    p.enrichmentJob.updateMany.mockResolvedValue({ count: 1 }); // we won the claim
+    p.enrichmentJob.findUnique.mockResolvedValue({
+      id: "j1",
+      businessId: "b1",
+      family: "CONTACTS",
+      attempts: 0,
+      costUsd: 0.008,
+      runId: "r1",
+    });
+    anyMock(scanBusinessContacts).mockResolvedValue({
+      businessId: "b1",
+      status: "OK",
+      contactsUpserted: 1,
+      techUpserted: 0,
+      reachability: "PHONE_ONLY",
+      reachableChannelCount: 1,
+      isHidden: false,
+    });
+
+    const outcome = await claimAndProcessJob("j1", new Date());
+
+    expect(outcome).toBe("done");
+    expect(scanBusinessContacts).toHaveBeenCalledTimes(1);
+    expect(scanBusinessContacts).toHaveBeenCalledWith("b1");
+  });
+});
+
+describe("dispatchPending (WP3-10 · multi-tenant fairness)", () => {
+  // WP3-10 · the QUEUED-job claim is round-robined across agencies: with
+  // PER_AGENCY_JOBS_PER_TICK small, one tenant can't monopolise the batch. Here
+  // two agencies each have many CONTACTS jobs; the claim interleaves them rather
+  // than draining agency A fully first.
+  test("round-robins the claim across agencies", async () => {
+    p.discovery.findMany.mockResolvedValue([]);
+    p.discovery.updateMany.mockResolvedValue({ count: 0 });
+    // No PENDING runs to fan out; the RUNNING-run close loop sees none.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    p.enrichmentRun.findMany.mockImplementation(async (args: any) => {
+      // agencyByRun resolution: map runs → agencies.
+      if (args?.where?.id?.in) {
+        return [
+          { id: "runA", agencyId: "agA" },
+          { id: "runB", agencyId: "agB" },
+        ];
+      }
+      return []; // PENDING runs + RUNNING runs
+    });
+    // Pool: 3 jobs for agency A's run, 3 for agency B's run (interleaved output
+    // proves round-robin; without it agency A's 3 would all come first).
+    const poolJobs = [
+      {
+        id: "a1",
+        businessId: "ba1",
+        family: "CONTACTS",
+        attempts: 0,
+        costUsd: 0.008,
+        runId: "runA",
+      },
+      {
+        id: "a2",
+        businessId: "ba2",
+        family: "CONTACTS",
+        attempts: 0,
+        costUsd: 0.008,
+        runId: "runA",
+      },
+      {
+        id: "a3",
+        businessId: "ba3",
+        family: "CONTACTS",
+        attempts: 0,
+        costUsd: 0.008,
+        runId: "runA",
+      },
+      {
+        id: "b1",
+        businessId: "bb1",
+        family: "CONTACTS",
+        attempts: 0,
+        costUsd: 0.008,
+        runId: "runB",
+      },
+      {
+        id: "b2",
+        businessId: "bb2",
+        family: "CONTACTS",
+        attempts: 0,
+        costUsd: 0.008,
+        runId: "runB",
+      },
+      {
+        id: "b3",
+        businessId: "bb3",
+        family: "CONTACTS",
+        attempts: 0,
+        costUsd: 0.008,
+        runId: "runB",
+      },
+    ];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    p.enrichmentJob.findMany.mockImplementation(async (args: any) =>
+      args?.where?.status === "QUEUED" ? poolJobs : [],
+    );
+
+    const claimOrder: string[] = [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    p.enrichmentJob.updateMany.mockImplementation(async (args: any) => {
+      if (args?.where?.id && args?.where?.status === "QUEUED") {
+        claimOrder.push(args.where.id);
+      }
+      return { count: 1 };
+    });
+
+    await dispatchPending();
+
+    // The first two claims must be from DIFFERENT agencies (A then B, or B then
+    // A) — proving the batch interleaves tenants rather than draining one first.
+    const agencyOf = (id: string) => (id.startsWith("a") ? "agA" : "agB");
+    expect(claimOrder.length).toBeGreaterThanOrEqual(2);
+    expect(agencyOf(claimOrder[0]!)).not.toBe(agencyOf(claimOrder[1]!));
   });
 });

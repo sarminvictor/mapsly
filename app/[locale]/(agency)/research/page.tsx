@@ -32,6 +32,10 @@ import prisma from "@/lib/prisma";
 import { Link, redirect } from "@/i18n/navigation";
 import { getResearchList } from "@/modules/agency-portal/research/queries";
 import { ResearchDirectory } from "@/modules/agency-portal/research/components/ResearchDirectory";
+import {
+  getSignalCorrelation,
+  type SignalCorrelation,
+} from "@/modules/agency-portal/discover/signal-outcome-correlation";
 
 export const metadata: Metadata = {
   title: "My research · Mapsly",
@@ -69,6 +73,9 @@ async function ResearchBody({ params }: PageProps) {
   const { pinned, recent } = await getResearchList(member.agencyId);
   const hasResearch = pinned.length > 0 || recent.length > 0;
 
+  // WP6-14 · the outcome-feedback correlation card (null until ≥30 scored leads).
+  const correlation = await getSignalCorrelation(member.agencyId);
+
   return (
     <section className="view wide">
       <div
@@ -93,6 +100,10 @@ async function ResearchBody({ params }: PageProps) {
         </Link>
       </div>
 
+      {correlation && correlation.signals.length > 0 ? (
+        <SignalCorrelationCard correlation={correlation} />
+      ) : null}
+
       {hasResearch ? (
         <ResearchDirectory pinned={pinned} recent={recent} />
       ) : (
@@ -106,5 +117,79 @@ async function ResearchBody({ params }: PageProps) {
         </div>
       )}
     </section>
+  );
+}
+
+/**
+ * WP6-14 · "signals that predicted replies in your market". One honest aggregate
+ * (no ML): each fired signal's reply-rate lift vs the agency's baseline. Shown
+ * only once ≥30 leads have a recorded outcome (the query gates that). Agency
+ * voice: numbers over adjectives, terse. Server-rendered plain data.
+ */
+function SignalCorrelationCard({
+  correlation,
+}: {
+  correlation: SignalCorrelation;
+}) {
+  const pct = (n: number) => `${Math.round(n * 100)}%`;
+  const top = correlation.signals.slice(0, 6);
+  return (
+    <div className="card" style={{ marginTop: 22 }}>
+      <h2 style={{ margin: "0 0 2px", fontSize: 16 }}>
+        Signals that predicted replies in your market
+      </h2>
+      <p className="note" style={{ margin: "0 0 12px" }}>
+        Across {correlation.totalLeads.toLocaleString()} leads with an outcome ·
+        baseline reply rate {pct(correlation.baselineReplyRate)}. Lift = how
+        much more a lead replied when this signal fired.
+      </p>
+      <table
+        style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}
+      >
+        <thead>
+          <tr style={{ textAlign: "left", color: "var(--muted)" }}>
+            <th style={{ padding: "4px 8px 4px 0" }} scope="col">
+              Signal
+            </th>
+            <th style={{ padding: "4px 8px" }} scope="col">
+              Fired
+            </th>
+            <th style={{ padding: "4px 8px" }} scope="col">
+              Reply rate
+            </th>
+            <th style={{ padding: "4px 0 4px 8px" }} scope="col">
+              Lift
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {top.map((s) => {
+            const up = s.lift >= 0;
+            return (
+              <tr
+                key={s.signalKey}
+                style={{ borderTop: "1px solid var(--line, #eef0f6)" }}
+              >
+                <td style={{ padding: "6px 8px 6px 0" }}>{s.title}</td>
+                <td style={{ padding: "6px 8px" }}>
+                  {s.firedLeads.toLocaleString()}
+                </td>
+                <td style={{ padding: "6px 8px" }}>{pct(s.firedReplyRate)}</td>
+                <td
+                  style={{
+                    padding: "6px 0 6px 8px",
+                    color: up ? "var(--green)" : "var(--red)",
+                    fontWeight: 600,
+                  }}
+                >
+                  {up ? "+" : ""}
+                  {pct(s.lift)}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
   );
 }

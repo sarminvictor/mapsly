@@ -40,16 +40,22 @@ export function isCellRunFresh(
 }
 
 /**
- * The latest AdMarketRun row for a (cellKey, platform), or null if the cell has
- * never been run for that platform. Used by every collector to decide
- * serve-from-DB vs re-fetch.
+ * The latest SUCCESSFUL AdMarketRun row for a (cellKey, platform), or null if
+ * the cell has never had a successful run for that platform. Used by every
+ * collector to decide serve-from-DB vs re-fetch.
+ *
+ * WP1-6 · filters `status IN ('OK','PARTIAL')` — a FAILED run (each collector
+ * writes one in its catch) must NOT satisfy the freshness gate. Without this a
+ * failed cell was masked as "fresh" for 30 days and never retried, and its data
+ * never landed. Only a run that actually produced data (OK, or PARTIAL with
+ * some errors) counts as a freshness anchor.
  */
 export async function latestAdMarketRun(
   cellKey: string,
   platform: CellIntelPlatform,
 ): Promise<{ id: string; ranAt: Date; status: string } | null> {
   const row = await prisma.adMarketRun.findFirst({
-    where: { cellKey, platform },
+    where: { cellKey, platform, status: { in: ["OK", "PARTIAL"] } },
     orderBy: { ranAt: "desc" },
     select: { id: true, ranAt: true, status: true },
   });

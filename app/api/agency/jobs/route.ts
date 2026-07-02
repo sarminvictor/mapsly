@@ -55,10 +55,12 @@ export interface EnrichStage {
 
 /**
  * The 6 display stages, each mapped to the EnrichmentFamily values that feed it.
- * Only CONTACTS / SERVICES / REVIEWS / AI_RESEARCH produce per-business
- * EnrichmentJob rows (see modules/enrichment/dispatch.ts); the rest run inline
- * (per-cell tech/lighthouse/serp/ads) or post-close (playbook, outreach), so
- * their stages have no job rows and fall back to the run lifecycle.
+ * The per-business EnrichmentJob families (see modules/enrichment/dispatch.ts
+ * buildJobPlan) are CONTACTS / SERVICES / REVIEWS / LIGHTHOUSE / AI_RESEARCH —
+ * each fans out its own rows. TECH has no rows of its own: it rides the CONTACTS
+ * fetch (one scan does both). Only the per-CELL families (serp / ads / meta) and
+ * the post-close layers (PLAYBOOK / outreach) have no per-business job rows and
+ * fall back to the run lifecycle for their stage status.
  */
 const STAGE_DEFS: { key: string; label: string; families: string[] }[] = [
   { key: "mapped", label: "Mapped market & applied filters", families: [] },
@@ -240,20 +242,27 @@ async function buildEnrichStages(
   //  - "mapped": discovery always ran.
   //  - "contacts": the CONTACTS fetch (also fingerprints tech) — when contacts
   //    or tech is requested.
-  //  - "tech": website/tech + Lighthouse runs inline — when tech or lighthouse
-  //    is requested.
+  //  - "tech": the DOM/tech fingerprint (rides the CONTACTS fetch) + the
+  //    per-business Lighthouse audit — when tech or lighthouse is requested.
   //  - "reviews": only when reviews were selected.
-  //  - "expert": playbooks auto-run ($0) for every business that got
-  //    per-business enrichment (dispatch.ts closeRunIfDone).
+  //  - "expert": playbooks auto-run ($0) for every business that got ANY
+  //    per-business enrichment job (dispatch.ts closeRunIfDone runs the expert
+  //    layer for every business with a DONE job, regardless of family).
   //  - "touches": NEVER part of enrichment — first-touch drafts are a separate
   //    user action on the Touchpoints tab — so it is omitted here entirely.
   const types = (
     Array.isArray(run.enrichmentsJson) ? run.enrichmentsJson : []
   ) as string[];
   const has = (t: string) => types.includes(t);
+  // A run produces per-business jobs (hence an expert/playbook pass at close)
+  // for ANY per-business family. LIGHTHOUSE is one such family (buildJobPlan),
+  // so a lighthouse-only run DOES fan out jobs + run playbooks → the expert
+  // stage must show. Omitting lighthouse here dropped the expert row on a
+  // lighthouse-only run even though playbooks ran (WP10-4 · latent mismatch).
   const perBusiness =
     has("contacts") ||
     has("tech") ||
+    has("lighthouse") ||
     has("reviews") ||
     has("services") ||
     has("ai_research");

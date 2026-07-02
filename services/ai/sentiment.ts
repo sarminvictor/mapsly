@@ -13,6 +13,7 @@ import { z } from "zod";
 import { kvCache } from "@/lib/cache";
 import { callOpenAi } from "@/services/ai/client";
 import type { SupportedModel } from "@/services/ai/pricing";
+import { wrapUntrusted } from "@/services/ai/untrusted";
 
 export const DEFAULT_SENTIMENT_MODEL: SupportedModel = "gpt-5.4-nano";
 
@@ -87,9 +88,14 @@ Rules:
 
 function buildPrompt(input: ClassifyReviewInput): string {
   const lang = input.language ? ` (language: ${input.language})` : "";
+  // WP8-5 · the review body is UNTRUSTED — fence it so an adversarial review
+  // can't inject instructions into the classifier prompt.
+  const body = input.text
+    ? wrapUntrusted(input.text, "Review text")
+    : "Text: (empty)";
   return `Review${lang}:
 Stars: ${input.stars}/5
-Text: ${input.text || "(empty)"}
+${body}
 
 Classify and return JSON.`;
 }

@@ -273,6 +273,7 @@ async function resolveEnrichPhases(
 
   for (const d of discoveries) {
     let phase: EnrichInfo["phase"] = "none";
+    let partial = false;
     let activeRunId: string | undefined;
     let activeUnits: number | undefined;
     for (const r of parsedRuns) {
@@ -281,6 +282,9 @@ async function resolveEnrichPhases(
       if (!overlaps) continue;
       if (r.status === "OK" || r.status === "PARTIAL") {
         phase = "done";
+        // WP4-2 · surface the PARTIAL outcome so the directory shows an amber
+        // "Partial" pill (some leads couldn't finish) instead of a clean green.
+        partial = r.status === "PARTIAL";
         break; // DONE wins — stop scanning
       }
       if (r.status === "PENDING" || r.status === "RUNNING") {
@@ -290,7 +294,7 @@ async function resolveEnrichPhases(
         // keep scanning in case a DONE run also overlaps (it would win)
       }
     }
-    out.set(d.id, { phase, activeRunId, activeUnits });
+    out.set(d.id, { phase, partial, activeRunId, activeUnits });
   }
   return out;
 }
@@ -401,4 +405,28 @@ export async function getResearchList(agencyId: string): Promise<ResearchList> {
   } catch {
     return EMPTY_RESEARCH_LIST;
   }
+}
+
+/** Slim research link for the ⌘K palette (WP4-7) — plain serializable data. */
+export interface RecentResearchLink {
+  id: string;
+  title: string;
+  /** Pre-computed deep-link (workbench when enriched, else resume the flow). */
+  href: string;
+}
+
+/**
+ * The agency's most recent researches as slim `{id,title,href}` links for the
+ * ⌘K command palette (WP4-7). Reuses the cached `getResearchList` (one source
+ * of truth for status + href), projects to the palette shape, and caps at
+ * `limit` (pinned-first then most-recent, matching the directory order).
+ */
+export async function getRecentResearchLinks(
+  agencyId: string,
+  limit = 6,
+): Promise<RecentResearchLink[]> {
+  const list = await getResearchList(agencyId);
+  return [...list.pinned, ...list.recent]
+    .slice(0, limit)
+    .map((c) => ({ id: c.id, title: c.title, href: c.href }));
 }

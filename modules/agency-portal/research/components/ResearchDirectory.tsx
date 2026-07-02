@@ -21,6 +21,7 @@ import { useMemo, useState, useEffect, useRef } from "react";
 
 import { useRouter } from "next/navigation";
 
+import { Icon } from "@/components/agency/Icon";
 import type { ResearchCard, ResearchStatus } from "../queries";
 
 type FilterDim = "loc" | "cat";
@@ -35,6 +36,9 @@ const RESEARCH_STATUS_META: Record<
   draft: { label: "Draft", pill: "", cta: "Resume →" },
   discovered: { label: "Discovered", pill: "indigo", cta: "Enrich →" },
   enriching: { label: "Enriching", pill: "amber", cta: "View progress →" },
+  // WP4-2 · a PARTIAL enrichment: amber pill (some leads couldn't finish), but
+  // still opens the workbench — there ARE leads to work.
+  partial: { label: "Partial", pill: "amber", cta: "Open →" },
   enriched: { label: "Enriched", pill: "green", cta: "Open →" },
 };
 
@@ -137,9 +141,7 @@ export function ResearchDirectory({ pinned, recent }: Props) {
         ref={barRef}
       >
         <div className="wb-search rfsearch-main">
-          <span className="si" aria-hidden="true">
-            🔎
-          </span>
+          <Icon name="search" className="si" size={14} />
           <input
             placeholder="Search research or location…"
             aria-label="Search research"
@@ -187,7 +189,16 @@ export function ResearchDirectory({ pinned, recent }: Props) {
         </div>
       ) : (
         <>
-          <h2 style={{ marginTop: 22 }}>📌 Pinned</h2>
+          <h2
+            style={{
+              marginTop: 22,
+              display: "flex",
+              alignItems: "center",
+              gap: 7,
+            }}
+          >
+            <Icon name="pin" size={16} /> Pinned
+          </h2>
           <div className="rlist">
             {visiblePinned.length ? (
               visiblePinned.map((r) => (
@@ -203,7 +214,16 @@ export function ResearchDirectory({ pinned, recent }: Props) {
             )}
           </div>
 
-          <h2 style={{ marginTop: 22 }}>🕒 Recent</h2>
+          <h2
+            style={{
+              marginTop: 22,
+              display: "flex",
+              alignItems: "center",
+              gap: 7,
+            }}
+          >
+            <Icon name="clock" size={16} /> Recent
+          </h2>
           <div className="rlist">
             {visibleRecent.length ? (
               visibleRecent.map((r) => (

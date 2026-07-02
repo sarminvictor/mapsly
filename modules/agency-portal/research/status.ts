@@ -19,9 +19,16 @@ import { buildResumeGoalG } from "@/modules/agency-portal/discover/goal-url";
  *   - draft       mapping not finished (PENDING/RUNNING/FAILED discovery)
  *   - discovered  mapped, no enrichment run yet → resume at Preview (enrich)
  *   - enriching   an enrichment run is in flight → resume at the Enriching step
- *   - enriched    enrichment complete → the leads workbench
+ *   - partial     enrichment completed with some leads that couldn't finish
+ *                 (WP4-2) → the workbench (there ARE leads), amber pill
+ *   - enriched    enrichment complete (clean) → the leads workbench
  */
-export type ResearchStatus = "draft" | "discovered" | "enriching" | "enriched";
+export type ResearchStatus =
+  | "draft"
+  | "discovered"
+  | "enriching"
+  | "partial"
+  | "enriched";
 
 /** Discovery's own persisted status (mirrors the Prisma DiscoveryStatus enum). */
 export type DiscoveryStatusValue =
@@ -35,6 +42,9 @@ export type DiscoveryStatusValue =
 export interface EnrichInfo {
   /** none | active (PENDING/RUNNING) | done (OK/PARTIAL). */
   phase: "none" | "active" | "done";
+  /** WP4-2 · when phase="done", whether the winning run closed PARTIAL (some
+   *  leads couldn't finish) vs OK (clean). Drives the amber "Partial" pill. */
+  partial?: boolean;
   /** The in-flight run's id + lead count — only set when phase="active",
    *  used to deep-link back to the Enriching step. */
   activeRunId?: string;
@@ -60,7 +70,9 @@ export function deriveResearchStatus(
   discoveryStatus: DiscoveryStatusValue,
   enrich: EnrichInfo,
 ): ResearchStatus {
-  if (enrich.phase === "done") return "enriched";
+  // WP4-2 · a completed-but-PARTIAL enrichment is its own status (amber pill),
+  // but still routes to the workbench — there ARE leads to see.
+  if (enrich.phase === "done") return enrich.partial ? "partial" : "enriched";
   if (enrich.phase === "active") return "enriching";
   if (discoveryStatus === "READY" || discoveryStatus === "PARTIAL")
     return "discovered";
@@ -80,7 +92,8 @@ export function buildResearchHref(
   enrich: EnrichInfo,
   categoryIdBySlug: Map<string, string>,
 ): string {
-  if (status === "enriched") return `/discover/${d.id}`;
+  // WP4-2 · partial + enriched both open the workbench (there are leads).
+  if (status === "enriched" || status === "partial") return `/discover/${d.id}`;
 
   const cellsParam = d.cellKeys
     .map((k) => {

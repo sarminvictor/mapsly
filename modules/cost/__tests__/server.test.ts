@@ -281,11 +281,13 @@ import {
   grantFreeTierIfNew,
   grantPlanCredits,
   holdCredits,
+  nextRolloverCredits,
   reconcileRunCredits,
   refundHold,
   settleRun,
   WalletError,
 } from "../server";
+import { ROLLOVER_CAP_MULTIPLE } from "../pricing";
 
 const NOW = new Date("2026-06-22T00:00:00Z");
 
@@ -485,6 +487,34 @@ describe("settleRun", () => {
     seedWallet("a1", 100);
     await expect(settleRun("ghost", 5)).rejects.toBeInstanceOf(WalletError);
   });
+
+  // WP1-3 · settle idempotency. A re-entered close calling settleRun a second
+  // time for the same run must hit the SETTLE-exists early-return: no second
+  // SETTLE ledger row, no second wallet decrement — the money moves once.
+  test("a second settleRun for the same run is a no-op (WP1-3)", async () => {
+    seedWallet("a1", 100);
+    await holdCredits("a1", 40, "run1");
+    const first = await settleRun("run1", 25);
+    expect(first.charged).toBe(25);
+    const afterFirst = await getOrCreateWallet("a1", NOW);
+    expect(afterFirst.planCredits).toBe(75); // 25 charged once
+    expect(afterFirst.heldCredits).toBe(0); // hold fully released
+
+    const second = await settleRun("run1", 25); // replayed close
+
+    // Early return reports the already-settled charge without re-charging.
+    expect(second.charged).toBe(25);
+    expect(second.refunded).toBe(0);
+    // No new ledger rows: still exactly one SETTLE + one REFUND (from the
+    // first call's 15-credit hold refund).
+    expect(db.ledger.filter((l) => l.type === "SETTLE")).toHaveLength(1);
+    expect(db.ledger.filter((l) => l.type === "REFUND")).toHaveLength(1);
+    // Wallet untouched by the replay.
+    const afterSecond = await getOrCreateWallet("a1", NOW);
+    expect(afterSecond.planCredits).toBe(75);
+    expect(afterSecond.heldCredits).toBe(0);
+    expect(afterSecond.availableCredits).toBe(75);
+  });
 });
 
 describe("refundHold", () => {
@@ -520,7 +550,8 @@ describe("grantFreeTierIfNew", () => {
     await grantPlanCredits("a1", "SOLO", null, "p1");
     await grantFreeTierIfNew("a1");
     const w = await getOrCreateWallet("a1", NOW);
-    expect(w.planCredits).toBe(600); // unchanged by the free grant
+    // WP1-12 · SOLO (advertised "Starter") grants 900 now.
+    expect(w.planCredits).toBe(900); // unchanged by the free grant
   });
 });
 
@@ -528,24 +559,75 @@ describe("grantPlanCredits", () => {
   test("sets the plan bucket to the tier amount", async () => {
     await grantPlanCredits("a1", "GROWTH", null, "p1");
     const w = await getOrCreateWallet("a1", NOW);
-    expect(w.planCredits).toBe(1600);
+    // WP1-12 · GROWTH (advertised "Growth") grants 6,000 now.
+    expect(w.planCredits).toBe(6000);
   });
 
   test("is idempotent per (agency, tier, period)", async () => {
     await grantPlanCredits("a1", "SOLO", null, "period-1");
     await grantPlanCredits("a1", "SOLO", null, "period-1"); // replay
     const w = await getOrCreateWallet("a1", NOW);
-    expect(w.planCredits).toBe(600);
+    expect(w.planCredits).toBe(900);
     expect(db.ledger.filter((l) => l.type === "TOPUP")).toHaveLength(1);
   });
 
-  test("rolls the prior period's unused plan credits over (1-cycle)", async () => {
-    await grantPlanCredits("a1", "SOLO", null, "period-1"); // plan=600
+  test("rolls the prior period's unused plan credits over (WP6-8)", async () => {
+    await grantPlanCredits("a1", "SOLO", null, "period-1"); // plan=900
     await grantPlanCredits("a1", "SOLO", null, "period-2"); // re-grant
     const w = await getOrCreateWallet("a1", NOW);
-    expect(w.planCredits).toBe(600);
-    expect(w.rolloverCredits).toBe(600);
-    expect(w.availableCredits).toBe(1200);
+    expect(w.planCredits).toBe(900);
+    expect(w.rolloverCredits).toBe(900);
+    expect(w.availableCredits).toBe(1800);
+  });
+
+  test("WP6-8 · rollover ACCUMULATES across cycles, capped at Nx the grant", async () => {
+    // SOLO grant = 900; cap = 3 × 900 = 2,700. Four full-unused cycles would
+    // carry 0→900→1,800→2,700→(2,700 clamped) — never above the cap.
+    const expected = [0, 900, 1800, 2700, 2700];
+    for (let cycle = 1; cycle <= 5; cycle += 1) {
+      await grantPlanCredits("a1", "SOLO", null, `period-${cycle}`);
+      const w = await getOrCreateWallet("a1", NOW);
+      // Rollover reflects what carried from the PRIOR cycle's unused plan.
+      expect(w.rolloverCredits, `after cycle ${cycle}`).toBe(
+        expected[cycle - 1],
+      );
+      expect(w.planCredits).toBe(900);
+    }
+  });
+
+  test("WP6-8 · spent plan credits don't roll — only the unused remainder does", async () => {
+    seedWallet("a1", 0); // start empty so grant is the only source
+    await grantPlanCredits("a1", "GROWTH", null, "period-1"); // plan=6,000
+    // Spend 4,000 of the 6,000 within the cycle (settle draws plan first).
+    await holdCredits("a1", 4000, "run1");
+    await reconcileRunCredits("run1", { hadProgress: true });
+    let w = await getOrCreateWallet("a1", NOW);
+    expect(w.planCredits).toBe(2000); // 6,000 − 4,000 spent
+
+    await grantPlanCredits("a1", "GROWTH", null, "period-2"); // re-grant
+    w = await getOrCreateWallet("a1", NOW);
+    expect(w.planCredits).toBe(6000); // reset to the grant
+    expect(w.rolloverCredits).toBe(2000); // only the 2,000 unused carried
+    expect(w.availableCredits).toBe(8000);
+  });
+});
+
+describe("nextRolloverCredits · pure cap logic (WP6-8)", () => {
+  test("caps accumulated rollover at ROLLOVER_CAP_MULTIPLE × grant", () => {
+    const grant = 6000;
+    const cap = ROLLOVER_CAP_MULTIPLE * grant;
+    // Prior rollover already at cap + a fresh unused grant → clamped to cap.
+    expect(nextRolloverCredits(grant, cap, grant)).toBe(cap);
+    // Below cap → accumulates additively.
+    expect(nextRolloverCredits(1000, 2000, grant)).toBe(3000);
+    // Exactly at the cap boundary.
+    expect(
+      nextRolloverCredits(grant, grant * (ROLLOVER_CAP_MULTIPLE - 1), grant),
+    ).toBe(cap);
+    // Nothing unused → nothing added.
+    expect(nextRolloverCredits(0, 500, grant)).toBe(500);
+    // Defensive: negative inputs never subtract.
+    expect(nextRolloverCredits(-100, -50, grant)).toBe(0);
   });
 });
 

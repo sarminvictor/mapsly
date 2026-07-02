@@ -1,0 +1,132 @@
+// GET /api/agency/runs/[id]/progress · WP3-3 lead-by-lead progress endpoint.
+//
+// Per `.claude/rules/realtime-runs-adr.md` (poll + Redis, NOT SSE): the
+// EnrichingStep polls this ~every 3s and the live workbench (WP4-1
+// LiveWorkbenchBanner) ~every 4s. It reads the Redis
+// run-progress counters ONLY (no Prisma on the hot path) and answers with an
+// ETag; an unchanged poll is a 304 (empty body, ~zero cost). The DB remains the
+// source of truth — the dispatch tick's updateRunProgress SEEDS/CORRECTS the
+// counters each tick, so a Redis miss/blip self-heals; on a miss here we fall
+// back to a single Prisma count so the bar still moves.
+//
+// Per `.claude/rules/security.md`:
+//   - Auth-gated · agency resolved from the session, never a query param.
+//   - No cross-agency leak · the run must belong to the caller's agency (checked
+//     via a cheap indexed findFirst on the fallback; the Redis path is keyed by
+//     runId which is a cuid, but we STILL gate on ownership before returning).
+//
+// Per `.claude/rules/performance.md` · `private, no-store` + ETag/304.
+
+import { NextResponse } from "next/server";
+
+import { auth } from "@/lib/auth";
+import prisma from "@/lib/prisma";
+import { readRunProgress } from "@/modules/enrichment/run-progress-counter";
+
+export interface RunProgress {
+  done: number;
+  total: number;
+  failed: number;
+  status: string;
+  /** WP4-6 · close receipt (credits). Present once the run is terminal; the
+   *  EnrichingStep done-state + workbench header show held/charged/refunded.
+   *  Refunded = held − charged (the quote-vs-actual + fresh-cache diff). */
+  creditsHeld?: number;
+  creditsCharged?: number;
+}
+
+function etagOf(p: RunProgress): string {
+  // Include the receipt so the 304 short-circuit still fires a fresh 200 the
+  // tick the run closes (charged flips from 0 → the settled amount).
+  return `"${p.done}-${p.total}-${p.failed}-${p.status}-${p.creditsCharged ?? ""}"`;
+}
+
+export async function GET(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> },
+): Promise<NextResponse | Response> {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+  const { id: runId } = await params;
+
+  const member = await prisma.agencyMember.findFirst({
+    where: { userId: session.user.id },
+    orderBy: { createdAt: "asc" },
+    select: { agencyId: true },
+  });
+  if (!member) {
+    return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  }
+
+  // Ownership gate · the run must belong to the caller's agency. One cheap
+  // indexed read (agencyId, status); returns the DB status for the fallback +
+  // to enrich the Redis payload (Redis stores it too, but the DB is truth).
+  const run = await prisma.enrichmentRun.findFirst({
+    where: { id: runId, agencyId: member.agencyId },
+    select: {
+      status: true,
+      unitsRequested: true,
+      unitsCompleted: true,
+      creditsHeld: true,
+      creditsCharged: true,
+    },
+  });
+  if (!run) {
+    // Cross-agency / missing → 404 (never leak another agency's run).
+    return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
+
+  // Redis-first read (no further DB). On a miss (Redis unavailable OR not seeded
+  // yet) fall back to the run's own DB counters so the bar still moves.
+  const redis = await readRunProgress(runId);
+  const raw: RunProgress = redis
+    ? {
+        done: redis.done,
+        total: redis.total > 0 ? redis.total : run.unitsRequested,
+        failed: redis.failed,
+        status: redis.status ?? run.status,
+      }
+    : {
+        done: run.unitsCompleted,
+        total: run.unitsRequested,
+        failed: 0,
+        status: run.status,
+      };
+
+  // WP4-3 · clamp to the BUSINESS unit. The per-job Redis INCR (dispatch.ts
+  // bumpRunProgress) bumps once per FAMILY job for within-tick liveness, so
+  // between the per-tick business-level re-seeds a multi-family run's raw
+  // done/failed can momentarily exceed the business total. Clamp so the client
+  // never sees done>total (>100%) or a done+failed sum past N. The next tick's
+  // updateRunProgress re-seeds the exact business counts.
+  const total = Math.max(0, raw.total);
+  const failed = Math.min(Math.max(0, raw.failed), total);
+  const done = Math.min(Math.max(0, raw.done), Math.max(0, total - failed));
+  // WP4-6 · attach the close receipt once the run is terminal (charged is only
+  // meaningful after settle). A still-running run omits it (undefined) so the
+  // EnrichingStep shows the receipt only in the done-state.
+  const terminal =
+    raw.status === "OK" || raw.status === "PARTIAL" || raw.status === "FAILED";
+  const progress: RunProgress = {
+    done,
+    failed,
+    total,
+    status: raw.status,
+    ...(terminal
+      ? { creditsHeld: run.creditsHeld, creditsCharged: run.creditsCharged }
+      : {}),
+  };
+
+  const etag = etagOf(progress);
+  const inm = request.headers.get("if-none-match");
+  const headers = {
+    "Cache-Control": "private, no-store",
+    ETag: etag,
+  };
+  if (inm && inm === etag) {
+    return new Response(null, { status: 304, headers });
+  }
+  return NextResponse.json(progress, { headers });
+}

@@ -24,8 +24,16 @@ import { z } from "zod";
 
 import { after } from "next/server";
 
+import { headers } from "next/headers";
+
 import { auth } from "@/lib/auth";
 import prisma, { Prisma } from "@/lib/prisma";
+import {
+  ACTION_ENQUEUE_LIMIT,
+  ENRICH_RUN_IP_LIMIT,
+  rateLimitAction,
+} from "@/lib/middleware/rate-limit";
+import { requireSpendMember } from "@/modules/agency-portal/roles";
 import { rawListWhere } from "./raw-list";
 import { kickDispatch } from "@/modules/enrichment/kick-dispatch";
 import {
@@ -42,12 +50,39 @@ import {
 } from "@/modules/cost/pricing";
 import { buildEnrichLines } from "@/modules/discovery/enrich-lines";
 import { countFreshForRun } from "@/modules/discovery/enrich-fresh-db";
+import { trackProductEvent } from "@/lib/analytics/product-events";
 
 // ── Input schema ──────────────────────────────────────────────────────────
 
 const EnrichmentEnum = z.enum(
   ALL_ENRICHMENT_TYPES as [EnrichmentType, ...EnrichmentType[]],
 );
+
+/**
+ * WP5-4 · free pre-enrich filters. Applied ONLY on the cellKeys-resolution path
+ * (no explicit businessIds) — the resolved scope becomes the estimate's stored
+ * businessIds, so the priced set, the held credits, and the fan-out are all the
+ * SAME filtered subset. Explicit-ids callers already chose their rows, so
+ * filters are ignored for them. Mirrors `RawListFilters` (raw-list.ts).
+ */
+const RawFiltersSchema = z.object({
+  hasWebsite: z.boolean().optional(),
+  minRating: z.number().min(0).max(5).optional(),
+  minReviewCount: z.number().int().min(0).max(1_000_000).optional(),
+  reachability: z
+    .array(
+      z.enum([
+        "UNREACHABLE",
+        "EMAIL_ONLY",
+        "PHONE_ONLY",
+        "MULTI",
+        "RICH",
+        "UNKNOWN",
+      ]),
+    )
+    .max(6)
+    .optional(),
+});
 
 const EnrichInput = z.object({
   /** Selected businesses (drives per-business families). Empty → cell-only. */
@@ -56,6 +91,18 @@ const EnrichInput = z.object({
   cellKeys: z.array(z.string().min(1).max(160)).max(200).default([]),
   /** Enrichment families to run (at least one). */
   enrichments: z.array(EnrichmentEnum).min(1).max(ALL_ENRICHMENT_TYPES.length),
+  /**
+   * WP2-2 · wallet-capped "Enrich your best N". Caps the run to the top N
+   * enrichable businesses, ordered by reviewCount desc (the workbench default
+   * sort — review volume is the best free revenue proxy, so "best N" = the
+   * leads Tom would open first anyway). Applied SERVER-SIDE: the sliced set
+   * becomes the estimate's stored scope, so the priced set, the held credits,
+   * and the fan-out are all the same authoritative subset — the client only
+   * ever suggests N, never computes cost math.
+   */
+  topN: z.number().int().min(1).max(5000).optional(),
+  /** WP5-4 · free pre-enrich filters (cell-resolution path only, see above). */
+  filters: RawFiltersSchema.optional(),
 });
 
 export type EnrichActionInput = z.input<typeof EnrichInput>;
@@ -90,11 +137,13 @@ export type PreflightEnrichResult =
       upperBoundUsd: number;
       freshHitUsd: number;
       netCredits: number;
-      gate: "auto" | "confirm" | "approval";
+      // WP1-11: no "approval" gate — wallet balance is the only spend gate.
+      gate: "auto" | "confirm";
       lines: EnrichQuoteLine[];
     }
   | { status: "unauthorized" }
   | { status: "forbidden" }
+  | { status: "rate_limited"; retryAfter: number }
   | { status: "invalid_input"; message: string }
   | { status: "error" };
 
@@ -102,9 +151,9 @@ export type RunEnrichResult =
   | { status: "ok"; runId: string }
   | { status: "unauthorized" }
   | { status: "forbidden" }
+  | { status: "rate_limited"; retryAfter: number }
   | { status: "invalid_input"; message: string }
   | { status: "needs_requote"; netUsd: number; netCredits: number }
-  | { status: "needs_approval"; netUsd: number; netCredits: number }
   | { status: "quote_expired" }
   | { status: "insufficient_credits"; netCredits: number }
   | { status: "error" };
@@ -127,6 +176,10 @@ export async function preflightEnrichAction(
 ): Promise<PreflightEnrichResult> {
   const session = await auth();
   if (!session?.user?.id) return { status: "unauthorized" };
+
+  // WP8-2 · bound enqueue/estimate floods (spend-bearing, DB-heavy).
+  const rl = await rateLimitAction(ACTION_ENQUEUE_LIMIT, session.user.id);
+  if (rl.limited) return { status: "rate_limited", retryAfter: rl.retryAfter };
 
   const parsed = EnrichInput.safeParse(input);
   if (!parsed.success) {
@@ -159,15 +212,37 @@ export async function preflightEnrichAction(
       // the enrichable subset in one place — no website-less business is ever
       // charged for or queued for a research it can't complete.
       const needsWebsite = enrichmentNeedsWebsite(parsed.data.enrichments);
+      // WP5-4 · compose the caller's free pre-enrich filters with the
+      // website gate (filters first, then topN caps within the filtered
+      // set below). The website gate always wins when a family needs one.
+      const userFilters = parsed.data.filters;
+      const scopeFilters =
+        userFilters || needsWebsite
+          ? {
+              ...(userFilters ?? {}),
+              ...(needsWebsite ? { hasWebsite: true } : {}),
+            }
+          : undefined;
       const inCell = await prisma.business.findMany({
         where: rawListWhere({
           cellKeys: parsed.data.cellKeys,
-          filters: needsWebsite ? { hasWebsite: true } : undefined,
+          filters: scopeFilters,
         }),
+        // Best-first (workbench default sort: reviewCount desc NULLS LAST,
+        // id asc) so a `topN` cap keeps the strongest leads — and an uncapped
+        // 5000-take is deterministic instead of arbitrary-row-order.
+        orderBy: [
+          { reviewCount: { sort: "desc", nulls: "last" } },
+          { id: "asc" },
+        ],
         select: { id: true },
-        take: 5000,
+        take: Math.min(parsed.data.topN ?? 5000, 5000),
       });
       businessIds = inCell.map((b) => b.id);
+    } else if (parsed.data.topN != null) {
+      // Explicit-ids callers (raw-list selection) pass their own order —
+      // honor it, just cap the count.
+      businessIds = businessIds.slice(0, parsed.data.topN);
     }
     const freshByEnrichment = await countFreshForRun({
       enrichments: parsed.data.enrichments,
@@ -237,11 +312,37 @@ export async function preflightEnrichAction(
  * dispatch cron executes the families + settles the hold; this action NEVER
  * calls external APIs and never charges above the held amount.
  */
+/** Best-effort client IP from the request headers (rate-limit keying only). */
+async function requestIpKey(): Promise<string> {
+  try {
+    const h = await headers();
+    const xff = h.get("x-forwarded-for");
+    const first = xff?.split(",")[0]?.trim();
+    if (first) return first;
+    const xri = h.get("x-real-ip");
+    if (xri) return xri.trim();
+  } catch {
+    // headers() unavailable (test / non-request context) — fall through.
+  }
+  return "ip:unknown";
+}
+
 export async function runEnrichAction(
   input: unknown,
 ): Promise<RunEnrichResult> {
   const session = await auth();
   if (!session?.user?.id) return { status: "unauthorized" };
+
+  // WP8-2 · bound enrichment-run creation floods per user.
+  const rl = await rateLimitAction(ACTION_ENQUEUE_LIMIT, session.user.id);
+  if (rl.limited) return { status: "rate_limited", retryAfter: rl.retryAfter };
+
+  // WP7-5 · trial-abuse: an additional per-IP cap on enrich-run creation blunts
+  // account-rotation farming behind one IP (orthogonal to the per-user cap).
+  const ipRl = await rateLimitAction(ENRICH_RUN_IP_LIMIT, await requestIpKey());
+  if (ipRl.limited) {
+    return { status: "rate_limited", retryAfter: ipRl.retryAfter };
+  }
 
   const parsed = RunEnrichInput.safeParse(input);
   if (!parsed.success) {
@@ -252,8 +353,12 @@ export async function runEnrichAction(
   }
 
   try {
-    const agencyId = await callerAgencyId(session.user.id);
-    if (!agencyId) return { status: "forbidden" };
+    // WP5-8 · spend gate (docs/seat-model.md): enqueueing a run holds pooled
+    // credits, so OWNER/ADMIN only. STAFF can still preflight (a quote is
+    // free) but never authorize the spend.
+    const spender = await requireSpendMember(session.user.id);
+    if (!spender) return { status: "forbidden" };
+    const agencyId = spender.agencyId;
 
     await grantFreeTierIfNew(agencyId);
 
@@ -280,15 +385,9 @@ export async function runEnrichAction(
         };
     }
     const result = authz.result;
-    // $5 rule: spends above the approval threshold need owner/Viktor sign-off,
-    // not self-serve. Enforced server-side, not just in the UI.
-    if (result.gate === "approval") {
-      return {
-        status: "needs_approval",
-        netUsd: result.netUsd,
-        netCredits: result.netCredits,
-      };
-    }
+    // WP1-11 (Viktor exception): no approval gate. A funded run of ANY size
+    // proceeds self-serve — the ONLY spend gate is the wallet balance, enforced
+    // below by holdCredits (→ insufficient_credits when the balance can't cover).
 
     // Reconstruct the run scope from the AUTHORIZED estimate (anti-tamper).
     const est = await prisma.costEstimate.findUnique({
@@ -308,11 +407,27 @@ export async function runEnrichAction(
     const businessIds = scope.businessIds ?? [];
     const cellKeys = scope.cellKeys ?? [];
     const lines = Array.isArray(scope.lines) ? scope.lines : [];
-    const unitsRequested = lines.reduce((s, l) => s + (l.total ?? 0), 0);
-    const unitsSkippedFresh = lines.reduce(
-      (s, l) => s + Math.min(l.fresh ?? 0, l.total ?? 0),
-      0,
-    );
+    // WP4-3 · ONE progress unit = BUSINESSES, not Σ family lines. A 100-business
+    // × 3-family run has 300 job rows but is "100 leads" to the user — measuring
+    // progress in job-rows made a 2-of-3-families run open at 67% (2 fresh
+    // families) and a multi-family run's bar march in family-sized jumps. The
+    // enrichable business set (already resolved + website-scoped by preflight,
+    // stored on the estimate's scope) is the honest denominator. A pure cell-only
+    // run (meta/google/serp, no per-business ids) has no business unit → fall
+    // back to the cell count so its bar still has a denominator.
+    const unitsRequested =
+      businessIds.length > 0 ? businessIds.length : cellKeys.length;
+    // Fresh-skipped is likewise counted in BUSINESSES: a business is "skipped
+    // fresh" only when EVERY one of its family lines was already fresh. Per-line
+    // freshness is summed above per family, so the min across the run's lines is
+    // the safe business-level floor (never over-counts skipped businesses).
+    const unitsSkippedFresh =
+      lines.length > 0
+        ? Math.min(
+            businessIds.length > 0 ? businessIds.length : Infinity,
+            ...lines.map((l) => Math.min(l.fresh ?? 0, l.total ?? 0)),
+          )
+        : 0;
 
     const run = await prisma.enrichmentRun.create({
       data: {
@@ -344,6 +459,19 @@ export async function runEnrichAction(
           await prisma.enrichmentRun
             .delete({ where: { id: run.id } })
             .catch(() => {});
+          // WP6-4 · the credit-wall checkpoint — the balance couldn't cover a
+          // funded run the user tried to authorize (the activation drop-off the
+          // upgrade sheet must catch). Counts only; never blocks the return.
+          void trackProductEvent({
+            type: "credit_exhausted_hit",
+            agencyId,
+            userId: session.user.id,
+            props: {
+              netCredits: result.netCredits,
+              units: unitsRequested,
+              families: families.length,
+            },
+          });
           return {
             status: "insufficient_credits",
             netCredits: result.netCredits,
@@ -357,6 +485,22 @@ export async function runEnrichAction(
     await prisma.costEstimate.update({
       where: { id: parsed.data.estimateId },
       data: { status: "CONSUMED", consumedByRunId: run.id },
+    });
+
+    // WP6-4 · enrich_started — the run is authorized + credits held. This is the
+    // "committed spend" checkpoint (distinct from preview_viewed / a free
+    // quote). Records the priced units + family count for per-template
+    // conversion; fire-and-forget, no PII.
+    void trackProductEvent({
+      type: "enrich_started",
+      agencyId,
+      userId: session.user.id,
+      props: {
+        runId: run.id,
+        units: unitsRequested,
+        families: families.length,
+        credits: result.netCredits,
+      },
     });
 
     // Kick the dispatch drain post-response so enrichment starts near-instantly

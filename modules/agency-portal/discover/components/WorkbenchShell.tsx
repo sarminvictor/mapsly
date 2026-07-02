@@ -5,13 +5,20 @@
 // between the two tab components, which share the same saved-list set. State is
 // per-tab inside each component; this shell only owns which tab is visible.
 //
+// WP5-1/2 · the visible tab is URL-driven (`?tab=touch`, absent = Leads) so
+// touch generation can deep-link to the Touchpoints tab after drafting, and a
+// copied URL restores the view. router.replace without scroll — no history
+// spam, no RSC data change (only `?page=` is server-read).
+//
 // Per .claude/rules/cache-components.md Pattern 4: it receives only plain
 // serialized rows/touches/stats — no function props cross the boundary.
 
-import { useState } from "react";
+import { useCallback } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { LeadsWorkbench, type LeadsWorkbenchProps } from "./LeadsWorkbench";
 import { TouchpointsTab, type TouchpointsTabProps } from "./TouchpointsTab";
+import { EnrichMoreHost } from "./EnrichMoreHost";
 
 export interface WorkbenchShellProps {
   leads: LeadsWorkbenchProps;
@@ -19,7 +26,21 @@ export interface WorkbenchShellProps {
 }
 
 export function WorkbenchShell({ leads, touchpoints }: WorkbenchShellProps) {
-  const [tab, setTab] = useState<"leads" | "touch">("leads");
+  const sp = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  const tab: "leads" | "touch" = sp.get("tab") === "touch" ? "touch" : "leads";
+
+  const setTab = useCallback(
+    (next: "leads" | "touch") => {
+      const params = new URLSearchParams(sp.toString());
+      if (next === "leads") params.delete("tab");
+      else params.set("tab", "touch");
+      const qs = params.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    },
+    [sp, router, pathname],
+  );
 
   return (
     <div>
@@ -31,7 +52,10 @@ export function WorkbenchShell({ leads, touchpoints }: WorkbenchShellProps) {
           className={tab === "leads" ? "on" : undefined}
           onClick={() => setTab("leads")}
         >
-          Leads <span className="ct">{leads.rows.length}</span>
+          {/* Whole-set count when server-paginated (WP4-4) — the tab count is
+              the honest total, not the loaded window. */}
+          Leads{" "}
+          <span className="ct">{leads.totalRows ?? leads.rows.length}</span>
         </button>
         <button
           type="button"
@@ -49,6 +73,11 @@ export function WorkbenchShell({ leads, touchpoints }: WorkbenchShellProps) {
       ) : (
         <TouchpointsTab {...touchpoints} />
       )}
+
+      {/* WP5-3 · the in-workbench enrich sheet — opened via the enrich-sheet
+          bus by the coverage CTA, drawer ghost accordions, and locked Fields
+          rows. Mounted once at the shell so it survives tab switches. */}
+      <EnrichMoreHost discoveryId={leads.discoveryId} />
     </div>
   );
 }

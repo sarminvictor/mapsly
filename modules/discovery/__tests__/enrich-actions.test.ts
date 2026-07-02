@@ -5,8 +5,9 @@
 // EnrichmentRun). The invariants under test:
 //   - preflightEnrichAction builds estimator lines (per-business × count,
 //     per-cell × cellCount) and persists the SAME numbers estimateRun produces.
-//   - runEnrichAction creates a PENDING EnrichmentRun with unitsRequested = the
-//     sum of all line totals, and returns its id.
+//   - runEnrichAction creates a PENDING EnrichmentRun with unitsRequested =
+//     the BUSINESS count (WP4-3 · one progress unit = leads, not Σ family
+//     lines), and returns its id.
 //   - auth + agency membership gate both actions.
 
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
@@ -52,18 +53,33 @@ interface FakeRun {
 }
 
 const db = {
-  members: [] as { userId: string; agencyId: string }[],
+  members: [] as {
+    id: string;
+    userId: string;
+    agencyId: string;
+    role: string;
+  }[],
   estimates: [] as FakeEstimate[],
   runs: [] as FakeRun[],
+  /** Business ids the cell-resolution findMany returns (WP5-4 filter tests). */
+  cellBusinesses: [] as string[],
+  /** Every `where` the cell-resolution findMany was called with. */
+  businessWheres: [] as Record<string, unknown>[],
   seq: 0,
   id(p: string) {
     this.seq += 1;
     return `${p}_${this.seq}`;
   },
   reset() {
-    this.members = [{ userId: "user-1", agencyId: "agency-1" }];
+    // role OWNER — runEnrichAction's WP5-8 spend gate (requireSpendMember)
+    // selects { id, agencyId, role } and rejects non-OWNER/ADMIN callers.
+    this.members = [
+      { id: "mem-1", userId: "user-1", agencyId: "agency-1", role: "OWNER" },
+    ];
     this.estimates = [];
     this.runs = [];
+    this.cellBusinesses = [];
+    this.businessWheres = [];
     this.seq = 0;
   },
 };
@@ -178,8 +194,32 @@ vi.mock("@/lib/prisma", () => {
     ),
   };
 
+  // The cell-resolution scope query (WP5-4 · preflight resolves cellKeys →
+  // businessIds through rawListWhere). Freshness reads (loadFreshTimestamps)
+  // also hit business.findMany with an `id: { in }` where — those return []
+  // (countFreshForRun degrades to "nothing fresh", which these tests want).
+  const business = {
+    findMany: vi.fn(
+      async ({
+        where,
+        take,
+      }: {
+        where: Record<string, unknown>;
+        take?: number;
+      }) => {
+        if (where && "cellKey" in where) {
+          db.businessWheres.push(where);
+          const ids =
+            take != null ? db.cellBusinesses.slice(0, take) : db.cellBusinesses;
+          return ids.map((id) => ({ id }));
+        }
+        return [];
+      },
+    ),
+  };
+
   return {
-    default: { agencyMember, costEstimate, enrichmentRun },
+    default: { agencyMember, costEstimate, enrichmentRun, business },
     Prisma: {},
   };
 });
@@ -188,8 +228,7 @@ vi.mock("@/lib/prisma", () => {
 // against the in-memory prisma above) but stub the wallet side — credit hold /
 // grant invariants are covered in modules/cost/__tests__/server.test.ts.
 vi.mock("@/modules/cost/server", async (importOriginal) => {
-  const actual =
-    await importOriginal<typeof import("@/modules/cost/server")>();
+  const actual = await importOriginal<typeof import("@/modules/cost/server")>();
   return {
     ...actual,
     grantFreeTierIfNew: vi.fn(async () => {}),
@@ -259,6 +298,24 @@ describe("preflightEnrichAction", () => {
     expect(r.lines[0]?.total).toBe(3); // cellCount, not businessCount
   });
 
+  test("WP2-2 · topN caps the scope server-side (priced set == stored set)", async () => {
+    const r = await preflightEnrichAction({
+      businessIds: ["b1", "b2", "b3", "b4", "b5"],
+      cellKeys: [],
+      enrichments: ["contacts"],
+      topN: 2,
+    });
+    expect(r.status).toBe("ok");
+    if (r.status !== "ok") return;
+
+    // The quote prices the SLICED subset, not the full selection…
+    expect(r.lines[0]?.total).toBe(2);
+    // …and the persisted scope (what runEnrichAction reconstructs from,
+    // anti-tamper) is the same 2-business subset — server-authoritative.
+    const refs = db.estimates[0]?.scopeRefsJson as { businessIds?: string[] };
+    expect(refs.businessIds).toEqual(["b1", "b2"]);
+  });
+
   test("rejects an unauthenticated caller", async () => {
     SESSION = null;
     const r = await preflightEnrichAction({
@@ -309,8 +366,11 @@ describe("runEnrichAction", () => {
     const run = db.runs.find((x) => x.id === r.runId);
     expect(run).toBeDefined();
     expect(run?.status).toBe("PENDING");
-    // contacts (per-business → 3) + meta_ads (per-cell → 2) = 5 units.
-    expect(run?.unitsRequested).toBe(5);
+    // WP4-3 · ONE progress unit = BUSINESSES, not Σ family lines. With explicit
+    // businessIds ["b1","b2","b3"], unitsRequested is the 3 businesses — not
+    // contacts(3)+meta_ads(2)=5 job-rows (which made a multi-family bar march in
+    // family-sized jumps / open partway).
+    expect(run?.unitsRequested).toBe(3);
     expect(run?.triggeredByUserId).toBe("user-1");
 
     // Single-use: the estimate is CONSUMED once the run is created.
@@ -334,5 +394,90 @@ describe("runEnrichAction", () => {
     SESSION = null;
     const r = await runEnrichAction({ estimateId: "est_x" });
     expect(r.status).toBe("unauthorized");
+  });
+});
+
+// ─── WP5-4 · pre-enrich filters → scope threading ───────────────────────────
+
+describe("preflightEnrichAction · filters (WP5-4)", () => {
+  test("filters ride the cell-resolution where + website gate composes", async () => {
+    db.cellBusinesses = ["b1", "b2", "b3"];
+    const r = await preflightEnrichAction({
+      businessIds: [],
+      cellKeys: ["c1"],
+      enrichments: ["contacts"], // website-dependent → hasWebsite forced
+      filters: {
+        minRating: 4,
+        minReviewCount: 25,
+        reachability: ["MULTI", "RICH"],
+      },
+    });
+    expect(r.status).toBe("ok");
+
+    // The scope query used rawListWhere with the caller's filters MERGED with
+    // the website gate (the gate always wins for site-reading families).
+    expect(db.businessWheres).toHaveLength(1);
+    const where = db.businessWheres[0]!;
+    expect(where.cellKey).toEqual({ in: ["c1"] });
+    expect(where.rating).toEqual({ gte: 4 });
+    expect(where.reviewCount).toEqual({ gte: 25 });
+    expect(where.reachability).toEqual({ in: ["MULTI", "RICH"] });
+    expect(where.website).toEqual({ not: null });
+
+    // The FILTERED set became the estimate's stored (anti-tamper) scope — the
+    // priced set, the held credits, and the fan-out are the same subset.
+    const refs = db.estimates[0]?.scopeRefsJson as { businessIds?: string[] };
+    expect(refs.businessIds).toEqual(["b1", "b2", "b3"]);
+  });
+
+  test("filters compose with topN — filters first, then best-N within them", async () => {
+    db.cellBusinesses = ["b1", "b2", "b3", "b4", "b5"];
+    const r = await preflightEnrichAction({
+      businessIds: [],
+      cellKeys: ["c1"],
+      enrichments: ["contacts"],
+      filters: { minReviewCount: 10 },
+      topN: 2,
+    });
+    expect(r.status).toBe("ok");
+    if (r.status !== "ok") return;
+
+    // The quote priced the top-2 OF the filtered set…
+    expect(r.lines[0]?.total).toBe(2);
+    // …and stored exactly that subset.
+    const refs = db.estimates[0]?.scopeRefsJson as { businessIds?: string[] };
+    expect(refs.businessIds).toEqual(["b1", "b2"]);
+    // The filter still reached the where.
+    expect(db.businessWheres[0]?.reviewCount).toEqual({ gte: 10 });
+  });
+
+  test("non-website families don't force the website gate", async () => {
+    db.cellBusinesses = ["b1"];
+    const r = await preflightEnrichAction({
+      businessIds: [],
+      cellKeys: ["c1"],
+      enrichments: ["reviews"], // Google-presence family — no site needed
+      filters: { minRating: 4 },
+    });
+    expect(r.status).toBe("ok");
+    const where = db.businessWheres[0]!;
+    expect(where.rating).toEqual({ gte: 4 });
+    expect(where.website).toBeUndefined();
+  });
+
+  test("explicit businessIds ignore filters (caller already chose rows)", async () => {
+    const r = await preflightEnrichAction({
+      businessIds: ["b9"],
+      cellKeys: [],
+      enrichments: ["contacts"],
+      filters: { minRating: 4.5 },
+    });
+    expect(r.status).toBe("ok");
+    if (r.status !== "ok") return;
+    // No cell-resolution query ran; the explicit set is priced as-is.
+    expect(db.businessWheres).toHaveLength(0);
+    expect(r.lines[0]?.total).toBe(1);
+    const refs = db.estimates[0]?.scopeRefsJson as { businessIds?: string[] };
+    expect(refs.businessIds).toEqual(["b9"]);
   });
 });

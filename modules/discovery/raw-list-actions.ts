@@ -47,7 +47,7 @@ const Input = z.object({
 
 export type FetchRawListActionInput = z.input<typeof Input>;
 
-/** The plain row shape the client table consumes (matches RawListTableRow). */
+/** The plain row shape the client raw-list table consumes. */
 export interface FetchedRawRow {
   id: string;
   name: string;

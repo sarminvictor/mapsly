@@ -29,6 +29,12 @@ import { z } from "zod";
 import { kvCache } from "@/lib/cache";
 import prisma from "@/lib/prisma";
 import { withCostCounter } from "@/lib/cost/cost-counter";
+// WP8-1: the DOM leg fetches the business's own website from our egress —
+// guard both the initial URL and the post-redirect final URL against
+// private/loopback/link-local/metadata ranges (incl. DNS rebinding). A blocked
+// URL throws SsrfBlockedError, which the retry loop surfaces as a non-retryable
+// LighthouseHtmlFetchError (same shape callers already handle).
+import { assertPublicUrl, SsrfBlockedError } from "@/lib/net/ssrf-guard";
 import {
   lighthouseAuditUncached,
   type LighthouseAuditResult as DataForSeoLighthouseResult,
@@ -160,6 +166,23 @@ interface HtmlFetchResult {
 async function fetchHtmlRaw(url: string): Promise<HtmlFetchResult> {
   const fetchImpl = getFetch();
   const sleep = getSleep();
+
+  // WP8-1: reject the initial URL up front if its host (or any resolved
+  // address) is private/reserved. Non-retryable — a bad target won't get
+  // better on retry.
+  try {
+    await assertPublicUrl(url);
+  } catch (err) {
+    if (err instanceof SsrfBlockedError) {
+      throw new LighthouseHtmlFetchError({
+        url,
+        message: err.message,
+        retryable: false,
+      });
+    }
+    throw err;
+  }
+
   let lastError: unknown = null;
   for (let attempt = 0; attempt <= HTML_FETCH_RETRIES; attempt++) {
     try {
@@ -196,11 +219,29 @@ async function fetchHtmlRaw(url: string): Promise<HtmlFetchResult> {
         if (!retryable || attempt === HTML_FETCH_RETRIES) throw err;
         lastError = err;
       } else {
+        // WP8-1: `redirect: "follow"` means fetch already chased any redirect;
+        // re-validate the FINAL URL so a public site that 30x-redirects to a
+        // private/metadata host is rejected before we read/return its body.
+        const finalUrl = res.url || url;
+        if (finalUrl !== url) {
+          try {
+            await assertPublicUrl(finalUrl);
+          } catch (err) {
+            if (err instanceof SsrfBlockedError) {
+              throw new LighthouseHtmlFetchError({
+                url: finalUrl,
+                message: err.message,
+                retryable: false,
+              });
+            }
+            throw err;
+          }
+        }
         const text = await res.text();
         const truncated = text.length > MAX_HTML_BYTES;
         return {
           html: truncated ? text.slice(0, MAX_HTML_BYTES) : text,
-          finalUrl: res.url || url,
+          finalUrl,
           httpStatus: res.status,
           truncated,
         };

@@ -21,6 +21,8 @@ interface FakeBiz {
   website: string | null;
   rating: number | null;
   metroSlug: string | null;
+  // WP7-2 · do-not-sell suppression. Non-null = suppressed → never surfaced.
+  suppressedAt: Date | null;
 }
 
 const db = {
@@ -34,6 +36,8 @@ function matches(b: FakeBiz, where: any): boolean {
   if (where.cellKey?.in) {
     if (!b.cellKey || !where.cellKey.in.includes(b.cellKey)) return false;
   }
+  // WP7-2 · suppressedAt: null means "not suppressed" — drop suppressed rows.
+  if (where.suppressedAt === null && b.suppressedAt !== null) return false;
   if (where.isHidden === false && b.isHidden) return false;
   if (where.isHidden === true && !b.isHidden) return false;
   // `{ not: true }` — exclude ONLY scanned-hidden rows; unscanned (null) stays.
@@ -120,12 +124,14 @@ afterEach(() => vi.clearAllMocks());
 // ─── rawListWhere (pure) ────────────────────────────────────────────────────
 
 describe("rawListWhere · default exclusions", () => {
-  test("scopes to cellKeys and excludes hidden + closed-forever by default", () => {
+  test("scopes to cellKeys and excludes hidden + closed-forever + suppressed by default", () => {
     const where = rawListWhere({ cellKeys: ["medical_spa|miami|US"] });
     expect(where.cellKey).toEqual({ in: ["medical_spa|miami|US"] });
     // `{ not: true }` (not `false`) so unscanned (isHidden null) rows stay visible.
     expect(where.isHidden).toEqual({ not: true });
     expect(where.openStatus).toEqual({ not: "CLOSED_FOREVER" });
+    // WP7-2 · do-not-sell suppression is always excluded.
+    expect(where.suppressedAt).toBeNull();
   });
 
   test("empty cellKeys yields an impossible-match (never full-table scan)", () => {
@@ -133,7 +139,7 @@ describe("rawListWhere · default exclusions", () => {
     expect(where.cellKey).toEqual({ in: ["__never__"] });
   });
 
-  test("includeHidden / includeClosed drop the default exclusions", () => {
+  test("includeHidden / includeClosed drop those exclusions but NOT suppression", () => {
     const where = rawListWhere({
       cellKeys: ["c1"],
       includeHidden: true,
@@ -141,6 +147,9 @@ describe("rawListWhere · default exclusions", () => {
     });
     expect(where.isHidden).toBeUndefined();
     expect(where.openStatus).toBeUndefined();
+    // WP7-2 · suppression is a legal opt-out, not a view toggle — it is NEVER
+    // dropped, even with includeHidden/includeClosed.
+    expect(where.suppressedAt).toBeNull();
   });
 });
 
@@ -186,6 +195,7 @@ function seed(partial: Partial<FakeBiz> & { id: string }) {
     website: partial.website ?? null,
     rating: partial.rating ?? null,
     metroSlug: partial.metroSlug ?? "miami",
+    suppressedAt: partial.suppressedAt ?? null,
   });
 }
 
@@ -216,6 +226,16 @@ describe("getRawList", () => {
     const page = await getRawList({ cellKeys: ["c1"] }, { take: 10 });
     // Only the scanned-and-hidden row is dropped; the unscanned (null) row stays.
     expect(page.rows.map((r) => r.id)).toEqual(["unscanned", "scanned"]);
+  });
+
+  test("WP7-2 · a do-not-sell-suppressed business is excluded from the raw list", async () => {
+    seed({ id: "visible", reviewCount: 30 });
+    seed({ id: "suppressed", reviewCount: 99, suppressedAt: new Date() });
+    const page = await getRawList({ cellKeys: ["c1"] }, { take: 10 });
+    // The suppressed row (highest reviewCount) never appears — it's a legal
+    // opt-out enforced at this shared chokepoint (workbench/preview/export/
+    // enrich-scope all read through rawListWhere).
+    expect(page.rows.map((r) => r.id)).toEqual(["visible"]);
   });
 });
 

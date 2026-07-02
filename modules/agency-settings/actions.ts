@@ -33,6 +33,10 @@ const ProfileSchema = z.object({
   name: z.string().min(1, "name_required").max(80),
   defaultMetro: z.string().max(64).optional().default(""),
   categoriesServed: z.string().max(512).optional().default(""),
+  // WP7-4 · the compliance footer address (CAN-SPAM / CASL). Optional here so a
+  // profile save doesn't force it, but touch-gen HARD-REQUIRES it before an
+  // email send — the UI surfaces a blocking "add your address to send" state.
+  mailingAddress: z.string().max(300).optional().default(""),
 });
 
 const LocaleSchema = z.object({
@@ -63,6 +67,7 @@ export async function updateAgencyProfile(formData: FormData) {
     name: formData.get("name"),
     defaultMetro: formData.get("defaultMetro") ?? "",
     categoriesServed: formData.get("categoriesServed") ?? "",
+    mailingAddress: formData.get("mailingAddress") ?? "",
   });
 
   const membership = await requireMembership(userId);
@@ -79,12 +84,15 @@ export async function updateAgencyProfile(formData: FormData) {
     ),
   ).slice(0, 8);
 
+  const mailingAddress = parsed.mailingAddress.trim();
   await prisma.agency.update({
     where: { id: membership.agencyId },
     data: {
       name: parsed.name,
       defaultMetro: parsed.defaultMetro.length > 0 ? parsed.defaultMetro : null,
       categoriesServed: categories,
+      // WP7-4 · empty string clears it back to null (unset = can't send email).
+      mailingAddress: mailingAddress.length > 0 ? mailingAddress : null,
     },
   });
 

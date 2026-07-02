@@ -72,7 +72,11 @@ export function AgPricing({ t }: AgPricingProps) {
                 ))}
               </ul>
 
-              <Link href="/signin" className="fb-btn">
+              {/* audience=agency → self-serve agency provisioning (WP2-1). */}
+              <Link
+                href={{ pathname: "/signin", query: { audience: "agency" } }}
+                className="fb-btn"
+              >
                 {t(`pricing.${key}_cta`)}
               </Link>
             </div>

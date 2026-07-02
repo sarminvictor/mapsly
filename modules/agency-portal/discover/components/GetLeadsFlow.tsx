@@ -29,14 +29,17 @@
 import { useCallback, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
+import { showToast } from "@/components/agency/Toast";
 import {
   FLOW_STEPS,
   fallbackGoal,
+  parseEnrichTypes,
   type FlowStep,
   type GoalState,
   type MarketCell,
 } from "../flow-types";
 import { decodeGoal, encodeGoal } from "../goal-url";
+import type { SavedTemplateRow } from "../saved-templates";
 import { GoalStep } from "./steps/GoalStep";
 import {
   MarketStep,
@@ -88,10 +91,16 @@ export function GetLeadsFlow({
   metros,
   categories,
   walletCredits,
+  locale,
+  myTemplates = [],
 }: {
   metros: MetroOption[];
   categories: CategoryOption[];
   walletCredits?: number;
+  /** Locale for the credit-wall sheet's checkout return URL (WP2-3). */
+  locale: string;
+  /** The agency's saved goal templates (WP5-12) — server-loaded, plain rows. */
+  myTemplates?: SavedTemplateRow[];
 }) {
   const sp = useSearchParams();
   const router = useRouter();
@@ -109,6 +118,13 @@ export function GetLeadsFlow({
   const discoveryId = sp.get("d");
   const runId = sp.get("run");
   const leadCount = Number(sp.get("n")) || 0;
+  // WP5-3 · `?enrich=<types>` deep link (workbench coverage CTAs / locked
+  // columns) — pre-seeds the enrichment families Preview quotes + runs. The
+  // URL is the source of truth, same as every other flow param.
+  const extraEnrichTypes = useMemo(
+    () => parseEnrichTypes(sp.get("enrich")),
+    [sp],
+  );
 
   // Clamp the requested step to what the available state can actually render —
   // a deep/stale link can't strand the user on a blank step.
@@ -122,7 +138,6 @@ export function GetLeadsFlow({
   // Transient UI that doesn't need to survive a reload.
   const [mode, setMode] = useState<"target" | "search">("target");
   const [searchLeadCount, setSearchLeadCount] = useState(50);
-  const [toast, setToast] = useState<string | null>(null);
 
   // ── URL writers ─────────────────────────────────────────────────────────
   const setParams = useCallback(
@@ -161,14 +176,9 @@ export function GetLeadsFlow({
   // The active goal — falls back to the website preset for display only.
   const activeGoal = goal ?? fallbackGoal();
 
-  const showToast = useCallback((msg: string) => {
-    setToast(msg);
-    window.setTimeout(() => setToast(null), 2600);
-  }, []);
-
   return (
     <div className="view wide">
-      <Stepper current={step} />
+      <Stepper current={step} onJump={(s) => goTo(s)} />
 
       {step === "goal" ? (
         <>
@@ -182,6 +192,7 @@ export function GetLeadsFlow({
           </p>
           <GoalStep
             goal={goal}
+            myTemplates={myTemplates}
             onChange={setGoal}
             onContinue={() => goTo("market")}
           />
@@ -220,6 +231,8 @@ export function GetLeadsFlow({
           goal={activeGoal}
           cells={cells}
           walletCredits={walletCredits}
+          locale={locale}
+          extraEnrichTypes={extraEnrichTypes}
           onBack={() => goTo("market")}
           onEnriching={(info) =>
             goTo("enriching", {
@@ -228,7 +241,6 @@ export function GetLeadsFlow({
               d: info.discoveryId,
             })
           }
-          onToast={showToast}
         />
       ) : null}
 
@@ -239,33 +251,52 @@ export function GetLeadsFlow({
           leadCount={leadCount}
         />
       ) : null}
-
-      {toast ? (
-        <div
-          className="toast"
-          role="status"
-          aria-live="polite"
-          style={{ opacity: 1 }}
-        >
-          {toast}
-        </div>
-      ) : null}
     </div>
   );
 }
 
-function Stepper({ current }: { current: FlowStep }) {
+function Stepper({
+  current,
+  onJump,
+}: {
+  current: FlowStep;
+  /** Jump back to an already-completed step (WP4-15). URL-state + the step
+   *  clamp make back-jumps safe — a jump to a step the state can't render is
+   *  re-clamped by GetLeadsFlow. */
+  onJump: (step: FlowStep) => void;
+}) {
   const idx = FLOW_STEPS.findIndex((s) => s.key === current);
   return (
     <div className="steps" id="get-leads-steps">
       {FLOW_STEPS.map((s, i) => {
-        const cls = i < idx ? "s done" : i === idx ? "s cur" : "s";
+        const done = i < idx;
+        const cls = done ? "s done" : i === idx ? "s cur" : "s";
+        const inner = (
+          <>
+            <span className="n">{done ? "✓" : i + 1}</span>
+            {s.label}
+          </>
+        );
         return (
           <span key={s.key} style={{ display: "contents" }}>
-            <span className={cls}>
-              <span className="n">{i < idx ? "✓" : i + 1}</span>
-              {s.label}
-            </span>
+            {done ? (
+              // Completed steps are tappable — jump back to revise a choice.
+              <button
+                type="button"
+                className={cls}
+                onClick={() => onJump(s.key)}
+                aria-label={`Go back to ${s.label}`}
+              >
+                {inner}
+              </button>
+            ) : (
+              <span
+                className={cls}
+                aria-current={i === idx ? "step" : undefined}
+              >
+                {inner}
+              </span>
+            )}
             {i < FLOW_STEPS.length - 1 ? <span className="line" /> : null}
           </span>
         );

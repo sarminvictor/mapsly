@@ -17,13 +17,17 @@ import {
   ENRICHMENT_PRICES,
   DISCOVERY_PRICE,
   CREDIT_USD,
-  COST_GATE,
   PRICE_LIST_VERSION,
   type EnrichmentType,
   type ScopeUnit,
 } from "./pricing";
 
-export type CostGate = "auto" | "confirm" | "approval";
+// WP1-11 (Viktor exception, 2026-07-01): the $5 approval gate is REMOVED.
+// Wallet balance is the ONLY spend gate now — a funded run of ANY size proceeds
+// self-serve. `gateFor` therefore never returns "approval" (the value is gone
+// from the union): any positive net is "confirm" (the UI shows a cost bar the
+// user clicks through), $0 is "auto".
+export type CostGate = "auto" | "confirm";
 export type EstimateConfidence = "exact" | "bounded";
 
 export interface EstimateLineInput {
@@ -73,11 +77,13 @@ function assertCount(name: string, n: number): number {
   return n;
 }
 
-/** Which gate a net-USD figure falls into. */
+/**
+ * Which gate a net-USD figure falls into. WP1-11: no approval tier — a positive
+ * net is always "confirm" (a self-serve click-through), $0 is "auto". The wallet
+ * balance check (holdCredits → insufficient_credits) is the only real gate.
+ */
 export function gateFor(netUsd: number): CostGate {
-  if (netUsd > COST_GATE.approvalMinUsd) return "approval";
-  if (netUsd >= COST_GATE.autoMaxUsd) return "confirm";
-  return "auto";
+  return netUsd > 0 ? "confirm" : "auto";
 }
 
 /** Convert USD to whole credits (round up — never under-charge). */

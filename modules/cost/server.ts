@@ -33,6 +33,7 @@ import {
   COST_GATE,
   PRICE_LIST_VERSION,
   PLAN_CREDITS,
+  ROLLOVER_CAP_MULTIPLE,
   FREE_TIER_CREDITS,
   type AgencyPlanTier,
   type EnrichmentType,
@@ -523,7 +524,22 @@ export async function settleRun(
   if (held <= 0) {
     throw new WalletError("no_hold", `no HOLD ledger row for run ${runId}`);
   }
+
+  // WP1-3 · settle idempotency backstop. There is NO DB unique on (runId, SETTLE)
+  // (CreditLedger has only @@index([runId,type]), no migration this wave), so a
+  // second settleRun for the same run — e.g. a re-entered close — must be a
+  // no-op. A SETTLE row already existing means this run was already reconciled;
+  // return the current wallet without writing a second charge. This closes the
+  // window the read-then-compute clamp alone couldn't (two settles reading the
+  // same ledgerSum before either writes). The dispatcher additionally gates via
+  // the finishedAt compare-and-set (closeRunIfDone), so only one close reaches
+  // here; this guard is defence-in-depth.
   const alreadySettled = await ledgerSum(runId, "SETTLE");
+  if (alreadySettled > 0) {
+    const agencyId = await runAgencyId(runId);
+    const wallet = await getOrCreateWallet(agencyId);
+    return { wallet, charged: alreadySettled, refunded: 0 };
+  }
   const alreadyRefunded = await ledgerSum(runId, "REFUND");
   const alreadyReleased = alreadySettled + alreadyRefunded;
 
@@ -664,17 +680,18 @@ async function runAgencyId(runId: string): Promise<string> {
 export async function reconcileRunCredits(
   runId: string,
   opts: { actualCredits?: number; hadProgress: boolean },
-): Promise<void> {
+): Promise<{ charged: number; refunded: number }> {
   try {
     const held = await ledgerSum(runId, "HOLD");
-    if (held <= 0) return; // nothing reserved
+    if (held <= 0) return { charged: 0, refunded: 0 }; // nothing reserved
     if (!opts.hadProgress) {
-      await refundHold(runId);
-      return;
+      const r = await refundHold(runId);
+      return { charged: r.charged, refunded: r.refunded };
     }
     // Default to charging the full hold (the quoted amount) when no finer
     // actual is supplied; the job rail (Slice 2) passes per-job actuals.
-    await settleRun(runId, opts.actualCredits ?? held);
+    const r = await settleRun(runId, opts.actualCredits ?? held);
+    return { charged: r.charged, refunded: r.refunded };
   } catch (err) {
     console.error(
       JSON.stringify({
@@ -684,14 +701,43 @@ export async function reconcileRunCredits(
         error: err instanceof Error ? err.message : String(err),
       }),
     );
+    // A settlement hiccup must never fail the run close-out; report zeros so
+    // the caller's receipt write is a safe no-op.
+    return { charged: 0, refunded: 0 };
   }
+}
+
+/**
+ * Compute the new rollover balance at a plan-credit grant (WP6-8, capped
+ * accumulation). Unused PLAN credits from the ending cycle are ADDED to the
+ * existing rollover bucket, then the total is capped at
+ * `ROLLOVER_CAP_MULTIPLE × tierCredits`. Anything above the cap is forfeited
+ * (the honest "carry over up to Nx" promise on the pricing cards).
+ *
+ * Pure + exported so the cap behavior is unit-testable without a DB.
+ */
+export function nextRolloverCredits(
+  priorPlanCredits: number,
+  priorRolloverCredits: number,
+  tierCredits: number,
+): number {
+  const cap = ROLLOVER_CAP_MULTIPLE * tierCredits;
+  // Only non-negative leftovers roll (defensive against any transient negative).
+  const carried =
+    Math.max(0, priorRolloverCredits) + Math.max(0, priorPlanCredits);
+  return Math.min(carried, cap);
 }
 
 /**
  * Grant (or re-grant) a paid plan's monthly credits, keyed by billing period so
  * a webhook replay never double-grants. Resets the plan bucket to the tier
- * amount and rolls the prior period's unused plan credits into rolloverCredits
- * (1-cycle rollover). Purchased credits are untouched.
+ * amount and rolls the prior period's UNUSED plan credits forward into
+ * rolloverCredits, ACCUMULATING across cycles up to `ROLLOVER_CAP_MULTIPLE ×`
+ * the tier grant (WP6-8). Purchased credits are untouched.
+ *
+ * Rollover is orthogonal to settle (docs/unit-economics.md): this only carries
+ * unused plan credits forward at reset; `settleRun` still charges runs exactly
+ * as before (plan → rollover → purchased draw-down).
  */
 export async function grantPlanCredits(
   agencyId: string,
@@ -711,9 +757,13 @@ export async function grantPlanCredits(
 
   const w = await prisma.agencyWallet.findUnique({
     where: { agencyId },
-    select: { planCredits: true },
+    select: { planCredits: true, rolloverCredits: true },
   });
-  const carriedRollover = Math.min(w?.planCredits ?? 0, credits);
+  const carriedRollover = nextRolloverCredits(
+    w?.planCredits ?? 0,
+    w?.rolloverCredits ?? 0,
+    credits,
+  );
 
   await prisma.$transaction([
     prisma.agencyWallet.update({
@@ -793,4 +843,52 @@ export async function grantTopUpCredits(
       data: { agencyId, type: "TOPUP", credits, usd, note },
     }),
   ]);
+}
+
+/**
+ * WP6-13 · make-good credit refund for a bad-data dispute. Credits the agency's
+ * PURCHASED bucket (the durable make-good bucket, like a top-up — a dispute is
+ * not tied to a run's HOLD, so it can't ride settle/refundHold) and writes a
+ * `REFUND` ledger row. Idempotent per `dedupeKey` (e.g. the disputed field id):
+ * the same field can't be refunded twice. Returns the credited amount (0 when a
+ * prior refund with the same key exists). Never over-credits.
+ *
+ * Uses REFUND (not ADJUST): a dispute refund is a genuine give-back of credits
+ * the agency spent on data we couldn't stand behind — REFUND is the ledger type
+ * that already means "credits returned to the wallet".
+ */
+export async function refundCredits(
+  agencyId: string,
+  credits: number,
+  note: string,
+  dedupeKey: string,
+): Promise<{ wallet: WalletState; refunded: number }> {
+  assertCredits(credits);
+  const wallet0 = await getOrCreateWallet(agencyId);
+  if (credits <= 0) return { wallet: wallet0, refunded: 0 };
+
+  const dedupeNote = `dispute-refund:${dedupeKey}`;
+  const already = await prisma.creditLedger.findFirst({
+    where: { agencyId, type: "REFUND", note: dedupeNote },
+    select: { id: true },
+  });
+  if (already) return { wallet: wallet0, refunded: 0 }; // idempotent per field
+
+  await prisma.$transaction([
+    prisma.agencyWallet.update({
+      where: { agencyId },
+      data: { purchasedCredits: { increment: credits } },
+    }),
+    prisma.creditLedger.create({
+      data: {
+        agencyId,
+        type: "REFUND",
+        credits,
+        note: `${dedupeNote}${note ? ` · ${note}` : ""}`,
+      },
+    }),
+  ]);
+
+  const wallet = await getOrCreateWallet(agencyId);
+  return { wallet, refunded: credits };
 }

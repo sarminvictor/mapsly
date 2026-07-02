@@ -38,13 +38,19 @@ export function GenerateTouchpointsPanel() {
       if (r.status === "ok") {
         setMsg(
           r.generated > 0
-            ? `Generated ${r.generated} draft${r.generated === 1 ? "" : "s"} from ${r.scanned} prospects.`
+            ? `Generated ${r.generated} draft${r.generated === 1 ? "" : "s"} from ${r.scanned} prospects${r.creditsCharged > 0 ? ` · ${r.creditsCharged} cr` : ""}.`
             : "No new prospects to draft — every discovered, reachable business already has a touch.",
         );
         router.refresh();
       } else if (r.status === "invalid_input") {
         setError(true);
         setMsg(r.message);
+      } else if (r.status === "insufficient_credits") {
+        setError(true);
+        setMsg(`Needs ${r.creditsNeeded} credits — top up in Billing.`);
+      } else if (r.status === "forbidden") {
+        setError(true);
+        setMsg("Owner or admin role required — generation spends credits.");
       } else {
         setError(true);
         setMsg(`Couldn't generate (${r.status}).`);

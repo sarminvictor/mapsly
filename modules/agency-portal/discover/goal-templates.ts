@@ -1701,6 +1701,96 @@ export const GOAL_TEMPLATES: GoalTemplate[] = [
       },
     ],
   },
+  // ─── WP6-5 · Compliance-risk prospecting product line ──────────────────────
+  //
+  // A headline outbound category nobody else sells: package the playbook's
+  // HIPAA / ADA / licensure / advertising-rule detectors as goal presets. The
+  // `compliance_risk` filter binds `compliance_gap`, which fires on a flagged
+  // PlaybookFinding in a compliance/privacy/accessibility group — so the
+  // vertical playbook (med-spa/dental/chiropractic HIPAA, roofing/HVAC license,
+  // law bar-advertising, plus ADA everywhere) does the detection automatically
+  // once the agency maps that vertical's market. NO new SIG_META is needed.
+  //
+  // TRUST-FIRST framing (front-and-center in every `out`): we surface POTENTIAL
+  // EXPOSURE worth checking — confidence-capped, evidence-backed, never a
+  // violation. The playbook copy-lint (assertExposurePhrasing) guarantees the
+  // shipped finding text can never assert a violation. This is the pitch's
+  // credibility: "we flag exposure, never assert violations."
+  {
+    key: "compliance",
+    icon: "⚖️",
+    title: "Compliance risk",
+    category: "Risk",
+    who: "Businesses with a checkable legal-exposure gap — HIPAA tracking, ADA accessibility, or a licensure / advertising-rule gap",
+    out: "A credible risk-framed opener nobody else sells — we flag exposure worth checking, never assert a violation",
+    filters: [
+      {
+        key: "operating_business",
+        on: true,
+        why: "Real, operating businesses only — the baseline for every goal.",
+      },
+      {
+        key: "has_website",
+        on: true,
+        why: "The exposure lives on the live site — HIPAA pixels, ADA failures, missing license/disclaimer language.",
+      },
+      {
+        key: "compliance_risk",
+        on: true,
+        why: "A flagged compliance finding (HIPAA / ADA / licensure) — shown as evidence, confidence-capped, never a violation claim.",
+      },
+    ],
+  },
+  {
+    key: "compliance_hipaa",
+    icon: "🩺",
+    title: "HIPAA tracking exposure",
+    category: "Risk",
+    who: "Health businesses (med-spa, dental, chiropractic) running a tracking pixel alongside patient-intake tools",
+    out: "The highest-value, low-supply health pitch — a patient-privacy exposure worth checking, framed as a review point (HHS guidance is contested)",
+    filters: [
+      {
+        key: "operating_business",
+        on: true,
+        why: "Real, operating businesses only — the baseline for every goal.",
+      },
+      {
+        key: "has_website",
+        on: true,
+        why: "The pixel-on-intake co-location is a live-site read — no site, nothing to check.",
+      },
+      {
+        key: "compliance_risk",
+        on: true,
+        why: "A tracking pixel co-located with a patient-intake tool — evidence-backed, confidence-capped, never a HIPAA-violation claim.",
+      },
+    ],
+  },
+  {
+    key: "compliance_ada",
+    icon: "♿",
+    title: "ADA accessibility exposure",
+    category: "Risk",
+    who: "Businesses whose site fails the accessibility checks that drive ADA demand letters",
+    out: "A concrete web-accessibility fix backed by Lighthouse audits — the exact checks cited in accessibility demand letters, worth reviewing",
+    filters: [
+      {
+        key: "operating_business",
+        on: true,
+        why: "Real, operating businesses only — the baseline for every goal.",
+      },
+      {
+        key: "has_website",
+        on: true,
+        why: "Accessibility is audited on the live site — no site, nothing to check.",
+      },
+      {
+        key: "compliance_risk",
+        on: true,
+        why: "Serious WCAG audit failures (contrast, alt text, labels) — the checks most cited in ADA demand letters, shown as evidence.",
+      },
+    ],
+  },
   {
     key: "custom",
     icon: "⚙️",

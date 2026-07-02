@@ -32,6 +32,10 @@ import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import stripeClient from "@/lib/stripe";
 import {
+  ACTION_ENQUEUE_LIMIT,
+  rateLimitAction,
+} from "@/lib/middleware/rate-limit";
+import {
   TOPUP_PACKS,
   type PlanKey,
   type TopUpPack,
@@ -185,6 +189,12 @@ export async function startPlanCheckout(formData: FormData): Promise<void> {
     redirect(billingUrl(locale, "?billing_error=role_required"));
   }
 
+  // WP8-2 · bound checkout-session starts per user (Stripe-session churn).
+  const rl = await rateLimitAction(ACTION_ENQUEUE_LIMIT, ctx.userId);
+  if (rl.limited) {
+    redirect(billingUrl(locale, "?billing_error=rate_limited"));
+  }
+
   try {
     const customerId = await ensureAgencyCustomer(ctx);
     const metadata: Record<string, string> = {
@@ -251,6 +261,12 @@ export async function startTopUpCheckout(formData: FormData): Promise<void> {
   }
   if (!ctx.canManage) {
     redirect(billingUrl(locale, "?billing_error=role_required"));
+  }
+
+  // WP8-2 · bound checkout-session starts per user (Stripe-session churn).
+  const rl = await rateLimitAction(ACTION_ENQUEUE_LIMIT, ctx.userId);
+  if (rl.limited) {
+    redirect(billingUrl(locale, "?billing_error=rate_limited"));
   }
 
   try {

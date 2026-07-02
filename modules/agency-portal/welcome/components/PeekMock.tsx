@@ -64,10 +64,7 @@ export function PeekMock() {
           </div>
           <div className="peek-sigs">
             {row.sigs.map((sig) => (
-              <span
-                className={sig.pain ? "psig pain" : "psig"}
-                key={sig.text}
-              >
+              <span className={sig.pain ? "psig pain" : "psig"} key={sig.text}>
                 {sig.text}
               </span>
             ))}

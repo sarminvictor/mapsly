@@ -28,6 +28,7 @@
 import { z } from "zod";
 
 import { auth } from "@/lib/auth";
+import prisma from "@/lib/prisma";
 import { rateLimit, USER_LIMIT } from "@/lib/middleware/rate-limit";
 import {
   MAX_QUERY_LEN,
@@ -64,7 +65,15 @@ export async function GET(req: Request): Promise<Response> {
   }
 
   // ─── Query ──────────────────────────────────────────────────────────────
-  const matches = await searchBusinesses(parsed.data.q);
+  // Resolve the caller's agency so each match can carry the discovery that
+  // contains it (WP4-7 deep-link). Agency-scoped — a match never links to
+  // another agency's research. No agency (user not on a team yet) → matches
+  // still return, just without a deep-link.
+  const member = await prisma.agencyMember.findFirst({
+    where: { userId: session.user.id },
+    select: { agencyId: true },
+  });
+  const matches = await searchBusinesses(parsed.data.q, member?.agencyId);
   const body: BusinessSearchResponse = {
     query: parsed.data.q,
     matches,

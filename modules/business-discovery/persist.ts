@@ -258,6 +258,18 @@ export function mapsRowToPersist(
     checkUrl: row.check_url ?? null,
     firstSeenOnGoogle: parseDfsTimestamp(row.first_seen),
     sourceLastUpdatedAt: parseDfsTimestamp(row.last_updated_time),
+    // WP9-6 · the full raw DfS row, for forensic re-extraction. This shape is
+    // consumed ONLY on the CREATE path (`persistBusinessRow` → business.create
+    // below) — the duplicate/refresh path never rewrites `sourceRawJson` (it
+    // touches only lastRefreshedAt/openStatus/gbpHasBooking + cell backfill). So
+    // this dominant storage line is written EXACTLY ONCE per business, at first
+    // discovery, and never re-written on refresh. That means there is no
+    // repeated write to skip: the WP9-6 "stop rewriting when the payload hash is
+    // unchanged" optimization is a no-op against the current code path, and
+    // adding a hash column/comparison would be pure overhead. If a future
+    // refresh path DOES start rewriting sourceRawJson (e.g. a weekly deep
+    // re-pull), THAT is where a `sourceRawHash` skip-guard belongs — see
+    // docs/mvp-10of10-tracker.md WP9-6 and the note in this module's header.
     sourceRawJson: asJsonStrict(row),
   };
 }

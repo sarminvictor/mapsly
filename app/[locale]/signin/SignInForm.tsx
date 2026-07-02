@@ -9,9 +9,15 @@ import { signInAction, type SignInState } from "./actions";
 export function SignInForm({
   intent,
   landing,
+  audience,
+  invite,
 }: {
   intent?: string;
   landing?: string;
+  /** "agency" when arriving from a /for-agencies CTA (WP2-1). */
+  audience?: string;
+  /** Seat-invite token from a team email (WP5-8). */
+  invite?: string;
 }) {
   const t = useTranslations("auth.signin");
   const [state, formAction] = useActionState<SignInState, FormData>(
@@ -30,6 +36,10 @@ export function SignInForm({
     <form action={formAction} noValidate aria-describedby="signin-error">
       {intent ? <input type="hidden" name="intent" value={intent} /> : null}
       {landing ? <input type="hidden" name="landing" value={landing} /> : null}
+      {audience ? (
+        <input type="hidden" name="audience" value={audience} />
+      ) : null}
+      {invite ? <input type="hidden" name="invite" value={invite} /> : null}
       <label
         htmlFor="signin-email"
         style={{

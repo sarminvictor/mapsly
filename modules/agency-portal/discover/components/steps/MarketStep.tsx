@@ -14,6 +14,7 @@ import { useMemo, useState } from "react";
 import { SIG_META } from "../../goal-templates";
 import { type GoalState, type MarketCell } from "../../flow-types";
 import { MarketCombobox, type ComboOption } from "../MarketCombobox";
+import { requestCategoryAction } from "@/modules/discovery/category-request-actions";
 
 export interface MetroOption {
   slug: string;
@@ -192,6 +193,13 @@ export function MarketStep({
                   onPick={(o) => {
                     const found = categories.find((c) => c.id === o.value);
                     if (found) setPickedCat(found);
+                  }}
+                  // WP7-13 · taxonomy-miss — the closest-match suggestion +
+                  // "request this category" capture live in the combobox; here we
+                  // just record the request (fire-and-forget) + acknowledge it.
+                  onRequestMissing={(q) => {
+                    void requestCategoryAction({ query: q });
+                    onToast(`Thanks — we'll look at adding "${q}"`);
                   }}
                 />
                 <button

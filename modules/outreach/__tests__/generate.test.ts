@@ -12,6 +12,8 @@ const prismaMock = vi.hoisted(() => ({
   businessTech: { findFirst: vi.fn(), count: vi.fn() },
   playbookFinding: { findFirst: vi.fn() },
   outreachDraft: { create: vi.fn() },
+  // WP7-4 · consent-basis log written per email touch.
+  consentRecord: { create: vi.fn() },
 }));
 vi.mock("@/lib/prisma", () => ({ default: prismaMock, Prisma: {} }));
 
@@ -115,6 +117,7 @@ describe("generateTouchesForLeads", () => {
     const out = await generateTouchesForLeads(["biz_1"], {
       sellingWhat: "marketing",
       channel: "email",
+      agencyId: "agency_1",
       mailingAddress: "1 Main St, Miami FL",
     });
 
@@ -122,6 +125,8 @@ describe("generateTouchesForLeads", () => {
     expect(prismaMock.outreachDraft.create).toHaveBeenCalledTimes(1);
     const data = prismaMock.outreachDraft.create.mock.calls[0][0].data;
     expect(data.businessId).toBe("biz_1");
+    // WP0-1/WP5 · every new draft is stamped with the generating agency.
+    expect(data.agencyId).toBe("agency_1");
     expect(data.channel).toBe("email");
     expect(data.status).toBe("draft");
     // No unfilled merge tokens (the skeleton drops ungrounded lines).
@@ -133,6 +138,49 @@ describe("generateTouchesForLeads", () => {
     expect(Array.isArray(data.whyJson.droppedTokens)).toBe(true);
     expect(data.whyJson.droppedTokens).toContain("competitor_ads");
     expect(typeof data.predictedTier).toBe("string");
+  });
+
+  test("WP7-4 · logs a ConsentRecord (CONSPICUOUS_PUBLICATION) per email touch when the business has an email", async () => {
+    mockBiz({ email: "Owner@GlowSpa.com", country: "CA" });
+    prismaMock.review.count.mockResolvedValue(2);
+    prismaMock.adLibraryEntry.count.mockResolvedValue(0);
+    prismaMock.businessTech.findFirst.mockResolvedValue(null);
+    prismaMock.businessTech.count.mockResolvedValue(0);
+    prismaMock.playbookFinding.findFirst.mockResolvedValue(null);
+    prismaMock.outreachDraft.create.mockResolvedValue({ id: "draft_1" });
+    prismaMock.consentRecord.create.mockResolvedValue({ id: "consent_1" });
+
+    await generateTouchesForLeads(["biz_1"], {
+      sellingWhat: "local SEO",
+      channel: "email",
+      agencyId: "agency_1",
+      mailingAddress: "1 Main St, Toronto ON",
+    });
+
+    expect(prismaMock.consentRecord.create).toHaveBeenCalledTimes(1);
+    const c = prismaMock.consentRecord.create.mock.calls[0][0].data;
+    expect(c.email).toBe("owner@glowspa.com"); // lowercased
+    expect(c.businessId).toBe("biz_1");
+    expect(c.basis).toBe("CONSPICUOUS_PUBLICATION");
+    expect(c.country).toBe("CA");
+  });
+
+  test("WP7-4 · no ConsentRecord for a non-email channel", async () => {
+    mockBiz({ email: "owner@glowspa.com" });
+    prismaMock.review.count.mockResolvedValue(2);
+    prismaMock.adLibraryEntry.count.mockResolvedValue(0);
+    prismaMock.businessTech.findFirst.mockResolvedValue(null);
+    prismaMock.businessTech.count.mockResolvedValue(0);
+    prismaMock.playbookFinding.findFirst.mockResolvedValue(null);
+    prismaMock.outreachDraft.create.mockResolvedValue({ id: "draft_1" });
+
+    await generateTouchesForLeads(["biz_1"], {
+      sellingWhat: "local SEO",
+      channel: "dm",
+      agencyId: "agency_1",
+    });
+
+    expect(prismaMock.consentRecord.create).not.toHaveBeenCalled();
   });
 
   test("skips an unbuildable lead (email with no mailing address) without failing the batch", async () => {
@@ -147,9 +195,86 @@ describe("generateTouchesForLeads", () => {
     const out = await generateTouchesForLeads(["biz_1"], {
       sellingWhat: "marketing",
       channel: "email",
+      agencyId: "agency_1",
     });
 
     expect(out).toEqual([]);
     expect(prismaMock.outreachDraft.create).not.toHaveBeenCalled();
+  });
+
+  test("WP5-10 · a 3-step sequence writes 3 drafts with non-repeating pain themes", async () => {
+    mockBiz();
+    prismaMock.review.count.mockResolvedValue(3); // unanswered negatives
+    prismaMock.adLibraryEntry.count.mockResolvedValue(0);
+    prismaMock.businessTech.findFirst.mockResolvedValue(null);
+    prismaMock.businessTech.count.mockResolvedValue(0);
+    prismaMock.playbookFinding.findFirst.mockResolvedValue(null);
+    let n = 0;
+    prismaMock.outreachDraft.create.mockImplementation(async () => ({
+      id: `draft_${++n}`,
+    }));
+
+    const out = await generateTouchesForLeads(["biz_1"], {
+      sellingWhat: "marketing",
+      channel: "email",
+      agencyId: "agency_1",
+      mailingAddress: "1 Main St, Miami FL",
+      sequenceLength: 3,
+      tone: "warm",
+    });
+
+    expect(out).toHaveLength(3);
+    // Signals gathered ONCE per business, not per step.
+    expect(prismaMock.business.findUnique).toHaveBeenCalledTimes(1);
+
+    const calls = prismaMock.outreachDraft.create.mock.calls.map(
+      (c) => (c[0] as { data: Record<string, unknown> }).data,
+    );
+    // Steps encoded in whyJson (no schema ordinal column).
+    expect(
+      calls.map((d) => (d.whyJson as { sequenceStep: number }).sequenceStep),
+    ).toEqual([1, 2, 3]);
+    expect(
+      calls.every(
+        (d) => (d.whyJson as { sequenceOf: number }).sequenceOf === 3,
+      ),
+    ).toBe(true);
+    // Themes never repeat across the sequence (WP5-10 dedup).
+    const used = calls.flatMap(
+      (d) => (d.whyJson as { usedSignals: string[] }).usedSignals,
+    );
+    expect(new Set(used).size).toBe(used.length);
+    // Follow-up steps read as follow-ups, and no unfilled tokens anywhere.
+    expect(String(calls[1].body)).toContain("Following up");
+    expect(String(calls[2].body)).toContain("Last note");
+    for (const d of calls) {
+      expect(String(d.body)).not.toMatch(/\{\{[^}]+\}\}/);
+      expect(d.agencyId).toBe("agency_1");
+    }
+  });
+
+  test("WP5-1 · painPointKeys restricts which themes may fire", async () => {
+    mockBiz();
+    prismaMock.review.count.mockResolvedValue(5); // unanswered negatives present
+    prismaMock.adLibraryEntry.count.mockResolvedValue(0);
+    prismaMock.businessTech.findFirst.mockResolvedValue(null);
+    prismaMock.businessTech.count.mockResolvedValue(0);
+    prismaMock.playbookFinding.findFirst.mockResolvedValue(null);
+    prismaMock.outreachDraft.create.mockResolvedValue({ id: "draft_1" });
+
+    await generateTouchesForLeads(["biz_1"], {
+      sellingWhat: "marketing",
+      channel: "email",
+      agencyId: "agency_1",
+      mailingAddress: "1 Main St, Miami FL",
+      // Only the slow-site theme is allowed — the (present) unanswered
+      // negatives theme must NOT fire.
+      painPointKeys: ["slow_site"],
+    });
+
+    const data = prismaMock.outreachDraft.create.mock.calls[0][0].data;
+    const why = data.whyJson as { usedSignals: string[] };
+    expect(why.usedSignals).toEqual(["slow_site"]);
+    expect(String(data.body)).not.toContain("unanswered negative");
   });
 });

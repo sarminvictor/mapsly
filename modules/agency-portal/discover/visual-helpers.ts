@@ -26,6 +26,40 @@ export function typicalBand(
   return { startPct, widthPct: Math.max(0, endPct - startPct) };
 }
 
+/**
+ * WP5-11 · approximate a value's percentile from its cell BAND (the five
+ * stored quantiles), for surfaces that carry the band but not the raw sample
+ * (the drawer's evidence rows). Piecewise-linear through (p10,10) (p25,25)
+ * (p50,50) (p75,75) (p90,90); clamped to 5/95 outside the band so an extreme
+ * value never claims a fake 0th/100th. A degenerate band (all quantiles
+ * equal) reads as 50 — "typical". Pure + deterministic.
+ */
+export function percentileFromBand(
+  value: number,
+  band: { p10: number; p25: number; p50: number; p75: number; p90: number },
+): number {
+  const stops: [number, number][] = [
+    [band.p10, 10],
+    [band.p25, 25],
+    [band.p50, 50],
+    [band.p75, 75],
+    [band.p90, 90],
+  ];
+  if (band.p90 <= band.p10) return 50; // degenerate — everything is typical
+  if (value <= band.p10) return 5;
+  if (value >= band.p90) return 95;
+  for (let i = 0; i < stops.length - 1; i += 1) {
+    const [v0, p0] = stops[i];
+    const [v1, p1] = stops[i + 1];
+    if (value <= v1) {
+      if (v1 === v0) return p1;
+      const t = (value - v0) / (v1 - v0);
+      return Math.round(p0 + t * (p1 - p0));
+    }
+  }
+  return 90;
+}
+
 /** Color a percentile (0–100): bottom red, middle amber, top green. Always
  *  paired with text in the UI (never color-only — a11y). */
 export function percentileTone(percentile: number): Tone {
@@ -125,8 +159,8 @@ export function predictedTierTone(tier: PredictedTier): Tone {
 /**
  * Build an SVG polyline `points` string for a sparkline from a series of values,
  * scaled to fit a [0,width] × [0,height] box (y inverted so higher = up). Pure +
- * deterministic so the tiny `<Sparkline>` shell stays untestable-free. A flat or
- * single-point series renders a centered horizontal line.
+ * deterministic so any sparkline shell that consumes it stays test-free. A flat
+ * or single-point series renders a centered horizontal line.
  */
 export function sparklinePoints(
   values: number[],

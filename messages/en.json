@@ -915,11 +915,14 @@
           "fields": {
             "name": "Agency name",
             "defaultMetro": "Default metro",
-            "categoriesServed": "Categories served"
+            "categoriesServed": "Categories served",
+            "mailingAddress": "Compliance footer address"
           },
           "helpName": "Internal label · shown on shared reports.",
           "helpMetro": "Used as the default geo on Hunter + List filters.",
           "helpCategories": "Comma-separated · up to 8 · e.g. med-spa, dental, hvac.",
+          "helpMailingAddress": "Your business's physical mailing address. Required by CAN-SPAM (US) and CASL (Canada) in every marketing email — email touchpoints won't generate without it.",
+          "mailingAddressMissing": "Add your mailing address to send email touchpoints. US (CAN-SPAM) and Canada (CASL) both require a physical address in every marketing email.",
           "save": "Save changes",
           "saved": "Saved"
         },

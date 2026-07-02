@@ -20,6 +20,7 @@
 // override the default OK close (e.g. when some batch items succeeded and
 // others failed but you want the run recorded as partial-success).
 
+import { secretsMatch } from "@/lib/auth/cron-secret";
 import { Prisma } from "@/lib/prisma";
 import {
   assertCronContext,
@@ -97,8 +98,12 @@ export function cronHandler(
         { status: 500 },
       );
     }
+    // WP8-3 · constant-time Bearer compare (no timing side channel) — shared by
+    // every cronHandler-wrapped route (all weekly/*, monthly/*, brand-hijack,
+    // poll-cold-inboxes, process-cold-sequences).
     const auth = req.headers.get("authorization");
-    if (auth !== `Bearer ${expected}`) {
+    const token = auth?.startsWith("Bearer ") ? auth.slice(7) : "";
+    if (!secretsMatch(token, expected)) {
       return Response.json({ error: "unauthorized" }, { status: 401 });
     }
 

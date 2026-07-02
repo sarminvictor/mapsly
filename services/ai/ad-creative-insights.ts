@@ -14,6 +14,7 @@ import { z } from "zod";
 import { kvCache } from "@/lib/cache";
 import { callOpenAi } from "@/services/ai/client";
 import type { SupportedModel } from "@/services/ai/pricing";
+import { wrapUntrusted } from "@/services/ai/untrusted";
 
 export const DEFAULT_AD_INSIGHTS_MODEL: SupportedModel = "gpt-5.4-mini";
 
@@ -87,12 +88,14 @@ function buildPrompt(input: AnalyzeAdCreativesInput): string {
     input.services.length > 0
       ? input.services.join(", ")
       : "(none provided — use your own short labels)";
+  // WP8-5 · competitor ad copy is UNTRUSTED third-party text — fence it so an
+  // adversarial creative can't inject instructions into the analysis prompt.
+  const adBlock = wrapUntrusted(lines.join("\n"), "Competitor ad texts");
   return `Local ${input.category} ads in ${input.city}.
 
 KNOWN SERVICES (classify into these first): ${services}
 
-Competitor ad texts:
-${lines.join("\n")}
+${adBlock}
 
 Extract serviceMix + promos and return JSON.`;
 }

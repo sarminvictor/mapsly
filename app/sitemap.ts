@@ -54,6 +54,22 @@ interface PublicPath {
  */
 const PUBLIC_PATHS: readonly PublicPath[] = [
   { path: "/", priority: 1.0, changeFrequency: "weekly" },
+  // WP6-7 · comparison pages (high-intent evaluator SEO surface).
+  {
+    path: "/compare/mapsly-vs-apollo",
+    priority: 0.7,
+    changeFrequency: "monthly",
+  },
+  {
+    path: "/compare/mapsly-vs-gohighlevel",
+    priority: 0.7,
+    changeFrequency: "monthly",
+  },
+  {
+    path: "/compare/mapsly-vs-leadswift-d7",
+    priority: 0.7,
+    changeFrequency: "monthly",
+  },
   { path: "/privacy", priority: 0.3, changeFrequency: "yearly" },
   { path: "/terms", priority: 0.3, changeFrequency: "yearly" },
   { path: "/cookies", priority: 0.3, changeFrequency: "yearly" },

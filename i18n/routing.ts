@@ -22,6 +22,14 @@ export const routing = defineRouting({
       "en-CA": "/for-agencies",
       fr: "/pour-agences",
     },
+    // WP6-7 · comparison pages. Locale-agnostic bare-string paths (the slug is
+    // the same in every locale — a brand/product name), registered as strings
+    // exactly like "/" so the translated-pathnames invariant skips them; the
+    // copy lives under the `comparisons` i18n namespace so localized COPY can
+    // land later without changing the slug or re-plumbing routing.
+    "/compare/mapsly-vs-apollo": "/compare/mapsly-vs-apollo",
+    "/compare/mapsly-vs-gohighlevel": "/compare/mapsly-vs-gohighlevel",
+    "/compare/mapsly-vs-leadswift-d7": "/compare/mapsly-vs-leadswift-d7",
     "/privacy": {
       en: "/privacy",
       es: "/privacidad",
@@ -166,12 +174,6 @@ export const routing = defineRouting({
       "en-CA": "/discover/[discoveryId]",
       fr: "/decouvrir/[discoveryId]",
     },
-    "/discover/[discoveryId]/signals": {
-      en: "/discover/[discoveryId]/signals",
-      es: "/descubrir/[discoveryId]/senales",
-      "en-CA": "/discover/[discoveryId]/signals",
-      fr: "/decouvrir/[discoveryId]/signaux",
-    },
     "/discover/[discoveryId]/lists/[listId]": {
       en: "/discover/[discoveryId]/lists/[listId]",
       es: "/descubrir/[discoveryId]/listas/[listId]",
@@ -183,6 +185,12 @@ export const routing = defineRouting({
       es: "/descubrir/[discoveryId]/negocio/[businessId]",
       "en-CA": "/discover/[discoveryId]/business/[businessId]",
       fr: "/decouvrir/[discoveryId]/entreprise/[businessId]",
+    },
+    "/discover/[discoveryId]/business/[businessId]/report": {
+      en: "/discover/[discoveryId]/business/[businessId]/report",
+      es: "/descubrir/[discoveryId]/negocio/[businessId]/informe",
+      "en-CA": "/discover/[discoveryId]/business/[businessId]/report",
+      fr: "/decouvrir/[discoveryId]/entreprise/[businessId]/rapport",
     },
     "/touchpoints": {
       en: "/touchpoints",

@@ -42,25 +42,26 @@ import { notFound, unauthorized } from "next/navigation";
 import { setRequestLocale } from "next-intl/server";
 
 import { auth } from "@/lib/auth";
-import { Link, redirect } from "@/i18n/navigation";
+import { redirect } from "@/i18n/navigation";
 import prisma from "@/lib/prisma";
-import {
-  cellFreshnessState,
-  parseCellKey,
-  type FreshnessState,
-} from "@/lib/cell";
+import { cellFreshnessState, parseCellKey } from "@/lib/cell";
 import { US_METROS } from "@/lib/geo/us-metros";
 import { enrichmentNeedsWebsite } from "@/modules/cost/pricing";
 import { usdToCredits } from "@/modules/cost/estimate";
 import { rawListWhere } from "@/modules/discovery/raw-list";
 import { researchesForSignals } from "@/modules/agency-portal/discover/researches";
-import { cellBand } from "@/modules/agency-portal/discover/signals";
+import {
+  resolveCellBands,
+  type CellReferenceBands,
+} from "@/modules/agency-portal/discover/signals";
+import { parseCellReference } from "@/modules/market/cell-metrics";
 import { deriveFamilyCoverage } from "@/modules/agency-portal/discover/family-coverage";
 import {
   loadCoverageMatrix,
   coverageMatrixToMap,
 } from "@/modules/agency-portal/discover/coverage-matrix";
 import {
+  WORKBENCH_WINDOW,
   resolveLeadMatch,
   painGroupClass,
   type CellBand,
@@ -72,14 +73,24 @@ import {
   hydrateBusinessForSignals,
   resolveMatches,
 } from "@/modules/agency-portal/discover/signal-eval";
-import { activeSignalsFromJson } from "@/modules/agency-portal/discover/discovery-signals";
-import { SIG_META } from "@/modules/agency-portal/discover/goal-templates";
+import {
+  activeSignalsFromJson,
+  goalMetaFromJson,
+} from "@/modules/agency-portal/discover/discovery-signals";
+import {
+  SIG_META,
+  templateByKey,
+} from "@/modules/agency-portal/discover/goal-templates";
+import { WorkspaceHeader } from "@/modules/agency-portal/discover/components/WorkspaceHeader";
 import {
   WorkbenchShell,
   type WorkbenchShellProps,
 } from "@/modules/agency-portal/discover/components/WorkbenchShell";
+import { LiveWorkbenchBanner } from "@/modules/agency-portal/discover/components/LiveWorkbenchBanner";
+import { resolveActiveRunForDiscovery } from "@/modules/agency-portal/discover/active-run";
 import type { WorkbenchTouch } from "@/modules/agency-portal/discover/components/TouchpointsTab";
 import { parseWhyJson } from "@/modules/agency-portal/discover/touchpoints";
+import { draftWhereForAgency } from "@/modules/outreach/draft-scope";
 
 export const metadata: Metadata = {
   title: "Workspace · Mapsly",
@@ -88,30 +99,40 @@ export const metadata: Metadata = {
 
 interface PageProps {
   params: Promise<{ locale: string; discoveryId: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }
 
-/**
- * Hard cap on businesses rendered into the workbench. The workbench paginates
- * client-side, so a bounded server fetch (scalability rule) is enough; very
- * large discoveries surface a "showing first N" note.
- */
-const MAX_BUSINESSES = 200;
+// Server fetch-window (WP4-4): the workbench fetches ONE window of
+// WORKBENCH_WINDOW (1000) businesses per request, at the offset the awaited
+// `?page=` searchParam selects (Pattern 3 · awaited INSIDE the Suspense
+// boundary). 1000 keeps page 1 identical to the old MAX_BUSINESSES ceiling
+// (same client-side sort/filter/vs-cell cohort); rows beyond it are now
+// reachable — the client pager crosses window boundaries via
+// router.replace("?page=N") and the full set streams from the export route.
+// The single bounded query + bounded side-loads keep the scalability rule
+// intact. Window-size rationale lives on WORKBENCH_WINDOW (leads-workbench.ts).
 
 const METRO_NAME_BY_SLUG = new Map(
   US_METROS.map((m) => [m.slug.toLowerCase(), m.name] as const),
 );
 
-export default function DiscoveryWorkspacePage({ params }: PageProps) {
+export default function DiscoveryWorkspacePage({
+  params,
+  searchParams,
+}: PageProps) {
   return (
     <Suspense fallback={null}>
-      <DiscoveryWorkspaceBody params={params} />
+      <DiscoveryWorkspaceBody params={params} searchParams={searchParams} />
     </Suspense>
   );
 }
 
-async function DiscoveryWorkspaceBody({ params }: PageProps) {
+async function DiscoveryWorkspaceBody({ params, searchParams }: PageProps) {
   const { locale, discoveryId } = await params;
   setRequestLocale(locale);
+  // Pattern 3 (cache-components.md): request-time searchParams are awaited
+  // INSIDE the Suspense boundary, never on it.
+  const requestedPage = parsePageParam((await searchParams).page);
 
   const session = await auth();
   if (!session?.user?.id) unauthorized();
@@ -161,10 +182,28 @@ async function DiscoveryWorkspaceBody({ params }: PageProps) {
     filters: goalNeedsWebsite ? { hasWebsite: true } : undefined,
   });
 
+  // The whole-market count FIRST (drives the window clamp + the header
+  // narrative + the honest totals). Falls back to the denormalized total when
+  // there are no cells.
+  const totalBusinesses =
+    cellKeys.length === 0
+      ? discovery.totalBusinesses
+      : await prisma.business.count({ where: listWhere });
+
+  // Server window (WP4-4): clamp the requested `?page=` into range so a stale
+  // deep link past the end lands on the last window, never an empty table.
+  const serverPageCount =
+    cellKeys.length === 0
+      ? 1
+      : Math.max(1, Math.ceil(totalBusinesses / WORKBENCH_WINDOW));
+  const serverPage = Math.min(requestedPage, serverPageCount);
+
   // The discovery's businesses (the same hidden/closed gate as the raw list, so
   // the workbench shows the same default market). Ordered like getRawList
   // (reviewCount desc NULLS LAST, id asc) so the strongest leads lead — Postgres
-  // sinks NULL review counts (see modules/discovery/raw-list.ts).
+  // sinks NULL review counts (see modules/discovery/raw-list.ts). One window of
+  // WORKBENCH_WINDOW rows at the ?page offset (stable order + id tiebreaker
+  // keeps skip/take windows non-overlapping).
   const businesses =
     cellKeys.length === 0
       ? []
@@ -174,7 +213,8 @@ async function DiscoveryWorkspaceBody({ params }: PageProps) {
             { reviewCount: { sort: "desc", nulls: "last" } },
             { id: "asc" },
           ],
-          take: MAX_BUSINESSES,
+          skip: (serverPage - 1) * WORKBENCH_WINDOW,
+          take: WORKBENCH_WINDOW,
           select: {
             id: true,
             name: true,
@@ -187,15 +227,13 @@ async function DiscoveryWorkspaceBody({ params }: PageProps) {
             reachableChannelCount: true,
             phone: true,
             email: true,
+            website: true,
+            // WP6-1 · tenure cohort sample (years-on-Google) for the vs-cell
+            // "tenure" band — CellMetric carries no tenure percentile, so this
+            // band is cohort-sourced (honest within the Discovery).
+            firstSeenOnGoogle: true,
           },
         });
-
-  // The whole-market count (for the meta line + "showing first N" note). Falls
-  // back to the denormalized total when there are no cells.
-  const totalBusinesses =
-    cellKeys.length === 0
-      ? discovery.totalBusinesses
-      : await prisma.business.count({ where: listWhere });
 
   const businessIds = businesses.map((b) => b.id);
 
@@ -271,7 +309,11 @@ async function DiscoveryWorkspaceBody({ params }: PageProps) {
             select: { businessId: true, channel: true, value: true },
           }),
           prisma.outreachDraft.findMany({
-            where: { businessId: { in: businessIds } },
+            // WP0-1/WP5 · agency-scope draft reads (draftWhereForAgency) so a
+            // competing agency in the same shared market cell can't read this
+            // agency's outreach copy. Legacy null-agencyId rows stay visible via
+            // the helper's OR-null arm until the backfill script resolves them.
+            where: draftWhereForAgency(agencyId, businessIds),
             orderBy: { createdAt: "asc" },
             select: {
               id: true,
@@ -288,10 +330,12 @@ async function DiscoveryWorkspaceBody({ params }: PageProps) {
           // (adsEnriched = ads.length > 0 · serpEnriched = serp != null). These
           // feed the coverage map so the table no longer fakes ads/search as
           // never-covered. Existence-only (distinct businessId).
-          prisma.adLibraryEntry.findMany({
-            where: { businessId: { in: businessIds } },
-            select: { businessId: true },
-            distinct: ["businessId"],
+          // WP6-1 · Meta-ad COUNT per business (groupBy) — feeds both the
+          // ads-presence set (count > 0) AND the vs-cell "ads" cohort band.
+          prisma.adLibraryEntry.groupBy({
+            by: ["businessId"],
+            where: { businessId: { in: businessIds }, platform: "META" },
+            _count: { _all: true },
           }),
           prisma.serpResult.findMany({
             where: { businessId: { in: businessIds } },
@@ -301,7 +345,12 @@ async function DiscoveryWorkspaceBody({ params }: PageProps) {
         ]);
 
   // Ads / Search presence sets (one membership test per business below).
-  const adsByBusiness = new Set(ads.map((r) => r.businessId));
+  // WP6-1 · adsCountByBusiness carries the Meta-ad creative count per business
+  // (the "ads" band sample); the presence set is derived from it (count > 0).
+  const adsCountByBusiness = new Map(
+    ads.map((r) => [r.businessId, r._count._all]),
+  );
+  const adsByBusiness = new Set(adsCountByBusiness.keys());
   const serpByBusiness = new Set(serps.map((r) => r.businessId));
 
   // ── Real signal evaluation (P3) ────────────────────────────────────────────
@@ -365,17 +414,36 @@ async function DiscoveryWorkspaceBody({ params }: PageProps) {
   }
 
   // Flagged findings → pain chips per business (most-confident first).
+  // `confidence` is a string rank ('high'|'medium'|'low'); a DB orderBy on it
+  // sorts alphabetically (high < low < medium — wrong), so rank in JS instead
+  // (WP2-4 fix). Highest confidence first → first-wins pitch/pains are strongest.
+  const CONFIDENCE_RANK: Record<string, number> = {
+    high: 3,
+    medium: 2,
+    low: 1,
+  };
+  const rankedFindings = [...findings].sort(
+    (a, b) =>
+      (CONFIDENCE_RANK[b.confidence ?? ""] ?? 0) -
+      (CONFIDENCE_RANK[a.confidence ?? ""] ?? 0),
+  );
   const painsById = new Map<
     string,
     { group: string; label: string; title: string }[]
   >();
-  for (const f of findings) {
+  // Strongest pitch angle per business (first finding with one, in
+  // most-confident-first order) — the CSV export's "pitch angle" column.
+  const pitchById = new Map<string, string>();
+  for (const f of rankedFindings) {
     const label = signalKeyLabel(f.signalKey);
     push(painsById, f.businessId, {
       group: f.group,
       label,
       title: f.explanation || f.pitchAngle || label,
     });
+    if (f.pitchAngle && !pitchById.has(f.businessId)) {
+      pitchById.set(f.businessId, f.pitchAngle);
+    }
   }
 
   // Touch state per business (the most-advanced draft status drives the pill).
@@ -430,6 +498,8 @@ async function DiscoveryWorkspaceBody({ params }: PageProps) {
         phones.length > 0 ||
         emails.length > 0,
       builtOn: builtOnById.get(b.id) ?? null,
+      website: b.website ?? null,
+      pitchAngle: pitchById.get(b.id) ?? null,
       touch: touchByBusiness.get(b.id) ?? "None",
       lastContactedAt: lead?.contactedAt?.toISOString() ?? null,
       reviews,
@@ -450,13 +520,64 @@ async function DiscoveryWorkspaceBody({ params }: PageProps) {
     };
   });
 
-  // ── vs-cell bands (computed from this discovery's own cohort) ───────────────
-  const bands: Partial<Record<string, CellBand>> = {
-    match: cellBand(rows.map((r) => r.match)) ?? undefined,
-    reviews: cellBand(rows.map((r) => r.reviews).filter(isNum)) ?? undefined,
-    rating: cellBand(rows.map((r) => r.rating).filter(isNum)) ?? undefined,
-    perf: cellBand(rows.map((r) => r.perf).filter(isNum)) ?? undefined,
+  // ── vs-cell bands (WP6-1) ───────────────────────────────────────────────────
+  // MARKET-TRUE FIRST, cohort fallback: prefer the scoring-v2 CellMetric
+  // distributions for this discovery's primary cell (the whole market's
+  // percentiles, stable across every Discovery of that cell) and only fall back
+  // to the loaded cohort's self-distribution when the aggregate is thin/absent.
+  // `match` + `tenure` have no CellMetric percentile, so they're always cohort.
+  const primaryCellKey = cellKeys[0] ?? null;
+  const cellMetric = primaryCellKey
+    ? await prisma.cellMetric.findFirst({
+        where: { cellKey: primaryCellKey },
+        orderBy: { computedAt: "desc" },
+        select: {
+          sampleSize: true,
+          confidence: true,
+          adPrevalence: true,
+          distributions: true,
+        },
+      })
+    : null;
+  const cellRef = parseCellReference(cellMetric);
+  // Map the CellReference breakpoints onto the workbench band keys. shareOfVoice
+  // is the organic-traffic proxy; a cell that never aggregated a band leaves it
+  // undefined → resolveCellBands takes the cohort path for it.
+  const reference: CellReferenceBands = {
+    rating: cellRef?.rating ?? null,
+    reviews: cellRef?.reviewCount ?? null,
+    perf: cellRef?.lighthousePerformance ?? null,
+    organic: cellRef?.shareOfVoice ?? cellRef?.organicTraffic ?? null,
   };
+  // Cohort samples for the fallback path + the bands CellMetric can't carry.
+  // Reuse evalNow (one request timestamp) rather than a second Date.now() call —
+  // the React compiler flags a bare Date.now() as impure during render (INC-09).
+  const tenureNow = evalNow.getTime();
+  const tenureSamples = businesses
+    .map((b) =>
+      b.firstSeenOnGoogle
+        ? Math.max(
+            0,
+            Math.floor(
+              (tenureNow - b.firstSeenOnGoogle.getTime()) /
+                (365.25 * 86_400_000),
+            ),
+          )
+        : null,
+    )
+    .filter(isNum);
+  const adsSamples = businesses.map((b) => adsCountByBusiness.get(b.id) ?? 0);
+  const bands: Partial<Record<string, CellBand>> = resolveCellBands(
+    {
+      match: rows.map((r) => r.match),
+      reviews: rows.map((r) => r.reviews).filter(isNum),
+      rating: rows.map((r) => r.rating).filter(isNum),
+      perf: rows.map((r) => r.perf).filter(isNum),
+      ads: adsSamples,
+      tenure: tenureSamples,
+    },
+    reference,
+  );
 
   // ── Touchpoints tab read-model ─────────────────────────────────────────────
   const nameById = new Map(businesses.map((b) => [b.id, b.name]));
@@ -510,8 +631,33 @@ async function DiscoveryWorkspaceBody({ params }: PageProps) {
   const coverageRows = await loadCoverageMatrix(discovery.id, agencyId);
   const coverage = coverageRows ? coverageMatrixToMap(coverageRows) : {};
 
+  // WP4-1 · is an enrichment run still working this discovery's leads? If so
+  // (or if one just closed within 60s) the live banner polls the WP3-3 progress
+  // endpoint + router.refresh()es new rows in as they enrich. Resolved by
+  // cellKey overlap (no discoveryId FK on EnrichmentRun — same as the directory).
+  const activeRun = await resolveActiveRunForDiscovery(agencyId, cellKeys);
+
+  // CSV export filename base: "{categorySlug}-{metroSlug}" from the first
+  // cell (WP2-4) — the client appends the date. Fallback handled client-side.
+  const firstCellForSlug = cellKeys[0] ? parseCellKey(cellKeys[0]) : null;
+  const exportSlug = firstCellForSlug
+    ? `${csvSlug(firstCellForSlug.categorySlug)}-${csvSlug(firstCellForSlug.metroSlug)}`
+    : undefined;
+
   const shell: WorkbenchShellProps = {
-    leads: { rows, discoveryId, bands, coverage, goalSignals },
+    leads: {
+      rows,
+      discoveryId,
+      bands,
+      coverage,
+      goalSignals,
+      exportSlug,
+      serverPage,
+      serverPageCount,
+      totalRows: totalBusinesses,
+      // Streams the FULL set (WP4-4) — same 13 columns via rowToCsvRecord.
+      exportAllUrl: `/api/agency/research/${discoveryId}/export`,
+    },
     touchpoints: { touches, stats },
   };
 
@@ -526,49 +672,47 @@ async function DiscoveryWorkspaceBody({ params }: PageProps) {
       ? `${categoryLabel} · ${metroLabel}`
       : (discovery.name ?? "Workspace");
 
+  // The research goal for the header pill (WP4-14): the persisted goal name,
+  // else the base template's title, else no pill (older discoveries).
+  const goalMeta = goalMetaFromJson(discovery.signalsJson);
+  const goalName =
+    goalMeta.goalName ??
+    (goalMeta.goalBase
+      ? (templateByKey(goalMeta.goalBase)?.title ?? null)
+      : null);
+
   // Meta line: mapped freshness + spend-to-date credits.
   const mappedAt = discovery.finishedAt ?? discovery.createdAt;
   const now = new Date();
   const freshness = cellFreshnessState(mappedAt, now);
-  const fresh = freshnessLabel(freshness);
   const credits = usdToCredits(discovery.spendToDateUsd);
-  const showingNote =
-    totalBusinesses > rows.length
-      ? `Showing first ${rows.length.toLocaleString()} of ${totalBusinesses.toLocaleString()}`
-      : `${rows.length.toLocaleString()} businesses`;
 
   return (
     <div className="view full">
-      <header className="section">
-        <Link href={{ pathname: "/research" }} className="lk">
-          ← All research
-        </Link>
-        <h1 style={{ marginTop: 6 }}>{title}</h1>
-        <p className="note" style={{ marginTop: 6 }}>
-          {showingNote} ·{" "}
-          <span
-            className={`freshdot ${fresh.dot}`}
-            style={{
-              display: "inline-block",
-              width: 9,
-              height: 9,
-              borderRadius: "50%",
-              verticalAlign: "middle",
-            }}
-            aria-hidden="true"
-          />{" "}
-          <span style={{ color: fresh.color, fontWeight: 600 }}>
-            {fresh.label}
-          </span>{" "}
-          · mapped {relativeDays(mappedAt)} · spend to date{" "}
-          <span className="cr">
-            <span className="ic-coin sm" aria-hidden="true" />
-            {credits.toLocaleString()} credits
-          </span>
-        </p>
-      </header>
+      {/* WP4-14 · goal pill + market narrative lead; the count reads as
+          context ("the 412 med spas in this market · showing 200"), never a
+          truncation warning. */}
+      <WorkspaceHeader
+        title={title}
+        goalName={goalName}
+        showing={rows.length}
+        total={totalBusinesses}
+        marketNoun={marketNoun(categoryLabel)}
+        freshness={freshness}
+        mappedRelative={relativeDays(mappedAt)}
+        credits={credits}
+      />
 
-      <WorkbenchShell {...shell} />
+      {activeRun ? (
+        <LiveWorkbenchBanner
+          runId={activeRun.runId}
+          initialStatus={activeRun.status}
+        >
+          <WorkbenchShell {...shell} />
+        </LiveWorkbenchBanner>
+      ) : (
+        <WorkbenchShell {...shell} />
+      )}
     </div>
   );
 }
@@ -601,6 +745,17 @@ function resolveMetroLabel(slug: string): string {
   return (name ?? titleCaseSlug(slug)).split(",")[0].trim();
 }
 
+/** Filesystem-safe lowercase slug for the CSV filename (WP2-4). */
+function csvSlug(s: string): string {
+  return (
+    s
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 40) || "leads"
+  );
+}
+
 /** "medical_spa" → "Medical Spa" — slug fallback when no DB label is found. */
 function titleCaseSlug(slug: string): string {
   return slug
@@ -610,22 +765,22 @@ function titleCaseSlug(slug: string): string {
     .join(" ");
 }
 
-/** Freshness → dot modifier + label + color (mirrors the prototype meta line). */
-function freshnessLabel(state: FreshnessState): {
-  dot: string;
-  label: string;
-  color: string;
-} {
-  switch (state) {
-    case "fresh":
-      return { dot: "fresh", label: "Fresh", color: "var(--green)" };
-    case "aging":
-      return { dot: "aging", label: "Aging", color: "var(--amber)" };
-    case "stale":
-      return { dot: "stale", label: "Stale", color: "var(--red)" };
-    default:
-      return { dot: "new", label: "Not mapped", color: "var(--faint)" };
-  }
+/** `?page=` → a 1-based integer window index (defensive · default 1). */
+function parsePageParam(raw: string | string[] | undefined): number {
+  const v = Array.isArray(raw) ? raw[0] : raw;
+  const n = Number(v);
+  return Number.isInteger(n) && n >= 1 ? n : 1;
+}
+
+/**
+ * "Medical spa" → "medical spas" — the header narrative's plural market noun
+ * (best-effort naive plural; category labels are simple nouns). Falls back to
+ * "businesses" when no category label resolved.
+ */
+function marketNoun(categoryLabel: string | null): string {
+  if (!categoryLabel) return "businesses";
+  const lower = categoryLabel.toLowerCase();
+  return lower.endsWith("s") ? lower : `${lower}s`;
 }
 
 function firstByBusiness<T extends { businessId: string }>(

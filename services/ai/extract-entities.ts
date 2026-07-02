@@ -17,6 +17,7 @@ import { z } from "zod";
 import { kvCache } from "@/lib/cache";
 import { callOpenAi } from "@/services/ai/client";
 import type { SupportedModel } from "@/services/ai/pricing";
+import { wrapUntrusted } from "@/services/ai/untrusted";
 
 export const DEFAULT_EXTRACT_MODEL: SupportedModel = "gpt-5.4-nano";
 
@@ -90,12 +91,11 @@ function buildPrompt(input: ExtractEntitiesInput): string {
       ? `\n\nCanonical services for ${input.businessName} (return matching mentions exactly):\n${input.services.map((s) => `- ${s}`).join("\n")}`
       : `\n\nNo canonical services provided — return empty services array.`;
 
+  // WP8-5 · the review body is UNTRUSTED third-party text — a review could
+  // contain adversarial instructions. Fence it so the model treats it as data.
   return `Business: ${input.businessName}${category}${servicesBlock}
 
-Review text:
-"""
-${input.reviewText}
-"""
+${wrapUntrusted(input.reviewText, "Review text")}
 
 Extract people + services and return JSON.`;
 }

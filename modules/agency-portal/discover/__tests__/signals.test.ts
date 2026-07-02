@@ -11,7 +11,9 @@ import {
   percentileOf,
   quantile,
   confidencePillClass,
+  resolveCellBands,
   MIN_COHORT_FOR_DISTRIBUTION,
+  type CellBand,
   type SignalBusinessInput,
   type SignalFindingInput,
 } from "../signals";
@@ -188,6 +190,65 @@ describe("buildSingleBusinessSignals", () => {
     const low = buildSingleBusinessSignals({ reviewCount: 5 }, cohort)[0];
     const high = buildSingleBusinessSignals({ reviewCount: 500 }, cohort)[0];
     expect(low.percentile).toBeLessThan(high.percentile);
+  });
+});
+
+describe("resolveCellBands (WP6-1)", () => {
+  // A ready-made market-true band (distinct from any cohort band below).
+  const refReviews: CellBand = { p10: 5, p25: 20, p50: 60, p75: 120, p90: 300 };
+  const bigCohort = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+
+  test("prefers the CellMetric reference over the cohort self-distribution", () => {
+    const bands = resolveCellBands(
+      { reviews: bigCohort },
+      { reviews: refReviews },
+    );
+    // The market-true reference wins — NOT the cohort's own [1..10] spread.
+    expect(bands.reviews).toEqual(refReviews);
+  });
+
+  test("falls back to the cohort band when the reference lacks that key", () => {
+    const bands = resolveCellBands({ reviews: bigCohort }, { reviews: null });
+    expect(bands.reviews).not.toBeNull();
+    // cohort-derived p50 of [1..10] is 6 (nearest-rank), not the reference's 60.
+    expect(bands.reviews!.p50).toBe(6);
+  });
+
+  test("falls back to cohort when NO reference is passed at all", () => {
+    const bands = resolveCellBands({ perf: [10, 30, 50, 70, 90] });
+    expect(bands.perf).not.toBeNull();
+  });
+
+  test("match + tenure are always cohort-sourced (CellMetric has neither)", () => {
+    const bands = resolveCellBands(
+      { match: bigCohort, tenure: bigCohort },
+      // Even if a reference somehow carried them, these keys ignore it.
+      { reviews: refReviews },
+    );
+    expect(bands.match).not.toBeNull();
+    expect(bands.tenure).not.toBeNull();
+  });
+
+  test("omits a band when neither reference nor a large-enough cohort exists", () => {
+    const bands = resolveCellBands({ rating: [4.5, 4.6] }, { rating: null });
+    // cohort of 2 < MIN_COHORT_FOR_DISTRIBUTION → no band, key absent.
+    expect(bands.rating).toBeUndefined();
+  });
+
+  test("resolves the full moat set independently per key", () => {
+    const bands = resolveCellBands(
+      {
+        reviews: bigCohort, // → reference
+        rating: [4.0, 4.2, 4.4, 4.6, 4.8], // → cohort (no ref)
+        ads: [0, 1, 2, 3, 4], // → cohort
+        tenure: [1, 2, 3, 4, 5], // → cohort
+      },
+      { reviews: refReviews },
+    );
+    expect(bands.reviews).toEqual(refReviews); // market-true
+    expect(bands.rating).not.toBeNull(); // cohort
+    expect(bands.ads).not.toBeNull(); // cohort
+    expect(bands.tenure).not.toBeNull(); // cohort
   });
 });
 

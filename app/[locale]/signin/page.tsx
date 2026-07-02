@@ -32,18 +32,36 @@ export default async function SignInPage({
   const t = await getTranslations("auth.signin");
 
   // Landing CTA carries `?intent=smb&landing=<token>` so the magic-link flow
-  // can resume into the $29 checkout after sign-in.
+  // can resume into the $29 checkout after sign-in. The /for-agencies CTAs
+  // carry `?audience=agency` the same way (WP2-1 self-serve agency creation).
   const sp = await searchParams;
   const intent = typeof sp.intent === "string" ? sp.intent : undefined;
   const landing = typeof sp.landing === "string" ? sp.landing : undefined;
+  const audience = sp.audience === "agency" ? "agency" : undefined;
+  // WP5-8 · seat-invite token from the team email (format-validated; rides
+  // the magic-link round-trip so /post-signin can seat the invitee).
+  const invite =
+    typeof sp.invite === "string" && /^[a-f0-9]{48}$/.test(sp.invite)
+      ? sp.invite
+      : undefined;
 
   // If the visitor is already signed in, skip the form and route
   // through /post-signin which dispatches by role (admin / agency /
   // SMB). This matches the marketing header swap: a logged-in user
   // who lands on /signin shouldn't have to re-enter their email.
+  // The agency marker rides along so an already-signed-in user clicking
+  // the agency CTA still gets provisioned (WP2-1); an invite token rides
+  // along so an already-signed-in invitee still gets seated (WP5-8).
   const session = await auth();
   if (session?.user?.id) {
-    redirect({ href: "/post-signin", locale: locale as Locale });
+    redirect({
+      href: invite
+        ? { pathname: "/post-signin", query: { invite } }
+        : audience
+          ? { pathname: "/post-signin", query: { audience } }
+          : "/post-signin",
+      locale: locale as Locale,
+    });
   }
 
   return (
@@ -120,7 +138,12 @@ export default async function SignInPage({
           {t("subtitle")}
         </p>
 
-        <SignInForm intent={intent} landing={landing} />
+        <SignInForm
+          intent={intent}
+          landing={landing}
+          audience={audience}
+          invite={invite}
+        />
 
         <p
           style={{

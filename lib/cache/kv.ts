@@ -53,6 +53,16 @@ export interface KvClient {
     cursor: number | string,
     opts?: { match?: string; count?: number },
   ): Promise<[string | number, string[]]>;
+  /**
+   * Atomic INCR-BY (WP3-3 · run-progress counters). Optional because only the
+   * ioredis-backed client implements it — callers must feature-detect
+   * (`typeof kv.incr === "function"`) and degrade gracefully when absent
+   * (@vercel/kv REST is cast to this interface and does not expose it here).
+   * Returns the value AFTER incrementing.
+   */
+  incr?(key: string, by?: number): Promise<number>;
+  /** Set a TTL (seconds) on an existing key. Optional · see `incr`. */
+  expire?(key: string, seconds: number): Promise<number>;
 }
 
 let cached: KvClient | null = null;

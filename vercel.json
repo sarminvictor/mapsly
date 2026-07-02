@@ -16,6 +16,22 @@
     {
       "path": "/api/cron/internal/dispatch",
       "schedule": "*/2 * * * *"
+    },
+    {
+      "path": "/api/cron/internal/run-finished-emails",
+      "schedule": "*/2 * * * *"
+    },
+    {
+      "path": "/api/cron/weekly/market-moved-digest",
+      "schedule": "0 13 * * 2"
+    },
+    {
+      "path": "/api/cron/weekly/market-monitor",
+      "schedule": "0 6 * * 1"
+    },
+    {
+      "path": "/api/cron/weekly/retention-sweep",
+      "schedule": "0 4 * * 0"
     }
   ],
   "functions": {

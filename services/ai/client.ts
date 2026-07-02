@@ -15,6 +15,7 @@
 // and increment the run's costUsd. callOpenAi enforces both invariants.
 
 import { assertCronContext, incrementCost } from "@/lib/cost/cost-counter";
+import { acquireVendorToken } from "@/lib/enrichment/token-bucket-redis";
 import {
   computeUsd,
   DEFAULT_PER_CALL_CEILING_USD,
@@ -26,9 +27,18 @@ const OPENAI_BASE_URL =
   process.env.OPENAI_BASE_URL?.replace(/\/+$/, "") ??
   "https://api.openai.com/v1";
 
+// WP3-8 · resilience matching the DataForSEO adapter: a per-call timeout, a
+// small jittered-backoff retry on transient failures (429 / 5xx / timeout /
+// network), and vendor pacing via acquireVendorToken("ai") before each call.
+const AI_TIMEOUT_MS = 30_000;
+const AI_RETRIES = 2; // 3 total attempts
+const RETRY_BASE_DELAY_MS = 500;
+const RETRY_MAX_DELAY_MS = 4_000;
+
 /** Test-only overrides — replaced via __setFetchForTesting / __setApiKeyForTesting. */
 let _fetchOverride: typeof fetch | null = null;
 let _apiKeyOverride: string | null = null;
+let _sleepOverride: ((ms: number) => Promise<void>) | null = null;
 
 export function __setFetchForTesting(fn: typeof fetch | null): void {
   _fetchOverride = fn;
@@ -36,9 +46,81 @@ export function __setFetchForTesting(fn: typeof fetch | null): void {
 export function __setApiKeyForTesting(key: string | null): void {
   _apiKeyOverride = key;
 }
+export function __setSleepForTesting(
+  fn: ((ms: number) => Promise<void>) | null,
+): void {
+  _sleepOverride = fn;
+}
 
 function getFetch(): typeof fetch {
   return _fetchOverride ?? globalThis.fetch;
+}
+
+function getSleep(): (ms: number) => Promise<void> {
+  return _sleepOverride ?? ((ms) => new Promise((r) => setTimeout(r, ms)));
+}
+
+function computeBackoffMs(attempt: number): number {
+  const exp = RETRY_BASE_DELAY_MS * Math.pow(2, attempt - 1);
+  const capped = Math.min(exp, RETRY_MAX_DELAY_MS);
+  // Full jitter so concurrent cron workers don't synchronize retries.
+  return Math.floor(Math.random() * capped);
+}
+
+/**
+ * POST to OpenAI with a 30s timeout + retry on 429/5xx/timeout/network (WP3-8).
+ * Paces via acquireVendorToken("ai") before EACH attempt (WP3-9 · degrades open
+ * when Redis is unset). Returns the first OK Response; throws the last error
+ * after the retry budget. A non-retryable 4xx (e.g. 400/401) throws immediately.
+ */
+async function aiPostWithRetry(
+  operation: string,
+  path: string,
+  body: Record<string, unknown>,
+  apiKey: string,
+): Promise<Response> {
+  const fetchFn = getFetch();
+  const url = `${OPENAI_BASE_URL}${path}`;
+  const payload = JSON.stringify(body);
+  let lastErr: unknown = null;
+
+  for (let attempt = 0; attempt <= AI_RETRIES; attempt++) {
+    if (attempt > 0) await getSleep()(computeBackoffMs(attempt));
+    // Pace under OpenAI's rpm cap across concurrent workers (no-op sans Redis).
+    await acquireVendorToken("ai");
+    try {
+      const res = await fetchFn(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: payload,
+        signal: AbortSignal.timeout(AI_TIMEOUT_MS),
+      });
+      // Retry transient statuses (429 rate-limit, 5xx server, 408 timeout).
+      if (res.status === 429 || res.status === 408 || res.status >= 500) {
+        if (attempt < AI_RETRIES) {
+          lastErr = new Error(
+            `[ai] "${operation}" HTTP ${res.status} (retrying)`,
+          );
+          continue;
+        }
+      }
+      return res; // OK, or a non-retryable / final-attempt error status
+    } catch (err) {
+      // Timeout (AbortError) / network error — retryable.
+      lastErr = err;
+      if (attempt < AI_RETRIES) continue;
+      throw err instanceof Error
+        ? err
+        : new Error(`[ai] "${operation}" transport error: ${String(err)}`);
+    }
+  }
+  // Unreachable in practice (the loop returns/throws), but satisfies the type.
+  throw lastErr instanceof Error
+    ? lastErr
+    : new Error(`[ai] "${operation}" exhausted retries`);
 }
 
 function getApiKey(): string {
@@ -139,7 +221,6 @@ export async function callOpenAi(
   }
 
   const apiKey = getApiKey();
-  const fetchFn = getFetch();
 
   const messages: Array<{ role: string; content: string }> = [];
   if (system) messages.push({ role: "system", content: system });
@@ -164,14 +245,13 @@ export async function callOpenAi(
   if (jsonMode) body.response_format = { type: "json_object" };
   if (seed !== undefined) body.seed = seed;
 
-  const res = await fetchFn(`${OPENAI_BASE_URL}/chat/completions`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify(body),
-  });
+  // WP3-8/WP3-9 · timeout + jittered retry on 429/5xx/timeout + ai token pacing.
+  const res = await aiPostWithRetry(
+    operation,
+    "/chat/completions",
+    body,
+    apiKey,
+  );
 
   if (!res.ok) {
     let errText = "";
@@ -313,7 +393,6 @@ export async function callOpenAiResponses(
   }
 
   const apiKey = getApiKey();
-  const fetchFn = getFetch();
 
   const body: Record<string, unknown> = {
     model,
@@ -322,14 +401,8 @@ export async function callOpenAiResponses(
   };
   if (tools && tools.length > 0) body.tools = tools;
 
-  const res = await fetchFn(`${OPENAI_BASE_URL}/responses`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify(body),
-  });
+  // WP3-8/WP3-9 · timeout + jittered retry on 429/5xx/timeout + ai token pacing.
+  const res = await aiPostWithRetry(operation, "/responses", body, apiKey);
 
   if (!res.ok) {
     let errText = "";

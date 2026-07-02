@@ -8,6 +8,10 @@
 // Default exclusions (per `.claude/rules` + open-status.ts):
 //   - isHidden businesses are hidden (compliance / manual suppression).
 //   - openStatus = CLOSED_FOREVER are excluded (still visible via includeClosed).
+//   - suppressedAt IS NOT NULL businesses are do-not-sell suppressed (WP7-2 /
+//     WP0-7) — permanently excluded from the raw list, enrichment scope, CSV
+//     export, and (transitively) touch generation. There is NO opt to include
+//     them: a suppression is a legal opt-out, not a view toggle.
 // Everything is scoped to the requested cellKeys.
 //
 // Discovery-time filters bias the raw list before enrichment so the user only
@@ -61,6 +65,14 @@ export function rawListWhere(
   // list would be a full-table scan over 2.1M rows).
   where.cellKey =
     opts.cellKeys.length > 0 ? { in: opts.cellKeys } : { in: ["__never__"] };
+
+  // WP7-2 · do-not-sell suppression is UNCONDITIONAL — a suppressed business
+  // (Business.suppressedAt set via the public /opt-out flow) is never surfaced,
+  // enriched, exported, or pitched, regardless of includeHidden/includeClosed.
+  // This is the single chokepoint: rawListWhere gates the workbench, Preview,
+  // the CSV export, and the enrich-scope resolution, so one filter here honors
+  // the opt-out everywhere those paths read.
+  where.suppressedAt = null;
 
   // "Hidden" means SCANNED-and-unreachable (isHidden === true). Freshly
   // discovered businesses haven't been contact-scanned yet, so isHidden is NULL

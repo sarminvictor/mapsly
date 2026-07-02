@@ -25,6 +25,7 @@
 // (`.claude/rules/security.md`, `.claude/rules/cost-discipline.md`).
 
 import prisma from "@/lib/prisma";
+import { draftWhereForAgency } from "@/modules/outreach/draft-scope";
 
 import {
   deriveMatchPct,
@@ -40,6 +41,7 @@ import {
 } from "./signal-eval";
 import { activeSignalsFromJson } from "./discovery-signals";
 import { SIG_META } from "./goal-templates";
+import type { BandKey } from "./signals";
 
 // ── Serializable sub-shapes ──────────────────────────────────────────────────
 
@@ -64,6 +66,20 @@ export interface LeadEvidenceRow {
   value: string;
   /** Optional tone for the value text (g/a/r → green/amber/red). */
   tone?: "g" | "a" | "r" | null;
+  /**
+   * WP5-11/WP6-1 · optional STRUCTURED metric behind the text value. When
+   * present AND the workbench has a vs-cell band for `bandKey`, the drawer
+   * renders a VsCellBar (the value on the cell distribution) instead of the
+   * plain text — the text form stays the graceful fallback. `bandKey` matches
+   * the workbench's band keys (reviews / rating / perf / organic / ads /
+   * tenure / match). WP6-1 added rating / organic / ads / tenure so the drawer
+   * shows 4–6 market-relative bars, not just reviews.
+   */
+  metric?: {
+    value: number;
+    bandKey: BandKey;
+    unit?: string;
+  } | null;
 }
 
 /** A fired composite signal (a flagged PlaybookFinding) w/ evidence + pitch. */
@@ -131,6 +147,15 @@ export interface LeadDomainBlock {
   rows: LeadEvidenceRow[];
   /** Ghost-card note shown when not enriched. */
   ghostNote: string;
+  /**
+   * WP6-9 · evidence-honesty provenance. `source` names where the data came
+   * from ("Google reviews", "Lighthouse mobile", "Meta Ad Library", …) and
+   * `asOf` is the ISO date it was retrieved (from auditedAt / snapshotDate /
+   * lastSeenAt). The drawer renders "{source} · as of {date}" so every block is
+   * auditable. Null when the block isn't enriched (nothing to attribute).
+   */
+  source: string | null;
+  asOf: string | null;
 }
 
 /** An expert finding callout (compliance / accessibility risk). */
@@ -218,6 +243,13 @@ export interface LeadDetail {
   expertFindings: LeadExpertFinding[];
   // ── 8. This lead's touches ──
   touches: LeadTouch[];
+  /**
+   * WP6-9 · evidence-honesty note. Non-null when generating this lead's touches
+   * pruned one or more claims we couldn't verify (whyJson.droppedTokens) — the
+   * drawer surfaces "We only cite what we verified — N claim(s) we couldn't
+   * confirm were left out." Null when nothing was dropped (no note shown).
+   */
+  verifiedNote: string | null;
 }
 
 // ── Loader ───────────────────────────────────────────────────────────────────
@@ -273,11 +305,20 @@ export async function getLeadDetail(
       reachability: true,
       reachableChannelCount: true,
       cellKey: true,
+      suppressedAt: true,
     },
   });
 
   // Agency-scope gate: missing or out-of-cell reads as null.
-  if (!business || !business.cellKey || !cellKeys.includes(business.cellKey)) {
+  // WP7-2 · a do-not-sell-suppressed business reads as null too — its drawer,
+  // one-pager, and public share page all resolve through getLeadDetail, so this
+  // one gate removes the suppressed business from every rendered artifact.
+  if (
+    !business ||
+    business.suppressedAt !== null ||
+    !business.cellKey ||
+    !cellKeys.includes(business.cellKey)
+  ) {
     return null;
   }
 
@@ -307,12 +348,20 @@ export async function getLeadDetail(
     prisma.businessSnapshot.findFirst({
       where: { businessId },
       orderBy: { snapshotDate: "desc" },
-      select: { reviewCount: true, rating: true, reviewLifecycle: true },
+      // WP6-9 · snapshotDate is the "as of" provenance for the Reviews block.
+      select: {
+        reviewCount: true,
+        rating: true,
+        reviewLifecycle: true,
+        snapshotDate: true,
+      },
     }),
     prisma.lighthouseAudit.findFirst({
       where: { businessId },
       orderBy: { auditedAt: "desc" },
       select: {
+        // WP6-9 · auditedAt is the "as of" provenance for the Site-speed block.
+        auditedAt: true,
         performance: true,
         accessibility: true,
         seo: true,
@@ -344,12 +393,16 @@ export async function getLeadDetail(
       select: { name: true, category: true },
     }),
     prisma.contact.findMany({
-      where: { businessId },
+      // WP7-2 · opted-out contacts never render in the drawer or the one-pager
+      // (getLeadDetail feeds both the drawer and the Proof Pack / share page).
+      where: { businessId, optedOutAt: null },
       orderBy: [{ isPrimary: "desc" }, { confidence: "desc" }],
       select: { channel: true, value: true },
     }),
     prisma.outreachDraft.findMany({
-      where: { businessId },
+      // WP5 draft security: this agency's drafts only (legacy null rows ride
+      // the OR-null arm — the business already passed the cell gate above).
+      where: draftWhereForAgency(agencyId, [businessId]),
       orderBy: { createdAt: "asc" },
       select: {
         id: true,
@@ -372,13 +425,21 @@ export async function getLeadDetail(
         displayFormat: true,
         spendBandUsd: true,
         advertiserName: true,
+        // WP6-9 · lastSeenAt provenance for the Ads block.
+        lastSeenAt: true,
       },
       take: 25,
     }),
     prisma.serpResult.findFirst({
       where: { businessId },
       orderBy: { scannedAt: "desc" },
-      select: { localPackRank: true, organicRank: true, kind: true },
+      // WP6-9 · scannedAt provenance for the Search block.
+      select: {
+        localPackRank: true,
+        organicRank: true,
+        kind: true,
+        scannedAt: true,
+      },
     }),
     prisma.businessService.findMany({
       where: { businessId, isActive: true },
@@ -577,6 +638,14 @@ export async function getLeadDetail(
   const servicesEnriched = services.length > 0;
   const aiEnriched = research != null;
 
+  // WP6-9 · per-block provenance — the retrieval date backing each domain, so
+  // every evidence block reads "{source} · as of {date}". Nulls degrade to the
+  // source line alone (or nothing when not enriched).
+  const adsLastSeen = ads
+    .map((a) => a.lastSeenAt)
+    .filter((d): d is Date => d != null)
+    .sort((a, b) => b.getTime() - a.getTime())[0];
+
   const domains: LeadDomainBlock[] = [
     {
       key: "reviews",
@@ -593,9 +662,29 @@ export async function getLeadDetail(
       rows: reviewsEnriched
         ? [
             {
-              label: "Total / rating",
-              value: `${(reviewCount ?? 0).toLocaleString()}${rating != null ? ` · ${rating.toFixed(1)}★` : ""}`,
+              label: "Total reviews",
+              value: (reviewCount ?? 0).toLocaleString(),
+              // WP5-11 · structured review count → vs-cell bar when the
+              // workbench has a "reviews" band (text stays the fallback).
+              metric:
+                reviewCount != null
+                  ? { value: reviewCount, bandKey: "reviews" as const }
+                  : null,
             },
+            // WP6-1 · rating as its own market-relative bar (rating band).
+            ...(rating != null
+              ? [
+                  {
+                    label: "Rating",
+                    value: `${rating.toFixed(1)}★`,
+                    metric: {
+                      value: rating,
+                      bandKey: "rating" as const,
+                      unit: "★",
+                    },
+                  },
+                ]
+              : []),
             ...(snapshot?.reviewLifecycle
               ? [
                   {
@@ -609,10 +698,29 @@ export async function getLeadDetail(
               value: negUnanswered.toLocaleString(),
               tone: negUnanswered > 0 ? ("r" as const) : null,
             },
+            // WP6-1 · years-on-Google (tenure) as a market-relative bar — how
+            // established this lead is vs the cell. Cohort-sourced (CellMetric
+            // has no tenure percentile), so the bar shows only when enough
+            // cohort tenure samples exist; text stays the fallback.
+            ...(yearsOnGoogle != null
+              ? [
+                  {
+                    label: "Years on Google",
+                    value: `~${yearsOnGoogle} yr${yearsOnGoogle === 1 ? "" : "s"}`,
+                    metric: {
+                      value: yearsOnGoogle,
+                      bandKey: "tenure" as const,
+                      unit: " yrs",
+                    },
+                  },
+                ]
+              : []),
           ]
         : [],
       ghostNote:
         "Pull the latest reviews — rating, lifecycle, and unanswered negatives are pitch fuel.",
+      source: reviewsEnriched ? "Google reviews" : null,
+      asOf: reviewsEnriched ? isoDay(snapshot?.snapshotDate) : null,
     },
     {
       key: "tech",
@@ -648,6 +756,8 @@ export async function getLeadDetail(
         : [],
       ghostNote:
         "Scan the site's tech stack — CMS, pixel, analytics, and booking gaps open the pitch.",
+      source: techEnriched ? "Website scan" : null,
+      asOf: null,
     },
     {
       key: "speed",
@@ -663,6 +773,16 @@ export async function getLeadDetail(
               label: `Performance (${audit?.formFactor ?? "mobile"})`,
               value: perf != null ? `${Math.round(perf)}/100` : "—",
               tone: perf != null ? perfTone(perf) : null,
+              // WP5-11 · structured Lighthouse score → vs-cell bar when the
+              // workbench has a "perf" band (text stays the fallback).
+              metric:
+                perf != null
+                  ? {
+                      value: Math.round(perf),
+                      bandKey: "perf" as const,
+                      unit: "/100",
+                    }
+                  : null,
             },
             ...(audit?.lcp != null
               ? [
@@ -697,6 +817,8 @@ export async function getLeadDetail(
         : [],
       ghostNote:
         "Run a mobile Lighthouse audit — slow sites lose high-intent clicks before the page loads.",
+      source: speedEnriched ? "Lighthouse mobile" : null,
+      asOf: speedEnriched ? isoDay(audit?.auditedAt) : null,
     },
     {
       key: "ads",
@@ -714,6 +836,10 @@ export async function getLeadDetail(
                 ? `${metaAds.length} creative${metaAds.length === 1 ? "" : "s"}${runsAds ? " · running" : ""}`
                 : "—",
               tone: runsAds ? ("g" as const) : null,
+              // WP6-1 · Meta-ad count as a market-relative bar (ads band) — how
+              // this lead's ad presence compares to the cell. Text stays the
+              // fallback when no ads band exists.
+              metric: { value: metaAds.length, bandKey: "ads" as const },
             },
             ...(metaAds.length
               ? [
@@ -737,6 +863,8 @@ export async function getLeadDetail(
         : [],
       ghostNote:
         "Discovery flagged ad activity — enrich the Meta Ad Library scan for creatives & spend.",
+      source: adsEnriched ? "Meta Ad Library" : null,
+      asOf: adsEnriched ? isoDay(adsLastSeen) : null,
     },
     {
       key: "serp",
@@ -766,6 +894,8 @@ export async function getLeadDetail(
         : [],
       ghostNote:
         "Scan the local 3-pack + organic ranks — visibility gaps are an easy first pitch.",
+      source: serpEnriched ? "Google Search" : null,
+      asOf: serpEnriched ? isoDay(serp?.scannedAt) : null,
     },
     {
       key: "services",
@@ -787,6 +917,8 @@ export async function getLeadDetail(
         : [],
       ghostNote:
         "Detect the service menu — service gaps vs the cell are a differentiator pitch.",
+      source: servicesEnriched ? "Website menu" : null,
+      asOf: null,
     },
     {
       key: "ai",
@@ -837,6 +969,8 @@ export async function getLeadDetail(
         : [],
       ghostNote:
         "Positioning, pricing transparency, pain hypotheses — an AI read on how to pitch this business.",
+      source: aiEnriched ? "AI analysis of public sources" : null,
+      asOf: null,
     },
   ];
 
@@ -882,6 +1016,20 @@ export async function getLeadDetail(
     };
   });
 
+  // ── WP6-9 · "we only cite what we verified" note ──
+  // Touch generation records the claims it PRUNED because the backing data
+  // wasn't verified (whyJson.droppedTokens). If any draft dropped a claim,
+  // surface an honest note — the auditable-evidence trust feature. Counts the
+  // distinct dropped claims across this lead's drafts.
+  const dropped = new Set<string>();
+  for (const d of drafts) {
+    for (const tok of droppedTokensFrom(d.whyJson)) dropped.add(tok);
+  }
+  const verifiedNote =
+    dropped.size > 0
+      ? `We only cite what we verified — ${dropped.size} claim${dropped.size === 1 ? "" : "s"} we couldn't confirm ${dropped.size === 1 ? "was" : "were"} left out.`
+      : null;
+
   const addressLine =
     [business.address, business.city, business.province, business.country]
       .filter(Boolean)
@@ -915,6 +1063,7 @@ export async function getLeadDetail(
     domains,
     expertFindings,
     touches,
+    verifiedNote,
   };
 }
 
@@ -974,4 +1123,19 @@ function socialLabel(channel: string): string {
 /** Whole years since a date (floor). */
 function yearsSince(d: Date): number {
   return Math.floor((Date.now() - d.getTime()) / (365.25 * 86_400_000));
+}
+
+/** WP6-9 · ISO day (YYYY-MM-DD) for a nullable date — the "as of" provenance
+ *  stamp. Null-safe: returns null so the drawer renders the source line alone. */
+function isoDay(d: Date | null | undefined): string | null {
+  return d ? d.toISOString().slice(0, 10) : null;
+}
+
+/** WP6-9 · pull `droppedTokens` (claims pruned as unverified) from an opaque
+ *  whyJson blob. Pure + defensive: any non-array/non-string is ignored. */
+function droppedTokensFrom(whyJson: unknown): string[] {
+  if (whyJson === null || typeof whyJson !== "object") return [];
+  const raw = (whyJson as Record<string, unknown>).droppedTokens;
+  if (!Array.isArray(raw)) return [];
+  return raw.filter((x): x is string => typeof x === "string" && x.length > 0);
 }

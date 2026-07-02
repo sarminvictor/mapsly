@@ -16,6 +16,7 @@
 // transport is correct for batched per-run scans within a worker's budget.
 
 import { assertCronContext, incrementCost } from "@/lib/cost/cost-counter";
+import { acquireVendorToken } from "@/lib/enrichment/token-bucket-redis";
 
 const DEFAULT_BASE_URL =
   process.env.APIFY_BASE_URL?.replace(/\/+$/, "") ?? "https://api.apify.com/v2";
@@ -24,6 +25,10 @@ const DEFAULT_POLL_INTERVAL_MS = 3000;
 // run rather than giving up early.
 const DEFAULT_MAX_WAIT_MS = 295_000;
 const DEFAULT_FETCH_TIMEOUT_MS = 30_000;
+// WP3-9 · a single start-retry on a transient start failure (429/5xx) so a
+// momentary Apify blip doesn't fail the whole cell run. Bounded + jittered.
+const START_RETRIES = 1;
+const START_RETRY_BASE_MS = 500;
 
 /** Apify run statuses that mean "done" (won't change further). */
 const TERMINAL_STATUSES = new Set([
@@ -131,21 +136,37 @@ export async function runActor<T = unknown>(
   const pollInterval = opts.pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS;
   const maxWait = opts.maxWaitMs ?? DEFAULT_MAX_WAIT_MS;
 
-  // 1 · start the run
+  // 1 · start the run. WP3-9 · pace via the apify token bucket (no-op sans
+  // Redis) + retry ONCE on a transient start failure (429/5xx) so a momentary
+  // Apify blip doesn't fail the whole cell run. A non-retryable status (4xx
+  // other than 429) throws immediately.
   const startUrl =
     `${base}/acts/${encodeURIComponent(opts.actorId)}/runs` +
     `?memory=${memory}&timeout=${timeoutSecs}`;
-  const startRes = await f(startUrl, {
-    method: "POST",
-    headers: { ...headers, "Content-Type": "application/json" },
-    body: JSON.stringify(opts.input),
-    signal: AbortSignal.timeout(DEFAULT_FETCH_TIMEOUT_MS),
-  });
-  if (!startRes.ok) {
+  let startRes: Response | null = null;
+  for (let attempt = 0; attempt <= START_RETRIES; attempt++) {
+    if (attempt > 0) {
+      const capped = Math.min(START_RETRY_BASE_MS * 2 ** (attempt - 1), 4_000);
+      await getSleep()(Math.floor(Math.random() * capped)); // full jitter
+    }
+    await acquireVendorToken("apify");
+    startRes = await f(startUrl, {
+      method: "POST",
+      headers: { ...headers, "Content-Type": "application/json" },
+      body: JSON.stringify(opts.input),
+      signal: AbortSignal.timeout(DEFAULT_FETCH_TIMEOUT_MS),
+    });
+    const retryable =
+      startRes.status === 429 ||
+      startRes.status === 408 ||
+      startRes.status >= 500;
+    if (startRes.ok || !retryable || attempt === START_RETRIES) break;
+  }
+  if (!startRes || !startRes.ok) {
     throw new ApifyError({
       operation: opts.operation,
-      message: `start HTTP ${startRes.status}: ${(await safeText(startRes)).slice(0, 300)}`,
-      status: startRes.status,
+      message: `start HTTP ${startRes?.status ?? "none"}: ${startRes ? (await safeText(startRes)).slice(0, 300) : "no response"}`,
+      status: startRes?.status,
     });
   }
   const startJson = (await startRes.json()) as {

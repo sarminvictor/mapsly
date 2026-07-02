@@ -1,0 +1,258 @@
+/*
+ * comparison.css · scoped styling for the WP6-7 comparison pages
+ * (/compare/mapsly-vs-*). Cool-gray + indigo agency palette per
+ * .claude/rules/ui-ux-agency.md (bg #f6f7fb, indigo #5b3df5). Self-contained
+ * under `.cmp-scope` so it never leaks into the marketing-v2 landing chrome.
+ * All colors meet WCAG AA contrast; the table is a real <table> with scoped
+ * headers (a11y rule).
+ */
+
+.cmp-scope {
+  --cmp-bg: #f6f7fb;
+  --cmp-surface: #ffffff;
+  --cmp-ink: #1a1d29;
+  --cmp-muted: #5b6172;
+  --cmp-line: #e4e7ef;
+  --cmp-indigo: #5b3df5;
+  --cmp-indigo-soft: #ede9ff;
+  --cmp-good: #167a4c;
+  --cmp-good-soft: #e5f5ed;
+  --cmp-warn: #9a5b00;
+  --cmp-warn-soft: #fdf1df;
+
+  background: var(--cmp-bg);
+  color: var(--cmp-ink);
+  font-family: var(--font-fb-sg, ui-sans-serif), system-ui, sans-serif;
+}
+
+.cmp-wrap {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 96px 24px 72px;
+}
+
+/* ── Hero ─────────────────────────────────────────────────────────────── */
+.cmp-hero {
+  text-align: center;
+  margin-bottom: 56px;
+}
+.cmp-eyebrow {
+  display: inline-block;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--cmp-indigo);
+  background: var(--cmp-indigo-soft);
+  border-radius: 999px;
+  padding: 6px 14px;
+  margin-bottom: 18px;
+}
+.cmp-h1 {
+  font-size: clamp(28px, 5vw, 44px);
+  line-height: 1.1;
+  font-weight: 700;
+  margin: 0 0 16px;
+}
+.cmp-lede {
+  font-size: clamp(16px, 2.2vw, 19px);
+  line-height: 1.5;
+  color: var(--cmp-muted);
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+/* ── Section shell ────────────────────────────────────────────────────── */
+.cmp-section {
+  margin: 0 0 56px;
+}
+.cmp-h2 {
+  font-size: clamp(22px, 3vw, 28px);
+  font-weight: 700;
+  margin: 0 0 8px;
+}
+.cmp-section-sub {
+  color: var(--cmp-muted);
+  font-size: 16px;
+  margin: 0 0 24px;
+  max-width: 680px;
+}
+
+/* ── Weakness callout ─────────────────────────────────────────────────── */
+.cmp-weakness {
+  background: var(--cmp-warn-soft);
+  border: 1px solid #f0dcb8;
+  border-radius: 14px;
+  padding: 24px 28px;
+}
+.cmp-weakness h2 {
+  color: var(--cmp-warn);
+  font-size: 20px;
+  margin: 0 0 8px;
+}
+.cmp-weakness p {
+  color: #6b4a12;
+  font-size: 16px;
+  line-height: 1.55;
+  margin: 0;
+}
+
+/* ── Signal-combination example cards ─────────────────────────────────── */
+.cmp-examples {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+}
+.cmp-card {
+  background: var(--cmp-surface);
+  border: 1px solid var(--cmp-line);
+  border-radius: 14px;
+  padding: 22px 24px;
+}
+.cmp-card-signals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 14px;
+}
+.cmp-chip {
+  font-family:
+    var(--font-fb-bric, ui-monospace), ui-monospace, "JetBrains Mono", monospace;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--cmp-indigo);
+  background: var(--cmp-indigo-soft);
+  border-radius: 8px;
+  padding: 4px 10px;
+}
+.cmp-card-title {
+  font-size: 17px;
+  font-weight: 700;
+  margin: 0 0 6px;
+}
+.cmp-card-body {
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--cmp-muted);
+  margin: 0;
+}
+
+/* ── Comparison table ─────────────────────────────────────────────────── */
+.cmp-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--cmp-line);
+  border-radius: 14px;
+  background: var(--cmp-surface);
+}
+.cmp-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 560px;
+}
+.cmp-table caption {
+  text-align: left;
+  padding: 16px 20px 0;
+  font-size: 13px;
+  color: var(--cmp-muted);
+}
+.cmp-table th,
+.cmp-table td {
+  padding: 14px 20px;
+  text-align: left;
+  font-size: 15px;
+  border-bottom: 1px solid var(--cmp-line);
+  vertical-align: top;
+}
+.cmp-table thead th {
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--cmp-ink);
+  background: #f0f1f7;
+}
+.cmp-table th[scope="row"] {
+  font-weight: 600;
+  color: var(--cmp-ink);
+  width: 34%;
+}
+.cmp-table tbody tr:last-child th,
+.cmp-table tbody tr:last-child td {
+  border-bottom: none;
+}
+.cmp-col-mapsly {
+  color: var(--cmp-good);
+  font-weight: 600;
+  background: var(--cmp-good-soft);
+}
+.cmp-col-them {
+  color: var(--cmp-muted);
+}
+
+/* ── CTA band ─────────────────────────────────────────────────────────── */
+.cmp-cta {
+  text-align: center;
+  background: var(--cmp-surface);
+  border: 1px solid var(--cmp-line);
+  border-radius: 18px;
+  padding: 40px 28px;
+}
+.cmp-cta h2 {
+  font-size: clamp(22px, 3vw, 30px);
+  font-weight: 700;
+  margin: 0 0 10px;
+}
+.cmp-cta p {
+  color: var(--cmp-muted);
+  font-size: 16px;
+  margin: 0 0 24px;
+}
+.cmp-btn {
+  display: inline-block;
+  background: var(--cmp-indigo);
+  color: #fff;
+  font-weight: 600;
+  font-size: 16px;
+  text-decoration: none;
+  border-radius: 12px;
+  padding: 14px 28px;
+  transition: background 0.15s ease;
+}
+.cmp-btn:hover {
+  background: #4a2fe0;
+}
+.cmp-links {
+  margin-top: 20px;
+  font-size: 15px;
+}
+.cmp-links a {
+  color: var(--cmp-indigo);
+  font-weight: 600;
+  text-decoration: none;
+}
+.cmp-links a:hover {
+  text-decoration: underline;
+}
+.cmp-links .cmp-sep {
+  color: var(--cmp-line);
+  margin: 0 10px;
+}
+
+/* ── Cross-links to sibling comparisons ───────────────────────────────── */
+.cmp-siblings {
+  margin-top: 40px;
+  text-align: center;
+  font-size: 14px;
+  color: var(--cmp-muted);
+}
+.cmp-siblings a {
+  color: var(--cmp-indigo);
+  text-decoration: none;
+}
+.cmp-siblings a:hover {
+  text-decoration: underline;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cmp-btn {
+    transition: none;
+  }
+}

@@ -20,6 +20,11 @@
  */
 
 import { decodeHtmlEntities } from "@/lib/text/html-entities";
+// WP8-1: business-controlled URLs (homepage + probe paths + JS bundles) are
+// fetched from our egress — route them through the SSRF guard so a blocked URL
+// or redirect-to-metadata throws, and the existing try/catch collapses it to
+// { ok: false } (same as any fetch failure).
+import { safeFetch } from "@/lib/net/ssrf-guard";
 
 const USER_AGENT =
   "Mozilla/5.0 (compatible; MapslyBot/0.1; +https://mapsly.ai/bot · sarminvictor@gmail.com)";
@@ -402,14 +407,13 @@ async function fetchJsBundle(
   domain: string | null,
   userAgent: string = USER_AGENT,
 ): Promise<JsBundleResult> {
-  const res = await fetch(url, {
+  const res = await safeFetch(url, {
     headers: {
       "User-Agent": userAgent,
       Accept: "application/javascript,*/*",
       "Accept-Language": "en-US,en;q=0.9",
     },
     signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-    redirect: "follow",
   });
   if (!res.ok) return { url, ok: false, candidates: [] };
 
@@ -450,14 +454,13 @@ async function fetchAndExtract(
   domain: string | null,
   userAgent: string = USER_AGENT,
 ): Promise<FetchResult> {
-  const res = await fetch(url, {
+  const res = await safeFetch(url, {
     headers: {
       "User-Agent": userAgent,
       Accept: "text/html,application/xhtml+xml",
       "Accept-Language": "en-US,en;q=0.9",
     },
     signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-    redirect: "follow",
   });
   if (!res.ok) {
     return { url, source, candidates: [], ok: false };

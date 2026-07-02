@@ -129,13 +129,41 @@ model Agency {
   maxConcurrentRuns Int?
   dailyCostCapUsd   Float?
 
+  // Seat cap for the flat-plan seat model (WP0-6 · Solo 1 / Growth 3 / Pro 10).
+  // The wallet is already agency-level (see `AgencyWallet`, keyed by agencyId
+  // @unique) — credits pool across seats; there is no per-user wallet.
+  maxSeats Int?
+
   members AgencyMember[]
   lists   List[]
   leads   Lead[]
   reports Report[]
+  invites AgencyInvite[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// WP5-8 · pending seat invite. The magic-link VerificationToken is consumed by
+// NextAuth itself and can't carry agencyId/role, so invites live here: the
+// invite email links to /signin?invite=<token>; after the magic-link round-trip
+// /post-signin resolves the token, enforces the seat cap, and creates the
+// AgencyMember on the INVITING agency (never self-provisions a new one).
+model AgencyInvite {
+  id              String           @id @default(cuid())
+  agencyId        String
+  email           String
+  role            AgencyMemberRole @default(STAFF)
+  token           String           @unique
+  invitedByUserId String
+  expiresAt       DateTime
+  acceptedAt      DateTime?
+  createdAt       DateTime         @default(now())
+
+  agency Agency @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+
+  @@index([agencyId])
+  @@index([email])
 }
 
 enum AgencyPlan {
@@ -315,6 +343,10 @@ model Business {
   categoryProfileSlug    String?
   complianceFlags        String[]           @default([])
   enrichmentFreshness    Json?
+  // Do-not-sell / opt-out suppression (WP0-7) · stamped by the /opt-out flow
+  // (WP7-2). When set, this business is filtered out of enrichment output,
+  // CSV export, touch generation, and one-pagers. Nullable = not suppressed.
+  suppressedAt           DateTime?
 
   // Linked records
   snapshots           BusinessSnapshot[]
@@ -340,6 +372,14 @@ model Business {
   @@index([metroSlug])
   @@index([cellKey])
   @@index([isHidden])
+  // WP9-4 · covering index for the raw-list read model (modules/discovery/
+  // raw-list.ts): the query filters `cellKey IN (...)` and sorts
+  // `reviewCount DESC NULLS LAST, id ASC`. The single-column [cellKey] index
+  // served the filter but forced an in-memory sort of the whole cell; this
+  // composite lets Postgres walk the cell in review-count order directly, so
+  // per-cell pages (Preview sample + workbench) come back in index order at
+  // 2.1M scale. `id ASC` (the cursor tiebreak) rides the primary key.
+  @@index([cellKey, reviewCount(sort: Desc)])
 }
 
 enum BusinessSource {
@@ -2239,6 +2279,10 @@ model EnrichmentJob {
   runId         String?
   workflowRunId String?
   attempts      Int                 @default(0)
+  // Exponential-backoff marker (WP0-5) · the pool-claim query filters
+  // `nextAttemptAt <= now() OR nextAttemptAt IS NULL`. Stamped on requeue in
+  // WP3-6; null means immediately eligible.
+  nextAttemptAt DateTime?
   startedAt     DateTime?
   finishedAt    DateTime?
   errorMessage  String?             @db.Text
@@ -2246,6 +2290,13 @@ model EnrichmentJob {
 
   @@index([businessId, family])
   @@index([status])
+  @@index([runId, status])
+  @@index([status, createdAt])
+  // WP3-6 · covering index for the backoff-aware pool claim
+  // (`WHERE status='QUEUED' AND (nextAttemptAt IS NULL OR nextAttemptAt <= now())`
+  // ORDER BY createdAt, id). nextAttemptAt leads so the range predicate is an
+  // index scan; createdAt keeps the deterministic ordering (WP3-12).
+  @@index([status, nextAttemptAt, createdAt])
 }
 
 // Credit wallet per agency. Credit columns are non-null @default(0) (INC-32).
@@ -2274,6 +2325,7 @@ model CreditLedger {
   createdAt DateTime         @default(now())
 
   @@index([agencyId, createdAt])
+  @@index([runId, type])
 }
 
 // ── Discovery (§4.3, §4.19) ──────────────────────────────────────────────────
@@ -2309,6 +2361,9 @@ model Discovery {
   signalsJson       Json?
   workflowRunId     String?
   createdAt         DateTime        @default(now())
+  // Stamped by app code when the discovery flips to RUNNING (WP0-4) so
+  // stuck-discovery recovery (WP3-5) anchors on real run-start, not enqueue.
+  startedAt         DateTime?
   finishedAt        DateTime?
 
   @@index([agencyId, createdAt])
@@ -2363,6 +2418,10 @@ model Contact {
   verifiedAt      DateTime?
   isPrimary       Boolean        @default(false)
   meta            Json?
+  // Contact-level do-not-sell / opt-out flag (WP0-7) · stamped by the /opt-out
+  // flow (WP7-2). When set, this channel is excluded from CSV export, touch
+  // generation, and one-pagers. Nullable = not opted out.
+  optedOutAt      DateTime?
   firstSeenAt     DateTime       @default(now())
   lastSeenAt      DateTime       @default(now())
   createdAt       DateTime       @default(now())
@@ -2610,6 +2669,10 @@ model ResearchPlan {
 model OutreachDraft {
   id            String   @id @default(cuid())
   businessId    String
+  // Owning agency · backfilled from the generating agency in app code (WP0 is
+  // a safe additive migration; nullable until WP1+ populates + reads it). The
+  // WP5 touch-gen + security waves filter every draft read/write by agencyId.
+  agencyId      String?
   campaignId    String?
   leadId        String?
   channel       String
@@ -2623,6 +2686,7 @@ model OutreachDraft {
 
   @@index([campaignId])
   @@index([businessId])
+  @@index([agencyId])
 }
 
 // Outreach lifecycle event (sent / open / reply / bounce) — reply/bounce truth.
@@ -2697,4 +2761,39 @@ model EnrichmentStageRun {
   computedAt   DateTime @default(now())
 
   @@index([businessId, stage])
+}
+
+// ── Activation analytics (WP0-8) ─────────────────────────────────────────────
+
+// Server-side product events for activation funnels — no new vendor. Inserted
+// via a helper (WP6-4): signup, agency_created, goal_selected, enrich_started,
+// first_lead_drawer_opened, csv_exported, credit_exhausted_hit, etc. agencyId /
+// userId are nullable so anonymous / pre-agency events can still land.
+model ProductEvent {
+  id        String   @id @default(cuid())
+  agencyId  String?
+  userId    String?
+  type      String
+  propsJson Json?
+  createdAt DateTime @default(now())
+
+  @@index([type, createdAt])
+  @@index([agencyId, createdAt])
+}
+
+// ── Saved goal templates (WP0-9) ─────────────────────────────────────────────
+
+// Per-agency saved research playbook (save-as-template · WP5-12). `signalsJson`
+// mirrors Discovery.signalsJson shape; `basedOnTemplate` is the GOAL_TEMPLATES
+// key it was cloned from (null for from-scratch).
+model AgencyTemplate {
+  id              String   @id @default(cuid())
+  agencyId        String
+  name            String
+  basedOnTemplate String?
+  signalsJson     Json
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([agencyId])
 }

@@ -12,8 +12,17 @@
 // Uses the prototype's ported classes (.goalsplit/.tplrow/.sigc/.badge-sig …
 // from agency-portal.css). English-only for now (the app runs English-only).
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+  type ReactNode,
+} from "react";
+import { useRouter } from "next/navigation";
 
+import { showToast } from "@/components/agency/Toast";
 import {
   GOAL_TEMPLATES,
   OUTCOME_GROUPS,
@@ -29,18 +38,35 @@ import {
   type GoalState,
   type SignalTuneValue,
 } from "../../flow-types";
+import { buildDiscoverySignals } from "../../discovery-signals";
+import {
+  goalFromSavedTemplate,
+  type SavedTemplateRow,
+} from "../../saved-templates";
+import {
+  deleteGoalTemplateAction,
+  saveGoalTemplateAction,
+} from "../../template-actions";
 
 export function GoalStep({
   goal,
+  myTemplates = [],
   onChange,
   onContinue,
 }: {
   goal: GoalState | null;
+  /** The agency's saved templates (WP5-12) — rendered above the built-ins. */
+  myTemplates?: SavedTemplateRow[];
   onChange: (next: GoalState) => void;
   onContinue: () => void;
 }) {
   const [search, setSearch] = useState("");
   const [libOpen, setLibOpen] = useState(false);
+  const router = useRouter();
+  const [saving, startSaving] = useTransition();
+  // The row id most recently saved this session — collapses the Save button
+  // into a "Saved" beat until the goal changes again.
+  const [savedForName, setSavedForName] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -60,13 +86,87 @@ export function GoalStep({
     });
   }, [search]);
 
+  // "My templates" honors the same search box (name + signal titles).
+  const filteredMine = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return myTemplates;
+    return myTemplates.filter((t) => {
+      const hay = [
+        t.name,
+        ...t.signals.map((s) => SIG_META[s.key]?.title ?? ""),
+      ]
+        .join(" ")
+        .toLowerCase();
+      return hay.includes(q);
+    });
+  }, [search, myTemplates]);
+
   function pick(key: string) {
     const tpl = templateByKey(key);
     if (!tpl) return;
     onChange(loadGoalFrom(tpl));
   }
 
+  /** Load a saved template — pre-seeds the goal exactly like a built-in. */
+  function pickMine(row: SavedTemplateRow) {
+    onChange(goalFromSavedTemplate(row));
+  }
+
+  function saveAsTemplate() {
+    if (!goal || saving) return;
+    const { signals } = buildDiscoverySignals(goal.filters);
+    if (signals.length === 0) {
+      showToast("Turn on at least one signal to save a template", "error");
+      return;
+    }
+    startSaving(async () => {
+      const r = await saveGoalTemplateAction({
+        name: goal.name,
+        basedOnTemplate: goal.base === "custom" ? null : goal.base,
+        signals,
+      });
+      if (r.status === "ok") {
+        setSavedForName(goal.name);
+        showToast(`Saved "${goal.name}" to My templates`);
+        // The gallery lists server-loaded rows — refresh pulls the new one in.
+        router.refresh();
+      } else if (r.status === "limit_reached") {
+        showToast(
+          `Template limit reached (${r.max}) — delete one first`,
+          "error",
+        );
+      } else {
+        showToast("Couldn't save the template — try again", "error");
+      }
+    });
+  }
+
+  function deleteMine(row: SavedTemplateRow) {
+    if (
+      !window.confirm(
+        `Delete template "${row.name}"? Its ${row.signals.length} saved signal${row.signals.length === 1 ? "" : "s"} are lost.`,
+      )
+    ) {
+      return;
+    }
+    startSaving(async () => {
+      const r = await deleteGoalTemplateAction({ templateId: row.id });
+      if (r.status === "ok") {
+        showToast(`Deleted "${row.name}"`);
+        router.refresh();
+      } else {
+        showToast("Couldn't delete the template", "error");
+      }
+    });
+  }
+
   const activeCount = goal ? goal.filters.filter((f) => f.on).length : 0;
+  // A saved-template row reads as selected when the working goal came from it.
+  const mineSelected = (t: SavedTemplateRow): boolean =>
+    goal != null &&
+    goal.customized &&
+    goal.name === t.name &&
+    goal.base === (t.basedOnTemplate ?? "custom");
 
   return (
     <div className="goalsplit">
@@ -87,6 +187,68 @@ export function GoalStep({
         </div>
 
         <div className="tpllist" id="tplGrid">
+          {/* WP5-12 · the agency's own saved playbooks, above the built-ins. */}
+          {filteredMine.length > 0 ? (
+            <>
+              <div className="tpllist-sub">My templates</div>
+              {filteredMine.map((t) => {
+                const sel = mineSelected(t);
+                return (
+                  <button
+                    key={t.id}
+                    type="button"
+                    className={`tplrow${sel ? " sel" : ""}`}
+                    aria-pressed={sel}
+                    onClick={() => pickMine(t)}
+                  >
+                    <span className="tplrow-ic" aria-hidden="true">
+                      {t.basedOnTemplate
+                        ? (templateByKey(t.basedOnTemplate)?.icon ?? "💾")
+                        : "💾"}
+                    </span>
+                    <span className="tplrow-body">
+                      <span className="tplrow-name">
+                        {t.name}
+                        <span className="badge-data">saved</span>
+                      </span>
+                      <span className="tplrow-who">
+                        {t.basedOnTemplate
+                          ? `Your tuned "${templateByKey(t.basedOnTemplate)?.title ?? t.basedOnTemplate}"`
+                          : "Your saved signal bundle"}
+                      </span>
+                    </span>
+                    <span className="tplrow-meta">
+                      {t.signals.length} signals
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        aria-label={`Delete template ${t.name}`}
+                        title="Delete template"
+                        style={{
+                          marginLeft: 8,
+                          color: "var(--faint)",
+                          cursor: "pointer",
+                        }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteMine(t);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            deleteMine(t);
+                          }
+                        }}
+                      >
+                        ✕
+                      </span>
+                    </span>
+                  </button>
+                );
+              })}
+            </>
+          ) : null}
           <div className="tpllist-sub">Templates</div>
           {filtered.length === 0 ? (
             <div className="note" style={{ padding: "12px 2px" }}>
@@ -205,6 +367,26 @@ export function GoalStep({
           <div className="gd-actions">
             <button type="button" className="btn primary" onClick={onContinue}>
               Choose your market →
+            </button>
+            {/* WP5-12 · save the tuned bundle as a personal template. Enabled
+                once the goal is customized (a pristine preset is already a
+                template — nothing to save). */}
+            <button
+              type="button"
+              className="btn"
+              disabled={!goal.customized || saving}
+              title={
+                goal.customized
+                  ? "Save this tuned signal set to My templates"
+                  : "Tune the preset first — the built-in is already saved"
+              }
+              onClick={saveAsTemplate}
+            >
+              {saving
+                ? "Saving…"
+                : savedForName === goal.name
+                  ? "Saved ✓"
+                  : "Save as template"}
             </button>
             <span className="note">
               Set signals once here — next is just where to look.

@@ -25,11 +25,15 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 // ---------------------------------------------------------------------------
 
 const findManyMock = vi.fn();
+const discoveryFindManyMock = vi.fn();
 
 vi.mock("@/lib/prisma", () => ({
   default: {
     business: {
       findMany: (...args: unknown[]) => findManyMock(...args),
+    },
+    discovery: {
+      findMany: (...args: unknown[]) => discoveryFindManyMock(...args),
     },
   },
 }));
@@ -84,6 +88,8 @@ describe("normalizeWebsiteToken", () => {
 describe("searchBusinesses", () => {
   beforeEach(() => {
     findManyMock.mockReset();
+    discoveryFindManyMock.mockReset();
+    discoveryFindManyMock.mockResolvedValue([]);
   });
 
   afterEach(() => {
@@ -112,8 +118,8 @@ describe("searchBusinesses", () => {
     // `take` is bounded to MAX_MATCHES.
     expect(arg.take).toBe(MAX_MATCHES);
 
-    // `select` only includes picker-rendered fields — no broad include
-    // (INC-37 prevention).
+    // `select` only includes picker-rendered fields + cellKey (the discovery
+    // resolver, WP4-7) — no broad include (INC-37 prevention).
     expect(arg.select).toEqual({
       id: true,
       slug: true,
@@ -121,6 +127,7 @@ describe("searchBusinesses", () => {
       city: true,
       category: true,
       website: true,
+      cellKey: true,
     });
 
     // Where clause filters to active rows + ORs across the 4 documented
@@ -154,8 +161,10 @@ describe("searchBusinesses", () => {
     expect(websiteClause!.website.contains).toBe("solea-spa.com");
   });
 
-  test("passes Prisma rows through unchanged", async () => {
-    const rows = [
+  test("maps rows to matches with discoveryId:null when no agency given", async () => {
+    // Prisma rows carry `cellKey` (the resolver's input); the returned match
+    // strips it and adds `discoveryId` (null without an agency scope).
+    findManyMock.mockResolvedValue([
       {
         id: "biz_1",
         slug: "solea-spa",
@@ -163,6 +172,7 @@ describe("searchBusinesses", () => {
         city: "Miami",
         category: "medical_spa",
         website: "https://solea-spa.com",
+        cellKey: "medical_spa|miami|US",
       },
       {
         id: "biz_2",
@@ -171,12 +181,70 @@ describe("searchBusinesses", () => {
         city: "Brickell",
         category: "medical_spa",
         website: null,
+        cellKey: null,
       },
-    ];
-    findManyMock.mockResolvedValue(rows);
+    ]);
 
     const out = await searchBusinesses("spa");
-    expect(out).toEqual(rows);
+    // No agencyId → no discovery lookup fires, every match resolves to null.
+    expect(discoveryFindManyMock).not.toHaveBeenCalled();
+    expect(out).toEqual([
+      {
+        id: "biz_1",
+        slug: "solea-spa",
+        name: "Solea Spa",
+        city: "Miami",
+        category: "medical_spa",
+        website: "https://solea-spa.com",
+        discoveryId: null,
+      },
+      {
+        id: "biz_2",
+        slug: "glow-rx",
+        name: "Glow RX",
+        city: "Brickell",
+        category: "medical_spa",
+        website: null,
+        discoveryId: null,
+      },
+    ]);
+  });
+
+  test("resolves discoveryId per match from the agency's discoveries (WP4-7)", async () => {
+    findManyMock.mockResolvedValue([
+      {
+        id: "biz_1",
+        slug: "solea-spa",
+        name: "Solea Spa",
+        city: "Miami",
+        category: "medical_spa",
+        website: null,
+        cellKey: "medical_spa|miami|US",
+      },
+      {
+        id: "biz_2",
+        slug: "glow-rx",
+        name: "Glow RX",
+        city: "Austin",
+        category: "medical_spa",
+        website: null,
+        cellKey: "medical_spa|austin|US",
+      },
+    ]);
+    // Two discoveries oldest→newest; the newer one re-uses the Miami cell so it
+    // wins that slot. Austin lives only in the older one.
+    discoveryFindManyMock.mockResolvedValue([
+      {
+        id: "disc_old",
+        cellKeys: ["medical_spa|miami|US", "medical_spa|austin|US"],
+      },
+      { id: "disc_new", cellKeys: ["medical_spa|miami|US"] },
+    ]);
+
+    const out = await searchBusinesses("spa", "agency_1");
+    expect(discoveryFindManyMock).toHaveBeenCalledTimes(1);
+    expect(out[0].discoveryId).toBe("disc_new"); // newest write wins Miami
+    expect(out[1].discoveryId).toBe("disc_old"); // only the older one has Austin
   });
 
   test("degrades to [] when Prisma throws", async () => {

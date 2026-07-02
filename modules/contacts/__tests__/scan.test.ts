@@ -214,6 +214,10 @@ describe("scanBusinessContacts · fetch FAILURE", () => {
     // No contact / tech rows on a failed fetch.
     expect(db.contacts).toHaveLength(0);
     expect(db.techs).toHaveLength(0);
+    // WP1-7 · a FAILED fetch must NOT stamp contactsExtractedAt — the freshness
+    // cursor stays untouched so a transient site-down doesn't lock the business
+    // out of a re-scan for 90 days. (The base mock starts it null/undefined.)
+    expect(db.business?.contactsExtractedAt ?? null).toBe(null);
   });
 
   test("never hides even when the base row is completely empty", async () => {

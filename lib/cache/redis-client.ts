@@ -138,6 +138,21 @@ export function createRedisKvClient(): KvClient | null {
       // ioredis returns [nextCursor, keys]
       return [result[0], result[1]];
     },
+
+    /**
+     * Atomic INCR-BY (WP3-3 · run-progress counters). Stored as a bare integer
+     * (NOT JSON-wrapped) so INCRBY works natively; `get()` above tolerates the
+     * non-JSON literal by falling back to the raw value. Returns the post-incr
+     * value.
+     */
+    async incr(key: string, by = 1): Promise<number> {
+      return by === 1 ? redis.incr(key) : redis.incrby(key, by);
+    },
+
+    /** Set a TTL (seconds) on an existing key. */
+    async expire(key: string, seconds: number): Promise<number> {
+      return redis.expire(key, seconds);
+    },
   };
 }
 

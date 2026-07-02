@@ -23,6 +23,11 @@
  */
 
 import { decodeHtmlEntities } from "@/lib/text/html-entities";
+// WP8-1: service-page + JS-bundle URLs are business-controlled and fetched from
+// our egress — route them through the SSRF guard. A blocked URL throws, and the
+// callsites' try/catch (fetchPageText) / .catch (fetchJsBundleText) collapse it
+// to an ok:false result, same as any fetch failure.
+import { safeFetch } from "@/lib/net/ssrf-guard";
 
 import type { ServiceCandidate, ServiceTaxonomyEntry } from "./types";
 
@@ -204,14 +209,13 @@ async function fetchPageText(
   url: string,
   keepRawHtml: boolean,
 ): Promise<{ ok: boolean; text: string; rawHtml?: string }> {
-  const res = await fetch(url, {
+  const res = await safeFetch(url, {
     headers: {
       "User-Agent": USER_AGENT,
       Accept: "text/html,application/xhtml+xml",
       "Accept-Language": "en-US,en;q=0.9",
     },
     signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-    redirect: "follow",
   });
   if (!res.ok) return { ok: false, text: "" };
   const ct = res.headers.get("content-type") ?? "";
@@ -261,14 +265,13 @@ function extractSameOriginScriptUrls(html: string, base: string): string[] {
 async function fetchJsBundleText(
   url: string,
 ): Promise<{ url: string; ok: boolean; text: string }> {
-  const res = await fetch(url, {
+  const res = await safeFetch(url, {
     headers: {
       "User-Agent": USER_AGENT,
       Accept: "application/javascript,*/*",
       "Accept-Language": "en-US,en;q=0.9",
     },
     signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-    redirect: "follow",
   });
   if (!res.ok) return { url, ok: false, text: "" };
 

@@ -68,6 +68,15 @@ export interface WorkbenchLeadRow {
   reachable: boolean;
   /** CMS / site-builder ("Wix", "WordPress", …) or null. */
   builtOn: string | null;
+  /** Business website URL (Business.website) — CSV export column (WP2-4). */
+  website: string | null;
+  /**
+   * The strongest pitch angle (highest-confidence flagged finding's
+   * pitchAngle) — the one-liner Tom pastes into his opener. Null when no
+   * finding carries one. CSV export column (WP2-4). One short string per row
+   * keeps the serialized payload bounded.
+   */
+  pitchAngle: string | null;
   /** Touch state for this lead's business ("None" | "Draft" | "Sent" | …). */
   touch: TouchState;
   /** Lead.contactedAt, ISO string (plain-serializable) — null until contacted. */
@@ -615,7 +624,118 @@ export function sortRows(
   return [...rows].sort((a, b) => (num(a) - num(b)) * dir);
 }
 
+// ── CSV export mapping (WP2-4 / WP4-4 · ONE mapping for client + server) ─────
+// The client "Export CSV" button (LeadsWorkbench.exportCsv) and the server
+// full-set export route (app/api/agency/research/[discoveryId]/export) both
+// render rows through THIS mapping, so the two stay column-for-column in sync.
+
+/** The 13 export columns, in order. */
+export const CSV_HEADERS = [
+  "Business",
+  "Address",
+  "Match%",
+  "Status",
+  "Reachable",
+  "Emails",
+  "Phones",
+  "Website",
+  "Rating",
+  "Reviews",
+  "Perf score",
+  "Top signals",
+  "Pitch angle",
+] as const;
+
+/**
+ * The row fields the CSV mapping reads. A full {@link WorkbenchLeadRow}
+ * satisfies this structurally; the server export route builds just this subset
+ * (it never needs coverage/touch/builtOn, so it skips those side-loads).
+ */
+export type CsvExportRow = Pick<
+  WorkbenchLeadRow,
+  | "name"
+  | "addr"
+  | "match"
+  | "status"
+  | "reachable"
+  | "emails"
+  | "phones"
+  | "website"
+  | "rating"
+  | "reviews"
+  | "perf"
+  | "perSignal"
+  | "pains"
+  | "pitchAngle"
+>;
+
+/**
+ * Quote-wrap a CSV cell with `""`-doubled quotes, so commas, quotes AND
+ * newlines inside values stay intact. null/undefined → empty cell. Pure.
+ */
+export function csvEscape(v: string | number | null | undefined): string {
+  return `"${String(v ?? "").replace(/"/g, '""')}"`;
+}
+
+/**
+ * Top-3 fired signals: the goal signals whose verdict is true (the exact
+ * columns the workbench shows), falling back to the flagged-finding pain
+ * labels when the research persisted no signals. Semicolon-joined. Pure.
+ */
+export function topCsvSignals(
+  r: CsvExportRow,
+  goalSignals: readonly { key: string; title: string }[],
+): string {
+  const fired = goalSignals
+    .filter((s) => r.perSignal[s.key] === true)
+    .map((s) => s.title);
+  const src = fired.length > 0 ? fired : r.pains.map((p) => p.label);
+  return src.slice(0, 3).join("; ");
+}
+
+/**
+ * One row → the 13 raw cell values, in {@link CSV_HEADERS} order. Multi-value
+ * columns (emails/phones) are semicolon-joined — the near-universal "multiple
+ * values in one CSV cell" convention outreach tools import cleanly. Pure.
+ */
+export function rowToCsvRecord(
+  r: CsvExportRow,
+  goalSignals: readonly { key: string; title: string }[],
+): (string | number | null)[] {
+  return [
+    r.name,
+    r.addr,
+    r.match,
+    r.status,
+    r.reachable ? "Yes" : "No",
+    r.emails.join("; "),
+    r.phones.join("; "),
+    r.website,
+    r.rating,
+    r.reviews,
+    r.perf,
+    topCsvSignals(r, goalSignals),
+    r.pitchAngle,
+  ];
+}
+
+/** Escape + join one record into a CSV line. Pure. */
+export function csvLine(record: readonly (string | number | null)[]): string {
+  return record.map(csvEscape).join(",");
+}
+
 // ── Pagination windowing (Boxly pattern · ellipsis) ──────────────────────────
+
+/**
+ * Server fetch-window size (WP4-4). Both workbench pages fetch ONE window of
+ * this many rows per request, at the offset the awaited `?page=` searchParam
+ * selects (Pattern 3 — awaited inside the Suspense boundary). 1000 keeps the
+ * page-1 experience byte-identical to the old MAX_BUSINESSES cap (client-side
+ * sort/filter/vs-cell over the same first 1000 rows) while making EVERY row
+ * beyond it reachable via `?page=2+` — the client pager crosses window
+ * boundaries with router.replace so the server re-renders the next window.
+ */
+export const WORKBENCH_WINDOW = 1000;
 
 export const PAGE_SIZES = [10, 20, 50, 100] as const;
 

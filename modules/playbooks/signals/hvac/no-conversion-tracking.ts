@@ -21,11 +21,13 @@
  *          tracking IS present (nothing to fix).
  *
  * See:
+ *   - modules/playbooks/signals/shared/ad-tags.ts — AD_TAG_NAMES / findAdTag
  *   - modules/playbooks/signals/shared/tech-presence.ts — hasConversionTracking
  *   - modules/playbooks/confidence.ts — hard-evidence tiering
  */
 
 import { assertExposurePhrasing } from "../../copy-lint";
+import { findAdTag } from "../shared/ad-tags";
 import { hasConversionTracking } from "../shared/tech-presence";
 import type {
   EvidenceBundle,
@@ -33,30 +35,6 @@ import type {
   PlaybookSignal,
   SignalVerdict,
 } from "../../types";
-
-/**
- * Names (case-insensitive substrings) that betray an ad-platform tag on the
- * site — our proxy for "this business runs paid ads". Conservative: a generic
- * analytics tag is NOT here (that would be conversion tracking, not an ad tag).
- */
-const AD_TAG_NAMES = [
-  "google ads",
-  "google adwords",
-  "adwords",
-  "google tag manager",
-  "gtm",
-  "doubleclick",
-  "meta ads",
-  "facebook ads",
-];
-
-function findAdTag(
-  tech: { name: string; category: string }[],
-): { name: string; category: string } | undefined {
-  return tech.find((t) =>
-    AD_TAG_NAMES.some((n) => t.name.toLowerCase().includes(n)),
-  );
-}
 
 function detect(ev: EvidenceBundle): SignalVerdict | null {
   const tech = ev.tech;

@@ -15,6 +15,9 @@ import { hvacPlaybook } from "../definitions/hvac";
 import { dentalPlaybook } from "../definitions/dental";
 import { restaurantPlaybook } from "../definitions/restaurant";
 import { autoBodyPlaybook } from "../definitions/auto-body";
+import { roofingPlaybook } from "../definitions/roofing";
+import { lawPlaybook } from "../definitions/law";
+import { chiropracticPlaybook } from "../definitions/chiropractic";
 import type { EvidenceBundle } from "../types";
 
 function bundle(over: Partial<EvidenceBundle> = {}): EvidenceBundle {
@@ -46,11 +49,20 @@ const CLEAN_A11Y = {
   "image-alt": { score: 1 },
 };
 
-describe("registry · all 5 launch playbooks registered + resolvable", () => {
-  test("ALL_PLAYBOOKS has the 5 launch verticals", () => {
+describe("registry · all launch playbooks registered + resolvable", () => {
+  test("ALL_PLAYBOOKS has the 5 launch verticals + the 3 WP6-11 verticals", () => {
     const ids = ALL_PLAYBOOKS.map((p) => p.id).sort();
     expect(ids).toEqual(
-      ["auto-body", "dental", "hvac", "med-spa", "restaurant"].sort(),
+      [
+        "auto-body",
+        "chiropractic",
+        "dental",
+        "hvac",
+        "law",
+        "med-spa",
+        "restaurant",
+        "roofing",
+      ].sort(),
     );
   });
 
@@ -59,7 +71,12 @@ describe("registry · all 5 launch playbooks registered + resolvable", () => {
     expect(playbookForCategory("Dentist")?.id).toBe("dental");
     expect(playbookForCategory("Coffee Shop")?.id).toBe("restaurant");
     expect(playbookForCategory("Collision Repair")?.id).toBe("auto-body");
-    expect(playbookForBusiness(["plumber", "body shop"])?.id).toBe("auto-body");
+    // "plumber" resolves to roofing (WP6-11); "body shop" would resolve to
+    // auto-body, but playbookForBusiness returns the FIRST matching category.
+    expect(playbookForBusiness(["plumber", "body shop"])?.id).toBe("roofing");
+    expect(playbookForCategory("Roofing Contractor")?.id).toBe("roofing");
+    expect(playbookForCategory("Personal Injury Attorney")?.id).toBe("law");
+    expect(playbookForCategory("Chiropractor")?.id).toBe("chiropractic");
   });
 });
 
@@ -336,6 +353,180 @@ describe("auto-body playbook", () => {
       lighthouseAudits: CLEAN_A11Y,
     });
     const results = runPlaybook(autoBodyPlaybook, ev);
+    for (const r of results) {
+      expect(r.verdict, r.signalKey).toBeNull();
+      expect(r.notCheckedReason, r.signalKey).toBeTruthy();
+    }
+  });
+});
+
+describe("roofing playbook (WP6-11)", () => {
+  test("flagged business → ADA + license + conversion all fire", () => {
+    const ev = bundle({
+      business: {
+        id: "b1",
+        slug: "peak-roofing",
+        categorySlugs: ["roofing"],
+        website: "https://peakroofing.example",
+        // No license number named → license_number_absent fires.
+        services: [{ name: "Roof replacement" }, { name: "Storm repair" }],
+      },
+      // Ad tag present, NO pixel/analytics → no_conversion_tracking (high).
+      tech: [
+        { name: "Google Ads", category: "other" },
+        { name: "WordPress", category: "cms" },
+      ],
+      lighthouseAudits: FAILING_A11Y,
+    });
+
+    const results = runPlaybook(roofingPlaybook, ev);
+    const byKey = Object.fromEntries(results.map((r) => [r.signalKey, r]));
+
+    for (const r of results) {
+      expect(r.verdict, r.signalKey).not.toBeNull();
+      expect(r.verdict!.evidence.length, r.signalKey).toBeGreaterThan(0);
+      expect(() =>
+        assertExposurePhrasing(r.verdict!.explanation),
+      ).not.toThrow();
+    }
+    expect(byKey["ada-web-risk"].verdict!.value).toBe("high");
+    expect(
+      byKey["roofing.license_number_absent_from_site"].verdict!.value,
+    ).toBe(true);
+    expect(byKey["roofing.no_conversion_tracking"].verdict!.confidence).toBe(
+      "high",
+    );
+  });
+
+  test("clean business → null verdicts with a not-checked reason", () => {
+    const ev = bundle({
+      business: {
+        id: "b1",
+        slug: "peak-roofing",
+        categorySlugs: ["roofing"],
+        website: "https://peakroofing.example",
+        services: [{ name: "Licensed roofing · License #RC-99881" }],
+      },
+      // Pixel present (measuring), no ad tag → conversion clean.
+      tech: [{ name: "Meta Pixel", category: "pixel" }],
+      lighthouseAudits: CLEAN_A11Y,
+    });
+    const results = runPlaybook(roofingPlaybook, ev);
+    for (const r of results) {
+      expect(r.verdict, r.signalKey).toBeNull();
+      expect(r.notCheckedReason, r.signalKey).toBeTruthy();
+    }
+  });
+});
+
+describe("law playbook (WP6-11)", () => {
+  test("flagged business → ADA + bar-number + disclaimer all fire", () => {
+    const ev = bundle({
+      business: {
+        id: "b1",
+        slug: "acme-legal",
+        categorySlugs: ["law firm"],
+        website: "https://acmelegal.example",
+        // No bar identifier, no disclaimer language → both compliance signals.
+        services: [{ name: "Personal injury" }, { name: "Car accidents" }],
+      },
+      tech: [{ name: "WordPress", category: "cms" }],
+      lighthouseAudits: FAILING_A11Y,
+    });
+
+    const results = runPlaybook(lawPlaybook, ev);
+    const byKey = Object.fromEntries(results.map((r) => [r.signalKey, r]));
+
+    for (const r of results) {
+      expect(r.verdict, r.signalKey).not.toBeNull();
+      expect(() =>
+        assertExposurePhrasing(r.verdict!.explanation),
+      ).not.toThrow();
+    }
+    expect(byKey["ada-web-risk"].verdict!.value).toBe("high");
+    expect(byKey["law.bar_number_absent_from_site"].verdict!.value).toBe(true);
+    expect(byKey["law.advertising_disclaimer_absent"].verdict!.value).toBe(
+      true,
+    );
+  });
+
+  test("clean business → null verdicts with a not-checked reason", () => {
+    const ev = bundle({
+      business: {
+        id: "b1",
+        slug: "acme-legal",
+        categorySlugs: ["law firm"],
+        website: "https://acmelegal.example",
+        // Bar identifier + disclaimer present → both compliance null.
+        services: [
+          { name: "Jane Doe, Esq. · State Bar No. 445566" },
+          { name: "Attorney Advertising — prior results do not guarantee" },
+        ],
+      },
+      tech: [{ name: "WordPress", category: "cms" }],
+      lighthouseAudits: CLEAN_A11Y,
+    });
+    const results = runPlaybook(lawPlaybook, ev);
+    for (const r of results) {
+      expect(r.verdict, r.signalKey).toBeNull();
+      expect(r.notCheckedReason, r.signalKey).toBeTruthy();
+    }
+  });
+});
+
+describe("chiropractic playbook (WP6-11)", () => {
+  test("flagged business → HIPAA + ADA + health-claim all fire", () => {
+    const ev = bundle({
+      business: {
+        id: "b1",
+        slug: "align-chiro",
+        categorySlugs: ["chiropractic"],
+        website: "https://alignchiro.example",
+        // Absolute cure claim → unsubstantiated_health_claim fires.
+        services: [{ name: "Adjustments that cure migraines" }],
+      },
+      // Pixel + booking → HIPAA fires (chiropractic is a health category).
+      tech: [
+        { name: "Meta Pixel", category: "pixel" },
+        { name: "Acuity", category: "booking" },
+      ],
+      lighthouseAudits: FAILING_A11Y,
+    });
+
+    const results = runPlaybook(chiropracticPlaybook, ev);
+    const byKey = Object.fromEntries(results.map((r) => [r.signalKey, r]));
+
+    for (const key of [
+      "hipaa-pixel-on-phi-page",
+      "ada-web-risk",
+      "chiropractic.unsubstantiated_health_claim",
+    ]) {
+      expect(byKey[key].verdict, key).not.toBeNull();
+      expect(byKey[key].verdict!.evidence.length, key).toBeGreaterThan(0);
+      expect(() =>
+        assertExposurePhrasing(byKey[key].verdict!.explanation),
+      ).not.toThrow();
+    }
+    expect(
+      byKey["chiropractic.unsubstantiated_health_claim"].verdict!.value,
+    ).toBe("cure");
+  });
+
+  test("clean business → null verdicts with a not-checked reason", () => {
+    const ev = bundle({
+      business: {
+        id: "b1",
+        slug: "align-chiro",
+        categorySlugs: ["chiropractic"],
+        website: "https://alignchiro.example",
+        // No absolute claim → health-claim null.
+        services: [{ name: "Spinal adjustments" }, { name: "Sports therapy" }],
+      },
+      // No booking surface → HIPAA null; no tracker either.
+      tech: [{ name: "WordPress", category: "cms" }],
+      lighthouseAudits: CLEAN_A11Y,
+    });
+    const results = runPlaybook(chiropracticPlaybook, ev);
     for (const r of results) {
       expect(r.verdict, r.signalKey).toBeNull();
       expect(r.notCheckedReason, r.signalKey).toBeTruthy();

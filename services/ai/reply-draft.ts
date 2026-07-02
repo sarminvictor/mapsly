@@ -19,6 +19,7 @@
 import { z } from "zod";
 import { kvCache } from "@/lib/cache";
 import { callOpenAi } from "@/services/ai/client";
+import { wrapUntrusted } from "@/services/ai/untrusted";
 import { isHumanMedicalCategory } from "@/services/ai/medical-category";
 import type { SupportedModel } from "@/services/ai/pricing";
 
@@ -315,7 +316,7 @@ function formatVoiceExamples(examples: VoiceExample[]): string {
     .map((ex, i) => {
       const text =
         ex.reviewText && ex.reviewText.trim().length > 0
-          ? ex.reviewText.trim().slice(0, 600)
+          ? wrapUntrusted(ex.reviewText.trim().slice(0, 600), "REVIEW TEXT")
           : "(stars only · no written feedback)";
       return `--- Example ${i + 1} ---
 Review (★${ex.reviewStars}): ${text}
@@ -379,7 +380,11 @@ ${reviewerLine}
 
 ${examplesBlock}=== NEW REVIEW (write the owner's reply now) ===
 Stars: ${input.stars}/5
-Text: ${input.text || "(stars only · no written feedback)"}
+Text: ${
+    input.text && input.text.trim().length > 0
+      ? wrapUntrusted(input.text, "REVIEW TEXT")
+      : "(stars only · no written feedback)"
+  }
 
 ${closing}`;
 }

@@ -120,15 +120,13 @@ Things I scaffolded vs things only you can do. Work through this list in order. 
 - Generate `CRON_SECRET`: `openssl rand -hex 32`, paste into both `.env.local` and Vercel
 - First deploy will fail until the DB exists — run `pnpm db:push` first
 
-### Meta Ad Library — required for ad-intel signals
+### Meta ad intel — via the Apify actor (no Graph API token needed)
 
-- Apply for access: https://developers.facebook.com/docs/marketing-api/insights
-- Create a Meta app, request `ads_archive_read` permission (instant approval for public ads)
-- Generate a long-lived access token
-- Add to `.env.local`:
-  ```
-  META_AD_LIBRARY_ACCESS_TOKEN="EAA..."
-  ```
+Meta ad-library signals are collected through our published Apify actor
+(`mapsly-meta-ad-library`), configured by `APIFY_TOKEN`. The old direct Graph
+API path (`META_AD_LIBRARY_ACCESS_TOKEN` + `services/meta-ad-library/`) was
+removed in WP10-3 — it had zero importers and was superseded by the actor.
+No Meta app / token setup is required.
 
 ### Vercel Blob — required for PDF storage
 

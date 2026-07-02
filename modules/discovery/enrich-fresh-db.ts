@@ -7,7 +7,7 @@
 // cells. No external API, no writes. Safe in the pre-flight (server action) path
 // because it touches only the DB.
 
-import prisma from "@/lib/prisma";
+import prisma, { Prisma } from "@/lib/prisma";
 import type { EnrichmentType } from "@/modules/cost/pricing";
 
 import {
@@ -67,17 +67,21 @@ export async function loadFreshTimestamps(
   // ── Per-cell runs (meta_ads / google_ads / serp) ──
   if (cellKeys.length > 0) {
     const platforms = Object.values(CELL_PLATFORM);
-    const runs = await prisma.adMarketRun.findMany({
-      where: {
-        cellKey: { in: [...cellKeys] },
-        platform: { in: platforms },
-        status: { in: ["OK", "PARTIAL"] },
-      },
-      orderBy: { ranAt: "desc" },
-      select: { cellKey: true, platform: true, ranAt: true },
-    });
-    // findMany is desc-ordered, so the first row per (cellKey, platform) is the
-    // newest — keep it, ignore older duplicates.
+    // WP9-3 · DISTINCT ON returns exactly ONE row per (cellKey, platform) — the
+    // newest OK/PARTIAL run — instead of the cell's ENTIRE run history (the old
+    // unbounded findMany grew O(runs) per cell). platform is cast to text for
+    // Neon-adapter deserialization safety.
+    const runs = await prisma.$queryRaw<
+      { cellKey: string; platform: string; ranAt: Date }[]
+    >(Prisma.sql`
+      SELECT DISTINCT ON ("cellKey", "platform")
+        "cellKey", "platform"::text AS platform, "ranAt"
+      FROM "AdMarketRun"
+      WHERE "cellKey" IN (${Prisma.join([...cellKeys])})
+        AND "platform"::text IN (${Prisma.join(platforms)})
+        AND "status" IN ('OK', 'PARTIAL')
+      ORDER BY "cellKey", "platform", "ranAt" DESC
+    `);
     const platformToFamily: Record<string, EnrichmentType> = {
       META: "meta_ads",
       GOOGLE: "google_ads",

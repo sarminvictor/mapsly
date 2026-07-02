@@ -12,6 +12,7 @@
 
 import { cellKey as makeCellKey, type FreshnessState } from "@/lib/cell";
 import {
+  ALL_ENRICHMENT_TYPES,
   CREDIT_USD,
   ENRICHMENT_PRICES,
   enrichmentNeedsWebsite,
@@ -145,6 +146,40 @@ export interface CellRow {
   discoverIsFree: boolean;
 }
 
+// ── WP7-13 · statistical-edge market classification ─────────────────────────
+// The market-relative claim ("38 reviews · cell median 58") must never lie at
+// the statistical edges. Two edges get an honest UI note:
+//
+//   - THIN  (< 25 businesses): a cohort this small can't support an honest
+//     percentile distribution, so the vs-cell bands are suppressed and the
+//     workbench shows ABSOLUTE values with a "small market — showing absolute
+//     benchmarks" note. (The band math itself already returns null below
+//     MIN_COHORT_FOR_DISTRIBUTION = 4; this threshold is the higher bar at which
+//     we TELL the user the comparison is absolute, not percentile.)
+//   - OVERSIZED (>= 2000 businesses): the count is real but unwieldy; Preview
+//     nudges the user to narrow by sub-cell (neighborhood / smaller radius)
+//     rather than enrich an eye-watering set.
+
+/** Below this business count a cell is "thin" — percentile bands are suppressed
+ *  and the UI shows absolute benchmarks with a note. */
+export const THIN_MARKET_THRESHOLD = 25;
+
+/** At/above this business count a cell is "oversized" — Preview suggests a
+ *  narrower sub-cell instead of enriching the whole set. */
+export const OVERSIZED_MARKET_THRESHOLD = 2000;
+
+export type MarketSizeClass = "thin" | "normal" | "oversized";
+
+/** Classify a discovered cell's real business count for the edge-case UI notes.
+ *  A never-discovered / unknown count (`bizCount == null`) is "normal" (no note
+ *  until the real count lands). Pure. */
+export function classifyMarketSize(bizCount: number | null): MarketSizeClass {
+  if (bizCount == null) return "normal";
+  if (bizCount < THIN_MARKET_THRESHOLD) return "thin";
+  if (bizCount >= OVERSIZED_MARKET_THRESHOLD) return "oversized";
+  return "normal";
+}
+
 /** The minimal real per-cell quote shape the Preview matrix consumes (a subset
  *  of `PreviewCell` from modules/discovery/actions.ts — kept inline so this
  *  pure module has no dependency on the "use server" actions file). */
@@ -264,6 +299,58 @@ export function toDiscoveryCells(cells: MarketCell[]): {
 export function fallbackGoal(): GoalState {
   const tpl = templateByKey("website")!;
   return loadGoalFrom(tpl);
+}
+
+/**
+ * Parse the `?enrich=<type,type,…>` deep-link param into valid enrichment
+ * types (WP5-3). Unknown tokens are dropped (a stale/hand-edited link can't
+ * inject an unpriceable family); duplicates are de-duped, order preserved.
+ * Pure — unit-testable without React.
+ */
+export function parseEnrichTypes(raw: string | null): EnrichmentType[] {
+  if (!raw) return [];
+  const valid = new Set<string>(ALL_ENRICHMENT_TYPES);
+  const out: EnrichmentType[] = [];
+  for (const token of raw.split(",")) {
+    const t = token.trim();
+    if (valid.has(t) && !out.includes(t as EnrichmentType)) {
+      out.push(t as EnrichmentType);
+    }
+  }
+  return out;
+}
+
+/**
+ * Free pre-enrich market filters (WP5-4) — the client-safe mirror of
+ * `RawListFilters` (modules/discovery/raw-list.ts imports prisma, so client
+ * components can't import it). The server actions translate 1:1.
+ */
+export interface MarketFilters {
+  /** Only businesses with a non-null website. */
+  hasWebsite?: boolean;
+  /** rating >= this (inclusive). */
+  minRating?: number;
+  /** reviewCount >= this (inclusive). */
+  minReviewCount?: number;
+  /** Require one of these reachability tiers. */
+  reachability?: (
+    | "UNREACHABLE"
+    | "EMAIL_ONLY"
+    | "PHONE_ONLY"
+    | "MULTI"
+    | "RICH"
+    | "UNKNOWN"
+  )[];
+}
+
+/** Whether any pre-enrich filter is actually set (empty object = inactive). */
+export function marketFiltersActive(f: MarketFilters): boolean {
+  return (
+    f.hasWebsite === true ||
+    (typeof f.minRating === "number" && f.minRating > 0) ||
+    (typeof f.minReviewCount === "number" && f.minReviewCount > 0) ||
+    (Array.isArray(f.reachability) && f.reachability.length > 0)
+  );
 }
 
 /** The enrichment families' credit total for a set of businesses. */

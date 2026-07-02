@@ -29,6 +29,7 @@ export function MarketCombobox({
   options,
   note,
   onPick,
+  onRequestMissing,
 }: {
   id: string;
   label: string;
@@ -39,6 +40,15 @@ export function MarketCombobox({
   note?: string;
   /** Called with the picked option (fills the input only). */
   onPick: (opt: ComboOption) => void;
+  /**
+   * WP7-13 · taxonomy-miss. When set, a typed query with NO exact match renders
+   * a "no match — did you mean {closest}? · request this category" empty state
+   * instead of a silent blank dropdown. Called with the raw typed query when the
+   * user asks for a category we don't carry. Both are client components, so this
+   * callback never crosses a server boundary. Omitted for the city field (its
+   * gazetteer is authoritative — a missing city is genuinely out of coverage).
+   */
+  onRequestMissing?: (query: string) => void;
 }) {
   // Fully self-contained — no controlled `value` prop. A parent that needs to
   // clear this field (e.g. after "Add market") does so by changing this
@@ -60,6 +70,38 @@ export function MarketCombobox({
       )
       .slice(0, MAX_FILTERED_OPTIONS);
   }, [query, options]);
+
+  // WP7-13 · taxonomy-miss. When the user has typed something with NO exact
+  // match, find the closest option by shared-word / prefix overlap so we can
+  // offer "did you mean {closest}?" instead of a silent blank. Cheap heuristic
+  // (no fuzzy lib): score by longest shared token prefix, then substring.
+  const q = query.trim().toLowerCase();
+  const noMatch = q.length >= 2 && filtered.length === 0;
+  const closest = useMemo<ComboOption | null>(() => {
+    if (!noMatch) return null;
+    const qTokens = q.split(/\s+/).filter(Boolean);
+    let best: ComboOption | null = null;
+    let bestScore = 0;
+    for (const o of options) {
+      const label = o.label.toLowerCase();
+      let score = 0;
+      for (const t of qTokens) {
+        // Any option word that starts with a query word → strong partial hit.
+        if (
+          label.split(/\s+/).some((w) => w.startsWith(t) || t.startsWith(w))
+        ) {
+          score += t.length;
+        } else if (label.includes(t.slice(0, 3))) {
+          score += 1; // weak 3-char overlap
+        }
+      }
+      if (score > bestScore) {
+        bestScore = score;
+        best = o;
+      }
+    }
+    return bestScore > 0 ? best : null;
+  }, [q, noMatch, options]);
 
   return (
     <div className="field" style={{ margin: 0 }}>
@@ -101,6 +143,47 @@ export function MarketCombobox({
                 {o.meta ? <span className="meta">{o.meta}</span> : null}
               </div>
             ))}
+          </div>
+        ) : open && noMatch && onRequestMissing ? (
+          /* WP7-13 · taxonomy-miss empty state — closest suggestion + a
+             "request this category" capture, never a silent blank result. */
+          <div className="opts" id={`${id}-opts`} role="listbox">
+            {closest ? (
+              <div
+                role="option"
+                aria-selected={false}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  setQuery(closest.label);
+                  setOpen(false);
+                  onPick(closest);
+                }}
+              >
+                <span className="opt-label" title={closest.label}>
+                  Did you mean <b>{closest.label}</b>?
+                </span>
+                {closest.meta ? (
+                  <span className="meta">{closest.meta}</span>
+                ) : null}
+              </div>
+            ) : (
+              <div className="combo-empty" aria-disabled="true">
+                <span className="opt-label">
+                  No match for &ldquo;{query.trim()}&rdquo;
+                </span>
+              </div>
+            )}
+            <button
+              type="button"
+              className="combo-request"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                onRequestMissing(query.trim());
+                setOpen(false);
+              }}
+            >
+              ＋ Request &ldquo;{query.trim()}&rdquo; as a category
+            </button>
           </div>
         ) : null}
       </div>

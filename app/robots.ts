@@ -33,6 +33,7 @@ export default function robots(): MetadataRoute.Robots {
           "/r/", // landing removal flow (token-keyed, no SEO value)
           "/u/", // cold-email unsubscribe (token-keyed, no SEO value)
           "/o/", // cold-email open pixel (token-keyed, returns a 1x1 GIF)
+          "/s/", // agency-branded shared prospect one-pagers (token-keyed, no-index)
           "/dev",
           "/dev/",
           "/home",

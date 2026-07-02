@@ -19,6 +19,17 @@ describe("deriveResearchStatus", () => {
     expect(deriveResearchStatus("PARTIAL", { phase: "done" })).toBe("enriched");
   });
 
+  // WP4-2 · a completed-but-PARTIAL enrichment (some leads couldn't finish) is
+  // its own status (amber pill) — but still routes to the workbench.
+  test("done + partial enrichment → partial", () => {
+    expect(
+      deriveResearchStatus("READY", { phase: "done", partial: true }),
+    ).toBe("partial");
+    expect(
+      deriveResearchStatus("READY", { phase: "done", partial: false }),
+    ).toBe("enriched");
+  });
+
   test("active enrichment → enriching", () => {
     expect(
       deriveResearchStatus("READY", { phase: "active", activeRunId: "r1" }),
@@ -55,6 +66,18 @@ describe("buildResearchHref", () => {
     expect(buildResearchHref(base, "enriched", { phase: "done" }, catMap)).toBe(
       "/discover/disc_1",
     );
+  });
+
+  // WP4-2 · partial also opens the workbench (there ARE leads to work).
+  test("partial → the workbench (no flow resume)", () => {
+    expect(
+      buildResearchHref(
+        base,
+        "partial",
+        { phase: "done", partial: true },
+        catMap,
+      ),
+    ).toBe("/discover/disc_1");
   });
 
   test("discovered → resume at Preview with d + goal + cells", () => {

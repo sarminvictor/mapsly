@@ -18,20 +18,36 @@
 
 import {
   useCallback,
+  useEffect,
   useMemo,
   useOptimistic,
+  useRef,
   useState,
   useTransition,
 } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
-import { Link } from "@/i18n/navigation";
-import { setLeadStatusAction } from "@/modules/discovery/save-list-actions";
+import { Icon } from "@/components/agency/Icon";
+import { showToast } from "@/components/agency/Toast";
+import {
+  DEFAULT_SORT_DIR,
+  DEFAULT_SORT_KEY,
+  loadWorkbenchView,
+  parseViewFromSearchParams,
+  saveWorkbenchView,
+  viewToSearchParams,
+} from "../wb-view-state";
+import {
+  setLeadStatusAction,
+  setLeadStatusBulkAction,
+} from "@/modules/discovery/save-list-actions";
 import { StatusPill } from "@/modules/agency-portal/components/StatusPill";
 import { BulkActionBar } from "@/modules/agency-portal/components/BulkActionBar";
+import { BulkGenerateTouchesButton } from "./BulkGenerateTouchesButton";
 import { LeadDrawer } from "./LeadDrawer";
 import {
   COLUMNS,
+  CSV_HEADERS,
   DATA_FAMILIES,
   DEFAULT_ACTIVE_COLUMNS,
   FILTER_FIELDS,
@@ -39,11 +55,13 @@ import {
   PAGE_SIZES,
   STATUS_ORDER,
   buildSignalColumns,
+  csvLine,
   fmtDelta,
   getPageNumbers,
   matchesSearch,
   passesFilters,
   filterLabel,
+  rowToCsvRecord,
   sortRows,
   type CellBand,
   type ColumnDef,
@@ -54,6 +72,15 @@ import {
   type WorkbenchLeadRow,
 } from "../leads-workbench";
 import { enrichTypesForFamilies } from "../family-coverage";
+import { openEnrichSheet } from "../enrich-sheet-bus";
+import { THIN_MARKET_THRESHOLD } from "../flow-types";
+import type { EnrichmentType } from "@/modules/cost/pricing";
+import { FieldFunnel, FieldsMenuLockedRows } from "./FieldsMenuExtras";
+
+/** WP7-13 · a stable empty-bands object for the thin-market path (no vs-cell
+ *  percentiles → the workbench renders absolute values). Module-level so the
+ *  reference is stable across renders. */
+const EMPTY_BANDS: Partial<Record<string, CellBand>> = {};
 
 export interface LeadsWorkbenchProps {
   rows: WorkbenchLeadRow[];
@@ -76,6 +103,30 @@ export interface LeadsWorkbenchProps {
    * enrichment would otherwise silently hide real, not-yet-enriched leads.
    */
   goalSignals?: { key: string; title: string }[];
+  /**
+   * CSV filename base "{categorySlug}-{metroSlug}" resolved server-side from
+   * the discovery's first cell (WP2-4). The export appends the date:
+   * "med_spa-miami-2026-07-01.csv". Falls back to "leads-{date}.csv".
+   */
+  exportSlug?: string;
+  /**
+   * Server pagination (WP4-4). `rows` is ONE window of the whole set
+   * (WORKBENCH_WINDOW rows, ordered server-side); the pager crosses window
+   * boundaries via `router.replace("?page=N", { scroll: false })` so the
+   * server re-renders with the next window while in-window paging stays
+   * in-memory. Defaults (1/1/rows.length) keep single-window sets unchanged.
+   */
+  serverPage?: number;
+  serverPageCount?: number;
+  /** Whole-set row count across ALL windows (the honest total). */
+  totalRows?: number;
+  /**
+   * The server export endpoint streaming the FULL set as CSV (same 13 columns
+   * as the client export — both go through rowToCsvRecord). Renders an
+   * "Export all N" action next to the client "Export CSV" button so every
+   * paid lead is exportable even beyond the fetched window.
+   */
+  exportAllUrl?: string;
 }
 
 type Density = "comfortable" | "compact";
@@ -86,6 +137,11 @@ export function LeadsWorkbench({
   bands,
   coverage,
   goalSignals = [],
+  exportSlug,
+  serverPage = 1,
+  serverPageCount = 1,
+  totalRows = rows.length,
+  exportAllUrl,
 }: LeadsWorkbenchProps) {
   /**
    * Covered families for one row: prefer the batched matrix (keyed by
@@ -117,10 +173,8 @@ export function LeadsWorkbench({
     }),
   );
   const [isPending, startTransition] = useTransition();
-  const [error, setError] = useState<string | null>(null);
 
   function setStatus(leadId: string, status: LeadStatus) {
-    setError(null);
     startTransition(async () => {
       applyOptimistic({ leadId, status });
       // discoveryId lets the action lazily create a Lead when `leadId` is
@@ -130,7 +184,10 @@ export function LeadsWorkbench({
       if (result.status === "ok") {
         setCommitted((p) => ({ ...p, [leadId]: status }));
       } else {
-        setError("Couldn't update the lead. Try again.");
+        // The optimistic value reverts automatically (useOptimistic re-runs
+        // from `committed`). Surface the revert through the shared toast so a
+        // failed status write isn't silently swallowed (WP4-11).
+        showToast("Couldn't update — reverted", "error");
       }
     });
   }
@@ -160,8 +217,8 @@ export function LeadsWorkbench({
   const [filters, setFilters] = useState<LeadFilter[]>([]);
 
   // ── Sort ──────────────────────────────────────────────────────────────────
-  const [sortKey, setSortKey] = useState<string>("match");
-  const [sortDir, setSortDir] = useState<1 | -1>(-1);
+  const [sortKey, setSortKey] = useState<string>(DEFAULT_SORT_KEY);
+  const [sortDir, setSortDir] = useState<1 | -1>(DEFAULT_SORT_DIR);
 
   function toggleSort(key: string) {
     if (sortKey === key) setSortDir((d) => (d === 1 ? -1 : 1));
@@ -174,6 +231,97 @@ export function LeadsWorkbench({
   // ── Pagination ──────────────────────────────────────────────────────────
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState<number>(20);
+
+  // ── Persisted view-state per research (WP4-13) ────────────────────────────
+  // Hydrate saved density/vsCell/columns/filters/sort/pageSize/group from
+  // localStorage AFTER mount (not a lazy initializer) so server + first client
+  // render match — no hydration mismatch. `hydrated` gates the save effect so
+  // the initial defaults don't overwrite the saved blob before we've read it.
+  //
+  // Sort + filters have a SECOND source: the URL (shareable views). When the
+  // URL carries any view param the URL WINS wholesale for sort+filters — a
+  // pasted link must reproduce the sender's view, never half-merge with this
+  // browser's saved blob. localStorage stays the fallback (no URL params) and
+  // keeps owning the non-shareable prefs (density/columns/…).
+  const hydrated = useRef(false);
+  useEffect(() => {
+    // Defer the state writes out of the effect body (setTimeout(0)) so we don't
+    // set state synchronously during the effect — same pattern CommandK uses to
+    // satisfy react-hooks/set-state-in-effect. The save effect stays gated on
+    // `hydrated` until this lands, so defaults never overwrite the saved blob.
+    const tid = window.setTimeout(() => {
+      const saved = loadWorkbenchView(discoveryId);
+      const urlView = parseViewFromSearchParams(
+        new URLSearchParams(window.location.search),
+      );
+      if (saved) {
+        if (saved.density !== undefined) setDensity(saved.density);
+        if (saved.vsCell !== undefined) setVsCell(saved.vsCell);
+        if (saved.group !== undefined) setGroup(saved.group);
+        if (saved.activeCols !== undefined) setActiveCols(saved.activeCols);
+        if (saved.pageSize !== undefined) setPageSize(saved.pageSize);
+      }
+      if (urlView) {
+        setFilters(urlView.filters);
+        setSortKey(urlView.sortKey);
+        setSortDir(urlView.sortDir);
+      } else if (saved) {
+        if (saved.filters !== undefined) setFilters(saved.filters);
+        if (saved.sortKey !== undefined) setSortKey(saved.sortKey);
+        if (saved.sortDir !== undefined) setSortDir(saved.sortDir);
+      }
+      hydrated.current = true;
+    }, 0);
+    return () => window.clearTimeout(tid);
+    // Only re-hydrate if the research changes (a new workbench instance).
+  }, [discoveryId]);
+
+  useEffect(() => {
+    if (!hydrated.current) return;
+    saveWorkbenchView(discoveryId, {
+      density,
+      vsCell,
+      group,
+      activeCols,
+      filters,
+      sortKey,
+      sortDir,
+      pageSize,
+    });
+  }, [
+    discoveryId,
+    density,
+    vsCell,
+    group,
+    activeCols,
+    filters,
+    sortKey,
+    sortDir,
+    pageSize,
+  ]);
+
+  // Mirror sort + filters into the URL (WP4-13 · shareable views). SHALLOW —
+  // window.history.replaceState updates the address bar without an RSC
+  // round-trip (the server never reads these params; only `?page=` is
+  // server-read). Debounced 300ms so typing a filter value doesn't churn
+  // history. Other params (lead/page) are preserved by viewToSearchParams.
+  useEffect(() => {
+    if (!hydrated.current) return;
+    const tid = window.setTimeout(() => {
+      const params = viewToSearchParams(
+        { sortKey, sortDir, filters },
+        new URLSearchParams(window.location.search),
+      );
+      const qs = params.toString();
+      const next = qs
+        ? `${window.location.pathname}?${qs}`
+        : window.location.pathname;
+      if (next !== `${window.location.pathname}${window.location.search}`) {
+        window.history.replaceState(null, "", next);
+      }
+    }, 300);
+    return () => window.clearTimeout(tid);
+  }, [filters, sortKey, sortDir]);
 
   // ── Selection ──────────────────────────────────────────────────────────
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -202,6 +350,30 @@ export function LeadsWorkbench({
     const qs = params.toString();
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
   }, [sp, router, pathname]);
+
+  /**
+   * Jump to another SERVER window (WP4-4): set `?page=N` (dropped when N=1 —
+   * the canonical first-window URL stays clean) and router.replace WITHOUT
+   * scroll so the server re-renders this page with the next window of rows.
+   * Selection is cleared (it referenced rows that are no longer loaded);
+   * in-window page resets to the start — or the END when walking backwards
+   * (`landAtEnd`), so ‹ from window 2 lands on window 1's last page.
+   */
+  const goWindow = useCallback(
+    (w: number, landAtEnd = false) => {
+      const params = new URLSearchParams(sp.toString());
+      if (w <= 1) params.delete("page");
+      else params.set("page", String(w));
+      const qs = params.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+      setSelected(new Set());
+      setLastIdx(null);
+      // curPage clamps via Math.min(page, totalPages), so MAX_SAFE_INTEGER
+      // reads as "the new window's last in-window page".
+      setPage(landAtEnd ? Number.MAX_SAFE_INTEGER : 1);
+    },
+    [sp, router, pathname],
+  );
 
   // One column per active goal signal (always shown, not part of the Fields
   // toggle set — see LeadsWorkbenchProps.goalSignals doc).
@@ -239,6 +411,28 @@ export function LeadsWorkbench({
     group === "cell"
       ? filtered // grouped view shows all (pagination disabled)
       : filtered.slice((curPage - 1) * pageSize, curPage * pageSize);
+
+  // WP7-13 · a THIN market (< 25 businesses total across the research) can't
+  // support an honest percentile distribution, so vs-cell bands are suppressed
+  // and the workbench shows ABSOLUTE values with a note. This is the workbench
+  // half of the Preview "small market — showing absolute benchmarks" message,
+  // so the two never disagree. `effectiveBands` is what the render reads.
+  const marketIsThin = totalRows < THIN_MARKET_THRESHOLD;
+  const effectiveBands = marketIsThin ? EMPTY_BANDS : bands;
+
+  // WP7-10 · accessible sort + caption text. The label of the active sort column
+  // (falls back to the raw key for signal columns that aren't in the base set),
+  // announced politely on change; the caption names what the table holds.
+  const sortLabel =
+    cols.find((c) => c.key === sortKey)?.fullLabel ??
+    cols.find((c) => c.key === sortKey)?.label ??
+    sortKey;
+  const sortAnnouncement = `Sorted by ${sortLabel}, ${
+    sortDir === 1 ? "ascending" : "descending"
+  }`;
+  const captionText = `Leads for this research — ${filtered.length.toLocaleString()} ${
+    filtered.length === 1 ? "lead" : "leads"
+  } shown, sortable by column. ${sortAnnouncement}.`;
 
   // Group rows by cell (only when grouping).
   const grouped = useMemo(() => {
@@ -308,15 +502,18 @@ export function LeadsWorkbench({
 
   function bulkSetStatus(status: LeadStatus) {
     const ids = [...selected];
-    setError(null);
     startTransition(async () => {
       for (const id of ids) applyOptimistic({ leadId: id, status });
-      const results = await Promise.all(
-        ids.map((id) =>
-          setLeadStatusAction({ leadId: id, status, discoveryId }),
-        ),
-      );
-      const okIds = ids.filter((_, i) => results[i]?.status === "ok");
+      // WP5-9 · one transactional server action for the whole sweep (was one
+      // setLeadStatusAction round-trip per id). Per-id failures come back so
+      // only the pills that didn't land revert.
+      const r = await setLeadStatusBulkAction({
+        leadIds: ids,
+        status,
+        discoveryId,
+      });
+      const failedSet = new Set(r.status === "ok" ? r.failedIds : ids);
+      const okIds = ids.filter((id) => !failedSet.has(id));
       if (okIds.length) {
         setCommitted((p) => {
           const next = { ...p };
@@ -324,32 +521,44 @@ export function LeadsWorkbench({
           return next;
         });
       }
-      if (okIds.length !== ids.length)
-        setError("Some leads couldn't be updated. Try again.");
+      const failed = ids.length - okIds.length;
+      if (failed > 0)
+        showToast(
+          `Couldn't update ${failed} lead${failed === 1 ? "" : "s"} — reverted`,
+          "error",
+        );
     });
   }
 
+  /**
+   * WP2-4 · rich CSV export — the contacts Tom paid for reach his outreach
+   * tool. Cell escaping + the 13-column mapping live in the pure
+   * rowToCsvRecord/csvLine helpers (leads-workbench.ts), SHARED with the
+   * server full-set export route so the two can never drift. This client
+   * export covers the loaded window (filtered/selected); "Export all N"
+   * streams the whole set from the server.
+   */
   function exportCsv() {
-    const head = ["Business", "Address", "Match%", "Status", "Reachable"];
     const lines = filtered
       .filter((r) => selected.size === 0 || selected.has(r.leadId))
       .map((r) =>
-        [
-          r.name,
-          r.addr,
-          r.match,
-          optimistic[r.leadId] ?? r.status,
-          r.reachable ? "Yes" : "No",
-        ]
-          .map((v) => `"${String(v).replace(/"/g, '""')}"`)
-          .join(","),
+        csvLine(
+          rowToCsvRecord(
+            { ...r, status: optimistic[r.leadId] ?? r.status },
+            goalSignals,
+          ),
+        ),
       );
-    const csv = [head.join(","), ...lines].join("\n");
+    const csv = [CSV_HEADERS.join(","), ...lines].join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "leads.csv";
+    // "{categorySlug}-{metroSlug}-{yyyy-mm-dd}.csv" (server-resolved base,
+    // safe fallback). Date in the user's local time, ISO-style.
+    const d = new Date();
+    const ymd = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    a.download = `${exportSlug ?? "leads"}-${ymd}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   }
@@ -377,23 +586,30 @@ export function LeadsWorkbench({
   }, [filtered, coveredFamilies]);
 
   /**
-   * Deep-link to the discover/enrich flow, scoped to the families still missing
-   * across the visible set, via `?enrich=<types>` (the enrichment-type tokens
-   * those families need). NOTE: the flow (GetLeadsFlow) does not yet CONSUME this
-   * param to pre-select families — it starts at the Goal step — so today this is
-   * an honest, scoped deep-link to the right place rather than a one-click
-   * per-family re-enrich (which has no action yet). Tracked as a follow-up.
-   * Only rendered when missing families exist, so `enrich` is always populated.
+   * WP5-3 · the scope every "enrich to unlock" surface hands the
+   * EnrichMoreSheet: the explicitly-selected leads (bulk selection) and the
+   * currently-visible (filtered) set, as businessIds. The sheet also offers
+   * "whole research" itself (cellKeys resolved server-side).
    */
-  const enrichHref = useMemo(
+  const enrichScope = useMemo(
     () => ({
-      pathname: "/discover" as const,
-      query: {
-        enrich: enrichTypesForFamilies(coverageSummary.missingKeys).join(","),
-      },
+      selectedBusinessIds: filtered
+        .filter((r) => selected.has(r.leadId))
+        .map((r) => r.businessId),
+      visibleBusinessIds: filtered.map((r) => r.businessId),
     }),
-    [coverageSummary.missingKeys],
+    [filtered, selected],
   );
+
+  /** Coverage CTA → open the sheet pre-seeded with every missing family. */
+  function openMissingFamiliesSheet() {
+    openEnrichSheet({
+      enrichments: enrichTypesForFamilies(
+        coverageSummary.missingKeys,
+      ) as EnrichmentType[],
+      scope: enrichScope,
+    });
+  }
 
   // ── Fields menu helpers ───────────────────────────────────────────────────
   function toggleCol(key: string) {
@@ -415,10 +631,25 @@ export function LeadsWorkbench({
     setFilters((prev) => [...prev, { field, op: d.op, value: d.value }]);
     setPage(1);
   }
+  /** WP5-13 · Fields-menu funnel — open the filter editor pre-set to this
+   *  field (adds the field's default filter unless one is already applied). */
+  function openFieldFilter(field: NumericFilterField) {
+    if (!filters.some((f) => f.field === field)) addFilter(field);
+    setFieldsOpen(false);
+    setCoverageOpen(false);
+    setFiltersOpen(true);
+  }
   function editFilter(idx: number, patch: Partial<LeadFilter>) {
     setFilters((prev) =>
       prev.map((f, i) => (i === idx ? { ...f, ...patch } : f)),
     );
+    setPage(1);
+  }
+  /** Clear every applied filter + the search (WP4-15 · actionable empty state).
+   *  The one path the "Clear filters" button in the empty row + the panel share. */
+  function clearAllFilters() {
+    setFilters([]);
+    setSearch("");
     setPage(1);
   }
 
@@ -438,7 +669,7 @@ export function LeadsWorkbench({
           </td>
         );
       case "match": {
-        const band = bands[col.key];
+        const band = effectiveBands[col.key];
         return (
           <td className="num" key={col.key}>
             <span className="cellval">{r.match}%</span>
@@ -497,7 +728,7 @@ export function LeadsWorkbench({
               <span className="needsenr">— enrich</span>
             </td>
           );
-        const band = bands[col.key];
+        const band = effectiveBands[col.key];
         const display = col.unit === "★" ? v.toFixed(1) : v.toLocaleString();
         return (
           <td className="num" key={col.key}>
@@ -680,9 +911,7 @@ export function LeadsWorkbench({
       {/* ── Toolbar ─────────────────────────────────────────────────────── */}
       <div className="wb-toolbar">
         <div className="wb-search">
-          <span className="si" aria-hidden="true">
-            🔎
-          </span>
+          <Icon name="search" className="si" size={14} />
           <input
             value={search}
             onChange={(e) => {
@@ -728,14 +957,30 @@ export function LeadsWorkbench({
           </button>
         </div>
 
-        <label className={`cmptoggle${vsCell ? " on" : ""}`}>
+        {/* WP7-13 · in a THIN market the vs-cell percentile is disabled (too
+            few businesses for an honest distribution) — the toggle is off +
+            explains why, and a note says the numbers are absolute benchmarks. */}
+        <label
+          className={`cmptoggle${vsCell && !marketIsThin ? " on" : ""}`}
+          title={
+            marketIsThin
+              ? `Small market (under ${THIN_MARKET_THRESHOLD}) — showing absolute benchmarks, no market percentile`
+              : undefined
+          }
+        >
           <input
             type="checkbox"
-            checked={vsCell}
+            checked={vsCell && !marketIsThin}
+            disabled={marketIsThin}
             onChange={(e) => setVsCell(e.target.checked)}
           />
           vs cell
         </label>
+        {marketIsThin ? (
+          <span className="note" style={{ fontSize: 11 }}>
+            Small market — absolute benchmarks
+          </span>
+        ) : null}
 
         <div className="pop" style={{ position: "relative" }}>
           <button
@@ -760,6 +1005,16 @@ export function LeadsWorkbench({
                     onChange={() => toggleCol(c.key)}
                   />
                   {c.label}
+                  {/* WP5-13 · per-field funnel — add/edit a filter from the
+                      same row (columns + filters in one mental model). */}
+                  {isFilterField(c.key) ? (
+                    <FieldFunnel
+                      field={c.key as NumericFilterField}
+                      label={c.label}
+                      active={filters.some((f) => f.field === c.key)}
+                      onOpen={openFieldFilter}
+                    />
+                  ) : null}
                 </label>
               ))}
               <div className="cgrp">Already enriched — add for free</div>
@@ -771,8 +1026,22 @@ export function LeadsWorkbench({
                     onChange={() => toggleCol(c.key)}
                   />
                   {c.fullLabel ?? c.label}
+                  {isFilterField(c.key) ? (
+                    <FieldFunnel
+                      field={c.key as NumericFilterField}
+                      label={c.label}
+                      active={filters.some((f) => f.field === c.key)}
+                      onOpen={openFieldFilter}
+                    />
+                  ) : null}
                 </label>
               ))}
+              {/* WP5-13 · locked buy-rows: families still missing across the
+                  visible set — click opens the WP5-3 enrich sheet. */}
+              <FieldsMenuLockedRows
+                missing={coverageSummary.missingKeys}
+                scope={enrichScope}
+              />
             </div>
           ) : null}
         </div>
@@ -791,7 +1060,7 @@ export function LeadsWorkbench({
             setCoverageOpen(false);
           }}
         >
-          ⛛
+          <Icon name="filter" />
           {filters.length ? (
             <span className="cbadge">{filters.length}</span>
           ) : null}
@@ -809,7 +1078,7 @@ export function LeadsWorkbench({
             setFiltersOpen(false);
           }}
         >
-          ▤
+          <Icon name="coverage" />
           <span className="cbadge alt">
             {coverageSummary.have.length}/{DATA_FAMILIES.length}
           </span>
@@ -976,9 +1245,17 @@ export function LeadsWorkbench({
                     {label}
                   </span>
                 ))}
-                <Link href={enrichHref} className="clenrich">
+                {/* WP5-3 · opens the in-workbench enrich sheet (pre-seeded
+                    with the missing families + the current scope) — a real
+                    one-click buy surface, not a deep-link away. */}
+                <button
+                  type="button"
+                  className="clenrich"
+                  style={{ cursor: "pointer", font: "inherit" }}
+                  onClick={openMissingFamiliesSheet}
+                >
                   Enrich {coverageSummary.notYet.join(" · ")} →
-                </Link>
+                </button>
               </>
             ) : (
               <span className="note" style={{ marginLeft: "auto" }}>
@@ -989,21 +1266,24 @@ export function LeadsWorkbench({
         </div>
       ) : null}
 
-      {error ? (
-        <p
-          role="alert"
-          style={{ color: "var(--red)", fontSize: 12, margin: "4px 0" }}
-        >
-          {error}
-        </p>
-      ) : null}
+      {/* WP7-10 · sort-state announcement for screen readers. A polite live
+          region names the active column + direction whenever the sort changes,
+          so a non-visual user hears "Sorted by Reviews, descending" instead of
+          only seeing the ▲/▼ glyph. Visually hidden (.sr-only). */}
+      <div className="sr-only" aria-live="polite" role="status">
+        {sortAnnouncement}
+      </div>
 
       {/* ── The power table ───────────────────────────────────────────────── */}
       <div className="wbtable-wrap">
         <table className={`wb${density === "compact" ? " compact" : ""}`}>
+          {/* WP7-10 · a screen-reader caption naming what the table holds +
+              how many rows are shown. Visually hidden — the WorkspaceHeader
+              carries the visible narrative count. */}
+          <caption className="sr-only">{captionText}</caption>
           <thead>
             <tr>
-              <th className="sel" style={{ width: 34 }}>
+              <th scope="col" className="sel" style={{ width: 34 }}>
                 <input
                   type="checkbox"
                   className="ck"
@@ -1018,6 +1298,7 @@ export function LeadsWorkbench({
               {cols.map((c) => (
                 <th
                   key={c.key}
+                  scope="col"
                   className={[
                     c.kind === "num" || c.kind === "match" ? "num" : "",
                     !c.sortable ? "plain" : "",
@@ -1025,20 +1306,41 @@ export function LeadsWorkbench({
                     .filter(Boolean)
                     .join(" ")}
                   title={c.fullLabel ?? c.label}
-                  onClick={c.sortable ? () => toggleSort(c.key) : undefined}
-                  style={{ cursor: c.sortable ? "pointer" : undefined }}
                   aria-sort={
                     c.sortable && sortKey === c.key
                       ? sortDir === 1
                         ? "ascending"
                         : "descending"
-                      : undefined
+                      : c.sortable
+                        ? "none"
+                        : undefined
                   }
                 >
-                  {c.label}
-                  {c.sortable && sortKey === c.key ? (
-                    <span className="arr">{sortDir === 1 ? "▲" : "▼"}</span>
-                  ) : null}
+                  {c.sortable ? (
+                    // A real <button> so the sort control is keyboard-focusable
+                    // and announced as a button (WP7-10 · keyboard-first).
+                    <button
+                      type="button"
+                      className="wb-sortbtn"
+                      onClick={() => toggleSort(c.key)}
+                      aria-label={`Sort by ${c.fullLabel ?? c.label}${
+                        sortKey === c.key
+                          ? sortDir === 1
+                            ? ", currently ascending"
+                            : ", currently descending"
+                          : ""
+                      }`}
+                    >
+                      {c.label}
+                      {sortKey === c.key ? (
+                        <span className="arr" aria-hidden="true">
+                          {sortDir === 1 ? "▲" : "▼"}
+                        </span>
+                      ) : null}
+                    </button>
+                  ) : (
+                    c.label
+                  )}
                 </th>
               ))}
             </tr>
@@ -1055,7 +1357,20 @@ export function LeadsWorkbench({
                       color: "var(--faint)",
                     }}
                   >
-                    No leads match. Clear a filter or widen your search.
+                    {filters.length > 0 || search.trim() !== "" ? (
+                      <>
+                        No leads match these filters ·{" "}
+                        <button
+                          type="button"
+                          className="rflink"
+                          onClick={clearAllFilters}
+                        >
+                          Clear filters
+                        </button>
+                      </>
+                    ) : (
+                      "No leads in this set yet."
+                    )}
                   </div>
                 </td>
               </tr>
@@ -1102,8 +1417,8 @@ export function LeadsWorkbench({
         </table>
       </div>
 
-      {/* ── Pagination (hidden when grouped) ───────────────────────────────── */}
-      {group === "none" && filtered.length > 0 ? (
+      {/* ── Pagination (in-window pages + server-window crossing · WP4-4) ──── */}
+      {group === "none" && (filtered.length > 0 || serverPageCount > 1) ? (
         <div
           className="wbpager"
           role="navigation"
@@ -1126,19 +1441,33 @@ export function LeadsWorkbench({
               ))}
             </select>
             <span>of {filtered.length}</span>
-            <span className="pg-range">
-              {(curPage - 1) * pageSize + 1}–
-              {Math.min(curPage * pageSize, filtered.length)} of{" "}
-              {filtered.length}
-            </span>
+            {filtered.length > 0 ? (
+              <span className="pg-range">
+                {(curPage - 1) * pageSize + 1}–
+                {Math.min(curPage * pageSize, filtered.length)} of{" "}
+                {filtered.length}
+              </span>
+            ) : null}
+            {serverPageCount > 1 ? (
+              <span className="pg-range">
+                · window {serverPage} of {serverPageCount} ·{" "}
+                {totalRows.toLocaleString()} rows total
+              </span>
+            ) : null}
           </div>
-          {totalPages > 1 ? (
+          {totalPages > 1 || serverPageCount > 1 ? (
             <div className="pg-pages">
+              {/* ‹/› continue across window boundaries: at the in-window edge
+                  they load the previous/next server window (?page=N). */}
               <button
                 type="button"
                 className="pgnav"
-                onClick={() => setPage(curPage - 1)}
-                disabled={curPage <= 1}
+                onClick={() =>
+                  curPage > 1
+                    ? setPage(curPage - 1)
+                    : goWindow(serverPage - 1, true)
+                }
+                disabled={curPage <= 1 && serverPage <= 1}
                 aria-label="Previous page"
               >
                 ‹
@@ -1163,14 +1492,57 @@ export function LeadsWorkbench({
               <button
                 type="button"
                 className="pgnav"
-                onClick={() => setPage(curPage + 1)}
-                disabled={curPage >= totalPages}
+                onClick={() =>
+                  curPage < totalPages
+                    ? setPage(curPage + 1)
+                    : goWindow(serverPage + 1)
+                }
+                disabled={
+                  curPage >= totalPages && serverPage >= serverPageCount
+                }
                 aria-label="Next page"
               >
                 ›
               </button>
             </div>
           ) : null}
+        </div>
+      ) : null}
+
+      {/* Grouped view shows the whole window — keep the server windows
+          reachable with a slim window pager (every row stays reachable). */}
+      {group === "cell" && serverPageCount > 1 ? (
+        <div
+          className="wbpager"
+          role="navigation"
+          aria-label="Window pagination"
+        >
+          <div className="pg-left">
+            <span className="pg-range">
+              Window {serverPage} of {serverPageCount} ·{" "}
+              {totalRows.toLocaleString()} rows total
+            </span>
+          </div>
+          <div className="pg-pages">
+            <button
+              type="button"
+              className="pgnav"
+              onClick={() => goWindow(serverPage - 1)}
+              disabled={serverPage <= 1}
+              aria-label="Previous window"
+            >
+              ‹
+            </button>
+            <button
+              type="button"
+              className="pgnav"
+              onClick={() => goWindow(serverPage + 1)}
+              disabled={serverPage >= serverPageCount}
+              aria-label="Next window"
+            >
+              ›
+            </button>
+          </div>
         </div>
       ) : null}
 
@@ -1187,9 +1559,24 @@ export function LeadsWorkbench({
         }
       >
         <BulkStatusButton onPick={bulkSetStatus} />
+        {/* WP5-1 · selection-scoped touch generation (self-contained child). */}
+        <BulkGenerateTouchesButton
+          businessIds={filtered
+            .filter((r) => selected.has(r.leadId))
+            .map((r) => r.businessId)}
+          discoveryId={discoveryId}
+        />
         <button type="button" className="bb" onClick={exportCsv}>
           Export CSV
         </button>
+        {exportAllUrl ? (
+          // Server-streamed FULL set (WP4-4) — every paid lead, not just the
+          // loaded window. Plain <a>: the route answers with a Content-
+          // Disposition attachment, so this downloads without navigating.
+          <a className="bb" href={exportAllUrl}>
+            Export all {totalRows.toLocaleString()}
+          </a>
+        ) : null}
         <button type="button" className="bb" onClick={clearSelection}>
           Clear
         </button>
@@ -1200,11 +1587,18 @@ export function LeadsWorkbench({
         businessId={openLead}
         discoveryId={discoveryId}
         orderedIds={orderedIds}
+        bands={effectiveBands}
         onClose={clearLead}
         onNav={setLead}
       />
     </div>
   );
+}
+
+/** Whether a column key is one of the numeric filterable fields (WP5-13). */
+const FILTERABLE_FIELDS = new Set<string>(FILTER_FIELDS.map((f) => f.field));
+function isFilterField(key: string): boolean {
+  return FILTERABLE_FIELDS.has(key);
 }
 
 function numField(r: WorkbenchLeadRow, key: string): number | null {

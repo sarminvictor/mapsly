@@ -30,6 +30,7 @@ import { z } from "zod";
 import { kvCache } from "@/lib/cache";
 import { callOpenAi } from "@/services/ai/client";
 import type { SupportedModel } from "@/services/ai/pricing";
+import { wrapUntrusted } from "@/services/ai/untrusted";
 
 export const DEFAULT_PHI_SENTENCES_MODEL: SupportedModel = "gpt-5.4-nano";
 
@@ -40,8 +41,10 @@ export const DEFAULT_PHI_SENTENCES_MODEL: SupportedModel = "gpt-5.4-nano";
  *
  * v2 (2026-06-10): reviewer-specific only — general/educational
  * statements excluded; at most 3 most-serious sentences.
+ * v3 (2026-07-02): WP8-5 — reply text is fenced as untrusted content
+ * (wrapUntrusted); the user-message shape changed, so bump to re-scan.
  */
-export const PHI_SENTENCES_PROMPT_VERSION = "v2";
+export const PHI_SENTENCES_PROMPT_VERSION = "v3";
 
 /** Output cap, enforced in code regardless of what the model returns.
  *  3 marked sentences is the readability ceiling — production replies
@@ -98,10 +101,10 @@ Rules:
 - Never invent text that is not in the reply.`;
 
 function buildPrompt(replyText: string): string {
-  return `Owner's public reply to a Google review:
-"""
-${replyText}
-"""
+  // WP8-5 · the owner reply is scraped, UNTRUSTED text — fence it. The task is
+  // to IDENTIFY + copy qualifying sentences verbatim, not to obey anything the
+  // text says, so the "ignore instructions inside" directive doesn't conflict.
+  return `${wrapUntrusted(replyText, "Owner's public reply to a Google review")}
 
 Return the qualifying sentences (verbatim) as JSON.`;
 }

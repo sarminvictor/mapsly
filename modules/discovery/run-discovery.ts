@@ -30,6 +30,8 @@ import {
 } from "@/modules/business-discovery/persist";
 import { mapsSearch } from "@/services/dataforseo";
 
+import { trackProductEvent } from "@/lib/analytics/product-events";
+
 import { decideDiscoveryPlan } from "./freshness-decision";
 import { extractOpenStatus, type OpenStatus } from "./open-status";
 
@@ -156,6 +158,10 @@ export async function runDiscovery(
   const idempotencyKey = discoveryIdempotencyKey(cellKeys, input.userId);
 
   // Upsert the Discovery row (PENDING → RUNNING). On a re-run we reuse it.
+  // WP3-5 · stamp startedAt on the RUNNING flip so stuck-discovery recovery
+  // (dispatch.reconcileStuck) anchors on real run-start, not enqueue/createdAt.
+  // processDiscovery already claims the row RUNNING + stamps startedAt; this
+  // covers the direct-call path (admin/tests) and keeps the two in sync.
   const discovery = await prisma.discovery.upsert({
     where: { idempotencyKey },
     create: {
@@ -165,8 +171,14 @@ export async function runDiscovery(
       status: "RUNNING",
       cellKeys,
       cellCount: cellKeys.length,
+      startedAt: now,
     },
-    update: { status: "RUNNING", cellKeys, cellCount: cellKeys.length },
+    update: {
+      status: "RUNNING",
+      cellKeys,
+      cellCount: cellKeys.length,
+      startedAt: now,
+    },
     select: { id: true },
   });
 
@@ -213,6 +225,23 @@ export async function runDiscovery(
       totalBusinesses,
       totalCostUsd,
       finishedAt: now,
+    },
+  });
+
+  // WP6-4 · market_mapped — the market's now sized (the free acquisition wedge
+  // landed). Runs INSIDE run-discovery (the real server execution) rather than
+  // the locked enqueue action, so it fires on the actual mapping completion.
+  // Records the market size for the "which markets convert to enrichment"
+  // funnel; fire-and-forget, ids/counts only.
+  void trackProductEvent({
+    type: "market_mapped",
+    agencyId: input.agencyId,
+    userId: input.userId,
+    props: {
+      discoveryId: discovery.id,
+      size: totalBusinesses,
+      cells: input.cells.length,
+      status,
     },
   });
 
@@ -348,6 +377,36 @@ async function runOneCell(
           totalNewFound: { increment: fetchResult.created },
           businessCount: { increment: fetchResult.created },
           totalCostUsd: { increment: fetchResult.costUsd },
+        },
+      }),
+      // WP9-7 · resolve the two-discovery-generations divergence. Historically
+      // only the ADMIN path (modules/business-discovery/run.ts) wrote a
+      // DiscoveryRun audit row; the AGENCY refetch path incremented the same
+      // TrackedLocation aggregates but left NO per-run audit trail. We add the
+      // audit row HERE (inside the existing transaction, so it's atomic with the
+      // aggregate increments) WITHOUT touching those increments — the
+      // TrackedLocation.totalRuns/++ above is still the ONE owner of the
+      // aggregate counters, so there is no double-count. `meta.source="agency"`
+      // + `meta.discoveryId` tag the generation so admin dashboards can filter
+      // agency-originated runs out (or in) explicitly. This path is only reached
+      // on a completed refetch (failures are caught by the outer try/catch and
+      // return a FAILED summary that never enters this transaction), so
+      // status=OK is correct here; startedAt=finishedAt=now since refetchCell
+      // ran synchronously above.
+      prisma.discoveryRun.create({
+        data: {
+          trackedLocationId: tracked.id,
+          categoryId: cell.categoryId,
+          status: "OK",
+          startedAt: now,
+          finishedAt: now,
+          radiusKm,
+          limitRequested: limit,
+          totalReturned: fetchResult.returned,
+          totalAvailable: fetchResult.totalAvailable ?? undefined,
+          newBusinesses: fetchResult.created,
+          costUsd: fetchResult.costUsd,
+          meta: { source: "agency", discoveryId },
         },
       }),
       prisma.discoveryCell.upsert({

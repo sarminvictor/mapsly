@@ -45,7 +45,13 @@ export function AgHero({ t }: AgHeroProps) {
         <p className="fb-sub">{t("hero.sub")}</p>
 
         <div className="fb-ag-hero-cta">
-          <Link href="/signin" className="fb-btn" data-testid="agency-hero-cta">
+          {/* audience=agency rides the whole sign-in round-trip so
+              /post-signin self-provisions the agency (WP2-1). */}
+          <Link
+            href={{ pathname: "/signin", query: { audience: "agency" } }}
+            className="fb-btn"
+            data-testid="agency-hero-cta"
+          >
             {t("hero.cta_primary")} <ArrowGlyph />
           </Link>
         </div>

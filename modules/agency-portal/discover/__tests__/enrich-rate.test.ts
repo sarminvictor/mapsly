@@ -2,10 +2,13 @@ import { describe, expect, test } from "vitest";
 
 import {
   buildCellRows,
+  classifyMarketSize,
   enrichableCountForCell,
   enrichCellFeeCredits,
   enrichCreditsFor,
   enrichRatePerLead,
+  OVERSIZED_MARKET_THRESHOLD,
+  THIN_MARKET_THRESHOLD,
   type CellRow,
   type MarketCell,
   type QuoteCell,
@@ -216,5 +219,38 @@ describe("enrichableCountForCell", () => {
   test("no website-dependent research → the whole cell is enrichable", () => {
     expect(enrichableCountForCell(row, ["reviews"])).toBe(731);
     expect(enrichableCountForCell(row, ["meta_ads", "serp"])).toBe(731);
+  });
+});
+
+// WP7-13 · statistical-edge market classification. The market-relative claim
+// must never lie at the edges: a thin cell suppresses percentiles → absolute
+// benchmarks; an oversized cell nudges toward a narrower sub-cell.
+describe("classifyMarketSize", () => {
+  test("null / unknown count → normal (no note until real count lands)", () => {
+    expect(classifyMarketSize(null)).toBe("normal");
+  });
+
+  test("below the thin threshold → thin", () => {
+    expect(classifyMarketSize(0)).toBe("thin");
+    expect(classifyMarketSize(THIN_MARKET_THRESHOLD - 1)).toBe("thin");
+  });
+
+  test("exactly the thin threshold → normal (boundary is inclusive-normal)", () => {
+    expect(classifyMarketSize(THIN_MARKET_THRESHOLD)).toBe("normal");
+  });
+
+  test("mid-range → normal", () => {
+    expect(classifyMarketSize(500)).toBe("normal");
+    expect(classifyMarketSize(OVERSIZED_MARKET_THRESHOLD - 1)).toBe("normal");
+  });
+
+  test("at/above the oversized threshold → oversized", () => {
+    expect(classifyMarketSize(OVERSIZED_MARKET_THRESHOLD)).toBe("oversized");
+    expect(classifyMarketSize(50_000)).toBe("oversized");
+  });
+
+  test("the thresholds are the documented values (25 / 2000)", () => {
+    expect(THIN_MARKET_THRESHOLD).toBe(25);
+    expect(OVERSIZED_MARKET_THRESHOLD).toBe(2000);
   });
 });

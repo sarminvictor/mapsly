@@ -53,29 +53,41 @@ import {
   preflightEnrichAction,
   runEnrichAction,
 } from "@/modules/discovery/enrich-actions";
+import { countFilteredMarketAction } from "@/modules/discovery/market-filter-actions";
+import { otherAgenciesOnCellsAction } from "@/modules/discovery/collision-actions";
 import { cellKey as makeCellKey } from "@/lib/cell";
-import { ENRICHMENT_PRICES } from "@/modules/cost/pricing";
+import { Icon } from "@/components/agency/Icon";
+import { ENRICHMENT_PRICES, type EnrichmentType } from "@/modules/cost/pricing";
+import { usdToCredits } from "@/modules/cost/estimate";
 import { SIG_META } from "../../goal-templates";
 import {
   groupSignalsByResearch,
   researchesForSignals,
+  resolveResearches,
   RESEARCH_LABELS,
   RESEARCH_SOURCES,
 } from "../../researches";
 import { buildDiscoverySignals } from "../../discovery-signals";
 import {
   buildCellRows,
+  classifyMarketSize,
   enrichCellFeeCredits,
   enrichCreditsFor,
   enrichableCountForCell,
   enrichRatePerLead,
   fmtCredits,
   freshDotClass,
+  marketFiltersActive,
+  OVERSIZED_MARKET_THRESHOLD,
+  THIN_MARKET_THRESHOLD,
   toDiscoveryCells,
   type GoalState,
   type MarketCell,
+  type MarketFilters,
   type QuoteCell,
 } from "../../flow-types";
+import { CreditWallSheet } from "../CreditWallSheet";
+import { PreEnrichFilters } from "./PreEnrichFilters";
 import { useCountUp } from "../useCountUp";
 
 interface Quote {
@@ -121,13 +133,23 @@ export function PreviewStep({
   goal,
   cells,
   walletCredits,
+  locale,
+  extraEnrichTypes = [],
   onBack,
   onEnriching,
-  onToast,
 }: {
   goal: GoalState;
   cells: MarketCell[];
   walletCredits?: number;
+  /** Locale for the credit-wall sheet's checkout return URL (WP2-3). */
+  locale: string;
+  /**
+   * WP5-3 · enrichment families pre-seeded by the `?enrich=` deep link
+   * (coverage CTAs / locked columns). Unioned into the goal-derived research
+   * set (dependency chains resolved), so the deep-linked family is quoted +
+   * run alongside what the signals need.
+   */
+  extraEnrichTypes?: EnrichmentType[];
   onBack: () => void;
   /** Called once enrichment starts — carries the discoveryId too, so the
    *  parent flow can stamp it into the URL for the Enriching step. */
@@ -136,7 +158,6 @@ export function PreviewStep({
     leadCount: number;
     discoveryId: string;
   }) => void;
-  onToast: (msg: string) => void;
 }) {
   const [quote, setQuote] = useState<Quote | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -150,9 +171,18 @@ export function PreviewStep({
 
   // The research families the active signals depend on (dependency chains
   // expanded) — the canonical input to every enrich-credit computation below.
+  // WP5-3 · deep-linked `?enrich=` families are unioned in (deps re-resolved)
+  // so an "enrich contacts →" link from the workbench actually prices contacts.
+  const extraKey = extraEnrichTypes.join(",");
   const families = useMemo(
-    () => researchesForSignals(activeSignals),
-    [activeSignals],
+    () =>
+      resolveResearches([
+        ...researchesForSignals(activeSignals),
+        ...extraEnrichTypes,
+      ]),
+    // extraKey is the content proxy for extraEnrichTypes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [activeSignals, extraKey],
   );
 
   // "What you picked" grouped by research (docs/portal-prototype.html's
@@ -240,6 +270,32 @@ export function PreviewStep({
     [priceKey],
   );
 
+  // ── WP2-2 / WP2-3 per-selection state ─────────────────────────────────────
+  // `pickedN` — the user's lead cap (null = untouched → wallet-fitted
+  // default). `creditWall` — non-null renders the inline upgrade sheet
+  // (WP2-3) in place of the old dead-end toast; `needCredits` is the server
+  // quote when we have one, else the display estimate for the attempted run.
+  // Declared up here (before effect 1) because the selection-change reset
+  // clears both; the derived affordable/selected math lives further down with
+  // the rest of the enrich-credit derivations.
+  const [pickedN, setPickedN] = useState<number | null>(null);
+  const [creditWall, setCreditWall] = useState<{ needCredits: number } | null>(
+    null,
+  );
+
+  // ── WP5-4 · free pre-enrich filters ───────────────────────────────────────
+  // The filter object threads into the preflight (server-side scope resolve),
+  // and the surviving count is server-counted (never client math). Both are
+  // per-selection state — effect 1 resets them on a market change.
+  const [marketFilters, setMarketFilters] = useState<MarketFilters>({});
+  const [filteredCount, setFilteredCount] = useState<{
+    forKey: string;
+    total: number;
+    enrichable: number;
+  } | null>(null);
+  const filtersActive = marketFiltersActive(marketFilters);
+  const filterKey = JSON.stringify(marketFilters);
+
   // ── Discovery job state (was DiscoverStep's job) ──────────────────────────
   const [discoveryId, setDiscoveryId] = useState<string | null>(null);
   const [jobStatus, setJobStatus] = useState<JobStatus | null>(null);
@@ -263,6 +319,13 @@ export function PreviewStep({
       setSampleRows([]);
       setElapsedSec(0);
       setLiveCount(0);
+      // A different market resets the lead cap + closes the credit wall —
+      // both are per-selection state (declared below with the WP2-2 block).
+      setPickedN(null);
+      setCreditWall(null);
+      // WP5-4 · filters are per-selection too — a new market starts unfiltered.
+      setMarketFilters({});
+      setFilteredCount(null);
       await quotePreflight(myId, { resetFirst: true });
     });
     // priceKey is the stable content proxy for the selection; quotePreflight
@@ -429,6 +492,65 @@ export function PreviewStep({
   // silent mystery.
   const notEnrichable = totBiz - enrichableTotal;
 
+  // ── WP7-13 · statistical-edge market notes ────────────────────────────────
+  // Classify each DISCOVERED cell so the vs-cell claim never lies at the edges:
+  //   - thin cells (< 25 businesses) → the workbench shows absolute benchmarks,
+  //     not percentiles (too few rows for an honest distribution);
+  //   - oversized cells (>= 2000) → suggest narrowing by neighborhood / radius.
+  const thinCells = useMemo(
+    () => knownRows.filter((r) => classifyMarketSize(r.bizCount) === "thin"),
+    [knownRows],
+  );
+  const oversizedCells = useMemo(
+    () =>
+      knownRows.filter((r) => classifyMarketSize(r.bizCount) === "oversized"),
+    [knownRows],
+  );
+
+  // ── WP5-4 · the EFFECTIVE enrichable count under the active filters ──────
+  // The server count is authoritative for the filtered set; while it's in
+  // flight (or filters are off) we fall back to the whole-market enrichable
+  // count. Keyed so a stale count for OLD filters/selection is never used.
+  const countKey = `${priceKey}|${families.join(",")}|${filterKey}`;
+  const filteredForKey =
+    filteredCount && filteredCount.forKey === countKey ? filteredCount : null;
+  const effEnrichable =
+    filtersActive && filteredForKey != null
+      ? filteredForKey.enrichable
+      : enrichableTotal;
+
+  // Live-count the surviving set server-side (debounced) whenever the filters
+  // are active on a mapped market. Uses the SAME rawListWhere the preflight
+  // resolves scope with, so the number shown is the set that gets priced.
+  useEffect(() => {
+    if (!mapped || !discoveryId || !filtersActive) return;
+    const myKey = countKey;
+    let cancelled = false;
+    const t = window.setTimeout(() => {
+      void (async () => {
+        const r = await countFilteredMarketAction({
+          discoveryId,
+          filters: marketFilters,
+          enrichments: families,
+        });
+        if (cancelled) return;
+        if (r.status === "ok") {
+          setFilteredCount({
+            forKey: myKey,
+            total: r.total,
+            enrichable: r.enrichable,
+          });
+        }
+      })();
+    }, 350);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(t);
+    };
+    // countKey is the content proxy for marketFilters + families + selection.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mapped, discoveryId, filtersActive, countKey]);
+
   // The per-lead enrich rate + one-time cell fee — both knowable WITHOUT a
   // business count (see enrichRatePerLead/enrichCellFeeCredits docs).
   const enrichRate = useMemo(() => enrichRatePerLead(families), [families]);
@@ -442,10 +564,47 @@ export function PreviewStep({
   const enrichCredits = mapped
     ? enrichCreditsFor(families, enrichableTotal, cells.length)
     : knownEnrichTotal;
-  const enrichMinutes = mapped
-    ? Math.max(2, Math.round(enrichableTotal / 70))
+
+  // ── WP2-2 · wallet-capped "Enrich your best N" (derived math) ─────────────
+  // Default N = min(affordable, enrichable): everything when the wallet
+  // covers it, else the biggest run the balance can fund — never a dead end.
+  // The one-time cell fee comes off the top of the budget math because it's
+  // charged once regardless of N (without that, the default could still
+  // quote above the balance). N is reducible even when the wallet covers
+  // everything — spend control. ALL of this is display math: the committed
+  // number is re-quoted server-side over the sliced subset (preflight
+  // `topN`), never client math. (`pickedN`/`creditWall` state is declared
+  // above effect 1, which resets both on a selection change.)
+  // WP5-4 · all best-N math runs over the FILTERED enrichable set when
+  // filters are active (filters first, then top-N within the filtered set).
+  const affordableN = useMemo(() => {
+    if (walletCredits == null) return effEnrichable;
+    if (enrichRate <= 0) {
+      // Cell-fee-only goals (ads/SERP): N doesn't move the price.
+      return walletCredits >= enrichCellFee ? effEnrichable : 0;
+    }
+    return Math.min(
+      effEnrichable,
+      Math.max(0, Math.floor((walletCredits - enrichCellFee) / enrichRate)),
+    );
+  }, [walletCredits, enrichRate, enrichCellFee, effEnrichable]);
+  const selectedN = Math.max(
+    0,
+    Math.min(pickedN ?? affordableN, effEnrichable),
+  );
+  const capped = mapped && selectedN < effEnrichable;
+  // Display estimate for the CURRENT selection (server re-quotes on Enrich).
+  const selectedCredits = mapped
+    ? enrichCreditsFor(families, selectedN, cells.length)
+    : enrichCredits;
+  // The smallest viable run (best 1 lead) — what the credit wall quotes when
+  // even one lead doesn't fit the balance.
+  const minRunCredits = enrichRate + enrichCellFee;
+  const affordableCredits = mapped
+    ? enrichCreditsFor(families, affordableN, cells.length)
     : 0;
-  const haveCredits = walletCredits == null || enrichCredits <= walletCredits;
+  const enrichMinutes = mapped ? Math.max(2, Math.round(selectedN / 70)) : 0;
+  const haveCredits = walletCredits == null || selectedCredits <= walletCredits;
 
   // The "② Enrich" card's per-research breakdown (matches the prototype's
   // split-by-research design) — one row per family the active signals need,
@@ -496,6 +655,100 @@ export function PreviewStep({
     [cells],
   );
 
+  // ── WP6-15 · lead-collision nudge · "N other agencies track this market" ────
+  // An honesty + scarcity signal, not a "same list" claim: overlapping markets
+  // never yield verbatim openers because touch pain-hooks are diversified per
+  // agency (modules/outreach/first-touch.ts orderPains). Fetched once per market
+  // selection (bounded server count over Discovery.cellKeys overlap).
+  const [otherAgencies, setOtherAgencies] = useState<number | null>(null);
+  const collisionKey = cellKeys.join(",");
+  useEffect(() => {
+    if (cells.length === 0) return;
+    let live = true;
+    void (async () => {
+      const res = await otherAgenciesOnCellsAction(toDiscoveryCells(cells));
+      if (!live) return;
+      setOtherAgencies(res.status === "ok" ? res.otherAgencies : null);
+    })();
+    return () => {
+      live = false;
+    };
+    // collisionKey is the content proxy for the selected cells.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [collisionKey, cells.length]);
+
+  // ── WP4-6 · NET price + fresh-cache savings ───────────────────────────────
+  // The client display math (enrichCreditsFor) is a GROSS estimate — it can't
+  // see which units are already fresh (served from cache at $0). The server
+  // preflight returns the honest NET (fresh-adjusted) credits + the USD saved
+  // from the cache. We quote it reactively (debounced) for the CURRENT selection
+  // so the card + costbar show the real "you'll pay X · Y saved from fresh
+  // cache" — and the wallet gate reads NET, not gross. We also reuse the quote's
+  // estimateId on the Enrich click when it still matches (no double-quote).
+  const [netQuote, setNetQuote] = useState<{
+    /** The selection (cells + signals) this quote priced — a change invalidates
+     *  it so a stale quote can't be reused after the user edits the market. */
+    forKey: string;
+    forN: number;
+    netCredits: number;
+    freshCredits: number;
+    estimateId: string;
+  } | null>(null);
+  // A monotonic token rejects a stale debounced quote landing after the user
+  // moved the slider again.
+  const netQuoteToken = useRef(0);
+  useEffect(() => {
+    // Only meaningful once the market is mapped + there's an enrichable subset.
+    // (No synchronous setState here — a stale netQuote can't match `selectedN`
+    // in the derivation below, so it's simply ignored; we never clear in the
+    // effect body, per react-hooks/set-state-in-effect.)
+    if (!mapped || effEnrichable <= 0 || selectedN <= 0) return;
+    const n = selectedN;
+    const token = ++netQuoteToken.current;
+    const t = window.setTimeout(() => {
+      void (async () => {
+        const pre = await preflightEnrichAction({
+          cellKeys,
+          enrichments: families,
+          // WP5-4 · the active filters ride the quote so the server resolves
+          // the SAME filtered set it will hold credits for + fan out.
+          ...(filtersActive ? { filters: marketFilters } : {}),
+          ...(n < effEnrichable ? { topN: n } : {}),
+        });
+        if (token !== netQuoteToken.current) return; // superseded
+        if (pre.status === "ok") {
+          setNetQuote({
+            forKey: countKey,
+            forN: n,
+            netCredits: pre.netCredits,
+            freshCredits: usdToCredits(pre.freshHitUsd),
+            estimateId: pre.estimateId,
+          });
+        }
+      })();
+    }, 450);
+    return () => window.clearTimeout(t);
+    // countKey encodes priceKey + families + filters (the quote's real inputs).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mapped, effEnrichable, selectedN, cellKeys, families, countKey]);
+
+  // The NET quote for the CURRENT selection (null while a debounce is pending or
+  // the selection moved — stale quotes are ignored by the forKey + forN guard).
+  // netCredits is the fresh-adjusted price actually held.
+  const netForSelection =
+    netQuote && netQuote.forKey === countKey && netQuote.forN === selectedN
+      ? netQuote
+      : null;
+  const netCredits = netForSelection?.netCredits ?? null;
+  const freshSaved = netForSelection?.freshCredits ?? 0;
+  // WP4-6 · gate the wallet on NET (not the gross display math): a run that's
+  // mostly-fresh can cost far less than enrichCreditsFor suggests.
+  const haveCreditsNet =
+    walletCredits == null || netCredits == null || netCredits <= walletCredits;
+  // The affordability the UI shows: the NET gate once the server quote lands,
+  // else the gross estimate while it's in flight.
+  const canAfford = netCredits != null ? haveCreditsNet : haveCredits;
+
   function retryMapping() {
     setJobError(null);
     setJobStatus(null);
@@ -509,32 +762,75 @@ export function PreviewStep({
 
   function enrich() {
     setRunError(null);
+    setCreditWall(null);
     if (!mapped || !discoveryId) return;
-    if (!haveCredits) {
-      onToast("Not enough credits — add credits to enrich");
+    // Credit wall (WP2-3) — client pre-check only; the server re-checks
+    // authoritatively below. Opens the inline upgrade sheet (never a toast):
+    // either nothing enrichable fits the balance, or the picked N overshoots.
+    // WP4-6 · gate on the NET quote when we have it (a mostly-fresh run can be
+    // affordable even when the gross display math says it isn't); fall back to
+    // the gross estimate only while the net quote is still in flight.
+    const affordable = netCredits != null ? haveCreditsNet : haveCredits;
+    if (selectedN <= 0 || !affordable) {
+      setCreditWall({
+        needCredits:
+          selectedN > 0 ? (netCredits ?? selectedCredits) : minRunCredits,
+      });
       return;
     }
     startRunEnrich(async () => {
-      const pre = await preflightEnrichAction({
-        cellKeys,
-        enrichments: families,
-      });
-      if (pre.status !== "ok") {
-        setRunError(
-          pre.status === "invalid_input"
-            ? pre.message
-            : `Couldn't price enrichment (${pre.status}).`,
-        );
+      // WP4-6 · reuse the debounced NET quote's estimateId when it still
+      // matches this exact selection (no redundant re-quote); else quote now.
+      let estimateId: string;
+      let netCreditsQuoted: number;
+      if (netForSelection && netForSelection.forN === selectedN) {
+        estimateId = netForSelection.estimateId;
+        netCreditsQuoted = netForSelection.netCredits;
+      } else {
+        const pre = await preflightEnrichAction({
+          cellKeys,
+          enrichments: families,
+          // WP5-4 · filters first — the server resolves the filtered set…
+          ...(filtersActive ? { filters: marketFilters } : {}),
+          // WP2-2 · …then cap to the picked best-N within it. The server
+          // slices reviewCount-desc (workbench sort) and quotes THAT subset —
+          // committed number is server-authoritative, never client math.
+          // Omitted for a full run so the server resolves the whole set.
+          ...(capped ? { topN: selectedN } : {}),
+        });
+        if (pre.status !== "ok") {
+          setRunError(
+            pre.status === "invalid_input"
+              ? pre.message
+              : `Couldn't price enrichment (${pre.status}).`,
+          );
+          return;
+        }
+        estimateId = pre.estimateId;
+        netCreditsQuoted = pre.netCredits;
+      }
+      // Server-authoritative affordability: the REAL (NET) quote — fresh units
+      // make it cheaper than the gross display math — against the wallet.
+      if (walletCredits != null && netCreditsQuoted > walletCredits) {
+        setCreditWall({ needCredits: netCreditsQuoted });
         return;
       }
-      const run = await runEnrichAction({ estimateId: pre.estimateId });
+      const run = await runEnrichAction({ estimateId });
       if (run.status === "ok") {
-        onEnriching({ runId: run.runId, leadCount: totBiz, discoveryId });
-      } else if (run.status === "needs_approval") {
-        setRunError("This enrichment is over the auto limit — needs approval.");
+        onEnriching({
+          runId: run.runId,
+          // Capped → the picked N; filtered → the surviving set; else the
+          // whole mapped market.
+          leadCount: capped
+            ? selectedN
+            : filtersActive
+              ? effEnrichable
+              : totBiz,
+          discoveryId,
+        });
       } else if (run.status === "insufficient_credits") {
-        setRunError("Not enough credits — add credits to run this.");
-        onToast("Not enough credits");
+        // Wallet moved between quote and hold — same sheet, server's number.
+        setCreditWall({ needCredits: run.netCredits });
       } else if (
         run.status === "needs_requote" ||
         run.status === "quote_expired"
@@ -572,11 +868,26 @@ export function PreviewStep({
           : "Mapping the market now — it's free and runs automatically. Below is what enriching a lead costs; nothing is charged until you confirm."}
       </p>
 
+      {/* WP6-15 · lead-collision positioning — an honest scarcity nudge. Shown
+          only when other agencies actually overlap this market. Framed as
+          honesty (not FUD): touches are diversified per agency, so overlapping
+          markets never send verbatim-identical openers. */}
+      {otherAgencies != null && otherAgencies > 0 ? (
+        <p className="note" role="status" style={{ marginTop: -4 }}>
+          {otherAgencies === 1
+            ? "1 other agency is already tracking this market"
+            : `${otherAgencies.toLocaleString()} other agencies are already tracking this market`}
+          {" — "}
+          get in early. Your outreach stays distinct: Mapsly rotates each
+          agency&rsquo;s pitch angle so no two send the same opener.
+        </p>
+      ) : null}
+
       {/* Job-lifecycle callout — replaces the old flat "New markets… " text
           with an honest indeterminate progress indicator while mapping. */}
       {jobFailed ? (
         <div className="callout amber section" role="alert">
-          <span aria-hidden="true">⚠️</span>
+          <Icon name="warning" size={16} style={{ flex: "none" }} />
           <div style={{ flex: 1 }}>
             <b>This market couldn&apos;t be mapped.</b> No credits were spent.{" "}
             <button
@@ -591,7 +902,7 @@ export function PreviewStep({
         </div>
       ) : stillMapping ? (
         <div className="callout section" role="status">
-          <span aria-hidden="true">🔎</span>
+          <Icon name="search" size={16} style={{ flex: "none" }} />
           <div style={{ flex: 1 }}>
             <div
               style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}
@@ -631,7 +942,7 @@ export function PreviewStep({
         </div>
       ) : (
         <div className="callout green section" role="status">
-          <span aria-hidden="true">✅</span>
+          <Icon name="check" size={16} style={{ flex: "none" }} />
           <div>
             <b>Market mapped</b> — every number below is real.
           </div>
@@ -640,7 +951,7 @@ export function PreviewStep({
 
       {jobError ? (
         <div className="callout amber section" role="alert">
-          <span aria-hidden="true">⚠️</span>
+          <Icon name="warning" size={16} style={{ flex: "none" }} />
           <div style={{ flex: 1 }}>{jobError}</div>
         </div>
       ) : null}
@@ -816,7 +1127,59 @@ export function PreviewStep({
             a site.
           </p>
         ) : null}
+
+        {/* WP7-13 · THIN market — too few businesses for an honest percentile
+            distribution, so the workbench shows absolute benchmarks. Stated up
+            front so the market-relative claim never silently lies. */}
+        {mapped && thinCells.length > 0 ? (
+          <p className="note" style={{ marginTop: 8 }} role="status">
+            <b>Small market</b> —{" "}
+            {thinCells.length === 1
+              ? `${thinCells[0].name.split(" · ")[0]} has`
+              : `${thinCells.length} of your markets have`}{" "}
+            fewer than {THIN_MARKET_THRESHOLD} businesses. There aren&apos;t
+            enough to rank leads against the market, so your workbench shows{" "}
+            <b>absolute benchmarks</b> (the raw numbers) instead of a &ldquo;vs.
+            the market&rdquo; percentile.
+          </p>
+        ) : null}
+
+        {/* WP7-13 · OVERSIZED market — real but unwieldy; suggest a sub-cell. */}
+        {mapped && oversizedCells.length > 0 ? (
+          <p className="note" style={{ marginTop: 8 }} role="status">
+            <b>Large market</b> —{" "}
+            {oversizedCells.length === 1
+              ? `${oversizedCells[0].name.split(" · ")[0]} has`
+              : "some of your markets have"}{" "}
+            {OVERSIZED_MARKET_THRESHOLD.toLocaleString()}+ businesses. You
+            don&apos;t have to enrich them all — cap the run to your best N
+            below, or go back and narrow to a neighborhood or a tighter radius
+            for a sharper, cheaper list.
+          </p>
+        ) : null}
       </div>
+
+      {/* WP5-4 · FREE pre-enrich filters — narrow the mapped market before
+          committing credits; the surviving count is server-counted and the
+          filter object rides the preflight so the priced set == this set. */}
+      {mapped && totBiz > 0 ? (
+        <PreEnrichFilters
+          filters={marketFilters}
+          onChange={(f) => {
+            setMarketFilters(f);
+            // A different set → the old cap + credit wall no longer apply.
+            setPickedN(null);
+            setCreditWall(null);
+          }}
+          total={totBiz}
+          matching={filtersActive ? (filteredForKey?.total ?? null) : totBiz}
+          enrichable={
+            filtersActive
+              ? (filteredForKey?.enrichable ?? null)
+              : enrichableTotal
+          }
+        />
+      ) : null}
 
       {/* Sample of the market — a handful of real rows once mapped (was
           DiscoverStep's raw-market table). Hidden until there's something
@@ -983,8 +1346,10 @@ export function PreviewStep({
               </span>
             </div>
             <div className="note">
+              {/* WP2-5 · honest copy: the real subset path is the best-N cap
+                  below (WP2-2), not a per-lead hand-pick (that's WP5). */}
               {mapped
-                ? `Enrich all ${enrichableTotal.toLocaleString()} businesses with a website — or pick exactly which leads next. ≈${fmtCredits(enrichRate)} credits/lead.`
+                ? `Enrich all ${enrichableTotal.toLocaleString()} businesses with a website — or cap the run to your best N below. ≈${fmtCredits(enrichRate)} credits/lead.`
                 : knownCells > 0
                   ? "Firms up the moment the rest of the market finishes mapping."
                   : "Confirmed the moment mapping finishes — you pay only for the leads you choose to enrich."}
@@ -992,6 +1357,105 @@ export function PreviewStep({
           </div>
         </div>
       </div>
+
+      {/* WP2-2 · lead-count control. Cap the run to the best N (most-reviewed
+          first — the workbench default sort). Defaults to everything the
+          wallet can fund; reducible even when it covers all (spend control).
+          The exact total is re-quoted server-side before anything is held. */}
+      {mapped && effEnrichable > 0 ? (
+        <div className="card section">
+          <div
+            style={{
+              display: "flex",
+              alignItems: "baseline",
+              gap: 10,
+              flexWrap: "wrap",
+            }}
+          >
+            <h2 style={{ margin: 0 }}>
+              Enrich your best {selectedN.toLocaleString()} of{" "}
+              {effEnrichable.toLocaleString()}
+              {filtersActive ? " filtered" : ""}
+            </h2>
+            {/* WP4-6 · show the NET (fresh-adjusted) price the moment the server
+                quote lands — no leading "~" since it's server-authoritative;
+                fall back to the gross display estimate while it's in flight. */}
+            <span className="cr">
+              <span className="ic-coin sm" aria-hidden="true" />
+              {netCredits != null
+                ? fmtCredits(netCredits)
+                : `~${fmtCredits(selectedCredits)}`}{" "}
+              credits
+            </span>
+            {freshSaved > 0 ? (
+              <span
+                className="pill green dot"
+                title="Already-fresh units are served from cache at no charge"
+              >
+                {fmtCredits(freshSaved)} saved from fresh cache
+              </span>
+            ) : null}
+            {walletCredits != null ? (
+              <span className="note">
+                · you have {fmtCredits(walletCredits)}
+              </span>
+            ) : null}
+          </div>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+              marginTop: 10,
+            }}
+          >
+            <input
+              type="range"
+              min={1}
+              max={effEnrichable}
+              step={1}
+              value={Math.max(1, selectedN)}
+              onChange={(e) => {
+                setPickedN(Number(e.target.value) || 1);
+                setCreditWall(null);
+              }}
+              aria-label="Number of leads to enrich"
+              style={{ flex: "1 1 auto", minWidth: 120 }}
+            />
+            <input
+              type="number"
+              min={1}
+              max={effEnrichable}
+              value={Math.max(1, selectedN)}
+              onChange={(e) => {
+                const n = Math.floor(Number(e.target.value));
+                if (Number.isFinite(n)) {
+                  setPickedN(Math.max(1, Math.min(n, effEnrichable)));
+                  setCreditWall(null);
+                }
+              }}
+              aria-label="Number of leads to enrich (exact)"
+              style={{ width: 90 }}
+            />
+            {capped && affordableN >= effEnrichable ? (
+              <button
+                type="button"
+                className="btn sm"
+                onClick={() => setPickedN(effEnrichable)}
+              >
+                All {effEnrichable.toLocaleString()}
+              </button>
+            ) : null}
+          </div>
+          <p className="note" style={{ margin: "8px 0 0" }}>
+            Ranked by review count — the busiest businesses first.{" "}
+            {walletCredits != null && affordableN < effEnrichable
+              ? `Your ${fmtCredits(walletCredits)} credits cover your best ${affordableN.toLocaleString()}.`
+              : "Dial down to control spend."}{" "}
+            Exact total is re-quoted before anything is charged.
+          </p>
+        </div>
+      ) : null}
 
       {error ? (
         <p className="callout amber section" role="alert">
@@ -1002,6 +1466,31 @@ export function PreviewStep({
         <p className="callout amber section" role="alert">
           {runError}
         </p>
+      ) : null}
+
+      {/* WP2-3 · the credit wall — an inline upgrade sheet (top-N fallback +
+          top-up packs + next plan + billing deep-link), never a dead-end
+          toast. */}
+      {creditWall ? (
+        <CreditWallSheet
+          needCredits={creditWall.needCredits}
+          walletCredits={walletCredits ?? 0}
+          locale={locale}
+          affordable={
+            affordableN > 0
+              ? {
+                  n: affordableN,
+                  of: effEnrichable,
+                  credits: affordableCredits,
+                }
+              : null
+          }
+          onPickTopN={(n) => {
+            setPickedN(n);
+            setCreditWall(null);
+          }}
+          onClose={() => setCreditWall(null)}
+        />
       ) : null}
 
       {/* Sticky dark costbar — swaps from "Mapping…" to "Enrich →" itself,
@@ -1018,11 +1507,18 @@ export function PreviewStep({
               "Mapping failed"
             ) : mapped ? (
               <>
-                Enrich {enrichableTotal.toLocaleString()} business
-                {enrichableTotal === 1 ? "" : "es"}
+                {capped
+                  ? `Enrich best ${selectedN.toLocaleString()} of ${effEnrichable.toLocaleString()}${filtersActive ? " filtered" : ""}`
+                  : `Enrich ${effEnrichable.toLocaleString()}${filtersActive ? " filtered" : ""} business${effEnrichable === 1 ? "" : "es"}`}
                 <span className="small">
                   {" "}
-                  · ~{fmtCredits(enrichCredits)} credits
+                  {/* WP4-6 · NET credits once the server quote lands. */}·{" "}
+                  {netCredits != null
+                    ? `${fmtCredits(netCredits)} credits`
+                    : `~${fmtCredits(selectedCredits)} credits`}
+                  {freshSaved > 0
+                    ? ` · ${fmtCredits(freshSaved)} saved from fresh cache`
+                    : ""}
                 </span>
               </>
             ) : (
@@ -1034,9 +1530,9 @@ export function PreviewStep({
               ? "This market couldn't be mapped — no credits were spent. Try again above."
               : !mapped
                 ? "Discovery is free and runs automatically — enrichment unlocks the moment the market is mapped."
-                : haveCredits
+                : canAfford && selectedN > 0
                   ? `Applies your ${sigCount} signal${sigCount === 1 ? "" : "s"} and reveals contacts · ~${enrichMinutes} min`
-                  : `Not enough credits — this needs ~${fmtCredits(enrichCredits)}, you have ${fmtCredits(walletCredits ?? 0)}. Add credits to run it.`}
+                  : `Needs ~${fmtCredits(selectedN > 0 ? (netCredits ?? selectedCredits) : minRunCredits)} credits — you have ${fmtCredits(walletCredits ?? 0)}. Options open on click.`}
           </div>
         </div>
         <span className="spacer" />
@@ -1054,13 +1550,15 @@ export function PreviewStep({
             }
             onClick={enrich}
           >
+            {/* "Add credits →" is NOT a dead end: the click routes through
+                enrich(), which opens the credit-wall sheet (WP2-3). */}
             {jobFailed
               ? "Failed"
               : !mapped
                 ? "Mapping…"
                 : runningEnrich
                   ? "Starting…"
-                  : haveCredits
+                  : canAfford && selectedN > 0
                     ? "Enrich →"
                     : "Add credits →"}
           </button>

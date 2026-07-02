@@ -33,6 +33,14 @@ export interface BusinessMatch {
   city: string | null;
   category: string;
   website: string | null;
+  /**
+   * The agency's most-recent ACTIVE discovery whose cells contain this
+   * business (matched on `Business.cellKey`), or null when the agency hasn't
+   * researched a market this business belongs to. Drives ⌘K's deep-link:
+   * present → `/discover/[discoveryId]?lead=<id>` opens the drawer straight on
+   * the evidence; null → the bare Discover flow (WP4-7).
+   */
+  discoveryId: string | null;
 }
 
 /**

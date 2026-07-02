@@ -1,9 +1,15 @@
 // modules/agency-portal/discover/signals.ts · pure read-model for the Discovery
-// "Signals" view (Phase 9). Each Discovery business becomes one SignalRow that
-// carries a few comparative signals (value + vs-cell percentile + a distribution
-// band so <VsCellBar> can render it) plus its flagged expert findings (evidence
-// chips). Kept PURE (no DB, no React) so the mapping is unit-testable — the repo
-// tests logic, not rendered DOM.
+// vs-cell comparative signals. Its LIVE consumers are the workbench + lead
+// drawer (`resolveCellBands`/`cellBand`/`BandKey`/`percentileOf`, and the lists
+// page's per-band cellBand calls) and `buildSingleBusinessSignals` on the
+// business-detail view. Kept PURE (no DB, no React) so the mapping is
+// unit-testable — the repo tests logic, not rendered DOM.
+//
+// NOTE (WP10-6): the standalone "Signals" table + its /discover/[id]/signals
+// route were removed as dead (cannibalized into the workbench after WP5). The
+// row-mapping helpers `buildSignalRows`/`SignalRow` that fed that table are kept
+// here as tested pure functions (no route consumes them today) rather than
+// deleted, since the file itself stays live via the exports above.
 //
 // The cell distribution band (p10/p25/p50/p75/p90) is computed from the loaded
 // cohort itself: the businesses in the Discovery's cells ARE the cell, so their
@@ -42,6 +48,58 @@ export interface CellBand {
   p90: number;
 }
 
+/**
+ * WP6-1 · the numeric band keys the workbench + drawer render. `match` is the
+ * per-lead composite; the rest are real comparative metrics with a cell
+ * distribution. Extended beyond `reviews` (Phase 9) to the five moat bands:
+ * rating, Lighthouse performance, organic-traffic estimate (share of voice),
+ * Meta ad count, and years-on-Google (tenure).
+ */
+export type BandKey =
+  | "match"
+  | "reviews"
+  | "rating"
+  | "perf"
+  | "organic"
+  | "ads"
+  | "tenure";
+
+/**
+ * WP6-1 · the per-band cohort samples the workbench collects from its own rows.
+ * Each is the raw value for the metric across the loaded businesses; used as the
+ * COHORT FALLBACK when the market-true CellMetric reference has no distribution
+ * for that band (a thin/never-aggregated cell).
+ */
+export interface CohortSamples {
+  match?: number[];
+  reviews?: number[];
+  rating?: number[];
+  perf?: number[];
+  organic?: number[];
+  ads?: number[];
+  tenure?: number[];
+}
+
+/**
+ * WP6-1 · the market-true reference bands, sourced from the scoring-v2
+ * `CellMetric.distributions` for the discovery's cell (via
+ * `parseCellReference`). Each band, when present, is authoritative across every
+ * Discovery of that cell — not just the ≤N-lead cohort loaded here. Keys that
+ * the CellMetric doesn't carry (e.g. `match`, `tenure`) simply fall through to
+ * the cohort. Shape mirrors `CellBand` so it drops straight into VsCellBar.
+ */
+export interface CellReferenceBands {
+  rating?: CellBand | null;
+  /** reviewCount distribution → the `reviews` band. */
+  reviews?: CellBand | null;
+  /** lighthousePerformance distribution → the `perf` band. */
+  perf?: CellBand | null;
+  /** shareOfVoice distribution → the `organic` band (organic-traffic proxy). */
+  organic?: CellBand | null;
+  /** Meta-ad-count distribution → the `ads` band (when the cell tracks it). */
+  ads?: CellBand | null;
+}
+
 /** One comparative signal on a row, ready for <VsCellBar> (band may be null). */
 export interface ComparativeSignal {
   key: string;
@@ -62,7 +120,8 @@ export interface FindingChip {
   group: string;
 }
 
-/** A fully-mapped row for the SignalsTable. */
+/** A fully-mapped comparative-signals row (fed the removed Signals table; kept
+ *  as a tested pure shape — see the WP10-6 note in this file's header). */
 export interface SignalRow {
   id: string;
   name: string;
@@ -207,7 +266,76 @@ export function buildSingleBusinessSignals(
   ];
 }
 
-/** Tailwind class fragment for a finding-confidence pill. */
+/**
+ * Ported `.pill` tone modifier for a finding-confidence pill (WP4-9). Returns
+ * the agency design-system pill class suffix ("green" | "amber" | "") — rendered
+ * as `pill ${confidencePillTone(c)}` — with the same green/amber/neutral
+ * semantics as the old Tailwind version, in the portal's own dialect.
+ */
+export function confidencePillTone(confidence: string): "green" | "amber" | "" {
+  switch (confidence.toLowerCase()) {
+    case "high":
+      return "green";
+    case "medium":
+      return "amber";
+    default:
+      return "";
+  }
+}
+
+/**
+ * WP6-1 · resolve the workbench's vs-cell bands with the MARKET-TRUE source
+ * preferred over the cohort. For each of the six comparative band keys:
+ *
+ *   1. prefer the scoring-v2 `CellMetric` reference band (`reference[key]`) —
+ *      it's the whole cell's distribution, authoritative across every Discovery
+ *      of that market, so a 40-lead cohort's median can't skew the comparison;
+ *   2. else fall back to the cohort self-distribution (`cellBand(cohort[key])`),
+ *      which is only honest WITHIN one Discovery but is all we have for a cell
+ *      the weekly aggregate hasn't reached yet (or a band CellMetric doesn't
+ *      carry, like `match` + `tenure`);
+ *   3. else omit the band (null) — the UI shows the raw value (graceful).
+ *
+ * Pure + no-DB by design (the caller loads the CellMetric row and passes the
+ * parsed reference in), so the source-selection logic is unit-testable.
+ */
+export function resolveCellBands(
+  cohort: CohortSamples,
+  reference?: CellReferenceBands | null,
+): Partial<Record<BandKey, CellBand>> {
+  const out: Partial<Record<BandKey, CellBand>> = {};
+  const keys: BandKey[] = [
+    "match",
+    "reviews",
+    "rating",
+    "perf",
+    "organic",
+    "ads",
+    "tenure",
+  ];
+  for (const key of keys) {
+    // The reference only carries the market-aggregated bands; `match`/`tenure`
+    // aren't in CellMetric, so they always take the cohort path.
+    const refBand =
+      key === "match" || key === "tenure"
+        ? null
+        : (reference?.[key as keyof CellReferenceBands] ?? null);
+    if (refBand) {
+      out[key] = refBand;
+      continue;
+    }
+    const sample = cohort[key];
+    const cohortBand = sample ? cellBand(sample) : null;
+    if (cohortBand) out[key] = cohortBand;
+  }
+  return out;
+}
+
+/**
+ * @deprecated Tailwind class fragment for a finding-confidence pill. Superseded
+ * by `confidencePillTone` (WP4-9 · one design system). Retained only for the
+ * existing unit test; no production surface renders Tailwind slate anymore.
+ */
 export function confidencePillClass(confidence: string): string {
   switch (confidence.toLowerCase()) {
     case "high":

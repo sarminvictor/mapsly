@@ -41,6 +41,8 @@ export const HIPAA_HEALTH_CATEGORIES: ReadonlySet<string> = new Set<string>([
   "dermatology",
   "plastic surgery",
   "chiropractor",
+  "chiropractic",
+  "chiropractic clinic",
   "physical therapy",
   "mental health",
   "urgent care",

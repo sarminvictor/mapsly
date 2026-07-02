@@ -224,6 +224,103 @@ export async function rateLimit(
   );
 }
 
+// ─── Server-action limiter (WP8-2) ───────────────────────────────────────────
+
+/** Outcome of an action-level rate-limit check. */
+export type ActionRateLimit =
+  | { limited: false }
+  | { limited: true; retryAfter: number };
+
+/**
+ * Rate-limit a Server Action. Unlike Route Handlers, `'use server'` functions
+ * receive no `Request`, so there's no `Response` to return and `ipKey()` can't
+ * read headers off an argument. This variant takes just a profile + a key
+ * (typically `session.user.id` with `USER_LIMIT`) and returns a plain result
+ * the action maps to its own error shape (e.g. `{ status: "rate_limited" }`).
+ *
+ * Fail-soft, exactly like `rateLimit`: when KV is unavailable or the limiter
+ * throws, this returns `{ limited: false }` (allow) and logs — never blocks a
+ * mutation because the limiter is down.
+ */
+export async function rateLimitAction(
+  profile: LimitProfile,
+  key: string,
+): Promise<ActionRateLimit> {
+  const limiter = getLimiter(profile);
+  if (!limiter) {
+    console.warn(
+      JSON.stringify({
+        level: "warn",
+        event: "rate_limit.kv_unavailable",
+        profile: profile.name,
+      }),
+    );
+    return { limited: false };
+  }
+
+  let r: Awaited<ReturnType<Ratelimit["limit"]>>;
+  try {
+    r = await limiter.limit(key);
+  } catch (err) {
+    console.warn(
+      JSON.stringify({
+        level: "warn",
+        event: "rate_limit.limiter_failed",
+        profile: profile.name,
+        error: err instanceof Error ? err.message : String(err),
+      }),
+    );
+    return { limited: false };
+  }
+  if (r.success) return { limited: false };
+
+  const retryAfter = Math.max(0, Math.ceil((r.reset - Date.now()) / 1000));
+  return { limited: true, retryAfter };
+}
+
+// ─── Action-limit profiles (WP8-2) ────────────────────────────────────────────
+
+/**
+ * Enqueue/estimate-class actions (enrichment run, discovery, touch generation,
+ * top-up checkout start). These are heavier + spend-bearing, so they get a
+ * TIGHTER window than plain UI mutations — a flood of enqueue calls costs money
+ * and DB work, not just a status flip. 10 / min / user.
+ */
+export const ACTION_ENQUEUE_LIMIT: LimitProfile = {
+  name: "action-enqueue",
+  limit: 10,
+  window: "1 m",
+  prefix: "rl:act-enqueue",
+};
+
+/**
+ * Cheap UI mutations (lead status changes, template save, dispute reports,
+ * invites, draft polish). Bounded generously — a triage sweep is legitimately
+ * bursty — but still capped so a runaway client/script can't hammer the DB.
+ * 40 / min / user.
+ */
+export const ACTION_MUTATE_LIMIT: LimitProfile = {
+  name: "action-mutate",
+  limit: 40,
+  window: "1 m",
+  prefix: "rl:act-mutate",
+};
+
+/**
+ * WP7-5 · enrich-RUN creation cap keyed by IP (in addition to the per-user
+ * ACTION_ENQUEUE_LIMIT). Trial-abuse farming rotates ACCOUNTS behind one IP to
+ * spend many free grants; a per-IP window bounds that vector independently of
+ * the user key. Generous enough for a real multi-seat agency on one office IP
+ * (a team rarely starts > 20 runs/min collectively), tight enough to blunt
+ * scripted farming. Read the IP via `headers()` in the server action.
+ */
+export const ENRICH_RUN_IP_LIMIT: LimitProfile = {
+  name: "enrich-run-ip",
+  limit: 20,
+  window: "1 m",
+  prefix: "rl:enrich-ip",
+};
+
 // ─── Per-route decorator ────────────────────────────────────────────────────
 
 type Handler = (req: Request) => Promise<Response> | Response;

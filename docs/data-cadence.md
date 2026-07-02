@@ -1,99 +1,53 @@
-# Data collection cadence + cost
+# Data collection cadence
 
-The product economics depend on collecting the right data at the right frequency. This doc is the single source of truth for **what we collect, how often, and what it costs**. All cron job definitions in `vercel.json` reference these cadences.
+> **Regenerated 2026-07-01 from `vercel.json` + `app/api/cron/**`** (WP10-2). This doc is the source of truth for *when* data is collected. A CI assertion (`app/api/cron/**tests**/schedule-resolves.test.ts`) fails the build if any scheduled cron path stops resolving to a route handler, so this table can't silently drift again.
 
-## Principles
+There are **four cadence classes**, not the "daily/weekly/monthly" trio the old doc implied. The dominant collection path for the agency portal is **on-demand**, which the previous version never documented. (Class 2 also now carries three **retention/notification** crons — WP6-2 digest, WP6-3 run-finished, WP6-12 market monitor — that read/notify rather than collect.)
 
-1. **Daily** = signal-volatile data (ads, brand hijack, new reviews). Cheap APIs only.
-2. **Weekly** = anchor pull (profile, Lighthouse, SERP, MSI recompute). Largest cost block.
-3. **Monthly** = slow-moving data (keyword volume, market census, industry baselines).
-4. **On-demand** = expensive operations the user triggers (re-audit, generate one-pager).
-5. **Never re-pull** within the cadence window unless the user explicitly requests.
+## 1 · On-demand · user-triggered · credit-gated (the agency enrichment rail)
 
-## What runs and when
+The primary data-collection path. A user click mints a `PENDING` `Discovery` or `EnrichmentRun`; the **internal dispatch cron drains it** (see class 2). No external API ever runs in a user request path (enforced by the AsyncLocalStorage cost counter). Cost is charged against the agency credit wallet (hold → settle → refund). This rail collects: business discovery (Maps), contacts + tech (DOM scan), reviews (DfS Standard queue), Lighthouse, services extraction, AI research, and per-cell ad/SERP market intel.
 
-### Daily · 6:00 AM user-local time per business
+See `docs/enrichment-architecture.html` (live-state) for the full rail. Freshness gates dedup repeat work to $0.
 
-| Job                                  | What it does                                                                              | Cost / business                | Source                         |
-| ------------------------------------ | ----------------------------------------------------------------------------------------- | ------------------------------ | ------------------------------ |
-| `daily/brand-hijack-scan`            | Live Google SERP for the brand name, detect paid ads                                      | $0.003                         | DataForSEO SERP live           |
-| `daily/ad-library-diff`              | Diff today's Meta Ad Library entries vs yesterday for tracked competitors + keyword lanes | $0 (free)                      | Meta Ad Library API            |
-| `daily/google-ads-transparency-scan` | Scan Google Ads Transparency for tracked competitor domains                               | $0 (free)                      | Google Ads Transparency Center |
-| `daily/new-reviews-delta`            | Compare review-count of tracked businesses vs yesterday; pull new ones via Reviews API    | $0.003 per business with delta | DataForSEO Reviews API         |
-| `daily/list-refresh-daily`           | Re-evaluate filters on daily-cadence agency lists, add/remove leads                       | $0 (DB-only)                   | Internal                       |
+## 2 · Scheduled crons — **exactly what `vercel.json` runs today**
 
-> **Business discovery is no longer cron-scheduled** as of May 2026. New
-> businesses enter the index via admin-triggered runs from
-> `/admin/discovery` (see `modules/business-discovery`). The cron-rotated
-> indexer wasted spend re-querying the same anchors; the manual model
-> gives the admin per-cell visibility + audit + cost control.
+| Schedule                         | Path                                     | Purpose                                                                                                                                                                                                                             |
+| -------------------------------- | ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `*/2 * * * *`                    | `/api/cron/internal/dispatch`            | Drains PENDING discoveries + enrichment runs; the enrichment job rail (self-chains between ticks).                                                                                                                                  |
+| `*/2 * * * *`                    | `/api/cron/internal/run-finished-emails` | **WP6-3** · emails the agency owner once when an `EnrichmentRun` reaches a terminal state (idempotent via an `EnrichmentRun.meta` marker). Resend only — no paid API.                                                               |
+| `0 * * * *` (hourly)             | `/api/cron/internal/reviews-reconcile`   | Resolves lost DfS review pingbacks (stale ≥120 min, 24h hard ceiling).                                                                                                                                                              |
+| `*/15 * * * *`                   | `/api/cron/process-cold-sequences`       | Cold-email sequence stepper (agency outbound handoff).                                                                                                                                                                              |
+| `5,20,35,50 * * * *`             | `/api/cron/poll-cold-inboxes`            | Reply/bounce polling for cold inboxes.                                                                                                                                                                                              |
+| `0 6 * * 1` (weekly, Mon 06:00)  | `/api/cron/weekly/market-monitor`        | **WP6-12** · plan-gated ($99+) "why now" timing monitor — competitor-started-ads + dropped-out-of-pack signals per active research, persisted as `market_signal` events. Reads already-refreshed data only (no new external calls). |
+| `0 13 * * 2` (weekly, Tue 13:00) | `/api/cron/weekly/market-moved-digest`   | **WP6-2** · weekly "your market moved" digest — one Resend email per agency with a change (new matches / new 1–2★ / competitor ads), suppressed when nothing moved. Runs after the weekly data crons.                               |
+| `0 4 * * 0` (weekly, Sun 04:00)  | `/api/cron/weekly/retention-sweep`       | WP9-1 retention: prune terminal `EnrichmentJob` (>30d, FAILED 90d), compact `EnrichmentStageRun`, cap `CellSnapshot`.                                                                                                               |
 
-**Daily total per active SMB/Pro business: ~$0.006–0.012/day.**
-**At 1,000 SMB clients: ~$6–12/day total = ~$200–360/mo.**
+**That's it — eight.** Anything below is on-disk but **not scheduled**.
 
-### Weekly · Monday 06:00 AM user-local time per business
+## 3 · On-disk handlers NOT currently scheduled
 
-| Job                               | What it does                                                                   | Cost / business                       | Source                  |
-| --------------------------------- | ------------------------------------------------------------------------------ | ------------------------------------- | ----------------------- |
-| `weekly/business-profile-refresh` | Full Maps SERP pull — rating, reviews, photos, hours, attributes               | $0.0006                               | DataForSEO Maps SERP    |
-| `weekly/reviews-full-pull`        | Last 20 reviews + theme topics                                                 | $0.003                                | DataForSEO Reviews API  |
-| `weekly/sentiment-classify`       | AI sentiment + theme tags per new review                                       | $0.001 per review · ~6 reviews/wk avg | Claude Haiku            |
-| `weekly/ai-reply-draft`           | Draft EN/ES replies for unanswered urgent reviews                              | $0.002 per draft · ~2/wk avg          | Claude Haiku            |
-| `weekly/serp-rank-scan`           | For each of N tracked keywords, scan local pack + organic                      | $0.003 × ~14 keywords = $0.042        | DataForSEO SERP organic |
-| `weekly/lighthouse-audit`         | Mobile Lighthouse audit + 5 custom DOM checks                                  | $0.003                                | DataForSEO Lighthouse   |
-| `weekly/competitor-diff`          | Per-competitor stats diff vs last week (rating, reviews, photos, hours change) | $0.0006 × ~5 competitors = $0.003     | DataForSEO Maps         |
-| `weekly/snapshot-write`           | Compute Mapsly Score, MSI rank, score breakdown, write BusinessSnapshot        | $0 (DB-only)                          | Internal                |
-| `weekly/recommended-fixes`        | Rules engine: pick top-3 fixes for the dashboard                               | $0 (DB-only)                          | Internal                |
-| `weekly/list-refresh-weekly`      | Re-evaluate filters on weekly-cadence agency lists                             | $0 (DB-only)                          | Internal                |
+These route handlers exist but have **no `vercel.json` entry** — they run only if invoked manually (admin tool / `curl` with `CRON_SECRET`) or via the Boxly worker. Documented so nobody assumes they run on a timer. To activate one, add it to `vercel.json` crons (the CI test will then require it to keep resolving).
 
-**Weekly total per business: ~$0.06.**
-**At 1,000 SMB clients: ~$60/wk = ~$260/mo.**
+**Weekly (unscheduled):** `weekly/ads-intelligence`, `weekly/ads-meta`, `weekly/business-profile-refresh`, `weekly/cell-aggregate`, `weekly/competitor-diff`, `weekly/contact-enrich`, `weekly/lighthouse-audit`, `weekly/pillar-score`, `weekly/reviews-delta`, `weekly/search-visibility`, `weekly/snapshot-write`
 
-### Monthly · 1st of month 02:00 AM
+**Monthly (unscheduled):** `monthly/email-verification`, `monthly/industry-baseline`, `monthly/keyword-volume-refresh`, `monthly/services-detect`
 
-| Job                                  | What it does                                                               | Cost                | Source                    |
-| ------------------------------------ | -------------------------------------------------------------------------- | ------------------- | ------------------------- |
-| `monthly/keyword-volume-refresh`     | Refresh search volume + CPC for every tracked keyword in DB                | $0.001 × keywords   | DataForSEO Keyword Volume |
-| `monthly/industry-baseline`          | Re-compute median Lighthouse scores across top 10 competitors per category | $0.003 × ~50 audits | DataForSEO Lighthouse     |
-| `monthly/email-verification-resweep` | Re-verify all stored emails (SMTP check)                                   | $0.0005 per email   | SMTP verify service       |
+**Daily / ops (unscheduled):** `daily/brand-hijack-scan`, `process-enhancer`
 
-**Monthly total: ~$50–100/mo on the agency side · less for SMB.**
+> ⚠️ **Known gap (WP0/Part I):** the documented free-fetch→Apify contacts funnel lives in `weekly/contact-enrich`, which is **unscheduled** — so the live agency demand path uses the plain-fetch CONTACTS worker (with a walled-site fallback added in WP1/WP3). Decide per business need: schedule `weekly/contact-enrich`, fold its funnel into the demand worker, or delete it.
 
-### On-demand · user-triggered
+## 4 · Boxly worker lanes (DigitalOcean, Redis-driven)
 
-| Action                                     | Cost                               | Source                      |
-| ------------------------------------------ | ---------------------------------- | --------------------------- |
-| Re-run weekly snapshot now                 | $0.06 (same as weekly)             | Same as weekly              |
-| Re-audit a single Lighthouse               | $0.003                             | DataForSEO Lighthouse       |
-| Generate one-pager PDF                     | $0.005 (Haiku for copy generation) | Claude Haiku + headless PDF |
-| Generate shareable link                    | $0 (templated)                     | Internal                    |
-| CSV export                                 | $0                                 | Internal                    |
-| Manual prospect lookup (global biz search) | $0.0006 if not in index            | DataForSEO Maps             |
+Not cron-scheduled — triggered by app events through `lib/boxly-worker/client.ts`. Runs website/search/ads scans, bulk review pulls, and (per WP3-2) root-family enrichment jobs offloaded from the Vercel rail. No 300s cap.
 
-## Cost budgets per tier
+## Cost discipline
 
-| Tier                | Monthly retail | Daily ceiling                   | Weekly ceiling | Monthly ceiling | Margin target |
-| ------------------- | -------------- | ------------------------------- | -------------- | --------------- | ------------- |
-| SMB Free            | $0             | $0.001                          | $0.005         | $0.03           | (loss-leader) |
-| SMB Paid · $29      | $29            | $0.01                           | $0.07          | $1.50           | 95%           |
-| Agency Solo · $49   | $49            | $0.10 (1 list × 200 leads)      | $0.50          | $5              | 90%           |
-| Agency Growth · $99 | $99            | $0.30 (10 lists, daily refresh) | $1.50          | $15             | 85%           |
-| Agency Pro · $249   | $249           | $1.00                           | $5             | $40             | 84%           |
-| Boutique · $499     | $499           | $2.50                           | $12            | $100            | 80%           |
+Every scheduled/triggered external call is cost-tracked via `withCostCounter` against a `CronRun`. Tier ceilings enforced. Any single call > $5 needs approval (`docs/permissions.md`).
 
-If a customer ever approaches their tier's ceiling we throttle (downgrade their refresh from daily to weekly) before failing — never silently overspend.
+## When adding a new collection job
 
-## Hard rules
-
-1. **Never run a costly job ad-hoc without a CronRun record.** Every API call is logged with cost so we can audit.
-2. **Cache aggressively.** Lighthouse for the same URL within 24h returns cached.
-3. **Batch where possible.** Keyword volume + SERP both support batch endpoints — use them.
-4. **No live calls in user request path.** Everything user-facing reads from `BusinessSnapshot`, `Review`, `LighthouseAudit`. Live calls happen in cron jobs only.
-5. **DataForSEO Standard queue, not Live.** Standard is 10× cheaper. Live is reserved for brand-hijack daily scan (latency-critical).
-
-## How this is enforced in code
-
-- `vercel.json` declares all cron paths with cron expressions.
-- Each cron handler at `app/api/cron/{job}` opens a `CronRun`, calls the relevant `services/{vendor}` adapter, writes results, closes the `CronRun` with cost + status.
-- `services/{vendor}` adapters wrap every API call in a cost-counter that increments the open `CronRun.costUsd`.
-- Live-API calls during user request path throw — caught by middleware in `lib/middleware/no-live-api.ts`.
+1. Write the handler under `app/api/cron/**` (verify `CRON_SECRET`, open/close a `CronRun`).
+2. If it should run on a timer, add it to `vercel.json` crons — the CI test `schedule-resolves.test.ts` then guards it.
+3. Update this doc's class-2 table (or class-3 list).
+4. Follow `.claude/rules/cost-discipline.md` + `.claude/rules/scalability.md` (bounded `take`, resume-from-cursor).

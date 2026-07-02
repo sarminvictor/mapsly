@@ -17,6 +17,7 @@
 import { z } from "zod";
 
 import prisma from "@/lib/prisma";
+import { secretsMatch } from "@/lib/auth/cron-secret";
 import { parseCellKey } from "@/lib/cell";
 import { runDiscovery } from "@/modules/discovery/run-discovery";
 
@@ -45,7 +46,11 @@ const InlineSchema = z.object({
 
 const PayloadSchema = z.union([ByIdSchema, InlineSchema]);
 
-/** Constant-time-ish Bearer check against either internal token. */
+/**
+ * Constant-time Bearer check against either internal token (CRON_SECRET or the
+ * Boxly worker token). WP8-3 · uses `secretsMatch` (crypto.timingSafeEqual) for
+ * both arms so neither comparison leaks length/prefix timing.
+ */
 function verifyInternalAuth(authHeader: string | null): boolean {
   const match = authHeader?.match(/^Bearer\s+(.+)$/i);
   if (!match) return false;
@@ -53,8 +58,8 @@ function verifyInternalAuth(authHeader: string | null): boolean {
   const cronSecret = process.env.CRON_SECRET ?? "";
   const workerToken = process.env.BOXLY_WORKER_AUTH_TOKEN ?? "";
   return (
-    (cronSecret.length > 0 && token === cronSecret) ||
-    (workerToken.length > 0 && token === workerToken)
+    (cronSecret.length > 0 && secretsMatch(token, cronSecret)) ||
+    (workerToken.length > 0 && secretsMatch(token, workerToken))
   );
 }
 

@@ -39,7 +39,11 @@ export function AgCTA({ t }: AgCTAProps) {
             </h2>
             <p className="fb-sub fb-sub--light">{t("cta.sub")}</p>
             <div className="fb-ag-cta-actions">
-              <Link href="/signin" className="fb-btn">
+              {/* audience=agency → self-serve agency provisioning (WP2-1). */}
+              <Link
+                href={{ pathname: "/signin", query: { audience: "agency" } }}
+                className="fb-btn"
+              >
                 {t("cta.primary")} <ArrowGlyph />
               </Link>
             </div>

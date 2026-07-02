@@ -327,11 +327,12 @@ describe("extractPhiSentences (KV-cached)", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
-  test("cache key carries the bumped prompt version so v1 verdicts re-scan", async () => {
-    // The 2026-06 prompt tightening (reviewer-specific only, 3-cap)
-    // bumped the version to v2 — cached v1 verdicts under the 90d TTL
-    // must MISS, not serve stale general-statement marks.
-    expect(PHI_SENTENCES_PROMPT_VERSION).toBe("v2");
+  test("cache key carries the bumped prompt version so older verdicts re-scan", async () => {
+    // The 2026-06 prompt tightening (reviewer-specific only, 3-cap) bumped to
+    // v2; WP8-5 (2026-07 · untrusted-content fencing changed the user message)
+    // bumped to v3 — cached older verdicts under the 90d TTL must MISS, not
+    // serve stale marks generated under a different prompt.
+    expect(PHI_SENTENCES_PROMPT_VERSION).toBe("v3");
 
     const store = new Map<string, unknown>();
     __setKvClientForTest(makeFakeKv(store));

@@ -23,12 +23,25 @@ import {
   useEffect,
   useRef,
   useState,
+  useTransition,
   type CSSProperties,
 } from "react";
 
+import { Icon } from "@/components/agency/Icon";
+import { showToast } from "@/components/agency/Toast";
 import { StatusPill } from "@/modules/agency-portal/components/StatusPill";
+import { GenerateTouchesOverlay } from "./GenerateTouchesOverlay";
+import { InfoTip } from "./InfoTip";
+import { reportWrongDataAction } from "../dispute-actions";
+
+// WP4-16 · the vs-cell explainer (restored from the prototype). The drawer's
+// evidence values are toned green/red against this cell's typical — this one
+// sentence tells Tom what the colors mean, so a delta is never silent.
+const VS_CELL_EXPLAINER =
+  "Values are shown against this cell's typical (median) and leaders — so a number means something. Green = better than the cell, red = worse.";
 import {
   getLeadDetailAction,
+  shareAuditLinkAction,
   type GetLeadDetailResult,
 } from "../lead-detail-actions";
 import type {
@@ -38,6 +51,10 @@ import type {
   LeadFiredSignal,
   LeadSignalVerdict,
 } from "../lead-detail";
+import type { CellBand } from "../leads-workbench";
+import { percentileFromBand } from "../visual-helpers";
+import { VsCellBar } from "./VsCellBar";
+import { enrichTypesForDomainKey, openEnrichSheet } from "../enrich-sheet-bus";
 
 export interface LeadDrawerProps {
   /** The open lead's businessId, or null when the drawer is closed. */
@@ -47,6 +64,14 @@ export interface LeadDrawerProps {
   discoveryId: string;
   /** The CURRENT visible (filtered + sorted, flattened if grouped) row ids. */
   orderedIds: string[];
+  /**
+   * WP5-11 · the workbench's vs-cell distribution bands (keyed by numeric
+   * column key: reviews / rating / perf / match). Evidence rows whose payload
+   * carries a `metric` render a VsCellBar against the matching band; rows
+   * without one (or when the cohort was too small for bands) keep the text
+   * form — graceful fallback, never a broken bar.
+   */
+  bands?: Partial<Record<string, CellBand>>;
   /** Close the drawer (clears ?lead). */
   onClose: () => void;
   /** Navigate to another lead by businessId (prev/next). */
@@ -68,13 +93,27 @@ export function LeadDrawer({
   businessId,
   discoveryId,
   orderedIds,
+  bands,
   onClose,
   onNav,
 }: LeadDrawerProps) {
   const [loaded, setLoaded] = useState<Loaded>({ kind: "none" });
   // The last successfully-loaded lead, kept visible while a sibling refetches.
   const [lastLead, setLastLead] = useState<LeadDetail | null>(null);
+  // WP5-2 · the single-lead touch-generation overlay (footer CTA).
+  const [genOpen, setGenOpen] = useState(false);
+  // WP6-10 · the agency-branded share link's "opened Nx" count, tagged with the
+  // businessId it belongs to so the render ignores a stale count after the lead
+  // changes (no synchronous setState-in-effect reset — per this file's rule).
+  const [shareViews, setShareViews] = useState<{
+    forId: string;
+    count: number;
+  } | null>(null);
+  const [sharing, startShare] = useTransition();
   const xBtnRef = useRef<HTMLButtonElement | null>(null);
+  // WP4-8 · the drawer element — scopes the Tab focus-trap so focus can't
+  // escape to the table behind the scrim (a11y for role=dialog aria-modal).
+  const drawerRef = useRef<HTMLElement | null>(null);
   // Token guards against an out-of-order resolve when the user clicks fast.
   const reqToken = useRef(0);
 
@@ -108,20 +147,6 @@ export function LeadDrawer({
       });
   }, [businessId, discoveryId]);
 
-  // ── Escape closes · focus the close button on open ─────────────────────────
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", onKey);
-    const t = window.setTimeout(() => xBtnRef.current?.focus(), 60);
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      window.clearTimeout(t);
-    };
-  }, [open, onClose]);
-
   // ── Prev/next over the CURRENT visible order ───────────────────────────────
   const navTo = useCallback(
     (dir: -1 | 1) => {
@@ -135,6 +160,82 @@ export function LeadDrawer({
     },
     [businessId, orderedIds, onNav],
   );
+
+  // ── WP6-10 · mint + copy the agency-branded share link ─────────────────────
+  const onShare = useCallback(() => {
+    if (businessId == null) return;
+    const forId = businessId;
+    startShare(async () => {
+      const res = await shareAuditLinkAction(forId, discoveryId);
+      if (res.status !== "ok") {
+        showToast("Couldn't create a share link. Try again.");
+        return;
+      }
+      setShareViews({ forId, count: res.viewCount });
+      try {
+        await navigator.clipboard.writeText(res.url);
+        showToast("Audit link copied");
+      } catch {
+        // Clipboard blocked (permissions / insecure context) — still a win:
+        // the link exists. Surface it so Tom can copy it manually.
+        showToast(res.url);
+      }
+    });
+  }, [businessId, discoveryId]);
+
+  // ── Keyboard (WP4-8) · Escape closes · ↑/↓ walk prev/next lead · Tab traps ──
+  // Focus the close button on open. ArrowUp/ArrowDown walk the sibling leads
+  // (mouse-free triage — the buttons stay for the mouse). Tab is trapped inside
+  // the drawer so focus can't fall behind the scrim to the table (a11y: a
+  // role=dialog aria-modal must not leak focus). Arrow-nav is skipped while the
+  // user is typing in a field (no forms in the drawer today, but defensive).
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+        return;
+      }
+      const target = e.target as HTMLElement | null;
+      const typing =
+        target != null &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.isContentEditable);
+      if (!typing && (e.key === "ArrowDown" || e.key === "ArrowUp")) {
+        e.preventDefault();
+        navTo(e.key === "ArrowDown" ? 1 : -1);
+        return;
+      }
+      // Tab focus-trap: keep Tab / Shift+Tab cycling within the drawer.
+      if (e.key === "Tab" && drawerRef.current) {
+        const focusables = drawerRef.current.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        );
+        if (focusables.length === 0) return;
+        const first = focusables[0];
+        const last = focusables[focusables.length - 1];
+        const active = document.activeElement as HTMLElement | null;
+        if (e.shiftKey && active === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && active === last) {
+          e.preventDefault();
+          first.focus();
+        } else if (active && !drawerRef.current.contains(active)) {
+          // Focus somehow outside the drawer → pull it back in.
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    const t = window.setTimeout(() => xBtnRef.current?.focus(), 60);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      window.clearTimeout(t);
+    };
+  }, [open, onClose, navTo]);
 
   // The settled result reflects the OPEN lead only when loadedId matches.
   const settled =
@@ -158,6 +259,7 @@ export function LeadDrawer({
         aria-hidden="true"
       />
       <aside
+        ref={drawerRef}
         className={`drawer${open ? " show" : ""}`}
         role="dialog"
         aria-modal="true"
@@ -167,25 +269,26 @@ export function LeadDrawer({
         {/* ── Header ── */}
         <div className="dhead">
           <div className="nav-arrows">
+            {/* WP4-8 · kbd hints in the tooltip — ↑/↓ walk prev/next lead. */}
             <button
               type="button"
               className="ab"
               onClick={() => navTo(-1)}
-              aria-label="Previous lead"
-              title="Previous lead"
+              aria-label="Previous lead (press up arrow)"
+              title="Previous lead · ↑"
               disabled={orderedIds.length < 2}
             >
-              ↑
+              <Icon name="arrow-up" size={15} />
             </button>
             <button
               type="button"
               className="ab"
               onClick={() => navTo(1)}
-              aria-label="Next lead"
-              title="Next lead"
+              aria-label="Next lead (press down arrow)"
+              title="Next lead · ↓"
               disabled={orderedIds.length < 2}
             >
-              ↓
+              <Icon name="arrow-down" size={15} />
             </button>
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
@@ -232,7 +335,7 @@ export function LeadDrawer({
               </p>
             </div>
           ) : lead ? (
-            <DrawerBody lead={lead} dimmed={isLoading} />
+            <DrawerBody lead={lead} dimmed={isLoading} bands={bands} />
           ) : (
             <DrawerSkeleton />
           )}
@@ -243,19 +346,38 @@ export function LeadDrawer({
           <button
             type="button"
             className="btn primary"
-            onClick={() => {
-              // No single-business generate path exists — generateTouchpointsAction
-              // is agency-pool/bulk only (see summary). Direct Tom to the tab.
-              showToast(
-                "Generate touches from the Touchpoints tab — single-lead generation isn't wired yet.",
-              );
-            }}
+            disabled={businessId == null}
+            onClick={() => setGenOpen(true)}
           >
             Generate touch
           </button>
+          {/* WP6-10 · agency-branded share link (copies to clipboard). */}
+          <button
+            type="button"
+            className="btn"
+            disabled={businessId == null || sharing}
+            onClick={onShare}
+          >
+            {sharing ? "Creating link…" : "Share audit link"}
+          </button>
+          {shareViews != null && shareViews.forId === businessId ? (
+            <span className="note" style={{ marginLeft: "auto" }}>
+              {shareViews.count === 0
+                ? "Not opened yet"
+                : `Opened ${shareViews.count}× by the prospect`}
+            </span>
+          ) : null}
         </div>
       </aside>
-      <ToastHost />
+
+      {/* WP5-2 · real single-lead generation (replaces the toast apology).
+          On success the overlay deep-links to the Touchpoints tab. */}
+      <GenerateTouchesOverlay
+        businessIds={businessId != null ? [businessId] : []}
+        discoveryId={discoveryId}
+        open={genOpen}
+        onClose={() => setGenOpen(false)}
+      />
     </>
   );
 }
@@ -313,7 +435,15 @@ function reachabilityTone(tier: string): "green" | "amber" | "red" {
 
 // ── Body ─────────────────────────────────────────────────────────────────────
 
-function DrawerBody({ lead, dimmed }: { lead: LeadDetail; dimmed: boolean }) {
+function DrawerBody({
+  lead,
+  dimmed,
+  bands,
+}: {
+  lead: LeadDetail;
+  dimmed: boolean;
+  bands?: Partial<Record<string, CellBand>>;
+}) {
   const gaugeColor =
     lead.match >= 85
       ? "var(--green)"
@@ -385,7 +515,14 @@ function DrawerBody({ lead, dimmed }: { lead: LeadDetail; dimmed: boolean }) {
             </p>
           ) : null
         ) : (
-          lead.firedSignals.map((s) => <FiredSignal key={s.key} signal={s} />)
+          lead.firedSignals.map((s) => (
+            <FiredSignal
+              key={s.key}
+              signal={s}
+              bands={bands}
+              businessId={lead.businessId}
+            />
+          ))
         )}
         {lead.angles.length > 0 ? (
           <>
@@ -403,11 +540,28 @@ function DrawerBody({ lead, dimmed }: { lead: LeadDetail; dimmed: boolean }) {
             </div>
           </>
         ) : null}
+        {/* WP6-9 · "we only cite what we verified" — surfaces when touch
+            generation pruned a claim it couldn't confirm (whyJson.droppedTokens).
+            Auditable evidence as a visible trust feature. */}
+        {lead.verifiedNote ? (
+          <p
+            className="note"
+            style={{ margin: "8px 0 0", fontSize: 11 }}
+            role="note"
+          >
+            {lead.verifiedNote}
+          </p>
+        ) : null}
       </div>
 
       {/* 6. Data-domain accordions */}
       {lead.domains.map((d) => (
-        <DomainAccordion key={d.key} block={d} />
+        <DomainAccordion
+          key={d.key}
+          block={d}
+          bands={bands}
+          businessId={lead.businessId}
+        />
       ))}
 
       {/* 7. Expert findings */}
@@ -415,7 +569,7 @@ function DrawerBody({ lead, dimmed }: { lead: LeadDetail; dimmed: boolean }) {
         <div className="dacc open" style={{ marginBottom: 8 }}>
           <div className="dacc-head" style={{ cursor: "default" }}>
             <span className="dacc-ic" aria-hidden="true">
-              🎓
+              <Icon name="expert" size={15} />
             </span>
             <span className="dacc-title">Expert findings</span>
             <span className="dacc-sum">
@@ -430,7 +584,7 @@ function DrawerBody({ lead, dimmed }: { lead: LeadDetail; dimmed: boolean }) {
                 className={`callout ${f.tone}`}
                 style={{ fontSize: 12, marginTop: 8 }}
               >
-                <span aria-hidden="true">⚠️</span>
+                <Icon name="warning" size={14} style={{ flex: "none" }} />
                 <p style={{ margin: 0 }}>
                   <b>{f.title}:</b> {f.body}
                 </p>
@@ -442,12 +596,13 @@ function DrawerBody({ lead, dimmed }: { lead: LeadDetail; dimmed: boolean }) {
 
       {/* 8. This lead's touches */}
       <div className="dsec" style={{ marginTop: 12 }}>
-        <h2>
-          <span aria-hidden="true">✉️</span> This lead&rsquo;s touches
+        <h2 style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+          <Icon name="mail" size={15} /> This lead&rsquo;s touches
         </h2>
         {lead.touches.length === 0 ? (
           <div className="note">
-            No touch yet. Generate from the Touchpoints tab.
+            No touch yet. Generate touch below — grounded in this lead&rsquo;s
+            signals.
           </div>
         ) : (
           lead.touches.map((t) => (
@@ -526,27 +681,42 @@ function ContactsStrip({ lead }: { lead: LeadDetail }) {
     <div className="dcontacts">
       <span className="dcontact">
         <span className="ci" aria-hidden="true">
-          📞
+          <Icon name="phone" size={13} />
         </span>
         {lead.phones.length ? (
-          <ContactLinks contacts={lead.phones} />
+          <>
+            <ContactLinks contacts={lead.phones} />
+            {/* WP6-13 · per-field bad-data report → hide + auto-refund. */}
+            <ReportWrongButton
+              businessId={lead.businessId}
+              reason="wrong_number"
+              value={lead.phones[0].value}
+            />
+          </>
         ) : (
           <span className="note">—</span>
         )}
       </span>
       <span className="dcontact">
         <span className="ci" aria-hidden="true">
-          ✉️
+          <Icon name="mail" size={13} />
         </span>
         {lead.emails.length ? (
-          <ContactLinks contacts={lead.emails} />
+          <>
+            <ContactLinks contacts={lead.emails} />
+            <ReportWrongButton
+              businessId={lead.businessId}
+              reason="wrong_email"
+              value={lead.emails[0].value}
+            />
+          </>
         ) : (
           <span className="note">—</span>
         )}
       </span>
       <span className="dcontact">
         <span className="ci" aria-hidden="true">
-          🔗
+          <Icon name="link" size={13} />
         </span>
         {lead.socials.length ? (
           <ContactLinks contacts={lead.socials} external />
@@ -555,6 +725,91 @@ function ContactsStrip({ lead }: { lead: LeadDetail }) {
         )}
       </span>
     </div>
+  );
+}
+
+/**
+ * WP6-13 / WP7-3 · a compact "report wrong" affordance. Flags the datum as
+ * wrong → hides it from every shared artifact (dispute-actions). Contact-data
+ * reasons ALSO auto-refund the family credit; a `wrong_finding` dispute hides
+ * the finding but doesn't refund (findings aren't independently billed).
+ * One-shot: disables + shows "Reported" once fired. Agency voice, terse.
+ */
+function ReportWrongButton({
+  businessId,
+  reason,
+  value,
+  signalKey,
+  label = "report wrong",
+  ariaLabel = "Report wrong data",
+}: {
+  businessId: string;
+  reason:
+    | "wrong_number"
+    | "wrong_email"
+    | "site_changed"
+    | "closed"
+    | "wrong_finding";
+  value?: string;
+  /** The disputed finding's signalKey (required when reason === wrong_finding). */
+  signalKey?: string;
+  /** Visible link text — differs for a finding ("dispute this"). */
+  label?: string;
+  ariaLabel?: string;
+}) {
+  const [reported, setReported] = useState(false);
+  const [pending, startTransition] = useTransition();
+
+  if (reported) {
+    return (
+      <span className="note" style={{ fontSize: 10, marginLeft: 4 }}>
+        Reported ✓
+      </span>
+    );
+  }
+  const title =
+    reason === "wrong_finding"
+      ? "Dispute this finding — we'll hide it from your leads and exports"
+      : "Report this data as wrong — we'll hide it and refund the credit";
+  return (
+    <button
+      type="button"
+      className="clink"
+      style={{
+        fontSize: 10,
+        marginLeft: 4,
+        opacity: 0.6,
+        background: "none",
+        border: "none",
+        cursor: "pointer",
+        padding: 0,
+      }}
+      disabled={pending}
+      title={title}
+      aria-label={ariaLabel}
+      onClick={() =>
+        startTransition(async () => {
+          const r = await reportWrongDataAction({
+            businessId,
+            reason,
+            value,
+            signalKey,
+          });
+          if (r.status === "ok") {
+            setReported(true);
+            showToast(
+              r.refunded > 0
+                ? `Reported · ${r.refunded} credit refunded`
+                : "Reported — thanks",
+            );
+          } else {
+            showToast("Couldn't report that — try again", "error");
+          }
+        })
+      }
+    >
+      {label}
+    </button>
   );
 }
 
@@ -658,41 +913,84 @@ function SignalVerdictRow({ verdict }: { verdict: LeadSignalVerdict }) {
 
 // ── Fired composite signal (collapsible) ─────────────────────────────────────
 
-function FiredSignal({ signal }: { signal: LeadFiredSignal }) {
+function FiredSignal({
+  signal,
+  bands,
+  businessId,
+}: {
+  signal: LeadFiredSignal;
+  bands?: Partial<Record<string, CellBand>>;
+  /** Owning business — threads the per-finding "dispute this" affordance (WP7-3). */
+  businessId?: string;
+}) {
   const [open, setOpen] = useState(false);
+  // WP7-10 · the toggle is a REAL <button> in the header (not role="button" on
+  // the whole card) so the collapsible body — which now carries its own
+  // interactive "dispute this finding" button — is a SIBLING, not nested inside
+  // an interactive control (axe `nested-interactive`). `aria-controls` +
+  // `aria-expanded` announce the disclosure relationship.
+  const bodyId = `fsig-body-${signal.key}`;
   return (
-    <div
-      className={`fsig${open ? " open" : ""}`}
-      role="button"
-      tabIndex={0}
-      aria-expanded={open}
-      onClick={() => setOpen((o) => !o)}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          setOpen((o) => !o);
-        }
-      }}
-    >
-      <div className="fsig-head">
+    <div className={`fsig${open ? " open" : ""}`}>
+      <button
+        type="button"
+        className="fsig-head"
+        aria-expanded={open}
+        aria-controls={bodyId}
+        onClick={() => setOpen((o) => !o)}
+      >
         <span className="fsig-name">{signal.title}</span>
         <ConfidencePill confidence={signal.confidence} />
         <span className="fsig-chv" aria-hidden="true">
           ▾
         </span>
-      </div>
+      </button>
       {signal.summary ? <div className="fsig-sum">{signal.summary}</div> : null}
       {open ? (
-        <div className="fsig-body" onClick={(e) => e.stopPropagation()}>
+        <div className="fsig-body" id={bodyId}>
           {signal.pitch ? (
             <div className="fsig-pitch">{signal.pitch}</div>
           ) : null}
           {signal.evidence.length ? (
             <div className="fsig-ev">
-              <div className="elabel">What we found</div>
+              <div
+                className="elabel"
+                style={{ display: "inline-flex", alignItems: "center", gap: 5 }}
+              >
+                What we found{" "}
+                {/* WP4-16 · vs-cell explainer — green=better/red=worse. */}
+                <InfoTip
+                  text={VS_CELL_EXPLAINER}
+                  triggerLabel="What the green/red values mean"
+                />
+              </div>
               {signal.evidence.map((ev, i) => (
-                <EvidenceRow key={i} row={ev} />
+                <EvidenceRow key={i} row={ev} bands={bands} />
               ))}
+            </div>
+          ) : null}
+          {/* WP7-3 · per-claim "dispute this" — a disputed finding is hidden
+              from every shared artifact (drawer / one-pager / share page / CSV).
+              A trust deposit: the evidence Tom pitches is his to correct. */}
+          {businessId ? (
+            <div
+              className="note"
+              style={{
+                marginTop: 8,
+                display: "flex",
+                alignItems: "center",
+                gap: 4,
+                fontSize: 11,
+              }}
+            >
+              Not right for this lead?
+              <ReportWrongButton
+                businessId={businessId}
+                reason="wrong_finding"
+                signalKey={signal.key}
+                label="dispute this finding"
+                ariaLabel={`Dispute finding: ${signal.title}`}
+              />
             </div>
           ) : null}
         </div>
@@ -719,7 +1017,40 @@ function ConfidencePill({ confidence }: { confidence: string }) {
   );
 }
 
-function EvidenceRow({ row }: { row: LeadEvidenceRow }) {
+function EvidenceRow({
+  row,
+  bands,
+}: {
+  row: LeadEvidenceRow;
+  bands?: Partial<Record<string, CellBand>>;
+}) {
+  // WP5-11 · when the row carries a structured metric AND the workbench has a
+  // band for it, render the value ON the cell distribution (typical band + p90
+  // leaders tick + marker) — proof that screenshots into a pitch deck. Text
+  // form stays the graceful fallback (no metric / cohort too small for bands).
+  const band = row.metric ? bands?.[row.metric.bandKey] : undefined;
+  if (row.metric && band) {
+    return (
+      <div className="sig">
+        <div className="row">
+          <span className="name">{row.label}</span>
+        </div>
+        <div style={{ margin: "4px 0 6px" }}>
+          <VsCellBar
+            value={row.metric.value}
+            p10={band.p10}
+            p25={band.p25}
+            p50={band.p50}
+            p75={band.p75}
+            p90={band.p90}
+            percentile={percentileFromBand(row.metric.value, band)}
+            unit={row.metric.unit ?? ""}
+          />
+        </div>
+      </div>
+    );
+  }
+
   const toneColor =
     row.tone === "g"
       ? "var(--green)"
@@ -745,10 +1076,20 @@ function EvidenceRow({ row }: { row: LeadEvidenceRow }) {
 
 // ── Data-domain accordion (real or ghost) ────────────────────────────────────
 
-function DomainAccordion({ block }: { block: LeadDomainBlock }) {
+function DomainAccordion({
+  block,
+  bands,
+  businessId,
+}: {
+  block: LeadDomainBlock;
+  bands?: Partial<Record<string, CellBand>>;
+  /** The open lead — the ghost card's enrich CTA scopes the sheet to it. */
+  businessId: string;
+}) {
   const [open, setOpen] = useState(false);
 
   if (!block.enriched) {
+    const enrichments = enrichTypesForDomainKey(block.key);
     return (
       <div className="dacc ghost">
         <div className="ghead">
@@ -759,6 +1100,24 @@ function DomainAccordion({ block }: { block: LeadDomainBlock }) {
           <span className="dacc-ghost-tag">Not enriched</span>
         </div>
         <div className="dacc-ghost-note">{block.ghostNote}</div>
+        {/* WP5-3 · the ghost tag's promise made real: opens the in-workbench
+            enrich sheet pre-seeded with this domain's families, scoped to
+            this lead. */}
+        {enrichments.length > 0 ? (
+          <button
+            type="button"
+            className="btn sm"
+            style={{ margin: "6px 12px 10px" }}
+            onClick={() =>
+              openEnrichSheet({
+                enrichments,
+                scope: { selectedBusinessIds: [businessId] },
+              })
+            }
+          >
+            Enrich to unlock →
+          </button>
+        ) : null}
       </div>
     );
   }
@@ -787,12 +1146,22 @@ function DomainAccordion({ block }: { block: LeadDomainBlock }) {
       {open ? (
         <div className="dacc-body">
           {block.rows.length ? (
-            block.rows.map((r, i) => <EvidenceRow key={i} row={r} />)
+            block.rows.map((r, i) => (
+              <EvidenceRow key={i} row={r} bands={bands} />
+            ))
           ) : (
             <p className="note" style={{ margin: "6px 0 0" }}>
               No detail rows.
             </p>
           )}
+          {/* WP6-9 · evidence-honesty provenance — where this block's data came
+              from + when it was retrieved, so every claim is auditable. */}
+          {block.source ? (
+            <p className="note" style={{ margin: "8px 0 0", fontSize: 11 }}>
+              {block.source}
+              {block.asOf ? ` · as of ${block.asOf}` : ""}
+            </p>
+          ) : null}
         </div>
       ) : null}
     </div>
@@ -841,36 +1210,6 @@ function DrawerSkeleton() {
           style={{ height: 42, background: "var(--surface-2)" }}
         />
       ))}
-    </div>
-  );
-}
-
-// ── Minimal toast (self-contained · matches the .toast prototype class) ───────
-// A module-scoped event so the host inside the drawer can render it without
-// threading a callback through every child.
-
-const TOAST_EVENT = "mapsly:lead-drawer-toast";
-
-function showToast(message: string) {
-  if (typeof window === "undefined") return;
-  window.dispatchEvent(new CustomEvent(TOAST_EVENT, { detail: message }));
-}
-
-function ToastHost() {
-  const [msg, setMsg] = useState<string | null>(null);
-  useEffect(() => {
-    const onToast = (e: Event) => {
-      const detail = (e as CustomEvent<string>).detail;
-      setMsg(detail);
-      window.setTimeout(() => setMsg(null), 3200);
-    };
-    window.addEventListener(TOAST_EVENT, onToast);
-    return () => window.removeEventListener(TOAST_EVENT, onToast);
-  }, []);
-  if (!msg) return null;
-  return (
-    <div className="toast show" role="status" aria-live="polite">
-      {msg}
     </div>
   );
 }

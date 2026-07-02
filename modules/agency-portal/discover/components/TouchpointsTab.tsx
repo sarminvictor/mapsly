@@ -16,14 +16,26 @@
 // per-business status pill mutates the LEAD status (setLeadStatusAction) so the
 // Leads tab stays in sync on reload.
 //
-// SIMPLIFIED vs prototype: the schema stores ONE OutreachDraft per business (no
-// multi-step seq/of persistence) so each business shows a single step labelled
-// "Touch 1 of 1". Per-step credit "Regenerate" is out of scope (no draft-regen
-// action shipped). Both noted in the build summary.
+// WP5-10 · multi-touch sequences are REAL now: a business can hold up to 3
+// OutreachDrafts (step encoded in whyJson.sequenceStep — no schema ordinal
+// column), themes never repeat across steps, and both per-step and bulk
+// "Regenerate" call regenerateTouchesAction (billed at the advertised
+// 10 cr / 100 touches). WP5-6 adds a per-step "Polish" (nano fluency pass,
+// email only, 1 cr); WP5-7 adds "Export sequence CSV" (CAN-SPAM guard intact,
+// Instantly/Smartlead-shaped columns + evidence merge fields).
 
 import { useMemo, useOptimistic, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 
-import { setLeadStatusAction } from "@/modules/discovery/save-list-actions";
+import { showToast } from "@/components/agency/Toast";
+import {
+  setLeadStatusAction,
+  setLeadStatusBulkAction,
+} from "@/modules/discovery/save-list-actions";
+import { regenerateTouchesAction } from "@/modules/outreach/actions";
+import { exportTouchesCsvAction } from "@/modules/outreach/export-actions";
+import { polishTouchAction } from "@/modules/outreach/polish-actions";
+import { creditsForTouches } from "@/modules/outreach/touch-pricing";
 import { saveTouchBodyAction, setTouchSentAction } from "../workbench-actions";
 import { StatusPill } from "@/modules/agency-portal/components/StatusPill";
 import { BulkActionBar } from "@/modules/agency-portal/components/BulkActionBar";
@@ -72,6 +84,7 @@ export interface TouchpointsTabProps {
 type StatusFilter = "all" | LeadStatus;
 
 export function TouchpointsTab({ touches, stats }: TouchpointsTabProps) {
+  const router = useRouter();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [page, setPage] = useState(1);
@@ -194,19 +207,24 @@ export function TouchpointsTab({ touches, stats }: TouchpointsTabProps) {
       .filter((g) => selected.has(g.name))
       .map((g) => g.touches.find((t) => t.leadId)?.leadId)
       .filter((x): x is string => Boolean(x));
+    if (ids.length === 0) return;
     setError(null);
     startTransition(async () => {
       for (const id of ids) applyOptimistic({ leadId: id, status });
-      const results = await Promise.all(
-        ids.map((id) => setLeadStatusAction({ leadId: id, status })),
-      );
-      const okIds = ids.filter((_, i) => results[i]?.status === "ok");
+      // WP5-9 · one transactional call for the sweep; per-id failures revert.
+      const r = await setLeadStatusBulkAction({ leadIds: ids, status });
+      const failedSet = new Set(r.status === "ok" ? r.failedIds : ids);
+      const okIds = ids.filter((id) => !failedSet.has(id));
       if (okIds.length)
         setCommitted((p) => {
           const next = { ...p };
           for (const id of okIds) next[id] = status;
           return next;
         });
+      if (failedSet.size > 0)
+        setError(
+          `Couldn't update ${failedSet.size} lead${failedSet.size === 1 ? "" : "s"}. Try again.`,
+        );
     });
   }
 
@@ -215,6 +233,65 @@ export function TouchpointsTab({ touches, stats }: TouchpointsTabProps) {
       .filter((g) => selected.has(g.name))
       .flatMap((g) => g.touches.map((t) => t.draftId));
     for (const id of drafts) setSent(id, true);
+  }
+
+  /** DraftIds across the selected business groups (bulk CSV + regenerate). */
+  const selectedDraftIds = useMemo(
+    () =>
+      filteredGroups
+        .filter((g) => selected.has(g.name))
+        .flatMap((g) => g.touches.map((t) => t.draftId)),
+    [filteredGroups, selected],
+  );
+
+  /** WP5-7 · export the selected sequences as a compliant, sendable CSV. */
+  function exportSequencesCsv() {
+    if (selectedDraftIds.length === 0) return;
+    setError(null);
+    startTransition(async () => {
+      const r = await exportTouchesCsvAction({ draftIds: selectedDraftIds });
+      if (r.status !== "ok") {
+        setError("Couldn't export. Try again.");
+        return;
+      }
+      const blob = new Blob([r.csv], { type: "text/csv" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      const d = new Date();
+      const ymd = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      a.href = url;
+      a.download = `touch-sequences-${ymd}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast(
+        r.skipped > 0
+          ? `Exported ${r.exported} · ${r.skipped} skipped (no mailing address — CAN-SPAM)`
+          : `Exported ${r.exported} row${r.exported === 1 ? "" : "s"}`,
+      );
+    });
+  }
+
+  /** WP5-10 · rebuild the selected drafts from fresh signals (billed). */
+  function regenerateSelected() {
+    if (selectedDraftIds.length === 0) return;
+    setError(null);
+    startTransition(async () => {
+      const r = await regenerateTouchesAction({ draftIds: selectedDraftIds });
+      if (r.status === "ok") {
+        showToast(
+          `Regenerated ${r.regenerated} touch${r.regenerated === 1 ? "" : "es"}${r.creditsCharged > 0 ? ` · ${r.creditsCharged} cr` : ""}`,
+        );
+        if (r.failedIds.length > 0)
+          setError(`${r.failedIds.length} couldn't be rebuilt.`);
+        router.refresh();
+      } else if (r.status === "insufficient_credits") {
+        setError(`Needs ${r.creditsNeeded} credits — top up in Billing.`);
+      } else if (r.status === "forbidden") {
+        setError("Owner or admin role required — regeneration spends credits.");
+      } else {
+        setError("Couldn't regenerate. Try again.");
+      }
+    });
   }
 
   return (
@@ -420,12 +497,16 @@ export function TouchpointsTab({ touches, stats }: TouchpointsTabProps) {
                         <div className="tpdetail">
                           {g.touches.map((t, i) => (
                             <TouchStep
-                              key={t.draftId}
+                              // body.length in the key remounts the editable
+                              // textarea when a regenerate/refresh changes the
+                              // server body (local state would go stale).
+                              key={`${t.draftId}:${t.body.length}`}
                               touch={t}
                               seq={i + 1}
                               of={g.touches.length}
                               sent={sentMap[t.draftId] ?? false}
                               onSent={(s) => setSent(t.draftId, s)}
+                              onChanged={() => router.refresh()}
                             />
                           ))}
                         </div>
@@ -525,6 +606,14 @@ export function TouchpointsTab({ touches, stats }: TouchpointsTabProps) {
         <button type="button" className="bb" onClick={markAllSent}>
           Mark all sent
         </button>
+        {/* WP5-7 · compliant handoff CSV (Instantly/Smartlead-shaped). */}
+        <button type="button" className="bb" onClick={exportSequencesCsv}>
+          Export sequence CSV
+        </button>
+        {/* WP5-10 · bulk rebuild from fresh signals (billed). */}
+        <button type="button" className="bb" onClick={regenerateSelected}>
+          Regenerate selected · {creditsForTouches(selectedDraftIds.length)} cr
+        </button>
         <button
           type="button"
           className="bb"
@@ -557,22 +646,27 @@ function Tile({
   );
 }
 
-/** One grounded step card: editable body, Sent toggle, why-this-works chips. */
+/** One grounded step card: editable body, Sent toggle, why-this-works chips,
+ *  Polish (nano fluency pass · email only · WP5-6) and Regenerate (WP5-10). */
 function TouchStep({
   touch,
   seq,
   of,
   sent,
   onSent,
+  onChanged,
 }: {
   touch: WorkbenchTouch;
   seq: number;
   of: number;
   sent: boolean;
   onSent: (sent: boolean) => void;
+  /** Server body changed out-of-band (regenerate) → parent refreshes. */
+  onChanged: () => void;
 }) {
   const [body, setBody] = useState(touch.body);
   const [saved, setSaved] = useState(false);
+  const [busy, setBusy] = useState<"polish" | "regen" | null>(null);
   const [, startTransition] = useTransition();
 
   function save() {
@@ -585,6 +679,54 @@ function TouchStep({
       if (r.status === "ok") {
         setSaved(true);
         setTimeout(() => setSaved(false), 1500);
+      }
+    });
+  }
+
+  /** WP5-6 · the nano fluency pass. Grounded fallback on any failure. */
+  function polish() {
+    setBusy("polish");
+    startTransition(async () => {
+      const r = await polishTouchAction({ draftId: touch.draftId });
+      setBusy(null);
+      if (r.status === "ok") {
+        setBody(r.body);
+        showToast(`Polished · ${r.creditsCharged} cr`);
+      } else if (r.status === "unchanged") {
+        showToast("Kept as-is — the rewrite failed the fact-check.");
+      } else if (r.status === "insufficient_credits") {
+        showToast(`Needs ${r.creditsNeeded} cr — top up in Billing.`, "error");
+      } else if (r.status === "forbidden") {
+        showToast(
+          "Owner or admin role required — Polish spends credits.",
+          "error",
+        );
+      } else {
+        showToast("Couldn't polish. Try again.", "error");
+      }
+    });
+  }
+
+  /** WP5-10 · rebuild this step from fresh signals (themes stay deduped). */
+  function regenerate() {
+    setBusy("regen");
+    startTransition(async () => {
+      const r = await regenerateTouchesAction({ draftIds: [touch.draftId] });
+      setBusy(null);
+      if (r.status === "ok" && r.regenerated > 0) {
+        showToast(
+          `Regenerated${r.creditsCharged > 0 ? ` · ${r.creditsCharged} cr` : ""}`,
+        );
+        onChanged();
+      } else if (r.status === "insufficient_credits") {
+        showToast(`Needs ${r.creditsNeeded} cr — top up in Billing.`, "error");
+      } else if (r.status === "forbidden") {
+        showToast(
+          "Owner or admin role required — regeneration spends credits.",
+          "error",
+        );
+      } else {
+        showToast("Couldn't regenerate. Try again.", "error");
       }
     });
   }
@@ -632,6 +774,28 @@ function TouchStep({
       <div className="tpstep-actions">
         <button type="button" className="lk" onClick={save}>
           {saved ? "Saved ✓" : "Save"}
+        </button>
+        {touch.channel === "email" ? (
+          <button
+            type="button"
+            className="lk"
+            onClick={polish}
+            disabled={busy !== null}
+            title="Reword for fluency (gpt nano) — fact-checked, falls back to the grounded draft"
+          >
+            {busy === "polish" ? "Polishing…" : "Polish · 1 cr"}
+          </button>
+        ) : null}
+        <button
+          type="button"
+          className="lk"
+          onClick={regenerate}
+          disabled={busy !== null}
+          title="Rebuild this step from fresh signals — themes stay deduped across the sequence"
+        >
+          {busy === "regen"
+            ? "Regenerating…"
+            : `Regenerate · ${creditsForTouches(1)} cr`}
         </button>
       </div>
     </div>

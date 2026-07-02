@@ -21,17 +21,24 @@
 
 import { DATAFORSEO_UNIT_COST_USD } from "@/services/dataforseo/pricing";
 
-export const PRICE_LIST_VERSION = "2026-06-22.1";
+// WP10-7 · re-derived serp/google_ads from the REAL call graph + set the
+// lighthouse upper bound to the honest walled worst-case. Bumped from
+// "2026-06-22.1".
+export const PRICE_LIST_VERSION = "2026-07-02.1";
 
 /** Internal credit price. Apollo charges ~$0.20/credit; we undercut 4×. */
 export const CREDIT_USD = 0.05;
 
-/** Cost gate thresholds (USD) per the plan defaults. */
+/**
+ * Cost-gate thresholds (USD).
+ *
+ * WP1-11 (Viktor exception, 2026-07-01): the $5 approval gate is REMOVED — the
+ * wallet balance is the only spend gate, so there is no `approvalMinUsd` and no
+ * `autoMaxUsd` band anymore (`gateFor` returns "confirm" for any positive net,
+ * "auto" for $0). What remains here is purely the quote-lifecycle policy: how
+ * long a quote is valid and how much live drift forces a re-quote.
+ */
 export const COST_GATE = {
-  /** Runs strictly below this auto-proceed with no confirm. */
-  autoMaxUsd: 2,
-  /** Runs above this require explicit Viktor/owner approval ($5 rule). */
-  approvalMinUsd: 5,
   /** A quote is valid this long before the server must re-quote. */
   quoteTtlMinutes: 15,
   /** A live re-quote that drifts more than this fraction forces re-confirm. */
@@ -48,33 +55,84 @@ export const FREE_TIER_CREDITS = 50;
 
 export type AgencyPlanTier = "SOLO" | "GROWTH" | "AGENCY_PRO" | "BOUTIQUE";
 
+// ─── WP1-12 · ONE credit lattice · advertised == granted ─────────────────────
+//
+// RECONCILIATION DECISION (Viktor: sanity-check these numbers at review):
+// The ADVERTISED card numbers (PLAN_CARDS below · the prototype's "Billing &
+// credits" screen the customer actually sees) are the SOURCE OF TRUTH. The
+// grant engine (grantPlanCredits reads PLAN_CREDITS) must hand out EXACTLY what
+// the card promises — otherwise a $99 Growth buyer is advertised 6,000 credits
+// but granted 1,600 (the pre-WP1 bug). PLAN_CREDITS is therefore reconciled to
+// PLAN_CARDS via PLAN_TIER_MAP:
+//
+//   starter → SOLO       $19  → 900   credits  (advertised "from $0.06/lead")
+//   growth  → GROWTH      $99 → 6,000 credits  (advertised "$0.05/lead")
+//   scale   → BOUTIQUE   $299 → 24,000 credits (advertised "from $0.037/lead")
+//
+// The parity is guarded by a unit test: PLAN_CARDS[k].monthlyCredits ===
+// PLAN_CREDITS[PLAN_TIER_MAP[k]!] for every paid display key.
+//
+// AGENCY_PRO has NO display card (there's no "Pro" tier in the prototype's four
+// cards). It stays a legacy/internal tier at an intermediate grant between
+// GROWTH and BOUTIQUE (12,000); the parity test doesn't cover it because no card
+// maps to it. It exists only for pre-WP1 rows whose Agency.plan is AGENCY_PRO.
+//
+// MARGIN NOTE: at CREDIT_USD $0.05, the credit is the PRICE unit, not raw COGS
+// (1 credit ≈ 1 lead-with-contacts, whose real vendor cost is ~$0.008; a fully-
+// enriched lead is 3 credits ≈ $0.05–0.16 real). The advertised per-lead rates
+// ($0.063 / $0.0495 / $0.037) are all ABOVE the ~$0.05 nominal fully-enriched
+// COGS at the low end and well above real blended cost, so margins hold. See
+// docs/pricing-strategy.md / docs/enrichment-cost-model.md.
 export const PLAN_CREDITS: Record<AgencyPlanTier, number> = {
-  SOLO: 600,
-  GROWTH: 1_600,
-  AGENCY_PRO: 5_000,
-  BOUTIQUE: 12_000,
+  SOLO: 900,
+  GROWTH: 6_000,
+  AGENCY_PRO: 12_000,
+  BOUTIQUE: 24_000,
 };
+
+/**
+ * WP6-8 · Credit rollover cap (paid tiers).
+ *
+ * Unused PLAN credits carry forward into the rollover bucket at each monthly
+ * cycle reset, ACCUMULATING up to this multiple of the tier's monthly grant.
+ * A Growth agency ($99 / 6,000/mo) can bank up to 3 × 6,000 = 18,000 rollover
+ * credits on top of the fresh monthly grant. This removes Apollo's #1 complaint
+ * ("credits expire, use-it-or-lose-it") and de-risks the low-priced hook.
+ *
+ * ORTHOGONAL TO SETTLE (docs/unit-economics.md): rollover only carries UNUSED
+ * plan credits forward at grant time; it never changes how a run is charged.
+ * `settleRun` already treats rollover as a spend bucket (plan → rollover →
+ * purchased), so this constant governs ONLY the grant/reset accumulation.
+ *
+ * Purchased (top-up) credits never expire and are NOT capped — they're outside
+ * the rollover bucket entirely.
+ */
+export const ROLLOVER_CAP_MULTIPLE = 3;
 
 // ─── Canonical plan registry · the portal-prototype pricing model ───────────
 //
 // The agency billing UI (the prototype's "Billing & credits" screen) is the
 // single source of truth for what plans are DISPLAYED, priced, and how many
-// credits each grants. This is deliberately DECOUPLED from the Prisma
-// `AgencyPlan` enum (SOLO/GROWTH/AGENCY_PRO/BOUTIQUE) and from PLAN_CREDITS
-// above, because:
+// credits each grants. WP1-12 reconciled the credit AMOUNTS so PLAN_CARDS and
+// PLAN_CREDITS (via PLAN_TIER_MAP) now agree — advertised == granted — instead
+// of the pre-WP1 divergence (card said 6,000, grant gave 1,600). The display
+// KEYS remain distinct from the Prisma enum for two reasons:
 //
-//   1. The enum + PLAN_CREDITS drive the live credit-grant engine
-//      (modules/cost/server.ts grantPlanCredits) and the existing Stripe
-//      webhook — renaming them is a live-Stripe + schema cutover that is
-//      `human-required` (payments). We don't touch them here.
-//   2. The display names / prices / credit amounts the prototype specifies
-//      (Free $0 / Starter $19 / Growth $99 / Scale $299) don't all have an
-//      enum home (there's no "Starter"/"Scale" enum value), so the display
-//      layer carries its own keys and maps to the enum where one exists.
+//   1. The enum names (SOLO/GROWTH/AGENCY_PRO/BOUTIQUE) drive the live
+//      credit-grant engine (modules/cost/server.ts grantPlanCredits) and the
+//      existing Stripe webhook — RENAMING the enum is a live-Stripe + schema
+//      cutover that is `human-required` (payments). WP1-12 only changed the
+//      NUMBERS, never the enum labels.
+//   2. The display names the prototype specifies (Free / Starter / Growth /
+//      Scale) don't all have an enum home (there's no "Starter"/"Scale" enum
+//      value), so the display layer carries its own keys and maps to the enum
+//      via PLAN_TIER_MAP where one exists.
 //
 // `PLAN_TIER_MAP` is the bridge: it maps each display plan key to the existing
 // AgencyPlan enum value used at grant time, so the UI can highlight the
-// active plan by reading `Agency.plan` and matching it back to a display card.
+// active plan by reading `Agency.plan` and matching it back to a display card,
+// AND so the grant amount (PLAN_CREDITS[PLAN_TIER_MAP[k]]) equals the card's
+// advertised monthlyCredits (parity-tested).
 
 /** Display-layer plan keys (the prototype's four tiers). */
 export type PlanKey = "free" | "starter" | "growth" | "scale";
@@ -136,7 +194,10 @@ export const PLAN_CARDS: Record<PlanKey, PlanCard> = {
       "Full enrichment + first-touch",
       "Never expire",
     ],
-    calc: "Map any market free → fully enrich 50 leads, or pull contacts on 150. Enough to win your first client.",
+    // WP2-5 · honest math: 50 credits ÷ 3/full-enrich = 16 fully enriched, or
+    // 50 leads with contacts (1 credit each). The old line promised "fully
+    // enrich 50 / contacts on 150" — 3× the real grant.
+    calc: "Map any market free → fully enrich your best 16 leads, or pull contacts on 50. Enough to win your first client.",
   },
   starter: {
     key: "starter",
@@ -152,6 +213,7 @@ export const PLAN_CARDS: Record<PlanKey, PlanCard> = {
       "Discovery — unlimited, free",
       "Contacts on every lead",
       "Full enrichment + first-touch",
+      "Unused credits roll over (up to 3× your monthly credits)",
     ],
     calc: "≈ 300 fully enriched, or 900 with contacts — e.g. 3 markets · ~100 each.",
   },
@@ -169,6 +231,7 @@ export const PLAN_CARDS: Record<PlanKey, PlanCard> = {
       "Discovery — unlimited, free",
       "Contacts on every lead",
       "Deep audit included (speed + keywords)",
+      "Unused credits roll over (up to 3× your monthly credits)",
     ],
     calc: "≈ 2,000 fully enriched, or 6,000 with contacts · dozens of markets · 3 teammates.",
   },
@@ -186,6 +249,7 @@ export const PLAN_CARDS: Record<PlanKey, PlanCard> = {
       "Discovery — unlimited, free",
       "Contacts on every lead",
       "Deep audit included (speed + keywords)",
+      "Unused credits roll over (up to 3× your monthly credits)",
       "Priority support",
     ],
     calc: "≈ 8,000 fully enriched, or 24,000 with contacts · high-volume prospecting at the lowest rate.",
@@ -330,11 +394,22 @@ export const ENRICHMENT_PRICES: Record<EnrichmentType, EnrichmentPrice> = {
     upperMultiplier: 22,
     freshnessDays: 90,
   },
+  // usdPerUnit is the OPEN-site cost (DfS Live audit, $0.00425). WP10-7 · the
+  // upper bound reflects the Cloudflare-WALLED worst case honestly: a walled
+  // site routes to the Apify in-browser Lighthouse actor at ~$0.06 (4 GB,
+  // on-demand), so upperMultiplier = 0.06 / 0.00425 ≈ 14.12. This makes the
+  // pre-flight quote's `upperBoundUsd` truthful for a cell full of walled sites
+  // (the estimator surfaces it as a "bounded" quote), instead of implying every
+  // audit is the cheap $0.00425 open case. NOTE: the SETTLE path bills the
+  // per-job planned open cost ($0.00425) — actually charging the walled premium
+  // at settle would require the LIGHTHOUSE worker to return a walled-specific
+  // cost (a separate change); this bound only makes the ESTIMATE honest. The
+  // walled loss is documented in docs/unit-economics.md (flag 1).
   lighthouse: {
     label: "Lighthouse",
     unit: "business",
     usdPerUnit: DATAFORSEO_UNIT_COST_USD.lighthouse,
-    upperMultiplier: 1,
+    upperMultiplier: 14.117647, // 0.06 walled / 0.00425 open
     freshnessDays: 30,
   },
   // 5-stage gpt-5.4-nano pipeline, batched + cached.
@@ -353,24 +428,35 @@ export const ENRICHMENT_PRICES: Record<EnrichmentType, EnrichmentPrice> = {
     upperMultiplier: 1,
     freshnessDays: 30,
   },
-  // Advertiser discovery ($0.002) + up to ~25 creative pulls ($0.002 each).
+  // WP10-7 · re-derived from the REAL call graph in modules/cell-intel/
+  // google-ads.ts: the collector makes EXACTLY ONE adsAdvertisers call + ONE
+  // adsSearch call (≤MAX_ADVERTISERS advertiser_ids in a single ads_search,
+  // depth 40) — NOT 25 separate ad-search pulls. So the cell's real charged cost
+  // is adsAdvertisers + adsSearch×1 ($0.002 + $0.002 = $0.004), amortized across
+  // every business in the cell. (Was priced as ×25 = $0.052 → overstated
+  // internal cost attribution by ~13×.)
   google_ads: {
     label: "Google ads",
     unit: "cell",
     usdPerUnit:
       DATAFORSEO_UNIT_COST_USD.adsAdvertisers +
-      DATAFORSEO_UNIT_COST_USD.adsSearch * 25,
+      DATAFORSEO_UNIT_COST_USD.adsSearch * 1,
     upperMultiplier: 1.5,
     freshnessDays: 30,
   },
-  // 3-tier: one local-pack + one organic scan + ranked_keywords on ~12 picks.
+  // WP10-7 · re-derived from modules/cell-intel/serp.ts: ONE serpLocalPack scan
+  // + ONE serpOrganic scan + rankedKeywords on MAX_RANKED_KEYWORD_BIZ = 3
+  // businesses (one Live call each) — NOT 12. Real charged cost =
+  // serpLocalPack + serpOrganic + rankedKeywords×3 ($0.002 + $0.002 +
+  // $0.013×3 = $0.043), amortized across the cell. (Was priced as ×12 = $0.16 →
+  // overstated by ~3.7×.)
   serp: {
     label: "SERP / search",
     unit: "cell",
     usdPerUnit:
       DATAFORSEO_UNIT_COST_USD.serpLocalPack +
       DATAFORSEO_UNIT_COST_USD.serpOrganic +
-      DATAFORSEO_UNIT_COST_USD.rankedKeywords * 12,
+      DATAFORSEO_UNIT_COST_USD.rankedKeywords * 3,
     upperMultiplier: 1.5,
     freshnessDays: 30,
   },

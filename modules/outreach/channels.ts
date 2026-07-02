@@ -22,6 +22,7 @@ import {
   type FirstTouch,
   type PredictedTier,
   type TouchSignals,
+  type TouchTone,
 } from "./first-touch";
 
 /** The channels this renderer supports. */
@@ -31,9 +32,21 @@ export interface ChannelTouchOptions {
   channel: OutreachChannel;
   /** What the agency is selling (appears in the opener / pitch). */
   sellingWhat: string;
-  /** Required for the email channel per CAN-SPAM (physical address). */
+  /** Required for the email channel per CAN-SPAM / CASL (physical address). */
   mailingAddress?: string | null;
   unsubscribeUrl?: string | null;
+  /** WP7-4 · sending agency name — CASL sender-ID footer line (email only). */
+  senderName?: string | null;
+  /** Voice variant (WP5-1) — passed through to buildFirstTouch. */
+  tone?: TouchTone;
+  /** Restrict pain themes to these keys (WP5-1 pain multipicker). */
+  allowedPainKeys?: readonly string[];
+  /** Themes already used by earlier sequence steps (WP5-10 dedup). */
+  excludePainKeys?: readonly string[];
+  /** 1-based step within a 1–3 touch sequence (WP5-10). */
+  sequenceStep?: number;
+  /** WP6-15 · per-agency pain-order rotation seed (passed to buildFirstTouch). */
+  agencySeed?: string | null;
 }
 
 export interface ChannelTouch {
@@ -65,6 +78,12 @@ export function buildChannelTouch(
       channel: "email",
       mailingAddress: opts.mailingAddress ?? null,
       unsubscribeUrl: opts.unsubscribeUrl ?? null,
+      senderName: opts.senderName ?? null,
+      tone: opts.tone,
+      allowedPainKeys: opts.allowedPainKeys,
+      excludePainKeys: opts.excludePainKeys,
+      sequenceStep: opts.sequenceStep,
+      agencySeed: opts.agencySeed,
     });
     return toChannelTouch("email", touch);
   }
@@ -75,6 +94,11 @@ export function buildChannelTouch(
   const grounded = buildFirstTouch(signals, {
     sellingWhat: opts.sellingWhat,
     channel: "dm",
+    tone: opts.tone,
+    allowedPainKeys: opts.allowedPainKeys,
+    excludePainKeys: opts.excludePainKeys,
+    sequenceStep: opts.sequenceStep,
+    agencySeed: opts.agencySeed,
   });
 
   const body =

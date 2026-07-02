@@ -17,7 +17,7 @@
 //
 // MUST run inside an open CronRun (the DataForSEO adapters enforce this).
 
-import prisma from "@/lib/prisma";
+import prisma, { Prisma } from "@/lib/prisma";
 import {
   serpLocalPack,
   serpOrganic,
@@ -166,27 +166,32 @@ export async function runSerpForCell(
       depth: 20,
     });
     const pack = items.slice(0, 3).map((it) => it.title ?? null);
+    // WP9-9 · batch the per-item SerpResult inserts into ONE createMany instead
+    // of N sequential `create` round-trips. These are plain inserts (no upsert
+    // conflict key), so the batch is a straight swap — bounded at depth≤20 rows.
+    const mapsRows: Prisma.SerpResultCreateManyInput[] = [];
     for (const it of items) {
       const businessId =
         matchByTitle(it.title, ctx.businesses) ??
         matchByDomain(it.domain, byHost);
       if (!businessId) continue;
       const rank = it.rank_group ?? it.rank_absolute ?? null;
-      await prisma.serpResult.create({
-        data: {
-          keywordId,
-          businessId,
-          kind: "MAPS",
-          scannedAt: now,
-          localPackRank: rank != null && rank <= 3 ? rank : null,
-          organicAbsRank: it.rank_absolute ?? null,
-          landingUrl: it.url ?? null,
-          pack1Name: pack[0] ?? null,
-          pack2Name: pack[1] ?? null,
-          pack3Name: pack[2] ?? null,
-        },
+      mapsRows.push({
+        keywordId,
+        businessId,
+        kind: "MAPS",
+        scannedAt: now,
+        localPackRank: rank != null && rank <= 3 ? rank : null,
+        organicAbsRank: it.rank_absolute ?? null,
+        landingUrl: it.url ?? null,
+        pack1Name: pack[0] ?? null,
+        pack2Name: pack[1] ?? null,
+        pack3Name: pack[2] ?? null,
       });
-      result.serpRowsWritten += 1;
+    }
+    if (mapsRows.length > 0) {
+      await prisma.serpResult.createMany({ data: mapsRows });
+      result.serpRowsWritten += mapsRows.length;
     }
   } catch (e) {
     result.errors.push(`maps:${(e as Error).message}`.slice(0, 200));
@@ -201,24 +206,27 @@ export async function runSerpForCell(
       device: "mobile",
       depth: 20,
     });
+    // WP9-9 · same batching as the Maps section — one createMany, bounded rows.
+    const organicRows: Prisma.SerpResultCreateManyInput[] = [];
     for (const it of items) {
       if (it.type !== "organic") continue;
       const businessId =
         matchByDomain(it.domain, byHost) ??
         matchByTitle(it.title, ctx.businesses);
       if (!businessId) continue;
-      await prisma.serpResult.create({
-        data: {
-          keywordId,
-          businessId,
-          kind: "ORGANIC",
-          scannedAt: now,
-          organicRank: it.rank_group ?? null,
-          organicAbsRank: it.rank_absolute ?? null,
-          landingUrl: it.url ?? null,
-        },
+      organicRows.push({
+        keywordId,
+        businessId,
+        kind: "ORGANIC",
+        scannedAt: now,
+        organicRank: it.rank_group ?? null,
+        organicAbsRank: it.rank_absolute ?? null,
+        landingUrl: it.url ?? null,
       });
-      result.serpRowsWritten += 1;
+    }
+    if (organicRows.length > 0) {
+      await prisma.serpResult.createMany({ data: organicRows });
+      result.serpRowsWritten += organicRows.length;
     }
   } catch (e) {
     result.errors.push(`organic:${(e as Error).message}`.slice(0, 200));

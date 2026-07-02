@@ -73,6 +73,33 @@
     Arial, sans-serif;
   --display: "Space Grotesk", "Inter", -apple-system, sans-serif;
   --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* WP4-9 · One design system.
+   * Shared primitives (components/ui/Modal, Button, Pill, Input, …) and the
+   * agency ⌘K palette style themselves with the legacy SMB `--color-*`
+   * vocabulary from globals.css @theme (cream + coral). Inside the agency
+   * portal those tokens must resolve to the cool-gray/indigo system instead,
+   * or the ⌘K modal renders SMB cream on an indigo page. Re-point every
+   * `--color-*` the agency subtree consumes onto the tokens above — one block,
+   * scoped to `.agency-portal`, so SMB surfaces are untouched. */
+  --color-bg: var(--surface);
+  --color-bg-2: var(--surface);
+  --color-bg-3: var(--surface-2);
+  --color-text: var(--ink);
+  --color-text-2: var(--muted);
+  --color-text-3: var(--faint);
+  --color-border: var(--line);
+  --color-coral: var(--coral);
+  --color-success: var(--green);
+  --color-alert: var(--red);
+  --color-info: var(--indigo);
+  --color-agency-bg: var(--bg);
+  --color-agency-indigo: var(--indigo);
+  --color-agency-indigo-2: var(--indigo-700);
+
+  /* Shared primitives also read --font-sans / --font-mono (globals @theme).
+   * Alias them to the portal fonts so ⌘K/Modal use Inter + JetBrains Mono. */
+  --font-sans: var(--font);
 }
 .agency-portal,
 .agency-portal * {
@@ -527,6 +554,31 @@
 }
 .agency-portal .editorial .eyebrow {
   color: var(--indigo-700);
+}
+
+/* WP7-11 · the "continue on desktop" handoff on the Enriching glance screen —
+   hidden on desktop, shown only at phone widths (the one on-phone moment). */
+.agency-portal .desktop-handoff {
+  display: none;
+}
+@media (max-width: 640px) {
+  .agency-portal .desktop-handoff {
+    display: block;
+    margin: 0 0 12px;
+    padding: 10px 12px;
+    border: 1px solid var(--indigo-100);
+    border-radius: 10px;
+    background: var(--indigo-50);
+    color: var(--indigo-700);
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  /* WP7-11 · tighten the Enriching card padding at phone widths so the
+     progress card + checklist read comfortably at 380px (no h-scroll). */
+  .agency-portal .editorial {
+    padding: 20px 16px;
+    border-radius: 18px;
+  }
 }
 
 /* ---------- Welcome hero: split + product peek ---------- */
@@ -1130,6 +1182,33 @@
   font-size: 11.5px;
   flex-shrink: 0;
   white-space: nowrap;
+}
+/* WP7-13 · taxonomy-miss empty state — a "no match" line + a request button
+   that reads like a menu row (full-width, hoverable, keyboard-focusable). */
+.agency-portal .opts .combo-empty {
+  cursor: default;
+  color: var(--faint);
+}
+.agency-portal .opts .combo-empty:hover {
+  background: transparent;
+}
+.agency-portal .opts .combo-request {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 9px 13px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--indigo);
+  background: none;
+  border: 0;
+  border-top: 1px solid var(--line);
+  cursor: pointer;
+}
+.agency-portal .opts .combo-request:hover,
+.agency-portal .opts .combo-request:focus-visible {
+  background: var(--indigo-50);
+  outline: none;
 }
 
 /* selected cell tokens */
@@ -1742,6 +1821,24 @@
   font-size: 10px;
   margin-left: 3px;
 }
+/* WP7-10 · the sort control is a real <button> for keyboard focus + button
+   semantics. Styled to read exactly like the old clickable header text
+   (transparent, inherits font/colour, fills the cell so the whole header is the
+   hit target) with a visible focus ring per the a11y rule. */
+.agency-portal table.wb thead th .wb-sortbtn {
+  all: unset;
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  white-space: nowrap;
+}
+.agency-portal table.wb thead th .wb-sortbtn:focus-visible {
+  outline: 2px solid var(--indigo);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
 .agency-portal table.wb thead th.goalh {
   background: var(--indigo-50);
   color: var(--indigo-700);
@@ -2296,6 +2393,24 @@
   color: var(--faint);
   font-weight: 600;
 }
+/* WP4-15 · completed steps render as <button> — reset the native chrome so a
+   tappable step is visually identical to the non-clickable span, then add an
+   affordance (pointer + subtle hover) so it reads as go-back-able. */
+.agency-portal .steps button.s {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: 999px;
+}
+.agency-portal .steps button.s:hover {
+  color: var(--ink-2);
+}
+.agency-portal .steps button.s:hover .n {
+  filter: brightness(1.08);
+}
 .agency-portal .steps .s .n {
   width: 21px;
   height: 21px;
@@ -2349,6 +2464,14 @@
 }
 .agency-portal .toast.show {
   opacity: 1;
+}
+/* WP4-11 · error tone — a red edge so a failed mutation reads as a warning,
+   not a neutral confirmation. Copy stays terse (see copy-voice). */
+.agency-portal .toast.toast-error {
+  box-shadow:
+    var(--shadow),
+    inset 3px 0 0 var(--red);
+  padding-left: 20px;
 }
 .agency-portal .banner-demo {
   background: #0d1020;
@@ -2451,6 +2574,21 @@
   background: var(--line-2);
   border-radius: 4px;
   padding: 0 4px;
+}
+/* WP4-7 · ⌘K palette keyboard footer (↑↓ ↵ esc) */
+.agency-portal .ckhint {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.agency-portal .ckhint kbd {
+  font-family: var(--mono);
+  font-size: 10px;
+  background: var(--line-2);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 0 4px;
+  color: var(--ink-2);
 }
 
 /* ---------- Modal / overlay ---------- */
@@ -5590,24 +5728,28 @@
   margin-bottom: 8px;
   overflow: hidden;
   background: #fff;
-  cursor: pointer;
 }
-.agency-portal .fsig:focus-visible {
-  outline: 2px solid var(--indigo-100);
-  outline-offset: 1px;
-}
+/* WP7-10 · the header IS the disclosure button now; the card itself is a plain
+   container (its interactive body sits as a sibling, not nested). */
 .agency-portal .fsig-head {
   display: flex;
   align-items: center;
   gap: 8px;
   width: 100%;
   text-align: left;
-  padding: 10px 13px 0;
+  padding: 10px 13px;
   background: none;
   border: 0;
   font: inherit;
   cursor: pointer;
   color: var(--ink);
+}
+.agency-portal .fsig.open .fsig-head {
+  padding-bottom: 0;
+}
+.agency-portal .fsig-head:focus-visible {
+  outline: 2px solid var(--indigo);
+  outline-offset: -2px;
 }
 .agency-portal .fsig:hover .fsig-head {
   background: var(--surface-2);
@@ -6625,6 +6767,49 @@
   line-height: 1.45;
   color: var(--muted);
   margin-top: 7px;
+}
+
+/* WP4-1 · live workbench · a slim sticky banner while an enrichment run is in
+   flight over this discovery, + a ~180ms pulse on the results area whenever a
+   router.refresh() lands (newly-enriched rows/cells flash into place). Cool-gray
+   dialect (var(--indigo)/(--line)/(--surface)) — no SMB cream leak. */
+.agency-portal .live-enrich-banner {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 14px;
+  margin-bottom: 12px;
+  border: 1px solid var(--indigo-100, var(--line));
+  border-radius: 10px;
+  background: var(--indigo-50, var(--surface));
+  color: var(--indigo-700, var(--ink));
+  font-size: 12.5px;
+  font-weight: 600;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.06);
+}
+.agency-portal .live-enrich-banner .leb-label {
+  font-variant-numeric: tabular-nums;
+}
+/* The pulse: a brief background tint that fades out, so refreshed rows read as
+   "just updated" without a jarring flash. */
+.agency-portal .wb-just-refreshed {
+  animation: wbRefreshPulse 0.18s ease-out;
+}
+@keyframes wbRefreshPulse {
+  0% {
+    background-color: var(--indigo-50, rgba(91, 61, 245, 0.08));
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .agency-portal .wb-just-refreshed {
+    animation: none;
+  }
 }
 
 /* next/font wiring — overrides the ported literal font stacks */

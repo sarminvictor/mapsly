@@ -38,9 +38,10 @@ import { notFound, unauthorized } from "next/navigation";
 import { setRequestLocale } from "next-intl/server";
 
 import { auth } from "@/lib/auth";
-import { Link, redirect } from "@/i18n/navigation";
+import { redirect } from "@/i18n/navigation";
 import prisma from "@/lib/prisma";
-import { parseCellKey } from "@/lib/cell";
+import { cellFreshnessState, parseCellKey } from "@/lib/cell";
+import { usdToCredits } from "@/modules/cost/estimate";
 import { cellBand } from "@/modules/agency-portal/discover/signals";
 import { deriveFamilyCoverage } from "@/modules/agency-portal/discover/family-coverage";
 import {
@@ -48,6 +49,7 @@ import {
   coverageMatrixToMap,
 } from "@/modules/agency-portal/discover/coverage-matrix";
 import {
+  WORKBENCH_WINDOW,
   resolveLeadMatch,
   painGroupClass,
   type CellBand,
@@ -59,14 +61,24 @@ import {
   hydrateBusinessForSignals,
   resolveMatches,
 } from "@/modules/agency-portal/discover/signal-eval";
-import { activeSignalsFromJson } from "@/modules/agency-portal/discover/discovery-signals";
-import { SIG_META } from "@/modules/agency-portal/discover/goal-templates";
+import {
+  activeSignalsFromJson,
+  goalMetaFromJson,
+} from "@/modules/agency-portal/discover/discovery-signals";
+import {
+  SIG_META,
+  templateByKey,
+} from "@/modules/agency-portal/discover/goal-templates";
+import { WorkspaceHeader } from "@/modules/agency-portal/discover/components/WorkspaceHeader";
 import {
   WorkbenchShell,
   type WorkbenchShellProps,
 } from "@/modules/agency-portal/discover/components/WorkbenchShell";
+import { LiveWorkbenchBanner } from "@/modules/agency-portal/discover/components/LiveWorkbenchBanner";
+import { resolveActiveRunForDiscovery } from "@/modules/agency-portal/discover/active-run";
 import type { WorkbenchTouch } from "@/modules/agency-portal/discover/components/TouchpointsTab";
 import { parseWhyJson } from "@/modules/agency-portal/discover/touchpoints";
+import { draftWhereForAgency } from "@/modules/outreach/draft-scope";
 
 export const metadata: Metadata = {
   title: "Workbench · Mapsly",
@@ -75,15 +87,20 @@ export const metadata: Metadata = {
 
 interface PageProps {
   params: Promise<{ locale: string; discoveryId: string; listId: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }
 
-/** Hard cap on rows rendered into the workbench (bounded per scalability rule). */
-const MAX_LEADS = 500;
+// Server fetch-window (WP4-4): ONE window of WORKBENCH_WINDOW (1000) leads per
+// request, at the offset the awaited `?page=` searchParam selects (Pattern 3 ·
+// awaited INSIDE the Suspense boundary). Page 1 is identical to the old
+// MAX_LEADS ceiling; every lead beyond it is now reachable via the pager's
+// window crossing (+ the server export route streams the full set). See
+// WORKBENCH_WINDOW (leads-workbench.ts) for the window-size rationale.
 
-export default function ListWorkbenchPage({ params }: PageProps) {
+export default function ListWorkbenchPage({ params, searchParams }: PageProps) {
   return (
     <Suspense fallback={null}>
-      <ListWorkbenchBody params={params} />
+      <ListWorkbenchBody params={params} searchParams={searchParams} />
     </Suspense>
   );
 }
@@ -99,9 +116,12 @@ function prettyCell(cellKey: string | null): string {
   return `${cap(cat)} · ${cap(metro)}`;
 }
 
-async function ListWorkbenchBody({ params }: PageProps) {
+async function ListWorkbenchBody({ params, searchParams }: PageProps) {
   const { locale, discoveryId, listId } = await params;
   setRequestLocale(locale);
+  // Pattern 3 (cache-components.md): request-time searchParams are awaited
+  // INSIDE the Suspense boundary, never on it.
+  const requestedPage = parsePageParam((await searchParams).page);
 
   const session = await auth();
   if (!session?.user?.id) unauthorized();
@@ -116,8 +136,9 @@ async function ListWorkbenchBody({ params }: PageProps) {
   }
   const agencyId = member.agencyId;
 
-  // Load the list + its leads joined to the business facts the workbench needs.
-  // Scoped by listId; agency ownership is checked immediately after.
+  // Load the list meta + total lead count first (WP4-4 — the count drives the
+  // window clamp + the header totals). Scoped by listId; agency ownership is
+  // checked immediately after.
   const list = await prisma.list.findUnique({
     where: { id: listId },
     select: {
@@ -129,31 +150,7 @@ async function ListWorkbenchBody({ params }: PageProps) {
       metro: true,
       category: true,
       lastRefreshedAt: true,
-      leads: {
-        orderBy: { createdAt: "asc" },
-        take: MAX_LEADS,
-        select: {
-          id: true,
-          status: true,
-          matchScore: true,
-          contactedAt: true,
-          business: {
-            select: {
-              id: true,
-              name: true,
-              address: true,
-              city: true,
-              cellKey: true,
-              rating: true,
-              reviewCount: true,
-              reachability: true,
-              reachableChannelCount: true,
-              phone: true,
-              email: true,
-            },
-          },
-        },
-      },
+      _count: { select: { leads: true } },
     },
   });
 
@@ -163,7 +160,43 @@ async function ListWorkbenchBody({ params }: PageProps) {
     notFound();
   }
 
-  const businessIds = list.leads.map((l) => l.business.id);
+  // Server window (WP4-4): clamp the requested `?page=` into range, then fetch
+  // ONE window of leads. The `id` tiebreaker keeps skip/take windows
+  // non-overlapping when createdAt collides (bulk-saved lists).
+  const totalLeads = list._count.leads;
+  const serverPageCount = Math.max(1, Math.ceil(totalLeads / WORKBENCH_WINDOW));
+  const serverPage = Math.min(requestedPage, serverPageCount);
+
+  const leads = await prisma.lead.findMany({
+    where: { listId: list.id },
+    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+    skip: (serverPage - 1) * WORKBENCH_WINDOW,
+    take: WORKBENCH_WINDOW,
+    select: {
+      id: true,
+      status: true,
+      matchScore: true,
+      contactedAt: true,
+      business: {
+        select: {
+          id: true,
+          name: true,
+          address: true,
+          city: true,
+          cellKey: true,
+          rating: true,
+          reviewCount: true,
+          reachability: true,
+          reachableChannelCount: true,
+          phone: true,
+          email: true,
+          website: true,
+        },
+      },
+    },
+  });
+
+  const businessIds = leads.map((l) => l.business.id);
 
   // ── Real signal evaluation (P3) ────────────────────────────────────────────
   // The list belongs to a discovery; that discovery's persisted signals are the
@@ -173,7 +206,15 @@ async function ListWorkbenchBody({ params }: PageProps) {
   // ActiveSignal[] → the per-row fallback keeps the stored-score/heuristic path.
   const discoveryRow = await prisma.discovery.findUnique({
     where: { id: discoveryId },
-    select: { signalsJson: true },
+    select: {
+      signalsJson: true,
+      cellKeys: true,
+      // WP4-14 · the shared WorkspaceHeader shows freshness + spend-to-date,
+      // sourced from the parent research (same as the discovery workspace).
+      spendToDateUsd: true,
+      finishedAt: true,
+      createdAt: true,
+    },
   });
   const activeSignals = activeSignalsFromJson(discoveryRow?.signalsJson);
   const hydrated =
@@ -240,7 +281,9 @@ async function ListWorkbenchBody({ params }: PageProps) {
             select: { businessId: true, channel: true, value: true },
           }),
           prisma.outreachDraft.findMany({
-            where: { businessId: { in: businessIds } },
+            // WP0-1/WP5 · agency-scoped draft read (see the discovery workspace
+            // page) — no cross-tenant read of outreach copy in shared cells.
+            where: draftWhereForAgency(agencyId, businessIds),
             orderBy: { createdAt: "asc" },
             select: {
               id: true,
@@ -293,17 +336,35 @@ async function ListWorkbenchBody({ params }: PageProps) {
   }
 
   // Flagged findings → pain chips per business (most-confident first).
+  // `confidence` is a string rank; a DB orderBy sorts it alphabetically
+  // (high < low < medium — wrong), so rank in JS instead (WP2-4 fix).
+  const CONFIDENCE_RANK: Record<string, number> = {
+    high: 3,
+    medium: 2,
+    low: 1,
+  };
+  const rankedFindings = [...findings].sort(
+    (a, b) =>
+      (CONFIDENCE_RANK[b.confidence ?? ""] ?? 0) -
+      (CONFIDENCE_RANK[a.confidence ?? ""] ?? 0),
+  );
   const painsById = new Map<
     string,
     { group: string; label: string; title: string }[]
   >();
-  for (const f of findings) {
+  // Strongest pitch angle per business (first finding with one, in
+  // most-confident-first order) — the CSV export's "pitch angle" column.
+  const pitchById = new Map<string, string>();
+  for (const f of rankedFindings) {
     const label = signalKeyLabel(f.signalKey);
     push(painsById, f.businessId, {
       group: f.group,
       label,
       title: f.explanation || f.pitchAngle || label,
     });
+    if (f.pitchAngle && !pitchById.has(f.businessId)) {
+      pitchById.set(f.businessId, f.pitchAngle);
+    }
   }
 
   // Touch state per lead (the most-advanced draft status drives the pill).
@@ -316,7 +377,7 @@ async function ListWorkbenchBody({ params }: PageProps) {
   }
 
   // ── Build the workbench rows ───────────────────────────────────────────────
-  const rows: WorkbenchLeadRow[] = list.leads.map((lead) => {
+  const rows: WorkbenchLeadRow[] = leads.map((lead) => {
     const b = lead.business;
     const snap = latestSnapshot.get(b.id);
     const audit = latestAudit.get(b.id);
@@ -354,6 +415,8 @@ async function ListWorkbenchBody({ params }: PageProps) {
         phones.length > 0 ||
         emails.length > 0,
       builtOn: builtOnById.get(b.id) ?? null,
+      website: b.website ?? null,
+      pitchAngle: pitchById.get(b.id) ?? null,
       touch: touchByBusiness.get(b.id) ?? "None",
       lastContactedAt: lead.contactedAt?.toISOString() ?? null,
       reviews,
@@ -384,14 +447,12 @@ async function ListWorkbenchBody({ params }: PageProps) {
 
   // ── Touchpoints tab read-model ─────────────────────────────────────────────
   const leadByBusiness = new Map(
-    list.leads.map((l) => [
+    leads.map((l) => [
       l.business.id,
       { id: l.id, status: l.status as LeadStatus },
     ]),
   );
-  const nameById = new Map(
-    list.leads.map((l) => [l.business.id, l.business.name]),
-  );
+  const nameById = new Map(leads.map((l) => [l.business.id, l.business.name]));
 
   const touches: WorkbenchTouch[] = drafts.map((d) => {
     const lead = leadByBusiness.get(d.businessId) ?? null;
@@ -442,47 +503,122 @@ async function ListWorkbenchBody({ params }: PageProps) {
   const coverageRows = await loadCoverageMatrix(discoveryId, agencyId);
   const coverage = coverageRows ? coverageMatrixToMap(coverageRows) : {};
 
+  // WP4-1 · live workbench — poll + refresh new rows while an enrichment run for
+  // this discovery is in flight (resolved by cellKey overlap; see active-run.ts).
+  const activeRun = await resolveActiveRunForDiscovery(
+    agencyId,
+    discoveryRow?.cellKeys ?? [],
+  );
+
+  // CSV export filename base: "{categorySlug}-{metroSlug}" from the first
+  // lead's cell (WP2-4) — the client appends the date; falls back to the
+  // list's own category/metro strings, then to the client default.
+  const firstLeadCell = leads[0]?.business.cellKey
+    ? parseCellKey(leads[0].business.cellKey)
+    : null;
+  const exportSlug = firstLeadCell
+    ? `${csvSlug(firstLeadCell.categorySlug)}-${csvSlug(firstLeadCell.metroSlug)}`
+    : list.category && list.metro
+      ? `${csvSlug(list.category)}-${csvSlug(list.metro)}`
+      : undefined;
+
   const shell: WorkbenchShellProps = {
-    leads: { rows, discoveryId, bands, coverage, goalSignals },
+    leads: {
+      rows,
+      discoveryId,
+      bands,
+      coverage,
+      goalSignals,
+      exportSlug,
+      serverPage,
+      serverPageCount,
+      totalRows: totalLeads,
+      // Streams THIS list's full set (WP4-4) — same 13 columns, scoped by
+      // ?list= inside the discovery export route.
+      exportAllUrl: `/api/agency/research/${discoveryId}/export?list=${listId}`,
+    },
     touchpoints: { touches, stats },
   };
 
-  const cellKey = list.leads[0]?.business.cellKey ?? null;
+  const cellKey = leads[0]?.business.cellKey ?? null;
   const title = cellKey ? prettyCell(cellKey) : list.name;
-  const mappedAgo = list.lastRefreshedAt
-    ? relativeDays(list.lastRefreshedAt)
-    : null;
+
+  // The research goal for the header pill (WP4-14): the persisted goal name,
+  // else the base template's title, else no pill (older discoveries).
+  const goalMeta = goalMetaFromJson(discoveryRow?.signalsJson);
+  const goalName =
+    goalMeta.goalName ??
+    (goalMeta.goalBase
+      ? (templateByKey(goalMeta.goalBase)?.title ?? null)
+      : null);
+
+  // Meta line: mapped freshness (list refresh, else the parent research's
+  // mapped date) + the research's spend-to-date credits.
+  const now = new Date();
+  const mappedAt =
+    list.lastRefreshedAt ??
+    discoveryRow?.finishedAt ??
+    discoveryRow?.createdAt ??
+    null;
+  const freshness = mappedAt ? cellFreshnessState(mappedAt, now) : "never";
+  const credits = usdToCredits(discoveryRow?.spendToDateUsd ?? 0);
 
   return (
     <div className="view full">
-      <header className="section">
-        <Link
-          href={{
-            pathname: "/discover/[discoveryId]",
-            params: { discoveryId },
-          }}
-          className="lk"
-          style={{ fontSize: 12, color: "var(--muted)" }}
-        >
-          ← All research
-        </Link>
-        <h1 style={{ marginTop: 6 }}>{title}</h1>
-        <p
-          className="note"
-          style={{ marginTop: 6, color: "var(--muted)", fontSize: 13 }}
-        >
-          {list.name} · {rows.length.toLocaleString()} leads
-          {mappedAgo ? ` · mapped ${mappedAgo}` : ""} ·{" "}
-          {list.serviceType.toLowerCase().replace(/_/g, " ")}
-        </p>
-      </header>
+      {/* WP4-14 · shared workspace header — goal pill + narrative count
+          ("the 1,412 leads in this list · showing 1,000"), list name +
+          service kept as the trailing meta segment. Back-nav stays on the
+          parent research workspace. */}
+      <WorkspaceHeader
+        title={title}
+        goalName={goalName}
+        showing={rows.length}
+        total={totalLeads}
+        marketNoun="leads"
+        scopeNoun="list"
+        freshness={freshness}
+        mappedRelative={mappedAt ? relativeDays(mappedAt) : "—"}
+        credits={credits}
+        backHref={{
+          pathname: "/discover/[discoveryId]",
+          params: { discoveryId },
+        }}
+        extra={`${list.name} · ${list.serviceType.toLowerCase().replace(/_/g, " ")}`}
+      />
 
-      <WorkbenchShell {...shell} />
+      {activeRun ? (
+        <LiveWorkbenchBanner
+          runId={activeRun.runId}
+          initialStatus={activeRun.status}
+        >
+          <WorkbenchShell {...shell} />
+        </LiveWorkbenchBanner>
+      ) : (
+        <WorkbenchShell {...shell} />
+      )}
     </div>
   );
 }
 
 // ── Server-side helpers (pure shaping) ───────────────────────────────────────
+
+/** `?page=` → a 1-based integer window index (defensive · default 1). */
+function parsePageParam(raw: string | string[] | undefined): number {
+  const v = Array.isArray(raw) ? raw[0] : raw;
+  const n = Number(v);
+  return Number.isInteger(n) && n >= 1 ? n : 1;
+}
+
+/** Filesystem-safe lowercase slug for the CSV filename (WP2-4). */
+function csvSlug(s: string): string {
+  return (
+    s
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 40) || "leads"
+  );
+}
 
 function firstByBusiness<T extends { businessId: string }>(
   rows: T[],

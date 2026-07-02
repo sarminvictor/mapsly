@@ -40,6 +40,8 @@ import {
   upsertReviewBatch,
   recomputeReviewAggregates,
 } from "@/modules/reviews/upsert";
+import { persistFetchResult } from "@/modules/reviews/review-job";
+import { runPlaybooksForBusiness } from "@/modules/playbooks/run";
 import { extractEntitiesForBusiness } from "@/modules/reviews/extract-entities-for-business";
 
 export const maxDuration = 300;
@@ -145,52 +147,70 @@ async function handle(request: Request): Promise<Response> {
   try {
     const outcome = await withCronRun("reviews:pingback-handler", async () => {
       const result = await reviewsTaskGet(taskId);
-
-      const cutoffDate = new Date(Date.now() - TWELVE_MONTHS_MS);
-      const upsertResult = await upsertReviewBatch(business.id, result.items, {
-        cutoffDate,
-        // First-pull mode (initial qualify-time pull): no cursor stop,
-        // walk all reviews until 12-month cutoff. Subsequent delta
-        // pulls (R.3) will pass knownLatestExternalId for cursor stop.
-        knownLatestExternalId: business.latestReviewExternalId,
-      });
-
-      // Update Business cursor + clear pending task_id.
       const now = new Date();
-      await prisma.business.update({
-        where: { id: business.id },
-        data: {
-          pendingReviewsTaskId: null,
-          reviewsFirstPulledAt: business.reviewsFirstPulledAt ?? now,
-          reviewsLastDeltaAt: now,
-          latestReviewExternalId:
-            upsertResult.topExternalId ?? business.latestReviewExternalId,
-          latestReviewPostedAt: upsertResult.topPostedAt ?? undefined,
-          lastRefreshedAt: now,
-        },
-      });
 
-      // Recompute aggregates (reviewCount/rating/replyRate/velocity30d +
-      // E5 lifecycle/momentum signals).
-      await recomputeReviewAggregates(
-        business.id,
-        result.totalReviewsCount,
-        result.aggregateRating,
-      );
-
-      // Resolve the durable ReviewJob (when this pull came through the
-      // submitReviewJob path) so the state machine reflects the happy-path
-      // completion and the reconcile sweep never marks it FAILED. No-op for
-      // legacy trigger-pull businesses that have no ReviewJob row.
-      await prisma.reviewJob.updateMany({
+      // WP1-10 · route the durable-ReviewJob path through persistFetchResult so
+      // the DEPTH-ESCALATION LADDER runs on the happy-path pingback (not only via
+      // the reconcile sweep / direct fetch). Without this, a high-velocity
+      // business (300+ recent reviews) was silently truncated at depth-200 on the
+      // pingback. persistFetchResult does the upsert + cursor advance + aggregate
+      // recompute + shouldEscalate gate (re-posting a deeper task when the window
+      // prefix isn't exhausted) + marks the job DONE — identical to fetchReviewJob.
+      // We reuse the result we already fetched here (no second reviewsTaskGet).
+      const reviewJob = await prisma.reviewJob.findFirst({
         where: {
           taskId,
           status: {
             in: ["QUEUED", "SUBMITTED", "AWAITING_PINGBACK", "FETCHING"],
           },
         },
-        data: { status: "DONE" },
+        orderBy: { createdAt: "desc" },
       });
+
+      let insertedIds: string[];
+      let topExternalId: string | null | undefined;
+      let escalatedToDepth: number | undefined;
+
+      if (reviewJob) {
+        const persisted = await persistFetchResult(reviewJob, result, now);
+        insertedIds = persisted.insertedIds;
+        escalatedToDepth = persisted.escalatedToDepth;
+        // persistFetchResult already advanced the Business cursor + aggregates +
+        // cleared pendingReviewsTaskId + marked the job DONE (or escalated).
+      } else {
+        // Legacy trigger-pull businesses have no ReviewJob row — keep the inline
+        // upsert + cursor + aggregate path (no escalation ladder applies).
+        const cutoffDate = new Date(Date.now() - TWELVE_MONTHS_MS);
+        const upsertResult = await upsertReviewBatch(
+          business.id,
+          result.items,
+          {
+            cutoffDate,
+            knownLatestExternalId: business.latestReviewExternalId,
+          },
+        );
+        insertedIds = upsertResult.insertedIds;
+        topExternalId = upsertResult.topExternalId;
+
+        await prisma.business.update({
+          where: { id: business.id },
+          data: {
+            pendingReviewsTaskId: null,
+            reviewsFirstPulledAt: business.reviewsFirstPulledAt ?? now,
+            reviewsLastDeltaAt: now,
+            latestReviewExternalId:
+              upsertResult.topExternalId ?? business.latestReviewExternalId,
+            latestReviewPostedAt: upsertResult.topPostedAt ?? undefined,
+            lastRefreshedAt: now,
+          },
+        });
+
+        await recomputeReviewAggregates(
+          business.id,
+          result.totalReviewsCount,
+          result.aggregateRating,
+        );
+      }
 
       // Event-driven AI entity extraction · NEW reviews only · skips
       // entirely when 0 new (cheapest possible idle path). Replaces
@@ -200,10 +220,23 @@ async function handle(request: Request): Promise<Response> {
       let extractionResult: Awaited<
         ReturnType<typeof extractEntitiesForBusiness>
       > | null = null;
-      if (upsertResult.insertedIds.length > 0) {
+      if (insertedIds.length > 0) {
         extractionResult = await extractEntitiesForBusiness(
           business.id,
-          upsertResult.insertedIds,
+          insertedIds,
+        );
+      }
+
+      // WP1-9(b) · re-run the expert layer for this business now that the reviews
+      // data has LANDED. The enrichment run's REVIEWS job was parked non-terminal
+      // (WP1-9) and billed/closed against landed data; recomputing playbooks here
+      // means review-driven findings compute on the real data even when the run's
+      // closeRunIfDone already fired before the pingback arrived. Best-effort.
+      try {
+        await runPlaybooksForBusiness(business.id);
+      } catch (err) {
+        console.error(
+          `[/api/webhooks/dataforseo/reviews] playbook recompute failed (businessId=${business.id}): ${err instanceof Error ? err.message : String(err)}`,
         );
       }
 
@@ -219,7 +252,9 @@ async function handle(request: Request): Promise<Response> {
 
       return {
         items: result.items.length,
-        ...upsertResult,
+        insertedCount: insertedIds.length,
+        topExternalId,
+        escalatedToDepth,
         totalReviewsCount: result.totalReviewsCount,
         aggregateRating: result.aggregateRating,
         extraction: extractionResult,

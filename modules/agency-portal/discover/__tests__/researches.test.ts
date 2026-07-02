@@ -15,7 +15,7 @@ import {
   researchesForSignals,
   type Research,
 } from "../researches";
-import { SIG_META } from "../goal-templates";
+import { SIG_META, GOAL_TEMPLATES } from "../goal-templates";
 import { ALL_ENRICHMENT_TYPES } from "@/modules/cost/pricing";
 
 describe("resolveResearches · transitive closure over RESEARCH_DEPS", () => {
@@ -161,6 +161,30 @@ describe("completeness invariant · every SIG_META signal declares researches", 
       for (const r of out) expect(valid.has(r)).toBe(true);
       // The resolved set is a superset of the declared set (chains only add).
       for (const r of SIG_META[key].researches) expect(out).toContain(r);
+    }
+  });
+});
+
+describe("GOAL_TEMPLATES · every filter key resolves to a SIG_META entry", () => {
+  test("no template references a signal that doesn't exist (guards WP6-5 compliance presets)", () => {
+    for (const tpl of GOAL_TEMPLATES) {
+      for (const f of tpl.filters) {
+        expect(
+          SIG_META[f.key],
+          `template "${tpl.key}" references unknown SIG_META key "${f.key}"`,
+        ).toBeDefined();
+      }
+    }
+  });
+
+  test("the WP6-5 compliance presets are present + bind compliance_risk", () => {
+    for (const key of ["compliance", "compliance_hipaa", "compliance_ada"]) {
+      const tpl = GOAL_TEMPLATES.find((t) => t.key === key);
+      expect(tpl, `missing compliance preset "${key}"`).toBeDefined();
+      expect(
+        tpl!.filters.some((f) => f.key === "compliance_risk" && f.on),
+        `preset "${key}" must turn on compliance_risk`,
+      ).toBe(true);
     }
   });
 });

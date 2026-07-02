@@ -36,6 +36,7 @@ import {
   CATEGORY_GROUP_LABELS,
 } from "@/modules/business-discovery/known-categories";
 import { GetLeadsFlow } from "@/modules/agency-portal/discover/components/GetLeadsFlow";
+import { savedTemplateRowFromDb } from "@/modules/agency-portal/discover/saved-templates";
 
 /** Bigger metro first — a proxy for "most valuable" in the default (no-query)
  *  combobox view. Array.sort is stable, so within a tier the curated majors
@@ -82,7 +83,7 @@ async function DiscoverBody({ params }: PageProps) {
     return null;
   }
 
-  const [categories, wallet] = await Promise.all([
+  const [categories, wallet, templateRows] = await Promise.all([
     prisma.businessCategory.findMany({
       where: { isActive: true },
       select: { id: true, dataforseoId: true, label: true },
@@ -98,7 +99,23 @@ async function DiscoverBody({ params }: PageProps) {
         heldCredits: true,
       },
     }),
+    // WP5-12 · the agency's saved goal templates for the GoalStep gallery.
+    prisma.agencyTemplate.findMany({
+      where: { agencyId: member.agencyId },
+      select: {
+        id: true,
+        name: true,
+        basedOnTemplate: true,
+        signalsJson: true,
+      },
+      orderBy: { updatedAt: "desc" },
+      take: 50,
+    }),
   ]);
+
+  const myTemplates = templateRows
+    .map(savedTemplateRowFromDb)
+    .filter((t): t is NonNullable<typeof t> => t != null);
 
   const metros = [...US_METROS]
     .sort((a, b) => TIER_RANK[a.radiusTier]! - TIER_RANK[b.radiusTier]!)
@@ -149,6 +166,8 @@ async function DiscoverBody({ params }: PageProps) {
       metros={metros}
       categories={cats}
       walletCredits={walletCredits}
+      locale={locale}
+      myTemplates={myTemplates}
     />
   );
 }

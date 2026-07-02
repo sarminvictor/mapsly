@@ -8,6 +8,8 @@
  *
  * Pure server component.
  */
+import { Link } from "@/i18n/navigation";
+
 interface AgFAQProps {
   t: (key: string) => string;
 }
@@ -53,6 +55,16 @@ export function AgFAQ({ t }: AgFAQProps) {
             </details>
           ))}
         </div>
+
+        {/* WP6-7 · internal links to the comparison pages (SEO cross-link
+            from /for-agencies). English-only, evaluator-intent surface. */}
+        <p className="fb-faq-compare">
+          Comparing tools? See Mapsly vs{" "}
+          <Link href="/compare/mapsly-vs-apollo">Apollo</Link>,{" "}
+          <Link href="/compare/mapsly-vs-gohighlevel">GoHighLevel</Link>, and{" "}
+          <Link href="/compare/mapsly-vs-leadswift-d7">LeadSwift &amp; D7</Link>
+          .
+        </p>
       </div>
 
       <script

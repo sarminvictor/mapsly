@@ -670,3 +670,21 @@
     display: none;
   }
 }
+
+/* WP6-7 · comparison cross-links row below the FAQ (on the dark FAQ band). */
+.fb-faq-compare {
+  margin: 28px auto 0;
+  max-width: 720px;
+  text-align: center;
+  font-size: 15px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.72);
+}
+.fb-faq-compare a {
+  color: #fffd54;
+  text-decoration: none;
+  font-weight: 600;
+}
+.fb-faq-compare a:hover {
+  text-decoration: underline;
+}

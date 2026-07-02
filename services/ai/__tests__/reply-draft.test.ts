@@ -217,7 +217,12 @@ describe("draftReplyUncached", () => {
     // learn tone, not just style.
     expect(userMsg).toContain("OWNER'S PRIOR REPLIES");
     expect(userMsg).toContain("--- Example 1 ---");
-    expect(userMsg).toContain("Review (★5): amazing service");
+    // WP8-5 · the untrusted review text is now fenced (prompt-injection guard),
+    // so the body is present but wrapped, not a bare substring on the line.
+    expect(userMsg).toContain("amazing service");
+    expect(userMsg).toMatch(
+      /UNTRUSTED_CONTENT_BEGIN[\s\S]*amazing service[\s\S]*UNTRUSTED_CONTENT_END/,
+    );
     expect(userMsg).toContain("Owner's reply: Hi Sarah!");
     expect(userMsg).toContain("--- Example 2 ---");
     expect(userMsg).toContain("Review (★4): (stars only");

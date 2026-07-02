@@ -26,6 +26,10 @@ import { cellKey as makeCellKey, cellFreshnessState } from "@/lib/cell";
 import { auth } from "@/lib/auth";
 import { metroBySlug } from "@/lib/geo/resolve-metro";
 import prisma, { Prisma } from "@/lib/prisma";
+import {
+  ACTION_ENQUEUE_LIMIT,
+  rateLimitAction,
+} from "@/lib/middleware/rate-limit";
 import { rawListWhere } from "@/modules/discovery/raw-list";
 import { discoveryPhaseWhere } from "@/modules/discovery/discovery-phase-match";
 import { parseDiscoverySignals } from "@/modules/agency-portal/discover/discovery-signals";
@@ -39,6 +43,7 @@ import {
 import { decideDiscoveryPlan } from "@/modules/discovery/freshness-decision";
 import { discoveryIdempotencyKey } from "@/modules/discovery/run-discovery";
 import { kickDispatch } from "@/modules/enrichment/kick-dispatch";
+import { requireSpendMember } from "@/modules/agency-portal/roles";
 
 const CellInput = z.object({
   categorySlug: z.string().min(1).max(120),
@@ -150,9 +155,9 @@ export type RunDiscoveryActionResult =
   | { status: "ok"; discoveryId: string }
   | { status: "unauthorized" }
   | { status: "forbidden" }
+  | { status: "rate_limited"; retryAfter: number }
   | { status: "invalid_input"; message: string }
   | { status: "needs_requote"; netUsd: number; netCredits: number }
-  | { status: "needs_approval"; netUsd: number; netCredits: number }
   | { status: "quote_expired" }
   | { status: "insufficient_credits"; netCredits: number }
   | { status: "error" };
@@ -442,12 +447,21 @@ export async function preflightDiscoveryAction(
  * sorted cellKeys + requester), holds the credits, and marks the estimate
  * CONSUMED. The dispatch cron executes maps-search + settles the hold against
  * the actual fetch cost (fresh cells refund to $0).
+ *
+ * Spend gate (WP5-8): when the authorized quote holds credits (stale/undiscovered
+ * cells cost real money), the caller must be OWNER/ADMIN — a STAFF seat can never
+ * spend the pooled wallet via a discovery run. A $0 all-fresh re-open holds
+ * nothing and stays open to STAFF (a free read of an already-mapped market).
  */
 export async function runDiscoveryAction(
   input: unknown,
 ): Promise<RunDiscoveryActionResult> {
   const session = await auth();
   if (!session?.user?.id) return { status: "unauthorized" };
+
+  // WP8-2 · bound discovery-run creation floods per user.
+  const rl = await rateLimitAction(ACTION_ENQUEUE_LIMIT, session.user.id);
+  if (rl.limited) return { status: "rate_limited", retryAfter: rl.retryAfter };
 
   const parsed = RunDiscoveryInput.safeParse(input);
   if (!parsed.success) {
@@ -484,12 +498,20 @@ export async function runDiscoveryAction(
         };
     }
     const result = authz.result;
-    if (result.gate === "approval") {
-      return {
-        status: "needs_approval",
-        netUsd: result.netUsd,
-        netCredits: result.netCredits,
-      };
+    // WP1-11 (Viktor exception): no approval gate. The wallet balance remains
+    // the sole spend gate.
+    //
+    // WP5-8 · spend gate (docs/seat-model.md): a discovery over stale/undiscovered
+    // cells prices > 0 and holds pooled credits, so THAT path is OWNER/ADMIN only
+    // (mirrors runEnrichAction, touch generation, polish + checkout). But a $0
+    // re-open of an already-mapped market (all cells fresh → no hold) is a free
+    // read — STAFF must stay able to re-open their team's mapped markets. So we
+    // gate PRECISELY on whether this authorized quote actually holds credits: the
+    // net is known here (authz "ok"), before the hold below. Keep the existing
+    // insufficient_credits/error shapes untouched.
+    if (result.netCredits > 0) {
+      const spender = await requireSpendMember(session.user.id);
+      if (!spender) return { status: "forbidden" };
     }
 
     // Reconstruct cell scope from the AUTHORIZED estimate (anti-tamper).

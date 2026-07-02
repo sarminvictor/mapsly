@@ -8,11 +8,13 @@
 // which was wasteful: detector input changes only when an INC is added
 // or a rule file lands, not every 5 min. Daily cadence is more than enough.
 
+import { verifyCronAuth } from "@/lib/auth/cron-secret";
 import { detectFromDisk } from "@/lib/process-enhancer/detect-patterns";
 
 export async function GET(req: Request) {
-  const auth = req.headers.get("authorization");
-  if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
+  // Preserve the existing shape: a plain-text 401 on any auth failure
+  // (including a missing CRON_SECRET, which the original compare also rejected).
+  if (!verifyCronAuth(req).ok) {
     return new Response("unauthorized", { status: 401 });
   }
 

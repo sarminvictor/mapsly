@@ -60,3 +60,24 @@ export function assertExposurePhrasing(text: string): string {
   }
   return text;
 }
+
+/**
+ * WP7-3 · lint the STATIC copy fields of a playbook signal — the strings that
+ * render on a SHARED artifact (the Proof Pack one-pager, the /s/[token] share
+ * page, the CSV `pitchAngle` column) BEFORE any detector runs. The dynamic
+ * `explanation` is already guarded at detect-time via `assertExposurePhrasing`,
+ * but a signal's `label` and `pitchAngle` are authored constants that ship on
+ * the artifact regardless of the detector — so they must pass the same
+ * constitution. Throws `ExposurePhrasingError` on the first banned phrase.
+ *
+ * Called by the registry-wide invariant test so a new detector whose headline
+ * copy asserts a violation can never merge.
+ */
+export function assertSignalCopy(signal: {
+  key: string;
+  label: string;
+  pitchAngle: string;
+}): void {
+  assertExposurePhrasing(signal.label);
+  assertExposurePhrasing(signal.pitchAngle);
+}

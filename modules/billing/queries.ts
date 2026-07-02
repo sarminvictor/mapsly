@@ -363,22 +363,36 @@ function asPlan(literal: string | null): Plan | null {
 }
 
 /**
- * Static plan → monthly price (cents). Source of truth per CLAUDE.md
- * (SMB $29; Agency Solo $49, Growth $99, Pro $249, Boutique $499). Used
- * for UI display only — Stripe's invoices are the dollar source of truth.
+ * Static plan → monthly price (cents). Used for UI DISPLAY only — Stripe's
+ * invoices are the dollar source of truth.
+ *
+ * WP1-12 · reconciled to the ADVERTISED prototype prices (the numbers the
+ * customer sees on the "Billing & credits" plan cards, PLAN_CARDS in
+ * modules/cost/pricing.ts) so the display price here matches the advertised
+ * card AND the grant lattice:
+ *
+ *   agency_solo     → Starter  $19   (SOLO,       900   credits)
+ *   agency_growth   → Growth   $99   (GROWTH,   6,000   credits)
+ *   agency_boutique → Scale    $299  (BOUTIQUE, 24,000  credits)
+ *
+ * agency_pro has NO advertised card (there's no "Pro" tier in the four
+ * prototype cards); it's a legacy/internal tier (AGENCY_PRO = 12,000 credits,
+ * 2× Growth) priced at $199, consistent with the credit lattice. This
+ * SUPERSEDES the older CLAUDE.md figures ($49/$99/$249/$499) per the
+ * MVP-10/10 tracker WP1-12 decision — sanity-check at review.
  */
 export function amountFromPlan(plan: Plan | null): number | null {
   switch (plan) {
     case "smb_paid":
       return 2900;
     case "agency_solo":
-      return 4900;
+      return 1900;
     case "agency_growth":
       return 9900;
     case "agency_pro":
-      return 24900;
+      return 19900;
     case "agency_boutique":
-      return 49900;
+      return 29900;
     case null:
     default:
       return null;

@@ -14,20 +14,24 @@ import {
 } from "../queries";
 
 describe("amountFromPlan", () => {
+  // WP1-12 · reconciled to the ADVERTISED prototype prices (Starter $19 / Growth
+  // $99 / Scale $299) so display price == advertised card == grant lattice.
+  // agency_pro has no card (legacy tier), priced $199 consistent with its 12,000
+  // credit grant (2× Growth).
   test("smb_paid → $29.00", () => {
     expect(amountFromPlan("smb_paid")).toBe(2900);
   });
-  test("agency_solo → $49.00", () => {
-    expect(amountFromPlan("agency_solo")).toBe(4900);
+  test("agency_solo → $19.00 (advertised Starter)", () => {
+    expect(amountFromPlan("agency_solo")).toBe(1900);
   });
   test("agency_growth → $99.00", () => {
     expect(amountFromPlan("agency_growth")).toBe(9900);
   });
-  test("agency_pro → $249.00", () => {
-    expect(amountFromPlan("agency_pro")).toBe(24900);
+  test("agency_pro → $199.00 (legacy tier, no card)", () => {
+    expect(amountFromPlan("agency_pro")).toBe(19900);
   });
-  test("agency_boutique → $499.00", () => {
-    expect(amountFromPlan("agency_boutique")).toBe(49900);
+  test("agency_boutique → $299.00 (advertised Scale)", () => {
+    expect(amountFromPlan("agency_boutique")).toBe(29900);
   });
   test("null plan → null amount", () => {
     expect(amountFromPlan(null)).toBeNull();

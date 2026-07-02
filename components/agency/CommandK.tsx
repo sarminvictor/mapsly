@@ -1,41 +1,42 @@
 "use client";
 
 /**
- * Agency global ⌘K quick-lookup (F.11) · client component.
+ * Agency global ⌘K command palette (WP4-7) · client component.
  *
- * Mounts a small trigger button in the agency portal header AND the
- * modal that opens on ⌘K / Ctrl+K. Type → debounced fetch → keyboard-
- * navigable results → Enter opens the prospect detail page.
+ * A real command palette, not just a business lookup:
+ *   - Empty / short query → JUMP commands (Get leads · My research · Billing ·
+ *     Settings) + the agency's RECENT researches.
+ *   - Typed query (≥ 2 chars) → business matches from /api/agency/search.
+ *   - Selecting a business deep-links to `/discover/[discoveryId]?lead=<id>`
+ *     when the business belongs to one of the agency's researches (the drawer
+ *     is URL-driven, so it opens straight on the evidence); otherwise it starts
+ *     the bare Discover flow.
  *
- * Per `.claude/rules/ui-ux-agency.md`:
- *   - Keyboard-first (⌘K opens · ↑/↓ moves · Enter selects · Esc closes)
- *   - Terse copy ("Search businesses…", not "Find a business to look up")
- *   - Indigo accent · Inter font · dense list
+ * Per `.claude/rules/ui-ux-agency.md`: keyboard-first (⌘K opens · ↑/↓ moves ·
+ * Enter selects · Esc closes), terse copy, indigo accent, dense list, and a
+ * `↑↓ ↵ esc` shortcut footer so Tom sees the mouse-free path.
  *
- * Per `.claude/rules/accessibility.md`:
- *   - role="dialog" + aria-modal="true" + labeled input
- *   - Visible focus ring · Escape closes · focus returns to trigger
- *   - aria-activedescendant for the highlighted result (works under VO)
+ * Per `.claude/rules/accessibility.md`: role="dialog" + aria-modal via Modal,
+ * combobox + listbox roles, aria-activedescendant on the active option.
  *
- * Per `.claude/rules/realtime-and-optimistic.md`, debounce the network
- * call (~150ms) so quick typing doesn't spam the API. The active query
- * token is captured in a ref so a slow earlier response can't overwrite
- * a faster later one (race-condition guard).
+ * Per `.claude/rules/realtime-and-optimistic.md`, the network call is debounced
+ * (~150ms) with a token race-guard so a slow earlier response can't overwrite a
+ * faster later one.
  *
- * Per `.claude/rules/i18n.md`, all strings come from
- * `agency.commandK.*` via `useTranslations`. Navigation uses the
- * locale-aware `useRouter` from `@/i18n/navigation` so `/prospect/:id`
- * routes to `/es/prospecto/:id` etc.
- *
- * Per `.claude/rules/conventions.md`, this is a leaf client component;
- * the agency layout (server) renders it once for the whole subtree.
+ * Existing lookup strings still come from `agency.commandK.*` via
+ * `useTranslations`; the new palette chrome (jump-command labels, section
+ * headers, footer) is English-only inline, matching the surrounding agency
+ * portal files (hardcoded English per the branch decision).
  */
 
 import * as React from "react";
 import { useTranslations } from "next-intl";
+import { useRouter as useRawRouter } from "next/navigation";
 
 import { useRouter } from "@/i18n/navigation";
 import { Modal } from "@/components/ui/Modal";
+import { Icon, type IconName } from "@/components/agency/Icon";
+import type { RecentResearchLink } from "@/modules/agency-portal/research/queries";
 import type {
   BusinessMatch,
   BusinessSearchResponse,
@@ -50,9 +51,29 @@ type FetchState =
   | { kind: "ready"; matches: BusinessMatch[] }
   | { kind: "error" };
 
-export function CommandK() {
+/** A selectable palette row — either a static command or a business match. */
+type PaletteItem =
+  | {
+      kind: "command";
+      id: string;
+      label: string;
+      icon: IconName;
+      run: () => void;
+    }
+  | { kind: "business"; id: string; match: BusinessMatch };
+
+export interface CommandKProps {
+  /** The agency's recent researches, resolved server-side (WP4-7). */
+  recentResearches?: RecentResearchLink[];
+}
+
+export function CommandK({ recentResearches = [] }: CommandKProps) {
   const t = useTranslations("agency.commandK");
   const router = useRouter();
+  // Recent-research hrefs are pre-built raw paths (buildResearchHref) that the
+  // typed i18n router can't accept — push them via the plain Next router. The
+  // href already carries the locale-neutral pathname the flow expects.
+  const rawRouter = useRawRouter();
 
   const [open, setOpen] = React.useState(false);
   const [query, setQuery] = React.useState("");
@@ -60,15 +81,9 @@ export function CommandK() {
   const [activeIdx, setActiveIdx] = React.useState(0);
   const triggerRef = React.useRef<HTMLButtonElement | null>(null);
   const inputRef = React.useRef<HTMLInputElement | null>(null);
-  // Token guarding against stale responses (slow earlier fetch races a
-  // newer one). We compare the captured token at resolve time against
-  // the latest token and discard if they don't match.
   const fetchTokenRef = React.useRef(0);
   const listboxId = React.useId();
 
-  // closeModal is the canonical "close + reset" path. Called from ⌘K
-  // toggle, Esc/onClose (Modal primitive), and select(). We do not use
-  // an effect-on-[open] reset (would violate react-hooks/set-state-in-effect).
   const closeModal = React.useCallback(() => {
     setOpen(false);
     setQuery("");
@@ -76,9 +91,6 @@ export function CommandK() {
     setActiveIdx(0);
   }, []);
 
-  // Sync ref so the empty-deps ⌘K listener can read current open without
-  // re-registering on every open/close transition. (Ref mutation MUST live
-  // in an effect, not in the render path — react-hooks/refs rule.)
   const openRef = React.useRef(open);
   React.useEffect(() => {
     openRef.current = open;
@@ -90,8 +102,6 @@ export function CommandK() {
       const isModK =
         (e.metaKey || e.ctrlKey) && (e.key === "k" || e.key === "K");
       if (!isModK) return;
-      // Don't fight the browser's built-in shortcuts (DevTools cmd+shift+K
-      // on Firefox sets shiftKey; we treat shifted variants as not-ours).
       if (e.shiftKey || e.altKey) return;
       e.preventDefault();
       if (openRef.current) {
@@ -105,32 +115,23 @@ export function CommandK() {
   }, [closeModal]);
 
   // ─── Focus the input when the modal opens ────────────────────────────
-  // Modal's own focus-first logic targets the first focusable, which is
-  // the input — but its setTimeout(0) can race with our state update on
-  // some renders, so we explicitly nudge the input on the next tick.
   React.useEffect(() => {
     if (!open) return;
     const tid = window.setTimeout(() => inputRef.current?.focus(), 10);
     return () => window.clearTimeout(tid);
   }, [open]);
 
-  // ─── Debounced fetch ─────────────────────────────────────────────────
+  // ─── Debounced fetch (only when the query is long enough) ────────────
   React.useEffect(() => {
     const trimmed = query.trim();
     const token = ++fetchTokenRef.current;
     if (trimmed.length < MIN_QUERY_LEN) {
-      // Defer setState out of the effect body to satisfy
-      // react-hooks/set-state-in-effect. setTimeout(0) is sufficient;
-      // the token check skips state update if a newer keystroke landed.
       const itid = window.setTimeout(() => {
         if (token === fetchTokenRef.current) setState({ kind: "idle" });
       }, 0);
       return () => window.clearTimeout(itid);
     }
-    // Loading state and fetch are both inside an async timeout, so they
-    // happen outside the effect body — satisfies the lint rule.
     const tid = window.setTimeout(async () => {
-      // Stale-token check first (a newer keystroke may have superseded us).
       if (token !== fetchTokenRef.current) return;
       setState({ kind: "loading" });
       try {
@@ -138,7 +139,6 @@ export function CommandK() {
           `/api/agency/search?q=${encodeURIComponent(trimmed)}`,
           { headers: { Accept: "application/json" } },
         );
-        // Discard stale responses (the user typed more since we fired).
         if (token !== fetchTokenRef.current) return;
         if (!res.ok) {
           setState({ kind: "error" });
@@ -156,45 +156,112 @@ export function CommandK() {
     return () => window.clearTimeout(tid);
   }, [query]);
 
-  // ─── Selection (Enter / click) ───────────────────────────────────────
-  // The supply-driven prospect-detail route was demolished in the
-  // demand-driven rework. Until the new per-business detail surface
-  // lands, selecting a result routes to Discover (the new entry point).
-  const select = React.useCallback(
-    (_match: BusinessMatch) => {
+  // ─── Selection ───────────────────────────────────────────────────────
+  // Deep-link a business to its containing research's workbench with the
+  // drawer pre-opened (?lead=<id>); fall back to the bare Discover flow when
+  // no research contains it yet (WP4-7).
+  const selectBusiness = React.useCallback(
+    (match: BusinessMatch) => {
       closeModal();
-      router.push({ pathname: "/discover" });
+      if (match.discoveryId) {
+        router.push({
+          pathname: "/discover/[discoveryId]",
+          params: { discoveryId: match.discoveryId },
+          query: { lead: match.id },
+        });
+      } else {
+        router.push({ pathname: "/discover" });
+      }
     },
     [router, closeModal],
   );
 
-  // ─── List keyboard navigation ────────────────────────────────────────
-  function onInputKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (state.kind !== "ready" || state.matches.length === 0) {
-      // Let Modal's keydown handler handle Esc/Tab.
-      return;
+  // ─── The command list (jump + recents), shown for empty/short queries ─
+  const commands = React.useMemo<PaletteItem[]>(() => {
+    const jump = (
+      id: string,
+      label: string,
+      icon: IconName,
+      go: () => void,
+    ): PaletteItem => ({
+      kind: "command",
+      id,
+      label,
+      icon,
+      run: () => {
+        closeModal();
+        go();
+      },
+    });
+    const items: PaletteItem[] = [
+      jump("jump-get-leads", "Get leads", "search", () =>
+        router.push({ pathname: "/discover" }),
+      ),
+      jump("jump-research", "My research", "coverage", () =>
+        router.push({ pathname: "/research" }),
+      ),
+      jump("jump-billing", "Billing", "link", () =>
+        router.push({ pathname: "/team/billing" }),
+      ),
+      jump("jump-settings", "Settings", "chevron-down", () =>
+        router.push({ pathname: "/agency-settings" }),
+      ),
+    ];
+    for (const r of recentResearches) {
+      items.push({
+        kind: "command",
+        id: `research-${r.id}`,
+        label: r.title,
+        icon: "clock",
+        run: () => {
+          closeModal();
+          rawRouter.push(r.href);
+        },
+      });
     }
+    return items;
+  }, [recentResearches, router, rawRouter, closeModal]);
+
+  // The currently visible, selectable rows — commands when idle, matches when
+  // a query resolved. Keyboard nav + Enter operate over this unified list.
+  const showingCommands = query.trim().length < MIN_QUERY_LEN;
+  const businessItems: PaletteItem[] =
+    state.kind === "ready"
+      ? state.matches.map((m) => ({ kind: "business", id: m.id, match: m }))
+      : [];
+  const items = showingCommands ? commands : businessItems;
+
+  const runItem = React.useCallback(
+    (item: PaletteItem | undefined) => {
+      if (!item) return;
+      if (item.kind === "command") item.run();
+      else selectBusiness(item.match);
+    },
+    [selectBusiness],
+  );
+
+  // ─── Keyboard navigation over the visible list ───────────────────────
+  function onInputKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (items.length === 0) return; // let Modal handle Esc/Tab
     if (e.key === "ArrowDown") {
       e.preventDefault();
-      setActiveIdx((i) => Math.min(state.matches.length - 1, i + 1));
+      setActiveIdx((i) => Math.min(items.length - 1, i + 1));
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
       setActiveIdx((i) => Math.max(0, i - 1));
     } else if (e.key === "Enter") {
       e.preventDefault();
-      const match = state.matches[activeIdx];
-      if (match) select(match);
+      runItem(items[activeIdx]);
     } else if (e.key === "Home") {
       e.preventDefault();
       setActiveIdx(0);
     } else if (e.key === "End") {
       e.preventDefault();
-      setActiveIdx(state.matches.length - 1);
+      setActiveIdx(items.length - 1);
     }
   }
 
-  const matches = state.kind === "ready" ? state.matches : [];
-  const hasResults = state.kind === "ready" && matches.length > 0;
+  const hasOptions = items.length > 0;
 
   return (
     <>
@@ -206,7 +273,7 @@ export function CommandK() {
         aria-label={t("triggerAriaLabel")}
         data-testid="agency-commandk-trigger"
       >
-        <span aria-hidden>🔎</span>
+        <Icon name="search" size={14} />
         <span className="kbtn-lbl">{t("trigger")}</span>
         <kbd>⌘K</kbd>
       </button>
@@ -241,13 +308,16 @@ export function CommandK() {
             autoComplete="off"
             spellCheck={false}
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setActiveIdx(0);
+            }}
             onKeyDown={onInputKeyDown}
             placeholder={t("placeholder")}
             aria-controls={listboxId}
-            aria-expanded={hasResults}
+            aria-expanded={hasOptions}
             aria-activedescendant={
-              hasResults ? `${listboxId}-opt-${activeIdx}` : undefined
+              hasOptions ? `${listboxId}-opt-${activeIdx}` : undefined
             }
             aria-autocomplete="list"
             role="combobox"
@@ -273,19 +343,166 @@ export function CommandK() {
             }}
           />
 
-          <ResultList
-            listboxId={listboxId}
-            state={state}
-            activeIdx={activeIdx}
-            onSelect={select}
-            onHover={setActiveIdx}
-            t={t}
-          />
+          {showingCommands ? (
+            <CommandList
+              listboxId={listboxId}
+              items={commands}
+              activeIdx={activeIdx}
+              onRun={runItem}
+              onHover={setActiveIdx}
+              hasRecent={recentResearches.length > 0}
+            />
+          ) : (
+            <ResultList
+              listboxId={listboxId}
+              state={state}
+              activeIdx={activeIdx}
+              onSelect={selectBusiness}
+              onHover={setActiveIdx}
+              t={t}
+            />
+          )}
+
+          {/* Keyboard footer — the mouse-free path Tom expects. */}
+          <div
+            style={{
+              display: "flex",
+              gap: 12,
+              paddingTop: 2,
+              fontSize: 11,
+              color: "var(--color-text-3)",
+            }}
+            aria-hidden="true"
+          >
+            <span className="ckhint">
+              <kbd>↑</kbd>
+              <kbd>↓</kbd> move
+            </span>
+            <span className="ckhint">
+              <kbd>↵</kbd> open
+            </span>
+            <span className="ckhint">
+              <kbd>esc</kbd> close
+            </span>
+          </div>
         </div>
       </Modal>
     </>
   );
 }
+
+// ─── Command list (jump + recents) ─────────────────────────────────────────
+
+interface CommandListProps {
+  listboxId: string;
+  items: PaletteItem[];
+  activeIdx: number;
+  onRun: (item: PaletteItem) => void;
+  onHover: (i: number) => void;
+  hasRecent: boolean;
+}
+
+function CommandList({
+  listboxId,
+  items,
+  activeIdx,
+  onRun,
+  onHover,
+  hasRecent,
+}: CommandListProps) {
+  return (
+    <ul
+      id={listboxId}
+      role="listbox"
+      aria-label="Commands"
+      style={{
+        listStyle: "none",
+        margin: 0,
+        padding: 0,
+        maxHeight: 360,
+        overflowY: "auto",
+        border: "1px solid var(--color-border)",
+        borderRadius: 10,
+        background: "var(--color-bg)",
+      }}
+    >
+      {items.map((item, i) => {
+        if (item.kind !== "command") return null;
+        const active = i === activeIdx;
+        // First recent research row gets a section header above it.
+        const firstRecent =
+          hasRecent && item.id === `research-${firstRecentId(items)}`;
+        return (
+          <React.Fragment key={item.id}>
+            {firstRecent ? (
+              <li
+                role="presentation"
+                style={{
+                  padding: "8px 12px 4px",
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 10,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.08em",
+                  color: "var(--color-text-3)",
+                }}
+              >
+                Recent research
+              </li>
+            ) : null}
+            <li
+              id={`${listboxId}-opt-${i}`}
+              role="option"
+              aria-selected={active}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                onRun(item);
+              }}
+              onMouseEnter={() => onHover(i)}
+              data-testid={`agency-commandk-cmd-${i}`}
+              style={{
+                cursor: "pointer",
+                padding: "9px 12px",
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                background: active ? "rgba(91,61,245,.10)" : "transparent",
+                color: "var(--color-text)",
+                fontFamily: "var(--font-sans)",
+                fontSize: 14,
+                fontWeight: 600,
+              }}
+            >
+              <Icon
+                name={item.icon}
+                size={15}
+                style={{ flex: "none", opacity: 0.7 }}
+              />
+              <span
+                style={{
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {item.label}
+              </span>
+            </li>
+          </React.Fragment>
+        );
+      })}
+    </ul>
+  );
+}
+
+/** The id of the first recent-research command (for the section header). */
+function firstRecentId(items: PaletteItem[]): string | null {
+  const first = items.find(
+    (it) => it.kind === "command" && it.id.startsWith("research-"),
+  );
+  return first ? first.id.slice("research-".length) : null;
+}
+
+// ─── Business result list ───────────────────────────────────────────────────
 
 interface ResultListProps {
   listboxId: string;
@@ -304,20 +521,6 @@ function ResultList({
   onHover,
   t,
 }: ResultListProps) {
-  if (state.kind === "idle") {
-    return (
-      <p
-        style={{
-          margin: 0,
-          padding: "8px 4px",
-          fontSize: 12,
-          color: "var(--color-text-3)",
-        }}
-      >
-        {t("hint")}
-      </p>
-    );
-  }
   if (state.kind === "loading") {
     return (
       <p
@@ -348,8 +551,7 @@ function ResultList({
       </p>
     );
   }
-  // ready
-  if (state.matches.length === 0) {
+  if (state.kind === "idle" || state.matches.length === 0) {
     return (
       <p
         style={{
@@ -393,7 +595,6 @@ function ResultList({
             role="option"
             aria-selected={active}
             onMouseDown={(e) => {
-              // Prevent the input from losing focus before we navigate.
               e.preventDefault();
               onSelect(m);
             }}

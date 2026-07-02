@@ -4,6 +4,7 @@ import { describe, expect, test } from "vitest";
 import {
   trackPct,
   typicalBand,
+  percentileFromBand,
   percentileTone,
   vsCellLabel,
   freshnessChip,
@@ -29,6 +30,27 @@ describe("typicalBand", () => {
     const b = typicalBand(25, 75, 0, 100);
     expect(b.startPct).toBe(25);
     expect(b.widthPct).toBe(50);
+  });
+});
+
+describe("percentileFromBand (WP5-11)", () => {
+  const band = { p10: 10, p25: 25, p50: 50, p75: 75, p90: 90 };
+
+  test("interpolates linearly through the quantile stops", () => {
+    expect(percentileFromBand(50, band)).toBe(50);
+    expect(percentileFromBand(25, band)).toBe(25);
+    expect(percentileFromBand(62.5, band)).toBe(63); // midway p50→p75
+  });
+
+  test("clamps outside the band — never a fake 0th/100th", () => {
+    expect(percentileFromBand(-100, band)).toBe(5);
+    expect(percentileFromBand(10_000, band)).toBe(95);
+  });
+
+  test("degenerate band (all quantiles equal) reads as typical", () => {
+    expect(
+      percentileFromBand(7, { p10: 3, p25: 3, p50: 3, p75: 3, p90: 3 }),
+    ).toBe(50);
   });
 });
 

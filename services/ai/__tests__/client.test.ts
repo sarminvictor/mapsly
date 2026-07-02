@@ -83,6 +83,7 @@ import {
   callOpenAi,
   __setApiKeyForTesting,
   __setFetchForTesting,
+  __setSleepForTesting,
 } from "../client";
 
 // Helper: build a minimal OK response from OpenAI shape.
@@ -125,11 +126,13 @@ function okResponse({
 beforeEach(() => {
   fakeDb.reset();
   __setApiKeyForTesting("test-key");
+  __setSleepForTesting(async () => undefined); // WP3-8 · no real backoff wait
 });
 
 afterEach(() => {
   __setFetchForTesting(null);
   __setApiKeyForTesting(null);
+  __setSleepForTesting(null);
 });
 
 describe("callOpenAi", () => {
@@ -172,6 +175,64 @@ describe("callOpenAi", () => {
     expect(result.usage.inputTokens).toBe(10);
     expect(result.usage.outputTokens).toBe(3);
     expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
+  // WP3-8 · retry on a 429 then succeed (matches the DfS adapter's resilience).
+  test("retries a 429 then succeeds", async () => {
+    let calls = 0;
+    const fetchMock = vi.fn<typeof fetch>(async () => {
+      calls += 1;
+      if (calls === 1) {
+        return new Response("rate limited", { status: 429 });
+      }
+      return okResponse({
+        content: "recovered",
+        promptTokens: 5,
+        completionTokens: 2,
+      });
+    });
+    __setFetchForTesting(fetchMock);
+
+    const result = await withCronRun("test-job", () =>
+      callOpenAi({
+        operation: "test",
+        model: "gpt-5.4-nano",
+        maxTokens: 64,
+        prompt: "hi",
+      }),
+    );
+    expect(result.text).toBe("recovered");
+    expect(fetchMock).toHaveBeenCalledTimes(2); // 429 then 200
+  });
+
+  // WP3-8 · retry on a timeout/network error (rejected fetch) then succeed.
+  test("retries a transport error (timeout) then succeeds", async () => {
+    let calls = 0;
+    const fetchMock = vi.fn<typeof fetch>(async () => {
+      calls += 1;
+      if (calls === 1) {
+        const err = new Error("The operation was aborted");
+        err.name = "TimeoutError";
+        throw err;
+      }
+      return okResponse({
+        content: "ok",
+        promptTokens: 1,
+        completionTokens: 1,
+      });
+    });
+    __setFetchForTesting(fetchMock);
+
+    const result = await withCronRun("test-job", () =>
+      callOpenAi({
+        operation: "test",
+        model: "gpt-5.4-nano",
+        maxTokens: 64,
+        prompt: "hi",
+      }),
+    );
+    expect(result.text).toBe("ok");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   test("posts JSON body with model + messages + max_tokens", async () => {

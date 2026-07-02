@@ -12,7 +12,7 @@ The original doc claims 4 subsystems are dead/faked. **3 of the 4 are now LIVE**
 ### ✅ Done & wired
 
 - **Credit spine** — `holdCredits`, `settleRun`/`refundHold` (`reconcileRunCredits`), `CostEstimate` authorize/consume (server re-quote), `AgencyWallet`+`CreditLedger`. _(doc said "dead" — wrong)_
-- **`EnrichmentJob` rows written + lifecycled** — `fanOutRun` createMany; 4 per-business families (contacts[+tech], services, reviews, ai_research) + 3 cell families inline (meta/google/serp). _(doc said "0 rows" — wrong)_
+- **`EnrichmentJob` rows written + lifecycled** — `fanOutRun` createMany; 4 per-business families (contacts[+tech], services, reviews, ai*research) + 3 cell families inline (meta/google/serp). *(doc said "0 rows" — wrong)\_
 - **Honest enriching progress** — `/api/agency/jobs` does a real `EnrichmentJob.groupBy(family,status)`. _(doc said "faked" — wrong)_
 - **Wallet pill live** — available = plan+purchased+rollover−held, polled; hold reflected in seconds.
 - **Cron drainer**, reachability gate, reviews state machine, discovery/cell freshness, the full new portal UI.

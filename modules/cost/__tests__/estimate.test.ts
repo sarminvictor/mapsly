@@ -9,7 +9,14 @@ import {
   gateFor,
   usdToCredits,
 } from "../estimate";
-import { CREDIT_USD, ENRICHMENT_PRICES } from "../pricing";
+import {
+  CREDIT_USD,
+  ENRICHMENT_PRICES,
+  PLAN_CARDS,
+  PLAN_CREDITS,
+  PLAN_TIER_MAP,
+  PLAN_CARD_ORDER,
+} from "../pricing";
 
 describe("price list (golden)", () => {
   test("unit costs are the agreed values", () => {
@@ -17,20 +24,66 @@ describe("price list (golden)", () => {
     // Live-verified DfS invoice charge ($0.00425, not the $0.0025 public page).
     expect(ENRICHMENT_PRICES.lighthouse.usdPerUnit).toBeCloseTo(0.00425, 6);
     expect(ENRICHMENT_PRICES.contacts.usdPerUnit).toBeCloseTo(0.008, 6);
-    expect(ENRICHMENT_PRICES.serp.usdPerUnit).toBeCloseTo(0.16, 6);
-    expect(ENRICHMENT_PRICES.google_ads.usdPerUnit).toBeCloseTo(0.052, 6);
+    // WP10-7 · re-derived from the real call graph (modules/cell-intel):
+    //  serp = serpLocalPack + serpOrganic + rankedKeywords×3 (MAX_RANKED_KEYWORD_BIZ),
+    //         = 0.002 + 0.002 + 0.013×3 = 0.043 (was ×12 = 0.16);
+    //  google_ads = adsAdvertisers + adsSearch×1 (one advertisers + one search call),
+    //         = 0.002 + 0.002 = 0.004 (was ×25 = 0.052).
+    expect(ENRICHMENT_PRICES.serp.usdPerUnit).toBeCloseTo(0.043, 6);
+    expect(ENRICHMENT_PRICES.google_ads.usdPerUnit).toBeCloseTo(0.004, 6);
     expect(ENRICHMENT_PRICES.meta_ads.usdPerUnit).toBeCloseTo(0.05, 6);
     expect(CREDIT_USD).toBe(0.05);
   });
 });
 
+describe("plan-credit parity (WP1-12)", () => {
+  // The one lattice: what the plan card ADVERTISES must equal what the grant
+  // engine GRANTS. A drift here is the pre-WP1 bug (card said 6,000, grant gave
+  // 1,600). Guards advertised == granted for every PAID display key.
+  test("every paid card's monthlyCredits === PLAN_CREDITS[PLAN_TIER_MAP[k]]", () => {
+    for (const key of PLAN_CARD_ORDER) {
+      const tier = PLAN_TIER_MAP[key];
+      if (tier === null) continue; // free tier has no enum home
+      expect(PLAN_CARDS[key].monthlyCredits).toBe(PLAN_CREDITS[tier]);
+    }
+  });
+
+  test("the reconciled lattice values are the advertised numbers", () => {
+    expect(PLAN_CARDS.starter.monthlyCredits).toBe(900);
+    expect(PLAN_CARDS.growth.monthlyCredits).toBe(6_000);
+    expect(PLAN_CARDS.scale.monthlyCredits).toBe(24_000);
+    expect(PLAN_CREDITS.SOLO).toBe(900);
+    expect(PLAN_CREDITS.GROWTH).toBe(6_000);
+    expect(PLAN_CREDITS.BOUTIQUE).toBe(24_000);
+  });
+
+  test("fullyEnriched headline is floor(credits / 3) for every card", () => {
+    for (const key of PLAN_CARD_ORDER) {
+      expect(PLAN_CARDS[key].fullyEnriched).toBe(
+        Math.floor(PLAN_CARDS[key].monthlyCredits / 3),
+      );
+    }
+  });
+});
+
 describe("gateFor", () => {
-  test("auto below $2, confirm at $2..$5, approval above $5", () => {
+  // WP1-11 (Viktor exception, 2026-07-01): the $5 approval gate is REMOVED.
+  // gateFor NEVER yields "approval" — $0 is "auto", any positive net is
+  // "confirm" (a self-serve click-through). Wallet balance is the only gate.
+  test("$0 → auto; any positive net → confirm; never approval", () => {
     expect(gateFor(0)).toBe("auto");
-    expect(gateFor(1.99)).toBe("auto");
+    expect(gateFor(0.01)).toBe("confirm");
+    expect(gateFor(1.99)).toBe("confirm");
     expect(gateFor(2)).toBe("confirm");
     expect(gateFor(5)).toBe("confirm");
-    expect(gateFor(5.01)).toBe("approval");
+    expect(gateFor(5.01)).toBe("confirm");
+    expect(gateFor(1000)).toBe("confirm");
+  });
+
+  test("no net-USD value ever maps to the removed 'approval' gate", () => {
+    for (const net of [0, 0.01, 1, 2, 4.99, 5, 5.01, 50, 500]) {
+      expect(gateFor(net)).not.toBe("approval");
+    }
   });
 });
 
@@ -61,10 +114,10 @@ describe("estimateRun", () => {
     expect(r.upperBoundUsd).toBeCloseTo(2.7, 4); // 100 × 0.008 × 3.375
     expect(r.netCredits).toBe(16); // ceil(0.8 / 0.05)
     expect(r.confidence).toBe("bounded");
-    expect(r.gate).toBe("auto");
+    expect(r.gate).toBe("confirm"); // WP1-11: any positive net → confirm
   });
 
-  test("lighthouse ×100 with 20 fresh → fresh saves $0.085, exact", () => {
+  test("lighthouse ×100 with 20 fresh → fresh saves $0.085; walled upper bound (WP10-7)", () => {
     const r = estimateRun({
       lines: [{ enrichment: "lighthouse", total: 100, fresh: 20 }],
     });
@@ -73,32 +126,39 @@ describe("estimateRun", () => {
     expect(line.grossUsd).toBeCloseTo(0.425, 4);
     expect(line.freshHitUsd).toBeCloseTo(0.085, 4);
     expect(r.netUsd).toBeCloseTo(0.34, 4);
-    expect(r.upperBoundUsd).toBeCloseTo(0.34, 4); // fixed cost
-    expect(r.netCredits).toBe(7);
-    expect(r.confidence).toBe("exact");
-    expect(r.gate).toBe("auto");
+    // WP10-7 · lighthouse upperMultiplier is now 14.117647 (0.06 walled /
+    // 0.00425 open), so the upper bound reflects a cell of Cloudflare-walled
+    // sites honestly: 80 billable × 0.00425 × 14.117647 = 0.34 × 14.117647 = 4.80.
+    expect(r.upperBoundUsd).toBeCloseTo(4.8, 4);
+    expect(r.netCredits).toBe(7); // still ceil(0.34/0.05) — settle bills open cost
+    // Confidence is now "bounded" (lighthouse has upperMultiplier > 1 · a
+    // billable walled audit can cost up to ~14× the open quote).
+    expect(r.confidence).toBe("bounded");
+    expect(r.gate).toBe("confirm"); // WP1-11: any positive net → confirm
   });
 
-  test("reviews ×500 → $7.50, approval gate, bounded", () => {
+  test("reviews ×500 → $7.50, confirm gate (no approval), bounded", () => {
     const r = estimateRun({ lines: [{ enrichment: "reviews", total: 500 }] });
     expect(r.netUsd).toBeCloseTo(7.5, 4);
     expect(r.netCredits).toBe(150);
-    expect(r.gate).toBe("approval");
+    // WP1-11: a $7.50 run no longer needs approval — wallet balance is the gate.
+    expect(r.gate).toBe("confirm");
     expect(r.confidence).toBe("bounded");
   });
 
   test("combined run → confirm gate, deduped freshness", () => {
     const r = estimateRun({
       lines: [
-        { enrichment: "lighthouse", total: 100, fresh: 20 }, // net 0.34
-        { enrichment: "serp", total: 9 }, // net 1.44
-        { enrichment: "reviews", total: 50, fresh: 10 }, // net 0.60
+        { enrichment: "lighthouse", total: 100, fresh: 20 }, // net 80×0.00425 = 0.34
+        { enrichment: "serp", total: 9 }, // WP10-7 · net 9×0.043 = 0.387
+        { enrichment: "reviews", total: 50, fresh: 10 }, // net 40×0.015 = 0.60
       ],
     });
-    expect(r.netUsd).toBeCloseTo(2.38, 4);
+    // WP10-7 · serp is now $0.043/unit (was $0.16): 0.34 + 0.387 + 0.60 = 1.327.
+    expect(r.netUsd).toBeCloseTo(1.327, 4);
     expect(r.gate).toBe("confirm");
-    expect(r.confidence).toBe("bounded"); // reviews is variable
-    expect(r.netCredits).toBe(48); // ceil(2.38/0.05)
+    expect(r.confidence).toBe("bounded"); // reviews + lighthouse are variable
+    expect(r.netCredits).toBe(27); // ceil(1.327/0.05)
   });
 
   test("all fresh → net $0 but freshHit shows the saving", () => {

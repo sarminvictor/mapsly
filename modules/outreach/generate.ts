@@ -21,7 +21,7 @@
 
 import prisma from "@/lib/prisma";
 
-import { type TouchSignals } from "./first-touch";
+import { type TouchSignals, type TouchTone } from "./first-touch";
 import { buildChannelTouch, type OutreachChannel } from "./channels";
 
 /** The channel the action exposes (UI selector). Mapped to the renderer's
@@ -39,6 +39,21 @@ function toOutreachChannel(c: GenerateChannel): OutreachChannel {
     default:
       return "social_dm";
   }
+}
+
+/**
+ * Normalize a business country to an uppercase ISO-ish 2-letter code (US / CA).
+ * DfS + our gazetteer store "US"/"CA"; guard against a full name or lowercase.
+ * Null when we genuinely don't know (footer then defaults to CAN-SPAM — the
+ * strictest-safe choice for a US-majority index; CA is the branch that requires
+ * the extra CASL framing, so unknown must NOT silently pick CASL).
+ */
+function normalizeCountry(raw: string | null): string | null {
+  if (!raw) return null;
+  const s = raw.trim().toUpperCase();
+  if (s === "US" || s === "USA" || s === "UNITED STATES") return "US";
+  if (s === "CA" || s === "CAN" || s === "CANADA") return "CA";
+  return s.slice(0, 2) || null;
 }
 
 /** Map of category → customer noun (mirrors modules/cold/signals.ts). */
@@ -98,6 +113,8 @@ export async function gatherTouchSignals(
       id: true,
       name: true,
       city: true,
+      country: true,
+      email: true,
       category: true,
       snapshots: {
         take: 1,
@@ -156,6 +173,10 @@ export async function gatherTouchSignals(
   return {
     businessName: biz.name,
     city: biz.city,
+    // WP7-4 · country drives the CASL-vs-CAN-SPAM footer branch. Normalized to
+    // an uppercase 2-letter code; null when unknown (defaults to CAN-SPAM).
+    country: normalizeCountry(biz.country),
+    recipientEmail: biz.email ?? null,
     noun: nounFor(biz.category),
     unansweredNegative: unansweredNegative > 0 ? unansweredNegative : null,
     reviewLifecycle: lifecycleOf(snap?.reviewLifecycle),
@@ -174,16 +195,37 @@ export async function gatherTouchSignals(
   };
 }
 
+/** Hard cap on sequence length (WP5-10). */
+export const MAX_SEQUENCE_LENGTH = 3;
+
 /** Options for a batch generation run. */
 export interface GenerateTouchesOptions {
   /** What the agency is selling (appears in the opener). */
   sellingWhat: string;
   channel: GenerateChannel;
-  /** Required for email per CAN-SPAM (physical address). */
+  /**
+   * Owning agency — REQUIRED (WP0-1 / WP5 draft security). Every created
+   * OutreachDraft is stamped with this so reads/mutations can filter by
+   * agencyId instead of the legacy shared-cellKey walk.
+   */
+  agencyId: string;
+  /** Required for email per CAN-SPAM / CASL (physical address). */
   mailingAddress?: string | null;
   unsubscribeUrl?: string | null;
+  /** WP7-4 · sending agency name — CASL sender-ID footer line (CA recipients). */
+  senderName?: string | null;
   /** Associate the drafts with a campaign (optional). */
   campaignId?: string | null;
+  /** Voice variant (WP5-1). Defaults to "direct". */
+  tone?: TouchTone;
+  /**
+   * Steps per business (1–3, WP5-10). Each step is its own OutreachDraft with
+   * `whyJson.sequenceStep`/`sequenceOf` (no schema step column — documented in
+   * TouchpointsTab). Pain themes never repeat across a business's steps.
+   */
+  sequenceLength?: number;
+  /** Restrict pain themes to these keys (WP5-1 pain multipicker). */
+  painPointKeys?: readonly string[];
 }
 
 /** One generated draft pointer. */
@@ -206,43 +248,103 @@ export async function generateTouchesForLeads(
 ): Promise<GeneratedTouch[]> {
   const out: GeneratedTouch[] = [];
   const channel = toOutreachChannel(opts.channel);
+  const sequenceOf = Math.min(
+    Math.max(1, Math.trunc(opts.sequenceLength ?? 1)),
+    MAX_SEQUENCE_LENGTH,
+  );
 
   for (const businessId of businessIds) {
-    let touch: ReturnType<typeof buildChannelTouch>;
+    // Gather ONCE per business, then build every step from the same grounded
+    // signals. Theme dedup (WP5-10): each step excludes the pain keys earlier
+    // steps used, so a 3-touch sequence never repeats itself.
+    let signals: TouchSignals;
     try {
-      const signals = await gatherTouchSignals(businessId);
-      // Channel-aware: email → full skeleton + CAN-SPAM footer; phone → call
-      // script; social/dm → short DM. (Was buildFirstTouch — phone/social
-      // rendered as an email.)
-      touch = buildChannelTouch(signals, {
-        channel,
-        sellingWhat: opts.sellingWhat,
-        mailingAddress: opts.mailingAddress ?? null,
-        unsubscribeUrl: opts.unsubscribeUrl ?? null,
-      });
+      signals = await gatherTouchSignals(businessId);
     } catch {
-      // Ungroundable / unbuildable prospect → skip (never ship a bad touch).
+      // Ungroundable prospect → skip (never ship a bad touch).
       continue;
     }
 
-    const draft = await prisma.outreachDraft.create({
-      data: {
-        businessId,
-        campaignId: opts.campaignId ?? null,
-        channel,
-        subject: touch.subject ?? null,
-        body: touch.body,
-        whyJson: {
-          why: touch.why,
-          usedSignals: touch.usedSignals,
-          droppedTokens: touch.droppedTokens,
+    const usedPainKeys: string[] = [];
+    for (let step = 1; step <= sequenceOf; step += 1) {
+      let touch: ReturnType<typeof buildChannelTouch>;
+      try {
+        // Channel-aware: email → full skeleton + CAN-SPAM footer; phone →
+        // call script; social/dm → short DM.
+        touch = buildChannelTouch(signals, {
+          channel,
+          sellingWhat: opts.sellingWhat,
+          mailingAddress: opts.mailingAddress ?? null,
+          unsubscribeUrl: opts.unsubscribeUrl ?? null,
+          senderName: opts.senderName ?? null,
+          tone: opts.tone,
+          allowedPainKeys: opts.painPointKeys,
+          excludePainKeys: usedPainKeys,
+          sequenceStep: step,
+          // WP6-15 · seed the per-agency pain-order rotation so two agencies
+          // pitching the same lead don't send verbatim-identical openers.
+          agencySeed: opts.agencyId,
+        });
+      } catch {
+        // Unbuildable (e.g. email with no CAN-SPAM address) → skip the whole
+        // business; a partial sequence is worse than none.
+        break;
+      }
+
+      const draft = await prisma.outreachDraft.create({
+        data: {
+          businessId,
+          agencyId: opts.agencyId,
+          campaignId: opts.campaignId ?? null,
+          channel,
+          subject: touch.subject ?? null,
+          body: touch.body,
+          whyJson: {
+            why: touch.why,
+            usedSignals: touch.usedSignals,
+            droppedTokens: touch.droppedTokens,
+            // WP5-10 · step encoded in whyJson (OutreachDraft has no ordinal
+            // column; this avoids a schema change — see TouchpointsTab).
+            sequenceStep: step,
+            sequenceOf,
+            tone: opts.tone ?? "direct",
+            // Stored so regenerateTouchesAction can rebuild the opener
+            // without re-asking what the agency sells.
+            sellingWhat: opts.sellingWhat,
+          },
+          predictedTier: touch.predictedTier,
+          status: "draft",
         },
-        predictedTier: touch.predictedTier,
-        status: "draft",
-      },
-      select: { id: true },
-    });
-    out.push({ businessId, draftId: draft.id });
+        select: { id: true },
+      });
+      out.push({ businessId, draftId: draft.id });
+      usedPainKeys.push(...touch.usedSignals);
+
+      // WP7-4 · record the consent BASIS this email touch relies on. Cold
+      // outreach to a publicly-listed business email rests on the CASL
+      // "conspicuous publication" exemption (s.10(9)(b)) / the CAN-SPAM opt-out
+      // model — we log it per (email, business) so the basis is auditable. Only
+      // for the email channel + when we have an address; best-effort (a consent
+      // log write must never fail the generation batch). Idempotent-ish: one
+      // row per generation is fine (capturedAt tracks recency).
+      if (channel === "email" && signals.recipientEmail) {
+        try {
+          await prisma.consentRecord.create({
+            data: {
+              email: signals.recipientEmail.toLowerCase(),
+              businessId,
+              basis: "CONSPICUOUS_PUBLICATION",
+              country: signals.country ?? "US",
+              relevanceNote:
+                `Publicly-listed ${signals.noun ?? "business"} contact; ` +
+                `message relates to their online presence (${opts.sellingWhat}).`,
+            },
+          });
+        } catch {
+          // Consent logging is best-effort — never block a generated draft.
+        }
+      }
+    }
   }
 
   return out;

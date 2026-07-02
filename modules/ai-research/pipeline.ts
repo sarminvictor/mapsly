@@ -29,6 +29,7 @@ import { z } from "zod";
 import prisma, { Prisma } from "@/lib/prisma";
 import { callOpenAi } from "@/services/ai/client";
 import type { SupportedModel } from "@/services/ai/pricing";
+import { wrapUntrusted } from "@/services/ai/untrusted";
 
 export const AI_RESEARCH_MODEL: SupportedModel = "gpt-5.4-nano";
 
@@ -184,12 +185,19 @@ function commonContext(f: AiResearchFacts): string {
 
 function buildPrompt(stage: StageId, f: AiResearchFacts): string {
   const ctx = commonContext(f);
+  // WP8-5 · siteText is scraped from the business's own website — UNTRUSTED.
+  // Fence it so an adversarial page can't inject instructions into the prompt.
+  // The empty case stays a well-formed (empty) fence so the model still knows
+  // "no site text was available" without a special-cased branch.
+  const site = f.siteText
+    ? wrapUntrusted(f.siteText, "Website text")
+    : "Site text: (none)";
   switch (stage) {
     case "ER-1":
       return `${JSON_ONLY}
 Classify this local business.
 ${ctx}
-Site text: ${f.siteText || "(none)"}
+${site}
 
 Schema: { "subType": string, "sophistication": "low"|"medium"|"high" }
 - subType: a precise sub-category within "${f.category}" (e.g. "injectables-focused med spa", "full-service auto body").
@@ -198,7 +206,7 @@ Schema: { "subType": string, "sophistication": "low"|"medium"|"high" }
       return `${JSON_ONLY}
 Assess positioning + pricing transparency.
 ${ctx}
-Site text: ${f.siteText || "(none)"}
+${site}
 
 Schema: { "pricingTransparency": "transparent"|"opaque"|"unknown", "positioningSummary": string }
 - pricingTransparency: "transparent" if prices/ranges are stated, "opaque" if hidden behind "call us", "unknown" if no signal.
@@ -207,7 +215,7 @@ Schema: { "pricingTransparency": "transparent"|"opaque"|"unknown", "positioningS
       return `${JSON_ONLY}
 List regulatory / compliance cues relevant to this category.
 ${ctx}
-Site text: ${f.siteText || "(none)"}
+${site}
 
 Schema: { "complianceCues": string[] }
 - Short tags only (e.g. "medical-director-required", "state-license", "HIPAA", "no-disclaimer-shown"). Empty if none apply. Do not invent.`;
@@ -215,7 +223,7 @@ Schema: { "complianceCues": string[] }
       return `${JSON_ONLY}
 Hypothesize this business's likely marketing pain points (for outreach).
 ${ctx}
-Site text: ${f.siteText || "(none)"}
+${site}
 
 Schema: { "painHypotheses": string[] }
 - Each is a short, concrete hypothesis grounded in the facts (≤ 20 words). 0–6 items. Do not invent facts.`;

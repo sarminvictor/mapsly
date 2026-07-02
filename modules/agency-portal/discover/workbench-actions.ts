@@ -8,9 +8,10 @@
  * (`.claude/rules/cost-discipline.md`). They mirror the result-union style of the
  * other discovery actions (ok / unauthorized / forbidden / invalid_input / error).
  *
- * OutreachDraft has no direct `agencyId`, so we scope through the agency's
- * discoveries → cellKeys → the business the draft belongs to: a draft is
- * mutable only when its business sits in a cell this agency actually discovered.
+ * Agency scope (WP5, finishing WP0-1): a stamped draft is mutable iff its
+ * `agencyId` matches the caller's agency (one comparison); a legacy
+ * null-agencyId row falls back to the pre-WP5 cellKey walk and is backfilled
+ * on success (adopt-on-write) — see modules/outreach/draft-scope.ts.
  *
  *   - saveTouchBodyAction · persist an in-place edit of a draft body (+ subject).
  *   - setTouchSentAction · flip a draft's status between "draft" and "sent".
@@ -20,6 +21,7 @@ import { z } from "zod";
 
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { canAgencyMutateDraft } from "@/modules/outreach/draft-scope";
 
 // ── Input schemas ─────────────────────────────────────────────────────────
 
@@ -50,8 +52,10 @@ export type TouchActionResult =
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
 /**
- * Confirm the caller's agency may mutate this draft: the draft's business must
- * sit in one of the agency's discovered cells. Returns true when permitted.
+ * Confirm the caller's agency may mutate this draft. Stamped drafts compare
+ * `agencyId` directly (replaces the 4-query cellKey walk); legacy null rows
+ * take the cellKey fallback + adopt-on-write backfill inside
+ * canAgencyMutateDraft. Returns true when permitted.
  */
 async function callerOwnsDraft(
   userId: string,
@@ -65,23 +69,11 @@ async function callerOwnsDraft(
 
   const draft = await prisma.outreachDraft.findUnique({
     where: { id: draftId },
-    select: { businessId: true },
+    select: { id: true, agencyId: true, businessId: true },
   });
   if (!draft) return false;
 
-  const business = await prisma.business.findUnique({
-    where: { id: draft.businessId },
-    select: { cellKey: true },
-  });
-  const cellKey = business?.cellKey;
-  if (!cellKey) return false;
-
-  const discoveries = await prisma.discovery.findMany({
-    where: { agencyId: member.agencyId },
-    select: { cellKeys: true },
-  });
-  const cells = new Set(discoveries.flatMap((d) => d.cellKeys));
-  return cells.has(cellKey);
+  return canAgencyMutateDraft(member.agencyId, draft);
 }
 
 // ── saveTouchBodyAction ───────────────────────────────────────────────────────

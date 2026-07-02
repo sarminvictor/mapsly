@@ -71,13 +71,60 @@ export function normalizeWebsiteToken(raw: string): string {
 }
 
 /**
+ * Map each of `cellKeys` → the agency's most-recent ACTIVE discovery whose
+ * `cellKeys` array contains it (WP4-7). One bounded findMany over the agency's
+ * own discoveries — no cross-agency leakage. Newer discoveries win (a business
+ * re-researched in a fresh run deep-links to the latest research). Returns an
+ * empty map when there's no agency, no cells, or nothing matches.
+ */
+async function resolveDiscoveryByCell(
+  agencyId: string | undefined,
+  cellKeys: (string | null)[],
+): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  if (!agencyId) return out;
+  const wanted = Array.from(
+    new Set(cellKeys.filter((k): k is string => Boolean(k))),
+  );
+  if (wanted.length === 0) return out;
+
+  // Oldest → newest so the newest write wins the map slot for a shared cell.
+  const discoveries = await prisma.discovery.findMany({
+    where: {
+      agencyId,
+      researchStatus: "ACTIVE",
+      cellKeys: { hasSome: wanted },
+    },
+    select: { id: true, cellKeys: true },
+    orderBy: { createdAt: "asc" },
+    take: 200,
+  });
+
+  for (const d of discoveries) {
+    for (const k of d.cellKeys) {
+      if (wanted.includes(k)) out.set(k, d.id);
+    }
+  }
+  return out;
+}
+
+/**
  * Fuzzy search across the Business index. See module header for the
  * design contract.
  *
  * Returns an empty array (not null, not thrown) for queries below the
  * minimum length — keeps the route handler dumb.
+ *
+ * When `agencyId` is supplied, each match is annotated with the agency's
+ * most-recent ACTIVE discovery whose cells contain the business (WP4-7 · the
+ * ⌘K deep-link). The lookup is one extra bounded query over the agency's own
+ * discoveries — agency-scoped, so a business is never linked to another
+ * agency's research.
  */
-export async function searchBusinesses(q: string): Promise<BusinessMatch[]> {
+export async function searchBusinesses(
+  q: string,
+  agencyId?: string,
+): Promise<BusinessMatch[]> {
   const trimmed = (q ?? "").trim();
   if (trimmed.length < 2) return [];
   // Mirror the route-handler Zod cap defensively — never burn a long
@@ -106,6 +153,8 @@ export async function searchBusinesses(q: string): Promise<BusinessMatch[]> {
         city: true,
         category: true,
         website: true,
+        // WP4-7 · the cell a business lives in decides which discovery contains it.
+        cellKey: true,
       },
       orderBy: [
         // Review count desc · "active operations" proxy. NULLs sort
@@ -116,7 +165,16 @@ export async function searchBusinesses(q: string): Promise<BusinessMatch[]> {
       ],
       take: MAX_MATCHES,
     });
-    return rows;
+
+    const discoveryByCell = await resolveDiscoveryByCell(
+      agencyId,
+      rows.map((r) => r.cellKey),
+    );
+
+    return rows.map(({ cellKey, ...rest }) => ({
+      ...rest,
+      discoveryId: cellKey ? (discoveryByCell.get(cellKey) ?? null) : null,
+    }));
   } catch (err) {
     // Degrade to "no matches" rather than 500 — the picker shows the
     // empty state, the user retypes, Sentry captures the cause.

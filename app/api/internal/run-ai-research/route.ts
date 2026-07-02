@@ -17,6 +17,7 @@
 
 import { z } from "zod";
 
+import { verifyCronAuth } from "@/lib/auth/cron-secret";
 import { withCronRun } from "@/lib/cost/cost-counter";
 import prisma from "@/lib/prisma";
 import { runAiResearchForBusiness } from "@/modules/ai-research/pipeline";
@@ -56,8 +57,9 @@ async function pickBatch(limit: number): Promise<string[]> {
 }
 
 export async function POST(request: Request): Promise<Response> {
-  const auth = request.headers.get("authorization");
-  if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
+  // Preserve the existing shape: 401 on any auth failure (including a missing
+  // CRON_SECRET, which the original `Bearer undefined` compare also rejected).
+  if (!verifyCronAuth(request).ok) {
     return Response.json({ error: "unauthorized" }, { status: 401 });
   }
 

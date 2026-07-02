@@ -126,15 +126,27 @@ async function BusinessDetailBody({ params }: PageProps) {
 
   return (
     <div className="mx-auto max-w-5xl p-6">
-      <Link
-        href={{
-          pathname: "/discover/[discoveryId]",
-          params: { discoveryId },
-        }}
-        className="font-mono text-xs text-indigo-600 hover:text-indigo-700"
-      >
-        ← Research overview
-      </Link>
+      <div className="flex items-center justify-between gap-3">
+        <Link
+          href={{
+            pathname: "/discover/[discoveryId]",
+            params: { discoveryId },
+          }}
+          className="font-mono text-xs text-indigo-600 hover:text-indigo-700"
+        >
+          ← Research overview
+        </Link>
+        {/* WP5-5 · the client-ready print artifact over this same payload. */}
+        <Link
+          href={{
+            pathname: "/discover/[discoveryId]/business/[businessId]/report",
+            params: { discoveryId, businessId },
+          }}
+          className="font-mono text-xs text-indigo-600 hover:text-indigo-700"
+        >
+          Proof Pack →
+        </Link>
+      </div>
 
       {/* Header */}
       <header className="mt-2 mb-6">
