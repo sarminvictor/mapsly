@@ -12,7 +12,7 @@ The item's own qualifier is "Standard **where latency allows**." For cell intel,
 - **Cell intel runs on the interactive demand path.** `serp`/`google_ads`/`meta_ads`
   collectors run inside `fanOutRun` the moment a user requests a research; the user is
   actively waiting for their market to map.
-- **The DfS Standard queue is cheaper *because* it's slow (~45-min SLA).** On Standard,
+- **The DfS Standard queue is cheaper _because_ it's slow (~45-min SLA).** On Standard,
   the market bands wouldn't appear for up to ~45 minutes during a live research.
   **Users won't wait 40 minutes** — they abandon. The snappy Live market view is worth
   the cost.
@@ -25,7 +25,7 @@ on repeat." **That was wrong, and the code proves it:**
 - **There is no auto-refresh.** `ads-meta` / `ads-intelligence` / `cell-aggregate` are
   **not scheduled** in `vercel.json`. Cell intel runs **only** on user demand.
 - `freshnessDays: 30` is a **dedup** window (same cell re-requested within 30 days →
-  $0), **not** an update cycle. In a prospecting tool where agencies explore *new*
+  $0), **not** an update cycle. In a prospecting tool where agencies explore _new_
   markets, that dedup rarely fires — so most demand pays full Live price.
 
 So keeping Live is **not** because "it's basically free" — it's because **cell intel is
@@ -37,7 +37,7 @@ interactive and Standard's latency is unacceptable there.**
 DfS-Standard candidate at all). Only `serp` is a meaningfully-priced DfS-Standard
 candidate; keeping it Live accepts ~$0.043/serp-cell for an instant market view. If a
 future **background** market-refresh path is ever added (a cron re-pull NOT on the
-interactive path), *that* path would be the right place to use Standard. The seam below
+interactive path), _that_ path would be the right place to use Standard. The seam below
 is kept for that hypothetical only.
 
 ## The ask (tracker WP10-8, original)
