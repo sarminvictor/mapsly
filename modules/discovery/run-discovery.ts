@@ -32,7 +32,10 @@ import { mapsSearch } from "@/services/dataforseo";
 
 import { trackProductEvent } from "@/lib/analytics/product-events";
 
-import { decideDiscoveryPlan } from "./freshness-decision";
+import {
+  decideDiscoveryPlan,
+  effectiveLastDiscoveredAt,
+} from "./freshness-decision";
 import { extractOpenStatus, type OpenStatus } from "./open-status";
 
 /** One cell the caller wants discovered. */
@@ -299,12 +302,21 @@ async function runOneCell(
       now,
     });
 
-    // Decide fresh-vs-refetch for this single cell.
+    // Count first: a fresh anchor with 0 businesses behind it is stale/orphaned
+    // and must re-fetch, not serve an empty market. effectiveLastDiscoveredAt
+    // folds that rule into the freshness input (shared with the preflight), so
+    // a SERVED_FROM_DB decision here is always backed by real rows.
+    const existingCount = await prisma.business.count({
+      where: { cellKey: key },
+    });
     const plan = decideDiscoveryPlan(
       [
         {
           cellKey: key,
-          lastDiscoveredAt: tracked.lastDiscoveredAt,
+          lastDiscoveredAt: effectiveLastDiscoveredAt(
+            tracked.lastDiscoveredAt,
+            existingCount,
+          ),
           expectedListings: tracked.lastTotalAvailable ?? limit,
         },
       ],
@@ -313,7 +325,6 @@ async function runOneCell(
     const decision = plan.cells[0];
 
     if (decision.outcome === "SERVED_FROM_DB") {
-      const count = await prisma.business.count({ where: { cellKey: key } });
       await prisma.discoveryCell.upsert({
         where: {
           discoveryId_trackedLocationId: {
@@ -326,21 +337,21 @@ async function runOneCell(
           trackedLocationId: tracked.id,
           cellKey: key,
           outcome: "SERVED_FROM_DB",
-          businessCount: count,
+          businessCount: existingCount,
           dfsCostUsd: 0,
         },
-        update: { outcome: "SERVED_FROM_DB", businessCount: count },
+        update: { outcome: "SERVED_FROM_DB", businessCount: existingCount },
       });
       return {
         summary: {
           cellKey: key,
           trackedLocationId: tracked.id,
           outcome: "SERVED_FROM_DB",
-          businessCount: count,
+          businessCount: existingCount,
           dfsCostUsd: 0,
           errorMessage: null,
         },
-        businessCountForTotal: count,
+        businessCountForTotal: existingCount,
         costUsd: 0,
         isFresh: true,
         isRefetch: false,
@@ -348,7 +359,8 @@ async function runOneCell(
       };
     }
 
-    // REFETCH path · the only external call, inside a CronRun.
+    // REFETCH path · the only external call, inside a CronRun. Reached for
+    // stale/never cells AND for a fresh-but-empty anchor (existingCount === 0).
     isRefetch = true;
     const fetchResult = await refetchCell({
       cell,

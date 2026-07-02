@@ -40,7 +40,10 @@ import {
   grantFreeTierIfNew,
   WalletError,
 } from "@/modules/cost/server";
-import { decideDiscoveryPlan } from "@/modules/discovery/freshness-decision";
+import {
+  decideDiscoveryPlan,
+  effectiveLastDiscoveredAt,
+} from "@/modules/discovery/freshness-decision";
 import { discoveryIdempotencyKey } from "@/modules/discovery/run-discovery";
 import { kickDispatch } from "@/modules/enrichment/kick-dispatch";
 import { requireSpendMember } from "@/modules/agency-portal/roles";
@@ -385,9 +388,20 @@ export async function preflightDiscoveryAction(
               select: { lastDiscoveredAt: true, lastTotalAvailable: true },
             })
           : null;
+        // A "fresh" anchor with ZERO businesses behind it is stale/orphaned
+        // (businesses deleted, TrackedLocation survived). effectiveLastDiscoveredAt
+        // treats it as never-discovered so the plan prices + schedules a REAL
+        // refetch instead of a $0 "served from DB" of an empty cell — matching
+        // runOneCell and buildPreview's neverDiscovered.
+        const bizCount = await prisma.business.count({
+          where: { cellKey: cellKeys[i] },
+        });
         return {
           cellKey: cellKeys[i],
-          lastDiscoveredAt: tracked?.lastDiscoveredAt ?? null,
+          lastDiscoveredAt: effectiveLastDiscoveredAt(
+            tracked?.lastDiscoveredAt ?? null,
+            bizCount,
+          ),
           expectedListings:
             tracked?.lastTotalAvailable ??
             parsed.data.limitPerCell ??

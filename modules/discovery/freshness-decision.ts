@@ -67,3 +67,23 @@ export function decideDiscoveryPlan(
     estimate,
   };
 }
+
+/**
+ * Freshness of a cell's anchor, corrected for what's actually in the DB.
+ *
+ * A `lastDiscoveredAt` within the freshness window normally means "serve from
+ * the DB, $0". But a fresh anchor with ZERO businesses behind it is
+ * stale/orphaned — the cell's businesses were deleted while its TrackedLocation
+ * survived (or a run recorded freshness without persisting rows). Serving that
+ * would return an empty market forever. So we ignore the anchor's freshness
+ * when the cell is empty, forcing a real refetch.
+ *
+ * Both the preflight estimate and the discovery run feed their anchor through
+ * this so "fresh" always means "fresh AND non-empty" — one source of truth.
+ */
+export function effectiveLastDiscoveredAt(
+  lastDiscoveredAt: Date | null,
+  businessCount: number,
+): Date | null {
+  return businessCount > 0 ? lastDiscoveredAt : null;
+}

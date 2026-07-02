@@ -6,7 +6,10 @@ import {
   extractOpenStatus,
   isExcludedFromRawList,
 } from "../open-status";
-import { decideDiscoveryPlan } from "../freshness-decision";
+import {
+  decideDiscoveryPlan,
+  effectiveLastDiscoveredAt,
+} from "../freshness-decision";
 
 const NOW = new Date("2026-06-22T00:00:00Z");
 const daysAgo = (n: number) => new Date(NOW.getTime() - n * 86_400_000);
@@ -91,5 +94,39 @@ describe("decideDiscoveryPlan — 6-month gate", () => {
     );
     expect(plan.estimate.netUsd).toBe(0);
     expect(plan.refetchCount).toBe(0);
+  });
+});
+
+describe("effectiveLastDiscoveredAt — stale-anchor guard", () => {
+  const anchor = daysAgo(10); // well inside the freshness window
+
+  test("keeps a fresh anchor when the cell has businesses", () => {
+    expect(effectiveLastDiscoveredAt(anchor, 2374)).toBe(anchor);
+    expect(effectiveLastDiscoveredAt(anchor, 1)).toBe(anchor);
+  });
+
+  test("nulls a fresh anchor with zero businesses (orphaned → refetch)", () => {
+    // The exact Toronto-dental bug: anchor says discovered, DB has 0 rows.
+    expect(effectiveLastDiscoveredAt(anchor, 0)).toBeNull();
+  });
+
+  test("a null anchor stays null regardless of count", () => {
+    expect(effectiveLastDiscoveredAt(null, 0)).toBeNull();
+    expect(effectiveLastDiscoveredAt(null, 500)).toBeNull();
+  });
+
+  test("feeding it into decideDiscoveryPlan forces REFETCH on an empty fresh cell", () => {
+    const plan = decideDiscoveryPlan(
+      [
+        {
+          cellKey: "dental_clinic|toronto|CA",
+          lastDiscoveredAt: effectiveLastDiscoveredAt(anchor, 0),
+          expectedListings: 2374,
+        },
+      ],
+      NOW,
+    );
+    expect(plan.cells[0].outcome).toBe("REFETCH");
+    expect(plan.refetchCount).toBe(1);
   });
 });
