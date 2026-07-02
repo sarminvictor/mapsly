@@ -31,10 +31,10 @@ outreach automation in v1.
 
 ## Palettes
 
-| Audience | Background          | Accent            | Type                            |
-| -------- | ------------------- | ----------------- | ------------------------------- |
-| SMB      | `#faf6f1` warm cream | `#c3553a` coral   | Fraunces headlines · Inter body |
-| Agency   | `#f6f7fb` cool gray  | `#5b3df5` indigo  | Inter · JetBrains Mono for data |
+| Audience | Background           | Accent           | Type                            |
+| -------- | -------------------- | ---------------- | ------------------------------- |
+| SMB      | `#faf6f1` warm cream | `#c3553a` coral  | Fraunces headlines · Inter body |
+| Agency   | `#f6f7fb` cool gray  | `#5b3df5` indigo | Inter · JetBrains Mono for data |
 
 Route group decides the palette. Never mix.
 

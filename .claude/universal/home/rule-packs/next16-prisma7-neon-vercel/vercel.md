@@ -50,7 +50,7 @@ Add to the repo's handoff/bootstrap doc. Not a per-session step — only on new 
 
 ## 5 · Build worker cannot open Neon WebSockets (INC-27)
 
-The build container can fetch HTTP but the WebSocket upgrade to Neon fails. Every `'use cache'` Prisma query must short-circuit at build phase — `cache-components.md` Pattern 1 owns the NEXT_PHASE + `EMPTY_*` pattern.
+The build container can fetch HTTP but the WebSocket upgrade to Neon fails. Every `'use cache'` Prisma query must short-circuit at build phase — `cache-components.md` Pattern 1 owns the NEXT*PHASE + `EMPTY*\*` pattern.
 
 ## 6 · Cron jobs can be disabled project-wide, silently (INC-45)
 

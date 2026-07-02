@@ -69,14 +69,14 @@ Leads/signups attributable to SEO pages, last 7 days vs previous 7.
 
 ### Score card (always produce)
 
-| Metric                   | Current | Baseline | Delta | Trend | Status |
-| ------------------------ | ------- | -------- | ----- | ----- | ------ |
-| Pages published          |         |          |       |       |        |
-| Pages indexed            |         |          |       |       |        |
-| Weekly views (real)      |         |          |       |       |        |
-| Weekly conversions       |         |          |       |       |        |
-| Coverage %               |         |          |       |       |        |
-| Bot traffic %            |         |          |       |       |        |
+| Metric              | Current | Baseline | Delta | Trend | Status |
+| ------------------- | ------- | -------- | ----- | ----- | ------ |
+| Pages published     |         |          |       |       |        |
+| Pages indexed       |         |          |       |       |        |
+| Weekly views (real) |         |          |       |       |        |
+| Weekly conversions  |         |          |       |       |        |
+| Coverage %          |         |          |       |       |        |
+| Bot traffic %       |         |          |       |       |        |
 
 ### Alerts
 

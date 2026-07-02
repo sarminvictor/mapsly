@@ -15,14 +15,14 @@ Boxly is a Canadian moving marketplace connecting consumers with local movers.
 
 Three surfaces, three registers:
 
-|             | Consumer                                      | Mover (Pro portal)                             | Admin (Viktor)                  |
-| ----------- | --------------------------------------------- | ---------------------------------------------- | ------------------------------- |
-| Persona     | Person planning a move (TODO-Viktor: name)    | Moving-company owner (TODO-Viktor: name)       | Internal only                   |
-| Job         | "Get a fair price, book a trustworthy mover"  | "Win more leads, look credible, price right"   | Operate the marketplace         |
-| Vocabulary  | movers, quote, moving day, boxes, deposit     | leads, quotes, bookings, rankings, Boxly Score | Full technical register         |
-| Device      | Mobile-first (books between errands)          | Desktop-leaning, dashboards                    | Desktop, dense                  |
-| Density     | One primary CTA per step (6-step order flow)  | Dashboards, rankings, intelligence tables      | Dense tables, filters, all-data |
-| Routes      | `(static-marketplace)`, order flow, `/book/*` | `(pro)/pro/**`                                 | `/admin/**`                     |
+|            | Consumer                                      | Mover (Pro portal)                             | Admin (Viktor)                  |
+| ---------- | --------------------------------------------- | ---------------------------------------------- | ------------------------------- |
+| Persona    | Person planning a move (TODO-Viktor: name)    | Moving-company owner (TODO-Viktor: name)       | Internal only                   |
+| Job        | "Get a fair price, book a trustworthy mover"  | "Win more leads, look credible, price right"   | Operate the marketplace         |
+| Vocabulary | movers, quote, moving day, boxes, deposit     | leads, quotes, bookings, rankings, Boxly Score | Full technical register         |
+| Device     | Mobile-first (books between errands)          | Desktop-leaning, dashboards                    | Desktop, dense                  |
+| Density    | One primary CTA per step (6-step order flow)  | Dashboards, rankings, intelligence tables      | Dense tables, filters, all-data |
+| Routes     | `(static-marketplace)`, order flow, `/book/*` | `(pro)/pro/**`                                 | `/admin/**`                     |
 
 ## Voice
 

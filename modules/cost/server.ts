@@ -808,9 +808,7 @@ export async function grantFreeTierIfNew(agencyId: string): Promise<void> {
       orderBy: { createdAt: "asc" },
       select: { user: { select: { email: true } } },
     });
-    const canon = owner?.user?.email
-      ? canonicalEmail(owner.user.email)
-      : null;
+    const canon = owner?.user?.email ? canonicalEmail(owner.user.email) : null;
     if (canon) {
       // CreditLedger is a plain-FK model (no relation to Agency), so resolve in
       // two steps: agencyIds that already got a free grant → their OWNER emails.

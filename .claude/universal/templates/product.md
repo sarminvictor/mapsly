@@ -6,13 +6,13 @@ context every session pays for.
 
 ## Personas
 
-|             | <AUDIENCE-1, e.g. "consumer">       | <AUDIENCE-2, e.g. "pro" — delete column if single-audience> |
-| ----------- | ----------------------------------- | ----------------------------------------------------------- |
-| Persona     | <name · one line on who they are>   | <name · one line>                                            |
-| Job         | "<what they hire the product for>"  | "<...>"                                                      |
-| Vocabulary  | <words THEY use>                    | <words they use>                                             |
-| Device      | <mobile-first / desktop-first>      | <...>                                                        |
-| Routes      | <route group, e.g. `/(consumer)/`>  | <route group>                                                |
+|            | <AUDIENCE-1, e.g. "consumer">      | <AUDIENCE-2, e.g. "pro" — delete column if single-audience> |
+| ---------- | ---------------------------------- | ----------------------------------------------------------- |
+| Persona    | <name · one line on who they are>  | <name · one line>                                           |
+| Job        | "<what they hire the product for>" | "<...>"                                                     |
+| Vocabulary | <words THEY use>                   | <words they use>                                            |
+| Device     | <mobile-first / desktop-first>     | <...>                                                       |
+| Routes     | <route group, e.g. `/(consumer)/`> | <route group>                                               |
 
 ## Voice per audience
 
@@ -25,12 +25,12 @@ context every session pays for.
 
 ## Palette tokens
 
-| Token                          | Value  | Used for                  |
-| ------------------------------ | ------ | ------------------------- |
-| `--color-bg-<audience-1>`      | <#hex> | <AUDIENCE-1> surfaces     |
-| `--color-accent-<audience-1>`  | <#hex> | <AUDIENCE-1> primary CTA  |
-| `--color-bg-<audience-2>`      | <#hex> | <AUDIENCE-2> surfaces     |
-| `--color-accent-<audience-2>`  | <#hex> | <AUDIENCE-2> primary CTA  |
+| Token                         | Value  | Used for                 |
+| ----------------------------- | ------ | ------------------------ |
+| `--color-bg-<audience-1>`     | <#hex> | <AUDIENCE-1> surfaces    |
+| `--color-accent-<audience-1>` | <#hex> | <AUDIENCE-1> primary CTA |
+| `--color-bg-<audience-2>`     | <#hex> | <AUDIENCE-2> surfaces    |
+| `--color-accent-<audience-2>` | <#hex> | <AUDIENCE-2> primary CTA |
 
 Never mix the audiences' palettes on one page.
 

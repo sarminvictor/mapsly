@@ -109,11 +109,11 @@ Entry shape:
 Every product repo carries three manifests. Universal agents MUST read the relevant
 one before acting on that repo:
 
-| File                        | Contents                                                                                                       | Read before                    |
-| --------------------------- | -------------------------------------------------------------------------------------------------------------- | ------------------------------ |
-| `.claude/product.md`        | Personas, voice per audience, palette tokens, banned words, information-density rules                          | Any copy or UI work            |
+| File                        | Contents                                                                                                                                          | Read before                        |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
+| `.claude/product.md`        | Personas, voice per audience, palette tokens, banned words, information-density rules                                                             | Any copy or UI work                |
 | `.claude/product-spec.json` | Constants: repo/remotes + pushPolicy, deploy gate, stack pack, DB env var, perf budgets, observability, test-data convention, dashboards, locales | Any perf, deploy, DB, or test work |
-| `.claude/guardrails.json`   | Banned-pattern greps `{ pattern, message, filePattern }`                                                        | Any code review or pre-push check |
+| `.claude/guardrails.json`   | Banned-pattern greps `{ pattern, message, filePattern }`                                                                                          | Any code review or pre-push check  |
 
 If a manifest is missing, say so and fall back to conservative defaults (ask before
 push, $5 single-call ceiling, WCAG AA, invariant tests) — never invent product facts.

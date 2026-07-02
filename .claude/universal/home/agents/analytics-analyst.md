@@ -49,12 +49,12 @@ Views by path, last 7 days, bots filtered, LIMIT 25.
 
 ### Score card (for comprehensive audits)
 
-| Dimension                  | Current | Baseline | Delta | Status |
-| -------------------------- | ------- | -------- | ----- | ------ |
-| Daily real-user sessions   |         |          |       |        |
-| Funnel step conversions %  |         |          |       |        |
-| Event schema coverage      |         |          |       |        |
-| Bot/internal traffic %     |         |          |       |        |
+| Dimension                 | Current | Baseline | Delta | Status |
+| ------------------------- | ------- | -------- | ----- | ------ |
+| Daily real-user sessions  |         |          |       |        |
+| Funnel step conversions % |         |          |       |        |
+| Event schema coverage     |         |          |       |        |
+| Bot/internal traffic %    |         |          |       |        |
 
 ## NEVER
 

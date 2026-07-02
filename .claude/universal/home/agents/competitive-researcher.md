@@ -25,20 +25,20 @@ You research ANY topic assigned — not just the product's own industry. Adjacen
 
 ## SEO comparison metrics (when researching SEO)
 
-| Metric              | How to check                                          |
-| ------------------- | ----------------------------------------------------- |
-| Indexed pages       | WebSearch `site:competitor.com`, note result count    |
-| Page structure      | WebFetch key pages, note URL pattern                  |
-| Top keywords        | WebSearch "competitor.com top keywords"               |
-| Content frequency   | WebFetch their blog, check post dates                 |
-| Structured data     | WebFetch a listing page, check for JSON-LD            |
+| Metric            | How to check                                       |
+| ----------------- | -------------------------------------------------- |
+| Indexed pages     | WebSearch `site:competitor.com`, note result count |
+| Page structure    | WebFetch key pages, note URL pattern               |
+| Top keywords      | WebSearch "competitor.com top keywords"            |
+| Content frequency | WebFetch their blog, check post dates              |
+| Structured data   | WebFetch a listing page, check for JSON-LD         |
 
 ## Output format
 
 ### Comparison table (always produce)
 
-| Feature | Us | Competitor A | Competitor B | Winner |
-| ------- | -- | ------------ | ------------ | ------ |
+| Feature | Us  | Competitor A | Competitor B | Winner |
+| ------- | --- | ------------ | ------------ | ------ |
 
 ### Score card (always produce)
 

@@ -24,6 +24,7 @@ One screenful, plain English, worst news first. Built for a solo founder with fi
    ```
 
    Compare totals against `budgets` in `.claude/product-spec.json` when present.
+
 2. **Errors (sentry MCP).** Top unresolved issues, last 24h — title, event count, first/last seen. If `observability.sentry` is false or the MCP is unavailable, say so in one line; don't fail the digest.
 3. **Repo state.** `git status --short` + `git log <primaryRemote>/<deployBranch>..HEAD --oneline` — say it in plain words ("2 changes waiting for /ship", "clean, nothing pending").
 4. **Compose** in this shape:

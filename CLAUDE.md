@@ -169,21 +169,21 @@ _design/                            # original HTML mockups (reference)
 
 Statuses as of 2026-07-02.
 
-| Feature                    | Module                                       | Routes                                                                                  | Status |
-| -------------------------- | -------------------------------------------- | ---------------------------------------------------------------------------------------- | ------ |
-| Marketing (landing v2)     | modules/smb-landing, landing-search          | `app/[locale]/(marketing-v2)/` — `/`, `/for-businesses`, `/for-agencies`, `/compare/*`  | live   |
-| Public biz profile + legal | modules/biz-profile                          | `app/[locale]/(marketing)/biz/[slug]` + terms/privacy/cookies/refunds                   | live   |
-| SMB portal                 | modules/smb-\*                               | `app/[locale]/(smb)/` — home · reviews · my-business · website · ads · search · settings | live   |
-| SMB onboarding             | modules/smb-onboarding                       | `app/[locale]/(smb)/onboarding`                                                          | live   |
-| Agency portal (Discover)   | modules/{agency-portal,discovery,enrichment} | `app/[locale]/(agency)/discover/[discoveryId]/…` — lists · business detail · report     | live   |
-| Agency ops                 | modules/{campaign,outreach,agency-settings}  | `(agency)/` — research · campaigns · touchpoints · usage · team · setup · settings      | live   |
-| Cold outreach              | modules/{cold,opt-out}                       | `app/api/cron/{poll-cold-inboxes,process-cold-sequences}` + `/o /r /u /l /s` token pages | live   |
+| Feature                    | Module                                       | Routes                                                                                    | Status |
+| -------------------------- | -------------------------------------------- | ----------------------------------------------------------------------------------------- | ------ |
+| Marketing (landing v2)     | modules/smb-landing, landing-search          | `app/[locale]/(marketing-v2)/` — `/`, `/for-businesses`, `/for-agencies`, `/compare/*`    | live   |
+| Public biz profile + legal | modules/biz-profile                          | `app/[locale]/(marketing)/biz/[slug]` + terms/privacy/cookies/refunds                     | live   |
+| SMB portal                 | modules/smb-\*                               | `app/[locale]/(smb)/` — home · reviews · my-business · website · ads · search · settings  | live   |
+| SMB onboarding             | modules/smb-onboarding                       | `app/[locale]/(smb)/onboarding`                                                           | live   |
+| Agency portal (Discover)   | modules/{agency-portal,discovery,enrichment} | `app/[locale]/(agency)/discover/[discoveryId]/…` — lists · business detail · report       | live   |
+| Agency ops                 | modules/{campaign,outreach,agency-settings}  | `(agency)/` — research · campaigns · touchpoints · usage · team · setup · settings        | live   |
+| Cold outreach              | modules/{cold,opt-out}                       | `app/api/cron/{poll-cold-inboxes,process-cold-sequences}` + `/o /r /u /l /s` token pages  | live   |
 | Admin ops                  | —                                            | `app/(admin)/admin/` — businesses · cells · discovery · cron-runs · email · landing-pages | live   |
-| Dev dashboard              | —                                            | `app/(dev)/dev/`                                                                         | live   |
-| Cron jobs                  | —                                            | `app/api/cron/**` — daily · weekly · monthly · internal dispatch                        | live   |
-| Stripe billing             | modules/billing                              | `app/api/webhooks/stripe` + `/api/checkout/start` + `/api/billing/checkout`             | live   |
-| Auth                       | `lib/auth.ts`                                | `app/[locale]/signin` + `app/api/auth/[...nextauth]` + `/post-signin`                   | live   |
-| i18n                       | —                                            | next-intl + middleware (en · es · en-CA · fr)                                            | live   |
+| Dev dashboard              | —                                            | `app/(dev)/dev/`                                                                          | live   |
+| Cron jobs                  | —                                            | `app/api/cron/**` — daily · weekly · monthly · internal dispatch                          | live   |
+| Stripe billing             | modules/billing                              | `app/api/webhooks/stripe` + `/api/checkout/start` + `/api/billing/checkout`               | live   |
+| Auth                       | `lib/auth.ts`                                | `app/[locale]/signin` + `app/api/auth/[...nextauth]` + `/post-signin`                     | live   |
+| i18n                       | —                                            | next-intl + middleware (en · es · en-CA · fr)                                             | live   |
 
 See `PLAN.md` for phased priorities.
 
@@ -264,16 +264,16 @@ Universal agents (all products — e.g. competitive research, analytics) live in
 
 ## Skills Index
 
-| Skill                       | Command                    | Purpose                              |
-| --------------------------- | -------------------------- | ------------------------------------ |
-| `mapsly`                    | `/mapsly`                  | Menu — list all skills               |
-| `new-feature`               | `/new-feature [name]`      | Orchestrated feature build           |
-| `deploy-check`              | `/deploy-check`            | format + types + lint + build + cost |
-| `db-snapshot`               | `/db-snapshot`             | Metrics baseline to memory/          |
-| **`autonomous-build-loop`** | `/autonomous-build-loop`   | The scheduled self-driving loop      |
-| `cost-audit`                | `/cost-audit`              | Last-7d API cost vs budget           |
-| `review`                    | `/review`                  | Spawn code-reviewer                  |
-| `seo-check`                 | `/seo-check`               | Spawn seo-auditor                    |
+| Skill                       | Command                  | Purpose                              |
+| --------------------------- | ------------------------ | ------------------------------------ |
+| `mapsly`                    | `/mapsly`                | Menu — list all skills               |
+| `new-feature`               | `/new-feature [name]`    | Orchestrated feature build           |
+| `deploy-check`              | `/deploy-check`          | format + types + lint + build + cost |
+| `db-snapshot`               | `/db-snapshot`           | Metrics baseline to memory/          |
+| **`autonomous-build-loop`** | `/autonomous-build-loop` | The scheduled self-driving loop      |
+| `cost-audit`                | `/cost-audit`            | Last-7d API cost vs budget           |
+| `review`                    | `/review`                | Spawn code-reviewer                  |
+| `seo-check`                 | `/seo-check`             | Spawn seo-auditor                    |
 
 ---
 

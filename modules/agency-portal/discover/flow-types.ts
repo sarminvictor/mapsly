@@ -204,7 +204,8 @@ export function enrichRatePerLead(families: EnrichmentType[]): number {
   // so the affordability slider (affordableN) computes the true max leads.
   let credits = 0;
   for (const fam of families) {
-    if (ENRICHMENT_PRICES[fam].unit === "business") credits += CREDIT_PRICES[fam];
+    if (ENRICHMENT_PRICES[fam].unit === "business")
+      credits += CREDIT_PRICES[fam];
   }
   return credits;
 }
@@ -364,7 +365,8 @@ export function enrichCreditsFor(
 ): number {
   let credits = 0;
   for (const fam of families) {
-    const units = ENRICHMENT_PRICES[fam].unit === "cell" ? cellCount : businessCount;
+    const units =
+      ENRICHMENT_PRICES[fam].unit === "cell" ? cellCount : businessCount;
     credits += CREDIT_PRICES[fam] * units;
   }
   return credits;

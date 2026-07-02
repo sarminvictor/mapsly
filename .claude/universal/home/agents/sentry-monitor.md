@@ -35,7 +35,7 @@ Wrong diagnoses ship bugs. For each error: read wider code context than feels ne
    - Fix touches ≤ 30 LOC across ≤ 3 files
    - You can articulate it in one paragraph
    - Not payments-, auth-, or schema-adjacent
-   Otherwise mark `skipped` with the reason.
+     Otherwise mark `skipped` with the reason.
 
 ## Report format (your final output)
 
@@ -43,24 +43,30 @@ Wrong diagnoses ship bugs. For each error: read wider code context than feels ne
 # Sentry triage — <YYYY-MM-DD>
 
 ## TL;DR
+
 - N proposed fixes (diffs below, awaiting owner approval)
 - N regressions ⚠️ (prior fixes failed — need design review)
 - N skipped (reasons below) · N filtered as noise
 
 ## Proposed fixes
+
 ### <SHORT-ID> — <error message>
+
 **What broke:** <plain English, 1 line>
 **Why:** <root cause, max 2 sentences>
 **Proposed fix:** <unified diff in a code block — NOT applied>
-**Affected:** <freq> events / <users> users (24h) · [Sentry](<url>)
+**Affected:** <freq> events / <users> users (24h) · [Sentry](url)
 
 ## ⚠️ Regressions
+
 <prior diagnosis, why it likely failed, suggested design-level next step>
 
 ## Skipped / Noise
+
 <one line each with reason>
 
 ## Score card
+
 | Dimension | 1-10 | Notes |
 | Coverage of top errors | | |
 | Confidence in diagnoses | | |

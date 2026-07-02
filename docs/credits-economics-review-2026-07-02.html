@@ -1,339 +1,1592 @@
 <!doctype html>
 <html lang="en">
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Mapsly · Credit Economics Review · 2026-07-02</title>
-<style>
-  :root{
-    --bg:#f6f7fb; --card:#fff; --ink:#16181d; --mut:#6b7280; --line:#e5e7eb;
-    --indigo:#5b3df5; --indigo-soft:#eeeafe; --green:#0f766e; --green-soft:#e7f6f4;
-    --red:#b91c1c; --red-soft:#fdeaea; --amber:#92400e; --amber-soft:#fdf3e0;
-    --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
-  }
-  *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
-  .wrap{max-width:1080px;margin:0 auto;padding:40px 28px 120px}
-  h1{font-size:30px;line-height:1.15;margin:0 0 6px}
-  h2{font-size:21px;margin:52px 0 12px;padding-top:18px;border-top:2px solid var(--line)}
-  h3{font-size:16px;margin:26px 0 8px}
-  p{margin:8px 0}
-  .sub{color:var(--mut);font-size:13.5px}
-  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin:14px 0}
-  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-  @media(max-width:860px){.grid2{grid-template-columns:1fr}}
-  table{border-collapse:collapse;width:100%;font-size:13.5px;background:#fff}
-  .tw{overflow-x:auto;border:1px solid var(--line);border-radius:10px;margin:12px 0}
-  th{background:#f2f3f8;text-align:left;padding:8px 10px;font-size:11.5px;letter-spacing:.04em;text-transform:uppercase;color:#4b5563;border-bottom:1px solid var(--line);white-space:nowrap}
-  td{padding:8px 10px;border-bottom:1px solid #f0f1f5;vertical-align:top}
-  tr:last-child td{border-bottom:none}
-  code,.mono{font-family:var(--mono);font-size:12.5px}
-  code{background:#f1f2f6;border-radius:4px;padding:1px 5px}
-  .pill{display:inline-block;border-radius:999px;padding:2px 10px;font-size:11.5px;font-weight:600;white-space:nowrap}
-  .pgreen{background:var(--green-soft);color:var(--green)}
-  .pred{background:var(--red-soft);color:var(--red)}
-  .pamber{background:var(--amber-soft);color:var(--amber)}
-  .pindigo{background:var(--indigo-soft);color:var(--indigo)}
-  .good{color:var(--green);font-weight:600}
-  .bad{color:var(--red);font-weight:600}
-  .warn{color:var(--amber);font-weight:600}
-  .callout{border-left:4px solid var(--indigo);background:var(--indigo-soft);border-radius:0 10px 10px 0;padding:12px 16px;margin:14px 0}
-  .callout.red{border-color:var(--red);background:var(--red-soft)}
-  .callout.green{border-color:var(--green);background:var(--green-soft)}
-  .callout.amber{border-color:var(--amber);background:var(--amber-soft)}
-  .k{font-family:var(--mono);font-weight:700}
-  .scorebar{height:8px;border-radius:4px;background:#e9eaf0;overflow:hidden}
-  .scorebar>i{display:block;height:100%;border-radius:4px}
-  .toc{columns:2;column-gap:28px;font-size:13.5px}
-  .toc a{color:var(--indigo);text-decoration:none}
-  .toc li{margin:3px 0}
-  @media(max-width:700px){.toc{columns:1}}
-  .big{font-size:28px;font-weight:800;font-family:var(--mono)}
-  .kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin:16px 0}
-  .kpi .card{margin:0;padding:14px 16px}
-  .kpi .lab{font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--mut)}
-  ol li,ul li{margin:5px 0}
-  .foot{color:var(--mut);font-size:12px;margin-top:60px;border-top:1px solid var(--line);padding-top:14px}
-  .tag{font-family:var(--mono);font-size:11px;color:var(--mut)}
-</style>
-</head>
-<body>
-<div class="wrap">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Mapsly · Credit Economics Review · 2026-07-02</title>
+    <style>
+      :root {
+        --bg: #f6f7fb;
+        --card: #fff;
+        --ink: #16181d;
+        --mut: #6b7280;
+        --line: #e5e7eb;
+        --indigo: #5b3df5;
+        --indigo-soft: #eeeafe;
+        --green: #0f766e;
+        --green-soft: #e7f6f4;
+        --red: #b91c1c;
+        --red-soft: #fdeaea;
+        --amber: #92400e;
+        --amber-soft: #fdf3e0;
+        --mono:
+          "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font:
+          15px/1.55 Inter,
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          sans-serif;
+      }
+      .wrap {
+        max-width: 1080px;
+        margin: 0 auto;
+        padding: 40px 28px 120px;
+      }
+      h1 {
+        font-size: 30px;
+        line-height: 1.15;
+        margin: 0 0 6px;
+      }
+      h2 {
+        font-size: 21px;
+        margin: 52px 0 12px;
+        padding-top: 18px;
+        border-top: 2px solid var(--line);
+      }
+      h3 {
+        font-size: 16px;
+        margin: 26px 0 8px;
+      }
+      p {
+        margin: 8px 0;
+      }
+      .sub {
+        color: var(--mut);
+        font-size: 13.5px;
+      }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 18px 20px;
+        margin: 14px 0;
+      }
+      .grid2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+      }
+      @media (max-width: 860px) {
+        .grid2 {
+          grid-template-columns: 1fr;
+        }
+      }
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        font-size: 13.5px;
+        background: #fff;
+      }
+      .tw {
+        overflow-x: auto;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        margin: 12px 0;
+      }
+      th {
+        background: #f2f3f8;
+        text-align: left;
+        padding: 8px 10px;
+        font-size: 11.5px;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: #4b5563;
+        border-bottom: 1px solid var(--line);
+        white-space: nowrap;
+      }
+      td {
+        padding: 8px 10px;
+        border-bottom: 1px solid #f0f1f5;
+        vertical-align: top;
+      }
+      tr:last-child td {
+        border-bottom: none;
+      }
+      code,
+      .mono {
+        font-family: var(--mono);
+        font-size: 12.5px;
+      }
+      code {
+        background: #f1f2f6;
+        border-radius: 4px;
+        padding: 1px 5px;
+      }
+      .pill {
+        display: inline-block;
+        border-radius: 999px;
+        padding: 2px 10px;
+        font-size: 11.5px;
+        font-weight: 600;
+        white-space: nowrap;
+      }
+      .pgreen {
+        background: var(--green-soft);
+        color: var(--green);
+      }
+      .pred {
+        background: var(--red-soft);
+        color: var(--red);
+      }
+      .pamber {
+        background: var(--amber-soft);
+        color: var(--amber);
+      }
+      .pindigo {
+        background: var(--indigo-soft);
+        color: var(--indigo);
+      }
+      .good {
+        color: var(--green);
+        font-weight: 600;
+      }
+      .bad {
+        color: var(--red);
+        font-weight: 600;
+      }
+      .warn {
+        color: var(--amber);
+        font-weight: 600;
+      }
+      .callout {
+        border-left: 4px solid var(--indigo);
+        background: var(--indigo-soft);
+        border-radius: 0 10px 10px 0;
+        padding: 12px 16px;
+        margin: 14px 0;
+      }
+      .callout.red {
+        border-color: var(--red);
+        background: var(--red-soft);
+      }
+      .callout.green {
+        border-color: var(--green);
+        background: var(--green-soft);
+      }
+      .callout.amber {
+        border-color: var(--amber);
+        background: var(--amber-soft);
+      }
+      .k {
+        font-family: var(--mono);
+        font-weight: 700;
+      }
+      .scorebar {
+        height: 8px;
+        border-radius: 4px;
+        background: #e9eaf0;
+        overflow: hidden;
+      }
+      .scorebar > i {
+        display: block;
+        height: 100%;
+        border-radius: 4px;
+      }
+      .toc {
+        columns: 2;
+        column-gap: 28px;
+        font-size: 13.5px;
+      }
+      .toc a {
+        color: var(--indigo);
+        text-decoration: none;
+      }
+      .toc li {
+        margin: 3px 0;
+      }
+      @media (max-width: 700px) {
+        .toc {
+          columns: 1;
+        }
+      }
+      .big {
+        font-size: 28px;
+        font-weight: 800;
+        font-family: var(--mono);
+      }
+      .kpi {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 12px;
+        margin: 16px 0;
+      }
+      .kpi .card {
+        margin: 0;
+        padding: 14px 16px;
+      }
+      .kpi .lab {
+        font-size: 11.5px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--mut);
+      }
+      ol li,
+      ul li {
+        margin: 5px 0;
+      }
+      .foot {
+        color: var(--mut);
+        font-size: 12px;
+        margin-top: 60px;
+        border-top: 1px solid var(--line);
+        padding-top: 14px;
+      }
+      .tag {
+        font-family: var(--mono);
+        font-size: 11px;
+        color: var(--mut);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <h1>Credit Economics Review</h1>
+      <p class="sub">
+        Mapsly · 2026-07-02 · full audit of the implemented credit system: what
+        one credit means, what everything costs us, what we charge, margins per
+        plan, Apollo / Origami / Clay comparison, model score, and a concrete
+        repricing proposal.<br />
+        Method: 5 code-audit agents over the live codebase (every claim carries
+        a <span class="tag">file:line</span>) + 2 market-research agents
+        (sources linked) + hand verification of the critical findings.
+      </p>
 
-<h1>Credit Economics Review</h1>
-<p class="sub">Mapsly · 2026-07-02 · full audit of the implemented credit system: what one credit means, what everything costs us, what we charge, margins per plan, Apollo / Origami / Clay comparison, model score, and a concrete repricing proposal.<br/>
-Method: 5 code-audit agents over the live codebase (every claim carries a <span class="tag">file:line</span>) + 2 market-research agents (sources linked) + hand verification of the critical findings.</p>
+      <div class="callout green">
+        <b>Implementation status (2026-07-02).</b> The full P0→P2 roadmap in §11
+        is
+        <b>implemented on branch <code>feat/credit-economics</code></b>
+        (typecheck ✓ · lint 0 errors · 3,018 tests ✓ · build ✓) —
+        <b>not yet merged</b> (billing changes await Viktor's review). Shipped:
+        the P0 <code>planKey</code> webhook fix, the
+        <code>CREDIT_PRICES</code> whole-credit schedule billing quote + settle
+        (contacts/scan 1 · reviews 1 · lighthouse 1 · AI 1 · google 1/cell ·
+        meta 3/cell · serp 4/cell; full lead = 4), aligned plan cards +
+        <code>CREDIT_MEANING</code>, the merged filter+cap block with exact
+        integer slider math, discovery rate-limits + 3-cell clamp,
+        canonical-email anti-farming, EnrichMoreSheet dep-resolution, and honest
+        CTA/breakdown copy. <b>Two deliberate scope cuts</b>, both documented as
+        follow-ups: (1) the <i>variable</i> upper tiers for deep-reviews (3 cr)
+        and walled-Lighthouse (2 cr) are NOT yet billed — they need the workers
+        to report route/depth + a hold-the-upper change; the base 1-credit tier
+        ships now (margins healthy on the common case, bounded tail accepted as
+        today). (2) Deleting the dead
+        <code>EXPIRE</code>/<code>overage*</code>/<code>cycleResetAt</code>
+        fields needs a destructive Prisma migration (human-required) — they're
+        annotated dead in the schema instead.
+      </div>
 
-<div class="callout green">
-<b>Implementation status (2026-07-02).</b> The full P0→P2 roadmap in §11 is <b>implemented on branch <code>feat/credit-economics</code></b> (typecheck ✓ · lint 0 errors · 3,018 tests ✓ · build ✓) — <b>not yet merged</b> (billing changes await Viktor's review). Shipped: the P0 <code>planKey</code> webhook fix, the <code>CREDIT_PRICES</code> whole-credit schedule billing quote + settle (contacts/scan 1 · reviews 1 · lighthouse 1 · AI 1 · google 1/cell · meta 3/cell · serp 4/cell; full lead = 4), aligned plan cards + <code>CREDIT_MEANING</code>, the merged filter+cap block with exact integer slider math, discovery rate-limits + 3-cell clamp, canonical-email anti-farming, EnrichMoreSheet dep-resolution, and honest CTA/breakdown copy. <b>Two deliberate scope cuts</b>, both documented as follow-ups: (1) the <i>variable</i> upper tiers for deep-reviews (3 cr) and walled-Lighthouse (2 cr) are NOT yet billed — they need the workers to report route/depth + a hold-the-upper change; the base 1-credit tier ships now (margins healthy on the common case, bounded tail accepted as today). (2) Deleting the dead <code>EXPIRE</code>/<code>overage*</code>/<code>cycleResetAt</code> fields needs a destructive Prisma migration (human-required) — they're annotated dead in the schema instead.
-</div>
+      <div class="callout red">
+        <b>The one-paragraph verdict.</b> The billing <i>machine</i> is
+        excellent — hold/settle/refund, anti-tamper re-quotes, idempotency
+        everywhere (9/10 infrastructure). The billing <i>economics</i> are
+        broken: after WP10-7 "honest cost re-derivation," the price list now
+        charges users our <b>raw vendor cost</b>, rounded up to $0.05
+        granularity. Four enrichment SKUs have literally 0% margin, two go
+        <b>negative</b> on their tails, and at plan-effective credit rates the
+        Scale tier sells data at <b>~25% of vendor cost</b>. Meanwhile the
+        market (Apollo, Origami, Clay) charges 6–30× more per enriched lead than
+        we do. One P0 Stripe bug on top: a $299 Scale buyer would be granted 900
+        Starter credits. The fix is not a rewrite — it's one decision:
+        <b>separate what we track (COGS) from what we charge (credits)</b> — and
+        the marketing cards already advertise the correct 3-credits-per-lead
+        pricing that settle just fails to charge.
+      </div>
 
-<div class="callout red">
-<b>The one-paragraph verdict.</b> The billing <i>machine</i> is excellent — hold/settle/refund, anti-tamper re-quotes, idempotency everywhere (9/10 infrastructure). The billing <i>economics</i> are broken: after WP10-7 "honest cost re-derivation," the price list now charges users our <b>raw vendor cost</b>, rounded up to $0.05 granularity. Four enrichment SKUs have literally 0% margin, two go <b>negative</b> on their tails, and at plan-effective credit rates the Scale tier sells data at <b>~25% of vendor cost</b>. Meanwhile the market (Apollo, Origami, Clay) charges 6–30× more per enriched lead than we do. One P0 Stripe bug on top: a $299 Scale buyer would be granted 900 Starter credits. The fix is not a rewrite — it's one decision: <b>separate what we track (COGS) from what we charge (credits)</b> — and the marketing cards already advertise the correct 3-credits-per-lead pricing that settle just fails to charge.
-</div>
+      <h3>Contents</h3>
+      <ol class="toc">
+        <li>
+          <a href="#q">1 · Your question: is a full enrichment 1 credit?</a>
+        </li>
+        <li><a href="#machine">2 · How the credit machine works today</a></li>
+        <li>
+          <a href="#pricelist">3 · Price list vs real vendor cost (COGS)</a>
+        </li>
+        <li><a href="#losses">4 · Where we lose money — worked examples</a></li>
+        <li><a href="#free">5 · The free side: discovery + 50 credits</a></li>
+        <li><a href="#bugs">6 · Bugs &amp; gaps found</a></li>
+        <li><a href="#market">7 · Competitors: Apollo · Origami · Clay</a></li>
+        <li><a href="#practices">8 · Best-practice checklist vs us</a></li>
+        <li><a href="#score">9 · Scorecard of the existing model</a></li>
+        <li>
+          <a href="#proposal">10 · Proposal: value-based credit schedule</a>
+        </li>
+        <li><a href="#roadmap">11 · Roadmap P0 / P1 / P2</a></li>
+      </ol>
 
-<h3>Contents</h3>
-<ol class="toc">
-<li><a href="#q">1 · Your question: is a full enrichment 1 credit?</a></li>
-<li><a href="#machine">2 · How the credit machine works today</a></li>
-<li><a href="#pricelist">3 · Price list vs real vendor cost (COGS)</a></li>
-<li><a href="#losses">4 · Where we lose money — worked examples</a></li>
-<li><a href="#free">5 · The free side: discovery + 50 credits</a></li>
-<li><a href="#bugs">6 · Bugs &amp; gaps found</a></li>
-<li><a href="#market">7 · Competitors: Apollo · Origami · Clay</a></li>
-<li><a href="#practices">8 · Best-practice checklist vs us</a></li>
-<li><a href="#score">9 · Scorecard of the existing model</a></li>
-<li><a href="#proposal">10 · Proposal: value-based credit schedule</a></li>
-<li><a href="#roadmap">11 · Roadmap P0 / P1 / P2</a></li>
-</ol>
+      <!-- ============================================================ -->
+      <h2 id="q">1 · Your question: is a full enrichment 1 credit?</h2>
 
-<!-- ============================================================ -->
-<h2 id="q">1 · Your question: is a full enrichment 1 credit?</h2>
+      <p>
+        <b
+          >The code has three different answers, and that's the root of the
+          confusion.</b
+        >
+      </p>
 
-<p><b>The code has three different answers, and that's the root of the confusion.</b></p>
+      <div class="tw">
+        <table>
+          <tr>
+            <th>Definition</th>
+            <th>Where</th>
+            <th>What it says a lead costs</th>
+          </tr>
+          <tr>
+            <td><b>Marketing definition</b> (<code>CREDIT_MEANING</code>)</td>
+            <td class="tag">pricing.ts:141-148 · PLAN_CARDS</td>
+            <td>
+              1 credit = lead with contacts ·
+              <b>3 credits = fully-enriched lead</b> · 10 credits per 100
+              first-touch messages. The plan cards' "$0.05 / enriched lead" math
+              is derived from this.
+            </td>
+          </tr>
+          <tr>
+            <td><b>Settle definition</b> (what's actually charged)</td>
+            <td class="tag">estimate.ts:90-93 · dispatch.ts:1097</td>
+            <td>
+              <code>ceil(actual vendor USD ÷ $0.05)</code> per <i>run</i>. A
+              fully-enriched open-site lead ≈ $0.0403 → <b>~1 credit</b>. Your
+              Booking-goal example: 84 leads × (contacts $0.008 + tech $0.001) =
+              $0.756 → <b>16 credits ≈ 0.19 credits/lead</b>.
+            </td>
+          </tr>
+          <tr>
+            <td><b>Slider definition</b> (the UI's per-lead rate)</td>
+            <td class="tag">flow-types.ts:201-208</td>
+            <td>
+              <code>ceil($0.009 ÷ $0.05)</code> = <b>1 credit/lead</b> — every
+              lead rounded up to a whole credit. 5.6× pessimistic vs the real
+              charge. This is why your slider defaulted to 26 of 84 when 26
+              credits actually covered all 84 (true cost 16).
+            </td>
+          </tr>
+        </table>
+      </div>
 
-<div class="tw"><table>
-<tr><th>Definition</th><th>Where</th><th>What it says a lead costs</th></tr>
-<tr><td><b>Marketing definition</b> (<code>CREDIT_MEANING</code>)</td><td class="tag">pricing.ts:141-148 · PLAN_CARDS</td><td>1 credit = lead with contacts · <b>3 credits = fully-enriched lead</b> · 10 credits per 100 first-touch messages. The plan cards' "$0.05 / enriched lead" math is derived from this.</td></tr>
-<tr><td><b>Settle definition</b> (what's actually charged)</td><td class="tag">estimate.ts:90-93 · dispatch.ts:1097</td><td><code>ceil(actual vendor USD ÷ $0.05)</code> per <i>run</i>. A fully-enriched open-site lead ≈ $0.0403 → <b>~1 credit</b>. Your Booking-goal example: 84 leads × (contacts $0.008 + tech $0.001) = $0.756 → <b>16 credits ≈ 0.19 credits/lead</b>.</td></tr>
-<tr><td><b>Slider definition</b> (the UI's per-lead rate)</td><td class="tag">flow-types.ts:201-208</td><td><code>ceil($0.009 ÷ $0.05)</code> = <b>1 credit/lead</b> — every lead rounded up to a whole credit. 5.6× pessimistic vs the real charge. This is why your slider defaulted to 26 of 84 when 26 credits actually covered all 84 (true cost 16).</td></tr>
-</table></div>
+      <p>
+        So for your live example (goal "Booking tool" → signals
+        <i>Operating business</i> + <i>Has a website</i> [both free at
+        discovery] + <i>No online booking tool</i> [needs the
+        Website&nbsp;&amp;&nbsp;tech DOM scan]):
+      </p>
+      <ul>
+        <li>
+          The tech fingerprint only exists as a byproduct of the contacts DOM
+          fetch (<span class="tag">researches.ts:56-73</span> — the one
+          dependency chain in the system), so
+          <b>contacts rides along mechanically</b>: 14 cr contacts + 2 cr tech =
+          16 cr for 84 sites.
+        </li>
+        <li>
+          <b>No, a full enrichment is not 1 credit today.</b> Today it's ~1
+          credit <i>by accident of rounding cost pass-through</i>, while the
+          cards advertise 3, and the slider pretends 1-per-lead. Three sources
+          of truth, all disagreeing. Section 10 proposes making the marketing
+          definition the real one.
+        </li>
+      </ul>
 
-<p>So for your live example (goal "Booking tool" → signals <i>Operating business</i> + <i>Has a website</i> [both free at discovery] + <i>No online booking tool</i> [needs the Website&nbsp;&amp;&nbsp;tech DOM scan]):</p>
-<ul>
-<li>The tech fingerprint only exists as a byproduct of the contacts DOM fetch (<span class="tag">researches.ts:56-73</span> — the one dependency chain in the system), so <b>contacts rides along mechanically</b>: 14 cr contacts + 2 cr tech = 16 cr for 84 sites.</li>
-<li><b>No, a full enrichment is not 1 credit today.</b> Today it's ~1 credit <i>by accident of rounding cost pass-through</i>, while the cards advertise 3, and the slider pretends 1-per-lead. Three sources of truth, all disagreeing. Section 10 proposes making the marketing definition the real one.</li>
-</ul>
+      <!-- ============================================================ -->
+      <h2 id="machine">2 · How the credit machine works today</h2>
 
-<!-- ============================================================ -->
-<h2 id="machine">2 · How the credit machine works today</h2>
+      <div class="kpi">
+        <div class="card">
+          <div class="lab">Credit face value</div>
+          <div class="big">$0.05</div>
+          <div class="sub">
+            CREDIT_USD · "Apollo ~$0.20, we undercut 4×"
+            <span class="tag">pricing.ts:30</span>
+          </div>
+        </div>
+        <div class="card">
+          <div class="lab">Free tier</div>
+          <div class="big">50 cr</div>
+          <div class="sub">
+            one-time, no card, never expires
+            <span class="tag">pricing.ts:54</span>
+          </div>
+        </div>
+        <div class="card">
+          <div class="lab">Discovery</div>
+          <div class="big">$0</div>
+          <div class="sub">
+            always free to agencies · 182-day cell freshness
+            <span class="tag">pricing.ts:479</span>
+          </div>
+        </div>
+        <div class="card">
+          <div class="lab">Quote integrity</div>
+          <div class="big">15 min</div>
+          <div class="sub">
+            TTL · 10% drift gate · server re-quote (anti-tamper)
+            <span class="tag">pricing.ts:41</span>
+          </div>
+        </div>
+      </div>
 
-<div class="kpi">
-<div class="card"><div class="lab">Credit face value</div><div class="big">$0.05</div><div class="sub">CREDIT_USD · "Apollo ~$0.20, we undercut 4×" <span class="tag">pricing.ts:30</span></div></div>
-<div class="card"><div class="lab">Free tier</div><div class="big">50 cr</div><div class="sub">one-time, no card, never expires <span class="tag">pricing.ts:54</span></div></div>
-<div class="card"><div class="lab">Discovery</div><div class="big">$0</div><div class="sub">always free to agencies · 182-day cell freshness <span class="tag">pricing.ts:479</span></div></div>
-<div class="card"><div class="lab">Quote integrity</div><div class="big">15 min</div><div class="sub">TTL · 10% drift gate · server re-quote (anti-tamper) <span class="tag">pricing.ts:41</span></div></div>
-</div>
+      <h3>
+        Plans &amp; packs (live billing UI ·
+        <span class="tag">pricing.ts:180-324</span>)
+      </h3>
+      <div class="tw">
+        <table>
+          <tr>
+            <th>Plan</th>
+            <th>Price</th>
+            <th>Credits</th>
+            <th>Effective $/credit</th>
+            <th>Advertised</th>
+          </tr>
+          <tr>
+            <td>Free</td>
+            <td>$0</td>
+            <td>50 one-time</td>
+            <td>—</td>
+            <td>"never expire · no card"</td>
+          </tr>
+          <tr>
+            <td>Starter</td>
+            <td>$19/mo</td>
+            <td>900/mo</td>
+            <td class="k">$0.0211</td>
+            <td>"from $0.06 / enriched lead"</td>
+          </tr>
+          <tr>
+            <td>Growth <span class="pill pindigo">featured</span></td>
+            <td>$99/mo</td>
+            <td>6,000/mo</td>
+            <td class="k">$0.0165</td>
+            <td>"$0.05 / enriched lead"</td>
+          </tr>
+          <tr>
+            <td>Scale</td>
+            <td>$299/mo</td>
+            <td>24,000/mo</td>
+            <td class="k">$0.0125</td>
+            <td>"from $0.037 / enriched lead"</td>
+          </tr>
+          <tr>
+            <td>Top-up 1,000</td>
+            <td>$50</td>
+            <td>1,000</td>
+            <td class="k">$0.050</td>
+            <td>never expire</td>
+          </tr>
+          <tr>
+            <td>Top-up 5,000</td>
+            <td>$200</td>
+            <td>5,000</td>
+            <td class="k">$0.040</td>
+            <td>never expire · primary CTA</td>
+          </tr>
+        </table>
+      </div>
+      <p class="sub">
+        Note: the advertised per-lead rates are exactly
+        <i>effective-$/credit × 3</i> — the cards already assume the
+        3-credits-per-full-lead meaning. Legacy Stripe tiers ($49/$99/$249/$499)
+        still coexist in code; AGENCY_PRO (12,000 cr) has no display card.
+      </p>
 
-<h3>Plans &amp; packs (live billing UI · <span class="tag">pricing.ts:180-324</span>)</h3>
-<div class="tw"><table>
-<tr><th>Plan</th><th>Price</th><th>Credits</th><th>Effective $/credit</th><th>Advertised</th></tr>
-<tr><td>Free</td><td>$0</td><td>50 one-time</td><td>—</td><td>"never expire · no card"</td></tr>
-<tr><td>Starter</td><td>$19/mo</td><td>900/mo</td><td class="k">$0.0211</td><td>"from $0.06 / enriched lead"</td></tr>
-<tr><td>Growth <span class="pill pindigo">featured</span></td><td>$99/mo</td><td>6,000/mo</td><td class="k">$0.0165</td><td>"$0.05 / enriched lead"</td></tr>
-<tr><td>Scale</td><td>$299/mo</td><td>24,000/mo</td><td class="k">$0.0125</td><td>"from $0.037 / enriched lead"</td></tr>
-<tr><td>Top-up 1,000</td><td>$50</td><td>1,000</td><td class="k">$0.050</td><td>never expire</td></tr>
-<tr><td>Top-up 5,000</td><td>$200</td><td>5,000</td><td class="k">$0.040</td><td>never expire · primary CTA</td></tr>
-</table></div>
-<p class="sub">Note: the advertised per-lead rates are exactly <i>effective-$/credit × 3</i> — the cards already assume the 3-credits-per-full-lead meaning. Legacy Stripe tiers ($49/$99/$249/$499) still coexist in code; AGENCY_PRO (12,000 cr) has no display card.</p>
+      <h3>The lifecycle (all of this is genuinely well built)</h3>
+      <ol>
+        <li>
+          <b>Quote</b> — preflight mints a single-use 15-min
+          <code>CostEstimate</code>; inputs persisted server-side.
+        </li>
+        <li>
+          <b>Authorize</b> — server <i>re-derives</i> the price from persisted
+          inputs; &gt;10% drift or price-list bump forces re-quote. Client
+          numbers are never trusted. <span class="tag">server.ts:148-229</span>
+        </li>
+        <li>
+          <b>Hold</b> — atomic conditional UPDATE (<code
+            >WHERE available ≥ n</code
+          >) closes the concurrent-oversell race.
+          <span class="tag">server.ts:461-485</span>
+        </li>
+        <li>
+          <b>Run</b> — actions only enqueue; the run action takes
+          <i>only</i> the estimateId and reconstructs scope server-side
+          (anti-tamper).
+        </li>
+        <li>
+          <b>Settle</b> — bills <b>actual</b>, clamped to the hold (never
+          charges above it), refunds the difference; zero-progress runs fully
+          refunded; idempotent. Draw-down: plan → rollover → purchased. Rollover
+          capped at 3× monthly grant; purchased credits never expire.
+          <span class="tag">server.ts:517-616</span>
+        </li>
+      </ol>
+      <p>
+        Freshness dedup is real and generous: fresh units are $0 to the user
+        <i>and</i> ~$0 to us (skipped, no vendor call). Windows:
+        contacts/services/reviews 90d · tech/lighthouse/ai/cells 30d · discovery
+        182d. Failed jobs bill $0 —
+        <b
+          >we already have "charge only on success," which Origami and Clay both
+          market loudly. We don't market it at all.</b
+        >
+      </p>
 
-<h3>The lifecycle (all of this is genuinely well built)</h3>
-<ol>
-<li><b>Quote</b> — preflight mints a single-use 15-min <code>CostEstimate</code>; inputs persisted server-side.</li>
-<li><b>Authorize</b> — server <i>re-derives</i> the price from persisted inputs; &gt;10% drift or price-list bump forces re-quote. Client numbers are never trusted. <span class="tag">server.ts:148-229</span></li>
-<li><b>Hold</b> — atomic conditional UPDATE (<code>WHERE available ≥ n</code>) closes the concurrent-oversell race. <span class="tag">server.ts:461-485</span></li>
-<li><b>Run</b> — actions only enqueue; the run action takes <i>only</i> the estimateId and reconstructs scope server-side (anti-tamper).</li>
-<li><b>Settle</b> — bills <b>actual</b>, clamped to the hold (never charges above it), refunds the difference; zero-progress runs fully refunded; idempotent. Draw-down: plan → rollover → purchased. Rollover capped at 3× monthly grant; purchased credits never expire. <span class="tag">server.ts:517-616</span></li>
-</ol>
-<p>Freshness dedup is real and generous: fresh units are $0 to the user <i>and</i> ~$0 to us (skipped, no vendor call). Windows: contacts/services/reviews 90d · tech/lighthouse/ai/cells 30d · discovery 182d. Failed jobs bill $0 — <b>we already have "charge only on success," which Origami and Clay both market loudly. We don't market it at all.</b></p>
+      <!-- ============================================================ -->
+      <h2 id="pricelist">3 · Price list vs real vendor cost (COGS)</h2>
 
-<!-- ============================================================ -->
-<h2 id="pricelist">3 · Price list vs real vendor cost (COGS)</h2>
+      <p>
+        The crux: <code>ENRICHMENT_PRICES.usdPerUnit</code> is
+        <b>raw expected vendor cost</b> — WP10-7 deliberately re-derived it from
+        the real call graph (great for cost telemetry) and in doing so
+        <b>deleted the markup that used to exist</b> (google_ads was 13× higher,
+        serp 3.7× higher). Settle bills <code>ceil(Σ plannedUsd / $0.05)</code>.
+        There is no markup constant anywhere in the system. Whatever margin
+        exists is an accident of the $0.05 rounding granularity plus the gap
+        between credit face value and plan-effective rates.
+      </p>
 
-<p>The crux: <code>ENRICHMENT_PRICES.usdPerUnit</code> is <b>raw expected vendor cost</b> — WP10-7 deliberately re-derived it from the real call graph (great for cost telemetry) and in doing so <b>deleted the markup that used to exist</b> (google_ads was 13× higher, serp 3.7× higher). Settle bills <code>ceil(Σ plannedUsd / $0.05)</code>. There is no markup constant anywhere in the system. Whatever margin exists is an accident of the $0.05 rounding granularity plus the gap between credit face value and plan-effective rates.</p>
+      <div class="tw">
+        <table>
+          <tr>
+            <th>Family (UI label)</th>
+            <th>Unit</th>
+            <th>Charged usdPerUnit</th>
+            <th>Real vendor cost</th>
+            <th>Margin at $0.05 face</th>
+            <th>Margin at Growth ($0.0165/cr)</th>
+            <th>Margin at Scale ($0.0125/cr)</th>
+            <th>Verdict</th>
+          </tr>
+          <tr>
+            <td>contacts · Contacts (DOM scan)</td>
+            <td>business</td>
+            <td class="k">$0.008</td>
+            <td>
+              ~$0 typical · $0.003–0.013 actor path · modeled AI-fallback $0.027
+              not actually wired in dispatch
+            </td>
+            <td class="good">positive</td>
+            <td class="good">positive</td>
+            <td class="warn">thin</td>
+            <td><span class="pill pamber">mispriced model</span></td>
+          </tr>
+          <tr>
+            <td>tech · Website &amp; tech</td>
+            <td>business</td>
+            <td class="k">$0.001</td>
+            <td>$0 (rides contacts fetch)</td>
+            <td class="good">+$0.001</td>
+            <td class="good">ok</td>
+            <td class="good">ok</td>
+            <td><span class="pill pgreen">fine</span></td>
+          </tr>
+          <tr>
+            <td>services · Services (AI)</td>
+            <td>business</td>
+            <td class="k">$0.002</td>
+            <td>~$0.0003–0.001</td>
+            <td class="good">ok</td>
+            <td class="good">ok</td>
+            <td class="good">ok</td>
+            <td><span class="pill pgreen">fine</span></td>
+          </tr>
+          <tr>
+            <td>reviews · Reviews (DataForSEO)</td>
+            <td>business</td>
+            <td class="k">$0.015</td>
+            <td>
+              $0.015 @depth 200 · <b>up to $0.337</b> @depth 4490 (recency
+              ladder; settle still bills $0.015)
+            </td>
+            <td class="bad">0% · tail −$0.32</td>
+            <td class="bad">negative</td>
+            <td class="bad">−75%</td>
+            <td><span class="pill pred">pass-through / loss</span></td>
+          </tr>
+          <tr>
+            <td>lighthouse · Site speed</td>
+            <td>business</td>
+            <td class="k">$0.00425</td>
+            <td>
+              $0.00425 open · <b>$0.06 walled</b> (Apify actor; settle bills
+              open price)
+            </td>
+            <td class="bad">0% · walled −$0.056</td>
+            <td class="bad">negative on walled</td>
+            <td class="bad">negative</td>
+            <td><span class="pill pred">pass-through / loss</span></td>
+          </tr>
+          <tr>
+            <td>ai_research · AI research</td>
+            <td>business</td>
+            <td class="k">$0.01</td>
+            <td>~$0.001 measured</td>
+            <td class="good">~10× buffer</td>
+            <td class="good">strong</td>
+            <td class="good">ok</td>
+            <td><span class="pill pgreen">best margin</span></td>
+          </tr>
+          <tr>
+            <td>meta_ads · Meta ads (Apify)</td>
+            <td>cell</td>
+            <td class="k">$0.05</td>
+            <td>$0.02–0.10 metered (avg ~$0.04)</td>
+            <td class="warn">thin · tail −$0.05</td>
+            <td class="bad">negative tail</td>
+            <td class="bad">negative</td>
+            <td><span class="pill pamber">thin / negative tail</span></td>
+          </tr>
+          <tr>
+            <td>google_ads · Google ads</td>
+            <td>cell</td>
+            <td class="k">$0.004</td>
+            <td>$0.004</td>
+            <td class="bad">0% by construction</td>
+            <td class="bad">negative</td>
+            <td class="bad">negative</td>
+            <td><span class="pill pred">pass-through</span></td>
+          </tr>
+          <tr>
+            <td>serp · SERP / search</td>
+            <td>cell</td>
+            <td class="k">$0.043</td>
+            <td>$0.043</td>
+            <td class="bad">0% by construction</td>
+            <td class="bad">−36%</td>
+            <td class="bad">−71%</td>
+            <td><span class="pill pred">pass-through</span></td>
+          </tr>
+        </table>
+      </div>
 
-<div class="tw"><table>
-<tr><th>Family (UI label)</th><th>Unit</th><th>Charged usdPerUnit</th><th>Real vendor cost</th><th>Margin at $0.05 face</th><th>Margin at Growth ($0.0165/cr)</th><th>Margin at Scale ($0.0125/cr)</th><th>Verdict</th></tr>
-<tr><td>contacts · Contacts (DOM scan)</td><td>business</td><td class="k">$0.008</td><td>~$0 typical · $0.003–0.013 actor path · modeled AI-fallback $0.027 not actually wired in dispatch</td><td class="good">positive</td><td class="good">positive</td><td class="warn">thin</td><td><span class="pill pamber">mispriced model</span></td></tr>
-<tr><td>tech · Website &amp; tech</td><td>business</td><td class="k">$0.001</td><td>$0 (rides contacts fetch)</td><td class="good">+$0.001</td><td class="good">ok</td><td class="good">ok</td><td><span class="pill pgreen">fine</span></td></tr>
-<tr><td>services · Services (AI)</td><td>business</td><td class="k">$0.002</td><td>~$0.0003–0.001</td><td class="good">ok</td><td class="good">ok</td><td class="good">ok</td><td><span class="pill pgreen">fine</span></td></tr>
-<tr><td>reviews · Reviews (DataForSEO)</td><td>business</td><td class="k">$0.015</td><td>$0.015 @depth 200 · <b>up to $0.337</b> @depth 4490 (recency ladder; settle still bills $0.015)</td><td class="bad">0% · tail −$0.32</td><td class="bad">negative</td><td class="bad">−75%</td><td><span class="pill pred">pass-through / loss</span></td></tr>
-<tr><td>lighthouse · Site speed</td><td>business</td><td class="k">$0.00425</td><td>$0.00425 open · <b>$0.06 walled</b> (Apify actor; settle bills open price)</td><td class="bad">0% · walled −$0.056</td><td class="bad">negative on walled</td><td class="bad">negative</td><td><span class="pill pred">pass-through / loss</span></td></tr>
-<tr><td>ai_research · AI research</td><td>business</td><td class="k">$0.01</td><td>~$0.001 measured</td><td class="good">~10× buffer</td><td class="good">strong</td><td class="good">ok</td><td><span class="pill pgreen">best margin</span></td></tr>
-<tr><td>meta_ads · Meta ads (Apify)</td><td>cell</td><td class="k">$0.05</td><td>$0.02–0.10 metered (avg ~$0.04)</td><td class="warn">thin · tail −$0.05</td><td class="bad">negative tail</td><td class="bad">negative</td><td><span class="pill pamber">thin / negative tail</span></td></tr>
-<tr><td>google_ads · Google ads</td><td>cell</td><td class="k">$0.004</td><td>$0.004</td><td class="bad">0% by construction</td><td class="bad">negative</td><td class="bad">negative</td><td><span class="pill pred">pass-through</span></td></tr>
-<tr><td>serp · SERP / search</td><td>cell</td><td class="k">$0.043</td><td>$0.043</td><td class="bad">0% by construction</td><td class="bad">−36%</td><td class="bad">−71%</td><td><span class="pill pred">pass-through</span></td></tr>
-</table></div>
+      <div class="callout amber">
+        <b>The structural mistake:</b> one table is doing two jobs.
+        <code>ENRICHMENT_PRICES</code> is superb <i>COGS telemetry</i> (WP10-7
+        made it honest) — but it's also the <i>customer price list</i>, so
+        honesty about cost became zero margin for the business. Every healthy
+        competitor separates these: Clay's marketplace data carries a 50–80%
+        margin over vendor cost; Origami takes margin on research credits while
+        running verification at cost; ZoomInfo runs an 87% gross margin.
+      </div>
 
-<div class="callout amber">
-<b>The structural mistake:</b> one table is doing two jobs. <code>ENRICHMENT_PRICES</code> is superb <i>COGS telemetry</i> (WP10-7 made it honest) — but it's also the <i>customer price list</i>, so honesty about cost became zero margin for the business. Every healthy competitor separates these: Clay's marketplace data carries a 50–80% margin over vendor cost; Origami takes margin on research credits while running verification at cost; ZoomInfo runs an 87% gross margin.
-</div>
+      <!-- ============================================================ -->
+      <h2 id="losses">4 · Where we lose money — worked examples</h2>
 
-<!-- ============================================================ -->
-<h2 id="losses">4 · Where we lose money — worked examples</h2>
+      <div class="grid2">
+        <div class="card">
+          <h3 style="margin-top: 0">
+            Example 1 · Growth customer, 2,000 fully-enriched leads/mo
+          </h3>
+          <p>
+            Settle: ceil(2,000 × $0.0403 / $0.05) =
+            <span class="k">1,610 credits</span> — barely a quarter of their
+            6,000-credit grant.
+          </p>
+          <p>
+            Revenue consumed: 1,610 × $0.0165 = <span class="k">$26.57</span
+            ><br />
+            Vendor COGS: 2,000 × $0.013 avg = <span class="k">$26.00</span> →
+            <span class="warn">margin ≈ 2%</span><br />
+            With a realistic walled/deep-review tail ($0.02/lead): COGS $40 →
+            <span class="bad">loss −$13</span>
+          </p>
+          <p class="sub">
+            Same usage after the Section-10 fix (3–4 cr/lead): 6,000–8,000
+            credits consumed → $99 revenue vs $26–40 COGS →
+            <span class="good">60–74% gross margin</span>.
+          </p>
+        </div>
+        <div class="card">
+          <h3 style="margin-top: 0">
+            Example 2 · Scale customer, bulk reviews on 1,000 leads
+          </h3>
+          <p>
+            Settle: 1,000 × $0.015 = $15 → <span class="k">300 credits</span>.
+          </p>
+          <p>
+            Revenue consumed: 300 × $0.0125 = <span class="k">$3.75</span><br />
+            Vendor COGS: <span class="k">$15.00</span> (more if the depth ladder
+            escalates)<br />
+            →
+            <span class="bad"
+              >loss −$11.25 per run, repeatable every 90 days</span
+            >
+          </p>
+          <p class="sub">
+            At Scale's $0.0125/credit, every pass-through SKU (reviews,
+            lighthouse, serp, google_ads) sells at ~25% of what it costs us.
+          </p>
+        </div>
+      </div>
 
-<div class="grid2">
-<div class="card">
-<h3 style="margin-top:0">Example 1 · Growth customer, 2,000 fully-enriched leads/mo</h3>
-<p>Settle: ceil(2,000 × $0.0403 / $0.05) = <span class="k">1,610 credits</span> — barely a quarter of their 6,000-credit grant.</p>
-<p>Revenue consumed: 1,610 × $0.0165 = <span class="k">$26.57</span><br/>
-Vendor COGS: 2,000 × $0.013 avg = <span class="k">$26.00</span> → <span class="warn">margin ≈ 2%</span><br/>
-With a realistic walled/deep-review tail ($0.02/lead): COGS $40 → <span class="bad">loss −$13</span></p>
-<p class="sub">Same usage after the Section-10 fix (3–4 cr/lead): 6,000–8,000 credits consumed → $99 revenue vs $26–40 COGS → <span class="good">60–74% gross margin</span>.</p>
-</div>
-<div class="card">
-<h3 style="margin-top:0">Example 2 · Scale customer, bulk reviews on 1,000 leads</h3>
-<p>Settle: 1,000 × $0.015 = $15 → <span class="k">300 credits</span>.</p>
-<p>Revenue consumed: 300 × $0.0125 = <span class="k">$3.75</span><br/>
-Vendor COGS: <span class="k">$15.00</span> (more if the depth ladder escalates)<br/>
-→ <span class="bad">loss −$11.25 per run, repeatable every 90 days</span></p>
-<p class="sub">At Scale's $0.0125/credit, every pass-through SKU (reviews, lighthouse, serp, google_ads) sells at ~25% of what it costs us.</p>
-</div>
-</div>
+      <p>
+        <b>Why this hasn't hurt yet:</b> dev mode, no users.
+        <b>Why it will:</b> the heaviest users gravitate to exactly the bulk
+        patterns above, and plan-effective rates reward them for it. A solo
+        founder's budget cannot absorb negative-margin whales.
+      </p>
 
-<p><b>Why this hasn't hurt yet:</b> dev mode, no users. <b>Why it will:</b> the heaviest users gravitate to exactly the bulk patterns above, and plan-effective rates reward them for it. A solo founder's budget cannot absorb negative-margin whales.</p>
+      <!-- ============================================================ -->
+      <h2 id="free">
+        5 · The free side: discovery + 50 credits — verdict: keep it, it's cheap
+        CAC
+      </h2>
 
-<!-- ============================================================ -->
-<h2 id="free">5 · The free side: discovery + 50 credits — verdict: keep it, it's cheap CAC</h2>
+      <div class="tw">
+        <table>
+          <tr>
+            <th>Free thing</th>
+            <th>Our worst-case cost</th>
+            <th>Typical cost</th>
+            <th>Guards in place</th>
+            <th>Gaps</th>
+          </tr>
+          <tr>
+            <td>Discovery (per cell)</td>
+            <td class="k">$0.93 (3,000-listing cap)</td>
+            <td class="k">$0.04–0.45</td>
+            <td>
+              182-day freshness = re-serve $0; cells are
+              <b>shared market data</b> — every later agency gets them free; 10
+              enqueues/min/user; UI caps 3 markets/request (~$2.79 worst)
+            </td>
+            <td>
+              server action accepts 50 cells vs UI's 3 (~$46 worst for a
+              hand-rolled caller); <b>no per-IP cap on discovery</b>;
+              <b>preflight has no rate limit at all</b>
+            </td>
+          </tr>
+          <tr>
+            <td>50 free credits</td>
+            <td class="k">~$1.35 vendor</td>
+            <td class="k">~$0.40</td>
+            <td>
+              one grant per agency (TOPUP sentinel); disposable-email blocklist;
+              magic-link = mailbox ownership; 20 enrich-runs/min/IP
+            </td>
+            <td>
+              Gmail plus-addressing creates distinct users → distinct agencies →
+              distinct grants (slug strips +tag, the grant does not)
+            </td>
+          </tr>
+        </table>
+      </div>
 
-<div class="tw"><table>
-<tr><th>Free thing</th><th>Our worst-case cost</th><th>Typical cost</th><th>Guards in place</th><th>Gaps</th></tr>
-<tr><td>Discovery (per cell)</td><td class="k">$0.93 (3,000-listing cap)</td><td class="k">$0.04–0.45</td><td>182-day freshness = re-serve $0; cells are <b>shared market data</b> — every later agency gets them free; 10 enqueues/min/user; UI caps 3 markets/request (~$2.79 worst)</td><td>server action accepts 50 cells vs UI's 3 (~$46 worst for a hand-rolled caller); <b>no per-IP cap on discovery</b>; <b>preflight has no rate limit at all</b></td></tr>
-<tr><td>50 free credits</td><td class="k">~$1.35 vendor</td><td class="k">~$0.40</td><td>one grant per agency (TOPUP sentinel); disposable-email blocklist; magic-link = mailbox ownership; 20 enrich-runs/min/IP</td><td>Gmail plus-addressing creates distinct users → distinct agencies → distinct grants (slug strips +tag, the grant does not)</td></tr>
-</table></div>
+      <p>
+        <b>Assessment:</b> a fully-drained free account costs us roughly
+        <span class="k">$0.80–1.20</span> all-in (worst ~$3). As CAC for an
+        agency lead that's excellent — Apollo's answer to the same problem is
+        choking free-tier <i>extraction</i> (10 exports/mo) while keeping
+        browsing generous. The free-discovery moat ("map any market, free,
+        before you spend anything") is a genuine differentiator vs
+        Apollo/Origami/Clay, none of whom give away market mapping. Keep it.
+        Close the four listed gaps (Section 11), don't shrink the offer.
+      </p>
 
-<p><b>Assessment:</b> a fully-drained free account costs us roughly <span class="k">$0.80–1.20</span> all-in (worst ~$3). As CAC for an agency lead that's excellent — Apollo's answer to the same problem is choking free-tier <i>extraction</i> (10 exports/mo) while keeping browsing generous. The free-discovery moat ("map any market, free, before you spend anything") is a genuine differentiator vs Apollo/Origami/Clay, none of whom give away market mapping. Keep it. Close the four listed gaps (Section 11), don't shrink the offer.</p>
+      <!-- ============================================================ -->
+      <h2 id="bugs">6 · Bugs &amp; gaps found</h2>
 
-<!-- ============================================================ -->
-<h2 id="bugs">6 · Bugs &amp; gaps found</h2>
+      <div class="tw">
+        <table>
+          <tr>
+            <th>#</th>
+            <th>Severity</th>
+            <th>Finding</th>
+            <th>Impact</th>
+            <th>Where</th>
+          </tr>
+          <tr>
+            <td>B1</td>
+            <td><span class="pill pred">P0</span></td>
+            <td>
+              <b>New-plan checkout metadata never maps to the grant tier.</b>
+              <code>startPlanCheckout</code> writes
+              <code>planKey</code> ("starter/growth/scale"); the webhook only
+              parses <code>metadata.plan</code> (legacy literals). Verified by
+              hand: nothing reads <code>planKey</code>.
+            </td>
+            <td>
+              A $299 Scale buyer's <code>Agency.plan</code> stays SOLO → granted
+              <b>900 credits instead of 24,000</b>. Revenue-critical before any
+              paid launch.
+            </td>
+            <td class="tag">credit-checkout.ts:204 · webhook.ts:198,237</td>
+          </tr>
+          <tr>
+            <td>B2</td>
+            <td><span class="pill pred">P0</span></td>
+            <td>
+              <b>Advertised 3 credits/lead vs settled ~1 credit/lead</b>
+              (docs/unit-economics.md flag 3, decision open). Wallets deplete 3×
+              slower than every plan card assumes.
+            </td>
+            <td>
+              All plan economics silently off by ~3×; the entire margin model
+              rests on this decision.
+            </td>
+            <td class="tag">pricing.ts:141-148 vs estimate.ts:90-93</td>
+          </tr>
+          <tr>
+            <td>B3</td>
+            <td><span class="pill pamber">P1</span></td>
+            <td>
+              <b>Slider math uses the pessimistic per-lead ceil</b> (<code
+                >enrichRatePerLead</code
+              >
+              → 1 cr/lead) for the default N, the "your N credits cover your
+              best N" copy, and the credit-wall minimum — while the footer
+              prices the same selection with the true total.
+            </td>
+            <td>
+              Your live case: default 26 of 84 though all 84 cost 16 cr against
+              a 26-cr wallet; "All 84" button hidden; helper copy factually
+              wrong. Under-selection = lost usage.
+            </td>
+            <td class="tag">flow-types.ts:201-208 · PreviewStep.tsx:591-618</td>
+          </tr>
+          <tr>
+            <td>B4</td>
+            <td><span class="pill pamber">P1</span></td>
+            <td>
+              <b
+                >Discovery preflight has no rate limit; discovery runs have no
+                per-IP cap; server accepts 50 cells vs UI's 3.</b
+              >
+            </td>
+            <td>
+              Free-vendor-spend and DB-write amplification for a hostile caller
+              (~$46/enqueue worst case).
+            </td>
+            <td class="tag">actions.ts:349 · rate-limit.ts:289-322</td>
+          </tr>
+          <tr>
+            <td>B5</td>
+            <td><span class="pill pamber">P1</span></td>
+            <td>
+              <b
+                >Walled-Lighthouse and reviews-depth settle bill the planned
+                (cheap) cost, not actual.</b
+              >
+              Estimate's upper bound is honest; settle isn't.
+            </td>
+            <td>
+              −$0.056/walled audit · up to −$0.32/deep-review lead, absorbed
+              silently.
+            </td>
+            <td class="tag">pricing.ts:398-414 · dispatch.ts:495,953</td>
+          </tr>
+          <tr>
+            <td>B6</td>
+            <td><span class="pill pamber">P2</span></td>
+            <td>
+              <b>Plus-address farming:</b> tom+1@gmail / tom+2@gmail each get a
+              fresh agency + 50 credits.
+            </td>
+            <td>
+              ~$0.40–1.35 vendor per farmed account; bounded but easy to close
+              (normalize email for the grant check).
+            </td>
+            <td class="tag">provision.ts:72-73,119-137</td>
+          </tr>
+          <tr>
+            <td>B7</td>
+            <td><span class="pill pindigo">P2</span></td>
+            <td>
+              Same tech data costs $0.009/lead via the goal flow (contacts dep)
+              but $0.001/lead via the workbench EnrichMoreSheet (no dep
+              expansion). Also: CTA always says "reveals contacts" even for runs
+              without the contacts family.
+            </td>
+            <td>Pricing-consistency + copy honesty.</td>
+            <td class="tag">
+              researches.ts:56-73 · EnrichMoreSheet.tsx:150 ·
+              PreviewStep.tsx:1535
+            </td>
+          </tr>
+          <tr>
+            <td>B8</td>
+            <td><span class="pill pindigo">P2</span></td>
+            <td>
+              Dead code: <code>EXPIRE</code> ledger type never written;
+              <code>cycleResetAt</code>/<code>overage*</code> wallet fields
+              never read. Two plan generations coexist; AGENCY_PRO orphaned.
+              docs/pricing-strategy.md "rollover 60d" is stale vs shipped
+              3×-cap.
+            </td>
+            <td>Confusion debt before pricing work starts.</td>
+            <td class="tag">schema.prisma:2189-2196 · pricing.ts:76-78</td>
+          </tr>
+        </table>
+      </div>
 
-<div class="tw"><table>
-<tr><th>#</th><th>Severity</th><th>Finding</th><th>Impact</th><th>Where</th></tr>
-<tr><td>B1</td><td><span class="pill pred">P0</span></td><td><b>New-plan checkout metadata never maps to the grant tier.</b> <code>startPlanCheckout</code> writes <code>planKey</code> ("starter/growth/scale"); the webhook only parses <code>metadata.plan</code> (legacy literals). Verified by hand: nothing reads <code>planKey</code>.</td><td>A $299 Scale buyer's <code>Agency.plan</code> stays SOLO → granted <b>900 credits instead of 24,000</b>. Revenue-critical before any paid launch.</td><td class="tag">credit-checkout.ts:204 · webhook.ts:198,237</td></tr>
-<tr><td>B2</td><td><span class="pill pred">P0</span></td><td><b>Advertised 3 credits/lead vs settled ~1 credit/lead</b> (docs/unit-economics.md flag 3, decision open). Wallets deplete 3× slower than every plan card assumes.</td><td>All plan economics silently off by ~3×; the entire margin model rests on this decision.</td><td class="tag">pricing.ts:141-148 vs estimate.ts:90-93</td></tr>
-<tr><td>B3</td><td><span class="pill pamber">P1</span></td><td><b>Slider math uses the pessimistic per-lead ceil</b> (<code>enrichRatePerLead</code> → 1 cr/lead) for the default N, the "your N credits cover your best N" copy, and the credit-wall minimum — while the footer prices the same selection with the true total.</td><td>Your live case: default 26 of 84 though all 84 cost 16 cr against a 26-cr wallet; "All 84" button hidden; helper copy factually wrong. Under-selection = lost usage.</td><td class="tag">flow-types.ts:201-208 · PreviewStep.tsx:591-618</td></tr>
-<tr><td>B4</td><td><span class="pill pamber">P1</span></td><td><b>Discovery preflight has no rate limit; discovery runs have no per-IP cap; server accepts 50 cells vs UI's 3.</b></td><td>Free-vendor-spend and DB-write amplification for a hostile caller (~$46/enqueue worst case).</td><td class="tag">actions.ts:349 · rate-limit.ts:289-322</td></tr>
-<tr><td>B5</td><td><span class="pill pamber">P1</span></td><td><b>Walled-Lighthouse and reviews-depth settle bill the planned (cheap) cost, not actual.</b> Estimate's upper bound is honest; settle isn't.</td><td>−$0.056/walled audit · up to −$0.32/deep-review lead, absorbed silently.</td><td class="tag">pricing.ts:398-414 · dispatch.ts:495,953</td></tr>
-<tr><td>B6</td><td><span class="pill pamber">P2</span></td><td><b>Plus-address farming:</b> tom+1@gmail / tom+2@gmail each get a fresh agency + 50 credits.</td><td>~$0.40–1.35 vendor per farmed account; bounded but easy to close (normalize email for the grant check).</td><td class="tag">provision.ts:72-73,119-137</td></tr>
-<tr><td>B7</td><td><span class="pill pindigo">P2</span></td><td>Same tech data costs $0.009/lead via the goal flow (contacts dep) but $0.001/lead via the workbench EnrichMoreSheet (no dep expansion). Also: CTA always says "reveals contacts" even for runs without the contacts family.</td><td>Pricing-consistency + copy honesty.</td><td class="tag">researches.ts:56-73 · EnrichMoreSheet.tsx:150 · PreviewStep.tsx:1535</td></tr>
-<tr><td>B8</td><td><span class="pill pindigo">P2</span></td><td>Dead code: <code>EXPIRE</code> ledger type never written; <code>cycleResetAt</code>/<code>overage*</code> wallet fields never read. Two plan generations coexist; AGENCY_PRO orphaned. docs/pricing-strategy.md "rollover 60d" is stale vs shipped 3×-cap.</td><td>Confusion debt before pricing work starts.</td><td class="tag">schema.prisma:2189-2196 · pricing.ts:76-78</td></tr>
-</table></div>
+      <!-- ============================================================ -->
+      <h2 id="market">7 · Competitors: Apollo · Origami · Clay</h2>
 
-<!-- ============================================================ -->
-<h2 id="market">7 · Competitors: Apollo · Origami · Clay</h2>
+      <h3>Plan-lineup snapshot</h3>
+      <div class="tw">
+        <table>
+          <tr>
+            <th></th>
+            <th>Mapsly (today)</th>
+            <th>Apollo</th>
+            <th>Origami</th>
+            <th>Clay</th>
+          </tr>
+          <tr>
+            <td>Entry paid</td>
+            <td>$19/mo · 900 cr</td>
+            <td>$49/user/mo (annual)</td>
+            <td>$29/mo · 2,000 cr</td>
+            <td>$185/mo · 2,500 cr</td>
+          </tr>
+          <tr>
+            <td>Mid tier</td>
+            <td>$99/mo · 6,000 cr</td>
+            <td>$79/user/mo</td>
+            <td>$129/mo · 9,000 cr</td>
+            <td>$495/mo · 6,000 cr</td>
+          </tr>
+          <tr>
+            <td>Top self-serve</td>
+            <td>$299/mo · 24,000 cr</td>
+            <td>$119/user/mo · 3-seat min</td>
+            <td>$499/mo · 40,000 cr</td>
+            <td>Enterprise (~$30k/yr median)</td>
+          </tr>
+          <tr>
+            <td>$/credit</td>
+            <td class="k">$0.0125–0.05</td>
+            <td class="k">$0.20 top-up · $0.025 internal fair-use value</td>
+            <td class="k">$0.0125–0.0145</td>
+            <td class="k">&lt;$0.05 headline · $0.02–0.03 overage</td>
+          </tr>
+          <tr>
+            <td>Free tier</td>
+            <td>50 cr one-time + <b>free unlimited discovery</b></td>
+            <td>10k email views/mo but 10 exports/mo (extraction choked)</td>
+            <td>1,000 cr one-time</td>
+            <td>100 cr + 500 actions/mo recurring</td>
+          </tr>
+          <tr>
+            <td>Expiry / rollover</td>
+            <td>plan cr roll over to 3× cap · purchased never expire</td>
+            <td>
+              <b>all credits expire monthly, no rollover</b> (most-hated
+              feature)
+            </td>
+            <td>overage pay-as-you-go w/ spend caps</td>
+            <td>rollover to 2× cap · top-up +30% premium</td>
+          </tr>
+          <tr>
+            <td>Charge on failure?</td>
+            <td><b>No</b> (failed jobs $0 + refund) — not marketed</td>
+            <td>
+              <b>Yes</b> (charged even when data missing — a top complaint)
+            </td>
+            <td>No ("no charge if unmatched" — marketed)</td>
+            <td>No since Mar-2026 (marketed)</td>
+          </tr>
+        </table>
+      </div>
 
-<h3>Plan-lineup snapshot</h3>
-<div class="tw"><table>
-<tr><th></th><th>Mapsly (today)</th><th>Apollo</th><th>Origami</th><th>Clay</th></tr>
-<tr><td>Entry paid</td><td>$19/mo · 900 cr</td><td>$49/user/mo (annual)</td><td>$29/mo · 2,000 cr</td><td>$185/mo · 2,500 cr</td></tr>
-<tr><td>Mid tier</td><td>$99/mo · 6,000 cr</td><td>$79/user/mo</td><td>$129/mo · 9,000 cr</td><td>$495/mo · 6,000 cr</td></tr>
-<tr><td>Top self-serve</td><td>$299/mo · 24,000 cr</td><td>$119/user/mo · 3-seat min</td><td>$499/mo · 40,000 cr</td><td>Enterprise (~$30k/yr median)</td></tr>
-<tr><td>$/credit</td><td class="k">$0.0125–0.05</td><td class="k">$0.20 top-up · $0.025 internal fair-use value</td><td class="k">$0.0125–0.0145</td><td class="k">&lt;$0.05 headline · $0.02–0.03 overage</td></tr>
-<tr><td>Free tier</td><td>50 cr one-time + <b>free unlimited discovery</b></td><td>10k email views/mo but 10 exports/mo (extraction choked)</td><td>1,000 cr one-time</td><td>100 cr + 500 actions/mo recurring</td></tr>
-<tr><td>Expiry / rollover</td><td>plan cr roll over to 3× cap · purchased never expire</td><td><b>all credits expire monthly, no rollover</b> (most-hated feature)</td><td>overage pay-as-you-go w/ spend caps</td><td>rollover to 2× cap · top-up +30% premium</td></tr>
-<tr><td>Charge on failure?</td><td><b>No</b> (failed jobs $0 + refund) — not marketed</td><td><b>Yes</b> (charged even when data missing — a top complaint)</td><td>No ("no charge if unmatched" — marketed)</td><td>No since Mar-2026 (marketed)</td></tr>
-</table></div>
+      <h3>The number that matters: effective $ per enriched lead</h3>
+      <div class="tw">
+        <table>
+          <tr>
+            <th>Product · unit</th>
+            <th>Effective $/lead</th>
+            <th>vs Mapsly today</th>
+          </tr>
+          <tr>
+            <td><b>Mapsly today</b> · fully-enriched lead (settles ~1 cr)</td>
+            <td class="k">$0.013–0.05 (plan-effective $0.013–0.021)</td>
+            <td>—</td>
+          </tr>
+          <tr>
+            <td>Apollo · exported email lead (best case, full utilization)</td>
+            <td class="k">$0.030–0.049</td>
+            <td>≈ 2–3× ours</td>
+          </tr>
+          <tr>
+            <td>Apollo · phone-enriched lead</td>
+            <td class="k">$0.60–1.60</td>
+            <td>30–80× ours</td>
+          </tr>
+          <tr>
+            <td>Apollo · real-world blended (overages, expiry waste)</td>
+            <td class="k">2–3× sticker ($150–400/user/mo actual)</td>
+            <td>—</td>
+          </tr>
+          <tr>
+            <td>
+              Origami · researched lead (company + verified email, 5–10 cr)
+            </td>
+            <td class="k">$0.07–0.15</td>
+            <td>4–10× ours</td>
+          </tr>
+          <tr>
+            <td>Origami · company + 3 contacts w/ emails+phones</td>
+            <td class="k">$0.25–0.45</td>
+            <td>15–30× ours</td>
+          </tr>
+          <tr>
+            <td>Clay · fully-enriched record (6–20 data credits)</td>
+            <td class="k">$0.30–1.50</td>
+            <td>20–75× ours</td>
+          </tr>
+        </table>
+      </div>
 
-<h3>The number that matters: effective $ per enriched lead</h3>
-<div class="tw"><table>
-<tr><th>Product · unit</th><th>Effective $/lead</th><th>vs Mapsly today</th></tr>
-<tr><td><b>Mapsly today</b> · fully-enriched lead (settles ~1 cr)</td><td class="k">$0.013–0.05 (plan-effective $0.013–0.021)</td><td>—</td></tr>
-<tr><td>Apollo · exported email lead (best case, full utilization)</td><td class="k">$0.030–0.049</td><td>≈ 2–3× ours</td></tr>
-<tr><td>Apollo · phone-enriched lead</td><td class="k">$0.60–1.60</td><td>30–80× ours</td></tr>
-<tr><td>Apollo · real-world blended (overages, expiry waste)</td><td class="k">2–3× sticker ($150–400/user/mo actual)</td><td>—</td></tr>
-<tr><td>Origami · researched lead (company + verified email, 5–10 cr)</td><td class="k">$0.07–0.15</td><td>4–10× ours</td></tr>
-<tr><td>Origami · company + 3 contacts w/ emails+phones</td><td class="k">$0.25–0.45</td><td>15–30× ours</td></tr>
-<tr><td>Clay · fully-enriched record (6–20 data credits)</td><td class="k">$0.30–1.50</td><td>20–75× ours</td></tr>
-</table></div>
+      <div class="callout">
+        <b>Read on the market:</b> we are not "cheap" — we are
+        <i>off the map</i>. The cheapest serious competitor's fully-enriched
+        lead costs 4–10× ours, and our data is arguably harder to get (local-SMB
+        signals nobody else indexes: reply rates, booking tools, Lighthouse,
+        local-pack presence). Being 3–5× cheaper than Origami wins deals. Being
+        30× cheaper just donates margin — and unlike them we're a solo-founder
+        budget, not a $2M seed. Meanwhile our two genuinely differentiated free
+        assets — <b>free market discovery</b> and
+        <b>charge-only-on-success</b> — are things competitors either don't
+        offer or market loudly while we don't mention them at all.
+      </div>
 
-<div class="callout">
-<b>Read on the market:</b> we are not "cheap" — we are <i>off the map</i>. The cheapest serious competitor's fully-enriched lead costs 4–10× ours, and our data is arguably harder to get (local-SMB signals nobody else indexes: reply rates, booking tools, Lighthouse, local-pack presence). Being 3–5× cheaper than Origami wins deals. Being 30× cheaper just donates margin — and unlike them we're a solo-founder budget, not a $2M seed. Meanwhile our two genuinely differentiated free assets — <b>free market discovery</b> and <b>charge-only-on-success</b> — are things competitors either don't offer or market loudly while we don't mention them at all.
-</div>
+      <!-- ============================================================ -->
+      <h2 id="practices">8 · Best-practice checklist vs us</h2>
 
-<!-- ============================================================ -->
-<h2 id="practices">8 · Best-practice checklist vs us</h2>
+      <div class="tw">
+        <table>
+          <tr>
+            <th>Best practice (source)</th>
+            <th>Industry norm</th>
+            <th>Mapsly today</th>
+            <th>Status</th>
+          </tr>
+          <tr>
+            <td>Gross margin on data COGS</td>
+            <td>
+              Clay 50–80% marketplace margin · ZoomInfo 87% GM · SaaS target
+              75–80%
+            </td>
+            <td>≈0% on 4 SKUs · negative tails · ~2% blended at Growth</td>
+            <td><span class="pill pred">fail</span></td>
+          </tr>
+          <tr>
+            <td>
+              Credits map to atomic, predictable actions ("1 credit = 1 X")
+            </td>
+            <td>Origami: email 3 cr, phone 15 cr · Apollo: email 1, phone 8</td>
+            <td>
+              fractional cost pass-through: a lead is "0.19 credits" — invisible
+              to users, breaks slider math
+            </td>
+            <td><span class="pill pred">fail</span></td>
+          </tr>
+          <tr>
+            <td>Don't expose raw vendor cost as the price</td>
+            <td>
+              "Credits are not a 1:1 cost proxy — calibrate to value"
+              (Schematic)
+            </td>
+            <td>price list IS the vendor cost table</td>
+            <td><span class="pill pred">fail</span></td>
+          </tr>
+          <tr>
+            <td>Variable-cost ops get variable credit prices</td>
+            <td>
+              Clay flags token-heavy models "~" · phone ≫ email everywhere
+            </td>
+            <td>
+              walled Lighthouse and deep reviews billed at the cheap fixed price
+            </td>
+            <td>
+              <span class="pill pamber">partial</span> (estimate honest, settle
+              not)
+            </td>
+          </tr>
+          <tr>
+            <td>Charge only on success</td>
+            <td>Origami + Clay market it</td>
+            <td><b>implemented</b> (failed jobs $0 + refund) — unmarketed</td>
+            <td><span class="pill pgreen">pass (hidden)</span></td>
+          </tr>
+          <tr>
+            <td>Rollover capped, purchased credits protected</td>
+            <td>Clay 2× cap · rollover rare industry-wide</td>
+            <td>
+              3× cap on plan credits · purchased never expire · draw-down order
+              protects purchased
+            </td>
+            <td><span class="pill pgreen">pass — better than Apollo</span></td>
+          </tr>
+          <tr>
+            <td>Top-up at a premium over plan rate</td>
+            <td>Clay +30%</td>
+            <td>
+              top-ups ($0.04–0.05) cost <b>2–4× more</b> per credit than plans
+              ($0.0125–0.021) — premium exists and is arguably too steep at
+              Scale
+            </td>
+            <td><span class="pill pgreen">pass</span></td>
+          </tr>
+          <tr>
+            <td>Free tier sized for "aha," extraction bounded</td>
+            <td>
+              Clay 100 cr/mo · Origami 1,000 one-time · Apollo chokes exports
+            </td>
+            <td>
+              50 cr + free discovery · farming gaps (plus-addressing, no
+              discovery IP cap)
+            </td>
+            <td><span class="pill pamber">partial</span></td>
+          </tr>
+          <tr>
+            <td>Anti-tamper, idempotent billing, bill actual ≤ hold</td>
+            <td>table stakes, often botched</td>
+            <td>
+              server re-quote, single-use estimates, CAS settle, clamped charge,
+              full-refund on zero progress
+            </td>
+            <td><span class="pill pgreen">pass — genuinely excellent</span></td>
+          </tr>
+        </table>
+      </div>
 
-<div class="tw"><table>
-<tr><th>Best practice (source)</th><th>Industry norm</th><th>Mapsly today</th><th>Status</th></tr>
-<tr><td>Gross margin on data COGS</td><td>Clay 50–80% marketplace margin · ZoomInfo 87% GM · SaaS target 75–80%</td><td>≈0% on 4 SKUs · negative tails · ~2% blended at Growth</td><td><span class="pill pred">fail</span></td></tr>
-<tr><td>Credits map to atomic, predictable actions ("1 credit = 1 X")</td><td>Origami: email 3 cr, phone 15 cr · Apollo: email 1, phone 8</td><td>fractional cost pass-through: a lead is "0.19 credits" — invisible to users, breaks slider math</td><td><span class="pill pred">fail</span></td></tr>
-<tr><td>Don't expose raw vendor cost as the price</td><td>"Credits are not a 1:1 cost proxy — calibrate to value" (Schematic)</td><td>price list IS the vendor cost table</td><td><span class="pill pred">fail</span></td></tr>
-<tr><td>Variable-cost ops get variable credit prices</td><td>Clay flags token-heavy models "~" · phone ≫ email everywhere</td><td>walled Lighthouse and deep reviews billed at the cheap fixed price</td><td><span class="pill pamber">partial</span> (estimate honest, settle not)</td></tr>
-<tr><td>Charge only on success</td><td>Origami + Clay market it</td><td><b>implemented</b> (failed jobs $0 + refund) — unmarketed</td><td><span class="pill pgreen">pass (hidden)</span></td></tr>
-<tr><td>Rollover capped, purchased credits protected</td><td>Clay 2× cap · rollover rare industry-wide</td><td>3× cap on plan credits · purchased never expire · draw-down order protects purchased</td><td><span class="pill pgreen">pass — better than Apollo</span></td></tr>
-<tr><td>Top-up at a premium over plan rate</td><td>Clay +30%</td><td>top-ups ($0.04–0.05) cost <b>2–4× more</b> per credit than plans ($0.0125–0.021) — premium exists and is arguably too steep at Scale</td><td><span class="pill pgreen">pass</span></td></tr>
-<tr><td>Free tier sized for "aha," extraction bounded</td><td>Clay 100 cr/mo · Origami 1,000 one-time · Apollo chokes exports</td><td>50 cr + free discovery · farming gaps (plus-addressing, no discovery IP cap)</td><td><span class="pill pamber">partial</span></td></tr>
-<tr><td>Anti-tamper, idempotent billing, bill actual ≤ hold</td><td>table stakes, often botched</td><td>server re-quote, single-use estimates, CAS settle, clamped charge, full-refund on zero progress</td><td><span class="pill pgreen">pass — genuinely excellent</span></td></tr>
-</table></div>
+      <!-- ============================================================ -->
+      <h2 id="score">9 · Scorecard of the existing model</h2>
 
-<!-- ============================================================ -->
-<h2 id="score">9 · Scorecard of the existing model</h2>
+      <div class="tw">
+        <table>
+          <tr>
+            <th>Dimension</th>
+            <th style="width: 110px">Score</th>
+            <th></th>
+            <th>Evidence</th>
+          </tr>
+          <tr>
+            <td>Billing infrastructure (hold/settle/ledger/anti-tamper)</td>
+            <td><span class="k">9 / 10</span></td>
+            <td>
+              <div class="scorebar">
+                <i style="width: 90%; background: var(--green)"></i>
+              </div>
+            </td>
+            <td>
+              Atomic holds, CAS settle, idempotency at every seam,
+              bill-actual-clamped-to-hold, full refund on zero progress.
+              Production-grade.
+            </td>
+          </tr>
+          <tr>
+            <td>Cost telemetry (COGS truth)</td>
+            <td><span class="k">8 / 10</span></td>
+            <td>
+              <div class="scorebar">
+                <i style="width: 80%; background: var(--green)"></i>
+              </div>
+            </td>
+            <td>
+              WP10-7 made per-call vendor costs honest and invoice-verified.
+              Keep this — as the <i>cost</i> table.
+            </td>
+          </tr>
+          <tr>
+            <td>Free-tier economics (CAC)</td>
+            <td><span class="k">8 / 10</span></td>
+            <td>
+              <div class="scorebar">
+                <i style="width: 80%; background: var(--green)"></i>
+              </div>
+            </td>
+            <td>
+              $0.80–1.20 per drained free account; shared-cell amortization;
+              free discovery is a real moat. Minus: farming gaps.
+            </td>
+          </tr>
+          <tr>
+            <td>Abuse resistance</td>
+            <td><span class="k">6 / 10</span></td>
+            <td>
+              <div class="scorebar">
+                <i style="width: 60%; background: var(--amber)"></i>
+              </div>
+            </td>
+            <td>
+              Strong idempotency/dedup inventory; but discovery preflight
+              unlimited, no discovery IP cap, 50-cell server hole, plus-address
+              grants.
+            </td>
+          </tr>
+          <tr>
+            <td>Pricing transparency &amp; UX math</td>
+            <td><span class="k">5 / 10</span></td>
+            <td>
+              <div class="scorebar">
+                <i style="width: 50%; background: var(--amber)"></i>
+              </div>
+            </td>
+            <td>
+              Server NET quote + "saved from fresh cache" are honest; but three
+              conflicting credit definitions, 5.6× pessimistic slider, per-row
+              vs total ceil drift, "reveals contacts" mislabel.
+            </td>
+          </tr>
+          <tr>
+            <td>Plan architecture &amp; Stripe wiring</td>
+            <td><span class="k">4 / 10</span></td>
+            <td>
+              <div class="scorebar">
+                <i style="width: 40%; background: var(--amber)"></i>
+              </div>
+            </td>
+            <td>
+              P0 planKey→tier bug; two plan generations; orphaned AGENCY_PRO;
+              dead wallet fields; stale strategy doc.
+            </td>
+          </tr>
+          <tr>
+            <td>Value capture vs market</td>
+            <td><span class="k">3 / 10</span></td>
+            <td>
+              <div class="scorebar">
+                <i style="width: 30%; background: var(--red)"></i>
+              </div>
+            </td>
+            <td>
+              6–30× below competitor per-lead prices with differentiated data;
+              differentiators (free discovery, charge-on-success) unmarketed.
+            </td>
+          </tr>
+          <tr>
+            <td>Margin structure</td>
+            <td><span class="k">2 / 10</span></td>
+            <td>
+              <div class="scorebar">
+                <i style="width: 20%; background: var(--red)"></i>
+              </div>
+            </td>
+            <td>
+              Cost pass-through by construction; 0% on four SKUs; negative
+              tails; Scale tier sells data at ~25% of vendor cost.
+            </td>
+          </tr>
+          <tr>
+            <td style="font-weight: 700">Overall</td>
+            <td><span class="k" style="font-size: 17px">4.9 / 10</span></td>
+            <td>
+              <div class="scorebar">
+                <i style="width: 49%; background: var(--indigo)"></i>
+              </div>
+            </td>
+            <td style="font-weight: 600">
+              An excellent machine executing a broken price list. Fixing it is a
+              pricing decision + ~3 focused PRs, not a rebuild.
+            </td>
+          </tr>
+        </table>
+      </div>
 
-<div class="tw"><table>
-<tr><th>Dimension</th><th style="width:110px">Score</th><th></th><th>Evidence</th></tr>
-<tr><td>Billing infrastructure (hold/settle/ledger/anti-tamper)</td><td><span class="k">9 / 10</span></td><td><div class="scorebar"><i style="width:90%;background:var(--green)"></i></div></td><td>Atomic holds, CAS settle, idempotency at every seam, bill-actual-clamped-to-hold, full refund on zero progress. Production-grade.</td></tr>
-<tr><td>Cost telemetry (COGS truth)</td><td><span class="k">8 / 10</span></td><td><div class="scorebar"><i style="width:80%;background:var(--green)"></i></div></td><td>WP10-7 made per-call vendor costs honest and invoice-verified. Keep this — as the <i>cost</i> table.</td></tr>
-<tr><td>Free-tier economics (CAC)</td><td><span class="k">8 / 10</span></td><td><div class="scorebar"><i style="width:80%;background:var(--green)"></i></div></td><td>$0.80–1.20 per drained free account; shared-cell amortization; free discovery is a real moat. Minus: farming gaps.</td></tr>
-<tr><td>Abuse resistance</td><td><span class="k">6 / 10</span></td><td><div class="scorebar"><i style="width:60%;background:var(--amber)"></i></div></td><td>Strong idempotency/dedup inventory; but discovery preflight unlimited, no discovery IP cap, 50-cell server hole, plus-address grants.</td></tr>
-<tr><td>Pricing transparency &amp; UX math</td><td><span class="k">5 / 10</span></td><td><div class="scorebar"><i style="width:50%;background:var(--amber)"></i></div></td><td>Server NET quote + "saved from fresh cache" are honest; but three conflicting credit definitions, 5.6× pessimistic slider, per-row vs total ceil drift, "reveals contacts" mislabel.</td></tr>
-<tr><td>Plan architecture &amp; Stripe wiring</td><td><span class="k">4 / 10</span></td><td><div class="scorebar"><i style="width:40%;background:var(--amber)"></i></div></td><td>P0 planKey→tier bug; two plan generations; orphaned AGENCY_PRO; dead wallet fields; stale strategy doc.</td></tr>
-<tr><td>Value capture vs market</td><td><span class="k">3 / 10</span></td><td><div class="scorebar"><i style="width:30%;background:var(--red)"></i></div></td><td>6–30× below competitor per-lead prices with differentiated data; differentiators (free discovery, charge-on-success) unmarketed.</td></tr>
-<tr><td>Margin structure</td><td><span class="k">2 / 10</span></td><td><div class="scorebar"><i style="width:20%;background:var(--red)"></i></div></td><td>Cost pass-through by construction; 0% on four SKUs; negative tails; Scale tier sells data at ~25% of vendor cost.</td></tr>
-<tr><td style="font-weight:700">Overall</td><td><span class="k" style="font-size:17px">4.9 / 10</span></td><td><div class="scorebar"><i style="width:49%;background:var(--indigo)"></i></div></td><td style="font-weight:600">An excellent machine executing a broken price list. Fixing it is a pricing decision + ~3 focused PRs, not a rebuild.</td></tr>
-</table></div>
+      <!-- ============================================================ -->
+      <h2 id="proposal">10 · Proposal: value-based credit schedule</h2>
 
-<!-- ============================================================ -->
-<h2 id="proposal">10 · Proposal: value-based credit schedule</h2>
+      <div class="callout green">
+        <b>One principle:</b> keep <code>ENRICHMENT_PRICES</code> exactly as it
+        is — as the <b>COGS table</b> (telemetry, upper bounds, cost audit). Add
+        a second, tiny table — <code>CREDIT_PRICES</code> — in
+        <b>whole credits per unit</b>, and make quote + settle bill from it.
+        This makes the already-advertised marketing math
+        (<code>CREDIT_MEANING</code>, the plan cards' "$0.05/enriched lead") the
+        real math, resolves the 1-vs-3 discrepancy in the direction the cards
+        already promise, and — because per-lead prices become integers —
+        <b>fixes the slider bug by construction</b> (per-lead rate = the real
+        rate; "1 credit = 1 scanned lead" becomes true).
+      </div>
 
-<div class="callout green">
-<b>One principle:</b> keep <code>ENRICHMENT_PRICES</code> exactly as it is — as the <b>COGS table</b> (telemetry, upper bounds, cost audit). Add a second, tiny table — <code>CREDIT_PRICES</code> — in <b>whole credits per unit</b>, and make quote + settle bill from it. This makes the already-advertised marketing math (<code>CREDIT_MEANING</code>, the plan cards' "$0.05/enriched lead") the real math, resolves the 1-vs-3 discrepancy in the direction the cards already promise, and — because per-lead prices become integers — <b>fixes the slider bug by construction</b> (per-lead rate = the real rate; "1 credit = 1 scanned lead" becomes true).
-</div>
+      <h3>Proposed schedule (whole credits, atomic)</h3>
+      <div class="tw">
+        <table>
+          <tr>
+            <th>What the user buys</th>
+            <th>Charged</th>
+            <th>COGS (typ → upper)</th>
+            <th>Margin at face $0.05</th>
+            <th>at Growth $0.0165</th>
+            <th>at Scale (rebased, see below)</th>
+          </tr>
+          <tr>
+            <td>
+              <b>Website scan</b> — contacts + tech + services bundled (one
+              fetch anyway)
+            </td>
+            <td class="k">1 cr / lead</td>
+            <td>$0.003 → $0.028</td>
+            <td class="good">~85%</td>
+            <td class="good">~70%</td>
+            <td class="good">~65%</td>
+          </tr>
+          <tr>
+            <td><b>Reviews</b> (depth 200)</td>
+            <td class="k">1 cr / lead</td>
+            <td>$0.015 flat</td>
+            <td class="good">70%</td>
+            <td class="warn">~9%</td>
+            <td class="warn">~12%</td>
+          </tr>
+          <tr>
+            <td>
+              <b>Reviews deep</b> (ladder ≥700 — auto-escalation becomes a
+              priced tier)
+            </td>
+            <td class="k">3 cr / lead</td>
+            <td>$0.05–0.34</td>
+            <td class="good">ok</td>
+            <td class="warn">bounded</td>
+            <td class="warn">bounded</td>
+          </tr>
+          <tr>
+            <td><b>Site speed</b> (Lighthouse, open)</td>
+            <td class="k">1 cr / lead</td>
+            <td>$0.00425</td>
+            <td class="good">91%</td>
+            <td class="good">74%</td>
+            <td class="good">75%</td>
+          </tr>
+          <tr>
+            <td>
+              <b>Site speed, walled</b> (actor route — settle already knows the
+              route)
+            </td>
+            <td class="k">2 cr / lead</td>
+            <td>$0.06</td>
+            <td class="good">40%</td>
+            <td class="warn">~0% (bounded, rare)</td>
+            <td class="warn">~0%</td>
+          </tr>
+          <tr>
+            <td><b>AI research</b></td>
+            <td class="k">1 cr / lead</td>
+            <td>~$0.001</td>
+            <td class="good">98%</td>
+            <td class="good">94%</td>
+            <td class="good">94%</td>
+          </tr>
+          <tr>
+            <td><b>Google ads intel</b> (per market cell)</td>
+            <td class="k">1 cr / cell</td>
+            <td>$0.004</td>
+            <td class="good">92%</td>
+            <td class="good">76%</td>
+            <td class="good">76%</td>
+          </tr>
+          <tr>
+            <td><b>Meta ads intel</b> (per cell)</td>
+            <td class="k">3 cr / cell</td>
+            <td>$0.02–0.10</td>
+            <td class="good">73%</td>
+            <td class="good">~20–60%</td>
+            <td class="good">~20–60%</td>
+          </tr>
+          <tr>
+            <td><b>Search intel / SERP</b> (per cell)</td>
+            <td class="k">4 cr / cell</td>
+            <td>$0.043</td>
+            <td class="good">78%</td>
+            <td class="good">35%</td>
+            <td class="good">36%</td>
+          </tr>
+          <tr>
+            <td style="font-weight: 700">
+              Fully-enriched lead (scan + reviews + speed + AI)
+            </td>
+            <td class="k" style="font-weight: 700">4 cr</td>
+            <td>$0.023 → $0.04</td>
+            <td class="good">80–88%</td>
+            <td class="good">~65%</td>
+            <td class="good">~60%</td>
+          </tr>
+        </table>
+      </div>
 
-<h3>Proposed schedule (whole credits, atomic)</h3>
-<div class="tw"><table>
-<tr><th>What the user buys</th><th>Charged</th><th>COGS (typ → upper)</th><th>Margin at face $0.05</th><th>at Growth $0.0165</th><th>at Scale (rebased, see below)</th></tr>
-<tr><td><b>Website scan</b> — contacts + tech + services bundled (one fetch anyway)</td><td class="k">1 cr / lead</td><td>$0.003 → $0.028</td><td class="good">~85%</td><td class="good">~70%</td><td class="good">~65%</td></tr>
-<tr><td><b>Reviews</b> (depth 200)</td><td class="k">1 cr / lead</td><td>$0.015 flat</td><td class="good">70%</td><td class="warn">~9%</td><td class="warn">~12%</td></tr>
-<tr><td><b>Reviews deep</b> (ladder ≥700 — auto-escalation becomes a priced tier)</td><td class="k">3 cr / lead</td><td>$0.05–0.34</td><td class="good">ok</td><td class="warn">bounded</td><td class="warn">bounded</td></tr>
-<tr><td><b>Site speed</b> (Lighthouse, open)</td><td class="k">1 cr / lead</td><td>$0.00425</td><td class="good">91%</td><td class="good">74%</td><td class="good">75%</td></tr>
-<tr><td><b>Site speed, walled</b> (actor route — settle already knows the route)</td><td class="k">2 cr / lead</td><td>$0.06</td><td class="good">40%</td><td class="warn">~0% (bounded, rare)</td><td class="warn">~0%</td></tr>
-<tr><td><b>AI research</b></td><td class="k">1 cr / lead</td><td>~$0.001</td><td class="good">98%</td><td class="good">94%</td><td class="good">94%</td></tr>
-<tr><td><b>Google ads intel</b> (per market cell)</td><td class="k">1 cr / cell</td><td>$0.004</td><td class="good">92%</td><td class="good">76%</td><td class="good">76%</td></tr>
-<tr><td><b>Meta ads intel</b> (per cell)</td><td class="k">3 cr / cell</td><td>$0.02–0.10</td><td class="good">73%</td><td class="good">~20–60%</td><td class="good">~20–60%</td></tr>
-<tr><td><b>Search intel / SERP</b> (per cell)</td><td class="k">4 cr / cell</td><td>$0.043</td><td class="good">78%</td><td class="good">35%</td><td class="good">36%</td></tr>
-<tr><td style="font-weight:700">Fully-enriched lead (scan + reviews + speed + AI)</td><td class="k" style="font-weight:700">4 cr</td><td>$0.023 → $0.04</td><td class="good">80–88%</td><td class="good">~65%</td><td class="good">~60%</td></tr>
-</table></div>
+      <h3>
+        What this does to the customer price — still clearly the cheapest
+        serious option
+      </h3>
+      <div class="tw">
+        <table>
+          <tr>
+            <th>Unit</th>
+            <th>Mapsly after fix</th>
+            <th>Origami</th>
+            <th>Clay</th>
+            <th>Apollo</th>
+          </tr>
+          <tr>
+            <td>Lead with contacts (site scan)</td>
+            <td class="k">$0.017–0.05</td>
+            <td class="k">$0.04 (email = 3 cr)</td>
+            <td class="k">~$0.10–0.15</td>
+            <td class="k">$0.03–0.20</td>
+          </tr>
+          <tr>
+            <td>Fully-enriched lead</td>
+            <td class="k">$0.066–0.20 (4 cr)</td>
+            <td class="k">$0.08–0.45</td>
+            <td class="k">$0.30–1.50</td>
+            <td class="k">$0.60+ w/ phone</td>
+          </tr>
+        </table>
+      </div>
 
-<h3>What this does to the customer price — still clearly the cheapest serious option</h3>
-<div class="tw"><table>
-<tr><th>Unit</th><th>Mapsly after fix</th><th>Origami</th><th>Clay</th><th>Apollo</th></tr>
-<tr><td>Lead with contacts (site scan)</td><td class="k">$0.017–0.05</td><td class="k">$0.04 (email = 3 cr)</td><td class="k">~$0.10–0.15</td><td class="k">$0.03–0.20</td></tr>
-<tr><td>Fully-enriched lead</td><td class="k">$0.066–0.20 (4 cr)</td><td class="k">$0.08–0.45</td><td class="k">$0.30–1.50</td><td class="k">$0.60+ w/ phone</td></tr>
-</table></div>
+      <h3>Plan adjustments (small, surgical)</h3>
+      <ul>
+        <li>
+          <b>Rebase Scale:</b> $299 / 24,000 cr ($0.0125/cr) is below the
+          pass-through floor of several SKUs even after repricing. Recommend
+          <b>$299 / 18,000 cr ($0.0166/cr)</b> — same per-credit floor as
+          Growth; headline stays honest: "18,000 credits ≈ 4,500 fully-enriched
+          leads ≈ $0.066/lead."
+        </li>
+        <li>
+          <b>Update plan-card copy</b> from "per enriched lead" ×3 to ×4
+          (Starter "from $0.084", Growth "$0.066", Scale "from $0.066") — or
+          keep 3-cr full-lead by folding AI research into the scan bundle;
+          either is coherent, pick one and make <code>CREDIT_MEANING</code>,
+          cards, and settle agree.
+        </li>
+        <li>
+          <b>Free tier stays 50 credits</b> = 50 scanned leads or ~12
+          fully-enriched — still a real "aha," now with honest depletion so free
+          users convert instead of living on 50 credits for months.
+        </li>
+        <li>
+          <b>Market the two hidden differentiators</b> on the pricing page:
+          "Market discovery is always free" and "No charge when a scan fails —
+          you pay for answers, not attempts." Zero code, real positioning vs
+          Apollo's pay-for-misses reputation.
+        </li>
+      </ul>
 
-<h3>Plan adjustments (small, surgical)</h3>
-<ul>
-<li><b>Rebase Scale:</b> $299 / 24,000 cr ($0.0125/cr) is below the pass-through floor of several SKUs even after repricing. Recommend <b>$299 / 18,000 cr ($0.0166/cr)</b> — same per-credit floor as Growth; headline stays honest: "18,000 credits ≈ 4,500 fully-enriched leads ≈ $0.066/lead."</li>
-<li><b>Update plan-card copy</b> from "per enriched lead" ×3 to ×4 (Starter "from $0.084", Growth "$0.066", Scale "from $0.066") — or keep 3-cr full-lead by folding AI research into the scan bundle; either is coherent, pick one and make <code>CREDIT_MEANING</code>, cards, and settle agree.</li>
-<li><b>Free tier stays 50 credits</b> = 50 scanned leads or ~12 fully-enriched — still a real "aha," now with honest depletion so free users convert instead of living on 50 credits for months.</li>
-<li><b>Market the two hidden differentiators</b> on the pricing page: "Market discovery is always free" and "No charge when a scan fails — you pay for answers, not attempts." Zero code, real positioning vs Apollo's pay-for-misses reputation.</li>
-</ul>
+      <h3>Why not just keep undercutting at cost?</h3>
+      <p>
+        Penetration pricing works when funded to buy share (Origami: $2M seed,
+        verification at cost as a wedge). A solo founder's version of that
+        strategy is: <b>free discovery as the wedge</b> (unmetered, already
+        built, cheap) and <b>healthy margin on enrichment</b> (where the value
+        is proven by the quote the user just accepted). The proposal keeps you
+        the cheapest credible option at every tier while producing
+        ZoomInfo-class margins at face rates and 60–70% at plan rates — enough
+        to fund DataForSEO bills, the free tier, and growth without outside
+        money.
+      </p>
 
-<h3>Why not just keep undercutting at cost?</h3>
-<p>Penetration pricing works when funded to buy share (Origami: $2M seed, verification at cost as a wedge). A solo founder's version of that strategy is: <b>free discovery as the wedge</b> (unmetered, already built, cheap) and <b>healthy margin on enrichment</b> (where the value is proven by the quote the user just accepted). The proposal keeps you the cheapest credible option at every tier while producing ZoomInfo-class margins at face rates and 60–70% at plan rates — enough to fund DataForSEO bills, the free tier, and growth without outside money.</p>
+      <!-- ============================================================ -->
+      <h2 id="roadmap">11 · Roadmap</h2>
 
-<!-- ============================================================ -->
-<h2 id="roadmap">11 · Roadmap</h2>
+      <div class="tw">
+        <table>
+          <tr>
+            <th>Priority</th>
+            <th>Item</th>
+            <th>Effort</th>
+            <th>Effect</th>
+          </tr>
+          <tr>
+            <td><span class="pill pred">P0</span></td>
+            <td>
+              <b>Fix planKey→AgencyPlan webhook mapping</b> (B1) — map
+              "starter/growth/scale" to the tier enum at grant time; add an
+              integration test per plan.
+            </td>
+            <td>~half day</td>
+            <td>
+              Paid plans actually grant what was bought. Blocks launch
+              otherwise.
+            </td>
+          </tr>
+          <tr>
+            <td><span class="pill pred">P0</span></td>
+            <td>
+              <b
+                >Introduce <code>CREDIT_PRICES</code> (whole credits/unit) +
+                bill quote &amp; settle from it</b
+              >
+              (Section 10); bump PRICE_LIST_VERSION; keep ENRICHMENT_PRICES as
+              COGS telemetry; align CREDIT_MEANING + plan cards;
+              walled-Lighthouse and deep-reviews billed as their own tiers
+              (fixes B2 + B5).
+            </td>
+            <td>~2–3 days incl. tests</td>
+            <td>
+              Margins go from ~0% to 60–88%; three credit definitions collapse
+              into one.
+            </td>
+          </tr>
+          <tr>
+            <td><span class="pill pamber">P1</span></td>
+            <td>
+              <b>Slider/costbar math on integer credits</b> (B3): default N =
+              ALL enrichable, or the max affordable derived by inverting the
+              true total; merge the filter card + cap control into one block
+              (your standing UI request).
+            </td>
+            <td>~1 day</td>
+            <td>
+              Default selection stops leaving 69% of an affordable market on the
+              table.
+            </td>
+          </tr>
+          <tr>
+            <td><span class="pill pamber">P1</span></td>
+            <td>
+              <b>Close the free-spend gaps</b> (B4): rate-limit discovery
+              preflight, per-IP cap on discovery runs, clamp server cells to the
+              UI's 3.
+            </td>
+            <td>~half day</td>
+            <td>Bounds hostile free-vendor spend.</td>
+          </tr>
+          <tr>
+            <td><span class="pill pindigo">P2</span></td>
+            <td>
+              Normalize plus-addressed emails for the free grant (B6); align
+              EnrichMoreSheet dep expansion or price it deliberately + fix
+              "reveals contacts" copy (B7); delete dead EXPIRE/overage fields,
+              retire legacy plan generation, refresh docs/pricing-strategy.md
+              (B8).
+            </td>
+            <td>~1–2 days</td>
+            <td>Closes farming, consistency, and confusion debt.</td>
+          </tr>
+        </table>
+      </div>
 
-<div class="tw"><table>
-<tr><th>Priority</th><th>Item</th><th>Effort</th><th>Effect</th></tr>
-<tr><td><span class="pill pred">P0</span></td><td><b>Fix planKey→AgencyPlan webhook mapping</b> (B1) — map "starter/growth/scale" to the tier enum at grant time; add an integration test per plan.</td><td>~half day</td><td>Paid plans actually grant what was bought. Blocks launch otherwise.</td></tr>
-<tr><td><span class="pill pred">P0</span></td><td><b>Introduce <code>CREDIT_PRICES</code> (whole credits/unit) + bill quote &amp; settle from it</b> (Section 10); bump PRICE_LIST_VERSION; keep ENRICHMENT_PRICES as COGS telemetry; align CREDIT_MEANING + plan cards; walled-Lighthouse and deep-reviews billed as their own tiers (fixes B2 + B5).</td><td>~2–3 days incl. tests</td><td>Margins go from ~0% to 60–88%; three credit definitions collapse into one.</td></tr>
-<tr><td><span class="pill pamber">P1</span></td><td><b>Slider/costbar math on integer credits</b> (B3): default N = ALL enrichable, or the max affordable derived by inverting the true total; merge the filter card + cap control into one block (your standing UI request).</td><td>~1 day</td><td>Default selection stops leaving 69% of an affordable market on the table.</td></tr>
-<tr><td><span class="pill pamber">P1</span></td><td><b>Close the free-spend gaps</b> (B4): rate-limit discovery preflight, per-IP cap on discovery runs, clamp server cells to the UI's 3.</td><td>~half day</td><td>Bounds hostile free-vendor spend.</td></tr>
-<tr><td><span class="pill pindigo">P2</span></td><td>Normalize plus-addressed emails for the free grant (B6); align EnrichMoreSheet dep expansion or price it deliberately + fix "reveals contacts" copy (B7); delete dead EXPIRE/overage fields, retire legacy plan generation, refresh docs/pricing-strategy.md (B8).</td><td>~1–2 days</td><td>Closes farming, consistency, and confusion debt.</td></tr>
-</table></div>
+      <div class="callout">
+        <b>Suggested order:</b> P0-planKey → P0-CREDIT_PRICES → P1-slider (it
+        becomes trivial once credits are integers) → P1-rate-limits → P2s. Total
+        ≈ one focused week. Everything else about the credit system — the part
+        that took months to build right — already works.
+      </div>
 
-<div class="callout">
-<b>Suggested order:</b> P0-planKey → P0-CREDIT_PRICES → P1-slider (it becomes trivial once credits are integers) → P1-rate-limits → P2s. Total ≈ one focused week. Everything else about the credit system — the part that took months to build right — already works.
-</div>
-
-<p class="foot">
-Sources — internal: modules/cost/pricing.ts · modules/cost/estimate.ts · modules/cost/server.ts · modules/billing/* · modules/enrichment/dispatch.ts · modules/agency-portal/discover/* · services/dataforseo/pricing.ts · docs/unit-economics.md · docs/enrichment-cost-model.md (all claims carry file:line above).
-External: apollo.io/pricing + about-credits · salesmotion.io, saleshandy.com, warmly.ai, cognism.com, marketbetter.ai Apollo teardowns · origami.chat/pricing + blog · clay.com/pricing + university.clay.com docs · cleanlist.ai, astragtm.io Clay analyses · m3ter.com, schematichq.com, metronome.com/Forbes credit-pricing guides · ZoomInfo 10-K (87% GM).
-Generated 2026-07-02 · 7 research agents + hand verification of P0 claims.
-</p>
-
-</div>
-</body>
+      <p class="foot">
+        Sources — internal: modules/cost/pricing.ts · modules/cost/estimate.ts ·
+        modules/cost/server.ts · modules/billing/* ·
+        modules/enrichment/dispatch.ts · modules/agency-portal/discover/* ·
+        services/dataforseo/pricing.ts · docs/unit-economics.md ·
+        docs/enrichment-cost-model.md (all claims carry file:line above).
+        External: apollo.io/pricing + about-credits · salesmotion.io,
+        saleshandy.com, warmly.ai, cognism.com, marketbetter.ai Apollo teardowns
+        · origami.chat/pricing + blog · clay.com/pricing + university.clay.com
+        docs · cleanlist.ai, astragtm.io Clay analyses · m3ter.com,
+        schematichq.com, metronome.com/Forbes credit-pricing guides · ZoomInfo
+        10-K (87% GM). Generated 2026-07-02 · 7 research agents + hand
+        verification of P0 claims.
+      </p>
+    </div>
+  </body>
 </html>

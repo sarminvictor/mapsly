@@ -86,7 +86,12 @@ import { unstable_noStore as noStore } from "next/cache";
 
 export async function getBillingStatus(userId: string) {
   noStore();
-  return prisma.user.findUnique({ where: { id: userId }, select: { /* ... */ } });
+  return prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      /* ... */
+    },
+  });
 }
 ```
 

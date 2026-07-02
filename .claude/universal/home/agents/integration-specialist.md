@@ -53,15 +53,15 @@ Each endpoint or event, with code examples and `file:line` refs from the actual 
 
 ### Score card (always produce)
 
-| Category                | Score (1-10) | Notes |
-| ----------------------- | ------------ | ----- |
-| Error handling          |              |       |
-| Idempotency             |              |       |
-| Schema validation       |              |       |
-| Secret handling         |              |       |
-| Retry / timeout         |              |       |
-| Observability           |              |       |
-| Overall                 |              |       |
+| Category          | Score (1-10) | Notes |
+| ----------------- | ------------ | ----- |
+| Error handling    |              |       |
+| Idempotency       |              |       |
+| Schema validation |              |       |
+| Secret handling   |              |       |
+| Retry / timeout   |              |       |
+| Observability     |              |       |
+| Overall           |              |       |
 
 ### Env vars required
 

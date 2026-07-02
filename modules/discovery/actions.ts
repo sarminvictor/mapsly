@@ -557,7 +557,10 @@ export async function runDiscoveryAction(
   // B4 · additional per-IP cap — discovery is free to the agency but costs US
   // DfS $ per never-seen cell, and any STAFF seat can trigger it. Blunts
   // account-rotation farming behind one IP (orthogonal to the per-user cap).
-  const ipRl = await rateLimitAction(DISCOVERY_RUN_IP_LIMIT, await requestIpKey());
+  const ipRl = await rateLimitAction(
+    DISCOVERY_RUN_IP_LIMIT,
+    await requestIpKey(),
+  );
   if (ipRl.limited) {
     return { status: "rate_limited", retryAfter: ipRl.retryAfter };
   }

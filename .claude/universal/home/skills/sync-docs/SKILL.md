@@ -45,13 +45,13 @@ CONVENTIONS
 
 ### Score Card
 
-| Dimension               | Score (1-10) | Issues |
-| ----------------------- | ------------ | ------ |
-| **Feature map sync**    |              |        |
-| **Index sync**          |              |        |
-| **Doc index sync**      |              |        |
-| **Convention hygiene**  |              |        |
-| **Overall**             |              |        |
+| Dimension              | Score (1-10) | Issues |
+| ---------------------- | ------------ | ------ |
+| **Feature map sync**   |              |        |
+| **Index sync**         |              |        |
+| **Doc index sync**     |              |        |
+| **Convention hygiene** |              |        |
+| **Overall**            |              |        |
 
 ## Anti-patterns
 

@@ -86,11 +86,11 @@ Both lines: `postinstall` covers dependency install; `build` covers the explicit
 
 One generated client, three entry points — never import the generated output path directly:
 
-| Context                          | Import from             |
-| -------------------------------- | ----------------------- |
-| Server code (client + types)     | `@/lib/prisma`          |
-| Client components (types/enums)  | `@/lib/prisma-types`    |
-| Scripts / seeds                  | `@/lib/prisma-script`   |
+| Context                         | Import from           |
+| ------------------------------- | --------------------- |
+| Server code (client + types)    | `@/lib/prisma`        |
+| Client components (types/enums) | `@/lib/prisma-types`  |
+| Scripts / seeds                 | `@/lib/prisma-script` |
 
 The Prisma 7 generator (`prisma-client`, not `prisma-client-js`) outputs `client.ts` (server) and `browser.ts` (types). Importing the server client into a `'use client'` file pulls the driver adapter into the browser bundle.
 
@@ -142,7 +142,7 @@ Never chain the execute step with `&&` into the resolve step — a failed execut
 
 ## 10 · `'use cache'` + Prisma at build phase
 
-Every `'use cache'` Prisma query needs a build-phase guard — see `cache-components.md` Pattern 1 (that file owns the NEXT_PHASE + `EMPTY_*` pattern).
+Every `'use cache'` Prisma query needs a build-phase guard — see `cache-components.md` Pattern 1 (that file owns the NEXT*PHASE + `EMPTY*\*` pattern).
 
 ## Anti-patterns (block at review)
 

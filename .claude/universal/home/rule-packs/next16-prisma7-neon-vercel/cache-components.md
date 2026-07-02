@@ -26,7 +26,13 @@ export async function getThing(): Promise<Thing> {
   cacheTag("thing");
   if (process.env.NEXT_PHASE === "phase-production-build") return EMPTY_THING;
   try {
-    return serialize(shape(await prisma.thing.findMany({ /* ... */ })));
+    return serialize(
+      shape(
+        await prisma.thing.findMany({
+          /* ... */
+        }),
+      ),
+    );
   } catch {
     return EMPTY_THING;
   }
@@ -79,13 +85,19 @@ export default function Page({ params, searchParams }: PageProps) {
 }
 
 async function PageResolver({ params, searchParams }: PageProps) {
-  const { slug } = await params;         // await INSIDE the boundary
+  const { slug } = await params; // await INSIDE the boundary
   if (!isValidSlug(slug)) notFound();
   const { filter } = await searchParams;
   return <PageContent slug={slug} filter={filter} />;
 }
 
-async function PageContent({ slug, filter }: { slug: string; filter?: string }) {
+async function PageContent({
+  slug,
+  filter,
+}: {
+  slug: string;
+  filter?: string;
+}) {
   "use cache";
   cacheLife("weeks");
   cacheTag(`item-${slug}`);

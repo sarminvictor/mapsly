@@ -57,6 +57,7 @@ Classify each row: patch / minor / major behind.
 | Package | Current | Latest | Class | Usage breadth | Risk note |
 
 **Proposed tasks** (owner approves before anything is upgraded)
+
 1. <title> — risk: <low/med/high> · effort: <S/M/L> · why now: <1 line>
 
 **Deliberate pins detected:** <package — where documented, reason>
