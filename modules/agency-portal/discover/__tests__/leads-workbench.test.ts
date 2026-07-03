@@ -17,10 +17,13 @@ import {
   fmtDelta,
   getPageNumbers,
   matchesSearch,
+  availableNumericFields,
+  availableSignalKeys,
   painGroupClass,
   passesFilters,
   reachabilityLabel,
   rowToCsvRecord,
+  seedSignalFilters,
   sortRows,
   toneForPercentile,
   topCsvSignals,
@@ -226,6 +229,95 @@ describe("toneForPercentile", () => {
     expect(toneForPercentile(90)).toBe("g");
     expect(toneForPercentile(50)).toBe("a");
     expect(toneForPercentile(10)).toBe("r");
+  });
+});
+
+describe("availableSignalKeys", () => {
+  const goalSignals = [
+    { key: "sig_a", title: "A" },
+    { key: "sig_b", title: "B" },
+    { key: "sig_c", title: "C" },
+  ];
+
+  test("a signal is available only when ≥1 row has a non-null verdict", () => {
+    const rows = [
+      row({ perSignal: { sig_a: true, sig_b: null } }),
+      row({ perSignal: { sig_a: null, sig_b: false } }),
+      // sig_c never computed on any row → unavailable.
+    ];
+    const avail = availableSignalKeys(rows, goalSignals);
+    expect(avail.has("sig_a")).toBe(true); // true verdict
+    expect(avail.has("sig_b")).toBe(true); // false verdict counts (it's computed)
+    expect(avail.has("sig_c")).toBe(false); // never present at all
+  });
+
+  test("all-null across rows → empty (nothing enriched yet)", () => {
+    const rows = [row({ perSignal: { sig_a: null } })];
+    expect(availableSignalKeys(rows, goalSignals).size).toBe(0);
+  });
+});
+
+describe("availableNumericFields", () => {
+  test("match is always available; reviews/perf gated on non-null", () => {
+    const rows = [row({ reviews: null, rating: null, perf: null })];
+    const a = availableNumericFields(rows);
+    expect(a.has("match")).toBe(true); // derived for every row
+    expect(a.has("reviews")).toBe(false); // all null
+    expect(a.has("perf")).toBe(false);
+  });
+
+  test("a single enriched row unlocks that field", () => {
+    const rows = [
+      row({ reviews: null, perf: null }),
+      row({ reviews: 30, perf: 55 }),
+    ];
+    const a = availableNumericFields(rows);
+    expect(a.has("reviews")).toBe(true);
+    expect(a.has("perf")).toBe(true);
+  });
+
+  test("contact fields need ≥1 actual contact (an all-empty column is not filterable)", () => {
+    const noContacts = [row({ emails: [], phones: [] })];
+    const a0 = availableNumericFields(noContacts);
+    expect(a0.has("emails")).toBe(false);
+    expect(a0.has("phones")).toBe(false);
+
+    const withContacts = [
+      row({ emails: [], phones: [] }),
+      row({ emails: ["x@y.com"], phones: [] }),
+    ];
+    const a1 = availableNumericFields(withContacts);
+    expect(a1.has("emails")).toBe(true);
+    expect(a1.has("phones")).toBe(false); // still no phone anywhere
+  });
+});
+
+describe("seedSignalFilters (goal-step default filters)", () => {
+  const goalSignals = [
+    { key: "sig_a", title: "Signal A" },
+    { key: "sig_b", title: "Signal B" },
+  ];
+
+  test("seeds only goal signals that have enriched data, each as a 'match' filter", () => {
+    // sig_a enriched on one lead; sig_b never computed → excluded (P0-B guard:
+    // auto-applying an un-enriched signal would hide not-yet-computed leads).
+    const rows = [
+      row({ perSignal: { sig_a: true, sig_b: null } }),
+      row({ perSignal: { sig_a: false, sig_b: null } }),
+    ];
+    const seed = seedSignalFilters(rows, goalSignals);
+    expect(seed).toEqual([
+      { kind: "signal", sigKey: "sig_a", sigLabel: "Signal A", want: "match" },
+    ]);
+  });
+
+  test("empty when nothing has enriched yet (never hides un-enriched leads)", () => {
+    const rows = [row({ perSignal: { sig_a: null, sig_b: null } })];
+    expect(seedSignalFilters(rows, goalSignals)).toEqual([]);
+  });
+
+  test("empty when the goal carries no signals", () => {
+    expect(seedSignalFilters([row()], [])).toEqual([]);
   });
 });
 

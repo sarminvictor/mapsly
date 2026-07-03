@@ -62,6 +62,20 @@ describe("goal-url lossless round-trip", () => {
     expect(rd.tune).toEqual({ kind: "strictness", level: "strict" });
   });
 
+  it("round-trips templateId (a loaded template stays 'update', never duplicates)", () => {
+    // The goal lives entirely in the URL — if templateId is dropped on encode→
+    // decode, re-saving a loaded template silently CREATEs a duplicate (WP5-12).
+    const loaded: GoalState = { ...sampleGoal(), templateId: "tpl_abc123" };
+    const enc = encodeGoal(loaded);
+    expect(decodeGoal(enc.goal, enc.sig, enc.g)!.templateId).toBe("tpl_abc123");
+
+    // A goal with no templateId decodes to undefined (a fresh save → create).
+    const encFresh = encodeGoal(sampleGoal());
+    expect(
+      decodeGoal(encFresh.goal, encFresh.sig, encFresh.g)!.templateId,
+    ).toBeUndefined();
+  });
+
   it("keeps the on-set in the readable sig param (legacy/shareable links)", () => {
     const { sig } = encodeGoal(sampleGoal());
     const on = sig.split(",");

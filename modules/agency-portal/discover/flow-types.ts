@@ -78,6 +78,13 @@ export interface GoalState {
   customized: boolean;
   /** Cloned, editable copy of the template's filters. */
   filters: GoalFilter[];
+  /**
+   * The AgencyTemplate row this goal was loaded from (WP5-12) — present ONLY
+   * when the working goal came from one of the user's own saved templates.
+   * When set, "Save" UPDATES that row in place instead of creating a duplicate;
+   * cloning a built-in or starting fresh leaves it undefined (a new save).
+   */
+  templateId?: string;
 }
 
 /** Clone a template into a fresh working GOAL (the prototype's loadGoalFrom). */

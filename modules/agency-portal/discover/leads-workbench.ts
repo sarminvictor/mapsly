@@ -681,6 +681,76 @@ export function filterLabel(f: LeadFilter): string {
   return `${name} ${f.op} ${f.value}`;
 }
 
+// ── Data-availability (which filters are worth offering) ──────────────────────
+// The add-filter UI offers only filters that CAN match — a goal signal with no
+// enriched data on any lead, or a numeric field no lead carries, would just
+// produce an empty result. Computed over the FULL loaded row set (not the
+// filtered/paged view) so the option list is stable as the user filters.
+
+/**
+ * The goal-signal keys that have ENRICHED DATA on ≥1 loaded lead — i.e. some
+ * row's `perSignal[key]` is a real verdict (`true`/`false`), not `null`
+ * (not-yet-computed). Only these are worth offering as signal filters. Pure.
+ */
+export function availableSignalKeys(
+  rows: readonly WorkbenchLeadRow[],
+  goalSignals: readonly { key: string }[],
+): Set<string> {
+  const out = new Set<string>();
+  for (const s of goalSignals) {
+    if (rows.some((r) => r.perSignal[s.key] != null)) out.add(s.key);
+  }
+  return out;
+}
+
+/**
+ * The numeric filter fields that have real data on ≥1 loaded lead. `match` is
+ * always present (derived for every row). `reviews`/`rating`/`perf` count when
+ * some row has a non-null finite value; contact counts (`emails`/`phones`)
+ * count only when some row actually has ≥1 (an all-zero column can't usefully
+ * be filtered "≥ 1"). Pure.
+ */
+export function availableNumericFields(
+  rows: readonly WorkbenchLeadRow[],
+): Set<NumericFilterField> {
+  const out = new Set<NumericFilterField>();
+  for (const { field } of FILTER_FIELDS) {
+    const hasData = rows.some((r) => {
+      const v = fieldValue(r, field);
+      if (v == null || !Number.isFinite(v)) return false;
+      // A contact count of 0 = "no contact of this kind" → not filterable data.
+      if (field === "emails" || field === "phones") return v > 0;
+      return true;
+    });
+    if (hasData) out.add(field);
+  }
+  return out;
+}
+
+/**
+ * The DEFAULT signal filters to auto-apply when the workbench opens: the goal-
+ * step signals that have ENRICHED data on ≥1 loaded lead (`availableSignalKeys`).
+ * Un-enriched goal signals are deliberately excluded — auto-applying one would
+ * hide every not-yet-computed lead (the P0-B guard). Each defaults to "match".
+ * Pure — the component seeds React state from this on mount. Because signal
+ * filters never serialize (URL/localStorage), this re-derives every fresh mount,
+ * which is what makes a hard refresh return to the goal-step defaults.
+ */
+export function seedSignalFilters(
+  rows: readonly WorkbenchLeadRow[],
+  goalSignals: readonly { key: string; title: string }[],
+): SignalLeadFilter[] {
+  const avail = availableSignalKeys(rows, goalSignals);
+  return goalSignals
+    .filter((s) => avail.has(s.key))
+    .map((s) => ({
+      kind: "signal",
+      sigKey: s.key,
+      sigLabel: s.title,
+      want: "match",
+    }));
+}
+
 // ── Search ───────────────────────────────────────────────────────────────────
 
 /** Free-text match over name / addr / builtOn (case-insensitive). Pure. */

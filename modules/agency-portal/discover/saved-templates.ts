@@ -73,5 +73,8 @@ export function goalFromSavedTemplate(row: SavedTemplateRow): GoalState {
     name: row.name,
     customized: true,
     filters,
+    // Carry the row id so re-saving this loaded template UPDATES it in place
+    // (template-actions.ts update path) instead of spawning a duplicate.
+    templateId: row.id,
   };
 }

@@ -39,6 +39,8 @@
   --coral-100: #f3d3d2;
   /* status */
   --green: #0f9d6b;
+  /* AA-contrast green for text on tinted chips (4.5:1 on --indigo-50). */
+  --green-700: #0a6b48;
   --green-50: #e6f8ef;
   --amber: #b7791f;
   --amber-50: #fdf4e3;
@@ -1593,6 +1595,91 @@
 .agency-portal .collapse-panel .cp-body .add:hover {
   background: var(--indigo-50);
 }
+/* Add-filter popover · two DATA-GATED lists (Your signals / Fields with data),
+ * agency cool-gray + indigo, keyboard-navigable (↑/↓, Enter, Esc). */
+.agency-portal .filter-add {
+  position: relative;
+  display: inline-flex;
+}
+.agency-portal .filter-add-popover {
+  position: absolute;
+  z-index: 40;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 224px;
+  max-width: 300px;
+  max-height: 60vh;
+  overflow-y: auto;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  box-shadow: var(--shadow);
+}
+.agency-portal .filter-list-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.agency-portal .filter-list-eyebrow {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--faint);
+  padding: 4px 9px 3px;
+}
+.agency-portal .filter-list-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  padding: 7px 9px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink-2);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background 0.1s,
+    color 0.1s;
+}
+.agency-portal .filter-list-item:hover,
+.agency-portal .filter-list-item:focus-visible {
+  background: var(--indigo-50);
+  color: var(--indigo-700);
+  outline: none;
+}
+.agency-portal .filter-item-unit {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--faint);
+  font-weight: 500;
+}
+.agency-portal .filter-add-empty {
+  padding: 10px 9px;
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.4;
+}
+/* Signal-filter chip modifier — distinct from the numeric chip (.fchip.data). */
+.agency-portal .fchip.sig {
+  border-color: var(--indigo-100);
+  background: var(--indigo-50);
+}
+.agency-portal .fchip.sig .x:focus-visible,
+.agency-portal .fchip.sig button:focus-visible {
+  outline: 2px solid var(--indigo);
+  outline-offset: 1px;
+  border-radius: 4px;
+}
 .agency-portal .collapse-panel .covline {
   border: 0;
   border-radius: 0;
@@ -1618,6 +1705,13 @@
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--faint);
+}
+/* "· goal signals auto-applied" — discloses the auto-filtered default state. */
+.agency-portal .chipsbar .cb-note {
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--muted);
 }
 .agency-portal .chipsbar .cb-clear {
   margin-left: auto;
@@ -3757,27 +3851,53 @@
   color: var(--faint);
   white-space: nowrap;
 }
+/* My-templates row = the pick button + a sibling delete button (valid HTML,
+ * discoverable delete). The wrapper lays them side by side. */
+.agency-portal .tplrow-wrap {
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+}
+.agency-portal .tplrow-wrap .tplrow {
+  flex: 1 1 auto;
+  min-width: 0;
+}
 .agency-portal .tplrow-del {
   flex: 0 0 auto;
-  width: 20px;
-  height: 20px;
-  margin-left: 2px;
-  border-radius: 6px;
+  align-self: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid transparent;
+  background: transparent;
+  border-radius: 8px;
   display: grid;
   place-items: center;
   font-size: 15px;
   line-height: 1;
-  color: var(--faint);
+  /* Always visible (discoverable), muted until hover/focus. */
+  color: var(--muted);
+  opacity: 0.7;
   cursor: pointer;
   transition:
     color 0.12s,
-    background 0.12s;
+    background 0.12s,
+    opacity 0.12s;
+}
+.agency-portal .tplrow-wrap:hover .tplrow-del {
+  opacity: 1;
 }
 .agency-portal .tplrow-del:hover,
 .agency-portal .tplrow-del:focus-visible {
   color: var(--coral);
   background: var(--coral-50);
-  outline: none;
+  border-color: var(--coral-100, var(--coral-50));
+  opacity: 1;
+}
+/* Keep a real, perceivable focus ring (background alone is < 3:1 vs the row —
+ * WCAG 1.4.11). Coral to match the delete affordance. */
+.agency-portal .tplrow-del:focus-visible {
+  outline: 2px solid var(--coral);
+  outline-offset: 1px;
 }
 .agency-portal .tplrow.custom {
   border-style: dashed;

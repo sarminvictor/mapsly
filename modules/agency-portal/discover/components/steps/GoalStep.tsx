@@ -64,9 +64,13 @@ export function GoalStep({
   const [libOpen, setLibOpen] = useState(false);
   const router = useRouter();
   const [saving, startSaving] = useTransition();
-  // The row id most recently saved this session — collapses the Save button
-  // into a "Saved" beat until the goal changes again.
-  const [savedForName, setSavedForName] = useState<string | null>(null);
+  // A signature of the goal AT THE MOMENT IT WAS SAVED — collapses the Save
+  // button into a "Saved ✓" beat only while the goal is UNCHANGED. Keyed on the
+  // content (name + signal set), not just the name, so editing a signal after
+  // saving correctly flips the button back to "Save/Update" (never a false
+  // "Saved ✓" over unsaved edits).
+  const [savedSig, setSavedSig] = useState<string | null>(null);
+  const goalSig = goal ? `${goal.name} ${JSON.stringify(goal.filters)}` : "";
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -119,16 +123,37 @@ export function GoalStep({
       showToast("Turn on at least one signal to save a template", "error");
       return;
     }
+    const payload = {
+      name: goal.name,
+      basedOnTemplate: goal.base === "custom" ? null : goal.base,
+      signals,
+    };
     startSaving(async () => {
-      const r = await saveGoalTemplateAction({
-        name: goal.name,
-        basedOnTemplate: goal.base === "custom" ? null : goal.base,
-        signals,
+      // Re-saving a LOADED template updates it in place (no duplicate); a fresh
+      // goal creates. If the loaded row was deleted elsewhere (not_found), fall
+      // back to a create so the user never loses their save.
+      let wasUpdate = Boolean(goal.templateId);
+      let r = await saveGoalTemplateAction({
+        ...payload,
+        templateId: goal.templateId,
       });
+      if (r.status === "not_found") {
+        r = await saveGoalTemplateAction(payload);
+        wasUpdate = false;
+      }
       if (r.status === "ok") {
-        setSavedForName(goal.name);
-        showToast(`Saved "${goal.name}" to My templates`);
-        // The gallery lists server-loaded rows — refresh pulls the new one in.
+        setSavedSig(goalSig);
+        // Remember the row id so the NEXT save updates it instead of duplicating
+        // (covers "saved a brand-new goal, then click Save again").
+        if (goal.templateId !== r.templateId) {
+          onChange({ ...goal, templateId: r.templateId });
+        }
+        showToast(
+          wasUpdate
+            ? `Updated "${goal.name}"`
+            : `Saved "${goal.name}" to My templates`,
+        );
+        // The gallery lists server-loaded rows — refresh pulls the change in.
         router.refresh();
       } else if (r.status === "limit_reached") {
         showToast(
@@ -162,11 +187,14 @@ export function GoalStep({
 
   const activeCount = goal ? goal.filters.filter((f) => f.on).length : 0;
   // A saved-template row reads as selected when the working goal came from it.
+  // Prefer the id (exact — survives a rename); fall back to name+base for legacy
+  // goals loaded before templateId tracking shipped.
   const mineSelected = (t: SavedTemplateRow): boolean =>
     goal != null &&
     goal.customized &&
-    goal.name === t.name &&
-    goal.base === (t.basedOnTemplate ?? "custom");
+    (goal.templateId != null
+      ? goal.templateId === t.id
+      : goal.name === t.name && goal.base === (t.basedOnTemplate ?? "custom"));
 
   return (
     <div className="goalsplit">
@@ -194,57 +222,47 @@ export function GoalStep({
               {filteredMine.map((t) => {
                 const sel = mineSelected(t);
                 return (
-                  <button
-                    key={t.id}
-                    type="button"
-                    className={`tplrow${sel ? " sel" : ""}`}
-                    aria-pressed={sel}
-                    onClick={() => pickMine(t)}
-                  >
-                    <span className="tplrow-ic" aria-hidden="true">
-                      {t.basedOnTemplate
-                        ? (templateByKey(t.basedOnTemplate)?.icon ?? "💾")
-                        : "💾"}
-                    </span>
-                    <span className="tplrow-body">
-                      <span className="tplrow-name">
-                        {t.name}
-                        <span className="badge-data">saved</span>
-                      </span>
-                      <span className="tplrow-who">
+                  // Wrapper so the delete control is a REAL sibling button (not
+                  // an interactive span nested inside the row button — invalid +
+                  // undiscoverable). The `.tplrow-del` class gives it a clear
+                  // coral-on-hover affordance and a keyboard focus ring.
+                  <div key={t.id} className="tplrow-wrap">
+                    <button
+                      type="button"
+                      className={`tplrow${sel ? " sel" : ""}`}
+                      aria-pressed={sel}
+                      onClick={() => pickMine(t)}
+                    >
+                      <span className="tplrow-ic" aria-hidden="true">
                         {t.basedOnTemplate
-                          ? `Your tuned "${templateByKey(t.basedOnTemplate)?.title ?? t.basedOnTemplate}"`
-                          : "Your saved signal bundle"}
+                          ? (templateByKey(t.basedOnTemplate)?.icon ?? "💾")
+                          : "💾"}
                       </span>
-                    </span>
-                    <span className="tplrow-meta">
-                      {t.signals.length} signals
-                      <span
-                        role="button"
-                        tabIndex={0}
-                        aria-label={`Delete template ${t.name}`}
-                        title="Delete template"
-                        style={{
-                          marginLeft: 8,
-                          color: "var(--faint)",
-                          cursor: "pointer",
-                        }}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          deleteMine(t);
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" || e.key === " ") {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            deleteMine(t);
-                          }
-                        }}
-                      >
-                        ✕
+                      <span className="tplrow-body">
+                        <span className="tplrow-name">
+                          {t.name}
+                          <span className="badge-data">saved</span>
+                        </span>
+                        <span className="tplrow-who">
+                          {t.basedOnTemplate
+                            ? `Your tuned "${templateByKey(t.basedOnTemplate)?.title ?? t.basedOnTemplate}"`
+                            : "Your saved signal bundle"}
+                        </span>
                       </span>
-                    </span>
-                  </button>
+                      <span className="tplrow-meta">
+                        {t.signals.length} signals
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      className="tplrow-del"
+                      aria-label={`Delete template ${t.name}`}
+                      title="Delete template"
+                      onClick={() => deleteMine(t)}
+                    >
+                      ✕
+                    </button>
+                  </div>
                 );
               })}
             </>
@@ -376,17 +394,21 @@ export function GoalStep({
               className="btn"
               disabled={!goal.customized || saving}
               title={
-                goal.customized
-                  ? "Save this tuned signal set to My templates"
-                  : "Tune the preset first — the built-in is already saved"
+                !goal.customized
+                  ? "Tune the preset first — the built-in is already saved"
+                  : goal.templateId
+                    ? "Save changes to this template (updates it in place)"
+                    : "Save this tuned signal set to My templates"
               }
               onClick={saveAsTemplate}
             >
               {saving
                 ? "Saving…"
-                : savedForName === goal.name
+                : savedSig === goalSig
                   ? "Saved ✓"
-                  : "Save as template"}
+                  : goal.templateId
+                    ? "Update template"
+                    : "Save as template"}
             </button>
             <span className="note">
               Set signals once here — next is just where to look.

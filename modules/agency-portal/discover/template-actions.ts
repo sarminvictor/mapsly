@@ -24,7 +24,7 @@ import {
 import { SIG_META } from "./goal-templates";
 
 /** Keep an agency's library bounded (dense gallery, not a dumping ground). */
-const MAX_TEMPLATES_PER_AGENCY = 50;
+const MAX_TEMPLATES_PER_AGENCY = 10;
 
 // Mirrors SignalTuneValue (flow-types.ts) — validated, never trusted.
 const TuneSchema = z.union([
@@ -57,6 +57,12 @@ const SaveInput = z.object({
   basedOnTemplate: z.string().max(40).nullish(),
   /** The goal's ACTIVE signal set (DiscoverySignals.signals shape). */
   signals: z.array(PersistedSignalSchema).min(1).max(60),
+  /**
+   * When set, UPDATE the existing (agency-owned) template in place instead of
+   * creating a new row — so re-clicking "Save" on a loaded template edits it
+   * rather than spawning a duplicate. Absent → create a fresh row.
+   */
+  templateId: z.string().min(1).max(64).optional(),
 });
 
 export type SaveGoalTemplateInput = z.input<typeof SaveInput>;
@@ -68,6 +74,9 @@ export type SaveGoalTemplateResult =
   | { status: "rate_limited"; retryAfter: number }
   | { status: "invalid_input"; message: string }
   | { status: "limit_reached"; max: number }
+  // The templateId to update wasn't found for this agency (deleted, or a
+  // cross-agency id). The caller drops the stale id and retries as a create.
+  | { status: "not_found" }
   | { status: "error" };
 
 export async function saveGoalTemplateAction(
@@ -102,6 +111,31 @@ export async function saveGoalTemplateAction(
     });
     if (!member) return { status: "forbidden" };
 
+    // Self-describing DiscoverySignals payload (goalName/goalBase ride along),
+    // mirroring Discovery.signalsJson — shared by the create + update paths.
+    const signalsJson = {
+      signals,
+      goalName: parsed.data.name,
+      goalBase: parsed.data.basedOnTemplate ?? "custom",
+    } as unknown as Prisma.InputJsonValue;
+
+    // UPDATE path: an already-saved template is being re-saved. The where
+    // carries agencyId (mirrors the delete action), so a foreign / deleted id
+    // updates nothing → not_found. Updating does NOT grow the library, so the
+    // cap check is skipped here — only creates count against MAX.
+    if (parsed.data.templateId) {
+      const res = await prisma.agencyTemplate.updateMany({
+        where: { id: parsed.data.templateId, agencyId: member.agencyId },
+        data: {
+          name: parsed.data.name,
+          basedOnTemplate: parsed.data.basedOnTemplate ?? null,
+          signalsJson,
+        },
+      });
+      if (res.count === 0) return { status: "not_found" };
+      return { status: "ok", templateId: parsed.data.templateId };
+    }
+
     const count = await prisma.agencyTemplate.count({
       where: { agencyId: member.agencyId },
     });
@@ -114,13 +148,7 @@ export async function saveGoalTemplateAction(
         agencyId: member.agencyId,
         name: parsed.data.name,
         basedOnTemplate: parsed.data.basedOnTemplate ?? null,
-        // The DiscoverySignals shape (goalName/goalBase ride along so the
-        // payload is self-describing, mirroring Discovery.signalsJson).
-        signalsJson: {
-          signals,
-          goalName: parsed.data.name,
-          goalBase: parsed.data.basedOnTemplate ?? "custom",
-        } as unknown as Prisma.InputJsonValue,
+        signalsJson,
       },
       select: { id: true },
     });

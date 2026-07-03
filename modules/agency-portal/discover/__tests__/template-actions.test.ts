@@ -71,6 +71,26 @@ vi.mock("@/lib/prisma", () => {
       db.templates.push(row);
       return { id: row.id };
     }),
+    updateMany: vi.fn(
+      async ({
+        where,
+        data,
+      }: {
+        where: { id: string; agencyId: string };
+        data: Record<string, unknown>;
+      }) => {
+        let count = 0;
+        for (const t of db.templates) {
+          if (t.id === where.id && t.agencyId === where.agencyId) {
+            t.name = data.name as string;
+            t.basedOnTemplate = (data.basedOnTemplate as string | null) ?? null;
+            t.signalsJson = data.signalsJson;
+            count += 1;
+          }
+        }
+        return { count };
+      },
+    ),
     deleteMany: vi.fn(
       async ({ where }: { where: { id: string; agencyId: string } }) => {
         const before = db.templates.length;
@@ -159,8 +179,8 @@ describe("saveGoalTemplateAction", () => {
     ).toBe("invalid_input");
   });
 
-  test("enforces the per-agency cap with limit_reached", async () => {
-    for (let i = 0; i < 50; i += 1) {
+  test("enforces the per-agency cap (10) with limit_reached", async () => {
+    for (let i = 0; i < 10; i += 1) {
       db.templates.push({
         id: db.id("tpl"),
         agencyId: "agency-1",
@@ -174,6 +194,72 @@ describe("saveGoalTemplateAction", () => {
       signals: [{ key: KEY_A! }],
     });
     expect(r.status).toBe("limit_reached");
+  });
+
+  test("updates in place when templateId is passed — no duplicate row", async () => {
+    const created = await saveGoalTemplateAction({
+      name: "Web goal",
+      basedOnTemplate: "website",
+      signals: [{ key: KEY_A! }],
+    });
+    expect(created.status).toBe("ok");
+    const id = created.status === "ok" ? created.templateId : "";
+    expect(db.templates).toHaveLength(1);
+
+    const updated = await saveGoalTemplateAction({
+      name: "Web goal (renamed)",
+      basedOnTemplate: "website",
+      signals: [{ key: KEY_A! }, { key: KEY_B! }],
+      templateId: id,
+    });
+    expect(updated.status).toBe("ok");
+    expect(updated.status === "ok" && updated.templateId).toBe(id);
+    // Same row count — updated in place, not duplicated.
+    expect(db.templates).toHaveLength(1);
+    expect(db.templates[0]!.name).toBe("Web goal (renamed)");
+    const json = db.templates[0]!.signalsJson as { signals: { key: string }[] };
+    expect(json.signals.map((s) => s.key)).toEqual([KEY_A, KEY_B]);
+  });
+
+  test("updating a FOREIGN agency's templateId → not_found, no cross-agency write", async () => {
+    db.templates.push({
+      id: "theirs",
+      agencyId: "agency-2",
+      name: "Theirs",
+      basedOnTemplate: null,
+      signalsJson: { signals: [{ key: KEY_A }] },
+    });
+    const r = await saveGoalTemplateAction({
+      name: "Hijack attempt",
+      signals: [{ key: KEY_B! }],
+      templateId: "theirs",
+    });
+    expect(r.status).toBe("not_found");
+    // The foreign row is untouched.
+    expect(db.templates[0]!.name).toBe("Theirs");
+    const json = db.templates[0]!.signalsJson as { signals: { key: string }[] };
+    expect(json.signals.map((s) => s.key)).toEqual([KEY_A]);
+  });
+
+  test("the UPDATE path bypasses the cap (updating at cap still succeeds)", async () => {
+    for (let i = 0; i < 10; i += 1) {
+      db.templates.push({
+        id: `own_${i}`,
+        agencyId: "agency-1",
+        name: `t${i}`,
+        basedOnTemplate: null,
+        signalsJson: { signals: [{ key: KEY_A }] },
+      });
+    }
+    // At the 10-cap, updating an existing owned row still works (no new row).
+    const r = await saveGoalTemplateAction({
+      name: "t0 edited",
+      signals: [{ key: KEY_A! }, { key: KEY_B! }],
+      templateId: "own_0",
+    });
+    expect(r.status).toBe("ok");
+    expect(db.templates).toHaveLength(10);
+    expect(db.templates.find((t) => t.id === "own_0")!.name).toBe("t0 edited");
   });
 
   test("rejects an unauthenticated caller", async () => {
@@ -281,6 +367,8 @@ describe("saved-templates helpers", () => {
     expect(goal.base).toBe("custom"); // null basedOn → custom
     expect(goal.name).toBe("My playbook");
     expect(goal.customized).toBe(true);
+    // Carries the row id so a later save UPDATES this template, not duplicates.
+    expect(goal.templateId).toBe("t1");
     expect(goal.filters).toHaveLength(2);
     // Every stored signal comes back ON with its saved settings.
     expect(goal.filters.every((f) => f.on)).toBe(true);

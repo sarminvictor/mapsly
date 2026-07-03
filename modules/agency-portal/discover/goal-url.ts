@@ -50,6 +50,11 @@ interface GoalWire {
   n: string;
   /** customized flag */
   c: boolean;
+  /** The AgencyTemplate row this goal was loaded from (WP5-12) — so re-saving a
+   *  loaded template UPDATES it instead of duplicating. The goal lives entirely
+   *  in the URL (GetLeadsFlow), so this MUST round-trip or `goal.templateId` is
+   *  lost on the next render and every save creates a new row. */
+  tid?: string;
   /** filters */
   f: Array<{
     /** SIG_META key */
@@ -74,6 +79,7 @@ export function encodeGoal(goal: GoalState): Record<string, string> {
     b: goal.base,
     n: goal.name,
     c: goal.customized,
+    ...(goal.templateId ? { tid: goal.templateId } : {}),
     f: goal.filters.map((f) => ({
       k: f.key,
       on: f.on,
@@ -149,6 +155,7 @@ export function decodeGoal(
               ? wire.n
               : (templateByKey(wire.b)?.title ?? "Custom"),
           customized: !!wire.c,
+          ...(typeof wire.tid === "string" ? { templateId: wire.tid } : {}),
           filters: wire.f
             .filter((w) => w && typeof w.k === "string")
             .map((w) => {

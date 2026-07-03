@@ -24,6 +24,7 @@ import {
   useRef,
   useState,
   useTransition,
+  type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
@@ -52,6 +53,8 @@ import {
   DEFAULT_ACTIVE_COLUMNS,
   FILTER_FIELDS,
   FILTER_FIELD_DEFAULTS,
+  availableNumericFields,
+  availableSignalKeys,
   PAGE_SIZES,
   STATUS_ORDER,
   buildSignalColumns,
@@ -63,6 +66,7 @@ import {
   filterLabel,
   reachabilityLabel,
   rowToCsvRecord,
+  seedSignalFilters,
   sortRows,
   type CellBand,
   type ColumnDef,
@@ -226,6 +230,9 @@ export function LeadsWorkbench({
   );
   const [fieldsOpen, setFieldsOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
+  const addPopRef = useRef<HTMLDivElement | null>(null);
+  const addBtnRef = useRef<HTMLButtonElement | null>(null);
   const [coverageOpen, setCoverageOpen] = useState(false);
   // Open with NO filters so the workbench shows every discovered/enriched lead
   // by default — the user adds filters from the rail. (Previously seeded with
@@ -278,19 +285,31 @@ export function LeadsWorkbench({
         if (saved.activeCols !== undefined) setActiveCols(saved.activeCols);
         if (saved.pageSize !== undefined) setPageSize(saved.pageSize);
       }
+      // DEFAULT signal filters = the goal-step signals that have ENRICHED data
+      // on ≥1 loaded lead (never auto-apply an un-enriched signal — that would
+      // hide not-yet-computed leads; P0-B guard). Signal filters never persist
+      // (URL/localStorage exclude them), so this re-derives on every fresh mount
+      // → a HARD REFRESH always returns to the goal-step defaults. Restored
+      // NUMERIC filters (the user's ad-hoc metric filters) merge in front.
+      // `rows`/`goalSignals` here are the MOUNT-TIME values (the effect is
+      // created once per discoveryId), which is exactly the once-per-mount seed
+      // we want — later paging must NOT re-run this and clobber the user's edits.
+      const seed = seedSignalFilters(rows, goalSignals);
       if (urlView) {
-        setFilters(urlView.filters);
+        setFilters([...urlView.filters, ...seed]);
         setSortKey(urlView.sortKey);
         setSortDir(urlView.sortDir);
-      } else if (saved) {
-        if (saved.filters !== undefined) setFilters(saved.filters);
-        if (saved.sortKey !== undefined) setSortKey(saved.sortKey);
-        if (saved.sortDir !== undefined) setSortDir(saved.sortDir);
+      } else {
+        setFilters([...(saved?.filters ?? []), ...seed]);
+        if (saved?.sortKey !== undefined) setSortKey(saved.sortKey);
+        if (saved?.sortDir !== undefined) setSortDir(saved.sortDir);
       }
       hydrated.current = true;
     }, 0);
     return () => window.clearTimeout(tid);
-    // Only re-hydrate if the research changes (a new workbench instance).
+    // Seed ONCE per research (mount) — intentionally NOT re-running on rows/
+    // goalSignals changes (paging) so user filter edits survive soft nav.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [discoveryId]);
 
   useEffect(() => {
@@ -300,7 +319,11 @@ export function LeadsWorkbench({
       vsCell,
       group,
       activeCols,
-      filters,
+      // Persist NUMERIC filters only — signal filters are goal-step defaults
+      // that re-seed on every mount, so a hard refresh returns to them (never a
+      // stale saved signal set). (loadWorkbenchView also drops signal filters,
+      // so this just keeps the stored blob honest.)
+      filters: filters.filter((f) => f.kind !== "signal"),
       sortKey,
       sortDir,
       pageSize,
@@ -716,6 +739,91 @@ export function LeadsWorkbench({
       }),
     );
     setPage(1);
+  }
+
+  // ── Add-filter popover · data-gated two lists ──────────────────────────────
+  // Only offer filters that CAN match: signals/fields with enriched data on ≥1
+  // loaded lead (computed over the whole `rows` window, not the paged view, so
+  // the option list stays stable while filtering), minus any already applied.
+  const availSigKeys = useMemo(
+    () => availableSignalKeys(rows, goalSignals),
+    [rows, goalSignals],
+  );
+  const availNumFields = useMemo(() => availableNumericFields(rows), [rows]);
+  const addSignalOptions = useMemo(() => {
+    const active = new Set(
+      filters.flatMap((f) => (f.kind === "signal" ? [f.sigKey] : [])),
+    );
+    return goalSignals.filter(
+      (s) => availSigKeys.has(s.key) && !active.has(s.key),
+    );
+  }, [goalSignals, availSigKeys, filters]);
+  const addNumericOptions = useMemo(() => {
+    const active = new Set(
+      filters.flatMap((f) => (f.kind !== "signal" ? [f.field] : [])),
+    );
+    return FILTER_FIELDS.filter(
+      (m) => availNumFields.has(m.field) && !active.has(m.field),
+    );
+  }, [availNumFields, filters]);
+
+  // Close on Escape / outside click; focus the first option when it opens.
+  useEffect(() => {
+    if (!addOpen) return;
+    addPopRef.current
+      ?.querySelector<HTMLButtonElement>(".filter-list-item")
+      ?.focus();
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        setAddOpen(false);
+        addBtnRef.current?.focus();
+      }
+    }
+    function onClick(e: MouseEvent) {
+      const t = e.target as Node;
+      if (!addPopRef.current?.contains(t) && !addBtnRef.current?.contains(t)) {
+        setAddOpen(false);
+      }
+    }
+    document.addEventListener("keydown", onKey);
+    document.addEventListener("mousedown", onClick);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("mousedown", onClick);
+    };
+  }, [addOpen]);
+
+  /** ↑/↓ cycle focus among the popover's option buttons (keyboard-first). */
+  function onAddPopoverKeyDown(e: ReactKeyboardEvent<HTMLDivElement>) {
+    if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+    e.preventDefault();
+    const items = Array.from(
+      addPopRef.current?.querySelectorAll<HTMLButtonElement>(
+        ".filter-list-item",
+      ) ?? [],
+    );
+    if (items.length === 0) return;
+    const idx = items.indexOf(document.activeElement as HTMLButtonElement);
+    const next =
+      e.key === "ArrowDown"
+        ? idx < 0
+          ? 0
+          : (idx + 1) % items.length
+        : idx <= 0
+          ? items.length - 1
+          : idx - 1;
+    items[next]?.focus();
+  }
+
+  function pickAddSignal(key: string, title: string) {
+    addSignalFilter(key, title);
+    setAddOpen(false);
+    addBtnRef.current?.focus();
+  }
+  function pickAddNumeric(field: NumericFilterField) {
+    addFilter(field);
+    setAddOpen(false);
+    addBtnRef.current?.focus();
   }
   /** WP5-13 · Fields-menu funnel — open the filter editor pre-set to this
    *  field (adds the field's default filter unless one is already applied). */
@@ -1306,13 +1414,19 @@ export function LeadsWorkbench({
                   <button
                     type="button"
                     onClick={() => toggleSignalWant(i)}
-                    aria-label="Toggle matched / not matched"
+                    aria-pressed={f.want === "match"}
+                    aria-label={`${f.sigLabel}: ${
+                      f.want === "match" ? "matched" : "not matched"
+                    } — press to flip`}
                     style={{
                       border: "none",
                       background: "transparent",
                       font: "inherit",
                       cursor: "pointer",
-                      color: f.want === "match" ? "var(--green)" : "var(--red)",
+                      // Darker green on the tinted .fchip.sig bg clears 4.5:1
+                      // (plain --green is only 2.97:1 on --indigo-50).
+                      color:
+                        f.want === "match" ? "var(--green-700)" : "var(--red)",
                     }}
                   >
                     {f.want === "match" ? "matched" : "not matched"}
@@ -1393,50 +1507,102 @@ export function LeadsWorkbench({
                 </span>
               ),
             )}
-            <select
-              className="add"
-              aria-label="Add filter"
-              value=""
-              onChange={(e) => {
-                const v = e.target.value;
-                if (!v) return;
-                if (v.startsWith("sig:")) {
-                  const key = v.slice(4);
-                  const sig = goalSignals.find((s) => s.key === key);
-                  if (sig) addSignalFilter(sig.key, sig.title);
-                } else {
-                  addFilter(v as NumericFilterField);
-                }
-                e.target.value = "";
-              }}
-            >
-              <option value="" disabled>
+            <div className="filter-add">
+              <button
+                ref={addBtnRef}
+                type="button"
+                className="add"
+                aria-haspopup="true"
+                aria-expanded={addOpen}
+                onClick={() => setAddOpen((o) => !o)}
+              >
                 ＋ Add filter
-              </option>
-              {goalSignals.length > 0 ? (
-                <optgroup label="Narrow by your goal signals">
-                  {goalSignals.map((s) => (
-                    <option key={s.key} value={`sig:${s.key}`}>
-                      {s.title}
-                    </option>
-                  ))}
-                </optgroup>
+              </button>
+              {addOpen ? (
+                // A plain grouped popover of buttons (NOT role=menu — every item
+                // is Tab-reachable, so a roving-tabindex menu would misdescribe
+                // it). Arrow keys cycle; Esc + outside-click + Tab-out (onBlur)
+                // close; focus returns to the trigger.
+                <div
+                  ref={addPopRef}
+                  className="filter-add-popover"
+                  aria-label="Add a filter"
+                  onKeyDown={onAddPopoverKeyDown}
+                  onBlur={(e) => {
+                    if (
+                      !e.currentTarget.contains(e.relatedTarget as Node | null)
+                    )
+                      setAddOpen(false);
+                  }}
+                >
+                  {addSignalOptions.length === 0 &&
+                  addNumericOptions.length === 0 ? (
+                    <div className="filter-add-empty">
+                      No filterable data yet — enrich leads to unlock filters.
+                    </div>
+                  ) : null}
+                  {addSignalOptions.length > 0 ? (
+                    <div
+                      className="filter-list-section"
+                      role="group"
+                      aria-label="Your signals"
+                    >
+                      <div className="filter-list-eyebrow">Your signals</div>
+                      {addSignalOptions.map((s) => (
+                        <button
+                          key={s.key}
+                          type="button"
+                          className="filter-list-item"
+                          onClick={() => pickAddSignal(s.key, s.title)}
+                        >
+                          {s.title}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+                  {addNumericOptions.length > 0 ? (
+                    <div
+                      className="filter-list-section"
+                      role="group"
+                      aria-label="Fields with data"
+                    >
+                      <div className="filter-list-eyebrow">
+                        Fields with data
+                      </div>
+                      {addNumericOptions.map((m) => (
+                        <button
+                          key={m.field}
+                          type="button"
+                          className="filter-list-item"
+                          onClick={() => pickAddNumeric(m.field)}
+                        >
+                          <span>{m.label}</span>
+                          {m.unit ? (
+                            <span className="filter-item-unit">{m.unit}</span>
+                          ) : null}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
               ) : null}
-              <optgroup label="Metrics">
-                {FILTER_FIELDS.map((m) => (
-                  <option key={m.field} value={m.field}>
-                    {m.label}
-                  </option>
-                ))}
-              </optgroup>
-            </select>
+            </div>
           </div>
         </div>
       ) : filters.length ? (
         <div className="chipsbar">
-          <span className="cb-lbl">Filters</span>
+          <span className="cb-lbl">
+            Filters
+            {filters.some((f) => f.kind === "signal") ? (
+              <span className="cb-note"> · goal signals auto-applied</span>
+            ) : null}
+          </span>
           {filters.map((f, i) => (
-            <span key={i} className="fchip data">
+            // Signal chips (your goal defaults) read distinct from numeric ones.
+            <span
+              key={i}
+              className={`fchip ${f.kind === "signal" ? "sig" : "data"}`}
+            >
               {filterLabel(f)}
               <button
                 type="button"
@@ -1603,7 +1769,11 @@ export function LeadsWorkbench({
                   >
                     {filters.length > 0 || search.trim() !== "" ? (
                       <>
-                        No leads match these filters ·{" "}
+                        No leads match these filters
+                        {filters.some((f) => f.kind === "signal")
+                          ? " — goal signals auto-applied"
+                          : ""}{" "}
+                        ·{" "}
                         <button
                           type="button"
                           className="rflink"
