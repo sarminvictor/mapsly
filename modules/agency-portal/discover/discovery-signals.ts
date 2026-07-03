@@ -183,6 +183,60 @@ export function activeSignalsFromJson(raw: unknown): ActiveSignal[] {
   return toActiveSignals(parsed.signals);
 }
 
+// ── The FULL signal library (workbench "filter by any signal" · #2) ──────────
+// The workbench doesn't only filter by the goal's signals — it lets the user
+// filter by ANY signal in the curated library that has data on every loaded
+// lead (strict gating lives in leads-workbench.availableSignalKeys). To offer
+// that, the page evaluates the whole library per lead (default comparator/value
+// — no tune, since the user never tuned these), and the picker lists them by
+// title. `roadmap` signals are excluded: they're declared non-computable, so
+// they'd resolve to null for every lead and never pass the gate anyway.
+
+/** A library signal offered in the workbench filter picker (key + display title). */
+export interface LibrarySignal {
+  key: string;
+  title: string;
+}
+
+/** True when a SIG_META entry is worth evaluating for the workbench: anything
+ *  not explicitly `roadmap` (ready / deriv / unset all have a real resolver). */
+function isEvaluableSigMeta(key: string): boolean {
+  return SIG_META[key]?.status !== "roadmap";
+}
+
+/**
+ * Every evaluable library signal as an {@link ActiveSignal} with its SIG_META
+ * DEFAULT comparator/value (no tune — the user hasn't tuned non-goal signals).
+ * Feeds `resolveMatches` so every lead carries a verdict for the whole library,
+ * making each signal filterable once its data lands. Module-pure — computed
+ * once at import; the page reuses the constant across every request.
+ */
+export function allLibraryActiveSignals(): ActiveSignal[] {
+  const out: ActiveSignal[] = [];
+  for (const [key, meta] of Object.entries(SIG_META)) {
+    if (!isEvaluableSigMeta(key)) continue;
+    out.push({
+      key,
+      registryKey: meta.registryKey,
+      comparator: meta.comparator,
+      value: meta.value,
+    });
+  }
+  return out;
+}
+
+/** Every evaluable library signal as {@link LibrarySignal} (key + title), catalog
+ *  order — the workbench "+ Signal" picker's full option list (gated to those
+ *  with data by `availableSignalKeys`). */
+export function allLibrarySignals(): LibrarySignal[] {
+  const out: LibrarySignal[] = [];
+  for (const [key, meta] of Object.entries(SIG_META)) {
+    if (!isEvaluableSigMeta(key)) continue;
+    out.push({ key, title: meta.title });
+  }
+  return out;
+}
+
 // ── Defensive type guards (the JSON came off the wire / DB — never trust it) ──
 
 function isTune(v: unknown): v is SignalTuneValue {

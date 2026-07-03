@@ -64,6 +64,7 @@ import {
 import {
   WORKBENCH_WINDOW,
   resolveLeadMatch,
+  mergeSignalVerdicts,
   painGroupClass,
   type CellBand,
   type LeadStatus,
@@ -76,6 +77,8 @@ import {
 } from "@/modules/agency-portal/discover/signal-eval";
 import {
   activeSignalsFromJson,
+  allLibraryActiveSignals,
+  allLibrarySignals,
   goalMetaFromJson,
 } from "@/modules/agency-portal/discover/discovery-signals";
 import {
@@ -116,6 +119,14 @@ interface PageProps {
 const METRO_NAME_BY_SLUG = new Map(
   US_METROS.map((m) => [m.slug.toLowerCase(), m.name] as const),
 );
+
+// The whole curated signal library as ActiveSignal[] (default thresholds), and
+// its {key,title} option list — built ONCE (pure over SIG_META). The workbench
+// evaluates every lead against ALL_LIB_SIGNALS so any signal with data on the
+// full cohort becomes filterable (#2 · "filter by all signals"); LIBRARY_OPTIONS
+// is the picker's option list, gated to those with data client-side.
+const ALL_LIB_SIGNALS = allLibraryActiveSignals();
+const LIBRARY_OPTIONS = allLibrarySignals();
 
 export default function DiscoveryWorkspacePage({
   params,
@@ -354,30 +365,31 @@ async function DiscoveryWorkspaceBody({ params, searchParams }: PageProps) {
   const adsByBusiness = new Set(adsCountByBusiness.keys());
   const serpByBusiness = new Set(serps.map((r) => r.businessId));
 
-  // ── Real signal evaluation (P3) ────────────────────────────────────────────
-  // The research's persisted signals → ActiveSignal[] via SIG_META. When present,
-  // we hydrate every business ONCE (batched, read-only, snapshots only) and
-  // resolveMatches per lead for a REAL match% + per-signal verdicts — replacing
-  // the pain-count heuristic. signalsJson absent / no active signals → empty
-  // ActiveSignal[] → the per-row fallback keeps deriveMatchPct (nothing breaks).
-  // `activeSignals` is computed once, above (also drives the website filter).
+  // ── Real signal evaluation (P3 + #2) ───────────────────────────────────────
+  // Hydrate every business ONCE (batched, read-only, stored rows only) and
+  // resolveMatches per lead. TWO passes over the same hydration:
+  //   • GOAL signals (the research's tuned set) → the REAL match% + the tuned
+  //     per-signal verdicts for the goal COLUMNS (replacing the pain heuristic).
+  //   • The whole LIBRARY (default thresholds) → a verdict for every evaluable
+  //     signal, so ANY signal with data on the full cohort becomes filterable
+  //     (#2). Both passes are pure over the hydrated data — no extra queries.
+  // We hydrate whenever there ARE businesses (not only when the goal has
+  // signals) so the library filters work even for a signal-less/legacy goal.
   const hydrated =
-    activeSignals.length > 0 && businessIds.length > 0
+    businessIds.length > 0
       ? await hydrateBusinessForSignals(businessIds)
       : null;
   const evalNow = new Date();
   // The goal's active signals (key + title) — the workbench renders one
   // column per signal (docs/portal-prototype.html's goalCols/makeSigCol) so
-  // what you searched for on the Goal step is directly answered per lead. We
-  // never auto-FILTER by them (a signal still mid-enrichment would otherwise
-  // silently hide real leads) — only the column is signal-driven, not the
-  // row set.
+  // what you searched for on the Goal step is directly answered per lead.
   const goalSignals = activeSignals
     .map((s) => {
       const title = SIG_META[s.key]?.title;
       return title ? { key: s.key, title } : null;
     })
     .filter((s): s is { key: string; title: string } => s !== null);
+  const goalKeySet = new Set(goalSignals.map((s) => s.key));
 
   // First (=latest) row per business for the "latest snapshot/audit" pattern.
   const latestSnapshot = firstByBusiness(snapshots);
@@ -471,12 +483,27 @@ async function DiscoveryWorkspaceBody({ params, searchParams }: PageProps) {
     // REAL signal eval when the research persisted signals; else (no signals /
     // not-computable) fall back to the pain-count heuristic. No stored
     // Lead.matchScore at the discovery scope.
+    const hyd = hydrated?.get(b.id) ?? null;
     const evalResult =
-      hydrated && hydrated.get(b.id)
-        ? resolveMatches(activeSignals, hydrated.get(b.id)!, evalNow)
+      hyd && activeSignals.length > 0
+        ? resolveMatches(activeSignals, hyd, evalNow)
         : null;
-    const { match, matchFromSignals, matchDerived, perSignal } =
-      resolveLeadMatch(evalResult, null, pains.length);
+    const {
+      match,
+      matchFromSignals,
+      matchDerived,
+      perSignal: goalPerSignal,
+    } = resolveLeadMatch(evalResult, null, pains.length);
+    // #2 · library verdicts (default thresholds) so any signal with data on the
+    // whole cohort is filterable; goal (tuned) verdicts win + are always kept.
+    const libPerSignal = hyd
+      ? resolveMatches(ALL_LIB_SIGNALS, hyd, evalNow).perSignal
+      : {};
+    const perSignal = mergeSignalVerdicts(
+      libPerSignal,
+      goalPerSignal,
+      goalKeySet,
+    );
 
     return {
       // Real Lead id when this business already lives in a saved list (wired
@@ -654,6 +681,9 @@ async function DiscoveryWorkspaceBody({ params, searchParams }: PageProps) {
       coverage,
       coverageFailed,
       goalSignals,
+      // #2 · the full curated library for the "+ Signal" picker (gated to those
+      // with data on every lead, client-side).
+      allSignals: LIBRARY_OPTIONS,
       exportSlug,
       serverPage,
       serverPageCount,

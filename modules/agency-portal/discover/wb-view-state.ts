@@ -28,9 +28,8 @@ import {
 } from "./leads-workbench";
 
 export interface WorkbenchViewState {
-  density: "comfortable" | "compact";
   vsCell: boolean;
-  group: "none" | "cell";
+  group: "none" | "cell" | "signals";
   activeCols: string[];
   filters: LeadFilter[];
   sortKey: string;
@@ -118,10 +117,12 @@ export function loadWorkbenchView(
   if (!isRecord(parsed)) return null;
 
   const out: Partial<WorkbenchViewState> = {};
-  if (parsed.density === "comfortable" || parsed.density === "compact")
-    out.density = parsed.density;
   if (typeof parsed.vsCell === "boolean") out.vsCell = parsed.vsCell;
-  if (parsed.group === "none" || parsed.group === "cell")
+  if (
+    parsed.group === "none" ||
+    parsed.group === "cell" ||
+    parsed.group === "signals"
+  )
     out.group = parsed.group;
   if (Array.isArray(parsed.activeCols)) {
     const cols = parsed.activeCols.filter(

@@ -1386,6 +1386,25 @@
 .agency-portal .tb-spacer {
   flex: 1 1 auto;
 }
+/* #1 · live filtered-lead count, sits by the Filters control. --ink-2 (~9:1 on
+   --bg) not --muted (4.55:1, no headroom) — leaves contrast margin at 12.5px. */
+.agency-portal .wb-count {
+  font-size: 12.5px;
+  color: var(--ink-2);
+  white-space: nowrap;
+  padding-right: 2px;
+  font-variant-numeric: tabular-nums;
+}
+.agency-portal .wb-count strong {
+  color: var(--ink);
+  font-weight: 650;
+}
+/* A disabled segmented button (aria-disabled, e.g. "By signals" with no signal
+   filter) must read distinctly from a merely-inactive one — dim + not-allowed. */
+.agency-portal .seg button[aria-disabled="true"] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
 .agency-portal .wb-search {
   position: relative;
   flex: 0 1 220px;
@@ -1975,13 +1994,6 @@
 .agency-portal table.wb th {
   padding: 11px 12px;
 }
-.agency-portal table.wb.compact td,
-.agency-portal table.wb.compact th {
-  padding: 6px 12px;
-}
-.agency-portal table.wb.compact td {
-  font-size: 12.5px;
-}
 .agency-portal table.wb tbody tr.selrow td {
   background: var(--indigo-50);
 }
@@ -2065,12 +2077,25 @@
   font-weight: 700;
   font-size: 12px;
   color: var(--ink-2);
-  cursor: pointer;
   position: sticky;
   left: 0;
   /* Above body cells (auto) but below the sticky thead (z:3) so the group label
      never renders under regular rows on horizontal scroll. */
   z-index: 2;
+}
+/* The collapse toggle fills the header cell but is a real, focusable button —
+   keyboard-operable + aria-expanded, no button chrome (inherits the row look). */
+.agency-portal .grphead-btn {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
 }
 .agency-portal .grphead .gchev {
   display: inline-block;

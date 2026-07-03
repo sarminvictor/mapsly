@@ -52,6 +52,7 @@ import {
 import {
   WORKBENCH_WINDOW,
   resolveLeadMatch,
+  mergeSignalVerdicts,
   painGroupClass,
   type CellBand,
   type LeadStatus,
@@ -64,6 +65,8 @@ import {
 } from "@/modules/agency-portal/discover/signal-eval";
 import {
   activeSignalsFromJson,
+  allLibraryActiveSignals,
+  allLibrarySignals,
   goalMetaFromJson,
 } from "@/modules/agency-portal/discover/discovery-signals";
 import {
@@ -97,6 +100,13 @@ interface PageProps {
 // MAX_LEADS ceiling; every lead beyond it is now reachable via the pager's
 // window crossing (+ the server export route streams the full set). See
 // WORKBENCH_WINDOW (leads-workbench.ts) for the window-size rationale.
+
+// The whole curated signal library as ActiveSignal[] (default thresholds) +
+// its {key,title} option list — built ONCE (pure over SIG_META). Every lead is
+// evaluated against ALL_LIB_SIGNALS so any signal with data on the full cohort
+// is filterable (#2); LIBRARY_OPTIONS is the "+ Signal" picker's option list.
+const ALL_LIB_SIGNALS = allLibraryActiveSignals();
+const LIBRARY_OPTIONS = allLibrarySignals();
 
 export default function ListWorkbenchPage({ params, searchParams }: PageProps) {
   return (
@@ -218,8 +228,10 @@ async function ListWorkbenchBody({ params, searchParams }: PageProps) {
     },
   });
   const activeSignals = activeSignalsFromJson(discoveryRow?.signalsJson);
+  // Hydrate whenever there ARE leads (not only when the goal has signals) so the
+  // whole-library filters (#2) work even for a signal-less/legacy goal.
   const hydrated =
-    activeSignals.length > 0 && businessIds.length > 0
+    businessIds.length > 0
       ? await hydrateBusinessForSignals(businessIds)
       : null;
   const evalNow = new Date();
@@ -231,6 +243,7 @@ async function ListWorkbenchBody({ params, searchParams }: PageProps) {
       return title ? { key: s.key, title } : null;
     })
     .filter((s): s is { key: string; title: string } => s !== null);
+  const goalKeySet = new Set(goalSignals.map((s) => s.key));
 
   // Parallel side loads (all scoped to this list's businesses):
   //   - latest snapshot per business (reviewCount / rating / website pillar →
@@ -391,12 +404,27 @@ async function ListWorkbenchBody({ params, searchParams }: PageProps) {
     const cell = prettyCell(b.cellKey);
     // REAL signal eval when the discovery persisted signals; else fall back to
     // the stored Lead.matchScore (when present) or the pain-count heuristic.
+    const hyd = hydrated?.get(b.id) ?? null;
     const evalResult =
-      hydrated && hydrated.get(b.id)
-        ? resolveMatches(activeSignals, hydrated.get(b.id)!, evalNow)
+      hyd && activeSignals.length > 0
+        ? resolveMatches(activeSignals, hyd, evalNow)
         : null;
-    const { match, matchFromSignals, matchDerived, perSignal } =
-      resolveLeadMatch(evalResult, lead.matchScore, pains.length);
+    const {
+      match,
+      matchFromSignals,
+      matchDerived,
+      perSignal: goalPerSignal,
+    } = resolveLeadMatch(evalResult, lead.matchScore, pains.length);
+    // #2 · library verdicts (default thresholds) so any signal with data on the
+    // whole cohort is filterable; goal (tuned) verdicts win + are always kept.
+    const libPerSignal = hyd
+      ? resolveMatches(ALL_LIB_SIGNALS, hyd, evalNow).perSignal
+      : {};
+    const perSignal = mergeSignalVerdicts(
+      libPerSignal,
+      goalPerSignal,
+      goalKeySet,
+    );
 
     return {
       leadId: lead.id,
@@ -532,6 +560,9 @@ async function ListWorkbenchBody({ params, searchParams }: PageProps) {
       coverage,
       coverageFailed,
       goalSignals,
+      // #2 · the full curated library for the "+ Signal" picker (gated to those
+      // with data on every lead, client-side).
+      allSignals: LIBRARY_OPTIONS,
       exportSlug,
       serverPage,
       serverPageCount,

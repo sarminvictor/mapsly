@@ -682,24 +682,55 @@ export function filterLabel(f: LeadFilter): string {
 }
 
 // ── Data-availability (which filters are worth offering) ──────────────────────
-// The add-filter UI offers only filters that CAN match — a goal signal with no
-// enriched data on any lead, or a numeric field no lead carries, would just
-// produce an empty result. Computed over the FULL loaded row set (not the
-// filtered/paged view) so the option list is stable as the user filters.
+// The add-filter UI offers only filters that CAN match — a signal with no
+// enriched data, or a numeric field no lead carries, would just produce an
+// empty (or dishonestly-narrowed) result. Computed over the FULL loaded row set
+// (not the filtered/paged view) so the option list is stable as the user filters.
 
 /**
- * The goal-signal keys that have ENRICHED DATA on ≥1 loaded lead — i.e. some
- * row's `perSignal[key]` is a real verdict (`true`/`false`), not `null`
- * (not-yet-computed). Only these are worth offering as signal filters. Pure.
+ * The signal keys whose data is present on EVERY loaded lead — i.e. every row's
+ * `perSignal[key]` is a real verdict (`true`/`false`), never `null`
+ * (not-yet-computed). Only these are offered as filters (#2 · strict gating):
+ * a signal missing data on even one lead is hidden until the whole cohort is
+ * enriched, because filtering on a partially-computed signal would silently
+ * drop the not-yet-enriched leads (dishonest). `signals` is the candidate set —
+ * the goal signals (seed) or the whole library (picker). A signal absent from a
+ * row's `perSignal` (pruned null) reads as not-present → excludes it. Pure.
  */
 export function availableSignalKeys(
   rows: readonly WorkbenchLeadRow[],
-  goalSignals: readonly { key: string }[],
+  signals: readonly { key: string }[],
 ): Set<string> {
   const out = new Set<string>();
-  for (const s of goalSignals) {
-    if (rows.some((r) => r.perSignal[s.key] != null)) out.add(s.key);
+  if (rows.length === 0) return out;
+  for (const s of signals) {
+    if (rows.every((r) => r.perSignal[s.key] != null)) out.add(s.key);
   }
+  return out;
+}
+
+/**
+ * Merge a lead's LIBRARY signal verdicts (evaluated against default thresholds,
+ * for #2 "filter by all signals") with its GOAL verdicts (the user's tuned
+ * thresholds, for the goal columns). Goal wins for its own keys and keeps them
+ * even when null — the goal COLUMNS render null as "— enrich", so those keys
+ * must always be present. Non-goal library verdicts are kept ONLY when non-null:
+ * a pruned/absent key reads as "no data" both in {@link evalFilter} and the
+ * strict {@link availableSignalKeys} gate, and pruning keeps the serialized
+ * payload lean (~one bool per computable signal, not dozens of nulls). Pure —
+ * shared by the discovery workspace + the saved-list workbench pages.
+ */
+export function mergeSignalVerdicts(
+  lib: Record<string, boolean | null>,
+  goal: Record<string, boolean | null>,
+  goalKeys: ReadonlySet<string>,
+): Record<string, boolean | null> {
+  const out: Record<string, boolean | null> = {};
+  for (const [k, v] of Object.entries(lib)) {
+    if (goalKeys.has(k)) continue; // goal (tuned) wins for its own keys
+    if (v != null) out[k] = v; // prune non-goal nulls
+  }
+  for (const k of goalKeys) out[k] = goal[k] ?? null; // always present for columns
   return out;
 }
 
@@ -729,12 +760,11 @@ export function availableNumericFields(
 
 /**
  * The DEFAULT signal filters to auto-apply when the workbench opens: the goal-
- * step signals that have ENRICHED data on ≥1 loaded lead (`availableSignalKeys`).
- * Un-enriched goal signals are deliberately excluded — auto-applying one would
- * hide every not-yet-computed lead (the P0-B guard). Each defaults to "match".
- * Pure — the component seeds React state from this on mount. Because signal
- * filters never serialize (URL/localStorage), this re-derives every fresh mount,
- * which is what makes a hard refresh return to the goal-step defaults.
+ * step signals whose data is present on EVERY loaded lead (`availableSignalKeys`
+ * · strict gating). Partially-enriched goal signals are deliberately excluded —
+ * auto-applying one would hide every not-yet-computed lead (the P0-B guard).
+ * Each defaults to "match". Pure — the component seeds React state from this on
+ * mount.
  */
 export function seedSignalFilters(
   rows: readonly WorkbenchLeadRow[],
@@ -793,6 +823,79 @@ export function sortRows(
     }
   };
   return [...rows].sort((a, b) => (num(a) - num(b)) * dir);
+}
+
+// ── Grouping by signal set (#5 · segment by pitch angle) ─────────────────────
+// "Group by signals" buckets leads by the COMBINATION of their verdicts on the
+// applied signal filters — so Tom sees "these 40 match SEO + Booking (pitch the
+// bundle), those 12 only match SEO". Reuses the same collapsible group render as
+// group-by-cell. Only meaningful (and only offered) when ≥1 signal filter is
+// applied — the applied signals ARE the segmentation axes.
+
+/** One signal-combination bucket: a stable key, a human label, and its rows. */
+export interface SignalGroup {
+  /** Stable per-combination key (verdict tuple) — the render key + collapse id. */
+  key: string;
+  /** "Weak SEO ✓ · Online booking ✗ · Reachable —" (✓ matched · ✗ missed · — no data). */
+  label: string;
+  rows: WorkbenchLeadRow[];
+}
+
+/** The verdict glyph for one signal on one lead: ✓ fired · ✗ evaluated-but-not ·
+ *  — not computable yet. */
+function verdictGlyph(v: boolean | null | undefined): "✓" | "✗" | "—" {
+  return v === true ? "✓" : v === false ? "✗" : "—";
+}
+
+/**
+ * Bucket rows by the combination of their verdicts across the applied signal
+ * filters. Buckets are ordered strongest-first (most signals matched, fewest
+ * unknown) so the highest-value segment leads. Preserves each bucket's incoming
+ * row order (the caller pre-sorts). Pure. Returns `[]` when no signal filters
+ * are applied (the caller then falls back to a flat/other grouping).
+ */
+export function groupBySignals(
+  rows: readonly WorkbenchLeadRow[],
+  signalFilters: readonly { sigKey: string; sigLabel: string }[],
+): SignalGroup[] {
+  if (signalFilters.length === 0) return [];
+  const buckets = new Map<string, SignalGroup>();
+  for (const r of rows) {
+    const idParts: string[] = [];
+    const labelParts: string[] = [];
+    for (const f of signalFilters) {
+      const g = verdictGlyph(r.perSignal[f.sigKey]);
+      idParts.push(g);
+      labelParts.push(`${f.sigLabel} ${g}`);
+    }
+    const key = idParts.join("│");
+    let bucket = buckets.get(key);
+    if (!bucket) {
+      bucket = { key, label: labelParts.join(" · "), rows: [] };
+      buckets.set(key, bucket);
+    }
+    bucket.rows.push(r);
+  }
+  const score = (g: SignalGroup) => {
+    // Strongest-first: rank by matched count desc, then unknown count asc. Every
+    // row in a bucket shares the verdict tuple, so read the first row's.
+    const first = g.rows[0];
+    let matched = 0;
+    let unknown = 0;
+    for (const f of signalFilters) {
+      const v = first.perSignal[f.sigKey];
+      if (v === true) matched += 1;
+      else if (v == null) unknown += 1;
+    }
+    return { matched, unknown };
+  };
+  return [...buckets.values()].sort((a, b) => {
+    const sa = score(a);
+    const sb = score(b);
+    if (sb.matched !== sa.matched) return sb.matched - sa.matched;
+    if (sa.unknown !== sb.unknown) return sa.unknown - sb.unknown;
+    return a.label.localeCompare(b.label);
+  });
 }
 
 // ── CSV export mapping (WP2-4 / WP4-4 · ONE mapping for client + server) ─────

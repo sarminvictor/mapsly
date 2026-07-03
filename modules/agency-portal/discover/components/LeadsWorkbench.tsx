@@ -7,10 +7,10 @@
 // agency primitives (StatusPill, BulkActionBar).
 //
 // Mechanics (all client-side over plain serialized rows — Pattern 4):
-//   - Search · Group-by-cell · Comfortable/Compact density · vs-cell toggle ·
-//     Fields menu · Filters panel · Coverage line · sortable columns · numbered
-//     pagination · row select (shift-range) + select-all-filtered · sticky bulk
-//     bar (Set status / Export CSV / Clear).
+//   - Search · Group (none / by cell / by signal set) · vs-cell toggle · Fields
+//     menu · Filters panel (+ Signal / + Field pickers) · Coverage line ·
+//     sortable columns · numbered pagination · row select (shift-range) +
+//     select-all-filtered · sticky bulk bar (Set status / Export CSV / Clear).
 //   - Status is optimistic (useOptimistic + useTransition) via setLeadStatusAction.
 //
 // Per .claude/rules/ui-ux-agency.md: dense, jargon-OK, numbers over adjectives,
@@ -60,6 +60,7 @@ import {
   csvLine,
   fmtDelta,
   getPageNumbers,
+  groupBySignals,
   matchesSearch,
   passesFilters,
   filterLabel,
@@ -74,6 +75,7 @@ import {
   type NumericLeadFilter,
   type LeadStatus,
   type NumericFilterField,
+  type SignalGroup,
   type WorkbenchLeadRow,
 } from "../leads-workbench";
 import { enrichTypesForFamilies } from "../family-coverage";
@@ -118,6 +120,16 @@ export interface LeadsWorkbenchProps {
    */
   goalSignals?: { key: string; title: string }[];
   /**
+   * #2 · the full curated signal library (SIG_META key + title) offered in the
+   * "+ Signal" filter picker. Every lead carries a verdict for each (computed
+   * server-side against default thresholds), so any signal with data on the
+   * WHOLE cohort becomes filterable (strict gating in `availableSignalKeys`).
+   * Superset of `goalSignals` (minus roadmap-only signals). Defaults to
+   * `goalSignals` for callers that don't pass it (e.g. the list page), so the
+   * picker still offers the goal signals there.
+   */
+  allSignals?: { key: string; title: string }[];
+  /**
    * CSV filename base "{categorySlug}-{metroSlug}" resolved server-side from
    * the discovery's first cell (WP2-4). The export appends the date:
    * "med_spa-miami-2026-07-01.csv". Falls back to "leads-{date}.csv".
@@ -143,7 +155,10 @@ export interface LeadsWorkbenchProps {
   exportAllUrl?: string;
 }
 
-type Density = "comfortable" | "compact";
+/** How the table groups rows: flat, by cell, or by the combination of applied
+ *  signal-filter verdicts ("segment by pitch angle"). "signals" is only
+ *  selectable when ≥1 signal filter is applied. */
+type GroupMode = "none" | "cell" | "signals";
 
 export function LeadsWorkbench({
   rows,
@@ -152,6 +167,7 @@ export function LeadsWorkbench({
   coverage,
   coverageFailed = {},
   goalSignals = [],
+  allSignals,
   exportSlug,
   serverPage = 1,
   serverPageCount = 1,
@@ -223,8 +239,7 @@ export function LeadsWorkbench({
 
   // ── Toolbar / view state ──────────────────────────────────────────────────
   const [search, setSearch] = useState("");
-  const [group, setGroup] = useState<"none" | "cell">("none");
-  const [density, setDensity] = useState<Density>("comfortable");
+  const [group, setGroup] = useState<GroupMode>("none");
   const [vsCell, setVsCell] = useState(true);
   const [helpOpen, setHelpOpen] = useState(false);
   const searchRef = useRef<HTMLInputElement | null>(null);
@@ -233,12 +248,20 @@ export function LeadsWorkbench({
   // keyboard-shortcut effect ([] deps) reads this via ref so single-letter keys
   // never mutate the table from behind an open overlay.
   const anyOverlayOpenRef = useRef(false);
+  // The `g` shortcut cycles group modes; the effect has [] deps so it invokes
+  // the latest cycler via this ref (kept current by an effect below, once
+  // `filters`/`setGroup` are in scope — a signal-set group needs a signal
+  // filter, which the cycler checks live).
+  const cycleGroupRef = useRef<() => void>(() => {});
   const [activeCols, setActiveCols] = useState<string[]>(
     DEFAULT_ACTIVE_COLUMNS,
   );
   const [fieldsOpen, setFieldsOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [addOpen, setAddOpen] = useState(false);
+  // #3 · the single "+ Add filter" split into two pickers: "+ Signal" (the
+  // signal library) and "+ Field" (numeric fields). Independent open state.
+  const [signalMenuOpen, setSignalMenuOpen] = useState(false);
+  const [fieldMenuOpen, setFieldMenuOpen] = useState(false);
   const [coverageOpen, setCoverageOpen] = useState(false);
   // The Fields, Add-filter and Set-status menus are <Popover>s (floating-ui
   // handles portal + dismiss + focus). The Filters/Coverage PANELS are inline
@@ -264,8 +287,9 @@ export function LeadsWorkbench({
   // so they never fire while typing in a field or with a modifier held. Press
   // "?" for the on-screen cheat-sheet.
   useEffect(() => {
-    anyOverlayOpenRef.current = helpOpen || fieldsOpen || addOpen;
-  }, [helpOpen, fieldsOpen, addOpen]);
+    anyOverlayOpenRef.current =
+      helpOpen || fieldsOpen || signalMenuOpen || fieldMenuOpen;
+  }, [helpOpen, fieldsOpen, signalMenuOpen, fieldMenuOpen]);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -293,11 +317,9 @@ export function LeadsWorkbench({
           break;
         case "g":
           e.preventDefault();
-          setGroup((g) => (g === "none" ? "cell" : "none"));
-          break;
-        case "d":
-          e.preventDefault();
-          setDensity((d) => (d === "comfortable" ? "compact" : "comfortable"));
+          // Cycle none → cell → signals (signals only when a signal filter is
+          // applied — cycleGroup reads the live filters via ref) → none.
+          cycleGroupRef.current();
           break;
         case "v":
           e.preventDefault();
@@ -380,7 +402,7 @@ export function LeadsWorkbench({
   const [pageSize, setPageSize] = useState<number>(20);
 
   // ── Persisted view-state per research (WP4-13) ────────────────────────────
-  // Hydrate saved density/vsCell/columns/filters/sort/pageSize/group from
+  // Hydrate saved vsCell/columns/filters/sort/pageSize/group from
   // localStorage AFTER mount (not a lazy initializer) so server + first client
   // render match — no hydration mismatch. `hydrated` gates the save effect so
   // the initial defaults don't overwrite the saved blob before we've read it.
@@ -389,7 +411,7 @@ export function LeadsWorkbench({
   // URL carries any view param the URL WINS wholesale for sort+filters — a
   // pasted link must reproduce the sender's view, never half-merge with this
   // browser's saved blob. localStorage stays the fallback (no URL params) and
-  // keeps owning the non-shareable prefs (density/columns/…).
+  // keeps owning the non-shareable prefs (columns/group/…).
   const hydrated = useRef(false);
   // Whether the user has an actual filter CHOICE to persist (vs the pure goal
   // default seed). The seed alone is never saved — so a barely-enriched first
@@ -407,7 +429,6 @@ export function LeadsWorkbench({
         new URLSearchParams(window.location.search),
       );
       if (saved) {
-        if (saved.density !== undefined) setDensity(saved.density);
         if (saved.vsCell !== undefined) setVsCell(saved.vsCell);
         if (saved.group !== undefined) setGroup(saved.group);
         if (saved.activeCols !== undefined) setActiveCols(saved.activeCols);
@@ -453,7 +474,6 @@ export function LeadsWorkbench({
   useEffect(() => {
     if (!hydrated.current) return;
     saveWorkbenchView(discoveryId, {
-      density,
       vsCell,
       group,
       activeCols,
@@ -470,7 +490,6 @@ export function LeadsWorkbench({
     });
   }, [
     discoveryId,
-    density,
     vsCell,
     group,
     activeCols,
@@ -585,12 +604,56 @@ export function LeadsWorkbench({
     return sortRows(f, sortKey, sortDir);
   }, [rows, search, filters, sortKey, sortDir]);
 
+  // Signal availability (hoisted — both the grouping axes and the "+ Signal"
+  // picker read it). `signalLibrary` = the whole curated library the page
+  // supplied (falls back to the goal signals for the list page). `availSigKeys`
+  // = signals with data on EVERY loaded lead (#2 · strict gating). Computed over
+  // the whole `rows` window so the option list stays stable while filtering.
+  const signalLibrary = useMemo(
+    () => allSignals ?? goalSignals,
+    [allSignals, goalSignals],
+  );
+  const goalKeySet = useMemo(
+    () => new Set(goalSignals.map((s) => s.key)),
+    [goalSignals],
+  );
+  const availSigKeys = useMemo(
+    () => availableSignalKeys(rows, signalLibrary),
+    [rows, signalLibrary],
+  );
+  const availNumFields = useMemo(() => availableNumericFields(rows), [rows]);
+
+  // #5 · "Group by signals" axes. Grouping by the APPLIED signal filters is
+  // degenerate — a filter narrows the set to one verdict, so every surviving row
+  // shares it (a single bucket). The valuable axes are your GOAL signals that
+  // still VARY across the visible leads: enriched on every lead (verdicts ✓/✗,
+  // never —) and NOT themselves pinned by a filter. That segments Tom's filtered
+  // leads by his other pitch angles ("weak-SEO leads split by booking / ads").
+  const appliedSignalKeys = useMemo(
+    () =>
+      new Set(filters.flatMap((f) => (f.kind === "signal" ? [f.sigKey] : []))),
+    [filters],
+  );
+  const signalGroupAxes = useMemo(
+    () =>
+      goalSignals
+        .filter((s) => availSigKeys.has(s.key) && !appliedSignalKeys.has(s.key))
+        // Cap the axes so the bucket count stays scannable (2^4 worst case).
+        .slice(0, 4)
+        .map((s) => ({ sigKey: s.key, sigLabel: s.title })),
+    [goalSignals, availSigKeys, appliedSignalKeys],
+  );
+  const canGroupBySignals = signalGroupAxes.length > 0;
+  // Whether the table is in a grouped (paginate-off) view. Signal grouping needs
+  // ≥1 varying goal signal; without one it degrades to a flat view.
+  const isGrouped =
+    group === "cell" || (group === "signals" && canGroupBySignals);
+
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const curPage = Math.min(page, totalPages);
-  const pageRows =
-    group === "cell"
-      ? filtered // grouped view shows all (pagination disabled)
-      : filtered.slice((curPage - 1) * pageSize, curPage * pageSize);
+  const pageRows = isGrouped
+    ? filtered // grouped view shows all (pagination disabled)
+    : filtered.slice((curPage - 1) * pageSize, curPage * pageSize);
 
   // WP7-13 · a THIN market (< 25 businesses total across the research) can't
   // support an honest percentile distribution, so vs-cell bands are suppressed
@@ -614,34 +677,74 @@ export function LeadsWorkbench({
     filtered.length === 1 ? "lead" : "leads"
   } shown, sortable by column. ${sortAnnouncement}.`;
 
-  // Group rows by cell (only when grouping).
-  const grouped = useMemo(() => {
-    if (group !== "cell") return null;
-    const map = new Map<string, WorkbenchLeadRow[]>();
-    for (const r of pageRows) {
-      const arr = map.get(r.cell);
-      if (arr) arr.push(r);
-      else map.set(r.cell, [r]);
+  // Grouped view rows — by cell, or by the goal-signal verdict combination (#5).
+  // A uniform `{ id, label, rows }[]` so the render + collapse machinery is
+  // shared. null in flat mode (or "signals" with no varying goal signal, which
+  // derives to a flat view — see the `isGrouped`/`canGroupBySignals` note below).
+  const grouped = useMemo(():
+    | {
+        id: string;
+        label: string;
+        rows: WorkbenchLeadRow[];
+      }[]
+    | null => {
+    if (group === "cell") {
+      const map = new Map<string, WorkbenchLeadRow[]>();
+      for (const r of pageRows) {
+        const arr = map.get(r.cell);
+        if (arr) arr.push(r);
+        else map.set(r.cell, [r]);
+      }
+      return [...map.entries()].map(([cell, cellRows]) => ({
+        id: cell,
+        label: cell,
+        rows: cellRows,
+      }));
     }
-    return [...map.entries()];
-  }, [group, pageRows]);
+    if (group === "signals" && canGroupBySignals) {
+      return groupBySignals(pageRows, signalGroupAxes).map(
+        (g: SignalGroup) => ({
+          id: g.key,
+          label: g.label,
+          rows: g.rows,
+        }),
+      );
+    }
+    return null;
+  }, [group, pageRows, canGroupBySignals, signalGroupAxes]);
 
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(
     new Set(),
   );
 
-  // The drawer's prev/next walk the VISIBLE order: the grouped (cell-ordered)
-  // sequence when grouping, else the filtered+sorted page sequence. We step
-  // across the whole filtered set (not just the current page) so next/prev keep
-  // working past a page boundary in flat mode.
+  // The drawer's prev/next walk the VISIBLE order: the grouped sequence when
+  // grouping, else the filtered+sorted page sequence. We step across the whole
+  // filtered set (not just the current page) so next/prev keep working past a
+  // page boundary in flat mode.
   const orderedIds = useMemo(() => {
-    if (group === "cell" && grouped) {
-      return grouped.flatMap(([, cellRows]) =>
-        cellRows.map((r) => r.businessId),
-      );
+    if (grouped) {
+      return grouped.flatMap((g) => g.rows.map((r) => r.businessId));
     }
     return filtered.map((r) => r.businessId);
-  }, [group, grouped, filtered]);
+  }, [grouped, filtered]);
+
+  // Keep the `g` shortcut's cycler current (none → cell → signals when signal
+  // grouping is possible → none) — the keyboard effect has [] deps + reads via ref.
+  useEffect(() => {
+    cycleGroupRef.current = () =>
+      setGroup((g) =>
+        g === "none"
+          ? "cell"
+          : g === "cell" && canGroupBySignals
+            ? "signals"
+            : "none",
+      );
+  }, [canGroupBySignals]);
+  // NB: we DON'T reset `group` to "none" when signal grouping stops being
+  // possible (that would be a setState-in-effect). Instead the view DERIVES from
+  // `isGrouped` (which requires `canGroupBySignals` for "signals"), so the view
+  // degrades to flat and restores automatically as the axes come and go. The
+  // "By signals" seg lights only while it's actually grouping.
 
   // ── Selection helpers ─────────────────────────────────────────────────────
   function toggleRow(leadId: string, rowIndex: number, shiftKey: boolean) {
@@ -885,23 +988,27 @@ export function LeadsWorkbench({
     setPage(1);
   }
 
-  // ── Add-filter popover · data-gated two lists ──────────────────────────────
-  // Only offer filters that CAN match: signals/fields with enriched data on ≥1
-  // loaded lead (computed over the whole `rows` window, not the paged view, so
-  // the option list stays stable while filtering), minus any already applied.
-  const availSigKeys = useMemo(
-    () => availableSignalKeys(rows, goalSignals),
-    [rows, goalSignals],
-  );
-  const availNumFields = useMemo(() => availableNumericFields(rows), [rows]);
+  // ── Add-filter pickers · data-gated (#2 + #3 · split Signal / Field) ────────
+  // The "+ Signal" picker offers the WHOLE curated library (`signalLibrary`,
+  // hoisted above), gated to signals with data on every lead (`availSigKeys`),
+  // minus any already applied. Split into the personalised goal signals (shown
+  // first) and the rest of the library (alphabetised).
   const addSignalOptions = useMemo(() => {
     const active = new Set(
       filters.flatMap((f) => (f.kind === "signal" ? [f.sigKey] : [])),
     );
-    return goalSignals.filter(
+    const avail = signalLibrary.filter(
       (s) => availSigKeys.has(s.key) && !active.has(s.key),
     );
-  }, [goalSignals, availSigKeys, filters]);
+    return {
+      goal: avail.filter((s) => goalKeySet.has(s.key)),
+      rest: avail
+        .filter((s) => !goalKeySet.has(s.key))
+        .sort((a, b) => a.title.localeCompare(b.title)),
+    };
+  }, [signalLibrary, availSigKeys, filters, goalKeySet]);
+  const signalOptionCount =
+    addSignalOptions.goal.length + addSignalOptions.rest.length;
   const addNumericOptions = useMemo(() => {
     const active = new Set(
       filters.flatMap((f) => (f.kind !== "signal" ? [f.field] : [])),
@@ -911,15 +1018,15 @@ export function LeadsWorkbench({
     );
   }, [availNumFields, filters]);
 
-  // The add-filter popover is a <Popover> (floating-ui handles portal + dismiss
+  // The add-filter pickers are <Popover>s (floating-ui handles portal + dismiss
   // + Esc + focus + ↑/↓ nav), so no hand-rolled listeners here.
   function pickAddSignal(key: string, title: string) {
     addSignalFilter(key, title);
-    setAddOpen(false);
+    setSignalMenuOpen(false);
   }
   function pickAddNumeric(field: NumericFilterField) {
     addFilter(field);
-    setAddOpen(false);
+    setFieldMenuOpen(false);
   }
   /** WP5-13 · Fields-menu funnel — open the filter editor pre-set to this
    *  field (adds the field's default filter unless one is already applied). */
@@ -1330,34 +1437,40 @@ export function LeadsWorkbench({
         <div className="seg sm" role="group" aria-label="Group by">
           <button
             type="button"
-            className={group === "cell" ? "on" : undefined}
-            onClick={() => setGroup("cell")}
-          >
-            Group by cell
-          </button>
-          <button
-            type="button"
             className={group === "none" ? "on" : undefined}
             onClick={() => setGroup("none")}
           >
             No groups
           </button>
-        </div>
-
-        <div className="seg sm" role="group" aria-label="Row density">
           <button
             type="button"
-            className={density === "comfortable" ? "on" : undefined}
-            onClick={() => setDensity("comfortable")}
+            className={group === "cell" ? "on" : undefined}
+            onClick={() => setGroup("cell")}
           >
-            Comfortable
+            By cell
           </button>
+          {/* #5 · segment leads by the verdict combination of your VARYING goal
+              signals (enriched on every lead, not pinned by a filter). We use
+              aria-disabled (NOT the `disabled` attribute) so the control stays
+              focusable + emits pointer events — a `disabled` button fires no
+              hover/focus, so its explanatory tooltip would never show. Click is
+              guarded to a no-op instead. */}
           <button
             type="button"
-            className={density === "compact" ? "on" : undefined}
-            onClick={() => setDensity("compact")}
+            className={
+              group === "signals" && canGroupBySignals ? "on" : undefined
+            }
+            aria-disabled={!canGroupBySignals || undefined}
+            data-tip={
+              canGroupBySignals
+                ? "Segment by your goal-signal combination"
+                : "Needs an enriched goal signal that isn't filtered"
+            }
+            onClick={() => {
+              if (canGroupBySignals) setGroup("signals");
+            }}
           >
-            Compact
+            By signals
           </button>
         </div>
 
@@ -1453,6 +1566,32 @@ export function LeadsWorkbench({
 
         <span className="tb-spacer" />
 
+        {/* #1 · live filtered count — updates as filters/search change so the
+            match total is visible up here by the Filters control, not only down
+            in the pager. When server-paginated it counts the loaded window
+            (the tooltip states the whole-set total). */}
+        <span
+          className="wb-count"
+          aria-live="polite"
+          data-tip={
+            serverPageCount > 1
+              ? `Matches in the loaded window of ${rows.length.toLocaleString()} · ${totalRows.toLocaleString()} total`
+              : undefined
+          }
+        >
+          <strong>{filtered.length.toLocaleString()}</strong>
+          {filters.length > 0 || search.trim() !== ""
+            ? ` of ${rows.length.toLocaleString()}`
+            : ""}{" "}
+          {/* "loaded" (not "leads") when server-paginated so the number never
+              reads as the whole-set total — that's in the tooltip. */}
+          {serverPageCount > 1
+            ? "loaded"
+            : filtered.length === 1
+              ? "lead"
+              : "leads"}
+        </span>
+
         <button
           ref={filterBtnRef}
           type="button"
@@ -1532,8 +1671,7 @@ export function LeadsWorkbench({
                 {[
                   ["/", "Focus search"],
                   ["f", "Fields menu"],
-                  ["g", "Group by cell (toggle)"],
-                  ["d", "Density (toggle)"],
+                  ["g", "Group (none → cell → signals)"],
                   ["v", "vs-cell benchmarks (toggle)"],
                   ["?", "This help"],
                   ["Esc", "Close any menu / dialog"],
@@ -1674,32 +1812,39 @@ export function LeadsWorkbench({
                 </span>
               ),
             )}
+            {/* #3 · two pickers — "+ Signal" (the curated library, gated to
+                signals with data on every lead) and "+ Field" (numeric fields
+                with data). Each is its own <Popover> (floating-ui portal +
+                dismiss + ↑/↓ nav). */}
             <Popover
-              open={addOpen}
-              onOpenChange={setAddOpen}
+              open={signalMenuOpen}
+              onOpenChange={setSignalMenuOpen}
               className="filter-add-popover"
               role="dialog"
-              label="Add a filter"
+              label="Add a signal filter"
               trigger={
-                <button type="button" className="add">
-                  ＋ Add filter
+                <button
+                  type="button"
+                  className="add"
+                  data-tip="Filter by a signal"
+                >
+                  ＋ Signal
                 </button>
               }
             >
-              {addSignalOptions.length === 0 &&
-              addNumericOptions.length === 0 ? (
+              {signalOptionCount === 0 ? (
                 <div className="filter-add-empty">
-                  No filterable data yet — enrich leads to unlock filters.
+                  No signal covers all leads yet · enrich to unlock.
                 </div>
               ) : null}
-              {addSignalOptions.length > 0 ? (
+              {addSignalOptions.goal.length > 0 ? (
                 <div
                   className="filter-list-section"
                   role="group"
-                  aria-label="Your signals"
+                  aria-label="Your goal signals"
                 >
-                  <div className="filter-list-eyebrow">Your signals</div>
-                  {addSignalOptions.map((s) => (
+                  <div className="filter-list-eyebrow">Your goal signals</div>
+                  {addSignalOptions.goal.map((s) => (
                     <button
                       key={s.key}
                       type="button"
@@ -1711,7 +1856,47 @@ export function LeadsWorkbench({
                   ))}
                 </div>
               ) : null}
-              {addNumericOptions.length > 0 ? (
+              {addSignalOptions.rest.length > 0 ? (
+                <div
+                  className="filter-list-section"
+                  role="group"
+                  aria-label="All signals"
+                >
+                  <div className="filter-list-eyebrow">All signals</div>
+                  {addSignalOptions.rest.map((s) => (
+                    <button
+                      key={s.key}
+                      type="button"
+                      className="filter-list-item"
+                      onClick={() => pickAddSignal(s.key, s.title)}
+                    >
+                      {s.title}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </Popover>
+            <Popover
+              open={fieldMenuOpen}
+              onOpenChange={setFieldMenuOpen}
+              className="filter-add-popover"
+              role="dialog"
+              label="Add a field filter"
+              trigger={
+                <button
+                  type="button"
+                  className="add"
+                  data-tip="Filter by a field"
+                >
+                  ＋ Field
+                </button>
+              }
+            >
+              {addNumericOptions.length === 0 ? (
+                <div className="filter-add-empty">
+                  No fields with data yet · enrich to unlock.
+                </div>
+              ) : (
                 <div
                   className="filter-list-section"
                   role="group"
@@ -1732,18 +1917,13 @@ export function LeadsWorkbench({
                     </button>
                   ))}
                 </div>
-              ) : null}
+              )}
             </Popover>
           </div>
         </div>
       ) : filters.length ? (
         <div className="chipsbar">
-          <span className="cb-lbl">
-            Filters
-            {filters.some((f) => f.kind === "signal") ? (
-              <span className="cb-note"> · goal signals auto-applied</span>
-            ) : null}
-          </span>
+          <span className="cb-lbl">Filters</span>
           {filters.map((f, i) => (
             // Signal chips (your goal defaults) read distinct from numeric ones.
             <span
@@ -1834,7 +2014,7 @@ export function LeadsWorkbench({
 
       {/* ── The power table ───────────────────────────────────────────────── */}
       <div className="wbtable-wrap">
-        <table className={`wb${density === "compact" ? " compact" : ""}`}>
+        <table className="wb">
           {/* WP7-10 · a screen-reader caption naming what the table holds +
               how many rows are shown. Visually hidden — the WorkspaceHeader
               carries the visible narrative count. */}
@@ -1923,11 +2103,7 @@ export function LeadsWorkbench({
                   >
                     {filters.length > 0 || search.trim() !== "" ? (
                       <>
-                        No leads match these filters
-                        {filters.some((f) => f.kind === "signal")
-                          ? " — goal signals auto-applied"
-                          : ""}{" "}
-                        ·{" "}
+                        No leads match these filters ·{" "}
                         <button
                           type="button"
                           className="rflink"
@@ -1942,35 +2118,52 @@ export function LeadsWorkbench({
                   </div>
                 </td>
               </tr>
-            ) : group === "cell" && grouped ? (
-              grouped.flatMap(([cell, cellRows]) => {
-                const collapsed = collapsedGroups.has(cell);
+            ) : grouped ? (
+              grouped.flatMap((g) => {
+                const collapsed = collapsedGroups.has(g.id);
+                const toggle = () =>
+                  setCollapsedGroups((prev) => {
+                    const next = new Set(prev);
+                    if (next.has(g.id)) next.delete(g.id);
+                    else next.add(g.id);
+                    return next;
+                  });
                 const head = (
                   <tr
-                    key={`grp-${cell}`}
+                    key={`grp-${g.id}`}
                     className={`grphead${collapsed ? " collapsed" : ""}`}
-                    onClick={() =>
-                      setCollapsedGroups((prev) => {
-                        const next = new Set(prev);
-                        if (next.has(cell)) next.delete(cell);
-                        else next.add(cell);
-                        return next;
-                      })
-                    }
                   >
                     <td colSpan={colSpan}>
-                      <span className="gchev" aria-hidden="true">
-                        ▾
-                      </span>
-                      {cell}
-                      <span className="gc">{cellRows.length} leads</span>
+                      {/* A real <button> so collapse/expand is keyboard-operable
+                          + announced (aria-expanded), not a mouse-only <tr>. The
+                          signal-group legend rides its tooltip. */}
+                      <button
+                        type="button"
+                        className="grphead-btn"
+                        aria-expanded={!collapsed}
+                        aria-label={`${g.label}, ${g.rows.length} leads — ${
+                          collapsed ? "expand" : "collapse"
+                        }`}
+                        data-tip={
+                          group === "signals"
+                            ? "✓ matched · ✗ not matched"
+                            : undefined
+                        }
+                        onClick={toggle}
+                      >
+                        <span className="gchev" aria-hidden="true">
+                          ▾
+                        </span>
+                        {g.label}
+                        <span className="gc">{g.rows.length} leads</span>
+                      </button>
                     </td>
                   </tr>
                 );
                 if (collapsed) return [head];
                 return [
                   head,
-                  ...cellRows.map((r) =>
+                  ...g.rows.map((r) =>
                     renderRow(
                       r,
                       pageRows.findIndex((x) => x.leadId === r.leadId),
@@ -1986,7 +2179,7 @@ export function LeadsWorkbench({
       </div>
 
       {/* ── Pagination (in-window pages + server-window crossing · WP4-4) ──── */}
-      {group === "none" && (filtered.length > 0 || serverPageCount > 1) ? (
+      {!isGrouped && (filtered.length > 0 || serverPageCount > 1) ? (
         <div
           className="wbpager"
           role="navigation"
@@ -2079,7 +2272,7 @@ export function LeadsWorkbench({
 
       {/* Grouped view shows the whole window — keep the server windows
           reachable with a slim window pager (every row stays reachable). */}
-      {group === "cell" && serverPageCount > 1 ? (
+      {isGrouped && serverPageCount > 1 ? (
         <div
           className="wbpager"
           role="navigation"

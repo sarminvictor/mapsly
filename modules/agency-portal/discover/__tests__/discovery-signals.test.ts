@@ -20,6 +20,8 @@ import {
   goalMetaFromJson,
   toActiveSignals,
   activeSignalsFromJson,
+  allLibraryActiveSignals,
+  allLibrarySignals,
   type PersistedSignal,
 } from "../discovery-signals";
 import { deriveMatchPct, resolveLeadMatch } from "../leads-workbench";
@@ -203,6 +205,39 @@ describe("toActiveSignals", () => {
 
   test("drops a persisted key with no SIG_META entry", () => {
     expect(toActiveSignals([{ key: "does_not_exist" }])).toEqual([]);
+  });
+});
+
+// ── 3b · the full signal library (#2 · filter by all signals) ────────────────
+describe("allLibraryActiveSignals / allLibrarySignals", () => {
+  test("excludes roadmap signals, includes ready/deriv ones (all evaluable)", () => {
+    const keys = new Set(allLibraryActiveSignals().map((s) => s.key));
+    // Every included key is non-roadmap; every non-roadmap SIG_META key is included.
+    for (const [key, meta] of Object.entries(SIG_META)) {
+      expect(keys.has(key)).toBe(meta.status !== "roadmap");
+    }
+    // A known roadmap signal is out; a known ready signal is in.
+    expect(keys.has("slow_site")).toBe(true); // status: ready
+  });
+
+  test("carries SIG_META default comparator/value + registryKey, and no tune", () => {
+    const byKey = new Map(allLibraryActiveSignals().map((s) => [s.key, s]));
+    const sig = byKey.get("slow_site");
+    const meta = SIG_META.slow_site;
+    expect(sig?.comparator).toBe(meta.comparator);
+    expect(sig?.value).toBe(meta.value);
+    expect(sig?.registryKey).toBe(meta.registryKey);
+    expect(sig?.tune).toBeUndefined();
+  });
+
+  test("the {key,title} option list matches the ActiveSignal set 1:1", () => {
+    const options = allLibrarySignals();
+    const active = allLibraryActiveSignals();
+    expect(options.map((o) => o.key).sort()).toEqual(
+      active.map((s) => s.key).sort(),
+    );
+    // Titles come straight from SIG_META.
+    for (const o of options) expect(o.title).toBe(SIG_META[o.key].title);
   });
 });
 

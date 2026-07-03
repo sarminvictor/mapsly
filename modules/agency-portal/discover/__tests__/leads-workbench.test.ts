@@ -16,7 +16,9 @@ import {
   filterLabel,
   fmtDelta,
   getPageNumbers,
+  groupBySignals,
   matchesSearch,
+  mergeSignalVerdicts,
   availableNumericFields,
   availableSignalKeys,
   painGroupClass,
@@ -232,28 +234,44 @@ describe("toneForPercentile", () => {
   });
 });
 
-describe("availableSignalKeys", () => {
-  const goalSignals = [
+describe("availableSignalKeys (#2 · strict all-rows gating)", () => {
+  const signals = [
     { key: "sig_a", title: "A" },
     { key: "sig_b", title: "B" },
     { key: "sig_c", title: "C" },
   ];
 
-  test("a signal is available only when ≥1 row has a non-null verdict", () => {
+  test("a signal is available only when EVERY row has a verdict", () => {
     const rows = [
-      row({ perSignal: { sig_a: true, sig_b: null } }),
-      row({ perSignal: { sig_a: null, sig_b: false } }),
-      // sig_c never computed on any row → unavailable.
+      row({ perSignal: { sig_a: true, sig_b: false } }),
+      row({ perSignal: { sig_a: false, sig_b: null } }),
+      // sig_c present on neither row.
     ];
-    const avail = availableSignalKeys(rows, goalSignals);
-    expect(avail.has("sig_a")).toBe(true); // true verdict
-    expect(avail.has("sig_b")).toBe(true); // false verdict counts (it's computed)
-    expect(avail.has("sig_c")).toBe(false); // never present at all
+    const avail = availableSignalKeys(rows, signals);
+    expect(avail.has("sig_a")).toBe(true); // non-null on both rows
+    expect(avail.has("sig_b")).toBe(false); // null on row 2 → hidden until enriched
+    expect(avail.has("sig_c")).toBe(false); // never present
   });
 
-  test("all-null across rows → empty (nothing enriched yet)", () => {
-    const rows = [row({ perSignal: { sig_a: null } })];
-    expect(availableSignalKeys(rows, goalSignals).size).toBe(0);
+  test("a single not-yet-computed lead hides the signal (honest gating)", () => {
+    const rows = [
+      row({ perSignal: { sig_a: true } }),
+      row({ perSignal: { sig_a: true } }),
+      row({ perSignal: {} }), // an absent/pruned key reads as no-data → hides it
+    ];
+    expect(availableSignalKeys(rows, signals).has("sig_a")).toBe(false);
+  });
+
+  test("all rows enriched → available (true AND false verdicts both count)", () => {
+    const rows = [
+      row({ perSignal: { sig_a: true } }),
+      row({ perSignal: { sig_a: false } }),
+    ];
+    expect(availableSignalKeys(rows, signals).has("sig_a")).toBe(true);
+  });
+
+  test("no rows → nothing available", () => {
+    expect(availableSignalKeys([], signals).size).toBe(0);
   });
 });
 
@@ -298,9 +316,9 @@ describe("seedSignalFilters (goal-step default filters)", () => {
     { key: "sig_b", title: "Signal B" },
   ];
 
-  test("seeds only goal signals that have enriched data, each as a 'match' filter", () => {
-    // sig_a enriched on one lead; sig_b never computed → excluded (P0-B guard:
-    // auto-applying an un-enriched signal would hide not-yet-computed leads).
+  test("seeds only goal signals with data on EVERY lead, each as a 'match' filter", () => {
+    // sig_a computed on both leads; sig_b never computed → excluded (P0-B guard:
+    // auto-applying a partially-enriched signal would hide not-yet-computed leads).
     const rows = [
       row({ perSignal: { sig_a: true, sig_b: null } }),
       row({ perSignal: { sig_a: false, sig_b: null } }),
@@ -318,6 +336,70 @@ describe("seedSignalFilters (goal-step default filters)", () => {
 
   test("empty when the goal carries no signals", () => {
     expect(seedSignalFilters([row()], [])).toEqual([]);
+  });
+});
+
+describe("mergeSignalVerdicts (#2 · library ∪ goal, goal wins)", () => {
+  test("goal verdicts win and are kept even when null; non-goal nulls pruned", () => {
+    const lib = { sig_a: true, sig_b: false, sig_c: null };
+    const goal = { sig_a: false, sig_d: null };
+    const out = mergeSignalVerdicts(lib, goal, new Set(["sig_a", "sig_d"]));
+    // goal sig_a wins over the library's true; goal sig_d kept as null (column).
+    expect(out.sig_a).toBe(false);
+    expect(out.sig_d).toBe(null);
+    // non-goal library verdicts: keep non-null (sig_b), prune null (sig_c).
+    expect(out.sig_b).toBe(false);
+    expect("sig_c" in out).toBe(false);
+  });
+
+  test("every goal key is present even absent from both maps (columns need it)", () => {
+    const out = mergeSignalVerdicts({}, {}, new Set(["g1", "g2"]));
+    expect(out).toEqual({ g1: null, g2: null });
+  });
+});
+
+describe("groupBySignals (#5 · segment by verdict combination)", () => {
+  const axes = [
+    { sigKey: "seo", sigLabel: "Weak SEO" },
+    { sigKey: "booking", sigLabel: "No booking" },
+  ];
+
+  test("buckets rows by their verdict tuple with ✓/✗/— labels", () => {
+    const rows = [
+      row({ leadId: "a", perSignal: { seo: true, booking: true } }),
+      row({ leadId: "b", perSignal: { seo: true, booking: false } }),
+      row({ leadId: "c", perSignal: { seo: true, booking: true } }),
+      row({ leadId: "d", perSignal: { seo: true } }), // booking absent → —
+    ];
+    const groups = groupBySignals(rows, axes);
+    // 3 distinct combinations: (✓✓)×2, (✓✗)×1, (✓—)×1.
+    expect(groups).toHaveLength(3);
+    const bothMatched = groups.find(
+      (g) => g.label === "Weak SEO ✓ · No booking ✓",
+    );
+    expect(bothMatched?.rows.map((r) => r.leadId)).toEqual(["a", "c"]);
+    expect(groups.some((g) => g.label === "Weak SEO ✓ · No booking ✗")).toBe(
+      true,
+    );
+    expect(groups.some((g) => g.label === "Weak SEO ✓ · No booking —")).toBe(
+      true,
+    );
+  });
+
+  test("orders strongest-first: most matched, then fewest unknown", () => {
+    const rows = [
+      row({ leadId: "miss", perSignal: { seo: false, booking: false } }),
+      row({ leadId: "unknown", perSignal: {} }), // — —
+      row({ leadId: "match", perSignal: { seo: true, booking: true } }),
+    ];
+    const labels = groupBySignals(rows, axes).map((g) => g.label);
+    // both-matched leads first; both-unknown last.
+    expect(labels[0]).toBe("Weak SEO ✓ · No booking ✓");
+    expect(labels[labels.length - 1]).toBe("Weak SEO — · No booking —");
+  });
+
+  test("no axes → no groups (caller falls back to flat)", () => {
+    expect(groupBySignals([row()], [])).toEqual([]);
   });
 });
 
