@@ -95,7 +95,7 @@ function PackView({
         <button
           className="btn block plan-cta"
           disabled
-          title="Checkout not configured yet — contact us to buy credits."
+          data-tip="Checkout not configured yet — contact us to buy credits."
         >
           Contact us
         </button>

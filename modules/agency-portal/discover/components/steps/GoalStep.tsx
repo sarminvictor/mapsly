@@ -23,6 +23,7 @@ import {
 import { useRouter } from "next/navigation";
 
 import { showToast } from "@/components/agency/Toast";
+import { useConfirm } from "@/components/agency/ConfirmProvider";
 import {
   GOAL_TEMPLATES,
   OUTCOME_GROUPS,
@@ -63,6 +64,7 @@ export function GoalStep({
   const [search, setSearch] = useState("");
   const [libOpen, setLibOpen] = useState(false);
   const router = useRouter();
+  const confirm = useConfirm();
   const [saving, startSaving] = useTransition();
   // A signature of the goal AT THE MOMENT IT WAS SAVED — collapses the Save
   // button into a "Saved ✓" beat only while the goal is UNCHANGED. Keyed on the
@@ -166,14 +168,15 @@ export function GoalStep({
     });
   }
 
-  function deleteMine(row: SavedTemplateRow) {
-    if (
-      !window.confirm(
-        `Delete template "${row.name}"? Its ${row.signals.length} saved signal${row.signals.length === 1 ? "" : "s"} are lost.`,
-      )
-    ) {
-      return;
-    }
+  async function deleteMine(row: SavedTemplateRow) {
+    const n = row.signals.length;
+    const ok = await confirm({
+      title: `Delete template "${row.name}"?`,
+      body: `Its ${n} saved signal${n === 1 ? "" : "s"} ${n === 1 ? "is" : "are"} lost.`,
+      confirmText: "Delete",
+      danger: true,
+    });
+    if (!ok) return;
     startSaving(async () => {
       const r = await deleteGoalTemplateAction({ templateId: row.id });
       if (r.status === "ok") {
@@ -257,8 +260,8 @@ export function GoalStep({
                       type="button"
                       className="tplrow-del"
                       aria-label={`Delete template ${t.name}`}
-                      title="Delete template"
-                      onClick={() => deleteMine(t)}
+                      data-tip="Delete template"
+                      onClick={() => void deleteMine(t)}
                     >
                       ✕
                     </button>
@@ -393,7 +396,7 @@ export function GoalStep({
               type="button"
               className="btn"
               disabled={!goal.customized || saving}
-              title={
+              data-tip={
                 !goal.customized
                   ? "Tune the preset first — the built-in is already saved"
                   : goal.templateId
@@ -545,7 +548,7 @@ function hasNumericThreshold(meta: SigMeta): boolean {
 function DataStatusBadge({ status }: { status: SigMeta["status"] }) {
   if (status === "deriv")
     return (
-      <span className="ds ds-deriv" title="Computed from data we have">
+      <span className="ds ds-deriv" data-tip="Computed from data we have">
         computed
       </span>
     );
@@ -553,13 +556,13 @@ function DataStatusBadge({ status }: { status: SigMeta["status"] }) {
     return (
       <span
         className="ds ds-road"
-        title="Needs an enrichment we don’t run yet — shown for planning"
+        data-tip="Needs an enrichment we don’t run yet — shown for planning"
       >
         needs data
       </span>
     );
   return (
-    <span className="ds ds-real" title="Backed by live data for this market">
+    <span className="ds ds-real" data-tip="Backed by live data for this market">
       live data
     </span>
   );
@@ -944,7 +947,7 @@ function SettingControl({
                 type="button"
                 key={b.value}
                 className={`ch ${isOn ? "on" : ""}`}
-                title={b.desc}
+                data-tip={b.desc}
                 aria-pressed={isOn}
                 onClick={() => pick(b.value)}
               >
@@ -978,7 +981,7 @@ function SettingControl({
                 type="button"
                 key={o.value}
                 className={`ch ${isOn ? "on" : ""}`}
-                title={o.desc}
+                data-tip={o.desc}
                 aria-pressed={isOn}
                 onClick={() => onChange({ kind: "mode", value: o.value })}
               >
@@ -1041,7 +1044,7 @@ function SettingControl({
             <button
               type="button"
               className={`ch any ${sel.indexOf(ANY) >= 0 ? "on" : ""}`}
-              title="Matches if ANY tool is detected."
+              data-tip="Matches if ANY tool is detected."
               aria-pressed={sel.indexOf(ANY) >= 0}
               onClick={() => toggle(ANY)}
             >
@@ -1055,7 +1058,7 @@ function SettingControl({
                 type="button"
                 key={o.value}
                 className={`ch ${isOn ? "on" : ""}`}
-                title={o.desc}
+                data-tip={o.desc}
                 aria-pressed={isOn}
                 onClick={() => toggle(o.value)}
               >
@@ -1067,7 +1070,7 @@ function SettingControl({
             <button
               type="button"
               className={`ch none ${sel.indexOf(NONE) >= 0 ? "on" : ""}`}
-              title="Matches when none is found."
+              data-tip="Matches when none is found."
               aria-pressed={sel.indexOf(NONE) >= 0}
               onClick={() => toggle(NONE)}
             >

@@ -13,6 +13,8 @@
 import { useState, useTransition, type CSSProperties } from "react";
 import { useRouter } from "next/navigation";
 
+import { useConfirm } from "@/components/agency/ConfirmProvider";
+
 import {
   inviteMemberAction,
   removeMemberAction,
@@ -45,6 +47,7 @@ export function TeamManagePanel({
   selfUserId,
 }: TeamManagePanelProps) {
   const router = useRouter();
+  const confirm = useConfirm();
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<"STAFF" | "ADMIN">("STAFF");
   const [msg, setMsg] = useState<string | null>(null);
@@ -96,15 +99,15 @@ export function TeamManagePanel({
     });
   }
 
-  function remove(memberId: string, label: string) {
+  async function remove(memberId: string, label: string) {
     // Destructive → specific confirm (copy-voice.md: state what's lost).
-    if (
-      !window.confirm(
-        `Remove ${label} from the team? They lose access immediately; the seat frees up.`,
-      )
-    ) {
-      return;
-    }
+    const ok = await confirm({
+      title: `Remove ${label} from the team?`,
+      body: "They lose access immediately; the seat frees up.",
+      confirmText: "Remove",
+      danger: true,
+    });
+    if (!ok) return;
     startTransition(async () => {
       const r = await removeMemberAction({ memberId });
       if (r.status === "ok") router.refresh();
@@ -142,7 +145,7 @@ export function TeamManagePanel({
                   type="button"
                   style={styles.removeBtn}
                   disabled={pending}
-                  onClick={() => remove(m.id, m.userName ?? m.userEmail)}
+                  onClick={() => void remove(m.id, m.userName ?? m.userEmail)}
                 >
                   Remove
                 </button>

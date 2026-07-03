@@ -781,7 +781,10 @@ export function sortRows(
         return r.rating ?? -Infinity;
       case "perf":
         return r.perf ?? -Infinity;
-      case "lastC":
+      // NB: sortRows switches on the column KEY (not its kind). The Last-
+      // contacted column's key is "lastContactedAt" — using "lastC" (its kind)
+      // here was a silent dead sort (fell through to default → no reorder).
+      case "lastContactedAt":
         return r.lastContactedAt
           ? new Date(r.lastContactedAt).getTime()
           : -Infinity;

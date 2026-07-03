@@ -137,7 +137,7 @@ export function MarketCombobox({
                   onPick(o);
                 }}
               >
-                <span className="opt-label" title={o.label}>
+                <span className="opt-label" data-tip={o.label}>
                   {o.label}
                 </span>
                 {o.meta ? <span className="meta">{o.meta}</span> : null}
@@ -159,7 +159,7 @@ export function MarketCombobox({
                   onPick(closest);
                 }}
               >
-                <span className="opt-label" title={closest.label}>
+                <span className="opt-label" data-tip={closest.label}>
                   Did you mean <b>{closest.label}</b>?
                 </span>
                 {closest.meta ? (

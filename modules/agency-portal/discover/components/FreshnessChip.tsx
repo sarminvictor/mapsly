@@ -11,7 +11,7 @@ export function FreshnessChip({ state }: { state: FreshnessState }) {
   return (
     <span
       className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium ${toneClasses(c.tone)}`}
-      title={c.dollars}
+      data-tip={c.dollars}
     >
       <span aria-hidden>●</span>
       {c.label} · {c.dollars}

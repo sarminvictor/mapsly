@@ -275,7 +275,7 @@ export function LeadDrawer({
               className="ab"
               onClick={() => navTo(-1)}
               aria-label="Previous lead (press up arrow)"
-              title="Previous lead · ↑"
+              data-tip="Previous lead · ↑"
               disabled={orderedIds.length < 2}
             >
               <Icon name="arrow-up" size={15} />
@@ -285,7 +285,7 @@ export function LeadDrawer({
               className="ab"
               onClick={() => navTo(1)}
               aria-label="Next lead (press down arrow)"
-              title="Next lead · ↓"
+              data-tip="Next lead · ↓"
               disabled={orderedIds.length < 2}
             >
               <Icon name="arrow-down" size={15} />
@@ -295,7 +295,7 @@ export function LeadDrawer({
             <h1
               id="leadDrawerName"
               style={{ marginBottom: 3, fontSize: 19 }}
-              title={lead?.name}
+              data-tip={lead?.name}
             >
               {lead?.name ?? (isLoading ? "Loading…" : "Lead")}
             </h1>
@@ -483,7 +483,7 @@ function DrawerBody({
               {lead.facts.map((f) => (
                 <div className="dfact" key={f.key}>
                   <div className="fk">{f.key}</div>
-                  <div className="fv" title={f.value}>
+                  <div className="fv" data-tip={f.value}>
                     {f.value}
                   </div>
                 </div>
@@ -532,7 +532,7 @@ function DrawerBody({
                 <span
                   key={`${a.label}-${i}`}
                   className={`ppchip ${a.group}`}
-                  title={a.title}
+                  data-tip={a.title}
                 >
                   {a.label}
                 </span>
@@ -785,7 +785,7 @@ function ReportWrongButton({
         padding: 0,
       }}
       disabled={pending}
-      title={title}
+      data-tip={title}
       aria-label={ariaLabel}
       onClick={() =>
         startTransition(async () => {
@@ -830,7 +830,7 @@ function ContactLinks({
           key={`${c.href}-${i}`}
           className="clink"
           href={c.href}
-          title={c.value}
+          data-tip={c.value}
           {...(external
             ? { target: "_blank", rel: "noopener noreferrer" }
             : {})}
@@ -897,7 +897,7 @@ function SignalVerdictRow({ verdict }: { verdict: LeadSignalVerdict }) {
         <span
           className="name"
           style={{ display: "block" }}
-          title={verdict.means}
+          data-tip={verdict.means}
         >
           {verdict.title}
         </span>
@@ -1005,7 +1005,7 @@ function ConfidencePill({ confidence }: { confidence: string }) {
   return (
     <span
       className={`conf ${tone}`.trim()}
-      title={`Confidence: ${confidence}`}
+      data-tip={`Confidence: ${confidence}`}
       aria-label={`Confidence: ${confidence}`}
     >
       {[0, 1, 2].map((i) => (
@@ -1133,7 +1133,7 @@ function DomainAccordion({
         </span>
         <span className="dacc-title">{block.title}</span>
         {block.summary ? (
-          <span className="dacc-sum" title={block.summary}>
+          <span className="dacc-sum" data-tip={block.summary}>
             {block.summary}
           </span>
         ) : null}

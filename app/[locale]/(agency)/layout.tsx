@@ -26,6 +26,8 @@ import { CommandK } from "@/components/agency/CommandK";
 import { WalletPill } from "@/components/agency/WalletPill";
 import { JobsTray } from "@/components/agency/JobsTray";
 import { ToastHost } from "@/components/agency/Toast";
+import { ConfirmProvider } from "@/components/agency/ConfirmProvider";
+import { TooltipLayer } from "@/components/agency/TooltipLayer";
 import {
   getRecentResearchLinks,
   type RecentResearchLink,
@@ -71,12 +73,23 @@ export default function AgencyLayout({
     <div
       className={`agency-portal ${inter.variable} ${spaceGrotesk.variable} ${jetbrains.variable}`}
     >
-      <Suspense fallback={<ChromeFallback>{children}</ChromeFallback>}>
-        <ChromeServer params={params}>{children}</ChromeServer>
-      </Suspense>
+      {/* WP-UX · one confirm dialog host for the whole agency subtree — client
+          components call useConfirm() instead of native window.confirm(). */}
+      <ConfirmProvider>
+        <Suspense fallback={<ChromeFallback>{children}</ChromeFallback>}>
+          <ChromeServer params={params}>{children}</ChromeServer>
+        </Suspense>
+      </ConfirmProvider>
       {/* WP4-11 · single toast host for the whole agency subtree — every
           client component fires via showToast() from @/components/agency/Toast. */}
       <ToastHost />
+      {/* Overlay host for portaled popovers/tooltips (<Popover>/<Tooltip> via
+          @floating-ui). Inside .agency-portal so the scoped CSS + design tokens
+          + fonts apply, yet a direct child so a fixed-position menu escapes any
+          overflow:hidden ancestor and can flip at viewport edges. */}
+      <div id="agency-overlays" />
+      {/* One styled tooltip for the whole subtree — any element with data-tip. */}
+      <TooltipLayer />
     </div>
   );
 }

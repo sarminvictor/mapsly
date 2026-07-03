@@ -103,7 +103,7 @@ function TouchpointCard({ draft }: { draft: TouchpointDraft }) {
               className={`rounded-full border px-2 py-0.5 text-[11px] font-medium ${tierClass(
                 draft.predictedTier,
               )}`}
-              title="Predicted response tier"
+              data-tip="Predicted response tier"
             >
               {draft.predictedTier} tier
             </span>

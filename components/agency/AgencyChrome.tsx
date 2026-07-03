@@ -240,7 +240,7 @@ export function AgencyChrome({
             onClick={toggleRail}
             aria-label={labels.railToggle}
             aria-expanded={expanded}
-            title={labels.railToggle}
+            data-tip={labels.railToggle}
           >
             <svg viewBox="0 0 24 24" {...stroke} aria-hidden="true">
               <path d="M9 6l6 6-6 6" />
@@ -259,7 +259,7 @@ export function AgencyChrome({
                   href={item.href}
                   className={active ? "active" : undefined}
                   aria-current={active ? "page" : undefined}
-                  title={item.label}
+                  data-tip={item.label}
                 >
                   <span className="ic" aria-hidden="true">
                     {item.icon}

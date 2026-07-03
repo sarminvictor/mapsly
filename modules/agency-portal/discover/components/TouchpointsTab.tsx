@@ -438,7 +438,7 @@ export function TouchpointsTab({ touches, stats }: TouchpointsTabProps) {
                       />
                     </td>
                     <td className="biz">
-                      <span className="bizname" title={g.name}>
+                      <span className="bizname" data-tip={g.name}>
                         {g.name}
                       </span>
                       <div className="addr">
@@ -764,7 +764,7 @@ function TouchStep({
             <span
               key={i}
               className={`ppchip ${painGroupClass(p.group)}`}
-              title={p.title}
+              data-tip={p.title}
             >
               {p.label}
             </span>
@@ -781,7 +781,7 @@ function TouchStep({
             className="lk"
             onClick={polish}
             disabled={busy !== null}
-            title="Reword for fluency (gpt nano) — fact-checked, falls back to the grounded draft"
+            data-tip="Reword for fluency (gpt nano) — fact-checked, falls back to the grounded draft"
           >
             {busy === "polish" ? "Polishing…" : "Polish · 1 cr"}
           </button>
@@ -791,7 +791,7 @@ function TouchStep({
           className="lk"
           onClick={regenerate}
           disabled={busy !== null}
-          title="Rebuild this step from fresh signals — themes stay deduped across the sequence"
+          data-tip="Rebuild this step from fresh signals — themes stay deduped across the sequence"
         >
           {busy === "regen"
             ? "Regenerating…"

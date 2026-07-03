@@ -376,10 +376,19 @@ describe("sortRows", () => {
       row({ leadId: "old", lastContactedAt: "2026-01-01T00:00:00.000Z" }),
       row({ leadId: "recent", lastContactedAt: "2026-06-01T00:00:00.000Z" }),
     ];
-    expect(sortRows(rows, "lastC", -1).map((r) => r.leadId)).toEqual([
+    // The UI passes the column KEY ("lastContactedAt"), not its kind ("lastC").
+    // The old test used "lastC" — which matched the buggy case and masked a
+    // silent dead sort. Assert the real key sorts.
+    expect(sortRows(rows, "lastContactedAt", -1).map((r) => r.leadId)).toEqual([
       "recent",
       "old",
       "never",
+    ]);
+    // Guard the regression: the kind must NOT be a live sort key.
+    expect(sortRows(rows, "lastC", -1).map((r) => r.leadId)).toEqual([
+      "never",
+      "old",
+      "recent",
     ]);
   });
 });

@@ -185,7 +185,7 @@ function PlanCta({
     <button
       className="btn block plan-cta"
       disabled
-      title="Checkout not configured yet — contact us to upgrade."
+      data-tip="Checkout not configured yet — contact us to upgrade."
     >
       Contact us
     </button>

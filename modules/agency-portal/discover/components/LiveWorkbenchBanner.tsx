@@ -27,6 +27,8 @@ import { useEffect, useState, type ReactNode } from "react";
 
 import { useRouter } from "next/navigation";
 
+import { showToast } from "@/components/agency/Toast";
+
 interface RunProgress {
   done: number;
   total: number;
@@ -95,6 +97,19 @@ export function LiveWorkbenchBanner({
             setDone(true);
             router.refresh();
             triggerFlash();
+            // Completion feedback — the banner vanishes on `done`, so without a
+            // toast the run finishes silently. `showToast` also announces via
+            // its aria-live region for SR users. NB `p.done` and `p.failed` are
+            // DISJOINT partitions of total (the progress route clamps
+            // done ≤ total − failed), so `done` already IS the success count —
+            // never subtract failed.
+            const enriched = p.done;
+            showToast(
+              p.failed > 0
+                ? `Enriched ${enriched.toLocaleString()} leads · ${p.failed} failed`
+                : `Enriched ${enriched.toLocaleString()} leads`,
+              p.status === "FAILED" ? "error" : undefined,
+            );
             return;
           }
           if (changed) {

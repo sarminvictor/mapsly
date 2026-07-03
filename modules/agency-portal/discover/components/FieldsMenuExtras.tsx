@@ -63,7 +63,7 @@ export function FieldFunnel({
     <button
       type="button"
       className={`ffil${active ? " on" : ""}`}
-      title={`Filter on ${label}`}
+      data-tip={`Filter on ${label}`}
       aria-label={`Filter on ${label}`}
       onClick={(e) => {
         e.preventDefault();

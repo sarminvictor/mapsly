@@ -1,6 +1,6 @@
 {
   "name": "mapsly",
-  "version": "0.17.12",
+  "version": "0.17.13",
   "private": true,
   "scripts": {
     "dev": "next dev --turbo",
@@ -26,6 +26,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.32.1",
     "@auth/prisma-adapter": "^2.7.4",
+    "@floating-ui/react": "^0.27.19",
     "@hookform/resolvers": "^3.9.1",
     "@neondatabase/serverless": "^0.10.4",
     "@prisma/adapter-neon": "^7.0.0",

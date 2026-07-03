@@ -119,7 +119,7 @@ export function StatusPill({
       className={cn("statpill", `st-${status}`, className)}
       data-status={status}
       aria-label={computedAria}
-      title={title}
+      data-tip={title}
       style={{ opacity: disabled ? 0.6 : undefined, ...style }}
     >
       {content}

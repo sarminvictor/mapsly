@@ -24,7 +24,6 @@ import {
   useRef,
   useState,
   useTransition,
-  type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
@@ -78,6 +77,8 @@ import {
   type WorkbenchLeadRow,
 } from "../leads-workbench";
 import { enrichTypesForFamilies } from "../family-coverage";
+import { useDismiss } from "../hooks/useDismiss";
+import { Popover } from "@/components/agency/Popover";
 import { openEnrichSheet } from "../enrich-sheet-bus";
 import { THIN_MARKET_THRESHOLD } from "../flow-types";
 import type { EnrichmentType } from "@/modules/cost/pricing";
@@ -225,15 +226,137 @@ export function LeadsWorkbench({
   const [group, setGroup] = useState<"none" | "cell">("none");
   const [density, setDensity] = useState<Density>("comfortable");
   const [vsCell, setVsCell] = useState(true);
+  const [helpOpen, setHelpOpen] = useState(false);
+  const searchRef = useRef<HTMLInputElement | null>(null);
+  const helpModalRef = useRef<HTMLDivElement | null>(null);
+  // Whether ANY overlay (help modal / Fields / Add-filter menu) is open — the
+  // keyboard-shortcut effect ([] deps) reads this via ref so single-letter keys
+  // never mutate the table from behind an open overlay.
+  const anyOverlayOpenRef = useRef(false);
   const [activeCols, setActiveCols] = useState<string[]>(
     DEFAULT_ACTIVE_COLUMNS,
   );
   const [fieldsOpen, setFieldsOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
-  const addPopRef = useRef<HTMLDivElement | null>(null);
-  const addBtnRef = useRef<HTMLButtonElement | null>(null);
   const [coverageOpen, setCoverageOpen] = useState(false);
+  // The Fields, Add-filter and Set-status menus are <Popover>s (floating-ui
+  // handles portal + dismiss + focus). The Filters/Coverage PANELS are inline
+  // collapse sections, so they still use the shared useDismiss for outside-click.
+  const filtersPanelRef = useRef<HTMLDivElement | null>(null);
+  const filterBtnRef = useRef<HTMLButtonElement | null>(null);
+  const coveragePanelRef = useRef<HTMLDivElement | null>(null);
+  const coverageBtnRef = useRef<HTMLButtonElement | null>(null);
+  useDismiss(
+    filtersOpen,
+    () => setFiltersOpen(false),
+    filtersPanelRef,
+    filterBtnRef,
+  );
+  useDismiss(
+    coverageOpen,
+    () => setCoverageOpen(false),
+    coveragePanelRef,
+    coverageBtnRef,
+  );
+
+  // Power-user keyboard shortcuts (Tom · .claude/rules/ui-ux-agency.md). Guarded
+  // so they never fire while typing in a field or with a modifier held. Press
+  // "?" for the on-screen cheat-sheet.
+  useEffect(() => {
+    anyOverlayOpenRef.current = helpOpen || fieldsOpen || addOpen;
+  }, [helpOpen, fieldsOpen, addOpen]);
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      // Never fire a shortcut behind an open overlay (a modal/menu owns the
+      // keyboard until it's dismissed via Esc / click-out / ×).
+      if (anyOverlayOpenRef.current) return;
+      const t = e.target as HTMLElement | null;
+      const typing =
+        !!t &&
+        (t.tagName === "INPUT" ||
+          t.tagName === "TEXTAREA" ||
+          t.tagName === "SELECT" ||
+          t.isContentEditable);
+      if (e.key === "/" && !typing) {
+        e.preventDefault();
+        searchRef.current?.focus();
+        return;
+      }
+      if (typing) return;
+      switch (e.key) {
+        case "f":
+          e.preventDefault();
+          setFieldsOpen((o) => !o);
+          break;
+        case "g":
+          e.preventDefault();
+          setGroup((g) => (g === "none" ? "cell" : "none"));
+          break;
+        case "d":
+          e.preventDefault();
+          setDensity((d) => (d === "comfortable" ? "compact" : "comfortable"));
+          break;
+        case "v":
+          e.preventDefault();
+          setVsCell((v) => !v);
+          break;
+        case "?":
+          e.preventDefault();
+          setHelpOpen((o) => !o);
+          break;
+      }
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, []);
+
+  // Help dialog · Esc close + Tab focus-trap + focus-return (a11y: a
+  // role=dialog aria-modal must not leak focus behind the scrim).
+  useEffect(() => {
+    if (!helpOpen) return;
+    const prevFocus = document.activeElement as HTMLElement | null;
+    // Lock body scroll while open (parity with the confirm dialog).
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const focusables = () =>
+      Array.from(
+        helpModalRef.current?.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ) ?? [],
+      );
+    window.setTimeout(() => focusables()[0]?.focus(), 10);
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        setHelpOpen(false);
+        return;
+      }
+      if (e.key !== "Tab") return;
+      const items = focusables();
+      if (items.length === 0) return;
+      const first = items[0]!;
+      const last = items[items.length - 1]!;
+      const active = document.activeElement as HTMLElement | null;
+      if (e.shiftKey && active === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && active === last) {
+        e.preventDefault();
+        first.focus();
+      } else if (active && !helpModalRef.current?.contains(active)) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prevOverflow;
+      prevFocus?.focus?.();
+    };
+  }, [helpOpen]);
   // Open with NO filters so the workbench shows every discovered/enriched lead
   // by default — the user adds filters from the rail. (Previously seeded with
   // the prototype's demo filters, which hid all real leads on first open,
@@ -677,7 +800,7 @@ export function LeadsWorkbench({
     <button
       type="button"
       className="needsenr"
-      title="Enrich this lead"
+      data-tip="Enrich this lead"
       onClick={() => enrichCell(r, family)}
       style={{
         border: "none",
@@ -767,63 +890,15 @@ export function LeadsWorkbench({
     );
   }, [availNumFields, filters]);
 
-  // Close on Escape / outside click; focus the first option when it opens.
-  useEffect(() => {
-    if (!addOpen) return;
-    addPopRef.current
-      ?.querySelector<HTMLButtonElement>(".filter-list-item")
-      ?.focus();
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") {
-        setAddOpen(false);
-        addBtnRef.current?.focus();
-      }
-    }
-    function onClick(e: MouseEvent) {
-      const t = e.target as Node;
-      if (!addPopRef.current?.contains(t) && !addBtnRef.current?.contains(t)) {
-        setAddOpen(false);
-      }
-    }
-    document.addEventListener("keydown", onKey);
-    document.addEventListener("mousedown", onClick);
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      document.removeEventListener("mousedown", onClick);
-    };
-  }, [addOpen]);
-
-  /** ↑/↓ cycle focus among the popover's option buttons (keyboard-first). */
-  function onAddPopoverKeyDown(e: ReactKeyboardEvent<HTMLDivElement>) {
-    if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
-    e.preventDefault();
-    const items = Array.from(
-      addPopRef.current?.querySelectorAll<HTMLButtonElement>(
-        ".filter-list-item",
-      ) ?? [],
-    );
-    if (items.length === 0) return;
-    const idx = items.indexOf(document.activeElement as HTMLButtonElement);
-    const next =
-      e.key === "ArrowDown"
-        ? idx < 0
-          ? 0
-          : (idx + 1) % items.length
-        : idx <= 0
-          ? items.length - 1
-          : idx - 1;
-    items[next]?.focus();
-  }
-
+  // The add-filter popover is a <Popover> (floating-ui handles portal + dismiss
+  // + Esc + focus + ↑/↓ nav), so no hand-rolled listeners here.
   function pickAddSignal(key: string, title: string) {
     addSignalFilter(key, title);
     setAddOpen(false);
-    addBtnRef.current?.focus();
   }
   function pickAddNumeric(field: NumericFilterField) {
     addFilter(field);
     setAddOpen(false);
-    addBtnRef.current?.focus();
   }
   /** WP5-13 · Fields-menu funnel — open the filter editor pre-set to this
    *  field (adds the field's default filter unless one is already applied). */
@@ -857,10 +932,10 @@ export function LeadsWorkbench({
       case "biz":
         return (
           <td className="biz" key={col.key}>
-            <span className="bizname" title={r.name}>
+            <span className="bizname" data-tip={r.name}>
               {r.name}
             </span>
-            <div className="addr" title={r.addr}>
+            <div className="addr" data-tip={r.addr}>
               {r.addr}
             </div>
           </td>
@@ -882,14 +957,18 @@ export function LeadsWorkbench({
                 style={{ display: "inline-flex", gap: 5, flexWrap: "wrap" }}
               >
                 {r.pains.slice(0, 2).map((p, i) => (
-                  <span key={i} className={`ppchip ${p.group}`} title={p.title}>
+                  <span
+                    key={i}
+                    className={`ppchip ${p.group}`}
+                    data-tip={p.title}
+                  >
                     {p.label}
                   </span>
                 ))}
                 {r.pains.length > 2 ? (
                   <span
                     className="ppchip more"
-                    title={r.pains.map((p) => p.label).join(" · ")}
+                    data-tip={r.pains.map((p) => p.label).join(" · ")}
                   >
                     +{r.pains.length - 2}
                   </span>
@@ -917,7 +996,7 @@ export function LeadsWorkbench({
                 <span
                   key={s.key}
                   className="ppchip weak-web"
-                  title={`Matched your signal: ${s.title}`}
+                  data-tip={`Matched your signal: ${s.title}`}
                 >
                   {s.title}
                 </span>
@@ -925,7 +1004,7 @@ export function LeadsWorkbench({
               {matched.length > 2 ? (
                 <span
                   className="ppchip more"
-                  title={matched.map((s) => s.title).join(" · ")}
+                  data-tip={matched.map((s) => s.title).join(" · ")}
                 >
                   +{matched.length - 2}
                 </span>
@@ -963,7 +1042,7 @@ export function LeadsWorkbench({
               href={r.website}
               target="_blank"
               rel="noopener noreferrer"
-              title={r.website}
+              data-tip={r.website}
               onClick={(e) => e.stopPropagation()}
             >
               {host}
@@ -989,7 +1068,7 @@ export function LeadsWorkbench({
             <span
               className={`pill ${cls} dot`}
               style={{ fontSize: "10.5px" }}
-              title={`Reachability: ${rl.text}`}
+              data-tip={`Reachability: ${rl.text}`}
             >
               {rl.text}
             </span>
@@ -1037,7 +1116,7 @@ export function LeadsWorkbench({
               {arr[0]}
             </a>
             {arr.length > 1 ? (
-              <span className="cmore" title={arr.join(" · ")}>
+              <span className="cmore" data-tip={arr.join(" · ")}>
                 +{arr.length - 1}
               </span>
             ) : null}
@@ -1079,7 +1158,7 @@ export function LeadsWorkbench({
           <td key={col.key}>
             <span
               className="covstrip"
-              title={
+              data-tip={
                 failedCount > 0
                   ? `${have} of ${DATA_FAMILIES.length} enriched · ${failedCount} failed — re-enrich`
                   : `${have} of ${DATA_FAMILIES.length} data families enriched`
@@ -1106,7 +1185,7 @@ export function LeadsWorkbench({
                     <i
                       key={f.key}
                       className={state}
-                      title={`${f.label}: ${
+                      data-tip={`${f.label}: ${
                         state === "done"
                           ? "have"
                           : state === "failed"
@@ -1214,12 +1293,13 @@ export function LeadsWorkbench({
         <div className="wb-search">
           <Icon name="search" className="si" size={14} />
           <input
+            ref={searchRef}
             value={search}
             onChange={(e) => {
               setSearch(e.target.value);
               setPage(1);
             }}
-            placeholder="Search leads in this set…"
+            placeholder="Search leads in this set…  ( / )"
             aria-label="Search leads"
           />
         </div>
@@ -1263,7 +1343,7 @@ export function LeadsWorkbench({
             explains why, and a note says the numbers are absolute benchmarks. */}
         <label
           className={`cmptoggle${vsCell && !marketIsThin ? " on" : ""}`}
-          title={
+          data-tip={
             marketIsThin
               ? `Small market (under ${THIN_MARKET_THRESHOLD}) — showing absolute benchmarks, no market percentile`
               : undefined
@@ -1283,83 +1363,81 @@ export function LeadsWorkbench({
           </span>
         ) : null}
 
-        <div className="pop" style={{ position: "relative" }}>
-          <button
-            type="button"
-            className="btn sm"
-            aria-haspopup="true"
-            aria-expanded={fieldsOpen}
-            onClick={() => setFieldsOpen((o) => !o)}
-          >
-            Fields ▾
-          </button>
-          {fieldsOpen ? (
-            <div className="popmenu cols" role="menu">
-              <div className="cgrp">Workflow</div>
-              {COLUMNS.filter(
-                (c) => c.group === "workflow" && c.key !== "biz",
-              ).map((c) => (
-                <label key={c.key}>
-                  <input
-                    type="checkbox"
-                    checked={activeCols.includes(c.key)}
-                    onChange={() => toggleCol(c.key)}
+        <Popover
+          open={fieldsOpen}
+          onOpenChange={setFieldsOpen}
+          className="popmenu cols"
+          label="Fields"
+          trigger={
+            <button type="button" className="btn sm">
+              Fields ▾
+            </button>
+          }
+        >
+          <div className="cgrp">Workflow</div>
+          {COLUMNS.filter((c) => c.group === "workflow" && c.key !== "biz").map(
+            (c) => (
+              <label key={c.key}>
+                <input
+                  type="checkbox"
+                  checked={activeCols.includes(c.key)}
+                  onChange={() => toggleCol(c.key)}
+                />
+                {c.label}
+                {/* WP5-13 · per-field funnel — add/edit a filter from the
+                    same row (columns + filters in one mental model). */}
+                {isFilterField(c.key) ? (
+                  <FieldFunnel
+                    field={c.key as NumericFilterField}
+                    label={c.label}
+                    active={filters.some(
+                      (f) => f.kind !== "signal" && f.field === c.key,
+                    )}
+                    onOpen={openFieldFilter}
                   />
-                  {c.label}
-                  {/* WP5-13 · per-field funnel — add/edit a filter from the
-                      same row (columns + filters in one mental model). */}
-                  {isFilterField(c.key) ? (
-                    <FieldFunnel
-                      field={c.key as NumericFilterField}
-                      label={c.label}
-                      active={filters.some(
-                        (f) => f.kind !== "signal" && f.field === c.key,
-                      )}
-                      onOpen={openFieldFilter}
-                    />
-                  ) : null}
-                </label>
-              ))}
-              <div className="cgrp">Already enriched — add for free</div>
-              {COLUMNS.filter((c) => c.group === "enriched").map((c) => (
-                <label key={c.key}>
-                  <input
-                    type="checkbox"
-                    checked={activeCols.includes(c.key)}
-                    onChange={() => toggleCol(c.key)}
-                  />
-                  {c.fullLabel ?? c.label}
-                  {isFilterField(c.key) ? (
-                    <FieldFunnel
-                      field={c.key as NumericFilterField}
-                      label={c.label}
-                      active={filters.some(
-                        (f) => f.kind !== "signal" && f.field === c.key,
-                      )}
-                      onOpen={openFieldFilter}
-                    />
-                  ) : null}
-                </label>
-              ))}
-              {/* WP5-13 · locked buy-rows: families still missing across the
-                  visible set — click opens the WP5-3 enrich sheet. */}
-              <FieldsMenuLockedRows
-                missing={coverageSummary.missingKeys}
-                scope={enrichScope}
+                ) : null}
+              </label>
+            ),
+          )}
+          <div className="cgrp">Already enriched — add for free</div>
+          {COLUMNS.filter((c) => c.group === "enriched").map((c) => (
+            <label key={c.key}>
+              <input
+                type="checkbox"
+                checked={activeCols.includes(c.key)}
+                onChange={() => toggleCol(c.key)}
               />
-            </div>
-          ) : null}
-        </div>
+              {c.fullLabel ?? c.label}
+              {isFilterField(c.key) ? (
+                <FieldFunnel
+                  field={c.key as NumericFilterField}
+                  label={c.label}
+                  active={filters.some(
+                    (f) => f.kind !== "signal" && f.field === c.key,
+                  )}
+                  onOpen={openFieldFilter}
+                />
+              ) : null}
+            </label>
+          ))}
+          {/* WP5-13 · locked buy-rows: families still missing across the
+              visible set — click opens the WP5-3 enrich sheet. */}
+          <FieldsMenuLockedRows
+            missing={coverageSummary.missingKeys}
+            scope={enrichScope}
+          />
+        </Popover>
 
         <span className="tb-spacer" />
 
         <button
+          ref={filterBtnRef}
           type="button"
           className={`iconbtn${filters.length ? " active" : ""}`}
           aria-haspopup="true"
           aria-expanded={filtersOpen}
           aria-label="Filters"
-          title="Filters"
+          data-tip="Filters"
           onClick={() => {
             setFiltersOpen((o) => !o);
             setCoverageOpen(false);
@@ -1372,12 +1450,13 @@ export function LeadsWorkbench({
         </button>
 
         <button
+          ref={coverageBtnRef}
           type="button"
           className="iconbtn"
           aria-haspopup="true"
           aria-expanded={coverageOpen}
           aria-label="Coverage"
-          title="Coverage layers"
+          data-tip="Coverage layers"
           onClick={() => {
             setCoverageOpen((o) => !o);
             setFiltersOpen(false);
@@ -1388,11 +1467,68 @@ export function LeadsWorkbench({
             {coverageSummary.have.length}/{DATA_FAMILIES.length}
           </span>
         </button>
+
+        <button
+          type="button"
+          className="iconbtn"
+          aria-label="Keyboard shortcuts"
+          data-tip="Keyboard shortcuts  ( ? )"
+          onClick={() => setHelpOpen(true)}
+        >
+          ?
+        </button>
       </div>
+
+      {/* Keyboard-shortcut cheat-sheet (press ? or the ? button). */}
+      {helpOpen ? (
+        <div
+          className="overlay center"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Keyboard shortcuts"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setHelpOpen(false);
+          }}
+        >
+          <div className="modal confirm-modal" ref={helpModalRef}>
+            <div className="mhead">
+              <h2 className="confirm-title" style={{ flex: 1 }}>
+                Keyboard shortcuts
+              </h2>
+              <button
+                type="button"
+                className="x"
+                aria-label="Close"
+                onClick={() => setHelpOpen(false)}
+              >
+                ×
+              </button>
+            </div>
+            <div className="mbody">
+              <dl className="wb-shortcuts">
+                {[
+                  ["/", "Focus search"],
+                  ["f", "Fields menu"],
+                  ["g", "Group by cell (toggle)"],
+                  ["d", "Density (toggle)"],
+                  ["v", "vs-cell benchmarks (toggle)"],
+                  ["?", "This help"],
+                  ["Esc", "Close any menu / dialog"],
+                ].map(([k, label]) => (
+                  <div key={k} className="wb-shortcut-row">
+                    <kbd>{k}</kbd>
+                    <span>{label}</span>
+                  </div>
+                ))}
+              </dl>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {/* ── Filters panel ─────────────────────────────────────────────────── */}
       {filtersOpen ? (
-        <div className="collapse-panel">
+        <div className="collapse-panel" ref={filtersPanelRef}>
           <div className="cp-head">
             <span className="cp-title">Filters</span>
             <button
@@ -1409,7 +1545,11 @@ export function LeadsWorkbench({
           <div className="cp-body">
             {filters.map((f, i) =>
               f.kind === "signal" ? (
-                <span key={i} className="fchip sig" title="Goal-signal filter">
+                <span
+                  key={i}
+                  className="fchip sig"
+                  data-tip="Goal-signal filter"
+                >
                   <span style={{ fontWeight: 600 }}>{f.sigLabel}</span>
                   <button
                     type="button"
@@ -1423,10 +1563,13 @@ export function LeadsWorkbench({
                       background: "transparent",
                       font: "inherit",
                       cursor: "pointer",
-                      // Darker green on the tinted .fchip.sig bg clears 4.5:1
-                      // (plain --green is only 2.97:1 on --indigo-50).
+                      // Darker green/red on the tinted .fchip.sig bg clear
+                      // 4.5:1 (plain --green is 2.97:1, plain --red 4.13:1 on
+                      // --indigo-50 — both fail; the -700 tokens pass).
                       color:
-                        f.want === "match" ? "var(--green-700)" : "var(--red)",
+                        f.want === "match"
+                          ? "var(--green-700)"
+                          : "var(--red-700)",
                     }}
                   >
                     {f.want === "match" ? "matched" : "not matched"}
@@ -1441,7 +1584,7 @@ export function LeadsWorkbench({
                   </button>
                 </span>
               ) : (
-                <span key={i} className="fchip data" title="Edit filter">
+                <span key={i} className="fchip data" data-tip="Edit filter">
                   <select
                     aria-label="Field"
                     value={f.field}
@@ -1507,86 +1650,66 @@ export function LeadsWorkbench({
                 </span>
               ),
             )}
-            <div className="filter-add">
-              <button
-                ref={addBtnRef}
-                type="button"
-                className="add"
-                aria-haspopup="true"
-                aria-expanded={addOpen}
-                onClick={() => setAddOpen((o) => !o)}
-              >
-                ＋ Add filter
-              </button>
-              {addOpen ? (
-                // A plain grouped popover of buttons (NOT role=menu — every item
-                // is Tab-reachable, so a roving-tabindex menu would misdescribe
-                // it). Arrow keys cycle; Esc + outside-click + Tab-out (onBlur)
-                // close; focus returns to the trigger.
-                <div
-                  ref={addPopRef}
-                  className="filter-add-popover"
-                  aria-label="Add a filter"
-                  onKeyDown={onAddPopoverKeyDown}
-                  onBlur={(e) => {
-                    if (
-                      !e.currentTarget.contains(e.relatedTarget as Node | null)
-                    )
-                      setAddOpen(false);
-                  }}
-                >
-                  {addSignalOptions.length === 0 &&
-                  addNumericOptions.length === 0 ? (
-                    <div className="filter-add-empty">
-                      No filterable data yet — enrich leads to unlock filters.
-                    </div>
-                  ) : null}
-                  {addSignalOptions.length > 0 ? (
-                    <div
-                      className="filter-list-section"
-                      role="group"
-                      aria-label="Your signals"
-                    >
-                      <div className="filter-list-eyebrow">Your signals</div>
-                      {addSignalOptions.map((s) => (
-                        <button
-                          key={s.key}
-                          type="button"
-                          className="filter-list-item"
-                          onClick={() => pickAddSignal(s.key, s.title)}
-                        >
-                          {s.title}
-                        </button>
-                      ))}
-                    </div>
-                  ) : null}
-                  {addNumericOptions.length > 0 ? (
-                    <div
-                      className="filter-list-section"
-                      role="group"
-                      aria-label="Fields with data"
-                    >
-                      <div className="filter-list-eyebrow">
-                        Fields with data
-                      </div>
-                      {addNumericOptions.map((m) => (
-                        <button
-                          key={m.field}
-                          type="button"
-                          className="filter-list-item"
-                          onClick={() => pickAddNumeric(m.field)}
-                        >
-                          <span>{m.label}</span>
-                          {m.unit ? (
-                            <span className="filter-item-unit">{m.unit}</span>
-                          ) : null}
-                        </button>
-                      ))}
-                    </div>
-                  ) : null}
+            <Popover
+              open={addOpen}
+              onOpenChange={setAddOpen}
+              className="filter-add-popover"
+              role="dialog"
+              label="Add a filter"
+              trigger={
+                <button type="button" className="add">
+                  ＋ Add filter
+                </button>
+              }
+            >
+              {addSignalOptions.length === 0 &&
+              addNumericOptions.length === 0 ? (
+                <div className="filter-add-empty">
+                  No filterable data yet — enrich leads to unlock filters.
                 </div>
               ) : null}
-            </div>
+              {addSignalOptions.length > 0 ? (
+                <div
+                  className="filter-list-section"
+                  role="group"
+                  aria-label="Your signals"
+                >
+                  <div className="filter-list-eyebrow">Your signals</div>
+                  {addSignalOptions.map((s) => (
+                    <button
+                      key={s.key}
+                      type="button"
+                      className="filter-list-item"
+                      onClick={() => pickAddSignal(s.key, s.title)}
+                    >
+                      {s.title}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+              {addNumericOptions.length > 0 ? (
+                <div
+                  className="filter-list-section"
+                  role="group"
+                  aria-label="Fields with data"
+                >
+                  <div className="filter-list-eyebrow">Fields with data</div>
+                  {addNumericOptions.map((m) => (
+                    <button
+                      key={m.field}
+                      type="button"
+                      className="filter-list-item"
+                      onClick={() => pickAddNumeric(m.field)}
+                    >
+                      <span>{m.label}</span>
+                      {m.unit ? (
+                        <span className="filter-item-unit">{m.unit}</span>
+                      ) : null}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </Popover>
           </div>
         </div>
       ) : filters.length ? (
@@ -1629,7 +1752,7 @@ export function LeadsWorkbench({
 
       {/* ── Coverage panel ────────────────────────────────────────────────── */}
       {coverageOpen ? (
-        <div className="collapse-panel">
+        <div className="collapse-panel" ref={coveragePanelRef}>
           <div className="covline" aria-live="polite">
             <span className="cl-lbl">Coverage</span>
             <span className="cl-lbl" style={{ color: "var(--green)" }}>
@@ -1715,7 +1838,7 @@ export function LeadsWorkbench({
                   ]
                     .filter(Boolean)
                     .join(" ")}
-                  title={c.fullLabel ?? c.label}
+                  data-tip={c.fullLabel ?? c.label}
                   aria-sort={
                     c.sortable && sortKey === c.key
                       ? sortDir === 1
@@ -1746,7 +1869,13 @@ export function LeadsWorkbench({
                         <span className="arr" aria-hidden="true">
                           {sortDir === 1 ? "▲" : "▼"}
                         </span>
-                      ) : null}
+                      ) : (
+                        // Faint idle chevron so an inactive column reads as
+                        // sortable (was invisible → looked non-interactive).
+                        <span className="arr arr-idle" aria-hidden="true">
+                          ↕
+                        </span>
+                      )}
                     </button>
                   ) : (
                     c.label
@@ -2032,44 +2161,38 @@ function numField(r: WorkbenchLeadRow, key: string): number | null {
 function BulkStatusButton({ onPick }: { onPick: (s: LeadStatus) => void }) {
   const [open, setOpen] = useState(false);
   return (
-    <span style={{ position: "relative" }}>
-      <button
-        type="button"
-        className="bb primary"
-        aria-haspopup="true"
-        aria-expanded={open}
-        onClick={() => setOpen((o) => !o)}
-      >
-        Set status ▾
-      </button>
-      {open ? (
-        <div
-          className="popmenu"
-          role="menu"
-          style={{ position: "absolute", bottom: "calc(100% + 6px)", right: 0 }}
+    <Popover
+      open={open}
+      onOpenChange={setOpen}
+      className="popmenu"
+      placement="top-end"
+      label="Set status"
+      trigger={
+        <button type="button" className="bb primary">
+          Set status ▾
+        </button>
+      }
+    >
+      {STATUS_ORDER.map((s) => (
+        <button
+          key={s}
+          type="button"
+          role="menuitem"
+          className="statpill"
+          style={{
+            display: "block",
+            width: "100%",
+            textAlign: "left",
+            margin: "2px 0",
+          }}
+          onClick={() => {
+            onPick(s);
+            setOpen(false);
+          }}
         >
-          {STATUS_ORDER.map((s) => (
-            <button
-              key={s}
-              type="button"
-              role="menuitem"
-              className="statpill"
-              style={{
-                display: "block",
-                width: "100%",
-                textAlign: "left",
-                margin: "2px 0",
-              }}
-              onClick={() => {
-                onPick(s);
-                setOpen(false);
-              }}
-            >
-              <span className={`statpill st-${s}`}>{s}</span>
-            </button>
-          ))}
-        </div>
-      ) : null}
-    </span>
+          <span className={`statpill st-${s}`}>{s}</span>
+        </button>
+      ))}
+    </Popover>
   );
 }
