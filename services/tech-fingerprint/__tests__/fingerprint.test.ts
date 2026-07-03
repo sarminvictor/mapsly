@@ -82,6 +82,20 @@ describe("fingerprintTech", () => {
     expect(hasBookingTool(techs)).toBe(true);
   });
 
+  test("detects expanded booking vendors (Booksy, Fresha, GlossGenius)", () => {
+    for (const [needle, name] of [
+      ["https://booksy.com/en-us/12345_solea-spa", "Booksy"],
+      ["https://www.fresha.com/a/solea-spa", "Fresha"],
+      ["https://glossgenius.com/book/solea", "GlossGenius"],
+    ] as const) {
+      const html = `<html><body><a href="${needle}">Book now</a></body></html>`;
+      const techs = fingerprintTech({ html });
+      expect(techs.map((t) => t.name)).toContain(name);
+      expect(techs.find((t) => t.name === name)?.category).toBe("BOOKING");
+      expect(hasBookingTool(techs)).toBe(true);
+    }
+  });
+
   test("detects Cloudflare from response headers alone", () => {
     const html = `<html><body>plain content, no cdn markers in body</body></html>`;
     const headers = {

@@ -258,6 +258,34 @@ export function toneForPercentile(percentile: number): "g" | "a" | "r" {
   return "r";
 }
 
+/**
+ * Human label + pill tone for a reachability tier. The row already carries the
+ * tier (`row.reachability`) but the table used to throw it away and render a
+ * bare green/red "Yes/No" — this surfaces the tier Tom actually wants ("can I
+ * email AND call, or just one channel?"). Pure. `UNKNOWN` → the "not scanned"
+ * state so an un-enriched lead reads "— enrich", never a fake "No".
+ */
+export function reachabilityLabel(status: string): {
+  text: string;
+  tone: "green" | "amber" | "red" | "muted";
+} {
+  switch (status) {
+    case "RICH":
+      return { text: "Rich", tone: "green" };
+    case "MULTI":
+      return { text: "Multi", tone: "green" };
+    case "EMAIL_ONLY":
+      return { text: "Email only", tone: "amber" };
+    case "PHONE_ONLY":
+      return { text: "Phone only", tone: "amber" };
+    case "UNREACHABLE":
+      return { text: "None", tone: "red" };
+    default:
+      // UNKNOWN / anything unmapped = not scanned yet.
+      return { text: "—", tone: "muted" };
+  }
+}
+
 // ── Column registry ──────────────────────────────────────────────────────────
 
 export type DataFamily =
@@ -285,6 +313,7 @@ export type ColumnKind =
   | "num" // numeric fact (sortable, mono, vs-cell delta capable)
   | "reach" // reachability pill
   | "text" // plain text (built-on)
+  | "site" // website URL link (the domain, clickable)
   | "contact" // contact links
   | "status" // status pill
   | "touch" // touch pill
@@ -350,11 +379,24 @@ export const COLUMNS: readonly ColumnDef[] = [
     group: "workflow",
   },
   {
+    key: "website",
+    label: "Website",
+    kind: "site",
+    sortable: false,
+    // On by default — "Has a website: match" begged the question "why not the
+    // website itself?" The URL is the single most-clicked field on a lead.
+    defaultOn: true,
+    group: "enriched",
+    family: "website",
+  },
+  {
     key: "builtOn",
     label: "Built on",
     kind: "text",
     sortable: false,
-    defaultOn: true,
+    // Off by default now that the Website column carries the URL — the CMS name
+    // is a secondary detail, kept toggle-able in the Fields menu.
+    defaultOn: false,
     group: "enriched",
     family: "website",
   },
@@ -525,7 +567,13 @@ export interface SignalLeadFilter {
 
 export type LeadFilter = NumericLeadFilter | SignalLeadFilter;
 
-export type NumericFilterField = "match" | "reviews" | "rating" | "perf";
+export type NumericFilterField =
+  | "match"
+  | "reviews"
+  | "rating"
+  | "perf"
+  | "emails"
+  | "phones";
 
 /** Filterable numeric fields + their human label/unit, for the add-filter UI. */
 export const FILTER_FIELDS: readonly {
@@ -537,6 +585,8 @@ export const FILTER_FIELDS: readonly {
   { field: "reviews", label: "Reviews" },
   { field: "rating", label: "Rating", unit: "★" },
   { field: "perf", label: "Lighthouse" },
+  { field: "emails", label: "Emails found" },
+  { field: "phones", label: "Phones found" },
 ] as const;
 
 /** Seed filters mirroring the prototype's default workbench filters. */
@@ -560,6 +610,10 @@ export const FILTER_FIELD_DEFAULTS: Record<
   reviews: { op: "≥", value: 20 },
   rating: { op: "≥", value: 4 },
   perf: { op: "<", value: 50 },
+  // Contactability: default to "has at least one" — the "find me leads I can
+  // actually email/call" filter the workbench was missing entirely.
+  emails: { op: "≥", value: 1 },
+  phones: { op: "≥", value: 1 },
 };
 
 function fieldValue(
@@ -575,6 +629,10 @@ function fieldValue(
       return row.rating;
     case "perf":
       return row.perf;
+    case "emails":
+      return row.emails.length;
+    case "phones":
+      return row.phones.length;
   }
 }
 

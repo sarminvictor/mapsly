@@ -820,27 +820,25 @@ function ContactLinks({
   contacts: { value: string; href: string }[];
   external?: boolean;
 }) {
-  const first = contacts[0];
-  const rest = contacts.slice(1);
+  // Render EVERY contact as its own clickable link (was: first + a hover-only
+  // "+N" that hid phones/emails 2..N even in the detail card). The agency paid
+  // to reveal these — show them all, each dialable/mailable.
   return (
-    <>
-      <a
-        className="clink"
-        href={first.href}
-        title={first.value}
-        {...(external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
-      >
-        {first.value}
-      </a>
-      {rest.length ? (
-        <span
-          className="cmore"
-          title={contacts.map((c) => c.value).join(" · ")}
+    <span style={{ display: "flex", flexWrap: "wrap", gap: "4px 8px" }}>
+      {contacts.map((c, i) => (
+        <a
+          key={`${c.href}-${i}`}
+          className="clink"
+          href={c.href}
+          title={c.value}
+          {...(external
+            ? { target: "_blank", rel: "noopener noreferrer" }
+            : {})}
         >
-          +{rest.length}
-        </span>
-      ) : null}
-    </>
+          {c.value}
+        </a>
+      ))}
+    </span>
   );
 }
 

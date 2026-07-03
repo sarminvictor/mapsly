@@ -192,6 +192,50 @@ describe("evaluateSignal · READY numeric (slow_site → lighthouse_performance)
   });
 });
 
+// LIVE library additions — guard against a future "dead card" regression: each
+// resolves against real hydrated data, not a never-populated field.
+describe("evaluateSignal · LIVE library cards (weak_seo, has_email_contact)", () => {
+  test("weak_seo → seo_score resolves LighthouseAudit.seo", () => {
+    const sig: ActiveSignal = {
+      key: "weak_seo",
+      registryKey: "seo_score",
+      comparator: "<",
+      value: 70,
+    };
+    expect(
+      evaluateSignal(sig, biz({ lighthouse: lh({ seo: 55 }) }), NOW).matched,
+    ).toBe(true);
+    expect(
+      evaluateSignal(sig, biz({ lighthouse: lh({ seo: 92 }) }), NOW).matched,
+    ).toBe(false);
+    // No audit → null (honest "enrich to unlock"), never a fake match.
+    expect(evaluateSignal(sig, biz(), NOW).matched).toBeNull();
+  });
+
+  test("has_email_contact → email_count resolves from Contact EMAIL rollup", () => {
+    const sig: ActiveSignal = {
+      key: "has_email_contact",
+      registryKey: "email_count",
+      comparator: ">=",
+      value: 1,
+    };
+    expect(
+      evaluateSignal(
+        sig,
+        biz({ contacts: { ...biz().contacts, emailCount: 2 } }),
+        NOW,
+      ).matched,
+    ).toBe(true);
+    expect(
+      evaluateSignal(
+        sig,
+        biz({ contacts: { ...biz().contacts, emailCount: 0 } }),
+        NOW,
+      ).matched,
+    ).toBe(false);
+  });
+});
+
 describe("evaluateSignal · READY boolean from the listing (has_website)", () => {
   const sig: ActiveSignal = {
     key: "has_website",

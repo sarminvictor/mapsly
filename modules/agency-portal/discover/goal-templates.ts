@@ -461,6 +461,25 @@ export const SIG_META: Record<string, SigMeta> = {
     comparator: "<",
     value: 50,
   },
+  weak_seo: {
+    signalKey: "seo_score",
+    registryKey: "seo_score",
+    // seo_score source=dataforseo:lighthouse (LighthouseAudit.seo) — LIVE via
+    // resolveLighthouseField; the field is already hydrated.
+    researches: ["lighthouse"],
+    title: "Weak on-page SEO",
+    group: "weak-web",
+    means:
+      "Lighthouse on-page SEO score below your threshold — missing meta tags, crawlability, or mobile-friendliness.",
+    pitch: "Concrete on-page SEO fixes with a measurable before/after.",
+    recipe: ["lighthouse SEO score < 70"],
+    conf: 2,
+    kind: "data",
+    comparator: "<",
+    value: 70,
+    status: "ready",
+    setting: { type: "strictness" },
+  },
   has_website: {
     signalKey: "has_website",
     registryKey: "has_website",
@@ -750,7 +769,11 @@ export const SIG_META: Record<string, SigMeta> = {
     kind: "data",
     comparator: "is",
     value: true,
-    status: "ready",
+    // DEAD against real data → roadmap: cell-intel scans only CATEGORY keywords,
+    // so hasBrandQuery is always false and this never fires (signal-eval.ts:633).
+    // Marked roadmap so the library stops advertising a signal that can't fire
+    // until a branded-query SERP scan is funded.
+    status: "roadmap",
     setting: {
       type: "presence",
       label: "Visibility",
@@ -806,6 +829,27 @@ export const SIG_META: Record<string, SigMeta> = {
     kind: "data",
     comparator: "<=",
     value: 1,
+    setting: { type: "strictness" },
+  },
+  has_email_contact: {
+    signalKey: "email_count",
+    registryKey: "email_count",
+    // email_count source=computed-from-contacts (Contact EMAIL rows). LIVE —
+    // resolves via resolveContactSignal → c.emailCount (signal-eval.ts:721).
+    // Closes "I can't even find the email in the library": a deliverable inbox
+    // is the single highest-value contact for outreach.
+    researches: ["contacts"],
+    title: "Has an email contact",
+    group: "growing",
+    means:
+      "At least one email captured for the business — a way to reach the owner directly.",
+    pitch: "A deliverable inbox is the fastest path to a reply.",
+    recipe: ["emails found >= 1"],
+    conf: 2,
+    kind: "data",
+    comparator: ">=",
+    value: 1,
+    status: "ready",
     setting: { type: "strictness" },
   },
 
@@ -1089,7 +1133,10 @@ export const SIG_META: Record<string, SigMeta> = {
     kind: "signal",
     comparator: "is_one_of",
     value: "wait",
-    status: "ready",
+    // DEAD against real data → roadmap: NLP theme extraction over review text is
+    // not wired (has_negative_theme never populated), so this never fires.
+    // Marked roadmap so the library stops advertising it until review-NLP ships.
+    status: "roadmap",
     setting: {
       type: "platform",
       label: "Theme",

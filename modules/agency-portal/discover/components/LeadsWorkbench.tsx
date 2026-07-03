@@ -61,6 +61,7 @@ import {
   matchesSearch,
   passesFilters,
   filterLabel,
+  reachabilityLabel,
   rowToCsvRecord,
   sortRows,
   type CellBand,
@@ -96,6 +97,13 @@ export interface LeadsWorkbenchProps {
    * (both derive from the same `deriveFamilyCoverage` source of truth).
    */
   coverage: Record<string, DataFamily[]>;
+  /**
+   * Per-business FAILED families (job errored + still not covered) — drives the
+   * red "failed" dot, distinct from grey "never run". Optional + defaults to {}
+   * so callers that don't compute it (or older serialized props) just show no
+   * failures. Same plain-map shape as `coverage` (Pattern 4).
+   */
+  coverageFailed?: Record<string, DataFamily[]>;
   /**
    * The signals chosen on the Goal step (SIG_META key + title). Rendered as
    * one column per signal, right after Match % (docs/portal-prototype.html's
@@ -137,6 +145,7 @@ export function LeadsWorkbench({
   discoveryId,
   bands,
   coverage,
+  coverageFailed = {},
   goalSignals = [],
   exportSlug,
   serverPage = 1,
@@ -161,6 +170,13 @@ export function LeadsWorkbench({
       return r.families;
     },
     [coverage],
+  );
+  /** FAILED families for one row (job errored + still not covered). Empty when
+   *  the caller didn't compute failures. Drives the red dot + its tooltip. */
+  const failedFamiliesFor = useCallback(
+    (r: WorkbenchLeadRow): Set<DataFamily> =>
+      new Set(coverageFailed[r.businessId] ?? []),
+    [coverageFailed],
   );
   // ── Status (optimistic) ──────────────────────────────────────────────────
   const [committed, setCommitted] = useState<Record<string, LeadStatus>>(() =>
@@ -612,6 +628,48 @@ export function LeadsWorkbench({
     });
   }
 
+  /** Click an empty "— enrich" cell → open the sheet scoped to THAT lead,
+   *  pre-seeded with the cell's data family (so a Lighthouse cell offers a
+   *  Lighthouse enrich, a Phone cell offers contacts, etc.). Closes the
+   *  founder's "I can't enrich by clicking the field" complaint. */
+  function enrichCell(r: WorkbenchLeadRow, family?: DataFamily) {
+    openEnrichSheet({
+      enrichments: family
+        ? (enrichTypesForFamilies([family]) as EnrichmentType[])
+        : undefined,
+      scope: {
+        selectedBusinessIds: [r.businessId],
+        visibleBusinessIds: [r.businessId],
+      },
+    });
+  }
+  /** The clickable empty-cell affordance shared by every "— enrich" cell. */
+  const NeedsEnrich = ({
+    r,
+    family,
+  }: {
+    r: WorkbenchLeadRow;
+    family?: DataFamily;
+  }) => (
+    <button
+      type="button"
+      className="needsenr"
+      title="Enrich this lead"
+      onClick={() => enrichCell(r, family)}
+      style={{
+        border: "none",
+        background: "transparent",
+        cursor: "pointer",
+        font: "inherit",
+        padding: 0,
+        color: "inherit",
+        textDecoration: "underline dotted",
+      }}
+    >
+      — enrich
+    </button>
+  );
+
   // ── Fields menu helpers ───────────────────────────────────────────────────
   function toggleCol(key: string) {
     setActiveCols((prev) =>
@@ -708,12 +766,10 @@ export function LeadsWorkbench({
           </td>
         );
       }
-      case "pains":
-        return (
-          <td key={col.key}>
-            {r.pains.length === 0 ? (
-              <span className="ppnone">—</span>
-            ) : (
+      case "pains": {
+        if (r.pains.length > 0) {
+          return (
+            <td key={col.key}>
               <span
                 style={{ display: "inline-flex", gap: 5, flexWrap: "wrap" }}
               >
@@ -731,32 +787,113 @@ export function LeadsWorkbench({
                   </span>
                 ) : null}
               </span>
-            )}
-          </td>
-        );
-      case "text":
+            </td>
+          );
+        }
+        // Fallback: no playbook-derived pains, but the lead fired goal signals.
+        // Show the MATCHED signals as the "why this qualifies" chips — closes
+        // the "Pain points column is always empty" complaint by reusing the
+        // per-signal verdict every row already carries.
+        const matched = goalSignals.filter((s) => r.perSignal[s.key] === true);
+        if (matched.length === 0) {
+          return (
+            <td key={col.key}>
+              <span className="ppnone">—</span>
+            </td>
+          );
+        }
         return (
           <td key={col.key}>
-            {r.builtOn ?? <span className="needsenr">— enrich</span>}
-          </td>
-        );
-      case "reach":
-        return (
-          <td key={col.key}>
-            <span
-              className={`pill ${r.reachable ? "green" : "red"} dot`}
-              style={{ fontSize: "10.5px" }}
-            >
-              {r.reachable ? "Yes" : "No"}
+            <span style={{ display: "inline-flex", gap: 5, flexWrap: "wrap" }}>
+              {matched.slice(0, 2).map((s) => (
+                <span
+                  key={s.key}
+                  className="ppchip weak-web"
+                  title={`Matched your signal: ${s.title}`}
+                >
+                  {s.title}
+                </span>
+              ))}
+              {matched.length > 2 ? (
+                <span
+                  className="ppchip more"
+                  title={matched.map((s) => s.title).join(" · ")}
+                >
+                  +{matched.length - 2}
+                </span>
+              ) : null}
             </span>
           </td>
         );
+      }
+      case "text":
+        return (
+          <td key={col.key}>
+            {r.builtOn ?? <NeedsEnrich r={r} family={col.family} />}
+          </td>
+        );
+      case "site": {
+        if (!r.website) {
+          return (
+            <td key={col.key}>
+              <NeedsEnrich r={r} family={col.family} />
+            </td>
+          );
+        }
+        // Show the bare host (no scheme/path) — the dense, scannable form Tom
+        // wants; the full URL is the link target + title.
+        let host = r.website;
+        try {
+          host = new URL(r.website).hostname.replace(/^www\./, "");
+        } catch {
+          host = r.website.replace(/^https?:\/\//, "").replace(/^www\./, "");
+        }
+        return (
+          <td key={col.key}>
+            <a
+              className="clink"
+              href={r.website}
+              target="_blank"
+              rel="noopener noreferrer"
+              title={r.website}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {host}
+            </a>
+          </td>
+        );
+      }
+      case "reach": {
+        // Surface the reachability TIER (Rich / Multi / Email only / …), not a
+        // bare Yes/No — the row already carries it; the table used to discard it.
+        const rl = reachabilityLabel(r.reachability);
+        if (rl.tone === "muted") {
+          return (
+            <td key={col.key}>
+              <NeedsEnrich r={r} family={col.family} />
+            </td>
+          );
+        }
+        const cls =
+          rl.tone === "green" ? "green" : rl.tone === "amber" ? "amber" : "red";
+        return (
+          <td key={col.key}>
+            <span
+              className={`pill ${cls} dot`}
+              style={{ fontSize: "10.5px" }}
+              title={`Reachability: ${rl.text}`}
+            >
+              {rl.text}
+            </span>
+          </td>
+        );
+      }
       case "num": {
         const v = numField(r, col.key);
         if (v == null)
           return (
             <td className="num" key={col.key}>
-              <span className="needsenr">— enrich</span>
+              <NeedsEnrich r={r} family={col.family} />
             </td>
           );
         const band = effectiveBands[col.key];
@@ -778,7 +915,7 @@ export function LeadsWorkbench({
         if (arr.length === 0)
           return (
             <td key={col.key}>
-              <span className="needsenr">— enrich</span>
+              <NeedsEnrich r={r} family={col.family} />
             </td>
           );
         const scheme = col.key === "phones" ? "tel" : "mailto";
@@ -825,27 +962,52 @@ export function LeadsWorkbench({
         // .covdots): one dot per data family, filled when covered. Source =
         // the batched coverage matrix, falling back to the row's families.
         const cov = coveredFamilies(r);
+        const failed = failedFamiliesFor(r);
         const have = DATA_FAMILIES.filter((f) => cov[f.key]).length;
+        const failedCount = DATA_FAMILIES.filter((f) =>
+          failed.has(f.key),
+        ).length;
         return (
           <td key={col.key}>
             <span
               className="covstrip"
-              title={`${have} of ${DATA_FAMILIES.length} data families enriched`}
+              title={
+                failedCount > 0
+                  ? `${have} of ${DATA_FAMILIES.length} enriched · ${failedCount} failed — re-enrich`
+                  : `${have} of ${DATA_FAMILIES.length} data families enriched`
+              }
             >
               <span className="covfrac">
                 {have}/{DATA_FAMILIES.length}
               </span>
               <span
                 className="covdots"
-                aria-label={`${have} of ${DATA_FAMILIES.length} data families enriched`}
+                aria-label={`${have} of ${DATA_FAMILIES.length} data families enriched${
+                  failedCount > 0 ? `, ${failedCount} failed` : ""
+                }`}
               >
-                {DATA_FAMILIES.map((f) => (
-                  <i
-                    key={f.key}
-                    className={cov[f.key] ? "done" : undefined}
-                    title={`${f.label}: ${cov[f.key] ? "have" : "not yet"}`}
-                  />
-                ))}
+                {DATA_FAMILIES.map((f) => {
+                  // done (green) > failed (red) > never-run (grey). A failed
+                  // family is one that errored AND is still not covered.
+                  const state = cov[f.key]
+                    ? "done"
+                    : failed.has(f.key)
+                      ? "failed"
+                      : undefined;
+                  return (
+                    <i
+                      key={f.key}
+                      className={state}
+                      title={`${f.label}: ${
+                        state === "done"
+                          ? "have"
+                          : state === "failed"
+                            ? "failed — re-enrich"
+                            : "not yet"
+                      }`}
+                    />
+                  );
+                })}
               </span>
             </span>
           </td>
@@ -860,7 +1022,7 @@ export function LeadsWorkbench({
         if (verdict == null) {
           return (
             <td key={col.key}>
-              <span className="needsenr">— enrich</span>
+              <NeedsEnrich r={r} family={col.family} />
             </td>
           );
         }

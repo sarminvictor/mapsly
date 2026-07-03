@@ -289,6 +289,80 @@ export const TECH_SIGNATURES: readonly TechSignature[] = [
     patterns: [/resy\.com/i, /widgets\.resy\.com/i],
     confidence: 0.95,
   },
+  // Expanded vendor coverage — these were false "no booking tool" before (the
+  // signal only fires on a matched BOOKING row, so an unlisted vendor = missed).
+  {
+    name: "SimplyBook.me",
+    category: "BOOKING",
+    patterns: [/simplybook\.(me|it)/i, /widget\.simplybook/i],
+    confidence: 0.95,
+  },
+  {
+    name: "Setmore",
+    category: "BOOKING",
+    patterns: [/setmore\.com/i, /my\.setmore\.com/i],
+    confidence: 0.95,
+  },
+  {
+    name: "Booksy",
+    category: "BOOKING",
+    patterns: [/booksy\.com/i, /\bbooksy\b/i],
+    confidence: 0.95,
+  },
+  {
+    name: "Fresha",
+    category: "BOOKING",
+    patterns: [/fresha\.com/i, /\bfresha\b/i],
+    confidence: 0.95,
+  },
+  {
+    name: "Schedulicity",
+    category: "BOOKING",
+    patterns: [/schedulicity\.com/i],
+    confidence: 0.95,
+  },
+  {
+    name: "Zenoti",
+    category: "BOOKING",
+    patterns: [/zenoti\.com/i, /\bzenoti\b/i],
+    confidence: 0.9,
+  },
+  {
+    name: "GlossGenius",
+    category: "BOOKING",
+    patterns: [/glossgenius\.com/i],
+    confidence: 0.95,
+  },
+  {
+    name: "Jane",
+    category: "BOOKING",
+    patterns: [/jane\.app/i, /\bjaneapp\b/i],
+    confidence: 0.95,
+  },
+  {
+    name: "Tock",
+    category: "BOOKING",
+    patterns: [/exploretock\.com/i, /\btock\b.{0,12}reservation/i],
+    confidence: 0.9,
+  },
+  {
+    name: "SevenRooms",
+    category: "BOOKING",
+    patterns: [/sevenrooms\.com/i],
+    confidence: 0.95,
+  },
+  {
+    name: "Housecall Pro",
+    category: "BOOKING",
+    patterns: [/housecallpro\.com/i, /book\.housecallpro/i],
+    confidence: 0.9,
+  },
+  {
+    name: "DaySmart / AppointmentPlus",
+    category: "BOOKING",
+    patterns: [/daysmart\.com/i, /appointment-plus\.com/i, /apptplus/i],
+    confidence: 0.9,
+  },
 
   // ──────────────────────────────────────────────────────────────
   // Chat / CRM

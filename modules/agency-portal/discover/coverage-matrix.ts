@@ -23,7 +23,12 @@
 
 import prisma from "@/lib/prisma";
 
-import { COVERED_JOB_STATUSES, deriveFamilyCoverage } from "./family-coverage";
+import {
+  COVERED_JOB_STATUSES,
+  FAILED_JOB_STATUSES,
+  deriveFailedFamilies,
+  deriveFamilyCoverage,
+} from "./family-coverage";
 import { DATA_FAMILIES, type DataFamily } from "./leads-workbench";
 import { rawListWhere } from "@/modules/discovery/raw-list";
 
@@ -31,6 +36,9 @@ import { rawListWhere } from "@/modules/discovery/raw-list";
 export interface CoverageRow {
   businessId: string;
   families: DataFamily[];
+  /** Families whose enrichment job ERRORED and are still not covered — drives
+   *  the red "failed" dot (distinct from grey "never run"). */
+  failed: DataFamily[];
 }
 
 /**
@@ -72,7 +80,7 @@ export async function loadCoverageMatrix(
 
   // Real enriched-row presence (the drawer's `*Enriched` derivations) — one
   // indexed existence scan per family — plus the live EnrichmentJob matrix.
-  const [snapshots, audits, techs, contacts, ads, serps, jobRows] =
+  const [snapshots, audits, techs, contacts, ads, serps, jobRows, failedRows] =
     await Promise.all([
       prisma.businessSnapshot.findMany({
         where: { businessId: { in: businessIds }, reviewCount: { not: null } },
@@ -112,6 +120,14 @@ export async function loadCoverageMatrix(
           status: { in: [...COVERED_JOB_STATUSES] },
         },
       }),
+      // FAILED jobs → "failed" dot (distinct from never-run). Same batched shape.
+      prisma.enrichmentJob.groupBy({
+        by: ["businessId", "family"],
+        where: {
+          businessId: { in: businessIds },
+          status: { in: [...FAILED_JOB_STATUSES] },
+        },
+      }),
     ]);
 
   const reviewSnapSet = new Set(snapshots.map((r) => r.businessId));
@@ -126,6 +142,13 @@ export async function loadCoverageMatrix(
     const set = doneJobs.get(g.businessId) ?? new Set<string>();
     set.add(g.family);
     doneJobs.set(g.businessId, set);
+  }
+
+  const failedJobs = new Map<string, Set<string>>();
+  for (const g of failedRows) {
+    const set = failedJobs.get(g.businessId) ?? new Set<string>();
+    set.add(g.family);
+    failedJobs.set(g.businessId, set);
   }
 
   return businesses.map((b) => {
@@ -144,6 +167,7 @@ export async function loadCoverageMatrix(
     return {
       businessId: b.id,
       families: DATA_FAMILIES.filter((f) => coverage[f.key]).map((f) => f.key),
+      failed: deriveFailedFamilies(coverage, failedJobs.get(b.id)),
     };
   });
 }
@@ -155,5 +179,15 @@ export function coverageMatrixToMap(
 ): Record<string, DataFamily[]> {
   const map: Record<string, DataFamily[]> = {};
   for (const r of rows) map[r.businessId] = r.families;
+  return map;
+}
+
+/** Flatten the FAILED families into the same plain-map shape (only businesses
+ *  with ≥1 failed family appear), for the dot-strip's red "failed" state. */
+export function coverageFailedToMap(
+  rows: CoverageRow[],
+): Record<string, DataFamily[]> {
+  const map: Record<string, DataFamily[]> = {};
+  for (const r of rows) if (r.failed.length > 0) map[r.businessId] = r.failed;
   return map;
 }

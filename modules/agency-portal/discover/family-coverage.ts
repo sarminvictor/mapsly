@@ -101,6 +101,37 @@ export function deriveFamilyCoverage(
 }
 
 /**
+ * The `EnrichmentJobStatus` values that mean "this family's work was ATTEMPTED
+ * and ERRORED" — so an un-covered family with a failed job reads "failed",
+ * NOT the same grey "not yet" as a family that was never touched. Closes the
+ * "failed ≡ never-run" complaint (docs/discover-workbench-research §status).
+ */
+export const FAILED_JOB_STATUSES = ["FAILED"] as const;
+
+/**
+ * Which families FAILED for one business: a family-mapped job errored AND the
+ * family is still NOT covered (a later DONE job or a real enriched row would
+ * make it covered, so a retry that succeeded never reads as failed). Only the
+ * job-backed families (reviews / website / contacts) can fail — ads/search run
+ * inline and produce no job rows. Pure.
+ *
+ * @param coverage           the derived boolean coverage map for this business
+ * @param failedJobFamilies  set of `EnrichmentFamily` values with a FAILED job
+ */
+export function deriveFailedFamilies(
+  coverage: Record<DataFamily, boolean>,
+  failedJobFamilies?: ReadonlySet<string>,
+): DataFamily[] {
+  if (!failedJobFamilies || failedJobFamilies.size === 0) return [];
+  const out: DataFamily[] = [];
+  for (const df of Object.keys(FAMILY_JOB_MAP) as DataFamily[]) {
+    if (coverage[df]) continue; // covered (retry landed / real row) → not failed
+    if (FAMILY_JOB_MAP[df].some((f) => failedJobFamilies.has(f))) out.push(df);
+  }
+  return out;
+}
+
+/**
  * Map a `DataFamily` to the `EnrichmentType` selection(s) the discover/enrich
  * flow understands, so "enrich missing families" can pre-select the right lines.
  * `identity` has nothing to enrich (it is the business). Returns lowercase

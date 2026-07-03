@@ -59,6 +59,7 @@ import { deriveFamilyCoverage } from "@/modules/agency-portal/discover/family-co
 import {
   loadCoverageMatrix,
   coverageMatrixToMap,
+  coverageFailedToMap,
 } from "@/modules/agency-portal/discover/coverage-matrix";
 import {
   WORKBENCH_WINDOW,
@@ -630,6 +631,7 @@ async function DiscoveryWorkspaceBody({ params, searchParams }: PageProps) {
   // Same rawListWhere + ordering as the rows above, so it aligns row-for-row.
   const coverageRows = await loadCoverageMatrix(discovery.id, agencyId);
   const coverage = coverageRows ? coverageMatrixToMap(coverageRows) : {};
+  const coverageFailed = coverageRows ? coverageFailedToMap(coverageRows) : {};
 
   // WP4-1 · is an enrichment run still working this discovery's leads? If so
   // (or if one just closed within 60s) the live banner polls the WP3-3 progress
@@ -650,6 +652,7 @@ async function DiscoveryWorkspaceBody({ params, searchParams }: PageProps) {
       discoveryId,
       bands,
       coverage,
+      coverageFailed,
       goalSignals,
       exportSlug,
       serverPage,

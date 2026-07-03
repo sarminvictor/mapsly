@@ -242,6 +242,24 @@ export const agencySignals: readonly SignalDefinition[] = [
     cadence: "on-demand",
     column: "LighthouseAudit.isOnHttps",
   },
+  {
+    // LIVE via resolveLighthouseField — LighthouseAudit.seo is already hydrated
+    // (signal-eval.ts select), so this resolves the moment a Lighthouse audit
+    // exists. Previously only "performance" backed a card; SEO is a second,
+    // distinct pitchable Lighthouse win (meta tags, crawlability, mobile).
+    key: "seo_score",
+    label: "SEO score (Lighthouse)",
+    helpTooltip:
+      "Lighthouse on-page SEO score (0–100): meta tags, crawlability, mobile-friendliness. Below ~70 means concrete, fixable on-page gaps.",
+    category: "website",
+    type: "numeric",
+    comparators: NUMERIC_COMPARATORS,
+    valueUnit: "score",
+    defaultValue: 70,
+    source: "dataforseo:lighthouse",
+    cadence: "on-demand",
+    column: "LighthouseAudit.seo",
+  },
   // ── Comparative reviews ─────────────────────────────────────────────────────
   {
     key: "review_lifecycle",

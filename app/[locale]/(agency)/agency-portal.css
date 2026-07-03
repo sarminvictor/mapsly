@@ -4986,6 +4986,10 @@
 .agency-portal .covdots i.done {
   background: var(--green);
 }
+/* Failed = errored + still not covered → red dot, distinct from grey never-run. */
+.agency-portal .covdots i.failed {
+  background: var(--red, #d64545);
+}
 .agency-portal .covfrac {
   font-family: var(--mono);
   font-size: 11px;

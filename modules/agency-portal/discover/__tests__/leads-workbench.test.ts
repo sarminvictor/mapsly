@@ -19,6 +19,7 @@ import {
   matchesSearch,
   painGroupClass,
   passesFilters,
+  reachabilityLabel,
   rowToCsvRecord,
   sortRows,
   toneForPercentile,
@@ -85,6 +86,28 @@ describe("evalFilter / passesFilters", () => {
   test("null backing value never matches", () => {
     const r = row({ perf: null });
     expect(evalFilter(r, { field: "perf", op: "<", value: 50 })).toBe(false);
+  });
+
+  test("contactability filters read array length (emails / phones)", () => {
+    const reachable = row({
+      emails: ["a@x.com", "b@x.com"],
+      phones: ["+13055550100"],
+    });
+    const noEmail = row({ emails: [], phones: ["+13055550100"] });
+    // "has at least one email" — the filter the workbench was missing.
+    expect(evalFilter(reachable, { field: "emails", op: "≥", value: 1 })).toBe(
+      true,
+    );
+    expect(evalFilter(noEmail, { field: "emails", op: "≥", value: 1 })).toBe(
+      false,
+    );
+    // count comparisons work too (≥2 emails).
+    expect(evalFilter(reachable, { field: "emails", op: "≥", value: 2 })).toBe(
+      true,
+    );
+    expect(evalFilter(noEmail, { field: "phones", op: "≥", value: 1 })).toBe(
+      true,
+    );
   });
 
   test("AND semantics across active filters", () => {
@@ -203,6 +226,34 @@ describe("toneForPercentile", () => {
     expect(toneForPercentile(90)).toBe("g");
     expect(toneForPercentile(50)).toBe("a");
     expect(toneForPercentile(10)).toBe("r");
+  });
+});
+
+describe("reachabilityLabel", () => {
+  test("maps each tier to a label + tone", () => {
+    expect(reachabilityLabel("RICH")).toEqual({ text: "Rich", tone: "green" });
+    expect(reachabilityLabel("MULTI")).toEqual({
+      text: "Multi",
+      tone: "green",
+    });
+    expect(reachabilityLabel("EMAIL_ONLY")).toEqual({
+      text: "Email only",
+      tone: "amber",
+    });
+    expect(reachabilityLabel("PHONE_ONLY")).toEqual({
+      text: "Phone only",
+      tone: "amber",
+    });
+    expect(reachabilityLabel("UNREACHABLE")).toEqual({
+      text: "None",
+      tone: "red",
+    });
+  });
+
+  test("UNKNOWN / unmapped → muted 'not scanned' state", () => {
+    expect(reachabilityLabel("UNKNOWN").tone).toBe("muted");
+    expect(reachabilityLabel("").tone).toBe("muted");
+    expect(reachabilityLabel("SOMETHING_NEW").tone).toBe("muted");
   });
 });
 

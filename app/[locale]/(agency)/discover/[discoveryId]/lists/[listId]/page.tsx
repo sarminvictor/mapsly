@@ -47,6 +47,7 @@ import { deriveFamilyCoverage } from "@/modules/agency-portal/discover/family-co
 import {
   loadCoverageMatrix,
   coverageMatrixToMap,
+  coverageFailedToMap,
 } from "@/modules/agency-portal/discover/coverage-matrix";
 import {
   WORKBENCH_WINDOW,
@@ -502,6 +503,7 @@ async function ListWorkbenchBody({ params, searchParams }: PageProps) {
   // each renders its real dot-strip.
   const coverageRows = await loadCoverageMatrix(discoveryId, agencyId);
   const coverage = coverageRows ? coverageMatrixToMap(coverageRows) : {};
+  const coverageFailed = coverageRows ? coverageFailedToMap(coverageRows) : {};
 
   // WP4-1 · live workbench — poll + refresh new rows while an enrichment run for
   // this discovery is in flight (resolved by cellKey overlap; see active-run.ts).
@@ -528,6 +530,7 @@ async function ListWorkbenchBody({ params, searchParams }: PageProps) {
       discoveryId,
       bands,
       coverage,
+      coverageFailed,
       goalSignals,
       exportSlug,
       serverPage,
