@@ -57,6 +57,25 @@ function sanitizeFilters(raw: unknown): LeadFilter[] | null {
   const out: LeadFilter[] = [];
   for (const f of raw) {
     if (!isRecord(f)) continue;
+    // Signal filters are self-contained (sigKey/sigLabel/want) — persist them so
+    // the user's signal-filter choices survive refresh + revisit. (The caller
+    // re-validates sigKey against the current goal on restore, so a signal that
+    // left the goal can't hide every lead.)
+    if (f.kind === "signal") {
+      if (
+        typeof f.sigKey === "string" &&
+        typeof f.sigLabel === "string" &&
+        (f.want === "match" || f.want === "miss")
+      ) {
+        out.push({
+          kind: "signal",
+          sigKey: f.sigKey,
+          sigLabel: f.sigLabel,
+          want: f.want,
+        });
+      }
+      continue;
+    }
     const { field, op, value, value2 } = f;
     if (typeof field !== "string" || !VALID_FIELDS.has(field)) continue;
     if (typeof op !== "string" || !FILTER_OPS.has(op)) continue;
@@ -126,10 +145,15 @@ export function loadWorkbenchView(
   return out;
 }
 
-/** Persist the current view. Never throws (storage may be full/disabled). */
+/**
+ * Persist the current view. Never throws (storage may be full/disabled).
+ * `filters` is optional: pass `undefined` to persist the display prefs WITHOUT
+ * writing a filters set (JSON.stringify omits it), so the goal-default seed is
+ * never frozen into storage before the user has made a real filter choice.
+ */
 export function saveWorkbenchView(
   discoveryId: string,
-  view: WorkbenchViewState,
+  view: Omit<WorkbenchViewState, "filters"> & { filters?: LeadFilter[] },
 ): void {
   if (typeof window === "undefined") return;
   try {

@@ -48,6 +48,13 @@ export function useDismiss(
       const t = e.target as Node;
       if (panelRef.current?.contains(t)) return;
       if (triggerRef?.current?.contains(t)) return;
+      // A click inside a PORTALED overlay (a <Popover>/<Tooltip> rendered into
+      // #agency-overlays) is logically "inside" the open stack — e.g. the
+      // add-filter <Popover> is portaled OUT of the Filters panel, so its
+      // menu-item clicks must NOT dismiss the panel (which would unmount the
+      // popover before the item's click fires → filter never added).
+      const el = t instanceof Element ? t : t.parentElement;
+      if (el?.closest("#agency-overlays")) return;
       close();
     }
     document.addEventListener("keydown", onKey);

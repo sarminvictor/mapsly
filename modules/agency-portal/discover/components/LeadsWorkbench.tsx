@@ -391,6 +391,11 @@ export function LeadsWorkbench({
   // browser's saved blob. localStorage stays the fallback (no URL params) and
   // keeps owning the non-shareable prefs (density/columns/…).
   const hydrated = useRef(false);
+  // Whether the user has an actual filter CHOICE to persist (vs the pure goal
+  // default seed). The seed alone is never saved — so a barely-enriched first
+  // visit doesn't freeze an empty set; it re-seeds next time until the user
+  // takes control, after which their choice persists across refresh/revisit.
+  const userTouchedRef = useRef(false);
   useEffect(() => {
     // Defer the state writes out of the effect body (setTimeout(0)) so we don't
     // set state synchronously during the effect — same pattern CommandK uses to
@@ -408,24 +413,34 @@ export function LeadsWorkbench({
         if (saved.activeCols !== undefined) setActiveCols(saved.activeCols);
         if (saved.pageSize !== undefined) setPageSize(saved.pageSize);
       }
-      // DEFAULT signal filters = the goal-step signals that have ENRICHED data
-      // on ≥1 loaded lead (never auto-apply an un-enriched signal — that would
-      // hide not-yet-computed leads; P0-B guard). Signal filters never persist
-      // (URL/localStorage exclude them), so this re-derives on every fresh mount
-      // → a HARD REFRESH always returns to the goal-step defaults. Restored
-      // NUMERIC filters (the user's ad-hoc metric filters) merge in front.
-      // `rows`/`goalSignals` here are the MOUNT-TIME values (the effect is
-      // created once per discoveryId), which is exactly the once-per-mount seed
-      // we want — later paging must NOT re-run this and clobber the user's edits.
-      const seed = seedSignalFilters(rows, goalSignals);
-      if (urlView) {
-        setFilters([...urlView.filters, ...seed]);
+      // Filter precedence (the user's saved choice is preserved across refresh +
+      // revisit — WP-UX):
+      //   1. localStorage saved filters (signal + numeric) → the user's choice.
+      //   2. else a shared-link URL view (numeric only) for a fresh recipient.
+      //   3. else the goal-step DEFAULT seed (goal signals ∩ enriched) — first
+      //      visit only. Un-enriched goal signals are excluded (P0-B guard).
+      // A restored SIGNAL filter is dropped if its signal is no longer in the
+      // goal (its perSignal would be null → would hide every lead).
+      // `rows`/`goalSignals` are the MOUNT-TIME values (effect runs once per
+      // discoveryId) — paging must NOT re-run this and clobber user edits.
+      const validSig = new Set(goalSignals.map((s) => s.key));
+      if (saved?.filters !== undefined) {
+        setFilters(
+          saved.filters.filter(
+            (f) => f.kind !== "signal" || validSig.has(f.sigKey),
+          ),
+        );
+        userTouchedRef.current = true; // a saved choice → keep persisting it
+        if (saved.sortKey !== undefined) setSortKey(saved.sortKey);
+        if (saved.sortDir !== undefined) setSortDir(saved.sortDir);
+      } else if (urlView) {
+        setFilters(urlView.filters);
+        userTouchedRef.current = true;
         setSortKey(urlView.sortKey);
         setSortDir(urlView.sortDir);
       } else {
-        setFilters([...(saved?.filters ?? []), ...seed]);
-        if (saved?.sortKey !== undefined) setSortKey(saved.sortKey);
-        if (saved?.sortDir !== undefined) setSortDir(saved.sortDir);
+        setFilters(seedSignalFilters(rows, goalSignals));
+        userTouchedRef.current = false; // a pure default → don't persist it yet
       }
       hydrated.current = true;
     }, 0);
@@ -442,11 +457,13 @@ export function LeadsWorkbench({
       vsCell,
       group,
       activeCols,
-      // Persist NUMERIC filters only — signal filters are goal-step defaults
-      // that re-seed on every mount, so a hard refresh returns to them (never a
-      // stale saved signal set). (loadWorkbenchView also drops signal filters,
-      // so this just keeps the stored blob honest.)
-      filters: filters.filter((f) => f.kind !== "signal"),
+      // Persist the user's full filter choice (signal + numeric) so it survives
+      // refresh + revisit — BUT only once they've actually chosen (userTouched).
+      // Before that, `undefined` writes the blob with NO filters key (JSON omits
+      // it), so on reload the goal-default seed re-derives (picking up newly
+      // enriched signals) instead of freezing an empty/default set. Safe because
+      // userTouched is only false on a first visit with nothing yet to lose.
+      filters: userTouchedRef.current ? filters : undefined,
       sortKey,
       sortDir,
       pageSize,
@@ -825,6 +842,7 @@ export function LeadsWorkbench({
 
   // ── Filter editor ─────────────────────────────────────────────────────────
   function removeFilter(idx: number) {
+    userTouchedRef.current = true;
     setFilters((prev) => prev.filter((_, i) => i !== idx));
     setPage(1);
   }
@@ -832,6 +850,7 @@ export function LeadsWorkbench({
    *  default op/value (never a one-size-fits-all blind default — the picker
    *  UI below lets the user choose the field before anything is added). */
   function addFilter(field: NumericFilterField) {
+    userTouchedRef.current = true;
     const d = FILTER_FIELD_DEFAULTS[field];
     setFilters((prev) => [...prev, { field, op: d.op, value: d.value }]);
     setPage(1);
@@ -839,6 +858,7 @@ export function LeadsWorkbench({
   /** Add a goal-signal verdict filter ("matched" by default) unless one for the
    *  same signal is already applied — the personalisation unlock. */
   function addSignalFilter(sigKey: string, sigLabel: string) {
+    userTouchedRef.current = true;
     const nf: LeadFilter = {
       kind: "signal",
       sigKey,
@@ -854,6 +874,7 @@ export function LeadsWorkbench({
   }
   /** Flip a signal filter between "matched" and "not matched". */
   function toggleSignalWant(idx: number) {
+    userTouchedRef.current = true;
     setFilters((prev) =>
       prev.map((f, i) => {
         if (i !== idx || f.kind !== "signal") return f;
@@ -910,6 +931,7 @@ export function LeadsWorkbench({
     setFiltersOpen(true);
   }
   function editFilter(idx: number, patch: Partial<NumericLeadFilter>) {
+    userTouchedRef.current = true;
     setFilters((prev) =>
       prev.map((f, i) =>
         i === idx && f.kind !== "signal" ? { ...f, ...patch } : f,
@@ -920,6 +942,7 @@ export function LeadsWorkbench({
   /** Clear every applied filter + the search (WP4-15 · actionable empty state).
    *  The one path the "Clear filters" button in the empty row + the panel share. */
   function clearAllFilters() {
+    userTouchedRef.current = true;
     setFilters([]);
     setSearch("");
     setPage(1);
@@ -1535,6 +1558,7 @@ export function LeadsWorkbench({
               type="button"
               className="cp-clear"
               onClick={() => {
+                userTouchedRef.current = true;
                 setFilters([]);
                 setPage(1);
               }}
@@ -1741,6 +1765,7 @@ export function LeadsWorkbench({
             type="button"
             className="cb-clear"
             onClick={() => {
+              userTouchedRef.current = true;
               setFilters([]);
               setPage(1);
             }}
