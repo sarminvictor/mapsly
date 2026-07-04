@@ -500,33 +500,11 @@ export const COLUMNS: readonly ColumnDef[] = [
   },
 ] as const;
 
-/**
- * Build one column per active goal signal (docs/portal-prototype.html's
- * `goalCols()`/`makeSigCol` — the signals chosen on the Goal step show up as
- * columns, right after Match %, so what you searched for is visibly answered
- * per lead). Always shown — not part of the Fields-menu toggle set, since
- * they're driven by the goal itself rather than a display preference.
- */
-/** Cap the number of goal-signal columns that are ON by default. A rich goal
- *  (10+ signals) otherwise walls the table with ✓/— columns; the rest stay
- *  toggle-able in the Fields menu. */
-export const MAX_DEFAULT_SIGNAL_COLUMNS = 5;
-
-export function buildSignalColumns(
-  signals: readonly { key: string; title: string }[],
-): ColumnDef[] {
-  return signals.map((s, i) => ({
-    key: `goal:${s.key}`,
-    label: s.title,
-    fullLabel: s.title,
-    kind: "sig",
-    sortable: false,
-    // Only the first N are on by default — the rest are opt-in via Fields menu.
-    defaultOn: i < MAX_DEFAULT_SIGNAL_COLUMNS,
-    group: "workflow",
-    sigKey: s.key,
-  }));
-}
+// NB: per-goal-signal ✓/— COLUMNS were removed — a boolean verdict carries no
+// per-lead value as a column (that's filter work). Signals are exposed as
+// filters (the whole library via the "+ Signal" picker) and surfaced as
+// "why qualifies" chips in the Pain-points column. The `sig` ColumnKind +
+// `sigKey` field remain on ColumnDef only for back-compat of persisted views.
 
 export const DEFAULT_ACTIVE_COLUMNS: string[] = COLUMNS.filter(
   (c) => c.defaultOn,

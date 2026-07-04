@@ -3360,6 +3360,11 @@
 .agency-portal .rflink:hover {
   color: var(--indigo-700);
 }
+.agency-portal .rflink:disabled {
+  opacity: 0.4;
+  cursor: default;
+  text-decoration: none;
+}
 .agency-portal .rfdrop {
   position: absolute;
   top: calc(100% + 6px);

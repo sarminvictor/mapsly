@@ -56,7 +56,6 @@ import {
   availableSignalKeys,
   PAGE_SIZES,
   STATUS_ORDER,
-  buildSignalColumns,
   csvLine,
   fmtDelta,
   getPageNumbers,
@@ -574,27 +573,16 @@ export function LeadsWorkbench({
     [sp, router, pathname],
   );
 
-  // One column per active goal signal (always shown, not part of the Fields
-  // toggle set — see LeadsWorkbenchProps.goalSignals doc).
-  const signalCols = useMemo(
-    () => buildSignalColumns(goalSignals),
-    [goalSignals],
+  // The active column defs in render order — the static VALUE columns selected
+  // in the Fields menu. Pure-boolean signal verdicts are filter work, not
+  // columns (a ✓/— cell carries no per-lead value — "Has a website" is ~always
+  // ✓), so the goal-signal columns were removed: signals live as FILTERS (the
+  // whole library via "+ Signal") and "which of your signals fired" shows
+  // compactly in the Pain-points "why qualifies" chips.
+  const cols = useMemo(
+    () => COLUMNS.filter((c) => activeCols.includes(c.key)),
+    [activeCols],
   );
-
-  // The active column defs in render order: static columns filtered by the
-  // Fields-menu selection, with the goal-signal columns spliced in right
-  // after Match % (docs/portal-prototype.html's activeCols insertion point).
-  const cols = useMemo(() => {
-    const base = COLUMNS.filter((c) => activeCols.includes(c.key));
-    if (signalCols.length === 0) return base;
-    const matchIdx = base.findIndex((c) => c.key === "match");
-    if (matchIdx === -1) return [...base, ...signalCols];
-    return [
-      ...base.slice(0, matchIdx + 1),
-      ...signalCols,
-      ...base.slice(matchIdx + 1),
-    ];
-  }, [activeCols, signalCols]);
 
   // ── Filtered + sorted rows ────────────────────────────────────────────────
   const filtered = useMemo(() => {
@@ -921,7 +909,12 @@ export function LeadsWorkbench({
       type="button"
       className="needsenr"
       data-tip="Enrich this lead"
-      onClick={() => enrichCell(r, family)}
+      // Stop the click bubbling to the row's onClick (which opens the lead
+      // drawer) — clicking "— enrich" must open the enrich sheet, not the drawer.
+      onClick={(e) => {
+        e.stopPropagation();
+        enrichCell(r, family);
+      }}
       style={{
         border: "none",
         background: "transparent",
@@ -1327,31 +1320,6 @@ export function LeadsWorkbench({
                 })}
               </span>
             </span>
-          </td>
-        );
-      }
-      case "sig": {
-        // One goal-signal verdict per column (docs/portal-prototype.html's
-        // goalMatchCell): true = fired, false = evaluated + didn't match,
-        // null = not yet computable (honest "enrich to unlock", never a
-        // fake match — the same null-handling every other cell here uses).
-        const verdict = col.sigKey ? r.perSignal[col.sigKey] : undefined;
-        if (verdict == null) {
-          return (
-            <td key={col.key}>
-              <NeedsEnrich r={r} family={col.family} />
-            </td>
-          );
-        }
-        return (
-          <td key={col.key}>
-            {verdict ? (
-              <span className="gmatch g">
-                <span className="gk">✓</span>match
-              </span>
-            ) : (
-              <span className="gmatch miss">—</span>
-            )}
           </td>
         );
       }

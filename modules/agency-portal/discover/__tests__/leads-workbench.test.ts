@@ -8,7 +8,6 @@ import {
   COLUMNS,
   CSV_HEADERS,
   DEFAULT_ACTIVE_COLUMNS,
-  buildSignalColumns,
   csvEscape,
   csvLine,
   deriveMatchPct,
@@ -529,37 +528,6 @@ describe("column registry", () => {
   test("raw numeric facts are off by default (Fields-menu toggles)", () => {
     const reviews = COLUMNS.find((c) => c.key === "reviews");
     expect(reviews?.defaultOn).toBe(false);
-  });
-});
-
-describe("buildSignalColumns", () => {
-  test("builds one always-on 'sig' column per active goal signal", () => {
-    const cols = buildSignalColumns([
-      { key: "no_website", title: "No website" },
-      { key: "low_reviews", title: "Low reviews" },
-    ]);
-    expect(cols).toEqual([
-      expect.objectContaining({
-        key: "goal:no_website",
-        label: "No website",
-        kind: "sig",
-        sortable: false,
-        defaultOn: true,
-        sigKey: "no_website",
-      }),
-      expect.objectContaining({
-        key: "goal:low_reviews",
-        label: "Low reviews",
-        kind: "sig",
-        sortable: false,
-        defaultOn: true,
-        sigKey: "low_reviews",
-      }),
-    ]);
-  });
-
-  test("empty signal list yields no columns", () => {
-    expect(buildSignalColumns([])).toEqual([]);
   });
 });
 

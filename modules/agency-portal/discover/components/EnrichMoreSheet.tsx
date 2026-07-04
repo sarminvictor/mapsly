@@ -71,8 +71,12 @@ export function EnrichMoreSheet({
   const router = useRouter();
   const [scopeInfo, setScopeInfo] = useState<ScopeInfo | null>(null);
   const [scopeError, setScopeError] = useState(false);
+  // Open with NOTHING selected — the user picks the families to enrich (or hits
+  // "Select all"). Previously the caller's suggested families (e.g. every
+  // missing one from the coverage CTA) were pre-checked, which surprised the
+  // user with a big pre-selected bill on open.
   const [selected, setSelected] = useState<Set<EnrichmentType>>(
-    () => new Set(request.enrichments ?? []),
+    () => new Set<EnrichmentType>(),
   );
   const selectedIds = useMemo(
     () => request.scope?.selectedBusinessIds ?? [],
@@ -158,6 +162,20 @@ export function EnrichMoreSheet({
     setError(null);
     setDeficit(null);
   }
+
+  function selectAll() {
+    setSelected(new Set(ALL_ENRICHMENT_TYPES));
+    setError(null);
+    setDeficit(null);
+  }
+
+  function deselectAll() {
+    setSelected(new Set());
+    setError(null);
+    setDeficit(null);
+  }
+
+  const allSelected = selected.size === ALL_ENRICHMENT_TYPES.length;
 
   function priceIt() {
     if (!scopeInfo || enrichments.length === 0) return;
@@ -306,6 +324,32 @@ export function EnrichMoreSheet({
                 </button>
               ))}
             </div>
+          </div>
+
+          {/* Data-family header + bulk select controls. */}
+          <div
+            className="setrow"
+            style={{ marginBottom: 2, alignItems: "baseline" }}
+          >
+            <span className="setl">Data</span>
+            <span style={{ display: "inline-flex", gap: 10 }}>
+              <button
+                type="button"
+                className="rflink"
+                disabled={allSelected}
+                onClick={selectAll}
+              >
+                Select all
+              </button>
+              <button
+                type="button"
+                className="rflink"
+                disabled={selected.size === 0}
+                onClick={deselectAll}
+              >
+                Deselect all
+              </button>
+            </span>
           </div>
 
           {/* Family rows — per-line credits over the current scope. */}
