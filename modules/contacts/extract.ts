@@ -318,6 +318,37 @@ const SOCIAL_EXCLUDE_PATH = [
   "dashboard",
 ];
 
+/**
+ * Site-builder / platform social handles that page TEMPLATES embed (a
+ * Squarespace footer links Squarespace's OWN Facebook/Instagram/X, a Wix theme
+ * links Wix, …) plus Facebook XML-namespace path segments
+ * (`facebook.com/2008/fbml` from the `xmlns:fb` attribute). None of these is the
+ * business's profile — they're the same on every site built with that tool.
+ * Matched against the profile handle segment (exact, lower-cased).
+ */
+const PLATFORM_HANDLE_DENYLIST = new Set([
+  "squarespace",
+  "wordpress",
+  "wordpressdotcom",
+  "automattic",
+  "wix",
+  "wixsite",
+  "wixcom",
+  "shopify",
+  "godaddy",
+  "weebly",
+  "webflow",
+  "duda",
+  "bigcommerce",
+  "2008", // facebook.com/2008/fbml XML namespace
+  "fbml",
+]);
+
+/** Facebook API / CDN subdomains that are never a public profile
+ *  (`graph.facebook.com/<id>/picture`, connect/static/scontent…). */
+const FB_NON_PROFILE_SUBDOMAIN =
+  /^(graph|connect|developers|static|scontent)\./;
+
 interface SocialMatcher {
   readonly channel: ContactChannel;
   /** Host suffixes that identify the network (matched against URL host). */
@@ -405,10 +436,12 @@ function firstSeg(pathname: string): string | null {
   return parts[0].toLowerCase();
 }
 
-/** A "plain handle" is alnum/._- with no reserved keyword and not a file. */
+/** A "plain handle" is alnum/._- with no reserved keyword and not a file, and
+ *  not a known site-builder/platform template handle (squarespace, wix, …). */
 function isPlainHandle(seg: string): boolean {
   if (!seg) return false;
   if (SOCIAL_EXCLUDE_PATH.includes(seg)) return false;
+  if (PLATFORM_HANDLE_DENYLIST.has(seg)) return false;
   if (/\.(php|html?|aspx?|png|jpe?g|gif|svg|css|js)$/.test(seg)) return false;
   return /^[A-Za-z0-9._\-]{1,40}$/.test(seg);
 }
@@ -487,6 +520,12 @@ function classifySocialUrl(
   const url = toUrl(rawUrl, baseUrl);
   if (!url) return null;
   if (isExcludedSocialPath(url.pathname)) return null;
+  // Facebook API/CDN subdomains (graph.facebook.com/<id>/picture, connect., …)
+  // suffix-match "facebook.com" but are never a public profile.
+  if (
+    FB_NON_PROFILE_SUBDOMAIN.test(url.host.toLowerCase().replace(/^www\./, ""))
+  )
+    return null;
   for (const m of SOCIAL_MATCHERS) {
     if (!m.hosts.some((h) => hostMatches(url.host, h))) continue;
     if (!m.isProfile(url.pathname)) continue;

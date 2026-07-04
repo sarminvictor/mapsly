@@ -244,6 +244,26 @@ describe("extractSocials", () => {
     expect(out[0].normalizedValue).toBe("https://facebook.com/soleaspamiami");
   });
 
+  test("excludes site-builder template socials + FB namespace/API URLs", () => {
+    // A Squarespace-built page: its template links Squarespace's OWN socials,
+    // declares the fb XML namespace, and embeds a graph.facebook.com avatar —
+    // none is the business's profile. Only the real page/handle survives.
+    const html = `
+      <html xmlns:fb="http://www.facebook.com/2008/fbml">
+      <a href="https://www.facebook.com/squarespace/">Made with Squarespace</a>
+      <a href="https://www.instagram.com/squarespace/">ig</a>
+      <a href="https://twitter.com/squarespace">x</a>
+      <img src="http://graph.facebook.com/792906679410/picture?type=square">
+      <a href="https://www.facebook.com/reallygoodbread/">Our page</a>
+      <a href="http://instagram.com/homesteadartisanbakery">Our IG</a>`;
+    const out = extractSocials(html);
+    const norm = out.map((o) => o.normalizedValue).sort();
+    expect(norm).toEqual([
+      "https://facebook.com/reallygoodbread",
+      "https://instagram.com/homesteadartisanbakery",
+    ]);
+  });
+
   test("resolves relative URLs against baseUrl", () => {
     const html = `<a href="/biz/solea-spa-miami">on yelp</a>`;
     const out = extractSocials(html, "https://www.yelp.com/");

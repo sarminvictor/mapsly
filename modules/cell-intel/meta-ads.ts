@@ -16,7 +16,11 @@
 // AdLibraryEntry attribution.
 
 import prisma, { Prisma } from "@/lib/prisma";
-import { metaAdLibrarySearch, type MetaAdRow } from "@/services/apify";
+import {
+  metaAdLibrarySearch,
+  type MetaAdRow,
+  type MetaAdvertiser,
+} from "@/services/apify";
 import { matchStrength } from "@/modules/ads-intel/match";
 import {
   isCellRunFresh,
@@ -169,6 +173,7 @@ export async function runMetaAdsForCell(
   // 3 · ONE Meta market run for the cell.
   const country2 = (ctx.country || "US").toUpperCase().slice(0, 2);
   let rows: MetaAdRow[] = [];
+  let advertisers: MetaAdvertiser[] = [];
   try {
     const out = await metaAdLibrarySearch({
       searchTerms,
@@ -177,6 +182,7 @@ export async function runMetaAdsForCell(
       maxItems: META_MAX_ITEMS,
     });
     rows = out.rows;
+    advertisers = out.advertisers ?? [];
     result.costUsd = out.usageTotalUsd;
     result.runId = out.runId;
   } catch (e) {
@@ -241,6 +247,39 @@ export async function runMetaAdsForCell(
         });
       }
     }
+  }
+
+  // 4b · merge the advertiser FACET (dynamic_filter_options.pages). For keyword
+  // searches this is Meta's PRIMARY signal — it returns "who advertises for this
+  // term" + an ad count even when it withholds the per-creative results GraphQL
+  // from an automated session (the common case → 0 creative rows). Without this,
+  // a cell whose only signal is the facet records 0 advertisers (the meta_ads
+  // "always 0" bug: rows were consumed, the facet was dropped on the floor).
+  for (const a of advertisers) {
+    const pid = a.pageId || "";
+    if (!pid) continue;
+    let g = byPage.get(pid);
+    if (!g) {
+      g = {
+        pageId: pid,
+        pageName: a.pageName ?? "(unknown)",
+        handle: null,
+        adCount: 0,
+        seenAdIds: new Set<string>(),
+        platforms: new Set<string>(),
+        services: new Set<string>(),
+        runningSince: null,
+        creatives: [],
+      };
+      byPage.set(pid, g);
+    }
+    if ((!g.pageName || g.pageName === "(unknown)") && a.pageName)
+      g.pageName = a.pageName;
+    if (a.searchTerm) g.services.add(a.searchTerm);
+    // Facet ad count (no creatives attached) — take it when it exceeds the
+    // creative-derived count so the advertiser's activity isn't undercounted.
+    if (typeof a.adCount === "number" && a.adCount > g.adCount)
+      g.adCount = a.adCount;
   }
 
   // 5 · upsert AdMarketAdvertiser (per-advertiser cell aggregate).

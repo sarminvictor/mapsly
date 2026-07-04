@@ -53,22 +53,44 @@ const ALL_STAGES: StageId[] = ["ER-1", "ER-2", "ER-3", "ER-4", "ER-5"];
 
 // ── Per-stage output schemas (strict · drive the rollup) ─────────────────────
 
+// Resilient parsers for MODEL OUTPUT · the schemas below only `.parse()` the
+// model's text (never sent to OpenAI as a constraint), so a model that returns
+// a slightly-too-long string or one extra list item must TRUNCATE, not throw —
+// throwing fails the whole stage and silently drops ALL of its data (the ER-3
+// "> 8 complianceCues" bug). Over-generation is capped; genuinely-empty output
+// still fails (min length is real).
+const clampStr = (max: number) =>
+  z
+    .string()
+    .min(1)
+    .transform((s) => s.trim().slice(0, max));
+const clampList = (maxLen: number, cap: number) =>
+  z
+    .array(z.unknown())
+    .transform((a) =>
+      a
+        .map((v) => (typeof v === "string" ? v.trim().slice(0, maxLen) : ""))
+        .filter((s) => s.length > 0)
+        .slice(0, cap),
+    )
+    .default([] as string[]);
+
 const Er1Schema = z.object({
-  subType: z.string().min(1).max(80),
+  subType: clampStr(80),
   sophistication: z.enum(["low", "medium", "high"]),
 });
 const Er2Schema = z.object({
   pricingTransparency: z.enum(["transparent", "opaque", "unknown"]),
-  positioningSummary: z.string().min(1).max(400),
+  positioningSummary: clampStr(400),
 });
 const Er3Schema = z.object({
-  complianceCues: z.array(z.string().min(1).max(80)).max(8).default([]),
+  complianceCues: clampList(80, 8),
 });
 const Er4Schema = z.object({
-  painHypotheses: z.array(z.string().min(1).max(160)).max(6).default([]),
+  painHypotheses: clampList(160, 6),
 });
 const Er5Schema = z.object({
-  competitivePositioning: z.string().min(1).max(400),
+  competitivePositioning: clampStr(400),
 });
 
 type Er1 = z.infer<typeof Er1Schema>;
@@ -218,7 +240,7 @@ ${ctx}
 ${site}
 
 Schema: { "complianceCues": string[] }
-- Short tags only (e.g. "medical-director-required", "state-license", "HIPAA", "no-disclaimer-shown"). Empty if none apply. Do not invent.`;
+- Short tags only (e.g. "medical-director-required", "state-license", "HIPAA", "no-disclaimer-shown"). At most 8 tags, each ≤ 5 words. Empty if none apply. Do not invent.`;
     case "ER-4":
       return `${JSON_ONLY}
 Hypothesize this business's likely marketing pain points (for outreach).
@@ -249,7 +271,10 @@ const STAGE_SCHEMAS = {
 const STAGE_MAX_TOKENS: Record<StageId, number> = {
   "ER-1": 120,
   "ER-2": 220,
-  "ER-3": 160,
+  // ER-3 caps at 8 short tags but a food/health category can list several
+  // multi-word regs — 160 truncated the JSON mid-array (unparseable → stage
+  // lost). 260 leaves headroom for the capped list + JSON overhead.
+  "ER-3": 260,
   "ER-4": 240,
   "ER-5": 200,
 };

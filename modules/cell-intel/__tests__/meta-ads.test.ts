@@ -179,6 +179,37 @@ describe("runMetaAdsForCell · stale cell", () => {
     expect(res.outcome).toBe("collected");
     expect(apify.metaAdLibrarySearch).toHaveBeenCalledTimes(1);
   });
+
+  test("consumes the advertiser FACET even with zero creative rows", async () => {
+    // Meta withholds per-creative results from automated sessions — the actor
+    // returns the advertiser facet (who advertises + ad count) and 0 rows. The
+    // cell run MUST record those advertisers (the "meta_ads always 0" bug was
+    // consuming rows but dropping `advertisers`).
+    db.setLatestRun(null);
+    ctx.resolveCellContext.mockResolvedValueOnce(fakeCtx([]));
+    apify.metaAdLibrarySearch.mockResolvedValueOnce({
+      rows: [],
+      advertisers: [
+        { pageId: "PG1", pageName: "The Gentle Crumb", adCount: 3 },
+        { pageId: "PG2", pageName: "Gluten Free Journey", adCount: 1 },
+      ],
+      resolutions: [],
+      runId: "facet-run",
+      usageTotalUsd: 0.02,
+    });
+
+    const res = await runMetaAdsForCell(CELL, NOW);
+
+    expect(res.outcome).toBe("collected");
+    expect(res.advertiserCount).toBe(2);
+    expect(db.adMarketAdvertiserUpserts).toHaveLength(2);
+    // the facet ad count carries onto the advertiser aggregate
+    const names = db.adMarketAdvertiserUpserts.map(
+      (u) => (u.create as { pageName?: string })?.pageName,
+    );
+    expect(names).toContain("The Gentle Crumb");
+    expect(names).toContain("Gluten Free Journey");
+  });
 });
 
 describe("runMetaAdsForCell · attribution", () => {

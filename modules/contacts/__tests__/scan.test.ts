@@ -24,6 +24,35 @@ vi.mock("@/modules/contacts/fetch-site", () => ({
   fetchSiteHtml: (...args: unknown[]) => fetchSiteHtmlMock(...args),
 }));
 
+// ---- Mock: dom-fetcher fallback (the WAF-blocked-site fallback) ----------
+// scan.ts falls back to fetchDoms when the direct fetch fails. Mock it to a
+// failed result by default so "direct fetch fails → FAILED" tests still hold;
+// mocking the module also keeps the Apify client chain out of the test.
+interface FakeDomResult {
+  url: string;
+  finalUrl?: string;
+  status?: number;
+  blocked: boolean;
+  failed: boolean;
+  html?: string;
+}
+const fetchDomsMock = vi.fn(
+  async (
+    ..._args: unknown[]
+  ): Promise<{
+    results: FakeDomResult[];
+    runId: string;
+    usageTotalUsd: number;
+  }> => ({
+    results: [{ url: "", blocked: false, failed: true }],
+    runId: "",
+    usageTotalUsd: 0,
+  }),
+);
+vi.mock("@/services/dom-fetcher/fetcher", () => ({
+  fetchDoms: (...args: unknown[]) => fetchDomsMock(...args),
+}));
+
 // ---- Mock: cost-counter (satisfy the cron-context invariant) -------------
 
 let cronOpen = true;
@@ -240,6 +269,39 @@ describe("scanBusinessContacts · fetch FAILURE", () => {
     expect(summary.status).toBe("FAILED");
     expect(summary.isHidden).toBe(false);
     expect(db.business?.isHidden).not.toBe(true);
+  });
+
+  test("recovers a WAF-blocked site via the dom-fetcher fallback", async () => {
+    // The polite direct fetch is 403'd on its HTTP-client fingerprint; the
+    // headless dom-fetcher loads the same site and returns HTML with a real
+    // contact → OK (contacts + email recovered), not a false FAILED.
+    fetchSiteHtmlMock.mockResolvedValue({
+      ok: false,
+      html: "",
+      finalUrl: "",
+      headers: {},
+    });
+    fetchDomsMock.mockResolvedValueOnce({
+      results: [
+        {
+          url: "https://waf.example/",
+          finalUrl: "https://waf.example/",
+          status: 200,
+          blocked: false,
+          failed: false,
+          html: '<a href="mailto:hi@waf.example">email</a><a href="tel:+17055551234">call</a>',
+        },
+      ],
+      runId: "r",
+      usageTotalUsd: 0.008,
+    });
+
+    const summary = await scanBusinessContacts("biz_1");
+
+    expect(fetchDomsMock).toHaveBeenCalled();
+    expect(summary.status).toBe("OK");
+    expect(db.business?.contactScanStatus).toBe("OK");
+    expect(db.contacts.length).toBeGreaterThan(0);
   });
 });
 

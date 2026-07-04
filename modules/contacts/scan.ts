@@ -50,7 +50,11 @@ import type {
 } from "@/modules/contacts/reachability";
 import { fingerprintTech } from "@/services/tech-fingerprint/fingerprint";
 import type { DetectedTech } from "@/services/tech-fingerprint/fingerprint";
-import { fetchSiteHtml } from "@/modules/contacts/fetch-site";
+import {
+  fetchSiteHtml,
+  type FetchSiteResult,
+} from "@/modules/contacts/fetch-site";
+import { fetchDoms } from "@/services/dom-fetcher/fetcher";
 
 /** Mirror of Prisma `ContactRole` (kept local so the module stays pure-ish). */
 type ContactRole =
@@ -264,6 +268,37 @@ async function upsertTech(businessId: string, t: DetectedTech): Promise<void> {
  *   - website + fetch succeeds        → upsert contacts + tech, compute
  *                                       reachability + isHidden, status = "OK".
  */
+/**
+ * Headless-browser fallback for the contacts fetch. The polite direct fetch
+ * (`fetchSiteHtml`) is 403'd by WAFs (Squarespace/Cloudflare) that fingerprint
+ * the Node HTTP client — but the dom-fetcher actor drives a real Playwright
+ * browser over a residential proxy, so it loads those sites and returns the
+ * rendered HTML (contacts + email + tech ride the same bytes). Returns a
+ * {@link FetchSiteResult}; `ok:false` when the actor also can't get it (genuinely
+ * dead site). Never throws. Costs one dom-fetch (already the contacts unit
+ * price) — only paid when the free direct fetch failed. The actor doesn't
+ * surface response headers, so `headers` is empty (tech fingerprinting still
+ * works off the HTML, its primary signal).
+ */
+async function fetchViaDomFetcher(website: string): Promise<FetchSiteResult> {
+  try {
+    const { results } = await fetchDoms({ urls: [website] });
+    const r = results[0];
+    if (r && !r.failed && r.html && r.html.length > 0) {
+      return {
+        ok: true,
+        html: r.html,
+        finalUrl: r.finalUrl ?? website,
+        headers: {},
+      };
+    }
+  } catch {
+    // Actor error / cost-ceiling / timeout → treat as still-failed (the caller
+    // records FAILED, which the retry ladder re-attempts later).
+  }
+  return { ok: false, html: "", finalUrl: "", headers: {} };
+}
+
 export async function scanBusinessContacts(
   businessId: string,
 ): Promise<ContactScanSummary> {
@@ -360,8 +395,16 @@ export async function scanBusinessContacts(
     };
   }
 
-  // ── Fetch the homepage once ─────────────────────────────────────────────────
-  const fetched = await fetchSiteHtml(website);
+  // ── Fetch the homepage ──────────────────────────────────────────────────────
+  // First the free, polite direct fetch. WAF'd sites (Squarespace, Cloudflare,
+  // …) 403 the plain Node fetch on its HTTP-client/TLS fingerprint even though a
+  // real browser loads them fine — so on ANY failure, fall back to the headless
+  // dom-fetcher (residential proxy + Playwright), the same actor the contacts
+  // price already covers, so a WAF doesn't cost us the contacts + email.
+  let fetched = await fetchSiteHtml(website);
+  if (!fetched.ok) {
+    fetched = await fetchViaDomFetcher(website);
+  }
 
   // ── Fetch failed → FAILED, NEVER hidden ─────────────────────────────────────
   if (!fetched.ok) {

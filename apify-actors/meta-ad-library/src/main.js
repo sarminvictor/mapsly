@@ -366,46 +366,58 @@ async function scrapeTarget(page, target) {
   page.on("response", onResponse);
   try {
     const gotoUrl = buildUrl(target);
-    let resp = await page
-      .goto(gotoUrl, { waitUntil: "domcontentloaded", timeout: 90000 })
-      .catch((e) => {
-        log.warning(`goto failed for "${target.subject}": ${e.message}`);
-        return null;
-      });
-    let status = resp ? resp.status() : "n/a";
-    // The FIRST Ad Library load right after the page-resolution hops tends to
-    // 403 (the session needs a beat to switch surfaces). Re-warm on facebook.com
-    // and retry once so a real "0 ads" isn't confused with a transient block.
-    if (status === 403) {
-      log.warning(`403 on "${target.subject}" — re-warming + retrying once`);
-      await page
-        .goto("https://www.facebook.com/", {
-          waitUntil: "domcontentloaded",
-          timeout: 60000,
-        })
-        .catch(() => {});
-      await page.waitForTimeout(1500);
-      resp = await page
+    let status = "n/a";
+    // BLOCK-RESILIENT LOAD. Meta soft-blocks automated sessions intermittently:
+    // a 403, or a 200 "Ad Library" shell whose results/facet GraphQL never fires
+    // (graphqlHits stays 0). That's INDISTINGUISHABLE in the output from a
+    // genuine empty market unless we track graphqlHits — a real (even empty)
+    // result fires the data query (graphqlHits ≥ 1). So we retry the load while
+    // graphqlHits === 0, re-warming on facebook.com between attempts to re-prime
+    // the session, and stop the instant the data query fires (real result, even
+    // if 0 advertisers). This turns the old "0 advertisers" false-negatives into
+    // reliable hits (measured: intermittent 403 → re-warm → 90+ advertisers).
+    const MAX_BLOCK_RETRIES = 4;
+    for (let attempt = 1; attempt <= MAX_BLOCK_RETRIES; attempt += 1) {
+      if (attempt > 1) {
+        log.warning(
+          `"${target.subject}" blocked (graphqlHits=0, status=${status}) — re-warm + retry ${attempt}/${MAX_BLOCK_RETRIES}`,
+        );
+        await page
+          .goto("https://www.facebook.com/", {
+            waitUntil: "domcontentloaded",
+            timeout: 60000,
+          })
+          .catch(() => {});
+        await page.waitForTimeout(1200 + attempt * 800);
+      }
+      const resp = await page
         .goto(gotoUrl, { waitUntil: "domcontentloaded", timeout: 90000 })
-        .catch(() => null);
+        .catch((e) => {
+          log.warning(`goto failed for "${target.subject}": ${e.message}`);
+          return null;
+        });
       status = resp ? resp.status() : "n/a";
-    }
-    // The Ad Library page can show its OWN cookie/consent overlay that blocks
-    // the React app from firing the results query. Dismiss it here too (not just
-    // on the priming hop) and give the SPA a beat to hydrate + query.
-    await dismissCookieBanner(page).catch(() => {});
-    // The advertiser facet (dynamic_filter_options.pages) arrives with the FIRST
-    // GraphQL response; Meta withholds the per-creative results query from
-    // automated sessions, so there's nothing to scroll for. Poll briefly until
-    // advertisers (or, rarely, creatives) appear, then stop — no fixed multi-
-    // second waits, no scrolling. Falls through after 9s on a truly empty target.
-    const waitDeadline = Date.now() + 9000;
-    while (
-      Date.now() < waitDeadline &&
-      store.advertisers.length === 0 &&
-      store.ads.length === 0
-    ) {
-      await page.waitForTimeout(400);
+      // The Ad Library page can show its OWN cookie/consent overlay that blocks
+      // the React app from firing the results query. Dismiss it here too.
+      await dismissCookieBanner(page).catch(() => {});
+      // Poll until the data GraphQL fires (graphqlHits ≥ 1) or the deadline.
+      const waitDeadline = Date.now() + 9000;
+      while (
+        Date.now() < waitDeadline &&
+        store.graphqlHits === 0 &&
+        store.advertisers.length === 0 &&
+        store.ads.length === 0
+      ) {
+        await page.waitForTimeout(400);
+      }
+      // Data query fired → real result (accept it, even if 0 advertisers).
+      if (
+        store.graphqlHits > 0 ||
+        store.advertisers.length ||
+        store.ads.length
+      ) {
+        break;
+      }
     }
     // Brief settle so a multi-burst facet finishes streaming before we read it.
     if (store.advertisers.length > 0 || store.ads.length > 0) {
