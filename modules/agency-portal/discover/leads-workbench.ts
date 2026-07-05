@@ -299,9 +299,9 @@ export function reachabilityLabel(status: string): {
     case "MULTI":
       return { text: "Multi", tone: "green" };
     case "EMAIL_ONLY":
-      return { text: "Email only", tone: "amber" };
+      return { text: "Email", tone: "amber" };
     case "PHONE_ONLY":
-      return { text: "Phone only", tone: "amber" };
+      return { text: "Phone", tone: "amber" };
     case "UNREACHABLE":
       return { text: "None", tone: "red" };
     default:

@@ -251,3 +251,25 @@ Two bars rendered for `2026-03`; February 2026 silently missing from the 12-mont
 **Where encoded:** this entry; `docs/cold-campaign-miami-2026-06-15.md` Cost section; `[[ads-rework]]` memory.
 **Confidence:** high (vendor-billed figure from Viktor).
 **Tags:** apify, cost-discipline, cost-tracking, ads-meta, observability
+
+### INC-2026-07-04-47 · Meta actor crashed on startup · Crawlee 3.16 rejected `retireBrowserAfterPageCount` as a top-level option
+
+**Status:** ✅ RESOLVED (fixed + re-pushed build 0.1.17→0.1.18).
+**Symptom:** After `apify push` of the hardened meta-ad-library actor (build 0.1.16), EVERY run crashed before doing anything: `ArgumentError: Did not expect property 'retireBrowserAfterPageCount' to exist, got '6' in object 'PlaywrightCrawlerOptions'` at `new PlaywrightCrawler(...)` (main.js:874), Node exit. Production's live actor produced 0 data until fixed. Only caught because the run was live-validated after push.
+**Root cause:** `retireBrowserAfterPageCount` is a **BrowserPool** option, not a top-level `PlaywrightCrawler` option. Crawlee 3.16's `ow` schema validates the options object on construction and hard-throws on any unexpected top-level key. The hardening added it at the top level.
+**Fix applied:** moved it into `browserPoolOptions: { retireBrowserAfterPageCount: 6 }` (apify-actors/meta-ad-library/src/main.js).
+**Prevention:** **ALWAYS live-validate an actor after `apify push` before trusting it** (`apify call <id> -i '{...}'` and read RUN_SUMMARY) — `node --check` catches syntax, NOT Crawlee `ow` runtime validation. Session/BrowserPool-scoped Crawlee options (`retireBrowserAfterPageCount`, `maxOpenPagesPerBrowser`, `retireBrowserAfterPageCount`, etc.) must go under `browserPoolOptions`/`sessionPoolOptions`, never top-level.
+**Where encoded:** this entry; `[[leads-workbench-audit]]` memory; the browserPoolOptions comment in main.js.
+**Confidence:** high (reproduced live, fix validated live).
+**Tags:** apify, actor, crawlee, meta-ad-library, deploy-validation
+
+### INC-2026-07-04-48 · Meta actor primer-GATE zeroed every run during a block wave · `if(!primerOk) return` discarded the resilient path
+
+**Status:** ✅ RESOLVED (fixed + validated build 0.1.18; committed 2167f14).
+**Symptom:** After the crash fix, the actor RAN but reached Meta's data on 0/3 validation runs — all `outcome=error`, primer failed to get a `datr` cookie on all 4 IP rotations (`cookies=NONE`). 12/12 primer failures at a historical ~47% data-reach rate is statistically ~impossible by chance → not just a block wave.
+**Root cause:** the R1/R2 hardening added a HARD gate in the requestHandler: `run.primerOk = await primeSession(...); if (!run.primerOk) return;`. When Meta denies the isolated prime (block wave), the gate short-circuited the WHOLE run to `error` with ZERO targets attempted — throwing away the pre-hardening path (navigate each target's Ad Library page + intercept its own GraphQL via `onResponse`, which reached data ~47% WITHOUT a standalone primer). A fragile pre-flight was made load-bearing.
+**Fix applied:** removed the gate → priming is advisory (a failed prime logs a warning; the run ALWAYS falls through to attempt every target, which re-primes + rotates IP per attempt). Run-level `error` reserved for `statuses.length===0`. Taxonomy preserved (graphqlHits 0=blocked / ≥1=empty_verified / ads>0=ok); `Actor.fail` on error/blocked kept. Validated live: page targets reach data (empty_verified, graphqlHits=1, Success); a blocked search fails loud (blocked, graphqlHits=0, Actor.fail).
+**Prevention:** never GATE a whole run on a fragile external pre-flight (a cold Meta prime) when a more resilient fallback exists — make the pre-flight advisory + always attempt the real work, then classify the real work's outcome honestly. When hardening an actor, A/B the data-reach rate against the prior version before shipping (`git show <prev>:…` + a few live runs), not just unit-level correctness.
+**Where encoded:** this entry; `[[leads-workbench-audit]]` memory; commit 2167f14 message.
+**Confidence:** high (root cause proven via git archaeology; fix validated live).
+**Tags:** apify, actor, meta-ad-library, reliability, regression, deploy-validation

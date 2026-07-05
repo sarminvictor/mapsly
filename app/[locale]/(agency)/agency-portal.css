@@ -5919,6 +5919,11 @@
   color: #fff;
 }
 /* contact columns — exact phone / email / social, clickable */
+/* Contact cell (phone/email) — keep the value + "+N" chip on ONE line; the value
+   itself already truncates with an ellipsis inside .clink. */
+.agency-portal .wb td.ctd {
+  white-space: nowrap;
+}
 .agency-portal .wb td .clink {
   display: inline-block;
   max-width: 200px;
@@ -6117,13 +6122,17 @@
   border: none;
   background: transparent;
   cursor: pointer;
-  padding: 1px 2px;
+  /* U13-fix · RESERVE the hover pill's box at rest (transparent) so hover only
+     fills colour — the old `1px 2px`→`2px 8px` padding swap grew the row height
+     and shifted the cell, making every row visibly JUMP on hover/focus. Rest
+     and hover now share the exact same box; only bg/colour transition. */
+  padding: 2px var(--space-3);
   border-radius: 10px;
   text-decoration: underline dotted;
+  white-space: nowrap;
   transition:
     background 0.12s,
-    color 0.12s,
-    padding 0.12s;
+    color 0.12s;
 }
 .agency-portal td .needsenr.failed {
   color: var(--red, #d64545);
@@ -6131,12 +6140,11 @@
 }
 /* AUDIT U13 · on row-hover / keyboard focus the faint "— enrich" sliver becomes
    a real indigo pill — the most-clicked cell affordance shouldn't be the worst
-   Fitts target. Idle density is preserved (only hover/focus enlarges). */
+   Fitts target. Box is unchanged (reserved above) so there is NO layout shift. */
 .agency-portal tr:hover td .needsenr,
 .agency-portal td .needsenr:focus-visible {
   color: var(--indigo);
   background: var(--indigo-soft, #ece8ff);
-  padding: 2px var(--space-3);
   text-decoration: none;
   font-style: normal;
 }

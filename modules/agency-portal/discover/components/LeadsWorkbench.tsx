@@ -1746,7 +1746,10 @@ export function LeadsWorkbench({
           );
         const scheme = col.key === "phones" ? "tel" : "mailto";
         return (
-          <td key={col.key}>
+          // `ctd` keeps the value + "+N" chip on ONE line (the primary value
+          // already truncates with an ellipsis) — a phone like "250-763-0004 +1"
+          // must never wrap to a second row.
+          <td key={col.key} className="ctd">
             <a
               className="clink"
               href={`${scheme}:${arr[0]}`}
@@ -2218,9 +2221,13 @@ export function LeadsWorkbench({
         <button
           ref={coverageBtnRef}
           type="button"
-          className="iconbtn"
+          // Highlight when a coverage field-state filter is active (parity with
+          // the Filter button) — otherwise the user can't tell the grid is being
+          // narrowed by the Coverage layer.
+          className={`iconbtn${stateFilters.length ? " active" : ""}`}
           aria-haspopup="true"
           aria-expanded={coverageOpen}
+          aria-pressed={stateFilters.length > 0}
           aria-label="Coverage"
           data-tip="Coverage layers"
           onClick={() => {
@@ -2230,7 +2237,9 @@ export function LeadsWorkbench({
         >
           <Icon name="coverage" />
           <span className="cbadge alt">
-            {coverageSummary.have.length}/{DATA_FAMILIES.length}
+            {stateFilters.length
+              ? stateFilters.length
+              : `${coverageSummary.have.length}/${DATA_FAMILIES.length}`}
           </span>
         </button>
 

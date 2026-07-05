@@ -416,11 +416,11 @@ describe("reachabilityLabel", () => {
       tone: "green",
     });
     expect(reachabilityLabel("EMAIL_ONLY")).toEqual({
-      text: "Email only",
+      text: "Email",
       tone: "amber",
     });
     expect(reachabilityLabel("PHONE_ONLY")).toEqual({
-      text: "Phone only",
+      text: "Phone",
       tone: "amber",
     });
     expect(reachabilityLabel("UNREACHABLE")).toEqual({
