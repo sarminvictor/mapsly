@@ -818,21 +818,24 @@ const proxyConfiguration = await Actor.createProxyConfiguration(
 // ---- Run state ----------------------------------------------------------
 // Accumulated across the (single) request so the finalizer can write a
 // machine-readable RUN_SUMMARY + decide the run's exit code AFTER the crawler
-// returns — even if the handler threw. `primerOk` gates fail-loud: a run where
-// the primer never survived reached NO target's data query.
+// returns — even if the handler threw. `primerOk` is a DIAGNOSTIC flag only
+// (surfaced in RUN_SUMMARY): it records whether the isolated prime acquired
+// `datr`, but it NO LONGER gates the run — targets are attempted regardless, and
+// the run-level outcome is decided by what those targets actually reached.
 const run = {
   primerOk: false,
   targetStatuses: [],
 };
 
-// UN-ZEROABLE PRIMER. The single heavy `waitUntil:"load"` prime was the run's
-// biggest single point of failure: one `ERR_TIMED_OUT` on a dead proxy IP and
-// the whole handler produced 0 items at exit 0. This primes with a LIGHT load
-// (`domcontentloaded`, ~20s), and on failure ROTATES to a fresh IP and retries
-// (up to 4), falling back to the Ad Library landing page as an alternate
-// priming endpoint. Success = we acquired at least a `datr` cookie (Meta's
-// anti-bot token) on a live IP. Returns true if primed, false if every attempt
-// (across fresh IPs + both endpoints) failed — the caller then fails loud.
+// BEST-EFFORT PRIMER (non-blocking). A primed `datr` makes the R1 direct-GraphQL
+// replay work, so priming is worth attempting — but it is NOT a precondition for
+// reaching data (each target re-primes on its own during the block-retry loop).
+// This primes with a LIGHT load (`domcontentloaded`, ~20s), and on failure
+// ROTATES to a fresh IP and retries (up to 4), falling back to the Ad Library
+// landing page as an alternate priming endpoint. Success = we acquired at least a
+// `datr` cookie (Meta's anti-bot token) on a live IP. Returns true if primed,
+// false if every attempt (across fresh IPs + both endpoints) failed — the caller
+// logs it and proceeds to the targets regardless (the failure is NOT fatal).
 async function primeSession(page, session) {
   const endpoints = [
     "https://www.facebook.com/",
@@ -919,15 +922,28 @@ const crawler = new PlaywrightCrawler({
     // The start URL is facebook.com — the crawler already navigated there. RE-
     // prime through the un-zeroable primer so a dead-IP `ERR_TIMED_OUT` rotates
     // to a fresh IP instead of silently zeroing the whole run.
+    //
+    // PRIMING IS NON-BLOCKING (regression fix). A successful prime (`datr`
+    // acquired) makes the R1 direct-GraphQL replay work — it's a speed/reliability
+    // win, NOT a precondition for reaching data. The gate that USED to `return`
+    // here on a failed prime discarded the entire resilient path: `scrapeTarget`
+    // itself navigates each target's Ad Library page and its `onResponse`
+    // interceptor harvests the page's OWN GraphQL, AND its per-attempt block-retry
+    // loop re-primes facebook.com on a fresh IP each round. That page-scrape path
+    // reached Meta ~47% of runs historically WITHOUT any standalone-primer gate.
+    // A Meta block wave that denies `datr` on the isolated prime made `primerOk`
+    // false on every IP → the gate zeroed the whole run to `error` with 0 targets
+    // even attempted. So: prime best-effort, log it, then ALWAYS proceed to the
+    // targets. `run.primerOk` is now just a diagnostic flag in RUN_SUMMARY; the
+    // run-level outcome is decided by what the TARGETS actually reached, not by
+    // whether the isolated prime survived.
     run.primerOk = await primeSession(page, session);
     if (!run.primerOk) {
-      // Every priming attempt (fresh IPs + both endpoints) failed → nothing can
-      // reach a target's data query. Bail here; the finalizer fails the run
-      // loud so the adapter never mistakes it for a clean 0.
-      log.error(
-        "Primer failed on every attempt — no target can reach the data query.",
+      log.warning(
+        "Primer did not acquire datr on any IP — proceeding to targets anyway; " +
+          "each target navigates its own Ad Library page + intercepts its GraphQL, " +
+          "and re-primes on a fresh IP per block-retry (the resilient fallback path).",
       );
-      return;
     }
 
     // Resolve any FB page URLs → numeric ids in the warmed session, then pull
@@ -971,9 +987,17 @@ await crawler.run([
 // ---- Finalize: RUN_SUMMARY + honest exit code ---------------------------
 // Roll the per-target outcomes into ONE run outcome + counts, write it to the
 // KV store (the adapter reads it after the run), and set the exit code so
-// "SUCCEEDED" actually means "reached Meta's data query on ≥1 target":
-//   - error   → the primer never survived (handler bailed): NOTHING reached data
-//   - blocked → every target was blocked/timeout: reached targets, none got data
+// "SUCCEEDED" actually means "reached Meta's data query on ≥1 target".
+//
+// `error` is reserved for the ONE case where NO target could even be attempted
+// (no scrapable targets — e.g. every pageUrl failed to resolve). Priming failure
+// alone NO LONGER forces `error`: a failed prime still lets every target navigate
+// its own Ad Library page + intercept its GraphQL, so a run that primed poorly but
+// reached data is honestly `ok`/`empty_verified`/`partial`, and one that reached
+// every target but got graphqlHits==0 on all of them is `blocked` (the data query
+// never fired), NOT `error`.
+//   - error   → NOTHING was attempted (0 targets): the run couldn't even try
+//   - blocked → every target was attempted but none reached the data query
 //   - partial → some targets verified, some blocked/timeout
 //   - ok / empty_verified → every target reached the data query (real results
 //     or a real empty market)
@@ -988,10 +1012,10 @@ const verifiedCount = counts.ok + counts.empty_verified;
 const unverifiedCount = counts.blocked + counts.timeout;
 
 let outcome;
-if (!run.primerOk) {
-  outcome = "error";
-} else if (statuses.length === 0) {
-  // Primed but had no targets to scrape (e.g. every pageUrl failed to resolve).
+if (statuses.length === 0) {
+  // No target was attempted at all (no searchTerms/pageIds and every pageUrl
+  // failed to resolve) — the only genuine run-level `error`. A poor prime is
+  // NOT this case: targets still get attempted below.
   outcome = "error";
 } else if (verifiedCount === 0) {
   outcome = "blocked"; // reached targets, none reached the data query
