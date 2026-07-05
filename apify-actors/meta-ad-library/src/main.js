@@ -877,9 +877,16 @@ async function primeSession(page, session) {
 const crawler = new PlaywrightCrawler({
   proxyConfiguration,
   maxConcurrency: 1,
-  maxRequestRetries: 2,
+  // Raised 2→5 so a dead-start-IP gets several fresh-IP rotations (via
+  // errorHandler below) before the run gives up. A start-nav ERR_TIMED_OUT is
+  // the ONE hop the in-handler rotation can't protect (the handler never runs),
+  // so the retry budget here is the only lever for it. See INC-2026-07-05.
+  maxRequestRetries: 5,
   requestHandlerTimeoutSecs: 300,
-  navigationTimeoutSecs: 90,
+  // 90→40s: this governs ONLY the facebook.com START nav (scrapeTarget's own
+  // gotos pass explicit {timeout:90000}/{30000}). A dead residential exit is a
+  // corpse — abandon it in ~40s and rotate, don't burn 90s × 5 on it.
+  navigationTimeoutSecs: 40,
   // We drive navigation + status handling ourselves; don't let Crawlee abort
   // the whole request on a transient 403 from the priming hop.
   retryOnBlocked: false,
@@ -975,8 +982,24 @@ const crawler = new PlaywrightCrawler({
       run.targetStatuses.push(st);
     }
   },
+  // Fires after EACH failed attempt, BEFORE Crawlee schedules the retry. A
+  // start-nav ERR_TIMED_OUT never reaches requestHandler, so the manual rotation
+  // in scrapeTarget/primeSession can't run — without retiring the session here,
+  // all `maxRequestRetries` re-hit the SAME dead residential exit and the run
+  // errors with 0 targets attempted (INC-2026-07-05). Retire → next attempt
+  // navigates on a FRESH IP. Applies to target-request nav failures too.
+  errorHandler({ session, request }, error) {
+    rotateSession(session, `nav error on ${request.url}`);
+    log.warning(
+      `attempt failed on ${request.url}: ${error?.message ?? error} — ` +
+        "retired session, retrying on a fresh IP",
+    );
+  },
   failedRequestHandler({ request }) {
-    log.error(`Primer request failed: ${request.url}`);
+    log.error(
+      `Start nav exhausted all retries on ${request.url} — every IP timed out. ` +
+        "Run will finalize as error (0 targets reached).",
+    );
   },
 });
 

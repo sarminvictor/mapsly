@@ -627,20 +627,37 @@ export async function getLeadDetail(
   // ads = META/GOOGLE platform runs, search = SERP platform runs. OK/PARTIAL =
   // ran; FAILED (with no later OK for the same platform) = failed.
   const AD_OK = new Set(["OK", "PARTIAL"]);
-  let adsRan = false;
-  let adsFailed = false;
+  // Track META and GOOGLE run-state SEPARATELY so a Google OK can't MASK a Meta
+  // FAILED in the shared `ads` family. Before this, an errored Meta scan sat
+  // beside a Google OK and the family read "enriched" with no failure surfaced —
+  // the drawer then showed Meta activity for a business whose Meta scan errored
+  // (B1 honesty regression, INC-2026-07-05).
+  let metaRan = false;
+  let metaFailed = false;
+  let googleRan = false;
+  let googleFailed = false;
   let searchRan = false;
   let searchFailed = false;
   for (const r of adRuns) {
-    const isSearch = r.platform === "SERP";
-    if (AD_OK.has(r.status)) {
-      if (isSearch) searchRan = true;
-      else adsRan = true;
-    } else if (r.status === "FAILED") {
-      if (isSearch) searchFailed = true;
-      else adsFailed = true;
+    const ran = AD_OK.has(r.status);
+    const failed = r.status === "FAILED";
+    if (r.platform === "SERP") {
+      if (ran) searchRan = true;
+      else if (failed) searchFailed = true;
+    } else if (r.platform === "META") {
+      if (ran) metaRan = true;
+      else if (failed) metaFailed = true;
+    } else if (r.platform === "GOOGLE") {
+      if (ran) googleRan = true;
+      else if (failed) googleFailed = true;
     }
   }
+  // Family-level (drives the dot/coverage): "ads" ran if EITHER platform ran.
+  const adsRan = metaRan || googleRan;
+  const adsFailed = metaFailed || googleFailed;
+  // Drawer-only: Meta specifically failed with no later success → surface it even
+  // though the family is "enriched" off the Google half.
+  const metaScanFailed = metaFailed && !metaRan;
   const familyStates: Record<DataFamily, FamilyState> = deriveFamilyStates({
     presence: {
       // reviews presence = REAL pulled Review rows, never reviewCount (E1).
@@ -1039,24 +1056,29 @@ export async function getLeadDetail(
       state: adsState,
       enriched: adsEnriched,
       summary: adsEnriched
-        ? `Meta: ${metaAds.length ? (runsAds ? "running" : "paused") : "—"}${googleAds.length ? ` · Google: ${googleAds.length}` : ""}`
+        ? `Meta: ${metaScanFailed ? "scan failed" : metaAds.length ? (runsAds ? "running" : "paused") : "—"}${googleAds.length ? ` · Google: ${googleAds.length}` : ""}`
         : null,
       rows: adsEnriched
         ? [
             {
-              label: "Meta ads",
-              value: metaAds.length
-                ? `${metaAds.length} creative${metaAds.length === 1 ? "" : "s"}${runsAds ? " · running" : ""}`
-                : "—",
+              // B1 honesty fix: this row's value + vs-cell band are the ALL-PLATFORM
+              // active-ad total, so it's labelled "Active ads" — not "Meta ads",
+              // which contradicted the per-platform header (a lone Google ad read as
+              // "Meta ads: 1"). The bar is suppressed when the Meta half FAILED: an
+              // incomplete total must not plot as a confident market position — the
+              // per-platform header ("Meta: scan failed · Google: N") carries the truth.
+              label: "Active ads",
+              value:
+                metaAds.length + googleAds.length
+                  ? `${metaAds.length + googleAds.length} active${runsAds ? "" : " · paused"}`
+                  : "—",
               tone: runsAds ? ("g" as const) : null,
-              // WP6-1/B1 · vs-cell bar (ads band) — how this lead's TOTAL active-ad
-              // presence (Meta + Google) compares to the cell. The band cohort is
-              // all-platform now, so the value must be too. Text stays the fallback
-              // when no ads band exists.
-              metric: {
-                value: metaAds.length + googleAds.length,
-                bandKey: "ads" as const,
-              },
+              metric: metaScanFailed
+                ? undefined
+                : {
+                    value: metaAds.length + googleAds.length,
+                    bandKey: "ads" as const,
+                  },
             },
             ...(metaAds.length
               ? [

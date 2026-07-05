@@ -1122,7 +1122,12 @@ function EvidenceRow({
   // band for it, render the value ON the cell distribution (typical band + p90
   // leaders tick + marker) — proof that screenshots into a pitch deck. Text
   // form stays the graceful fallback (no metric / cohort too small for bands).
-  const band = row.metric ? bands?.[row.metric.bandKey] : undefined;
+  const rawBand = row.metric ? bands?.[row.metric.bandKey] : undefined;
+  // A degenerate band (everyone identical → p90 <= p10) conveys nothing: plotting
+  // a marker on it fabricates a misleading "value · typical X · 50th pct" reading
+  // (e.g. a lone advertiser in a zero-ad market shows "1 · typical 0 · 50th pct").
+  // Fall through to the plain text form instead of a meaningless bar.
+  const band = rawBand && rawBand.p90 > rawBand.p10 ? rawBand : undefined;
   if (row.metric && band) {
     return (
       <div className="sig">
