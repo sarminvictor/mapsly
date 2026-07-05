@@ -240,14 +240,16 @@ describe("resolveCellBands (WP6-1)", () => {
       {
         reviews: bigCohort, // → reference
         rating: [4.0, 4.2, 4.4, 4.6, 4.8], // → cohort (no ref)
-        ads: [0, 1, 2, 3, 4], // → cohort
+        meta_ads: [0, 1, 2, 3, 4], // → cohort
+        google_ads: [0, 0, 1, 2, 3], // → cohort (per-lead, no market ref)
         tenure: [1, 2, 3, 4, 5], // → cohort
       },
       { reviews: refReviews },
     );
     expect(bands.reviews).toEqual(refReviews); // market-true
     expect(bands.rating).not.toBeNull(); // cohort
-    expect(bands.ads).not.toBeNull(); // cohort
+    expect(bands.meta_ads).not.toBeNull(); // cohort
+    expect(bands.google_ads).not.toBeNull(); // cohort
     expect(bands.tenure).not.toBeNull(); // cohort
   });
 });

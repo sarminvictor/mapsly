@@ -472,7 +472,8 @@ async function ListWorkbenchBody({ params, searchParams }: PageProps) {
       // surface (they're off by default; the market workbench carries them) —
       // null keeps the shared row type satisfied without an extra query here.
       seo: null,
-      adCount: null,
+      metaAdCount: null,
+      googleAdCount: null,
       serpRank: null,
       aiSummary: null,
       phones,

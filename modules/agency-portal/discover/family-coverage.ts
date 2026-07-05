@@ -287,6 +287,20 @@ export function anyEnrichmentRan(
   return ENRICHMENT_FAMILIES.some((f) => states[f] !== "not_run");
 }
 
+/** The per-LEAD enrichment families — excludes `ads`/`search`, which run once
+ *  per MARKET cell for the whole cohort (a cell scan would mark every lead
+ *  "enriched" even when no personal enrichment ever touched it). */
+export const LEAD_ENRICHMENT_FAMILIES: readonly DataFamily[] =
+  ENRICHMENT_FAMILIES.filter((f) => f !== "ads" && f !== "search");
+
+/** True once any PER-LEAD family ran — the honest predicate behind "Enriched
+ *  only" (skips per-cell ads/search so it means "a personal enrichment ran"). */
+export function anyLeadEnrichmentRan(
+  states: Record<DataFamily, FamilyState>,
+): boolean {
+  return LEAD_ENRICHMENT_FAMILIES.some((f) => states[f] !== "not_run");
+}
+
 /** A ran-with-data family counts toward the "N enriched" summary; empty/failed/
  *  not_run do not. */
 export function enrichedFamilyCount(
@@ -518,9 +532,9 @@ export type DataGroupKey =
   | "contacts_tech"
   | "reviews"
   | "site_speed"
-  | "services"
   | "ai_brief"
-  | "ads"
+  | "meta_ads"
+  | "google_ads"
   | "search";
 
 /**
@@ -552,12 +566,14 @@ export interface DataGroup {
  *   - Contacts & site tech ← CONTACTS + TECH (one DOM fetch; shown as one)
  *   - Reviews              ← REVIEWS
  *   - Site speed & SEO     ← LIGHTHOUSE
- *   - Services             ← SERVICES
- *   - AI brief             ← AI_RESEARCH
- *   - Ad activity          ← META_ADS (market · per cell) + GOOGLE_ADS (per lead)
+ *   - AI brief             ← SERVICES + AI_RESEARCH (services is part of the AI
+ *                            read; shown as ONE door, not two)
+ *   - Meta ads             ← META_ADS (market · runs once per cell)
+ *   - Google ads           ← GOOGLE_ADS (per lead · target-host attribution)
  *   - Search rank          ← SERP (market · per cell)
- * (Services + AI brief stay two groups for now — they'll merge into one AI job
- * later; keeping them split matches the billing types 1:1 until then.)
+ * Meta and Google ads are DELIBERATELY separate groups — distinct sources, cost
+ * bases, and reliability, even when one signal triggers both. Services folds into
+ * the AI brief (both read the same fetched DOM; the user gets one "AI brief").
  */
 export const DATA_GROUPS: readonly DataGroup[] = [
   {
@@ -585,29 +601,29 @@ export const DATA_GROUPS: readonly DataGroup[] = [
     chip: "Sp",
   },
   {
-    key: "services",
-    label: "Services",
-    desc: "The treatments / services they list on their site",
-    types: ["SERVICES"],
-    basis: "lead",
-    chip: "Sv",
-  },
-  {
     key: "ai_brief",
     label: "AI brief",
-    desc: "An AI-written read on the business + pitch angles",
-    types: ["AI_RESEARCH"],
+    desc: "Services they list + an AI-written read on the business & pitch angles",
+    types: ["SERVICES", "AI_RESEARCH"],
     basis: "lead",
     chip: "Ai",
   },
   {
-    key: "ads",
-    label: "Ad activity",
-    desc: "Meta + Google ads they're running right now",
-    types: ["META_ADS", "GOOGLE_ADS"],
+    key: "meta_ads",
+    label: "Meta ads",
+    desc: "Facebook / Instagram ads they're running right now",
+    types: ["META_ADS"],
     basis: "market",
-    chip: "Ad",
-    marketNote: "Meta runs per market cell · Google per lead",
+    chip: "Ma",
+    marketNote: "market · runs once per cell",
+  },
+  {
+    key: "google_ads",
+    label: "Google ads",
+    desc: "Google Search / Display ads they're running right now",
+    types: ["GOOGLE_ADS"],
+    basis: "lead",
+    chip: "Ga",
   },
   {
     key: "search",
@@ -700,4 +716,17 @@ export function enrichedGroupCount(
  *  the group-level predicate behind the "Enriched only" workbench view. */
 export function anyGroupRan(states: Record<DataGroupKey, TypeState>): boolean {
   return DATA_GROUP_KEYS.some((k) => states[k] !== "not_run");
+}
+
+/** The per-LEAD group keys — `basis:"lead"` only (excludes the per-market
+ *  `meta_ads`/`search`). A cell-level ad/SERP scan must NOT read as a personal
+ *  enrichment on every lead in the cohort. */
+export const LEAD_GROUP_KEYS: readonly DataGroupKey[] = DATA_GROUPS.filter(
+  (g) => g.basis === "lead",
+).map((g) => g.key);
+
+/** True once any PER-LEAD group has run — the honest predicate behind "Enriched
+ *  only" (skips per-market groups so it means "a personal enrichment ran"). */
+export function anyLeadGroupRan(states: Record<DataGroupKey, TypeState>): boolean {
+  return LEAD_GROUP_KEYS.some((k) => states[k] !== "not_run");
 }

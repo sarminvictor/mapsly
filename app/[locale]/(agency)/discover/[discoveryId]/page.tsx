@@ -361,13 +361,12 @@ async function DiscoveryWorkspaceBody({ params, searchParams }: PageProps) {
           // (adsEnriched = ads.length > 0 · serpEnriched = serp != null). These
           // feed the coverage map so the table no longer fakes ads/search as
           // never-covered. Existence-only (distinct businessId).
-          // WP6-1 · active-ad COUNT per business (groupBy) — feeds both the
-          // ads-presence set (count > 0) AND the vs-cell "ads" cohort band.
-          // B1 · include GOOGLE now that per-business Google attribution is
-          // reliable (target-host ads_search), so the "Ads" column + vs-cell band
-          // count ALL active creatives (Meta + Google), not just Meta.
+          // Active-ad COUNT per business, split BY PLATFORM — Meta and Google are
+          // separate columns + separate vs-cell bands (distinct sources; never
+          // merged). The `by: [businessId, platform]` grouping yields one row per
+          // (business, platform) so each platform's count is distinct.
           prisma.adLibraryEntry.groupBy({
-            by: ["businessId"],
+            by: ["businessId", "platform"],
             where: {
               businessId: { in: businessIds },
               platform: { in: ["META", "GOOGLE"] },
@@ -397,12 +396,22 @@ async function DiscoveryWorkspaceBody({ params, searchParams }: PageProps) {
         ]);
 
   // Ads / Search presence sets (one membership test per business below).
-  // WP6-1 · adsCountByBusiness carries the Meta-ad creative count per business
-  // (the "ads" band sample); the presence set is derived from it (count > 0).
-  const adsCountByBusiness = new Map(
-    ads.map((r) => [r.businessId, r._count._all]),
-  );
-  const adsByBusiness = new Set(adsCountByBusiness.keys());
+  // Per-platform creative counts (Meta and Google kept separate — distinct
+  // columns + vs-cell bands). The `ads` DataFamily presence stays a UNION (either
+  // platform having a real AdLibraryEntry) — the coverage dot is per-family.
+  const metaAdsCountByBusiness = new Map<string, number>();
+  const googleAdsCountByBusiness = new Map<string, number>();
+  for (const r of ads) {
+    if (!r.businessId) continue;
+    if (r.platform === "META")
+      metaAdsCountByBusiness.set(r.businessId, r._count._all);
+    else if (r.platform === "GOOGLE")
+      googleAdsCountByBusiness.set(r.businessId, r._count._all);
+  }
+  const adsByBusiness = new Set<string>([
+    ...metaAdsCountByBusiness.keys(),
+    ...googleAdsCountByBusiness.keys(),
+  ]);
   const serpByBusiness = new Set(serps.map((r) => r.businessId));
   // AUDIT F2 · best local-pack rank per business (null = scanned but off the pack).
   const serpRankByBusiness = new Map(
@@ -607,7 +616,8 @@ async function DiscoveryWorkspaceBody({ params, searchParams }: PageProps) {
       rating,
       perf,
       seo: audit?.seo ?? null,
-      adCount: adsCountByBusiness.get(b.id) ?? null,
+      metaAdCount: metaAdsCountByBusiness.get(b.id) ?? null,
+      googleAdCount: googleAdsCountByBusiness.get(b.id) ?? null,
       serpRank: serpRankByBusiness.get(b.id) ?? null,
       aiSummary: aiSummaryByBusiness.get(b.id) ?? null,
       phones,
@@ -672,14 +682,20 @@ async function DiscoveryWorkspaceBody({ params, searchParams }: PageProps) {
         : null,
     )
     .filter(isNum);
-  const adsSamples = businesses.map((b) => adsCountByBusiness.get(b.id) ?? 0);
+  const metaAdsSamples = businesses.map(
+    (b) => metaAdsCountByBusiness.get(b.id) ?? 0,
+  );
+  const googleAdsSamples = businesses.map(
+    (b) => googleAdsCountByBusiness.get(b.id) ?? 0,
+  );
   const bands: Partial<Record<string, CellBand>> = resolveCellBands(
     {
       match: rows.map((r) => r.match),
       reviews: rows.map((r) => r.reviews).filter(isNum),
       rating: rows.map((r) => r.rating).filter(isNum),
       perf: rows.map((r) => r.perf).filter(isNum),
-      ads: adsSamples,
+      meta_ads: metaAdsSamples,
+      google_ads: googleAdsSamples,
       tenure: tenureSamples,
     },
     reference,

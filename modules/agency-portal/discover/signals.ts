@@ -61,7 +61,8 @@ export type BandKey =
   | "rating"
   | "perf"
   | "organic"
-  | "ads"
+  | "meta_ads"
+  | "google_ads"
   | "tenure";
 
 /**
@@ -76,7 +77,8 @@ export interface CohortSamples {
   rating?: number[];
   perf?: number[];
   organic?: number[];
-  ads?: number[];
+  meta_ads?: number[];
+  google_ads?: number[];
   tenure?: number[];
 }
 
@@ -96,8 +98,9 @@ export interface CellReferenceBands {
   perf?: CellBand | null;
   /** shareOfVoice distribution → the `organic` band (organic-traffic proxy). */
   organic?: CellBand | null;
-  /** Meta-ad-count distribution → the `ads` band (when the cell tracks it). */
-  ads?: CellBand | null;
+  /** Meta-ad-count distribution → the `meta_ads` band (when the cell tracks it).
+   *  Google ads have no per-market distribution — they fall through to cohort. */
+  meta_ads?: CellBand | null;
 }
 
 /** One comparative signal on a row, ready for <VsCellBar> (band may be null). */
@@ -310,14 +313,15 @@ export function resolveCellBands(
     "rating",
     "perf",
     "organic",
-    "ads",
+    "meta_ads",
+    "google_ads",
     "tenure",
   ];
   for (const key of keys) {
-    // The reference only carries the market-aggregated bands; `match`/`tenure`
-    // aren't in CellMetric, so they always take the cohort path.
+    // The reference only carries the market-aggregated bands; `match`/`tenure`/
+    // `google_ads` aren't in CellMetric, so they always take the cohort path.
     const refBand =
-      key === "match" || key === "tenure"
+      key === "match" || key === "tenure" || key === "google_ads"
         ? null
         : (reference?.[key as keyof CellReferenceBands] ?? null);
     if (refBand) {

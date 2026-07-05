@@ -90,8 +90,8 @@ import {
   DATA_GROUPS,
   deriveGroupStates,
   enrichTypesForGroups,
-  anyEnrichmentRan,
-  anyGroupRan,
+  anyLeadEnrichmentRan,
+  anyLeadGroupRan,
   type FamilyState,
   type EnrichmentTypeKey,
   type TypeState,
@@ -108,7 +108,6 @@ import {
   CREDIT_PRICES,
   type EnrichmentType,
 } from "@/modules/cost/pricing";
-import { FieldsMenuLockedRows } from "./FieldsMenuExtras";
 
 /** WP7-13 · a stable empty-bands object for the thin-market path (no vs-cell
  *  percentiles → the workbench renders absolute values). Module-level so the
@@ -332,15 +331,20 @@ export function LeadsWorkbench({
       deriveGroupStates(typeStatesFor(r)),
     [typeStatesFor],
   );
-  /** AUDIT A2/B1 · has ANY of the 7 data groups run for this row (running/
-   *  enriched/empty/failed) — the predicate behind the "Enriched only" view.
-   *  Prefers the per-type map (rolled to groups); falls back to the 5-family
-   *  predicate when it's absent. */
+  /** AUDIT A2/B1 · has a PER-LEAD enrichment run for this row — the predicate
+   *  behind the "Enriched only" view. Uses the per-lead variants that EXCLUDE the
+   *  per-market ads/search scans, so a per-cell ads/SERP scan no longer counts a
+   *  lead as personally enriched. Prefers the per-type map (rolled to groups);
+   *  falls back to the 5-family predicate when it's absent. NOTE the deliberate
+   *  asymmetry: the primary path counts `google_ads` (basis:lead), but the
+   *  fallback drops the whole `ads` family (the merged 5-family model can't tell
+   *  Google from Meta) — the conservative choice on the rare legacy-props path.
+   *  The primary (per-type) path is authoritative. */
   const rowEnriched = useCallback(
     (r: WorkbenchLeadRow): boolean =>
       coverageTypeStates[r.businessId]
-        ? anyGroupRan(groupStatesFor(r))
-        : anyEnrichmentRan(statesFor(r)),
+        ? anyLeadGroupRan(groupStatesFor(r))
+        : anyLeadEnrichmentRan(statesFor(r)),
     [coverageTypeStates, groupStatesFor, statesFor],
   );
   // ── Status (optimistic) ──────────────────────────────────────────────────
@@ -405,10 +409,12 @@ export function LeadsWorkbench({
   // (case-insensitive substring). Cleared when the popover closes.
   const [fieldsQuery, setFieldsQuery] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
-  // U15 · one filtering home — a SINGLE "+ Filter" attribute picker that lists
-  // both addable signals and addable numeric fields (previously split into
-  // "+ Signal" / "+ Field" with independent open state).
-  const [filterMenuOpen, setFilterMenuOpen] = useState(false);
+  // THREE filter-add pickers, one per KIND (signal / field / data-state) — the
+  // single "+ Filter" dropdown grew too long to scan. Each is its own short
+  // Popover feeding the SAME `filters[]` / `stateFilters[]` models.
+  const [signalMenuOpen, setSignalMenuOpen] = useState(false);
+  const [fieldMenuOpen, setFieldMenuOpen] = useState(false);
+  const [stateMenuOpen, setStateMenuOpen] = useState(false);
   const [coverageOpen, setCoverageOpen] = useState(false);
   // The Fields, Add-filter and Set-status menus are <Popover>s (floating-ui
   // handles portal + dismiss + focus). The Filters/Coverage PANELS are inline
@@ -434,8 +440,13 @@ export function LeadsWorkbench({
   // so they never fire while typing in a field or with a modifier held. Press
   // "?" for the on-screen cheat-sheet.
   useEffect(() => {
-    anyOverlayOpenRef.current = helpOpen || fieldsOpen || filterMenuOpen;
-  }, [helpOpen, fieldsOpen, filterMenuOpen]);
+    anyOverlayOpenRef.current =
+      helpOpen ||
+      fieldsOpen ||
+      signalMenuOpen ||
+      fieldMenuOpen ||
+      stateMenuOpen;
+  }, [helpOpen, fieldsOpen, signalMenuOpen, fieldMenuOpen, stateMenuOpen]);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -836,6 +847,21 @@ export function LeadsWorkbench({
     });
   }
 
+  // AUDIT · the frozen Business column should read as "detached" only once the
+  // grid is scrolled horizontally. Track scrollLeft on the table wrap so a
+  // `data-scrolled-x` attr can gate a box-shadow edge (no always-on border that
+  // reads as a table gridline at rest). box-shadow (not border) so nothing shifts.
+  const tableWrapRef = useRef<HTMLDivElement | null>(null);
+  const [scrolledX, setScrolledX] = useState(false);
+  useEffect(() => {
+    const el = tableWrapRef.current;
+    if (!el) return;
+    const onScroll = () => setScrolledX(el.scrollLeft > 0);
+    el.addEventListener("scroll", onScroll, { passive: true });
+    onScroll(); // settle the initial state (e.g. a restored scroll position)
+    return () => el.removeEventListener("scroll", onScroll);
+  }, []);
+
   // AUDIT U2/D5 · per-cell "running" state — the enrich sheet announces the
   // (business × family) scope it just launched; those cells show "running…"
   // until their real state refreshes in (LiveRunGate's poll → router.refresh
@@ -869,21 +895,23 @@ export function LeadsWorkbench({
       statesFor(r)[family] === "not_run",
     [enriching, statesFor],
   );
-  // AUDIT C5 · is this (business × family) currently in an enrich run — REGARDLESS
-  // of its current state. `isCellRunning` self-clears once a cell leaves not_run
-  // (so an empty "— enrich" cell can flip to "running…" then to its value). This
-  // broader predicate stays true for cells that ALREADY show a value (a Reviews
-  // count, a phone, a rating) while their family is re-enriching, so EVERY value
-  // cell of the running family gets the field loader + click-block (not just the
-  // not-run ones). It self-clears the same way — via the enrich-scope bus reset +
-  // the 5-min safety timeout that own `enriching`.
+  // AUDIT C5 · is this (business × family) currently in an enrich run. The
+  // optimistic flag (`enriching`) is set the moment a run launches, but it must
+  // CLEAR the instant the run's data lands — not only on a manual page refresh.
+  // LiveRunGate already fires router.refresh() on run completion, which re-serves
+  // the honest `statesFor` map with the family flipped OUT of `not_run` (to
+  // enriched/empty/failed). So we gate the optimistic flag on that settled state:
+  // the loader shows only while the family is BOTH flagged AND still not_run, and
+  // self-clears the moment the terminal refresh settles it. The 5-min timeout on
+  // `enriching` stays as a backstop for a run that never reports back.
   const isFamilyEnriching = useCallback(
     (r: WorkbenchLeadRow, family?: DataFamily): boolean =>
       !!family &&
       !!enriching &&
       enriching.ids.has(r.businessId) &&
-      enriching.families.has(family),
-    [enriching],
+      enriching.families.has(family) &&
+      statesFor(r)[family] === "not_run",
+    [enriching, statesFor],
   );
   /**
    * AUDIT C5 · wrap ONE value cell's `<td>` in the loading state when its family
@@ -911,9 +939,13 @@ export function LeadsWorkbench({
           "aria-busy": true,
         },
         children,
-        <span key="__cellspin" className="cell-loading-spin" aria-hidden="true">
-          <span className="spin sm" />
-        </span>,
+        // AUDIT · a horizontal sweep beside the (dimmed) value, NOT a round
+        // spinner replacing it — the loader reads as "refreshing this value".
+        <span
+          key="__cellspin"
+          className="cell-loading-sweep"
+          aria-hidden="true"
+        />,
       );
     },
     [isFamilyEnriching],
@@ -1418,13 +1450,20 @@ export function LeadsWorkbench({
    *  pre-seeded with the cell's data family (so a Lighthouse cell offers a
    *  Lighthouse enrich, a Phone cell offers contacts, etc.). Closes the
    *  founder's "I can't enrich by clicking the field" complaint. */
-  function enrichCell(r: WorkbenchLeadRow, family?: DataFamily) {
+  function enrichCell(
+    r: WorkbenchLeadRow,
+    family?: DataFamily,
+    enrichTypes?: readonly string[],
+  ) {
+    // AUDIT · prefer the column's explicit enrichTypes when given. A `website`-
+    // family cell (Built on / Booking tool) maps to contacts+tech only — the raw
+    // `enrichTypesForFamilies(["website"])` would wrongly drag Lighthouse in.
+    const types =
+      enrichTypes ?? (family ? enrichTypesForFamilies([family]) : undefined);
     openEnrichSheet({
-      enrichments: family
-        ? (enrichTypesForFamilies([family]) as EnrichmentType[])
-        : undefined,
+      enrichments: types ? (types as EnrichmentType[]) : undefined,
       // AUDIT D1 · a single-field click pre-selects that enrichment in the sheet.
-      preselect: !!family,
+      preselect: !!types,
       scope: {
         selectedBusinessIds: [r.businessId],
         visibleBusinessIds: [r.businessId],
@@ -1443,20 +1482,29 @@ export function LeadsWorkbench({
   const NeedsEnrich = ({
     r,
     family,
+    enrichTypes,
   }: {
     r: WorkbenchLeadRow;
     family?: DataFamily;
+    /** AUDIT · the column's explicit enrichment types — overrides the
+     *  family→types default so a Built-on / Booking-tool click enriches
+     *  contacts+tech (not Lighthouse). Threaded down to enrichCell. */
+    enrichTypes?: readonly string[];
   }) => {
     const state: FamilyState = family ? statesFor(r)[family] : "not_run";
     const label = family
       ? (DATA_FAMILIES.find((f) => f.key === family)?.label ?? "data")
       : "data";
 
-    // AUDIT U2/D5 · this cell is in the active enrich run → show it working.
+    // AUDIT U2/D5 · this cell is in the active enrich run → show it working, with
+    // the loader BESIDE the affordance (dimmed "enriching…" copy + a horizontal
+    // sweep), not a round spinner REPLACING it. The point: the loader renders
+    // alongside content, never instead of it.
     if (isCellRunning(r, family)) {
       return (
-        <span className="cell-running" data-tip="Enriching…">
-          <span className="spin sm" aria-hidden="true" /> running
+        <span className="cell-loading-beside" data-tip="Enriching…">
+          <span className="cell-none">enriching…</span>
+          <span className="cell-loading-sweep" aria-hidden="true" />
         </span>
       );
     }
@@ -1481,7 +1529,7 @@ export function LeadsWorkbench({
         // drawer) — clicking must open the enrich sheet, not the drawer.
         onClick={(e) => {
           e.stopPropagation();
-          enrichCell(r, family);
+          enrichCell(r, family, enrichTypes);
         }}
       >
         {failed ? "failed · retry" : "— enrich"}
@@ -1612,16 +1660,16 @@ export function LeadsWorkbench({
   }, [familyStateCounts]);
   const stateOptionCount = stateFilterRows.length;
 
-  // U15 · the merged "+ Filter" picker is a <Popover> (floating-ui handles
-  // portal + dismiss + Esc + focus + ↑/↓ nav), so no hand-rolled listeners
-  // here. Both picks close the one shared menu.
+  // Each add-picker is a <Popover> (floating-ui handles portal + dismiss + Esc +
+  // focus + ↑/↓ nav). A single-add pick closes its own menu; data-state toggles
+  // keep theirs open so states can be stacked in one visit.
   function pickAddSignal(key: string, title: string) {
     addSignalFilter(key, title);
-    setFilterMenuOpen(false);
+    setSignalMenuOpen(false);
   }
   function pickAddNumeric(field: NumericFilterField) {
     addFilter(field);
-    setFilterMenuOpen(false);
+    setFieldMenuOpen(false);
   }
   function editFilter(idx: number, patch: Partial<NumericLeadFilter>) {
     userTouchedRef.current = true;
@@ -1754,9 +1802,32 @@ export function LeadsWorkbench({
               ? r.aiSummary
               : r.builtOn;
         if (val == null) {
+          // AUDIT · a null builtOn/bookingTool doesn't always mean "not scanned":
+          // the tech scan may have RUN and simply found a custom/unknown CMS (or
+          // no booking tool). Read the honest per-type TECH state — when it's
+          // enriched/empty the scan ran, so show the scanned marker (mirroring the
+          // drawer's `cms ?? "Custom / unknown"`), NOT a "— enrich" CTA that would
+          // re-charge for a known result. Only a genuinely not_run/failed TECH
+          // state falls through to the enrich affordance.
+          if (col.key === "builtOn" || col.key === "bookingTool") {
+            const tech = coverageTypeStates[r.businessId]?.TECH;
+            if (tech === "enriched" || tech === "empty") {
+              return (
+                <td key={col.key}>
+                  <span className="cell-none">
+                    {col.key === "builtOn" ? "Custom / unknown" : "—"}
+                  </span>
+                </td>
+              );
+            }
+          }
           return (
             <td key={col.key}>
-              <NeedsEnrich r={r} family={col.family} />
+              <NeedsEnrich
+                r={r}
+                family={col.family}
+                enrichTypes={col.enrichTypes}
+              />
             </td>
           );
         }
@@ -1778,7 +1849,11 @@ export function LeadsWorkbench({
         if (!r.website) {
           return (
             <td key={col.key}>
-              <NeedsEnrich r={r} family={col.family} />
+              <NeedsEnrich
+                r={r}
+                family={col.family}
+                enrichTypes={col.enrichTypes}
+              />
             </td>
           );
         }
@@ -1812,7 +1887,11 @@ export function LeadsWorkbench({
         if (rl.tone === "muted") {
           return (
             <td key={col.key}>
-              <NeedsEnrich r={r} family={col.family} />
+              <NeedsEnrich
+                r={r}
+                family={col.family}
+                enrichTypes={col.enrichTypes}
+              />
             </td>
           );
         }
@@ -1835,7 +1914,11 @@ export function LeadsWorkbench({
         if (v == null)
           return (
             <td className="num" key={col.key}>
-              <NeedsEnrich r={r} family={col.family} />
+              <NeedsEnrich
+                r={r}
+                family={col.family}
+                enrichTypes={col.enrichTypes}
+              />
             </td>
           );
         const band = effectiveBands[col.key];
@@ -1857,7 +1940,11 @@ export function LeadsWorkbench({
         if (arr.length === 0)
           return (
             <td key={col.key}>
-              <NeedsEnrich r={r} family={col.family} />
+              <NeedsEnrich
+                r={r}
+                family={col.family}
+                enrichTypes={col.enrichTypes}
+              />
             </td>
           );
         const scheme = col.key === "phones" ? "tel" : "mailto";
@@ -1908,7 +1995,11 @@ export function LeadsWorkbench({
         if (r.socials.length === 0)
           return (
             <td key={col.key}>
-              <NeedsEnrich r={r} family={col.family} />
+              <NeedsEnrich
+                r={r}
+                family={col.family}
+                enrichTypes={col.enrichTypes}
+              />
             </td>
           );
         const LBL: Record<string, string> = {
@@ -2292,16 +2383,9 @@ export function LeadsWorkbench({
               )),
             ])
           )}
-          {/* WP5-13 · locked buy-rows: data groups still missing across the
-              visible set — click opens the WP5-3 enrich sheet. Kept below the
-              type sections; only shown when the search isn't narrowing (a
-              search is a "find this column" intent, not a buy intent). */}
-          {fieldsQuery.trim() === "" ? (
-            <FieldsMenuLockedRows
-              missing={coverageSummary.missingGroups}
-              scope={enrichScope}
-            />
-          ) : null}
+          {/* U-fields · the Fields dropdown shows/hides COLUMNS only — it never
+              launches a research. Enrichment stays reachable via cell-click, the
+              toolbar Enrich button, and the coverage Enrich CTA. */}
         </Popover>
 
         <span className="tb-spacer" />
@@ -2558,28 +2642,27 @@ export function LeadsWorkbench({
                 every lead) and addable numeric fields (fields with data).
                 Selecting a signal adds a signal filter; selecting a field adds
                 a numeric filter — both feed the same filters[] array. */}
+              {/* THREE add-pickers by KIND — one short dropdown each, all
+                feeding the same filters[]/stateFilters[] models. Splits the old
+                single "+ Filter" menu that grew too long to scan. */}
+              {/* ── ＋ Signal ─────────────────────────────────────────────── */}
               <Popover
-                open={filterMenuOpen}
-                onOpenChange={setFilterMenuOpen}
+                open={signalMenuOpen}
+                onOpenChange={setSignalMenuOpen}
                 className="filter-add-popover"
                 role="dialog"
-                label="Add a filter"
+                label="Add a signal filter"
                 trigger={
                   <button
                     type="button"
                     className="add"
-                    data-tip="Filter by a signal or field"
+                    data-tip="Filter by a signal verdict"
                   >
-                    ＋ Filter
+                    ＋ Signal
                   </button>
                 }
               >
-                {/* U21 · when NEITHER signals, fields nor data-state toggles are
-                  offerable, the whole picker is empty — a single actionable row
-                  that opens the enrich sheet from where the problem is stated. */}
-                {signalOptionCount === 0 &&
-                addNumericOptions.length === 0 &&
-                stateOptionCount === 0 ? (
+                {signalOptionCount === 0 ? (
                   <button
                     type="button"
                     className="filter-add-empty"
@@ -2593,10 +2676,9 @@ export function LeadsWorkbench({
                     }}
                     onClick={openMissingFamiliesSheet}
                   >
-                    No signals or fields with data yet · enrich to unlock →
+                    No signal covers all leads yet · enrich to unlock →
                   </button>
                 ) : null}
-                {/* ── Signals ─────────────────────────────────────────────── */}
                 {addSignalOptions.goal.length > 0 ? (
                   <div
                     className="filter-list-section"
@@ -2635,26 +2717,24 @@ export function LeadsWorkbench({
                     ))}
                   </div>
                 ) : null}
-                {/* When signals are exhausted but fields exist, name the reason
-                  inline so the picker never looks half-empty by accident. */}
-                {signalOptionCount === 0 && addNumericOptions.length > 0 ? (
+              </Popover>
+              {/* ── ＋ Field ──────────────────────────────────────────────── */}
+              <Popover
+                open={fieldMenuOpen}
+                onOpenChange={setFieldMenuOpen}
+                className="filter-add-popover"
+                role="dialog"
+                label="Add a field filter"
+                trigger={
                   <button
                     type="button"
-                    className="filter-add-empty"
-                    style={{
-                      cursor: "pointer",
-                      width: "100%",
-                      textAlign: "left",
-                      background: "none",
-                      border: "none",
-                      font: "inherit",
-                    }}
-                    onClick={openMissingFamiliesSheet}
+                    className="add"
+                    data-tip="Filter by a field value"
                   >
-                    No signal covers all leads yet · enrich to unlock →
+                    ＋ Field
                   </button>
-                ) : null}
-                {/* ── Fields ──────────────────────────────────────────────── */}
+                }
+              >
                 {addNumericOptions.length > 0 ? (
                   <div
                     className="filter-list-section"
@@ -2676,15 +2756,44 @@ export function LeadsWorkbench({
                       </button>
                     ))}
                   </div>
-                ) : null}
-                {/* ── By data state ───────────────────────────────────────── */}
-                {/* C2 · the THIRD section — filter by whether each data domain
-                  has run (have / none / not run / failed). Multi-select toggles
-                  driving the SAME `stateFilters` model as the coverage panel
-                  (via `toggleStateFilter`), so this is the ONE discoverable home
-                  for signal / value / data-state filtering. The popover stays
-                  open on toggle (unlike the single-add signal/field picks) so a
-                  user can stack states in one visit. */}
+                ) : (
+                  <button
+                    type="button"
+                    className="filter-add-empty"
+                    style={{
+                      cursor: "pointer",
+                      width: "100%",
+                      textAlign: "left",
+                      background: "none",
+                      border: "none",
+                      font: "inherit",
+                    }}
+                    onClick={openMissingFamiliesSheet}
+                  >
+                    No fields with data yet · enrich to unlock →
+                  </button>
+                )}
+              </Popover>
+              {/* ── ＋ Data state ─────────────────────────────────────────── */}
+              {/* Filter by whether each data domain has run (have / none / not
+                run / failed). Multi-select toggles feeding the SAME `stateFilters`
+                model; the popover stays open on toggle so states can be stacked. */}
+              <Popover
+                open={stateMenuOpen}
+                onOpenChange={setStateMenuOpen}
+                className="filter-add-popover"
+                role="dialog"
+                label="Filter by data state"
+                trigger={
+                  <button
+                    type="button"
+                    className="add"
+                    data-tip="Filter by whether a data type has run"
+                  >
+                    ＋ Data state
+                  </button>
+                }
+              >
                 {stateFilterRows.length > 0 ? (
                   <div
                     className="filter-list-section"
@@ -2721,7 +2830,23 @@ export function LeadsWorkbench({
                       );
                     })}
                   </div>
-                ) : null}
+                ) : (
+                  <button
+                    type="button"
+                    className="filter-add-empty"
+                    style={{
+                      cursor: "pointer",
+                      width: "100%",
+                      textAlign: "left",
+                      background: "none",
+                      border: "none",
+                      font: "inherit",
+                    }}
+                    onClick={openMissingFamiliesSheet}
+                  >
+                    Nothing enriched yet · enrich to unlock →
+                  </button>
+                )}
               </Popover>
             </div>
           </div>
@@ -2794,72 +2919,15 @@ export function LeadsWorkbench({
                     type="button"
                     className="clenrich"
                     style={{ cursor: "pointer", font: "inherit" }}
+                    data-tip={`Enrich: ${coverageSummary.notYet.join(" · ")}`}
                     onClick={openMissingFamiliesSheet}
                   >
-                    Enrich {coverageSummary.notYet.join(" · ")} →
+                    Enrich missing · {coverageSummary.notYet.length} →
                   </button>
                 </>
               ) : (
                 <span className="note" style={{ marginLeft: "auto" }}>
                   All data groups enriched on this set
-                </span>
-              )}
-            </div>
-            {/* C2 · READ-ONLY state summary. The per-family have/none/failed/
-              not-run breakdown is now a glance-only read of the loaded window —
-              the interactive toggles moved to the "By data state" section of the
-              one "+ Filter" picker (the single discoverable filtering home). A
-              hint points there; when data-state filters ARE applied they show as
-              removable chips here too, so the coverage panel can still clear them
-              without reopening the picker. */}
-            <div className="cov-filters" aria-live="polite">
-              <span className="cl-lbl">Data state</span>
-              {ENRICHMENT_FAMILIES.map((fam) => {
-                const label =
-                  DATA_FAMILIES.find((f) => f.key === fam)?.label ?? fam;
-                const counts = familyStateCounts.get(fam);
-                if (!counts) return null;
-                const STATE_LABEL: Record<FamilyState, string> = {
-                  enriched: "have",
-                  empty: "none",
-                  failed: "failed",
-                  not_run: "not run",
-                };
-                // AUDIT UX-review #6 · order by actionability (failed → none →
-                // have), with the default-population "not run" last.
-                const states: FamilyState[] = [
-                  "failed",
-                  "empty",
-                  "enriched",
-                  "not_run",
-                ];
-                const shown = states.filter((s) => counts[s] > 0);
-                if (shown.length === 0) return null;
-                return (
-                  <span key={fam} className="cov-fam">
-                    <span className="cov-fam-lbl">{label}</span>
-                    {shown.map((s) => (
-                      <span key={s} className="cov-state-ro">
-                        {STATE_LABEL[s]} {counts[s]}
-                      </span>
-                    ))}
-                  </span>
-                );
-              })}
-              {stateFilters.length > 0 ? (
-                <button
-                  type="button"
-                  className="cp-clear"
-                  onClick={() => {
-                    setStateFilters([]);
-                    setPage(1);
-                  }}
-                >
-                  Clear state filters
-                </button>
-              ) : (
-                <span className="note" style={{ marginLeft: "auto" }}>
-                  Filter by state from ＋ Filter
                 </span>
               )}
             </div>
@@ -2875,7 +2943,11 @@ export function LeadsWorkbench({
         </div>
 
         {/* ── The power table ───────────────────────────────────────────────── */}
-        <div className="wbtable-wrap">
+        <div
+          className="wbtable-wrap"
+          ref={tableWrapRef}
+          data-scrolled-x={scrolledX || undefined}
+        >
           <table className={`wb ${density}`}>
             {/* WP7-10 · a screen-reader caption naming what the table holds +
               how many rows are shown. Visually hidden — the WorkspaceHeader
@@ -3256,8 +3328,10 @@ function numField(r: WorkbenchLeadRow, key: string): number | null {
       return r.perf;
     case "seo":
       return r.seo;
-    case "adCount":
-      return r.adCount;
+    case "metaAdCount":
+      return r.metaAdCount;
+    case "googleAdCount":
+      return r.googleAdCount;
     case "serpRank":
       return r.serpRank;
     default:

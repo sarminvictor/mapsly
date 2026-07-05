@@ -90,8 +90,11 @@ export interface WorkbenchLeadRow {
   perf: number | null;
   /** AUDIT F2 · Lighthouse SEO score (0–100) — was stored, never columnised. */
   seo: number | null;
-  /** AUDIT F2 · active Meta-ad creative count — stored, never columnised. */
-  adCount: number | null;
+  /** Active Meta (FB/IG) ad-creative count — stored, columnised separately from
+   *  Google (distinct source + attribution; never merged). */
+  metaAdCount: number | null;
+  /** Active Google ad-creative count (per-business target-host attribution). */
+  googleAdCount: number | null;
   /** AUDIT F2 · best local-pack rank (lower = better; null = off the pack). */
   serpRank: number | null;
   /** AUDIT F2 · the AI-research one-line positioning summary (BusinessEnrichment.
@@ -397,6 +400,11 @@ export interface ColumnDef {
   typeGroup: ColumnTypeGroup;
   /** Backing data family (for "— enrich" greying + coverage). */
   family?: DataFamily;
+  /** Override the enrich TYPES a cell-click on this column requests. Defaults to
+   *  the family's types (`FAMILY_ENRICH_TYPES`). Use this when a column is a
+   *  subset of its family — e.g. Built on / Booking tool are `website` family but
+   *  only want the tech/DOM scan (contacts+tech), NOT Lighthouse. */
+  enrichTypes?: readonly string[];
   /** For num columns: does a higher value read as better (vs-cell color)? */
   higherIsBetter?: boolean;
   /** For num columns: the value unit shown after the number. */
@@ -463,6 +471,9 @@ export const COLUMNS: readonly ColumnDef[] = [
     defaultOn: false,
     group: "enriched",
     family: "website",
+    // Built-on comes from the DOM/tech scan (rides the contacts fetch) — NOT
+    // Lighthouse. A cell-click enriches contacts+tech only.
+    enrichTypes: ["contacts", "tech"],
     typeGroup: "Tech",
   },
   {
@@ -524,16 +535,32 @@ export const COLUMNS: readonly ColumnDef[] = [
     typeGroup: "Site audit",
   },
   {
-    // B1 · active-ad count across Meta + Google (per-business Google attribution
-    // is reliable now — target-host ads_search).
-    key: "adCount",
-    label: "Ads",
-    fullLabel: "Active ad creatives (Meta + Google)",
+    // Meta and Google ads are SEPARATE columns — distinct sources, cost bases,
+    // and reliability. Never merged into one "Ads" total. `enrichTypes` scopes a
+    // cell-click to THAT platform only (the `ads` DataFamily is shared for the
+    // coverage dot, but the enrich action must not buy the other platform).
+    key: "metaAdCount",
+    label: "Meta ads",
+    fullLabel: "Active Meta (FB/IG) ad creatives",
     kind: "num",
     sortable: true,
     defaultOn: false,
     group: "enriched",
     family: "ads",
+    enrichTypes: ["meta_ads"],
+    higherIsBetter: true,
+    typeGroup: "Ads",
+  },
+  {
+    key: "googleAdCount",
+    label: "Google ads",
+    fullLabel: "Active Google ad creatives (target-host attribution)",
+    kind: "num",
+    sortable: true,
+    defaultOn: false,
+    group: "enriched",
+    family: "ads",
+    enrichTypes: ["google_ads"],
     higherIsBetter: true,
     typeGroup: "Ads",
   },
@@ -559,6 +586,8 @@ export const COLUMNS: readonly ColumnDef[] = [
     defaultOn: false,
     group: "enriched",
     family: "website",
+    // Booking tool is read from the DOM/tech scan, not Lighthouse.
+    enrichTypes: ["contacts", "tech"],
     typeGroup: "Tech",
   },
   {

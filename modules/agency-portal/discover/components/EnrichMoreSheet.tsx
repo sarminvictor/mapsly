@@ -37,7 +37,9 @@ import { resolveResearches } from "../researches";
 import { enrichCreditsFor, fmtCredits } from "../flow-types";
 import {
   DATA_GROUPS,
+  ENRICHMENT_TYPE_KEYS,
   enrichTypesForGroups,
+  rollUpGroupState,
   type DataGroup,
   type DataGroupKey,
   type EnrichmentTypeKey,
@@ -78,9 +80,13 @@ interface ScopeInfo {
  */
 interface GroupLine {
   group: DataGroup;
-  /** Leads where EVERY type in the group is `enriched` (already have the data). */
+  /**
+   * Leads where the group's rolled-up state is anything BUT `not_run` — the group
+   * has been dealt with (enriched, ran-but-empty, in-flight, or attempted-and-
+   * failed). A completed-but-empty enrichment reads as HAVE, not to-get.
+   */
   have: number;
-  /** Leads where ≥1 type in the group has NOT run yet (the to-get set). */
+  /** Leads where the rolled-up group state is `not_run` (the only true to-get). */
   toGet: number;
   /** Gross credits for this group over the to-get set (per-lead) or per cell. */
   credits: number;
@@ -289,12 +295,19 @@ export function EnrichMoreSheet({
       let toGet = 0;
       for (const id of scopeIds) {
         const ts = coverageTypeStates[id];
-        // A lead HAS the group when EVERY type in it is enriched; it's to-get
-        // when ≥1 type hasn't run yet. Absent map / no data → treat as to-get.
-        const states = group.types.map((t) => ts?.[t] ?? "not_run");
-        if (states.every((s) => s === "enriched")) have += 1;
-        else if (states.some((s) => s === "not_run")) toGet += 1;
-        else have += 1; // ran-but-empty everywhere → nothing more to get
+        // Build the full per-TYPE map (every one of the 9 keys, default not_run)
+        // and roll it up through the CANONICAL precedence so the popup agrees
+        // with the drawer/dot-strip. "to get" = never ran (not_run) OR the scan
+        // FAILED (re-offerable for retry — a failed scan is NOT "already done").
+        // enriched / ran-but-empty / in-flight all count as HAVE (a
+        // completed-but-empty enrichment must NOT read as "to get" — that was the
+        // exact bug; the server preflight dedups already-fresh units at run so a
+        // retry only re-bills the failed half).
+        const perType = {} as Record<EnrichmentTypeKey, TypeState>;
+        for (const k of ENRICHMENT_TYPE_KEYS) perType[k] = ts?.[k] ?? "not_run";
+        const state = rollUpGroupState(perType, group);
+        if (state === "not_run" || state === "failed") toGet += 1;
+        else have += 1;
       }
       // Per-lead count to bill: the to-get set (selected/visible scope), or the
       // whole market when scope is "all" (no per-lead ids to split on).
@@ -517,51 +530,65 @@ export function EnrichMoreSheet({
             </span>
           </div>
 
-          {/* Data-group rows — each names the DATA the user gets + a plain
-              "N have · M to get" over the scope's leads (per-lead groups) or
-              "market · runs once" (Meta/SERP), plus the credit price for the
-              to-get set. "Contacts & site tech" is ONE row (contacts + tech
-              are one fetch — no standalone "incl." tech row). */}
+          {/* Data-group rows — a leading status dot (solid = already done for
+              this scope), the DATA the user gets, a green "N have" pill, the
+              muted description, and a fixed right-side cluster reading "already
+              done" or "{N} to get · {credits} cr". Market groups (Meta/SERP)
+              run once per cell; the market note rides the description line.
+              "Contacts & site tech" is ONE row (contacts + tech are one fetch). */}
           <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
             {groupLines.map(({ group, have, toGet, credits, isMarket }) => {
               const on = selected.has(group.key);
+              // "Already done" for THIS scope: nothing left to get + we've
+              // actually touched ≥1 lead. Market groups have no per-lead split,
+              // so the dot stays hollow (they always quote a per-cell run).
+              const done = !isMarket && toGet === 0 && have > 0;
               return (
                 <li key={group.key}>
                   <label className="enrich-group-row">
+                    <span
+                      className={`egr-dot${done ? " on" : ""}`}
+                      aria-hidden="true"
+                    />
                     <input
                       type="checkbox"
                       checked={on}
                       onChange={() => toggle(group.key)}
                     />
                     <span className="egr-main">
-                      <span className="egr-label">{group.label}</span>
+                      <span className="egr-head">
+                        <span className="egr-label">{group.label}</span>
+                        {!isMarket && have > 0 ? (
+                          <span className="egr-have-pill">
+                            {have.toLocaleString()} have
+                          </span>
+                        ) : null}
+                      </span>
                       <span className="note egr-desc">
                         {group.desc}
-                        {" · "}
-                        {isMarket ? (
-                          <span className="egr-count">
-                            market · runs once
-                            {group.marketNote ? ` · ${group.marketNote}` : ""}
-                          </span>
-                        ) : scope === "all" ? (
-                          <span className="egr-count">
-                            {scopeCount.toLocaleString()} leads
-                          </span>
-                        ) : (
-                          <span className="egr-count">
-                            <b>{have.toLocaleString()}</b> have ·{" "}
-                            <b>{toGet.toLocaleString()}</b> to get
-                          </span>
-                        )}
+                        {group.marketNote ? ` · ${group.marketNote}` : ""}
                       </span>
                     </span>
-                    <span className="cr" style={{ flexShrink: 0 }}>
-                      {credits === 0 ? (
-                        "—"
+                    <span className="egr-todo" style={{ flexShrink: 0 }}>
+                      {isMarket ? (
+                        <>
+                          market · runs once ·{" "}
+                          <span className="ic-coin sm" aria-hidden="true" />
+                          {fmtCredits(credits)} cr
+                        </>
+                      ) : scope === "all" ? (
+                        <>
+                          {scopeCount.toLocaleString()} leads ·{" "}
+                          <span className="ic-coin sm" aria-hidden="true" />
+                          {fmtCredits(credits)} cr
+                        </>
+                      ) : toGet === 0 ? (
+                        "already done"
                       ) : (
                         <>
+                          {toGet.toLocaleString()} to get ·{" "}
                           <span className="ic-coin sm" aria-hidden="true" />
-                          {fmtCredits(credits)}
+                          {fmtCredits(credits)} cr
                         </>
                       )}
                     </span>
@@ -573,16 +600,16 @@ export function EnrichMoreSheet({
 
           {/* AUDIT U20 · ALWAYS restate the exact data groups that will run + the
               credit total before commit, so what gets fetched — and what it
-              costs — is never a surprise. Speaks the data-group vocabulary. */}
-          {selected.size > 0 ? (
-            <p className="note" style={{ marginTop: 6 }}>
-              Getting:{" "}
-              {[...selected]
-                .map((k) => DATA_GROUPS.find((g) => g.key === k)?.label ?? k)
-                .join(" + ")}{" "}
-              · ~{fmtCredits(grossCredits)} credits
-            </p>
-          ) : null}
+              costs — is never a surprise. Speaks the data-group vocabulary. The
+              container ALWAYS renders (empty text when nothing's picked) so it
+              reserves height and never pops in (FIX 3a · no layout jump). */}
+          <p className="note egr-getting" style={{ marginTop: 6 }}>
+            {selected.size > 0
+              ? `Getting: ${[...selected]
+                  .map((k) => DATA_GROUPS.find((g) => g.key === k)?.label ?? k)
+                  .join(" + ")} · ~${fmtCredits(grossCredits)} credits`
+              : ""}
+          </p>
 
           {error ? (
             <p
@@ -596,7 +623,14 @@ export function EnrichMoreSheet({
         </div>
 
         <div className="mfoot" style={{ alignItems: "center", gap: 10 }}>
-          <span className="note" style={{ flex: 1, minWidth: 0 }}>
+          {/* FIX 3b · ONE stable wrapper — the three length-variants swap as
+              text/children INSIDE it (never mount/unmount the span) so the
+              footer can't pop; the .egr-foot-msg min-height (agency-portal.css)
+              reserves the tallest variant's height. */}
+          <span
+            className="note egr-foot-msg"
+            style={{ flex: 1, minWidth: 0 }}
+          >
             {enrichments.length === 0 || scopeCount + cellCount === 0 ? (
               "Pick at least one data group."
             ) : deficit != null && deficit > 0 ? (

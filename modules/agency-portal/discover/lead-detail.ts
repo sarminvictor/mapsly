@@ -613,10 +613,12 @@ export async function getLeadDetail(
       ? Math.round((repliedPulled / pulledReviews) * 100)
       : null;
 
-  // ── Ads ──
-  const runsAds = ads.some((a) => a.isActive);
+  // ── Ads ── Meta and Google are SEPARATE blocks (distinct sources; never
+  // merged). Track each platform's active-creative set + "currently running".
   const metaAds = ads.filter((a) => a.platform === "META");
   const googleAds = ads.filter((a) => a.platform === "GOOGLE");
+  const metaRunsAds = metaAds.some((a) => a.isActive);
+  const googleRunsAds = googleAds.some((a) => a.isActive);
 
   // ── AUDIT §4 · honest per-family RUN state (E1/E4/E5 · the presence≠ran fix).
   // Fold the per-business EnrichmentJob matrix + the cell-scoped AdMarketRun into
@@ -655,9 +657,6 @@ export async function getLeadDetail(
   // Family-level (drives the dot/coverage): "ads" ran if EITHER platform ran.
   const adsRan = metaRan || googleRan;
   const adsFailed = metaFailed || googleFailed;
-  // Drawer-only: Meta specifically failed with no later success → surface it even
-  // though the family is "enriched" off the Google half.
-  const metaScanFailed = metaFailed && !metaRan;
   const familyStates: Record<DataFamily, FamilyState> = deriveFamilyStates({
     presence: {
       // reviews presence = REAL pulled Review rows, never reviewCount (E1).
@@ -741,7 +740,9 @@ export async function getLeadDetail(
   const hipaaFinding = findings.some(
     (f) => f.signalKey === "hipaa-pixel-on-phi-page",
   );
-  const complianceFlag = hipaaFinding || (runsAds && techScanned && !hasPixel);
+  const complianceFlag =
+    hipaaFinding ||
+    ((metaRunsAds || googleRunsAds) && techScanned && !hasPixel);
 
   // ── Fired composite signals (flagged findings → cards w/ evidence) ──
   const firedSignals: LeadFiredSignal[] = findings.map((f) => ({
@@ -803,22 +804,44 @@ export async function getLeadDetail(
   const techEnriched = techScanned || cms != null;
   const speedEnriched = audit != null;
   const websiteState = familyStates.website;
-  const adsState = familyStates.ads;
-  const adsEnriched = adsState === "enriched";
+  // Meta and Google ads are SEPARATE drawer blocks, each with its OWN honest
+  // run-state — a Meta failure can no longer hide behind a Google success.
+  // presence → enriched · scanned-empty → empty · errored → failed · else not_run.
+  const platformAdState = (
+    hasData: boolean,
+    ran: boolean,
+    failed: boolean,
+  ): FamilyState =>
+    hasData ? "enriched" : ran ? "empty" : failed ? "failed" : "not_run";
+  const metaAdsState = platformAdState(metaAds.length > 0, metaRan, metaFailed);
+  const googleAdsState = platformAdState(
+    googleAds.length > 0,
+    googleRan,
+    googleFailed,
+  );
+  const metaAdsEnriched = metaAdsState === "enriched";
+  const googleAdsEnriched = googleAdsState === "enriched";
   const serpState = familyStates.search;
   const serpEnriched = serpState === "enriched";
+  // Services folds into the AI brief — both read the fetched DOM, shown as one
+  // "AI brief" block. `servicesEnriched` still gates the Services sub-section.
   const servicesEnriched = services.length > 0;
-  const servicesState: FamilyState = servicesEnriched ? "enriched" : "not_run";
   const aiEnriched = research != null;
-  const aiState: FamilyState = aiEnriched ? "enriched" : "not_run";
+  // The AI-brief block is enriched when EITHER the AI read or the services list
+  // has data.
+  const aiBriefEnriched = aiEnriched || servicesEnriched;
+  const aiBriefState: FamilyState = aiBriefEnriched ? "enriched" : "not_run";
 
   // WP6-9 · per-block provenance — the retrieval date backing each domain, so
   // every evidence block reads "{source} · as of {date}". Nulls degrade to the
   // source line alone (or nothing when not enriched).
-  const adsLastSeen = ads
-    .map((a) => a.lastSeenAt)
-    .filter((d): d is Date => d != null)
-    .sort((a, b) => b.getTime() - a.getTime())[0];
+  const latestSeen = (rows: typeof ads) =>
+    rows
+      .map((a) => a.lastSeenAt)
+      .filter((d): d is Date => d != null)
+      .sort((a, b) => b.getTime() - a.getTime())[0];
+  const metaAdsLastSeen = latestSeen(metaAds);
+  const googleAdsLastSeen = latestSeen(googleAds);
 
   // E1 · the LISTING facts — always present from discovery (GBP aggregate),
   // shown whether or not reviews were pulled. Labelled as the listing, not a
@@ -1050,72 +1073,87 @@ export async function getLeadDetail(
       asOf: speedEnriched ? isoDay(audit?.auditedAt) : null,
     },
     {
-      key: "ads",
+      key: "meta_ads",
       icon: "📣",
-      title: "Ads",
-      state: adsState,
-      enriched: adsEnriched,
-      summary: adsEnriched
-        ? `Meta: ${metaScanFailed ? "scan failed" : metaAds.length ? (runsAds ? "running" : "paused") : "—"}${googleAds.length ? ` · Google: ${googleAds.length}` : ""}`
+      title: "Meta ads",
+      state: metaAdsState,
+      enriched: metaAdsEnriched,
+      summary: metaAdsEnriched
+        ? `${metaAds.length} active${metaRunsAds ? "" : " · paused"}`
         : null,
-      rows: adsEnriched
+      rows: metaAdsEnriched
         ? [
             {
-              // B1 honesty fix: this row's value + vs-cell band are the ALL-PLATFORM
-              // active-ad total, so it's labelled "Active ads" — not "Meta ads",
-              // which contradicted the per-platform header (a lone Google ad read as
-              // "Meta ads: 1"). The bar is suppressed when the Meta half FAILED: an
-              // incomplete total must not plot as a confident market position — the
-              // per-platform header ("Meta: scan failed · Google: N") carries the truth.
-              label: "Active ads",
-              value:
-                metaAds.length + googleAds.length
-                  ? `${metaAds.length + googleAds.length} active${runsAds ? "" : " · paused"}`
-                  : "—",
-              tone: runsAds ? ("g" as const) : null,
-              metric: metaScanFailed
-                ? undefined
-                : {
-                    value: metaAds.length + googleAds.length,
-                    bandKey: "ads" as const,
-                  },
+              label: "Active Meta ads",
+              value: `${metaAds.length} creative${metaAds.length === 1 ? "" : "s"}${metaRunsAds ? "" : " · paused"}`,
+              tone: metaRunsAds ? ("g" as const) : null,
+              metric: { value: metaAds.length, bandKey: "meta_ads" as const },
             },
-            ...(metaAds.length
+            ...(Array.from(
+              new Set(
+                metaAds
+                  .map((a) => a.displayFormat)
+                  .filter((v): v is string => !!v),
+              ),
+            ).join(" · ")
               ? [
                   {
                     label: "Formats",
-                    value:
-                      Array.from(
-                        new Set(
-                          metaAds
-                            .map((a) => a.displayFormat)
-                            .filter((v): v is string => !!v),
-                        ),
-                      ).join(" · ") || "—",
+                    value: Array.from(
+                      new Set(
+                        metaAds
+                          .map((a) => a.displayFormat)
+                          .filter((v): v is string => !!v),
+                      ),
+                    ).join(" · "),
                   },
                 ]
-              : []),
-            ...(googleAds.length
-              ? [{ label: "Google ads", value: `${googleAds.length} active` }]
               : []),
           ]
         : [],
       listingRows: [],
-      // B1 · Google ads now attribute per-business (target-host), so the ghost
-      // CTA names both libraries.
       ghostNote:
-        "Scan the Meta + Google ad libraries — active creatives, spend bands, and formats.",
-      // E5 · the barber case: ads ran cell-wide, matched 0 advertisers → this is
-      // a VERIFIED empty, not a never-run. Calm, not an enrich CTA.
+        "Scan the Meta Ad Library — active creatives, spend bands, and formats.",
+      // A scanned cell that matched 0 advertisers is a VERIFIED empty, not a
+      // never-run — calm, not an enrich CTA.
+      emptyNote: "Meta Ad Library scanned — no active ads for this business.",
+      source: metaAdsEnriched ? "Meta Ad Library" : null,
+      asOf: metaAdsEnriched ? isoDay(metaAdsLastSeen) : null,
+    },
+    {
+      key: "google_ads",
+      icon: "📣",
+      title: "Google ads",
+      state: googleAdsState,
+      enriched: googleAdsEnriched,
+      summary: googleAdsEnriched
+        ? `${googleAds.length} active${googleRunsAds ? "" : " · paused"}`
+        : null,
+      rows: googleAdsEnriched
+        ? [
+            {
+              label: "Active Google ads",
+              value: `${googleAds.length} creative${googleAds.length === 1 ? "" : "s"}${googleRunsAds ? "" : " · paused"}`,
+              tone: googleRunsAds ? ("g" as const) : null,
+              metric: {
+                value: googleAds.length,
+                bandKey: "google_ads" as const,
+              },
+            },
+          ]
+        : [],
+      listingRows: [],
+      ghostNote:
+        "Scan the Google Ads Transparency Center — active search & display ads (reliable per-business attribution).",
       emptyNote:
-        "Ad libraries scanned — no active ads found for this business.",
-      source: adsEnriched ? "Meta + Google ad libraries" : null,
-      asOf: adsEnriched ? isoDay(adsLastSeen) : null,
+        "Google Ads Transparency scanned — no active ads for this business.",
+      source: googleAdsEnriched ? "Google Ads Transparency" : null,
+      asOf: googleAdsEnriched ? isoDay(googleAdsLastSeen) : null,
     },
     {
       key: "serp",
       icon: "🔍",
-      title: "Search / SERP",
+      title: "Search rank",
       state: serpState,
       enriched: serpEnriched,
       summary: serpEnriched
@@ -1150,48 +1188,36 @@ export async function getLeadDetail(
       asOf: serpEnriched ? isoDay(serp?.scannedAt) : null,
     },
     {
-      key: "services",
-      icon: "🧾",
-      title: "Services",
-      state: servicesState,
-      enriched: servicesEnriched,
-      summary: servicesEnriched
-        ? services
-            .slice(0, 3)
-            .map((s) => s.name)
-            .join(" · ") +
-          (services.length > 3 ? ` · +${services.length - 3}` : "")
-        : null,
-      rows: servicesEnriched
-        ? services.map((s) => ({
-            label: s.name,
-            value: s.category ?? "—",
-          }))
-        : [],
-      listingRows: [],
-      ghostNote:
-        "Detect the service menu — service gaps vs the cell are a differentiator pitch.",
-      emptyNote: null,
-      source: servicesEnriched ? "Website menu" : null,
-      asOf: null,
-    },
-    {
+      // Services folds into the AI brief — one door, one block. The services
+      // list renders as a "Services" sub-section above the AI read.
       key: "ai",
       icon: "🧠",
-      title: "AI research",
-      state: aiState,
-      enriched: aiEnriched,
+      title: "AI brief",
+      state: aiBriefState,
+      enriched: aiBriefEnriched,
       summary: aiEnriched
         ? [research?.subType, research?.sophistication]
             .filter(Boolean)
             .join(" · ") || "Positioning · pricing · pain hypotheses"
-        : null,
+        : servicesEnriched
+          ? services
+              .slice(0, 3)
+              .map((s) => s.name)
+              .join(" · ") +
+            (services.length > 3 ? ` · +${services.length - 3}` : "")
+          : null,
       // E3 · restructured into labelled sub-sections. `section` groups the rows
-      // (Summary · Positioning · Compliance cues · Opener angle) so the drawer
-      // renders headed groups instead of a flat list. Data unchanged (ER-3
-      // already stabilised the pipeline) — labels/structure only.
-      rows: aiEnriched
+      // (Services · Summary · Positioning · Compliance cues · Opener angle) so the
+      // drawer renders headed groups instead of a flat list. Services folded in
+      // (2026-07-05) — the menu the site lists, above the AI read.
+      rows: aiBriefEnriched
         ? [
+            // ── Services (the menu detected on the site) ──
+            ...services.map((s) => ({
+              label: s.name,
+              value: s.category ?? "—",
+              section: "Services" as const,
+            })),
             // ── Summary ──
             ...(research?.subType
               ? [
@@ -1259,9 +1285,13 @@ export async function getLeadDetail(
         : [],
       listingRows: [],
       ghostNote:
-        "Positioning, pricing transparency, pain hypotheses — an AI read on how to pitch this business.",
+        "Services they list + an AI read on positioning, pricing transparency, and pain hypotheses — how to pitch this business.",
       emptyNote: null,
-      source: aiEnriched ? "AI analysis of public sources" : null,
+      source: aiEnriched
+        ? "AI analysis of public sources"
+        : servicesEnriched
+          ? "Website menu"
+          : null,
       asOf: null,
     },
   ];

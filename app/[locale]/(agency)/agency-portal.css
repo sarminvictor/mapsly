@@ -2177,7 +2177,17 @@
   left: 34px;
   background: #fff;
   z-index: 2;
-  border-right: 1px solid var(--line);
+  /* A faint permanent hairline marks the frozen edge at rest; the real "detached"
+     read is a scroll-gated box-shadow (added below) — a shadow doesn't shift
+     layout the way a growing border would. */
+  border-right: 1px solid var(--line-2, #eef0f6);
+  transition: box-shadow 0.12s;
+}
+/* AUDIT · the frozen Business column reads as "detached" only once the grid is
+   scrolled horizontally (data-scrolled-x set by the wrap's scroll listener). */
+.agency-portal .wbtable-wrap[data-scrolled-x] table.wb td.biz,
+.agency-portal .wbtable-wrap[data-scrolled-x] table.wb th.biz {
+  box-shadow: 6px 0 8px -6px rgba(20, 22, 60, 0.18);
 }
 .agency-portal table.wb thead th.sel,
 .agency-portal table.wb thead th.biz {
@@ -3204,6 +3214,68 @@
 }
 .agency-portal .enrich-group-row .cr {
   margin-top: 1px;
+}
+/* AUDIT · the enrich-sheet "done" affordances. All nowrap so a per-row count can
+   never wrap to a 2nd line (which jumped the whole popup's height — FIX). */
+/* The head line: group label + the "N have" pill on ONE row. */
+.agency-portal .enrich-group-row .egr-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  flex-wrap: nowrap;
+}
+/* A small hollow status circle before the checkbox — filled green when the group
+   is already fully covered for the scope ("done"). */
+.agency-portal .enrich-group-row .egr-dot {
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px;
+  margin-top: 5px;
+  border: 2px solid var(--line);
+  border-radius: 50%;
+  display: inline-block;
+  box-sizing: border-box;
+}
+.agency-portal .enrich-group-row .egr-dot.on {
+  background: var(--green);
+  border-color: var(--green);
+}
+/* The "N have" pill — a small green tint chip, nowrap. */
+.agency-portal .enrich-group-row .egr-have-pill {
+  flex: 0 0 auto;
+  font-size: var(--fs-2xs);
+  font-weight: 650;
+  padding: 1px var(--space-2);
+  border-radius: 999px;
+  background: rgba(15, 157, 107, 0.12);
+  color: var(--green);
+  white-space: nowrap;
+  font-feature-settings: "tnum" 1;
+}
+/* The right-aligned "M to get · N cr" cluster — muted, nowrap. */
+.agency-portal .enrich-group-row .egr-todo {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: var(--fs-2xs);
+  color: var(--muted);
+  white-space: nowrap;
+  font-feature-settings: "tnum" 1;
+}
+/* FIX 3b · reserve the footer message's tallest (~2 line) height so its three
+   length-variants never jump the footer band as they swap. */
+.agency-portal .enrich-panel .mfoot .egr-foot-msg {
+  min-height: 2.6em;
+  display: inline-flex;
+  align-items: center;
+}
+/* FIX 3a · the "Getting: …" summary line is ALWAYS rendered (empty text when
+   nothing is selected) — reserve its single-line height so it never pops in and
+   shoves the rows below it. */
+.agency-portal .enrich-panel .egr-getting {
+  min-height: 1.35em;
 }
 /* Narrow viewports (<720px): fall back to a bottom-sheet so the panel stays
    reachable on a phone/tablet in portrait. */
@@ -5662,6 +5734,44 @@
   /* Non-interactive overlay — the whole cell is already pointer-events:none. */
   pointer-events: none;
 }
+/* AUDIT · the field loader is a HORIZONTAL sweep beside the (dimmed) value, not a
+   round spinner that replaces it — it reads as "this value is refreshing". */
+.agency-portal .cell-loading-sweep {
+  display: inline-block;
+  width: 38px;
+  height: 8px;
+  border-radius: 4px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--indigo-100, rgba(91, 61, 245, 0.18)),
+    transparent
+  );
+  background-size: 200% 100%;
+  animation: cellsweep 1.15s ease-in-out infinite;
+  vertical-align: middle;
+}
+@keyframes cellsweep {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+/* The affordance + sweep sit side by side (loader BESIDE content, never instead). */
+.agency-portal .cell-loading-beside {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+@media (prefers-reduced-motion: reduce) {
+  /* Leave a static tinted bar in place of the moving sweep. */
+  .agency-portal .cell-loading-sweep {
+    animation: none;
+    background: var(--indigo-100, rgba(91, 61, 245, 0.18));
+  }
+}
 @keyframes wb-cell-pulse {
   0%,
   100% {
@@ -5698,30 +5808,9 @@
   background: var(--indigo-soft, #ece8ff);
   color: var(--indigo);
 }
-/* AUDIT C5 · field-state filter chips in the coverage panel. */
-.agency-portal .cov-filters {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: var(--space-2) 14px;
-  padding: var(--space-3) var(--space-4) var(--space-1);
-  border-top: 1px solid var(--line-2);
-  /* AUDIT UX-review #4 · cap the C5 chip row so it can't inflate the coverage
-     panel unbounded and push the grid down (no popover lives in here, so a
-     scroll cap is safe — unlike the outer collapse-panel). */
-  max-height: 28vh;
-  overflow-y: auto;
-}
-.agency-portal .cov-fam {
-  display: inline-flex;
-  align-items: baseline;
-  gap: var(--space-1);
-}
-.agency-portal .cov-fam-lbl {
-  font-size: 11px;
-  font-weight: 650;
-  color: var(--ink-2);
-}
+/* AUDIT C5 · interactive field-state filter chips (the "By data state" section of
+   the "+ Filter" picker). The read-only coverage-panel summary (.cov-filters /
+   .cov-fam / .cov-state-ro) was removed with its markup. */
 .agency-portal .cov-state {
   font-size: var(--fs-2xs);
   padding: 1px var(--space-2);
@@ -5739,16 +5828,6 @@
   background: var(--indigo);
   border-color: var(--indigo);
   color: #fff;
-}
-/* C2 · read-only state count in the coverage panel (glance-only — the
-   interactive toggles now live in the "+ Filter" picker). Same pill footprint
-   as .cov-state, but non-interactive: no border, no hover, muted. */
-.agency-portal .cov-state-ro {
-  font-size: var(--fs-2xs);
-  padding: 1px var(--space-2);
-  border-radius: 10px;
-  color: var(--muted);
-  font-feature-settings: "tnum" 1;
 }
 .agency-portal .covfrac {
   font-family: var(--mono);

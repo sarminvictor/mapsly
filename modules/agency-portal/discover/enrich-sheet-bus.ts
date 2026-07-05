@@ -124,14 +124,16 @@ export function enrichTypesForDomainKey(key: string): EnrichmentType[] {
       return ["tech"];
     case "speed":
       return ["lighthouse"];
-    case "ads":
-      return ["meta_ads", "google_ads"];
+    case "meta_ads":
+      return ["meta_ads"];
+    case "google_ads":
+      return ["google_ads"];
     case "serp":
       return ["serp"];
-    case "services":
-      return ["services"];
     case "ai":
-      return ["ai_research"];
+      // AI brief now includes services — both read the fetched DOM, shown as one
+      // "AI brief" door.
+      return ["ai_research", "services"];
     default:
       return [];
   }

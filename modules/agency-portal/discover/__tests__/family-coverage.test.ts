@@ -8,6 +8,8 @@ import { describe, expect, test } from "vitest";
 import {
   anyEnrichmentRan,
   anyGroupRan,
+  anyLeadEnrichmentRan,
+  anyLeadGroupRan,
   anyTypeRan,
   DATA_GROUP_KEYS,
   DATA_GROUPS,
@@ -309,17 +311,26 @@ describe("DATA_GROUPS + roll-up", () => {
     expect(new Set(seen).size).toBe(seen.length);
   });
 
-  test("contacts+tech are ONE group; ads spans meta+google; search is SERP", () => {
+  test("contacts+tech ONE group; Meta/Google ads SPLIT; ai_brief spans services+ai", () => {
     const byKey = Object.fromEntries(DATA_GROUPS.map((g) => [g.key, g]));
     expect(byKey.contacts_tech!.types).toEqual(["CONTACTS", "TECH"]);
-    expect(byKey.ads!.types).toEqual(["META_ADS", "GOOGLE_ADS"]);
+    // Meta and Google ads are SEPARATE groups (never merged).
+    expect(byKey.meta_ads!.types).toEqual(["META_ADS"]);
+    expect(byKey.google_ads!.types).toEqual(["GOOGLE_ADS"]);
+    // Services folds into the AI brief — one group, two types.
+    expect(byKey.ai_brief!.types).toEqual(["SERVICES", "AI_RESEARCH"]);
     expect(byKey.search!.types).toEqual(["SERP"]);
+    // No standalone "services" or "ads" group anymore.
+    expect(byKey.services).toBeUndefined();
+    expect(byKey.ads).toBeUndefined();
   });
 
-  test("market groups are flagged basis=market (Meta/SERP run per cell)", () => {
+  test("market vs lead basis (Meta/SERP per cell; Google ads per lead)", () => {
     const byKey = Object.fromEntries(DATA_GROUPS.map((g) => [g.key, g]));
-    expect(byKey.ads!.basis).toBe("market");
+    expect(byKey.meta_ads!.basis).toBe("market");
     expect(byKey.search!.basis).toBe("market");
+    // Google ads are per-BUSINESS (target-host attribution) → lead basis.
+    expect(byKey.google_ads!.basis).toBe("lead");
     expect(byKey.reviews!.basis).toBe("lead");
     expect(byKey.contacts_tech!.basis).toBe("lead");
   });
@@ -329,9 +340,12 @@ describe("DATA_GROUPS + roll-up", () => {
       "contacts",
       "tech",
     ]);
-    expect(enrichTypesForGroups(["ads"]).sort()).toEqual([
-      "google_ads",
-      "meta_ads",
+    expect(enrichTypesForGroups(["meta_ads"])).toEqual(["meta_ads"]);
+    expect(enrichTypesForGroups(["google_ads"])).toEqual(["google_ads"]);
+    // AI brief runs BOTH the services + ai_research jobs.
+    expect(enrichTypesForGroups(["ai_brief"]).sort()).toEqual([
+      "ai_research",
+      "services",
     ]);
     expect(enrichTypesForGroups(["reviews"])).toEqual(["reviews"]);
   });
@@ -350,21 +364,22 @@ describe("DATA_GROUPS + roll-up", () => {
   });
 
   test("rollUpGroupState precedence: running > failed > enriched/empty", () => {
-    const ads = DATA_GROUPS.find((g) => g.key === "ads")!;
+    // contacts_tech spans two types (CONTACTS + TECH) → tests sibling precedence.
+    const ct = DATA_GROUPS.find((g) => g.key === "contacts_tech")!;
     // A running type wins over a done sibling.
     const running = {
       ...allNotRun(),
-      META_ADS: "enriched",
-      GOOGLE_ADS: "running",
+      CONTACTS: "enriched",
+      TECH: "running",
     };
-    expect(rollUpGroupState(running as never, ads)).toBe("running");
+    expect(rollUpGroupState(running as never, ct)).toBe("running");
     // A failed type wins over a done sibling (none running).
     const failed = {
       ...allNotRun(),
-      META_ADS: "enriched",
-      GOOGLE_ADS: "failed",
+      CONTACTS: "enriched",
+      TECH: "failed",
     };
-    expect(rollUpGroupState(failed as never, ads)).toBe("failed");
+    expect(rollUpGroupState(failed as never, ct)).toBe("failed");
   });
 
   test("deriveGroupStates + enrichedGroupCount + anyGroupRan (the /7 denominator)", () => {
@@ -388,5 +403,40 @@ describe("DATA_GROUPS + roll-up", () => {
     const running = deriveGroupStates({ ...allNotRun(), SERP: "running" });
     expect(enrichedGroupCount(running)).toBe(0);
     expect(anyGroupRan(running)).toBe(true);
+  });
+
+  test('"Enriched only" (per-lead) ignores per-cell ads/search scans', () => {
+    // A lead where ONLY the per-MARKET scans ran (Meta ads + SERP, which fire
+    // once per cell for the whole cohort) is NOT personally enriched.
+    const cellOnly = deriveGroupStates({
+      ...allNotRun(),
+      META_ADS: "enriched",
+      SERP: "enriched",
+    });
+    expect(anyGroupRan(cellOnly)).toBe(true); // any group ran
+    expect(anyLeadGroupRan(cellOnly)).toBe(false); // but no PERSONAL enrichment
+
+    // A real per-lead enrichment (contacts) flips it true.
+    const leadEnriched = deriveGroupStates({
+      ...allNotRun(),
+      CONTACTS: "enriched",
+    });
+    expect(anyLeadGroupRan(leadEnriched)).toBe(true);
+
+    // Fallback family path mirrors it: a cell-only ads scan isn't a lead enrich.
+    expect(
+      anyLeadEnrichmentRan(
+        deriveFamilyStates({ presence: {}, cellRan: { ads: true } }),
+      ),
+    ).toBe(false);
+    // A real per-lead family (contacts job ran + has data) → true.
+    expect(
+      anyLeadEnrichmentRan(
+        deriveFamilyStates({
+          presence: { contacts: true },
+          doneJobFamilies: new Set(["CONTACTS"]),
+        }),
+      ),
+    ).toBe(true);
   });
 });
