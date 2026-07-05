@@ -361,11 +361,17 @@ async function DiscoveryWorkspaceBody({ params, searchParams }: PageProps) {
           // (adsEnriched = ads.length > 0 · serpEnriched = serp != null). These
           // feed the coverage map so the table no longer fakes ads/search as
           // never-covered. Existence-only (distinct businessId).
-          // WP6-1 · Meta-ad COUNT per business (groupBy) — feeds both the
+          // WP6-1 · active-ad COUNT per business (groupBy) — feeds both the
           // ads-presence set (count > 0) AND the vs-cell "ads" cohort band.
+          // B1 · include GOOGLE now that per-business Google attribution is
+          // reliable (target-host ads_search), so the "Ads" column + vs-cell band
+          // count ALL active creatives (Meta + Google), not just Meta.
           prisma.adLibraryEntry.groupBy({
             by: ["businessId"],
-            where: { businessId: { in: businessIds }, platform: "META" },
+            where: {
+              businessId: { in: businessIds },
+              platform: { in: ["META", "GOOGLE"] },
+            },
             _count: { _all: true },
           }),
           prisma.serpResult.findMany({

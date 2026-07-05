@@ -30,6 +30,7 @@ import { z } from "zod";
 import prisma, { Prisma } from "@/lib/prisma";
 import { parseCellKey } from "@/lib/cell";
 import { callOpenAi } from "@/services/ai/client";
+import { wrapUntrusted } from "@/services/ai/untrusted";
 import type { SupportedModel } from "@/services/ai/pricing";
 import {
   detectFromDescription,
@@ -118,6 +119,7 @@ async function gatherFacts(businessId: string): Promise<ExtractFacts | null> {
       categoryIds: true,
       description: true,
       placeTopics: true,
+      siteText: true,
     },
   });
   if (!business) return null;
@@ -130,8 +132,27 @@ async function gatherFacts(businessId: string): Promise<ExtractFacts | null> {
     description: business.description ?? "",
     topics: list,
     topicsMap: map,
-    siteText: (business.description ?? "").slice(0, MAX_SITE_TEXT_CHARS),
+    // A3-feed · prefer the persisted real-website text (menu + positioning copy)
+    // over the thin Google one-line description, falling back to it when a scan
+    // hasn't run. Concatenated (site text first) + truncated to bound token cost.
+    siteText: buildSiteText(business.siteText, business.description),
   };
+}
+
+/**
+ * A3-feed · assemble the model's "site text" input, preferring the persisted
+ * real-website extract (Business.siteText) over the thin Google listing
+ * description, concatenating both when present, and truncating to bound the
+ * token cost. Returns "" when neither is available.
+ */
+function buildSiteText(
+  siteText: string | null,
+  description: string | null,
+): string {
+  const parts = [siteText?.trim(), description?.trim()].filter(
+    (p): p is string => !!p,
+  );
+  return parts.join("\n\n").slice(0, MAX_SITE_TEXT_CHARS);
 }
 
 interface AiService {
@@ -147,7 +168,7 @@ async function extractWithAi(facts: ExtractFacts): Promise<{
 List the concrete SERVICES this business offers (what a customer can buy/book).
 Category: ${facts.category}
 ${facts.topics.length ? `Review topics: ${facts.topics.slice(0, 20).join(", ")}` : ""}
-Text: ${facts.siteText || "(none)"}
+${facts.siteText ? wrapUntrusted(facts.siteText, "Website text") : "Text: (none)"}
 
 Schema: { "services": [ { "name": string, "group": string|null } ] }
 - name: a specific service (e.g. "Oil change", "Bridal makeup", "Root canal"). Not the business type.
@@ -240,13 +261,31 @@ export interface ExtractServicesResult {
 }
 
 /**
+ * A4 · stamp the services freshness cursor on a SUCCESSFUL job completion (even
+ * a verified-empty extract with 0 services — the job ran, we just found nothing
+ * chargeable, which is a valid "fresh" state per the A5 billing invariant). NOT
+ * stamped on a transient failure (business-not-found throws before this), so a
+ * genuine miss re-runs. A repeat run within 90d is then served from DB at $0.
+ */
+async function stampServicesFresh(
+  businessId: string,
+  now: Date,
+): Promise<void> {
+  await prisma.business.update({
+    where: { id: businessId },
+    data: { servicesLastAt: now },
+  });
+}
+
+/**
  * Detect + normalize + persist services for a business across ALL categories.
  * MUST run inside withCronRun (the AI call asserts an open CronRun).
  */
 export async function extractServicesForBusiness(
   businessId: string,
-  opts?: { skipAi?: boolean },
+  opts?: { skipAi?: boolean; now?: Date },
 ): Promise<ExtractServicesResult> {
+  const now = opts?.now ?? new Date();
   const facts = await gatherFacts(businessId);
   if (!facts) {
     throw new Error(`[services-general] business "${businessId}" not found`);
@@ -290,6 +329,8 @@ export async function extractServicesForBusiness(
   }
 
   if (acc.size === 0) {
+    // Verified-empty success: the job ran, found nothing → still fresh (A4).
+    await stampServicesFresh(businessId, now);
     return {
       businessId,
       created: 0,
@@ -309,6 +350,9 @@ export async function extractServicesForBusiness(
 
   // ── Persist · merge into existing BusinessService rows ─────────────────────
   const persisted = await persist(businessId, merged);
+
+  // Successful completion → stamp the freshness cursor (A4).
+  await stampServicesFresh(businessId, now);
 
   return {
     businessId,

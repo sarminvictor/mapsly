@@ -76,8 +76,13 @@ export function WorkbenchShell({ leads, touchpoints }: WorkbenchShellProps) {
 
       {/* WP5-3 · the in-workbench enrich sheet — opened via the enrich-sheet
           bus by the coverage CTA, drawer ghost accordions, and locked Fields
-          rows. Mounted once at the shell so it survives tab switches. */}
-      <EnrichMoreHost discoveryId={leads.discoveryId} />
+          rows. Mounted once at the shell so it survives tab switches. The same
+          per-lead type-state map the table reads is threaded in so the sheet
+          shows "N have · M to get" per data group over the scope. */}
+      <EnrichMoreHost
+        discoveryId={leads.discoveryId}
+        coverageTypeStates={leads.coverageTypeStates}
+      />
     </div>
   );
 }

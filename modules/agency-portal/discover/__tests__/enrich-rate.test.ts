@@ -172,12 +172,15 @@ describe("buildCellRows — honesty contract", () => {
 
 describe("enrichmentNeedsWebsite / WEBSITE_DEPENDENT", () => {
   test("site-reading families need a website", () => {
+    // B1 · google_ads is website-dependent now — its collector keys the
+    // ads_search on the business's host, so a site-less lead has nothing to query.
     for (const f of [
       "lighthouse",
       "contacts",
       "tech",
       "services",
       "ai_research",
+      "google_ads",
     ] as EnrichmentType[]) {
       expect(WEBSITE_DEPENDENT.has(f)).toBe(true);
       expect(enrichmentNeedsWebsite([f])).toBe(true);
@@ -185,12 +188,10 @@ describe("enrichmentNeedsWebsite / WEBSITE_DEPENDENT", () => {
   });
 
   test("Google-presence families do NOT need a website", () => {
-    for (const f of [
-      "reviews",
-      "meta_ads",
-      "google_ads",
-      "serp",
-    ] as EnrichmentType[]) {
+    // reviews/meta_ads/serp key off the Google listing, not the site, so a
+    // phone-only listing is still a valid target. (google_ads moved to the
+    // site-reading set above — B1.)
+    for (const f of ["reviews", "meta_ads", "serp"] as EnrichmentType[]) {
       expect(WEBSITE_DEPENDENT.has(f)).toBe(false);
       expect(enrichmentNeedsWebsite([f])).toBe(false);
     }
@@ -199,6 +200,8 @@ describe("enrichmentNeedsWebsite / WEBSITE_DEPENDENT", () => {
   test("a mixed set needs a website if ANY member does", () => {
     expect(enrichmentNeedsWebsite(["reviews", "lighthouse"])).toBe(true);
     expect(enrichmentNeedsWebsite(["reviews", "serp"])).toBe(false);
+    // B1 · a google_ads-only pick now needs a website.
+    expect(enrichmentNeedsWebsite(["reviews", "google_ads"])).toBe(true);
     expect(enrichmentNeedsWebsite([])).toBe(false);
   });
 });

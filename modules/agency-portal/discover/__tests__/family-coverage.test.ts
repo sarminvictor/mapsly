@@ -7,14 +7,30 @@ import { describe, expect, test } from "vitest";
 
 import {
   anyEnrichmentRan,
+  anyGroupRan,
   anyTypeRan,
+  DATA_GROUP_KEYS,
+  DATA_GROUPS,
   deriveFailedFamilies,
   deriveFamilyCoverage,
   deriveFamilyStates,
+  deriveGroupStates,
   deriveTypeStates,
   enrichedFamilyCount,
+  enrichedGroupCount,
+  enrichTypesForGroups,
   ENRICHMENT_TYPE_KEYS,
+  rollUpGroupState,
+  type EnrichmentTypeKey,
+  type TypeState,
 } from "../family-coverage";
+
+/** A fully not-run per-TYPE map, for building group-rollup fixtures. */
+function allNotRun(): Record<EnrichmentTypeKey, TypeState> {
+  const out = {} as Record<EnrichmentTypeKey, TypeState>;
+  for (const k of ENRICHMENT_TYPE_KEYS) out[k] = "not_run";
+  return out;
+}
 
 describe("deriveFamilyCoverage", () => {
   test("identity is always covered; empty presence covers nothing else", () => {
@@ -223,14 +239,25 @@ describe("deriveTypeStates", () => {
     expect(s.CONTACTS).toBe("not_run");
   });
 
-  test("meta_ads and google_ads are DISTINCT types from separate cell runs", () => {
-    // Meta cell ran and matched this business; Google cell ran but matched none.
+  test("meta_ads (cell run) and google_ads (per-business job) are DISTINCT types", () => {
+    // B1 · Meta is cell-scoped (cellRan.metaAds); Google is now a per-business
+    // GOOGLE_ADS job. Here the Meta cell ran + matched, and the Google job ran but
+    // this business had 0 Google creatives → google_ads is "empty" (verified none).
     const s = deriveTypeStates({
       presence: { metaAds: true, googleAds: false },
-      cellRan: { metaAds: true, googleAds: true },
+      cellRan: { metaAds: true },
+      doneJobFamilies: new Set(["GOOGLE_ADS"]),
     });
     expect(s.META_ADS).toBe("enriched");
     expect(s.GOOGLE_ADS).toBe("empty");
+  });
+
+  test("google_ads per-business job that landed creatives → enriched (B1)", () => {
+    const s = deriveTypeStates({
+      presence: { googleAds: true },
+      doneJobFamilies: new Set(["GOOGLE_ADS"]),
+    });
+    expect(s.GOOGLE_ADS).toBe("enriched");
   });
 
   test("serp is cell-scoped: completed cell, 0 matches → empty; failed cell → failed", () => {
@@ -265,5 +292,101 @@ describe("deriveTypeStates", () => {
     expect(
       anyTypeRan(deriveTypeStates({ presence: {}, cellRan: { serp: true } })),
     ).toBe(true);
+  });
+});
+
+// C3 · the DATA GROUP roll-up — the ONE user-facing vocabulary (7 groups) and
+// the single coverage denominator every workbench surface reads. The 9 billing
+// types collapse into 7 groups; a group is "enriched" only when EVERY type in
+// it has data, and rolls up running/failed as actionable-now signals first.
+describe("DATA_GROUPS + roll-up", () => {
+  test("exactly 7 groups covering all 9 types (each type in one group)", () => {
+    expect(DATA_GROUPS).toHaveLength(7);
+    expect(DATA_GROUP_KEYS).toHaveLength(7);
+    const seen = DATA_GROUPS.flatMap((g) => g.types);
+    // Every purchasable type appears exactly once across the groups.
+    expect([...seen].sort()).toEqual([...ENRICHMENT_TYPE_KEYS].sort());
+    expect(new Set(seen).size).toBe(seen.length);
+  });
+
+  test("contacts+tech are ONE group; ads spans meta+google; search is SERP", () => {
+    const byKey = Object.fromEntries(DATA_GROUPS.map((g) => [g.key, g]));
+    expect(byKey.contacts_tech!.types).toEqual(["CONTACTS", "TECH"]);
+    expect(byKey.ads!.types).toEqual(["META_ADS", "GOOGLE_ADS"]);
+    expect(byKey.search!.types).toEqual(["SERP"]);
+  });
+
+  test("market groups are flagged basis=market (Meta/SERP run per cell)", () => {
+    const byKey = Object.fromEntries(DATA_GROUPS.map((g) => [g.key, g]));
+    expect(byKey.ads!.basis).toBe("market");
+    expect(byKey.search!.basis).toBe("market");
+    expect(byKey.reviews!.basis).toBe("lead");
+    expect(byKey.contacts_tech!.basis).toBe("lead");
+  });
+
+  test("enrichTypesForGroups → lowercase enrichment tokens, de-duped", () => {
+    expect(enrichTypesForGroups(["contacts_tech"]).sort()).toEqual([
+      "contacts",
+      "tech",
+    ]);
+    expect(enrichTypesForGroups(["ads"]).sort()).toEqual([
+      "google_ads",
+      "meta_ads",
+    ]);
+    expect(enrichTypesForGroups(["reviews"])).toEqual(["reviews"]);
+  });
+
+  test("rollUpGroupState: enriched only when EVERY type has data", () => {
+    const contactsTech = DATA_GROUPS.find((g) => g.key === "contacts_tech")!;
+    // Both enriched → group enriched.
+    const both = { ...allNotRun(), CONTACTS: "enriched", TECH: "enriched" };
+    expect(rollUpGroupState(both as never, contactsTech)).toBe("enriched");
+    // One enriched, one not_run → NOT fully enriched → empty (partly ran),
+    // never a false "not_run" that would re-charge the ran type.
+    const partial = { ...allNotRun(), CONTACTS: "enriched" };
+    expect(rollUpGroupState(partial as never, contactsTech)).toBe("empty");
+    // All not_run → not_run.
+    expect(rollUpGroupState(allNotRun(), contactsTech)).toBe("not_run");
+  });
+
+  test("rollUpGroupState precedence: running > failed > enriched/empty", () => {
+    const ads = DATA_GROUPS.find((g) => g.key === "ads")!;
+    // A running type wins over a done sibling.
+    const running = {
+      ...allNotRun(),
+      META_ADS: "enriched",
+      GOOGLE_ADS: "running",
+    };
+    expect(rollUpGroupState(running as never, ads)).toBe("running");
+    // A failed type wins over a done sibling (none running).
+    const failed = {
+      ...allNotRun(),
+      META_ADS: "enriched",
+      GOOGLE_ADS: "failed",
+    };
+    expect(rollUpGroupState(failed as never, ads)).toBe("failed");
+  });
+
+  test("deriveGroupStates + enrichedGroupCount + anyGroupRan (the /7 denominator)", () => {
+    // Nothing ran → all 7 groups not_run, count 0, anyGroupRan false.
+    const none = deriveGroupStates(allNotRun());
+    expect(Object.keys(none).sort()).toEqual([...DATA_GROUP_KEYS].sort());
+    expect(enrichedGroupCount(none)).toBe(0);
+    expect(anyGroupRan(none)).toBe(false);
+
+    // Reviews enriched + contacts+tech enriched → 2 of 7 have data.
+    const some = deriveGroupStates({
+      ...allNotRun(),
+      REVIEWS: "enriched",
+      CONTACTS: "enriched",
+      TECH: "enriched",
+    });
+    expect(enrichedGroupCount(some)).toBe(2);
+    expect(anyGroupRan(some)).toBe(true);
+
+    // A running type makes anyGroupRan true even with 0 groups enriched.
+    const running = deriveGroupStates({ ...allNotRun(), SERP: "running" });
+    expect(enrichedGroupCount(running)).toBe(0);
+    expect(anyGroupRan(running)).toBe(true);
   });
 });

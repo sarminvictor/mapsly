@@ -1779,6 +1779,28 @@
   color: var(--muted);
   line-height: 1.4;
 }
+/* C2 · the "By data state" section rows inside the "+ Filter" picker — one row
+   per family: the family label + its wrapping have/none/failed/not-run toggles
+   (reusing the .cov-state pill from the coverage panel, so the two read the
+   same). */
+.agency-portal .filter-state-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 9px;
+}
+.agency-portal .filter-state-fam {
+  flex: 0 0 auto;
+  min-width: 62px;
+  font-size: var(--fs-md);
+  font-weight: 600;
+  color: var(--ink-2);
+}
+.agency-portal .filter-state-toggles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
 /* Signal-filter chip modifier — distinct from the numeric chip (.fchip.data). */
 .agency-portal .fchip.sig {
   border-color: var(--indigo-100);
@@ -3141,6 +3163,47 @@
   gap: 10px;
   background: var(--surface-2);
   flex: 0 0 auto;
+}
+/* C1 · a DATA-GROUP row in the enrich sheet — a two-line layout: the group
+   label (the DATA the user gets) over a plain description + "N have · M to get".
+   align-items:flex-start so the checkbox pins to the label line, not the middle
+   of the wrapped description. */
+.agency-portal .enrich-group-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 4px;
+  border-bottom: 1px solid var(--line-2);
+  cursor: pointer;
+}
+.agency-portal .enrich-group-row input[type="checkbox"] {
+  margin-top: 2px;
+  flex: 0 0 auto;
+}
+.agency-portal .enrich-group-row .egr-main {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.agency-portal .enrich-group-row .egr-label {
+  font-weight: 600;
+  font-size: 12.5px;
+  color: var(--ink);
+}
+.agency-portal .enrich-group-row .egr-desc {
+  line-height: 1.35;
+}
+/* The "N have · M to get" clause — the honest per-lead enrichment picture. */
+.agency-portal .enrich-group-row .egr-count b {
+  font-family: var(--mono);
+  font-weight: 600;
+  font-feature-settings: "tnum" 1;
+  color: var(--ink-2);
+}
+.agency-portal .enrich-group-row .cr {
+  margin-top: 1px;
 }
 /* Narrow viewports (<720px): fall back to a bottom-sheet so the panel stays
    reachable on a phone/tablet in portrait. */
@@ -5581,6 +5644,24 @@
   width: 10px;
   height: 10px;
 }
+/* AUDIT C5 · a value cell whose family is re-enriching: dim the existing value +
+   block interaction (the value link / enrich button is inert while running), and
+   overlay a small spinner. The overlay is absolutely positioned so the column
+   width never shifts (no layout thrash as cells flip in/out of loading). */
+.agency-portal td.cell-loading {
+  position: relative;
+  opacity: 0.55;
+  pointer-events: none;
+}
+.agency-portal td.cell-loading .cell-loading-spin {
+  position: absolute;
+  top: 50%;
+  right: var(--space-2);
+  transform: translateY(-50%);
+  display: inline-flex;
+  /* Non-interactive overlay — the whole cell is already pointer-events:none. */
+  pointer-events: none;
+}
 @keyframes wb-cell-pulse {
   0%,
   100% {
@@ -5658,6 +5739,16 @@
   background: var(--indigo);
   border-color: var(--indigo);
   color: #fff;
+}
+/* C2 · read-only state count in the coverage panel (glance-only — the
+   interactive toggles now live in the "+ Filter" picker). Same pill footprint
+   as .cov-state, but non-interactive: no border, no hover, muted. */
+.agency-portal .cov-state-ro {
+  font-size: var(--fs-2xs);
+  padding: 1px var(--space-2);
+  border-radius: 10px;
+  color: var(--muted);
+  font-feature-settings: "tnum" 1;
 }
 .agency-portal .covfrac {
   font-family: var(--mono);

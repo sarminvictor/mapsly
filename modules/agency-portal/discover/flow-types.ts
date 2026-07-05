@@ -218,10 +218,11 @@ export function enrichRatePerLead(families: EnrichmentType[]): number {
 }
 
 /**
- * One-time fee for cell-basis families (meta_ads / google_ads / serp) — a flat
- * cost that covers the WHOLE market once, shared across however many leads end
- * up enriched from it. Independent of business count for the same reason as
- * {@link enrichRatePerLead}.
+ * One-time fee for cell-basis families (meta_ads / serp) — a flat cost that
+ * covers the WHOLE market once, shared across however many leads end up enriched
+ * from it. Independent of business count for the same reason as
+ * {@link enrichRatePerLead}. (B1 · google_ads is per-business now, so it bills
+ * per lead via {@link enrichRatePerLead}, not here.)
  */
 export function enrichCellFeeCredits(
   families: EnrichmentType[],

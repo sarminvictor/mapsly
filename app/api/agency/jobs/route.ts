@@ -7,11 +7,13 @@
  * included so the tray can show a brief "done" flash before they drop off.
  *
  * GET `?runId=<id>` ALSO returns `{ stages: EnrichStage[] }` — a per-stage
- * rollup of that run's EnrichmentJob rows grouped into the 6 display stages the
- * Enriching step renders. Families that produce job rows (CONTACTS / SERVICES /
- * REVIEWS / AI_RESEARCH) report real done/total; families that run inline or
- * post-close (mapping, per-cell tech/lighthouse, the playbook, outreach drafts)
- * have no job rows and gate on the run lifecycle instead — honest either way.
+ * rollup of that run's EnrichmentJob rows grouped into the display stages the
+ * Enriching step renders (ONLY the stages this run actually performs; first-
+ * touch drafts are NOT enrichment and are never listed here). Families that
+ * produce job rows (CONTACTS / SERVICES / REVIEWS / AI_RESEARCH) report real
+ * done/total; families that run inline or post-close (mapping, per-cell
+ * tech/lighthouse, the playbook) have no job rows and gate on the run lifecycle
+ * instead — honest either way.
  *
  * Per `.claude/rules/security.md`:
  *   - Auth-gated · agency resolved from the session, never a query param.
@@ -27,7 +29,7 @@ import { NextResponse } from "next/server";
 
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
-import { buildTechStageLabel } from "./stage-label";
+import { buildTechStageLabel, STAGE_DEFS } from "./stage-label";
 
 const RECENT_DONE_WINDOW_MS = 60_000;
 
@@ -44,7 +46,8 @@ export interface AgencyJob {
   startedAt: string;
 }
 
-/** One of the 6 display stages of the Enriching step's checklist. */
+/** One display stage of the Enriching step's checklist (only stages the run
+ *  actually performs are emitted — never a fixed full list). */
 export interface EnrichStage {
   key: string;
   label: string;
@@ -53,41 +56,10 @@ export interface EnrichStage {
   status: "done" | "running" | "pending";
 }
 
-/**
- * The 6 display stages, each mapped to the EnrichmentFamily values that feed it.
- * The per-business EnrichmentJob families (see modules/enrichment/dispatch.ts
- * buildJobPlan) are CONTACTS / SERVICES / REVIEWS / LIGHTHOUSE / AI_RESEARCH —
- * each fans out its own rows. TECH has no rows of its own: it rides the CONTACTS
- * fetch (one scan does both). Only the per-CELL families (serp / ads / meta) and
- * the post-close layers (PLAYBOOK / outreach) have no per-business job rows and
- * fall back to the run lifecycle for their stage status.
- */
-const STAGE_DEFS: { key: string; label: string; families: string[] }[] = [
-  { key: "mapped", label: "Mapped market & applied filters", families: [] },
-  { key: "contacts", label: "Contacts extracted", families: ["CONTACTS"] },
-  {
-    // Label is a fallback only — the "tech" stage's REAL label is computed
-    // per-run below (buildTechStageLabel), since "tech" and "lighthouse" are
-    // two independent families that happen to share one display bucket. A
-    // Lighthouse-only run (e.g. the default Website-redesign goal) must never
-    // say "Website & tech signals" — that implies a DOM/tech scan that didn't
-    // run (see INC: Enriching checklist overclaimed families for that goal).
-    key: "tech",
-    label: "Site speed & tech signals",
-    families: ["TECH", "LIGHTHOUSE"],
-  },
-  {
-    key: "reviews",
-    label: "Reviews & reputation signals",
-    families: ["REVIEWS"],
-  },
-  {
-    key: "expert",
-    label: "Expert layer (playbook)",
-    families: ["AI_RESEARCH", "PLAYBOOK"],
-  },
-  { key: "touches", label: "Draft first touches", families: [] },
-];
+// STAGE_DEFS (the candidate display stages) lives in ./stage-label — a bare,
+// prisma-free module — so the "no Draft-first-touches / no overclaim" honesty
+// invariant is unit-testable without importing next-auth + prisma. route.ts
+// emits ONLY the subset this run actually performs (see buildEnrichStages).
 
 export async function GET(request: Request): Promise<NextResponse> {
   const session = await auth();
@@ -292,9 +264,6 @@ async function buildEnrichStages(
     } else if (def.key === "mapped") {
       // Mapping completes the moment fan-out flips the run RUNNING.
       status = fannedOut ? "done" : "pending";
-    } else if (def.key === "touches") {
-      // Outreach drafts are generated after the run completes.
-      status = finished ? "done" : fannedOut ? "running" : "pending";
     } else {
       // Inline/post-close family with no rows in THIS run: done when finished,
       // running once fan-out happened, else pending.

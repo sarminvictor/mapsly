@@ -471,7 +471,10 @@ describe("evaluateSignal · mode tune (operating_business → open_status)", () 
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe("evaluateSignal · composite conds (all vs any)", () => {
-  // flying_blind binds to has_meta_pixel (computable from tech). The composite
+  // Exercises the REGISTRY composite path with an explicit has_meta_pixel binding
+  // (computable from tech). NOTE: SIG_META's flying_blind is now a SYNTHETIC
+  // signal (no registryKey — see the dedicated flying_blind describe below); this
+  // block passes registryKey explicitly to test the generic conds combine: the
   // combine governs how the included conditions fold; with one binding the
   // verdict is the binding's, but an empty included-set → null.
   const base: ActiveSignal = {
@@ -1032,6 +1035,109 @@ describe("evaluateSignal · tech presence synthetics (chat_widget / ecommerce)",
     expect(
       evaluateSignal(active("chat_widget"), biz(), NOW).matched,
     ).toBeNull();
+  });
+});
+
+describe("evaluateSignal · not_advertising (B3 · per-business runs 0 ads)", () => {
+  // Now a synthetic per-business signal (no registryKey): matches when THIS
+  // business has 0 active ads AND the cell's ad scan actually ran. Was the
+  // inverted market key `ad_market_prevalence` (same for every lead).
+  const adRollup = (activeCount: number): HydratedBusiness["ads"] => ({
+    activeCount,
+    hasVideo: false,
+    formats: [],
+    newestAgeDays: null,
+    landingHostCount: 0,
+    landingIsHomepageOnly: null,
+  });
+
+  test("matches a scanned business that runs 0 active ads", () => {
+    const b = biz({ adMarket: { advertiserCount: 4 }, ads: adRollup(0) });
+    expect(evaluateSignal(active("not_advertising"), b, NOW).matched).toBe(
+      true,
+    );
+  });
+  test("does NOT match a business that runs active ads (scanned cell)", () => {
+    const b = biz({ adMarket: { advertiserCount: 4 }, ads: adRollup(3) });
+    expect(evaluateSignal(active("not_advertising"), b, NOW).matched).toBe(
+      false,
+    );
+  });
+  test("null when the cell's ad scan never ran (advertiserCount null)", () => {
+    // No AdMarketRun for the cell → honest not-computable, never a false
+    // "not advertising" on a lead we never scanned for ads.
+    const b = biz({ adMarket: { advertiserCount: null }, ads: adRollup(0) });
+    expect(
+      evaluateSignal(active("not_advertising"), b, NOW).matched,
+    ).toBeNull();
+  });
+  test("is a distinct verdict from competitors_advertising (not byte-identical)", () => {
+    // Busy ad market (5 advertisers) where THIS business runs 0 ads:
+    // not_advertising → true (per-business), competitors_advertising → true
+    // (market ≥ 5). Same inputs, but the two now read different data — and they
+    // diverge when the cell is under-scanned:
+    const b = biz({ adMarket: { advertiserCount: 2 }, ads: adRollup(0) });
+    // competitors_advertising: 2 < 5 → false. not_advertising: 0 ads → true.
+    expect(evaluateSignal(active("not_advertising"), b, NOW).matched).toBe(
+      true,
+    );
+    expect(
+      evaluateSignal(active("competitors_advertising"), b, NOW).matched,
+    ).toBe(false);
+  });
+});
+
+describe("evaluateSignal · flying_blind (B4 · no analytics AND no pixel)", () => {
+  // Now a synthetic composite (no registryKey): matches when the business has
+  // NEITHER analytics NOR a Meta pixel. Both halves ride the tech scan.
+  test("matches when the business has neither analytics nor a pixel", () => {
+    const b = biz({ tech: tech({ hasAnalytics: false, hasMetaPixel: false }) });
+    expect(evaluateSignal(active("flying_blind"), b, NOW).matched).toBe(true);
+  });
+  test("does NOT match when analytics is present", () => {
+    const b = biz({ tech: tech({ hasAnalytics: true, hasMetaPixel: false }) });
+    expect(evaluateSignal(active("flying_blind"), b, NOW).matched).toBe(false);
+  });
+  test("does NOT match when a pixel is present", () => {
+    const b = biz({ tech: tech({ hasAnalytics: false, hasMetaPixel: true }) });
+    expect(evaluateSignal(active("flying_blind"), b, NOW).matched).toBe(false);
+  });
+  test("null when there's no tech scan (honest not-computable)", () => {
+    const b = biz({ tech: tech({ scanned: false }) });
+    expect(evaluateSignal(active("flying_blind"), b, NOW).matched).toBeNull();
+  });
+});
+
+describe("evaluateSignal · no_analytics (B1 · runs ads AND no analytics)", () => {
+  // B1 · synthetic composite (no registryKey): matches when the business runs
+  // active ads AND has no analytics. The ad half is now reliable per-business
+  // (google_ads target-host attribution feeds biz.ads.activeCount), so this no
+  // longer fires on every un-instrumented lead — only advertisers.
+  const adRollup = (activeCount: number): HydratedBusiness["ads"] => ({
+    activeCount,
+    hasVideo: false,
+    formats: [],
+    newestAgeDays: null,
+    landingHostCount: 0,
+    landingIsHomepageOnly: null,
+  });
+
+  test("matches an advertiser with no analytics", () => {
+    const b = biz({ ads: adRollup(2), tech: tech({ hasAnalytics: false }) });
+    expect(evaluateSignal(active("no_analytics"), b, NOW).matched).toBe(true);
+  });
+  test("does NOT match a non-advertiser (0 active ads) even without analytics", () => {
+    // The key honesty win: no ads → not the "runs ads without analytics" pain.
+    const b = biz({ ads: adRollup(0), tech: tech({ hasAnalytics: false }) });
+    expect(evaluateSignal(active("no_analytics"), b, NOW).matched).toBe(false);
+  });
+  test("does NOT match an advertiser that HAS analytics", () => {
+    const b = biz({ ads: adRollup(3), tech: tech({ hasAnalytics: true }) });
+    expect(evaluateSignal(active("no_analytics"), b, NOW).matched).toBe(false);
+  });
+  test("null when there's no tech scan (honest not-computable)", () => {
+    const b = biz({ ads: adRollup(2), tech: tech({ scanned: false }) });
+    expect(evaluateSignal(active("no_analytics"), b, NOW).matched).toBeNull();
   });
 });
 

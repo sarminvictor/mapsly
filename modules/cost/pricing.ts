@@ -6,10 +6,9 @@
 //
 // Two units of work:
 //   - "business" enrichments bill per selected business (contacts, services,
-//     tech, reviews, lighthouse, ai_research).
+//     tech, reviews, lighthouse, ai_research, google_ads).
 //   - "cell"     enrichments bill once per (metro × category) cell, then serve
-//     every business in that cell from the cached run (meta_ads, google_ads,
-//     serp).
+//     every business in that cell from the cached run (meta_ads, serp).
 //
 // `upperMultiplier` captures variable-cost endpoints (reviews bill per review
 // returned; the contacts AI-email fallback only fires on a fraction of rows).
@@ -429,19 +428,17 @@ export const ENRICHMENT_PRICES: Record<EnrichmentType, EnrichmentPrice> = {
     upperMultiplier: 1,
     freshnessDays: 30,
   },
-  // WP10-7 · re-derived from the REAL call graph in modules/cell-intel/
-  // google-ads.ts: the collector makes EXACTLY ONE adsAdvertisers call + ONE
-  // adsSearch call (≤MAX_ADVERTISERS advertiser_ids in a single ads_search,
-  // depth 40) — NOT 25 separate ad-search pulls. So the cell's real charged cost
-  // is adsAdvertisers + adsSearch×1 ($0.002 + $0.002 = $0.004), amortized across
-  // every business in the cell. (Was priced as ×25 = $0.052 → overstated
-  // internal cost attribution by ~13×.)
+  // B1 · PER-BUSINESS (was per-cell). The collector now calls adsSearch with
+  // `target: <business host>` so EVERY returned creative belongs to that domain
+  // BY CONSTRUCTION (reliable attribution — no fuzzy name match). One ads_search
+  // call per website-having business (depth 40, $0.002); the cheap DfS Live SERP
+  // is the whole cost, amortized nowhere — it's a per-lead unit like contacts.
+  // (Prior WP10-7 priced this per-cell as adsAdvertisers + adsSearch×1 = $0.004
+  // amortized across the cell; the fuzzy per-cell attribution missed most leads.)
   google_ads: {
     label: "Google ads",
-    unit: "cell",
-    usdPerUnit:
-      DATAFORSEO_UNIT_COST_USD.adsAdvertisers +
-      DATAFORSEO_UNIT_COST_USD.adsSearch * 1,
+    unit: "business",
+    usdPerUnit: DATAFORSEO_UNIT_COST_USD.adsSearch,
     upperMultiplier: 1.5,
     freshnessDays: 30,
   },
@@ -500,7 +497,7 @@ export const DISCOVERY_PRICE = {
 //   reviews                                   1 / lead
 //   site speed (Lighthouse)                   1 / lead
 //   AI research                               1 / lead
-//   google ads intel                          1 / cell
+//   google ads intel                          1 / lead   (B1 · per-business, target-host)
 //   meta ads intel                            3 / cell
 //   search / SERP intel                       4 / cell
 //
@@ -535,9 +532,12 @@ export const ALL_ENRICHMENT_TYPES = Object.keys(
  * business for any of these just burns a queued job that produces nothing, and
  * mis-scopes the cost (we'd charge for leads we can't actually enrich).
  *
- * The cell-basis families (meta_ads/google_ads/serp) and reviews are NOT here
- * — they're keyed off the business's Google presence, not its website, so a
- * phone-only listing is still a valid target for them.
+ * B1 · google_ads is now website-dependent too: the per-business collector keys
+ * the ads_search on the business's host (`target: <host>`), so a business with
+ * no website has no host to query — the job would produce nothing. The remaining
+ * cell-basis families (meta_ads/serp) and reviews are NOT here — they're keyed
+ * off the business's Google presence, not its website, so a phone-only listing
+ * is still a valid target for them.
  *
  * Used to scope an enrich run (and its quote) to website-havers whenever any
  * selected family requires a site. See modules/discovery/enrich-actions.ts.
@@ -548,6 +548,7 @@ export const WEBSITE_DEPENDENT: ReadonlySet<EnrichmentType> = new Set([
   "tech",
   "services",
   "ai_research",
+  "google_ads",
 ]);
 
 /** True if ANY of the selected families needs a live website to run. */

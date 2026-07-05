@@ -56,6 +56,9 @@ vi.mock("@/lib/prisma", () => ({
     business: {
       findUnique: vi.fn(async () => db.getBusiness()),
       findFirst: vi.fn(async () => db.getCellLeader()),
+      // A4 · runAiResearchForBusiness stamps Business.aiResearchLastAt on a
+      // successful completion — no-op mock here.
+      update: vi.fn(async () => ({})),
     },
     enrichmentStageRun: {
       findMany: vi.fn(async () =>
@@ -80,7 +83,11 @@ vi.mock("@/lib/prisma", () => ({
   Prisma: { JsonNull: null },
 }));
 
+import prisma from "@/lib/prisma";
 import { runAiResearchForBusiness, STAGE_FRESHNESS_DAYS } from "../pipeline";
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const businessUpdate = (prisma as any).business.update;
 
 const BIZ = "biz_1";
 const NOW = new Date("2026-06-22T12:00:00.000Z");
@@ -175,6 +182,18 @@ describe("runAiResearchForBusiness · cold run", () => {
     expect(res.rolledUp).toBe(true);
     expect(res.costUsd).toBeCloseTo(0.0005, 6);
     expect(Object.values(res.stages).every((s) => s === "computed")).toBe(true);
+  });
+
+  // A4 · a successful pipeline run stamps Business.aiResearchLastAt = now so the
+  // dispatch freshness gate can serve a repeat run within 90d at $0.
+  test("stamps aiResearchLastAt = now on a successful run (A4)", async () => {
+    mockAiByStage();
+    await runAiResearchForBusiness(BIZ, { now: NOW });
+
+    expect(businessUpdate).toHaveBeenCalledWith({
+      where: { id: BIZ },
+      data: { aiResearchLastAt: NOW },
+    });
   });
 });
 

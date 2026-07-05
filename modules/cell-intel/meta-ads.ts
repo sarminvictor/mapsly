@@ -2,13 +2,25 @@
 //
 // Run ONCE per cell, cache 30 days, serve from DB if fresh. For a cell:
 //   1. If a fresh (≤30d) AdMarketRun(platform=META) exists → served-from-DB ($0).
-//   2. Else run the Apify Meta adapter for the cell's category+metro (one
-//      service+city search), then persist:
-//        - AdLibraryEntry rows (attributed to indexed businesses by pageId /
-//          domain match) — the per-business ad creatives.
+//   2. Else run the Apify Meta adapter ONCE for the cell (one actor run that
+//      batches BOTH the market service+city search AND every cell business's FB
+//      page target — pageUrls the actor resolves, pageIds it pulls precisely),
+//      then persist:
+//        - Business.fbPageId SEEDED from the run's resolutions (resolvedFromUrl
+//          → pageId) so this run's attribution — and every future cell scan —
+//          joins reliably on fbPageId === ad.pageId (the authoritative key).
+//        - AdLibraryEntry rows (attributed to indexed businesses by fbPageId
+//          first, domain/name only as a last-resort fallback) — per-business
+//          ad creatives; PLUS a minimal facet-derived placeholder for a matched
+//          business that advertises but whose creatives Meta withheld (so
+//          has_active_meta_ads / meta_ad_count / not_advertising fire).
 //        - AdMarketAdvertiser rows (per-advertiser aggregate for the cell).
 //        - one AdMarketRun(platform=META) telemetry row (advertiserCount,
 //          adCount, cost).
+//
+// Billing is UNCHANGED — still ONE actor run per cell (Meta's cost basis). The
+// page targets ride along inside that single run; they do NOT make it
+// per-business billing.
 //
 // MUST run inside an open CronRun (the Apify adapter enforces this via
 // withCostCounter). Cell-dedup mirrors collect-cell-meta.ts; this variant is
@@ -20,6 +32,7 @@ import {
   metaAdLibrarySearch,
   type MetaAdRow,
   type MetaAdvertiser,
+  type MetaPageResolution,
   type MetaRunOutcome,
 } from "@/services/apify";
 import { matchStrength } from "@/modules/ads-intel/match";
@@ -48,6 +61,10 @@ const MAX_SERVICES = 5;
 const MAX_ADVERTISERS = 60;
 const MAX_CREATIVES = 6;
 const META_MAX_ITEMS = 150;
+/** Cap the FB page URLs fed to ONE actor run — the actor resolves each in the
+ *  warmed session, so an unbounded cell would balloon a single run's wall time
+ *  (still ONE run · not per-business billing). 60 covers a typical cell. */
+const MAX_PAGE_URLS = 60;
 
 export interface CellMetaAdsResult {
   cellKey: string;
@@ -61,6 +78,8 @@ export interface CellMetaAdsResult {
   adCount: number;
   /** AdLibraryEntry rows persisted (per-business attribution). */
   entriesUpserted: number;
+  /** Business.fbPageId values newly seeded from this run's resolutions. */
+  fbPageIdsSeeded: number;
   costUsd: number;
   runId: string | null;
   errors: string[];
@@ -106,6 +125,65 @@ function buildSearchTerms(ctx: CellContext): string[] {
   const city = ctx.cityLabel;
   const term = city ? `${base} ${city}`.trim() : base;
   return [term].filter((t) => t.length >= 2).slice(0, MAX_SERVICES);
+}
+
+/** One resolvable Meta page target for a cell business + the source it came
+ *  from, so a run-emitted `resolution` (resolvedFromUrl → pageId) can be mapped
+ *  back to the exact business that owns it and seed its `fbPageId`. */
+interface PageTarget {
+  businessId: string;
+  /** The pageUrl handed to the actor (Facebook handle URL or the website). */
+  pageUrl: string;
+}
+
+/**
+ * Build the cell's Meta page targets for the ONE actor run: for every business
+ * that does NOT already have a stored `fbPageId`, prefer its extracted Facebook
+ * handle/URL (from the contacts scan · ContactChannel.FACEBOOK), else its
+ * `website`, so the actor resolves each to a numeric page id. This is what
+ * makes attribution reliable — a resolved id seeds `Business.fbPageId` and the
+ * `fbPageId === ad.pageId` join becomes authoritative. Businesses that already
+ * have a stored id are skipped (their id is fed as `pageIds`, not re-resolved).
+ * Deduped by pageUrl (first business wins) and capped at MAX_PAGE_URLS.
+ */
+async function buildPageTargets(ctx: CellContext): Promise<PageTarget[]> {
+  const unresolved = ctx.businesses.filter((b) => !b.fbPageId);
+  if (unresolved.length === 0) return [];
+
+  // Extracted Facebook contact URL per business (channel=FACEBOOK), if any.
+  let fbByBiz = new Map<string, string>();
+  try {
+    const contacts = await prisma.contact.findMany({
+      where: {
+        businessId: { in: unresolved.map((b) => b.id) },
+        channel: "FACEBOOK",
+      },
+      select: { businessId: true, value: true },
+      orderBy: [{ isPrimary: "desc" }, { confidence: "desc" }],
+    });
+    for (const c of contacts) {
+      // First (highest-confidence/primary) FACEBOOK value per business wins.
+      if (c.value && !fbByBiz.has(c.businessId))
+        fbByBiz.set(c.businessId, c.value);
+    }
+  } catch {
+    // Contacts read failed — fall through to website-only targeting. A missing
+    // Facebook handle just means a slightly noisier resolve, never a hard fail.
+    fbByBiz = new Map<string, string>();
+  }
+
+  const targets: PageTarget[] = [];
+  const seenUrls = new Set<string>();
+  for (const b of unresolved) {
+    const pageUrl = fbByBiz.get(b.id) ?? b.website ?? null;
+    if (!pageUrl) continue;
+    const norm = pageUrl.trim();
+    if (norm.length < 4 || seenUrls.has(norm.toLowerCase())) continue;
+    seenUrls.add(norm.toLowerCase());
+    targets.push({ businessId: b.id, pageUrl: norm });
+    if (targets.length >= MAX_PAGE_URLS) break;
+  }
+  return targets;
 }
 
 /**
@@ -154,6 +232,7 @@ export async function runMetaAdsForCell(
     advertiserCount: 0,
     adCount: 0,
     entriesUpserted: 0,
+    fbPageIdsSeeded: 0,
     costUsd: 0,
     runId: null,
     errors: [],
@@ -187,7 +266,26 @@ export async function runMetaAdsForCell(
   }
 
   const searchTerms = buildSearchTerms(ctx);
-  if (searchTerms.length === 0) {
+
+  // 2b · build the cell's per-business Meta page targets (Facebook handle else
+  // website) so the SAME actor run resolves each business's page id — this is
+  // what makes attribution reliable (fbPageId === ad.pageId). Businesses that
+  // already have a resolved id are fed as pageIds for a precise pull. Still ONE
+  // run for the whole cell (the actor batches all pageUrls/pageIds/searchTerms).
+  const pageTargets = await buildPageTargets(ctx);
+  const pageUrls = pageTargets.map((t) => t.pageUrl);
+  const pageIds = ctx.businesses
+    .map((b) => b.fbPageId)
+    .filter((id): id is string => !!id);
+  // pageUrl → businessId, so a run-emitted `resolution` seeds the right business.
+  const bizByPageUrl = new Map<string, string>();
+  for (const t of pageTargets) bizByPageUrl.set(t.pageUrl, t.businessId);
+
+  if (
+    searchTerms.length === 0 &&
+    pageUrls.length === 0 &&
+    pageIds.length === 0
+  ) {
     result.errors.push(`no-search-terms:${cellKey}`);
     return result;
   }
@@ -196,6 +294,7 @@ export async function runMetaAdsForCell(
   const country2 = (ctx.country || "US").toUpperCase().slice(0, 2);
   let rows: MetaAdRow[] = [];
   let advertisers: MetaAdvertiser[] = [];
+  let resolutions: MetaPageResolution[] = [];
   // Verified outcome from the actor's RUN_SUMMARY (block vs timeout vs real
   // empty). Drives the AdMarketRun status below so the coverage-matrix reads
   // "failed/retryable" for a blocked cell — NOT "ran, empty". Default `error`
@@ -203,13 +302,21 @@ export async function runMetaAdsForCell(
   let outcome: MetaRunOutcome = "error";
   try {
     const out = await metaAdLibrarySearch({
-      searchTerms,
+      // Market coverage keyword(s) — "who advertises for this service in this
+      // city" (populates AdMarketAdvertiser + competitors_advertising).
+      ...(searchTerms.length > 0 ? { searchTerms } : {}),
+      // Per-business page targets — the reliable-attribution half. pageUrls the
+      // actor resolves → pageId (+ seeds fbPageId); pageIds pull precisely for
+      // businesses already resolved. Omitted keys stay undefined (Zod-optional).
+      ...(pageUrls.length > 0 ? { pageUrls } : {}),
+      ...(pageIds.length > 0 ? { pageIds } : {}),
       countries: [country2],
       activeStatus: "active",
       maxItems: META_MAX_ITEMS,
     });
     rows = out.rows;
     advertisers = out.advertisers ?? [];
+    resolutions = out.resolutions ?? [];
     outcome = out.outcome;
     result.costUsd = out.usageTotalUsd;
     result.runId = out.runId;
@@ -273,6 +380,31 @@ export async function runMetaAdsForCell(
   const byPageId = new Map<string, string>();
   for (const b of ctx.businesses) {
     if (b.fbPageId) byPageId.set(b.fbPageId, b.id);
+  }
+
+  // 3b · SEED fbPageId from the run's resolutions (resolvedFromUrl → pageId).
+  // For each resolution whose source URL we handed the actor for a specific
+  // business, store the numeric page id on that Business so (a) THIS run's
+  // attribution below joins reliably (byPageId), and (b) future cell scans skip
+  // re-resolving and match instantly. Only set when currently null (don't
+  // clobber a hand-corrected id); best-effort per row (a single failure must
+  // not abort the cell run).
+  for (const r of resolutions) {
+    const businessId = bizByPageUrl.get(r.resolvedFromUrl);
+    if (!businessId || !r.pageId) continue;
+    // Feed this run's own attribution map immediately.
+    if (!byPageId.has(r.pageId)) byPageId.set(r.pageId, businessId);
+    try {
+      // updateMany with a null-guard on fbPageId is a no-op when already set —
+      // avoids a findUnique round-trip and never overwrites a resolved id.
+      await prisma.business.updateMany({
+        where: { id: businessId, fbPageId: null },
+        data: { fbPageId: r.pageId },
+      });
+      result.fbPageIdsSeeded += 1;
+    } catch (e) {
+      result.errors.push(`seed-fbpageid:${(e as Error).message}`.slice(0, 200));
+    }
   }
 
   // 4 · aggregate rows → advertiser level (dedupe ad ids across terms).
@@ -407,10 +539,15 @@ export async function runMetaAdsForCell(
   // 6 · persist AdLibraryEntry rows for ads attributable to indexed businesses.
   // Derives signal-ready fields (platforms, displayFormat, collationCount,
   // variant counts). Keyed on globally-unique externalAdId so a re-run upserts.
+  // Businesses that got a REAL per-ad row this run — so the facet fallback
+  // below doesn't also write a synthetic placeholder for them (which would
+  // double-count `activeCount` in rollupAds).
+  const bizWithRealAd = new Set<string>();
   for (const r of rows) {
     if (!r.id) continue;
     const businessId = attributeAd(r, byPageId, ctx.businesses);
     if (!businessId) continue; // competitor-only ads live in AdMarketAdvertiser
+    bizWithRealAd.add(businessId);
     result.adCount += 1;
     const data = {
       businessId,
@@ -444,6 +581,56 @@ export async function runMetaAdsForCell(
       result.entriesUpserted += 1;
     } catch (e) {
       result.errors.push(`entry:${(e as Error).message}`.slice(0, 200));
+    }
+  }
+
+  // 6b · FACET → AdLibraryEntry. Keyword/cell scans usually return ONLY the
+  // advertiser facet (who advertises + an ad count) with NO per-creative rows —
+  // so a business that DOES advertise gets no per-ad AdLibraryEntry above and
+  // its per-business Meta signals (`has_active_meta_ads`, `meta_ad_count`,
+  // `not_advertising`) stay wrong. For each facet advertiser whose pageId
+  // matches a business's fbPageId, upsert ONE minimal placeholder AdLibraryEntry
+  // so those signals fire. Skipped when the business already got a real per-ad
+  // row this run (avoids double-counting activeCount). Synthetic externalAdId
+  // `meta-facet:{pageId}` is stable → a re-run upserts the same row (and it's
+  // superseded the moment real creatives land, keyed by the real ad id).
+  for (const a of advertisers) {
+    const pid = a.pageId || "";
+    if (!pid) continue;
+    const businessId = byPageId.get(pid);
+    if (!businessId) continue; // competitor-only advertiser (market layer only)
+    if (bizWithRealAd.has(businessId)) continue; // real rows already counted
+    const active = a.adCount == null || a.adCount > 0; // facet present ⇒ active
+    try {
+      await prisma.adLibraryEntry.upsert({
+        where: { externalAdId: `meta-facet:${pid}` },
+        create: {
+          externalAdId: `meta-facet:${pid}`,
+          businessId,
+          platform: "META" as const,
+          advertiserName: a.pageName ?? null,
+          pageId: pid,
+          // Carry the facet's grouped ad count so downstream consumers that read
+          // collationCount aren't blind to the true creative volume behind the
+          // single placeholder row.
+          collationCount: a.adCount ?? null,
+          isActive: active,
+          firstSeenAt: now,
+          lastSeenAt: now,
+        },
+        update: {
+          businessId,
+          advertiserName: a.pageName ?? null,
+          pageId: pid,
+          collationCount: a.adCount ?? null,
+          isActive: active,
+          lastSeenAt: now,
+        },
+      });
+      result.entriesUpserted += 1;
+      if (active) result.adCount += 1;
+    } catch (e) {
+      result.errors.push(`facet-entry:${(e as Error).message}`.slice(0, 200));
     }
   }
 

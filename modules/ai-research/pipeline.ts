@@ -144,6 +144,7 @@ export async function gatherFacts(
       cellKey: true,
       description: true,
       placeTopics: true,
+      siteText: true,
       services: {
         where: { isActive: true },
         orderBy: { sortOrder: "asc" },
@@ -156,7 +157,14 @@ export async function gatherFacts(
 
   const services = business.services.map((s) => s.name);
   const topics = topicsFromJson(business.placeTopics);
-  const siteText = (business.description ?? "").slice(0, MAX_SITE_TEXT_CHARS);
+  // A3-feed · prefer the persisted real-website text (menu + positioning copy)
+  // over the thin Google one-line description, concatenating both when present.
+  // This siteText is UNTRUSTED (scraped from the business's own site) — it stays
+  // fenced via wrapUntrusted at prompt-build time (WP8-5, buildPrompt below).
+  const siteText = [business.siteText?.trim(), business.description?.trim()]
+    .filter((p): p is string => !!p)
+    .join("\n\n")
+    .slice(0, MAX_SITE_TEXT_CHARS);
 
   // The cell leader = the indexed business in the same cell with the most
   // reviews (a cheap proxy for "market leader" the ER-5 stage compares against).
@@ -447,6 +455,18 @@ export async function runAiResearchForBusiness(
   }
 
   const rolledUp = await rollup(businessId, outcomes, now);
+
+  // A4 · stamp the AI-research freshness cursor on a SUCCESSFUL pipeline run.
+  // The pipeline reaches here only after all five stages resolved (per-stage
+  // failures are isolated, never thrown — a business-not-found throws earlier),
+  // so this is the "the job ran to completion" marker. A repeat run within 90d
+  // is then served from DB at $0 by the dispatch freshness gate. Even a run
+  // where every stage was served fresh (SKIPPED_FRESH) or a verified-empty
+  // rollup counts — the job did its verified-empty work (A5 billing invariant).
+  await prisma.business.update({
+    where: { id: businessId },
+    data: { aiResearchLastAt: now },
+  });
 
   const stages = {} as Record<StageId, "computed" | "fresh" | "failed">;
   let costUsd = 0;

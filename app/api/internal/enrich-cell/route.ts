@@ -30,7 +30,10 @@ export const maxDuration = 300;
 const PayloadSchema = z.object({
   runId: z.string().min(1).max(128),
   cellKey: z.string().min(1).max(256),
-  family: z.enum(["meta_ads", "google_ads", "serp"]),
+  // B1 · google_ads is no longer a per-cell family — it dispatches as a
+  // per-business GOOGLE_ADS EnrichmentJob (routed through /api/internal/enrich-job).
+  // Only meta_ads + serp remain per-cell.
+  family: z.enum(["meta_ads", "serp"]),
 });
 
 async function handle(req: Request): Promise<Response> {

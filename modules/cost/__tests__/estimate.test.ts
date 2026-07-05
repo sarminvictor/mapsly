@@ -14,6 +14,7 @@ import {
   CREDIT_PRICES,
   CREDIT_MEANING,
   ENRICHMENT_PRICES,
+  WEBSITE_DEPENDENT,
   PLAN_CARDS,
   PLAN_CREDITS,
   PLAN_TIER_MAP,
@@ -29,12 +30,24 @@ describe("price list (golden)", () => {
     // WP10-7 · re-derived from the real call graph (modules/cell-intel):
     //  serp = serpLocalPack + serpOrganic + rankedKeywords×3 (MAX_RANKED_KEYWORD_BIZ),
     //         = 0.002 + 0.002 + 0.013×3 = 0.043 (was ×12 = 0.16);
-    //  google_ads = adsAdvertisers + adsSearch×1 (one advertisers + one search call),
-    //         = 0.002 + 0.002 = 0.004 (was ×25 = 0.052).
+    //  B1 · google_ads is now PER-BUSINESS — one target-host adsSearch call
+    //         ($0.002) per website-having lead (was per-cell adsAdvertisers +
+    //         adsSearch = 0.004 amortized across the cell).
     expect(ENRICHMENT_PRICES.serp.usdPerUnit).toBeCloseTo(0.043, 6);
-    expect(ENRICHMENT_PRICES.google_ads.usdPerUnit).toBeCloseTo(0.004, 6);
+    expect(ENRICHMENT_PRICES.google_ads.usdPerUnit).toBeCloseTo(0.002, 6);
     expect(ENRICHMENT_PRICES.meta_ads.usdPerUnit).toBeCloseTo(0.05, 6);
     expect(CREDIT_USD).toBe(0.05);
+  });
+
+  test("scope units — B1 · google_ads is per-business, not per-cell", () => {
+    // The scope unit drives the whole billing + freshness + UI scope. google_ads
+    // moved cell→business (reliable target-host attribution), so it now bills per
+    // lead and reads a per-business freshness cursor. meta_ads/serp stay per-cell.
+    expect(ENRICHMENT_PRICES.google_ads.unit).toBe("business");
+    expect(ENRICHMENT_PRICES.meta_ads.unit).toBe("cell");
+    expect(ENRICHMENT_PRICES.serp.unit).toBe("cell");
+    // google_ads keys off the website host → it's website-dependent now.
+    expect(WEBSITE_DEPENDENT.has("google_ads")).toBe(true);
   });
 });
 

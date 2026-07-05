@@ -20,20 +20,16 @@ import { useEffect, useState } from "react";
 import { useRouter } from "@/i18n/navigation";
 import type { AgencyJob, EnrichStage } from "@/app/api/agency/jobs/route";
 
-/** Display labels (fallback before the first real stage payload lands — a
- *  brief window, since the jobs API returns real per-run stages on the first
- *  poll). Deliberately generic: naming a specific research combination here
- *  (e.g. "+ Lighthouse") would overclaim for a run that only requested one of
- *  them — the real, run-specific label (see app/api/agency/jobs/route.ts's
- *  buildTechStageLabel) replaces this the moment real data lands. */
-const STAGE_LABELS = [
-  "Mapped market & applied filters",
-  "Contacts extracted",
-  "Website & tech signals",
-  "Reviews & reputation signals",
-  "Expert layer (playbook)",
-  "Draft first touches",
-];
+/** The honest pre-data placeholder. Shown ONLY in the brief window before the
+ *  first real per-run stage payload lands (the jobs API returns real per-run
+ *  stages on the first poll). It deliberately claims NOTHING about which
+ *  researches this run selected — the old fixed six-row fallback overclaimed
+ *  (it listed "Website & tech signals", "Reviews…", etc. for EVERY run, even
+ *  ones that never requested them) AND included "Draft first touches", which is
+ *  a separate Touchpoints action, not part of enrichment at all. Once the real
+ *  stages arrive (buildEnrichStages · app/api/agency/jobs/route.ts) they replace
+ *  this single row with only the stages THIS run actually performs. */
+const PREPARING_STAGE = { label: "Preparing…", status: "running" as const };
 
 interface JobsResponse {
   jobs: AgencyJob[];
@@ -220,11 +216,14 @@ export function EnrichingStep({
     return () => clearTimeout(t);
   }, [finished, outcome, router, discoveryId]);
 
-  // The checklist rows: REAL per-stage rollup once it lands; before then,
-  // labels-only placeholders (all pending) so the card renders immediately.
+  // The checklist rows: the REAL per-stage rollup once it lands (only the
+  // stages THIS run performs — buildEnrichStages omits `touches` entirely and
+  // labels the free discovery step "Find businesses · free"); before then, a
+  // single honest "Preparing…" placeholder that claims nothing about which
+  // researches ran. Never the old fixed list of every possible stage.
   const stageRows: { label: string; status: EnrichStage["status"] }[] = stages
     ? stages.map((s) => ({ label: s.label, status: s.status }))
-    : STAGE_LABELS.map((label) => ({ label, status: "pending" as const }));
+    : [PREPARING_STAGE];
 
   // WP4-2 · which families couldn't complete (for the PARTIAL breakdown). A
   // terminal stage with real job rows (total>0) whose done<total had failures —

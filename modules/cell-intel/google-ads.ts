@@ -1,19 +1,28 @@
-// modules/cell-intel/google-ads.ts · per-cell Google Ads collector (Phase 6).
+// modules/cell-intel/google-ads.ts · Google Ads collectors (Phase 6 · B1).
 //
-// Run ONCE per cell, cache 30 days, serve from DB if fresh. For a cell:
-//   1. If a fresh (≤30d) AdMarketRun(platform=GOOGLE) exists → served-from-DB.
-//   2. Else:
-//        a. adsAdvertisers(categoryKeyword, locationCode) — who's running Google
-//           ads for the cell's service in this geo (Transparency Center).
-//        b. adsSearch(advertiser_ids=topN) — pull those advertisers' creatives.
-//        c. persist AdLibraryEntry(platform=GOOGLE), attributing to indexed
-//           businesses by advertiser domain when present, else competitor (null
-//           businessId), and one AdMarketRun(platform=GOOGLE) telemetry row.
+// TWO collectors, one shared vendor adapter:
 //
-// MUST run inside an open CronRun (the DataForSEO adapters enforce this).
+//   runGoogleAdsForBusiness(businessId) — the PRIMARY, per-business path (B1).
+//     For a business WITH a website, call adsSearch({ target: <host> }): every
+//     returned creative belongs to that domain BY CONSTRUCTION, so we attribute
+//     each to `businessId = business.id` with NO fuzzy name match. Persists
+//     AdLibraryEntry(GOOGLE, businessId, …) + a per-business AdMarketRun(GOOGLE)
+//     telemetry row, and stamps Business.googleAdsLastAt (the freshness cursor
+//     the dispatch job rail reads). This is what the discover/enrichment flow
+//     dispatches (per-business EnrichmentJob, mirroring lighthouse).
+//
+//   runGoogleAdsForCell(cellKey) — the per-CELL MARKET path (kept). Runs ONCE
+//     per cell for the market-prevalence signal (advertiser count in the cell).
+//     Used by the admin /api/internal/run-cell-intel route. It does NOT attribute
+//     creatives to individual businesses (that's the per-business path's job) —
+//     it records the cell's advertiser/ad counts on an AdMarketRun(GOOGLE) row.
+//
+// Both MUST run inside an open CronRun (the DataForSEO adapters enforce this).
 
 import prisma from "@/lib/prisma";
+import { parseCellKey } from "@/lib/cell";
 import { adsAdvertisers, adsSearch } from "@/services/dataforseo";
+import { locationCodeForCountry } from "@/modules/ads-intel/keyword-set";
 import {
   isCellRunFresh,
   latestAdMarketRun,
@@ -73,6 +82,166 @@ function attributeAdvertiser(
     if (bn.length >= 4 && (name.includes(bn) || bn.includes(name))) return b.id;
   }
   return null;
+}
+
+/**
+ * Persist one Google creative as an AdLibraryEntry(GOOGLE), upserting by
+ * creative_id. Shared by the per-business + per-cell paths so both write the
+ * SAME shape.
+ *
+ * B1 · landingUrl FIX: `it.url` is the creative's link on the Transparency
+ * platform (e.g. adstransparency.google.com/…), NOT the ad's landing page. The
+ * old code stored it in `landingUrl`, which polluted the signal layer's
+ * landing-host rollup (rollupAds' landingHostCount / landingIsHomepageOnly).
+ * Google Ads Transparency exposes no landing URL, so we store `landingUrl: null`
+ * and keep the transparency link where it belongs (linkTitle is a display slot;
+ * we leave it unset — the preview image + advertiser name carry the card).
+ */
+async function upsertGoogleCreative(
+  it: import("@/services/dataforseo").AdsCreativeItem,
+  businessId: string | null,
+  now: Date,
+): Promise<void> {
+  const data = {
+    businessId,
+    platform: "GOOGLE" as const,
+    advertiserName: it.title ?? null,
+    advertiserExternalId: it.advertiser_id ?? null,
+    adCreativeBody: it.title ?? null,
+    displayFormat: it.format ?? null,
+    previewImageUrl: it.preview_image?.url ?? null,
+    // B1 · Google Ads Transparency carries no landing page — `it.url` is the
+    // transparency link, not a landing URL. Store null so the signal layer's
+    // landing-host rollup isn't fed garbage.
+    landingUrl: null,
+    startedAt: parseDateOrNull(it.first_shown),
+    endedAt: parseDateOrNull(it.last_shown),
+    isActive: isRecentlyActive(it.last_shown),
+    platforms: [] as string[],
+  };
+  await prisma.adLibraryEntry.upsert({
+    where: { externalAdId: String(it.creative_id) },
+    create: {
+      ...data,
+      externalAdId: String(it.creative_id),
+      firstSeenAt: now,
+      lastSeenAt: now,
+    },
+    update: { ...data, lastSeenAt: now },
+  });
+}
+
+export interface BusinessGoogleAdsResult {
+  businessId: string;
+  outcome: "collected" | "skipped" | "no-website";
+  adCount: number;
+  entriesUpserted: number;
+  errors: string[];
+}
+
+/**
+ * B1 · Collect one business's OWN Google ads reliably, by targeting the
+ * ads_search on the business's website host. Every returned creative belongs to
+ * that domain BY CONSTRUCTION, so each is attributed to `businessId = id` with
+ * no fuzzy match. Persists AdLibraryEntry(GOOGLE, businessId, …) + a per-business
+ * AdMarketRun(GOOGLE) telemetry row, and stamps Business.googleAdsLastAt (the
+ * freshness cursor the dispatch job rail reads). MUST run inside an open CronRun.
+ *
+ * A website-less business returns outcome:"no-website" (no host to target) —
+ * the dispatch never queues one (google_ads is WEBSITE_DEPENDENT), but the guard
+ * keeps the collector safe if called directly.
+ */
+export async function runGoogleAdsForBusiness(
+  businessId: string,
+  now: Date = new Date(),
+): Promise<BusinessGoogleAdsResult> {
+  const result: BusinessGoogleAdsResult = {
+    businessId,
+    outcome: "skipped",
+    adCount: 0,
+    entriesUpserted: 0,
+    errors: [],
+  };
+
+  const business = await prisma.business.findUnique({
+    where: { id: businessId },
+    select: { id: true, domain: true, website: true, cellKey: true },
+  });
+  if (!business) {
+    result.errors.push(`unknown-business:${businessId}`);
+    return result;
+  }
+
+  const host = hostOf(business);
+  if (!host) {
+    result.outcome = "no-website";
+    return result;
+  }
+
+  // The cell's country drives the DataForSEO location code (US=2840, CA=2124).
+  // Fall back to the US default when the business has no parseable cellKey.
+  const parsedCell = business.cellKey ? parseCellKey(business.cellKey) : null;
+  const locationCode = locationCodeForCountry(parsedCell?.country ?? "US");
+  // AdMarketRun.cellKey is required — use the business's cell (or a business-
+  // scoped marker when it has none) so the telemetry row still resolves.
+  const runCellKey = business.cellKey ?? `business:${business.id}`;
+
+  try {
+    const { items } = await adsSearch({
+      target: host,
+      location_code: locationCode,
+      language_code: "en",
+      platform: "all",
+      format: "all",
+      depth: 40,
+    });
+    for (const it of items) {
+      if (!it.creative_id) continue;
+      result.adCount += 1;
+      try {
+        // target-host attribution → this business, by construction.
+        await upsertGoogleCreative(it, business.id, now);
+        result.entriesUpserted += 1;
+      } catch (e) {
+        result.errors.push(`entry:${(e as Error).message}`.slice(0, 200));
+      }
+    }
+  } catch (e) {
+    result.errors.push(`creatives:${(e as Error).message}`.slice(0, 200));
+    await prisma.adMarketRun.create({
+      data: {
+        cellKey: runCellKey,
+        platform: "GOOGLE",
+        status: "FAILED",
+        costUsd: 0,
+        advertiserCount: 0,
+        adCount: 0,
+      },
+    });
+    return result;
+  }
+
+  // Stamp the per-business freshness cursor (the dispatch reads it) + a
+  // telemetry AdMarketRun. advertiserCount=1 — this business IS the advertiser.
+  await prisma.$transaction([
+    prisma.business.update({
+      where: { id: business.id },
+      data: { googleAdsLastAt: now },
+    }),
+    prisma.adMarketRun.create({
+      data: {
+        cellKey: runCellKey,
+        platform: "GOOGLE",
+        status: result.errors.length > 0 ? "PARTIAL" : "OK",
+        costUsd: 0,
+        advertiserCount: result.adCount > 0 ? 1 : 0,
+        adCount: result.adCount,
+      },
+    }),
+  ]);
+
+  result.outcome = "collected";
+  return result;
 }
 
 /**
@@ -158,31 +327,8 @@ export async function runGoogleAdsForCell(
         if (!it.creative_id) continue;
         const businessId = attributeAdvertiser(it.title, ctx.businesses);
         result.adCount += 1;
-        const data = {
-          businessId,
-          platform: "GOOGLE" as const,
-          advertiserName: it.title ?? null,
-          advertiserExternalId: it.advertiser_id ?? null,
-          adCreativeBody: it.title ?? null,
-          displayFormat: it.format ?? null,
-          previewImageUrl: it.preview_image?.url ?? null,
-          landingUrl: it.url ?? null,
-          startedAt: parseDateOrNull(it.first_shown),
-          endedAt: parseDateOrNull(it.last_shown),
-          isActive: isRecentlyActive(it.last_shown),
-          platforms: [] as string[],
-        };
         try {
-          await prisma.adLibraryEntry.upsert({
-            where: { externalAdId: String(it.creative_id) },
-            create: {
-              ...data,
-              externalAdId: String(it.creative_id),
-              firstSeenAt: now,
-              lastSeenAt: now,
-            },
-            update: { ...data, lastSeenAt: now },
-          });
+          await upsertGoogleCreative(it, businessId, now);
           result.entriesUpserted += 1;
         } catch (e) {
           result.errors.push(`entry:${(e as Error).message}`.slice(0, 200));

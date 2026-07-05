@@ -1049,10 +1049,14 @@ export async function getLeadDetail(
                 ? `${metaAds.length} creative${metaAds.length === 1 ? "" : "s"}${runsAds ? " · running" : ""}`
                 : "—",
               tone: runsAds ? ("g" as const) : null,
-              // WP6-1 · Meta-ad count as a market-relative bar (ads band) — how
-              // this lead's ad presence compares to the cell. Text stays the
-              // fallback when no ads band exists.
-              metric: { value: metaAds.length, bandKey: "ads" as const },
+              // WP6-1/B1 · vs-cell bar (ads band) — how this lead's TOTAL active-ad
+              // presence (Meta + Google) compares to the cell. The band cohort is
+              // all-platform now, so the value must be too. Text stays the fallback
+              // when no ads band exists.
+              metric: {
+                value: metaAds.length + googleAds.length,
+                bandKey: "ads" as const,
+              },
             },
             ...(metaAds.length
               ? [
@@ -1075,13 +1079,15 @@ export async function getLeadDetail(
           ]
         : [],
       listingRows: [],
+      // B1 · Google ads now attribute per-business (target-host), so the ghost
+      // CTA names both libraries.
       ghostNote:
-        "Scan the Meta Ad Library for this cell — active creatives, spend bands, and formats.",
+        "Scan the Meta + Google ad libraries — active creatives, spend bands, and formats.",
       // E5 · the barber case: ads ran cell-wide, matched 0 advertisers → this is
       // a VERIFIED empty, not a never-run. Calm, not an enrich CTA.
       emptyNote:
         "Ad libraries scanned — no active ads found for this business.",
-      source: adsEnriched ? "Meta Ad Library" : null,
+      source: adsEnriched ? "Meta + Google ad libraries" : null,
       asOf: adsEnriched ? isoDay(adsLastSeen) : null,
     },
     {

@@ -7,7 +7,7 @@
 
 import { describe, expect, test } from "vitest";
 
-import { buildTechStageLabel } from "../stage-label";
+import { buildTechStageLabel, STAGE_DEFS } from "../stage-label";
 
 describe("buildTechStageLabel", () => {
   test("Lighthouse only → names only Lighthouse", () => {
@@ -22,5 +22,35 @@ describe("buildTechStageLabel", () => {
     expect(buildTechStageLabel(true, true)).toBe(
       "Website & tech signals + Lighthouse",
     );
+  });
+});
+
+// C4 · the Enriching checklist must be HONEST at the source: "Draft first
+// touches" is a separate Touchpoints action, never an enrichment stage, so it
+// must never appear in the candidate stage list buildEnrichStages emits from.
+describe("STAGE_DEFS (enriching checklist honesty)", () => {
+  test('never includes a "touches" / "Draft first touches" stage', () => {
+    expect(STAGE_DEFS.some((s) => s.key === "touches")).toBe(false);
+    expect(STAGE_DEFS.some((s) => /draft first touches/i.test(s.label))).toBe(
+      false,
+    );
+  });
+
+  test("the discovery step is labelled as the free find-businesses step", () => {
+    const mapped = STAGE_DEFS.find((s) => s.key === "mapped");
+    expect(mapped).toBeDefined();
+    // Reads as the free step, not a paid research the user was charged for.
+    expect(mapped!.label).toBe("Find businesses · free");
+    expect(mapped!.label.toLowerCase()).toContain("free");
+  });
+
+  test("only the real enrichment stages are candidates (no overclaim keys)", () => {
+    expect(STAGE_DEFS.map((s) => s.key)).toEqual([
+      "mapped",
+      "contacts",
+      "tech",
+      "reviews",
+      "expert",
+    ]);
   });
 });

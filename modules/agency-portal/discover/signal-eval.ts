@@ -1051,6 +1051,27 @@ function evaluateSynthetic(
     case "ecommerce":
       // Online store / payments platform detected on the site.
       return techPresenceVerdict(biz, biz.tech.hasEcommerce);
+    case "flying_blind":
+      // B4 · Under-instrumented: the business has NEITHER analytics NOR a Meta
+      // pixel. Both halves are tech-fingerprint reads that ride the contacts DOM
+      // fetch, so one tech scan computes the whole composite. Null until a scan
+      // exists (never a fake "flying blind" on an un-scanned lead).
+      return techPresenceVerdict(
+        biz,
+        !biz.tech.hasAnalytics && !biz.tech.hasMetaPixel,
+      );
+    case "no_analytics":
+      // B1 · COMPOSITE "runs active ads AND has no analytics" (SigMeta signalKey
+      // ads_without_analytics; no registryKey → routed here by its meta key). The
+      // ad half is now reliable per-business (google_ads target-host attribution
+      // feeds biz.ads.activeCount); the analytics half is a tech-fingerprint read.
+      // Null until a tech scan exists (never a fake match on an un-scanned lead) —
+      // matches the flying_blind/ads_without_pixel guard.
+      if (!biz.tech.scanned) return { matched: null };
+      return { matched: biz.ads.activeCount > 0 && !biz.tech.hasAnalytics };
+    case "not_advertising":
+      // B3 · PER-BUSINESS "runs 0 active ads" (was the inverted market key).
+      return notAdvertisingVerdict(biz);
     case "service_gap":
       // Missing N common services in its cell (mode tune: miss1/miss3/miss5).
       return serviceGapVerdict(sig, biz);
@@ -1232,6 +1253,29 @@ function techPresenceVerdict(
 ): SignalVerdict {
   if (!biz.tech.scanned) return { matched: null };
   return { matched: has };
+}
+
+/**
+ * B3 · "Not advertising" (per-business). Matches a business that itself runs 0
+ * active ads. Mirrors `competitorPressureVerdict`'s `advertising` mode, which
+ * reads `biz.ads.activeCount`, but here the verdict is about THIS business, not
+ * the cell — the fix for the old `ad_market_prevalence` binding that used a cell
+ * number (same for every lead → flagged everyone in a busy ad market).
+ *
+ * Computable ONLY once the cell's ad scan actually ran: `adMarket.advertiserCount`
+ * is populated from the latest AdMarketRun for the business's cell, so a non-null
+ * value means "we looked for ads in this market". An un-run cell → null (honest
+ * not-computable), never a false "not advertising" on a lead we never scanned.
+ *
+ * DEPENDENCY (out of scope here): per-business ad activity — `biz.ads.activeCount`
+ * from AdLibraryEntry attribution — is populated by a separate ad-attribution
+ * fix. Until it lands, `activeCount` may be 0 for businesses that DO advertise,
+ * so a scanned cell can still over-report "not advertising". The honest null on
+ * an un-run cell is the guard we ship now; the per-business precision follows.
+ */
+function notAdvertisingVerdict(biz: HydratedBusiness): SignalVerdict {
+  if (biz.adMarket.advertiserCount === null) return { matched: null };
+  return { matched: biz.ads.activeCount === 0 };
 }
 
 /**

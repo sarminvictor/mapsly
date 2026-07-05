@@ -495,3 +495,209 @@ export function anyTypeRan(
 ): boolean {
   return ENRICHMENT_TYPE_KEYS.some((k) => states[k] !== "not_run");
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DATA GROUPS · the ONE user-facing vocabulary (the presentation-layer reframe).
+//
+// The 9 purchasable TYPES above are the billing axis — right for the SETTLE
+// path, wrong for the human. Tom (and the founder) think in terms of the DATA
+// they get, not the research jobs that fetch it: "Contacts & site tech" is ONE
+// thing to him even though it's two jobs (contacts + tech ride one DOM fetch);
+// "Ad activity" is ONE thing even though Meta runs per-market and Google runs
+// per-lead. This block collapses the 9 types into 7 DATA GROUPS and is the
+// SINGLE denominator every coverage surface reads (the row chip strip, the
+// toolbar badge, the coverage panel) so they can never disagree (was /5, /6
+// AND /9 across the three surfaces).
+//
+// Pure (no DB, no React) — server-computed, crosses to the client as plain data
+// (Pattern 4), unit-testable.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** The 7 user-facing data-group keys, in render order. */
+export type DataGroupKey =
+  | "contacts_tech"
+  | "reviews"
+  | "site_speed"
+  | "services"
+  | "ai_brief"
+  | "ads"
+  | "search";
+
+/**
+ * A data group: the label + plain description Tom reads, the billing TYPES it
+ * rolls up, a 2-letter chip glyph for the compact row strip, and whether it is
+ * priced/scoped per LEAD (business basis) or per MARKET (cell basis · runs once
+ * for the whole cell). `marketNote` is the short tag shown on a market group
+ * ("market · per cell") — Meta is per-cell, Google per-lead, so the mixed Ad
+ * group carries a nuanced note.
+ */
+export interface DataGroup {
+  key: DataGroupKey;
+  /** The one plain label — the SAME string on every surface. */
+  label: string;
+  /** A plain-English description of the DATA the user gets (not the job name). */
+  desc: string;
+  /** The billing `EnrichmentTypeKey`(s) this group rolls up. */
+  types: readonly EnrichmentTypeKey[];
+  /** A market group runs once per cell (Meta/SERP); a lead group is per-lead. */
+  basis: "lead" | "market";
+  /** 2-letter chip glyph for the compact per-row strip. */
+  chip: string;
+  /** Optional per-market nuance ("market · per cell") for the sheet + tooltip. */
+  marketNote?: string;
+}
+
+/**
+ * The canonical 9-type → 7-group mapping. THE one place the vocabulary lives.
+ *   - Contacts & site tech ← CONTACTS + TECH (one DOM fetch; shown as one)
+ *   - Reviews              ← REVIEWS
+ *   - Site speed & SEO     ← LIGHTHOUSE
+ *   - Services             ← SERVICES
+ *   - AI brief             ← AI_RESEARCH
+ *   - Ad activity          ← META_ADS (market · per cell) + GOOGLE_ADS (per lead)
+ *   - Search rank          ← SERP (market · per cell)
+ * (Services + AI brief stay two groups for now — they'll merge into one AI job
+ * later; keeping them split matches the billing types 1:1 until then.)
+ */
+export const DATA_GROUPS: readonly DataGroup[] = [
+  {
+    key: "contacts_tech",
+    label: "Contacts & site tech",
+    desc: "Emails, phones, socials + the tools their site runs on",
+    types: ["CONTACTS", "TECH"],
+    basis: "lead",
+    chip: "Ct",
+  },
+  {
+    key: "reviews",
+    label: "Reviews",
+    desc: "Google rating, review count, reply rate, recency",
+    types: ["REVIEWS"],
+    basis: "lead",
+    chip: "Rv",
+  },
+  {
+    key: "site_speed",
+    label: "Site speed & SEO",
+    desc: "Lighthouse mobile performance + on-page SEO health",
+    types: ["LIGHTHOUSE"],
+    basis: "lead",
+    chip: "Sp",
+  },
+  {
+    key: "services",
+    label: "Services",
+    desc: "The treatments / services they list on their site",
+    types: ["SERVICES"],
+    basis: "lead",
+    chip: "Sv",
+  },
+  {
+    key: "ai_brief",
+    label: "AI brief",
+    desc: "An AI-written read on the business + pitch angles",
+    types: ["AI_RESEARCH"],
+    basis: "lead",
+    chip: "Ai",
+  },
+  {
+    key: "ads",
+    label: "Ad activity",
+    desc: "Meta + Google ads they're running right now",
+    types: ["META_ADS", "GOOGLE_ADS"],
+    basis: "market",
+    chip: "Ad",
+    marketNote: "Meta runs per market cell · Google per lead",
+  },
+  {
+    key: "search",
+    label: "Search rank",
+    desc: "Where they rank in the local map pack + organic search",
+    types: ["SERP"],
+    basis: "market",
+    chip: "Se",
+    marketNote: "market · runs once per cell",
+  },
+] as const;
+
+/** All 7 data-group keys, in render order — THE coverage denominator (`/ 7`). */
+export const DATA_GROUP_KEYS: readonly DataGroupKey[] = DATA_GROUPS.map(
+  (g) => g.key,
+);
+
+/** Look up a group by key (stable reference to the shared DATA_GROUPS entry). */
+export function dataGroupFor(key: DataGroupKey): DataGroup {
+  // Non-null: `key` is a DataGroupKey, so the find always hits.
+  return DATA_GROUPS.find((g) => g.key === key)!;
+}
+
+/** The billing `EnrichmentType` tokens (lowercase, as the enrich flow uses) a
+ *  data group maps to — for pre-selecting the right lines in the enrich sheet.
+ *  META_ADS → meta_ads, TECH → tech, etc. */
+const TYPE_KEY_TO_ENRICH_TOKEN: Record<EnrichmentTypeKey, string> = {
+  CONTACTS: "contacts",
+  SERVICES: "services",
+  TECH: "tech",
+  REVIEWS: "reviews",
+  META_ADS: "meta_ads",
+  GOOGLE_ADS: "google_ads",
+  SERP: "serp",
+  LIGHTHOUSE: "lighthouse",
+  AI_RESEARCH: "ai_research",
+};
+
+/** De-duped enrichment-type tokens for a set of data groups (for the sheet's
+ *  pre-select + the coverage-CTA deep-seed). */
+export function enrichTypesForGroups(keys: readonly DataGroupKey[]): string[] {
+  const out = new Set<string>();
+  for (const k of keys)
+    for (const t of dataGroupFor(k).types) out.add(TYPE_KEY_TO_ENRICH_TOKEN[t]);
+  return [...out];
+}
+
+/**
+ * Roll the per-TYPE states of ONE group into a single group state by precedence:
+ *   running (any type in flight)  →  failed (any errored, none running)  →
+ *   not_run (ALL never scanned)   →  enriched (EVERY type has data)      →
+ *   empty (ran everywhere but ≥1 produced nothing / mixed).
+ *
+ * The order matters: `running` and `failed` are actionable-now signals that win
+ * over a stale mix; a group is only "enriched" (green, done) when EVERY type it
+ * spans produced data; "not_run" only when NONE of its types ran (so a partly-
+ * run group reads `empty`, i.e. "ran, but not fully" — never a false "not yet"
+ * that would re-charge the type that already ran).
+ */
+export function rollUpGroupState(
+  types: Record<EnrichmentTypeKey, TypeState>,
+  group: DataGroup,
+): TypeState {
+  const states = group.types.map((t) => types[t]);
+  if (states.some((s) => s === "running")) return "running";
+  if (states.some((s) => s === "failed")) return "failed";
+  if (states.every((s) => s === "not_run")) return "not_run";
+  if (states.every((s) => s === "enriched")) return "enriched";
+  return "empty";
+}
+
+/** The full per-group state map for ONE business, rolled up from its 9 type
+ *  states. THE input every coverage surface reads. */
+export function deriveGroupStates(
+  types: Record<EnrichmentTypeKey, TypeState>,
+): Record<DataGroupKey, TypeState> {
+  const out = {} as Record<DataGroupKey, TypeState>;
+  for (const g of DATA_GROUPS) out[g.key] = rollUpGroupState(types, g);
+  return out;
+}
+
+/** How many of the 7 groups produced data (the "N / 7" numerator). */
+export function enrichedGroupCount(
+  states: Record<DataGroupKey, TypeState>,
+): number {
+  return DATA_GROUP_KEYS.filter((k) => states[k] === "enriched").length;
+}
+
+/** True once ANY of the 7 groups has run (running / enriched / empty / failed) —
+ *  the group-level predicate behind the "Enriched only" workbench view. */
+export function anyGroupRan(states: Record<DataGroupKey, TypeState>): boolean {
+  return DATA_GROUP_KEYS.some((k) => states[k] !== "not_run");
+}

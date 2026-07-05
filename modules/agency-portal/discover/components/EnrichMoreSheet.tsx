@@ -24,11 +24,9 @@ import { useRouter } from "next/navigation";
 import { Link } from "@/i18n/navigation";
 import { showToast } from "@/components/agency/Toast";
 import {
-  ALL_ENRICHMENT_TYPES,
   CREDIT_PRICES,
   ENRICHMENT_PRICES,
   type EnrichmentType,
-  type ScopeUnit,
 } from "@/modules/cost/pricing";
 import {
   preflightEnrichAction,
@@ -37,6 +35,14 @@ import {
 import { getEnrichScopeAction } from "../enrich-scope-actions";
 import { resolveResearches } from "../researches";
 import { enrichCreditsFor, fmtCredits } from "../flow-types";
+import {
+  DATA_GROUPS,
+  enrichTypesForGroups,
+  type DataGroup,
+  type DataGroupKey,
+  type EnrichmentTypeKey,
+  type TypeState,
+} from "../family-coverage";
 import {
   emitEnrichStarted,
   emitEnrichScope,
@@ -63,30 +69,89 @@ interface ScopeInfo {
   walletCredits: number;
 }
 
-function unitLabel(unit: ScopeUnit): string {
-  return unit === "cell" ? "per market cell" : "per lead";
+/**
+ * The per-group, per-scope enrichment picture the sheet renders: how many of the
+ * scope's leads already HAVE every type in the group (all enriched), how many
+ * are still TO GET (≥1 type not yet run), and the group's credit price for the
+ * to-get set. Market groups (Meta / SERP) don't count per-lead — they run once
+ * per cell — so `isMarket` flips the row to "market · runs once · N cr".
+ */
+interface GroupLine {
+  group: DataGroup;
+  /** Leads where EVERY type in the group is `enriched` (already have the data). */
+  have: number;
+  /** Leads where ≥1 type in the group has NOT run yet (the to-get set). */
+  toGet: number;
+  /** Gross credits for this group over the to-get set (per-lead) or per cell. */
+  credits: number;
+  /** True for a per-cell (market) group — priced/scoped per cell, not per lead. */
+  isMarket: boolean;
+}
+
+/** Sum a data group's per-LEAD credit price (CREDIT_PRICES over its business-
+ *  unit types; cell-unit types are excluded here — quoted per cell instead). */
+function groupLeadCredits(group: DataGroup): number {
+  let c = 0;
+  for (const t of enrichTypesForGroups([group.key])) {
+    const key = t as EnrichmentType;
+    if (ENRICHMENT_PRICES[key].unit === "business") c += CREDIT_PRICES[key];
+  }
+  return c;
+}
+
+/** Sum a data group's per-CELL credit price (CREDIT_PRICES over its cell-unit
+ *  types — Meta = 3/cell, SERP = 4/cell). Business-unit types are excluded. */
+function groupCellCredits(group: DataGroup): number {
+  let c = 0;
+  for (const t of enrichTypesForGroups([group.key])) {
+    const key = t as EnrichmentType;
+    if (ENRICHMENT_PRICES[key].unit === "cell") c += CREDIT_PRICES[key];
+  }
+  return c;
+}
+
+/** Map a set of pre-selected enrichment-type tokens (from a single-field / ghost
+ *  accordion CTA) to the DATA GROUPS they belong to, so the sheet opens with the
+ *  right GROUP checked (a Lighthouse cell → "Site speed & SEO"). */
+function groupsForEnrichTypes(
+  types: readonly EnrichmentType[],
+): DataGroupKey[] {
+  const want = new Set<string>(types);
+  const out: DataGroupKey[] = [];
+  for (const g of DATA_GROUPS) {
+    const tokens = enrichTypesForGroups([g.key]);
+    if (tokens.some((t) => want.has(t))) out.push(g.key);
+  }
+  return out;
 }
 
 export function EnrichMoreSheet({
   discoveryId,
   request,
+  coverageTypeStates = {},
   onClose,
 }: {
   discoveryId: string;
   request: EnrichSheetRequest;
+  /**
+   * The per-business per-TYPE run-state map (from the page, via EnrichMoreHost)
+   * — lets the sheet compute "N have · M to get" per data group over the
+   * scope's leads. A business absent from the map counts as fully not-run.
+   */
+  coverageTypeStates?: Record<string, Record<EnrichmentTypeKey, TypeState>>;
   onClose: () => void;
 }) {
   const router = useRouter();
   const [scopeInfo, setScopeInfo] = useState<ScopeInfo | null>(null);
   const [scopeError, setScopeError] = useState(false);
   // AUDIT D1 · a single-field "— enrich" cell or a drawer ghost accordion opens
-  // with its family PRE-CHECKED (request.preselect), so clicking one field
-  // pre-selects that enrichment. The bulk "enrich more" / coverage CTA leaves
+  // with its data GROUP PRE-CHECKED (request.preselect), so clicking one field
+  // pre-selects that group. The bulk "enrich more" / coverage CTA leaves
   // preselect false so the user isn't surprised by a big pre-selected bill.
-  const [selected, setSelected] = useState<Set<EnrichmentType>>(() =>
+  const [selected, setSelected] = useState<Set<DataGroupKey>>(() =>
     request.preselect && request.enrichments?.length
-      ? new Set<EnrichmentType>(request.enrichments)
-      : new Set<EnrichmentType>(),
+      ? new Set<DataGroupKey>(groupsForEnrichTypes(request.enrichments))
+      : new Set<DataGroupKey>(),
   );
   const selectedIds = useMemo(
     () => request.scope?.selectedBusinessIds ?? [],
@@ -179,19 +244,32 @@ export function EnrichMoreSheet({
     };
   }, [onClose]);
 
-  const scopeIds =
-    scope === "selected" ? selectedIds : scope === "visible" ? visibleIds : [];
+  // Memoized so the per-group `groupLines` useMemo doesn't see a fresh array
+  // reference on every render (the "all" branch would otherwise be a new []).
+  const scopeIds = useMemo(
+    () =>
+      scope === "selected"
+        ? selectedIds
+        : scope === "visible"
+          ? visibleIds
+          : [],
+    [scope, selectedIds, visibleIds],
+  );
   const scopeCount =
     scope === "all" ? (scopeInfo?.marketCount ?? 0) : scopeIds.length;
   const cellCount = scopeInfo?.cellKeys.length ?? 0;
 
-  // Resolve dependencies (tech → +contacts) exactly like the get-leads flow, so
-  // the sheet quotes + bills the same families the dispatch will run — a
-  // tech-only pick pulls the contacts scan it rides on (and its 1 credit),
-  // instead of quoting a free tech-only run (tech = 0 credits on its own).
-  const enrichments = useMemo(
-    () => resolveResearches([...selected]),
+  // The enrichment-type tokens the selected data GROUPS map to (Ad activity →
+  // meta_ads + google_ads, Contacts & site tech → contacts + tech, …), then
+  // dependency-resolved (tech → +contacts) exactly like the get-leads flow, so
+  // the sheet quotes + bills the same families the dispatch will run.
+  const selectedTypeTokens = useMemo(
+    () => enrichTypesForGroups([...selected]) as EnrichmentType[],
     [selected],
+  );
+  const enrichments = useMemo(
+    () => resolveResearches(selectedTypeTokens),
+    [selectedTypeTokens],
   );
   // Client-side GROSS estimate (CREDIT_PRICES) — shown live on the Run button
   // (audit D2). The server preflight at run-time returns the honest NET (fresh
@@ -201,7 +279,39 @@ export function EnrichMoreSheet({
     [enrichments, cellCount, scopeCount],
   );
 
-  function toggle(key: EnrichmentType) {
+  // Per data-group × per-scope picture: for the CURRENT scope's leads, how many
+  // already HAVE the whole group vs still to GET it, and the group's credit
+  // price for the to-get set. Market groups (Meta/SERP) are quoted per cell.
+  const groupLines = useMemo((): GroupLine[] => {
+    return DATA_GROUPS.map((group) => {
+      const isMarket = group.basis === "market";
+      let have = 0;
+      let toGet = 0;
+      for (const id of scopeIds) {
+        const ts = coverageTypeStates[id];
+        // A lead HAS the group when EVERY type in it is enriched; it's to-get
+        // when ≥1 type hasn't run yet. Absent map / no data → treat as to-get.
+        const states = group.types.map((t) => ts?.[t] ?? "not_run");
+        if (states.every((s) => s === "enriched")) have += 1;
+        else if (states.some((s) => s === "not_run")) toGet += 1;
+        else have += 1; // ran-but-empty everywhere → nothing more to get
+      }
+      // Per-lead count to bill: the to-get set (selected/visible scope), or the
+      // whole market when scope is "all" (no per-lead ids to split on).
+      const leadN = scope === "all" ? scopeCount : toGet;
+      // Credits = per-cell types × cells + per-lead types × leads. The Ad group
+      // is MIXED (Meta 3/cell + Google 1/lead), so both terms can be non-zero;
+      // pure per-lead groups have a 0 cell term and vice-versa.
+      const credits =
+        groupCellCredits(group) * cellCount + groupLeadCredits(group) * leadN;
+      return { group, have, toGet, credits, isMarket };
+    });
+    // scope === "all" has no per-lead ids (server resolves the market) → the
+    // have/toGet split is unavailable; credits fall back to the whole-scope
+    // count so the row still quotes an estimate.
+  }, [scopeIds, coverageTypeStates, cellCount, scopeCount, scope]);
+
+  function toggle(key: DataGroupKey) {
     setSelected((prev) => {
       const next = new Set(prev);
       if (next.has(key)) next.delete(key);
@@ -213,7 +323,7 @@ export function EnrichMoreSheet({
   }
 
   function selectAll() {
-    setSelected(new Set(ALL_ENRICHMENT_TYPES));
+    setSelected(new Set(DATA_GROUPS.map((g) => g.key)));
     setError(null);
     setDeficit(null);
   }
@@ -224,7 +334,7 @@ export function EnrichMoreSheet({
     setDeficit(null);
   }
 
-  const allSelected = selected.size === ALL_ENRICHMENT_TYPES.length;
+  const allSelected = selected.size === DATA_GROUPS.length;
 
   // AUDIT D2 · ONE click: price server-side (honest net + fresh-cache dedup +
   // estimateId) and run in the same transition. The gross estimate already told
@@ -379,12 +489,14 @@ export function EnrichMoreSheet({
             </div>
           </div>
 
-          {/* Data-family header + bulk select controls. */}
+          {/* Data-group header + bulk select controls. The sheet speaks the ONE
+              user-facing vocabulary — the 7 DATA GROUPS (what Tom GETS), never
+              the 9 billing jobs. */}
           <div
             className="setrow"
             style={{ marginBottom: 2, alignItems: "baseline" }}
           >
-            <span className="setl">Data</span>
+            <span className="setl">Data to get</span>
             <span style={{ display: "inline-flex", gap: 10 }}>
               <button
                 type="button"
@@ -405,46 +517,51 @@ export function EnrichMoreSheet({
             </span>
           </div>
 
-          {/* Family rows — per-line credits over the current scope. */}
+          {/* Data-group rows — each names the DATA the user gets + a plain
+              "N have · M to get" over the scope's leads (per-lead groups) or
+              "market · runs once" (Meta/SERP), plus the credit price for the
+              to-get set. "Contacts & site tech" is ONE row (contacts + tech
+              are one fetch — no standalone "incl." tech row). */}
           <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
-            {ALL_ENRICHMENT_TYPES.map((key) => {
-              const price = ENRICHMENT_PRICES[key];
-              const count = price.unit === "cell" ? cellCount : scopeCount;
-              const lineCredits = CREDIT_PRICES[key] * count;
-              const on = selected.has(key);
+            {groupLines.map(({ group, have, toGet, credits, isMarket }) => {
+              const on = selected.has(group.key);
               return (
-                <li key={key}>
-                  <label
-                    style={{
-                      display: "flex",
-                      alignItems: "baseline",
-                      gap: 8,
-                      padding: "6px 4px",
-                      borderBottom: "1px solid var(--line-2)",
-                      cursor: "pointer",
-                    }}
-                  >
+                <li key={group.key}>
+                  <label className="enrich-group-row">
                     <input
                       type="checkbox"
                       checked={on}
-                      onChange={() => toggle(key)}
+                      onChange={() => toggle(group.key)}
                     />
-                    <span style={{ flex: 1, minWidth: 0 }}>
-                      <span style={{ fontWeight: 600, fontSize: 12.5 }}>
-                        {price.label}
-                      </span>{" "}
-                      <span className="note">
-                        · {unitLabel(price.unit)} × {count.toLocaleString()} ·{" "}
-                        {price.freshnessDays}d fresh
+                    <span className="egr-main">
+                      <span className="egr-label">{group.label}</span>
+                      <span className="note egr-desc">
+                        {group.desc}
+                        {" · "}
+                        {isMarket ? (
+                          <span className="egr-count">
+                            market · runs once
+                            {group.marketNote ? ` · ${group.marketNote}` : ""}
+                          </span>
+                        ) : scope === "all" ? (
+                          <span className="egr-count">
+                            {scopeCount.toLocaleString()} leads
+                          </span>
+                        ) : (
+                          <span className="egr-count">
+                            <b>{have.toLocaleString()}</b> have ·{" "}
+                            <b>{toGet.toLocaleString()}</b> to get
+                          </span>
+                        )}
                       </span>
                     </span>
                     <span className="cr" style={{ flexShrink: 0 }}>
-                      {lineCredits === 0 ? (
-                        "incl." // e.g. tech rides the contacts scan
+                      {credits === 0 ? (
+                        "—"
                       ) : (
                         <>
                           <span className="ic-coin sm" aria-hidden="true" />
-                          {fmtCredits(lineCredits)}
+                          {fmtCredits(credits)}
                         </>
                       )}
                     </span>
@@ -454,20 +571,16 @@ export function EnrichMoreSheet({
             })}
           </ul>
 
-          {/* AUDIT U20 · ALWAYS restate the exact run-set + its credit total
-              before commit (not only when a dependency was pulled in) so the
-              scans that will run — and what they cost — are never a surprise.
-              When a pick pulls in a dependency (Tech rides the billed contacts
-              scan) that's called out too. Uses the same grossCredits shown on
-              the Run button. */}
-          {enrichments.length > 0 ? (
+          {/* AUDIT U20 · ALWAYS restate the exact data groups that will run + the
+              credit total before commit, so what gets fetched — and what it
+              costs — is never a surprise. Speaks the data-group vocabulary. */}
+          {selected.size > 0 ? (
             <p className="note" style={{ marginTop: 6 }}>
-              Runs:{" "}
-              {enrichments.map((e) => ENRICHMENT_PRICES[e].label).join(" + ")} ·
-              ~{fmtCredits(grossCredits)} credits
-              {enrichments.length > selected.size
-                ? " — a dependency is pulled in."
-                : ""}
+              Getting:{" "}
+              {[...selected]
+                .map((k) => DATA_GROUPS.find((g) => g.key === k)?.label ?? k)
+                .join(" + ")}{" "}
+              · ~{fmtCredits(grossCredits)} credits
             </p>
           ) : null}
 
@@ -485,7 +598,7 @@ export function EnrichMoreSheet({
         <div className="mfoot" style={{ alignItems: "center", gap: 10 }}>
           <span className="note" style={{ flex: 1, minWidth: 0 }}>
             {enrichments.length === 0 || scopeCount + cellCount === 0 ? (
-              "Pick at least one data family."
+              "Pick at least one data group."
             ) : deficit != null && deficit > 0 ? (
               <>
                 Needs <b>{fmtCredits(deficit)}</b> more credits
@@ -496,11 +609,11 @@ export function EnrichMoreSheet({
               </>
             ) : (
               <>
-                ~{fmtCredits(grossCredits)} credits
+                ~{fmtCredits(grossCredits)} credits (estimate)
                 {scopeInfo
                   ? ` · wallet ${fmtCredits(scopeInfo.walletCredits)}`
                   : ""}{" "}
-                · fresh-cache dedup applied at run
+                · already-fresh data is free — you&apos;re billed the net at run
               </>
             )}
           </span>
@@ -528,7 +641,7 @@ export function EnrichMoreSheet({
             >
               {pending
                 ? "Starting…"
-                : `Run · ${fmtCredits(grossCredits)} credits`}
+                : `Run · ~${fmtCredits(grossCredits)} credits`}
             </button>
           )}
         </div>

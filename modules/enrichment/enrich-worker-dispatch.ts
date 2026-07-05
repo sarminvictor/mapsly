@@ -11,9 +11,11 @@
 //      runs each on its own 300s budget with concurrency + retry, so a 500-lead
 //      run drains in ~25-30 min instead of waiting on 2-min cron ticks.
 //
-//   2. PER-CELL FAMILIES (meta_ads/google_ads/serp). WP1-5's remaining 10/10
-//      clause is "no inline Apify/DfS call inside the 300s Vercel fanOutRun
-//      tick". The EnrichmentFamily enum DOES carry META_ADS/GOOGLE_ADS/SERP, but
+//   2. PER-CELL FAMILIES (meta_ads/serp). B1 · google_ads moved to a per-business
+//      GOOGLE_ADS root job (lane 1 above), so it's no longer collected per-cell.
+//      WP1-5's remaining 10/10 clause is "no inline Apify/DfS call inside the
+//      300s Vercel fanOutRun tick". The EnrichmentFamily enum DOES carry
+//      META_ADS/GOOGLE_ADS/SERP, but
 //      turning cells into full per-business EnrichmentJob rows would rewire the
 //      DAG, updateRunProgress' distinct-businessId count, and closeRunIfDone's
 //      per-job cost accounting (which WP1-4/WP1-6 already got to 10/10). Rather
@@ -53,7 +55,9 @@ export interface RootJobRef {
 export interface CellJobRef {
   runId: string;
   cellKey: string;
-  family: "meta_ads" | "google_ads" | "serp";
+  // B1 · google_ads moved to a per-business GOOGLE_ADS root job (enqueueRootJobs),
+  // so it's no longer a cell family here — only meta_ads + serp remain per-cell.
+  family: "meta_ads" | "serp";
 }
 
 export interface WorkerEnqueueResult {

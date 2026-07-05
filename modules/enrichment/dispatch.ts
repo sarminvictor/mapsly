@@ -44,7 +44,7 @@ import { rawListWhere } from "@/modules/discovery/raw-list";
 import { scanBusinessContacts } from "@/modules/contacts/scan";
 import { submitReviewJob } from "@/modules/reviews/review-job";
 import { runMetaAdsForCell } from "@/modules/cell-intel/meta-ads";
-import { runGoogleAdsForCell } from "@/modules/cell-intel/google-ads";
+import { runGoogleAdsForBusiness } from "@/modules/cell-intel/google-ads";
 import { runSerpForCell } from "@/modules/cell-intel/serp";
 import { runAiResearchForBusiness } from "@/modules/ai-research/pipeline";
 import {
@@ -205,8 +205,16 @@ type JobFamily =
   | "SERVICES"
   | "REVIEWS"
   | "AI_RESEARCH"
-  | "LIGHTHOUSE";
-type FreshCursor = "contacts" | "reviews" | "lighthouse" | null;
+  | "LIGHTHOUSE"
+  | "GOOGLE_ADS";
+type FreshCursor =
+  | "contacts"
+  | "reviews"
+  | "lighthouse"
+  | "services"
+  | "ai_research"
+  | "google_ads"
+  | null;
 
 interface JobPlanEntry {
   family: JobFamily;
@@ -302,6 +310,19 @@ const WORKER: Record<JobFamily, (businessId: string) => Promise<WorkerResult>> =
       if (audited > 0) return { ok: true, billable: true };
       return { ok: true, billable: false, reason: "lighthouse_0_audited" };
     },
+    // B1 · per-business Google ads via target-host ads_search. Reliable
+    // attribution: every returned creative belongs to the business's domain by
+    // construction. Billable when the collection actually RAN (outcome
+    // "collected") — even with 0 creatives, that's a real, verified-empty result
+    // the customer paid one ads_search for (parity with a reviews/contacts pull
+    // that lands 0 rows but did the work). A website-less business can't run
+    // (no host to target) → non-billable no-op; the dispatch never queues one
+    // (google_ads is WEBSITE_DEPENDENT), but guard it here too.
+    GOOGLE_ADS: async (id) => {
+      const r = await runGoogleAdsForBusiness(id);
+      if (r.outcome === "collected") return { ok: true, billable: true };
+      return { ok: true, billable: false, reason: `google_ads_${r.outcome}` };
+    },
   };
 
 /** Build the per-business job plan from the run's selected families. Contacts +
@@ -323,8 +344,10 @@ function buildJobPlan(has: (f: EnrichmentType) => boolean): JobPlanEntry[] {
     plan.push({
       family: "SERVICES",
       plannedUsd: ENRICHMENT_PRICES.services.usdPerUnit,
-      cursor: null,
-      freshDays: 0,
+      // A4 · 90-day freshness cursor (Business.servicesLastAt) so a repeat run
+      // within the window is SKIPPED_FRESH at $0 instead of re-billing.
+      cursor: "services",
+      freshDays: 90,
     });
   }
   if (has("reviews")) {
@@ -347,8 +370,20 @@ function buildJobPlan(has: (f: EnrichmentType) => boolean): JobPlanEntry[] {
     plan.push({
       family: "AI_RESEARCH",
       plannedUsd: ENRICHMENT_PRICES.ai_research.usdPerUnit,
-      cursor: null,
-      freshDays: 0,
+      // A4 · 90-day freshness cursor (Business.aiResearchLastAt) so a repeat run
+      // within the window is SKIPPED_FRESH at $0 instead of re-billing.
+      cursor: "ai_research",
+      freshDays: 90,
+    });
+  }
+  if (has("google_ads")) {
+    plan.push({
+      family: "GOOGLE_ADS",
+      plannedUsd: ENRICHMENT_PRICES.google_ads.usdPerUnit,
+      // B1 · 30-day freshness cursor (Business.googleAdsLastAt) so a repeat run
+      // within the window is SKIPPED_FRESH at $0 instead of re-billing.
+      cursor: "google_ads",
+      freshDays: ENRICHMENT_PRICES.google_ads.freshnessDays,
     });
   }
   return plan;
@@ -359,11 +394,9 @@ function buildJobPlan(has: (f: EnrichmentType) => boolean): JobPlanEntry[] {
 // the quote (modules/cost/estimate.ts), NOT usdToCredits(vendorUSD). This is
 // what gives us margin instead of cost pass-through.
 
-const CELL_FAMILIES: readonly EnrichmentType[] = [
-  "meta_ads",
-  "google_ads",
-  "serp",
-];
+// B1 · google_ads moved OUT to a per-business job (GOOGLE_ADS, reliable
+// target-host attribution). Only meta_ads + serp remain per-cell.
+const CELL_FAMILIES: readonly EnrichmentType[] = ["meta_ads", "serp"];
 
 /** Credits one completed per-business job bills, given the run's selected
  *  families. The CONTACTS scan job covers contacts+tech (one DOM fetch), so it
@@ -387,6 +420,8 @@ function creditsForBusinessJob(
       return CREDIT_PRICES.lighthouse;
     case "AI_RESEARCH":
       return CREDIT_PRICES.ai_research;
+    case "GOOGLE_ADS":
+      return CREDIT_PRICES.google_ads;
   }
 }
 
@@ -606,8 +641,6 @@ export async function fanOutRun(
   }[] = [];
   if (has("meta_ads"))
     cellFamilies.push({ type: "meta_ads", run: runMetaAdsForCell });
-  if (has("google_ads"))
-    cellFamilies.push({ type: "google_ads", run: runGoogleAdsForCell });
   if (has("serp")) cellFamilies.push({ type: "serp", run: runSerpForCell });
 
   // Which (cell, family) pairs actually need collecting (not already fresh)?
@@ -672,16 +705,11 @@ export async function fanOutRun(
  */
 export async function collectCellFamily(
   cellKey: string,
-  family: "meta_ads" | "google_ads" | "serp",
+  family: "meta_ads" | "serp",
   run?: (k: string) => Promise<{ outcome: string }>,
 ): Promise<number> {
   const runner =
-    run ??
-    (family === "meta_ads"
-      ? runMetaAdsForCell
-      : family === "google_ads"
-        ? runGoogleAdsForCell
-        : runSerpForCell);
+    run ?? (family === "meta_ads" ? runMetaAdsForCell : runSerpForCell);
   const out = await runner(cellKey);
   // Only a real collection bills. A failed cell run (swallows internally, writes
   // a FAILED AdMarketRun, returns non-"collected") does NOT bill and — because
@@ -732,6 +760,38 @@ async function unitFreshAtProcess(
     return isFresh(
       last?.auditedAt,
       ENRICHMENT_PRICES.lighthouse.freshnessDays,
+      now,
+    );
+  }
+  // A4 · re-check the services / ai_research cursors at process time too (a unit
+  // may have gone fresh since fan-out via a concurrent run), so a quoted-billable
+  // job that's now fresh is SKIPPED_FRESH at $0 instead of re-running the model.
+  // Gated at the 90-day window buildJobPlan holds these families to.
+  if (family === "SERVICES") {
+    const b = await prisma.business.findUnique({
+      where: { id: businessId },
+      select: { servicesLastAt: true },
+    });
+    return isFresh(b?.servicesLastAt, 90, now);
+  }
+  if (family === "AI_RESEARCH") {
+    const b = await prisma.business.findUnique({
+      where: { id: businessId },
+      select: { aiResearchLastAt: true },
+    });
+    return isFresh(b?.aiResearchLastAt, 90, now);
+  }
+  // B1 · re-check the per-business google_ads cursor at process time (a unit may
+  // have gone fresh since fan-out via a concurrent run) so a quoted-billable job
+  // that's now fresh is SKIPPED_FRESH at $0 instead of re-running the ads_search.
+  if (family === "GOOGLE_ADS") {
+    const b = await prisma.business.findUnique({
+      where: { id: businessId },
+      select: { googleAdsLastAt: true },
+    });
+    return isFresh(
+      b?.googleAdsLastAt,
+      ENRICHMENT_PRICES.google_ads.freshnessDays,
       now,
     );
   }
@@ -952,7 +1012,7 @@ export async function claimAndProcessJob(
 export async function runEnrichCellForRun(
   runId: string,
   cellKey: string,
-  family: "meta_ads" | "google_ads" | "serp",
+  family: "meta_ads" | "serp",
 ): Promise<number> {
   const usd = await collectCellFamily(cellKey, family);
   if (usd > 0) {
@@ -1611,6 +1671,9 @@ const FAMILY_PRIORITY: Record<string, number> = {
   CONTACTS: 0,
   REVIEWS: 0,
   LIGHTHOUSE: 1,
+  // B1 · GOOGLE_ADS is its own fetch (target-host ads_search), not DOM-dependent
+  // — same priority tier as LIGHTHOUSE (a secondary, non-root external call).
+  GOOGLE_ADS: 1,
   SERVICES: 2,
   AI_RESEARCH: 2,
 };

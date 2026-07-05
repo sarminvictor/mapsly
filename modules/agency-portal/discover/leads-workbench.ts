@@ -324,7 +324,12 @@ export type DataFamily =
 export const DATA_FAMILIES: readonly { key: DataFamily; label: string }[] = [
   { key: "identity", label: "Identity" },
   { key: "reviews", label: "Reviews" },
-  { key: "website", label: "Website" },
+  // AUDIT C3 · this coverage FAMILY means "a site audit (tech/Lighthouse) ran",
+  // NOT the website URL — the "Website" COLUMN (COLUMNS[website], kind:"site")
+  // owns that. Labelled "Site audit" so the coverage panel + field-state filters
+  // + per-cell enrich tooltips never collide with the URL column. The family KEY
+  // stays `website` (unchanged) — only the human label changed.
+  { key: "website", label: "Site audit" },
   { key: "contacts", label: "Contacts" },
   { key: "ads", label: "Ads" },
   { key: "search", label: "Search" },
@@ -519,10 +524,11 @@ export const COLUMNS: readonly ColumnDef[] = [
     typeGroup: "Site audit",
   },
   {
-    // AUDIT F2 · active Meta-ad count — stored, never shown.
+    // B1 · active-ad count across Meta + Google (per-business Google attribution
+    // is reliable now — target-host ads_search).
     key: "adCount",
     label: "Ads",
-    fullLabel: "Active Meta-ad creatives",
+    fullLabel: "Active ad creatives (Meta + Google)",
     kind: "num",
     sortable: true,
     defaultOn: false,

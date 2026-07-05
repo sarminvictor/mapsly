@@ -74,6 +74,9 @@ vi.mock("@/lib/prisma", () => ({
     business: {
       findUnique: vi.fn(async () => db.getBusiness()),
       findMany: vi.fn(async () => db.getCellBusinesses()),
+      // A4 · extractServicesForBusiness stamps Business.servicesLastAt on a
+      // successful (incl. verified-empty) completion — no-op mock here.
+      update: vi.fn(async () => ({})),
     },
     serviceTaxonomy: {
       findUnique: vi.fn(
@@ -148,12 +151,16 @@ vi.mock("@/lib/prisma", () => ({
   Prisma: { JsonNull: null },
 }));
 
+import prisma from "@/lib/prisma";
 import {
   extractServicesForBusiness,
   recomputeCellServicePrevalence,
   canonicalKeyOf,
   PROMOTION_THRESHOLD,
 } from "../extract";
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const businessUpdate = (prisma as any).business.update;
 
 const CELL = "auto_repair|miami|US";
 
@@ -261,6 +268,43 @@ describe("extractServicesForBusiness · taxonomy self-build", () => {
     expect(upd.data.detectedVia).toEqual(
       expect.arrayContaining(["auto:place-topics", "ai:open"]),
     );
+  });
+
+  // A4 · a successful run stamps Business.servicesLastAt so the dispatch
+  // freshness gate serves a repeat run within 90d at $0.
+  test("stamps servicesLastAt = now on a successful run (A4)", async () => {
+    mockAiServices(["Oil change"]);
+    db.setBusiness(baseBusiness("b1"));
+    const now = new Date("2026-06-22T12:00:00.000Z");
+
+    await extractServicesForBusiness("b1", { now });
+
+    expect(businessUpdate).toHaveBeenCalledWith({
+      where: { id: "b1" },
+      data: { servicesLastAt: now },
+    });
+  });
+
+  // A4 · even a verified-empty extract (no services detected) is a completed
+  // job → still stamps the cursor so it isn't re-billed within the window.
+  test("stamps servicesLastAt even when 0 services are found (A4)", async () => {
+    mockAiServices([]); // AI returns nothing; no deterministic taxonomy match.
+    db.setBusiness({
+      id: "b1",
+      category: "unmapped_category",
+      categories: [],
+      categoryIds: ["unmapped_category"],
+      description: "",
+      placeTopics: {},
+    });
+    const now = new Date("2026-06-22T12:00:00.000Z");
+
+    const res = await extractServicesForBusiness("b1", { now });
+    expect(res.merged).toBe(0);
+    expect(businessUpdate).toHaveBeenCalledWith({
+      where: { id: "b1" },
+      data: { servicesLastAt: now },
+    });
   });
 });
 

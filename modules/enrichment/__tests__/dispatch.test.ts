@@ -93,7 +93,9 @@ vi.mock("@/modules/cell-intel/meta-ads", () => ({
   runMetaAdsForCell: vi.fn(),
 }));
 vi.mock("@/modules/cell-intel/google-ads", () => ({
-  runGoogleAdsForCell: vi.fn(),
+  // B1 · dispatch now imports the per-business collector (google_ads is a
+  // per-business GOOGLE_ADS job, not a cell family).
+  runGoogleAdsForBusiness: vi.fn(),
 }));
 vi.mock("@/modules/cell-intel/serp", () => ({ runSerpForCell: vi.fn() }));
 vi.mock("@/modules/playbooks/run", () => ({
@@ -394,6 +396,70 @@ describe("fanOutRun", () => {
         family: "LIGHTHOUSE",
         status: "SKIPPED_FRESH",
         costUsd: 0,
+      }),
+    );
+  });
+
+  // A4 · services + ai_research now carry a 90-day per-business freshness cursor
+  // (Business.servicesLastAt / aiResearchLastAt). A repeat run within that window
+  // is SKIPPED_FRESH at $0 — no re-billing the model over the same website text.
+  test("a fresh services / ai_research unit is SKIPPED_FRESH at $0 (A4 · 90-day)", async () => {
+    const { loadFreshTimestamps } =
+      await import("@/modules/discovery/enrich-fresh-db");
+    // b1 was enriched for both families ~1 day ago → inside the 90-day window.
+    const recent = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (loadFreshTimestamps as any).mockResolvedValueOnce({
+      perBusiness: new Map([["b1", { services: recent, ai_research: recent }]]),
+      perCell: new Map(),
+    });
+    p.enrichmentRun.findUnique.mockResolvedValue({
+      id: "r1",
+      status: "PENDING",
+      enrichmentsJson: ["services", "ai_research"],
+      scopeRefsJson: { businessIds: ["b1"], cellKeys: [] },
+    });
+
+    await fanOutRun("r1", new Date());
+
+    const rows = p.enrichmentJob.createMany.mock.calls[0][0].data;
+    const byFamily = new Map<string, { status: string; costUsd: number }>(
+      rows.map((r: { family: string; status: string; costUsd: number }) => [
+        r.family,
+        { status: r.status, costUsd: r.costUsd },
+      ]),
+    );
+    expect(byFamily.get("SERVICES")).toEqual({
+      status: "SKIPPED_FRESH",
+      costUsd: 0,
+    });
+    expect(byFamily.get("AI_RESEARCH")).toEqual({
+      status: "SKIPPED_FRESH",
+      costUsd: 0,
+    });
+  });
+
+  // A4 · a never-enriched (or stale) unit is still QUEUED + billed — the fresh
+  // gate only frees a unit inside the 90-day window.
+  test("a stale/never-enriched services unit is QUEUED + billed (A4)", async () => {
+    p.enrichmentRun.findUnique.mockResolvedValue({
+      id: "r1",
+      status: "PENDING",
+      enrichmentsJson: ["services"],
+      scopeRefsJson: { businessIds: ["b1"], cellKeys: [] },
+    });
+
+    await fanOutRun("r1", new Date());
+
+    const rows = p.enrichmentJob.createMany.mock.calls[0][0].data;
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toEqual(
+      expect.objectContaining({
+        businessId: "b1",
+        family: "SERVICES",
+        status: "QUEUED",
+        // $0.002 = ENRICHMENT_PRICES.services.usdPerUnit.
+        costUsd: 0.002,
       }),
     );
   });

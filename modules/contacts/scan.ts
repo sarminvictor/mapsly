@@ -56,6 +56,40 @@ import {
 } from "@/modules/contacts/fetch-site";
 import { fetchDoms } from "@/services/dom-fetcher/fetcher";
 
+/**
+ * Cap on the persisted site-text extract (A2). Bounds both the DB row size and
+ * the later token cost when the services + AI-research jobs feed this text to
+ * the model. ~24k chars ≈ the front page of most local-business sites.
+ */
+const MAX_SITE_TEXT_CHARS = 24_000;
+
+/**
+ * Derive readable, visible text from raw page HTML (A2). Strips <script> and
+ * <style> blocks (and <noscript>/comments) FIRST so their contents don't leak
+ * into the text, then removes all remaining tags, decodes the common HTML
+ * entities, and collapses whitespace. Truncated to MAX_SITE_TEXT_CHARS. Returns
+ * "" for empty/whitespace-only input so the caller can leave siteText null.
+ * We never store raw HTML — only this cleaned extract.
+ */
+export function siteTextFromHtml(html: string): string {
+  const text = html
+    .replace(/<!--[\s\S]*?-->/g, " ")
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<noscript[\s\S]*?<\/noscript>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/&apos;/gi, "'")
+    .replace(/\s+/g, " ")
+    .trim();
+  return text.slice(0, MAX_SITE_TEXT_CHARS);
+}
+
 /** Mirror of Prisma `ContactRole` (kept local so the module stays pure-ish). */
 type ContactRole =
   | "OWNER"
@@ -454,6 +488,12 @@ export async function scanBusinessContacts(
 
   const now = new Date();
 
+  // A2 · persist a cleaned, truncated text extract of the page so the services +
+  // AI-research jobs can read the REAL website (menu + positioning copy), not
+  // just the thin Google listing. We derive visible text (scripts/styles/tags
+  // stripped) and cap it — never store raw HTML. Empty extract → leave null.
+  const siteText = siteTextFromHtml(fetched.html);
+
   // Compute hide AFTER reachability — the OK + zero-reach + empty-base-row case
   // is the only path that hides (computeHidden mirrors the enrichability gate).
   const hidden = computeHidden({
@@ -474,6 +514,9 @@ export async function scanBusinessContacts(
       contactScanStatus: "OK",
       contactsExtractedAt: now,
       techScanLastAt: now,
+      ...(siteText
+        ? { siteText, siteTextAt: now }
+        : { siteText: null, siteTextAt: null }),
       isHidden: hidden.isHidden,
       hiddenReason: hidden.hiddenReason,
     },

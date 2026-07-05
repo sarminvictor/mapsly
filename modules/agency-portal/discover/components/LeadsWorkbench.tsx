@@ -17,6 +17,8 @@
 // bulk actions mandatory. English-only copy.
 
 import {
+  cloneElement,
+  isValidElement,
   useCallback,
   useEffect,
   useMemo,
@@ -24,6 +26,8 @@ import {
   useRef,
   useState,
   useTransition,
+  type ReactElement,
+  type ReactNode,
 } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
@@ -83,11 +87,15 @@ import {
   enrichTypesForFamilies,
   ENRICHMENT_FAMILIES,
   ENRICHMENT_TYPES,
+  DATA_GROUPS,
+  deriveGroupStates,
+  enrichTypesForGroups,
   anyEnrichmentRan,
-  anyTypeRan,
+  anyGroupRan,
   type FamilyState,
   type EnrichmentTypeKey,
   type TypeState,
+  type DataGroupKey,
 } from "../family-coverage";
 import { QUALIFIER_SIGNAL_KEYS } from "../goal-templates";
 import { useDismiss } from "../hooks/useDismiss";
@@ -313,15 +321,27 @@ export function LeadsWorkbench({
     },
     [coverageTypeStates, statesFor],
   );
-  /** AUDIT A2/B1 · has ANY of the 9 types run for this row (running/enriched/
-   *  empty/failed) — the predicate behind the "Enriched only" view. Prefers the
-   *  per-type map; falls back to the 5-family predicate when it's absent. */
+  /**
+   * The honest per-DATA-GROUP run-state map (the 7 user-facing groups Tom reads
+   * — the ONE coverage denominator) for one row, rolled up from its 9 per-type
+   * states. THE input the row chip strip, the toolbar badge, and the coverage
+   * panel all read, so `/ 7` is the same number everywhere.
+   */
+  const groupStatesFor = useCallback(
+    (r: WorkbenchLeadRow): Record<DataGroupKey, TypeState> =>
+      deriveGroupStates(typeStatesFor(r)),
+    [typeStatesFor],
+  );
+  /** AUDIT A2/B1 · has ANY of the 7 data groups run for this row (running/
+   *  enriched/empty/failed) — the predicate behind the "Enriched only" view.
+   *  Prefers the per-type map (rolled to groups); falls back to the 5-family
+   *  predicate when it's absent. */
   const rowEnriched = useCallback(
     (r: WorkbenchLeadRow): boolean =>
       coverageTypeStates[r.businessId]
-        ? anyTypeRan(coverageTypeStates[r.businessId])
+        ? anyGroupRan(groupStatesFor(r))
         : anyEnrichmentRan(statesFor(r)),
-    [coverageTypeStates, statesFor],
+    [coverageTypeStates, groupStatesFor, statesFor],
   );
   // ── Status (optimistic) ──────────────────────────────────────────────────
   const [committed, setCommitted] = useState<Record<string, LeadStatus>>(() =>
@@ -849,6 +869,55 @@ export function LeadsWorkbench({
       statesFor(r)[family] === "not_run",
     [enriching, statesFor],
   );
+  // AUDIT C5 · is this (business × family) currently in an enrich run — REGARDLESS
+  // of its current state. `isCellRunning` self-clears once a cell leaves not_run
+  // (so an empty "— enrich" cell can flip to "running…" then to its value). This
+  // broader predicate stays true for cells that ALREADY show a value (a Reviews
+  // count, a phone, a rating) while their family is re-enriching, so EVERY value
+  // cell of the running family gets the field loader + click-block (not just the
+  // not-run ones). It self-clears the same way — via the enrich-scope bus reset +
+  // the 5-min safety timeout that own `enriching`.
+  const isFamilyEnriching = useCallback(
+    (r: WorkbenchLeadRow, family?: DataFamily): boolean =>
+      !!family &&
+      !!enriching &&
+      enriching.ids.has(r.businessId) &&
+      enriching.families.has(family),
+    [enriching],
+  );
+  /**
+   * AUDIT C5 · wrap ONE value cell's `<td>` in the loading state when its family
+   * is in flight for this lead: dim the value, block interaction
+   * (`pointer-events:none` via `.cell-loading` + `aria-busy`), and overlay a
+   * small spinner — WITHOUT changing the cell content (so the column width never
+   * shifts). Only the field cell is inerted; the row's own click is untouched.
+   * A not_run cell already renders `NeedsEnrich`'s "running…" state, so wrapping
+   * it here is harmless (it just gains the dim + aria-busy). Cells with no
+   * `col.family` (biz/match/status/…) are returned unchanged.
+   */
+  const withCellLoading = useCallback(
+    (col: ColumnDef, r: WorkbenchLeadRow, td: ReactElement): ReactElement => {
+      if (!isFamilyEnriching(r, col.family) || !isValidElement(td)) return td;
+      const prev = (td.props as { className?: string }).className;
+      const children = (td.props as { children?: ReactNode }).children;
+      return cloneElement(
+        td as ReactElement<{
+          className?: string;
+          "aria-busy"?: boolean;
+          children?: ReactNode;
+        }>,
+        {
+          className: `${prev ? `${prev} ` : ""}cell-loading`,
+          "aria-busy": true,
+        },
+        children,
+        <span key="__cellspin" className="cell-loading-spin" aria-hidden="true">
+          <span className="spin sm" />
+        </span>,
+      );
+    },
+    [isFamilyEnriching],
+  );
 
   // AUDIT U16 · the per-cell provenance tooltip for a numeric enriched value:
   // `{source} · scanned {when} · {fresh|stale}`. The source names WHERE the
@@ -1204,32 +1273,38 @@ export function LeadsWorkbench({
     URL.revokeObjectURL(url);
   }
 
-  // ── Coverage summary (set-wide) + the missing families to enrich ──────────
-  // AUDIT §3/A3 · sourced from the honest run-state map (never presence). Over
-  // the 5 ENRICHMENT families (identity excluded — it is the business itself):
-  //   - "have"       · EVERY visible lead is `enriched` (ran + data)
-  //   - "notYet"     · not fully covered → shown in the "Not yet" line
-  //   - missingKeys  · families with ≥1 NOT-YET-RUN lead → the enrich target.
-  //     A family that ran everywhere but found nothing (empty) is NOT a target:
-  //     re-enriching a verified-empty family just re-charges for a known 0 (A5).
+  // ── Coverage summary (set-wide) + the missing groups to enrich ────────────
+  // C3 · the ONE coverage denominator: over the 7 user-facing DATA GROUPS (the
+  // same axis the row chip strip + toolbar badge use), sourced from the honest
+  // rolled-up run-state map (never presence):
+  //   - "have"        · EVERY visible lead is `enriched` for the group (has it)
+  //   - "notYet"      · not fully covered → shown in the "Not yet" line
+  //   - missingGroups · groups with ≥1 NOT-YET-RUN lead → the enrich target.
+  //     A group that ran everywhere but found nothing (empty) is NOT a target:
+  //     re-enriching a verified-empty group just re-charges for a known 0 (A5).
   const coverageSummary = useMemo(() => {
     const have: string[] = [];
     const notYet: string[] = [];
-    const missingKeys: DataFamily[] = [];
-    for (const fam of ENRICHMENT_FAMILIES) {
-      const label = DATA_FAMILIES.find((f) => f.key === fam)?.label ?? fam;
-      const states = filtered.map((r) => statesFor(r)[fam]);
+    const missingGroups: DataGroupKey[] = [];
+    for (const g of DATA_GROUPS) {
+      const states = filtered.map((r) => groupStatesFor(r)[g.key]);
       const allEnriched =
         filtered.length > 0 && states.every((s) => s === "enriched");
-      if (allEnriched) have.push(label);
-      else notYet.push(label);
-      if (states.some((s) => s === "not_run")) missingKeys.push(fam);
+      if (allEnriched) have.push(g.label);
+      else notYet.push(g.label);
+      if (states.some((s) => s === "not_run")) missingGroups.push(g.key);
     }
-    return { have, notYet, missingKeys };
-  }, [filtered, statesFor]);
+    return { have, notYet, missingGroups };
+  }, [filtered, groupStatesFor]);
 
   // AUDIT C5 · per-family state histogram over the loaded window — powers the
-  // clickable "Email: have 11 · none 30 · failed 5" coverage filters.
+  // clickable "Site audit: have 11 · none 30 · failed 5" coverage-panel filters.
+  // These stay on the 5-ENRICHMENT-FAMILY axis (reviews/website/contacts/ads/
+  // search) because the field-state filter round-trips through the shareable-view
+  // URL by DataFamily key (wb-view-state `fieldStates`); the panel presents them
+  // under the data-group labels the family already carries (DATA_FAMILIES labels
+  // were renamed — "Site audit" etc.). The have/not-yet SUMMARY above is the
+  // 7-group denominator that the chip strip + toolbar badge share.
   const familyStateCounts = useMemo(() => {
     const out = new Map<DataFamily, Record<FamilyState, number>>();
     for (const fam of ENRICHMENT_FAMILIES)
@@ -1329,11 +1404,11 @@ export function LeadsWorkbench({
     });
   }
 
-  /** Coverage CTA → open the sheet pre-seeded with every missing family. */
+  /** Coverage CTA → open the sheet pre-seeded with every missing data group. */
   function openMissingFamiliesSheet() {
     openEnrichSheet({
-      enrichments: enrichTypesForFamilies(
-        coverageSummary.missingKeys,
+      enrichments: enrichTypesForGroups(
+        coverageSummary.missingGroups,
       ) as EnrichmentType[],
       scope: enrichScope,
     });
@@ -1495,6 +1570,47 @@ export function LeadsWorkbench({
       (m) => availNumFields.has(m.field) && !active.has(m.field),
     );
   }, [availNumFields, filters]);
+  // C2 · one filtering home — the "By data state" section of the merged
+  // "+ Filter" picker. Per family, the have/none/failed/not-run toggles present
+  // in the loaded window (ordered by actionability, matching the coverage
+  // panel's read-only summary). These drive the SAME `stateFilters` model via
+  // `toggleStateFilter` — no second filter model — so they round-trip through
+  // the shareable-view URL exactly as before and the active-count badge on the
+  // Filter + Coverage toolbar buttons stays honest.
+  const stateFilterRows = useMemo(() => {
+    const STATE_LABEL: Record<FamilyState, string> = {
+      enriched: "have",
+      empty: "none",
+      failed: "failed",
+      not_run: "not run",
+    };
+    // Actionability order (failed → none → have), default-population last.
+    const STATE_ORDER: FamilyState[] = [
+      "failed",
+      "empty",
+      "enriched",
+      "not_run",
+    ];
+    return ENRICHMENT_FAMILIES.flatMap((fam) => {
+      const counts = familyStateCounts.get(fam);
+      if (!counts) return [];
+      const states = STATE_ORDER.filter((s) => counts[s] > 0);
+      if (states.length === 0) return [];
+      const label = DATA_FAMILIES.find((f) => f.key === fam)?.label ?? fam;
+      return [
+        {
+          family: fam,
+          label,
+          states: states.map((s) => ({
+            state: s,
+            stateLabel: STATE_LABEL[s],
+            count: counts[s],
+          })),
+        },
+      ];
+    });
+  }, [familyStateCounts]);
+  const stateOptionCount = stateFilterRows.length;
 
   // U15 · the merged "+ Filter" picker is a <Popover> (floating-ui handles
   // portal + dismiss + Esc + focus + ↑/↓ nav), so no hand-rolled listeners
@@ -1526,7 +1642,7 @@ export function LeadsWorkbench({
   }
 
   // ── Render helpers ────────────────────────────────────────────────────────
-  function renderCell(col: ColumnDef, r: WorkbenchLeadRow) {
+  function renderCell(col: ColumnDef, r: WorkbenchLeadRow): ReactElement {
     const status = optimistic[r.leadId] ?? r.status;
     switch (col.kind) {
       case "biz":
@@ -1837,29 +1953,30 @@ export function LeadsWorkbench({
         );
       }
       case "cov": {
-        // AUDIT A2 · per-row badge strip over the 9 ENRICHMENT TYPES Tom pays
-        // for (contacts/services/reviews/tech/lighthouse/meta_ads/google_ads/
-        // serp/ai_research), each a 2-letter chip colored by its honest RUN
-        // state: enriched (green · ran + data) · empty (grey · ran, none found)
-        // · failed (red · errored) · running (pulse · in flight) · not_run
-        // (faint outline · never scanned). Replaces the old 5-family dot-strip.
-        // "N/9" counts the types that actually produced data.
-        const ts = typeStatesFor(r);
-        const types = ENRICHMENT_TYPES;
-        const total = types.length;
-        const enrichedN = types.filter((t) => ts[t.key] === "enriched").length;
-        const failedN = types.filter((t) => ts[t.key] === "failed").length;
-        const runningN = types.filter((t) => ts[t.key] === "running").length;
+        // C3 · per-row badge strip over the 7 DATA GROUPS the user gets
+        // (contacts & site tech / reviews / site speed & SEO / services /
+        // AI brief / ad activity / search rank), each a chip colored by its
+        // honest rolled-up RUN state: enriched (green · every type has data) ·
+        // empty (grey · ran but not fully) · failed (red · errored) · running
+        // (pulse · in flight) · not_run (faint outline · never scanned). This is
+        // the SAME 7-group denominator the toolbar badge + coverage panel use,
+        // so "N / 7" is one number everywhere. "N/7" counts groups with data.
+        const gs = groupStatesFor(r);
+        const groups = DATA_GROUPS;
+        const total = groups.length;
+        const enrichedN = groups.filter((g) => gs[g.key] === "enriched").length;
+        const failedN = groups.filter((g) => gs[g.key] === "failed").length;
+        const runningN = groups.filter((g) => gs[g.key] === "running").length;
         return (
           <td key={col.key}>
             <span
               className="covstrip"
               data-tip={
                 failedN > 0
-                  ? `${enrichedN} of ${total} enriched · ${failedN} failed — re-enrich`
+                  ? `${enrichedN} of ${total} data groups · ${failedN} failed — re-enrich`
                   : runningN > 0
-                    ? `${enrichedN} of ${total} enriched · ${runningN} running`
-                    : `${enrichedN} of ${total} enrichments have data`
+                    ? `${enrichedN} of ${total} data groups · ${runningN} running`
+                    : `${enrichedN} of ${total} data groups have data`
               }
             >
               <span className="covfrac">
@@ -1867,15 +1984,15 @@ export function LeadsWorkbench({
               </span>
               <span
                 className="covtypes"
-                aria-label={`${enrichedN} of ${total} enrichment types have data${
+                aria-label={`${enrichedN} of ${total} data groups have data${
                   failedN > 0 ? `, ${failedN} failed` : ""
                 }${runningN > 0 ? `, ${runningN} running` : ""}`}
               >
-                {types.map((t) => {
-                  const s = ts[t.key];
+                {groups.map((g) => {
+                  const s = gs[g.key];
                   const desc =
                     s === "enriched"
-                      ? "enriched"
+                      ? "have it"
                       : s === "failed"
                         ? "failed — re-enrich"
                         : s === "running"
@@ -1885,12 +2002,12 @@ export function LeadsWorkbench({
                             : "not yet";
                   return (
                     <span
-                      key={t.key}
+                      key={g.key}
                       className={`covchip ${s}`}
-                      data-tip={`${t.label} · ${desc}`}
+                      data-tip={`${g.label} · ${desc}`}
                       aria-hidden="true"
                     >
-                      {t.chip}
+                      {g.chip}
                     </span>
                   );
                 })}
@@ -1958,7 +2075,7 @@ export function LeadsWorkbench({
             onClick={(e) => toggleRow(r.leadId, idx, e.shiftKey)}
           />
         </td>
-        {cols.map((c) => renderCell(c, r))}
+        {cols.map((c) => withCellLoading(c, r, renderCell(c, r)))}
       </tr>
     );
   }
@@ -2175,13 +2292,13 @@ export function LeadsWorkbench({
               )),
             ])
           )}
-          {/* WP5-13 · locked buy-rows: families still missing across the
+          {/* WP5-13 · locked buy-rows: data groups still missing across the
               visible set — click opens the WP5-3 enrich sheet. Kept below the
               type sections; only shown when the search isn't narrowing (a
               search is a "find this column" intent, not a buy intent). */}
           {fieldsQuery.trim() === "" ? (
             <FieldsMenuLockedRows
-              missing={coverageSummary.missingKeys}
+              missing={coverageSummary.missingGroups}
               scope={enrichScope}
             />
           ) : null}
@@ -2236,10 +2353,12 @@ export function LeadsWorkbench({
           }}
         >
           <Icon name="coverage" />
+          {/* C3 · the SAME 7-data-group denominator the row chip strip + the
+              coverage panel use — "4/7", never /5 or /6. */}
           <span className="cbadge alt">
             {stateFilters.length
               ? stateFilters.length
-              : `${coverageSummary.have.length}/${DATA_FAMILIES.length}`}
+              : `${coverageSummary.have.length}/${DATA_GROUPS.length}`}
           </span>
         </button>
 
@@ -2455,10 +2574,12 @@ export function LeadsWorkbench({
                   </button>
                 }
               >
-                {/* U21 · when NEITHER signals nor fields are addable, the whole
-                  picker is empty — a single actionable row that opens the enrich
-                  sheet from where the problem is stated. */}
-                {signalOptionCount === 0 && addNumericOptions.length === 0 ? (
+                {/* U21 · when NEITHER signals, fields nor data-state toggles are
+                  offerable, the whole picker is empty — a single actionable row
+                  that opens the enrich sheet from where the problem is stated. */}
+                {signalOptionCount === 0 &&
+                addNumericOptions.length === 0 &&
+                stateOptionCount === 0 ? (
                   <button
                     type="button"
                     className="filter-add-empty"
@@ -2556,6 +2677,51 @@ export function LeadsWorkbench({
                     ))}
                   </div>
                 ) : null}
+                {/* ── By data state ───────────────────────────────────────── */}
+                {/* C2 · the THIRD section — filter by whether each data domain
+                  has run (have / none / not run / failed). Multi-select toggles
+                  driving the SAME `stateFilters` model as the coverage panel
+                  (via `toggleStateFilter`), so this is the ONE discoverable home
+                  for signal / value / data-state filtering. The popover stays
+                  open on toggle (unlike the single-add signal/field picks) so a
+                  user can stack states in one visit. */}
+                {stateFilterRows.length > 0 ? (
+                  <div
+                    className="filter-list-section"
+                    role="group"
+                    aria-label="Filter by data state"
+                  >
+                    <div className="filter-list-eyebrow">By data state</div>
+                    {stateFilterRows.map((famRow) => {
+                      const active = stateFilterByFamily.get(famRow.family);
+                      return (
+                        <div key={famRow.family} className="filter-state-row">
+                          <span className="filter-state-fam">
+                            {famRow.label}
+                          </span>
+                          <span className="filter-state-toggles">
+                            {famRow.states.map((s) => (
+                              <button
+                                key={s.state}
+                                type="button"
+                                className={`cov-state${
+                                  active?.has(s.state) ? " on" : ""
+                                }`}
+                                aria-pressed={active?.has(s.state) ?? false}
+                                data-tip={`Show leads where ${famRow.label} = ${s.stateLabel}`}
+                                onClick={() =>
+                                  toggleStateFilter(famRow.family, s.state)
+                                }
+                              >
+                                {s.stateLabel} {s.count}
+                              </button>
+                            ))}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : null}
               </Popover>
             </div>
           </div>
@@ -2622,7 +2788,7 @@ export function LeadsWorkbench({
                     </span>
                   ))}
                   {/* WP5-3 · opens the in-workbench enrich sheet (pre-seeded
-                    with the missing families + the current scope) — a real
+                    with the missing data groups + the current scope) — a real
                     one-click buy surface, not a deep-link away. */}
                   <button
                     type="button"
@@ -2635,20 +2801,24 @@ export function LeadsWorkbench({
                 </>
               ) : (
                 <span className="note" style={{ marginLeft: "auto" }}>
-                  All families enriched on this set
+                  All data groups enriched on this set
                 </span>
               )}
             </div>
-            {/* AUDIT C5 · field-state filters — click a state to narrow to leads
-              whose family is in that state ("Email · none" → no-email leads). */}
-            <div className="cov-filters">
-              <span className="cl-lbl">Filter by state</span>
+            {/* C2 · READ-ONLY state summary. The per-family have/none/failed/
+              not-run breakdown is now a glance-only read of the loaded window —
+              the interactive toggles moved to the "By data state" section of the
+              one "+ Filter" picker (the single discoverable filtering home). A
+              hint points there; when data-state filters ARE applied they show as
+              removable chips here too, so the coverage panel can still clear them
+              without reopening the picker. */}
+            <div className="cov-filters" aria-live="polite">
+              <span className="cl-lbl">Data state</span>
               {ENRICHMENT_FAMILIES.map((fam) => {
                 const label =
                   DATA_FAMILIES.find((f) => f.key === fam)?.label ?? fam;
                 const counts = familyStateCounts.get(fam);
                 if (!counts) return null;
-                const active = stateFilterByFamily.get(fam);
                 const STATE_LABEL: Record<FamilyState, string> = {
                   enriched: "have",
                   empty: "none",
@@ -2669,16 +2839,9 @@ export function LeadsWorkbench({
                   <span key={fam} className="cov-fam">
                     <span className="cov-fam-lbl">{label}</span>
                     {shown.map((s) => (
-                      <button
-                        key={s}
-                        type="button"
-                        className={`cov-state${active?.has(s) ? " on" : ""}`}
-                        aria-pressed={active?.has(s) ?? false}
-                        data-tip={`Show leads where ${label} = ${STATE_LABEL[s]}`}
-                        onClick={() => toggleStateFilter(fam, s)}
-                      >
+                      <span key={s} className="cov-state-ro">
                         {STATE_LABEL[s]} {counts[s]}
-                      </button>
+                      </span>
                     ))}
                   </span>
                 );
@@ -2692,9 +2855,13 @@ export function LeadsWorkbench({
                     setPage(1);
                   }}
                 >
-                  Clear
+                  Clear state filters
                 </button>
-              ) : null}
+              ) : (
+                <span className="note" style={{ marginLeft: "auto" }}>
+                  Filter by state from ＋ Filter
+                </span>
+              )}
             </div>
           </div>
         ) : null}

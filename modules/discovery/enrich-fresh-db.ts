@@ -16,20 +16,22 @@ import {
   type FreshTimestamps,
 } from "./enrich-fresh";
 
-/** Map a per-cell family to its AdMarketRun platform marker. */
+/** Map a per-cell family to its AdMarketRun platform marker. B1 · google_ads is
+ *  now per-BUSINESS (Business.googleAdsLastAt), so it's no longer read here from
+ *  the per-cell AdMarketRun — only meta_ads + serp remain per-cell. */
 const CELL_PLATFORM: Partial<Record<EnrichmentType, string>> = {
   meta_ads: "META",
-  google_ads: "GOOGLE",
   serp: "SERP",
 };
 
 /**
  * Load the last-enriched timestamps for every (unit × family) in scope.
  *
- * Per-business families read the denormalized cursors on Business; lighthouse
- * reads the newest LighthouseAudit per business. Per-cell families read the
- * newest OK/PARTIAL AdMarketRun per (cellKey, platform). Families with no
- * freshness source (services, ai_research) are simply absent → never fresh.
+ * Per-business families read the denormalized cursors on Business (contacts /
+ * tech / reviews / services / ai_research); lighthouse reads the newest
+ * LighthouseAudit per business. Per-cell families read the newest OK/PARTIAL
+ * AdMarketRun per (cellKey, platform). A business with no cursor for a family
+ * (never enriched) is simply absent from that family's map → never fresh.
  */
 export async function loadFreshTimestamps(
   businessIds: readonly string[],
@@ -47,6 +49,9 @@ export async function loadFreshTimestamps(
         contactsExtractedAt: true,
         techScanLastAt: true,
         reviewsLastDeltaAt: true,
+        servicesLastAt: true,
+        aiResearchLastAt: true,
+        googleAdsLastAt: true,
         lighthouseAudits: {
           take: 1,
           orderBy: { auditedAt: "desc" },
@@ -59,6 +64,13 @@ export async function loadFreshTimestamps(
         contacts: b.contactsExtractedAt,
         tech: b.techScanLastAt,
         reviews: b.reviewsLastDeltaAt,
+        // A4 · services + ai_research now have per-business freshness cursors,
+        // so a repeat run within their 90-day window is counted fresh (free).
+        services: b.servicesLastAt,
+        ai_research: b.aiResearchLastAt,
+        // B1 · google_ads is a per-business job now (Business.googleAdsLastAt),
+        // so a repeat run within its 30-day window is counted fresh (free).
+        google_ads: b.googleAdsLastAt,
         lighthouse: b.lighthouseAudits[0]?.auditedAt ?? null,
       });
     }
@@ -82,9 +94,10 @@ export async function loadFreshTimestamps(
         AND "status" IN ('OK', 'PARTIAL')
       ORDER BY "cellKey", "platform", "ranAt" DESC
     `);
+    // B1 · GOOGLE is intentionally absent — google_ads freshness is per-business
+    // (read above from Business.googleAdsLastAt), never from the per-cell run.
     const platformToFamily: Record<string, EnrichmentType> = {
       META: "meta_ads",
-      GOOGLE: "google_ads",
       SERP: "serp",
     };
     for (const r of runs) {

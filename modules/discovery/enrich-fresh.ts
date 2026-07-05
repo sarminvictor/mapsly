@@ -11,17 +11,17 @@
 //     columns + per-cell `AdMarketRun.ranAt` and hands `countFresh` plain
 //     timestamps so the math stays unit-testable without a DB.
 //
-// Freshness sources by family (FINAL schema — no new columns):
+// Freshness sources by family:
 //   per-business:
 //     contacts    → Business.contactsExtractedAt
 //     tech        → Business.techScanLastAt
 //     reviews     → Business.reviewsLastDeltaAt
 //     lighthouse  → latest LighthouseAudit.auditedAt
-//     services    → (no freshness column) → never fresh
-//     ai_research → (no freshness column) → never fresh
+//     services    → Business.servicesLastAt      (A4 · 90-day window)
+//     ai_research → Business.aiResearchLastAt    (A4 · 90-day window)
+//     google_ads  → Business.googleAdsLastAt     (B1 · 30-day window)
 //   per-cell:
 //     meta_ads    → latest AdMarketRun(platform=META).ranAt
-//     google_ads  → latest AdMarketRun(platform=GOOGLE).ranAt
 //     serp        → latest AdMarketRun(platform=SERP).ranAt
 
 import {
@@ -84,8 +84,8 @@ function unitFor(enrichment: EnrichmentType): ScopeUnit {
  * business fresh when its `*LastAt` for that family is within the window; a
  * per-cell family counts a cell fresh when its latest run is within the window.
  *
- * Families with no freshness source (services, ai_research) never count fresh:
- * their unit maps carry no timestamp, so every unit is billable.
+ * Families whose unit map carries no timestamp (never enriched) never count
+ * fresh, so every such unit is billable.
  */
 export function countFresh(input: CountFreshInput): FreshByEnrichment {
   const { enrichments, businessIds, cellKeys, timestamps, now } = input;

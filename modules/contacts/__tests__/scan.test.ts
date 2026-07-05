@@ -81,6 +81,8 @@ interface FakeBusiness {
   techScanLastAt?: Date | null;
   contactsExtractedAt?: Date | null;
   reachabilityComputedAt?: Date | null;
+  siteText?: string | null;
+  siteTextAt?: Date | null;
 }
 
 interface FakeContact {
@@ -193,7 +195,10 @@ vi.mock("@/lib/prisma", () => ({
 }));
 
 // Import AFTER mocks are registered.
-import { scanBusinessContacts } from "@/modules/contacts/scan";
+import {
+  scanBusinessContacts,
+  siteTextFromHtml,
+} from "@/modules/contacts/scan";
 
 function baseBusiness(overrides: Partial<FakeBusiness> = {}): FakeBusiness {
   return {
@@ -414,6 +419,14 @@ describe("scanBusinessContacts · fetch SUCCESS · with contacts + tech", () => 
     expect(db.business?.techScanLastAt).toBeInstanceOf(Date);
     // Tech rows are "self-fingerprint" sourced (free, rides the fetch).
     expect(db.techs.every((t) => t.source === "self-fingerprint")).toBe(true);
+
+    // A2 · a successful fetch persists a cleaned text extract + timestamp. The
+    // visible copy is captured; the <script> src is stripped (no raw HTML).
+    expect(typeof db.business?.siteText).toBe("string");
+    expect(db.business?.siteText).toContain("Email us");
+    expect(db.business?.siteText).not.toContain("<script");
+    expect(db.business?.siteText).not.toContain("wp-content");
+    expect(db.business?.siteTextAt).toBeInstanceOf(Date);
   });
 
   test("re-scan upserts (no duplicate Contact rows)", async () => {
@@ -460,5 +473,63 @@ describe("scanBusinessContacts · no website", () => {
     expect(db.business?.contactScanStatus).toBe("OK");
     expect(fetchSiteHtmlMock).not.toHaveBeenCalled();
     expect(summary.isHidden).toBe(false);
+  });
+});
+
+// A2 · the scan persists a cleaned, truncated site-text extract for the services
+// + AI-research jobs to read — but ONLY on a successful fetch, never raw HTML.
+describe("scanBusinessContacts · siteText persistence (A2)", () => {
+  test("a FAILED fetch leaves siteText untouched (null)", async () => {
+    fetchSiteHtmlMock.mockResolvedValue({
+      ok: false,
+      html: "",
+      finalUrl: "",
+      headers: {},
+    });
+
+    await scanBusinessContacts("biz_1");
+
+    // The FAILED branch never writes siteText (the base row starts undefined).
+    expect(db.business?.siteText ?? null).toBe(null);
+    expect(db.business?.siteTextAt ?? null).toBe(null);
+  });
+
+  test("an empty page persists null siteText (no extractable text)", async () => {
+    fetchSiteHtmlMock.mockResolvedValue({
+      ok: true,
+      html: "<html><head><style>.x{color:red}</style></head><body></body></html>",
+      finalUrl: "https://glowspa.example/",
+      headers: {},
+    });
+
+    await scanBusinessContacts("biz_1");
+
+    // OK scan but no visible text → siteText explicitly nulled.
+    expect(db.business?.siteText ?? null).toBe(null);
+    expect(db.business?.siteTextAt ?? null).toBe(null);
+  });
+});
+
+describe("siteTextFromHtml (A2 · pure)", () => {
+  test("strips scripts/styles/tags and decodes entities to visible text", () => {
+    const html = `<html><head><style>.a{color:red}</style>
+      <script>var secret = 1;</script></head>
+      <body><h1>Glow Spa</h1><p>Botox &amp; fillers in Brickell.</p></body></html>`;
+    const text = siteTextFromHtml(html);
+    expect(text).toContain("Glow Spa");
+    expect(text).toContain("Botox & fillers in Brickell.");
+    // Script/style CONTENTS must not leak into the text.
+    expect(text).not.toContain("secret");
+    expect(text).not.toContain("color:red");
+    expect(text).not.toContain("<");
+  });
+
+  test("truncates to 24000 chars", () => {
+    const big = `<p>${"a".repeat(50_000)}</p>`;
+    expect(siteTextFromHtml(big).length).toBe(24_000);
+  });
+
+  test("returns empty string for tag-only / whitespace-only input", () => {
+    expect(siteTextFromHtml("<div></div>\n  \t")).toBe("");
   });
 });

@@ -340,6 +340,22 @@ model Business {
   permanentlyClosed      Boolean            @default(false)
   temporarilyClosed      Boolean            @default(false)
   contactsExtractedAt    DateTime?
+  // Cleaned, truncated readable text extracted from the business's own website
+  // during the contacts scan (A2). Fed to the services + AI-research jobs so the
+  // model reads the real service menu / positioning copy, not just the thin
+  // Google listing. Only populated on a successful site fetch; null otherwise.
+  siteText               String?            @db.Text
+  siteTextAt             DateTime?
+  // Per-enrichment freshness cursors for the services + AI-research jobs (A4).
+  // Stamped on a successful (or verified-empty) job completion so a repeat run
+  // within the 90-day window is served from DB at $0 instead of re-billing.
+  servicesLastAt         DateTime?
+  aiResearchLastAt       DateTime?
+  // B1 · per-business Google-ads freshness cursor. google_ads moved from a
+  // per-cell family to a per-business job (reliable target-host attribution),
+  // mirroring lighthouse: stamped by runGoogleAdsForBusiness on a successful
+  // collection so a repeat run within the 30-day window is SKIPPED_FRESH at $0.
+  googleAdsLastAt        DateTime?
   categoryProfileSlug    String?
   complianceFlags        String[]           @default([])
   enrichmentFreshness    Json?

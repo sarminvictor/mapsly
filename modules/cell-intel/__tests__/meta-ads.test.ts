@@ -13,11 +13,24 @@ const db = vi.hoisted(() => {
   const adMarketRunRows: Array<Record<string, unknown>> = [];
   const adLibraryEntryUpserts: Array<Record<string, unknown>> = [];
   const adMarketAdvertiserUpserts: Array<Record<string, unknown>> = [];
+  const businessUpdateManyCalls: Array<Record<string, unknown>> = [];
+  let contactRows: Array<{
+    businessId: string;
+    value: string;
+    channel: string;
+  }> = [];
   let latestRun: { id: string; ranAt: Date; status: string } | null = null;
   return {
     adMarketRunRows,
     adLibraryEntryUpserts,
     adMarketAdvertiserUpserts,
+    businessUpdateManyCalls,
+    setContacts(rows: Array<{ businessId: string; value: string }>) {
+      contactRows = rows.map((r) => ({ ...r, channel: "FACEBOOK" }));
+    },
+    getContacts() {
+      return contactRows;
+    },
     setLatestRun(r: { id: string; ranAt: Date; status: string } | null) {
       latestRun = r;
     },
@@ -46,6 +59,15 @@ vi.mock("@/lib/prisma", () => ({
       upsert: vi.fn(async (args: Record<string, unknown>) => {
         db.adMarketAdvertiserUpserts.push(args);
         return { id: `adv_${db.adMarketAdvertiserUpserts.length}` };
+      }),
+    },
+    contact: {
+      findMany: vi.fn(async () => db.getContacts()),
+    },
+    business: {
+      updateMany: vi.fn(async (args: Record<string, unknown>) => {
+        db.businessUpdateManyCalls.push(args);
+        return { count: 1 };
       }),
     },
   },
@@ -127,6 +149,8 @@ beforeEach(() => {
   db.adMarketRunRows.length = 0;
   db.adLibraryEntryUpserts.length = 0;
   db.adMarketAdvertiserUpserts.length = 0;
+  db.businessUpdateManyCalls.length = 0;
+  db.setContacts([]);
   db.setLatestRun(null);
   apify.metaAdLibrarySearch.mockReset();
   ctx.resolveCellContext.mockReset();
@@ -329,5 +353,161 @@ describe("runMetaAdsForCell · attribution", () => {
     expect(entry.create.businessId).toBe("biz-maria");
     expect(entry.create.pageId).toBe("PAGE_MARIA");
     expect(res.adCount).toBe(1);
+  });
+
+  test("seeds fbPageId from a resolution + reliably attributes the resolved ad", async () => {
+    // A business with NO stored fbPageId but a Facebook contact. The actor
+    // resolves its page URL → pageId (a `resolution` record). That id MUST (a)
+    // be persisted to Business.fbPageId (updateMany, null-guarded) and (b) make
+    // the run's ad on that pageId attribute to the business even though nothing
+    // was stored before the run.
+    db.setLatestRun(null);
+    db.setContacts([
+      { businessId: "biz-maria", value: "https://facebook.com/soleabrickell" },
+    ]);
+    ctx.resolveCellContext.mockResolvedValueOnce(
+      fakeCtx([
+        {
+          id: "biz-maria",
+          name: "Solea Brickell Spa",
+          slug: "solea-brickell",
+          domain: "soleabrickell.com",
+          website: "https://soleabrickell.com",
+          fbPageId: null, // not yet resolved — the whole point of the seed
+        },
+      ]),
+    );
+    apify.metaAdLibrarySearch.mockResolvedValueOnce({
+      rows: [adRow({ id: "ad-maria", pageId: "PAGE_RESOLVED" })],
+      resolutions: [
+        {
+          resolvedFromUrl: "https://facebook.com/soleabrickell",
+          pageId: "PAGE_RESOLVED",
+        },
+      ],
+      advertisers: [],
+      outcome: "ok",
+      runStatus: "SUCCEEDED",
+      targetStatuses: [],
+      runId: "r-seed",
+      usageTotalUsd: 0.04,
+    });
+
+    const res = await runMetaAdsForCell(CELL, NOW);
+
+    // fbPageId seeded on the business (null-guarded updateMany).
+    expect(res.fbPageIdsSeeded).toBe(1);
+    expect(db.businessUpdateManyCalls).toHaveLength(1);
+    const upd = db.businessUpdateManyCalls[0] as {
+      where: { id: string; fbPageId: null };
+      data: { fbPageId: string };
+    };
+    expect(upd.where).toMatchObject({ id: "biz-maria", fbPageId: null });
+    expect(upd.data.fbPageId).toBe("PAGE_RESOLVED");
+
+    // The ad on the newly-resolved pageId attributes reliably to the business.
+    expect(db.adLibraryEntryUpserts).toHaveLength(1);
+    const entry = db.adLibraryEntryUpserts[0] as {
+      create: { businessId: string; pageId: string };
+    };
+    expect(entry.create.businessId).toBe("biz-maria");
+    expect(entry.create.pageId).toBe("PAGE_RESOLVED");
+  });
+
+  test("writes a facet-derived AdLibraryEntry for a matched advertiser with 0 creative rows", async () => {
+    // Meta withheld the per-creative rows (the common keyword-scan case) but the
+    // facet says this business's page advertises. With a stored fbPageId, the
+    // facet advertiser matches → a minimal placeholder AdLibraryEntry is written
+    // so has_active_meta_ads / meta_ad_count / not_advertising fire correctly.
+    db.setLatestRun(null);
+    ctx.resolveCellContext.mockResolvedValueOnce(
+      fakeCtx([
+        {
+          id: "biz-maria",
+          name: "Solea Brickell Spa",
+          slug: "solea-brickell",
+          domain: "soleabrickell.com",
+          website: null,
+          fbPageId: "PAGE_MARIA", // already resolved → matches the facet pageId
+        },
+      ]),
+    );
+    apify.metaAdLibrarySearch.mockResolvedValueOnce({
+      rows: [], // Meta withheld per-creative results
+      advertisers: [
+        { pageId: "PAGE_MARIA", pageName: "Solea Brickell Spa", adCount: 5 },
+        { pageId: "COMP_ONLY", pageName: "Rival Clinic", adCount: 2 },
+      ],
+      resolutions: [],
+      outcome: "ok",
+      runStatus: "SUCCEEDED",
+      targetStatuses: [],
+      runId: "r-facet",
+      usageTotalUsd: 0.02,
+    });
+
+    const res = await runMetaAdsForCell(CELL, NOW);
+
+    // Exactly ONE facet-derived per-business AdLibraryEntry — the competitor
+    // (COMP_ONLY, unmatched) stays in the market layer only.
+    expect(db.adLibraryEntryUpserts).toHaveLength(1);
+    const entry = db.adLibraryEntryUpserts[0] as {
+      where: { externalAdId: string };
+      create: {
+        businessId: string;
+        pageId: string;
+        isActive: boolean;
+        collationCount: number | null;
+      };
+    };
+    expect(entry.where.externalAdId).toBe("meta-facet:PAGE_MARIA");
+    expect(entry.create.businessId).toBe("biz-maria");
+    expect(entry.create.pageId).toBe("PAGE_MARIA");
+    expect(entry.create.isActive).toBe(true);
+    expect(entry.create.collationCount).toBe(5); // facet ad count carried
+    expect(res.entriesUpserted).toBe(1);
+    // Both advertisers still recorded in the market layer (AdMarketAdvertiser).
+    expect(db.adMarketAdvertiserUpserts).toHaveLength(2);
+  });
+
+  test("facet fallback does NOT double-write when a real per-ad row already exists", async () => {
+    // Same business returns BOTH a real creative row AND a facet entry for its
+    // page. Only the real per-ad AdLibraryEntry is written — the facet
+    // placeholder is skipped so rollupAds.activeCount isn't inflated.
+    db.setLatestRun(null);
+    ctx.resolveCellContext.mockResolvedValueOnce(
+      fakeCtx([
+        {
+          id: "biz-maria",
+          name: "Solea Brickell Spa",
+          slug: "solea-brickell",
+          domain: "soleabrickell.com",
+          website: null,
+          fbPageId: "PAGE_MARIA",
+        },
+      ]),
+    );
+    apify.metaAdLibrarySearch.mockResolvedValueOnce({
+      rows: [adRow({ id: "ad-real", pageId: "PAGE_MARIA" })],
+      advertisers: [
+        { pageId: "PAGE_MARIA", pageName: "Solea Brickell Spa", adCount: 5 },
+      ],
+      resolutions: [],
+      outcome: "ok",
+      runStatus: "SUCCEEDED",
+      targetStatuses: [],
+      runId: "r-both",
+      usageTotalUsd: 0.03,
+    });
+
+    await runMetaAdsForCell(CELL, NOW);
+
+    // Exactly one entry — the real ad, not a duplicate facet placeholder.
+    expect(db.adLibraryEntryUpserts).toHaveLength(1);
+    const ids = db.adLibraryEntryUpserts.map(
+      (u) => (u.where as { externalAdId: string }).externalAdId,
+    );
+    expect(ids).toEqual(["ad-real"]);
+    expect(ids).not.toContain("meta-facet:PAGE_MARIA");
   });
 });

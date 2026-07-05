@@ -876,6 +876,11 @@ export const SIG_META: Record<string, SigMeta> = {
     registryKey: "ads_without_pixel",
     // Composite: running Meta ads (meta_ads) + no Meta pixel on-site (tech).
     // Needs BOTH families — the unique cross-data signal the matrix calls out.
+    // B4 · STILL roadmap: the tech half (hasMetaPixel) is live, but the ad half
+    // (resolveTechSignal reads biz.ads.activeCount > 0) needs the SEPARATE
+    // per-business ad-attribution fix. Until that lands the "running Meta ads"
+    // half is mostly 0 → the composite mostly returns null; flip to live only
+    // AFTER per-business ad attribution ships (same dependency as not_advertising).
     researches: ["meta_ads", "tech"],
     title: "Runs Meta ads without a pixel",
     group: "wasting",
@@ -890,13 +895,16 @@ export const SIG_META: Record<string, SigMeta> = {
     status: "roadmap",
   },
   no_analytics: {
-    signalKey: "has_analytics",
-    registryKey: "has_analytics",
-    // AMBIGUOUS: registry binding is has_analytics (tech-fingerprint → tech),
-    // but the title/recipe is "running GOOGLE ads + no analytics". The "running
-    // Google ads" half needs google_ads. We collect both so the full composite
-    // can be honestly evaluated (the eval today reads has_analytics; the ads
-    // half lands with Cluster A). Decision: superset over under-collecting.
+    // B1 · now a synthetic COMPOSITE (no registryKey), evaluated by
+    // `adsWithoutAnalyticsVerdict`: runs active ads AND has no analytics tag.
+    // The "running Google ads" half is now reliable — per-business google_ads
+    // attribution (runGoogleAdsForBusiness, target-host) populates
+    // biz.ads.activeCount from the business's OWN Google creatives, so the eval
+    // is honest instead of firing on every un-instrumented lead. Both halves ride
+    // scans in the same run (tech fingerprint + google_ads), so the composite is
+    // computable end-to-end. Its own signalKey stops it re-binding to the raw
+    // has_analytics column (which would flag non-advertisers too).
+    signalKey: "ads_without_analytics",
     researches: ["tech", "google_ads"],
     title: "Runs Google ads without analytics",
     group: "wasting",
@@ -906,36 +914,47 @@ export const SIG_META: Record<string, SigMeta> = {
     conf: 3,
     kind: "signal",
     comparator: "is",
-    value: false,
-    status: "roadmap",
+    value: true,
     setting: { type: "strictness" },
   },
   not_advertising: {
-    signalKey: "ad_market_prevalence",
-    registryKey: "ad_market_prevalence",
-    // ad_market_prevalence source=meta-ad-library (cell ad run; ad_count=0).
+    // B3 · PER-BUSINESS "this business runs 0 active ads". NOT the market key.
+    // The old binding was `ad_market_prevalence` (AdMarketRun.advertiserCount ≥ 5)
+    // — a CELL number identical for every lead, which INVERTED the meaning and
+    // flagged everyone in a busy ad market. This is now a synthetic signal (no
+    // registryKey) evaluated by `notAdvertisingVerdict` off biz.ads.activeCount.
+    // Its own signalKey (`no_active_ads`) stops it sharing the market key.
+    // DEPENDENCY: per-business ad activity (biz.ads.activeCount) is populated by
+    // a separate ad-attribution fix (out of scope here). Until that lands the
+    // verdict returns null for un-scanned cells (honest null beats wrong-fire).
+    signalKey: "no_active_ads",
+    // no_active_ads = per-business active-ad count from the meta ad library.
     researches: ["meta_ads"],
     title: "Not advertising",
     group: "wasting",
-    means: "No Meta/Google ads detected while peers run them.",
+    means: "This business runs no active ads while peers advertise.",
     pitch: "Money on the table their rivals are taking.",
-    recipe: ["ad_count = 0"],
+    recipe: ["this business's active_ad_count = 0"],
     conf: 2,
-    kind: "data",
-    comparator: ">=",
-    value: 5,
+    kind: "signal",
+    comparator: "is",
+    value: true,
   },
   competitors_advertising: {
+    // B3 · MARKET-LEVEL signal: ≥ N advertisers in THIS business's cell. Honest
+    // for a market card (it's about the market, not the individual lead), unlike
+    // not_advertising which is now genuinely per-business. Distinct signalKey +
+    // eval (registry-bound `ad_market_prevalence` → AdMarketRun.advertiserCount)
+    // so the two are no longer byte-identical.
     signalKey: "ad_market_prevalence",
     registryKey: "ad_market_prevalence",
-    // ad_market_prevalence source=meta-ad-library (cell ad run; competitor_ad
-    // count > 0).
+    // ad_market_prevalence source=meta-ad-library (cell ad run; advertiser count).
     researches: ["meta_ads"],
     title: "Competitors are advertising",
     group: "wasting",
     means: "Others in this market run ads — proven demand for paid.",
     pitch: "Their competitors are buying the clicks.",
-    recipe: ["competitor_ad_count > 0"],
+    recipe: ["advertisers in this cell ≥ 5"],
     conf: 2,
     kind: "data",
     comparator: ">=",
@@ -1208,10 +1227,14 @@ export const SIG_META: Record<string, SigMeta> = {
 
   // ───────────────────────────── under-instrumented ─────────────────────────
   flying_blind: {
-    signalKey: "has_meta_pixel",
-    registryKey: "has_meta_pixel",
-    // Composite: no analytics + no Meta pixel — both are tech-fingerprint reads,
-    // so one tech scan covers the whole signal.
+    // B4 · LIVE — was roadmap with the old registry binding evaluating only ONE
+    // half (has_meta_pixel). Re-bound to a synthetic signal (no registryKey) so
+    // `flyingBlindVerdict` evaluates the WHOLE composite off the tech rollup:
+    // matches when the business has NEITHER analytics NOR a Meta pixel. Both
+    // halves are tech-fingerprint reads that ride the contacts DOM fetch, so the
+    // data already exists — no new collection needed.
+    signalKey: "flying_blind",
+    // recipe = no analytics + no Meta pixel — both tech-fingerprint reads.
     researches: ["tech"],
     title: "Flying blind",
     group: "under",
@@ -1223,7 +1246,7 @@ export const SIG_META: Record<string, SigMeta> = {
     kind: "signal",
     comparator: "is",
     value: false,
-    status: "roadmap",
+    status: "deriv",
     defaultMatch: "any",
     setting: { type: "strictness" },
   },
@@ -1305,7 +1328,10 @@ export const SIG_META: Record<string, SigMeta> = {
     kind: "data",
     comparator: "is",
     value: true,
-    status: "roadmap",
+    // B4 · LIVE — fully wired in the evaluator (evaluateSynthetic → chat_widget →
+    // techPresenceVerdict(biz, biz.tech.hasChat)). The tech fingerprint rides the
+    // contacts DOM fetch, so hasChat is real per-business data; roadmap removed.
+    status: "deriv",
     setting: {
       type: "platform",
       label: "Chat tool",
@@ -1338,7 +1364,10 @@ export const SIG_META: Record<string, SigMeta> = {
     kind: "data",
     comparator: "is",
     value: true,
-    status: "roadmap",
+    // B4 · LIVE — fully wired in the evaluator (evaluateSynthetic → ecommerce →
+    // techPresenceVerdict(biz, biz.tech.hasEcommerce)). Tech fingerprint rides the
+    // contacts DOM fetch, so hasEcommerce is real per-business data; roadmap gone.
+    status: "deriv",
     setting: {
       type: "platform",
       label: "Platform",

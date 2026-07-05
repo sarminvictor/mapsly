@@ -33,10 +33,17 @@ export const AdsAdvertiserItemSchema = z.object({
   type: z.string(),
   rank_group: z.number().nullable().optional(),
   rank_absolute: z.number().nullable().optional(),
-  /** Advertiser display name. */
+  /** Advertiser display name (on `ads_advertiser` /
+   *  `ads_multi_account_advertiser` items). */
   title: z.string().nullable().optional(),
   /** Transparency Center advertiser id — pass to `ads-search`. */
   advertiser_id: z.string().nullable().optional(),
+  /** Advertiser domain — present on the `ads_domain` item type (e.g.
+   *  "competitor.com"). Was previously STRIPPED by this schema (B1 bug fix):
+   *  it's the one field on that row that maps a domain straight to an advertiser,
+   *  so keeping it lets a caller reverse-map an advertiser to a known business
+   *  host without a name-fuzzy match. */
+  domain: z.string().nullable().optional(),
   /** Advertiser country code, e.g. "US". */
   location: z.string().nullable().optional(),
   verified: z.boolean().nullable().optional(),

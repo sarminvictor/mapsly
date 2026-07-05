@@ -13,9 +13,22 @@ import {
   subscribeEnrichSheet,
   type EnrichSheetRequest,
 } from "../enrich-sheet-bus";
+import type { EnrichmentTypeKey, TypeState } from "../family-coverage";
 import { EnrichMoreSheet } from "./EnrichMoreSheet";
 
-export function EnrichMoreHost({ discoveryId }: { discoveryId: string }) {
+export function EnrichMoreHost({
+  discoveryId,
+  coverageTypeStates = {},
+}: {
+  discoveryId: string;
+  /**
+   * The SAME per-business per-TYPE run-state map the page hands LeadsWorkbench
+   * (Pattern 4 — plain data). Threaded through so the sheet can show, per data
+   * GROUP, "N have · M to get" over the scope's leads instead of quoting blind.
+   * A business missing from the map is treated as fully not-run in the sheet.
+   */
+  coverageTypeStates?: Record<string, Record<EnrichmentTypeKey, TypeState>>;
+}) {
   const [request, setRequest] = useState<EnrichSheetRequest | null>(null);
 
   useEffect(() => subscribeEnrichSheet((req) => setRequest(req)), []);
@@ -25,6 +38,7 @@ export function EnrichMoreHost({ discoveryId }: { discoveryId: string }) {
     <EnrichMoreSheet
       discoveryId={discoveryId}
       request={request}
+      coverageTypeStates={coverageTypeStates}
       onClose={() => setRequest(null)}
     />
   );
