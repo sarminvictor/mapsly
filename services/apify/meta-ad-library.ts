@@ -13,7 +13,8 @@
 // cron should batch per (city, country) cell rather than one call per business.
 
 import { z } from "zod";
-import { kvCache } from "@/lib/cache";
+import { stableHashArgs } from "@/lib/cache";
+import { getKv, isKvAvailable } from "@/lib/cache/kv";
 import { runActor } from "./client";
 
 /** Published actor id (override via env for a fork / new build). */
@@ -91,6 +92,71 @@ export const MetaAdvertiserSchema = z.object({
 });
 export type MetaAdvertiser = z.infer<typeof MetaAdvertiserSchema>;
 
+/**
+ * Verified per-run outcome — the discriminator the actor now emits instead of
+ * throwing it away. `ok`/`empty_verified` mean the run REACHED Meta's data
+ * query (real ads/advertisers, or a genuinely empty market); `blocked`/
+ * `timeout`/`error` are silent-failure classes that must NOT be treated as a
+ * clean 0 (retryable — do not cache, record AdMarketRun FAILED). `partial`
+ * means some targets verified and some silently failed — real data worth
+ * keeping, but the run isn't fully trustworthy.
+ */
+export type MetaRunOutcome =
+  | "ok"
+  | "empty_verified"
+  | "partial"
+  | "blocked"
+  | "timeout"
+  | "error";
+
+/** Per-target status the actor pushes as a `target_status` dataset record. */
+export const MetaTargetStatusSchema = z.object({
+  recordType: z.literal("target_status"),
+  subject: z.string(),
+  label: z.string(),
+  status: z.enum(["ok", "empty_verified", "blocked", "timeout"]),
+  items: z.number().nullable().optional(),
+  advertisers: z.number().nullable().optional(),
+  graphqlHits: z.number().nullable().optional(),
+  country: z.string().nullable().optional(),
+});
+export type MetaTargetStatus = z.infer<typeof MetaTargetStatusSchema>;
+
+/** The actor's `RUN_SUMMARY` KV record (best-effort — may be absent). */
+const MetaRunSummarySchema = z.object({
+  outcome: z.enum([
+    "ok",
+    "empty_verified",
+    "partial",
+    "blocked",
+    "timeout",
+    "error",
+  ]),
+  primerOk: z.boolean().optional(),
+  counts: z
+    .object({
+      ok: z.number(),
+      empty_verified: z.number(),
+      blocked: z.number(),
+      timeout: z.number(),
+    })
+    .optional(),
+  targets: z.array(z.unknown()).optional(),
+});
+
+/** Outcomes safe to cache: the run verifiably reached Meta's data query. A
+ *  blocked/timeout/error result is transient — caching it would poison the cell
+ *  for the whole TTL. `partial` carries real data but isn't fully trustworthy,
+ *  so we don't cache it either (cheap to re-run; correctness over a cache hit). */
+const CACHEABLE_OUTCOMES: ReadonlySet<MetaRunOutcome> = new Set([
+  "ok",
+  "empty_verified",
+]);
+
+export function isVerifiedMetaOutcome(o: MetaRunOutcome): boolean {
+  return CACHEABLE_OUTCOMES.has(o);
+}
+
 export const MetaAdLibraryQuerySchema = z
   .object({
     /** Keyword/advertiser-name search (broad — matches ad text). */
@@ -123,31 +189,79 @@ export interface MetaAdLibraryResult {
   /** Advertiser facet — the "who advertises for this search" list. For keyword
    *  searches this is usually the only signal (creative rows are withheld). */
   advertisers: MetaAdvertiser[];
+  /** Verified per-run outcome (from the actor's RUN_SUMMARY, else inferred from
+   *  run status + yield). The consumer keys cache + AdMarketRun status off this
+   *  — NOT off `rows.length` (a blocked "0" and a real empty are identical by
+   *  length alone). */
+  outcome: MetaRunOutcome;
+  /** Terminal Apify run status (SUCCEEDED · FAILED · TIMED-OUT · ABORTED). */
+  runStatus: string;
+  /** Per-target outcomes the actor emitted (empty if it wrote none). */
+  targetStatuses: MetaTargetStatus[];
   runId: string;
   usageTotalUsd: number;
 }
 
 // ---- Adapter ------------------------------------------------------------
 
+/**
+ * Infer the run outcome from run status + yield when the actor didn't write a
+ * RUN_SUMMARY (older actor build, or an unreadable KV store). Conservative: a
+ * FAILED run with no verified signal is `blocked` (retryable, not a clean 0),
+ * a TIMED-OUT run is `timeout`, otherwise we can't distinguish a block from a
+ * genuine empty by length alone — so a SUCCEEDED-with-data is `ok`, and a
+ * SUCCEEDED-with-nothing is `empty_verified` only if a target_status proves the
+ * data query fired, else `blocked`.
+ */
+function inferOutcome(
+  runStatus: string,
+  hasData: boolean,
+  targetStatuses: MetaTargetStatus[],
+): MetaRunOutcome {
+  if (hasData) {
+    // Some target silently failed even though we got data elsewhere → partial.
+    const anyUnverified = targetStatuses.some(
+      (t) => t.status === "blocked" || t.status === "timeout",
+    );
+    return anyUnverified ? "partial" : "ok";
+  }
+  if (runStatus === "FAILED") return "blocked";
+  if (runStatus === "TIMED-OUT" || runStatus === "ABORTED") return "timeout";
+  // SUCCEEDED with 0 data: trust a target_status that reached the data query.
+  const anyVerified = targetStatuses.some(
+    (t) => t.status === "empty_verified" || t.status === "ok",
+  );
+  const anyUnverified = targetStatuses.some(
+    (t) => t.status === "blocked" || t.status === "timeout",
+  );
+  if (anyVerified) return anyUnverified ? "partial" : "empty_verified";
+  if (anyUnverified) return "blocked";
+  // No per-target signal at all on a clean SUCCEEDED-0 → treat as verified empty
+  // (the actor without RUN_SUMMARY support behaves as before this hardening).
+  return "empty_verified";
+}
+
 async function metaAdLibrarySearchRaw(
   query: MetaAdLibraryQuery,
 ): Promise<MetaAdLibraryResult> {
   const parsed = MetaAdLibraryQuerySchema.parse(query);
-  const { items, runId, usageTotalUsd } = await runActor<unknown>({
-    actorId: ACTOR_ID,
-    operation: OPERATION,
-    input: parsed,
-    fallbackCostUsd: FALLBACK_COST_USD,
-  });
-  // Partition: resolution markers (handle→id), advertiser facet rows, and ads.
-  // Tolerate per-row drift — skip any malformed item rather than failing the
-  // whole batch (Meta reshapes its payload over time). Order matters: the
-  // discriminated `recordType` literals are checked BEFORE the ad-row schema so
-  // a facet advertiser (no `id`, but lenient adjacent fields) can never be
-  // mis-bucketed as an ad.
+  const { items, runId, usageTotalUsd, runStatus, runSummary } =
+    await runActor<unknown>({
+      actorId: ACTOR_ID,
+      operation: OPERATION,
+      input: parsed,
+      fallbackCostUsd: FALLBACK_COST_USD,
+    });
+  // Partition: resolution markers (handle→id), per-target status, advertiser
+  // facet rows, and ads. Tolerate per-row drift — skip any malformed item
+  // rather than failing the whole batch (Meta reshapes its payload over time).
+  // Order matters: the discriminated `recordType` literals are checked BEFORE
+  // the ad-row schema so a facet advertiser or a status record (no `id`, but
+  // lenient adjacent fields) can never be mis-bucketed as an ad.
   const rows: MetaAdRow[] = [];
   const resolutions: MetaPageResolution[] = [];
   const advertisers: MetaAdvertiser[] = [];
+  const targetStatuses: MetaTargetStatus[] = [];
   for (const it of items) {
     const res = MetaResolutionSchema.safeParse(it);
     if (res.success) {
@@ -155,6 +269,11 @@ async function metaAdLibrarySearchRaw(
         resolvedFromUrl: res.data.resolvedFromUrl,
         pageId: res.data.pageId,
       });
+      continue;
+    }
+    const ts = MetaTargetStatusSchema.safeParse(it);
+    if (ts.success) {
+      targetStatuses.push(ts.data);
       continue;
     }
     const adv = MetaAdvertiserSchema.safeParse(it);
@@ -165,15 +284,89 @@ async function metaAdLibrarySearchRaw(
     const r = MetaAdRowSchema.safeParse(it);
     if (r.success) rows.push(r.data);
   }
-  return { rows, resolutions, advertisers, runId, usageTotalUsd };
+
+  // Prefer the actor's authoritative RUN_SUMMARY outcome; fall back to
+  // inferring from run status + yield when it's absent (older actor build).
+  const summary = MetaRunSummarySchema.safeParse(runSummary);
+  const hasData = rows.length > 0 || advertisers.length > 0;
+  const outcome: MetaRunOutcome = summary.success
+    ? summary.data.outcome
+    : inferOutcome(runStatus, hasData, targetStatuses);
+
+  return {
+    rows,
+    resolutions,
+    advertisers,
+    outcome,
+    runStatus,
+    targetStatuses,
+    runId,
+    usageTotalUsd,
+  };
 }
 
 /** Uncached. Bills the open CronRun for the run's usage (via `runActor`). */
 export const metaAdLibrarySearchUncached = metaAdLibrarySearchRaw;
 
-/** Cached (6h) by the full normalized query. A cache hit costs nothing. */
-export const metaAdLibrarySearch = kvCache(
-  "apify:metaads:search",
-  { ttl: 6 * 60 * 60, tag: "apify:metaads" },
-  metaAdLibrarySearchUncached,
-);
+// Cache key: same namespace + TTL + tag the old `kvCache("apify:metaads:search"
+// …)` used, so an invalidateCacheTag("apify:metaads") still clears these keys.
+const CACHE_PREFIX = "apify:metaads:search";
+const CACHE_TTL_SECONDS = 6 * 60 * 60;
+const CACHE_TAG = "apify:metaads";
+
+function metaCacheKey(query: MetaAdLibraryQuery): string {
+  const parsed = MetaAdLibraryQuerySchema.parse(query);
+  // Hash the NORMALIZED query so { pageIds:[…], countries:['CA'] } and its
+  // defaults-filled equivalent share a key (same behavior kvCache gave us).
+  return `mapsly:${CACHE_PREFIX}:${stableHashArgs([parsed])}`;
+}
+
+/**
+ * Cached (6h) by the full normalized query — but the cache only ever HOLDS a
+ * VERIFIED outcome (`ok` / `empty_verified`, where the run provably reached
+ * Meta's data query). A `blocked` / `timeout` / `error` / `partial` result is
+ * transient: caching it would poison the cell for the whole TTL and keep
+ * serving an empty a re-run would fill (the 6h cache-poisoning bug §9). So:
+ *   - read-through on every call (a hit is always a prior verified value → $0);
+ *   - on a miss, run uncached, and write through ONLY when the outcome is
+ *     verified. Unverified outcomes skip the write → the next trigger retries.
+ * Fail-open: any KV error degrades to a direct uncached call.
+ */
+export async function metaAdLibrarySearch(
+  query: MetaAdLibraryQuery,
+): Promise<MetaAdLibraryResult> {
+  // No KV configured → straight through (same fail-open contract as kvCache).
+  if (!isKvAvailable()) return metaAdLibrarySearchUncached(query);
+  const kv = getKv();
+  if (!kv) return metaAdLibrarySearchUncached(query);
+
+  const key = metaCacheKey(query);
+
+  // 1 · read-through. A stored value is verified by construction (we only ever
+  // write verified outcomes), so a hit is safe to return as-is.
+  try {
+    const cached = await kv.get<MetaAdLibraryResult>(key);
+    if (cached !== null && cached !== undefined) return cached;
+  } catch {
+    // KV read failed — fall through to a direct call; don't fail the caller.
+    return metaAdLibrarySearchUncached(query);
+  }
+
+  // 2 · miss → run it.
+  const result = await metaAdLibrarySearchUncached(query);
+
+  // 3 · write through ONLY for verified outcomes. Best-effort — a failed write
+  // just leaves the cache cold for one more cycle.
+  if (isVerifiedMetaOutcome(result.outcome)) {
+    try {
+      await kv.set(key, result, { ex: CACHE_TTL_SECONDS });
+      // Index under the tag so invalidateCacheTag("apify:metaads") finds it.
+      await kv.set(`mapsly:tag:${CACHE_TAG}:m:${key}`, 1, {
+        ex: CACHE_TTL_SECONDS,
+      });
+    } catch {
+      /* best-effort cache write */
+    }
+  }
+  return result;
+}

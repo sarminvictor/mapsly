@@ -28,30 +28,49 @@ import { useEffect, useState } from "react";
 
 export type ToastTone = "info" | "error";
 
+/** U18 · an optional in-toast action button (e.g. "Undo"). The `onClick` runs
+ *  in the client (this is a client-only CustomEvent — no server boundary is
+ *  crossed, so a function in the detail is safe, unlike a server→client prop). */
+export interface ToastAction {
+  label: string;
+  onClick: () => void;
+}
+
 interface ToastDetail {
   message: string;
   tone: ToastTone;
+  action?: ToastAction;
 }
 
 const TOAST_EVENT = "mapsly:toast";
 const INFO_MS = 2600;
 const ERROR_MS = 5000;
+// U18 · an action toast (Undo) dwells longer so the user has time to click it.
+const ACTION_MS = 7000;
 
 /**
  * Fire a toast from any client component in the agency portal. Safe to call
  * during SSR (no-op when `window` is undefined). The single `<ToastHost />`
- * in the layout renders it.
+ * in the layout renders it. Pass an optional `action` ({ label, onClick }) to
+ * render an inline button — used by the bulk-status Undo (U18).
  */
-export function showToast(message: string, tone: ToastTone = "info"): void {
+export function showToast(
+  message: string,
+  tone: ToastTone = "info",
+  action?: ToastAction,
+): void {
   if (typeof window === "undefined") return;
   window.dispatchEvent(
-    new CustomEvent<ToastDetail>(TOAST_EVENT, { detail: { message, tone } }),
+    new CustomEvent<ToastDetail>(TOAST_EVENT, {
+      detail: { message, tone, action },
+    }),
   );
 }
 
 interface HostState {
   message: string;
   tone: ToastTone;
+  action?: ToastAction;
   /** Bumped per toast so re-firing the same message re-triggers the animation. */
   key: number;
 }
@@ -69,13 +88,22 @@ export function ToastHost() {
       const detail = (e as CustomEvent<ToastDetail>).detail;
       if (!detail?.message) return;
       keySeq += 1;
-      setToast({ message: detail.message, tone: detail.tone, key: keySeq });
+      setToast({
+        message: detail.message,
+        tone: detail.tone,
+        action: detail.action,
+        key: keySeq,
+      });
       // Fade in on the next frame so the opacity transition runs.
       window.requestAnimationFrame(() => setVisible(true));
 
       window.clearTimeout(hideTimer);
       window.clearTimeout(clearTimer);
-      const dwell = detail.tone === "error" ? ERROR_MS : INFO_MS;
+      const dwell = detail.action
+        ? ACTION_MS
+        : detail.tone === "error"
+          ? ERROR_MS
+          : INFO_MS;
       hideTimer = window.setTimeout(() => setVisible(false), dwell);
       // Unmount after the fade-out completes (matches the .2s CSS transition).
       clearTimer = window.setTimeout(() => setToast(null), dwell + 250);
@@ -91,16 +119,32 @@ export function ToastHost() {
 
   if (!toast) return null;
 
+  const action = toast.action;
+
   return (
     <div
       key={toast.key}
       className={`toast${visible ? " show" : ""}${
         toast.tone === "error" ? " toast-error" : ""
-      }`}
+      }${action ? " toast-action" : ""}`}
       role={toast.tone === "error" ? "alert" : "status"}
       aria-live={toast.tone === "error" ? "assertive" : "polite"}
     >
-      {toast.message}
+      <span className="toast-msg">{toast.message}</span>
+      {action ? (
+        <button
+          type="button"
+          className="toast-btn"
+          onClick={() => {
+            action.onClick();
+            // Dismiss right after the action fires (fade out, then unmount).
+            setVisible(false);
+            window.setTimeout(() => setToast(null), 250);
+          }}
+        >
+          {action.label}
+        </button>
+      ) : null}
     </div>
   );
 }

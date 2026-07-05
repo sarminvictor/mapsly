@@ -31,6 +31,23 @@ export type OutcomeGroup =
   | "under"
   | "other";
 
+/**
+ * AUDIT C4 · signals that describe WHO you're targeting (a real, reachable,
+ * operating business) rather than a PROBLEM to pitch. They belong in the goal's
+ * "qualifiers" filters, not the Pain-points column — "Operating business" and
+ * "Has a website" are not pain chips. The workbench pains fallback excludes
+ * these so a matched qualifier never reads as a pitch angle.
+ */
+export const QUALIFIER_SIGNAL_KEYS: ReadonlySet<string> = new Set([
+  "operating_business",
+  "has_website",
+  "has_phone",
+  "has_email",
+  "has_instagram",
+  "is_owner_claimed_in_mapsly",
+  "category_count",
+]);
+
 export const OUTCOME_GROUPS: {
   key: OutcomeGroup;
   label: string;
@@ -1211,15 +1228,16 @@ export const SIG_META: Record<string, SigMeta> = {
     setting: { type: "strictness" },
   },
   no_booking: {
-    signalKey: "gbp_no_booking",
-    registryKey: "gbp_no_booking",
-    // AMBIGUOUS: the registry binding gbp_no_booking reads Business.gbpHasBooking
-    // (source=discovery, $0 — no enrichment). BUT the card's setting targets
-    // ON-SITE booking tools (Calendly/Acuity/Vagaro/Mindbody/Square/Boulevard),
-    // which is the tech-fingerprint signal has_booking_widget. To honor what the
-    // card promises (on-site tool targeting) we collect tech; the free GBP field
-    // is already present at $0 either way. Decision: declare tech so the on-site
-    // booking detection the chips imply is actually collected.
+    signalKey: "has_booking_widget",
+    registryKey: "has_booking_widget",
+    // AUDIT C1 (2026-07-04): re-bound from gbp_no_booking (the GBP "Book" boolean,
+    // false for ~every SMB) to has_booking_widget (the tech fingerprint). The
+    // card's chips target ON-SITE booking tools (Calendly/Acuity/Vagaro/Mindbody/
+    // Square/Boulevard); the old binding matched those tool names against a
+    // BOOLEAN → 0 results. The verdict is now computed by `noBookingVerdict`
+    // (signal-eval.ts) off the detected booking-tool NAME (which lives in
+    // BusinessTech.name and is now surfaced as HydratedTech.bookingName), so a
+    // phone-only business with no widget correctly matches. Needs tech.
     researches: ["tech"],
     title: "No online booking tool",
     group: "under",

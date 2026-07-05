@@ -19,7 +19,10 @@
   --ink: #0f172a;
   --ink-2: #3a4660;
   --muted: #64708c;
-  --faint: #97a1bb;
+  /* AUDIT U12 · was #97a1bb (2.58:1 on white — fails WCAG AA for the provenance/
+     meta/coverage text it carries in 80+ rules). Darkened to slate-500 (~4.6:1
+     on #fff and the off-white --bg) so the muted register is actually readable. */
+  --faint: #64748b;
   --line: #e6e9f3;
   --line-2: #eef1f8;
   /* primary */
@@ -27,6 +30,22 @@
   --indigo-50: #eeebff;
   --indigo-100: #ddd7ff;
   --indigo-700: #4226c9;
+  /* AUDIT U24 · formal type + spacing scales. The workbench had 33 ad-hoc font
+     sizes and a continuous 1–14px padding ramp; these tokens are the target
+     scale to adopt incrementally (matching the existing dense agency register),
+     so future work references a step instead of a magic number. */
+  --fs-2xs: 10.5px;
+  --fs-xs: 11.5px;
+  --fs-sm: 12.5px;
+  --fs-md: 13px;
+  --fs-base: 14px;
+  --fs-lg: 15px;
+  --fs-xl: 18px;
+  --space-1: 4px;
+  --space-2: 6px;
+  --space-3: 8px;
+  --space-4: 12px;
+  --space-5: 16px;
   /* brand PUNCH accent — yellow */
   --yellow: #f2e94e;
   --yellow-ink: #6b6406;
@@ -121,7 +140,7 @@
   background: var(--bg);
   color: var(--ink);
   font-family: var(--font);
-  font-size: 14px;
+  font-size: var(--fs-base);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   letter-spacing: -0.005em;
@@ -173,32 +192,32 @@
     ),
     #0d1020;
   color: #cbd2e6;
-  padding: 16px 12px;
+  padding: var(--space-5) var(--space-4);
   position: sticky;
   top: 0;
   height: 100vh;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-1);
   overflow: hidden;
 }
 .agency-portal .side:not(.expanded) {
   align-items: center;
-  padding: 16px 8px;
+  padding: var(--space-5) var(--space-3);
 }
 /* header row: brand + collapse/expand toggle */
 .agency-portal .side-top {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: var(--space-3);
   width: 100%;
-  padding: 4px 4px 14px;
+  padding: var(--space-1) var(--space-1) 14px;
 }
 .agency-portal .side:not(.expanded) .side-top {
   flex-direction: column;
   justify-content: center;
-  gap: 12px;
+  gap: var(--space-4);
   padding: 2px 0 14px;
 }
 .agency-portal .brand {
@@ -304,7 +323,7 @@
 .agency-portal .nav .sep {
   height: 1px;
   background: #23273c;
-  margin: 10px 6px;
+  margin: 10px var(--space-2);
   width: calc(100% - 12px);
 }
 .agency-portal .side:not(.expanded) .nav .sep {
@@ -322,10 +341,10 @@
   margin-top: auto;
   font-size: 11px;
   color: #6b7390;
-  padding: 8px;
+  padding: var(--space-3);
 }
 .agency-portal .research {
-  margin-top: 8px;
+  margin-top: var(--space-3);
   width: 100%;
   background: #171b2e;
   border: 1px solid #23273c;
@@ -333,7 +352,7 @@
   padding: 9px 10px;
 }
 .agency-portal .research .lbl {
-  font-size: 10.5px;
+  font-size: var(--fs-2xs);
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: #7c84a3;
@@ -345,7 +364,7 @@
   color: #dbe0f0;
   border: 1px solid #2a2f47;
   border-radius: 7px;
-  padding: 6px 7px;
+  padding: var(--space-2) 7px;
   font-size: 12px;
 }
 /* collapsed: research becomes a single icon that expands the rail */
@@ -357,7 +376,7 @@
   place-items: center;
   width: 44px;
   height: 40px;
-  margin-top: 8px;
+  margin-top: var(--space-3);
   border-radius: 11px;
   border: 1px solid #23273c;
   background: #141830;
@@ -395,8 +414,8 @@
 .agency-portal .crumbs {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 13px;
+  gap: var(--space-3);
+  font-size: var(--fs-md);
   color: var(--muted);
 }
 .agency-portal .crumbs b {
@@ -408,17 +427,17 @@
 .agency-portal .top-right {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--space-4);
 }
 .agency-portal .wallet {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-3);
   border: 1px solid var(--line);
   background: #fff;
   border-radius: 999px;
-  padding: 6px 12px;
-  font-size: 13px;
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--fs-md);
   font-weight: 600;
   box-shadow: var(--shadow-sm);
 }
@@ -447,7 +466,7 @@
   display: grid;
   place-items: center;
   font-weight: 700;
-  font-size: 12.5px;
+  font-size: var(--fs-sm);
 }
 
 .agency-portal .view {
@@ -473,7 +492,7 @@
   font-size: 32px;
   line-height: 1.08;
   letter-spacing: -0.018em;
-  margin: 0 0 8px;
+  margin: 0 0 var(--space-3);
   font-weight: 600;
   color: var(--ink);
 }
@@ -491,7 +510,7 @@
 }
 .agency-portal .sub {
   color: var(--muted);
-  font-size: 15px;
+  font-size: var(--fs-lg);
   line-height: 1.55;
   margin: 0 0 24px;
   max-width: 700px;
@@ -501,7 +520,7 @@
   font-weight: 600;
 }
 .agency-portal .eyebrow {
-  font-size: 11.5px;
+  font-size: var(--fs-xs);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.1em;
@@ -531,7 +550,7 @@
 .agency-portal .cr {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-1);
   font-weight: 700;
   white-space: nowrap;
   font-family: var(--mono);
@@ -571,19 +590,19 @@
 @media (max-width: 640px) {
   .agency-portal .desktop-handoff {
     display: block;
-    margin: 0 0 12px;
-    padding: 10px 12px;
+    margin: 0 0 var(--space-4);
+    padding: 10px var(--space-4);
     border: 1px solid var(--indigo-100);
     border-radius: 10px;
     background: var(--indigo-50);
     color: var(--indigo-700);
-    font-size: 13px;
+    font-size: var(--fs-md);
     line-height: 1.5;
   }
   /* WP7-11 · tighten the Enriching card padding at phone widths so the
      progress card + checklist read comfortably at 380px (no h-scroll). */
   .agency-portal .editorial {
-    padding: 20px 16px;
+    padding: 20px var(--space-5);
     border-radius: 18px;
   }
 }
@@ -631,9 +650,9 @@
 .agency-portal .peek-head {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 13px 14px 12px;
-  font-size: 12.5px;
+  gap: var(--space-3);
+  padding: 13px 14px var(--space-4);
+  font-size: var(--fs-sm);
   font-weight: 700;
   color: var(--ink);
   border-bottom: 1px solid var(--line-2);
@@ -654,7 +673,7 @@
   color: var(--muted);
 }
 .agency-portal .peek-item {
-  padding: 11px 14px 12px;
+  padding: 11px 14px var(--space-4);
   border-bottom: 1px solid var(--line-2);
 }
 .agency-portal .peek-top {
@@ -671,14 +690,14 @@
 .agency-portal .peek-meta {
   margin-top: 2px;
   font-family: var(--mono);
-  font-size: 10.5px;
+  font-size: var(--fs-2xs);
   color: var(--muted);
 }
 .agency-portal .peek-match {
   margin-left: auto;
   flex: none;
   font-family: var(--mono);
-  font-size: 11.5px;
+  font-size: var(--fs-xs);
   font-weight: 700;
   color: var(--indigo-700);
   background: rgba(91, 61, 245, 0.09);
@@ -692,9 +711,9 @@
   margin-top: 9px;
 }
 .agency-portal .psig {
-  font-size: 10.5px;
+  font-size: var(--fs-2xs);
   font-weight: 600;
-  padding: 3px 8px;
+  padding: 3px var(--space-3);
   border-radius: 999px;
   background: rgba(91, 61, 245, 0.08);
   color: var(--indigo-700);
@@ -828,15 +847,15 @@
 }
 .agency-portal .btn.big {
   padding: 14px 26px;
-  font-size: 15px;
+  font-size: var(--fs-lg);
 }
 .agency-portal .btn.sm {
   padding: 7px 13px;
-  font-size: 12.5px;
+  font-size: var(--fs-sm);
 }
 .agency-portal .btn.xs {
-  padding: 4px 10px;
-  font-size: 11.5px;
+  padding: var(--space-1) 10px;
+  font-size: var(--fs-xs);
 }
 .agency-portal .btn.block {
   width: 100%;
@@ -847,7 +866,7 @@
 .agency-portal .pill {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-2);
   font-size: 12px;
   font-weight: 600;
   padding: 3px 9px;
@@ -902,7 +921,7 @@
 }
 .agency-portal .sig .name {
   font-weight: 600;
-  font-size: 13px;
+  font-size: var(--fs-md);
 }
 .agency-portal .sig .name .q {
   display: inline-grid;
@@ -918,7 +937,7 @@
   cursor: help;
 }
 .agency-portal .sig .val {
-  font-size: 12.5px;
+  font-size: var(--fs-sm);
   color: var(--muted);
 }
 .agency-portal .sig .val b {
@@ -973,7 +992,7 @@
   cursor: pointer;
   border: 1.5px solid var(--line);
   border-radius: var(--radius);
-  padding: 16px;
+  padding: var(--space-5);
   background: #fff;
   transition: 0.14s;
   position: relative;
@@ -993,7 +1012,7 @@
   border-radius: 10px;
   display: grid;
   place-items: center;
-  font-size: 18px;
+  font-size: var(--fs-xl);
   background: var(--indigo-50);
   margin-bottom: 10px;
 }
@@ -1005,12 +1024,12 @@
 .agency-portal .tpl p {
   margin: 0;
   color: var(--muted);
-  font-size: 12.5px;
+  font-size: var(--fs-sm);
 }
 .agency-portal .tpl .who {
-  font-size: 11.5px;
+  font-size: var(--fs-xs);
   color: var(--ink-2);
-  margin-top: 8px;
+  margin-top: var(--space-3);
 }
 .agency-portal .tpl .who b {
   color: var(--ink);
@@ -1036,7 +1055,7 @@
 .agency-portal .filt {
   display: flex;
   align-items: flex-start;
-  gap: 12px;
+  gap: var(--space-4);
   padding: 13px;
   border: 1px solid var(--line);
   border-radius: 11px;
@@ -1085,15 +1104,15 @@
   font-size: 13.5px;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-3);
 }
 .agency-portal .filt .body .why {
   color: var(--muted);
-  font-size: 12.3px;
+  font-size: var(--fs-sm);
   margin-top: 2px;
 }
 .agency-portal .filt .body .ctrl {
-  margin-top: 8px;
+  margin-top: var(--space-3);
   display: flex;
   align-items: center;
   gap: 7px;
@@ -1103,8 +1122,8 @@
 .agency-portal .filt input {
   border: 1px solid var(--line);
   border-radius: 8px;
-  padding: 6px 9px;
-  font-size: 12.5px;
+  padding: var(--space-2) 9px;
+  font-size: var(--fs-sm);
   font-family: inherit;
   background: #fff;
 }
@@ -1115,17 +1134,17 @@
   width: 78px;
 }
 .agency-portal .filt .unit {
-  font-size: 11.5px;
+  font-size: var(--fs-xs);
   color: var(--faint);
 }
 .agency-portal .filt .tag {
-  font-size: 10.5px;
+  font-size: var(--fs-2xs);
   font-weight: 700;
   color: var(--green);
   background: var(--green-50);
   border: 1px solid #bfe9d5;
   border-radius: 6px;
-  padding: 1px 6px;
+  padding: 1px var(--space-2);
 }
 .agency-portal .filt .tag.data {
   color: var(--ink-2);
@@ -1139,10 +1158,10 @@
 }
 .agency-portal .field label {
   display: block;
-  font-size: 12.5px;
+  font-size: var(--fs-sm);
   font-weight: 600;
   color: var(--ink-2);
-  margin-bottom: 6px;
+  margin-bottom: var(--space-2);
 }
 .agency-portal .combo {
   position: relative;
@@ -1152,7 +1171,7 @@
   border: 1px solid var(--line);
   border-radius: 10px;
   padding: 11px 13px;
-  font-size: 14px;
+  font-size: var(--fs-base);
   font-family: inherit;
 }
 .agency-portal .combo input:focus {
@@ -1196,7 +1215,7 @@
 }
 .agency-portal .opts .meta {
   color: var(--faint);
-  font-size: 11.5px;
+  font-size: var(--fs-xs);
   flex-shrink: 0;
   white-space: nowrap;
 }
@@ -1215,7 +1234,7 @@
   text-align: left;
   padding: 9px 13px;
   font: inherit;
-  font-size: 13px;
+  font-size: var(--fs-md);
   color: var(--indigo);
   background: none;
   border: 0;
@@ -1232,8 +1251,8 @@
 .agency-portal .cells {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  margin-top: 6px;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
 }
 .agency-portal .cellrow {
   display: flex;
@@ -1274,7 +1293,7 @@
 .agency-portal table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 13px;
+  font-size: var(--fs-md);
 }
 .agency-portal th {
   text-align: left;
@@ -1283,11 +1302,11 @@
   letter-spacing: 0.05em;
   color: var(--faint);
   font-weight: 700;
-  padding: 10px 12px;
+  padding: 10px var(--space-4);
   border-bottom: 1px solid var(--line);
 }
 .agency-portal td {
-  padding: 12px;
+  padding: var(--space-4);
   border-bottom: 1px solid var(--line-2);
   vertical-align: middle;
 }
@@ -1300,11 +1319,11 @@
 .agency-portal .biz .addr {
   font-weight: 400;
   color: var(--faint);
-  font-size: 11.5px;
+  font-size: var(--fs-xs);
 }
 .agency-portal .statpill {
   font-family: inherit;
-  font-size: 11.5px;
+  font-size: var(--fs-xs);
   font-weight: 700;
   padding: 3px 9px;
   border-radius: 999px;
@@ -1348,9 +1367,9 @@
 .agency-portal .wb-toolbar {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-3);
   flex-wrap: wrap;
-  margin-bottom: 12px;
+  margin-bottom: var(--space-4);
 }
 /* one uniform control height across the whole toolbar */
 .agency-portal .wb-toolbar .btn.sm,
@@ -1365,7 +1384,40 @@
 .agency-portal .wb-toolbar .btn.sm {
   display: inline-flex;
   align-items: center;
+  gap: 5px;
   padding: 0 13px;
+  position: relative; /* anchors the .cbadge counter */
+}
+/* AUDIT U10 · the one primary enrich action shares the toolbar's control height
+   + pill radius so it lines up with the secondary controls, while its indigo
+   .btn.primary fill (defined above) keeps it the visually dominant CTA. */
+.agency-portal .wb-toolbar .btn.primary.sm {
+  height: 34px;
+  box-sizing: border-box;
+  border-radius: 9px;
+  padding: 0 15px;
+}
+/* AUDIT UX-review #1/#2 · active state for toolbar toggles (Enriched only,
+   Filter) — the indigo highlight that was previously only defined for .iconbtn,
+   so a relabelled .btn.sm toggle now confirms its on-state. */
+.agency-portal .wb-toolbar .btn.sm.active {
+  border-color: var(--indigo);
+  color: var(--indigo);
+  background: var(--indigo-soft, #ece8ff);
+}
+/* The filter-count badge, previously only styled under .iconbtn. */
+.agency-portal .wb-toolbar .btn.sm .cbadge {
+  min-width: 16px;
+  height: 16px;
+  padding: 0 var(--space-1);
+  border-radius: 8px;
+  background: var(--indigo);
+  color: #fff;
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 .agency-portal .wb-toolbar .cmptoggle {
   padding: 0 11px;
@@ -1381,7 +1433,7 @@
   padding-bottom: 0;
 }
 .agency-portal .wb-toolbar .wb-search input {
-  padding: 0 12px 0 32px;
+  padding: 0 var(--space-4) 0 32px;
 }
 .agency-portal .tb-spacer {
   flex: 1 1 auto;
@@ -1389,7 +1441,7 @@
 /* #1 · live filtered-lead count, sits by the Filters control. --ink-2 (~9:1 on
    --bg) not --muted (4.55:1, no headroom) — leaves contrast margin at 12.5px. */
 .agency-portal .wb-count {
-  font-size: 12.5px;
+  font-size: var(--fs-sm);
   color: var(--ink-2);
   white-space: nowrap;
   padding-right: 2px;
@@ -1397,7 +1449,10 @@
 }
 .agency-portal .wb-count strong {
   color: var(--ink);
-  font-weight: 650;
+  /* AUDIT U19 · up-weight the filtered count — the single most important
+     post-filter feedback, sitting right by the Filter control. */
+  font-weight: 750;
+  font-size: var(--fs-lg);
 }
 /* A disabled segmented button (aria-disabled, e.g. "By signals" with no signal
    filter) must read distinctly from a merely-inactive one — dim + not-allowed. */
@@ -1415,8 +1470,8 @@
   width: 100%;
   border: 1px solid var(--line);
   border-radius: 10px;
-  padding: 9px 12px 9px 32px;
-  font-size: 13px;
+  padding: 9px var(--space-4) 9px 32px;
+  font-size: var(--fs-md);
   font-family: inherit;
   background: #fff;
 }
@@ -1431,23 +1486,23 @@
   top: 50%;
   transform: translateY(-50%);
   color: var(--faint);
-  font-size: 13px;
+  font-size: var(--fs-md);
 }
 
 /* filter chips bar */
 .agency-portal .fbar {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-3);
   flex-wrap: wrap;
   padding: 11px 13px;
   border: 1px solid var(--line);
   border-radius: 11px;
   background: var(--surface-2);
-  margin-bottom: 12px;
+  margin-bottom: var(--space-4);
 }
 .agency-portal .fbar .lbl {
-  font-size: 11.5px;
+  font-size: var(--fs-xs);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -1456,10 +1511,10 @@
 .agency-portal .fchip {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-2);
   font-size: 12px;
   font-weight: 600;
-  padding: 4px 6px 4px 10px;
+  padding: var(--space-1) var(--space-2) var(--space-1) 10px;
   border-radius: 999px;
   background: #fff;
   border: 1px solid var(--indigo-100);
@@ -1490,7 +1545,7 @@
   background: #fff;
   color: var(--indigo);
   border-radius: 999px;
-  padding: 4px 11px;
+  padding: var(--space-1) 11px;
   font-size: 12px;
   font-weight: 600;
 }
@@ -1540,7 +1595,7 @@
   right: -6px;
   min-width: 16px;
   height: 16px;
-  padding: 0 4px;
+  padding: 0 var(--space-1);
   display: grid;
   place-items: center;
   border-radius: 999px;
@@ -1569,7 +1624,7 @@
 /* coverage button is wider to fit the have/total pill */
 .agency-portal #coverageBtn {
   width: auto;
-  gap: 4px;
+  gap: var(--space-1);
   padding: 0 7px;
 }
 
@@ -1578,13 +1633,33 @@
   border: 1px solid var(--line);
   border-radius: 11px;
   background: var(--surface-2);
-  margin-bottom: 12px;
+  margin-bottom: var(--space-4);
   /* `visible` so the add-filter popover (absolute, opens downward past the
      panel box) is not clipped. The panel's own rounded bg still clips to the
      radius (background respects border-radius regardless of overflow); only
      child overflow — the popover — is now allowed to escape. A portal is the
      durable Phase-2 fix; this is the safe interim. */
   overflow: visible;
+}
+/* AUDIT U9 · Filters + Coverage panels overlay the grid instead of pushing it
+   down. `.wb-body-rel` is the positioning context wrapping both panels + the
+   table; an open panel is lifted out of flow and floated over the top rows, so
+   the grid keeps its full height and the page never double-scrolls. Only one is
+   ever open at once. The nested add-filter <Popover> portals to #agency-overlays
+   (z 90) so it still layers above this panel (z 20). */
+.agency-portal .wb-body-rel {
+  position: relative;
+}
+.agency-portal .wb-body-rel > .collapse-panel {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  margin-bottom: 0;
+  box-shadow:
+    0 1px 0 var(--line),
+    0 18px 40px -18px rgba(15, 23, 42, 0.35);
 }
 .agency-portal .collapse-panel .cp-head {
   display: flex;
@@ -1594,7 +1669,7 @@
   border-bottom: 1px solid var(--line);
 }
 .agency-portal .collapse-panel .cp-title {
-  font-size: 11.5px;
+  font-size: var(--fs-xs);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -1607,7 +1682,7 @@
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
-  padding: 2px 4px;
+  padding: 2px var(--space-1);
   border-radius: 6px;
 }
 .agency-portal .collapse-panel .cp-clear:hover {
@@ -1617,7 +1692,7 @@
 .agency-portal .collapse-panel .cp-body {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-3);
   flex-wrap: wrap;
   padding: 11px 13px;
 }
@@ -1626,7 +1701,7 @@
   background: #fff;
   color: var(--indigo);
   border-radius: 999px;
-  padding: 4px 11px;
+  padding: var(--space-1) 11px;
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
@@ -1645,7 +1720,7 @@
      (floating-ui); this class is visual-only now. */
   min-width: 224px;
   max-width: 300px;
-  padding: 8px;
+  padding: var(--space-3);
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -1660,12 +1735,12 @@
   gap: 1px;
 }
 .agency-portal .filter-list-eyebrow {
-  font-size: 10.5px;
+  font-size: var(--fs-2xs);
   font-weight: 700;
   letter-spacing: 0.05em;
   text-transform: uppercase;
   color: var(--faint);
-  padding: 4px 9px 3px;
+  padding: var(--space-1) 9px 3px;
 }
 .agency-portal .filter-list-item {
   display: flex;
@@ -1679,7 +1754,7 @@
   border-radius: 8px;
   background: transparent;
   color: var(--ink-2);
-  font-size: 13px;
+  font-size: var(--fs-md);
   font-weight: 600;
   cursor: pointer;
   transition:
@@ -1694,7 +1769,7 @@
 }
 .agency-portal .filter-item-unit {
   font-family: var(--mono);
-  font-size: 10.5px;
+  font-size: var(--fs-2xs);
   color: var(--faint);
   font-weight: 500;
 }
@@ -1726,13 +1801,13 @@
 .agency-portal .chipsbar {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-3);
   flex-wrap: wrap;
-  padding: 8px 11px;
+  padding: var(--space-3) 11px;
   border: 1px solid var(--line);
   border-radius: 11px;
   background: var(--surface-2);
-  margin-bottom: 12px;
+  margin-bottom: var(--space-4);
 }
 .agency-portal .chipsbar .cb-lbl {
   font-size: 11px;
@@ -1756,7 +1831,7 @@
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
-  padding: 2px 4px;
+  padding: 2px var(--space-1);
   border-radius: 6px;
 }
 .agency-portal .chipsbar .cb-clear:hover {
@@ -1769,9 +1844,9 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--space-4);
   flex-wrap: wrap;
-  padding: 11px 4px 2px;
+  padding: 11px var(--space-1) 2px;
   border-top: 1px solid var(--line);
   margin-top: 10px;
 }
@@ -1781,15 +1856,15 @@
 .agency-portal .wbpager .pg-left {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 12.5px;
+  gap: var(--space-3);
+  font-size: var(--fs-sm);
   color: var(--muted);
 }
 .agency-portal .wbpager .pg-left select {
   border: 1px solid var(--line);
   border-radius: 8px;
-  padding: 5px 8px;
-  font-size: 12.5px;
+  padding: 5px var(--space-3);
+  font-size: var(--fs-sm);
   font-family: inherit;
   background: #fff;
   color: var(--ink-2);
@@ -1802,20 +1877,20 @@
 .agency-portal .wbpager .pg-pages {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-1);
 }
 .agency-portal .pgnum,
 .agency-portal .pgnav {
   min-width: 30px;
   height: 30px;
-  padding: 0 8px;
+  padding: 0 var(--space-3);
   display: grid;
   place-items: center;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #fff;
   color: var(--ink-2);
-  font-size: 12.5px;
+  font-size: var(--fs-sm);
   font-weight: 600;
   cursor: pointer;
 }
@@ -1852,11 +1927,11 @@
   border-radius: 12px;
   background: #fff;
   overflow: hidden;
-  margin-bottom: 12px;
+  margin-bottom: var(--space-4);
 }
 .agency-portal .strip .s {
   flex: 1;
-  padding: 11px 16px;
+  padding: 11px var(--space-5);
   border-right: 1px solid var(--line-2);
 }
 .agency-portal .strip .s:last-child {
@@ -1886,14 +1961,14 @@
   border: 1px solid var(--line);
   border-radius: 12px;
   background: #fff;
-  margin-bottom: 12px;
+  margin-bottom: var(--space-4);
   overflow: hidden;
 }
 .agency-portal .panel .ph {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 12px 16px;
+  padding: var(--space-4) var(--space-5);
   cursor: pointer;
   user-select: none;
   font-weight: 650;
@@ -1908,7 +1983,7 @@
   transform: rotate(180deg);
 }
 .agency-portal .panel .pb {
-  padding: 0 16px;
+  padding: 0 var(--space-5);
   max-height: 0;
   overflow: hidden;
   transition:
@@ -1916,7 +1991,7 @@
     padding 0.2s;
 }
 .agency-portal .panel.open .pb {
-  padding: 4px 16px 16px;
+  padding: var(--space-1) var(--space-5) var(--space-5);
   max-height: 720px;
 }
 
@@ -1927,10 +2002,18 @@
   background: #fff;
   box-shadow: var(--shadow);
   overflow: auto;
-  max-height: 62vh;
+  /* AUDIT U1 · the old fixed `max-height: 62vh` capped the grid at ~558px on a
+     900px laptop and could never fill a 24" monitor (~38% wasted) while the page
+     double-scrolled. Size the scroll window to the viewport MINUS the fixed
+     chrome above it (topbar + header + tabs + toolbar + chips ≈ 25rem), so the
+     table fills tall monitors and fits short ones without a second scrollbar.
+     `--wb-chrome-offset` is tunable (shrinks once the header is compressed). */
+  --wb-chrome-offset: 25rem;
+  max-height: calc(100vh - var(--wb-chrome-offset));
+  min-height: 300px;
 }
 .agency-portal table.wb {
-  font-size: 13px;
+  font-size: var(--fs-md);
   min-width: 1180px;
 }
 .agency-portal table.wb thead th {
@@ -1985,14 +2068,22 @@
 }
 .agency-portal table.wb thead th.goalh .badge-sig {
   font-size: 8px;
-  padding: 0 4px;
+  padding: 0 var(--space-1);
 }
 .agency-portal table.wb td.num .delta {
   font-size: 10px;
 }
 .agency-portal table.wb td,
 .agency-portal table.wb th {
-  padding: 11px 12px;
+  padding: 11px var(--space-4);
+}
+/* AUDIT U7 · density. Compact is the DEFAULT for a scan-100-rows audience (~28px
+   rows lift visible rows ~35% at zero layout cost); Cozy restores the roomier
+   11px rhythm. Toggle persists per user. */
+.agency-portal table.wb.compact td,
+.agency-portal table.wb.compact th {
+  padding-top: 5px;
+  padding-bottom: 5px;
 }
 .agency-portal table.wb tbody tr.selrow td {
   background: var(--indigo-50);
@@ -2023,7 +2114,7 @@
          cells stay in Montserrat */
 .agency-portal table.wb td.num {
   font-family: var(--mono);
-  font-size: 12.5px;
+  font-size: var(--fs-sm);
 }
 /* D12 · business column wide enough for the name on one line */
 .agency-portal .wb td.biz,
@@ -2042,6 +2133,54 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* AUDIT U23 · freeze the identity columns (select checkbox + business name) so
+   the signal columns (socials / booking / SEO / SERP / ads) scroll UNDER them
+   on a 1280px laptop instead of forcing a dual-axis scroll. The select cell
+   pins at left:0; the name cell offsets by the select column's fixed 34px width.
+   Opaque backgrounds keep scrolled columns from bleeding through; a subtle right
+   border on the name cell marks the frozen edge.
+   Z-index layering (composes with the sticky thead at z-index 3):
+     · body pinned cells → z 2 (above regular cells, below the header row)
+     · header pinned corner (th.sel/th.biz) → z 4 (above thead AND body pins) */
+.agency-portal table.wb td.sel,
+.agency-portal table.wb th.sel {
+  position: sticky;
+  left: 0;
+  background: #fff;
+  z-index: 2;
+}
+.agency-portal table.wb td.biz,
+.agency-portal table.wb th.biz {
+  position: sticky;
+  left: 34px;
+  background: #fff;
+  z-index: 2;
+  border-right: 1px solid var(--line);
+}
+.agency-portal table.wb thead th.sel,
+.agency-portal table.wb thead th.biz {
+  z-index: 4;
+}
+/* Row hover: the pinned cells' explicit white bg outweighs the global
+   `tr:hover td` rule, so restate the hover tint on them or they read as a
+   lighter stripe than the row they belong to. */
+.agency-portal table.wb tbody tr:hover td.sel,
+.agency-portal table.wb tbody tr:hover td.biz {
+  background: var(--surface-2);
+}
+/* Selected / active rows tint their frozen cells too, else the pinned columns
+   would read as a different (white) row than the rest of the highlighted row.
+   Listed AFTER the hover rule so a selected/active row's tint wins on hover. */
+.agency-portal table.wb tbody tr.selrow td.sel,
+.agency-portal table.wb tbody tr.selrow td.biz,
+.agency-portal table.wb tbody tr.activerow td.sel,
+.agency-portal table.wb tbody tr.activerow td.biz,
+.agency-portal table.wb tbody tr.selrow:hover td.sel,
+.agency-portal table.wb tbody tr.selrow:hover td.biz,
+.agency-portal table.wb tbody tr.activerow:hover td.sel,
+.agency-portal table.wb tbody tr.activerow:hover td.biz {
+  background: var(--indigo-50);
+}
 .agency-portal .cellval {
   font-weight: 600;
   font-variant-numeric: tabular-nums;
@@ -2054,6 +2193,18 @@
 }
 .agency-portal .cellval.r {
   color: var(--red);
+}
+/* AUDIT F2 · the AI-summary cell truncates a long positioning read to one line
+   (full text in its data-tip) so the row height stays fixed + scannable. */
+.agency-portal .aisum {
+  display: inline-block;
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+  font-size: var(--fs-sm);
+  color: var(--ink-2);
 }
 .agency-portal .vdot {
   display: inline-block;
@@ -2109,7 +2260,7 @@
 .agency-portal .grphead .gc {
   font-weight: 600;
   color: var(--muted);
-  margin-left: 8px;
+  margin-left: var(--space-3);
 }
 
 /* sticky bulk action bar */
@@ -2126,7 +2277,7 @@
     #0d1020;
   color: #e8ebf5;
   border-radius: 14px;
-  padding: 12px 16px;
+  padding: var(--space-4) var(--space-5);
   display: flex;
   align-items: center;
   gap: 10px;
@@ -2157,8 +2308,8 @@
   background: #191d33;
   color: #e8ebf5;
   border-radius: 9px;
-  padding: 7px 12px;
-  font-size: 12.5px;
+  padding: 7px var(--space-4);
+  font-size: var(--fs-sm);
   font-weight: 600;
 }
 .agency-portal .bulkbar .bb:hover {
@@ -2187,23 +2338,23 @@
   border-radius: 12px;
   box-shadow: var(--shadow);
   min-width: 230px;
-  padding: 8px;
+  padding: var(--space-3);
 }
 .agency-portal .popmenu .ph {
-  font-size: 10.5px;
+  font-size: var(--fs-2xs);
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--faint);
   font-weight: 700;
-  padding: 6px 8px 4px;
+  padding: var(--space-2) var(--space-3) var(--space-1);
 }
 .agency-portal .popmenu label {
   display: flex;
   align-items: center;
   gap: 9px;
-  padding: 7px 8px;
+  padding: 7px var(--space-3);
   border-radius: 8px;
-  font-size: 13px;
+  font-size: var(--fs-md);
   cursor: pointer;
 }
 .agency-portal .popmenu label:hover {
@@ -2226,9 +2377,9 @@
 /* workspace tabs */
 .agency-portal .wtabs {
   display: flex;
-  gap: 4px;
+  gap: var(--space-1);
   border-bottom: 1px solid var(--line);
-  margin: 14px 0 16px;
+  margin: 14px 0 var(--space-5);
 }
 .agency-portal .wtabs button {
   border: 0;
@@ -2251,7 +2402,7 @@
   font-size: 11px;
   color: var(--faint);
   font-weight: 600;
-  margin-left: 4px;
+  margin-left: var(--space-1);
 }
 
 /* ---------- Cost / pre-flight footer ---------- */
@@ -2268,7 +2419,7 @@
     #0d1020;
   color: #e8ebf5;
   border-radius: 18px;
-  padding: 16px 22px;
+  padding: var(--space-5) 22px;
   display: flex;
   align-items: center;
   gap: 18px;
@@ -2280,7 +2431,7 @@
   font-weight: 600;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-3);
 }
 .agency-portal .costbar .small {
   font-size: 12px;
@@ -2299,7 +2450,7 @@
 }
 .agency-portal .costbar .warn {
   color: #ffb4b4;
-  font-size: 12.5px;
+  font-size: var(--fs-sm);
   font-weight: 600;
 }
 
@@ -2330,7 +2481,7 @@
 .agency-portal .gatestrip .acts {
   margin-left: auto;
   display: flex;
-  gap: 8px;
+  gap: var(--space-3);
   flex-wrap: wrap;
 }
 
@@ -2339,11 +2490,11 @@
   background: #fff;
   border: 1px solid var(--line);
   border-radius: 16px;
-  padding: 16px 17px;
+  padding: var(--space-5) 17px;
   box-shadow: var(--shadow-sm);
 }
 .agency-portal .stat .k {
-  font-size: 11.5px;
+  font-size: var(--fs-xs);
   color: var(--muted);
   font-weight: 600;
 }
@@ -2352,20 +2503,20 @@
   font-size: 32px;
   font-weight: 600;
   letter-spacing: -0.02em;
-  margin-top: 4px;
+  margin-top: var(--space-1);
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-2);
   line-height: 1.05;
 }
 .agency-portal .stat .v small {
-  font-size: 14px;
+  font-size: var(--fs-base);
   color: var(--faint);
   font-weight: 600;
   font-family: var(--font);
 }
 .agency-portal .stat .d {
-  font-size: 11.5px;
+  font-size: var(--fs-xs);
   margin-top: 5px;
   color: var(--muted);
 }
@@ -2374,8 +2525,8 @@
   border: 1px solid var(--indigo-100);
   background: var(--indigo-50);
   border-radius: 14px;
-  padding: 14px 16px;
-  font-size: 13px;
+  padding: 14px var(--space-5);
+  font-size: var(--fs-md);
   color: var(--indigo-700);
   display: flex;
   gap: 10px;
@@ -2406,7 +2557,7 @@
   align-items: baseline;
   justify-content: space-between;
   gap: 10px;
-  font-size: 11.5px;
+  font-size: var(--fs-xs);
   line-height: 1.5;
   opacity: 0.82;
   padding: 2px 0 2px 14px;
@@ -2434,10 +2585,10 @@
   margin-top: 10px;
 }
 .agency-portal .rgroup:first-child {
-  margin-top: 6px;
+  margin-top: var(--space-2);
 }
 .agency-portal .rgroup .rhead {
-  font-size: 11.5px;
+  font-size: var(--fs-xs);
   margin-bottom: 5px;
 }
 .agency-portal .rgroup .rhead b {
@@ -2451,7 +2602,7 @@
 .agency-portal .rgroup .rpills {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: var(--space-2);
 }
 
 /* progress */
@@ -2493,8 +2644,8 @@
   display: flex;
   align-items: center;
   gap: 11px;
-  font-size: 12.8px;
-  padding: 9px 12px;
+  font-size: var(--fs-md);
+  padding: 9px var(--space-4);
   border: 1px solid var(--line);
   border-radius: 10px;
   background: #fff;
@@ -2527,7 +2678,7 @@
 .agency-portal .steps {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-2);
   margin-bottom: 22px;
   flex-wrap: wrap;
 }
@@ -2602,7 +2753,7 @@
   color: #fff;
   padding: 11px 18px;
   border-radius: 11px;
-  font-size: 13px;
+  font-size: var(--fs-md);
   box-shadow: var(--shadow);
   opacity: 0;
   transition: 0.2s;
@@ -2618,6 +2769,35 @@
     var(--shadow),
     inset 3px 0 0 var(--red);
   padding-left: 20px;
+}
+/* U18 · action toast (Undo) — message + an inline button on one row. */
+.agency-portal .toast.toast-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  padding-right: 10px;
+}
+.agency-portal .toast .toast-msg {
+  white-space: nowrap;
+}
+.agency-portal .toast .toast-btn {
+  flex: 0 0 auto;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  background: transparent;
+  color: #fff;
+  font: inherit;
+  font-weight: 700;
+  font-size: var(--fs-sm);
+  padding: var(--space-1) var(--space-4);
+  border-radius: 8px;
+  cursor: pointer;
+}
+.agency-portal .toast .toast-btn:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+.agency-portal .toast .toast-btn:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
 }
 .agency-portal .banner-demo {
   background: #0d1020;
@@ -2669,8 +2849,8 @@
   background: var(--indigo);
   color: #fff;
   font-weight: 700;
-  font-size: 13px;
-  padding: 9px 16px;
+  font-size: var(--fs-md);
+  padding: 9px var(--space-5);
   border-radius: 0 0 10px 10px;
   text-decoration: none;
   transition: top 0.15s ease;
@@ -2694,8 +2874,8 @@
   background: #fff;
   color: var(--muted);
   border-radius: 999px;
-  padding: 6px 12px;
-  font-size: 12.5px;
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--fs-sm);
   font-weight: 500;
   box-shadow: var(--shadow-sm);
 }
@@ -2719,13 +2899,13 @@
   font-family: var(--mono);
   background: var(--line-2);
   border-radius: 4px;
-  padding: 0 4px;
+  padding: 0 var(--space-1);
 }
 /* WP4-7 · ⌘K palette keyboard footer (↑↓ ↵ esc) */
 .agency-portal .ckhint {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-1);
 }
 .agency-portal .ckhint kbd {
   font-family: var(--mono);
@@ -2733,7 +2913,7 @@
   background: var(--line-2);
   border: 1px solid var(--line);
   border-radius: 4px;
-  padding: 0 4px;
+  padding: 0 var(--space-1);
   color: var(--ink-2);
 }
 
@@ -2773,7 +2953,7 @@
   border-bottom: 1px solid var(--line);
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--space-4);
 }
 .agency-portal .modal .mhead h2 {
   margin: 0;
@@ -2785,7 +2965,7 @@
   font-size: 20px;
   color: var(--faint);
   line-height: 1;
-  padding: 4px 6px;
+  padding: var(--space-1) var(--space-2);
   border-radius: 8px;
 }
 .agency-portal .modal .mhead .x:hover {
@@ -2793,7 +2973,7 @@
   color: var(--ink);
 }
 .agency-portal .modal .mbody {
-  padding: 16px 20px;
+  padding: var(--space-5) 20px;
   overflow: auto;
 }
 .agency-portal .modal .mfoot {
@@ -2817,7 +2997,7 @@
 }
 .agency-portal .confirm-body {
   margin: 9px 0 2px;
-  font-size: 13px;
+  font-size: var(--fs-md);
   line-height: 1.5;
   color: var(--muted);
 }
@@ -2831,9 +3011,9 @@
 .agency-portal .wb-shortcut-row {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 6px 4px;
-  font-size: 13px;
+  gap: var(--space-4);
+  padding: var(--space-2) var(--space-1);
+  font-size: var(--fs-md);
   color: var(--ink-2);
 }
 .agency-portal .wb-shortcut-row kbd {
@@ -2842,7 +3022,7 @@
   text-align: center;
   padding: 3px 7px;
   font-family: var(--mono);
-  font-size: 11.5px;
+  font-size: var(--fs-xs);
   font-weight: 600;
   color: var(--ink);
   background: var(--surface-2);
@@ -2857,7 +3037,7 @@
   padding: 7px 10px;
   background: var(--ink);
   color: #fff;
-  font-size: 11.5px;
+  font-size: var(--fs-xs);
   font-weight: 500;
   line-height: 1.4;
   letter-spacing: 0.005em;
@@ -2880,11 +3060,11 @@
 /* Modals fit small screens: full-ish width, top-aligned, tighter scrim padding. */
 @media (max-width: 640px) {
   .agency-portal .overlay {
-    padding: 16px 12px;
+    padding: var(--space-5) var(--space-4);
     align-items: flex-start;
   }
   .agency-portal .overlay.center {
-    padding: 16px 12px;
+    padding: var(--space-5) var(--space-4);
     align-items: flex-start;
   }
   .agency-portal .modal {
@@ -2892,12 +3072,115 @@
     max-height: 88vh;
   }
 }
+
+/* ---------- AUDIT U5 · enrich sheet as a right-side panel ---------- */
+/* `.overlay.side` reuses the same scrim but docks its child on the right edge
+   (full height) instead of centering it. */
+.agency-portal .overlay.side {
+  padding: 0;
+  align-items: stretch;
+  justify-content: flex-end;
+}
+.agency-portal .enrich-panel {
+  width: 480px;
+  max-width: 94vw;
+  height: 100vh;
+  background: var(--surface);
+  border-left: 1px solid var(--line);
+  box-shadow: -12px 0 40px rgba(15, 23, 42, 0.22);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: enrich-panel-in 0.24s cubic-bezier(0.4, 0, 0.2, 1);
+}
+@keyframes enrich-panel-in {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+/* The panel reuses the modal's head/body/foot rhythm; the body scrolls, the
+   head + foot pin. */
+.agency-portal .enrich-panel .mhead {
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  flex: 0 0 auto;
+}
+.agency-portal .enrich-panel .mhead h2 {
+  margin: 0;
+  flex: 1;
+}
+.agency-portal .enrich-panel .mhead .x {
+  background: transparent;
+  border: 0;
+  font-size: 20px;
+  color: var(--faint);
+  line-height: 1;
+  padding: var(--space-1) var(--space-2);
+  border-radius: 8px;
+}
+.agency-portal .enrich-panel .mhead .x:hover {
+  background: var(--line-2);
+  color: var(--ink);
+}
+.agency-portal .enrich-panel .mbody {
+  padding: var(--space-5) 20px;
+  overflow: auto;
+  flex: 1 1 auto;
+}
+.agency-portal .enrich-panel .mfoot {
+  padding: 13px 20px;
+  border-top: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--surface-2);
+  flex: 0 0 auto;
+}
+/* Narrow viewports (<720px): fall back to a bottom-sheet so the panel stays
+   reachable on a phone/tablet in portrait. */
+@media (max-width: 719px) {
+  .agency-portal .overlay.side {
+    align-items: flex-end;
+    justify-content: center;
+    padding: 0;
+  }
+  .agency-portal .enrich-panel {
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+    max-height: 88vh;
+    border-left: 0;
+    border-top: 1px solid var(--line);
+    border-radius: 16px 16px 0 0;
+    box-shadow: 0 -12px 40px rgba(15, 23, 42, 0.22);
+    animation: enrich-sheet-up 0.24s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  @keyframes enrich-sheet-up {
+    from {
+      transform: translateY(100%);
+    }
+    to {
+      transform: translateY(0);
+    }
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .agency-portal .enrich-panel {
+    animation: none;
+  }
+}
 .agency-portal .msearch {
   width: 100%;
   border: 1px solid var(--line);
   border-radius: 11px;
   padding: 11px 13px;
-  font-size: 14px;
+  font-size: var(--fs-base);
   font-family: inherit;
 }
 .agency-portal .msearch:focus {
@@ -2908,14 +3191,14 @@
 
 /* signal library groups */
 .agency-portal .siglib .grp {
-  margin-top: 16px;
+  margin-top: var(--space-5);
 }
 .agency-portal .siglib .grp:first-child {
-  margin-top: 4px;
+  margin-top: var(--space-1);
 }
 .agency-portal .siglib .grp h4 {
-  margin: 0 0 6px;
-  font-size: 11.5px;
+  margin: 0 0 var(--space-2);
+  font-size: var(--fs-xs);
   text-transform: uppercase;
   letter-spacing: 0.07em;
   color: var(--faint);
@@ -2925,7 +3208,7 @@
   display: flex;
   align-items: flex-start;
   gap: 11px;
-  padding: 11px 12px;
+  padding: 11px var(--space-4);
   border: 1px solid var(--line);
   border-radius: 10px;
   margin-bottom: 7px;
@@ -2945,11 +3228,11 @@
 }
 .agency-portal .sigitem .why {
   color: var(--muted);
-  font-size: 12.3px;
+  font-size: var(--fs-sm);
   margin-top: 2px;
 }
 .agency-portal .sigitem .ov {
-  margin-top: 8px;
+  margin-top: var(--space-3);
   display: flex;
   align-items: center;
   gap: 7px;
@@ -2959,7 +3242,7 @@
 .agency-portal .sigitem input {
   border: 1px solid var(--line);
   border-radius: 8px;
-  padding: 5px 8px;
+  padding: 5px var(--space-3);
   font-size: 12px;
   font-family: inherit;
   background: #fff;
@@ -2978,7 +3261,7 @@
          (~40px): name + tiny badge + data-status + truncated desc + ＋ Add.
          SIGNAL rows are emphasized; raw DATA rows are lighter/smaller. */
 .agency-portal .siglib-compact {
-  margin-top: 12px;
+  margin-top: var(--space-4);
 }
 .agency-portal .siglib-grp {
   border: 1px solid var(--line);
@@ -2996,7 +3279,7 @@
   align-items: center;
   gap: 9px;
   padding: 11px 14px;
-  font-size: 12.5px;
+  font-size: var(--fs-sm);
   font-weight: 700;
   color: var(--ink);
   background: var(--surface-2);
@@ -3026,7 +3309,7 @@
   background: #fff;
   border: 1px solid var(--line);
   border-radius: 999px;
-  padding: 1px 8px;
+  padding: 1px var(--space-3);
 }
 .agency-portal .siglib-top .siglib-count {
   color: var(--indigo);
@@ -3041,7 +3324,7 @@
   transform: rotate(180deg);
 }
 .agency-portal .siglib-rows {
-  padding: 4px 0;
+  padding: var(--space-1) 0;
 }
 .agency-portal .siglib-row {
   display: flex;
@@ -3067,14 +3350,14 @@
 }
 .agency-portal .siglib-name {
   font-weight: 600;
-  font-size: 13px;
+  font-size: var(--fs-md);
   color: var(--ink);
   white-space: nowrap;
   flex: none;
 }
 .agency-portal .siglib-row.is-data .siglib-name {
   font-weight: 500;
-  font-size: 12.5px;
+  font-size: var(--fs-sm);
   color: var(--ink-2);
 }
 .agency-portal .siglib-desc {
@@ -3087,12 +3370,12 @@
   flex: 1;
 }
 .agency-portal .siglib-row.is-data .siglib-desc {
-  font-size: 11.5px;
+  font-size: var(--fs-xs);
   color: var(--faint);
 }
 .agency-portal .siglib-add {
   flex: none;
-  font-size: 11.5px;
+  font-size: var(--fs-xs);
   font-weight: 700;
   color: var(--indigo);
   background: var(--indigo-50);
@@ -3136,7 +3419,7 @@
   display: flex;
   align-items: center;
   gap: 11px;
-  padding: 11px 12px;
+  padding: 11px var(--space-4);
   border-radius: 10px;
   cursor: pointer;
   font-size: 13.5px;
@@ -3152,7 +3435,7 @@
   background: var(--line-2);
   display: grid;
   place-items: center;
-  font-size: 14px;
+  font-size: var(--fs-base);
   flex: 0 0 auto;
 }
 .agency-portal .cmdrow .cmeta {
@@ -3161,12 +3444,12 @@
   color: var(--faint);
 }
 .agency-portal .cmdgrp {
-  font-size: 10.5px;
+  font-size: var(--fs-2xs);
   text-transform: uppercase;
   letter-spacing: 0.07em;
   color: var(--faint);
   font-weight: 700;
-  padding: 10px 12px 4px;
+  padding: 10px var(--space-4) var(--space-1);
 }
 
 /* ---------- Cost matrix ---------- */
@@ -3186,7 +3469,7 @@
 .agency-portal .matrix .freshlbl {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-2);
   justify-content: flex-end;
 }
 
@@ -3207,23 +3490,23 @@
 }
 .agency-portal .rlist .rrow .nm {
   font-weight: 650;
-  font-size: 14px;
+  font-size: var(--fs-base);
 }
 .agency-portal .rlist .rrow .mk {
   color: var(--muted);
-  font-size: 12.3px;
+  font-size: var(--fs-sm);
   margin-top: 1px;
 }
 .agency-portal .rlist .rrow .sp {
   text-align: right;
-  font-size: 12.5px;
+  font-size: var(--fs-sm);
   color: var(--muted);
   min-width: 120px;
 }
 .agency-portal .rlist .rrow .sp b {
   color: var(--ink);
   display: block;
-  font-size: 14px;
+  font-size: var(--fs-base);
 }
 /* expandable research row — two-level navigator (research → cells) */
 .agency-portal .rlist .rgroup {
@@ -3262,18 +3545,18 @@
 }
 .agency-portal .rcells {
   background: var(--surface-2);
-  padding: 4px 0;
+  padding: var(--space-1) 0;
 }
 .agency-portal .rcell {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--space-4);
   padding: 9px 14px 9px 38px;
   border-left: 2px solid transparent;
 }
 .agency-portal .rcell .cnm {
   font-weight: 600;
-  font-size: 13px;
+  font-size: var(--fs-md);
   color: var(--ink-2);
 }
 .agency-portal .rcell .ccount {
@@ -3304,13 +3587,13 @@
 }
 .agency-portal .rfbtn {
   font: inherit;
-  font-size: 13px;
+  font-size: var(--fs-md);
   font-weight: 600;
   color: var(--ink-2);
   background: #fff;
   border: 1px solid var(--line);
   border-radius: 10px;
-  padding: 9px 12px;
+  padding: 9px var(--space-4);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -3347,13 +3630,13 @@
 .agency-portal .rfclear,
 .agency-portal .rflink {
   font: inherit;
-  font-size: 12.5px;
+  font-size: var(--fs-sm);
   font-weight: 600;
   color: var(--indigo);
   background: transparent;
   border: 0;
   cursor: pointer;
-  padding: 4px 2px;
+  padding: var(--space-1) 2px;
   text-decoration: underline;
 }
 .agency-portal .rfclear:hover,
@@ -3375,17 +3658,17 @@
   border: 1px solid var(--line);
   border-radius: 12px;
   box-shadow: var(--shadow);
-  padding: 8px;
+  padding: var(--space-3);
 }
 .agency-portal .rfdrop .rfsearch {
   width: 100%;
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 7px 10px;
-  font-size: 12.5px;
+  font-size: var(--fs-sm);
   font-family: inherit;
   background: #fff;
-  margin-bottom: 6px;
+  margin-bottom: var(--space-2);
 }
 .agency-portal .rfdrop .rfsearch:focus {
   outline: none;
@@ -3402,10 +3685,10 @@
   display: flex;
   align-items: center;
   gap: 9px;
-  padding: 7px 8px;
+  padding: 7px var(--space-3);
   border-radius: 8px;
   cursor: pointer;
-  font-size: 13px;
+  font-size: var(--fs-md);
   color: var(--ink-2);
 }
 .agency-portal .rfopt:hover {
@@ -3426,19 +3709,19 @@
 }
 .agency-portal .rfopt .rfoptc {
   color: var(--muted);
-  font-size: 11.5px;
+  font-size: var(--fs-xs);
 }
 .agency-portal .rfdrop .rfnone {
-  padding: 10px 8px;
-  font-size: 12.5px;
+  padding: 10px var(--space-3);
+  font-size: var(--fs-sm);
   color: var(--muted);
 }
 .agency-portal .rfdrop .rffoot {
   display: flex;
   justify-content: flex-end;
   border-top: 1px solid var(--line);
-  margin-top: 6px;
-  padding-top: 6px;
+  margin-top: var(--space-2);
+  padding-top: var(--space-2);
 }
 .agency-portal .rfempty {
   margin-top: 14px;
@@ -3455,13 +3738,13 @@
   align-items: center;
   gap: 0;
   flex-wrap: wrap;
-  margin: 6px 0;
+  margin: var(--space-2) 0;
 }
 .agency-portal .loop .ls {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-2);
   min-width: 84px;
   text-align: center;
 }
@@ -3485,7 +3768,7 @@
   color: #fff;
 }
 .agency-portal .loop .ls .lt {
-  font-size: 11.5px;
+  font-size: var(--fs-xs);
   color: var(--muted);
   font-weight: 600;
 }
@@ -3503,7 +3786,7 @@
 .agency-portal .nba {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-3);
 }
 .agency-portal .nba .a {
   display: flex;
@@ -3528,7 +3811,7 @@
 }
 .agency-portal .nba .a .txt {
   flex: 1;
-  font-size: 13px;
+  font-size: var(--fs-md);
 }
 .agency-portal .cohort {
   background: #fff;
@@ -3537,7 +3820,7 @@
   padding: 15px;
 }
 .agency-portal .cohort .k {
-  font-size: 11.5px;
+  font-size: var(--fs-xs);
   color: var(--muted);
   font-weight: 600;
 }
@@ -3550,11 +3833,11 @@
   font-size: 28px;
   font-weight: 600;
   letter-spacing: -0.02em;
-  margin-top: 4px;
+  margin-top: var(--space-1);
 }
 .agency-portal .cohort .d {
-  font-size: 11.5px;
-  margin-top: 4px;
+  font-size: var(--fs-xs);
+  margin-top: var(--space-1);
   color: var(--muted);
 }
 
@@ -3578,7 +3861,7 @@
   display: flex;
   align-items: center;
   gap: 14px;
-  padding: 14px 12px;
+  padding: 14px var(--space-4);
   border-bottom: 1px solid var(--line-2);
 }
 .agency-portal .skelrow .skel.av {
@@ -3594,7 +3877,7 @@
   align-items: center;
   gap: 9px;
   cursor: pointer;
-  font-size: 13px;
+  font-size: var(--fs-md);
   font-weight: 600;
 }
 .agency-portal .toggle .sw {
@@ -3636,8 +3919,8 @@
 .agency-portal .seg button {
   border: 0;
   background: transparent;
-  padding: 8px 14px;
-  font-size: 12.8px;
+  padding: var(--space-3) 14px;
+  font-size: var(--fs-md);
   font-weight: 600;
   color: var(--muted);
 }
@@ -3646,7 +3929,7 @@
   color: #fff;
 }
 .agency-portal .seg.sm button {
-  padding: 6px 11px;
+  padding: var(--space-2) 11px;
   font-size: 12px;
 }
 
@@ -3708,8 +3991,8 @@
   width: 100%;
   border: 1px solid var(--line);
   border-radius: 999px;
-  padding: 11px 16px 11px 38px;
-  font-size: 14px;
+  padding: 11px var(--space-5) 11px 38px;
+  font-size: var(--fs-base);
   font-family: inherit;
   background: #fff;
   box-shadow: var(--shadow-sm);
@@ -3771,7 +4054,7 @@
 .agency-portal .tplcard-head {
   display: flex;
   align-items: flex-start;
-  gap: 12px;
+  gap: var(--space-4);
 }
 .agency-portal .tplcard .tplic {
   width: 38px;
@@ -3793,7 +4076,7 @@
 .agency-portal .tplcard .tplname {
   font-family: var(--display);
   font-weight: 600;
-  font-size: 15px;
+  font-size: var(--fs-lg);
   letter-spacing: -0.01em;
   display: flex;
   align-items: center;
@@ -3807,10 +4090,10 @@
   color: var(--indigo-700);
   background: var(--indigo-50);
   border-radius: 5px;
-  padding: 1px 6px;
+  padding: 1px var(--space-2);
 }
 .agency-portal .tplcard .tplwho {
-  font-size: 12.8px;
+  font-size: var(--fs-md);
   color: var(--ink-2);
   font-weight: 600;
   margin-top: 3px;
@@ -3818,8 +4101,8 @@
 .agency-portal .tplcard .tplsigs {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
-  margin-top: 8px;
+  gap: var(--space-1);
+  margin-top: var(--space-3);
 }
 .agency-portal .tplcard .tplsigs .pill {
   font-size: 10px;
@@ -3846,14 +4129,14 @@
   border-top: 1px solid var(--line-2);
 }
 .agency-portal .tpldetail-lead {
-  font-size: 13px;
+  font-size: var(--fs-md);
   color: var(--ink-2);
 }
 .agency-portal .tpldetail-lead .lmut {
   color: var(--muted);
 }
 .agency-portal .tpldetail-cap {
-  font-size: 11.5px;
+  font-size: var(--fs-xs);
   color: var(--muted);
   margin: 7px 0 13px;
 }
@@ -3871,7 +4154,7 @@
 .agency-portal .tplsig {
   border: 1px solid var(--line);
   border-radius: 11px;
-  padding: 10px 12px;
+  padding: 10px var(--space-4);
   background: #fcfdff;
 }
 .agency-portal .tplsig.is-data {
@@ -3886,11 +4169,11 @@
 }
 .agency-portal .tplsig-name {
   font-weight: 600;
-  font-size: 12.8px;
+  font-size: var(--fs-md);
   color: var(--ink);
 }
 .agency-portal .tplsig-mean {
-  font-size: 11.8px;
+  font-size: var(--fs-xs);
   color: var(--muted);
   line-height: 1.45;
   margin-top: 5px;
@@ -3900,7 +4183,7 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 5px;
-  margin-top: 8px;
+  margin-top: var(--space-3);
 }
 .agency-portal .tplsig-recipe .rl {
   font-size: 10px;
@@ -3923,12 +4206,12 @@
 .agency-portal .tpllist {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-2);
 }
 .agency-portal .tplrow {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--space-4);
   width: 100%;
   text-align: left;
   background: #fff;
@@ -3974,7 +4257,7 @@
 .agency-portal .tplrow-name {
   font-family: var(--display);
   font-weight: 600;
-  font-size: 14px;
+  font-size: var(--fs-base);
   letter-spacing: -0.01em;
   color: var(--ink);
   display: flex;
@@ -3982,7 +4265,7 @@
   gap: 7px;
 }
 .agency-portal .tplrow-who {
-  font-size: 11.8px;
+  font-size: var(--fs-xs);
   color: var(--muted);
   line-height: 1.35;
   overflow: hidden;
@@ -3992,7 +4275,7 @@
 .agency-portal .tplrow-meta {
   flex: 0 0 auto;
   font-family: var(--mono);
-  font-size: 10.5px;
+  font-size: var(--fs-2xs);
   color: var(--faint);
   white-space: nowrap;
 }
@@ -4001,7 +4284,7 @@
 .agency-portal .tplrow-wrap {
   display: flex;
   align-items: stretch;
-  gap: 4px;
+  gap: var(--space-1);
 }
 .agency-portal .tplrow-wrap .tplrow {
   flex: 1 1 auto;
@@ -4017,7 +4300,7 @@
   border-radius: 8px;
   display: grid;
   place-items: center;
-  font-size: 15px;
+  font-size: var(--fs-lg);
   line-height: 1;
   /* Always visible (discoverable), muted until hover/focus. */
   color: var(--muted);
@@ -4046,7 +4329,7 @@
 }
 .agency-portal .tplrow.custom {
   border-style: dashed;
-  margin-top: 8px;
+  margin-top: var(--space-3);
 }
 
 /* right: sticky detail / empty state */
@@ -4076,7 +4359,7 @@
 .agency-portal .goalempty .ge-ic {
   width: 56px;
   height: 56px;
-  margin: 0 auto 16px;
+  margin: 0 auto var(--space-5);
   border-radius: 16px;
   display: grid;
   place-items: center;
@@ -4092,7 +4375,7 @@
   font-size: 23px;
   letter-spacing: -0.02em;
   line-height: 1.12;
-  margin: 0 0 8px;
+  margin: 0 0 var(--space-3);
   color: var(--ink);
 }
 .agency-portal .goalempty p {
@@ -4108,10 +4391,10 @@
   text-align: left;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-3);
 }
 .agency-portal .goalempty .ge-tips li {
-  font-size: 12.5px;
+  font-size: var(--fs-sm);
   color: var(--ink-2);
   background: var(--indigo-50);
   border: 1px solid var(--indigo-100);
@@ -4124,8 +4407,8 @@
 .agency-portal .gd-head {
   display: flex;
   align-items: flex-start;
-  gap: 12px;
-  margin-bottom: 12px;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
 }
 .agency-portal .gd-ic {
   width: 42px;
@@ -4145,21 +4428,21 @@
   color: var(--ink);
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-3);
 }
 .agency-portal .gd-who {
-  font-size: 13px;
+  font-size: var(--fs-md);
   color: var(--ink-2);
   font-weight: 600;
   margin-top: 3px;
 }
 .agency-portal .gd-lead {
-  font-size: 13px;
+  font-size: var(--fs-md);
   color: var(--muted);
-  margin: 0 0 4px;
+  margin: 0 0 var(--space-1);
 }
 .agency-portal .gd-cap {
-  font-size: 11.5px;
+  font-size: var(--fs-xs);
   color: var(--faint);
   margin: 0 0 13px;
 }
@@ -4167,7 +4450,7 @@
   display: flex;
   flex-direction: column;
   gap: 9px;
-  margin-bottom: 16px;
+  margin-bottom: var(--space-5);
 }
 .agency-portal .gd-reassure {
   margin-top: 14px;
@@ -4175,14 +4458,14 @@
   border: 1px solid var(--mint);
   border-radius: 11px;
   padding: 10px 13px;
-  font-size: 12.5px;
+  font-size: var(--fs-sm);
   line-height: 1.5;
   color: var(--mint-ink);
 }
 .agency-portal .gd-actions {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--space-4);
   flex-wrap: wrap;
   border-top: 1px solid var(--line-2);
   padding-top: 15px;
@@ -4204,7 +4487,7 @@
   margin-top: 14px;
   border: 1.5px dashed #c3c8ff;
   border-radius: 16px;
-  padding: 16px 18px;
+  padding: var(--space-5) 18px;
   background: linear-gradient(
     135deg,
     rgba(91, 61, 245, 0.04),
@@ -4240,7 +4523,7 @@
   margin-bottom: 20px;
 }
 .agency-portal .outgrp:first-child {
-  margin-top: 6px;
+  margin-top: var(--space-2);
 }
 .agency-portal .outgrp:last-of-type {
   margin-bottom: 0;
@@ -4257,7 +4540,7 @@
 }
 .agency-portal .outgrp .ohead h4 {
   font-family: var(--display);
-  font-size: 15px;
+  font-size: var(--fs-lg);
   font-weight: 600;
   letter-spacing: -0.01em;
   margin: 0;
@@ -4297,23 +4580,23 @@
 }
 .agency-portal .sigcard .scname {
   font-weight: 700;
-  font-size: 14px;
+  font-size: var(--fs-base);
   flex: 1;
   min-width: 0;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-3);
   flex-wrap: wrap;
 }
 .agency-portal .sigcard .scmeans {
-  font-size: 12.5px;
+  font-size: var(--fs-sm);
   color: var(--ink-2);
   margin-top: 3px;
 }
 .agency-portal .sigcard .scpitch {
   font-size: 12px;
   color: var(--indigo-700);
-  margin-top: 4px;
+  margin-top: var(--space-1);
   font-weight: 600;
 }
 .agency-portal .sigcard .scpitch::before {
@@ -4334,7 +4617,7 @@
   color: var(--faint);
 }
 .agency-portal .rchip {
-  font-size: 10.5px;
+  font-size: var(--fs-2xs);
   font-weight: 600;
   font-family: var(--mono);
   color: var(--ink-2);
@@ -4349,13 +4632,13 @@
 .agency-portal .sigcard .scfoot {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--space-4);
   margin-top: 10px;
 }
 .agency-portal .sigcard .scstrength {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-2);
   font-size: 11px;
   color: var(--muted);
   font-weight: 600;
@@ -4384,7 +4667,7 @@
   color: #fff;
   background: var(--indigo);
   border-radius: 5px;
-  padding: 1px 6px;
+  padding: 1px var(--space-2);
 }
 .agency-portal .badge-data {
   font-size: 9.5px;
@@ -4394,14 +4677,14 @@
   background: var(--line-2);
   border: 1px solid var(--line);
   border-radius: 5px;
-  padding: 1px 6px;
+  padding: 1px var(--space-2);
 }
 .agency-portal .sigcard .scadd,
 .agency-portal .sigcard .sctune {
   margin-left: auto;
 }
 .agency-portal .sctune {
-  font-size: 11.5px;
+  font-size: var(--fs-xs);
   color: var(--indigo);
   font-weight: 600;
   background: transparent;
@@ -4421,13 +4704,13 @@
   align-items: center;
   gap: 7px;
   flex-wrap: wrap;
-  margin-top: 6px;
+  margin-top: var(--space-2);
 }
 .agency-portal .sigcard select,
 .agency-portal .sigcard input {
   border: 1px solid var(--line);
   border-radius: 8px;
-  padding: 5px 8px;
+  padding: 5px var(--space-3);
   font-size: 12px;
   font-family: inherit;
   background: #fff;
@@ -4438,7 +4721,7 @@
 
 /* RAW DATA — secondary, de-emphasized advanced expander */
 .agency-portal .rawexp {
-  margin-top: 16px;
+  margin-top: var(--space-5);
   border: 1px dashed var(--line);
   border-radius: 13px;
   background: var(--surface-2);
@@ -4447,13 +4730,13 @@
 .agency-portal .rawexp > summary {
   list-style: none;
   cursor: pointer;
-  padding: 12px 15px;
-  font-size: 12.5px;
+  padding: var(--space-4) 15px;
+  font-size: var(--fs-sm);
   font-weight: 600;
   color: var(--ink-2);
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-3);
 }
 .agency-portal .rawexp > summary::-webkit-details-marker {
   display: none;
@@ -4476,13 +4759,13 @@
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 4px 7px;
-  padding: 8px 11px;
+  gap: var(--space-1) 7px;
+  padding: var(--space-3) 11px;
   border: 1px solid var(--line);
   border-radius: 9px;
-  margin-bottom: 6px;
+  margin-bottom: var(--space-2);
   background: #fff;
-  font-size: 13px;
+  font-size: var(--fs-md);
   color: var(--ink-2);
 }
 /* Mode A · add-a-market row (city + category + button) */
@@ -4516,7 +4799,7 @@
   display: inline-flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 4px 6px;
+  gap: var(--space-1) var(--space-2);
   flex: 1;
   min-width: 0;
 }
@@ -4524,19 +4807,19 @@
   color: var(--muted);
 }
 .agency-portal .rawrow .rawunit {
-  font-size: 11.5px;
+  font-size: var(--fs-xs);
   color: var(--faint);
 }
 /* operator-as-word select: borderless, reads as inline text */
 .agency-portal .opword {
   font-family: inherit;
-  font-size: 13px;
+  font-size: var(--fs-md);
   font-weight: 600;
   color: var(--indigo-700);
   background: transparent;
   border: 1px solid transparent;
   border-radius: 6px;
-  padding: 2px 4px;
+  padding: 2px var(--space-1);
   cursor: pointer;
   appearance: none;
   -webkit-appearance: none;
@@ -4553,7 +4836,7 @@
 .agency-portal .vinline {
   width: 52px;
   font-family: inherit;
-  font-size: 13px;
+  font-size: var(--fs-md);
   font-weight: 600;
   color: var(--ink);
   text-align: center;
@@ -4561,7 +4844,7 @@
   border: 1px solid transparent;
   border-bottom: 1px dashed var(--line-2);
   border-radius: 6px;
-  padding: 2px 4px;
+  padding: 2px var(--space-1);
 }
 .agency-portal .vinline:hover {
   background: var(--surface-2);
@@ -4576,7 +4859,7 @@
 /* raw value dropdown — a real select (no free-text), reads inline */
 .agency-portal .vsel {
   font-family: inherit;
-  font-size: 13px;
+  font-size: var(--fs-md);
   font-weight: 600;
   color: var(--ink);
   background: #fff;
@@ -4595,10 +4878,10 @@
   box-shadow: 0 0 0 3px var(--indigo-50);
 }
 .agency-portal .rawis {
-  font-size: 13px;
+  font-size: var(--fs-md);
   font-weight: 600;
   color: var(--indigo-700);
-  padding: 2px 4px;
+  padding: 2px var(--space-1);
 }
 .agency-portal .rawx {
   margin-left: auto;
@@ -4606,7 +4889,7 @@
   width: 24px;
   height: 24px;
   line-height: 1;
-  font-size: 15px;
+  font-size: var(--fs-lg);
   color: var(--faint);
   background: transparent;
   border: 1px solid transparent;
@@ -4630,7 +4913,7 @@
          3-stop sensitivity control instead of the old cryptic op/value tuner.
          =================================================================== */
 .agency-portal .sigcard .schow {
-  font-size: 11.5px;
+  font-size: var(--fs-xs);
   color: var(--indigo);
   font-weight: 600;
   background: transparent;
@@ -4638,7 +4921,7 @@
   padding: 0;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-1);
   cursor: pointer;
 }
 .agency-portal .sigcard .schow:hover {
@@ -4662,13 +4945,13 @@
   display: flex;
   align-items: flex-start;
   gap: 9px;
-  font-size: 12.5px;
+  font-size: var(--fs-sm);
   color: var(--ink-2);
   line-height: 1.4;
 }
 .agency-portal .ingred .iglyph {
   flex: 0 0 auto;
-  font-size: 14px;
+  font-size: var(--fs-base);
   line-height: 1.35;
 }
 .agency-portal .ingred .igtext {
@@ -4678,12 +4961,12 @@
   display: block;
   margin-top: 1px;
   font-family: var(--mono);
-  font-size: 10.5px;
+  font-size: var(--fs-2xs);
   color: var(--faint);
 }
 .agency-portal .signote {
   margin-top: 10px;
-  font-size: 11.5px;
+  font-size: var(--fs-xs);
   color: var(--muted);
   line-height: 1.45;
   background: var(--indigo-50);
@@ -4702,7 +4985,7 @@
   font-size: 12px;
   font-weight: 600;
   color: var(--ink-2);
-  margin-bottom: 6px;
+  margin-bottom: var(--space-2);
 }
 .agency-portal .seg3 {
   display: inline-flex;
@@ -4714,7 +4997,7 @@
 .agency-portal .seg3 button {
   border: 0;
   background: transparent;
-  padding: 6px 13px;
+  padding: var(--space-2) 13px;
   font-size: 12px;
   font-weight: 600;
   color: var(--muted);
@@ -4809,7 +5092,7 @@
   font-size: 12px;
   color: var(--muted);
   line-height: 1.45;
-  margin-top: 4px;
+  margin-top: var(--space-1);
 }
 .agency-portal .sigc-chev {
   margin-left: auto;
@@ -4823,9 +5106,9 @@
 .agency-portal .sigc-how {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  margin-top: 8px;
-  font-size: 11.5px;
+  gap: var(--space-1);
+  margin-top: var(--space-3);
+  font-size: var(--fs-xs);
   font-weight: 600;
   color: var(--indigo);
 }
@@ -4837,12 +5120,12 @@
   text-decoration: underline;
 }
 .agency-portal .sigc-exp {
-  margin: 4px 14px 0 50px;
-  padding: 14px 0 16px;
+  margin: var(--space-1) 14px 0 50px;
+  padding: 14px 0 var(--space-5);
   border-top: 1px solid var(--line-2);
 }
 .agency-portal .sigc-exp-h {
-  font-size: 10.5px;
+  font-size: var(--fs-2xs);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--faint);
@@ -4870,8 +5153,8 @@
 }
 .agency-portal .sigc-remove {
   display: block;
-  margin-top: 16px;
-  font-size: 11.5px;
+  margin-top: var(--space-5);
+  font-size: var(--fs-xs);
   font-weight: 600;
   color: var(--coral);
   background: none;
@@ -4889,7 +5172,7 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  padding: 2px 6px;
+  padding: 2px var(--space-2);
   border-radius: 5px;
 }
 .agency-portal .ds-real {
@@ -4912,12 +5195,12 @@
   font-size: 11px;
   font-weight: 700;
   color: var(--ink-2);
-  margin-bottom: 6px;
+  margin-bottom: var(--space-2);
 }
 .agency-portal .chipset {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: var(--space-2);
 }
 .agency-portal .chipset .ch {
   font-size: 11px;
@@ -4951,7 +5234,7 @@
   border: 0;
   background: #fff;
   color: var(--ink-2);
-  padding: 6px 12px;
+  padding: var(--space-2) var(--space-4);
   cursor: pointer;
 }
 .agency-portal .seg2 button.on {
@@ -4964,7 +5247,7 @@
 .agency-portal .sethint {
   font-size: 11px;
   color: var(--muted);
-  margin-top: 6px;
+  margin-top: var(--space-2);
 }
 .agency-portal .sethint b {
   color: var(--ink);
@@ -4983,7 +5266,7 @@
   background: var(--line);
   position: relative;
   cursor: pointer;
-  margin-right: 8px;
+  margin-right: var(--space-3);
 }
 .agency-portal .condtog::after {
   content: "";
@@ -5052,36 +5335,36 @@
   color: var(--yellow-ink);
   background: var(--yellow-50);
   border-radius: 5px;
-  padding: 1px 6px;
+  padding: 1px var(--space-2);
 }
 .agency-portal .gd-intro {
-  font-size: 12.5px;
+  font-size: var(--fs-sm);
   color: var(--ink-2);
   line-height: 1.5;
-  margin: 12px 0 14px;
+  margin: var(--space-4) 0 14px;
 }
 .agency-portal .tpllist-sub {
-  font-size: 10.5px;
+  font-size: var(--fs-2xs);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--faint);
-  margin: 6px 2px 4px;
+  margin: var(--space-2) 2px var(--space-1);
 }
 
 /* ---- build (market) goal summary rail chips ---- */
 .agency-portal .bgr-chip {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  font-size: 11.5px;
+  gap: var(--space-2);
+  font-size: var(--fs-xs);
   font-weight: 600;
   color: var(--ink-2);
   background: var(--surface-2);
   border: 1px solid var(--line);
   border-radius: 999px;
-  padding: 4px 10px;
-  margin: 0 4px 6px 0;
+  padding: var(--space-1) 10px;
+  margin: 0 var(--space-1) var(--space-2) 0;
 }
 .agency-portal .bgr-chip .badge-data,
 .agency-portal .bgr-chip .badge-sig {
@@ -5091,7 +5374,7 @@
 .agency-portal .sens .senshint {
   font-size: 11px;
   color: var(--muted);
-  margin-top: 6px;
+  margin-top: var(--space-2);
 }
 .agency-portal .sens .senslocked {
   font-size: 11px;
@@ -5106,13 +5389,13 @@
 .agency-portal .ppwrap {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: var(--space-1);
   max-width: 230px;
 }
 .agency-portal .ppchip {
-  font-size: 10.5px;
+  font-size: var(--fs-2xs);
   font-weight: 600;
-  padding: 2px 8px;
+  padding: 2px var(--space-3);
   border-radius: 999px;
   border: 1px solid var(--line);
   background: #fff;
@@ -5192,7 +5475,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 7px;
-  margin-top: 4px;
+  margin-top: var(--space-1);
 }
 .agency-portal .ppcard {
   flex: 1 1 220px;
@@ -5217,14 +5500,14 @@
 }
 .agency-portal .ppcard .ppt {
   font-weight: 700;
-  font-size: 12.5px;
+  font-size: var(--fs-sm);
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-2);
   flex-wrap: wrap;
 }
 .agency-portal .ppcard .ppm {
-  font-size: 11.5px;
+  font-size: var(--fs-xs);
   color: var(--muted);
   margin-top: 3px;
   line-height: 1.4;
@@ -5236,26 +5519,145 @@
 .agency-portal .covstrip {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-2);
   white-space: nowrap;
 }
-.agency-portal .covdots {
+/* AUDIT A2 · per-TYPE badge strip over the 9 purchasable enrichment types —
+   one 2-letter chip per type, colored by its honest run state. Replaces the old
+   5-family dot-strip so the "Enriched" column reflects what Tom actually buys. */
+.agency-portal .covtypes {
   display: inline-flex;
-  gap: 3px;
+  gap: 2px;
 }
-.agency-portal .covdots i {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #dde1ee;
-  display: inline-block;
+.agency-portal .covchip {
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  padding: 2px 2.5px;
+  border-radius: 3px;
+  min-width: 15px;
+  text-align: center;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  /* not_run · never scanned → a faint outline, no fill. */
+  color: #9aa2ba;
+  background: transparent;
+  box-shadow: inset 0 0 0 1px #dde1ee;
 }
-.agency-portal .covdots i.done {
+/* enriched · ran + data → filled green. */
+.agency-portal .covchip.enriched {
+  color: #fff;
   background: var(--green);
+  box-shadow: none;
 }
-/* Failed = errored + still not covered → red dot, distinct from grey never-run. */
-.agency-portal .covdots i.failed {
+/* empty · ran, verified nothing → grey fill (distinct from the faint not-run). */
+.agency-portal .covchip.empty {
+  color: var(--faint);
+  background: var(--line-2, #eef0f6);
+  box-shadow: none;
+}
+/* failed · errored + still not covered → red fill, distinct from grey never-run. */
+.agency-portal .covchip.failed {
+  color: #fff;
   background: var(--red, #d64545);
+  box-shadow: none;
+}
+/* AUDIT A2 · a type being enriched RIGHT NOW pulses indigo. Reduced-motion is
+   honored by the global prefers-reduced-motion reset. */
+.agency-portal .covchip.running {
+  color: #fff;
+  background: var(--indigo);
+  box-shadow: none;
+  animation: wb-cell-pulse 1s ease-in-out infinite;
+}
+.agency-portal td .cell-running {
+  color: var(--indigo);
+  font-size: var(--fs-xs);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.agency-portal .spin.sm {
+  width: 10px;
+  height: 10px;
+}
+@keyframes wb-cell-pulse {
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+/* AUDIT §3/A4 · per-cell states: a calm "none" for a verified-empty scan (not a
+   button — retrying a known-empty result just re-charges, audit A5) and a red
+   "failed · retry" affordance for an errored one. */
+.agency-portal td .cell-none {
+  color: var(--faint);
+  font-size: 12px;
+  font-style: italic;
+}
+.agency-portal td .cell-failed {
+  color: var(--red, #d64545);
+}
+/* AUDIT E6 · social handle chips (compact, in the Socials column). */
+.agency-portal .social-chip {
+  display: inline-block;
+  font-size: var(--fs-2xs);
+  font-weight: 650;
+  padding: 1px var(--space-2);
+  border-radius: 5px;
+  background: var(--line-2, #eef0f6);
+  color: var(--ink-2, #4a4e69);
+  text-decoration: none;
+  letter-spacing: 0.02em;
+}
+.agency-portal a.social-chip:hover {
+  background: var(--indigo-soft, #ece8ff);
+  color: var(--indigo);
+}
+/* AUDIT C5 · field-state filter chips in the coverage panel. */
+.agency-portal .cov-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2) 14px;
+  padding: var(--space-3) var(--space-4) var(--space-1);
+  border-top: 1px solid var(--line-2);
+  /* AUDIT UX-review #4 · cap the C5 chip row so it can't inflate the coverage
+     panel unbounded and push the grid down (no popover lives in here, so a
+     scroll cap is safe — unlike the outer collapse-panel). */
+  max-height: 28vh;
+  overflow-y: auto;
+}
+.agency-portal .cov-fam {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-1);
+}
+.agency-portal .cov-fam-lbl {
+  font-size: 11px;
+  font-weight: 650;
+  color: var(--ink-2);
+}
+.agency-portal .cov-state {
+  font-size: var(--fs-2xs);
+  padding: 1px var(--space-2);
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--ink-2);
+  cursor: pointer;
+}
+.agency-portal .cov-state:hover {
+  border-color: var(--indigo);
+  color: var(--indigo);
+}
+.agency-portal .cov-state.on {
+  background: var(--indigo);
+  border-color: var(--indigo);
+  color: #fff;
 }
 .agency-portal .covfrac {
   font-family: var(--mono);
@@ -5267,14 +5669,14 @@
 .agency-portal .covline {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-3);
   flex-wrap: wrap;
   padding: 10px 13px;
   border: 1px solid var(--line);
   border-radius: 11px;
   background: var(--surface-2);
-  margin-bottom: 12px;
-  font-size: 12.5px;
+  margin-bottom: var(--space-4);
+  font-size: var(--fs-sm);
 }
 .agency-portal .covline .cl-lbl {
   font-size: 11px;
@@ -5287,7 +5689,7 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  font-size: 11.5px;
+  font-size: var(--fs-xs);
   font-weight: 600;
   padding: 3px 9px;
   border-radius: 999px;
@@ -5315,7 +5717,7 @@
   background: #fff;
   color: var(--indigo);
   border-radius: 999px;
-  padding: 4px 11px;
+  padding: var(--space-1) 11px;
   font-size: 12px;
   font-weight: 600;
 }
@@ -5334,7 +5736,7 @@
   gap: 7px;
   font-size: 12px;
   font-weight: 600;
-  padding: 6px 10px;
+  padding: var(--space-2) 10px;
   border: 1px solid var(--line);
   border-radius: 9px;
   background: #fff;
@@ -5365,7 +5767,7 @@
          =================================================================== */
 .agency-portal .delta {
   font-family: var(--mono);
-  font-size: 10.5px;
+  font-size: var(--fs-2xs);
   font-weight: 700;
   margin-left: 5px;
   font-feature-settings: "tnum" 1;
@@ -5387,15 +5789,57 @@
   max-height: 70vh;
   overflow: auto;
 }
+/* F3 · sticky search box at the top of the type-grouped Fields picker. */
+.agency-portal .popmenu.cols .cols-search {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-3) var(--space-2);
+  background: #fff;
+  border-bottom: 1px solid var(--line-2);
+}
+.agency-portal .popmenu.cols .cols-search .si {
+  color: var(--faint);
+  flex: 0 0 auto;
+}
+.agency-portal .popmenu.cols .cols-search input {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 5px var(--space-3);
+  font-size: var(--fs-sm);
+  color: var(--ink);
+  background: var(--surface-2);
+}
+.agency-portal .popmenu.cols .cols-search input:focus {
+  outline: none;
+  border-color: var(--indigo);
+  background: #fff;
+}
+/* The first group header sits right under the sticky search box — drop its top
+   divider so the two don't stack a double line. */
+.agency-portal .popmenu.cols .cols-search + div.cgrp {
+  border-top: 0;
+  margin-top: 0;
+}
+.agency-portal .popmenu.cols .cols-empty {
+  padding: 14px 10px;
+  font-size: 12px;
+  text-align: center;
+}
 .agency-portal .popmenu .cgrp {
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--indigo);
   font-weight: 800;
-  padding: 9px 8px 4px;
+  padding: 9px var(--space-3) var(--space-1);
   border-top: 1px solid var(--line-2);
-  margin-top: 4px;
+  margin-top: var(--space-1);
 }
 .agency-portal .popmenu .cgrp:first-of-type {
   border-top: 0;
@@ -5409,7 +5853,7 @@
   letter-spacing: 0.05em;
   border-top: 0;
   margin-top: 2px;
-  padding: 6px 8px 2px 14px;
+  padding: var(--space-2) var(--space-3) 2px 14px;
 }
 .agency-portal .popmenu label.locked {
   opacity: 0.92;
@@ -5423,7 +5867,7 @@
   background: var(--amber-50);
   border: 1px solid #f1dba6;
   border-radius: 5px;
-  padding: 1px 6px;
+  padding: 1px var(--space-2);
   cursor: pointer;
 }
 .agency-portal .popmenu label.locked .clk:hover {
@@ -5502,18 +5946,18 @@
   color: var(--faint);
   background: var(--surface-2);
   border-radius: 5px;
-  padding: 0 4px;
+  padding: 0 var(--space-1);
   cursor: default;
 }
 .agency-portal .wb td .socwrap {
   display: inline-flex;
-  gap: 4px;
+  gap: var(--space-1);
 }
 .agency-portal .wb td .soc {
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.02em;
-  padding: 1px 6px;
+  padding: 1px var(--space-2);
   border: 1px solid var(--line);
   border-radius: 5px;
   color: var(--muted);
@@ -5533,7 +5977,7 @@
   padding: 7px 10px;
   background: var(--ink);
   color: #fff;
-  font-size: 11.5px;
+  font-size: var(--fs-xs);
   line-height: 1.45;
   font-weight: 500;
   border-radius: 9px;
@@ -5576,9 +6020,9 @@
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 7px 10px;
-  font-size: 12.5px;
+  font-size: var(--fs-sm);
   font-family: inherit;
-  margin-bottom: 4px;
+  margin-bottom: var(--space-1);
 }
 .agency-portal .popmenu .fldsearch:focus {
   outline: none;
@@ -5594,15 +6038,15 @@
 .agency-portal .popmenu.views .vrow {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-3);
   width: 100%;
   text-align: left;
   border: 0;
   background: transparent;
   font-family: inherit;
-  font-size: 13px;
+  font-size: var(--fs-md);
   color: var(--ink);
-  padding: 7px 8px;
+  padding: 7px var(--space-3);
   border-radius: 8px;
   cursor: pointer;
 }
@@ -5647,17 +6091,17 @@
 }
 .agency-portal .popmenu.views .vsave {
   display: flex;
-  gap: 6px;
+  gap: var(--space-2);
   align-items: center;
-  padding: 4px 4px;
+  padding: var(--space-1) var(--space-1);
 }
 .agency-portal .popmenu.views .vsave input {
   flex: 1 1 auto;
   min-width: 0;
   border: 1px solid var(--line);
   border-radius: 7px;
-  padding: 6px 9px;
-  font-size: 12.5px;
+  padding: var(--space-2) 9px;
+  font-size: var(--fs-sm);
   font-family: inherit;
 }
 .agency-portal .popmenu.views .vsave input:focus {
@@ -5669,7 +6113,37 @@
 .agency-portal td .needsenr {
   color: var(--faint);
   font-style: italic;
-  font-size: 11.5px;
+  font-size: var(--fs-xs);
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 1px 2px;
+  border-radius: 10px;
+  text-decoration: underline dotted;
+  transition:
+    background 0.12s,
+    color 0.12s,
+    padding 0.12s;
+}
+.agency-portal td .needsenr.failed {
+  color: var(--red, #d64545);
+  font-style: normal;
+}
+/* AUDIT U13 · on row-hover / keyboard focus the faint "— enrich" sliver becomes
+   a real indigo pill — the most-clicked cell affordance shouldn't be the worst
+   Fitts target. Idle density is preserved (only hover/focus enlarges). */
+.agency-portal tr:hover td .needsenr,
+.agency-portal td .needsenr:focus-visible {
+  color: var(--indigo);
+  background: var(--indigo-soft, #ece8ff);
+  padding: 2px var(--space-3);
+  text-decoration: none;
+  font-style: normal;
+}
+.agency-portal tr:hover td .needsenr.failed,
+.agency-portal td .needsenr.failed:focus-visible {
+  color: var(--red, #d64545);
+  background: var(--red-soft, #fdecec);
 }
 
 /* compare-to-market toolbar toggle (checkbox styled as a chip) */
@@ -5681,7 +6155,7 @@
   border-radius: 10px;
   background: #fff;
   padding: 7px 11px;
-  font-size: 12.5px;
+  font-size: var(--fs-sm);
   font-weight: 600;
   color: var(--ink-2);
   cursor: pointer;
@@ -5739,18 +6213,18 @@
   color: var(--ink);
 }
 .agency-portal .enrmenu .eh {
-  font-size: 10.5px;
+  font-size: var(--fs-2xs);
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--faint);
   font-weight: 700;
-  padding: 6px 8px 4px;
+  padding: var(--space-2) var(--space-3) var(--space-1);
 }
 .agency-portal .enrrow {
   display: flex;
   align-items: center;
   gap: 9px;
-  padding: 8px;
+  padding: var(--space-3);
   border-radius: 9px;
 }
 .agency-portal .enrrow + .enrrow {
@@ -5759,7 +6233,7 @@
 .agency-portal .enrrow .ename {
   flex: 1;
   min-width: 0;
-  font-size: 12.5px;
+  font-size: var(--fs-sm);
   font-weight: 600;
 }
 .agency-portal .enrrow .ename .ed {
@@ -5786,12 +6260,12 @@
   color: var(--indigo-700);
   border-radius: 8px;
   padding: 5px 10px;
-  font-size: 11.5px;
+  font-size: var(--fs-xs);
   font-weight: 700;
   white-space: nowrap;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-1);
 }
 .agency-portal .enrrow .ego:hover {
   background: var(--indigo-100);
@@ -5806,7 +6280,7 @@
   white-space: nowrap;
 }
 .agency-portal .enrrow .eblocked {
-  font-size: 10.5px;
+  font-size: var(--fs-2xs);
   color: var(--muted);
   text-align: right;
   max-width: 130px;
@@ -5849,13 +6323,13 @@
   color: var(--ink);
 }
 .agency-portal .quotecard .qchose {
-  margin-top: 12px;
-  font-size: 12.5px;
+  margin-top: var(--space-4);
+  font-size: var(--fs-sm);
   font-weight: 600;
   color: var(--coral);
 }
 .agency-portal .quotecard .qwho {
-  margin-top: 4px;
+  margin-top: var(--space-1);
   font-size: 12px;
   color: var(--muted);
 }
@@ -5885,6 +6359,20 @@
   opacity: 1;
   pointer-events: auto;
 }
+/* AUDIT U22 · left-edge resize handle (drag to widen the docked drawer). */
+.agency-portal .drawer-resize {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 6px;
+  height: 100%;
+  cursor: ew-resize;
+  z-index: 2;
+  touch-action: none;
+}
+.agency-portal .drawer-resize:hover {
+  background: var(--indigo-soft, #ece8ff);
+}
 .agency-portal .drawer {
   position: fixed;
   top: 0;
@@ -5906,14 +6394,14 @@
 .agency-portal .drawer .dhead {
   display: flex;
   align-items: flex-start;
-  gap: 12px;
-  padding: 16px 20px;
+  gap: var(--space-4);
+  padding: var(--space-5) 20px;
   border-bottom: 1px solid var(--line);
   background: #fff;
 }
 .agency-portal .drawer .dhead .nav-arrows {
   display: flex;
-  gap: 4px;
+  gap: var(--space-1);
 }
 .agency-portal .drawer .dhead .ab {
   width: 32px;
@@ -5923,7 +6411,7 @@
   background: #fff;
   display: grid;
   place-items: center;
-  font-size: 14px;
+  font-size: var(--fs-base);
   color: var(--ink-2);
 }
 .agency-portal .drawer .dhead .ab:hover {
@@ -5937,20 +6425,20 @@
   background: #fff;
   display: grid;
   place-items: center;
-  font-size: 18px;
+  font-size: var(--fs-xl);
   color: var(--faint);
 }
 .agency-portal .drawer .dbody {
   flex: 1;
   overflow: auto;
-  padding: 16px 20px 28px;
+  padding: var(--space-5) 20px 28px;
 }
 .agency-portal .drawer .dfoot {
   border-top: 1px solid var(--line);
   background: #fff;
-  padding: 12px 20px;
+  padding: var(--space-4) 20px;
   display: flex;
-  gap: 8px;
+  gap: var(--space-3);
   flex-wrap: wrap;
 }
 .agency-portal .drawer .dsec {
@@ -5958,7 +6446,7 @@
   border: 1px solid var(--line);
   border-radius: 12px;
   padding: 15px;
-  margin-bottom: 12px;
+  margin-bottom: var(--space-4);
 }
 .agency-portal .drawer .dsec h2 {
   display: flex;
@@ -5976,8 +6464,8 @@
   letter-spacing: 0.01em;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  margin: 0 0 8px;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-3);
 }
 .agency-portal .brand-eyebrow::before {
   content: "";
@@ -5996,7 +6484,7 @@
   border: 1px solid var(--line);
   border-left: 3px solid var(--indigo);
   border-radius: 11px;
-  margin-bottom: 8px;
+  margin-bottom: var(--space-3);
   overflow: hidden;
   background: #fff;
 }
@@ -6005,7 +6493,7 @@
 .agency-portal .fsig-head {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-3);
   width: 100%;
   text-align: left;
   padding: 10px 13px;
@@ -6027,7 +6515,7 @@
 }
 .agency-portal .fsig-name {
   font-weight: 700;
-  font-size: 13px;
+  font-size: var(--fs-md);
   min-width: 0;
   flex: 1 1 auto;
 }
@@ -6080,10 +6568,10 @@
   letter-spacing: 0.05em;
   color: var(--faint);
   font-family: var(--mono);
-  margin-bottom: 4px;
+  margin-bottom: var(--space-1);
 }
 .agency-portal .fsig-ev .sig {
-  padding: 8px 0;
+  padding: var(--space-3) 0;
 }
 /* lean JetBrains Mono into technical sub-text */
 .agency-portal .fsig-ev .sig .val,
@@ -6096,7 +6584,7 @@
 .agency-portal .dglance {
   display: flex;
   align-items: stretch;
-  gap: 16px;
+  gap: var(--space-5);
 }
 .agency-portal .dglance .gauge {
   width: 96px;
@@ -6115,7 +6603,7 @@
 .agency-portal .dfacts {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 7px 12px;
+  gap: 7px var(--space-4);
   min-width: 0;
 }
 .agency-portal .dfact {
@@ -6131,7 +6619,7 @@
   line-height: 1.3;
 }
 .agency-portal .dfact .fv {
-  font-size: 12.5px;
+  font-size: var(--fs-sm);
   font-weight: 600;
   color: var(--ink);
   min-width: 0;
@@ -6144,14 +6632,14 @@
   padding-top: 9px;
   display: flex;
   flex-wrap: wrap;
-  gap: 6px 16px;
+  gap: var(--space-2) var(--space-5);
   align-items: center;
 }
 .agency-portal .dcontact {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  font-size: 12.5px;
+  font-size: var(--fs-sm);
   min-width: 0;
   max-width: 100%;
 }
@@ -6177,7 +6665,7 @@
   text-decoration: underline;
 }
 .agency-portal .dcontact-ghost {
-  font-size: 12.5px;
+  font-size: var(--fs-sm);
   color: var(--muted);
 }
 .agency-portal .dcontact-ghost a {
@@ -6190,8 +6678,8 @@
 .agency-portal .dchips {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 6px;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
 }
 .agency-portal .dchips-head {
   font-size: 11px;
@@ -6206,14 +6694,14 @@
 .agency-portal .dacc {
   border: 1px solid var(--line);
   border-radius: 11px;
-  margin-bottom: 8px;
+  margin-bottom: var(--space-3);
   overflow: hidden;
   background: #fff;
 }
 .agency-portal .dacc-head {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-3);
   width: 100%;
   text-align: left;
   padding: 11px 13px;
@@ -6227,17 +6715,17 @@
   background: var(--surface-2);
 }
 .agency-portal .dacc-ic {
-  font-size: 14px;
+  font-size: var(--fs-base);
   flex: 0 0 auto;
 }
 .agency-portal .dacc-title {
   font-weight: 600;
-  font-size: 13px;
+  font-size: var(--fs-md);
   flex: 0 0 auto;
 }
 .agency-portal .dacc-sum {
   margin-left: auto;
-  font-size: 11.5px;
+  font-size: var(--fs-xs);
   color: var(--muted);
   font-family: var(--mono);
   text-align: right;
@@ -6270,7 +6758,7 @@
 .agency-portal .dacc.ghost .ghead {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-3);
   padding: 11px 13px;
 }
 .agency-portal .dacc.ghost .dacc-ic,
@@ -6295,8 +6783,8 @@
 .agency-portal .dacc-enrich {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  margin: 4px 13px 12px;
+  gap: var(--space-1);
+  margin: var(--space-1) 13px var(--space-4);
   padding: 5px 11px;
   font-size: 12px;
   font-weight: 600;
@@ -6320,8 +6808,8 @@
 .agency-portal .tgchip {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 11px;
+  gap: var(--space-2);
+  padding: var(--space-2) 11px;
   font-size: 12px;
   font-weight: 600;
   color: var(--ink-2);
@@ -6366,7 +6854,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
-  margin: 10px 0 4px;
+  margin: 10px 0 var(--space-1);
 }
 .agency-portal .tpstat {
   flex: 1 1 120px;
@@ -6374,11 +6862,11 @@
   background: #fff;
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
-  padding: 10px 12px;
+  padding: 10px var(--space-4);
   box-shadow: var(--shadow-sm);
 }
 .agency-portal .tpstat .num {
-  font-size: 18px;
+  font-size: var(--fs-xl);
   font-weight: 700;
   line-height: 1.1;
   color: var(--ink);
@@ -6388,7 +6876,7 @@
   color: var(--green);
 }
 .agency-portal .tpstat .lbl {
-  font-size: 10.5px;
+  font-size: var(--fs-2xs);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -6396,7 +6884,7 @@
   margin-top: 3px;
 }
 .agency-portal .tpstat .sub {
-  font-size: 10.5px;
+  font-size: var(--fs-2xs);
   color: var(--faint);
   margin-top: 2px;
 }
@@ -6424,51 +6912,51 @@
   padding: 0;
 }
 .agency-portal .tpdetailrow td .tpdetail {
-  padding: 4px 14px 14px;
+  padding: var(--space-1) 14px 14px;
 }
 .agency-portal .tpstep {
   border: 1px solid var(--line);
   border-radius: 10px;
-  padding: 11px 12px;
+  padding: 11px var(--space-4);
   margin-top: 10px;
   background: var(--surface-2);
 }
 .agency-portal .tpstep-head {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-3);
   margin-bottom: 7px;
 }
 .agency-portal .tpstep-no {
-  font-size: 11.5px;
+  font-size: var(--fs-xs);
   font-weight: 700;
   color: var(--ink-2);
 }
 .agency-portal .tpstep-body {
-  font-size: 12.5px;
+  font-size: var(--fs-sm);
   color: var(--ink-2);
   line-height: 1.55;
-  margin: 0 0 8px;
+  margin: 0 0 var(--space-3);
 }
 .agency-portal .tpstep-chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: var(--space-2);
   margin-bottom: 9px;
 }
 .agency-portal .tpstep-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: var(--space-2);
 }
 .agency-portal .tpstep-actions .lk {
-  font-size: 11.5px;
+  font-size: var(--fs-xs);
   font-weight: 600;
   color: var(--indigo-700);
   background: #fff;
   border: 1px solid var(--line);
   border-radius: 7px;
-  padding: 4px 9px;
+  padding: var(--space-1) 9px;
   cursor: pointer;
 }
 .agency-portal .tpstep-actions .lk:hover {
@@ -6484,7 +6972,7 @@
   border-radius: 8px;
   padding: 9px 10px;
   font-family: inherit;
-  font-size: 12.5px;
+  font-size: var(--fs-sm);
   line-height: 1.55;
   color: var(--ink-2);
   background: #fff;
@@ -6600,7 +7088,7 @@
     display: none;
   }
   .agency-portal .view {
-    padding: 20px 16px 110px;
+    padding: 20px var(--space-5) 110px;
   }
   .agency-portal .g2,
   .agency-portal .g3,
@@ -6621,7 +7109,7 @@
     display: none;
   }
   .agency-portal .costbar .big {
-    font-size: 15px;
+    font-size: var(--fs-lg);
   }
   .agency-portal .costbar .btn {
     flex: 1;
@@ -6629,7 +7117,7 @@
   }
   .agency-portal .steps {
     font-size: 11px;
-    gap: 4px;
+    gap: var(--space-1);
   }
   .agency-portal .steps .line {
     width: 10px;
@@ -6708,7 +7196,7 @@
     max-height: 88vh;
   }
   .agency-portal .overlay {
-    padding: 40px 12px 12px;
+    padding: 40px var(--space-4) var(--space-4);
   }
 }
 
@@ -6716,7 +7204,7 @@
 .agency-portal .plans {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 12px;
+  gap: var(--space-4);
   align-items: stretch;
 }
 @media (max-width: 1080px) {
@@ -6751,16 +7239,16 @@
   left: 19px;
   background: linear-gradient(135deg, #5b3df5, #6f52ff);
   color: #fff;
-  font-size: 10.5px;
+  font-size: var(--fs-2xs);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.07em;
-  padding: 4px 11px;
+  padding: var(--space-1) 11px;
   border-radius: 999px;
   box-shadow: 0 6px 16px rgba(91, 61, 245, 0.32);
 }
 .agency-portal .plan-name {
-  font-size: 15px;
+  font-size: var(--fs-lg);
   font-weight: 750;
   color: var(--ink);
 }
@@ -6770,12 +7258,12 @@
   font-weight: 600;
   letter-spacing: -0.02em;
   line-height: 1;
-  margin: 8px 0 2px;
+  margin: var(--space-3) 0 2px;
   color: var(--ink);
 }
 .agency-portal .plan-price small {
   font-family: var(--font);
-  font-size: 14px;
+  font-size: var(--fs-base);
   font-weight: 600;
   color: var(--muted);
   letter-spacing: 0;
@@ -6789,7 +7277,7 @@
   color: var(--indigo-700);
 }
 .agency-portal .plan-rate {
-  font-size: 11.5px;
+  font-size: var(--fs-xs);
   color: var(--muted);
   margin-top: 3px;
 }
@@ -6797,7 +7285,7 @@
 .agency-portal .plan-yield {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 8px;
+  gap: var(--space-3);
   margin-top: 13px;
 }
 .agency-portal .plan-yield .y {
@@ -6834,13 +7322,13 @@
   border-top: 1px solid var(--line-2);
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-3);
   flex: 1 1 auto;
 }
 .agency-portal .plan-feat li {
   position: relative;
   padding-left: 22px;
-  font-size: 12.5px;
+  font-size: var(--fs-sm);
   line-height: 1.4;
   color: var(--ink-2);
 }
@@ -6867,7 +7355,7 @@
   background: var(--indigo-50);
   border: 1px solid var(--indigo-100);
   border-radius: 11px;
-  padding: 10px 12px;
+  padding: 10px var(--space-4);
   font-size: 12px;
   line-height: 1.45;
   color: var(--indigo-700);
@@ -6878,8 +7366,8 @@
 .agency-portal .plancard .plan-cta {
   margin-top: 18px;
   margin-bottom: 0;
-  padding-top: 12px;
-  padding-bottom: 12px;
+  padding-top: var(--space-4);
+  padding-bottom: var(--space-4);
 }
 
 /* ---------- Billing · "what a credit buys" rows ---------- */
@@ -6887,13 +7375,13 @@
   display: flex;
   flex-direction: column;
   gap: 0;
-  margin-top: 12px;
+  margin-top: var(--space-4);
 }
 .agency-portal .creditbuys .row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--space-4);
   padding: 11px 0;
   border-bottom: 1px solid var(--line-2);
 }
@@ -6901,13 +7389,13 @@
   border-bottom: 0;
 }
 .agency-portal .creditbuys .row .what {
-  font-size: 13px;
+  font-size: var(--fs-md);
   font-weight: 600;
   color: var(--ink);
 }
 .agency-portal .creditbuys .row .what .d {
   display: block;
-  font-size: 11.5px;
+  font-size: var(--fs-xs);
   font-weight: 400;
   color: var(--muted);
   margin-top: 1px;
@@ -6915,7 +7403,7 @@
 .agency-portal .creditbuys .row .cost {
   font-family: var(--mono);
   font-weight: 700;
-  font-size: 12.5px;
+  font-size: var(--fs-sm);
   white-space: nowrap;
   color: var(--ink-2);
 }
@@ -6929,7 +7417,7 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
-  margin-top: 12px;
+  margin-top: var(--space-4);
 }
 @media (max-width: 560px) {
   .agency-portal .packrow {
@@ -6943,7 +7431,7 @@
   background: #fff;
   border: 1px solid var(--line);
   border-radius: 14px;
-  padding: 16px;
+  padding: var(--space-5);
   transition: 0.14s;
 }
 .agency-portal .pack:hover {
@@ -6965,13 +7453,13 @@
   font-weight: 600;
   letter-spacing: -0.02em;
   line-height: 1;
-  margin-top: 8px;
+  margin-top: var(--space-3);
   color: var(--ink);
 }
 .agency-portal .pack .pk-rate {
-  font-size: 11.5px;
+  font-size: var(--fs-xs);
   color: var(--muted);
-  margin-top: 4px;
+  margin-top: var(--space-1);
 }
 .agency-portal .pack .plan-cta {
   margin-top: auto;
@@ -6983,8 +7471,8 @@
 .agency-portal .compare {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
-  margin-top: 12px;
+  gap: var(--space-4);
+  margin-top: var(--space-4);
 }
 @media (max-width: 880px) {
   .agency-portal .compare {
@@ -6995,7 +7483,7 @@
   background: #fff;
   border: 1px solid var(--line);
   border-radius: 14px;
-  padding: 15px 16px;
+  padding: 15px var(--space-5);
 }
 .agency-portal .cmp.win {
   border-color: var(--indigo);
@@ -7017,15 +7505,15 @@
   color: var(--green);
 }
 .agency-portal .cmp .cmp-name {
-  font-size: 14px;
+  font-size: var(--fs-base);
   font-weight: 750;
   color: var(--ink);
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-3);
 }
 .agency-portal .cmp .cmp-price {
-  font-size: 12.5px;
+  font-size: var(--fs-sm);
   font-weight: 600;
   color: var(--ink-2);
   margin-top: 7px;
@@ -7055,17 +7543,41 @@
   display: flex;
   align-items: center;
   gap: 9px;
-  padding: 8px 14px;
-  margin-bottom: 12px;
+  padding: var(--space-3) 14px;
+  margin-bottom: var(--space-4);
   border: 1px solid var(--indigo-100, var(--line));
   border-radius: 10px;
   background: var(--indigo-50, var(--surface));
   color: var(--indigo-700, var(--ink));
-  font-size: 12.5px;
+  font-size: var(--fs-sm);
   font-weight: 600;
   box-shadow: 0 1px 4px rgba(15, 23, 42, 0.06);
 }
 .agency-portal .live-enrich-banner .leb-label {
+  font-variant-numeric: tabular-nums;
+}
+/* AUDIT U2 · bottom-right fixed progress chip — complements the top banner so
+   the run's "done of total" stays visible while scrolling the long table.
+   Display-only (pointer-events: none) so it never intercepts clicks. */
+.agency-portal .live-enrich-chip {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 30;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) 14px;
+  border: 1px solid var(--indigo-100, var(--line));
+  border-radius: 999px;
+  background: var(--indigo-50, var(--surface));
+  color: var(--indigo-700, var(--ink));
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  box-shadow: 0 6px 18px rgba(91, 61, 245, 0.22);
+  pointer-events: none;
+}
+.agency-portal .live-enrich-chip .lec-label {
   font-variant-numeric: tabular-nums;
 }
 /* The pulse: a brief background tint that fades out, so refreshed rows read as

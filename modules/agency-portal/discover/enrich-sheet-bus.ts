@@ -24,6 +24,14 @@ export interface EnrichSheetScope {
 export interface EnrichSheetRequest {
   /** Families to pre-select in the sheet (empty → user picks). */
   enrichments?: EnrichmentType[];
+  /**
+   * AUDIT D1 · when true, the sheet OPENS with `enrichments` already checked —
+   * set by a single-field/single-lead CTA (a "— enrich" cell or a drawer ghost
+   * accordion) so clicking one field pre-selects that enrichment. The bulk
+   * "enrich more" / coverage CTA leaves it false so the user isn't surprised by
+   * a large pre-selected bill.
+   */
+  preselect?: boolean;
   /** The scope the opener had at hand — the sheet offers it as options. */
   scope?: EnrichSheetScope;
 }
@@ -47,6 +55,59 @@ export function subscribeEnrichSheet(
   };
   window.addEventListener(EVENT, listener);
   return () => window.removeEventListener(EVENT, listener);
+}
+
+// AUDIT D4 · "enrichment started" bus — the moment a run is created client-side
+// (runEnrichAction returns its runId), we announce it so the LiveRunGate mounts
+// the live banner OPTIMISTICALLY, before the router.refresh() RSC round-trip
+// brings the server-resolved activeRun. Kills the "banner only after a refresh".
+const STARTED_EVENT = "mapsly:enrich-started";
+
+export function emitEnrichStarted(runId: string): void {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent<string>(STARTED_EVENT, { detail: runId }),
+  );
+}
+
+export function subscribeEnrichStarted(
+  handler: (runId: string) => void,
+): () => void {
+  const listener = (e: Event) => {
+    const id = (e as CustomEvent<string>).detail;
+    if (id) handler(id);
+  };
+  window.addEventListener(STARTED_EVENT, listener);
+  return () => window.removeEventListener(STARTED_EVENT, listener);
+}
+
+// AUDIT U2/D5 · per-cell "running" scope — a SEPARATE event (so LiveRunGate's
+// runId contract is untouched) so the table can flip the exact (business ×
+// family) cells being enriched to a "running" state until their real state
+// refreshes in. `families` are DataFamily keys.
+export interface EnrichScopeDetail {
+  businessIds: string[];
+  families: string[];
+}
+const SCOPE_EVENT = "mapsly:enrich-scope";
+
+export function emitEnrichScope(detail: EnrichScopeDetail): void {
+  if (typeof window === "undefined") return;
+  if (detail.businessIds.length === 0 || detail.families.length === 0) return;
+  window.dispatchEvent(
+    new CustomEvent<EnrichScopeDetail>(SCOPE_EVENT, { detail }),
+  );
+}
+
+export function subscribeEnrichScope(
+  handler: (detail: EnrichScopeDetail) => void,
+): () => void {
+  const listener = (e: Event) => {
+    const d = (e as CustomEvent<EnrichScopeDetail>).detail;
+    if (d) handler(d);
+  };
+  window.addEventListener(SCOPE_EVENT, listener);
+  return () => window.removeEventListener(SCOPE_EVENT, listener);
 }
 
 /**

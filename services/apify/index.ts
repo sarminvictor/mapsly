@@ -22,13 +22,17 @@ export {
 export {
   metaAdLibrarySearch,
   metaAdLibrarySearchUncached,
+  isVerifiedMetaOutcome,
   MetaAdRowSchema,
   MetaAdvertiserSchema,
   MetaResolutionSchema,
+  MetaTargetStatusSchema,
   MetaAdLibraryQuerySchema,
   type MetaAdRow,
   type MetaAdvertiser,
   type MetaPageResolution,
+  type MetaTargetStatus,
+  type MetaRunOutcome,
   type MetaAdLibraryQuery,
   type MetaAdLibraryResult,
 } from "./meta-ad-library";

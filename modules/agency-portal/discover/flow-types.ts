@@ -236,18 +236,35 @@ export function enrichCellFeeCredits(
 }
 
 /**
+ * B3 · the ONE definition of "how many businesses are actually enrichable for
+ * this set of researches": website-havers only when any research reads a live
+ * site (Lighthouse/contacts/tech/services/AI), else the whole count. Both the
+ * Preview matrix ({@link enrichableCountForCell}) and the workbench page's
+ * counts strip route through THIS helper so the rule can never diverge between
+ * the two surfaces. Pure.
+ */
+export function enrichableCount(
+  families: EnrichmentType[],
+  websiteHavingCount: number,
+  totalCount: number,
+): number {
+  return enrichmentNeedsWebsite(families) ? websiteHavingCount : totalCount;
+}
+
+/**
  * The number of businesses in a cell that will ACTUALLY be enriched for the
  * selected researches: website-havers only when any research needs a live site
  * (Lighthouse/contacts/tech/services/AI), else every business. This is the
  * count the enrich cost + the matrix Enrich column must use — enriching a
  * website-less business for a site-reading research produces nothing, so it's
- * neither charged nor queued (mirrors the server preflight scope).
+ * neither charged nor queued (mirrors the server preflight scope). Delegates to
+ * the shared {@link enrichableCount} rule (B3).
  */
 export function enrichableCountForCell(
   row: CellRow,
   families: EnrichmentType[],
 ): number {
-  return enrichmentNeedsWebsite(families) ? row.websiteBizCount : row.bizCount;
+  return enrichableCount(families, row.websiteBizCount, row.bizCount);
 }
 
 /**

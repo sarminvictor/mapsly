@@ -441,6 +441,25 @@ export async function persistFetchResult(
   });
 
   // 6. Advance the cursor + clear the in-flight pointer (mirrors pingback).
+  //
+  // BILLING INVARIANT (A5 · never re-charge a no-data retry) — reviewsLastDeltaAt
+  // is stamped UNCONDITIONALLY here, even when the pull returned ZERO reviews.
+  // This is the "verified-empty" path: reaching persistFetchResult means
+  // reviewsTaskGet already SUCCEEDED (DfS envelope + task status_code 20000 — see
+  // services/dataforseo/reviews-task.ts), so an empty `result.items` is a genuine
+  // "this business has no reviews", NOT a transient miss. Stamping it makes a
+  // retry inside the freshness window count as fresh/$0 in the cost estimator
+  // (modules/cost/estimate.ts ← modules/discovery/enrich-fresh-db.ts reads this
+  // cursor) — mirroring how an empty CONTACTS scan stamps contactsExtractedAt
+  // (modules/contacts/scan.ts). Do NOT gate this on inWindowItems.length /
+  // insertedIds.length: that would silently re-charge every zero-review retry.
+  //
+  // A TRANSIENT FAILURE (reviewsTaskGet throws — 40602 not-ready / 5xx) never
+  // reaches this line: fetchReviewJob lets the throw propagate and reconcile /
+  // pingback keep the ReviewJob non-terminal, so the cursor stays untouched and
+  // the retry re-charges. That distinction is the whole point — pinned by the
+  // "verified-empty stamps / transient failure does not" tests in
+  // __tests__/review-job.test.ts.
   await prisma.business.update({
     where: { id: businessId },
     data: {

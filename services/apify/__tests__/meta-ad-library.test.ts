@@ -63,20 +63,36 @@ function json(body: unknown): Response {
   });
 }
 
-/** Mock the 3-call Apify flow: POST run → GET run-status → GET dataset items. */
+/**
+ * Mock the Apify flow: POST run → GET run-status → GET RUN_SUMMARY kv record →
+ * GET dataset items. `runSummary` is optional — when omitted the KV record read
+ * 404s (the actor wrote none) and the adapter infers the outcome from status.
+ */
 function mockApify(
   items: unknown[],
   usageTotalUsd: number,
   status = "SUCCEEDED",
+  runSummary?: unknown,
 ): typeof fetch {
   return vi.fn<typeof fetch>(async (url, init) => {
     const u = String(url);
     if (u.includes("/runs") && (init?.method ?? "GET") === "POST") {
       return json({ data: { id: "run1", status: "RUNNING" } });
     }
+    if (u.includes("/key-value-stores/") && u.includes("/RUN_SUMMARY")) {
+      if (runSummary === undefined) {
+        return new Response("not found", { status: 404 });
+      }
+      return json(runSummary);
+    }
     if (u.includes("/actor-runs/run1") && !u.includes("/dataset")) {
       return json({
-        data: { status, defaultDatasetId: "ds1", stats: { usageTotalUsd } },
+        data: {
+          status,
+          defaultDatasetId: "ds1",
+          defaultKeyValueStoreId: "kv1",
+          stats: { usageTotalUsd },
+        },
       });
     }
     if (u.includes("/datasets/ds1/items")) {
@@ -258,14 +274,68 @@ describe("metaAdLibrarySearchUncached", () => {
     expect(lastCronRun().costUsd).toBeCloseTo(0.05, 6); // still billed
   });
 
-  test("a FAILED run throws (no usable data)", async () => {
-    __setFetchForTesting(mockApify([], 0.01, "FAILED"));
-    await expect(
-      withCronRun("test", () =>
-        metaAdLibrarySearchUncached({ searchTerms: ["botox"] }),
-      ),
-    ).rejects.toThrow(/failed/i);
-    // Cost is still billed (we paid for the failed run).
+  test("a FAILED run surfaces outcome=blocked (not thrown) + still bills", async () => {
+    // The actor now deliberately Actor.fail()s on an all-blocked run AND writes
+    // a RUN_SUMMARY the adapter must see. So a FAILED run is no longer thrown —
+    // it returns runStatus=FAILED + a classified outcome so the consumer can
+    // record a retryable failure (not a clean 0). Cost is still billed.
+    __setFetchForTesting(
+      mockApify([], 0.01, "FAILED", {
+        outcome: "blocked",
+        primerOk: true,
+        counts: { ok: 0, empty_verified: 0, blocked: 1, timeout: 0 },
+      }),
+    );
+    const out = await withCronRun("test", () =>
+      metaAdLibrarySearchUncached({ searchTerms: ["botox"] }),
+    );
+    expect(out.outcome).toBe("blocked");
+    expect(out.runStatus).toBe("FAILED");
+    expect(out.rows).toEqual([]);
+    expect(out.advertisers).toEqual([]);
     expect(lastCronRun().costUsd).toBeCloseTo(0.01, 6);
+  });
+
+  test("reads the actor's RUN_SUMMARY outcome (empty_verified) verbatim", async () => {
+    // A SUCCEEDED run with 0 data + a RUN_SUMMARY of empty_verified is a REAL
+    // empty market — the adapter must surface that (cacheable), not guess.
+    __setFetchForTesting(
+      mockApify([], 0.008, "SUCCEEDED", {
+        outcome: "empty_verified",
+        primerOk: true,
+        counts: { ok: 0, empty_verified: 1, blocked: 0, timeout: 0 },
+      }),
+    );
+    const out = await withCronRun("test", () =>
+      metaAdLibrarySearchUncached({ searchTerms: ["dermal fillers"] }),
+    );
+    expect(out.outcome).toBe("empty_verified");
+    expect(out.runStatus).toBe("SUCCEEDED");
+  });
+
+  test("partitions target_status records + infers outcome without RUN_SUMMARY", async () => {
+    // No RUN_SUMMARY (older/degraded read) → outcome inferred. A SUCCEEDED run
+    // carrying a creative row + an empty_verified target_status = ok.
+    const TARGET_STATUS = {
+      recordType: "target_status",
+      subject: "botox",
+      label: "search",
+      status: "ok",
+      items: 1,
+      advertisers: 0,
+      graphqlHits: 3,
+      country: "CA",
+    };
+    __setFetchForTesting(mockApify([SAMPLE_AD, TARGET_STATUS], 0.02));
+    const out = await withCronRun("test", () =>
+      metaAdLibrarySearchUncached({
+        searchTerms: ["botox"],
+        countries: ["CA"],
+      }),
+    );
+    expect(out.rows).toHaveLength(1); // status record NOT bucketed as an ad
+    expect(out.targetStatuses).toHaveLength(1);
+    expect(out.targetStatuses[0]!.status).toBe("ok");
+    expect(out.outcome).toBe("ok");
   });
 });

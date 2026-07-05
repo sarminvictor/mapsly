@@ -157,3 +157,341 @@ export function enrichTypesForFamilies(
   for (const f of families) for (const t of FAMILY_ENRICH_TYPES[f]) out.add(t);
   return [...out];
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Enrichment RUN-STATE model (the 2026-07 honesty fix · audit §3 · A-cluster).
+//
+// The legacy `deriveFamilyCoverage` collapses everything to a single boolean
+// derived from DATA PRESENCE, which lies twice: (1) a discovery-only business
+// with a GBP `reviewCount` reads "reviews covered" though no reviews were pulled
+// (false-positive), and (2) an ads/SERP cell run that COMPLETED but found nothing
+// reads "not covered" (false-negative). Both come from asking "is there a row?"
+// instead of "did an enrichment RUN?".
+//
+// `deriveFamilyStates` fixes this by sourcing state from the RUN RECORDS
+// (EnrichmentJob for the job-backed families, AdMarketRun for the cell-scoped
+// ads/search) and using data presence ONLY to split a completed run into
+// "enriched" (produced data) vs "empty" (ran, verified nothing). Every workbench
+// surface — dot-strip, coverage panel, per-cell affordances, the drawer — reads
+// this ONE derivation so they can never disagree again.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * The state of ONE data family for ONE business:
+ *   - `enriched` · an enrichment ran and produced data → show it
+ *   - `empty`    · an enrichment ran but found nothing (verified) → calm "none",
+ *                  never re-charge a retry (audit A5)
+ *   - `failed`   · the enrichment errored (retries exhausted) → red, retry
+ *   - `not_run`  · never attempted → the actionable "enrich" affordance
+ */
+export type FamilyState = "enriched" | "empty" | "failed" | "not_run";
+
+/**
+ * The five real ENRICHMENT families, in render order. `identity` is excluded —
+ * it is the discovered business itself, not an enrichment, so it must never
+ * count toward "N enriched" or add a permanent dot (audit A1/A2: the old
+ * always-on identity dot is what produced the "min 2 dots on everything" lie).
+ */
+export const ENRICHMENT_FAMILIES: readonly DataFamily[] = [
+  "reviews",
+  "website",
+  "contacts",
+  "ads",
+  "search",
+] as const;
+
+/**
+ * The per-business run signals `deriveFamilyStates` reads. `presence` answers
+ * "did the run produce data?" (real rows — for reviews this MUST be actual
+ * Review rows, never `reviewCount`). The job sets are `EnrichmentFamily` values
+ * with a finished / failed job. The cell flags are the completed / failed
+ * `AdMarketRun` for THIS business's cell (ads = META_ADS|GOOGLE_ADS, search =
+ * SERP run inline per-cell → no per-business job rows exist for them).
+ */
+export interface FamilyRunInputs {
+  presence: FamilyPresence;
+  doneJobFamilies?: ReadonlySet<string>;
+  failedJobFamilies?: ReadonlySet<string>;
+  cellRan?: { ads?: boolean; search?: boolean };
+  cellFailed?: { ads?: boolean; search?: boolean };
+}
+
+/** Resolve one job-backed family (reviews / website / contacts) to a state. */
+function jobBackedState(
+  df: DataFamily,
+  hasData: boolean,
+  done?: ReadonlySet<string>,
+  failed?: ReadonlySet<string>,
+): FamilyState {
+  const fams = FAMILY_JOB_MAP[df];
+  if (done && fams.some((f) => done.has(f)))
+    return hasData ? "enriched" : "empty";
+  if (failed && fams.some((f) => failed.has(f))) return "failed";
+  return "not_run";
+}
+
+/** Resolve one cell-scoped family (ads / search) to a state. */
+function cellBackedState(
+  hasData: boolean,
+  ran?: boolean,
+  failed?: boolean,
+): FamilyState {
+  if (ran) return hasData ? "enriched" : "empty";
+  if (failed) return "failed";
+  return "not_run";
+}
+
+/**
+ * Derive the honest per-family RUN state for ONE business. `identity` is always
+ * `enriched` (it IS the discovered business) but callers should iterate
+ * {@link ENRICHMENT_FAMILIES} for anything that counts/scores enrichment.
+ */
+export function deriveFamilyStates(
+  inp: FamilyRunInputs,
+): Record<DataFamily, FamilyState> {
+  const p = inp.presence;
+  return {
+    identity: "enriched",
+    reviews: jobBackedState(
+      "reviews",
+      p.reviews === true,
+      inp.doneJobFamilies,
+      inp.failedJobFamilies,
+    ),
+    website: jobBackedState(
+      "website",
+      p.website === true,
+      inp.doneJobFamilies,
+      inp.failedJobFamilies,
+    ),
+    contacts: jobBackedState(
+      "contacts",
+      p.contacts === true,
+      inp.doneJobFamilies,
+      inp.failedJobFamilies,
+    ),
+    ads: cellBackedState(p.ads === true, inp.cellRan?.ads, inp.cellFailed?.ads),
+    search: cellBackedState(
+      p.search === true,
+      inp.cellRan?.search,
+      inp.cellFailed?.search,
+    ),
+  };
+}
+
+/** True once ANY enrichment family has run (enriched / empty / failed) — the
+ *  predicate behind the "Enriched only" workbench view (audit B1). */
+export function anyEnrichmentRan(
+  states: Record<DataFamily, FamilyState>,
+): boolean {
+  return ENRICHMENT_FAMILIES.some((f) => states[f] !== "not_run");
+}
+
+/** A ran-with-data family counts toward the "N enriched" summary; empty/failed/
+ *  not_run do not. */
+export function enrichedFamilyCount(
+  states: Record<DataFamily, FamilyState>,
+): number {
+  return ENRICHMENT_FAMILIES.filter((f) => states[f] === "enriched").length;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Enrichment TYPE run-state model (audit A2 · the 9 things Tom pays for).
+//
+// The 5-family model above (`DataFamily`) is a DISPLAY grouping — it collapses
+// "tech + lighthouse" into one "website" dot and "meta_ads + google_ads" into
+// one "ads" dot. That's right for the A3 coverage PANEL (which speaks in the
+// data domains a lead has), but it LIES about billing: Tom pays per
+// `EnrichmentFamily`, and the workbench's "Enriched" column should show the
+// state of each thing he can buy. `EnrichmentJob` is keyed by the 9-value
+// `EnrichmentFamily` enum (PLAYBOOK excluded — it's an internal roll-up, never
+// a purchasable line), so per-TYPE run-state IS derivable from the same run
+// records the family model reads.
+//
+// This block adds `deriveTypeStates` — the per-type analogue of
+// `deriveFamilyStates`. The family model is kept intact (A3 reads it); the
+// per-type model is threaded ALONGSIDE it to the workbench's enriched column.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * The 9 purchasable enrichment TYPES, keyed by their `EnrichmentFamily` enum
+ * value (PLAYBOOK excluded — internal roll-up, never billed). This is the exact
+ * axis of the "Enriched" column badge strip.
+ */
+export type EnrichmentTypeKey =
+  | "CONTACTS"
+  | "SERVICES"
+  | "TECH"
+  | "REVIEWS"
+  | "META_ADS"
+  | "GOOGLE_ADS"
+  | "SERP"
+  | "LIGHTHOUSE"
+  | "AI_RESEARCH";
+
+/**
+ * The per-type run state. Superset of {@link FamilyState} with `running` —
+ * a QUEUED/RUNNING job is in flight, so the badge pulses. (The family model
+ * never surfaced `running` server-side; the workbench inferred it client-side
+ * from the enrich-scope bus. The per-type strip reads the honest QUEUED/RUNNING
+ * job status instead, so a badge pulses even after a page refresh.)
+ */
+export type TypeState = FamilyState | "running";
+
+/**
+ * The 9 types in render order, each with a full label + a 2-letter chip glyph
+ * for the compact column strip. Order groups the domains a human scans together
+ * (identity/contacts → reviews → site → ads → search → AI).
+ */
+export const ENRICHMENT_TYPES: readonly {
+  key: EnrichmentTypeKey;
+  label: string;
+  chip: string;
+}[] = [
+  { key: "CONTACTS", label: "Contacts", chip: "Co" },
+  { key: "SERVICES", label: "Services", chip: "Sv" },
+  { key: "REVIEWS", label: "Reviews", chip: "Rv" },
+  { key: "TECH", label: "Tech", chip: "Te" },
+  { key: "LIGHTHOUSE", label: "Lighthouse", chip: "Lh" },
+  { key: "META_ADS", label: "Meta ads", chip: "Ma" },
+  { key: "GOOGLE_ADS", label: "Google ads", chip: "Ga" },
+  { key: "SERP", label: "Search", chip: "Se" },
+  { key: "AI_RESEARCH", label: "AI research", chip: "Ai" },
+] as const;
+
+/** All 9 type keys, in render order. */
+export const ENRICHMENT_TYPE_KEYS: readonly EnrichmentTypeKey[] =
+  ENRICHMENT_TYPES.map((t) => t.key);
+
+/**
+ * Real-data presence per TYPE — "did this type's enrichment produce a row?".
+ * Every flag has a clean backing table EXCEPT nothing here is presence-only:
+ * presence only ever SPLITS a completed run into enriched-vs-empty, so a flag
+ * with no run behind it never fakes "enriched" (same honesty guarantee as the
+ * family model). Absent = false.
+ *
+ * Backing rows (see coverage-matrix.ts):
+ *   - contacts   → Contact rows
+ *   - services   → BusinessService rows
+ *   - tech       → BusinessTech rows
+ *   - reviews    → real Review rows (NEVER Business.reviewCount — the audit bug)
+ *   - metaAds    → AdLibraryEntry(META) / a completed META AdMarketRun
+ *   - googleAds  → AdLibraryEntry(GOOGLE) / a completed GOOGLE AdMarketRun
+ *   - serp       → SerpResult rows / a completed SERP AdMarketRun
+ *   - lighthouse → LighthouseAudit rows
+ *   - aiResearch → BusinessEnrichment row
+ */
+export interface TypePresence {
+  contacts?: boolean;
+  services?: boolean;
+  tech?: boolean;
+  reviews?: boolean;
+  metaAds?: boolean;
+  googleAds?: boolean;
+  serp?: boolean;
+  lighthouse?: boolean;
+  aiResearch?: boolean;
+}
+
+/**
+ * The per-business run signals `deriveTypeStates` reads. Each set holds the
+ * `EnrichmentFamily` values with a job in that terminal/in-flight state for this
+ * business. Ads/SERP additionally read the cell-scoped `AdMarketRun` (they run
+ * inline per-cell and produce no per-business job rows — the same asymmetry the
+ * family model handles).
+ */
+export interface TypeRunInputs {
+  presence: TypePresence;
+  /** `EnrichmentFamily` values with a DONE / SKIPPED_FRESH job. */
+  doneJobFamilies?: ReadonlySet<string>;
+  /** `EnrichmentFamily` values with a FAILED job (retries exhausted). */
+  failedJobFamilies?: ReadonlySet<string>;
+  /** `EnrichmentFamily` values with a QUEUED / RUNNING job (in flight). */
+  runningJobFamilies?: ReadonlySet<string>;
+  /** Completed (OK/PARTIAL) cell run for this business's cell. */
+  cellRan?: { metaAds?: boolean; googleAds?: boolean; serp?: boolean };
+  /** Failed (and never-completed) cell run for this business's cell. */
+  cellFailed?: { metaAds?: boolean; googleAds?: boolean; serp?: boolean };
+}
+
+/**
+ * Resolve one type's state, precedence: running (in flight) → done (enriched /
+ * empty by data presence) → failed → not_run. `ran`/`failed` fold BOTH the
+ * per-business job signal and the cell-scoped run signal so a job-less inline
+ * family (ads/SERP) resolves the same way a job-backed one does. Pure.
+ */
+function typeState(inp: {
+  hasData: boolean;
+  running: boolean;
+  ran: boolean;
+  failed: boolean;
+}): TypeState {
+  if (inp.running) return "running";
+  if (inp.ran) return inp.hasData ? "enriched" : "empty";
+  if (inp.failed) return "failed";
+  return "not_run";
+}
+
+/**
+ * Derive the honest per-TYPE run state for ONE business over the 9 purchasable
+ * enrichment types. The per-type analogue of {@link deriveFamilyStates}: the
+ * same run records, the same enriched/empty split, plus a `running` state from
+ * QUEUED/RUNNING jobs. Pure — server-computed, crosses to the client as plain
+ * data (Pattern 4).
+ */
+export function deriveTypeStates(
+  inp: TypeRunInputs,
+): Record<EnrichmentTypeKey, TypeState> {
+  const p = inp.presence;
+  const done = inp.doneJobFamilies;
+  const failed = inp.failedJobFamilies;
+  const running = inp.runningJobFamilies;
+  const has = (set: ReadonlySet<string> | undefined, fam: string): boolean =>
+    !!set && set.has(fam);
+
+  /** A job-backed type (contacts/services/tech/reviews/lighthouse/ai_research). */
+  const jobType = (fam: EnrichmentTypeKey, hasData: boolean): TypeState =>
+    typeState({
+      hasData,
+      running: has(running, fam),
+      ran: has(done, fam),
+      failed: has(failed, fam),
+    });
+
+  return {
+    CONTACTS: jobType("CONTACTS", p.contacts === true),
+    SERVICES: jobType("SERVICES", p.services === true),
+    TECH: jobType("TECH", p.tech === true),
+    REVIEWS: jobType("REVIEWS", p.reviews === true),
+    LIGHTHOUSE: jobType("LIGHTHOUSE", p.lighthouse === true),
+    AI_RESEARCH: jobType("AI_RESEARCH", p.aiResearch === true),
+    // Ads/SERP: cell-scoped run signal ∪ any per-business job signal (a future
+    // dispatch that emits job rows for them stays correct either way).
+    META_ADS: typeState({
+      hasData: p.metaAds === true,
+      running: has(running, "META_ADS"),
+      ran: has(done, "META_ADS") || inp.cellRan?.metaAds === true,
+      failed: has(failed, "META_ADS") || inp.cellFailed?.metaAds === true,
+    }),
+    GOOGLE_ADS: typeState({
+      hasData: p.googleAds === true,
+      running: has(running, "GOOGLE_ADS"),
+      ran: has(done, "GOOGLE_ADS") || inp.cellRan?.googleAds === true,
+      failed: has(failed, "GOOGLE_ADS") || inp.cellFailed?.googleAds === true,
+    }),
+    SERP: typeState({
+      hasData: p.serp === true,
+      running: has(running, "SERP"),
+      ran: has(done, "SERP") || inp.cellRan?.serp === true,
+      failed: has(failed, "SERP") || inp.cellFailed?.serp === true,
+    }),
+  };
+}
+
+/** True once ANY of the 9 types has run (running / enriched / empty / failed) —
+ *  the per-type predicate behind the "Enriched only" workbench view. */
+export function anyTypeRan(
+  states: Record<EnrichmentTypeKey, TypeState>,
+): boolean {
+  return ENRICHMENT_TYPE_KEYS.some((k) => states[k] !== "not_run");
+}

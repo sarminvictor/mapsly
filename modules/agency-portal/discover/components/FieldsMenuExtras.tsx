@@ -1,80 +1,22 @@
 "use client";
 
-// FieldsMenuExtras · WP5-13 · the two Fields-▾-menu additions, built as
-// self-contained children so the LeadsWorkbench edit stays minimal/additive:
+// FieldsMenuExtras · WP5-13 · the Fields-▾-menu buy-rows, built as a
+// self-contained child so the LeadsWorkbench edit stays minimal/additive:
 //
-//   1. `FieldFunnel` — the per-field funnel button (prototype REC 1d, .ffil):
-//      add/edit a filter on that field straight from the Fields menu.
-//   2. `FieldsMenuLockedRows` — the "Not enriched — runs a research" group
-//      (prototype .locked rows): each still-missing data family renders as a
-//      locked buy-row whose click opens the WP5-3 EnrichMoreSheet pre-seeded
-//      with the family's enrichment types. Columns + filters + purchase in one
-//      mental model.
+//   `FieldsMenuLockedRows` — the "Not enriched — runs a research" group
+//   (prototype .locked rows): each still-missing data family renders as a
+//   locked buy-row whose click opens the WP5-3 EnrichMoreSheet pre-seeded
+//   with the family's enrichment types. Columns + purchase in one mental model.
+//
+// (U15 removed `FieldFunnel` — the Fields menu is column-visibility only now;
+// filters live exclusively in the merged "+ Filter" picker.)
 //
 // Per .claude/rules/ui-ux-agency.md: dense, jargon-OK. English-only.
 
 import type { EnrichmentType } from "@/modules/cost/pricing";
-import {
-  DATA_FAMILIES,
-  type DataFamily,
-  type NumericFilterField,
-} from "../leads-workbench";
+import { DATA_FAMILIES, type DataFamily } from "../leads-workbench";
 import { enrichTypesForFamilies } from "../family-coverage";
 import { openEnrichSheet, type EnrichSheetScope } from "../enrich-sheet-bus";
-
-/** The funnel glyph (prototype REC 1d). */
-function FunnelIcon() {
-  return (
-    <svg
-      width="11"
-      height="11"
-      viewBox="0 0 16 16"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.6"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M2 4h12L9.5 9v4l-3 1.5V9z" />
-    </svg>
-  );
-}
-
-/**
- * Per-field funnel button, rendered INSIDE the field's `<label>` row. The
- * click must not toggle the row's checkbox — `preventDefault` stops the
- * label's default activation, `stopPropagation` keeps the menu open.
- */
-export function FieldFunnel({
-  field,
-  label,
-  active,
-  onOpen,
-}: {
-  field: NumericFilterField;
-  label: string;
-  /** A filter on this field is already applied (fills the button). */
-  active: boolean;
-  /** Open the filter editor pre-set to this field. */
-  onOpen: (field: NumericFilterField) => void;
-}) {
-  return (
-    <button
-      type="button"
-      className={`ffil${active ? " on" : ""}`}
-      data-tip={`Filter on ${label}`}
-      aria-label={`Filter on ${label}`}
-      onClick={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        onOpen(field);
-      }}
-    >
-      <FunnelIcon />
-    </button>
-  );
-}
 
 /**
  * The locked "Not enriched" rows: one per data family still missing across the

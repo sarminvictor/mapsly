@@ -158,6 +158,11 @@ export interface HydratedTech {
   scanned: boolean;
   /** First detected CMS/builder name (lower-cased), or null. */
   cmsName: string | null;
+  /** AUDIT C1/C2 · the detected on-site BOOKING tool name (lower-cased, e.g.
+   *  "vagaro", "square appointments", "fresha"), or null when none is detected.
+   *  Powers the exact-service display + the honest no_booking absence verdict —
+   *  the data was always in BusinessTech.name, just never surfaced. */
+  bookingName: string | null;
   hasAnalytics: boolean;
   hasMetaPixel: boolean;
   hasBooking: boolean;
@@ -823,6 +828,12 @@ export function evaluateSignal(
       // Cluster-H competitive pressure (mode tune). rivals-advertising +
       // new-entrant compute from stored data; outspend is null-TODO (no spend).
       return competitorPressureVerdict(sig, biz);
+    case "no_booking":
+      // AUDIT C1 · "No online booking tool" is an ABSENCE card: it matches a
+      // business that has NO on-site booking widget. The old binding read the
+      // GBP boolean and matched tool-name chips against it → 0 results. Compute
+      // it honestly off the tech rollup's detected booking-tool name.
+      return noBookingVerdict(sig, biz);
     default:
       break;
   }
@@ -1221,6 +1232,36 @@ function techPresenceVerdict(
 ): SignalVerdict {
   if (!biz.tech.scanned) return { matched: null };
   return { matched: has };
+}
+
+/**
+ * "No online booking tool" (audit C1) · matches a business with NO on-site
+ * booking widget. Not computable until a tech scan exists (so it never fakes a
+ * "no booking" verdict on an un-scanned lead — the honest null the strict gate
+ * reads). The card's platform tune (Calendly / Acuity / Vagaro / Mindbody /
+ * Square / Boulevard) scopes WHICH tools count as booking; the default (all of
+ * them) reduces to "has no booking widget at all". A business whose detected
+ * tool is NOT among the selected set (or has none) matches — the absence the
+ * card promises. Fixes the old tool-chip-vs-GBP-boolean mismatch that returned 0.
+ */
+function noBookingVerdict(
+  sig: ActiveSignal,
+  biz: HydratedBusiness,
+): SignalVerdict {
+  if (!biz.tech.scanned) return { matched: null };
+  const name = biz.tech.bookingName; // null when no booking tool detected
+  if (name == null) return { matched: true }; // no tool at all → "no booking"
+  // A specific tool IS present. If the tune scopes which tools count as booking,
+  // a business using a tool OUTSIDE that set still counts as "no [selected] tool".
+  if (sig.tune && sig.tune.kind === "platform" && sig.tune.values.length > 0) {
+    const selected = sig.tune.values
+      .map((v) => v.toLowerCase())
+      .filter((v) => v !== "none" && v !== "any");
+    if (selected.length === 0) return { matched: false }; // any tool present
+    const usesSelected = selected.some((v) => name.includes(v));
+    return { matched: !usesSelected };
+  }
+  return { matched: false }; // has a booking tool, default scope → no match
 }
 
 /**
@@ -2294,6 +2335,7 @@ export function rollupTech(rows: TechRow[]): HydratedTech {
     return {
       scanned: false,
       cmsName: null,
+      bookingName: null,
       hasAnalytics: false,
       hasMetaPixel: false,
       hasBooking: false,
@@ -2307,6 +2349,10 @@ export function rollupTech(rows: TechRow[]): HydratedTech {
   const cms = rows
     .filter((r) => r.category === "CMS")
     .sort((a, b) => b.confidence - a.confidence)[0];
+  // Highest-confidence BOOKING tool name (audit C1/C2) — the exact service.
+  const booking = rows
+    .filter((r) => r.category === "BOOKING")
+    .sort((a, b) => b.confidence - a.confidence)[0];
   // Meta pixel is a PIXEL-category tech whose name names Meta/Facebook.
   const hasMetaPixel = rows.some(
     (r) => r.category === "PIXEL" && /meta|facebook|fb/i.test(r.name),
@@ -2315,6 +2361,7 @@ export function rollupTech(rows: TechRow[]): HydratedTech {
   return {
     scanned: true,
     cmsName: cms ? cms.name.toLowerCase() : null,
+    bookingName: booking ? booking.name.toLowerCase() : null,
     hasAnalytics: cats.has("ANALYTICS"),
     hasMetaPixel,
     hasBooking: cats.has("BOOKING"),

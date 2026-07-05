@@ -58,6 +58,16 @@ vi.mock("@/services/apify", () => ({
   metaAdLibrarySearch: apify.metaAdLibrarySearch,
 }));
 
+// ---- R2 breaker mock (degrade-open by default; toggle for the OPEN test) --
+const breaker = vi.hoisted(() => ({
+  shouldRunMetaCell: vi.fn(async () => ({ allow: true, reason: "closed" })),
+  recordMetaCellOutcome: vi.fn(async () => {}),
+}));
+vi.mock("@/lib/cost/meta-block-breaker", () => ({
+  shouldRunMetaCell: breaker.shouldRunMetaCell,
+  recordMetaCellOutcome: breaker.recordMetaCellOutcome,
+}));
+
 // ---- cell-context mock (deps are pure infra · not under test here) -------
 const ctx = vi.hoisted(() => ({ resolveCellContext: vi.fn() }));
 vi.mock("../cell-context", async (importOriginal) => {
@@ -120,6 +130,12 @@ beforeEach(() => {
   db.setLatestRun(null);
   apify.metaAdLibrarySearch.mockReset();
   ctx.resolveCellContext.mockReset();
+  breaker.shouldRunMetaCell.mockReset();
+  breaker.shouldRunMetaCell.mockResolvedValue({
+    allow: true,
+    reason: "closed",
+  });
+  breaker.recordMetaCellOutcome.mockReset();
 });
 
 afterEach(() => vi.clearAllMocks());
@@ -149,6 +165,10 @@ describe("runMetaAdsForCell · stale cell", () => {
     apify.metaAdLibrarySearch.mockResolvedValueOnce({
       rows: [adRow({ id: "adA", pageId: "COMP_1", pageName: "Rival Spa" })],
       resolutions: [],
+      advertisers: [],
+      outcome: "ok",
+      runStatus: "SUCCEEDED",
+      targetStatuses: [],
       runId: "apify-run-1",
       usageTotalUsd: 0.04,
     });
@@ -172,6 +192,10 @@ describe("runMetaAdsForCell · stale cell", () => {
     apify.metaAdLibrarySearch.mockResolvedValueOnce({
       rows: [],
       resolutions: [],
+      advertisers: [],
+      outcome: "empty_verified",
+      runStatus: "SUCCEEDED",
+      targetStatuses: [],
       runId: "r",
       usageTotalUsd: 0.01,
     });
@@ -194,6 +218,9 @@ describe("runMetaAdsForCell · stale cell", () => {
         { pageId: "PG2", pageName: "Gluten Free Journey", adCount: 1 },
       ],
       resolutions: [],
+      outcome: "ok",
+      runStatus: "SUCCEEDED",
+      targetStatuses: [],
       runId: "facet-run",
       usageTotalUsd: 0.02,
     });
@@ -209,6 +236,55 @@ describe("runMetaAdsForCell · stale cell", () => {
     );
     expect(names).toContain("The Gentle Crumb");
     expect(names).toContain("Gluten Free Journey");
+  });
+
+  test("R2 · circuit breaker OPEN defers the run without burning proxy $", async () => {
+    // Meta is block-storming → the breaker is OPEN. The cell must be DEFERRED:
+    // no adapter call, no AdMarketRun row (so the cell stays retryable, the
+    // 30-day gate is untouched), and a breaker reason recorded.
+    db.setLatestRun(null);
+    breaker.shouldRunMetaCell.mockResolvedValueOnce({
+      allow: false,
+      reason: "open-cooldown",
+    });
+
+    const res = await runMetaAdsForCell(CELL, NOW);
+
+    expect(res.outcome).toBe("deferred");
+    expect(res.errors).toContain("meta-breaker:open-cooldown");
+    expect(apify.metaAdLibrarySearch).not.toHaveBeenCalled();
+    // No AdMarketRun written → freshness gate + dead-letter query untouched.
+    expect(db.adMarketRunRows).toHaveLength(0);
+    // Cell context is never resolved on a deferred run.
+    expect(ctx.resolveCellContext).not.toHaveBeenCalled();
+  });
+
+  test("a blocked run records AdMarketRun FAILED (retryable), not OK/0", async () => {
+    // The run never reached Meta's data query (soft-block). It must NOT be
+    // recorded as a verified empty — that would lock the 30-day freshness gate
+    // on a false 0 and poison the coverage matrix. Record FAILED + persist
+    // nothing.
+    db.setLatestRun(null);
+    ctx.resolveCellContext.mockResolvedValueOnce(fakeCtx([]));
+    apify.metaAdLibrarySearch.mockResolvedValueOnce({
+      rows: [],
+      advertisers: [],
+      resolutions: [],
+      outcome: "blocked",
+      runStatus: "FAILED",
+      targetStatuses: [],
+      runId: "blocked-run",
+      usageTotalUsd: 0.03,
+    });
+
+    const res = await runMetaAdsForCell(CELL, NOW);
+
+    expect(res.errors).toContain("meta-outcome:blocked");
+    const runs = db.adMarketRunRows.filter((r) => r.platform === "META");
+    expect(runs).toHaveLength(1);
+    expect(runs[0]!.status).toBe("FAILED");
+    // No advertisers persisted on a blocked run.
+    expect(db.adMarketAdvertiserUpserts).toHaveLength(0);
   });
 });
 
@@ -233,6 +309,10 @@ describe("runMetaAdsForCell · attribution", () => {
         adRow({ id: "ad-comp", pageId: "OTHER", pageName: "Other Clinic" }),
       ],
       resolutions: [],
+      advertisers: [],
+      outcome: "ok",
+      runStatus: "SUCCEEDED",
+      targetStatuses: [],
       runId: "r",
       usageTotalUsd: 0.03,
     });

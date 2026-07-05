@@ -35,6 +35,15 @@ export {
 } from "./free-fetch";
 
 export {
+  classifyDomFetch,
+  domFetchReachedContent,
+  domFetchIsRetryable,
+  DOM_EMPTY_BYTE_THRESHOLD,
+  type DomFetchOutcome,
+  type DomFetchOutcomeInput,
+} from "./outcome";
+
+export {
   DOM_CHUNK_SIZE,
   DOM_MEMORY_MB,
   DOM_MAX_CONCURRENCY,

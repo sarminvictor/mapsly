@@ -50,16 +50,23 @@ import { enrichmentNeedsWebsite } from "@/modules/cost/pricing";
 import { usdToCredits } from "@/modules/cost/estimate";
 import { rawListWhere } from "@/modules/discovery/raw-list";
 import { researchesForSignals } from "@/modules/agency-portal/discover/researches";
+import { enrichableCount } from "@/modules/agency-portal/discover/flow-types";
 import {
   resolveCellBands,
   type CellReferenceBands,
 } from "@/modules/agency-portal/discover/signals";
 import { parseCellReference } from "@/modules/market/cell-metrics";
-import { deriveFamilyCoverage } from "@/modules/agency-portal/discover/family-coverage";
+import {
+  deriveFamilyCoverage,
+  anyEnrichmentRan,
+} from "@/modules/agency-portal/discover/family-coverage";
 import {
   loadCoverageMatrix,
   coverageMatrixToMap,
   coverageFailedToMap,
+  coverageStatesToMap,
+  coverageTypeStatesToMap,
+  loadScannedAtMap,
 } from "@/modules/agency-portal/discover/coverage-matrix";
 import {
   WORKBENCH_WINDOW,
@@ -90,7 +97,7 @@ import {
   WorkbenchShell,
   type WorkbenchShellProps,
 } from "@/modules/agency-portal/discover/components/WorkbenchShell";
-import { LiveWorkbenchBanner } from "@/modules/agency-portal/discover/components/LiveWorkbenchBanner";
+import { LiveRunGate } from "@/modules/agency-portal/discover/components/LiveRunGate";
 import { resolveActiveRunForDiscovery } from "@/modules/agency-portal/discover/active-run";
 import type { WorkbenchTouch } from "@/modules/agency-portal/discover/components/TouchpointsTab";
 import { parseWhyJson } from "@/modules/agency-portal/discover/touchpoints";
@@ -266,9 +273,10 @@ async function DiscoveryWorkspaceBody({ params, searchParams }: PageProps) {
     drafts,
     ads,
     serps,
+    aiResearch,
   ] =
     businessIds.length === 0
-      ? [[], [], [], [], [], [], [], [], []]
+      ? [[], [], [], [], [], [], [], [], [], []]
       : await Promise.all([
           prisma.lead.findMany({
             where: {
@@ -297,7 +305,12 @@ async function DiscoveryWorkspaceBody({ params, searchParams }: PageProps) {
           prisma.lighthouseAudit.findMany({
             where: { businessId: { in: businessIds } },
             orderBy: { auditedAt: "desc" },
-            select: { businessId: true, performance: true, auditedAt: true },
+            select: {
+              businessId: true,
+              performance: true,
+              seo: true,
+              auditedAt: true,
+            },
           }),
           prisma.playbookFinding.findMany({
             where: { businessId: { in: businessIds }, status: "flagged" },
@@ -312,9 +325,15 @@ async function DiscoveryWorkspaceBody({ params, searchParams }: PageProps) {
             },
           }),
           prisma.businessTech.findMany({
-            where: { businessId: { in: businessIds }, category: "CMS" },
+            // AUDIT C3 · also load BOOKING so the exact booking service
+            // (Square/Vagaro/Fresha) gets its own column — the data was always
+            // in BusinessTech.name, just never surfaced.
+            where: {
+              businessId: { in: businessIds },
+              category: { in: ["CMS", "BOOKING"] },
+            },
             orderBy: { confidence: "desc" },
-            select: { businessId: true, name: true },
+            select: { businessId: true, name: true, category: true },
           }),
           prisma.contact.findMany({
             where: { businessId: { in: businessIds } },
@@ -351,8 +370,23 @@ async function DiscoveryWorkspaceBody({ params, searchParams }: PageProps) {
           }),
           prisma.serpResult.findMany({
             where: { businessId: { in: businessIds } },
-            select: { businessId: true },
+            select: { businessId: true, localPackRank: true },
+            // Best (lowest) local-pack rank per business: order by rank within
+            // each business, then distinct keeps that first (best) row. AUDIT F2.
             distinct: ["businessId"],
+            orderBy: [
+              { businessId: "asc" },
+              { localPackRank: { sort: "asc", nulls: "last" } },
+            ],
+          }),
+          // AUDIT F2 · the AI-research positioning summary (the same
+          // BusinessEnrichment row the drawer reads) → the "AI summary" column.
+          prisma.businessEnrichment.findMany({
+            where: {
+              businessId: { in: businessIds },
+              positioningSummary: { not: null },
+            },
+            select: { businessId: true, positioningSummary: true },
           }),
         ]);
 
@@ -364,6 +398,18 @@ async function DiscoveryWorkspaceBody({ params, searchParams }: PageProps) {
   );
   const adsByBusiness = new Set(adsCountByBusiness.keys());
   const serpByBusiness = new Set(serps.map((r) => r.businessId));
+  // AUDIT F2 · best local-pack rank per business (null = scanned but off the pack).
+  const serpRankByBusiness = new Map(
+    serps
+      .filter((r) => r.localPackRank != null)
+      .map((r) => [r.businessId, r.localPackRank as number]),
+  );
+  // AUDIT F2 · AI positioning summary per business (only rows that have one).
+  const aiSummaryByBusiness = new Map(
+    aiResearch
+      .filter((r) => r.positioningSummary != null)
+      .map((r) => [r.businessId, r.positioningSummary as string]),
+  );
 
   // ── Real signal evaluation (P3 + #2) ───────────────────────────────────────
   // Hydrate every business ONCE (batched, read-only, stored rows only) and
@@ -410,19 +456,39 @@ async function DiscoveryWorkspaceBody({ params, searchParams }: PageProps) {
     }
   }
 
-  // CMS built-on (highest-confidence first row wins).
+  // CMS built-on + BOOKING tool (highest-confidence first row per category wins).
   const builtOnById = new Map<string, string>();
-  for (const t of techs)
-    if (!builtOnById.has(t.businessId)) builtOnById.set(t.businessId, t.name);
+  const bookingToolById = new Map<string, string>();
+  for (const t of techs) {
+    if (t.category === "CMS" && !builtOnById.has(t.businessId))
+      builtOnById.set(t.businessId, t.name);
+    else if (t.category === "BOOKING" && !bookingToolById.has(t.businessId))
+      bookingToolById.set(t.businessId, t.name);
+  }
 
-  // Contacts → phones / emails per business.
+  // Contacts → phones / emails / socials per business. AUDIT E6 · socials
+  // (Instagram/Facebook/TikTok/…) were stored as Contact rows but never
+  // surfaced — the workbench now carries them for the Socials column.
+  const SOCIAL_CHANNELS = new Set([
+    "INSTAGRAM",
+    "FACEBOOK",
+    "TIKTOK",
+    "YOUTUBE",
+    "X",
+    "LINKEDIN",
+  ]);
   const phonesById = new Map<string, string[]>();
   const emailsById = new Map<string, string[]>();
+  const socialsById = new Map<string, { channel: string; value: string }[]>();
   for (const c of contacts) {
     if (c.channel === "PHONE" || c.channel === "WHATSAPP") {
       push(phonesById, c.businessId, c.value);
     } else if (c.channel === "EMAIL") {
       push(emailsById, c.businessId, c.value);
+    } else if (SOCIAL_CHANNELS.has(c.channel)) {
+      const arr = socialsById.get(c.businessId) ?? [];
+      arr.push({ channel: c.channel, value: c.value });
+      socialsById.set(c.businessId, arr);
     }
   }
 
@@ -526,6 +592,7 @@ async function DiscoveryWorkspaceBody({ params, searchParams }: PageProps) {
         phones.length > 0 ||
         emails.length > 0,
       builtOn: builtOnById.get(b.id) ?? null,
+      bookingTool: bookingToolById.get(b.id) ?? null,
       website: b.website ?? null,
       pitchAngle: pitchById.get(b.id) ?? null,
       touch: touchByBusiness.get(b.id) ?? "None",
@@ -533,8 +600,13 @@ async function DiscoveryWorkspaceBody({ params, searchParams }: PageProps) {
       reviews,
       rating,
       perf,
+      seo: audit?.seo ?? null,
+      adCount: adsCountByBusiness.get(b.id) ?? null,
+      serpRank: serpRankByBusiness.get(b.id) ?? null,
+      aiSummary: aiSummaryByBusiness.get(b.id) ?? null,
       phones,
       emails,
+      socials: socialsById.get(b.id) ?? [],
       // All six families derived from the SAME real data the drawer uses — no
       // hardcoded ads/search negatives. deriveFamilyCoverage is the single
       // source of truth shared with the drawer + the coverage endpoint.
@@ -655,10 +727,56 @@ async function DiscoveryWorkspaceBody({ params, searchParams }: PageProps) {
   // Fetched server-side via the SHARED loader the endpoint also uses, then
   // passed to the client workbench as a PLAIN `{ businessId: families[] }` map
   // (Pattern 4 — no functions cross the boundary). Drives the per-row dot-strip.
-  // Same rawListWhere + ordering as the rows above, so it aligns row-for-row.
-  const coverageRows = await loadCoverageMatrix(discovery.id, agencyId);
+  // Scoped to EXACTLY the rendered window (businessIds) so the matrix aligns
+  // row-for-row — never an independent re-query that drifts on page 2+ and drops
+  // out-of-window rows back to the legacy presence model (the A2/§3 lie).
+  const coverageRows = await loadCoverageMatrix(
+    discovery.id,
+    agencyId,
+    businessIds,
+  );
   const coverage = coverageRows ? coverageMatrixToMap(coverageRows) : {};
   const coverageFailed = coverageRows ? coverageFailedToMap(coverageRows) : {};
+  // AUDIT §3 · the honest per-family run-state map (enriched/empty/failed/
+  // not_run) — the source of truth for the dot-strip, per-cell affordances,
+  // the coverage panel, and the "Enriched only" view (B1).
+  const coverageStates = coverageRows ? coverageStatesToMap(coverageRows) : {};
+  // AUDIT A2 · the per-TYPE state map (9 billed types) for the "Enriched" column.
+  const coverageTypeStates = coverageRows
+    ? coverageTypeStatesToMap(coverageRows)
+    : {};
+  // AUDIT U16 · per-family last-scanned dates (from the billing freshness
+  // cursors) for the value cells' "scanned {when}" provenance tooltip.
+  const scannedAt = await loadScannedAtMap(businesses);
+
+  // AUDIT B2/B3 · the honest counts strip. `totalBusinesses` is the ENRICHABLE
+  // set (website-gated for site goals) — the header must NOT call that "market"
+  // or the "Why 57?" confusion persists. Compute the TRUE market (ungated) and
+  // how many leads an enrichment actually ran on, so every number is defined
+  // on screen. `enriched` is exact for cells ≤ the coverage window (most), a
+  // floor above it.
+  const marketTotal =
+    goalNeedsWebsite && cellKeys.length > 0
+      ? await prisma.business.count({ where: rawListWhere({ cellKeys }) })
+      : totalBusinesses;
+  // B3 · the enrichable count comes from the ONE shared rule (flow-types.ts)
+  // that Preview also uses — website-havers for a site-reading goal, else the
+  // whole market. `totalBusinesses` is already the website-gated count (listWhere
+  // filters hasWebsite for those goals); `marketTotal` is the ungated total.
+  // Surfaced only when it actually differs from the market (site goals) so the
+  // header's separate "enrichable" line still appears exactly when it did before.
+  const enrichableTotal = enrichableCount(
+    researchesForSignals(activeSignals),
+    totalBusinesses,
+    marketTotal,
+  );
+  const enrichedCount = coverageRows
+    ? coverageRows.filter((r) => anyEnrichmentRan(r.states)).length
+    : 0;
+  // `enriched` is exact only when the coverage window covered the WHOLE market;
+  // past the window cap it's a floor → the header renders "≥ N" (UX-review #5).
+  const enrichedExact =
+    coverageRows != null && coverageRows.length >= marketTotal;
 
   // WP4-1 · is an enrichment run still working this discovery's leads? If so
   // (or if one just closed within 60s) the live banner polls the WP3-3 progress
@@ -680,6 +798,9 @@ async function DiscoveryWorkspaceBody({ params, searchParams }: PageProps) {
       bands,
       coverage,
       coverageFailed,
+      coverageStates,
+      coverageTypeStates,
+      scannedAt,
       goalSignals,
       // #2 · the full curated library for the "+ Signal" picker (gated to those
       // with data on every lead, client-side).
@@ -730,22 +851,22 @@ async function DiscoveryWorkspaceBody({ params, searchParams }: PageProps) {
         goalName={goalName}
         showing={rows.length}
         total={totalBusinesses}
+        marketTotal={marketTotal}
+        enrichable={goalNeedsWebsite ? enrichableTotal : undefined}
+        enriched={enrichedCount}
+        enrichedExact={enrichedExact}
         marketNoun={marketNoun(categoryLabel)}
         freshness={freshness}
         mappedRelative={relativeDays(mappedAt)}
         credits={credits}
       />
 
-      {activeRun ? (
-        <LiveWorkbenchBanner
-          runId={activeRun.runId}
-          initialStatus={activeRun.status}
-        >
-          <WorkbenchShell {...shell} />
-        </LiveWorkbenchBanner>
-      ) : (
+      {/* AUDIT D4 · always-mounted gate — the live banner appears the moment a
+          run starts (server activeRun OR the optimistic enrich-started event),
+          and the workbench never remounts when it toggles. */}
+      <LiveRunGate activeRun={activeRun}>
         <WorkbenchShell {...shell} />
-      )}
+      </LiveRunGate>
     </div>
   );
 }

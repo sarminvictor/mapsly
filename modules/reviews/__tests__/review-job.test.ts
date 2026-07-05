@@ -343,6 +343,102 @@ describe("fetchReviewJob · recency-bounded escalation", () => {
   });
 });
 
+// --- A5. verified-empty stamps the freshness cursor; transient failure does not
+
+/**
+ * BILLING INVARIANT A5 · "never re-charge credits for a no-data retry".
+ *
+ * The freshness/billing layer (modules/cost/estimate.ts ←
+ * modules/discovery/enrich-fresh-db.ts) reads Business.reviewsLastDeltaAt to
+ * decide whether a reviews unit is "fresh" (→ $0 on a retry). For that to hold
+ * on a business that genuinely has ZERO reviews, a VERIFIED-EMPTY reviews pull
+ * (reviewsTaskGet succeeded, task status 20000, but 0 items) MUST stamp the
+ * cursor — exactly as an empty CONTACTS scan stamps contactsExtractedAt.
+ *
+ * The opposite must also hold: a TRANSIENT FAILURE (reviewsTaskGet throws —
+ * 40602 not-ready / 5xx) must NOT stamp, so the retry re-charges and the pull
+ * is genuinely re-attempted. persistFetchResult is never reached on a throw.
+ *
+ * State-model safety (see modules/agency-portal/discover/family-coverage.ts):
+ * stamping this cursor does NOT flip the reviews family to "enriched" — the
+ * displayed state is derived from REAL Review rows, never from
+ * reviewsLastDeltaAt. So a verified-empty run correctly shows "empty".
+ */
+describe("persistFetchResult · A5 no-data-retry billing cursor", () => {
+  test("VERIFIED-EMPTY (0 reviews, task OK) STAMPS reviewsLastDeltaAt → retry is free", async () => {
+    prismaMock.reviewJob.findUnique.mockResolvedValue({
+      id: "job_empty",
+      businessId: "biz_1",
+      taskId: "task-empty",
+      depth: 200,
+      mode: "delta",
+      status: "AWAITING_PINGBACK",
+      createdAt: NOW,
+      updatedAt: NOW,
+    });
+    prismaMock.business.findUnique.mockResolvedValue({
+      id: "biz_1",
+      googleCid: "cid-123",
+      country: "US",
+      latestReviewExternalId: null,
+      reviewsFirstPulledAt: null,
+    });
+    // DfS task RAN successfully (status 20000) and genuinely returned 0 reviews.
+    dfsMock.reviewsTaskGet.mockResolvedValue({
+      items: [],
+      aggregateRating: null,
+      totalReviewsCount: 0,
+      itemsCount: 0,
+      taskStatusCode: 20000,
+    });
+
+    const res = await fetchReviewJob("job_empty", NOW);
+
+    // Terminal + no escalation on an empty page.
+    expect(res.outcome).toBe("done");
+    expect(res.itemsReturned).toBe(0);
+    expect(res.insertedIds).toEqual([]);
+
+    // THE INVARIANT: the freshness cursor was stamped to `now` even with 0
+    // reviews, so a retry within the window is priced as fresh/$0.
+    const cursorWrite = prismaMock.business.update.mock.calls.find(
+      (c) => c[0]?.where?.id === "biz_1" && "reviewsLastDeltaAt" in c[0].data,
+    )?.[0];
+    expect(cursorWrite).toBeDefined();
+    expect(cursorWrite?.data?.reviewsLastDeltaAt).toEqual(NOW);
+    // And the in-flight pointer is cleared so the business isn't stuck.
+    expect(cursorWrite?.data?.pendingReviewsTaskId).toBeNull();
+  });
+
+  test("TRANSIENT FAILURE (task_get throws) does NOT stamp reviewsLastDeltaAt → retry re-charges", async () => {
+    prismaMock.reviewJob.findUnique.mockResolvedValue({
+      id: "job_transient",
+      businessId: "biz_1",
+      taskId: "task-transient",
+      depth: 200,
+      mode: "delta",
+      status: "AWAITING_PINGBACK",
+      createdAt: NOW,
+      updatedAt: NOW,
+    });
+    // task_get raises a not-ready / upstream error — this is NOT verified-empty.
+    dfsMock.reviewsTaskGet.mockRejectedValue(
+      new Error("task status_code 40602: Task In Queue"),
+    );
+
+    // fetchReviewJob lets the throw propagate (status set to FETCHING first, but
+    // the persist/stamp never runs).
+    await expect(fetchReviewJob("job_transient", NOW)).rejects.toThrow(/40602/);
+
+    // THE INVARIANT: no cursor stamp on a transient failure — the retry must
+    // re-fetch AND re-charge, never be treated as fresh.
+    const cursorWrite = prismaMock.business.update.mock.calls.find(
+      (c) => c[0]?.data && "reviewsLastDeltaAt" in c[0].data,
+    );
+    expect(cursorWrite).toBeUndefined();
+  });
+});
+
 // --- 5. reconcile fails loudly past the ceiling --------------------------
 
 describe("reconcileStuckReviewJobs", () => {

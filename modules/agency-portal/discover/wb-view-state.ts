@@ -22,10 +22,12 @@ import {
   COLUMNS,
   FILTER_FIELDS,
   PAGE_SIZES,
+  type DataFamily,
   type LeadFilter,
   type NumericLeadFilter,
   type NumericFilterField,
 } from "./leads-workbench";
+import { ENRICHMENT_FAMILIES, type FamilyState } from "./family-coverage";
 
 export interface WorkbenchViewState {
   vsCell: boolean;
@@ -42,6 +44,14 @@ const FILTER_OPS = new Set(["<", "≤", "=", "≥", ">", "between"]);
 const VALID_COLS = new Set(COLUMNS.map((c) => c.key));
 const VALID_FIELDS = new Set<string>(FILTER_FIELDS.map((f) => f.field));
 const VALID_PAGE_SIZES = new Set<number>(PAGE_SIZES);
+// C5 · the enrichment families + run states that a field-state filter can name.
+const VALID_STATE_FAMILIES = new Set<string>(ENRICHMENT_FAMILIES);
+const VALID_STATES = new Set<FamilyState>([
+  "enriched",
+  "empty",
+  "failed",
+  "not_run",
+]);
 
 function storageKey(discoveryId: string): string {
   return `${KEY_PREFIX}${discoveryId}`;
@@ -166,11 +176,22 @@ export function saveWorkbenchView(
 
 // ── Shareable view URL params (WP4-13 · URL half) ────────────────────────────
 
-/** The URL-shareable subset of the view: sort + filters. */
+/** C5 · one field-state filter — "this enrichment family is in this run state"
+ *  ("contacts · none", "reviews · failed"). Mirrors the workbench's
+ *  `stateFilters` entry shape. */
+export interface FieldStateFilter {
+  family: DataFamily;
+  state: FamilyState;
+}
+
+/** The URL-shareable subset of the view: sort + filters + field-state filters. */
 export interface WorkbenchViewParams {
   sortKey: string;
   sortDir: 1 | -1;
   filters: LeadFilter[];
+  /** C5 · the per-family run-state filters (optional for back-compat: an older
+   *  URL carrying no `fs` param parses to `[]`). */
+  fieldStates?: FieldStateFilter[];
 }
 
 /** The workbench's default sort (Match % descending). */
@@ -225,11 +246,26 @@ export function parseFilterParam(raw: string): NumericLeadFilter | null {
   return out;
 }
 
+/** C5 · one field-state filter → its `fs` param value: `family:state`. Pure. */
+export function serializeFieldStateParam(f: FieldStateFilter): string {
+  return `${f.family}:${f.state}`;
+}
+
+/** Parse one `fs` param value back into a field-state filter. null when
+ *  malformed / references an unknown family or state. Pure. */
+export function parseFieldStateParam(raw: string): FieldStateFilter | null {
+  const [family, state] = raw.split(":");
+  if (!family || !VALID_STATE_FAMILIES.has(family)) return null;
+  if (!state || !VALID_STATES.has(state as FamilyState)) return null;
+  return { family: family as DataFamily, state: state as FamilyState };
+}
+
 /**
  * Write the view into `params` (mutates + returns it): `sort`/`dir` only when
- * non-default, one `f` per filter. Existing view params are cleared first, so
- * clearing the last filter also cleans the URL. Other params (`lead`, `page`)
- * are untouched. Pure w.r.t. everything but `params`.
+ * non-default, one `f` per filter, one `fs` per field-state filter. Existing
+ * view params are cleared first, so clearing the last filter also cleans the
+ * URL. Other params (`lead`, `page`) are untouched. Pure w.r.t. everything but
+ * `params`.
  */
 export function viewToSearchParams(
   view: WorkbenchViewParams,
@@ -238,6 +274,7 @@ export function viewToSearchParams(
   params.delete("sort");
   params.delete("dir");
   params.delete("f");
+  params.delete("fs");
   if (view.sortKey !== DEFAULT_SORT_KEY || view.sortDir !== DEFAULT_SORT_DIR) {
     params.set("sort", view.sortKey);
     params.set("dir", view.sortDir === 1 ? "asc" : "desc");
@@ -245,6 +282,9 @@ export function viewToSearchParams(
   for (const f of view.filters) {
     if (f.kind === "signal") continue; // signal filters are in-session only
     params.append("f", serializeFilterParam(f));
+  }
+  for (const fs of view.fieldStates ?? []) {
+    params.append("fs", serializeFieldStateParam(fs));
   }
   return params;
 }
@@ -261,15 +301,27 @@ export function parseViewFromSearchParams(
 ): WorkbenchViewParams | null {
   const sort = params.get("sort");
   const dir = params.get("dir");
-  const fs = params.getAll("f");
-  if (sort === null && dir === null && fs.length === 0) return null;
+  const fParams = params.getAll("f");
+  const fsParams = params.getAll("fs");
+  if (
+    sort === null &&
+    dir === null &&
+    fParams.length === 0 &&
+    fsParams.length === 0
+  )
+    return null;
   const sortKey = sort && VALID_COLS.has(sort) ? sort : DEFAULT_SORT_KEY;
   const sortDir: 1 | -1 =
     dir === "asc" ? 1 : dir === "desc" ? -1 : DEFAULT_SORT_DIR;
   const filters: LeadFilter[] = [];
-  for (const raw of fs) {
+  for (const raw of fParams) {
     const parsed = parseFilterParam(raw);
     if (parsed) filters.push(parsed);
   }
-  return { sortKey, sortDir, filters };
+  const fieldStates: FieldStateFilter[] = [];
+  for (const raw of fsParams) {
+    const parsed = parseFieldStateParam(raw);
+    if (parsed) fieldStates.push(parsed);
+  }
+  return { sortKey, sortDir, filters, fieldStates };
 }

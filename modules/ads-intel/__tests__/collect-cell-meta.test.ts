@@ -237,4 +237,27 @@ describe("collectCellMeta · advertiser facet ingestion", () => {
     expect(call.where.pageId.notIn).toEqual(["P_BRIGHT"]);
     expect(call.data.isActive).toBe(false);
   });
+
+  test("a blocked run bails before persisting (no false empty overwrite)", async () => {
+    // The run never reached Meta's data query. It must NOT overwrite the cell's
+    // advertisers with an empty result (which the inactivation sweep would then
+    // read as "everyone stopped advertising"). Bail with an error, persist
+    // nothing.
+    apify.metaAdLibrarySearch.mockResolvedValueOnce({
+      rows: [],
+      resolutions: [],
+      advertisers: [],
+      outcome: "blocked",
+      runStatus: "FAILED",
+      targetStatuses: [],
+      runId: "blocked-run",
+      usageTotalUsd: 0.02,
+    });
+
+    const res = await collectCellMeta(CELL, { ai: false });
+
+    expect(res.errors).toContain("cell-meta-outcome:blocked");
+    expect(db.advertiserUpserts).toHaveLength(0);
+    expect(db.updateManyCalls).toHaveLength(0);
+  });
 });

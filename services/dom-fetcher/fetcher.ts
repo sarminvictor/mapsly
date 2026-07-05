@@ -29,6 +29,11 @@ import {
   DOM_MEMORY_MB,
   DOM_RUN_COST_CEILING_USD,
 } from "./scale";
+import {
+  classifyDomFetch,
+  domFetchIsRetryable,
+  type DomFetchOutcome,
+} from "./outcome";
 
 /** Published actor id. Not a secret (it's a public-actor id) → no env var. */
 export const DOM_FETCHER_ACTOR_ID = "VQmuafAxGueqPgCey";
@@ -94,6 +99,16 @@ export interface DomResult {
   blocked: boolean;
   /** True when the fetch failed (no usable HTML). */
   failed: boolean;
+  /**
+   * R3 · verified-vs-silent-failure taxonomy. `ok`/`empty_verified` reached
+   * rendered content; `blocked`/`timeout`/`error` are RETRYABLE silent failures.
+   * Read from the actor's per-row `outcome` when present, else re-derived from
+   * the blocked/failed/status flags via the shared classifier — so a walled or
+   * timed-out fetch is never mistaken for a clean empty.
+   */
+  outcome: DomFetchOutcome;
+  /** True when {@link outcome} is a retryable silent failure (block/timeout/error). */
+  retryable: boolean;
   /** The rendered DOM (success only). */
   html?: string;
   /** Error message (dead-letter only). */
@@ -134,11 +149,21 @@ interface RawItem {
   title?: string | null;
   blocked?: boolean;
   failed?: boolean;
+  /** R3 · per-row outcome the newer actor stamps (absent on older builds). */
+  outcome?: DomFetchOutcome;
   htmlBytes?: number;
   html?: string;
   error?: string;
   lighthouse?: RawLighthouse | null;
 }
+
+const DOM_OUTCOMES: ReadonlySet<string> = new Set([
+  "ok",
+  "empty_verified",
+  "blocked",
+  "timeout",
+  "error",
+]);
 
 /** Map one raw dataset item → our typed DomResult. Tolerant of partial rows. */
 function toDomResult(it: RawItem): DomResult {
@@ -146,12 +171,33 @@ function toDomResult(it: RawItem): DomResult {
   // A row is a failure if it's flagged failed/blocked OR carries no html.
   const failed =
     it.failed === true || blocked || (it.html == null && it.error != null);
+  // R3 · prefer the actor's stamped outcome; re-derive it from the flags for
+  // rows from an older actor build (single source of truth = ./outcome.ts). This
+  // is what makes a blocked/timeout dom-fetch RETRYABLE-failed downstream, not a
+  // clean empty (the ERR_TIMED_OUT dead-URL class).
+  const outcome: DomFetchOutcome =
+    it.outcome && DOM_OUTCOMES.has(it.outcome)
+      ? it.outcome
+      : classifyDomFetch({
+          blocked,
+          failed,
+          status: it.status,
+          htmlBytes:
+            typeof it.htmlBytes === "number"
+              ? it.htmlBytes
+              : it.html != null
+                ? it.html.length
+                : 0,
+          error: it.error,
+        });
   return {
     url: it.url ?? "",
     ...(it.finalUrl != null ? { finalUrl: it.finalUrl } : {}),
     ...(it.status != null ? { status: it.status } : {}),
     blocked,
     failed,
+    outcome,
+    retryable: domFetchIsRetryable(outcome),
     ...(it.html != null ? { html: it.html } : {}),
     ...(it.error != null ? { error: it.error } : {}),
   };

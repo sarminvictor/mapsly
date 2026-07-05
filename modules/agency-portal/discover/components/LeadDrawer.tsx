@@ -117,6 +117,35 @@ export function LeadDrawer({
   // Token guards against an out-of-order resolve when the user clicks fast.
   const reqToken = useRef(0);
 
+  // AUDIT U22 · resizable drawer (persisted). A left-edge handle drags the width
+  // so a power user can widen the detail view; ⌘/arrow prev-next already exists.
+  const [drawerWidth, setDrawerWidth] = useState<number | null>(null);
+  useEffect(() => {
+    // Deferred read (setTimeout 0) to satisfy react-hooks/set-state-in-effect.
+    const t = window.setTimeout(() => {
+      const saved = Number(window.localStorage.getItem("wb-drawer-width"));
+      if (saved >= 360 && saved <= 900) setDrawerWidth(saved);
+    }, 0);
+    return () => window.clearTimeout(t);
+  }, []);
+  function onResizeStart(startX: number) {
+    const startW = drawerRef.current?.getBoundingClientRect().width ?? 480;
+    function onMove(ev: PointerEvent) {
+      // Drawer is docked RIGHT → dragging the left edge leftward widens it.
+      const next = Math.min(900, Math.max(360, startW + (startX - ev.clientX)));
+      setDrawerWidth(next);
+    }
+    function onUp() {
+      document.removeEventListener("pointermove", onMove);
+      document.removeEventListener("pointerup", onUp);
+      const w = drawerRef.current?.getBoundingClientRect().width;
+      if (w)
+        window.localStorage.setItem("wb-drawer-width", String(Math.round(w)));
+    }
+    document.addEventListener("pointermove", onMove);
+    document.addEventListener("pointerup", onUp);
+  }
+
   const open = businessId != null;
 
   // ── Fetch on businessId change (setState only in async callbacks) ──────────
@@ -265,7 +294,19 @@ export function LeadDrawer({
         aria-modal="true"
         aria-labelledby="leadDrawerName"
         aria-hidden={!open}
+        style={drawerWidth ? { width: `${drawerWidth}px` } : undefined}
       >
+        {/* AUDIT U22 · left-edge resize handle (drag to widen). */}
+        <div
+          className="drawer-resize"
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize drawer"
+          onPointerDown={(e) => {
+            e.preventDefault();
+            onResizeStart(e.clientX);
+          }}
+        />
         {/* ── Header ── */}
         <div className="dhead">
           <div className="nav-arrows">
@@ -714,18 +755,73 @@ function ContactsStrip({ lead }: { lead: LeadDetail }) {
           <span className="note">—</span>
         )}
       </span>
-      <span className="dcontact">
-        <span className="ci" aria-hidden="true">
-          <Icon name="link" size={13} />
-        </span>
-        {lead.socials.length ? (
-          <ContactLinks contacts={lead.socials} external />
-        ) : (
-          <span className="note">—</span>
-        )}
-      </span>
+      {/* E6 · socials strip — each stored social channel (Instagram / Facebook
+          / TikTok / YouTube / X / LinkedIn / Yelp) as its own linked handle.
+          The data existed as Contact rows but the drawer never surfaced it. */}
+      <SocialsStrip socials={lead.socials} />
     </div>
   );
+}
+
+/**
+ * E6 · a compact strip of the lead's social channels, each a linked "@handle"
+ * prefixed by its platform so Tom can tell them apart (no per-platform icons in
+ * the set). Renders nothing when there are no socials — no empty "—" noise.
+ */
+function SocialsStrip({
+  socials,
+}: {
+  socials: { value: string; href: string; channel?: string }[];
+}) {
+  if (socials.length === 0) return null;
+  return (
+    <span
+      className="dcontact"
+      style={{ flexWrap: "wrap", gap: "4px 10px" }}
+      aria-label="Social profiles"
+    >
+      <span className="ci" aria-hidden="true">
+        <Icon name="link" size={13} />
+      </span>
+      {socials.map((s, i) => (
+        <a
+          key={`${s.href}-${i}`}
+          className="clink"
+          href={s.href}
+          target="_blank"
+          rel="noopener noreferrer"
+          data-tip={s.href}
+        >
+          <span style={{ color: "var(--faint)", marginRight: 3 }}>
+            {socialPlatformLabel(s.channel)}
+          </span>
+          {s.value}
+        </a>
+      ))}
+    </span>
+  );
+}
+
+/** E6 · short platform label for a social ContactChannel enum value. */
+function socialPlatformLabel(channel?: string): string {
+  switch (channel) {
+    case "INSTAGRAM":
+      return "IG";
+    case "FACEBOOK":
+      return "FB";
+    case "TIKTOK":
+      return "TT";
+    case "YOUTUBE":
+      return "YT";
+    case "LINKEDIN":
+      return "LI";
+    case "X":
+      return "X";
+    case "YELP":
+      return "Yelp";
+    default:
+      return "";
+  }
 }
 
 /**
@@ -1086,8 +1182,20 @@ function DomainAccordion({
 }) {
   const [open, setOpen] = useState(false);
 
-  if (!block.enriched) {
-    const enrichments = enrichTypesForDomainKey(block.key);
+  // AUDIT §4 · render off the honest RUN state, not data-presence:
+  //   not_run · ghost "enrich to unlock" CTA (never-attempted, actionable)
+  //   empty   · calm "ran · none found" note (verified empty — never a CTA,
+  //             never re-charged) — audit E4/E5
+  //   failed  · red retry affordance
+  //   enriched· the real rows
+  // Reviews is special: even when its enrichment hasn't run, the LISTING facts
+  // (block.listingRows, always present from discovery) still render — the
+  // enrichment ghost/data sits below them (audit E1).
+  const enrichments = enrichTypesForDomainKey(block.key);
+  const hasListing = block.listingRows.length > 0;
+
+  // ── not_run → ghost (with listing facts above it when present) ──
+  if (block.state === "not_run") {
     return (
       <div className="dacc ghost">
         <div className="ghead">
@@ -1095,8 +1203,25 @@ function DomainAccordion({
             {block.icon}
           </span>
           <span className="dacc-title">{block.title}</span>
-          <span className="dacc-ghost-tag">Not enriched</span>
+          <span className="dacc-ghost-tag">
+            {hasListing ? "Listing only" : "Not enriched"}
+          </span>
         </div>
+        {/* E1 · discovery listing facts — shown even before enrichment ran,
+            labelled as the listing (not a review pull). */}
+        {hasListing ? (
+          <div style={{ padding: "4px 12px 2px" }}>
+            <div
+              className="note"
+              style={{ fontSize: 10.5, margin: "0 0 2px", opacity: 0.8 }}
+            >
+              From the Google listing
+            </div>
+            {block.listingRows.map((r, i) => (
+              <EvidenceRow key={i} row={r} bands={bands} />
+            ))}
+          </div>
+        ) : null}
         <div className="dacc-ghost-note">{block.ghostNote}</div>
         {/* WP5-3 · the ghost tag's promise made real: opens the in-workbench
             enrich sheet pre-seeded with this domain's families, scoped to
@@ -1109,6 +1234,9 @@ function DomainAccordion({
             onClick={() =>
               openEnrichSheet({
                 enrichments,
+                // AUDIT D1 · a drawer ghost accordion is a single-domain CTA →
+                // pre-select its enrichment in the sheet.
+                preselect: true,
                 scope: { selectedBusinessIds: [businessId] },
               })
             }
@@ -1120,6 +1248,84 @@ function DomainAccordion({
     );
   }
 
+  // ── failed → red retry (the enrichment errored, distinct from never-run) ──
+  if (block.state === "failed") {
+    return (
+      <div className="dacc ghost">
+        <div className="ghead">
+          <span className="dacc-ic" aria-hidden="true">
+            {block.icon}
+          </span>
+          <span className="dacc-title">{block.title}</span>
+          <span
+            className="dacc-ghost-tag"
+            style={{ color: "var(--red)", borderColor: "var(--red)" }}
+          >
+            Failed
+          </span>
+        </div>
+        {hasListing ? (
+          <div style={{ padding: "4px 12px 2px" }}>
+            {block.listingRows.map((r, i) => (
+              <EvidenceRow key={i} row={r} bands={bands} />
+            ))}
+          </div>
+        ) : null}
+        <div className="dacc-ghost-note">
+          Enrichment errored on the last run. Retry it below.
+        </div>
+        {enrichments.length > 0 ? (
+          <button
+            type="button"
+            className="btn sm"
+            style={{ margin: "6px 12px 10px" }}
+            onClick={() =>
+              openEnrichSheet({
+                enrichments,
+                preselect: true,
+                scope: { selectedBusinessIds: [businessId] },
+              })
+            }
+          >
+            Retry enrichment →
+          </button>
+        ) : null}
+      </div>
+    );
+  }
+
+  // ── empty → calm "ran · none found" (verified — never a CTA, audit E4/E5) ──
+  if (block.state === "empty") {
+    return (
+      <div className="dacc ghost">
+        <div className="ghead">
+          <span className="dacc-ic" aria-hidden="true">
+            {block.icon}
+          </span>
+          <span className="dacc-title">{block.title}</span>
+          <span className="dacc-ghost-tag">Ran · none found</span>
+        </div>
+        {hasListing ? (
+          <div style={{ padding: "4px 12px 2px" }}>
+            <div
+              className="note"
+              style={{ fontSize: 10.5, margin: "0 0 2px", opacity: 0.8 }}
+            >
+              From the Google listing
+            </div>
+            {block.listingRows.map((r, i) => (
+              <EvidenceRow key={i} row={r} bands={bands} />
+            ))}
+          </div>
+        ) : null}
+        <div className="dacc-ghost-note">
+          {block.emptyNote ?? "Enrichment ran — nothing found for this lead."}
+        </div>
+      </div>
+    );
+  }
+
+  // ── enriched → the real accordion ──
   return (
     <div className={`dacc${open ? " open" : ""}`}>
       <button
@@ -1143,15 +1349,30 @@ function DomainAccordion({
       </button>
       {open ? (
         <div className="dacc-body">
-          {block.rows.length ? (
-            block.rows.map((r, i) => (
-              <EvidenceRow key={i} row={r} bands={bands} />
-            ))
-          ) : (
-            <p className="note" style={{ margin: "6px 0 0" }}>
-              No detail rows.
-            </p>
-          )}
+          {/* E1 · listing facts (Reviews) render first, labelled as the
+              listing, then the enrichment rows below. */}
+          {hasListing ? (
+            <>
+              <div
+                className="note"
+                style={{ fontSize: 10.5, margin: "2px 0 2px", opacity: 0.8 }}
+              >
+                From the Google listing
+              </div>
+              {block.listingRows.map((r, i) => (
+                <EvidenceRow key={`l-${i}`} row={r} bands={bands} />
+              ))}
+              {block.rows.length ? (
+                <div
+                  className="note"
+                  style={{ fontSize: 10.5, margin: "8px 0 2px", opacity: 0.8 }}
+                >
+                  From the reviews pull
+                </div>
+              ) : null}
+            </>
+          ) : null}
+          <DomainRows rows={block.rows} bands={bands} hasListing={hasListing} />
           {/* WP6-9 · evidence-honesty provenance — where this block's data came
               from + when it was retrieved, so every claim is auditable. */}
           {block.source ? (
@@ -1163,6 +1384,53 @@ function DomainAccordion({
         </div>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * E3 · renders a block's rows, grouping consecutive rows that share a `section`
+ * under a small heading (AI research: Summary · Positioning · Compliance cues ·
+ * Opener angle). Ungrouped rows (every other block) render flat as before.
+ */
+function DomainRows({
+  rows,
+  bands,
+  hasListing,
+}: {
+  rows: LeadEvidenceRow[];
+  bands?: Partial<Record<string, CellBand>>;
+  hasListing: boolean;
+}) {
+  if (rows.length === 0) {
+    return hasListing ? null : (
+      <p className="note" style={{ margin: "6px 0 0" }}>
+        No detail rows.
+      </p>
+    );
+  }
+  return (
+    <>
+      {rows.map((r, i) => {
+        const section = r.section ?? null;
+        // Pure: a section head shows when this row starts a new section — no
+        // render-time mutation (compare against the PREVIOUS row's section).
+        const prev = i > 0 ? (rows[i - 1].section ?? null) : null;
+        const showHead = section != null && section !== prev;
+        return (
+          <div key={i}>
+            {showHead ? (
+              <div
+                className="brand-eyebrow"
+                style={{ margin: "8px 0 2px", fontSize: 10.5 }}
+              >
+                {section}
+              </div>
+            ) : null}
+            <EvidenceRow row={r} bands={bands} />
+          </div>
+        );
+      })}
+    </>
   );
 }
 

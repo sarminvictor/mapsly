@@ -30,9 +30,16 @@ import { draftWhereForAgency } from "@/modules/outreach/draft-scope";
 import {
   deriveMatchPct,
   painGroupClass,
+  type DataFamily,
   type LeadStatus,
   type PainGroup,
 } from "./leads-workbench";
+import {
+  COVERED_JOB_STATUSES,
+  FAILED_JOB_STATUSES,
+  deriveFamilyStates,
+  type FamilyState,
+} from "./family-coverage";
 import { parseWhyJson } from "./touchpoints";
 import {
   hydrateBusinessForSignals,
@@ -57,6 +64,12 @@ export interface LeadContact {
   value: string;
   /** href scheme/url: `tel:…` / `mailto:…` / a social URL. */
   href: string;
+  /**
+   * E6 · the source ContactChannel for a SOCIAL row (INSTAGRAM / FACEBOOK /
+   * TIKTOK / YOUTUBE / X / LINKEDIN / YELP) so the drawer's socials strip can
+   * pick a per-platform icon. Absent on phone/email rows.
+   */
+  channel?: string;
 }
 
 /** One evidence row under a fired composite (a labelled metric line). */
@@ -80,6 +93,13 @@ export interface LeadEvidenceRow {
     bandKey: BandKey;
     unit?: string;
   } | null;
+  /**
+   * E3 · optional sub-section heading this row belongs under (AI research:
+   * "Summary" · "Positioning" · "Compliance cues" · "Opener angle"). The drawer
+   * groups consecutive rows sharing a section under one small heading. Absent =
+   * ungrouped (every other block's rows).
+   */
+  section?: string | null;
 }
 
 /** A fired composite signal (a flagged PlaybookFinding) w/ evidence + pitch. */
@@ -128,9 +148,23 @@ export interface LeadSignalVerdict {
 }
 
 /**
- * One data-domain accordion block. `enriched=false` → the drawer renders the
- * ghost "not enriched yet — enrich to unlock" card; otherwise the real
- * `summary` + `rows` are shown.
+ * One data-domain accordion block. The drawer renders off the honest
+ * {@link FamilyState} (audit §4 · E1/E4/E5 — the presence≠ran fix):
+ *   - `enriched` · an enrichment ran and produced data → real `summary` + `rows`
+ *   - `empty`    · the enrichment RAN but found nothing (verified) → the calm
+ *                  `emptyNote` ("Ran · no active ads found"), never a ghost CTA
+ *                  and never re-charged (a completed cell run IS coverage)
+ *   - `failed`   · the enrichment errored → red retry affordance
+ *   - `not_run`  · never attempted → the ghost "enrich to unlock" card + CTA
+ *
+ * `enriched` (the boolean) stays === `state === "enriched"` for callers that
+ * only care whether real data exists.
+ *
+ * `listingRows` (E1) is the discovery-derived "listing facts" (GBP aggregate:
+ * total reviews / rating / years-on-Google) that are ALWAYS present regardless
+ * of whether the family's enrichment ran — they render above the ghost CTA so a
+ * discovery-only lead still shows its listing facts, honestly labelled as the
+ * listing, not a review pull.
  */
 export interface LeadDomainBlock {
   /** Stable key (reviews / tech / speed / ads / serp / services / ai). */
@@ -139,14 +173,27 @@ export interface LeadDomainBlock {
   icon: string;
   /** Section title. */
   title: string;
-  /** Whether the backing family is enriched (drives ghost fallback). */
+  /** The honest per-family run state (audit §4 — the source of truth). */
+  state: FamilyState;
+  /** Whether the backing family produced data (=== state === "enriched"). */
   enriched: boolean;
   /** Collapsed-state one-line summary (only when enriched). */
   summary: string | null;
   /** Detail rows shown on expand (only when enriched). */
   rows: LeadEvidenceRow[];
-  /** Ghost-card note shown when not enriched. */
+  /**
+   * E1 · always-present discovery "listing facts" (GBP aggregate) shown even
+   * when this family's enrichment hasn't run. Empty for every block but Reviews.
+   */
+  listingRows: LeadEvidenceRow[];
+  /** Ghost-card note shown when the family was never run (state === not_run). */
   ghostNote: string;
+  /**
+   * E4/E5 · calm note shown when the enrichment RAN but found nothing
+   * (state === empty) — "Ran · no active ads found" — so a verified-empty
+   * result never reads as "not enriched". Null falls back to the ghostNote.
+   */
+  emptyNote: string | null;
   /**
    * WP6-9 · evidence-honesty provenance. `source` names where the data came
    * from ("Google reviews", "Lighthouse mobile", "Meta Ad Library", …) and
@@ -337,6 +384,10 @@ export async function getLeadDetail(
     serp,
     services,
     research,
+    reviewAgg,
+    jobRows,
+    failedJobRows,
+    adRuns,
   ] = await Promise.all([
     // The business already passed the agency cell gate above; scoping the Lead
     // to the same agencyId is enough (a Lead is owned by exactly one agency).
@@ -373,6 +424,9 @@ export async function getLeadDetail(
         a11yCriticalCount: true,
         isOnHttps: true,
         formFactor: true,
+        // E2 · crawlability / server-render signal (true = content in raw
+        // pre-JS HTML → crawlable; false = JS-only shell → indexing risk).
+        contentWithoutJs: true,
       },
     }),
     prisma.playbookFinding.findMany({
@@ -459,6 +513,37 @@ export async function getLeadDetail(
         complianceCues: true,
       },
     }),
+    // AUDIT §4 · E1 · reviews RUN-state + reply-rate come from REAL Review rows,
+    // never `reviewCount` (a discovery GBP aggregate present on every business —
+    // the old false-positive). `_count` = pulled reviews; `ownerReplied` sum via
+    // a filtered count gives the reply rate over the actual pull.
+    prisma.review.groupBy({
+      by: ["ownerReplied"],
+      where: { businessId },
+      _count: { _all: true },
+    }),
+    // AUDIT §4 · E1/E2 · the per-business EnrichmentJob run matrix: which
+    // job-backed families (REVIEWS / TECH / LIGHTHOUSE / CONTACTS / …) RAN
+    // (DONE / SKIPPED_FRESH) — so a reviews job that pulled 0 still reads "ran".
+    prisma.enrichmentJob.groupBy({
+      by: ["family"],
+      where: { businessId, status: { in: [...COVERED_JOB_STATUSES] } },
+    }),
+    // …and which FAILED (distinct from never-run).
+    prisma.enrichmentJob.groupBy({
+      by: ["family"],
+      where: { businessId, status: { in: [...FAILED_JOB_STATUSES] } },
+    }),
+    // AUDIT §4 · E4/E5 · ads/SERP are CELL-scoped (no per-business job rows). A
+    // COMPLETED AdMarketRun for THIS business's cell IS the coverage signal, so
+    // a cell that ran and matched 0 ads/ranks reads "ran, none found" (empty),
+    // not "not enriched". Scoped to the one cell the drawer's business lives in.
+    business.cellKey
+      ? prisma.adMarketRun.groupBy({
+          by: ["platform", "status"],
+          where: { cellKey: business.cellKey },
+        })
+      : Promise.resolve([] as { platform: string; status: string }[]),
   ]);
 
   // ── Contacts → phones / emails / socials ──
@@ -483,7 +568,13 @@ export async function getLeadDetail(
       c.channel === "X" ||
       c.channel === "YELP"
     ) {
-      socials.push({ value: socialLabel(c.channel), href: c.value });
+      // E6 · a compact linked handle: "@handle" parsed from the URL when
+      // possible, else the platform name. The channel drives the strip's icon.
+      socials.push({
+        value: socialHandle(c.channel, c.value),
+        href: c.value,
+        channel: c.channel,
+      });
     }
   }
   // Fall back to the Business scalars when no Contact rows exist.
@@ -505,14 +596,69 @@ export async function getLeadDetail(
   const techScanned = techs.length > 0;
 
   // ── Reviews / rating / perf (latest snapshot wins, else Business scalar) ──
+  // reviewCount / rating are the discovery GBP aggregate — the LISTING facts,
+  // always present regardless of whether reviews were pulled (audit E1).
   const reviewCount = snapshot?.reviewCount ?? business.reviewCount ?? null;
   const rating = snapshot?.rating ?? business.rating ?? null;
   const perf = audit?.performance ?? null;
+
+  // ── E1 · reviews reply-rate from the REAL pulled Review rows (not reviewCount).
+  // reviewAgg is grouped by ownerReplied → { true: replied, false: unreplied }.
+  const repliedPulled = reviewAgg
+    .filter((g) => g.ownerReplied)
+    .reduce((n, g) => n + g._count._all, 0);
+  const pulledReviews = reviewAgg.reduce((n, g) => n + g._count._all, 0);
+  const replyRatePct =
+    pulledReviews > 0
+      ? Math.round((repliedPulled / pulledReviews) * 100)
+      : null;
 
   // ── Ads ──
   const runsAds = ads.some((a) => a.isActive);
   const metaAds = ads.filter((a) => a.platform === "META");
   const googleAds = ads.filter((a) => a.platform === "GOOGLE");
+
+  // ── AUDIT §4 · honest per-family RUN state (E1/E4/E5 · the presence≠ran fix).
+  // Fold the per-business EnrichmentJob matrix + the cell-scoped AdMarketRun into
+  // the SAME `deriveFamilyStates` the workbench table + coverage matrix use, so
+  // the drawer can never disagree with the dots again.
+  const doneJobFamilies = new Set(jobRows.map((g) => g.family));
+  const failedJobFamilies = new Set(failedJobRows.map((g) => g.family));
+  // ads = META/GOOGLE platform runs, search = SERP platform runs. OK/PARTIAL =
+  // ran; FAILED (with no later OK for the same platform) = failed.
+  const AD_OK = new Set(["OK", "PARTIAL"]);
+  let adsRan = false;
+  let adsFailed = false;
+  let searchRan = false;
+  let searchFailed = false;
+  for (const r of adRuns) {
+    const isSearch = r.platform === "SERP";
+    if (AD_OK.has(r.status)) {
+      if (isSearch) searchRan = true;
+      else adsRan = true;
+    } else if (r.status === "FAILED") {
+      if (isSearch) searchFailed = true;
+      else adsFailed = true;
+    }
+  }
+  const familyStates: Record<DataFamily, FamilyState> = deriveFamilyStates({
+    presence: {
+      // reviews presence = REAL pulled Review rows, never reviewCount (E1).
+      reviews: pulledReviews > 0,
+      website: techScanned || audit != null,
+      contacts: contacts.length > 0 || phones.length > 0 || emails.length > 0,
+      ads: ads.length > 0,
+      search: serp != null,
+    },
+    doneJobFamilies,
+    failedJobFamilies,
+    cellRan: { ads: adsRan, search: searchRan },
+    // A cell "failed" only counts if it never also completed (a later OK wins).
+    cellFailed: {
+      ads: adsFailed && !adsRan,
+      search: searchFailed && !searchRan,
+    },
+  });
 
   // ── Pains (flagged findings) ──
   const pains: LeadPainChip[] = findings.map((f) => ({
@@ -629,14 +775,25 @@ export async function getLeadDetail(
     },
   ];
 
-  // ── Data-domain accordions ──
-  const reviewsEnriched = reviewCount != null;
+  // ── Data-domain accordions · honest per-family RUN state (audit §4) ──
+  // Each block's `state` is the SINGLE source of truth. `enriched` (boolean) is
+  // kept === state === "enriched" for callers that only ask "is there data?".
+  // tech/speed share the `website` family; ads/search/reviews/contacts map 1:1.
+  const reviewsState = familyStates.reviews;
+  const reviewsEnriched = reviewsState === "enriched";
+  // tech + speed are two views on the website family; each is "enriched" only
+  // when its own real data exists, but the family state drives the ghost/empty.
   const techEnriched = techScanned || cms != null;
   const speedEnriched = audit != null;
-  const adsEnriched = ads.length > 0;
-  const serpEnriched = serp != null;
+  const websiteState = familyStates.website;
+  const adsState = familyStates.ads;
+  const adsEnriched = adsState === "enriched";
+  const serpState = familyStates.search;
+  const serpEnriched = serpState === "enriched";
   const servicesEnriched = services.length > 0;
+  const servicesState: FamilyState = servicesEnriched ? "enriched" : "not_run";
   const aiEnriched = research != null;
+  const aiState: FamilyState = aiEnriched ? "enriched" : "not_run";
 
   // WP6-9 · per-block provenance — the retrieval date backing each domain, so
   // every evidence block reads "{source} · as of {date}". Nulls degrade to the
@@ -646,79 +803,113 @@ export async function getLeadDetail(
     .filter((d): d is Date => d != null)
     .sort((a, b) => b.getTime() - a.getTime())[0];
 
+  // E1 · the LISTING facts — always present from discovery (GBP aggregate),
+  // shown whether or not reviews were pulled. Labelled as the listing, not a
+  // review pull. These render ABOVE the review-enrichment ghost/data.
+  const reviewListingRows: LeadEvidenceRow[] = [
+    {
+      label: "Total reviews",
+      value: reviewCount != null ? reviewCount.toLocaleString() : "—",
+      // WP5-11 · vs-cell bar when the workbench has a "reviews" band.
+      metric:
+        reviewCount != null
+          ? { value: reviewCount, bandKey: "reviews" as const }
+          : null,
+    },
+    ...(rating != null
+      ? [
+          {
+            label: "Rating",
+            value: `${rating.toFixed(1)}★`,
+            metric: { value: rating, bandKey: "rating" as const, unit: "★" },
+          },
+        ]
+      : []),
+    ...(yearsOnGoogle != null
+      ? [
+          {
+            label: "Years on Google",
+            value: `~${yearsOnGoogle} yr${yearsOnGoogle === 1 ? "" : "s"}`,
+            metric: {
+              value: yearsOnGoogle,
+              bandKey: "tenure" as const,
+              unit: " yrs",
+            },
+          },
+        ]
+      : []),
+  ];
+
+  // E1 · the review-ENRICHMENT rows (reply rate, unanswered ≤2★, lifecycle,
+  // negative themes) — real only after an actual reviews pull. Reply rate is
+  // owner-replied ÷ pulled reviews (never the GBP aggregate).
+  const reviewEnrichmentRows: LeadEvidenceRow[] = reviewsEnriched
+    ? [
+        {
+          label: "Reply rate",
+          value:
+            replyRatePct != null
+              ? `${replyRatePct}% · ${repliedPulled}/${pulledReviews} replied`
+              : "—",
+          // Below the ~89% category benchmark reads amber (a pitch angle).
+          tone:
+            replyRatePct != null && replyRatePct < 80 ? ("a" as const) : null,
+        },
+        ...(snapshot?.reviewLifecycle
+          ? [
+              {
+                label: "Lifecycle (90d)",
+                value: lifecycleLabel(snapshot.reviewLifecycle),
+              },
+            ]
+          : []),
+        {
+          label: "Unanswered ≤2★",
+          value: negUnanswered.toLocaleString(),
+          tone: negUnanswered > 0 ? ("r" as const) : null,
+        },
+      ]
+    : [];
+
+  // E2 · a crawlability / server-render signal from the audit's contentWithoutJs
+  // (true = content in raw pre-JS HTML → crawlable; false = JS-only shell →
+  // indexing risk). Null when the DOM-fetch leg didn't run → row omitted.
+  const crawlRow: LeadEvidenceRow[] =
+    audit?.contentWithoutJs != null
+      ? [
+          {
+            label: "Crawlable (no-JS)",
+            value: audit.contentWithoutJs
+              ? "Yes · server-rendered"
+              : "No · JS-only shell",
+            tone: audit.contentWithoutJs ? null : ("r" as const),
+          },
+        ]
+      : [];
+
   const domains: LeadDomainBlock[] = [
     {
       key: "reviews",
       icon: "⭐",
       title: "Reviews",
+      state: reviewsState,
       enriched: reviewsEnriched,
-      summary: reviewsEnriched
-        ? `${(reviewCount ?? 0).toLocaleString()} · ${rating != null ? `${rating.toFixed(1)}★` : "—"}${
-            snapshot?.reviewLifecycle
-              ? ` · ${lifecycleLabel(snapshot.reviewLifecycle)}`
-              : ""
-          }`
-        : null,
-      rows: reviewsEnriched
-        ? [
-            {
-              label: "Total reviews",
-              value: (reviewCount ?? 0).toLocaleString(),
-              // WP5-11 · structured review count → vs-cell bar when the
-              // workbench has a "reviews" band (text stays the fallback).
-              metric:
-                reviewCount != null
-                  ? { value: reviewCount, bandKey: "reviews" as const }
-                  : null,
-            },
-            // WP6-1 · rating as its own market-relative bar (rating band).
-            ...(rating != null
-              ? [
-                  {
-                    label: "Rating",
-                    value: `${rating.toFixed(1)}★`,
-                    metric: {
-                      value: rating,
-                      bandKey: "rating" as const,
-                      unit: "★",
-                    },
-                  },
-                ]
-              : []),
-            ...(snapshot?.reviewLifecycle
-              ? [
-                  {
-                    label: "Lifecycle (90d)",
-                    value: lifecycleLabel(snapshot.reviewLifecycle),
-                  },
-                ]
-              : []),
-            {
-              label: "Unanswered ≤2★",
-              value: negUnanswered.toLocaleString(),
-              tone: negUnanswered > 0 ? ("r" as const) : null,
-            },
-            // WP6-1 · years-on-Google (tenure) as a market-relative bar — how
-            // established this lead is vs the cell. Cohort-sourced (CellMetric
-            // has no tenure percentile), so the bar shows only when enough
-            // cohort tenure samples exist; text stays the fallback.
-            ...(yearsOnGoogle != null
-              ? [
-                  {
-                    label: "Years on Google",
-                    value: `~${yearsOnGoogle} yr${yearsOnGoogle === 1 ? "" : "s"}`,
-                    metric: {
-                      value: yearsOnGoogle,
-                      bandKey: "tenure" as const,
-                      unit: " yrs",
-                    },
-                  },
-                ]
-              : []),
-          ]
-        : [],
+      // Summary shows the listing facts (always) + the pull result when enriched.
+      summary: `${reviewCount != null ? reviewCount.toLocaleString() : "—"} · ${
+        rating != null ? `${rating.toFixed(1)}★` : "—"
+      }${
+        reviewsEnriched && replyRatePct != null
+          ? ` · ${replyRatePct}% replies`
+          : ""
+      }`,
+      // Enrichment rows only (reply rate / unanswered / lifecycle) — the listing
+      // facts live in listingRows so they always show, honestly labelled.
+      rows: reviewEnrichmentRows,
+      listingRows: reviewListingRows,
       ghostNote:
-        "Pull the latest reviews — rating, lifecycle, and unanswered negatives are pitch fuel.",
+        "Listing facts above are from Google's profile. Pull the actual reviews to see reply rate, unanswered negatives, and themes — the pitch fuel.",
+      emptyNote:
+        "Reviews pulled — none on file yet. Listing facts above are from the Google profile.",
       source: reviewsEnriched ? "Google reviews" : null,
       asOf: reviewsEnriched ? isoDay(snapshot?.snapshotDate) : null,
     },
@@ -726,6 +917,7 @@ export async function getLeadDetail(
       key: "tech",
       icon: "🖥️",
       title: "Website & tech",
+      state: techEnriched ? "enriched" : websiteState,
       enriched: techEnriched,
       summary: techEnriched
         ? `${cms ?? "Custom"}${!hasPixel ? " · no pixel" : ""} · booking ${hasBooking ? "online" : "phone"}`
@@ -754,8 +946,11 @@ export async function getLeadDetail(
             },
           ]
         : [],
+      listingRows: [],
       ghostNote:
         "Scan the site's tech stack — CMS, pixel, analytics, and booking gaps open the pitch.",
+      emptyNote:
+        "Website scanned — no tech stack detected (site may be down or blocking scanners).",
       source: techEnriched ? "Website scan" : null,
       asOf: null,
     },
@@ -763,6 +958,7 @@ export async function getLeadDetail(
       key: "speed",
       icon: "⚡",
       title: "Site speed",
+      state: speedEnriched ? "enriched" : websiteState,
       enriched: speedEnriched,
       summary: speedEnriched
         ? `${perf != null ? `${Math.round(perf)}/100` : "—"} · CWV ${perf != null && perf < 50 ? "failing" : "ok"}`
@@ -805,6 +1001,19 @@ export async function getLeadDetail(
                   },
                 ]
               : []),
+            // E2 · the audit's SEO score — SELECTED here for months but never
+            // rendered. Same red-under-70 tone as accessibility.
+            ...(audit?.seo != null
+              ? [
+                  {
+                    label: "SEO",
+                    value: `${Math.round(audit.seo)}/100`,
+                    tone: audit.seo < 70 ? ("r" as const) : null,
+                  },
+                ]
+              : []),
+            // E2 · crawlability / server-render signal (contentWithoutJs).
+            ...crawlRow,
             ...(audit?.perfSavingsMs != null
               ? [
                   {
@@ -815,8 +1024,11 @@ export async function getLeadDetail(
               : []),
           ]
         : [],
+      listingRows: [],
       ghostNote:
         "Run a mobile Lighthouse audit — slow sites lose high-intent clicks before the page loads.",
+      emptyNote:
+        "Lighthouse ran — no score returned (site unreachable or blocked the audit).",
       source: speedEnriched ? "Lighthouse mobile" : null,
       asOf: speedEnriched ? isoDay(audit?.auditedAt) : null,
     },
@@ -824,6 +1036,7 @@ export async function getLeadDetail(
       key: "ads",
       icon: "📣",
       title: "Ads",
+      state: adsState,
       enriched: adsEnriched,
       summary: adsEnriched
         ? `Meta: ${metaAds.length ? (runsAds ? "running" : "paused") : "—"}${googleAds.length ? ` · Google: ${googleAds.length}` : ""}`
@@ -861,8 +1074,13 @@ export async function getLeadDetail(
               : []),
           ]
         : [],
+      listingRows: [],
       ghostNote:
-        "Discovery flagged ad activity — enrich the Meta Ad Library scan for creatives & spend.",
+        "Scan the Meta Ad Library for this cell — active creatives, spend bands, and formats.",
+      // E5 · the barber case: ads ran cell-wide, matched 0 advertisers → this is
+      // a VERIFIED empty, not a never-run. Calm, not an enrich CTA.
+      emptyNote:
+        "Ad libraries scanned — no active ads found for this business.",
       source: adsEnriched ? "Meta Ad Library" : null,
       asOf: adsEnriched ? isoDay(adsLastSeen) : null,
     },
@@ -870,6 +1088,7 @@ export async function getLeadDetail(
       key: "serp",
       icon: "🔍",
       title: "Search / SERP",
+      state: serpState,
       enriched: serpEnriched,
       summary: serpEnriched
         ? `${serp?.localPackRank != null ? `#${serp.localPackRank} 3-pack` : "off the pack"}${
@@ -892,8 +1111,13 @@ export async function getLeadDetail(
               : []),
           ]
         : [],
+      listingRows: [],
       ghostNote:
         "Scan the local 3-pack + organic ranks — visibility gaps are an easy first pitch.",
+      // E4 · SERP runs cell-wide; a non-ranking lead has no SerpResult row. That
+      // is a RAN result ("not ranking"), not a never-run.
+      emptyNote:
+        "Local search scanned — this business isn't ranking in the local pack.",
       source: serpEnriched ? "Google Search" : null,
       asOf: serpEnriched ? isoDay(serp?.scannedAt) : null,
     },
@@ -901,6 +1125,7 @@ export async function getLeadDetail(
       key: "services",
       icon: "🧾",
       title: "Services",
+      state: servicesState,
       enriched: servicesEnriched,
       summary: servicesEnriched
         ? services
@@ -915,8 +1140,10 @@ export async function getLeadDetail(
             value: s.category ?? "—",
           }))
         : [],
+      listingRows: [],
       ghostNote:
         "Detect the service menu — service gaps vs the cell are a differentiator pitch.",
+      emptyNote: null,
       source: servicesEnriched ? "Website menu" : null,
       asOf: null,
     },
@@ -924,19 +1151,37 @@ export async function getLeadDetail(
       key: "ai",
       icon: "🧠",
       title: "AI research",
+      state: aiState,
       enriched: aiEnriched,
       summary: aiEnriched
         ? [research?.subType, research?.sophistication]
             .filter(Boolean)
             .join(" · ") || "Positioning · pricing · pain hypotheses"
         : null,
+      // E3 · restructured into labelled sub-sections. `section` groups the rows
+      // (Summary · Positioning · Compliance cues · Opener angle) so the drawer
+      // renders headed groups instead of a flat list. Data unchanged (ER-3
+      // already stabilised the pipeline) — labels/structure only.
       rows: aiEnriched
         ? [
+            // ── Summary ──
             ...(research?.subType
-              ? [{ label: "Sub-type", value: research.subType }]
+              ? [
+                  {
+                    label: "Sub-type",
+                    value: research.subType,
+                    section: "Summary" as const,
+                  },
+                ]
               : []),
             ...(research?.sophistication
-              ? [{ label: "Sophistication", value: research.sophistication }]
+              ? [
+                  {
+                    label: "Sophistication",
+                    value: research.sophistication,
+                    section: "Summary" as const,
+                  },
+                ]
               : []),
             ...(research?.pricingTransparency
               ? [
@@ -947,28 +1192,47 @@ export async function getLeadDetail(
                       research.pricingTransparency.toLowerCase() === "opaque"
                         ? ("a" as const)
                         : null,
+                    section: "Summary" as const,
                   },
                 ]
               : []),
+            // ── Positioning ──
             ...(research?.positioningSummary
-              ? [{ label: "Positioning", value: research.positioningSummary }]
+              ? [
+                  {
+                    label: "Positioning",
+                    value: research.positioningSummary,
+                    section: "Positioning" as const,
+                  },
+                ]
               : []),
             ...(research?.competitivePositioning
               ? [
                   {
                     label: "Vs cell leader",
                     value: research.competitivePositioning,
+                    section: "Positioning" as const,
                   },
                 ]
               : []),
+            // ── Compliance cues ──
+            ...(research?.complianceCues ?? []).map((c, i) => ({
+              label: `Cue ${i + 1}`,
+              value: c,
+              section: "Compliance cues" as const,
+            })),
+            // ── Opener angle (the outreach pain hypotheses) ──
             ...(research?.painHypotheses ?? []).map((p, i) => ({
-              label: `Pain hypothesis ${i + 1}`,
+              label: `Angle ${i + 1}`,
               value: p,
+              section: "Opener angle" as const,
             })),
           ]
         : [],
+      listingRows: [],
       ghostNote:
         "Positioning, pricing transparency, pain hypotheses — an AI read on how to pitch this business.",
+      emptyNote: null,
       source: aiEnriched ? "AI analysis of public sources" : null,
       asOf: null,
     },
@@ -1118,6 +1382,29 @@ function perfTone(perf: number): "g" | "a" | "r" {
  *  the full URL; the chip shows the platform name. */
 function socialLabel(channel: string): string {
   return channel.charAt(0) + channel.slice(1).toLowerCase();
+}
+
+/**
+ * E6 · a compact linked-handle label for a social channel. Parses the last
+ * meaningful path segment of the URL into an "@handle" (e.g.
+ * instagram.com/soleaspa → "@soleaspa"); falls back to the platform name when
+ * the URL has no usable handle. Pure + defensive (bad URLs → platform name).
+ */
+function socialHandle(channel: string, url: string): string {
+  try {
+    const u = new URL(url);
+    const segs = u.pathname.split("/").filter(Boolean);
+    // Skip known non-handle prefixes some platforms use in their paths.
+    const skip = new Set(["in", "company", "channel", "user", "c", "@"]);
+    const seg = segs.find((s) => !skip.has(s.toLowerCase()));
+    if (seg) {
+      const handle = decodeURIComponent(seg).replace(/^@/, "");
+      if (handle.length > 0 && handle.length <= 40) return `@${handle}`;
+    }
+  } catch {
+    // fall through to the platform name
+  }
+  return socialLabel(channel);
 }
 
 /** Whole years since a date (floor). */

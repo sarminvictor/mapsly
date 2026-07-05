@@ -61,3 +61,75 @@ export async function latestAdMarketRun(
   });
   return row ?? null;
 }
+
+/** Default backoff before a FAILED (blocked/timeout) Meta cell is eligible for
+ *  a dead-letter retry — long enough to let a transient Meta soft-block clear,
+ *  short enough that a walled cell isn't stranded for the 30-day freshness TTL. */
+export const META_RETRY_BACKOFF_HOURS = 6;
+
+/**
+ * R2 · DEAD-LETTER re-queue query. Finds cells whose MOST-RECENT Meta run is a
+ * FAILED marker (blocked/timeout/error — R0 writes one) older than the backoff
+ * window AND that have no fresher successful (OK/PARTIAL) run. These are the
+ * targets the R0 taxonomy caught as silent failures; the dispatch/cron picks
+ * them up for a retry on a fresh IP instead of losing them for 30 days.
+ *
+ * Reuses `AdMarketRun.status` + `ranAt` only — NO new column/migration. A cell
+ * that later succeeds writes an OK/PARTIAL row with a newer `ranAt`, so it drops
+ * out of this query automatically (its latest run is no longer the FAILED one).
+ *
+ * `now` is explicit (pure/testable, PPR-safe — no argless `new Date()`, INC-09).
+ */
+export async function cellsDueForMetaRetry(
+  now: Date = new Date(),
+  opts: { backoffHours?: number; limit?: number } = {},
+): Promise<string[]> {
+  const backoffHours = opts.backoffHours ?? META_RETRY_BACKOFF_HOURS;
+  const limit = Math.max(1, Math.min(opts.limit ?? 50, 500));
+  const cutoff = new Date(now.getTime() - backoffHours * 60 * 60 * 1000);
+
+  // Candidate FAILED markers past the backoff. We over-fetch a bounded batch,
+  // then keep only cells whose LATEST run (any status) is still this FAILED row
+  // — i.e. no OK/PARTIAL/newer run has superseded it.
+  const failed = await prisma.adMarketRun.findMany({
+    where: { platform: "META", status: "FAILED", ranAt: { lt: cutoff } },
+    orderBy: { ranAt: "desc" },
+    select: { cellKey: true, ranAt: true },
+    take: limit * 4,
+  });
+
+  // Newest FAILED-past-cutoff marker per cell (the list is ranAt-desc, so the
+  // first hit per cell IS its newest FAILED).
+  const newestFailedByCell = new Map<string, Date>();
+  for (const f of failed) {
+    if (!newestFailedByCell.has(f.cellKey))
+      newestFailedByCell.set(f.cellKey, f.ranAt);
+  }
+  const candidateCells = [...newestFailedByCell.keys()];
+  if (candidateCells.length === 0) return [];
+
+  // CODE-REVIEW #1 · one batched query instead of a per-cell findFirst (the old
+  // N+1). The newest run overall per candidate cell: if that equals the cell's
+  // newest FAILED marker, no fresher (OK/PARTIAL or newer-FAILED) run has
+  // superseded it → the cell is still stuck FAILED and is due for retry.
+  const maxByCell = await prisma.adMarketRun.groupBy({
+    by: ["cellKey"],
+    where: { cellKey: { in: candidateCells }, platform: "META" },
+    _max: { ranAt: true },
+  });
+  const latestByCell = new Map<string, number>();
+  for (const g of maxByCell) {
+    if (g._max.ranAt) latestByCell.set(g.cellKey, g._max.ranAt.getTime());
+  }
+
+  const due: string[] = [];
+  for (const [cellKey, failedAt] of newestFailedByCell) {
+    // Due iff the newest run overall IS this FAILED marker (nothing newer
+    // succeeded after it — a later OK/PARTIAL would make latest > failedAt).
+    if (latestByCell.get(cellKey) === failedAt.getTime()) {
+      due.push(cellKey);
+      if (due.length >= limit) break;
+    }
+  }
+  return due;
+}

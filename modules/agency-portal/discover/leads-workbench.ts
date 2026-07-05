@@ -68,6 +68,9 @@ export interface WorkbenchLeadRow {
   reachable: boolean;
   /** CMS / site-builder ("Wix", "WordPress", …) or null. */
   builtOn: string | null;
+  /** AUDIT C3 · the exact on-site booking tool (Square/Vagaro/Fresha/…) from
+   *  BusinessTech.name — stored, never surfaced as its own column. */
+  bookingTool: string | null;
   /** Business website URL (Business.website) — CSV export column (WP2-4). */
   website: string | null;
   /**
@@ -85,11 +88,32 @@ export interface WorkbenchLeadRow {
   reviews: number | null;
   rating: number | null;
   perf: number | null;
+  /** AUDIT F2 · Lighthouse SEO score (0–100) — was stored, never columnised. */
+  seo: number | null;
+  /** AUDIT F2 · active Meta-ad creative count — stored, never columnised. */
+  adCount: number | null;
+  /** AUDIT F2 · best local-pack rank (lower = better; null = off the pack). */
+  serpRank: number | null;
+  /** AUDIT F2 · the AI-research one-line positioning summary (BusinessEnrichment.
+   *  positioningSummary) — the researched read the drawer surfaces, now a
+   *  toggle-able column. Null when AI research hasn't run for this lead. */
+  aiSummary: string | null;
   // Contact facts.
   phones: string[];
   emails: string[];
+  /** Social handles (Instagram/Facebook/TikTok/…) from Contact rows — AUDIT E6:
+   *  the data was always stored, just never surfaced as a column. */
+  socials: SocialContact[];
   /** Enrichment families present on this lead (for coverage + "— enrich" cells). */
   families: Record<DataFamily, boolean>;
+}
+
+/** One social contact channel + its handle/URL (audit E6). */
+export interface SocialContact {
+  /** Contact.channel — INSTAGRAM · FACEBOOK · TIKTOK · YOUTUBE · X · LINKEDIN. */
+  channel: string;
+  /** The stored handle or profile URL. */
+  value: string;
 }
 
 export type LeadStatus =
@@ -315,11 +339,40 @@ export type ColumnKind =
   | "text" // plain text (built-on)
   | "site" // website URL link (the domain, clickable)
   | "contact" // contact links
+  | "socials" // social handle chips (audit E6)
   | "status" // status pill
   | "touch" // touch pill
   | "cov" // per-row enrichment coverage dot-strip
   | "sig" // one goal-signal verdict (✓ fired / — didn't / needs enrichment)
   | "lastC"; // last-contacted timestamp
+
+/**
+ * F3 · the ENRICHMENT-TYPE grouping the Fields picker buckets columns by (each
+ * rendered under its own header). Distinct from `group` (workflow vs enriched),
+ * which drives the "add for free" copy + the locked buy-rows. Every column is
+ * tagged with exactly one typeGroup.
+ */
+export type ColumnTypeGroup =
+  | "Identity"
+  | "Contacts"
+  | "Tech"
+  | "Reviews"
+  | "Site audit"
+  | "Ads"
+  | "Search"
+  | "AI";
+
+/** F3 · stable render order for the type-grouped Fields picker sections. */
+export const COLUMN_TYPE_GROUP_ORDER: readonly ColumnTypeGroup[] = [
+  "Identity",
+  "Contacts",
+  "Reviews",
+  "Site audit",
+  "Tech",
+  "Ads",
+  "Search",
+  "AI",
+] as const;
 
 export interface ColumnDef {
   /** Stable key (also the WorkbenchLeadRow field for num/text columns). */
@@ -335,6 +388,8 @@ export interface ColumnDef {
   defaultOn: boolean;
   /** Which Fields-menu group it lives in. */
   group: "workflow" | "enriched";
+  /** F3 · which ENRICHMENT-TYPE section the Fields picker files it under. */
+  typeGroup: ColumnTypeGroup;
   /** Backing data family (for "— enrich" greying + coverage). */
   family?: DataFamily;
   /** For num columns: does a higher value read as better (vs-cell color)? */
@@ -360,6 +415,7 @@ export const COLUMNS: readonly ColumnDef[] = [
     defaultOn: true,
     group: "workflow",
     family: "identity",
+    typeGroup: "Identity",
   },
   {
     key: "match",
@@ -368,6 +424,7 @@ export const COLUMNS: readonly ColumnDef[] = [
     sortable: true,
     defaultOn: true,
     group: "workflow",
+    typeGroup: "Identity",
   },
   {
     key: "pains",
@@ -377,6 +434,7 @@ export const COLUMNS: readonly ColumnDef[] = [
     sortable: false,
     defaultOn: true,
     group: "workflow",
+    typeGroup: "Identity",
   },
   {
     key: "website",
@@ -388,6 +446,7 @@ export const COLUMNS: readonly ColumnDef[] = [
     defaultOn: true,
     group: "enriched",
     family: "website",
+    typeGroup: "Tech",
   },
   {
     key: "builtOn",
@@ -399,6 +458,7 @@ export const COLUMNS: readonly ColumnDef[] = [
     defaultOn: false,
     group: "enriched",
     family: "website",
+    typeGroup: "Tech",
   },
   {
     key: "reachable",
@@ -408,6 +468,7 @@ export const COLUMNS: readonly ColumnDef[] = [
     defaultOn: true,
     group: "workflow",
     family: "contacts",
+    typeGroup: "Contacts",
   },
   {
     key: "reviews",
@@ -418,6 +479,7 @@ export const COLUMNS: readonly ColumnDef[] = [
     group: "enriched",
     family: "reviews",
     higherIsBetter: true,
+    typeGroup: "Reviews",
   },
   {
     key: "rating",
@@ -429,6 +491,7 @@ export const COLUMNS: readonly ColumnDef[] = [
     family: "reviews",
     higherIsBetter: true,
     unit: "★",
+    typeGroup: "Reviews",
   },
   {
     key: "perf",
@@ -440,6 +503,71 @@ export const COLUMNS: readonly ColumnDef[] = [
     group: "enriched",
     family: "website",
     higherIsBetter: true,
+    typeGroup: "Site audit",
+  },
+  {
+    // AUDIT F2 · SEO score — stored on LighthouseAudit, never shown.
+    key: "seo",
+    label: "SEO",
+    fullLabel: "Lighthouse SEO score",
+    kind: "num",
+    sortable: true,
+    defaultOn: false,
+    group: "enriched",
+    family: "website",
+    higherIsBetter: true,
+    typeGroup: "Site audit",
+  },
+  {
+    // AUDIT F2 · active Meta-ad count — stored, never shown.
+    key: "adCount",
+    label: "Ads",
+    fullLabel: "Active Meta-ad creatives",
+    kind: "num",
+    sortable: true,
+    defaultOn: false,
+    group: "enriched",
+    family: "ads",
+    higherIsBetter: true,
+    typeGroup: "Ads",
+  },
+  {
+    // AUDIT F2 · best local-pack rank — stored on SerpResult, never shown.
+    key: "serpRank",
+    label: "SERP",
+    fullLabel: "Best local-pack rank (lower is better)",
+    kind: "num",
+    sortable: true,
+    defaultOn: false,
+    group: "enriched",
+    family: "search",
+    higherIsBetter: false,
+    typeGroup: "Search",
+  },
+  {
+    // AUDIT C3 · the exact booking tool (Square/Vagaro/Fresha) — stored, unshown.
+    key: "bookingTool",
+    label: "Booking tool",
+    kind: "text",
+    sortable: false,
+    defaultOn: false,
+    group: "enriched",
+    family: "website",
+    typeGroup: "Tech",
+  },
+  {
+    // AUDIT F2 · the AI-research positioning summary — stored on
+    // BusinessEnrichment (the drawer already renders it), now a toggle-able
+    // column. Off by default (a long text field); the cell truncates + carries
+    // the full text in its tooltip. No DataFamily maps to AI research, so it has
+    // no `family` — the empty cell offers a generic enrich affordance.
+    key: "aiSummary",
+    label: "AI summary",
+    kind: "text",
+    sortable: false,
+    defaultOn: false,
+    group: "enriched",
+    typeGroup: "AI",
   },
   {
     key: "phones",
@@ -452,6 +580,7 @@ export const COLUMNS: readonly ColumnDef[] = [
     defaultOn: true,
     group: "enriched",
     family: "contacts",
+    typeGroup: "Contacts",
   },
   {
     key: "emails",
@@ -461,6 +590,19 @@ export const COLUMNS: readonly ColumnDef[] = [
     defaultOn: true,
     group: "enriched",
     family: "contacts",
+    typeGroup: "Contacts",
+  },
+  {
+    // AUDIT E6 · social handles were stored but never shown. Off by default
+    // (secondary contact channel), addable from the Fields menu.
+    key: "socials",
+    label: "Socials",
+    kind: "socials",
+    sortable: false,
+    defaultOn: false,
+    group: "enriched",
+    family: "contacts",
+    typeGroup: "Contacts",
   },
   {
     key: "cov",
@@ -473,6 +615,7 @@ export const COLUMNS: readonly ColumnDef[] = [
     // strip on every row. Still selectable via the Fields menu.
     defaultOn: false,
     group: "workflow",
+    typeGroup: "Identity",
   },
   {
     key: "status",
@@ -481,6 +624,7 @@ export const COLUMNS: readonly ColumnDef[] = [
     sortable: false,
     defaultOn: true,
     group: "workflow",
+    typeGroup: "Identity",
   },
   {
     key: "touch",
@@ -489,6 +633,7 @@ export const COLUMNS: readonly ColumnDef[] = [
     sortable: false,
     defaultOn: true,
     group: "workflow",
+    typeGroup: "Identity",
   },
   {
     key: "lastContactedAt",
@@ -497,6 +642,7 @@ export const COLUMNS: readonly ColumnDef[] = [
     sortable: true,
     defaultOn: true,
     group: "workflow",
+    typeGroup: "Identity",
   },
 ] as const;
 

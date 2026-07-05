@@ -1,0 +1,3264 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Leads workbench · deep audit — 2026-07-04</title>
+    <style>
+      :root {
+        --bg: #f6f7fb;
+        --panel: #ffffff;
+        --ink: #1a1c2e;
+        --ink-2: #4a4e69;
+        --note: #6b7086;
+        --line: #e5e7f0;
+        --line-2: #eef0f6;
+        --indigo: #5b3df5;
+        --indigo-soft: #ece8ff;
+        --red: #d23b3b;
+        --red-soft: #fdecec;
+        --amber: #b7791f;
+        --amber-soft: #fdf3e0;
+        --green: #1f9d63;
+        --green-soft: #e6f6ee;
+        --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+        --sans:
+          Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html {
+        scroll-behavior: smooth;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font-family: var(--sans);
+        font-size: 14.5px;
+        line-height: 1.55;
+        -webkit-font-smoothing: antialiased;
+      }
+      .wrap {
+        display: grid;
+        grid-template-columns: 232px 1fr;
+        max-width: 1240px;
+        margin: 0 auto;
+      }
+      nav {
+        position: sticky;
+        top: 0;
+        align-self: start;
+        height: 100vh;
+        overflow-y: auto;
+        padding: 22px 14px 40px;
+        border-right: 1px solid var(--line);
+        font-size: 12.5px;
+      }
+      nav .brand {
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        margin-bottom: 2px;
+      }
+      nav .sub {
+        color: var(--note);
+        font-size: 11px;
+        margin-bottom: 16px;
+      }
+      nav a {
+        display: block;
+        color: var(--ink-2);
+        text-decoration: none;
+        padding: 4px 8px;
+        border-radius: 6px;
+        margin-bottom: 1px;
+      }
+      nav a:hover {
+        background: var(--indigo-soft);
+        color: var(--indigo);
+      }
+      nav a.grp {
+        font-weight: 650;
+        color: var(--ink);
+        margin-top: 12px;
+      }
+      main {
+        padding: 34px 40px 120px;
+        min-width: 0;
+      }
+      header.hero {
+        margin-bottom: 30px;
+      }
+      header.hero h1 {
+        font-size: 27px;
+        letter-spacing: -0.02em;
+        margin: 0 0 6px;
+      }
+      header.hero .meta {
+        color: var(--note);
+        font-size: 12.5px;
+      }
+      section {
+        margin: 0 0 40px;
+        scroll-margin-top: 18px;
+      }
+      h2 {
+        font-size: 19px;
+        letter-spacing: -0.015em;
+        margin: 0 0 4px;
+        padding-bottom: 8px;
+        border-bottom: 2px solid var(--line);
+      }
+      h2 .n {
+        color: var(--indigo);
+        font-variant-numeric: tabular-nums;
+        margin-right: 8px;
+      }
+      h3 {
+        font-size: 15px;
+        margin: 22px 0 8px;
+        letter-spacing: -0.01em;
+      }
+      p {
+        margin: 8px 0;
+        color: var(--ink-2);
+      }
+      .lead {
+        font-size: 15.5px;
+        color: var(--ink);
+      }
+      code,
+      .m {
+        font-family: var(--mono);
+        font-size: 0.86em;
+        background: var(--line-2);
+        padding: 1px 5px;
+        border-radius: 4px;
+        color: #33345a;
+      }
+      .card {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 18px 20px;
+        margin: 14px 0;
+      }
+      .card.tight {
+        padding: 14px 16px;
+      }
+      .grid2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+      }
+      .kpis {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 12px;
+        margin: 16px 0;
+      }
+      .kpi {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 12px 14px;
+      }
+      .kpi .v {
+        font-size: 22px;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        font-variant-numeric: tabular-nums;
+      }
+      .kpi .l {
+        color: var(--note);
+        font-size: 11.5px;
+        margin-top: 2px;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 12px 0;
+        font-size: 13px;
+      }
+      th,
+      td {
+        text-align: left;
+        padding: 8px 10px;
+        border-bottom: 1px solid var(--line-2);
+        vertical-align: top;
+      }
+      th {
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--note);
+        font-weight: 650;
+      }
+      td.mono,
+      .num {
+        font-family: var(--mono);
+        font-variant-numeric: tabular-nums;
+      }
+      tr:hover td {
+        background: #fafbff;
+      }
+      .chip {
+        display: inline-block;
+        font-size: 10.5px;
+        font-weight: 650;
+        padding: 1px 7px;
+        border-radius: 20px;
+        letter-spacing: 0.02em;
+        white-space: nowrap;
+      }
+      .p0 {
+        background: var(--red-soft);
+        color: var(--red);
+      }
+      .p1 {
+        background: var(--amber-soft);
+        color: var(--amber);
+      }
+      .p2 {
+        background: var(--indigo-soft);
+        color: var(--indigo);
+      }
+      .p3 {
+        background: var(--line-2);
+        color: var(--ink-2);
+      }
+      .ok {
+        background: var(--green-soft);
+        color: var(--green);
+      }
+      .tagbug {
+        background: var(--red-soft);
+        color: var(--red);
+      }
+      .taggap {
+        background: var(--amber-soft);
+        color: var(--amber);
+      }
+      .tagux {
+        background: var(--indigo-soft);
+        color: var(--indigo);
+      }
+      .callout {
+        border-left: 3px solid var(--indigo);
+        background: #f9f8ff;
+        padding: 12px 16px;
+        border-radius: 0 8px 8px 0;
+        margin: 14px 0;
+      }
+      .callout.red {
+        border-color: var(--red);
+        background: var(--red-soft);
+      }
+      .callout.green {
+        border-color: var(--green);
+        background: var(--green-soft);
+      }
+      .callout .h {
+        font-weight: 700;
+        margin-bottom: 3px;
+      }
+      ul,
+      ol {
+        margin: 8px 0;
+        padding-left: 22px;
+        color: var(--ink-2);
+      }
+      li {
+        margin: 4px 0;
+      }
+      .why {
+        font-size: 13px;
+      }
+      .why b {
+        color: var(--ink);
+      }
+      .scorebar {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .scorebar .track {
+        width: 120px;
+        height: 7px;
+        background: var(--line);
+        border-radius: 4px;
+        overflow: hidden;
+      }
+      .scorebar .fill {
+        height: 100%;
+        border-radius: 4px;
+      }
+      .todo-id {
+        font-family: var(--mono);
+        font-weight: 700;
+        color: var(--indigo);
+        white-space: nowrap;
+      }
+      .src {
+        font-size: 11px;
+        color: var(--note);
+      }
+      .fadein {
+        color: var(--note);
+        font-size: 12px;
+      }
+      details {
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 4px 14px;
+        margin: 10px 0;
+        background: var(--panel);
+      }
+      details summary {
+        cursor: pointer;
+        font-weight: 650;
+        padding: 8px 0;
+      }
+      details[open] summary {
+        border-bottom: 1px solid var(--line-2);
+        margin-bottom: 8px;
+      }
+      .foot {
+        color: var(--note);
+        font-size: 12px;
+        border-top: 1px solid var(--line);
+        padding-top: 16px;
+        margin-top: 30px;
+      }
+      @media (max-width: 860px) {
+        .wrap {
+          grid-template-columns: 1fr;
+        }
+        nav {
+          position: static;
+          height: auto;
+          border-right: none;
+          border-bottom: 1px solid var(--line);
+        }
+        main {
+          padding: 24px 18px 80px;
+        }
+        .grid2,
+        .kpis {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <nav>
+        <div class="brand">Leads workbench</div>
+        <div class="sub">
+          Deep audit · 2026-07-04<br />Barber Shop · Kelowna
+        </div>
+        <a class="grp" href="#tldr">TL;DR + root cause</a>
+        <a href="#score">Scorecard</a>
+        <a class="grp" href="#counts">The counts (74/57/38/34)</a>
+        <a href="#booking">Booking signal · 0 results</a>
+        <a href="#root">The one root cause</a>
+        <a class="grp" href="#todo">Complete TODO</a>
+        <a href="#todo-state">A · Enrichment state</a>
+        <a href="#todo-counts">B · Counts &amp; population</a>
+        <a href="#todo-signals">C · Signals &amp; booking</a>
+        <a href="#todo-enrich">D · Enrich flow</a>
+        <a href="#todo-drawer">E · Lead drawer</a>
+        <a href="#todo-fields">F · Fields &amp; columns</a>
+        <a href="#todo-polish">G · Polish</a>
+        <a class="grp" href="#fields">Fields inventory</a>
+        <a href="#competitors">Competitor benchmark</a>
+        <a class="grp" href="#plan">Phased plan</a>
+        <a class="grp" href="#uiux">UI/UX audit</a>
+        <a href="#uiux-read">How Tom reads it</a>
+        <a href="#uiux-height">The height problem</a>
+        <a href="#uiux-score">Scorecard + lenses</a>
+        <a href="#uiux-bench">Competitor patterns</a>
+        <a href="#uiux-todo">U1–U24 suggestions</a>
+        <a class="grp" href="#actor">Actor reliability</a>
+        <a href="#actor-how">How it works now</a>
+        <a href="#actor-metrics">Reliability reality</a>
+        <a href="#actor-fails">Failure modes</a>
+        <a href="#actor-bench">Benchmark + official API</a>
+        <a href="#actor-score">Scorecard + hardening plan</a>
+      </nav>
+
+      <main>
+        <header class="hero">
+          <h1>Leads workbench — deep audit &amp; fix plan</h1>
+          <div class="meta">
+            Trigger: <b>Barber Shop · Kelowna, CA</b> research · Evidence: live
+            DB verification (<code>scripts/ops/verify-kelowna.ts</code>) + code
+            read of the discover module · Scope: analysis only,
+            <b>no code changed this turn</b>.
+          </div>
+        </header>
+
+        <!-- ─────────────────────────────  TL;DR  ───────────────────────────── -->
+        <section id="tldr">
+          <h2>
+            <span class="n">§0</span>TL;DR — one bug is behind most of what you
+            saw
+          </h2>
+          <p class="lead">
+            Nearly every symptom on your list — the wrong "Enriched" dots, the
+            Coverage panel calling Reviews "Have," the drawer showing "Not
+            enriched" for Ads/SERP that actually ran, the "no email found" cells
+            that still say <span class="m">— enrich</span> — is the
+            <b>same defect wearing different hats</b>:
+          </p>
+          <div class="callout red">
+            <div class="h">
+              Root cause · "enriched" is read from <u>data presence</u>, never
+              from <u>enrichment-ran</u>.
+            </div>
+            The workbench decides a data family is "enriched" by asking
+            <i>"is there a row / a number for it?"</i> instead of
+            <i>"did we run that enrichment on this lead?"</i>. Because discovery
+            already fills <code>Business.reviewCount</code>,
+            <code>rating</code>, and identity, every un-enriched barber
+            <b>falsely reads as 2–4 families enriched</b>. And because Ads/SERP
+            ran but <i>found nothing</i> (no rows written), they
+            <b>falsely read as "not enriched."</b> Presence ≠ ran. Fix that one
+            thing and the dots, the coverage panel, the drawer, and the status
+            copy all become honest at once.
+          </div>
+          <p>
+            The <b>booking "0 results"</b> is a second, self-contained bug (a
+            mis-wired signal binding — <a href="#booking">§2</a>). Everything
+            else is enrichment-flow UX and missing columns. There is
+            <b>no data-loss problem</b> — the DB already holds the booking-tool
+            names, the socials, the SERP ranks, and the ad-run outcomes. The
+            workbench just isn't showing them, or is labelling them wrong.
+          </p>
+          <div class="kpis">
+            <div class="kpi">
+              <div class="v">1</div>
+              <div class="l">root cause behind ~7 symptoms</div>
+            </div>
+            <div class="kpi">
+              <div class="v">8</div>
+              <div class="l">barbers with booking tools already in DB</div>
+            </div>
+            <div class="kpi">
+              <div class="v">32/14</div>
+              <div class="l">
+                Instagram / Facebook handles stored, no column
+              </div>
+            </div>
+            <div class="kpi">
+              <div class="v">0</div>
+              <div class="l">data actually lost</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ─────────────────────────────  SCORECARD  ───────────────────────────── -->
+        <section id="score">
+          <h2><span class="n">§1</span>Scorecard — current system</h2>
+          <p>
+            Scored on how the shipped workbench performs against a best-in-class
+            enrichment table (Clay / Apollo). 10 = market-leading, 5 = works but
+            confusing, 1 = actively misleading.
+          </p>
+          <table>
+            <thead>
+              <tr>
+                <th>Dimension</th>
+                <th style="width: 180px">Score</th>
+                <th>The verdict</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>
+                  <b>Honesty of state</b><br /><span class="src"
+                    >enriched vs not vs failed vs no-data</span
+                  >
+                </td>
+                <td>
+                  <div class="scorebar">
+                    <div class="track">
+                      <div
+                        class="fill"
+                        style="width: 20%; background: var(--red)"
+                      ></div>
+                    </div>
+                    <span class="num">2/10</span>
+                  </div>
+                </td>
+                <td>
+                  The single worst axis. Dots, coverage, and drawer all derive
+                  "enriched" from presence → false positives (Reviews) and false
+                  negatives (Ads/SERP). "No data" and "failed" are
+                  indistinguishable from "never run."
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  <b>Counts legibility</b><br /><span class="src"
+                    >market → match → enrichable → shown</span
+                  >
+                </td>
+                <td>
+                  <div class="scorebar">
+                    <div class="track">
+                      <div
+                        class="fill"
+                        style="width: 30%; background: var(--red)"
+                      ></div>
+                    </div>
+                    <span class="num">3/10</span>
+                  </div>
+                </td>
+                <td>
+                  Four numbers (74 / 57 / 38 / 34) with no shared definition on
+                  screen; the table shows the <i>website-having market</i>, not
+                  <i>what you enriched</i>. No way to isolate "the leads I paid
+                  for."
+                </td>
+              </tr>
+              <tr>
+                <td><b>Signal correctness</b></td>
+                <td>
+                  <div class="scorebar">
+                    <div class="track">
+                      <div
+                        class="fill"
+                        style="width: 40%; background: var(--amber)"
+                      ></div>
+                    </div>
+                    <span class="num">4/10</span>
+                  </div>
+                </td>
+                <td>
+                  The evaluator (<code>signal-eval.ts</code>) is genuinely
+                  sophisticated and mostly honest (null = not-computable). But
+                  the booking card is mis-bound and returns 0, and tool-name
+                  detail is collected yet never surfaced.
+                </td>
+              </tr>
+              <tr>
+                <td><b>Enrich flow UX</b></td>
+                <td>
+                  <div class="scorebar">
+                    <div class="track">
+                      <div
+                        class="fill"
+                        style="width: 45%; background: var(--amber)"
+                      ></div>
+                    </div>
+                    <span class="num">4.5/10</span>
+                  </div>
+                </td>
+                <td>
+                  Two-step "Price it → Run" when the gross price is already
+                  known client-side; per-field CTA lost its pre-select; live
+                  banner needs a manual refresh; no per-cell progress.
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  <b>Field coverage</b><br /><span class="src"
+                    >columns vs data we hold</span
+                  >
+                </td>
+                <td>
+                  <div class="scorebar">
+                    <div class="track">
+                      <div
+                        class="fill"
+                        style="width: 40%; background: var(--amber)"
+                      ></div>
+                    </div>
+                    <span class="num">4/10</span>
+                  </div>
+                </td>
+                <td>
+                  15 columns in 2 flat groups. We store socials, booking tool,
+                  SEO/a11y, SERP rank, ad counts, AI research —
+                  <b>none has a column</b>. Enriched fields can't be re-added or
+                  filtered by enrich-state.
+                </td>
+              </tr>
+              <tr>
+                <td><b>Drawer depth</b></td>
+                <td>
+                  <div class="scorebar">
+                    <div class="track">
+                      <div
+                        class="fill"
+                        style="width: 55%; background: var(--amber)"
+                      ></div>
+                    </div>
+                    <span class="num">5.5/10</span>
+                  </div>
+                </td>
+                <td>
+                  Good bones (per-domain accordions, provenance, ghost cards).
+                  Undermined by the same presence≠ran lie, plus missing
+                  reply-rate and a missing "not crawlable / not server-rendered"
+                  signal.
+                </td>
+              </tr>
+              <tr>
+                <td><b>Architecture / evaluator</b></td>
+                <td>
+                  <div class="scorebar">
+                    <div class="track">
+                      <div
+                        class="fill"
+                        style="width: 75%; background: var(--green)"
+                      ></div>
+                    </div>
+                    <span class="num">7.5/10</span>
+                  </div>
+                </td>
+                <td>
+                  The signal resolver, hydration, cost-tracking, dispatch/retry
+                  ladder, and cell-vs-lead run model are strong and extensible.
+                  The problems are almost all at the
+                  <i>presentation / state-derivation</i> layer, which is the
+                  cheap layer to fix.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="callout">
+            <div class="h">
+              Composite: 4.4 / 10 — "a powerful engine behind a lying
+              dashboard."
+            </div>
+            The good news is where the score is low: it's the presentation
+            layer, not the data or the pipeline. One state-model fix lifts
+            Honesty, Counts, Drawer, and half of Fields together.
+          </div>
+        </section>
+
+        <!-- ─────────────────────────────  COUNTS  ───────────────────────────── -->
+        <section id="counts">
+          <h2>
+            <span class="n">§2a</span>The counts — "Why 57? I don't get it."
+          </h2>
+          <p>
+            You're not missing anything — the screen genuinely never defines its
+            four numbers, and they come from three different populations. Here's
+            the reconciliation, verified against the live DB for
+            <code>barber_shop|kelowna|CA</code>:
+          </p>
+          <table>
+            <thead>
+              <tr>
+                <th>Number you saw</th>
+                <th>What it actually is</th>
+                <th>DB truth today</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="num">74 — market</td>
+                <td>
+                  All active businesses in the cell (the whole addressable
+                  market).
+                </td>
+                <td class="num">86</td>
+              </tr>
+              <tr>
+                <td class="num">38 of 74 — match</td>
+                <td>
+                  How many <i>match your goal signals</i> (Preview-step
+                  estimate).
+                </td>
+                <td>signal-dependent</td>
+              </tr>
+              <tr>
+                <td class="num">34 — enrichable</td>
+                <td>
+                  Preview's "have a website" gate — the ones the
+                  website-dependent goal <i>can</i> enrich. Also the size of the
+                  contacts+tech run you launched.
+                </td>
+                <td class="num">64 have a website</td>
+              </tr>
+              <tr>
+                <td class="num">57 — leads table</td>
+                <td>
+                  <b>The catch.</b> The workbench population =
+                  <b>every website-having business in the cell</b>, via a hard
+                  <code>hasWebsite:true</code> gate (<code>page.tsx:194</code>).
+                  Not "what matched," not "what you enriched" — the whole
+                  enrichable market.
+                </td>
+                <td class="num">64</td>
+              </tr>
+            </tbody>
+          </table>
+          <p class="src">
+            (The exact figures drifted between your session and now — the market
+            grew from 74→86 as discovery ran — but the <i>structure</i> is
+            identical: the table shows the website-having market, which is
+            larger than the set you enriched.)
+          </p>
+          <div class="callout red">
+            <div class="h">
+              The real defect: the workbench conflates "the enrichable market"
+              with "my enriched leads."
+            </div>
+            You spent credits enriching <b>34</b> leads (contacts + tech). The
+            table shows <b>57</b> because it renders <i>all</i> website-having
+            businesses, enriched or not. There is currently
+            <b>no view or filter for "show me the 34 I actually paid for."</b>
+            That's why the enriched-and-not are indistinguishable, and why the
+            whole screen feels like it's lying about what you did. → Fixed by
+            <a href="#todo-counts">TODO B1–B3</a>.
+          </div>
+        </section>
+
+        <section id="booking">
+          <h2>
+            <span class="n">§2b</span>Booking signal — why "No online booking
+            tool" returned 0
+          </h2>
+          <p>
+            This is a real, isolated bug, and the DB proves the data is fine:
+            <b>8 Kelowna barbers</b> have a detected booking tool — Square
+            Appointments ×5, Fresha, Setmore, Vagaro — all sitting in
+            <code>BusinessTech.name</code>. So "0 results" is wrong three times
+            over:
+          </p>
+          <ol class="why">
+            <li>
+              <b>Mis-wired binding.</b> The card "No online booking tool" binds
+              registry key <code>gbp_no_booking</code>, which reads
+              <code>Business.gbpHasBooking</code> — the Google-profile "Book"
+              button (<code>false</code> for all 86 barbers). But the card's UI
+              offers <i>on-site tool chips</i> (Calendly / Vagaro / Square…),
+              which are the <b>tech-fingerprint</b> signal
+              <code>has_booking_widget</code>. The code even documents the
+              mismatch in a comment (<code>goal-templates.ts:1216</code>).
+            </li>
+            <li>
+              <b>Tool → boolean type clash.</b> Because it's a
+              <code>platform</code> tune (tool chips), the evaluator calls
+              <code>matchPlatform(toolNames, resolvedValue)</code> — but the
+              resolved value is a <b>boolean</b> (<code>gbpHasBooking</code>).
+              Matching "square"/"vagaro" against <code>false</code> matches
+              nothing → every row scores false → <b>0 results</b>.
+            </li>
+            <li>
+              <b>Tool name never exposed.</b> Even if re-bound to
+              <code>has_booking_widget</code>, the resolver
+              (<code>signal-eval.ts:686</code>) returns a bare
+              <code>t.hasBooking</code> boolean — <b>not</b> the tool name. Only
+              <code>cms_platform</code> returns a name string. So the specific
+              service (Square/Vagaro/Fresha) — which you asked to see and save —
+              is collected but has no path to the UI.
+            </li>
+          </ol>
+          <p class="why">
+            A fourth, softer issue: booking needs a <b>tech</b> scan, and only
+            your 34 tech-enriched leads have one → the verdict is
+            <code>null</code> (not-computable) for the rest. That's
+            <i>honest</i> (better than a fake "no booking"), but combined with
+            the 0-match bug it made the filter look completely dead. → Fixed by
+            <a href="#todo-signals">TODO C1–C3</a>.
+          </p>
+          <p class="why">
+            <b>"Phone-only shouldn't count as booking":</b> agreed — a phone
+            number is a contact channel, not a booking method. The current copy
+            ("Phone-only — friction vs competitors with instant booking") is
+            actually on your side, but the signal must key off
+            <i>tool absence</i>, not phone presence. C1 makes that explicit.
+          </p>
+        </section>
+
+        <!-- ─────────────────────────────  ROOT CAUSE  ───────────────────────────── -->
+        <section id="root">
+          <h2>
+            <span class="n">§3</span>The one root cause, in detail — and the fix
+            that ends it
+          </h2>
+          <p>
+            Three surfaces each re-derive "enriched" their own way, all from
+            presence:
+          </p>
+          <table>
+            <thead>
+              <tr>
+                <th>Surface</th>
+                <th>How it decides "enriched"</th>
+                <th>Result on a discovery-only barber</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>
+                  Table "Enriched" dots<br /><span class="src"
+                    >family-coverage.ts</span
+                  >
+                </td>
+                <td>
+                  <code>identity: true</code> always · <code>reviews</code> from
+                  <code>reviewCount != null</code> · website from any tech/LH
+                  row
+                </td>
+                <td class="tagbug">
+                  <span class="chip tagbug">FALSE +</span> shows 2–4 dots though
+                  nothing ran
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  Coverage panel<br /><span class="src">"Have / Not yet"</span>
+                </td>
+                <td>
+                  Same derivation — Reviews "Have" because a GBP
+                  <code>reviewCount</code> exists
+                </td>
+                <td class="tagbug">
+                  <span class="chip tagbug">FALSE +</span> "Reviews: Have"
+                  though 0 reviews pulled
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  Drawer accordions<br /><span class="src">lead-detail.ts</span>
+                </td>
+                <td>
+                  <code>reviewsEnriched = reviewCount != null</code> ·
+                  <code>adsEnriched = ads.length &gt; 0</code> ·
+                  <code>serpEnriched = serp != null</code>
+                </td>
+                <td class="tagbug">
+                  <span class="chip tagbug">BOTH</span> Reviews false-+;
+                  Ads/SERP false-− (ran, found nothing → "not enriched")
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="callout green">
+            <div class="h">
+              The fix — one canonical state, derived from run records.
+            </div>
+            <p style="margin: 6px 0">
+              Define a per-<b>(lead × enrichment)</b> state enum, sourced from
+              what actually <i>ran</i>, not what rows exist:
+            </p>
+            <table style="margin: 6px 0">
+              <thead>
+                <tr>
+                  <th>State</th>
+                  <th>Source of truth</th>
+                  <th>Meaning</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><b>not&nbsp;run</b></td>
+                  <td>
+                    no <code>EnrichmentJob</code> / <code>AdMarketRun</code> for
+                    this (lead, type)
+                  </td>
+                  <td>never attempted — costs credits to try</td>
+                </tr>
+                <tr>
+                  <td><b>running / queued</b></td>
+                  <td>job <code>RUNNING</code> / <code>QUEUED</code></td>
+                  <td>in flight</td>
+                </tr>
+                <tr>
+                  <td><b>enriched</b></td>
+                  <td>job <code>DONE</code> <b>and</b> data written</td>
+                  <td>ran, found data — show it</td>
+                </tr>
+                <tr>
+                  <td><b>no data</b></td>
+                  <td>job <code>DONE</code> <b>but</b> zero rows</td>
+                  <td>
+                    ran, nothing exists (Ads/SERP for barbers) — calm grey,
+                    don't re-charge
+                  </td>
+                </tr>
+                <tr>
+                  <td><b>failed</b></td>
+                  <td>job <code>FAILED</code> (retries exhausted)</td>
+                  <td>errored — red, retry affordance</td>
+                </tr>
+              </tbody>
+            </table>
+            <p style="margin: 6px 0">
+              The plumbing already exists: <code>EnrichmentJob</code> tracks
+              job-backed families (contacts/tech/reviews/lighthouse/ai) with
+              DONE/FAILED/SKIPPED_FRESH, and <code>AdMarketRun</code> tracks the
+              cell-scoped ones (ads/serp) with status + counts.
+              <code>deriveFailedFamilies()</code> already half-does this. The
+              work is to make <b>one</b> state function every surface reads —
+              replacing the three presence heuristics.
+            </p>
+          </div>
+          <p class="why">
+            This is exactly the model Clay and Apollo converged on (per-cell
+            state; "Unavailable" ≠ error). See <a href="#competitors">§6</a>.
+          </p>
+        </section>
+
+        <!-- ─────────────────────────────  TODO  ───────────────────────────── -->
+        <section id="todo">
+          <h2>
+            <span class="n">§4</span>Complete TODO — every request + every issue
+            found
+          </h2>
+          <p>
+            Each row: <b>what you see</b>, <b>why</b> (root cause),
+            <b>how</b> (the fix), plus source tag —
+            <span class="chip tagbug">bug</span> broken,
+            <span class="chip taggap">gap</span> missing capability,
+            <span class="chip tagux">ux</span> friction — and a severity chip.
+            <span class="src"
+              >"Req" = came from your list; "Found" = I found it.</span
+            >
+          </p>
+
+          <!-- A · STATE -->
+          <h3 id="todo-state">
+            A · Enrichment-state honesty
+            <span class="src">(the root-cause cluster)</span>
+          </h3>
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 52px">ID</th>
+                <th>Item</th>
+                <th style="width: 150px">Why → How</th>
+                <th style="width: 120px">Tags</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="todo-id">A1</td>
+                <td>
+                  <b>Enriched column shows 2–4 dots for every lead</b> though
+                  only tech+contacts ran on 34. <span class="src">Req</span>
+                </td>
+                <td class="why">
+                  <b>Why:</b> dots derive from data presence +
+                  <code>identity:true</code> always. <b>How:</b> drive dots from
+                  the §3 run-state enum; a never-touched lead shows 0 filled.
+                </td>
+                <td>
+                  <span class="chip tagbug">bug</span>
+                  <span class="chip p0">P0</span>
+                </td>
+              </tr>
+              <tr>
+                <td class="todo-id">A2</td>
+                <td>
+                  <b
+                    >Align the column to enrichment types, not "data
+                    families."</b
+                  >
+                  Compact but clear, <b>on by default</b>, kill the
+                  dots+tooltips. <span class="src">Req</span>
+                </td>
+                <td class="why">
+                  <b>Why:</b> 6 families ≠ the 9 enrichment types you actually
+                  run/pay for. <b>How:</b> replace the dot-strip with a compact
+                  per-type state badge row (Clay-style), default-on, no
+                  hover-only meaning.
+                </td>
+                <td>
+                  <span class="chip tagux">ux</span>
+                  <span class="chip p1">P1</span>
+                </td>
+              </tr>
+              <tr>
+                <td class="todo-id">A3</td>
+                <td>
+                  <b>Coverage panel says "Identity + Reviews: Have"</b> though
+                  reviews weren't pulled; "Not yet" list not aligned to
+                  enrichment types. <span class="src">Req</span>
+                </td>
+                <td class="why">
+                  <b>Why:</b> same presence derivation. <b>How:</b> feed the
+                  panel from the same run-state function; "Reviews" only counts
+                  as Have after a real reviews job.
+                </td>
+                <td>
+                  <span class="chip tagbug">bug</span>
+                  <span class="chip p0">P0</span>
+                </td>
+              </tr>
+              <tr>
+                <td class="todo-id">A4</td>
+                <td>
+                  <b
+                    >"No email found" and "failed" both render
+                    <span class="m">— enrich</span></b
+                  >
+                  in the cell. <span class="src">Req</span>
+                </td>
+                <td class="why">
+                  <b>Why:</b> the <code>NeedsEnrich</code> cell is shown for any
+                  empty value regardless of run state. <b>How:</b> render by
+                  state — <code>Run · N cr</code> /
+                  <code>— none found</code> (grey) /
+                  <code>Failed · retry</code> (red).
+                </td>
+                <td>
+                  <span class="chip tagbug">bug</span>
+                  <span class="chip p0">P0</span>
+                </td>
+              </tr>
+              <tr>
+                <td class="todo-id">A5</td>
+                <td>
+                  <b>Never re-charge credits for a "no data" retry.</b>
+                  <span class="src">Found</span>
+                </td>
+                <td class="why">
+                  <b>Why:</b> a calm "none found" must not behave like "not
+                  run." <b>How:</b> wallet/preflight treats
+                  <code>no-data</code> units as free/warn ("already checked —
+                  nothing there"). Mirrors Apollo "Unavailable."
+                </td>
+                <td>
+                  <span class="chip taggap">gap</span>
+                  <span class="chip p1">P1</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          <!-- B · COUNTS -->
+          <h3 id="todo-counts">B · Counts &amp; population</h3>
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 52px">ID</th>
+                <th>Item</th>
+                <th style="width: 150px">Why → How</th>
+                <th style="width: 120px">Tags</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="todo-id">B1</td>
+                <td>
+                  <b>Show me the 34 I enriched, not the 57.</b>
+                  <span class="src">Req</span>
+                </td>
+                <td class="why">
+                  <b>Why:</b> table population = whole website-having market; no
+                  "my enriched leads" lens. <b>How:</b> add an "Enriched only"
+                  view/filter driven by the A-cluster run-state (any type ran →
+                  in).
+                </td>
+                <td>
+                  <span class="chip taggap">gap</span>
+                  <span class="chip p0">P0</span>
+                </td>
+              </tr>
+              <tr>
+                <td class="todo-id">B2</td>
+                <td>
+                  <b>One honest counts strip</b> that defines every number in
+                  place. <span class="src">Req</span>
+                </td>
+                <td class="why">
+                  <b>Why:</b> 74/57/38/34 appear with no shared definition.
+                  <b>How:</b> a single line —
+                  <code
+                    >Market 86 · match 38 · enrichable 64 · enriched 34 · shown
+                    N</code
+                  >
+                  — with a hover explaining each, using the same source as the
+                  table.
+                </td>
+                <td>
+                  <span class="chip tagux">ux</span>
+                  <span class="chip p1">P1</span>
+                </td>
+              </tr>
+              <tr>
+                <td class="todo-id">B3</td>
+                <td>
+                  <b>Reconcile "enrichable" between Preview and workbench.</b>
+                  <span class="src">Found</span>
+                </td>
+                <td class="why">
+                  <b>Why:</b> Preview's "34 enrichable (have website)" and the
+                  workbench's <code>hasWebsite</code> population use different
+                  counts, so the two screens disagree. <b>How:</b> both read one
+                  <code>enrichableCount</code> helper.
+                </td>
+                <td>
+                  <span class="chip tagbug">bug</span>
+                  <span class="chip p1">P1</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          <!-- C · SIGNALS -->
+          <h3 id="todo-signals">C · Signals &amp; booking</h3>
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 52px">ID</th>
+                <th>Item</th>
+                <th style="width: 150px">Why → How</th>
+                <th style="width: 120px">Tags</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="todo-id">C1</td>
+                <td>
+                  <b>"No online booking tool" returns 0.</b> Phone-only wrongly
+                  treated; booking must key off tool absence.
+                  <span class="src">Req</span>
+                </td>
+                <td class="why">
+                  <b>Why:</b> card binds GBP boolean
+                  <code>gbp_no_booking</code> but shows tool chips →
+                  tool-vs-boolean mismatch → 0. <b>How:</b> re-bind to
+                  <code>has_booking_widget</code> (tech) and make the resolver
+                  return the tool <i>name</i>, so tool chips + "none" match.
+                </td>
+                <td>
+                  <span class="chip tagbug">bug</span>
+                  <span class="chip p0">P0</span>
+                </td>
+              </tr>
+              <tr>
+                <td class="todo-id">C2</td>
+                <td>
+                  <b>Show + save the exact booking service</b>
+                  (Square/Vagaro/Fresha), not just "Online."
+                  <span class="src">Req</span>
+                </td>
+                <td class="why">
+                  <b>Why:</b> the name is in <code>BusinessTech.name</code> but
+                  the resolver returns a bare boolean. <b>How:</b> surface the
+                  tool name into the hydrated tech rollup + a
+                  <code>bookingTool</code> field on the row.
+                </td>
+                <td>
+                  <span class="chip taggap">gap</span>
+                  <span class="chip p1">P1</span>
+                </td>
+              </tr>
+              <tr>
+                <td class="todo-id">C3</td>
+                <td>
+                  <b>Add a "Booking tool" column</b> to the Fields list.
+                  <span class="src">Req</span>
+                </td>
+                <td class="why">
+                  <b>Why:</b> no column exists. <b>How:</b> register a
+                  <code>bookingTool</code> column (family: website/tech),
+                  off-by-default, filterable.
+                </td>
+                <td>
+                  <span class="chip taggap">gap</span>
+                  <span class="chip p2">P2</span>
+                </td>
+              </tr>
+              <tr>
+                <td class="todo-id">C4</td>
+                <td>
+                  <b
+                    >"Operating business" &amp; "Has a website" show as
+                    <i>pain points</i></b
+                  >
+                  — they're signals/qualifiers, not pains.
+                  <span class="src">Req</span>
+                </td>
+                <td class="why">
+                  <b>Why:</b> the pains-column fallback renders any matched goal
+                  signal (incl. qualifiers) as a chip. <b>How:</b> exclude
+                  qualifier-group signals from the pains fallback; pains =
+                  problem findings only.
+                </td>
+                <td>
+                  <span class="chip tagbug">bug</span>
+                  <span class="chip p1">P1</span>
+                </td>
+              </tr>
+              <tr>
+                <td class="todo-id">C5</td>
+                <td>
+                  <b>Field-state filters</b> — e.g. "Email: enriched / not
+                  enriched / failed." <span class="src">Req</span>
+                </td>
+                <td class="why">
+                  <b>Why:</b> you can filter values but not enrich-state.
+                  <b>How:</b> add coverage-state filters per family (has /
+                  none-found / not-run / failed), round-tripped through the goal
+                  URL (Apollo's Email-Status filter pattern).
+                </td>
+                <td>
+                  <span class="chip taggap">gap</span>
+                  <span class="chip p1">P1</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          <!-- D · ENRICH FLOW -->
+          <h3 id="todo-enrich">D · Enrich flow</h3>
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 52px">ID</th>
+                <th>Item</th>
+                <th style="width: 150px">Why → How</th>
+                <th style="width: 120px">Tags</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="todo-id">D1</td>
+                <td>
+                  <b
+                    >Clicking "— enrich" on one lead's field must pre-select
+                    that enrichment type</b
+                  >
+                  (regression). <span class="src">Req</span>
+                </td>
+                <td class="why">
+                  <b>Why:</b> the sheet now opens with an empty selection and
+                  ignores
+                  <code>request.enrichments</code> (EnrichMoreSheet.tsx:78).
+                  <b>How:</b> when opened from a single-field CTA, seed
+                  <code>selected</code> from <code>request.enrichments</code>;
+                  keep empty only for the bulk "enrich more" entry.
+                </td>
+                <td>
+                  <span class="chip tagbug">bug</span>
+                  <span class="chip p1">P1</span>
+                </td>
+              </tr>
+              <tr>
+                <td class="todo-id">D2</td>
+                <td>
+                  <b>Skip "Price it."</b> Show
+                  <code>Run · N credits</code> directly, price client-side on
+                  checkbox change. <span class="src">Req</span>
+                </td>
+                <td class="why">
+                  <b>Why:</b> the gross credit total is <i>already</i> computed
+                  client-side (<code>grossCredits</code>); the extra step is
+                  pure friction. <b>How:</b> show <code>Run · ~N cr</code> live;
+                  run the server net-preflight on click of Run (reconcile
+                  fresh-cache savings in the toast/confirm).
+                </td>
+                <td>
+                  <span class="chip tagux">ux</span>
+                  <span class="chip p1">P1</span>
+                </td>
+              </tr>
+              <tr>
+                <td class="todo-id">D3</td>
+                <td>
+                  <b>Drop the "— enrich" text-before-the-value pattern.</b>
+                  <span class="src">Req</span>
+                </td>
+                <td class="why">
+                  <b>Why:</b> reads as noise. <b>How:</b> replace with the
+                  state-aware cell (A4): actionable <code>Run · N cr</code> chip
+                  only when genuinely not-run.
+                </td>
+                <td>
+                  <span class="chip tagux">ux</span>
+                  <span class="chip p2">P2</span>
+                </td>
+              </tr>
+              <tr>
+                <td class="todo-id">D4</td>
+                <td>
+                  <b>Live banner only appears after a page refresh.</b>
+                  <span class="src">Req</span>
+                </td>
+                <td class="why">
+                  <b>Why:</b> the banner mounts on the server re-render from
+                  <code>router.refresh()</code>; the client that fired the run
+                  doesn't optimistically show it. <b>How:</b> mount the
+                  LiveWorkbenchBanner optimistically on run-start (client
+                  state), before the refresh lands.
+                </td>
+                <td>
+                  <span class="chip tagbug">bug</span>
+                  <span class="chip p1">P1</span>
+                </td>
+              </tr>
+              <tr>
+                <td class="todo-id">D5</td>
+                <td>
+                  <b>Per-cell progress during a run</b> — show the affected
+                  cells as <code>running…</code> in the table.
+                  <span class="src">Req</span>
+                </td>
+                <td class="why">
+                  <b>Why:</b> only a top banner shows progress; the rows look
+                  static. <b>How:</b> flip in-scope (lead × type) cells to the
+                  <code>running</code> state via the poll+Redis progress feed
+                  (per the realtime-runs ADR), then to enriched/no-data/failed
+                  as jobs land.
+                </td>
+                <td>
+                  <span class="chip taggap">gap</span>
+                  <span class="chip p2">P2</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          <!-- E · DRAWER -->
+          <h3 id="todo-drawer">E · Lead drawer</h3>
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 52px">ID</th>
+                <th>Item</th>
+                <th style="width: 150px">Why → How</th>
+                <th style="width: 120px">Tags</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="todo-id">E1</td>
+                <td>
+                  <b
+                    >Reviews section shows Total/Rating/Years + "Unanswered ≤2★
+                    0" as if enriched</b
+                  >, but reviews weren't pulled. Add <b>Reply rate</b> + an
+                  <b>Enrich</b> CTA in front of the data.
+                  <span class="src">Req</span>
+                </td>
+                <td class="why">
+                  <b>Confirmed via DB:</b> those figures are the discovery GBP
+                  aggregate (<code>reviewCount</code>/<code>rating</code>), not
+                  pulled reviews. <b>How:</b> split "listing facts" (always
+                  present) from "review enrichment" (reply rate, unanswered ≤2★,
+                  themes) which only appears after a real reviews job;
+                  ghost-card + Enrich CTA until then.
+                </td>
+                <td>
+                  <span class="chip tagbug">bug</span>
+                  <span class="chip p1">P1</span>
+                </td>
+              </tr>
+              <tr>
+                <td class="todo-id">E2</td>
+                <td>
+                  <b
+                    >Site speed: no SEO score, no "not server-rendered / not
+                    crawlable" signal.</b
+                  >
+                  <span class="src">Req</span>
+                </td>
+                <td class="why">
+                  <b>Confirmed in code:</b> the drawer renders Performance / LCP
+                  / CLS / Accessibility but <b>not</b> the audit's
+                  <code>seo</code> score (it's selected, never shown); there is
+                  no crawlability/SSR signal at all. <b>How:</b> render the SEO
+                  score row; add a crawlability check (robots/render) as a new
+                  signal — needs a small collector addition.
+                </td>
+                <td>
+                  <span class="chip taggap">gap</span>
+                  <span class="chip p2">P2</span>
+                </td>
+              </tr>
+              <tr>
+                <td class="todo-id">E3</td>
+                <td>
+                  <b>AI research UI/structure is messy.</b>
+                  <span class="src">Req</span>
+                </td>
+                <td class="why">
+                  <b>Why:</b> the AI block renders raw-ish fields.
+                  <b>How:</b> restructure into labelled sub-sections (summary ·
+                  positioning · compliance cues · opener angle) with provenance;
+                  the pipeline fix (ER-3) already stabilised the data.
+                </td>
+                <td>
+                  <span class="chip tagux">ux</span>
+                  <span class="chip p2">P2</span>
+                </td>
+              </tr>
+              <tr>
+                <td class="todo-id">E4</td>
+                <td>
+                  <b>SERP shows "Not enriched" for non-ranking leads</b> though
+                  SERP runs cell-wide. If they don't rank, show that — not a
+                  wrong status. <span class="src">Req</span>
+                </td>
+                <td class="why">
+                  <b>Confirmed via DB:</b> SERP ran for the cell (28/86 rank; 33
+                  rows). Non-ranking leads have no <code>SerpResult</code> row →
+                  <code>serpEnriched=false</code> → "not enriched."
+                  <b>How:</b> drive from AdMarketRun(SERP) state → "Ran · not
+                  ranking in local pack" instead of "not enriched."
+                </td>
+                <td>
+                  <span class="chip tagbug">bug</span>
+                  <span class="chip p1">P1</span>
+                </td>
+              </tr>
+              <tr>
+                <td class="todo-id">E5</td>
+                <td>
+                  <b>Ads shows "Not enriched" though it ran</b> (Apify
+                  empties/timeouts). Fix actor + status.
+                  <span class="src">Req</span>
+                </td>
+                <td class="why">
+                  <b>Confirmed via DB:</b> Meta/Google ad runs completed OK with
+                  0 advertisers (barbers rarely advertise). The actor timeout
+                  you hit (<code>ERR_TIMED_OUT</code>) is separately being
+                  hardened. <b>How:</b> drive from AdMarketRun(META/GOOGLE)
+                  state → "Ran · no active ads found"; the actor retry-loop fix
+                  is already deployed, monitor for the timeout class.
+                </td>
+                <td>
+                  <span class="chip tagbug">bug</span>
+                  <span class="chip p1">P1</span>
+                </td>
+              </tr>
+              <tr>
+                <td class="todo-id">E6</td>
+                <td>
+                  <b>Add a social-contacts column + drawer strip.</b>
+                  <span class="src">Req</span>
+                </td>
+                <td class="why">
+                  <b>Confirmed via DB:</b> Instagram ×32, Facebook ×14, TikTok
+                  ×7, YouTube, X — all stored as <code>Contact</code> rows, none
+                  surfaced. <b>How:</b> add <code>socials</code> to the row
+                  hydration + a Socials column + a drawer contacts strip.
+                </td>
+                <td>
+                  <span class="chip taggap">gap</span>
+                  <span class="chip p1">P1</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          <!-- F · FIELDS -->
+          <h3 id="todo-fields">F · Fields &amp; columns</h3>
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 52px">ID</th>
+                <th>Item</th>
+                <th style="width: 150px">Why → How</th>
+                <th style="width: 120px">Tags</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="todo-id">F1</td>
+                <td>
+                  <b>Already-enriched fields can't be re-added</b> from the
+                  Fields menu; should be freely addable with enrich-state shown.
+                  <span class="src">Req</span>
+                </td>
+                <td class="why">
+                  <b>Why:</b> columns are a fixed registry with no "re-add
+                  hidden" affordance for enriched fields. <b>How:</b> make every
+                  registered column re-addable (Apollo "Add existing column"),
+                  each cell showing its A-cluster state.
+                </td>
+                <td>
+                  <span class="chip taggap">gap</span>
+                  <span class="chip p1">P1</span>
+                </td>
+              </tr>
+              <tr>
+                <td class="todo-id">F2</td>
+                <td>
+                  <b>Add the missing columns for data we already hold:</b>
+                  socials, booking tool, SEO score, SERP rank, ad count,
+                  AI-research summary. <span class="src">Found</span>
+                </td>
+                <td class="why">
+                  <b>Why:</b> 15 columns vs 9 enrichment types' worth of data
+                  (see <a href="#fields">§5</a>). <b>How:</b> extend the row
+                  model + registry; group columns by <i>enrichment type</i> not
+                  the flat workflow/enriched split.
+                </td>
+                <td>
+                  <span class="chip taggap">gap</span>
+                  <span class="chip p2">P2</span>
+                </td>
+              </tr>
+              <tr>
+                <td class="todo-id">F3</td>
+                <td>
+                  <b>Regroup the Fields menu by enrichment type</b> with search,
+                  matching how you pay/run. <span class="src">Found</span>
+                </td>
+                <td class="why">
+                  <b>Why:</b> two groups ("workflow"/"enriched") don't map to
+                  the 9 types. <b>How:</b> group the picker by type (Contacts ·
+                  Tech · Reviews · Site audit · Ads · Search · AI), each showing
+                  free vs credit-gated fields.
+                </td>
+                <td>
+                  <span class="chip tagux">ux</span>
+                  <span class="chip p3">P3</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          <!-- G · POLISH -->
+          <h3 id="todo-polish">G · Polish</h3>
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 52px">ID</th>
+                <th>Item</th>
+                <th style="width: 150px">Why → How</th>
+                <th style="width: 120px">Tags</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="todo-id">G1</td>
+                <td>
+                  <b>Delete the "≈" delta glyph.</b>
+                  <span class="src">Req</span>
+                </td>
+                <td class="why">
+                  <b>Why:</b> <code>fmtDelta</code> returns <code>"≈"</code> for
+                  within-tolerance values (leads-workbench.ts:244) — reads as
+                  noise. <b>How:</b> render nothing (or a faint "typical") when
+                  within tolerance.
+                </td>
+                <td>
+                  <span class="chip tagux">ux</span>
+                  <span class="chip p3">P3</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
+        <!-- ─────────────────────────────  FIELDS INVENTORY  ───────────────────────────── -->
+        <section id="fields">
+          <h2>
+            <span class="n">§5</span>Fields inventory — DB vs the Fields menu
+          </h2>
+          <p>
+            You asked: what do we store (incl. related tables) vs what the
+            Fields ▾ menu exposes, are the names aligned, what are the
+            "availability classes," is the Coverage layer redundant, and can
+            enriched fields be re-added. Here's the map.
+          </p>
+
+          <h3>What the Fields menu exposes today — 15 columns, 2 groups</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Group</th>
+                <th>Columns</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>workflow</code></td>
+                <td>
+                  Business · Match % · Pain points · Reachable · Enriched(dots)
+                  · Status · Touch · Last contacted
+                </td>
+              </tr>
+              <tr>
+                <td><code>enriched</code></td>
+                <td>
+                  Website · Built on · Reviews · Rating · Lighthouse · Phone ·
+                  Email
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          <h3>What we actually store but never show as a column</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Data (DB source)</th>
+                <th>Kelowna evidence</th>
+                <th>Column?</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>
+                  Social handles —
+                  <code>Contact</code> (INSTAGRAM/FACEBOOK/TIKTOK/…)
+                </td>
+                <td class="num">IG 32 · FB 14 · TT 7</td>
+                <td class="tagbug"><span class="chip tagbug">none</span></td>
+              </tr>
+              <tr>
+                <td>
+                  Booking tool name — <code>BusinessTech.name</code> (BOOKING)
+                </td>
+                <td>Square×5 · Fresha · Setmore · Vagaro</td>
+                <td class="tagbug"><span class="chip tagbug">none</span></td>
+              </tr>
+              <tr>
+                <td>
+                  SEO &amp; a11y scores —
+                  <code>LighthouseAudit.seo/accessibility</code>
+                </td>
+                <td>audit rows exist</td>
+                <td class="tagbug">
+                  <span class="chip tagbug">none</span> (a11y shows in drawer
+                  only; SEO nowhere)
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  SERP rank — <code>SerpResult.localPackRank/organicRank</code>
+                </td>
+                <td class="num">28/86 rank</td>
+                <td class="tagbug"><span class="chip tagbug">none</span></td>
+              </tr>
+              <tr>
+                <td>
+                  Ad presence — <code>AdLibraryEntry</code> /
+                  <code>AdMarketRun</code>
+                </td>
+                <td>runs OK, 0 advertisers</td>
+                <td class="tagbug"><span class="chip tagbug">none</span></td>
+              </tr>
+              <tr>
+                <td>AI research — <code>BusinessEnrichment</code></td>
+                <td class="num">1 lead</td>
+                <td class="tagbug"><span class="chip tagbug">none</span></td>
+              </tr>
+              <tr>
+                <td>
+                  Owner/role contacts — <code>Contact</code> (OWNER/PERSONAL)
+                </td>
+                <td>in hydration, not columnised</td>
+                <td class="tagbug"><span class="chip tagbug">none</span></td>
+              </tr>
+            </tbody>
+          </table>
+
+          <h3>Naming alignment</h3>
+          <p class="why">
+            <b>Mostly misaligned.</b> Columns are grouped by an internal
+            <code>workflow / enriched</code> split that doesn't match the
+            vocabulary you pay in (the 9 enrichment types) or the 6 "data
+            families" the coverage layer uses. Three different taxonomies (2
+            column groups, 6 families, 9 types) describe the same underlying
+            thing. → <b>Collapse to one: the enrichment type.</b> That's what
+            you run, pay for, and reason about.
+          </p>
+
+          <h3>Availability classes (the useful mental model to adopt)</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Class</th>
+                <th>Meaning</th>
+                <th>Examples</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><b>Free / discovery</b></td>
+                <td>present at $0 from the market pull</td>
+                <td>
+                  Name, address, phone, website URL, rating, review
+                  <i>count</i>, open status, years on Google
+                </td>
+              </tr>
+              <tr>
+                <td><b>Lead-enrichable</b></td>
+                <td>per-lead job, costs credits</td>
+                <td>
+                  Contacts (email/social/owner), Tech/booking tool, Reviews
+                  (reply rate, themes), Site audit, AI research
+                </td>
+              </tr>
+              <tr>
+                <td><b>Market-enrichable</b></td>
+                <td>per-cell run, shared across leads</td>
+                <td>SERP rank, Meta/Google ads, market census</td>
+              </tr>
+            </tbody>
+          </table>
+          <p class="why">
+            Every column should declare its class + its live
+            <b>state</b> (A-cluster). That's how Fields becomes honest: "Reply
+            rate — lead-enrichable — not run — <code>Run · 1 cr</code>."
+          </p>
+
+          <h3>Is the Coverage layer redundant?</h3>
+          <div class="callout">
+            <div class="h">
+              Yes — once per-cell state exists, the standalone Coverage panel is
+              redundant.
+            </div>
+            The panel is a workaround for the table not carrying honest per-cell
+            state. When every cell shows
+            <i>enriched / not-run / no-data / failed</i> inline (and the
+            Enriched column summarises it per row), the separate "Have / Not
+            yet" panel is repeating the same fact less precisely.
+            <b>Recommendation:</b>
+            demote it to a compact one-line "coverage across visible leads"
+            summary (or fold it into B2's counts strip), and let the table + the
+            state badges be the source of truth. This directly answers your
+            "Coverage layer is wrong / not aligned" note — the fix is to make it
+            derive from the same state, then shrink it.
+          </div>
+
+          <h3>Can already-enriched fields be re-added? — today, no</h3>
+          <p class="why">
+            Columns are a fixed registry; hiding one and re-adding it works for
+            the 15 registered, but there's no "enriched field catalog" to pull
+            from, and no per-cell state shown when you do. → <b>F1/F2:</b> make
+            every enrichment field a re-addable column whose cells carry state
+            (Apollo's "Add existing column" + Clay's per-cell state).
+          </p>
+        </section>
+
+        <!-- ─────────────────────────────  COMPETITORS  ───────────────────────────── -->
+        <section id="competitors">
+          <h2>
+            <span class="n">§6</span>Competitor benchmark — Clay, Apollo, Ocean
+          </h2>
+          <p>
+            Where do best-in-class enrichment tables solve exactly these
+            problems? Two products set the bar, and both converged on the
+            <b>per-cell state model</b> we're proposing in §3.
+          </p>
+
+          <div class="grid2">
+            <div class="card tight">
+              <h3 style="margin-top: 6px">
+                Clay — column = enrichment, cell = a job
+              </h3>
+              <ul class="why">
+                <li>
+                  Each enrichment is a <b>column you add</b>; every
+                  <b>cell</b> carries independent state: empty ·
+                  <b>"waiting for inputs"</b> (blocked) · running · found ·
+                  <b>not found</b> · <b>error (red, click to diagnose)</b>.
+                </li>
+                <li>
+                  Retry unit is the <b>cell</b> ("re-run this cell") — not the
+                  row, not the column.
+                </li>
+                <li>
+                  <b>Cell-details side panel</b> = provenance (raw response,
+                  source, confidence).
+                </li>
+                <li>
+                  <b>Waterfall</b> providers stop on first hit → you pay until a
+                  hit, not per provider.
+                </li>
+              </ul>
+              <p class="src">
+                Adopt: the 5-state enum (§3), cell-level retry, the provenance
+                panel (you already have a drawer), waterfall for contacts (you
+                already run one).
+              </p>
+            </div>
+            <div class="card tight">
+              <h3 style="margin-top: 6px">Apollo — reveal + verified badge</h3>
+              <ul class="why">
+                <li>
+                  Locked field shows an in-cell
+                  <b>"Access email · 1 cr"</b> button —
+                  <b>price is in the cell</b>. Reveal = spend + save, coupled.
+                </li>
+                <li>
+                  Revealed value carries a <b>trust badge</b>: Verified · Likely
+                  · Guessed · <b>Unavailable</b> (the calm "no data exists"
+                  terminal — grey, no re-charge).
+                </li>
+                <li>
+                  <b>Email-status filter</b> → filter the list by state (your
+                  C5).
+                </li>
+                <li>
+                  <b>Saved views</b> (layout + filters, named) — you already
+                  have this primitive via goal-in-URL.
+                </li>
+              </ul>
+              <p class="src">
+                Adopt: in-cell <code>Run · N cr</code> (D2/A4), the
+                "Unavailable" ≠ "failed" split (A4/A5), state filters (C5).
+              </p>
+            </div>
+          </div>
+          <div class="card tight">
+            <h3 style="margin-top: 6px">
+              Ocean.io — pre-spend preview · and your unique edge
+            </h3>
+            <p class="why">
+              <b>Ocean</b> shows a result/eligibility preview <i>before</i> you
+              spend. Adopt for bulk runs: "<code
+                >Enrich 240 leads · 190 eligible · ~380 cr · balance 3,200</code
+              >" — turning the wallet from a constraint into a trust feature
+              (your best defense against "why was I charged for nothing").
+            </p>
+            <p class="why">
+              <b>Your genuine differentiator (no competitor solves it):</b> the
+              <b>market-cell vs lead-level</b> split. SERP/ads are per-geo-cell,
+              shared across many leads; contacts are per-lead. Render
+              market-level enrichments as a <b>shared, once-per-cell</b> column
+              ("SERP · scanned 3d ago · shared across 40 leads · 1 cr") so Tom
+              never thinks he's paying N times. This is downstream of your
+              signal-vocabulary moat — an opportunity to invent, not a gap to
+              close.
+            </p>
+            <p class="src">
+              Footnote: the "Origami" you mentioned is <b>origami.chat</b> — a
+              prompt→finished-list generator (natural-language Clay), not a
+              per-cell enrichment table. No adoptable table patterns; it's a
+              competitor to your <i>discovery</i> flow, not this workbench.
+            </p>
+          </div>
+        </section>
+
+        <!-- ─────────────────────────────  PLAN  ───────────────────────────── -->
+        <section id="plan">
+          <h2>
+            <span class="n">§7</span>Phased plan — one phase = one session
+          </h2>
+          <p>
+            Sequenced so the root-cause fix lands first (it unblocks the most),
+            each phase independently shippable via <code>/ship</code>. IDs
+            reference the TODO above.
+          </p>
+
+          <div class="card">
+            <h3 style="margin-top: 4px">
+              <span class="chip p0">P0</span> The state-model foundation +
+              booking <span class="src">— the honesty fix</span>
+            </h3>
+            <p class="why">
+              <b>Why first:</b> one change makes the dots, coverage, drawer, and
+              status copy honest simultaneously, and it's the prerequisite for
+              almost everything else. <b>What:</b> A1, A3, A4 (state enum from
+              run records → dots + coverage + cells) · B1 ("Enriched only" view)
+              · C1 (booking re-bind). <b>How:</b> add a single
+              <code>leadEnrichmentState(lead, type)</code> deriving from
+              EnrichmentJob + AdMarketRun; replace the three presence
+              heuristics; re-bind the booking card to tech + return the tool
+              name.
+            </p>
+          </div>
+          <div class="card">
+            <h3 style="margin-top: 4px">
+              <span class="chip p1">P1</span> Enrich-flow UX + drawer honesty +
+              socials
+            </h3>
+            <p class="why">
+              <b>What:</b> D1 (pre-select regression) · D2 (drop Price-it) · D4
+              (optimistic banner) · E1/E4/E5 (drawer reviews/SERP/ads honesty,
+              now trivial on the P0 state) · E6 + F-plumbing (socials column) ·
+              C4 (qualifiers out of pains) · A5 (no re-charge on no-data).
+              <b>How:</b> mostly presentation, riding the P0 state; socials
+              needs a small hydration add.
+            </p>
+          </div>
+          <div class="card">
+            <h3 style="margin-top: 4px">
+              <span class="chip p1">P1</span> Counts + coverage-state filters
+            </h3>
+            <p class="why">
+              <b>What:</b> B2 (one counts strip) · B3 (reconcile enrichable) ·
+              C5 (field-state filters via goal URL) · demote the Coverage panel
+              (§5). <b>How:</b> one <code>enrichableCount</code>/<code
+                >enrichedCount</code
+              >
+              helper feeding the strip; filters round-trip through
+              <code>goal-url.ts</code> (respect the goal-state-in-URL contract).
+            </p>
+          </div>
+          <div class="card">
+            <h3 style="margin-top: 4px">
+              <span class="chip p2">P2</span> Column expansion + per-cell
+              progress
+            </h3>
+            <p class="why">
+              <b>What:</b> A2 (compact type-aligned badge column) · C2/C3
+              (booking-tool field + column) · F1/F2 (re-addable enriched columns
+              for socials/SEO/SERP/ads/AI) · D5 (per-cell running… via
+              poll+Redis) · E2/E3 (SEO score + crawlability signal, AI-research
+              restructure). <b>How:</b> extend the row model + registry, group
+              by enrichment type; per-cell progress reuses the realtime-runs ADR
+              (poll+Redis, not SSE).
+            </p>
+          </div>
+          <div class="card">
+            <h3 style="margin-top: 4px">
+              <span class="chip p3">P3</span> Polish
+            </h3>
+            <p class="why">
+              <b>What:</b> G1 (delete "≈") · F3 (regroup Fields menu by type) ·
+              Ocean-style pre-spend preview on bulk runs. <b>How:</b> small,
+              safe, ship anytime.
+            </p>
+          </div>
+
+          <div class="callout">
+            <div class="h">Recommended next session: P0.</div>
+            It's the highest leverage (fixes ~7 symptoms), it's the cheap layer
+            (presentation + one derivation function, no pipeline surgery), and
+            it unblocks every later phase. Booking (C1) rides along because it's
+            small and was your loudest single symptom. On your approval I'll
+            take P0 first — implement, run
+            <code>pnpm deploy-check</code>, show results, and wait for
+            <code>/ship</code>.
+          </div>
+        </section>
+
+        <!-- ═════════════════════════════  §8 · UI/UX AUDIT  ═════════════════════════════ -->
+        <section id="uiux">
+          <h2>
+            <span class="n">§8</span>UI/UX audit — how the page reads &amp;
+            where it wastes space
+          </h2>
+          <p class="lead">
+            A 14-agent audit of the workbench through six UX-framework lenses
+            (Gestalt · Miller/Hick/Tesler · Nielsen · Fitts · F/Z-scan +
+            information scent · transparency), benchmarked against Airtable /
+            Clay / Apollo / Attio / Linear, verified against the real CSS +
+            components.
+          </p>
+          <div class="callout">
+            <div class="h">Composite: 5.0 / 10 today → 8.5 achievable.</div>
+            "The bones are a real, trustworthy dense-tool design system — scoped
+            tokens, sticky <code>thead</code>, honest credit math, a
+            docked-on-selection bulk bar — but it's laid out as a body-scrolling
+            editorial stack that <b>hard-caps its own data grid at 62vh</b>,
+            hides filtering behind a far-right icon, and gives
+            <b>zero per-cell feedback</b> when Tom spends credits. It looks fast
+            and makes him work."
+          </div>
+          <div class="kpis">
+            <div class="kpi">
+              <div class="v">62vh</div>
+              <div class="l">hard cap on the table (→558px @900px)</div>
+            </div>
+            <div class="kpi">
+              <div class="v">~14</div>
+              <div class="l">rows visible on a laptop</div>
+            </div>
+            <div class="kpi">
+              <div class="v">43%</div>
+              <div class="l">of viewport is fixed chrome above the grid</div>
+            </div>
+            <div class="kpi">
+              <div class="v">~38%</div>
+              <div class="l">of a 24″ monitor the table can't reclaim</div>
+            </div>
+          </div>
+
+          <h3 id="uiux-read">How Tom actually reads this page</h3>
+          <div class="card">
+            <p class="why">
+              <b>First 5 seconds.</b> His eye lands top-left on a 32px
+              display-serif headline and a wrapping narrative note ("the 412 med
+              spas in this market · showing 200 · Fresh · mapped 2 days ago").
+              That's a magazine "read me" block, not a workbench masthead — a
+              warm editorial register that <i>contradicts</i> the dense-tool
+              promise and answers "what is this" instead of "what do I do next."
+              ~391px of fixed chrome stacks above the grid, so his first
+              fixation on an actual lead row is nearly
+              <b>halfway down the screen</b>. Von Restorff fails in the toolbar:
+              every control is the same 34px weight, nothing pops as primary,
+              and the money action (enrich) has
+              <b>no toolbar presence at all</b>.
+            </p>
+            <p class="why">
+              <b>~30 seconds, orienting.</b> He F-scans down the grid and hits
+              the ceiling: <code>max-height:62vh</code> shows only ~14–15 rows,
+              and the page <b>double-scrolls</b> (body + inner table). On a 24″
+              monitor this is viscerally wrong — a third of the screen sits
+              empty while the data is pinched into a 558px box that refuses to
+              grow. Scent is weakest where it should be strongest:
+              <b>match%</b> — the best "work this lead" signal — prints as
+              neutral ink, so 91% and 34% look identical until he reads them;
+              the pain-point chips that justify a pitch are 10.5px pills that
+              read as filler. What <i>does</i> read well: the FreshnessChip and
+              the sticky header — the two things that make it feel trustworthy
+              even as it wastes space.
+            </p>
+            <p class="why">
+              <b>~2 minutes, narrowing.</b> Filtering is his core job, but the
+              only entry is an unlabelled 34px icon at the far right sharing
+              chrome with Coverage and "?". Adding one condition is three clicks
+              with no keyboard path — against the keyboard-first rule. Worse,
+              the panel renders <b>inline and uncapped</b>, so opening it pushes
+              the already-capped grid further down: he's tuning a filter and
+              <b>can't watch the rows react</b> — the whole point of filtering.
+            </p>
+            <p class="why">
+              <b>Deciding &amp; spending.</b> He clicks a faint
+              <span class="m">— enrich</span> (a sub-24px text sliver), lands on
+              an all-empty 9-family checklist (the modal
+              <b>forgot the family he clicked</b>), dead-centered over the very
+              rows he's about to bill. The credit math is exemplary — but he
+              must click "Price it", wait a round-trip, then "Run · N" for a
+              number the UI already knew. He commits, and then
+              <b>nothing local happens</b>: the cell still says "— enrich", a
+              generic toast fires, control jumps to a page banner. He can't tell
+              which cell is running, done, or failed — and a real "0 ads / no
+              booking tool" negative is
+              <b>indistinguishable from "never scanned."</b>
+            </p>
+          </div>
+
+          <h3 id="uiux-height">The height problem — quantified</h3>
+          <div class="callout red">
+            <div class="h">
+              The grid is capped, not filled. This is the single
+              highest-leverage fix.
+            </div>
+            <p style="margin: 6px 0">
+              The workbench is a plain body-scrolling
+              <code>&lt;div&gt;</code> with no height/flex context, so the data
+              grid can only be sized by a fixed <code>max-height:62vh</code> on
+              <code>.wbtable-wrap</code> (agency-portal.css:1929). It can
+              <b>never flex</b> to fill the space below the toolbar, and
+              everything above is fixed chrome that eats the viewport first.
+              Opening the inline Filters/Coverage panels (fully uncapped) pushes
+              the capped table further down.
+            </p>
+            <p style="margin: 6px 0">
+              <b>The math @ 900px:</b> 62vh = 558px. Above it: topbar 60 +
+              top-pad 30 + WorkspaceHeader ~145 (32px serif h1 + goal pill +
+              wrapping note) + tabs ~64 + toolbar ~46 + chips ~46 =
+              <b>~391px (~43%)</b> of fixed chrome. With a 35px sticky header
+              and ~35px rows, the box shows only <b>~14–15 rows</b> and runs
+              past the fold → double-scroll. On a 24″ monitor the cap wastes
+              ~38% of vertical space (~8–12 rows that could show but don't).
+            </p>
+            <p style="margin: 6px 0">
+              <b>The fix (U1+U7):</b> make the workbench root a flex column
+              <code
+                >height:calc(100vh - var(--sticky-offset));
+                overflow:hidden</code
+              >; header/tabs/toolbar/chips become <code>flex:0 0 auto</code>;
+              <code>.wbtable-wrap</code> becomes
+              <code>flex:1 1 auto; min-height:0; overflow:auto</code>;
+              <b>delete <code>max-height:62vh</code></b
+              >; keep the sticky <code>thead</code>. Convert Filters/Coverage to
+              popovers on <code>#agency-overlays</code> so opening them costs
+              zero grid height. Add a Compact density default (~28px rows). Net:
+              ~14 → <b>25+ visible rows</b> and the double-scroll dies in one
+              change.
+            </p>
+          </div>
+
+          <h3 id="uiux-score">Scorecard — 10 dimensions</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Dimension</th>
+                <th style="width: 96px">Now → target</th>
+                <th>Verdict</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><b>Vertical space / table height</b></td>
+                <td><span class="num">3 → 9</span></td>
+                <td>
+                  Hard-capped at 62vh with no flex context → ~14 rows, ~38% dead
+                  space on a 24″. The highest-leverage defect.
+                </td>
+              </tr>
+              <tr>
+                <td><b>Feedback / latency</b></td>
+                <td><span class="num">4 → 8</span></td>
+                <td>
+                  Per-cell enrichment has no running/done/failed state — the
+                  clicked cell stays "— enrich" until a set-wide poll lands.
+                  Direct-manipulation broken.
+                </td>
+              </tr>
+              <tr>
+                <td><b>Reading &amp; scanning (F/Z)</b></td>
+                <td><span class="num">5 → 8</span></td>
+                <td>
+                  First fixation is a serif headline ~43% down; the
+                  highest-scent column (match%) has no color band; chips too
+                  quiet to triage by.
+                </td>
+              </tr>
+              <tr>
+                <td><b>Cognitive load / IA</b></td>
+                <td><span class="num">5 → 8</span></td>
+                <td>
+                  "Filter my leads" has no single home — split across the filter
+                  icon, the Fields ▾ menu, and the group-by segment, with an
+                  unexplained Signal-vs-Field split.
+                </td>
+              </tr>
+              <tr>
+                <td><b>Filters UX</b></td>
+                <td><span class="num">5 → 8</span></td>
+                <td>
+                  Chips + honest live count are good; entry is an unlabelled
+                  far-right icon, +1 filter is 3 clicks, and the inline panel
+                  steals grid height while tuning.
+                </td>
+              </tr>
+              <tr>
+                <td><b>Enrichment interaction</b></td>
+                <td><span class="num">5 → 9</span></td>
+                <td>
+                  Credit transparency is best-in-class, but the modal drops the
+                  clicked family, occludes the billed rows, and gates a
+                  client-known cost behind Price-it → Run.
+                </td>
+              </tr>
+              <tr>
+                <td><b>Buttons &amp; actions</b></td>
+                <td><span class="num">5 → 8</span></td>
+                <td>
+                  Uniform 34px controls + strong focus rings, but no isolated
+                  primary action, and the most-clicked target ("— enrich") is a
+                  faint sub-24px sliver.
+                </td>
+              </tr>
+              <tr>
+                <td><b>Transparency &amp; trust</b></td>
+                <td><span class="num">5 → 9</span></td>
+                <td>
+                  FreshnessChip + enrich footer are gold-standard, but an empty
+                  cell can't tell "never scanned" from "scanned, found none" —
+                  every blank is a potential lie.
+                </td>
+              </tr>
+              <tr>
+                <td><b>Accessibility (WCAG AA)</b></td>
+                <td><span class="num">6 → 9</span></td>
+                <td>
+                  Above-average (global focus ring, reduced-motion reset, skip
+                  link) with two live AA fails: <code>--faint</code> #97a1bb at
+                  2.58:1 in 81 rules; 16px remove buttons below the 24px floor.
+                </td>
+              </tr>
+              <tr>
+                <td><b>Visual system</b></td>
+                <td><span class="num">7 → 8</span></td>
+                <td>
+                  The strongest area — one correctly-scoped cool-gray/indigo
+                  system, ~40 reusable primitives — undercut only by an
+                  unformalized scale (33 font sizes) that will drift.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          <h3>The six framework lenses</h3>
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 96px">Now → target</th>
+                <th>Lens</th>
+                <th>The insight</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><span class="num">4 → 8</span></td>
+                <td>Visual hierarchy / density (Gestalt)</td>
+                <td>
+                  Within the grid the rhythm is clean; the data is starved of
+                  height by the cap and out-weighted by a 32px serif header —
+                  chrome and empty space dominate the figure.
+                </td>
+              </tr>
+              <tr>
+                <td><span class="num">5 → 8</span></td>
+                <td>Cognitive load / IA (Miller·Hick·Tesler)</td>
+                <td>
+                  "Filter my leads" is fragmented across three toolbar regions +
+                  an unexplained Signal-vs-Field split, and inline panels evict
+                  the data the user opened them to watch.
+                </td>
+              </tr>
+              <tr>
+                <td><span class="num">5 → 8</span></td>
+                <td>Nielsen's 10 heuristics</td>
+                <td>
+                  Strong on consistency + honest counts; fails hardest on
+                  Visibility of system status (no per-cell feedback) and
+                  Recognition-over-recall (modal forgets the clicked family).
+                </td>
+              </tr>
+              <tr>
+                <td><span class="num">5 → 8</span></td>
+                <td>Interaction / affordance (Fitts)</td>
+                <td>
+                  Uniform controls say "power tool", but the most-clicked target
+                  is the faintest sliver on screen and clicking it produces no
+                  local feedback.
+                </td>
+              </tr>
+              <tr>
+                <td><span class="num">5 → 8</span></td>
+                <td>Reading / scanning (F/Z · Von Restorff)</td>
+                <td>
+                  Aesthetic coherence makes it feel fast, but match% has no
+                  color band, chips are too quiet to triage by, and no isolated
+                  primary tells the eye what to do next.
+                </td>
+              </tr>
+              <tr>
+                <td><span class="num">5 → 9</span></td>
+                <td>Transparency &amp; trust</td>
+                <td>
+                  FreshnessChip + credit footer are best-in-class honest, but a
+                  blank cell can't distinguish "never ran" from "ran, found
+                  none" — turning every empty cell into a potential lie.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          <h3>What's already good — don't break these</h3>
+          <div class="callout green">
+            <ul style="margin: 4px 0">
+              <li>
+                <b>Scoped design system</b> — every selector under
+                <code>.agency-portal</code>, one cool-gray/indigo token set, ~40
+                reusable primitives. A defensible dual-portal boundary most
+                multi-audience apps get wrong.
+              </li>
+              <li>
+                <b>Best-in-class credit transparency</b> — per-family unit ×
+                count × freshness, a net · saved-from-cache · wallet footer, and
+                an "Add credits →" deep-link pre-filled with the exact deficit.
+              </li>
+              <li>
+                <b>FreshnessChip</b> — the full cost-and-staleness story in one
+                honest token (Fresh · $0 to serve → Stale · refetch billed),
+                color+text paired.
+              </li>
+              <li>
+                <b>Honest live count</b> — "N of M", switches the noun to
+                "loaded" when server-paginated so N never over-reads; aria-live.
+              </li>
+              <li>
+                <b>Bulk bar done right</b> — mounts only on selection &gt; 0,
+                docked (not floating over rows), role=region + aria-live.
+              </li>
+              <li>
+                <b>Sticky pinned <code>thead</code></b> with correct z-layering;
+                strong a11y posture (2px indigo focus ring, reduced-motion
+                reset, skip link).
+              </li>
+            </ul>
+          </div>
+
+          <h3 id="uiux-bench">Competitor patterns — and our gap</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Product</th>
+                <th>Pattern</th>
+                <th>Our gap</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Airtable / Clay / Linear / Attio</td>
+                <td>
+                  Full-viewport <b>flex</b> data grid — chrome fixed, grid takes
+                  remaining height with internal scroll + sticky header. Never a
+                  vertical cap.
+                </td>
+                <td>
+                  Our 62vh cap is anomalous; the table can't fill a tall
+                  monitor. <b>The single highest-leverage layout fix (U1).</b>
+                </td>
+              </tr>
+              <tr>
+                <td>Airtable</td>
+                <td>
+                  Four per-view-persisted row heights (Short → Extra-tall);
+                  density is a first-class remembered choice.
+                </td>
+                <td>
+                  We <b>removed</b> the Compact/Comfortable toggle and left rows
+                  fixed at ~35px — a regression for a scan-100-rows audience.
+                  Reinstate with Compact default (U7).
+                </td>
+              </tr>
+              <tr>
+                <td>Clay</td>
+                <td>
+                  Per-cell run-status dots (running / done / failed, disjoint) +
+                  a table-level progress chip pinned bottom-right — keep working
+                  while the run streams.
+                </td>
+                <td>
+                  Zero per-cell feedback; the clicked cell stays "— enrich" →
+                  set-wide banner. Add optimistic per-cell dots + a progress
+                  chip (U2).
+                </td>
+              </tr>
+              <tr>
+                <td>Apollo</td>
+                <td>
+                  In-row reveal/enrich control showing the exact credit cost
+                  <i>before</i> the click; persistent selection bar across huge
+                  selections.
+                </td>
+                <td>
+                  Gross credits are computed client-side yet hidden behind a
+                  two-step Price-it gate + absent from the bulk bar. Show "Run ·
+                  N credits" inline (U6/U17).
+                </td>
+              </tr>
+              <tr>
+                <td>Attio</td>
+                <td>
+                  Record opens in a resizable right-side panel that keeps the
+                  list in context, with ⌘ prev/next; filters added via popover,
+                  never an inline panel.
+                </td>
+                <td>
+                  Drawer isn't resizable / no prev/next; enrich sheet is a
+                  centered modal that occludes rows. Reuse the right-drawer for
+                  enrich-in-context (U5/U22).
+                </td>
+              </tr>
+              <tr>
+                <td>Linear</td>
+                <td>
+                  Keyboard-first, tight-by-default list where nearly every
+                  action has a shortcut; grouping headers stick on scroll.
+                </td>
+                <td>
+                  The cheat-sheet omits a key to open Filters or drive bulk ops
+                  — the primary workflow has no accelerator (U18).
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          <h3 id="uiux-todo">The UI/UX suggestions — U1–U24</h3>
+          <p>Each: <b>why</b> (plain) + <b>how</b> (concrete). P0 first.</p>
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 44px">ID</th>
+                <th>Suggestion</th>
+                <th style="width: 150px">Why → How</th>
+                <th style="width: 112px">Tags</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="todo-id">U1</td>
+                <td>
+                  <b>Flex-column root + delete the 62vh cap</b> so the grid
+                  fills the viewport.
+                </td>
+                <td class="why">
+                  <b>Why:</b> the grid is starved to ~14 rows &amp; can't fill a
+                  tall monitor; also kills the double-scroll. <b>How:</b> flex
+                  column <code>height:calc(100vh - sticky-offset)</code>;
+                  <code>.wbtable-wrap</code>
+                  <code>flex:1;min-height:0;overflow:auto</code>; delete
+                  <code>max-height:62vh</code>.
+                </td>
+                <td>
+                  <span class="chip tagux">ux</span>
+                  <span class="chip p0">P0</span>
+                </td>
+              </tr>
+              <tr>
+                <td class="todo-id">U2</td>
+                <td>
+                  <b>Per-cell enrichment status</b> — running / done / failed
+                  dots + a bottom-right progress chip.
+                </td>
+                <td class="why">
+                  <b>Why:</b> clicking to spend credits gives no local feedback;
+                  Tom may double-spend. <b>How:</b> optimistic "enriching" state
+                  on targeted rows (EnrichMoreSheet run()), 3 disjoint cell
+                  states reusing the <code>coverageFailed</code> map.
+                </td>
+                <td>
+                  <span class="chip tagux">ux</span>
+                  <span class="chip p0">P0</span>
+                </td>
+              </tr>
+              <tr>
+                <td class="todo-id">U3</td>
+                <td>
+                  <b>State-honest empty cells</b> — never-run vs scanned-empty
+                  vs value.
+                </td>
+                <td class="why">
+                  <b>Why:</b> a blank can't tell "never checked" from "checked,
+                  found none" — a real negative signal is invisible.
+                  <b>How:</b> drive cells off the enrichment-ran flag (companion
+                  §3 fix); NeedsEnrich branches to "— enrich" / muted "none" /
+                  value+provenance.
+                </td>
+                <td>
+                  <span class="chip tagbug">bug</span>
+                  <span class="chip p0">P0</span>
+                </td>
+              </tr>
+              <tr>
+                <td class="todo-id">U4</td>
+                <td>
+                  <b>Enrich modal keeps the clicked family</b> (consume
+                  <code>request.enrichments</code>).
+                </td>
+                <td class="why">
+                  <b>Why:</b> clicking a cell lands on an all-empty checklist.
+                  <b>How:</b> pre-check the passed family
+                  (EnrichMoreSheet.tsx:78); safe since Price-it gates the bill.
+                </td>
+                <td>
+                  <span class="chip tagbug">bug</span>
+                  <span class="chip p1">P1</span>
+                </td>
+              </tr>
+              <tr>
+                <td class="todo-id">U5</td>
+                <td>
+                  <b>Anchor the enrich sheet as a right-side panel</b>, not a
+                  centered modal.
+                </td>
+                <td class="why">
+                  <b>Why:</b> the modal occludes the rows being billed.
+                  <b>How:</b> reuse LeadDrawer slide-from-right; centered modal
+                  only on narrow viewports.
+                </td>
+                <td>
+                  <span class="chip tagux">ux</span>
+                  <span class="chip p1">P1</span>
+                </td>
+              </tr>
+              <tr>
+                <td class="todo-id">U6</td>
+                <td>
+                  <b>Collapse Price-it → Run</b> into one auto-priced "Run · N
+                  credits".
+                </td>
+                <td class="why">
+                  <b>Why:</b> gross credits are already known client-side; two
+                  clicks + a round-trip is friction on the money action.
+                  <b>How:</b> auto-price on change (debounced); keep the honest
+                  net/saved/wallet footer + deficit link.
+                </td>
+                <td>
+                  <span class="chip tagux">ux</span>
+                  <span class="chip p1">P1</span>
+                </td>
+              </tr>
+              <tr>
+                <td class="todo-id">U7</td>
+                <td>
+                  <b>Reinstate a density toggle, Compact default</b> (~28px
+                  rows).
+                </td>
+                <td class="why">
+                  <b>Why:</b> the toggle was removed; Compact lifts visible rows
+                  ~35% for a scan-heavy audience.
+                  <b>How:</b> Compact/Comfortable segment in the toolbar,
+                  persisted; pairs with U1 to roughly double visible rows.
+                </td>
+                <td>
+                  <span class="chip tagux">ux</span>
+                  <span class="chip p1">P1</span>
+                </td>
+              </tr>
+              <tr>
+                <td class="todo-id">U8</td>
+                <td>
+                  <b
+                    >Move filtering to a labelled "+ Filter" at the toolbar
+                    LEFT.</b
+                  >
+                </td>
+                <td class="why">
+                  <b>Why:</b> the primary action is an unlabelled far-right icon
+                  among identical glyphs. <b>How:</b> labelled button next to
+                  search carrying the count badge; space/label Coverage + "?".
+                </td>
+                <td>
+                  <span class="chip tagux">ux</span>
+                  <span class="chip p1">P1</span>
+                </td>
+              </tr>
+              <tr>
+                <td class="todo-id">U9</td>
+                <td>
+                  <b>Filters + Coverage as popovers</b>, not inline panels.
+                </td>
+                <td class="why">
+                  <b>Why:</b> the uncapped inline panel pushes rows below the
+                  fold while tuning — you can't watch them react.
+                  <b>How:</b> Popovers on <code>#agency-overlays</code> anchored
+                  to their buttons; keep the docked chips bar always-visible.
+                </td>
+                <td>
+                  <span class="chip tagux">ux</span>
+                  <span class="chip p1">P1</span>
+                </td>
+              </tr>
+              <tr>
+                <td class="todo-id">U10</td>
+                <td>
+                  <b>Exactly one isolated indigo primary action</b> in the
+                  toolbar.
+                </td>
+                <td class="why">
+                  <b>Why:</b> every control is equal weight; nothing says "do
+                  this next" and enrich has no toolbar presence. <b>How:</b> a
+                  single <code>.btn.primary</code> "Enrich N →" with inline
+                  gross credits; everything else stays btn.sm.
+                </td>
+                <td>
+                  <span class="chip tagux">ux</span>
+                  <span class="chip p1">P1</span>
+                </td>
+              </tr>
+              <tr>
+                <td class="todo-id">U11</td>
+                <td>
+                  <b>Color-band the match% column</b> so high-value rows glow.
+                </td>
+                <td class="why">
+                  <b>Why:</b> the strongest triage signal renders as neutral
+                  ink. <b>How:</b> apply the existing
+                  <code>.cellval.g/.a/.r</code> to the base match% value by
+                  cell-percentile band, not just the delta.
+                </td>
+                <td>
+                  <span class="chip tagux">ux</span>
+                  <span class="chip p1">P1</span>
+                </td>
+              </tr>
+              <tr>
+                <td class="todo-id">U12</td>
+                <td>
+                  <b>Fix <code>--faint</code> text contrast</b> (2.58:1 →
+                  ≥4.5:1).
+                </td>
+                <td class="why">
+                  <b>Why:</b> carries provenance/meta text in 81 rules at
+                  9–11px, fails WCAG AA. <b>How:</b> darken
+                  <code>--faint</code> (agency-portal.css:22) or route text to
+                  <code>--ink-2</code>; covers the "— enrich" affordance too.
+                </td>
+                <td>
+                  <span class="chip tagbug">bug</span>
+                  <span class="chip p1">P1</span>
+                </td>
+              </tr>
+              <tr>
+                <td class="todo-id">U13</td>
+                <td><b>Give "— enrich" a real hit area on row-hover.</b></td>
+                <td class="why">
+                  <b>Why:</b> the most-repeated target is a faint ~40×14px
+                  sliver — the worst Fitts target. <b>How:</b> quiet dotted text
+                  at rest; on <code>tr:hover</code>/focus swap in a ~24px indigo
+                  pill.
+                </td>
+                <td>
+                  <span class="chip tagux">ux</span>
+                  <span class="chip p1">P1</span>
+                </td>
+              </tr>
+              <tr>
+                <td class="todo-id">U14</td>
+                <td>
+                  <b>Compress WorkspaceHeader</b> to one terse meta strip.
+                </td>
+                <td class="why">
+                  <b>Why:</b> ~145px goes to a serif h1 + wrapping prose —
+                  editorial framing that delays first data fixation.
+                  <b>How:</b> one ~28px Inter meta line (count · freshness ·
+                  spend pills), drop the serif h1. Recovers ~90–100px (~3 rows).
+                </td>
+                <td>
+                  <span class="chip tagux">ux</span>
+                  <span class="chip p2">P2</span>
+                </td>
+              </tr>
+              <tr>
+                <td class="todo-id">U15</td>
+                <td>
+                  <b>One filtering home</b> — remove the duplicate Fields-menu
+                  filter path.
+                </td>
+                <td class="why">
+                  <b>Why:</b> numeric filters reachable from two places +
+                  group-by in a third = one model split three ways.
+                  <b>How:</b> Fields ▾ = column visibility only; merge
+                  +Signal/+Field into one attribute picker that infers control
+                  type.
+                </td>
+                <td>
+                  <span class="chip tagux">ux</span>
+                  <span class="chip p2">P2</span>
+                </td>
+              </tr>
+              <tr>
+                <td class="todo-id">U16</td>
+                <td><b>Per-cell provenance tips</b> on enriched values.</td>
+                <td class="why">
+                  <b>Why:</b> a number without a source is an assertion, not
+                  evidence Tom can pitch on. <b>How:</b>
+                  <code
+                    >data-tip "{source} · scanned {when} · {fresh|stale}"</code
+                  >
+                  reusing the FreshnessState machinery.
+                </td>
+                <td>
+                  <span class="chip taggap">gap</span>
+                  <span class="chip p2">P2</span>
+                </td>
+              </tr>
+              <tr>
+                <td class="todo-id">U17</td>
+                <td>
+                  <b>Show gross credit cost on the bulk-bar enrich action.</b>
+                </td>
+                <td class="why">
+                  <b>Why:</b> bulk enrich is the highest-cost single click,
+                  price hidden until the modal. <b>How:</b> compute
+                  <code>enrichCreditsFor</code> for the selection → "Enrich 34 ·
+                  ~N credits" on the bulk button.
+                </td>
+                <td>
+                  <span class="chip tagux">ux</span>
+                  <span class="chip p2">P2</span>
+                </td>
+              </tr>
+              <tr>
+                <td class="todo-id">U18</td>
+                <td>
+                  <b
+                    >Keyboard shortcuts for the primary workflow + an Undo
+                    net.</b
+                  >
+                </td>
+                <td class="why">
+                  <b>Why:</b> no key to open Filters or drive bulk ops, no undo
+                  after a bulk change/spend — against keyboard-first.
+                  <b>How:</b> add filter-open / multi-select / mark / enrich
+                  keys to the "?" sheet; Undo toast after bulk status changes.
+                </td>
+                <td>
+                  <span class="chip tagux">ux</span>
+                  <span class="chip p2">P2</span>
+                </td>
+              </tr>
+              <tr>
+                <td class="todo-id">U19</td>
+                <td>
+                  <b>Raise the live filtered count's prominence</b> next to the
+                  Filter control.
+                </td>
+                <td class="why">
+                  <b>Why:</b> the key post-filter feedback is the quietest
+                  number, adjacent to a different filtering number (the badge).
+                  <b>How:</b> relocate + up-weight it beside the new left-side
+                  Filter control.
+                </td>
+                <td>
+                  <span class="chip tagux">ux</span>
+                  <span class="chip p2">P2</span>
+                </td>
+              </tr>
+              <tr>
+                <td class="todo-id">U20</td>
+                <td>
+                  <b>Restate the dependency-resolved run set</b> before commit.
+                </td>
+                <td class="why">
+                  <b>Why:</b> picking "Tech" silently pulls a billed contacts
+                  scan; the footer shows N but not which scans run.
+                  <b>How:</b> after <code>resolveResearches</code>, render
+                  "Runs: contacts + tech · N credits" near the footer.
+                </td>
+                <td>
+                  <span class="chip tagux">ux</span>
+                  <span class="chip p2">P2</span>
+                </td>
+              </tr>
+              <tr>
+                <td class="todo-id">U21</td>
+                <td>
+                  <b
+                    >Make the picker "enrich to unlock" an actionable button.</b
+                  >
+                </td>
+                <td class="why">
+                  <b>Why:</b> the filter picker names the fix as inert text; Tom
+                  can't act from where the problem is stated. <b>How:</b> turn
+                  <code>.filter-add-empty</code> into a button that opens the
+                  enrich sheet pre-seeded with that family (exercises U4).
+                </td>
+                <td>
+                  <span class="chip tagux">ux</span>
+                  <span class="chip p2">P2</span>
+                </td>
+              </tr>
+              <tr>
+                <td class="todo-id">U22</td>
+                <td><b>Resizable LeadDrawer + ⌘ prev/next lead nav.</b></td>
+                <td class="why">
+                  <b>Why:</b> power-user record review keeps the list in context
+                  and walks rows without losing scroll. <b>How:</b> draggable
+                  divider with persisted width + ⌘ prev/next through the current
+                  table order.
+                </td>
+                <td>
+                  <span class="chip taggap">gap</span>
+                  <span class="chip p2">P2</span>
+                </td>
+              </tr>
+              <tr>
+                <td class="todo-id">U23</td>
+                <td>
+                  <b
+                    >Column pinning/priority before shipping the missing signal
+                    columns.</b
+                  >
+                </td>
+                <td class="why">
+                  <b>Why:</b> h-scroll is fine today (1180px), but adding
+                  socials/booking/SEO/SERP/ads pushes it to dual-axis scroll on
+                  a 1280px laptop. <b>How:</b> freeze identity + top signals;
+                  let secondary signals scroll or hide behind a density-aware
+                  min-width.
+                </td>
+                <td>
+                  <span class="chip taggap">gap</span>
+                  <span class="chip p2">P2</span>
+                </td>
+              </tr>
+              <tr>
+                <td class="todo-id">U24</td>
+                <td><b>Formalize a type + spacing token scale.</b></td>
+                <td class="why">
+                  <b>Why:</b> 33 font sizes + a continuous spacing ramp =
+                  coherence lives in the eye, not tokens; drift is guaranteed as
+                  the 7098-line sheet grows. <b>How:</b> introduce
+                  <code>--fs-*</code>/<code>--space-*</code> ramps, collapse
+                  near-duplicate paddings, migrate inline magic numbers to
+                  classes.
+                </td>
+                <td>
+                  <span class="chip tagux">ux</span>
+                  <span class="chip p3">P3</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="callout">
+            <div class="h">Recommended UI/UX sequence.</div>
+            <b>P0 layout pass</b> (U1 + U7 + U9 + U14) — reclaims the viewport,
+            the loudest complaint, in one styling-only session.
+            <b>P0 honesty pass</b> (U2 + U3) — rides the companion §3
+            state-model fix so cells show running/done/failed and never-run vs
+            found-none. Then the <b>enrich-flow pass</b> (U4–U6, U10, U17) and
+            the <b>scan pass</b> (U8, U11–U13). U15–U24 are polish.
+          </div>
+        </section>
+
+        <!-- ═════════════════════════════  §9 · ACTOR RELIABILITY  ═════════════════════════════ -->
+        <section id="actor">
+          <h2>
+            <span class="n">§9</span>Actor reliability — the Meta Ad Library
+            scraper
+          </h2>
+          <p class="lead">
+            "Ran · OK · 0 advertisers" is only trustworthy if the run
+            <i>reached Meta and genuinely found nothing</i>. The live Apify logs
+            say that's true less than half the time — and the app can't tell the
+            difference. Evidence: the live Apify API (96 runs) + per-run logs +
+            the actor source + the app-side adapter.
+          </p>
+          <div class="callout red">
+            <div class="h">
+              The core defect: <code>SUCCEEDED</code> means "the process didn't
+              crash" — not "I got trustworthy data."
+            </div>
+            A blocked run, a proxy-timeout run, and a genuinely-empty market all
+            exit 0 with 0 items. The adapter reads an empty dataset, records
+            <code>AdMarketRun</code> = OK/0, and <b>caches it for 6 hours</b> —
+            and we paid Apify either way. There is no signal that separates
+            "blocked" from "empty," even though the actor logs one
+            (<code>graphqlHits</code>) and then throws it away.
+          </div>
+          <div class="kpis">
+            <div class="kpi">
+              <div class="v">47%</div>
+              <div class="l">
+                productive runs (28 data / 30 empty-SUCCEEDED / 2 timeout, last
+                60)
+              </div>
+            </div>
+            <div class="kpi">
+              <div class="v">~5%</div>
+              <div class="l">hit the 300s hard timeout (p90 238s)</div>
+            </div>
+            <div class="kpi">
+              <div class="v">6h</div>
+              <div class="l">a silent-blocked "0" poisons the cache</div>
+            </div>
+            <div class="kpi">
+              <div class="v">$$</div>
+              <div class="l">billed for every no-yield run</div>
+            </div>
+          </div>
+
+          <h3 id="actor-how">How it works now</h3>
+          <div class="card">
+            <p class="why">
+              Apify + Crawlee <code>PlaywrightCrawler</code>,
+              <b>one warmed browser session</b> (<code>maxConcurrency:1</code>)
+              on Apify RESIDENTIAL proxy, country-matched. It primes on
+              <code>facebook.com</code> (<code>waitUntil:"load"</code>) to
+              acquire a <code>datr</code> cookie, then navigates each Ad Library
+              search URL and intercepts <code>/api/graphql</code> responses to
+              extract (a) the advertiser
+              <b>facet</b> (<code>dynamic_filter_options.pages</code>) and (b)
+              per-creative ad nodes. A <code>graphqlHits</code> counter is the
+              block/empty discriminator —
+              <b>0 = the data query never fired (blocked)</b>,
+              <b>≥1 = a real result (even if 0 ads)</b>. A blocked target
+              retries 4× re-warming the <i>same</i> session; images/fonts are
+              aborted to save bandwidth.
+            </p>
+            <p class="why">
+              The adapter (<code>services/apify/meta-ad-library.ts</code>)
+              partitions the dataset <code>items</code> into rows / resolutions
+              / advertisers — and receives
+              <b>no run status, no <code>graphqlHits</code>, no blocked flag</b
+              >. Empty items → <code>{rows:[], advertisers:[]}</code>, wrapped
+              in a <b>6h KV cache</b> (line 175), billed to the CronRun
+              regardless of yield.
+            </p>
+          </div>
+
+          <h3 id="actor-metrics">The reliability reality — measured</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Metric (live Apify API)</th>
+                <th>Value</th>
+                <th>Reading</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Run status, last 81</td>
+                <td class="num">77 SUCCEEDED · 4 TIMED-OUT</td>
+                <td>
+                  "SUCCEEDED" is ~95% — and almost meaningless (see below).
+                </td>
+              </tr>
+              <tr>
+                <td><b>Productive rate, last 60</b></td>
+                <td class="num">28 data · 30 SUCCEEDED-0 · 2 timeout → 47%</td>
+                <td>Half of runs return nothing while reporting success.</td>
+              </tr>
+              <tr>
+                <td>Durations</td>
+                <td class="num">p50 93s · p90 238s · max 281s</td>
+                <td>
+                  The 300s cap is real headroom pressure; the timeout run ran
+                  281s.
+                </td>
+              </tr>
+              <tr>
+                <td>First-load 403</td>
+                <td class="num">the norm</td>
+                <td>
+                  Meta soft-blocks the cold Ad Library hit almost every run; the
+                  re-warm usually recovers it — when the primer survives.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <p class="why">
+            <b>Honest nuance:</b> some of those 30 zero-item runs are
+            <i>genuinely empty markets</i> (Kelowna barbers don't advertise —
+            legitimately 0). The failure isn't "half the runs break" — it's that
+            <b
+              >the system cannot tell a block from a timeout from a real
+              empty.</b
+            >
+            The logs prove the discriminator exists:
+            <code>botox Miami: 0 ads, graphqlHits=0</code> (blocked) vs
+            <code>dermal fillers: 0 ads, graphqlHits=1</code> (genuinely empty)
+            — but it never leaves the log.
+          </p>
+
+          <h3 id="actor-fails">Failure-mode catalog</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Mode</th>
+                <th>Log signature</th>
+                <th>Today's outcome</th>
+                <th>Honest label</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>
+                  <b>Primer proxy timeout</b><br /><span class="src"
+                    >the <code>ERR_TIMED_OUT</code> you flagged</span
+                  >
+                </td>
+                <td>
+                  <code>page.goto: net::ERR_TIMED_OUT at facebook.com</code> →
+                  "Primer request failed"
+                </td>
+                <td class="tagbug">
+                  <span class="chip tagbug">SUCCEEDED / 0</span> — handler never
+                  ran, cached 6h, billed
+                </td>
+                <td><code>timeout</code> (retryable)</td>
+              </tr>
+              <tr>
+                <td><b>Soft-block per target</b></td>
+                <td>
+                  <code>0 ads, graphqlHits=0</code> after 4 re-warms; 403 not
+                  recovered
+                </td>
+                <td class="tagbug">
+                  <span class="chip tagbug">SUCCEEDED / 0</span> — cached,
+                  billed
+                </td>
+                <td><code>blocked</code> (retryable)</td>
+              </tr>
+              <tr>
+                <td><b>Genuine empty</b></td>
+                <td><code>0 ads, graphqlHits=1</code></td>
+                <td>
+                  <span class="chip ok">SUCCEEDED / 0</span> — correct outcome,
+                  wrong that it's indistinguishable
+                </td>
+                <td><code>empty_verified</code> (real)</td>
+              </tr>
+              <tr>
+                <td><b>Mid-run timeout</b></td>
+                <td>"reached the timeout of 280s, aborting" mid-target</td>
+                <td class="tagbug">
+                  <span class="chip tagbug">TIMED-OUT</span> — partial data on
+                  already-scraped targets lost
+                </td>
+                <td><code>timeout</code> (partial)</td>
+              </tr>
+            </tbody>
+          </table>
+          <h4 style="margin: 16px 0 4px; font-size: 14px">Root causes</h4>
+          <ol class="why">
+            <li>
+              <b>The discriminator is thrown away.</b>
+              <code>graphqlHits</code> is logged, never emitted to the dataset →
+              the app can't classify the outcome.
+            </li>
+            <li>
+              <b>Single residential IP, no rotation.</b>
+              <code>sessionPoolOptions.blockedStatusCodes:[]</code> disables
+              session retirement; one bad IP zeroes the whole run. And Apify
+              residential IPs die in ~60s, so
+              <b>re-warming the same session re-hits a dead IP</b> — the 4×
+              retry loop is often retrying a corpse.
+            </li>
+            <li>
+              <b>Primer is a single point of failure.</b> One request,
+              <code>waitUntil:"load"</code> (heavy); if it
+              <code>ERR_TIMED_OUT</code>s, the scrape handler never runs — 0
+              items, exit 0.
+            </li>
+            <li>
+              <b>Silent success.</b> Primer-fail / all-blocked still
+              <code>Actor.exit()</code> 0; no <code>Actor.fail()</code>, no
+              run-summary record.
+            </li>
+            <li>
+              <b>Sequential targets blow the 300s cap</b> when re-warms stack up
+              mid-run.
+            </li>
+            <li>
+              <b>6h cache poisoning.</b> A blocked <code>[]</code> is cached for
+              6 hours; re-triggers keep serving empty.
+            </li>
+            <li>
+              <b>We pay for the ~50% no-yield runs</b> (residential proxy +
+              compute), with no per-outcome cost visibility.
+            </li>
+          </ol>
+
+          <h3 id="actor-bench">
+            Benchmark — official API &amp; how the mature actors do it
+          </h3>
+          <div class="callout">
+            <div class="h">
+              There is no official API for US/CA commercial local-business ads.
+              The scraper is load-bearing.
+            </div>
+            Meta's developer <code>ads_archive</code> API is scoped to
+            <b>political + social-issue</b> ads; commercial ads are in the
+            archive only if delivered to the <b>UK/EU</b> (DSA-driven), and
+            there's <b>no advertiser-count-by-keyword facet</b>. The full
+            Content Library API is researcher-gated (~$371/mo + $1,000 setup,
+            CASD). So for your actual market (US/CA SMBs) the API can't replace
+            or even fully cross-check the scraper — only calibrate it on EU/UK
+            cells.
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>What mature actors do</th>
+                <th>What we do</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>
+                  <b>Fire the GraphQL query directly</b> — use the browser only
+                  to harvest
+                  <code>datr</code>/<code>lsd</code>/<code>doc_id</code>, then
+                  <code>page.request.post('/api/graphql')</code> +
+                  cursor-paginate. The <code>graphqlHits=0</code> class
+                  <b>can't happen</b> if you fire the query yourself.
+                </td>
+                <td>
+                  We wait for the UI to <i>happen</i> to fire the query and
+                  count hits — so "0 because it never fired" is our #1 silent
+                  mode.
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  <b>Rotate the IP on block</b> (SessionPool of 5–10;
+                  <code>session.retire()</code> on block). Pay-per-result
+                  pricing forces them to rotate, not re-warm.
+                </td>
+                <td>Single session, re-warm the same (often-dead) IP.</td>
+              </tr>
+              <tr>
+                <td>
+                  <b>Residential + rotation, not exotic stealth.</b> None
+                  document camoufox/undetected browsers — the reliability is
+                  rotation + GraphQL interception.
+                </td>
+                <td>
+                  Our 403→recover proves fingerprinting isn't the bottleneck.
+                  <b>Don't chase stealth</b> — fix rotation.
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  curious_coder ~$0.75/1k ads · apify/facebook-ads-scraper
+                  claims "99.9% runs succeeded."
+                </td>
+                <td>
+                  ~47% productive at a few cents/run — cheap per run, expensive
+                  per <i>useful</i> run.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <p class="why">
+            <b>Reliability-engineering best practice</b> (Google SRE · AWS ·
+            Crawlee docs): "success = reached the data query and the result is
+            trustworthy," a machine-readable outcome taxonomy (<code
+              >ok · empty_verified · blocked · timeout · partial · error</code
+            >), <code>Actor.fail()</code> with exit codes so status
+            <i>means</i> something, exponential backoff + full jitter with a
+            token-bucket retry budget, a circuit breaker on block-rate (stop
+            burning proxy $ when Meta hard-blocks),
+            <b>negative-cache only verified-empty</b> (short TTL), and
+            success-<i>rate</i> SLOs (block-rate / zero-yield-rate) — not
+            success-count.
+          </p>
+
+          <h3 id="actor-score">Scorecard + hardening plan</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Dimension</th>
+                <th style="width: 96px">Now → target</th>
+                <th>Verdict</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><b>Success-signal honesty</b></td>
+                <td><span class="num">1 → 9</span></td>
+                <td>
+                  SUCCEEDED means nothing today — blocked, timeout, and empty
+                  are one status.
+                </td>
+              </tr>
+              <tr>
+                <td><b>Outcome observability</b></td>
+                <td><span class="num">2 → 9</span></td>
+                <td>
+                  The discriminator is logged and discarded; the app is blind to
+                  why "0".
+                </td>
+              </tr>
+              <tr>
+                <td><b>Block resilience / IP rotation</b></td>
+                <td><span class="num">3 → 8</span></td>
+                <td>Re-warms a dead single IP; no session retirement.</td>
+              </tr>
+              <tr>
+                <td><b>Primer robustness</b></td>
+                <td><span class="num">2 → 9</span></td>
+                <td>One heavy request; its timeout zeroes the whole run.</td>
+              </tr>
+              <tr>
+                <td><b>Cache safety</b></td>
+                <td><span class="num">2 → 9</span></td>
+                <td>A blocked "0" poisons the cell for 6h.</td>
+              </tr>
+              <tr>
+                <td><b>Cost efficiency</b></td>
+                <td><span class="num">4 → 8</span></td>
+                <td>
+                  We pay for ~half the runs that yield nothing; no per-outcome
+                  cost.
+                </td>
+              </tr>
+              <tr>
+                <td><b>Timeout headroom</b></td>
+                <td><span class="num">5 → 8</span></td>
+                <td>
+                  Sequential targets × stacked re-warms breach 300s ~5% of the
+                  time.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="callout">
+            <div class="h">Composite: ~2.7 / 10 → ~8.5 / 10.</div>
+            The engine reaches Meta and parses correctly; it just can't tell you
+            <i>whether</i> it did.
+          </div>
+
+          <div class="card">
+            <h3 style="margin-top: 4px">
+              <span class="chip p0">R0</span> Make "success" mean something +
+              rotate the IP
+            </h3>
+            <p class="why">
+              <b>Why:</b> ends silent failure — the root of the whole problem.
+              <b>How:</b> emit a <code>RUN_SUMMARY</code> record (per-target
+              <code>ok / empty_verified / blocked / timeout</code> from
+              <code>graphqlHits</code> + a canary assertion);
+              <code>Actor.fail()</code> (exit 1) on block/primer-fail/timeout,
+              exit 0 only on ok/empty_verified;
+              <b>rotate the IP on block</b> (SessionPool 5–10,
+              <code>session.retire()</code> — don't re-warm a dead IP); the
+              adapter reads run status + summary,
+              <b>not <code>items.length</code></b
+              >; <b>cache only <code>empty_verified</code></b> (short TTL),
+              never a blocked "0".
+            </p>
+          </div>
+          <div class="card">
+            <h3 style="margin-top: 4px">
+              <span class="chip p1">R1</span> Un-zeroable primer + fire GraphQL
+              directly
+            </h3>
+            <p class="why">
+              <b>Why:</b> kills the two biggest silent modes by construction.
+              <b>How:</b> primer retries on a <b>fresh IP</b>,
+              <code>waitUntil:"domcontentloaded"</code>, 20s timeout, alternate
+              endpoint (<code>/ads/library/</code>), pre-seeded
+              <code>datr</code> pool; and harvest
+              <code>datr</code>/<code>lsd</code>/<code>doc_id</code> then
+              <code>page.request.post('/api/graphql')</code> + cursor-paginate
+              so the data query can't "fail to fire."
+            </p>
+          </div>
+          <div class="card">
+            <h3 style="margin-top: 4px">
+              <span class="chip p1">R2</span> Stop paying to hit a wall + never
+              lose a target
+            </h3>
+            <p class="why">
+              <b>Why:</b> cost + completeness. <b>How:</b> circuit breaker on
+              block-rate (cooldown + half-open probe); token-bucket retry budget
+              + full-jitter backoff; per-outcome <code>costUsd</code> to
+              <code>CronRun.meta</code>; dead-letter + re-queue of
+              <code>blocked</code> targets on fresh IPs; split multi-target runs
+              to stay under the 300s cap.
+            </p>
+          </div>
+          <div class="card">
+            <h3 style="margin-top: 4px">
+              <span class="chip p2">R3</span> Observability + honest ceiling
+            </h3>
+            <p class="why">
+              <b>Why:</b> make reliability measurable + defensible.
+              <b>How:</b> SLO tiles on <code>dev.mapsly.ai</code>
+              (block-rate / zero-yield-rate / verified-empty-rate), error-budget
+              alert that gates actor changes, a separate alert for an
+              <code>error</code>-spike (= Meta changed the payload — our prior
+              incident); EU/UK <code>ads_archive</code> cross-check to calibrate
+              the block detector; a paid API (ScrapeCreators/SerpApi) as a
+              last-resort fallback for stubborn <code>blocked</code> cells.
+              <b>The honest ceiling:</b> ~85–92% productive browser-only, ~98%
+              with re-queue + paid fallback. <b>100% is impossible</b> against a
+              hostile target that can rotate <code>doc_id</code>s at will —
+              which is exactly why the <i>taxonomy</i> matters more than the
+              last percent: it makes failures visible, attributable, and
+              retryable instead of silent.
+            </p>
+          </div>
+          <p class="why">
+            <b>Same discipline for the DOM-fetcher actor</b>
+            (<code>apify-actors/dom-fetcher/</code>, the contacts/Lighthouse
+            fetcher — the original
+            <code>ERR_TIMED_OUT at blkmktsmp.com</code> was a dead URL burning
+            its retry ladder): canary + <code>RUN_SUMMARY</code> + fail-loud +
+            fresh-IP retry apply verbatim.
+          </p>
+        </section>
+
+        <div class="foot">
+          Evidence base · <code>scripts/ops/verify-kelowna.ts</code> (live DB,
+          <code>barber_shop|kelowna|CA</code>) · <code>signal-eval.ts</code>,
+          <code>family-coverage.ts</code>, <code>lead-detail.ts</code>,
+          <code>leads-workbench.ts</code>, <code>EnrichMoreSheet.tsx</code>,
+          <code>goal-templates.ts</code>, <code>page.tsx</code> · competitor
+          research (Clay / Apollo / Ocean / origami.chat). · No code changed
+          this turn — analysis only.
+        </div>
+      </main>
+    </div>
+  </body>
+</html>

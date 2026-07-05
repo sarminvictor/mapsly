@@ -87,6 +87,7 @@ function biz(overrides: Partial<HydratedBusiness> = {}): HydratedBusiness {
     tech: {
       scanned: false,
       cmsName: null,
+      bookingName: null,
       hasAnalytics: false,
       hasMetaPixel: false,
       hasBooking: false,
@@ -1729,6 +1730,7 @@ function tech(
   return {
     scanned: true,
     cmsName: null,
+    bookingName: null,
     hasAnalytics: false,
     hasMetaPixel: false,
     hasBooking: false,
@@ -1738,6 +1740,64 @@ function tech(
     ...over,
   };
 }
+
+// AUDIT C1 · "No online booking tool" is an ABSENCE card. The old binding read
+// the GBP boolean and matched on-site tool-name chips against it → 0 results;
+// re-bound to the tech fingerprint, a phone-only business (no widget) matches.
+describe("no_booking · absence of an on-site booking tool (audit C1)", () => {
+  test("not computable until a tech scan exists (honest null, never a fake match)", () => {
+    expect(
+      evaluateSignal(
+        active("no_booking"),
+        biz({ tech: tech({ scanned: false }) }),
+        NOW,
+      ).matched,
+    ).toBeNull();
+  });
+
+  test("no booking tool detected → matches (the phone-only barbers, not 0)", () => {
+    expect(
+      evaluateSignal(
+        active("no_booking"),
+        biz({ tech: tech({ bookingName: null }) }),
+        NOW,
+      ).matched,
+    ).toBe(true);
+  });
+
+  test("a detected booking tool → does NOT match", () => {
+    expect(
+      evaluateSignal(
+        active("no_booking"),
+        biz({ tech: tech({ bookingName: "square appointments" }) }),
+        NOW,
+      ).matched,
+    ).toBe(false);
+  });
+
+  test("platform tune scopes WHICH tools count as booking", () => {
+    // Uses Vagaro, but the filter only counts Square → still "no Square booking".
+    expect(
+      evaluateSignal(
+        active("no_booking", {
+          tune: { kind: "platform", values: ["square"] },
+        }),
+        biz({ tech: tech({ bookingName: "vagaro" }) }),
+        NOW,
+      ).matched,
+    ).toBe(true);
+    // Filter counts Vagaro and the business uses Vagaro → does not match.
+    expect(
+      evaluateSignal(
+        active("no_booking", {
+          tune: { kind: "platform", values: ["vagaro"] },
+        }),
+        biz({ tech: tech({ bookingName: "vagaro" }) }),
+        NOW,
+      ).matched,
+    ).toBe(false);
+  });
+});
 
 function strict(level: "loose" | "balanced" | "strict") {
   return { kind: "strictness" as const, level };

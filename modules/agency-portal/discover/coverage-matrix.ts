@@ -25,21 +25,45 @@ import prisma from "@/lib/prisma";
 
 import {
   COVERED_JOB_STATUSES,
+  ENRICHMENT_FAMILIES,
   FAILED_JOB_STATUSES,
-  deriveFailedFamilies,
-  deriveFamilyCoverage,
+  type EnrichmentTypeKey,
+  type FamilyState,
+  type TypeState,
+  deriveFamilyStates,
+  deriveTypeStates,
 } from "./family-coverage";
-import { DATA_FAMILIES, type DataFamily } from "./leads-workbench";
+import { type DataFamily } from "./leads-workbench";
 import { rawListWhere } from "@/modules/discovery/raw-list";
+import { loadFreshTimestamps } from "@/modules/discovery/enrich-fresh-db";
 
-/** One business's COVERED families (only the covered keys are listed). */
+/** One business's honest per-family enrichment RUN state (audit §3). */
 export interface CoverageRow {
   businessId: string;
+  /** The 2026-07 source of truth: per-family state (enriched / empty / failed /
+   *  not_run) derived from RUN records + data presence, not presence alone. */
+  states: Record<DataFamily, FamilyState>;
+  /** AUDIT A2 · the honest per-TYPE state (the 9 things Tom pays for) — powers
+   *  the workbench "Enriched" column badge strip. Threaded ALONGSIDE `states`
+   *  (the 5-family display model the A3 coverage panel still reads). */
+  typeStates: Record<EnrichmentTypeKey, TypeState>;
+  /** Legacy: families with DATA (state === "enriched") — kept so the boolean
+   *  dot-strip + the lists page keep working during the migration. */
   families: DataFamily[];
-  /** Families whose enrichment job ERRORED and are still not covered — drives
-   *  the red "failed" dot (distinct from grey "never run"). */
+  /** Legacy: families whose enrichment ERRORED (state === "failed"). */
   failed: DataFamily[];
 }
+
+/** Ad-platform run status that counts as "the cell's ads/search enrichment ran"
+ *  (produced coverage) vs "errored". Ad/SERP runs are cell-scoped (AdMarketRun),
+ *  not per-business jobs, so a completed cell run IS the coverage signal. */
+const AD_RUN_OK = new Set(["OK", "PARTIAL"]);
+const AD_RUN_FAILED = new Set(["FAILED"]);
+
+/** `EnrichmentJobStatus` values that mean a type's enrichment is IN FLIGHT —
+ *  QUEUED (claimed, waiting) or RUNNING (executing). The badge pulses while a
+ *  job sits in either. */
+const RUNNING_JOB_STATUSES = ["QUEUED", "RUNNING"] as const;
 
 /**
  * Cap on businesses resolved into the matrix — matches the workbench's
@@ -50,6 +74,17 @@ const MAX_BUSINESSES = 200;
 /**
  * Build the coverage matrix for `discoveryId`, scoped to `agencyId`.
  *
+ * `scopeBusinessIds` — when the caller already knows the EXACT rows it will
+ * render (the paginated workspace window, or a saved list's leads), it passes
+ * them so the matrix is scoped to precisely those businesses. This is
+ * load-bearing for honesty: without it the loader re-derived its OWN top-N set
+ * (order by reviewCount, take 200), which drifts out of the rendered window on
+ * page 2+ and on curated lists — and every out-of-set row silently fell back to
+ * the legacy boolean-presence model in the client (the exact fake-state lie this
+ * audit set out to kill), and corrupted the C5 field-state filters. Omit it only
+ * for the standalone coverage route, which has no caller-side window (legacy
+ * top-N behaviour preserved for that consumer).
+ *
  * Returns `null` when the discovery is missing or belongs to another agency
  * (the caller maps that to 404 / not-found — we never confirm another agency's
  * data). Returns `[]` when the discovery has no cells or no businesses.
@@ -57,6 +92,7 @@ const MAX_BUSINESSES = 200;
 export async function loadCoverageMatrix(
   discoveryId: string,
   agencyId: string,
+  scopeBusinessIds?: string[],
 ): Promise<CoverageRow[] | null> {
   const discovery = await prisma.discovery.findUnique({
     where: { id: discoveryId },
@@ -67,75 +103,159 @@ export async function loadCoverageMatrix(
   const cellKeys = discovery.cellKeys;
   if (cellKeys.length === 0) return [];
 
-  // Resolve the discovery's businesses — same gate + ordering as the workspace
-  // page so the matrix aligns row-for-row with the rendered workbench.
-  const businesses = await prisma.business.findMany({
-    where: rawListWhere({ cellKeys }),
-    orderBy: [{ reviewCount: "desc" }, { id: "asc" }],
-    take: MAX_BUSINESSES,
-    select: { id: true, reviewCount: true },
-  });
+  const scoped = scopeBusinessIds && scopeBusinessIds.length > 0;
+  // Resolve the business set. When the caller passes the exact rendered rows we
+  // scope to THOSE (aligns row-for-row, no drift); otherwise fall back to the
+  // discovery's top-N by reviewCount (same gate + ordering as the raw market).
+  const businesses = scoped
+    ? await prisma.business.findMany({
+        where: { id: { in: scopeBusinessIds } },
+        select: { id: true, cellKey: true },
+      })
+    : await prisma.business.findMany({
+        where: rawListWhere({ cellKeys }),
+        orderBy: [{ reviewCount: "desc" }, { id: "asc" }],
+        take: MAX_BUSINESSES,
+        select: { id: true, cellKey: true },
+      });
   const businessIds = businesses.map((b) => b.id);
   if (businessIds.length === 0) return [];
 
-  // Real enriched-row presence (the drawer's `*Enriched` derivations) — one
-  // indexed existence scan per family — plus the live EnrichmentJob matrix.
-  const [snapshots, audits, techs, contacts, ads, serps, jobRows, failedRows] =
-    await Promise.all([
-      prisma.businessSnapshot.findMany({
-        where: { businessId: { in: businessIds }, reviewCount: { not: null } },
-        select: { businessId: true },
-        distinct: ["businessId"],
-      }),
-      prisma.lighthouseAudit.findMany({
-        where: { businessId: { in: businessIds } },
-        select: { businessId: true },
-        distinct: ["businessId"],
-      }),
-      prisma.businessTech.findMany({
-        where: { businessId: { in: businessIds } },
-        select: { businessId: true },
-        distinct: ["businessId"],
-      }),
-      prisma.contact.findMany({
-        where: { businessId: { in: businessIds } },
-        select: { businessId: true },
-        distinct: ["businessId"],
-      }),
-      prisma.adLibraryEntry.findMany({
-        where: { businessId: { in: businessIds } },
-        select: { businessId: true },
-        distinct: ["businessId"],
-      }),
-      prisma.serpResult.findMany({
-        where: { businessId: { in: businessIds } },
-        select: { businessId: true },
-        distinct: ["businessId"],
-      }),
-      // Captures work that produced no scalar (e.g. a contacts scan finding 0).
-      prisma.enrichmentJob.groupBy({
-        by: ["businessId", "family"],
-        where: {
-          businessId: { in: businessIds },
-          status: { in: [...COVERED_JOB_STATUSES] },
-        },
-      }),
-      // FAILED jobs → "failed" dot (distinct from never-run). Same batched shape.
-      prisma.enrichmentJob.groupBy({
-        by: ["businessId", "family"],
-        where: {
-          businessId: { in: businessIds },
-          status: { in: [...FAILED_JOB_STATUSES] },
-        },
-      }),
-    ]);
+  // Ad/SERP runs are CELL-scoped. Cover exactly the cells the resolved
+  // businesses live in (⊆ the discovery's cells) so per-business ad folding is
+  // complete even for a curated list subset that spans a different cell set.
+  const runCellKeys = scoped
+    ? Array.from(
+        new Set(
+          businesses
+            .map((b) => b.cellKey)
+            .filter((k): k is string => k != null),
+        ),
+      )
+    : cellKeys;
 
-  const reviewSnapSet = new Set(snapshots.map((r) => r.businessId));
+  // Real enriched-row presence — one indexed existence scan per family — plus
+  // the EnrichmentJob run matrix and the cell-scoped AdMarketRun runs.
+  //
+  // AUDIT §3 FIX: reviews presence is REAL `Review` rows, NOT `reviewCount` (a
+  // discovery GBP aggregate present on almost every business) — the old
+  // false-positive that showed "Reviews enriched" on un-enriched leads.
+  const [
+    reviewRows,
+    audits,
+    techs,
+    contacts,
+    services,
+    aiResearch,
+    metaAds,
+    googleAds,
+    serps,
+    jobRows,
+    failedRows,
+    runningRows,
+    adRuns,
+  ] = await Promise.all([
+    prisma.review.findMany({
+      where: { businessId: { in: businessIds } },
+      select: { businessId: true },
+      distinct: ["businessId"],
+    }),
+    prisma.lighthouseAudit.findMany({
+      where: { businessId: { in: businessIds } },
+      select: { businessId: true },
+      distinct: ["businessId"],
+    }),
+    prisma.businessTech.findMany({
+      where: { businessId: { in: businessIds } },
+      select: { businessId: true },
+      distinct: ["businessId"],
+    }),
+    prisma.contact.findMany({
+      where: { businessId: { in: businessIds } },
+      select: { businessId: true },
+      distinct: ["businessId"],
+    }),
+    // AUDIT A2 · services enrichment writes BusinessService rows (see
+    // modules/services-general/extract.ts) — an honest per-type presence signal.
+    prisma.businessService.findMany({
+      where: { businessId: { in: businessIds } },
+      select: { businessId: true },
+      distinct: ["businessId"],
+    }),
+    // AUDIT A2 · AI research writes a BusinessEnrichment row per business.
+    prisma.businessEnrichment.findMany({
+      where: { businessId: { in: businessIds } },
+      select: { businessId: true },
+      distinct: ["businessId"],
+    }),
+    // AUDIT A2 · split ad presence by platform so meta_ads / google_ads are
+    // distinct types (the 5-family model collapsed both into "ads").
+    prisma.adLibraryEntry.findMany({
+      where: { businessId: { in: businessIds }, platform: "META" },
+      select: { businessId: true },
+      distinct: ["businessId"],
+    }),
+    prisma.adLibraryEntry.findMany({
+      where: { businessId: { in: businessIds }, platform: "GOOGLE" },
+      select: { businessId: true },
+      distinct: ["businessId"],
+    }),
+    prisma.serpResult.findMany({
+      where: { businessId: { in: businessIds } },
+      select: { businessId: true },
+      distinct: ["businessId"],
+    }),
+    // Captures work that produced no scalar (e.g. a contacts scan finding 0).
+    prisma.enrichmentJob.groupBy({
+      by: ["businessId", "family"],
+      where: {
+        businessId: { in: businessIds },
+        status: { in: [...COVERED_JOB_STATUSES] },
+      },
+    }),
+    // FAILED jobs → "failed" state (distinct from never-run). Same batched shape.
+    prisma.enrichmentJob.groupBy({
+      by: ["businessId", "family"],
+      where: {
+        businessId: { in: businessIds },
+        status: { in: [...FAILED_JOB_STATUSES] },
+      },
+    }),
+    // AUDIT A2 · QUEUED/RUNNING jobs → the per-type badge pulses "running".
+    prisma.enrichmentJob.groupBy({
+      by: ["businessId", "family"],
+      where: {
+        businessId: { in: businessIds },
+        status: { in: [...RUNNING_JOB_STATUSES] },
+      },
+    }),
+    // AUDIT §3 FIX: ads/SERP are CELL-scoped (no per-business job rows). A
+    // COMPLETED AdMarketRun for the cell IS the coverage signal — so a cell
+    // that ran and matched 0 ads reads "ran, none found" (empty), not "not
+    // enriched" (the old false-negative). Grouped per (cell, platform, status).
+    prisma.adMarketRun.groupBy({
+      by: ["cellKey", "platform", "status"],
+      where: { cellKey: { in: runCellKeys } },
+    }),
+  ]);
+
+  const reviewSet = new Set(reviewRows.map((r) => r.businessId));
   const auditSet = new Set(audits.map((r) => r.businessId));
   const techSet = new Set(techs.map((r) => r.businessId));
   const contactSet = new Set(contacts.map((r) => r.businessId));
-  const adsSet = new Set(ads.map((r) => r.businessId));
+  const serviceSet = new Set(services.map((r) => r.businessId));
+  const aiSet = new Set(aiResearch.map((r) => r.businessId));
+  // AdLibraryEntry.businessId is nullable in the schema; the `in: businessIds`
+  // filter never returns a null one, but narrow it for the typed Set anyway.
+  const metaAdsSet = new Set(
+    metaAds.map((r) => r.businessId).filter((id): id is string => id != null),
+  );
+  const googleAdsSet = new Set(
+    googleAds.map((r) => r.businessId).filter((id): id is string => id != null),
+  );
   const serpSet = new Set(serps.map((r) => r.businessId));
+  // The 5-family model's "ads" = either platform having a real AdLibraryEntry.
+  const adsSet = new Set<string>([...metaAdsSet, ...googleAdsSet]);
 
   const doneJobs = new Map<string, Set<string>>();
   for (const g of jobRows) {
@@ -151,23 +271,126 @@ export async function loadCoverageMatrix(
     failedJobs.set(g.businessId, set);
   }
 
+  const runningJobs = new Map<string, Set<string>>();
+  for (const g of runningRows) {
+    const set = runningJobs.get(g.businessId) ?? new Set<string>();
+    set.add(g.family);
+    runningJobs.set(g.businessId, set);
+  }
+
+  // Per-cell ad/search run state, folded from the grouped AdMarketRun rows.
+  // The FAMILY model collapses both ad platforms into one "ads" flag; the TYPE
+  // model needs them split (meta_ads vs google_ads), so track both grains.
+  // platform "META" → meta_ads, "GOOGLE" → google_ads, "SERP" → search.
+  interface CellRuns {
+    adsRan: boolean; // family "ads": either ad platform completed
+    adsFailed: boolean;
+    metaRan: boolean;
+    metaFailed: boolean;
+    googleRan: boolean;
+    googleFailed: boolean;
+    searchRan: boolean;
+    searchFailed: boolean;
+  }
+  const cellRuns = new Map<string, CellRuns>();
+  const cellOf = (k: string): CellRuns => {
+    let c = cellRuns.get(k);
+    if (!c) {
+      c = {
+        adsRan: false,
+        adsFailed: false,
+        metaRan: false,
+        metaFailed: false,
+        googleRan: false,
+        googleFailed: false,
+        searchRan: false,
+        searchFailed: false,
+      };
+      cellRuns.set(k, c);
+    }
+    return c;
+  };
+  for (const g of adRuns) {
+    const c = cellOf(g.cellKey);
+    const ok = AD_RUN_OK.has(g.status);
+    const failed = AD_RUN_FAILED.has(g.status);
+    if (g.platform === "SERP") {
+      if (ok) c.searchRan = true;
+      else if (failed) c.searchFailed = true;
+    } else if (g.platform === "GOOGLE") {
+      if (ok) {
+        c.googleRan = true;
+        c.adsRan = true;
+      } else if (failed) {
+        c.googleFailed = true;
+        c.adsFailed = true;
+      }
+    } else {
+      // Any non-SERP, non-GOOGLE platform is Meta (the default ad source).
+      if (ok) {
+        c.metaRan = true;
+        c.adsRan = true;
+      } else if (failed) {
+        c.metaFailed = true;
+        c.adsFailed = true;
+      }
+    }
+  }
+
   return businesses.map((b) => {
-    const coverage = deriveFamilyCoverage(
-      {
-        // Reviews also count when the Business scalar carries a reviewCount (the
-        // drawer's `snapshot?.reviewCount ?? business.reviewCount` fallback).
-        reviews: reviewSnapSet.has(b.id) || b.reviewCount != null,
+    const cell = b.cellKey ? cellRuns.get(b.cellKey) : undefined;
+    const states = deriveFamilyStates({
+      presence: {
+        reviews: reviewSet.has(b.id),
         website: auditSet.has(b.id) || techSet.has(b.id),
         contacts: contactSet.has(b.id),
         ads: adsSet.has(b.id),
         search: serpSet.has(b.id),
       },
-      doneJobs.get(b.id),
-    );
+      doneJobFamilies: doneJobs.get(b.id),
+      failedJobFamilies: failedJobs.get(b.id),
+      cellRan: { ads: cell?.adsRan, search: cell?.searchRan },
+      // A cell "failed" only counts if it never also completed (a later OK wins).
+      cellFailed: {
+        ads: cell ? cell.adsFailed && !cell.adsRan : false,
+        search: cell ? cell.searchFailed && !cell.searchRan : false,
+      },
+    });
+    // AUDIT A2 · the per-TYPE state over the 9 purchasable types, from the SAME
+    // run records (presence only splits enriched↔empty; QUEUED/RUNNING → running).
+    const typeStates = deriveTypeStates({
+      presence: {
+        contacts: contactSet.has(b.id),
+        services: serviceSet.has(b.id),
+        tech: techSet.has(b.id),
+        reviews: reviewSet.has(b.id),
+        metaAds: metaAdsSet.has(b.id),
+        googleAds: googleAdsSet.has(b.id),
+        serp: serpSet.has(b.id),
+        lighthouse: auditSet.has(b.id),
+        aiResearch: aiSet.has(b.id),
+      },
+      doneJobFamilies: doneJobs.get(b.id),
+      failedJobFamilies: failedJobs.get(b.id),
+      runningJobFamilies: runningJobs.get(b.id),
+      cellRan: {
+        metaAds: cell?.metaRan,
+        googleAds: cell?.googleRan,
+        serp: cell?.searchRan,
+      },
+      // A cell "failed" only counts if it never also completed (a later OK wins).
+      cellFailed: {
+        metaAds: cell ? cell.metaFailed && !cell.metaRan : false,
+        googleAds: cell ? cell.googleFailed && !cell.googleRan : false,
+        serp: cell ? cell.searchFailed && !cell.searchRan : false,
+      },
+    });
     return {
       businessId: b.id,
-      families: DATA_FAMILIES.filter((f) => coverage[f.key]).map((f) => f.key),
-      failed: deriveFailedFamilies(coverage, failedJobs.get(b.id)),
+      states,
+      typeStates,
+      families: ENRICHMENT_FAMILIES.filter((f) => states[f] === "enriched"),
+      failed: ENRICHMENT_FAMILIES.filter((f) => states[f] === "failed"),
     };
   });
 }
@@ -189,5 +412,82 @@ export function coverageFailedToMap(
 ): Record<string, DataFamily[]> {
   const map: Record<string, DataFamily[]> = {};
   for (const r of rows) if (r.failed.length > 0) map[r.businessId] = r.failed;
+  return map;
+}
+
+/** Flatten the per-family STATE maps — the audit §3 source of truth the client
+ *  workbench reads for honest dots / cells / coverage (Pattern 4: plain data). */
+export function coverageStatesToMap(
+  rows: CoverageRow[],
+): Record<string, Record<DataFamily, FamilyState>> {
+  const map: Record<string, Record<DataFamily, FamilyState>> = {};
+  for (const r of rows) map[r.businessId] = r.states;
+  return map;
+}
+
+/** AUDIT A2 · flatten the per-TYPE state maps (the 9 billed types) — the source
+ *  of truth for the workbench "Enriched" column badge strip (Pattern 4). */
+export function coverageTypeStatesToMap(
+  rows: CoverageRow[],
+): Record<string, Record<EnrichmentTypeKey, TypeState>> {
+  const map: Record<string, Record<EnrichmentTypeKey, TypeState>> = {};
+  for (const r of rows) map[r.businessId] = r.typeStates;
+  return map;
+}
+
+/**
+ * AUDIT U16 · per-business per-family last-scanned ISO date for the workbench's
+ * provenance tooltip ("scanned {when}"). Reads the SAME freshness cursors the
+ * billing pre-flight uses (`loadFreshTimestamps`) so the tip's date is the real
+ * last-enrichment time, not a guess. Family mapping: contacts→contacts cursor,
+ * website→newer(tech, lighthouse), reviews→reviews cursor, ads→newer(meta,
+ * google) cell run, search→serp cell run. A family with no timestamp is omitted
+ * (the tip drops the date). Returns a plain map (Pattern 4).
+ */
+export async function loadScannedAtMap(
+  businesses: { id: string; cellKey: string | null }[],
+): Promise<Record<string, Partial<Record<DataFamily, string>>>> {
+  const businessIds = businesses.map((b) => b.id);
+  if (businessIds.length === 0) return {};
+  const cellKeys = Array.from(
+    new Set(
+      businesses.map((b) => b.cellKey).filter((k): k is string => k != null),
+    ),
+  );
+
+  let timestamps;
+  try {
+    timestamps = await loadFreshTimestamps(businessIds, cellKeys);
+  } catch {
+    // Provenance is a nicety — never let a freshness-read hiccup break the page.
+    return {};
+  }
+  const { perBusiness, perCell } = timestamps;
+
+  const iso = (d?: Date | null): string | undefined =>
+    d ? d.toISOString() : undefined;
+  const newer = (a?: Date | null, b?: Date | null): Date | null => {
+    if (!a) return b ?? null;
+    if (!b) return a;
+    return a.getTime() >= b.getTime() ? a : b;
+  };
+
+  const map: Record<string, Partial<Record<DataFamily, string>>> = {};
+  for (const b of businesses) {
+    const pb = perBusiness.get(b.id);
+    const pc = b.cellKey ? perCell.get(b.cellKey) : undefined;
+    const entry: Partial<Record<DataFamily, string>> = {};
+    const contacts = iso(pb?.contacts);
+    if (contacts) entry.contacts = contacts;
+    const website = iso(newer(pb?.tech, pb?.lighthouse));
+    if (website) entry.website = website;
+    const reviews = iso(pb?.reviews);
+    if (reviews) entry.reviews = reviews;
+    const ads = iso(newer(pc?.meta_ads, pc?.google_ads));
+    if (ads) entry.ads = ads;
+    const search = iso(pc?.serp);
+    if (search) entry.search = search;
+    if (Object.keys(entry).length > 0) map[b.id] = entry;
+  }
   return map;
 }

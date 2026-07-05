@@ -111,6 +111,24 @@ export interface RunActorResult<T> {
   runId: string;
   /** Actual USD billed to the open CronRun for this run. */
   usageTotalUsd: number;
+  /**
+   * Terminal Apify run status: SUCCEEDED · FAILED · ABORTED · TIMED-OUT.
+   *
+   * CONTRACT (CODE-REVIEW #2): a FAILED run NO LONGER THROWS — it returns here
+   * with `items: []` (the Meta actor deliberately `Actor.fail()`s on a block and
+   * still writes a RUN_SUMMARY). Every caller MUST check `runStatus`/`runSummary`
+   * and reconcile requested-vs-returned counts; treating an empty `items` on a
+   * FAILED/blocked run as a clean "0 results" would silently drop data AND still
+   * bill for the run.
+   */
+  runStatus: string;
+  /**
+   * The actor's `RUN_SUMMARY` record from its default key-value store, if it
+   * wrote one (our Meta actor does — a machine-readable per-run outcome so the
+   * adapter classifies block/timeout/empty instead of guessing from
+   * `items.length`). `null` when the actor didn't write one or it's unreadable.
+   */
+  runSummary: unknown;
 }
 
 /**
@@ -170,7 +188,12 @@ export async function runActor<T = unknown>(
     });
   }
   const startJson = (await startRes.json()) as {
-    data?: { id?: string; status?: string; defaultDatasetId?: string };
+    data?: {
+      id?: string;
+      status?: string;
+      defaultDatasetId?: string;
+      defaultKeyValueStoreId?: string;
+    };
   };
   const runId = startJson.data?.id;
   if (!runId) {
@@ -183,6 +206,7 @@ export async function runActor<T = unknown>(
   // 2 · poll until terminal
   let status = startJson.data?.status ?? "READY";
   let datasetId = startJson.data?.defaultDatasetId;
+  let keyValueStoreId = startJson.data?.defaultKeyValueStoreId;
   let usageTotalUsd = 0;
   const deadline = Date.now() + maxWait;
   while (!TERMINAL_STATUSES.has(status)) {
@@ -203,11 +227,13 @@ export async function runActor<T = unknown>(
       data?: {
         status?: string;
         defaultDatasetId?: string;
+        defaultKeyValueStoreId?: string;
         stats?: { usageTotalUsd?: number };
       };
     };
     status = runJson.data?.status ?? status;
     datasetId = runJson.data?.defaultDatasetId ?? datasetId;
+    keyValueStoreId = runJson.data?.defaultKeyValueStoreId ?? keyValueStoreId;
     usageTotalUsd = runJson.data?.stats?.usageTotalUsd ?? usageTotalUsd;
   }
 
@@ -226,12 +252,14 @@ export async function runActor<T = unknown>(
         data?: {
           stats?: { usageTotalUsd?: number };
           defaultDatasetId?: string;
+          defaultKeyValueStoreId?: string;
         };
       };
       if (fj.data?.stats?.usageTotalUsd) {
         usageTotalUsd = fj.data.stats.usageTotalUsd;
       }
       datasetId = fj.data?.defaultDatasetId ?? datasetId;
+      keyValueStoreId = fj.data?.defaultKeyValueStoreId ?? keyValueStoreId;
     }
   } catch {
     /* keep the polled usageTotalUsd */
@@ -242,20 +270,23 @@ export async function runActor<T = unknown>(
   const billed = usageTotalUsd || (opts.fallbackCostUsd ?? 0);
   if (billed > 0) await incrementCost(billed, opts.operation);
 
-  // A FAILED run produced nothing usable — surface it.
-  if (status === "FAILED") {
-    throw new ApifyError({
-      operation: opts.operation,
-      message: `run ${runId} failed`,
-      status,
-    });
-  }
+  // Read the actor's RUN_SUMMARY record (if it wrote one) so the adapter can
+  // classify the run's outcome. Best-effort — a run without one is fine; the
+  // adapter falls back to run status. This is why a FAILED run is NOT thrown
+  // here anymore: our Meta actor deliberately `Actor.fail()`s on block/timeout
+  // and still writes a RUN_SUMMARY the adapter needs to see (a thrown opaque
+  // error would hide the machine-readable reason).
+  const runSummary = keyValueStoreId
+    ? await readKvRecord(f, base, headers, keyValueStoreId, "RUN_SUMMARY")
+    : null;
 
-  // 3 · read default-dataset items. SUCCEEDED, TIMED-OUT, and ABORTED can all
-  // carry data: a scraping actor pushes items incrementally, so a run that hit
-  // its wall-clock timeout still has useful (partial) results. Salvage them
-  // rather than discard paid-for work — but a clean SUCCEEDED with no dataset
-  // (or an unreadable one) is a genuine error worth surfacing.
+  // 3 · read default-dataset items. SUCCEEDED, TIMED-OUT, ABORTED, and FAILED
+  // can all carry data: a scraping actor pushes items incrementally, so a run
+  // that hit its timeout — or deliberately failed on a partial block after
+  // scraping some targets — still has useful results + per-target status rows.
+  // Salvage them (we paid) and hand the caller the run status + summary so it
+  // decides how to treat the outcome. A clean SUCCEEDED with no dataset is
+  // still a genuine error worth surfacing.
   if (!datasetId) {
     if (status === "SUCCEEDED") {
       throw new ApifyError({
@@ -263,7 +294,13 @@ export async function runActor<T = unknown>(
         message: `run ${runId} succeeded but has no defaultDatasetId`,
       });
     }
-    return { items: [], runId, usageTotalUsd: billed };
+    return {
+      items: [],
+      runId,
+      usageTotalUsd: billed,
+      runStatus: status,
+      runSummary,
+    };
   }
   const itemsRes = await f(
     `${base}/datasets/${datasetId}/items?clean=true&format=json`,
@@ -277,7 +314,13 @@ export async function runActor<T = unknown>(
         status: itemsRes.status,
       });
     }
-    return { items: [], runId, usageTotalUsd: billed };
+    return {
+      items: [],
+      runId,
+      usageTotalUsd: billed,
+      runStatus: status,
+      runSummary,
+    };
   }
   const items = (await itemsRes.json()) as T[];
 
@@ -285,7 +328,33 @@ export async function runActor<T = unknown>(
     items: Array.isArray(items) ? items : [],
     runId,
     usageTotalUsd: billed,
+    runStatus: status,
+    runSummary,
   };
+}
+
+/**
+ * Read a single record from an Apify key-value store. Returns the parsed JSON
+ * value, or `null` if the record is absent (404) / unreadable. Best-effort:
+ * never throws (a missing summary must not fail the whole run read).
+ */
+async function readKvRecord(
+  f: typeof fetch,
+  base: string,
+  headers: Record<string, string>,
+  storeId: string,
+  key: string,
+): Promise<unknown> {
+  try {
+    const res = await f(
+      `${base}/key-value-stores/${encodeURIComponent(storeId)}/records/${encodeURIComponent(key)}`,
+      { headers, signal: AbortSignal.timeout(DEFAULT_FETCH_TIMEOUT_MS) },
+    );
+    if (!res.ok) return null; // 404 (no such record) or transient — no summary
+    return (await res.json()) as unknown;
+  } catch {
+    return null;
+  }
 }
 
 async function safeText(res: Response): Promise<string> {

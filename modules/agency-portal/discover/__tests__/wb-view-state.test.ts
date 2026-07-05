@@ -9,8 +9,10 @@ import type { LeadFilter, NumericLeadFilter } from "../leads-workbench";
 import {
   DEFAULT_SORT_DIR,
   DEFAULT_SORT_KEY,
+  parseFieldStateParam,
   parseFilterParam,
   parseViewFromSearchParams,
+  serializeFieldStateParam,
   serializeFilterParam,
   viewToSearchParams,
 } from "../wb-view-state";
@@ -109,6 +111,7 @@ describe("parseViewFromSearchParams", () => {
       sortKey: DEFAULT_SORT_KEY,
       sortDir: DEFAULT_SORT_DIR,
       filters: [{ field: "perf", op: "<", value: 50 }],
+      fieldStates: [],
     });
   });
 
@@ -120,6 +123,7 @@ describe("parseViewFromSearchParams", () => {
         { field: "perf", op: "<", value: 50 },
         { field: "reviews", op: "between", value: 20, value2: 100 },
       ] as LeadFilter[],
+      fieldStates: [],
     };
     const params = viewToSearchParams(original, new URLSearchParams());
     expect(parseViewFromSearchParams(params)).toEqual(original);
@@ -133,6 +137,63 @@ describe("parseViewFromSearchParams", () => {
       sortKey: DEFAULT_SORT_KEY,
       sortDir: DEFAULT_SORT_DIR,
       filters: [{ field: "perf", op: "<", value: 50 }],
+      fieldStates: [],
     });
+  });
+});
+
+// C5 · field-state filters round-trip through the same shareable-view URL as
+// sort + filters (one `fs=family:state` param each), backward-compatible.
+describe("field-state filters (fs param)", () => {
+  test("serialize / parse round-trips a field-state filter", () => {
+    for (const f of [
+      { family: "contacts", state: "empty" },
+      { family: "reviews", state: "failed" },
+      { family: "website", state: "enriched" },
+      { family: "search", state: "not_run" },
+    ] as const) {
+      expect(parseFieldStateParam(serializeFieldStateParam(f))).toEqual(f);
+    }
+  });
+
+  test("rejects unknown families and states", () => {
+    expect(parseFieldStateParam("identity:enriched")).toBeNull(); // not enrichable
+    expect(parseFieldStateParam("contacts:bogus")).toBeNull();
+    expect(parseFieldStateParam("nope:empty")).toBeNull();
+    expect(parseFieldStateParam("")).toBeNull();
+    expect(parseFieldStateParam("contacts")).toBeNull();
+  });
+
+  test("viewToSearchParams writes one fs per field-state filter", () => {
+    const params = viewToSearchParams(
+      {
+        sortKey: DEFAULT_SORT_KEY,
+        sortDir: DEFAULT_SORT_DIR,
+        filters: [],
+        fieldStates: [
+          { family: "contacts", state: "empty" },
+          { family: "reviews", state: "failed" },
+        ],
+      },
+      new URLSearchParams(),
+    );
+    expect(params.getAll("fs")).toEqual(["contacts:empty", "reviews:failed"]);
+  });
+
+  test("fs param alone (no sort/dir/f) still yields a view", () => {
+    const view = parseViewFromSearchParams(
+      new URLSearchParams("fs=contacts:empty&fs=bad:state"),
+    );
+    expect(view).toEqual({
+      sortKey: DEFAULT_SORT_KEY,
+      sortDir: DEFAULT_SORT_DIR,
+      filters: [],
+      fieldStates: [{ family: "contacts", state: "empty" }],
+    });
+  });
+
+  test("an old URL with no fs param parses to an empty fieldStates", () => {
+    const view = parseViewFromSearchParams(new URLSearchParams("f=perf:lt:50"));
+    expect(view?.fieldStates).toEqual([]);
   });
 });

@@ -150,9 +150,21 @@ export async function collectCellMeta(
       activeStatus: "active",
       maxItems: META_MAX_ITEMS,
     });
+    result.runUsd = out.usageTotalUsd;
+    // A run that never reached Meta's data query (blocked/timeout/error) is a
+    // TRANSIENT failure, not an empty market — bail before persisting so we
+    // don't overwrite the cell's advertisers with a false "0". `partial` still
+    // carries real data, so it proceeds.
+    if (
+      out.outcome === "blocked" ||
+      out.outcome === "timeout" ||
+      out.outcome === "error"
+    ) {
+      result.errors.push(`cell-meta-outcome:${out.outcome}`);
+      return result;
+    }
     rows = out.rows;
     advertisers = out.advertisers;
-    result.runUsd = out.usageTotalUsd;
   } catch (e) {
     result.errors.push(`cell-meta:${(e as Error).message}`.slice(0, 200));
     return result;

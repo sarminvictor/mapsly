@@ -20,6 +20,7 @@ import {
   metaAdLibrarySearch,
   type MetaAdRow,
   type MetaAdvertiser,
+  type MetaRunOutcome,
 } from "@/services/apify";
 import { matchStrength } from "@/modules/ads-intel/match";
 import {
@@ -27,6 +28,10 @@ import {
   latestAdMarketRun,
   CELL_INTEL_FRESHNESS_DAYS,
 } from "./freshness";
+import {
+  shouldRunMetaCell,
+  recordMetaCellOutcome,
+} from "@/lib/cost/meta-block-breaker";
 import {
   resolveCellContext,
   hostOf,
@@ -46,8 +51,12 @@ const META_MAX_ITEMS = 150;
 
 export interface CellMetaAdsResult {
   cellKey: string;
-  /** "served-from-db" (fresh), "collected" (ran adapter), "skipped" (no cell). */
-  outcome: "served-from-db" | "collected" | "skipped";
+  /**
+   * "served-from-db" (fresh), "collected" (ran adapter), "skipped" (no cell),
+   * "deferred" (R2 · circuit breaker OPEN — Meta is block-storming, so we did
+   * NOT burn proxy $; the cell stays retryable, no AdMarketRun written).
+   */
+  outcome: "served-from-db" | "collected" | "skipped" | "deferred";
   advertiserCount: number;
   adCount: number;
   /** AdLibraryEntry rows persisted (per-business attribution). */
@@ -157,6 +166,19 @@ export async function runMetaAdsForCell(
     return result;
   }
 
+  // 1b · R2 · circuit breaker. When Meta is block-storming (recent block-rate
+  // over threshold), the breaker is OPEN — skip this run so we don't burn Apify
+  // residential proxy $ hitting the same wall. The cell stays retryable (no
+  // AdMarketRun row written → the 30-day gate isn't touched, the dead-letter
+  // query won't see a fresh FAILED). Degrades OPEN (allow) with no Redis.
+  const gate = await shouldRunMetaCell({ nowMs: () => now.getTime() });
+  if (!gate.allow) {
+    result.outcome = "deferred";
+    result.errors.push(`meta-breaker:${gate.reason}`);
+    logMetaOutcome({ cellKey, outcome: "deferred", costUsd: 0, runId: null });
+    return result;
+  }
+
   // 2 · resolve cell context (category, metro, businesses, location code).
   const ctx = await resolveCellContext(cellKey);
   if (!ctx) {
@@ -174,6 +196,11 @@ export async function runMetaAdsForCell(
   const country2 = (ctx.country || "US").toUpperCase().slice(0, 2);
   let rows: MetaAdRow[] = [];
   let advertisers: MetaAdvertiser[] = [];
+  // Verified outcome from the actor's RUN_SUMMARY (block vs timeout vs real
+  // empty). Drives the AdMarketRun status below so the coverage-matrix reads
+  // "failed/retryable" for a blocked cell — NOT "ran, empty". Default `error`
+  // so an exception before the adapter returns records as failed, not empty.
+  let outcome: MetaRunOutcome = "error";
   try {
     const out = await metaAdLibrarySearch({
       searchTerms,
@@ -183,6 +210,7 @@ export async function runMetaAdsForCell(
     });
     rows = out.rows;
     advertisers = out.advertisers ?? [];
+    outcome = out.outcome;
     result.costUsd = out.usageTotalUsd;
     result.runId = out.runId;
   } catch (e) {
@@ -198,8 +226,48 @@ export async function runMetaAdsForCell(
         adCount: 0,
       },
     });
+    // R2 · a thrown run is a block class → teach the breaker + log the spend.
+    await recordMetaCellOutcome(false, { nowMs: () => now.getTime() });
+    logMetaOutcome({
+      cellKey,
+      outcome: "error",
+      costUsd: result.costUsd,
+      runId: result.runId,
+    });
     return result;
   }
+
+  // A run that never reached Meta's data query (blocked/timeout/error) is a
+  // TRANSIENT failure, not an empty market — record it FAILED (retryable) and
+  // stop, so the 30-day freshness gate doesn't lock in a false "0 advertisers"
+  // for a month and the cache didn't get poisoned. `partial` still carries real
+  // data worth persisting, so it falls through to the normal path below.
+  if (outcome === "blocked" || outcome === "timeout" || outcome === "error") {
+    result.errors.push(`meta-outcome:${outcome}`);
+    await prisma.adMarketRun.create({
+      data: {
+        cellKey,
+        platform: "META",
+        status: "FAILED",
+        costUsd: result.costUsd,
+        advertiserCount: 0,
+        adCount: 0,
+      },
+    });
+    // R2 · feed the breaker a block sample (NOT verified) + attribute the spend.
+    await recordMetaCellOutcome(false, { nowMs: () => now.getTime() });
+    logMetaOutcome({
+      cellKey,
+      outcome,
+      costUsd: result.costUsd,
+      runId: result.runId,
+    });
+    return result;
+  }
+
+  // R2 · a run that reached Meta's data query (ok/empty_verified/partial) is a
+  // VERIFIED sample — closes a half-open probe / rolls the block-rate down.
+  await recordMetaCellOutcome(true, { nowMs: () => now.getTime() });
 
   // pageId → businessId for fast attribution (cached fbPageId).
   const byPageId = new Map<string, string>();
@@ -379,18 +447,64 @@ export async function runMetaAdsForCell(
     }
   }
 
-  // 7 · telemetry run row (freshness marker + dashboard counts).
+  // 7 · telemetry run row (freshness marker + dashboard counts). Status is now
+  // outcome-honest: OK only for a fully-verified run (ok/empty_verified) with no
+  // persistence errors; PARTIAL when the actor reported `partial` (some targets
+  // silently failed) OR a per-row persist errored. blocked/timeout/error never
+  // reach here (returned FAILED above).
+  const runStatus =
+    outcome === "partial" || result.errors.length > 0 ? "PARTIAL" : "OK";
   await prisma.adMarketRun.create({
     data: {
       cellKey,
       platform: "META",
-      status: result.errors.length > 0 ? "PARTIAL" : "OK",
+      status: runStatus,
       costUsd: result.costUsd,
       advertiserCount: result.advertiserCount,
       adCount: result.adCount,
     },
   });
 
+  // R3 · per-outcome cost visibility — attribute block-vs-empty-vs-real spend.
+  logMetaOutcome({
+    cellKey,
+    outcome,
+    costUsd: result.costUsd,
+    runId: result.runId,
+    advertiserCount: result.advertiserCount,
+    adCount: result.adCount,
+  });
+
   result.outcome = "collected";
   return result;
+}
+
+/**
+ * R3 · structured, single-line JSON log of a Meta cell run's outcome CLASS +
+ * spend, so block-vs-empty-vs-real cost is attributable in Vercel logs (per
+ * `.claude/rules/observability.md` — CronRun.meta has no per-cell field, so a
+ * structured console line is the sanctioned surface). One event per run.
+ */
+function logMetaOutcome(o: {
+  cellKey: string;
+  outcome: MetaRunOutcome | "deferred";
+  costUsd: number;
+  runId: string | null;
+  advertiserCount?: number;
+  adCount?: number;
+}): void {
+  console.log(
+    JSON.stringify({
+      level: "info",
+      event: "cell.meta.outcome",
+      feature: "cell-intel",
+      cellKey: o.cellKey,
+      outcome: o.outcome,
+      costUsd: Number(o.costUsd.toFixed(6)),
+      runId: o.runId,
+      advertisers: o.advertiserCount ?? 0,
+      ads: o.adCount ?? 0,
+      ts: new Date().toISOString(),
+    }),
+  );
 }

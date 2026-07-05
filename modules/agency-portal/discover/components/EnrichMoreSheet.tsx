@@ -37,7 +37,23 @@ import {
 import { getEnrichScopeAction } from "../enrich-scope-actions";
 import { resolveResearches } from "../researches";
 import { enrichCreditsFor, fmtCredits } from "../flow-types";
-import type { EnrichSheetRequest } from "../enrich-sheet-bus";
+import {
+  emitEnrichStarted,
+  emitEnrichScope,
+  type EnrichSheetRequest,
+} from "../enrich-sheet-bus";
+
+/** AUDIT U2/D5 · enrichment-type → workbench DataFamily, for per-cell "running"
+ *  marks (services/ai_research have no table column → omitted). */
+const ENRICH_TYPE_TO_FAMILY: Record<string, string> = {
+  contacts: "contacts",
+  tech: "website",
+  lighthouse: "website",
+  reviews: "reviews",
+  meta_ads: "ads",
+  google_ads: "ads",
+  serp: "search",
+};
 
 type ScopeChoice = "selected" | "visible" | "all";
 
@@ -45,14 +61,6 @@ interface ScopeInfo {
   cellKeys: string[];
   marketCount: number;
   walletCredits: number;
-}
-
-interface Quote {
-  /** What this quote priced — invalidated by any family/scope change. */
-  forKey: string;
-  estimateId: string;
-  netCredits: number;
-  freshCredits: number;
 }
 
 function unitLabel(unit: ScopeUnit): string {
@@ -71,12 +79,14 @@ export function EnrichMoreSheet({
   const router = useRouter();
   const [scopeInfo, setScopeInfo] = useState<ScopeInfo | null>(null);
   const [scopeError, setScopeError] = useState(false);
-  // Open with NOTHING selected — the user picks the families to enrich (or hits
-  // "Select all"). Previously the caller's suggested families (e.g. every
-  // missing one from the coverage CTA) were pre-checked, which surprised the
-  // user with a big pre-selected bill on open.
-  const [selected, setSelected] = useState<Set<EnrichmentType>>(
-    () => new Set<EnrichmentType>(),
+  // AUDIT D1 · a single-field "— enrich" cell or a drawer ghost accordion opens
+  // with its family PRE-CHECKED (request.preselect), so clicking one field
+  // pre-selects that enrichment. The bulk "enrich more" / coverage CTA leaves
+  // preselect false so the user isn't surprised by a big pre-selected bill.
+  const [selected, setSelected] = useState<Set<EnrichmentType>>(() =>
+    request.preselect && request.enrichments?.length
+      ? new Set<EnrichmentType>(request.enrichments)
+      : new Set<EnrichmentType>(),
   );
   const selectedIds = useMemo(
     () => request.scope?.selectedBusinessIds ?? [],
@@ -93,12 +103,15 @@ export function EnrichMoreSheet({
         ? "visible"
         : "all",
   );
-  const [quote, setQuote] = useState<Quote | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   // Deficit → the wallet can't cover the net quote (renders Add credits →).
   const [deficit, setDeficit] = useState<number | null>(null);
   const fetchedFor = useRef<string | null>(null);
+  // U5 · the right-side panel element — scopes the Tab focus-trap so focus can't
+  // escape behind the scrim to the workbench (a11y for role=dialog aria-modal),
+  // matching the LeadDrawer pattern.
+  const panelRef = useRef<HTMLDivElement | null>(null);
 
   // Load cellKeys + market count + wallet once per open (per discovery).
   useEffect(() => {
@@ -118,13 +131,52 @@ export function EnrichMoreSheet({
     })();
   }, [discoveryId]);
 
-  // Escape closes (scrim click handled on the overlay).
+  // U5 · Escape closes (scrim click handled on the overlay) + Tab focus-trap +
+  // initial focus into the panel + focus-return to the trigger on close, so the
+  // right-side panel behaves as a proper role=dialog aria-modal (parity with
+  // the LeadDrawer + the workbench help modal). Body scroll is locked while open.
   useEffect(() => {
+    const prevFocus = document.activeElement as HTMLElement | null;
+    // Lock body scroll so wheel/touch over the scrim can't scroll the workbench
+    // behind the panel (restored exactly on close).
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const focusables = () =>
+      Array.from(
+        panelRef.current?.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ) ?? [],
+      );
+    const focusTimer = window.setTimeout(() => focusables()[0]?.focus(), 30);
     function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") {
+        onClose();
+        return;
+      }
+      if (e.key !== "Tab") return;
+      const items = focusables();
+      if (items.length === 0) return;
+      const first = items[0]!;
+      const last = items[items.length - 1]!;
+      const active = document.activeElement as HTMLElement | null;
+      if (e.shiftKey && active === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && active === last) {
+        e.preventDefault();
+        first.focus();
+      } else if (active && !panelRef.current?.contains(active)) {
+        e.preventDefault();
+        first.focus();
+      }
     }
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.clearTimeout(focusTimer);
+      document.body.style.overflow = prevOverflow;
+      prevFocus?.focus?.();
+    };
   }, [onClose]);
 
   const scopeIds =
@@ -141,12 +193,9 @@ export function EnrichMoreSheet({
     () => resolveResearches([...selected]),
     [selected],
   );
-  // Any family/scope change invalidates a standing quote.
-  const quoteKey = `${scope}:${scopeCount}:${enrichments.join(",")}`;
-  const activeQuote = quote && quote.forKey === quoteKey ? quote : null;
-
-  // Client-side GROSS estimate (CREDIT_PRICES) — the server preflight returns
-  // the honest NET once priced (fresh units served from cache at 0 credits).
+  // Client-side GROSS estimate (CREDIT_PRICES) — shown live on the Run button
+  // (audit D2). The server preflight at run-time returns the honest NET (fresh
+  // units served from cache at 0 credits) and bills that — never more.
   const grossCredits = useMemo(
     () => enrichCreditsFor(enrichments, scopeCount, cellCount),
     [enrichments, cellCount, scopeCount],
@@ -177,55 +226,55 @@ export function EnrichMoreSheet({
 
   const allSelected = selected.size === ALL_ENRICHMENT_TYPES.length;
 
-  function priceIt() {
+  // AUDIT D2 · ONE click: price server-side (honest net + fresh-cache dedup +
+  // estimateId) and run in the same transition. The gross estimate already told
+  // the user the ballpark on the Run button, so the old two-step "Price it →
+  // Run" is gone. A wallet shortfall surfaces the exact deficit + Add-credits.
+  function runNow() {
     if (!scopeInfo || enrichments.length === 0) return;
     setError(null);
     setDeficit(null);
-    const forKey = quoteKey;
     startTransition(async () => {
-      const r = await preflightEnrichAction({
+      const pf = await preflightEnrichAction({
         businessIds: scopeIds,
         cellKeys: scopeInfo.cellKeys,
         enrichments,
       });
-      if (r.status === "ok") {
-        setQuote({
-          forKey,
-          estimateId: r.estimateId,
-          netCredits: r.netCredits,
-          // Credits saved by fresh-cache dedup = gross (all units) − server NET.
-          freshCredits: Math.max(0, grossCredits - r.netCredits),
-        });
-        if (r.netCredits > scopeInfo.walletCredits) {
-          setDeficit(r.netCredits - scopeInfo.walletCredits);
-        }
-      } else {
-        setQuote(null);
+      if (pf.status !== "ok") {
         setError(
-          r.status === "invalid_input"
-            ? r.message
-            : `Couldn't price this (${r.status}).`,
+          pf.status === "invalid_input"
+            ? pf.message
+            : `Couldn't price this (${pf.status}).`,
         );
+        return;
       }
-    });
-  }
-
-  function run() {
-    if (!activeQuote) return;
-    setError(null);
-    startTransition(async () => {
-      const r = await runEnrichAction({ estimateId: activeQuote.estimateId });
+      if (pf.netCredits > scopeInfo.walletCredits) {
+        setDeficit(pf.netCredits - scopeInfo.walletCredits);
+        return;
+      }
+      const r = await runEnrichAction({ estimateId: pf.estimateId });
       if (r.status === "ok") {
         showToast("Enrichment started — leads update live as it runs");
-        // The workbench page re-renders with the new PENDING run → the WP4
-        // LiveWorkbenchBanner mounts and takes over from here.
+        // AUDIT D4 · announce the new run so LiveRunGate shows the banner
+        // OPTIMISTICALLY now, before router.refresh() brings the server run.
+        emitEnrichStarted(r.runId);
+        // AUDIT U2/D5 · flag the exact (business × family) cells as "running".
+        emitEnrichScope({
+          businessIds: scopeIds,
+          families: [
+            ...new Set(
+              enrichments
+                .map((e) => ENRICH_TYPE_TO_FAMILY[e])
+                .filter((f): f is string => !!f),
+            ),
+          ],
+        });
         router.refresh();
         onClose();
       } else if (r.status === "insufficient_credits") {
         setDeficit(r.netCredits - (scopeInfo?.walletCredits ?? 0));
       } else if (r.status === "needs_requote" || r.status === "quote_expired") {
-        setQuote(null);
-        setError("The quote changed — price it again.");
+        setError("The quote changed — try again.");
       } else {
         setError(`Couldn't start enrichment (${r.status}).`);
       }
@@ -261,18 +310,22 @@ export function EnrichMoreSheet({
   ];
 
   return (
+    // U5 · a right-side slide-in panel (was a centered modal). `.overlay.side`
+    // is the same scrim; `.enrich-panel` docks full-height on the right and
+    // slides in. On narrow viewports (<720px) the CSS falls the panel back to a
+    // bottom-sheet so it stays reachable on mobile.
     <div
-      className="overlay center"
+      className="overlay side"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
       <div
-        className="modal"
+        ref={panelRef}
+        className="enrich-panel"
         role="dialog"
         aria-modal="true"
         aria-labelledby="enrichMoreTitle"
-        style={{ maxWidth: 520 }}
       >
         <div className="mhead">
           <h2 id="enrichMoreTitle">Enrich more data</h2>
@@ -401,6 +454,23 @@ export function EnrichMoreSheet({
             })}
           </ul>
 
+          {/* AUDIT U20 · ALWAYS restate the exact run-set + its credit total
+              before commit (not only when a dependency was pulled in) so the
+              scans that will run — and what they cost — are never a surprise.
+              When a pick pulls in a dependency (Tech rides the billed contacts
+              scan) that's called out too. Uses the same grossCredits shown on
+              the Run button. */}
+          {enrichments.length > 0 ? (
+            <p className="note" style={{ marginTop: 6 }}>
+              Runs:{" "}
+              {enrichments.map((e) => ENRICHMENT_PRICES[e].label).join(" + ")} ·
+              ~{fmtCredits(grossCredits)} credits
+              {enrichments.length > selected.size
+                ? " — a dependency is pulled in."
+                : ""}
+            </p>
+          ) : null}
+
           {error ? (
             <p
               className="note"
@@ -414,27 +484,27 @@ export function EnrichMoreSheet({
 
         <div className="mfoot" style={{ alignItems: "center", gap: 10 }}>
           <span className="note" style={{ flex: 1, minWidth: 0 }}>
-            {activeQuote ? (
+            {enrichments.length === 0 || scopeCount + cellCount === 0 ? (
+              "Pick at least one data family."
+            ) : deficit != null && deficit > 0 ? (
               <>
-                This will cost{" "}
-                <b>{fmtCredits(activeQuote.netCredits)} credits</b>
-                {activeQuote.freshCredits > 0
-                  ? ` · ${fmtCredits(activeQuote.freshCredits)} saved from fresh cache`
-                  : ""}
+                Needs <b>{fmtCredits(deficit)}</b> more credits
                 {scopeInfo
                   ? ` · wallet ${fmtCredits(scopeInfo.walletCredits)}`
                   : ""}
-              </>
-            ) : enrichments.length > 0 && scopeCount + cellCount > 0 ? (
-              <>
-                ~{fmtCredits(grossCredits)} credits before fresh-cache dedupe —
-                price it for the exact number.
+                .
               </>
             ) : (
-              "Pick at least one data family."
+              <>
+                ~{fmtCredits(grossCredits)} credits
+                {scopeInfo
+                  ? ` · wallet ${fmtCredits(scopeInfo.walletCredits)}`
+                  : ""}{" "}
+                · fresh-cache dedup applied at run
+              </>
             )}
           </span>
-          {activeQuote && deficit != null && deficit > 0 ? (
+          {deficit != null && deficit > 0 ? (
             <Link
               href={{
                 pathname: "/team/billing",
@@ -444,17 +514,6 @@ export function EnrichMoreSheet({
             >
               Add credits →
             </Link>
-          ) : activeQuote ? (
-            <button
-              type="button"
-              className="btn primary"
-              disabled={pending}
-              onClick={run}
-            >
-              {pending
-                ? "Starting…"
-                : `Run · ${fmtCredits(activeQuote.netCredits)} credits`}
-            </button>
           ) : (
             <button
               type="button"
@@ -465,9 +524,11 @@ export function EnrichMoreSheet({
                 !scopeInfo ||
                 (scopeCount === 0 && cellCount === 0)
               }
-              onClick={priceIt}
+              onClick={runNow}
             >
-              {pending ? "Pricing…" : "Price it"}
+              {pending
+                ? "Starting…"
+                : `Run · ${fmtCredits(grossCredits)} credits`}
             </button>
           )}
         </div>

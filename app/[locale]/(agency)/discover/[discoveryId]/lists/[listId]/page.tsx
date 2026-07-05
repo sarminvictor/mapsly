@@ -48,6 +48,9 @@ import {
   loadCoverageMatrix,
   coverageMatrixToMap,
   coverageFailedToMap,
+  coverageStatesToMap,
+  coverageTypeStatesToMap,
+  loadScannedAtMap,
 } from "@/modules/agency-portal/discover/coverage-matrix";
 import {
   WORKBENCH_WINDOW,
@@ -78,7 +81,7 @@ import {
   WorkbenchShell,
   type WorkbenchShellProps,
 } from "@/modules/agency-portal/discover/components/WorkbenchShell";
-import { LiveWorkbenchBanner } from "@/modules/agency-portal/discover/components/LiveWorkbenchBanner";
+import { LiveRunGate } from "@/modules/agency-portal/discover/components/LiveRunGate";
 import { resolveActiveRunForDiscovery } from "@/modules/agency-portal/discover/active-run";
 import type { WorkbenchTouch } from "@/modules/agency-portal/discover/components/TouchpointsTab";
 import { parseWhyJson } from "@/modules/agency-portal/discover/touchpoints";
@@ -338,14 +341,27 @@ async function ListWorkbenchBody({ params, searchParams }: PageProps) {
   for (const t of techs)
     if (!builtOnById.has(t.businessId)) builtOnById.set(t.businessId, t.name);
 
-  // Contacts → phones / emails per business.
+  // Contacts → phones / emails / socials per business (AUDIT E6).
+  const SOCIAL_CHANNELS = new Set([
+    "INSTAGRAM",
+    "FACEBOOK",
+    "TIKTOK",
+    "YOUTUBE",
+    "X",
+    "LINKEDIN",
+  ]);
   const phonesById = new Map<string, string[]>();
   const emailsById = new Map<string, string[]>();
+  const socialsById = new Map<string, { channel: string; value: string }[]>();
   for (const c of contacts) {
     if (c.channel === "PHONE" || c.channel === "WHATSAPP") {
       push(phonesById, c.businessId, c.value);
     } else if (c.channel === "EMAIL") {
       push(emailsById, c.businessId, c.value);
+    } else if (SOCIAL_CHANNELS.has(c.channel)) {
+      const arr = socialsById.get(c.businessId) ?? [];
+      arr.push({ channel: c.channel, value: c.value });
+      socialsById.set(c.businessId, arr);
     }
   }
 
@@ -444,6 +460,7 @@ async function ListWorkbenchBody({ params, searchParams }: PageProps) {
         phones.length > 0 ||
         emails.length > 0,
       builtOn: builtOnById.get(b.id) ?? null,
+      bookingTool: null,
       website: b.website ?? null,
       pitchAngle: pitchById.get(b.id) ?? null,
       touch: touchByBusiness.get(b.id) ?? "None",
@@ -451,8 +468,16 @@ async function ListWorkbenchBody({ params, searchParams }: PageProps) {
       reviews,
       rating,
       perf,
+      // SEO/ad-count/AI-summary columns aren't hydrated on the list-detail
+      // surface (they're off by default; the market workbench carries them) —
+      // null keeps the shared row type satisfied without an extra query here.
+      seo: null,
+      adCount: null,
+      serpRank: null,
+      aiSummary: null,
       phones,
       emails,
+      socials: socialsById.get(b.id) ?? [],
       // All six families derived from the SAME real data the drawer uses — no
       // hardcoded ads/search negatives. deriveFamilyCoverage is the single
       // source of truth shared with the drawer + the coverage endpoint.
@@ -526,12 +551,26 @@ async function ListWorkbenchBody({ params, searchParams }: PageProps) {
 
   // Coverage matrix (the doc's batched GET /research/:id/coverage) — fetched
   // server-side via the SHARED loader the endpoint uses, passed to the client as
-  // a PLAIN `{ businessId: families[] }` map (Pattern 4). It is keyed by
-  // businessId over the whole discovery; this list's businesses are a subset, so
-  // each renders its real dot-strip.
-  const coverageRows = await loadCoverageMatrix(discoveryId, agencyId);
+  // a PLAIN `{ businessId: families[] }` map (Pattern 4). Scoped to THIS list's
+  // exact lead businessIds — a curated list is an arbitrary subset that need not
+  // sit in the discovery's top-N, so an unscoped matrix would miss those rows
+  // and drop them to the legacy presence model.
+  const coverageRows = await loadCoverageMatrix(
+    discoveryId,
+    agencyId,
+    businessIds,
+  );
   const coverage = coverageRows ? coverageMatrixToMap(coverageRows) : {};
   const coverageFailed = coverageRows ? coverageFailedToMap(coverageRows) : {};
+  const coverageStates = coverageRows ? coverageStatesToMap(coverageRows) : {};
+  // AUDIT A2 · the per-TYPE state map (9 billed types) for the "Enriched" column.
+  const coverageTypeStates = coverageRows
+    ? coverageTypeStatesToMap(coverageRows)
+    : {};
+  // AUDIT U16 · per-family last-scanned dates for the value cells' provenance tip.
+  const scannedAt = await loadScannedAtMap(
+    leads.map((l) => ({ id: l.business.id, cellKey: l.business.cellKey })),
+  );
 
   // WP4-1 · live workbench — poll + refresh new rows while an enrichment run for
   // this discovery is in flight (resolved by cellKey overlap; see active-run.ts).
@@ -559,6 +598,9 @@ async function ListWorkbenchBody({ params, searchParams }: PageProps) {
       bands,
       coverage,
       coverageFailed,
+      coverageStates,
+      coverageTypeStates,
+      scannedAt,
       goalSignals,
       // #2 · the full curated library for the "+ Signal" picker (gated to those
       // with data on every lead, client-side).
@@ -620,16 +662,10 @@ async function ListWorkbenchBody({ params, searchParams }: PageProps) {
         extra={`${list.name} · ${list.serviceType.toLowerCase().replace(/_/g, " ")}`}
       />
 
-      {activeRun ? (
-        <LiveWorkbenchBanner
-          runId={activeRun.runId}
-          initialStatus={activeRun.status}
-        >
-          <WorkbenchShell {...shell} />
-        </LiveWorkbenchBanner>
-      ) : (
+      {/* AUDIT D4 · always-mounted gate (see LiveRunGate). */}
+      <LiveRunGate activeRun={activeRun}>
         <WorkbenchShell {...shell} />
-      )}
+      </LiveRunGate>
     </div>
   );
 }

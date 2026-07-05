@@ -35,6 +35,19 @@ export interface WorkspaceHeaderProps {
   showing: number;
   /** Whole-set size (Business rows across the discovery's cells / list leads). */
   total: number;
+  /** AUDIT B2/B3 · the TRUE market (every business in the cells, ungated). When
+   *  provided, the header renders the defined counts strip instead of the prose
+   *  narrative so market ≠ enrichable ≠ enriched ≠ shown is explicit on screen. */
+  marketTotal?: number;
+  /** AUDIT B2/B3 · the ENRICHABLE set (website-having) for a site-dependent goal
+   *  — the number the workbench window actually shows. Omitted when the goal
+   *  doesn't gate on a website (then market == enrichable). */
+  enrichable?: number;
+  /** AUDIT B2/B3 · leads an enrichment has actually run on (what was paid for). */
+  enriched?: number;
+  /** Whether `enriched` is exact (whole market covered) vs a floor (window cap).
+   *  When false the header renders "≥ N" so an undercount never reads as truth. */
+  enrichedExact?: boolean;
   /**
    * Plural market noun for the narrative — e.g. "med spas". Pass the category
    * label lowercased + pluralized by the page; falls back to "businesses".
@@ -77,6 +90,10 @@ export function WorkspaceHeader({
   goalName,
   showing,
   total,
+  marketTotal,
+  enrichable,
+  enriched,
+  enrichedExact = true,
   marketNoun = "businesses",
   scopeNoun = "market",
   freshness,
@@ -99,7 +116,12 @@ export function WorkspaceHeader({
       </Link>
       <h1
         style={{
-          marginTop: 6,
+          // AUDIT U14 · tighten the editorial masthead — a smaller headline +
+          // less margin recovers ~2 grid rows for the data (the dense audience
+          // wants the table, not a magazine title).
+          marginTop: 2,
+          fontSize: "1.4rem",
+          lineHeight: 1.2,
           display: "flex",
           alignItems: "center",
           gap: 10,
@@ -126,7 +148,47 @@ export function WorkspaceHeader({
           flexWrap: "wrap",
         }}
       >
-        <span>{narrative} ·</span>
+        {/* AUDIT B2/B3 · the defined counts strip — every number labelled + a
+            hover explaining it, so "Why 57?" answers itself: market ≠ enrichable
+            (have a website) ≠ enriched (you paid for) ≠ shown (on screen). */}
+        {marketTotal != null ? (
+          <span
+            style={{
+              display: "inline-flex",
+              gap: 8,
+              flexWrap: "wrap",
+              alignItems: "baseline",
+            }}
+          >
+            <span data-tip={`Every ${marketNoun} in this ${scopeNoun}`}>
+              <b>{marketTotal.toLocaleString()}</b> market
+            </span>
+            {enrichable != null ? (
+              <span data-tip="Have a website — the ones this goal can enrich">
+                · <b>{enrichable.toLocaleString()}</b> enrichable
+              </span>
+            ) : null}
+            <span
+              data-tip={
+                enrichedExact
+                  ? "Leads an enrichment has actually run on — what you spent credits on"
+                  : "Leads an enrichment has run on, counted across the loaded window (a floor — the true number may be higher)"
+              }
+            >
+              ·{" "}
+              <b>
+                {enrichedExact ? "" : "≥ "}
+                {(enriched ?? 0).toLocaleString()}
+              </b>{" "}
+              enriched
+            </span>
+            <span data-tip="Rows on screen (the loaded window)">
+              · <b>{showing.toLocaleString()}</b> shown ·
+            </span>
+          </span>
+        ) : (
+          <span>{narrative} ·</span>
+        )}
         {/* WP6-9 · the FreshnessChip carries the cell-freshness + $0-to-serve
             trust story in one chip (supersedes the bare dot+label). */}
         <FreshnessChip state={freshness} />

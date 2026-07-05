@@ -47,6 +47,7 @@ import { BulkGenerateTouchesButton } from "./BulkGenerateTouchesButton";
 import { LeadDrawer } from "./LeadDrawer";
 import {
   COLUMNS,
+  COLUMN_TYPE_GROUP_ORDER,
   CSV_HEADERS,
   DATA_FAMILIES,
   DEFAULT_ACTIVE_COLUMNS,
@@ -69,6 +70,7 @@ import {
   sortRows,
   type CellBand,
   type ColumnDef,
+  type ColumnTypeGroup,
   type DataFamily,
   type LeadFilter,
   type NumericLeadFilter,
@@ -77,18 +79,71 @@ import {
   type SignalGroup,
   type WorkbenchLeadRow,
 } from "../leads-workbench";
-import { enrichTypesForFamilies } from "../family-coverage";
+import {
+  enrichTypesForFamilies,
+  ENRICHMENT_FAMILIES,
+  ENRICHMENT_TYPES,
+  anyEnrichmentRan,
+  anyTypeRan,
+  type FamilyState,
+  type EnrichmentTypeKey,
+  type TypeState,
+} from "../family-coverage";
+import { QUALIFIER_SIGNAL_KEYS } from "../goal-templates";
 import { useDismiss } from "../hooks/useDismiss";
 import { Popover } from "@/components/agency/Popover";
-import { openEnrichSheet } from "../enrich-sheet-bus";
-import { THIN_MARKET_THRESHOLD } from "../flow-types";
-import type { EnrichmentType } from "@/modules/cost/pricing";
-import { FieldFunnel, FieldsMenuLockedRows } from "./FieldsMenuExtras";
+import { openEnrichSheet, subscribeEnrichScope } from "../enrich-sheet-bus";
+import { THIN_MARKET_THRESHOLD, fmtCredits } from "../flow-types";
+import { resolveResearches } from "../researches";
+import {
+  ENRICHMENT_PRICES,
+  CREDIT_PRICES,
+  type EnrichmentType,
+} from "@/modules/cost/pricing";
+import { FieldsMenuLockedRows } from "./FieldsMenuExtras";
 
 /** WP7-13 · a stable empty-bands object for the thin-market path (no vs-cell
  *  percentiles → the workbench renders absolute values). Module-level so the
  *  reference is stable across renders. */
 const EMPTY_BANDS: Partial<Record<string, CellBand>> = {};
+
+/** AUDIT U16 · where each family's data comes from — shown as a provenance
+ *  tooltip on value cells so a number reads as evidence, not an assertion. */
+const SOURCE_BY_FAMILY: Partial<Record<DataFamily, string>> = {
+  reviews: "Google reviews",
+  website: "Website scan · Lighthouse mobile",
+  contacts: "Website + directories",
+  ads: "Meta Ad Library",
+  search: "Local SERP scan",
+};
+
+const MONTH_ABBR = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+];
+
+/** AUDIT U16 · format a last-scanned ISO into the provenance tip's `{when}`. A
+ *  compact UTC absolute date ("Jul 1") — DETERMINISTIC so a server-rendered cell
+ *  and its client hydration produce the identical string (a `Date.now()`
+ *  relative time would drift between the two and warn). Returns null when the
+ *  timestamp is absent/unparseable → the tip drops the date. */
+function fmtScannedWhen(iso?: string | null): string | null {
+  if (!iso) return null;
+  const t = Date.parse(iso);
+  if (Number.isNaN(t)) return null;
+  const d = new Date(t);
+  return `${MONTH_ABBR[d.getUTCMonth()]} ${d.getUTCDate()}`;
+}
 
 export interface LeadsWorkbenchProps {
   rows: WorkbenchLeadRow[];
@@ -110,6 +165,34 @@ export interface LeadsWorkbenchProps {
    * failures. Same plain-map shape as `coverage` (Pattern 4).
    */
   coverageFailed?: Record<string, DataFamily[]>;
+  /**
+   * AUDIT §3 · the honest per-business per-family RUN-STATE map (enriched /
+   * empty / failed / not_run) from the coverage matrix. The single source of
+   * truth for the dot-strip, per-cell affordances, the coverage panel, and the
+   * "Enriched only" view. A business missing from the map falls back to a
+   * state derived from its own `families` (enriched vs not_run). Plain data
+   * (Pattern 4).
+   */
+  coverageStates?: Record<string, Record<DataFamily, FamilyState>>;
+  /**
+   * AUDIT A2 · the honest per-business per-TYPE state map (the 9 purchasable
+   * enrichment types: contacts/services/reviews/tech/lighthouse/meta_ads/
+   * google_ads/serp/ai_research). Drives the "Enriched" column badge strip —
+   * one chip per type, colored by run state (enriched/empty/failed/running/
+   * not_run). A business missing from the map falls back to a state derived
+   * from its 5-family states (best-effort per-type approximation). Plain data
+   * (Pattern 4).
+   */
+  coverageTypeStates?: Record<string, Record<EnrichmentTypeKey, TypeState>>;
+  /**
+   * AUDIT U16 · per-business per-family last-scanned time (ISO string) for the
+   * provenance tooltip's "scanned {when}" clause. Read from the same freshness
+   * cursors billing uses (`loadFreshTimestamps`): contacts/website/reviews from
+   * the Business cursors + latest LighthouseAudit; ads/search from the cell's
+   * newest AdMarketRun. A family absent from a business's map → no timestamp
+   * (the tip falls back to source + fresh/stale). Plain data (Pattern 4).
+   */
+  scannedAt?: Record<string, Partial<Record<DataFamily, string>>>;
   /**
    * The signals chosen on the Goal step (SIG_META key + title). Rendered as
    * one column per signal, right after Match % (docs/portal-prototype.html's
@@ -163,8 +246,9 @@ export function LeadsWorkbench({
   rows,
   discoveryId,
   bands,
-  coverage,
-  coverageFailed = {},
+  coverageStates = {},
+  coverageTypeStates = {},
+  scannedAt = {},
   goalSignals = [],
   allSignals,
   exportSlug,
@@ -174,29 +258,70 @@ export function LeadsWorkbench({
   exportAllUrl,
 }: LeadsWorkbenchProps) {
   /**
-   * Covered families for one row: prefer the batched matrix (keyed by
-   * businessId), fall back to the row's own `families` map. Returns the ordered
-   * `Record<DataFamily, boolean>` the dot-strip + missing-family math consume.
+   * AUDIT §3 · the honest per-family RUN-STATE map for one row: prefer the
+   * batched matrix (keyed by businessId), else derive from the row's own
+   * `families` boolean map (enriched vs not_run — the fallback has no
+   * empty/failed nuance). This ONE map drives the dot-strip, the per-cell
+   * affordances, the coverage panel, and the "Enriched only" view, so they
+   * can never disagree.
    */
-  const coveredFamilies = useCallback(
-    (r: WorkbenchLeadRow): Record<DataFamily, boolean> => {
-      const fromMatrix = coverage[r.businessId];
-      if (fromMatrix) {
-        const set = new Set(fromMatrix);
-        return Object.fromEntries(
-          DATA_FAMILIES.map((f) => [f.key, set.has(f.key)]),
-        ) as Record<DataFamily, boolean>;
-      }
-      return r.families;
+  const statesFor = useCallback(
+    (r: WorkbenchLeadRow): Record<DataFamily, FamilyState> => {
+      const fromMatrix = coverageStates[r.businessId];
+      if (fromMatrix) return fromMatrix;
+      // Fallback: the row's boolean families → enriched / not_run only.
+      const out = {} as Record<DataFamily, FamilyState>;
+      for (const f of DATA_FAMILIES)
+        out[f.key] = r.families[f.key] ? "enriched" : "not_run";
+      return out;
     },
-    [coverage],
+    [coverageStates],
   );
-  /** FAILED families for one row (job errored + still not covered). Empty when
-   *  the caller didn't compute failures. Drives the red dot + its tooltip. */
-  const failedFamiliesFor = useCallback(
-    (r: WorkbenchLeadRow): Set<DataFamily> =>
-      new Set(coverageFailed[r.businessId] ?? []),
-    [coverageFailed],
+  /**
+   * AUDIT A2 · the honest per-TYPE run-state map (the 9 billed types) for one
+   * row: prefer the batched matrix (keyed by businessId), else APPROXIMATE from
+   * the row's 5-family states so an older serialized prop still renders a strip.
+   * The family→types fallback fans a family's state out to the types it covers
+   * (website → tech + lighthouse, ads → meta_ads + google_ads); it has no
+   * running/empty nuance the family model lacks, but keeps the column honest.
+   */
+  const typeStatesFor = useCallback(
+    (r: WorkbenchLeadRow): Record<EnrichmentTypeKey, TypeState> => {
+      const fromMatrix = coverageTypeStates[r.businessId];
+      if (fromMatrix) return fromMatrix;
+      const fam = statesFor(r);
+      // Map each family state onto the types it spans (best-effort fallback).
+      const famOf: Record<EnrichmentTypeKey, DataFamily> = {
+        CONTACTS: "contacts",
+        SERVICES: "contacts", // no 5-family "services" — nearest is contacts
+        TECH: "website",
+        REVIEWS: "reviews",
+        LIGHTHOUSE: "website",
+        META_ADS: "ads",
+        GOOGLE_ADS: "ads",
+        SERP: "search",
+        AI_RESEARCH: "identity", // no family maps AI research → treat as not-run
+      };
+      const out = {} as Record<EnrichmentTypeKey, TypeState>;
+      for (const t of ENRICHMENT_TYPES) {
+        const df = famOf[t.key];
+        // identity is always "enriched" but is not a real type — force not_run
+        // so the fallback never fakes an AI-research chip as done.
+        out[t.key] = df === "identity" ? "not_run" : fam[df];
+      }
+      return out;
+    },
+    [coverageTypeStates, statesFor],
+  );
+  /** AUDIT A2/B1 · has ANY of the 9 types run for this row (running/enriched/
+   *  empty/failed) — the predicate behind the "Enriched only" view. Prefers the
+   *  per-type map; falls back to the 5-family predicate when it's absent. */
+  const rowEnriched = useCallback(
+    (r: WorkbenchLeadRow): boolean =>
+      coverageTypeStates[r.businessId]
+        ? anyTypeRan(coverageTypeStates[r.businessId])
+        : anyEnrichmentRan(statesFor(r)),
+    [coverageTypeStates, statesFor],
   );
   // ── Status (optimistic) ──────────────────────────────────────────────────
   const [committed, setCommitted] = useState<Record<string, LeadStatus>>(() =>
@@ -256,11 +381,14 @@ export function LeadsWorkbench({
     DEFAULT_ACTIVE_COLUMNS,
   );
   const [fieldsOpen, setFieldsOpen] = useState(false);
+  // F3 · the Fields picker's search box — filters visible column rows by label
+  // (case-insensitive substring). Cleared when the popover closes.
+  const [fieldsQuery, setFieldsQuery] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
-  // #3 · the single "+ Add filter" split into two pickers: "+ Signal" (the
-  // signal library) and "+ Field" (numeric fields). Independent open state.
-  const [signalMenuOpen, setSignalMenuOpen] = useState(false);
-  const [fieldMenuOpen, setFieldMenuOpen] = useState(false);
+  // U15 · one filtering home — a SINGLE "+ Filter" attribute picker that lists
+  // both addable signals and addable numeric fields (previously split into
+  // "+ Signal" / "+ Field" with independent open state).
+  const [filterMenuOpen, setFilterMenuOpen] = useState(false);
   const [coverageOpen, setCoverageOpen] = useState(false);
   // The Fields, Add-filter and Set-status menus are <Popover>s (floating-ui
   // handles portal + dismiss + focus). The Filters/Coverage PANELS are inline
@@ -286,9 +414,8 @@ export function LeadsWorkbench({
   // so they never fire while typing in a field or with a modifier held. Press
   // "?" for the on-screen cheat-sheet.
   useEffect(() => {
-    anyOverlayOpenRef.current =
-      helpOpen || fieldsOpen || signalMenuOpen || fieldMenuOpen;
-  }, [helpOpen, fieldsOpen, signalMenuOpen, fieldMenuOpen]);
+    anyOverlayOpenRef.current = helpOpen || fieldsOpen || filterMenuOpen;
+  }, [helpOpen, fieldsOpen, filterMenuOpen]);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -313,6 +440,12 @@ export function LeadsWorkbench({
         case "f":
           e.preventDefault();
           setFieldsOpen((o) => !o);
+          break;
+        case "F":
+          // AUDIT U18 · open Filters (capital F = Filter; lowercase f = Fields).
+          e.preventDefault();
+          setFiltersOpen((o) => !o);
+          setCoverageOpen(false);
           break;
         case "g":
           e.preventDefault();
@@ -383,6 +516,14 @@ export function LeadsWorkbench({
   // the prototype's demo filters, which hid all real leads on first open,
   // especially before a signal like Lighthouse had finished enriching.)
   const [filters, setFilters] = useState<LeadFilter[]>([]);
+  // AUDIT C5 · field-state filters — "Email: enriched / none / failed / not run".
+  // Multiple states on the SAME family are OR'd (email enriched OR failed);
+  // different families are AND'd. Applied client-side off the honest state map.
+  // Declared here (above the view-hydration + URL-write effects) so those
+  // effects can seed from / push to it (C5 · round-trips through the goal URL).
+  const [stateFilters, setStateFilters] = useState<
+    { family: DataFamily; state: FamilyState }[]
+  >([]);
 
   // ── Sort ──────────────────────────────────────────────────────────────────
   const [sortKey, setSortKey] = useState<string>(DEFAULT_SORT_KEY);
@@ -462,6 +603,12 @@ export function LeadsWorkbench({
         setFilters(seedSignalFilters(rows, goalSignals));
         userTouchedRef.current = false; // a pure default → don't persist it yet
       }
+      // C5 · seed the field-state filters from the URL (they live only in the
+      // shareable-view URL, not localStorage), so an applied "contacts · none"
+      // survives a manual refresh + a pasted link reproduces it.
+      if (urlView?.fieldStates && urlView.fieldStates.length > 0) {
+        setStateFilters(urlView.fieldStates);
+      }
       hydrated.current = true;
     }, 0);
     return () => window.clearTimeout(tid);
@@ -507,7 +654,10 @@ export function LeadsWorkbench({
     if (!hydrated.current) return;
     const tid = window.setTimeout(() => {
       const params = viewToSearchParams(
-        { sortKey, sortDir, filters },
+        // C5 · field-state filters ride the SAME shareable-view URL writer as
+        // sort + filters (one `fs=family:state` param each), so an applied
+        // "contacts · none" state survives refresh + is shareable.
+        { sortKey, sortDir, filters, fieldStates: stateFilters },
         new URLSearchParams(window.location.search),
       );
       const qs = params.toString();
@@ -519,7 +669,7 @@ export function LeadsWorkbench({
       }
     }, 300);
     return () => window.clearTimeout(tid);
-  }, [filters, sortKey, sortDir]);
+  }, [filters, sortKey, sortDir, stateFilters]);
 
   // ── Selection ──────────────────────────────────────────────────────────
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -584,13 +734,171 @@ export function LeadsWorkbench({
     [activeCols],
   );
 
+  // F3 · the Fields picker, grouped by ENRICHMENT TYPE + search-filtered. Every
+  // toggle-able column (all except the always-on `biz` anchor) is bucketed under
+  // its `typeGroup` header; the search box narrows to labels containing the
+  // query (case-insensitive). Sections with no surviving column are dropped so
+  // the menu never shows an empty header. Preserves each column's `group`
+  // (workflow vs enriched) so the render keeps the per-field funnel + the
+  // free-add semantics.
+  const fieldsGroups = useMemo((): {
+    group: ColumnTypeGroup;
+    cols: readonly ColumnDef[];
+  }[] => {
+    const q = fieldsQuery.trim().toLowerCase();
+    const matches = (c: ColumnDef) =>
+      c.key !== "biz" &&
+      (q === "" || (c.fullLabel ?? c.label).toLowerCase().includes(q));
+    return COLUMN_TYPE_GROUP_ORDER.map((group) => ({
+      group,
+      cols: COLUMNS.filter((c) => c.typeGroup === group && matches(c)),
+    })).filter((s) => s.cols.length > 0);
+  }, [fieldsQuery]);
+
+  // AUDIT §3/B1 · "Enriched only" view — isolate the leads an enrichment
+  // actually ran on (what you paid for) from the whole website-having market.
+  const [enrichedOnly, setEnrichedOnly] = useState(false);
+
+  // AUDIT C5 · field-state filter helpers (the `stateFilters` state itself is
+  // declared above, near `filters`, so the view-hydration + URL-write effects
+  // can round-trip it through the goal URL).
+  const toggleStateFilter = useCallback(
+    (family: DataFamily, state: FamilyState) => {
+      setStateFilters((prev) => {
+        const hit = prev.some((f) => f.family === family && f.state === state);
+        return hit
+          ? prev.filter((f) => !(f.family === family && f.state === state))
+          : [...prev, { family, state }];
+      });
+      setPage(1);
+    },
+    [],
+  );
+  const stateFilterByFamily = useMemo(() => {
+    const m = new Map<DataFamily, Set<FamilyState>>();
+    for (const f of stateFilters) {
+      const s = m.get(f.family) ?? new Set<FamilyState>();
+      s.add(f.state);
+      m.set(f.family, s);
+    }
+    return m;
+  }, [stateFilters]);
+  const passesStateFilters = useCallback(
+    (r: WorkbenchLeadRow): boolean => {
+      if (stateFilterByFamily.size === 0) return true;
+      const st = statesFor(r);
+      for (const [fam, allowed] of stateFilterByFamily) {
+        if (!allowed.has(st[fam])) return false;
+      }
+      return true;
+    },
+    [stateFilterByFamily, statesFor],
+  );
+
+  // AUDIT U7 · row density — Compact is the default for a scan-heavy audience;
+  // the choice persists per user. Default matches SSR; a saved "cozy" is applied
+  // after mount (a one-frame settle, no hydration mismatch).
+  const [density, setDensity] = useState<"compact" | "cozy">("compact");
+  useEffect(() => {
+    // Defer the write out of the effect body (same setTimeout(0) pattern the
+    // view-state hydration uses) to satisfy react-hooks/set-state-in-effect.
+    const tid = window.setTimeout(() => {
+      const saved = window.localStorage.getItem("wb-density");
+      if (saved === "cozy" || saved === "compact") setDensity(saved);
+    }, 0);
+    return () => window.clearTimeout(tid);
+  }, []);
+  function toggleDensity() {
+    setDensity((d) => {
+      const next = d === "compact" ? "cozy" : "compact";
+      window.localStorage.setItem("wb-density", next);
+      return next;
+    });
+  }
+
+  // AUDIT U2/D5 · per-cell "running" state — the enrich sheet announces the
+  // (business × family) scope it just launched; those cells show "running…"
+  // until their real state refreshes in (LiveRunGate's poll → router.refresh
+  // flips them to enriched/empty/failed, so `isCellRunning` self-clears once a
+  // cell is no longer not_run). A safety timeout clears any stragglers.
+  const [enriching, setEnriching] = useState<{
+    ids: Set<string>;
+    families: Set<string>;
+  } | null>(null);
+  useEffect(
+    () =>
+      subscribeEnrichScope((d) =>
+        setEnriching({
+          ids: new Set(d.businessIds),
+          families: new Set(d.families),
+        }),
+      ),
+    [],
+  );
+  useEffect(() => {
+    if (!enriching) return;
+    const t = window.setTimeout(() => setEnriching(null), 5 * 60_000);
+    return () => window.clearTimeout(t);
+  }, [enriching]);
+  const isCellRunning = useCallback(
+    (r: WorkbenchLeadRow, family?: DataFamily): boolean =>
+      !!family &&
+      !!enriching &&
+      enriching.ids.has(r.businessId) &&
+      enriching.families.has(family) &&
+      statesFor(r)[family] === "not_run",
+    [enriching, statesFor],
+  );
+
+  // AUDIT U16 · the per-cell provenance tooltip for a numeric enriched value:
+  // `{source} · scanned {when} · {fresh|stale}`. The source names WHERE the
+  // number came from (SOURCE_BY_FAMILY); `{when}` is the real last-scanned date
+  // from the same freshness cursors billing uses (threaded via `scannedAt`);
+  // freshness is read from the family's honest run state (an `enriched` family
+  // reads "fresh", a re-scan-worthy `failed`/`empty` reads "stale"). When no
+  // timestamp exists for the family we drop the date; the source alone is the
+  // fallback when a cell has no family.
+  const cellProvenance = useCallback(
+    (r: WorkbenchLeadRow, family?: DataFamily): string | undefined => {
+      if (!family) return undefined;
+      const source = SOURCE_BY_FAMILY[family];
+      if (!source) return undefined;
+      const state = statesFor(r)[family];
+      const fresh = state === "enriched" ? "fresh" : "stale";
+      const when = fmtScannedWhen(scannedAt[r.businessId]?.[family]);
+      return when
+        ? `${source} · scanned ${when} · ${fresh}`
+        : `${source} · scanned · ${fresh}`;
+    },
+    [statesFor, scannedAt],
+  );
+
   // ── Filtered + sorted rows ────────────────────────────────────────────────
   const filtered = useMemo(() => {
     const f = rows.filter(
-      (r) => matchesSearch(r, search) && passesFilters(r, filters),
+      (r) =>
+        matchesSearch(r, search) &&
+        passesFilters(r, filters) &&
+        (!enrichedOnly || rowEnriched(r)) &&
+        passesStateFilters(r),
     );
     return sortRows(f, sortKey, sortDir);
-  }, [rows, search, filters, sortKey, sortDir]);
+  }, [
+    rows,
+    search,
+    filters,
+    sortKey,
+    sortDir,
+    enrichedOnly,
+    rowEnriched,
+    passesStateFilters,
+  ]);
+
+  // Count of enriched leads in the current window (for the toggle label).
+  const enrichedCount = useMemo(
+    () => rows.filter((r) => rowEnriched(r)).length,
+    [rows, rowEnriched],
+  );
 
   // Signal availability (hoisted — both the grouping axes and the "+ Signal"
   // picker read it). `signalLibrary` = the whole curated library the page
@@ -771,8 +1079,57 @@ export function LeadsWorkbench({
     setLastIdx(null);
   }
 
+  /**
+   * U18 · restore a set of leads to their captured PRIOR statuses (the Undo of a
+   * bulk status change). Since the bulk action takes ONE target status, we group
+   * the restore by prior status and issue one bulk call per distinct prior value
+   * (usually exactly one — a bulk change most often sweeps same-status leads).
+   * Only the status/label bulk mutation is reversible; credit SPEND (bulk
+   * enrich) is NOT undoable, so no undo is offered there.
+   */
+  function restoreStatuses(prior: Record<string, LeadStatus>) {
+    const entries = Object.entries(prior);
+    if (entries.length === 0) return;
+    startTransition(async () => {
+      for (const [id, s] of entries) applyOptimistic({ leadId: id, status: s });
+      // Bucket ids by the status to restore them to (one bulk call per bucket).
+      const byStatus = new Map<LeadStatus, string[]>();
+      for (const [id, s] of entries) {
+        const arr = byStatus.get(s);
+        if (arr) arr.push(id);
+        else byStatus.set(s, [id]);
+      }
+      const restored: Record<string, LeadStatus> = {};
+      const failed: string[] = [];
+      for (const [s, ids] of byStatus) {
+        const r = await setLeadStatusBulkAction({
+          leadIds: ids,
+          status: s,
+          discoveryId,
+        });
+        const failedSet = new Set(r.status === "ok" ? r.failedIds : ids);
+        for (const id of ids) {
+          if (failedSet.has(id)) failed.push(id);
+          else restored[id] = s;
+        }
+      }
+      if (Object.keys(restored).length) {
+        setCommitted((p) => ({ ...p, ...restored }));
+      }
+      if (failed.length > 0)
+        showToast(
+          `Couldn't undo ${failed.length} lead${failed.length === 1 ? "" : "s"}`,
+          "error",
+        );
+    });
+  }
+
   function bulkSetStatus(status: LeadStatus) {
     const ids = [...selected];
+    // U18 · snapshot each lead's CURRENT committed status BEFORE the change, so
+    // the Undo can restore the exact prior value (not a blanket reset).
+    const priorByLead: Record<string, LeadStatus> = {};
+    for (const id of ids) priorByLead[id] = committed[id] ?? status;
     startTransition(async () => {
       for (const id of ids) applyOptimistic({ leadId: id, status });
       // WP5-9 · one transactional server action for the whole sweep (was one
@@ -791,6 +1148,19 @@ export function LeadsWorkbench({
           for (const id of okIds) next[id] = status;
           return next;
         });
+        // U18 · offer an Undo restoring the ok'd leads to their prior statuses.
+        // Only leads whose status actually changed are worth reverting.
+        const changed: Record<string, LeadStatus> = {};
+        for (const id of okIds) {
+          if (priorByLead[id] !== status) changed[id] = priorByLead[id]!;
+        }
+        const n = Object.keys(changed).length;
+        if (n > 0) {
+          showToast(`${n} lead${n === 1 ? "" : "s"} set to ${status}`, "info", {
+            label: "Undo",
+            onClick: () => restoreStatuses(changed),
+          });
+        }
       }
       const failed = ids.length - okIds.length;
       if (failed > 0)
@@ -835,26 +1205,41 @@ export function LeadsWorkbench({
   }
 
   // ── Coverage summary (set-wide) + the missing families to enrich ──────────
-  // A family is "have" (set-wide) only when EVERY visible lead has it — same
-  // honest rule as before, but now sourced from the batched coverage matrix via
-  // coveredFamilies (so ads/search are real, not faked). `missingKeys` are the
-  // families NOT covered across the whole visible set — the enrich-more target.
+  // AUDIT §3/A3 · sourced from the honest run-state map (never presence). Over
+  // the 5 ENRICHMENT families (identity excluded — it is the business itself):
+  //   - "have"       · EVERY visible lead is `enriched` (ran + data)
+  //   - "notYet"     · not fully covered → shown in the "Not yet" line
+  //   - missingKeys  · families with ≥1 NOT-YET-RUN lead → the enrich target.
+  //     A family that ran everywhere but found nothing (empty) is NOT a target:
+  //     re-enriching a verified-empty family just re-charges for a known 0 (A5).
   const coverageSummary = useMemo(() => {
     const have: string[] = [];
     const notYet: string[] = [];
     const missingKeys: DataFamily[] = [];
-    for (const fam of DATA_FAMILIES) {
-      const all =
-        filtered.length > 0 &&
-        filtered.every((r) => coveredFamilies(r)[fam.key]);
-      if (all) have.push(fam.label);
-      else {
-        notYet.push(fam.label);
-        missingKeys.push(fam.key);
-      }
+    for (const fam of ENRICHMENT_FAMILIES) {
+      const label = DATA_FAMILIES.find((f) => f.key === fam)?.label ?? fam;
+      const states = filtered.map((r) => statesFor(r)[fam]);
+      const allEnriched =
+        filtered.length > 0 && states.every((s) => s === "enriched");
+      if (allEnriched) have.push(label);
+      else notYet.push(label);
+      if (states.some((s) => s === "not_run")) missingKeys.push(fam);
     }
     return { have, notYet, missingKeys };
-  }, [filtered, coveredFamilies]);
+  }, [filtered, statesFor]);
+
+  // AUDIT C5 · per-family state histogram over the loaded window — powers the
+  // clickable "Email: have 11 · none 30 · failed 5" coverage filters.
+  const familyStateCounts = useMemo(() => {
+    const out = new Map<DataFamily, Record<FamilyState, number>>();
+    for (const fam of ENRICHMENT_FAMILIES)
+      out.set(fam, { enriched: 0, empty: 0, failed: 0, not_run: 0 });
+    for (const r of rows) {
+      const st = statesFor(r);
+      for (const fam of ENRICHMENT_FAMILIES) out.get(fam)![st[fam]] += 1;
+    }
+    return out;
+  }, [rows, statesFor]);
 
   /**
    * WP5-3 · the scope every "enrich to unlock" surface hands the
@@ -871,6 +1256,78 @@ export function LeadsWorkbench({
     }),
     [filtered, selected],
   );
+
+  // AUDIT U10/U17 · "enrichable in this view" + its gross credit estimate.
+  // A row is enrichable when it has ≥1 ENRICHMENT family that hasn't run yet
+  // (not_run) — those are the only families an enrich run would actually charge
+  // for and produce data on. `rowNotRunFamilies` yields that per-row set; the
+  // gross-credit estimate sums each row's not-run BUSINESS-basis families
+  // (CREDIT_PRICES), dependency-resolved like EnrichMoreSheet's grossCredits so
+  // the toolbar/bulk numbers stay consistent with the sheet. Cell-basis families
+  // (ads/serp) need the per-cell count the sheet resolves server-side, so they're
+  // excluded from this at-a-glance estimate (the sheet quotes the honest net).
+  const rowNotRunFamilies = useCallback(
+    (r: WorkbenchLeadRow): DataFamily[] => {
+      const st = statesFor(r);
+      return ENRICHMENT_FAMILIES.filter((f) => st[f] === "not_run");
+    },
+    [statesFor],
+  );
+  const rowIsEnrichable = useCallback(
+    (r: WorkbenchLeadRow): boolean => rowNotRunFamilies(r).length > 0,
+    [rowNotRunFamilies],
+  );
+  /** Gross per-lead credit estimate for a set of rows: each row contributes the
+   *  credits of its not-run business-basis families (dependency-resolved). */
+  const grossCreditsForRows = useCallback(
+    (rowsIn: readonly WorkbenchLeadRow[]): number => {
+      let credits = 0;
+      for (const r of rowsIn) {
+        const fams = rowNotRunFamilies(r);
+        if (fams.length === 0) continue;
+        const types = resolveResearches(
+          enrichTypesForFamilies(fams) as EnrichmentType[],
+        );
+        for (const t of types) {
+          if (ENRICHMENT_PRICES[t].unit === "business")
+            credits += CREDIT_PRICES[t];
+        }
+      }
+      return credits;
+    },
+    [rowNotRunFamilies],
+  );
+
+  // The scope for the toolbar's one primary enrich action: the selected rows if
+  // any are selected, else the filtered rows that still have a not-run family.
+  const enrichTargetRows = useMemo(() => {
+    const base =
+      selected.size > 0
+        ? filtered.filter((r) => selected.has(r.leadId))
+        : filtered;
+    return base.filter(rowIsEnrichable);
+  }, [filtered, selected, rowIsEnrichable]);
+  const enrichTargetCount = enrichTargetRows.length;
+  const enrichTargetCredits = useMemo(
+    () => grossCreditsForRows(enrichTargetRows),
+    [enrichTargetRows, grossCreditsForRows],
+  );
+  // U17 · gross credits for the bulk-bar selection (the selected rows only).
+  const bulkEnrichCredits = useMemo(
+    () => grossCreditsForRows(filtered.filter((r) => selected.has(r.leadId))),
+    [filtered, selected, grossCreditsForRows],
+  );
+  /** Open the enrich sheet for the toolbar's primary action — scoped to the
+   *  enrichable target rows (selected-if-any, else the filtered set). */
+  function openToolbarEnrichSheet() {
+    const ids = enrichTargetRows.map((r) => r.businessId);
+    openEnrichSheet({
+      scope: {
+        selectedBusinessIds: ids,
+        visibleBusinessIds: filtered.map((r) => r.businessId),
+      },
+    });
+  }
 
   /** Coverage CTA → open the sheet pre-seeded with every missing family. */
   function openMissingFamiliesSheet() {
@@ -891,43 +1348,71 @@ export function LeadsWorkbench({
       enrichments: family
         ? (enrichTypesForFamilies([family]) as EnrichmentType[])
         : undefined,
+      // AUDIT D1 · a single-field click pre-selects that enrichment in the sheet.
+      preselect: !!family,
       scope: {
         selectedBusinessIds: [r.businessId],
         visibleBusinessIds: [r.businessId],
       },
     });
   }
-  /** The clickable empty-cell affordance shared by every "— enrich" cell. */
+  /**
+   * AUDIT §3/A4 · the STATE-AWARE empty-cell affordance. Reads the family's real
+   * run state so a cell never lies:
+   *   - not_run → the clickable "— enrich" action (never scanned)
+   *   - empty   → a calm muted "none" (scanned, verified nothing) — NOT clickable
+   *               so a retry can't re-charge for a known-empty result (A5)
+   *   - failed  → a red "failed · retry" action (errored — retryable)
+   * `enriched` never reaches here (the cell renders the value instead).
+   */
   const NeedsEnrich = ({
     r,
     family,
   }: {
     r: WorkbenchLeadRow;
     family?: DataFamily;
-  }) => (
-    <button
-      type="button"
-      className="needsenr"
-      data-tip="Enrich this lead"
-      // Stop the click bubbling to the row's onClick (which opens the lead
-      // drawer) — clicking "— enrich" must open the enrich sheet, not the drawer.
-      onClick={(e) => {
-        e.stopPropagation();
-        enrichCell(r, family);
-      }}
-      style={{
-        border: "none",
-        background: "transparent",
-        cursor: "pointer",
-        font: "inherit",
-        padding: 0,
-        color: "inherit",
-        textDecoration: "underline dotted",
-      }}
-    >
-      — enrich
-    </button>
-  );
+  }) => {
+    const state: FamilyState = family ? statesFor(r)[family] : "not_run";
+    const label = family
+      ? (DATA_FAMILIES.find((f) => f.key === family)?.label ?? "data")
+      : "data";
+
+    // AUDIT U2/D5 · this cell is in the active enrich run → show it working.
+    if (isCellRunning(r, family)) {
+      return (
+        <span className="cell-running" data-tip="Enriching…">
+          <span className="spin sm" aria-hidden="true" /> running
+        </span>
+      );
+    }
+
+    if (state === "empty") {
+      return (
+        <span className="cell-none" data-tip={`Scanned · no ${label} found`}>
+          none
+        </span>
+      );
+    }
+    const failed = state === "failed";
+    // AUDIT U13 · styling lives in `.needsenr` (+ `.failed`) so a row-hover CSS
+    // rule can enlarge the hit target from a faint sliver into a real pill —
+    // impossible while the reset was inline.
+    return (
+      <button
+        type="button"
+        className={`needsenr${failed ? " failed" : ""}`}
+        data-tip={failed ? "Enrichment failed — retry" : "Enrich this lead"}
+        // Stop the click bubbling to the row's onClick (which opens the lead
+        // drawer) — clicking must open the enrich sheet, not the drawer.
+        onClick={(e) => {
+          e.stopPropagation();
+          enrichCell(r, family);
+        }}
+      >
+        {failed ? "failed · retry" : "— enrich"}
+      </button>
+    );
+  };
 
   // ── Fields menu helpers ───────────────────────────────────────────────────
   function toggleCol(key: string) {
@@ -1011,24 +1496,16 @@ export function LeadsWorkbench({
     );
   }, [availNumFields, filters]);
 
-  // The add-filter pickers are <Popover>s (floating-ui handles portal + dismiss
-  // + Esc + focus + ↑/↓ nav), so no hand-rolled listeners here.
+  // U15 · the merged "+ Filter" picker is a <Popover> (floating-ui handles
+  // portal + dismiss + Esc + focus + ↑/↓ nav), so no hand-rolled listeners
+  // here. Both picks close the one shared menu.
   function pickAddSignal(key: string, title: string) {
     addSignalFilter(key, title);
-    setSignalMenuOpen(false);
+    setFilterMenuOpen(false);
   }
   function pickAddNumeric(field: NumericFilterField) {
     addFilter(field);
-    setFieldMenuOpen(false);
-  }
-  /** WP5-13 · Fields-menu funnel — open the filter editor pre-set to this
-   *  field (adds the field's default filter unless one is already applied). */
-  function openFieldFilter(field: NumericFilterField) {
-    if (!filters.some((f) => f.kind !== "signal" && f.field === field))
-      addFilter(field);
-    setFieldsOpen(false);
-    setCoverageOpen(false);
-    setFiltersOpen(true);
+    setFilterMenuOpen(false);
   }
   function editFilter(idx: number, patch: Partial<NumericLeadFilter>) {
     userTouchedRef.current = true;
@@ -1065,9 +1542,20 @@ export function LeadsWorkbench({
         );
       case "match": {
         const band = effectiveBands[col.key];
+        // AUDIT U11 · color-band the BASE match% across ALL three bands so the
+        // eye can scan lead strength by color. Match% is higher-is-better:
+        // at/above the cell's p75 → green (strong), below p25 → red (weak),
+        // in between → amber. Neutral when the cell is too small for bands.
+        const tone = band
+          ? r.match >= band.p75
+            ? " g"
+            : r.match < band.p25
+              ? " r"
+              : " a"
+          : "";
         return (
           <td className="num" key={col.key}>
-            <span className="cellval">{r.match}%</span>
+            <span className={`cellval${tone}`}>{r.match}%</span>
             {vsCell && band ? renderDelta(r.match, band, true) : null}
           </td>
         );
@@ -1101,10 +1589,14 @@ export function LeadsWorkbench({
           );
         }
         // Fallback: no playbook-derived pains, but the lead fired goal signals.
-        // Show the MATCHED signals as the "why this qualifies" chips — closes
-        // the "Pain points column is always empty" complaint by reusing the
-        // per-signal verdict every row already carries.
-        const matched = goalSignals.filter((s) => r.perSignal[s.key] === true);
+        // Show the MATCHED signals as the "why this qualifies" chips — reusing
+        // the per-signal verdict every row already carries. AUDIT C4 · exclude
+        // QUALIFIER signals ("Operating business", "Has a website") — they
+        // describe WHO you're targeting, not a pain/pitch angle.
+        const matched = goalSignals.filter(
+          (s) =>
+            r.perSignal[s.key] === true && !QUALIFIER_SIGNAL_KEYS.has(s.key),
+        );
         if (matched.length === 0) {
           return (
             <td key={col.key}>
@@ -1136,12 +1628,36 @@ export function LeadsWorkbench({
           </td>
         );
       }
-      case "text":
-        return (
-          <td key={col.key}>
-            {r.builtOn ?? <NeedsEnrich r={r} family={col.family} />}
-          </td>
-        );
+      case "text": {
+        // AUDIT C3/F2 · key-aware text cell (was hardcoded to builtOn) so the
+        // Booking-tool + AI-summary columns render their own value.
+        const val =
+          col.key === "bookingTool"
+            ? r.bookingTool
+            : col.key === "aiSummary"
+              ? r.aiSummary
+              : r.builtOn;
+        if (val == null) {
+          return (
+            <td key={col.key}>
+              <NeedsEnrich r={r} family={col.family} />
+            </td>
+          );
+        }
+        // AUDIT F2 · the AI summary can be a full paragraph — truncate it in the
+        // cell (CSS ellipsis via .aisum) and carry the full text in the tooltip,
+        // so a long read never blows out the row height.
+        if (col.key === "aiSummary") {
+          return (
+            <td key={col.key}>
+              <span className="aisum" data-tip={val}>
+                {val}
+              </span>
+            </td>
+          );
+        }
+        return <td key={col.key}>{val}</td>;
+      }
       case "site": {
         if (!r.website) {
           return (
@@ -1210,7 +1726,7 @@ export function LeadsWorkbench({
         const display = col.unit === "★" ? v.toFixed(1) : v.toLocaleString();
         return (
           <td className="num" key={col.key}>
-            <span className="cellval">
+            <span className="cellval" data-tip={cellProvenance(r, col.family)}>
               {display}
               {col.unit === "★" ? "★" : ""}
             </span>
@@ -1267,55 +1783,112 @@ export function LeadsWorkbench({
             )}
           </td>
         );
+      case "socials": {
+        // AUDIT E6 · social handles as compact linked chips (data was stored but
+        // never shown). No socials → the state-aware enrich affordance.
+        if (r.socials.length === 0)
+          return (
+            <td key={col.key}>
+              <NeedsEnrich r={r} family={col.family} />
+            </td>
+          );
+        const LBL: Record<string, string> = {
+          INSTAGRAM: "IG",
+          FACEBOOK: "FB",
+          TIKTOK: "TT",
+          YOUTUBE: "YT",
+          X: "X",
+          LINKEDIN: "IN",
+        };
+        return (
+          <td key={col.key}>
+            <span style={{ display: "inline-flex", gap: 4, flexWrap: "wrap" }}>
+              {r.socials.slice(0, 5).map((s, i) => {
+                const href = /^https?:\/\//.test(s.value) ? s.value : undefined;
+                // AUDIT UX-review #7 · a mapped short tag, else a title-cased
+                // channel name (never an ugly 2-char enum slice like "WH").
+                const lbl =
+                  LBL[s.channel] ??
+                  s.channel.charAt(0) + s.channel.slice(1).toLowerCase();
+                const tip = `${s.channel}: ${s.value}`;
+                return href ? (
+                  <a
+                    key={i}
+                    className="social-chip"
+                    href={href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    data-tip={tip}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {lbl}
+                  </a>
+                ) : (
+                  <span key={i} className="social-chip" data-tip={tip}>
+                    {lbl}
+                  </span>
+                );
+              })}
+            </span>
+          </td>
+        );
+      }
       case "cov": {
-        // Per-row enrichment dot-strip (prototype .covstrip / .covfrac /
-        // .covdots): one dot per data family, filled when covered. Source =
-        // the batched coverage matrix, falling back to the row's families.
-        const cov = coveredFamilies(r);
-        const failed = failedFamiliesFor(r);
-        const have = DATA_FAMILIES.filter((f) => cov[f.key]).length;
-        const failedCount = DATA_FAMILIES.filter((f) =>
-          failed.has(f.key),
-        ).length;
+        // AUDIT A2 · per-row badge strip over the 9 ENRICHMENT TYPES Tom pays
+        // for (contacts/services/reviews/tech/lighthouse/meta_ads/google_ads/
+        // serp/ai_research), each a 2-letter chip colored by its honest RUN
+        // state: enriched (green · ran + data) · empty (grey · ran, none found)
+        // · failed (red · errored) · running (pulse · in flight) · not_run
+        // (faint outline · never scanned). Replaces the old 5-family dot-strip.
+        // "N/9" counts the types that actually produced data.
+        const ts = typeStatesFor(r);
+        const types = ENRICHMENT_TYPES;
+        const total = types.length;
+        const enrichedN = types.filter((t) => ts[t.key] === "enriched").length;
+        const failedN = types.filter((t) => ts[t.key] === "failed").length;
+        const runningN = types.filter((t) => ts[t.key] === "running").length;
         return (
           <td key={col.key}>
             <span
               className="covstrip"
               data-tip={
-                failedCount > 0
-                  ? `${have} of ${DATA_FAMILIES.length} enriched · ${failedCount} failed — re-enrich`
-                  : `${have} of ${DATA_FAMILIES.length} data families enriched`
+                failedN > 0
+                  ? `${enrichedN} of ${total} enriched · ${failedN} failed — re-enrich`
+                  : runningN > 0
+                    ? `${enrichedN} of ${total} enriched · ${runningN} running`
+                    : `${enrichedN} of ${total} enrichments have data`
               }
             >
               <span className="covfrac">
-                {have}/{DATA_FAMILIES.length}
+                {enrichedN}/{total}
               </span>
               <span
-                className="covdots"
-                aria-label={`${have} of ${DATA_FAMILIES.length} data families enriched${
-                  failedCount > 0 ? `, ${failedCount} failed` : ""
-                }`}
+                className="covtypes"
+                aria-label={`${enrichedN} of ${total} enrichment types have data${
+                  failedN > 0 ? `, ${failedN} failed` : ""
+                }${runningN > 0 ? `, ${runningN} running` : ""}`}
               >
-                {DATA_FAMILIES.map((f) => {
-                  // done (green) > failed (red) > never-run (grey). A failed
-                  // family is one that errored AND is still not covered.
-                  const state = cov[f.key]
-                    ? "done"
-                    : failed.has(f.key)
-                      ? "failed"
-                      : undefined;
+                {types.map((t) => {
+                  const s = ts[t.key];
+                  const desc =
+                    s === "enriched"
+                      ? "enriched"
+                      : s === "failed"
+                        ? "failed — re-enrich"
+                        : s === "running"
+                          ? "running"
+                          : s === "empty"
+                            ? "ran · none found"
+                            : "not yet";
                   return (
-                    <i
-                      key={f.key}
-                      className={state}
-                      data-tip={`${f.label}: ${
-                        state === "done"
-                          ? "have"
-                          : state === "failed"
-                            ? "failed — re-enrich"
-                            : "not yet"
-                      }`}
-                    />
+                    <span
+                      key={t.key}
+                      className={`covchip ${s}`}
+                      data-tip={`${t.label} · ${desc}`}
+                      aria-hidden="true"
+                    >
+                      {t.chip}
+                    </span>
                   );
                 })}
               </span>
@@ -1345,6 +1918,9 @@ export function LeadsWorkbench({
 
   function renderDelta(value: number, band: CellBand, higherIsBetter: boolean) {
     const d = fmtDelta(value, band.p50, higherIsBetter);
+    // AUDIT G1 · a within-tolerance ("flat") value renders NOTHING — the "≈"
+    // glyph read as noise. Only a real above/below delta shows an arrow.
+    if (d.dir === "flat") return null;
     return <span className={`delta ${d.dir}`}>{d.text}</span>;
   }
 
@@ -1401,6 +1977,79 @@ export function LeadsWorkbench({
             aria-label="Search leads"
           />
         </div>
+
+        {/* AUDIT U8 · the primary narrowing action sits LEFT, right after search —
+            with the live filtered count beside it — so the most-used control is
+            first in the reading order, not buried on the far right. */}
+        <button
+          ref={filterBtnRef}
+          type="button"
+          className={`btn sm${filters.length ? " active" : ""}`}
+          aria-haspopup="true"
+          aria-expanded={filtersOpen}
+          aria-label="Filters"
+          data-tip="Filter these leads"
+          onClick={() => {
+            setFiltersOpen((o) => !o);
+            setCoverageOpen(false);
+          }}
+        >
+          <Icon name="filter" />
+          {" Filter"}
+          {filters.length ? (
+            <span className="cbadge">{filters.length}</span>
+          ) : null}
+        </button>
+
+        {/* #1 · live filtered count — updates as filters/search change so the
+            match total is visible up here by the Filter control, not only down
+            in the pager. When server-paginated it counts the loaded window
+            (the tooltip states the whole-set total). */}
+        <span
+          className="wb-count"
+          aria-live="polite"
+          data-tip={
+            serverPageCount > 1
+              ? `Matches in the loaded window of ${rows.length.toLocaleString()} · ${totalRows.toLocaleString()} total`
+              : undefined
+          }
+        >
+          <strong>{filtered.length.toLocaleString()}</strong>
+          {filters.length > 0 || search.trim() !== ""
+            ? ` of ${rows.length.toLocaleString()}`
+            : ""}{" "}
+          {/* "loaded" (not "leads") when server-paginated so the number never
+              reads as the whole-set total — that's in the tooltip. */}
+          {serverPageCount > 1
+            ? "loaded"
+            : filtered.length === 1
+              ? "lead"
+              : "leads"}
+        </span>
+
+        {/* AUDIT U10 · the ONE primary action in the toolbar — enrich the
+            enrichable leads in the current view (selected rows if any are
+            selected, else the filtered rows with a not-run family), with the
+            gross credit estimate inline. Everything else in the toolbar stays
+            secondary. Hidden when nothing in view is enrichable. */}
+        {enrichTargetCount > 0 ? (
+          <button
+            type="button"
+            className="btn primary sm"
+            data-tip={
+              selected.size > 0
+                ? "Enrich the selected leads that still have data to pull"
+                : "Enrich the filtered leads that still have data to pull"
+            }
+            onClick={openToolbarEnrichSheet}
+          >
+            {`Enrich ${enrichTargetCount.toLocaleString()}`}
+            {enrichTargetCredits > 0
+              ? ` · ~${fmtCredits(enrichTargetCredits)} cr`
+              : ""}
+            {" →"}
+          </button>
+        ) : null}
 
         <div className="seg sm" role="group" aria-label="Group by">
           <button
@@ -1469,7 +2118,11 @@ export function LeadsWorkbench({
 
         <Popover
           open={fieldsOpen}
-          onOpenChange={setFieldsOpen}
+          onOpenChange={(o) => {
+            setFieldsOpen(o);
+            // Reset the search on close so the next open starts clean.
+            if (!o) setFieldsQuery("");
+          }}
           className="popmenu cols"
           label="Fields"
           trigger={
@@ -1478,105 +2131,88 @@ export function LeadsWorkbench({
             </button>
           }
         >
-          <div className="cgrp">Workflow</div>
-          {COLUMNS.filter((c) => c.group === "workflow" && c.key !== "biz").map(
-            (c) => (
-              <label key={c.key}>
-                <input
-                  type="checkbox"
-                  checked={activeCols.includes(c.key)}
-                  onChange={() => toggleCol(c.key)}
-                />
-                {c.label}
-                {/* WP5-13 · per-field funnel — add/edit a filter from the
-                    same row (columns + filters in one mental model). */}
-                {isFilterField(c.key) ? (
-                  <FieldFunnel
-                    field={c.key as NumericFilterField}
-                    label={c.label}
-                    active={filters.some(
-                      (f) => f.kind !== "signal" && f.field === c.key,
-                    )}
-                    onOpen={openFieldFilter}
+          {/* F3 · search box — narrows the visible column rows by label. */}
+          <div className="cols-search">
+            <Icon name="search" className="si" size={13} />
+            <input
+              type="search"
+              value={fieldsQuery}
+              onChange={(e) => setFieldsQuery(e.target.value)}
+              placeholder="Search fields…"
+              aria-label="Search fields"
+            />
+          </div>
+          {/* U15 · the Fields menu is column-visibility ONLY — a single
+              filtering home. Columns grouped by enrichment TYPE (Identity /
+              Contacts / Reviews / Site audit / Tech / Ads / Search / AI); the
+              checkbox toggle re-adds a hidden/enriched column (F1). Filters are
+              added exclusively from the merged "+ Filter" picker in the Filters
+              panel — no per-row funnel here. */}
+          {fieldsGroups.length === 0 ? (
+            <div className="cols-empty note">
+              No fields match “{fieldsQuery}”.
+            </div>
+          ) : (
+            // Rendered as flat siblings (fragments, not wrapping divs) so the
+            // `.cgrp:first-of-type` divider rule keeps working — only the very
+            // first section header drops its top border.
+            fieldsGroups.flatMap((section) => [
+              <div className="cgrp" key={`h-${section.group}`}>
+                {section.group}
+              </div>,
+              ...section.cols.map((c) => (
+                <label key={c.key}>
+                  <input
+                    type="checkbox"
+                    checked={activeCols.includes(c.key)}
+                    onChange={() => toggleCol(c.key)}
                   />
-                ) : null}
-              </label>
-            ),
+                  {c.fullLabel ?? c.label}
+                </label>
+              )),
+            ])
           )}
-          <div className="cgrp">Already enriched — add for free</div>
-          {COLUMNS.filter((c) => c.group === "enriched").map((c) => (
-            <label key={c.key}>
-              <input
-                type="checkbox"
-                checked={activeCols.includes(c.key)}
-                onChange={() => toggleCol(c.key)}
-              />
-              {c.fullLabel ?? c.label}
-              {isFilterField(c.key) ? (
-                <FieldFunnel
-                  field={c.key as NumericFilterField}
-                  label={c.label}
-                  active={filters.some(
-                    (f) => f.kind !== "signal" && f.field === c.key,
-                  )}
-                  onOpen={openFieldFilter}
-                />
-              ) : null}
-            </label>
-          ))}
           {/* WP5-13 · locked buy-rows: families still missing across the
-              visible set — click opens the WP5-3 enrich sheet. */}
-          <FieldsMenuLockedRows
-            missing={coverageSummary.missingKeys}
-            scope={enrichScope}
-          />
+              visible set — click opens the WP5-3 enrich sheet. Kept below the
+              type sections; only shown when the search isn't narrowing (a
+              search is a "find this column" intent, not a buy intent). */}
+          {fieldsQuery.trim() === "" ? (
+            <FieldsMenuLockedRows
+              missing={coverageSummary.missingKeys}
+              scope={enrichScope}
+            />
+          ) : null}
         </Popover>
 
         <span className="tb-spacer" />
 
-        {/* #1 · live filtered count — updates as filters/search change so the
-            match total is visible up here by the Filters control, not only down
-            in the pager. When server-paginated it counts the loaded window
-            (the tooltip states the whole-set total). */}
-        <span
-          className="wb-count"
-          aria-live="polite"
-          data-tip={
-            serverPageCount > 1
-              ? `Matches in the loaded window of ${rows.length.toLocaleString()} · ${totalRows.toLocaleString()} total`
-              : undefined
-          }
-        >
-          <strong>{filtered.length.toLocaleString()}</strong>
-          {filters.length > 0 || search.trim() !== ""
-            ? ` of ${rows.length.toLocaleString()}`
-            : ""}{" "}
-          {/* "loaded" (not "leads") when server-paginated so the number never
-              reads as the whole-set total — that's in the tooltip. */}
-          {serverPageCount > 1
-            ? "loaded"
-            : filtered.length === 1
-              ? "lead"
-              : "leads"}
-        </span>
-
+        {/* AUDIT §3/B1 · isolate the leads an enrichment actually ran on (what
+            the agency paid for) from the whole website-having market. */}
         <button
-          ref={filterBtnRef}
           type="button"
-          className={`iconbtn${filters.length ? " active" : ""}`}
-          aria-haspopup="true"
-          aria-expanded={filtersOpen}
-          aria-label="Filters"
-          data-tip="Filters"
+          className={`btn sm${enrichedOnly ? " active" : ""}`}
+          aria-pressed={enrichedOnly}
+          data-tip={`Show only the ${enrichedCount.toLocaleString()} lead${
+            enrichedCount === 1 ? "" : "s"
+          } an enrichment has run on`}
           onClick={() => {
-            setFiltersOpen((o) => !o);
-            setCoverageOpen(false);
+            setEnrichedOnly((v) => !v);
+            setPage(1);
           }}
         >
-          <Icon name="filter" />
-          {filters.length ? (
-            <span className="cbadge">{filters.length}</span>
-          ) : null}
+          Enriched only
+          {enrichedCount ? ` · ${enrichedCount.toLocaleString()}` : ""}
+        </button>
+
+        {/* AUDIT U7 · row density — Compact default; click toggles. */}
+        <button
+          type="button"
+          className="btn sm"
+          data-tip="Row density — click to toggle compact / cozy"
+          aria-label={`Row density: ${density}`}
+          onClick={toggleDensity}
+        >
+          {density === "compact" ? "Compact" : "Cozy"}
         </button>
 
         <button
@@ -1639,6 +2275,7 @@ export function LeadsWorkbench({
                 {[
                   ["/", "Focus search"],
                   ["f", "Fields menu"],
+                  ["F", "Filters (Shift+F)"],
                   ["g", "Group (none → cell → signals)"],
                   ["v", "vs-cell benchmarks (toggle)"],
                   ["?", "This help"],
@@ -1655,14 +2292,287 @@ export function LeadsWorkbench({
         </div>
       ) : null}
 
-      {/* ── Filters panel ─────────────────────────────────────────────────── */}
-      {filtersOpen ? (
-        <div className="collapse-panel" ref={filtersPanelRef}>
-          <div className="cp-head">
-            <span className="cp-title">Filters</span>
+      {/* AUDIT U9 · Filters + Coverage panels float OVER the grid (position:
+          absolute inside .wb-body-rel) instead of pushing the chips row + table
+          down and forcing a second page scroll — the panel overlays the top few
+          rows while open, the grid keeps its full height. At most one panel is
+          open at a time (the toolbar toggles are mutually exclusive). The nested
+          add-filter <Popover> still portals to #agency-overlays above this. */}
+      <div className="wb-body-rel">
+        {/* ── Filters panel ─────────────────────────────────────────────────── */}
+        {filtersOpen ? (
+          <div className="collapse-panel" ref={filtersPanelRef}>
+            <div className="cp-head">
+              <span className="cp-title">Filters</span>
+              <button
+                type="button"
+                className="cp-clear"
+                onClick={() => {
+                  userTouchedRef.current = true;
+                  setFilters([]);
+                  setPage(1);
+                }}
+              >
+                Clear all
+              </button>
+            </div>
+            <div className="cp-body">
+              {filters.map((f, i) =>
+                f.kind === "signal" ? (
+                  <span
+                    key={i}
+                    className="fchip sig"
+                    data-tip="Goal-signal filter"
+                  >
+                    <span style={{ fontWeight: 600 }}>{f.sigLabel}</span>
+                    <button
+                      type="button"
+                      onClick={() => toggleSignalWant(i)}
+                      aria-pressed={f.want === "match"}
+                      aria-label={`${f.sigLabel}: ${
+                        f.want === "match" ? "matched" : "not matched"
+                      } — press to flip`}
+                      style={{
+                        border: "none",
+                        background: "transparent",
+                        font: "inherit",
+                        cursor: "pointer",
+                        // Darker green/red on the tinted .fchip.sig bg clear
+                        // 4.5:1 (plain --green is 2.97:1, plain --red 4.13:1 on
+                        // --indigo-50 — both fail; the -700 tokens pass).
+                        color:
+                          f.want === "match"
+                            ? "var(--green-700)"
+                            : "var(--red-700)",
+                      }}
+                    >
+                      {f.want === "match" ? "matched" : "not matched"}
+                    </button>
+                    <button
+                      type="button"
+                      className="x"
+                      aria-label={`Remove ${filterLabel(f)}`}
+                      onClick={() => removeFilter(i)}
+                    >
+                      ×
+                    </button>
+                  </span>
+                ) : (
+                  <span key={i} className="fchip data" data-tip="Edit filter">
+                    <select
+                      aria-label="Field"
+                      value={f.field}
+                      onChange={(e) =>
+                        editFilter(i, {
+                          field: e.target.value as NumericFilterField,
+                        })
+                      }
+                      style={{
+                        border: "none",
+                        background: "transparent",
+                        font: "inherit",
+                      }}
+                    >
+                      {FILTER_FIELDS.map((m) => (
+                        <option key={m.field} value={m.field}>
+                          {m.label}
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      aria-label="Operator"
+                      value={f.op}
+                      onChange={(e) =>
+                        editFilter(i, {
+                          op: e.target.value as NumericLeadFilter["op"],
+                        })
+                      }
+                      style={{
+                        border: "none",
+                        background: "transparent",
+                        font: "inherit",
+                      }}
+                    >
+                      {["<", "≤", "=", "≥", ">"].map((o) => (
+                        <option key={o} value={o}>
+                          {o}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      aria-label="Value"
+                      type="number"
+                      value={f.value}
+                      onChange={(e) =>
+                        editFilter(i, { value: Number(e.target.value) || 0 })
+                      }
+                      style={{
+                        width: 56,
+                        border: "none",
+                        background: "transparent",
+                        font: "inherit",
+                      }}
+                    />
+                    <button
+                      type="button"
+                      className="x"
+                      aria-label={`Remove ${filterLabel(f)}`}
+                      onClick={() => removeFilter(i)}
+                    >
+                      ×
+                    </button>
+                  </span>
+                ),
+              )}
+              {/* U15 · ONE "+ Filter" attribute picker — the single filtering
+                home. Two labelled sections inside the one <Popover>: addable
+                signals (the curated library, gated to signals with data on
+                every lead) and addable numeric fields (fields with data).
+                Selecting a signal adds a signal filter; selecting a field adds
+                a numeric filter — both feed the same filters[] array. */}
+              <Popover
+                open={filterMenuOpen}
+                onOpenChange={setFilterMenuOpen}
+                className="filter-add-popover"
+                role="dialog"
+                label="Add a filter"
+                trigger={
+                  <button
+                    type="button"
+                    className="add"
+                    data-tip="Filter by a signal or field"
+                  >
+                    ＋ Filter
+                  </button>
+                }
+              >
+                {/* U21 · when NEITHER signals nor fields are addable, the whole
+                  picker is empty — a single actionable row that opens the enrich
+                  sheet from where the problem is stated. */}
+                {signalOptionCount === 0 && addNumericOptions.length === 0 ? (
+                  <button
+                    type="button"
+                    className="filter-add-empty"
+                    style={{
+                      cursor: "pointer",
+                      width: "100%",
+                      textAlign: "left",
+                      background: "none",
+                      border: "none",
+                      font: "inherit",
+                    }}
+                    onClick={openMissingFamiliesSheet}
+                  >
+                    No signals or fields with data yet · enrich to unlock →
+                  </button>
+                ) : null}
+                {/* ── Signals ─────────────────────────────────────────────── */}
+                {addSignalOptions.goal.length > 0 ? (
+                  <div
+                    className="filter-list-section"
+                    role="group"
+                    aria-label="Your goal signals"
+                  >
+                    <div className="filter-list-eyebrow">Your goal signals</div>
+                    {addSignalOptions.goal.map((s) => (
+                      <button
+                        key={s.key}
+                        type="button"
+                        className="filter-list-item"
+                        onClick={() => pickAddSignal(s.key, s.title)}
+                      >
+                        {s.title}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+                {addSignalOptions.rest.length > 0 ? (
+                  <div
+                    className="filter-list-section"
+                    role="group"
+                    aria-label="All signals"
+                  >
+                    <div className="filter-list-eyebrow">Signals</div>
+                    {addSignalOptions.rest.map((s) => (
+                      <button
+                        key={s.key}
+                        type="button"
+                        className="filter-list-item"
+                        onClick={() => pickAddSignal(s.key, s.title)}
+                      >
+                        {s.title}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+                {/* When signals are exhausted but fields exist, name the reason
+                  inline so the picker never looks half-empty by accident. */}
+                {signalOptionCount === 0 && addNumericOptions.length > 0 ? (
+                  <button
+                    type="button"
+                    className="filter-add-empty"
+                    style={{
+                      cursor: "pointer",
+                      width: "100%",
+                      textAlign: "left",
+                      background: "none",
+                      border: "none",
+                      font: "inherit",
+                    }}
+                    onClick={openMissingFamiliesSheet}
+                  >
+                    No signal covers all leads yet · enrich to unlock →
+                  </button>
+                ) : null}
+                {/* ── Fields ──────────────────────────────────────────────── */}
+                {addNumericOptions.length > 0 ? (
+                  <div
+                    className="filter-list-section"
+                    role="group"
+                    aria-label="Fields with data"
+                  >
+                    <div className="filter-list-eyebrow">Fields</div>
+                    {addNumericOptions.map((m) => (
+                      <button
+                        key={m.field}
+                        type="button"
+                        className="filter-list-item"
+                        onClick={() => pickAddNumeric(m.field)}
+                      >
+                        <span>{m.label}</span>
+                        {m.unit ? (
+                          <span className="filter-item-unit">{m.unit}</span>
+                        ) : null}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+              </Popover>
+            </div>
+          </div>
+        ) : filters.length ? (
+          <div className="chipsbar">
+            <span className="cb-lbl">Filters</span>
+            {filters.map((f, i) => (
+              // Signal chips (your goal defaults) read distinct from numeric ones.
+              <span
+                key={i}
+                className={`fchip ${f.kind === "signal" ? "sig" : "data"}`}
+              >
+                {filterLabel(f)}
+                <button
+                  type="button"
+                  className="x"
+                  aria-label={`Remove ${filterLabel(f)}`}
+                  onClick={() => removeFilter(i)}
+                >
+                  ×
+                </button>
+              </span>
+            ))}
             <button
               type="button"
-              className="cp-clear"
+              className="cb-clear"
               onClick={() => {
                 userTouchedRef.current = true;
                 setFilters([]);
@@ -1672,479 +2582,292 @@ export function LeadsWorkbench({
               Clear all
             </button>
           </div>
-          <div className="cp-body">
-            {filters.map((f, i) =>
-              f.kind === "signal" ? (
-                <span
-                  key={i}
-                  className="fchip sig"
-                  data-tip="Goal-signal filter"
-                >
-                  <span style={{ fontWeight: 600 }}>{f.sigLabel}</span>
-                  <button
-                    type="button"
-                    onClick={() => toggleSignalWant(i)}
-                    aria-pressed={f.want === "match"}
-                    aria-label={`${f.sigLabel}: ${
-                      f.want === "match" ? "matched" : "not matched"
-                    } — press to flip`}
-                    style={{
-                      border: "none",
-                      background: "transparent",
-                      font: "inherit",
-                      cursor: "pointer",
-                      // Darker green/red on the tinted .fchip.sig bg clear
-                      // 4.5:1 (plain --green is 2.97:1, plain --red 4.13:1 on
-                      // --indigo-50 — both fail; the -700 tokens pass).
-                      color:
-                        f.want === "match"
-                          ? "var(--green-700)"
-                          : "var(--red-700)",
-                    }}
-                  >
-                    {f.want === "match" ? "matched" : "not matched"}
-                  </button>
-                  <button
-                    type="button"
-                    className="x"
-                    aria-label={`Remove ${filterLabel(f)}`}
-                    onClick={() => removeFilter(i)}
-                  >
-                    ×
-                  </button>
-                </span>
-              ) : (
-                <span key={i} className="fchip data" data-tip="Edit filter">
-                  <select
-                    aria-label="Field"
-                    value={f.field}
-                    onChange={(e) =>
-                      editFilter(i, {
-                        field: e.target.value as NumericFilterField,
-                      })
-                    }
-                    style={{
-                      border: "none",
-                      background: "transparent",
-                      font: "inherit",
-                    }}
-                  >
-                    {FILTER_FIELDS.map((m) => (
-                      <option key={m.field} value={m.field}>
-                        {m.label}
-                      </option>
-                    ))}
-                  </select>
-                  <select
-                    aria-label="Operator"
-                    value={f.op}
-                    onChange={(e) =>
-                      editFilter(i, {
-                        op: e.target.value as NumericLeadFilter["op"],
-                      })
-                    }
-                    style={{
-                      border: "none",
-                      background: "transparent",
-                      font: "inherit",
-                    }}
-                  >
-                    {["<", "≤", "=", "≥", ">"].map((o) => (
-                      <option key={o} value={o}>
-                        {o}
-                      </option>
-                    ))}
-                  </select>
-                  <input
-                    aria-label="Value"
-                    type="number"
-                    value={f.value}
-                    onChange={(e) =>
-                      editFilter(i, { value: Number(e.target.value) || 0 })
-                    }
-                    style={{
-                      width: 56,
-                      border: "none",
-                      background: "transparent",
-                      font: "inherit",
-                    }}
-                  />
-                  <button
-                    type="button"
-                    className="x"
-                    aria-label={`Remove ${filterLabel(f)}`}
-                    onClick={() => removeFilter(i)}
-                  >
-                    ×
-                  </button>
-                </span>
-              ),
-            )}
-            {/* #3 · two pickers — "+ Signal" (the curated library, gated to
-                signals with data on every lead) and "+ Field" (numeric fields
-                with data). Each is its own <Popover> (floating-ui portal +
-                dismiss + ↑/↓ nav). */}
-            <Popover
-              open={signalMenuOpen}
-              onOpenChange={setSignalMenuOpen}
-              className="filter-add-popover"
-              role="dialog"
-              label="Add a signal filter"
-              trigger={
-                <button
-                  type="button"
-                  className="add"
-                  data-tip="Filter by a signal"
-                >
-                  ＋ Signal
-                </button>
-              }
-            >
-              {signalOptionCount === 0 ? (
-                <div className="filter-add-empty">
-                  No signal covers all leads yet · enrich to unlock.
-                </div>
-              ) : null}
-              {addSignalOptions.goal.length > 0 ? (
-                <div
-                  className="filter-list-section"
-                  role="group"
-                  aria-label="Your goal signals"
-                >
-                  <div className="filter-list-eyebrow">Your goal signals</div>
-                  {addSignalOptions.goal.map((s) => (
-                    <button
-                      key={s.key}
-                      type="button"
-                      className="filter-list-item"
-                      onClick={() => pickAddSignal(s.key, s.title)}
-                    >
-                      {s.title}
-                    </button>
-                  ))}
-                </div>
-              ) : null}
-              {addSignalOptions.rest.length > 0 ? (
-                <div
-                  className="filter-list-section"
-                  role="group"
-                  aria-label="All signals"
-                >
-                  <div className="filter-list-eyebrow">All signals</div>
-                  {addSignalOptions.rest.map((s) => (
-                    <button
-                      key={s.key}
-                      type="button"
-                      className="filter-list-item"
-                      onClick={() => pickAddSignal(s.key, s.title)}
-                    >
-                      {s.title}
-                    </button>
-                  ))}
-                </div>
-              ) : null}
-            </Popover>
-            <Popover
-              open={fieldMenuOpen}
-              onOpenChange={setFieldMenuOpen}
-              className="filter-add-popover"
-              role="dialog"
-              label="Add a field filter"
-              trigger={
-                <button
-                  type="button"
-                  className="add"
-                  data-tip="Filter by a field"
-                >
-                  ＋ Field
-                </button>
-              }
-            >
-              {addNumericOptions.length === 0 ? (
-                <div className="filter-add-empty">
-                  No fields with data yet · enrich to unlock.
-                </div>
-              ) : (
-                <div
-                  className="filter-list-section"
-                  role="group"
-                  aria-label="Fields with data"
-                >
-                  <div className="filter-list-eyebrow">Fields with data</div>
-                  {addNumericOptions.map((m) => (
-                    <button
-                      key={m.field}
-                      type="button"
-                      className="filter-list-item"
-                      onClick={() => pickAddNumeric(m.field)}
-                    >
-                      <span>{m.label}</span>
-                      {m.unit ? (
-                        <span className="filter-item-unit">{m.unit}</span>
-                      ) : null}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </Popover>
-          </div>
-        </div>
-      ) : filters.length ? (
-        <div className="chipsbar">
-          <span className="cb-lbl">Filters</span>
-          {filters.map((f, i) => (
-            // Signal chips (your goal defaults) read distinct from numeric ones.
-            <span
-              key={i}
-              className={`fchip ${f.kind === "signal" ? "sig" : "data"}`}
-            >
-              {filterLabel(f)}
-              <button
-                type="button"
-                className="x"
-                aria-label={`Remove ${filterLabel(f)}`}
-                onClick={() => removeFilter(i)}
-              >
-                ×
-              </button>
-            </span>
-          ))}
-          <button
-            type="button"
-            className="cb-clear"
-            onClick={() => {
-              userTouchedRef.current = true;
-              setFilters([]);
-              setPage(1);
-            }}
-          >
-            Clear all
-          </button>
-        </div>
-      ) : null}
+        ) : null}
 
-      {/* ── Coverage panel ────────────────────────────────────────────────── */}
-      {coverageOpen ? (
-        <div className="collapse-panel" ref={coveragePanelRef}>
-          <div className="covline" aria-live="polite">
-            <span className="cl-lbl">Coverage</span>
-            <span className="cl-lbl" style={{ color: "var(--green)" }}>
-              Have:
-            </span>
-            {coverageSummary.have.length === 0 ? (
-              <span className="note">—</span>
-            ) : (
-              coverageSummary.have.map((label) => (
-                <span key={label} className="covtag done">
-                  <span className="cv">✓</span>
-                  {label}
-                </span>
-              ))
-            )}
-            {coverageSummary.notYet.length > 0 ? (
-              <>
-                <span className="cl-lbl" style={{ marginLeft: 6 }}>
-                  Not yet:
-                </span>
-                {coverageSummary.notYet.map((label) => (
-                  <span key={label} className="covtag todo">
+        {/* ── Coverage panel ────────────────────────────────────────────────── */}
+        {coverageOpen ? (
+          <div className="collapse-panel" ref={coveragePanelRef}>
+            <div className="covline" aria-live="polite">
+              <span className="cl-lbl">Coverage</span>
+              <span className="cl-lbl" style={{ color: "var(--green)" }}>
+                Have:
+              </span>
+              {coverageSummary.have.length === 0 ? (
+                <span className="note">—</span>
+              ) : (
+                coverageSummary.have.map((label) => (
+                  <span key={label} className="covtag done">
+                    <span className="cv">✓</span>
                     {label}
                   </span>
-                ))}
-                {/* WP5-3 · opens the in-workbench enrich sheet (pre-seeded
+                ))
+              )}
+              {coverageSummary.notYet.length > 0 ? (
+                <>
+                  <span className="cl-lbl" style={{ marginLeft: 6 }}>
+                    Not yet:
+                  </span>
+                  {coverageSummary.notYet.map((label) => (
+                    <span key={label} className="covtag todo">
+                      {label}
+                    </span>
+                  ))}
+                  {/* WP5-3 · opens the in-workbench enrich sheet (pre-seeded
                     with the missing families + the current scope) — a real
                     one-click buy surface, not a deep-link away. */}
+                  <button
+                    type="button"
+                    className="clenrich"
+                    style={{ cursor: "pointer", font: "inherit" }}
+                    onClick={openMissingFamiliesSheet}
+                  >
+                    Enrich {coverageSummary.notYet.join(" · ")} →
+                  </button>
+                </>
+              ) : (
+                <span className="note" style={{ marginLeft: "auto" }}>
+                  All families enriched on this set
+                </span>
+              )}
+            </div>
+            {/* AUDIT C5 · field-state filters — click a state to narrow to leads
+              whose family is in that state ("Email · none" → no-email leads). */}
+            <div className="cov-filters">
+              <span className="cl-lbl">Filter by state</span>
+              {ENRICHMENT_FAMILIES.map((fam) => {
+                const label =
+                  DATA_FAMILIES.find((f) => f.key === fam)?.label ?? fam;
+                const counts = familyStateCounts.get(fam);
+                if (!counts) return null;
+                const active = stateFilterByFamily.get(fam);
+                const STATE_LABEL: Record<FamilyState, string> = {
+                  enriched: "have",
+                  empty: "none",
+                  failed: "failed",
+                  not_run: "not run",
+                };
+                // AUDIT UX-review #6 · order by actionability (failed → none →
+                // have), with the default-population "not run" last.
+                const states: FamilyState[] = [
+                  "failed",
+                  "empty",
+                  "enriched",
+                  "not_run",
+                ];
+                const shown = states.filter((s) => counts[s] > 0);
+                if (shown.length === 0) return null;
+                return (
+                  <span key={fam} className="cov-fam">
+                    <span className="cov-fam-lbl">{label}</span>
+                    {shown.map((s) => (
+                      <button
+                        key={s}
+                        type="button"
+                        className={`cov-state${active?.has(s) ? " on" : ""}`}
+                        aria-pressed={active?.has(s) ?? false}
+                        data-tip={`Show leads where ${label} = ${STATE_LABEL[s]}`}
+                        onClick={() => toggleStateFilter(fam, s)}
+                      >
+                        {STATE_LABEL[s]} {counts[s]}
+                      </button>
+                    ))}
+                  </span>
+                );
+              })}
+              {stateFilters.length > 0 ? (
                 <button
                   type="button"
-                  className="clenrich"
-                  style={{ cursor: "pointer", font: "inherit" }}
-                  onClick={openMissingFamiliesSheet}
+                  className="cp-clear"
+                  onClick={() => {
+                    setStateFilters([]);
+                    setPage(1);
+                  }}
                 >
-                  Enrich {coverageSummary.notYet.join(" · ")} →
+                  Clear
                 </button>
-              </>
-            ) : (
-              <span className="note" style={{ marginLeft: "auto" }}>
-                All families enriched on this set
-              </span>
-            )}
+              ) : null}
+            </div>
           </div>
-        </div>
-      ) : null}
+        ) : null}
 
-      {/* WP7-10 · sort-state announcement for screen readers. A polite live
+        {/* WP7-10 · sort-state announcement for screen readers. A polite live
           region names the active column + direction whenever the sort changes,
           so a non-visual user hears "Sorted by Reviews, descending" instead of
           only seeing the ▲/▼ glyph. Visually hidden (.sr-only). */}
-      <div className="sr-only" aria-live="polite" role="status">
-        {sortAnnouncement}
-      </div>
+        <div className="sr-only" aria-live="polite" role="status">
+          {sortAnnouncement}
+        </div>
 
-      {/* ── The power table ───────────────────────────────────────────────── */}
-      <div className="wbtable-wrap">
-        <table className="wb">
-          {/* WP7-10 · a screen-reader caption naming what the table holds +
+        {/* ── The power table ───────────────────────────────────────────────── */}
+        <div className="wbtable-wrap">
+          <table className={`wb ${density}`}>
+            {/* WP7-10 · a screen-reader caption naming what the table holds +
               how many rows are shown. Visually hidden — the WorkspaceHeader
               carries the visible narrative count. */}
-          <caption className="sr-only">{captionText}</caption>
-          <thead>
-            <tr>
-              <th scope="col" className="sel" style={{ width: 34 }}>
-                <input
-                  type="checkbox"
-                  className="ck"
-                  aria-label="Select all on this page"
-                  checked={
-                    pageRows.length > 0 &&
-                    pageRows.every((r) => selected.has(r.leadId))
-                  }
-                  onChange={(e) => togglePageSelect(e.target.checked)}
-                />
-              </th>
-              {cols.map((c) => (
-                <th
-                  key={c.key}
-                  scope="col"
-                  className={[
-                    c.kind === "num" || c.kind === "match" ? "num" : "",
-                    !c.sortable ? "plain" : "",
-                  ]
-                    .filter(Boolean)
-                    .join(" ")}
-                  data-tip={c.fullLabel ?? c.label}
-                  aria-sort={
-                    c.sortable && sortKey === c.key
-                      ? sortDir === 1
-                        ? "ascending"
-                        : "descending"
-                      : c.sortable
-                        ? "none"
-                        : undefined
-                  }
-                >
-                  {c.sortable ? (
-                    // A real <button> so the sort control is keyboard-focusable
-                    // and announced as a button (WP7-10 · keyboard-first).
-                    <button
-                      type="button"
-                      className="wb-sortbtn"
-                      onClick={() => toggleSort(c.key)}
-                      aria-label={`Sort by ${c.fullLabel ?? c.label}${
-                        sortKey === c.key
-                          ? sortDir === 1
-                            ? ", currently ascending"
-                            : ", currently descending"
-                          : ""
-                      }`}
-                    >
-                      {c.label}
-                      {sortKey === c.key ? (
-                        <span className="arr" aria-hidden="true">
-                          {sortDir === 1 ? "▲" : "▼"}
-                        </span>
-                      ) : (
-                        // Faint idle chevron so an inactive column reads as
-                        // sortable (was invisible → looked non-interactive).
-                        <span className="arr arr-idle" aria-hidden="true">
-                          ↕
-                        </span>
-                      )}
-                    </button>
-                  ) : (
-                    c.label
-                  )}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.length === 0 ? (
+            <caption className="sr-only">{captionText}</caption>
+            <thead>
               <tr>
-                <td colSpan={colSpan}>
-                  <div
-                    className="empty"
-                    style={{
-                      textAlign: "center",
-                      padding: "32px 0",
-                      color: "var(--faint)",
-                    }}
+                <th scope="col" className="sel" style={{ width: 34 }}>
+                  <input
+                    type="checkbox"
+                    className="ck"
+                    aria-label="Select all on this page"
+                    checked={
+                      pageRows.length > 0 &&
+                      pageRows.every((r) => selected.has(r.leadId))
+                    }
+                    onChange={(e) => togglePageSelect(e.target.checked)}
+                  />
+                </th>
+                {cols.map((c) => (
+                  <th
+                    key={c.key}
+                    scope="col"
+                    className={[
+                      c.kind === "num" || c.kind === "match" ? "num" : "",
+                      !c.sortable ? "plain" : "",
+                      // U23 · tag the identity name header so the sticky-left
+                      // pin rule can target it (matches td.biz on the body).
+                      c.kind === "biz" ? "biz" : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" ")}
+                    data-tip={c.fullLabel ?? c.label}
+                    aria-sort={
+                      c.sortable && sortKey === c.key
+                        ? sortDir === 1
+                          ? "ascending"
+                          : "descending"
+                        : c.sortable
+                          ? "none"
+                          : undefined
+                    }
                   >
-                    {filters.length > 0 || search.trim() !== "" ? (
-                      <>
-                        No leads match these filters ·{" "}
-                        <button
-                          type="button"
-                          className="rflink"
-                          onClick={clearAllFilters}
-                        >
-                          Clear filters
-                        </button>
-                      </>
-                    ) : (
-                      "No leads in this set yet."
-                    )}
-                  </div>
-                </td>
-              </tr>
-            ) : grouped ? (
-              grouped.flatMap((g) => {
-                const collapsed = collapsedGroups.has(g.id);
-                const toggle = () =>
-                  setCollapsedGroups((prev) => {
-                    const next = new Set(prev);
-                    if (next.has(g.id)) next.delete(g.id);
-                    else next.add(g.id);
-                    return next;
-                  });
-                const head = (
-                  <tr
-                    key={`grp-${g.id}`}
-                    className={`grphead${collapsed ? " collapsed" : ""}`}
-                  >
-                    <td colSpan={colSpan}>
-                      {/* A real <button> so collapse/expand is keyboard-operable
-                          + announced (aria-expanded), not a mouse-only <tr>. The
-                          signal-group legend rides its tooltip. */}
+                    {c.sortable ? (
+                      // A real <button> so the sort control is keyboard-focusable
+                      // and announced as a button (WP7-10 · keyboard-first).
                       <button
                         type="button"
-                        className="grphead-btn"
-                        aria-expanded={!collapsed}
-                        aria-label={`${g.label}, ${g.rows.length} leads — ${
-                          collapsed ? "expand" : "collapse"
+                        className="wb-sortbtn"
+                        onClick={() => toggleSort(c.key)}
+                        aria-label={`Sort by ${c.fullLabel ?? c.label}${
+                          sortKey === c.key
+                            ? sortDir === 1
+                              ? ", currently ascending"
+                              : ", currently descending"
+                            : ""
                         }`}
-                        data-tip={
-                          group === "signals"
-                            ? "✓ matched · ✗ not matched"
-                            : undefined
-                        }
-                        onClick={toggle}
                       >
-                        <span className="gchev" aria-hidden="true">
-                          ▾
-                        </span>
-                        {g.label}
-                        <span className="gc">{g.rows.length} leads</span>
+                        {c.label}
+                        {sortKey === c.key ? (
+                          <span className="arr" aria-hidden="true">
+                            {sortDir === 1 ? "▲" : "▼"}
+                          </span>
+                        ) : (
+                          // Faint idle chevron so an inactive column reads as
+                          // sortable (was invisible → looked non-interactive).
+                          <span className="arr arr-idle" aria-hidden="true">
+                            ↕
+                          </span>
+                        )}
                       </button>
-                    </td>
-                  </tr>
-                );
-                if (collapsed) return [head];
-                return [
-                  head,
-                  ...g.rows.map((r) =>
-                    renderRow(
-                      r,
-                      pageRows.findIndex((x) => x.leadId === r.leadId),
+                    ) : (
+                      c.label
+                    )}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={colSpan}>
+                    <div
+                      className="empty"
+                      style={{
+                        textAlign: "center",
+                        padding: "32px 0",
+                        color: "var(--faint)",
+                      }}
+                    >
+                      {filters.length > 0 || search.trim() !== "" ? (
+                        <>
+                          No leads match these filters ·{" "}
+                          <button
+                            type="button"
+                            className="rflink"
+                            onClick={clearAllFilters}
+                          >
+                            Clear filters
+                          </button>
+                        </>
+                      ) : (
+                        "No leads in this set yet."
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ) : grouped ? (
+                grouped.flatMap((g) => {
+                  const collapsed = collapsedGroups.has(g.id);
+                  const toggle = () =>
+                    setCollapsedGroups((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(g.id)) next.delete(g.id);
+                      else next.add(g.id);
+                      return next;
+                    });
+                  const head = (
+                    <tr
+                      key={`grp-${g.id}`}
+                      className={`grphead${collapsed ? " collapsed" : ""}`}
+                    >
+                      <td colSpan={colSpan}>
+                        {/* A real <button> so collapse/expand is keyboard-operable
+                          + announced (aria-expanded), not a mouse-only <tr>. The
+                          signal-group legend rides its tooltip. */}
+                        <button
+                          type="button"
+                          className="grphead-btn"
+                          aria-expanded={!collapsed}
+                          aria-label={`${g.label}, ${g.rows.length} leads — ${
+                            collapsed ? "expand" : "collapse"
+                          }`}
+                          data-tip={
+                            group === "signals"
+                              ? "✓ matched · ✗ not matched"
+                              : undefined
+                          }
+                          onClick={toggle}
+                        >
+                          <span className="gchev" aria-hidden="true">
+                            ▾
+                          </span>
+                          {g.label}
+                          <span className="gc">{g.rows.length} leads</span>
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                  if (collapsed) return [head];
+                  return [
+                    head,
+                    ...g.rows.map((r) =>
+                      renderRow(
+                        r,
+                        pageRows.findIndex((x) => x.leadId === r.leadId),
+                      ),
                     ),
-                  ),
-                ];
-              })
-            ) : (
-              pageRows.map((r, i) => renderRow(r, i))
-            )}
-          </tbody>
-        </table>
+                  ];
+                })
+              ) : (
+                pageRows.map((r, i) => renderRow(r, i))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
+      {/* /.wb-body-rel — end of the panel-overlay + grid group (AUDIT U9) */}
 
       {/* ── Pagination (in-window pages + server-window crossing · WP4-4) ──── */}
       {!isGrouped && (filtered.length > 0 || serverPageCount > 1) ? (
@@ -2295,6 +3018,29 @@ export function LeadsWorkbench({
             .map((r) => r.businessId)}
           discoveryId={discoveryId}
         />
+        {/* AUDIT U17 · bulk enrich the selection — the gross credit total for the
+            selection's not-run families rides the button so the cost is visible
+            before the sheet opens (the sheet then quotes the honest net at run,
+            D2). Same gross estimate the toolbar action + sheet use. */}
+        <button
+          type="button"
+          className="bb"
+          onClick={() =>
+            openEnrichSheet({
+              scope: {
+                selectedBusinessIds: filtered
+                  .filter((r) => selected.has(r.leadId))
+                  .map((r) => r.businessId),
+                visibleBusinessIds: filtered.map((r) => r.businessId),
+              },
+            })
+          }
+        >
+          Enrich {selected.size}
+          {bulkEnrichCredits > 0
+            ? ` · ~${fmtCredits(bulkEnrichCredits)} cr`
+            : ""}
+        </button>
         <button type="button" className="bb" onClick={exportCsv}>
           Export CSV
         </button>
@@ -2324,12 +3070,6 @@ export function LeadsWorkbench({
   );
 }
 
-/** Whether a column key is one of the numeric filterable fields (WP5-13). */
-const FILTERABLE_FIELDS = new Set<string>(FILTER_FIELDS.map((f) => f.field));
-function isFilterField(key: string): boolean {
-  return FILTERABLE_FIELDS.has(key);
-}
-
 function numField(r: WorkbenchLeadRow, key: string): number | null {
   switch (key) {
     case "reviews":
@@ -2338,6 +3078,12 @@ function numField(r: WorkbenchLeadRow, key: string): number | null {
       return r.rating;
     case "perf":
       return r.perf;
+    case "seo":
+      return r.seo;
+    case "adCount":
+      return r.adCount;
+    case "serpRank":
+      return r.serpRank;
     default:
       return null;
   }

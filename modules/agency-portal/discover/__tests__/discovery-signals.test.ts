@@ -59,6 +59,7 @@ function biz(overrides: Partial<HydratedBusiness> = {}): HydratedBusiness {
     tech: {
       scanned: false,
       cmsName: null,
+      bookingName: null,
       hasAnalytics: false,
       hasMetaPixel: false,
       hasBooking: false,
