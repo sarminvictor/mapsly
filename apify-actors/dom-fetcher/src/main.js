@@ -33,6 +33,12 @@ const proxyConfiguration = await Actor.createProxyConfiguration({
 });
 const CF =
   /just a moment|attention required|checking your browser|verifying you are human|cf-browser-verification/i;
+// Title-only detection misses 2026 Turnstile / managed challenges (they don't
+// change document.title). These markers live in the challenge page BODY and are
+// high-precision — they appear ONLY on an actual challenge, never on a normal
+// Cloudflare-fronted site — so matching them can't over-block legit CF sites.
+const BODY_CHALLENGE =
+  /challenges\.cloudflare\.com|_cf_chl_opt|cf-browser-verification|id="challenge-(?:form|running|error)"|turnstile\/v0/i;
 const BLOCK = new Set(["image", "media", "font", "stylesheet"]); // keep document/script/xhr (CF needs JS)
 
 // A rendered page below this many bytes is a verified-empty, not a real fetch.
@@ -94,7 +100,14 @@ const crawler = new PlaywrightCrawler({
   ],
   async requestHandler({ page, request, response, log }) {
     let title = await page.title().catch(() => "");
-    if (CF.test(title)) {
+    // `cf-mitigated: challenge` is Cloudflare's own header on a managed-challenge
+    // response — a reliable signal for Turnstile challenges that leave the title
+    // untouched. (A plain `cf-ray` is NOT a challenge — every CF-fronted site
+    // sets it — so we key only off `cf-mitigated`.)
+    const cfMitigated = String(
+      response?.headers?.()?.["cf-mitigated"] ?? "",
+    ).toLowerCase();
+    if (CF.test(title) || cfMitigated === "challenge") {
       await page
         .waitForFunction(
           () =>
@@ -107,12 +120,14 @@ const crawler = new PlaywrightCrawler({
       title = await page.title().catch(() => "");
     }
     const status = response?.status();
-    // CANARY: the Cloudflare challenge is STILL up (or a 403) → this fetch never
-    // reached content. Throw so Crawlee retries on a fresh session/proxy; if
-    // every retry fails, failedRequestHandler dead-letters it with outcome=blocked.
-    if (CF.test(title) || status === 403)
-      throw new Error("Cloudflare not cleared — retry new session/proxy");
     const html = await page.content(); // <-- the ONLY product of this actor: the rendered DOM
+    // CANARY: the challenge is STILL up if the title matches, the status is 403,
+    // OR the rendered BODY carries a Turnstile/managed-challenge marker — the
+    // last one is the fix for title-only detection (Turnstile keeps the real
+    // title). Throw so Crawlee retries on a fresh session/proxy; if every retry
+    // fails, failedRequestHandler dead-letters it with outcome=blocked.
+    if (CF.test(title) || status === 403 || BODY_CHALLENGE.test(html))
+      throw new Error("Cloudflare not cleared — retry new session/proxy");
     const htmlBytes = html.length;
     const outcome = classifyDomFetch({
       blocked: false,

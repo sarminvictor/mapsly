@@ -19,6 +19,14 @@ import { PlaywrightCrawler } from "crawlee";
 
 await Actor.init();
 
+// A6 · a NAMED key-value store that PERSISTS ACROSS RUNS (the default store is
+// per-run/ephemeral, so it would silently no-op). Holds the last warmed `datr`
+// cookie so a fresh run doesn't start as a total stranger — the residential IP
+// can't be reused across runs, but a warmed datr compounds trust. Best-effort.
+const warmStore = await Actor.openKeyValueStore("mapsly-meta-warm").catch(
+  () => null,
+);
+
 // ---- Input --------------------------------------------------------------
 const input = (await Actor.getInput()) ?? {};
 const searchTerms = Array.isArray(input.searchTerms)
@@ -58,6 +66,11 @@ const maxItems = Number.isFinite(input.maxItems)
 const delayMs = Number.isFinite(input.delayMs)
   ? Math.max(500, input.delayMs)
   : 2000;
+// R1 kill-switch (default ON). The direct-GraphQL replay reaches Meta's data
+// query from the warmed session, but it burned the run twice (INC-48/49). Keep
+// it primary, but let a live A/B disable it to the interception FALLBACK instantly
+// if a regression appears — pass useDirectGraphql:false to run interception-only.
+const useDirectGraphql = input.useDirectGraphql !== false;
 
 if (searchTerms.length === 0 && pageIds.length === 0 && pageUrls.length === 0) {
   throw new Error(
@@ -66,6 +79,17 @@ if (searchTerms.length === 0 && pageIds.length === 0 && pageUrls.length === 0) {
 }
 
 const country = countries[0];
+
+// A3 · map the proxy exit country to a plausible locale list so the injected
+// browser fingerprint's Accept-Language / navigator.language matches the
+// residential IP's geo (a US IP speaking fr-FR is a mismatch a WAF can score).
+function localesForCountry(cc) {
+  const c = String(cc || "US").toUpperCase();
+  if (c === "CA") return ["en-CA", "en-US", "en"];
+  if (c === "GB" || c === "UK") return ["en-GB", "en"];
+  if (c === "AU") return ["en-AU", "en"];
+  return ["en-US", "en"]; // US + default
+}
 
 // Resolved pageUrls are appended here (in the primed session) before scraping.
 const targets = [
@@ -178,6 +202,23 @@ function parseFbJson(text) {
     }
   }
   return objs.length ? objs : null;
+}
+
+// B1 · a GraphQL body only counts as REACHING Meta's data query if it carries a
+// real result marker — NOT merely the `ad_library_main` shell envelope, which the
+// soft-block SHELL also returns (the honesty hole: a block could self-certify as
+// empty_verified and get cached for the whole 30-day cell TTL). Require ONE of:
+//   collated_results | ad_archive_id/adArchiveID | a NON-EMPTY advertiser facet
+//   (data.ad_library_main.dynamic_filter_options.pages with ≥1 page object).
+// Must be paired with the sticky use-until-blocked pivot (A4): A4 trusts
+// graphqlHits===0 as a real block, so the counter must only bump on real data.
+function reachedDataQuery(text) {
+  if (!text) return false;
+  if (/collated_results|ad_archive_id|adArchiveID/i.test(text)) return true;
+  // The shell serves the `pages` KEY but with an empty array; require ≥1 object.
+  return /"dynamic_filter_options"\s*:\s*\{[^]*?"pages"\s*:\s*\[\s*\{/.test(
+    text,
+  );
 }
 
 // ── R1 · fire the search GraphQL directly ─────────────────────────────────
@@ -350,7 +391,7 @@ async function directGraphqlScrape(page, target, store) {
 
     // An error payload (`{"errors":[…]}` with no data keys) is a BLOCK, not an
     // empty — don't count it as reaching the data query.
-    if (!/ad_archive_id|adArchiveID|ad_library|collated_results/i.test(text)) {
+    if (!reachedDataQuery(text)) {
       if (/"errors?"\s*:/.test(text) && !/"data"\s*:/.test(text)) {
         log.warning(
           `[direct] error payload for "${target.subject}" p${pageNum} — fall back`,
@@ -567,9 +608,13 @@ async function currentEgressIp(page) {
 }
 
 // Retire the current Crawlee session so the next navigation gets a FRESH proxy
-// IP. Apify residential IPs die in ~60s, so re-warming the SAME session re-hits
-// a dead IP — session.retire() is what actually rotates the exit node. Session
-// is optional (present when the crawler's SessionPool is enabled); no-op if not.
+// IP + a clean cookie jar. A4 · sticky residential sessions actually last ~30 min
+// (Apify borrows a real person's connection), NOT ~60s — so we RIDE one warmed
+// session (sticky IP + persisted datr, A2) until Meta actually BLOCKS it
+// (graphqlHits stays 0 after a fully-rendered load) or a nav genuinely dies —
+// never on a timer/transient. Within one ~2-3 min run this rides a single warmed
+// session start-to-finish. session.retire() is the rotation primitive; Session
+// is optional (present when SessionPool is enabled); no-op if not.
 function rotateSession(session, reason) {
   if (session && typeof session.retire === "function") {
     try {
@@ -626,7 +671,7 @@ async function scrapeTarget(page, target, session) {
         log.info(`[diag] body#${store.diagCount}: ${text.slice(0, 3500)}`);
       }
     }
-    if (!/ad_archive_id|adArchiveID|ad_library|collated_results/i.test(text)) {
+    if (!reachedDataQuery(text)) {
       return;
     }
     store.graphqlHits += 1;
@@ -656,15 +701,16 @@ async function scrapeTarget(page, target, session) {
     let status = "n/a";
     // BLOCK-RESILIENT LOAD. Meta soft-blocks automated sessions intermittently:
     // a 403, or a 200 "Ad Library" shell whose results/facet GraphQL never fires
-    // (graphqlHits stays 0). That's INDISTINGUISHABLE in the output from a
-    // genuine empty market unless we track graphqlHits — a real (even empty)
-    // result fires the data query (graphqlHits ≥ 1). So we retry the load while
-    // graphqlHits === 0. Crucially we ROTATE THE IP between attempts (retire the
-    // session → fresh residential exit node) rather than re-warming the SAME
-    // (often-dead) IP: Apify residential IPs die in ~60s, so re-`goto`ing
-    // facebook.com on a corpse just retries a corpse (the old bug). We stop the
-    // instant the data query fires (real result, even if 0 advertisers).
-    const MAX_BLOCK_RETRIES = 4;
+    // (graphqlHits stays 0 — now measured by the tightened reachedDataQuery, so a
+    // bare shell no longer counts as reached). That's INDISTINGUISHABLE from a
+    // genuine empty market unless we track graphqlHits. A4 · with images loaded
+    // (A1) + a configured fingerprint (A3) + a persisted warm datr (A2), a
+    // fully-rendered attempt that STILL yields graphqlHits===0 is a REAL block —
+    // so rotating here is the use-until-blocked escape hatch, NOT reflexive
+    // churn. We rotate to a fresh IP + re-prime, then retry. Capped at 2 (a
+    // warmed session that reached data once keeps reaching it; a real block
+    // rarely clears on a 3rd+ same-market retry). Stop the instant data fires.
+    const MAX_BLOCK_RETRIES = 2;
     navFailed = false;
     for (let attempt = 1; attempt <= MAX_BLOCK_RETRIES; attempt += 1) {
       if (attempt > 1) {
@@ -702,14 +748,14 @@ async function scrapeTarget(page, target, session) {
       // 4xx'd) we fall through to the interception poll below, unchanged.
       // NOTE: needs `apify push` + live validation (botox-Miami vs
       // barber-Kelowna) before it's trusted — unverifiable in a source-only edit.
-      const direct = await directGraphqlScrape(page, target, store).catch(
-        (e) => {
-          log.warning(
-            `[direct] scrape threw for "${target.subject}": ${e.message}`,
-          );
-          return "unavailable";
-        },
-      );
+      const direct = useDirectGraphql
+        ? await directGraphqlScrape(page, target, store).catch((e) => {
+            log.warning(
+              `[direct] scrape threw for "${target.subject}": ${e.message}`,
+            );
+            return "unavailable";
+          })
+        : "unavailable"; // R1 kill-switch off → interception-only fallback
       if (direct === "verified" || store.graphqlHits > 0) {
         break; // the query provably reached Meta's server — accept (even if 0)
       }
@@ -857,7 +903,14 @@ async function primeSession(page, session) {
       });
     if (!resp) continue; // nav failed (timeout/proxy) → rotate + retry
     await dismissCookieBanner(page).catch(() => {});
-    await page.waitForTimeout(1200);
+    // A7 · light human-like priming: a small scroll + short VARIED dwell so the
+    // session looks like a person glancing at the page, not an instant bot hit.
+    // Kept cheap (~2-2.8s) so it doesn't eat the run budget across targets.
+    await page.waitForTimeout(900 + Math.floor(Math.random() * 700));
+    await page.mouse
+      .wheel(0, 400 + Math.floor(Math.random() * 500))
+      .catch(() => {});
+    await page.waitForTimeout(600 + Math.floor(Math.random() * 600));
     const cookies = await page
       .context()
       .cookies()
@@ -869,7 +922,17 @@ async function primeSession(page, session) {
       `Primer attempt ${attempt}/${MAX_PRIME_RETRIES} (${endpoint}): cookies=${primed.join(",") || "NONE"}`,
     );
     // A `datr` cookie means Meta accepted the priming hop on a live IP.
-    if (primed.includes("datr")) return true;
+    if (primed.includes("datr")) {
+      // A6 · persist the warmed datr to the cross-run store so the next run
+      // starts with trust instead of from scratch (best-effort).
+      const datrCookie = cookies.find((c) => c.name === "datr");
+      if (warmStore && datrCookie && datrCookie.value) {
+        await warmStore
+          .setValue("WARM_DATR", { value: datrCookie.value })
+          .catch((e) => log.warning(`WARM_DATR save failed: ${e.message}`));
+      }
+      return true;
+    }
   }
   return false;
 }
@@ -897,30 +960,54 @@ const crawler = new PlaywrightCrawler({
   // we classify + rotate manually. Retire the browser after a few pages so a
   // long multi-target run doesn't ride one stale fingerprint the whole way.
   useSessionPool: true,
-  sessionPoolOptions: { maxPoolSize: 8, blockedStatusCodes: [] },
+  // A2 · keep the warmed datr/sb cookies attached to the Crawlee Session across
+  // every navigation in the run — the single most important missing setting.
+  // Without it the trust the prime earned is discarded on each goto (default is
+  // false). With useSessionPool + proxyConfiguration, Crawlee also binds the
+  // Session to a STICKY proxy URL (same residential IP ~30 min), so ONE warmed
+  // identity (IP + datr) is reused until Meta actually blocks it.
+  persistCookiesPerSession: true,
+  // maxPoolSize 8→4: the sticky use-until-blocked model rides ONE warmed session
+  // per run, so only a couple of escape-hatch sessions are ever needed.
+  // blockedStatusCodes:[] keeps Crawlee from auto-retiring on Meta's transient
+  // 403s — we classify + rotate manually, only on a CONFIRMED block.
+  sessionPoolOptions: { maxPoolSize: 4, blockedStatusCodes: [] },
   // `retireBrowserAfterPageCount` is a BrowserPool option, NOT a top-level
   // PlaywrightCrawler option — Crawlee 3.16 rejects it at the top level with a
-  // hard `ArgumentError` on construction (crashes the run before it starts).
-  browserPoolOptions: { retireBrowserAfterPageCount: 6 },
+  // hard `ArgumentError` on construction (crashes the run before it starts, INC-47).
+  // Raised 6→50: the 6-page guillotine tore down the warmed browser context (and
+  // its datr) MID-RUN, defeating the sticky strategy. 50 is far above any single
+  // run's page count, so one warmed identity survives the whole run.
+  //
+  // A3 · Crawlee injects fingerprints by DEFAULT (v3+) but unconfigured. Pin a
+  // desktop-Chrome fingerprint whose locale matches the proxy country — a far
+  // better match than the generic default, and no longer contradicted by the now-
+  // loaded images (A1). String literals (no @crawlee/browser-pool enum import).
+  browserPoolOptions: {
+    retireBrowserAfterPageCount: 50,
+    useFingerprints: true,
+    fingerprintOptions: {
+      fingerprintGeneratorOptions: {
+        browsers: [{ name: "chrome", minVersion: 120 }],
+        devices: ["desktop"],
+        operatingSystems: ["windows", "macos"],
+        locales: localesForCountry(country),
+      },
+    },
+  },
   launchContext: {
     launchOptions: { args: ["--disable-blink-features=AutomationControlled"] },
   },
-  // Scale lever: abort image/media/font requests so a bulk run stays well
-  // inside the Apify residential bandwidth budget. The Ad Library GraphQL we
-  // read is unaffected — we only skip downloading heavy creatives (we keep
-  // their URLs from the JSON).
+  // A1 · block ONLY heavy media (video/audio). Allow images + CSS + fonts so the
+  // session RENDERS like a real browser — a React app that fetches ZERO images is
+  // the single biggest bot-tell and directly undermines the warmed-session trust
+  // the sticky strategy builds. We keep creative image/video URLs from the JSON,
+  // so we never download the videos themselves (autoplay ad video is the only
+  // real bandwidth risk). Images ~double proxy GB ("pricing x2", accepted).
   preNavigationHooks: [
     async ({ page }) => {
       await page.route("**/*", (route) => {
-        const t = route.request().resourceType();
-        if (
-          t === "image" ||
-          t === "media" ||
-          t === "font" ||
-          t === "stylesheet"
-        ) {
-          return route.abort();
-        }
+        if (route.request().resourceType() === "media") return route.abort();
         return route.continue();
       });
     },
@@ -944,6 +1031,31 @@ const crawler = new PlaywrightCrawler({
     // targets. `run.primerOk` is now just a diagnostic flag in RUN_SUMMARY; the
     // run-level outcome is decided by what the TARGETS actually reached, not by
     // whether the isolated prime survived.
+
+    // A6 · reload a previously-warmed datr cookie into the context BEFORE priming
+    // so trust compounds across runs (the proxy IP can't be reused, but a warm
+    // datr can). Best-effort — a stale/rejected value just gets re-warmed by the
+    // prime, never fails the run.
+    try {
+      const saved = warmStore ? await warmStore.getValue("WARM_DATR") : null;
+      if (saved && saved.value) {
+        await page.context().addCookies([
+          {
+            name: "datr",
+            value: String(saved.value),
+            domain: ".facebook.com",
+            path: "/",
+            secure: true,
+            httpOnly: true,
+            sameSite: "None",
+          },
+        ]);
+        log.info("Loaded warmed datr from KV (cross-run trust).");
+      }
+    } catch (e) {
+      log.warning(`WARM_DATR reload failed: ${e.message}`);
+    }
+
     run.primerOk = await primeSession(page, session);
     if (!run.primerOk) {
       log.warning(
@@ -988,6 +1100,11 @@ const crawler = new PlaywrightCrawler({
   // all `maxRequestRetries` re-hit the SAME dead residential exit and the run
   // errors with 0 targets attempted (INC-2026-07-05). Retire → next attempt
   // navigates on a FRESH IP. Applies to target-request nav failures too.
+  //
+  // A5 · KEEP THIS even under the sticky use-until-blocked pivot. Start-nav death
+  // IS a genuine nav death — A4's rule ("rotate only on a real block") already
+  // permits rotation on a genuine nav failure; this handler is that permission
+  // for the ONE hop A4 cannot reach. Stripping it re-opens INC-49.
   errorHandler({ session, request }, error) {
     rotateSession(session, `nav error on ${request.url}`);
     log.warning(

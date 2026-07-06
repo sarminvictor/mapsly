@@ -425,31 +425,88 @@ function creditsForBusinessJob(
   }
 }
 
-/** Cell-family credits for a run, from the persisted quote scope. Cell families
- *  bill per (metro×category) cell; billing the as-held amount (fresh cells
- *  already excluded in the quote's line.fresh) keeps settle == the hold's cell
- *  portion. Falls back to families × cellCount when lines aren't persisted. */
-function cellCreditsForRun(
+/** A cell family → the AdMarketRun platform its collector writes on run/fail. */
+const CELL_PLATFORM: Partial<Record<EnrichmentType, string>> = {
+  meta_ads: "META",
+  serp: "SERP",
+};
+
+/**
+ * Cell-family credits for a run — OUTCOME-GATED (BUG1). A cell family bills ONLY
+ * for cells that actually COLLECTED this run: a cell with an OK/PARTIAL
+ * `AdMarketRun` whose `ranAt >= runStartedAt`. This makes meta_ads/serp actually
+ * pay for delivered cells — previously the run's `scopeRefsJson` carried no
+ * quote lines, so this returned 0 and the cell portion of the hold was silently
+ * refunded (a revenue leak; we ate the Apify COGS). Now:
+ *   - collected cell (OK/PARTIAL, ranAt≥start)      → billed its family credits
+ *   - blocked/timeout/error cell (AdMarketRun FAILED) → 0 (refunded, the bug fix)
+ *   - deferred / breaker-open cell (no row)          → 0
+ *   - fresh-served cell (row predates this run)       → 0 (already paid before)
+ * Billed count is capped by the quote's billable count (when lines are present)
+ * so we never charge above what was authorized; settle also clamps to the hold.
+ */
+async function cellCreditsForRun(
   scopeRefsJson: unknown,
   families: readonly EnrichmentType[],
-): number {
+  cellKeys: readonly string[],
+  runStartedAt: Date,
+): Promise<number> {
+  const cellFamilies = families.filter((f) => CELL_FAMILIES.includes(f));
+  if (cellFamilies.length === 0 || cellKeys.length === 0) return 0;
+
   const scope = (scopeRefsJson ?? {}) as {
     cellCount?: number;
     lines?: { enrichment?: EnrichmentType; total?: number; fresh?: number }[];
   };
   const lines = Array.isArray(scope.lines) ? scope.lines : [];
-  if (lines.length > 0) {
-    return lines.reduce((s, l) => {
-      const f = l.enrichment;
-      if (!f || !CELL_FAMILIES.includes(f)) return s;
-      const billable = Math.max(0, (l.total ?? 0) - (l.fresh ?? 0));
-      return s + billable * CREDIT_PRICES[f];
-    }, 0);
+  // Quote-derived billable cell COUNT per family (fresh already netted out in
+  // line.fresh). No persisted lines → cap at the run's cell count; the collected
+  // set gates it down to what actually delivered.
+  const quotedBillable = new Map<EnrichmentType, number>();
+  for (const f of cellFamilies) {
+    const line = lines.find((l) => l.enrichment === f);
+    quotedBillable.set(
+      f,
+      line
+        ? Math.max(0, (line.total ?? 0) - (line.fresh ?? 0))
+        : (scope.cellCount ?? cellKeys.length),
+    );
   }
-  const cellCount = scope.cellCount ?? 0;
-  return families
-    .filter((f) => CELL_FAMILIES.includes(f))
-    .reduce((s, f) => s + CREDIT_PRICES[f] * cellCount, 0);
+
+  // Cells that actually COLLECTED this run, per platform — ONE indexed read
+  // (AdMarketRun @@index([cellKey, platform, ranAt desc])).
+  const platforms = cellFamilies
+    .map((f) => CELL_PLATFORM[f])
+    .filter((p): p is string => Boolean(p));
+  const rows =
+    platforms.length > 0
+      ? await prisma.adMarketRun.findMany({
+          where: {
+            cellKey: { in: [...cellKeys] },
+            platform: { in: platforms },
+            status: { in: ["OK", "PARTIAL"] },
+            ranAt: { gte: runStartedAt },
+          },
+          select: { cellKey: true, platform: true },
+        })
+      : [];
+  const collectedByPlatform = new Map<string, Set<string>>();
+  for (const r of rows) {
+    const set = collectedByPlatform.get(r.platform) ?? new Set<string>();
+    set.add(r.cellKey);
+    collectedByPlatform.set(r.platform, set);
+  }
+
+  let credits = 0;
+  for (const f of cellFamilies) {
+    const platform = CELL_PLATFORM[f];
+    const collected = platform
+      ? (collectedByPlatform.get(platform)?.size ?? 0)
+      : 0;
+    const billable = Math.min(quotedBillable.get(f) ?? 0, collected);
+    credits += billable * CREDIT_PRICES[f];
+  }
+  return credits;
 }
 
 /**
@@ -1130,6 +1187,11 @@ export async function closeRunIfDone(
       scopeRefsJson: true,
       enrichmentsJson: true,
       unitsRequested: true,
+      // BUG1 · load-bearing: the per-cell billing gate counts only AdMarketRuns
+      // with ranAt >= this run's start. Without it, `ranAt: { gte: undefined }`
+      // would drop the lower bound and count PRIOR runs' collected cells as
+      // "collected this run" — re-billing a fresh-served cell.
+      startedAt: true,
     },
   });
   if (!run || run.status !== "RUNNING") return false;
@@ -1226,7 +1288,13 @@ export async function closeRunIfDone(
     (s, j) => s + creditsForBusinessJob(j.family as JobFamily, hasFam),
     0,
   );
-  const cellCredits = cellCreditsForRun(run.scopeRefsJson, families);
+  const cellScope = (run.scopeRefsJson ?? {}) as { cellKeys?: string[] };
+  const cellCredits = await cellCreditsForRun(
+    run.scopeRefsJson,
+    families,
+    cellScope.cellKeys ?? [],
+    run.startedAt ?? now,
+  );
   const actualCredits = businessCredits + cellCredits;
   const settle = (await reconcileRunCredits(runId, {
     actualCredits,

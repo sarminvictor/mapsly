@@ -29,6 +29,19 @@ const DEFAULT_FETCH_TIMEOUT_MS = 30_000;
 // momentary Apify blip doesn't fail the whole cell run. Bounded + jittered.
 const START_RETRIES = 1;
 const START_RETRY_BASE_MS = 500;
+// INC-48 · after the run goes terminal, Apify finalizes `stats.usageTotalUsd` a
+// beat later. A single fixed 1.5s re-fetch loses that race under concurrency and
+// reads 0 → billing fell back to a flat constant (~1% of actual) and the
+// cost-discipline ceiling went blind on Apify. Poll the finalized cost with a
+// bounded backoff (~5.6s max) until it's non-zero. Breaks as soon as it lands, so
+// a real run pays no more than ~1-2 ticks; only a genuine ~$0 run runs the full
+// budget (negligible — any started run consumes compute-units).
+const USAGE_REFETCH_ATTEMPTS = 8;
+const USAGE_REFETCH_INTERVAL_MS = 700;
+// A run-status poll that keeps failing on a NON-retryable status (auth revoked,
+// run gone) will never recover — bail after this many consecutive failures with
+// the real status instead of stalling the whole maxWait window.
+const MAX_CONSECUTIVE_POLL_FAILURES = 6;
 
 /** Apify run statuses that mean "done" (won't change further). */
 const TERMINAL_STATUSES = new Set([
@@ -208,6 +221,7 @@ export async function runActor<T = unknown>(
   let datasetId = startJson.data?.defaultDatasetId;
   let keyValueStoreId = startJson.data?.defaultKeyValueStoreId;
   let usageTotalUsd = 0;
+  let consecutivePollFailures = 0;
   const deadline = Date.now() + maxWait;
   while (!TERMINAL_STATUSES.has(status)) {
     if (Date.now() > deadline) {
@@ -222,7 +236,32 @@ export async function runActor<T = unknown>(
       headers,
       signal: AbortSignal.timeout(DEFAULT_FETCH_TIMEOUT_MS),
     });
-    if (!runRes.ok) continue; // transient — retry next tick
+    if (!runRes.ok) {
+      // A non-retryable status (auth revoked, run deleted) never recovers — fail
+      // fast with the real status instead of burning the full maxWait then
+      // surfacing a misleading timeout. Transient 429/5xx are tolerated for a
+      // bounded streak before giving up.
+      if (
+        runRes.status === 401 ||
+        runRes.status === 403 ||
+        runRes.status === 404
+      ) {
+        throw new ApifyError({
+          operation: opts.operation,
+          message: `run ${runId} poll HTTP ${runRes.status} (non-retryable)`,
+          status: runRes.status,
+        });
+      }
+      if (++consecutivePollFailures >= MAX_CONSECUTIVE_POLL_FAILURES) {
+        throw new ApifyError({
+          operation: opts.operation,
+          message: `run ${runId} poll failed ${consecutivePollFailures}× (last HTTP ${runRes.status})`,
+          status: runRes.status,
+        });
+      }
+      continue; // transient — retry next tick
+    }
+    consecutivePollFailures = 0;
     const runJson = (await runRes.json()) as {
       data?: {
         status?: string;
@@ -237,17 +276,22 @@ export async function runActor<T = unknown>(
     usageTotalUsd = runJson.data?.stats?.usageTotalUsd ?? usageTotalUsd;
   }
 
-  // Apify finalizes `usageTotalUsd` a beat AFTER the run goes terminal — the
-  // last poll usually still reads 0, which would bill the fallback (~1% of
-  // actual). Re-fetch once so cost tracking is accurate. Best-effort: keep the
-  // polled value if this read fails.
-  try {
-    await getSleep()(1500);
-    const finalRes = await f(`${base}/actor-runs/${runId}`, {
-      headers,
-      signal: AbortSignal.timeout(DEFAULT_FETCH_TIMEOUT_MS),
-    });
-    if (finalRes.ok) {
+  // INC-48 · Apify finalizes `stats.usageTotalUsd` a beat AFTER the run goes
+  // terminal, so the last in-loop poll usually still reads 0. A single fixed
+  // re-fetch loses that race under concurrency → billing fell back to a flat
+  // constant (~1% of actual) and the cost ceiling went blind. Poll the finalized
+  // cost with a bounded backoff until it's non-zero, so the CronRun ledger is
+  // accurate. Best-effort: any read failure keeps whatever we last saw and tries
+  // again next tick. Breaks the instant a non-zero lands (a real run finalizes in
+  // ~1-2 ticks); only a genuine ~$0 run runs the full budget.
+  for (let i = 0; i < USAGE_REFETCH_ATTEMPTS && usageTotalUsd <= 0; i++) {
+    try {
+      await getSleep()(USAGE_REFETCH_INTERVAL_MS);
+      const finalRes = await f(`${base}/actor-runs/${runId}`, {
+        headers,
+        signal: AbortSignal.timeout(DEFAULT_FETCH_TIMEOUT_MS),
+      });
+      if (!finalRes.ok) continue;
       const fj = (await finalRes.json()) as {
         data?: {
           stats?: { usageTotalUsd?: number };
@@ -255,14 +299,14 @@ export async function runActor<T = unknown>(
           defaultKeyValueStoreId?: string;
         };
       };
-      if (fj.data?.stats?.usageTotalUsd) {
+      if (typeof fj.data?.stats?.usageTotalUsd === "number") {
         usageTotalUsd = fj.data.stats.usageTotalUsd;
       }
       datasetId = fj.data?.defaultDatasetId ?? datasetId;
       keyValueStoreId = fj.data?.defaultKeyValueStoreId ?? keyValueStoreId;
+    } catch {
+      /* keep the polled usageTotalUsd; retry next tick */
     }
-  } catch {
-    /* keep the polled usageTotalUsd */
   }
 
   // Bill the run's variable cost exactly once — we paid for it whichever exit

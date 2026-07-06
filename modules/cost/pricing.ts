@@ -20,11 +20,12 @@
 
 import { DATAFORSEO_UNIT_COST_USD } from "@/services/dataforseo/pricing";
 
+// 2026-07-06.1 · meta_ads 3→4 credits/cell (stealth-rebuild images-on COGS).
 // 2026-07-02.2 · billing now runs off CREDIT_PRICES (whole customer credits),
 // decoupled from ENRICHMENT_PRICES.usdPerUnit (raw COGS). Any change to either
 // table must bump this so in-flight 15-min quotes re-quote.
 // (Prior: "2026-07-02.1" WP10-7 re-derived serp/google_ads + walled lighthouse.)
-export const PRICE_LIST_VERSION = "2026-07-02.2";
+export const PRICE_LIST_VERSION = "2026-07-06.1";
 
 /** Internal credit price. Apollo charges ~$0.20/credit; we undercut 4×. */
 export const CREDIT_USD = 0.05;
@@ -502,7 +503,7 @@ export const DISCOVERY_PRICE = {
 //   site speed (Lighthouse)                   1 / lead
 //   AI research                               1 / lead
 //   google ads intel                          1 / lead   (B1 · per-business, target-host)
-//   meta ads intel                            3 / cell
+//   meta ads intel                            4 / cell   (raised 3→4, images-on COGS)
 //   search / SERP intel                       4 / cell
 //
 // tech = 0: it rides the one contacts DOM fetch, so a booking-tool goal
@@ -516,7 +517,12 @@ export const CREDIT_PRICES: Record<EnrichmentType, number> = {
   lighthouse: 1,
   ai_research: 1,
   google_ads: 1,
-  meta_ads: 3,
+  // 3→4 (2026-07-06): the actor now loads images to look human (the stealth
+  // rebuild), ~doubling residential-proxy GB, so per-run COGS rises to ~$0.12
+  // (worst ~$0.16). At 3 credits ($0.15) that went below-COGS at the tail; 4
+  // credits ($0.20) restores a ~40% margin and reads as parity with serp (both
+  // per-market cell intel, one shared run). See [[meta-actor-robustness]].
+  meta_ads: 4,
   serp: 4,
 };
 

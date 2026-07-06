@@ -152,6 +152,50 @@ describe("metaAdLibrarySearchUncached", () => {
     expect(lastCronRun().costUsd).toBeCloseTo(0.0123, 6);
   });
 
+  test("INC-48 · bounded re-fetch picks up a late-finalized usageTotalUsd (not the fallback)", async () => {
+    // Apify finalizes stats.usageTotalUsd a beat AFTER the run goes terminal, so
+    // the first post-terminal read still shows 0. A single fixed re-fetch lost
+    // that race and billed the ~$0.02 fallback. The bounded poll must keep
+    // reading until the real cost lands, so the CronRun ledger is accurate.
+    let runStatusReads = 0;
+    const REAL_USD = 0.43; // the tell-tale ~$0.43/cell INC-48 under-billed
+    const fetchMock = vi.fn<typeof fetch>(async (url, init) => {
+      const u = String(url);
+      if (u.includes("/runs") && (init?.method ?? "GET") === "POST") {
+        return json({ data: { id: "run1", status: "RUNNING" } });
+      }
+      if (u.includes("/key-value-stores/") && u.includes("/RUN_SUMMARY")) {
+        return new Response("not found", { status: 404 });
+      }
+      if (u.includes("/actor-runs/run1") && !u.includes("/dataset")) {
+        runStatusReads += 1;
+        // Terminal immediately, but usage stays 0 for the first 3 reads
+        // (the in-loop read + first two bounded re-fetches), then finalizes.
+        const usageTotalUsd = runStatusReads >= 4 ? REAL_USD : 0;
+        return json({
+          data: {
+            status: "SUCCEEDED",
+            defaultDatasetId: "ds1",
+            defaultKeyValueStoreId: "kv1",
+            stats: { usageTotalUsd },
+          },
+        });
+      }
+      if (u.includes("/datasets/ds1/items")) return json([SAMPLE_AD]);
+      return new Response("not found", { status: 404 });
+    });
+    __setFetchForTesting(fetchMock);
+    const out = await withCronRun("test", () =>
+      metaAdLibrarySearchUncached({
+        searchTerms: ["botox"],
+        countries: ["CA"],
+      }),
+    );
+    // Billed the REAL finalized cost, not the $0.02 fallback (the INC-48 bug).
+    expect(out.usageTotalUsd).toBeCloseTo(REAL_USD, 6);
+    expect(lastCronRun().costUsd).toBeCloseTo(REAL_USD, 6);
+  });
+
   test("skips malformed dataset items instead of failing the batch", async () => {
     __setFetchForTesting(
       mockApify([SAMPLE_AD, { not_an_ad: true }, { id: 123 }], 0.01),

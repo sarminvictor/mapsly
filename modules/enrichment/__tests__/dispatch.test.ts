@@ -42,6 +42,8 @@ vi.mock("@/lib/prisma", () => ({
     business: { findUnique: vi.fn(), findMany: vi.fn() },
     lighthouseAudit: { findFirst: vi.fn() },
     agency: { findMany: vi.fn() },
+    // BUG1 · per-cell billing reads collected cells from AdMarketRun at close.
+    adMarketRun: { findMany: vi.fn() },
   },
 }));
 // WP3-3 · run-progress counters degrade open (no Redis in tests) — mock to no-ops
@@ -143,6 +145,8 @@ beforeEach(() => {
   // WP1-3 · closeRunIfDone claims the run via a conditional updateMany (finishedAt
   // CAS) before settling — default to a winning claim (count 1).
   p.enrichmentRun.updateMany.mockResolvedValue({ count: 1 });
+  // BUG1 · default no collected cells so cell-less closes never hit an unmocked fn.
+  p.adMarketRun.findMany.mockResolvedValue([]);
   p.enrichmentJob.createMany.mockResolvedValue({ count: 0 });
   p.enrichmentJob.update.mockResolvedValue({});
   // WP1-1 · dispatchPending claims each QUEUED job via updateMany; WP1-9 ·
@@ -715,6 +719,69 @@ describe("closeRunIfDone", () => {
       expect.objectContaining({
         data: expect.objectContaining({ status: "OK", unitsCompleted: 2 }),
       }),
+    );
+  });
+
+  // BUG1 · per-cell billing is OUTCOME-GATED: a cell family bills only for cells
+  // that collected (an OK/PARTIAL AdMarketRun this run). A blocked meta_ads cell
+  // must NOT charge the agency; a collected one must.
+  test("blocked meta_ads cell is NOT billed; collected work IS (outcome gate)", async () => {
+    const now = new Date("2026-07-06T00:00:00Z");
+    p.enrichmentJob.count.mockResolvedValue(0);
+    p.enrichmentRun.findUnique.mockResolvedValue({
+      id: "r1",
+      agencyId: "a1",
+      status: "RUNNING",
+      actualUsd: 0.008, // contacts COGS only (meta blocked → $0 COGS)
+      startedAt: now,
+      scopeRefsJson: { businessIds: ["b1"], cellKeys: ["spa|miami|US"] },
+      enrichmentsJson: ["contacts", "meta_ads"],
+      unitsRequested: 1,
+    });
+    routeJobFindMany([
+      { status: "DONE", businessId: "b1", costUsd: 0.008, family: "CONTACTS" },
+    ]);
+    // The meta cell BLOCKED → NO OK/PARTIAL AdMarketRun exists for it.
+    p.adMarketRun.findMany.mockResolvedValue([]);
+
+    const closed = await closeRunIfDone("r1", now);
+
+    expect(closed).toBe(true);
+    // contacts = 1 credit; meta_ads = 0 (blocked). NOT 1 + 4 = 5.
+    expect(reconcileRunCredits).toHaveBeenCalledWith(
+      "r1",
+      expect.objectContaining({ actualCredits: 1, hadProgress: true }),
+    );
+  });
+
+  test("collected meta_ads cell IS billed (4 credits) alongside contacts", async () => {
+    const now = new Date("2026-07-06T00:00:00Z");
+    p.enrichmentJob.count.mockResolvedValue(0);
+    p.enrichmentRun.findUnique.mockResolvedValue({
+      id: "r1",
+      agencyId: "a1",
+      status: "RUNNING",
+      actualUsd: 0.02,
+      startedAt: now,
+      scopeRefsJson: { businessIds: ["b1"], cellKeys: ["spa|miami|US"] },
+      enrichmentsJson: ["contacts", "meta_ads"],
+      unitsRequested: 1,
+    });
+    routeJobFindMany([
+      { status: "DONE", businessId: "b1", costUsd: 0.008, family: "CONTACTS" },
+    ]);
+    // The meta cell COLLECTED → an OK AdMarketRun exists for it this run.
+    p.adMarketRun.findMany.mockResolvedValue([
+      { cellKey: "spa|miami|US", platform: "META" },
+    ]);
+
+    const closed = await closeRunIfDone("r1", now);
+
+    expect(closed).toBe(true);
+    // contacts (1) + meta_ads collected (4 credits/cell) = 5.
+    expect(reconcileRunCredits).toHaveBeenCalledWith(
+      "r1",
+      expect.objectContaining({ actualCredits: 5, hadProgress: true }),
     );
   });
 

@@ -92,7 +92,7 @@ describe("CREDIT_PRICES (customer billing schedule)", () => {
     expect(CREDIT_PRICES.lighthouse).toBe(1);
     expect(CREDIT_PRICES.ai_research).toBe(1);
     expect(CREDIT_PRICES.google_ads).toBe(1);
-    expect(CREDIT_PRICES.meta_ads).toBe(3);
+    expect(CREDIT_PRICES.meta_ads).toBe(4); // raised 3→4 (images-on COGS, 2026-07-06)
     expect(CREDIT_PRICES.serp).toBe(4);
   });
 
