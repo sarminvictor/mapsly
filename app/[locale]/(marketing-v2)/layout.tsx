@@ -22,6 +22,8 @@ import { Space_Grotesk, Bricolage_Grotesque } from "next/font/google";
 import { setRequestLocale, getTranslations } from "next-intl/server";
 
 import { Link } from "@/i18n/navigation";
+import { auth } from "@/lib/auth";
+import { getPortalDestination } from "@/lib/portal-destination";
 import { FbLogo } from "@/components/marketing/for-businesses/FbLogo";
 import { StickyHeader } from "@/components/marketing/for-businesses/StickyHeader";
 import { V2NavLinks } from "@/components/marketing/for-businesses/V2NavLinks";
@@ -70,6 +72,15 @@ async function V2Header({ params }: { params: Promise<LayoutParams> }) {
   setRequestLocale(locale);
   const t = await getTranslations("marketing_v2.header");
 
+  // C3 · signed-in visitors see a role-aware "Open your workspace" CTA, not
+  // "Sign in". Resolved server-side (getPortalDestination build-phase-guards to
+  // null, and V2Header is already Suspense-wrapped, so PPR/cacheComponents
+  // holds). Only plain strings/bool cross into V2NavLinks (Pattern 4b).
+  const session = await auth();
+  const portal = session?.user?.id
+    ? await getPortalDestination(session.user.id)
+    : null;
+
   return (
     <StickyHeader>
       <div className="fb-container fb-header-row">
@@ -87,6 +98,9 @@ async function V2Header({ params }: { params: Promise<LayoutParams> }) {
             signin: t("signin"),
             navAria: t("nav_aria"),
           }}
+          portalHref={portal?.href}
+          portalLabel={portal ? t(`portal_${portal.labelKey}`) : undefined}
+          portalExternal={portal?.external}
         />
       </div>
     </StickyHeader>

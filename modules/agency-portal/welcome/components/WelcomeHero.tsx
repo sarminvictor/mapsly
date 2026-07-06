@@ -14,19 +14,41 @@
  * (agencyName, credits) arrives as plain props; HeroStats is the only client
  * child and receives plain numbers/strings (cache-components Pattern 4).
  *
+ * The three hero stats are wired to their real sources so they can't drift:
+ *   - metros  → US_METROS.length (US + Canada gazetteer), resolved server-side
+ *     in welcome/page.tsx and passed as `metrosCount`
+ *   - signals → SIGNAL_COUNT (the live registry size), passed as `signalsCount`
+ *   - businesses → INDEXED_BUSINESSES (curated marketing catalog figure)
+ * Each arrives as a PLAIN NUMBER (cache-components Pattern 4 — no function props
+ * cross the boundary into the HeroStats client child) with a fallback literal so
+ * the component never breaks if a prop is omitted.
+ *
  * Copy is English-only for now.
  */
 
 import { Link } from "@/i18n/navigation";
+import { INDEXED_BUSINESSES } from "@/lib/marketing/catalog-facts";
 import { HeroStats } from "./HeroStats";
 import { PeekMock } from "./PeekMock";
 
 interface WelcomeHeroProps {
   agencyName: string;
   credits: number;
+  /** Gazetteer size (US + Canada metros). Falls back to the prior literal. */
+  metrosCount?: number;
+  /** Live signal-registry size. Falls back to the prior literal. */
+  signalsCount?: number;
+  /** Curated marketing catalog size. Falls back to INDEXED_BUSINESSES. */
+  businessesCount?: number;
 }
 
-export function WelcomeHero({ agencyName, credits }: WelcomeHeroProps) {
+export function WelcomeHero({
+  agencyName,
+  credits,
+  metrosCount = 150,
+  signalsCount = 50,
+  businessesCount = INDEXED_BUSINESSES,
+}: WelcomeHeroProps) {
   return (
     <div className="editorial section">
       <div className="hero">
@@ -46,19 +68,19 @@ export function WelcomeHero({ agencyName, credits }: WelcomeHeroProps) {
           <HeroStats
             stats={[
               {
-                to: 150,
+                to: metrosCount,
                 fmt: "plain",
                 suffix: "",
-                label: "US metros ready to search",
+                label: "US & Canada metros ready to search",
               },
               {
-                to: 2_100_000,
+                to: businessesCount,
                 fmt: "compact",
                 suffix: "",
                 label: "local businesses mapped on Google",
               },
               {
-                to: 50,
+                to: signalsCount,
                 fmt: "plain",
                 suffix: "+",
                 color: "var(--indigo)",

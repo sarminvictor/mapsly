@@ -110,6 +110,34 @@ export function subscribeEnrichScope(
   return () => window.removeEventListener(SCOPE_EVENT, listener);
 }
 
+// LD-1/LD-2 · "this lead's server-side detail changed" — a touch was generated
+// (drafts added) or an enrich run touched the lead. An open LeadDrawer subscribes
+// and re-fetches its detail for that businessId, so "This lead's touches" stops
+// showing "No touch yet" after a generation, and a background run refreshes the
+// drawer IN PLACE instead of the whole page re-suspending and dropping it. Plain
+// {businessId} payload — no function crosses the boundary (cache-components P4).
+const LEAD_DETAIL_EVENT = "mapsly:lead-detail-changed";
+
+export function emitLeadDetailChanged(businessId: string): void {
+  if (typeof window === "undefined" || !businessId) return;
+  window.dispatchEvent(
+    new CustomEvent<{ businessId: string }>(LEAD_DETAIL_EVENT, {
+      detail: { businessId },
+    }),
+  );
+}
+
+export function subscribeLeadDetailChanged(
+  handler: (detail: { businessId: string }) => void,
+): () => void {
+  const listener = (e: Event) => {
+    const d = (e as CustomEvent<{ businessId: string }>).detail;
+    if (d?.businessId) handler(d);
+  };
+  window.addEventListener(LEAD_DETAIL_EVENT, listener);
+  return () => window.removeEventListener(LEAD_DETAIL_EVENT, listener);
+}
+
 /**
  * Map a lead-detail data-domain key (LeadDomainBlock.key) to the enrichment
  * families that unlock it — the drawer's ghost "Enrich to unlock" surface.

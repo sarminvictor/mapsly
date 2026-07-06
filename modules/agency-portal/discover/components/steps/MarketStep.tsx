@@ -183,6 +183,9 @@ export function MarketStep({
                     const found = metros.find((m) => m.slug === o.value);
                     if (found) setPickedMetro(found);
                   }}
+                  // R2-1 · the city gazetteer is authoritative — no request
+                  // capture — but say what we cover instead of a silent blank.
+                  emptyLabel="We cover 300+ US & Canada metros — that city isn't one yet. Try the nearest large metro."
                 />
                 <MarketCombobox
                   key={`cat-${comboResetKey}`}

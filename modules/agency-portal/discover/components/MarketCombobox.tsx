@@ -30,6 +30,7 @@ export function MarketCombobox({
   note,
   onPick,
   onRequestMissing,
+  emptyLabel,
 }: {
   id: string;
   label: string;
@@ -49,6 +50,14 @@ export function MarketCombobox({
    * gazetteer is authoritative — a missing city is genuinely out of coverage).
    */
   onRequestMissing?: (query: string) => void;
+  /**
+   * R2-1 · for a field WITHOUT `onRequestMissing` (the city field, whose
+   * gazetteer is authoritative), a no-match query would otherwise show a silent
+   * blank dropdown. When set, show this honest coverage message (+ the closest
+   * covered option) instead — e.g. "We cover 300+ US & Canada metros — that one
+   * isn't yet."
+   */
+  emptyLabel?: string;
 }) {
   // Fully self-contained — no controlled `value` prop. A parent that needs to
   // clear this field (e.g. after "Add market") does so by changing this
@@ -184,6 +193,36 @@ export function MarketCombobox({
             >
               ＋ Request &ldquo;{query.trim()}&rdquo; as a category
             </button>
+          </div>
+        ) : open && noMatch ? (
+          /* R2-1 · no-match on an authoritative field (city) — instead of a
+             silent blank, say what we cover + offer the closest covered option. */
+          <div className="opts" id={`${id}-opts`} role="listbox">
+            {closest ? (
+              <div
+                role="option"
+                aria-selected={false}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  setQuery(closest.label);
+                  setOpen(false);
+                  onPick(closest);
+                }}
+              >
+                <span className="opt-label" data-tip={closest.label}>
+                  Not covered yet — nearest is <b>{closest.label}</b>
+                </span>
+                {closest.meta ? (
+                  <span className="meta">{closest.meta}</span>
+                ) : null}
+              </div>
+            ) : null}
+            <div className="combo-empty" aria-disabled="true">
+              <span className="opt-label">
+                {emptyLabel ??
+                  "That isn't a metro we cover yet — try the nearest large metro."}
+              </span>
+            </div>
           </div>
         ) : null}
       </div>

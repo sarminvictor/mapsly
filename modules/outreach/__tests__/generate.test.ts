@@ -121,7 +121,8 @@ describe("generateTouchesForLeads", () => {
       mailingAddress: "1 Main St, Miami FL",
     });
 
-    expect(out).toEqual([{ businessId: "biz_1", draftId: "draft_1" }]);
+    expect(out.touches).toEqual([{ businessId: "biz_1", draftId: "draft_1" }]);
+    expect(out.skippedNoAddress).toBe(0);
     expect(prismaMock.outreachDraft.create).toHaveBeenCalledTimes(1);
     const data = prismaMock.outreachDraft.create.mock.calls[0][0].data;
     expect(data.businessId).toBe("biz_1");
@@ -198,7 +199,9 @@ describe("generateTouchesForLeads", () => {
       agencyId: "agency_1",
     });
 
-    expect(out).toEqual([]);
+    expect(out.touches).toEqual([]);
+    // TM-1 · the skip is attributed so the UI can say "set your mailing address".
+    expect(out.skippedNoAddress).toBe(1);
     expect(prismaMock.outreachDraft.create).not.toHaveBeenCalled();
   });
 
@@ -223,7 +226,7 @@ describe("generateTouchesForLeads", () => {
       tone: "warm",
     });
 
-    expect(out).toHaveLength(3);
+    expect(out.touches).toHaveLength(3);
     // Signals gathered ONCE per business, not per step.
     expect(prismaMock.business.findUnique).toHaveBeenCalledTimes(1);
 

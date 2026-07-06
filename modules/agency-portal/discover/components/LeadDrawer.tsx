@@ -54,7 +54,11 @@ import type {
 import type { CellBand } from "../leads-workbench";
 import { percentileFromBand } from "../visual-helpers";
 import { VsCellBar } from "./VsCellBar";
-import { enrichTypesForDomainKey, openEnrichSheet } from "../enrich-sheet-bus";
+import {
+  enrichTypesForDomainKey,
+  openEnrichSheet,
+  subscribeLeadDetailChanged,
+} from "../enrich-sheet-bus";
 
 export interface LeadDrawerProps {
   /** The open lead's businessId, or null when the drawer is closed. */
@@ -116,6 +120,10 @@ export function LeadDrawer({
   const drawerRef = useRef<HTMLElement | null>(null);
   // Token guards against an out-of-order resolve when the user clicks fast.
   const reqToken = useRef(0);
+  // LD-1 · bumped by a 'lead-detail-changed' bus event (a touch was generated,
+  // or a run enriched this lead) to force a re-fetch for the SAME businessId, so
+  // "This lead's touches" stops saying "No touch yet" after a generation.
+  const [refreshTick, setRefreshTick] = useState(0);
 
   // AUDIT U22 · resizable drawer (persisted). A left-edge handle drags the width
   // so a power user can widen the detail view; ⌘/arrow prev-next already exists.
@@ -174,7 +182,18 @@ export function LeadDrawer({
           message: "Couldn't load this lead.",
         });
       });
-  }, [businessId, discoveryId]);
+  }, [businessId, discoveryId, refreshTick]);
+
+  // LD-1 · when this lead's server-side detail changes (a touch was generated,
+  // or a background run enriched it), re-fetch in place instead of showing stale
+  // "No touch yet". setState is inside the async event callback, not the effect
+  // body, so react-hooks/set-state-in-effect is satisfied.
+  useEffect(() => {
+    if (businessId == null) return;
+    return subscribeLeadDetailChanged(({ businessId: changed }) => {
+      if (changed === businessId) setRefreshTick((t) => t + 1);
+    });
+  }, [businessId]);
 
   // ── Prev/next over the CURRENT visible order ───────────────────────────────
   const navTo = useCallback(
@@ -418,6 +437,9 @@ export function LeadDrawer({
         discoveryId={discoveryId}
         open={genOpen}
         onClose={() => setGenOpen(false)}
+        // LD-2 · from the drawer, refresh the lead's touches in place on success
+        // rather than navigating away to the Touchpoints tab.
+        stayInPlace
       />
     </>
   );

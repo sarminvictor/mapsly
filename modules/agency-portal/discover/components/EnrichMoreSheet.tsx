@@ -627,10 +627,7 @@ export function EnrichMoreSheet({
               text/children INSIDE it (never mount/unmount the span) so the
               footer can't pop; the .egr-foot-msg min-height (agency-portal.css)
               reserves the tallest variant's height. */}
-          <span
-            className="note egr-foot-msg"
-            style={{ flex: 1, minWidth: 0 }}
-          >
+          <span className="note egr-foot-msg" style={{ flex: 1, minWidth: 0 }}>
             {enrichments.length === 0 || scopeCount + cellCount === 0 ? (
               "Pick at least one data group."
             ) : deficit != null && deficit > 0 ? (

@@ -49,6 +49,9 @@ export interface EnrichInfo {
    *  used to deep-link back to the Enriching step. */
   activeRunId?: string;
   activeUnits?: number;
+  /** SPEND-1 · sum of settled EnrichmentRun.creditsCharged (OK/PARTIAL) over
+   *  this discovery's cells — the real "credits to date" the card shows. */
+  spendCredits?: number;
 }
 
 /** The Discovery fields the pure status/href logic reads. */

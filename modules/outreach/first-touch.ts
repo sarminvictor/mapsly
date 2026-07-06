@@ -312,14 +312,14 @@ function openerFor(
   const around = signals.city ? ` around ${signals.city}` : "";
   switch (opts.tone ?? "direct") {
     case "warm":
-      return `Hi — I help ${opts.sellingWhat} businesses${around}, and I had a look at ${signals.businessName}.`;
+      return `Hi — I help local businesses${around} with ${opts.sellingWhat}, and I had a look at ${signals.businessName}.`;
     case "brief":
       return `Hi — quick note about ${signals.businessName}.`;
     case "direct":
     default:
       return signals.city
-        ? `Hi — I work with ${opts.sellingWhat} businesses around ${signals.city}.`
-        : `Hi — I work with ${opts.sellingWhat} businesses.`;
+        ? `Hi — I help local businesses around ${signals.city} with ${opts.sellingWhat}.`
+        : `Hi — I help local businesses with ${opts.sellingWhat}.`;
   }
 }
 

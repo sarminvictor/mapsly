@@ -63,6 +63,39 @@ describe("buildChannelTouch — phone_script", () => {
   });
 });
 
+describe("opener grammar — no double noun, consistent across channels", () => {
+  test("phone opener drops ' businesses' after a plural sellingWhat", () => {
+    const t = buildChannelTouch(signals, {
+      channel: "phone_script",
+      sellingWhat: "med spas",
+    });
+    // Old bug rendered "...I work with med spas businesses around Miami.".
+    expect(t.body).not.toContain("med spas businesses");
+    // New phrasing composes the service after "local businesses".
+    expect(t.body).toContain(
+      "I help local businesses around Miami with med spas",
+    );
+  });
+
+  test("email and phone openers share the same 'I help local businesses ... with <sellingWhat>' composition", () => {
+    const email = buildChannelTouch(signals, {
+      channel: "email",
+      sellingWhat: "med spas",
+      mailingAddress: "1 Main St, Miami FL",
+      unsubscribeUrl: "https://mapsly.ai/u/abc",
+    });
+    const phone = buildChannelTouch(signals, {
+      channel: "phone_script",
+      sellingWhat: "med spas",
+    });
+    for (const body of [email.body, phone.body]) {
+      expect(body).not.toContain("med spas businesses");
+      expect(body).toContain("I help local businesses");
+      expect(body).toContain("with med spas");
+    }
+  });
+});
+
 describe("buildChannelTouch — social_dm", () => {
   test("renders a 1–2 line DM, no subject, no footer, no signature", () => {
     const t = buildChannelTouch(signals, {

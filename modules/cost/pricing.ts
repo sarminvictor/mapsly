@@ -46,10 +46,14 @@ export const COST_GATE = {
 } as const;
 
 /**
- * Monthly plan credit grants. 1 credit = 1 fully-enriched lead. The free tier
- * is a one-time 50-credit grant (no Stripe subscription); paid tiers re-grant
- * each billing cycle. Keys match the AgencyPlan enum in prisma/schema.prisma.
- * Source of truth: docs/pricing-strategy.md / docs/enrichment-cost-model.md.
+ * Monthly plan credit grants. 1 credit = one lead's CORE data (contacts + site
+ * tech, per CREDIT_PRICES: contacts=1, tech=0). A fully-enriched lead layering
+ * reviews / site-speed / AI is ~4–5 credits, plus per-cell ad/rank fees
+ * (meta_ads=3, serp=4). See CREDIT_PRICES below — do NOT call a credit a
+ * "fully-enriched lead". The free tier is a one-time 50-credit grant (no Stripe
+ * subscription); paid tiers re-grant each billing cycle. Keys match the
+ * AgencyPlan enum in prisma/schema.prisma. Source of truth:
+ * docs/pricing-strategy.md / docs/enrichment-cost-model.md.
  */
 export const FREE_TIER_CREDITS = 50;
 

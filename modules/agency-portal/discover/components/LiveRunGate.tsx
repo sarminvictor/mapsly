@@ -20,11 +20,14 @@
 // terminal transition, flash the results area ~180ms, stop on terminal.
 // Per .claude/rules/cache-components.md Pattern 4 · plain props. English-only.
 
-import { useEffect, useState, type ReactNode } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 
 import { showToast } from "@/components/agency/Toast";
-import { subscribeEnrichStarted } from "../enrich-sheet-bus";
+import {
+  emitLeadDetailChanged,
+  subscribeEnrichStarted,
+} from "../enrich-sheet-bus";
 
 interface RunProgress {
   done: number;
@@ -48,6 +51,22 @@ export function LiveRunGate({
   children: ReactNode;
 }) {
   const router = useRouter();
+  const sp = useSearchParams();
+  // LD-2 · a full-page router.refresh() re-suspends the discover page body (one
+  // top-level Suspense) which UNMOUNTS an open lead drawer — so the drawer
+  // "closed itself" on every 4s poll. While a lead is open we refresh the
+  // drawer's OWN data via the bus and DEFER the heavy server refresh until the
+  // drawer closes; the table's optimistic enriching state covers the interim.
+  const openLeadRef = useRef<string | null>(null);
+  const pendingRefreshRef = useRef(false);
+  useEffect(() => {
+    const lead = sp.get("lead");
+    openLeadRef.current = lead;
+    if (!lead && pendingRefreshRef.current) {
+      pendingRefreshRef.current = false;
+      router.refresh();
+    }
+  }, [sp, router]);
   // The run being watched: the server one, else one announced client-side.
   const [runId, setRunId] = useState<string | null>(activeRun?.runId ?? null);
   const [progress, setProgress] = useState<RunProgress | null>(null);
@@ -100,6 +119,19 @@ export function LiveRunGate({
       }, 180);
     }
 
+    // LD-2 · if a lead drawer is open, refresh ITS data (bus) and defer the
+    // full-page refresh (which would unmount the drawer) until it closes; else
+    // do the normal server refresh so the table streams in new rows/coverage.
+    function deferOrRefresh() {
+      const lead = openLeadRef.current;
+      if (lead) {
+        emitLeadDetailChanged(lead);
+        pendingRefreshRef.current = true;
+      } else {
+        router.refresh();
+      }
+    }
+
     async function poll() {
       try {
         const res = await fetch(
@@ -117,7 +149,7 @@ export function LiveRunGate({
 
           if (isTerminal(p.status)) {
             setLive(false);
-            router.refresh();
+            deferOrRefresh();
             triggerFlash();
             // `done` and `failed` are DISJOINT partitions of total — `done` IS
             // the success count, never subtract failed (see agency-overlay memory).
@@ -130,7 +162,7 @@ export function LiveRunGate({
             return;
           }
           if (changed) {
-            router.refresh();
+            deferOrRefresh();
             triggerFlash();
           }
         }

@@ -1,0 +1,1912 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Agency journey walkthrough · Mapsly · 2026-07-05</title>
+    <style>
+      :root {
+        --ground: #f6f7fb;
+        --panel: #ffffff;
+        --ink: #16162e;
+        --muted: #5f6484;
+        --faint: #8b8fa8;
+        --line: #e6e7f1;
+        --line2: #eef0f7;
+        --indigo: #5b3df5;
+        --indigo-wash: #efebff;
+        --indigo-ink: #3a25b8;
+        --good: #0f8a5f;
+        --good-wash: #e6f6ef;
+        --warn: #b5730a;
+        --warn-wash: #fdf1dd;
+        --bad: #c23a52;
+        --bad-wash: #fcebef;
+        --mono:
+          ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+        --sans:
+          ui-sans-serif, -apple-system, "Segoe UI", Roboto, Inter, system-ui,
+          sans-serif;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html {
+        -webkit-text-size-adjust: 100%;
+      }
+      body {
+        margin: 0;
+        background: var(--ground);
+        color: var(--ink);
+        font-family: var(--sans);
+        font-size: 16px;
+        line-height: 1.6;
+        letter-spacing: -0.01em;
+      }
+      .wrap {
+        max-width: 960px;
+        margin: 0 auto;
+        padding: 0 24px;
+      }
+      a {
+        color: var(--indigo-ink);
+        text-decoration: none;
+        border-bottom: 1px solid transparent;
+      }
+      a:hover {
+        border-bottom-color: currentColor;
+      }
+      h1,
+      h2,
+      h3 {
+        text-wrap: balance;
+        line-height: 1.2;
+        letter-spacing: -0.02em;
+        margin: 0;
+      }
+      code,
+      .mono {
+        font-family: var(--mono);
+        font-size: 0.86em;
+      }
+      .tnum {
+        font-variant-numeric: tabular-nums;
+      }
+
+      /* header */
+      header.hd {
+        background:
+          radial-gradient(
+            120% 140% at 88% -10%,
+            rgba(91, 61, 245, 0.18),
+            transparent 55%
+          ),
+          linear-gradient(180deg, #13122b, #1c1a3c);
+        color: #ecebfb;
+        padding: 44px 0 38px;
+        border-bottom: 1px solid #2a2850;
+      }
+      .hd .eyebrow {
+        font-family: var(--mono);
+        font-size: 12px;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: #a99cf7;
+        margin: 0 0 14px;
+      }
+      header.hd h1 {
+        font-size: clamp(28px, 4.5vw, 44px);
+        color: #fff;
+        font-weight: 700;
+        max-width: 20ch;
+      }
+      header.hd p.sub {
+        color: #c3c1e6;
+        margin: 14px 0 0;
+        max-width: 64ch;
+        font-size: 17px;
+      }
+      .metabar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px 26px;
+        margin-top: 26px;
+        font-family: var(--mono);
+        font-size: 12.5px;
+        color: #b9b6e0;
+      }
+      .metabar b {
+        color: #fff;
+        font-weight: 600;
+      }
+
+      section {
+        padding: 40px 0;
+      }
+      section + section {
+        border-top: 1px solid var(--line);
+      }
+      .kicker {
+        font-family: var(--mono);
+        font-size: 12px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--indigo-ink);
+        margin: 0 0 8px;
+      }
+      h2.sec {
+        font-size: 26px;
+        font-weight: 700;
+      }
+      h2.sec + p.lede {
+        color: var(--muted);
+        margin: 10px 0 0;
+        max-width: 66ch;
+        font-size: 16.5px;
+      }
+
+      /* scorecard */
+      .verdict {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        padding: 24px;
+        margin-top: 22px;
+        box-shadow: 0 1px 0 rgba(20, 22, 60, 0.03);
+      }
+      .verdict .big {
+        font-size: 19px;
+        font-weight: 600;
+        line-height: 1.5;
+        margin: 0 0 6px;
+      }
+      .verdict .big em {
+        font-style: normal;
+        color: var(--indigo-ink);
+        font-weight: 700;
+      }
+      .scoregrid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 14px;
+        margin-top: 20px;
+      }
+      .score {
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 14px 15px;
+        background: var(--ground);
+      }
+      .score .n {
+        font-size: 26px;
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+        letter-spacing: -0.03em;
+      }
+      .score .n small {
+        font-size: 14px;
+        color: var(--faint);
+        font-weight: 600;
+      }
+      .score .l {
+        font-size: 12.5px;
+        color: var(--muted);
+        margin-top: 2px;
+      }
+      .score.g .n {
+        color: var(--good);
+      }
+      .score.w .n {
+        color: var(--warn);
+      }
+      .score.b .n {
+        color: var(--bad);
+      }
+
+      .cols2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+      }
+      @media (max-width: 720px) {
+        .cols2 {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      .card {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 18px 19px;
+      }
+      .card h3 {
+        font-size: 16.5px;
+        font-weight: 650;
+      }
+      .card p {
+        margin: 8px 0 0;
+        color: var(--muted);
+        font-size: 14.5px;
+      }
+      .tag {
+        display: inline-block;
+        font-family: var(--mono);
+        font-size: 11px;
+        letter-spacing: 0.04em;
+        padding: 2px 8px;
+        border-radius: 999px;
+        background: var(--indigo-wash);
+        color: var(--indigo-ink);
+        text-transform: uppercase;
+        font-weight: 600;
+      }
+      .tag.live {
+        background: var(--good-wash);
+        color: var(--good);
+      }
+
+      /* persona table */
+      .ptable {
+        margin-top: 20px;
+      }
+      .prow {
+        display: grid;
+        grid-template-columns: 170px 1fr 96px;
+        gap: 16px;
+        align-items: start;
+        padding: 15px 0;
+        border-top: 1px solid var(--line2);
+      }
+      .prow:first-child {
+        border-top: 0;
+      }
+      @media (max-width: 720px) {
+        .prow {
+          grid-template-columns: 1fr;
+          gap: 6px;
+        }
+      }
+      .prow .svc {
+        font-weight: 650;
+        font-size: 15.5px;
+      }
+      .prow .svc span {
+        display: block;
+        color: var(--faint);
+        font-family: var(--mono);
+        font-size: 11.5px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        margin-top: 3px;
+        font-weight: 500;
+      }
+      .prow .desc {
+        color: var(--muted);
+        font-size: 14.5px;
+      }
+      .prow .desc b {
+        color: var(--ink);
+        font-weight: 600;
+      }
+      .prow .st {
+        font-family: var(--mono);
+        font-size: 11px;
+        text-align: right;
+      }
+      @media (max-width: 720px) {
+        .prow .st {
+          text-align: left;
+        }
+      }
+      .chip {
+        display: inline-block;
+        padding: 2px 9px;
+        border-radius: 999px;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+      }
+      .chip.ran {
+        background: var(--good-wash);
+        color: var(--good);
+      }
+      .chip.map {
+        background: var(--indigo-wash);
+        color: var(--indigo-ink);
+      }
+
+      /* journey steps */
+      .step {
+        display: grid;
+        grid-template-columns: 44px 1fr;
+        gap: 18px;
+        padding: 22px 0;
+        border-top: 1px solid var(--line);
+      }
+      .step:first-of-type {
+        border-top: 0;
+      }
+      .step .idx {
+        font-family: var(--mono);
+        font-size: 13px;
+        font-weight: 600;
+        color: #fff;
+        background: var(--indigo);
+        width: 34px;
+        height: 34px;
+        border-radius: 9px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        letter-spacing: 0;
+      }
+      .step h3 {
+        font-size: 18px;
+        font-weight: 680;
+      }
+      .step h3 .u {
+        color: var(--faint);
+        font-weight: 500;
+        font-size: 14px;
+        font-family: var(--mono);
+      }
+      .step .body {
+        margin-top: 12px;
+      }
+      .step p {
+        margin: 0 0 10px;
+      }
+      .qa {
+        background: var(--ground);
+        border: 1px solid var(--line2);
+        border-left: 3px solid var(--indigo);
+        border-radius: 0 10px 10px 0;
+        padding: 11px 15px;
+        margin: 12px 0;
+      }
+      .qa .q {
+        color: var(--indigo-ink);
+        font-weight: 600;
+        font-size: 14px;
+        margin: 0 0 3px;
+      }
+      .qa .a {
+        color: var(--muted);
+        font-size: 14.5px;
+        margin: 0;
+      }
+      .rail {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-top: 12px;
+      }
+      .pill {
+        font-size: 12.5px;
+        padding: 4px 11px;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        background: var(--panel);
+        color: var(--muted);
+        display: inline-flex;
+        gap: 6px;
+        align-items: center;
+      }
+      .pill.ok {
+        border-color: #bfe6d3;
+        background: var(--good-wash);
+        color: var(--good);
+      }
+      .pill.no {
+        border-color: #f2c9d2;
+        background: var(--bad-wash);
+        color: var(--bad);
+      }
+      .pill.hm {
+        border-color: #f2ddb3;
+        background: var(--warn-wash);
+        color: var(--warn);
+      }
+      .pill b {
+        font-weight: 700;
+      }
+
+      /* findings */
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 14.5px;
+        margin-top: 8px;
+      }
+      .tscroll {
+        overflow-x: auto;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: var(--panel);
+      }
+      th,
+      td {
+        padding: 11px 14px;
+        text-align: left;
+        vertical-align: top;
+        border-top: 1px solid var(--line2);
+      }
+      thead th {
+        border-top: 0;
+        background: var(--ground);
+        font-size: 11.5px;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--muted);
+        font-weight: 600;
+        position: sticky;
+        top: 0;
+      }
+      td .sev {
+        font-family: var(--mono);
+        font-size: 11px;
+        font-weight: 700;
+        padding: 2px 8px;
+        border-radius: 6px;
+        white-space: nowrap;
+      }
+      .p0 {
+        background: var(--bad-wash);
+        color: var(--bad);
+      }
+      .p1 {
+        background: var(--warn-wash);
+        color: var(--warn);
+      }
+      .p2 {
+        background: #eef0f7;
+        color: var(--muted);
+      }
+      td b {
+        font-weight: 650;
+      }
+      td .m {
+        font-family: var(--mono);
+        font-size: 12px;
+        color: var(--faint);
+      }
+
+      .callout {
+        border-radius: 14px;
+        padding: 20px 22px;
+        margin-top: 18px;
+        border: 1px solid;
+      }
+      .callout.bad {
+        background: var(--bad-wash);
+        border-color: #f0c3ce;
+      }
+      .callout.good {
+        background: var(--good-wash);
+        border-color: #bfe6d3;
+      }
+      .callout h3 {
+        font-size: 16.5px;
+        font-weight: 680;
+        display: flex;
+        gap: 9px;
+        align-items: center;
+      }
+      .callout.bad h3 {
+        color: #9c2b40;
+      }
+      .callout.good h3 {
+        color: #0c6e4b;
+      }
+      .callout p {
+        margin: 9px 0 0;
+        font-size: 14.5px;
+      }
+      .callout.bad p {
+        color: #7c3247;
+      }
+      .callout.good p {
+        color: #155e43;
+      }
+
+      .draft {
+        background: #13122b;
+        color: #e7e6fb;
+        border-radius: 14px;
+        padding: 20px 22px;
+        margin-top: 16px;
+        font-family: var(--mono);
+        font-size: 13.5px;
+        line-height: 1.7;
+        white-space: pre-wrap;
+      }
+      .draft .lbl {
+        color: #a99cf7;
+      }
+      .draft .cap {
+        color: #8f8cc0;
+        font-size: 12px;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        display: block;
+        margin-bottom: 12px;
+        font-weight: 600;
+      }
+
+      ul.clean {
+        margin: 10px 0 0;
+        padding: 0 0 0 20px;
+      }
+      ul.clean li {
+        margin: 6px 0;
+        color: var(--muted);
+        font-size: 14.5px;
+      }
+      ul.clean li b {
+        color: var(--ink);
+        font-weight: 600;
+      }
+
+      footer {
+        padding: 36px 0 60px;
+        color: var(--faint);
+        font-size: 13px;
+        font-family: var(--mono);
+      }
+      .divlabel {
+        font-family: var(--mono);
+        font-size: 11.5px;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--faint);
+        margin: 26px 0 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="hd">
+      <div class="wrap">
+        <p class="eyebrow">Live product walkthrough · v0.19.2 production</p>
+        <h1>
+          An agency's first hunt, walked end to end — landing to a booked-worthy
+          touch.
+        </h1>
+        <p class="sub">
+          I signed into the agency portal as a first-time user, picked a
+          service, mapped a small Kelowna market, ran real research, compared
+          the leads, and drafted an outreach touch — questioning every screen
+          the way a new user would. Here is what the path actually feels like,
+          what earns trust, and what breaks it.
+        </p>
+        <div class="metabar">
+          <span>Account · <b>E2E Test Agency</b> (Free plan)</span>
+          <span>Market · <b>Medical Spa · Kelowna, BC</b></span>
+          <span>Goal · <b>Website redesign</b></span>
+          <span>Spend · <b>51 credits (~$2.55)</b></span>
+          <span>Date · <b>2026-07-05</b></span>
+          <span>+ Run 2 · <b>Boise, ID · all 7 data groups</b></span>
+        </div>
+      </div>
+    </header>
+
+    <!-- VERDICT -->
+    <section id="verdict">
+      <div class="wrap">
+        <p class="kicker">The short version</p>
+        <h2 class="sec">
+          The path works, the data is real and honestly priced — one core signal
+          is the missing piece.
+        </h2>
+        <p class="lede">
+          A brand-new agency can go from landing page to a signal-grounded,
+          compliance-safe outreach draft in one sitting, spending about a
+          dollar. Discovery is free and transparent, billing only charges for
+          what's delivered (and refunds what isn't), and the enriched data —
+          contacts, reviews, tech, ads, rank, an AI brief — is genuinely usable.
+          The gap is that the
+          <b>one signal the chosen goal is built on doesn't resolve</b>, so the
+          "qualify them by the exact problem you fix" promise lands only
+          half-way for this hunt.
+        </p>
+
+        <div class="verdict">
+          <p class="big">
+            Would a real agency owner finish this hunt and feel it was worth it?
+            <em>Yes — but they'd ask why every lead scores 100%.</em>
+          </p>
+          <p style="color: var(--muted); margin: 0; font-size: 14.5px">
+            They'd get 44 mapped med spas for free, 3 fully researched for ~$1,
+            a shortlist with real reasons (0% reply rate, 5 active Google ads,
+            no online booking, a 35/100 site), and a phone script that opens on
+            a verifiable pain. What they couldn't do is
+            <b>rank the market by "who's overdue for a redesign"</b> — the very
+            filter they picked — because that verdict never computes.
+          </p>
+          <div class="scoregrid">
+            <div class="score g">
+              <div class="n">9<small>/10</small></div>
+              <div class="l">Cost transparency &amp; honest billing</div>
+            </div>
+            <div class="score g">
+              <div class="n">8<small>/10</small></div>
+              <div class="l">Data quality where it lands</div>
+            </div>
+            <div class="score g">
+              <div class="n">8<small>/10</small></div>
+              <div class="l">Enrichment / drawer honesty</div>
+            </div>
+            <div class="score w">
+              <div class="n">6<small>/10</small></div>
+              <div class="l">"Do I understand what I paid for?"</div>
+            </div>
+            <div class="score b">
+              <div class="n">4<small>/10</small></div>
+              <div class="l">Goal signal actually qualifying</div>
+            </div>
+            <div class="score g">
+              <div class="n">8<small>/10</small></div>
+              <div class="l">Touch quality &amp; compliance</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PERSONAS -->
+    <section id="personas">
+      <div class="wrap">
+        <p class="kicker">Who this is for</p>
+        <h2 class="sec">
+          Six agencies, six signals — the goal picker is the persona menu
+        </h2>
+        <p class="lede">
+          Every goal template on the first Discover screen maps cleanly to an
+          agency type and the symptom it sells against. I ran the first one live
+          end-to-end; the rest are the same machine pointed at a different
+          signal. This is Mapsly's actual moat — the reason to call, not just
+          the name.
+        </p>
+
+        <div class="ptable">
+          <div class="prow">
+            <div class="svc">Web-design shop<span>Website redesign</span></div>
+            <div class="desc">
+              Hunts <b>slow, dated, or DIY-built sites</b> on otherwise-healthy
+              businesses. Signals: operating business · has a website · overdue
+              for a redesign · thin on-page SEO · built on Wix/GoDaddy.
+            </div>
+            <div class="st"><span class="chip ran">ran live</span></div>
+          </div>
+          <div class="prow">
+            <div class="svc">Local-SEO agency<span>Local SEO</span></div>
+            <div class="desc">
+              Hunts businesses <b>invisible in the local 3-pack</b> while peers
+              rank. The pitch writes itself: "you're #18 organic and off the map
+              pack for your own category."
+            </div>
+            <div class="st"><span class="chip map">scenario</span></div>
+          </div>
+          <div class="prow">
+            <div class="svc">Paid-media agency<span>Paid ads</span></div>
+            <div class="desc">
+              Hunts businesses <b>wasting spend or sitting out</b> while rivals
+              advertise — no active ads, or ads running with no pixel / no
+              online booking to catch the click.
+            </div>
+            <div class="st"><span class="chip map">scenario</span></div>
+          </div>
+          <div class="prow">
+            <div class="svc">Reputation shop<span>Reputation</span></div>
+            <div class="desc">
+              Hunts <b>leaking reputation</b> — slipping ratings, unanswered
+              negatives. Every lead in my run showed
+              <b>0% owner reply rate</b> — a live example of this exact signal.
+            </div>
+            <div class="st"><span class="chip map">scenario</span></div>
+          </div>
+          <div class="prow">
+            <div class="svc">Booking SaaS<span>Booking tool</span></div>
+            <div class="desc">
+              Hunts <b>phone-only businesses with no online booking</b> —
+              "you're paying for ads but there's no way to book online; that
+              spend leaks to voicemail." (Verbatim from the touch my run
+              generated.)
+            </div>
+            <div class="st"><span class="chip map">scenario</span></div>
+          </div>
+          <div class="prow">
+            <div class="svc">Compliance / risk<span>HIPAA · ADA</span></div>
+            <div class="desc">
+              Hunts a <b>checkable legal-exposure gap</b> — a tracking pixel on
+              a health-info page, or a site failing ADA accessibility checks.
+              Med-spa & dental territory.
+            </div>
+            <div class="st"><span class="chip map">scenario</span></div>
+          </div>
+        </div>
+        <p style="color: var(--faint); font-size: 13.5px; margin-top: 16px">
+          Plus bundles (Full-service, Reactivation, Email &amp; CRM) and a blank
+          Custom start. The signal set is editable per goal, and the whole
+          configuration round-trips through the URL — so a saved hunt is
+          shareable and bookmarkable.
+        </p>
+      </div>
+    </section>
+
+    <!-- JOURNEY -->
+    <section id="journey">
+      <div class="wrap">
+        <p class="kicker">The walk, screen by screen</p>
+        <h2 class="sec">
+          Ten steps, each asked the way a new user would ask it
+        </h2>
+        <p class="lede">
+          "What am I looking at? Is it clear? What's next? Do I still know what
+          I'm doing — and what it's costing me?" The verdict pills read:
+          <span class="pill ok">✓ clear</span>
+          <span class="pill hm">~ friction</span>
+          <span class="pill no">✕ breaks</span>.
+        </p>
+
+        <div class="step">
+          <div class="idx">01</div>
+          <div>
+            <h3>Landing &amp; sign-up <span class="u">mapsly.ai</span></h3>
+            <div class="body">
+              <p>
+                "Find local businesses that need what you sell — with the reason
+                to call." A live Hunter demo (Miami med spas with match scores +
+                signals), an honest old-way-vs-Mapsly-way table, and clean
+                pricing. The value prop is specific and the "discovery is free,
+                you only pay to enrich the ones you'll pitch" line is stated up
+                front.
+              </p>
+              <div class="qa">
+                <p class="q">
+                  Do I understand what I'm buying before I sign up?
+                </p>
+                <p class="a">
+                  Yes — this is one of the clearest B2B landing pages I've
+                  walked. The intent-vs-firmographics framing lands, and the
+                  free-leads offer is unambiguous.
+                </p>
+              </div>
+              <div class="rail">
+                <span class="pill ok">✓ value prop is concrete</span
+                ><span class="pill ok">✓ free-tier obvious</span
+                ><span class="pill hm"
+                  >~ header says "Sign in" while I'm already signed in</span
+                ><span class="pill hm"
+                  >~ "2.1M · US+CA" here vs "1.5M · 107 US metros" in-app</span
+                >
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="idx">02</div>
+          <div>
+            <h3>Welcome / Get leads <span class="u">/welcome</span></h3>
+            <div class="body">
+              <p>
+                "Welcome back, E2E Test Agency." One hero CTA —
+                <b>Find my first leads →</b> — with "Free plan · 1,941 credits ·
+                no card needed" and a preview card of signal-chipped leads.
+                There's exactly one thing to do, which is right for a first
+                session.
+              </p>
+              <div class="qa">
+                <p class="q">What do I do first?</p>
+                <p class="a">
+                  Unmistakable. Single CTA, credits visible, sample output
+                  previews the payoff.
+                </p>
+              </div>
+              <div class="rail">
+                <span class="pill ok">✓ one clear next action</span
+                ><span class="pill ok">✓ credits &amp; "no card" reassure</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="idx">03</div>
+          <div>
+            <h3>
+              Pick a goal &amp; tune signals
+              <span class="u">Discover · step 1</span>
+            </h3>
+            <div class="body">
+              <p>
+                "What do you sell?" A stepper (Goal → Market → Preview → Enrich)
+                and a menu of service templates. Picking
+                <b>Website redesign</b> reveals the recipe on the right, grouped
+                by meaning ("Growing &amp; worth your time", "Weak online
+                presence"), each signal badged
+                <span class="tag">SIGNAL</span>/<span class="tag">DATA</span>
+                and <span class="tag live">LIVE DATA</span>/COMPUTED, with a
+                toggle and a plain-English "how it works". "No pressure — tune
+                here or later on your leads table."
+              </p>
+              <div class="qa">
+                <p class="q">
+                  Which of these is <em>me</em>, and can I trust what it'll
+                  find?
+                </p>
+                <p class="a">
+                  The service→signal mapping is intuitive and the provenance
+                  badges make it honest (derived verdict vs raw data, live vs
+                  computed). Best screen in the flow.
+                </p>
+              </div>
+              <div class="rail">
+                <span class="pill ok">✓ services = signals, legible</span
+                ><span class="pill ok">✓ provenance badges build trust</span
+                ><span class="pill hm"
+                  >~ an unlabeled ⏸ icon on some badges</span
+                >
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="idx">04</div>
+          <div>
+            <h3>Choose the market <span class="u">Discover · step 2</span></h3>
+            <div class="body">
+              <p>
+                "Where should we look?" — Target markets (city × category, up to
+                3, "keeps your spend predictable") or Search everywhere. Typing
+                <code>Kelowna</code> resolves "Kelowna, BC · Canada"; typing
+                <code>med spa</code> offers "Did you mean <b>Medical Spa</b>?"
+                plus a "request this category" fallback. Forgiving and
+                cost-aware.
+              </p>
+              <div class="qa">
+                <p class="q">Will this cost balloon on me?</p>
+                <p class="a">
+                  No — the "up to 3, one city × one category, keeps spend
+                  predictable" copy sets the frame, and category
+                  canonicalization stops typo-driven empty markets.
+                </p>
+              </div>
+              <div class="rail">
+                <span class="pill ok">✓ autocomplete + canonicalization</span
+                ><span class="pill ok">✓ spend framing up front</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="idx">05</div>
+          <div>
+            <h3>
+              Preview the market — free <span class="u">Discover · step 3</span>
+            </h3>
+            <div class="body">
+              <p>
+                "Before you spend — here's the market." A live tracker (✓
+                connected to Google Maps → pulling listings → applying signals),
+                then the result:
+                <b>Found 47 local businesses · "every number below is real"</b>.
+                Stat cards (47 in market · 94% have a website · 44 active · ~43
+                match your signals — "exact after enrichment"), a per-cell
+                credit matrix (discover <b>free</b>, enrich <b>44 credits</b>),
+                and the honest caveat "3 of 47 have no website, so they can't be
+                enriched for your site-based research."
+              </p>
+              <div class="qa">
+                <p class="q">
+                  Am I about to be charged for something I can't see?
+                </p>
+                <p class="a">
+                  This is the trust high-water mark. Real counts, free
+                  discovery, "nothing charged until you confirm," an estimate
+                  labelled as an estimate, and exclusions disclosed. Textbook.
+                </p>
+              </div>
+              <div class="rail">
+                <span class="pill ok">✓ best-in-class cost transparency</span
+                ><span class="pill ok">✓ honest exclusions</span
+                ><span class="pill hm"
+                  >~ ~100s pull with no "found N so far" — looks stalled to a
+                  first-timer</span
+                >
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="idx">06</div>
+          <div>
+            <h3>
+              Enrich &amp; the leads workbench
+              <span class="u">Discover · step 4</span>
+            </h3>
+            <div class="body">
+              <p>
+                Confirming enriches all 44 (charged, then
+                <b>9 credits refunded</b> for un-enrichable sites — net 35). The
+                workbench streams in live ("Enriching · N of 44 · updating
+                live"), the goal signals become filter chips, and 44 real
+                Kelowna med spas populate with match %, website, phone, and
+                status.
+              </p>
+              <div class="qa">
+                <p class="q">
+                  I just paid — why does my table look almost the same, and why
+                  is there another "Enrich · 172 cr" button?
+                </p>
+                <p class="a">
+                  This is the first real snag. The base credit buys the goal's
+                  <em>signal</em> data (site speed), which lives in hidden
+                  columns and the drawer — the default columns are
+                  contact-centric and still read "— enrich." Two enrichment
+                  tiers, no explanation. See finding F2.
+                </p>
+              </div>
+              <div class="rail">
+                <span class="pill ok">✓ live-updating, honest refunds</span
+                ><span class="pill no"
+                  >✕ paid value invisible in the default view</span
+                ><span class="pill hm"
+                  >~ "spend to date: 0 credits" while the wallet dropped
+                  35</span
+                >
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="idx">07</div>
+          <div>
+            <h3>
+              The lead drawer — the "reason to call"
+              <span class="u">any lead</span>
+            </h3>
+            <div class="body">
+              <p>
+                A right-side panel: a big MATCH ring, an "At a glance" grid, and
+                <b>"Why this lead qualifies"</b> with each signal marked ✓ Fired
+                or 🟡 Enrich-to-unlock. Below, collapsible domains — Reviews,
+                Website &amp; tech, Site speed, Meta ads, Google ads, Search
+                rank, AI brief — each in an honest state.
+              </p>
+              <div class="qa">
+                <p class="q">Can I actually see why to call this business?</p>
+                <p class="a">
+                  The structure is exactly right and the per-domain honesty is
+                  excellent (I saw Meta ads "FAILED · retry" sitting next to
+                  Google ads "RAN · none found" — two truthful, separate
+                  states). It's the best surface in the product — but it's where
+                  the core signal gap shows (F1).
+                </p>
+              </div>
+              <div class="rail">
+                <span class="pill ok"
+                  >✓ honest per-signal &amp; per-source states</span
+                ><span class="pill ok"
+                  >✓ Meta vs Google shown separately &amp; truthfully</span
+                ><span class="pill hm"
+                  >~ drawer closes itself when a background job finishes</span
+                >
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="idx">08</div>
+          <div>
+            <h3>
+              Enrich more — the data popup
+              <span class="u">select · Enrich →</span>
+            </h3>
+            <div class="body">
+              <p>
+                Selecting 3 leads and opening the popup shows scope (Selected /
+                Visible / Whole research) and seven data groups, each with a
+                live state: <b>Site speed &amp; SEO · "already done"</b> with a
+                filled green dot, the rest "N to get · N cr", and the market-run
+                groups (Meta ads, Search rank) noted as "runs once per cell."
+                Footer: "already-fresh data is free — you're billed the net at
+                run." Ran it for ~$1 on the 3.
+              </p>
+              <div class="qa">
+                <p class="q">
+                  Am I about to pay twice for data I already have?
+                </p>
+                <p class="a">
+                  No — and this popup is the one place the two-tier model is
+                  legible: the green "already done" state proves what's paid,
+                  and the estimate promises to bill only the net. If this
+                  clarity existed at step 06, F2 would largely vanish.
+                </p>
+              </div>
+              <div class="rail">
+                <span class="pill ok"
+                  >✓ "already done" state is unmistakable</span
+                ><span class="pill ok">✓ honest "billed net at run"</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="idx">09</div>
+          <div>
+            <h3>
+              Fully researched — and compared
+              <span class="u">3 leads side by side</span>
+            </h3>
+            <div class="body">
+              <p>The data lands and it's real. Two of my three:</p>
+              <ul class="clean">
+                <li>
+                  <b>Sensei Medical Aesthetics</b> — 4.8★ (283),
+                  <b>0% reply rate</b>, WordPress, reachable-rich (email + IG +
+                  FB), <b>site 65/100 · CWV ok</b>, <b>Google ads: 5 active</b>,
+                  Meta ads not enriched, search rank #18 organic / off the pack,
+                  AI brief "laser &amp; IPL + facial-treatment-focused".
+                </li>
+                <li>
+                  <b>Zahra Salon &amp; Medical Spa</b> — 4.8★ (607),
+                  <b>0% reply rate</b>, WordPress · <b>no pixel</b> · phone
+                  booking, <b>site 35/100 · CWV failing</b> (a real redesign
+                  candidate), Meta ads FAILED · retry, Google ads RAN · none
+                  found, search rank #19 organic.
+                </li>
+              </ul>
+              <div class="qa">
+                <p class="q">
+                  Do I now have the full picture to pick who to call first?
+                </p>
+                <p class="a">
+                  Mostly yes — the raw evidence is rich, honest, and
+                  differentiates the two (35/100 failing vs 65/100 ok). But the
+                  workbench itself can't rank on it, because the "Overdue for a
+                  redesign" verdict stays locked on both. I had to read the
+                  drawers to see the difference the goal was supposed to
+                  surface.
+                </p>
+              </div>
+              <div class="rail">
+                <span class="pill ok"
+                  >✓ real, differentiated, trustworthy data</span
+                ><span class="pill no"
+                  >✕ can't rank the market by the goal's own signal</span
+                ><span class="pill hm"
+                  >~ email column shows "— enrich" when the answer is "no email
+                  found"</span
+                >
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="idx">10</div>
+          <div>
+            <h3>
+              Draft a touch — and track it
+              <span class="u">Generate touch → Touchpoints</span>
+            </h3>
+            <div class="body">
+              <p>
+                The touch modal is thoughtful: "what are you selling?", channel
+                / tone / sequence, "pain themes — a theme only fires when its
+                signal is real," and a compliance block (CASL for Canada,
+                CAN-SPAM for the US, by recipient country; postal address +
+                unsubscribe automatic). The generated phone script (below) is
+                genuinely good and lands in a proper pipeline (New → Contacted →
+                Replied → Won/Lost).
+              </p>
+              <div class="qa">
+                <p class="q">
+                  Is this a draft I'd actually use — and can it get me in
+                  trouble?
+                </p>
+                <p class="a">
+                  Yes and no-trouble. It opens on a verifiable pain, names the
+                  business, stays compliant by construction. The email variant
+                  was correctly <em>skipped</em> because no mailing address is
+                  set — good gate, but it happened silently, with no message
+                  telling me why.
+                </p>
+              </div>
+              <div class="rail">
+                <span class="pill ok"
+                  >✓ signal-grounded, compliance-safe, editable</span
+                ><span class="pill ok">✓ real outreach pipeline</span
+                ><span class="pill no">✕ email silently no-op'd (no toast)</span
+                ><span class="pill hm"
+                  >~ drawer's "touches" didn't refresh to show the new
+                  draft</span
+                >
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <span class="cap divlabel"
+          >The draft it produced (phone · Sensei Medical Aesthetics)</span
+        >
+        <div class="draft">
+          <span class="cap"
+            >Touch 1 of 1 · grounded in this lead's real signals</span
+          ><span class="lbl">[Open]</span> Hi, is this Sensei Medical
+          Aesthetics? I work with Website redesign + site-speed fixes for med
+          spas around West Kelowna.
+          <span class="lbl">[Reason for call]</span> You have 1 unanswered
+          negative review — the kind patients read before they call. You're
+          paying for ads but there's no online booking — that's spend leaking to
+          voicemail. <span class="lbl">[Ask]</span> Want a quick rundown of what
+          I found for Sensei Medical Aesthetics?
+        </div>
+        <p style="color: var(--faint); font-size: 13.5px; margin-top: 12px">
+          Tagged with the signals it used: "unanswered negative reviews
+          (concrete, verifiable pain)" · "running ads with no booking tool
+          (measurable waste)." Notice it hooked the
+          <em>strongest real pains</em> (0% reply rate, ads + phone-only
+          booking) rather than forcing a weak site-speed angle on a 65/100 site
+          — smart, though the hooks don't match the stated offer.
+        </p>
+      </div>
+    </section>
+
+    <!-- THE CLEAN RUN -->
+    <section id="cleanrun">
+      <div class="wrap">
+        <p class="kicker">The scenario that had to succeed</p>
+        <h2 class="sec">
+          "From free leads to a quality touch, nothing failing, data ready to
+          use" — did it hold?
+        </h2>
+        <p class="lede">
+          This was the bar: a new agency goes landing → register → map a small
+          market → research → compare → understand the strategy → build a
+          quality touch, with data that's transparent, trustworthy, and ready.
+          Here's the honest scorecard on that exact promise.
+        </p>
+
+        <div class="callout good">
+          <h3>✓ What held up</h3>
+          <p>
+            The <b>full path completed in one sitting for ~$2.55</b>. Discovery
+            was free and honest; billing charged only for delivered data and
+            <b>auto-refunded 16 credits</b> for sites it couldn't reach and a
+            Meta scan that came back empty. The researched fields — contacts,
+            socials, CMS, reviews with reply rate, Google-ads count, organic
+            rank, an AI positioning brief — are <b>real and specific</b>. The
+            two leads were clearly differentiated. The touch was
+            <b>signal-grounded and compliance-safe by construction</b>, and
+            slotted into a real pipeline. A first-timer ends the session with a
+            usable shortlist and a draft they'd send.
+          </p>
+        </div>
+
+        <div class="callout bad">
+          <h3>✕ Where "ready to use" falls short</h3>
+          <p>
+            One thing failed the "nothing should fail" bar, and it's the
+            load-bearing one:
+            <b
+              >the signal the whole hunt was chosen for — "Overdue for a
+              redesign" — never resolves.</b
+            >
+            Site speed is enriched and clearly differs (35/100 CWV-failing vs
+            65/100 CWV-ok), yet both leads show that verdict as "Enrich to
+            unlock," so <b>every lead reads "Match 100%"</b> and the workbench
+            can't rank or filter by the exact problem the agency sells against.
+            Combined with a couple of trust wobbles — a two-tier credit model
+            that isn't explained, "spend to date: 0" while the wallet visibly
+            drops, and an email touch that no-ops silently — the run is
+            <b>~80% of the promise</b>: the evidence is there and honest, but
+            the product doesn't yet turn it into the ranked, qualified shortlist
+            the pitch promises.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- FINDINGS -->
+    <section id="findings">
+      <div class="wrap">
+        <p class="kicker">Everything that snagged, ranked</p>
+        <h2 class="sec">Findings — what to fix, worst first</h2>
+        <p class="lede">
+          <span class="sev p0">P0</span> breaks the core value ·
+          <span class="sev p1">P1</span> erodes trust or clarity ·
+          <span class="sev p2">P2</span> polish. Nothing here is a crash — the
+          product is stable; these are gaps between what's promised and what's
+          shown.
+        </p>
+
+        <div class="tscroll" style="margin-top: 18px">
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 56px">Sev</th>
+                <th>Finding</th>
+                <th style="width: 280px">Why it matters / where</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><span class="sev p0">P0</span></td>
+                <td>
+                  <b>The goal's flagship signal never resolves.</b> "Overdue for
+                  a redesign" shows "Enrich to unlock" even when Site speed is
+                  enriched (35/100 vs 65/100). Every lead is "Match 100%".
+                </td>
+                <td>
+                  The Website-redesign agency cannot rank or filter the market
+                  by the one thing it sells against — the entire "qualify by the
+                  problem you fix" promise.
+                  <span class="m">drawer · match% column</span>
+                </td>
+              </tr>
+              <tr>
+                <td><span class="sev p1">P1</span></td>
+                <td>
+                  <b
+                    >Two-tier credit model is unexplained and contradicts
+                    marketing.</b
+                  >
+                  Landing says "1 credit = 1 fully-enriched lead (contacts,
+                  reviews, tech, ads, rank)". In-app, the base credit buys the
+                  goal's signal only; contacts/reviews/AI/ads cost ~3–8 cr more.
+                  After paying 44 cr the default table looks unchanged.
+                </td>
+                <td>
+                  The user thinks they bought a full lead and got little
+                  visible. Surface the tier split at the preview/enrich step the
+                  way the popup already does.
+                  <span class="m">step 06 · landing pricing</span>
+                </td>
+              </tr>
+              <tr>
+                <td><span class="sev p1">P1</span></td>
+                <td>
+                  <b>"Spend to date: 0 credits"</b> on the research header and
+                  every My-research card, despite ~51 credits actually spent.
+                </td>
+                <td>
+                  Directly contradicts the wallet the user is watching;
+                  undermines the otherwise-excellent cost transparency.
+                  <span class="m">workbench header · /research cards</span>
+                </td>
+              </tr>
+              <tr>
+                <td><span class="sev p1">P1</span></td>
+                <td>
+                  <b>Default columns don't reflect the goal.</b> A site-based
+                  hunt opens on contact columns; the site-speed/redesign data
+                  you paid for is hidden. Table looks static after enrichment.
+                </td>
+                <td>
+                  The value you bought is invisible unless you add columns or
+                  open the drawer. Default the goal's own signal column on.
+                  <span class="m">step 06</span>
+                </td>
+              </tr>
+              <tr>
+                <td><span class="sev p1">P1</span></td>
+                <td>
+                  <b>Email touch skipped silently.</b> With no agency mailing
+                  address set, the email draft is (correctly) not generated —
+                  but the modal just closes, no toast, "no touch yet" persists.
+                </td>
+                <td>
+                  User has no idea why nothing happened. The phone channel
+                  worked and charged 1 cr. Show "email drafts need your mailing
+                  address — set it in Settings." <span class="m">step 10</span>
+                </td>
+              </tr>
+              <tr>
+                <td><span class="sev p2">P2</span></td>
+                <td>
+                  <b>Enriched-but-empty reads as not-run.</b> Leads whose
+                  contacts enriched but have no public email still show "—
+                  enrich" in the Email column.
+                </td>
+                <td>
+                  Should read "none" / verified-empty, not the actionable
+                  not-run affordance (the drawer already does this well
+                  elsewhere). <span class="m">email column</span>
+                </td>
+              </tr>
+              <tr>
+                <td><span class="sev p2">P2</span></td>
+                <td>
+                  <b>Drawer "touches" section is stale.</b> After generating a
+                  touch, the drawer still says "No touch yet"; the Draft only
+                  appears via the Touch column + Touchpoints tab.
+                </td>
+                <td>
+                  The user thinks generation failed.
+                  <span class="m">drawer · this lead's touches</span>
+                </td>
+              </tr>
+              <tr>
+                <td><span class="sev p2">P2</span></td>
+                <td>
+                  <b>Open drawer closes itself</b> when a background enrichment
+                  completes (a refresh drops the panel).
+                </td>
+                <td>
+                  Loses the user's place mid-read. <span class="m">drawer</span>
+                </td>
+              </tr>
+              <tr>
+                <td><span class="sev p2">P2</span></td>
+                <td>
+                  <b>Facebook handle extracted as "@profile.php"</b> from a
+                  <code>facebook.com/profile.php?id=…</code> URL. The link is
+                  correct; the display is not.
+                </td>
+                <td>
+                  Reads as broken data on an otherwise-clean contact block.
+                  <span class="m">contacts extractor</span>
+                </td>
+              </tr>
+              <tr>
+                <td><span class="sev p2">P2</span></td>
+                <td>
+                  <b>Count &amp; number drift across surfaces.</b> "2.1M ·
+                  US+CA" (landing) vs "1.5M · 107 US metros" (welcome); "100+
+                  signals" vs "36+ signals"; a research shows "50 leads" in the
+                  list but "44 shown / 47 market" inside.
+                </td>
+                <td>
+                  Small inconsistencies erode the "every number is real" trust
+                  the preview earns.
+                  <span class="m">landing · welcome · /research</span>
+                </td>
+              </tr>
+              <tr>
+                <td><span class="sev p2">P2</span></td>
+                <td>
+                  <b>Discovery shows no incremental progress.</b> "Pulling
+                  business listings" ran ~90s with only a timer moving — a
+                  first-timer could think it stalled.
+                </td>
+                <td>
+                  Add "found N so far" or sub-steps.
+                  <span class="m">step 05</span>
+                </td>
+              </tr>
+              <tr>
+                <td><span class="sev p2">P2</span></td>
+                <td>
+                  <b>Small polish:</b> redundant address ("Kelowna, BC …
+                  Kelowna, British Columbia, CA"); a foot-care clinic pulled
+                  into a "Medical Spa" search; touch grammar "med spas
+                  businesses"; an unlabeled ⏸ badge; marketing header shows
+                  "Sign in" while signed in.
+                </td>
+                <td>
+                  Individually minor; collectively they're the difference
+                  between "sharp" and "very sharp."
+                  <span class="m">assorted</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- WHAT WORKS -->
+    <section id="works">
+      <div class="wrap">
+        <p class="kicker">Don't lose these</p>
+        <h2 class="sec">What's genuinely strong</h2>
+        <div class="cols2" style="margin-top: 20px">
+          <div class="card">
+            <h3>Cost transparency that earns trust</h3>
+            <p>
+              Free discovery with real counts, "nothing charged until you
+              confirm," a per-cell credit matrix, and disclosed exclusions ("3
+              of 47 have no website"). The preview screen is the reason a
+              skeptic keeps going.
+            </p>
+          </div>
+          <div class="card">
+            <h3>Billing that only charges for delivery</h3>
+            <p>
+              16 of 66 attempted credits were auto-refunded for unreachable
+              sites and an empty Meta scan. You pay for what lands — rare and
+              trust-building.
+            </p>
+          </div>
+          <div class="card">
+            <h3>Honest per-source data states</h3>
+            <p>
+              In one drawer: Meta ads "FAILED · retry" beside Google ads "RAN ·
+              none found" beside "5 active." Failures don't hide behind
+              successes; empties aren't faked as zeros.
+            </p>
+          </div>
+          <div class="card">
+            <h3>The enrich-more popup</h3>
+            <p>
+              A filled-green "already done" state, per-group "N to get · N cr",
+              market-run groups called out, scope control, and "billed the net
+              at run." The clearest expression of the credit model in the whole
+              product.
+            </p>
+          </div>
+          <div class="card">
+            <h3>Signal-grounded, compliant touches</h3>
+            <p>
+              "A theme only fires when its signal is real"; CASL/CAN-SPAM
+              applied by recipient country; postal address + unsubscribe
+              automatic. The draft opened on a verifiable pain and read like a
+              human wrote it.
+            </p>
+          </div>
+          <div class="card">
+            <h3>Goal → signal legibility</h3>
+            <p>
+              Services map to signals with provenance badges (derived vs raw,
+              live vs computed), grouped by meaning, tunable now or later. A new
+              user understands what they're about to hunt.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SPEND -->
+    <section id="spend">
+      <div class="wrap">
+        <p class="kicker">What it cost</p>
+        <h2 class="sec">The whole run, in credits</h2>
+        <div class="tscroll" style="margin-top: 16px">
+          <table>
+            <thead>
+              <tr>
+                <th>Step</th>
+                <th>What ran</th>
+                <th style="text-align: right">Charged</th>
+                <th style="text-align: right">Refund</th>
+                <th style="text-align: right">Net</th>
+              </tr>
+            </thead>
+            <tbody class="tnum">
+              <tr>
+                <td>Discovery</td>
+                <td>Mapped 47 Kelowna med spas (Google Maps)</td>
+                <td style="text-align: right">—</td>
+                <td style="text-align: right">—</td>
+                <td style="text-align: right"><b>free</b></td>
+              </tr>
+              <tr>
+                <td>Base enrich · 44</td>
+                <td>Site-speed signal for the whole market</td>
+                <td style="text-align: right">44</td>
+                <td style="text-align: right; color: var(--good)">−9</td>
+                <td style="text-align: right"><b>35</b></td>
+              </tr>
+              <tr>
+                <td>Full enrich · 3</td>
+                <td>
+                  Contacts · reviews · AI brief · Google ads · SERP · Meta
+                  (empty)
+                </td>
+                <td style="text-align: right">22</td>
+                <td style="text-align: right; color: var(--good)">−7</td>
+                <td style="text-align: right"><b>15</b></td>
+              </tr>
+              <tr>
+                <td>Touch · 1</td>
+                <td>Phone script (Sensei)</td>
+                <td style="text-align: right">1</td>
+                <td style="text-align: right">—</td>
+                <td style="text-align: right"><b>1</b></td>
+              </tr>
+              <tr>
+                <td colspan="4" style="text-align: right; font-weight: 650">
+                  Total net
+                </td>
+                <td style="text-align: right; font-weight: 700">
+                  51 cr ≈ $2.55
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p style="color: var(--faint); font-size: 13.5px; margin-top: 14px">
+          Wallet: 1,941 → 1,890. Refunds fired automatically for the 9 sites
+          that couldn't be reached and the Meta ad-library scan that returned
+          nothing.
+        </p>
+      </div>
+    </section>
+
+    <!-- ============================ RUN 2 ============================ -->
+    <section id="run2-intro">
+      <div class="wrap">
+        <p class="divlabel">
+          — Second run · a completely new account posture, market and goal —
+        </p>
+        <p class="kicker">The question this run answers</p>
+        <h2 class="sec">
+          Are we sure
+          <em style="font-style: normal; color: var(--indigo-ink)">every</em>
+          research actually fires and returns quality data?
+        </h2>
+        <p class="lede">
+          Run 1 proved the path. It didn't prove that all seven data groups
+          produce real data — Kelowna's med spas happened to exercise most, but
+          not on demand and not head-to-head. So I ran a second, deliberately
+          different hunt: a fresh US market (<b>Boise, Idaho</b>), a small niche
+          (<b>acupuncture clinics</b>), the <b>Website-redesign</b> goal, and
+          then — the point of the exercise —
+          <b>every one of the seven data groups turned on at once</b> on three
+          leads. One lead, <b>Meridian Family Acupuncture</b>, is dissected
+          field-by-field below.
+        </p>
+
+        <div class="cols2" style="margin-top: 20px">
+          <div class="card">
+            <h3>Why a second market at all</h3>
+            <p>
+              To separate "this research works" from "this market happened to
+              have data." Boise acupuncture clinics are small and mostly ad-free
+              — the honest failure modes ("ran, found nothing") show up cleanly,
+              and any research that <b>can't</b> deliver has nowhere to hide.
+            </p>
+          </div>
+          <div class="card">
+            <h3>How every research got exercised</h3>
+            <p>
+              In the workbench, selecting leads opens an
+              <b>Enrich-more popup</b> with all seven groups and a
+              <span class="mono">Select all</span>. Turning them all on and
+              running is the only way to fire Contacts, Reviews, Site-speed, AI
+              brief + Services, Meta ads, Google ads and Search rank together.
+              Total for 3 leads: ~$1.10.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- MATRIX -->
+    <section id="run2-matrix">
+      <div class="wrap">
+        <p class="kicker">The coverage matrix</p>
+        <h2 class="sec">
+          Six of seven researches deliver. Meta ads is the one that doesn't.
+        </h2>
+        <p class="lede">
+          Every field below was read live from the
+          <b>Meridian Family Acupuncture</b> drawer after a Select-all
+          enrichment. "Quality" means the field returned real, specific, usable
+          data. "Honest empty" means the research ran and truthfully reported
+          nothing to find. "Fails" means the research could not return data at
+          all.
+        </p>
+
+        <div class="tscroll" style="margin-top: 16px">
+          <table>
+            <thead>
+              <tr>
+                <th style="min-width: 160px">Research · data group</th>
+                <th>What actually came back</th>
+                <th style="text-align: right">Verdict</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><b>Contacts &amp; site tech</b></td>
+                <td>
+                  Reachable <b>Rich</b>. Two phones ((208) 965-3777 ·
+                  208-730-1886), <span class="mono">info@familyacu.com</span>,
+                  three socials with real handles (FB @AcuKimberly · YT
+                  @acukimberly · IG @meridian.family.acupuncture), tech read
+                  <b>Custom · booking-phone</b>.
+                  <span class="m"
+                    >Facebook resolved a real vanity handle here — the
+                    <span class="mono">profile.php</span> fallback seen in
+                    Kelowna didn't recur.</span
+                  >
+                </td>
+                <td style="text-align: right">
+                  <span class="pill ok"><b>Quality</b></span>
+                </td>
+              </tr>
+              <tr>
+                <td><b>Reviews</b></td>
+                <td>
+                  <b>113</b> reviews · <b>5.0★</b> · <b>47%</b> owner-reply rate
+                  — count, rating, reply-rate and recency all populated.
+                </td>
+                <td style="text-align: right">
+                  <span class="pill ok"><b>Quality</b></span>
+                </td>
+              </tr>
+              <tr>
+                <td><b>Site speed</b> <span class="m">(Lighthouse)</span></td>
+                <td>
+                  <b>39/100</b> · <b>CWV failing</b> — real mobile performance
+                  score with a Core-Web-Vitals verdict.
+                </td>
+                <td style="text-align: right">
+                  <span class="pill ok"><b>Quality</b></span>
+                </td>
+              </tr>
+              <tr>
+                <td><b>AI brief + Services</b></td>
+                <td>
+                  <b>9 tagged services</b> (Acupuncture, Dry Needling,
+                  Frequency-Specific Microcurrent, Electric Acupuncture,
+                  Weight-Loss Acupuncture, Chronic-Pain, Fibromyalgia,
+                  Neuropathy, Bladder-Control) plus sub-type "medical
+                  acupuncture for chronic pain &amp; neurologic conditions",
+                  <b>sophistication: high</b>, and a specific
+                  <b>positioning</b> + <b>vs-cell</b> read.
+                  <span class="m"
+                    >Confirms Services is now folded into AI brief and renders
+                    in full.</span
+                  >
+                </td>
+                <td style="text-align: right">
+                  <span class="pill ok"><b>Quality</b></span>
+                </td>
+              </tr>
+              <tr>
+                <td><b>Google ads</b></td>
+                <td>
+                  <b>RAN · none found</b> — "Google Ads Transparency scanned —
+                  no active ads." Truthful for a small clinic; Run 1 (Kelowna)
+                  proved the positive case with "<b>5 active</b>".
+                </td>
+                <td style="text-align: right">
+                  <span class="pill ok"><b>Honest empty</b></span>
+                </td>
+              </tr>
+              <tr>
+                <td><b>Search rank</b> <span class="m">(SERP)</span></td>
+                <td>
+                  <b>RAN · none found</b> — "Local search scanned — isn't
+                  ranking in the local pack." Run 1 proved the positive case
+                  with "<b>organic #18/#19</b>".
+                </td>
+                <td style="text-align: right">
+                  <span class="pill ok"><b>Honest empty</b></span>
+                </td>
+              </tr>
+              <tr style="background: var(--bad-wash)">
+                <td><b>Meta ads</b></td>
+                <td>
+                  <b>NOT ENRICHED</b> — the drawer offers "Enrich to unlock →"
+                  and the ~7 attempted credits were auto-refunded. The Meta
+                  Ad-Library actor returned nothing on this cell, exactly as in
+                  Run 1 <b>even after the reliability fix</b>.
+                  <span class="m"
+                    >Per-cell research, so the whole Boise cell is affected, not
+                    one lead.</span
+                  >
+                </td>
+                <td style="text-align: right">
+                  <span class="pill no"><b>Fails</b></span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="callout bad">
+          <h3>◆ The one research that doesn't deliver — Meta ads</h3>
+          <p>
+            Across two independent markets (Kelowna med spas, Boise acupuncture)
+            the Meta Ad-Library scan returned <b>no data</b>. It fails
+            <b>honestly</b> — the field reads "NOT ENRICHED", the credits refund
+            automatically, and the un-merge means it never masquerades as Google
+            ads' "none found" — but for an agency selling paid-social audits,
+            this signal is currently unusable. The actor is the blocker, not the
+            app. This is the single highest-value fix left in the enrichment
+            stack.
+          </p>
+        </div>
+
+        <div class="callout bad" style="margin-top: 14px">
+          <h3>
+            ◆ Reproduced on fresh data — the goal signal still won't resolve
+          </h3>
+          <p>
+            Meridian <b>has</b> its Site-speed data (39/100, CWV failing) yet
+            the goal's own signal, <b>"Overdue for a redesign,"</b> shows
+            <b>"Enrich to unlock"</b> in <i>Why this lead qualifies</i> while
+            "Operating business" and "Has a website" read <b>Fired</b>. The
+            signal isn't wired to compute from the site-speed data the user
+            already paid for. This is the same P0 as Run 1 — now reproduced on a
+            different market, so it's a logic gap, not a Kelowna fluke. It's why
+            every lead still scores 100% on match.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- NEW FLOW FINDINGS -->
+    <section id="run2-flow">
+      <div class="wrap">
+        <p class="kicker">New findings the second path surfaced</p>
+        <h2 class="sec">
+          Three things the fresh setup exposed that Run 1 didn't
+        </h2>
+        <p class="lede">
+          Starting cold — a new city, a Custom goal, the cap slider — walked
+          through corners the Kelowna path skipped. Two are real defects; one is
+          a friction.
+        </p>
+
+        <div class="tscroll" style="margin-top: 16px">
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 64px">Sev</th>
+                <th>Finding</th>
+                <th style="min-width: 210px">Fix</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><span class="sev p1">P1</span></td>
+                <td>
+                  <b
+                    >A goal with no research-backed signal can't be enriched —
+                    and leaks a raw error.</b
+                  >
+                  A Custom goal of only <i>discovery-data</i> signals (operating
+                  business + has a website) previews at "~0 credits · no
+                  enrichment research," and clicking <b>Enrich</b> returns the
+                  raw Zod string
+                  <span class="mono"
+                    >"Array must contain at least 1 element(s)"</span
+                  >. The request ships an empty research array; validation
+                  rejects it and the internal message reaches the user.
+                </td>
+                <td>
+                  Guard the enrich action when the research set is empty with a
+                  friendly empty-state ("this goal has nothing to enrich — add a
+                  signal that needs research"), and never surface a validation
+                  string.
+                  <span class="m">violates validation-and-errors.md</span>
+                </td>
+              </tr>
+              <tr>
+                <td><span class="sev p2">P2</span></td>
+                <td>
+                  <b
+                    >The city picker silently rejects anything outside ~107
+                    metros.</b
+                  >
+                  "Bozeman, MT" produced no dropdown and no explanation; "Boise,
+                  ID" resolved fine. A first-timer reads the empty dropdown as
+                  "broken," not "unsupported."
+                </td>
+                <td>
+                  When a typed city has no metro match, say so ("we cover 107 US
+                  metros — nearest is Boise") instead of showing nothing.
+                  <span class="m">discover · market step</span>
+                </td>
+              </tr>
+              <tr>
+                <td><span class="sev p2">P2</span></td>
+                <td>
+                  <b
+                    >The sticky "Enrich →" doubles as a scroll control on the
+                    preview.</b
+                  >
+                  On a long preview it took several clicks — each scrolling to
+                  the next review section (sample → what-you-picked →
+                  what-it-costs) — before it actually fired, reading as a stuck
+                  button.
+                </td>
+                <td>
+                  Keep the review-before-spend nudge, but make the first click
+                  either act or visibly say "review the cost below, then
+                  confirm." <span class="m">preview · sticky bar</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="callout good">
+          <h3>✓ What the fresh run confirmed is working well</h3>
+          <p>
+            The <b>cap-the-run slider</b> dialed 26→7 and the sticky bar
+            re-quoted honestly to "Enrich best 7 of 26 · ~7 cr" before anything
+            was charged. The <b>Enrich-more popup</b> showed Site-speed
+            pre-marked "already done · 3 have" (billed net), and
+            <b>inline field-loaders</b> shimmered beside content while running
+            and cleared on finish. The <b>+7 credit refund</b> for the failed
+            Meta scan landed automatically. The honesty machine held up on a
+            market it had never seen.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- RUN 2 SPEND -->
+    <section id="run2-spend">
+      <div class="wrap">
+        <p class="kicker">What Run 2 cost</p>
+        <h2 class="sec">Full coverage of every research, for about a dollar</h2>
+        <div class="tscroll" style="margin-top: 16px">
+          <table>
+            <thead>
+              <tr>
+                <th>Step</th>
+                <th>What ran</th>
+                <th style="text-align: right">Charged</th>
+                <th style="text-align: right">Refund</th>
+                <th style="text-align: right">Net</th>
+              </tr>
+            </thead>
+            <tbody class="tnum">
+              <tr>
+                <td>Discovery</td>
+                <td>Mapped 34 Boise acupuncture clinics (Google Maps)</td>
+                <td style="text-align: right">—</td>
+                <td style="text-align: right">—</td>
+                <td style="text-align: right"><b>free</b></td>
+              </tr>
+              <tr>
+                <td>Base enrich · 7</td>
+                <td>Site-speed on the 7 busiest (cap slider)</td>
+                <td style="text-align: right">7</td>
+                <td style="text-align: right">—</td>
+                <td style="text-align: right"><b>7</b></td>
+              </tr>
+              <tr>
+                <td>Select-all · 3</td>
+                <td>
+                  Contacts · reviews · AI brief+services · Google ads · SERP ·
+                  Meta (empty)
+                </td>
+                <td style="text-align: right">22</td>
+                <td style="text-align: right; color: var(--good)">−7</td>
+                <td style="text-align: right"><b>15</b></td>
+              </tr>
+              <tr>
+                <td colspan="4" style="text-align: right; font-weight: 650">
+                  Total net
+                </td>
+                <td style="text-align: right; font-weight: 700">
+                  22 cr ≈ $1.10
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p style="color: var(--faint); font-size: 13.5px; margin-top: 14px">
+          Wallet: 1,890 → 1,868. The two runs together — Kelowna + Boise — cost
+          <b>73 credits (~$3.65)</b> and exercised all seven researches, both
+          positive and honest-empty states, on two unrelated markets.
+        </p>
+      </div>
+    </section>
+
+    <footer>
+      <div class="wrap">
+        Live walk of mapsly.ai (production, v0.19.2) · agency portal · E2E Test
+        Agency · Medical Spa · Kelowna · 2026-07-05.<br />
+        Headline take: the machine is honest and the data is real — resolve the
+        goal signal so the market can be ranked by the problem it's sold on, and
+        this is a genuinely strong first-run.
+      </div>
+    </footer>
+  </body>
+</html>

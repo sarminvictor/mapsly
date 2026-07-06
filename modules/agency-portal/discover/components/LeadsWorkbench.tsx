@@ -55,6 +55,7 @@ import {
   CSV_HEADERS,
   DATA_FAMILIES,
   DEFAULT_ACTIVE_COLUMNS,
+  defaultActiveColumnsForGoal,
   FILTER_FIELDS,
   FILTER_FIELD_DEFAULTS,
   availableNumericFields,
@@ -209,6 +210,13 @@ export interface LeadsWorkbenchProps {
    */
   goalSignals?: { key: string; title: string }[];
   /**
+   * WB-COL-1 · the goal's expanded research families (lowercase research tokens,
+   * plain data). Turns the goal's own data columns ON by default on the FIRST
+   * visit — a site-speed hunt opens showing Lighthouse/SEO, not just contacts. A
+   * saved column view still wins on revisit. Empty for discovery-only goals.
+   */
+  goalResearches?: string[];
+  /**
    * #2 · the full curated signal library (SIG_META key + title) offered in the
    * "+ Signal" filter picker. Every lead carries a verdict for each (computed
    * server-side against default thresholds), so any signal with data on the
@@ -257,6 +265,7 @@ export function LeadsWorkbench({
   coverageTypeStates = {},
   scannedAt = {},
   goalSignals = [],
+  goalResearches = [],
   allSignals,
   exportSlug,
   serverPage = 1,
@@ -401,8 +410,11 @@ export function LeadsWorkbench({
   // `filters`/`setGroup` are in scope — a signal-set group needs a signal
   // filter, which the cycler checks live).
   const cycleGroupRef = useRef<() => void>(() => {});
-  const [activeCols, setActiveCols] = useState<string[]>(
-    DEFAULT_ACTIVE_COLUMNS,
+  // WB-COL-1 · seed the first-visit columns from the GOAL (defaults + the goal's
+  // own data columns) once at mount. A saved column view still overrides this on
+  // revisit (the localStorage-restore effect below), so user choices win.
+  const [activeCols, setActiveCols] = useState<string[]>(() =>
+    defaultActiveColumnsForGoal(goalResearches),
   );
   const [fieldsOpen, setFieldsOpen] = useState(false);
   // F3 · the Fields picker's search box — filters visible column rows by label
@@ -1483,6 +1495,7 @@ export function LeadsWorkbench({
     r,
     family,
     enrichTypes,
+    ranButEmpty,
   }: {
     r: WorkbenchLeadRow;
     family?: DataFamily;
@@ -1490,6 +1503,12 @@ export function LeadsWorkbench({
      *  family→types default so a Built-on / Booking-tool click enriches
      *  contacts+tech (not Lighthouse). Threaded down to enrichCell. */
     enrichTypes?: readonly string[];
+    /** WB-CELL-2 · the family RAN but THIS sub-field is empty (e.g. contacts
+     *  enriched, found a phone but no email). Treat an 'enriched' family-state as
+     *  verified-empty here so the cell reads a calm 'none', not the actionable
+     *  '— enrich' (which a retry can't fill and would re-charge). Only pass this
+     *  for a multi-field family's sub-field (contacts → email/phone/socials). */
+    ranButEmpty?: boolean;
   }) => {
     const state: FamilyState = family ? statesFor(r)[family] : "not_run";
     const label = family
@@ -1509,7 +1528,9 @@ export function LeadsWorkbench({
       );
     }
 
-    if (state === "empty") {
+    // WB-CELL-2 · verified-empty when the family reports 'empty', OR when the
+    // family ran ('enriched') but this sub-field came back empty (ranButEmpty).
+    if (state === "empty" || (ranButEmpty && state === "enriched")) {
       return (
         <span className="cell-none" data-tip={`Scanned · no ${label} found`}>
           none
@@ -1944,6 +1965,8 @@ export function LeadsWorkbench({
                 r={r}
                 family={col.family}
                 enrichTypes={col.enrichTypes}
+                // WB-CELL-2 · contacts ran but THIS channel is empty → 'none'.
+                ranButEmpty={statesFor(r).contacts === "enriched"}
               />
             </td>
           );
@@ -1999,6 +2022,8 @@ export function LeadsWorkbench({
                 r={r}
                 family={col.family}
                 enrichTypes={col.enrichTypes}
+                // WB-CELL-2 · contacts ran but no social handles → 'none'.
+                ranButEmpty={statesFor(r).contacts === "enriched"}
               />
             </td>
           );

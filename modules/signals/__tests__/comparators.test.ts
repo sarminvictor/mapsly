@@ -320,8 +320,10 @@ describe("date comparators", () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe("signal registry", () => {
-  test("ships 60+ signals (the moat contract)", () => {
-    expect(SIGNAL_COUNT).toBeGreaterThanOrEqual(60);
+  test("ships 100+ signals (the moat contract + landing marketing claim)", () => {
+    // The landing/welcome hero advertises "100+ signals" — this floor guarantees
+    // the marketing claim can never silently exceed the real registry (105 today).
+    expect(SIGNAL_COUNT).toBeGreaterThanOrEqual(100);
   });
 
   test("every signal key is unique", () => {

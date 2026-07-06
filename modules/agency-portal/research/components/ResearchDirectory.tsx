@@ -262,7 +262,7 @@ function ResearchRow({
   const meta = [
     card.goal ? `${card.goal} goal` : null,
     `${card.freshness} (mapped ${card.mapped})`,
-    `${card.totalLeads.toLocaleString("en-US")} leads`,
+    `${card.totalLeads.toLocaleString("en-US")} in market`,
     `${nCells} cell${nCells === 1 ? "" : "s"}`,
   ]
     .filter(Boolean)
@@ -330,8 +330,11 @@ function ResearchRow({
               <div style={{ flex: 1 }}>
                 <span className="cnm">{c.metroLabel}</span>
               </div>
+              {/* C7 · "in market" matches the workbench's "N market" vocabulary
+                  so the directory count and the workbench count read as the same
+                  quantity (was "leads", which clashed with "N shown"). */}
               <span className="ccount">
-                {c.leadCount.toLocaleString("en-US")} leads
+                {c.leadCount.toLocaleString("en-US")} in market
               </span>
             </div>
           ))}

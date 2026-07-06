@@ -3,7 +3,9 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Enrichment &amp; Filters — Research-Flow Design Doc · Mapsly Agency</title>
+    <title>
+      Enrichment &amp; Filters — Research-Flow Design Doc · Mapsly Agency
+    </title>
     <style>
       :root {
         --bg: #f6f7fb;
@@ -26,10 +28,15 @@
         --grey-soft: #eef0f6;
         --radius: 12px;
         --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
-        --sans: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        --sans:
+          Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       }
-      * { box-sizing: border-box; }
-      html { scroll-behavior: smooth; }
+      * {
+        box-sizing: border-box;
+      }
+      html {
+        scroll-behavior: smooth;
+      }
       body {
         margin: 0;
         font-family: var(--sans);
@@ -38,14 +45,20 @@
         line-height: 1.55;
         font-size: 15px;
       }
-      .wrap { max-width: 1120px; margin: 0 auto; padding: 0 24px 120px; }
+      .wrap {
+        max-width: 1120px;
+        margin: 0 auto;
+        padding: 0 24px 120px;
+      }
       header.masthead {
         background: linear-gradient(135deg, #2a1d6e 0%, #5b3df5 100%);
         color: #fff;
         padding: 46px 0 40px;
         margin-bottom: 8px;
       }
-      header.masthead .wrap { padding-bottom: 0; }
+      header.masthead .wrap {
+        padding-bottom: 0;
+      }
       header .eyebrow {
         font-family: var(--mono);
         font-size: 12px;
@@ -53,128 +66,455 @@
         text-transform: uppercase;
         opacity: 0.85;
       }
-      header h1 { font-size: 30px; margin: 8px 0 10px; line-height: 1.2; }
-      header p.sub { font-size: 16px; opacity: 0.92; margin: 0; max-width: 760px; }
+      header h1 {
+        font-size: 30px;
+        margin: 8px 0 10px;
+        line-height: 1.2;
+      }
+      header p.sub {
+        font-size: 16px;
+        opacity: 0.92;
+        margin: 0;
+        max-width: 760px;
+      }
       header .meta {
-        margin-top: 18px; font-size: 13px; opacity: 0.8;
-        display: flex; gap: 18px; flex-wrap: wrap;
+        margin-top: 18px;
+        font-size: 13px;
+        opacity: 0.8;
+        display: flex;
+        gap: 18px;
+        flex-wrap: wrap;
       }
       nav.toc {
-        position: sticky; top: 0; z-index: 20;
+        position: sticky;
+        top: 0;
+        z-index: 20;
         background: rgba(246, 247, 251, 0.92);
         backdrop-filter: blur(8px);
         border-bottom: 1px solid var(--line);
         padding: 10px 0;
         margin-bottom: 30px;
       }
-      nav.toc .wrap { padding-top: 0; padding-bottom: 0; display: flex; gap: 6px; flex-wrap: wrap; }
-      nav.toc a {
-        font-size: 12.5px; font-weight: 600; color: var(--ink-2);
-        text-decoration: none; padding: 5px 11px; border-radius: 8px;
-        border: 1px solid transparent; white-space: nowrap;
+      nav.toc .wrap {
+        padding-top: 0;
+        padding-bottom: 0;
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
       }
-      nav.toc a:hover { background: var(--indigo-soft); color: var(--indigo); }
-      section { margin: 44px 0; scroll-margin-top: 60px; }
+      nav.toc a {
+        font-size: 12.5px;
+        font-weight: 600;
+        color: var(--ink-2);
+        text-decoration: none;
+        padding: 5px 11px;
+        border-radius: 8px;
+        border: 1px solid transparent;
+        white-space: nowrap;
+      }
+      nav.toc a:hover {
+        background: var(--indigo-soft);
+        color: var(--indigo);
+      }
+      section {
+        margin: 44px 0;
+        scroll-margin-top: 60px;
+      }
       h2 {
-        font-size: 22px; margin: 0 0 6px; display: flex; align-items: baseline; gap: 10px;
+        font-size: 22px;
+        margin: 0 0 6px;
+        display: flex;
+        align-items: baseline;
+        gap: 10px;
       }
       h2 .num {
-        font-family: var(--mono); font-size: 14px; color: var(--indigo);
-        background: var(--indigo-soft); border-radius: 6px; padding: 2px 8px; font-weight: 700;
+        font-family: var(--mono);
+        font-size: 14px;
+        color: var(--indigo);
+        background: var(--indigo-soft);
+        border-radius: 6px;
+        padding: 2px 8px;
+        font-weight: 700;
       }
-      h3 { font-size: 16.5px; margin: 26px 0 8px; }
-      h4 { font-size: 14px; margin: 18px 0 6px; color: var(--ink-2); text-transform: uppercase; letter-spacing: 0.04em; }
-      p { margin: 8px 0; }
-      .lead { font-size: 16px; color: var(--ink-2); }
-      code { font-family: var(--mono); font-size: 0.86em; background: var(--line-2); padding: 1px 5px; border-radius: 4px; color: #4b2fce; }
+      h3 {
+        font-size: 16.5px;
+        margin: 26px 0 8px;
+      }
+      h4 {
+        font-size: 14px;
+        margin: 18px 0 6px;
+        color: var(--ink-2);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      p {
+        margin: 8px 0;
+      }
+      .lead {
+        font-size: 16px;
+        color: var(--ink-2);
+      }
+      code {
+        font-family: var(--mono);
+        font-size: 0.86em;
+        background: var(--line-2);
+        padding: 1px 5px;
+        border-radius: 4px;
+        color: #4b2fce;
+      }
       .card {
-        background: var(--surface); border: 1px solid var(--line);
-        border-radius: var(--radius); padding: 18px 20px; margin: 14px 0;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        padding: 18px 20px;
+        margin: 14px 0;
         box-shadow: 0 1px 2px rgba(20, 20, 60, 0.03);
       }
-      .card.tight { padding: 14px 16px; }
-      .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-      .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
-      @media (max-width: 820px) { .grid2, .grid3 { grid-template-columns: 1fr; } }
+      .card.tight {
+        padding: 14px 16px;
+      }
+      .grid2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+      }
+      .grid3 {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 14px;
+      }
+      @media (max-width: 820px) {
+        .grid2,
+        .grid3 {
+          grid-template-columns: 1fr;
+        }
+      }
       .tag {
-        display: inline-block; font-family: var(--mono); font-size: 11px; font-weight: 700;
-        padding: 2px 8px; border-radius: 20px; letter-spacing: 0.02em; vertical-align: middle;
+        display: inline-block;
+        font-family: var(--mono);
+        font-size: 11px;
+        font-weight: 700;
+        padding: 2px 8px;
+        border-radius: 20px;
+        letter-spacing: 0.02em;
+        vertical-align: middle;
       }
-      .t-lead { background: var(--indigo-soft); color: var(--indigo); }
-      .t-cell { background: #e3f0ff; color: #1e5fb3; }
-      .t-free { background: var(--green-soft); color: var(--green); }
-      .t-qual { background: var(--grey-soft); color: var(--faint); }
-      .t-gap { background: var(--red-soft); color: var(--red); }
-      .t-warn { background: var(--amber-soft); color: var(--amber); }
-      .t-ok { background: var(--green-soft); color: var(--green); }
-      table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 13.5px; }
-      .scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-      th, td { text-align: left; padding: 9px 11px; border-bottom: 1px solid var(--line); vertical-align: top; }
-      th { font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--faint); font-weight: 700; background: var(--surface-2); position: sticky; top: 0; }
-      tbody tr:hover { background: var(--indigo-50); }
-      td.mono, .mono { font-family: var(--mono); font-size: 12.5px; }
-      .pill { display: inline-block; font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 5px; }
-      .p-green { background: var(--green-soft); color: var(--green); }
-      .p-amber { background: var(--amber-soft); color: var(--amber); }
-      .p-red { background: var(--red-soft); color: var(--red); }
-      .p-grey { background: var(--grey-soft); color: var(--faint); }
-      .callout { border-left: 4px solid var(--indigo); background: var(--indigo-50); padding: 12px 16px; border-radius: 0 8px 8px 0; margin: 14px 0; }
-      .callout.warn { border-color: var(--amber); background: var(--amber-soft); }
-      .callout.bad { border-color: var(--red); background: var(--red-soft); }
-      .callout.good { border-color: var(--green); background: var(--green-soft); }
-      .callout .k { font-weight: 800; display: block; margin-bottom: 2px; font-size: 13px; }
-      .decided { background: var(--green-soft); border-left: 3px solid var(--green); padding: 8px 12px; border-radius: 0 6px 6px 0; margin: 10px 0 2px; font-size: 14px; }
-      .decided strong { color: var(--green); }
-      .tier { display: inline-block; width: 12px; height: 12px; border-radius: 50%; vertical-align: middle; margin-right: 6px; }
-      .tier.now { background: var(--green); }
-      .tier.blocked { background: var(--amber); }
-      .tier.data { background: var(--red); }
+      .t-lead {
+        background: var(--indigo-soft);
+        color: var(--indigo);
+      }
+      .t-cell {
+        background: #e3f0ff;
+        color: #1e5fb3;
+      }
+      .t-free {
+        background: var(--green-soft);
+        color: var(--green);
+      }
+      .t-qual {
+        background: var(--grey-soft);
+        color: var(--faint);
+      }
+      .t-gap {
+        background: var(--red-soft);
+        color: var(--red);
+      }
+      .t-warn {
+        background: var(--amber-soft);
+        color: var(--amber);
+      }
+      .t-ok {
+        background: var(--green-soft);
+        color: var(--green);
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 12px 0;
+        font-size: 13.5px;
+      }
+      .scroll {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+      th,
+      td {
+        text-align: left;
+        padding: 9px 11px;
+        border-bottom: 1px solid var(--line);
+        vertical-align: top;
+      }
+      th {
+        font-size: 11.5px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--faint);
+        font-weight: 700;
+        background: var(--surface-2);
+        position: sticky;
+        top: 0;
+      }
+      tbody tr:hover {
+        background: var(--indigo-50);
+      }
+      td.mono,
+      .mono {
+        font-family: var(--mono);
+        font-size: 12.5px;
+      }
+      .pill {
+        display: inline-block;
+        font-size: 11px;
+        font-weight: 700;
+        padding: 1px 7px;
+        border-radius: 5px;
+      }
+      .p-green {
+        background: var(--green-soft);
+        color: var(--green);
+      }
+      .p-amber {
+        background: var(--amber-soft);
+        color: var(--amber);
+      }
+      .p-red {
+        background: var(--red-soft);
+        color: var(--red);
+      }
+      .p-grey {
+        background: var(--grey-soft);
+        color: var(--faint);
+      }
+      .callout {
+        border-left: 4px solid var(--indigo);
+        background: var(--indigo-50);
+        padding: 12px 16px;
+        border-radius: 0 8px 8px 0;
+        margin: 14px 0;
+      }
+      .callout.warn {
+        border-color: var(--amber);
+        background: var(--amber-soft);
+      }
+      .callout.bad {
+        border-color: var(--red);
+        background: var(--red-soft);
+      }
+      .callout.good {
+        border-color: var(--green);
+        background: var(--green-soft);
+      }
+      .callout .k {
+        font-weight: 800;
+        display: block;
+        margin-bottom: 2px;
+        font-size: 13px;
+      }
+      .decided {
+        background: var(--green-soft);
+        border-left: 3px solid var(--green);
+        padding: 8px 12px;
+        border-radius: 0 6px 6px 0;
+        margin: 10px 0 2px;
+        font-size: 14px;
+      }
+      .decided strong {
+        color: var(--green);
+      }
+      .tier {
+        display: inline-block;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        vertical-align: middle;
+        margin-right: 6px;
+      }
+      .tier.now {
+        background: var(--green);
+      }
+      .tier.blocked {
+        background: var(--amber);
+      }
+      .tier.data {
+        background: var(--red);
+      }
       /* flow scheme */
-      .flow { display: flex; align-items: stretch; gap: 0; flex-wrap: nowrap; overflow-x: auto; padding: 6px 2px 12px; }
-      .flow .step {
-        flex: 0 0 auto; min-width: 150px; background: var(--surface); border: 1px solid var(--line);
-        border-radius: 10px; padding: 12px 14px; position: relative;
+      .flow {
+        display: flex;
+        align-items: stretch;
+        gap: 0;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        padding: 6px 2px 12px;
       }
-      .flow .step h5 { margin: 0 0 4px; font-size: 13px; }
-      .flow .step p { margin: 0; font-size: 12px; color: var(--faint); }
-      .flow .arrow { flex: 0 0 auto; align-self: center; color: var(--indigo); font-size: 22px; padding: 0 10px; }
+      .flow .step {
+        flex: 0 0 auto;
+        min-width: 150px;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 12px 14px;
+        position: relative;
+      }
+      .flow .step h5 {
+        margin: 0 0 4px;
+        font-size: 13px;
+      }
+      .flow .step p {
+        margin: 0;
+        font-size: 12px;
+        color: var(--faint);
+      }
+      .flow .arrow {
+        flex: 0 0 auto;
+        align-self: center;
+        color: var(--indigo);
+        font-size: 22px;
+        padding: 0 10px;
+      }
       /* mock UI elements */
-      .mock { background: #fbfbfe; border: 1px solid var(--line); border-radius: 10px; padding: 14px; font-size: 13px; }
-      .mock .lbl { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--faint); font-weight: 700; margin-bottom: 8px; }
-      .m-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 4px; border-bottom: 1px solid var(--line-2); gap: 10px; }
-      .m-row:last-child { border-bottom: 0; }
-      .m-chip { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 20px; }
-      .m-btn { background: var(--indigo); color: #fff; border: 0; border-radius: 8px; padding: 6px 12px; font-weight: 700; font-size: 12.5px; font-family: var(--sans); }
-      .m-btn.ghost { background: #fff; color: var(--indigo); border: 1px solid var(--indigo-soft); }
-      .bad-x { color: var(--red); font-weight: 800; }
-      .good-check { color: var(--green); font-weight: 800; }
-      .legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 12.5px; color: var(--faint); margin: 8px 0; }
-      .dot { display: inline-block; width: 10px; height: 10px; border-radius: 3px; vertical-align: middle; margin-right: 4px; }
-      ul.clean { margin: 8px 0; padding-left: 20px; }
-      ul.clean li { margin: 5px 0; }
-      .before-after { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-      @media (max-width: 820px) { .before-after { grid-template-columns: 1fr; } }
-      .ba-head { font-weight: 800; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 8px; }
-      .ba-head.before { color: var(--red); }
-      .ba-head.after { color: var(--green); }
-      .num-badge { font-family: var(--mono); font-weight: 700; }
-      footer.end { margin-top: 60px; padding-top: 20px; border-top: 1px solid var(--line); font-size: 13px; color: var(--faint); }
-      .qref { font-size: 12px; color: var(--faint); font-family: var(--mono); }
-      details { margin: 8px 0; }
-      summary { cursor: pointer; font-weight: 600; color: var(--indigo); }
+      .mock {
+        background: #fbfbfe;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 14px;
+        font-size: 13px;
+      }
+      .mock .lbl {
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--faint);
+        font-weight: 700;
+        margin-bottom: 8px;
+      }
+      .m-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 8px 4px;
+        border-bottom: 1px solid var(--line-2);
+        gap: 10px;
+      }
+      .m-row:last-child {
+        border-bottom: 0;
+      }
+      .m-chip {
+        font-size: 11px;
+        font-weight: 700;
+        padding: 2px 8px;
+        border-radius: 20px;
+      }
+      .m-btn {
+        background: var(--indigo);
+        color: #fff;
+        border: 0;
+        border-radius: 8px;
+        padding: 6px 12px;
+        font-weight: 700;
+        font-size: 12.5px;
+        font-family: var(--sans);
+      }
+      .m-btn.ghost {
+        background: #fff;
+        color: var(--indigo);
+        border: 1px solid var(--indigo-soft);
+      }
+      .bad-x {
+        color: var(--red);
+        font-weight: 800;
+      }
+      .good-check {
+        color: var(--green);
+        font-weight: 800;
+      }
+      .legend {
+        display: flex;
+        gap: 16px;
+        flex-wrap: wrap;
+        font-size: 12.5px;
+        color: var(--faint);
+        margin: 8px 0;
+      }
+      .dot {
+        display: inline-block;
+        width: 10px;
+        height: 10px;
+        border-radius: 3px;
+        vertical-align: middle;
+        margin-right: 4px;
+      }
+      ul.clean {
+        margin: 8px 0;
+        padding-left: 20px;
+      }
+      ul.clean li {
+        margin: 5px 0;
+      }
+      .before-after {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+      }
+      @media (max-width: 820px) {
+        .before-after {
+          grid-template-columns: 1fr;
+        }
+      }
+      .ba-head {
+        font-weight: 800;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        margin-bottom: 8px;
+      }
+      .ba-head.before {
+        color: var(--red);
+      }
+      .ba-head.after {
+        color: var(--green);
+      }
+      .num-badge {
+        font-family: var(--mono);
+        font-weight: 700;
+      }
+      footer.end {
+        margin-top: 60px;
+        padding-top: 20px;
+        border-top: 1px solid var(--line);
+        font-size: 13px;
+        color: var(--faint);
+      }
+      .qref {
+        font-size: 12px;
+        color: var(--faint);
+        font-family: var(--mono);
+      }
+      details {
+        margin: 8px 0;
+      }
+      summary {
+        cursor: pointer;
+        font-weight: 600;
+        color: var(--indigo);
+      }
     </style>
   </head>
   <body>
     <header class="masthead">
       <div class="wrap">
         <div class="eyebrow">Design doc · discussion before implementation</div>
-        <h1>Enrichment &amp; Filters — how our researches map to what the user sees</h1>
+        <h1>
+          Enrichment &amp; Filters — how our researches map to what the user
+          sees
+        </h1>
         <p class="sub">
-          One place to align the moat. What researches we run, what data each returns,
-          which signals trigger them, their dependencies — and, most importantly, how
-          all of that should show up on the table, filters, coverage layer, and lead
-          cards. Grounded in a real <strong>Dental clinic · Kelowna</strong> discovery
-          (56 leads) where enrichment felt confusing.
+          One place to align the moat. What researches we run, what data each
+          returns, which signals trigger them, their dependencies — and, most
+          importantly, how all of that should show up on the table, filters,
+          coverage layer, and lead cards. Grounded in a real
+          <strong>Dental clinic · Kelowna</strong> discovery (56 leads) where
+          enrichment felt confusing.
         </p>
         <div class="meta">
           <span>2026-07-05</span>
@@ -204,90 +544,129 @@
       <section id="tldr">
         <h2><span class="num">TL;DR</span> The one insight</h2>
         <div class="callout good">
-          <span class="k">The user wants DATA. We keep showing them RESEARCHES.</span>
-          Tom doesn't care that "Tech/DOM" is a separate line or that "Contacts" rides the
-          same fetch. He wants <em>emails, reviews, ad activity, site speed</em> for a set
-          of leads. Almost every confusion below comes from leaking our backend research
-          taxonomy (10 "types", 8 jobs, 5 families, 9 badges) into a UI that should speak
-          in <strong>data the user gets</strong>.
+          <span class="k"
+            >The user wants DATA. We keep showing them RESEARCHES.</span
+          >
+          Tom doesn't care that "Tech/DOM" is a separate line or that "Contacts"
+          rides the same fetch. He wants
+          <em>emails, reviews, ad activity, site speed</em> for a set of leads.
+          Almost every confusion below comes from leaking our backend research
+          taxonomy (10 "types", 8 jobs, 5 families, 9 badges) into a UI that
+          should speak in <strong>data the user gets</strong>.
         </div>
         <div class="grid3">
           <div class="card tight">
             <div class="ba-head before">Problem A · Filtering</div>
-            <p>Two separate places to filter (the <code>+ Filter</code> picker and the
-            Coverage layer), and no clear way to say "show me the 34 I actually enriched"
-            vs the 53 that are only discovered.</p>
+            <p>
+              Two separate places to filter (the <code>+ Filter</code> picker
+              and the Coverage layer), and no clear way to say "show me the 34 I
+              actually enriched" vs the 53 that are only discovered.
+            </p>
           </div>
           <div class="card tight">
             <div class="ba-head before">Problem B · Enriching</div>
-            <p>Select a few leads, click Enrich — the popup lists every research type as a
-            full-price buy line and <strong>never shows what those leads already have</strong>.
-            "Enrich 53 · ~139 cr" doesn't say what you get.</p>
+            <p>
+              Select a few leads, click Enrich — the popup lists every research
+              type as a full-price buy line and
+              <strong>never shows what those leads already have</strong>.
+              "Enrich 53 · ~139 cr" doesn't say what you get.
+            </p>
           </div>
           <div class="card tight">
             <div class="ba-head before">Problem C · Flow ↔ UI</div>
-            <p>The popup and progress step describe researches that aren't real jobs
-            (Contacts + Tech are one fetch; Discovery runs no research; Lighthouse is
-            separate). The UI and backend disagree.</p>
+            <p>
+              The popup and progress step describe researches that aren't real
+              jobs (Contacts + Tech are one fetch; Discovery runs no research;
+              Lighthouse is separate). The UI and backend disagree.
+            </p>
           </div>
         </div>
       </section>
 
       <!-- ============ 1 · MENTAL MODEL ============ -->
       <section id="model">
-        <h2><span class="num">1</span> The mental model — three vocabularies, one truth</h2>
+        <h2>
+          <span class="num">1</span> The mental model — three vocabularies, one
+          truth
+        </h2>
         <p class="lead">
-          The same fact is described in <strong>four</strong> different vocabularies across
-          the app. That is the root of most confusion. Here's the map.
+          The same fact is described in <strong>four</strong> different
+          vocabularies across the app. That is the root of most confusion.
+          Here's the map.
         </p>
         <div class="scroll">
           <table>
             <thead>
-              <tr><th>Vocabulary</th><th>Count</th><th>Where it lives</th><th>What it is</th></tr>
+              <tr>
+                <th>Vocabulary</th>
+                <th>Count</th>
+                <th>Where it lives</th>
+                <th>What it is</th>
+              </tr>
             </thead>
             <tbody>
               <tr>
                 <td><strong>Data the user wants</strong></td>
                 <td class="mono">~8</td>
                 <td>should be the ONLY thing in the enrich UI</td>
-                <td>Contacts · Reviews · Site speed &amp; SEO · Booking/tech · Ad activity · Search rank · Services · AI brief</td>
+                <td>
+                  Contacts · Reviews · Site speed &amp; SEO · Booking/tech · Ad
+                  activity · Search rank · Services · AI brief
+                </td>
               </tr>
               <tr>
                 <td>Enrichment "types" (billing)</td>
                 <td class="mono">10 rows / <strong>8 jobs</strong></td>
                 <td>the Enrich popup</td>
-                <td>The popup shows 10 rows but Tech is <code>incl.</code> and Discovery isn't enrichment — really 8 dispatched jobs.</td>
+                <td>
+                  The popup shows 10 rows but Tech is <code>incl.</code> and
+                  Discovery isn't enrichment — really 8 dispatched jobs.
+                </td>
               </tr>
               <tr>
                 <td>Data families (display)</td>
                 <td class="mono">5</td>
-                <td>Coverage panel, field-state filters, per-cell "— enrich"</td>
-                <td><code>reviews · website · contacts · ads · search</code> — collapses tech+lighthouse→website, meta+google→ads.</td>
+                <td>
+                  Coverage panel, field-state filters, per-cell "— enrich"
+                </td>
+                <td>
+                  <code>reviews · website · contacts · ads · search</code> —
+                  collapses tech+lighthouse→website, meta+google→ads.
+                </td>
               </tr>
               <tr>
                 <td>Enrichment type badges</td>
                 <td class="mono">9</td>
                 <td>the "Enriched" column chip strip</td>
-                <td>Co Sv Rv Te Lh Ma Ga Se Ai — the 9 billable types, per lead.</td>
+                <td>
+                  Co Sv Rv Te Lh Ma Ga Se Ai — the 9 billable types, per lead.
+                </td>
               </tr>
             </tbody>
           </table>
         </div>
         <div class="callout warn">
-          <span class="k">Three different denominators for "coverage" sit on one screen.</span>
-          The toolbar coverage badge shows <code>have / 6</code> (includes identity), the
-          Coverage panel iterates <strong>5</strong> families, and the per-row strip is
-          <strong>/9</strong> types. Same concept, three numbers.
+          <span class="k"
+            >Three different denominators for "coverage" sit on one
+            screen.</span
+          >
+          The toolbar coverage badge shows <code>have / 6</code> (includes
+          identity), the Coverage panel iterates <strong>5</strong> families,
+          and the per-row strip is <strong>/9</strong> types. Same concept,
+          three numbers.
           <span class="qref">LeadsWorkbench.tsx:2232 · 1219 · 1863</span>
         </div>
       </section>
 
       <!-- ============ 2 · THE 8 RESEARCHES ============ -->
       <section id="researches">
-        <h2><span class="num">2</span> The 8 researches — what actually runs</h2>
+        <h2>
+          <span class="num">2</span> The 8 researches — what actually runs
+        </h2>
         <p class="lead">
-          The moat, mapped. <span class="tag t-lead">per lead</span> = one job per business.
-          <span class="tag t-cell">per market cell</span> = one job for the whole metro×category.
+          The moat, mapped. <span class="tag t-lead">per lead</span> = one job
+          per business. <span class="tag t-cell">per market cell</span> = one
+          job for the whole metro×category.
           <span class="tag t-free">free</span> = no credits.
         </p>
 
@@ -295,7 +674,10 @@
         <div class="flow">
           <div class="step">
             <h5>Discovery <span class="tag t-free">free</span></h5>
-            <p>DataForSEO Maps. Finds businesses + listing fields. <strong>No enrichment.</strong></p>
+            <p>
+              DataForSEO Maps. Finds businesses + listing fields.
+              <strong>No enrichment.</strong>
+            </p>
           </div>
           <div class="arrow">→</div>
           <div class="step">
@@ -305,7 +687,10 @@
           <div class="arrow">→</div>
           <div class="step">
             <h5>resolveResearches</h5>
-            <p>Unions the signals' researches + expands deps (<code>tech→contacts</code>).</p>
+            <p>
+              Unions the signals' researches + expands deps
+              (<code>tech→contacts</code>).
+            </p>
           </div>
           <div class="arrow">→</div>
           <div class="step">
@@ -323,81 +708,152 @@
           <table>
             <thead>
               <tr>
-                <th>Research</th><th>Scope</th><th>Source / API</th><th>Data it returns (columns)</th>
-                <th>Credits</th><th>Fresh</th><th>Depends on</th>
+                <th>Research</th>
+                <th>Scope</th>
+                <th>Source / API</th>
+                <th>Data it returns (columns)</th>
+                <th>Credits</th>
+                <th>Fresh</th>
+                <th>Depends on</th>
               </tr>
             </thead>
             <tbody>
               <tr>
                 <td><strong>Discovery</strong></td>
-                <td><span class="tag t-cell">cell</span> <span class="tag t-free">free</span></td>
+                <td>
+                  <span class="tag t-cell">cell</span>
+                  <span class="tag t-free">free</span>
+                </td>
                 <td>DataForSEO Maps listings</td>
-                <td>Business rows · name/addr/phone/website/rating/reviewCount/openStatus</td>
-                <td class="mono">0</td><td class="mono">182d</td><td>—</td>
+                <td>
+                  Business rows ·
+                  name/addr/phone/website/rating/reviewCount/openStatus
+                </td>
+                <td class="mono">0</td>
+                <td class="mono">182d</td>
+                <td>—</td>
               </tr>
               <tr>
-                <td><strong>Contacts</strong> <span class="qref">(the root job)</span></td>
+                <td>
+                  <strong>Contacts</strong>
+                  <span class="qref">(the root job)</span>
+                </td>
                 <td><span class="tag t-lead">lead</span></td>
                 <td>Own DOM fetch + RDAP (+ rare AI email)</td>
-                <td><code>Contact</code> rows · phones · emails · socials · reachability tier</td>
-                <td class="mono">1</td><td class="mono">90d</td><td>—</td>
+                <td>
+                  <code>Contact</code> rows · phones · emails · socials ·
+                  reachability tier
+                </td>
+                <td class="mono">1</td>
+                <td class="mono">90d</td>
+                <td>—</td>
               </tr>
               <tr>
                 <td><strong>Tech / DOM</strong></td>
                 <td><span class="tag t-lead">lead</span></td>
-                <td><strong>Same DOM fetch as Contacts</strong> (fingerprint)</td>
-                <td><code>BusinessTech</code> · CMS · booking tool · pixels · analytics · chat</td>
-                <td class="mono"><span class="pill p-grey">incl.</span></td><td class="mono">30d*</td>
+                <td>
+                  <strong>Same DOM fetch as Contacts</strong> (fingerprint)
+                </td>
+                <td>
+                  <code>BusinessTech</code> · CMS · booking tool · pixels ·
+                  analytics · chat
+                </td>
+                <td class="mono"><span class="pill p-grey">incl.</span></td>
+                <td class="mono">30d*</td>
                 <td><span class="tag t-lead">Contacts</span></td>
               </tr>
               <tr>
                 <td><strong>Reviews</strong></td>
                 <td><span class="tag t-lead">lead</span></td>
                 <td>DataForSEO Reviews (async, bills on landing)</td>
-                <td><code>Review</code> rows · reply rate · unanswered 1★ · trend</td>
-                <td class="mono">1</td><td class="mono">90d</td><td>—</td>
+                <td>
+                  <code>Review</code> rows · reply rate · unanswered 1★ · trend
+                </td>
+                <td class="mono">1</td>
+                <td class="mono">90d</td>
+                <td>—</td>
               </tr>
               <tr>
                 <td><strong>Lighthouse</strong></td>
                 <td><span class="tag t-lead">lead</span></td>
-                <td>DfS on-page ($0.004) <em>or</em> Apify actor ($0.06 walled) — <strong>own fetch</strong></td>
-                <td><code>LighthouseAudit</code> · performance · SEO · LCP/CLS · SSL</td>
-                <td class="mono">1</td><td class="mono">30d</td><td><strong>none</strong> — independent</td>
+                <td>
+                  DfS on-page ($0.004) <em>or</em> Apify actor ($0.06 walled) —
+                  <strong>own fetch</strong>
+                </td>
+                <td>
+                  <code>LighthouseAudit</code> · performance · SEO · LCP/CLS ·
+                  SSL
+                </td>
+                <td class="mono">1</td>
+                <td class="mono">30d</td>
+                <td><strong>none</strong> — independent</td>
               </tr>
               <tr>
                 <td><strong>Services</strong></td>
                 <td><span class="tag t-lead">lead</span></td>
-                <td>gpt-nano over the <strong>Google listing</strong> (<code>place_topics</code> + GBP <code>description</code>) — <strong>NOT the site DOM</strong></td>
-                <td><code>BusinessService</code> · service taxonomy · cell prevalence</td>
-                <td class="mono">1</td><td class="mono"><span class="pill p-red">none†</span></td><td>—</td>
+                <td>
+                  gpt-nano over the <strong>Google listing</strong> (<code
+                    >place_topics</code
+                  >
+                  + GBP <code>description</code>) —
+                  <strong>NOT the site DOM</strong>
+                </td>
+                <td>
+                  <code>BusinessService</code> · service taxonomy · cell
+                  prevalence
+                </td>
+                <td class="mono">1</td>
+                <td class="mono"><span class="pill p-red">none†</span></td>
+                <td>—</td>
               </tr>
               <tr>
                 <td><strong>AI research</strong></td>
                 <td><span class="tag t-lead">lead</span></td>
-                <td>5-stage gpt-nano over <code>description</code> + <code>place_topics</code> + DB facts — <strong>NOT the site DOM</strong></td>
-                <td><code>BusinessEnrichment</code> · positioning · compliance cues · opener</td>
-                <td class="mono">1</td><td class="mono"><span class="pill p-red">none†</span></td><td>—</td>
+                <td>
+                  5-stage gpt-nano over <code>description</code> +
+                  <code>place_topics</code> + DB facts —
+                  <strong>NOT the site DOM</strong>
+                </td>
+                <td>
+                  <code>BusinessEnrichment</code> · positioning · compliance
+                  cues · opener
+                </td>
+                <td class="mono">1</td>
+                <td class="mono"><span class="pill p-red">none†</span></td>
+                <td>—</td>
               </tr>
               <tr>
                 <td><strong>Meta ads</strong></td>
                 <td><span class="tag t-cell">cell</span></td>
                 <td>Apify Meta Ad Library actor</td>
-                <td><code>AdLibraryEntry/AdMarketRun</code> (META) · active ads · creatives</td>
-                <td class="mono">3</td><td class="mono">30d</td><td>—</td>
+                <td>
+                  <code>AdLibraryEntry/AdMarketRun</code> (META) · active ads ·
+                  creatives
+                </td>
+                <td class="mono">3</td>
+                <td class="mono">30d</td>
+                <td>—</td>
               </tr>
               <tr>
                 <td><strong>Google ads</strong></td>
                 <td><span class="tag t-cell">cell</span></td>
                 <td>DataForSEO Ads</td>
                 <td><code>AdLibraryEntry/AdMarketRun</code> (GOOGLE)</td>
-                <td class="mono">1</td><td class="mono">30d</td><td>—</td>
+                <td class="mono">1</td>
+                <td class="mono">30d</td>
+                <td>—</td>
               </tr>
               <tr>
                 <td><strong>SERP / search</strong></td>
                 <td><span class="tag t-cell">cell</span></td>
                 <td>DfS local pack + organic + ranked keywords</td>
-                <td><code>SerpResult · Keyword · BusinessKeyword</code> · rank · est. traffic</td>
-                <td class="mono">4</td><td class="mono">30d</td><td>—</td>
+                <td>
+                  <code>SerpResult · Keyword · BusinessKeyword</code> · rank ·
+                  est. traffic
+                </td>
+                <td class="mono">4</td>
+                <td class="mono">30d</td>
+                <td>—</td>
               </tr>
             </tbody>
           </table>
@@ -406,72 +862,100 @@
         <div class="grid2">
           <div class="callout">
             <span class="k">Contacts + Tech/DOM = ONE fetch, ONE job.</span>
-            There is no separate "Tech" job. <code>scanBusinessContacts</code> does one
-            homepage fetch and reads BOTH contacts and the tech fingerprint off the same
-            bytes. Tech costs 0 credits because it rides the billed Contacts scan. The
-            only real dependency edge in the whole resolver is <code>tech → contacts</code>.
+            There is no separate "Tech" job.
+            <code>scanBusinessContacts</code> does one homepage fetch and reads
+            BOTH contacts and the tech fingerprint off the same bytes. Tech
+            costs 0 credits because it rides the billed Contacts scan. The only
+            real dependency edge in the whole resolver is
+            <code>tech → contacts</code>.
             <span class="qref">scan.ts:435 · researches.ts:62</span>
           </div>
           <div class="callout">
             <span class="k">Lighthouse is independent of Tech.</span>
-            It has its own fetch (DfS audit or an Apify browser Lighthouse for walled
-            sites). You can run Tech without Lighthouse and Lighthouse without Tech — they
-            only <em>share a display bucket</em> ("website" family), not a job. So we do
-            NOT "run Lighthouse together with DOM/tech" — your instinct was right.
+            It has its own fetch (DfS audit or an Apify browser Lighthouse for
+            walled sites). You can run Tech without Lighthouse and Lighthouse
+            without Tech — they only <em>share a display bucket</em> ("website"
+            family), not a job. So we do NOT "run Lighthouse together with
+            DOM/tech" — your instinct was right.
             <span class="qref">researches.ts:63</span>
           </div>
         </div>
         <div class="callout warn">
-          <span class="k">Who actually reads the website? Only 2 of the 4 "page" researches.</span>
-          <strong>Contacts</strong> and <strong>Tech/DOM</strong> fetch the site DOM (one
-          shared fetch). But <strong>Services</strong> and <strong>AI research</strong> do
-          <em>not</em> — they run gpt-nano over the thin <strong>Google listing</strong>
-          (<code>place_topics</code> + the one-line GBP <code>description</code>), because the
-          contacts fetch <strong>throws its HTML away</strong>. So today the AI never sees the
-          real service menu or positioning copy. Fixing that is proposal <a href="#solutions">6.5</a>.
+          <span class="k"
+            >Who actually reads the website? Only 2 of the 4 "page"
+            researches.</span
+          >
+          <strong>Contacts</strong> and <strong>Tech/DOM</strong> fetch the site
+          DOM (one shared fetch). But <strong>Services</strong> and
+          <strong>AI research</strong> do <em>not</em> — they run gpt-nano over
+          the thin <strong>Google listing</strong> (<code>place_topics</code> +
+          the one-line GBP <code>description</code>), because the contacts fetch
+          <strong>throws its HTML away</strong>. So today the AI never sees the
+          real service menu or positioning copy. Fixing that is proposal
+          <a href="#solutions">6.5</a>.
         </div>
         <p style="font-size: 12.5px; color: var(--faint)">
-          * Tech advertises 30d but the Contacts job it rides is gated on the 90d contacts
-          cursor — a tech-only refresh is skipped while contacts are &lt;90d old.
-          † Services &amp; AI research have <strong>no freshness cursor</strong> — they
-          re-fetch and re-bill on every run, even though the popup prints "90d/30d fresh".
+          * Tech advertises 30d but the Contacts job it rides is gated on the
+          90d contacts cursor — a tech-only refresh is skipped while contacts
+          are &lt;90d old. † Services &amp; AI research have
+          <strong>no freshness cursor</strong> — they re-fetch and re-bill on
+          every run, even though the popup prints "90d/30d fresh".
         </p>
       </section>
 
       <!-- ============ 3 · SIGNALS → RESEARCHES ============ -->
       <section id="signals">
-        <h2><span class="num">3</span> Signals → researches — what triggers what</h2>
+        <h2>
+          <span class="num">3</span> Signals → researches — what triggers what
+        </h2>
         <p class="lead">
           48 signal cards. Each declares the researches it needs. A
-          <span class="tag t-qual">qualifier</span> reads straight off the free Discovery
-          listing and needs <strong>no enrichment</strong>. Everything else returns
-          <em>no verdict</em> until its research has run for that lead.
+          <span class="tag t-qual">qualifier</span> reads straight off the free
+          Discovery listing and needs <strong>no enrichment</strong>. Everything
+          else returns <em>no verdict</em> until its research has run for that
+          lead.
         </p>
 
         <h3>Your actual test — the 6 signals you picked</h3>
         <div class="scroll">
           <table>
             <thead>
-              <tr><th>Signal</th><th>Kind</th><th>Research needed</th><th>What happens</th></tr>
+              <tr>
+                <th>Signal</th>
+                <th>Kind</th>
+                <th>Research needed</th>
+                <th>What happens</th>
+              </tr>
             </thead>
             <tbody>
               <tr>
                 <td>Operating business</td>
                 <td><span class="tag t-qual">qualifier</span></td>
                 <td><span class="tag t-free">none — discovery</span></td>
-                <td>Evaluated free from the listing open-status. Always available.</td>
+                <td>
+                  Evaluated free from the listing open-status. Always available.
+                </td>
               </tr>
               <tr>
                 <td>Has a website</td>
                 <td><span class="tag t-qual">qualifier</span></td>
                 <td><span class="tag t-free">none — discovery</span></td>
-                <td>Reads <code>Business.website</code> from the listing. Free.</td>
+                <td>
+                  Reads <code>Business.website</code> from the listing. Free.
+                </td>
               </tr>
               <tr>
                 <td><strong>Flying blind</strong></td>
                 <td><span class="tag t-warn">enrichment · roadmap</span></td>
-                <td><span class="tag t-lead">tech</span> → pulls <span class="tag t-lead">contacts</span></td>
-                <td class="bad-x">⚠ Data is collected, but the evaluator returns <strong>null</strong> — this signal can never fire yet. This is likely your "didn't run."</td>
+                <td>
+                  <span class="tag t-lead">tech</span> → pulls
+                  <span class="tag t-lead">contacts</span>
+                </td>
+                <td class="bad-x">
+                  ⚠ Data is collected, but the evaluator returns
+                  <strong>null</strong> — this signal can never fire yet. This
+                  is likely your "didn't run."
+                </td>
               </tr>
               <tr>
                 <td>Overdue for a redesign</td>
@@ -496,78 +980,142 @@
         </div>
         <div class="callout bad">
           <span class="k">Resolved research set for your 6 signals:</span>
-          <code>contacts, tech, lighthouse, serp, meta_ads</code> — where <code>contacts</code>
-          is dragged in only by "Flying blind"'s <code>tech</code> dependency. But "Flying
-          blind" itself is a <strong>roadmap signal that never returns a verdict</strong>,
-          so you paid for contacts+tech and the signal still shows nothing. <em>That is a
-          real gap, not a bug in your run.</em>
+          <code>contacts, tech, lighthouse, serp, meta_ads</code> — where
+          <code>contacts</code> is dragged in only by "Flying blind"'s
+          <code>tech</code> dependency. But "Flying blind" itself is a
+          <strong>roadmap signal that never returns a verdict</strong>, so you
+          paid for contacts+tech and the signal still shows nothing.
+          <em>That is a real gap, not a bug in your run.</em>
         </div>
 
         <h3>The whole library, grouped by what it needs</h3>
         <div class="grid2">
           <div class="card tight">
-            <h4 style="margin-top: 4px">Free — qualifiers &amp; discovery ($0)</h4>
-            <p style="font-size: 13px">10 cards evaluate with zero enrichment: the 7
-            qualifiers (<code>operating_business, has_website, has_phone, has_email,
-            has_instagram, is_owner_claimed, category_count</code>) plus
-            <code>phone_only, open_now, years_in_business</code>.</p>
+            <h4 style="margin-top: 4px">
+              Free — qualifiers &amp; discovery ($0)
+            </h4>
+            <p style="font-size: 13px">
+              10 cards evaluate with zero enrichment: the 7 qualifiers (<code
+                >operating_business, has_website, has_phone, has_email,
+                has_instagram, is_owner_claimed, category_count</code
+              >) plus <code>phone_only, open_now, years_in_business</code>.
+            </p>
           </div>
           <div class="card tight">
             <h4 style="margin-top: 4px">Need enrichment (38 cards)</h4>
-            <p style="font-size: 13px">Everything else returns <em>null</em> until its
-            research runs. Reviews-family: 9 · SERP-family: 8 · Lighthouse: 6 ·
-            Meta-ads: 7 · Tech (→contacts): 9 · Services: 1.</p>
+            <p style="font-size: 13px">
+              Everything else returns <em>null</em> until its research runs.
+              Reviews-family: 9 · SERP-family: 8 · Lighthouse: 6 · Meta-ads: 7 ·
+              Tech (→contacts): 9 · Services: 1.
+            </p>
           </div>
         </div>
       </section>
 
       <!-- ============ 4 · HOW IT SHOWS TODAY ============ -->
       <section id="ui-today">
-        <h2><span class="num">4</span> How it shows today — the surfaces &amp; their confusions</h2>
-        <p class="lead">Seven surfaces render enrichment state. Each speaks a slightly
-        different vocabulary — here's each, with the confusion it creates.</p>
+        <h2>
+          <span class="num">4</span> How it shows today — the surfaces &amp;
+          their confusions
+        </h2>
+        <p class="lead">
+          Seven surfaces render enrichment state. Each speaks a slightly
+          different vocabulary — here's each, with the confusion it creates.
+        </p>
 
         <div class="scroll">
           <table>
             <thead>
-              <tr><th>Surface</th><th>What it shows</th><th>The confusion</th></tr>
+              <tr>
+                <th>Surface</th>
+                <th>What it shows</th>
+                <th>The confusion</th>
+              </tr>
             </thead>
             <tbody>
               <tr>
                 <td><strong>Table columns</strong></td>
-                <td>21 columns; un-enriched cells show "— enrich" / "none" / "failed · retry" via the run state.</td>
-                <td>The <code>Website</code> column shows the URL (from discovery) — but the
-                <code>Website</code> coverage family means "site audit ran". Same word, two meanings.</td>
+                <td>
+                  21 columns; un-enriched cells show "— enrich" / "none" /
+                  "failed · retry" via the run state.
+                </td>
+                <td>
+                  The <code>Website</code> column shows the URL (from discovery)
+                  — but the <code>Website</code> coverage family means "site
+                  audit ran". Same word, two meanings.
+                </td>
               </tr>
               <tr>
                 <td><strong>"Enriched" chip strip</strong></td>
-                <td>9 per-type chips (Co Sv Rv Te Lh Ma Ga Se Ai) colored by state, <code>N/9</code>.</td>
-                <td>Speaks 9 types; the coverage panel next to it speaks 5 families. <code>empty</code> and <code>not_run</code> are near-identical greys.</td>
+                <td>
+                  9 per-type chips (Co Sv Rv Te Lh Ma Ga Se Ai) colored by
+                  state, <code>N/9</code>.
+                </td>
+                <td>
+                  Speaks 9 types; the coverage panel next to it speaks 5
+                  families. <code>empty</code> and <code>not_run</code> are
+                  near-identical greys.
+                </td>
               </tr>
               <tr>
                 <td><strong>Coverage panel</strong></td>
-                <td>"Have / Not yet" over 5 families + field-state filter buttons (have/none/not-run/failed).</td>
-                <td>"Website · not run 43" while 43 of those leads visibly HAVE a website URL. Reads as "no website".</td>
+                <td>
+                  "Have / Not yet" over 5 families + field-state filter buttons
+                  (have/none/not-run/failed).
+                </td>
+                <td>
+                  "Website · not run 43" while 43 of those leads visibly HAVE a
+                  website URL. Reads as "no website".
+                </td>
               </tr>
               <tr>
                 <td><strong>Two filter entry points</strong></td>
-                <td><code>+ Filter</code> = signal + numeric-field filters (the DATA). Coverage panel = run-STATE filters.</td>
-                <td>Two independent axes, no cross-link. You can narrow twice and not realize it.</td>
+                <td>
+                  <code>+ Filter</code> = signal + numeric-field filters (the
+                  DATA). Coverage panel = run-STATE filters.
+                </td>
+                <td>
+                  Two independent axes, no cross-link. You can narrow twice and
+                  not realize it.
+                </td>
               </tr>
               <tr>
                 <td><strong>"Enriched only" toggle</strong></td>
-                <td>Keeps leads where <em>any</em> type ran (incl. empty/failed).</td>
-                <td>Reads as "has data", but a lead whose only scan found nothing still passes. And ads/serp are per-cell, so "enriched" fires for leads you never touched individually.</td>
+                <td>
+                  Keeps leads where <em>any</em> type ran (incl. empty/failed).
+                </td>
+                <td>
+                  Reads as "has data", but a lead whose only scan found nothing
+                  still passes. And ads/serp are per-cell, so "enriched" fires
+                  for leads you never touched individually.
+                </td>
               </tr>
               <tr>
                 <td><strong>Enrich popup</strong></td>
-                <td>Lists all 9 types as buy lines with prices + a scope (Selected / Visible / Whole research).</td>
-                <td class="bad-x"><strong>Never shows what the selected leads already have.</strong> Offers Contacts/Reviews at full price even if 18/20 already have them.</td>
+                <td>
+                  Lists all 9 types as buy lines with prices + a scope (Selected
+                  / Visible / Whole research).
+                </td>
+                <td class="bad-x">
+                  <strong
+                    >Never shows what the selected leads already have.</strong
+                  >
+                  Offers Contacts/Reviews at full price even if 18/20 already
+                  have them.
+                </td>
               </tr>
               <tr>
                 <td><strong>Lead drawer cards</strong></td>
-                <td>Per-research accordions keyed off honest run state (not_run/empty/failed/enriched) + per-signal "Fired / Enrich to unlock / Didn't fire".</td>
-                <td>This one is actually the <span class="good-check">good</span> model — honest, per-lead, data-first. The rest of the UI should learn from it.</td>
+                <td>
+                  Per-research accordions keyed off honest run state
+                  (not_run/empty/failed/enriched) + per-signal "Fired / Enrich
+                  to unlock / Didn't fire".
+                </td>
+                <td>
+                  This one is actually the
+                  <span class="good-check">good</span> model — honest, per-lead,
+                  data-first. The rest of the UI should learn from it.
+                </td>
               </tr>
             </tbody>
           </table>
@@ -580,36 +1128,57 @@
 
         <h3>A · Filtering a partially-enriched list</h3>
         <div class="card">
-          <p>Your list is 53 visible / 56 total. Some leads are fully enriched, some
-          partial, some only discovered. You have <strong>two</strong> filtering tools that
-          don't talk to each other:</p>
+          <p>
+            Your list is 53 visible / 56 total. Some leads are fully enriched,
+            some partial, some only discovered. You have
+            <strong>two</strong> filtering tools that don't talk to each other:
+          </p>
           <ul class="clean">
-            <li><code>+ Filter</code> → filters by <strong>signal verdict</strong> or
-            <strong>field value</strong> ("Emails ≥ 1", "Search visibility = weak"). A lead
-            with no data for that field simply never matches — so it silently drops
-            un-enriched leads.</li>
-            <li>Coverage layer → filters by <strong>run state</strong> ("Contacts · not run",
-            "Reviews · none"). This is the tool for "partially enriched", but it's hidden in
-            a second panel and speaks in 5 families.</li>
+            <li>
+              <code>+ Filter</code> → filters by
+              <strong>signal verdict</strong> or
+              <strong>field value</strong> ("Emails ≥ 1", "Search visibility =
+              weak"). A lead with no data for that field simply never matches —
+              so it silently drops un-enriched leads.
+            </li>
+            <li>
+              Coverage layer → filters by <strong>run state</strong> ("Contacts
+              · not run", "Reviews · none"). This is the tool for "partially
+              enriched", but it's hidden in a second panel and speaks in 5
+              families.
+            </li>
           </ul>
-          <p><strong>The missing question:</strong> "show me the leads I've actually
-          enriched" has no single answer — "Enriched only" counts empty/failed and per-cell
-          runs, so it's not "leads with data".</p>
+          <p>
+            <strong>The missing question:</strong> "show me the leads I've
+            actually enriched" has no single answer — "Enriched only" counts
+            empty/failed and per-cell runs, so it's not "leads with data".
+          </p>
         </div>
 
         <h3>B · Enriching — what leads, and what do they already have?</h3>
         <div class="card">
-          <p>You select a few leads, click Enrich. The popup shows every research type as a
-          uniform buy line. It <strong>cannot</strong> show what those leads already have —
-          the popup is never handed the per-lead run states
-          (<span class="qref">EnrichMoreHost passes only {discoveryId, request}</span>). So:</p>
+          <p>
+            You select a few leads, click Enrich. The popup shows every research
+            type as a uniform buy line. It <strong>cannot</strong> show what
+            those leads already have — the popup is never handed the per-lead
+            run states (<span class="qref"
+              >EnrichMoreHost passes only {discoveryId, request}</span
+            >). So:
+          </p>
           <ul class="clean">
-            <li>"Enrich 53 · ~139 cr" doesn't say what data you'll get, or that 34 of them
-            already have contacts.</li>
-            <li>Picking "Tech" silently adds "Contacts" (a dependency) — surfaced only as a
-            tiny footnote.</li>
-            <li>The net (deduped) price is computed <em>server-side at run time</em>, so the
-            sheet's gross number over-states what you'll actually pay.</li>
+            <li>
+              "Enrich 53 · ~139 cr" doesn't say what data you'll get, or that 34
+              of them already have contacts.
+            </li>
+            <li>
+              Picking "Tech" silently adds "Contacts" (a dependency) — surfaced
+              only as a tiny footnote.
+            </li>
+            <li>
+              The net (deduped) price is computed
+              <em>server-side at run time</em>, so the sheet's gross number
+              over-states what you'll actually pay.
+            </li>
           </ul>
         </div>
 
@@ -617,103 +1186,205 @@
         <div class="card">
           <p>The UI describes researches that aren't real jobs:</p>
           <ul class="clean">
-            <li><strong>Discovery is shown like a research step</strong> but runs no
-            enrichment — it only finds businesses.</li>
-            <li><strong>Contacts &amp; Tech/DOM are two popup rows</strong> but one fetch /
-            one job — Tech has no independent cost, fetch, or data pull.</li>
-            <li><strong>Lighthouse shares the "tech" progress bucket</strong> in the last
-            step, so selection UI and progress UI group it differently.</li>
-            <li><strong>The progress step's fallback list overclaims</strong> — before real
-            data lands it shows "Contacts extracted", "Reviews", "Draft first touches" for
-            <em>every</em> run, even a Lighthouse-only one. "Draft first touches" isn't even
-            part of enrichment.</li>
-            <li><strong>Services / AI advertise "Nd fresh"</strong> but have no freshness
-            cursor — they re-bill every run.</li>
+            <li>
+              <strong>Discovery is shown like a research step</strong> but runs
+              no enrichment — it only finds businesses.
+            </li>
+            <li>
+              <strong>Contacts &amp; Tech/DOM are two popup rows</strong> but
+              one fetch / one job — Tech has no independent cost, fetch, or data
+              pull.
+            </li>
+            <li>
+              <strong>Lighthouse shares the "tech" progress bucket</strong> in
+              the last step, so selection UI and progress UI group it
+              differently.
+            </li>
+            <li>
+              <strong>The progress step's fallback list overclaims</strong> —
+              before real data lands it shows "Contacts extracted", "Reviews",
+              "Draft first touches" for <em>every</em> run, even a
+              Lighthouse-only one. "Draft first touches" isn't even part of
+              enrichment.
+            </li>
+            <li>
+              <strong>Services / AI advertise "Nd fresh"</strong> but have no
+              freshness cursor — they re-bill every run.
+            </li>
           </ul>
         </div>
       </section>
 
       <!-- ============ 6 · PROPOSED SOLUTIONS ============ -->
       <section id="solutions">
-        <h2><span class="num">6</span> Proposed solutions — speak "data", not "research"</h2>
-        <p class="lead">Each proposal is a discussion starter with a mock built from our own
-        elements. Nothing here is implemented — this is for us to react to.</p>
+        <h2>
+          <span class="num">6</span> Proposed solutions — speak "data", not
+          "research"
+        </h2>
+        <p class="lead">
+          Each proposal is a discussion starter with a mock built from our own
+          elements. Nothing here is implemented — this is for us to react to.
+        </p>
 
         <h3>6.1 · Reframe the enrich popup around DATA the lead gets</h3>
         <div class="before-after">
           <div class="mock">
             <div class="ba-head before">Today</div>
             <div class="lbl">Data · select all</div>
-            <div class="m-row"><span>Contacts · per lead × 53 · 90d fresh</span><span class="num-badge">53</span></div>
-            <div class="m-row"><span>Services · per lead × 53 · 90d fresh</span><span class="num-badge">53</span></div>
-            <div class="m-row"><span>Tech / DOM · per lead × 53 · 30d</span><span class="pill p-grey">incl.</span></div>
-            <div class="m-row"><span>Reviews · per lead × 53</span><span class="num-badge">53</span></div>
-            <div class="m-row"><span>Lighthouse · per lead × 53</span><span class="num-badge">53</span></div>
-            <div class="m-row" style="color: var(--red)"><span>…every type at full price, no state</span><span class="bad-x">✕</span></div>
+            <div class="m-row">
+              <span>Contacts · per lead × 53 · 90d fresh</span
+              ><span class="num-badge">53</span>
+            </div>
+            <div class="m-row">
+              <span>Services · per lead × 53 · 90d fresh</span
+              ><span class="num-badge">53</span>
+            </div>
+            <div class="m-row">
+              <span>Tech / DOM · per lead × 53 · 30d</span
+              ><span class="pill p-grey">incl.</span>
+            </div>
+            <div class="m-row">
+              <span>Reviews · per lead × 53</span
+              ><span class="num-badge">53</span>
+            </div>
+            <div class="m-row">
+              <span>Lighthouse · per lead × 53</span
+              ><span class="num-badge">53</span>
+            </div>
+            <div class="m-row" style="color: var(--red)">
+              <span>…every type at full price, no state</span
+              ><span class="bad-x">✕</span>
+            </div>
           </div>
           <div class="mock">
             <div class="ba-head after">Proposed</div>
             <div class="lbl">Get data for 20 selected leads</div>
             <div class="m-row">
-              <span><span class="good-check">●</span> Contacts <span class="qref">phones · emails · socials</span></span>
-              <span><span class="m-chip p-green">18 have</span> <span class="m-chip p-grey">2 to get · 2 cr</span></span>
+              <span
+                ><span class="good-check">●</span> Contacts
+                <span class="qref">phones · emails · socials</span></span
+              >
+              <span
+                ><span class="m-chip p-green">18 have</span>
+                <span class="m-chip p-grey">2 to get · 2 cr</span></span
+              >
             </div>
             <div class="m-row">
-              <span><span class="good-check">●</span> Reviews <span class="qref">reply rate · 1★</span></span>
-              <span><span class="m-chip p-green">20 have</span> <span class="qref">already done</span></span>
+              <span
+                ><span class="good-check">●</span> Reviews
+                <span class="qref">reply rate · 1★</span></span
+              >
+              <span
+                ><span class="m-chip p-green">20 have</span>
+                <span class="qref">already done</span></span
+              >
             </div>
             <div class="m-row">
-              <span>○ Site speed &amp; SEO <span class="qref">Lighthouse</span></span>
+              <span
+                >○ Site speed &amp; SEO
+                <span class="qref">Lighthouse</span></span
+              >
               <span><span class="m-chip p-grey">20 to get · 20 cr</span></span>
             </div>
             <div class="m-row">
-              <span>○ Ad activity <span class="qref">whole market · runs once</span></span>
+              <span
+                >○ Ad activity
+                <span class="qref">whole market · runs once</span></span
+              >
               <span><span class="m-chip p-grey">1 cell · 3 cr</span></span>
             </div>
-            <div class="m-row" style="border-top: 2px solid var(--line); padding-top: 10px">
+            <div
+              class="m-row"
+              style="border-top: 2px solid var(--line); padding-top: 10px"
+            >
               <span class="qref">Booking/tech comes free with Contacts</span>
               <button class="m-btn">Get data · ~25 cr</button>
             </div>
           </div>
         </div>
         <ul class="clean">
-          <li>Rows are <strong>data the user gets</strong>, not job names. "Tech/DOM"
-          disappears into "Contacts" (with a note that booking/tech ride along free).</li>
-          <li>Each row shows <strong>N have · N to get · price</strong> for the actual
-          selection — this needs the popup to receive the per-lead run states (a one-prop
-          plumbing change).</li>
-          <li>Per-cell data (ads/serp) is labelled "whole market · runs once" so it's not
-          confused with per-lead billing.</li>
-          <li>The button shows the <strong>net</strong> price (what you'll pay after dedup),
-          not gross.</li>
+          <li>
+            Rows are <strong>data the user gets</strong>, not job names.
+            "Tech/DOM" disappears into "Contacts" (with a note that booking/tech
+            ride along free).
+          </li>
+          <li>
+            Each row shows <strong>N have · N to get · price</strong> for the
+            actual selection — this needs the popup to receive the per-lead run
+            states (a one-prop plumbing change).
+          </li>
+          <li>
+            Per-cell data (ads/serp) is labelled "whole market · runs once" so
+            it's not confused with per-lead billing.
+          </li>
+          <li>
+            The button shows the <strong>net</strong> price (what you'll pay
+            after dedup), not gross.
+          </li>
         </ul>
 
-        <h3>6.2 · One filtering home, with an explicit "enrichment state" axis</h3>
+        <h3>
+          6.2 · One filtering home, with an explicit "enrichment state" axis
+        </h3>
         <div class="grid2">
           <div class="card">
-            <p><strong>Merge the two entry points conceptually.</strong> Keep one
-            <code>+ Filter</code> that offers three clearly-labelled filter kinds:</p>
+            <p>
+              <strong>Merge the two entry points conceptually.</strong> Keep one
+              <code>+ Filter</code> that offers three clearly-labelled filter
+              kinds:
+            </p>
             <ul class="clean">
-              <li><strong>By signal</strong> — the pitch angle (weak SEO, not advertising…).</li>
-              <li><strong>By value</strong> — numeric field (reviews ≥ 100, rank ≤ 3…).</li>
-              <li><strong>By data state</strong> — the coverage filter, promoted here:
-              "Emails: have / none / not scanned".</li>
+              <li>
+                <strong>By signal</strong> — the pitch angle (weak SEO, not
+                advertising…).
+              </li>
+              <li>
+                <strong>By value</strong> — numeric field (reviews ≥ 100, rank ≤
+                3…).
+              </li>
+              <li>
+                <strong>By data state</strong> — the coverage filter, promoted
+                here: "Emails: have / none / not scanned".
+              </li>
             </ul>
-            <p>The Coverage layer becomes a <em>read-only summary</em> ("34 of 53 have
-            contacts"), and the <em>filtering</em> lives in one place.</p>
+            <p>
+              The Coverage layer becomes a <em>read-only summary</em> ("34 of 53
+              have contacts"), and the <em>filtering</em> lives in one place.
+            </p>
           </div>
           <div class="mock">
             <div class="lbl">+ Filter</div>
-            <div class="m-row"><span>By signal ▸</span><span class="qref">pitch angle</span></div>
-            <div class="m-row"><span>By value ▸</span><span class="qref">reviews, rank…</span></div>
-            <div class="m-row" style="background: var(--indigo-50); border-radius: 8px">
-              <span>By data state ▸</span><span class="m-chip p-green">the "partial" answer</span>
+            <div class="m-row">
+              <span>By signal ▸</span><span class="qref">pitch angle</span>
             </div>
-            <div style="margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--line-2)">
+            <div class="m-row">
+              <span>By value ▸</span><span class="qref">reviews, rank…</span>
+            </div>
+            <div
+              class="m-row"
+              style="background: var(--indigo-50); border-radius: 8px"
+            >
+              <span>By data state ▸</span
+              ><span class="m-chip p-green">the "partial" answer</span>
+            </div>
+            <div
+              style="
+                margin-top: 10px;
+                padding-top: 8px;
+                border-top: 1px solid var(--line-2);
+              "
+            >
               <div class="lbl">By data state → Contacts</div>
-              <div class="m-row"><span>Have data</span><span class="num-badge">34</span></div>
-              <div class="m-row"><span>Scanned · none found</span><span class="num-badge">3</span></div>
-              <div class="m-row"><span>Not scanned yet</span><span class="num-badge">16</span></div>
+              <div class="m-row">
+                <span>Have data</span><span class="num-badge">34</span>
+              </div>
+              <div class="m-row">
+                <span>Scanned · none found</span
+                ><span class="num-badge">3</span>
+              </div>
+              <div class="m-row">
+                <span>Not scanned yet</span><span class="num-badge">16</span>
+              </div>
             </div>
           </div>
         </div>
@@ -725,19 +1396,31 @@
               <div class="ba-head before">Today</div>
               <ul class="clean">
                 <li>"Enriched only · 53" — counts empty/failed + per-cell.</li>
-                <li>Coverage <code>/6</code>, panel <code>/5</code>, chip strip <code>/9</code>.</li>
-                <li>"Website · not run 43" collides with the Website URL column.</li>
+                <li>
+                  Coverage <code>/6</code>, panel <code>/5</code>, chip strip
+                  <code>/9</code>.
+                </li>
+                <li>
+                  "Website · not run 43" collides with the Website URL column.
+                </li>
               </ul>
             </div>
             <div>
               <div class="ba-head after">Proposed</div>
               <ul class="clean">
-                <li>Split into two honest toggles: <strong>"Has any data"</strong> vs
-                <strong>"Fully enriched"</strong> — or a state dropdown.</li>
-                <li>Pick <strong>one</strong> denominator everywhere (the 8 data-types the
-                user actually buys).</li>
-                <li>Rename the coverage family to <strong>"Site audit"</strong> — never
-                "Website" — so it can't be read as "has a website".</li>
+                <li>
+                  Split into two honest toggles:
+                  <strong>"Has any data"</strong> vs
+                  <strong>"Fully enriched"</strong> — or a state dropdown.
+                </li>
+                <li>
+                  Pick <strong>one</strong> denominator everywhere (the 8
+                  data-types the user actually buys).
+                </li>
+                <li>
+                  Rename the coverage family to <strong>"Site audit"</strong> —
+                  never "Website" — so it can't be read as "has a website".
+                </li>
               </ul>
             </div>
           </div>
@@ -745,64 +1428,127 @@
 
         <h3>6.4 · Align the flow UI with the real jobs</h3>
         <ul class="clean">
-          <li><strong>Discovery</strong> — label it "Find businesses (free)", visually
-          distinct from paid enrichment; never in the enrich buy-list.</li>
-          <li><strong>Contacts + Tech</strong> — one row ("Contacts &amp; site tech"); drop
-          the standalone Tech line.</li>
-          <li><strong>Progress step</strong> — kill the hardcoded fallback list; show only
-          the researches this run dispatched (the honest <code>buildEnrichStages</code>
-          already exists — just use it from the first frame). Drop "Draft first touches"
-          from the enrichment checklist entirely.</li>
-          <li><strong>Services / AI freshness</strong> — either add real freshness cursors
-          (so a repeat run is free) or show "runs fresh each time" instead of a fake "Nd
-          fresh".</li>
+          <li>
+            <strong>Discovery</strong> — label it "Find businesses (free)",
+            visually distinct from paid enrichment; never in the enrich
+            buy-list.
+          </li>
+          <li>
+            <strong>Contacts + Tech</strong> — one row ("Contacts &amp; site
+            tech"); drop the standalone Tech line.
+          </li>
+          <li>
+            <strong>Progress step</strong> — kill the hardcoded fallback list;
+            show only the researches this run dispatched (the honest
+            <code>buildEnrichStages</code> already exists — just use it from the
+            first frame). Drop "Draft first touches" from the enrichment
+            checklist entirely.
+          </li>
+          <li>
+            <strong>Services / AI freshness</strong> — either add real freshness
+            cursors (so a repeat run is free) or show "runs fresh each time"
+            instead of a fake "Nd fresh".
+          </li>
         </ul>
 
-        <h3>6.5 · Consolidate the researches — everything hangs off ONE site fetch</h3>
-        <p>The cleanest fix to half the confusion above: stop treating a single website
-        fetch as several "researches". We fetch a site once — read it structurally
-        (contacts, tech) <em>and</em> semantically (AI). That collapses the taxonomy from
-        "10 confusing types" into a few honest data groups.</p>
+        <h3>
+          6.5 · Consolidate the researches — everything hangs off ONE site fetch
+        </h3>
+        <p>
+          The cleanest fix to half the confusion above: stop treating a single
+          website fetch as several "researches". We fetch a site once — read it
+          structurally (contacts, tech) <em>and</em> semantically (AI). That
+          collapses the taxonomy from "10 confusing types" into a few honest
+          data groups.
+        </p>
 
         <div class="before-after">
           <div class="mock">
-            <div class="ba-head before">Today — 4 things off the site, only 2 read it</div>
-            <div class="m-row"><span>Contacts</span><span class="m-chip p-green">fetches DOM</span></div>
-            <div class="m-row"><span>Tech / DOM</span><span class="m-chip p-grey">rides contacts fetch</span></div>
-            <div class="m-row"><span>Services</span><span class="m-chip p-amber">reads thin GBP listing</span></div>
-            <div class="m-row"><span>AI research</span><span class="m-chip p-amber">reads thin GBP listing</span></div>
-            <div class="m-row" style="color: var(--red)"><span>DOM is fetched then thrown away</span><span class="bad-x">✕</span></div>
+            <div class="ba-head before">
+              Today — 4 things off the site, only 2 read it
+            </div>
+            <div class="m-row">
+              <span>Contacts</span
+              ><span class="m-chip p-green">fetches DOM</span>
+            </div>
+            <div class="m-row">
+              <span>Tech / DOM</span
+              ><span class="m-chip p-grey">rides contacts fetch</span>
+            </div>
+            <div class="m-row">
+              <span>Services</span
+              ><span class="m-chip p-amber">reads thin GBP listing</span>
+            </div>
+            <div class="m-row">
+              <span>AI research</span
+              ><span class="m-chip p-amber">reads thin GBP listing</span>
+            </div>
+            <div class="m-row" style="color: var(--red)">
+              <span>DOM is fetched then thrown away</span
+              ><span class="bad-x">✕</span>
+            </div>
           </div>
           <div class="mock">
             <div class="ba-head after">Proposed — one fetch, three readers</div>
-            <div class="m-row" style="background: var(--indigo-50); border-radius: 8px; font-weight: 700">
-              <span>① Fetch the site once</span><span class="m-chip p-grey">store the page text</span>
+            <div
+              class="m-row"
+              style="
+                background: var(--indigo-50);
+                border-radius: 8px;
+                font-weight: 700;
+              "
+            >
+              <span>① Fetch the site once</span
+              ><span class="m-chip p-grey">store the page text</span>
             </div>
-            <div class="m-row"><span>② Contacts &amp; tech <span class="qref">structural</span></span><span class="good-check">phones · emails · socials · CMS · booking</span></div>
-            <div class="m-row"><span>③ AI analysis <span class="qref">semantic, reads the DOM</span></span><span class="good-check">services taxonomy + positioning + compliance + opener</span></div>
+            <div class="m-row">
+              <span
+                >② Contacts &amp; tech
+                <span class="qref">structural</span></span
+              ><span class="good-check"
+                >phones · emails · socials · CMS · booking</span
+              >
+            </div>
+            <div class="m-row">
+              <span
+                >③ AI analysis
+                <span class="qref">semantic, reads the DOM</span></span
+              ><span class="good-check"
+                >services taxonomy + positioning + compliance + opener</span
+              >
+            </div>
           </div>
         </div>
 
         <div class="grid2">
           <div class="callout good">
             <span class="k">Merge A · Contacts + Tech = one research</span>
-            They are <em>already</em> one job and one fetch — we only present them as two.
-            One row ("Contacts &amp; site tech") <strong>deletes the only dependency in the
-            whole system</strong> (<code>tech→contacts</code>), the "incl." pricing, and the
-            "picking Tech silently adds Contacts" footnote. Zero behaviour change, pure
+            They are <em>already</em> one job and one fetch — we only present
+            them as two. One row ("Contacts &amp; site tech")
+            <strong>deletes the only dependency in the whole system</strong>
+            (<code>tech→contacts</code>), the "incl." pricing, and the "picking
+            Tech silently adds Contacts" footnote. Zero behaviour change, pure
             clarity. <span class="tag t-ok">low risk</span>
           </div>
           <div class="callout good">
-            <span class="k">Merge B · Services + AI = one AI job that reads the DOM</span>
-            One gpt-nano pass over the <strong>stored site text</strong> (not the thin GBP
-            blurb) emits both the services taxonomy <em>and</em> the positioning/compliance
-            brief. Richer output, one model call, one freshness window — and it kills the
-            "fake freshness" and "orphaned AI research" gaps at once.
-            <br><strong>Needs:</strong> the fetch must persist the page text (today it's
-            discarded), so the AI job gains a dependency on the site fetch — the same shape
-            as tech→contacts. The prompt must still emit the structured services taxonomy
-            (it feeds the <code>service_gap</code> signal + cell prevalence).
-            <span class="tag t-warn">medium — needs the persist-DOM change first</span>
+            <span class="k"
+              >Merge B · Services + AI = one AI job that reads the DOM</span
+            >
+            One gpt-nano pass over the <strong>stored site text</strong> (not
+            the thin GBP blurb) emits both the services taxonomy
+            <em>and</em> the positioning/compliance brief. Richer output, one
+            model call, one freshness window — and it kills the "fake freshness"
+            and "orphaned AI research" gaps at once. <br /><strong
+              >Needs:</strong
+            >
+            the fetch must persist the page text (today it's discarded), so the
+            AI job gains a dependency on the site fetch — the same shape as
+            tech→contacts. The prompt must still emit the structured services
+            taxonomy (it feeds the <code>service_gap</code> signal + cell
+            prevalence).
+            <span class="tag t-warn"
+              >medium — needs the persist-DOM change first</span
+            >
           </div>
         </div>
       </section>
@@ -810,237 +1556,529 @@
       <!-- ============ 7 · GAPS & DECISIONS ============ -->
       <section id="gaps">
         <h2><span class="num">7</span> Gaps &amp; decisions we need to make</h2>
-        <p class="lead">Five things are broken or half-built. Each is written as: what a
-        user would notice → why it happens → the call we need to make.</p>
+        <p class="lead">
+          Five things are broken or half-built. Each is written as: what a user
+          would notice → why it happens → the call we need to make.
+        </p>
 
         <div class="card">
-          <p><span class="tag t-gap">1 · Dead signals</span> &nbsp;<strong>Some signals can
-          never light up — even after you pay to enrich.</strong></p>
-          <p>8 signals (including <strong>"Flying blind"</strong>, which you picked) are
-          half-built: you can select them, we run the research and charge you, but the code
-          that turns the data into a verdict was never finished — so they stay blank forever.</p>
-          <p><strong>Decide:</strong> hide them, or badge them "coming soon" — but stop
-          letting people pay for a signal that can't answer.</p>
+          <p>
+            <span class="tag t-gap">1 · Dead signals</span> &nbsp;<strong
+              >Some signals can never light up — even after you pay to
+              enrich.</strong
+            >
+          </p>
+          <p>
+            8 signals (including <strong>"Flying blind"</strong>, which you
+            picked) are half-built: you can select them, we run the research and
+            charge you, but the code that turns the data into a verdict was
+            never finished — so they stay blank forever.
+          </p>
+          <p>
+            <strong>Decide:</strong> hide them, or badge them "coming soon" —
+            but stop letting people pay for a signal that can't answer.
+          </p>
         </div>
 
         <div class="card">
-          <p><span class="tag t-gap">2 · AI research has no door</span> &nbsp;<strong>We
-          built AI research, but nothing turns it on.</strong></p>
-          <p>It's a real, billable job, yet no signal or button reaches it in the normal
-          flow — only a hidden direct link. So it basically never runs.</p>
-          <p class="decided"><strong>✓ DECIDED:</strong> make it a first-class <strong>"AI
-          brief"</strong> data toggle (and fold Services into it — see proposal 6.5).</p>
+          <p>
+            <span class="tag t-gap">2 · AI research has no door</span>
+            &nbsp;<strong
+              >We built AI research, but nothing turns it on.</strong
+            >
+          </p>
+          <p>
+            It's a real, billable job, yet no signal or button reaches it in the
+            normal flow — only a hidden direct link. So it basically never runs.
+          </p>
+          <p class="decided">
+            <strong>✓ DECIDED:</strong> make it a first-class
+            <strong>"AI brief"</strong> data toggle (and fold Services into it —
+            see proposal 6.5).
+          </p>
         </div>
 
         <div class="card">
-          <p><span class="tag t-warn">3 · You get charged twice for the same thing</span>
-          &nbsp;<strong>Services &amp; AI research re-bill on every run.</strong></p>
-          <p>They show "90d / 30d fresh" in the popup, but they have no memory of the last
-          run — so re-enriching the same lead pays again. The freshness label is a promise
-          we don't keep.</p>
-          <p class="decided"><strong>✓ DECIDED:</strong> give both a real freshness cursor
-          at <strong>90 days — the same window as Contacts</strong>. A repeat run inside 90d
-          is free.</p>
+          <p>
+            <span class="tag t-warn"
+              >3 · You get charged twice for the same thing</span
+            >
+            &nbsp;<strong
+              >Services &amp; AI research re-bill on every run.</strong
+            >
+          </p>
+          <p>
+            They show "90d / 30d fresh" in the popup, but they have no memory of
+            the last run — so re-enriching the same lead pays again. The
+            freshness label is a promise we don't keep.
+          </p>
+          <p class="decided">
+            <strong>✓ DECIDED:</strong> give both a real freshness cursor at
+            <strong>90 days — the same window as Contacts</strong>. A repeat run
+            inside 90d is free.
+          </p>
         </div>
 
         <div class="card">
-          <p><span class="tag t-warn">4 · "Runs Google ads" is unreliable</span>
-          &nbsp;<strong>We know who advertises in the market, not which business does.</strong></p>
-          <p>The Google collector runs fine, but Google (unlike Meta) doesn't tell us the
-          advertiser's website — so tying an ad to <em>this</em> clinic is a fuzzy name
-          match that usually fails. Market-level data is solid; per-business isn't.</p>
-          <p class="decided"><strong>✓ DECIDED (updated):</strong> build the
-          <strong>reliable per-business path</strong> — call <code>adsSearch({ target:
-          host })</code> per business-with-a-website; every returned ad attributes to that
-          business <em>by construction</em> (no fuzzy matching). This <strong>replaces</strong>
-          the unreliable per-cell fuzzy attribution.
-          <br><strong>Price = 1 credit / business</strong> (~$0.002 raw cost, consistent with
-          contacts/reviews/lighthouse). Google ads moves from per-cell billing → per-lead
-          billing. <strong>Cost note:</strong> you now pay 1 credit for each lead you actually
-          check (reliable) instead of 1 credit for a whole cell (unreliable) — you only pay
-          for the leads you enrich. Still capture <code>ads_domain</code> + fix the
-          <code>landingUrl</code> mislabel.</p>
+          <p>
+            <span class="tag t-warn">4 · "Runs Google ads" is unreliable</span>
+            &nbsp;<strong
+              >We know who advertises in the market, not which business
+              does.</strong
+            >
+          </p>
+          <p>
+            The Google collector runs fine, but Google (unlike Meta) doesn't
+            tell us the advertiser's website — so tying an ad to
+            <em>this</em> clinic is a fuzzy name match that usually fails.
+            Market-level data is solid; per-business isn't.
+          </p>
+          <p class="decided">
+            <strong>✓ DECIDED (updated):</strong> build the
+            <strong>reliable per-business path</strong> — call
+            <code>adsSearch({ target: host })</code> per
+            business-with-a-website; every returned ad attributes to that
+            business <em>by construction</em> (no fuzzy matching). This
+            <strong>replaces</strong>
+            the unreliable per-cell fuzzy attribution.
+            <br /><strong>Price = 1 credit / business</strong> (~$0.002 raw
+            cost, consistent with contacts/reviews/lighthouse). Google ads moves
+            from per-cell billing → per-lead billing.
+            <strong>Cost note:</strong> you now pay 1 credit for each lead you
+            actually check (reliable) instead of 1 credit for a whole cell
+            (unreliable) — you only pay for the leads you enrich. Still capture
+            <code>ads_domain</code> + fix the <code>landingUrl</code> mislabel.
+          </p>
         </div>
 
         <div class="card">
-          <p><span class="tag t-warn">5 · "Coverage" shows three different numbers</span>
-          &nbsp;<strong>The same idea is counted /5, /6 and /9 on one screen.</strong></p>
-          <p>The toolbar badge says <code>have / 6</code>, the coverage panel counts 5
-          families, the row chip strip counts 9 types. Three totals for "how enriched is
-          this lead" — confusing at a glance.</p>
-          <p class="decided"><strong>✓ DECIDED:</strong> ONE number everywhere = the
-          enrichment types you buy — <strong>9 today → 7 after the two merges (6.5)</strong>.
-          Kill the /5 and /6. Tag the 3 market-level types (Meta ads, Google ads, SERP) so
-          it's clear they're shared across the cell. A lead reads "Enriched 4 / 7".</p>
+          <p>
+            <span class="tag t-warn"
+              >5 · "Coverage" shows three different numbers</span
+            >
+            &nbsp;<strong
+              >The same idea is counted /5, /6 and /9 on one screen.</strong
+            >
+          </p>
+          <p>
+            The toolbar badge says <code>have / 6</code>, the coverage panel
+            counts 5 families, the row chip strip counts 9 types. Three totals
+            for "how enriched is this lead" — confusing at a glance.
+          </p>
+          <p class="decided">
+            <strong>✓ DECIDED:</strong> ONE number everywhere = the enrichment
+            types you buy —
+            <strong>9 today → 7 after the two merges (6.5)</strong>. Kill the /5
+            and /6. Tag the 3 market-level types (Meta ads, Google ads, SERP) so
+            it's clear they're shared across the cell. A lead reads "Enriched 4
+            / 7".
+          </p>
         </div>
 
         <div class="callout good">
           <span class="k">The north star</span>
-          Every enrichment surface should answer three questions in the user's language:
+          Every enrichment surface should answer three questions in the user's
+          language:
           <strong>(1) what data does this lead have?</strong>
-          <strong>(2) what will I get if I enrich, and what will it cost after dedup?</strong>
-          <strong>(3) how do I filter to the leads that have (or lack) a given kind of data?</strong>
-          The lead drawer already does #1 well — the table, coverage, filters, and popup
-          should adopt the same honest, data-first model.
+          <strong
+            >(2) what will I get if I enrich, and what will it cost after
+            dedup?</strong
+          >
+          <strong
+            >(3) how do I filter to the leads that have (or lack) a given kind
+            of data?</strong
+          >
+          The lead drawer already does #1 well — the table, coverage, filters,
+          and popup should adopt the same honest, data-first model.
         </div>
       </section>
 
       <!-- ============ 8 · AD SIGNALS & ATTRIBUTION ============ -->
       <section id="ads">
-        <h2><span class="num">8</span> Ad signals &amp; attribution — the correctness audit</h2>
-        <p class="lead">We audited the Meta + Google ad flow end-to-end (you asked "are they
-        working perfectly?"). Short answer: <strong>Meta is not</strong> — two of its signals
-        are logically wrong, and its one reliable attribution key isn't used on the live path.</p>
+        <h2>
+          <span class="num">8</span> Ad signals &amp; attribution — the
+          correctness audit
+        </h2>
+        <p class="lead">
+          We audited the Meta + Google ad flow end-to-end (you asked "are they
+          working perfectly?"). Short answer: <strong>Meta is not</strong> — two
+          of its signals are logically wrong, and its one reliable attribution
+          key isn't used on the live path.
+        </p>
 
-        <h3>8.1 · The reliable key exists for Meta — but we don't use it live</h3>
+        <h3>
+          8.1 · The reliable key exists for Meta — but we don't use it live
+        </h3>
         <div class="grid2">
           <div class="callout good">
             <span class="k">Meta CAN be perfect</span>
-            Meta gives every ad a <code>page_id</code>. Matching <code>Business.fbPageId ===
-            ad.pageId</code> is an exact ID join — a primary key, zero guessing. That's how
-            it <em>should</em> attribute.
+            Meta gives every ad a <code>page_id</code>. Matching
+            <code>Business.fbPageId === ad.pageId</code> is an exact ID join — a
+            primary key, zero guessing. That's how it <em>should</em> attribute.
           </div>
           <div class="callout bad">
             <span class="k">…but the live agency collector doesn't</span>
-            <code>runMetaAdsForCell</code> searches by a market <strong>keyword</strong>
-            ("dental kelowna") and <strong>never seeds <code>fbPageId</code></strong>, so the
-            ID join is starved. It falls back to <strong>fuzzy name matching</strong> — and
-            keyword searches usually return only an advertiser <em>facet</em> (no per-ad
-            rows), so most businesses that DO advertise get no ad rows at all.
+            <code>runMetaAdsForCell</code> searches by a market
+            <strong>keyword</strong> ("dental kelowna") and
+            <strong>never seeds <code>fbPageId</code></strong
+            >, so the ID join is starved. It falls back to
+            <strong>fuzzy name matching</strong> — and keyword searches usually
+            return only an advertiser <em>facet</em> (no per-ad rows), so most
+            businesses that DO advertise get no ad rows at all.
           </div>
         </div>
 
         <h3>8.2 · Two Meta signals are logically wrong (P0)</h3>
         <div class="card">
-          <div class="m-row"><span><span class="bad-x">✕</span> <strong>Not advertising</strong></span><span class="pill p-red">measures the opposite</span></div>
-          <p>It resolves to <strong>"this <em>cell</em> has ≥5 advertisers"</strong> — a
-          market number identical for every lead. It has no per-business term, so in a busy
-          market it flags <em>everyone, advertisers included</em>. This is the signal you
-          picked — it was measuring "is dental·Kelowna competitive," not "does this clinic
-          advertise."</p>
-          <div class="m-row"><span><span class="bad-x">✕</span> <strong>Competitors advertising</strong></span><span class="pill p-red">exact duplicate</span></div>
-          <p>Byte-identical to the one above (same key, same <code>≥5</code>) — they can't
-          give different answers.</p>
-          <p class="decided"><strong>✓ FIX:</strong> make "Not advertising" read a
-          <em>per-business</em> "this business has 0 active ads" (needs 8.1's real
-          attribution), and make "Competitors advertising" the genuine market signal
-          ("≥N advertisers in the cell"). Two different, honest signals.</p>
+          <div class="m-row">
+            <span
+              ><span class="bad-x">✕</span>
+              <strong>Not advertising</strong></span
+            ><span class="pill p-red">measures the opposite</span>
+          </div>
+          <p>
+            It resolves to
+            <strong>"this <em>cell</em> has ≥5 advertisers"</strong> — a market
+            number identical for every lead. It has no per-business term, so in
+            a busy market it flags <em>everyone, advertisers included</em>. This
+            is the signal you picked — it was measuring "is dental·Kelowna
+            competitive," not "does this clinic advertise."
+          </p>
+          <div class="m-row">
+            <span
+              ><span class="bad-x">✕</span>
+              <strong>Competitors advertising</strong></span
+            ><span class="pill p-red">exact duplicate</span>
+          </div>
+          <p>
+            Byte-identical to the one above (same key, same <code>≥5</code>) —
+            they can't give different answers.
+          </p>
+          <p class="decided">
+            <strong>✓ FIX:</strong> make "Not advertising" read a
+            <em>per-business</em> "this business has 0 active ads" (needs 8.1's
+            real attribution), and make "Competitors advertising" the genuine
+            market signal ("≥N advertisers in the cell"). Two different, honest
+            signals.
+          </p>
         </div>
 
         <h3>8.3 · Signal health — which "dead" signals we can just turn on</h3>
-        <p>Of the ~10 half-built signals, most are <strong>not</strong> "coming soon" — they're
-        a flag-flip or a few lines away. Three buckets:</p>
+        <p>
+          Of the ~10 half-built signals, most are <strong>not</strong> "coming
+          soon" — they're a flag-flip or a few lines away. Three buckets:
+        </p>
         <div class="scroll">
           <table>
-            <thead><tr><th>Bucket</th><th>Signals</th><th>What it takes</th></tr></thead>
+            <thead>
+              <tr>
+                <th>Bucket</th>
+                <th>Signals</th>
+                <th>What it takes</th>
+              </tr>
+            </thead>
             <tbody>
               <tr>
                 <td><span class="tier now"></span><strong>Fix now</strong></td>
-                <td><strong>Chat widget</strong>, <strong>E-commerce</strong> (already wired,
-                just flagged roadmap) · <strong>Flying blind</strong> (data exists, needs ~1
-                eval line)</td>
-                <td>Chat/E-com: <strong>flip one flag</strong> — they already compute. Flying
-                blind: add <code>!hasAnalytics &amp;&amp; !hasMetaPixel</code> + flip. The tech
-                data is already collected (it rides the Contacts fetch) — so it's the
-                <em>evaluator</em> that's missing, not the data (and not the merge).</td>
+                <td>
+                  <strong>Chat widget</strong>,
+                  <strong>E-commerce</strong> (already wired, just flagged
+                  roadmap) · <strong>Flying blind</strong> (data exists, needs
+                  ~1 eval line)
+                </td>
+                <td>
+                  Chat/E-com: <strong>flip one flag</strong> — they already
+                  compute. Flying blind: add
+                  <code>!hasAnalytics &amp;&amp; !hasMetaPixel</code> + flip.
+                  The tech data is already collected (it rides the Contacts
+                  fetch) — so it's the <em>evaluator</em> that's missing, not
+                  the data (and not the merge).
+                </td>
               </tr>
               <tr>
-                <td><span class="tier blocked"></span><strong>Unblocked by 8.1/8.2</strong></td>
-                <td>Not advertising · Competitors advertising · Ads-without-pixel · No-analytics</td>
-                <td>Tech halves already work; the "is advertising / runs Google ads" halves
-                need the ad-attribution fix first.</td>
+                <td>
+                  <span class="tier blocked"></span
+                  ><strong>Unblocked by 8.1/8.2</strong>
+                </td>
+                <td>
+                  Not advertising · Competitors advertising · Ads-without-pixel
+                  · No-analytics
+                </td>
+                <td>
+                  Tech halves already work; the "is advertising / runs Google
+                  ads" halves need the ad-attribution fix first.
+                </td>
               </tr>
               <tr>
-                <td><span class="tier data"></span><strong>Need new data</strong></td>
-                <td>Branded-only traffic · Recurring complaint theme · Multi-location ·
-                Website 3+ years</td>
-                <td>Real work: a new branded-keyword SERP scan (cost) · review-theme NLP (was
-                retired) · chain-clustering · WHOIS/Wayback. "Coming soon" is only honest here.</td>
+                <td>
+                  <span class="tier data"></span><strong>Need new data</strong>
+                </td>
+                <td>
+                  Branded-only traffic · Recurring complaint theme ·
+                  Multi-location · Website 3+ years
+                </td>
+                <td>
+                  Real work: a new branded-keyword SERP scan (cost) ·
+                  review-theme NLP (was retired) · chain-clustering ·
+                  WHOIS/Wayback. "Coming soon" is only honest here.
+                </td>
               </tr>
             </tbody>
           </table>
         </div>
-        <p style="font-size: 12.5px; color: var(--faint)">Also: <code>compliance_risk</code>
-        is marked LIVE but has no evaluator — it silently returns null. Either wire it or flag
-        it roadmap so it isn't offered as if it works.</p>
+        <p style="font-size: 12.5px; color: var(--faint)">
+          Also: <code>compliance_risk</code> is marked LIVE but has no evaluator
+          — it silently returns null. Either wire it or flag it roadmap so it
+          isn't offered as if it works.
+        </p>
 
         <h3>8.4 · Table UX — loaders on fields being enriched</h3>
         <div class="card">
-          <p class="decided"><strong>✓ DECIDED:</strong> when a lead × data-type is in
-          flight, show a <strong>spinner on every value cell of that family</strong> and
-          <strong>block clicks</strong> on it (<code>pointer-events: none</code>). We already
-          flip <em>not-run</em> cells to "running…"; this extends it to the value cells so a
-          re-enrich in progress reads as busy, not stale-and-clickable.</p>
+          <p class="decided">
+            <strong>✓ DECIDED:</strong> when a lead × data-type is in flight,
+            show a
+            <strong>spinner on every value cell of that family</strong> and
+            <strong>block clicks</strong> on it (<code
+              >pointer-events: none</code
+            >). We already flip <em>not-run</em> cells to "running…"; this
+            extends it to the value cells so a re-enrich in progress reads as
+            busy, not stale-and-clickable.
+          </p>
         </div>
 
         <h3>8.5 · Decisions locked (this pass)</h3>
         <div class="grid2">
-          <div class="card tight"><span class="good-check">✓</span> <strong>Freshness:</strong> Services + AI research get a <strong>90-day</strong> cursor (same as Contacts). No more double-billing.</div>
-          <div class="card tight"><span class="good-check">✓</span> <strong>AI brief:</strong> make AI research a first-class data toggle; fold Services into it (one DOM-reading AI job — 6.5).</div>
-          <div class="card tight"><span class="good-check">✓</span> <strong>Coverage:</strong> ONE denominator everywhere = enrichment types (9 → 7 after merges); kill /5 and /6; tag the market-level ones.</div>
-          <div class="card tight"><span class="good-check">✓</span> <strong>Google ads:</strong> reliable per-business via <code>adsSearch(target:host)</code>, <strong>1 credit/business</strong> (moves per-cell → per-lead); fix the 2 small bugs.</div>
-          <div class="card tight"><span class="good-check">✓</span> <strong>Merges:</strong> Contacts + Tech = one research; Services + AI = one AI job reading the stored DOM (6.5).</div>
-          <div class="card tight"><span class="good-check">✓</span> <strong>Field loaders:</strong> spinner + click-block on cells whose family is enriching (8.4).</div>
+          <div class="card tight">
+            <span class="good-check">✓</span>
+            <strong>Freshness:</strong> Services + AI research get a
+            <strong>90-day</strong> cursor (same as Contacts). No more
+            double-billing.
+          </div>
+          <div class="card tight">
+            <span class="good-check">✓</span> <strong>AI brief:</strong> make AI
+            research a first-class data toggle; fold Services into it (one
+            DOM-reading AI job — 6.5).
+          </div>
+          <div class="card tight">
+            <span class="good-check">✓</span> <strong>Coverage:</strong> ONE
+            denominator everywhere = enrichment types (9 → 7 after merges); kill
+            /5 and /6; tag the market-level ones.
+          </div>
+          <div class="card tight">
+            <span class="good-check">✓</span>
+            <strong>Google ads:</strong> reliable per-business via
+            <code>adsSearch(target:host)</code>,
+            <strong>1 credit/business</strong> (moves per-cell → per-lead); fix
+            the 2 small bugs.
+          </div>
+          <div class="card tight">
+            <span class="good-check">✓</span> <strong>Merges:</strong> Contacts
+            + Tech = one research; Services + AI = one AI job reading the stored
+            DOM (6.5).
+          </div>
+          <div class="card tight">
+            <span class="good-check">✓</span>
+            <strong>Field loaders:</strong> spinner + click-block on cells whose
+            family is enriching (8.4).
+          </div>
         </div>
       </section>
 
       <!-- ============ 9 · BUILD CHECKLIST ============ -->
       <section id="build">
-        <h2><span class="num">9</span> Build checklist — definition of "100% done"</h2>
+        <h2>
+          <span class="num">9</span> Build checklist — definition of "100% done"
+        </h2>
         <div class="callout good">
-          <span class="k">✓ IMPLEMENTED — 2026-07-05 · 0 typecheck · 0 lint · 3163 tests · build ✓ · 39 files</span>
-          Every item below is built and green. Two backend optimizations are deliberately
-          deferred (the user-facing goal is met either way): <strong>A1</strong> is done as
-          presentation (Contacts &amp; site tech = one data group) — the internal
-          <code>tech→contacts</code> dep is harmless and kept; <strong>A3</strong>'s DOM-feed
-          + data-group presentation are done, but the full "one AI job / one model call"
-          merge is left as a follow-up (Services + AI still run as two jobs, shown as
-          grouped). Pending: the Neon migration (5 nullable columns) + the Google billing
-          change apply at ship, with your approval.
+          <span class="k"
+            >✓ IMPLEMENTED — 2026-07-05 · 0 typecheck · 0 lint · 3163 tests ·
+            build ✓ · 39 files</span
+          >
+          Every item below is built and green. Two backend optimizations are
+          deliberately deferred (the user-facing goal is met either way):
+          <strong>A1</strong> is done as presentation (Contacts &amp; site tech
+          = one data group) — the internal <code>tech→contacts</code> dep is
+          harmless and kept; <strong>A3</strong>'s DOM-feed + data-group
+          presentation are done, but the full "one AI job / one model call"
+          merge is left as a follow-up (Services + AI still run as two jobs,
+          shown as grouped). Pending: the Neon migration (5 nullable columns) +
+          the Google billing change apply at ship, with your approval.
         </div>
-        <p class="lead">Everything decided above, as one implementable list. Grouped by risk
-        so the safe stuff ships clean and the pipeline/billing changes get extra care.</p>
+        <p class="lead">
+          Everything decided above, as one implementable list. Grouped by risk
+          so the safe stuff ships clean and the pipeline/billing changes get
+          extra care.
+        </p>
 
         <h3>Group A · Research pipeline (backend)</h3>
-        <table><tbody>
-          <tr><td class="mono">A1</td><td><strong>Contacts + Tech = one research.</strong> Delete the <code>tech→contacts</code> dep edge (internal now); tech stays a column, not a popup row.</td></tr>
-          <tr><td class="mono">A2</td><td><strong>Persist the fetched DOM text</strong> on the contacts scan (schema: add a page-text field/store) so AI can read the real site.</td></tr>
-          <tr><td class="mono">A3</td><td><strong>Services + AI = one AI job</strong> that reads the stored DOM; emits BOTH the services taxonomy and the positioning/compliance brief; wire the <strong>AI-brief door</strong>.</td></tr>
-          <tr><td class="mono">A4</td><td><strong>Freshness:</strong> Services + AI research get 90-day cursors (stop double-billing).</td></tr>
-        </tbody></table>
+        <table>
+          <tbody>
+            <tr>
+              <td class="mono">A1</td>
+              <td>
+                <strong>Contacts + Tech = one research.</strong> Delete the
+                <code>tech→contacts</code> dep edge (internal now); tech stays a
+                column, not a popup row.
+              </td>
+            </tr>
+            <tr>
+              <td class="mono">A2</td>
+              <td>
+                <strong>Persist the fetched DOM text</strong> on the contacts
+                scan (schema: add a page-text field/store) so AI can read the
+                real site.
+              </td>
+            </tr>
+            <tr>
+              <td class="mono">A3</td>
+              <td>
+                <strong>Services + AI = one AI job</strong> that reads the
+                stored DOM; emits BOTH the services taxonomy and the
+                positioning/compliance brief; wire the
+                <strong>AI-brief door</strong>.
+              </td>
+            </tr>
+            <tr>
+              <td class="mono">A4</td>
+              <td>
+                <strong>Freshness:</strong> Services + AI research get 90-day
+                cursors (stop double-billing).
+              </td>
+            </tr>
+          </tbody>
+        </table>
 
         <h3>Group B · Ad attribution + signals (backend)</h3>
-        <table><tbody>
-          <tr><td class="mono">B1</td><td><strong>Google per-business:</strong> <code>adsSearch(target:host)</code> per business-with-site → attribute by construction; move <code>google_ads</code> to per-lead billing at <strong>1 credit/business</strong>; capture <code>ads_domain</code>; fix <code>landingUrl</code> mislabel.</td></tr>
-          <tr><td class="mono">B1b</td><td><strong>Sweep EVERY Google-ads consumer</strong> to use the new per-business model — leave no stale per-cell path: (1) every SIGNAL that reads Google data (<code>no_analytics</code> google half, <code>competitors_advertising</code>, any google-derived verdict), (2) the RESEARCH/dispatch scope (google_ads leaves CELL_FAMILIES → per-business jobs; freshness cursor per-business), (3) the raw-data writes (<code>AdLibraryEntry/AdMarketRun</code> businessId attribution), (4) the USER UI — the Ads column, the coverage "ads" family, the drawer Ads card, the enrich popup line (per-lead not per-cell), and the credit/scope display. Same discipline for Meta (B2) — audit all consumers after the attribution change.</td></tr>
-          <tr><td class="mono">B2</td><td><strong>Meta reliable attribution:</strong> wire the <code>fbPageId</code> path on the live agency collector (resolve each business's page + seed it) and write advertiser-facet rows so per-business Meta signals fire.</td></tr>
-          <tr><td class="mono">B3</td><td><strong>Fix the two P0 signals:</strong> <code>not_advertising</code> → per-business "0 active ads"; <code>competitors_advertising</code> → market "≥N advertisers." Two distinct, honest signals.</td></tr>
-          <tr><td class="mono">B4</td><td><strong>Turn on the fixable signals:</strong> flip <code>chat_widget</code> + <code>ecommerce</code> to live; wire <code>flying_blind</code> eval; unblock <code>ads_without_pixel</code> + <code>no_analytics</code>; wire-or-flag <code>compliance_risk</code>.</td></tr>
-        </tbody></table>
+        <table>
+          <tbody>
+            <tr>
+              <td class="mono">B1</td>
+              <td>
+                <strong>Google per-business:</strong>
+                <code>adsSearch(target:host)</code> per business-with-site →
+                attribute by construction; move <code>google_ads</code> to
+                per-lead billing at <strong>1 credit/business</strong>; capture
+                <code>ads_domain</code>; fix <code>landingUrl</code> mislabel.
+              </td>
+            </tr>
+            <tr>
+              <td class="mono">B1b</td>
+              <td>
+                <strong>Sweep EVERY Google-ads consumer</strong> to use the new
+                per-business model — leave no stale per-cell path: (1) every
+                SIGNAL that reads Google data (<code>no_analytics</code> google
+                half, <code>competitors_advertising</code>, any google-derived
+                verdict), (2) the RESEARCH/dispatch scope (google_ads leaves
+                CELL_FAMILIES → per-business jobs; freshness cursor
+                per-business), (3) the raw-data writes (<code
+                  >AdLibraryEntry/AdMarketRun</code
+                >
+                businessId attribution), (4) the USER UI — the Ads column, the
+                coverage "ads" family, the drawer Ads card, the enrich popup
+                line (per-lead not per-cell), and the credit/scope display. Same
+                discipline for Meta (B2) — audit all consumers after the
+                attribution change.
+              </td>
+            </tr>
+            <tr>
+              <td class="mono">B2</td>
+              <td>
+                <strong>Meta reliable attribution:</strong> wire the
+                <code>fbPageId</code> path on the live agency collector (resolve
+                each business's page + seed it) and write advertiser-facet rows
+                so per-business Meta signals fire.
+              </td>
+            </tr>
+            <tr>
+              <td class="mono">B3</td>
+              <td>
+                <strong>Fix the two P0 signals:</strong>
+                <code>not_advertising</code> → per-business "0 active ads";
+                <code>competitors_advertising</code> → market "≥N advertisers."
+                Two distinct, honest signals.
+              </td>
+            </tr>
+            <tr>
+              <td class="mono">B4</td>
+              <td>
+                <strong>Turn on the fixable signals:</strong> flip
+                <code>chat_widget</code> + <code>ecommerce</code> to live; wire
+                <code>flying_blind</code> eval; unblock
+                <code>ads_without_pixel</code> + <code>no_analytics</code>;
+                wire-or-flag <code>compliance_risk</code>.
+              </td>
+            </tr>
+          </tbody>
+        </table>
 
         <h3>Group C · UI (speak "data", not "research")</h3>
-        <table><tbody>
-          <tr><td class="mono">C1</td><td><strong>Enrich popup, reframed around data:</strong> rows = data the lead gets; per-lead "N have · N to get · price"; net price on the button; Contacts+Tech one row; per-cell types marked "market". (Pass per-lead run states to the sheet.)</td></tr>
-          <tr><td class="mono">C2</td><td><strong>One filtering home:</strong> the <code>+ Filter</code> picker offers by-signal / by-value / by-data-state; the Coverage panel becomes a read-only summary.</td></tr>
-          <tr><td class="mono">C3</td><td><strong>One coverage number</strong> everywhere (9→7); rename "Website" coverage → "Site audit"; data language.</td></tr>
-          <tr><td class="mono">C4</td><td><strong>Honest flow UI:</strong> progress step shows only the researches this run dispatched (kill the overclaiming fallback; drop "Draft first touches"); label Discovery "free · finds businesses".</td></tr>
-          <tr><td class="mono">C5</td><td><strong>Field loaders:</strong> spinner + <code>pointer-events:none</code> on every value cell whose family is enriching.</td></tr>
-        </tbody></table>
+        <table>
+          <tbody>
+            <tr>
+              <td class="mono">C1</td>
+              <td>
+                <strong>Enrich popup, reframed around data:</strong> rows = data
+                the lead gets; per-lead "N have · N to get · price"; net price
+                on the button; Contacts+Tech one row; per-cell types marked
+                "market". (Pass per-lead run states to the sheet.)
+              </td>
+            </tr>
+            <tr>
+              <td class="mono">C2</td>
+              <td>
+                <strong>One filtering home:</strong> the
+                <code>+ Filter</code> picker offers by-signal / by-value /
+                by-data-state; the Coverage panel becomes a read-only summary.
+              </td>
+            </tr>
+            <tr>
+              <td class="mono">C3</td>
+              <td>
+                <strong>One coverage number</strong> everywhere (9→7); rename
+                "Website" coverage → "Site audit"; data language.
+              </td>
+            </tr>
+            <tr>
+              <td class="mono">C4</td>
+              <td>
+                <strong>Honest flow UI:</strong> progress step shows only the
+                researches this run dispatched (kill the overclaiming fallback;
+                drop "Draft first touches"); label Discovery "free · finds
+                businesses".
+              </td>
+            </tr>
+            <tr>
+              <td class="mono">C5</td>
+              <td>
+                <strong>Field loaders:</strong> spinner +
+                <code>pointer-events:none</code> on every value cell whose
+                family is enriching.
+              </td>
+            </tr>
+          </tbody>
+        </table>
 
         <div class="callout warn">
           <span class="k">Ship-time flags (surfaced again at /ship)</span>
-          Three items change more than pixels: <strong>B1 is a customer billing change</strong>
-          (Google per-cell → per-lead), <strong>A2 needs a schema migration</strong>
-          (persist DOM), and <strong>A3/B1/B2 restructure the live enrichment pipeline</strong>.
-          These get extra verification and are called out at the ship confirmation.
+          Three items change more than pixels:
+          <strong>B1 is a customer billing change</strong> (Google per-cell →
+          per-lead), <strong>A2 needs a schema migration</strong> (persist DOM),
+          and
+          <strong>A3/B1/B2 restructure the live enrichment pipeline</strong>.
+          These get extra verification and are called out at the ship
+          confirmation.
         </div>
       </section>
 
       <footer class="end">
-        Design doc · 2026-07-05 · plan LOCKED — implementing to the §9 checklist. Facts verified
-        against <code>researches.ts · goal-templates.ts · dispatch.ts · signal-eval.ts ·
-        family-coverage.ts · LeadsWorkbench.tsx · EnrichMoreSheet.tsx · lead-detail.ts</code>.
-        React to any section and we'll turn the agreed parts into a phased plan.
+        Design doc · 2026-07-05 · plan LOCKED — implementing to the §9
+        checklist. Facts verified against
+        <code
+          >researches.ts · goal-templates.ts · dispatch.ts · signal-eval.ts ·
+          family-coverage.ts · LeadsWorkbench.tsx · EnrichMoreSheet.tsx ·
+          lead-detail.ts</code
+        >. React to any section and we'll turn the agreed parts into a phased
+        plan.
       </footer>
     </div>
   </body>

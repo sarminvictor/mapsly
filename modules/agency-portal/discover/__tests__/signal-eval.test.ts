@@ -275,29 +275,47 @@ describe("evaluateSignal · phone_only composite-ish listing signal", () => {
 // Tune · strictness shift FLIPS the verdict.
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe("evaluateSignal · strictness shifts the threshold and flips the verdict", () => {
-  // perf_savings_ms >= 2000 (higher = more headroom = more of a problem).
+describe("evaluateSignal · overdue_redesign resolves from Lighthouse performance (P0 regression)", () => {
+  // overdue_redesign is rebound to lighthouse_performance < 50. It USED to bind
+  // perf_savings_ms — a column the discover-flow Lighthouse writers never populate
+  // — so it was permanently NOT_COMPUTABLE (matched:null), which excluded it from
+  // ranking and forced Match 100% for every lead. These guard that it now fires
+  // (and is computable) off the perf score the agency actually paid for.
   const base: ActiveSignal = {
     key: "overdue_redesign",
-    registryKey: "perf_savings_ms",
-    comparator: ">=",
-    value: 2000,
+    registryKey: "lighthouse_performance",
+    comparator: "<",
+    value: 50,
   };
-  const b = biz({ lighthouse: lh({ perfSavingsMs: 1800 }) });
 
-  test("balanced: 1800 < 2000 → no match", () => {
-    const sig = { ...base, tune: strict("balanced") };
-    expect(evaluateSignal(sig, b, NOW).matched).toBe(false);
+  test("failing site (perf 35) → fires, and is computable (not null)", () => {
+    const r = evaluateSignal(
+      base,
+      biz({ lighthouse: lh({ performance: 35 }) }),
+      NOW,
+    );
+    expect(r.matched).not.toBeNull();
+    expect(r.matched).toBe(true);
   });
 
-  test("looser: threshold drops to 1500, 1800 ≥ 1500 → matches", () => {
-    const sig = { ...base, tune: strict("loose") };
-    expect(evaluateSignal(sig, b, NOW).matched).toBe(true);
+  test("healthy site (perf 65) → evaluated, did not fire (not null)", () => {
+    const r = evaluateSignal(
+      base,
+      biz({ lighthouse: lh({ performance: 65 }) }),
+      NOW,
+    );
+    expect(r.matched).not.toBeNull();
+    expect(r.matched).toBe(false);
   });
 
-  test("stricter: threshold rises to 2500, 1800 < 2500 → still no match", () => {
-    const sig = { ...base, tune: strict("strict") };
-    expect(evaluateSignal(sig, b, NOW).matched).toBe(false);
+  test("strictness flips the verdict: a 55-perf site matches only when loosened", () => {
+    const b = biz({ lighthouse: lh({ performance: 55 }) });
+    expect(
+      evaluateSignal({ ...base, tune: strict("balanced") }, b, NOW).matched,
+    ).toBe(false);
+    expect(
+      evaluateSignal({ ...base, tune: strict("loose") }, b, NOW).matched,
+    ).toBe(true);
   });
 });
 

@@ -9,6 +9,11 @@
 // renderWBHead/renderWBBody/evalFilter/fmtDelta/renderColsMenu) but typed and
 // bound to REAL Lead+Business+snapshot+finding data.
 
+// enrichTypesForFamilies maps a column's DataFamily → its research tokens. The
+// reverse type-import (family-coverage imports DataFamily from here) is type-only
+// and erased, so there is no runtime cycle; the value is read at call time.
+import { enrichTypesForFamilies } from "./family-coverage";
+
 // ── Row shape (plain serializable · resolved server-side) ────────────────────
 
 /** The "vs cell" distribution band for a numeric column (null when cohort small). */
@@ -690,6 +695,34 @@ export const COLUMNS: readonly ColumnDef[] = [
 export const DEFAULT_ACTIVE_COLUMNS: string[] = COLUMNS.filter(
   (c) => c.defaultOn,
 ).map((c) => c.key);
+
+/**
+ * WB-COL-1 · the first-visit column set for a GOAL-BASED hunt: the always-on
+ * defaults PLUS every enriched-group column whose backing research intersects
+ * the goal's researches — so a Website-redesign hunt opens showing Site speed +
+ * SEO (the data the agency paid for), not just contacts. Additive (never drops a
+ * default), preserves COLUMNS render order, `biz` stays first. A goal with no
+ * researches (discovery-only) yields exactly DEFAULT_ACTIVE_COLUMNS. Pure —
+ * `goalResearches` are the expanded, lowercase research tokens
+ * (researchesForSignals output); each column's tokens come from `enrichTypes` or
+ * its family's FAMILY_ENRICH_TYPES.
+ */
+export function defaultActiveColumnsForGoal(
+  goalResearches: readonly string[],
+): string[] {
+  const goalSet = new Set(goalResearches);
+  const out: string[] = [];
+  for (const c of COLUMNS) {
+    if (c.defaultOn) {
+      out.push(c.key);
+      continue;
+    }
+    const tokens =
+      c.enrichTypes ?? (c.family ? enrichTypesForFamilies([c.family]) : []);
+    if (tokens.some((t) => goalSet.has(t))) out.push(c.key);
+  }
+  return out;
+}
 
 // ── Filter model ─────────────────────────────────────────────────────────────
 

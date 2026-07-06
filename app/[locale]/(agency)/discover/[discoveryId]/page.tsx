@@ -47,7 +47,6 @@ import prisma from "@/lib/prisma";
 import { cellFreshnessState, parseCellKey } from "@/lib/cell";
 import { US_METROS } from "@/lib/geo/us-metros";
 import { enrichmentNeedsWebsite } from "@/modules/cost/pricing";
-import { usdToCredits } from "@/modules/cost/estimate";
 import { rawListWhere } from "@/modules/discovery/raw-list";
 import { researchesForSignals } from "@/modules/agency-portal/discover/researches";
 import { enrichableCount } from "@/modules/agency-portal/discover/flow-types";
@@ -98,7 +97,10 @@ import {
   type WorkbenchShellProps,
 } from "@/modules/agency-portal/discover/components/WorkbenchShell";
 import { LiveRunGate } from "@/modules/agency-portal/discover/components/LiveRunGate";
-import { resolveActiveRunForDiscovery } from "@/modules/agency-portal/discover/active-run";
+import {
+  resolveActiveRunForDiscovery,
+  resolveSpendCreditsForDiscovery,
+} from "@/modules/agency-portal/discover/active-run";
 import type { WorkbenchTouch } from "@/modules/agency-portal/discover/components/TouchpointsTab";
 import { parseWhyJson } from "@/modules/agency-portal/discover/touchpoints";
 import { draftWhereForAgency } from "@/modules/outreach/draft-scope";
@@ -174,7 +176,6 @@ async function DiscoveryWorkspaceBody({ params, searchParams }: PageProps) {
       name: true,
       cellKeys: true,
       signalsJson: true,
-      spendToDateUsd: true,
       totalBusinesses: true,
       createdAt: true,
       finishedAt: true,
@@ -451,6 +452,10 @@ async function DiscoveryWorkspaceBody({ params, searchParams }: PageProps) {
     })
     .filter((s): s is { key: string; title: string } => s !== null);
   const goalKeySet = new Set(goalSignals.map((s) => s.key));
+  // WB-COL-1 · the goal's expanded research families — used to turn its own data
+  // columns (Site speed / SEO / reviews / ads / rank) ON by default in the
+  // workbench, so a goal-based hunt opens showing what you paid for.
+  const goalResearches = researchesForSignals(activeSignals);
 
   // First (=latest) row per business for the "latest snapshot/audit" pattern.
   const latestSnapshot = firstByBusiness(snapshots);
@@ -824,6 +829,7 @@ async function DiscoveryWorkspaceBody({ params, searchParams }: PageProps) {
       coverageTypeStates,
       scannedAt,
       goalSignals,
+      goalResearches,
       // #2 · the full curated library for the "+ Signal" picker (gated to those
       // with data on every lead, client-side).
       allSignals: LIBRARY_OPTIONS,
@@ -857,11 +863,12 @@ async function DiscoveryWorkspaceBody({ params, searchParams }: PageProps) {
       ? (templateByKey(goalMeta.goalBase)?.title ?? null)
       : null);
 
-  // Meta line: mapped freshness + spend-to-date credits.
+  // Meta line: mapped freshness + real spend-to-date credits (settled
+  // EnrichmentRun.creditsCharged over this discovery's cells — see SPEND-1).
   const mappedAt = discovery.finishedAt ?? discovery.createdAt;
   const now = new Date();
   const freshness = cellFreshnessState(mappedAt, now);
-  const credits = usdToCredits(discovery.spendToDateUsd);
+  const credits = await resolveSpendCreditsForDiscovery(agencyId, cellKeys);
 
   return (
     <div className="view full">

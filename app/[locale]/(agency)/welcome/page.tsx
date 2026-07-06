@@ -21,7 +21,13 @@
  * Data is REAL (Prisma, request-path safe — no external APIs):
  *   - agency name → personalized eyebrow (Agency joined via AgencyMember)
  *   - wallet credit balance → CTA sub-text (mirrors WalletPill.readCredits)
- * Everything else (stats, peek mock, testimonials) is static marketing content.
+ * The hero stats are wired to their real sources (resolved here, passed as plain
+ * numbers — Pattern 4) so they can't drift from the code:
+ *   - metros   → US_METROS.length (US + Canada gazetteer)
+ *   - signals  → SIGNAL_COUNT (live signal registry)
+ *   - business → INDEXED_BUSINESSES (curated marketing catalog figure — const,
+ *     NOT a live count)
+ * The peek mock + testimonials remain static marketing content.
  *
  * Copy is English-only for now (the app runs English-only — see i18n/routing.ts).
  */
@@ -34,7 +40,10 @@ import { setRequestLocale } from "next-intl/server";
 import { auth } from "@/lib/auth";
 import { redirect } from "@/i18n/navigation";
 import prisma from "@/lib/prisma";
+import { US_METROS } from "@/lib/geo/us-metros";
+import { INDEXED_BUSINESSES } from "@/lib/marketing/catalog-facts";
 import { grantFreeTierIfNew } from "@/modules/cost/server";
+import { SIGNAL_COUNT } from "@/modules/signals";
 import { WelcomeHero } from "@/modules/agency-portal/welcome/components/WelcomeHero";
 import { Testimonials } from "@/modules/agency-portal/welcome/components/Testimonials";
 
@@ -81,7 +90,13 @@ async function WelcomeBody({ params }: PageProps) {
 
   return (
     <section className="view wide">
-      <WelcomeHero agencyName={agencyName} credits={credits} />
+      <WelcomeHero
+        agencyName={agencyName}
+        credits={credits}
+        metrosCount={US_METROS.length}
+        signalsCount={SIGNAL_COUNT}
+        businessesCount={INDEXED_BUSINESSES}
+      />
       <Testimonials />
     </section>
   );

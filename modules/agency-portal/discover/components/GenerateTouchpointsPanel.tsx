@@ -36,11 +36,22 @@ export function GenerateTouchpointsPanel() {
         channel,
       });
       if (r.status === "ok") {
-        setMsg(
-          r.generated > 0
-            ? `Generated ${r.generated} draft${r.generated === 1 ? "" : "s"} from ${r.scanned} prospects${r.creditsCharged > 0 ? ` · ${r.creditsCharged} cr` : ""}.`
-            : "No new prospects to draft — every discovered, reachable business already has a touch.",
-        );
+        if (r.generated > 0) {
+          setMsg(
+            `Generated ${r.generated} draft${r.generated === 1 ? "" : "s"} from ${r.scanned} prospects${r.creditsCharged > 0 ? ` · ${r.creditsCharged} cr` : ""}.`,
+          );
+        } else if (r.skippedNoAddress > 0) {
+          // TM-1 · the real reason nothing drafted was a missing mailing address,
+          // not "everyone already has a touch". Point to Settings.
+          setError(true);
+          setMsg(
+            "Email drafts need your mailing address — set it in Settings → Profile.",
+          );
+        } else {
+          setMsg(
+            "No new prospects to draft — every discovered, reachable business already has a touch.",
+          );
+        }
         router.refresh();
       } else if (r.status === "invalid_input") {
         setError(true);

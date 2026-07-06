@@ -1352,10 +1352,12 @@ export async function getLeadDetail(
       ? `We only cite what we verified — ${dropped.size} claim${dropped.size === 1 ? "" : "s"} we couldn't confirm ${dropped.size === 1 ? "was" : "were"} left out.`
       : null;
 
-  const addressLine =
-    [business.address, business.city, business.province, business.country]
-      .filter(Boolean)
-      .join(", ") || "—";
+  const addressLine = formatAddressLine([
+    business.address,
+    business.city,
+    business.province,
+    business.country,
+  ]);
 
   return {
     businessId: business.id,
@@ -1436,6 +1438,42 @@ function perfTone(perf: number): "g" | "a" | "r" {
   return "r";
 }
 
+/**
+ * C2 · one address line without duplicated components. `business.address` is
+ * DataForSEO's FULL formatted address (already includes city + region), so
+ * naively appending city/province/country double-prints ("…, Kelowna, BC …,
+ * Kelowna, British Columbia, CA"). We keep the richest first component and only
+ * append a later component when its normalized form isn't already present as a
+ * comma-delimited TOKEN of the accumulated line — token-based (not substring)
+ * so a city that merely appears inside a street name isn't wrongly dropped.
+ * Case-insensitive. Empty → "—".
+ */
+export function formatAddressLine(
+  parts: readonly (string | null | undefined)[],
+): string {
+  const norm = (s: string): string => s.trim().toLowerCase();
+  const kept: string[] = [];
+  const seenTokens = new Set<string>();
+
+  for (const raw of parts) {
+    if (!raw) continue;
+    const value = raw.trim();
+    if (!value) continue;
+    if (seenTokens.has(norm(value))) continue; // whole component already there
+
+    kept.push(value);
+    // Register every comma-delimited token of the accepted component so a later
+    // component matching any of them (e.g. "Kelowna" inside the full address) is
+    // skipped.
+    for (const tok of value.split(",")) {
+      const t = norm(tok);
+      if (t) seenTokens.add(t);
+    }
+  }
+
+  return kept.join(", ") || "—";
+}
+
 /** Social-channel display label ("Instagram", "Facebook", …). The href carries
  *  the full URL; the chip shows the platform name. */
 function socialLabel(channel: string): string {
@@ -1448,13 +1486,36 @@ function socialLabel(channel: string): string {
  * instagram.com/soleaspa → "@soleaspa"); falls back to the platform name when
  * the URL has no usable handle. Pure + defensive (bad URLs → platform name).
  */
-function socialHandle(channel: string, url: string): string {
+export function socialHandle(channel: string, url: string): string {
   try {
     const u = new URL(url);
     const segs = u.pathname.split("/").filter(Boolean);
-    // Skip known non-handle prefixes some platforms use in their paths.
-    const skip = new Set(["in", "company", "channel", "user", "c", "@"]);
-    const seg = segs.find((s) => !skip.has(s.toLowerCase()));
+    // Skip known non-handle prefixes some platforms use in their paths, plus
+    // Facebook script/redirect segments (facebook.com/profile.php?id=NNN puts
+    // the real id in the query, so the path segment "profile.php" is NOT a
+    // handle — C1). Case-insensitive.
+    const skip = new Set([
+      "in",
+      "company",
+      "channel",
+      "user",
+      "c",
+      "@",
+      // Facebook non-vanity script/redirect segments
+      "profile.php",
+      "pages",
+      "people",
+      "pg",
+      "p",
+    ]);
+    const seg = segs.find((s) => {
+      const lower = s.toLowerCase();
+      if (skip.has(lower)) return false;
+      // Any remaining segment carrying a "." is a page script / file, never a
+      // handle (e.g. "*.php", "*.html", other dotted paths).
+      if (lower.includes(".")) return false;
+      return true;
+    });
     if (seg) {
       const handle = decodeURIComponent(seg).replace(/^@/, "");
       if (handle.length > 0 && handle.length <= 40) return `@${handle}`;

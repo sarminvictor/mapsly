@@ -196,6 +196,13 @@ export function PreviewStep({
     [families],
   );
 
+  // R2-2 · a goal whose signals need NO enrichment research (only free
+  // discovery-data signals like operating_business / has_website) has an empty
+  // families list — there is nothing to enrich. Gate the Enrich action + button
+  // on this so the empty research array never reaches the server (whose Zod
+  // .min(1) would reject it and leak "Array must contain at least 1 element(s)").
+  const hasResearch = families.length > 0;
+
   // "What you picked" grouped by research (docs/portal-prototype.html's
   // pickedGroups pattern, ported to our REAL SIG_META.researches instead of
   // the prototype's mock signal→research mapping — see groupSignalsByResearch).
@@ -270,8 +277,9 @@ export function PreviewStep({
         return q;
       }
       setError(
+        // R2-2 · don't leak the raw Zod message to the user.
         r.status === "invalid_input"
-          ? r.message
+          ? "Couldn't price this market — try again."
           : `Couldn't price this (${r.status}).`,
       );
       return null;
@@ -784,6 +792,16 @@ export function PreviewStep({
     setRunError(null);
     setCreditWall(null);
     if (!mapped || !discoveryId) return;
+    // R2-2 · nothing to research → friendly guard BEFORE any server call, so the
+    // empty-array Zod rejection can never surface as a raw validation string.
+    if (!hasResearch) {
+      setRunError(
+        "This goal has nothing to enrich — every signal you picked is read from " +
+          "the free Google listing. Add a signal that needs research (contacts, " +
+          "reviews, website, ads or SERP) on the Goal step.",
+      );
+      return;
+    }
     // Credit wall (WP2-3) — client pre-check only; the server re-checks
     // authoritatively below. Opens the inline upgrade sheet (never a toast):
     // either nothing enrichable fits the balance, or the picked N overshoots.
@@ -819,9 +837,12 @@ export function PreviewStep({
           ...(capped ? { topN: selectedN } : {}),
         });
         if (pre.status !== "ok") {
+          // R2-2 · never surface the server's raw validation string — map
+          // invalid_input to friendly copy (the button/guard already prevent the
+          // common empty-research case).
           setRunError(
             pre.status === "invalid_input"
-              ? pre.message
+              ? "Couldn't price enrichment — check your goal and try again."
               : `Couldn't price enrichment (${pre.status}).`,
           );
           return;
@@ -1264,7 +1285,15 @@ export function PreviewStep({
                   ) : null}
                 </div>
                 <p className="note" style={{ margin: "8px 0 0" }}>
-                  Ranked by review count — 1 credit per lead.{" "}
+                  {/* SPEND-2 · the TRUE per-lead rate for the picked families
+                      (not a hardcoded "1 credit"), + the once-per-market ad/rank
+                      fee when the goal includes those. */}
+                  Ranked by review count — ~{fmtCredits(enrichRate)} credit
+                  {enrichRate === 1 ? "" : "s"} per lead
+                  {enrichCellFee > 0
+                    ? ` + ${fmtCredits(enrichCellFee)} once-per-market for ads/rank`
+                    : ""}
+                  .{" "}
                   {walletCredits != null && affordableN < effEnrichable
                     ? `Your ${fmtCredits(walletCredits)} credits cover your best ${affordableN.toLocaleString()}.`
                     : "Dial down to control spend."}{" "}
@@ -1548,21 +1577,30 @@ export function PreviewStep({
             type="button"
             className="btn primary big"
             disabled={
-              jobFailed || !mapped || runningEnrich || starting || pricing
+              jobFailed ||
+              !mapped ||
+              !hasResearch ||
+              runningEnrich ||
+              starting ||
+              pricing
             }
             onClick={enrich}
           >
             {/* "Add credits →" is NOT a dead end: the click routes through
-                enrich(), which opens the credit-wall sheet (WP2-3). */}
+                enrich(), which opens the credit-wall sheet (WP2-3). R2-2 · a
+                goal with no research reads "Nothing to enrich" (the honest
+                empty-state below explains why), not a dead "Enrich →". */}
             {jobFailed
               ? "Failed"
               : !mapped
                 ? "Mapping…"
-                : runningEnrich
-                  ? "Starting…"
-                  : canAfford && selectedN > 0
-                    ? "Enrich →"
-                    : "Add credits →"}
+                : !hasResearch
+                  ? "Nothing to enrich"
+                  : runningEnrich
+                    ? "Starting…"
+                    : canAfford && selectedN > 0
+                      ? "Enrich →"
+                      : "Add credits →"}
           </button>
         </div>
       </div>

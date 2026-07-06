@@ -155,7 +155,7 @@ function renderPhoneScript(
 ): string {
   const paras = paragraphs(grounded.body);
   // paras[0] = opener, middle = pain(s), last = close question.
-  const opener = `Hi, is this ${signals.businessName}? I work with ${sellingWhat} businesses${signals.city ? ` around ${signals.city}` : ""}.`;
+  const opener = `Hi, is this ${signals.businessName}? I help local businesses${signals.city ? ` around ${signals.city}` : ""} with ${sellingWhat}.`;
   const painParas = paras.slice(1, Math.max(1, paras.length - 1));
   const close =
     paras.length > 1

@@ -445,21 +445,24 @@ export const SIG_META: Record<string, SigMeta> = {
 
   // ───────────────────────────── weak online presence ───────────────────────
   overdue_redesign: {
-    signalKey: "perf_savings_ms",
-    registryKey: "perf_savings_ms",
-    // perf_savings_ms source=dataforseo:lighthouse. Recipe also reads site age
-    // (unknown is allowed), so Lighthouse is the only family to collect.
+    signalKey: "lighthouse_performance",
+    registryKey: "lighthouse_performance",
+    // lighthouse_performance source=dataforseo:lighthouse (LighthouseAudit.performance).
+    // A failing mobile perf score is the resolvable proxy for "overdue for a
+    // redesign" — it fires from the Lighthouse data the agency already paid for.
+    // (perf_savings_ms is NOT populated by the discover-flow writers, so binding
+    // to it left the signal permanently not-computable → Match 100% for all.)
     researches: ["lighthouse"],
     title: "Overdue for a redesign",
     group: "weak-web",
     means:
       "A slow, dated site hurting an otherwise healthy business — your strongest web pitch.",
     pitch: "Your strongest web pitch — they're doing well despite the site.",
-    recipe: ["lighthouse_perf < 50", "site age ≥ 3y (or unknown)"],
+    recipe: ["lighthouse_perf < 50"],
     conf: 3,
     kind: "signal",
-    comparator: ">=",
-    value: 2000,
+    comparator: "<",
+    value: 50,
     status: "ready",
     setting: { type: "strictness" },
   },

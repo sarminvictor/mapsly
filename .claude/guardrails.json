@@ -13,5 +13,10 @@
     "pattern": "new PrismaClient\\(",
     "message": "Module-scope client — use the lazy Proxy in lib/prisma.ts (INC-07)",
     "filePattern": "*.ts"
+  },
+  {
+    "pattern": "2M\\+",
+    "message": "Business-total drifted — the canonical marketing figure is '2.1M' everywhere (C4). Don't reintroduce '2M+'.",
+    "filePattern": "*.json"
   }
 ]

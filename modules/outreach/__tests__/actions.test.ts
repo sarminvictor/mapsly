@@ -51,14 +51,17 @@ vi.mock("@/modules/cost/server", () => ({
 // ─── Generator seam ──────────────────────────────────────────────────────────
 
 const generator = vi.hoisted(() => ({
+  // TM-1 · returns { touches, skippedNoAddress } (not a bare array).
   generateTouchesForLeads: vi.fn(
-    async (ids: string[], opts: { sequenceLength?: number }) =>
-      ids.flatMap((businessId) =>
+    async (ids: string[], opts: { sequenceLength?: number }) => ({
+      touches: ids.flatMap((businessId) =>
         Array.from({ length: opts.sequenceLength ?? 1 }, (_, i) => ({
           businessId,
           draftId: `d-${businessId}-${i + 1}`,
         })),
       ),
+      skippedNoAddress: 0,
+    }),
   ),
   gatherTouchSignals: vi.fn(),
 }));

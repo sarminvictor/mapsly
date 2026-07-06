@@ -68,6 +68,40 @@ describe("buildFirstTouch — honesty", () => {
   });
 });
 
+describe("opener grammar — sellingWhat reads as a service, not a double noun", () => {
+  test("a plural-category sellingWhat no longer yields a double noun", () => {
+    const t = buildFirstTouch(
+      { businessName: "Glow Spa", city: "West Kelowna", unansweredNegative: 1 },
+      { ...base, sellingWhat: "med spas" },
+    );
+    // The old bug rendered "...for med spas businesses around ...".
+    expect(t.body).not.toContain("med spas businesses");
+    // The opener now composes the service after "local businesses".
+    expect(t.body).toContain("I help local businesses");
+    expect(t.body).toContain("with med spas");
+  });
+
+  test("direct opener (no city) drops the trailing ' businesses' noun", () => {
+    const t = buildFirstTouch(
+      { businessName: "Glow Spa", unansweredNegative: 1 },
+      { ...base, sellingWhat: "med spas" },
+    );
+    expect(t.body).not.toContain("med spas businesses");
+    expect(t.body).toContain("I help local businesses with med spas.");
+  });
+
+  test("warm opener composes the service after 'local businesses'", () => {
+    const t = buildFirstTouch(
+      { businessName: "Glow Spa", city: "West Kelowna", unansweredNegative: 1 },
+      { ...base, tone: "warm", sellingWhat: "med spas" },
+    );
+    expect(t.body).not.toContain("med spas businesses");
+    expect(t.body).toContain(
+      "I help local businesses around West Kelowna with med spas",
+    );
+  });
+});
+
 describe("WP6-15 · per-agency pain-order diversification", () => {
   // Signals that populate the three band-1 pains (severity 80/70/65) so
   // rotation is observable, plus HIPAA (band 0) which must always lead.

@@ -83,6 +83,9 @@ export type GenerateTouchpointsResult =
       scanned: number;
       /** Selected businesses skipped because they already have a draft. */
       skippedExisting: number;
+      /** TM-1 · skipped because an email touch needs a mailing address the
+       *  agency hasn't set — the UI shows an actionable "set it in Settings". */
+      skippedNoAddress: number;
       /** Whole credits actually settled against the wallet. */
       creditsCharged: number;
     }
@@ -136,6 +139,7 @@ export async function generateTouchpointsAction(
         generated: 0,
         scanned: 0,
         skippedExisting: 0,
+        skippedNoAddress: 0,
         creditsCharged: 0,
       };
     }
@@ -163,6 +167,7 @@ export async function generateTouchpointsAction(
         generated: 0,
         scanned: 0,
         skippedExisting: 0,
+        skippedNoAddress: 0,
         creditsCharged: 0,
       };
     }
@@ -190,6 +195,7 @@ export async function generateTouchpointsAction(
         generated: 0,
         scanned: pool.length,
         skippedExisting,
+        skippedNoAddress: 0,
         creditsCharged: 0,
       };
     }
@@ -218,9 +224,9 @@ export async function generateTouchpointsAction(
       select: { name: true, mailingAddress: true },
     });
 
-    let touches;
+    let gen: Awaited<ReturnType<typeof generateTouchesForLeads>>;
     try {
-      touches = await generateTouchesForLeads(targets, {
+      gen = await generateTouchesForLeads(targets, {
         sellingWhat: parsed.data.sellingWhat,
         channel: parsed.data.channel,
         agencyId,
@@ -235,6 +241,7 @@ export async function generateTouchpointsAction(
       if (creditsNeeded > 0) await refundHold(runId);
       throw err;
     }
+    const touches = gen.touches;
 
     let creditsCharged = 0;
     if (creditsNeeded > 0) {
@@ -262,6 +269,7 @@ export async function generateTouchpointsAction(
       generated: touches.length,
       scanned: pool.length,
       skippedExisting,
+      skippedNoAddress: gen.skippedNoAddress,
       creditsCharged,
     };
   } catch (err) {

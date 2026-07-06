@@ -16,7 +16,9 @@
  *   - totalLeads  Σ per-cell counts (falls back to Discovery.totalBusinesses).
  *   - freshness   fresh|aging|stale from the mapped date vs the 182-day window.
  *   - mapped/opened relative-time strings.
- *   - credits     usdToCredits(spendToDateUsd) — "credits to date".
+ *   - credits     Σ settled EnrichmentRun.creditsCharged over the cells — the
+ *                 real "credits to date" (SPEND-1). Discovery.spendToDateUsd was
+ *                 never written, so it always read 0.
  *
  * Per cache-components.md Pattern 1: `'use cache'` + NEXT_PHASE build guard +
  * an EMPTY_* constant of the exact return shape (Vercel's build worker can't
@@ -36,7 +38,6 @@ import {
   type FreshnessState,
 } from "@/lib/cell";
 import { US_METROS } from "@/lib/geo/us-metros";
-import { usdToCredits } from "@/modules/cost/estimate";
 import { goalMetaFromJson } from "@/modules/agency-portal/discover/discovery-signals";
 import {
   buildResearchHref,
@@ -155,7 +156,6 @@ interface DiscoveryRow {
   cellKeys: string[];
   signalsJson: unknown;
   totalBusinesses: number;
-  spendToDateUsd: number;
   lastOpenedAt: Date | null;
   createdAt: Date;
   finishedAt: Date | null;
@@ -229,7 +229,7 @@ function toResearchCard(
     freshness,
     mapped: relativeTime(mappedAt, now),
     opened: relativeTime(d.lastOpenedAt ?? mappedAt, now),
-    credits: usdToCredits(d.spendToDateUsd),
+    credits: enrich.spendCredits ?? 0,
     totalLeads,
     metros,
     categories,
@@ -259,6 +259,7 @@ async function resolveEnrichPhases(
       id: true,
       status: true,
       unitsRequested: true,
+      creditsCharged: true,
       scopeRefsJson: true,
     },
   });
@@ -276,25 +277,35 @@ async function resolveEnrichPhases(
     let partial = false;
     let activeRunId: string | undefined;
     let activeUnits: number | undefined;
+    // SPEND-1 · sum settled credits across EVERY overlapping OK/PARTIAL run
+    // (not just the phase-winner), so the card shows real credits-to-date. Phase
+    // still locks on the first (most-recent) settled run — DONE wins — but we
+    // keep scanning to accumulate spend.
+    let spendCredits = 0;
+    let phaseLocked = false;
     for (const r of parsedRuns) {
       // Overlap = the run touches at least one of this discovery's cells.
       const overlaps = d.cellKeys.some((k) => r.cellKeys.has(k));
       if (!overlaps) continue;
       if (r.status === "OK" || r.status === "PARTIAL") {
-        phase = "done";
-        // WP4-2 · surface the PARTIAL outcome so the directory shows an amber
-        // "Partial" pill (some leads couldn't finish) instead of a clean green.
-        partial = r.status === "PARTIAL";
-        break; // DONE wins — stop scanning
+        spendCredits += r.creditsCharged ?? 0;
+        if (!phaseLocked) {
+          phase = "done";
+          // WP4-2 · surface the PARTIAL outcome so the directory shows an amber
+          // "Partial" pill (some leads couldn't finish) instead of a clean green.
+          partial = r.status === "PARTIAL";
+          phaseLocked = true; // DONE wins for phase; keep summing spend
+        }
+        continue;
       }
-      if (r.status === "PENDING" || r.status === "RUNNING") {
+      if ((r.status === "PENDING" || r.status === "RUNNING") && !phaseLocked) {
         phase = "active";
         activeRunId = r.id;
         activeUnits = r.unitsRequested;
         // keep scanning in case a DONE run also overlaps (it would win)
       }
     }
-    out.set(d.id, { phase, partial, activeRunId, activeUnits });
+    out.set(d.id, { phase, partial, activeRunId, activeUnits, spendCredits });
   }
   return out;
 }
@@ -329,7 +340,6 @@ export async function getResearchList(agencyId: string): Promise<ResearchList> {
         cellKeys: true,
         signalsJson: true,
         totalBusinesses: true,
-        spendToDateUsd: true,
         lastOpenedAt: true,
         createdAt: true,
         finishedAt: true,

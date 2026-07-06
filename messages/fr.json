@@ -823,6 +823,9 @@
       "for_agencies": "Pour agences",
       "price": "Prix",
       "signin": "Connexion",
+      "portal_open_dashboard": "Ouvrir votre tableau de bord",
+      "portal_open_workspace": "Ouvrir votre espace de travail",
+      "portal_open_admin": "Ouvrir l'administration",
       "home_aria": "Accueil Mapsly",
       "nav_aria": "Principale"
     },

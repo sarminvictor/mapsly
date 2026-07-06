@@ -28,6 +28,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { Link } from "@/i18n/navigation";
 import { showToast } from "@/components/agency/Toast";
+import { emitLeadDetailChanged } from "../enrich-sheet-bus";
 import { generateTouchpointsAction } from "@/modules/outreach/actions";
 import { creditsForTouches } from "@/modules/outreach/touch-pricing";
 import { chunkBusinessIds } from "@/modules/outreach/touch-batching";
@@ -58,6 +59,11 @@ export interface GenerateTouchesOverlayProps {
   discoveryId?: string;
   open: boolean;
   onClose: () => void;
+  /** LD-2 · set by the lead-drawer entry point: on full success stay on the
+   *  current lead (the drawer refreshes its touches in place via the bus) rather
+   *  than deep-linking away to the Touchpoints tab. The bulk-bar entry omits it,
+   *  so it keeps navigating to Touchpoints as before. */
+  stayInPlace?: boolean;
 }
 
 export function GenerateTouchesOverlay({
@@ -65,6 +71,7 @@ export function GenerateTouchesOverlay({
   discoveryId,
   open,
   onClose,
+  stayInPlace,
 }: GenerateTouchesOverlayProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -139,8 +146,8 @@ export function GenerateTouchesOverlay({
       // Accumulate across batches so the final toast reports the WHOLE run.
       let generated = 0;
       let skippedExisting = 0;
+      let skippedNoAddress = 0;
       let creditsCharged = 0;
-      let anyGenerated = false;
       let stopError: string | null = null;
 
       for (let i = 0; i < batches.length; i += 1) {
@@ -161,8 +168,8 @@ export function GenerateTouchesOverlay({
         if (r.status === "ok") {
           generated += r.generated;
           skippedExisting += r.skippedExisting;
+          skippedNoAddress += r.skippedNoAddress;
           creditsCharged += r.creditsCharged;
-          anyGenerated = true;
           continue;
         }
         // Non-ok: stop the sequence. Earlier batches already settled + persisted
@@ -185,7 +192,24 @@ export function GenerateTouchesOverlay({
 
       setProgress(null);
 
-      if (anyGenerated) {
+      // LD-1/LD-2 · any real generation changed these leads' server-side detail
+      // — tell an open drawer to refresh its "This lead's touches" in place so it
+      // stops showing "No touch yet".
+      if (generated > 0) {
+        for (const id of businessIds) emitLeadDetailChanged(id);
+      }
+
+      // TM-1 · nothing drafted because email touches need a mailing address the
+      // agency hasn't set. Don't fire a misleading "Drafted 0" toast or close —
+      // explain it and keep the overlay open (the email primer links to Settings).
+      if (generated === 0 && skippedNoAddress > 0 && !stopError) {
+        setError(
+          "Email drafts need your mailing address. Set it in Settings → Profile.",
+        );
+        return;
+      }
+
+      if (generated > 0) {
         try {
           window.localStorage.setItem(SELLING_KEY, selling);
         } catch {
@@ -196,6 +220,8 @@ export function GenerateTouchesOverlay({
         ];
         if (skippedExisting > 0)
           bits.push(`${skippedExisting} already drafted`);
+        if (skippedNoAddress > 0)
+          bits.push(`${skippedNoAddress} need a mailing address`);
         if (creditsCharged > 0) bits.push(`${creditsCharged} cr`);
         // Partial completion (a later batch stopped): say so, don't pretend all ran.
         if (stopError) bits.push("stopped early");
@@ -206,17 +232,22 @@ export function GenerateTouchesOverlay({
         // Some (or all) of the selection didn't draft. Keep the overlay open so
         // Tom sees why; the already-drafted batches are safe on the server.
         setError(
-          anyGenerated
+          generated > 0
             ? `Drafted ${generated}, then stopped: ${stopError}`
             : stopError,
         );
         // A partial success still changed server state — refresh the counts.
-        if (anyGenerated) router.refresh();
+        if (generated > 0) router.refresh();
         return;
       }
 
       onClose();
-      // Deep-link to the Touchpoints tab so the new drafts are on screen.
+      // LD-2 · from the drawer, stay on the current lead (it refreshed in place
+      // via the bus above); from the bulk bar, deep-link to the Touchpoints tab.
+      if (stayInPlace) {
+        router.refresh();
+        return;
+      }
       const params = new URLSearchParams(sp.toString());
       params.set("tab", "touch");
       params.delete("lead");

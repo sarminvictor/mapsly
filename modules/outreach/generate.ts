@@ -245,9 +245,14 @@ export interface GeneratedTouch {
 export async function generateTouchesForLeads(
   businessIds: string[],
   opts: GenerateTouchesOptions,
-): Promise<GeneratedTouch[]> {
+): Promise<{ touches: GeneratedTouch[]; skippedNoAddress: number }> {
   const out: GeneratedTouch[] = [];
   const channel = toOutreachChannel(opts.channel);
+  // TM-1 · businesses skipped SPECIFICALLY because an email touch needs a
+  // mailing address (CAN-SPAM/CASL) and the agency hasn't set one. Carried out
+  // so the UI can say "set your mailing address in Settings" instead of a silent
+  // "Drafted 0". Only the deterministic address gate counts here.
+  let skippedNoAddress = 0;
   const sequenceOf = Math.min(
     Math.max(1, Math.trunc(opts.sequenceLength ?? 1)),
     MAX_SEQUENCE_LENGTH,
@@ -287,7 +292,10 @@ export async function generateTouchesForLeads(
         });
       } catch {
         // Unbuildable (e.g. email with no CAN-SPAM address) → skip the whole
-        // business; a partial sequence is worse than none.
+        // business; a partial sequence is worse than none. TM-1 · attribute the
+        // deterministic address-gate skip so the UI can explain it (email + no
+        // mailing address always throws in withCanSpamFooter at step 1).
+        if (channel === "email" && !opts.mailingAddress) skippedNoAddress += 1;
         break;
       }
 
@@ -347,5 +355,5 @@ export async function generateTouchesForLeads(
     }
   }
 
-  return out;
+  return { touches: out, skippedNoAddress };
 }

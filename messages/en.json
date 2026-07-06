@@ -1224,7 +1224,7 @@
   "for_agencies": {
     "meta": {
       "title": "Mapsly for agencies · qualified local leads, always fresh",
-      "description": "Query 2M+ local businesses by signal — declining reviews, slow LCP, no Meta ads, drifting 3-pack rank. Verified owner contacts. CSV export. 50 free leads, no card.",
+      "description": "Query 2.1M local businesses by signal — declining reviews, slow LCP, no Meta ads, drifting 3-pack rank. Verified owner contacts. CSV export. 50 free leads, no card.",
       "og_title": "Mapsly for agencies · signal-based SMB prospecting",
       "og_description": "Cold lists give you titles. Mapsly gives you the reason to call. 100+ signals · 50 free leads, no card."
     },
@@ -1233,7 +1233,7 @@
       "title_lead": "Find local businesses",
       "title_emph": "that need what you sell",
       "title_trail": "— with the reason to call.",
-      "sub": "Mapsly scans 2M+ local businesses on Google and flags the ones with a problem you fix — so you pitch with proof, not a cold list.",
+      "sub": "Mapsly scans 2.1M local businesses on Google and flags the ones with a problem you fix — so you pitch with proof, not a cold list.",
       "cta_primary": "Start free"
     },
     "pitch": {
@@ -1305,12 +1305,12 @@
     "pricing": {
       "title_lead": "Pay for outcomes,",
       "title_emph": "not seats.",
-      "sub": "1 credit = 1 fully-enriched lead — contacts, reviews, tech, ads, and rank, with discovery free. Every plan ships unlimited free discovery, always-fresh data, saved lists, and CSV export. Need 8,000+ a month? Scale is $299.",
+      "sub": "1 credit maps to one lead's core data — verified contacts and site tech. Layer on reviews, site speed, ads, and rankings for a credit or two more each. Discovery is always free; every plan ships unlimited discovery, always-fresh data, saved lists, and CSV export. Need 8,000+ a month? Scale is $299.",
       "p1_name": "Free",
       "p1_price": "$0",
       "p1_period": "/mo",
       "p1_sub": "For solo consultants testing a single vertical.",
-      "p1_f1": "~50 complete leads to start",
+      "p1_f1": "~50 leads to start",
       "p1_f2": "Unlimited free discovery",
       "p1_f3": "Contacts on every lead",
       "p1_f4": "Every signal + the expert layer",
@@ -1321,7 +1321,7 @@
       "p2_price": "$19",
       "p2_period": "/mo",
       "p2_sub": "For freelancers and one-person agencies.",
-      "p2_f1": "~300 complete leads / month",
+      "p2_f1": "~300 leads / month",
       "p2_f2": "Everything in Free",
       "p2_f3": "Unlimited markets + categories",
       "p2_f4": "Saved lists + pipeline tracking",
@@ -1331,7 +1331,7 @@
       "p3_price": "$99",
       "p3_period": "/mo",
       "p3_sub": "For local marketing shops pitching at scale.",
-      "p3_f1": "~2,000 complete leads / month",
+      "p3_f1": "~2,000 leads / month",
       "p3_f2": "Everything in Starter",
       "p3_f3": "Deep audit — site-speed + keyword footprint",
       "p3_f4": "Bulk first-touch drafts",
@@ -1366,7 +1366,7 @@
       "q5": "Is discovery really free?",
       "a5": "Yes. Map any market and see the whole list of local businesses for free — you only spend to enrich the leads you'll actually pitch. Start with 50 free leads, no card.",
       "q6": "How does Mapsly compare to Apollo or Origami?",
-      "a6": "Apollo and Origami sell contacts; Mapsly sells qualified local businesses with the reason to call. Apollo bills per seat and is built for B2B — it's blind to most local businesses and the signals that close them (reviews, ads, site speed, rankings). Origami meters every action, so a fully-enriched lead adds up fast. Mapsly bundles a whole local lead into one flat-priced credit, discovery is free, and there's no per-seat tax — meaningfully cheaper per complete lead, on data neither of them computes."
+      "a6": "Apollo and Origami sell contacts; Mapsly sells qualified local businesses with the reason to call. Apollo bills per seat and is built for B2B — it's blind to most local businesses and the signals that close them (reviews, ads, site speed, rankings). Origami meters every action, so a fully-enriched lead adds up fast. Mapsly prices in whole credits — a lead's core data (contacts + site tech) is one credit, and you add reviews, speed, ads, or rankings only when a pitch needs them. Discovery is free and there's no per-seat tax — meaningfully cheaper per lead you actually work, on data neither of them computes."
     },
     "cta": {
       "title_lead": "See 50 leads.",
@@ -1640,6 +1640,9 @@
       "for_agencies": "For agencies",
       "price": "Price",
       "signin": "Sign in",
+      "portal_open_dashboard": "Open your dashboard",
+      "portal_open_workspace": "Open your workspace",
+      "portal_open_admin": "Open admin",
       "home_aria": "Mapsly home",
       "nav_aria": "Primary"
     },

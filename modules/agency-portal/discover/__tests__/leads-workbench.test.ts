@@ -8,6 +8,7 @@ import {
   COLUMNS,
   CSV_HEADERS,
   DEFAULT_ACTIVE_COLUMNS,
+  defaultActiveColumnsForGoal,
   csvEscape,
   csvLine,
   deriveMatchPct,
@@ -646,5 +647,42 @@ describe("topCsvSignals", () => {
 
   test("empty when no signals and no pains", () => {
     expect(topCsvSignals(row(), [])).toBe("");
+  });
+});
+
+// ── WB-COL-1 · goal columns default ON ───────────────────────────────────────
+describe("defaultActiveColumnsForGoal", () => {
+  test("no researches (discovery-only) → exactly DEFAULT_ACTIVE_COLUMNS", () => {
+    expect(defaultActiveColumnsForGoal([])).toEqual(DEFAULT_ACTIVE_COLUMNS);
+  });
+
+  test("['lighthouse'] adds the site-speed columns (perf + seo)", () => {
+    const cols = defaultActiveColumnsForGoal(["lighthouse"]);
+    expect(cols).toContain("perf");
+    expect(cols).toContain("seo");
+    // still a superset of the defaults (additive, never drops a default)
+    for (const d of DEFAULT_ACTIVE_COLUMNS) expect(cols).toContain(d);
+  });
+
+  test("['reviews'] adds reviews + rating", () => {
+    const cols = defaultActiveColumnsForGoal(["reviews"]);
+    expect(cols).toContain("reviews");
+    expect(cols).toContain("rating");
+  });
+
+  test("['meta_ads'] adds metaAdCount but NOT googleAdCount", () => {
+    const cols = defaultActiveColumnsForGoal(["meta_ads"]);
+    expect(cols).toContain("metaAdCount");
+    expect(cols).not.toContain("googleAdCount");
+  });
+
+  test("preserves COLUMNS render order + 'biz' stays first, no dupes", () => {
+    const cols = defaultActiveColumnsForGoal(["lighthouse", "reviews"]);
+    expect(cols[0]).toBe("biz");
+    expect(new Set(cols).size).toBe(cols.length);
+    // order matches the COLUMNS registry order
+    const order = COLUMNS.map((c) => c.key);
+    const idx = cols.map((k) => order.indexOf(k));
+    expect(idx).toEqual([...idx].sort((a, b) => a - b));
   });
 });

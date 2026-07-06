@@ -17,6 +17,7 @@
 import "server-only";
 
 import prisma from "@/lib/prisma";
+import { sumCreditsForCellOverlap } from "./spend-credits";
 
 export interface ActiveRunInfo {
   runId: string;
@@ -78,4 +79,36 @@ export async function resolveActiveRunForDiscovery(
 
   // Prefer the active run (the banner polls it); else the recently-finished one.
   return activeHit ?? terminalHit;
+}
+
+/**
+ * Sum the credits actually settled against a discovery's cells — the real
+ * "spend to date". EnrichmentRun has no discoveryId FK, so (as above) a run is
+ * matched by its `scopeRefsJson.cellKeys` overlapping the discovery's cellKeys.
+ * Only OK/PARTIAL runs are counted (a run settles `creditsCharged` on those
+ * outcomes; PENDING/RUNNING/FAILED contribute 0). `creditsCharged` is already in
+ * WHOLE credits — the same unit the header renders — so no usdToCredits wrapper.
+ *
+ * Replaces the read of `Discovery.spendToDateUsd`, a column nothing ever wrote
+ * (stuck at its @default(0)) — which is why every surface showed "0 credits".
+ *
+ * Caveat (v1, accepted): a run whose cellKeys overlap two discoveries is counted
+ * toward both — the same overlap limitation the enriched-count already carries.
+ * Runs settled before `creditsCharged` shipped read 0 (minor under-report on old
+ * research). Bounded scan, agency-scoped, indexed on (agencyId,status).
+ */
+export async function resolveSpendCreditsForDiscovery(
+  agencyId: string,
+  cellKeys: string[],
+): Promise<number> {
+  if (cellKeys.length === 0) return 0;
+
+  const runs = await prisma.enrichmentRun.findMany({
+    where: { agencyId, status: { in: ["OK", "PARTIAL"] } },
+    orderBy: { startedAt: "desc" },
+    take: 500,
+    select: { creditsCharged: true, scopeRefsJson: true },
+  });
+
+  return sumCreditsForCellOverlap(runs, cellKeys);
 }

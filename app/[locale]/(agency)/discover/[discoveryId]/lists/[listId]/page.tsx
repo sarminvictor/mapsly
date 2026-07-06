@@ -41,7 +41,6 @@ import { auth } from "@/lib/auth";
 import { redirect } from "@/i18n/navigation";
 import prisma from "@/lib/prisma";
 import { cellFreshnessState, parseCellKey } from "@/lib/cell";
-import { usdToCredits } from "@/modules/cost/estimate";
 import { cellBand } from "@/modules/agency-portal/discover/signals";
 import { deriveFamilyCoverage } from "@/modules/agency-portal/discover/family-coverage";
 import {
@@ -76,13 +75,17 @@ import {
   SIG_META,
   templateByKey,
 } from "@/modules/agency-portal/discover/goal-templates";
+import { researchesForSignals } from "@/modules/agency-portal/discover/researches";
 import { WorkspaceHeader } from "@/modules/agency-portal/discover/components/WorkspaceHeader";
 import {
   WorkbenchShell,
   type WorkbenchShellProps,
 } from "@/modules/agency-portal/discover/components/WorkbenchShell";
 import { LiveRunGate } from "@/modules/agency-portal/discover/components/LiveRunGate";
-import { resolveActiveRunForDiscovery } from "@/modules/agency-portal/discover/active-run";
+import {
+  resolveActiveRunForDiscovery,
+  resolveSpendCreditsForDiscovery,
+} from "@/modules/agency-portal/discover/active-run";
 import type { WorkbenchTouch } from "@/modules/agency-portal/discover/components/TouchpointsTab";
 import { parseWhyJson } from "@/modules/agency-portal/discover/touchpoints";
 import { draftWhereForAgency } from "@/modules/outreach/draft-scope";
@@ -223,9 +226,6 @@ async function ListWorkbenchBody({ params, searchParams }: PageProps) {
     select: {
       signalsJson: true,
       cellKeys: true,
-      // WP4-14 · the shared WorkspaceHeader shows freshness + spend-to-date,
-      // sourced from the parent research (same as the discovery workspace).
-      spendToDateUsd: true,
       finishedAt: true,
       createdAt: true,
     },
@@ -247,6 +247,8 @@ async function ListWorkbenchBody({ params, searchParams }: PageProps) {
     })
     .filter((s): s is { key: string; title: string } => s !== null);
   const goalKeySet = new Set(goalSignals.map((s) => s.key));
+  // WB-COL-1 · goal's research families → default the goal's data columns on.
+  const goalResearches = researchesForSignals(activeSignals);
 
   // Parallel side loads (all scoped to this list's businesses):
   //   - latest snapshot per business (reviewCount / rating / website pillar →
@@ -603,6 +605,7 @@ async function ListWorkbenchBody({ params, searchParams }: PageProps) {
       coverageTypeStates,
       scannedAt,
       goalSignals,
+      goalResearches,
       // #2 · the full curated library for the "+ Signal" picker (gated to those
       // with data on every lead, client-side).
       allSignals: LIBRARY_OPTIONS,
@@ -638,7 +641,9 @@ async function ListWorkbenchBody({ params, searchParams }: PageProps) {
     discoveryRow?.createdAt ??
     null;
   const freshness = mappedAt ? cellFreshnessState(mappedAt, now) : "never";
-  const credits = usdToCredits(discoveryRow?.spendToDateUsd ?? 0);
+  const credits = discoveryRow?.cellKeys?.length
+    ? await resolveSpendCreditsForDiscovery(agencyId, discoveryRow.cellKeys)
+    : 0;
 
   return (
     <div className="view full">

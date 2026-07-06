@@ -12,6 +12,7 @@
  * Pattern 4b).
  */
 import { Link, usePathname } from "@/i18n/navigation";
+import type { PortalDestinationHref } from "@/lib/portal-destination";
 
 export interface V2NavLabels {
   forBusinesses: string;
@@ -21,7 +22,20 @@ export interface V2NavLabels {
   navAria: string;
 }
 
-export function V2NavLinks({ labels }: { labels: V2NavLabels }) {
+export function V2NavLinks({
+  labels,
+  portalHref,
+  portalLabel,
+  portalExternal,
+}: {
+  labels: V2NavLabels;
+  /** C3 · when the visitor is signed in, the server resolves their portal
+   *  destination + label (plain data — no function crosses the boundary) so the
+   *  header shows "Open your workspace" instead of "Sign in". */
+  portalHref?: PortalDestinationHref;
+  portalLabel?: string;
+  portalExternal?: boolean;
+}) {
   const pathname = usePathname();
 
   return (
@@ -30,13 +44,36 @@ export function V2NavLinks({ labels }: { labels: V2NavLabels }) {
       <a href="#pricing" className="fb-navlink">
         {labels.price}
       </a>
-      <Link
-        href="/signin"
-        className="fb-btn fb-btn--nav"
-        data-testid="marketing-signin-cta"
-      >
-        {labels.signin}
-      </Link>
+      {portalHref && portalLabel ? (
+        // /admin lives outside next-intl pathnames — plain <a> so no locale
+        // prefix is appended (which would 404). Internal → next-intl Link.
+        // Checking `=== "/admin"` also narrows portalHref for the Link branch.
+        portalExternal || portalHref === "/admin" ? (
+          <a
+            href={portalHref}
+            className="fb-btn fb-btn--nav"
+            data-testid="marketing-portal-cta"
+          >
+            {portalLabel}
+          </a>
+        ) : (
+          <Link
+            href={portalHref}
+            className="fb-btn fb-btn--nav"
+            data-testid="marketing-portal-cta"
+          >
+            {portalLabel}
+          </Link>
+        )
+      ) : (
+        <Link
+          href="/signin"
+          className="fb-btn fb-btn--nav"
+          data-testid="marketing-signin-cta"
+        >
+          {labels.signin}
+        </Link>
+      )}
     </nav>
   );
 }

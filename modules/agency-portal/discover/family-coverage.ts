@@ -727,6 +727,8 @@ export const LEAD_GROUP_KEYS: readonly DataGroupKey[] = DATA_GROUPS.filter(
 
 /** True once any PER-LEAD group has run — the honest predicate behind "Enriched
  *  only" (skips per-market groups so it means "a personal enrichment ran"). */
-export function anyLeadGroupRan(states: Record<DataGroupKey, TypeState>): boolean {
+export function anyLeadGroupRan(
+  states: Record<DataGroupKey, TypeState>,
+): boolean {
   return LEAD_GROUP_KEYS.some((k) => states[k] !== "not_run");
 }
