@@ -25,6 +25,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 
 import { showToast } from "@/components/agency/Toast";
 import {
+  emitEnrichFinished,
   emitLeadDetailChanged,
   subscribeEnrichStarted,
 } from "../enrich-sheet-bus";
@@ -149,6 +150,10 @@ export function LiveRunGate({
 
           if (isTerminal(p.status)) {
             setLive(false);
+            // ISSUE-11 · tell the workbench to drop its optimistic per-cell
+            // "enriching…" flags NOW (the old self-clear gated on not_run and
+            // never fired for re-runs — loaders lingered 5 minutes).
+            emitEnrichFinished();
             deferOrRefresh();
             triggerFlash();
             // `done` and `failed` are DISJOINT partitions of total — `done` IS

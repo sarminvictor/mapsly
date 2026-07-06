@@ -23,22 +23,20 @@ import { useRouter } from "next/navigation";
 
 import { Link } from "@/i18n/navigation";
 import { showToast } from "@/components/agency/Toast";
-import {
-  CREDIT_PRICES,
-  ENRICHMENT_PRICES,
-  type EnrichmentType,
-} from "@/modules/cost/pricing";
+import { type EnrichmentType } from "@/modules/cost/pricing";
 import {
   preflightEnrichAction,
   runEnrichAction,
 } from "@/modules/discovery/enrich-actions";
 import { getEnrichScopeAction } from "../enrich-scope-actions";
 import { resolveResearches } from "../researches";
-import { enrichCreditsFor, fmtCredits } from "../flow-types";
+import { fmtCredits } from "../flow-types";
 import {
   DATA_GROUPS,
   ENRICHMENT_TYPE_KEYS,
   enrichTypesForGroups,
+  groupCellCredits,
+  groupLeadCredits,
   rollUpGroupState,
   type DataGroup,
   type DataGroupKey,
@@ -50,18 +48,6 @@ import {
   emitEnrichScope,
   type EnrichSheetRequest,
 } from "../enrich-sheet-bus";
-
-/** AUDIT U2/D5 · enrichment-type → workbench DataFamily, for per-cell "running"
- *  marks (services/ai_research have no table column → omitted). */
-const ENRICH_TYPE_TO_FAMILY: Record<string, string> = {
-  contacts: "contacts",
-  tech: "website",
-  lighthouse: "website",
-  reviews: "reviews",
-  meta_ads: "ads",
-  google_ads: "ads",
-  serp: "search",
-};
 
 type ScopeChoice = "selected" | "visible" | "all";
 
@@ -88,32 +74,15 @@ interface GroupLine {
   have: number;
   /** Leads where the rolled-up group state is `not_run` (the only true to-get). */
   toGet: number;
-  /** Gross credits for this group over the to-get set (per-lead) or per cell. */
+  /** Credits for this group over the to-get set (per-lead) or per cell — 0 when
+   *  the group is already done for this scope (nothing to run, nothing to bill). */
   credits: number;
   /** True for a per-cell (market) group — priced/scoped per cell, not per lead. */
   isMarket: boolean;
-}
-
-/** Sum a data group's per-LEAD credit price (CREDIT_PRICES over its business-
- *  unit types; cell-unit types are excluded here — quoted per cell instead). */
-function groupLeadCredits(group: DataGroup): number {
-  let c = 0;
-  for (const t of enrichTypesForGroups([group.key])) {
-    const key = t as EnrichmentType;
-    if (ENRICHMENT_PRICES[key].unit === "business") c += CREDIT_PRICES[key];
-  }
-  return c;
-}
-
-/** Sum a data group's per-CELL credit price (CREDIT_PRICES over its cell-unit
- *  types — Meta = 3/cell, SERP = 4/cell). Business-unit types are excluded. */
-function groupCellCredits(group: DataGroup): number {
-  let c = 0;
-  for (const t of enrichTypesForGroups([group.key])) {
-    const key = t as EnrichmentType;
-    if (ENRICHMENT_PRICES[key].unit === "cell") c += CREDIT_PRICES[key];
-  }
-  return c;
+  /** Already done for THIS scope: nothing left to get + ≥1 lead touched. For a
+   *  market group this means the cell run(s) completed OK — re-runs are offered
+   *  only after a FAILED run (issue 12). */
+  done: boolean;
 }
 
 /** Map a set of pre-selected enrichment-type tokens (from a single-field / ghost
@@ -150,10 +119,11 @@ export function EnrichMoreSheet({
   const router = useRouter();
   const [scopeInfo, setScopeInfo] = useState<ScopeInfo | null>(null);
   const [scopeError, setScopeError] = useState(false);
-  // AUDIT D1 · a single-field "— enrich" cell or a drawer ghost accordion opens
-  // with its data GROUP PRE-CHECKED (request.preselect), so clicking one field
-  // pre-selects that group. The bulk "enrich more" / coverage CTA leaves
-  // preselect false so the user isn't surprised by a big pre-selected bill.
+  // AUDIT D1 + ISSUE-2 · a single-field "— enrich" cell, a drawer ghost
+  // accordion, AND the toolbar/bulk-bar buttons open with their data GROUPS
+  // PRE-CHECKED (request.preselect) — the buttons advertise a priced basket,
+  // so the sheet must open matching it. Only the un-priced coverage CTA
+  // leaves preselect false.
   const [selected, setSelected] = useState<Set<DataGroupKey>>(() =>
     request.preselect && request.enrichments?.length
       ? new Set<DataGroupKey>(groupsForEnrichTypes(request.enrichments))
@@ -277,14 +247,6 @@ export function EnrichMoreSheet({
     () => resolveResearches(selectedTypeTokens),
     [selectedTypeTokens],
   );
-  // Client-side GROSS estimate (CREDIT_PRICES) — shown live on the Run button
-  // (audit D2). The server preflight at run-time returns the honest NET (fresh
-  // units served from cache at 0 credits) and bills that — never more.
-  const grossCredits = useMemo(
-    () => enrichCreditsFor(enrichments, scopeCount, cellCount),
-    [enrichments, cellCount, scopeCount],
-  );
-
   // Per data-group × per-scope picture: for the CURRENT scope's leads, how many
   // already HAVE the whole group vs still to GET it, and the group's credit
   // price for the to-get set. Market groups (Meta/SERP) are quoted per cell.
@@ -309,20 +271,44 @@ export function EnrichMoreSheet({
         if (state === "not_run" || state === "failed") toGet += 1;
         else have += 1;
       }
+      // ISSUE-12 · "already done" now applies to MARKET groups too: the per-lead
+      // states already fold the cell-scoped AdMarketRun (a completed cell run
+      // reads enriched/empty on every lead in it), so toGet===0 && have>0 means
+      // the market run completed and didn't fail — nothing to run, 0 credits.
+      // A FAILED cell run leaves its leads in `failed` → toGet>0 → the row keeps
+      // quoting the per-cell price as the retry affordance. scope==="all" has no
+      // per-lead ids, so done stays false and the row quotes the estimate.
+      const done = toGet === 0 && have > 0;
       // Per-lead count to bill: the to-get set (selected/visible scope), or the
       // whole market when scope is "all" (no per-lead ids to split on).
       const leadN = scope === "all" ? scopeCount : toGet;
-      // Credits = per-cell types × cells + per-lead types × leads. The Ad group
-      // is MIXED (Meta 3/cell + Google 1/lead), so both terms can be non-zero;
-      // pure per-lead groups have a 0 cell term and vice-versa.
-      const credits =
-        groupCellCredits(group) * cellCount + groupLeadCredits(group) * leadN;
-      return { group, have, toGet, credits, isMarket };
+      // Credits = per-cell types × cells + per-lead types × leads. Meta and
+      // Google are separate groups now (Meta 4/cell, Google 1/lead), so in
+      // practice one term is 0 — the formula stays general either way.
+      const credits = done
+        ? 0
+        : groupCellCredits(group) * cellCount + groupLeadCredits(group) * leadN;
+      return { group, have, toGet, credits, isMarket, done };
     });
     // scope === "all" has no per-lead ids (server resolves the market) → the
     // have/toGet split is unavailable; credits fall back to the whole-scope
     // count so the row still quotes an estimate.
   }, [scopeIds, coverageTypeStates, cellCount, scopeCount, scope]);
+
+  // ISSUE-1 · the number on the Run button + footer is the client NET over the
+  // SELECTED groups — the same toGet-based netting the rows show (the old code
+  // multiplied CREDIT_PRICES by the FULL scope, quoting ~10 cr over 10 leads
+  // whose only selected group was already done). The server preflight remains
+  // the authoritative billed net; this estimate converges to it.
+  const netCredits = useMemo(
+    () =>
+      groupLines
+        .filter((l) => selected.has(l.group.key))
+        .reduce((s, l) => s + l.credits, 0),
+    [groupLines, selected],
+  );
+  // Everything selected is already done → nothing would run, nothing billed.
+  const nothingToRun = enrichments.length > 0 && netCredits === 0;
 
   function toggle(key: DataGroupKey) {
     setSelected((prev) => {
@@ -381,16 +367,15 @@ export function EnrichMoreSheet({
         // AUDIT D4 · announce the new run so LiveRunGate shows the banner
         // OPTIMISTICALLY now, before router.refresh() brings the server run.
         emitEnrichStarted(r.runId);
-        // AUDIT U2/D5 · flag the exact (business × family) cells as "running".
+        // AUDIT U2/D5 + ISSUE-11 · flag the exact (business × type) cells as
+        // "running". Raw type tokens (not the lossy family collapse) so sibling
+        // columns don't cross-light and services/ai_research light too; `all`
+        // covers the whole-research scope (scopeIds is empty there — the old
+        // emit silently no-oped and nothing lit).
         emitEnrichScope({
           businessIds: scopeIds,
-          families: [
-            ...new Set(
-              enrichments
-                .map((e) => ENRICH_TYPE_TO_FAMILY[e])
-                .filter((f): f is string => !!f),
-            ),
-          ],
+          types: [...enrichments],
+          all: scope === "all",
         });
         router.refresh();
         onClose();
@@ -537,65 +522,69 @@ export function EnrichMoreSheet({
               run once per cell; the market note rides the description line.
               "Contacts & site tech" is ONE row (contacts + tech are one fetch). */}
           <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
-            {groupLines.map(({ group, have, toGet, credits, isMarket }) => {
-              const on = selected.has(group.key);
-              // "Already done" for THIS scope: nothing left to get + we've
-              // actually touched ≥1 lead. Market groups have no per-lead split,
-              // so the dot stays hollow (they always quote a per-cell run).
-              const done = !isMarket && toGet === 0 && have > 0;
-              return (
-                <li key={group.key}>
-                  <label className="enrich-group-row">
-                    <span
-                      className={`egr-dot${done ? " on" : ""}`}
-                      aria-hidden="true"
-                    />
-                    <input
-                      type="checkbox"
-                      checked={on}
-                      onChange={() => toggle(group.key)}
-                    />
-                    <span className="egr-main">
-                      <span className="egr-head">
-                        <span className="egr-label">{group.label}</span>
-                        {!isMarket && have > 0 ? (
-                          <span className="egr-have-pill">
-                            {have.toLocaleString()} have
-                          </span>
-                        ) : null}
+            {groupLines.map(
+              ({ group, have, toGet, credits, isMarket, done }) => {
+                const on = selected.has(group.key);
+                return (
+                  <li key={group.key}>
+                    <label className="enrich-group-row">
+                      <span
+                        className={`egr-dot${done ? " on" : ""}`}
+                        aria-hidden="true"
+                      />
+                      <input
+                        type="checkbox"
+                        checked={on}
+                        onChange={() => toggle(group.key)}
+                      />
+                      <span className="egr-main">
+                        <span className="egr-head">
+                          <span className="egr-label">{group.label}</span>
+                          {have > 0 ? (
+                            <span className="egr-have-pill">
+                              {have.toLocaleString()} have
+                            </span>
+                          ) : null}
+                        </span>
+                        <span className="note egr-desc">
+                          {group.desc}
+                          {group.marketNote ? ` · ${group.marketNote}` : ""}
+                        </span>
                       </span>
-                      <span className="note egr-desc">
-                        {group.desc}
-                        {group.marketNote ? ` · ${group.marketNote}` : ""}
+                      <span className="egr-todo" style={{ flexShrink: 0 }}>
+                        {/* ISSUE-12 · a market group whose cell run(s) completed
+                          reads "already done" like every other group — rerun is
+                          offered only when the previous run FAILED (its leads
+                          read `failed` → toGet>0 → the quote returns). */}
+                        {done ? (
+                          "already done"
+                        ) : isMarket ? (
+                          // "market · runs once per cell" already rides the
+                          // desc line (marketNote) — don't say it twice.
+                          <>
+                            runs once ·{" "}
+                            <span className="ic-coin sm" aria-hidden="true" />
+                            {fmtCredits(credits)} cr
+                          </>
+                        ) : scope === "all" ? (
+                          <>
+                            {scopeCount.toLocaleString()} leads ·{" "}
+                            <span className="ic-coin sm" aria-hidden="true" />
+                            {fmtCredits(credits)} cr
+                          </>
+                        ) : (
+                          <>
+                            {toGet.toLocaleString()} to get ·{" "}
+                            <span className="ic-coin sm" aria-hidden="true" />
+                            {fmtCredits(credits)} cr
+                          </>
+                        )}
                       </span>
-                    </span>
-                    <span className="egr-todo" style={{ flexShrink: 0 }}>
-                      {isMarket ? (
-                        <>
-                          market · runs once ·{" "}
-                          <span className="ic-coin sm" aria-hidden="true" />
-                          {fmtCredits(credits)} cr
-                        </>
-                      ) : scope === "all" ? (
-                        <>
-                          {scopeCount.toLocaleString()} leads ·{" "}
-                          <span className="ic-coin sm" aria-hidden="true" />
-                          {fmtCredits(credits)} cr
-                        </>
-                      ) : toGet === 0 ? (
-                        "already done"
-                      ) : (
-                        <>
-                          {toGet.toLocaleString()} to get ·{" "}
-                          <span className="ic-coin sm" aria-hidden="true" />
-                          {fmtCredits(credits)} cr
-                        </>
-                      )}
-                    </span>
-                  </label>
-                </li>
-              );
-            })}
+                    </label>
+                  </li>
+                );
+              },
+            )}
           </ul>
 
           {/* AUDIT U20 · ALWAYS restate the exact data groups that will run + the
@@ -605,9 +594,17 @@ export function EnrichMoreSheet({
               reserves height and never pops in (FIX 3a · no layout jump). */}
           <p className="note egr-getting" style={{ marginTop: 6 }}>
             {selected.size > 0
-              ? `Getting: ${[...selected]
-                  .map((k) => DATA_GROUPS.find((g) => g.key === k)?.label ?? k)
-                  .join(" + ")} · ~${fmtCredits(grossCredits)} credits`
+              ? nothingToRun
+                ? `Getting: ${[...selected]
+                    .map(
+                      (k) => DATA_GROUPS.find((g) => g.key === k)?.label ?? k,
+                    )
+                    .join(" + ")} — already done, nothing to run`
+                : `Getting: ${[...selected]
+                    .map(
+                      (k) => DATA_GROUPS.find((g) => g.key === k)?.label ?? k,
+                    )
+                    .join(" + ")} · ~${fmtCredits(netCredits)} credits`
               : ""}
           </p>
 
@@ -638,9 +635,13 @@ export function EnrichMoreSheet({
                   : ""}
                 .
               </>
+            ) : nothingToRun ? (
+              // ISSUE-1 · every selected group is already done for this scope —
+              // running would fetch nothing and bill nothing, so don't offer it.
+              "Everything selected is already done — nothing to run."
             ) : (
               <>
-                ~{fmtCredits(grossCredits)} credits (estimate)
+                ~{fmtCredits(netCredits)} credits (estimate)
                 {scopeInfo
                   ? ` · wallet ${fmtCredits(scopeInfo.walletCredits)}`
                   : ""}{" "}
@@ -666,13 +667,20 @@ export function EnrichMoreSheet({
                 pending ||
                 enrichments.length === 0 ||
                 !scopeInfo ||
-                (scopeCount === 0 && cellCount === 0)
+                (scopeCount === 0 && cellCount === 0) ||
+                // ISSUE-1 · net 0 = everything selected is already done. The
+                // backend would skip every unit and bill 0 (confirmed:
+                // SKIPPED_FRESH at dispatch, netted at quote, clamped at
+                // settle) — so the button must not offer a no-op run.
+                nothingToRun
               }
               onClick={runNow}
             >
               {pending
                 ? "Starting…"
-                : `Run · ~${fmtCredits(grossCredits)} credits`}
+                : nothingToRun
+                  ? "Nothing to run"
+                  : `Run · ~${fmtCredits(netCredits)} credits`}
             </button>
           )}
         </div>

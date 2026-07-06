@@ -523,6 +523,10 @@ export const COLUMNS: readonly ColumnDef[] = [
     defaultOn: false,
     group: "enriched",
     family: "website",
+    // Perf comes from the Lighthouse audit ONLY — without this the family
+    // default (contacts+tech+lighthouse) made a tech scan light this column's
+    // loader and a cell-click buy the DOM fetch too.
+    enrichTypes: ["lighthouse"],
     higherIsBetter: true,
     typeGroup: "Site audit",
   },
@@ -536,6 +540,8 @@ export const COLUMNS: readonly ColumnDef[] = [
     defaultOn: false,
     group: "enriched",
     family: "website",
+    // Same as perf — Lighthouse-only.
+    enrichTypes: ["lighthouse"],
     higherIsBetter: true,
     typeGroup: "Site audit",
   },
@@ -600,13 +606,16 @@ export const COLUMNS: readonly ColumnDef[] = [
     // BusinessEnrichment (the drawer already renders it), now a toggle-able
     // column. Off by default (a long text field); the cell truncates + carries
     // the full text in its tooltip. No DataFamily maps to AI research, so it has
-    // no `family` — the empty cell offers a generic enrich affordance.
+    // no `family` — but `enrichTypes` wires the loader + a cell-click to the
+    // AI-brief research (ISSUE-11: without it this column could NEVER show an
+    // in-flight state).
     key: "aiSummary",
     label: "AI summary",
     kind: "text",
     sortable: false,
     defaultOn: false,
     group: "enriched",
+    enrichTypes: ["ai_research"],
     typeGroup: "AI",
   },
   {

@@ -22,6 +22,10 @@ import {
   enrichedGroupCount,
   enrichTypesForGroups,
   ENRICHMENT_TYPE_KEYS,
+  CELL_BASIS_TOKENS,
+  groupCellCredits,
+  groupLeadCredits,
+  typeKeyForEnrichToken,
   rollUpGroupState,
   type EnrichmentTypeKey,
   type TypeState,
@@ -438,5 +442,99 @@ describe("DATA_GROUPS + roll-up", () => {
         }),
       ),
     ).toBe(true);
+  });
+});
+
+// ── 2026-07-06 · run-state honesty fixes (browser-test issues 8/9/11/12) ─────
+
+describe("deriveTypeStates · TECH rides the CONTACTS job", () => {
+  // dispatch.buildJobPlan folds contacts+tech into ONE CONTACTS-family job — a
+  // TECH job row never exists. TECH must therefore inherit the CONTACTS run
+  // signals, or the Built on / Booking tool cells lie "— enrich" forever.
+  test("done CONTACTS job + tech rows → TECH enriched", () => {
+    const s = deriveTypeStates({
+      presence: { tech: true },
+      doneJobFamilies: new Set(["CONTACTS"]),
+    });
+    expect(s.TECH).toBe("enriched");
+  });
+  test("done CONTACTS job + NO tech rows → TECH empty (scanned, custom/unknown)", () => {
+    const s = deriveTypeStates({
+      presence: {},
+      doneJobFamilies: new Set(["CONTACTS"]),
+    });
+    expect(s.TECH).toBe("empty");
+  });
+  test("running CONTACTS job → TECH running (loader on Built on / Booking)", () => {
+    const s = deriveTypeStates({
+      presence: {},
+      runningJobFamilies: new Set(["CONTACTS"]),
+    });
+    expect(s.TECH).toBe("running");
+    expect(s.CONTACTS).toBe("running");
+  });
+  test("failed CONTACTS job (never done) → TECH failed", () => {
+    const s = deriveTypeStates({
+      presence: {},
+      failedJobFamilies: new Set(["CONTACTS"]),
+    });
+    expect(s.TECH).toBe("failed");
+  });
+});
+
+describe("deriveTypeStates · cellRunning (active Meta/SERP cell run)", () => {
+  // Meta/SERP run inline per-cell and write AdMarketRun only on completion —
+  // the ONLY in-flight record is the active EnrichmentRun. cellRunning is that
+  // signal; without it the two families can never pulse server-side.
+  test("active meta cell run → META_ADS running, even over a prior empty", () => {
+    const s = deriveTypeStates({
+      presence: {},
+      cellRan: { metaAds: true }, // prior completed run (the stale "None")
+      cellRunning: { metaAds: true },
+    });
+    expect(s.META_ADS).toBe("running");
+  });
+  test("active serp cell run → SERP running; meta untouched", () => {
+    const s = deriveTypeStates({
+      presence: {},
+      cellRunning: { serp: true },
+    });
+    expect(s.SERP).toBe("running");
+    expect(s.META_ADS).toBe("not_run");
+  });
+});
+
+describe("group credit helpers · ONE estimator for button + sheet", () => {
+  const byKey = (k: string) => DATA_GROUPS.find((g) => g.key === k)!;
+  test("per-lead prices match the price list roll-up", () => {
+    // contacts 1 + tech 0 → 1 · services 1 + ai_research 1 → 2 · lighthouse 1.
+    expect(groupLeadCredits(byKey("contacts_tech"))).toBe(1);
+    expect(groupLeadCredits(byKey("ai_brief"))).toBe(2);
+    expect(groupLeadCredits(byKey("site_speed"))).toBe(1);
+    expect(groupLeadCredits(byKey("google_ads"))).toBe(1);
+    // Pure market groups carry NO per-lead term.
+    expect(groupLeadCredits(byKey("meta_ads"))).toBe(0);
+    expect(groupLeadCredits(byKey("search"))).toBe(0);
+  });
+  test("per-cell prices: meta 4/cell + serp 4/cell, lead groups 0", () => {
+    expect(groupCellCredits(byKey("meta_ads"))).toBe(4);
+    expect(groupCellCredits(byKey("search"))).toBe(4);
+    expect(groupCellCredits(byKey("contacts_tech"))).toBe(0);
+  });
+});
+
+describe("typeKeyForEnrichToken", () => {
+  test("round-trips every group token", () => {
+    for (const g of DATA_GROUPS) {
+      for (const token of enrichTypesForGroups([g.key])) {
+        const key = typeKeyForEnrichToken(token);
+        expect(key).toBeDefined();
+      }
+    }
+    expect(typeKeyForEnrichToken("meta_ads")).toBe("META_ADS");
+    expect(typeKeyForEnrichToken("nope")).toBeUndefined();
+  });
+  test("CELL_BASIS_TOKENS is exactly the dispatch cell families", () => {
+    expect([...CELL_BASIS_TOKENS].sort()).toEqual(["meta_ads", "serp"]);
   });
 });

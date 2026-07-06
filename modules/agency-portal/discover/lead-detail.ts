@@ -70,6 +70,15 @@ export interface LeadContact {
    * pick a per-platform icon. Absent on phone/email rows.
    */
   channel?: string;
+  /**
+   * Issue 5 · humanized ContactRole label ("owner" / "front desk" / "booking")
+   * rendered as a prefix tag. Absent when the stored role is UNKNOWN.
+   */
+  role?: string;
+  /** Issue 5 · true for the business's primary contact (small "primary" tag). */
+  primary?: boolean;
+  /** Issue 5 · true when the value passed verification (VerifiedStatus VALID). */
+  verified?: boolean;
 }
 
 /** One evidence row under a fired composite (a labelled metric line). */
@@ -95,11 +104,24 @@ export interface LeadEvidenceRow {
   } | null;
   /**
    * E3 · optional sub-section heading this row belongs under (AI research:
-   * "Summary" · "Positioning" · "Compliance cues" · "Opener angle"). The drawer
+   * "Services" · "Summary" · "Compliance cues" · "Opener angle"). The drawer
    * groups consecutive rows sharing a section under one small heading. Absent =
    * ungrouped (every other block's rows).
    */
   section?: string | null;
+  /**
+   * Issue 13 · render as a label-less full-width prose line — the label is a
+   * pure counter ("Cue 1" / "Angle 1") that adds no information. Set explicitly
+   * by the builder; the drawer never regex-sniffs labels. The label stays
+   * populated for generic consumers (full-page detail, exports).
+   */
+  prose?: boolean;
+  /**
+   * Issue 13 · render as a compact chip in a wrapping chip row instead of a
+   * key/value line (the AI brief's Services menu). `label` is the chip text,
+   * `value` the hover detail (category). Generic consumers keep label/value.
+   */
+  chip?: boolean;
 }
 
 /** A fired composite signal (a flagged PlaybookFinding) w/ evidence + pitch. */
@@ -451,7 +473,17 @@ export async function getLeadDetail(
       // (getLeadDetail feeds both the drawer and the Proof Pack / share page).
       where: { businessId, optedOutAt: null },
       orderBy: [{ isPrimary: "desc" }, { confidence: "desc" }],
-      select: { channel: true, value: true },
+      // Issue 5 · role / isPrimary / verifiedStatus feed the grouped contacts
+      // UI (role prefix, "primary" tag, verified cue). Bounded — a scrape-heavy
+      // lead no longer ships every row to the client.
+      select: {
+        channel: true,
+        value: true,
+        role: true,
+        isPrimary: true,
+        verifiedStatus: true,
+      },
+      take: 30,
     }),
     prisma.outreachDraft.findMany({
       // WP5 draft security: this agency's drafts only (legacy null rows ride
@@ -555,10 +587,18 @@ export async function getLeadDetail(
     const dedupeKey = `${c.channel}:${c.value}`;
     if (seenContact.has(dedupeKey)) continue;
     seenContact.add(dedupeKey);
+    // Issue 5 · role prefix ("owner" / "front desk"), primary tag, verified
+    // cue — the metadata a grouped contacts UI needs to differentiate values.
+    const roleLabel = contactRoleLabel(c.role);
+    const meta: Pick<LeadContact, "role" | "primary" | "verified"> = {
+      ...(roleLabel ? { role: roleLabel } : {}),
+      ...(c.isPrimary ? { primary: true } : {}),
+      ...(c.verifiedStatus === "VALID" ? { verified: true } : {}),
+    };
     if (c.channel === "PHONE" || c.channel === "WHATSAPP") {
-      phones.push({ value: c.value, href: `tel:${c.value}` });
+      phones.push({ value: c.value, href: `tel:${c.value}`, ...meta });
     } else if (c.channel === "EMAIL") {
-      emails.push({ value: c.value, href: `mailto:${c.value}` });
+      emails.push({ value: c.value, href: `mailto:${c.value}`, ...meta });
     } else if (
       c.channel === "FACEBOOK" ||
       c.channel === "INSTAGRAM" ||
@@ -574,6 +614,7 @@ export async function getLeadDetail(
         value: socialHandle(c.channel, c.value),
         href: c.value,
         channel: c.channel,
+        ...meta,
       });
     }
   }
@@ -960,7 +1001,9 @@ export async function getLeadDetail(
       state: techEnriched ? "enriched" : websiteState,
       enriched: techEnriched,
       summary: techEnriched
-        ? `${cms ?? "Custom"}${!hasPixel ? " · no pixel" : ""} · booking ${hasBooking ? "online" : "phone"}`
+        ? // "Custom / unknown" everywhere the scan found no CMS — a bare
+          // "Custom" claims more certainty than the scan supports.
+          `${cms ?? "Custom / unknown"}${!hasPixel ? " · no pixel" : ""} · booking ${hasBooking ? "online" : "phone"}`
         : null,
       rows: techEnriched
         ? [
@@ -1207,18 +1250,23 @@ export async function getLeadDetail(
             (services.length > 3 ? ` · +${services.length - 3}` : "")
           : null,
       // E3 · restructured into labelled sub-sections. `section` groups the rows
-      // (Services · Summary · Positioning · Compliance cues · Opener angle) so the
-      // drawer renders headed groups instead of a flat list. Services folded in
+      // (Services · Summary · Compliance cues · Opener angle) so the drawer
+      // renders headed groups instead of a flat list. Services folded in
       // (2026-07-05) — the menu the site lists, above the AI read.
+      // Issue 13 · Services render as chips (a menu is chips, not key/values);
+      // the five summary rows (Sub-type / Sophistication / Pricing transparency
+      // / Positioning / Vs cell leader) share one fixed-label kv grid; the
+      // counter-labelled Cue/Angle rows are label-less prose lines.
       rows: aiBriefEnriched
         ? [
-            // ── Services (the menu detected on the site) ──
+            // ── Services (the menu detected on the site) · chips ──
             ...services.map((s) => ({
               label: s.name,
               value: s.category ?? "—",
               section: "Services" as const,
+              chip: true,
             })),
-            // ── Summary ──
+            // ── Summary (fixed-label kv rows) ──
             ...(research?.subType
               ? [
                   {
@@ -1250,13 +1298,12 @@ export async function getLeadDetail(
                   },
                 ]
               : []),
-            // ── Positioning ──
             ...(research?.positioningSummary
               ? [
                   {
                     label: "Positioning",
                     value: research.positioningSummary,
-                    section: "Positioning" as const,
+                    section: "Summary" as const,
                   },
                 ]
               : []),
@@ -1265,21 +1312,23 @@ export async function getLeadDetail(
                   {
                     label: "Vs cell leader",
                     value: research.competitivePositioning,
-                    section: "Positioning" as const,
+                    section: "Summary" as const,
                   },
                 ]
               : []),
-            // ── Compliance cues ──
+            // ── Compliance cues (label-less prose — "Cue N" adds nothing) ──
             ...(research?.complianceCues ?? []).map((c, i) => ({
               label: `Cue ${i + 1}`,
               value: c,
               section: "Compliance cues" as const,
+              prose: true,
             })),
-            // ── Opener angle (the outreach pain hypotheses) ──
+            // ── Opener angle (the outreach pain hypotheses · prose) ──
             ...(research?.painHypotheses ?? []).map((p, i) => ({
               label: `Angle ${i + 1}`,
               value: p,
               section: "Opener angle" as const,
+              prose: true,
             })),
           ]
         : [],
@@ -1397,6 +1446,31 @@ export async function getLeadDetail(
 function signalKeyLabel(key: string): string {
   const words = key.replace(/[_-]/g, " ");
   return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+/**
+ * Issue 5 · humanized ContactRole label rendered as a contact-value prefix.
+ * UNKNOWN (the default) → null — no tag, most scraped contacts are unknown.
+ */
+function contactRoleLabel(role: string): string | null {
+  switch (role) {
+    case "OWNER":
+      return "owner";
+    case "FRONT_DESK":
+      return "front desk";
+    case "PERSONAL":
+      return "personal";
+    case "GENERIC":
+      return "generic";
+    case "SUPPORT":
+      return "support";
+    case "BOOKING":
+      return "booking";
+    case "SOCIAL":
+      return "social";
+    default:
+      return null;
+  }
 }
 
 /** Human label for a BusinessOpenStatus enum value. */

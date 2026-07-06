@@ -27,7 +27,7 @@ import {
   type CSSProperties,
 } from "react";
 
-import { Icon } from "@/components/agency/Icon";
+import { Icon, type IconName } from "@/components/agency/Icon";
 import { showToast } from "@/components/agency/Toast";
 import { StatusPill } from "@/modules/agency-portal/components/StatusPill";
 import { GenerateTouchesOverlay } from "./GenerateTouchesOverlay";
@@ -45,6 +45,7 @@ import {
   type GetLeadDetailResult,
 } from "../lead-detail-actions";
 import type {
+  LeadContact,
   LeadDetail,
   LeadDomainBlock,
   LeadEvidenceRow,
@@ -552,9 +553,11 @@ function DrawerBody({
                 </div>
               ))}
             </div>
-            <ContactsStrip lead={lead} />
           </div>
         </div>
+        {/* Issue 5 · contacts get the FULL drawer width (they used to squeeze
+            into the ~320px column beside the 96px gauge and wrap into a mess). */}
+        <ContactsStrip lead={lead} />
       </div>
 
       {/* 4. Why this lead qualifies + 5. Other angles */}
@@ -627,41 +630,25 @@ function DrawerBody({
         />
       ))}
 
-      {/* 7. Expert findings */}
+      {/* 7. Expert findings — a plain section, not a fake always-open
+          accordion (it was never collapsible; the .dacc head lied). */}
       {lead.expertFindings.length > 0 ? (
-        <div className="dacc open" style={{ marginBottom: 8 }}>
-          <div className="dacc-head" style={{ cursor: "default" }}>
-            <span className="dacc-ic" aria-hidden="true">
-              <Icon name="expert" size={15} />
-            </span>
-            <span className="dacc-title">Expert findings</span>
-            <span className="dacc-sum">
-              {lead.expertFindings.length} flag
-              {lead.expertFindings.length === 1 ? "" : "s"} to check
-            </span>
-          </div>
-          <div className="dacc-body">
-            {lead.expertFindings.map((f) => (
-              <div
-                key={f.key}
-                className={`callout ${f.tone}`}
-                style={{ fontSize: 12, marginTop: 8 }}
-              >
-                <Icon name="warning" size={14} style={{ flex: "none" }} />
-                <p style={{ margin: 0 }}>
-                  <b>{f.title}:</b> {f.body}
-                </p>
-              </div>
-            ))}
-          </div>
+        <div className="dsec">
+          <div className="brand-eyebrow">Expert findings</div>
+          {lead.expertFindings.map((f) => (
+            <div key={f.key} className={`callout ${f.tone}`}>
+              <Icon name="warning" size={14} style={{ flex: "none" }} />
+              <p style={{ margin: 0 }}>
+                <b>{f.title}:</b> {f.body}
+              </p>
+            </div>
+          ))}
         </div>
       ) : null}
 
       {/* 8. This lead's touches */}
-      <div className="dsec" style={{ marginTop: 12 }}>
-        <h2 style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-          <Icon name="mail" size={15} /> This lead&rsquo;s touches
-        </h2>
+      <div className="dsec">
+        <div className="brand-eyebrow">Outreach · touches</div>
         {lead.touches.length === 0 ? (
           <div className="note">
             No touch yet. Generate touch below — grounded in this lead&rsquo;s
@@ -669,24 +656,9 @@ function DrawerBody({
           </div>
         ) : (
           lead.touches.map((t) => (
-            <div
-              key={t.draftId}
-              style={{
-                border: "1px solid var(--line)",
-                borderRadius: 10,
-                padding: 11,
-                marginBottom: 8,
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  marginBottom: 6,
-                }}
-              >
-                <b style={{ fontSize: 12.5 }}>
+            <div key={t.draftId} className="dtouch">
+              <div className="dtouch-head">
+                <b>
                   Touch {t.seq} of {t.of}
                   <span
                     className="note"
@@ -702,28 +674,8 @@ function DrawerBody({
                   {t.status}
                 </span>
               </div>
-              {t.subject ? (
-                <p
-                  style={{
-                    fontSize: 12.5,
-                    fontWeight: 600,
-                    color: "var(--ink)",
-                    margin: "0 0 4px",
-                  }}
-                >
-                  {t.subject}
-                </p>
-              ) : null}
-              <p
-                style={{
-                  fontSize: 12.5,
-                  color: "var(--ink-2)",
-                  margin: 0,
-                  whiteSpace: "pre-wrap",
-                }}
-              >
-                {t.body}
-              </p>
+              {t.subject ? <p className="dtouch-subject">{t.subject}</p> : null}
+              <p className="dtouch-body">{t.body}</p>
             </div>
           ))
         )}
@@ -732,6 +684,14 @@ function DrawerBody({
   );
 }
 
+/**
+ * Issue 5 · the contacts strip, restructured into stacked per-channel groups
+ * (Phones / Emails / Socials). Each group is an icon-column grid — the channel
+ * icon top-aligned in a fixed 18px column, values in a wrapping flex cell so
+ * wrapped lines align to one left edge. Each value + its role/primary tags +
+ * report affordance is ONE non-breaking unit; groups cap at 4 values with a
+ * real "+N more" toggle.
+ */
 function ContactsStrip({ lead }: { lead: LeadDetail }) {
   if (!lead.contactsEnriched) {
     return (
@@ -742,85 +702,126 @@ function ContactsStrip({ lead }: { lead: LeadDetail }) {
   }
   return (
     <div className="dcontacts">
-      <span className="dcontact">
-        <span className="ci" aria-hidden="true">
-          <Icon name="phone" size={13} />
-        </span>
-        {lead.phones.length ? (
-          <>
-            <ContactLinks contacts={lead.phones} />
-            {/* WP6-13 · per-field bad-data report → hide + auto-refund. */}
-            <ReportWrongButton
-              businessId={lead.businessId}
-              reason="wrong_number"
-              value={lead.phones[0].value}
-            />
-          </>
-        ) : (
-          <span className="note">—</span>
-        )}
-      </span>
-      <span className="dcontact">
-        <span className="ci" aria-hidden="true">
-          <Icon name="mail" size={13} />
-        </span>
-        {lead.emails.length ? (
-          <>
-            <ContactLinks contacts={lead.emails} />
-            <ReportWrongButton
-              businessId={lead.businessId}
-              reason="wrong_email"
-              value={lead.emails[0].value}
-            />
-          </>
-        ) : (
-          <span className="note">—</span>
-        )}
-      </span>
-      {/* E6 · socials strip — each stored social channel (Instagram / Facebook
-          / TikTok / YouTube / X / LinkedIn / Yelp) as its own linked handle.
-          The data existed as Contact rows but the drawer never surfaced it. */}
-      <SocialsStrip socials={lead.socials} />
+      <ContactGroup
+        icon="phone"
+        groupLabel="Phone numbers"
+        contacts={lead.phones}
+        businessId={lead.businessId}
+        reportReason="wrong_number"
+      />
+      <ContactGroup
+        icon="mail"
+        groupLabel="Email addresses"
+        contacts={lead.emails}
+        businessId={lead.businessId}
+        reportReason="wrong_email"
+      />
+      {/* E6 · socials — each stored social channel (Instagram / Facebook /
+          TikTok / YouTube / X / LinkedIn / Yelp) as its own linked handle.
+          Renders nothing when there are none — no empty "—" noise. */}
+      {lead.socials.length > 0 ? (
+        <ContactGroup
+          icon="link"
+          groupLabel="Social profiles"
+          contacts={lead.socials}
+          social
+        />
+      ) : null}
     </div>
   );
 }
 
+/** Per-group cap before the "+N more" toggle (issue 5). */
+const CONTACT_GROUP_CAP = 4;
+
 /**
- * E6 · a compact strip of the lead's social channels, each a linked "@handle"
- * prefixed by its platform so Tom can tell them apart (no per-platform icons in
- * the set). Renders nothing when there are no socials — no empty "—" noise.
+ * Issue 5 · one channel group (phones / emails / socials): fixed icon column +
+ * wrapping value cell. Values render primary-first (the loader orders by
+ * isPrimary desc) with a mono-caps "primary" tag and a role prefix when known.
+ * WP6-13 · the per-value ReportWrongButton lives INSIDE each unit — reporting
+ * the 3rd email disputes the 3rd email, not [0] (and values 2..N are
+ * reportable at all now).
  */
-function SocialsStrip({
-  socials,
+function ContactGroup({
+  icon,
+  groupLabel,
+  contacts,
+  businessId,
+  reportReason,
+  social,
 }: {
-  socials: { value: string; href: string; channel?: string }[];
+  icon: IconName;
+  groupLabel: string;
+  contacts: LeadContact[];
+  businessId?: string;
+  reportReason?: "wrong_number" | "wrong_email";
+  /** Social group: external links, platform prefix, no role tags. */
+  social?: boolean;
 }) {
-  if (socials.length === 0) return null;
+  const [expanded, setExpanded] = useState(false);
+  const overflow = contacts.length - CONTACT_GROUP_CAP;
+  const shown =
+    expanded || overflow <= 0 ? contacts : contacts.slice(0, CONTACT_GROUP_CAP);
   return (
-    <span
-      className="dcontact"
-      style={{ flexWrap: "wrap", gap: "4px 10px" }}
-      aria-label="Social profiles"
-    >
+    <div className="dcontact-group" aria-label={groupLabel}>
       <span className="ci" aria-hidden="true">
-        <Icon name="link" size={13} />
+        <Icon name={icon} size={13} />
       </span>
-      {socials.map((s, i) => (
-        <a
-          key={`${s.href}-${i}`}
-          className="clink"
-          href={s.href}
-          target="_blank"
-          rel="noopener noreferrer"
-          data-tip={s.href}
-        >
-          <span style={{ color: "var(--faint)", marginRight: 3 }}>
-            {socialPlatformLabel(s.channel)}
-          </span>
-          {s.value}
-        </a>
-      ))}
-    </span>
+      <span className="dcontact-vals">
+        {contacts.length === 0 ? (
+          <span className="note">—</span>
+        ) : (
+          shown.map((c, i) => (
+            <span className="cunit" key={`${c.href}-${i}`}>
+              {!social && c.role ? (
+                <span className="cctag">{c.role}</span>
+              ) : null}
+              <a
+                className="clink"
+                href={c.href}
+                data-tip={
+                  social
+                    ? c.href
+                    : c.verified
+                      ? `${c.value} · verified`
+                      : c.value
+                }
+                {...(social
+                  ? { target: "_blank", rel: "noopener noreferrer" }
+                  : {})}
+              >
+                {social && c.channel ? (
+                  <span className="cplat">
+                    {socialPlatformLabel(c.channel)}
+                  </span>
+                ) : null}
+                {c.value}
+              </a>
+              {c.primary ? (
+                <span className="cctag primary">primary</span>
+              ) : null}
+              {businessId && reportReason ? (
+                <ReportWrongButton
+                  businessId={businessId}
+                  reason={reportReason}
+                  value={c.value}
+                />
+              ) : null}
+            </span>
+          ))
+        )}
+        {overflow > 0 ? (
+          <button
+            type="button"
+            className="clink cmore"
+            aria-expanded={expanded}
+            onClick={() => setExpanded((e) => !e)}
+          >
+            {expanded ? "less" : `+${overflow} more`}
+          </button>
+        ) : null}
+      </span>
+    </div>
   );
 }
 
@@ -917,7 +918,7 @@ function ReportWrongButton({
             setReported(true);
             showToast(
               r.refunded > 0
-                ? `Reported · ${r.refunded} credit refunded`
+                ? `Reported · ${r.refunded} credit${r.refunded === 1 ? "" : "s"} refunded`
                 : "Reported — thanks",
             );
           } else {
@@ -928,35 +929,6 @@ function ReportWrongButton({
     >
       {label}
     </button>
-  );
-}
-
-function ContactLinks({
-  contacts,
-  external,
-}: {
-  contacts: { value: string; href: string }[];
-  external?: boolean;
-}) {
-  // Render EVERY contact as its own clickable link (was: first + a hover-only
-  // "+N" that hid phones/emails 2..N even in the detail card). The agency paid
-  // to reveal these — show them all, each dialable/mailable.
-  return (
-    <span style={{ display: "flex", flexWrap: "wrap", gap: "4px 8px" }}>
-      {contacts.map((c, i) => (
-        <a
-          key={`${c.href}-${i}`}
-          className="clink"
-          href={c.href}
-          data-tip={c.value}
-          {...(external
-            ? { target: "_blank", rel: "noopener noreferrer" }
-            : {})}
-        >
-          {c.value}
-        </a>
-      ))}
-    </span>
   );
 }
 
@@ -980,8 +952,8 @@ function SignalVerdicts({ verdicts }: { verdicts: LeadSignalVerdict[] }) {
   const pendingCount = verdicts.filter((v) => v.matched === null).length;
 
   return (
-    <div className="sigverdicts" style={{ margin: "0 0 12px" }}>
-      <div className="note" style={{ margin: "0 0 8px" }}>
+    <div className="sigverdicts">
+      <div className="note">
         {firedCount} of {verdicts.length} of your signals fired
         {pendingCount > 0
           ? ` · ${pendingCount} need${pendingCount === 1 ? "s" : ""} enrichment`
@@ -1001,28 +973,14 @@ function SignalVerdictRow({ verdict }: { verdict: LeadSignalVerdict }) {
       : verdict.matched === null
         ? { tone: "amber" as const, label: "Enrich to unlock" }
         : { tone: "" as const, label: "Didn’t fire" };
+  // Layout lives in `.sigverdicts .sig` (agency-portal.css) — the class existed
+  // in markup with no stylesheet entry, so every row carried inline overrides.
   return (
-    <div
-      className="sig"
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 8,
-        padding: "5px 0",
-      }}
-    >
-      <span style={{ flex: 1, minWidth: 0 }}>
-        <span
-          className="name"
-          style={{ display: "block" }}
-          data-tip={verdict.means}
-        >
-          {verdict.title}
-        </span>
+    <div className="sig">
+      <span className="name" data-tip={verdict.means}>
+        {verdict.title}
       </span>
-      <span className={`pill ${tone} dot`.trim()} style={{ flexShrink: 0 }}>
-        {label}
-      </span>
+      <span className={`pill ${tone} dot`.trim()}>{label}</span>
     </div>
   );
 }
@@ -1180,8 +1138,25 @@ function EvidenceRow({
         : row.tone === "r"
           ? "var(--red)"
           : undefined;
+
+  // Issue 13 · a prose row (Cue/Angle — counter labels add nothing): one
+  // label-less full-width line under the section head DomainRows prints.
+  if (row.prose) {
+    return (
+      <div className="sig kv prose">
+        <p className="val" style={toneColor ? { color: toneColor } : undefined}>
+          {row.value}
+        </p>
+      </div>
+    );
+  }
+
+  // Issue 13 · sectioned rows (only the AI brief sets `section`) share ONE
+  // fixed 110–130px label column via the `.sig.kv` grid variant — every value
+  // starts at the same x. Unsectioned metric pairs keep the classic
+  // name-left/val-right flex row.
   return (
-    <div className="sig">
+    <div className={row.section != null ? "sig kv" : "sig"}>
       <div className="row">
         <span className="name">{row.label}</span>
         <span
@@ -1238,12 +1213,7 @@ function DomainAccordion({
             labelled as the listing (not a review pull). */}
         {hasListing ? (
           <div style={{ padding: "4px 12px 2px" }}>
-            <div
-              className="note"
-              style={{ fontSize: 10.5, margin: "0 0 2px", opacity: 0.8 }}
-            >
-              From the Google listing
-            </div>
+            <div className="microlabel">From the Google listing</div>
             {block.listingRows.map((r, i) => (
               <EvidenceRow key={i} row={r} bands={bands} />
             ))}
@@ -1334,12 +1304,7 @@ function DomainAccordion({
         </div>
         {hasListing ? (
           <div style={{ padding: "4px 12px 2px" }}>
-            <div
-              className="note"
-              style={{ fontSize: 10.5, margin: "0 0 2px", opacity: 0.8 }}
-            >
-              From the Google listing
-            </div>
+            <div className="microlabel">From the Google listing</div>
             {block.listingRows.map((r, i) => (
               <EvidenceRow key={i} row={r} bands={bands} />
             ))}
@@ -1380,22 +1345,12 @@ function DomainAccordion({
               listing, then the enrichment rows below. */}
           {hasListing ? (
             <>
-              <div
-                className="note"
-                style={{ fontSize: 10.5, margin: "2px 0 2px", opacity: 0.8 }}
-              >
-                From the Google listing
-              </div>
+              <div className="microlabel">From the Google listing</div>
               {block.listingRows.map((r, i) => (
                 <EvidenceRow key={`l-${i}`} row={r} bands={bands} />
               ))}
               {block.rows.length ? (
-                <div
-                  className="note"
-                  style={{ fontSize: 10.5, margin: "8px 0 2px", opacity: 0.8 }}
-                >
-                  From the reviews pull
-                </div>
+                <div className="microlabel">From the reviews pull</div>
               ) : null}
             </>
           ) : null}
@@ -1416,8 +1371,11 @@ function DomainAccordion({
 
 /**
  * E3 · renders a block's rows, grouping consecutive rows that share a `section`
- * under a small heading (AI research: Summary · Positioning · Compliance cues ·
+ * under a small heading (AI research: Services · Summary · Compliance cues ·
  * Opener angle). Ungrouped rows (every other block) render flat as before.
+ * Issue 13 · a segment whose rows carry `chip` renders as one wrapping `.dchips`
+ * row (the Services menu) instead of key/value lines; section heads are the
+ * shared `.microlabel` token, not a shrunken brand eyebrow.
  */
 function DomainRows({
   rows,
@@ -1435,28 +1393,40 @@ function DomainRows({
       </p>
     );
   }
+  // Pure derivation: split into segments of consecutive rows sharing a section.
+  const segments: { section: string | null; rows: LeadEvidenceRow[] }[] = [];
+  for (const r of rows) {
+    const section = r.section ?? null;
+    const last = segments[segments.length - 1];
+    if (last && last.section === section) last.rows.push(r);
+    else segments.push({ section, rows: [r] });
+  }
   return (
     <>
-      {rows.map((r, i) => {
-        const section = r.section ?? null;
-        // Pure: a section head shows when this row starts a new section — no
-        // render-time mutation (compare against the PREVIOUS row's section).
-        const prev = i > 0 ? (rows[i - 1].section ?? null) : null;
-        const showHead = section != null && section !== prev;
-        return (
-          <div key={i}>
-            {showHead ? (
-              <div
-                className="brand-eyebrow"
-                style={{ margin: "8px 0 2px", fontSize: 10.5 }}
-              >
-                {section}
-              </div>
-            ) : null}
-            <EvidenceRow row={r} bands={bands} />
-          </div>
-        );
-      })}
+      {segments.map((seg, i) => (
+        <div key={i}>
+          {seg.section != null ? (
+            <div className="microlabel">{seg.section}</div>
+          ) : null}
+          {seg.rows[0].chip ? (
+            <div className="dchips">
+              {seg.rows.map((r, j) => (
+                <span
+                  key={`${r.label}-${j}`}
+                  className="ppchip"
+                  data-tip={r.value && r.value !== "—" ? r.value : undefined}
+                >
+                  {r.label}
+                </span>
+              ))}
+            </div>
+          ) : (
+            seg.rows.map((r, j) => (
+              <EvidenceRow key={j} row={r} bands={bands} />
+            ))
+          )}
+        </div>
+      ))}
     </>
   );
 }

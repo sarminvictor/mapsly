@@ -50,7 +50,7 @@ export const COST_GATE = {
  * Monthly plan credit grants. 1 credit = one lead's CORE data (contacts + site
  * tech, per CREDIT_PRICES: contacts=1, tech=0). A fully-enriched lead layering
  * reviews / site-speed / AI is ~4–5 credits, plus per-cell ad/rank fees
- * (meta_ads=3, serp=4). See CREDIT_PRICES below — do NOT call a credit a
+ * (meta_ads=4, serp=4). See CREDIT_PRICES below — do NOT call a credit a
  * "fully-enriched lead". The free tier is a one-time 50-credit grant (no Stripe
  * subscription); paid tiers re-grant each billing cycle. Keys match the
  * AgencyPlan enum in prisma/schema.prisma. Source of truth:
@@ -423,7 +423,11 @@ export const ENRICHMENT_PRICES: Record<EnrichmentType, EnrichmentPrice> = {
     unit: "business",
     usdPerUnit: NANO_PER_BUSINESS_USD,
     upperMultiplier: 2,
-    freshnessDays: 30,
+    // 90 to MATCH dispatch's buildJobPlan window (dispatch.ts hardcodes 90 for
+    // ai_research). The old 30 here over-quoted 31–89-day-old units that the
+    // fan-out then SKIPPED_FRESH + refunded — safe direction, but it inflated
+    // pre-flight prices and could false-trip insufficient_credits.
+    freshnessDays: 90,
   },
   // One Apify run per cell, attributed to all members.
   meta_ads: {

@@ -154,6 +154,7 @@ export async function loadCoverageMatrix(
     failedRows,
     runningRows,
     adRuns,
+    activeRuns,
   ] = await Promise.all([
     prisma.review.findMany({
       where: { businessId: { in: businessIds } },
@@ -236,6 +237,17 @@ export async function loadCoverageMatrix(
     prisma.adMarketRun.groupBy({
       by: ["cellKey", "platform", "status"],
       where: { cellKey: { in: runCellKeys } },
+    }),
+    // ISSUE-11 FIX · ACTIVE runs (PENDING/RUNNING) that cover a cell with a
+    // cell-basis type (meta_ads/serp). Those collectors run inline per-cell and
+    // write their AdMarketRun only on completion — the ONLY in-flight record is
+    // the EnrichmentRun itself (enrichmentsJson + scopeRefsJson.cellKeys). This
+    // is what lets a Meta/SERP field read `running` after a page refresh.
+    prisma.enrichmentRun.findMany({
+      where: { agencyId, status: { in: ["PENDING", "RUNNING"] } },
+      select: { enrichmentsJson: true, scopeRefsJson: true },
+      orderBy: { startedAt: "desc" },
+      take: 50,
     }),
   ]);
 
@@ -337,8 +349,36 @@ export async function loadCoverageMatrix(
     }
   }
 
+  // ISSUE-11 · fold ACTIVE runs into a per-cell "in flight" map for the
+  // cell-basis types. scopeRefsJson is the plain `{ kind, businessIds, cellKeys }`
+  // shape runEnrichAction persists; enrichmentsJson is the token list.
+  const cellRunning = new Map<string, { metaAds: boolean; serp: boolean }>();
+  for (const run of activeRuns) {
+    const tokens = Array.isArray(run.enrichmentsJson)
+      ? (run.enrichmentsJson as unknown[]).filter(
+          (t): t is string => typeof t === "string",
+        )
+      : [];
+    const wantsMeta = tokens.includes("meta_ads");
+    const wantsSerp = tokens.includes("serp");
+    if (!wantsMeta && !wantsSerp) continue;
+    const scope = run.scopeRefsJson as { cellKeys?: unknown } | null;
+    const keys = Array.isArray(scope?.cellKeys)
+      ? (scope.cellKeys as unknown[]).filter(
+          (k): k is string => typeof k === "string",
+        )
+      : [];
+    for (const k of keys) {
+      const c = cellRunning.get(k) ?? { metaAds: false, serp: false };
+      if (wantsMeta) c.metaAds = true;
+      if (wantsSerp) c.serp = true;
+      cellRunning.set(k, c);
+    }
+  }
+
   return businesses.map((b) => {
     const cell = b.cellKey ? cellRuns.get(b.cellKey) : undefined;
+    const running = b.cellKey ? cellRunning.get(b.cellKey) : undefined;
     const states = deriveFamilyStates({
       presence: {
         reviews: reviewSet.has(b.id),
@@ -384,6 +424,11 @@ export async function loadCoverageMatrix(
         googleAds: cell ? cell.googleFailed && !cell.googleRan : false,
         serp: cell ? cell.searchFailed && !cell.searchRan : false,
       },
+      // An ACTIVE run covering this cell → the type pulses "running" (survives
+      // page refresh — the client bus alone dies on reload).
+      cellRunning: running
+        ? { metaAds: running.metaAds, serp: running.serp }
+        : undefined,
     });
     return {
       businessId: b.id,

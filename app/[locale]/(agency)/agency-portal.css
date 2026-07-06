@@ -943,6 +943,37 @@
 .agency-portal .sig .val b {
   color: var(--ink);
 }
+/* Issue 13 · fixed-label-column kv variant (the drawer's AI-brief rows). One
+   shared 110–130px label column + a left-aligned prose value — replaces the
+   two-item intrinsic-width space-between flex whose value x-position (and
+   alignment direction) shifted with every row's content length. */
+.agency-portal .sig.kv .row {
+  display: grid;
+  grid-template-columns: minmax(110px, 130px) 1fr;
+  column-gap: 12px;
+  align-items: baseline;
+  margin-bottom: 0;
+}
+.agency-portal .sig.kv .name {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--faint);
+  font-family: var(--mono);
+}
+.agency-portal .sig.kv .val {
+  text-align: left;
+  line-height: 1.5;
+  margin: 0;
+}
+/* label-less full-width prose line (Cue/Angle rows — counter labels dropped) */
+.agency-portal .sig.kv.prose {
+  padding: 7px 0;
+}
+.agency-portal .sig.kv.prose .val {
+  display: block;
+}
 .agency-portal .track {
   position: relative;
   height: 8px;
@@ -2143,6 +2174,14 @@
 .agency-portal table.wb td.biz {
   min-width: 220px;
   max-width: 280px;
+}
+/* ISSUE-7 · socials column wide enough for the chip row on ONE line (5 chips ×
+   ~26px + gaps). The unclassed td had no min-width, so the table squeezed it
+   and the chips wrapped ("FB IG" / "FB"). */
+.agency-portal .wb td.socials,
+.agency-portal table.wb td.socials {
+  min-width: 150px;
+  white-space: nowrap;
 }
 .agency-portal .wb td.biz .bizname {
   display: block;
@@ -5734,44 +5773,10 @@
   /* Non-interactive overlay — the whole cell is already pointer-events:none. */
   pointer-events: none;
 }
-/* AUDIT · the field loader is a HORIZONTAL sweep beside the (dimmed) value, not a
-   round spinner that replaces it — it reads as "this value is refreshing". */
-.agency-portal .cell-loading-sweep {
-  display: inline-block;
-  width: 38px;
-  height: 8px;
-  border-radius: 4px;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    var(--indigo-100, rgba(91, 61, 245, 0.18)),
-    transparent
-  );
-  background-size: 200% 100%;
-  animation: cellsweep 1.15s ease-in-out infinite;
-  vertical-align: middle;
-}
-@keyframes cellsweep {
-  0% {
-    background-position: 200% 0;
-  }
-  100% {
-    background-position: -200% 0;
-  }
-}
-/* The affordance + sweep sit side by side (loader BESIDE content, never instead). */
-.agency-portal .cell-loading-beside {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-@media (prefers-reduced-motion: reduce) {
-  /* Leave a static tinted bar in place of the moving sweep. */
-  .agency-portal .cell-loading-sweep {
-    animation: none;
-    background: var(--indigo-100, rgba(91, 61, 245, 0.18));
-  }
-}
+/* ISSUE-4 (2026-07-06) · the in-flight field state is ONE word — "enriching…" —
+   with a smooth opacity pulse. The old word+sweep-bar pair (plus a second bar
+   appended by the td wrapper) wrapped to two lines in narrow columns; the
+   sweep/beside classes are gone with it. */
 @keyframes wb-cell-pulse {
   0%,
   100% {
@@ -5781,6 +5786,16 @@
     opacity: 1;
   }
 }
+.agency-portal td .cell-enriching {
+  animation: wb-cell-pulse 1.2s ease-in-out infinite;
+  white-space: nowrap;
+}
+@media (prefers-reduced-motion: reduce) {
+  .agency-portal td .cell-enriching {
+    animation: none;
+    opacity: 0.7;
+  }
+}
 /* AUDIT §3/A4 · per-cell states: a calm "none" for a verified-empty scan (not a
    button — retrying a known-empty result just re-charges, audit A5) and a red
    "failed · retry" affordance for an errored one. */
@@ -5788,6 +5803,17 @@
   color: var(--faint);
   font-size: 12px;
   font-style: italic;
+}
+/* ISSUE-10 · verified-empty is a DONE state, not a failure: normal type + a
+   green check so "ran, none found" never reads like the faint never-ran or the
+   red failed. The data IS "none" — no need to rerun. */
+.agency-portal td .cell-none.verified {
+  font-style: normal;
+  color: var(--muted);
+}
+.agency-portal td .cell-none.verified::before {
+  content: "✓ ";
+  color: var(--green);
 }
 .agency-portal td .cell-failed {
   color: var(--red, #d64545);
@@ -6308,17 +6334,18 @@
   color: var(--red, #d64545);
   font-style: normal;
 }
-/* AUDIT U13 · on row-hover / keyboard focus the faint "— enrich" sliver becomes
-   a real indigo pill — the most-clicked cell affordance shouldn't be the worst
-   Fitts target. Box is unchanged (reserved above) so there is NO layout shift. */
-.agency-portal tr:hover td .needsenr,
+/* AUDIT U13 + ISSUE-6 (2026-07-06) · on hover / keyboard focus the faint
+   "— enrich" sliver becomes a real indigo pill. Scoped to the PILL ITSELF —
+   the old `tr:hover` scope lit every enrich pill across the whole row when the
+   cursor touched any cell. Box is reserved at rest so there is NO layout shift. */
+.agency-portal td .needsenr:hover,
 .agency-portal td .needsenr:focus-visible {
   color: var(--indigo);
   background: var(--indigo-soft, #ece8ff);
   text-decoration: none;
   font-style: normal;
 }
-.agency-portal tr:hover td .needsenr.failed,
+.agency-portal td .needsenr.failed:hover,
 .agency-portal td .needsenr.failed:focus-visible {
   color: var(--red, #d64545);
   background: var(--red-soft, #fdecec);
@@ -6787,8 +6814,9 @@
 .agency-portal .dfact {
   min-width: 0;
 }
+/* microlabel token (10px mono caps) + layout extras — see .microlabel below */
 .agency-portal .dfact .fk {
-  font-size: 9.5px;
+  font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -6805,31 +6833,71 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* Issue 5 · stacked per-channel contact groups (Phones / Emails / Socials) —
+   full drawer width, one group per line. Was: three levels of wrapping flex
+   squeezed beside the gauge, icons floating mid-air against multi-line value
+   blocks. */
 .agency-portal .dcontacts {
   border-top: 1px dashed var(--line-2);
+  margin-top: 10px;
   padding-top: 9px;
   display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2) var(--space-5);
-  align-items: center;
+  flex-direction: column;
+  gap: 6px;
 }
-.agency-portal .dcontact {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
+/* one channel group: fixed 18px icon column (icon TOP-aligned) + a wrapping
+   value cell — wrapped lines align to one left edge, never under the icon. */
+.agency-portal .dcontact-group {
+  display: grid;
+  grid-template-columns: 18px 1fr;
+  column-gap: 6px;
+  align-items: start;
   font-size: var(--fs-sm);
   min-width: 0;
-  max-width: 100%;
 }
-.agency-portal .dcontact .ci {
+.agency-portal .dcontact-group .ci {
   color: var(--faint);
   font-size: 12px;
+  padding-top: 2px;
+}
+.agency-portal .dcontact-vals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  align-items: baseline;
+  min-width: 0;
+}
+/* a value + its role/primary tags + report affordance = ONE non-breaking unit
+   (a value and its report link can never separate across a wrap) */
+.agency-portal .cunit {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  white-space: nowrap;
+  min-width: 0;
+}
+/* role / "primary" micro-tags on a contact value */
+.agency-portal .cctag {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--faint);
+  font-family: var(--mono);
   flex: 0 0 auto;
 }
+.agency-portal .cctag.primary {
+  color: var(--indigo-700);
+}
+/* faint platform prefix inside a social handle link */
+.agency-portal .cplat {
+  color: var(--faint);
+  margin-right: 3px;
+}
 /* email/phone link inside the drawer contacts strip truncates with an
-         ellipsis (keeps its title= for full text on hover); the .wb-table cap
+         ellipsis (keeps its tooltip for full text on hover); the .wb-table cap
          only applies inside the workbench table, not here. */
-.agency-portal .dcontact .clink {
+.agency-portal .dcontacts .clink {
   display: inline-block;
   max-width: 200px;
   overflow: hidden;
@@ -6839,8 +6907,17 @@
   color: var(--indigo);
   text-decoration: none;
 }
-.agency-portal .dcontact .clink:hover {
+.agency-portal .dcontacts .clink:hover {
   text-decoration: underline;
+}
+/* the per-group "+N more" expander — a real button in .clink clothing */
+.agency-portal .dcontacts .cmore {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  font-size: var(--fs-sm);
+  cursor: pointer;
 }
 .agency-portal .dcontact-ghost {
   font-size: var(--fs-sm);
@@ -6859,11 +6936,12 @@
   gap: var(--space-2);
   margin-top: var(--space-2);
 }
+/* microlabel token (10px mono caps) + its own top margin */
 .agency-portal .dchips-head {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
   color: var(--faint);
   font-family: var(--mono);
   margin: 13px 0 0;
@@ -6975,6 +7053,83 @@
 .agency-portal .dacc-enrich:hover {
   background: var(--indigo-50);
   border-color: var(--indigo);
+}
+
+/* ---- drawer consistency tokens (issues 5/13 + structure pass) ---- */
+/* ONE mono-caps micro-label token — replaces the 9.5/10/10.5/11px inline zoo.
+   .dfact .fk / .elabel / .dchips-head / .dacc-ghost-tag carry the same four
+   typography declarations in their own rules (each keeps its layout extras). */
+.agency-portal .microlabel {
+  display: block;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--faint);
+  font-family: var(--mono);
+  margin: 8px 0 2px;
+}
+/* section rhythm: consecutive drawer sections keep one consistent gap —
+   collapses with .dsec's own margin-bottom, so no per-section inline margins */
+.agency-portal .drawer .dsec + .dsec {
+  margin-top: var(--space-4);
+}
+/* expert-findings callouts inside a drawer section (was inline-styled) */
+.agency-portal .drawer .dsec .callout {
+  font-size: 12px;
+  margin-top: 8px;
+}
+/* research signal verdicts — the class existed in markup with NO stylesheet
+   entry; every row carried inline flex + padding overrides. */
+.agency-portal .sigverdicts {
+  margin: 0 0 12px;
+}
+.agency-portal .sigverdicts > .note {
+  margin: 0 0 8px;
+}
+.agency-portal .sigverdicts .sig {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 0;
+}
+.agency-portal .sigverdicts .sig .name {
+  flex: 1;
+  min-width: 0;
+}
+.agency-portal .sigverdicts .sig .pill {
+  flex-shrink: 0;
+}
+/* one outreach-draft card in "Outreach · touches" (was inline-styled) */
+.agency-portal .dtouch {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 11px;
+  margin-bottom: 8px;
+}
+.agency-portal .dtouch:last-child {
+  margin-bottom: 0;
+}
+.agency-portal .dtouch-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+.agency-portal .dtouch-head b {
+  font-size: 12.5px;
+}
+.agency-portal .dtouch-subject {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink);
+  margin: 0 0 4px;
+}
+.agency-portal .dtouch-body {
+  font-size: 12.5px;
+  color: var(--ink-2);
+  margin: 0;
+  white-space: pre-wrap;
 }
 
 /* ---- touch generator multiselect chips (Generate modal) ---- */

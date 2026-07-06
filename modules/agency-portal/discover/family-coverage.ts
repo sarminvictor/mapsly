@@ -29,6 +29,11 @@
 // pages (Pattern 4 — plain data crosses to the client) and the route handler.
 
 import type { DataFamily } from "./leads-workbench";
+import {
+  CREDIT_PRICES,
+  ENRICHMENT_PRICES,
+  type EnrichmentType,
+} from "@/modules/cost/pricing";
 
 /**
  * The real-data presence flags for ONE business — exactly the booleans the
@@ -426,6 +431,15 @@ export interface TypeRunInputs {
   cellRan?: { metaAds?: boolean; googleAds?: boolean; serp?: boolean };
   /** Failed (and never-completed) cell run for this business's cell. */
   cellFailed?: { metaAds?: boolean; googleAds?: boolean; serp?: boolean };
+  /**
+   * An ACTIVE (PENDING/RUNNING) EnrichmentRun covers this business's cell for a
+   * cell-basis type. Meta/SERP run inline per-cell and write their AdMarketRun
+   * only on completion — so without this flag they can NEVER read `running`
+   * server-side (the issue-11 gap: no loader, stale value, lost on refresh).
+   * The coverage matrix derives it from active runs' scopeRefsJson.cellKeys ×
+   * enrichmentsJson.
+   */
+  cellRunning?: { metaAds?: boolean; serp?: boolean };
 }
 
 /**
@@ -475,15 +489,29 @@ export function deriveTypeStates(
   return {
     CONTACTS: jobType("CONTACTS", p.contacts === true),
     SERVICES: jobType("SERVICES", p.services === true),
-    TECH: jobType("TECH", p.tech === true),
+    // TECH rides the CONTACTS job — dispatch.buildJobPlan folds contacts+tech
+    // into ONE `family:"CONTACTS"` job (the same DOM fetch feeds both), so a
+    // TECH-family job row NEVER exists. Without folding the CONTACTS signals in,
+    // TECH is permanently `not_run`: the workbench's "Custom / unknown" branch
+    // was dead code, the Built on / Booking tool cells lied "— enrich" over
+    // scanned data, and no loader ever showed during the scan (issues 8+9).
+    TECH: typeState({
+      hasData: p.tech === true,
+      running: has(running, "TECH") || has(running, "CONTACTS"),
+      ran: has(done, "TECH") || has(done, "CONTACTS"),
+      failed: has(failed, "TECH") || has(failed, "CONTACTS"),
+    }),
     REVIEWS: jobType("REVIEWS", p.reviews === true),
     LIGHTHOUSE: jobType("LIGHTHOUSE", p.lighthouse === true),
     AI_RESEARCH: jobType("AI_RESEARCH", p.aiResearch === true),
     // Ads/SERP: cell-scoped run signal ∪ any per-business job signal (a future
-    // dispatch that emits job rows for them stays correct either way).
+    // dispatch that emits job rows for them stays correct either way). The
+    // in-flight signal comes from ACTIVE EnrichmentRuns covering the cell
+    // (cellRunning) — Meta/SERP write no job rows and their AdMarketRun lands
+    // only on completion.
     META_ADS: typeState({
       hasData: p.metaAds === true,
-      running: has(running, "META_ADS"),
+      running: has(running, "META_ADS") || inp.cellRunning?.metaAds === true,
       ran: has(done, "META_ADS") || inp.cellRan?.metaAds === true,
       failed: has(failed, "META_ADS") || inp.cellFailed?.metaAds === true,
     }),
@@ -495,7 +523,7 @@ export function deriveTypeStates(
     }),
     SERP: typeState({
       hasData: p.serp === true,
-      running: has(running, "SERP"),
+      running: has(running, "SERP") || inp.cellRunning?.serp === true,
       ran: has(done, "SERP") || inp.cellRan?.serp === true,
       failed: has(failed, "SERP") || inp.cellFailed?.serp === true,
     }),
@@ -669,6 +697,53 @@ export function enrichTypesForGroups(keys: readonly DataGroupKey[]): string[] {
   for (const k of keys)
     for (const t of dataGroupFor(k).types) out.add(TYPE_KEY_TO_ENRICH_TOKEN[t]);
   return [...out];
+}
+
+/** Inverse of the token map — resolve an enrichment-type token ("meta_ads") to
+ *  its `EnrichmentTypeKey` ("META_ADS"). Undefined for unknown tokens. Used by
+ *  the workbench to match a column's enrich tokens against the per-type
+ *  `running` state (the refresh-surviving loader source). */
+export function typeKeyForEnrichToken(
+  token: string,
+): EnrichmentTypeKey | undefined {
+  for (const [key, tok] of Object.entries(TYPE_KEY_TO_ENRICH_TOKEN))
+    if (tok === token) return key as EnrichmentTypeKey;
+  return undefined;
+}
+
+/** The enrichment-type tokens that are CELL-basis (run once per market cell for
+ *  the whole cohort — dispatch's CELL_FAMILIES). A run of one of these updates
+ *  EVERY lead in the cell, so "is this cell updating" must ignore the per-lead
+ *  id scope. */
+export const CELL_BASIS_TOKENS: ReadonlySet<string> = new Set([
+  "meta_ads",
+  "serp",
+]);
+
+/**
+ * ONE client-side price helper pair for a data group — extracted here so the
+ * enrich sheet, the workbench toolbar button, and the bulk bar all price a
+ * group identically (they used to run three different estimators; the button
+ * said "~10 cr" while the sheet's rows said 30+ — issue 2 of the 2026-07-06
+ * browser test). The server preflight stays the authoritative billed net.
+ */
+export function groupLeadCredits(group: DataGroup): number {
+  let c = 0;
+  for (const t of enrichTypesForGroups([group.key])) {
+    const key = t as EnrichmentType;
+    if (ENRICHMENT_PRICES[key].unit === "business") c += CREDIT_PRICES[key];
+  }
+  return c;
+}
+
+/** Per-CELL credit price of a group (Meta / SERP — cell-unit types only). */
+export function groupCellCredits(group: DataGroup): number {
+  let c = 0;
+  for (const t of enrichTypesForGroups([group.key])) {
+    const key = t as EnrichmentType;
+    if (ENRICHMENT_PRICES[key].unit === "cell") c += CREDIT_PRICES[key];
+  }
+  return c;
 }
 
 /**

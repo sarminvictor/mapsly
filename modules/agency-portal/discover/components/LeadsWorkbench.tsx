@@ -27,7 +27,6 @@ import {
   useState,
   useTransition,
   type ReactElement,
-  type ReactNode,
 } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
@@ -89,8 +88,11 @@ import {
   ENRICHMENT_FAMILIES,
   ENRICHMENT_TYPES,
   DATA_GROUPS,
+  CELL_BASIS_TOKENS,
   deriveGroupStates,
   enrichTypesForGroups,
+  groupLeadCredits,
+  typeKeyForEnrichToken,
   anyLeadEnrichmentRan,
   anyLeadGroupRan,
   type FamilyState,
@@ -101,14 +103,13 @@ import {
 import { QUALIFIER_SIGNAL_KEYS } from "../goal-templates";
 import { useDismiss } from "../hooks/useDismiss";
 import { Popover } from "@/components/agency/Popover";
-import { openEnrichSheet, subscribeEnrichScope } from "../enrich-sheet-bus";
-import { THIN_MARKET_THRESHOLD, fmtCredits } from "../flow-types";
-import { resolveResearches } from "../researches";
 import {
-  ENRICHMENT_PRICES,
-  CREDIT_PRICES,
-  type EnrichmentType,
-} from "@/modules/cost/pricing";
+  openEnrichSheet,
+  subscribeEnrichFinished,
+  subscribeEnrichScope,
+} from "../enrich-sheet-bus";
+import { THIN_MARKET_THRESHOLD, fmtCredits } from "../flow-types";
+import { type EnrichmentType } from "@/modules/cost/pricing";
 
 /** WP7-13 · a stable empty-bands object for the thin-market path (no vs-cell
  *  percentiles → the workbench renders absolute values). Module-level so the
@@ -874,93 +875,106 @@ export function LeadsWorkbench({
     return () => el.removeEventListener("scroll", onScroll);
   }, []);
 
-  // AUDIT U2/D5 · per-cell "running" state — the enrich sheet announces the
-  // (business × family) scope it just launched; those cells show "running…"
-  // until their real state refreshes in (LiveRunGate's poll → router.refresh
-  // flips them to enriched/empty/failed, so `isCellRunning` self-clears once a
-  // cell is no longer not_run). A safety timeout clears any stragglers.
+  // AUDIT U2/D5 + ISSUE-11 · per-cell "running" state. TWO sources, OR-ed:
+  //   1. the client bus — the enrich sheet announces the (business × TYPE) scope
+  //      the moment a run launches (instant, optimistic; dies on reload);
+  //   2. the server per-type matrix — `typeStates[T] === "running"` from
+  //      QUEUED/RUNNING jobs + active cell runs (survives refresh, cross-tab).
+  // The old gate `statesFor(r)[family] === "not_run"` suppressed the loader on
+  // every RE-enrichment (any prior state ≠ not_run) — the exact "ran Meta ads,
+  // no loader, stale None" the owner reported. It's gone: the bus flag clears on
+  // the run-finished signal from LiveRunGate (+ a 5-min backstop timeout).
   const [enriching, setEnriching] = useState<{
     ids: Set<string>;
-    families: Set<string>;
+    types: Set<string>;
+    all: boolean;
   } | null>(null);
   useEffect(
     () =>
       subscribeEnrichScope((d) =>
         setEnriching({
           ids: new Set(d.businessIds),
-          families: new Set(d.families),
+          types: new Set(d.types),
+          all: d.all === true,
         }),
       ),
     [],
   );
+  // Clear the optimistic flags the moment the active run goes terminal.
+  useEffect(() => subscribeEnrichFinished(() => setEnriching(null)), []);
   useEffect(() => {
     if (!enriching) return;
     const t = window.setTimeout(() => setEnriching(null), 5 * 60_000);
     return () => window.clearTimeout(t);
   }, [enriching]);
-  const isCellRunning = useCallback(
-    (r: WorkbenchLeadRow, family?: DataFamily): boolean =>
-      !!family &&
-      !!enriching &&
-      enriching.ids.has(r.businessId) &&
-      enriching.families.has(family) &&
-      statesFor(r)[family] === "not_run",
-    [enriching, statesFor],
+  /**
+   * Is any of these enrichment-type tokens in flight for this row? Core of the
+   * per-field loaders. Cell-basis tokens (meta_ads/serp) run once per MARKET
+   * cell and update every lead in it — they match regardless of the per-lead id
+   * scope. The server fallback reads the honest per-type `running` state.
+   */
+  const isTokensEnriching = useCallback(
+    (r: WorkbenchLeadRow, tokens: readonly string[]): boolean => {
+      if (tokens.length === 0) return false;
+      if (enriching) {
+        for (const t of tokens) {
+          if (!enriching.types.has(t)) continue;
+          if (
+            CELL_BASIS_TOKENS.has(t) ||
+            enriching.all ||
+            enriching.ids.has(r.businessId)
+          )
+            return true;
+        }
+      }
+      // Server truth (refresh-surviving): the type is QUEUED/RUNNING, or an
+      // active run covers this row's cell for a cell-basis type.
+      const ts = typeStatesFor(r);
+      for (const t of tokens) {
+        const key = typeKeyForEnrichToken(t);
+        if (key && ts[key] === "running") return true;
+      }
+      return false;
+    },
+    [enriching, typeStatesFor],
   );
-  // AUDIT C5 · is this (business × family) currently in an enrich run. The
-  // optimistic flag (`enriching`) is set the moment a run launches, but it must
-  // CLEAR the instant the run's data lands — not only on a manual page refresh.
-  // LiveRunGate already fires router.refresh() on run completion, which re-serves
-  // the honest `statesFor` map with the family flipped OUT of `not_run` (to
-  // enriched/empty/failed). So we gate the optimistic flag on that settled state:
-  // the loader shows only while the family is BOTH flagged AND still not_run, and
-  // self-clears the moment the terminal refresh settles it. The 5-min timeout on
-  // `enriching` stays as a backstop for a run that never reports back.
-  const isFamilyEnriching = useCallback(
-    (r: WorkbenchLeadRow, family?: DataFamily): boolean =>
-      !!family &&
-      !!enriching &&
-      enriching.ids.has(r.businessId) &&
-      enriching.families.has(family) &&
-      statesFor(r)[family] === "not_run",
-    [enriching, statesFor],
+  /** The enrichment-type tokens behind ONE column — its explicit `enrichTypes`
+   *  override, else its family's default set. */
+  const colTokens = useCallback(
+    (col: ColumnDef): readonly string[] =>
+      col.enrichTypes ??
+      (col.family ? enrichTypesForFamilies([col.family]) : []),
+    [],
+  );
+  const isColEnriching = useCallback(
+    (col: ColumnDef, r: WorkbenchLeadRow): boolean =>
+      isTokensEnriching(r, colTokens(col)),
+    [isTokensEnriching, colTokens],
   );
   /**
-   * AUDIT C5 · wrap ONE value cell's `<td>` in the loading state when its family
-   * is in flight for this lead: dim the value, block interaction
-   * (`pointer-events:none` via `.cell-loading` + `aria-busy`), and overlay a
-   * small spinner — WITHOUT changing the cell content (so the column width never
-   * shifts). Only the field cell is inerted; the row's own click is untouched.
-   * A not_run cell already renders `NeedsEnrich`'s "running…" state, so wrapping
-   * it here is harmless (it just gains the dim + aria-busy). Cells with no
-   * `col.family` (biz/match/status/…) are returned unchanged.
+   * AUDIT C5 · wrap ONE value cell's `<td>` in the loading state when its types
+   * are in flight for this lead: dim the value + block interaction
+   * (`pointer-events:none` via `.cell-loading` + `aria-busy`) WITHOUT changing
+   * the cell content (so the column width never shifts). ISSUE-4 · no second
+   * sweep bar appended — the double bar is what wrapped the loader onto two
+   * lines. Cells with no enrich types (biz/match/status/…) return unchanged.
    */
   const withCellLoading = useCallback(
     (col: ColumnDef, r: WorkbenchLeadRow, td: ReactElement): ReactElement => {
-      if (!isFamilyEnriching(r, col.family) || !isValidElement(td)) return td;
+      if (!isColEnriching(col, r) || !isValidElement(td)) return td;
       const prev = (td.props as { className?: string }).className;
-      const children = (td.props as { children?: ReactNode }).children;
       return cloneElement(
         td as ReactElement<{
           className?: string;
           "aria-busy"?: boolean;
-          children?: ReactNode;
         }>,
         {
           className: `${prev ? `${prev} ` : ""}cell-loading`,
           "aria-busy": true,
         },
-        children,
-        // AUDIT · a horizontal sweep beside the (dimmed) value, NOT a round
-        // spinner replacing it — the loader reads as "refreshing this value".
-        <span
-          key="__cellspin"
-          className="cell-loading-sweep"
-          aria-hidden="true"
-        />,
       );
     },
-    [isFamilyEnriching],
+    [isColEnriching],
   );
 
   // AUDIT U16 · the per-cell provenance tooltip for a numeric enriched value:
@@ -1376,49 +1390,59 @@ export function LeadsWorkbench({
     [filtered, selected],
   );
 
-  // AUDIT U10/U17 · "enrichable in this view" + its gross credit estimate.
-  // A row is enrichable when it has ≥1 ENRICHMENT family that hasn't run yet
-  // (not_run) — those are the only families an enrich run would actually charge
-  // for and produce data on. `rowNotRunFamilies` yields that per-row set; the
-  // gross-credit estimate sums each row's not-run BUSINESS-basis families
-  // (CREDIT_PRICES), dependency-resolved like EnrichMoreSheet's grossCredits so
-  // the toolbar/bulk numbers stay consistent with the sheet. Cell-basis families
-  // (ads/serp) need the per-cell count the sheet resolves server-side, so they're
-  // excluded from this at-a-glance estimate (the sheet quotes the honest net).
-  const rowNotRunFamilies = useCallback(
-    (r: WorkbenchLeadRow): DataFamily[] => {
-      const st = statesFor(r);
-      return ENRICHMENT_FAMILIES.filter((f) => st[f] === "not_run");
+  // AUDIT U10/U17 + ISSUE-2 · "enrichable in this view" + its credit estimate,
+  // computed on the SAME 7-group axis the enrich sheet's rows use (the old
+  // 5-family version under-counted four ways: no AI brief, no cell fees, no
+  // partially-run groups, no failed retries — the button said "~10 cr" while
+  // the sheet's rows totalled 30+). A group is TO-GET when its rolled-up state
+  // is not_run OR failed (the sheet's exact predicate). Cell-basis groups
+  // (Meta/SERP) stay out of the per-row number (they're per-market, not
+  // per-lead); the sheet quotes them on their own rows.
+  const rowToGetGroups = useCallback(
+    (r: WorkbenchLeadRow): DataGroupKey[] => {
+      const gs = groupStatesFor(r);
+      return DATA_GROUPS.filter(
+        (g) =>
+          g.basis === "lead" &&
+          (gs[g.key] === "not_run" || gs[g.key] === "failed"),
+      ).map((g) => g.key);
     },
-    [statesFor],
+    [groupStatesFor],
   );
   const rowIsEnrichable = useCallback(
-    (r: WorkbenchLeadRow): boolean => rowNotRunFamilies(r).length > 0,
-    [rowNotRunFamilies],
+    (r: WorkbenchLeadRow): boolean => rowToGetGroups(r).length > 0,
+    [rowToGetGroups],
   );
-  /** Gross per-lead credit estimate for a set of rows: each row contributes the
-   *  credits of its not-run business-basis families (dependency-resolved). */
+  /** Credit estimate for a set of rows: each row contributes the per-lead price
+   *  of every to-get group — the same groupLeadCredits the sheet prices with,
+   *  so button and sheet can never disagree again. */
   const grossCreditsForRows = useCallback(
     (rowsIn: readonly WorkbenchLeadRow[]): number => {
       let credits = 0;
       for (const r of rowsIn) {
-        const fams = rowNotRunFamilies(r);
-        if (fams.length === 0) continue;
-        const types = resolveResearches(
-          enrichTypesForFamilies(fams) as EnrichmentType[],
-        );
-        for (const t of types) {
-          if (ENRICHMENT_PRICES[t].unit === "business")
-            credits += CREDIT_PRICES[t];
+        for (const key of rowToGetGroups(r)) {
+          const group = DATA_GROUPS.find((g) => g.key === key);
+          if (group) credits += groupLeadCredits(group);
         }
       }
       return credits;
     },
-    [rowNotRunFamilies],
+    [rowToGetGroups],
+  );
+  /** The union of to-get groups across a row set — pre-selected in the sheet so
+   *  the sheet opens showing EXACTLY the basket the button priced (ISSUE-2: the
+   *  old flow advertised a number, then opened an empty selection). */
+  const toGetGroupsForRows = useCallback(
+    (rowsIn: readonly WorkbenchLeadRow[]): DataGroupKey[] => {
+      const out = new Set<DataGroupKey>();
+      for (const r of rowsIn) for (const k of rowToGetGroups(r)) out.add(k);
+      return [...out];
+    },
+    [rowToGetGroups],
   );
 
   // The scope for the toolbar's one primary enrich action: the selected rows if
-  // any are selected, else the filtered rows that still have a not-run family.
+  // any are selected, else the filtered rows that still have a to-get group.
   const enrichTargetRows = useMemo(() => {
     const base =
       selected.size > 0
@@ -1431,16 +1455,22 @@ export function LeadsWorkbench({
     () => grossCreditsForRows(enrichTargetRows),
     [enrichTargetRows, grossCreditsForRows],
   );
-  // U17 · gross credits for the bulk-bar selection (the selected rows only).
+  // U17 · credits for the bulk-bar selection (the selected rows only).
   const bulkEnrichCredits = useMemo(
     () => grossCreditsForRows(filtered.filter((r) => selected.has(r.leadId))),
     [filtered, selected, grossCreditsForRows],
   );
   /** Open the enrich sheet for the toolbar's primary action — scoped to the
-   *  enrichable target rows (selected-if-any, else the filtered set). */
+   *  enrichable target rows (selected-if-any, else the filtered set), with the
+   *  advertised to-get groups PRE-SELECTED so the sheet's net matches the
+   *  button's number. */
   function openToolbarEnrichSheet() {
     const ids = enrichTargetRows.map((r) => r.businessId);
     openEnrichSheet({
+      enrichments: enrichTypesForGroups(
+        toGetGroupsForRows(enrichTargetRows),
+      ) as EnrichmentType[],
+      preselect: true,
       scope: {
         selectedBusinessIds: ids,
         visibleBusinessIds: filtered.map((r) => r.businessId),
@@ -1515,24 +1545,37 @@ export function LeadsWorkbench({
       ? (DATA_FAMILIES.find((f) => f.key === family)?.label ?? "data")
       : "data";
 
-    // AUDIT U2/D5 · this cell is in the active enrich run → show it working, with
-    // the loader BESIDE the affordance (dimmed "enriching…" copy + a horizontal
-    // sweep), not a round spinner REPLACING it. The point: the loader renders
-    // alongside content, never instead of it.
-    if (isCellRunning(r, family)) {
+    // AUDIT U2/D5 + ISSUE-4 · this cell is in the active enrich run → ONE word
+    // with a smooth pulse, never a multi-line skeleton (the old word+sweep pair
+    // wrapped to two lines in narrow columns). Matched on the column's TYPE
+    // tokens so re-runs show it too (the old not_run gate hid every re-run).
+    if (
+      isTokensEnriching(
+        r,
+        enrichTypes ?? (family ? enrichTypesForFamilies([family]) : []),
+      )
+    ) {
       return (
-        <span className="cell-loading-beside" data-tip="Enriching…">
-          <span className="cell-none">enriching…</span>
-          <span className="cell-loading-sweep" aria-hidden="true" />
+        // Tooltip names the pull instead of echoing the cell text.
+        <span
+          className="cell-none cell-enriching"
+          data-tip={`Pulling ${label}`}
+        >
+          enriching…
         </span>
       );
     }
 
     // WB-CELL-2 · verified-empty when the family reports 'empty', OR when the
     // family ran ('enriched') but this sub-field came back empty (ranButEmpty).
+    // ISSUE-10 · styled as a DONE state (check + normal type), not the faint
+    // italic that read as failed/missing — "none" IS the data.
     if (state === "empty" || (ranButEmpty && state === "enriched")) {
       return (
-        <span className="cell-none" data-tip={`Scanned · no ${label} found`}>
+        <span
+          className="cell-none verified"
+          data-tip={`Scanned · no ${label} found`}
+        >
           none
         </span>
       );
@@ -1740,8 +1783,11 @@ export function LeadsWorkbench({
           : "";
         return (
           <td className="num" key={col.key}>
+            {/* 2026-07-06 · NO vs-cell delta on Match — Match % is already a
+                composite relative score; a second "vs cell median" arrow on it
+                read as noise (owner: "remove delta"). renderDelta stays for the
+                raw numeric fact columns. */}
             <span className={`cellval${tone}`}>{r.match}%</span>
-            {vsCell && band ? renderDelta(r.match, band, true) : null}
           </td>
         );
       }
@@ -1831,12 +1877,27 @@ export function LeadsWorkbench({
           // re-charge for a known result. Only a genuinely not_run/failed TECH
           // state falls through to the enrich affordance.
           if (col.key === "builtOn" || col.key === "bookingTool") {
-            const tech = coverageTypeStates[r.businessId]?.TECH;
+            // ISSUE-9 · read the derived per-type map (typeStatesFor), not the
+            // raw matrix prop: TECH now folds the CONTACTS job signals (tech
+            // rides the contacts DOM fetch — no TECH job row ever exists), so
+            // this branch is finally LIVE and the cell agrees with the drawer's
+            // "Custom / unknown" / "Phone only" instead of lying "— enrich".
+            const tech = typeStatesFor(r).TECH;
             if (tech === "enriched" || tech === "empty") {
               return (
                 <td key={col.key}>
-                  <span className="cell-none">
-                    {col.key === "builtOn" ? "Custom / unknown" : "—"}
+                  {/* Same vocabulary as the drawer: builtOn "Custom / unknown",
+                      booking "Phone only" (scanned, no online booking found).
+                      Provenance tip so Tom can hover-confirm it's scanned truth. */}
+                  <span
+                    className="cell-none verified"
+                    data-tip={
+                      col.key === "builtOn"
+                        ? "Tech scan ran · no known CMS detected"
+                        : "Tech scan ran · no booking tool found"
+                    }
+                  >
+                    {col.key === "builtOn" ? "Custom / unknown" : "Phone only"}
                   </span>
                 </td>
               );
@@ -2036,8 +2097,13 @@ export function LeadsWorkbench({
           LINKEDIN: "IN",
         };
         return (
-          <td key={col.key}>
-            <span style={{ display: "inline-flex", gap: 4, flexWrap: "wrap" }}>
+          // ISSUE-7 · social chips never wrap: the unclassed td had no min-width
+          // so the table squeezed it and "FB IG / FB" broke onto two rows.
+          // td.socials reserves the width (CSS) + nowrap keeps one line.
+          <td key={col.key} className="socials">
+            <span
+              style={{ display: "inline-flex", gap: 4, flexWrap: "nowrap" }}
+            >
               {r.socials.slice(0, 5).map((s, i) => {
                 const href = /^https?:\/\//.test(s.value) ? s.value : undefined;
                 // AUDIT UX-review #7 · a mapped short tag, else a title-cased
@@ -3298,16 +3364,21 @@ export function LeadsWorkbench({
         <button
           type="button"
           className="bb"
-          onClick={() =>
+          onClick={() => {
+            const rowsSel = filtered.filter((r) => selected.has(r.leadId));
+            // ISSUE-2 · pre-select the exact to-get groups the button priced,
+            // so the sheet opens matching its advertised number.
             openEnrichSheet({
+              enrichments: enrichTypesForGroups(
+                toGetGroupsForRows(rowsSel),
+              ) as EnrichmentType[],
+              preselect: true,
               scope: {
-                selectedBusinessIds: filtered
-                  .filter((r) => selected.has(r.leadId))
-                  .map((r) => r.businessId),
+                selectedBusinessIds: rowsSel.map((r) => r.businessId),
                 visibleBusinessIds: filtered.map((r) => r.businessId),
               },
-            })
-          }
+            });
+          }}
         >
           Enrich {selected.size}
           {bulkEnrichCredits > 0

@@ -25,11 +25,11 @@ export interface EnrichSheetRequest {
   /** Families to pre-select in the sheet (empty → user picks). */
   enrichments?: EnrichmentType[];
   /**
-   * AUDIT D1 · when true, the sheet OPENS with `enrichments` already checked —
-   * set by a single-field/single-lead CTA (a "— enrich" cell or a drawer ghost
-   * accordion) so clicking one field pre-selects that enrichment. The bulk
-   * "enrich more" / coverage CTA leaves it false so the user isn't surprised by
-   * a large pre-selected bill.
+   * AUDIT D1 + ISSUE-2 · when true, the sheet OPENS with `enrichments`
+   * already checked. Set by single-field/single-lead CTAs AND by the toolbar
+   * "Enrich N · ~X cr" / bulk-bar buttons — those advertise a priced basket, so
+   * the sheet MUST open matching it (net on open == the number clicked). Only
+   * the un-priced coverage CTA leaves it false.
    */
   preselect?: boolean;
   /** The scope the opener had at hand — the sheet offers it as options. */
@@ -83,17 +83,28 @@ export function subscribeEnrichStarted(
 
 // AUDIT U2/D5 · per-cell "running" scope — a SEPARATE event (so LiveRunGate's
 // runId contract is untouched) so the table can flip the exact (business ×
-// family) cells being enriched to a "running" state until their real state
-// refreshes in. `families` are DataFamily keys.
+// type) cells being enriched to a "running" state until their real state
+// refreshes in.
+//
+// ISSUE-11 REWORK (2026-07-06) · the payload carries the raw enrichment-type
+// TOKENS ("contacts", "tech", "meta_ads", …), NOT the lossy 5-family collapse —
+// the family axis cross-lit sibling columns (a Meta run lit the Google column)
+// and dropped services/ai_research entirely (the AI-summary column could never
+// show a loader). `all` marks a whole-research run (the client has no per-lead
+// ids for it — the old guard turned that into a silent no-op and NOTHING lit).
 export interface EnrichScopeDetail {
   businessIds: string[];
-  families: string[];
+  /** Raw enrichment-type tokens (resolved, incl. dependencies). */
+  types: string[];
+  /** True for a whole-research scope — matches EVERY row. */
+  all?: boolean;
 }
 const SCOPE_EVENT = "mapsly:enrich-scope";
 
 export function emitEnrichScope(detail: EnrichScopeDetail): void {
   if (typeof window === "undefined") return;
-  if (detail.businessIds.length === 0 || detail.families.length === 0) return;
+  if (detail.types.length === 0) return;
+  if (detail.businessIds.length === 0 && !detail.all) return;
   window.dispatchEvent(
     new CustomEvent<EnrichScopeDetail>(SCOPE_EVENT, { detail }),
   );
@@ -108,6 +119,25 @@ export function subscribeEnrichScope(
   };
   window.addEventListener(SCOPE_EVENT, listener);
   return () => window.removeEventListener(SCOPE_EVENT, listener);
+}
+
+// ISSUE-11 · "the active run went terminal" — fired by LiveRunGate the moment
+// its poll sees a terminal status. The workbench clears its optimistic
+// per-cell "enriching…" flags on this signal (the old self-clear gated the
+// loader on `state === "not_run"`, which suppressed loaders on every RE-run —
+// the exact "no loader, stale None" the owner reported). The 5-min timeout
+// stays as the backstop for a run that never reports back.
+const FINISHED_EVENT = "mapsly:enrich-finished";
+
+export function emitEnrichFinished(): void {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent(FINISHED_EVENT));
+}
+
+export function subscribeEnrichFinished(handler: () => void): () => void {
+  const listener = () => handler();
+  window.addEventListener(FINISHED_EVENT, listener);
+  return () => window.removeEventListener(FINISHED_EVENT, listener);
 }
 
 // LD-1/LD-2 · "this lead's server-side detail changed" — a touch was generated
