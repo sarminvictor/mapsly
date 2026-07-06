@@ -85,6 +85,10 @@ const RawFiltersSchema = z.object({
 });
 
 const EnrichInput = z.object({
+  /** The discovery this run belongs to — persisted on the run (Wave-3 FK) so
+   *  run→discovery attribution never falls back to cellKeys-overlap guessing.
+   *  Optional: legacy callers omit it; those runs resolve via the fallback. */
+  discoveryId: z.string().min(1).max(64).optional(),
   /** Selected businesses (drives per-business families). Empty → cell-only. */
   businessIds: z.array(z.string().min(1).max(64)).max(5000).default([]),
   /** Cells the run spans (drives per-cell families). */
@@ -265,6 +269,7 @@ export async function preflightEnrichAction(
         enrichments: parsed.data.enrichments,
         scopeRefs: {
           kind: "enrichment",
+          discoveryId: parsed.data.discoveryId ?? null,
           businessIds,
           cellKeys: parsed.data.cellKeys,
           // Persist the estimator inputs so authorizeEstimate can re-quote.
@@ -400,6 +405,7 @@ export async function runEnrichAction(
       Array.isArray(est.enrichmentsJson) ? est.enrichmentsJson : []
     ) as EnrichmentType[];
     const scope = (est.scopeRefsJson ?? {}) as {
+      discoveryId?: string | null;
       businessIds?: string[];
       cellKeys?: string[];
       lines?: { total?: number; fresh?: number }[];
@@ -432,6 +438,9 @@ export async function runEnrichAction(
     const run = await prisma.enrichmentRun.create({
       data: {
         agencyId,
+        // Wave-3 FK · authoritative run→discovery attribution (from the
+        // authorized estimate's scope — anti-tamper like everything else here).
+        discoveryId: scope.discoveryId ?? null,
         triggeredByUserId: session.user.id,
         estimateId: parsed.data.estimateId,
         enrichmentsJson: families as unknown as Prisma.InputJsonValue,

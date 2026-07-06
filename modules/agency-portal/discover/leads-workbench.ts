@@ -9,10 +9,9 @@
 // renderWBHead/renderWBBody/evalFilter/fmtDelta/renderColsMenu) but typed and
 // bound to REAL Lead+Business+snapshot+finding data.
 
-// enrichTypesForFamilies maps a column's DataFamily → its research tokens. The
-// reverse type-import (family-coverage imports DataFamily from here) is type-only
-// and erased, so there is no runtime cycle; the value is read at call time.
-import { enrichTypesForFamilies } from "./family-coverage";
+// enrichTypesForGroups maps a column's DataGroupKey → its research tokens
+// (the 7-group vocabulary from family-coverage — the ONE display axis).
+import { enrichTypesForGroups, type DataGroupKey } from "./family-coverage";
 
 // ── Row shape (plain serializable · resolved server-side) ────────────────────
 
@@ -112,8 +111,6 @@ export interface WorkbenchLeadRow {
   /** Social handles (Instagram/Facebook/TikTok/…) from Contact rows — AUDIT E6:
    *  the data was always stored, just never surfaced as a column. */
   socials: SocialContact[];
-  /** Enrichment families present on this lead (for coverage + "— enrich" cells). */
-  families: Record<DataFamily, boolean>;
 }
 
 /** One social contact channel + its handle/URL (audit E6). */
@@ -320,29 +317,6 @@ export function reachabilityLabel(status: string): {
 
 // ── Column registry ──────────────────────────────────────────────────────────
 
-export type DataFamily =
-  | "identity"
-  | "reviews"
-  | "website"
-  | "contacts"
-  | "ads"
-  | "search";
-
-/** The 9-family coverage model surfaced on the coverage line. */
-export const DATA_FAMILIES: readonly { key: DataFamily; label: string }[] = [
-  { key: "identity", label: "Identity" },
-  { key: "reviews", label: "Reviews" },
-  // AUDIT C3 · this coverage FAMILY means "a site audit (tech/Lighthouse) ran",
-  // NOT the website URL — the "Website" COLUMN (COLUMNS[website], kind:"site")
-  // owns that. Labelled "Site audit" so the coverage panel + field-state filters
-  // + per-cell enrich tooltips never collide with the URL column. The family KEY
-  // stays `website` (unchanged) — only the human label changed.
-  { key: "website", label: "Site audit" },
-  { key: "contacts", label: "Contacts" },
-  { key: "ads", label: "Ads" },
-  { key: "search", label: "Search" },
-] as const;
-
 export type ColumnKind =
   | "biz" // business name + addr
   | "match" // match % (sortable, mono)
@@ -361,8 +335,8 @@ export type ColumnKind =
 
 /**
  * F3 · the ENRICHMENT-TYPE grouping the Fields picker buckets columns by (each
- * rendered under its own header). Distinct from `group` (workflow vs enriched),
- * which drives the "add for free" copy + the locked buy-rows. Every column is
+ * rendered under its own header). Distinct from `group` (the backing
+ * DataGroupKey, which drives run-state + enrich affordances). Every column is
  * tagged with exactly one typeGroup.
  */
 export type ColumnTypeGroup =
@@ -399,16 +373,15 @@ export interface ColumnDef {
   sortable: boolean;
   /** On by default. */
   defaultOn: boolean;
-  /** Which Fields-menu group it lives in. */
-  group: "workflow" | "enriched";
   /** F3 · which ENRICHMENT-TYPE section the Fields picker files it under. */
   typeGroup: ColumnTypeGroup;
-  /** Backing data family (for "— enrich" greying + coverage). */
-  family?: DataFamily;
-  /** Override the enrich TYPES a cell-click on this column requests. Defaults to
-   *  the family's types (`FAMILY_ENRICH_TYPES`). Use this when a column is a
-   *  subset of its family — e.g. Built on / Booking tool are `website` family but
-   *  only want the tech/DOM scan (contacts+tech), NOT Lighthouse. */
+  /** Backing DATA GROUP (for "— enrich" greying + run-state + provenance) —
+   *  the 7-group vocabulary. Workflow columns (biz/match/status/…) have none. */
+  group?: DataGroupKey;
+  /** Override the enrich TYPES a cell-click on this column requests. Defaults
+   *  to the group's types (`enrichTypesForGroups`). Use this when a column is a
+   *  subset of its group — e.g. AI summary is `ai_brief` group but only wants
+   *  the ai_research job, NOT the services sub-scan. */
   enrichTypes?: readonly string[];
   /** For num columns: does a higher value read as better (vs-cell color)? */
   higherIsBetter?: boolean;
@@ -431,8 +404,6 @@ export const COLUMNS: readonly ColumnDef[] = [
     kind: "biz",
     sortable: false,
     defaultOn: true,
-    group: "workflow",
-    family: "identity",
     typeGroup: "Identity",
   },
   {
@@ -441,7 +412,6 @@ export const COLUMNS: readonly ColumnDef[] = [
     kind: "match",
     sortable: true,
     defaultOn: true,
-    group: "workflow",
     typeGroup: "Identity",
   },
   {
@@ -451,7 +421,6 @@ export const COLUMNS: readonly ColumnDef[] = [
     kind: "pains",
     sortable: false,
     defaultOn: true,
-    group: "workflow",
     typeGroup: "Identity",
   },
   {
@@ -462,8 +431,8 @@ export const COLUMNS: readonly ColumnDef[] = [
     // On by default — "Has a website: match" begged the question "why not the
     // website itself?" The URL is the single most-clicked field on a lead.
     defaultOn: true,
-    group: "enriched",
-    family: "website",
+    // The URL comes from the DOM/contacts fetch → the Contacts & site tech group.
+    group: "contacts_tech",
     typeGroup: "Tech",
   },
   {
@@ -474,8 +443,7 @@ export const COLUMNS: readonly ColumnDef[] = [
     // Off by default now that the Website column carries the URL — the CMS name
     // is a secondary detail, kept toggle-able in the Fields menu.
     defaultOn: false,
-    group: "enriched",
-    family: "website",
+    group: "contacts_tech",
     // Built-on comes from the DOM/tech scan (rides the contacts fetch) — NOT
     // Lighthouse. A cell-click enriches contacts+tech only.
     enrichTypes: ["contacts", "tech"],
@@ -487,8 +455,7 @@ export const COLUMNS: readonly ColumnDef[] = [
     kind: "reach",
     sortable: false,
     defaultOn: true,
-    group: "workflow",
-    family: "contacts",
+    group: "contacts_tech",
     typeGroup: "Contacts",
   },
   {
@@ -497,8 +464,7 @@ export const COLUMNS: readonly ColumnDef[] = [
     kind: "num",
     sortable: true,
     defaultOn: false,
-    group: "enriched",
-    family: "reviews",
+    group: "reviews",
     higherIsBetter: true,
     typeGroup: "Reviews",
   },
@@ -508,8 +474,7 @@ export const COLUMNS: readonly ColumnDef[] = [
     kind: "num",
     sortable: true,
     defaultOn: false,
-    group: "enriched",
-    family: "reviews",
+    group: "reviews",
     higherIsBetter: true,
     unit: "★",
     typeGroup: "Reviews",
@@ -521,11 +486,9 @@ export const COLUMNS: readonly ColumnDef[] = [
     kind: "num",
     sortable: true,
     defaultOn: false,
-    group: "enriched",
-    family: "website",
-    // Perf comes from the Lighthouse audit ONLY — without this the family
-    // default (contacts+tech+lighthouse) made a tech scan light this column's
-    // loader and a cell-click buy the DOM fetch too.
+    group: "site_speed",
+    // Perf comes from the Lighthouse audit ONLY (the group's exact set — kept
+    // explicit so a future group change can't silently widen a cell-click buy).
     enrichTypes: ["lighthouse"],
     higherIsBetter: true,
     typeGroup: "Site audit",
@@ -538,8 +501,7 @@ export const COLUMNS: readonly ColumnDef[] = [
     kind: "num",
     sortable: true,
     defaultOn: false,
-    group: "enriched",
-    family: "website",
+    group: "site_speed",
     // Same as perf — Lighthouse-only.
     enrichTypes: ["lighthouse"],
     higherIsBetter: true,
@@ -547,18 +509,15 @@ export const COLUMNS: readonly ColumnDef[] = [
   },
   {
     // Meta and Google ads are SEPARATE columns — distinct sources, cost bases,
-    // and reliability. Never merged into one "Ads" total. `enrichTypes` scopes a
-    // cell-click to THAT platform only (the `ads` DataFamily is shared for the
-    // coverage dot, but the enrich action must not buy the other platform).
+    // and reliability. Never merged into one "Ads" total. Each column's group
+    // scopes a cell-click to THAT platform only.
     key: "metaAdCount",
     label: "Meta ads",
     fullLabel: "Active Meta (FB/IG) ad creatives",
     kind: "num",
     sortable: true,
     defaultOn: false,
-    group: "enriched",
-    family: "ads",
-    enrichTypes: ["meta_ads"],
+    group: "meta_ads",
     higherIsBetter: true,
     typeGroup: "Ads",
   },
@@ -569,9 +528,7 @@ export const COLUMNS: readonly ColumnDef[] = [
     kind: "num",
     sortable: true,
     defaultOn: false,
-    group: "enriched",
-    family: "ads",
-    enrichTypes: ["google_ads"],
+    group: "google_ads",
     higherIsBetter: true,
     typeGroup: "Ads",
   },
@@ -583,8 +540,7 @@ export const COLUMNS: readonly ColumnDef[] = [
     kind: "num",
     sortable: true,
     defaultOn: false,
-    group: "enriched",
-    family: "search",
+    group: "search",
     higherIsBetter: false,
     typeGroup: "Search",
   },
@@ -595,8 +551,7 @@ export const COLUMNS: readonly ColumnDef[] = [
     kind: "text",
     sortable: false,
     defaultOn: false,
-    group: "enriched",
-    family: "website",
+    group: "contacts_tech",
     // Booking tool is read from the DOM/tech scan, not Lighthouse.
     enrichTypes: ["contacts", "tech"],
     typeGroup: "Tech",
@@ -605,16 +560,16 @@ export const COLUMNS: readonly ColumnDef[] = [
     // AUDIT F2 · the AI-research positioning summary — stored on
     // BusinessEnrichment (the drawer already renders it), now a toggle-able
     // column. Off by default (a long text field); the cell truncates + carries
-    // the full text in its tooltip. No DataFamily maps to AI research, so it has
-    // no `family` — but `enrichTypes` wires the loader + a cell-click to the
-    // AI-brief research (ISSUE-11: without it this column could NEVER show an
-    // in-flight state).
+    // the full text in its tooltip. Group = ai_brief, but `enrichTypes` narrows
+    // the loader + a cell-click to the ai_research job only (the services
+    // sub-scan doesn't feed this column — ISSUE-11: without the wiring this
+    // column could NEVER show an in-flight state).
     key: "aiSummary",
     label: "AI summary",
     kind: "text",
     sortable: false,
     defaultOn: false,
-    group: "enriched",
+    group: "ai_brief",
     enrichTypes: ["ai_research"],
     typeGroup: "AI",
   },
@@ -627,8 +582,7 @@ export const COLUMNS: readonly ColumnDef[] = [
     // fresh workbench answers "how do I see the contacts?" without hunting the
     // Fields menu. (Junk phones are now purged + NANP-validated at the source.)
     defaultOn: true,
-    group: "enriched",
-    family: "contacts",
+    group: "contacts_tech",
     typeGroup: "Contacts",
   },
   {
@@ -637,8 +591,7 @@ export const COLUMNS: readonly ColumnDef[] = [
     kind: "contact",
     sortable: false,
     defaultOn: true,
-    group: "enriched",
-    family: "contacts",
+    group: "contacts_tech",
     typeGroup: "Contacts",
   },
   {
@@ -649,21 +602,19 @@ export const COLUMNS: readonly ColumnDef[] = [
     kind: "socials",
     sortable: false,
     defaultOn: false,
-    group: "enriched",
-    family: "contacts",
+    group: "contacts_tech",
     typeGroup: "Contacts",
   },
   {
     key: "cov",
     label: "Enriched",
-    fullLabel: "Enrichment coverage (data families have / not yet)",
+    fullLabel: "Enrichment coverage (data groups have / not yet)",
     kind: "cov",
     sortable: false,
     // Off by default per the prototype's B7 decision — this info lives in the
     // coverage line (Have/Not yet) above the table instead of repeating a dot
     // strip on every row. Still selectable via the Fields menu.
     defaultOn: false,
-    group: "workflow",
     typeGroup: "Identity",
   },
   {
@@ -672,7 +623,6 @@ export const COLUMNS: readonly ColumnDef[] = [
     kind: "status",
     sortable: false,
     defaultOn: true,
-    group: "workflow",
     typeGroup: "Identity",
   },
   {
@@ -681,7 +631,6 @@ export const COLUMNS: readonly ColumnDef[] = [
     kind: "touch",
     sortable: false,
     defaultOn: true,
-    group: "workflow",
     typeGroup: "Identity",
   },
   {
@@ -690,7 +639,6 @@ export const COLUMNS: readonly ColumnDef[] = [
     kind: "lastC",
     sortable: true,
     defaultOn: true,
-    group: "workflow",
     typeGroup: "Identity",
   },
 ] as const;
@@ -707,14 +655,14 @@ export const DEFAULT_ACTIVE_COLUMNS: string[] = COLUMNS.filter(
 
 /**
  * WB-COL-1 · the first-visit column set for a GOAL-BASED hunt: the always-on
- * defaults PLUS every enriched-group column whose backing research intersects
- * the goal's researches — so a Website-redesign hunt opens showing Site speed +
+ * defaults PLUS every enriched column whose backing research intersects the
+ * goal's researches — so a Website-redesign hunt opens showing Site speed +
  * SEO (the data the agency paid for), not just contacts. Additive (never drops a
  * default), preserves COLUMNS render order, `biz` stays first. A goal with no
  * researches (discovery-only) yields exactly DEFAULT_ACTIVE_COLUMNS. Pure —
  * `goalResearches` are the expanded, lowercase research tokens
  * (researchesForSignals output); each column's tokens come from `enrichTypes` or
- * its family's FAMILY_ENRICH_TYPES.
+ * its data group's `enrichTypesForGroups`.
  */
 export function defaultActiveColumnsForGoal(
   goalResearches: readonly string[],
@@ -727,7 +675,7 @@ export function defaultActiveColumnsForGoal(
       continue;
     }
     const tokens =
-      c.enrichTypes ?? (c.family ? enrichTypesForFamilies([c.family]) : []);
+      c.enrichTypes ?? (c.group ? enrichTypesForGroups([c.group]) : []);
     if (tokens.some((t) => goalSet.has(t))) out.push(c.key);
   }
   return out;

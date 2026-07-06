@@ -83,6 +83,10 @@ interface GroupLine {
    *  market group this means the cell run(s) completed OK — re-runs are offered
    *  only after a FAILED run (issue 12). */
   done: boolean;
+  /** Of the HAVE leads, how many actually carry data (state enriched) — splits
+   *  the done label into "already done" vs "scanned · none found" (truth
+   *  unification: verified-empty must not read as have-data). */
+  dataN: number;
 }
 
 /** Map a set of pre-selected enrichment-type tokens (from a single-field / ghost
@@ -255,6 +259,7 @@ export function EnrichMoreSheet({
       const isMarket = group.basis === "market";
       let have = 0;
       let toGet = 0;
+      let dataN = 0;
       for (const id of scopeIds) {
         const ts = coverageTypeStates[id];
         // Build the full per-TYPE map (every one of the 9 keys, default not_run)
@@ -269,7 +274,10 @@ export function EnrichMoreSheet({
         for (const k of ENRICHMENT_TYPE_KEYS) perType[k] = ts?.[k] ?? "not_run";
         const state = rollUpGroupState(perType, group);
         if (state === "not_run" || state === "failed") toGet += 1;
-        else have += 1;
+        else {
+          have += 1;
+          if (state === "enriched") dataN += 1;
+        }
       }
       // ISSUE-12 · "already done" now applies to MARKET groups too: the per-lead
       // states already fold the cell-scoped AdMarketRun (a completed cell run
@@ -288,7 +296,7 @@ export function EnrichMoreSheet({
       const credits = done
         ? 0
         : groupCellCredits(group) * cellCount + groupLeadCredits(group) * leadN;
-      return { group, have, toGet, credits, isMarket, done };
+      return { group, have, toGet, credits, isMarket, done, dataN };
     });
     // scope === "all" has no per-lead ids (server resolves the market) → the
     // have/toGet split is unavailable; credits fall back to the whole-scope
@@ -345,6 +353,7 @@ export function EnrichMoreSheet({
     setDeficit(null);
     startTransition(async () => {
       const pf = await preflightEnrichAction({
+        discoveryId,
         businessIds: scopeIds,
         cellKeys: scopeInfo.cellKeys,
         enrichments,
@@ -523,7 +532,7 @@ export function EnrichMoreSheet({
               "Contacts & site tech" is ONE row (contacts + tech are one fetch). */}
           <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
             {groupLines.map(
-              ({ group, have, toGet, credits, isMarket, done }) => {
+              ({ group, have, toGet, credits, isMarket, done, dataN }) => {
                 const on = selected.has(group.key);
                 return (
                   <li key={group.key}>
@@ -557,7 +566,13 @@ export function EnrichMoreSheet({
                           offered only when the previous run FAILED (its leads
                           read `failed` → toGet>0 → the quote returns). */}
                         {done ? (
-                          "already done"
+                          // Truth unification · ran-with-data vs ran-empty are
+                          // both DONE (nothing to buy) but must read differently.
+                          dataN > 0 ? (
+                            "already done"
+                          ) : (
+                            "scanned · none found"
+                          )
                         ) : isMarket ? (
                           // "market · runs once per cell" already rides the
                           // desc line (marketNote) — don't say it twice.

@@ -48,8 +48,11 @@ export function ProofPackSheet({
   poweredBy = false,
 }: ProofPackSheetProps) {
   const firedVerdicts = lead.signalVerdicts.filter((v) => v.matched === true);
+  // Enriched-only by STATE (truth unification): this sheet also renders on the
+  // PUBLIC share page (/s/[token]) — internal empty/failed/running states must
+  // never leak into a client-facing artifact.
   const enrichedDomains = lead.domains.filter(
-    (d) => d.enriched && (d.summary || d.rows.length > 0),
+    (d) => d.state === "enriched" && (d.summary || d.rows.length > 0),
   );
 
   return (
@@ -166,7 +169,7 @@ export function ProofPackSheet({
       {/* Contacts */}
       <section className={styles.section}>
         <h2 className={styles.sectionTitle}>Contacts</h2>
-        {lead.contactsEnriched ? (
+        {lead.contactsState === "enriched" ? (
           <div className={styles.factgrid}>
             <div>
               <div className={styles.factk}>Phone</div>

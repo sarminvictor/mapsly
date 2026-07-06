@@ -9,8 +9,9 @@
 // the prototype's 9 sections using the already-ported drawer classes
 // (.drawer-scrim / .drawer / .dhead / .dsec / .dglance / .gauge / .dfacts /
 // .dcontacts / .fsig / .dchips / .dacc[.ghost] / .callout / .dfoot — all defined
-// in agency-portal.css). Data-domain accordions render REAL rows when enriched,
-// else a ghost "not enriched yet — enrich to unlock" card.
+// in agency-portal.css). Data-domain accordions render off the honest run state
+// (enriched / empty / failed / running / not_run — the shared loader's
+// TypeState), never data presence.
 //
 // Per .claude/rules/cache-components.md Pattern 4: this is a client component;
 // the callbacks (onClose / onNav) are owned by the client parent (LeadsWorkbench),
@@ -25,6 +26,7 @@ import {
   useState,
   useTransition,
   type CSSProperties,
+  type ReactNode,
 } from "react";
 
 import { Icon, type IconName } from "@/components/agency/Icon";
@@ -691,17 +693,65 @@ function DrawerBody({
  * wrapped lines align to one left edge. Each value + its role/primary tags +
  * report affordance is ONE non-breaking unit; groups cap at 4 values with a
  * real "+N more" toggle.
+ *
+ * Truth unification (2026-07-06): renders off the honest `contactsState` (the
+ * shared loader's CONTACTS run state), never data presence. The discovery GBP
+ * phone/email render as LISTING facts ("From the Google listing") in every
+ * state — they are free discovery data, not proof the contact scan ran.
  */
 function ContactsStrip({ lead }: { lead: LeadDetail }) {
-  if (!lead.contactsEnriched) {
+  const listing =
+    lead.listingContacts.length > 0 ? (
+      <div>
+        <div className="microlabel">From the Google listing</div>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          {lead.listingContacts.map((c) => (
+            <a className="clink" key={c.href} href={c.href}>
+              {c.value}
+            </a>
+          ))}
+        </div>
+      </div>
+    ) : null;
+
+  if (lead.contactsState !== "enriched") {
+    const note =
+      lead.contactsState === "empty"
+        ? "Contacts scanned · none found"
+        : lead.contactsState === "failed"
+          ? "Contact scan failed on the last run"
+          : lead.contactsState === "running"
+            ? "Enriching contacts…"
+            : "Contacts not enriched yet";
+    const actionable =
+      lead.contactsState === "not_run" || lead.contactsState === "failed";
     return (
       <div className="dcontacts">
-        <span className="dcontact-ghost">Contacts not enriched yet</span>
+        {listing}
+        <span className="dcontact-ghost">{note}</span>
+        {actionable ? (
+          <button
+            type="button"
+            className="btn sm"
+            onClick={() =>
+              openEnrichSheet({
+                enrichments: ["contacts"],
+                preselect: true,
+                scope: { selectedBusinessIds: [lead.businessId] },
+              })
+            }
+          >
+            {lead.contactsState === "failed"
+              ? "Retry contacts →"
+              : "Enrich contacts →"}
+          </button>
+        ) : null}
       </div>
     );
   }
   return (
     <div className="dcontacts">
+      {listing}
       <ContactGroup
         icon="phone"
         groupLabel="Phone numbers"
@@ -967,11 +1017,16 @@ function SignalVerdicts({ verdicts }: { verdicts: LeadSignalVerdict[] }) {
 }
 
 function SignalVerdictRow({ verdict }: { verdict: LeadSignalVerdict }) {
+  // Wave-3 honesty · a null verdict whose backing researches already RAN is
+  // "Scanned · no data" (calm, never a re-pay invite); only a truly-unscanned
+  // signal offers "Enrich to unlock".
   const { tone, label } =
     verdict.matched === true
       ? { tone: "green" as const, label: "Fired" }
       : verdict.matched === null
-        ? { tone: "amber" as const, label: "Enrich to unlock" }
+        ? verdict.scanned
+          ? { tone: "" as const, label: "Scanned · no data" }
+          : { tone: "amber" as const, label: "Enrich to unlock" }
         : { tone: "" as const, label: "Didn’t fire" };
   // Layout lives in `.sigverdicts .sig` (agency-portal.css) — the class existed
   // in markup with no stylesheet entry, so every row carried inline overrides.
@@ -1091,6 +1146,22 @@ function ConfidencePill({ confidence }: { confidence: string }) {
   );
 }
 
+/**
+ * AI-brief readability (owner 2026-07-06) · render `**bold**` markdown emphasis
+ * inside AI-written text. The ai-research pipeline now bolds the single most
+ * important phrase per sentence; older rows without markers render unchanged.
+ * Pure text splitting — no HTML ever passes through (React escapes the rest).
+ */
+function renderInlineBold(text: string): ReactNode {
+  if (!text.includes("**")) return text;
+  const parts = text.split(/\*\*(.+?)\*\*/g);
+  // Odd indices are the captured bold spans. A stray unpaired "**" (e.g. the
+  // storage clamp truncated mid-marker) is stripped, never shown literally.
+  return parts.map((p, i) =>
+    i % 2 === 1 ? <b key={i}>{p}</b> : p.replaceAll("**", ""),
+  );
+}
+
 function EvidenceRow({
   row,
   bands,
@@ -1139,13 +1210,15 @@ function EvidenceRow({
           ? "var(--red)"
           : undefined;
 
-  // Issue 13 · a prose row (Cue/Angle — counter labels add nothing): one
+  // Issue 13 · a prose row (Angle rows — counter labels add nothing): one
   // label-less full-width line under the section head DomainRows prints.
+  // `pain` lines (the outreach pain hypotheses) get the amber-rule highlight —
+  // the issues must stand out from neutral prose (owner 2026-07-06).
   if (row.prose) {
     return (
-      <div className="sig kv prose">
+      <div className={`sig kv prose${row.pain ? " pain" : ""}`}>
         <p className="val" style={toneColor ? { color: toneColor } : undefined}>
-          {row.value}
+          {renderInlineBold(row.value)}
         </p>
       </div>
     );
@@ -1154,7 +1227,7 @@ function EvidenceRow({
   // Issue 13 · sectioned rows (only the AI brief sets `section`) share ONE
   // fixed 110–130px label column via the `.sig.kv` grid variant — every value
   // starts at the same x. Unsectioned metric pairs keep the classic
-  // name-left/val-right flex row.
+  // name-left/val-right flex row. `strong` bolds verdict-style short values.
   return (
     <div className={row.section != null ? "sig kv" : "sig"}>
       <div className="row">
@@ -1163,7 +1236,7 @@ function EvidenceRow({
           className="val"
           style={toneColor ? { color: toneColor } : undefined}
         >
-          {row.value}
+          {row.strong ? <b>{row.value}</b> : renderInlineBold(row.value)}
         </span>
       </div>
     </div>
@@ -1184,11 +1257,13 @@ function DomainAccordion({
 }) {
   const [open, setOpen] = useState(false);
 
-  // AUDIT §4 · render off the honest RUN state, not data-presence:
+  // AUDIT §4 · render off the honest RUN state (the shared loader's TypeState),
+  // never data-presence:
   //   not_run · ghost "enrich to unlock" CTA (never-attempted, actionable)
   //   empty   · calm "ran · none found" note (verified empty — never a CTA,
   //             never re-charged) — audit E4/E5
   //   failed  · red retry affordance
+  //   running · "enriching…" tag (in flight — no CTA)
   //   enriched· the real rows
   // Reviews is special: even when its enrichment hasn't run, the LISTING facts
   // (block.listingRows, always present from discovery) still render — the
@@ -1287,6 +1362,35 @@ function DomainAccordion({
             Retry enrichment →
           </button>
         ) : null}
+      </div>
+    );
+  }
+
+  // ── running → in-flight tag (a QUEUED/RUNNING job or active cell run — the
+  // scan is already paid for, so no CTA; results land on the next refresh) ──
+  if (block.state === "running") {
+    return (
+      <div className="dacc ghost">
+        <div className="ghead">
+          <span className="dacc-ic" aria-hidden="true">
+            {block.icon}
+          </span>
+          <span className="dacc-title">{block.title}</span>
+          <span className="microlabel" style={{ marginLeft: "auto" }}>
+            enriching…
+          </span>
+        </div>
+        {hasListing ? (
+          <div style={{ padding: "4px 12px 2px" }}>
+            <div className="microlabel">From the Google listing</div>
+            {block.listingRows.map((r, i) => (
+              <EvidenceRow key={i} row={r} bands={bands} />
+            ))}
+          </div>
+        ) : null}
+        <div className="dacc-ghost-note">
+          Scan in progress — results land here when it finishes.
+        </div>
       </div>
     );
   }
@@ -1413,7 +1517,9 @@ function DomainRows({
               {seg.rows.map((r, j) => (
                 <span
                   key={`${r.label}-${j}`}
-                  className="ppchip"
+                  // Amber `warn` variant for attention chips (compliance cues);
+                  // neutral for plain facts (services menu).
+                  className={`ppchip${r.tone === "a" ? " warn" : ""}`}
                   data-tip={r.value && r.value !== "—" ? r.value : undefined}
                 >
                   {r.label}

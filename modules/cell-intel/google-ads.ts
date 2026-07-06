@@ -184,7 +184,12 @@ export async function runGoogleAdsForBusiness(
   const locationCode = locationCodeForCountry(parsedCell?.country ?? "US");
   // AdMarketRun.cellKey is required — use the business's cell (or a business-
   // scoped marker when it has none) so the telemetry row still resolves.
-  const runCellKey = business.cellKey ?? `business:${business.id}`;
+  // TRUTH UNIFICATION (2026-07-06) · ALWAYS business-keyed. Keying this
+  // telemetry row by the shared cellKey made every consumer that groupBys
+  // AdMarketRun by cellKey (coverage matrix, drawer, prevalence signal) read
+  // "google ran for the whole cell" after ONE business's per-business job —
+  // and its advertiserCount (0/1) clobbered the market-prevalence signal.
+  const runCellKey = `business:${business.id}`;
 
   try {
     const { items } = await adsSearch({

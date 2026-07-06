@@ -5,9 +5,10 @@
  * The single-business deep view reached from the raw list, signals view, or a
  * pipeline. It renders the SAME `LeadDetail` payload the workbench drawer shows
  * — header, pills, at-a-glance, fired composite signals, other angles, the
- * data-domain blocks (real when enriched, ghost when not), expert findings, and
- * the lead's touches. Page + drawer share ONE loader (`getLeadDetail`) so they
- * never diverge. Read-only.
+ * data-domain blocks (rendered off the honest per-type run STATE: enriched /
+ * empty / failed / running / not_run — truth unification 2026-07-06), expert
+ * findings, and the lead's touches. Page + drawer share ONE loader
+ * (`getLeadDetail`) so they never diverge. Read-only.
  *
  * Per `.claude/rules/cache-components.md`:
  *   - Pattern 2 · default export is SYNC; the async body (auth + DB) lives in a
@@ -217,7 +218,18 @@ async function BusinessDetailBody({ params }: PageProps) {
               )}
             </div>
           </div>
-          <Stat label="Phone" value={lead.phones[0]?.value ?? "—"} mono />
+          {/* The phone FACT falls back to the GBP listing scalar — a plain fact
+              is fine here; only the contacts SECTION below is state-gated. */}
+          <Stat
+            label="Phone"
+            value={
+              lead.phones[0]?.value ??
+              lead.listingContacts.find((c) => c.href.startsWith("tel:"))
+                ?.value ??
+              "—"
+            }
+            mono
+          />
         </div>
       </header>
 
@@ -239,39 +251,71 @@ async function BusinessDetailBody({ params }: PageProps) {
               </div>
             ))}
           </div>
-          <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 border-t border-dashed border-slate-200 pt-3 text-sm">
-            {lead.phones.map((c) => (
-              <a
-                key={c.href}
-                href={c.href}
-                className="text-indigo-600 hover:text-indigo-700"
-              >
-                📞 {c.value}
-              </a>
-            ))}
-            {lead.emails.map((c) => (
-              <a
-                key={c.href}
-                href={c.href}
-                className="text-indigo-600 hover:text-indigo-700"
-              >
-                ✉️ {c.value}
-              </a>
-            ))}
-            {lead.socials.map((c) => (
-              <a
-                key={c.href}
-                href={c.href}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-indigo-600 hover:text-indigo-700"
-              >
-                🔗 {c.value}
-              </a>
-            ))}
-            {!lead.contactsEnriched ? (
-              <span className="text-slate-400">Contacts not enriched yet</span>
+          {/* Truth unification: the contact strip is state-gated off the shared
+              loader's CONTACTS run state. The GBP scalars render as LISTING
+              facts in every state — never as proof the contact scan ran. */}
+          <div className="mt-3 border-t border-dashed border-slate-200 pt-3 text-sm">
+            {lead.listingContacts.length > 0 ? (
+              <div className="mb-1.5 flex flex-wrap items-center gap-x-4 gap-y-1">
+                <span className="font-mono text-[10px] uppercase tracking-wide text-slate-400">
+                  From the Google listing
+                </span>
+                {lead.listingContacts.map((c) => (
+                  <a
+                    key={c.href}
+                    href={c.href}
+                    className="text-indigo-600 hover:text-indigo-700"
+                  >
+                    {c.href.startsWith("tel:") ? "📞" : "✉️"} {c.value}
+                  </a>
+                ))}
+              </div>
             ) : null}
+            <div className="flex flex-wrap gap-x-4 gap-y-1">
+              {lead.contactsState === "enriched" ? (
+                <>
+                  {lead.phones.map((c) => (
+                    <a
+                      key={c.href}
+                      href={c.href}
+                      className="text-indigo-600 hover:text-indigo-700"
+                    >
+                      📞 {c.value}
+                    </a>
+                  ))}
+                  {lead.emails.map((c) => (
+                    <a
+                      key={c.href}
+                      href={c.href}
+                      className="text-indigo-600 hover:text-indigo-700"
+                    >
+                      ✉️ {c.value}
+                    </a>
+                  ))}
+                  {lead.socials.map((c) => (
+                    <a
+                      key={c.href}
+                      href={c.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-indigo-600 hover:text-indigo-700"
+                    >
+                      🔗 {c.value}
+                    </a>
+                  ))}
+                </>
+              ) : (
+                <span className="text-slate-400">
+                  {lead.contactsState === "empty"
+                    ? "Contacts scanned · none found"
+                    : lead.contactsState === "failed"
+                      ? "Contact scan failed on the last run — retry from the workbench"
+                      : lead.contactsState === "running"
+                        ? "Enriching contacts…"
+                        : "Contacts not enriched yet"}
+                </span>
+              )}
+            </div>
           </div>
         </div>
       </section>
@@ -380,33 +424,57 @@ async function BusinessDetailBody({ params }: PageProps) {
         <h2 className="mb-2 text-sm font-semibold text-slate-700">
           Data domains
         </h2>
+        {/* Truth unification: render off the honest run STATE (the same
+            TypeState the workbench matrix + drawer show) — a verified-empty
+            run reads "Ran · none found" (calm, no sales pitch), a failed one
+            says so with a retry hint, and only never-run domains get the
+            dashed ghost + ghostNote. */}
         <div className="flex flex-col gap-3">
           {lead.domains.map((d) => (
             <div
               key={d.key}
-              className={`rounded-xl border p-4 ${d.enriched ? "border-slate-200 bg-white" : "border-dashed border-slate-300 bg-slate-50"}`}
+              className={`rounded-xl border p-4 ${
+                d.state === "not_run"
+                  ? "border-dashed border-slate-300 bg-slate-50"
+                  : "border-slate-200 bg-white"
+              }`}
             >
               <div className="flex items-center gap-2">
                 <span aria-hidden="true">{d.icon}</span>
                 <span className="text-sm font-semibold text-slate-800">
                   {d.title}
                 </span>
-                {d.enriched ? (
+                {d.state === "enriched" ? (
                   d.summary ? (
                     <span className="ml-auto truncate font-mono text-[11px] text-slate-500">
                       {d.summary}
                     </span>
                   ) : null
                 ) : (
-                  <span className="ml-auto font-mono text-[10px] uppercase tracking-wide text-slate-400">
-                    Not enriched
+                  <span
+                    className={`ml-auto font-mono text-[10px] uppercase tracking-wide ${
+                      d.state === "failed" ? "text-red-600" : "text-slate-400"
+                    }`}
+                  >
+                    {d.state === "empty"
+                      ? "Ran · none found"
+                      : d.state === "failed"
+                        ? "Failed"
+                        : d.state === "running"
+                          ? "Enriching…"
+                          : "Not enriched"}
                   </span>
                 )}
               </div>
-              {d.enriched ? (
-                d.rows.length ? (
-                  <dl className="mt-2 grid gap-1.5">
-                    {d.rows.map((r, i) => (
+              {/* Listing facts (GBP aggregate) render in every state, honestly
+                  labelled — same as the drawer (E1). */}
+              {d.listingRows.length > 0 ? (
+                <div className="mt-2">
+                  <div className="font-mono text-[10px] uppercase tracking-wide text-slate-400">
+                    From the Google listing
+                  </div>
+                  <dl className="mt-1 grid gap-1.5">
+                    {d.listingRows.map((r, i) => (
                       <div
                         key={i}
                         className="flex justify-between gap-3 text-sm"
@@ -420,9 +488,45 @@ async function BusinessDetailBody({ params }: PageProps) {
                       </div>
                     ))}
                   </dl>
-                ) : null
+                </div>
+              ) : null}
+              {d.state === "enriched" ? (
+                <>
+                  {d.rows.length ? (
+                    <dl className="mt-2 grid gap-1.5">
+                      {d.rows.map((r, i) => (
+                        <div
+                          key={i}
+                          className="flex justify-between gap-3 text-sm"
+                        >
+                          <dt className="text-slate-500">{r.label}</dt>
+                          <dd
+                            className={`text-right font-medium ${evidenceToneClass(r.tone)}`}
+                          >
+                            {r.value}
+                          </dd>
+                        </div>
+                      ))}
+                    </dl>
+                  ) : null}
+                  {d.source ? (
+                    <p className="mt-2 text-xs text-slate-400">
+                      {d.source}
+                      {d.asOf ? ` · as of ${d.asOf}` : ""}
+                    </p>
+                  ) : null}
+                </>
               ) : (
-                <p className="mt-1.5 text-sm text-slate-500">{d.ghostNote}</p>
+                <p className="mt-1.5 text-sm text-slate-500">
+                  {d.state === "empty"
+                    ? (d.emptyNote ??
+                      "Enrichment ran — nothing found for this business.")
+                    : d.state === "failed"
+                      ? "Enrichment errored on the last run. Retry it from the workbench."
+                      : d.state === "running"
+                        ? "Scan in progress — results land here when it finishes."
+                        : d.ghostNote}
+                </p>
               )}
             </div>
           ))}

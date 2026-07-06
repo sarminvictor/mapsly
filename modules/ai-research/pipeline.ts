@@ -240,7 +240,7 @@ ${site}
 
 Schema: { "pricingTransparency": "transparent"|"opaque"|"unknown", "positioningSummary": string }
 - pricingTransparency: "transparent" if prices/ranges are stated, "opaque" if hidden behind "call us", "unknown" if no signal.
-- positioningSummary: one sentence on how they position themselves (≤ 40 words).`;
+- positioningSummary: one sentence on how they position themselves (≤ 40 words). Wrap the single most decisive phrase in **markdown bold** (exactly one bold span).`;
     case "ER-3":
       return `${JSON_ONLY}
 List regulatory / compliance cues relevant to this category.
@@ -256,7 +256,7 @@ ${ctx}
 ${site}
 
 Schema: { "painHypotheses": string[] }
-- Each is a short, concrete hypothesis grounded in the facts (≤ 20 words). 0–6 items. Do not invent facts.`;
+- Each is a short, concrete hypothesis grounded in the facts (≤ 20 words). 0–6 items. Do not invent facts. In each, wrap the core pain in **markdown bold** (e.g. "**no online booking** despite competitors offering it").`;
     case "ER-5":
       return `${JSON_ONLY}
 Compare this business to its market leader.
@@ -264,7 +264,7 @@ ${ctx}
 Market leader: ${f.cellLeaderName ?? "(unknown)"}
 
 Schema: { "competitivePositioning": string }
-- One sentence on where this business stands vs the leader (≤ 40 words). If the leader is unknown, describe its standalone competitive position.`;
+- One sentence on where this business stands vs the leader (≤ 40 words). If the leader is unknown, describe its standalone competitive position. Wrap the single most decisive phrase in **markdown bold** (exactly one bold span).`;
   }
 }
 

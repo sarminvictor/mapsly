@@ -2262,6 +2262,11 @@ model EnrichmentRun {
   id                 String              @id @default(cuid())
   agencyId           String
   estimateId         String?             @unique
+  // TRUTH UNIFICATION Wave 3 (2026-07-06) · the discovery this run was launched
+  // from. Replaces the 5 scopeRefsJson.cellKeys-overlap heuristics for run→
+  // discovery attribution (a run overlapping two discoveries' cells was counted
+  // by both). Nullable: pre-FK rows resolve via the cellKeys fallback.
+  discoveryId        String?
   triggeredByUserId  String
   enrichmentsJson    Json
   scopeKind          String
@@ -2282,6 +2287,7 @@ model EnrichmentRun {
   meta               Json?
 
   @@index([agencyId, status])
+  @@index([discoveryId, status])
   @@index([startedAt])
 }
 

@@ -1810,8 +1810,11 @@ export async function hydrateBusinessForSignals(
             businessId: string;
             advertiserCount: number;
           }[];
+        // TRUTH UNIFICATION (2026-07-06) · META only. advertiserCount is the
+        // Meta Ad Library market facet; the per-business GOOGLE telemetry rows
+        // (advertiserCount 0/1) were newest and CLOBBERED the cell's value.
         const runs = await prisma.adMarketRun.findMany({
-          where: { cellKey: { in: cellKeys } },
+          where: { cellKey: { in: cellKeys }, platform: "META" },
           orderBy: { ranAt: "desc" },
           select: { cellKey: true, advertiserCount: true },
         });

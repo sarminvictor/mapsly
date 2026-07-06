@@ -65,14 +65,6 @@ function row(over: Partial<WorkbenchLeadRow> = {}): WorkbenchLeadRow {
     emails: ["maria@solea.com"],
     socials: [],
     lastContactedAt: null,
-    families: {
-      identity: true,
-      reviews: true,
-      website: true,
-      contacts: true,
-      ads: false,
-      search: false,
-    },
     ...over,
   };
 }

@@ -45,33 +45,16 @@ export const GET = cronHandler(JOB, async () => {
     orderBy: { finishedAt: "asc" },
   });
   const oldRunIds = oldRuns.map((r) => r.id);
+  void oldRunIds;
 
-  let jobsDeleted = 0;
-  if (oldRunIds.length > 0) {
-    const doneDel = await prisma.enrichmentJob.deleteMany({
-      where: {
-        runId: { in: oldRunIds },
-        status: { in: ["DONE", "SKIPPED_FRESH"] },
-      },
-    });
-    jobsDeleted += doneDel.count;
-  }
-  // FAILED kept longer, pruned only past the 90d window.
-  const veryOldRuns = await prisma.enrichmentRun.findMany({
-    where: { finishedAt: { lt: failedCutoff } },
-    select: { id: true },
-    take: 5_000,
-    orderBy: { finishedAt: "asc" },
-  });
-  if (veryOldRuns.length > 0) {
-    const failedDel = await prisma.enrichmentJob.deleteMany({
-      where: {
-        runId: { in: veryOldRuns.map((r) => r.id) },
-        status: "FAILED",
-      },
-    });
-    jobsDeleted += failedDel.count;
-  }
+  // TRUTH UNIFICATION (2026-07-06) · EnrichmentJob rows are THE run-state
+  // source of truth for every coverage surface (deriveTypeStates reads them).
+  // The old 30d/90d job pruning silently reverted "ran" states to "never ran"
+  // on a weekly schedule — a lead's coverage decayed while its data stayed.
+  // Jobs are tiny rows; we keep them forever. (finishedAt cutoffs retained
+  // above only to bound the stage-run compaction below.)
+  const jobsDeleted = 0;
+  void failedCutoff;
 
   // 2 · EnrichmentStageRun — keep only the newest per (businessId, stage). Do the
   // dedup in a bounded post-response pass so it never blocks the tick close.

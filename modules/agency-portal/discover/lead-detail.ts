@@ -13,8 +13,9 @@
 //   4. why      · fired composite signals (flagged findings) w/ evidence + pitch
 //   5. angles   · other pain-point chips
 //   6. domains  · Reviews / Website&tech / Site speed / Ads / Search / Services /
-//                 AI research — each REAL when enriched, else a ghost "enrich to
-//                 unlock" card (the `enriched` flag drives the fallback)
+//                 AI research — each rendered off its honest run STATE (from the
+//                 SHARED loadTypeStatesForBusinesses loader): enriched / empty /
+//                 failed / running / not_run
 //   7. findings · compliance / accessibility expert warnings + evidence
 //   8. touches  · this lead's OutreachDraft sequence
 //   9. footer   · the action surface (rendered client-side)
@@ -30,16 +31,17 @@ import { draftWhereForAgency } from "@/modules/outreach/draft-scope";
 import {
   deriveMatchPct,
   painGroupClass,
-  type DataFamily,
   type LeadStatus,
   type PainGroup,
 } from "./leads-workbench";
 import {
-  COVERED_JOB_STATUSES,
-  FAILED_JOB_STATUSES,
-  deriveFamilyStates,
-  type FamilyState,
+  dataGroupFor,
+  rollUpGroupState,
+  typeKeyForEnrichToken,
+  type TypeState,
 } from "./family-coverage";
+import { loadTypeStatesForBusinesses } from "./coverage-matrix";
+import { researchesForSignals } from "./researches";
 import { parseWhyJson } from "./touchpoints";
 import {
   hydrateBusinessForSignals,
@@ -122,6 +124,18 @@ export interface LeadEvidenceRow {
    * `value` the hover detail (category). Generic consumers keep label/value.
    */
   chip?: boolean;
+  /**
+   * AI-brief readability (owner 2026-07-06) · a PAIN/issue line — the drawer
+   * highlights it (amber left rule + ink text) so the pitch fuel stands out
+   * from neutral prose. Set only on the Opener-angle pain hypotheses.
+   */
+  pain?: boolean;
+  /**
+   * AI-brief readability · bold the whole (short) value — verdict-style rows
+   * (Sub-type / Sophistication / Pricing transparency) whose value is the
+   * information. Never set on sentence values.
+   */
+  strong?: boolean;
 }
 
 /** A fired composite signal (a flagged PlaybookFinding) w/ evidence + pitch. */
@@ -165,22 +179,30 @@ export interface LeadSignalVerdict {
   title: string;
   /** Plain-English "what it means" (SIG_META.means). */
   means: string;
-  /** true = fired · false = didn't · null = not computable (enrich to unlock). */
+  /** true = fired · false = didn't · null = not computable (data absent). */
   matched: boolean | null;
+  /**
+   * Wave-3 honesty · for a null verdict: TRUE when every research this signal
+   * needs already RAN (the data is verified-absent — "scanned · no data"),
+   * FALSE when ≥1 backing research never ran ("enrich to unlock"). A null
+   * verdict must never invite paying again for a scan that already happened.
+   */
+  scanned?: boolean;
 }
 
 /**
  * One data-domain accordion block. The drawer renders off the honest
- * {@link FamilyState} (audit §4 · E1/E4/E5 — the presence≠ran fix):
+ * {@link TypeState}, derived by the SHARED loadTypeStatesForBusinesses loader
+ * (the same derivation the workbench matrix reads — 2026-07-06 truth
+ * unification, so drawer and workbench can never disagree):
  *   - `enriched` · an enrichment ran and produced data → real `summary` + `rows`
  *   - `empty`    · the enrichment RAN but found nothing (verified) → the calm
  *                  `emptyNote` ("Ran · no active ads found"), never a ghost CTA
- *                  and never re-charged (a completed cell run IS coverage)
+ *                  and never re-charged (a completed run IS coverage)
  *   - `failed`   · the enrichment errored → red retry affordance
+ *   - `running`  · a QUEUED/RUNNING job (or active cell run) is in flight →
+ *                  "enriching…" tag, no CTA
  *   - `not_run`  · never attempted → the ghost "enrich to unlock" card + CTA
- *
- * `enriched` (the boolean) stays === `state === "enriched"` for callers that
- * only care whether real data exists.
  *
  * `listingRows` (E1) is the discovery-derived "listing facts" (GBP aggregate:
  * total reviews / rating / years-on-Google) that are ALWAYS present regardless
@@ -189,16 +211,14 @@ export interface LeadSignalVerdict {
  * listing, not a review pull.
  */
 export interface LeadDomainBlock {
-  /** Stable key (reviews / tech / speed / ads / serp / services / ai). */
+  /** Stable key (reviews / tech / speed / meta_ads / google_ads / serp / ai). */
   key: string;
   /** Emoji icon (prototype parity). */
   icon: string;
   /** Section title. */
   title: string;
-  /** The honest per-family run state (audit §4 — the source of truth). */
-  state: FamilyState;
-  /** Whether the backing family produced data (=== state === "enriched"). */
-  enriched: boolean;
+  /** The honest per-type run state (the shared loader — the source of truth). */
+  state: TypeState;
   /** Collapsed-state one-line summary (only when enriched). */
   summary: string | null;
   /** Detail rows shown on expand (only when enriched). */
@@ -291,11 +311,22 @@ export interface LeadDetail {
    */
   matchFromSignals: boolean;
   facts: LeadFact[];
+  /** Scraped Contact-row channels — enrichment output ONLY (never the GBP
+   *  discovery scalars; those live in `listingContacts`). */
   phones: LeadContact[];
   emails: LeadContact[];
   socials: LeadContact[];
-  /** Whether the contacts family is enriched (drives ghost contacts strip). */
-  contactsEnriched: boolean;
+  /**
+   * The discovery GBP phone/email scalars, rendered as LISTING facts (the
+   * contacts analogue of the reviews block's `listingRows`) — always shown when
+   * present, honestly labelled "From the Google listing", never as proof the
+   * contacts enrichment ran. Deduped against the scraped values above.
+   */
+  listingContacts: LeadContact[];
+  /** The honest CONTACTS run state (shared loader) — drives the contacts strip:
+   *  not_run → ghost + CTA · empty → "Scanned · none found" · failed → retry ·
+   *  running → in-flight note · enriched → the real strip. */
+  contactsState: TypeState;
   // ── 4. Why this lead qualifies ──
   firedSignals: LeadFiredSignal[];
   /**
@@ -407,9 +438,7 @@ export async function getLeadDetail(
     services,
     research,
     reviewAgg,
-    jobRows,
-    failedJobRows,
-    adRuns,
+    coverageRows,
   ] = await Promise.all([
     // The business already passed the agency cell gate above; scoping the Lead
     // to the same agencyId is enough (a Lead is owned by exactly one agency).
@@ -554,29 +583,20 @@ export async function getLeadDetail(
       where: { businessId },
       _count: { _all: true },
     }),
-    // AUDIT §4 · E1/E2 · the per-business EnrichmentJob run matrix: which
-    // job-backed families (REVIEWS / TECH / LIGHTHOUSE / CONTACTS / …) RAN
-    // (DONE / SKIPPED_FRESH) — so a reviews job that pulled 0 still reads "ran".
-    prisma.enrichmentJob.groupBy({
-      by: ["family"],
-      where: { businessId, status: { in: [...COVERED_JOB_STATUSES] } },
-    }),
-    // …and which FAILED (distinct from never-run).
-    prisma.enrichmentJob.groupBy({
-      by: ["family"],
-      where: { businessId, status: { in: [...FAILED_JOB_STATUSES] } },
-    }),
-    // AUDIT §4 · E4/E5 · ads/SERP are CELL-scoped (no per-business job rows). A
-    // COMPLETED AdMarketRun for THIS business's cell IS the coverage signal, so
-    // a cell that ran and matched 0 ads/ranks reads "ran, none found" (empty),
-    // not "not enriched". Scoped to the one cell the drawer's business lives in.
-    business.cellKey
-      ? prisma.adMarketRun.groupBy({
-          by: ["platform", "status"],
-          where: { cellKey: business.cellKey },
-        })
-      : Promise.resolve([] as { platform: string; status: string }[]),
+    // THE shared run-state loader (coverage-matrix.ts) — the SAME derivation
+    // the workbench matrix reads (jobs incl. QUEUED/RUNNING, cell AdMarketRun
+    // for META/SERP, active-run cellRunning, real-row presence → the canonical
+    // deriveTypeStates). One derivation, every surface (2026-07-06 truth
+    // unification) — this loader must never re-derive privately.
+    loadTypeStatesForBusinesses(
+      [{ id: business.id, cellKey: business.cellKey }],
+      agencyId,
+    ),
   ]);
+
+  // The honest per-type run states for this business (the loader returns a row
+  // for every business it was given).
+  const typeStates = coverageRows.get(business.id)!.typeStates;
 
   // ── Contacts → phones / emails / socials ──
   const phones: LeadContact[] = [];
@@ -618,15 +638,23 @@ export async function getLeadDetail(
       });
     }
   }
-  // Fall back to the Business scalars when no Contact rows exist.
-  if (phones.length === 0 && business.phone) {
-    phones.push({ value: business.phone, href: `tel:${business.phone}` });
+  // The discovery GBP scalars are LISTING facts (free discovery data), never
+  // proof the contacts enrichment ran — they render as "From the Google
+  // listing" (the reviews listingRows pattern), deduped against the scrape.
+  const listingContacts: LeadContact[] = [];
+  if (business.phone && !phones.some((p) => p.value === business.phone)) {
+    listingContacts.push({
+      value: business.phone,
+      href: `tel:${business.phone}`,
+    });
   }
-  if (emails.length === 0 && business.email) {
-    emails.push({ value: business.email, href: `mailto:${business.email}` });
+  if (business.email && !emails.some((e) => e.value === business.email)) {
+    listingContacts.push({
+      value: business.email,
+      href: `mailto:${business.email}`,
+    });
   }
-  const contactsEnriched =
-    contacts.length > 0 || phones.length > 0 || emails.length > 0;
+  const contactsState = typeStates.CONTACTS;
 
   // ── CMS built-on + tech presence (for the Website & tech accordion) ──
   const cms = techs.find((t) => t.category === "CMS")?.name ?? null;
@@ -660,62 +688,6 @@ export async function getLeadDetail(
   const googleAds = ads.filter((a) => a.platform === "GOOGLE");
   const metaRunsAds = metaAds.some((a) => a.isActive);
   const googleRunsAds = googleAds.some((a) => a.isActive);
-
-  // ── AUDIT §4 · honest per-family RUN state (E1/E4/E5 · the presence≠ran fix).
-  // Fold the per-business EnrichmentJob matrix + the cell-scoped AdMarketRun into
-  // the SAME `deriveFamilyStates` the workbench table + coverage matrix use, so
-  // the drawer can never disagree with the dots again.
-  const doneJobFamilies = new Set(jobRows.map((g) => g.family));
-  const failedJobFamilies = new Set(failedJobRows.map((g) => g.family));
-  // ads = META/GOOGLE platform runs, search = SERP platform runs. OK/PARTIAL =
-  // ran; FAILED (with no later OK for the same platform) = failed.
-  const AD_OK = new Set(["OK", "PARTIAL"]);
-  // Track META and GOOGLE run-state SEPARATELY so a Google OK can't MASK a Meta
-  // FAILED in the shared `ads` family. Before this, an errored Meta scan sat
-  // beside a Google OK and the family read "enriched" with no failure surfaced —
-  // the drawer then showed Meta activity for a business whose Meta scan errored
-  // (B1 honesty regression, INC-2026-07-05).
-  let metaRan = false;
-  let metaFailed = false;
-  let googleRan = false;
-  let googleFailed = false;
-  let searchRan = false;
-  let searchFailed = false;
-  for (const r of adRuns) {
-    const ran = AD_OK.has(r.status);
-    const failed = r.status === "FAILED";
-    if (r.platform === "SERP") {
-      if (ran) searchRan = true;
-      else if (failed) searchFailed = true;
-    } else if (r.platform === "META") {
-      if (ran) metaRan = true;
-      else if (failed) metaFailed = true;
-    } else if (r.platform === "GOOGLE") {
-      if (ran) googleRan = true;
-      else if (failed) googleFailed = true;
-    }
-  }
-  // Family-level (drives the dot/coverage): "ads" ran if EITHER platform ran.
-  const adsRan = metaRan || googleRan;
-  const adsFailed = metaFailed || googleFailed;
-  const familyStates: Record<DataFamily, FamilyState> = deriveFamilyStates({
-    presence: {
-      // reviews presence = REAL pulled Review rows, never reviewCount (E1).
-      reviews: pulledReviews > 0,
-      website: techScanned || audit != null,
-      contacts: contacts.length > 0 || phones.length > 0 || emails.length > 0,
-      ads: ads.length > 0,
-      search: serp != null,
-    },
-    doneJobFamilies,
-    failedJobFamilies,
-    cellRan: { ads: adsRan, search: searchRan },
-    // A cell "failed" only counts if it never also completed (a later OK wins).
-    cellFailed: {
-      ads: adsFailed && !adsRan,
-      search: searchFailed && !searchRan,
-    },
-  });
 
   // ── Pains (flagged findings) ──
   const pains: LeadPainChip[] = findings.map((f) => ({
@@ -753,11 +725,26 @@ export async function getLeadDetail(
       const result = resolveMatches(activeSignals, hydrated);
       signalVerdicts = activeSignals.map((sig) => {
         const meta = SIG_META[sig.key];
+        const matched = result.perSignal[sig.key] ?? null;
+        // Wave-3 honesty · a null verdict splits by whether the signal's
+        // backing researches RAN: ran → "scanned · no data" (never a re-pay
+        // CTA), not ran → "enrich to unlock".
+        let scanned: boolean | undefined;
+        if (matched === null) {
+          const tokens = researchesForSignals([{ key: sig.key }]);
+          scanned =
+            tokens.length > 0 &&
+            tokens.every((t) => {
+              const key = typeKeyForEnrichToken(t);
+              return key != null && typeStates[key] !== "not_run";
+            });
+        }
         return {
           key: sig.key,
           title: meta?.title ?? signalKeyLabel(sig.key),
           means: meta?.means ?? "",
-          matched: result.perSignal[sig.key] ?? null,
+          matched,
+          ...(scanned !== undefined ? { scanned } : {}),
         };
       });
       // A null-only cohort (nothing computable yet) → no honest %; fall back to
@@ -834,44 +821,35 @@ export async function getLeadDetail(
     },
   ];
 
-  // ── Data-domain accordions · honest per-family RUN state (audit §4) ──
-  // Each block's `state` is the SINGLE source of truth. `enriched` (boolean) is
-  // kept === state === "enriched" for callers that only ask "is there data?".
-  // tech/speed share the `website` family; ads/search/reviews/contacts map 1:1.
-  const reviewsState = familyStates.reviews;
+  // ── Data-domain accordions · honest per-TYPE run state (truth unification) ──
+  // Every block's `state` comes from the SHARED loader's deriveTypeStates — the
+  // exact states the workbench matrix shows. `*Enriched` locals are pure
+  // conveniences (state === "enriched") gating the content rows; the loader's
+  // presence split guarantees the backing rows exist whenever a state reads
+  // "enriched".
+  const reviewsState = typeStates.REVIEWS;
   const reviewsEnriched = reviewsState === "enriched";
-  // tech + speed are two views on the website family; each is "enriched" only
-  // when its own real data exists, but the family state drives the ghost/empty.
-  const techEnriched = techScanned || cms != null;
-  const speedEnriched = audit != null;
-  const websiteState = familyStates.website;
-  // Meta and Google ads are SEPARATE drawer blocks, each with its OWN honest
-  // run-state — a Meta failure can no longer hide behind a Google success.
-  // presence → enriched · scanned-empty → empty · errored → failed · else not_run.
-  const platformAdState = (
-    hasData: boolean,
-    ran: boolean,
-    failed: boolean,
-  ): FamilyState =>
-    hasData ? "enriched" : ran ? "empty" : failed ? "failed" : "not_run";
-  const metaAdsState = platformAdState(metaAds.length > 0, metaRan, metaFailed);
-  const googleAdsState = platformAdState(
-    googleAds.length > 0,
-    googleRan,
-    googleFailed,
-  );
+  // TECH folds the CONTACTS job inside deriveTypeStates (tech rides the same
+  // DOM fetch — dispatch never emits TECH job rows), so a completed contacts
+  // scan that found no tech reads "empty", never a re-pay ghost.
+  const techState = typeStates.TECH;
+  const techEnriched = techState === "enriched";
+  const speedState = typeStates.LIGHTHOUSE;
+  const speedEnriched = speedState === "enriched";
+  // Meta and Google ads are SEPARATE blocks with separate run rails (Meta =
+  // cell-scoped AdMarketRun; Google = per-business job rows ONLY — the
+  // cell-keyed GOOGLE telemetry pollution is excluded by the loader).
+  const metaAdsState = typeStates.META_ADS;
   const metaAdsEnriched = metaAdsState === "enriched";
+  const googleAdsState = typeStates.GOOGLE_ADS;
   const googleAdsEnriched = googleAdsState === "enriched";
-  const serpState = familyStates.search;
+  const serpState = typeStates.SERP;
   const serpEnriched = serpState === "enriched";
-  // Services folds into the AI brief — both read the fetched DOM, shown as one
-  // "AI brief" block. `servicesEnriched` still gates the Services sub-section.
-  const servicesEnriched = services.length > 0;
-  const aiEnriched = research != null;
-  // The AI-brief block is enriched when EITHER the AI read or the services list
-  // has data.
-  const aiBriefEnriched = aiEnriched || servicesEnriched;
-  const aiBriefState: FamilyState = aiBriefEnriched ? "enriched" : "not_run";
+  // The AI brief rolls up SERVICES + AI_RESEARCH (the ai_brief data group) —
+  // a DONE AI job with no rows now reads "empty" (Ran · none found) instead of
+  // a re-pay ghost, and a FAILED one gets the retry affordance.
+  const aiBriefState = rollUpGroupState(typeStates, dataGroupFor("ai_brief"));
+  const aiBriefEnriched = aiBriefState === "enriched";
 
   // WP6-9 · per-block provenance — the retrieval date backing each domain, so
   // every evidence block reads "{source} · as of {date}". Nulls degrade to the
@@ -974,7 +952,6 @@ export async function getLeadDetail(
       icon: "⭐",
       title: "Reviews",
       state: reviewsState,
-      enriched: reviewsEnriched,
       // Summary shows the listing facts (always) + the pull result when enriched.
       summary: `${reviewCount != null ? reviewCount.toLocaleString() : "—"} · ${
         rating != null ? `${rating.toFixed(1)}★` : "—"
@@ -998,8 +975,7 @@ export async function getLeadDetail(
       key: "tech",
       icon: "🖥️",
       title: "Website & tech",
-      state: techEnriched ? "enriched" : websiteState,
-      enriched: techEnriched,
+      state: techState,
       summary: techEnriched
         ? // "Custom / unknown" everywhere the scan found no CMS — a bare
           // "Custom" claims more certainty than the scan supports.
@@ -1041,8 +1017,7 @@ export async function getLeadDetail(
       key: "speed",
       icon: "⚡",
       title: "Site speed",
-      state: speedEnriched ? "enriched" : websiteState,
-      enriched: speedEnriched,
+      state: speedState,
       summary: speedEnriched
         ? `${perf != null ? `${Math.round(perf)}/100` : "—"} · CWV ${perf != null && perf < 50 ? "failing" : "ok"}`
         : null,
@@ -1120,7 +1095,6 @@ export async function getLeadDetail(
       icon: "📣",
       title: "Meta ads",
       state: metaAdsState,
-      enriched: metaAdsEnriched,
       summary: metaAdsEnriched
         ? `${metaAds.length} active${metaRunsAds ? "" : " · paused"}`
         : null,
@@ -1168,7 +1142,6 @@ export async function getLeadDetail(
       icon: "📣",
       title: "Google ads",
       state: googleAdsState,
-      enriched: googleAdsEnriched,
       summary: googleAdsEnriched
         ? `${googleAds.length} active${googleRunsAds ? "" : " · paused"}`
         : null,
@@ -1198,7 +1171,6 @@ export async function getLeadDetail(
       icon: "🔍",
       title: "Search rank",
       state: serpState,
-      enriched: serpEnriched,
       summary: serpEnriched
         ? `${serp?.localPackRank != null ? `#${serp.localPackRank} 3-pack` : "off the pack"}${
             serp?.organicRank != null ? ` · organic #${serp.organicRank}` : ""
@@ -1237,18 +1209,11 @@ export async function getLeadDetail(
       icon: "🧠",
       title: "AI brief",
       state: aiBriefState,
-      enriched: aiBriefEnriched,
-      summary: aiEnriched
+      summary: aiBriefEnriched
         ? [research?.subType, research?.sophistication]
             .filter(Boolean)
             .join(" · ") || "Positioning · pricing · pain hypotheses"
-        : servicesEnriched
-          ? services
-              .slice(0, 3)
-              .map((s) => s.name)
-              .join(" · ") +
-            (services.length > 3 ? ` · +${services.length - 3}` : "")
-          : null,
+        : null,
       // E3 · restructured into labelled sub-sections. `section` groups the rows
       // (Services · Summary · Compliance cues · Opener angle) so the drawer
       // renders headed groups instead of a flat list. Services folded in
@@ -1266,13 +1231,16 @@ export async function getLeadDetail(
               section: "Services" as const,
               chip: true,
             })),
-            // ── Summary (fixed-label kv rows) ──
+            // ── Summary (fixed-label kv rows) · short verdict values render
+            // BOLD (`strong`) — the value IS the information (owner 2026-07-06:
+            // "no highlights, no bold text"). Sentence rows stay normal weight.
             ...(research?.subType
               ? [
                   {
                     label: "Sub-type",
                     value: research.subType,
                     section: "Summary" as const,
+                    strong: true,
                   },
                 ]
               : []),
@@ -1282,6 +1250,7 @@ export async function getLeadDetail(
                     label: "Sophistication",
                     value: research.sophistication,
                     section: "Summary" as const,
+                    strong: true,
                   },
                 ]
               : []),
@@ -1295,6 +1264,7 @@ export async function getLeadDetail(
                         ? ("a" as const)
                         : null,
                     section: "Summary" as const,
+                    strong: true,
                   },
                 ]
               : []),
@@ -1316,31 +1286,35 @@ export async function getLeadDetail(
                   },
                 ]
               : []),
-            // ── Compliance cues (label-less prose — "Cue N" adds nothing) ──
-            ...(research?.complianceCues ?? []).map((c, i) => ({
-              label: `Cue ${i + 1}`,
-              value: c,
+            // ── Compliance cues · these are SHORT TAGS by construction (the
+            // ER-3 prompt caps them at ≤5 words: "medical-director-required",
+            // "HIPAA") — render as amber warning CHIPS, not full-width prose
+            // lines that read like broken sentences. Dashes humanized.
+            ...(research?.complianceCues ?? []).map((c) => ({
+              label: c.replace(/-/g, " "),
+              value: "—",
               section: "Compliance cues" as const,
-              prose: true,
+              chip: true,
+              tone: "a" as const,
             })),
-            // ── Opener angle (the outreach pain hypotheses · prose) ──
+            // ── Opener angle (the outreach pain hypotheses) · the pitch fuel —
+            // each line gets the PAIN highlight (amber rule + ink text) so the
+            // issues stand out from neutral prose (owner 2026-07-06).
             ...(research?.painHypotheses ?? []).map((p, i) => ({
               label: `Angle ${i + 1}`,
               value: p,
               section: "Opener angle" as const,
               prose: true,
+              pain: true,
             })),
           ]
         : [],
       listingRows: [],
       ghostNote:
         "Services they list + an AI read on positioning, pricing transparency, and pain hypotheses — how to pitch this business.",
-      emptyNote: null,
-      source: aiEnriched
-        ? "AI analysis of public sources"
-        : servicesEnriched
-          ? "Website menu"
-          : null,
+      emptyNote:
+        "AI brief ran — no services or readable positioning found on this site.",
+      source: aiBriefEnriched ? "AI analysis of public sources" : null,
       asOf: null,
     },
   ];
@@ -1429,7 +1403,8 @@ export async function getLeadDetail(
     phones,
     emails,
     socials,
-    contactsEnriched,
+    listingContacts,
+    contactsState,
     firedSignals,
     signalVerdicts,
     angles,

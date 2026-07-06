@@ -39,6 +39,8 @@ import {
   parseViewFromSearchParams,
   saveWorkbenchView,
   viewToSearchParams,
+  type FieldFilterState,
+  type FieldStateFilter,
 } from "../wb-view-state";
 import {
   setLeadStatusAction,
@@ -52,8 +54,6 @@ import {
   COLUMNS,
   COLUMN_TYPE_GROUP_ORDER,
   CSV_HEADERS,
-  DATA_FAMILIES,
-  DEFAULT_ACTIVE_COLUMNS,
   defaultActiveColumnsForGoal,
   FILTER_FIELDS,
   FILTER_FIELD_DEFAULTS,
@@ -75,7 +75,6 @@ import {
   type CellBand,
   type ColumnDef,
   type ColumnTypeGroup,
-  type DataFamily,
   type LeadFilter,
   type NumericLeadFilter,
   type LeadStatus,
@@ -84,18 +83,15 @@ import {
   type WorkbenchLeadRow,
 } from "../leads-workbench";
 import {
-  enrichTypesForFamilies,
-  ENRICHMENT_FAMILIES,
   ENRICHMENT_TYPES,
   DATA_GROUPS,
   CELL_BASIS_TOKENS,
+  dataGroupFor,
   deriveGroupStates,
   enrichTypesForGroups,
   groupLeadCredits,
   typeKeyForEnrichToken,
-  anyLeadEnrichmentRan,
   anyLeadGroupRan,
-  type FamilyState,
   type EnrichmentTypeKey,
   type TypeState,
   type DataGroupKey,
@@ -116,13 +112,15 @@ import { type EnrichmentType } from "@/modules/cost/pricing";
  *  reference is stable across renders. */
 const EMPTY_BANDS: Partial<Record<string, CellBand>> = {};
 
-/** AUDIT U16 · where each family's data comes from — shown as a provenance
+/** AUDIT U16 · where each DATA GROUP's data comes from — shown as a provenance
  *  tooltip on value cells so a number reads as evidence, not an assertion. */
-const SOURCE_BY_FAMILY: Partial<Record<DataFamily, string>> = {
+const SOURCE_BY_GROUP: Partial<Record<DataGroupKey, string>> = {
+  contacts_tech: "Website + directories",
   reviews: "Google reviews",
-  website: "Website scan · Lighthouse mobile",
-  contacts: "Website + directories",
-  ads: "Meta Ad Library",
+  site_speed: "Website scan · Lighthouse mobile",
+  ai_brief: "AI research over the site + listing",
+  meta_ads: "Meta Ad Library",
+  google_ads: "Google Ads transparency",
   search: "Local SERP scan",
 };
 
@@ -160,48 +158,25 @@ export interface LeadsWorkbenchProps {
   /** vs-cell distribution bands per numeric column key (null when cohort small). */
   bands: Partial<Record<string, CellBand>>;
   /**
-   * Per-business COVERED families from the batched coverage matrix
-   * (GET /research/:id/coverage), fetched server-side and passed as a plain map
-   * (Pattern 4 — no functions cross the boundary). Drives the per-row dot-strip.
-   * A business missing from the map falls back to its row's own `families`
-   * (both derive from the same `deriveFamilyCoverage` source of truth).
-   */
-  coverage: Record<string, DataFamily[]>;
-  /**
-   * Per-business FAILED families (job errored + still not covered) — drives the
-   * red "failed" dot, distinct from grey "never run". Optional + defaults to {}
-   * so callers that don't compute it (or older serialized props) just show no
-   * failures. Same plain-map shape as `coverage` (Pattern 4).
-   */
-  coverageFailed?: Record<string, DataFamily[]>;
-  /**
-   * AUDIT §3 · the honest per-business per-family RUN-STATE map (enriched /
-   * empty / failed / not_run) from the coverage matrix. The single source of
-   * truth for the dot-strip, per-cell affordances, the coverage panel, and the
-   * "Enriched only" view. A business missing from the map falls back to a
-   * state derived from its own `families` (enriched vs not_run). Plain data
-   * (Pattern 4).
-   */
-  coverageStates?: Record<string, Record<DataFamily, FamilyState>>;
-  /**
    * AUDIT A2 · the honest per-business per-TYPE state map (the 9 purchasable
    * enrichment types: contacts/services/reviews/tech/lighthouse/meta_ads/
-   * google_ads/serp/ai_research). Drives the "Enriched" column badge strip —
-   * one chip per type, colored by run state (enriched/empty/failed/running/
-   * not_run). A business missing from the map falls back to a state derived
-   * from its 5-family states (best-effort per-type approximation). Plain data
-   * (Pattern 4).
+   * google_ads/serp/ai_research) from the shared coverage matrix. THE atom
+   * every surface derives from: the "Enriched" column badge strip, the
+   * per-group roll-up behind the coverage panel, per-cell affordances, and the
+   * "Enriched only" view. A business missing from the map reads all-not_run
+   * (honest). Plain data (Pattern 4).
    */
-  coverageTypeStates?: Record<string, Record<EnrichmentTypeKey, TypeState>>;
+  coverageTypeStates: Record<string, Record<EnrichmentTypeKey, TypeState>>;
   /**
-   * AUDIT U16 · per-business per-family last-scanned time (ISO string) for the
-   * provenance tooltip's "scanned {when}" clause. Read from the same freshness
-   * cursors billing uses (`loadFreshTimestamps`): contacts/website/reviews from
-   * the Business cursors + latest LighthouseAudit; ads/search from the cell's
-   * newest AdMarketRun. A family absent from a business's map → no timestamp
-   * (the tip falls back to source + fresh/stale). Plain data (Pattern 4).
+   * AUDIT U16 · per-business per-DATA-GROUP last-scanned time (ISO string) for
+   * the provenance tooltip's "scanned {when}" clause. Read from the same
+   * freshness cursors billing uses (`loadFreshTimestamps`): contacts_tech /
+   * reviews / site_speed / ai_brief / google_ads from the Business cursors +
+   * latest LighthouseAudit; meta_ads/search from the cell's newest AdMarketRun.
+   * A group absent from a business's map → no timestamp (the tip falls back to
+   * source + fresh/stale). Plain data (Pattern 4).
    */
-  scannedAt?: Record<string, Partial<Record<DataFamily, string>>>;
+  scannedAt?: Record<string, Partial<Record<DataGroupKey, string>>>;
   /**
    * The signals chosen on the Goal step (SIG_META key + title). Rendered as
    * one column per signal, right after Match % (docs/portal-prototype.html's
@@ -262,8 +237,7 @@ export function LeadsWorkbench({
   rows,
   discoveryId,
   bands,
-  coverageStates = {},
-  coverageTypeStates = {},
+  coverageTypeStates,
   scannedAt = {},
   goalSignals = [],
   goalResearches = [],
@@ -274,61 +248,23 @@ export function LeadsWorkbench({
   totalRows = rows.length,
   exportAllUrl,
 }: LeadsWorkbenchProps) {
-  /**
-   * AUDIT §3 · the honest per-family RUN-STATE map for one row: prefer the
-   * batched matrix (keyed by businessId), else derive from the row's own
-   * `families` boolean map (enriched vs not_run — the fallback has no
-   * empty/failed nuance). This ONE map drives the dot-strip, the per-cell
-   * affordances, the coverage panel, and the "Enriched only" view, so they
-   * can never disagree.
-   */
-  const statesFor = useCallback(
-    (r: WorkbenchLeadRow): Record<DataFamily, FamilyState> => {
-      const fromMatrix = coverageStates[r.businessId];
-      if (fromMatrix) return fromMatrix;
-      // Fallback: the row's boolean families → enriched / not_run only.
-      const out = {} as Record<DataFamily, FamilyState>;
-      for (const f of DATA_FAMILIES)
-        out[f.key] = r.families[f.key] ? "enriched" : "not_run";
-      return out;
-    },
-    [coverageStates],
-  );
-  /**
-   * AUDIT A2 · the honest per-TYPE run-state map (the 9 billed types) for one
-   * row: prefer the batched matrix (keyed by businessId), else APPROXIMATE from
-   * the row's 5-family states so an older serialized prop still renders a strip.
-   * The family→types fallback fans a family's state out to the types it covers
-   * (website → tech + lighthouse, ads → meta_ads + google_ads); it has no
-   * running/empty nuance the family model lacks, but keeps the column honest.
-   */
+  // TRUTH UNIFICATION (2026-07-06) · the matrix is REQUIRED and covers every
+  // rendered row (both pages scope loadCoverageMatrix to the rendered window).
+  // The old legacy fallbacks (row `families` booleans built from GBP scalars,
+  // the lossy family→type fan-out, and the whole 5-family display axis) are
+  // deleted — a business genuinely absent from the matrix reads all-not_run,
+  // honestly.
+  /** The per-TYPE run-state map (the 9 billed types) — THE atom every surface
+   *  derives from. Absent row → all not_run (honest). */
   const typeStatesFor = useCallback(
     (r: WorkbenchLeadRow): Record<EnrichmentTypeKey, TypeState> => {
       const fromMatrix = coverageTypeStates[r.businessId];
       if (fromMatrix) return fromMatrix;
-      const fam = statesFor(r);
-      // Map each family state onto the types it spans (best-effort fallback).
-      const famOf: Record<EnrichmentTypeKey, DataFamily> = {
-        CONTACTS: "contacts",
-        SERVICES: "contacts", // no 5-family "services" — nearest is contacts
-        TECH: "website",
-        REVIEWS: "reviews",
-        LIGHTHOUSE: "website",
-        META_ADS: "ads",
-        GOOGLE_ADS: "ads",
-        SERP: "search",
-        AI_RESEARCH: "identity", // no family maps AI research → treat as not-run
-      };
       const out = {} as Record<EnrichmentTypeKey, TypeState>;
-      for (const t of ENRICHMENT_TYPES) {
-        const df = famOf[t.key];
-        // identity is always "enriched" but is not a real type — force not_run
-        // so the fallback never fakes an AI-research chip as done.
-        out[t.key] = df === "identity" ? "not_run" : fam[df];
-      }
+      for (const t of ENRICHMENT_TYPES) out[t.key] = "not_run";
       return out;
     },
-    [coverageTypeStates, statesFor],
+    [coverageTypeStates],
   );
   /**
    * The honest per-DATA-GROUP run-state map (the 7 user-facing groups Tom reads
@@ -341,21 +277,14 @@ export function LeadsWorkbench({
       deriveGroupStates(typeStatesFor(r)),
     [typeStatesFor],
   );
-  /** AUDIT A2/B1 · has a PER-LEAD enrichment run for this row — the predicate
-   *  behind the "Enriched only" view. Uses the per-lead variants that EXCLUDE the
-   *  per-market ads/search scans, so a per-cell ads/SERP scan no longer counts a
-   *  lead as personally enriched. Prefers the per-type map (rolled to groups);
-   *  falls back to the 5-family predicate when it's absent. NOTE the deliberate
-   *  asymmetry: the primary path counts `google_ads` (basis:lead), but the
-   *  fallback drops the whole `ads` family (the merged 5-family model can't tell
-   *  Google from Meta) — the conservative choice on the rare legacy-props path.
-   *  The primary (per-type) path is authoritative. */
+  /** AUDIT A2/B1 · has a PER-LEAD enrichment run for this row — the ONE
+   *  predicate behind the "Enriched only" view, the header count, and the stat
+   *  strip (all three now share anyLeadGroupRan over the same typeStates).
+   *  Per-market ads/search cell scans never count a lead as personally
+   *  enriched. */
   const rowEnriched = useCallback(
-    (r: WorkbenchLeadRow): boolean =>
-      coverageTypeStates[r.businessId]
-        ? anyLeadGroupRan(groupStatesFor(r))
-        : anyLeadEnrichmentRan(statesFor(r)),
-    [coverageTypeStates, groupStatesFor, statesFor],
+    (r: WorkbenchLeadRow): boolean => anyLeadGroupRan(groupStatesFor(r)),
+    [groupStatesFor],
   );
   // ── Status (optimistic) ──────────────────────────────────────────────────
   const [committed, setCommitted] = useState<Record<string, LeadStatus>>(() =>
@@ -560,14 +489,13 @@ export function LeadsWorkbench({
   // the prototype's demo filters, which hid all real leads on first open,
   // especially before a signal like Lighthouse had finished enriching.)
   const [filters, setFilters] = useState<LeadFilter[]>([]);
-  // AUDIT C5 · field-state filters — "Email: enriched / none / failed / not run".
-  // Multiple states on the SAME family are OR'd (email enriched OR failed);
-  // different families are AND'd. Applied client-side off the honest state map.
-  // Declared here (above the view-hydration + URL-write effects) so those
-  // effects can seed from / push to it (C5 · round-trips through the goal URL).
-  const [stateFilters, setStateFilters] = useState<
-    { family: DataFamily; state: FamilyState }[]
-  >([]);
+  // AUDIT C5 · field-state filters — "Contacts & site tech: have / none /
+  // failed / not run", keyed by the 7 DATA GROUPS. Multiple states on the SAME
+  // group are OR'd (contacts enriched OR failed); different groups are AND'd.
+  // Applied client-side off the honest rolled-up group states. Declared here
+  // (above the view-hydration + URL-write effects) so those effects can seed
+  // from / push to it (C5 · round-trips through the goal URL).
+  const [stateFilters, setStateFilters] = useState<FieldStateFilter[]>([]);
 
   // ── Sort ──────────────────────────────────────────────────────────────────
   const [sortKey, setSortKey] = useState<string>(DEFAULT_SORT_KEY);
@@ -699,7 +627,7 @@ export function LeadsWorkbench({
     const tid = window.setTimeout(() => {
       const params = viewToSearchParams(
         // C5 · field-state filters ride the SAME shareable-view URL writer as
-        // sort + filters (one `fs=family:state` param each), so an applied
+        // sort + filters (one `fs=group:state` param each), so an applied
         // "contacts · none" state survives refresh + is shareable.
         { sortKey, sortDir, filters, fieldStates: stateFilters },
         new URLSearchParams(window.location.search),
@@ -782,9 +710,7 @@ export function LeadsWorkbench({
   // toggle-able column (all except the always-on `biz` anchor) is bucketed under
   // its `typeGroup` header; the search box narrows to labels containing the
   // query (case-insensitive). Sections with no surviving column are dropped so
-  // the menu never shows an empty header. Preserves each column's `group`
-  // (workflow vs enriched) so the render keeps the per-field funnel + the
-  // free-add semantics.
+  // the menu never shows an empty header.
   const fieldsGroups = useMemo((): {
     group: ColumnTypeGroup;
     cols: readonly ColumnDef[];
@@ -807,36 +733,39 @@ export function LeadsWorkbench({
   // declared above, near `filters`, so the view-hydration + URL-write effects
   // can round-trip it through the goal URL).
   const toggleStateFilter = useCallback(
-    (family: DataFamily, state: FamilyState) => {
+    (group: DataGroupKey, state: FieldFilterState) => {
       setStateFilters((prev) => {
-        const hit = prev.some((f) => f.family === family && f.state === state);
+        const hit = prev.some((f) => f.group === group && f.state === state);
         return hit
-          ? prev.filter((f) => !(f.family === family && f.state === state))
-          : [...prev, { family, state }];
+          ? prev.filter((f) => !(f.group === group && f.state === state))
+          : [...prev, { group, state }];
       });
       setPage(1);
     },
     [],
   );
-  const stateFilterByFamily = useMemo(() => {
-    const m = new Map<DataFamily, Set<FamilyState>>();
+  const stateFilterByGroup = useMemo(() => {
+    // Set<TypeState> (not FieldFilterState) so `allowed.has(rowState)` type-
+    // checks — a row's group state can be "running", which is never a filter
+    // value, so a mid-run row matches NO state filter (transient, honest).
+    const m = new Map<DataGroupKey, Set<TypeState>>();
     for (const f of stateFilters) {
-      const s = m.get(f.family) ?? new Set<FamilyState>();
+      const s = m.get(f.group) ?? new Set<TypeState>();
       s.add(f.state);
-      m.set(f.family, s);
+      m.set(f.group, s);
     }
     return m;
   }, [stateFilters]);
   const passesStateFilters = useCallback(
     (r: WorkbenchLeadRow): boolean => {
-      if (stateFilterByFamily.size === 0) return true;
-      const st = statesFor(r);
-      for (const [fam, allowed] of stateFilterByFamily) {
-        if (!allowed.has(st[fam])) return false;
+      if (stateFilterByGroup.size === 0) return true;
+      const gs = groupStatesFor(r);
+      for (const [group, allowed] of stateFilterByGroup) {
+        if (!allowed.has(gs[group])) return false;
       }
       return true;
     },
-    [stateFilterByFamily, statesFor],
+    [stateFilterByGroup, groupStatesFor],
   );
 
   // AUDIT U7 · row density — Compact is the default for a scan-heavy audience;
@@ -880,8 +809,8 @@ export function LeadsWorkbench({
   //      the moment a run launches (instant, optimistic; dies on reload);
   //   2. the server per-type matrix — `typeStates[T] === "running"` from
   //      QUEUED/RUNNING jobs + active cell runs (survives refresh, cross-tab).
-  // The old gate `statesFor(r)[family] === "not_run"` suppressed the loader on
-  // every RE-enrichment (any prior state ≠ not_run) — the exact "ran Meta ads,
+  // The old "only when not_run" gate suppressed the loader on every
+  // RE-enrichment (any prior state ≠ not_run) — the exact "ran Meta ads,
   // no loader, stale None" the owner reported. It's gone: the bus flag clears on
   // the run-finished signal from LiveRunGate (+ a 5-min backstop timeout).
   const [enriching, setEnriching] = useState<{
@@ -939,11 +868,10 @@ export function LeadsWorkbench({
     [enriching, typeStatesFor],
   );
   /** The enrichment-type tokens behind ONE column — its explicit `enrichTypes`
-   *  override, else its family's default set. */
+   *  override, else its data group's default set. */
   const colTokens = useCallback(
     (col: ColumnDef): readonly string[] =>
-      col.enrichTypes ??
-      (col.family ? enrichTypesForFamilies([col.family]) : []),
+      col.enrichTypes ?? (col.group ? enrichTypesForGroups([col.group]) : []),
     [],
   );
   const isColEnriching = useCallback(
@@ -979,25 +907,25 @@ export function LeadsWorkbench({
 
   // AUDIT U16 · the per-cell provenance tooltip for a numeric enriched value:
   // `{source} · scanned {when} · {fresh|stale}`. The source names WHERE the
-  // number came from (SOURCE_BY_FAMILY); `{when}` is the real last-scanned date
+  // number came from (SOURCE_BY_GROUP); `{when}` is the real last-scanned date
   // from the same freshness cursors billing uses (threaded via `scannedAt`);
-  // freshness is read from the family's honest run state (an `enriched` family
-  // reads "fresh", a re-scan-worthy `failed`/`empty` reads "stale"). When no
-  // timestamp exists for the family we drop the date; the source alone is the
-  // fallback when a cell has no family.
+  // freshness is read from the group's honest rolled-up run state (an
+  // `enriched` group reads "fresh", a re-scan-worthy `failed`/`empty` reads
+  // "stale"). When no timestamp exists for the group we drop the date; a cell
+  // with no group gets no tip.
   const cellProvenance = useCallback(
-    (r: WorkbenchLeadRow, family?: DataFamily): string | undefined => {
-      if (!family) return undefined;
-      const source = SOURCE_BY_FAMILY[family];
+    (r: WorkbenchLeadRow, group?: DataGroupKey): string | undefined => {
+      if (!group) return undefined;
+      const source = SOURCE_BY_GROUP[group];
       if (!source) return undefined;
-      const state = statesFor(r)[family];
+      const state = groupStatesFor(r)[group];
       const fresh = state === "enriched" ? "fresh" : "stale";
-      const when = fmtScannedWhen(scannedAt[r.businessId]?.[family]);
+      const when = fmtScannedWhen(scannedAt[r.businessId]?.[group]);
       return when
         ? `${source} · scanned ${when} · ${fresh}`
         : `${source} · scanned · ${fresh}`;
     },
-    [statesFor, scannedAt],
+    [groupStatesFor, scannedAt],
   );
 
   // ── Filtered + sorted rows ────────────────────────────────────────────────
@@ -1355,24 +1283,28 @@ export function LeadsWorkbench({
     return { have, notYet, missingGroups };
   }, [filtered, groupStatesFor]);
 
-  // AUDIT C5 · per-family state histogram over the loaded window — powers the
-  // clickable "Site audit: have 11 · none 30 · failed 5" coverage-panel filters.
-  // These stay on the 5-ENRICHMENT-FAMILY axis (reviews/website/contacts/ads/
-  // search) because the field-state filter round-trips through the shareable-view
-  // URL by DataFamily key (wb-view-state `fieldStates`); the panel presents them
-  // under the data-group labels the family already carries (DATA_FAMILIES labels
-  // were renamed — "Site audit" etc.). The have/not-yet SUMMARY above is the
-  // 7-group denominator that the chip strip + toolbar badge share.
-  const familyStateCounts = useMemo(() => {
-    const out = new Map<DataFamily, Record<FamilyState, number>>();
-    for (const fam of ENRICHMENT_FAMILIES)
-      out.set(fam, { enriched: 0, empty: 0, failed: 0, not_run: 0 });
+  // AUDIT C5 · per-DATA-GROUP state histogram over the loaded window — powers
+  // the clickable "Contacts & site tech: have 11 · none 30 · failed 5" state
+  // filters. Same 7-group axis as the have/not-yet SUMMARY above, the chip
+  // strip, and the toolbar badge — ONE vocabulary everywhere (the field-state
+  // filter round-trips through the shareable-view URL by DataGroupKey).
+  // `running` is counted for display but is NOT filterable (transient).
+  const groupStateCounts = useMemo(() => {
+    const out = new Map<DataGroupKey, Record<TypeState, number>>();
+    for (const g of DATA_GROUPS)
+      out.set(g.key, {
+        enriched: 0,
+        empty: 0,
+        failed: 0,
+        not_run: 0,
+        running: 0,
+      });
     for (const r of rows) {
-      const st = statesFor(r);
-      for (const fam of ENRICHMENT_FAMILIES) out.get(fam)![st[fam]] += 1;
+      const gs = groupStatesFor(r);
+      for (const g of DATA_GROUPS) out.get(g.key)![gs[g.key]] += 1;
     }
     return out;
-  }, [rows, statesFor]);
+  }, [rows, groupStatesFor]);
 
   /**
    * WP5-3 · the scope every "enrich to unlock" surface hands the
@@ -1479,7 +1411,7 @@ export function LeadsWorkbench({
   }
 
   /** Coverage CTA → open the sheet pre-seeded with every missing data group. */
-  function openMissingFamiliesSheet() {
+  function openMissingGroupsSheet() {
     openEnrichSheet({
       enrichments: enrichTypesForGroups(
         coverageSummary.missingGroups,
@@ -1489,19 +1421,19 @@ export function LeadsWorkbench({
   }
 
   /** Click an empty "— enrich" cell → open the sheet scoped to THAT lead,
-   *  pre-seeded with the cell's data family (so a Lighthouse cell offers a
+   *  pre-seeded with the cell's data group (so a Lighthouse cell offers a
    *  Lighthouse enrich, a Phone cell offers contacts, etc.). Closes the
    *  founder's "I can't enrich by clicking the field" complaint. */
   function enrichCell(
     r: WorkbenchLeadRow,
-    family?: DataFamily,
+    group?: DataGroupKey,
     enrichTypes?: readonly string[],
   ) {
-    // AUDIT · prefer the column's explicit enrichTypes when given. A `website`-
-    // family cell (Built on / Booking tool) maps to contacts+tech only — the raw
-    // `enrichTypesForFamilies(["website"])` would wrongly drag Lighthouse in.
+    // AUDIT · prefer the column's explicit enrichTypes when given. An
+    // `ai_brief`-group cell (AI summary) wants the ai_research job only — the
+    // raw group default would wrongly drag the services sub-scan in.
     const types =
-      enrichTypes ?? (family ? enrichTypesForFamilies([family]) : undefined);
+      enrichTypes ?? (group ? enrichTypesForGroups([group]) : undefined);
     openEnrichSheet({
       enrichments: types ? (types as EnrichmentType[]) : undefined,
       // AUDIT D1 · a single-field click pre-selects that enrichment in the sheet.
@@ -1513,46 +1445,47 @@ export function LeadsWorkbench({
     });
   }
   /**
-   * AUDIT §3/A4 · the STATE-AWARE empty-cell affordance. Reads the family's real
-   * run state so a cell never lies:
+   * AUDIT §3/A4 · the STATE-AWARE empty-cell affordance. Reads the column's
+   * data group's real rolled-up run state so a cell never lies:
    *   - not_run → the clickable "— enrich" action (never scanned)
    *   - empty   → a calm muted "none" (scanned, verified nothing) — NOT clickable
    *               so a retry can't re-charge for a known-empty result (A5)
    *   - failed  → a red "failed · retry" action (errored — retryable)
+   *   - running → the pulsing "enriching…" word (in flight)
    * `enriched` never reaches here (the cell renders the value instead).
    */
   const NeedsEnrich = ({
     r,
-    family,
+    group,
     enrichTypes,
     ranButEmpty,
   }: {
     r: WorkbenchLeadRow;
-    family?: DataFamily;
+    group?: DataGroupKey;
     /** AUDIT · the column's explicit enrichment types — overrides the
-     *  family→types default so a Built-on / Booking-tool click enriches
-     *  contacts+tech (not Lighthouse). Threaded down to enrichCell. */
+     *  group→types default so an AI-summary click enriches ai_research only
+     *  (not the services sub-scan). Threaded down to enrichCell. */
     enrichTypes?: readonly string[];
-    /** WB-CELL-2 · the family RAN but THIS sub-field is empty (e.g. contacts
-     *  enriched, found a phone but no email). Treat an 'enriched' family-state as
+    /** WB-CELL-2 · the group RAN but THIS sub-field is empty (e.g. contacts
+     *  enriched, found a phone but no email). Treat an 'enriched' group-state as
      *  verified-empty here so the cell reads a calm 'none', not the actionable
      *  '— enrich' (which a retry can't fill and would re-charge). Only pass this
-     *  for a multi-field family's sub-field (contacts → email/phone/socials). */
+     *  for a multi-field group's sub-field (contacts_tech → email/phone/socials). */
     ranButEmpty?: boolean;
   }) => {
-    const state: FamilyState = family ? statesFor(r)[family] : "not_run";
-    const label = family
-      ? (DATA_FAMILIES.find((f) => f.key === family)?.label ?? "data")
-      : "data";
+    const state: TypeState = group ? groupStatesFor(r)[group] : "not_run";
+    const label = group ? dataGroupFor(group).label : "data";
 
     // AUDIT U2/D5 + ISSUE-4 · this cell is in the active enrich run → ONE word
     // with a smooth pulse, never a multi-line skeleton (the old word+sweep pair
-    // wrapped to two lines in narrow columns). Matched on the column's TYPE
-    // tokens so re-runs show it too (the old not_run gate hid every re-run).
+    // wrapped to two lines in narrow columns). Matched on the group's rolled-up
+    // `running` state (server truth) OR the column's TYPE tokens (client bus)
+    // so re-runs show it too (the old not_run gate hid every re-run).
     if (
+      state === "running" ||
       isTokensEnriching(
         r,
-        enrichTypes ?? (family ? enrichTypesForFamilies([family]) : []),
+        enrichTypes ?? (group ? enrichTypesForGroups([group]) : []),
       )
     ) {
       return (
@@ -1566,8 +1499,8 @@ export function LeadsWorkbench({
       );
     }
 
-    // WB-CELL-2 · verified-empty when the family reports 'empty', OR when the
-    // family ran ('enriched') but this sub-field came back empty (ranButEmpty).
+    // WB-CELL-2 · verified-empty when the group reports 'empty', OR when the
+    // group ran ('enriched') but this sub-field came back empty (ranButEmpty).
     // ISSUE-10 · styled as a DONE state (check + normal type), not the faint
     // italic that read as failed/missing — "none" IS the data.
     if (state === "empty" || (ranButEmpty && state === "enriched")) {
@@ -1593,7 +1526,7 @@ export function LeadsWorkbench({
         // drawer) — clicking must open the enrich sheet, not the drawer.
         onClick={(e) => {
           e.stopPropagation();
-          enrichCell(r, family, enrichTypes);
+          enrichCell(r, group, enrichTypes);
         }}
       >
         {failed ? "failed · retry" : "— enrich"}
@@ -1683,36 +1616,38 @@ export function LeadsWorkbench({
     );
   }, [availNumFields, filters]);
   // C2 · one filtering home — the "By data state" section of the merged
-  // "+ Filter" picker. Per family, the have/none/failed/not-run toggles present
-  // in the loaded window (ordered by actionability, matching the coverage
-  // panel's read-only summary). These drive the SAME `stateFilters` model via
-  // `toggleStateFilter` — no second filter model — so they round-trip through
-  // the shareable-view URL exactly as before and the active-count badge on the
-  // Filter + Coverage toolbar buttons stays honest.
+  // "+ Filter" picker. Per DATA GROUP (labels from DATA_GROUPS — the one
+  // vocabulary), the have/none/failed/not-run toggles present in the loaded
+  // window (ordered by actionability). These drive the SAME `stateFilters`
+  // model via `toggleStateFilter` — no second filter model — so they
+  // round-trip through the shareable-view URL and the active-count badge on
+  // the Filter + Coverage toolbar buttons stays honest. An in-flight `running`
+  // count renders as a non-clickable chip (transient — not filterable).
   const stateFilterRows = useMemo(() => {
-    const STATE_LABEL: Record<FamilyState, string> = {
+    const STATE_LABEL: Record<FieldFilterState, string> = {
       enriched: "have",
       empty: "none",
       failed: "failed",
       not_run: "not run",
     };
     // Actionability order (failed → none → have), default-population last.
-    const STATE_ORDER: FamilyState[] = [
+    const STATE_ORDER: FieldFilterState[] = [
       "failed",
       "empty",
       "enriched",
       "not_run",
     ];
-    return ENRICHMENT_FAMILIES.flatMap((fam) => {
-      const counts = familyStateCounts.get(fam);
+    return DATA_GROUPS.flatMap((g) => {
+      const counts = groupStateCounts.get(g.key);
       if (!counts) return [];
       const states = STATE_ORDER.filter((s) => counts[s] > 0);
-      if (states.length === 0) return [];
-      const label = DATA_FAMILIES.find((f) => f.key === fam)?.label ?? fam;
+      const running = counts.running;
+      if (states.length === 0 && running === 0) return [];
       return [
         {
-          family: fam,
-          label,
+          group: g.key,
+          label: g.label,
+          running,
           states: states.map((s) => ({
             state: s,
             stateLabel: STATE_LABEL[s],
@@ -1721,8 +1656,7 @@ export function LeadsWorkbench({
         },
       ];
     });
-  }, [familyStateCounts]);
-  const stateOptionCount = stateFilterRows.length;
+  }, [groupStateCounts]);
 
   // Each add-picker is a <Popover> (floating-ui handles portal + dismiss + Esc +
   // focus + ↑/↓ nav). A single-add pick closes its own menu; data-state toggles
@@ -1907,7 +1841,7 @@ export function LeadsWorkbench({
             <td key={col.key}>
               <NeedsEnrich
                 r={r}
-                family={col.family}
+                group={col.group}
                 enrichTypes={col.enrichTypes}
               />
             </td>
@@ -1933,7 +1867,7 @@ export function LeadsWorkbench({
             <td key={col.key}>
               <NeedsEnrich
                 r={r}
-                family={col.family}
+                group={col.group}
                 enrichTypes={col.enrichTypes}
               />
             </td>
@@ -1971,7 +1905,7 @@ export function LeadsWorkbench({
             <td key={col.key}>
               <NeedsEnrich
                 r={r}
-                family={col.family}
+                group={col.group}
                 enrichTypes={col.enrichTypes}
               />
             </td>
@@ -1998,7 +1932,7 @@ export function LeadsWorkbench({
             <td className="num" key={col.key}>
               <NeedsEnrich
                 r={r}
-                family={col.family}
+                group={col.group}
                 enrichTypes={col.enrichTypes}
               />
             </td>
@@ -2007,7 +1941,7 @@ export function LeadsWorkbench({
         const display = col.unit === "★" ? v.toFixed(1) : v.toLocaleString();
         return (
           <td className="num" key={col.key}>
-            <span className="cellval" data-tip={cellProvenance(r, col.family)}>
+            <span className="cellval" data-tip={cellProvenance(r, col.group)}>
               {display}
               {col.unit === "★" ? "★" : ""}
             </span>
@@ -2024,10 +1958,10 @@ export function LeadsWorkbench({
             <td key={col.key}>
               <NeedsEnrich
                 r={r}
-                family={col.family}
+                group={col.group}
                 enrichTypes={col.enrichTypes}
                 // WB-CELL-2 · contacts ran but THIS channel is empty → 'none'.
-                ranButEmpty={statesFor(r).contacts === "enriched"}
+                ranButEmpty={groupStatesFor(r).contacts_tech === "enriched"}
               />
             </td>
           );
@@ -2081,10 +2015,10 @@ export function LeadsWorkbench({
             <td key={col.key}>
               <NeedsEnrich
                 r={r}
-                family={col.family}
+                group={col.group}
                 enrichTypes={col.enrichTypes}
                 // WB-CELL-2 · contacts ran but no social handles → 'none'.
-                ranButEmpty={statesFor(r).contacts === "enriched"}
+                ranButEmpty={groupStatesFor(r).contacts_tech === "enriched"}
               />
             </td>
           );
@@ -2135,38 +2069,38 @@ export function LeadsWorkbench({
         );
       }
       case "cov": {
-        // C3 · per-row badge strip over the 7 DATA GROUPS the user gets
-        // (contacts & site tech / reviews / site speed & SEO / services /
-        // AI brief / ad activity / search rank), each a chip colored by its
-        // honest rolled-up RUN state: enriched (green · every type has data) ·
-        // empty (grey · ran but not fully) · failed (red · errored) · running
-        // (pulse · in flight) · not_run (faint outline · never scanned). This is
-        // the SAME 7-group denominator the toolbar badge + coverage panel use,
-        // so "N / 7" is one number everywhere. "N/7" counts groups with data.
+        // C3 + TRUTH UNIFICATION (2026-07-06) · per-row badge strip over the 7
+        // DATA GROUPS. The FRACTION now counts groups that RAN (scanned) — the
+        // same semantic as the enrich popup's "already done" — so the two
+        // surfaces can never read "all done" vs "3/7" for one row (the Boise
+        // ticket). The chips split ran into WITH DATA (green) vs NONE FOUND
+        // (grey ✓); failed red; running pulse; never-scanned faint. The tooltip
+        // carries both numbers.
         const gs = groupStatesFor(r);
         const groups = DATA_GROUPS;
         const total = groups.length;
         const enrichedN = groups.filter((g) => gs[g.key] === "enriched").length;
         const failedN = groups.filter((g) => gs[g.key] === "failed").length;
         const runningN = groups.filter((g) => gs[g.key] === "running").length;
+        const ranN = groups.filter((g) => gs[g.key] !== "not_run").length;
         return (
           <td key={col.key}>
             <span
               className="covstrip"
               data-tip={
                 failedN > 0
-                  ? `${enrichedN} of ${total} data groups · ${failedN} failed — re-enrich`
+                  ? `${ranN} of ${total} scanned · ${enrichedN} with data · ${failedN} failed — re-enrich`
                   : runningN > 0
-                    ? `${enrichedN} of ${total} data groups · ${runningN} running`
-                    : `${enrichedN} of ${total} data groups have data`
+                    ? `${ranN} of ${total} scanned · ${enrichedN} with data · ${runningN} running`
+                    : `${ranN} of ${total} scanned · ${enrichedN} with data`
               }
             >
               <span className="covfrac">
-                {enrichedN}/{total}
+                {ranN}/{total}
               </span>
               <span
                 className="covtypes"
-                aria-label={`${enrichedN} of ${total} data groups have data${
+                aria-label={`${ranN} of ${total} data groups scanned, ${enrichedN} with data${
                   failedN > 0 ? `, ${failedN} failed` : ""
                 }${runningN > 0 ? `, ${runningN} running` : ""}`}
               >
@@ -2331,7 +2265,7 @@ export function LeadsWorkbench({
 
         {/* AUDIT U10 · the ONE primary action in the toolbar — enrich the
             enrichable leads in the current view (selected rows if any are
-            selected, else the filtered rows with a not-run family), with the
+            selected, else the filtered rows with a not-run data group), with the
             gross credit estimate inline. Everything else in the toolbar stays
             secondary. Hidden when nothing in view is enrichable. */}
         {enrichTargetCount > 0 ? (
@@ -2765,7 +2699,7 @@ export function LeadsWorkbench({
                       border: "none",
                       font: "inherit",
                     }}
-                    onClick={openMissingFamiliesSheet}
+                    onClick={openMissingGroupsSheet}
                   >
                     No signal covers all leads yet · enrich to unlock →
                   </button>
@@ -2859,7 +2793,7 @@ export function LeadsWorkbench({
                       border: "none",
                       font: "inherit",
                     }}
-                    onClick={openMissingFamiliesSheet}
+                    onClick={openMissingGroupsSheet}
                   >
                     No fields with data yet · enrich to unlock →
                   </button>
@@ -2892,15 +2826,15 @@ export function LeadsWorkbench({
                     aria-label="Filter by data state"
                   >
                     <div className="filter-list-eyebrow">By data state</div>
-                    {stateFilterRows.map((famRow) => {
-                      const active = stateFilterByFamily.get(famRow.family);
+                    {stateFilterRows.map((grpRow) => {
+                      const active = stateFilterByGroup.get(grpRow.group);
                       return (
-                        <div key={famRow.family} className="filter-state-row">
+                        <div key={grpRow.group} className="filter-state-row">
                           <span className="filter-state-fam">
-                            {famRow.label}
+                            {grpRow.label}
                           </span>
                           <span className="filter-state-toggles">
-                            {famRow.states.map((s) => (
+                            {grpRow.states.map((s) => (
                               <button
                                 key={s.state}
                                 type="button"
@@ -2908,14 +2842,24 @@ export function LeadsWorkbench({
                                   active?.has(s.state) ? " on" : ""
                                 }`}
                                 aria-pressed={active?.has(s.state) ?? false}
-                                data-tip={`Show leads where ${famRow.label} = ${s.stateLabel}`}
+                                data-tip={`Show leads where ${grpRow.label} = ${s.stateLabel}`}
                                 onClick={() =>
-                                  toggleStateFilter(famRow.family, s.state)
+                                  toggleStateFilter(grpRow.group, s.state)
                                 }
                               >
                                 {s.stateLabel} {s.count}
                               </button>
                             ))}
+                            {/* In flight — a transient count, never a filter. */}
+                            {grpRow.running > 0 ? (
+                              <span
+                                className="cov-state"
+                                aria-disabled="true"
+                                data-tip={`${grpRow.label} · enriching now — not filterable`}
+                              >
+                                running {grpRow.running}
+                              </span>
+                            ) : null}
                           </span>
                         </div>
                       );
@@ -2933,7 +2877,7 @@ export function LeadsWorkbench({
                       border: "none",
                       font: "inherit",
                     }}
-                    onClick={openMissingFamiliesSheet}
+                    onClick={openMissingGroupsSheet}
                   >
                     Nothing enriched yet · enrich to unlock →
                   </button>
@@ -3011,7 +2955,7 @@ export function LeadsWorkbench({
                     className="clenrich"
                     style={{ cursor: "pointer", font: "inherit" }}
                     data-tip={`Enrich: ${coverageSummary.notYet.join(" · ")}`}
-                    onClick={openMissingFamiliesSheet}
+                    onClick={openMissingGroupsSheet}
                   >
                     Enrich missing · {coverageSummary.notYet.length} →
                   </button>
@@ -3358,7 +3302,7 @@ export function LeadsWorkbench({
           discoveryId={discoveryId}
         />
         {/* AUDIT U17 · bulk enrich the selection — the gross credit total for the
-            selection's not-run families rides the button so the cost is visible
+            selection's not-run data groups rides the button so the cost is visible
             before the sheet opens (the sheet then quotes the honest net at run,
             D2). Same gross estimate the toolbar action + sheet use. */}
         <button

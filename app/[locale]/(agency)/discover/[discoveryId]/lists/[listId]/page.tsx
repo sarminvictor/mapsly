@@ -42,12 +42,12 @@ import { redirect } from "@/i18n/navigation";
 import prisma from "@/lib/prisma";
 import { cellFreshnessState, parseCellKey } from "@/lib/cell";
 import { cellBand } from "@/modules/agency-portal/discover/signals";
-import { deriveFamilyCoverage } from "@/modules/agency-portal/discover/family-coverage";
+import {
+  anyLeadGroupRan,
+  deriveGroupStates,
+} from "@/modules/agency-portal/discover/family-coverage";
 import {
   loadCoverageMatrix,
-  coverageMatrixToMap,
-  coverageFailedToMap,
-  coverageStatesToMap,
   coverageTypeStatesToMap,
   loadScannedAtMap,
 } from "@/modules/agency-portal/discover/coverage-matrix";
@@ -481,16 +481,6 @@ async function ListWorkbenchBody({ params, searchParams }: PageProps) {
       phones,
       emails,
       socials: socialsById.get(b.id) ?? [],
-      // All six families derived from the SAME real data the drawer uses — no
-      // hardcoded ads/search negatives. deriveFamilyCoverage is the single
-      // source of truth shared with the drawer + the coverage endpoint.
-      families: deriveFamilyCoverage({
-        reviews: reviews != null,
-        website: perf != null || builtOnById.has(b.id),
-        contacts: phones.length > 0 || emails.length > 0,
-        ads: adsByBusiness.has(b.id),
-        search: serpByBusiness.has(b.id),
-      }),
     };
   });
 
@@ -539,19 +529,6 @@ async function ListWorkbenchBody({ params, searchParams }: PageProps) {
   });
 
   // Stat strip — computed from the list's leads + drafts (agency-scoped already).
-  const stats = {
-    reachable: rows.filter((r) => r.reachable).length,
-    enriched: rows.length,
-    touches: touches.length,
-    businesses: new Set(touches.map((t) => t.businessId)).size,
-    contacted: rows.filter((r) =>
-      (["CONTACTED", "REPLIED", "WON", "LOST"] as LeadStatus[]).includes(
-        r.status,
-      ),
-    ).length,
-    won: rows.filter((r) => r.status === "WON").length,
-  };
-
   // Coverage matrix (the doc's batched GET /research/:id/coverage) — fetched
   // server-side via the SHARED loader the endpoint uses, passed to the client as
   // a PLAIN `{ businessId: families[] }` map (Pattern 4). Scoped to THIS list's
@@ -563,22 +540,38 @@ async function ListWorkbenchBody({ params, searchParams }: PageProps) {
     agencyId,
     businessIds,
   );
-  const coverage = coverageRows ? coverageMatrixToMap(coverageRows) : {};
-  const coverageFailed = coverageRows ? coverageFailedToMap(coverageRows) : {};
-  const coverageStates = coverageRows ? coverageStatesToMap(coverageRows) : {};
-  // AUDIT A2 · the per-TYPE state map (9 billed types) for the "Enriched" column.
+  // AUDIT A2 · the per-TYPE state map (9 billed types) — THE atom every
+  // workbench surface derives from (the 7-group roll-up happens client-side).
   const coverageTypeStates = coverageRows
     ? coverageTypeStatesToMap(coverageRows)
     : {};
-  // AUDIT U16 · per-family last-scanned dates for the value cells' provenance tip.
+  // AUDIT U16 · per-data-group last-scanned dates for the value cells' provenance tip.
   const scannedAt = await loadScannedAtMap(
     leads.map((l) => ({ id: l.business.id, cellKey: l.business.cellKey })),
   );
+
+  const stats = {
+    reachable: rows.filter((r) => r.reachable).length,
+    enriched: coverageRows
+      ? coverageRows.filter((r) =>
+          anyLeadGroupRan(deriveGroupStates(r.typeStates)),
+        ).length
+      : 0,
+    touches: touches.length,
+    businesses: new Set(touches.map((t) => t.businessId)).size,
+    contacted: rows.filter((r) =>
+      (["CONTACTED", "REPLIED", "WON", "LOST"] as LeadStatus[]).includes(
+        r.status,
+      ),
+    ).length,
+    won: rows.filter((r) => r.status === "WON").length,
+  };
 
   // WP4-1 · live workbench — poll + refresh new rows while an enrichment run for
   // this discovery is in flight (resolved by cellKey overlap; see active-run.ts).
   const activeRun = await resolveActiveRunForDiscovery(
     agencyId,
+    discoveryId,
     discoveryRow?.cellKeys ?? [],
   );
 
@@ -599,9 +592,6 @@ async function ListWorkbenchBody({ params, searchParams }: PageProps) {
       rows,
       discoveryId,
       bands,
-      coverage,
-      coverageFailed,
-      coverageStates,
       coverageTypeStates,
       scannedAt,
       goalSignals,
@@ -642,7 +632,11 @@ async function ListWorkbenchBody({ params, searchParams }: PageProps) {
     null;
   const freshness = mappedAt ? cellFreshnessState(mappedAt, now) : "never";
   const credits = discoveryRow?.cellKeys?.length
-    ? await resolveSpendCreditsForDiscovery(agencyId, discoveryRow.cellKeys)
+    ? await resolveSpendCreditsForDiscovery(
+        agencyId,
+        discoveryId,
+        discoveryRow.cellKeys,
+      )
     : 0;
 
   return (

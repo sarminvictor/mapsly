@@ -68,6 +68,7 @@ export async function sweepRunFinishedEmails(
       unitsCompleted: true,
       unitsRequested: true,
       actualUsd: true,
+      discoveryId: true,
       scopeRefsJson: true,
       meta: true,
     },
@@ -91,12 +92,16 @@ export async function sweepRunFinishedEmails(
       continue;
     }
 
-    // Deep-link = the discovery whose cells overlap the run's scope.
-    const scope = (run.scopeRefsJson ?? {}) as { cellKeys?: unknown };
-    const runCells = Array.isArray(scope.cellKeys)
-      ? (scope.cellKeys.filter((k) => typeof k === "string") as string[])
-      : [];
-    const discoveryId = await resolveDiscoveryForCells(run.agencyId, runCells);
+    // Deep-link · Wave-3 FK: the run knows its discovery; pre-FK rows fall
+    // back to the cells-overlap resolver.
+    let discoveryId: string | null = run.discoveryId;
+    if (!discoveryId) {
+      const scope = (run.scopeRefsJson ?? {}) as { cellKeys?: unknown };
+      const runCells = Array.isArray(scope.cellKeys)
+        ? (scope.cellKeys.filter((k) => typeof k === "string") as string[])
+        : [];
+      discoveryId = await resolveDiscoveryForCells(run.agencyId, runCells);
+    }
     const workbenchUrl = discoveryId
       ? absoluteUrl(`/discover/${discoveryId}`)
       : absoluteUrl("/research");

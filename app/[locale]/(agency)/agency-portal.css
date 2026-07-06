@@ -966,13 +966,32 @@
   text-align: left;
   line-height: 1.5;
   margin: 0;
+  /* AI-brief readability (owner 2026-07-06) · body values in INK, not the
+     muted gray the metric pairs use — a paragraph of gray reads flat. */
+  color: var(--ink);
 }
-/* label-less full-width prose line (Cue/Angle rows — counter labels dropped) */
+/* Bold emphasis inside AI text (renderInlineBold `**…**`) + verdict values. */
+.agency-portal .sig.kv .val b {
+  font-weight: 700;
+}
+/* label-less full-width prose line (Angle rows — counter labels dropped) */
 .agency-portal .sig.kv.prose {
   padding: 7px 0;
 }
 .agency-portal .sig.kv.prose .val {
   display: block;
+}
+/* The PAIN highlight · each opener-angle pain hypothesis is the pitch fuel —
+   amber left rule + ink text pulls the issues out of neutral prose. */
+.agency-portal .sig.kv.prose.pain {
+  padding: 5px 0 5px 10px;
+  border-left: 2px solid var(--amber, #d97706);
+  margin: 4px 0;
+}
+/* Amber warning chips (compliance cues) — attention tags, not plain facts. */
+.agency-portal .dchips .ppchip.warn {
+  background: var(--amber-50, #fdf3e3);
+  color: var(--amber-700, #92600a);
 }
 .agency-portal .track {
   position: relative;

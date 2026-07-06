@@ -736,6 +736,8 @@ export function PreviewStep({
     const t = window.setTimeout(() => {
       void (async () => {
         const pre = await preflightEnrichAction({
+          // Wave-3 FK · attribute the run to the discovery once it exists.
+          ...(discoveryId ? { discoveryId } : {}),
           cellKeys,
           enrichments: families,
           // WP5-4 · the active filters ride the quote so the server resolves
@@ -826,6 +828,8 @@ export function PreviewStep({
         netCreditsQuoted = netForSelection.netCredits;
       } else {
         const pre = await preflightEnrichAction({
+          // Wave-3 FK · attribute the run to the discovery once it exists.
+          ...(discoveryId ? { discoveryId } : {}),
           cellKeys,
           enrichments: families,
           // WP5-4 · filters first — the server resolves the filtered set…

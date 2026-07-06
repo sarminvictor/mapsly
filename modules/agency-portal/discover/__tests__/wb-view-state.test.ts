@@ -143,25 +143,36 @@ describe("parseViewFromSearchParams", () => {
 });
 
 // C5 · field-state filters round-trip through the same shareable-view URL as
-// sort + filters (one `fs=family:state` param each), backward-compatible.
+// sort + filters (one `fs=group:state` param each), keyed by the 7-group
+// vocabulary (2026-07-06 truth unification — the 5-family axis is retired).
 describe("field-state filters (fs param)", () => {
   test("serialize / parse round-trips a field-state filter", () => {
     for (const f of [
-      { family: "contacts", state: "empty" },
-      { family: "reviews", state: "failed" },
-      { family: "website", state: "enriched" },
-      { family: "search", state: "not_run" },
+      { group: "contacts_tech", state: "empty" },
+      { group: "reviews", state: "failed" },
+      { group: "site_speed", state: "enriched" },
+      { group: "ai_brief", state: "enriched" },
+      { group: "meta_ads", state: "empty" },
+      { group: "google_ads", state: "failed" },
+      { group: "search", state: "not_run" },
     ] as const) {
       expect(parseFieldStateParam(serializeFieldStateParam(f))).toEqual(f);
     }
   });
 
-  test("rejects unknown families and states", () => {
-    expect(parseFieldStateParam("identity:enriched")).toBeNull(); // not enrichable
-    expect(parseFieldStateParam("contacts:bogus")).toBeNull();
+  test("rejects unknown groups and states — including 'running' (transient)", () => {
+    expect(parseFieldStateParam("identity:enriched")).toBeNull(); // never a group
+    expect(parseFieldStateParam("contacts_tech:bogus")).toBeNull();
+    expect(parseFieldStateParam("contacts_tech:running")).toBeNull(); // not filterable
     expect(parseFieldStateParam("nope:empty")).toBeNull();
     expect(parseFieldStateParam("")).toBeNull();
-    expect(parseFieldStateParam("contacts")).toBeNull();
+    expect(parseFieldStateParam("contacts_tech")).toBeNull();
+  });
+
+  test("legacy 5-family fs values drop silently (URL-breaking by design)", () => {
+    expect(parseFieldStateParam("contacts:empty")).toBeNull();
+    expect(parseFieldStateParam("website:enriched")).toBeNull();
+    expect(parseFieldStateParam("ads:failed")).toBeNull();
   });
 
   test("viewToSearchParams writes one fs per field-state filter", () => {
@@ -171,24 +182,27 @@ describe("field-state filters (fs param)", () => {
         sortDir: DEFAULT_SORT_DIR,
         filters: [],
         fieldStates: [
-          { family: "contacts", state: "empty" },
-          { family: "reviews", state: "failed" },
+          { group: "contacts_tech", state: "empty" },
+          { group: "reviews", state: "failed" },
         ],
       },
       new URLSearchParams(),
     );
-    expect(params.getAll("fs")).toEqual(["contacts:empty", "reviews:failed"]);
+    expect(params.getAll("fs")).toEqual([
+      "contacts_tech:empty",
+      "reviews:failed",
+    ]);
   });
 
   test("fs param alone (no sort/dir/f) still yields a view", () => {
     const view = parseViewFromSearchParams(
-      new URLSearchParams("fs=contacts:empty&fs=bad:state"),
+      new URLSearchParams("fs=contacts_tech:empty&fs=bad:state"),
     );
     expect(view).toEqual({
       sortKey: DEFAULT_SORT_KEY,
       sortDir: DEFAULT_SORT_DIR,
       filters: [],
-      fieldStates: [{ family: "contacts", state: "empty" }],
+      fieldStates: [{ group: "contacts_tech", state: "empty" }],
     });
   });
 

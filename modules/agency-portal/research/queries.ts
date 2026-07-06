@@ -239,9 +239,9 @@ function toResearchCard(
 }
 
 /**
- * Resolve each discovery's enrichment phase by cellKey overlap. There is no
- * discoveryId FK on EnrichmentRun, so we match `EnrichmentRun.scopeRefsJson
- * .cellKeys` against each `Discovery.cellKeys`. One findMany over the agency's
+ * Resolve each discovery's enrichment phase. Wave-3 FK (2026-07-06): runs with
+ * `discoveryId` attribute exactly; pre-FK rows (null) fall back to the old
+ * `scopeRefsJson.cellKeys`-overlap heuristic. One findMany over the agency's
  * recent runs (bounded), bucketed in JS. DONE (OK/PARTIAL) wins over ACTIVE
  * (PENDING/RUNNING) — a completed enrichment routes to the workbench even if a
  * re-enrich is later queued.
@@ -258,6 +258,7 @@ async function resolveEnrichPhases(
     select: {
       id: true,
       status: true,
+      discoveryId: true,
       unitsRequested: true,
       creditsCharged: true,
       scopeRefsJson: true,
@@ -284,9 +285,12 @@ async function resolveEnrichPhases(
     let spendCredits = 0;
     let phaseLocked = false;
     for (const r of parsedRuns) {
-      // Overlap = the run touches at least one of this discovery's cells.
-      const overlaps = d.cellKeys.some((k) => r.cellKeys.has(k));
-      if (!overlaps) continue;
+      // FK first (exact); pre-FK rows fall back to the cellKeys overlap.
+      const matches =
+        r.discoveryId != null
+          ? r.discoveryId === d.id
+          : d.cellKeys.some((k) => r.cellKeys.has(k));
+      if (!matches) continue;
       if (r.status === "OK" || r.status === "PARTIAL") {
         spendCredits += r.creditsCharged ?? 0;
         if (!phaseLocked) {

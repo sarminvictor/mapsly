@@ -305,3 +305,13 @@ Two bars rendered for `2026-03`; February 2026 silently missing from the 12-mont
 **Where encoded:** this entry; [[meta-actor-robustness]] memory (dom-fetcher divergence note); the abort is logged in build-log.
 **Confidence:** high (live-vs-git diff captured end-to-end; both feature sets confirmed present on exactly one side).
 **Tags:** apify, actor, dom-fetcher, divergence, deploy, lighthouse, force-push, landmine, git-vs-live
+
+### INC-2026-07-06-52 · git apply is atomic — per-file "Applied ... cleanly" lines do NOT mean those files landed
+
+**Symptom:** a 3-file patch from a worktree agent printed "Applied patch to LeadDrawer.tsx cleanly" + "Applied patch to lead-detail.ts cleanly" but errored on the third file (CSS "does not match index"). The two TSX files were silently NOT applied — git apply is all-or-nothing. The tree ended up with the CSS half of a drawer rework and none of its markup (~150 lines of dead CSS + deleted live rules). Caught only by the ux-reviewer-agency agent diffing tree-vs-HEAD; tsc/tests stayed green because dead CSS type-checks fine.
+**Root cause:** `git apply` (with or without --3way) is atomic across the whole patch; its per-file "cleanly" messages are dry-check progress, not commit confirmations. A partial re-apply with `--exclude` then landed ONLY the remaining file, making the tree look complete at a glance.
+**Fix applied:** re-applied the missing hunks with `--include=<file>` for exactly the two dropped files, then re-ran prettier/tsc/full suite.
+**Prevention:** after ANY `git apply`, mechanically verify per-file landing: `git status --short` must list EVERY file the patch touches (compare against `grep '^+++' patch | sort`). Never trust the "Applied patch to X cleanly" lines. When one file of a multi-file patch conflicts, fix the conflict and re-apply the WHOLE patch, or apply per-file with explicit `--include` for each — never assume the clean ones stuck.
+**Where encoded:** this entry.
+**Confidence:** high (reproduced end-to-end in-session).
+**Tags:** git, apply, patch, worktree, atomic, subagent, merge

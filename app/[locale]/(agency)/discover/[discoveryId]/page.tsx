@@ -56,14 +56,11 @@ import {
 } from "@/modules/agency-portal/discover/signals";
 import { parseCellReference } from "@/modules/market/cell-metrics";
 import {
-  deriveFamilyCoverage,
-  anyEnrichmentRan,
+  anyLeadGroupRan,
+  deriveGroupStates,
 } from "@/modules/agency-portal/discover/family-coverage";
 import {
   loadCoverageMatrix,
-  coverageMatrixToMap,
-  coverageFailedToMap,
-  coverageStatesToMap,
   coverageTypeStatesToMap,
   loadScannedAtMap,
 } from "@/modules/agency-portal/discover/coverage-matrix";
@@ -421,10 +418,15 @@ async function DiscoveryWorkspaceBody({ params, searchParams }: PageProps) {
       .map((r) => [r.businessId, r.localPackRank as number]),
   );
   // AUDIT F2 · AI positioning summary per business (only rows that have one).
+  // The pipeline now embeds `**bold**` emphasis for the drawer — strip the
+  // markers here: the table cell + its tooltip are plain-text surfaces.
   const aiSummaryByBusiness = new Map(
     aiResearch
       .filter((r) => r.positioningSummary != null)
-      .map((r) => [r.businessId, r.positioningSummary as string]),
+      .map((r) => [
+        r.businessId,
+        (r.positioningSummary as string).replaceAll("**", ""),
+      ]),
   );
 
   // ── Real signal evaluation (P3 + #2) ───────────────────────────────────────
@@ -628,16 +630,6 @@ async function DiscoveryWorkspaceBody({ params, searchParams }: PageProps) {
       phones,
       emails,
       socials: socialsById.get(b.id) ?? [],
-      // All six families derived from the SAME real data the drawer uses — no
-      // hardcoded ads/search negatives. deriveFamilyCoverage is the single
-      // source of truth shared with the drawer + the coverage endpoint.
-      families: deriveFamilyCoverage({
-        reviews: reviews != null,
-        website: perf != null || builtOnById.has(b.id),
-        contacts: phones.length > 0 || emails.length > 0,
-        ads: adsByBusiness.has(b.id),
-        search: serpByBusiness.has(b.id),
-      }),
     };
   });
 
@@ -736,10 +728,33 @@ async function DiscoveryWorkspaceBody({ params, searchParams }: PageProps) {
     };
   });
 
+  // Scoped to EXACTLY the rendered window (businessIds) so the matrix aligns
+  // row-for-row — never an independent re-query that drifts on page 2+ and drops
+  // out-of-window rows back to the legacy presence model (the A2/§3 lie).
+  const coverageRows = await loadCoverageMatrix(
+    discovery.id,
+    agencyId,
+    businessIds,
+  );
+  // AUDIT A2 · the per-TYPE state map (9 billed types) — THE atom every
+  // workbench surface derives from (the 7-group roll-up happens client-side).
+  const coverageTypeStates = coverageRows
+    ? coverageTypeStatesToMap(coverageRows)
+    : {};
+  // AUDIT U16 · per-data-group last-scanned dates (from the billing freshness
+  // cursors) for the value cells' "scanned {when}" provenance tooltip.
+  const scannedAt = await loadScannedAtMap(businesses);
+
   // Stat strip — computed from the discovery's businesses + drafts.
   const stats = {
     reachable: rows.filter((r) => r.reachable).length,
-    enriched: rows.length,
+    // Same predicate as the header count — never rows.length (every rendered
+    // row read "enriched" before the truth unification).
+    enriched: coverageRows
+      ? coverageRows.filter((r) =>
+          anyLeadGroupRan(deriveGroupStates(r.typeStates)),
+        ).length
+      : 0,
     touches: touches.length,
     businesses: new Set(touches.map((t) => t.businessId)).size,
     contacted: rows.filter((r) =>
@@ -754,27 +769,6 @@ async function DiscoveryWorkspaceBody({ params, searchParams }: PageProps) {
   // Fetched server-side via the SHARED loader the endpoint also uses, then
   // passed to the client workbench as a PLAIN `{ businessId: families[] }` map
   // (Pattern 4 — no functions cross the boundary). Drives the per-row dot-strip.
-  // Scoped to EXACTLY the rendered window (businessIds) so the matrix aligns
-  // row-for-row — never an independent re-query that drifts on page 2+ and drops
-  // out-of-window rows back to the legacy presence model (the A2/§3 lie).
-  const coverageRows = await loadCoverageMatrix(
-    discovery.id,
-    agencyId,
-    businessIds,
-  );
-  const coverage = coverageRows ? coverageMatrixToMap(coverageRows) : {};
-  const coverageFailed = coverageRows ? coverageFailedToMap(coverageRows) : {};
-  // AUDIT §3 · the honest per-family run-state map (enriched/empty/failed/
-  // not_run) — the source of truth for the dot-strip, per-cell affordances,
-  // the coverage panel, and the "Enriched only" view (B1).
-  const coverageStates = coverageRows ? coverageStatesToMap(coverageRows) : {};
-  // AUDIT A2 · the per-TYPE state map (9 billed types) for the "Enriched" column.
-  const coverageTypeStates = coverageRows
-    ? coverageTypeStatesToMap(coverageRows)
-    : {};
-  // AUDIT U16 · per-family last-scanned dates (from the billing freshness
-  // cursors) for the value cells' "scanned {when}" provenance tooltip.
-  const scannedAt = await loadScannedAtMap(businesses);
 
   // AUDIT B2/B3 · the honest counts strip. `totalBusinesses` is the ENRICHABLE
   // set (website-gated for site goals) — the header must NOT call that "market"
@@ -797,8 +791,13 @@ async function DiscoveryWorkspaceBody({ params, searchParams }: PageProps) {
     totalBusinesses,
     marketTotal,
   );
+  // TRUTH UNIFICATION · one numerator: a lead counts as enriched when a
+  // PER-LEAD data group ran (the same predicate the workbench "Enriched only"
+  // view uses) — a cell-wide ads/SERP scan no longer counts every lead.
   const enrichedCount = coverageRows
-    ? coverageRows.filter((r) => anyEnrichmentRan(r.states)).length
+    ? coverageRows.filter((r) =>
+        anyLeadGroupRan(deriveGroupStates(r.typeStates)),
+      ).length
     : 0;
   // `enriched` is exact only when the coverage window covered the WHOLE market;
   // past the window cap it's a floor → the header renders "≥ N" (UX-review #5).
@@ -809,7 +808,11 @@ async function DiscoveryWorkspaceBody({ params, searchParams }: PageProps) {
   // (or if one just closed within 60s) the live banner polls the WP3-3 progress
   // endpoint + router.refresh()es new rows in as they enrich. Resolved by
   // cellKey overlap (no discoveryId FK on EnrichmentRun — same as the directory).
-  const activeRun = await resolveActiveRunForDiscovery(agencyId, cellKeys);
+  const activeRun = await resolveActiveRunForDiscovery(
+    agencyId,
+    discovery.id,
+    cellKeys,
+  );
 
   // CSV export filename base: "{categorySlug}-{metroSlug}" from the first
   // cell (WP2-4) — the client appends the date. Fallback handled client-side.
@@ -823,9 +826,6 @@ async function DiscoveryWorkspaceBody({ params, searchParams }: PageProps) {
       rows,
       discoveryId,
       bands,
-      coverage,
-      coverageFailed,
-      coverageStates,
       coverageTypeStates,
       scannedAt,
       goalSignals,
@@ -868,7 +868,11 @@ async function DiscoveryWorkspaceBody({ params, searchParams }: PageProps) {
   const mappedAt = discovery.finishedAt ?? discovery.createdAt;
   const now = new Date();
   const freshness = cellFreshnessState(mappedAt, now);
-  const credits = await resolveSpendCreditsForDiscovery(agencyId, cellKeys);
+  const credits = await resolveSpendCreditsForDiscovery(
+    agencyId,
+    discovery.id,
+    cellKeys,
+  );
 
   return (
     <div className="view full">

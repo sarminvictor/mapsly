@@ -3,13 +3,12 @@
 // pages read this so a slim "Enriching · N of M · updating live" banner can poll
 // the WP3-3 progress endpoint and router.refresh() new rows in as they land.
 //
-// There is no discoveryId FK on EnrichmentRun (the same reality resolveEnrich-
-// Phases in research/queries.ts works around), so a run is matched to a
-// discovery by `EnrichmentRun.scopeRefsJson.cellKeys` overlapping the
-// discovery's cellKeys. One bounded findMany, bucketed in JS. An ACTIVE
-// (PENDING/RUNNING) run wins over any terminal one — that's the run the banner
-// polls; a recently-terminal run is returned too (with its status) so the page
-// can decide whether to poll a brief "just finished" beat.
+// Wave-3 FK (2026-07-06) · runs now persist `discoveryId` at creation, so
+// attribution is exact. Pre-FK rows (discoveryId null) fall back to the old
+// `scopeRefsJson.cellKeys`-overlap heuristic. One bounded findMany, bucketed in
+// JS. An ACTIVE (PENDING/RUNNING) run wins over any terminal one — that's the
+// run the banner polls; a recently-terminal run is returned too (with its
+// status) so the page can decide whether to poll a brief "just finished" beat.
 //
 // Per `.claude/rules/security.md` · agency-scoped (never another agency's run).
 // Per `.claude/rules/scalability.md` · bounded `take`, indexed (agencyId,status).
@@ -38,10 +37,9 @@ const RECENT_TERMINAL_WINDOW_MS = 60_000;
  */
 export async function resolveActiveRunForDiscovery(
   agencyId: string,
+  discoveryId: string,
   cellKeys: string[],
 ): Promise<ActiveRunInfo | null> {
-  if (cellKeys.length === 0) return null;
-
   const recentCutoff = new Date(Date.now() - RECENT_TERMINAL_WINDOW_MS);
   const runs = await prisma.enrichmentRun.findMany({
     where: {
@@ -53,7 +51,7 @@ export async function resolveActiveRunForDiscovery(
     },
     orderBy: { startedAt: "desc" },
     take: 50,
-    select: { id: true, status: true, scopeRefsJson: true },
+    select: { id: true, status: true, discoveryId: true, scopeRefsJson: true },
   });
 
   const cellSet = new Set(cellKeys);
@@ -61,11 +59,16 @@ export async function resolveActiveRunForDiscovery(
   let terminalHit: ActiveRunInfo | null = null;
 
   for (const r of runs) {
-    const scope = (r.scopeRefsJson ?? {}) as { cellKeys?: unknown };
-    const runCells = Array.isArray(scope.cellKeys)
-      ? (scope.cellKeys.filter((k) => typeof k === "string") as string[])
-      : [];
-    if (!runCells.some((k) => cellSet.has(k))) continue;
+    // FK first (exact); pre-FK rows fall back to the cellKeys overlap.
+    if (r.discoveryId != null) {
+      if (r.discoveryId !== discoveryId) continue;
+    } else {
+      const scope = (r.scopeRefsJson ?? {}) as { cellKeys?: unknown };
+      const runCells = Array.isArray(scope.cellKeys)
+        ? (scope.cellKeys.filter((k) => typeof k === "string") as string[])
+        : [];
+      if (!runCells.some((k) => cellSet.has(k))) continue;
+    }
 
     const active = r.status === "PENDING" || r.status === "RUNNING";
     if (active) {
@@ -82,33 +85,33 @@ export async function resolveActiveRunForDiscovery(
 }
 
 /**
- * Sum the credits actually settled against a discovery's cells — the real
- * "spend to date". EnrichmentRun has no discoveryId FK, so (as above) a run is
- * matched by its `scopeRefsJson.cellKeys` overlapping the discovery's cellKeys.
- * Only OK/PARTIAL runs are counted (a run settles `creditsCharged` on those
- * outcomes; PENDING/RUNNING/FAILED contribute 0). `creditsCharged` is already in
- * WHOLE credits — the same unit the header renders — so no usdToCredits wrapper.
- *
- * Replaces the read of `Discovery.spendToDateUsd`, a column nothing ever wrote
- * (stuck at its @default(0)) — which is why every surface showed "0 credits".
- *
- * Caveat (v1, accepted): a run whose cellKeys overlap two discoveries is counted
- * toward both — the same overlap limitation the enriched-count already carries.
- * Runs settled before `creditsCharged` shipped read 0 (minor under-report on old
- * research). Bounded scan, agency-scoped, indexed on (agencyId,status).
+ * Sum the credits actually settled against a discovery — the real "spend to
+ * date". Wave-3 FK: runs with `discoveryId` are attributed exactly; pre-FK rows
+ * (null) fall back to the cellKeys-overlap heuristic (a run overlapping two
+ * discoveries was counted by both — the FK ends that for new runs). Only
+ * OK/PARTIAL runs count (`creditsCharged` settles on those outcomes) and it is
+ * already WHOLE credits — the unit the header renders.
  */
 export async function resolveSpendCreditsForDiscovery(
   agencyId: string,
+  discoveryId: string,
   cellKeys: string[],
 ): Promise<number> {
-  if (cellKeys.length === 0) return 0;
-
   const runs = await prisma.enrichmentRun.findMany({
     where: { agencyId, status: { in: ["OK", "PARTIAL"] } },
     orderBy: { startedAt: "desc" },
     take: 500,
-    select: { creditsCharged: true, scopeRefsJson: true },
+    select: { creditsCharged: true, discoveryId: true, scopeRefsJson: true },
   });
 
-  return sumCreditsForCellOverlap(runs, cellKeys);
+  let total = 0;
+  const legacy: { creditsCharged: number; scopeRefsJson: unknown }[] = [];
+  for (const r of runs) {
+    if (r.discoveryId != null) {
+      if (r.discoveryId === discoveryId) total += r.creditsCharged;
+    } else {
+      legacy.push(r);
+    }
+  }
+  return total + sumCreditsForCellOverlap(legacy, cellKeys);
 }
