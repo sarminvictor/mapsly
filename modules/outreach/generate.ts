@@ -44,9 +44,10 @@ function toOutreachChannel(c: GenerateChannel): OutreachChannel {
 /**
  * Normalize a business country to an uppercase ISO-ish 2-letter code (US / CA).
  * DfS + our gazetteer store "US"/"CA"; guard against a full name or lowercase.
- * Null when we genuinely don't know (footer then defaults to CAN-SPAM — the
- * strictest-safe choice for a US-majority index; CA is the branch that requires
- * the extra CASL framing, so unknown must NOT silently pick CASL).
+ * Null when we genuinely don't know — the footer then defaults to the CASL
+ * long form (A11 · touchpoints audit 2026-07-07): CASL is a compliant SUPERSET
+ * of CAN-SPAM, so an unknown-country lead (possibly Canadian) always gets the
+ * stricter footer; only a positive "US" takes the short CAN-SPAM form.
  */
 function normalizeCountry(raw: string | null): string | null {
   if (!raw) return null;
@@ -56,12 +57,23 @@ function normalizeCountry(raw: string | null): string | null {
   return s.slice(0, 2) || null;
 }
 
-/** Map of category → customer noun (mirrors modules/cold/signals.ts). */
+/**
+ * Map of category → customer noun. A6 (touchpoints audit 2026-07-07): the live
+ * test handed an acupuncture clinic "customers" — health-practice categories
+ * (acupuncture / chiropractic / dental / physio / medical / clinic / wellness)
+ * say "patients"; salon-class categories (incl. plain day spas — med spas stay
+ * "patients" via the med/medical match, tested first) say "clients";
+ * everything else falls back to "customers".
+ */
 function nounFor(category: string | null): string {
   const c = (category ?? "").toLowerCase();
-  if (/med spa|medical|spa|aesthetic|derma|clinic|botox|laser|wellness/.test(c))
+  if (
+    /acupunctur|chiropract|dental|dentist|physio|med spa|medical|aesthetic|derma|clinic|botox|laser|wellness|health/.test(
+      c,
+    )
+  )
     return "patients";
-  if (/salon|hair|nail|lash|barber|beauty/.test(c)) return "clients";
+  if (/salon|hair|nail|lash|barber|beauty|spa/.test(c)) return "clients";
   return "customers";
 }
 
@@ -116,6 +128,10 @@ export async function gatherTouchSignals(
       country: true,
       email: true,
       category: true,
+      // A5 · the LISTING's review count (vs our pulled rows) → partial-pull flag.
+      reviewCount: true,
+      // A10 · cell scope for the newest Meta AdMarketRun (competitor ad count).
+      cellKey: true,
       snapshots: {
         take: 1,
         orderBy: { snapshotDate: "desc" },
@@ -138,27 +154,49 @@ export async function gatherTouchSignals(
   const snap = biz.snapshots[0] ?? null;
   const lh = biz.lighthouseAudits[0] ?? null;
 
-  // Review counts (unanswered negatives) + competitor ad presence + own ads +
-  // booking tech + HIPAA finding, in parallel.
-  const [unansweredNegative, ownAds, bookingTech, hipaaFinding] =
-    await Promise.all([
-      prisma.review.count({
-        where: { businessId, ownerReplied: false, stars: { lte: 2 } },
-      }),
-      prisma.adLibraryEntry.count({ where: { businessId, isActive: true } }),
-      prisma.businessTech.findFirst({
-        where: { businessId, category: "BOOKING" },
-        select: { id: true },
-      }),
-      prisma.playbookFinding.findFirst({
-        where: {
-          businessId,
-          signalKey: "hipaa-pixel-on-phi-page",
-          status: "flagged",
-        },
-        select: { id: true },
-      }),
-    ]);
+  // Review counts (unanswered negatives + total pulled rows for the A5
+  // partial-pull flag) + own ads + booking tech + HIPAA finding + the cell's
+  // newest verified Meta ad-market run (A10), in parallel.
+  const [
+    unansweredNegative,
+    pulledReviews,
+    ownAds,
+    bookingTech,
+    hipaaFinding,
+    adMarket,
+  ] = await Promise.all([
+    prisma.review.count({
+      where: { businessId, ownerReplied: false, stars: { lte: 2 } },
+    }),
+    prisma.review.count({ where: { businessId } }),
+    prisma.adLibraryEntry.count({ where: { businessId, isActive: true } }),
+    prisma.businessTech.findFirst({
+      where: { businessId, category: "BOOKING" },
+      select: { id: true },
+    }),
+    prisma.playbookFinding.findFirst({
+      where: {
+        businessId,
+        signalKey: "hipaa-pixel-on-phi-page",
+        status: "flagged",
+      },
+      select: { id: true },
+    }),
+    // A10 · newest Meta run that actually produced data (OK/PARTIAL — same
+    // freshness-anchor rule as modules/cell-intel/freshness.ts). One indexed
+    // findFirst per business (batch ≤25). No cellKey / no run → null below.
+    biz.cellKey
+      ? prisma.adMarketRun.findFirst({
+          where: {
+            cellKey: biz.cellKey,
+            platform: "META",
+            status: { in: ["OK", "PARTIAL"] },
+          },
+          orderBy: { ranAt: "desc" },
+          select: { advertiserCount: true },
+        })
+      : Promise.resolve(null),
+  ]);
 
   // Tech enrichment ran iff there is any BusinessTech row. Only then can we make
   // a TRUE/FALSE booking claim; otherwise hasBookingTool stays null ("unknown").
@@ -170,15 +208,36 @@ export async function gatherTouchSignals(
 
   const runsAds = ownAds > 0;
 
+  // A5 · partial-pull flag: our pulled rows cover meaningfully less than the
+  // listing's own reviewCount (< 80%) → the unanswered-negative line reads
+  // "at least N" instead of an exact claim the owner can disprove.
+  const listingReviews =
+    typeof biz.reviewCount === "number" ? biz.reviewCount : null;
+  const reviewSamplePartial =
+    listingReviews !== null &&
+    listingReviews > pulledReviews &&
+    pulledReviews < 0.8 * listingReviews;
+
+  // A10 · competitor ad count from the cell's newest verified Meta run —
+  // advertisers in the cell minus the business itself when it advertises
+  // (never below 0). Null when there's no cellKey or no OK/PARTIAL run: the
+  // competitor_ads pain honestly stays off. (Pre-A10 this was hardcoded null,
+  // leaving the theme permanently dead while the UI still offered it.)
+  const competitorAdsCount = adMarket
+    ? Math.max(0, adMarket.advertiserCount - (runsAds ? 1 : 0))
+    : null;
+
   return {
     businessName: biz.name,
     city: biz.city,
-    // WP7-4 · country drives the CASL-vs-CAN-SPAM footer branch. Normalized to
-    // an uppercase 2-letter code; null when unknown (defaults to CAN-SPAM).
+    // WP7-4 / A11 · country drives the footer branch (US → CAN-SPAM short;
+    // CA / other / null → CASL superset). Normalized to an uppercase 2-letter
+    // code; null when unknown.
     country: normalizeCountry(biz.country),
     recipientEmail: biz.email ?? null,
     noun: nounFor(biz.category),
     unansweredNegative: unansweredNegative > 0 ? unansweredNegative : null,
+    reviewSamplePartial,
     reviewLifecycle: lifecycleOf(snap?.reviewLifecycle),
     reviewsVsCellPercentile: reputationPercentile(
       snap?.pillarRanks ?? null,
@@ -186,9 +245,7 @@ export async function gatherTouchSignals(
     ),
     lcpSeconds: typeof lh?.lcp === "number" ? lh.lcp : null,
     lighthousePerf: typeof lh?.performance === "number" ? lh.performance : null,
-    // Competitor ad count is a cell-level read we don't fetch here (cheap path);
-    // leave null so the skeleton omits the competitor-ads line unless provided.
-    competitorAdsCount: null,
+    competitorAdsCount,
     runsAds,
     hasBookingTool,
     hipaaPixelRisk: hipaaFinding !== null ? true : null,
@@ -245,7 +302,11 @@ export interface GeneratedTouch {
 export async function generateTouchesForLeads(
   businessIds: string[],
   opts: GenerateTouchesOptions,
-): Promise<{ touches: GeneratedTouch[]; skippedNoAddress: number }> {
+): Promise<{
+  touches: GeneratedTouch[];
+  skippedNoAddress: number;
+  skippedSparse: number;
+}> {
   const out: GeneratedTouch[] = [];
   const channel = toOutreachChannel(opts.channel);
   // TM-1 · businesses skipped SPECIFICALLY because an email touch needs a
@@ -253,6 +314,12 @@ export async function generateTouchesForLeads(
   // so the UI can say "set your mailing address in Settings" instead of a silent
   // "Drafted 0". Only the deterministic address gate counts here.
   let skippedNoAddress = 0;
+  // A17 · businesses skipped because step 1 grounded ZERO pains (within the
+  // allowed themes) — a zero-pain lead used to ship a 31-word generic note:
+  // spam-shaped, and exactly where the CASL consent basis is weakest. NEW
+  // generation gates them out; the regenerate path (actions.ts) intentionally
+  // does NOT gate, so existing sparse drafts are never stranded.
+  let skippedSparse = 0;
   const sequenceOf = Math.min(
     Math.max(1, Math.trunc(opts.sequenceLength ?? 1)),
     MAX_SEQUENCE_LENGTH,
@@ -289,6 +356,9 @@ export async function generateTouchesForLeads(
           // WP6-15 · seed the per-agency pain-order rotation so two agencies
           // pitching the same lead don't send verbatim-identical openers.
           agencySeed: opts.agencyId,
+          // A2/A14/A16 · per-business subject/frame variation so one batch
+          // doesn't ship byte-identical subjects/openers/CTAs.
+          variantSeed: businessId,
         });
       } catch {
         // Unbuildable (e.g. email with no CAN-SPAM address) → skip the whole
@@ -299,11 +369,51 @@ export async function generateTouchesForLeads(
         break;
       }
 
+      // A17 · sparse gate: a step-1 touch grounded on ZERO pains is a generic
+      // spam-shaped note — skip the business instead of persisting it. Only
+      // gates NEW generation (see skippedSparse above).
+      if (step === 1 && touch.usedSignals.length === 0) {
+        skippedSparse += 1;
+        break;
+      }
+
+      // WP7-4 / A12 · record the consent BASIS this email touch relies on,
+      // BEFORE the draft write so the draft row can carry the ConsentRecord id
+      // (audit trail). Cold outreach to a publicly-listed business email rests
+      // on the CASL "conspicuous publication" exemption (s.10(9)(b)) / the
+      // CAN-SPAM opt-out model — logged per (email, business) so the basis is
+      // auditable. Email channel + known address only; best-effort (a consent
+      // log failure must never block the draft — the draft just gets null).
+      // Idempotent-ish: one row per generated step is fine (capturedAt tracks
+      // recency).
+      let consentRecordId: string | null = null;
+      if (channel === "email" && signals.recipientEmail) {
+        try {
+          const consent = await prisma.consentRecord.create({
+            data: {
+              email: signals.recipientEmail.toLowerCase(),
+              businessId,
+              basis: "CONSPICUOUS_PUBLICATION",
+              country: signals.country ?? "US",
+              relevanceNote:
+                `Publicly-listed ${signals.noun ?? "business"} contact; ` +
+                `message relates to their online presence (${opts.sellingWhat}).`,
+            },
+            select: { id: true },
+          });
+          consentRecordId = consent.id;
+        } catch {
+          // Consent logging is best-effort — never block a generated draft.
+        }
+      }
+
       const draft = await prisma.outreachDraft.create({
         data: {
           businessId,
           agencyId: opts.agencyId,
           campaignId: opts.campaignId ?? null,
+          // A12 · soft ref to the consent-basis row backing this email touch.
+          consentRecordId,
           channel,
           subject: touch.subject ?? null,
           body: touch.body,
@@ -327,33 +437,8 @@ export async function generateTouchesForLeads(
       });
       out.push({ businessId, draftId: draft.id });
       usedPainKeys.push(...touch.usedSignals);
-
-      // WP7-4 · record the consent BASIS this email touch relies on. Cold
-      // outreach to a publicly-listed business email rests on the CASL
-      // "conspicuous publication" exemption (s.10(9)(b)) / the CAN-SPAM opt-out
-      // model — we log it per (email, business) so the basis is auditable. Only
-      // for the email channel + when we have an address; best-effort (a consent
-      // log write must never fail the generation batch). Idempotent-ish: one
-      // row per generation is fine (capturedAt tracks recency).
-      if (channel === "email" && signals.recipientEmail) {
-        try {
-          await prisma.consentRecord.create({
-            data: {
-              email: signals.recipientEmail.toLowerCase(),
-              businessId,
-              basis: "CONSPICUOUS_PUBLICATION",
-              country: signals.country ?? "US",
-              relevanceNote:
-                `Publicly-listed ${signals.noun ?? "business"} contact; ` +
-                `message relates to their online presence (${opts.sellingWhat}).`,
-            },
-          });
-        } catch {
-          // Consent logging is best-effort — never block a generated draft.
-        }
-      }
     }
   }
 
-  return { touches: out, skippedNoAddress };
+  return { touches: out, skippedNoAddress, skippedSparse };
 }

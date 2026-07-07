@@ -104,6 +104,9 @@ export interface ScopedDraftRow {
   body: string;
   predictedTier: string | null;
   whyJson: unknown;
+  /** Soft ref to the CASL ConsentRecord written at generation (A12) — the CSV
+   *  export prefers this over the (email, businessId) pair lookup. */
+  consentRecordId: string | null;
 }
 
 /**
@@ -132,6 +135,7 @@ export async function loadAgencyDrafts(
       body: true,
       predictedTier: true,
       whyJson: true,
+      consentRecordId: true,
     },
   });
 

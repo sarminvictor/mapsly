@@ -70,13 +70,16 @@ async function TouchpointsBody({ params }: PageProps) {
 
   const member = await prisma.agencyMember.findFirst({
     where: { userId: session.user.id },
-    select: { agencyId: true },
+    // T3/B2 · mailingAddress rides along so the generate panel can pre-flight
+    // the CAN-SPAM/CASL requirement (plain boolean prop, Pattern 4).
+    select: { agencyId: true, agency: { select: { mailingAddress: true } } },
   });
   if (!member) {
     redirect({ href: "/home", locale });
     return null;
   }
   const agencyId = member.agencyId;
+  const hasMailingAddress = Boolean(member.agency.mailingAddress?.trim());
 
   // Agency boundary: collect the agency's discovered cells, then the businesses
   // in those cells. Drafts for those businesses are this agency's touchpoints.
@@ -142,7 +145,7 @@ async function TouchpointsBody({ params }: PageProps) {
         </p>
       </header>
 
-      <GenerateTouchpointsPanel />
+      <GenerateTouchpointsPanel hasMailingAddress={hasMailingAddress} />
 
       <TouchpointsList drafts={drafts} />
     </div>

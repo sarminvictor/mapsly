@@ -19,6 +19,7 @@
 
 import {
   buildFirstTouch,
+  shortBusinessName,
   type FirstTouch,
   type PredictedTier,
   type TouchSignals,
@@ -47,6 +48,9 @@ export interface ChannelTouchOptions {
   sequenceStep?: number;
   /** WP6-15 · per-agency pain-order rotation seed (passed to buildFirstTouch). */
   agencySeed?: string | null;
+  /** A2/A14/A16 · per-business subject/frame variation seed (the businessId,
+   *  passed to buildFirstTouch — see TouchOptions.variantSeed). */
+  variantSeed?: string | null;
 }
 
 export interface ChannelTouch {
@@ -84,6 +88,7 @@ export function buildChannelTouch(
       excludePainKeys: opts.excludePainKeys,
       sequenceStep: opts.sequenceStep,
       agencySeed: opts.agencySeed,
+      variantSeed: opts.variantSeed,
     });
     return toChannelTouch("email", touch);
   }
@@ -99,6 +104,7 @@ export function buildChannelTouch(
     excludePainKeys: opts.excludePainKeys,
     sequenceStep: opts.sequenceStep,
     agencySeed: opts.agencySeed,
+    variantSeed: opts.variantSeed,
   });
 
   const body =
@@ -155,12 +161,15 @@ function renderPhoneScript(
 ): string {
   const paras = paragraphs(grounded.body);
   // paras[0] = opener, middle = pain(s), last = close question.
-  const opener = `Hi, is this ${signals.businessName}? I help local businesses${signals.city ? ` around ${signals.city}` : ""} with ${sellingWhat}.`;
+  // A14 · short name (no legal suffix) here too — a phone script must not read
+  // "is this Serenity Aesthetics Laser & Advanced Skin Care Inc?".
+  const short = shortBusinessName(signals.businessName);
+  const opener = `Hi, is this ${short}? I help local businesses${signals.city ? ` around ${signals.city}` : ""} with ${sellingWhat}.`;
   const painParas = paras.slice(1, Math.max(1, paras.length - 1));
   const close =
     paras.length > 1
       ? paras[paras.length - 1]
-      : `Mind if I send over a quick look at ${signals.businessName}?`;
+      : `Mind if I send over a quick look at ${short}?`;
 
   const lines: string[] = [];
   lines.push(`[Open] ${opener}`);
@@ -182,9 +191,10 @@ function renderSocialDm(signals: TouchSignals, grounded: FirstTouch): string {
   const paras = paragraphs(grounded.body);
   // Sharpest pain is the first body paragraph after the opener (if any).
   const pain = paras.length > 1 ? paras[1] : "";
+  const short = shortBusinessName(signals.businessName);
   const hook = pain
-    ? `Hi ${signals.businessName} — ${lowerFirst(pain)}`
-    : `Hi ${signals.businessName} — had a look at your online presence and spotted a couple of quick wins.`;
+    ? `Hi ${short} — ${lowerFirst(pain)}`
+    : `Hi ${short} — had a look at your online presence and spotted a couple of quick wins.`;
   const ask = `Want me to send over what I found?`;
   // 1–2 lines, no footer.
   return `${hook}\n${ask}`;

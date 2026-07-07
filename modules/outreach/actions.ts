@@ -14,6 +14,15 @@
  * and bill the advertised rate (10 credits per 100 touches — see
  * modules/outreach/touch-pricing.ts) through the wallet hold→settle machinery.
  *
+ * Touchpoints audit 2026-07-07:
+ *   A8 · when the caller passes NO painPointKeys but a discoveryId, the
+ *       default allowlist derives from the discovery's GOAL signals
+ *       (pain-goals.ts) — an explicit user selection always wins, and a null
+ *       derivation means "no restriction", never "restrict to nothing".
+ *   A9 · when campaignId is present and sellingWhat is blank, the campaign's
+ *       persisted pitch autofills it (the RESOLVED value is what's validated).
+ *   A17 · zero-pain leads are skipped (skippedSparse), not drafted.
+ *
  * regenerateTouchesAction · WP5-10: rebuild selected drafts in place from
  * fresh signals, deduping pain themes against the business's OTHER steps.
  *
@@ -47,8 +56,10 @@ import {
   generateTouchesForLeads,
   gatherTouchSignals,
 } from "@/modules/outreach/generate";
+import { parseDiscoverySignals } from "@/modules/agency-portal/discover/discovery-signals";
 import { buildChannelTouch, type OutreachChannel } from "./channels";
 import { creditsForTouches } from "./touch-pricing";
+import { defaultPainKeysForSignals } from "./pain-goals";
 import { draftWhereForAgency, loadAgencyDrafts } from "./draft-scope";
 import { trackProductEvent } from "@/lib/analytics/product-events";
 
@@ -59,7 +70,10 @@ const MAX_SELECTED_BUSINESSES = 25;
 
 // Channel values match TouchChannel in modules/outreach/first-touch.ts.
 const Input = z.object({
-  sellingWhat: z.string().min(3).max(400),
+  /** A9 · optional at the schema level ONLY for the campaign-autofill path —
+   *  the RESOLVED pitch (input, else the campaign's saved sellingWhat) is
+   *  validated to ≥3 chars below, so a blank pitch never reaches generation. */
+  sellingWhat: z.string().max(400).optional(),
   channel: z.enum(["email", "dm", "phone", "social"]),
   limit: z.number().int().min(1).max(20).default(20),
   /** WP5-1 · explicit selection. Absent → the agency-pool default. */
@@ -69,6 +83,8 @@ const Input = z.object({
     .optional(),
   /** Optional — tightens the cell gate to one research. */
   discoveryId: z.string().min(1).max(64).optional(),
+  /** A9 · campaign the drafts link to; autofills sellingWhat when blank. */
+  campaignId: z.string().min(1).max(64).optional(),
   tone: z.enum(["direct", "warm", "brief"]).optional(),
   sequenceLength: z.number().int().min(1).max(3).default(1),
   painPointKeys: z.array(z.string().min(1).max(64)).max(16).optional(),
@@ -86,6 +102,9 @@ export type GenerateTouchpointsResult =
       /** TM-1 · skipped because an email touch needs a mailing address the
        *  agency hasn't set — the UI shows an actionable "set it in Settings". */
       skippedNoAddress: number;
+      /** A17 · skipped because zero pains grounded for step 1 (sparse lead —
+       *  a generic note would be spam-shaped; the UI suggests enriching). */
+      skippedSparse: number;
       /** Whole credits actually settled against the wallet. */
       creditsCharged: number;
     }
@@ -121,6 +140,30 @@ export async function generateTouchpointsAction(
     if (!member) return { status: "forbidden" };
     const agencyId = member.agencyId;
 
+    // A9 · resolve the pitch: the caller's sellingWhat wins; blank + a
+    // campaignId → the campaign's persisted pitch (agency-scoped read — a
+    // foreign campaignId resolves to nothing). The RESOLVED value is what
+    // gets validated, so a blank pitch never reaches generation.
+    let sellingWhat = (parsed.data.sellingWhat ?? "").trim();
+    if (sellingWhat.length < 3 && parsed.data.campaignId) {
+      const campaign = await prisma.campaign.findFirst({
+        where: { id: parsed.data.campaignId, agencyId },
+        select: { sellingWhat: true },
+      });
+      const stored =
+        typeof campaign?.sellingWhat === "string"
+          ? campaign.sellingWhat.trim()
+          : "";
+      if (stored.length >= 3) sellingWhat = stored.slice(0, 400);
+    }
+    if (sellingWhat.length < 3) {
+      return {
+        status: "invalid_input",
+        message:
+          "sellingWhat: 3+ characters (or pass a campaignId with a saved pitch)",
+      };
+    }
+
     // Agency boundary: discovered cells (optionally narrowed to one research;
     // a discoveryId that isn't this agency's simply yields no cells).
     const discoveries = await prisma.discovery.findMany({
@@ -140,8 +183,31 @@ export async function generateTouchpointsAction(
         scanned: 0,
         skippedExisting: 0,
         skippedNoAddress: 0,
+        skippedSparse: 0,
         creditsCharged: 0,
       };
+    }
+
+    // A8 · no explicit pain selection + a discovery scope → default the
+    // allowlist from the research's GOAL signals (Discovery.signalsJson →
+    // outcome groups → pain themes). Null derivation = no restriction (all
+    // grounded themes stay eligible) — never a hard-restrict. An explicit
+    // painPointKeys from the caller always wins (checked above).
+    let painPointKeys: readonly string[] | undefined =
+      parsed.data.painPointKeys;
+    if (
+      (!painPointKeys || painPointKeys.length === 0) &&
+      parsed.data.discoveryId
+    ) {
+      const disc = await prisma.discovery.findFirst({
+        where: { id: parsed.data.discoveryId, agencyId },
+        select: { signalsJson: true },
+      });
+      const goalKeys =
+        parseDiscoverySignals(disc?.signalsJson)?.signals.map((s) => s.key) ??
+        [];
+      const derived = defaultPainKeysForSignals(goalKeys);
+      if (derived) painPointKeys = derived;
     }
 
     // Candidate pool: the explicit selection gated through the agency's
@@ -168,6 +234,7 @@ export async function generateTouchpointsAction(
         scanned: 0,
         skippedExisting: 0,
         skippedNoAddress: 0,
+        skippedSparse: 0,
         creditsCharged: 0,
       };
     }
@@ -196,6 +263,7 @@ export async function generateTouchpointsAction(
         scanned: pool.length,
         skippedExisting,
         skippedNoAddress: 0,
+        skippedSparse: 0,
         creditsCharged: 0,
       };
     }
@@ -227,15 +295,19 @@ export async function generateTouchpointsAction(
     let gen: Awaited<ReturnType<typeof generateTouchesForLeads>>;
     try {
       gen = await generateTouchesForLeads(targets, {
-        sellingWhat: parsed.data.sellingWhat,
+        // A9 · the resolved pitch (input, else the campaign's saved one).
+        sellingWhat,
         channel: parsed.data.channel,
         agencyId,
         mailingAddress: agency?.mailingAddress ?? null,
         // WP7-4 · CASL sender-ID line for CA recipients.
         senderName: agency?.name ?? null,
+        // A9 · link the drafts to the campaign when one is given.
+        campaignId: parsed.data.campaignId ?? null,
         tone: parsed.data.tone,
         sequenceLength: parsed.data.sequenceLength,
-        painPointKeys: parsed.data.painPointKeys,
+        // A8 · explicit selection, else the goal-derived default (or none).
+        painPointKeys,
       });
     } catch (err) {
       if (creditsNeeded > 0) await refundHold(runId);
@@ -270,6 +342,7 @@ export async function generateTouchpointsAction(
       scanned: pool.length,
       skippedExisting,
       skippedNoAddress: gen.skippedNoAddress,
+      skippedSparse: gen.skippedSparse,
       creditsCharged,
     };
   } catch (err) {
@@ -441,6 +514,11 @@ export async function regenerateTouchesAction(
           tone,
           excludePainKeys,
           sequenceStep: meta.sequenceStep,
+          // A2/A14/A16 · keep the per-business subject/frame variation on
+          // regeneration. NOTE: regeneration deliberately has NO sparse gate
+          // (A17) — existing drafts are rebuilt even when zero pains ground,
+          // so rows are never stranded; only NEW generation gates.
+          variantSeed: draft.businessId,
         });
 
         await prisma.outreachDraft.update({

@@ -10,11 +10,12 @@ const prismaMock = vi.hoisted(() => ({
   outreachDraft: { findMany: vi.fn() },
   business: { findMany: vi.fn() },
   coldRecipient: { create: vi.fn() },
-  consentRecord: { create: vi.fn() },
+  consentRecord: { create: vi.fn(), findMany: vi.fn() },
 }));
 vi.mock("@/lib/prisma", () => ({ default: prismaMock, Prisma: {} }));
 
 import {
+  complianceFooterOf,
   composeMailingAddress,
   DEFAULT_UNSUBSCRIBE_NOTE,
   enrollInColdCampaign,
@@ -23,7 +24,48 @@ import {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // B3 · the consent-basis lookup defaults to "nothing on file".
+  prismaMock.consentRecord.findMany.mockResolvedValue([]);
 });
+
+/** Minimal RFC-4180 parser (quoted cells may embed newlines — draft bodies do). */
+function parseCsv(csv: string): string[][] {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let cur = "";
+  let inQuotes = false;
+  for (let i = 0; i < csv.length; i++) {
+    const ch = csv[i];
+    if (inQuotes) {
+      if (ch === '"') {
+        if (csv[i + 1] === '"') {
+          cur += '"';
+          i++;
+        } else inQuotes = false;
+      } else cur += ch;
+    } else if (ch === '"') inQuotes = true;
+    else if (ch === ",") {
+      row.push(cur);
+      cur = "";
+    } else if (ch === "\n") {
+      row.push(cur);
+      rows.push(row);
+      row = [];
+      cur = "";
+    } else cur += ch;
+  }
+  row.push(cur);
+  rows.push(row);
+  return rows;
+}
+
+/** The value of `column` on data row `rowIdx` (0-based) of an export CSV. */
+function cellOf(csv: string, column: string, rowIdx = 0): string {
+  const rows = parseCsv(csv);
+  const idx = rows[0].indexOf(column);
+  expect(idx).toBeGreaterThanOrEqual(0);
+  return rows[rowIdx + 1][idx];
+}
 
 const draftWithAddr = {
   id: "draft_1",
@@ -42,7 +84,9 @@ const draftNoAddr = {
   predictedTier: "low",
 };
 
-/** Business rows the resolver will join: biz_1 has an address, biz_2 doesn't. */
+/** Business rows the resolver will join: biz_1 has an address, biz_2 doesn't.
+ *  B5 email-verification states: biz_1 verified, biz_3 email-but-unverified,
+ *  biz_4 no email at all. */
 function mockBusinesses() {
   prismaMock.business.findMany.mockResolvedValue([
     {
@@ -53,6 +97,7 @@ function mockBusinesses() {
       province: "FL",
       postalCode: "33131",
       email: "owner@glowspa.com",
+      emailVerifiedAt: new Date("2026-06-01T00:00:00Z"),
       phone: "+1 305 555 0100",
       website: "https://glowspa.example",
       landingPage: { slug: "glow-spa", token: "tok1" },
@@ -65,9 +110,36 @@ function mockBusinesses() {
       province: "FL",
       postalCode: null,
       email: "owner@noaddr.com",
+      emailVerifiedAt: null,
       phone: null,
       website: null,
       landingPage: { slug: "no-addr", token: "tok2" },
+    },
+    {
+      id: "biz_3",
+      name: "Unverified Mail Co",
+      address: "9 Side St",
+      city: "Miami",
+      province: "FL",
+      postalCode: "33132",
+      email: "hello@unverified.example",
+      emailVerifiedAt: null,
+      phone: null,
+      website: null,
+      landingPage: null,
+    },
+    {
+      id: "biz_4",
+      name: "No Email Co",
+      address: "12 Back St",
+      city: "Miami",
+      province: "FL",
+      postalCode: "33133",
+      email: null,
+      emailVerifiedAt: null,
+      phone: null,
+      website: null,
+      landingPage: null,
     },
   ]);
 }
@@ -102,6 +174,15 @@ describe("composeMailingAddress", () => {
   });
 });
 
+describe("complianceFooterOf", () => {
+  test("slices the exact footer after the LAST \\n\\n—\\n separator", () => {
+    expect(complianceFooterOf("body\n\n—\n1 Main St\nUnsubscribe: x")).toBe(
+      "1 Main St\nUnsubscribe: x",
+    );
+    expect(complianceFooterOf("no footer here")).toBe("");
+  });
+});
+
 describe("exportDraftsCsv", () => {
   test("includes the mandatory unsubscribe footer column on every row", async () => {
     mockBusinesses();
@@ -112,8 +193,11 @@ describe("exportDraftsCsv", () => {
     // Header carries the compliance columns.
     expect(res.csv.split("\n")[0]).toContain("unsubscribeNote");
     expect(res.csv.split("\n")[0]).toContain("mailingAddress");
-    // The mandatory footer + the composed address are on the data row.
-    expect(res.csv).toContain(DEFAULT_UNSUBSCRIBE_NOTE);
+    // The mandatory footer + the composed address are on the data row. The
+    // humanized note (A13) contains a quote, so in the RFC-4180 cell it is
+    // escaped to `""no""` — assert the CSV-escaped form, not the raw constant.
+    expect(res.csv).toContain(DEFAULT_UNSUBSCRIBE_NOTE.replace(/"/g, '""'));
+    expect(res.csv).toContain("won't email again");
     expect(res.csv).toContain("1 Main St, Miami, FL, 33131");
   });
 
@@ -135,6 +219,74 @@ describe("exportDraftsCsv", () => {
       unsubscribeNote: "Email stop@mapsly.ai to opt out.",
     });
     expect(res.csv).toContain("Email stop@mapsly.ai to opt out.");
+  });
+
+  // ── T3/B3 · per-recipient compliance columns ───────────────────────────────
+
+  test("B3 · complianceFooter carries the exact footer after the \\n\\n—\\n separator", async () => {
+    mockBusinesses();
+    const footer =
+      "1 Main St, Miami, FL, 33131\nJust reply 'no' and I won't email again.";
+    const withFooter = {
+      ...draftWithAddr,
+      body: `Hi — you have 3 unanswered reviews.\n\n—\n${footer}`,
+    };
+    const res = await exportDraftsCsv([withFooter]);
+    expect(cellOf(res.csv, "complianceFooter")).toBe(footer);
+  });
+
+  test("B3 · complianceFooter is empty when the body has no footer separator (non-email)", async () => {
+    mockBusinesses();
+    const dm = { ...draftWithAddr, channel: "dm" }; // dm bodies carry no footer
+    const res = await exportDraftsCsv([dm]);
+    expect(cellOf(res.csv, "complianceFooter")).toBe("");
+  });
+
+  test("B3 · consentBasis resolves via the (email, businessId) fallback lookup", async () => {
+    mockBusinesses();
+    prismaMock.consentRecord.findMany.mockResolvedValue([
+      {
+        email: "owner@glowspa.com",
+        businessId: "biz_1",
+        basis: "CONSPICUOUS_PUBLICATION",
+      },
+    ]);
+    const res = await exportDraftsCsv([draftWithAddr]);
+    expect(cellOf(res.csv, "consentBasis")).toBe("CONSPICUOUS_PUBLICATION");
+  });
+
+  test("B3 · consentBasis prefers the draft's consentRecordId when stamped", async () => {
+    mockBusinesses();
+    prismaMock.consentRecord.findMany.mockResolvedValue([
+      { id: "con_9", basis: "EXPRESS" },
+    ]);
+    const res = await exportDraftsCsv([
+      { ...draftWithAddr, consentRecordId: "con_9" },
+    ]);
+    expect(cellOf(res.csv, "consentBasis")).toBe("EXPRESS");
+    // The id path answered — no second (pair) query needed.
+    expect(prismaMock.consentRecord.findMany).toHaveBeenCalledTimes(1);
+  });
+
+  test("B3 · consentBasis is empty with no record on file", async () => {
+    mockBusinesses();
+    const res = await exportDraftsCsv([draftWithAddr]);
+    expect(cellOf(res.csv, "consentBasis")).toBe("");
+  });
+
+  // ── T3/B5 · emailVerified warning column (no hard gate) ────────────────────
+
+  test("B5 · emailVerified reads yes / no / blank from the Business verification state", async () => {
+    mockBusinesses();
+    const res = await exportDraftsCsv([
+      draftWithAddr, // biz_1 · email + emailVerifiedAt → "yes"
+      { ...draftWithAddr, id: "draft_3", businessId: "biz_3" }, // email, never verified → "no"
+      { ...draftWithAddr, id: "draft_4", businessId: "biz_4" }, // no email → ""
+    ]);
+    expect(res.exported).toBe(3); // warning column only — nothing gated
+    expect(cellOf(res.csv, "emailVerified", 0)).toBe("yes");
+    expect(cellOf(res.csv, "emailVerified", 1)).toBe("no");
+    expect(cellOf(res.csv, "emailVerified", 2)).toBe("");
   });
 
   test("WP6-6 · includes contact + evidence merge-field columns", async () => {

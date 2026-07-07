@@ -1,5 +1,7 @@
 import { describe, expect, test } from "vitest";
 
+import { buildTextFooter, toHtmlBody } from "@/modules/cold/template";
+import { getColdSenderConfig } from "../config";
 import {
   isBlockError,
   isHardBounce,
@@ -9,6 +11,29 @@ import {
 import { COLD_RAMP_STEPS, effectiveDailyCap, utcDateKey } from "../ramp";
 
 const day = (n: number): Date => new Date(2026, 5, n, 12, 0, 0); // local noon
+
+// T3/B6 · the 2026-06-09 audit's postal-address violation (address constant
+// defined but never wired into footers) was fixed in v0.15.6; this locks the
+// defused state mechanically: the sender config can never yield an empty
+// address, and the config value composes into BOTH footers along the exact
+// call shape the send paths use (process-cold-sequences cron + admin actions).
+describe("physical postal address (CAN-SPAM/CASL · audit 2026-06-09)", () => {
+  test("getColdSenderConfig always yields a non-empty postal address", () => {
+    const { physicalAddress } = getColdSenderConfig();
+    expect(physicalAddress.trim().length).toBeGreaterThan(0);
+    // A real street address, not a bare brand name.
+    expect(physicalAddress).toMatch(/\d/);
+  });
+
+  test("the configured address lands in the text + html footers", () => {
+    const { physicalAddress } = getColdSenderConfig();
+    const unsub = "https://www.mapsly.ai/u/tok";
+    expect(buildTextFooter(unsub, physicalAddress)).toContain(physicalAddress);
+    expect(toHtmlBody("Hi", unsub, physicalAddress)).toContain(
+      physicalAddress.replace(/&/g, "&amp;"),
+    );
+  });
+});
 
 describe("effectiveDailyCap", () => {
   test("no ramp start → 0 (mailbox still warming)", () => {

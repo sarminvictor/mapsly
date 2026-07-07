@@ -11,6 +11,8 @@ const prismaMock = vi.hoisted(() => ({
   adLibraryEntry: { count: vi.fn() },
   businessTech: { findFirst: vi.fn(), count: vi.fn() },
   playbookFinding: { findFirst: vi.fn() },
+  // A10 · newest verified Meta ad-market run for the business's cell.
+  adMarketRun: { findFirst: vi.fn() },
   outreachDraft: { create: vi.fn() },
   // WP7-4 · consent-basis log written per email touch.
   consentRecord: { create: vi.fn() },
@@ -279,5 +281,204 @@ describe("generateTouchesForLeads", () => {
     const why = data.whyJson as { usedSignals: string[] };
     expect(why.usedSignals).toEqual(["slow_site"]);
     expect(String(data.body)).not.toContain("unanswered negative");
+  });
+});
+
+// ── Touchpoints audit 2026-07-07 · A5, A6, A10, A12, A17 ────────────────────
+
+/** Baseline "no extra signals" mocks; individual tests override what they need. */
+function mockQuiet() {
+  prismaMock.review.count.mockResolvedValue(0);
+  prismaMock.adLibraryEntry.count.mockResolvedValue(0);
+  prismaMock.businessTech.findFirst.mockResolvedValue(null);
+  prismaMock.businessTech.count.mockResolvedValue(0);
+  prismaMock.playbookFinding.findFirst.mockResolvedValue(null);
+  prismaMock.adMarketRun.findFirst.mockResolvedValue(null);
+}
+
+describe("A6 · noun map — health practices say 'patients'", () => {
+  test("an acupuncture clinic gets 'patients' (the audit's live miss)", async () => {
+    mockBiz({ category: "Acupuncturist" });
+    mockQuiet();
+    const s = await gatherTouchSignals("biz_1");
+    expect(s.noun).toBe("patients");
+  });
+
+  test("a barbershop gets 'clients'; unmatched categories stay 'customers'", async () => {
+    mockBiz({ category: "Barber shop" });
+    mockQuiet();
+    expect((await gatherTouchSignals("biz_1")).noun).toBe("clients");
+
+    mockBiz({ category: "Tire shop" });
+    expect((await gatherTouchSignals("biz_1")).noun).toBe("customers");
+  });
+});
+
+describe("A5 · partial-pull flag (pulled rows vs listing reviewCount)", () => {
+  test("11 pulled of a 607-review listing → reviewSamplePartial true", async () => {
+    mockBiz({ reviewCount: 607 });
+    mockQuiet();
+    // First count = unanswered negatives (stars filter); second = total pulled.
+    prismaMock.review.count.mockImplementation(
+      async (args: { where: { stars?: unknown } }) =>
+        args.where.stars ? 2 : 11,
+    );
+    const s = await gatherTouchSignals("biz_1");
+    expect(s.unansweredNegative).toBe(2);
+    expect(s.reviewSamplePartial).toBe(true);
+  });
+
+  test("pull covering ≥80% of the listing → not partial (exact claim ok)", async () => {
+    mockBiz({ reviewCount: 12 });
+    mockQuiet();
+    prismaMock.review.count.mockImplementation(
+      async (args: { where: { stars?: unknown } }) =>
+        args.where.stars ? 2 : 11,
+    );
+    const s = await gatherTouchSignals("biz_1");
+    expect(s.reviewSamplePartial).toBe(false);
+  });
+
+  test("no listing count → never claimed partial", async () => {
+    mockBiz({ reviewCount: null });
+    mockQuiet();
+    prismaMock.review.count.mockResolvedValue(3);
+    const s = await gatherTouchSignals("biz_1");
+    expect(s.reviewSamplePartial).toBe(false);
+  });
+});
+
+describe("A10 · competitorAdsCount from the cell's newest Meta run", () => {
+  test("advertiserCount flows through; the business's own ads subtract one", async () => {
+    mockBiz({ cellKey: "barber|kelowna|CA" });
+    mockQuiet();
+    prismaMock.adMarketRun.findFirst.mockResolvedValue({ advertiserCount: 5 });
+
+    // Not advertising itself → all 5 are competitors.
+    const s = await gatherTouchSignals("biz_1");
+    expect(s.competitorAdsCount).toBe(5);
+    // Only verified runs count (OK/PARTIAL, newest first).
+    const q = prismaMock.adMarketRun.findFirst.mock.calls[0][0];
+    expect(q.where).toEqual({
+      cellKey: "barber|kelowna|CA",
+      platform: "META",
+      status: { in: ["OK", "PARTIAL"] },
+    });
+    expect(q.orderBy).toEqual({ ranAt: "desc" });
+
+    // Advertising itself → subtract one, never below 0.
+    prismaMock.adLibraryEntry.count.mockResolvedValue(2);
+    expect((await gatherTouchSignals("biz_1")).competitorAdsCount).toBe(4);
+    prismaMock.adMarketRun.findFirst.mockResolvedValue({ advertiserCount: 1 });
+    expect((await gatherTouchSignals("biz_1")).competitorAdsCount).toBe(0);
+  });
+
+  test("no cellKey or no verified run → null (pain honestly stays off)", async () => {
+    mockBiz(); // no cellKey
+    mockQuiet();
+    expect((await gatherTouchSignals("biz_1")).competitorAdsCount).toBeNull();
+    expect(prismaMock.adMarketRun.findFirst).not.toHaveBeenCalled();
+
+    mockBiz({ cellKey: "barber|kelowna|CA" });
+    prismaMock.adMarketRun.findFirst.mockResolvedValue(null);
+    expect((await gatherTouchSignals("biz_1")).competitorAdsCount).toBeNull();
+  });
+});
+
+describe("A12 · consentRecordId persisted on the draft", () => {
+  test("the consent row is created BEFORE the draft and its id lands on the row", async () => {
+    mockBiz({ email: "owner@glowspa.com" });
+    mockQuiet();
+    prismaMock.review.count.mockResolvedValue(2);
+    prismaMock.consentRecord.create.mockResolvedValue({ id: "consent_9" });
+    prismaMock.outreachDraft.create.mockResolvedValue({ id: "draft_1" });
+
+    await generateTouchesForLeads(["biz_1"], {
+      sellingWhat: "marketing",
+      channel: "email",
+      agencyId: "agency_1",
+      mailingAddress: "1 Main St, Miami FL",
+    });
+
+    const consentOrder =
+      prismaMock.consentRecord.create.mock.invocationCallOrder[0];
+    const draftOrder =
+      prismaMock.outreachDraft.create.mock.invocationCallOrder[0];
+    expect(consentOrder).toBeLessThan(draftOrder);
+    const data = prismaMock.outreachDraft.create.mock.calls[0][0].data;
+    expect(data.consentRecordId).toBe("consent_9");
+  });
+
+  test("consent failure never blocks the draft — it just carries null", async () => {
+    mockBiz({ email: "owner@glowspa.com" });
+    mockQuiet();
+    prismaMock.review.count.mockResolvedValue(2);
+    prismaMock.consentRecord.create.mockRejectedValue(new Error("db down"));
+    prismaMock.outreachDraft.create.mockResolvedValue({ id: "draft_1" });
+
+    const out = await generateTouchesForLeads(["biz_1"], {
+      sellingWhat: "marketing",
+      channel: "email",
+      agencyId: "agency_1",
+      mailingAddress: "1 Main St, Miami FL",
+    });
+
+    expect(out.touches).toHaveLength(1);
+    const data = prismaMock.outreachDraft.create.mock.calls[0][0].data;
+    expect(data.consentRecordId).toBeNull();
+  });
+});
+
+describe("A17 · sparse gate — zero grounded pains → skip, don't draft", () => {
+  test("a zero-signal lead is skipped and counted in skippedSparse", async () => {
+    mockBiz({ snapshots: [], lighthouseAudits: [] });
+    mockQuiet();
+
+    const out = await generateTouchesForLeads(["biz_1"], {
+      sellingWhat: "marketing",
+      channel: "email",
+      agencyId: "agency_1",
+      mailingAddress: "1 Main St, Miami FL",
+    });
+
+    expect(out.touches).toEqual([]);
+    expect(out.skippedSparse).toBe(1);
+    expect(prismaMock.outreachDraft.create).not.toHaveBeenCalled();
+    // No consent row for a touch that never shipped.
+    expect(prismaMock.consentRecord.create).not.toHaveBeenCalled();
+  });
+
+  test("an allowlist that filters out every present pain also gates as sparse", async () => {
+    mockBiz();
+    mockQuiet();
+    prismaMock.review.count.mockResolvedValue(3); // unanswered present…
+
+    const out = await generateTouchesForLeads(["biz_1"], {
+      sellingWhat: "marketing",
+      channel: "email",
+      agencyId: "agency_1",
+      mailingAddress: "1 Main St, Miami FL",
+      painPointKeys: ["hipaa_pixel_risk"], // …but not allowed
+    });
+
+    expect(out.touches).toEqual([]);
+    expect(out.skippedSparse).toBe(1);
+  });
+
+  test("a grounded lead is NOT gated (skippedSparse 0)", async () => {
+    mockBiz();
+    mockQuiet();
+    prismaMock.review.count.mockResolvedValue(3);
+    prismaMock.outreachDraft.create.mockResolvedValue({ id: "draft_1" });
+
+    const out = await generateTouchesForLeads(["biz_1"], {
+      sellingWhat: "marketing",
+      channel: "email",
+      agencyId: "agency_1",
+      mailingAddress: "1 Main St, Miami FL",
+    });
+
+    expect(out.touches).toHaveLength(1);
+    expect(out.skippedSparse).toBe(0);
   });
 });

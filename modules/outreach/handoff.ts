@@ -37,6 +37,13 @@ export interface ExportableDraft {
    * callers without it export empty evidence cells.
    */
   whyJson?: unknown;
+  /**
+   * T3/B3 · the ConsentRecord stamped at generation (schema column added in
+   * the same batch). When present the export reads the consent basis by id;
+   * legacy drafts without it fall back to the newest (email, businessId)
+   * ConsentRecord lookup.
+   */
+  consentRecordId?: string | null;
 }
 
 /** Evidence merge fields parsed out of a draft's whyJson (all legacy-safe). */
@@ -79,6 +86,8 @@ interface DraftWithBusiness extends ExportableDraft {
   businessName: string;
   mailingAddress: string | null;
   reportToken: string | null;
+  /** B5 · when the SMTP probe last confirmed `email` (null = never checked). */
+  emailVerifiedAt: Date | null;
 }
 
 /** The Business fields that compose a physical mailing address + contacts. */
@@ -91,6 +100,7 @@ interface BusinessAddressBits {
   email: string | null;
   phone?: string | null;
   website?: string | null;
+  emailVerifiedAt?: Date | null;
   landingPage: { slug: string; token: string } | null;
 }
 
@@ -131,10 +141,36 @@ const CSV_HEADER = [
   "predictedTier",
   "mailingAddress",
   "unsubscribeNote",
+  // T3/B3+B5 · per-recipient compliance columns: the consent basis on file,
+  // the exact compliance footer already embedded in the body, and whether the
+  // recipient email passed SMTP verification (warning column, no hard gate).
+  "consentBasis",
+  "complianceFooter",
+  "emailVerified",
 ] as const;
 
-/** Default unsubscribe instruction stamped on every exported row (CAN-SPAM). */
-export const DEFAULT_UNSUBSCRIBE_NOTE = "Reply STOP to unsubscribe.";
+/** Default unsubscribe instruction stamped on every exported row (CAN-SPAM).
+ *  Humanized (A13) — "Reply STOP" is an SMS convention that reads automated in
+ *  email; a plain reply-to-opt-out qualifies under CAN-SPAM/CASL and lands like
+ *  a real person wrote it. Matches the skeleton footer fallback in first-touch. */
+export const DEFAULT_UNSUBSCRIBE_NOTE =
+  'Just reply "no" and I won\'t email again.';
+
+/**
+ * The footer separator the email generator appends (first-touch.ts
+ * `withCanSpamFooter`): `body + "\n\n—\n" + footer`. The stored body already
+ * carries the correct country-branched footer (CAN-SPAM vs CASL), so slicing
+ * it back out is truthful — no recomputation, no drift.
+ */
+const FOOTER_SEPARATOR = "\n\n—\n";
+
+/** B3 · the exact compliance footer embedded in a draft body ("" when none —
+ *  e.g. non-email channels never get one). */
+export function complianceFooterOf(body: string): string {
+  const idx = body.lastIndexOf(FOOTER_SEPARATOR);
+  if (idx === -1) return "";
+  return body.slice(idx + FOOTER_SEPARATOR.length);
+}
 
 /** Escape a value for RFC-4180 CSV (quote + double inner quotes). */
 function csvCell(value: string): string {
@@ -169,6 +205,7 @@ export async function exportDraftsCsv(
 ): Promise<ExportCsvResult> {
   const unsubNote = opts.unsubscribeNote ?? DEFAULT_UNSUBSCRIBE_NOTE;
   const resolved = await resolveDrafts(drafts);
+  const consentBasisFor = await loadConsentBases(resolved);
 
   const rows: string[] = [CSV_HEADER.map(csvCell).join(",")];
   const skipped: ExportCsvResult["skipped"] = [];
@@ -201,6 +238,11 @@ export async function exportDraftsCsv(
         d.predictedTier ?? "",
         d.mailingAddress,
         unsubNote,
+        consentBasisFor(d),
+        complianceFooterOf(d.body),
+        // B5 · warning column only, never a gate: yes = SMTP-verified, no =
+        // email on file but never verified, blank = no email at all.
+        d.email ? (d.emailVerifiedAt ? "yes" : "no") : "",
       ]
         .map((v) => csvCell(String(v)))
         .join(","),
@@ -209,6 +251,70 @@ export async function exportDraftsCsv(
   }
 
   return { csv: rows.join("\n"), exported, skipped };
+}
+
+/**
+ * B3 · resolve each draft's consent basis for the export's `consentBasis`
+ * column. Two sources, in preference order:
+ *
+ *   1. `draft.consentRecordId` (stamped at generation) → direct id lookup.
+ *   2. Legacy fallback: the NEWEST ConsentRecord matching the recipient's
+ *      (email, businessId) pair — the same identity `enrollInColdCampaign`
+ *      writes them under.
+ *
+ * Returns a lookup fn; drafts with no record on either path read "".
+ */
+async function loadConsentBases(
+  resolved: DraftWithBusiness[],
+): Promise<(d: DraftWithBusiness) => string> {
+  const byId = new Map<string, string>();
+  const byPair = new Map<string, string>();
+
+  const ids = [
+    ...new Set(
+      resolved
+        .map((d) => d.consentRecordId)
+        .filter((id): id is string => typeof id === "string" && id.length > 0),
+    ),
+  ];
+  if (ids.length > 0) {
+    const records = await prisma.consentRecord.findMany({
+      where: { id: { in: ids } },
+      select: { id: true, basis: true },
+    });
+    for (const r of records) byId.set(r.id, String(r.basis));
+  }
+
+  // Pair fallback only for drafts that need it (no consentRecordId hit).
+  const pairDrafts = resolved.filter(
+    (d) => d.email && !(d.consentRecordId && byId.has(d.consentRecordId)),
+  );
+  if (pairDrafts.length > 0) {
+    const emails = [
+      ...new Set(pairDrafts.map((d) => (d.email as string).toLowerCase())),
+    ];
+    const businessIds = [...new Set(pairDrafts.map((d) => d.businessId))];
+    const records = await prisma.consentRecord.findMany({
+      where: { email: { in: emails }, businessId: { in: businessIds } },
+      orderBy: { capturedAt: "desc" },
+      select: { email: true, businessId: true, basis: true },
+    });
+    for (const r of records) {
+      if (!r.businessId) continue;
+      const key = `${r.email.toLowerCase()}|${r.businessId}`;
+      // Ordered newest-first: keep the first (newest) basis per pair.
+      if (!byPair.has(key)) byPair.set(key, String(r.basis));
+    }
+  }
+
+  return (d) => {
+    if (d.consentRecordId) {
+      const hit = byId.get(d.consentRecordId);
+      if (hit) return hit;
+    }
+    if (!d.email) return "";
+    return byPair.get(`${d.email.toLowerCase()}|${d.businessId}`) ?? "";
+  };
 }
 
 export interface EnrollInColdCampaignOptions {
@@ -394,6 +500,7 @@ async function resolveDrafts(
       province: true,
       postalCode: true,
       email: true,
+      emailVerifiedAt: true,
       phone: true,
       website: true,
       landingPage: { select: { slug: true, token: true } },
@@ -416,6 +523,7 @@ async function resolveDrafts(
       businessName: b?.name ?? "",
       mailingAddress,
       reportToken,
+      emailVerifiedAt: b?.emailVerifiedAt ?? null,
     };
   });
 }

@@ -3196,27 +3196,39 @@ export function LeadsWorkbench({
             </button>
           }
         >
-          {/* B11d · vs-cell moved INTO Fields as the top toggle row — it's a
-              display mode for how the numbers render, same family as column
-              visibility. WP7-13 · a THIN market disables it (too few
-              businesses for an honest percentile); the explanation that used
-              to burn a permanent toolbar slot is now the disabled row's tip. */}
-          <label
-            className={`vscell-row${vsCell && !marketIsThin ? " on" : ""}${marketIsThin ? " disabled" : ""}`}
-            data-tip={
-              marketIsThin
-                ? `Small market (under ${THIN_MARKET_THRESHOLD}) — showing absolute benchmarks, no market percentile`
-                : "Show each number's delta vs the cell median"
-            }
-          >
-            <input
-              type="checkbox"
-              checked={vsCell && !marketIsThin}
-              disabled={marketIsThin}
-              onChange={(e) => setVsCell(e.target.checked)}
-            />
-            vs cell benchmarks
-          </label>
+          {/* B11d · vs-cell is a DISPLAY SETTING, not a column — a styled toggle
+              band at the top of Fields, visually separated from the field list
+              so it never reads as "another field to show". WP7-13 · a THIN
+              market disables it (too few businesses for an honest percentile);
+              the explanation that used to burn a permanent toolbar slot is now
+              the disabled toggle's sub-line + tip. */}
+          <div className="vscell-band">
+            <label
+              className={`toggle vscell-set${vsCell && !marketIsThin ? " on" : ""}${marketIsThin ? " disabled" : ""}`}
+              data-tip={
+                marketIsThin
+                  ? `Small market (under ${THIN_MARKET_THRESHOLD}) — showing absolute benchmarks, no market percentile`
+                  : "Show each number as a delta vs the cell median"
+              }
+            >
+              <span className="vscell-txt">
+                <span className="vscell-title">vs cell benchmarks</span>
+                <span className="vscell-sub">
+                  {marketIsThin
+                    ? "Market too small to compare"
+                    : "Each number as a delta vs the cell median"}
+                </span>
+              </span>
+              <input
+                type="checkbox"
+                role="switch"
+                checked={vsCell && !marketIsThin}
+                disabled={marketIsThin}
+                onChange={(e) => setVsCell(e.target.checked)}
+              />
+              <span className="sw" aria-hidden="true" />
+            </label>
+          </div>
           {/* F3 · search box — narrows the visible column rows by label. */}
           <div className="cols-search">
             <Icon name="search" className="si" size={13} />

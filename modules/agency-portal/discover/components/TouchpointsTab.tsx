@@ -263,10 +263,14 @@ export function TouchpointsTab({ touches, stats }: TouchpointsTabProps) {
       a.download = `touch-sequences-${ymd}.csv`;
       a.click();
       URL.revokeObjectURL(url);
-      showToast(
+      // T3/B4 · the CSV hands off delivery — state the user's duties once,
+      // at the moment of export (we are not the sender of record).
+      const skippedBit =
         r.skipped > 0
-          ? `Exported ${r.exported} · ${r.skipped} skipped (no mailing address — CAN-SPAM)`
-          : `Exported ${r.exported} row${r.exported === 1 ? "" : "s"}`,
+          ? ` · ${r.skipped} skipped (no mailing address — CAN-SPAM)`
+          : "";
+      showToast(
+        `Exported ${r.exported}${skippedBit}. Sending is on you: SPF/DKIM/DMARC on your domain, keep the opt-out line intact, honor opt-outs within 10 days, and manage bounces.`,
       );
     });
   }
@@ -285,7 +289,9 @@ export function TouchpointsTab({ touches, stats }: TouchpointsTabProps) {
           setError(`${r.failedIds.length} couldn't be rebuilt.`);
         router.refresh();
       } else if (r.status === "insufficient_credits") {
-        setError(`Needs ${r.creditsNeeded} credits — top up in Billing.`);
+        setError(
+          `Needs ${r.creditsNeeded} credit${r.creditsNeeded === 1 ? "" : "s"} — top up in Billing.`,
+        );
       } else if (r.status === "forbidden") {
         setError("Owner or admin role required — regeneration spends credits.");
       } else {
@@ -297,7 +303,7 @@ export function TouchpointsTab({ touches, stats }: TouchpointsTabProps) {
   return (
     <div>
       <div className="callout section">
-        ✍️ Touches are grouped by business — each card is the full sequence we
+        Touches are grouped by business — each card is the full sequence we
         drafted for that lead, grounded in real signals. Open a card to read
         every step.
       </div>
@@ -408,7 +414,7 @@ export function TouchpointsTab({ touches, stats }: TouchpointsTabProps) {
                       color: "var(--faint)",
                     }}
                   >
-                    ✉️ No sequences match. Generate touches from selected leads.
+                    No sequences match. Generate touches from selected leads.
                   </div>
                 </td>
               </tr>
@@ -758,19 +764,39 @@ function TouchStep({
         onChange={(e) => setBody(e.target.value)}
         aria-label={`Touch ${seq} body for ${touch.businessName}`}
       />
-      {touch.pains.length > 0 ? (
-        <div className="tpstep-chips">
-          {touch.pains.map((p, i) => (
-            <span
-              key={i}
-              className={`ppchip ${painGroupClass(p.group)}`}
-              data-tip={p.title}
-            >
-              {p.label}
-            </span>
-          ))}
-        </div>
-      ) : null}
+      {/* T4/B8 · grounding surfaced: the draft's whyJson.why strings arrive as
+          neutral pains (workbench-rows.ts merges them with group "more" and
+          label === title — flagged-finding pains carry a real finding group
+          and an explanation title). Render those as a quiet "Grounded on" line
+          instead of chips; real finding pains stay chips. */}
+      {(() => {
+        const isWhy = (p: WorkbenchTouch["pains"][number]) =>
+          p.group === "more" && p.label === p.title;
+        const grounded = touch.pains.filter(isWhy);
+        const chips = touch.pains.filter((p) => !isWhy(p));
+        return (
+          <>
+            {grounded.length > 0 ? (
+              <p className="tpstep-grounded">
+                Grounded on: {grounded.map((p) => p.label).join(" · ")}
+              </p>
+            ) : null}
+            {chips.length > 0 ? (
+              <div className="tpstep-chips">
+                {chips.map((p, i) => (
+                  <span
+                    key={i}
+                    className={`ppchip ${painGroupClass(p.group)}`}
+                    data-tip={p.title}
+                  >
+                    {p.label}
+                  </span>
+                ))}
+              </div>
+            ) : null}
+          </>
+        );
+      })()}
       <div className="tpstep-actions">
         <button type="button" className="lk" onClick={save}>
           {saved ? "Saved ✓" : "Save"}

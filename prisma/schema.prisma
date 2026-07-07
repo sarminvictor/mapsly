@@ -2694,22 +2694,28 @@ model ResearchPlan {
 
 // A generated first-touch / sequence step grounded in real signals.
 model OutreachDraft {
-  id            String   @id @default(cuid())
-  businessId    String
+  id              String   @id @default(cuid())
+  businessId      String
   // Owning agency · backfilled from the generating agency in app code (WP0 is
   // a safe additive migration; nullable until WP1+ populates + reads it). The
   // WP5 touch-gen + security waves filter every draft read/write by agencyId.
-  agencyId      String?
-  campaignId    String?
-  leadId        String?
-  channel       String
-  subject       String?
-  body          String   @db.Text
-  whyJson       Json?
-  predictedTier String?
-  status        String   @default("draft")
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  agencyId        String?
+  campaignId      String?
+  leadId          String?
+  // A12 (touchpoints audit 2026-07-07) · soft ref to the ConsentRecord that
+  // logs the consent BASIS this email touch relies on (CASL s.10(9)(b)
+  // conspicuous publication / CAN-SPAM opt-out). Written at generation time,
+  // best-effort — null when consent logging failed or the channel isn't email.
+  // MVP audit trail: looked up FROM the draft, so no index needed yet.
+  consentRecordId String?
+  channel         String
+  subject         String?
+  body            String   @db.Text
+  whyJson         Json?
+  predictedTier   String?
+  status          String   @default("draft")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   @@index([campaignId])
   @@index([businessId])

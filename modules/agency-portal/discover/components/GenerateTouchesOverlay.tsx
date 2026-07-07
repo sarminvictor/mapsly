@@ -23,16 +23,18 @@
 // owned by client parents. Per .claude/rules/ui-ux-agency.md: dense, tool-y,
 // numbers over adjectives. English-only copy.
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { Link } from "@/i18n/navigation";
 import { showToast } from "@/components/agency/Toast";
 import { emitLeadDetailChanged } from "../enrich-sheet-bus";
 import { generateTouchpointsAction } from "@/modules/outreach/actions";
+import { touchGenPreflightAction } from "@/modules/outreach/export-actions";
 import { creditsForTouches } from "@/modules/outreach/touch-pricing";
 import { chunkBusinessIds } from "@/modules/outreach/touch-batching";
 import { PAIN_THEMES } from "@/modules/outreach/first-touch";
+import { defaultPainKeysForSignals } from "@/modules/outreach/pain-goals";
 
 const SELLING_KEY = "mapsly.touchgen.sellingWhat";
 
@@ -88,6 +90,18 @@ export function GenerateTouchesOverlay({
   const [pains, setPains] = useState<Set<string>>(
     () => new Set(PAIN_THEMES.map((p) => p.key)),
   );
+  /** B1 · the user edited the picker — never override their choices after.
+   *  A ref (not state): read inside the preflight effect without wiring it
+   *  into the deps (which would refetch on every checkbox click). */
+  const painsTouchedRef = useRef(false);
+  /** B1 · a goal-derived default restriction was applied (shows the hint). */
+  const [goalApplied, setGoalApplied] = useState(false);
+  /** B1+B2 · upfront context (mailing address + goal signals), fetched on
+   *  open. null = not loaded (fail open — the post-hoc TM-1 catch remains). */
+  const [preflight, setPreflight] = useState<{
+    hasMailingAddress: boolean;
+    goalSignalKeys: string[];
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   /** Batch progress for a chunked (> 25-lead) run — null when single-call. */
@@ -121,9 +135,48 @@ export function GenerateTouchesOverlay({
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose]);
 
+  // B1+B2 · fetch the preflight once per open: mailing-address state (banner +
+  // disable BEFORE spending, not a post-hoc "Drafted 0") and the discovery's
+  // goal-signal keys (default-check only the themes the goal hunts). Refetched
+  // on every open so setting the address in Settings takes effect immediately.
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    void (async () => {
+      const r = await touchGenPreflightAction({ discoveryId });
+      if (cancelled || r.status !== "ok") return; // fail open (TM-1 fallback)
+      setPreflight({
+        hasMailingAddress: r.hasMailingAddress,
+        goalSignalKeys: r.goalSignalKeys,
+      });
+      // Goal-derived theme defaults (B1) — only while the picker is untouched,
+      // and only when the map narrows (null = no goal restriction applies).
+      if (r.goalSignalKeys.length > 0 && !painsTouchedRef.current) {
+        const defaults = defaultPainKeysForSignals(r.goalSignalKeys);
+        if (defaults && defaults.length > 0) {
+          const known = new Set<string>(PAIN_THEMES.map((p) => p.key));
+          const next = defaults.filter((k) => known.has(k));
+          if (next.length > 0) {
+            setPains(new Set(next));
+            setGoalApplied(true);
+          }
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, discoveryId]);
+
   if (!open) return null;
 
+  // B2 · email drafts are DEAD without an agency mailing address (CAN-SPAM/
+  // CASL) — the generator skips every one. Block upfront instead.
+  const emailBlocked =
+    channel === "email" && preflight !== null && !preflight.hasMailingAddress;
+
   function togglePain(key: string) {
+    painsTouchedRef.current = true;
     setPains((prev) => {
       const next = new Set(prev);
       if (next.has(key)) next.delete(key);
@@ -147,6 +200,7 @@ export function GenerateTouchesOverlay({
       let generated = 0;
       let skippedExisting = 0;
       let skippedNoAddress = 0;
+      let skippedSparse = 0;
       let creditsCharged = 0;
       let stopError: string | null = null;
 
@@ -169,6 +223,7 @@ export function GenerateTouchesOverlay({
           generated += r.generated;
           skippedExisting += r.skippedExisting;
           skippedNoAddress += r.skippedNoAddress;
+          skippedSparse += r.skippedSparse;
           creditsCharged += r.creditsCharged;
           continue;
         }
@@ -209,6 +264,18 @@ export function GenerateTouchesOverlay({
         return;
       }
 
+      // A17 · nothing drafted because every selected lead has no grounded pain
+      // yet — a generic note would be spam-shaped (and CASL-weak). Say so and
+      // point at enrichment instead of firing a hollow "Drafted 0".
+      if (generated === 0 && skippedSparse > 0 && !stopError) {
+        setError(
+          `No grounded pain on ${
+            skippedSparse === 1 ? "this lead" : "these leads"
+          } yet — enrich them first, then generate.`,
+        );
+        return;
+      }
+
       if (generated > 0) {
         try {
           window.localStorage.setItem(SELLING_KEY, selling);
@@ -222,6 +289,8 @@ export function GenerateTouchesOverlay({
           bits.push(`${skippedExisting} already drafted`);
         if (skippedNoAddress > 0)
           bits.push(`${skippedNoAddress} need a mailing address`);
+        if (skippedSparse > 0)
+          bits.push(`${skippedSparse} skipped — enrich first`);
         if (creditsCharged > 0) bits.push(`${creditsCharged} cr`);
         // Partial completion (a later batch stopped): say so, don't pretend all ran.
         if (stopError) bits.push("stopped early");
@@ -359,7 +428,26 @@ export function GenerateTouchesOverlay({
               </label>
             ))}
           </div>
+          {goalApplied ? (
+            <p
+              style={styles.goalHint}
+              data-tip="Themes matched to this research's goal signals — check others to widen"
+            >
+              Pre-selected from your goal
+            </p>
+          ) : null}
         </fieldset>
+
+        {emailBlocked ? (
+          <div role="alert" style={styles.addressBanner}>
+            Email drafts need your agency&apos;s mailing address (CAN-SPAM/CASL)
+            — set it in{" "}
+            <Link href="/agency-settings" style={styles.primerLink}>
+              Settings → Profile
+            </Link>
+            .
+          </div>
+        ) : null}
 
         {channel === "email" ? (
           <div style={styles.primer} role="note">
@@ -409,7 +497,10 @@ export function GenerateTouchesOverlay({
               pending ||
               count === 0 ||
               sellingWhat.trim().length < 3 ||
-              pains.size === 0
+              pains.size === 0 ||
+              // B2 · email generation is dead without a mailing address —
+              // don't let the user spend a click on a guaranteed zero.
+              emailBlocked
             }
             onClick={run}
           >
@@ -508,6 +599,23 @@ const styles: Record<string, React.CSSProperties> = {
     padding: "2px 0",
   },
   error: { color: "var(--red, #b53d47)", fontSize: 12.5, margin: "0 0 8px" },
+  goalHint: {
+    margin: "6px 0 0",
+    fontSize: 11.5,
+    color: "var(--muted, #5a5f73)",
+    width: "fit-content",
+    cursor: "default",
+  },
+  addressBanner: {
+    border: "1px solid var(--red, #b53d47)",
+    borderRadius: 10,
+    background: "var(--bg, #f6f7fb)",
+    color: "var(--red, #b53d47)",
+    fontSize: 12.5,
+    lineHeight: 1.5,
+    padding: "10px 12px",
+    margin: "0 0 12px",
+  },
   primer: {
     border: "1px solid var(--line, #e5e7f0)",
     borderRadius: 10,

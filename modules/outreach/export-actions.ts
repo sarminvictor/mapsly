@@ -18,7 +18,9 @@
 import { z } from "zod";
 
 import { auth } from "@/lib/auth";
+import prisma from "@/lib/prisma";
 import { callerAgencyMember } from "@/modules/agency-portal/roles";
+import { activeSignalsFromJson } from "@/modules/agency-portal/discover/discovery-signals";
 
 import { exportDraftsCsv } from "./handoff";
 import { loadAgencyDrafts } from "./draft-scope";
@@ -78,6 +80,92 @@ export async function exportTouchesCsvAction(
       JSON.stringify({
         level: "error",
         event: "touchpoints.export-csv.error",
+        userId: session.user.id,
+        error: err instanceof Error ? err.message : String(err),
+      }),
+    );
+    return { status: "error" };
+  }
+}
+
+// ── touchGenPreflightAction (T3/B1+B2) ───────────────────────────────────────
+//
+// The generate-touches overlay's upfront context, fetched once on open:
+//
+//   - hasMailingAddress · a null Agency.mailingAddress silently yields ZERO
+//     email drafts (the generator skips every email touch, CAN-SPAM/CASL).
+//     Knowing it BEFORE generation lets the overlay show the banner + disable
+//     the email Generate instead of a post-hoc "Drafted 0" apology.
+//   - goalSignalKeys · the discovery's persisted goal signals
+//     (Discovery.signalsJson), so the pain-theme picker can default to the
+//     themes the goal actually hunts (B1) — plain string keys per
+//     cache-components.md Pattern 4.
+//
+// Read-only (no spend) — any agency member may call it.
+
+const PreflightInput = z.object({
+  discoveryId: z.string().min(1).max(64).optional(),
+});
+
+export type TouchGenPreflightInput = z.input<typeof PreflightInput>;
+
+export type TouchGenPreflightResult =
+  | {
+      status: "ok";
+      hasMailingAddress: boolean;
+      /** The discovery's goal-signal keys ([] without a discoveryId or goal). */
+      goalSignalKeys: string[];
+    }
+  | { status: "unauthorized" }
+  | { status: "forbidden" }
+  | { status: "invalid_input"; message: string }
+  | { status: "error" };
+
+export async function touchGenPreflightAction(
+  input: unknown,
+): Promise<TouchGenPreflightResult> {
+  const session = await auth();
+  if (!session?.user?.id) return { status: "unauthorized" };
+
+  const parsed = PreflightInput.safeParse(input);
+  if (!parsed.success) {
+    return {
+      status: "invalid_input",
+      message: parsed.error.issues[0]?.message ?? "invalid input",
+    };
+  }
+
+  try {
+    const member = await callerAgencyMember(session.user.id);
+    if (!member) return { status: "forbidden" };
+
+    const agency = await prisma.agency.findUnique({
+      where: { id: member.agencyId },
+      select: { mailingAddress: true },
+    });
+
+    let goalSignalKeys: string[] = [];
+    if (parsed.data.discoveryId) {
+      // Agency-scoped: a discoveryId that isn't this agency's yields nothing.
+      const discovery = await prisma.discovery.findFirst({
+        where: { id: parsed.data.discoveryId, agencyId: member.agencyId },
+        select: { signalsJson: true },
+      });
+      goalSignalKeys = activeSignalsFromJson(discovery?.signalsJson).map(
+        (s) => s.key,
+      );
+    }
+
+    return {
+      status: "ok",
+      hasMailingAddress: Boolean(agency?.mailingAddress?.trim()),
+      goalSignalKeys,
+    };
+  } catch (err) {
+    console.error(
+      JSON.stringify({
+        level: "error",
+        event: "touchpoints.preflight.error",
         userId: session.user.id,
         error: err instanceof Error ? err.message : String(err),
       }),

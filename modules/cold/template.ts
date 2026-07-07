@@ -68,6 +68,18 @@ export function renderTemplate(
 /**
  * Plain-text footer: physical postal address (CAN-SPAM 15 U.S.C. §7704(a)(5) /
  * CASL s.6(2)(b) — REQUIRED in every commercial email) + unsubscribe line.
+ *
+ * AUDIT TRAIL (T3/B6) · the 2026-06-09 cold-email audit flagged the postal
+ * address as defined-but-never-wired (a CAN-SPAM violation on every send);
+ * v0.15.6 restored it, and the 2026-07-07 touchpoints audit §6 re-raised the
+ * stale finding. Verified wired end-to-end on 2026-07-07: BOTH send paths —
+ * app/api/cron/process-cold-sequences/route.ts (cron) and
+ * app/(admin)/admin/email/actions.ts (admin test send) — pass
+ * `getColdSenderConfig().physicalAddress` (services/cold-mailer/config.ts)
+ * into `buildTextFooter` + `toHtmlBody`. Locks: the required (non-optional)
+ * `physicalAddress` param here, template.test.ts asserting the address IS
+ * present in both footers, and cold-mailer.test.ts asserting the config
+ * default is never empty. Do not make this param optional.
  */
 export function buildTextFooter(
   unsubscribeUrl: string,

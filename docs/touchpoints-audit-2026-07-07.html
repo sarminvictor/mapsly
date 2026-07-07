@@ -1,0 +1,1145 @@
+<title>
+  Touchpoints audit · AI outreach quality vs 2026 standards · 2026-07-07
+</title>
+<style>
+  :root {
+    --ink: #1c2233;
+    --muted: #5b657f;
+    --faint: #8a93ab;
+    --line: #e6e9f2;
+    --indigo: #5b3df5;
+    --bg: #fff;
+    --green: #0f9d6b;
+    --red: #c33;
+    --amber: #b7791f;
+  }
+  body {
+    font:
+      14px/1.55 -apple-system,
+      "Segoe UI",
+      sans-serif;
+    color: var(--ink);
+    max-width: 1220px;
+    margin: 0 auto;
+    padding: 32px 24px 80px;
+  }
+  h1 {
+    font-size: 26px;
+    margin: 0 0 4px;
+  }
+  h2 {
+    font-size: 19px;
+    margin: 46px 0 10px;
+    border-bottom: 2px solid var(--indigo);
+    padding-bottom: 6px;
+  }
+  h3 {
+    font-size: 15px;
+    margin: 26px 0 8px;
+  }
+  .sub {
+    color: var(--muted);
+    margin-bottom: 24px;
+  }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 13px;
+  }
+  th,
+  td {
+    text-align: left;
+    padding: 7px 10px;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+  }
+  th {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--faint);
+    position: sticky;
+    top: 0;
+    background: #fff;
+    z-index: 2;
+  }
+  .ghead td {
+    background: #f4f5fb;
+    font-weight: 700;
+    font-size: 12.5px;
+    color: var(--indigo);
+    padding: 8px 10px;
+  }
+  .src {
+    font:
+      11px/1.4 ui-monospace,
+      monospace;
+    color: var(--faint);
+    font-weight: 400;
+  }
+  .why {
+    color: var(--muted);
+    font-size: 12.5px;
+  }
+  .num {
+    font:
+      700 15px ui-monospace,
+      monospace;
+    text-align: center;
+    width: 54px;
+  }
+  .bad {
+    color: var(--red);
+  }
+  .good {
+    color: var(--green);
+  }
+  .mid {
+    color: var(--amber);
+  }
+  .pill {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 9px;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+  .p-p0 {
+    background: #fdecec;
+    color: var(--red);
+  }
+  .p-p1 {
+    background: #fff3e0;
+    color: #9a5f00;
+  }
+  .p-p2 {
+    background: #eef0f6;
+    color: #4a4e69;
+  }
+  .p-ok {
+    background: #e6f8ef;
+    color: #0a6b48;
+  }
+  .p-meh {
+    background: #e8f1fd;
+    color: #1e5aa8;
+  }
+  .finding {
+    border-left: 3px solid var(--red);
+    padding: 8px 14px;
+    margin: 12px 0;
+    background: #fffafa;
+  }
+  .finding.p1 {
+    border-left-color: var(--amber);
+    background: #fffdf7;
+  }
+  .finding.ok {
+    border-left-color: var(--green);
+    background: #f7fdf9;
+  }
+  .finding p {
+    margin: 4px 0 0;
+    color: var(--muted);
+  }
+  .finding .fix {
+    color: var(--ink);
+  }
+  pre.mail {
+    font:
+      12.5px/1.5 ui-monospace,
+      monospace;
+    background: #fafbff;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 14px 16px;
+    white-space: pre-wrap;
+    overflow-x: auto;
+    color: var(--ink);
+    margin: 8px 0;
+  }
+  pre.mail b {
+    color: var(--indigo);
+  }
+  .tight li {
+    margin: 4px 0;
+    color: var(--muted);
+  }
+  .tight b {
+    color: var(--ink);
+  }
+  .callout {
+    border: 1px solid var(--indigo);
+    border-radius: 12px;
+    background: #fbfaff;
+    padding: 14px 18px;
+    margin: 16px 0;
+  }
+  .callout p {
+    margin: 6px 0;
+    color: var(--muted);
+  }
+  .callout b {
+    color: var(--ink);
+  }
+  details {
+    margin: 10px 0 22px;
+  }
+  summary {
+    cursor: pointer;
+    font-weight: 700;
+    color: var(--indigo);
+    padding: 6px 0;
+  }
+  .score td.dim {
+    font-weight: 600;
+  }
+  .q {
+    color: var(--ink);
+    font-style: italic;
+  }
+  a {
+    color: var(--indigo);
+  }
+</style>
+
+<h1>
+  Touchpoints audit · what we feed the AI, what comes out, and how it scores in
+  2026
+</h1>
+<p class="sub">
+  2026-07-07 · v0.19.10 · 6-agent sweep: pipeline + prompts, goal→touch linkage
+  + customization, US/CA compliance, web-sourced 2026 standards, and a
+  <b>live generation test</b> — 11 real drafts generated through the production
+  code path for real enriched leads (US + CA, all tones, sparse edge case; total
+  AI cost $0.0016, zero rows persisted), then adversarially scored against a
+  sourced 2026 rubric. MVP framing honored: no delivery system; email is the
+  priority channel.
+</p>
+
+<h2>1 · Verdict &amp; master scorecard</h2>
+<p>
+  <b
+    >The architecture is genuinely the right one — the output is held back by
+    four fixable layers above it.</b
+  >
+  The deterministic signal-grounded skeleton + fact-checked nano rewrite
+  produced <b>zero AI hallucinations in 11/11 live samples</b> at $0.005/touch —
+  that grounding discipline is what 2026 explicitly rewards, and most
+  competitors don't have it. But the measured output lands at
+  <b>6.4/10</b> against the 2026 rubric because: subject lines leak internal
+  jargon and duplicate across cohorts (3.3/10 — the single biggest lever), the
+  template itself makes two classes of unsupported claims the AI never would,
+  pain ranking ignores what the agency is selling, and the goal the user built
+  at the goal step never reaches the touch at all. Separately, one production
+  blocker:
+  <b
+    >no agency in the DB has a mailing address, so email generation currently
+    produces nothing</b
+  >
+  (every lead reads skippedNoAddress — the live test needed a placeholder to
+  run).
+</p>
+<table class="score">
+  <thead>
+    <tr>
+      <th>Dimension</th>
+      <th>Score</th>
+      <th>After fixes</th>
+      <th>Why (evidence)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td class="dim">Architecture — skeleton + fact-checked fill</td>
+      <td class="num good">9</td>
+      <td class="num good">9</td>
+      <td class="why">
+        Deterministic grounded skeleton; nano may only rephrase; mechanical
+        fact-check (numbers, fabrication blacklist, name) rejects → falls back
+        to skeleton; footer stripped before fill and re-attached byte-exact.
+        Best-practice hallucination control, verified live.
+      </td>
+    </tr>
+    <tr>
+      <td class="dim">Prompt engineering (nano fill)</td>
+      <td class="num good">8</td>
+      <td class="num good">8.5</td>
+      <td class="why">
+        Tight ABSOLUTE-RULES system prompt (§2 verbatim); 400-token cap;
+        fallback-on-any-failure. Minor: temperature unset (API default),
+        fact-check is token-level not semantic, paragraph structure unstable
+        across fills.
+      </td>
+    </tr>
+    <tr>
+      <td class="dim">Output quality — measured (11 live samples)</td>
+      <td class="num mid">6.4</td>
+      <td class="num good">8.5+</td>
+      <td class="why">
+        Per-dimension: copy craft 7.8 · grounding 7.5 · compliance 7.3 ·
+        personalization 6.1 · deliverability 6.1 ·
+        <b class="bad">subjects 3.3</b>. Best samples ≈ 7.4 (Center for Lifetime
+        Health) already read like the 2026 formula working.
+      </td>
+    </tr>
+    <tr>
+      <td class="dim">Signal grounding breadth</td>
+      <td class="num mid">5</td>
+      <td class="num good">8</td>
+      <td class="why">
+        Only 7 hardcoded pain themes; 1 permanently dead (competitor_ads — count
+        hardcoded null); AI-brief pains, SERP rank, brand hijack, socials never
+        reach a touch even when the lead has them.
+      </td>
+    </tr>
+    <tr>
+      <td class="dim">Goal → touch linkage</td>
+      <td class="num bad">3</td>
+      <td class="num good">8</td>
+      <td class="why">
+        Goal template, outcome group, signal tuning, and campaign strategy NEVER
+        parameterize generation — no goalId in the action signature; sellingWhat
+        is re-typed by hand each time. The pain multipicker is static (all 7,
+        never goal-constrained).
+      </td>
+    </tr>
+    <tr>
+      <td class="dim">Customization surfaces</td>
+      <td class="num mid">6</td>
+      <td class="num mid">7.5</td>
+      <td class="why">
+        Overlay has tone/steps/pain-picker/what-you-sell; but the
+        Touchpoints-page panel hides tone+steps+pains (silent defaults),
+        regenerate can't change tone, no pre-gen signal preview, no
+        undo-to-generated after manual edit.
+      </td>
+    </tr>
+    <tr>
+      <td class="dim">Compliance — US draft side</td>
+      <td class="num mid">7</td>
+      <td class="num good">9</td>
+      <td class="why">
+        CAN-SPAM footer structurally complete (address + opt-out + truthful
+        body). Blockers: mailingAddress NULL for every agency (nothing
+        generates); "review momentum declining vs cell" subjects are the exact
+        unsupported-comparative class <i>Brown v. Old Navy</i> (WA, $500/email)
+        turned into class-action bait.
+      </td>
+    </tr>
+    <tr>
+      <td class="dim">Compliance — Canada draft side</td>
+      <td class="num mid">6.5</td>
+      <td class="num good">8.5</td>
+      <td class="why">
+        CASL footer above-average (sender ID + consent basis + address +
+        opt-out) and ConsentRecord (CONSPICUOUS_PUBLICATION) is logged per email
+        — most tools don't do this. Gaps: null-country CA lead gets the WRONG
+        (CAN-SPAM) footer; consent is weakest exactly on sparse leads;
+        English-only for Quebec.
+      </td>
+    </tr>
+    <tr>
+      <td class="dim">Handoff / export honesty</td>
+      <td class="num bad">4</td>
+      <td class="num mid">7.5</td>
+      <td class="why">
+        CSV export carries no compliance-footer column, no consent-basis audit
+        trail, no email-verified gate, and zero warning that SPF/DKIM/DMARC +
+        suppression + 10-day opt-out honoring are now the user's job.
+      </td>
+    </tr>
+    <tr>
+      <td class="dim">Cost model + billing</td>
+      <td class="num good">9</td>
+      <td class="num good">9</td>
+      <td class="why">
+        $0.005/touch skeleton (0.1 cr), $0.05 polish (1 cr); hold → settle →
+        refund correct; failed nano call charges $0. Measured live:
+        $0.00015/fill.
+      </td>
+    </tr>
+    <tr>
+      <td class="dim">MVP posture (manual, low volume)</td>
+      <td class="num good">8</td>
+      <td class="num good">8.5</td>
+      <td class="why">
+        Tens/day from a real Workspace inbox + plain text + no links = the
+        highest-deliverability posture in 2026. Risk at this volume: one spam
+        click at 30 sends/day = 3.3% complaint rate (limit 0.3%) — every send
+        must be individually defensible; near-duplicate cohort bodies are the
+        fingerprint risk.
+      </td>
+    </tr>
+    <tr>
+      <td class="dim"><b>Overall</b></td>
+      <td class="num mid"><b>6.3</b></td>
+      <td class="num good"><b>8.5</b></td>
+      <td class="why">
+        Right foundation, wrong subject lines, missing goal wiring, blocked by
+        one NULL column.
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>2 · What we feed the AI (the full context)</h2>
+<p class="why">
+  Two-stage design: a <b>deterministic skeleton</b> (no AI) assembles opener +
+  1–2 pain lines + close + compliance footer from 14 lead facts; an
+  <b>optional nano rewrite</b> (user-triggered "Polish", 1 cr) makes it fluent.
+  The model never sees raw enrichment data — only the already-grounded
+  sentences.
+</p>
+<h3>
+  The 14 signals the touch can use
+  <span class="src">generate.ts:107–196 gatherTouchSignals</span>
+</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Signal</th>
+      <th>Source</th>
+      <th>Powers</th>
+      <th>Status</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>businessName · city · country · recipientEmail · noun</td>
+      <td class="src">Business row (noun derived from category)</td>
+      <td class="why">
+        Opener, footer branch, consent log; "patients/clients/customers"
+        vocabulary
+      </td>
+      <td>
+        <span class="pill p-ok">works</span>
+        <span class="why"
+          >(noun map has bugs — an acupuncturist got "customers")</span
+        >
+      </td>
+    </tr>
+    <tr>
+      <td>unansweredNegative</td>
+      <td class="src">Review count (stars≤2, no reply)</td>
+      <td class="why">Sharpest pain (sev 80)</td>
+      <td><span class="pill p-ok">works</span></td>
+    </tr>
+    <tr>
+      <td>reviewLifecycle · reviewsVsCellPercentile</td>
+      <td class="src">BusinessSnapshot latest</td>
+      <td class="why">"Review momentum declining" (sev 70)</td>
+      <td>
+        <span class="pill p-meh">partial</span>
+        <span class="why"
+          >percentile was null in all 11 live samples, yet the copy still claims
+          "neighbors keep climbing"</span
+        >
+      </td>
+    </tr>
+    <tr>
+      <td>lcpSeconds · lighthousePerf</td>
+      <td class="src">LighthouseAudit latest</td>
+      <td class="why">"Slow site" (sev 55)</td>
+      <td>
+        <span class="pill p-ok">works</span>
+        <span class="why">(can be weeks stale; no refresh-before-gen)</span>
+      </td>
+    </tr>
+    <tr>
+      <td>runsAds · hasBookingTool · hipaaPixelRisk</td>
+      <td class="src">AdLibraryEntry · BusinessTech · PlaybookFinding</td>
+      <td class="why">
+        "Ads w/o booking" (65) · "No booking" (40) · "HIPAA pixel" (100)
+      </td>
+      <td><span class="pill p-ok">works</span></td>
+    </tr>
+    <tr>
+      <td>competitorAdsCount</td>
+      <td class="src">generate.ts:191 — hardcoded null</td>
+      <td class="why">"X competitors running ads in {city}" (sev 50)</td>
+      <td>
+        <span class="pill p-p0">DEAD</span>
+        <span class="why"
+          >pain can never fire; the UI still offers it in the picker</span
+        >
+      </td>
+    </tr>
+  </tbody>
+</table>
+<p class="why">
+  <b>What never reaches a touch even when the lead has it:</b> AI-brief pain
+  hypotheses / opener angles, pricing transparency, SERP rank &amp; 3-pack,
+  brand hijack, socials, tech stack beyond booking, review quotes. The drawer's
+  "grounded in this lead's signals" is true but covers ~7 of the 40+ signal
+  vocabulary — the moat data mostly stays out of the outreach.
+</p>
+<h3>
+  The nano prompts — verbatim
+  <span class="src"
+    >nano-fill.ts:56–79 · model gpt-5.4-nano · maxTokens 400</span
+  >
+</h3>
+<pre
+  class="mail"
+><b>SYSTEM:</b> You rewrite cold-outreach email bodies so they read like a real person wrote them.
+
+ABSOLUTE RULES — violating any one makes your output useless:
+- You may ONLY rephrase the sentences you are given. Reword for fluency and a natural, warm tone.
+- NEVER add a fact, a statistic, a number, a price, a percentage, a claim, a guarantee, or a name that is not already in the input.
+- NEVER add new sentences that introduce information. …
+- Keep every number EXACTLY as written in the input. …
+- Keep the business name exactly as written.
+- Do NOT add a signature, a footer, links, or a postal address — those are added separately.
+- Keep it short. Cold emails that get replies are 3–5 short sentences.
+
+<b>USER:</b> Business name (keep exactly): {name}
+Rewrite this email body for fluency, keeping every fact and number exactly as-is: --- {body minus footer} ---</pre>
+<p class="why">
+  Enforcement is prompt + <b>mechanical post-check</b> (new numbers rejected,
+  fabrication-word blacklist, business-name survival, unfilled tokens) with
+  fallback-to-skeleton on any failure — and a failed call charges $0. Known
+  theoretical gap: the check is token-level, so a meaning-inverting rewrite that
+  keeps the same tokens could pass; live test found zero such cases.
+</p>
+
+<h2>3 · The live test — what actually comes out</h2>
+<p class="why">
+  11 drafts through the production path (real gatherTouchSignals →
+  buildFirstTouch → fluencyRewrite), 7 leads (4 CA / 3 US, incl. 1 sparse), 3
+  tones. All 11 fills passed the fact-check. Full data: scratchpad
+  touch-test/results.json.
+</p>
+<h3>
+  A real output (best-in-batch, 7.4/10 · Center for Lifetime Health, US, direct)
+</h3>
+<pre
+  class="mail"
+><b>Subject:</b> Center for Lifetime Health — unanswered negative reviews
+
+Hi — I help local businesses around Boise with website speed fixes.
+
+It looks like Center for Lifetime Health has 2 unanswered negative reviews — the kind patients read before they call. I also couldn't find a way for patients to book online from your site.
+
+Want a quick rundown of what I found for Center for Lifetime Health?
+
+—
+Test Agency, 123 Main St Suite 200, Boise, ID 83702
+Reply STOP to opt out.</pre>
+<h3>
+  The same system's worst surface (Tommy Gun's, CA — subject shipped to a
+  barbershop)
+</h3>
+<pre
+  class="mail"
+><b>Subject:</b> Tommy Gun's Original Barbershop — review momentum declining vs cell</pre>
+<p class="why">
+  "vs cell" is Mapsly-internal vocabulary; "slow lcp" shipped in another
+  subject. Three competing Kelowna businesses got the byte-identical subject
+  suffix. Nano never touches subjects, so the leak ships as-is.
+</p>
+<h3>Per-sample scores (2026 rubric, weighted)</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Lead · tone</th>
+      <th>Person.</th>
+      <th>Copy</th>
+      <th>Subject</th>
+      <th>Grounding</th>
+      <th>Legal</th>
+      <th>Deliv.</th>
+      <th>Total</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Center f. Lifetime Health · 3 tones (US)</td>
+      <td class="num">7</td>
+      <td class="num">8</td>
+      <td class="num">5</td>
+      <td class="num good">9</td>
+      <td class="num">8</td>
+      <td class="num">7</td>
+      <td class="num good">7.4</td>
+    </tr>
+    <tr>
+      <td>Hidden Summit Acupuncture (US)</td>
+      <td class="num">7</td>
+      <td class="num">8</td>
+      <td class="num">4</td>
+      <td class="num">8</td>
+      <td class="num">8</td>
+      <td class="num">7</td>
+      <td class="num good">7.1</td>
+    </tr>
+    <tr>
+      <td>Living Wellness A.I.M (US)</td>
+      <td class="num">7</td>
+      <td class="num">8</td>
+      <td class="num bad">2</td>
+      <td class="num">8</td>
+      <td class="num">8</td>
+      <td class="num">7</td>
+      <td class="num mid">6.8</td>
+    </tr>
+    <tr>
+      <td>Tommy Gun's Barbershop · 3 tones (CA)</td>
+      <td class="num">6</td>
+      <td class="num">7.5–8</td>
+      <td class="num bad">2</td>
+      <td class="num">6</td>
+      <td class="num">7</td>
+      <td class="num">6</td>
+      <td class="num mid">5.9–6.0</td>
+    </tr>
+    <tr>
+      <td>Serenity Aesthetics (CA)</td>
+      <td class="num">6</td>
+      <td class="num">7.5</td>
+      <td class="num bad">2</td>
+      <td class="num">6</td>
+      <td class="num">7</td>
+      <td class="num">5</td>
+      <td class="num mid">5.8</td>
+    </tr>
+    <tr>
+      <td>Zahra Salon &amp; Med Spa (CA)</td>
+      <td class="num">6</td>
+      <td class="num">8</td>
+      <td class="num bad">2</td>
+      <td class="num mid">5</td>
+      <td class="num">7</td>
+      <td class="num">5</td>
+      <td class="num mid">5.7</td>
+    </tr>
+    <tr>
+      <td>KM Tires (CA · sparse — zero signals)</td>
+      <td class="num bad">2</td>
+      <td class="num">7</td>
+      <td class="num">5</td>
+      <td class="num good">10</td>
+      <td class="num mid">5</td>
+      <td class="num bad">4</td>
+      <td class="num mid">5.3</td>
+    </tr>
+    <tr>
+      <td><b>Aggregate</b></td>
+      <td class="num">6.1</td>
+      <td class="num good">7.8</td>
+      <td class="num bad">3.3</td>
+      <td class="num">7.5</td>
+      <td class="num">7.3</td>
+      <td class="num">6.1</td>
+      <td class="num mid"><b>6.4</b></td>
+    </tr>
+  </tbody>
+</table>
+<div class="finding ok">
+  <b
+    >Hallucination audit: the AI layer is clean — the TEMPLATE is the claim
+    risk.</b
+  >
+  <p>
+    Nano-introduced hallucinations: <b>0/11</b> (every number preserved; hedges
+    only; one rewrite <i>improved</i> honesty: "There's no way to book" → "I
+    also couldn't find a way to book"). But two template-embedded
+    unsupported-claim classes shipped: (1)
+    <span class="q">"while neighbors keep climbing"</span> in 5 emails + "vs
+    cell" in subjects —
+    <b>no sample had any competitor/percentile data</b> (null in all 11); (2)
+    exact counts from partial pulls — Zahra's "You have 2 unanswered negative
+    reviews" was computed from an 11-of-607 (1.8%) review sample; the owner
+    checks, finds 5, and the "expert" loses credibility mid-read. Should be
+    percentile-gated and "at least N".
+  </p>
+</div>
+<ul class="tight">
+  <li>
+    <b>Template smell:</b> ~15–20% of body words are lead-specific; the 3
+    Kelowna review-decline leads share ~85–90% identical skeletons AND identical
+    subjects — Gmail duplicate-fingerprinting risk within a geo cohort even at
+    low volume.
+  </li>
+  <li>
+    <b>Pitch-blind ranking:</b> Zahra's 23.2s LCP and Tommy Gun's 12.4s —
+    spectacular hooks under a literal "website speed fixes" pitch — never
+    appear: slow_site (sev 55) is always outranked by generic review pains
+    (70–80).
+  </li>
+  <li>
+    <b>Sparse lead = spam template:</b> KM Tires (zero signals) produced a
+    grounded-but-generic 31-word note indistinguishable from 2019 spam — and
+    it's exactly where the CASL consent basis is weakest (no website, no
+    published email). Should be gated, not generated.
+  </li>
+  <li>
+    <b>CTA in 10/11:</b> "Want a quick rundown of what I found for
+    {FullLegalName}?" — interest-based (correct per Gong) but identical
+    everywhere and no human types "…for Serenity Aesthetics Laser &amp; Advanced
+    Skin Care Inc?".
+  </li>
+</ul>
+
+<h2>4 · Mapsly vs the 2026 standard — the comparison table</h2>
+<table>
+  <thead>
+    <tr>
+      <th>Dimension</th>
+      <th>2026 standard (sourced)</th>
+      <th>Mapsly measured today</th>
+      <th>Verdict</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td class="dim">Body length</td>
+      <td class="why">
+        50–100 words, elite &lt;80 (Instantly 2026 benchmark; Hunter 34M-email
+        study)
+      </td>
+      <td class="why">31–66 words body</td>
+      <td><span class="pill p-ok">MEETS</span></td>
+    </tr>
+    <tr>
+      <td class="dim">Personalization type</td>
+      <td class="why">
+        Signal-based relevance beats first-line flattery; trigger-event opens
+        +42% (Martal 2025); "your site takes 6s + 12 unanswered reviews" is the
+        named gold standard
+      </td>
+      <td class="why">
+        Exactly this model — real verifiable signals, no flattery. But only 1–2
+        of 7 possible themes, ~15–20% of words personalized
+      </td>
+      <td><span class="pill p-meh">RIGHT MODEL, THIN</span></td>
+    </tr>
+    <tr>
+      <td class="dim">Subject line</td>
+      <td class="why">
+        3–6 words / ≤50 chars, problem-first, truthful (Instantly; Digital
+        Bloom); misleading subject = $500/email under WA CEMA (<i
+          >Brown v. Old Navy</i
+        >, Apr 2025)
+      </td>
+      <td class="why">
+        8–10 words with the full legal business name, internal jargon ("vs
+        cell", "slow lcp"), duplicated across a cohort, and a comparative claim
+        the data doesn't support
+      </td>
+      <td><span class="pill p-p0">FAILS</span></td>
+    </tr>
+    <tr>
+      <td class="dim">CTA</td>
+      <td class="why">
+        One interest-based question, no calendar/link in touch 1 (Gong
+        304K-email study: meeting asks ~44% worse)
+      </td>
+      <td class="why">
+        One interest question ✓ — but identical string in 10/11
+      </td>
+      <td>
+        <span class="pill p-ok">MEETS</span> <span class="why">(vary it)</span>
+      </td>
+    </tr>
+    <tr>
+      <td class="dim">Format</td>
+      <td class="why">
+        Plain text, no links, no attachments, no pixels (plain text ≈ 2×
+        replies)
+      </td>
+      <td class="why">Plain text ✓ · zero links ✓ · no HTML ✓</td>
+      <td><span class="pill p-ok">MEETS</span></td>
+    </tr>
+    <tr>
+      <td class="dim">Sequence</td>
+      <td class="why">
+        3–4 total touches, new value each, non-repeating angles ("3-7-7")
+      </td>
+      <td class="why">
+        1–3 steps, per-step fresh pain theme (non-repeat enforced), follow-up
+        openers
+      </td>
+      <td><span class="pill p-ok">MEETS</span></td>
+    </tr>
+    <tr>
+      <td class="dim">Human-ness / AI tells</td>
+      <td class="why">
+        Buyers punish template smell + formulaic structure (Hunter State of Cold
+        Email 2025); Lavender grades reading level, I/you ratio, 90+ target
+      </td>
+      <td class="why">
+        Nano hedges help ("I noticed…"), but: nameless "Hi —" greeting (no
+        recipient name exists in the pipeline), full-legal-name repetition,
+        fixed 3-sentence shape
+      </td>
+      <td><span class="pill p-meh">PARTIAL</span></td>
+    </tr>
+    <tr>
+      <td class="dim">Uniqueness at volume</td>
+      <td class="why">
+        Identical bodies fingerprint as bulk even at low volume (Smartlead)
+      </td>
+      <td class="why">
+        ~85–90% identical within a same-pain geo cohort; nano variance is
+        accidental
+      </td>
+      <td><span class="pill p-p1">RISK</span></td>
+    </tr>
+    <tr>
+      <td class="dim">Hallucination control</td>
+      <td class="why">
+        AI-draft norm: verifiable recipient-specific fact, human-checkable
+      </td>
+      <td class="why">
+        0/11 AI hallucinations (fact-checked rewrite + fallback); 2
+        template-claim classes to fix
+      </td>
+      <td><span class="pill p-ok">LEADS FIELD</span></td>
+    </tr>
+    <tr>
+      <td class="dim">Footer — US</td>
+      <td class="why">
+        CAN-SPAM: postal address + working opt-out + truthful subject;
+        $53,088/email max
+      </td>
+      <td class="why">
+        Structurally complete — but only with an address, and every real
+        agency's mailingAddress is NULL → generation skips everything today
+      </td>
+      <td><span class="pill p-p0">BLOCKED</span></td>
+    </tr>
+    <tr>
+      <td class="dim">Footer — Canada</td>
+      <td class="why">
+        CASL: consent basis + sender ID + address + 60-day unsubscribe; sender
+        bears proof burden; 2025 fines $5K–$250K
+      </td>
+      <td class="why">
+        Above-average: sender ID + conspicuous-publication basis stated +
+        address + opt-out, and ConsentRecord logged per email
+      </td>
+      <td><span class="pill p-ok">MEETS (draft side)</span></td>
+    </tr>
+    <tr>
+      <td class="dim">Deliverability duties</td>
+      <td class="why">
+        All senders: SPF/DKIM, rDNS, &lt;0.3% spam rate; Google rejects
+        non-compliant traffic since Nov 2025; safe cold ceiling ~25–50/inbox/day
+      </td>
+      <td class="why">
+        N/A by design (no delivery) — but the export hands all of this to the
+        user with zero warning
+      </td>
+      <td><span class="pill p-p1">SILENT HANDOFF</span></td>
+    </tr>
+    <tr>
+      <td class="dim">Expected reply rate</td>
+      <td class="why">
+        2026 avg 3.43% · top quartile 5.5%+ · signal-grounded narrow campaigns
+        15–25% (Autobound)
+      </td>
+      <td class="why">
+        Body quality supports above-average; today's subjects will suppress
+        opens below it. Best samples (CLH, Hidden Summit) are genuinely
+        reply-able
+      </td>
+      <td><span class="pill p-meh">POTENTIAL UNMET</span></td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>5 · Goal → touchpoint: the broken chain, and what Tom can customize</h2>
+<div class="finding">
+  <b>The goal never reaches the touch.</b> <span class="pill p-p0">P0</span>
+  <p>
+    generateTouchpointsAction has no goalId — outcome groups ("Reputation",
+    "Weak web"…), tuned signal strictness, and campaign strategy (signalWeights,
+    recommended enrichments) are computed for discovery and then discarded. Tom
+    picks a Reputation goal; his touches cite slow sites and booking gaps with
+    equal weight, and the pain multipicker always offers all 7 themes. Even
+    <b>sellingWhat is re-typed by hand</b> at generation although the campaign
+    already knows it.
+    <span class="src"
+      >actions.ts:99–286 · goal-templates OUTCOME_GROUPS ·
+      campaign/strategy.ts</span
+    >
+  </p>
+  <p class="fix">
+    <b>Fix:</b> map outcome group → default allowedPainKeys; accept
+    goalId/campaignId and autofill sellingWhat; boost pain severity for themes
+    matching the pitch (the pitch-aware ranking §3).
+  </p>
+</div>
+<h3>Customization inventory (before generating)</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Knob</th>
+      <th>Overlay (drawer/bulk)</th>
+      <th>Touchpoints page panel</th>
+      <th>Default</th>
+      <th>Note</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td class="dim">What you're selling</td>
+      <td>✓ text (persisted in localStorage)</td>
+      <td>✓ text</td>
+      <td class="why">empty / last used</td>
+      <td class="why">feeds the opener only — not pain ranking</td>
+    </tr>
+    <tr>
+      <td class="dim">Channel</td>
+      <td>✓ email/dm/phone/social</td>
+      <td>✓</td>
+      <td class="why">email</td>
+      <td class="why">email = full path (footer, subject, polish, export)</td>
+    </tr>
+    <tr>
+      <td class="dim">Tone (direct/warm/brief)</td>
+      <td>✓ select</td>
+      <td class="bad">✗ hidden</td>
+      <td class="why">direct (silent)</td>
+      <td class="why">changes ONLY the opener; variants converge post-fill</td>
+    </tr>
+    <tr>
+      <td class="dim">Steps (1–3)</td>
+      <td>✓ select</td>
+      <td class="bad">✗ hidden</td>
+      <td class="why">1 (silent)</td>
+      <td class="why">non-repeat pain themes per step ✓</td>
+    </tr>
+    <tr>
+      <td class="dim">Pain themes (7 checkboxes)</td>
+      <td>✓ multipicker</td>
+      <td class="bad">✗ hidden</td>
+      <td class="why">all 7</td>
+      <td class="why">
+        includes the permanently-dead competitor_ads; never goal-constrained
+      </td>
+    </tr>
+    <tr>
+      <td class="dim">Sender name / mailing address / unsub URL</td>
+      <td colspan="2">Settings → Profile (agency row)</td>
+      <td class="why">
+        name = agency · address = <b class="bad">NULL everywhere</b> · unsub →
+        "Reply STOP"
+      </td>
+      <td class="why">address gate discovered only after a failed generate</td>
+    </tr>
+    <tr>
+      <td class="dim">After generation</td>
+      <td colspan="2">
+        edit body (no undo-to-generated) · Polish 1cr (email) · Regenerate 1cr
+        (reuses stored tone, can't change) · Mark sent · CSV export
+      </td>
+      <td class="why">—</td>
+      <td class="why">
+        skeleton/grounding (whyJson.why) not surfaced prominently
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>6 · US vs Canada — how regions are handled</h2>
+<table>
+  <thead>
+    <tr>
+      <th></th>
+      <th>US (CAN-SPAM)</th>
+      <th>Canada (CASL)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td class="dim">Detection</td>
+      <td colspan="2" class="why">
+        Business.country → normalizeCountry (US/USA/United States → US ·
+        CA/CAN/Canada → CA) · <b>null → CAN-SPAM branch</b>
+        <span class="src">generate.ts:51–57</span>
+      </td>
+    </tr>
+    <tr>
+      <td class="dim">Footer (verbatim, live output)</td>
+      <td>
+        <pre class="mail" style="margin: 0">
+—
+{Agency}, {address}
+Reply STOP to opt out.</pre
+        >
+      </td>
+      <td>
+        <pre class="mail" style="margin: 0">
+—
+This message is from {Agency}.
+You're receiving this because your business is
+publicly listed and it appears relevant to your
+services; if that's not right, opt out below…
+{Agency}, {address}
+Reply STOP to opt out.</pre
+        >
+      </td>
+    </tr>
+    <tr>
+      <td class="dim">Statute check</td>
+      <td class="why">
+        Address ✓ · opt-out ✓ · sender ID minimal-but-defensible · subject
+        truthfulness ⚠ (the "vs cell" comparative)
+      </td>
+      <td class="why">
+        Consent basis stated ✓ + <b>ConsentRecord logged</b> (basis
+        CONSPICUOUS_PUBLICATION, country, source) ✓ · sender ID ✓ · address ✓ ·
+        opt-out ✓ (CRTC also wants phone/email/web contact — thin)
+      </td>
+    </tr>
+    <tr>
+      <td class="dim">Real gaps</td>
+      <td class="why">
+        mailingAddress NULL for all agencies → all email gen skips (P0
+        operational) · subject claims (CEMA class-action lane)
+      </td>
+      <td class="why">
+        Null-country CA lead silently gets the US footer = CASL s.6 violation at
+        import scale (flip the default to CASL) · consent weakest on sparse
+        leads (<i>CompuFinder</i>: role-relevance required) · English-only for
+        Quebec (low risk B2B, noted)
+      </td>
+    </tr>
+    <tr>
+      <td class="dim">Penalty context (2026)</td>
+      <td class="why">
+        $53,088/email federal max · WA $500/email private action
+      </td>
+      <td class="why">
+        $10M CAD org max · 2025 tempo: 153 Notices to Produce, fines $5K–$250K
+      </td>
+    </tr>
+  </tbody>
+</table>
+<div class="finding p1">
+  <b>The handoff is where compliance leaks.</b>
+  <span class="pill p-p1">P1</span>
+  <p>
+    No delivery system means the user owns SPF/DKIM/DMARC, suppression, and
+    10-day opt-out honoring — and the CSV export says nothing about it, carries
+    no per-recipient compliance-footer column, no consent-basis column, and no
+    verified-email gate.
+    <b>Correction (verified 2026-07-07 during remediation):</b>
+    the earlier claim that the separate Mapsly cold system's postal-address
+    violation was "still live" was <b>stale</b> — it was actually fixed
+    2026-06-09 (commit 93a8d77); both send paths (the process-cold-sequences
+    cron and the admin email action) already pass
+    <span class="src">getColdSenderConfig().physicalAddress</span> into the
+    footer builders. The remediation added two mechanical test locks so it
+    cannot silently regress.
+    <span class="src"
+      >export-actions.ts · handoff.ts:115–138 · cold-mailer/config.ts:67</span
+    >
+  </p>
+</div>
+
+<h2>7 · Recommendations — what moves 6.4 → 8.5+</h2>
+<table>
+  <thead>
+    <tr>
+      <th>Phase</th>
+      <th>Contents</th>
+      <th>Effect</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td class="dim">
+        T1 · Subject + truth <span class="pill p-p0">P0</span>
+      </td>
+      <td class="why">
+        Rewrite subjectFor: 3–6 plain words per pain ("2 reviews waiting on a
+        reply?"), never the internal why-string, cohort dedup so one batch ≠ 3
+        identical subjects, and a truthfulness lint (subject claims must appear
+        in body). Gate "neighbors keep climbing"/"vs cell" on a non-null
+        percentile; switch exact counts to "at least N" when the pull is
+        partial. Fix the noun map (acupuncture → patients).
+      </td>
+      <td class="why">
+        Fixes the 3.3 dimension + removes the CEMA-class legal exposure + the
+        credibility-killer. Biggest single lever.
+      </td>
+    </tr>
+    <tr>
+      <td class="dim">
+        T2 · Pitch- and goal-aware pains <span class="pill p-p0">P0</span>
+      </td>
+      <td class="why">
+        Severity boost for themes matching sellingWhat (a 23.2s LCP under a
+        speed pitch must win); outcome group → default allowedPainKeys; accept
+        campaignId/goalId and autofill sellingWhat; either populate
+        competitorAdsCount from AdMarketRun or remove the dead theme from the
+        picker.
+      </td>
+      <td class="why">
+        Personalization 6.1 → 8; goal step finally pays off in outreach; kills
+        the dead-checkbox lie.
+      </td>
+    </tr>
+    <tr>
+      <td class="dim">
+        T3 · Compliance hardening <span class="pill p-p1">P1</span>
+      </td>
+      <td class="why">
+        Mailing-address pre-flight banner (panel + overlay) before generate;
+        flip null-country default to CASL (stricter-safe); consentBasis +
+        complianceFooter columns in CSV + consentRecordId on OutreachDraft;
+        export toast stating the user's delivery duties; verified-email gate (or
+        warning column); humanize opt-out to "just reply 'no'" for the
+        low-volume path; wire the cold system's postal address (15 lines) so the
+        old bomb is defused.
+      </td>
+      <td class="why">
+        US 7 → 9, CA 6.5 → 8.5, handoff 4 → 7.5; unblocks production generation.
+      </td>
+    </tr>
+    <tr>
+      <td class="dim">
+        T4 · Human-ness &amp; variation <span class="pill p-p2">P2</span>
+      </td>
+      <td class="why">
+        Vary the CTA (3–4 grounded variants) + use short business names in copy
+        (drop "Inc"); recipient first name when contacts found one; per-cohort
+        body variation (nano seed/instruction) against fingerprinting;
+        sparse-lead gate (0 signals → suggest enrich instead of generating
+        spam-shaped copy); expose tone/steps/pains on the page panel; show the
+        grounding (whyJson.why) beside each draft.
+      </td>
+      <td class="why">
+        Deliverability 6.1 → 8; template smell down; sparse leads stop shipping.
+      </td>
+    </tr>
+  </tbody>
+</table>
+<div class="callout">
+  <p>
+    <b>The strategic read.</b> Mapsly's moat data is exactly what 2026 cold
+    email rewards — the two highest-weight rubric dimensions (personalization +
+    relevance ≈ 30%) are signal problems, and no generic AI-email tool can cite
+    "your site takes 7.7s and 2 negative reviews sit unanswered" with a verified
+    source. The architecture already guarantees the honesty part (0
+    hallucinations, measured). What's missing is plumbing, not invention: route
+    the goal and the pitch into pain selection, write subjects a human would,
+    and stop the template from claiming things the data doesn't hold. That's 1–2
+    focused sessions to an output that beats what Tom can buy elsewhere in 2026.
+  </p>
+</div>
+
+<p class="sub" style="margin-top: 40px">
+  Method: 6-agent verified sweep (workflow wf_358f3028) · live test = 11 drafts
+  through the production path (gatherTouchSignals → buildFirstTouch →
+  fluencyRewrite), real DB leads, $0.0016 total AI cost, zero rows persisted ·
+  standards web-verified 2026-07 (Google sender guidelines, CRTC guidance, FTC,
+  Instantly/Hunter/Gong/Lavender benchmarks, <i>Brown v. Old Navy</i>) · all
+  file:line refs at v0.19.10 (210ca01) · raw data: scratchpad
+  touch-test/results.json · prior related audit:
+  docs/cold-email-audit-2026-06-09.html.
+</p>

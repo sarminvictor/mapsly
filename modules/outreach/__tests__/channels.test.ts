@@ -120,7 +120,10 @@ describe("buildChannelTouch — social_dm", () => {
       { businessName: "Quiet Co" },
       { channel: "social_dm", sellingWhat: "marketing" },
     );
-    expect(t.body).toContain("Quiet Co");
+    // A14 · the DM uses the SHORT name (legal "Co" suffix stripped) — never the
+    // raw "Quiet Co". Names the business, no unfilled merge token.
+    expect(t.body).toContain("Quiet");
+    expect(t.body).not.toContain("Quiet Co");
     expect(t.body).not.toMatch(/\{\{[^}]+\}\}/);
     expect(t.body.split("\n").filter(Boolean).length).toBeLessThanOrEqual(2);
   });

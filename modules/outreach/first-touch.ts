@@ -15,16 +15,27 @@ export interface TouchSignals {
   businessName: string;
   city?: string | null;
   /**
-   * WP7-4 · recipient country ("US" | "CA" | other | null). Drives the
-   * compliance-footer branch: CA → CASL framing (consent basis + sender ID +
-   * address + unsubscribe), everything else → CAN-SPAM (address + unsubscribe).
-   * Null → CAN-SPAM (the strict-safe default for the US-majority index).
+   * WP7-4 / A11 (touchpoints audit 2026-07-07) · recipient country ("US" |
+   * "CA" | other | null). Drives the compliance-footer branch: US → the short
+   * CAN-SPAM footer; EVERYTHING ELSE — CA, other, null/unknown — → the CASL
+   * framing (sender ID + consent basis + address + unsubscribe). CASL is a
+   * compliant SUPERSET of CAN-SPAM, so an unknown-country lead (possibly
+   * Canadian) always gets the stricter footer. (Pre-A11 the default was
+   * CAN-SPAM, which sent a CA lead with a null country a non-compliant footer.)
    */
   country?: string | null;
   /** WP7-4 · the business's public email (for the ConsentRecord basis). */
   recipientEmail?: string | null;
   noun?: string | null; // audience noun ("patients", "guests", "customers")
   unansweredNegative?: number | null;
+  /**
+   * A5 · true when the unanswered-negative count comes from a PARTIAL review
+   * pull (pulled rows < 80% of the listing's reviewCount) — the live test
+   * caught "You have 2 unanswered negative reviews" computed from an 11-of-607
+   * sample. Partial → the pain line reads "at least N"; the number itself stays
+   * EXACT (the nano fact-check matches numbers downstream).
+   */
+  reviewSamplePartial?: boolean | null;
   reviewLifecycle?: "TRENDING" | "STABLE" | "DYING" | "DORMANT" | null;
   reviewsVsCellPercentile?: number | null; // 0–100
   lcpSeconds?: number | null;
@@ -71,6 +82,16 @@ export interface TouchOptions {
    * differs per agency. Absent → the canonical severity-desc order (unchanged).
    */
   agencySeed?: string | null;
+  /**
+   * A2/A14/A16 · per-BUSINESS variation seed (the businessId). Deterministically
+   * rotates the subject variant, the opener frame, and the CTA variant so a
+   * same-batch cohort doesn't ship byte-identical subjects/frames (Gmail
+   * duplicate-fingerprinting; the live test measured ~85–90% identical bodies
+   * within a geo cohort). Grounded PAIN lines are untouched — only the framing
+   * rotates. Absent → variant 0 everywhere (the canonical phrasing). Distinct
+   * from `agencySeed`, which rotates pain ORDER across agencies (WP6-15).
+   */
+  variantSeed?: string | null;
 }
 
 /**
@@ -140,6 +161,125 @@ function seedHash(seed: string): number {
 }
 
 /**
+ * A2/A14/A16 · deterministic variant pick: same (seed, salt) always yields the
+ * same index; different businesses (seeds) spread across the variant space.
+ * No seed → 0 (the canonical variant, which keeps un-seeded callers and legacy
+ * tests byte-stable).
+ */
+function variantIndex(
+  seed: string | null | undefined,
+  salt: string,
+  len: number,
+): number {
+  if (!seed || len <= 1) return 0;
+  return seedHash(`${seed}|${salt}`) % len;
+}
+
+/**
+ * A14 · human-shorten a legal business name for subjects / CTA / warm opener.
+ * The live test shipped "…what I found for Serenity Aesthetics Laser &
+ * Advanced Skin Care Inc?" — no human types the legal suffix. Conservative,
+ * never empty:
+ *   1. drop a trailing parenthetical ("X (Downtown)" → "X")
+ *   2. drop a "· …" descriptor tail
+ *   3. strip trailing legal suffixes (Inc/LLC/Ltd/Corp/Co/…, with or without
+ *      punctuation) — but never when that would leave a dangling "&"
+ *   4. only when still > 30 chars, drop a descriptor tail after the first
+ *      dash separator ("Name — Laser & Skin Clinic" → "Name")
+ * Falls back to the original name whenever a step would produce an empty or
+ * one-char string.
+ */
+export function shortBusinessName(name: string): string {
+  const original = name.trim();
+  const safe = (candidate: string): string | null => {
+    const c = candidate.trim().replace(/[,\s]+$/, "");
+    return c.length >= 2 ? c : null;
+  };
+  let out = original;
+  out = safe(out.replace(/\s*\([^)]*\)\s*$/, "")) ?? out;
+  out = safe(out.split("·")[0]) ?? out;
+  const noSuffix = out.replace(
+    /,?\s+(inc|incorporated|llc|l\.l\.c|ltd|limited|corp|corporation|co|pllc|pc|p\.c)\.?$/i,
+    "",
+  );
+  if (!/&$/.test(noSuffix.trim())) out = safe(noSuffix) ?? out; // "Smith & Co" stays
+  if (out.length > 30) {
+    const head = out.split(/\s+[—–-]\s+/)[0];
+    out = safe(head) ?? out;
+  }
+  return out.length >= 2 ? out : original;
+}
+
+// ── A7 · pitch-aware pain ranking ────────────────────────────────────────────
+
+/**
+ * sellingWhat keyword → the pain themes that pitch matches. A 23.2s LCP under
+ * a literal "website speed fixes" pitch was ALWAYS outranked by generic review
+ * pains (sev 70–80 vs 55) in the live test — the sharpest hook for the
+ * agency's actual service never shipped.
+ */
+const PITCH_THEME_KEYWORDS: readonly {
+  pattern: RegExp;
+  themes: readonly PainThemeKey[];
+}[] = [
+  {
+    pattern: /\b(site|website|web|speed|redesign|seo)\b/,
+    themes: ["slow_site"],
+  },
+  {
+    pattern: /\b(booking|scheduling|appointments?)\b/,
+    themes: ["no_booking", "ads_no_booking"],
+  },
+  {
+    pattern: /\b(reviews?|reputation)\b/,
+    themes: ["unanswered_negative", "review_decline"],
+  },
+  {
+    pattern: /\b(ads?|advertising|ppc|meta|google ads)\b/,
+    themes: ["competitor_ads", "ads_no_booking"],
+  },
+  {
+    pattern: /\b(privacy|hipaa|compliance)\b/,
+    themes: ["hipaa_pixel_risk"],
+  },
+];
+
+/** Boost added to a theme whose domain matches the pitch. */
+const PITCH_BOOST = 30;
+/** Boosted severity ceiling — one below band 0 (≥90), so the HIPAA standout
+ *  (100) can never be outranked or joined by a boosted generic theme. */
+const PITCH_BOOST_CAP = 89;
+
+/** The pain themes `sellingWhat` matches (empty set = no boost anywhere). */
+function pitchThemesFor(sellingWhat: string): ReadonlySet<string> {
+  const s = sellingWhat.toLowerCase();
+  const out = new Set<string>();
+  for (const { pattern, themes } of PITCH_THEME_KEYWORDS) {
+    if (pattern.test(s)) for (const t of themes) out.add(t);
+  }
+  return out;
+}
+
+/**
+ * Apply the pitch boost to matched themes: severity < 90 gets +30 capped at 89
+ * (top of band 1); severities ≥ 90 (HIPAA) are never touched — the band-0
+ * standout still leads unconditionally, and the WP6-15 within-band rotation
+ * stays deterministic on the BOOSTED severities.
+ */
+function applyPitchBoost(lines: PainLine[], sellingWhat: string): PainLine[] {
+  const boosted = pitchThemesFor(sellingWhat);
+  if (boosted.size === 0) return lines;
+  return lines.map((l) =>
+    boosted.has(l.key) && l.severity < 90
+      ? {
+          ...l,
+          severity: Math.min(PITCH_BOOST_CAP, l.severity + PITCH_BOOST),
+        }
+      : l,
+  );
+}
+
+/**
  * Order present pains sharpest-first, then rotate WITHIN each severity band by
  * the agency seed (WP6-15). Without a seed this is exactly the canonical
  * `severity desc` order. Pure + deterministic.
@@ -192,15 +332,31 @@ function painLines(s: TouchSignals): PainLine[] {
       key: "unanswered_negative",
       present: (s.unansweredNegative ?? 0) > 0,
       severity: 80,
-      line: `You have ${s.unansweredNegative} unanswered negative review${(s.unansweredNegative ?? 0) === 1 ? "" : "s"} — the kind ${noun} read before they call.`,
+      // A5 · a PARTIAL review pull says "at least N" (the pull may be a small
+      // sample of the listing — an exact claim the owner can disprove kills
+      // credibility mid-read). The number itself stays exact either way (the
+      // nano fact-check matches numbers downstream).
+      line: `You have ${s.reviewSamplePartial === true ? "at least " : ""}${s.unansweredNegative} unanswered negative review${(s.unansweredNegative ?? 0) === 1 ? "" : "s"} — the kind ${noun} read before they call.`,
       why: "Unanswered negative reviews (concrete, verifiable pain)",
     },
     {
       key: "review_decline",
       present: s.reviewLifecycle === "DYING" || s.reviewLifecycle === "DORMANT",
       severity: 70,
-      line: `Your review pace has been ${s.reviewLifecycle === "DORMANT" ? "quiet for months" : "slipping"} while neighbors keep climbing.`,
-      why: "Review momentum declining vs cell",
+      // A4 · the COMPARATIVE claim ("while neighbors keep climbing") is gated
+      // on a non-null reviewsVsCellPercentile — the live test shipped it with
+      // the percentile null in every sample. No percentile → self-referential
+      // copy only (own trend, no market claim).
+      line:
+        s.reviewsVsCellPercentile != null
+          ? `Your review pace has been ${s.reviewLifecycle === "DORMANT" ? "quiet for months" : "slipping"} while neighbors keep climbing.`
+          : s.reviewLifecycle === "DORMANT"
+            ? `Your reviews have gone quiet for months.`
+            : `Your review pace has been slipping.`,
+      why:
+        s.reviewsVsCellPercentile != null
+          ? "Review momentum declining vs cell"
+          : "Review momentum declining (own trend)",
     },
     {
       key: "ads_no_booking",
@@ -220,7 +376,12 @@ function painLines(s: TouchSignals): PainLine[] {
       key: "competitor_ads",
       present: (s.competitorAdsCount ?? 0) > 0 && s.runsAds !== true,
       severity: 50,
-      line: `${s.competitorAdsCount} competitor${(s.competitorAdsCount ?? 0) === 1 ? " is" : "s are"} running ads in ${s.city || "your area"} — you're not showing up.`,
+      // Copy review B4 · state only what the signal proves — the prospect
+      // doesn't advertise while N rivals do. The old "you're not showing up"
+      // asserted an absence-of-visibility the data never established (a lead
+      // can rank organically without ads), and an owner could disprove it
+      // mid-read — the exact credibility loss the A5 fix was written to avoid.
+      line: `${s.competitorAdsCount} competitor${(s.competitorAdsCount ?? 0) === 1 ? " is" : "s are"} paying to show up in ${s.city || "your area"} — you're not.`,
       why: "Competitors advertising while prospect is absent",
     },
     {
@@ -242,18 +403,23 @@ export function hasUnfilledToken(body: string): boolean {
 
 /**
  * Append the legally-required email footer, branching on recipient country
- * (WP7-4). BOTH regimes require a physical mailing address + a working opt-out;
- * throws without an address (the setup gate makes the UI collect it).
+ * (WP7-4, default FLIPPED by A11 · touchpoints audit 2026-07-07). BOTH regimes
+ * require a physical mailing address + a working opt-out; throws without an
+ * address (the setup gate makes the UI collect it).
  *
- *   - US / unknown → CAN-SPAM (15 U.S.C. §7704(a)(5)): postal address +
+ *   - US            → CAN-SPAM (15 U.S.C. §7704(a)(5)): postal address +
  *     unsubscribe. Opt-OUT model — no prior consent needed to send.
- *   - CA           → CASL (S.C. 2010, c.23): CASL is a consent (opt-IN) regime,
- *     so the footer additionally states the sender-identification + the consent
- *     basis line, alongside the address + unsubscribe (s.6(2)(b) / s.11). The
- *     agency is responsible for having a lawful consent basis; the co-pilot
- *     surfaces this at generation time (see the CA interstitial in actions).
+ *   - CA / other / UNKNOWN → CASL (S.C. 2010, c.23): sender identification +
+ *     consent-basis line + address + unsubscribe (s.6(2)(b) / s.11). The CASL
+ *     footer is a compliant SUPERSET of CAN-SPAM, so it is the safe default
+ *     when the country is null — pre-A11 an unknown-country CA lead silently
+ *     got the shorter, CASL-non-compliant footer. Only a POSITIVE "US" gets
+ *     the short form. The agency is responsible for having a lawful consent
+ *     basis; the co-pilot surfaces this at generation time.
  *
  * `senderName` (the agency, when known) is used for the CASL sender-ID line.
+ * A13 · without an unsubscribeUrl the opt-out line reads as a human reply ask
+ * ("Just reply …"), not the SMS-flavored "Reply STOP" that flags automation.
  */
 export function withCanSpamFooter(
   body: string,
@@ -271,10 +437,12 @@ export function withCanSpamFooter(
   }
   const unsub = opts.unsubscribeUrl
     ? `Unsubscribe: ${opts.unsubscribeUrl}`
-    : "Reply STOP to opt out.";
+    : `Just reply "no" and I won't email again.`;
 
-  const isCanada = (opts.country ?? "").toUpperCase() === "CA";
-  if (isCanada) {
+  // A11 · only a positive "US" takes the short CAN-SPAM footer; CA / other /
+  // null all get the stricter CASL framing (compliant everywhere we send).
+  const isUs = (opts.country ?? "").toUpperCase() === "US";
+  if (!isUs) {
     // CASL: identify the sender, state the consent basis, address, unsubscribe.
     const who = opts.senderName?.trim()
       ? `This message is from ${opts.senderName.trim()}.`
@@ -297,59 +465,184 @@ function tierFor(usedCount: number): PredictedTier {
   return "low";
 }
 
-/** Opener line per tone + sequence step. Steps ≥2 read as follow-ups. */
+/**
+ * Opener line per tone + sequence step. Steps ≥2 read as follow-ups. A16 ·
+ * step-1 openers carry 3 meaning-identical FRAME variants per tone, rotated
+ * per business (variantSeed) — variant 0 is the pre-A16 canonical phrasing, so
+ * un-seeded callers are byte-stable. Facts/grounding are untouched: the frame
+ * only rewords "who I am"; A14 · the business name renders SHORT everywhere.
+ */
 function openerFor(
   signals: TouchSignals,
   opts: TouchOptions,
   step: number,
 ): string {
+  const short = shortBusinessName(signals.businessName);
   if (step === 2) {
-    return `Following up on my note about ${signals.businessName} — one more thing I noticed.`;
+    return `Following up on my note about ${short} — one more thing I noticed.`;
   }
   if (step >= 3) {
-    return `Last note from me on ${signals.businessName} — I'll leave it here after this.`;
+    return `Last note from me on ${short} — I'll leave it here after this.`;
   }
   const around = signals.city ? ` around ${signals.city}` : "";
-  switch (opts.tone ?? "direct") {
-    case "warm":
-      return `Hi — I help local businesses${around} with ${opts.sellingWhat}, and I had a look at ${signals.businessName}.`;
-    case "brief":
-      return `Hi — quick note about ${signals.businessName}.`;
-    case "direct":
-    default:
-      return signals.city
-        ? `Hi — I help local businesses around ${signals.city} with ${opts.sellingWhat}.`
-        : `Hi — I help local businesses with ${opts.sellingWhat}.`;
-  }
+  const sells = opts.sellingWhat;
+  const tone = opts.tone ?? "direct";
+  const variants: readonly string[] =
+    tone === "warm"
+      ? [
+          `Hi — I help local businesses${around} with ${sells}, and I had a look at ${short}.`,
+          `Hi — I recently had a look at ${short}; I help local businesses${around} with ${sells}.`,
+          `Hi — while helping local businesses${around} with ${sells}, I had a look at ${short}.`,
+        ]
+      : tone === "brief"
+        ? [
+            `Hi — quick note about ${short}.`,
+            `Hi — a small thing I noticed about ${short}.`,
+            `Hi — one quick observation about ${short}.`,
+          ]
+        : [
+            `Hi — I help local businesses${around} with ${sells}.`,
+            `Hi — I spend my days helping local businesses${around} with ${sells}.`,
+            `Hi — I work with local businesses${around}, helping them with ${sells}.`,
+          ];
+  return variants[
+    variantIndex(opts.variantSeed, `opener:${tone}`, variants.length)
+  ];
 }
 
-/** Closing ask per sequence step. */
+/**
+ * Closing ask per sequence step. A14 · step 1's pain close rotates 4 grounded
+ * interest-question CTA variants per business (the live test shipped the same
+ * "Want a quick rundown of what I found for {FullLegalName}?" in 10/11
+ * samples) — variant 0 keeps the canonical phrasing, the name renders SHORT,
+ * and every variant is exactly one question.
+ */
 function closeFor(
   signals: TouchSignals,
   step: number,
   hasPain: boolean,
+  variantSeed?: string | null,
 ): string {
+  const short = shortBusinessName(signals.businessName);
   if (step === 2) {
     return `Worth a quick look? Happy to send over what I found.`;
   }
   if (step >= 3) {
     return `If the timing's wrong, no worries — the findings are yours either way. Want them?`;
   }
-  return hasPain
-    ? `Want a quick rundown of what I found for ${signals.businessName}?`
-    : `Mind if I send over a quick look at ${signals.businessName}'s online presence?`;
+  if (!hasPain) {
+    return `Mind if I send over a quick look at ${short}'s online presence?`;
+  }
+  const variants: readonly string[] = [
+    `Want a quick rundown of what I found for ${short}?`,
+    `Worth a quick look?`,
+    `Want the 2-minute breakdown?`,
+    `Open to seeing what I found?`,
+  ];
+  return variants[variantIndex(variantSeed, "cta", variants.length)];
 }
 
-/** Subject line per step (email only). Follow-ups read as replies. */
+// ── A1/A2/A3 · subjects ──────────────────────────────────────────────────────
+//
+// The audit's worst surface (3.3/10): subjects shipped the INTERNAL why-string
+// ("Tommy Gun's Original Barbershop — review momentum declining vs cell",
+// "… — slow lcp") byte-identical across a cohort. Replacement contract:
+//   - per pain theme, 2–4 deterministic plain-language variants — short,
+//     lowercase-leaning, problem-first, internal-feeling; NO Mapsly vocabulary
+//     ("vs cell" / "lcp" / why-strings), no full legal business name
+//   - ≤50 chars ALWAYS (an interpolated variant that overflows falls through
+//     to the next; the static variants all fit)
+//   - A3 truthfulness (WA CEMA exposure): the subject derives ONLY from the
+//     top CHOSEN pain — which is by construction in the body — or the generic
+//     fallback; any number a variant interpolates uses the exact formatting
+//     the body line uses, so subject claims are always body-backed
+//   - A2 cohort dedup: the variant rotates per business (variantSeed)
+
+/** Max subject length (chars). */
+const SUBJECT_MAX_CHARS = 50;
+
+const SUBJECT_VARIANTS: Record<
+  PainThemeKey,
+  readonly ((s: TouchSignals) => string)[]
+> = {
+  hipaa_pixel_risk: [
+    () => `a privacy check for your booking page`,
+    // Copy review B2 · avoid the compliance-scare register on a cold first
+    // touch — "something to check" reads as a heads-up, not a threat.
+    () => `something on your booking page to check`,
+  ],
+  unanswered_negative: [
+    (s) => {
+      const n = s.unansweredNegative ?? 0;
+      return `${n} review${n === 1 ? "" : "s"} waiting on a reply?`;
+    },
+    () => `a review that needs an answer`,
+    () => `about your recent reviews`,
+  ],
+  review_decline: [
+    () => `your review pace lately`,
+    () => `fewer reviews coming in?`,
+    () => `quiet on the review front`,
+  ],
+  ads_no_booking: [
+    () => `your ads deserve a booking page`,
+    () => `ad clicks with nowhere to book`,
+  ],
+  slow_site: [
+    // Copy review B1 · lead with a plain human phrasing; a subject that opens
+    // with a decimal ("23.2 seconds…") reads system-generated. The number
+    // lives in the body (A3-safe without it in the subject).
+    () => `your website feels slow on mobile`,
+    () => `your site's load time`,
+    () => `your site takes a while to load`,
+  ],
+  competitor_ads: [
+    // Copy review B3 · curiosity-first (best performer), no fear-sell "your
+    // competitors" lead; dedup the null-city case (the old fallback collided
+    // with a later static variant).
+    () => `who's advertising around you`,
+    (s) => `others in ${s.city ?? "your area"} are advertising`,
+    () => `who's running ads nearby`,
+  ],
+  no_booking: [
+    () => `booking straight from your site`,
+    () => `an easier way to get booked`,
+  ],
+};
+
+/**
+ * Subject line per step (email only). Follow-ups read as replies. Step 1
+ * derives from the TOP CHOSEN pain's variant table (A3: never claims beyond
+ * the body); a no-pain lead keeps a plain generic subject with the SHORT name.
+ */
 function subjectFor(
   signals: TouchSignals,
   step: number,
   chosen: PainLine[],
+  variantSeed?: string | null,
 ): string {
-  if (step > 1) return `re: ${signals.businessName} — a quick look`;
-  return chosen.length > 0
-    ? `${signals.businessName} — ${chosen[0].why.split("(")[0].trim().toLowerCase()}`
-    : `A quick look at ${signals.businessName}`;
+  const short = shortBusinessName(signals.businessName);
+  if (step > 1) return `re: ${short} — a quick look`;
+  const top = chosen[0];
+  if (!top) {
+    const generic = `a quick look at ${short}`;
+    return generic.length <= SUBJECT_MAX_CHARS
+      ? generic
+      : `a quick look at your online presence`;
+  }
+  const variants = SUBJECT_VARIANTS[top.key as PainThemeKey];
+  const start = variantIndex(
+    variantSeed,
+    `subject:${top.key}`,
+    variants.length,
+  );
+  // ≤50-char guard: an interpolated variant (city / count) that overflows
+  // falls through to the next; every theme has a static variant that fits.
+  for (let i = 0; i < variants.length; i += 1) {
+    const candidate = variants[(start + i) % variants.length](signals);
+    if (candidate.length <= SUBJECT_MAX_CHARS) return candidate;
+  }
+  return `a quick look at your online presence`;
 }
 
 /**
@@ -369,7 +662,11 @@ export function buildFirstTouch(
       : null;
   const excluded = new Set(opts.excludePainKeys ?? []);
 
-  const lines = painLines(signals);
+  // A7 · pitch-aware ranking: themes matching sellingWhat get +30 severity
+  // (capped below the HIPAA band) so the agency's actual service leads when
+  // its signal is present. Applied BEFORE ordering so the WP6-15 band rotation
+  // operates on the boosted severities — still fully deterministic.
+  const lines = applyPitchBoost(painLines(signals), opts.sellingWhat);
   const eligible = lines.filter(
     (l) =>
       l.present && (!allowed || allowed.has(l.key)) && !excluded.has(l.key),
@@ -386,7 +683,7 @@ export function buildFirstTouch(
   // never repeats itself (WP5-10).
   const chosen = present.slice(0, step === 1 ? 2 : 1);
   const painText = chosen.map((l) => l.line).join(" ");
-  const close = closeFor(signals, step, chosen.length > 0);
+  const close = closeFor(signals, step, chosen.length > 0, opts.variantSeed);
 
   let body = [opener, painText, close].filter(Boolean).join("\n\n");
 
@@ -407,7 +704,9 @@ export function buildFirstTouch(
   }
 
   const subject =
-    opts.channel === "email" ? subjectFor(signals, step, chosen) : undefined;
+    opts.channel === "email"
+      ? subjectFor(signals, step, chosen, opts.variantSeed)
+      : undefined;
 
   return {
     subject,

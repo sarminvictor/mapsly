@@ -51,7 +51,7 @@ vi.mock("@/modules/cost/server", () => ({
 // ─── Generator seam ──────────────────────────────────────────────────────────
 
 const generator = vi.hoisted(() => ({
-  // TM-1 · returns { touches, skippedNoAddress } (not a bare array).
+  // TM-1/A17 · returns { touches, skippedNoAddress, skippedSparse }.
   generateTouchesForLeads: vi.fn(
     async (ids: string[], opts: { sequenceLength?: number }) => ({
       touches: ids.flatMap((businessId) =>
@@ -61,6 +61,7 @@ const generator = vi.hoisted(() => ({
         })),
       ),
       skippedNoAddress: 0,
+      skippedSparse: 0,
     }),
   ),
   gatherTouchSignals: vi.fn(),
@@ -70,10 +71,13 @@ vi.mock("@/modules/outreach/generate", () => generator);
 // ─── Prisma seam ─────────────────────────────────────────────────────────────
 
 const prismaMock = vi.hoisted(() => ({
-  discovery: { findMany: vi.fn() },
+  // A8 · findFirst reads the discovery's goal signalsJson for pain defaults.
+  discovery: { findMany: vi.fn(), findFirst: vi.fn() },
   business: { findMany: vi.fn() },
   outreachDraft: { findMany: vi.fn(), update: vi.fn() },
   agency: { findUnique: vi.fn() },
+  // A9 · campaign pitch autofill.
+  campaign: { findFirst: vi.fn() },
 }));
 vi.mock("@/lib/prisma", () => ({ default: prismaMock, Prisma: {} }));
 
@@ -187,5 +191,174 @@ describe("generateTouchpointsAction · selection scope (WP5-1)", () => {
       expect.stringMatching(/^touchgen:/),
     );
     expect(wallet.settleRun).not.toHaveBeenCalled();
+  });
+});
+
+// ── Touchpoints audit 2026-07-07 · A8 goal-derived pains, A9 campaign pitch ──
+
+describe("A9 · campaignId autofills a blank sellingWhat", () => {
+  beforeEach(() => {
+    prismaMock.business.findMany.mockResolvedValue([{ id: "b1" }]);
+  });
+
+  test("blank sellingWhat + campaignId → the campaign's saved pitch (agency-scoped)", async () => {
+    prismaMock.campaign.findFirst.mockResolvedValue({
+      sellingWhat: "  website speed fixes  ",
+    });
+
+    const r = await generateTouchpointsAction({
+      channel: "email",
+      businessIds: ["b1"],
+      campaignId: "camp-1",
+    });
+
+    expect(r.status).toBe("ok");
+    // The campaign read is scoped to the caller's agency (never a foreign row).
+    expect(prismaMock.campaign.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "camp-1", agencyId: "agency-1" },
+      }),
+    );
+    expect(generator.generateTouchesForLeads).toHaveBeenCalledWith(
+      ["b1"],
+      expect.objectContaining({
+        sellingWhat: "website speed fixes", // trimmed
+        campaignId: "camp-1", // drafts link to the campaign
+      }),
+    );
+  });
+
+  test("an explicit sellingWhat wins — the campaign is not consulted", async () => {
+    const r = await generateTouchpointsAction({
+      sellingWhat: "review management",
+      channel: "email",
+      businessIds: ["b1"],
+      campaignId: "camp-1",
+    });
+    expect(r.status).toBe("ok");
+    expect(prismaMock.campaign.findFirst).not.toHaveBeenCalled();
+    expect(generator.generateTouchesForLeads).toHaveBeenCalledWith(
+      ["b1"],
+      expect.objectContaining({ sellingWhat: "review management" }),
+    );
+  });
+
+  test("blank sellingWhat with no campaign pitch → invalid_input, nothing held", async () => {
+    prismaMock.campaign.findFirst.mockResolvedValue({ sellingWhat: null });
+    const r = await generateTouchpointsAction({
+      channel: "email",
+      businessIds: ["b1"],
+      campaignId: "camp-1",
+    });
+    expect(r.status).toBe("invalid_input");
+    expect(wallet.holdCredits).not.toHaveBeenCalled();
+
+    const r2 = await generateTouchpointsAction({
+      channel: "email",
+      businessIds: ["b1"],
+    });
+    expect(r2.status).toBe("invalid_input");
+  });
+});
+
+describe("A8 · goal-derived default pain allowlist (discovery scope)", () => {
+  beforeEach(() => {
+    prismaMock.business.findMany.mockResolvedValue([{ id: "b1" }]);
+  });
+
+  test("no painPointKeys + discoveryId → reputation-goal signals derive the review themes", async () => {
+    // "unanswered_1star" / "low_reply_rate" are SIG_META keys in the
+    // "reputation" outcome group.
+    prismaMock.discovery.findFirst.mockResolvedValue({
+      signalsJson: {
+        signals: [{ key: "unanswered_1star" }, { key: "low_reply_rate" }],
+      },
+    });
+
+    const r = await generateTouchpointsAction({
+      sellingWhat: "review management",
+      channel: "email",
+      businessIds: ["b1"],
+      discoveryId: "disc-1",
+    });
+
+    expect(r.status).toBe("ok");
+    // The signalsJson read is scoped to the caller's agency.
+    expect(prismaMock.discovery.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "disc-1", agencyId: "agency-1" },
+      }),
+    );
+    expect(generator.generateTouchesForLeads).toHaveBeenCalledWith(
+      ["b1"],
+      expect.objectContaining({
+        painPointKeys: ["unanswered_negative", "review_decline"],
+      }),
+    );
+  });
+
+  test("an explicit painPointKeys selection wins — no derivation read", async () => {
+    const r = await generateTouchpointsAction({
+      sellingWhat: "marketing",
+      channel: "email",
+      businessIds: ["b1"],
+      discoveryId: "disc-1",
+      painPointKeys: ["slow_site"],
+    });
+    expect(r.status).toBe("ok");
+    expect(prismaMock.discovery.findFirst).not.toHaveBeenCalled();
+    expect(generator.generateTouchesForLeads).toHaveBeenCalledWith(
+      ["b1"],
+      expect.objectContaining({ painPointKeys: ["slow_site"] }),
+    );
+  });
+
+  test("derivation null (unknown/empty goal signals) → NO restriction", async () => {
+    prismaMock.discovery.findFirst.mockResolvedValue({
+      signalsJson: { signals: [{ key: "not_a_real_signal" }] },
+    });
+    const r = await generateTouchpointsAction({
+      sellingWhat: "marketing",
+      channel: "email",
+      businessIds: ["b1"],
+      discoveryId: "disc-1",
+    });
+    expect(r.status).toBe("ok");
+    expect(generator.generateTouchesForLeads).toHaveBeenCalledWith(
+      ["b1"],
+      expect.objectContaining({ painPointKeys: undefined }),
+    );
+  });
+
+  test("no discoveryId → no derivation (pool mode unrestricted)", async () => {
+    const r = await generateTouchpointsAction({
+      sellingWhat: "marketing",
+      channel: "email",
+      businessIds: ["b1"],
+    });
+    expect(r.status).toBe("ok");
+    expect(prismaMock.discovery.findFirst).not.toHaveBeenCalled();
+  });
+});
+
+describe("A17 · skippedSparse plumbed through the action result", () => {
+  test("the generator's sparse count surfaces on the ok result", async () => {
+    prismaMock.business.findMany.mockResolvedValue([{ id: "b1" }]);
+    generator.generateTouchesForLeads.mockResolvedValueOnce({
+      touches: [],
+      skippedNoAddress: 0,
+      skippedSparse: 1,
+    });
+
+    const r = await generateTouchpointsAction({
+      sellingWhat: "marketing",
+      channel: "email",
+      businessIds: ["b1"],
+    });
+
+    expect(r.status).toBe("ok");
+    if (r.status !== "ok") return;
+    expect(r.skippedSparse).toBe(1);
+    expect(r.generated).toBe(0);
   });
 });

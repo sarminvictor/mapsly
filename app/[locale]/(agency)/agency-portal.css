@@ -2078,25 +2078,68 @@
   cursor: not-allowed;
 }
 
-/* ---- B11d · vs-cell toggle row at the top of the Fields popover ---- */
-.agency-portal .popmenu.cols .vscell-row {
+/* ---- B11d (redesign) · vs-cell as a DISPLAY SETTING, not a field row ----
+   A styled toggle band at the top of the Fields menu: a real switch (.sw) +
+   title + sub-line in a tinted card, set apart from the field checkboxes so it
+   reads as a global display setting, not "another field to show". */
+.agency-portal .popmenu.cols .vscell-band {
+  /* Top margin gives the band breathing room now that the scroll container's
+     padding-top is 0 (the sticky-gap fix above). */
+  margin: var(--space-2) 0 var(--space-2);
+}
+.agency-portal .popmenu.cols .vscell-set {
   display: flex;
   align-items: center;
-  gap: 7px;
-  padding: 7px 9px;
-  margin-bottom: var(--space-1);
-  border-bottom: 1px solid var(--line);
-  font-size: var(--fs-md);
-  font-weight: 600;
-  color: var(--ink-2);
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 8px 11px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-2);
   cursor: pointer;
+  transition: 0.15s;
 }
-.agency-portal .popmenu.cols .vscell-row.on {
-  color: var(--indigo-700);
+.agency-portal .popmenu.cols .vscell-set:hover {
+  border-color: var(--indigo-100);
 }
-.agency-portal .popmenu.cols .vscell-row.disabled {
+.agency-portal .popmenu.cols .vscell-set.on {
+  background: var(--indigo-50);
+  border-color: var(--indigo-100);
+}
+.agency-portal .popmenu.cols .vscell-set.disabled {
   opacity: 0.55;
   cursor: not-allowed;
+}
+/* the real checkbox drives state + keyboard; the .sw span is the visual switch
+   (reused from the .toggle component, lit by the label's .on class). */
+.agency-portal .popmenu.cols .vscell-set input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+.agency-portal .popmenu.cols .vscell-txt {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.agency-portal .popmenu.cols .vscell-title {
+  font-size: var(--fs-md);
+  font-weight: 700;
+  color: var(--ink-2);
+  line-height: 1.2;
+}
+.agency-portal .popmenu.cols .vscell-set.on .vscell-title {
+  color: var(--indigo-700);
+}
+.agency-portal .popmenu.cols .vscell-sub {
+  font-size: var(--fs-2xs);
+  font-weight: 500;
+  color: var(--faint);
+  line-height: 1.2;
 }
 
 /* ---- pagination bar (Boxly /admin pattern) ---- */
@@ -6161,6 +6204,12 @@
   min-width: 280px;
   max-height: 70vh;
   overflow: auto;
+  /* The base .popmenu adds padding on all sides; a `position: sticky; top: 0`
+     child (.cols-search) inside a scroll container with padding-top leaves a
+     gap equal to that padding, where scrolled rows peek through above the
+     pinned search. Zero the TOP padding so the search pins flush to the true
+     top; the first band carries its own top margin for breathing room. */
+  padding-top: 0;
 }
 /* F3 · sticky search box at the top of the type-grouped Fields picker. */
 .agency-portal .popmenu.cols .cols-search {
@@ -6529,7 +6578,7 @@
 }
 
 /* B11d · the .cmptoggle compare-to-market chip is gone — vs-cell now lives as
-   the top toggle row of the Fields popover (.vscell-row). */
+   a styled toggle setting-band at the top of the Fields popover (.vscell-set). */
 /* small circled "i" info hint (carries an explanatory title=) */
 .agency-portal .info-i {
   display: inline-grid;
@@ -7779,6 +7828,13 @@
   flex-wrap: wrap;
   gap: var(--space-2);
   margin-bottom: 9px;
+}
+/* T4/B8 · the draft's grounding (whyJson.why) as a quiet one-liner. */
+.agency-portal .tpstep-grounded {
+  margin: 0 0 var(--space-2);
+  font-size: var(--fs-xs);
+  color: var(--faint);
+  line-height: 1.5;
 }
 .agency-portal .tpstep-actions {
   display: flex;
