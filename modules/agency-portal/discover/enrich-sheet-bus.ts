@@ -127,15 +127,32 @@ export function subscribeEnrichScope(
 // loader on `state === "not_run"`, which suppressed loaders on every RE-run —
 // the exact "no loader, stale None" the owner reported). The 5-min timeout
 // stays as the backstop for a run that never reports back.
+//
+// WB-COL-2 · the event now carries the run's purchased enrichment-type TOKENS
+// ("meta_ads", "ai_research", …) — server truth from the progress endpoint's
+// terminal payload (run.enrichmentsJson), so the workbench can auto-show the
+// bought data's columns even after a reload-mid-run. A no-arg emit still
+// compiles (back-compat) and subscribers see `[]`.
 const FINISHED_EVENT = "mapsly:enrich-finished";
 
-export function emitEnrichFinished(): void {
+export function emitEnrichFinished(types?: readonly string[]): void {
   if (typeof window === "undefined") return;
-  window.dispatchEvent(new CustomEvent(FINISHED_EVENT));
+  window.dispatchEvent(
+    new CustomEvent<string[]>(FINISHED_EVENT, { detail: [...(types ?? [])] }),
+  );
 }
 
-export function subscribeEnrichFinished(handler: () => void): () => void {
-  const listener = () => handler();
+export function subscribeEnrichFinished(
+  handler: (types: string[]) => void,
+): () => void {
+  const listener = (e: Event) => {
+    const d = (e as CustomEvent<string[]>).detail;
+    handler(
+      Array.isArray(d)
+        ? d.filter((t): t is string => typeof t === "string")
+        : [],
+    );
+  };
   window.addEventListener(FINISHED_EVENT, listener);
   return () => window.removeEventListener(FINISHED_EVENT, listener);
 }

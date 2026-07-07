@@ -1,17 +1,22 @@
 "use client";
 
 // LeadDrawer · the rich right-side lead-detail drawer for the agency leads
-// workbench — the #1 prototype-vs-product gap, now URL-driven (?lead=<businessId>).
+// workbench — URL-driven (?lead=<businessId>).
 //
 // Opens when `businessId` is non-null; lazily fetches the agency-scoped detail
 // payload via getLeadDetailAction (loading skeleton meanwhile; the LAST payload
-// stays on screen while a new one refetches so prev/next feels instant). Renders
-// the prototype's 9 sections using the already-ported drawer classes
-// (.drawer-scrim / .drawer / .dhead / .dsec / .dglance / .gauge / .dfacts /
-// .dcontacts / .fsig / .dchips / .dacc[.ghost] / .callout / .dfoot — all defined
-// in agency-portal.css). Data-domain accordions render off the honest run state
-// (enriched / empty / failed / running / not_run — the shared loader's
-// TypeState), never data presence.
+// stays on screen while a new one refetches so prev/next feels instant).
+//
+// 2026-07 restructure (style audit): the drawer speaks the portal's flat-panel
+// overlay language — a white surface with full-bleed 1px-divided sections
+// (matching the EnrichMoreSheet), headed by the shared `.eyebrow` token.
+// Section order puts the money first: Why-qualifies → Contacts → Data (enriched
+// domain blocks render OPEN AND FLAT, non-enriched compress to one
+// enrich-sheet-vocabulary line each) → Outreach. The match gauge and the
+// duplicated facts grid are gone (the header pills carry identity + match
+// once). Data-domain blocks still render off the honest run state (enriched /
+// empty / failed / running / not_run — the shared loader's TypeState), never
+// data presence.
 //
 // Per .claude/rules/cache-components.md Pattern 4: this is a client component;
 // the callbacks (onClose / onNav) are owned by the client parent (LeadsWorkbench),
@@ -25,7 +30,6 @@ import {
   useRef,
   useState,
   useTransition,
-  type CSSProperties,
   type ReactNode,
 } from "react";
 
@@ -52,6 +56,7 @@ import type {
   LeadDomainBlock,
   LeadEvidenceRow,
   LeadFiredSignal,
+  LeadRival,
   LeadSignalVerdict,
 } from "../lead-detail";
 import type { CellBand } from "../leads-workbench";
@@ -354,26 +359,16 @@ export function LeadDrawer({
               <Icon name="arrow-down" size={15} />
             </button>
           </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <h1
-              id="leadDrawerName"
-              style={{ marginBottom: 3, fontSize: 19 }}
-              data-tip={lead?.name}
-            >
+          {lead?.logoUrl ? <HeaderLogo src={lead.logoUrl} /> : null}
+          <div className="dhead-main">
+            <h1 id="leadDrawerName" data-tip={lead?.name}>
               {lead?.name ?? (isLoading ? "Loading…" : "Lead")}
             </h1>
-            <p className="note" style={{ margin: 0 }}>
+            <p className="note">
               {lead ? headerSub(lead) : isError ? errorText : " "}
             </p>
             {lead ? (
-              <div
-                style={{
-                  display: "flex",
-                  gap: 6,
-                  marginTop: 8,
-                  flexWrap: "wrap",
-                }}
-              >
+              <div className="dhead-pills">
                 <Pills lead={lead} />
               </div>
             ) : null}
@@ -393,9 +388,7 @@ export function LeadDrawer({
         <div className="dbody">
           {isError && !lead ? (
             <div className="dsec">
-              <p className="note" style={{ margin: 0 }}>
-                {errorText ?? "Couldn't load."}
-              </p>
+              <p className="note m0">{errorText ?? "Couldn't load."}</p>
             </div>
           ) : lead ? (
             <DrawerBody lead={lead} dimmed={isLoading} bands={bands} />
@@ -424,7 +417,7 @@ export function LeadDrawer({
             {sharing ? "Creating link…" : "Share audit link"}
           </button>
           {shareViews != null && shareViews.forId === businessId ? (
-            <span className="note" style={{ marginLeft: "auto" }}>
+            <span className="note dfoot-note">
               {shareViews.count === 0
                 ? "Not opened yet"
                 : `Opened ${shareViews.count}× by the prospect`}
@@ -450,13 +443,37 @@ export function LeadDrawer({
 
 // ── Header helpers ───────────────────────────────────────────────────────────
 
+/**
+ * The Business.logoUrl header avatar. Plain <img> on purpose: logo hosts vary
+ * (Google-hosted CDNs), so the next/image proxy would 400 on any host outside
+ * `images.remotePatterns` — and a 36px avatar gains nothing from optimization.
+ * Graceful absent: a load error hides the element entirely (no broken box).
+ */
+function HeaderLogo({ src }: { src: string }) {
+  const [failed, setFailed] = useState(false);
+  if (failed) return null;
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      className="davatar"
+      src={src}
+      alt=""
+      width={36}
+      height={36}
+      loading="lazy"
+      onError={() => setFailed(true)}
+    />
+  );
+}
+
 function headerSub(lead: LeadDetail): string {
   const bits: string[] = [];
   if (lead.addressLine && lead.addressLine !== "—") bits.push(lead.addressLine);
   if (lead.category) bits.push(lead.category);
+  // Tabular, emoji-free: "5.0 · 113 reviews" (style audit — no ⭐ in chrome).
   const rev =
     lead.rating != null
-      ? `⭐ ${lead.rating.toFixed(1)}${lead.reviewCount != null ? ` (${lead.reviewCount.toLocaleString()})` : ""}`
+      ? `${lead.rating.toFixed(1)}${lead.reviewCount != null ? ` · ${lead.reviewCount.toLocaleString()} reviews` : ""}`
       : null;
   if (rev) bits.push(rev);
   if (lead.openStatus && lead.openStatus !== "—") bits.push(lead.openStatus);
@@ -470,7 +487,18 @@ function Pills({ lead }: { lead: LeadDetail }) {
       <span className={`pill ${reachTone} dot`}>
         Reachable · {lead.reachability.toLowerCase()}
       </span>
-      <span className="pill indigo">Match {lead.match}%</span>
+      {/* The gauge is gone — this pill is the ONE match surface. The tooltip
+          carries the measured-vs-derived framing the gauge used to imply. */}
+      <span
+        className="pill indigo"
+        data-tip={
+          lead.matchFromSignals
+            ? "Measured — your research's signals evaluated against this lead"
+            : "Estimated from pain-signal count — enrich to get a measured match"
+        }
+      >
+        Match {lead.match}%
+      </span>
       <StatusPill status={lead.status} as="span" />
       {lead.complianceFlag ? (
         <span className="pill amber dot">Compliance: pixel risk</span>
@@ -510,64 +538,15 @@ function DrawerBody({
   dimmed: boolean;
   bands?: Partial<Record<string, CellBand>>;
 }) {
-  const gaugeColor =
-    lead.match >= 85
-      ? "var(--green)"
-      : lead.match >= 72
-        ? "var(--indigo)"
-        : "var(--amber)";
+  const enriched = lead.domains.filter((d) => d.state === "enriched");
+  const notEnriched = lead.domains.filter((d) => d.state !== "enriched");
 
   return (
-    <div
-      style={
-        dimmed
-          ? ({ opacity: 0.55, transition: "opacity .15s" } as CSSProperties)
-          : undefined
-      }
-      aria-busy={dimmed}
-    >
-      {/* 3. At a glance */}
+    <div className={dimmed ? "ddim" : undefined} aria-busy={dimmed}>
+      {/* 1. Why this lead qualifies — Tom's money, first. Expert findings
+          (compliance / ADA callouts) merge here: they are findings too. */}
       <div className="dsec">
-        <div className="brand-eyebrow">At a glance</div>
-        <div className="dglance">
-          <div
-            className="gauge"
-            style={
-              {
-                "--pct": String(lead.match),
-                "--gc": gaugeColor,
-              } as CSSProperties
-            }
-          >
-            <div className="gv">
-              <b>{lead.match}</b>
-              <span>match</span>
-            </div>
-          </div>
-          <div className="dgcol">
-            <div className="dfacts">
-              {lead.facts.map((f) => (
-                <div className="dfact" key={f.key}>
-                  <div className="fk">{f.key}</div>
-                  <div className="fv" data-tip={f.value}>
-                    {f.value}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-        {/* Issue 5 · contacts get the FULL drawer width (they used to squeeze
-            into the ~320px column beside the 96px gauge and wrap into a mess). */}
-        <ContactsStrip lead={lead} />
-      </div>
-
-      {/* 4. Why this lead qualifies + 5. Other angles */}
-      <div className="dsec">
-        <div className="brand-eyebrow" style={{ margin: "0 0 2px" }}>
-          Expert signals · composites
-        </div>
-        <h2 style={{ margin: "0 0 10px" }}>Why this lead qualifies</h2>
+        <div className="eyebrow">Why this lead qualifies</div>
 
         {/* The research's chosen signals, with honest per-lead verdicts (P3):
             fired / didn't / not computable yet ("enrich to unlock"). */}
@@ -577,9 +556,9 @@ function DrawerBody({
 
         {lead.firedSignals.length === 0 ? (
           lead.signalVerdicts.length === 0 ? (
-            <p className="note" style={{ margin: 0 }}>
+            <p className="note m0">
               No composite signals fired — this lead matched on raw qualifiers
-              only. Open the data sections below for the raw evidence.
+              only. See the Data section below for the raw evidence.
             </p>
           ) : null
         ) : (
@@ -594,7 +573,7 @@ function DrawerBody({
         )}
         {lead.angles.length > 0 ? (
           <>
-            <div className="dchips-head">Other angles to pitch</div>
+            <div className="microlabel">Other angles to pitch</div>
             <div className="dchips">
               {lead.angles.map((a, i) => (
                 <span
@@ -608,49 +587,63 @@ function DrawerBody({
             </div>
           </>
         ) : null}
+        {lead.expertFindings.map((f) => (
+          <div key={f.key} className={`callout ${f.tone}`}>
+            <Icon name="warning" size={14} className="cicon" />
+            <p className="m0">
+              <b>{f.title}:</b> {f.body}
+            </p>
+          </div>
+        ))}
         {/* WP6-9 · "we only cite what we verified" — surfaces when touch
             generation pruned a claim it couldn't confirm (whyJson.droppedTokens).
             Auditable evidence as a visible trust feature. */}
         {lead.verifiedNote ? (
-          <p
-            className="note"
-            style={{ margin: "8px 0 0", fontSize: 11 }}
-            role="note"
-          >
+          <p className="note vnote" role="note">
             {lead.verifiedNote}
           </p>
         ) : null}
       </div>
 
-      {/* 6. Data-domain accordions */}
-      {lead.domains.map((d) => (
-        <DomainAccordion
-          key={d.key}
-          block={d}
-          bands={bands}
-          businessId={lead.businessId}
-        />
-      ))}
-
-      {/* 7. Expert findings — a plain section, not a fake always-open
-          accordion (it was never collapsible; the .dacc head lied). */}
-      {lead.expertFindings.length > 0 ? (
-        <div className="dsec">
-          <div className="brand-eyebrow">Expert findings</div>
-          {lead.expertFindings.map((f) => (
-            <div key={f.key} className={`callout ${f.tone}`}>
-              <Icon name="warning" size={14} style={{ flex: "none" }} />
-              <p style={{ margin: 0 }}>
-                <b>{f.title}:</b> {f.body}
-              </p>
-            </div>
-          ))}
-        </div>
-      ) : null}
-
-      {/* 8. This lead's touches */}
+      {/* 2. Contacts — the outreach action, its own flat section. */}
       <div className="dsec">
-        <div className="brand-eyebrow">Outreach · touches</div>
+        <div className="eyebrow">Contacts</div>
+        <ContactsStrip lead={lead} />
+      </div>
+
+      {/* 3. Data — one headed section. Enriched domains render OPEN AND FLAT
+          (the paid evidence is never behind a click); the always-free Profile
+          and Nearby rivals listing blocks follow; non-enriched domains compress
+          to ONE enrich-sheet-vocabulary line each (honest TypeState intact:
+          not_run / empty / failed / running each renders distinctly). */}
+      <div className="dsec">
+        <div className="eyebrow">
+          Data · {enriched.length} of {lead.domains.length} enriched
+          {/* WP4-16 · toned values across ALL data rows are covered here, not
+              just fired-signal evidence. */}
+          <InfoTip
+            text={VS_CELL_EXPLAINER}
+            triggerLabel="What the green/red values mean"
+          />
+        </div>
+        {enriched.map((d) => (
+          <DataBlock key={d.key} block={d} bands={bands} />
+        ))}
+        <ProfileBlock lead={lead} bands={bands} />
+        {lead.rivals.length > 0 ? <RivalsBlock rivals={lead.rivals} /> : null}
+        {notEnriched.map((d) => (
+          <DataGhostRow
+            key={d.key}
+            block={d}
+            bands={bands}
+            businessId={lead.businessId}
+          />
+        ))}
+      </div>
+
+      {/* 4. This lead's touches */}
+      <div className="dsec">
+        <div className="eyebrow">Outreach · touches</div>
         {lead.touches.length === 0 ? (
           <div className="note">
             No touch yet. Generate touch below — grounded in this lead&rsquo;s
@@ -662,17 +655,9 @@ function DrawerBody({
               <div className="dtouch-head">
                 <b>
                   Touch {t.seq} of {t.of}
-                  <span
-                    className="note"
-                    style={{ marginLeft: 6, fontWeight: 400 }}
-                  >
-                    {t.channel}
-                  </span>
+                  <span className="note dtouch-ch">{t.channel}</span>
                 </b>
-                <span
-                  className={`pill ${t.status === "Sent" ? "green" : ""}`}
-                  style={{ fontSize: 10 }}
-                >
+                <span className={`pill ${t.status === "Sent" ? "green" : ""}`}>
                   {t.status}
                 </span>
               </div>
@@ -704,7 +689,7 @@ function ContactsStrip({ lead }: { lead: LeadDetail }) {
     lead.listingContacts.length > 0 ? (
       <div>
         <div className="microlabel">From the Google listing</div>
-        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+        <div className="dcontact-listing">
           {lead.listingContacts.map((c) => (
             <a className="clink" key={c.href} href={c.href}>
               {c.value}
@@ -850,6 +835,16 @@ function ContactGroup({
               {c.primary ? (
                 <span className="cctag primary">primary</span>
               ) : null}
+              {/* Per-value provenance ("tel: link · 95%") — trust before a
+                  cold dial. Socials skip it (the URL is its own provenance). */}
+              {!social && c.provenance ? (
+                <span
+                  className="cctag prov"
+                  data-tip={`Found via ${c.provenance.replace(" · ", " · confidence ")}`}
+                >
+                  {c.provenance}
+                </span>
+              ) : null}
               {businessId && reportReason ? (
                 <ReportWrongButton
                   businessId={businessId}
@@ -930,11 +925,7 @@ function ReportWrongButton({
   const [pending, startTransition] = useTransition();
 
   if (reported) {
-    return (
-      <span className="note" style={{ fontSize: 10, marginLeft: 4 }}>
-        Reported ✓
-      </span>
-    );
+    return <span className="note report-done">Reported ✓</span>;
   }
   const title =
     reason === "wrong_finding"
@@ -943,16 +934,7 @@ function ReportWrongButton({
   return (
     <button
       type="button"
-      className="clink"
-      style={{
-        fontSize: 10,
-        marginLeft: 4,
-        opacity: 0.6,
-        background: "none",
-        border: "none",
-        cursor: "pointer",
-        padding: 0,
-      }}
+      className="clink report-link"
       disabled={pending}
       data-tip={title}
       aria-label={ariaLabel}
@@ -1082,10 +1064,7 @@ function FiredSignal({
           ) : null}
           {signal.evidence.length ? (
             <div className="fsig-ev">
-              <div
-                className="elabel"
-                style={{ display: "inline-flex", alignItems: "center", gap: 5 }}
-              >
+              <div className="microlabel">
                 What we found{" "}
                 {/* WP4-16 · vs-cell explainer — green=better/red=worse. */}
                 <InfoTip
@@ -1102,16 +1081,7 @@ function FiredSignal({
               from every shared artifact (drawer / one-pager / share page / CSV).
               A trust deposit: the evidence Tom pitches is his to correct. */}
           {businessId ? (
-            <div
-              className="note"
-              style={{
-                marginTop: 8,
-                display: "flex",
-                alignItems: "center",
-                gap: 4,
-                fontSize: 11,
-              }}
-            >
+            <div className="note fsig-dispute">
               Not right for this lead?
               <ReportWrongButton
                 businessId={businessId}
@@ -1185,7 +1155,7 @@ function EvidenceRow({
         <div className="row">
           <span className="name">{row.label}</span>
         </div>
-        <div style={{ margin: "4px 0 6px" }}>
+        <div className="evbar">
           <VsCellBar
             value={row.metric.value}
             p10={band.p10}
@@ -1201,14 +1171,27 @@ function EvidenceRow({
     );
   }
 
-  const toneColor =
+  // Tones are classes (tg/ta/tr — green/amber/red), not inline colors; the
+  // Data-section head's InfoTip explains them once for every toned value.
+  const toneClass =
     row.tone === "g"
-      ? "var(--green)"
+      ? " tg"
       : row.tone === "a"
-        ? "var(--amber)"
+        ? " ta"
         : row.tone === "r"
-          ? "var(--red)"
-          : undefined;
+          ? " tr"
+          : "";
+
+  // Drawer content pass · a pulled-review quote line: indented quoted text
+  // with a mono meta suffix ("5★ · Jul 2 · owner replied").
+  if (row.quote) {
+    return (
+      <div className="dquote">
+        <span className="qtext">{row.value}</span>
+        <span className="qmeta">{row.label}</span>
+      </div>
+    );
+  }
 
   // Issue 13 · a prose row (Angle rows — counter labels add nothing): one
   // label-less full-width line under the section head DomainRows prints.
@@ -1217,9 +1200,7 @@ function EvidenceRow({
   if (row.prose) {
     return (
       <div className={`sig kv prose${row.pain ? " pain" : ""}`}>
-        <p className="val" style={toneColor ? { color: toneColor } : undefined}>
-          {renderInlineBold(row.value)}
-        </p>
+        <p className={`val${toneClass}`}>{renderInlineBold(row.value)}</p>
       </div>
     );
   }
@@ -1232,10 +1213,7 @@ function EvidenceRow({
     <div className={row.section != null ? "sig kv" : "sig"}>
       <div className="row">
         <span className="name">{row.label}</span>
-        <span
-          className="val"
-          style={toneColor ? { color: toneColor } : undefined}
-        >
+        <span className={`val${toneClass}`}>
           {row.strong ? <b>{row.value}</b> : renderInlineBold(row.value)}
         </span>
       </div>
@@ -1243,232 +1221,267 @@ function EvidenceRow({
   );
 }
 
-// ── Data-domain accordion (real or ghost) ────────────────────────────────────
+// ── Data-domain blocks (flat when enriched · one honest line otherwise) ──────
 
-function DomainAccordion({
+/**
+ * An ENRICHED domain: an open, flat block — head (icon + title + right-aligned
+ * source · as-of provenance) over 3–6 dense rows. No accordion: the paid
+ * evidence is never behind a click (style audit, information order).
+ */
+function DataBlock({
+  block,
+  bands,
+}: {
+  block: LeadDomainBlock;
+  bands?: Partial<Record<string, CellBand>>;
+}) {
+  const hasListing = block.listingRows.length > 0;
+  return (
+    <div className="dblock">
+      <div className="dblock-head">
+        <span className="bic" aria-hidden="true">
+          <Icon name={block.icon} size={14} />
+        </span>
+        <span className="dblock-title">{block.title}</span>
+        {/* WP6-9 · evidence-honesty provenance — where this block's data came
+            from + when it was retrieved, so every claim is auditable. */}
+        {block.source ? (
+          <span className="dblock-src">
+            {block.source}
+            {block.asOf ? ` · ${block.asOf}` : ""}
+          </span>
+        ) : null}
+      </div>
+      {/* E1 · listing facts (Reviews) render first, labelled as the listing,
+          then the enrichment rows below. */}
+      {hasListing ? (
+        <>
+          <div className="microlabel">From the Google listing</div>
+          {block.listingRows.map((r, i) => (
+            <EvidenceRow key={`l-${i}`} row={r} bands={bands} />
+          ))}
+          {block.rows.length ? (
+            <div className="microlabel">From the reviews pull</div>
+          ) : null}
+        </>
+      ) : null}
+      <DomainRows rows={block.rows} bands={bands} hasListing={hasListing} />
+    </div>
+  );
+}
+
+/**
+ * A NON-ENRICHED domain compressed to ONE line in the enrich-sheet vocabulary
+ * (state dot + title + right-aligned state tag / CTA — the same visual code as
+ * .enrich-group-row, so state reads identically in both surfaces). The honest
+ * TypeState split is intact:
+ *   not_run · hollow dot · "Enrich →" CTA (ghostNote in the tooltip)
+ *   empty   · green dot  · "Ran · none found" (verified — never a CTA)
+ *   failed  · red dot    · "Failed" tag + "Retry →" CTA
+ *   running · indigo dot · "enriching…" (paid for — no CTA)
+ * Reviews keeps its E1 exception: the free GBP listing facts still render in a
+ * compact sub-group under the line, labelled as the listing.
+ */
+function DataGhostRow({
   block,
   bands,
   businessId,
 }: {
   block: LeadDomainBlock;
   bands?: Partial<Record<string, CellBand>>;
-  /** The open lead — the ghost card's enrich CTA scopes the sheet to it. */
+  /** The open lead — the enrich CTA scopes the sheet to it. */
   businessId: string;
 }) {
-  const [open, setOpen] = useState(false);
-
-  // AUDIT §4 · render off the honest RUN state (the shared loader's TypeState),
-  // never data-presence:
-  //   not_run · ghost "enrich to unlock" CTA (never-attempted, actionable)
-  //   empty   · calm "ran · none found" note (verified empty — never a CTA,
-  //             never re-charged) — audit E4/E5
-  //   failed  · red retry affordance
-  //   running · "enriching…" tag (in flight — no CTA)
-  //   enriched· the real rows
-  // Reviews is special: even when its enrichment hasn't run, the LISTING facts
-  // (block.listingRows, always present from discovery) still render — the
-  // enrichment ghost/data sits below them (audit E1).
   const enrichments = enrichTypesForDomainKey(block.key);
   const hasListing = block.listingRows.length > 0;
+  const openSheet = () =>
+    openEnrichSheet({
+      enrichments,
+      // AUDIT D1 · a drawer single-domain CTA → pre-select its enrichment.
+      preselect: true,
+      scope: { selectedBusinessIds: [businessId] },
+    });
 
-  // ── not_run → ghost (with listing facts above it when present) ──
-  if (block.state === "not_run") {
-    return (
-      <div className="dacc ghost">
-        <div className="ghead">
-          <span className="dacc-ic" aria-hidden="true">
-            {block.icon}
-          </span>
-          <span className="dacc-title">{block.title}</span>
-          <span className="dacc-ghost-tag">
-            {hasListing ? "Listing only" : "Not enriched"}
-          </span>
-        </div>
-        {/* E1 · discovery listing facts — shown even before enrichment ran,
-            labelled as the listing (not a review pull). */}
-        {hasListing ? (
-          <div style={{ padding: "4px 12px 2px" }}>
-            <div className="microlabel">From the Google listing</div>
-            {block.listingRows.map((r, i) => (
-              <EvidenceRow key={i} row={r} bands={bands} />
-            ))}
-          </div>
-        ) : null}
-        <div className="dacc-ghost-note">{block.ghostNote}</div>
-        {/* WP5-3 · the ghost tag's promise made real: opens the in-workbench
-            enrich sheet pre-seeded with this domain's families, scoped to
-            this lead. */}
-        {enrichments.length > 0 ? (
-          <button
-            type="button"
-            className="btn sm"
-            style={{ margin: "6px 12px 10px" }}
-            onClick={() =>
-              openEnrichSheet({
-                enrichments,
-                // AUDIT D1 · a drawer ghost accordion is a single-domain CTA →
-                // pre-select its enrichment in the sheet.
-                preselect: true,
-                scope: { selectedBusinessIds: [businessId] },
-              })
-            }
-          >
-            Enrich to unlock →
-          </button>
-        ) : null}
-      </div>
-    );
-  }
+  const dotClass =
+    block.state === "empty"
+      ? "dnr-dot on"
+      : block.state === "failed"
+        ? "dnr-dot failed"
+        : block.state === "running"
+          ? "dnr-dot running"
+          : "dnr-dot";
 
-  // ── failed → red retry (the enrichment errored, distinct from never-run) ──
-  if (block.state === "failed") {
-    return (
-      <div className="dacc ghost">
-        <div className="ghead">
-          <span className="dacc-ic" aria-hidden="true">
-            {block.icon}
-          </span>
-          <span className="dacc-title">{block.title}</span>
+  return (
+    <>
+      <div className="dnr">
+        <span className={dotClass} aria-hidden="true" />
+        <span className="dnr-title">{block.title}</span>
+        {block.state === "empty" ? (
           <span
-            className="dacc-ghost-tag"
-            style={{ color: "var(--red)", borderColor: "var(--red)" }}
-          >
-            Failed
-          </span>
-        </div>
-        {hasListing ? (
-          <div style={{ padding: "4px 12px 2px" }}>
-            {block.listingRows.map((r, i) => (
-              <EvidenceRow key={i} row={r} bands={bands} />
-            ))}
-          </div>
-        ) : null}
-        <div className="dacc-ghost-note">
-          Enrichment errored on the last run. Retry it below.
-        </div>
-        {enrichments.length > 0 ? (
-          <button
-            type="button"
-            className="btn sm"
-            style={{ margin: "6px 12px 10px" }}
-            onClick={() =>
-              openEnrichSheet({
-                enrichments,
-                preselect: true,
-                scope: { selectedBusinessIds: [businessId] },
-              })
+            className="microlabel dnr-tag"
+            data-tip={
+              block.emptyNote ?? "Enrichment ran — nothing found for this lead."
             }
           >
-            Retry enrichment →
-          </button>
-        ) : null}
-      </div>
-    );
-  }
-
-  // ── running → in-flight tag (a QUEUED/RUNNING job or active cell run — the
-  // scan is already paid for, so no CTA; results land on the next refresh) ──
-  if (block.state === "running") {
-    return (
-      <div className="dacc ghost">
-        <div className="ghead">
-          <span className="dacc-ic" aria-hidden="true">
-            {block.icon}
+            Ran · none found
           </span>
-          <span className="dacc-title">{block.title}</span>
-          <span className="microlabel" style={{ marginLeft: "auto" }}>
+        ) : block.state === "running" ? (
+          <span
+            className="microlabel dnr-tag"
+            data-tip="Scan in progress — results land here when it finishes."
+          >
             enriching…
           </span>
-        </div>
-        {hasListing ? (
-          <div style={{ padding: "4px 12px 2px" }}>
-            <div className="microlabel">From the Google listing</div>
-            {block.listingRows.map((r, i) => (
-              <EvidenceRow key={i} row={r} bands={bands} />
-            ))}
-          </div>
-        ) : null}
-        <div className="dacc-ghost-note">
-          Scan in progress — results land here when it finishes.
-        </div>
-      </div>
-    );
-  }
-
-  // ── empty → calm "ran · none found" (verified — never a CTA, audit E4/E5) ──
-  if (block.state === "empty") {
-    return (
-      <div className="dacc ghost">
-        <div className="ghead">
-          <span className="dacc-ic" aria-hidden="true">
-            {block.icon}
+        ) : block.state === "failed" ? (
+          <>
+            <span
+              className="microlabel dnr-tag failed"
+              data-tip="Enrichment errored on the last run."
+            >
+              Failed
+            </span>
+            {enrichments.length > 0 ? (
+              <button
+                type="button"
+                className="dacc-enrich"
+                onClick={openSheet}
+                aria-label={`Retry ${block.title} enrichment`}
+              >
+                Retry →
+              </button>
+            ) : null}
+          </>
+        ) : enrichments.length > 0 ? (
+          // WP5-3 · the CTA's promise made real: opens the in-workbench enrich
+          // sheet pre-seeded with this domain's families, scoped to this lead.
+          <button
+            type="button"
+            className="dacc-enrich dnr-cta"
+            data-tip={block.ghostNote}
+            onClick={openSheet}
+            aria-label={`Enrich ${block.title}`}
+          >
+            Enrich →
+          </button>
+        ) : (
+          <span className="microlabel dnr-tag" data-tip={block.ghostNote}>
+            Not enriched
           </span>
-          <span className="dacc-title">{block.title}</span>
-          <span className="dacc-ghost-tag">Ran · none found</span>
-        </div>
-        {hasListing ? (
-          <div style={{ padding: "4px 12px 2px" }}>
-            <div className="microlabel">From the Google listing</div>
-            {block.listingRows.map((r, i) => (
-              <EvidenceRow key={i} row={r} bands={bands} />
-            ))}
-          </div>
-        ) : null}
-        <div className="dacc-ghost-note">
-          {block.emptyNote ?? "Enrichment ran — nothing found for this lead."}
-        </div>
+        )}
       </div>
-    );
-  }
-
-  // ── enriched → the real accordion ──
-  return (
-    <div className={`dacc${open ? " open" : ""}`}>
-      <button
-        type="button"
-        className="dacc-head"
-        aria-expanded={open}
-        onClick={() => setOpen((o) => !o)}
-      >
-        <span className="dacc-ic" aria-hidden="true">
-          {block.icon}
-        </span>
-        <span className="dacc-title">{block.title}</span>
-        {block.summary ? (
-          <span className="dacc-sum" data-tip={block.summary}>
-            {block.summary}
-          </span>
-        ) : null}
-        <span className="dacc-chv" aria-hidden="true">
-          ▾
-        </span>
-      </button>
-      {open ? (
-        <div className="dacc-body">
-          {/* E1 · listing facts (Reviews) render first, labelled as the
-              listing, then the enrichment rows below. */}
-          {hasListing ? (
-            <>
-              <div className="microlabel">From the Google listing</div>
-              {block.listingRows.map((r, i) => (
-                <EvidenceRow key={`l-${i}`} row={r} bands={bands} />
-              ))}
-              {block.rows.length ? (
-                <div className="microlabel">From the reviews pull</div>
-              ) : null}
-            </>
-          ) : null}
-          <DomainRows rows={block.rows} bands={bands} hasListing={hasListing} />
-          {/* WP6-9 · evidence-honesty provenance — where this block's data came
-              from + when it was retrieved, so every claim is auditable. */}
-          {block.source ? (
-            <p className="note" style={{ margin: "8px 0 0", fontSize: 11 }}>
-              {block.source}
-              {block.asOf ? ` · as of ${block.asOf}` : ""}
-            </p>
-          ) : null}
+      {/* E1 · discovery listing facts — shown even before enrichment ran,
+          labelled as the listing (not a review pull). */}
+      {hasListing ? (
+        <div className="dnr-listing">
+          <div className="microlabel">From the Google listing</div>
+          {block.listingRows.map((r, i) => (
+            <EvidenceRow key={i} row={r} bands={bands} />
+          ))}
         </div>
       ) : null}
+    </>
+  );
+}
+
+/**
+ * The always-free GBP Profile block (Data section): photos · claimed · years ·
+ * open-days · notable attributes, plus the owner's own GBP description
+ * (truncated, expandable) and the direct Maps listing link. Listing-labelled —
+ * free discovery data, never proof an enrichment ran.
+ */
+function ProfileBlock({
+  lead,
+  bands,
+}: {
+  lead: LeadDetail;
+  bands?: Partial<Record<string, CellBand>>;
+}) {
+  const p = lead.profile;
+  if (p.rows.length === 0 && !p.description && !p.mapsUrl) return null;
+  return (
+    <div className="dblock">
+      <div className="dblock-head">
+        <span className="bic" aria-hidden="true">
+          <Icon name="pin" size={14} />
+        </span>
+        <span className="dblock-title">Profile</span>
+        <span className="dblock-src">Google listing</span>
+      </div>
+      {p.rows.map((r, i) => (
+        <EvidenceRow key={i} row={r} bands={bands} />
+      ))}
+      {p.description ? <GbpDescription text={p.description} /> : null}
+      {p.mapsUrl ? (
+        <a
+          className="clink"
+          href={p.mapsUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Open Maps listing ↗
+        </a>
+      ) : null}
+    </div>
+  );
+}
+
+/** GBP description clamp cutoff (chars) before the expand toggle. */
+const GBP_DESC_CLAMP = 160;
+
+/** The owner's own GBP pitch — truncated with a real expand/collapse toggle. */
+function GbpDescription({ text }: { text: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const needsClamp = text.length > GBP_DESC_CLAMP;
+  const shown =
+    !needsClamp || expanded
+      ? text
+      : `${text.slice(0, GBP_DESC_CLAMP - 1).trimEnd()}…`;
+  return (
+    <div className="ddesc">
+      <span className="microlabel">Their own pitch</span>
+      {shown}{" "}
+      {needsClamp ? (
+        <button
+          type="button"
+          className="clink ddesc-more"
+          aria-expanded={expanded}
+          onClick={() => setExpanded((e) => !e)}
+        >
+          {expanded ? "less" : "more"}
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * Nearby rivals — Business.peopleAlsoSearch (free discovery data): the
+ * competitor set Google's own algorithm surfaces, one dense row each. Powers
+ * the "you're losing to Treasure Valley (136 reviews)" pitch at zero cost.
+ */
+function RivalsBlock({ rivals }: { rivals: LeadRival[] }) {
+  return (
+    <div className="dblock">
+      <div className="dblock-head">
+        <span className="bic" aria-hidden="true">
+          <Icon name="users" size={14} />
+        </span>
+        <span className="dblock-title">Nearby rivals</span>
+        <span className="dblock-src">People also search</span>
+      </div>
+      {rivals.map((r, i) => (
+        <div className="sig" key={`${r.name}-${i}`}>
+          <div className="row">
+            <span className="name">{r.name}</span>
+            <span className="val">
+              {r.rating != null ? `${r.rating.toFixed(1)}★` : "—"}
+              {r.reviewCount != null
+                ? ` · ${r.reviewCount.toLocaleString()} reviews`
+                : ""}
+            </span>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -1491,11 +1504,7 @@ function DomainRows({
   hasListing: boolean;
 }) {
   if (rows.length === 0) {
-    return hasListing ? null : (
-      <p className="note" style={{ margin: "6px 0 0" }}>
-        No detail rows.
-      </p>
-    );
+    return hasListing ? null : <p className="note vnote">No detail rows.</p>;
   }
   // Pure derivation: split into segments of consecutive rows sharing a section.
   const segments: { section: string | null; rows: LeadEvidenceRow[] }[] = [];
@@ -1542,42 +1551,12 @@ function DomainRows({
 function DrawerSkeleton() {
   return (
     <div aria-hidden="true">
-      <div className="dsec">
-        <div className="dglance">
-          <div
-            className="gauge"
-            style={{ "--pct": "0", "--gc": "var(--line-2)" } as CSSProperties}
-          >
-            <div className="gv">
-              <b style={{ color: "var(--faint)" }}>·</b>
-              <span>match</span>
-            </div>
-          </div>
-          <div className="dgcol">
-            <div className="dfacts">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <div className="dfact" key={i}>
-                  <div className="fk">&nbsp;</div>
-                  <div
-                    className="fv"
-                    style={{
-                      height: 12,
-                      background: "var(--surface-2)",
-                      borderRadius: 4,
-                    }}
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
       {Array.from({ length: 3 }).map((_, i) => (
-        <div
-          key={i}
-          className="dacc"
-          style={{ height: 42, background: "var(--surface-2)" }}
-        />
+        <div className="dsec" key={i}>
+          <div className="skl sm" />
+          <div className="skl lg" />
+          <div className="skl md" />
+        </div>
       ))}
     </div>
   );

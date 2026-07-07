@@ -54,15 +54,18 @@ import {
   COLUMNS,
   COLUMN_TYPE_GROUP_ORDER,
   CSV_HEADERS,
+  columnsToAutoShow,
   defaultActiveColumnsForGoal,
   FILTER_FIELDS,
   FILTER_FIELD_DEFAULTS,
   availableNumericFields,
   availableSignalKeys,
+  orderColumnsForGoal,
   PAGE_SIZES,
   STATUS_ORDER,
   csvLine,
   fmtDelta,
+  fmtRelativeShort,
   getPageNumbers,
   groupBySignals,
   matchesSearch,
@@ -346,6 +349,10 @@ export function LeadsWorkbench({
   const [activeCols, setActiveCols] = useState<string[]>(() =>
     defaultActiveColumnsForGoal(goalResearches),
   );
+  // WB-COL-2 · columns the user EXPLICITLY hid — the auto-show-after-research
+  // handler never re-adds one (an explicit uncheck is permanent for this
+  // research; re-checking clears it). Hydrated from the saved blob below.
+  const [dismissedCols, setDismissedCols] = useState<string[]>([]);
   const [fieldsOpen, setFieldsOpen] = useState(false);
   // F3 · the Fields picker's search box — filters visible column rows by label
   // (case-insensitive substring). Cleared when the popover closes.
@@ -544,6 +551,8 @@ export function LeadsWorkbench({
         if (saved.vsCell !== undefined) setVsCell(saved.vsCell);
         if (saved.group !== undefined) setGroup(saved.group);
         if (saved.activeCols !== undefined) setActiveCols(saved.activeCols);
+        if (saved.dismissedCols !== undefined)
+          setDismissedCols(saved.dismissedCols);
         if (saved.pageSize !== undefined) setPageSize(saved.pageSize);
       }
       // Filter precedence (the user's saved choice is preserved across refresh +
@@ -595,6 +604,7 @@ export function LeadsWorkbench({
       vsCell,
       group,
       activeCols,
+      dismissedCols,
       // Persist the user's full filter choice (signal + numeric) so it survives
       // refresh + revisit — BUT only once they've actually chosen (userTouched).
       // Before that, `undefined` writes the blob with NO filters key (JSON omits
@@ -611,6 +621,7 @@ export function LeadsWorkbench({
     vsCell,
     group,
     activeCols,
+    dismissedCols,
     filters,
     sortKey,
     sortDir,
@@ -695,6 +706,15 @@ export function LeadsWorkbench({
     [sp, router, pathname],
   );
 
+  // WB-COL-3 · the render-order registry for THIS research: the research-
+  // detail span's data-group clusters are re-ordered goal-first (a site-speed
+  // hunt reads perf/seo right after the contact anchors). Derived ONCE from
+  // the research's PERSISTED goal (`goalResearches`), never from live filter/
+  // signal state — spatial memory stays stable for the whole session.
+  const renderColumns = useMemo(
+    () => orderColumnsForGoal(goalResearches),
+    [goalResearches],
+  );
   // The active column defs in render order — the static VALUE columns selected
   // in the Fields menu. Pure-boolean signal verdicts are filter work, not
   // columns (a ✓/— cell carries no per-lead value — "Has a website" is ~always
@@ -702,9 +722,23 @@ export function LeadsWorkbench({
   // whole library via "+ Signal") and "which of your signals fired" shows
   // compactly in the Pain-points "why qualifies" chips.
   const cols = useMemo(
-    () => COLUMNS.filter((c) => activeCols.includes(c.key)),
-    [activeCols],
+    () => renderColumns.filter((c) => activeCols.includes(c.key)),
+    [renderColumns, activeCols],
   );
+
+  // WB-COL-3 · the FIRST column of each consecutive data-group run in the
+  // active set — gets the `.gstart` boundary class (th + td) so adjacent
+  // group members read as one cluster. Workflow columns (no group) never
+  // start a boundary.
+  const groupStartKeys = useMemo(() => {
+    const out = new Set<string>();
+    for (let i = 0; i < cols.length; i += 1) {
+      const g = cols[i]!.group;
+      if (!g) continue;
+      if (i === 0 || cols[i - 1]!.group !== g) out.add(cols[i]!.key);
+    }
+    return out;
+  }, [cols]);
 
   // F3 · the Fields picker, grouped by ENRICHMENT TYPE + search-filtered. Every
   // toggle-able column (all except the always-on `biz` anchor) is bucketed under
@@ -768,6 +802,15 @@ export function LeadsWorkbench({
     [stateFilterByGroup, groupStatesFor],
   );
 
+  // "Now" for the relative Last-contacted form — null during SSR + first
+  // paint (the deterministic absolute date renders), set once after mount
+  // (INC-09: no Date.now() during prerender, no hydration drift).
+  const [nowMs, setNowMs] = useState<number | null>(null);
+  useEffect(() => {
+    const tid = window.setTimeout(() => setNowMs(Date.now()), 0);
+    return () => window.clearTimeout(tid);
+  }, []);
+
   // AUDIT U7 · row density — Compact is the default for a scan-heavy audience;
   // the choice persists per user. Default matches SSR; a saved "cozy" is applied
   // after mount (a one-frame settle, no hydration mismatch).
@@ -829,8 +872,72 @@ export function LeadsWorkbench({
       ),
     [],
   );
-  // Clear the optimistic flags the moment the active run goes terminal.
-  useEffect(() => subscribeEnrichFinished(() => setEnriching(null)), []);
+  // WB-COL-2 · refs keep the []-deps enrich-finished handler honest: it reads
+  // the LIVE column/scope state, not the mount-time closure.
+  const enrichingRef = useRef<{
+    ids: Set<string>;
+    types: Set<string>;
+    all: boolean;
+  } | null>(null);
+  useEffect(() => {
+    enrichingRef.current = enriching;
+  }, [enriching]);
+  const activeColsRef = useRef(activeCols);
+  useEffect(() => {
+    activeColsRef.current = activeCols;
+  }, [activeCols]);
+  const dismissedColsRef = useRef(dismissedCols);
+  useEffect(() => {
+    dismissedColsRef.current = dismissedCols;
+  }, [dismissedCols]);
+  // WB-COL-2 · the run went terminal → (1) auto-show the columns for what was
+  // just BOUGHT (append-only, dismissed-aware) with a delayed toast naming the
+  // groups, then (2) clear the optimistic per-cell flags. Purchased basket:
+  // server truth (LiveRunGate forwards the terminal payload's enrichments)
+  // first; the same-session bus scope as fallback — read BEFORE the
+  // setEnriching(null) clear (the fallback types live in the state being
+  // cleared).
+  useEffect(
+    () =>
+      subscribeEnrichFinished((serverTypes) => {
+        const types =
+          serverTypes.length > 0
+            ? serverTypes
+            : [...(enrichingRef.current?.types ?? [])];
+        const { cols: addCols, groups } = columnsToAutoShow(
+          types,
+          activeColsRef.current,
+          dismissedColsRef.current,
+        );
+        if (addCols.length > 0) {
+          // Append-only — render order derives from the render-column
+          // registry (the `cols` memo filters it), so a plain append keeps
+          // the on-screen order canonical.
+          setActiveCols((prev) => [
+            ...prev,
+            ...addCols.filter((c) => !prev.includes(c)),
+          ]);
+          const names = groups.map((g) => dataGroupFor(g).label).join(", ");
+          // Delayed ~1.5s: the single-slot ToastHost would otherwise clobber
+          // LiveRunGate's "Enriched N · M failed" toast (the count Tom trusts).
+          window.setTimeout(
+            () =>
+              showToast(`New data: ${names} — columns added`, "info", {
+                label: "Undo",
+                onClick: () => {
+                  // Undo removes the added columns AND dismisses them, so the
+                  // next re-run stays quiet.
+                  setActiveCols((p) => p.filter((c) => !addCols.includes(c)));
+                  setDismissedCols((p) => [...new Set([...p, ...addCols])]);
+                },
+              }),
+            1500,
+          );
+        }
+        setEnriching(null); // existing behavior — AFTER reading the fallback
+      }),
+    [],
+  );
   useEffect(() => {
     if (!enriching) return;
     const t = window.setTimeout(() => setEnriching(null), 5 * 60_000);
@@ -903,6 +1010,22 @@ export function LeadsWorkbench({
       );
     },
     [isColEnriching],
+  );
+
+  /**
+   * WB-COL-3 · append the `.gstart` data-group boundary class to a body cell
+   * when its column starts a group cluster (same cloneElement discipline as
+   * withCellLoading — the cell content never changes, so widths never shift).
+   */
+  const withGroupStart = useCallback(
+    (col: ColumnDef, td: ReactElement): ReactElement => {
+      if (!groupStartKeys.has(col.key) || !isValidElement(td)) return td;
+      const prev = (td.props as { className?: string }).className;
+      return cloneElement(td as ReactElement<{ className?: string }>, {
+        className: `${prev ? `${prev} ` : ""}gstart`,
+      });
+    },
+    [groupStartKeys],
   );
 
   // AUDIT U16 · the per-cell provenance tooltip for a numeric enriched value:
@@ -1535,10 +1658,18 @@ export function LeadsWorkbench({
   };
 
   // ── Fields menu helpers ───────────────────────────────────────────────────
+  // WB-COL-2 · one rule, no special cases: ANY explicit uncheck also DISMISSES
+  // the column (auto-show-after-research never re-adds it for this research);
+  // a re-check clears the dismissal.
   function toggleCol(key: string) {
-    setActiveCols((prev) =>
-      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key],
-    );
+    const on = activeCols.includes(key);
+    if (on) {
+      setActiveCols((prev) => prev.filter((k) => k !== key));
+      setDismissedCols((prev) => (prev.includes(key) ? prev : [...prev, key]));
+    } else {
+      setActiveCols((prev) => (prev.includes(key) ? prev : [...prev, key]));
+      setDismissedCols((prev) => prev.filter((k) => k !== key));
+    }
   }
 
   // ── Filter editor ─────────────────────────────────────────────────────────
@@ -1697,12 +1828,43 @@ export function LeadsWorkbench({
             <span className="bizname" data-tip={r.name}>
               {r.name}
             </span>
+            {/* Closed on Google → a small red/amber tag beside the name (not a
+                column) so a 100-row scan never burns a touch on a closed
+                business. Absent field (older row builders) reads open. */}
+            {r.closed ? (
+              <span
+                className={`bizclosed${r.closed === "temporary" ? " temp" : ""}`}
+                data-tip={
+                  r.closed === "temporary"
+                    ? "Temporarily closed on Google — verify before a touch"
+                    : "Permanently closed on Google"
+                }
+              >
+                Closed
+              </span>
+            ) : null}
             <div className="addr" data-tip={r.addr}>
               {r.addr}
             </div>
           </td>
         );
       case "match": {
+        // Derived-match honesty: a heuristic match% (pain-count table, not
+        // signal-eval) renders MUTED with an "estimated" tooltip so 60/75/85
+        // never read as measured at 100-row scan speed. No tone band — a
+        // color-banded estimate would double down on false precision.
+        if (r.matchDerived) {
+          return (
+            <td className="num" key={col.key}>
+              <span
+                className="cellval matchest"
+                data-tip="Estimated from pain-point count — enrich to compute from your signals"
+              >
+                {r.match}%
+              </span>
+            </td>
+          );
+        }
         const band = effectiveBands[col.key];
         // AUDIT U11 · color-band the BASE match% across ALL three bands so the
         // eye can scan lead strength by color. Match% is higher-is-better:
@@ -1820,18 +1982,20 @@ export function LeadsWorkbench({
             if (tech === "enriched" || tech === "empty") {
               return (
                 <td key={col.key}>
-                  {/* Same vocabulary as the drawer: builtOn "Custom / unknown",
-                      booking "Phone only" (scanned, no online booking found).
-                      Provenance tip so Tom can hover-confirm it's scanned truth. */}
+                  {/* Owner 2026-07-06 · the CELL shows the SHORT form ("Custom"
+                      — one line, never wraps); the drawer keeps the full
+                      "Custom / unknown". The tip carries the honest long read
+                      so Tom can hover-confirm it's scanned truth. */}
                   <span
                     className="cell-none verified"
+                    style={{ whiteSpace: "nowrap" }}
                     data-tip={
                       col.key === "builtOn"
-                        ? "Tech scan ran · no known CMS detected"
+                        ? "Tech scan ran · no known CMS — custom or unknown builder"
                         : "Tech scan ran · no booking tool found"
                     }
                   >
-                    {col.key === "builtOn" ? "Custom / unknown" : "Phone only"}
+                    {col.key === "builtOn" ? "Custom" : "Phone only"}
                   </span>
                 </td>
               );
@@ -2136,11 +2300,18 @@ export function LeadsWorkbench({
         return (
           <td key={col.key} className="num">
             {r.lastContactedAt ? (
-              <span className="cellval">
-                {new Date(r.lastContactedAt).toLocaleDateString("en-US", {
-                  month: "short",
-                  day: "numeric",
-                })}
+              // Shortest honest form ("3d", "2w", "Jan 5" beyond 30d) — full
+              // date in the tip. SSR + first paint render the deterministic
+              // absolute form (nowMs is null until mount — the INC-09 pattern,
+              // no Date.now() during prerender / no hydration drift).
+              <span
+                className="cellval"
+                data-tip={new Date(r.lastContactedAt).toLocaleDateString(
+                  "en-US",
+                  { month: "short", day: "numeric", year: "numeric" },
+                )}
+              >
+                {fmtRelativeShort(r.lastContactedAt, nowMs)}
               </span>
             ) : (
               <span className="ppnone">—</span>
@@ -2191,7 +2362,9 @@ export function LeadsWorkbench({
             onClick={(e) => toggleRow(r.leadId, idx, e.shiftKey)}
           />
         </td>
-        {cols.map((c) => withCellLoading(c, r, renderCell(c, r)))}
+        {cols.map((c) =>
+          withGroupStart(c, withCellLoading(c, r, renderCell(c, r))),
+        )}
       </tr>
     );
   }
@@ -3012,10 +3185,20 @@ export function LeadsWorkbench({
                       // U23 · tag the identity name header so the sticky-left
                       // pin rule can target it (matches td.biz on the body).
                       c.kind === "biz" ? "biz" : "",
+                      // WB-COL-3 · data-group boundary on the cluster's first
+                      // column (matches the body cells' .gstart).
+                      groupStartKeys.has(c.key) ? "gstart" : "",
                     ]
                       .filter(Boolean)
                       .join(" ")}
-                    data-tip={c.fullLabel ?? c.label}
+                    // A group-starting header names its DATA GROUP in the tip
+                    // ("Site speed & SEO · Lighthouse performance") so the
+                    // boundary rule reads as a labelled cluster, not a stray line.
+                    data-tip={
+                      groupStartKeys.has(c.key) && c.group
+                        ? `${dataGroupFor(c.group).label} · ${c.fullLabel ?? c.label}`
+                        : (c.fullLabel ?? c.label)
+                    }
                     aria-sort={
                       c.sortable && sortKey === c.key
                         ? sortDir === 1

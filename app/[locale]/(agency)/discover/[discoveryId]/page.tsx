@@ -245,6 +245,10 @@ async function DiscoveryWorkspaceBody({ params, searchParams }: PageProps) {
             phone: true,
             email: true,
             website: true,
+            // Closed-on-Google flags → the row's "Closed" tag on the Business
+            // cell (Tom must never burn a touch on a closed business).
+            permanentlyClosed: true,
+            temporarilyClosed: true,
             // WP6-1 · tenure cohort sample (years-on-Google) for the vs-cell
             // "tenure" band — CellMetric carries no tenure percentile, so this
             // band is cohort-sourced (honest within the Discovery).
@@ -619,6 +623,11 @@ async function DiscoveryWorkspaceBody({ params, searchParams }: PageProps) {
       pitchAngle: pitchById.get(b.id) ?? null,
       touch: touchByBusiness.get(b.id) ?? "None",
       lastContactedAt: lead?.contactedAt?.toISOString() ?? null,
+      closed: b.permanentlyClosed
+        ? ("permanent" as const)
+        : b.temporarilyClosed
+          ? ("temporary" as const)
+          : null,
       reviews,
       rating,
       perf,

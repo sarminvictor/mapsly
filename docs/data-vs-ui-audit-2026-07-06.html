@@ -1,0 +1,2194 @@
+<title>Data vs UI audit · 2026-07-06</title>
+<style>
+  :root {
+    --ink: #1c2233;
+    --muted: #5b657f;
+    --faint: #8a93ab;
+    --line: #e6e9f2;
+    --indigo: #5b3df5;
+    --bg: #fff;
+    --green: #0f9d6b;
+    --red: #c33;
+    --amber: #b7791f;
+  }
+  body {
+    font:
+      14px/1.55 -apple-system,
+      "Segoe UI",
+      sans-serif;
+    color: var(--ink);
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 32px 24px 80px;
+  }
+  h1 {
+    font-size: 26px;
+    margin: 0 0 4px;
+  }
+  h2 {
+    font-size: 19px;
+    margin: 44px 0 10px;
+    border-bottom: 2px solid var(--indigo);
+    padding-bottom: 6px;
+  }
+  h3 {
+    font-size: 15px;
+    margin: 26px 0 8px;
+  }
+  .sub {
+    color: var(--muted);
+    margin-bottom: 24px;
+  }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 13px;
+  }
+  th,
+  td {
+    text-align: left;
+    padding: 7px 10px;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+  }
+  th {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--faint);
+    position: sticky;
+    top: 0;
+    background: #fff;
+  }
+  .ghead td {
+    background: #f4f5fb;
+    font-weight: 700;
+    font-size: 12.5px;
+    color: var(--indigo);
+    padding: 8px 10px;
+  }
+  .field {
+    font-weight: 600;
+    min-width: 200px;
+  }
+  .src {
+    font:
+      11px/1.4 ui-monospace,
+      monospace;
+    color: var(--faint);
+    font-weight: 400;
+  }
+  .now {
+    font:
+      12px/1.5 ui-monospace,
+      monospace;
+    color: var(--muted);
+    max-width: 260px;
+  }
+  .why {
+    color: var(--muted);
+  }
+  .pill {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 9px;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+  .p-def {
+    background: #e6f8ef;
+    color: #0a6b48;
+  }
+  .p-auto {
+    background: #ece8ff;
+    color: var(--indigo);
+  }
+  .p-add {
+    background: #eef0f6;
+    color: #4a4e69;
+  }
+  .p-new {
+    background: #fff3e0;
+    color: #9a5f00;
+  }
+  .p-drw {
+    background: #e8f1fd;
+    color: #1e5aa8;
+  }
+  .p-hide {
+    background: #fdecec;
+    color: var(--red);
+  }
+  .score td.dim {
+    font-weight: 600;
+  }
+  .num {
+    font:
+      700 16px ui-monospace,
+      monospace;
+    text-align: center;
+    width: 60px;
+  }
+  .bad {
+    color: var(--red);
+  }
+  .good {
+    color: var(--green);
+  }
+  .after {
+    color: var(--green);
+  }
+  .finding {
+    border-left: 3px solid var(--indigo);
+    padding: 6px 12px;
+    margin: 10px 0;
+    background: #fafbff;
+  }
+  .finding p {
+    margin: 4px 0 0;
+    color: var(--muted);
+    font-size: 13px;
+  }
+  .loc {
+    font:
+      11px ui-monospace,
+      monospace;
+    color: var(--faint);
+  }
+  .proposal {
+    background: #f4f5fb;
+    border-radius: 10px;
+    padding: 14px 18px;
+  }
+  .proposal p {
+    margin: 8px 0;
+    white-space: pre-wrap;
+  }
+  ul.gaps li {
+    margin: 6px 0;
+    color: var(--muted);
+  }
+  ul.gaps li::marker {
+    color: var(--red);
+  }
+  .legend span {
+    margin-right: 12px;
+  }
+  .callout {
+    background: #fff8ec;
+    border: 1px solid #f0dcb4;
+    border-radius: 8px;
+    padding: 10px 14px;
+    margin: 14px 0;
+  }
+</style>
+<h1>Data vs UI · full-field audit</h1>
+<div class="sub">
+  Ground truth: <b>Meridian Family Acupuncture</b> (Boise · fully researched: 6
+  contacts · 19 reviews · 2 tech · 9 services · full AI brief · full Lighthouse
+  · 8 jobs) · 2026-07-06 · v0.19.6
+</div>
+
+<div class="callout">
+  <b>Executive read.</b> We store ~65 meaningful facts per researched lead; the
+  table can show ~27 columns and the drawer ~30 rows.
+  <b>14 high-value facts render NOWHERE</b> (incl. paid data: ad spend bands,
+  Lighthouse TBT/INP, SERP pack rivals, review quotes, contact provenance). 6 of
+  7 paid research groups land in <b>hidden-by-default columns</b> — after a
+  purchase Tom sees a toast and then nothing changes on screen. The fix set:
+  promote/demote per the table below, auto-show signature columns when a run
+  finishes, and re-skin the drawer to the portal vocabulary.
+</div>
+
+<h2>1 · Field-level comparison (65 facts, grouped by research type)</h2>
+<p class="legend">
+  <span class="pill p-def">Default column</span
+  ><span class="pill p-auto">Auto-show after research</span>
+  <span class="pill p-add">Addable</span
+  ><span class="pill p-new">ADD (new)</span>
+  <span class="pill p-drw">Drawer only</span
+  ><span class="pill p-hide">Hide</span>
+</p>
+<table>
+  <thead>
+    <tr>
+      <th>Fact</th>
+      <th>Shown today</th>
+      <th>Proposal</th>
+      <th>Why (Tom's perspective)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr class="ghead">
+      <td colspan="4">Discovery (free · every lead) · 19 facts</td>
+    </tr>
+    <tr>
+      <td class="field">
+        Business identity (name/address/city/cell)
+        <div class="src">Business.name/address/city/cellKey</div>
+      </td>
+      <td class="now">
+        column:biz (default-on, leads-workbench.ts:401) + drawer header
+        (lead-detail.ts:1388)
+      </td>
+      <td><span class="pill p-def">Default column</span></td>
+      <td class="why">
+        Tom&#x27;s anchor — every 100-row scan starts at the name and cell.
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        Business.category
+        <div class="src">Business.category</div>
+      </td>
+      <td class="now">
+        folded into addr sub-line via prettyCell (page.tsx:603) + drawer fact
+        (lead-detail.ts:807)
+      </td>
+      <td><span class="pill p-def">Default column</span></td>
+      <td class="why">
+        Fine folded into the Business cell — a separate column would repeat the
+        cell label.
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        Business.reviewCount
+        <div class="src">
+          Business.reviewCount / BusinessSnapshot.reviewCount
+        </div>
+      </td>
+      <td class="now">
+        column:reviews (addable, leads-workbench.ts:462) + drawer listing row
+        (lead-detail.ts:868)
+      </td>
+      <td><span class="pill p-def">Default column</span></td>
+      <td class="why">
+        The revenue proxy Tom sizes prospects by — it&#x27;s already the server
+        sort order (page.tsx:230), yet invisible until toggled.
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        GBP phone/email scalars
+        <div class="src">Business.phone/email</div>
+      </td>
+      <td class="now">
+        fallback inside Phone/Email columns (page.tsx:566-567) + drawer
+        listingContacts (lead-detail.ts:644-656)
+      </td>
+      <td><span class="pill p-def">Default column</span></td>
+      <td class="why">
+        Correct: free listing contacts backfill the paid columns and are
+        honestly labelled in the drawer.
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        Business.rating
+        <div class="src">Business.rating / BusinessSnapshot.rating</div>
+      </td>
+      <td class="now">
+        column:rating (addable, leads-workbench.ts:471) + drawer header/listing
+        bar (lead-detail.ts:879)
+      </td>
+      <td><span class="pill p-add">Addable column</span></td>
+      <td class="why">
+        Whole cells sit at 4.9–5.0★ (Meridian&#x27;s cohort) — near-zero
+        variance, qualifier not decision column.
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        openStatus + permanently/temporarilyClosed
+        <div class="src">
+          Business.openStatus/permanentlyClosed/temporarilyClosed
+        </div>
+      </td>
+      <td class="now">
+        drawer header pill only (lead-detail.ts:794-798) — NOWHERE in the table
+      </td>
+      <td><span class="pill p-new">ADD (new surface)</span></td>
+      <td class="why">
+        Tom must never burn a touch on a closed business — a small
+        &#x27;Closed&#x27; badge on the Business cell (not a column) at row
+        level.
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        Business.peopleAlsoSearch
+        <div class="src">
+          Business.peopleAlsoSearch JSON (5 named rivals + ratings)
+        </div>
+      </td>
+      <td class="now">NOWHERE (admin API reference only)</td>
+      <td><span class="pill p-new">ADD (new surface)</span></td>
+      <td class="why">
+        A free competitor set with ratings — a drawer &#x27;Nearby rivals&#x27;
+        mini-block powers the &#x27;you&#x27;re losing to Treasure Valley (136
+        reviews)&#x27; pitch.
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        Business.hours (weekly timetable)
+        <div class="src">Business.hours JSON (4 open days for Meridian)</div>
+      </td>
+      <td class="now">NOWHERE</td>
+      <td><span class="pill p-drw">Drawer only</span></td>
+      <td class="why">
+        Derive &#x27;open 4 days/wk&#x27; into At-a-glance — thin hours =
+        capacity ceiling, a growth-pitch wedge.
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        Business.attributes (payments/planning/accessibility)
+        <div class="src">Business.attributes JSON</div>
+      </td>
+      <td class="now">NOWHERE</td>
+      <td><span class="pill p-drw">Drawer only</span></td>
+      <td class="why">
+        &#x27;requires_appointments&#x27; with no booking tool detected is a
+        ready-made booking-software pitch.
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        Business.description (GBP)
+        <div class="src">Business.description</div>
+      </td>
+      <td class="now">
+        NOWHERE in UI (AI-pipeline input only,
+        modules/ai-research/pipeline.ts:146)
+      </td>
+      <td><span class="pill p-drw">Drawer only</span></td>
+      <td class="why">
+        The owner&#x27;s own pitch in their own words — Tom reads it 10 seconds
+        before dialing.
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        Business.photosCount
+        <div class="src">Business.photosCount</div>
+      </td>
+      <td class="now">drawer fact (lead-detail.ts:809-815)</td>
+      <td><span class="pill p-drw">Drawer only</span></td>
+      <td class="why">
+        750 photos = an owner who invests in the profile; context, not a column.
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        Business.isClaimed
+        <div class="src">Business.isClaimed</div>
+      </td>
+      <td class="now">
+        drawer fact &#x27;Claimed&#x27; (lead-detail.ts:816) + signal-eval input
+      </td>
+      <td><span class="pill p-drw">Drawer only</span></td>
+      <td class="why">
+        Unclaimed-GBP is a signal/filter concern; the fact line covers the
+        per-lead read.
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        Years on Google
+        <div class="src">derived from Business.firstSeenOnGoogle</div>
+      </td>
+      <td class="now">
+        drawer fact + tenure vs-cell band (lead-detail.ts:800-822,887)
+      </td>
+      <td><span class="pill p-drw">Drawer only</span></td>
+      <td class="why">
+        Tenure is context for the market bar, not a scanning axis.
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        Business.ratingDistribution
+        <div class="src">Business.ratingDistribution JSON (111×5★, 1×4★)</div>
+      </td>
+      <td class="now">NOWHERE in agency UI (only SMB reviews page)</td>
+      <td><span class="pill p-drw">Drawer only</span></td>
+      <td class="why">
+        &#x27;111×5★ · 1×4★&#x27; in the Reviews block tells the real story
+        faster than a bare 5.0.
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        Business.placeTopics
+        <div class="src">
+          Business.placeTopics JSON (&#x27;back pain relief: 17&#x27;)
+        </div>
+      </td>
+      <td class="now">NOWHERE (AI-pipeline input only)</td>
+      <td><span class="pill p-drw">Drawer only</span></td>
+      <td class="why">
+        Free per-topic review counts are ready-made opener vocabulary —
+        &#x27;your patients rave about back-pain relief; nobody finds you for
+        it&#x27;.
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        Business.gbpHasBooking
+        <div class="src">Business.gbpHasBooking</div>
+      </td>
+      <td class="now">signal-eval input only (signal-eval.ts:1671)</td>
+      <td><span class="pill p-drw">Drawer only</span></td>
+      <td class="why">
+        GBP-booking vs site-booking mismatch belongs on the Tech block&#x27;s
+        booking row — one wedge, one line.
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        Maps listing link
+        <div class="src">Business.checkUrl</div>
+      </td>
+      <td class="now">NOWHERE</td>
+      <td><span class="pill p-drw">Drawer only</span></td>
+      <td class="why">
+        One click to eyeball the live listing before a call — zero cost, high
+        trust.
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        logoUrl / mainImageUrl
+        <div class="src">Business.logoUrl/mainImageUrl</div>
+      </td>
+      <td class="now">NOWHERE</td>
+      <td><span class="pill p-drw">Drawer only</span></td>
+      <td class="why">
+        Avatar in the drawer header helps Tom confirm he&#x27;s looking at the
+        right business; never a column.
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        Business.priceLevel / hotel_rating
+        <div class="src">Business (sourceRawJson.price_level, null here)</div>
+      </td>
+      <td class="now">NOWHERE</td>
+      <td><span class="pill p-hide">Hide</span></td>
+      <td class="why">
+        Nearly always null for service categories — dead weight until a category
+        needs it.
+      </td>
+    </tr>
+    <tr class="ghead">
+      <td colspan="4">Contacts &amp; site tech · 10 facts</td>
+    </tr>
+    <tr>
+      <td class="field">
+        Business.website
+        <div class="src">Business.website</div>
+      </td>
+      <td class="now">
+        column:website (default-on, leads-workbench.ts:427) + drawer header
+      </td>
+      <td><span class="pill p-def">Default column</span></td>
+      <td class="why">
+        Most-clicked field on a lead; correctly promoted already.
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        Contact phone/email values
+        <div class="src">Contact.channel/value (PHONE/EMAIL rows)</div>
+      </td>
+      <td class="now">
+        both — columns phones/emails (default-on, leads-workbench.ts:577,589) +
+        drawer strips (lead-detail.ts:604-640)
+      </td>
+      <td><span class="pill p-def">Default column</span></td>
+      <td class="why">
+        The thing the agency paid credits for — correctly default.
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        reachability tier + channel count
+        <div class="src">Business.reachability/reachableChannelCount</div>
+      </td>
+      <td class="now">
+        column:reachable (default-on tier pill, leads-workbench.ts:453 +
+        reachabilityLabel:297)
+      </td>
+      <td><span class="pill p-add">Addable column</span></td>
+      <td class="why">
+        With Phone + Email default-on, a third default column restating
+        &#x27;has contacts&#x27; is duplicate ink — demote to addable.
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        Contact socials (FB/IG/YT/…)
+        <div class="src">Contact.channel/value (social rows)</div>
+      </td>
+      <td class="now">
+        both — column:socials (addable, leads-workbench.ts:597) + drawer strip
+        w/ handles
+      </td>
+      <td><span class="pill p-add">Addable column</span></td>
+      <td class="why">Secondary channel; right as a toggle.</td>
+    </tr>
+    <tr>
+      <td class="field">
+        CMS (built on)
+        <div class="src">BusinessTech.name where category=CMS</div>
+      </td>
+      <td class="now">
+        both — column:builtOn (addable, leads-workbench.ts:439) + drawer fact +
+        Tech block
+      </td>
+      <td><span class="pill p-add">Addable column</span></td>
+      <td class="why">
+        &#x27;Custom / unknown&#x27; for most SMBs — a segmentation toggle for
+        Wix/WP hunts, not a default.
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        Booking tool name
+        <div class="src">BusinessTech.name where category=BOOKING</div>
+      </td>
+      <td class="now">
+        column:bookingTool (addable, leads-workbench.ts:548); drawer Tech block
+        shows only Online/Phone presence, never the name
+      </td>
+      <td><span class="pill p-add">Addable column</span></td>
+      <td class="why">
+        Keep addable, but the drawer&#x27;s booking row should name the tool
+        (Square/Vagaro) — Tom pitches against a specific incumbent.
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        Per-contact metadata (role/isPrimary/verifiedStatus)
+        <div class="src">Contact.role/isPrimary/verifiedStatus</div>
+      </td>
+      <td class="now">
+        drawer tags only (lead-detail.ts:610-617); table cells show bare values
+      </td>
+      <td><span class="pill p-drw">Drawer only</span></td>
+      <td class="why">
+        Role + &#x27;verified&#x27; tags differentiate values at decision time;
+        all UNVERIFIED until an email-verify pipeline ships.
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        Contact provenance (source + confidence)
+        <div class="src">
+          Contact.source/confidence (SCRAPE_TEL 95 vs SCRAPE_HOMEPAGE 60)
+        </div>
+      </td>
+      <td class="now">NOWHERE</td>
+      <td><span class="pill p-drw">Drawer only</span></td>
+      <td class="why">
+        &#x27;scraped from tel: link · 95%&#x27; vs &#x27;homepage text ·
+        60%&#x27; sets trust before a cold dial — as a hover tooltip on each
+        contact.
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        Full tech-stack rows (CDN/PIXEL/ANALYTICS/CHAT names)
+        <div class="src">BusinessTech rows (Cloudflare, Meta Pixel here)</div>
+      </td>
+      <td class="now">
+        drawer Tech block renders presence booleans only
+        (lead-detail.ts:984-1006); CDN and tool NAMES nowhere
+      </td>
+      <td><span class="pill p-drw">Drawer only</span></td>
+      <td class="why">
+        &#x27;Meta Pixel present, no Google Analytics&#x27; is a sharper
+        attribution pitch than yes/no dots.
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        Business.siteText
+        <div class="src">Business.siteText (scraped homepage text)</div>
+      </td>
+      <td class="now">NOWHERE (AI input)</td>
+      <td><span class="pill p-hide">Hide</span></td>
+      <td class="why">
+        Raw model fodder; the AI brief is its human-readable form.
+      </td>
+    </tr>
+    <tr class="ghead">
+      <td colspan="4">Reviews · 7 facts</td>
+    </tr>
+    <tr>
+      <td class="field">
+        Pulled review text (19 rows)
+        <div class="src">Review.text/stars/postedAt/ownerReplyText</div>
+      </td>
+      <td class="now">
+        NOWHERE — drawer Reviews block is aggregates only
+        (lead-detail.ts:905-931)
+      </td>
+      <td><span class="pill p-new">ADD (new surface)</span></td>
+      <td class="why">
+        2–3 recent/most-negative quotes in the drawer are the opener material
+        Tom currently tabs to Google Maps for.
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        Owner reply rate
+        <div class="src">
+          derived: ownerReplied ÷ pulled Review rows (lead-detail.ts:674-683);
+          snapshot.replyRate 0.47 here
+        </div>
+      </td>
+      <td class="now">drawer row only (&#x27;47% · 9/19 replied&#x27;)</td>
+      <td><span class="pill p-new">ADD (new surface)</span></td>
+      <td class="why">
+        The #1 review-management qualifier — deserves an addable column +
+        numeric filter, auto-on after a reviews run.
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        Review entity extraction (people/services mentioned)
+        <div class="src">
+          Review.mentionedPeople/mentionedServices (&#x27;Dr. Thompson&#x27;,
+          &#x27;Acupuncture&#x27;)
+        </div>
+      </td>
+      <td class="now">NOWHERE — paid AI extraction with zero surface</td>
+      <td><span class="pill p-new">ADD (new surface)</span></td>
+      <td class="why">
+        The owner&#x27;s NAME extracted from reviews is personalization gold for
+        openers — already paid for, feed drawer + outreach drafts.
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        Unanswered ≤2★ count
+        <div class="src">
+          derived: Review.count(ownerReplied=false, stars≤2)
+        </div>
+      </td>
+      <td class="now">drawer row (lead-detail.ts:925-929)</td>
+      <td><span class="pill p-drw">Drawer only</span></td>
+      <td class="why">
+        Pitch-fuel detail once you&#x27;ve opened the lead; a signal handles the
+        filtering.
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        Review momentum (lifecycle + velocity)
+        <div class="src">
+          BusinessSnapshot.reviewLifecycle/velocityLast30d/velocityPrev30d
+          (TRENDING, 2 vs 1)
+        </div>
+      </td>
+      <td class="now">
+        drawer shows lifecycle label only (lead-detail.ts:917-924); velocity
+        numbers nowhere
+      </td>
+      <td><span class="pill p-drw">Drawer only</span></td>
+      <td class="why">
+        Add &#x27;2 new in 30d (vs 1 prior)&#x27; under Lifecycle — trend +
+        magnitude beats a bare word.
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        Last review recency
+        <div class="src">
+          Business.lastReviewAt/latestReviewPostedAt (2 days before dump)
+        </div>
+      </td>
+      <td class="now">NOWHERE</td>
+      <td><span class="pill p-drw">Drawer only</span></td>
+      <td class="why">
+        &#x27;Last review: Jul 4&#x27; proves the business is alive — the
+        cheapest activity check Tom can get.
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        Review.sentiment/themes/isUrgent
+        <div class="src">
+          Review.sentiment/themes (themes empty post-R.1 classifier retirement)
+        </div>
+      </td>
+      <td class="now">signal-eval input only (signal-eval.ts:2259)</td>
+      <td><span class="pill p-hide">Hide</span></td>
+      <td class="why">
+        Theme pipe is cost-gated dead; showing empty themes would look broken.
+      </td>
+    </tr>
+    <tr class="ghead">
+      <td colspan="4">Site speed &amp; SEO · 8 facts</td>
+    </tr>
+    <tr>
+      <td class="field">
+        Lighthouse performance
+        <div class="src">LighthouseAudit.performance (39 here)</div>
+      </td>
+      <td class="now">
+        both — column:perf (addable, leads-workbench.ts:483; auto-on for goal
+        via defaultActiveColumnsForGoal:667) + drawer Speed block
+      </td>
+      <td><span class="pill p-auto">Auto-show after research</span></td>
+      <td class="why">
+        Decision column the moment the audit is paid for — current goal-based
+        auto-on is the right mechanic.
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        Lighthouse SEO score
+        <div class="src">LighthouseAudit.seo (100 here)</div>
+      </td>
+      <td class="now">
+        both — column:seo (addable, leads-workbench.ts:497) + drawer row
+        (lead-detail.ts:1064)
+      </td>
+      <td><span class="pill p-auto">Auto-show after research</span></td>
+      <td class="why">
+        Same treatment as perf; SEO 100 also disqualifies an SEO pitch fast —
+        negative signal has value.
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        Actor-only audit flags (schema/NAP/CTA/https/vuln-lib)
+        <div class="src">
+          LighthouseAudit.hasLocalBusinessSchema/hasFaqSchema/hasBookingCtaAboveFold/hasPhoneAboveFold/napConsistent/isOnHttps/hasVulnerableLibrary
+          (all null via DfS source)
+        </div>
+      </td>
+      <td class="now">NOWHERE</td>
+      <td><span class="pill p-auto">Auto-show after research</span></td>
+      <td class="why">
+        When the actor audit populates them, schema/NAP flags are exactly
+        Tom&#x27;s jargon — surface in the Speed block automatically, hidden
+        while null.
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        Accessibility score + violation counts
+        <div class="src">
+          LighthouseAudit.accessibility/a11yViolationCount/a11yCriticalCount
+        </div>
+      </td>
+      <td class="now">
+        drawer row + ADA expert-finding callout (lead-detail.ts:1053,1332-1347)
+      </td>
+      <td><span class="pill p-drw">Drawer only</span></td>
+      <td class="why">
+        ADA-risk is a per-lead talking point, not a scanning axis.
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        Best Practices score
+        <div class="src">LighthouseAudit.bestPractices (77 here)</div>
+      </td>
+      <td class="now">
+        NOWHERE — not even in the drawer&#x27;s select (lead-detail.ts:461-482)
+      </td>
+      <td><span class="pill p-drw">Drawer only</span></td>
+      <td class="why">
+        Rounds out the 4-score Lighthouse read Tom quotes verbatim in audits;
+        one select field + one row.
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        Core Web Vitals detail (lcp/cls/inp/tbt/fcp)
+        <div class="src">
+          LighthouseAudit.lcp 7.8s/cls/inp 1783/tbt 1783/fcp 4.0
+        </div>
+      </td>
+      <td class="now">
+        drawer shows LCP + CLS only (lead-detail.ts:1041-1052); INP is SELECTED
+        but never rendered; TBT/FCP nowhere
+      </td>
+      <td><span class="pill p-drw">Drawer only</span></td>
+      <td class="why">
+        A 1.8s TBT is the &#x27;your site freezes for 2 seconds&#x27; line —
+        render INP/TBT beside LCP; still drawer detail.
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        Perf savings + crawlability
+        <div class="src">LighthouseAudit.perfSavingsMs/contentWithoutJs</div>
+      </td>
+      <td class="now">
+        drawer rows when non-null (lead-detail.ts:936-947,1075-1082)
+      </td>
+      <td><span class="pill p-drw">Drawer only</span></td>
+      <td class="why">
+        &#x27;~4s faster possible&#x27; and &#x27;JS-only shell&#x27; are
+        proposal lines, correctly placed.
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        Desktop Lighthouse fields
+        <div class="src">
+          LighthouseAudit.desktopPerformance/desktopLcp/desktopInp/desktopCls
+          (never populated)
+        </div>
+      </td>
+      <td class="now">NOWHERE</td>
+      <td><span class="pill p-hide">Hide</span></td>
+      <td class="why">No desktop audits run; dead schema until they do.</td>
+    </tr>
+    <tr class="ghead">
+      <td colspan="4">AI brief · 7 facts</td>
+    </tr>
+    <tr>
+      <td class="field">
+        AI positioning summary
+        <div class="src">BusinessEnrichment.positioningSummary</div>
+      </td>
+      <td class="now">
+        both — column:aiSummary (addable, leads-workbench.ts:561) + drawer
+        Summary section
+      </td>
+      <td><span class="pill p-add">Addable column</span></td>
+      <td class="why">
+        Long text; right as an opt-in column, primary home is the drawer.
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        AI sophistication
+        <div class="src">
+          BusinessEnrichment.sophistication (&#x27;high&#x27;)
+        </div>
+      </td>
+      <td class="now">drawer Summary row only</td>
+      <td><span class="pill p-new">ADD (new surface)</span></td>
+      <td class="why">
+        Low-sophistication = easiest sale — the one AI field worth an addable
+        column/filter for segmenting a 100-row cohort.
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        AI sub-type + pricing transparency
+        <div class="src">BusinessEnrichment.subType/pricingTransparency</div>
+      </td>
+      <td class="now">drawer Summary bold rows (lead-detail.ts:1237-1270)</td>
+      <td><span class="pill p-drw">Drawer only</span></td>
+      <td class="why">
+        Per-lead classification detail; &#x27;opaque pricing&#x27; already tones
+        amber as a wedge.
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        AI pain hypotheses (opener angles)
+        <div class="src">BusinessEnrichment.painHypotheses[]</div>
+      </td>
+      <td class="now">
+        drawer Opener-angle prose w/ pain highlight (lead-detail.ts:1303-1309)
+      </td>
+      <td><span class="pill p-drw">Drawer only</span></td>
+      <td class="why">
+        Multi-sentence pitch fuel, unreadable as a cell; drawer placement is
+        right.
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        AI competitive positioning
+        <div class="src">BusinessEnrichment.competitivePositioning</div>
+      </td>
+      <td class="now">
+        drawer &#x27;Vs cell leader&#x27; row (lead-detail.ts:1280-1288)
+      </td>
+      <td><span class="pill p-drw">Drawer only</span></td>
+      <td class="why">
+        Narrative vs-leader read belongs next to the other summary rows.
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        AI compliance cues
+        <div class="src">
+          BusinessEnrichment.complianceCues[] + derived complianceFlag
+        </div>
+      </td>
+      <td class="now">
+        drawer amber chips + compliance pill (lead-detail.ts:1293-1299,767-773)
+      </td>
+      <td><span class="pill p-drw">Drawer only</span></td>
+      <td class="why">
+        Risk chips are talking points, not scanning axes; the pill already flags
+        at row level via the drawer.
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        Detected services menu (9 rows)
+        <div class="src">BusinessService.name/category</div>
+      </td>
+      <td class="now">
+        drawer Services chips inside AI brief (lead-detail.ts:1228-1233)
+      </td>
+      <td><span class="pill p-drw">Drawer only</span></td>
+      <td class="why">
+        The menu is per-lead context; a count column would say nothing.
+      </td>
+    </tr>
+    <tr class="ghead">
+      <td colspan="4">Meta ads · 3 facts</td>
+    </tr>
+    <tr>
+      <td class="field">
+        Meta ad count
+        <div class="src">
+          groupBy AdLibraryEntry platform=META (page.tsx:366-373)
+        </div>
+      </td>
+      <td class="now">
+        both — column:metaAdCount (addable, leads-workbench.ts:510) + drawer
+        Meta block
+      </td>
+      <td><span class="pill p-auto">Auto-show after research</span></td>
+      <td class="why">
+        Paid-for count should appear the moment the scan lands — goal auto-on
+        covers it.
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        Ad spend band + advertiser name
+        <div class="src">
+          AdLibraryEntry.spendBandUsd/advertiserName — SELECTED by the drawer
+          (lead-detail.ts:534-546) but never rendered
+        </div>
+      </td>
+      <td class="now">NOWHERE rendered</td>
+      <td><span class="pill p-drw">Drawer only</span></td>
+      <td class="why">
+        Spend band turns &#x27;3 ads&#x27; into &#x27;≈$1–5K/mo running with no
+        pixel&#x27; — the wasted-spend pitch&#x27;s dollar number, already
+        fetched.
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        Ad creative detail (body/format/preview/cta/landingUrl)
+        <div class="src">
+          AdLibraryEntry.adCreativeBody/displayFormat/previewImageUrl/ctaText/linkTitle
+        </div>
+      </td>
+      <td class="now">drawer Formats row only (lead-detail.ts:1109-1128)</td>
+      <td><span class="pill p-drw">Drawer only</span></td>
+      <td class="why">
+        A creative peek (thumbnail + CTA) lets Tom critique the actual ad in his
+        opener.
+      </td>
+    </tr>
+    <tr class="ghead">
+      <td colspan="4">Google ads · 1 facts</td>
+    </tr>
+    <tr>
+      <td class="field">
+        Google ad count
+        <div class="src">groupBy AdLibraryEntry platform=GOOGLE</div>
+      </td>
+      <td class="now">
+        both — column:googleAdCount (addable, leads-workbench.ts:524) + drawer
+        Google block
+      </td>
+      <td><span class="pill p-auto">Auto-show after research</span></td>
+      <td class="why">
+        Same as Meta; kept separate per source-attribution rule — correct.
+      </td>
+    </tr>
+    <tr class="ghead">
+      <td colspan="4">Search rank · 5 facts</td>
+    </tr>
+    <tr>
+      <td class="field">
+        Best local-pack rank
+        <div class="src">
+          SerpResult.localPackRank (best per business, page.tsx:374-384)
+        </div>
+      </td>
+      <td class="now">
+        both — column:serpRank (addable, leads-workbench.ts:536) + drawer Search
+        block
+      </td>
+      <td><span class="pill p-auto">Auto-show after research</span></td>
+      <td class="why">
+        The 3-pack rank is the search pitch&#x27;s headline number once a scan
+        is paid for.
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        Brand-hijack (isBrandQuery + paidBidders)
+        <div class="src">SerpResult.isBrandQuery/paidBidders JSON</div>
+      </td>
+      <td class="now">NOWHERE in agency UI</td>
+      <td><span class="pill p-new">ADD (new surface)</span></td>
+      <td class="why">
+        &#x27;A competitor bids on your name&#x27; is the highest-converting
+        cold-open in local marketing — deserves a drawer callout + a pain chip.
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        Organic rank(s)
+        <div class="src">SerpResult.organicRank/organicAbsRank</div>
+      </td>
+      <td class="now">
+        drawer row only (lead-detail.ts:1190-1192); organicAbsRank nowhere
+      </td>
+      <td><span class="pill p-drw">Drawer only</span></td>
+      <td class="why">
+        Organic detail contextualizes the pack rank; abs-rank (incl. ads) adds
+        little.
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        Pack competitor names
+        <div class="src">SerpResult.pack1Name/pack2Name/pack3Name</div>
+      </td>
+      <td class="now">NOWHERE</td>
+      <td><span class="pill p-drw">Drawer only</span></td>
+      <td class="why">
+        &#x27;The pack that beats you: X, Y, Z&#x27; names the enemy — instant
+        pitch credibility in the Search block.
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        Keyword economics
+        <div class="src">
+          Keyword.searchVolume/cpc/competition/lowTopOfPageBid/highTopOfPageBid
+        </div>
+      </td>
+      <td class="now">NOWHERE agency-side (SMB /ads only)</td>
+      <td><span class="pill p-drw">Drawer only</span></td>
+      <td class="why">
+        &#x27;720 searches/mo at $4.10 CPC&#x27; sizes the prize for the SERP
+        gap Tom just showed.
+      </td>
+    </tr>
+    <tr class="ghead">
+      <td colspan="4">System / plumbing · 5 facts</td>
+    </tr>
+    <tr>
+      <td class="field">
+        Enrichment job trail
+        <div class="src">EnrichmentJob.family/status (8 rows)</div>
+      </td>
+      <td class="now">
+        drives the state chain (coverage matrix, drawer states, cov column
+        leads-workbench.ts:609)
+      </td>
+      <td><span class="pill p-def">Default column</span></td>
+      <td class="why">
+        Correctly consumed as STATE (enriched/empty/failed/running), never as
+        raw rows.
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        System/plumbing scalars
+        <div class="src">
+          Business.googlePlaceId/googleCid/featureId/metroSlug/anchorDistanceKm/crossMetroDupe/qualification*/activity*/email-discovery*/freshness
+          anchors
+        </div>
+      </td>
+      <td class="now">NOWHERE</td>
+      <td><span class="pill p-hide">Hide</span></td>
+      <td class="why">Pipeline state, not sales facts.</td>
+    </tr>
+    <tr>
+      <td class="field">
+        Service extraction plumbing
+        <div class="src">
+          BusinessService.canonicalKey/confidence/detectedVia/rawNames/lastMentionedAt/embeddingId
+        </div>
+      </td>
+      <td class="now">NOWHERE</td>
+      <td><span class="pill p-hide">Hide</span></td>
+      <td class="why">
+        Extraction internals — though lastMentionedAt could someday power
+        &#x27;review-validated service&#x27; badges.
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        AI run metadata
+        <div class="src">BusinessEnrichment.model/costUsd/computedAt</div>
+      </td>
+      <td class="now">NOWHERE (cost rolls into run telemetry)</td>
+      <td><span class="pill p-hide">Hide</span></td>
+      <td class="why">Ops data, not a sales fact.</td>
+    </tr>
+    <tr>
+      <td class="field">
+        SMB scoring fields
+        <div class="src">
+          BusinessSnapshot.mapslyScore/msiRank/msiTotal/pillars/percentiles (all
+          null here)
+        </div>
+      </td>
+      <td class="now">NOWHERE in agency UI</td>
+      <td><span class="pill p-hide">Hide</span></td>
+      <td class="why">
+        SMB-portal vocabulary; agency already has Match% + vs-cell bands — two
+        scores would fight.
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Data we HAVE but show nowhere (or badly)</h3>
+<ul class="gaps">
+  <li>
+    Business.placeTopics — free per-topic review counts (&#x27;back pain relief
+    ×17&#x27;) feed the AI pipeline but Tom never sees them; ready-made opener
+    vocabulary shown nowhere.
+  </li>
+  <li>
+    Business.peopleAlsoSearch — a free named-competitor set WITH ratings/review
+    counts, rendered nowhere in the agency portal (only the admin API reference
+    mentions it).
+  </li>
+  <li>
+    Review.mentionedPeople / mentionedServices — paid AI entity extraction
+    (&#x27;Dr. Thompson&#x27;) with zero UI or outreach-personalization
+    consumer.
+  </li>
+  <li>
+    AdLibraryEntry.spendBandUsd + advertiserName — SELECTED by the drawer query
+    (lead-detail.ts:534-546) but never rendered; the wasted-spend pitch is
+    missing its dollar number.
+  </li>
+  <li>
+    LighthouseAudit.inp — selected (lead-detail.ts:474) but never rendered;
+    tbt/fcp/bestPractices not even selected. Meridian&#x27;s 1783ms TBT (the
+    strongest speed-pitch fact on this lead) is invisible.
+  </li>
+  <li>
+    SerpResult.pack1-3Name + isBrandQuery/paidBidders — &#x27;who beats you in
+    the pack&#x27; and brand-hijack, the two highest-converting search pitches,
+    have no agency surface.
+  </li>
+  <li>
+    Owner reply rate exists only as a drawer text row — the #1 review-management
+    qualifier has no column and no numeric filter (FILTER_FIELDS stops at perf).
+  </li>
+  <li>
+    Review text samples — 19 pulled reviews, zero quotes rendered anywhere in
+    the agency portal; Tom tabs out to Google Maps for opener material he
+    already paid to pull.
+  </li>
+  <li>
+    openStatus/closed is drawer-only — a permanently-closed business is
+    indistinguishable in the 100-row table.
+  </li>
+  <li>
+    Business.ratingDistribution, description, attributes, hours — four free GBP
+    payloads with zero agency surface (distribution/description are cheap drawer
+    wins).
+  </li>
+  <li>
+    Contact.source + confidence — provenance (&#x27;tel: link · 95%&#x27; vs
+    &#x27;homepage text · 60%&#x27;) stored on every contact, shown nowhere.
+  </li>
+  <li>
+    BusinessTech names beyond CMS/BOOKING — the drawer reduces the stack to
+    presence booleans; &#x27;Cloudflare + Meta Pixel, no analytics&#x27; never
+    renders as named facts.
+  </li>
+  <li>
+    Keyword.searchVolume/cpc/topOfPageBid — market economics exist in-schema but
+    only the SMB portal consumes them; the agency Search block can&#x27;t size
+    the prize.
+  </li>
+  <li>
+    Business.lastReviewAt — stored recency (&#x27;last review 2 days ago&#x27;)
+    shown nowhere; the cheapest is-this-business-alive check.
+  </li>
+</ul>
+
+<h3>Weak / duplicate columns + proposed default set</h3>
+<div class="proposal">
+  <p>
+    WEAK/DUPLICATE COLUMNS (registry at
+    modules/agency-portal/discover/leads-workbench.ts:400-644): (1) `reachable`
+    (default-on, :453) — with `phones` + `emails` also default-on, a third pill
+    restating &#x27;has contacts&#x27; is duplicate ink at 100-row scale; demote
+    to addable and let the tier live in the drawer pills. (2) `lastContactedAt`
+    (default-on, :636) overlaps `touch` (:629) AND `status` (:621) — three
+    Identity columns encode one lifecycle; keep Status + Touch, demote
+    Last-contacted to addable (empty for most rows in a fresh discovery). (3)
+    `cov` (:609) — already defaultOn:false and self-documented as redundant with
+    the coverage line; candidate for outright removal from the registry
+    (persisted-view back-compat is the only reason it lives). (4) `match` (:410)
+    — when matchDerived=true the pain-count heuristic renders with the same mono
+    precision as a real signal-eval %; grey or badge derived values so 100-row
+    scans don&#x27;t treat 60/75/85 as measured. (5) `rating` — near-constant
+    (4.9–5.0) in healthy service cells; correctly addable, never default. (6)
+    `builtOn` — mostly &#x27;Custom/unknown&#x27;; correct as addable. (7)
+    `pains` chips duplicate the signal-verdict system post-P3 (the removed
+    sig-columns note at :646 acknowledges this); keep, but cap chips per row.
+    PROPOSED DEFAULT SET for Tom&#x27;s first scan: biz · match · pains ·
+    reviews (promote) · website · phones · emails · status · touch — plus
+    goal-driven auto-ons (defaultActiveColumnsForGoal :667 already handles
+    perf/seo/ads/serp correctly; extend the same auto-on to a new replyRate
+    column after a reviews run). Key files: leads-workbench.ts (registry),
+    app/[locale]/(agency)/discover/[discoveryId]/page.tsx:230-634 (serialization
+    — note snapshot select at :296 skips replyRate/velocity/lifecycle),
+    lead-detail.ts (drawer: facts :806, reviews :868-931, speed :1024-1084, ads
+    :1093-1168, serp :1169-1204, AI :1205-1319). Meridian dump confirms the
+    state chain works (google_ads DONE with 0 rows → honest &#x27;empty&#x27;,
+    serps/keywords never run → &#x27;not_run&#x27;).
+  </p>
+</div>
+
+<h2>
+  2 · Auto-show after research (the "new data should appear by itself" design)
+</h2>
+<table class="score">
+  <thead>
+    <tr>
+      <th>Dimension</th>
+      <th>Before</th>
+      <th>After</th>
+      <th>Reasoning</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td class="dim">discoverabilityOfPaidData</td>
+      <td class="num bad">3</td>
+      <td class="num good">9</td>
+      <td class="why">
+        6 of 7 groups&#x27; data lands in defaultOn:false columns (reviews,
+        rating, perf, seo, aiSummary, metaAdCount, googleAdCount, serpRank all
+        hidden); after a purchase Tom sees only LiveRunGate&#x27;s
+        &#x27;Enriched N leads&#x27; toast and must know to open the Fields
+        menu; goal-seeding only helps the very first visit before any blob is
+        saved (LeadsWorkbench.tsx:546 override)<br /><span class="after"
+          >→ purchased groups&#x27; signature columns appear at the terminal
+          tick with a named toast (&#x27;New data: Meta ads, Search rank —
+          columns added&#x27;); server-truth types survive reload-mid-run;
+          remaining gap is the unmounted-workbench case (docs&#x27;d, out of
+          scope)</span
+        >
+      </td>
+    </tr>
+    <tr>
+      <td class="dim">userControlSafety</td>
+      <td class="num bad">8</td>
+      <td class="num good">9</td>
+      <td class="why">
+        nothing fights the user today because nothing changes columns at all;
+        the Fields menu is the single manual path<br /><span class="after"
+          >→ append-only (never removes a choice), dismissed-set makes an
+          explicit uncheck permanent per research, Undo on the toast dismisses
+          in one click; -1 because any auto-mutation of a power user&#x27;s
+          table carries residual surprise risk on the very first
+          occurrence</span
+        >
+      </td>
+    </tr>
+    <tr>
+      <td class="dim">runFeedbackLoop</td>
+      <td class="num bad">6</td>
+      <td class="num good">9</td>
+      <td class="why">
+        banner + chip + per-cell loaders + finish toast are solid (truth
+        unification), but the loop dead-ends at &#x27;Enriched N leads&#x27;
+        with zero pointer to WHERE the data is<br /><span class="after"
+          >→ run start → live progress → finish toast → data visibly arrives in
+          the table, closing the loop end to end</span
+        >
+      </td>
+    </tr>
+  </tbody>
+</table>
+<h3>Key facts</h3>
+<div class="finding">
+  <b
+    >activeCols is seeded from the goal ONCE at mount and never updated when a
+    run finishes</b
+  >
+  <div class="loc">
+    modules/agency-portal/discover/components/LeadsWorkbench.tsx:346
+  </div>
+  <p>
+    `const [activeCols, setActiveCols] = useState(() =&gt;
+    defaultActiveColumnsForGoal(goalResearches))` — Tom needs bought data to
+    appear where he is looking, but the only column-seeding moment is component
+    mount; a mid-session Enrich More purchase changes nothing on screen.
+  </p>
+</div>
+<div class="finding">
+  <b
+    >The saved localStorage view overrides even the goal seed on every
+    revisit</b
+  >
+  <div class="loc">
+    modules/agency-portal/discover/components/LeadsWorkbench.tsx:546
+  </div>
+  <p>
+    `if (saved.activeCols !== undefined) setActiveCols(saved.activeCols)` — once
+    ANY blob is saved (which happens on first render via the save effect at
+    :592-618, no userTouched gate for columns), defaultActiveColumnsForGoal
+    never runs again. So data purchased on visit 2+ stays invisible forever
+    unless Tom opens the Fields menu himself.
+  </p>
+</div>
+<div class="finding">
+  <b
+    >defaultActiveColumnsForGoal already proves the additive pattern, but only
+    covers goal researches at first visit</b
+  >
+  <div class="loc">modules/agency-portal/discover/leads-workbench.ts:667</div>
+  <p>
+    WB-COL-1: defaults + every column whose enrichTypes intersect the
+    goal&#x27;s researches, additive, COLUMNS render order preserved. The
+    auto-show mechanism is the same computation keyed off a run&#x27;s purchased
+    tokens instead of the goal — the precedent (and the ordering rule) already
+    exist.
+  </p>
+</div>
+<div class="finding">
+  <b
+    >LiveRunGate detects the terminal transition and emits enrich-finished with
+    NO payload</b
+  >
+  <div class="loc">
+    modules/agency-portal/discover/components/LiveRunGate.tsx:151
+  </div>
+  <p>
+    `if (isTerminal(p.status)) { setLive(false); emitEnrichFinished();
+    deferOrRefresh(); ... showToast(&#x27;Enriched N leads&#x27;) }` — this is
+    the exact hook point for auto-show, but the event
+    (enrich-sheet-bus.ts:130-141) carries no types, so the listener can&#x27;t
+    know WHAT was bought from this event alone.
+  </p>
+</div>
+<div class="finding">
+  <b
+    >The purchased enrichment-type tokens ARE known client-side at run launch,
+    and the workbench already holds them until the finish event clears them</b
+  >
+  <div class="loc">
+    modules/agency-portal/discover/components/EnrichMoreSheet.tsx:384
+  </div>
+  <p>
+    emitEnrichScope({ businessIds, types: [...enrichments], all }) fires with
+    the exact resolved tokens; LeadsWorkbench stores them in `enriching.types`
+    (LeadsWorkbench.tsx:816-831) and clears on enrich-finished (:833). So at the
+    finish moment the same-session workbench knows the basket — but this dies on
+    reload, and runs last minutes-to-hours (realtime-runs-adr), so a
+    reload-surviving fallback is needed.
+  </p>
+</div>
+<div class="finding">
+  <b
+    >The progress endpoint already fetches the run row but does not return the
+    purchased types</b
+  >
+  <div class="loc">app/api/agency/runs/[id]/progress/route.ts:66</div>
+  <p>
+    prisma.enrichmentRun.findFirst selects status/units/credits —
+    `enrichmentsJson` (prisma/schema.prisma:2271) sits on the same row. Adding
+    it to the select + the terminal payload gives LiveRunGate server-truth types
+    at the terminal tick for ~zero cost (one extra JSON column on an
+    already-made query), closing the reload gap.
+  </p>
+</div>
+<h3>Design</h3>
+<div class="proposal">
+  <p>
+    GOAL: when a run goes terminal, the columns representing what was just
+    bought appear by themselves — append-only, dismissed-aware, with a toast
+    naming the groups. STEP 1 · Signature-column map + pure helper
+    (modules/agency-portal/discover/leads-workbench.ts, next to
+    defaultActiveColumnsForGoal :667) Add an explicit curated map — NOT derived
+    from `group` alone, because derivation would drag in deliberately-secondary
+    columns (socials was off-by-default per AUDIT E6, bookingTool per AUDIT C3):
+    export const GROUP_SIGNATURE_COLUMNS: Record&lt;DataGroupKey, readonly
+    string[]&gt; = { contacts_tech: [&quot;website&quot;, &quot;phones&quot;,
+    &quot;emails&quot;, &quot;builtOn&quot;], // first 3 defaultOn → usually
+    no-op; builtOn represents the tech half reviews: [&quot;reviews&quot;,
+    &quot;rating&quot;], site_speed: [&quot;perf&quot;, &quot;seo&quot;],
+    ai_brief: [&quot;aiSummary&quot;], meta_ads: [&quot;metaAdCount&quot;],
+    google_ads: [&quot;googleAdCount&quot;], search: [&quot;serpRank&quot;], };
+    Add a pure, unit-testable helper: export function columnsToAutoShow(
+    purchasedTypes: readonly string[], // lowercase enrich tokens
+    (&quot;meta_ads&quot;, &quot;ai_research&quot;, …) activeCols: readonly
+    string[], dismissedCols: readonly string[], ): { cols: string[]; groups:
+    DataGroupKey[] } Logic: tokens → groups via the existing
+    enrichTokenToTypeKey/DATA_GROUPS mapping (family-coverage.ts:401-420); union
+    the groups&#x27; signature columns; subtract activeCols and dismissedCols;
+    return in COLUMNS render order (same insertion discipline as
+    defaultActiveColumnsForGoal); `groups` = only the groups that contributed ≥1
+    actually-added column (drives the toast text — a group whose columns were
+    all visible produces no toast noise). Empty tokens → empty result. STEP 2 ·
+    Give enrich-finished a types payload
+    (modules/agency-portal/discover/enrich-sheet-bus.ts:130-141)
+    emitEnrichFinished(types?: readonly string[]) — detail carries the tokens;
+    subscribeEnrichFinished(handler: (types: string[]) =&gt; void) defaults
+    missing detail to []. Back-compat: existing no-arg emit still compiles. STEP
+    3 · Server-truth types at terminal
+    (app/api/agency/runs/[id]/progress/route.ts) Add `enrichmentsJson: true` to
+    the existing findFirst select (:68-74) and `enrichments?: string[]` to the
+    RunProgress payload, included only in the terminal branch (:117-119) after a
+    Zod-lite sanitize (array of strings, else []). ETag unchanged — terminal
+    already busts the 304 via the status/creditsCharged component (:41).
+    LiveRunGate (:156) then calls `emitEnrichFinished(p.enrichments ?? [])`.
+    This survives the reload-mid-run case (runs last minutes-to-hours per
+    realtime-runs-adr) where the client-side `enriching.types` is gone. Mirror
+    the field in LiveRunGate&#x27;s local RunProgress interface (:33-38). STEP 4
+    · Dismissed-set — respect an explicit hide (wb-view-state.ts +
+    LeadsWorkbench.tsx) - wb-view-state.ts: add `dismissedCols: string[]` to
+    WorkbenchViewState (:35-43); in loadWorkbenchView validate exactly like
+    activeCols (:147-154) — filter to VALID_COLS, defensive, never throws;
+    saveWorkbenchView persists it. Old blobs without the key just omit it
+    (Partial return already handles this). - LeadsWorkbench.tsx: `const
+    [dismissedCols, setDismissedCols] = useState&lt;string[]&gt;([])`, hydrated
+    in the saved-blob branch (:543-548), added to the save effect deps
+    (:592-618). Keep a `dismissedColsRef` current via effect so the bus handler
+    reads fresh values. - toggleCol (:1538): removing a key ⇒ also add it to
+    dismissedCols; adding a key ⇒ remove it from dismissedCols. One rule, no
+    special cases: ANY explicit uncheck means &quot;don&#x27;t auto-show this
+    again for this research&quot;, re-check clears it. STEP 5 · The auto-show
+    handler (LeadsWorkbench.tsx:833) Replace the current one-liner effect with:
+    useEffect(() =&gt; subscribeEnrichFinished((serverTypes) =&gt; { //
+    Purchased basket: server truth first, same-session bus state as fallback.
+    const types = serverTypes.length &gt; 0 ? serverTypes :
+    [...(enrichingRef.current?.types ?? [])]; const { cols, groups } =
+    columnsToAutoShow(types, activeColsRef.current, dismissedColsRef.current);
+    if (cols.length &gt; 0) { setActiveCols(prev =&gt;
+    insertInColumnsOrder(prev, cols.filter(c =&gt; !prev.includes(c)))); const
+    names = groups.map(g =&gt; dataGroupFor(g).label).join(&quot;, &quot;);
+    window.setTimeout(() =&gt; showToast( `New data: ${names} — columns added`,
+    &quot;info&quot;, { label: &quot;Undo&quot;, onClick: () =&gt; {
+    setActiveCols(p =&gt; p.filter(c =&gt; !cols.includes(c)));
+    setDismissedCols(p =&gt; [...new Set([...p, ...cols])]); } }, ), 1500); }
+    setEnriching(null); // existing behavior, AFTER reading the fallback types
+    }), []); Notes: read-before-clear ordering is load-bearing (the fallback
+    types live in the state being cleared); refs
+    (enrichingRef/activeColsRef/dismissedColsRef) keep the [] deps effect
+    honest. The 1.5s delay lets LiveRunGate&#x27;s &quot;Enriched N · M
+    failed&quot; toast (:161-166) land first — the single-slot ToastHost would
+    otherwise clobber it. Undo removes the added columns AND dismisses them, so
+    the next re-run stays quiet. Cell-click re-runs of an already-visible column
+    produce cols=[] ⇒ no toast, no churn. The activeCols change flows into the
+    existing save effect, so the new columns persist. Toast copy is
+    Tom-register: named groups, no exclamation, ≤ 15 words. STEP 6 · Tests
+    (invariants, per .claude/rules/testing.md) - Unit columnsToAutoShow:
+    token→group mapping incl. ai_research→ai_brief and services→ai_brief
+    collapse; subtraction of active + dismissed; COLUMNS render-order output;
+    groups list excludes all-visible groups; unknown tokens ignored. -
+    wb-view-state round-trip: dismissedCols survives save/load; stale/unknown
+    keys dropped; legacy blob without the key yields no dismissedCols field. -
+    progress route test (existing __tests__/route.test.ts): terminal payload
+    includes sanitized enrichments; non-terminal omits it; malformed
+    enrichmentsJson → []. OUT OF SCOPE (noted, not built): run finishing while
+    the workbench is unmounted (user navigated away) — the event has no
+    listener; the columns appear only on the NEXT run or via Fields. A
+    per-discovery &quot;seen runs&quot; watermark could close it later; not
+    worth the state for v1.
+  </p>
+</div>
+
+<h2>3 · Render / fetch architecture</h2>
+<table class="score">
+  <thead>
+    <tr>
+      <th>Dimension</th>
+      <th>Before</th>
+      <th>After</th>
+      <th>Reasoning</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td class="dim">query-efficiency</td>
+      <td class="num bad">4</td>
+      <td class="num good">8</td>
+      <td class="why">
+        ~45-50 round trips/render;
+        Contact/LighthouseAudit/BusinessTech/SerpResult/AdLibraryEntry each read
+        3× by three loaders; unbounded Review + snapshot history fetches; saved
+        from lower by consistent batching, Promise.all parallelism and the
+        bounded 1000 window<br /><span class="after"
+          >→ one hydration pass + coverage&#x27;s run-record queries only ≈
+          18-20 round trips; latest-row via DISTINCT ON; reviews
+          aggregated/capped so cost stays flat over time (not 10: still
+          per-request, no use-cache layer — auth-scoped and mutation-heavy,
+          acceptable)</span
+        >
+      </td>
+    </tr>
+    <tr>
+      <td class="dim">payload-efficiency</td>
+      <td class="num bad">5</td>
+      <td class="num good">8</td>
+      <td class="why">
+        ~1.5-2.5MB per window with CSV-only (pitchAngle) and off-default
+        (aiSummary, socials, pains titles) fields always serialized; saved by
+        perSignal null-pruning and deliberate one-short-string-per-row
+        choices<br /><span class="after"
+          >→ ~0.9KB/row core + lazy per-column hydration for heavy fields; ~60%
+          smaller window payload (not 10: perSignal for the filter library is
+          still eagerly shipped, a deliberate honesty/UX tradeoff)</span
+        >
+      </td>
+    </tr>
+    <tr>
+      <td class="dim">single-source-cohesion</td>
+      <td class="num bad">4</td>
+      <td class="num good">9</td>
+      <td class="why">
+        the typeStates chain and COLUMNS registry are genuinely unified, but row
+        facts come from three overlapping fetch passes and the lists page
+        hardcodes null for five columns the registry still offers (row builder
+        lies vs coverage matrix on that page)<br /><span class="after"
+          >→ one builder feeds both pages + export; row facts, presence sets and
+          typeStates derive from one data pass; the lists-page null-column lie
+          disappears structurally</span
+        >
+      </td>
+    </tr>
+    <tr>
+      <td class="dim">extensibility</td>
+      <td class="num bad">5</td>
+      <td class="num good">9</td>
+      <td class="why">
+        the registry auto-wires menu/order/enrich/goal-defaults (excellent), but
+        one new column = ~6-8 manual edits across 4-5 files including two
+        duplicated page pipelines and four hardcoded value switches (one already
+        shipped a dead-sort bug)<br /><span class="after"
+          >→ new column = 1 ColumnDef entry (with rowFields + value accessor) +
+          1 builder field; menu, sort, filter, CSV, enrich affordance all derive
+          from the registry</span
+        >
+      </td>
+    </tr>
+    <tr>
+      <td class="dim">code-duplication</td>
+      <td class="num bad">3</td>
+      <td class="num good">9</td>
+      <td class="why">
+        ~450 near-verbatim lines across the two pages + a third partial copy in
+        the export route + 9 helper functions copied character-for-character,
+        with drift already observable (bands source, tech categories, ads shape,
+        null columns)<br /><span class="after"
+          >→ pages become thin scope-resolvers; the 9 copied helpers live once
+          in the builder module; export route shares the same assembly</span
+        >
+      </td>
+    </tr>
+  </tbody>
+</table>
+<h3>Findings</h3>
+<div class="finding">
+  <b
+    >Three overlapping server loaders re-read the same tables for the same
+    1000-business window every render (~45-50 round trips)</b
+  >
+  <div class="loc">
+    app/[locale]/(agency)/discover/[discoveryId]/page.tsx:264
+  </div>
+  <p>
+    One render runs: 4 sequential queries (member, discovery, count, business
+    window) + 10 parallel side-loads (page.tsx:278-394: Lead, BusinessSnapshot,
+    LighthouseAudit, PlaybookFinding, BusinessTech, Contact, OutreachDraft,
+    AdLibraryEntry.groupBy, SerpResult, BusinessEnrichment) +
+    hydrateBusinessForSignals (signal-eval.ts:1633-1808: ~15 more queries over
+    Business, BusinessSnapshot AGAIN, LighthouseAudit AGAIN, Review, SerpResult
+    AGAIN, AdLibraryEntry AGAIN, BusinessTech AGAIN, BusinessKeyword, Contact
+    AGAIN, PlaybookFinding AGAIN, BusinessService, + cell prevalence) +
+    loadCoverageMatrix (coverage-matrix.ts:92-178: 14 more — 9 presence
+    `distinct businessId` scans over
+    Review/LighthouseAudit/BusinessTech/Contact/BusinessService/BusinessEnrichment/AdLibraryEntry×2/SerpResult,
+    all tables already loaded twice, plus 3 EnrichmentJob groupBys, AdMarketRun,
+    EnrichmentRun) + loadScannedAtMap + cellMetric + marketTotal count
+    (page.tsx:781) + activeRun + category label + spend credits. Contact,
+    LighthouseAudit, BusinessTech, SerpResult, AdLibraryEntry are each read 3×;
+    loadCoverageMatrix even re-fetches the Discovery row and re-selects
+    id+cellKey for businesses already in memory (coverage-matrix.ts:324-334).
+    Tom waits on ~50 Neon round-trips for a table that needs ~15.
+  </p>
+</div>
+<div class="finding">
+  <b
+    >Unbounded history fetches: full BusinessSnapshot/LighthouseAudit history
+    and ALL Review rows loaded to derive latest-row and roll-ups</b
+  >
+  <div class="loc">modules/agency-portal/discover/signal-eval.ts:1726</div>
+  <p>
+    hydrateBusinessForSignals loads EVERY Review row for 1000 businesses with no
+    take (signal-eval.ts:1726-1736) — Meridian alone has 19 reviews, a mature
+    cell can be 100k+ rows per render — and every BusinessSnapshot (1688, weekly
+    rows accumulate forever). page.tsx:293-312 repeats the pattern: findMany all
+    snapshots/audits ordered desc, then firstByBusiness() (page.tsx:973-979)
+    throws away everything but row 1 per business. `distinct:
+    [&#x27;businessId&#x27;]` + orderBy (the DISTINCT ON pattern already used at
+    page.tsx:374-384 for serps) or a groupBy would bound these. Tom&#x27;s page
+    slows down every week the crons run, for data he never sees.
+  </p>
+</div>
+<div class="finding">
+  <b>~450 lines duplicated between the two workbench pages, already drifted</b>
+  <div class="loc">
+    app/[locale]/(agency)/discover/[discoveryId]/lists/[listId]/page.tsx:261
+  </div>
+  <p>
+    lists/[listId]/page.tsx:261-529 is a near-verbatim copy of
+    discover/[discoveryId]/page.tsx:264-766: same side-load block, same maps
+    (pains/pitch/touch/contacts/socials/CONFIDENCE_RANK), same row mapping, same
+    touches + stats builders, and 9 helper functions copied
+    character-for-character (prettyCell, parsePageParam, csvSlug,
+    firstByBusiness, push, isNum, rankTouch, signalKeyLabel, relativeDays).
+    Drift is already visible: the list page loads only CMS tech (293-297, no
+    BOOKING), presence-only ads (321-330, no per-platform counts), cohort-only
+    bands (488-493, no CellMetric market-truth), and hardcodes bookingTool:null.
+    The export route&#x27;s buildCsvLines
+    (app/api/agency/research/[discoveryId]/export/route.ts:287) is a THIRD
+    partial copy of the same side-load + row assembly. Any row-shape fix must be
+    applied three times or Tom sees different truths per surface.
+  </p>
+</div>
+<div class="finding">
+  <b
+    >Saved-list page hardcodes seo/metaAdCount/googleAdCount/serpRank/aiSummary
+    to null — columns exist in the Fields menu but always render as un-enriched
+    there</b
+  >
+  <div class="loc">
+    app/[locale]/(agency)/discover/[discoveryId]/lists/[listId]/page.tsx:476
+  </div>
+  <p>
+    Lines 473-480: &#x27;SEO/ad-count/AI-summary columns aren&#x27;t hydrated on
+    the list-detail surface… null keeps the shared row type satisfied without an
+    extra query here.&#x27; The Fields picker (built from the same COLUMNS
+    registry) still offers SEO, Meta ads, Google ads, SERP and AI summary on
+    this page, and renderCell shows the &#x27;— enrich&#x27; affordance for null
+    values — inviting Tom to re-buy data that exists in the DB and renders fine
+    one click up on the market workbench. This is the exact &#x27;row builder vs
+    coverage matrix disagree&#x27; class the 2026-07-06 truth unification was
+    for, reintroduced by duplication.
+  </p>
+</div>
+<div class="finding">
+  <b
+    >Payload: ~1.5-2.5 MB serialized per 1000-row window, including fields never
+    rendered in the table</b
+  >
+  <div class="loc">modules/agency-portal/discover/leads-workbench.ts:86</div>
+  <p>
+    Per fully-enriched row (calibrated on meridian-dump.json): 27 field keys
+    ~320B + perSignal ~30 pruned library verdicts ~650B + pains (ALL flagged
+    findings, each carrying the full explanation as title — page.tsx:538-548
+    never slices; the cell renders 2 chips + labels-only tooltip,
+    LeadsWorkbench.tsx:1735-1751) ~450B + aiSummary ~280B (off-by-default
+    column) + pitchAngle ~120B (leads-workbench.ts:86 — a CSV-export-only field,
+    rendered in NO column) + contacts/socials/website ~350B + scalars ~150B ≈
+    2.3KB/row enriched, ~0.8KB bare → 1-2.3MB rows + coverageTypeStates (9
+    states × 1000 ≈ 200KB) + scannedAt (~80KB) in the RSC flight. Tom on hotel
+    wifi downloads megabytes to see 20 rows; ~30-40% of it (pitchAngle,
+    aiSummary, pains titles, off-default numerics) is invisible until a toggle
+    or an export click.
+  </p>
+</div>
+<div class="finding">
+  <b
+    >Column value access is re-implemented in four hardcoded switches; one
+    already caused a shipped dead-sort bug</b
+  >
+  <div class="loc">
+    modules/agency-portal/discover/components/LeadsWorkbench.tsx:3363
+  </div>
+  <p>
+    The same key→row-field mapping lives in: numField
+    (LeadsWorkbench.tsx:3363-3382), fieldValue (leads-workbench.ts:768-786),
+    sortRows (leads-workbench.ts:948-975 — whose comment records the &#x27;lastC
+    vs lastContactedAt silent dead sort&#x27; bug), and renderCell&#x27;s
+    key-aware text branch (LeadsWorkbench.tsx:1796-1804, hardcoded
+    bookingTool/aiSummary/builtOn checks). ColumnDef has no value accessor, so
+    every new column must be threaded through each switch by hand — miss one and
+    Tom gets a column that renders but silently won&#x27;t sort or filter.
+  </p>
+</div>
+<div class="finding">
+  <b>Adding one new column today costs ~6-8 edits across 4-5 files</b>
+  <div class="loc">modules/agency-portal/discover/leads-workbench.ts:400</div>
+  <p>
+    Concretely (the AUDIT F2 aiSummary commit is the template): 1)
+    WorkbenchLeadRow field (leads-workbench.ts:38-114), 2) COLUMNS entry
+    (400-644), 3) side-load + map + row assignment in discover page
+    (page.tsx:387-393, 423-430, 629), 4) the same again in lists page (or a
+    hardcoded null), 5) renderCell or numField branch, 6) optionally
+    NumericFilterField + FILTER_FIELDS + fieldValue + FILTER_FIELD_DEFAULTS +
+    sortRows, 7) CSV mapping if exported, 8) export-route side-load. The
+    registry half is genuinely good — one ColumnDef entry auto-wires the Fields
+    menu (typeGroup buckets, LeadsWorkbench.tsx:714-726), header,
+    defaults-for-goal (defaultActiveColumnsForGoal, leads-workbench.ts:667-682),
+    enrich affordance + provenance (group/enrichTypes) — but the data-plumbing
+    half is manual and duplicated per page.
+  </p>
+</div>
+<div class="finding">
+  <b
+    >Drawer refetches ~40 queries per open with no client cache; prev/next
+    arrow-triage pays it per keypress</b
+  >
+  <div class="loc">
+    modules/agency-portal/discover/components/LeadDrawer.tsx:163
+  </div>
+  <p>
+    Every ?lead= change fires getLeadDetailAction (LeadDrawer.tsx:163-188).
+    getLeadDetail runs ~15 parallel queries (lead-detail.ts:445-581) +
+    loadTypeStatesForBusinesses for one business (591 — the same 14-query loader
+    used for 1000) + hydrateBusinessForSignals([businessId]) (721 — 15 more).
+    Only the single last-loaded lead is kept (lastLead); walking ↑/↓ through 10
+    leads and back re-pays ~40 queries × 20 opens with zero reuse, even though
+    the row already carries phones/emails/rating/perf/aiSummary. The
+    keep-last-lead-while-refetching UX is good; the absence of a small keyed
+    cache is the gap.
+  </p>
+</div>
+<div class="finding">
+  <b>What is already good (keep it)</b>
+  <div class="loc">modules/agency-portal/discover/coverage-matrix.ts:56</div>
+  <p>
+    Honest positives: (1) the truth-unified state chain —
+    loadTypeStatesForBusinesses → deriveTypeStates(9) → deriveGroupStates(7) —
+    is a single derivation consumed by workbench, drawer, and stats
+    (page.tsx:754-758 uses the same predicate as the header), so states
+    can&#x27;t disagree; (2) COLUMNS registry drives render order, Fields menu,
+    goal-based defaults and per-column enrich scoping declaratively; (3) every
+    query is batched (`businessId: { in }`), agency-scoped, parallelized in
+    Promise.all, and the window is bounded (WORKBENCH_WINDOW=1000 with real
+    server paging + streamed export); (4) perSignal null-pruning
+    (mergeSignalVerdicts, leads-workbench.ts:872-884) deliberately bounds
+    payload; (5) one CSV mapping shared by client + export route
+    (leads-workbench.ts:1056-1148); (6) drawer/URL state (?lead=, ?page=)
+    survives reload and follows cache-components Patterns 2-4 correctly.
+  </p>
+</div>
+<h3>
+  Proposed architecture (6 steps, each one session, independently shippable)
+</h3>
+<div class="proposal">
+  <p>
+    Step 1 — Extract ONE row-builder module
+    (modules/agency-portal/discover/workbench-rows.ts). Move the entire
+    side-load → maps → WorkbenchLeadRow[] + touches + stats pipeline out of both
+    pages into `buildWorkbenchRows(input: {businesses | leads}, ctx: {agencyId,
+    discoveryId, activeSignals})`. Both pages shrink to: resolve scope (window
+    of businesses OR list leads) → call builder → render. The export
+    route&#x27;s buildCsvLines calls the same builder with a `fields:
+    &#x27;csv&#x27;` subset. This deletes ~450 duplicated lines, fixes the
+    lists-page null columns (seo/ads/serpRank/aiSummary become real everywhere),
+    and makes drift structurally impossible. Pure refactor — no behavior change
+    on the market page, verified by diffing serialized rows before/after. Step 2
+    — One data pass instead of three. hydrateBusinessForSignals already loads
+    Contact, BusinessTech, LighthouseAudit, BusinessSnapshot, Review,
+    SerpResult, AdLibraryEntry, BusinessService, PlaybookFinding. Make it the
+    single fetch: (a) widen its selects by the few row-only fields
+    (contact.value, tech.name, audit.seo, enrichment.positioningSummary,
+    finding.explanation/pitchAngle, draft fields stay separate), (b) derive the
+    presence sets loadTypeStatesForBusinesses needs from the hydrated data and
+    pass them in, so coverage-matrix keeps only its genuinely distinct queries
+    (3 EnrichmentJob groupBys, AdMarketRun, EnrichmentRun, freshness cursors).
+    Round-trips drop from ~50 to ~18-20. Step 3 — Bound the history reads.
+    Snapshots/audits: `distinct: [&#x27;businessId&#x27;]` + orderBy desc (the
+    DISTINCT ON pattern already proven on serps at page.tsx:374). Reviews:
+    replace the full-row load with `review.groupBy(by: businessId, _count,
+    _min/_max postedAt)` plus a capped recent window (postedAt ≥ 180d,
+    take-bounded) for the roll-ups that need stars/ownerReplied/themes — the
+    signal resolvers read aggregates, not raw rows. This makes render cost flat
+    as cron data accumulates. Step 4 — Column-driven serialization. Give
+    ColumnDef `rowFields: (keyof WorkbenchLeadRow)[]` (and `value(r)` accessor —
+    COLUMNS is imported by both sides, never serialized, so functions are legal
+    here). Persist activeCols to a `mapsly:wb` cookie (or `?cols=`) alongside
+    the existing localStorage blob so the SERVER knows the active set; builder
+    serializes core fields (id/name/addr/status/match/perSignal-for-filters) +
+    the union of active columns&#x27; rowFields. Heavy off-default fields
+    (aiSummary ~300KB/window, pitchAngle, socials, pains[].title beyond the
+    first 2) hydrate via one small server action when the column is toggled on
+    (same pattern as the drawer action). Payload: ~2.3KB → ~0.9KB/row (60% cut);
+    toggling a column costs one 100-300KB fetch instead of every visit paying
+    for it. Step 5 — Kill the four value-switches. renderCell&#x27;s text/num
+    key-branches, numField, fieldValue, and sortRows all read `col.value(r)` /
+    `col.sortValue(r)` from the registry. Adding a column becomes: 1 ColumnDef
+    entry + 1 field in the builder&#x27;s row assembly. The lastC-style
+    dead-sort class of bug becomes unrepresentable. Step 6 — Drawer LRU. Keep
+    getLeadDetailAction, add a module-level Map&lt;businessId, LeadDetail&gt;
+    (cap ~30, invalidated by the existing subscribeLeadDetailChanged events and
+    refreshTick). Prev/next re-visits render instantly from cache while a
+    background refetch reconciles. Optionally have getLeadDetail accept
+    pre-known typeStates from the row to skip its per-business
+    loadTypeStatesForBusinesses call. Sequencing: Step 1 first (pure extraction,
+    biggest de-risk), then 2+3 together (query plan change, verify with query
+    logging), then 5 (mechanical), then 4 (needs the cookie plumbing + lazy
+    action), then 6 (independent, anytime). Each step is one session and
+    independently shippable behind `pnpm deploy-check`.
+  </p>
+</div>
+
+<h2>4 · Detailed card (drawer) style audit</h2>
+<table class="score">
+  <thead>
+    <tr>
+      <th>Dimension</th>
+      <th>Before</th>
+      <th>After</th>
+      <th>Reasoning</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td class="dim">visual-consistency-with-portal</td>
+      <td class="num bad">4</td>
+      <td class="num good">9</td>
+      <td class="why">
+        own eyebrow system, gray-bg card zoo vs the portal&#x27;s flat white
+        panels, emoji icons, six off-token radii<br /><span class="after"
+          >→ same surface/divider/eyebrow/state grammar as the enrich sheet and
+          directory cards; tokens only</span
+        >
+      </td>
+    </tr>
+    <tr>
+      <td class="dim">information-hierarchy</td>
+      <td class="num bad">5</td>
+      <td class="num good">9</td>
+      <td class="why">
+        qualification logic is section 2 behind a redundant gauge+facts hero;
+        double header; domain data unheaded and unordered vs its value<br /><span
+          class="after"
+          >→ why-qualifies → contacts → open data → touches; header carries
+          identity+match once; zero duplicated facts</span
+        >
+      </td>
+    </tr>
+    <tr>
+      <td class="dim">density-scanability</td>
+      <td class="num bad">4</td>
+      <td class="num good">8</td>
+      <td class="why">
+        the paid evidence sits behind 7 default-collapsed accordions with
+        56%-clipped summaries; 2 of 6 top facts duplicate the header<br /><span
+          class="after"
+          >→ ~30 always-visible dense rows replace 7 clicks; non-enriched states
+          one line each; provenance right-aligned per block</span
+        >
+      </td>
+    </tr>
+    <tr>
+      <td class="dim">component-reuse</td>
+      <td class="num bad">5</td>
+      <td class="num good">9</td>
+      <td class="why">
+        reuses pill/btn/Icon/StatusPill/note, but 34 inline styles, 5 duplicated
+        micro-label rules, dead .dacc-enrich, invented brand-eyebrow,
+        hand-rolled report button<br /><span class="after"
+          >→ .eyebrow/.microlabel/.enrich-group-row/.dacc-enrich/Icon reused; ≤5
+          dynamic inline styles remain</span
+        >
+      </td>
+    </tr>
+    <tr>
+      <td class="dim">polish</td>
+      <td class="num bad">6</td>
+      <td class="num good">8</td>
+      <td class="why">
+        a11y is genuinely strong (focus trap, aria-modal, kbd nav, resize
+        persist) but dashed-divider semantics collide, twin 📣 icons, inline
+        color overrides, unexplained tones in domain rows<br /><span
+          class="after"
+          >→ one divider semantic, distinct ads icons, tone explainer covers all
+          toned values; a11y features retained</span
+        >
+      </td>
+    </tr>
+  </tbody>
+</table>
+<h3>Findings</h3>
+<div class="finding">
+  <b
+    >Drawer invents its own section-header system (.brand-eyebrow) instead of
+    the portal&#x27;s .eyebrow — and dilutes it by using it 4×</b
+  >
+  <div class="loc">app/[locale]/(agency)/agency-portal.css:6682</div>
+  <p>
+    The whole portal heads sections with `.eyebrow` (11.5px caps, indigo, 0.1em
+    tracking — css:522, used in CreditWallSheet, PreviewStep, MarketStep,
+    WelcomeHero). The drawer alone uses `.brand-eyebrow` (Space Grotesk italic +
+    yellow tick), whose own CSS comment says &#x27;ONE restrained brand
+    moment&#x27; — but it heads all 4 sections (LeadDrawer.tsx:531, 567, 639,
+    653). Tom needs one header vocabulary because a second one reads as a
+    different product inside the same portal.
+  </p>
+</div>
+<div class="finding">
+  <b
+    >Double header on the qualifies section: eyebrow &#x27;Expert signals ·
+    composites&#x27; + h2 &#x27;Why this lead qualifies&#x27; — no other section
+    gets an h2</b
+  >
+  <div class="loc">
+    modules/agency-portal/discover/components/LeadDrawer.tsx:567
+  </div>
+  <p>
+    Lines 567–570 stack two headers with different registers for one section;
+    the other three sections get eyebrow-only. Tom needs a single scannable
+    header per section because inconsistent heading depth breaks the F-pattern
+    scan.
+  </p>
+</div>
+<div class="finding">
+  <b
+    >Surface mismatch: drawer body is page-gray with a zoo of white nested
+    cards; every sibling overlay is a flat white panel with 1px-divided rows</b
+  >
+  <div class="loc">app/[locale]/(agency)/agency-portal.css:6607</div>
+  <p>
+    .drawer background is var(--bg) #f4f5fb (css:6607) holding white .dsec cards
+    (6668), .dacc cards (6969), .fsig cards (6707), .dtouch cards (7123). The
+    EnrichMoreSheet panel — the drawer&#x27;s literal neighbor — is `background:
+    var(--surface)` white (css:3174) with flat .enrich-group-row rows split by
+    1px var(--line-2) (css:3239). This is the single biggest &#x27;out of
+    style&#x27; driver: the drawer is a mini-dashboard of cards inside a panel;
+    the portal&#x27;s overlay language is flat divided rows.
+  </p>
+</div>
+<div class="finding">
+  <b
+    >Six border-radii, none from the token scale (--radius 18 / --radius-sm
+    12)</b
+  >
+  <div class="loc">app/[locale]/(agency)/agency-portal.css:6971</div>
+  <p>
+    .dsec 12px (6671), .dacc 11px (6971), .fsig 11px (6710), .dtouch 10px
+    (7125), header nav buttons 9px (6634), .dacc-enrich 8px (7069). Portal .card
+    uses var(--radius). Tom won&#x27;t name it, but the 9/10/11/12 ramp is
+    exactly the &#x27;ad-hoc magic number&#x27; problem the AUDIT U24 token
+    comment (css:33) was written to end.
+  </p>
+</div>
+<div class="finding">
+  <b
+    >Type off the formal scale: inline fontSize 19 h1, 9px cctag, five
+    duplicated 10px mono-caps micro-label rules, raw 12/12.5px everywhere</b
+  >
+  <div class="loc">
+    modules/agency-portal/discover/components/LeadDrawer.tsx:360
+  </div>
+  <p>
+    h1 inline `fontSize: 19` (tsx:360) replicates the portal h2 (css:499) via
+    inline style instead of a class. .cctag is 9px (css:6900) — below the
+    smallest token --fs-2xs 10.5. The 10px mono-caps token is declared FIVE
+    times (.microlabel 7081, .dfact .fk 6837, .elabel 6788, .dchips-head 6959,
+    .dacc-ghost-tag 7043 — the comment at 7077 admits it). .dtouch* hardcodes
+    12.5px thrice (7139–7148) where --fs-sm IS 12.5px.
+  </p>
+</div>
+<div class="finding">
+  <b
+    >34 inline style={{}} blocks in one component — layout, colors, and a fully
+    hand-rolled button live in JSX</b
+  >
+  <div class="loc">
+    modules/agency-portal/discover/components/LeadDrawer.tsx:947
+  </div>
+  <p>
+    ReportWrongButton styles itself entirely inline (tsx:947–955); ghost listing
+    padding &#x27;4px 12px 2px&#x27; repeats 4× (1290, 1340, 1384, 1410); enrich
+    CTA margin &#x27;6px 12px 10px&#x27; repeats (1312, 1352); failed-tag red is
+    an inline color override (1334) instead of a .dacc-ghost-tag.failed variant;
+    header flex, pill rows, note margins all inline. Meanwhile .dacc-enrich
+    (css:7058–7075) is a purpose-built enrich-CTA class that the component never
+    uses — dead CSS beside inline-styled generic .btn sm.
+  </p>
+</div>
+<div class="finding">
+  <b
+    >Emoji icons head the 7 data accordions (⭐🖥️⚡📣📣🔍🧠) — with Meta ads and
+    Google ads sharing the identical 📣</b
+  >
+  <div class="loc">modules/agency-portal/discover/lead-detail.ts:952</div>
+  <p>
+    Domain icons at lead-detail.ts:952/976/1018/1095/1142/1171/1209 are raw
+    emoji while the same drawer uses the SVG Icon component for arrows, phone,
+    mail, link, warning. copy-voice.md bans emoji outside category badges; two
+    📣 (1095, 1142) means the two ads blocks are visually indistinguishable when
+    collapsed. The headerSub also injects a ⭐ emoji (LeadDrawer.tsx:459).
+  </p>
+</div>
+<div class="finding">
+  <b
+    >Money info is not first: the top section spends its hero on a 96px match
+    gauge + 6 facts, 2 of which duplicate the header and 2 of which are trivia;
+    the paid evidence is a scroll down behind 7 collapsed accordions</b
+  >
+  <div class="loc">modules/agency-portal/discover/lead-detail.ts:806</div>
+  <p>
+    Facts grid = Category, City (both already in headerSub,
+    LeadDrawer.tsx:453–464), Photos, Claimed, Built on, Years on Google
+    (lead-detail.ts:806–822). Match already renders as a pill in the header
+    (tsx:473) — the gauge repeats it at 96px. For Meridian, the actual pitch
+    numbers Tom paid credits for — reply rate 47%, perf 39/100, LCP 7.8s, 0 ads,
+    Meta Pixel present, 9 services, AI pain hypotheses — all sit inside
+    DomainAccordions defaulting closed (tsx:1258): seven clicks to see enriched
+    data. ui-ux-agency.md: &#x27;Above the fold is for the workflow&#x27; and
+    &#x27;numbers over adjectives&#x27;.
+  </p>
+</div>
+<div class="finding">
+  <b
+    >Three different collapsible/card grammars mixed in one column, and the
+    domain accordions float unheaded between two carded sections</b
+  >
+  <div class="loc">
+    modules/agency-portal/discover/components/LeadDrawer.tsx:626
+  </div>
+  <p>
+    Section rhythm is: .dsec card → .dsec card → NAKED .dacc list (tsx:626–633,
+    no section header, not inside a .dsec) → .dsec card → .dsec card. Within it:
+    .fsig collapsibles (indigo left-border, 10px/13px padding) ≈ .dacc
+    accordions (no accent border, 11px/13px padding) ≈ .dtouch static cards —
+    three near-identical-but-different card treatments. Tom can&#x27;t tell
+    what&#x27;s expandable vs static at a glance.
+  </p>
+</div>
+<div class="finding">
+  <b
+    >Dashed-border semantics collide: dashed = &#x27;ghost/not-enriched&#x27; on
+    .dacc.ghost but also a plain divider on contacts and evidence</b
+  >
+  <div class="loc">app/[locale]/(agency)/agency-portal.css:6860</div>
+  <p>
+    .dacc.ghost border-style dashed (7030) encodes &#x27;not run yet&#x27;. But
+    .dcontacts top divider (6860) and .fsig-ev top rule (6780) are also dashed
+    while section/row dividers elsewhere are solid var(--line-2). The visual
+    code for &#x27;missing data&#x27; leaks onto fully-enriched contacts.
+  </p>
+</div>
+<div class="finding">
+  <b
+    >vs-cell green/red toning is explained only inside fired-signal evidence;
+    the same tones in domain rows carry no explainer</b
+  >
+  <div class="loc">
+    modules/agency-portal/discover/components/LeadDrawer.tsx:42
+  </div>
+  <p>
+    VS_CELL_EXPLAINER InfoTip renders only in FiredSignal (tsx:1090–1094).
+    EvidenceRow applies identical green/amber/red toneColor inside
+    Reviews/Speed/Ads accordions (tsx:1204–1211) with no tip — a red
+    &#x27;39/100&#x27; in Site speed is unexplained while the same red inside a
+    fired signal is documented.
+  </p>
+</div>
+<div class="finding">
+  <b
+    >Accordion summary line truncates at 56% max-width mono — the one place
+    collapsed data could be dense, it&#x27;s clipped</b
+  >
+  <div class="loc">app/[locale]/(agency)/agency-portal.css:7010</div>
+  <p>
+    .dacc-sum max-width 56% + ellipsis (7001–7011). For Meridian&#x27;s Reviews
+    block the summary &#x27;113 · 5.0★ · 47% replies&#x27; fits, but AI
+    brief&#x27;s &#x27;medical acupuncture for chronic pain and
+    neurologic/weight-l…&#x27; clips exactly where the information is. Density
+    rule says the collapsed row should carry the numbers, not an ellipsis.
+  </p>
+</div>
+<h3>Restructure proposal (3 phases, one session)</h3>
+<div class="proposal">
+  <p>
+    PHASE 1 — one surface, one section grammar (CSS-only, agency-portal.css
+    §6571–7152). 1. Re-skin the drawer to the portal overlay language: `.drawer
+    { background: var(--surface) }` (match .enrich-panel:3174); delete the
+    white-card treatment from `.dsec` (keep it as a plain flat block: `padding:
+    var(--space-5) 20px; border-bottom: 1px solid var(--line-2); border-radius:
+    0`). Sections become full-bleed divided bands like the enrich sheet — no
+    nested cards on gray. 2. One header token: replace all four `.brand-eyebrow`
+    usages with the portal `.eyebrow` class (LeadDrawer.tsx:531, 567, 639, 653);
+    delete the h2 at tsx:570 (the eyebrow alone heads the section: &#x27;Why
+    this lead qualifies&#x27;). Keep `.brand-eyebrow` in CSS for the ONE allowed
+    brand moment or delete it. 3. Token sweep: collapse the five 10px mono-caps
+    rules to `.microlabel` only (delete the typography declarations from .dfact
+    .fk / .elabel / .dchips-head / .dacc-ghost-tag, add the class in markup);
+    all card radii → var(--radius-sm) for .fsig/.dacc/.dtouch, 8px for buttons;
+    12.5px literals → var(--fs-sm); cctag 9px → var(--fs-2xs); h1 inline
+    fontSize:19 → a `.drawer .dhead h1` rule using the h2 scale. PHASE 2 —
+    information order (LeadDrawer.tsx DrawerBody + lead-detail.ts). 4. New
+    section order: (a) Header — name, sub (drop the ⭐ emoji: &#x27;5.0 · 113
+    reviews&#x27; tabular), pills incl. existing Match pill; (b) WHY THIS
+    QUALIFIES first body section (signal verdicts + fired signals + angles) —
+    this is Tom&#x27;s money; (c) CONTACTS as its own flat section (the outreach
+    action); (d) DATA — one headed section (&#x27;Data · 5 of 7 enriched&#x27;)
+    containing the domain blocks; (e) Expert findings callouts merge under
+    Why-qualifies (they are findings too); (f) Outreach · touches last. 5. Kill
+    the 96px gauge (Match pill in the header already carries the number — the
+    gauge is an SMB big-number pattern duplicating it). Demote the facts grid:
+    delete Category + City rows (duplicate headerSub, lead-detail.ts:807–808);
+    Photos / Claimed / Built on / Years become one `.microlabel`-headed
+    &#x27;Profile&#x27; row inside the Data section. 6. Enriched domain blocks
+    render OPEN AND FLAT — no accordion. Each block is 3–6 rows (Meridian:
+    Reviews 5, Speed 7, Tech 5); total ≈ 30 dense .sig rows ≈ one workbench
+    screen. Keep a per-block microlabel head (Icon + title + right-aligned
+    source·as-of provenance). Non-enriched blocks (not_run/empty/failed/running)
+    compress to ONE `.enrich-group-row`-pattern line each: state dot (reuse
+    .egr-dot), title, right-aligned state tag or &#x27;Enrich →&#x27; CTA using
+    the existing-but-dead `.dacc-enrich` class — identical vocabulary to the
+    enrich sheet, so state reads the same in both surfaces. 7. Replace the 7
+    emoji with Icon names (star, monitor, zap, megaphone, google, search, brain
+    — give Meta vs Google distinct glyphs); keep aria labels. PHASE 3 — polish
+    (both files). 8. Move the 34 inline styles into classes: `.report-link` for
+    ReportWrongButton (tsx:947–955), `.dacc-listing` for the repeated &#x27;4px
+    12px 2px&#x27; padding (×4), `.dacc-ghost-tag.failed` red variant
+    (tsx:1334), `.dfoot .note` auto-margin, header flex/h1 rules. Target ≤5
+    remaining inline styles (dynamic-only: gauge --pct removal makes this easy,
+    drawer width, dim opacity). 9. Unify dividers: dashed reserved exclusively
+    for ghost/not-run; .dcontacts and .fsig-ev dividers go solid var(--line-2).
+    10. Add the vs-cell InfoTip once at the Data section head so toned values in
+    domain rows are covered, not just fired-signal evidence. Scope:
+    LeadDrawer.tsx + lead-detail.ts (order/icons only — no loader or state-chain
+    changes; TypeState honesty rendering is preserved verbatim) +
+    agency-portal.css drawer block. No schema, no server changes. Estimated one
+    session; verify via typecheck/build + Viktor&#x27;s browser pass.
+  </p>
+</div>
+
+<h2>Appendix</h2>
+<p class="sub">
+  Method: full field-level DB dump of one fully-researched business
+  (scripts/diag-full-data-dump.ts) compared against the COLUMNS registry,
+  renderCell, the row serialization in both workbench pages, and lead-detail —
+  by a 4-agent audit (742k tokens, 78 tool calls). Architecture query counts
+  from reading every loader end-to-end. Payload numbers are estimates calibrated
+  on the Meridian row — instrument the RSC flight before/after to confirm.
+</p>

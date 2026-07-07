@@ -31,6 +31,7 @@ import { setRequestLocale } from "next-intl/server";
 import { auth } from "@/lib/auth";
 import { Link, redirect } from "@/i18n/navigation";
 import prisma from "@/lib/prisma";
+import { Icon } from "@/components/agency/Icon";
 import { StatusPill } from "@/modules/agency-portal/components/StatusPill";
 import {
   getLeadDetail,
@@ -440,7 +441,10 @@ async function BusinessDetailBody({ params }: PageProps) {
               }`}
             >
               <div className="flex items-center gap-2">
-                <span aria-hidden="true">{d.icon}</span>
+                {/* LeadDomainBlock.icon is an IconName now (emoji retired). */}
+                <span aria-hidden="true" className="inline-flex text-slate-400">
+                  <Icon name={d.icon} size={14} />
+                </span>
                 <span className="text-sm font-semibold text-slate-800">
                   {d.title}
                 </span>

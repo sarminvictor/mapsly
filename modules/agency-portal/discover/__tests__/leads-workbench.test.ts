@@ -8,10 +8,14 @@ import {
   COLUMNS,
   CSV_HEADERS,
   DEFAULT_ACTIVE_COLUMNS,
+  GROUP_SIGNATURE_COLUMNS,
+  columnsToAutoShow,
   defaultActiveColumnsForGoal,
+  orderColumnsForGoal,
   csvEscape,
   csvLine,
   deriveMatchPct,
+  fmtRelativeShort,
   evalFilter,
   filterLabel,
   fmtDelta,
@@ -512,22 +516,50 @@ describe("getPageNumbers", () => {
 });
 
 describe("column registry", () => {
-  test("default-on columns include the signature workflow columns", () => {
-    expect(DEFAULT_ACTIVE_COLUMNS).toEqual(
-      expect.arrayContaining([
-        "biz",
-        "match",
-        "pains",
-        "reachable",
-        "status",
-        "touch",
-      ]),
+  test("the first-scan default set (2026-07-06): identity + reviews + contacts + workflow", () => {
+    // Exact-equal (not arrayContaining) so BOTH the membership AND the
+    // registry render order are pinned: identity anchor → decision signal
+    // (reviews, the revenue proxy) → contact/action data → workflow state.
+    expect(DEFAULT_ACTIVE_COLUMNS).toEqual([
+      "biz",
+      "match",
+      "pains",
+      "reviews",
+      "website",
+      "phones",
+      "emails",
+      "status",
+      "touch",
+    ]);
+  });
+
+  test("reachable + lastContactedAt are demoted to addable (duplicate ink)", () => {
+    expect(COLUMNS.find((c) => c.key === "reachable")?.defaultOn).toBe(false);
+    expect(COLUMNS.find((c) => c.key === "lastContactedAt")?.defaultOn).toBe(
+      false,
     );
   });
 
-  test("raw numeric facts are off by default (Fields-menu toggles)", () => {
-    const reviews = COLUMNS.find((c) => c.key === "reviews");
-    expect(reviews?.defaultOn).toBe(false);
+  test("rating stays off by default (near-constant in healthy cells)", () => {
+    expect(COLUMNS.find((c) => c.key === "rating")?.defaultOn).toBe(false);
+  });
+
+  test("research-detail span keeps group members adjacent (registry order)", () => {
+    // The span between the contact anchors and the workflow tail — every
+    // data-group's columns must sit together so the .gstart cluster
+    // boundaries (and the goal-first reorder) hold.
+    const keys = COLUMNS.map((c) => c.key);
+    const span = COLUMNS.slice(keys.indexOf("emails") + 1, keys.indexOf("cov"));
+    const seen = new Set<string>();
+    let prev: string | undefined;
+    for (const c of span) {
+      const g = c.group ?? "none";
+      if (g !== prev && seen.has(g)) {
+        throw new Error(`group ${g} appears in two non-adjacent runs`);
+      }
+      seen.add(g);
+      prev = g;
+    }
   });
 });
 
@@ -676,5 +708,181 @@ describe("defaultActiveColumnsForGoal", () => {
     const order = COLUMNS.map((c) => c.key);
     const idx = cols.map((k) => order.indexOf(k));
     expect(idx).toEqual([...idx].sort((a, b) => a - b));
+  });
+});
+
+// ── WB-COL-2 · auto-show after a run ─────────────────────────────────────────
+describe("columnsToAutoShow", () => {
+  test("maps a token to its group's signature columns", () => {
+    expect(columnsToAutoShow(["meta_ads"], [], [])).toEqual({
+      cols: ["metaAdCount"],
+      groups: ["meta_ads"],
+    });
+    expect(columnsToAutoShow(["lighthouse"], [], [])).toEqual({
+      cols: ["perf", "seo"],
+      groups: ["site_speed"],
+    });
+  });
+
+  test("ai_research AND services both collapse to the ai_brief group (once)", () => {
+    expect(columnsToAutoShow(["ai_research"], [], [])).toEqual({
+      cols: ["aiSummary"],
+      groups: ["ai_brief"],
+    });
+    expect(columnsToAutoShow(["services"], [], [])).toEqual({
+      cols: ["aiSummary"],
+      groups: ["ai_brief"],
+    });
+    // Both tokens in one run → one group, one column, no dupes.
+    expect(columnsToAutoShow(["ai_research", "services"], [], [])).toEqual({
+      cols: ["aiSummary"],
+      groups: ["ai_brief"],
+    });
+  });
+
+  test("subtracts already-active columns", () => {
+    expect(columnsToAutoShow(["lighthouse"], ["perf"], [])).toEqual({
+      cols: ["seo"],
+      groups: ["site_speed"],
+    });
+  });
+
+  test("subtracts dismissed columns (an explicit hide is never re-added)", () => {
+    expect(columnsToAutoShow(["reviews"], [], ["rating"])).toEqual({
+      cols: ["reviews"],
+      groups: ["reviews"],
+    });
+    expect(columnsToAutoShow(["reviews"], [], ["reviews", "rating"])).toEqual({
+      cols: [],
+      groups: [],
+    });
+  });
+
+  test("groups excludes an all-visible group (no toast noise)", () => {
+    // contacts_tech's signature minus the defaults leaves only builtOn; with
+    // builtOn also visible the whole group contributes nothing.
+    expect(
+      columnsToAutoShow(
+        ["contacts", "tech"],
+        [...DEFAULT_ACTIVE_COLUMNS, "builtOn"],
+        [],
+      ),
+    ).toEqual({ cols: [], groups: [] });
+    // With the defaults only, the tech half (builtOn) still surfaces.
+    expect(
+      columnsToAutoShow(["contacts", "tech"], DEFAULT_ACTIVE_COLUMNS, []),
+    ).toEqual({ cols: ["builtOn"], groups: ["contacts_tech"] });
+  });
+
+  test("cols come back in COLUMNS render order regardless of token order", () => {
+    const { cols } = columnsToAutoShow(["serp", "lighthouse"], [], []);
+    // perf/seo precede serpRank in the registry.
+    expect(cols).toEqual(["perf", "seo", "serpRank"]);
+  });
+
+  test("unknown tokens are ignored; empty tokens → empty result", () => {
+    expect(columnsToAutoShow(["bogus_type"], [], [])).toEqual({
+      cols: [],
+      groups: [],
+    });
+    expect(columnsToAutoShow([], [], [])).toEqual({ cols: [], groups: [] });
+  });
+
+  test("every signature column exists in the registry", () => {
+    const valid = new Set(COLUMNS.map((c) => c.key));
+    for (const cols of Object.values(GROUP_SIGNATURE_COLUMNS)) {
+      for (const key of cols) expect(valid.has(key)).toBe(true);
+    }
+  });
+});
+
+// ── WB-COL-3 · goal-first column order ───────────────────────────────────────
+describe("orderColumnsForGoal", () => {
+  const keys = (defs: readonly { key: string }[]) => defs.map((d) => d.key);
+
+  test("no goal → exactly the registry", () => {
+    expect(orderColumnsForGoal([])).toEqual(COLUMNS);
+  });
+
+  test("unrecognizable tokens → exactly the registry", () => {
+    expect(orderColumnsForGoal(["bogus"])).toEqual(COLUMNS);
+  });
+
+  test("goal clusters lead the research span, in goal-token order", () => {
+    const out = keys(orderColumnsForGoal(["lighthouse", "serp"]));
+    const spanStart = out.indexOf("emails") + 1;
+    // site_speed (perf, seo) then search (serpRank) lead the span; the
+    // non-goal clusters follow in registry order.
+    expect(out.slice(spanStart, spanStart + 3)).toEqual([
+      "perf",
+      "seo",
+      "serpRank",
+    ]);
+  });
+
+  test("identity/contact head + workflow tail never move", () => {
+    const out = keys(orderColumnsForGoal(["meta_ads", "ai_research"]));
+    expect(out.slice(0, 7)).toEqual([
+      "biz",
+      "match",
+      "pains",
+      "reviews",
+      "website",
+      "phones",
+      "emails",
+    ]);
+    expect(out.slice(-4)).toEqual([
+      "cov",
+      "status",
+      "touch",
+      "lastContactedAt",
+    ]);
+  });
+
+  test("whole clusters move — members stay adjacent", () => {
+    const out = keys(orderColumnsForGoal(["contacts"]));
+    // contacts_tech's span extras (builtOn · bookingTool · socials · reachable)
+    // move to the front of the span AS ONE RUN.
+    const spanStart = out.indexOf("emails") + 1;
+    expect(out.slice(spanStart, spanStart + 4)).toEqual([
+      "builtOn",
+      "bookingTool",
+      "socials",
+      "reachable",
+    ]);
+  });
+
+  test("deterministic — same goal, same order, same registry entries", () => {
+    const a = orderColumnsForGoal(["reviews", "lighthouse"]);
+    const b = orderColumnsForGoal(["reviews", "lighthouse"]);
+    expect(keys(a)).toEqual(keys(b));
+    // A permutation of the registry — nothing added or dropped.
+    expect([...keys(a)].sort()).toEqual(COLUMNS.map((c) => c.key).sort());
+  });
+});
+
+// ── Compact relative date (Last contacted) ───────────────────────────────────
+describe("fmtRelativeShort", () => {
+  const NOW = Date.parse("2026-07-06T12:00:00.000Z");
+  const daysAgo = (n: number) => new Date(NOW - n * 86_400_000).toISOString();
+
+  test("null now (SSR pass) → the deterministic absolute form", () => {
+    expect(fmtRelativeShort("2026-01-05T00:00:00.000Z", null)).toBe("Jan 5");
+    expect(fmtRelativeShort("2026-01-05T00:00:00.000Z")).toBe("Jan 5");
+  });
+
+  test("same day → today; < 7 days → Nd; ≤ 30 days → Nw", () => {
+    expect(fmtRelativeShort(daysAgo(0), NOW)).toBe("today");
+    expect(fmtRelativeShort(daysAgo(3), NOW)).toBe("3d");
+    expect(fmtRelativeShort(daysAgo(14), NOW)).toBe("2w");
+    expect(fmtRelativeShort(daysAgo(30), NOW)).toBe("4w");
+  });
+
+  test("beyond 30 days → the absolute month-day", () => {
+    expect(fmtRelativeShort("2026-01-05T00:00:00.000Z", NOW)).toBe("Jan 5");
+  });
+
+  test("malformed input → em dash", () => {
+    expect(fmtRelativeShort("not-a-date", NOW)).toBe("—");
   });
 });

@@ -120,4 +120,60 @@ describe("GET run progress (WP3-3)", () => {
     const second = await GET(get("r1", etag), params("r1"));
     expect(second.status).toBe(304);
   });
+
+  // WB-COL-2 · the terminal payload carries the run's purchased enrichment
+  // tokens (sanitized enrichmentsJson) so the workbench can auto-show the
+  // bought data's columns even after a reload-mid-run.
+  test("terminal payload includes the sanitized enrichments", async () => {
+    p.enrichmentRun.findFirst.mockResolvedValue({
+      status: "OK",
+      unitsRequested: 50,
+      unitsCompleted: 50,
+      creditsHeld: 10,
+      creditsCharged: 8,
+      // Non-string junk must be filtered, never crash the payload.
+      enrichmentsJson: ["meta_ads", 42, "reviews", null, "lighthouse"],
+    });
+    anyMock(readRunProgress).mockResolvedValue({
+      done: 50,
+      failed: 0,
+      total: 50,
+      status: "OK",
+    });
+    const res = await GET(get("r1"), params("r1"));
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as {
+      enrichments?: string[];
+      creditsCharged?: number;
+    };
+    expect(json.enrichments).toEqual(["meta_ads", "reviews", "lighthouse"]);
+    expect(json.creditsCharged).toBe(8); // the receipt still rides terminal
+  });
+
+  test("non-terminal payload omits enrichments", async () => {
+    anyMock(readRunProgress).mockResolvedValue({
+      done: 10,
+      failed: 0,
+      total: 50,
+      status: "RUNNING",
+    });
+    const res = await GET(get("r1"), params("r1"));
+    const json = (await res.json()) as { enrichments?: string[] };
+    expect(json.enrichments).toBeUndefined();
+  });
+
+  test("malformed enrichmentsJson → [] (never trusted shape)", async () => {
+    p.enrichmentRun.findFirst.mockResolvedValue({
+      status: "FAILED",
+      unitsRequested: 50,
+      unitsCompleted: 0,
+      creditsHeld: 10,
+      creditsCharged: 0,
+      enrichmentsJson: { not: "an-array" },
+    });
+    anyMock(readRunProgress).mockResolvedValue(null); // DB fallback path
+    const res = await GET(get("r1"), params("r1"));
+    const json = (await res.json()) as { enrichments?: string[] };
+    expect(json.enrichments).toEqual([]);
+  });
 });

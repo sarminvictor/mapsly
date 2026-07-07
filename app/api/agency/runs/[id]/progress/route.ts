@@ -33,6 +33,12 @@ export interface RunProgress {
    *  Refunded = held − charged (the quote-vs-actual + fresh-cache diff). */
   creditsHeld?: number;
   creditsCharged?: number;
+  /** WB-COL-2 · the run's purchased enrichment-type tokens (sanitized
+   *  `enrichmentsJson`). Present ONLY in the terminal payload — LiveRunGate
+   *  forwards them on the enrich-finished bus so the workbench can auto-show
+   *  the bought data's columns, surviving a reload-mid-run (runs last
+   *  minutes-to-hours per realtime-runs-adr). */
+  enrichments?: string[];
 }
 
 function etagOf(p: RunProgress): string {
@@ -71,6 +77,9 @@ export async function GET(
       unitsCompleted: true,
       creditsHeld: true,
       creditsCharged: true,
+      // WB-COL-2 · the purchased types — same row, ~zero marginal cost; only
+      // serialized into the terminal payload below.
+      enrichmentsJson: true,
     },
   });
   if (!run) {
@@ -109,13 +118,23 @@ export async function GET(
   // EnrichingStep shows the receipt only in the done-state.
   const terminal =
     raw.status === "OK" || raw.status === "PARTIAL" || raw.status === "FAILED";
+  // WB-COL-2 · sanitize the purchased tokens (Zod-lite: array of strings,
+  // anything else → []) — enrichmentsJson is our own write, but the payload
+  // shape must never depend on trusting it.
+  const enrichments = Array.isArray(run.enrichmentsJson)
+    ? run.enrichmentsJson.filter((t): t is string => typeof t === "string")
+    : [];
   const progress: RunProgress = {
     done,
     failed,
     total,
     status: raw.status,
     ...(terminal
-      ? { creditsHeld: run.creditsHeld, creditsCharged: run.creditsCharged }
+      ? {
+          creditsHeld: run.creditsHeld,
+          creditsCharged: run.creditsCharged,
+          enrichments,
+        }
       : {}),
   };
 

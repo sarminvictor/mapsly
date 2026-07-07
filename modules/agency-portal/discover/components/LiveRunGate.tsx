@@ -35,6 +35,11 @@ interface RunProgress {
   total: number;
   failed: number;
   status: string;
+  /** WB-COL-2 · the run's purchased enrichment-type tokens — present only in
+   *  the terminal payload (server truth from run.enrichmentsJson). Forwarded
+   *  on the enrich-finished bus so the workbench can auto-show the bought
+   *  data's columns, even after a reload-mid-run. */
+  enrichments?: string[];
 }
 
 const POLL_MS = 4000;
@@ -153,7 +158,10 @@ export function LiveRunGate({
             // ISSUE-11 · tell the workbench to drop its optimistic per-cell
             // "enriching…" flags NOW (the old self-clear gated on not_run and
             // never fired for re-runs — loaders lingered 5 minutes).
-            emitEnrichFinished();
+            // WB-COL-2 · carry the server-truth purchased tokens so the
+            // workbench can auto-show the bought data's columns (survives a
+            // reload-mid-run, where the client-side scope state is gone).
+            emitEnrichFinished(p.enrichments ?? []);
             deferOrRefresh();
             triggerFlash();
             // `done` and `failed` are DISJOINT partitions of total — `done` IS

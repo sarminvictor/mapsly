@@ -6,19 +6,21 @@
 //
 // `getLeadDetail(businessId, agencyId)` returns a PLAIN, fully serializable
 // `LeadDetail` (no functions, no Date objects — ISO strings only) shaped to the
-// prototype drawer's 9 sections (docs/portal-prototype.html fillDrawer):
-//   1. header   · name / address / category / rating / reviews / open-status
-//   2. pills    · reachable tier · match % · status · compliance · closed
-//   3. atGlance · match gauge + fact grid + contacts strip
-//   4. why      · fired composite signals (flagged findings) w/ evidence + pitch
-//   5. angles   · other pain-point chips
-//   6. domains  · Reviews / Website&tech / Site speed / Ads / Search / Services /
-//                 AI research — each rendered off its honest run STATE (from the
-//                 SHARED loadTypeStatesForBusinesses loader): enriched / empty /
-//                 failed / running / not_run
-//   7. findings · compliance / accessibility expert warnings + evidence
-//   8. touches  · this lead's OutreachDraft sequence
-//   9. footer   · the action surface (rendered client-side)
+// drawer's portal-flat sections (2026-07 restructure):
+//   1. header   · logo / name / address / category / rating / reviews /
+//                 open-status + pills (reachable · match · status · compliance ·
+//                 closed)
+//   2. why      · signal verdicts + fired composites + angles + expert findings
+//   3. contacts · scraped Contact rows (w/ per-value provenance) + GBP listing
+//                 scalars, state-gated off the honest CONTACTS run state
+//   4. data     · Reviews / Website&tech / Site speed / Meta ads / Google ads /
+//                 Search / AI brief — each rendered off its honest run STATE
+//                 (from the SHARED loadTypeStatesForBusinesses loader):
+//                 enriched / empty / failed / running / not_run — plus the
+//                 always-free Profile (GBP listing facts) and Nearby rivals
+//                 (peopleAlsoSearch) blocks
+//   5. touches  · this lead's OutreachDraft sequence
+//   6. footer   · the action surface (rendered client-side)
 //
 // AGENCY-SCOPED: a business is only returned when it lives in one of the calling
 // agency's discovered cells. Cross-agency / missing → null. No external API in
@@ -26,6 +28,7 @@
 // (`.claude/rules/security.md`, `.claude/rules/cost-discipline.md`).
 
 import prisma from "@/lib/prisma";
+import type { IconName } from "@/components/agency/Icon";
 import { draftWhereForAgency } from "@/modules/outreach/draft-scope";
 
 import {
@@ -81,6 +84,12 @@ export interface LeadContact {
   primary?: boolean;
   /** Issue 5 · true when the value passed verification (VerifiedStatus VALID). */
   verified?: boolean;
+  /**
+   * Per-value provenance from Contact.source + confidence — the short trust
+   * label rendered beside the value ("tel: link · 95%" vs "homepage · 60%") so
+   * Tom knows how sure we are before a cold dial. Absent on GBP listing rows.
+   */
+  provenance?: string;
 }
 
 /** One evidence row under a fired composite (a labelled metric line). */
@@ -136,6 +145,13 @@ export interface LeadEvidenceRow {
    * information. Never set on sentence values.
    */
   strong?: boolean;
+  /**
+   * Drawer content pass (2026-07) · a pulled-review QUOTE line. `value` is the
+   * truncated quoted text, `label` the meta ("5★ · Jul 2 · owner replied").
+   * The drawer renders an indented quote; generic consumers (full-page detail,
+   * Proof Pack) keep the label/value form.
+   */
+  quote?: boolean;
 }
 
 /** A fired composite signal (a flagged PlaybookFinding) w/ evidence + pitch. */
@@ -213,8 +229,9 @@ export interface LeadSignalVerdict {
 export interface LeadDomainBlock {
   /** Stable key (reviews / tech / speed / meta_ads / google_ads / serp / ai). */
   key: string;
-  /** Emoji icon (prototype parity). */
-  icon: string;
+  /** Icon name (components/agency/Icon) — no emoji per copy-voice.md; Meta and
+   *  Google ads carry DISTINCT glyphs (megaphone vs "G"). */
+  icon: IconName;
   /** Section title. */
   title: string;
   /** The honest per-type run state (the shared loader — the source of truth). */
@@ -245,6 +262,30 @@ export interface LeadDomainBlock {
    */
   source: string | null;
   asOf: string | null;
+}
+
+/**
+ * One "people also search" rival (Business.peopleAlsoSearch — free discovery
+ * data). Powers the drawer's "Nearby rivals" block: name + rating + review
+ * count, the "you're losing to X (136 reviews)" pitch at zero cost.
+ */
+export interface LeadRival {
+  name: string;
+  rating: number | null;
+  reviewCount: number | null;
+}
+
+/**
+ * The always-free GBP Profile block rendered inside the drawer's Data section
+ * (microlabel-headed). Rows carry photos / claimed / years-on-Google (tenure
+ * band) / hours-derived open-days / notable attributes; `description` is the
+ * owner's own GBP pitch (drawer truncates + expands); `mapsUrl` is the direct
+ * Maps listing link (Business.checkUrl).
+ */
+export interface LeadProfile {
+  rows: LeadEvidenceRow[];
+  description: string | null;
+  mapsUrl: string | null;
 }
 
 /** An expert finding callout (compliance / accessibility risk). */
@@ -282,6 +323,9 @@ export interface LeadDetail {
   leadId: string | null;
   // ── 1. Header ──
   name: string;
+  /** Google-hosted logo (Business.logoUrl) — header avatar; null degrades to
+   *  no avatar (never a placeholder box). */
+  logoUrl: string | null;
   /** "1200 Brickell Ave, Miami FL" (assembled). */
   addressLine: string;
   category: string | null;
@@ -307,7 +351,7 @@ export interface LeadDetail {
   /**
    * True when `match` came from evaluating the research's signals against this
    * lead (resolveMatches over the discovery's signalsJson) rather than the
-   * pain-count heuristic. Drives the gauge's "real match" framing.
+   * pain-count heuristic. Drives the match pill's measured-vs-derived tooltip.
    */
   matchFromSignals: boolean;
   facts: LeadFact[];
@@ -337,8 +381,14 @@ export interface LeadDetail {
   signalVerdicts: LeadSignalVerdict[];
   // ── 5. Other angles ──
   angles: LeadPainChip[];
-  // ── 6. Data-domain accordions ──
+  // ── 6. Data-domain blocks ──
   domains: LeadDomainBlock[];
+  /** Always-free GBP Profile block (photos / claimed / years / hours /
+   *  attributes / description / Maps link) — Data section, listing-labelled. */
+  profile: LeadProfile;
+  /** Top-5 "people also search" rivals (free discovery data) — the drawer's
+   *  Nearby rivals block. Empty when Google surfaced none. */
+  rivals: LeadRival[];
   // ── 7. Expert findings ──
   expertFindings: LeadExpertFinding[];
   // ── 8. This lead's touches ──
@@ -363,7 +413,7 @@ export interface LeadDetail {
  *
  * When `discoveryId` is given and that discovery has persisted signals
  * (signalsJson), the drawer's "why this lead qualifies" surfaces the honest
- * per-lead verdict for each chosen signal, and the match gauge reflects the REAL
+ * per-lead verdict for each chosen signal, and the match pill reflects the REAL
  * resolveMatches % (P3). Without it (or for an older discovery with no signals),
  * the loader falls back to the pain-count heuristic + finding-based composites.
  */
@@ -406,6 +456,20 @@ export async function getLeadDetail(
       reachableChannelCount: true,
       cellKey: true,
       suppressedAt: true,
+      // Drawer content pass (2026-07) · free GBP payloads with zero prior
+      // surface: logo avatar, owner-written description, direct Maps link,
+      // weekly hours, notable attributes, star distribution, named rivals,
+      // GBP booking-link flag, last-review recency.
+      logoUrl: true,
+      description: true,
+      checkUrl: true,
+      hours: true,
+      attributes: true,
+      ratingDistribution: true,
+      peopleAlsoSearch: true,
+      gbpHasBooking: true,
+      lastReviewAt: true,
+      latestReviewPostedAt: true,
     },
   });
 
@@ -435,9 +499,11 @@ export async function getLeadDetail(
     negUnanswered,
     ads,
     serp,
+    brandSerp,
     services,
     research,
     reviewAgg,
+    recentReviews,
     coverageRows,
   ] = await Promise.all([
     // The business already passed the agency cell gate above; scoping the Lead
@@ -466,10 +532,16 @@ export async function getLeadDetail(
         auditedAt: true,
         performance: true,
         accessibility: true,
+        // Drawer content pass · rounds out the 4-score Lighthouse read Tom
+        // quotes verbatim, plus the freeze metrics (TBT/FCP; INP was already
+        // selected but never rendered).
+        bestPractices: true,
         seo: true,
         lcp: true,
         cls: true,
         inp: true,
+        tbt: true,
+        fcp: true,
         perfSavingsMs: true,
         a11yViolationCount: true,
         a11yCriticalCount: true,
@@ -511,6 +583,10 @@ export async function getLeadDetail(
         role: true,
         isPrimary: true,
         verifiedStatus: true,
+        // Drawer content pass · provenance ("tel: link · 95%" vs "homepage ·
+        // 60%") sets trust per value before a cold dial.
+        source: true,
+        confidence: true,
       },
       take: 30,
     }),
@@ -548,13 +624,25 @@ export async function getLeadDetail(
     prisma.serpResult.findFirst({
       where: { businessId },
       orderBy: { scannedAt: "desc" },
-      // WP6-9 · scannedAt provenance for the Search block.
+      // WP6-9 · scannedAt provenance for the Search block. pack1–3Name are the
+      // named 3-pack rivals ("the pack that beats you: X, Y, Z").
       select: {
         localPackRank: true,
         organicRank: true,
         kind: true,
         scannedAt: true,
+        pack1Name: true,
+        pack2Name: true,
+        pack3Name: true,
       },
+    }),
+    // Drawer content pass · the latest brand-query scan — "a competitor bids on
+    // your name" (isBrandQuery + paidBidders) is the highest-converting search
+    // pitch. Null when no brand query was ever scanned.
+    prisma.serpResult.findFirst({
+      where: { businessId, isBrandQuery: true },
+      orderBy: { scannedAt: "desc" },
+      select: { paidBidders: true, scannedAt: true },
     }),
     prisma.businessService.findMany({
       where: { businessId, isActive: true },
@@ -583,6 +671,14 @@ export async function getLeadDetail(
       where: { businessId },
       _count: { _all: true },
     }),
+    // Drawer content pass · 2–3 recent pulled-review quotes — the opener
+    // material Tom used to tab out to Google Maps for. Bounded + text-only.
+    prisma.review.findMany({
+      where: { businessId, text: { not: null } },
+      orderBy: { postedAt: "desc" },
+      take: 3,
+      select: { stars: true, text: true, postedAt: true, ownerReplied: true },
+    }),
     // THE shared run-state loader (coverage-matrix.ts) — the SAME derivation
     // the workbench matrix reads (jobs incl. QUEUED/RUNNING, cell AdMarketRun
     // for META/SERP, active-run cellRunning, real-row presence → the canonical
@@ -610,10 +706,14 @@ export async function getLeadDetail(
     // Issue 5 · role prefix ("owner" / "front desk"), primary tag, verified
     // cue — the metadata a grouped contacts UI needs to differentiate values.
     const roleLabel = contactRoleLabel(c.role);
-    const meta: Pick<LeadContact, "role" | "primary" | "verified"> = {
+    const meta: Pick<
+      LeadContact,
+      "role" | "primary" | "verified" | "provenance"
+    > = {
       ...(roleLabel ? { role: roleLabel } : {}),
       ...(c.isPrimary ? { primary: true } : {}),
       ...(c.verifiedStatus === "VALID" ? { verified: true } : {}),
+      provenance: contactProvenance(c.source, c.confidence),
     };
     if (c.channel === "PHONE" || c.channel === "WHATSAPP") {
       phones.push({ value: c.value, href: `tel:${c.value}`, ...meta });
@@ -656,13 +756,21 @@ export async function getLeadDetail(
   }
   const contactsState = typeStates.CONTACTS;
 
-  // ── CMS built-on + tech presence (for the Website & tech accordion) ──
+  // ── CMS built-on + tech presence (for the Website & tech block) ──
   const cms = techs.find((t) => t.category === "CMS")?.name ?? null;
   const hasPixel = techs.some((t) => t.category === "PIXEL");
   const hasAnalytics = techs.some((t) => t.category === "ANALYTICS");
   const hasBooking = techs.some((t) => t.category === "BOOKING");
   const hasChat = techs.some((t) => t.category === "CHAT");
   const techScanned = techs.length > 0;
+  // Drawer content pass · the NAMED stack ("Cloudflare · Meta Pixel — no
+  // analytics") from ALL BusinessTech rows, not just presence booleans —
+  // "Meta Pixel present, no Google Analytics" is the sharper attribution pitch.
+  const bookingTool = techs.find((t) => t.category === "BOOKING")?.name ?? null;
+  const stackNames = Array.from(new Set(techs.map((t) => t.name))).slice(0, 6);
+  const stackLine = stackNames.length
+    ? `${stackNames.join(" · ")}${!hasAnalytics ? " — no analytics" : ""}`
+    : null;
 
   // ── Reviews / rating / perf (latest snapshot wins, else Business scalar) ──
   // reviewCount / rating are the discovery GBP aggregate — the LISTING facts,
@@ -688,6 +796,14 @@ export async function getLeadDetail(
   const googleAds = ads.filter((a) => a.platform === "GOOGLE");
   const metaRunsAds = metaAds.some((a) => a.isActive);
   const googleRunsAds = googleAds.some((a) => a.isActive);
+  // Drawer content pass · spend band + advertiser name were SELECTED for months
+  // but never rendered — the wasted-spend pitch's dollar number.
+  const distinct = (values: (string | null)[]): string[] =>
+    Array.from(new Set(values.filter((v): v is string => !!v)));
+  const metaSpendBands = distinct(metaAds.map((a) => a.spendBandUsd));
+  const metaAdvertisers = distinct(metaAds.map((a) => a.advertiserName));
+  const googleSpendBands = distinct(googleAds.map((a) => a.spendBandUsd));
+  const googleAdvertisers = distinct(googleAds.map((a) => a.advertiserName));
 
   // ── Pains (flagged findings) ──
   const pains: LeadPainChip[] = findings.map((f) => ({
@@ -748,7 +864,7 @@ export async function getLeadDetail(
         };
       });
       // A null-only cohort (nothing computable yet) → no honest %; fall back to
-      // the heuristic so the gauge isn't a misleading 0.
+      // the heuristic so the match pill isn't a misleading 0.
       if (result.applicableCount > 0) {
         match = Math.round(result.matchPct * 100);
         derived = false;
@@ -802,10 +918,10 @@ export async function getLeadDetail(
     ? Math.max(0, yearsSince(business.firstSeenOnGoogle))
     : null;
 
-  // ── "At a glance" fact grid ──
+  // ── "At a glance" fact grid (full-page detail + Proof Pack) ──
+  // Style audit (2026-07) · Category + City dropped — both already render in
+  // every consumer's header line (duplicated facts were dead ink).
   const facts: LeadFact[] = [
-    { key: "Category", value: business.category ?? "—" },
-    { key: "City", value: business.city ?? "—" },
     {
       key: "Photos",
       value:
@@ -820,6 +936,49 @@ export async function getLeadDetail(
       value: yearsOnGoogle != null ? `~${yearsOnGoogle} yrs` : "—",
     },
   ];
+
+  // ── Profile block (Data section) · always-free GBP listing facts ──
+  const openDays = openDaysPerWeek(business.hours);
+  const attrs = notableAttributes(business.attributes);
+  const profile: LeadProfile = {
+    rows: [
+      ...(business.photosCount != null
+        ? [{ label: "Photos", value: business.photosCount.toLocaleString() }]
+        : []),
+      { label: "Claimed", value: business.isClaimed ? "Yes" : "No" },
+      ...(yearsOnGoogle != null
+        ? [
+            {
+              label: "Years on Google",
+              value: `~${yearsOnGoogle} yr${yearsOnGoogle === 1 ? "" : "s"}`,
+              metric: {
+                value: yearsOnGoogle,
+                bandKey: "tenure" as const,
+                unit: " yrs",
+              },
+            },
+          ]
+        : []),
+      // Thin hours = capacity ceiling — a growth-pitch wedge at ≤4 days/wk.
+      ...(openDays != null
+        ? [
+            {
+              label: "Hours",
+              value: `Open ${openDays} day${openDays === 1 ? "" : "s"}/wk`,
+              tone: openDays <= 4 ? ("a" as const) : null,
+            },
+          ]
+        : []),
+      ...(attrs.length
+        ? [{ label: "Attributes", value: attrs.join(" · ") }]
+        : []),
+    ],
+    description: business.description ?? null,
+    mapsUrl: business.checkUrl ?? null,
+  };
+
+  // ── Nearby rivals (Business.peopleAlsoSearch — free discovery data) ──
+  const rivals = rivalsFrom(business.peopleAlsoSearch);
 
   // ── Data-domain accordions · honest per-TYPE run state (truth unification) ──
   // Every block's `state` comes from the SHARED loader's deriveTypeStates — the
@@ -862,9 +1021,19 @@ export async function getLeadDetail(
   const metaAdsLastSeen = latestSeen(metaAds);
   const googleAdsLastSeen = latestSeen(googleAds);
 
+  // ── Search extras · named 3-pack rivals + brand-hijack bidders ──
+  const packNames = [serp?.pack1Name, serp?.pack2Name, serp?.pack3Name].filter(
+    (n): n is string => !!n,
+  );
+  const brandBidders = paidBiddersFrom(brandSerp?.paidBidders);
+
   // E1 · the LISTING facts — always present from discovery (GBP aggregate),
   // shown whether or not reviews were pulled. Labelled as the listing, not a
   // review pull. These render ABOVE the review-enrichment ghost/data.
+  const distributionLine = ratingDistributionLine(business.ratingDistribution);
+  const lastReviewDay = shortDay(
+    business.lastReviewAt ?? business.latestReviewPostedAt,
+  );
   const reviewListingRows: LeadEvidenceRow[] = [
     {
       label: "Total reviews",
@@ -884,18 +1053,15 @@ export async function getLeadDetail(
           },
         ]
       : []),
-    ...(yearsOnGoogle != null
-      ? [
-          {
-            label: "Years on Google",
-            value: `~${yearsOnGoogle} yr${yearsOnGoogle === 1 ? "" : "s"}`,
-            metric: {
-              value: yearsOnGoogle,
-              bandKey: "tenure" as const,
-              unit: " yrs",
-            },
-          },
-        ]
+    // Drawer content pass · the star split ("111×5★ · 1×4★") tells the real
+    // story faster than a bare 5.0; last-review recency is the cheapest
+    // is-this-business-alive check. Both are free GBP listing facts.
+    // (Years on Google moved to the Profile block — one surface per fact.)
+    ...(distributionLine != null
+      ? [{ label: "Distribution", value: distributionLine }]
+      : []),
+    ...(lastReviewDay != null
+      ? [{ label: "Last review", value: lastReviewDay }]
       : []),
   ];
 
@@ -927,6 +1093,18 @@ export async function getLeadDetail(
           value: negUnanswered.toLocaleString(),
           tone: negUnanswered > 0 ? ("r" as const) : null,
         },
+        // Drawer content pass · 2–3 recent quotes from the PULLED reviews —
+        // opener material, rendered as indented quote lines (`quote: true`).
+        ...recentReviews
+          .filter((r): r is typeof r & { text: string } => !!r.text)
+          .map((r) => ({
+            label: `${r.stars}★ · ${shortDay(r.postedAt) ?? ""}${
+              r.ownerReplied ? " · owner replied" : " · no reply"
+            }`,
+            value: `“${truncateText(r.text, 140)}”`,
+            section: "Recent reviews" as const,
+            quote: true,
+          })),
       ]
     : [];
 
@@ -949,7 +1127,7 @@ export async function getLeadDetail(
   const domains: LeadDomainBlock[] = [
     {
       key: "reviews",
-      icon: "⭐",
+      icon: "star",
       title: "Reviews",
       state: reviewsState,
       // Summary shows the listing facts (always) + the pull result when enriched.
@@ -973,7 +1151,7 @@ export async function getLeadDetail(
     },
     {
       key: "tech",
-      icon: "🖥️",
+      icon: "monitor",
       title: "Website & tech",
       state: techState,
       summary: techEnriched
@@ -984,6 +1162,17 @@ export async function getLeadDetail(
       rows: techEnriched
         ? [
             { label: "Built on", value: cms ?? "Custom / unknown" },
+            // Drawer content pass · the NAMED stack line — sharper than the
+            // presence booleans below ("Cloudflare · Meta Pixel — no analytics").
+            ...(stackLine != null
+              ? [
+                  {
+                    label: "Stack",
+                    value: stackLine,
+                    tone: !hasAnalytics ? ("a" as const) : null,
+                  },
+                ]
+              : []),
             {
               label: "Tracking pixel",
               value: hasPixel ? "Present" : "Not detected",
@@ -999,10 +1188,36 @@ export async function getLeadDetail(
               value: hasChat ? "Present" : "None",
             },
             {
+              // Names the incumbent (Square / Vagaro) — Tom pitches against a
+              // specific tool, not a boolean.
               label: "Online booking",
-              value: hasBooking ? "Online" : "Phone only",
+              value: hasBooking
+                ? bookingTool
+                  ? `Online · ${bookingTool}`
+                  : "Online"
+                : "Phone only",
               tone: hasBooking ? null : ("a" as const),
             },
+            // GBP-vs-site booking mismatch — one wedge, one line. Only when the
+            // GBP flag is known AND it disagrees with the site scan.
+            ...(business.gbpHasBooking === true && !hasBooking
+              ? [
+                  {
+                    label: "Booking mismatch",
+                    value: "GBP shows a booking link · none detected on site",
+                    tone: "a" as const,
+                  },
+                ]
+              : []),
+            ...(business.gbpHasBooking === false && hasBooking
+              ? [
+                  {
+                    label: "Booking mismatch",
+                    value: `${bookingTool ?? "On-site booking"} not linked from the Google profile`,
+                    tone: "a" as const,
+                  },
+                ]
+              : []),
           ]
         : [],
       listingRows: [],
@@ -1015,7 +1230,7 @@ export async function getLeadDetail(
     },
     {
       key: "speed",
-      icon: "⚡",
+      icon: "zap",
       title: "Site speed",
       state: speedState,
       summary: speedEnriched
@@ -1047,8 +1262,53 @@ export async function getLeadDetail(
                   },
                 ]
               : []),
+            // Drawer content pass · the freeze metrics. INP was selected-but-
+            // never-rendered; TBT ("your site freezes for ~2 seconds") and FCP
+            // round out the CWV read. Thresholds follow web-vitals bands.
+            ...(audit?.inp != null
+              ? [
+                  {
+                    label: "INP",
+                    value: `${Math.round(audit.inp)}ms`,
+                    tone:
+                      audit.inp > 500
+                        ? ("r" as const)
+                        : audit.inp > 200
+                          ? ("a" as const)
+                          : null,
+                  },
+                ]
+              : []),
+            ...(audit?.tbt != null
+              ? [
+                  {
+                    label: "TBT",
+                    value: `${Math.round(audit.tbt)}ms blocked`,
+                    tone:
+                      audit.tbt > 600
+                        ? ("r" as const)
+                        : audit.tbt > 200
+                          ? ("a" as const)
+                          : null,
+                  },
+                ]
+              : []),
             ...(audit?.cls != null
               ? [{ label: "CLS", value: audit.cls.toFixed(2) }]
+              : []),
+            ...(audit?.fcp != null
+              ? [
+                  {
+                    label: "FCP",
+                    value: `${audit.fcp.toFixed(1)}s`,
+                    tone:
+                      audit.fcp > 3
+                        ? ("r" as const)
+                        : audit.fcp > 1.8
+                          ? ("a" as const)
+                          : null,
+                  },
+                ]
               : []),
             ...(audit?.accessibility != null
               ? [
@@ -1067,6 +1327,17 @@ export async function getLeadDetail(
                     label: "SEO",
                     value: `${Math.round(audit.seo)}/100`,
                     tone: audit.seo < 70 ? ("r" as const) : null,
+                  },
+                ]
+              : []),
+            // Drawer content pass · Best Practices rounds out the 4-score
+            // Lighthouse read Tom quotes verbatim in audits.
+            ...(audit?.bestPractices != null
+              ? [
+                  {
+                    label: "Best practices",
+                    value: `${Math.round(audit.bestPractices)}/100`,
+                    tone: audit.bestPractices < 70 ? ("a" as const) : null,
                   },
                 ]
               : []),
@@ -1092,7 +1363,7 @@ export async function getLeadDetail(
     },
     {
       key: "meta_ads",
-      icon: "📣",
+      icon: "megaphone",
       title: "Meta ads",
       state: metaAdsState,
       summary: metaAdsEnriched
@@ -1126,6 +1397,15 @@ export async function getLeadDetail(
                   },
                 ]
               : []),
+            // Drawer content pass · spend band turns "3 ads" into "≈$1–5K
+            // running" — the wasted-spend pitch's dollar number (was selected,
+            // never rendered). Advertiser name confirms attribution.
+            ...(metaSpendBands.length
+              ? [{ label: "Spend band", value: metaSpendBands.join(" · ") }]
+              : []),
+            ...(metaAdvertisers.length
+              ? [{ label: "Advertiser", value: metaAdvertisers.join(" · ") }]
+              : []),
           ]
         : [],
       listingRows: [],
@@ -1139,7 +1419,7 @@ export async function getLeadDetail(
     },
     {
       key: "google_ads",
-      icon: "📣",
+      icon: "google",
       title: "Google ads",
       state: googleAdsState,
       summary: googleAdsEnriched
@@ -1156,6 +1436,12 @@ export async function getLeadDetail(
                 bandKey: "google_ads" as const,
               },
             },
+            ...(googleSpendBands.length
+              ? [{ label: "Spend band", value: googleSpendBands.join(" · ") }]
+              : []),
+            ...(googleAdvertisers.length
+              ? [{ label: "Advertiser", value: googleAdvertisers.join(" · ") }]
+              : []),
           ]
         : [],
       listingRows: [],
@@ -1168,7 +1454,7 @@ export async function getLeadDetail(
     },
     {
       key: "serp",
-      icon: "🔍",
+      icon: "search",
       title: "Search rank",
       state: serpState,
       summary: serpEnriched
@@ -1190,6 +1476,26 @@ export async function getLeadDetail(
             ...(serp?.organicRank != null
               ? [{ label: "Organic rank", value: `#${serp.organicRank}` }]
               : []),
+            // Drawer content pass · name the enemy — the pack that outranks
+            // them is instant pitch credibility.
+            ...(packNames.length
+              ? [{ label: "The pack", value: packNames.join(" · ") }]
+              : []),
+            // Brand hijack — "a competitor bids on your name" (verified from a
+            // brand-query scan; absent when no brand query was ever scanned).
+            ...(brandSerp != null
+              ? [
+                  {
+                    label: "Brand hijack",
+                    value: brandBidders.length
+                      ? `${brandBidders.length} bidder${brandBidders.length === 1 ? "" : "s"} on their name · ${brandBidders
+                          .slice(0, 2)
+                          .join(" · ")}`
+                      : "None detected on their name",
+                    tone: brandBidders.length ? ("r" as const) : ("g" as const),
+                  },
+                ]
+              : []),
           ]
         : [],
       listingRows: [],
@@ -1206,7 +1512,7 @@ export async function getLeadDetail(
       // Services folds into the AI brief — one door, one block. The services
       // list renders as a "Services" sub-section above the AI read.
       key: "ai",
-      icon: "🧠",
+      icon: "sparkle",
       title: "AI brief",
       state: aiBriefState,
       summary: aiBriefEnriched
@@ -1386,6 +1692,7 @@ export async function getLeadDetail(
     businessId: business.id,
     leadId: lead?.id ?? null,
     name: business.name,
+    logoUrl: business.logoUrl ?? null,
     addressLine,
     category: business.category ?? null,
     rating,
@@ -1409,6 +1716,8 @@ export async function getLeadDetail(
     signalVerdicts,
     angles,
     domains,
+    profile,
+    rivals,
     expertFindings,
     touches,
     verifiedNote,
@@ -1578,6 +1887,182 @@ export function socialHandle(channel: string, url: string): string {
 /** Whole years since a date (floor). */
 function yearsSince(d: Date): number {
   return Math.floor((Date.now() - d.getTime()) / (365.25 * 86_400_000));
+}
+
+/**
+ * Contact provenance — short trust label from ContactSource + confidence
+ * ("tel: link · 95%"). Confidence 0 (unset) drops the percent clause.
+ */
+export function contactProvenance(source: string, confidence: number): string {
+  const label = contactSourceLabel(source);
+  return confidence > 0 ? `${label} · ${confidence}%` : label;
+}
+
+/** Short human label for a ContactSource enum value. */
+function contactSourceLabel(source: string): string {
+  switch (source) {
+    case "DFS_LISTING":
+    case "DFS_MAPS":
+      return "Google listing";
+    case "SCRAPE_TEL":
+      return "tel: link";
+    case "SCRAPE_MAILTO":
+      return "mailto: link";
+    case "SCRAPE_HOMEPAGE":
+      return "homepage";
+    case "SCRAPE_CONTACT":
+      return "contact page";
+    case "SCRAPE_ABOUT":
+      return "about page";
+    case "SCRAPE_TEAM":
+      return "team page";
+    case "SCRAPE_FOOTER":
+      return "site footer";
+    case "SCRAPE_JSBUNDLE":
+      return "site code";
+    case "SCRAPE_JSONLD":
+      return "schema markup";
+    case "SCRAPE_SOCIAL_META":
+      return "social meta";
+    case "RDAP":
+      return "domain records";
+    case "AI_WEB_SEARCH":
+      return "web search";
+    case "MANUAL":
+      return "manual";
+    default:
+      return source.toLowerCase().replace(/_/g, " ");
+  }
+}
+
+/**
+ * "111×5★ · 1×4★" from Business.ratingDistribution ({1: n, …, 5: n}).
+ * Descending stars, zero/absent buckets skipped. Defensive: any non-object /
+ * non-numeric shape → null (row omitted).
+ */
+export function ratingDistributionLine(raw: unknown): string | null {
+  if (raw === null || typeof raw !== "object" || Array.isArray(raw))
+    return null;
+  const rec = raw as Record<string, unknown>;
+  const parts: string[] = [];
+  for (const stars of [5, 4, 3, 2, 1]) {
+    const v = rec[String(stars)];
+    const n =
+      typeof v === "number" ? v : typeof v === "string" ? Number(v) : NaN;
+    if (Number.isFinite(n) && n > 0)
+      parts.push(`${n.toLocaleString()}×${stars}★`);
+  }
+  return parts.length > 0 ? parts.join(" · ") : null;
+}
+
+/**
+ * Open days per week from Business.hours (the persisted DfS `work_time`
+ * object: work_hours.timetable keyed by weekday → array of open/close spans;
+ * a closed day is null/empty). Defensive: unparseable → null (row omitted).
+ */
+export function openDaysPerWeek(raw: unknown): number | null {
+  if (raw === null || typeof raw !== "object" || Array.isArray(raw))
+    return null;
+  const wh = (raw as Record<string, unknown>).work_hours;
+  if (wh === null || typeof wh !== "object") return null;
+  const tt = (wh as Record<string, unknown>).timetable;
+  if (tt === null || typeof tt !== "object" || Array.isArray(tt)) return null;
+  const days = Object.values(tt as Record<string, unknown>);
+  if (days.length === 0) return null;
+  return days.filter((v) => Array.isArray(v) && v.length > 0).length;
+}
+
+/**
+ * Notable GBP attributes from Business.attributes (DfS shape:
+ * { available_attributes: { planning: ["appointment_required"], … } }).
+ * Pulls the pitch-relevant groups, humanizes snake_case, caps at 4.
+ */
+export function notableAttributes(raw: unknown): string[] {
+  if (raw === null || typeof raw !== "object" || Array.isArray(raw)) return [];
+  const avail = (raw as Record<string, unknown>).available_attributes;
+  if (avail === null || typeof avail !== "object" || Array.isArray(avail))
+    return [];
+  const groups = ["planning", "service_options", "highlights", "payments"];
+  const out: string[] = [];
+  for (const group of groups) {
+    const items = (avail as Record<string, unknown>)[group];
+    if (!Array.isArray(items)) continue;
+    for (const item of items) {
+      if (typeof item === "string" && item.length > 0) {
+        out.push(item.replace(/_/g, " "));
+        if (out.length >= 4) return out;
+      }
+    }
+  }
+  return out;
+}
+
+/**
+ * Top-5 rivals from Business.peopleAlsoSearch (DfS `people_also_search`:
+ * [{ title, rating: { value, votes_count } }]). Defensive per item.
+ */
+export function rivalsFrom(raw: unknown): LeadRival[] {
+  if (!Array.isArray(raw)) return [];
+  const out: LeadRival[] = [];
+  for (const item of raw) {
+    if (item === null || typeof item !== "object") continue;
+    const rec = item as Record<string, unknown>;
+    const name = typeof rec.title === "string" ? rec.title.trim() : "";
+    if (!name) continue;
+    const rating =
+      rec.rating !== null && typeof rec.rating === "object"
+        ? (rec.rating as Record<string, unknown>)
+        : null;
+    out.push({
+      name,
+      rating: rating && typeof rating.value === "number" ? rating.value : null,
+      reviewCount:
+        rating && typeof rating.votes_count === "number"
+          ? rating.votes_count
+          : null,
+    });
+    if (out.length >= 5) break;
+  }
+  return out;
+}
+
+/** Distinct advertiser domains from SerpResult.paidBidders
+ *  ([{ advertiserDomain, headline }]). Defensive per item. */
+export function paidBiddersFrom(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  const out = new Set<string>();
+  for (const item of raw) {
+    if (item === null || typeof item !== "object") continue;
+    const d = (item as Record<string, unknown>).advertiserDomain;
+    if (typeof d === "string" && d.length > 0) out.add(d);
+  }
+  return Array.from(out);
+}
+
+/** "Jul 4, 2026" (UTC) for a nullable date — review-recency display. */
+export function shortDay(d: Date | null | undefined): string | null {
+  if (!d) return null;
+  const months = [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+  ];
+  return `${months[d.getUTCMonth()]} ${d.getUTCDate()}, ${d.getUTCFullYear()}`;
+}
+
+/** Word-safe-ish truncation with a single ellipsis. */
+export function truncateText(s: string, max: number): string {
+  if (s.length <= max) return s;
+  return `${s.slice(0, max - 1).trimEnd()}…`;
 }
 
 /** WP6-9 · ISO day (YYYY-MM-DD) for a nullable date — the "as of" provenance

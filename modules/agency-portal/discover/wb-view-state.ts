@@ -36,6 +36,15 @@ export interface WorkbenchViewState {
   vsCell: boolean;
   group: "none" | "cell" | "signals";
   activeCols: string[];
+  /**
+   * WB-COL-2 · columns the user EXPLICITLY hid (unchecked in the Fields menu
+   * or removed via the auto-show toast's Undo). The auto-show-after-research
+   * mechanism never re-adds a dismissed column — an explicit uncheck is
+   * permanent for this research until the user re-checks it (which clears the
+   * dismissal). Persisted alongside activeCols; legacy blobs without the key
+   * simply omit it (the Partial load contract).
+   */
+  dismissedCols: string[];
   filters: LeadFilter[];
   sortKey: string;
   sortDir: 1 | -1;
@@ -151,6 +160,14 @@ export function loadWorkbenchView(
     // "biz" is the always-on anchor column; keep it even if a stale blob dropped it.
     if (!cols.includes("biz")) cols.unshift("biz");
     out.activeCols = cols;
+  }
+  // WB-COL-2 · dismissed columns — validated exactly like activeCols (filter
+  // to the current column vocabulary, drop anything stale/unknown). Absent in
+  // legacy blobs → omitted (caller keeps its default empty set).
+  if (Array.isArray(parsed.dismissedCols)) {
+    out.dismissedCols = parsed.dismissedCols.filter(
+      (c): c is string => typeof c === "string" && VALID_COLS.has(c),
+    );
   }
   const filters = sanitizeFilters(parsed.filters);
   if (filters) out.filters = filters;

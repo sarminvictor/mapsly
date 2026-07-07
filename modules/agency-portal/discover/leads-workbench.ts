@@ -11,7 +11,11 @@
 
 // enrichTypesForGroups maps a column's DataGroupKey → its research tokens
 // (the 7-group vocabulary from family-coverage — the ONE display axis).
-import { enrichTypesForGroups, type DataGroupKey } from "./family-coverage";
+import {
+  DATA_GROUP_KEYS,
+  enrichTypesForGroups,
+  type DataGroupKey,
+} from "./family-coverage";
 
 // ── Row shape (plain serializable · resolved server-side) ────────────────────
 
@@ -88,6 +92,13 @@ export interface WorkbenchLeadRow {
   touch: TouchState;
   /** Lead.contactedAt, ISO string (plain-serializable) — null until contacted. */
   lastContactedAt: string | null;
+  /**
+   * Google listing closed state (Business.permanentlyClosed /
+   * temporarilyClosed) — rendered as a small "Closed" tag on the Business
+   * cell so Tom never burns a touch on a closed business. Optional for
+   * back-compat with row builders that don't serialize it; absent reads open.
+   */
+  closed?: "permanent" | "temporary" | null;
   // Raw numeric facts (null when the family isn't enriched on this lead).
   reviews: number | null;
   rating: number | null;
@@ -392,10 +403,17 @@ export interface ColumnDef {
 }
 
 /**
- * The canonical workbench column registry. Order here is render order. `biz`,
- * `match`, `pains`, `built on`, `reach`, `status`, `touch` are on by default;
- * the raw numeric facts (reviews / rating / perf) are off-by-default toggles in
- * the Fields menu.
+ * The canonical workbench column registry. Order here is render order
+ * (2026-07-06 reorder): identity anchor (biz · match · pains) → decision
+ * signal (reviews — the revenue proxy) → contact/action data (website ·
+ * phones · emails) → per-research detail with GROUP MEMBERS ADJACENT
+ * (rating · perf+seo · aiSummary · metaAdCount+googleAdCount · serpRank ·
+ * the contacts_tech extras) → workflow state at the right edge (cov ·
+ * status · touch · lastContactedAt).
+ *
+ * Defaults (first-scan set): biz · match · pains · reviews · website ·
+ * phones · emails · status · touch — plus goal-driven auto-ons
+ * (defaultActiveColumnsForGoal) and run-driven auto-shows (columnsToAutoShow).
  */
 export const COLUMNS: readonly ColumnDef[] = [
   {
@@ -424,6 +442,19 @@ export const COLUMNS: readonly ColumnDef[] = [
     typeGroup: "Identity",
   },
   {
+    key: "reviews",
+    label: "Reviews",
+    kind: "num",
+    sortable: true,
+    // Promoted to default (2026-07-06) — review count is the revenue proxy Tom
+    // sizes prospects by AND the server sort order; it was invisible until
+    // toggled while the table sorted by it.
+    defaultOn: true,
+    group: "reviews",
+    higherIsBetter: true,
+    typeGroup: "Reviews",
+  },
+  {
     key: "website",
     label: "Website",
     kind: "site",
@@ -436,37 +467,25 @@ export const COLUMNS: readonly ColumnDef[] = [
     typeGroup: "Tech",
   },
   {
-    key: "builtOn",
-    label: "Built on",
-    kind: "text",
+    key: "phones",
+    label: "Phone",
+    kind: "contact",
     sortable: false,
-    // Off by default now that the Website column carries the URL — the CMS name
-    // is a secondary detail, kept toggle-able in the Fields menu.
-    defaultOn: false,
-    group: "contacts_tech",
-    // Built-on comes from the DOM/tech scan (rides the contacts fetch) — NOT
-    // Lighthouse. A cell-click enriches contacts+tech only.
-    enrichTypes: ["contacts", "tech"],
-    typeGroup: "Tech",
-  },
-  {
-    key: "reachable",
-    label: "Reachable",
-    kind: "reach",
-    sortable: false,
+    // Contacts are what the agency paid to enrich — show them by default so a
+    // fresh workbench answers "how do I see the contacts?" without hunting the
+    // Fields menu. (Junk phones are now purged + NANP-validated at the source.)
     defaultOn: true,
     group: "contacts_tech",
     typeGroup: "Contacts",
   },
   {
-    key: "reviews",
-    label: "Reviews",
-    kind: "num",
-    sortable: true,
-    defaultOn: false,
-    group: "reviews",
-    higherIsBetter: true,
-    typeGroup: "Reviews",
+    key: "emails",
+    label: "Email",
+    kind: "contact",
+    sortable: false,
+    defaultOn: true,
+    group: "contacts_tech",
+    typeGroup: "Contacts",
   },
   {
     key: "rating",
@@ -508,6 +527,23 @@ export const COLUMNS: readonly ColumnDef[] = [
     typeGroup: "Site audit",
   },
   {
+    // AUDIT F2 · the AI-research positioning summary — stored on
+    // BusinessEnrichment (the drawer already renders it), now a toggle-able
+    // column. Off by default (a long text field); the cell truncates + carries
+    // the full text in its tooltip. Group = ai_brief, but `enrichTypes` narrows
+    // the loader + a cell-click to the ai_research job only (the services
+    // sub-scan doesn't feed this column — ISSUE-11: without the wiring this
+    // column could NEVER show an in-flight state).
+    key: "aiSummary",
+    label: "AI summary",
+    kind: "text",
+    sortable: false,
+    defaultOn: false,
+    group: "ai_brief",
+    enrichTypes: ["ai_research"],
+    typeGroup: "AI",
+  },
+  {
     // Meta and Google ads are SEPARATE columns — distinct sources, cost bases,
     // and reliability. Never merged into one "Ads" total. Each column's group
     // scopes a cell-click to THAT platform only.
@@ -545,6 +581,20 @@ export const COLUMNS: readonly ColumnDef[] = [
     typeGroup: "Search",
   },
   {
+    key: "builtOn",
+    label: "Built on",
+    kind: "text",
+    sortable: false,
+    // Off by default now that the Website column carries the URL — the CMS name
+    // is a secondary detail, kept toggle-able in the Fields menu.
+    defaultOn: false,
+    group: "contacts_tech",
+    // Built-on comes from the DOM/tech scan (rides the contacts fetch) — NOT
+    // Lighthouse. A cell-click enriches contacts+tech only.
+    enrichTypes: ["contacts", "tech"],
+    typeGroup: "Tech",
+  },
+  {
     // AUDIT C3 · the exact booking tool (Square/Vagaro/Fresha) — stored, unshown.
     key: "bookingTool",
     label: "Booking tool",
@@ -557,50 +607,24 @@ export const COLUMNS: readonly ColumnDef[] = [
     typeGroup: "Tech",
   },
   {
-    // AUDIT F2 · the AI-research positioning summary — stored on
-    // BusinessEnrichment (the drawer already renders it), now a toggle-able
-    // column. Off by default (a long text field); the cell truncates + carries
-    // the full text in its tooltip. Group = ai_brief, but `enrichTypes` narrows
-    // the loader + a cell-click to the ai_research job only (the services
-    // sub-scan doesn't feed this column — ISSUE-11: without the wiring this
-    // column could NEVER show an in-flight state).
-    key: "aiSummary",
-    label: "AI summary",
-    kind: "text",
-    sortable: false,
-    defaultOn: false,
-    group: "ai_brief",
-    enrichTypes: ["ai_research"],
-    typeGroup: "AI",
-  },
-  {
-    key: "phones",
-    label: "Phone",
-    kind: "contact",
-    sortable: false,
-    // Contacts are what the agency paid to enrich — show them by default so a
-    // fresh workbench answers "how do I see the contacts?" without hunting the
-    // Fields menu. (Junk phones are now purged + NANP-validated at the source.)
-    defaultOn: true,
-    group: "contacts_tech",
-    typeGroup: "Contacts",
-  },
-  {
-    key: "emails",
-    label: "Email",
-    kind: "contact",
-    sortable: false,
-    defaultOn: true,
-    group: "contacts_tech",
-    typeGroup: "Contacts",
-  },
-  {
     // AUDIT E6 · social handles were stored but never shown. Off by default
     // (secondary contact channel), addable from the Fields menu.
     key: "socials",
     label: "Socials",
     kind: "socials",
     sortable: false,
+    defaultOn: false,
+    group: "contacts_tech",
+    typeGroup: "Contacts",
+  },
+  {
+    key: "reachable",
+    label: "Reachable",
+    kind: "reach",
+    sortable: false,
+    // Demoted to addable (2026-07-06) — with Phone + Email default-on, a third
+    // default pill restating "has contacts" was duplicate ink at 100-row scale.
+    // The tier detail lives in the drawer pills.
     defaultOn: false,
     group: "contacts_tech",
     typeGroup: "Contacts",
@@ -638,7 +662,10 @@ export const COLUMNS: readonly ColumnDef[] = [
     label: "Last contacted",
     kind: "lastC",
     sortable: true,
-    defaultOn: true,
+    // Demoted to addable (2026-07-06) — Status + Touch already encode the
+    // lifecycle; a third Identity column was empty for most rows in a fresh
+    // discovery. Sortable + addable from the Fields menu when Tom needs it.
+    defaultOn: false,
     typeGroup: "Identity",
   },
 ] as const;
@@ -679,6 +706,169 @@ export function defaultActiveColumnsForGoal(
     if (tokens.some((t) => goalSet.has(t))) out.push(c.key);
   }
   return out;
+}
+
+/**
+ * WB-COL-3 · goal-first column order. Within the RESEARCH-DETAIL SPAN of the
+ * registry (the block between the contact anchors and the workflow tail:
+ * rating · perf/seo · aiSummary · meta/google ads · serpRank · the
+ * contacts_tech extras), the data-group CLUSTERS tied to this research's goal
+ * come first — a site-speed hunt reads perf/seo right after the anchors, not
+ * behind rating. Rules:
+ *   - identity/contact/workflow columns NEVER move (spatial anchors);
+ *   - whole clusters move, members stay adjacent (gstart boundaries hold);
+ *   - goal clusters lead in their goal-token order, non-goal clusters follow
+ *     in registry order;
+ *   - deterministic — computed once per research from the PERSISTED goal
+ *     (`goalResearches`, the same tokens defaultActiveColumnsForGoal reads),
+ *     never re-ordered on live filter/signal changes.
+ * No goal (or no recognizable tokens) → exactly COLUMNS. Pure.
+ */
+export function orderColumnsForGoal(
+  goalResearches: readonly string[],
+): readonly ColumnDef[] {
+  if (goalResearches.length === 0) return COLUMNS;
+  // The research-detail span: after the last contact anchor, before the
+  // workflow tail. Keyed on the registry's stable anchor columns.
+  const start = COLUMNS.findIndex((c) => c.key === "emails") + 1;
+  const end = COLUMNS.findIndex((c) => c.key === "cov");
+  if (start <= 0 || end < start) return COLUMNS;
+  const span = COLUMNS.slice(start, end);
+  // Goal tokens → goal data groups, deduped, in first-token order.
+  const goalGroups: DataGroupKey[] = [];
+  for (const token of goalResearches) {
+    const g = DATA_GROUP_KEYS.find((k) =>
+      enrichTypesForGroups([k]).includes(token),
+    );
+    if (g && !goalGroups.includes(g)) goalGroups.push(g);
+  }
+  if (goalGroups.length === 0) return COLUMNS;
+  // Bucket the span into group clusters (member order preserved).
+  const clusters = new Map<string, ColumnDef[]>();
+  const clusterOrder: string[] = [];
+  for (const c of span) {
+    const key = c.group ?? "__none__";
+    let arr = clusters.get(key);
+    if (!arr) {
+      arr = [];
+      clusters.set(key, arr);
+      clusterOrder.push(key);
+    }
+    arr.push(c);
+  }
+  const goalKeys = goalGroups.filter((g) => clusters.has(g)) as string[];
+  const ordered = [
+    ...goalKeys,
+    ...clusterOrder.filter((k) => !goalKeys.includes(k)),
+  ];
+  return [
+    ...COLUMNS.slice(0, start),
+    ...ordered.flatMap((k) => clusters.get(k)!),
+    ...COLUMNS.slice(end),
+  ];
+}
+
+// ── Auto-show after a run (WB-COL-2) ─────────────────────────────────────────
+// When an enrichment run goes terminal, the columns representing what was just
+// BOUGHT appear by themselves — append-only, dismissed-aware, with a toast
+// naming the groups. The same additive computation as
+// defaultActiveColumnsForGoal, keyed off the run's purchased tokens instead of
+// the goal.
+
+/**
+ * WB-COL-2 · the SIGNATURE columns per data group — an explicit curated map,
+ * NOT derived from `ColumnDef.group` alone: derivation would auto-surface the
+ * deliberately-secondary columns (socials was made off-by-default per AUDIT
+ * E6, bookingTool per AUDIT C3). contacts_tech's first three are defaultOn →
+ * usually a no-op; `builtOn` represents the tech half of the paid DOM fetch.
+ */
+export const GROUP_SIGNATURE_COLUMNS: Record<DataGroupKey, readonly string[]> =
+  {
+    contacts_tech: ["website", "phones", "emails", "builtOn"],
+    reviews: ["reviews", "rating"],
+    site_speed: ["perf", "seo"],
+    ai_brief: ["aiSummary"],
+    meta_ads: ["metaAdCount"],
+    google_ads: ["googleAdCount"],
+    search: ["serpRank"],
+  };
+
+/**
+ * WB-COL-2 · which columns to auto-show when a run finishes. `purchasedTypes`
+ * are the run's lowercase enrich tokens ("meta_ads", "ai_research", …) — the
+ * server-truth `enrichmentsJson` at the terminal poll, or the same-session bus
+ * scope as fallback. Tokens map to data groups via the canonical group→tokens
+ * mapping (so ai_research AND services both collapse to ai_brief); the groups'
+ * signature columns are unioned, minus what's already visible (`activeCols`)
+ * and what the user explicitly hid (`dismissedCols` — an auto-show must never
+ * fight an explicit uncheck). `cols` come back in COLUMNS render order;
+ * `groups` lists only the groups that contributed ≥1 actually-added column
+ * (drives the toast text — an all-visible group produces no toast noise).
+ * Empty/unknown tokens → empty result. Pure.
+ */
+export function columnsToAutoShow(
+  purchasedTypes: readonly string[],
+  activeCols: readonly string[],
+  dismissedCols: readonly string[],
+): { cols: string[]; groups: DataGroupKey[] } {
+  if (purchasedTypes.length === 0) return { cols: [], groups: [] };
+  const purchased = new Set(purchasedTypes);
+  const skip = new Set([...activeCols, ...dismissedCols]);
+  const addSet = new Set<string>();
+  const groups: DataGroupKey[] = [];
+  for (const g of DATA_GROUP_KEYS) {
+    const tokens = enrichTypesForGroups([g]);
+    if (!tokens.some((t) => purchased.has(t))) continue;
+    const added = GROUP_SIGNATURE_COLUMNS[g].filter(
+      (c) => !skip.has(c) && !addSet.has(c),
+    );
+    if (added.length === 0) continue;
+    groups.push(g);
+    for (const c of added) addSet.add(c);
+  }
+  // Same insertion discipline as defaultActiveColumnsForGoal: the returned
+  // keys follow the COLUMNS registry render order.
+  const cols = COLUMNS.filter((c) => addSet.has(c.key)).map((c) => c.key);
+  return { cols, groups };
+}
+
+// ── Compact date formatting (Last contacted) ─────────────────────────────────
+
+const MONTH_ABBR = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+] as const;
+
+/**
+ * Shortest honest form of a past timestamp for a dense cell: "today", "3d"
+ * (< 7 days), "2w" (≤ 30 days), else the absolute "Jan 5" (UTC — deterministic
+ * across server render + hydration). Pass `nowMs = null` for the SSR pass —
+ * the absolute form renders until the client mounts and supplies a real now
+ * (the INC-09 pattern: no `Date.now()` during prerender). The full date lives
+ * in the cell tooltip. Malformed input → "—". Pure.
+ */
+export function fmtRelativeShort(iso: string, nowMs?: number | null): string {
+  const t = Date.parse(iso);
+  if (Number.isNaN(t)) return "—";
+  const d = new Date(t);
+  const abs = `${MONTH_ABBR[d.getUTCMonth()]} ${d.getUTCDate()}`;
+  if (nowMs == null) return abs;
+  const days = Math.floor((nowMs - t) / 86_400_000);
+  if (days < 0) return abs; // future timestamps read as their date
+  if (days === 0) return "today";
+  if (days < 7) return `${days}d`;
+  if (days <= 30) return `${Math.max(1, Math.floor(days / 7))}w`;
+  return abs;
 }
 
 // ── Filter model ─────────────────────────────────────────────────────────────

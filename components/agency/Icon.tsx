@@ -35,7 +35,15 @@ export type IconName =
   | "star"
   | "chevron-down"
   | "arrow-up"
-  | "arrow-down";
+  | "arrow-down"
+  // Drawer data-domain glyphs (emoji replacement per copy-voice.md — Meta and
+  // Google ads get DISTINCT glyphs so collapsed blocks never look identical).
+  | "monitor"
+  | "zap"
+  | "megaphone"
+  | "google"
+  | "sparkle"
+  | "users";
 
 export interface IconProps {
   name: IconName;
@@ -87,6 +95,20 @@ const PATHS: Record<IconName, string> = {
   "chevron-down": "M4 6l4 4 4-4",
   "arrow-up": "M8 12.5V3.5 M4.5 7 8 3.5 11.5 7",
   "arrow-down": "M8 3.5v9 M4.5 9 8 12.5 11.5 9",
+  // screen + stand (website & tech)
+  monitor: "M2 3.5h12V11H2z M6 13.5h4 M8 11v2.5",
+  // lightning bolt (site speed)
+  zap: "M8.8 1.8 3.8 9h3.4l-.9 5.2 5-7.2H7.9z",
+  // megaphone (Meta ads)
+  megaphone:
+    "M12.5 2.5v9 M12.5 3.5C9.5 5.2 6.8 5.4 4.5 5.4c-1.5 0-2.7.7-2.7 1.8s1.2 1.8 2.7 1.8c2.3 0 5 .2 8 1.9 M5 9.3l1 4.2h1.8L7 9.2",
+  // "G" mark (Google ads — distinct from the Meta megaphone)
+  google: "M12 4.5A5.5 5.5 0 1 0 13.5 8H8.5",
+  // four-point sparkle (AI brief)
+  sparkle: "M8 1.8 9.4 6.6 14.2 8 9.4 9.4 8 14.2 6.6 9.4 1.8 8 6.6 6.6z",
+  // two heads (nearby rivals)
+  users:
+    "M5.8 3.2a2.4 2.4 0 1 0 0 4.8 2.4 2.4 0 0 0 0-4.8z M1.6 13.4c.4-2.4 2.1-3.8 4.2-3.8s3.8 1.4 4.2 3.8 M10.3 3.6a2.4 2.4 0 0 1 0 4.4 M11.6 9.8c1.5.5 2.5 1.7 2.8 3.6",
 };
 
 export function Icon({ name, size = 16, className, style, title }: IconProps) {

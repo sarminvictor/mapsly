@@ -208,6 +208,10 @@ async function ListWorkbenchBody({ params, searchParams }: PageProps) {
           phone: true,
           email: true,
           website: true,
+          // Closed-on-Google flags → the row's "Closed" tag on the Business
+          // cell (Tom must never burn a touch on a closed business).
+          permanentlyClosed: true,
+          temporarilyClosed: true,
         },
       },
     },
@@ -467,6 +471,11 @@ async function ListWorkbenchBody({ params, searchParams }: PageProps) {
       pitchAngle: pitchById.get(b.id) ?? null,
       touch: touchByBusiness.get(b.id) ?? "None",
       lastContactedAt: lead.contactedAt?.toISOString() ?? null,
+      closed: b.permanentlyClosed
+        ? ("permanent" as const)
+        : b.temporarilyClosed
+          ? ("temporary" as const)
+          : null,
       reviews,
       rating,
       perf,

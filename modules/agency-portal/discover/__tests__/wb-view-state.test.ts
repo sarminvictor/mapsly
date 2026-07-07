@@ -1,17 +1,22 @@
 // Shareable-view URL params (WP4-13 · URL half): sort + filters serialize into
 // searchParams and parse back defensively. Pure round-trip invariants — the
-// localStorage half needs a window and stays untested per testing.md (the
-// defensive parse there mirrors the same vocabulary checks covered here).
+// localStorage half stays mostly untested per testing.md (the defensive parse
+// mirrors the same vocabulary checks covered here); the ONE exception is the
+// WB-COL-2 dismissedCols round-trip below (a new persisted field whose
+// auto-show semantics depend on surviving save/load), run against a stubbed
+// window.localStorage.
 
-import { describe, expect, test } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import type { LeadFilter, NumericLeadFilter } from "../leads-workbench";
 import {
   DEFAULT_SORT_DIR,
   DEFAULT_SORT_KEY,
+  loadWorkbenchView,
   parseFieldStateParam,
   parseFilterParam,
   parseViewFromSearchParams,
+  saveWorkbenchView,
   serializeFieldStateParam,
   serializeFilterParam,
   viewToSearchParams,
@@ -209,5 +214,62 @@ describe("field-state filters (fs param)", () => {
   test("an old URL with no fs param parses to an empty fieldStates", () => {
     const view = parseViewFromSearchParams(new URLSearchParams("f=perf:lt:50"));
     expect(view?.fieldStates).toEqual([]);
+  });
+});
+
+// ── WB-COL-2 · dismissedCols persistence (the localStorage blob) ─────────────
+// Auto-show-after-research must never re-add a column Tom explicitly hid —
+// which only holds if the dismissal SURVIVES a reload. Stub window.localStorage
+// (node env) and run the real save/load pair.
+describe("dismissedCols persistence (wb blob)", () => {
+  const store = new Map<string, string>();
+
+  beforeEach(() => {
+    store.clear();
+    vi.stubGlobal("window", {
+      localStorage: {
+        getItem: (k: string) => store.get(k) ?? null,
+        setItem: (k: string, v: string) => {
+          store.set(k, v);
+        },
+      },
+    });
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  const baseView = {
+    vsCell: true,
+    group: "none" as const,
+    activeCols: ["biz", "match"],
+    sortKey: DEFAULT_SORT_KEY,
+    sortDir: DEFAULT_SORT_DIR,
+    pageSize: 20,
+  };
+
+  test("dismissedCols survives a save/load round-trip", () => {
+    saveWorkbenchView("d1", { ...baseView, dismissedCols: ["rating", "seo"] });
+    const loaded = loadWorkbenchView("d1");
+    expect(loaded?.dismissedCols).toEqual(["rating", "seo"]);
+  });
+
+  test("stale/unknown dismissed keys are dropped on load (defensive)", () => {
+    store.set(
+      "mapsly:wb:d2",
+      JSON.stringify({
+        ...baseView,
+        dismissedCols: ["rating", "retired_column", 42, null],
+      }),
+    );
+    const loaded = loadWorkbenchView("d2");
+    expect(loaded?.dismissedCols).toEqual(["rating"]);
+  });
+
+  test("a legacy blob without the key yields no dismissedCols field", () => {
+    store.set("mapsly:wb:d3", JSON.stringify(baseView));
+    const loaded = loadWorkbenchView("d3");
+    expect(loaded).not.toBeNull();
+    expect(loaded).not.toHaveProperty("dismissedCols");
   });
 });
