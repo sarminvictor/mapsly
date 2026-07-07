@@ -923,6 +923,15 @@
   font-weight: 600;
   font-size: var(--fs-md);
 }
+/* Owner 2026-07-06 · a label with a term definition (data-tip glossary —
+   LCP, INP, 3-pack, …) gets a subtle dotted underline + help cursor so the
+   explanation is discoverable without cluttering the row. */
+.agency-portal .sig .name.deft {
+  text-decoration: underline dotted var(--faint);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  cursor: help;
+}
 .agency-portal .sig .name .q {
   display: inline-grid;
   place-items: center;
@@ -1424,7 +1433,6 @@
 /* one uniform control height across the whole toolbar */
 .agency-portal .wb-toolbar .btn.sm,
 .agency-portal .wb-toolbar .seg,
-.agency-portal .wb-toolbar .cmptoggle,
 .agency-portal .wb-toolbar .iconbtn,
 .agency-portal .wb-toolbar .wb-search input {
   height: 34px;
@@ -1468,9 +1476,6 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-}
-.agency-portal .wb-toolbar .cmptoggle {
-  padding: 0 11px;
 }
 .agency-portal .wb-toolbar .iconbtn {
   width: 34px;
@@ -1656,12 +1661,9 @@
   line-height: 1;
   border: 1.5px solid #fff;
 }
-.agency-portal .iconbtn .cbadge.alt {
-  background: #fff;
-  color: var(--muted);
-  border: 1.5px solid var(--line);
-  font-weight: 600;
-}
+/* B11b/B13 · .cbadge.alt (the coverage button's set-level N/7 badge) is gone
+   with the coverage button — the all-or-nothing set-level fraction was the
+   toolbar doc's "0/7 lie"; per-lead coverage lives in the row chip strip. */
 .agency-portal .iconbtn .dot {
   position: absolute;
   top: 4px;
@@ -1909,6 +1911,266 @@
 .agency-portal .chipsbar .cb-clear:hover {
   color: var(--red);
   background: var(--red-50);
+}
+
+/* ---- B1a · data-state filter chips (first-class, removable) ---- */
+.agency-portal .fchip.state {
+  border-color: var(--line);
+  background: var(--surface-2);
+  color: var(--ink-2);
+}
+
+/* ---- B14 · numeric chip, restyled into the signal-chip pill language ----
+   Bold field name (no field <select> — changing field = remove + re-add), a
+   borderless op select (.opword) + inline value input(s) (.vinline — the
+   Phase 3 styled-select pattern), sized down to the 12px chip scale. */
+.agency-portal .fchip .fname {
+  font-weight: 700;
+}
+.agency-portal .fchip .opword,
+.agency-portal .fchip .vinline {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 0 3px;
+}
+.agency-portal .fchip .vinline {
+  /* Grows with the value so "10000" never clips; 44px stays the floor.
+     field-sizing is progressive enhancement (Chromium) — the min-width
+     floor keeps other engines usable. */
+  min-width: 44px;
+  width: auto;
+  field-sizing: content;
+  text-align: center;
+}
+.agency-portal .fchip .frange {
+  color: var(--faint);
+}
+/* B2 · the chip's heavy field is hydrating — same calm pulse as a loading
+   cell, so the numbers read "in flight", not "0 match". */
+.agency-portal .fchip.loading {
+  animation: wb-cell-pulse 1.2s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .agency-portal .fchip.loading {
+    animation: none;
+    opacity: 0.7;
+  }
+}
+/* B3 · the honesty annotation ("42 match · 31 no data") — quiet, inside the
+   chip; the no-data segment is the click-to-include toggle. */
+.agency-portal .fchip .fann {
+  font-size: var(--fs-2xs);
+  font-weight: 500;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.agency-portal .fchip .fnodata {
+  border: 0;
+  background: transparent;
+  font: inherit;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 0 1px;
+  border-radius: 4px;
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+}
+.agency-portal .fchip .fnodata:hover {
+  color: var(--indigo-700);
+  background: var(--indigo-50);
+}
+.agency-portal .fchip .fnodata.on {
+  color: var(--indigo-700);
+  font-weight: 700;
+  text-decoration-style: solid;
+}
+
+/* ---- B6 · locked-context strip (non-dismissable grey chips) ---- */
+.agency-portal .wbctx {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-3);
+}
+.agency-portal .wbctx-chip {
+  display: inline-flex;
+  align-items: center;
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  padding: 2px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* ---- B5 · status tab-bar + Not-touched quick toggle ---- */
+.agency-portal .wb-stabs {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-wrap: wrap;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  padding: 3px;
+  margin-bottom: var(--space-3);
+  width: fit-content;
+  max-width: 100%;
+}
+.agency-portal .wb-stabs button {
+  border: 0;
+  background: transparent;
+  border-radius: 7px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.agency-portal .wb-stabs button:hover {
+  color: var(--indigo-700);
+  background: var(--indigo-50);
+}
+/* B12 · quiet active — indigo-50/-700, never the filled primary. */
+.agency-portal .wb-stabs button.on,
+.agency-portal .wb-stabs button.wb-nt.on {
+  background: var(--indigo-50);
+  color: var(--indigo-700);
+  font-weight: 700;
+}
+.agency-portal .wb-stabs button .ct {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--faint);
+  font-feature-settings: "tnum" 1;
+}
+.agency-portal .wb-stabs button.on .ct {
+  color: var(--indigo-700);
+}
+.agency-portal .wb-stabs .wb-nt {
+  margin-left: var(--space-2);
+  border-left: 1px solid var(--line);
+  border-radius: 0 7px 7px 0;
+}
+
+/* ---- B11g · one-time "Press ? for shortcuts" hint ----
+   Fixed bottom-center (the toast geometry) so its post-hydration mount never
+   reflows the toolbar/table stack — the one-time hint floats, content
+   doesn't move. */
+.agency-portal .wb-hintchip {
+  position: fixed;
+  bottom: 22px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 60;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: var(--fs-xs);
+  color: var(--muted);
+  border: 1px dashed var(--line);
+  border-radius: 999px;
+  padding: 3px 7px 3px 12px;
+  background: var(--surface-2);
+  box-shadow: 0 4px 14px rgba(28, 34, 51, 0.12);
+}
+.agency-portal .wb-hintchip kbd {
+  font-family: var(--mono);
+  font-size: 11px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: #fff;
+  padding: 0 5px;
+}
+.agency-portal .wb-hintchip .x {
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 0;
+  background: transparent;
+  color: var(--faint);
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+}
+.agency-portal .wb-hintchip .x:hover {
+  background: var(--indigo-50);
+  color: var(--indigo-700);
+}
+
+/* ---- B11c · ghost Group trigger + its menu rows ---- */
+.agency-portal .wb-toolbar .btn.sm.ghosty {
+  border-color: transparent;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 600;
+}
+.agency-portal .wb-toolbar .btn.sm.ghosty:hover,
+.agency-portal .wb-toolbar .btn.sm.ghosty[aria-expanded="true"] {
+  color: var(--indigo-700);
+  background: var(--indigo-50);
+}
+.agency-portal .popmenu .grp-opt {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  border-radius: 7px;
+  padding: 6px 9px;
+  font-size: var(--fs-md);
+  font-weight: 600;
+  color: var(--ink-2);
+  cursor: pointer;
+}
+.agency-portal .popmenu .grp-opt:hover {
+  background: var(--indigo-50);
+  color: var(--indigo-700);
+}
+/* B12 · quiet active token here too. */
+.agency-portal .popmenu .grp-opt.on {
+  background: var(--indigo-50);
+  color: var(--indigo-700);
+  font-weight: 700;
+}
+.agency-portal .popmenu .grp-opt[aria-disabled="true"] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* ---- B11d · vs-cell toggle row at the top of the Fields popover ---- */
+.agency-portal .popmenu.cols .vscell-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 9px;
+  margin-bottom: var(--space-1);
+  border-bottom: 1px solid var(--line);
+  font-size: var(--fs-md);
+  font-weight: 600;
+  color: var(--ink-2);
+  cursor: pointer;
+}
+.agency-portal .popmenu.cols .vscell-row.on {
+  color: var(--indigo-700);
+}
+.agency-portal .popmenu.cols .vscell-row.disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* ---- B11b · the always-on coverage strip (was the button-gated panel) ---- */
+.agency-portal .wb-covstrip {
+  margin-bottom: var(--space-3);
 }
 
 /* ---- pagination bar (Boxly /admin pattern) ---- */
@@ -4119,9 +4381,13 @@
   font-weight: 600;
   color: var(--muted);
 }
+/* B12 · segment brightness token: an ACTIVE segment is indigo-50 + indigo-700,
+   never the filled primary indigo — the fill is reserved for the one primary
+   action (Enrich) so exactly one thing in a bar can be loud. */
 .agency-portal .seg button.on {
-  background: var(--indigo);
-  color: #fff;
+  background: var(--indigo-50);
+  color: var(--indigo-700);
+  font-weight: 700;
 }
 .agency-portal .seg.sm button {
   padding: var(--space-2) 11px;
@@ -5876,10 +6142,25 @@
   border-color: var(--indigo);
   color: var(--indigo);
 }
+/* B12 · quiet active token (indigo-50/-700) — the fill stays Enrich-only. */
 .agency-portal .cov-state.on {
-  background: var(--indigo);
+  background: var(--indigo-50);
   border-color: var(--indigo);
-  color: #fff;
+  color: var(--indigo-700);
+  font-weight: 700;
+}
+/* B1b · an APPLIED state whose live count dropped to 0 — still rendered (so it
+   can be untoggled) but visibly inert. */
+.agency-portal .cov-state.zero {
+  opacity: 0.55;
+}
+/* B8 · quiet "· as of Jun 2" suffix on a Data-state group whose newest scan is
+   > 30 days old. */
+.agency-portal .fs-asof {
+  font-size: var(--fs-2xs);
+  font-weight: 500;
+  color: var(--faint);
+  white-space: nowrap;
 }
 .agency-portal .covfrac {
   font-family: var(--mono);
@@ -6377,34 +6658,8 @@
   background: var(--red-soft, #fdecec);
 }
 
-/* compare-to-market toolbar toggle (checkbox styled as a chip) */
-.agency-portal .cmptoggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: #fff;
-  padding: 7px 11px;
-  font-size: var(--fs-sm);
-  font-weight: 600;
-  color: var(--ink-2);
-  cursor: pointer;
-  user-select: none;
-}
-.agency-portal .cmptoggle:hover {
-  border-color: var(--indigo-100);
-}
-.agency-portal .cmptoggle input {
-  accent-color: var(--indigo);
-  width: 15px;
-  height: 15px;
-}
-.agency-portal .cmptoggle.on {
-  border-color: var(--indigo);
-  background: var(--indigo-50);
-  color: var(--indigo-700);
-}
+/* B11d · the .cmptoggle compare-to-market chip is gone — vs-cell now lives as
+   the top toggle row of the Fields popover (.vscell-row). */
 /* small circled "i" info hint (carries an explanatory title=) */
 .agency-portal .info-i {
   display: inline-grid;
@@ -7337,6 +7592,10 @@
   flex: none;
   width: 8px;
   height: 8px;
+  /* padding guard: the state class list includes bare `empty`, which also
+     matches the generic empty-state rule (.agency-portal .empty · 48px
+     padding) — without this the dot inflates into a giant ellipse. */
+  padding: 0;
   border: 2px solid var(--line);
   border-radius: 50%;
   box-sizing: border-box;
@@ -7393,6 +7652,9 @@
 .agency-portal .lddot {
   width: 14px;
   height: 5px;
+  /* padding guard — same `.empty` empty-state collision as .ldnr-dot. */
+  padding: 0;
+  box-sizing: border-box;
   border-radius: 3px;
   background: var(--line);
 }

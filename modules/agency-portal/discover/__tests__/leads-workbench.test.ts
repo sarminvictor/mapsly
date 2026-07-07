@@ -25,6 +25,8 @@ import {
   mergeSignalVerdicts,
   availableNumericFields,
   availableSignalKeys,
+  filterBreakdown,
+  heavyFieldsForFilters,
   painGroupClass,
   passesFilters,
   reachabilityLabel,
@@ -96,6 +98,36 @@ describe("evalFilter / passesFilters", () => {
     expect(evalFilter(r, { field: "perf", op: "<", value: 50 })).toBe(false);
   });
 
+  // AUDIT B3 · the no-data bucket is opt-IN, never silent.
+  test("includeNoData makes a null value match; data values still gate on the op", () => {
+    const noData = row({ perf: null });
+    const failing = row({ perf: 90 });
+    const f: LeadFilter = {
+      field: "perf",
+      op: "<",
+      value: 50,
+      includeNoData: true,
+    };
+    expect(evalFilter(noData, f)).toBe(true); // null → included by the flag
+    expect(evalFilter(failing, f)).toBe(false); // real value still fails the op
+  });
+
+  // AUDIT B2 · the four paid fields evaluate through the registry accessors.
+  test("seo / serpRank / metaAdCount / googleAdCount are filterable", () => {
+    const r = row({ seo: 60, serpRank: 5, metaAdCount: 0, googleAdCount: 2 });
+    expect(evalFilter(r, { field: "seo", op: "<", value: 80 })).toBe(true);
+    expect(evalFilter(r, { field: "serpRank", op: ">", value: 3 })).toBe(true);
+    expect(evalFilter(r, { field: "metaAdCount", op: "=", value: 0 })).toBe(
+      true,
+    );
+    expect(evalFilter(r, { field: "googleAdCount", op: "≥", value: 1 })).toBe(
+      true,
+    );
+    // Absent heavy value (not serialized) reads null → no match without the flag.
+    const bare = row({ seo: undefined });
+    expect(evalFilter(bare, { field: "seo", op: "<", value: 80 })).toBe(false);
+  });
+
   test("contactability filters read array length (emails / phones)", () => {
     const reachable = row({
       emails: ["a@x.com", "b@x.com"],
@@ -132,7 +164,7 @@ describe("evalFilter / passesFilters", () => {
 
   test("filterLabel renders human chip text", () => {
     expect(filterLabel({ field: "perf", op: "<", value: 50 })).toBe(
-      "Lighthouse < 50",
+      "Lighthouse perf < 50",
     );
     expect(
       filterLabel({ field: "reviews", op: "between", value: 10, value2: 20 }),
@@ -310,6 +342,96 @@ describe("availableNumericFields", () => {
     const a1 = availableNumericFields(withContacts);
     expect(a1.has("emails")).toBe(true);
     expect(a1.has("phones")).toBe(false); // still no phone anywhere
+  });
+
+  // AUDIT B2 · an UN-hydrated heavy field is "unknown", not "no data" — the
+  // picker offers it (adding the filter triggers the lazy hydration); once
+  // loaded it gates on real data like everything else.
+  test("un-hydrated heavy fields are offered; hydrated-but-absent are not", () => {
+    const rows = [row({ seo: undefined, serpRank: undefined })];
+    // Nothing hydrated → both offered (unknown).
+    const none = availableNumericFields(rows, new Set());
+    expect(none.has("seo")).toBe(true);
+    expect(none.has("serpRank")).toBe(true);
+    // seo hydrated but null everywhere → genuinely no data → not offered;
+    // serpRank still un-hydrated → still offered.
+    const seoLoaded = availableNumericFields(
+      [row({ seo: null, serpRank: undefined })],
+      new Set(["seo"]),
+    );
+    expect(seoLoaded.has("seo")).toBe(false);
+    expect(seoLoaded.has("serpRank")).toBe(true);
+    // Hydrated WITH data → offered on the data path.
+    const withData = availableNumericFields(
+      [row({ seo: 70 })],
+      new Set(["seo", "serpRank", "metaAdCount", "googleAdCount"]),
+    );
+    expect(withData.has("seo")).toBe(true);
+    // No param (legacy callers) → strict old behavior.
+    expect(availableNumericFields(rows).has("seo")).toBe(false);
+  });
+});
+
+// AUDIT B2 · applied filters on heavy fields hydrate like activated columns.
+describe("heavyFieldsForFilters", () => {
+  test("maps heavy filter fields to their row fields; core fields map to none", () => {
+    const heavy = heavyFieldsForFilters([
+      { field: "seo", op: "<", value: 80 },
+      { field: "serpRank", op: ">", value: 3 },
+      { field: "reviews", op: "≥", value: 20 }, // CORE — always serialized
+      { kind: "signal", sigKey: "s", sigLabel: "S", want: "match" },
+    ]);
+    expect(heavy).toEqual(new Set(["seo", "serpRank"]));
+    expect(heavyFieldsForFilters([])).toEqual(new Set());
+  });
+});
+
+// AUDIT B3 · the chip's honest "N match · M no data" breakdown.
+describe("filterBreakdown", () => {
+  test("numeric: splits data-matches from the no-data bucket", () => {
+    const rows = [
+      row({ perf: 42 }), // matches < 50
+      row({ perf: 90 }), // has data, fails the op
+      row({ perf: null }), // no data
+      row({ perf: undefined }), // not serialized → no data too
+    ];
+    expect(
+      filterBreakdown(rows, { field: "perf", op: "<", value: 50 }),
+    ).toEqual({ match: 1, noData: 2 });
+    // includeNoData must NOT inflate the match count — the buckets stay split.
+    expect(
+      filterBreakdown(rows, {
+        field: "perf",
+        op: "<",
+        value: 50,
+        includeNoData: true,
+      }),
+    ).toEqual({ match: 1, noData: 2 });
+  });
+
+  test("signal: counts want-consistent verdicts and null verdicts", () => {
+    const rows = [
+      row({ perSignal: { s: true } }),
+      row({ perSignal: { s: false } }),
+      row({ perSignal: { s: null } }),
+      row({ perSignal: {} }), // pruned/absent reads as no data
+    ];
+    expect(
+      filterBreakdown(rows, {
+        kind: "signal",
+        sigKey: "s",
+        sigLabel: "S",
+        want: "match",
+      }),
+    ).toEqual({ match: 1, noData: 2 });
+    expect(
+      filterBreakdown(rows, {
+        kind: "signal",
+        sigKey: "s",
+        sigLabel: "S",
+        want: "miss",
+      }),
+    ).toEqual({ match: 1, noData: 2 });
   });
 });
 

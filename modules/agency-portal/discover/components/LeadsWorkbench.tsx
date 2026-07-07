@@ -26,6 +26,7 @@ import {
   useRef,
   useState,
   useTransition,
+  type KeyboardEvent as ReactKeyboardEvent,
   type ReactElement,
 } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -60,7 +61,9 @@ import {
   FILTER_FIELD_DEFAULTS,
   availableNumericFields,
   availableSignalKeys,
+  filterBreakdown,
   heavyFieldsForColumns,
+  heavyFieldsForFilters,
   orderColumnsForGoal,
   PAGE_SIZES,
   STATUS_ORDER,
@@ -163,6 +166,39 @@ function fmtScannedWhen(iso?: string | null): string | null {
   return `${MONTH_ABBR[d.getUTCMonth()]} ${d.getUTCDate()}`;
 }
 
+/** B7 · data-age threshold — beyond this the provenance tip (and the B8 "as
+ *  of" suffix in the Data-state list) says "stale"/"as of", never "fresh". */
+const STALE_AFTER_MS = 30 * 86_400_000;
+
+/** B1/C5 · one label map for a field-state's human word — shared by the
+ *  "+ Data state" list AND the removable state-filter chips so the two always
+ *  read the same. */
+const FIELD_STATE_LABEL: Record<FieldFilterState, string> = {
+  enriched: "have",
+  empty: "none",
+  failed: "failed",
+  not_run: "not run",
+};
+
+/** B5 · the status tab-bar's display labels (sentence case per copy-voice). */
+const STATUS_TAB_LABEL: Record<LeadStatus, string> = {
+  NEW: "New",
+  CONTACTED: "Contacted",
+  REPLIED: "Replied",
+  WON: "Won",
+  LOST: "Lost",
+  HIDDEN: "Hidden",
+};
+
+/** B11g · localStorage flag for the one-time "Press ? for shortcuts" hint. */
+const SHORTCUT_HINT_KEY = "mapsly:wb:hint-shortcuts";
+
+/** B14 · Enter commits an inline chip input by blurring it (the edit is
+ *  already live — blur just closes the keyboard interaction cleanly). */
+function commitOnEnter(e: ReactKeyboardEvent<HTMLInputElement>): void {
+  if (e.key === "Enter") e.currentTarget.blur();
+}
+
 export interface LeadsWorkbenchProps {
   rows: WorkbenchLeadRow[];
   discoveryId: string;
@@ -250,11 +286,31 @@ export interface LeadsWorkbenchProps {
    * the list workbench only; the market workbench scopes by discovery).
    */
   listId?: string;
+  /**
+   * B6 · the LOCKED-CONTEXT strip's data — the invisible gates that shape the
+   * set before any chip runs (audit §4), surfaced as small grey non-dismissable
+   * chips above the filters row. All plain serializable strings/booleans
+   * (Pattern 4). The window chip ("1,000 of N loaded") derives client-side
+   * from serverPageCount/totalRows.
+   */
+  lockedContext?: {
+    /** "{Category} · {Metro}" market label (the page's header title). */
+    market?: string | null;
+    /** The site-goal gate is active — website-less businesses are excluded. */
+    websitesOnly?: boolean;
+    /** The raw-list closed/hidden exclusion applies to this scope. */
+    closedHiddenExcluded?: boolean;
+    /** ISO timestamp of the mapped-freshness anchor the header reads. */
+    dataAsOf?: string | null;
+  };
 }
 
-/** How the table groups rows: flat, by cell, or by the combination of applied
- *  signal-filter verdicts ("segment by pitch angle"). "signals" is only
- *  selectable when ≥1 signal filter is applied. */
+/** How the table groups rows: flat, by cell, or by goal-signal verdict
+ *  combination ("segment by pitch angle"). B18 · "signals" buckets by the
+ *  VARYING goal signals (enriched on every visible lead and not pinned by an
+ *  applied filter — see `signalGroupAxes`), NOT by the applied filters (an
+ *  applied filter narrows to one verdict, a degenerate single bucket). With no
+ *  varying signal the view derives back to flat. */
 type GroupMode = "none" | "cell" | "signals";
 
 export function LeadsWorkbench({
@@ -273,6 +329,7 @@ export function LeadsWorkbench({
   exportAllUrl,
   serializedRowFields,
   listId,
+  lockedContext,
 }: LeadsWorkbenchProps) {
   // TRUTH UNIFICATION (2026-07-06) · the matrix is REQUIRED and covers every
   // rendered row (both pages scope loadCoverageMatrix to the rendered window).
@@ -387,25 +444,22 @@ export function LeadsWorkbench({
   const [signalMenuOpen, setSignalMenuOpen] = useState(false);
   const [fieldMenuOpen, setFieldMenuOpen] = useState(false);
   const [stateMenuOpen, setStateMenuOpen] = useState(false);
-  const [coverageOpen, setCoverageOpen] = useState(false);
-  // The Fields, Add-filter and Set-status menus are <Popover>s (floating-ui
-  // handles portal + dismiss + focus). The Filters/Coverage PANELS are inline
-  // collapse sections, so they still use the shared useDismiss for outside-click.
+  // B11c · the Group control is a quiet dropdown ("Group: none ▾"), not a
+  // filled segmented control — grouping changes maybe once per session.
+  const [groupMenuOpen, setGroupMenuOpen] = useState(false);
+  // The Fields, Group, Add-filter and Set-status menus are <Popover>s
+  // (floating-ui handles portal + dismiss + focus). The Filters PANEL is an
+  // inline collapse section, so it still uses the shared useDismiss for
+  // outside-click. (B11b · the Coverage panel + its toolbar button are gone —
+  // the have/not-yet summary is the always-on coverage strip above the table;
+  // data-state filtering lives in the Filter popover's "+ Data state" list.)
   const filtersPanelRef = useRef<HTMLDivElement | null>(null);
   const filterBtnRef = useRef<HTMLButtonElement | null>(null);
-  const coveragePanelRef = useRef<HTMLDivElement | null>(null);
-  const coverageBtnRef = useRef<HTMLButtonElement | null>(null);
   useDismiss(
     filtersOpen,
     () => setFiltersOpen(false),
     filtersPanelRef,
     filterBtnRef,
-  );
-  useDismiss(
-    coverageOpen,
-    () => setCoverageOpen(false),
-    coveragePanelRef,
-    coverageBtnRef,
   );
 
   // Power-user keyboard shortcuts (Tom · .claude/rules/ui-ux-agency.md). Guarded
@@ -417,8 +471,26 @@ export function LeadsWorkbench({
       fieldsOpen ||
       signalMenuOpen ||
       fieldMenuOpen ||
-      stateMenuOpen;
-  }, [helpOpen, fieldsOpen, signalMenuOpen, fieldMenuOpen, stateMenuOpen]);
+      stateMenuOpen ||
+      groupMenuOpen;
+  }, [
+    helpOpen,
+    fieldsOpen,
+    signalMenuOpen,
+    fieldMenuOpen,
+    stateMenuOpen,
+    groupMenuOpen,
+  ]);
+
+  // The mount-once keydown effect below reads the thin-market flag via ref
+  // (same stale-closure pattern as availSigKeysRef) — the 'v' shortcut must
+  // see the live value. Computed from the prop directly so this can live
+  // ABOVE its reader (react-compiler enforces declaration-before-effect-read)
+  // — `marketIsThin` proper is derived later next to effectiveBands.
+  const marketIsThinRef = useRef(false);
+  useEffect(() => {
+    marketIsThinRef.current = totalRows < THIN_MARKET_THRESHOLD;
+  }, [totalRows]);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -448,17 +520,20 @@ export function LeadsWorkbench({
           // AUDIT U18 · open Filters (capital F = Filter; lowercase f = Fields).
           e.preventDefault();
           setFiltersOpen((o) => !o);
-          setCoverageOpen(false);
           break;
         case "g":
           e.preventDefault();
-          // Cycle none → cell → signals (signals only when a signal filter is
-          // applied — cycleGroup reads the live filters via ref) → none.
+          // Cycle none → cell → signals → none. The signals stop is skipped
+          // unless an ENRICHED, un-filtered goal signal can vary the buckets
+          // (canGroupBySignals — cycleGroup reads it via ref); filters PIN a
+          // verdict, they don't enable grouping.
           cycleGroupRef.current();
           break;
         case "v":
           e.preventDefault();
-          setVsCell((v) => !v);
+          // Thin market → vs-cell renders nothing (absolute benchmarks); a
+          // toggle here would be a silent no-op key.
+          if (!marketIsThinRef.current) setVsCell((v) => !v);
           break;
         case "?":
           e.preventDefault();
@@ -526,6 +601,17 @@ export function LeadsWorkbench({
   // (above the view-hydration + URL-write effects) so those effects can seed
   // from / push to it (C5 · round-trips through the goal URL).
   const [stateFilters, setStateFilters] = useState<FieldStateFilter[]>([]);
+  // B5 · the status tab-bar (All · New · Contacted · … · Hidden) + the
+  // "Not touched" quick toggle. Client-side over row.status/lastContactedAt;
+  // HIDDEN rows are excluded from every tab except Hidden (and from All).
+  // Both persist in the shareable-view URL (`st=`/`nt=1`), never localStorage.
+  const [statusTab, setStatusTab] = useState<LeadStatus | "ALL">("ALL");
+  const [notTouched, setNotTouched] = useState(false);
+  // AUDIT §3/B1 · "Enriched only" view — isolate the leads an enrichment
+  // actually ran on (what you paid for) from the whole website-having market.
+  // Declared HERE (not with its toolbar button) because the view-hydration +
+  // URL-write effects below reference it (eo= round-trip, code-review gap).
+  const [enrichedOnly, setEnrichedOnly] = useState(false);
 
   // ── Sort ──────────────────────────────────────────────────────────────────
   const [sortKey, setSortKey] = useState<string>(DEFAULT_SORT_KEY);
@@ -549,11 +635,12 @@ export function LeadsWorkbench({
   // render match — no hydration mismatch. `hydrated` gates the save effect so
   // the initial defaults don't overwrite the saved blob before we've read it.
   //
-  // Sort + filters have a SECOND source: the URL (shareable views). When the
-  // URL carries any view param the URL WINS wholesale for sort+filters — a
-  // pasted link must reproduce the sender's view, never half-merge with this
-  // browser's saved blob. localStorage stays the fallback (no URL params) and
-  // keeps owning the non-shareable prefs (columns/group/…).
+  // The shareable VIEW (sort + filters + state filters + status/not-touched)
+  // has a SECOND source: the URL. B16 · when the URL carries ANY view param
+  // (f=/sg=/fs=/sort/st/nt) the URL WINS WHOLESALE — a pasted link reproduces
+  // the sender's view in full, never half-merging with this browser's saved
+  // blob. Only a param-less URL falls back to localStorage, which also keeps
+  // owning the non-shareable prefs (columns/group/density/pageSize).
   const hydrated = useRef(false);
   // Whether the user has an actual filter CHOICE to persist (vs the pure goal
   // default seed). The seed alone is never saved — so a barely-enriched first
@@ -578,40 +665,75 @@ export function LeadsWorkbench({
           setDismissedCols(saved.dismissedCols);
         if (saved.pageSize !== undefined) setPageSize(saved.pageSize);
       }
-      // Filter precedence (the user's saved choice is preserved across refresh +
-      // revisit — WP-UX):
-      //   1. localStorage saved filters (signal + numeric) → the user's choice.
-      //   2. else a shared-link URL view (numeric only) for a fresh recipient.
+      // View precedence (B16 · the documented contract, WP-UX):
+      //   1. a URL carrying view params wins for every dimension it ENCODES —
+      //      sort, f=/sg= filters, fs= field-states, st=/nt=. The saved blob
+      //      is ignored for those dimensions, so a shared link reproduces the
+      //      sender's view. Filters count as encoded only when f=/sg= are
+      //      PRESENT (hasFilterParams) — an st=-only URL resolves the filters
+      //      dimension locally per 2/3 (seed-loss code-review fix).
+      //   2. else the localStorage saved filters (signal + numeric) → the
+      //      user's own choice, preserved across refresh + revisit.
       //   3. else the goal-step DEFAULT seed (goal signals ∩ enriched) — first
       //      visit only. Un-enriched goal signals are excluded (P0-B guard).
-      // A restored SIGNAL filter is dropped if its signal is no longer in the
-      // goal (its perSignal would be null → would hide every lead).
-      // `rows`/`goalSignals` are the MOUNT-TIME values (effect runs once per
-      // discoveryId) — paging must NOT re-run this and clobber user edits.
-      const validSig = new Set(goalSignals.map((s) => s.key));
-      if (saved?.filters !== undefined) {
+      // A restored SIGNAL filter (URL or blob) is validated against the signal
+      // LIBRARY (allSignals ?? goalSignals) — an unknown key would read
+      // all-null perSignal and hide every lead, so it drops. URL signal
+      // filters carry sigLabel = sigKey placeholders; re-label from the
+      // library here. `rows`/`goalSignals`/`allSignals` are the MOUNT-TIME
+      // values (effect runs once per discoveryId) — paging must NOT re-run
+      // this and clobber user edits.
+      const titleByKey = new Map(
+        (allSignals ?? goalSignals).map((s) => [s.key, s.title] as const),
+      );
+      if (urlView) {
+        // Code-review fix (seed-loss) · the URL wins for every dimension it
+        // ENCODES. Filters only count as encoded when f=/sg= were actually
+        // present — a URL holding just st=/nt=/fs=/sort (one status-tab click,
+        // then reload) says nothing about filters, so that dimension resolves
+        // locally (saved blob → goal seed) exactly like a param-less URL.
+        // Freezing [] + userTouched here permanently destroyed the goal seed.
+        if (urlView.hasFilterParams) {
+          setFilters(
+            urlView.filters.flatMap((f): LeadFilter[] => {
+              if (f.kind !== "signal") return [f];
+              const title = titleByKey.get(f.sigKey);
+              return title ? [{ ...f, sigLabel: title }] : [];
+            }),
+          );
+          userTouchedRef.current = true;
+        } else if (saved?.filters !== undefined) {
+          setFilters(
+            saved.filters.filter(
+              (f) => f.kind !== "signal" || titleByKey.has(f.sigKey),
+            ),
+          );
+          userTouchedRef.current = true;
+        } else {
+          setFilters(seedSignalFilters(rows, goalSignals));
+          userTouchedRef.current = false;
+        }
+        setSortKey(urlView.sortKey);
+        setSortDir(urlView.sortDir);
+        setStateFilters(urlView.fieldStates ?? []);
+        if (urlView.statusTab) setStatusTab(urlView.statusTab);
+        if (urlView.notTouched) setNotTouched(true);
+        if (urlView.enrichedOnly) setEnrichedOnly(true);
+      } else if (saved?.filters !== undefined) {
         setFilters(
           saved.filters.filter(
-            (f) => f.kind !== "signal" || validSig.has(f.sigKey),
+            (f) => f.kind !== "signal" || titleByKey.has(f.sigKey),
           ),
         );
         userTouchedRef.current = true; // a saved choice → keep persisting it
         if (saved.sortKey !== undefined) setSortKey(saved.sortKey);
         if (saved.sortDir !== undefined) setSortDir(saved.sortDir);
-      } else if (urlView) {
-        setFilters(urlView.filters);
-        userTouchedRef.current = true;
-        setSortKey(urlView.sortKey);
-        setSortDir(urlView.sortDir);
       } else {
+        // B4 · the seed judges the mount-time window as-is: in this branch the
+        // URL carried no view params, so there is no narrowing to scope by yet
+        // (search/enriched-only/state filters are all at their defaults).
         setFilters(seedSignalFilters(rows, goalSignals));
         userTouchedRef.current = false; // a pure default → don't persist it yet
-      }
-      // C5 · seed the field-state filters from the URL (they live only in the
-      // shareable-view URL, not localStorage), so an applied "contacts · none"
-      // survives a manual refresh + a pasted link reproduces it.
-      if (urlView?.fieldStates && urlView.fieldStates.length > 0) {
-        setStateFilters(urlView.fieldStates);
       }
       hydrated.current = true;
     }, 0);
@@ -656,8 +778,8 @@ export function LeadsWorkbench({
     pageSize,
   ]);
 
-  // Mirror sort + filters into the URL (WP4-13 · shareable views). SHALLOW —
-  // window.history.replaceState updates the address bar without an RSC
+  // Mirror the shareable view into the URL (WP4-13 · shareable views). SHALLOW
+  // — window.history.replaceState updates the address bar without an RSC
   // round-trip (the server never reads these params; only `?page=` is
   // server-read). Debounced 300ms so typing a filter value doesn't churn
   // history. Other params (lead/page) are preserved by viewToSearchParams.
@@ -666,9 +788,23 @@ export function LeadsWorkbench({
     const tid = window.setTimeout(() => {
       const params = viewToSearchParams(
         // C5 · field-state filters ride the SAME shareable-view URL writer as
-        // sort + filters (one `fs=group:state` param each), so an applied
-        // "contacts · none" state survives refresh + is shareable.
-        { sortKey, sortDir, filters, fieldStates: stateFilters },
+        // sort + filters (one `fs=group:state` param each); B5 adds st=/nt=.
+        // B16 · signal filters serialize too (sg=) — EXCEPT while the set is
+        // still the pure goal-default seed (userTouched=false): materializing
+        // the seed in the URL would freeze it on reload (the seed must
+        // re-derive and pick up newly enriched signals). Numeric filters are
+        // always user choices → always shareable.
+        {
+          sortKey,
+          sortDir,
+          filters: userTouchedRef.current
+            ? filters
+            : filters.filter((f) => f.kind !== "signal"),
+          fieldStates: stateFilters,
+          statusTab: statusTab === "ALL" ? undefined : statusTab,
+          notTouched: notTouched || undefined,
+          enrichedOnly: enrichedOnly || undefined,
+        },
         new URLSearchParams(window.location.search),
       );
       const qs = params.toString();
@@ -680,7 +816,15 @@ export function LeadsWorkbench({
       }
     }, 300);
     return () => window.clearTimeout(tid);
-  }, [filters, sortKey, sortDir, stateFilters]);
+  }, [
+    filters,
+    sortKey,
+    sortDir,
+    stateFilters,
+    statusTab,
+    notTouched,
+    enrichedOnly,
+  ]);
 
   // ── Selection ──────────────────────────────────────────────────────────
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -854,10 +998,19 @@ export function LeadsWorkbench({
   );
 
   // Toggle-driven hydration: any ACTIVE column whose heavy field isn't loaded
-  // triggers one fetch for the missing union. Re-runs as loads land (needed
-  // empties) — a failed fetch retries on the next column/load change.
+  // triggers one fetch for the missing union. AUDIT B2 · applied numeric
+  // FILTERS on heavy fields (SEO / SERP rank / Meta ads / Google ads) hydrate
+  // through the same path — a "SEO score < 80" filter must never silently
+  // evaluate over an unshipped field (until the fetch lands the values are
+  // null → the chip's visible no-data bucket, never a silent drop). Re-runs
+  // as loads land (needed empties) — a failed fetch retries on the next
+  // column/filter/load change.
   useEffect(() => {
-    const needed = [...heavyFieldsForColumns(activeCols)].filter(
+    const wanted = new Set<HeavyRowField>([
+      ...heavyFieldsForColumns(activeCols),
+      ...heavyFieldsForFilters(filters),
+    ]);
+    const needed = [...wanted].filter(
       (f) =>
         !loadedHeavy.has(f) &&
         !pendingHeavyRef.current.has(f) &&
@@ -867,7 +1020,7 @@ export function LeadsWorkbench({
     if (needed.length === 0) return;
     for (const f of needed) pendingHeavyRef.current.add(f);
     void hydrateHeavyFields(needed);
-  }, [activeCols, loadedHeavy, failedHeavy, hydrateHeavyFields]);
+  }, [activeCols, filters, loadedHeavy, failedHeavy, hydrateHeavyFields]);
 
   // The render rows: the server payload overlaid with lazily-fetched fields.
   const effectiveRows = useMemo(() => {
@@ -969,10 +1122,6 @@ export function LeadsWorkbench({
     })).filter((s) => s.cols.length > 0);
   }, [fieldsQuery]);
 
-  // AUDIT §3/B1 · "Enriched only" view — isolate the leads an enrichment
-  // actually ran on (what you paid for) from the whole website-having market.
-  const [enrichedOnly, setEnrichedOnly] = useState(false);
-
   // AUDIT C5 · field-state filter helpers (the `stateFilters` state itself is
   // declared above, near `filters`, so the view-hydration + URL-write effects
   // can round-trip it through the goal URL).
@@ -1042,6 +1191,86 @@ export function LeadsWorkbench({
     });
   }
 
+  // B6 · the LOCKED-CONTEXT strip: the invisible gates that shape the set
+  // before any chip runs (audit §4), as small grey NON-dismissable chips with
+  // a data-tip each. Server data arrives as plain strings (Pattern 4); the
+  // window chip derives client-side.
+  const ctxChips = useMemo((): {
+    key: string;
+    label: string;
+    tip: string;
+  }[] => {
+    const out: { key: string; label: string; tip: string }[] = [];
+    if (lockedContext?.market) {
+      out.push({
+        key: "market",
+        label: lockedContext.market,
+        tip: "Market scope — every row, count and filter reads within this market",
+      });
+    }
+    if (lockedContext?.websitesOnly) {
+      out.push({
+        key: "sites",
+        label: "Websites only · goal",
+        tip: "This goal reads the website — businesses without one are excluded from the set",
+      });
+    }
+    if (lockedContext?.closedHiddenExcluded) {
+      out.push({
+        key: "closed",
+        label: "Closed & hidden excluded",
+        tip: "Businesses closed on Google and leads you hid are excluded before any filter runs",
+      });
+    }
+    if (serverPageCount > 1) {
+      out.push({
+        key: "window",
+        label: `${rows.length.toLocaleString()} of ${totalRows.toLocaleString()} loaded`,
+        tip: "Only this window of rows is loaded — filters, counts and sorts read this window. The pager crosses windows",
+      });
+    }
+    const asOf = fmtScannedWhen(lockedContext?.dataAsOf);
+    if (asOf) {
+      out.push({
+        key: "asof",
+        label: `Data as of ${asOf}`,
+        tip: "When this market was last mapped — the same anchor as the header's freshness chip",
+      });
+    }
+    return out;
+  }, [lockedContext, serverPageCount, rows.length, totalRows]);
+
+  // B11g · one-time "Press ? for shortcuts" hint — replaces the deleted "?"
+  // toolbar button (its only job was first-week discoverability; the ? key +
+  // modal are untouched). Shown on the first workbench visit, dismissed by ×
+  // or by actually opening the shortcuts modal; the flag persists forever.
+  const [showShortcutHint, setShowShortcutHint] = useState(false);
+  useEffect(() => {
+    const tid = window.setTimeout(() => {
+      try {
+        if (!window.localStorage.getItem(SHORTCUT_HINT_KEY))
+          setShowShortcutHint(true);
+      } catch {
+        // storage disabled — skip the hint entirely.
+      }
+    }, 0);
+    return () => window.clearTimeout(tid);
+  }, []);
+  const dismissShortcutHint = useCallback(() => {
+    setShowShortcutHint(false);
+    try {
+      window.localStorage.setItem(SHORTCUT_HINT_KEY, "1");
+    } catch {
+      // best-effort — worst case the hint shows again next visit.
+    }
+  }, []);
+  useEffect(() => {
+    // Opening the shortcuts modal proves discovery — retire the hint.
+    if (!helpOpen || !showShortcutHint) return;
+    const tid = window.setTimeout(dismissShortcutHint, 0);
+    return () => window.clearTimeout(tid);
+  }, [helpOpen, showShortcutHint, dismissShortcutHint]);
+
   // AUDIT · the frozen Business column should read as "detached" only once the
   // grid is scrolled horizontally. Track scrollLeft on the table wrap so a
   // `data-scrolled-x` attr can gate a box-shadow edge (no always-on border that
@@ -1100,6 +1329,22 @@ export function LeadsWorkbench({
   useEffect(() => {
     dismissedColsRef.current = dismissedCols;
   }, [dismissedCols]);
+  // B17 · re-seed-on-enrich-finished machinery. Semantics: when a run goes
+  // terminal we SNAPSHOT which goal signals were already fully computable on
+  // the narrowed view (availSigKeysRef); once the refreshed rows land and the
+  // availability set grows, the goal signals that JUST crossed into fully-
+  // computable are auto-applied as "match" filters — exactly the mount seed,
+  // continued mid-session — UNLESS the user removed that signal chip this
+  // session (removedSignalsRef: an explicit deletion is never fought) or it's
+  // already applied. The snapshot expires after 5 min so a much-later
+  // availability change (e.g. removing a numeric filter) can't trigger a
+  // phantom seed.
+  const removedSignalsRef = useRef<Set<string>>(new Set());
+  const availSigKeysRef = useRef<ReadonlySet<string>>(new Set());
+  const preRunAvailRef = useRef<{
+    avail: ReadonlySet<string>;
+    at: number;
+  } | null>(null);
   // WB-COL-2 · the run went terminal → (1) auto-show the columns for what was
   // just BOUGHT (append-only, dismissed-aware) with a delayed toast naming the
   // groups, then (2) clear the optimistic per-cell flags. Purchased basket:
@@ -1110,6 +1355,13 @@ export function LeadsWorkbench({
   useEffect(
     () =>
       subscribeEnrichFinished((serverTypes) => {
+        // B17 · snapshot the PRE-run signal availability — the refreshed rows
+        // haven't landed yet (LiveRunGate router.refresh()es after this), so
+        // the reseed effect below compares against this once they do.
+        preRunAvailRef.current = {
+          avail: new Set(availSigKeysRef.current),
+          at: Date.now(),
+        };
         const types =
           serverTypes.length > 0
             ? serverTypes
@@ -1238,51 +1490,113 @@ export function LeadsWorkbench({
     [groupStartKeys],
   );
 
-  // AUDIT U16 · the per-cell provenance tooltip for a numeric enriched value:
-  // `{source} · scanned {when} · {fresh|stale}`. The source names WHERE the
-  // number came from (SOURCE_BY_GROUP); `{when}` is the real last-scanned date
-  // from the same freshness cursors billing uses (threaded via `scannedAt`);
-  // freshness is read from the group's honest rolled-up run state (an
-  // `enriched` group reads "fresh", a re-scan-worthy `failed`/`empty` reads
-  // "stale"). When no timestamp exists for the group we drop the date; a cell
-  // with no group gets no tip.
+  // AUDIT U16 + B7 · the per-cell provenance tooltip for a numeric enriched
+  // value: `{source} · scanned {when} · {age}[ · stale]`. The source names
+  // WHERE the number came from (SOURCE_BY_GROUP); `{when}`/`{age}` are the
+  // REAL last-scanned date + age from the same freshness cursors billing uses
+  // (threaded via `scannedAt`). B7 · the old version FABRICATED "fresh" from
+  // the run state (a February score read "fresh" in July) — now "stale" only
+  // appears when the scan is genuinely > 30 days old, and with no timestamp
+  // we say nothing about freshness at all (never fabricate). The age clause
+  // needs a client "now" (nowMs — null during SSR/first paint, the INC-09
+  // pattern), so pre-mount tips carry just the date.
   const cellProvenance = useCallback(
     (r: WorkbenchLeadRow, group?: DataGroupKey): string | undefined => {
       if (!group) return undefined;
       const source = SOURCE_BY_GROUP[group];
       if (!source) return undefined;
-      const state = groupStatesFor(r)[group];
-      const fresh = state === "enriched" ? "fresh" : "stale";
-      const when = fmtScannedWhen(scannedAt[r.businessId]?.[group]);
-      return when
-        ? `${source} · scanned ${when} · ${fresh}`
-        : `${source} · scanned · ${fresh}`;
+      const iso = scannedAt[r.businessId]?.[group];
+      const when = fmtScannedWhen(iso);
+      if (!iso || !when) return source; // no timestamp → no freshness claim
+      const t = Date.parse(iso);
+      if (nowMs == null || Number.isNaN(t))
+        return `${source} · scanned ${when}`;
+      const ageMs = Math.max(0, nowMs - t);
+      const days = Math.floor(ageMs / 86_400_000);
+      const age = days === 0 ? "today" : `${days}d ago`;
+      return ageMs > STALE_AFTER_MS
+        ? `${source} · scanned ${when} · ${age} · stale`
+        : `${source} · scanned ${when} · ${age}`;
     },
-    [groupStatesFor, scannedAt],
+    [scannedAt, nowMs],
   );
 
   // ── Filtered + sorted rows ────────────────────────────────────────────────
   // Over effectiveRows (Step 4): the server payload + the lazily-hydrated
   // heavy fields — so a freshly-toggled column sorts/exports real values.
+  //
+  // B5 · status-tab semantics: HIDDEN rows show ONLY on the Hidden tab —
+  // they're excluded from All and every other tab (they were hidden for a
+  // reason). Status reads the optimistic value so a just-cycled pill moves
+  // tabs immediately.
+  const passesStatusTab = useCallback(
+    (r: WorkbenchLeadRow): boolean => {
+      const s = optimistic[r.leadId] ?? r.status;
+      if (statusTab === "HIDDEN") return s === "HIDDEN";
+      if (s === "HIDDEN") return false;
+      return statusTab === "ALL" || s === statusTab;
+    },
+    [optimistic, statusTab],
+  );
+
+  // The view minus the STATUS TAB narrowing — the tab counts read this so
+  // each tab shows what clicking it would yield under the current filters.
+  const statusTabRows = useMemo(
+    () =>
+      effectiveRows.filter(
+        (r) =>
+          matchesSearch(r, search) &&
+          passesFilters(r, filters) &&
+          (!enrichedOnly || rowEnriched(r)) &&
+          passesStateFilters(r) &&
+          (!notTouched || r.lastContactedAt == null),
+      ),
+    [
+      effectiveRows,
+      search,
+      filters,
+      enrichedOnly,
+      rowEnriched,
+      passesStateFilters,
+      notTouched,
+    ],
+  );
+
   const filtered = useMemo(() => {
-    const f = effectiveRows.filter(
-      (r) =>
-        matchesSearch(r, search) &&
-        passesFilters(r, filters) &&
-        (!enrichedOnly || rowEnriched(r)) &&
-        passesStateFilters(r),
-    );
+    const f = statusTabRows.filter((r) => passesStatusTab(r));
     return sortRows(f, sortKey, sortDir);
-  }, [
-    effectiveRows,
-    search,
-    filters,
-    sortKey,
-    sortDir,
-    enrichedOnly,
-    rowEnriched,
-    passesStateFilters,
-  ]);
+  }, [statusTabRows, passesStatusTab, sortKey, sortDir]);
+
+  // B5 · per-tab counts over the tab-less view. "ALL" counts non-hidden rows.
+  const statusCounts = useMemo(() => {
+    const counts: Record<LeadStatus | "ALL", number> = {
+      ALL: 0,
+      NEW: 0,
+      CONTACTED: 0,
+      REPLIED: 0,
+      WON: 0,
+      LOST: 0,
+      HIDDEN: 0,
+    };
+    for (const r of statusTabRows) {
+      const s = optimistic[r.leadId] ?? r.status;
+      counts[s] += 1;
+      if (s !== "HIDDEN") counts.ALL += 1;
+    }
+    return counts;
+  }, [statusTabRows, optimistic]);
+
+  // B10 · is ANY narrowing active? Drives the honest "X of N" count suffix,
+  // the cross-window hint (B9), and the "Filters hide all N leads" empty
+  // state (B1d) — the old logic keyed off filters[]+search only, so a
+  // state-filter/Enriched-only/status narrowing showed a bare "8 leads".
+  const anyNarrowing =
+    filters.length > 0 ||
+    search.trim() !== "" ||
+    stateFilters.length > 0 ||
+    enrichedOnly ||
+    statusTab !== "ALL" ||
+    notTouched;
 
   // Count of enriched leads in the current window (for the toggle label).
   const enrichedCount = useMemo(
@@ -1292,9 +1606,7 @@ export function LeadsWorkbench({
 
   // Signal availability (hoisted — both the grouping axes and the "+ Signal"
   // picker read it). `signalLibrary` = the whole curated library the page
-  // supplied (falls back to the goal signals for the list page). `availSigKeys`
-  // = signals with data on EVERY loaded lead (#2 · strict gating). Computed over
-  // the whole `rows` window so the option list stays stable while filtering.
+  // supplied (falls back to the goal signals for the list page).
   const signalLibrary = useMemo(
     () => allSignals ?? goalSignals,
     [allSignals, goalSignals],
@@ -1303,11 +1615,131 @@ export function LeadsWorkbench({
     () => new Set(goalSignals.map((s) => s.key)),
     [goalSignals],
   );
-  const availSigKeys = useMemo(
-    () => availableSignalKeys(rows, signalLibrary),
-    [rows, signalLibrary],
+  // AUDIT B4 · the signal gate judges the FILTERED VIEW, not the whole window:
+  // rows passing state filters + enriched-only + search + NUMERIC filters —
+  // never the signal filters themselves (circular: an applied signal filter
+  // would gate its own availability). Enrich the best 50 of 1,000 and narrow
+  // to "Reviews: have" → the paid signals unlock for that slice instead of
+  // staying hostage to the 950 unbought leads.
+  const numericFilters = useMemo(
+    () => filters.filter((f) => f.kind !== "signal"),
+    [filters],
   );
-  const availNumFields = useMemo(() => availableNumericFields(rows), [rows]);
+  const gatingRows = useMemo(
+    () =>
+      effectiveRows.filter(
+        (r) =>
+          matchesSearch(r, search) &&
+          passesFilters(r, numericFilters) &&
+          (!enrichedOnly || rowEnriched(r)) &&
+          passesStateFilters(r),
+      ),
+    [
+      effectiveRows,
+      search,
+      numericFilters,
+      enrichedOnly,
+      rowEnriched,
+      passesStateFilters,
+    ],
+  );
+  const availSigKeys = useMemo(
+    () => availableSignalKeys(gatingRows, signalLibrary),
+    [gatingRows, signalLibrary],
+  );
+  // Numeric-field availability stays WINDOW-scoped (stable option list while
+  // filtering); B2 · un-hydrated heavy fields count as available (unknown ≠
+  // absent — adding the filter triggers the hydration).
+  const availNumFields = useMemo(
+    () => availableNumericFields(rows, loadedHeavy),
+    [rows, loadedHeavy],
+  );
+
+  // AUDIT B3 · per-chip honest breakdown ("42 match · 31 no data") over the
+  // CURRENT VIEW minus the chip itself — each chip describes what it acts on,
+  // not the post-filter survivors. Indexed like `filters`.
+  const filterBreakdowns = useMemo(
+    () =>
+      filters.map((f, i) => {
+        const others = filters.filter((_, j) => j !== i);
+        const view = effectiveRows.filter(
+          (r) =>
+            matchesSearch(r, search) &&
+            (!enrichedOnly || rowEnriched(r)) &&
+            passesStateFilters(r) &&
+            (!notTouched || r.lastContactedAt == null) &&
+            passesStatusTab(r) &&
+            passesFilters(r, others),
+        );
+        return filterBreakdown(view, f);
+      }),
+    [
+      filters,
+      effectiveRows,
+      search,
+      enrichedOnly,
+      rowEnriched,
+      passesStateFilters,
+      notTouched,
+      passesStatusTab,
+    ],
+  );
+
+  // B2 · is a numeric filter's heavy backing field still hydrating? The chip
+  // shows a subtle loading state instead of a misleading "0 match" while the
+  // one-shot fetch is in flight.
+  const filterFieldLoading = useCallback(
+    (field: NumericFilterField): boolean =>
+      [...heavyFieldsForColumns([field])].some(
+        (hf) => !loadedHeavy.has(hf) && !failedHeavy.has(hf),
+      ),
+    [loadedHeavy, failedHeavy],
+  );
+
+  // B17 · keep the []-deps enrich-finished handler's availability snapshot
+  // honest (it reads the LIVE set via ref, not a mount-time closure)…
+  useEffect(() => {
+    availSigKeysRef.current = availSigKeys;
+  }, [availSigKeys]);
+  // …then, once the refreshed rows land and availability grows, auto-apply
+  // the goal signals that JUST became fully computable on the narrowed view
+  // (see the removedSignalsRef/preRunAvailRef doc above for the semantics).
+  // Not marked userTouched: like the mount seed, a pure default is never
+  // frozen into the blob/URL until the user takes control.
+  useEffect(() => {
+    const snap = preRunAvailRef.current;
+    if (!snap) return;
+    if (Date.now() - snap.at > 5 * 60_000) {
+      preRunAvailRef.current = null;
+      return;
+    }
+    const newly = goalSignals.filter(
+      (s) =>
+        availSigKeys.has(s.key) &&
+        !snap.avail.has(s.key) &&
+        !removedSignalsRef.current.has(s.key) &&
+        !filters.some((f) => f.kind === "signal" && f.sigKey === s.key),
+    );
+    if (newly.length === 0) return; // keep waiting for the refreshed rows
+    preRunAvailRef.current = null;
+    // Deferred write per the repo's set-state-in-effect pattern.
+    const tid = window.setTimeout(() => {
+      setFilters((prev) => [
+        ...prev,
+        ...newly
+          .filter(
+            (s) => !prev.some((f) => f.kind === "signal" && f.sigKey === s.key),
+          )
+          .map((s) => ({
+            kind: "signal" as const,
+            sigKey: s.key,
+            sigLabel: s.title,
+            want: "match" as const,
+          })),
+      ]);
+    }, 0);
+    return () => window.clearTimeout(tid);
+  }, [availSigKeys, goalSignals, filters]);
 
   // #5 · "Group by signals" axes. Grouping by the APPLIED signal filters is
   // degenerate — a filter narrows the set to one verdict, so every surviving row
@@ -1348,7 +1780,6 @@ export function LeadsWorkbench({
   // so the two never disagree. `effectiveBands` is what the render reads.
   const marketIsThin = totalRows < THIN_MARKET_THRESHOLD;
   const effectiveBands = marketIsThin ? EMPTY_BANDS : bands;
-
   // WP7-10 · accessible sort + caption text. The label of the active sort column
   // (falls back to the raw key for signal columns that aren't in the base set),
   // announced politely on change; the caption names what the table holds.
@@ -1904,6 +2335,11 @@ export function LeadsWorkbench({
   // ── Filter editor ─────────────────────────────────────────────────────────
   function removeFilter(idx: number) {
     userTouchedRef.current = true;
+    // B17 · an explicitly removed SIGNAL is remembered for this session so the
+    // enrich-finished re-seed never re-applies it against the user's intent.
+    const removed = filters[idx];
+    if (removed?.kind === "signal")
+      removedSignalsRef.current.add(removed.sigKey);
     setFilters((prev) => prev.filter((_, i) => i !== idx));
     setPage(1);
   }
@@ -1914,6 +2350,17 @@ export function LeadsWorkbench({
     userTouchedRef.current = true;
     const d = FILTER_FIELD_DEFAULTS[field];
     setFilters((prev) => [...prev, { field, op: d.op, value: d.value }]);
+    // AUDIT B2 · surface the column being filtered on (respecting an explicit
+    // dismissal — an auto-show never fights an uncheck): filtering a hidden
+    // field would otherwise read as rows vanishing for no visible reason. For
+    // heavy fields this also rides the same hydration the column path uses.
+    if (
+      COLUMNS.some((c) => c.key === field) &&
+      !activeCols.includes(field) &&
+      !dismissedCols.includes(field)
+    ) {
+      setActiveCols((prev) => (prev.includes(field) ? prev : [...prev, field]));
+    }
     setPage(1);
   }
   /** Add a goal-signal verdict filter ("matched" by default) unless one for the
@@ -1983,13 +2430,25 @@ export function LeadsWorkbench({
   // round-trip through the shareable-view URL and the active-count badge on
   // the Filter + Coverage toolbar buttons stays honest. An in-flight `running`
   // count renders as a non-clickable chip (transient — not filterable).
+  // B8 · each group's NEWEST scan across the loaded window (same scope as the
+  // state counts beside it) — a > 30d-old newest scan earns a quiet "as of"
+  // suffix on the Data-state entry, so an old verdict never reads as current.
+  const newestScanByGroup = useMemo(() => {
+    const out = new Map<DataGroupKey, number>();
+    for (const r of rows) {
+      const m = scannedAt[r.businessId];
+      if (!m) continue;
+      for (const g of DATA_GROUPS) {
+        const iso = m[g.key];
+        if (!iso) continue;
+        const t = Date.parse(iso);
+        if (!Number.isNaN(t) && t > (out.get(g.key) ?? 0)) out.set(g.key, t);
+      }
+    }
+    return out;
+  }, [rows, scannedAt]);
+
   const stateFilterRows = useMemo(() => {
-    const STATE_LABEL: Record<FieldFilterState, string> = {
-      enriched: "have",
-      empty: "none",
-      failed: "failed",
-      not_run: "not run",
-    };
     // Actionability order (failed → none → have), default-population last.
     const STATE_ORDER: FieldFilterState[] = [
       "failed",
@@ -2000,23 +2459,37 @@ export function LeadsWorkbench({
     return DATA_GROUPS.flatMap((g) => {
       const counts = groupStateCounts.get(g.key);
       if (!counts) return [];
-      const states = STATE_ORDER.filter((s) => counts[s] > 0);
+      const applied = stateFilterByGroup.get(g.key);
+      // B1b · an APPLIED state stays listed even at count 0 (greyed via the
+      // `zero` flag) so it can always be untoggled — the old count>0 gate made
+      // a zero-count state filter invisible AND unremovable (the phantom-
+      // filter P0: enrich the "not run" leads and the toggle vanished while
+      // the filter kept hiding everything).
+      const states = STATE_ORDER.filter(
+        (s) => counts[s] > 0 || applied?.has(s),
+      );
       const running = counts.running;
       if (states.length === 0 && running === 0) return [];
+      const newest = newestScanByGroup.get(g.key);
+      const asOf =
+        nowMs != null && newest != null && nowMs - newest > STALE_AFTER_MS
+          ? fmtScannedWhen(new Date(newest).toISOString())
+          : null;
       return [
         {
           group: g.key,
           label: g.label,
           running,
+          asOf,
           states: states.map((s) => ({
             state: s,
-            stateLabel: STATE_LABEL[s],
+            stateLabel: FIELD_STATE_LABEL[s],
             count: counts[s],
           })),
         },
       ];
     });
-  }, [groupStateCounts]);
+  }, [groupStateCounts, stateFilterByGroup, newestScanByGroup, nowMs]);
 
   // Each add-picker is a <Popover> (floating-ui handles portal + dismiss + Esc +
   // focus + ↑/↓ nav). A single-add pick closes its own menu; data-state toggles
@@ -2038,12 +2511,20 @@ export function LeadsWorkbench({
     );
     setPage(1);
   }
-  /** Clear every applied filter + the search (WP4-15 · actionable empty state).
-   *  The one path the "Clear filters" button in the empty row + the panel share. */
+  /** B1c · clear EVERY narrowing in one move (WP4-15 · actionable empty
+   *  state): numeric + signal filters, data-state filters, Enriched-only,
+   *  search — plus the status tab + Not-touched, so the "Clear filters"
+   *  button in the "Filters hide all N leads" empty state ALWAYS restores the
+   *  full set (a partial clear that leaves the view empty is a lie). The ONE
+   *  path every "Clear all"/"Clear filters" button shares. */
   function clearAllFilters() {
     userTouchedRef.current = true;
     setFilters([]);
+    setStateFilters([]);
+    setEnrichedOnly(false);
     setSearch("");
+    setStatusTab("ALL");
+    setNotTouched(false);
     setPage(1);
   }
 
@@ -2656,44 +3137,55 @@ export function LeadsWorkbench({
 
         {/* AUDIT U8 · the primary narrowing action sits LEFT, right after search —
             with the live filtered count beside it — so the most-used control is
-            first in the reading order, not buried on the far right. */}
+            first in the reading order, not buried on the far right.
+            B1 · ONE badge story: with the coverage button deleted (B11b) the
+            Filter popover is the single filtering home, so its badge counts
+            EVERY applied chip — numeric + signal filters AND data-state
+            filters — never a second, separate count elsewhere. */}
         <button
           ref={filterBtnRef}
           type="button"
-          className={`btn sm${filters.length ? " active" : ""}`}
+          className={`btn sm${filters.length + stateFilters.length ? " active" : ""}`}
           aria-haspopup="true"
           aria-expanded={filtersOpen}
           aria-label="Filters"
           data-tip="Filter these leads"
-          onClick={() => {
-            setFiltersOpen((o) => !o);
-            setCoverageOpen(false);
-          }}
+          onClick={() => setFiltersOpen((o) => !o)}
         >
           <Icon name="filter" />
           {" Filter"}
-          {filters.length ? (
-            <span className="cbadge">{filters.length}</span>
+          {filters.length + stateFilters.length ? (
+            <span className="cbadge">
+              {filters.length + stateFilters.length}
+            </span>
           ) : null}
         </button>
 
-        {/* #1 · live filtered count — updates as filters/search change so the
+        {/* #1 · live filtered count — updates as any narrowing changes so the
             match total is visible up here by the Filter control, not only down
             in the pager. When server-paginated it counts the loaded window
-            (the tooltip states the whole-set total). */}
+            (the tooltip states the whole-set total). B9 · when narrowing is
+            active across a multi-window set, the count carries a "+" — matches
+            are counted within the loaded window and other windows may hold
+            more (the tooltip says so). B10 · the "of N" suffix shows for ANY
+            narrowing (filters, search, data-state, Enriched-only, status tab,
+            Not-touched), not just filters+search. */}
         <span
           className="wb-count"
           aria-live="polite"
           data-tip={
             serverPageCount > 1
-              ? `Matches in the loaded window of ${rows.length.toLocaleString()} · ${totalRows.toLocaleString()} total`
+              ? anyNarrowing
+                ? `Matches are counted within the loaded window of ${rows.length.toLocaleString()} — other windows may hold more · ${totalRows.toLocaleString()} rows total`
+                : `Matches in the loaded window of ${rows.length.toLocaleString()} · ${totalRows.toLocaleString()} total`
               : undefined
           }
         >
-          <strong>{filtered.length.toLocaleString()}</strong>
-          {filters.length > 0 || search.trim() !== ""
-            ? ` of ${rows.length.toLocaleString()}`
-            : ""}{" "}
+          <strong>
+            {filtered.length.toLocaleString()}
+            {serverPageCount > 1 && anyNarrowing ? "+" : ""}
+          </strong>
+          {anyNarrowing ? ` of ${rows.length.toLocaleString()}` : ""}{" "}
           {/* "loaded" (not "leads") when server-paginated so the number never
               reads as the whole-set total — that's in the tooltip. */}
           {serverPageCount > 1
@@ -2703,94 +3195,100 @@ export function LeadsWorkbench({
               : "leads"}
         </span>
 
-        {/* AUDIT U10 · the ONE primary action in the toolbar — enrich the
-            enrichable leads in the current view (selected rows if any are
-            selected, else the filtered rows with a not-run data group), with the
-            gross credit estimate inline. Everything else in the toolbar stays
-            secondary. Hidden when nothing in view is enrichable. */}
-        {enrichTargetCount > 0 ? (
-          <button
-            type="button"
-            className="btn primary sm"
-            data-tip={
-              selected.size > 0
-                ? "Enrich the selected leads that still have data to pull"
-                : "Enrich the filtered leads that still have data to pull"
-            }
-            onClick={openToolbarEnrichSheet}
-          >
-            {`Enrich ${enrichTargetCount.toLocaleString()}`}
-            {enrichTargetCredits > 0
-              ? ` · ~${fmtCredits(enrichTargetCredits)} cr`
-              : ""}
-            {" →"}
-          </button>
-        ) : null}
+        {/* B11a · "Enriched only" joins the NARROWING zone, left of the spacer
+            and right after the count it changes (it IS a filter — the 4th AND
+            layer). AUDIT §3/B1 · isolates the leads an enrichment actually ran
+            on (what the agency paid for) from the whole website-having market. */}
+        <button
+          type="button"
+          className={`btn sm${enrichedOnly ? " active" : ""}`}
+          aria-pressed={enrichedOnly}
+          data-tip={`Show only the ${enrichedCount.toLocaleString()} lead${
+            enrichedCount === 1 ? "" : "s"
+          } an enrichment has run on`}
+          onClick={() => {
+            setEnrichedOnly((v) => !v);
+            setPage(1);
+          }}
+        >
+          Enriched only
+          {enrichedCount ? ` · ${enrichedCount.toLocaleString()}` : ""}
+        </button>
 
-        <div className="seg sm" role="group" aria-label="Group by">
-          <button
-            type="button"
-            className={group === "none" ? "on" : undefined}
-            onClick={() => setGroup("none")}
-          >
-            No groups
-          </button>
-          <button
-            type="button"
-            className={group === "cell" ? "on" : undefined}
-            onClick={() => setGroup("cell")}
-          >
-            By cell
-          </button>
-          {/* #5 · segment leads by the verdict combination of your VARYING goal
-              signals (enriched on every lead, not pinned by a filter). We use
-              aria-disabled (NOT the `disabled` attribute) so the control stays
-              focusable + emits pointer events — a `disabled` button fires no
-              hover/focus, so its explanatory tooltip would never show. Click is
-              guarded to a no-op instead. */}
-          <button
-            type="button"
-            className={
-              group === "signals" && canGroupBySignals ? "on" : undefined
-            }
-            aria-disabled={!canGroupBySignals || undefined}
-            data-tip={
-              canGroupBySignals
-                ? "Segment by your goal-signal combination"
-                : "Needs an enriched goal signal that isn't filtered"
-            }
-            onClick={() => {
-              if (canGroupBySignals) setGroup("signals");
-            }}
-          >
-            By signals
-          </button>
-        </div>
+        <span className="tb-spacer" />
 
-        {/* WP7-13 · in a THIN market the vs-cell percentile is disabled (too
-            few businesses for an honest distribution) — the toggle is off +
-            explains why, and a note says the numbers are absolute benchmarks. */}
-        <label
-          className={`cmptoggle${vsCell && !marketIsThin ? " on" : ""}`}
-          data-tip={
-            marketIsThin
-              ? `Small market (under ${THIN_MARKET_THRESHOLD}) — showing absolute benchmarks, no market percentile`
-              : undefined
+        {/* B11c · Group segmented control → quiet ghost dropdown. Grouping
+            changes maybe once per session; a ghost "Group: none ▾" spends
+            attention proportional to use. The "By signals" gating note lives
+            inside the menu (aria-disabled row, NOT `disabled` — a disabled
+            button fires no hover/focus, so its explanatory tooltip would never
+            show; click is guarded to a no-op instead). */}
+        <Popover
+          open={groupMenuOpen}
+          onOpenChange={setGroupMenuOpen}
+          className="popmenu"
+          label="Group rows"
+          trigger={
+            <button
+              type="button"
+              className="btn sm ghosty"
+              aria-haspopup="true"
+              aria-expanded={groupMenuOpen}
+              data-tip="Group the rows"
+            >
+              Group:{" "}
+              {group === "signals" && canGroupBySignals
+                ? "signals"
+                : group === "cell"
+                  ? "cell"
+                  : "none"}{" "}
+              ▾
+            </button>
           }
         >
-          <input
-            type="checkbox"
-            checked={vsCell && !marketIsThin}
-            disabled={marketIsThin}
-            onChange={(e) => setVsCell(e.target.checked)}
-          />
-          vs cell
-        </label>
-        {marketIsThin ? (
-          <span className="note" style={{ fontSize: 11 }}>
-            Small market — absolute benchmarks
-          </span>
-        ) : null}
+          {(
+            [
+              { v: "none", label: "No groups", tip: undefined },
+              {
+                v: "cell",
+                label: "By cell",
+                tip: "One collapsible section per market cell",
+              },
+              {
+                v: "signals",
+                label: "By signals",
+                // #5 · segment leads by the verdict combination of your VARYING
+                // goal signals (enriched on every lead, not pinned by a filter).
+                tip: canGroupBySignals
+                  ? "Segment by your goal-signal combination"
+                  : "Needs an enriched goal signal that isn't filtered",
+              },
+            ] as const
+          ).map((o) => {
+            const disabled = o.v === "signals" && !canGroupBySignals;
+            const on =
+              o.v === group && (o.v !== "signals" || canGroupBySignals);
+            return (
+              // Plain aria-pressed buttons (not menuitemradio — that role
+              // requires a role="menu" parent the shared Popover doesn't set).
+              <button
+                key={o.v}
+                type="button"
+                aria-pressed={on}
+                className={`grp-opt${on ? " on" : ""}`}
+                aria-disabled={disabled || undefined}
+                data-tip={o.tip}
+                onClick={() => {
+                  if (disabled) return;
+                  setGroup(o.v);
+                  setGroupMenuOpen(false);
+                }}
+              >
+                {o.label}
+              </button>
+            );
+          })}
+        </Popover>
 
         <Popover
           open={fieldsOpen}
@@ -2807,6 +3305,27 @@ export function LeadsWorkbench({
             </button>
           }
         >
+          {/* B11d · vs-cell moved INTO Fields as the top toggle row — it's a
+              display mode for how the numbers render, same family as column
+              visibility. WP7-13 · a THIN market disables it (too few
+              businesses for an honest percentile); the explanation that used
+              to burn a permanent toolbar slot is now the disabled row's tip. */}
+          <label
+            className={`vscell-row${vsCell && !marketIsThin ? " on" : ""}${marketIsThin ? " disabled" : ""}`}
+            data-tip={
+              marketIsThin
+                ? `Small market (under ${THIN_MARKET_THRESHOLD}) — showing absolute benchmarks, no market percentile`
+                : "Show each number's delta vs the cell median"
+            }
+          >
+            <input
+              type="checkbox"
+              checked={vsCell && !marketIsThin}
+              disabled={marketIsThin}
+              onChange={(e) => setVsCell(e.target.checked)}
+            />
+            vs cell benchmarks
+          </label>
           {/* F3 · search box — narrows the visible column rows by label. */}
           <div className="cols-search">
             <Icon name="search" className="si" size={13} />
@@ -2850,79 +3369,118 @@ export function LeadsWorkbench({
           )}
           {/* U-fields · the Fields dropdown shows/hides COLUMNS only — it never
               launches a research. Enrichment stays reachable via cell-click, the
-              toolbar Enrich button, and the coverage Enrich CTA. */}
+              toolbar Enrich button, and the coverage strip's Enrich CTA. */}
         </Popover>
 
-        <span className="tb-spacer" />
-
-        {/* AUDIT §3/B1 · isolate the leads an enrichment actually ran on (what
-            the agency paid for) from the whole website-having market. */}
-        <button
-          type="button"
-          className={`btn sm${enrichedOnly ? " active" : ""}`}
-          aria-pressed={enrichedOnly}
-          data-tip={`Show only the ${enrichedCount.toLocaleString()} lead${
-            enrichedCount === 1 ? "" : "s"
-          } an enrichment has run on`}
-          onClick={() => {
-            setEnrichedOnly((v) => !v);
-            setPage(1);
-          }}
-        >
-          Enriched only
-          {enrichedCount ? ` · ${enrichedCount.toLocaleString()}` : ""}
-        </button>
-
-        {/* AUDIT U7 · row density — Compact default; click toggles. */}
-        <button
-          type="button"
-          className="btn sm"
-          data-tip="Row density — click to toggle compact / cozy"
-          aria-label={`Row density: ${density}`}
-          onClick={toggleDensity}
-        >
-          {density === "compact" ? "Compact" : "Cozy"}
-        </button>
-
-        <button
-          ref={coverageBtnRef}
-          type="button"
-          // Highlight when a coverage field-state filter is active (parity with
-          // the Filter button) — otherwise the user can't tell the grid is being
-          // narrowed by the Coverage layer.
-          className={`iconbtn${stateFilters.length ? " active" : ""}`}
-          aria-haspopup="true"
-          aria-expanded={coverageOpen}
-          aria-pressed={stateFilters.length > 0}
-          aria-label="Coverage"
-          data-tip="Coverage layers"
-          onClick={() => {
-            setCoverageOpen((o) => !o);
-            setFiltersOpen(false);
-          }}
-        >
-          <Icon name="coverage" />
-          {/* C3 · the SAME 7-data-group denominator the row chip strip + the
-              coverage panel use — "4/7", never /5 or /6. */}
-          <span className="cbadge alt">
-            {stateFilters.length
-              ? stateFilters.length
-              : `${coverageSummary.have.length}/${DATA_GROUPS.length}`}
-          </span>
-        </button>
-
+        {/* AUDIT U7 + B11e · row density as an icon toggle (an action glyph,
+            not the ambiguous "Cozy" state text). Compact is the default;
+            click toggles; the choice persists per user. */}
         <button
           type="button"
           className="iconbtn"
-          aria-label="Keyboard shortcuts"
-          data-tip="Keyboard shortcuts  ( ? )"
-          onClick={() => setHelpOpen(true)}
+          data-tip="Row density"
+          aria-label={`Row density: ${density} — click to toggle`}
+          onClick={toggleDensity}
         >
-          ?
+          <span aria-hidden="true">{density === "compact" ? "☰" : "▦"}</span>
+        </button>
+
+        {/* AUDIT U10 + B11f · the ONE primary action, at the FAR RIGHT edge
+            (terminal position — after you've shaped the view, act): enrich
+            the enrichable leads in the current view (selected rows if any,
+            else the filtered rows with a to-get data group), gross credit
+            estimate inline. The only filled-indigo control in the bar (B12).
+            Hidden when nothing in view is enrichable. */}
+        {enrichTargetCount > 0 ? (
+          <button
+            type="button"
+            className="btn primary sm"
+            data-tip={
+              selected.size > 0
+                ? "Enrich the selected leads that still have data to pull"
+                : "Enrich the filtered leads that still have data to pull"
+            }
+            onClick={openToolbarEnrichSheet}
+          >
+            {`Enrich ${enrichTargetCount.toLocaleString()}`}
+            {enrichTargetCredits > 0
+              ? ` · ~${fmtCredits(enrichTargetCredits)} cr`
+              : ""}
+            {" →"}
+          </button>
+        ) : null}
+      </div>
+
+      {/* B11g · one-time replacement for the deleted "?" button — a
+          dismissible hint on the first workbench visit. The ? key and the
+          shortcuts modal are unchanged. */}
+      {showShortcutHint ? (
+        <div className="wb-hintchip" role="status">
+          Press <kbd>?</kbd> for keyboard shortcuts
+          <button
+            type="button"
+            className="x"
+            aria-label="Dismiss shortcuts hint"
+            onClick={dismissShortcutHint}
+          >
+            ×
+          </button>
+        </div>
+      ) : null}
+
+      {/* B6 · the LOCKED-CONTEXT strip — the invisible gates that shape this
+          set before any chip runs (audit §4), one calm grey line above the
+          filters row. Non-dismissable by design: these aren't filters, they
+          are the ground the filters stand on. */}
+      {ctxChips.length > 0 ? (
+        <div className="wbctx" aria-label="View context">
+          {ctxChips.map((c) => (
+            <span key={c.key} className="wbctx-chip" data-tip={c.tip}>
+              {c.label}
+            </span>
+          ))}
+        </div>
+      ) : null}
+
+      {/* B5 · status tab-bar (agency list-detail template) + the Not-touched
+          quick toggle. Quiet segmented (indigo-50 active — B12), between the
+          toolbar and the coverage strip so the toolbar itself stays lean.
+          HIDDEN leads show only on their own tab. */}
+      <div
+        className="wb-stabs"
+        role="group"
+        aria-label="Lead status and outreach"
+      >
+        {(["ALL", ...STATUS_ORDER] as const).map((s) => (
+          <button
+            key={s}
+            type="button"
+            className={statusTab === s ? "on" : undefined}
+            aria-pressed={statusTab === s}
+            onClick={() => {
+              setStatusTab(s);
+              setPage(1);
+            }}
+          >
+            {s === "ALL" ? "All" : STATUS_TAB_LABEL[s]}
+            <span className="ct">{statusCounts[s]}</span>
+          </button>
+        ))}
+        <button
+          type="button"
+          className={`wb-nt${notTouched ? " on" : ""}`}
+          aria-pressed={notTouched}
+          data-tip="Only leads never contacted (no last-contacted date)"
+          onClick={() => {
+            setNotTouched((v) => !v);
+            setPage(1);
+          }}
+        >
+          Not touched
         </button>
       </div>
 
-      {/* Keyboard-shortcut cheat-sheet (press ? or the ? button). */}
+      {/* Keyboard-shortcut cheat-sheet (press ?). */}
       {helpOpen ? (
         <div
           className="overlay center"
@@ -2984,112 +3542,170 @@ export function LeadsWorkbench({
               <button
                 type="button"
                 className="cp-clear"
-                onClick={() => {
-                  userTouchedRef.current = true;
-                  setFilters([]);
-                  setPage(1);
-                }}
+                onClick={clearAllFilters}
               >
                 Clear all
               </button>
             </div>
             <div className="cp-body">
-              {filters.map((f, i) =>
-                f.kind === "signal" ? (
+              {filters.map((f, i) => {
+                // B3 · the chip's honest breakdown over the current view.
+                const bd = filterBreakdowns[i];
+                if (f.kind === "signal") {
+                  return (
+                    <span
+                      key={i}
+                      className="fchip sig"
+                      data-tip="Goal-signal filter"
+                    >
+                      <span style={{ fontWeight: 600 }}>{f.sigLabel}</span>
+                      <button
+                        type="button"
+                        onClick={() => toggleSignalWant(i)}
+                        aria-pressed={f.want === "match"}
+                        aria-label={`${f.sigLabel}: ${
+                          f.want === "match" ? "matched" : "not matched"
+                        } — press to flip`}
+                        style={{
+                          border: "none",
+                          background: "transparent",
+                          font: "inherit",
+                          cursor: "pointer",
+                          // Darker green/red on the tinted .fchip.sig bg clear
+                          // 4.5:1 (plain --green is 2.97:1, plain --red 4.13:1 on
+                          // --indigo-50 — both fail; the -700 tokens pass).
+                          color:
+                            f.want === "match"
+                              ? "var(--green-700)"
+                              : "var(--red-700)",
+                        }}
+                      >
+                        {f.want === "match" ? "matched" : "not matched"}
+                      </button>
+                      {/* B3 · signal chips get the same honesty annotation —
+                          "no data" names the leads whose verdict isn't
+                          computed yet (the filter never matches those). */}
+                      {bd ? (
+                        <span className="fann">
+                          {bd.match} match
+                          {bd.noData > 0 ? ` · ${bd.noData} no data` : ""}
+                        </span>
+                      ) : null}
+                      <button
+                        type="button"
+                        className="x"
+                        aria-label={`Remove ${filterLabel(f)}`}
+                        onClick={() => removeFilter(i)}
+                      >
+                        ×
+                      </button>
+                    </span>
+                  );
+                }
+                // B14 · the numeric chip speaks the signal-chip pill language:
+                // a bold FIELD NAME (changing field = remove + re-add — no
+                // field <select>), a borderless op select (.opword) + inline
+                // value input(s) (.vinline — the Phase 3 styled-select pattern),
+                // the B3 breakdown, one consistent × remove. Edits stay LIVE
+                // (each keystroke re-filters); Enter blurs to commit cleanly.
+                const loading = filterFieldLoading(f.field);
+                return (
                   <span
                     key={i}
-                    className="fchip sig"
-                    data-tip="Goal-signal filter"
+                    className={`fchip data${loading ? " loading" : ""}`}
                   >
-                    <span style={{ fontWeight: 600 }}>{f.sigLabel}</span>
-                    <button
-                      type="button"
-                      onClick={() => toggleSignalWant(i)}
-                      aria-pressed={f.want === "match"}
-                      aria-label={`${f.sigLabel}: ${
-                        f.want === "match" ? "matched" : "not matched"
-                      } — press to flip`}
-                      style={{
-                        border: "none",
-                        background: "transparent",
-                        font: "inherit",
-                        cursor: "pointer",
-                        // Darker green/red on the tinted .fchip.sig bg clear
-                        // 4.5:1 (plain --green is 2.97:1, plain --red 4.13:1 on
-                        // --indigo-50 — both fail; the -700 tokens pass).
-                        color:
-                          f.want === "match"
-                            ? "var(--green-700)"
-                            : "var(--red-700)",
-                      }}
-                    >
-                      {f.want === "match" ? "matched" : "not matched"}
-                    </button>
-                    <button
-                      type="button"
-                      className="x"
-                      aria-label={`Remove ${filterLabel(f)}`}
-                      onClick={() => removeFilter(i)}
-                    >
-                      ×
-                    </button>
-                  </span>
-                ) : (
-                  <span key={i} className="fchip data" data-tip="Edit filter">
+                    <span className="fname">
+                      {FILTER_FIELDS.find((m) => m.field === f.field)?.label ??
+                        f.field}
+                    </span>
                     <select
-                      aria-label="Field"
-                      value={f.field}
-                      onChange={(e) =>
-                        editFilter(i, {
-                          field: e.target.value as NumericFilterField,
-                        })
-                      }
-                      style={{
-                        border: "none",
-                        background: "transparent",
-                        font: "inherit",
-                      }}
-                    >
-                      {FILTER_FIELDS.map((m) => (
-                        <option key={m.field} value={m.field}>
-                          {m.label}
-                        </option>
-                      ))}
-                    </select>
-                    <select
+                      className="opword"
                       aria-label="Operator"
                       value={f.op}
-                      onChange={(e) =>
-                        editFilter(i, {
-                          op: e.target.value as NumericLeadFilter["op"],
-                        })
-                      }
-                      style={{
-                        border: "none",
-                        background: "transparent",
-                        font: "inherit",
+                      onChange={(e) => {
+                        const op = e.target.value as NumericLeadFilter["op"];
+                        // B14 · switching to "between" seeds the upper bound
+                        // from the current value so the chip never renders a
+                        // half-defined range.
+                        editFilter(
+                          i,
+                          op === "between"
+                            ? { op, value2: f.value2 ?? f.value }
+                            : { op },
+                        );
                       }}
                     >
-                      {["<", "≤", "=", "≥", ">"].map((o) => (
-                        <option key={o} value={o}>
-                          {o}
-                        </option>
-                      ))}
+                      {(["<", "≤", "=", "≥", ">", "between"] as const).map(
+                        (o) => (
+                          <option key={o} value={o}>
+                            {o}
+                          </option>
+                        ),
+                      )}
                     </select>
                     <input
-                      aria-label="Value"
+                      className="vinline"
+                      aria-label={f.op === "between" ? "Lower bound" : "Value"}
                       type="number"
                       value={f.value}
                       onChange={(e) =>
                         editFilter(i, { value: Number(e.target.value) || 0 })
                       }
-                      style={{
-                        width: 56,
-                        border: "none",
-                        background: "transparent",
-                        font: "inherit",
-                      }}
+                      onKeyDown={commitOnEnter}
                     />
+                    {/* B14 · the "between" op renders its second bound — a
+                        URL-restored between chip is fully editable. */}
+                    {f.op === "between" ? (
+                      <>
+                        <span className="frange" aria-hidden="true">
+                          –
+                        </span>
+                        <input
+                          className="vinline"
+                          aria-label="Upper bound"
+                          type="number"
+                          value={f.value2 ?? f.value}
+                          onChange={(e) =>
+                            editFilter(i, {
+                              value2: Number(e.target.value) || 0,
+                            })
+                          }
+                          onKeyDown={commitOnEnter}
+                        />
+                      </>
+                    ) : null}
+                    {/* B3 · "42 match · 31 no data" — the no-data segment is
+                        the click-to-include toggle. While the field's heavy
+                        data hydrates, an honest loading word instead. */}
+                    {loading ? (
+                      <span className="fann">loading…</span>
+                    ) : bd ? (
+                      <span className="fann">
+                        {bd.match} match
+                        {bd.noData > 0 ? (
+                          <>
+                            {" · "}
+                            <button
+                              type="button"
+                              className={`fnodata${f.includeNoData ? " on" : ""}`}
+                              aria-pressed={f.includeNoData === true}
+                              data-tip={
+                                f.includeNoData
+                                  ? "Leads with no value for this field are included — click to exclude them"
+                                  : "Leads with no value for this field are excluded — click to include them"
+                              }
+                              onClick={() =>
+                                editFilter(i, {
+                                  includeNoData: !f.includeNoData,
+                                })
+                              }
+                            >
+                              {bd.noData} no data
+                            </button>
+                          </>
+                        ) : null}
+                      </span>
+                    ) : null}
                     <button
                       type="button"
                       className="x"
@@ -3099,8 +3715,29 @@ export function LeadsWorkbench({
                       ×
                     </button>
                   </span>
-                ),
-              )}
+                );
+              })}
+              {/* B1a · applied DATA-STATE filters render as removable chips
+                  like everything else — the fix for the phantom-filter P0
+                  (a state filter used to render NO chip; once its count hit 0
+                  its only removal UI vanished while it kept hiding leads). */}
+              {stateFilters.map((sf) => (
+                <span
+                  key={`fs-${sf.group}-${sf.state}`}
+                  className="fchip state"
+                  data-tip="Data-state filter"
+                >
+                  {dataGroupFor(sf.group).label}: {FIELD_STATE_LABEL[sf.state]}
+                  <button
+                    type="button"
+                    className="x"
+                    aria-label={`Remove ${dataGroupFor(sf.group).label}: ${FIELD_STATE_LABEL[sf.state]} filter`}
+                    onClick={() => toggleStateFilter(sf.group, sf.state)}
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
               {/* U15 · ONE "+ Filter" attribute picker — the single filtering
                 home. Two labelled sections inside the one <Popover>: addable
                 signals (the curated library, gated to signals with data on
@@ -3127,22 +3764,32 @@ export function LeadsWorkbench({
                   </button>
                 }
               >
+                {/* B15 · empty-menu honesty: "everything available is already
+                    applied" is NOT "no data" — only the latter earns the
+                    enrich CTA (the old copy upsold enrichment to users who had
+                    simply applied every unlocked signal). */}
                 {signalOptionCount === 0 ? (
-                  <button
-                    type="button"
-                    className="filter-add-empty"
-                    style={{
-                      cursor: "pointer",
-                      width: "100%",
-                      textAlign: "left",
-                      background: "none",
-                      border: "none",
-                      font: "inherit",
-                    }}
-                    onClick={openMissingGroupsSheet}
-                  >
-                    No signal covers all leads yet · enrich to unlock →
-                  </button>
+                  availSigKeys.size > 0 ? (
+                    <div className="filter-add-empty">
+                      All available signals are applied.
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      className="filter-add-empty"
+                      style={{
+                        cursor: "pointer",
+                        width: "100%",
+                        textAlign: "left",
+                        background: "none",
+                        border: "none",
+                        font: "inherit",
+                      }}
+                      onClick={openMissingGroupsSheet}
+                    >
+                      No signal covers the current view yet · enrich to unlock →
+                    </button>
+                  )
                 ) : null}
                 {addSignalOptions.goal.length > 0 ? (
                   <div
@@ -3221,6 +3868,12 @@ export function LeadsWorkbench({
                       </button>
                     ))}
                   </div>
+                ) : availNumFields.size > 0 ? (
+                  // B15 · all fields with data are already applied — say so,
+                  // never a misleading enrich upsell.
+                  <div className="filter-add-empty">
+                    All available fields are applied.
+                  </div>
                 ) : (
                   <button
                     type="button"
@@ -3272,17 +3925,31 @@ export function LeadsWorkbench({
                         <div key={grpRow.group} className="filter-state-row">
                           <span className="filter-state-fam">
                             {grpRow.label}
+                            {/* B8 · the group's newest scan is > 30d old —
+                                quiet "as of" so old truth reads as old. */}
+                            {grpRow.asOf ? (
+                              <span className="fs-asof">
+                                {" "}
+                                · as of {grpRow.asOf}
+                              </span>
+                            ) : null}
                           </span>
                           <span className="filter-state-toggles">
                             {grpRow.states.map((s) => (
                               <button
                                 key={s.state}
                                 type="button"
+                                // B1b · a zero-count APPLIED state stays
+                                // rendered (greyed) so it can be untoggled.
                                 className={`cov-state${
                                   active?.has(s.state) ? " on" : ""
-                                }`}
+                                }${s.count === 0 ? " zero" : ""}`}
                                 aria-pressed={active?.has(s.state) ?? false}
-                                data-tip={`Show leads where ${grpRow.label} = ${s.stateLabel}`}
+                                data-tip={
+                                  s.count === 0
+                                    ? `No leads currently in this state — the filter is still applied · click to remove`
+                                    : `Show leads where ${grpRow.label} = ${s.stateLabel}`
+                                }
                                 onClick={() =>
                                   toggleStateFilter(grpRow.group, s.state)
                                 }
@@ -3325,21 +3992,47 @@ export function LeadsWorkbench({
               </Popover>
             </div>
           </div>
-        ) : filters.length ? (
+        ) : filters.length || stateFilters.length ? (
           <div className="chipsbar">
             <span className="cb-lbl">Filters</span>
-            {filters.map((f, i) => (
-              // Signal chips (your goal defaults) read distinct from numeric ones.
-              <span
-                key={i}
-                className={`fchip ${f.kind === "signal" ? "sig" : "data"}`}
-              >
-                {filterLabel(f)}
+            {filters.map((f, i) => {
+              const bd = filterBreakdowns[i];
+              return (
+                // Signal chips (your goal defaults) read distinct from numeric ones.
+                <span
+                  key={i}
+                  className={`fchip ${f.kind === "signal" ? "sig" : "data"}`}
+                >
+                  {filterLabel(f)}
+                  {/* B3 · the honesty annotation rides the compact chips too. */}
+                  {bd ? (
+                    <span className="fann">
+                      {bd.match} match
+                      {bd.noData > 0
+                        ? ` · ${bd.noData} no data${f.kind !== "signal" && f.includeNoData ? " (incl.)" : ""}`
+                        : ""}
+                    </span>
+                  ) : null}
+                  <button
+                    type="button"
+                    className="x"
+                    aria-label={`Remove ${filterLabel(f)}`}
+                    onClick={() => removeFilter(i)}
+                  >
+                    ×
+                  </button>
+                </span>
+              );
+            })}
+            {/* B1a · data-state filters are first-class chips here too. */}
+            {stateFilters.map((sf) => (
+              <span key={`fs-${sf.group}-${sf.state}`} className="fchip state">
+                {dataGroupFor(sf.group).label}: {FIELD_STATE_LABEL[sf.state]}
                 <button
                   type="button"
                   className="x"
-                  aria-label={`Remove ${filterLabel(f)}`}
-                  onClick={() => removeFilter(i)}
+                  aria-label={`Remove ${dataGroupFor(sf.group).label}: ${FIELD_STATE_LABEL[sf.state]} filter`}
+                  onClick={() => toggleStateFilter(sf.group, sf.state)}
                 >
                   ×
                 </button>
@@ -3348,66 +4041,63 @@ export function LeadsWorkbench({
             <button
               type="button"
               className="cb-clear"
-              onClick={() => {
-                userTouchedRef.current = true;
-                setFilters([]);
-                setPage(1);
-              }}
+              onClick={clearAllFilters}
             >
               Clear all
             </button>
           </div>
         ) : null}
 
-        {/* ── Coverage panel ────────────────────────────────────────────────── */}
-        {coverageOpen ? (
-          <div className="collapse-panel" ref={coveragePanelRef}>
-            <div className="covline" aria-live="polite">
-              <span className="cl-lbl">Coverage</span>
-              <span className="cl-lbl" style={{ color: "var(--green)" }}>
-                Have:
+        {/* ── Coverage strip (B11b/B13) ─────────────────────────────────────
+            Always visible above the table — the toolbar coverage button (and
+            its all-or-nothing set-level 0/7 badge, the lie the toolbar doc
+            opens with) is DELETED. The strip carries the have/not-yet summary
+            + the enrich-missing CTA; data-STATE filtering lives in the Filter
+            popover's "+ Data state" list. */}
+        <div className="covline wb-covstrip" aria-live="polite">
+          <span className="cl-lbl">Coverage</span>
+          <span className="cl-lbl" style={{ color: "var(--green)" }}>
+            Have:
+          </span>
+          {coverageSummary.have.length === 0 ? (
+            <span className="note">—</span>
+          ) : (
+            coverageSummary.have.map((label) => (
+              <span key={label} className="covtag done">
+                <span className="cv">✓</span>
+                {label}
               </span>
-              {coverageSummary.have.length === 0 ? (
-                <span className="note">—</span>
-              ) : (
-                coverageSummary.have.map((label) => (
-                  <span key={label} className="covtag done">
-                    <span className="cv">✓</span>
-                    {label}
-                  </span>
-                ))
-              )}
-              {coverageSummary.notYet.length > 0 ? (
-                <>
-                  <span className="cl-lbl" style={{ marginLeft: 6 }}>
-                    Not yet:
-                  </span>
-                  {coverageSummary.notYet.map((label) => (
-                    <span key={label} className="covtag todo">
-                      {label}
-                    </span>
-                  ))}
-                  {/* WP5-3 · opens the in-workbench enrich sheet (pre-seeded
+            ))
+          )}
+          {coverageSummary.notYet.length > 0 ? (
+            <>
+              <span className="cl-lbl" style={{ marginLeft: 6 }}>
+                Not yet:
+              </span>
+              {coverageSummary.notYet.map((label) => (
+                <span key={label} className="covtag todo">
+                  {label}
+                </span>
+              ))}
+              {/* WP5-3 · opens the in-workbench enrich sheet (pre-seeded
                     with the missing data groups + the current scope) — a real
                     one-click buy surface, not a deep-link away. */}
-                  <button
-                    type="button"
-                    className="clenrich"
-                    style={{ cursor: "pointer", font: "inherit" }}
-                    data-tip={`Enrich: ${coverageSummary.notYet.join(" · ")}`}
-                    onClick={openMissingGroupsSheet}
-                  >
-                    Enrich missing · {coverageSummary.notYet.length} →
-                  </button>
-                </>
-              ) : (
-                <span className="note" style={{ marginLeft: "auto" }}>
-                  All data groups enriched on this set
-                </span>
-              )}
-            </div>
-          </div>
-        ) : null}
+              <button
+                type="button"
+                className="clenrich"
+                style={{ cursor: "pointer", font: "inherit" }}
+                data-tip={`Enrich: ${coverageSummary.notYet.join(" · ")}`}
+                onClick={openMissingGroupsSheet}
+              >
+                Enrich missing · {coverageSummary.notYet.length} →
+              </button>
+            </>
+          ) : (
+            <span className="note" style={{ marginLeft: "auto" }}>
+              All data groups enriched on this set
+            </span>
+          )}
+        </div>
 
         {/* WP7-10 · sort-state announcement for screen readers. A polite live
           region names the active column + direction whenever the sort changes,
@@ -3523,9 +4213,16 @@ export function LeadsWorkbench({
                         color: "var(--faint)",
                       }}
                     >
-                      {filters.length > 0 || search.trim() !== "" ? (
+                      {/* B1d · empty-state honesty: when rows EXIST but the
+                          narrowing (filters / search / data-state / Enriched-
+                          only / status tab / Not-touched) hides them all, say
+                          so — "No leads in this set yet." was a lie that sent
+                          users re-paying for leads they already had. */}
+                      {rows.length > 0 && anyNarrowing ? (
                         <>
-                          No leads match these filters ·{" "}
+                          {rows.length === 1
+                            ? "Filters hide the only lead."
+                            : `Filters hide all ${rows.length.toLocaleString()} leads.`}{" "}
                           <button
                             type="button"
                             className="rflink"

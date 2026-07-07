@@ -308,6 +308,23 @@ async function DiscoveryWorkspaceBody({ params, searchParams }: PageProps) {
     ? `${csvSlug(firstCellForSlug.categorySlug)}-${csvSlug(firstCellForSlug.metroSlug)}`
     : undefined;
 
+  // ── Header: "{Category} · {Metro}" from the first cell ──────────────────────
+  // (Computed BEFORE the shell so the B6 locked-context strip can reuse the
+  // market label + the mapped-freshness anchor as plain strings — Pattern 4.)
+  const firstCell = cellKeys[0] ? parseCellKey(cellKeys[0]) : null;
+  const categoryLabel = firstCell
+    ? await resolveCategoryLabel(firstCell.categorySlug)
+    : null;
+  const metroLabel = firstCell ? resolveMetroLabel(firstCell.metroSlug) : null;
+  const title =
+    categoryLabel && metroLabel
+      ? `${categoryLabel} · ${metroLabel}`
+      : (discovery.name ?? "Workspace");
+
+  // Meta line anchor: mapped freshness (also the B6 "Data as of" chip source —
+  // the ONE anchor the header's FreshnessChip reads, so the two never disagree).
+  const mappedAt = discovery.finishedAt ?? discovery.createdAt;
+
   const shell: WorkbenchShellProps = {
     leads: {
       rows: data.rows,
@@ -329,20 +346,19 @@ async function DiscoveryWorkspaceBody({ params, searchParams }: PageProps) {
       // Step 4 · which HEAVY fields this payload carries — the client hydrates
       // the rest on column toggle (getWorkbenchRowFieldsAction).
       serializedRowFields: [...serializeHeavyFields],
+      // B6 · the locked-context strip: the invisible gates that shape this set
+      // before any filter chip runs (audit §4), as plain serializable data.
+      lockedContext: {
+        market: title,
+        websitesOnly: goalNeedsWebsite,
+        // The raw-list gates (rawListWhere) always exclude closed + hidden
+        // businesses from the market scope.
+        closedHiddenExcluded: true,
+        dataAsOf: mappedAt.toISOString(),
+      },
     },
     touchpoints: { touches: data.touches, stats: data.stats },
   };
-
-  // ── Header: "{Category} · {Metro}" from the first cell ──────────────────────
-  const firstCell = cellKeys[0] ? parseCellKey(cellKeys[0]) : null;
-  const categoryLabel = firstCell
-    ? await resolveCategoryLabel(firstCell.categorySlug)
-    : null;
-  const metroLabel = firstCell ? resolveMetroLabel(firstCell.metroSlug) : null;
-  const title =
-    categoryLabel && metroLabel
-      ? `${categoryLabel} · ${metroLabel}`
-      : (discovery.name ?? "Workspace");
 
   // The research goal for the header pill (WP4-14): the persisted goal name,
   // else the base template's title, else no pill (older discoveries).
@@ -355,7 +371,6 @@ async function DiscoveryWorkspaceBody({ params, searchParams }: PageProps) {
 
   // Meta line: mapped freshness + real spend-to-date credits (settled
   // EnrichmentRun.creditsCharged over this discovery's cells — see SPEND-1).
-  const mappedAt = discovery.finishedAt ?? discovery.createdAt;
   const now = new Date();
   const freshness = cellFreshnessState(mappedAt, now);
   const credits = await resolveSpendCreditsForDiscovery(

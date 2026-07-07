@@ -150,6 +150,14 @@ export function researchesForSignals(
   for (const sig of activeSignals) {
     const meta = SIG_META[sig.key];
     if (!meta) continue; // unknown key — nothing to collect (no silent family)
+    // A8b (filters audit P1) · roadmap signals never seed PAID researches:
+    // their eval returns null regardless of what's collected, so charging
+    // their declared families bought data no filter could read
+    // (branded_only_traffic seeded a SERP scan, recurring_complaint_theme a
+    // reviews pull — and the signal stayed blank forever). The declaration
+    // stays on the SigMeta for planning; it starts collecting the moment the
+    // signal graduates off roadmap.
+    if (meta.status === "roadmap") continue;
     for (const r of meta.researches) seed.add(r);
   }
   return resolveResearches([...seed]);

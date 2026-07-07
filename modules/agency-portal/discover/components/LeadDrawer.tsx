@@ -815,10 +815,11 @@ function WhyBand({
 }
 
 /**
- * One non-fired verdict row (P3 honesty, Wave-3 split):
+ * One non-fired verdict row (P3 honesty, Wave-3 split + F4 roadmap state):
  *   - didn't fire        · neutral tag (evaluated, no match)
  *   - Scanned · no data  · COMPLETED soft-green tag (the backing researches
  *     RAN — verified-absent is an answer, never a re-pay invite)
+ *   - Data source coming · neutral tag (roadmap signal — nothing to buy)
  *   - Enrich to unlock   · amber tag (truly unscanned)
  */
 function SignalVerdictRow({ verdict }: { verdict: LeadSignalVerdict }) {
@@ -826,7 +827,14 @@ function SignalVerdictRow({ verdict }: { verdict: LeadSignalVerdict }) {
     verdict.matched === true ? (
       <span className="ldtag g">Fired</span>
     ) : verdict.matched === null ? (
-      verdict.scanned ? (
+      verdict.roadmap ? (
+        <span
+          className="ldtag"
+          data-tip="This signal needs a data source we don't collect yet — no research can unlock it."
+        >
+          Data source coming
+        </span>
+      ) : verdict.scanned ? (
         <span className="ldtag done">
           <Icon name="check" size={9} />
           Scanned · no data
@@ -1767,6 +1775,78 @@ function renderInlineBold(text: string): ReactNode {
   );
 }
 
+/**
+ * Owner 2026-07-06 · jargon labels get a styled tooltip (TooltipLayer data-tip)
+ * explaining the term + its healthy band in plain English — Tom knows most of
+ * these, but the definition on hover is the glossary rule for agency surfaces.
+ * Keyed by exact row label; `termTip` adds a prefix match for parameterized
+ * labels ("Performance (mobile)").
+ */
+const TERM_TIPS: Record<string, string> = {
+  Performance:
+    "Google Lighthouse performance score, 0–100. Official bands ≥90 good · <50 poor — local sites rarely clear 65, so green here = healthy for this market.",
+  LCP: "Largest Contentful Paint — time until the page's main content is visible. ≤2.5s good · >4s poor.",
+  INP: "Interaction to Next Paint — how long the page takes to react to a tap or click. ≤200ms good · >500ms poor.",
+  TBT: "Total Blocking Time — how long the page is frozen while it loads. ≤200ms good · >600ms poor.",
+  CLS: "Cumulative Layout Shift — how much the page jumps around while loading. ≤0.1 good · >0.25 poor.",
+  FCP: "First Contentful Paint — time until anything at all renders. ≤1.8s good · >3s poor.",
+  Accessibility:
+    "Lighthouse accessibility score, 0–100 — usability with screen readers, keyboards, low vision. ≥90 good.",
+  SEO: "Lighthouse on-page SEO score, 0–100 — crawlability, meta tags, mobile friendliness. ≥90 good.",
+  "Best practices":
+    "Lighthouse best-practices score, 0–100 — HTTPS, safe libraries, no console errors. ≥90 good.",
+  "Potential savings":
+    "How much faster the page could load by applying the fixes Lighthouse flagged.",
+  "Crawlable (no-JS)":
+    "Whether the page's content exists in the raw HTML before JavaScript runs. JS-only shells are riskier for Google indexing.",
+  "Local 3-pack rank":
+    "Position in the Google Maps 3-pack — the three businesses shown at the top of local search results.",
+  "Organic rank":
+    "Position in the regular (non-map) Google results for the tracked local keyword. Page 1 = top 10.",
+  "The pack":
+    "The three businesses currently holding the local 3-pack for this search.",
+  "Brand hijack":
+    "Competitors bidding on this business's own name in Google Ads — searchers see rival ads above the real site.",
+  "Reply rate":
+    "Share of pulled reviews with an owner reply. Category benchmark ~89% · under 80% is a pitch angle.",
+  "1–3★ unanswered":
+    "Negative reviews (1–3 stars) with no owner reply — each one sits visibly unaddressed in search.",
+  "Lifecycle (90d)":
+    "Review momentum over the last 90 days — trending up, steady, slowing, or dormant.",
+  Distribution: "How the review stars split — e.g. 111×5★ · 3×1★.",
+  "Last review":
+    "When the most recent Google review landed — the cheapest is-this-business-alive check.",
+  "Tracking pixel":
+    "A Meta/Google ads pixel on the site — without one, ad traffic can't be measured or retargeted.",
+  Analytics:
+    "A web-analytics tool (GA4 etc.) on the site — without one the owner is flying blind.",
+  "Built on":
+    "The CMS / site builder the website runs on, from the tech fingerprint.",
+  "Online booking":
+    "Whether customers can book on the website — and the tool that powers it. A phone number is not online booking.",
+  "Booking mismatch":
+    "The Google profile and the website disagree about online booking — customers hit a dead end.",
+  "Spend band": "Estimated monthly ad-spend range reported by the ad library.",
+  Advertiser: "The advertiser accounts the ad library attributes these ads to.",
+  "Pricing transparency":
+    "Whether prices are published on the site — opaque pricing is a common conversion leak.",
+  Sophistication:
+    "AI read of how polished the business's web presence is overall.",
+  "Vs cell leader":
+    "AI comparison against the strongest competitor in this market cell.",
+  Claimed:
+    "Whether the owner has claimed the Google Business Profile. Unclaimed = nobody is minding the listing.",
+  "Years on Google":
+    "How long the Google listing has existed — a proxy for business tenure.",
+};
+
+/** Exact-label lookup with a prefix fallback for parameterized labels. */
+function termTip(label: string): string | undefined {
+  if (TERM_TIPS[label]) return TERM_TIPS[label];
+  if (label.startsWith("Performance")) return TERM_TIPS.Performance;
+  return undefined;
+}
+
 function EvidenceRow({
   row,
   bands,
@@ -1787,11 +1867,14 @@ function EvidenceRow({
   // (e.g. a lone advertiser in a zero-ad market shows "1 · typical 0 · 50th pct").
   // Fall through to the plain text form instead of a meaningless bar.
   const band = rawBand && rawBand.p90 > rawBand.p10 ? rawBand : undefined;
+  const tip = termTip(row.label);
   if (row.metric && band) {
     return (
       <div className="sig">
         <div className="row">
-          <span className="name">{row.label}</span>
+          <span className={`name${tip ? " deft" : ""}`} data-tip={tip}>
+            {row.label}
+          </span>
         </div>
         <div className="evbar">
           <VsCellBar
@@ -1855,7 +1938,9 @@ function EvidenceRow({
   return (
     <div className={row.section != null ? "sig kv" : "sig"}>
       <div className="row">
-        <span className="name">{row.label}</span>
+        <span className={`name${tip ? " deft" : ""}`} data-tip={tip}>
+          {row.label}
+        </span>
         <span className={`val${toneClass}`}>
           {row.strong ? <b>{row.value}</b> : renderInlineBold(row.value)}
         </span>

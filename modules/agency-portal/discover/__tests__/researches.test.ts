@@ -77,10 +77,32 @@ describe("resolveResearches · transitive closure over RESEARCH_DEPS", () => {
 });
 
 describe("researchesForSignals · signal → research union", () => {
-  test("a composite signal yields ALL its families (ads_without_pixel → meta_ads + tech, tech pulls contacts)", () => {
-    const out = researchesForSignals([{ key: "ads_without_pixel" }]);
-    // meta_ads + tech declared; tech's chain adds contacts. Order = price-list.
-    expect(out).toEqual(["contacts", "tech", "meta_ads"]);
+  test("a composite signal yields ALL its families (compliance_risk → tech + lighthouse + reviews, tech pulls contacts)", () => {
+    const out = researchesForSignals([{ key: "compliance_risk" }]);
+    // tech + lighthouse + reviews declared; tech's chain adds contacts.
+    // Order = price-list.
+    expect(out).toEqual(["contacts", "tech", "reviews", "lighthouse"]);
+  });
+
+  // A8b · roadmap signals never seed PAID researches: their eval returns null
+  // regardless, so collecting would charge for data no filter can read
+  // (branded_only_traffic used to seed a SERP scan that stayed blank forever).
+  test("roadmap signals seed NO researches despite their declarations", () => {
+    expect(SIG_META.ads_without_pixel.status).toBe("roadmap");
+    expect(researchesForSignals([{ key: "ads_without_pixel" }])).toEqual([]);
+    expect(SIG_META.branded_only_traffic.status).toBe("roadmap");
+    expect(researchesForSignals([{ key: "branded_only_traffic" }])).toEqual([]);
+    expect(SIG_META.recurring_complaint_theme.status).toBe("roadmap");
+    expect(
+      researchesForSignals([{ key: "recurring_complaint_theme" }]),
+    ).toEqual([]);
+    // Mixed with a live signal, only the live one's families survive.
+    expect(
+      researchesForSignals([
+        { key: "branded_only_traffic" },
+        { key: "slow_site" },
+      ]),
+    ).toEqual(["lighthouse"]);
   });
 
   test("a discovery-only signal yields [] (data is known from Discovery at $0)", () => {
@@ -159,8 +181,13 @@ describe("completeness invariant · every SIG_META signal declares researches", 
     for (const key of Object.keys(SIG_META)) {
       const out = researchesForSignals([{ key }]);
       for (const r of out) expect(valid.has(r)).toBe(true);
-      // The resolved set is a superset of the declared set (chains only add).
-      for (const r of SIG_META[key].researches) expect(out).toContain(r);
+      if (SIG_META[key].status === "roadmap") {
+        // A8b · roadmap signals seed nothing (their declaration is planning-only).
+        expect(out).toEqual([]);
+      } else {
+        // The resolved set is a superset of the declared set (chains only add).
+        for (const r of SIG_META[key].researches) expect(out).toContain(r);
+      }
     }
   });
 });
@@ -231,18 +258,19 @@ describe("groupSignalsByResearch · Preview's 'What you picked' grouping", () =>
   });
 
   test("a signal needing multiple researches appears under EACH (duplication is intentional)", () => {
-    // ads_without_pixel declares meta_ads + tech (tech pulls in contacts).
-    const active = [{ key: "ads_without_pixel" }];
+    // compliance_risk declares tech + lighthouse + reviews (tech pulls contacts).
+    const active = [{ key: "compliance_risk" }];
     const families = researchesForSignals(active);
     const groups = groupSignalsByResearch(active, families);
     const keys = groups.map((g) => g.key);
     expect(keys).toContain("tech");
-    expect(keys).toContain("meta_ads");
+    expect(keys).toContain("lighthouse");
+    expect(keys).toContain("reviews");
     expect(groups.find((g) => g.key === "tech")?.titles).toContain(
-      "Runs Meta ads without a pixel",
+      "Legal & compliance risk",
     );
-    expect(groups.find((g) => g.key === "meta_ads")?.titles).toContain(
-      "Runs Meta ads without a pixel",
+    expect(groups.find((g) => g.key === "lighthouse")?.titles).toContain(
+      "Legal & compliance risk",
     );
   });
 

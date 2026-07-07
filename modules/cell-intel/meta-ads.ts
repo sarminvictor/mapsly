@@ -34,6 +34,7 @@ import {
   type MetaAdvertiser,
   type MetaPageResolution,
   type MetaRunOutcome,
+  type MetaTargetStatus,
 } from "@/services/apify";
 import { matchStrength } from "@/modules/ads-intel/match";
 import {
@@ -295,6 +296,10 @@ export async function runMetaAdsForCell(
   let rows: MetaAdRow[] = [];
   let advertisers: MetaAdvertiser[] = [];
   let resolutions: MetaPageResolution[] = [];
+  // Per-target statuses (A4) — the run's own evidence that Meta's data query
+  // actually fired (status ok/empty_verified, graphqlHits ≥ 1). Feeds the
+  // soft-block suspicion heuristic before an OK-with-0 is written.
+  let targetStatuses: MetaTargetStatus[] = [];
   // Verified outcome from the actor's RUN_SUMMARY (block vs timeout vs real
   // empty). Drives the AdMarketRun status below so the coverage-matrix reads
   // "failed/retryable" for a blocked cell — NOT "ran, empty". Default `error`
@@ -317,6 +322,7 @@ export async function runMetaAdsForCell(
     rows = out.rows;
     advertisers = out.advertisers ?? [];
     resolutions = out.resolutions ?? [];
+    targetStatuses = out.targetStatuses ?? [];
     outcome = out.outcome;
     result.costUsd = out.usageTotalUsd;
     result.runId = out.runId;
@@ -639,8 +645,60 @@ export async function runMetaAdsForCell(
   // persistence errors; PARTIAL when the actor reported `partial` (some targets
   // silently failed) OR a per-row persist errored. blocked/timeout/error never
   // reach here (returned FAILED above).
-  const runStatus =
+  let runStatus: "OK" | "PARTIAL" | "FAILED" =
     outcome === "partial" || result.errors.length > 0 ? "PARTIAL" : "OK";
+
+  // A4 (filters audit P0) · SOFT-BLOCK SUSPICION heuristic. An UNDETECTED Meta
+  // soft-block (session gets pages but Meta withholds all data) surfaces as a
+  // clean outcome with 0 advertisers — writing that as OK would let the 30-day
+  // freshness gate serve the cached emptiness on every re-pay. Before locking
+  // in a "verified-empty market" for a month, be conservative: with 0
+  // advertisers AND 0 attributed ads, mark the run FAILED (the freshness gate
+  // only anchors on OK/PARTIAL → the next purchase retries) when either
+  //   (a) NO per-target status evidences the data query actually fired — the
+  //       actor's un-zeroable primer/self-check taxonomy (R1): a verified
+  //       target carries status ok/empty_verified or graphqlHits ≥ 1; an
+  //       evidence-less "empty" is indistinguishable from a soft-block; or
+  //   (b) a previous successful run for this cell recorded REAL advertisers —
+  //       a known-advertiser market suddenly reading empty is a block, not a
+  //       market collapse (and that prior run is >30d stale by definition, or
+  //       the freshness gate would have served it).
+  // Billing is untouched — the run already happened and was billed; only the
+  // status (→ retryability) changes.
+  if (result.advertiserCount === 0 && result.adCount === 0) {
+    const sessionSawDataQuery = targetStatuses.some(
+      (t) =>
+        t.status === "ok" ||
+        t.status === "empty_verified" ||
+        (t.graphqlHits ?? 0) >= 1,
+    );
+    // (b) · a prior successful run with real advertisers for this cell,
+    // bounded to 180d — without the window a market that GENUINELY collapsed
+    // to zero advertisers could never re-anchor as verified-empty (every
+    // future 0-run would read FAILED forever off one ancient positive run).
+    const knownAdvertiserCell = await prisma.adMarketRun.findFirst({
+      where: {
+        cellKey,
+        platform: "META",
+        status: { in: ["OK", "PARTIAL"] },
+        advertiserCount: { gt: 0 },
+        ranAt: { gte: new Date(Date.now() - 180 * 86_400_000) },
+      },
+      orderBy: { ranAt: "desc" },
+      select: { id: true, advertiserCount: true },
+    });
+    if (!sessionSawDataQuery || knownAdvertiserCell) {
+      runStatus = "FAILED";
+      result.errors.push(
+        `meta-softblock-suspected:${
+          !sessionSawDataQuery ? "no-verified-target" : ""
+        }${
+          !sessionSawDataQuery && knownAdvertiserCell ? "+" : ""
+        }${knownAdvertiserCell ? `prior-advertisers-${knownAdvertiserCell.advertiserCount}` : ""}`,
+      );
+    }
+  }
+
   await prisma.adMarketRun.create({
     data: {
       cellKey,

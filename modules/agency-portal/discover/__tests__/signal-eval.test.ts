@@ -24,7 +24,9 @@ import {
   rollupSnapshot,
   rollupTech,
   scaleBandsToPercentileRange,
+  withAdScanTruth,
   type ActiveSignal,
+  type HydratedAdsPlatform,
   type HydratedBusiness,
 } from "../signal-eval";
 import { SIG_META } from "../goal-templates";
@@ -60,6 +62,46 @@ const NOW = new Date("2026-06-30T12:00:00Z");
 // HydratedBusiness factory — every slot empty/null by default, override per test.
 // ─────────────────────────────────────────────────────────────────────────────
 
+/** A5 · one platform's empty ad sub-rollup (unscanned by default). */
+function adsPlat(over: Partial<HydratedAdsPlatform> = {}): HydratedAdsPlatform {
+  return {
+    scanned: false,
+    activeCount: 0,
+    hasVideo: false,
+    formats: [],
+    newestAgeDays: null,
+    ...over,
+  };
+}
+
+/** The full ads slot. Overriding `meta`/`google` replaces the sub-rollup. */
+function adsRoll(
+  over: Partial<HydratedBusiness["ads"]> = {},
+): HydratedBusiness["ads"] {
+  return {
+    activeCount: 0,
+    hasVideo: false,
+    formats: [],
+    newestAgeDays: null,
+    landingHostCount: 0,
+    landingIsHomepageOnly: null,
+    meta: adsPlat(),
+    google: adsPlat(),
+    ...over,
+  };
+}
+
+/** A SCANNED Meta ads slot with N active Meta ads (merged totals mirrored). */
+function metaAds(
+  activeCount: number,
+  over: Partial<HydratedAdsPlatform> = {},
+): HydratedBusiness["ads"] {
+  return adsRoll({
+    activeCount,
+    meta: adsPlat({ scanned: true, activeCount, ...over }),
+  });
+}
+
 function biz(overrides: Partial<HydratedBusiness> = {}): HydratedBusiness {
   return {
     id: "biz_1",
@@ -77,18 +119,12 @@ function biz(overrides: Partial<HydratedBusiness> = {}): HydratedBusiness {
       hasAnyReview: false,
     },
     serp: null,
-    ads: {
-      activeCount: 0,
-      hasVideo: false,
-      formats: [],
-      newestAgeDays: null,
-      landingHostCount: 0,
-      landingIsHomepageOnly: null,
-    },
+    ads: adsRoll(),
     tech: {
       scanned: false,
       cmsName: null,
       bookingName: null,
+      chatName: null,
       hasAnalytics: false,
       hasMetaPixel: false,
       hasBooking: false,
@@ -104,6 +140,7 @@ function biz(overrides: Partial<HydratedBusiness> = {}): HydratedBusiness {
       anyUp: false,
     },
     contacts: {
+      scanned: false,
       emailCount: 0,
       phoneCount: 0,
       socialChannelCount: 0,
@@ -224,17 +261,19 @@ describe("evaluateSignal · LIVE library cards (weak_seo, has_email_contact)", (
     expect(
       evaluateSignal(
         sig,
-        biz({ contacts: { ...biz().contacts, emailCount: 2 } }),
+        biz({ contacts: { ...biz().contacts, scanned: true, emailCount: 2 } }),
         NOW,
       ).matched,
     ).toBe(true);
     expect(
       evaluateSignal(
         sig,
-        biz({ contacts: { ...biz().contacts, emailCount: 0 } }),
+        biz({ contacts: { ...biz().contacts, scanned: true, emailCount: 0 } }),
         NOW,
       ).matched,
     ).toBe(false);
+    // A1 · un-scanned lead → null, never a fake "no email" verdict.
+    expect(evaluateSignal(sig, biz(), NOW).matched).toBeNull();
   });
 });
 
@@ -801,18 +840,21 @@ describe("rollupAds", () => {
     const a = rollupAds(
       [
         {
+          platform: "META",
           isActive: true,
           displayFormat: "video",
           startedAt: new Date("2026-06-20"),
           landingUrl: "https://x.com/",
         },
         {
+          platform: "META",
           isActive: true,
           displayFormat: "image",
           startedAt: new Date("2026-06-01"),
           landingUrl: "https://x.com/",
         },
         {
+          platform: "META",
           isActive: false,
           displayFormat: "video",
           startedAt: new Date("2026-01-01"),
@@ -831,6 +873,7 @@ describe("rollupAds", () => {
     const a = rollupAds(
       [
         {
+          platform: "META",
           isActive: true,
           displayFormat: "image",
           startedAt: null,
@@ -840,6 +883,56 @@ describe("rollupAds", () => {
       NOW,
     );
     expect(a.landingIsHomepageOnly).toBe(false);
+  });
+
+  // A5 · the platform split: Meta-specific signals read `.meta`, the merged
+  // totals stay for the deliberately platform-agnostic cards.
+  test("splits META vs GOOGLE while keeping merged totals", () => {
+    const a = rollupAds(
+      [
+        {
+          platform: "GOOGLE",
+          isActive: true,
+          displayFormat: "video",
+          startedAt: new Date("2026-06-20"),
+          landingUrl: null,
+        },
+        {
+          platform: "META",
+          isActive: true,
+          displayFormat: "image",
+          startedAt: new Date("2026-05-01"),
+          landingUrl: null,
+        },
+      ],
+      NOW,
+    );
+    // Merged (not_advertising / no_analytics keep reading this).
+    expect(a.activeCount).toBe(2);
+    expect(a.hasVideo).toBe(true);
+    // Meta sub-rollup: only the image ad — a Google video ad can no longer
+    // fire "Runs video/image ads (Meta)".
+    expect(a.meta).toMatchObject({
+      scanned: true,
+      activeCount: 1,
+      hasVideo: false,
+      formats: ["image"],
+    });
+    expect(a.google).toMatchObject({
+      scanned: true,
+      activeCount: 1,
+      hasVideo: true,
+    });
+  });
+
+  test("no rows → both platforms unscanned; withAdScanTruth folds run-truth in", () => {
+    const a = rollupAds([], NOW);
+    expect(a.meta.scanned).toBe(false);
+    expect(a.google.scanned).toBe(false);
+    const folded = withAdScanTruth(a, true, false);
+    expect(folded.meta.scanned).toBe(true); // successful META cell run
+    expect(folded.google.scanned).toBe(false); // no GOOGLE_ADS job
+    expect(folded.meta.activeCount).toBe(0); // counts untouched
   });
 });
 
@@ -893,6 +986,16 @@ describe("rollupContacts", () => {
     expect(c.socialChannelCount).toBe(2);
     expect(c.hasOwnerContact).toBe(true);
     expect(c.totalCount).toBe(5);
+    expect(c.scanned).toBe(true); // rows can only come from a scan
+  });
+
+  // A1 · the scanned flag: run-truth OR row presence.
+  test("scanned = scanRan || rows present", () => {
+    expect(rollupContacts([]).scanned).toBe(false); // never ran, no rows
+    expect(rollupContacts([], true).scanned).toBe(true); // ran, found nothing
+    expect(
+      rollupContacts([{ channel: "EMAIL", role: "GENERIC" }], false).scanned,
+    ).toBe(true); // legacy rows without a job record
   });
 });
 
@@ -1147,15 +1250,10 @@ describe("evaluateSignal · tech presence synthetics (chat_widget / ecommerce)",
 describe("evaluateSignal · not_advertising (B3 · per-business runs 0 ads)", () => {
   // Now a synthetic per-business signal (no registryKey): matches when THIS
   // business has 0 active ads AND the cell's ad scan actually ran. Was the
-  // inverted market key `ad_market_prevalence` (same for every lead).
-  const adRollup = (activeCount: number): HydratedBusiness["ads"] => ({
-    activeCount,
-    hasVideo: false,
-    formats: [],
-    newestAgeDays: null,
-    landingHostCount: 0,
-    landingIsHomepageOnly: null,
-  });
+  // inverted market key `ad_market_prevalence` (same for every lead). Reads
+  // the MERGED activeCount by design (any-platform advertising counts).
+  const adRollup = (activeCount: number): HydratedBusiness["ads"] =>
+    adsRoll({ activeCount });
 
   test("matches a scanned business that runs 0 active ads", () => {
     const b = biz({ adMarket: { advertiserCount: 4 }, ads: adRollup(0) });
@@ -1218,15 +1316,10 @@ describe("evaluateSignal · no_analytics (B1 · runs ads AND no analytics)", () 
   // B1 · synthetic composite (no registryKey): matches when the business runs
   // active ads AND has no analytics. The ad half is now reliable per-business
   // (google_ads target-host attribution feeds biz.ads.activeCount), so this no
-  // longer fires on every un-instrumented lead — only advertisers.
-  const adRollup = (activeCount: number): HydratedBusiness["ads"] => ({
-    activeCount,
-    hasVideo: false,
-    formats: [],
-    newestAgeDays: null,
-    landingHostCount: 0,
-    landingIsHomepageOnly: null,
-  });
+  // longer fires on every un-instrumented lead — only advertisers. Reads the
+  // MERGED activeCount by design (A5 keeps the merge for this card).
+  const adRollup = (activeCount: number): HydratedBusiness["ads"] =>
+    adsRoll({ activeCount });
 
   test("matches an advertiser with no analytics", () => {
     const b = biz({ ads: adRollup(2), tech: tech({ hasAnalytics: false }) });
@@ -1285,30 +1378,20 @@ describe("evaluateSignal · losing_rankings (BusinessKeyword isDown)", () => {
 describe("evaluateSignal · ads_homepage_landing (landing homepage-only)", () => {
   test("matches when active ads only point at the homepage", () => {
     const b = biz({
-      ads: {
-        activeCount: 1,
-        hasVideo: false,
-        formats: ["image"],
-        newestAgeDays: 5,
-        landingHostCount: 1,
-        landingIsHomepageOnly: true,
-      },
+      ads: metaAds(1, { formats: ["image"], newestAgeDays: 5 }),
     });
+    b.ads.landingHostCount = 1;
+    b.ads.landingIsHomepageOnly = true;
     expect(evaluateSignal(active("ads_homepage_landing"), b, NOW).matched).toBe(
       true,
     );
   });
   test("does not match when ads use a deep landing page", () => {
     const b = biz({
-      ads: {
-        activeCount: 1,
-        hasVideo: false,
-        formats: ["image"],
-        newestAgeDays: 5,
-        landingHostCount: 1,
-        landingIsHomepageOnly: false,
-      },
+      ads: metaAds(1, { formats: ["image"], newestAgeDays: 5 }),
     });
+    b.ads.landingHostCount = 1;
+    b.ads.landingIsHomepageOnly = false;
     expect(evaluateSignal(active("ads_homepage_landing"), b, NOW).matched).toBe(
       false,
     );
@@ -1321,31 +1404,17 @@ describe("evaluateSignal · ads_homepage_landing (landing homepage-only)", () =>
 });
 
 describe("evaluateSignal · stale_ad_creative + many_ad_creatives", () => {
-  test("stale_ad_creative matches when newest ad is older than 60d", () => {
+  test("stale_ad_creative matches when newest META ad is older than 60d", () => {
     const b = biz({
-      ads: {
-        activeCount: 2,
-        hasVideo: false,
-        formats: ["image"],
-        newestAgeDays: 90,
-        landingHostCount: 1,
-        landingIsHomepageOnly: false,
-      },
+      ads: metaAds(2, { formats: ["image"], newestAgeDays: 90 }),
     });
     expect(evaluateSignal(active("stale_ad_creative"), b, NOW).matched).toBe(
       true,
     );
   });
-  test("many_ad_creatives matches 5+ active creatives", () => {
+  test("many_ad_creatives matches 5+ active META creatives", () => {
     const b = biz({
-      ads: {
-        activeCount: 6,
-        hasVideo: false,
-        formats: ["image"],
-        newestAgeDays: 5,
-        landingHostCount: 1,
-        landingIsHomepageOnly: false,
-      },
+      ads: metaAds(6, { formats: ["image"], newestAgeDays: 5 }),
     });
     expect(evaluateSignal(active("many_ad_creatives"), b, NOW).matched).toBe(
       true,
@@ -1686,14 +1755,7 @@ describe("evaluateSignal · competitor_pressure (mode tune)", () => {
   test("advertising: false when THIS business is also advertising", () => {
     const b = biz({
       adMarket: { advertiserCount: 4 },
-      ads: {
-        activeCount: 2,
-        hasVideo: false,
-        formats: ["image"],
-        newestAgeDays: 5,
-        landingHostCount: 1,
-        landingIsHomepageOnly: false,
-      },
+      ads: metaAds(2, { formats: ["image"], newestAgeDays: 5 }),
     });
     const sig = active("competitor_pressure", {
       tune: { kind: "mode", value: "advertising" },
@@ -1726,12 +1788,370 @@ describe("evaluateSignal · competitor_pressure (mode tune)", () => {
     });
     expect(evaluateSignal(sig, biz(), NOW).matched).toBeNull();
   });
-  test("outspend: null-TODO (no per-business spend stored — needs collection)", () => {
+  test("outspend: A12-removed option degrades to null (persisted goals)", () => {
+    // The "outspend" chip is gone from the card (no per-business spend is
+    // stored) — a goal persisted before A12 must degrade to not-computable,
+    // never crash or fake a verdict.
     const b = biz({ adMarket: { advertiserCount: 4 } });
     const sig = active("competitor_pressure", {
       tune: { kind: "mode", value: "outspend" },
     });
     expect(evaluateSignal(sig, b, NOW).matched).toBeNull();
+  });
+});
+
+// ═════════════════════════════════════════════════════════════════════════════
+// A1 (filters audit P0) · SCANNED-GUARD invariants — "unscanned lead → null
+// verdict" per resolver family. These are the guards that keep the strict
+// availableSignalKeys gate + the seedSignalFilters honesty guard working: a
+// never-collected count must NEVER read as a verified true/false.
+// ═════════════════════════════════════════════════════════════════════════════
+
+describe("A1 · reviews family: unscanned lead → null verdict", () => {
+  test("unanswered_1star is null with no hydrated Review rows", () => {
+    // Counts default to 0 with hasAnyReview:false — the old code read that as
+    // a verified "no unanswered negatives" (✗) on a never-pulled lead.
+    expect(
+      evaluateSignal(active("unanswered_1star"), biz(), NOW).matched,
+    ).toBeNull();
+  });
+  test("…and returns a real verdict once reviews are hydrated", () => {
+    const withReviews = (unanswered1StarCount: number) =>
+      biz({
+        reviews: {
+          ...biz().reviews,
+          hasAnyReview: true,
+          unanswered1StarCount,
+          unansweredNegativeCount: unanswered1StarCount,
+          unansweredCount: unanswered1StarCount,
+        },
+      });
+    expect(
+      evaluateSignal(active("unanswered_1star"), withReviews(2), NOW).matched,
+    ).toBe(true);
+    expect(
+      evaluateSignal(active("unanswered_1star"), withReviews(0), NOW).matched,
+    ).toBe(false);
+  });
+});
+
+describe("A1 · contacts family: unscanned lead → null verdict", () => {
+  test("stale_social (social_channel_count ≤ 1) is null before the scan", () => {
+    // The audit's headline case: a 0 social count on an un-scanned lead read
+    // MATCHED — hiding every unscanned lead behind an auto-applied filter.
+    expect(
+      evaluateSignal(active("stale_social"), biz(), NOW).matched,
+    ).toBeNull();
+  });
+  test("…and a scanned lead with 0 socials genuinely matches", () => {
+    const b = biz({ contacts: { ...biz().contacts, scanned: true } });
+    expect(evaluateSignal(active("stale_social"), b, NOW).matched).toBe(true);
+    const rich = biz({
+      contacts: { ...biz().contacts, scanned: true, socialChannelCount: 4 },
+    });
+    expect(evaluateSignal(active("stale_social"), rich, NOW).matched).toBe(
+      false,
+    );
+  });
+});
+
+describe("A1 · ads family: unscanned lead → null verdict", () => {
+  const metaSignals = [
+    "not_advertising", // gated via adMarket (unchanged contract)
+    "many_ad_creatives", // meta_ad_count
+    "stale_ad_creative", // ads_age_days
+    "meta_video_ads", // meta_ad_format_video
+  ] as const;
+  test("every Meta ad-count signal is null before the Meta scan", () => {
+    for (const key of metaSignals) {
+      expect(
+        evaluateSignal(active(key), biz(), NOW).matched,
+        `${key} must be null on an unscanned lead`,
+      ).toBeNull();
+    }
+  });
+  test("a Meta-scanned lead with 0 ads reads verified false, not null", () => {
+    // Scanned via the cell run (withAdScanTruth folds it into meta.scanned):
+    // 0 entries is now a REAL "no ads" — exactly what not_advertising wants.
+    const b = biz({
+      adMarket: { advertiserCount: 3 },
+      ads: adsRoll({ meta: adsPlat({ scanned: true }) }),
+    });
+    expect(evaluateSignal(active("many_ad_creatives"), b, NOW).matched).toBe(
+      false,
+    );
+    expect(evaluateSignal(active("meta_video_ads"), b, NOW).matched).toBe(
+      false,
+    );
+    expect(evaluateSignal(active("not_advertising"), b, NOW).matched).toBe(
+      true,
+    );
+  });
+});
+
+// ═════════════════════════════════════════════════════════════════════════════
+// A2 (filters audit P0) · low_reply_rate reads the REAL reply rate; the
+// lifecycle read lives on its own card (reviews_slowing).
+// ═════════════════════════════════════════════════════════════════════════════
+
+describe("A2 · low_reply_rate → BusinessSnapshot.replyRate (0–1 fraction)", () => {
+  const withReplyRate = (replyRate: number | null) =>
+    biz({ snapshot: { replyRate } });
+  test("matches a 10%-reply business", () => {
+    expect(
+      evaluateSignal(active("low_reply_rate"), withReplyRate(0.1), NOW).matched,
+    ).toBe(true);
+  });
+  test("does NOT match a 90%-reply business (even with slowing reviews)", () => {
+    // The old binding (review_lifecycle is DYING) matched a 100%-reply spa
+    // whose reviews were merely slowing — the exact P0 lie.
+    const b = biz({ snapshot: { replyRate: 0.9, reviewLifecycle: "DYING" } });
+    expect(evaluateSignal(active("low_reply_rate"), b, NOW).matched).toBe(
+      false,
+    );
+  });
+  test("null when no snapshot / replyRate", () => {
+    expect(
+      evaluateSignal(active("low_reply_rate"), biz(), NOW).matched,
+    ).toBeNull();
+    expect(
+      evaluateSignal(active("low_reply_rate"), withReplyRate(null), NOW)
+        .matched,
+    ).toBeNull();
+  });
+  test("SIG_META binding snapshot: registry reply_rate, < 0.25", () => {
+    expect(SIG_META.low_reply_rate).toMatchObject({
+      signalKey: "reply_rate",
+      registryKey: "reply_rate",
+      comparator: "<",
+      value: 0.25,
+    });
+  });
+});
+
+describe("A2 · reviews_slowing → review_lifecycle (the re-homed read)", () => {
+  const withLifecycle = (reviewLifecycle: string) =>
+    biz({ snapshot: { reviewLifecycle } });
+  test("matches DYING by default", () => {
+    expect(
+      evaluateSignal(active("reviews_slowing"), withLifecycle("DYING"), NOW)
+        .matched,
+    ).toBe(true);
+  });
+  test("mode tune selects DORMANT", () => {
+    const sig = active("reviews_slowing", {
+      tune: { kind: "mode", value: "DORMANT" },
+    });
+    expect(evaluateSignal(sig, withLifecycle("DORMANT"), NOW).matched).toBe(
+      true,
+    );
+    expect(evaluateSignal(sig, withLifecycle("DYING"), NOW).matched).toBe(
+      false,
+    );
+  });
+  test("a TRENDING business does not match; no snapshot → null", () => {
+    expect(
+      evaluateSignal(active("reviews_slowing"), withLifecycle("TRENDING"), NOW)
+        .matched,
+    ).toBe(false);
+    expect(
+      evaluateSignal(active("reviews_slowing"), biz(), NOW).matched,
+    ).toBeNull();
+  });
+  test("SIG_META binding snapshot: registry review_lifecycle, is DYING", () => {
+    expect(SIG_META.reviews_slowing).toMatchObject({
+      signalKey: "review_lifecycle",
+      registryKey: "review_lifecycle",
+      comparator: "is",
+      value: "DYING",
+    });
+  });
+});
+
+// ═════════════════════════════════════════════════════════════════════════════
+// A5 (filters audit P1) · Meta-labelled signals read the META sub-rollup.
+// ═════════════════════════════════════════════════════════════════════════════
+
+describe("A5 · a Google-only advertiser never fires a Meta-labelled signal", () => {
+  // 2 active GOOGLE ads (one video), META scanned + empty.
+  const googleOnly = biz({
+    adMarket: { advertiserCount: 3 },
+    ads: adsRoll({
+      activeCount: 2,
+      hasVideo: true,
+      formats: ["video"],
+      meta: adsPlat({ scanned: true }),
+      google: adsPlat({
+        scanned: true,
+        activeCount: 2,
+        hasVideo: true,
+        formats: ["video"],
+      }),
+    }),
+  });
+  test("meta_video_ads / many_ad_creatives read .meta → false", () => {
+    expect(
+      evaluateSignal(active("meta_video_ads"), googleOnly, NOW).matched,
+    ).toBe(false);
+    expect(
+      evaluateSignal(active("many_ad_creatives"), googleOnly, NOW).matched,
+    ).toBe(false);
+  });
+  test("not_advertising keeps the MERGED total (intentionally) → false", () => {
+    expect(
+      evaluateSignal(active("not_advertising"), googleOnly, NOW).matched,
+    ).toBe(false);
+  });
+  test("ads_without_pixel reads .meta — Google ads alone don't fire it", () => {
+    const b = biz({
+      ads: googleOnly.ads,
+      tech: tech({ hasMetaPixel: false }),
+    });
+    expect(evaluateSignal(active("ads_without_pixel"), b, NOW).matched).toBe(
+      false,
+    );
+    const metaAdvertiser = biz({
+      ads: metaAds(2),
+      tech: tech({ hasMetaPixel: false }),
+    });
+    expect(
+      evaluateSignal(active("ads_without_pixel"), metaAdvertiser, NOW).matched,
+    ).toBe(true);
+  });
+});
+
+// ═════════════════════════════════════════════════════════════════════════════
+// A7 (filters audit P1) · meta_video_ads formats tune — intersection, not
+// String(bool) vs format tokens (which matched nothing forever).
+// ═════════════════════════════════════════════════════════════════════════════
+
+describe("A7 · meta_video_ads formats tune", () => {
+  const withFormats = (formats: string[]) =>
+    biz({
+      ads: adsRoll({
+        activeCount: formats.length,
+        hasVideo: formats.includes("video"),
+        formats,
+        meta: adsPlat({
+          scanned: true,
+          activeCount: formats.length,
+          hasVideo: formats.includes("video"),
+          formats,
+        }),
+      }),
+    });
+  test("tuned: matches when the collected format set intersects the chips", () => {
+    const sig = active("meta_video_ads", {
+      tune: { kind: "platform", values: ["video", "image"] },
+    });
+    expect(evaluateSignal(sig, withFormats(["video"]), NOW).matched).toBe(true);
+    expect(evaluateSignal(sig, withFormats(["image"]), NOW).matched).toBe(true);
+    expect(evaluateSignal(sig, withFormats(["carousel"]), NOW).matched).toBe(
+      false,
+    );
+  });
+  test("tuned with the DEFAULT chips re-selected still works (the P1 bug)", () => {
+    // Materializing the default tune used to compare String(bool) vs the
+    // format set → 0 matches forever.
+    const sig = active("meta_video_ads", {
+      tune: {
+        kind: "platform",
+        values: ["video", "image"], // the setting's def, re-selected
+      },
+    });
+    expect(evaluateSignal(sig, withFormats(["video"]), NOW).matched).toBe(true);
+  });
+  test("untuned keeps the hasVideo default", () => {
+    expect(
+      evaluateSignal(active("meta_video_ads"), withFormats(["video"]), NOW)
+        .matched,
+    ).toBe(true);
+    expect(
+      evaluateSignal(active("meta_video_ads"), withFormats(["image"]), NOW)
+        .matched,
+    ).toBe(false);
+  });
+  test("tuned + unscanned Meta → null (the A1 gate still wins)", () => {
+    const sig = active("meta_video_ads", {
+      tune: { kind: "platform", values: ["video"] },
+    });
+    expect(evaluateSignal(sig, biz(), NOW).matched).toBeNull();
+  });
+});
+
+// ═════════════════════════════════════════════════════════════════════════════
+// A11 (filters audit P2) · review_count / rating read SNAPSHOT-FIRST, matching
+// the workbench columns (`snap ?? b`) so one row can't contradict itself.
+// ═════════════════════════════════════════════════════════════════════════════
+
+describe("A11 · snapshot-first reviews/rating", () => {
+  const reviewCountSig: ActiveSignal = {
+    key: "review_count_raw",
+    registryKey: "review_count",
+    comparator: ">=",
+    value: 100,
+  };
+  test("prefers the snapshot value over the live Business row", () => {
+    const b = biz({
+      business: { reviewCount: 40 }, // stale live row
+      snapshot: { reviewCount: 120 }, // the column/filter source
+    });
+    expect(evaluateSignal(reviewCountSig, b, NOW).matched).toBe(true);
+  });
+  test("falls back to the Business row when no snapshot exists", () => {
+    const b = biz({ business: { reviewCount: 40 } });
+    expect(evaluateSignal(reviewCountSig, b, NOW).matched).toBe(false);
+  });
+});
+
+// ═════════════════════════════════════════════════════════════════════════════
+// A12 (filters audit P2) · chat_widget tool chips are wired; removed tune
+// options degrade gracefully.
+// ═════════════════════════════════════════════════════════════════════════════
+
+describe("A12 · chat_widget tool chips", () => {
+  const withChat = (chatName: string | null) =>
+    biz({ tech: tech({ hasChat: chatName != null, chatName }) });
+  test("chips match the detected tool name", () => {
+    const sig = active("chat_widget", {
+      tune: { kind: "platform", values: ["intercom", "drift", "tawk"] },
+    });
+    expect(evaluateSignal(sig, withChat("tawk.to"), NOW).matched).toBe(true);
+    expect(evaluateSignal(sig, withChat("hubspot"), NOW).matched).toBe(false);
+    expect(evaluateSignal(sig, withChat(null), NOW).matched).toBe(false);
+  });
+  test("'__any__' sentinel = any detected tool; '__none__' inverts", () => {
+    const anySig = active("chat_widget", {
+      tune: { kind: "platform", values: ["__any__"] },
+    });
+    expect(evaluateSignal(anySig, withChat("hubspot"), NOW).matched).toBe(true);
+    expect(evaluateSignal(anySig, withChat(null), NOW).matched).toBe(false);
+    const noneSig = active("chat_widget", {
+      tune: { kind: "platform", values: ["__none__"] },
+    });
+    expect(evaluateSignal(noneSig, withChat(null), NOW).matched).toBe(true);
+    expect(evaluateSignal(noneSig, withChat("drift"), NOW).matched).toBe(false);
+  });
+  test("legacy 'custom' chip (removed) degrades to no-match, not a crash", () => {
+    const sig = active("chat_widget", {
+      tune: { kind: "platform", values: ["custom"] },
+    });
+    expect(evaluateSignal(sig, withChat("intercom"), NOW).matched).toBe(false);
+  });
+  test("untuned keeps plain presence; no tech scan → null", () => {
+    expect(
+      evaluateSignal(active("chat_widget"), withChat("drift"), NOW).matched,
+    ).toBe(true);
+    expect(
+      evaluateSignal(active("chat_widget"), biz(), NOW).matched,
+    ).toBeNull();
+  });
+  test("ecommerce ignores a legacy platform tune (chips removed)", () => {
+    const sig = active("ecommerce", {
+      tune: { kind: "platform", values: ["shopify"] },
+    });
+    const b = biz({ tech: tech({ hasEcommerce: true }) });
+    expect(evaluateSignal(sig, b, NOW).matched).toBe(true);
   });
 });
 
@@ -1943,6 +2363,7 @@ function tech(
     scanned: true,
     cmsName: null,
     bookingName: null,
+    chatName: null,
     hasAnalytics: false,
     hasMetaPixel: false,
     hasBooking: false,

@@ -1061,6 +1061,14 @@ export interface NumericLeadFilter {
   value: number;
   /** Upper bound for the "between" op. */
   value2?: number;
+  /**
+   * AUDIT B3 · also match leads with NO value for this field (the "no data"
+   * bucket). Default/absent = false: a null value never matches — but the chip
+   * now ANNOTATES that bucket ("· N no data") and this flag is the click-to-
+   * include toggle, so the silent null-drop the audit flagged is explicit.
+   * Round-trips through the URL codec (op-token `-n` suffix) + the saved blob.
+   */
+  includeNoData?: boolean;
 }
 
 /**
@@ -1088,7 +1096,15 @@ export type NumericFilterField =
   | "rating"
   | "perf"
   | "emails"
-  | "phones";
+  | "phones"
+  // AUDIT F2/B2 · the four paid columns that were sortable but never
+  // filterable. All four are HEAVY row fields — applying such a filter
+  // auto-requests the field via the same lazy-hydration path the column
+  // toggle uses (see heavyFieldsForFilters + the workbench's hydration effect).
+  | "seo"
+  | "serpRank"
+  | "metaAdCount"
+  | "googleAdCount";
 
 /** Filterable numeric fields + their human label/unit, for the add-filter UI. */
 export const FILTER_FIELDS: readonly {
@@ -1099,16 +1115,17 @@ export const FILTER_FIELDS: readonly {
   { field: "match", label: "Match %", unit: "%" },
   { field: "reviews", label: "Reviews" },
   { field: "rating", label: "Rating", unit: "★" },
-  { field: "perf", label: "Lighthouse" },
+  { field: "perf", label: "Lighthouse perf" },
   { field: "emails", label: "Emails found" },
   { field: "phones", label: "Phones found" },
+  { field: "seo", label: "SEO score" },
+  // NB · SERP rank is LOWER-IS-BETTER (rank 1 = top of the pack) — the default
+  // op below reads "rank worse than 3" (off the local 3-pack), and the column's
+  // higherIsBetter:false keeps the vs-cell color honest.
+  { field: "serpRank", label: "SERP rank" },
+  { field: "metaAdCount", label: "Meta ads" },
+  { field: "googleAdCount", label: "Google ads" },
 ] as const;
-
-/** Seed filters mirroring the prototype's default workbench filters. */
-export const SEED_FILTERS: LeadFilter[] = [
-  { field: "perf", op: "<", value: 50 },
-  { field: "reviews", op: "≥", value: 20 },
-];
 
 /**
  * The sensible starting op/value for a NEWLY ADDED filter on each field —
@@ -1129,6 +1146,13 @@ export const FILTER_FIELD_DEFAULTS: Record<
   // actually email/call" filter the workbench was missing entirely.
   emails: { op: "≥", value: 1 },
   phones: { op: "≥", value: 1 },
+  // AUDIT F2/B2 · the pitch-shaped defaults: a weak SEO score (< 80 — the
+  // audit's thin_seo threshold), off the local 3-pack (rank worse than 3 —
+  // lower is better on this field), and not-advertising (= 0 creatives).
+  seo: { op: "<", value: 80 },
+  serpRank: { op: ">", value: 3 },
+  metaAdCount: { op: "=", value: 0 },
+  googleAdCount: { op: "=", value: 0 },
 };
 
 /** A filter field's numeric value — read from the COLUMN REGISTRY's accessor
@@ -1141,7 +1165,9 @@ function fieldValue(
   return COLUMN_BY_KEY.get(field)?.numValue?.(row) ?? null;
 }
 
-/** Evaluate one filter against a row. A null backing value never matches. Pure. */
+/** Evaluate one filter against a row. A null backing value never matches —
+ *  unless the filter opts into the no-data bucket (AUDIT B3 · includeNoData).
+ *  Pure. */
 export function evalFilter(row: WorkbenchLeadRow, f: LeadFilter): boolean {
   if (f.kind === "signal") {
     const verdict = row.perSignal[f.sigKey];
@@ -1150,7 +1176,7 @@ export function evalFilter(row: WorkbenchLeadRow, f: LeadFilter): boolean {
     return f.want === "match" ? verdict === true : verdict === false;
   }
   const v = fieldValue(row, f.field);
-  if (v == null || !Number.isFinite(v)) return false;
+  if (v == null || !Number.isFinite(v)) return f.includeNoData === true;
   switch (f.op) {
     case "<":
       return v < f.value;
@@ -1186,21 +1212,65 @@ export function filterLabel(f: LeadFilter): string {
   return `${name} ${f.op} ${f.value}`;
 }
 
+/**
+ * AUDIT B3 · one chip's honest breakdown over a set of rows ("42 match ·
+ * 31 no data" — the core fix for silent null-drops). For a NUMERIC filter:
+ * `match` counts rows WITH data that satisfy the threshold (the includeNoData
+ * pass-through is deliberately NOT counted as a match — the two buckets stay
+ * distinct on the chip); `noData` counts rows with a null/non-finite value.
+ * For a SIGNAL filter: `match` counts rows whose verdict satisfies `want`;
+ * `noData` counts not-yet-computed (null) verdicts. The caller passes the
+ * CURRENT VIEW minus this filter itself (so the chip describes what it acts
+ * on, not the post-filter survivors). Pure.
+ */
+export function filterBreakdown(
+  rows: readonly WorkbenchLeadRow[],
+  f: LeadFilter,
+): { match: number; noData: number } {
+  let match = 0;
+  let noData = 0;
+  for (const r of rows) {
+    if (f.kind === "signal") {
+      const verdict = r.perSignal[f.sigKey];
+      if (verdict == null) noData += 1;
+      else if (f.want === "match" ? verdict === true : verdict === false)
+        match += 1;
+      continue;
+    }
+    const v = fieldValue(r, f.field);
+    if (v == null || !Number.isFinite(v)) {
+      noData += 1;
+      continue;
+    }
+    // Threshold check WITHOUT the no-data flag (data rows only).
+    if (evalFilter(r, { ...f, includeNoData: false })) match += 1;
+  }
+  return { match, noData };
+}
+
 // ── Data-availability (which filters are worth offering) ──────────────────────
 // The add-filter UI offers only filters that CAN match — a signal with no
 // enriched data, or a numeric field no lead carries, would just produce an
-// empty (or dishonestly-narrowed) result. Computed over the FULL loaded row set
-// (not the filtered/paged view) so the option list is stable as the user filters.
+// empty (or dishonestly-narrowed) result. AUDIT B4 · signal gating is scoped to
+// the FILTERED VIEW (the caller passes rows already narrowed by state filters +
+// enriched-only + search + numeric filters — never by signal filters, to avoid
+// circularity): enrich the best 50 of 1,000 and narrow to them, and their
+// signals unlock, instead of staying hostage to the 950 you didn't buy.
+// Numeric-field availability stays window-scoped (stable option list).
 
 /**
- * The signal keys whose data is present on EVERY loaded lead — i.e. every row's
- * `perSignal[key]` is a real verdict (`true`/`false`), never `null`
- * (not-yet-computed). Only these are offered as filters (#2 · strict gating):
- * a signal missing data on even one lead is hidden until the whole cohort is
- * enriched, because filtering on a partially-computed signal would silently
- * drop the not-yet-enriched leads (dishonest). `signals` is the candidate set —
- * the goal signals (seed) or the whole library (picker). A signal absent from a
- * row's `perSignal` (pruned null) reads as not-present → excludes it. Pure.
+ * The signal keys whose data is present on EVERY row of the given view — i.e.
+ * every row's `perSignal[key]` is a real verdict (`true`/`false`), never `null`
+ * (not-yet-computed). Only these are offered as filters (#2 · strict gating
+ * over the view): a signal missing data on even one VISIBLE lead is hidden,
+ * because filtering on a partially-computed signal would silently drop the
+ * not-yet-enriched leads (dishonest). AUDIT B4 · the caller passes the
+ * NARROWED view (state filters + enriched-only + search + numeric filters
+ * applied; signal filters excluded), so partially-enriched cohorts unlock
+ * their paid signals once the view is scoped to the enriched slice. `signals`
+ * is the candidate set — the goal signals (seed) or the whole library
+ * (picker). A signal absent from a row's `perSignal` (pruned null) reads as
+ * not-present → excludes it. Pure.
  */
 export function availableSignalKeys(
   rows: readonly WorkbenchLeadRow[],
@@ -1244,13 +1314,29 @@ export function mergeSignalVerdicts(
  * always present (derived for every row). `reviews`/`rating`/`perf` count when
  * some row has a non-null finite value; contact counts (`emails`/`phones`)
  * count only when some row actually has ≥1 (an all-zero column can't usefully
- * be filtered "≥ 1"). Pure.
+ * be filtered "≥ 1").
+ *
+ * AUDIT B2 · HEAVY fields (seo/serpRank/metaAdCount/googleAdCount) may simply
+ * not be SERIALIZED yet (column off → field absent on every row) — that's
+ * "unknown", not "no data". Pass `loadedHeavyFields` (the workbench's
+ * server-shipped ∪ lazily-fetched set): a field whose heavy backing isn't
+ * loaded is OFFERED (adding the filter triggers the hydration); once loaded it
+ * gates on real data like everything else. Omitting the param keeps the old
+ * strict behavior (absent heavy values → not offered). Pure.
  */
 export function availableNumericFields(
   rows: readonly WorkbenchLeadRow[],
+  loadedHeavyFields?: ReadonlySet<string>,
 ): Set<NumericFilterField> {
   const out = new Set<NumericFilterField>();
   for (const { field } of FILTER_FIELDS) {
+    if (loadedHeavyFields) {
+      const heavy = heavyFieldsForColumns([field]);
+      if (heavy.size > 0 && [...heavy].some((f) => !loadedHeavyFields.has(f))) {
+        out.add(field); // unknown ≠ absent — offer it; hydration decides
+        continue;
+      }
+    }
     const hasData = rows.some((r) => {
       const v = fieldValue(r, field);
       if (v == null || !Number.isFinite(v)) return false;
@@ -1264,12 +1350,30 @@ export function availableNumericFields(
 }
 
 /**
+ * AUDIT B2 · the HEAVY row fields the applied numeric filters read — every
+ * NumericFilterField is a column key, so this reuses the column→heavy-fields
+ * union. The workbench's lazy-hydration effect fetches this alongside the
+ * active columns' needs, so applying "SEO score < 80" on a window that never
+ * shipped `seo` auto-requests it (the filter evaluates null → no-data bucket
+ * until the fetch lands — visible on the chip, never a silent drop). Pure.
+ */
+export function heavyFieldsForFilters(
+  filters: readonly LeadFilter[],
+): Set<HeavyRowField> {
+  return heavyFieldsForColumns(
+    filters.flatMap((f) => (f.kind === "signal" ? [] : [f.field])),
+  );
+}
+
+/**
  * The DEFAULT signal filters to auto-apply when the workbench opens: the goal-
- * step signals whose data is present on EVERY loaded lead (`availableSignalKeys`
- * · strict gating). Partially-enriched goal signals are deliberately excluded —
- * auto-applying one would hide every not-yet-computed lead (the P0-B guard).
- * Each defaults to "match". Pure — the component seeds React state from this on
- * mount.
+ * step signals whose data is present on EVERY row of the given view
+ * (`availableSignalKeys` · strict gating). Partially-enriched goal signals are
+ * deliberately excluded — auto-applying one would hide every not-yet-computed
+ * lead (the P0-B guard). Each defaults to "match". AUDIT B4 · the caller may
+ * pass a NARROWED view (e.g. the mount-time URL state-filters applied) so the
+ * seed judges what's actually on screen. Pure — the component seeds React
+ * state from this on mount (and re-runs it on enrich-finished — B17).
  */
 export function seedSignalFilters(
   rows: readonly WorkbenchLeadRow[],

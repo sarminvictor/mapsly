@@ -298,13 +298,14 @@ export const SIG_META: Record<string, SigMeta> = {
     title: "Review momentum",
     group: "growing",
     means:
-      "Where the business is in its review trend — growing now, losing momentum, in a seasonal lull, or stalled.",
+      "Where the business is in its review trend — growing now, losing momentum, or stalled.",
     pitch: "Target the trajectory you want, not a fixed snapshot.",
-    recipe: [
-      "review velocity last 30d",
-      "velocity vs prior 90d",
-      "12-month review trend",
-    ],
+    // A12 (filters audit P2) · the "seasonal" option + its "12-month review
+    // trend" recipe line were removed: we only store 30d-vs-prior-30d velocity,
+    // so the eval always returned null for it (dead UI). A goal persisted with
+    // the old "seasonal" tune degrades gracefully — reviewMomentumVerdict treats
+    // it as not-computable, never a crash.
+    recipe: ["review velocity last 30d", "velocity vs prior 90d"],
     conf: 3,
     kind: "signal",
     comparator: "is",
@@ -323,11 +324,6 @@ export const SIG_META: Record<string, SigMeta> = {
           value: "losing",
           label: "Losing momentum",
           desc: "Review pace is slowing vs before — slipping, a wake-up-call angle.",
-        },
-        {
-          value: "seasonal",
-          label: "Seasonal peak coming",
-          desc: "In a seasonal lull now but trends up soon — reach them before their peak.",
         },
         {
           value: "stalled",
@@ -697,27 +693,25 @@ export const SIG_META: Record<string, SigMeta> = {
     },
   },
   thin_seo: {
-    signalKey: "organic_traffic_est",
-    registryKey: "organic_traffic_est",
-    // AMBIGUOUS: the registry binding is organic_traffic_est (serp), but the
-    // recipe is on-page SEO — title/meta missing, no schema, Lighthouse SEO < 80
-    // — which is Lighthouse. We collect BOTH so whichever the eval reads has its
-    // data; the honest superset never under-collects.
-    researches: ["serp", "lighthouse"],
+    signalKey: "seo_score",
+    registryKey: "seo_score",
+    // A6 (filters audit P1) · re-bound from organic_traffic_est ≤ 50 (a TRAFFIC
+    // read that contradicted the card's on-page promise) to the Lighthouse
+    // audit's SEO score — data we already collect (LighthouseAudit.seo, hydrated
+    // via resolveLighthouseField). The traffic angle lives on its own card
+    // (`low_organic_traffic`), so nothing is duplicated here. `serp` dropped
+    // from researches: the eval no longer reads any SERP fact.
+    researches: ["lighthouse"],
     title: "Thin on-page SEO",
     group: "weak-web",
     means:
-      "Weak on-page SEO — missing titles/meta, no structured data, and/or a low Lighthouse SEO score.",
+      "Lighthouse on-page SEO score below 80 — missing titles/meta, crawlability or mobile-friendliness gaps.",
     pitch: "Fast SEO wins they'll feel.",
-    recipe: [
-      "title/meta missing",
-      "no schema markup",
-      "Lighthouse SEO score < 80",
-    ],
+    recipe: ["Lighthouse SEO score < 80 (meta tags, crawlability, mobile)"],
     conf: 2,
     kind: "signal",
-    comparator: "<=",
-    value: 50,
+    comparator: "<",
+    value: 80,
     status: "ready",
     setting: { type: "strictness" },
   },
@@ -1015,7 +1009,7 @@ export const SIG_META: Record<string, SigMeta> = {
     researches: ["meta_ads"],
     title: "Runs video/image ads (Meta)",
     group: "wasting",
-    means: "Which Meta ad formats they run — video, image, carousel or text.",
+    means: "Which Meta ad formats they run — video, image or carousel.",
     pitch: "Creative/production angle for ad sellers.",
     recipe: ["ad_format in set"],
     conf: 2,
@@ -1026,6 +1020,10 @@ export const SIG_META: Record<string, SigMeta> = {
     setting: {
       type: "platform",
       label: "Ad formats",
+      // A7 (filters audit P1) · these chips intersect the business's collected
+      // META format set (AdLibraryEntry.displayFormat, lower-cased by
+      // rollupAds). "Text" was removed: Meta's display_format enum has no TEXT
+      // value, so the chip could never match stored data — honesty over dead UI.
       options: [
         {
           value: "video",
@@ -1034,11 +1032,6 @@ export const SIG_META: Record<string, SigMeta> = {
         },
         { value: "image", label: "Image", desc: "Running static image ads." },
         { value: "carousel", label: "Carousel", desc: "Running carousel ads." },
-        {
-          value: "text",
-          label: "Text",
-          desc: "Text-only ads — likely DIY creative.",
-        },
       ],
       allowNone: false,
       def: ["video", "image"],
@@ -1099,9 +1092,15 @@ export const SIG_META: Record<string, SigMeta> = {
     setting: { type: "strictness" },
   },
   low_reply_rate: {
-    signalKey: "review_lifecycle",
-    registryKey: "review_lifecycle",
-    // owner_reply_rate < 25% — from the reviews pull.
+    signalKey: "reply_rate",
+    registryKey: "reply_rate",
+    // A2 (filters audit P0) · re-bound from `review_lifecycle is DYING` (review
+    // VELOCITY momentum — a 100%-reply spa with slowing reviews matched, a
+    // 0%-reply spa with steady velocity didn't) to the registry's real
+    // `reply_rate` (BusinessSnapshot.replyRate). The snapshot stores a 0–1
+    // FRACTION (snapshot-write's replied/total), so the card's threshold is
+    // 0.25, not 25 — the registry's %-unit default would match everyone.
+    // The lifecycle read now lives on its own card (`reviews_slowing`).
     researches: ["reviews"],
     title: "Low owner reply rate",
     group: "reputation",
@@ -1110,8 +1109,48 @@ export const SIG_META: Record<string, SigMeta> = {
     recipe: ["owner_reply_rate < 25%"],
     conf: 2,
     kind: "data",
+    comparator: "<",
+    value: 0.25,
+    status: "ready",
+    setting: { type: "strictness" },
+  },
+  reviews_slowing: {
+    signalKey: "review_lifecycle",
+    registryKey: "review_lifecycle",
+    // A2 · the lifecycle read that "Low owner reply rate" wrongly carried —
+    // now its own, correctly-labelled card: 90-day review MOMENTUM (the
+    // snapshot's reviewLifecycle state machine), nothing to do with replies.
+    researches: ["reviews"],
+    title: "Reviews slowing down",
+    group: "reputation",
+    means:
+      "90-day review momentum is fading — pick slowing (reviews still coming, pace falling) or gone quiet (no activity).",
+    pitch: "Their review engine is stalling — rescue the momentum.",
+    recipe: [
+      "review_lifecycle (90d momentum) = slowing — or gone quiet, per setting",
+    ],
+    conf: 2,
+    kind: "data",
     comparator: "is",
     value: "DYING",
+    status: "deriv",
+    setting: {
+      type: "mode",
+      label: "Momentum",
+      options: [
+        {
+          value: "DYING",
+          label: "Slowing down",
+          desc: "Still getting reviews, but the 90-day pace is falling.",
+        },
+        {
+          value: "DORMANT",
+          label: "Gone quiet",
+          desc: "No meaningful review activity anymore — a win-back angle.",
+        },
+      ],
+      def: "DYING",
+    },
   },
   unanswered_1star: {
     signalKey: "unanswered_1star_count",
@@ -1314,7 +1353,12 @@ export const SIG_META: Record<string, SigMeta> = {
     kind: "signal",
     comparator: "is_not",
     value: "",
-    status: "roadmap",
+    // A8c (filters audit P1) · GRADUATED from roadmap: the eval computes real
+    // verdicts off flagged PlaybookFindings in compliance/privacy/accessibility
+    // groups (resolveSpecialSignal → compliance_gap), so "roadmap" was hiding a
+    // working signal from the + Signal picker (discovery-signals
+    // isEvaluableSigMeta) while the 3 Compliance templates headlined it.
+    status: "deriv",
     defaultMatch: "any",
     setting: { type: "strictness" },
   },
@@ -1332,22 +1376,23 @@ export const SIG_META: Record<string, SigMeta> = {
     comparator: "is",
     value: true,
     // B4 · LIVE — fully wired in the evaluator (evaluateSynthetic → chat_widget →
-    // techPresenceVerdict(biz, biz.tech.hasChat)). The tech fingerprint rides the
-    // contacts DOM fetch, so hasChat is real per-business data; roadmap removed.
+    // chatWidgetVerdict). The tech fingerprint rides the contacts DOM fetch, so
+    // hasChat is real per-business data; roadmap removed.
     status: "deriv",
     setting: {
       type: "platform",
       label: "Chat tool",
+      // A12 (filters audit P2) · the chips are now WIRED: the eval matches the
+      // detected CHAT tool name (BusinessTech.name → HydratedTech.chatName)
+      // against the selected set. Every chip below maps to a real tech-
+      // fingerprint detector (services/tech-fingerprint/signatures.ts:
+      // Intercom / Drift / tawk.to / HubSpot). "Custom" was removed — an
+      // unnamed tool can't be matched from stored data (dead UI).
       options: [
         { value: "intercom", label: "Intercom", desc: "…using Intercom." },
         { value: "drift", label: "Drift", desc: "…using Drift." },
         { value: "tawk", label: "tawk.to", desc: "…using tawk.to." },
         { value: "hubspot", label: "HubSpot", desc: "…using HubSpot." },
-        {
-          value: "custom",
-          label: "Custom",
-          desc: "…using a custom chat tool.",
-        },
       ],
       allowNone: true,
       allowAny: true,
@@ -1370,25 +1415,14 @@ export const SIG_META: Record<string, SigMeta> = {
     // B4 · LIVE — fully wired in the evaluator (evaluateSynthetic → ecommerce →
     // techPresenceVerdict(biz, biz.tech.hasEcommerce)). Tech fingerprint rides the
     // contacts DOM fetch, so hasEcommerce is real per-business data; roadmap gone.
+    // A12 (filters audit P2) · the platform chips (Shopify/Woo/Stripe/Square/
+    // Custom) were removed: the eval only reads the ECOMMERCE-category presence
+    // boolean, and the fingerprint's only ECOMMERCE-named detector is
+    // WooCommerce (Shopify is detected as a CMS; Stripe/Square payments aren't
+    // fingerprinted) — the chips could never select anything real. The card is
+    // now plain presence; a goal persisted with the old platform tune degrades
+    // gracefully (the eval ignores it).
     status: "deriv",
-    setting: {
-      type: "platform",
-      label: "Platform",
-      options: [
-        { value: "shopify", label: "Shopify", desc: "…using Shopify." },
-        { value: "woo", label: "WooCommerce", desc: "…using WooCommerce." },
-        { value: "stripe", label: "Stripe", desc: "…using Stripe." },
-        { value: "square", label: "Square", desc: "…using Square." },
-        {
-          value: "custom",
-          label: "Custom",
-          desc: "…using a custom store/payments setup.",
-        },
-      ],
-      allowNone: true,
-      allowAny: true,
-      def: ["shopify", "woo", "stripe", "square"],
-    },
   },
 
   // ───────────────────────────── other criteria ─────────────────────────────
@@ -1441,7 +1475,7 @@ export const SIG_META: Record<string, SigMeta> = {
     title: "Competitor pressure",
     group: "other",
     means:
-      "Under competitive pressure — rivals advertising, a new entrant nearby, or being outspent.",
+      "Under competitive pressure — rivals advertising, or a new entrant nearby.",
     pitch: "Strongest urgency hook.",
     recipe: ["competitor signal"],
     conf: 2,
@@ -1452,6 +1486,10 @@ export const SIG_META: Record<string, SigMeta> = {
     setting: {
       type: "mode",
       label: "Pressure type",
+      // A12 (filters audit P2) · the "outspend" option was removed: no
+      // per-business ad-spend is stored, so its eval always returned null (dead
+      // UI). A goal persisted with the old "outspend" tune degrades gracefully —
+      // competitorPressureVerdict treats it as not-computable, never a crash.
       options: [
         {
           value: "advertising",
@@ -1463,11 +1501,6 @@ export const SIG_META: Record<string, SigMeta> = {
           label: "New rival nearby",
           desc: "A new competitor opened nearby recently — fresh pressure.",
         },
-        {
-          value: "outspend",
-          label: "Being outspent",
-          desc: "Being outspent by rivals on ads — losing share right now.",
-        },
       ],
       def: "advertising",
     },
@@ -1478,6 +1511,27 @@ export const SIG_META: Record<string, SigMeta> = {
 export function sigMeta(metaKey: string): SigMeta | undefined {
   return SIG_META[metaKey];
 }
+
+/**
+ * A13 (filters audit P2) · the SIG_META keys whose eval is PERCENTILE-VS-CELL
+ * (signal-eval's `cellPercentile` over the CellMetric organic distributions).
+ * On a thin cell (sample below {@link CELL_RELATIVE_MIN_SAMPLE}) these stay
+ * not-computable forever — the Preview step warns when a goal carries one.
+ * Client-safe home (this module is pure); signal-eval routes these keys to the
+ * cell-relative verdicts.
+ */
+export const CELL_RELATIVE_SIGNAL_KEYS: ReadonlySet<string> = new Set([
+  "low_organic_traffic",
+  "search_visibility",
+  "invisible_locally",
+]);
+
+/**
+ * Minimum cell sample for a market-relative signal to be honest. THE single
+ * source: signal-eval's `CELL_DISTRIBUTION_MIN_SAMPLE` aliases this (that
+ * module imports prisma, so client components read the floor from here).
+ */
+export const CELL_RELATIVE_MIN_SAMPLE = 8;
 
 /** A filter row inside a template (refers to a SIG_META entry by key). */
 export interface TemplateFilter {
@@ -1703,7 +1757,7 @@ export const GOAL_TEMPLATES: GoalTemplate[] = [
       {
         key: "thin_seo",
         on: true,
-        why: "Weak on-page SEO — content + structure upside.",
+        why: "Weak on-page SEO — technical + structure upside.",
       },
       {
         key: "low_organic_traffic",
@@ -1917,7 +1971,7 @@ export function templateByKey(key: string): GoalTemplate | undefined {
 /**
  * Reverse index: registry `signalKey` → the SIG_META keys that carry it. Built
  * once. Several SIG_META cards share one registry signalKey (e.g. both
- * `reputation_slipping` and `low_reply_rate` bind `review_lifecycle`), so the
+ * `reputation_slipping` and `reviews_slowing` bind `review_lifecycle`), so the
  * value is a list. Used only by the legacy `familiesForSignals` wrapper.
  */
 const SIG_KEYS_BY_SIGNAL_KEY: Record<string, string[]> = (() => {

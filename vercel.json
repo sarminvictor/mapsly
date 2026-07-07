@@ -32,6 +32,10 @@
     {
       "path": "/api/cron/weekly/retention-sweep",
       "schedule": "0 4 * * 0"
+    },
+    {
+      "path": "/api/cron/weekly/business-profile-refresh",
+      "schedule": "0 11 * * 1"
     }
   ],
   "functions": {

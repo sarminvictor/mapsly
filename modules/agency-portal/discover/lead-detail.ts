@@ -204,6 +204,13 @@ export interface LeadSignalVerdict {
    * verdict must never invite paying again for a scan that already happened.
    */
   scanned?: boolean;
+  /**
+   * F4 honesty · a roadmap signal's null verdict is a THIRD state: the data
+   * source doesn't exist yet, so neither "scanned · no data" nor an enrich CTA
+   * is honest (researchesForSignals now skips roadmap signals, so the scanned
+   * split above would misread it as "enrich to unlock").
+   */
+  roadmap?: boolean;
 }
 
 /**
@@ -867,16 +874,23 @@ export async function getLeadDetail(
         const matched = result.perSignal[sig.key] ?? null;
         // Wave-3 honesty · a null verdict splits by whether the signal's
         // backing researches RAN: ran → "scanned · no data" (never a re-pay
-        // CTA), not ran → "enrich to unlock".
+        // CTA), not ran → "enrich to unlock". F4 · roadmap signals have NO
+        // collectable backing (researchesForSignals skips them) — a third
+        // honest state, never an enrich CTA.
         let scanned: boolean | undefined;
+        let roadmap: boolean | undefined;
         if (matched === null) {
-          const tokens = researchesForSignals([{ key: sig.key }]);
-          scanned =
-            tokens.length > 0 &&
-            tokens.every((t) => {
-              const key = typeKeyForEnrichToken(t);
-              return key != null && typeStates[key] !== "not_run";
-            });
+          if (meta?.status === "roadmap") {
+            roadmap = true;
+          } else {
+            const tokens = researchesForSignals([{ key: sig.key }]);
+            scanned =
+              tokens.length > 0 &&
+              tokens.every((t) => {
+                const key = typeKeyForEnrichToken(t);
+                return key != null && typeStates[key] !== "not_run";
+              });
+          }
         }
         return {
           key: sig.key,
@@ -884,6 +898,7 @@ export async function getLeadDetail(
           means: meta?.means ?? "",
           matched,
           ...(scanned !== undefined ? { scanned } : {}),
+          ...(roadmap !== undefined ? { roadmap } : {}),
         };
       });
       // A null-only cohort (nothing computable yet) → no honest %; fall back to
@@ -966,9 +981,21 @@ export async function getLeadDetail(
   const profile: LeadProfile = {
     rows: [
       ...(business.photosCount != null
-        ? [{ label: "Photos", value: business.photosCount.toLocaleString() }]
+        ? [
+            {
+              label: "Photos",
+              value: business.photosCount.toLocaleString(),
+              // A near-bare listing (<3 photos) is a profile-neglect wedge.
+              tone: business.photosCount < 3 ? ("a" as const) : null,
+            },
+          ]
         : []),
-      { label: "Claimed", value: business.isClaimed ? "Yes" : "No" },
+      {
+        label: "Claimed",
+        value: business.isClaimed ? "Yes" : "No",
+        // Unclaimed GBP = nobody is minding the listing — a classic opener.
+        tone: business.isClaimed ? ("g" as const) : ("a" as const),
+      },
       ...(yearsOnGoogle != null
         ? [
             {
@@ -1072,6 +1099,16 @@ export async function getLeadDetail(
           {
             label: "Rating",
             value: `${rating.toFixed(1)}★`,
+            // Owner 2026-07-06 · every judgeable value carries a tone: ≥4.5
+            // healthy, <4 a reputation wedge, <3 an emergency.
+            tone:
+              rating >= 4.5
+                ? ("g" as const)
+                : rating < 3
+                  ? ("r" as const)
+                  : rating < 4
+                    ? ("a" as const)
+                    : null,
             metric: { value: rating, bandKey: "rating" as const, unit: "★" },
           },
         ]
@@ -1084,7 +1121,15 @@ export async function getLeadDetail(
       ? [{ label: "Distribution", value: distributionLine }]
       : []),
     ...(lastReviewDay != null
-      ? [{ label: "Last review", value: lastReviewDay }]
+      ? [
+          {
+            label: "Last review",
+            value: lastReviewDay,
+            tone: recencyTone(
+              business.lastReviewAt ?? business.latestReviewPostedAt,
+            ),
+          },
+        ]
       : []),
   ];
 
@@ -1099,22 +1144,36 @@ export async function getLeadDetail(
             replyRatePct != null
               ? `${replyRatePct}% · ${repliedPulled}/${pulledReviews} replied`
               : "—",
-          // Below the ~89% category benchmark reads amber (a pitch angle).
+          // vs the ~89% category benchmark: ≥80 healthy · 40–79 a pitch
+          // angle · <40 the owner has abandoned the channel.
           tone:
-            replyRatePct != null && replyRatePct < 80 ? ("a" as const) : null,
+            replyRatePct == null
+              ? null
+              : replyRatePct >= 80
+                ? ("g" as const)
+                : replyRatePct >= 40
+                  ? ("a" as const)
+                  : ("r" as const),
         },
         ...(snapshot?.reviewLifecycle
           ? [
               {
                 label: "Lifecycle (90d)",
                 value: lifecycleLabel(snapshot.reviewLifecycle),
+                tone: lifecycleTone(snapshot.reviewLifecycle),
               },
             ]
           : []),
         {
           label: "1–3★ unanswered",
           value: negUnanswered.toLocaleString(),
-          tone: negUnanswered > 0 ? ("r" as const) : null,
+          // 0 = clean (green) · a couple amber · 3+ an open reputation wound.
+          tone:
+            negUnanswered === 0
+              ? ("g" as const)
+              : negUnanswered <= 2
+                ? ("a" as const)
+                : ("r" as const),
         },
         // Drawer content pass · 2–3 recent quotes from the PULLED reviews —
         // opener material, rendered as indented quote lines (`quote: true`).
@@ -1142,7 +1201,7 @@ export async function getLeadDetail(
             value: audit.contentWithoutJs
               ? "Yes · server-rendered"
               : "No · JS-only shell",
-            tone: audit.contentWithoutJs ? null : ("r" as const),
+            tone: audit.contentWithoutJs ? ("g" as const) : ("r" as const),
           },
         ]
       : [];
@@ -1186,7 +1245,18 @@ export async function getLeadDetail(
         : null,
       rows: techEnriched
         ? [
-            { label: "Built on", value: cms ?? "Custom / unknown" },
+            {
+              label: "Built on",
+              value: cms ?? "Custom / unknown",
+              // Amber only for the true DIY tells the diy_platform signal
+              // pitches against (Wix/GoDaddy/Squarespace) — WordPress/Shopify
+              // are neutral facts.
+              tone:
+                cms != null &&
+                DIY_CMS_TELLS.some((t) => cms.toLowerCase().includes(t))
+                  ? ("a" as const)
+                  : null,
+            },
             // Drawer content pass · the NAMED stack line — sharper than the
             // presence booleans below ("Cloudflare · Meta Pixel — no analytics").
             ...(stackLine != null
@@ -1201,15 +1271,17 @@ export async function getLeadDetail(
             {
               label: "Tracking pixel",
               value: hasPixel ? "Present" : "Not detected",
-              tone: hasPixel ? null : ("a" as const),
+              tone: hasPixel ? ("g" as const) : ("a" as const),
             },
             {
               label: "Analytics",
               value: hasAnalytics ? "Present" : "Not detected",
-              tone: hasAnalytics ? null : ("a" as const),
+              tone: hasAnalytics ? ("g" as const) : ("a" as const),
             },
             {
               label: "Live chat",
+              // Neutral both ways (plenty of healthy shops skip chat) — toning
+              // it would dilute the greens that mean something.
               value: hasChat ? "Present" : "None",
             },
             {
@@ -1223,7 +1295,7 @@ export async function getLeadDetail(
                   ? `Online · ${bookingTool}`
                   : "Online"
                 : "No online booking",
-              tone: hasBooking ? null : ("a" as const),
+              tone: hasBooking ? ("g" as const) : ("a" as const),
             },
             // GBP-vs-site booking mismatch — one wedge, one line. Only when the
             // GBP flag is known AND it disagrees with the site scan.
@@ -1280,12 +1352,19 @@ export async function getLeadDetail(
                     }
                   : null,
             },
+            // Owner 2026-07-06 · every CWV row carries the full g/a/r read
+            // (green when good, not just red when bad) — web-vitals bands.
             ...(audit?.lcp != null
               ? [
                   {
                     label: "LCP",
                     value: `${audit.lcp.toFixed(1)}s`,
-                    tone: audit.lcp > 2.5 ? ("r" as const) : null,
+                    tone:
+                      audit.lcp > 4
+                        ? ("r" as const)
+                        : audit.lcp > 2.5
+                          ? ("a" as const)
+                          : ("g" as const),
                   },
                 ]
               : []),
@@ -1302,7 +1381,7 @@ export async function getLeadDetail(
                         ? ("r" as const)
                         : audit.inp > 200
                           ? ("a" as const)
-                          : null,
+                          : ("g" as const),
                   },
                 ]
               : []),
@@ -1316,12 +1395,23 @@ export async function getLeadDetail(
                         ? ("r" as const)
                         : audit.tbt > 200
                           ? ("a" as const)
-                          : null,
+                          : ("g" as const),
                   },
                 ]
               : []),
             ...(audit?.cls != null
-              ? [{ label: "CLS", value: audit.cls.toFixed(2) }]
+              ? [
+                  {
+                    label: "CLS",
+                    value: audit.cls.toFixed(2),
+                    tone:
+                      audit.cls > 0.25
+                        ? ("r" as const)
+                        : audit.cls > 0.1
+                          ? ("a" as const)
+                          : ("g" as const),
+                  },
+                ]
               : []),
             ...(audit?.fcp != null
               ? [
@@ -1333,7 +1423,7 @@ export async function getLeadDetail(
                         ? ("r" as const)
                         : audit.fcp > 1.8
                           ? ("a" as const)
-                          : null,
+                          : ("g" as const),
                   },
                 ]
               : []),
@@ -1342,7 +1432,7 @@ export async function getLeadDetail(
                   {
                     label: "Accessibility",
                     value: `${Math.round(audit.accessibility)}/100`,
-                    tone: audit.accessibility < 70 ? ("a" as const) : null,
+                    tone: scoreTone(audit.accessibility),
                   },
                 ]
               : []),
@@ -1353,7 +1443,7 @@ export async function getLeadDetail(
                   {
                     label: "SEO",
                     value: `${Math.round(audit.seo)}/100`,
-                    tone: audit.seo < 70 ? ("r" as const) : null,
+                    tone: scoreTone(audit.seo),
                   },
                 ]
               : []),
@@ -1364,7 +1454,7 @@ export async function getLeadDetail(
                   {
                     label: "Best practices",
                     value: `${Math.round(audit.bestPractices)}/100`,
-                    tone: audit.bestPractices < 70 ? ("a" as const) : null,
+                    tone: scoreTone(audit.bestPractices),
                   },
                 ]
               : []),
@@ -1375,6 +1465,13 @@ export async function getLeadDetail(
                   {
                     label: "Potential savings",
                     value: `~${(audit.perfSavingsMs / 1000).toFixed(1)}s faster`,
+                    // Big headroom = big pitch; little left to save = healthy.
+                    tone:
+                      audit.perfSavingsMs > 3000
+                        ? ("r" as const)
+                        : audit.perfSavingsMs > 1000
+                          ? ("a" as const)
+                          : ("g" as const),
                   },
                 ]
               : []),
@@ -1401,7 +1498,7 @@ export async function getLeadDetail(
             {
               label: "Active Meta ads",
               value: `${metaAds.length} creative${metaAds.length === 1 ? "" : "s"}${metaRunsAds ? "" : " · paused"}`,
-              tone: metaRunsAds ? ("g" as const) : null,
+              tone: metaRunsAds ? ("g" as const) : ("a" as const),
               metric: { value: metaAds.length, bandKey: "meta_ads" as const },
             },
             ...(Array.from(
@@ -1457,7 +1554,7 @@ export async function getLeadDetail(
             {
               label: "Active Google ads",
               value: `${googleAds.length} creative${googleAds.length === 1 ? "" : "s"}${googleRunsAds ? "" : " · paused"}`,
-              tone: googleRunsAds ? ("g" as const) : null,
+              tone: googleRunsAds ? ("g" as const) : ("a" as const),
               metric: {
                 value: googleAds.length,
                 bandKey: "google_ads" as const,
@@ -1501,7 +1598,19 @@ export async function getLeadDetail(
                 serp?.localPackRank != null ? ("g" as const) : ("a" as const),
             },
             ...(serp?.organicRank != null
-              ? [{ label: "Organic rank", value: `#${serp.organicRank}` }]
+              ? [
+                  {
+                    label: "Organic rank",
+                    value: `#${serp.organicRank}`,
+                    // Page 1 (≤10) healthy · page 2 findable · deeper invisible.
+                    tone:
+                      serp.organicRank <= 10
+                        ? ("g" as const)
+                        : serp.organicRank <= 20
+                          ? ("a" as const)
+                          : ("r" as const),
+                  },
+                ]
               : []),
             // Drawer content pass · name the enemy — the pack that outranks
             // them is instant pitch credibility.
@@ -1595,7 +1704,10 @@ export async function getLeadDetail(
                     tone:
                       research.pricingTransparency.toLowerCase() === "opaque"
                         ? ("a" as const)
-                        : null,
+                        : research.pricingTransparency.toLowerCase() ===
+                            "transparent"
+                          ? ("g" as const)
+                          : null,
                     section: "Summary" as const,
                     strong: true,
                   },
@@ -1822,6 +1934,51 @@ function perfTone(perf: number): "g" | "a" | "r" {
   if (perf >= 45) return "a";
   return "r";
 }
+
+/**
+ * Tone for a 0–100 Lighthouse category score (a11y / SEO / best practices) —
+ * Lighthouse's own bands (90/50), so our color never contradicts the score
+ * Tom sees when he re-runs the audit himself.
+ */
+function scoreTone(score: number): "g" | "a" | "r" {
+  if (score >= 90) return "g";
+  if (score >= 50) return "a";
+  return "r";
+}
+
+/**
+ * Tone for last-review recency — the cheapest is-this-business-alive check.
+ * ≤60d green · 60–180d neutral · ≤1y amber · older red.
+ */
+function recencyTone(at: Date | null | undefined): "g" | "a" | "r" | null {
+  if (!at) return null;
+  const days = (Date.now() - at.getTime()) / 86_400_000;
+  if (days <= 60) return "g";
+  if (days <= 180) return null;
+  if (days <= 365) return "a";
+  return "r";
+}
+
+/** Tone for the review-lifecycle enum (see {@link lifecycleLabel}). */
+function lifecycleTone(raw: string): "g" | "a" | "r" | null {
+  switch (raw) {
+    case "TRENDING":
+      return "g";
+    case "DYING":
+      return "a";
+    case "DORMANT":
+      return "r";
+    default:
+      return null;
+  }
+}
+
+/**
+ * The DIY-builder tells the diy_platform signal pitches against. Matched by
+ * substring, not equality — the tech fingerprint emits full product names
+ * ("GoDaddy Website Builder"), so an exact-match set would miss them.
+ */
+const DIY_CMS_TELLS = ["wix", "squarespace", "godaddy"] as const;
 
 /**
  * C2 · one address line without duplicated components. `business.address` is

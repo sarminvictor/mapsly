@@ -19,7 +19,15 @@ const db = vi.hoisted(() => {
     value: string;
     channel: string;
   }> = [];
-  let latestRun: { id: string; ranAt: Date; status: string } | null = null;
+  // `advertiserCount` rides along for the A4 soft-block heuristic's
+  // known-advertiser-cell read (the mock's findFirst serves BOTH the freshness
+  // gate and that query — where-clauses are not interpreted).
+  let latestRun: {
+    id: string;
+    ranAt: Date;
+    status: string;
+    advertiserCount?: number;
+  } | null = null;
   return {
     adMarketRunRows,
     adLibraryEntryUpserts,
@@ -31,7 +39,14 @@ const db = vi.hoisted(() => {
     getContacts() {
       return contactRows;
     },
-    setLatestRun(r: { id: string; ranAt: Date; status: string } | null) {
+    setLatestRun(
+      r: {
+        id: string;
+        ranAt: Date;
+        status: string;
+        advertiserCount?: number;
+      } | null,
+    ) {
       latestRun = r;
     },
     getLatestRun() {
@@ -309,6 +324,132 @@ describe("runMetaAdsForCell · stale cell", () => {
     expect(runs[0]!.status).toBe("FAILED");
     // No advertisers persisted on a blocked run.
     expect(db.adMarketAdvertiserUpserts).toHaveLength(0);
+  });
+});
+
+describe("runMetaAdsForCell · A4 soft-block suspicion (0 advertisers)", () => {
+  test("0 rows + prior-advertiser cell → FAILED (freshness gate retries)", async () => {
+    // The cell verifiably HAD advertisers on a prior successful run (>30d ago,
+    // or the gate would have served it). A sudden clean-looking 0 is a
+    // suspected soft-block — write FAILED so the next purchase retries instead
+    // of serving cached emptiness for 30 days.
+    db.setLatestRun({
+      id: "old-ok",
+      ranAt: new Date(NOW.getTime() - 40 * 86_400_000),
+      status: "OK",
+      advertiserCount: 7,
+    });
+    ctx.resolveCellContext.mockResolvedValueOnce(fakeCtx([]));
+    apify.metaAdLibrarySearch.mockResolvedValueOnce({
+      rows: [],
+      advertisers: [],
+      resolutions: [],
+      outcome: "empty_verified",
+      runStatus: "SUCCEEDED",
+      targetStatuses: [
+        {
+          recordType: "target_status",
+          subject: "medical spa Miami",
+          label: "search",
+          status: "empty_verified",
+          graphqlHits: 1,
+        },
+      ],
+      runId: "sus-run",
+      usageTotalUsd: 0.02,
+    });
+
+    const res = await runMetaAdsForCell(CELL, NOW);
+
+    expect(res.outcome).toBe("collected"); // billing/flow unchanged
+    const runs = db.adMarketRunRows.filter((r) => r.platform === "META");
+    expect(runs).toHaveLength(1);
+    expect(runs[0]!.status).toBe("FAILED");
+    expect(
+      res.errors.some((e) => e.startsWith("meta-softblock-suspected:")),
+    ).toBe(true);
+    expect(res.errors.join(" ")).toContain("prior-advertisers-7");
+  });
+
+  test("0 rows with NO verified target status → FAILED (no evidence the data query fired)", async () => {
+    db.setLatestRun(null); // no prior run at all
+    ctx.resolveCellContext.mockResolvedValueOnce(fakeCtx([]));
+    apify.metaAdLibrarySearch.mockResolvedValueOnce({
+      rows: [],
+      advertisers: [],
+      resolutions: [],
+      outcome: "empty_verified", // inferred fallback — evidence-less
+      runStatus: "SUCCEEDED",
+      targetStatuses: [],
+      runId: "no-evidence-run",
+      usageTotalUsd: 0.02,
+    });
+
+    const res = await runMetaAdsForCell(CELL, NOW);
+
+    const runs = db.adMarketRunRows.filter((r) => r.platform === "META");
+    expect(runs).toHaveLength(1);
+    expect(runs[0]!.status).toBe("FAILED");
+    expect(res.errors.join(" ")).toContain("no-verified-target");
+  });
+
+  test("0 rows + verified-empty evidence + no prior advertisers → OK (a real empty market)", async () => {
+    db.setLatestRun(null);
+    ctx.resolveCellContext.mockResolvedValueOnce(fakeCtx([]));
+    apify.metaAdLibrarySearch.mockResolvedValueOnce({
+      rows: [],
+      advertisers: [],
+      resolutions: [],
+      outcome: "empty_verified",
+      runStatus: "SUCCEEDED",
+      targetStatuses: [
+        {
+          recordType: "target_status",
+          subject: "medical spa Miami",
+          label: "search",
+          status: "empty_verified",
+          graphqlHits: 2,
+        },
+      ],
+      runId: "true-empty-run",
+      usageTotalUsd: 0.02,
+    });
+
+    const res = await runMetaAdsForCell(CELL, NOW);
+
+    const runs = db.adMarketRunRows.filter((r) => r.platform === "META");
+    expect(runs).toHaveLength(1);
+    expect(runs[0]!.status).toBe("OK");
+    expect(
+      res.errors.some((e) => e.startsWith("meta-softblock-suspected:")),
+    ).toBe(false);
+  });
+
+  test("advertisers present → heuristic never fires", async () => {
+    db.setLatestRun({
+      id: "old-ok",
+      ranAt: new Date(NOW.getTime() - 40 * 86_400_000),
+      status: "OK",
+      advertiserCount: 7,
+    });
+    ctx.resolveCellContext.mockResolvedValueOnce(fakeCtx([]));
+    apify.metaAdLibrarySearch.mockResolvedValueOnce({
+      rows: [],
+      advertisers: [{ pageId: "PG1", pageName: "Rival Spa", adCount: 2 }],
+      resolutions: [],
+      outcome: "ok",
+      runStatus: "SUCCEEDED",
+      targetStatuses: [],
+      runId: "facet-run",
+      usageTotalUsd: 0.02,
+    });
+
+    const res = await runMetaAdsForCell(CELL, NOW);
+
+    const runs = db.adMarketRunRows.filter((r) => r.platform === "META");
+    expect(runs).toHaveLength(1);
+    expect(runs[0]!.status).toBe("OK");
+    expect(res.advertiserCount).toBe(1);
   });
 });
 

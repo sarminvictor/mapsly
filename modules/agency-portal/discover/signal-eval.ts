@@ -49,7 +49,8 @@ import { slugify } from "@/modules/business-discovery";
 import prisma, { Prisma } from "@/lib/prisma";
 
 import type { SignalTuneValue } from "./flow-types";
-import { sigMeta } from "./goal-templates";
+import { CELL_RELATIVE_MIN_SAMPLE, sigMeta } from "./goal-templates";
+import { COVERED_JOB_STATUSES } from "./family-coverage";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Hydrated business shape — the read-model the evaluator reads.
@@ -63,6 +64,14 @@ import { sigMeta } from "./goal-templates";
 
 /** Compact per-channel contact counts derived from the Contact rows. */
 export interface HydratedContacts {
+  /**
+   * A1 (filters audit P0) · true once the contacts scan actually RAN for this
+   * business — a completed CONTACTS EnrichmentJob (the same truth
+   * coverage-matrix's deriveTypeStates reads), OR Contact rows exist (a row can
+   * only come from a scan). While false, every count below is a fake zero, so
+   * the contact-count signals return null — same contract as tech's `scanned`.
+   */
+  scanned: boolean;
   /** Distinct EMAIL contacts. */
   emailCount: number;
   /** Distinct PHONE + WHATSAPP contacts. */
@@ -136,13 +145,40 @@ export interface HydratedSerp {
   nonBrandRankedCount: number;
 }
 
+/**
+ * A5 (filters audit P1) · one PLATFORM's active-ad sub-rollup. Meta-specific
+ * signals (meta_ad_count, meta_ad_format_video, ads_age_days,
+ * has_active_meta_ads, ads_without_pixel) read `.meta`; the merged totals on
+ * {@link HydratedAds} stay for the deliberately platform-agnostic cards
+ * (not_advertising, no_analytics) — a Google-only advertiser must never fire a
+ * "Meta" verdict while the row's split columns say otherwise.
+ */
+export interface HydratedAdsPlatform {
+  /**
+   * A1 · true once this platform's ad scan RAN for this business: seeded from
+   * entry presence by {@link rollupAds} (a row can only come from a scan), then
+   * OR-ed with the run-truth in hydration — Meta: a successful cell
+   * AdMarketRun; Google: a completed GOOGLE_ADS EnrichmentJob. While false the
+   * counts below are fake zeros → the platform's count signals return null.
+   */
+  scanned: boolean;
+  /** Count of active ad entries on this platform. */
+  activeCount: number;
+  /** True if any active ad on this platform uses a video creative. */
+  hasVideo: boolean;
+  /** Distinct active display formats on this platform (lower-cased). */
+  formats: string[];
+  /** Days since the newest active ad started; null if no dated active ad. */
+  newestAgeDays: number | null;
+}
+
 /** Aggregated active-ad facts from AdLibraryEntry. */
 export interface HydratedAds {
-  /** Count of active ad entries. */
+  /** Count of active ad entries (ALL platforms — see the .meta/.google note). */
   activeCount: number;
-  /** True if any active ad uses a video creative. */
+  /** True if any active ad uses a video creative (any platform). */
   hasVideo: boolean;
-  /** Distinct active display formats seen (lower-cased: video/image/carousel/text). */
+  /** Distinct active display formats seen (lower-cased: video/image/carousel). */
   formats: string[];
   /** Days since the newest active ad started; null if no dated active ad. */
   newestAgeDays: number | null;
@@ -150,6 +186,10 @@ export interface HydratedAds {
   landingHostCount: number;
   /** True if every active ad with a landing URL points at the site root. */
   landingIsHomepageOnly: boolean | null;
+  /** A5 · Meta-only sub-rollup (AdLibraryEntry platform=META). */
+  meta: HydratedAdsPlatform;
+  /** A5 · Google-only sub-rollup (AdLibraryEntry platform=GOOGLE). */
+  google: HydratedAdsPlatform;
 }
 
 /**
@@ -167,6 +207,10 @@ export interface HydratedTech {
    *  Powers the exact-service display + the honest no_booking absence verdict —
    *  the data was always in BusinessTech.name, just never surfaced. */
   bookingName: string | null;
+  /** A12 · the detected CHAT tool name (lower-cased, e.g. "intercom",
+   *  "tawk.to"), or null when none is detected. Powers the chat_widget card's
+   *  tool chips — same BusinessTech.name source as bookingName. */
+  chatName: string | null;
   hasAnalytics: boolean;
   hasMetaPixel: boolean;
   hasBooking: boolean;
@@ -581,6 +625,14 @@ function resolveBusinessField(
       return days > 120;
     }
     default:
+      // A11 (filters audit P2) · reviews/rating read SNAPSHOT-FIRST, exactly
+      // like the workbench columns/filters (`snap ?? b` in workbench-rows), so
+      // one row can never contradict itself — the live Business row only backs
+      // the read when no snapshot exists yet.
+      if (field === "reviewCount" || field === "rating") {
+        const snapVal = biz.snapshot ? biz.snapshot[field] : null;
+        if (snapVal !== undefined && snapVal !== null) return snapVal;
+      }
       return pick(b, field);
   }
 }
@@ -605,6 +657,15 @@ function resolveReviewSignal(
   now: Date,
 ): Resolved {
   const r = biz.reviews;
+  // A1 (filters audit P0) · SCANNED GUARD: without a single hydrated Review row
+  // every count below is a fake zero — an unanswered-negatives card would read
+  // a hard ✗ ("verified clean") on a lead whose reviews were never pulled,
+  // defeating the strict + Signal gate AND the auto-seed honesty guard.
+  // `hasAnyReview` is the module's own reviews-pull-ran indicator (the same
+  // guard reputationFireVerdict / unansweredNegativePresent already use); a
+  // pull that lands zero rows stays not-computable by design — consistent with
+  // those verdicts, and never a fabricated "no negatives".
+  if (!r.hasAnyReview) return NOT_COMPUTABLE;
   switch (signal.key) {
     case "unanswered_1star_count":
       return r.unanswered1StarCount;
@@ -664,16 +725,32 @@ function resolveAdSignal(
   now: Date,
 ): Resolved {
   const a = biz.ads;
+  // A1 (filters audit P0) · SCANNED GUARDS: an ad count is only honest once the
+  // platform's scan actually ran — otherwise 0 reads as a verified "ad-free"
+  // on a lead we never looked at. Meta's gate mirrors notAdvertisingVerdict's
+  // `adMarket.advertiserCount !== null` (a successful META cell run) plus the
+  // per-business entry-presence fallback; Google's gate is its per-business
+  // job truth (both folded into `.scanned` during hydration).
+  // A5 (filters audit P1) · Meta-labelled signals read the META sub-rollup, so
+  // a Google-only advertiser can no longer fire "Runs video/image ads (Meta)".
   switch (signal.key) {
     case "has_active_meta_ads":
-      return a.activeCount > 0;
+      if (!a.meta.scanned) return NOT_COMPUTABLE;
+      return a.meta.activeCount > 0;
     case "meta_ad_count":
-      return a.activeCount;
+      if (!a.meta.scanned) return NOT_COMPUTABLE;
+      return a.meta.activeCount;
     case "meta_ad_format_video":
-      return a.hasVideo;
+      if (!a.meta.scanned) return NOT_COMPUTABLE;
+      return a.meta.hasVideo;
     case "ads_age_days":
-      return a.newestAgeDays ?? NOT_COMPUTABLE;
+      if (!a.meta.scanned) return NOT_COMPUTABLE;
+      return a.meta.newestAgeDays ?? NOT_COMPUTABLE;
     case "ad_landing_pages_count":
+      // Landing URLs ride the ad entries themselves — computable once ANY
+      // platform's scan ran (the count stays merged: a landing-page audit
+      // spans every ad the business runs).
+      if (!a.meta.scanned && !a.google.scanned) return NOT_COMPUTABLE;
       return a.landingHostCount;
     default:
       // Single-host ad-landing presence for ads_homepage_landing maps via
@@ -699,8 +776,10 @@ function resolveTechSignal(
     case "has_meta_pixel":
       return t.hasMetaPixel;
     case "ads_without_pixel":
-      // Runs ads but no pixel — needs BOTH ad + tech data.
-      return biz.ads.activeCount > 0 && !t.hasMetaPixel;
+      // Runs META ads but no Meta pixel — needs BOTH ad + tech data. A5 · the
+      // ad half reads the META sub-rollup (the card is Meta-labelled; a
+      // Google-only advertiser must not fire it).
+      return biz.ads.meta.activeCount > 0 && !t.hasMetaPixel;
     default:
       return NOT_COMPUTABLE;
   }
@@ -725,6 +804,10 @@ function resolveContactSignal(
   biz: HydratedBusiness,
 ): Resolved {
   const c = biz.contacts;
+  // A1 (filters audit P0) · SCANNED GUARD: until the contacts scan ran, every
+  // count is a fake zero — "Thin / no social presence" read MATCHED on every
+  // un-scanned lead. Same contract as tech's `biz.tech.scanned`.
+  if (!c.scanned) return NOT_COMPUTABLE;
   switch (signal.key) {
     case "email_count":
       return c.emailCount;
@@ -913,6 +996,17 @@ function evaluateSingle(
     return { matched: pct >= range[0] && pct <= range[1] };
   }
 
+  // ── A7 (filters audit P1) · meta_video_ads' "Ad formats" chips ──
+  // The registry value is a BOOLEAN (hasVideo) while the tune carries FORMAT
+  // tokens ({video,image,carousel}); the generic platform branch below would
+  // compare String(bool) against those and match nothing forever. Intersect
+  // the tuned formats with the business's collected META format set instead
+  // (rollupAds lower-cases displayFormat). The A1 gate already ran: `resolved`
+  // is non-null only when the Meta scan ran. Untuned keeps hasVideo below.
+  if (signal.key === "meta_ad_format_video" && tune?.kind === "platform") {
+    return { matched: matchPlatform(tune.values, biz.ads.meta.formats) };
+  }
+
   // ── platform tune (multi-select target chips). ──
   if (tune && tune.kind === "platform") {
     return { matched: matchPlatform(tune.values, resolved) };
@@ -986,8 +1080,10 @@ export const COMMON_SERVICE_PREVALENCE = 0.4;
  * Minimum cell sampleSize for a cell-relative organic signal to be honest. Below
  * this the distribution is too thin to place a business in — the signal stays
  * not-computable rather than grading against 2–3 peers. Mirrors CELL_MIN_SAMPLE.
+ * A13 · aliases the client-safe constant in goal-templates so the Preview
+ * step's thin-cell warning and this floor can never drift apart.
  */
-export const CELL_DISTRIBUTION_MIN_SAMPLE = 8;
+export const CELL_DISTRIBUTION_MIN_SAMPLE = CELL_RELATIVE_MIN_SAMPLE;
 
 /** A same-cell peer first seen within this window counts as a "new entrant". */
 export const NEW_ENTRANT_WINDOW_DAYS = 90;
@@ -1050,8 +1146,9 @@ function evaluateSynthetic(
       return reputationFireVerdict(biz);
     case "chat_widget":
       // Live-chat tool detected on the site (tech fingerprint). The registry
-      // has no chat column, so this computes off the tech rollup's hasChat.
-      return techPresenceVerdict(biz, biz.tech.hasChat);
+      // has no chat column, so this computes off the tech rollup — and (A12)
+      // the card's tool chips now scope WHICH detected tool counts.
+      return chatWidgetVerdict(sig, biz);
     case "ecommerce":
       // Online store / payments platform detected on the site.
       return techPresenceVerdict(biz, biz.tech.hasEcommerce);
@@ -1095,13 +1192,14 @@ function evaluateSynthetic(
 }
 
 /**
- * "Review momentum" 4-state match. The chosen `mode` is one of
- * growing/losing/seasonal/stalled; we derive the business's state from its
+ * "Review momentum" 3-state match. The chosen `mode` is one of
+ * growing/losing/stalled; we derive the business's state from its
  * review velocity + lifecycle:
  *   - growing  · lifecycle TRENDING, or velocity30 > velocityPrev30
  *   - losing   · lifecycle DYING,    or 0 < velocity30 < velocityPrev30
  *   - stalled  · lifecycle DORMANT,  or velocity30 === 0
- *   - seasonal · needs a 12-month trend we don't produce yet → null (TODO)
+ * (A12 · the old "seasonal" option was removed from the card; a persisted
+ * "seasonal" tune degrades to null below.)
  * Not computable when neither velocity nor lifecycle is available.
  */
 function reviewMomentumVerdict(
@@ -1109,8 +1207,10 @@ function reviewMomentumVerdict(
   biz: HydratedBusiness,
 ): SignalVerdict {
   if (mode === "seasonal") {
-    // TODO(phaseB-data): seasonal needs the 12-month review trend (a seasonal
-    // lull that trends up soon). We only have 30d-vs-prior-30d velocity here.
+    // A12 · "seasonal" was REMOVED from the card's options (it needs a
+    // 12-month review trend we don't produce; only 30d-vs-prior-30d velocity
+    // exists). Kept here so a goal persisted with the old tune degrades to
+    // not-computable instead of crashing.
     return { matched: null };
   }
   const snap = biz.snapshot;
@@ -1245,6 +1345,39 @@ function ratingSlippingVerdict(biz: HydratedBusiness): SignalVerdict {
 function reputationFireVerdict(biz: HydratedBusiness): SignalVerdict {
   if (!biz.reviews.hasAnyReview) return { matched: null };
   return { matched: biz.reviews.recentNegativeCount >= FIRE_NEGATIVE_BURST };
+}
+
+/**
+ * A12 (filters audit P2) · "Chat widget" honoring the card's tool chips. Not
+ * computable until a tech scan exists. Untuned (or the chip UI's "Any"
+ * sentinel) = plain presence — a business with ANY detected chat tool matches.
+ * The "Not detected" sentinel inverts to absence. With real tool chips
+ * selected, the detected CHAT tool name (HydratedTech.chatName, lower-cased)
+ * must contain a selected token — chip values map onto the fingerprint's
+ * detector names ("tawk" ⊂ "tawk.to", etc.). Unknown/legacy tokens (e.g. a
+ * persisted "custom" from before A12) simply never match — degrade, not crash.
+ */
+function chatWidgetVerdict(
+  sig: ActiveSignal,
+  biz: HydratedBusiness,
+): SignalVerdict {
+  if (!biz.tech.scanned) return { matched: null };
+  const tune = sig.tune;
+  if (tune && tune.kind === "platform" && tune.values.length > 0) {
+    const values = tune.values.map((v) => v.toLowerCase());
+    // The chip UI's Any/None sentinels ("__any__"/"__none__"; bare tokens kept
+    // for defensiveness against older persisted goals).
+    if (values.some((v) => v === "__any__" || v === "any")) {
+      return { matched: biz.tech.hasChat };
+    }
+    if (values.some((v) => v === "__none__" || v === "none")) {
+      return { matched: !biz.tech.hasChat };
+    }
+    const name = biz.tech.chatName;
+    if (!biz.tech.hasChat || name == null) return { matched: false };
+    return { matched: values.some((v) => name.includes(v)) };
+  }
+  return { matched: biz.tech.hasChat };
 }
 
 /**
@@ -1527,8 +1660,9 @@ function competitorPressureVerdict(
       return { matched: recent };
     }
     case "outspend":
-      // TODO(flag-cost): no per-business ad-spend is stored. "Being outspent"
-      // needs spend data we don't collect → not computable until added.
+      // A12 · "outspend" was REMOVED from the card's options (no per-business
+      // ad-spend is stored, so it could never compute). Kept here so a goal
+      // persisted with the old tune degrades to not-computable, never a crash.
       return { matched: null };
     default:
       return { matched: null };
@@ -1831,6 +1965,7 @@ async function hydrateInternal(
     findings,
     businessServices,
     enrichments,
+    scanJobs,
     adMarketRuns,
     cellPrevalence,
     cellMetricRows,
@@ -2031,13 +2166,34 @@ async function hydrateInternal(
       where: idFilter,
       select: { businessId: true, positioningSummary: true },
     }),
+    // A1 · per-business SCAN-RAN truth for the contact + Google-ad count
+    // guards: the same completed-job signal coverage-matrix's deriveTypeStates
+    // reads (DONE/SKIPPED_FRESH — COVERED_JOB_STATUSES). One bounded groupBy;
+    // the two families feed HydratedContacts.scanned / HydratedAds.google.scanned.
+    prisma.enrichmentJob.groupBy({
+      by: ["businessId", "family"],
+      where: {
+        businessId: { in: ids },
+        family: { in: ["CONTACTS", "GOOGLE_ADS"] },
+        status: { in: [...COVERED_JOB_STATUSES] },
+      },
+    }),
     // Cell ad-market prevalence — TRUTH UNIFICATION (2026-07-06) · META only:
     // advertiserCount is the Meta Ad Library market facet; the per-business
     // GOOGLE telemetry rows (advertiserCount 0/1) were newest and CLOBBERED the
     // cell's value. cellKeys come from the already-loaded rows (no re-read).
+    // A3 (filters audit P0-adjacent) · only SUCCESSFUL runs count: OK, plus
+    // PARTIAL (meta-ads.ts writes PARTIAL with real aggregation data — actor
+    // `partial` outcome or a per-row persist error). A FAILED/blocked run
+    // carries advertiserCount 0 and used to open the not_advertising gate with
+    // zero attribution data when it happened to be newest.
     cellKeys.length > 0
       ? prisma.adMarketRun.findMany({
-          where: { cellKey: { in: cellKeys }, platform: "META" },
+          where: {
+            cellKey: { in: cellKeys },
+            platform: "META",
+            status: { in: ["OK", "PARTIAL"] },
+          },
           orderBy: { ranAt: "desc" },
           select: { cellKey: true, advertiserCount: true },
         })
@@ -2101,12 +2257,22 @@ async function hydrateInternal(
     prevalenceByCell.set(p.cellKey, set);
   }
 
-  // Latest META AdMarketRun per cell (rows are desc-ordered → first wins).
+  // Latest successful META AdMarketRun per cell (rows are desc-ordered → first
+  // wins; FAILED rows were excluded in the query — A3).
   const adMarketByCell = new Map<string, number>();
   for (const run of adMarketRuns) {
     if (!adMarketByCell.has(run.cellKey)) {
       adMarketByCell.set(run.cellKey, run.advertiserCount);
     }
+  }
+
+  // A1 · businessId → the EnrichmentFamily values with a completed job (the
+  // scan-ran truth behind the contacts / Google-ads count guards).
+  const scanRanByBiz = new Map<string, Set<string>>();
+  for (const g of scanJobs) {
+    const set = scanRanByBiz.get(g.businessId) ?? new Set<string>();
+    set.add(g.family);
+    scanRanByBiz.set(g.businessId, set);
   }
 
   // SerpResult / AdLibraryEntry carry a nullable businessId in Prisma (they can
@@ -2142,6 +2308,12 @@ async function hydrateInternal(
     const snapshotRows = latestSnap
       ? [latestSnap, ...(trendByBiz.get(b.id) ?? [])]
       : [];
+    const ranFamilies = scanRanByBiz.get(b.id);
+    // A1 · fold the RUN-truth into the entry-presence `scanned` seeds: Meta's
+    // scan is cell-scoped (a successful META AdMarketRun covers every business
+    // in the cell — the same gate notAdvertisingVerdict reads), Google's is its
+    // per-business job. rollupAds stays pure; the fold happens here where the
+    // run records live.
     out.set(b.id, {
       id: b.id,
       business: b as Record<string, unknown>,
@@ -2152,13 +2324,20 @@ async function hydrateInternal(
         themesByBiz.get(b.id) ?? [],
       ),
       serp: rollupSerp(serpsByBiz.get(b.id) ?? null),
-      ads: rollupAds(adsByBiz.get(b.id) ?? [], now),
+      ads: withAdScanTruth(
+        rollupAds(adsByBiz.get(b.id) ?? [], now),
+        /* metaCellRan */ cellKey ? adMarketByCell.has(cellKey) : false,
+        /* googleJobRan */ ranFamilies?.has("GOOGLE_ADS") ?? false,
+      ),
       tech: rollupTech(techByBiz.get(b.id) ?? []),
       adMarket: {
         advertiserCount: cellKey ? (adMarketByCell.get(cellKey) ?? null) : null,
       },
       keywords: rollupKeywords(keywordsByBiz.get(b.id) ?? []),
-      contacts: rollupContacts(contactsByBiz.get(b.id) ?? []),
+      contacts: rollupContacts(
+        contactsByBiz.get(b.id) ?? [],
+        /* scanRan */ ranFamilies?.has("CONTACTS") ?? false,
+      ),
       findings: rollupFindings(findingsByBiz.get(b.id) ?? []),
       services: rollupServices(
         (servicesByBiz.get(b.id) ?? []).filter((s) => s.isActive),
@@ -2607,10 +2786,36 @@ export function rollupSerp(rows: SerpRow[] | null): HydratedSerp | null {
 }
 
 interface AdRow {
+  platform: string;
   isActive: boolean;
   displayFormat: string | null;
   startedAt: Date | null;
   landingUrl: string | null;
+}
+
+/** A5 · fold one platform's rows into its sub-rollup. Pure. */
+function rollupAdsPlatform(rows: AdRow[], now: Date): HydratedAdsPlatform {
+  const active = rows.filter((r) => r.isActive);
+  const formats = new Set<string>();
+  let newestStart: Date | null = null;
+  for (const a of active) {
+    if (a.displayFormat) formats.add(a.displayFormat.toLowerCase());
+    if (a.startedAt) {
+      newestStart =
+        newestStart == null || a.startedAt.getTime() > newestStart.getTime()
+          ? a.startedAt
+          : newestStart;
+    }
+  }
+  return {
+    // Entry-presence seed (a row can only come from a scan); hydration ORs in
+    // the run-truth via withAdScanTruth.
+    scanned: rows.length > 0,
+    activeCount: active.length,
+    hasVideo: formats.has("video"),
+    formats: Array.from(formats),
+    newestAgeDays: newestStart ? ageInDays(newestStart, now) : null,
+  };
 }
 
 export function rollupAds(rows: AdRow[], now: Date): HydratedAds {
@@ -2638,12 +2843,40 @@ export function rollupAds(rows: AdRow[], now: Date): HydratedAds {
   }
 
   return {
+    // Merged totals — kept for the deliberately platform-agnostic cards
+    // (not_advertising, no_analytics; see the HydratedAdsPlatform doc).
     activeCount: active.length,
     hasVideo: formats.has("video"),
     formats: Array.from(formats),
     newestAgeDays: newestStart ? ageInDays(newestStart, now) : null,
     landingHostCount: hosts.size,
     landingIsHomepageOnly: anyLanding ? allHomepage : null,
+    // A5 · per-platform sub-rollups the Meta-specific signals read.
+    meta: rollupAdsPlatform(
+      rows.filter((r) => r.platform === "META"),
+      now,
+    ),
+    google: rollupAdsPlatform(
+      rows.filter((r) => r.platform === "GOOGLE"),
+      now,
+    ),
+  };
+}
+
+/**
+ * A1 · OR the platform run-truth into the entry-presence `scanned` seeds:
+ * a scan that ran and found nothing leaves no entry rows, so presence alone
+ * would keep the honest "verified ad-free" verdict locked. Pure.
+ */
+export function withAdScanTruth(
+  ads: HydratedAds,
+  metaCellRan: boolean,
+  googleJobRan: boolean,
+): HydratedAds {
+  return {
+    ...ads,
+    meta: { ...ads.meta, scanned: ads.meta.scanned || metaCellRan },
+    google: { ...ads.google, scanned: ads.google.scanned || googleJobRan },
   };
 }
 
@@ -2659,6 +2892,7 @@ export function rollupTech(rows: TechRow[]): HydratedTech {
       scanned: false,
       cmsName: null,
       bookingName: null,
+      chatName: null,
       hasAnalytics: false,
       hasMetaPixel: false,
       hasBooking: false,
@@ -2676,6 +2910,10 @@ export function rollupTech(rows: TechRow[]): HydratedTech {
   const booking = rows
     .filter((r) => r.category === "BOOKING")
     .sort((a, b) => b.confidence - a.confidence)[0];
+  // Highest-confidence CHAT tool name (A12) — powers the chat_widget chips.
+  const chat = rows
+    .filter((r) => r.category === "CHAT")
+    .sort((a, b) => b.confidence - a.confidence)[0];
   // Meta pixel is a PIXEL-category tech whose name names Meta/Facebook.
   const hasMetaPixel = rows.some(
     (r) => r.category === "PIXEL" && /meta|facebook|fb/i.test(r.name),
@@ -2685,6 +2923,7 @@ export function rollupTech(rows: TechRow[]): HydratedTech {
     scanned: true,
     cmsName: cms ? cms.name.toLowerCase() : null,
     bookingName: booking ? booking.name.toLowerCase() : null,
+    chatName: chat ? chat.name.toLowerCase() : null,
     hasAnalytics: cats.has("ANALYTICS"),
     hasMetaPixel,
     hasBooking: cats.has("BOOKING"),
@@ -2744,7 +2983,17 @@ const SOCIAL_CHANNELS = new Set([
   "YELP",
 ]);
 
-export function rollupContacts(rows: ContactRow[]): HydratedContacts {
+/**
+ * `scanRan` (A1) is the contacts-scan-ran truth — a completed CONTACTS
+ * EnrichmentJob, the exact signal coverage-matrix's deriveTypeStates folds. It
+ * ORs with row presence (rows can only come from a scan; the fallback also
+ * covers pre-EnrichmentJob legacy data) into the `scanned` flag the contact
+ * count signals gate on.
+ */
+export function rollupContacts(
+  rows: ContactRow[],
+  scanRan = false,
+): HydratedContacts {
   let emailCount = 0;
   let phoneCount = 0;
   const socials = new Set<string>();
@@ -2758,6 +3007,7 @@ export function rollupContacts(rows: ContactRow[]): HydratedContacts {
   }
 
   return {
+    scanned: scanRan || rows.length > 0,
     emailCount,
     phoneCount,
     socialChannelCount: socials.size,

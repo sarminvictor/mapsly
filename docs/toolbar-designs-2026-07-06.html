@@ -1,0 +1,701 @@
+<title>Workbench toolbar · design options · 2026-07-06</title>
+<style>
+  :root {
+    --ink: #1c2233;
+    --muted: #5b657f;
+    --faint: #8a93ab;
+    --line: #e6e9f2;
+    --indigo: #5b3df5;
+    --indigo-700: #4630c4;
+    --indigo-50: #efecfe;
+    --bg: #f6f7fb;
+    --green: #0f9d6b;
+    --red: #c33;
+    --amber: #b7791f;
+  }
+  body {
+    font:
+      14px/1.55 -apple-system,
+      "Segoe UI",
+      sans-serif;
+    color: var(--ink);
+    background: #fff;
+    max-width: 1240px;
+    margin: 0 auto;
+    padding: 32px 24px 90px;
+  }
+  h1 {
+    font-size: 26px;
+    margin: 0 0 4px;
+  }
+  h2 {
+    font-size: 19px;
+    margin: 46px 0 10px;
+    border-bottom: 2px solid var(--indigo);
+    padding-bottom: 6px;
+  }
+  .sub {
+    color: var(--muted);
+    margin-bottom: 20px;
+  }
+  .opt {
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 18px 20px 16px;
+    margin: 22px 0;
+  }
+  .opt.pick {
+    border: 2px solid var(--indigo);
+    box-shadow: 0 4px 18px rgba(91, 61, 245, 0.08);
+  }
+  .opt h3 {
+    margin: 0 0 2px;
+    font-size: 16px;
+  }
+  .opt .thesis {
+    color: var(--muted);
+    margin: 0 0 14px;
+  }
+  .tag {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 9px;
+    border-radius: 999px;
+    background: var(--indigo-50);
+    color: var(--indigo-700);
+    vertical-align: 2px;
+    margin-left: 8px;
+  }
+  .tag.warn {
+    background: #fff3e0;
+    color: #9a5f00;
+  }
+  /* ── mock toolbar strips ── */
+  .bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 9px 12px;
+    margin: 10px 0 4px;
+    box-shadow: 0 1px 3px rgba(28, 34, 51, 0.05);
+  }
+  .hdrbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--bg);
+    border: 1px dashed var(--line);
+    border-radius: 12px;
+    padding: 9px 12px;
+    margin: 10px 0 4px;
+    color: var(--muted);
+    font-size: 13px;
+  }
+  .mock {
+    font-size: 12.5px;
+    white-space: nowrap;
+  }
+  .search {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--faint);
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    padding: 6px 12px;
+    min-width: 170px;
+  }
+  .b {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    padding: 6px 11px;
+    background: #fff;
+    color: var(--ink);
+    font-weight: 600;
+  }
+  .b.on {
+    border-color: var(--indigo);
+    color: var(--indigo-700);
+    background: var(--indigo-50);
+  }
+  .b.primary {
+    background: var(--indigo);
+    border-color: var(--indigo);
+    color: #fff;
+  }
+  .b.icon {
+    padding: 6px 9px;
+    color: var(--muted);
+    font-weight: 700;
+  }
+  .b.ghosty {
+    border-color: transparent;
+    background: transparent;
+    color: var(--muted);
+  }
+  .cnt {
+    font-weight: 400;
+    color: var(--muted);
+  }
+  .cnt strong {
+    color: var(--ink);
+  }
+  .badge {
+    background: var(--indigo);
+    color: #fff;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 1px 6px;
+    margin-left: 2px;
+  }
+  .badge.soft {
+    background: #eef0f6;
+    color: var(--muted);
+  }
+  .seg {
+    display: inline-flex;
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    overflow: hidden;
+  }
+  .seg span {
+    padding: 6px 11px;
+    color: var(--muted);
+    border-right: 1px solid var(--line);
+  }
+  .seg span:last-child {
+    border-right: 0;
+  }
+  .seg span.on {
+    background: var(--indigo);
+    color: #fff;
+    font-weight: 700;
+  }
+  .seg.quiet span.on {
+    background: var(--indigo-50);
+    color: var(--indigo-700);
+  }
+  .chk {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    color: var(--ink);
+    font-weight: 600;
+    border: 1px solid var(--indigo);
+    border-radius: 9px;
+    padding: 6px 11px;
+    color: var(--indigo-700);
+  }
+  .spacer {
+    flex: 1 1 auto;
+    min-width: 12px;
+  }
+  .note {
+    color: var(--faint);
+    font-size: 12px;
+  }
+  /* ── change lists + scores ── */
+  ul.chg {
+    margin: 12px 0 6px;
+    padding-left: 20px;
+    color: var(--muted);
+  }
+  ul.chg li {
+    margin: 4px 0;
+  }
+  ul.chg b {
+    color: var(--ink);
+  }
+  .scores {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 12px;
+  }
+  .sc {
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    padding: 5px 10px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .sc b {
+    font:
+      700 14px ui-monospace,
+      monospace;
+    color: var(--ink);
+    margin-left: 5px;
+  }
+  .sc.total {
+    border-color: var(--indigo);
+    color: var(--indigo-700);
+  }
+  .sc.total b {
+    color: var(--indigo-700);
+  }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 13px;
+    margin-top: 10px;
+  }
+  th,
+  td {
+    text-align: left;
+    padding: 7px 10px;
+    border-bottom: 1px solid var(--line);
+  }
+  th {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--faint);
+  }
+  td.num {
+    font:
+      700 14px ui-monospace,
+      monospace;
+    text-align: center;
+  }
+  .good {
+    color: var(--green);
+  }
+  .bad {
+    color: var(--red);
+  }
+  .mid {
+    color: var(--amber);
+  }
+  .finding {
+    border-left: 3px solid var(--indigo);
+    padding: 8px 14px;
+    margin: 12px 0;
+    background: #fafbff;
+  }
+  .finding p {
+    margin: 4px 0 0;
+    color: var(--muted);
+  }
+  .why {
+    color: var(--muted);
+  }
+</style>
+
+<h1>Workbench toolbar · 5 layouts, scored</h1>
+<p class="sub">
+  The ask: the coverage-layers button duplicates Enrich, the group switcher is
+  as bright as the primary button, and element order should follow value +
+  convention. Each option below is a faithful mock of the real controls —
+  nothing invented. Pick one; implementation is 1 session.
+</p>
+
+<h2>0 · What the toolbar holds today (and the two real problems)</h2>
+<div class="finding">
+  <b>The 0/7 badge lies by construction.</b>
+  <p>
+    The toolbar badge counts a group only when <b>every visible lead</b> is
+    enriched for it (all-or-nothing, LeadsWorkbench.tsx
+    <code>coverageSummary</code>). Your set: 8 of 26 leads fully enriched →
+    badge reads <b>0/7</b> while the drawer honestly says "4 of 7". Same
+    vocabulary, different math — the button looks dead exactly when you've spent
+    credits.
+  </p>
+</div>
+<div class="finding">
+  <b>Two filter homes.</b>
+  <p>
+    Filters live in the Filter popover (+ Signal / + Field / + Data state)
+    <i>and</i> in the Coverage panel (per-group state layers). Both narrow the
+    same grid. Every option below keeps ONE home: the Filter popover's
+    Data-state list — the Coverage button's only unique job was opening it.
+  </p>
+</div>
+
+<div class="opt">
+  <h3>Current <span class="tag warn">baseline · 5.0</span></h3>
+  <p class="thesis">
+    Primary action buried mid-bar; the filled-indigo segment fights it for
+    attention; 12 controls in one row.
+  </p>
+  <div class="bar mock">
+    <span class="search">⌕ Search leads… ( / )</span>
+    <span class="b on">▽ Filter <span class="badge">2</span></span>
+    <span class="cnt"><strong>22</strong> of 26 leads</span>
+    <span class="b primary">Enrich 19 · ~105 cr →</span>
+    <span class="seg"
+      ><span class="on">No groups</span><span>By cell</span
+      ><span>By signals</span></span
+    >
+    <span class="chk">✓ vs cell</span>
+    <span class="b">Fields ▾</span>
+    <span class="spacer"></span>
+    <span class="b">Enriched only · 8</span>
+    <span class="b">Cozy</span>
+    <span class="b icon">▤ <span class="badge soft">0/7</span></span>
+    <span class="b icon">?</span>
+  </div>
+  <ul class="chg">
+    <li>
+      <b>Focus:</b> the eye hits Enrich, then immediately the equally-saturated
+      "No groups" — two loud things.
+    </li>
+    <li>
+      <b>Order:</b> the reading flow mixes narrowing (Filter), acting (Enrich),
+      shaping (Group/vs cell/Fields), viewing (right cluster) with no zones.
+    </li>
+    <li>
+      <b>"Cozy":</b> a label that flips text reads as a state, not an action —
+      is it cozy now, or will it become cozy?
+    </li>
+  </ul>
+  <div class="scores">
+    <span class="sc">Focus<b>4</b></span
+    ><span class="sc">Convention<b>5</b></span>
+    <span class="sc">Click cost<b>7</b></span
+    ><span class="sc">Honesty<b>4</b></span>
+    <span class="sc">Density<b>5</b></span
+    ><span class="sc total">Total<b>5.0</b></span>
+  </div>
+</div>
+
+<div class="opt pick">
+  <h3>
+    Option A · One filter home, action at the edge
+    <span class="tag">recommended · 8.6</span>
+  </h3>
+  <p class="thesis">
+    Three zones: narrow (left) → shape (middle) → act (right edge). Coverage
+    button deleted; its layers already live in the Filter popover.
+  </p>
+  <div class="bar mock">
+    <span class="search">⌕ Search leads… ( / )</span>
+    <span class="b on">▽ Filter <span class="badge">2</span></span>
+    <span class="cnt"><strong>22</strong> of 26 leads</span>
+    <span class="spacer"></span>
+    <span class="b ghosty">Group: none ▾</span>
+    <span class="b">Fields ▾</span>
+    <span class="b">Enriched only · 8</span>
+    <span class="b icon" title="Row density">▦</span>
+    <span class="b icon">?</span>
+    <span class="b primary">Enrich 19 · ~105 cr →</span>
+  </div>
+  <ul class="chg">
+    <li>
+      <b>Delete the coverage iconbtn.</b> Its state layers stay reachable as the
+      Filter popover's existing "+ Data state" list; the have/not-yet summary
+      already lives in the coverage strip above the table. Nothing lost, one
+      control fewer, the 0/7 lie gone.
+    </li>
+    <li>
+      <b>Enrich → far right.</b> Terminal position = where agency tools put the
+      commit action (Linear, Airtable). It stops splitting the narrowing cluster
+      and reads as "after you've shaped the view, act".
+    </li>
+    <li>
+      <b>Group segment → quiet dropdown.</b> Grouping changes maybe once per
+      session; a ghost "Group: none ▾" spends attention proportional to use. "By
+      signals" gating note moves into the menu.
+    </li>
+    <li>
+      <b>vs cell moves into Fields ▾</b> (top toggle row). It's a display mode
+      for how numbers render — same family as column visibility. Thin-market
+      note becomes its disabled-state tooltip.
+    </li>
+    <li>
+      <b>Density label → icon toggle</b> (▦/☰) with tooltip — action, not
+      ambiguous state text.
+    </li>
+  </ul>
+  <div class="scores">
+    <span class="sc">Focus<b>9</b></span
+    ><span class="sc">Convention<b>9</b></span>
+    <span class="sc">Click cost<b>8</b></span
+    ><span class="sc">Honesty<b>9</b></span>
+    <span class="sc">Density<b>8</b></span
+    ><span class="sc total">Total<b>8.6</b></span>
+  </div>
+</div>
+
+<div class="opt">
+  <h3>Option B · CTA lives in the page header <span class="tag">8.2</span></h3>
+  <p class="thesis">
+    The toolbar becomes pure view control; Enrich joins the page header next to
+    credits — one permanent, unmissable home.
+  </p>
+  <div class="hdrbar mock">
+    Page header · Barber Kelowna · 26 leads
+    <span class="spacer"></span>
+    <span class="cnt">Credits: 412</span>
+    <span class="b primary">Enrich 19 · ~105 cr →</span>
+  </div>
+  <div class="bar mock">
+    <span class="search">⌕ Search leads… ( / )</span>
+    <span class="b on">▽ Filter <span class="badge">2</span></span>
+    <span class="cnt"><strong>22</strong> of 26 leads</span>
+    <span class="spacer"></span>
+    <span class="b ghosty">Group: none ▾</span>
+    <span class="b">Fields ▾</span>
+    <span class="b">Enriched only · 8</span>
+    <span class="b icon">▦</span>
+    <span class="b icon">?</span>
+  </div>
+  <ul class="chg">
+    <li>
+      Cleanest separation of concerns; the action sits beside the budget it
+      spends (credits) — strong purchase-context pairing.
+    </li>
+    <li>
+      Cost: the button scrolls away with the header unless made sticky;
+      selection-scoped enrich ("3 selected") feels farther from the rows it acts
+      on.
+    </li>
+    <li>
+      Everything else as in Option A (coverage deleted, quiet group, vs cell
+      into Fields).
+    </li>
+  </ul>
+  <div class="scores">
+    <span class="sc">Focus<b>9</b></span
+    ><span class="sc">Convention<b>8</b></span>
+    <span class="sc">Click cost<b>7</b></span
+    ><span class="sc">Honesty<b>9</b></span>
+    <span class="sc">Density<b>9</b></span
+    ><span class="sc total">Total<b>8.2</b></span>
+  </div>
+</div>
+
+<div class="opt">
+  <h3>Option C · Minimal bar + View menu <span class="tag">7.8</span></h3>
+  <p class="thesis">
+    Everything that shapes the view folds into one "View ▾" menu — maximum calm,
+    one extra click for group/density.
+  </p>
+  <div class="bar mock">
+    <span class="search">⌕ Search leads… ( / )</span>
+    <span class="b on">▽ Filter <span class="badge">2</span></span>
+    <span class="cnt"><strong>22</strong> of 26 leads</span>
+    <span class="spacer"></span>
+    <span class="b"
+      >View ▾
+      <span class="note"
+        >(group · fields · vs cell · density · enriched-only)</span
+      ></span
+    >
+    <span class="b icon">?</span>
+    <span class="b primary">Enrich 19 · ~105 cr →</span>
+  </div>
+  <ul class="chg">
+    <li>Best on small screens; 6 controls total.</li>
+    <li>
+      Cost: "Enriched only" is a frequent post-run toggle — burying it behind
+      View ▾ adds a click to a hot path. Fields loses its search-box prominence.
+    </li>
+  </ul>
+  <div class="scores">
+    <span class="sc">Focus<b>9</b></span
+    ><span class="sc">Convention<b>7</b></span>
+    <span class="sc">Click cost<b>6</b></span
+    ><span class="sc">Honesty<b>9</b></span>
+    <span class="sc">Density<b>9</b></span
+    ><span class="sc total">Total<b>7.8</b></span>
+  </div>
+</div>
+
+<div class="opt">
+  <h3>Option D · Keep coverage, make it honest <span class="tag">7.6</span></h3>
+  <p class="thesis">
+    If the coverage layer must stay: demote it to a status pill with per-lead
+    math that opens the Filter popover's Data tab.
+  </p>
+  <div class="bar mock">
+    <span class="search">⌕ Search leads… ( / )</span>
+    <span class="b on">▽ Filter <span class="badge">2</span></span>
+    <span class="cnt"><strong>22</strong> of 26 leads</span>
+    <span class="spacer"></span>
+    <span class="seg quiet"
+      ><span class="on">No groups</span><span>By cell</span
+      ><span>By signals</span></span
+    >
+    <span class="b">Fields ▾</span>
+    <span class="b ghosty">Data 4/7 ▾</span>
+    <span class="b">Enriched only · 8</span>
+    <span class="b icon">▦</span>
+    <span class="b icon">?</span>
+    <span class="b primary">Enrich 19 · ~105 cr →</span>
+  </div>
+  <ul class="chg">
+    <li>
+      "Data 4/7" = <b>median groups-with-data per visible lead</b> — matches the
+      drawer's per-lead read, never shows 0 when money was spent.
+    </li>
+    <li>
+      Group segment stays but in the quiet tint (indigo-50 active, not filled) —
+      visible without shouting.
+    </li>
+    <li>
+      Cost: still two entry points into the same filters, and one more control
+      than A.
+    </li>
+  </ul>
+  <div class="scores">
+    <span class="sc">Focus<b>7</b></span
+    ><span class="sc">Convention<b>8</b></span>
+    <span class="sc">Click cost<b>8</b></span
+    ><span class="sc">Honesty<b>7</b></span>
+    <span class="sc">Density<b>7</b></span
+    ><span class="sc total">Total<b>7.6</b></span>
+  </div>
+</div>
+
+<h2>Verdict</h2>
+<table>
+  <thead>
+    <tr>
+      <th>Dimension</th>
+      <th>Current</th>
+      <th>A · edge action</th>
+      <th>B · header CTA</th>
+      <th>C · view menu</th>
+      <th>D · honest pill</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Focus — one loud thing</td>
+      <td class="num bad">4</td>
+      <td class="num good">9</td>
+      <td class="num good">9</td>
+      <td class="num good">9</td>
+      <td class="num mid">7</td>
+    </tr>
+    <tr>
+      <td>Convention — where users expect controls</td>
+      <td class="num mid">5</td>
+      <td class="num good">9</td>
+      <td class="num good">8</td>
+      <td class="num mid">7</td>
+      <td class="num good">8</td>
+    </tr>
+    <tr>
+      <td>Click cost — hot paths stay 1-click</td>
+      <td class="num mid">7</td>
+      <td class="num good">8</td>
+      <td class="num mid">7</td>
+      <td class="num bad">6</td>
+      <td class="num good">8</td>
+    </tr>
+    <tr>
+      <td>Honesty — no duplicate/false affordances</td>
+      <td class="num bad">4</td>
+      <td class="num good">9</td>
+      <td class="num good">9</td>
+      <td class="num good">9</td>
+      <td class="num mid">7</td>
+    </tr>
+    <tr>
+      <td>Density / responsive</td>
+      <td class="num mid">5</td>
+      <td class="num good">8</td>
+      <td class="num good">9</td>
+      <td class="num good">9</td>
+      <td class="num mid">7</td>
+    </tr>
+    <tr>
+      <td><b>Total</b></td>
+      <td class="num bad">5.0</td>
+      <td class="num good"><b>8.6</b></td>
+      <td class="num good">8.2</td>
+      <td class="num mid">7.8</td>
+      <td class="num mid">7.6</td>
+    </tr>
+  </tbody>
+</table>
+<p class="why" style="margin-top: 14px">
+  <b>Recommendation: Option A.</b> It deletes the redundant control instead of
+  decorating it, puts the one paid action where the eye finishes, and keeps
+  every hot path (filter, enriched-only, fields) at one click. B is the
+  runner-up if you want Enrich paired with the credit balance — the two can also
+  combine later (A now, header mirror when selection is empty).
+</p>
+
+<div class="opt pick">
+  <h3>
+    Option A · final — owner adjustments
+    <span class="tag">CHOSEN · 8.9</span>
+  </h3>
+  <p class="thesis">
+    Option A + two owner calls: "Enriched only" joins the narrowing zone (it IS
+    a filter — it removes rows and changes the count, so it belongs before the
+    number it changes); the "?" button is removed in favor of a one-time "Press
+    ? for shortcuts" hint on first visit (the ? key + modal stay).
+  </p>
+  <div class="bar mock">
+    <span class="search">⌕ Search leads… ( / )</span>
+    <span class="b on">▽ Filter <span class="badge">2</span></span>
+    <span class="cnt"><strong>22</strong> of 26 leads</span>
+    <span class="b">Enriched only · 8</span>
+    <span class="spacer"></span>
+    <span class="b ghosty">Group: none ▾</span>
+    <span class="b">Fields ▾</span>
+    <span class="b icon" title="Row density">▦</span>
+    <span class="b primary">Enrich 19 · ~105 cr →</span>
+  </div>
+  <ul class="chg">
+    <li>
+      <b>Enriched only → left zone (9/10):</b> semantically a filter (the 4th
+      AND layer); left of the count = cause before effect. While it's on, the
+      count reads "8 of 26" — fixing the audit finding that state-only narrowing
+      shows a bare "8 leads".
+    </li>
+    <li>
+      <b>? removed with a replacement (8/10):</b> the button's only job was
+      first-week discoverability. One-time dismissible hint on first workbench
+      visit; the ? key and the shortcuts modal are untouched. Bare removal with
+      no hint would score 5.5 — it silently kills the keyboard layer for new
+      seats.
+    </li>
+    <li>
+      <b>Net:</b> 8 controls (was 12), one loud thing, zero duplicate homes.
+    </li>
+  </ul>
+  <div class="scores">
+    <span class="sc">Focus<b>9</b></span
+    ><span class="sc">Convention<b>9</b></span>
+    <span class="sc">Click cost<b>9</b></span
+    ><span class="sc">Honesty<b>9</b></span>
+    <span class="sc">Density<b>8.5</b></span
+    ><span class="sc total">Total<b>8.9</b></span>
+  </div>
+</div>
+
+<h2>Fix-regardless list (applies to whichever option wins)</h2>
+<ul class="chg">
+  <li>
+    <b>Segment brightness token:</b> active segment = indigo-50 background +
+    indigo-700 text, never the filled primary indigo — reserve the fill for
+    Enrich alone.
+  </li>
+  <li>
+    <b>Density control:</b> icon toggle + tooltip ("Row density"), not a bare
+    "Cozy/Compact" text state.
+  </li>
+  <li>
+    <b>Thin-market note</b> ("Small market — absolute benchmarks") folds into
+    the vs-cell tooltip/disabled state — it currently spends a permanent toolbar
+    slot on an edge case.
+  </li>
+  <li>
+    <b>If any N/7 number survives anywhere, it uses per-lead math</b> (median
+    groups with data), matching the drawer — the all-or-nothing set-level
+    version is misleading in every real cohort.
+  </li>
+</ul>

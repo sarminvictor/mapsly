@@ -1,0 +1,4333 @@
+<title>
+  Filters audit · data vs +Signal / +Field / +Data state · 2026-07-06
+</title>
+<style>
+  :root {
+    --ink: #1c2233;
+    --muted: #5b657f;
+    --faint: #8a93ab;
+    --line: #e6e9f2;
+    --indigo: #5b3df5;
+    --bg: #fff;
+    --green: #0f9d6b;
+    --red: #c33;
+    --amber: #b7791f;
+  }
+  body {
+    font:
+      14px/1.55 -apple-system,
+      "Segoe UI",
+      sans-serif;
+    color: var(--ink);
+    max-width: 1220px;
+    margin: 0 auto;
+    padding: 32px 24px 80px;
+  }
+  h1 {
+    font-size: 26px;
+    margin: 0 0 4px;
+  }
+  h2 {
+    font-size: 19px;
+    margin: 46px 0 10px;
+    border-bottom: 2px solid var(--indigo);
+    padding-bottom: 6px;
+  }
+  h3 {
+    font-size: 15px;
+    margin: 26px 0 8px;
+  }
+  .sub {
+    color: var(--muted);
+    margin-bottom: 24px;
+  }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 13px;
+  }
+  th,
+  td {
+    text-align: left;
+    padding: 7px 10px;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+  }
+  th {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--faint);
+    position: sticky;
+    top: 0;
+    background: #fff;
+    z-index: 2;
+  }
+  .ghead td {
+    background: #f4f5fb;
+    font-weight: 700;
+    font-size: 12.5px;
+    color: var(--indigo);
+    padding: 8px 10px;
+  }
+  .field {
+    font-weight: 600;
+    min-width: 170px;
+  }
+  .src {
+    font:
+      11px/1.4 ui-monospace,
+      monospace;
+    color: var(--faint);
+    font-weight: 400;
+  }
+  .now {
+    font:
+      12px/1.5 ui-monospace,
+      monospace;
+    color: var(--muted);
+    max-width: 240px;
+  }
+  .why {
+    color: var(--muted);
+    font-size: 12.5px;
+  }
+  .pill {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 9px;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+  .p-p0 {
+    background: #fdecec;
+    color: var(--red);
+  }
+  .p-p1 {
+    background: #fff3e0;
+    color: #9a5f00;
+  }
+  .p-p2 {
+    background: #eef0f6;
+    color: #4a4e69;
+  }
+  .p-conf {
+    background: #e6f8ef;
+    color: #0a6b48;
+  }
+  .p-part {
+    background: #e8f1fd;
+    color: #1e5aa8;
+  }
+  .p-hide {
+    background: #fdecec;
+    color: var(--red);
+  }
+  .num {
+    font:
+      700 15px ui-monospace,
+      monospace;
+    text-align: center;
+    width: 54px;
+  }
+  .bad {
+    color: var(--red);
+  }
+  .good {
+    color: var(--green);
+  }
+  .mid {
+    color: var(--amber);
+  }
+  .finding {
+    border-left: 3px solid var(--red);
+    padding: 8px 14px;
+    margin: 12px 0;
+    background: #fffafa;
+  }
+  .finding.p1 {
+    border-left-color: var(--amber);
+    background: #fffdf7;
+  }
+  .finding.p2 {
+    border-left-color: var(--line);
+    background: #fafbff;
+  }
+  .finding p {
+    margin: 4px 0 0;
+    color: var(--muted);
+  }
+  .finding .fix {
+    color: var(--ink);
+  }
+  .score td.dim {
+    font-weight: 600;
+  }
+  .tight li {
+    margin: 4px 0;
+    color: var(--muted);
+  }
+  .tight b {
+    color: var(--ink);
+  }
+  .callout {
+    border: 1px solid var(--indigo);
+    border-radius: 12px;
+    background: #fbfaff;
+    padding: 14px 18px;
+    margin: 16px 0;
+  }
+  .callout p {
+    margin: 6px 0;
+    color: var(--muted);
+  }
+  .callout b {
+    color: var(--ink);
+  }
+  details {
+    margin: 10px 0 22px;
+  }
+  summary {
+    cursor: pointer;
+    font-weight: 700;
+    color: var(--indigo);
+    padding: 6px 0;
+  }
+  .lens {
+    color: var(--muted);
+    font-style: italic;
+  }
+</style>
+
+<h1>Filters audit · what we hold vs what you can filter</h1>
+<p class="sub">
+  2026-07-06 · v0.19.8 · 28-agent sweep over the filter UI, the
+  goal→discover→research→workbench signal flow, all 85 held data points, and the
+  hidden/stale layers. Every defect below was independently re-verified against
+  the code (<b>CONFIRMED</b>) or narrowed (<b>PARTIAL</b> — the correction is
+  stated). Report only — nothing implemented.
+</p>
+
+<h2>1 · Verdict &amp; scorecard</h2>
+<p>
+  The three-menu model (<b>+ Signal / + Field / + Data state</b>) is the right
+  architecture and the strict-honesty instinct behind it is correct. But today
+  the system fails Tom in three compounding ways: <b>correctness</b> (five
+  signal families return verdicts on data that was never collected, and the #1
+  review-management filter is bound to the wrong metric), <b>coverage</b> (only
+  6 of ~20 filter-worthy numbers are filterable; lead status isn't filterable at
+  all), and <b>transparency</b> (five server-side filters shape the set before
+  any chip runs, and every value a filter reads can be weeks-to-months old while
+  the tooltip fabricates "fresh").
+</p>
+<table class="score">
+  <thead>
+    <tr>
+      <th>Dimension</th>
+      <th>Score</th>
+      <th>After proposals</th>
+      <th>Why</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td class="dim">Correctness — filters mean their label</td>
+      <td class="num bad">3</td>
+      <td class="num good">9</td>
+      <td class="why">
+        low_reply_rate binds review velocity, not reply rate;
+        contacts/reviews/ads signals lack scanned-guards (fake verdicts); Meta
+        signals count Google ads; thin_seo measures traffic, not SEO.
+      </td>
+    </tr>
+    <tr>
+      <td class="dim">Coverage — filter what you paid for</td>
+      <td class="num bad">4</td>
+      <td class="num good">9</td>
+      <td class="why">
+        6 numeric fields only; SEO / SERP / ad counts sortable-but-unfilterable;
+        status &amp; touch have no filter path; 16 high-value data points
+        unfilterable.
+      </td>
+    </tr>
+    <tr>
+      <td class="dim">Flow continuity — goal → workbench</td>
+      <td class="num mid">5</td>
+      <td class="num good">9</td>
+      <td class="why">
+        Goal signals auto-seed as filters (good); but roadmap signals are sold +
+        charge researches yet never become filters; the all-rows gate locks
+        every paid signal on partial cohorts; no re-seed after mid-session
+        enrichment.
+      </td>
+    </tr>
+    <tr>
+      <td class="dim">Transparency — hidden shaping + data age</td>
+      <td class="num bad">3</td>
+      <td class="num good">8</td>
+      <td class="why">
+        5 invisible pre-filters (market scope, website gate, closed/hidden,
+        window, do-not-sell); "fresh" derived from run-state, not age;
+        null-excluded rows unattributed.
+      </td>
+    </tr>
+    <tr>
+      <td class="dim">Recoverability &amp; sharing</td>
+      <td class="num bad">4</td>
+      <td class="num good">9</td>
+      <td class="why">
+        Phantom unremovable data-state filter; empty state says "No leads yet"
+        when filters hide everything; Clear all doesn't clear everything; signal
+        filters drop from shared URLs; saved-vs-URL half-merge.
+      </td>
+    </tr>
+    <tr>
+      <td class="dim">Ergonomics — the 3-menu model itself</td>
+      <td class="num mid">7</td>
+      <td class="num good">8</td>
+      <td class="why">
+        The split is right and data-gating is right in spirit; the strict gate +
+        "enrich to unlock" copy funnels users to re-pay instead of unlocking
+        what they bought.
+      </td>
+    </tr>
+    <tr>
+      <td class="dim"><b>Overall</b></td>
+      <td class="num bad"><b>4.3</b></td>
+      <td class="num good"><b>8.7</b></td>
+      <td class="why">
+        The model is right; the truth layer under it isn't done yet.
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>2 · How filtering actually works today (mechanics)</h2>
+<p class="why">
+  Four independent AND layers run client-side over the loaded window (≤1,000
+  rows, ordered reviewCount-desc): <b>search</b> (name / address / built-on) →
+  <b>filters[]</b> (numeric + signal chips, every chip must pass) →
+  <b>Enriched only</b> (a fourth filter living outside all three menus) →
+  <b>data-state filters</b> (OR within a group, AND across groups). Then sort;
+  nulls sink. Three different <b>null semantics</b>: a signal chip never matches
+  a null verdict (honest opt-in), a numeric chip silently drops null-valued
+  leads (invisible exclusion), a state filter treats missing matrix rows as
+  all-not_run.
+</p>
+<ul class="tight">
+  <li>
+    <b>Gating asymmetry:</b> + Signal requires a non-null verdict on
+    <i>every</i> loaded row; + Field requires only <i>one</i> row with data; +
+    Data state requires the state's count &gt; 0. Same popover, three honesty
+    standards.
+  </li>
+  <li>
+    <b>Seeding:</b> on first visit, fully-computable goal signals auto-apply as
+    "matched" chips (your two chips "Operating business · Has a website" —
+    auto-seeded, not user-chosen). Saved localStorage beats the URL for numeric
+    filters, while fs= state filters always apply — the documented "URL wins
+    wholesale" contract is broken both ways.
+  </li>
+  <li>
+    <b>Persistence map:</b> numeric filters → localStorage + URL (f=) · signal
+    filters → localStorage only (a shared link silently drops them) · state
+    filters → URL only (fs=) · vsCell/group/columns/density → localStorage ·
+    active columns → cookie (for server heavy-field serialization).
+  </li>
+  <li>
+    <b>Heavy fields:</b> the 6 filterable fields are deliberately
+    always-serialized CORE fields; the 8 heavy lazy fields (seo, ad counts,
+    serpRank, aiSummary, bookingTool, socials, pitchAngle) have
+    <i>no filter entries at all</i> — you can never filter on unfetched data,
+    but you also can never filter on it once fetched.
+  </li>
+</ul>
+
+<h2>3 · The verified defects</h2>
+<p class="sub">
+  Sorted by severity; every entry re-verified.
+  <span class="pill p-conf">CONFIRMED</span> = reproduced from code by an
+  independent adversarial pass · <span class="pill p-part">PARTIAL</span> =
+  real, with the stated correction.
+</p>
+
+<h3>P0 — the user is misled or the result set is wrong</h3>
+
+<div class="finding">
+  <b>“Low owner reply rate” never reads reply rate.</b>
+  <span class="pill p-p0">P0</span> <span class="pill p-conf">CONFIRMED</span>
+  <p>
+    The card promises “replies to under 25% of reviews”; the eval binds
+    <span class="src">review_lifecycle is DYING</span> (goal-templates.ts:1101)
+    — review <i>velocity momentum</i>. A 100%-reply spa with slowing reviews
+    matches; a 0%-reply spa with steady velocity doesn't. The registry's real
+    <span class="src">reply_rate</span> signal (BusinessSnapshot.replyRate) is
+    bound by no card.
+  </p>
+  <p class="fix">
+    <b>Fix:</b> re-bind the card to replyRate &lt; threshold (the honest
+    lowReplyRate() helper already exists — signal-eval.ts:1172); give lifecycle
+    its own correctly-labelled card.
+  </p>
+</div>
+
+<div class="finding">
+  <b
+    >Contacts, reviews and ads signals return verdicts on data that was never
+    collected.</b
+  >
+  <span class="pill p-p0">P0</span>
+  <span class="pill p-conf">CONFIRMED ×3</span>
+  <p>
+    Three resolver families skip the scanned-guard the rest of the system relies
+    on: contacts counts (signal-eval.ts:723-740 — “Thin / no social presence”
+    reads <b>matched</b> on unscanned leads), review counts (608-614 —
+    unanswered-negatives reads ✗ on never-pulled leads), ad counts (661-679 —
+    “not matched” includes never-scanned leads as verified ad-free). Because
+    false/true is non-null, these also defeat the strict + Signal availability
+    gate AND the auto-seed honesty guard — a Reputation-goal workbench can
+    auto-apply a matched filter that hides every unscanned lead (opens “empty”
+    right after paying).
+  </p>
+  <p class="fix">
+    <b>Fix:</b> all three resolvers return
+    <b>null until their group's run-state says the scan ran</b> — one contract,
+    same as tech's biz.tech.scanned. This single fix corrects pains chips, match
+    %, the filter gate, and the auto-seed at once.
+  </p>
+</div>
+
+<div class="finding">
+  <b
+    >A data-state filter can become invisible and unremovable — hiding every
+    lead you just paid to enrich.</b
+  >
+  <span class="pill p-p0">P0</span> <span class="pill p-conf">CONFIRMED</span>
+  <p>
+    State filters render no chip; the only removal UI is the toggle in the +
+    Data state list, which is rendered only while its count &gt; 0. Filter
+    “Reviews: not run” → enrich those leads → refresh: every lead reads “have”,
+    the toggle vanishes, the URL re-seeds the phantom filter, the table shows 0
+    of 1,000 — and the empty state says <i>“No leads in this set yet.”</i>
+  </p>
+  <p class="fix">
+    <b>Fix:</b> state filters render as removable chips in the FILTERS bar like
+    everything else; zero-count entries stay listed (greyed) while applied;
+    Clear all clears them.
+  </p>
+</div>
+
+<div class="finding">
+  <b
+    >A blocked Meta scan writes an OK run — “no ads” verdicts lock in for 30
+    days.</b
+  >
+  <span class="pill p-p0">P0</span> <span class="pill p-conf">CONFIRMED</span>
+  <p>
+    An undetected soft-block returns 0 rows with outcome ok → AdMarketRun OK →
+    the cell reads verified-empty and the 30-day freshness gate serves the
+    cached emptiness on re-pay (meta-ads.ts:242-246). Plus the hydrator takes
+    the <i>newest</i> AdMarketRun per cell without checking status
+    (signal-eval.ts:2105-2108) — a FAILED run opens the not_advertising gate
+    with zero attribution data. (Matches the two live bugs already tracked in
+    the Meta-actor memory; this is the filter-layer consequence.)
+  </p>
+  <p class="fix">
+    <b>Fix:</b> hydrator picks the newest <b>OK</b> run; soft-block heuristic (0
+    rows + known-advertiser cell, or primer mismatch) marks the run FAILED so
+    the freshness gate retries.
+  </p>
+</div>
+
+<h3>P1 — real friction or missing capability on the main path</h3>
+
+<div class="finding p1">
+  <b
+    >The strict all-rows gate locks every paid signal filter on
+    partially-enriched cohorts — the normal state.</b
+  >
+  <span class="pill p-p1">P1</span> <span class="pill p-conf">CONFIRMED</span>
+  <p>
+    + Signal offers a signal only when its verdict is non-null on EVERY loaded
+    row (up to 1,000). Enrich the best 50 of 1,000 (the recommended flow!) and
+    every enrichment-backed signal stays locked; the empty menu says “No signal
+    covers all leads yet · <b>enrich to unlock →</b>” — an upsell to enrich 950
+    more leads to filter the 50 you bought. The gate also ignores active
+    data-state filters: even after narrowing to “Reviews: have”, the menu still
+    judges the whole window.
+  </p>
+  <p class="fix">
+    <b>Fix:</b> gate on the <i>filtered view</i>, and annotate instead of
+    locking: chip shows “42 match · 31 no data”. The no-data bucket is explicit,
+    not silent.
+  </p>
+</div>
+
+<div class="finding p1">
+  <b
+    >Numeric chips silently drop every lead without data — the exact dishonesty
+    the signal menu was built to prevent.</b
+  >
+  <span class="pill p-p1">P1</span> <span class="pill p-conf">CONFIRMED</span>
+  <p>
+    + Field entries appear as soon as ONE row has data; a null value then never
+    matches any op. With 5 of 100 leads audited, “Lighthouse &lt; 50” quietly
+    hides 95 leads. The count shrinks visibly, but nothing distinguishes “failed
+    the threshold” from “never measured”. Emails/phones additionally read
+    never-scanned as 0 — indistinguishable from scanned-and-none.
+  </p>
+  <p class="fix">
+    <b>Fix:</b> same annotation as above — every numeric chip carries “· N no
+    data” with a click-to-include/exclude toggle.
+  </p>
+</div>
+
+<div class="finding p1">
+  <b
+    >You can sort — but not filter — SEO score, Meta ads, Google ads, SERP rank.
+    Lead status isn't filterable at all.</b
+  >
+  <span class="pill p-p1">P1</span>
+  <span class="pill p-conf">CONFIRMED ×2</span>
+  <p>
+    FILTER_FIELDS is hard-coded to 6 fields
+    (match/reviews/rating/perf/emails/phones). The four paid columns have
+    working numValue accessors — evalFilter could already read them — they were
+    never added to the union. Status/touch: the daily triage slice (“NEW leads I
+    haven't touched”) doesn't exist; status is write-only in the workbench, and
+    HIDDEN leads are never even excluded.
+  </p>
+  <p class="fix">
+    <b>Fix:</b> add the 4 numeric fields (hydration-aware: applying one triggers
+    the heavy-field fetch for the window); add a status tab-bar per the agency
+    list-detail template (New / Contacted / Replied / Won / Lost / Hidden) + a
+    “not touched yet” quick filter.
+  </p>
+</div>
+
+<div class="finding p1">
+  <b>Meta-labelled signals count Google ads.</b>
+  <span class="pill p-p1">P1</span> <span class="pill p-part">PARTIAL</span>
+  <p>
+    The signal rollup folds META+GOOGLE+TIKTOK into one count
+    (signal-eval.ts:2155) while the table columns are correctly split 17 lines
+    later — a Google-only advertiser fires “Runs video/image ads (Meta)” and the
+    row contradicts its own columns. Correction from verification: for the two
+    platform-agnostic cards (not_advertising, no_analytics) the merge is
+    intentional and more correct — the fix is to split the rollup for the
+    Meta-specific cards only.
+  </p>
+  <p class="fix">
+    <b>Fix:</b> platform-split HydratedAds (meta/google sub-rollups);
+    Meta-specific signals read .meta.
+  </p>
+</div>
+
+<div class="finding p1">
+  <b
+    >Two more label/eval mismatches: thin_seo measures traffic; the video-ads
+    platform tune is dead once touched.</b
+  >
+  <span class="pill p-p1">P1</span>
+  <span class="pill p-conf">CONFIRMED ×2</span>
+  <p>
+    thin_seo promises title/meta/schema/Lighthouse-SEO checks and even collects
+    Lighthouse — but evaluates organic_traffic_est ≤ 50. meta_video_ads:
+    touching the “Ad formats” chips (even re-selecting the default) materializes
+    a tune that compares String(bool) against {video,image,carousel,text} — zero
+    matches forever; image/carousel/text chips were never wired to anything.
+  </p>
+  <p class="fix">
+    <b>Fix:</b> re-bind thin_seo to audit.seo &lt; 80 (data exists); video-ads
+    eval reads the collected formats array, or the chips go.
+  </p>
+</div>
+
+<div class="finding p1">
+  <b
+    >Roadmap signals are still sold at the goal step, still charge researches,
+    and never become filters.</b
+  >
+  <span class="pill p-p1">P1</span> <span class="pill p-conf">CONFIRMED</span>
+  <p>
+    The library modal shows no status badge before adding; researchesForSignals
+    has no status filter — branded_only_traffic seeds a paid SERP scan,
+    recurring_complaint_theme a reviews pull, and the signal stays blank
+    forever. Meanwhile compliance_risk (headline of all 3 Compliance templates)
+    DOES compute verdicts via playbook findings — but is excluded from + Signal
+    as “roadmap”. Both directions of the same inconsistency.
+  </p>
+  <p class="fix">
+    <b>Fix:</b> status badge on library rows; researchesForSignals skips roadmap
+    signals; compliance_risk graduates to filterable.
+  </p>
+</div>
+
+<div class="finding p1">
+  <b
+    >The freshness story: “fresh” is fabricated, and one gate makes businesses
+    permanently invisible.</b
+  >
+  <span class="pill p-p1">P1</span> <span class="pill p-conf">CONFIRMED</span>
+  <span class="pill p-part">1 ESCALATED</span>
+  <p>
+    The provenance tooltip derives fresh/stale from run-state —
+    <span class="src">state === "enriched" ? "fresh" : "stale"</span>
+    (LeadsWorkbench.tsx:1255): a February Lighthouse score reads “fresh” in
+    July. Verification <b>escalated</b> the website gate: Business.website is
+    written once at create and never on refresh, and the weekly profile-refresh
+    cron isn't scheduled in vercel.json — so a business that launches a site
+    after first discovery is invisible to site-reading goals <b>forever</b>, not
+    for 182 days as the code comments imply.
+  </p>
+  <p class="fix">
+    <b>Fix:</b> tooltip reads real age from the already-threaded scannedAt map;
+    schedule the profile-refresh cron (or rewrite website on the duplicate
+    path); see §6 for the full staleness surfacing plan.
+  </p>
+</div>
+
+<details>
+  <summary>P1/P2 — remaining verified + unverified findings (12)</summary>
+  <ul class="tight">
+    <li>
+      <span class="pill p-p1">P1</span>
+      <span class="pill p-conf">CONFIRMED</span> Empty state says “No leads in
+      this set yet.” when state filters / Enriched-only hide everything; Clear
+      all resets only filters+search. → One clearEverything() + honest copy
+      (“Filters hide all N leads”).
+    </li>
+    <li>
+      <span class="pill p-p1">P1</span>
+      <span class="pill p-conf">CONFIRMED</span> Shared-view precedence
+      half-merge: saved localStorage numeric filters beat the URL while fs=
+      always applies — receiver sees a view neither person built. → URL wins
+      wholesale when view params are present (the documented contract).
+    </li>
+    <li>
+      <span class="pill p-p1">P1</span>
+      <span class="pill p-part">PARTIAL</span> Everything is window-scoped
+      (1,000 rows): counts, gates, seeds, sort. Correction: windows ARE
+      navigable with chips kept, and the pager discloses it — the real gap is no
+      cross-window match aggregation and chip-level disclosure. → “matches in
+      other windows” hint when serverPageCount &gt; 1.
+    </li>
+    <li>
+      <span class="pill p-p2">P2</span>
+      <span class="pill p-part">PARTIAL</span> Columns/filters read
+      snapshot-first while signals read the live Business row — divergence via
+      the (unscheduled) profile-refresh path, not review enrichment. → one
+      source per fact.
+    </li>
+    <li>
+      <span class="pill p-p2">P2</span>
+      <span class="pill p-conf">CONFIRMED</span> “+ Signal / + Field” empty
+      menus say “enrich to unlock →” even when everything available is simply
+      already applied. → distinguish “all applied” from “no data”.
+    </li>
+    <li>
+      <span class="pill p-p2">P2</span> Signal filters never serialize to URLs
+      (shared views drop them, silently). → add sg= param.
+    </li>
+    <li>
+      <span class="pill p-p2">P2</span> “between” op exists in
+      model/codec/evaluator but not in the chip UI — a URL-restored between chip
+      is uneditable.
+    </li>
+    <li>
+      <span class="pill p-p2">P2</span> Mid-session enrichment never re-seeds
+      filters (mount-only effect); new verdicts appear in cells but the filter
+      set lags until revisit. → re-run seed on enrich-finished bus event.
+    </li>
+    <li>
+      <span class="pill p-p2">P2</span> Live count shows bare “X leads” when
+      only state filters / Enriched-only narrow the view — the “of N” suffix
+      keys off filters[]+search only.
+    </li>
+    <li>
+      <span class="pill p-p2">P2</span> Thin cells (sample &lt; 8):
+      cell-relative signals stay null forever with no warning at goal/preview.
+    </li>
+    <li>
+      <span class="pill p-p2">P2</span> Working evaluators hidden as roadmap
+      (multi_location, no_ssl, site-age…); dead tune options offered
+      (review-momentum “seasonal”, competitor “outspend”) always return null.
+    </li>
+    <li>
+      <span class="pill p-p2">P2</span> Finding-based pain chips render raw
+      registry keys ("owner_reply_rate_low") instead of SIG_META titles.
+    </li>
+  </ul>
+</details>
+
+<h2>4 · The hidden filters — what shapes the set before any chip runs</h2>
+<p class="why">
+  Your question “what filters do we apply and not show” has a precise answer:
+  five server-side criteria shape the set before the filter bar exists, and only
+  one of them leaves any trace in the UI.
+</p>
+<table>
+  <thead>
+    <tr>
+      <th>Hidden criterion</th>
+      <th>Visible where?</th>
+      <th>Removable?</th>
+      <th>Why it matters</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td class="field">
+        Market scoping: `Business.cellKey IN discovery.cellKeys` — the category
+        × metro × country cells picked on the Market step; empty cellKeys
+        matches nothing (&#x27;__never__&#x27;).
+        <div class="src">
+          modules/discovery/raw-list.ts:66-67 (built at
+          app/[locale]/(agency)/discover/[discoveryId]/page.tsx:183-186)
+        </div>
+      </td>
+      <td class="why">
+        Header title only (&#x27;Medical Spa · Miami&#x27;, page.tsx:337-345)
+        and the market narrative count — never a chip.
+      </td>
+      <td class="why">
+        No. The market is frozen into Discovery.cellKeys at research creation;
+        the workbench has no control to widen/change it.
+      </td>
+      <td class="why">
+        Every other criterion is negotiable in the filter bar; the biggest one
+        (the entire market definition) is not represented in the same
+        vocabulary, so Tom can&#x27;t reason about &#x27;what set are these
+        filters running over&#x27;.
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        Do-not-sell suppression: `suppressedAt = null` unconditionally excludes
+        any business that opted out via /opt-out — no
+        includeHidden/includeClosed override exists.
+        <div class="src">modules/discovery/raw-list.ts:75</div>
+      </td>
+      <td class="why">Nowhere (deliberate).</td>
+      <td class="why">
+        No — legal opt-out, single chokepoint gating workbench, Preview, CSV
+        export, and enrich scope.
+      </td>
+      <td class="why">
+        Correct to hide, but market totals silently shrink over time with zero
+        explanation; a &#x27;why did 412 become 410&#x27; question has no
+        on-screen answer.
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        `isHidden: { not: true }` — businesses a contact scan marked
+        scanned-and-unreachable are dropped (NULL = not-yet-scanned stays
+        visible).
+        <div class="src">modules/discovery/raw-list.ts:78-82</div>
+      </td>
+      <td class="why">
+        Nowhere in the workbench. The Raw List surface has a summary
+        &#x27;hidden&#x27; count (raw-list.ts:197-222) but the workbench pages
+        never render it.
+      </td>
+      <td class="why">
+        No — `includeHidden` exists on rawListWhere but the workbench page never
+        wires it.
+      </td>
+      <td class="why">
+        An enrichment run can silently shrink the visible market (scan →
+        unreachable → hidden); Tom sees the count drop with no chip, no count,
+        no toggle.
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        `openStatus != CLOSED_FOREVER` — permanently-closed-on-Google businesses
+        excluded by default.
+        <div class="src">
+          modules/discovery/raw-list.ts:83-85 (+
+          modules/discovery/open-status.ts:53-55)
+        </div>
+      </td>
+      <td class="why">
+        Nowhere. Rows that PASS the gate can carry a &#x27;Closed&#x27; tag
+        (workbench-rows.ts:501-505 permanentlyClosed/temporarilyClosed flags),
+        which paradoxically suggests closed businesses are included.
+      </td>
+      <td class="why">
+        No — `includeClosed` exists in rawListWhere but is never exposed on the
+        workbench.
+      </td>
+      <td class="why">
+        openStatus is a discovery-time snapshot (≤182 days old); a business that
+        closed after discovery stays visible and one misflagged CLOSED_FOREVER
+        is invisible with no way to check.
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        For any goal whose researches read a live site
+        (Lighthouse/contacts/tech/services/AI), ALL website-less businesses are
+        removed from the workbench — `website: { not: null }` (raw-list.ts:89).
+        <div class="src">
+          app/[locale]/(agency)/discover/[discoveryId]/page.tsx:179-186
+          (enrichmentNeedsWebsite + rawListWhere{hasWebsite:true})
+        </div>
+      </td>
+      <td class="why">
+        Header count copy only: &#x27;N market · N enrichable&#x27; with a hover
+        &#x27;Have a website — the ones this goal can enrich&#x27;
+        (WorkspaceHeader.tsx:154-170). Not a chip.
+      </td>
+      <td class="why">
+        Not from the workbench — only by changing the goal&#x27;s signal set (a
+        different research). No toggle to peek at the hidden subset.
+      </td>
+      <td class="why">
+        It is the single largest row-count filter for most goals, keyed off a
+        website field that can be up to 182 days stale (a business that added a
+        site since discovery stays hidden), and it&#x27;s the only
+        market-vs-shown discrepancy users repeatedly ask about (&#x27;Why
+        57?&#x27;).
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        The server window: ONE page of WORKBENCH_WINDOW=1000 businesses ordered
+        `reviewCount desc NULLS LAST, id asc`. Every filter chip, signal filter,
+        data-state filter, search, sort, vs-cell band, and &#x27;Enriched
+        only&#x27; evaluates CLIENT-SIDE within this window only
+        (LeadsWorkbench.tsx:1267-1285).
+        <div class="src">
+          app/[locale]/(agency)/discover/[discoveryId]/page.tsx:212-224 +
+          modules/agency-portal/discover/leads-workbench.ts:1503-1510 +
+          modules/discovery/raw-list.ts:159-164
+        </div>
+      </td>
+      <td class="why">
+        Pager + header &#x27;… · showing 1,000&#x27;; nothing says filters are
+        window-scoped.
+      </td>
+      <td class="why">
+        No; reachable only by manually walking ?page=2+ and re-applying the view
+        per window.
+      </td>
+      <td class="why">
+        A chip like &#x27;Rating ≥ 4&#x27; reads market-wide but silently
+        ignores every match past row 1000 of a review-count-sorted order — the
+        least-reviewed (often most pitchable) businesses are the ones excluded.
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        Enrich-time pre-flagging: the Preview/Enrich sheet applies free market
+        filters (hasWebsite/minRating/minReviewCount/reachability) AND a
+        wallet-capped &#x27;best N&#x27; cut (top N by reviewCount desc) to
+        decide WHICH businesses get enriched. Rows outside that scope stay
+        visible but carry null verdicts/values forever.
+        <div class="src">
+          modules/discovery/enrich-actions.ts:99-107 + 219-249 (topN, WP5-4
+          filters); quoted by modules/discovery/market-filter-actions.ts:32-64
+        </div>
+      </td>
+      <td class="why">
+        Nowhere in the workbench — no record of the run&#x27;s scope criteria is
+        surfaced after the run; the &#x27;Enriched only&#x27; toggle shows a
+        count, never the criterion.
+      </td>
+      <td class="why">
+        Not inspectable or reversible; only a new (paid) run widens the scope.
+      </td>
+      <td class="why">
+        This is the invisible filter with teeth: once Tom applies ANY visible
+        filter over a partially-enriched cohort, the null-never-matches rule
+        (leads-workbench.ts:1150-1167) converts the old enrich scope into silent
+        row exclusion — &#x27;perf &lt; 50&#x27; means &#x27;perf &lt; 50 AND
+        was in the best-200 you enriched three weeks ago&#x27;.
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        Saved-list membership: the list page&#x27;s rows are exactly the Lead
+        rows saved at save-time — whatever filters/sample/caps produced them are
+        baked in, not re-evaluated.
+        <div class="src">
+          app/[locale]/(agency)/discover/[discoveryId]/lists/[listId]/page.tsx:172-184
+        </div>
+      </td>
+      <td class="why">
+        List name only; no chips describing the saved criteria.
+      </td>
+      <td class="why">
+        No — membership is static; the filter bar filters within it.
+      </td>
+      <td class="why">
+        Two identical-looking workbenches (discovery vs list) run the same
+        filter bar over structurally different, invisibly-defined sets.
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        Inside every visible chip: a null backing value NEVER matches — numeric
+        chips implicitly AND &#x27;has data for this field&#x27;, signal chips
+        implicitly AND &#x27;signal was computable&#x27;. The chip label
+        (&#x27;Lighthouse &lt; 50&#x27;, &#x27;Weak SEO: matched&#x27;)
+        doesn&#x27;t state the conjunct.
+        <div class="src">
+          modules/agency-portal/discover/leads-workbench.ts:1144-1167
+          (evalFilter)
+        </div>
+      </td>
+      <td class="why">
+        Not stated on the chip; only the honest-null design docs. The seed guard
+        (leads-workbench.ts:1274-1287) prevents AUTO-applied filters from hiding
+        un-enriched leads, but user-applied ones do exactly that.
+      </td>
+      <td class="why">
+        Only by removing the whole chip; there is no &#x27;include no-data
+        rows&#x27; option.
+      </td>
+      <td class="why">
+        It makes visible filters half-hidden: the displayed predicate is not the
+        executed predicate on any partially-enriched cohort.
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        Filter-vocabulary gating: &#x27;+ Signal&#x27; offers only signals with
+        a non-null verdict on EVERY loaded lead; &#x27;+ Field&#x27; only fields
+        with data on ≥1 lead — computed over the current 1000-row window.
+        <div class="src">
+          modules/agency-portal/discover/leads-workbench.ts:1205-1215
+          (availableSignalKeys) + 1249-1264 (availableNumericFields) +
+          LeadsWorkbench.tsx:1954-1977
+        </div>
+      </td>
+      <td class="why">
+        Partially — empty states say &#x27;No signal covers all leads yet ·
+        enrich to unlock →&#x27; (LeadsWorkbench.tsx:3130-3146), but a signal
+        missing from the list gives no per-signal explanation.
+      </td>
+      <td class="why">N/A (gates options, not rows).</td>
+      <td class="why">
+        The strict all-leads gate means one un-enriched lead in the window hides
+        a signal filter for the other 999 — Tom can&#x27;t tell &#x27;not a real
+        signal&#x27; from &#x27;1 lead short of coverage&#x27;.
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        CSV-export-only exclusion: opted-out contacts (Contact.optedOutAt) are
+        stripped from exports while still shown in-app.
+        <div class="src">
+          modules/agency-portal/discover/workbench-rows.ts:357-358
+        </div>
+      </td>
+      <td class="why">Nowhere — screen and file silently differ.</td>
+      <td class="why">No (legal).</td>
+      <td class="why">
+        A &#x27;Phones found ≥ 1&#x27; filtered view can export rows whose phone
+        column comes out empty — looks like an export bug unless the rule is
+        disclosed.
+      </td>
+    </tr>
+  </tbody>
+</table>
+<div class="callout">
+  <p>
+    <b>Proposition — the locked-context strip.</b> One row of non-dismissable,
+    grey “context chips” above the FILTERS bar:
+    <i
+      >Barber · Kelowna ✦ websites only (goal) ✦ closed &amp; hidden excluded ✦
+      1,000 of 2,412 loaded ✦ data as of Jul 1</i
+    >. Each explains itself on hover; none pretend to be removable. This
+    converts every invisible exclusion into visible, honest context — the same
+    honesty rule the coverage chips already follow — and answers “where did the
+    rest of my market go” before it becomes a support question.
+  </p>
+</div>
+
+<h2>5 · Stale data in filters — the honest mechanics</h2>
+<p class="why">
+  The second half of your question: every value a filter reads is cached on one
+  of <b>three clocks</b>, none of which the filter UI mentions. (1)
+  Discovery-time listing fields — rating, review count, website, closed — serve
+  for up to <b>182 days</b> and both gate rows and feed the Reviews/Rating
+  filters. (2) Enriched values serve inside their
+  <b>billing freshness windows</b> (30d tech/ads/serp/lighthouse · 90d
+  contacts/reviews/AI) during which re-enrich is a deliberate $0 skip — so
+  “verified none” can be a 90-day-old verdict. (3) The evaluation layer reads
+  <b>latest-row-wins with no age guard</b> — latest snapshot, latest audit,
+  best-ever SERP rank. Verdicts are recomputed live, but over frozen inputs.
+</p>
+<p class="why">
+  <b>Why isn't it shown?</b> Because freshness accounting was built for
+  <i>billing</i>, not for <i>filtering</i>. The timestamps exist and are already
+  threaded to the UI (cell tooltips, drawer “as of”, header freshness chip) —
+  but the pipeline strips them before filters run: WorkbenchLeadRow carries
+  plain numbers with no per-field dates, so by the time a chip evaluates a
+  value, its age is unrecoverable. The one freshness word in the filter path is
+  fabricated from run-state (“enriched” → “fresh”). And the compound effect: the
+  enrich scope was itself filtered (pre-enrich filters + best-N), so applying
+  any visible chip today silently re-applies last month's invisible enrich scope
+  — “Lighthouse &lt; 50” really means “was in the enriched subset AND its
+  possibly-months-old audit scored &lt; 50”, evaluated over the first 1,000 rows
+  of a market ordering that can itself be 6 months old.
+</p>
+<table>
+  <thead>
+    <tr>
+      <th>Data point</th>
+      <th>Staleness mechanism</th>
+      <th>Filters affected</th>
+      <th>Age surfaced anywhere?</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td class="field">
+        Discovery-time listing fields: Business.rating, reviewCount, website,
+        phone, openStatus, isClaimed, photosCount, categories,
+        permanently/temporarilyClosed
+        <div class="src">
+          lib/cell.ts:12,50-75; modules/discovery/freshness-decision.ts:43-89;
+          workbench-rows.ts:427-432; modules/signals/registry.ts:190,204
+        </div>
+      </td>
+      <td class="why">
+        Written when the cell was last fetched from DataForSEO; a cell is
+        &#x27;fresh&#x27; and served from DB for CELL_DISCOVERY_FRESHNESS_DAYS =
+        182 days (lib/cell.ts:12, isCellFresh :50-57; decideDiscoveryPlan
+        modules/discovery/freshness-decision.ts:43-69). Commit ceac4ef only
+        self-heals the fresh-anchor-with-zero-businesses case
+        (effectiveLastDiscoveredAt, freshness-decision.ts:84-89) — a populated
+        cell legitimately serves 6-month-old listing data. Max realistic age:
+        ~182 days (unbounded if never re-discovered).
+      </td>
+      <td class="why">
+        (a) The row-gating WHERE itself: website gate, openStatus exclusion,
+        reachability (raw-list.ts:82-99). (b) Numeric filters/columns
+        &#x27;Reviews&#x27;/&#x27;Rating&#x27; via the fallback
+        `snap?.reviewCount ?? b.reviewCount` (workbench-rows.ts:427-432). (c)
+        Every Business.* library/goal signal — rating
+        (modules/signals/registry.ts:190), review_count (:204),
+        has_website/has_phone/phone_only/has_instagram/category_count
+        (signal-eval.ts:551-585 read the raw Business row).
+      </td>
+      <td class="why">
+        Market level only: the header FreshnessChip (fresh/aging/stale of
+        mappedAt) + &#x27;mapped X days ago&#x27; (page.tsx:358-363;
+        WorkspaceHeader.tsx:79-82,192-195). Nothing on the filter chips, the
+        &#x27;+ Field&#x27;/&#x27;+ Signal&#x27; pickers, or the affected cell
+        values ties a rating/review value to that age.
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        BusinessSnapshot latest row (rating, reviewCount, replyRate,
+        velocityLast30d, msiPercentile, mapslyScore, reputationScore)
+        <div class="src">
+          signal-eval.ts:1848-1866,532-548; workbench-rows.ts:427-432;
+          app/api/cron/weekly/snapshot-write/route.ts:80-82
+        </div>
+      </td>
+      <td class="why">
+        DISTINCT-ON latest per business with NO age guard
+        (signal-eval.ts:1848-1866); snapshots are written by the weekly cron in
+        bounded batches over all isActive businesses
+        (app/api/cron/weekly/snapshot-write/route.ts:80-82), so
+        &#x27;latest&#x27; can lag days-to-weeks — or predate a fresher live
+        Business row that review enrichment just updated
+        (modules/reviews/upsert.ts:211-220 updates Business, NOT the snapshot).
+        Max realistic age: weeks; unbounded for businesses that dropped out of
+        the cron set.
+      </td>
+      <td class="why">
+        The &#x27;Reviews&#x27;/&#x27;Rating&#x27; columns AND their numeric
+        filters prefer the snapshot value over the live row
+        (workbench-rows.ts:427-432), while the reviewCount/rating SIGNALS
+        evaluate the live Business row (registry.ts:190,204 →
+        signal-eval.ts:583-584) — the same lead can pass &#x27;review_count ≥
+        50&#x27; as a signal yet show/filter Reviews=41. Snapshot signals
+        replyRate/review_velocity/msi_percentile/mapsly_score
+        (registry.ts:218,274,842,998; resolveSnapshotField
+        signal-eval.ts:532-548) all evaluate the un-age-guarded latest row.
+      </td>
+      <td class="why">
+        Not in the workbench. The drawer&#x27;s Reviews block carries
+        snapshotDate as &#x27;as of&#x27; provenance (lead-detail.ts:518-524);
+        filter chips carry nothing.
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        LighthouseAudit latest row (performance, seo, lcp/cls/inp, schema/https
+        booleans)
+        <div class="src">
+          signal-eval.ts:1897-1919; modules/cost/pricing.ts:418;
+          LeadsWorkbench.tsx:1249-1262; coverage-matrix.ts:387-437
+        </div>
+      </td>
+      <td class="why">
+        DISTINCT-ON latest per business, no age guard
+        (signal-eval.ts:1897-1919). Billing freshness is 30 days
+        (pricing.ts:418) — that only makes a re-buy $0/skipped inside the
+        window; nothing forces or even suggests a re-run after it, so audits
+        serve indefinitely. Max realistic age: months.
+      </td>
+      <td class="why">
+        &#x27;Lighthouse&#x27; numeric filter (default seed op &#x27;&lt;
+        50&#x27;, leads-workbench.ts:1127) and perf/seo columns; every
+        LighthouseAudit signal — slow_mobile, poor_seo_score, no schema/HTTPS,
+        CWV signals (registry.ts:405-590).
+      </td>
+      <td class="why">
+        The value-cell provenance tooltip shows the real last-scan date
+        (&#x27;Website scan · Lighthouse mobile · scanned Jul 1 · fresh&#x27; —
+        LeadsWorkbench.tsx:1249-1262 reading loadScannedAtMap,
+        coverage-matrix.ts:387-437), and the drawer has auditedAt asOf
+        (lead-detail.ts:529-532). BUT the fresh/stale word is run-state-derived,
+        not age-derived (LeadsWorkbench.tsx:1255: state === &#x27;enriched&#x27;
+        → &#x27;fresh&#x27;), so a 5-month-old audit is labeled
+        &#x27;fresh&#x27;. Filter UI: nothing.
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        SerpResult rows (local-pack rank, organic rank, brand-query facts)
+        <div class="src">
+          signal-eval.ts:1960-1968; modules/cell-intel/freshness.ts:18;
+          coverage-matrix.ts:432-433
+        </div>
+      </td>
+      <td class="why">
+        ALL rows per business loaded with no recency filter or ordering
+        (signal-eval.ts:1960-1968); the rollup takes the BEST rank across every
+        row ever scanned, mixing scan generations. Cell SERP re-scan is gated 30
+        days (CELL_INTEL_FRESHNESS_DAYS, modules/cell-intel/freshness.ts:18;
+        pricing.ts:468). Max realistic age: whole history mixed; ≥30 days
+        between refreshes.
+      </td>
+      <td class="why">
+        &#x27;SERP&#x27; column (serpRank, workbench-rows.ts:518-520) and every
+        SerpResult signal — not_in_3pack, organic ranks, brand presence
+        (registry.ts:611-705).
+      </td>
+      <td class="why">
+        Provenance tooltip &#x27;scanned {when}&#x27; uses the cell&#x27;s
+        newest SERP AdMarketRun (coverage-matrix.ts:432-433) — which can
+        post-date the individual rows that supplied the best-ever rank. Drawer:
+        scannedAt (lead-detail.ts:626-633). Filter UI: nothing.
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        AdLibraryEntry.isActive + metaAdCount / googleAdCount
+        <div class="src">
+          signal-eval.ts:2172-2186; modules/cost/pricing.ts:438,452;
+          modules/cell-intel/meta-ads.ts:242-246
+        </div>
+      </td>
+      <td class="why">
+        &#x27;Active&#x27; is scan-time truth; counts are computed over stored
+        entries (signal-eval.ts:2172-2186). Meta/Google refresh is billing-gated
+        30 days (pricing.ts:438,452; meta-ads.ts:242-246 serves from DB inside
+        the window). An ad campaign paused the day after a scan stays
+        &#x27;active&#x27; up to a month+; longer if never re-bought.
+      </td>
+      <td class="why">
+        &#x27;Meta ads&#x27;/&#x27;Google ads&#x27; columns; ads signals —
+        running_ads, ad fatigue/age, formats, landing-page signals
+        (registry.ts:726-821); competitors_advertising via cell advertiserCount.
+      </td>
+      <td class="why">
+        Provenance tooltip date only (meta_ads = cell run ranAt, google_ads =
+        per-business cursor — coverage-matrix.ts:428-431). Filter UI: nothing.
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        Cell-level aggregates: latest AdMarketRun.advertiserCount and latest
+        CellMetric.distributions (vs-cell bands, percentile signals)
+        <div class="src">
+          signal-eval.ts:2038-2071,2104-2110,514-515; workbench-rows.ts:556-596
+        </div>
+      </td>
+      <td class="why">
+        Latest-row-wins with no age guard (adMarketRuns
+        signal-eval.ts:2038-2044/2104-2110; CellMetric signal-eval.ts:2060-2071
+        by computedAt desc). CellMetric recompute cadence is whenever the cron
+        last ran for that cell; AdMarketRun is 30-day gated.
+      </td>
+      <td class="why">
+        The vs-cell reference bands every &#x27;vs cell&#x27; delta renders
+        (workbench-rows.ts:556-596), the market-relative signals (msi_percentile
+        / reviews_vs_cell_pct via resolveSnapshotField), and AdMarketRun-column
+        signals (signal-eval.ts:514-515).
+      </td>
+      <td class="why">
+        Nowhere — bands and percentile verdicts carry no computed-at anywhere in
+        the UI.
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        Verified-empty (&#x27;empty&#x27;) and SKIPPED_FRESH coverage states
+        feeding the &#x27;+ Data state&#x27; filter
+        <div class="src">
+          family-coverage.ts:34,77-84,178-188; modules/cost/pricing.ts:374-468;
+          modules/discovery/enrich-fresh.ts:39-48;
+          modules/cell-intel/meta-ads.ts:242-246,352-359
+        </div>
+      </td>
+      <td class="why">
+        TypeState &#x27;empty&#x27; = a completed run found nothing
+        (family-coverage.ts:77-78,185); SKIPPED_FRESH counts as covered
+        (COVERED_JOB_STATUSES, family-coverage.ts:34) and enrich-fresh windows
+        (contacts/services/reviews/ai_research 90d;
+        tech/lighthouse/meta/google/serp 30d — pricing.ts:374-468; isFresh
+        enrich-fresh.ts:39-48) make a re-enrich inside the window a $0 no-op —
+        the stale verdict is re-stamped as covered. Detected Meta blocks now
+        write FAILED (meta-ads.ts:352-359, the ceac4ef-era fix class), but an
+        UNDETECTED soft-block returning 0 rows with outcome ok still writes an
+        OK run → &#x27;empty&#x27; locked in for 30 days (known live-bug class
+        per meta-actor memory).
+      </td>
+      <td class="why">
+        The &#x27;+ Data state&#x27; filters (have/none/failed/not run —
+        LeadsWorkbench.tsx:3242-3307, wb-view-state.ts:59-73), the
+        &#x27;Enriched only&#x27; toggle, and every null-vs-value distinction
+        that the numeric/signal filters inherit.
+      </td>
+      <td class="why">
+        State labels carry counts but never age (&#x27;none 214&#x27; — no
+        &#x27;as of&#x27;); the coverage tooltip&#x27;s date exists on value
+        cells only, and loadScannedAtMap failures silently drop the date
+        (coverage-matrix.ts:401-404).
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        Contacts / emails / phones (the &#x27;Emails found ≥ 1&#x27; /
+        &#x27;Phones found ≥ 1&#x27; filters)
+        <div class="src">
+          modules/discovery/enrich-fresh.ts:14-21; modules/cost/pricing.ts:374;
+          workbench-rows.ts:434-435
+        </div>
+      </td>
+      <td class="why">
+        Contact rows are written by the contacts research and considered fresh
+        for 90 days (Business.contactsExtractedAt, enrich-fresh.ts:14-21;
+        pricing.ts:374) — inside that window a re-scan is skipped, so a
+        changed/removed email persists ≤90 days; the discovery-time
+        Business.phone/email fallback (workbench-rows.ts:434-435) can be up to
+        182 days old.
+      </td>
+      <td class="why">
+        emails/phones numeric filters (leads-workbench.ts:1094-1105 numValue =
+        array length), reachability displays, and the contact-count signals
+        (registry Contact-column signals via signal-eval.ts:512-513).
+      </td>
+      <td class="why">
+        Coverage tooltip date for contacts_tech only
+        (coverage-matrix.ts:420-421); nothing on the filter chips.
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        The &#x27;fresh&#x27;/&#x27;stale&#x27; word in the per-cell provenance
+        tooltip
+        <div class="src">
+          modules/agency-portal/discover/components/LeadsWorkbench.tsx:1249-1262
+        </div>
+      </td>
+      <td class="why">
+        Not a data-age computation at all: `state === &#x27;enriched&#x27; ?
+        &#x27;fresh&#x27; : &#x27;stale&#x27;` (LeadsWorkbench.tsx:1255) —
+        run-state recoloring. A months-old audit reads &#x27;fresh&#x27;; a
+        failed-yesterday group reads &#x27;stale&#x27;.
+      </td>
+      <td class="why">
+        None directly, but it is the ONLY place the filter-adjacent UI speaks
+        about freshness, and it speaks wrong — it trains users to trust exactly
+        the values the filters consume.
+      </td>
+      <td class="why">
+        This IS the surfacing — and it contradicts the real scanned-date shown
+        two words earlier in the same tooltip.
+      </td>
+    </tr>
+  </tbody>
+</table>
+<div class="callout">
+  <p>
+    <b>Proposition — age is metadata, not a blocker.</b> Three cheap moves: (1)
+    kill the fabricated “fresh” — the tooltip prints the real scannedAt date +
+    relative age it already receives; (2) enrichment-backed filter chips and +
+    Data state entries carry a quiet “as of Jun 12” suffix when the group's
+    newest scan in view is &gt; 30d old; (3) the locked-context strip (§4) shows
+    the set-level “data as of” anchor. No new data needed — every timestamp
+    already reaches the client.
+  </p>
+</div>
+
+<h2>6 · What Tom actually needs to filter after the flow</h2>
+<p class="why lens">
+  Run the flow as the user: goal (picked signals, tuned thresholds) → discover
+  (market found) → research (paid for data on the best N). Tom lands on the
+  workbench with one job — turn paid data into a call list. His five moves, in
+  order, and what the system does today:
+</p>
+<table>
+  <thead>
+    <tr>
+      <th>Post-flow move</th>
+      <th>What he needs</th>
+      <th>Today</th>
+      <th>Gap</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td class="field">1 · Scope to what I bought</td>
+      <td class="why">“Show the leads the research ran on”</td>
+      <td class="now">Enriched-only toggle + Data-state filters ✓</td>
+      <td class="why">
+        Works — but phantom-filter P0 + no chips + false empty state make it
+        fragile exactly here.
+      </td>
+    </tr>
+    <tr>
+      <td class="field">2 · Qualify by my signals</td>
+      <td class="why">
+        The goal signals he tuned, as filters, at his thresholds
+      </td>
+      <td class="now">Auto-seed ✓ + goal-first picker ✓</td>
+      <td class="why">
+        Locked whenever coverage is partial (the normal state); fake verdicts on
+        unscanned leads; roadmap goal signals never arrive.
+      </td>
+    </tr>
+    <tr>
+      <td class="field">3 · Threshold the evidence</td>
+      <td class="why">
+        “SEO &lt; 60” · “Meta ads ≥ 3” · “pack rank ≤ 3” — HIS numbers, not
+        fixed recipes
+      </td>
+      <td class="now">6 fields only</td>
+      <td class="why">
+        The four paid columns aren't filterable; the signal recipes can't
+        substitute (fixed thresholds).
+      </td>
+    </tr>
+    <tr>
+      <td class="field">4 · Work the list</td>
+      <td class="why">NEW + not-touched-yet; hide Won/Lost/Hidden</td>
+      <td class="now">Nothing</td>
+      <td class="why">
+        Status is write-only; the agency UX rule's own template specifies status
+        tabs.
+      </td>
+    </tr>
+    <tr>
+      <td class="field">5 · Share the slice</td>
+      <td class="why">Send the exact view to a teammate</td>
+      <td class="now">URL carries numeric+state filters only</td>
+      <td class="why">
+        Signal filters silently drop; saved-blob half-merge shows the receiver a
+        third view.
+      </td>
+    </tr>
+  </tbody>
+</table>
+<p class="why">
+  <b>Unnecessary / wrong today:</b> the eval-dead signals sold at goal
+  (branded_only_traffic, recurring_complaint_theme — 2 of 48); dead tune options
+  (seasonal momentum, outspend, image/carousel/text format chips); “between” in
+  the model but not the UI; the Enriched-only toggle as a fourth filter home
+  once Data-state chips exist (fold it into a “has any data” state chip); and
+  the SEED_FILTERS perf&lt;50 constant that is dead code outside tests.
+</p>
+
+<h2>7 · The full data → filter matrix (85 data points)</h2>
+<p class="sub">
+  Every data point we hold per business · whether it renders (table / drawer) ·
+  how it can be filtered · how much Tom would want to filter on it (5 =
+  essential qualifier). Red “none” = unfilterable despite value ≥ 3 — the 16
+  coverage gaps.
+</p>
+<table>
+  <thead>
+    <tr>
+      <th>Data point</th>
+      <th>In table</th>
+      <th>In drawer</th>
+      <th>Filterable via</th>
+      <th>Value</th>
+      <th>Gap / note</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr class="ghead">
+      <td colspan="6">Core · identity, listing & workflow · 26 data points</td>
+    </tr>
+    <tr>
+      <td class="field">
+        Closed on Google
+        <div class="src">
+          closed_flag · Business.permanentlyClosed/temporarilyClosed
+        </div>
+      </td>
+      <td class="now">
+        Closed tag on biz cell (leads-workbench.ts:106,
+        LeadsWorkbench.tsx:2098-2104)
+      </td>
+      <td class="now">
+        yes · header pill + openStatus (lead-detail.ts:933-937)
+      </td>
+      <td class="now">signal:operating_business, signal:open_now</td>
+      <td class="num good">5</td>
+      <td class="why"></td>
+    </tr>
+    <tr>
+      <td class="field">
+        Match %
+        <div class="src">
+          match_pct · computed (resolveMatches over Discovery.signalsJson) /
+          Lead.matchScore fallback (workbench-rows.ts:441-450)
+        </div>
+      </td>
+      <td class="now">match (default)</td>
+      <td class="now">yes · header match pill (lead-detail.ts:1733)</td>
+      <td class="now">field:match</td>
+      <td class="num good">5</td>
+      <td class="why"></td>
+    </tr>
+    <tr>
+      <td class="field">
+        Per-signal verdicts (goal + library)
+        <div class="src">
+          per_signal_verdicts · computed · row.perSignal
+          (workbench-rows.ts:454-462, mergeSignalVerdicts
+          leads-workbench.ts:1228-1240)
+        </div>
+      </td>
+      <td class="now">drives pains tooltip + match</td>
+      <td class="now">
+        yes · Why-qualifies signalVerdicts (lead-detail.ts:853-888)
+      </td>
+      <td class="now">signal:&lt;any of ~40 non-roadmap SIG_META keys&gt;</td>
+      <td class="num good">5</td>
+      <td class="why">
+        The &#x27;+ Signal&#x27; mechanism itself; strict-gated to signals with
+        data on EVERY loaded row (leads-workbench.ts:1205-1215)
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        Lead status (NEW/CONTACTED/…)
+        <div class="src">lead_status · Lead.status</div>
+      </td>
+      <td class="now">status pill (default, cycle-on-click)</td>
+      <td class="now">yes · status pill</td>
+      <td class="now bad">none</td>
+      <td class="num good">4</td>
+      <td class="why">
+        No status filter/tab anywhere in the filter model — Tom cannot isolate
+        NEW or hide WON/LOST; ui-ux-agency list template specifies status tabs
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        GBP claimed
+        <div class="src">is_claimed · Business.isClaimed</div>
+      </td>
+      <td class="now">no</td>
+      <td class="now">
+        yes · Profile &#x27;Claimed&#x27; row (lead-detail.ts:971)
+      </td>
+      <td class="now bad">none</td>
+      <td class="num good">4</td>
+      <td class="why">
+        &#x27;Unclaimed GBP listing&#x27; is a classic agency wedge; stored +
+        drawer-shown but no SIG_META card binds it — unfilterable
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        Enrichment run state per 7 data groups
+        <div class="src">
+          data_group_states · EnrichmentJob + AdMarketRun + EnrichmentRun +
+          presence → deriveTypeStates/deriveGroupStates
+          (family-coverage.ts:196-259,499-505)
+        </div>
+      </td>
+      <td class="now">
+        cov column (addable) + coverage line + per-cell &#x27;— enrich&#x27;
+        affordances
+      </td>
+      <td class="now">yes · every domain block&#x27;s state + contactsState</td>
+      <td class="now">
+        datastate:contacts_tech, datastate:reviews, datastate:site_speed,
+        datastate:ai_brief, datastate:meta_ads, datastate:google_ads,
+        datastate:search
+      </td>
+      <td class="num good">4</td>
+      <td class="why">
+        &#x27;Enriched only&#x27; toggle (LeadsWorkbench.tsx:2872) + fs= URL
+        params (wb-view-state.ts:278-292) round it out; running state
+        deliberately unfilterable (wb-view-state.ts:59)
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        Market cell (category · metro)
+        <div class="src">cell · Business.cellKey</div>
+      </td>
+      <td class="now">biz sub-line + Group-by-cell axis</td>
+      <td class="now">no (category+city in header)</td>
+      <td class="now bad">none</td>
+      <td class="num mid">3</td>
+      <td class="why">
+        Group-by-cell (wb group:&#x27;cell&#x27;) + the upstream market picker
+        cover the axis; no filter chip needed
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        Open status
+        <div class="src">open_status · Business.openStatus</div>
+      </td>
+      <td class="now">no (only closed states surface)</td>
+      <td class="now">
+        yes · header &#x27;Open now&#x27; (lead-detail.ts:1727)
+      </td>
+      <td class="now">signal:open_now, signal:operating_business</td>
+      <td class="num mid">3</td>
+      <td class="why"></td>
+    </tr>
+    <tr>
+      <td class="field">
+        Pain-point chips (flagged findings)
+        <div class="src">
+          pains · PlaybookFinding (status=flagged) .signalKey/group/explanation
+        </div>
+      </td>
+      <td class="now">pains (default)</td>
+      <td class="now">yes · firedSignals + angles (lead-detail.ts:915-930)</td>
+      <td class="now bad">none</td>
+      <td class="num mid">3</td>
+      <td class="why">
+        No &#x27;has finding X&#x27; filter; live signal filters approximate but
+        playbook-only composites (e.g. hipaa-pixel) have no filter path
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        Touch state (None/Draft/Sent)
+        <div class="src">
+          touch_state · OutreachDraft.status roll-up (workbench-rows.ts:398-404)
+        </div>
+      </td>
+      <td class="now">touch (default)</td>
+      <td class="now">yes · touches section</td>
+      <td class="now bad">none</td>
+      <td class="num mid">3</td>
+      <td class="why">
+        &#x27;Show untouched leads&#x27; — the natural next-action filter —
+        doesn&#x27;t exist
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        Years on Google (tenure)
+        <div class="src">
+          years_on_google · Business.firstSeenOnGoogle / yearsOnGoogle
+        </div>
+      </td>
+      <td class="now">no</td>
+      <td class="now">
+        yes · Profile row + tenure vs-cell band (lead-detail.ts:972-984)
+      </td>
+      <td class="now">signal:years_in_business</td>
+      <td class="num mid">3</td>
+      <td class="why"></td>
+    </tr>
+    <tr>
+      <td class="field">
+        Business name
+        <div class="src">name · Business.name</div>
+      </td>
+      <td class="now">biz</td>
+      <td class="now">yes · header (lead-detail.ts:1721)</td>
+      <td class="now">none</td>
+      <td class="num">2</td>
+      <td class="why">
+        Free-text search matches it (leads-workbench.ts:1292-1300) — no chip
+        needed
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        Address / city
+        <div class="src">
+          address_city · Business.address/city/province/country
+        </div>
+      </td>
+      <td class="now">biz (addr sub-line, workbench-rows.ts:471)</td>
+      <td class="now">yes · header addressLine (lead-detail.ts:1711-1716)</td>
+      <td class="now">none</td>
+      <td class="num">2</td>
+      <td class="why">Search matches addr; geo is fixed per discovery cell</td>
+    </tr>
+    <tr>
+      <td class="field">
+        Category
+        <div class="src">category · Business.category</div>
+      </td>
+      <td class="now">
+        folded into cell label (prettyCell, workbench-rows.ts:715-723)
+      </td>
+      <td class="now">yes · header (lead-detail.ts:1724)</td>
+      <td class="now">none</td>
+      <td class="num">2</td>
+      <td class="why"></td>
+    </tr>
+    <tr>
+      <td class="field">
+        Last contacted
+        <div class="src">
+          last_contacted · Lead.contactedAt (workbench-rows.ts:500)
+        </div>
+      </td>
+      <td class="now">lastContactedAt (addable, sortable)</td>
+      <td class="now">no (touches imply it)</td>
+      <td class="now">none</td>
+      <td class="num">2</td>
+      <td class="why">
+        Sortable via registry sortValue (leads-workbench.ts:758-759) but no
+        recency filter
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        Photos count
+        <div class="src">photos_count · Business.photosCount</div>
+      </td>
+      <td class="now">no</td>
+      <td class="now">
+        yes · Profile row + facts (lead-detail.ts:948-953,968-970)
+      </td>
+      <td class="now">none</td>
+      <td class="num">2</td>
+      <td class="why"></td>
+    </tr>
+    <tr>
+      <td class="field">
+        Weekly hours (open days/wk)
+        <div class="src">hours_open_days · Business.hours (JSON)</div>
+      </td>
+      <td class="now">no</td>
+      <td class="now">
+        yes · Profile &#x27;Open N days/wk&#x27; amber ≤4
+        (lead-detail.ts:985-994)
+      </td>
+      <td class="now">none</td>
+      <td class="num">2</td>
+      <td class="why"></td>
+    </tr>
+    <tr>
+      <td class="field">
+        GBP attributes
+        <div class="src">attributes · Business.attributes (JSON)</div>
+      </td>
+      <td class="now">no</td>
+      <td class="now">yes · Profile Attributes row (lead-detail.ts:995-997)</td>
+      <td class="now">none</td>
+      <td class="num">2</td>
+      <td class="why"></td>
+    </tr>
+    <tr>
+      <td class="field">
+        Nearby rivals (peopleAlsoSearch)
+        <div class="src">
+          people_also_search · Business.peopleAlsoSearch (JSON)
+        </div>
+      </td>
+      <td class="now">no</td>
+      <td class="now">
+        yes · Nearby rivals block (lead-detail.ts:1003-1004, LeadRival)
+      </td>
+      <td class="now">none</td>
+      <td class="num">2</td>
+      <td class="why"></td>
+    </tr>
+    <tr>
+      <td class="field">
+        Review topics (placeTopics)
+        <div class="src">place_topics · Business.placeTopics (JSON)</div>
+      </td>
+      <td class="now">no</td>
+      <td class="now">no (AI-pipeline input only)</td>
+      <td class="now">none</td>
+      <td class="num">2</td>
+      <td class="why"></td>
+    </tr>
+    <tr>
+      <td class="field">
+        Instagram handle / followers
+        <div class="src">
+          instagram · Business.instagramHandle/instagramFollowers
+        </div>
+      </td>
+      <td class="now">no</td>
+      <td class="now">no (socials strip shows Contact rows only)</td>
+      <td class="now">none</td>
+      <td class="num">2</td>
+      <td class="why"></td>
+    </tr>
+    <tr>
+      <td class="field">
+        Per-group last-scanned provenance
+        <div class="src">
+          scanned_at · Business freshness cursors
+          (contactsExtractedAt/servicesLastAt/aiResearchLastAt/googleAdsLastAt/…)
+          via loadScannedAtMap
+        </div>
+      </td>
+      <td class="now">value-cell tooltip</td>
+      <td class="now">
+        yes · per-block &#x27;source · as of&#x27; (LeadDomainBlock.asOf)
+      </td>
+      <td class="now">none</td>
+      <td class="num">2</td>
+      <td class="why"></td>
+    </tr>
+    <tr>
+      <td class="field">
+        Strongest pitch angle
+        <div class="src">
+          pitch_angle · PlaybookFinding.pitchAngle (HEAVY, CSV-only —
+          leads-workbench.ts:89-95)
+        </div>
+      </td>
+      <td class="now">no (CSV column only)</td>
+      <td class="now">yes · firedSignals.pitch</td>
+      <td class="now">none</td>
+      <td class="num">1</td>
+      <td class="why"></td>
+    </tr>
+    <tr>
+      <td class="field">
+        Owner&#x27;s GBP description
+        <div class="src">description · Business.description</div>
+      </td>
+      <td class="now">no</td>
+      <td class="now">yes · Profile description (lead-detail.ts:999)</td>
+      <td class="now">none</td>
+      <td class="num">1</td>
+      <td class="why"></td>
+    </tr>
+    <tr>
+      <td class="field">
+        Google Maps listing link
+        <div class="src">maps_url · Business.checkUrl</div>
+      </td>
+      <td class="now">no</td>
+      <td class="now">yes · Profile mapsUrl (lead-detail.ts:1000)</td>
+      <td class="now">none</td>
+      <td class="num">1</td>
+      <td class="why"></td>
+    </tr>
+    <tr>
+      <td class="field">
+        Logo / avatar
+        <div class="src">logo · Business.logoUrl</div>
+      </td>
+      <td class="now">no</td>
+      <td class="now">yes · header avatar (lead-detail.ts:1722)</td>
+      <td class="now">none</td>
+      <td class="num">1</td>
+      <td class="why"></td>
+    </tr>
+    <tr class="ghead">
+      <td colspan="6">Reviews · 13 data points</td>
+    </tr>
+    <tr>
+      <td class="field">
+        Review count
+        <div class="src">
+          review_count · BusinessSnapshot.reviewCount → Business.reviewCount
+          (workbench-rows.ts:431)
+        </div>
+      </td>
+      <td class="now">
+        reviews (default since 2026-07-06, leads-workbench.ts:495-508)
+      </td>
+      <td class="now">
+        yes · listing row + vs-cell band (lead-detail.ts:1060-1069)
+      </td>
+      <td class="now">field:reviews, signal:market_position</td>
+      <td class="num good">5</td>
+      <td class="why"></td>
+    </tr>
+    <tr>
+      <td class="field">
+        Owner reply rate
+        <div class="src">
+          reply_rate · BusinessSnapshot.replyRate (schema:496; hydrated
+          signal-eval.ts:1857) + pulled-rows ratio (lead-detail.ts:807-814)
+        </div>
+      </td>
+      <td class="now">no</td>
+      <td class="now">
+        yes · &#x27;Reply rate&#x27; row, amber &lt;80%
+        (lead-detail.ts:1094-1105)
+      </td>
+      <td class="now">signal:low_reply_rate, datastate:reviews</td>
+      <td class="num good">5</td>
+      <td class="why">
+        WRONG: the &#x27;Low owner reply rate&#x27; card evaluates
+        BusinessSnapshot.reviewLifecycle==&#x27;DYING&#x27; (velocity momentum),
+        never replyRate — see issue 1. No field: filter either, so the #1
+        review-management qualifier is effectively unfilterable
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        Star rating
+        <div class="src">
+          rating · BusinessSnapshot.rating → Business.rating
+        </div>
+      </td>
+      <td class="now">rating (addable)</td>
+      <td class="now">yes · header + listing row + band</td>
+      <td class="now">field:rating</td>
+      <td class="num good">4</td>
+      <td class="why"></td>
+    </tr>
+    <tr>
+      <td class="field">
+        Unanswered 1–3★ reviews
+        <div class="src">
+          unanswered_negatives · Review agg (ownerReplied=false ∧ stars≤N —
+          signal-eval.ts:1936-1946; drawer count lead-detail.ts:607-609)
+        </div>
+      </td>
+      <td class="now">no</td>
+      <td class="now">
+        yes · &#x27;1–3★ unanswered&#x27; row, red &gt;0
+        (lead-detail.ts:1114-1118)
+      </td>
+      <td class="now">signal:unanswered_1star</td>
+      <td class="num good">4</td>
+      <td class="why"></td>
+    </tr>
+    <tr>
+      <td class="field">
+        Review lifecycle (TRENDING/DYING/…)
+        <div class="src">
+          review_lifecycle · BusinessSnapshot.reviewLifecycle
+        </div>
+      </td>
+      <td class="now">no</td>
+      <td class="now">
+        yes · &#x27;Lifecycle (90d)&#x27; row (lead-detail.ts:1106-1113)
+      </td>
+      <td class="now">signal:reviews_percentile</td>
+      <td class="num good">4</td>
+      <td class="why">
+        &#x27;Review momentum&#x27; 4-mode card
+        (growing/losing/seasonal/stalled) covers it via reviewMomentumVerdict
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        Last review recency
+        <div class="src">
+          last_review_at · Business.lastReviewAt/latestReviewPostedAt
+        </div>
+      </td>
+      <td class="now">no</td>
+      <td class="now">
+        yes · &#x27;Last review&#x27; listing row
+        (lead-detail.ts:1057-1059,1086-1088)
+      </td>
+      <td class="now">signal:stale_reviews</td>
+      <td class="num good">4</td>
+      <td class="why"></td>
+    </tr>
+    <tr>
+      <td class="field">
+        Market position percentile
+        <div class="src">msi_percentile · BusinessSnapshot.msiPercentile</div>
+      </td>
+      <td class="now">no</td>
+      <td class="now">no (vs-cell bands approximate)</td>
+      <td class="now">signal:market_position, signal:reviews_percentile</td>
+      <td class="num good">4</td>
+      <td class="why"></td>
+    </tr>
+    <tr>
+      <td class="field">
+        Review velocity (30d vs prior)
+        <div class="src">
+          review_velocity · BusinessSnapshot.velocityLast30d/velocityPrev30d
+        </div>
+      </td>
+      <td class="now">no</td>
+      <td class="now">
+        no — only the lifecycle label renders; the numbers still surface nowhere
+      </td>
+      <td class="now">signal:reviews_trending</td>
+      <td class="num mid">3</td>
+      <td class="why"></td>
+    </tr>
+    <tr>
+      <td class="field">
+        Rating trend (~90d slip)
+        <div class="src">
+          rating_trend · BusinessSnapshot history (priorRating window,
+          signal-eval.ts:1883-1895)
+        </div>
+      </td>
+      <td class="now">no</td>
+      <td class="now">no</td>
+      <td class="now">signal:rating_slipping, signal:reputation_slipping</td>
+      <td class="num mid">3</td>
+      <td class="why"></td>
+    </tr>
+    <tr>
+      <td class="field">
+        Recent negative burst (reputation fire)
+        <div class="src">
+          negative_spike · derived · Review count ≤2★ in last 30d
+          (HydratedReviews.recentNegativeCount)
+        </div>
+      </td>
+      <td class="now">no</td>
+      <td class="now">no</td>
+      <td class="now">signal:reputation_fire</td>
+      <td class="num mid">3</td>
+      <td class="why"></td>
+    </tr>
+    <tr>
+      <td class="field">
+        Review entity extraction (people/services named)
+        <div class="src">
+          review_entities · Review.mentionedPeople/mentionedServices
+          (schema:591-592)
+        </div>
+      </td>
+      <td class="now">no</td>
+      <td class="now">no — paid AI extraction still has zero surface</td>
+      <td class="now">none</td>
+      <td class="num">2</td>
+      <td class="why">
+        Display/outreach-personalization gap (owner name gold), not a filter gap
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        Review themes / sentiment
+        <div class="src">
+          review_themes · Review.themes/sentiment (theme pipe cost-gated dead)
+        </div>
+      </td>
+      <td class="now">no</td>
+      <td class="now">no</td>
+      <td class="now">none</td>
+      <td class="num">2</td>
+      <td class="why">
+        recurring_complaint_theme card exists but is roadmap-excluded
+        (goal-templates.ts:1178) because themes are never populated
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        Pulled review text (quotes)
+        <div class="src">
+          review_quotes · Review.text/stars/postedAt/ownerReplied
+        </div>
+      </td>
+      <td class="now">no</td>
+      <td class="now">
+        yes · &#x27;Recent reviews&#x27; 3 quote lines
+        (lead-detail.ts:674-681,1119-1130)
+      </td>
+      <td class="now">none</td>
+      <td class="num">1</td>
+      <td class="why"></td>
+    </tr>
+    <tr class="ghead">
+      <td colspan="6">Contacts & site tech · 12 data points</td>
+    </tr>
+    <tr>
+      <td class="field">
+        Website URL
+        <div class="src">website · Business.website</div>
+      </td>
+      <td class="now">website (default)</td>
+      <td class="now">yes · header link</td>
+      <td class="now">
+        signal:has_website, signal:phone_only, datastate:contacts_tech
+      </td>
+      <td class="num good">5</td>
+      <td class="why"></td>
+    </tr>
+    <tr>
+      <td class="field">
+        Phone numbers
+        <div class="src">
+          phones · Contact(channel=PHONE/WHATSAPP).value + Business.phone
+          fallback (workbench-rows.ts:434)
+        </div>
+      </td>
+      <td class="now">phones (default)</td>
+      <td class="now">
+        yes · contacts strip + listingContacts (lead-detail.ts:703-779)
+      </td>
+      <td class="now">field:phones, datastate:contacts_tech</td>
+      <td class="num good">5</td>
+      <td class="why"></td>
+    </tr>
+    <tr>
+      <td class="field">
+        Email addresses
+        <div class="src">
+          emails · Contact(channel=EMAIL).value + Business.email fallback
+        </div>
+      </td>
+      <td class="now">emails (default)</td>
+      <td class="now">yes · contacts strip + listingContacts</td>
+      <td class="now">
+        field:emails, signal:has_email_contact, datastate:contacts_tech
+      </td>
+      <td class="num good">5</td>
+      <td class="why"></td>
+    </tr>
+    <tr>
+      <td class="field">
+        CMS / built on
+        <div class="src">
+          built_on · BusinessTech(category=CMS).name (highest confidence,
+          workbench-rows.ts:339-349)
+        </div>
+      </td>
+      <td class="now">builtOn (addable, CORE for search)</td>
+      <td class="now">yes · tech block &#x27;Built on&#x27; + facts</td>
+      <td class="now">signal:diy_platform, datastate:contacts_tech</td>
+      <td class="num good">4</td>
+      <td class="why">
+        Free-text search also matches it (leads-workbench.ts:1298)
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        Booking tool name (Square/Vagaro/…)
+        <div class="src">
+          booking_tool · BusinessTech(category=BOOKING).name (HEAVY field)
+        </div>
+      </td>
+      <td class="now">bookingTool (addable)</td>
+      <td class="now">
+        yes · &#x27;Online booking · &lt;name&gt;&#x27; row
+        (lead-detail.ts:1220-1227)
+      </td>
+      <td class="now">signal:no_booking</td>
+      <td class="num good">4</td>
+      <td class="why"></td>
+    </tr>
+    <tr>
+      <td class="field">
+        Tech stack (pixel/analytics/chat/ecommerce/CDN names)
+        <div class="src">tech_stack · BusinessTech rows (name/category)</div>
+      </td>
+      <td class="now">no</td>
+      <td class="now">
+        yes · named Stack line + presence rows
+        (lead-detail.ts:793-796,1188-1247)
+      </td>
+      <td class="now">
+        signal:no_tracking_pixel, signal:flying_blind, signal:no_analytics,
+        signal:chat_widget, signal:ecommerce
+      </td>
+      <td class="num good">4</td>
+      <td class="why"></td>
+    </tr>
+    <tr>
+      <td class="field">
+        Social handles (IG/FB/TikTok/…)
+        <div class="src">
+          socials · Contact(channel=INSTAGRAM/FACEBOOK/…).value (HEAVY field)
+        </div>
+      </td>
+      <td class="now">socials (addable)</td>
+      <td class="now">
+        yes · socials strip with per-platform icons (lead-detail.ts:736-753)
+      </td>
+      <td class="now">signal:stale_social</td>
+      <td class="num mid">3</td>
+      <td class="why"></td>
+    </tr>
+    <tr>
+      <td class="field">
+        Reachability tier (Rich/Multi/Phone/…)
+        <div class="src">
+          reachability_tier · Business.reachability/reachableChannelCount
+        </div>
+      </td>
+      <td class="now">reachable pill (addable, leads-workbench.ts:702-714)</td>
+      <td class="now">yes · header pill</td>
+      <td class="now bad">none</td>
+      <td class="num mid">3</td>
+      <td class="why">
+        Tier itself unfilterable; field:emails/phones ≥1 approximate it —
+        acceptable
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        Contact role / primary / verified
+        <div class="src">
+          contact_meta · Contact.role/isPrimary/verifiedStatus
+        </div>
+      </td>
+      <td class="now">no (bare values in cells)</td>
+      <td class="now">yes · per-value tags (lead-detail.ts:716-727)</td>
+      <td class="now bad">none</td>
+      <td class="num mid">3</td>
+      <td class="why">
+        HydratedContacts.hasOwnerContact exists (signal-eval.ts:72-73) but no
+        SIG_META card binds it — &#x27;owner-direct contact&#x27; filter absent
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        Contact provenance (source · confidence)
+        <div class="src">contact_provenance · Contact.source/confidence</div>
+      </td>
+      <td class="now">no</td>
+      <td class="now">
+        yes · provenance label per value (lead-detail.ts:86-92,726)
+      </td>
+      <td class="now">none</td>
+      <td class="num">2</td>
+      <td class="why"></td>
+    </tr>
+    <tr>
+      <td class="field">
+        GBP booking-link flag
+        <div class="src">gbp_has_booking · Business.gbpHasBooking</div>
+      </td>
+      <td class="now">no</td>
+      <td class="now">
+        yes · Booking-mismatch rows (lead-detail.ts:1230-1247)
+      </td>
+      <td class="now">none</td>
+      <td class="num">2</td>
+      <td class="why"></td>
+    </tr>
+    <tr>
+      <td class="field">
+        Scraped homepage text
+        <div class="src">site_text · Business.siteText</div>
+      </td>
+      <td class="now">no</td>
+      <td class="now">no (AI input; the brief is its human form)</td>
+      <td class="now">none</td>
+      <td class="num">1</td>
+      <td class="why"></td>
+    </tr>
+    <tr class="ghead">
+      <td colspan="6">Site speed (Lighthouse) · 10 data points</td>
+    </tr>
+    <tr>
+      <td class="field">
+        Lighthouse performance
+        <div class="src">
+          perf · LighthouseAudit.performance (latest, DISTINCT ON)
+        </div>
+      </td>
+      <td class="now">perf (addable, goal-auto-on)</td>
+      <td class="now">
+        yes · Performance row + vs-cell band (lead-detail.ts:1266-1281)
+      </td>
+      <td class="now">
+        field:perf, signal:overdue_redesign, signal:slow_site,
+        signal:losing_mobile, datastate:site_speed
+      </td>
+      <td class="num good">5</td>
+      <td class="why"></td>
+    </tr>
+    <tr>
+      <td class="field">
+        Lighthouse SEO score
+        <div class="src">seo_score · LighthouseAudit.seo (HEAVY row field)</div>
+      </td>
+      <td class="now">seo (addable, goal-auto-on)</td>
+      <td class="now">yes · SEO row (lead-detail.ts:1351-1359)</td>
+      <td class="now">signal:weak_seo</td>
+      <td class="num good">4</td>
+      <td class="why">
+        Column is sortable but NOT in FILTER_FIELDS — no &#x27;+ Field&#x27;
+        threshold filter; only the fixed-recipe weak_seo (&lt;70 ± strictness) —
+        see issue 4
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        Accessibility score + violation counts
+        <div class="src">
+          accessibility ·
+          LighthouseAudit.accessibility/a11yViolationCount/a11yCriticalCount
+        </div>
+      </td>
+      <td class="now">no</td>
+      <td class="now">
+        yes · Accessibility row + ADA expert callout
+        (lead-detail.ts:1340-1348,1665-1680)
+      </td>
+      <td class="now bad">none</td>
+      <td class="num mid">3</td>
+      <td class="why">
+        An &#x27;ADA-risk list&#x27; can&#x27;t be built by filter —
+        compliance_risk card is roadmap-excluded (goal-templates.ts:1317)
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        CWV detail (LCP/INP/TBT/CLS/FCP)
+        <div class="src">
+          core_web_vitals · LighthouseAudit.lcp/inp/tbt/cls/fcp
+        </div>
+      </td>
+      <td class="now">no</td>
+      <td class="now">
+        yes · per-vital rows with web-vitals tones (lead-detail.ts:1283-1339)
+      </td>
+      <td class="now bad">none</td>
+      <td class="num mid">3</td>
+      <td class="why">
+        perf-score signals proxy it; no per-vital threshold filter
+        (losing_mobile names CWV but binds performance only)
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        HTTPS / SSL
+        <div class="src">https · LighthouseAudit.isOnHttps</div>
+      </td>
+      <td class="now">no</td>
+      <td class="now">no</td>
+      <td class="now bad">none</td>
+      <td class="num mid">3</td>
+      <td class="why">
+        no_ssl card is roadmap-excluded (goal-templates.ts:824); DfS-sourced
+        audits leave the flag null so the honest gate would block it anyway
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        Lighthouse best-practices score
+        <div class="src">best_practices · LighthouseAudit.bestPractices</div>
+      </td>
+      <td class="now">no</td>
+      <td class="now">yes · Best practices row (lead-detail.ts:1362-1370)</td>
+      <td class="now">none</td>
+      <td class="num">2</td>
+      <td class="why"></td>
+    </tr>
+    <tr>
+      <td class="field">
+        Potential speed savings
+        <div class="src">perf_savings · LighthouseAudit.perfSavingsMs</div>
+      </td>
+      <td class="now">no</td>
+      <td class="now">
+        yes · Potential savings row (lead-detail.ts:1373-1380)
+      </td>
+      <td class="now">none</td>
+      <td class="num">2</td>
+      <td class="why"></td>
+    </tr>
+    <tr>
+      <td class="field">
+        Crawlability (content without JS)
+        <div class="src">crawlable · LighthouseAudit.contentWithoutJs</div>
+      </td>
+      <td class="now">no</td>
+      <td class="now">
+        yes · &#x27;Crawlable (no-JS)&#x27; row (lead-detail.ts:1137-1148)
+      </td>
+      <td class="now">none</td>
+      <td class="num">2</td>
+      <td class="why"></td>
+    </tr>
+    <tr>
+      <td class="field">
+        Schema/NAP/CTA DOM flags
+        <div class="src">
+          dom_audit_flags ·
+          LighthouseAudit.hasLocalBusinessSchema/hasFaqSchema/hasBookingCtaAboveFold/hasPhoneAboveFold/napConsistent
+        </div>
+      </td>
+      <td class="now">no</td>
+      <td class="now">no (all null via DfS source)</td>
+      <td class="now">none</td>
+      <td class="num">2</td>
+      <td class="why"></td>
+    </tr>
+    <tr>
+      <td class="field">
+        Desktop Lighthouse fields
+        <div class="src">
+          desktop_lighthouse ·
+          LighthouseAudit.desktopPerformance/desktopLcp/desktopInp/desktopCls
+          (never populated)
+        </div>
+      </td>
+      <td class="now">no</td>
+      <td class="now">no</td>
+      <td class="now">none</td>
+      <td class="num">1</td>
+      <td class="why"></td>
+    </tr>
+    <tr class="ghead">
+      <td colspan="6">Meta ads · 6 data points</td>
+    </tr>
+    <tr>
+      <td class="field">
+        Active Meta ad creatives
+        <div class="src">
+          meta_ad_count · AdLibraryEntry(platform=META) count
+          (signal-eval.ts:2172-2179; HEAVY row field)
+        </div>
+      </td>
+      <td class="now">metaAdCount (addable, goal-auto-on)</td>
+      <td class="now">
+        yes · &#x27;Active Meta ads&#x27; + band (lead-detail.ts:1400-1406)
+      </td>
+      <td class="now">
+        signal:many_ad_creatives, signal:not_advertising, signal:meta_video_ads,
+        signal:stale_ad_creative, datastate:meta_ads
+      </td>
+      <td class="num good">4</td>
+      <td class="why">
+        No numeric &#x27;+ Field&#x27; filter; AND all four signals read the
+        platform-MERGED HydratedAds rollup (signal-eval.ts:2155) — see issues
+        2/3
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        Meta ad spend band
+        <div class="src">
+          meta_spend_band · AdLibraryEntry.spendBandUsd (META)
+        </div>
+      </td>
+      <td class="now">no</td>
+      <td class="now">
+        yes · Spend band row (lead-detail.ts:1430-1432) — NEW since audit
+      </td>
+      <td class="now bad">none</td>
+      <td class="num good">4</td>
+      <td class="why">
+        Ad budget is a strong revenue/qualifier proxy (&#x27;spending $1–5K/mo
+        with no pixel&#x27;) — stored + drawer-shown, zero filter path
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        Newest ad age (staleness)
+        <div class="src">
+          ad_age · derived · AdLibraryEntry.startedAt →
+          HydratedAds.newestAgeDays
+        </div>
+      </td>
+      <td class="now">no</td>
+      <td class="now">no</td>
+      <td class="now">signal:stale_ad_creative</td>
+      <td class="num mid">3</td>
+      <td class="why"></td>
+    </tr>
+    <tr>
+      <td class="field">
+        Advertisers in this market cell
+        <div class="src">
+          cell_advertiser_count · AdMarketRun.advertiserCount (latest META run
+          per cell)
+        </div>
+      </td>
+      <td class="now">no</td>
+      <td class="now">no</td>
+      <td class="now">signal:competitors_advertising</td>
+      <td class="num mid">3</td>
+      <td class="why"></td>
+    </tr>
+    <tr>
+      <td class="field">
+        Ad creative detail (body/format/preview/CTA/landing)
+        <div class="src">
+          ad_creative_detail ·
+          AdLibraryEntry.adCreativeBody/displayFormat/previewImageUrl/ctaText/linkTitle/landingUrl
+        </div>
+      </td>
+      <td class="now">no</td>
+      <td class="now">
+        partial · Formats row only (lead-detail.ts:1407-1426); body/preview/CTA
+        still unrendered
+      </td>
+      <td class="now">signal:meta_video_ads, signal:ads_homepage_landing</td>
+      <td class="num">2</td>
+      <td class="why"></td>
+    </tr>
+    <tr>
+      <td class="field">
+        Meta advertiser name
+        <div class="src">
+          meta_advertiser · AdLibraryEntry.advertiserName (META)
+        </div>
+      </td>
+      <td class="now">no</td>
+      <td class="now">yes · Advertiser row (lead-detail.ts:1433-1435)</td>
+      <td class="now">none</td>
+      <td class="num">1</td>
+      <td class="why"></td>
+    </tr>
+    <tr class="ghead">
+      <td colspan="6">Google ads · 2 data points</td>
+    </tr>
+    <tr>
+      <td class="field">
+        Active Google ad creatives
+        <div class="src">
+          google_ad_count · AdLibraryEntry(platform=GOOGLE) count
+          (signal-eval.ts:2180-2185; HEAVY row field)
+        </div>
+      </td>
+      <td class="now">googleAdCount (addable, goal-auto-on)</td>
+      <td class="now">
+        yes · &#x27;Active Google ads&#x27; + band (lead-detail.ts:1455-1465)
+      </td>
+      <td class="now">datastate:google_ads</td>
+      <td class="num good">4</td>
+      <td class="why">
+        No Google-scoped signal and no field: filter — the only ad signals are
+        Meta-labelled yet read the merged rollup, so Google ad activity is
+        unfilterable on its own axis
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        Google ad spend band
+        <div class="src">
+          google_spend_band · AdLibraryEntry.spendBandUsd (GOOGLE)
+        </div>
+      </td>
+      <td class="now">no</td>
+      <td class="now">yes · Spend band row (lead-detail.ts:1466-1468)</td>
+      <td class="now bad">none</td>
+      <td class="num mid">3</td>
+      <td class="why">Same budget-qualifier gap as Meta spend band</td>
+    </tr>
+    <tr class="ghead">
+      <td colspan="6">Search rank (SERP) · 8 data points</td>
+    </tr>
+    <tr>
+      <td class="field">
+        Best local 3-pack rank
+        <div class="src">
+          local_pack_rank · SerpResult.localPackRank (best per business →
+          HydratedSerp.bestLocalPackRank; HEAVY row field)
+        </div>
+      </td>
+      <td class="now">serpRank (addable, goal-auto-on)</td>
+      <td class="now">
+        yes · Local 3-pack rank row (lead-detail.ts:1492-1502)
+      </td>
+      <td class="now">
+        signal:not_in_local_pack, signal:invisible_locally,
+        signal:search_visibility, datastate:search
+      </td>
+      <td class="num good">5</td>
+      <td class="why">
+        Sortable column but not in FILTER_FIELDS — no arbitrary rank threshold;
+        signals cover in/out-of-pack + percentile bands
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        Brand hijack (bidders on their name)
+        <div class="src">
+          brand_hijack · SerpResult.isBrandQuery/paidBidders
+        </div>
+      </td>
+      <td class="now">no</td>
+      <td class="now">
+        yes · Brand hijack row (lead-detail.ts:1513-1525) — NEW since audit
+      </td>
+      <td class="now bad">none</td>
+      <td class="num good">4</td>
+      <td class="why">
+        branded_only_traffic card is roadmap-excluded AND brand-query rows are
+        never collected (cell-intel scans category keywords only —
+        signal-eval.ts:644-648); needs new paid collection before any filter is
+        honest
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        Estimated organic traffic
+        <div class="src">
+          organic_traffic · BusinessKeyword.latestEstMonthlyVisits (portfolio
+          sum → HydratedKeywords.estMonthlyVisits)
+        </div>
+      </td>
+      <td class="now">no</td>
+      <td class="now">no</td>
+      <td class="now">signal:low_organic_traffic, signal:search_visibility</td>
+      <td class="num good">4</td>
+      <td class="why"></td>
+    </tr>
+    <tr>
+      <td class="field">
+        Best organic rank
+        <div class="src">
+          organic_rank · SerpResult.organicRank → HydratedSerp.bestOrganicRank
+        </div>
+      </td>
+      <td class="now">no</td>
+      <td class="now">yes · Organic rank row (lead-detail.ts:1503-1505)</td>
+      <td class="now">signal:search_visibility</td>
+      <td class="num mid">3</td>
+      <td class="why"></td>
+    </tr>
+    <tr>
+      <td class="field">
+        Keyword rank trend (losing rankings)
+        <div class="src">rank_trend · BusinessKeyword.isDown/isUp</div>
+      </td>
+      <td class="now">no</td>
+      <td class="now">no</td>
+      <td class="now">signal:losing_rankings</td>
+      <td class="num mid">3</td>
+      <td class="why"></td>
+    </tr>
+    <tr>
+      <td class="field">
+        Keyword volume / CPC / top-of-page bids
+        <div class="src">
+          keyword_economics ·
+          Keyword.searchVolume/cpc/competition/lowTopOfPageBid/highTopOfPageBid
+        </div>
+      </td>
+      <td class="now">no</td>
+      <td class="now">no (SMB /ads only)</td>
+      <td class="now">none</td>
+      <td class="num">2</td>
+      <td class="why">
+        Prize-sizing display gap (&#x27;720 searches/mo at $4.10 CPC&#x27;), not
+        primarily a filter gap
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        Absolute organic rank (incl. ads)
+        <div class="src">organic_abs_rank · SerpResult.organicAbsRank</div>
+      </td>
+      <td class="now">no</td>
+      <td class="now">no</td>
+      <td class="now">none</td>
+      <td class="num">1</td>
+      <td class="why"></td>
+    </tr>
+    <tr>
+      <td class="field">
+        3-pack competitor names
+        <div class="src">
+          pack_names · SerpResult.pack1Name/pack2Name/pack3Name
+        </div>
+      </td>
+      <td class="now">no</td>
+      <td class="now">
+        yes · &#x27;The pack&#x27; row (lead-detail.ts:1508-1510) — NEW since
+        audit
+      </td>
+      <td class="now">none</td>
+      <td class="num">1</td>
+      <td class="why"></td>
+    </tr>
+    <tr class="ghead">
+      <td colspan="6">AI brief · 8 data points</td>
+    </tr>
+    <tr>
+      <td class="field">
+        AI sophistication (low/medium/high)
+        <div class="src">
+          sophistication · BusinessEnrichment.sophistication
+        </div>
+      </td>
+      <td class="now">no</td>
+      <td class="now">
+        yes · Sophistication bold row (lead-detail.ts:1580-1589)
+      </td>
+      <td class="now bad">none</td>
+      <td class="num good">4</td>
+      <td class="why">
+        &#x27;Low sophistication = easiest sale&#x27; — the one AI field worth a
+        filter for segmenting a 100-row cohort (audit concurred); enum,
+        trivially filterable, no card exists
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        Pricing transparency (transparent/opaque)
+        <div class="src">
+          pricing_transparency · BusinessEnrichment.pricingTransparency
+        </div>
+      </td>
+      <td class="now">no</td>
+      <td class="now">
+        yes · bold row, amber when opaque (lead-detail.ts:1590-1603)
+      </td>
+      <td class="now bad">none</td>
+      <td class="num mid">3</td>
+      <td class="why">
+        Opaque-pricing is a ready wedge; enum with no filter path
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        Compliance cues + compliance flag
+        <div class="src">
+          compliance_cues · BusinessEnrichment.complianceCues[] + derived
+          complianceFlag (lead-detail.ts:906-912)
+        </div>
+      </td>
+      <td class="now">no</td>
+      <td class="now">yes · amber chips + header pill + expert callout</td>
+      <td class="now bad">none</td>
+      <td class="num mid">3</td>
+      <td class="why">
+        compliance_risk card is roadmap-excluded (goal-templates.ts:1317) though
+        the flag is computed live for every drawer
+      </td>
+    </tr>
+    <tr>
+      <td class="field">
+        Detected services menu
+        <div class="src">
+          services_menu · BusinessService.name/category (isActive)
+        </div>
+      </td>
+      <td class="now">no</td>
+      <td class="now">yes · Services chips (lead-detail.ts:1560-1566)</td>
+      <td class="now">signal:service_gap</td>
+      <td class="num mid">3</td>
+      <td class="why"></td>
+    </tr>
+    <tr>
+      <td class="field">
+        AI sub-type classification
+        <div class="src">sub_type · BusinessEnrichment.subType</div>
+      </td>
+      <td class="now">no</td>
+      <td class="now">yes · Sub-type bold row (lead-detail.ts:1570-1579)</td>
+      <td class="now">none</td>
+      <td class="num">2</td>
+      <td class="why"></td>
+    </tr>
+    <tr>
+      <td class="field">
+        AI positioning summary
+        <div class="src">
+          ai_summary · BusinessEnrichment.positioningSummary (HEAVY row field)
+        </div>
+      </td>
+      <td class="now">aiSummary (addable, goal-auto-on)</td>
+      <td class="now">
+        yes · Summary/Positioning row (lead-detail.ts:1604-1612)
+      </td>
+      <td class="now">datastate:ai_brief</td>
+      <td class="num">1</td>
+      <td class="why"></td>
+    </tr>
+    <tr>
+      <td class="field">
+        AI opener angles (pain hypotheses)
+        <div class="src">
+          pain_hypotheses · BusinessEnrichment.painHypotheses[]
+        </div>
+      </td>
+      <td class="now">no</td>
+      <td class="now">
+        yes · Opener angle prose w/ pain highlight (lead-detail.ts:1636-1642)
+      </td>
+      <td class="now">none</td>
+      <td class="num">1</td>
+      <td class="why"></td>
+    </tr>
+    <tr>
+      <td class="field">
+        AI vs-cell-leader read
+        <div class="src">
+          competitive_positioning · BusinessEnrichment.competitivePositioning
+        </div>
+      </td>
+      <td class="now">no</td>
+      <td class="now">yes · Vs cell leader row (lead-detail.ts:1613-1621)</td>
+      <td class="now">none</td>
+      <td class="num">1</td>
+      <td class="why"></td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>8 · The three menus — full inventory (as shipped)</h2>
+<details>
+  <summary>All 53 filter entries · evaluation + gating per entry</summary>
+  <table>
+    <thead>
+      <tr>
+        <th>Filter</th>
+        <th>Evaluation (incl. null handling)</th>
+        <th>Gating</th>
+        <th>Notes</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr class="ghead">
+        <td colspan="4">+ Field · numeric threshold filters · 6 entries</td>
+      </tr>
+      <tr>
+        <td class="field">
+          Match %
+          <div class="src">match</div>
+        </td>
+        <td class="why">
+          Numeric threshold: v OP value with ops &lt; ≤ = ≥ &gt; editable in the
+          chip (LeadsWorkbench.tsx:3059-3078); &#x27;between&#x27; exists in the
+          model (leads-workbench.ts:1052,1165-1166) but is NOT offered in the
+          UI. Default seed: ≥ 50 (leads-workbench.ts:1125). match is never null
+          so no rows are dropped for missing data.
+        </td>
+        <td class="why">
+          Always offered (match is derived for every row —
+          availableNumericFields comment leads-workbench.ts:1243-1244) unless a
+          match filter is already applied (LeadsWorkbench.tsx:1970-1977).
+        </td>
+        <td class="why">
+          Filters over both signal-computed AND heuristic &#x27;estimated&#x27;
+          match values (matchDerived) with no distinction — an estimated 60
+          passes &#x27;Match ≥ 50&#x27; same as a measured one.
+        </td>
+      </tr>
+      <tr>
+        <td class="field">
+          Reviews
+          <div class="src">reviews</div>
+        </td>
+        <td class="why">
+          Numeric threshold, ops &lt; ≤ = ≥ &gt;; default seed ≥ 20
+          (leads-workbench.ts:1126). null review count → row NEVER matches any
+          op (evalFilter leads-workbench.ts:1152-1153) — i.e. leads with no
+          review data are silently excluded.
+        </td>
+        <td class="why">
+          Offered when ≥1 loaded row has a non-null finite value
+          (availableNumericFields leads-workbench.ts:1249-1264) and not already
+          applied.
+        </td>
+        <td class="why">
+          CORE field — always serialized, so a saved filter evaluates even with
+          the column hidden (leads-workbench.ts:107-110,782-787).
+        </td>
+      </tr>
+      <tr>
+        <td class="field">
+          Rating
+          <div class="src">rating</div>
+        </td>
+        <td class="why">
+          Numeric threshold, ops &lt; ≤ = ≥ &gt;; default seed ≥ 4
+          (leads-workbench.ts:1127). null rating → row never matches.
+        </td>
+        <td class="why">
+          Offered when ≥1 loaded row has data; not already applied
+          (leads-workbench.ts:1249-1264).
+        </td>
+        <td class="why">CORE field.</td>
+      </tr>
+      <tr>
+        <td class="field">
+          Lighthouse
+          <div class="src">perf</div>
+        </td>
+        <td class="why">
+          Numeric threshold, ops &lt; ≤ = ≥ &gt;; default seed &lt; 50
+          (leads-workbench.ts:1128). null (not audited) → row never matches —
+          applying it hides every un-audited lead.
+        </td>
+        <td class="why">
+          Offered as soon as ONE loaded row has a perf score
+          (leads-workbench.ts:1249-1264) — lenient vs the signal menu&#x27;s
+          every-row gate.
+        </td>
+        <td class="why">
+          The old SEED_FILTERS default &#x27;perf &lt; 50&#x27;
+          (leads-workbench.ts:1108-1111) is no longer auto-applied (workbench
+          opens with no filters, LeadsWorkbench.tsx:517-521).
+        </td>
+      </tr>
+      <tr>
+        <td class="field">
+          Emails found
+          <div class="src">emails</div>
+        </td>
+        <td class="why">
+          Numeric threshold on the COUNT of stored emails; default seed ≥ 1
+          (leads-workbench.ts:1129-1131). Never null — a never-scanned lead
+          reads 0, indistinguishable from scanned-and-none, so &#x27;≥ 1&#x27;
+          also drops leads whose contacts were never fetched.
+        </td>
+        <td class="why">
+          Offered only when ≥1 loaded row actually has ≥1 email (an all-zero
+          column isn&#x27;t offered — leads-workbench.ts:1256-1260).
+        </td>
+        <td class="why">CORE field.</td>
+      </tr>
+      <tr>
+        <td class="field">
+          Phones found
+          <div class="src">phones</div>
+        </td>
+        <td class="why">
+          Numeric threshold on phone count; default seed ≥ 1
+          (leads-workbench.ts:1132). Never null; not-scanned reads 0 (same
+          caveat as emails).
+        </td>
+        <td class="why">
+          Offered only when ≥1 loaded row has ≥1 phone
+          (leads-workbench.ts:1256-1260).
+        </td>
+        <td class="why">
+          These 6 are the ONLY field filters. seo / metaAdCount / googleAdCount
+          / serpRank are sortable numeric columns with registry accessors but
+          are absent from NumericFilterField/FILTER_FIELDS
+          (leads-workbench.ts:1085-1105) — unfilterable.
+        </td>
+      </tr>
+      <tr class="ghead">
+        <td colspan="4">
+          + Data state · per-group run-state filters · 7 entries
+        </td>
+      </tr>
+      <tr>
+        <td class="field">
+          Contacts &amp; site tech — toggles: failed / none / have / not run
+          (each with live count)
+          <div class="src">contacts_tech</div>
+        </td>
+        <td class="why">
+          Row passes when its rolled-up group state ∈ the selected states for
+          this group; multiple states on the same group OR, different groups AND
+          (passesStateFilters LeadsWorkbench.tsx:1003-1013). A
+          &#x27;running&#x27; row matches NO selected state — transiently
+          excluded (991-1002). State labels: enriched→&#x27;have&#x27;,
+          empty→&#x27;none&#x27;, failed→&#x27;failed&#x27;, not_run→&#x27;not
+          run&#x27; (1987-1992).
+        </td>
+        <td class="why">
+          Group row shown when any settled state has count&gt;0 in the loaded
+          window or a run is in flight; each state toggle offered ONLY while its
+          count&gt;0 (stateFilterRows LeadsWorkbench.tsx:2000-2018);
+          &#x27;running N&#x27; renders as a non-clickable chip (3294-3302).
+          Popover stays open for stacking (2021-2023).
+        </td>
+        <td class="why">
+          State filters persist in the URL only (`fs=contacts_tech:enriched`),
+          never localStorage (LeadsWorkbench.tsx:611-615;
+          wb-view-state.ts:280-292). Active count shows on the Coverage toolbar
+          badge, NOT the Filter badge (2893-2911).
+        </td>
+      </tr>
+      <tr>
+        <td class="field">
+          Reviews — toggles: failed / none / have / not run
+          <div class="src">reviews</div>
+        </td>
+        <td class="why">
+          Same OR-within-group / AND-across-groups semantics; running excluded
+          (LeadsWorkbench.tsx:991-1013).
+        </td>
+        <td class="why">
+          Per-state count&gt;0 gating over the loaded window
+          (LeadsWorkbench.tsx:2000-2018).
+        </td>
+        <td class="why">URL key `fs=reviews:&lt;state&gt;`.</td>
+      </tr>
+      <tr>
+        <td class="field">
+          Site speed &amp; SEO — toggles: failed / none / have / not run
+          <div class="src">site_speed</div>
+        </td>
+        <td class="why">Same semantics (LeadsWorkbench.tsx:991-1013).</td>
+        <td class="why">
+          Per-state count&gt;0 gating (LeadsWorkbench.tsx:2000-2018).
+        </td>
+        <td class="why">
+          `fs=site_speed:&lt;state&gt;`. &#x27;have&#x27; here means the audit
+          RAN and produced data — distinct from the &#x27;+ Field&#x27;
+          Lighthouse threshold filter.
+        </td>
+      </tr>
+      <tr>
+        <td class="field">
+          AI brief — toggles: failed / none / have / not run
+          <div class="src">ai_brief</div>
+        </td>
+        <td class="why">Same semantics (LeadsWorkbench.tsx:991-1013).</td>
+        <td class="why">
+          Per-state count&gt;0 gating (LeadsWorkbench.tsx:2000-2018).
+        </td>
+        <td class="why">`fs=ai_brief:&lt;state&gt;`.</td>
+      </tr>
+      <tr>
+        <td class="field">
+          Meta ads — toggles: failed / none / have / not run
+          <div class="src">meta_ads</div>
+        </td>
+        <td class="why">Same semantics (LeadsWorkbench.tsx:991-1013).</td>
+        <td class="why">
+          Per-state count&gt;0 gating (LeadsWorkbench.tsx:2000-2018).
+        </td>
+        <td class="why">
+          Market-basis group: a cell scan sets the state for every lead in the
+          cell; it never counts toward &#x27;Enriched only&#x27;
+          (anyLeadGroupRan excludes market groups, family-coverage.ts:507-520).
+        </td>
+      </tr>
+      <tr>
+        <td class="field">
+          Google ads — toggles: failed / none / have / not run
+          <div class="src">google_ads</div>
+        </td>
+        <td class="why">Same semantics (LeadsWorkbench.tsx:991-1013).</td>
+        <td class="why">
+          Per-state count&gt;0 gating (LeadsWorkbench.tsx:2000-2018).
+        </td>
+        <td class="why">`fs=google_ads:&lt;state&gt;`.</td>
+      </tr>
+      <tr>
+        <td class="field">
+          Search rank — toggles: failed / none / have / not run
+          <div class="src">search</div>
+        </td>
+        <td class="why">Same semantics (LeadsWorkbench.tsx:991-1013).</td>
+        <td class="why">
+          Per-state count&gt;0 gating (LeadsWorkbench.ts:2000-2018).
+        </td>
+        <td class="why">
+          `fs=search:&lt;state&gt;`. Legacy 5-family `fs=` values (contacts:…,
+          website:…, ads:…) parse to nothing (wb-view-state.ts:284-292).
+        </td>
+      </tr>
+      <tr class="ghead">
+        <td colspan="4">
+          + Signal · verdict filters (matched / not matched) · 40 entries
+        </td>
+      </tr>
+      <tr>
+        <td class="field">
+          Review momentum
+          <div class="src">reviews_percentile</div>
+        </td>
+        <td class="why">
+          Verdict filter: want=match passes only verdict===true, want=miss only
+          verdict===false; null/absent verdict (not computable / un-enriched)
+          never passes either (leads-workbench.ts:1145-1152). Added as
+          want=match; chip toggles matched/not-matched
+          (LeadsWorkbench.tsx:1921-1947).
+        </td>
+        <td class="why">
+          Strict data gating: offered only when EVERY row in the loaded window
+          (≤1000) has a non-null verdict (availableSignalKeys
+          leads-workbench.ts:1205-1215) and the signal isn&#x27;t already
+          applied (LeadsWorkbench.tsx:1954-1967). Listed under &#x27;Your goal
+          signals&#x27; if in the goal, else alphabetized under
+          &#x27;Signals&#x27;.
+        </td>
+        <td class="why">
+          Goal signals evaluate with the user&#x27;s tuned thresholds; library
+          (non-goal) signals evaluate at SIG_META default comparator/value
+          (workbench-rows.ts:451-462).
+        </td>
+      </tr>
+      <tr>
+        <td class="field">
+          Operating business
+          <div class="src">operating_business</div>
+        </td>
+        <td class="why">
+          Same verdict semantics (leads-workbench.ts:1145-1152).
+        </td>
+        <td class="why">
+          Same strict full-cohort gating (leads-workbench.ts:1205-1215).
+        </td>
+        <td class="why">
+          Qualifier signal — excluded from pain chips (QUALIFIER_SIGNAL_KEYS,
+          LeadsWorkbench.tsx:2189) but fully filterable.
+        </td>
+      </tr>
+      <tr>
+        <td class="field">
+          Reviews trending up
+          <div class="src">reviews_trending</div>
+        </td>
+        <td class="why">
+          Same verdict semantics (leads-workbench.ts:1145-1152).
+        </td>
+        <td class="why">Same strict gating (leads-workbench.ts:1205-1215).</td>
+        <td class="why"></td>
+      </tr>
+      <tr>
+        <td class="field">
+          Open now / active hours
+          <div class="src">open_now</div>
+        </td>
+        <td class="why">
+          Same verdict semantics (leads-workbench.ts:1145-1152).
+        </td>
+        <td class="why">Same strict gating (leads-workbench.ts:1205-1215).</td>
+        <td class="why"></td>
+      </tr>
+      <tr>
+        <td class="field">
+          Years in business
+          <div class="src">years_in_business</div>
+        </td>
+        <td class="why">
+          Same verdict semantics (leads-workbench.ts:1145-1152).
+        </td>
+        <td class="why">Same strict gating (leads-workbench.ts:1205-1215).</td>
+        <td class="why"></td>
+      </tr>
+      <tr>
+        <td class="field">
+          Market position
+          <div class="src">market_position</div>
+        </td>
+        <td class="why">
+          Same verdict semantics (leads-workbench.ts:1145-1152).
+        </td>
+        <td class="why">Same strict gating (leads-workbench.ts:1205-1215).</td>
+        <td class="why"></td>
+      </tr>
+      <tr>
+        <td class="field">
+          Overdue for a redesign
+          <div class="src">overdue_redesign</div>
+        </td>
+        <td class="why">
+          Same verdict semantics (leads-workbench.ts:1145-1152).
+        </td>
+        <td class="why">Same strict gating (leads-workbench.ts:1205-1215).</td>
+        <td class="why"></td>
+      </tr>
+      <tr>
+        <td class="field">
+          Slow site (Lighthouse)
+          <div class="src">slow_site</div>
+        </td>
+        <td class="why">
+          Same verdict semantics (leads-workbench.ts:1145-1152).
+        </td>
+        <td class="why">
+          Same strict gating — hidden until Lighthouse ran on every loaded lead
+          (leads-workbench.ts:1205-1215).
+        </td>
+        <td class="why"></td>
+      </tr>
+      <tr>
+        <td class="field">
+          Weak on-page SEO
+          <div class="src">weak_seo</div>
+        </td>
+        <td class="why">
+          Same verdict semantics (leads-workbench.ts:1145-1152).
+        </td>
+        <td class="why">Same strict gating (leads-workbench.ts:1205-1215).</td>
+        <td class="why"></td>
+      </tr>
+      <tr>
+        <td class="field">
+          Has a website
+          <div class="src">has_website</div>
+        </td>
+        <td class="why">
+          Same verdict semantics (leads-workbench.ts:1145-1152).
+        </td>
+        <td class="why">Same strict gating (leads-workbench.ts:1205-1215).</td>
+        <td class="why">
+          Qualifier signal (QUALIFIER_SIGNAL_KEYS goal-templates.ts:41). Usually
+          computable at $0 from discovery, so typically offered immediately.
+        </td>
+      </tr>
+      <tr>
+        <td class="field">
+          Phone-only (no website)
+          <div class="src">phone_only</div>
+        </td>
+        <td class="why">
+          Same verdict semantics (leads-workbench.ts:1145-1152).
+        </td>
+        <td class="why">Same strict gating (leads-workbench.ts:1205-1215).</td>
+        <td class="why">
+          The &#x27;goal-only Phone-only entry&#x27;
+          (goal-templates.ts:284-288).
+        </td>
+      </tr>
+      <tr>
+        <td class="field">
+          Built on DIY platform
+          <div class="src">diy_platform</div>
+        </td>
+        <td class="why">
+          Same verdict semantics (leads-workbench.ts:1145-1152).
+        </td>
+        <td class="why">Same strict gating (leads-workbench.ts:1205-1215).</td>
+        <td class="why"></td>
+      </tr>
+      <tr>
+        <td class="field">
+          Losing mobile customers
+          <div class="src">losing_mobile</div>
+        </td>
+        <td class="why">
+          Same verdict semantics (leads-workbench.ts:1145-1152).
+        </td>
+        <td class="why">Same strict gating (leads-workbench.ts:1205-1215).</td>
+        <td class="why"></td>
+      </tr>
+      <tr>
+        <td class="field">
+          Invisible locally
+          <div class="src">invisible_locally</div>
+        </td>
+        <td class="why">
+          Same verdict semantics (leads-workbench.ts:1145-1152).
+        </td>
+        <td class="why">Same strict gating (leads-workbench.ts:1205-1215).</td>
+        <td class="why"></td>
+      </tr>
+      <tr>
+        <td class="field">
+          Not in local 3-pack
+          <div class="src">not_in_local_pack</div>
+        </td>
+        <td class="why">
+          Same verdict semantics (leads-workbench.ts:1145-1152).
+        </td>
+        <td class="why">Same strict gating (leads-workbench.ts:1205-1215).</td>
+        <td class="why"></td>
+      </tr>
+      <tr>
+        <td class="field">
+          Low organic traffic
+          <div class="src">low_organic_traffic</div>
+        </td>
+        <td class="why">
+          Same verdict semantics (leads-workbench.ts:1145-1152).
+        </td>
+        <td class="why">Same strict gating (leads-workbench.ts:1205-1215).</td>
+        <td class="why"></td>
+      </tr>
+      <tr>
+        <td class="field">
+          Thin on-page SEO
+          <div class="src">thin_seo</div>
+        </td>
+        <td class="why">
+          Same verdict semantics (leads-workbench.ts:1145-1152).
+        </td>
+        <td class="why">Same strict gating (leads-workbench.ts:1205-1215).</td>
+        <td class="why"></td>
+      </tr>
+      <tr>
+        <td class="field">
+          Search visibility
+          <div class="src">search_visibility</div>
+        </td>
+        <td class="why">
+          Same verdict semantics (leads-workbench.ts:1145-1152).
+        </td>
+        <td class="why">Same strict gating (leads-workbench.ts:1205-1215).</td>
+        <td class="why"></td>
+      </tr>
+      <tr>
+        <td class="field">
+          Losing rankings
+          <div class="src">losing_rankings</div>
+        </td>
+        <td class="why">
+          Same verdict semantics (leads-workbench.ts:1145-1152).
+        </td>
+        <td class="why">Same strict gating (leads-workbench.ts:1205-1215).</td>
+        <td class="why"></td>
+      </tr>
+      <tr>
+        <td class="field">
+          Thin / no social presence
+          <div class="src">stale_social</div>
+        </td>
+        <td class="why">
+          Same verdict semantics (leads-workbench.ts:1145-1152).
+        </td>
+        <td class="why">Same strict gating (leads-workbench.ts:1205-1215).</td>
+        <td class="why"></td>
+      </tr>
+      <tr>
+        <td class="field">
+          Has an email contact
+          <div class="src">has_email_contact</div>
+        </td>
+        <td class="why">
+          Same verdict semantics (leads-workbench.ts:1145-1152).
+        </td>
+        <td class="why">Same strict gating (leads-workbench.ts:1205-1215).</td>
+        <td class="why">
+          Overlaps the &#x27;+ Field&#x27; Emails-found filter but with
+          true/false semantics instead of counts.
+        </td>
+      </tr>
+      <tr>
+        <td class="field">
+          Runs Google ads without analytics
+          <div class="src">no_analytics</div>
+        </td>
+        <td class="why">
+          Same verdict semantics (leads-workbench.ts:1145-1152).
+        </td>
+        <td class="why">Same strict gating (leads-workbench.ts:1205-1215).</td>
+        <td class="why"></td>
+      </tr>
+      <tr>
+        <td class="field">
+          Not advertising
+          <div class="src">not_advertising</div>
+        </td>
+        <td class="why">
+          Same verdict semantics (leads-workbench.ts:1145-1152).
+        </td>
+        <td class="why">Same strict gating (leads-workbench.ts:1205-1215).</td>
+        <td class="why"></td>
+      </tr>
+      <tr>
+        <td class="field">
+          Competitors are advertising
+          <div class="src">competitors_advertising</div>
+        </td>
+        <td class="why">
+          Same verdict semantics (leads-workbench.ts:1145-1152).
+        </td>
+        <td class="why">Same strict gating (leads-workbench.ts:1205-1215).</td>
+        <td class="why"></td>
+      </tr>
+      <tr>
+        <td class="field">
+          No tracking pixel
+          <div class="src">no_tracking_pixel</div>
+        </td>
+        <td class="why">
+          Same verdict semantics (leads-workbench.ts:1145-1152).
+        </td>
+        <td class="why">Same strict gating (leads-workbench.ts:1205-1215).</td>
+        <td class="why"></td>
+      </tr>
+      <tr>
+        <td class="field">
+          Stale ad creative
+          <div class="src">stale_ad_creative</div>
+        </td>
+        <td class="why">
+          Same verdict semantics (leads-workbench.ts:1145-1152).
+        </td>
+        <td class="why">Same strict gating (leads-workbench.ts:1205-1215).</td>
+        <td class="why"></td>
+      </tr>
+      <tr>
+        <td class="field">
+          Many active ad creatives
+          <div class="src">many_ad_creatives</div>
+        </td>
+        <td class="why">
+          Same verdict semantics (leads-workbench.ts:1145-1152).
+        </td>
+        <td class="why">Same strict gating (leads-workbench.ts:1205-1215).</td>
+        <td class="why"></td>
+      </tr>
+      <tr>
+        <td class="field">
+          Runs video/image ads (Meta)
+          <div class="src">meta_video_ads</div>
+        </td>
+        <td class="why">
+          Same verdict semantics (leads-workbench.ts:1145-1152).
+        </td>
+        <td class="why">Same strict gating (leads-workbench.ts:1205-1215).</td>
+        <td class="why"></td>
+      </tr>
+      <tr>
+        <td class="field">
+          Ads point at homepage
+          <div class="src">ads_homepage_landing</div>
+        </td>
+        <td class="why">
+          Same verdict semantics (leads-workbench.ts:1145-1152).
+        </td>
+        <td class="why">Same strict gating (leads-workbench.ts:1205-1215).</td>
+        <td class="why"></td>
+      </tr>
+      <tr>
+        <td class="field">
+          Reputation slipping
+          <div class="src">reputation_slipping</div>
+        </td>
+        <td class="why">
+          Same verdict semantics (leads-workbench.ts:1145-1152).
+        </td>
+        <td class="why">Same strict gating (leads-workbench.ts:1205-1215).</td>
+        <td class="why"></td>
+      </tr>
+      <tr>
+        <td class="field">
+          Low owner reply rate
+          <div class="src">low_reply_rate</div>
+        </td>
+        <td class="why">
+          Same verdict semantics (leads-workbench.ts:1145-1152).
+        </td>
+        <td class="why">Same strict gating (leads-workbench.ts:1205-1215).</td>
+        <td class="why"></td>
+      </tr>
+      <tr>
+        <td class="field">
+          Unanswered 1★ reviews
+          <div class="src">unanswered_1star</div>
+        </td>
+        <td class="why">
+          Same verdict semantics (leads-workbench.ts:1145-1152).
+        </td>
+        <td class="why">Same strict gating (leads-workbench.ts:1205-1215).</td>
+        <td class="why"></td>
+      </tr>
+      <tr>
+        <td class="field">
+          Rating slipping
+          <div class="src">rating_slipping</div>
+        </td>
+        <td class="why">
+          Same verdict semantics (leads-workbench.ts:1145-1152).
+        </td>
+        <td class="why">Same strict gating (leads-workbench.ts:1205-1215).</td>
+        <td class="why"></td>
+      </tr>
+      <tr>
+        <td class="field">
+          Reviews stalled
+          <div class="src">stale_reviews</div>
+        </td>
+        <td class="why">
+          Same verdict semantics (leads-workbench.ts:1145-1152).
+        </td>
+        <td class="why">Same strict gating (leads-workbench.ts:1205-1215).</td>
+        <td class="why"></td>
+      </tr>
+      <tr>
+        <td class="field">
+          Reputation fire
+          <div class="src">reputation_fire</div>
+        </td>
+        <td class="why">
+          Same verdict semantics (leads-workbench.ts:1145-1152).
+        </td>
+        <td class="why">Same strict gating (leads-workbench.ts:1205-1215).</td>
+        <td class="why"></td>
+      </tr>
+      <tr>
+        <td class="field">
+          Flying blind
+          <div class="src">flying_blind</div>
+        </td>
+        <td class="why">
+          Same verdict semantics (leads-workbench.ts:1145-1152).
+        </td>
+        <td class="why">Same strict gating (leads-workbench.ts:1205-1215).</td>
+        <td class="why">
+          Composite over tech/analytics inputs; historically eval-fragile (per
+          project memory) — gating hides it until it computes for the whole
+          window.
+        </td>
+      </tr>
+      <tr>
+        <td class="field">
+          No online booking tool
+          <div class="src">no_booking</div>
+        </td>
+        <td class="why">
+          Same verdict semantics (leads-workbench.ts:1145-1152).
+        </td>
+        <td class="why">Same strict gating (leads-workbench.ts:1205-1215).</td>
+        <td class="why"></td>
+      </tr>
+      <tr>
+        <td class="field">
+          Chat widget
+          <div class="src">chat_widget</div>
+        </td>
+        <td class="why">
+          Same verdict semantics (leads-workbench.ts:1145-1152).
+        </td>
+        <td class="why">Same strict gating (leads-workbench.ts:1205-1215).</td>
+        <td class="why"></td>
+      </tr>
+      <tr>
+        <td class="field">
+          E-commerce / payments
+          <div class="src">ecommerce</div>
+        </td>
+        <td class="why">
+          Same verdict semantics (leads-workbench.ts:1145-1152).
+        </td>
+        <td class="why">Same strict gating (leads-workbench.ts:1205-1215).</td>
+        <td class="why"></td>
+      </tr>
+      <tr>
+        <td class="field">
+          Service gap vs market
+          <div class="src">service_gap</div>
+        </td>
+        <td class="why">
+          Same verdict semantics (leads-workbench.ts:1145-1152).
+        </td>
+        <td class="why">Same strict gating (leads-workbench.ts:1205-1215).</td>
+        <td class="why">
+          Last of the 40 evaluable library signals. The 8
+          status:&#x27;roadmap&#x27; entries (multi_location, site_age_3y,
+          branded_only_traffic, no_ssl, ads_without_pixel,
+          recurring_complaint_theme, compliance_risk, competitor_pressure —
+          goal-templates.ts:419,620,796,824,898,1178,1317,1451) are excluded
+          from the picker entirely (discovery-signals.ts:203-205,231-238).
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</details>
+
+<h2>9 · Signal lifecycle — all 48 goal-step signals</h2>
+<details>
+  <summary>
+    Per-signal: data needed · verdict semantics · what happens after research
+  </summary>
+  <table>
+    <thead>
+      <tr>
+        <th>Signal</th>
+        <th>Data needed</th>
+        <th>Verdict semantics</th>
+        <th>After research</th>
+        <th>Notes</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="field">
+          Review momentum
+          <div class="src">reviews_percentile · growing</div>
+        </td>
+        <td class="why">
+          reviews (goal-templates.ts:297); snapshot velocities/lifecycle written
+          by reviews upsert (modules/reviews/upsert.ts:283-309)
+        </td>
+        <td class="why">
+          mode growing/losing/stalled from lifecycle TRENDING/DYING/DORMANT else
+          velocity compare; mode &#x27;seasonal&#x27; ALWAYS null
+          (signal-eval.ts:1111-1115); null when no snapshot or neither lifecycle
+          nor velocities
+        </td>
+        <td class="why">
+          reviews run upserts snapshot → verdict computes on next render;
+          filterable via + Signal once non-null on every loaded row; auto-seeds
+          as &#x27;match&#x27; filter on first visit if goal signal
+        </td>
+        <td class="why">
+          seasonal mode is a dead tune option offered in the UI
+        </td>
+      </tr>
+      <tr>
+        <td class="field">
+          Operating business
+          <div class="src">operating_business · growing</div>
+        </td>
+        <td class="why">
+          none — free Discovery listing (goal-templates.ts:344-345)
+        </td>
+        <td class="why">
+          matched when openStatus === &#x27;OPEN&#x27;; openStatus always
+          selected so effectively always computable
+        </td>
+        <td class="why">
+          already evaluated at $0; also one of only 4 signals the Preview
+          &#x27;~N passing&#x27; estimate can count
+          (discovery-phase-match.ts:29); QUALIFIER — excluded from pain chips
+          (goal-templates.ts:41-49)
+        </td>
+        <td class="why">
+          card recipe claims &#x27;owner-claimed listing&#x27; but eval checks
+          only open status
+        </td>
+      </tr>
+      <tr>
+        <td class="field">
+          Reviews trending up
+          <div class="src">reviews_trending · growing</div>
+        </td>
+        <td class="why">reviews (goal-templates.ts:364)</td>
+        <td class="why">
+          true if lifecycle TRENDING or v30&gt;vPrev; false if lifecycle known
+          non-trending; null with no snapshot
+        </td>
+        <td class="why">
+          reviews upsert writes the snapshot fields → live after reviews run
+        </td>
+        <td class="why"></td>
+      </tr>
+      <tr>
+        <td class="field">
+          Open now / active hours
+          <div class="src">open_now · growing</div>
+        </td>
+        <td class="why">none — Discovery listing (goal-templates.ts:379)</td>
+        <td class="why">
+          true iff &#x27;OPEN&#x27;; null only if openStatus absent
+        </td>
+        <td class="why">
+          live at $0; discovery-phase predicate exists
+          (discovery-phase-match.ts:31)
+        </td>
+        <td class="why"></td>
+      </tr>
+      <tr>
+        <td class="field">
+          Years in business
+          <div class="src">years_in_business · growing</div>
+        </td>
+        <td class="why">none — Discovery listing (goal-templates.ts:394)</td>
+        <td class="why">
+          &gt;= 3 (strictness-shiftable); null when yearsOnGoogle null on the
+          listing
+        </td>
+        <td class="why">live at $0 where Google exposes tenure</td>
+        <td class="why"></td>
+      </tr>
+      <tr>
+        <td class="field">
+          Multi-location
+          <div class="src">multi_location · growing</div>
+        </td>
+        <td class="why">
+          none — computed from same-metro Business rows
+          (goal-templates.ts:407-409)
+        </td>
+        <td class="why">
+          true when ≥2 same-metro rows share brand key (domain/CID/slug); null
+          when brand/metro unknown
+        </td>
+        <td class="why">
+          WORKS as goal signal, but status:&#x27;roadmap&#x27;
+          (goal-templates.ts:419) excludes it from the workbench &#x27;+
+          Signal&#x27; library (discovery-signals.ts:203-205) — stale flag on a
+          shipped evaluator
+        </td>
+        <td class="why">
+          SIG_META comment &#x27;Eval returns null until built&#x27; is outdated
+        </td>
+      </tr>
+      <tr>
+        <td class="field">
+          Market position
+          <div class="src">market_position · growing</div>
+        </td>
+        <td class="why">
+          reviews (goal-templates.ts:426); msiPercentile written by scoring
+          recompute, NOT by the reviews upsert
+        </td>
+        <td class="why">
+          percentile in selected bands (def below+bottom10); null until
+          msiPercentile exists on the snapshot
+        </td>
+        <td class="why">
+          may stay null right after a reviews run until the scoring/cell
+          recompute stamps msiPercentile
+        </td>
+        <td class="why"></td>
+      </tr>
+      <tr>
+        <td class="field">
+          Has an email contact
+          <div class="src">has_email_contact · growing</div>
+        </td>
+        <td class="why">contacts (goal-templates.ts:861)</td>
+        <td class="why">
+          same missing-guard defect: never-scanned business → 0 → matched:FALSE
+          (should be null)
+        </td>
+        <td class="why">
+          reads ✗ &#x27;didn&#x27;t fire&#x27; on unscanned leads; if seeded as
+          a goal &#x27;match&#x27; filter it silently hides every unscanned lead
+          (evalFilter leads-workbench.ts:1145-1152)
+        </td>
+        <td class="why">P0-adjacent with stale_social</td>
+      </tr>
+      <tr>
+        <td class="field">
+          Service gap vs market
+          <div class="src">service_gap · other</div>
+        </td>
+        <td class="why">
+          services (goal-templates.ts:1399) + CellServicePrevalence rows ≥0.4
+          for the cell
+        </td>
+        <td class="why">
+          null until BOTH business services scanned AND cell prevalence computed
+        </td>
+        <td class="why">live after services run + cell prevalence recompute</td>
+        <td class="why"></td>
+      </tr>
+      <tr>
+        <td class="field">
+          Competitor pressure
+          <div class="src">competitor_pressure · other</div>
+        </td>
+        <td class="why">
+          meta_ads (goal-templates.ts:1440); newentrant mode uses stored
+          firstSeenOnGoogle
+        </td>
+        <td class="why">
+          &#x27;advertising&#x27;: cell advertisers&gt;0 &amp;&amp; self
+          activeCount 0 (null pre-cell-run); &#x27;newentrant&#x27;: same-cell
+          peer &lt; 90d (null when no dated peer); &#x27;outspend&#x27;: ALWAYS
+          null (no spend data, signal-eval.ts:1529-1532)
+        </td>
+        <td class="why">
+          two of three modes work, but status:&#x27;roadmap&#x27;
+          (goal-templates.ts:1451) hides it from the workbench picker
+        </td>
+        <td class="why">outspend mode is a dead tune option sold in the UI</td>
+      </tr>
+      <tr>
+        <td class="field">
+          Reputation slipping
+          <div class="src">reputation_slipping · reputation</div>
+        </td>
+        <td class="why">reviews (goal-templates.ts:1083)</td>
+        <td class="why">
+          per-condition nulls excluded; null when nothing computable; fresh
+          discoveries usually fire only via conditions 2/3 (trend needs snapshot
+          history)
+        </td>
+        <td class="why">
+          reviews upsert writes replyRate/lifecycle → conditions 2+3 live after
+          one reviews run
+        </td>
+        <td class="why"></td>
+      </tr>
+      <tr>
+        <td class="field">
+          Low owner reply rate
+          <div class="src">low_reply_rate · reputation</div>
+        </td>
+        <td class="why">reviews (goal-templates.ts:1105)</td>
+        <td class="why">
+          matched when lifecycle === DYING; null without snapshot; the actual
+          replyRate is NOT tested
+        </td>
+        <td class="why">live after reviews upsert stamps lifecycle</td>
+        <td class="why">
+          P2 label/eval mismatch — &#x27;replies to under 25%&#x27; evaluates
+          lifecycle, not reply rate
+        </td>
+      </tr>
+      <tr>
+        <td class="field">
+          Unanswered 1★ reviews
+          <div class="src">unanswered_1star · reputation</div>
+        </td>
+        <td class="why">reviews (goal-templates.ts:1119)</td>
+        <td class="why">
+          never-pulled reviews → count 0 → matched:FALSE (should be null)
+        </td>
+        <td class="why">
+          honest after reviews run; before it, reads ✗ and can auto-seed a
+          filter that hides all unscanned leads
+        </td>
+        <td class="why">P0-adjacent missing-guard defect</td>
+      </tr>
+      <tr>
+        <td class="field">
+          Rating slipping
+          <div class="src">rating_slipping · reputation</div>
+        </td>
+        <td class="why">
+          reviews + ≥2 snapshots ~90d apart (rollupSnapshot
+          signal-eval.ts:2403-2431)
+        </td>
+        <td class="why">
+          null without a ~90d-prior snapshot — fresh discoveries stay null for
+          months regardless of enrichment spend
+        </td>
+        <td class="why">
+          a reviews run does NOT unlock it; only accumulated weekly snapshot
+          history does
+        </td>
+        <td class="why">
+          data need (history) is not purchasable — the goal card doesn&#x27;t
+          say so
+        </td>
+      </tr>
+      <tr>
+        <td class="field">
+          Reviews stalled
+          <div class="src">stale_reviews · reputation</div>
+        </td>
+        <td class="why">reviews (goal-templates.ts:1150)</td>
+        <td class="why">
+          null when no Review rows hydrated (honest); card says 90d, eval uses
+          120d
+        </td>
+        <td class="why">live after reviews pull</td>
+        <td class="why">90d label vs 120d constant mismatch (P2)</td>
+      </tr>
+      <tr>
+        <td class="field">
+          Reputation fire
+          <div class="src">reputation_fire · reputation</div>
+        </td>
+        <td class="why">reviews (goal-templates.ts:1216)</td>
+        <td class="why">null when !hasAnyReview (honest); then boolean</td>
+        <td class="why">live after reviews run</td>
+        <td class="why"></td>
+      </tr>
+      <tr>
+        <td class="field">
+          Flying blind
+          <div class="src">flying_blind · under</div>
+        </td>
+        <td class="why">tech(→contacts) (goal-templates.ts:1240)</td>
+        <td class="why">
+          null until tech.scanned; then boolean — the formerly eval-dead
+          flagship, wired live in B4
+        </td>
+        <td class="why">
+          live after one contacts/tech scan; default-on in the Email &amp; CRM
+          template (goal-templates.ts:1789-1792)
+        </td>
+        <td class="why"></td>
+      </tr>
+      <tr>
+        <td class="field">
+          No online booking tool
+          <div class="src">no_booking · under</div>
+        </td>
+        <td class="why">tech(→contacts) (goal-templates.ts:1267)</td>
+        <td class="why">
+          null until tech scan; matched when no booking tool or tool outside the
+          selected chip set
+        </td>
+        <td class="why">
+          live after scan; Booking-tool column + &#x27;No online booking&#x27;
+          verified cell (LeadsWorkbench.tsx:2235-2263)
+        </td>
+        <td class="why"></td>
+      </tr>
+      <tr>
+        <td class="field">
+          Legal &amp; compliance risk
+          <div class="src">compliance_risk · under</div>
+        </td>
+        <td class="why">
+          tech + lighthouse + reviews (playbook evidence —
+          goal-templates.ts:1301); verdict needs a flagged PlaybookFinding in a
+          compliance/privacy/accessibility group
+        </td>
+        <td class="why">
+          null until ANY flagged finding exists for the business; then matched
+          iff a compliance-class finding
+        </td>
+        <td class="why">
+          playbooks auto-run post-enrichment → verdict can compute; BUT
+          status:&#x27;roadmap&#x27; (goal-templates.ts:1317) excludes it from
+          the workbench &#x27;+ Signal&#x27; picker even though THREE goal
+          templates (compliance/compliance_hipaa/compliance_ada,
+          goal-templates.ts:1816-1890) headline it
+        </td>
+        <td class="why">
+          P1 — templates&#x27; core signal not filterable in the workbench
+        </td>
+      </tr>
+      <tr>
+        <td class="field">
+          Chat widget
+          <div class="src">chat_widget · under</div>
+        </td>
+        <td class="why">tech(→contacts) (goal-templates.ts:1324)</td>
+        <td class="why">
+          null until tech scan; then boolean; the card&#x27;s chat-tool platform
+          chips (Intercom/Drift/tawk) are IGNORED by the eval
+        </td>
+        <td class="why">live after scan</td>
+        <td class="why">P2 — tune chips are decorative</td>
+      </tr>
+      <tr>
+        <td class="field">
+          E-commerce / payments
+          <div class="src">ecommerce · under</div>
+        </td>
+        <td class="why">tech(→contacts) (goal-templates.ts:1360)</td>
+        <td class="why">
+          null until tech scan; platform chips ignored, same as chat_widget
+        </td>
+        <td class="why">live after scan</td>
+        <td class="why">P2 — tune chips decorative</td>
+      </tr>
+      <tr>
+        <td class="field">
+          Runs Meta ads without a pixel
+          <div class="src">ads_without_pixel · wasting</div>
+        </td>
+        <td class="why">meta_ads + tech(→contacts) (goal-templates.ts:887)</td>
+        <td class="why">
+          null until tech scan; then boolean — but the &#x27;runs ads&#x27; half
+          reads per-business activeCount which is ~always 0 (Meta attribution
+          starved) → mostly false, never fires
+        </td>
+        <td class="why">
+          status roadmap (goal-templates.ts:898) — hidden from workbench picker;
+          still buyable at goal, seeding meta_ads+tech+contacts researches
+        </td>
+        <td class="why">
+          declared roadmap pending per-business ad attribution (B4 comment
+          goal-templates.ts:882-886)
+        </td>
+      </tr>
+      <tr>
+        <td class="field">
+          Runs Google ads without analytics
+          <div class="src">no_analytics · wasting</div>
+        </td>
+        <td class="why">
+          tech(→contacts) + google_ads (goal-templates.ts:911)
+        </td>
+        <td class="why">
+          honest null pre-tech-scan; ad half now per-business via google
+          target-host attribution
+        </td>
+        <td class="why">
+          live after tech+google_ads runs; filterable once whole cohort scanned
+        </td>
+        <td class="why"></td>
+      </tr>
+      <tr>
+        <td class="field">
+          Not advertising
+          <div class="src">not_advertising · wasting</div>
+        </td>
+        <td class="why">meta_ads cell run (goal-templates.ts:934)</td>
+        <td class="why">
+          per-business activeCount is under-populated (Meta attribution starved
+          — in-code caveat signal-eval.ts:1274-1278) → over-reports &#x27;not
+          advertising&#x27; incl. real advertisers once the cell scan lands
+        </td>
+        <td class="why">
+          verdict flips computable after one cell Meta run; auto-seeds as
+          filter; default-on in the Paid-ads template
+          (goal-templates.ts:1588-1591)
+        </td>
+        <td class="why">
+          P0 truth risk — Tom pitches &#x27;sitting out&#x27; to advertisers
+        </td>
+      </tr>
+      <tr>
+        <td class="field">
+          Competitors are advertising
+          <div class="src">competitors_advertising · wasting</div>
+        </td>
+        <td class="why">meta_ads cell run (goal-templates.ts:955)</td>
+        <td class="why">
+          null until cell run; then identical verdict for every lead in the cell
+          (market-level by design)
+        </td>
+        <td class="why">live after cell Meta run</td>
+        <td class="why"></td>
+      </tr>
+      <tr>
+        <td class="field">
+          No tracking pixel
+          <div class="src">no_tracking_pixel · wasting</div>
+        </td>
+        <td class="why">tech(→contacts) (goal-templates.ts:970)</td>
+        <td class="why">null until tech scan; matched when pixel absent</td>
+        <td class="why">live after contacts/tech scan</td>
+        <td class="why"></td>
+      </tr>
+      <tr>
+        <td class="field">
+          Stale ad creative
+          <div class="src">stale_ad_creative · wasting</div>
+        </td>
+        <td class="why">meta_ads (goal-templates.ts:985)</td>
+        <td class="why">null when no dated active ad (honest); &gt; 60 days</td>
+        <td class="why">
+          live once attributed active ads exist — rarely, given Meta attribution
+          gaps
+        </td>
+        <td class="why"></td>
+      </tr>
+      <tr>
+        <td class="field">
+          Many active ad creatives
+          <div class="src">many_ad_creatives · wasting</div>
+        </td>
+        <td class="why">meta_ads (goal-templates.ts:999)</td>
+        <td class="why">
+          un-scanned cell → 0 → matched:FALSE (should be null)
+        </td>
+        <td class="why">
+          reads ✗ on never-scanned leads and passes the availability gate
+          spuriously
+        </td>
+        <td class="why">
+          P1 honesty gap, same class as contacts/reviews counts
+        </td>
+      </tr>
+      <tr>
+        <td class="field">
+          Runs video/image ads (Meta)
+          <div class="src">meta_video_ads · wasting</div>
+        </td>
+        <td class="why">meta_ads (goal-templates.ts:1000)</td>
+        <td class="why">
+          untuned: matched when any active video ad; WITH the card&#x27;s
+          format-chips tune: String(bool) never ∈ {video,image,carousel,text} →
+          ALWAYS false
+        </td>
+        <td class="why">tuned filter silently returns 0 matches forever</td>
+        <td class="why">
+          P1 — the tune control the card ships (def
+          [&#x27;video&#x27;,&#x27;image&#x27;]) breaks its own eval; formats
+          array exists in rollup (signal-eval.ts:146) but is never read
+        </td>
+      </tr>
+      <tr>
+        <td class="field">
+          Ads point at homepage
+          <div class="src">ads_homepage_landing · wasting</div>
+        </td>
+        <td class="why">meta_ads (goal-templates.ts:1050)</td>
+        <td class="why">
+          null until an active ad with a landing URL exists; then boolean
+        </td>
+        <td class="why">live once attributed ads with landing URLs exist</td>
+        <td class="why"></td>
+      </tr>
+      <tr>
+        <td class="field">
+          Overdue for a redesign
+          <div class="src">overdue_redesign · weak-web</div>
+        </td>
+        <td class="why">lighthouse (goal-templates.ts:456)</td>
+        <td class="why">
+          perf &lt; 50 (strictness ±25%); null until a LighthouseAudit row
+          exists
+        </td>
+        <td class="why">
+          verdict live after Lighthouse run; perf/seo columns auto-on for site
+          goals (defaultActiveColumnsForGoal leads-workbench.ts:869-884)
+        </td>
+        <td class="why"></td>
+      </tr>
+      <tr>
+        <td class="field">
+          Slow site (Lighthouse)
+          <div class="src">slow_site · weak-web</div>
+        </td>
+        <td class="why">lighthouse (goal-templates.ts:473)</td>
+        <td class="why">perf &lt; 50; null until audit</td>
+        <td class="why">as overdue_redesign</td>
+        <td class="why">
+          duplicate binding of overdue_redesign with identical default
+        </td>
+      </tr>
+      <tr>
+        <td class="field">
+          Weak on-page SEO
+          <div class="src">weak_seo · weak-web</div>
+        </td>
+        <td class="why">lighthouse (goal-templates.ts:488)</td>
+        <td class="why">seo &lt; 70; null until audit</td>
+        <td class="why">
+          live after Lighthouse; the SEO column exists but is NOT a numeric
+          filter field (leads-workbench.ts:1094-1105)
+        </td>
+        <td class="why"></td>
+      </tr>
+      <tr>
+        <td class="field">
+          Has a website
+          <div class="src">has_website · weak-web</div>
+        </td>
+        <td class="why">none — Discovery listing (goal-templates.ts:507)</td>
+        <td class="why">
+          always computable (null website = &#x27;doesn&#x27;t have one&#x27;);
+          presence tune flips direction
+        </td>
+        <td class="why">
+          live at $0; QUALIFIER — excluded from pains; also gates the enrichable
+          count for site goals (page.tsx:269-283)
+        </td>
+        <td class="why">
+          one of the 4 preview-countable signals (discovery-phase-match.ts:27)
+        </td>
+      </tr>
+      <tr>
+        <td class="field">
+          Phone-only (no website)
+          <div class="src">phone_only · weak-web</div>
+        </td>
+        <td class="why">
+          none — Discovery listing (goal-templates.ts:533-534)
+        </td>
+        <td class="why">phone present AND website empty; always computable</td>
+        <td class="why">
+          live at $0; preview predicate exists (discovery-phase-match.ts:33)
+        </td>
+        <td class="why"></td>
+      </tr>
+      <tr>
+        <td class="field">
+          Built on DIY platform
+          <div class="src">diy_platform · weak-web</div>
+        </td>
+        <td class="why">
+          tech → expands to contacts+tech (goal-templates.ts:550-552;
+          researches.ts:62)
+        </td>
+        <td class="why">
+          cmsName ∈ selected chips (lowercase equality); null until tech scanned
+          (t.scanned guard signal-eval.ts:691)
+        </td>
+        <td class="why">
+          live after contacts/tech scan; Built-on column addable;
+          &#x27;other&#x27; chip only matches a literal cmsName
+          &#x27;other&#x27; — effectively dead chip
+        </td>
+        <td class="why"></td>
+      </tr>
+      <tr>
+        <td class="field">
+          Website 3+ years old
+          <div class="src">site_age_3y · weak-web</div>
+        </td>
+        <td class="why">none declared (goal-templates.ts:609-610)</td>
+        <td class="why">
+          true when Google tenure ≥3y; null when tenure unknown
+        </td>
+        <td class="why">
+          works as goal signal via the proxy, but status:&#x27;roadmap&#x27;
+          (goal-templates.ts:620) hides it from the workbench &#x27;+
+          Signal&#x27; picker
+        </td>
+        <td class="why">
+          true WHOIS site age never shipped; proxy silently substitutes Google
+          tenure
+        </td>
+      </tr>
+      <tr>
+        <td class="field">
+          Losing mobile customers
+          <div class="src">losing_mobile · weak-web</div>
+        </td>
+        <td class="why">lighthouse (goal-templates.ts:626)</td>
+        <td class="why">
+          perf &lt; 40; null until audit; CWV part of the recipe is not
+          separately evaluated
+        </td>
+        <td class="why">as overdue_redesign</td>
+        <td class="why">
+          third card sharing the lighthouse_performance binding
+        </td>
+      </tr>
+      <tr>
+        <td class="field">
+          Invisible locally
+          <div class="src">invisible_locally · weak-web</div>
+        </td>
+        <td class="why">
+          serp (goal-templates.ts:648) + BusinessKeyword rows + CellMetric
+          organic-traffic distribution with sampleSize ≥ 8
+        </td>
+        <td class="why">
+          not-in-3-pack AND traffic percentile &lt; 50; null when no SERP rows,
+          no keyword scan, or cell distribution too thin
+        </td>
+        <td class="why">
+          can stay permanently null in thin markets even after paying for SERP —
+          no warning at goal/preview
+        </td>
+        <td class="why"></td>
+      </tr>
+      <tr>
+        <td class="field">
+          Not in local 3-pack
+          <div class="src">not_in_local_pack · weak-web</div>
+        </td>
+        <td class="why">serp (goal-templates.ts:666)</td>
+        <td class="why">null until any SerpResult row exists; then boolean</td>
+        <td class="why">
+          live after cell SERP run; serpRank column auto-shows after a search
+          run (columnsToAutoShow leads-workbench.ts:985-1009)
+        </td>
+        <td class="why"></td>
+      </tr>
+      <tr>
+        <td class="field">
+          Low organic traffic
+          <div class="src">low_organic_traffic · weak-web</div>
+        </td>
+        <td class="why">
+          serp + CellMetric distribution ≥8 sample (goal-templates.ts:681)
+        </td>
+        <td class="why">
+          cell percentile of est monthly visits ∈ scale bands (def
+          below+bottom10); null when keywords unscanned or cell too thin
+        </td>
+        <td class="why">
+          live after SERP run in mature cells; null forever in thin cells
+        </td>
+        <td class="why">
+          card label says &#x27;&lt; 400/mo&#x27; but eval is
+          percentile-vs-cell, not the raw threshold
+        </td>
+      </tr>
+      <tr>
+        <td class="field">
+          Thin on-page SEO
+          <div class="src">thin_seo · weak-web</div>
+        </td>
+        <td class="why">
+          serp + lighthouse both collected (goal-templates.ts:700-703)
+        </td>
+        <td class="why">
+          organic traffic ≤ 50 visits/mo (strictness); null until keyword scan;
+          the promised title/meta/schema/LH-SEO checks are NEVER evaluated
+        </td>
+        <td class="why">
+          fires off raw traffic, not on-page SEO — user pays for lighthouse it
+          never reads
+        </td>
+        <td class="why">
+          P1 label/eval mismatch — card recipe is on-page SEO, eval is a traffic
+          threshold
+        </td>
+      </tr>
+      <tr>
+        <td class="field">
+          Search visibility
+          <div class="src">search_visibility · weak-web</div>
+        </td>
+        <td class="why">
+          serp + CellMetric distributions ≥8 sample (goal-templates.ts:728)
+        </td>
+        <td class="why">
+          composite percentile ∈ scale bands; computable when ≥1 of the two
+          dimensions places in the cell; null otherwise
+        </td>
+        <td class="why">live after SERP in mature cells</td>
+        <td class="why"></td>
+      </tr>
+      <tr>
+        <td class="field">
+          Losing rankings
+          <div class="src">losing_rankings · weak-web</div>
+        </td>
+        <td class="why">serp (goal-templates.ts:752)</td>
+        <td class="why">
+          null until BusinessKeyword scanned; then any isDown keyword
+        </td>
+        <td class="why">
+          live after SERP run (needs rank history for isDown flags — fresh scans
+          may show stable)
+        </td>
+        <td class="why"></td>
+      </tr>
+      <tr>
+        <td class="field">
+          No SSL / insecure site
+          <div class="src">no_ssl · weak-web</div>
+        </td>
+        <td class="why">lighthouse (goal-templates.ts:814)</td>
+        <td class="why">
+          null until audit captures isOnHttps; then matched when NOT https
+        </td>
+        <td class="why">
+          evaluator shipped but status:&#x27;roadmap&#x27;
+          (goal-templates.ts:824) excludes it from workbench picker
+        </td>
+        <td class="why">
+          roadmap flag vs live resolver discrepancy — verify DfS writer
+          populates isOnHttps
+        </td>
+      </tr>
+      <tr>
+        <td class="field">
+          Thin / no social presence
+          <div class="src">stale_social · weak-web</div>
+        </td>
+        <td class="why">contacts (goal-templates.ts:841)</td>
+        <td class="why">
+          NO scanned guard — HydratedContacts has no &#x27;scanned&#x27; flag
+          (signal-eval.ts:65-76): a never-scanned business counts 0 socials →
+          matched:TRUE
+        </td>
+        <td class="why">
+          fires FAKE &#x27;matched&#x27; on un-enriched leads: shows as a
+          why-qualifies pain chip (LeadsWorkbench.tsx:2187-2189), inflates
+          match%, passes the strict availableSignalKeys gate, and the
+          auto-seeded filter treats unscanned as matched
+        </td>
+        <td class="why">
+          P0 — violates the module&#x27;s own null-verdict contract
+          (signal-eval.ts:17-19)
+        </td>
+      </tr>
+      <tr>
+        <td class="field">
+          Recurring complaint theme <span class="pill p-hide">eval-dead</span>
+          <div class="src">recurring_complaint_theme · reputation</div>
+        </td>
+        <td class="why">
+          reviews + Review.themes populated by the RETIRED AI sentiment
+          classifier (signal-eval.ts:1432-1439)
+        </td>
+        <td class="why">
+          null with no reviews OR no stored themes — for post-R.1 businesses
+          effectively always null
+        </td>
+        <td class="why">
+          buying reviews does NOT light it (classifier retired); status roadmap
+          hides it from workbench picker but goal step still sells it and seeds
+          the reviews research
+        </td>
+        <td class="why">&#x27;flying blind&#x27; class</td>
+      </tr>
+      <tr>
+        <td class="field">
+          Branded-only traffic <span class="pill p-hide">eval-dead</span>
+          <div class="src">branded_only_traffic · weak-web</div>
+        </td>
+        <td class="why">
+          serp — but requires brand-query rows that the cell-intel scanner NEVER
+          creates (category keywords only)
+        </td>
+        <td class="why">permanently null on the shipped pipeline</td>
+        <td class="why">
+          never updates; status roadmap (goal-templates.ts:796) hides it from
+          workbench picker — but it is STILL pickable at goal and its
+          researches:[&#x27;serp&#x27;] still seed a paid SERP scan
+          (researches.ts:146-156)
+        </td>
+        <td class="why">
+          the flagship &#x27;flying blind&#x27; class: pay for research, signal
+          can never answer
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</details>
+
+<h2>10 · Proposed plan (one phase = one session)</h2>
+<table>
+  <thead>
+    <tr>
+      <th>Phase</th>
+      <th>Contents</th>
+      <th>Fixes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td class="field">F1 · Truth layer</td>
+      <td class="why">
+        Scanned-guards in contacts/reviews/ads resolvers (null until the group
+        ran); re-bind low_reply_rate → replyRate; hydrator picks newest OK
+        AdMarketRun; soft-block → FAILED so freshness gate retries.
+      </td>
+      <td class="why">
+        All four P0 verdict families; pains, match %, gate and auto-seed correct
+        themselves.
+      </td>
+    </tr>
+    <tr>
+      <td class="field">F2 · Filter surface</td>
+      <td class="why">
+        State filters as removable chips (+ Clear-all clears everything, honest
+        empty state); + Field grows seo/serpRank/metaAdCount/googleAdCount
+        (hydration-aware); status tab-bar + not-touched quick filter; “· N no
+        data” annotation on every numeric chip; gate signals on the filtered
+        view.
+      </td>
+      <td class="why">
+        Phantom-filter P0, the coverage gaps, the locked-moat P1, silent
+        null-drops.
+      </td>
+    </tr>
+    <tr>
+      <td class="field">F3 · Honesty layer</td>
+      <td class="why">
+        Locked-context strip (market · goal gate · exclusions · window ·
+        data-as-of); real age replaces fabricated “fresh”; “as of” suffix on old
+        data-state entries; cross-window match hint.
+      </td>
+      <td class="why">
+        Hidden filters §4 + staleness §5, in one visual pattern.
+      </td>
+    </tr>
+    <tr>
+      <td class="field">F4 · Flow continuity</td>
+      <td class="why">
+        Roadmap badges in the library + researchesForSignals skips roadmap;
+        compliance_risk becomes filterable; platform-split ads rollup; thin_seo
+        → audit.seo; video-formats tune fixed or chips dropped; re-seed on
+        enrich-finished; sg= URL param + URL-wins precedence.
+      </td>
+      <td class="why">
+        Goal→workbench discontinuities; label/eval mismatches; sharing.
+      </td>
+    </tr>
+  </tbody>
+</table>
+<p class="why">
+  Suggested order: F1 → F2 → F3 → F4. F1 is small and corrects money-adjacent
+  lies; F2 is the biggest UX payoff; F3 is cheap (data already threaded); F4
+  closes the loop the goal step opens.
+</p>
+
+<p class="sub" style="margin-top: 40px">
+  Sources: 28-agent verified sweep (workflow w076aaoq1) ·
+  docs/data-vs-ui-audit-2026-07-06.html ·
+  docs/enrichment-filters-design-2026-07-05.html · all file:line references are
+  to v0.19.8 (28c1ba0).
+</p>

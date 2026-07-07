@@ -63,7 +63,11 @@ import {
   type EnrichmentType,
 } from "@/modules/cost/pricing";
 import { usdToCredits } from "@/modules/cost/estimate";
-import { SIG_META } from "../../goal-templates";
+import {
+  CELL_RELATIVE_MIN_SAMPLE,
+  CELL_RELATIVE_SIGNAL_KEYS,
+  SIG_META,
+} from "../../goal-templates";
 import {
   groupSignalsByResearch,
   researchesForSignals,
@@ -524,6 +528,19 @@ export function PreviewStep({
     () =>
       knownRows.filter((r) => classifyMarketSize(r.bizCount) === "oversized"),
     [knownRows],
+  );
+  // A13 (filters audit P2) · cells below the market-relative SAMPLE FLOOR
+  // (signal-eval's CELL_DISTRIBUTION_MIN_SAMPLE, aliased client-safe): the
+  // cell-relative signals (percentile-vs-cell) stay not-computable there
+  // forever, so warn up front — but only when the goal actually carries one.
+  const microCells = useMemo(
+    () => knownRows.filter((r) => r.bizCount < CELL_RELATIVE_MIN_SAMPLE),
+    [knownRows],
+  );
+  const hasCellRelativeSignal = useMemo(
+    () =>
+      goal.filters.some((f) => f.on && CELL_RELATIVE_SIGNAL_KEYS.has(f.key)),
+    [goal.filters],
   );
 
   // ── WP5-4 · the EFFECTIVE enrichable count under the active filters ──────
@@ -1192,8 +1209,18 @@ export function PreviewStep({
               : `${thinCells.length} of your markets have`}{" "}
             fewer than {THIN_MARKET_THRESHOLD} businesses. There aren&apos;t
             enough to rank leads against the market, so your workbench shows{" "}
-            <b>absolute benchmarks</b> (the raw numbers) instead of a &ldquo;vs.
+            <b>absolute benchmarks</b> (the raw numbers) instead of a &ldquo;vs
             the market&rdquo; percentile.
+          </p>
+        ) : null}
+
+        {/* A13 · THINNER still — under the market-relative sample floor. Only
+            when the goal carries a cell-relative signal (percentile-vs-cell),
+            which can never compute on so few peers. One quiet line. */}
+        {mapped && hasCellRelativeSignal && microCells.length > 0 ? (
+          <p className="note" style={{ marginTop: 8 }} role="status">
+            <b>Very small market</b> — market-relative signals may not compute
+            (fewer than {CELL_RELATIVE_MIN_SAMPLE} businesses).
           </p>
         ) : null}
 

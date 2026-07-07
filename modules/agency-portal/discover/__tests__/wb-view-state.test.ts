@@ -8,17 +8,24 @@
 
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
-import type { LeadFilter, NumericLeadFilter } from "../leads-workbench";
+import type {
+  LeadFilter,
+  NumericLeadFilter,
+  SignalLeadFilter,
+} from "../leads-workbench";
 import {
   DEFAULT_SORT_DIR,
   DEFAULT_SORT_KEY,
   loadWorkbenchView,
   parseFieldStateParam,
   parseFilterParam,
+  parseSignalParam,
+  parseStatusParam,
   parseViewFromSearchParams,
   saveWorkbenchView,
   serializeFieldStateParam,
   serializeFilterParam,
+  serializeSignalParam,
   viewToSearchParams,
 } from "../wb-view-state";
 
@@ -57,6 +64,88 @@ describe("serializeFilterParam / parseFilterParam", () => {
     expect(parseFilterParam("perf:lt:banana")).toBeNull();
     expect(parseFilterParam("perf:between:1:banana")).toBeNull();
     expect(parseFilterParam("")).toBeNull();
+  });
+
+  // AUDIT B2 · the four new paid fields round-trip like any other field.
+  test("new numeric fields (seo/serpRank/metaAdCount/googleAdCount) round-trip", () => {
+    const filters: NumericLeadFilter[] = [
+      { field: "seo", op: "<", value: 80 },
+      { field: "serpRank", op: ">", value: 3 },
+      { field: "metaAdCount", op: "=", value: 0 },
+      { field: "googleAdCount", op: "≥", value: 1 },
+    ];
+    for (const f of filters) {
+      expect(parseFilterParam(serializeFilterParam(f))).toEqual(f);
+    }
+  });
+
+  // AUDIT B3 · includeNoData rides the op token as a `-n` suffix.
+  test("includeNoData serializes as an op-token suffix and round-trips", () => {
+    const f: NumericLeadFilter = {
+      field: "perf",
+      op: "<",
+      value: 50,
+      includeNoData: true,
+    };
+    expect(serializeFilterParam(f)).toBe("perf:lt-n:50");
+    expect(parseFilterParam("perf:lt-n:50")).toEqual(f);
+    expect(parseFilterParam("reviews:between-n:20:100")).toEqual({
+      field: "reviews",
+      op: "between",
+      value: 20,
+      value2: 100,
+      includeNoData: true,
+    });
+  });
+
+  test("old URLs (bare op tokens) decode WITHOUT includeNoData", () => {
+    expect(parseFilterParam("perf:lt:50")).toEqual({
+      field: "perf",
+      op: "<",
+      value: 50,
+    });
+    // A bare suffix with no base op is malformed, not a flag.
+    expect(parseFilterParam("perf:-n:50")).toBeNull();
+  });
+});
+
+// B16 · signal filters serialize to sg= so shared links keep them.
+describe("serializeSignalParam / parseSignalParam", () => {
+  test("round-trips key + want (label comes back as the key placeholder)", () => {
+    const f: SignalLeadFilter = {
+      kind: "signal",
+      sigKey: "weak_seo",
+      sigLabel: "Weak SEO",
+      want: "miss",
+    };
+    expect(serializeSignalParam(f)).toBe("weak_seo:miss");
+    expect(parseSignalParam("weak_seo:miss")).toEqual({
+      kind: "signal",
+      sigKey: "weak_seo",
+      sigLabel: "weak_seo", // placeholder — the workbench re-labels on mount
+      want: "miss",
+    });
+  });
+
+  test("rejects malformed values", () => {
+    expect(parseSignalParam("")).toBeNull();
+    expect(parseSignalParam("weak_seo")).toBeNull();
+    expect(parseSignalParam("weak_seo:maybe")).toBeNull();
+    expect(parseSignalParam(":match")).toBeNull();
+  });
+});
+
+// B5 · the status tab round-trips as a lowercase st= value.
+describe("parseStatusParam", () => {
+  test("accepts every LeadStatus, case-insensitively", () => {
+    expect(parseStatusParam("new")).toBe("NEW");
+    expect(parseStatusParam("HIDDEN")).toBe("HIDDEN");
+    expect(parseStatusParam("Won")).toBe("WON");
+  });
+  test("rejects unknown / absent values", () => {
+    expect(parseStatusParam(null)).toBeNull();
+    expect(parseStatusParam("")).toBeNull();
+    expect(parseStatusParam("archived")).toBeNull();
   });
 });
 
@@ -117,6 +206,7 @@ describe("parseViewFromSearchParams", () => {
       sortDir: DEFAULT_SORT_DIR,
       filters: [{ field: "perf", op: "<", value: 50 }],
       fieldStates: [],
+      hasFilterParams: true,
     });
   });
 
@@ -131,7 +221,12 @@ describe("parseViewFromSearchParams", () => {
       fieldStates: [],
     };
     const params = viewToSearchParams(original, new URLSearchParams());
-    expect(parseViewFromSearchParams(params)).toEqual(original);
+    expect(parseViewFromSearchParams(params)).toEqual({
+      ...original,
+      // Reading back a URL that carries f= params marks the filter dimension
+      // as URL-expressed (seed-loss fix) — not part of the writable view.
+      hasFilterParams: true,
+    });
   });
 
   test("invalid sort key / dir fall back to defaults; bad filters drop", () => {
@@ -143,6 +238,7 @@ describe("parseViewFromSearchParams", () => {
       sortDir: DEFAULT_SORT_DIR,
       filters: [{ field: "perf", op: "<", value: 50 }],
       fieldStates: [],
+      hasFilterParams: true,
     });
   });
 });
@@ -214,6 +310,133 @@ describe("field-state filters (fs param)", () => {
   test("an old URL with no fs param parses to an empty fieldStates", () => {
     const view = parseViewFromSearchParams(new URLSearchParams("f=perf:lt:50"));
     expect(view?.fieldStates).toEqual([]);
+  });
+});
+
+// B16 · the URL-wins-wholesale contract: sg/st/nt are view params too.
+describe("sg / st / nt params (B16 + B5)", () => {
+  test("viewToSearchParams writes sg per signal filter, st + nt when active", () => {
+    const params = viewToSearchParams(
+      {
+        sortKey: DEFAULT_SORT_KEY,
+        sortDir: DEFAULT_SORT_DIR,
+        filters: [
+          {
+            kind: "signal",
+            sigKey: "weak_seo",
+            sigLabel: "Weak SEO",
+            want: "match",
+          },
+          { field: "perf", op: "<", value: 50 },
+        ],
+        fieldStates: [],
+        statusTab: "NEW",
+        notTouched: true,
+      },
+      new URLSearchParams(),
+    );
+    expect(params.getAll("sg")).toEqual(["weak_seo:match"]);
+    expect(params.getAll("f")).toEqual(["perf:lt:50"]);
+    expect(params.get("st")).toBe("new");
+    expect(params.get("nt")).toBe("1");
+  });
+
+  test("no status tab / not-touched → no st/nt params (clean URLs)", () => {
+    const params = viewToSearchParams(
+      {
+        sortKey: DEFAULT_SORT_KEY,
+        sortDir: DEFAULT_SORT_DIR,
+        filters: [],
+        fieldStates: [],
+      },
+      new URLSearchParams("st=new&nt=1&sg=weak_seo:match"),
+    );
+    expect(params.get("st")).toBeNull();
+    expect(params.get("nt")).toBeNull();
+    expect(params.getAll("sg")).toEqual([]);
+  });
+
+  test("sg alone counts as a view param (URL wins wholesale)", () => {
+    const view = parseViewFromSearchParams(
+      new URLSearchParams("sg=weak_seo:match"),
+    );
+    expect(view).not.toBeNull();
+    expect(view?.filters).toEqual([
+      {
+        kind: "signal",
+        sigKey: "weak_seo",
+        sigLabel: "weak_seo",
+        want: "match",
+      },
+    ]);
+  });
+
+  test("st/nt alone count as view params; invalid st falls back to no tab", () => {
+    const view = parseViewFromSearchParams(new URLSearchParams("nt=1"));
+    expect(view).not.toBeNull();
+    expect(view?.notTouched).toBe(true);
+    expect(view?.statusTab).toBeUndefined();
+    const bad = parseViewFromSearchParams(new URLSearchParams("st=bogus"));
+    expect(bad).not.toBeNull();
+    expect(bad?.statusTab).toBeUndefined();
+  });
+
+  // Code-review fix (seed-loss regression) · a URL that never mentions f=/sg=
+  // must NOT read as "the sender chose zero filters" — the mount effect keys
+  // the filters dimension off hasFilterParams. One status-tab click + reload
+  // used to freeze filters: [] into the blob and destroy the goal seed.
+  test("hasFilterParams · true only when f=/sg= are actually present", () => {
+    expect(
+      parseViewFromSearchParams(new URLSearchParams("st=new"))?.hasFilterParams,
+    ).toBeUndefined();
+    expect(
+      parseViewFromSearchParams(new URLSearchParams("sort=reviews&dir=asc"))
+        ?.hasFilterParams,
+    ).toBeUndefined();
+    expect(
+      parseViewFromSearchParams(new URLSearchParams("fs=reviews:not_run"))
+        ?.hasFilterParams,
+    ).toBeUndefined();
+    expect(
+      parseViewFromSearchParams(new URLSearchParams("f=reviews:gte:20"))
+        ?.hasFilterParams,
+    ).toBe(true);
+    expect(
+      parseViewFromSearchParams(new URLSearchParams("sg=weak_seo:match"))
+        ?.hasFilterParams,
+    ).toBe(true);
+    // Presence of the RAW param counts even when every token is invalid —
+    // the sender DID express a filter choice; it just drops to none.
+    expect(
+      parseViewFromSearchParams(new URLSearchParams("f=bogus"))
+        ?.hasFilterParams,
+    ).toBe(true);
+  });
+
+  // Code-review gap · Enriched-only is part of anyNarrowing, so a shared link
+  // must reproduce it (eo=1) — and it counts as a view param on its own.
+  test("eo param · round-trips Enriched-only and counts as a view param", () => {
+    const params = viewToSearchParams(
+      {
+        sortKey: "match",
+        sortDir: -1,
+        filters: [],
+        fieldStates: [],
+        enrichedOnly: true,
+      },
+      new URLSearchParams(),
+    );
+    expect(params.get("eo")).toBe("1");
+    const view = parseViewFromSearchParams(new URLSearchParams("eo=1"));
+    expect(view).not.toBeNull();
+    expect(view?.enrichedOnly).toBe(true);
+    expect(view?.hasFilterParams).toBeUndefined();
+    // Off → no param (clean URLs).
+    const off = viewToSearchParams(
+      { sortKey: "match", sortDir: -1, filters: [], fieldStates: [] },
+      new URLSearchParams("eo=1"),
+    );
+    expect(off.get("eo")).toBeNull();
   });
 });
 

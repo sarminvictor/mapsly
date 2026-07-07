@@ -212,6 +212,10 @@ const reviewSignals: readonly SignalDefinition[] = [
     type: "numeric",
     comparators: NUMERIC_COMPARATORS,
     valueUnit: "%",
+    // UNIT TRAP (code review 2026-07-06) · BusinessSnapshot.replyRate stores a
+    // 0–1 FRACTION, not a percent. Any consumer comparing against this default
+    // must scale (SIG_META low_reply_rate correctly binds 0.25). A raw
+    // `replyRate < 25` matches every business.
     defaultValue: 25,
     source: "computed-from-reviews",
     cadence: "weekly",

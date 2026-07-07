@@ -748,8 +748,29 @@ export function relativeDays(d: Date): string {
   return `${days} days ago`;
 }
 
-/** "perf_savings_ms" → "Perf savings ms" (best-effort signal-key label). */
+/**
+ * A9 (filters audit P2) · registry/finding signalKey → the curated SIG_META
+ * card TITLE where one binds it, so finding-based pain chips read "Unanswered
+ * 1★ reviews", not a raw prettified "unanswered_1star_count". Both the
+ * `registryKey` (eval binding) and legacy `signalKey` are indexed; catalog
+ * order wins when several cards share a key. Built once at module load (pure
+ * over SIG_META).
+ */
+const TITLE_BY_SIGNAL_KEY: Record<string, string> = (() => {
+  const idx: Record<string, string> = {};
+  for (const meta of Object.values(SIG_META)) {
+    for (const k of [meta.registryKey, meta.signalKey]) {
+      if (k && !(k in idx)) idx[k] = meta.title;
+    }
+  }
+  return idx;
+})();
+
+/** SIG_META title where a card binds the key, else "perf_savings_ms" →
+ *  "Perf savings ms" (best-effort prettify fallback). */
 function signalKeyLabel(key: string): string {
+  const title = TITLE_BY_SIGNAL_KEY[key];
+  if (title) return title;
   const words = key.replace(/_/g, " ");
   return words.charAt(0).toUpperCase() + words.slice(1);
 }

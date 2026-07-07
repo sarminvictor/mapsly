@@ -1311,7 +1311,12 @@ function SignalLibrary({
                                 className={isSig ? "badge-sig" : "badge-data"}
                               >
                                 {isSig ? "SIGNAL" : "DATA"}
-                              </span>
+                              </span>{" "}
+                              {/* A8a (filters audit P1) · data-status badge on
+                                  the row ITSELF, so a "needs data" (roadmap)
+                                  signal is marked BEFORE it's added — not
+                                  after it lands dead in the goal. */}
+                              <DataStatusBadge status={meta.status} />
                               <span className="siglib-desc">{meta.means}</span>
                             </div>
                             <button
