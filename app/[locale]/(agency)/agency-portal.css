@@ -1985,80 +1985,11 @@
   text-decoration-style: solid;
 }
 
-/* ---- B6 · locked-context strip (non-dismissable grey chips) ---- */
-.agency-portal .wbctx {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  flex-wrap: wrap;
-  margin-bottom: var(--space-3);
-}
-.agency-portal .wbctx-chip {
-  display: inline-flex;
-  align-items: center;
-  font-size: var(--fs-2xs);
-  font-weight: 600;
-  padding: 2px 9px;
-  border-radius: 999px;
-  border: 1px solid var(--line);
-  background: var(--surface-2);
-  color: var(--muted);
-  white-space: nowrap;
-}
-
-/* ---- B5 · status tab-bar + Not-touched quick toggle ---- */
-.agency-portal .wb-stabs {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  flex-wrap: wrap;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: #fff;
-  padding: 3px;
-  margin-bottom: var(--space-3);
-  width: fit-content;
-  max-width: 100%;
-}
-.agency-portal .wb-stabs button {
-  border: 0;
-  background: transparent;
-  border-radius: 7px;
-  padding: 4px 10px;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--muted);
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-}
-.agency-portal .wb-stabs button:hover {
-  color: var(--indigo-700);
-  background: var(--indigo-50);
-}
-/* B12 · quiet active — indigo-50/-700, never the filled primary. */
-.agency-portal .wb-stabs button.on,
-.agency-portal .wb-stabs button.wb-nt.on {
-  background: var(--indigo-50);
-  color: var(--indigo-700);
-  font-weight: 700;
-}
-.agency-portal .wb-stabs button .ct {
-  font-family: var(--mono);
-  font-size: 10.5px;
-  font-weight: 600;
-  color: var(--faint);
-  font-feature-settings: "tnum" 1;
-}
-.agency-portal .wb-stabs button.on .ct {
-  color: var(--indigo-700);
-}
-.agency-portal .wb-stabs .wb-nt {
-  margin-left: var(--space-2);
-  border-left: 1px solid var(--line);
-  border-radius: 0 7px 7px 0;
-}
+/* Owner 2026-07-06 · the locked-context strip (.wbctx), the status tab-bar
+   (.wb-stabs / .wb-nt) and the coverage strip (.wb-covstrip / .covtag /
+   .clenrich / .covline .cl-lbl) were retired from the workbench — their styles
+   are removed here. Context folded into the header, status is out of v1 scope,
+   coverage lives per-lead in the drawer + the "+ Data state" filter. */
 
 /* ---- B11g · one-time "Press ? for shortcuts" hint ----
    Fixed bottom-center (the toast geometry) so its post-hydration mount never
@@ -2166,11 +2097,6 @@
 .agency-portal .popmenu.cols .vscell-row.disabled {
   opacity: 0.55;
   cursor: not-allowed;
-}
-
-/* ---- B11b · the always-on coverage strip (was the button-gated panel) ---- */
-.agency-portal .wb-covstrip {
-  margin-bottom: var(--space-3);
 }
 
 /* ---- pagination bar (Boxly /admin pattern) ---- */
@@ -6169,64 +6095,8 @@
   color: var(--muted);
   font-feature-settings: "tnum" 1;
 }
-.agency-portal .covline {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  flex-wrap: wrap;
-  padding: 10px 13px;
-  border: 1px solid var(--line);
-  border-radius: 11px;
-  background: var(--surface-2);
-  margin-bottom: var(--space-4);
-  font-size: var(--fs-sm);
-}
-.agency-portal .covline .cl-lbl {
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--faint);
-}
-.agency-portal .covtag {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-size: var(--fs-xs);
-  font-weight: 600;
-  padding: 3px 9px;
-  border-radius: 999px;
-  border: 1px solid var(--line);
-  background: #fff;
-  color: var(--ink-2);
-}
-.agency-portal .covtag.done {
-  background: var(--green-50);
-  color: var(--green);
-  border-color: #bfe9d5;
-}
-.agency-portal .covtag.todo {
-  background: #fff;
-  color: var(--muted);
-  border-style: dashed;
-  border-color: #c9cee0;
-}
-.agency-portal .covtag .cv {
-  font-size: 11px;
-}
-.agency-portal .covline .clenrich {
-  margin-left: auto;
-  border: 1px dashed #c3c8ff;
-  background: #fff;
-  color: var(--indigo);
-  border-radius: 999px;
-  padding: var(--space-1) 11px;
-  font-size: 12px;
-  font-weight: 600;
-}
-.agency-portal .covline .clenrich:hover {
-  background: var(--indigo-50);
-}
+/* (.covline / .cl-lbl / .covtag / .clenrich — the retired coverage strip's
+   styles — removed 2026-07-06. The drawer coverage grid below is separate.) */
 /* drawer coverage grid */
 .agency-portal .covgrid {
   display: flex;

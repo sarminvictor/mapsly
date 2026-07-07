@@ -180,18 +180,18 @@ const FIELD_STATE_LABEL: Record<FieldFilterState, string> = {
   not_run: "not run",
 };
 
-/** B5 · the status tab-bar's display labels (sentence case per copy-voice). */
-const STATUS_TAB_LABEL: Record<LeadStatus, string> = {
-  NEW: "New",
-  CONTACTED: "Contacted",
-  REPLIED: "Replied",
-  WON: "Won",
-  LOST: "Lost",
-  HIDDEN: "Hidden",
-};
-
 /** B11g · localStorage flag for the one-time "Press ? for shortcuts" hint. */
 const SHORTCUT_HINT_KEY = "mapsly:wb:hint-shortcuts";
+
+/**
+ * The statuses the workbench lets you SET (pill cycle + bulk menu). HIDDEN is
+ * excluded on purpose (owner 2026-07-06): with the Hidden tab retired there is
+ * no un-hide path, so hiding a lead can't be a workbench verb — it would trap a
+ * paid lead out of every view. Rows already HIDDEN stay filtered by `notHidden`.
+ */
+const SETTABLE_STATUSES: readonly LeadStatus[] = STATUS_ORDER.filter(
+  (s) => s !== "HIDDEN",
+);
 
 /** B14 · Enter commits an inline chip input by blurring it (the edit is
  *  already live — blur just closes the keyboard interaction cleanly). */
@@ -286,23 +286,6 @@ export interface LeadsWorkbenchProps {
    * the list workbench only; the market workbench scopes by discovery).
    */
   listId?: string;
-  /**
-   * B6 · the LOCKED-CONTEXT strip's data — the invisible gates that shape the
-   * set before any chip runs (audit §4), surfaced as small grey non-dismissable
-   * chips above the filters row. All plain serializable strings/booleans
-   * (Pattern 4). The window chip ("1,000 of N loaded") derives client-side
-   * from serverPageCount/totalRows.
-   */
-  lockedContext?: {
-    /** "{Category} · {Metro}" market label (the page's header title). */
-    market?: string | null;
-    /** The site-goal gate is active — website-less businesses are excluded. */
-    websitesOnly?: boolean;
-    /** The raw-list closed/hidden exclusion applies to this scope. */
-    closedHiddenExcluded?: boolean;
-    /** ISO timestamp of the mapped-freshness anchor the header reads. */
-    dataAsOf?: string | null;
-  };
 }
 
 /** How the table groups rows: flat, by cell, or by goal-signal verdict
@@ -329,7 +312,6 @@ export function LeadsWorkbench({
   exportAllUrl,
   serializedRowFields,
   listId,
-  lockedContext,
 }: LeadsWorkbenchProps) {
   // TRUTH UNIFICATION (2026-07-06) · the matrix is REQUIRED and covers every
   // rendered row (both pages scope loadCoverageMatrix to the rendered window).
@@ -400,10 +382,18 @@ export function LeadsWorkbench({
     });
   }
 
-  /** Advance a lead one stage in STATUS_ORDER (wraps NEW after HIDDEN). */
+  /**
+   * Advance a lead one stage through the settable statuses (wraps to New).
+   * HIDDEN is deliberately NOT in the cycle: the status tab-bar that used to
+   * expose a Hidden tab / un-hide path is retired (owner 2026-07-06), so the
+   * pill must never land a lead in HIDDEN — that would be a one-way trap (the
+   * row then vanishes via `notHidden` with no in-workbench way back). Leads
+   * hidden in an earlier session stay filtered out; they just can't be created
+   * here anymore.
+   */
   function cycleStatus(leadId: string, current: LeadStatus) {
-    const i = STATUS_ORDER.indexOf(current);
-    const next = STATUS_ORDER[(i + 1) % STATUS_ORDER.length];
+    const i = SETTABLE_STATUSES.indexOf(current);
+    const next = SETTABLE_STATUSES[(i + 1) % SETTABLE_STATUSES.length];
     setStatus(leadId, next);
   }
 
@@ -601,12 +591,6 @@ export function LeadsWorkbench({
   // (above the view-hydration + URL-write effects) so those effects can seed
   // from / push to it (C5 · round-trips through the goal URL).
   const [stateFilters, setStateFilters] = useState<FieldStateFilter[]>([]);
-  // B5 · the status tab-bar (All · New · Contacted · … · Hidden) + the
-  // "Not touched" quick toggle. Client-side over row.status/lastContactedAt;
-  // HIDDEN rows are excluded from every tab except Hidden (and from All).
-  // Both persist in the shareable-view URL (`st=`/`nt=1`), never localStorage.
-  const [statusTab, setStatusTab] = useState<LeadStatus | "ALL">("ALL");
-  const [notTouched, setNotTouched] = useState(false);
   // AUDIT §3/B1 · "Enriched only" view — isolate the leads an enrichment
   // actually ran on (what you paid for) from the whole website-having market.
   // Declared HERE (not with its toolbar button) because the view-hydration +
@@ -716,8 +700,9 @@ export function LeadsWorkbench({
         setSortKey(urlView.sortKey);
         setSortDir(urlView.sortDir);
         setStateFilters(urlView.fieldStates ?? []);
-        if (urlView.statusTab) setStatusTab(urlView.statusTab);
-        if (urlView.notTouched) setNotTouched(true);
+        // st=/nt= (status tab · not-touched) are still parsed by the codec but
+        // no longer consumed — the status tab-bar was retired (owner
+        // 2026-07-06). An old shared link carrying them just ignores them.
         if (urlView.enrichedOnly) setEnrichedOnly(true);
       } else if (saved?.filters !== undefined) {
         setFilters(
@@ -801,8 +786,6 @@ export function LeadsWorkbench({
             ? filters
             : filters.filter((f) => f.kind !== "signal"),
           fieldStates: stateFilters,
-          statusTab: statusTab === "ALL" ? undefined : statusTab,
-          notTouched: notTouched || undefined,
           enrichedOnly: enrichedOnly || undefined,
         },
         new URLSearchParams(window.location.search),
@@ -816,15 +799,7 @@ export function LeadsWorkbench({
       }
     }, 300);
     return () => window.clearTimeout(tid);
-  }, [
-    filters,
-    sortKey,
-    sortDir,
-    stateFilters,
-    statusTab,
-    notTouched,
-    enrichedOnly,
-  ]);
+  }, [filters, sortKey, sortDir, stateFilters, enrichedOnly]);
 
   // ── Selection ──────────────────────────────────────────────────────────
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -1191,55 +1166,6 @@ export function LeadsWorkbench({
     });
   }
 
-  // B6 · the LOCKED-CONTEXT strip: the invisible gates that shape the set
-  // before any chip runs (audit §4), as small grey NON-dismissable chips with
-  // a data-tip each. Server data arrives as plain strings (Pattern 4); the
-  // window chip derives client-side.
-  const ctxChips = useMemo((): {
-    key: string;
-    label: string;
-    tip: string;
-  }[] => {
-    const out: { key: string; label: string; tip: string }[] = [];
-    if (lockedContext?.market) {
-      out.push({
-        key: "market",
-        label: lockedContext.market,
-        tip: "Market scope — every row, count and filter reads within this market",
-      });
-    }
-    if (lockedContext?.websitesOnly) {
-      out.push({
-        key: "sites",
-        label: "Websites only · goal",
-        tip: "This goal reads the website — businesses without one are excluded from the set",
-      });
-    }
-    if (lockedContext?.closedHiddenExcluded) {
-      out.push({
-        key: "closed",
-        label: "Closed & hidden excluded",
-        tip: "Businesses closed on Google and leads you hid are excluded before any filter runs",
-      });
-    }
-    if (serverPageCount > 1) {
-      out.push({
-        key: "window",
-        label: `${rows.length.toLocaleString()} of ${totalRows.toLocaleString()} loaded`,
-        tip: "Only this window of rows is loaded — filters, counts and sorts read this window. The pager crosses windows",
-      });
-    }
-    const asOf = fmtScannedWhen(lockedContext?.dataAsOf);
-    if (asOf) {
-      out.push({
-        key: "asof",
-        label: `Data as of ${asOf}`,
-        tip: "When this market was last mapped — the same anchor as the header's freshness chip",
-      });
-    }
-    return out;
-  }, [lockedContext, serverPageCount, rows.length, totalRows]);
-
   // B11g · one-time "Press ? for shortcuts" hint — replaces the deleted "?"
   // toolbar button (its only job was first-week discoverability; the ? key +
   // modal are untouched). Shown on the first workbench visit, dismissed by ×
@@ -1525,78 +1451,47 @@ export function LeadsWorkbench({
   // Over effectiveRows (Step 4): the server payload + the lazily-hydrated
   // heavy fields — so a freshly-toggled column sorts/exports real values.
   //
-  // B5 · status-tab semantics: HIDDEN rows show ONLY on the Hidden tab —
-  // they're excluded from All and every other tab (they were hidden for a
-  // reason). Status reads the optimistic value so a just-cycled pill moves
-  // tabs immediately.
-  const passesStatusTab = useCallback(
-    (r: WorkbenchLeadRow): boolean => {
-      const s = optimistic[r.leadId] ?? r.status;
-      if (statusTab === "HIDDEN") return s === "HIDDEN";
-      if (s === "HIDDEN") return false;
-      return statusTab === "ALL" || s === statusTab;
-    },
-    [optimistic, statusTab],
-  );
-
-  // The view minus the STATUS TAB narrowing — the tab counts read this so
-  // each tab shows what clicking it would yield under the current filters.
-  const statusTabRows = useMemo(
-    () =>
-      effectiveRows.filter(
-        (r) =>
-          matchesSearch(r, search) &&
-          passesFilters(r, filters) &&
-          (!enrichedOnly || rowEnriched(r)) &&
-          passesStateFilters(r) &&
-          (!notTouched || r.lastContactedAt == null),
-      ),
-    [
-      effectiveRows,
-      search,
-      filters,
-      enrichedOnly,
-      rowEnriched,
-      passesStateFilters,
-      notTouched,
-    ],
+  // Hidden leads stay out of the default view — they were hidden deliberately.
+  // The status tab-bar that used to expose a "Hidden" tab is retired (owner
+  // 2026-07-06), so hiding a lead now simply removes it from the workbench.
+  // Reads the optimistic status so a just-hidden pill leaves immediately.
+  const notHidden = useCallback(
+    (r: WorkbenchLeadRow): boolean =>
+      (optimistic[r.leadId] ?? r.status) !== "HIDDEN",
+    [optimistic],
   );
 
   const filtered = useMemo(() => {
-    const f = statusTabRows.filter((r) => passesStatusTab(r));
+    const f = effectiveRows.filter(
+      (r) =>
+        notHidden(r) &&
+        matchesSearch(r, search) &&
+        passesFilters(r, filters) &&
+        (!enrichedOnly || rowEnriched(r)) &&
+        passesStateFilters(r),
+    );
     return sortRows(f, sortKey, sortDir);
-  }, [statusTabRows, passesStatusTab, sortKey, sortDir]);
-
-  // B5 · per-tab counts over the tab-less view. "ALL" counts non-hidden rows.
-  const statusCounts = useMemo(() => {
-    const counts: Record<LeadStatus | "ALL", number> = {
-      ALL: 0,
-      NEW: 0,
-      CONTACTED: 0,
-      REPLIED: 0,
-      WON: 0,
-      LOST: 0,
-      HIDDEN: 0,
-    };
-    for (const r of statusTabRows) {
-      const s = optimistic[r.leadId] ?? r.status;
-      counts[s] += 1;
-      if (s !== "HIDDEN") counts.ALL += 1;
-    }
-    return counts;
-  }, [statusTabRows, optimistic]);
+  }, [
+    effectiveRows,
+    notHidden,
+    search,
+    filters,
+    enrichedOnly,
+    rowEnriched,
+    passesStateFilters,
+    sortKey,
+    sortDir,
+  ]);
 
   // B10 · is ANY narrowing active? Drives the honest "X of N" count suffix,
   // the cross-window hint (B9), and the "Filters hide all N leads" empty
   // state (B1d) — the old logic keyed off filters[]+search only, so a
-  // state-filter/Enriched-only/status narrowing showed a bare "8 leads".
+  // state-filter/Enriched-only narrowing showed a bare "8 leads".
   const anyNarrowing =
     filters.length > 0 ||
     search.trim() !== "" ||
     stateFilters.length > 0 ||
-    enrichedOnly ||
-    statusTab !== "ALL" ||
-    notTouched;
+    enrichedOnly;
 
   // Count of enriched leads in the current window (for the toggle label).
   const enrichedCount = useMemo(
@@ -1664,11 +1559,10 @@ export function LeadsWorkbench({
         const others = filters.filter((_, j) => j !== i);
         const view = effectiveRows.filter(
           (r) =>
+            notHidden(r) &&
             matchesSearch(r, search) &&
             (!enrichedOnly || rowEnriched(r)) &&
             passesStateFilters(r) &&
-            (!notTouched || r.lastContactedAt == null) &&
-            passesStatusTab(r) &&
             passesFilters(r, others),
         );
         return filterBreakdown(view, f);
@@ -1680,8 +1574,7 @@ export function LeadsWorkbench({
       enrichedOnly,
       rowEnriched,
       passesStateFilters,
-      notTouched,
-      passesStatusTab,
+      notHidden,
     ],
   );
 
@@ -2512,19 +2405,17 @@ export function LeadsWorkbench({
     setPage(1);
   }
   /** B1c · clear EVERY narrowing in one move (WP4-15 · actionable empty
-   *  state): numeric + signal filters, data-state filters, Enriched-only,
-   *  search — plus the status tab + Not-touched, so the "Clear filters"
-   *  button in the "Filters hide all N leads" empty state ALWAYS restores the
-   *  full set (a partial clear that leaves the view empty is a lie). The ONE
-   *  path every "Clear all"/"Clear filters" button shares. */
+   *  state): numeric + signal filters, data-state filters, Enriched-only and
+   *  search — so the "Clear filters" button in the "Filters hide all N leads"
+   *  empty state ALWAYS restores the full set (a partial clear that leaves the
+   *  view empty is a lie). The ONE path every "Clear all"/"Clear filters"
+   *  button shares. */
   function clearAllFilters() {
     userTouchedRef.current = true;
     setFilters([]);
     setStateFilters([]);
     setEnrichedOnly(false);
     setSearch("");
-    setStatusTab("ALL");
-    setNotTouched(false);
     setPage(1);
   }
 
@@ -3168,8 +3059,8 @@ export function LeadsWorkbench({
             active across a multi-window set, the count carries a "+" — matches
             are counted within the loaded window and other windows may hold
             more (the tooltip says so). B10 · the "of N" suffix shows for ANY
-            narrowing (filters, search, data-state, Enriched-only, status tab,
-            Not-touched), not just filters+search. */}
+            narrowing (filters, search, data-state, Enriched-only), not just
+            filters+search. */}
         <span
           className="wb-count"
           aria-live="polite"
@@ -3428,57 +3319,16 @@ export function LeadsWorkbench({
         </div>
       ) : null}
 
-      {/* B6 · the LOCKED-CONTEXT strip — the invisible gates that shape this
-          set before any chip runs (audit §4), one calm grey line above the
-          filters row. Non-dismissable by design: these aren't filters, they
-          are the ground the filters stand on. */}
-      {ctxChips.length > 0 ? (
-        <div className="wbctx" aria-label="View context">
-          {ctxChips.map((c) => (
-            <span key={c.key} className="wbctx-chip" data-tip={c.tip}>
-              {c.label}
-            </span>
-          ))}
-        </div>
-      ) : null}
-
-      {/* B5 · status tab-bar (agency list-detail template) + the Not-touched
-          quick toggle. Quiet segmented (indigo-50 active — B12), between the
-          toolbar and the coverage strip so the toolbar itself stays lean.
-          HIDDEN leads show only on their own tab. */}
-      <div
-        className="wb-stabs"
-        role="group"
-        aria-label="Lead status and outreach"
-      >
-        {(["ALL", ...STATUS_ORDER] as const).map((s) => (
-          <button
-            key={s}
-            type="button"
-            className={statusTab === s ? "on" : undefined}
-            aria-pressed={statusTab === s}
-            onClick={() => {
-              setStatusTab(s);
-              setPage(1);
-            }}
-          >
-            {s === "ALL" ? "All" : STATUS_TAB_LABEL[s]}
-            <span className="ct">{statusCounts[s]}</span>
-          </button>
-        ))}
-        <button
-          type="button"
-          className={`wb-nt${notTouched ? " on" : ""}`}
-          aria-pressed={notTouched}
-          data-tip="Only leads never contacted (no last-contacted date)"
-          onClick={() => {
-            setNotTouched((v) => !v);
-            setPage(1);
-          }}
-        >
-          Not touched
-        </button>
-      </div>
+      {/* Owner 2026-07-06 · the locked-context strip, the status tab-bar and
+          the coverage strip were RETIRED from the stack above the table.
+          Context (market · websites-only · closed/hidden · data-as-of) was
+          duplicating the header title + freshness — it's absorbed into the
+          WorkspaceHeader counts + tooltips. Status tabs (Contacted/Replied/
+          Won/Lost) are outreach tracking, outside Mapsly's v1 scope (CLAUDE.md
+          rule 4 — Mapsly stops at the qualified lead). Coverage's have/not-yet
+          lives per-lead in the drawer + the "+ Data state" filter, and its
+          enrich CTA is the toolbar's primary Enrich button. Net: 5 rows above
+          the table → 2 (toolbar + filters). */}
 
       {/* Keyboard-shortcut cheat-sheet (press ?). */}
       {helpOpen ? (
@@ -4048,56 +3898,12 @@ export function LeadsWorkbench({
           </div>
         ) : null}
 
-        {/* ── Coverage strip (B11b/B13) ─────────────────────────────────────
-            Always visible above the table — the toolbar coverage button (and
-            its all-or-nothing set-level 0/7 badge, the lie the toolbar doc
-            opens with) is DELETED. The strip carries the have/not-yet summary
-            + the enrich-missing CTA; data-STATE filtering lives in the Filter
-            popover's "+ Data state" list. */}
-        <div className="covline wb-covstrip" aria-live="polite">
-          <span className="cl-lbl">Coverage</span>
-          <span className="cl-lbl" style={{ color: "var(--green)" }}>
-            Have:
-          </span>
-          {coverageSummary.have.length === 0 ? (
-            <span className="note">—</span>
-          ) : (
-            coverageSummary.have.map((label) => (
-              <span key={label} className="covtag done">
-                <span className="cv">✓</span>
-                {label}
-              </span>
-            ))
-          )}
-          {coverageSummary.notYet.length > 0 ? (
-            <>
-              <span className="cl-lbl" style={{ marginLeft: 6 }}>
-                Not yet:
-              </span>
-              {coverageSummary.notYet.map((label) => (
-                <span key={label} className="covtag todo">
-                  {label}
-                </span>
-              ))}
-              {/* WP5-3 · opens the in-workbench enrich sheet (pre-seeded
-                    with the missing data groups + the current scope) — a real
-                    one-click buy surface, not a deep-link away. */}
-              <button
-                type="button"
-                className="clenrich"
-                style={{ cursor: "pointer", font: "inherit" }}
-                data-tip={`Enrich: ${coverageSummary.notYet.join(" · ")}`}
-                onClick={openMissingGroupsSheet}
-              >
-                Enrich missing · {coverageSummary.notYet.length} →
-              </button>
-            </>
-          ) : (
-            <span className="note" style={{ marginLeft: "auto" }}>
-              All data groups enriched on this set
-            </span>
-          )}
-        </div>
+        {/* Owner 2026-07-06 · the always-on Coverage strip is retired (see the
+            note above the shortcuts modal). Per-lead coverage lives in the
+            drawer; set-level "what's not enriched" is the "+ Data state" filter
+            (with counts); the enrich CTA is the toolbar's primary Enrich
+            button. `coverageSummary` / `openMissingGroupsSheet` stay — they
+            still power the "+ Data state" panel's per-group enrich CTAs. */}
 
         {/* WP7-10 · sort-state announcement for screen readers. A polite live
           region names the active column + direction whenever the sort changes,
@@ -4215,9 +4021,9 @@ export function LeadsWorkbench({
                     >
                       {/* B1d · empty-state honesty: when rows EXIST but the
                           narrowing (filters / search / data-state / Enriched-
-                          only / status tab / Not-touched) hides them all, say
-                          so — "No leads in this set yet." was a lie that sent
-                          users re-paying for leads they already had. */}
+                          only) hides them all, say so — "No leads in this set
+                          yet." was a lie that sent users re-paying for leads
+                          they already had. */}
                       {rows.length > 0 && anyNarrowing ? (
                         <>
                           {rows.length === 1
@@ -4505,7 +4311,9 @@ export function LeadsWorkbench({
   );
 }
 
-/** A "Set status ▾" bulk button with a small popover over STATUS_ORDER. */
+/** A "Set status ▾" bulk button with a small popover over the SETTABLE
+ *  statuses (HIDDEN is excluded — hide is no longer a workbench verb, see
+ *  {@link SETTABLE_STATUSES}). */
 function BulkStatusButton({ onPick }: { onPick: (s: LeadStatus) => void }) {
   const [open, setOpen] = useState(false);
   return (
@@ -4521,7 +4329,7 @@ function BulkStatusButton({ onPick }: { onPick: (s: LeadStatus) => void }) {
         </button>
       }
     >
-      {STATUS_ORDER.map((s) => (
+      {SETTABLE_STATUSES.map((s) => (
         <button
           key={s}
           type="button"

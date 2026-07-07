@@ -148,9 +148,13 @@ export function WorkspaceHeader({
           flexWrap: "wrap",
         }}
       >
-        {/* AUDIT B2/B3 · the defined counts strip — every number labelled + a
-            hover explaining it, so "Why 57?" answers itself: market ≠ enrichable
-            (have a website) ≠ enriched (you paid for) ≠ shown (on screen). */}
+        {/* The defined counts strip — every number labelled + a hover
+            explaining it, so "Why 57?" answers itself: market ≠ with-a-website
+            ≠ enriched (you paid for). The old "Websites only · goal",
+            "Closed & hidden excluded" and "Data as of" context chips (a
+            separate row below the toolbar, duplicating the title + this
+            freshness) are absorbed here as the count labels + their tips —
+            owner 2026-07-06 masthead consolidation. */}
         {marketTotal != null ? (
           <span
             style={{
@@ -160,12 +164,14 @@ export function WorkspaceHeader({
               alignItems: "baseline",
             }}
           >
-            <span data-tip={`Every ${marketNoun} in this ${scopeNoun}`}>
+            <span
+              data-tip={`Open, unhidden ${marketNoun} in this ${scopeNoun} only — closed and hidden businesses are excluded before any filter runs`}
+            >
               <b>{marketTotal.toLocaleString()}</b> market
             </span>
             {enrichable != null ? (
-              <span data-tip="Have a website — the ones this goal can enrich">
-                · <b>{enrichable.toLocaleString()}</b> enrichable
+              <span data-tip="Businesses with a website — the ones this goal can read. The rest are excluded because the goal needs a site to enrich.">
+                · <b>{enrichable.toLocaleString()}</b> with a website
               </span>
             ) : null}
             <span
@@ -182,9 +188,15 @@ export function WorkspaceHeader({
               </b>{" "}
               enriched
             </span>
-            <span data-tip="Rows on screen (the loaded window)">
-              · <b>{showing.toLocaleString()}</b> shown ·
-            </span>
+            {/* "shown" only when the table is windowed (total > loaded) — the
+                one number worth keeping from the retired context strip. When
+                the whole set is on screen it's noise, so it's omitted. */}
+            {total > showing ? (
+              <span data-tip="Rows on screen now — the loaded window. The pager crosses windows.">
+                · <b>{showing.toLocaleString()}</b> shown
+              </span>
+            ) : null}
+            <span aria-hidden="true">·</span>
           </span>
         ) : (
           <span>{narrative} ·</span>
@@ -192,8 +204,11 @@ export function WorkspaceHeader({
         {/* WP6-9 · the FreshnessChip carries the cell-freshness + $0-to-serve
             trust story in one chip (supersedes the bare dot+label). */}
         <FreshnessChip state={freshness} />
-        <span>· mapped {mappedRelative} · spend to date</span>{" "}
-        <span className="cr">
+        {/* "mapped X ago" IS the data-as-of anchor (the retired context chip
+            duplicated it); credits carry their own coin, so "spend to date" was
+            redundant labelling. */}
+        <span>· mapped {mappedRelative} ·</span>{" "}
+        <span className="cr" data-tip="Credits spent on this research to date">
           <span className="ic-coin sm" aria-hidden="true" />
           {credits.toLocaleString()} credits
         </span>

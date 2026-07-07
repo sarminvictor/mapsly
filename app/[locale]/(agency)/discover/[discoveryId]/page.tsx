@@ -346,16 +346,6 @@ async function DiscoveryWorkspaceBody({ params, searchParams }: PageProps) {
       // Step 4 · which HEAVY fields this payload carries — the client hydrates
       // the rest on column toggle (getWorkbenchRowFieldsAction).
       serializedRowFields: [...serializeHeavyFields],
-      // B6 · the locked-context strip: the invisible gates that shape this set
-      // before any filter chip runs (audit §4), as plain serializable data.
-      lockedContext: {
-        market: title,
-        websitesOnly: goalNeedsWebsite,
-        // The raw-list gates (rawListWhere) always exclude closed + hidden
-        // businesses from the market scope.
-        closedHiddenExcluded: true,
-        dataAsOf: mappedAt.toISOString(),
-      },
     },
     touchpoints: { touches: data.touches, stats: data.stats },
   };

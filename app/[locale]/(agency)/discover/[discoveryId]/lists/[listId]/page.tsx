@@ -283,15 +283,6 @@ async function ListWorkbenchBody({ params, searchParams }: PageProps) {
       // the lazy row-fields action (its window is this list's leads).
       serializedRowFields: [...serializeHeavyFields],
       listId,
-      // B6 · locked-context strip. A saved list carries no website-goal gate
-      // and no raw-list closed/hidden exclusion (its leads were saved
-      // explicitly), so those chips stay off here.
-      lockedContext: {
-        market: title,
-        websitesOnly: false,
-        closedHiddenExcluded: false,
-        dataAsOf: mappedAt ? mappedAt.toISOString() : null,
-      },
     },
     touchpoints: { touches: data.touches, stats: data.stats },
   };
@@ -306,8 +297,7 @@ async function ListWorkbenchBody({ params, searchParams }: PageProps) {
       : null);
 
   // Meta line: mapped freshness (list refresh, else the parent research's
-  // mapped date — `mappedAt` above, shared with the B6 strip) + the research's
-  // spend-to-date credits.
+  // mapped date — `mappedAt` above) + the research's spend-to-date credits.
   const now = new Date();
   const freshness = mappedAt ? cellFreshnessState(mappedAt, now) : "never";
   const credits = discoveryRow?.cellKeys?.length
