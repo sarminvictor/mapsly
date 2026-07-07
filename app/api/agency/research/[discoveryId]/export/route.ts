@@ -6,13 +6,15 @@
  * GET → streams `text/csv` (Content-Disposition attachment) with the SAME 13
  * columns as the client "Export CSV" button: both go through the shared
  * `rowToCsvRecord`/`csvLine` mapping in
- * `modules/agency-portal/discover/leads-workbench.ts`, so the two exports can
- * never drift. Optional `?list=<listId>` scopes to one saved list (that list's
- * leads, createdAt order); without it the export covers the discovery's whole
- * visible market — the SAME `rawListWhere` scope + order (reviewCount desc
- * NULLS LAST, id asc) the workspace page uses, including the website-havers
- * gate for website-dependent goals. Filter-UNaware by design (the workbench's
- * client filters stay client-side); the scope gate is the same.
+ * `modules/agency-portal/discover/leads-workbench.ts` — AND, since the
+ * 2026-07-06 render-architecture refactor, each batch's row FACTS come from the
+ * same `buildWorkbenchRows` (mode: "csv") the two workbench pages use, so the
+ * export can never show a third truth. Optional `?list=<listId>` scopes to one
+ * saved list (that list's leads, createdAt order); without it the export covers
+ * the discovery's whole visible market — the SAME `rawListWhere` scope + order
+ * (reviewCount desc NULLS LAST, id asc) the workspace page uses, including the
+ * website-havers gate for website-dependent goals. Filter-UNaware by design
+ * (the workbench's client filters stay client-side); the scope gate is the same.
  *
  * Streaming: rows are produced in EXPORT_BATCH (500) chunks — bounded queries,
  * bounded side-loads per chunk — and enqueued as they're built, so a 5k-lead
@@ -41,59 +43,23 @@ import { enrichmentNeedsWebsite } from "@/modules/cost/pricing";
 import { researchesForSignals } from "@/modules/agency-portal/discover/researches";
 import { activeSignalsFromJson } from "@/modules/agency-portal/discover/discovery-signals";
 import { SIG_META } from "@/modules/agency-portal/discover/goal-templates";
+import type { ActiveSignal } from "@/modules/agency-portal/discover/signal-eval";
 import {
-  hydrateBusinessForSignals,
-  resolveMatches,
-  type ActiveSignal,
-} from "@/modules/agency-portal/discover/signal-eval";
+  buildWorkbenchRows,
+  csvSlug,
+  WORKBENCH_BUSINESS_SELECT,
+  type WorkbenchScope,
+} from "@/modules/agency-portal/discover/workbench-rows";
 import {
   CSV_HEADERS,
   csvLine,
-  resolveLeadMatch,
   rowToCsvRecord,
-  type CsvExportRow,
-  type LeadStatus,
 } from "@/modules/agency-portal/discover/leads-workbench";
 
 /** Rows fetched + shaped per streamed chunk (bounded queries per chunk). */
 const EXPORT_BATCH = 500;
 /** Safety ceiling — far above the enrich cap (topN ≤ 5000), never unbounded. */
 const EXPORT_MAX_ROWS = 20_000;
-
-const BIZ_SELECT = {
-  id: true,
-  name: true,
-  address: true,
-  city: true,
-  cellKey: true,
-  rating: true,
-  reviewCount: true,
-  reachableChannelCount: true,
-  phone: true,
-  email: true,
-  website: true,
-} as const;
-
-type BizForCsv = {
-  id: string;
-  name: string;
-  address: string | null;
-  city: string | null;
-  cellKey: string | null;
-  rating: number | null;
-  reviewCount: number | null;
-  reachableChannelCount: number | null;
-  phone: string | null;
-  email: string | null;
-  website: string | null;
-};
-
-/** One export item: the business + (list scope) its lead's status/score. */
-interface ExportItem {
-  biz: BizForCsv;
-  status: LeadStatus | null;
-  matchScore: number | null;
-}
 
 export async function GET(
   request: Request,
@@ -187,19 +153,27 @@ export async function GET(
         controller.enqueue(encoder.encode(`${CSV_HEADERS.join(",")}\n`));
         let skip = 0;
         while (skip < EXPORT_MAX_ROWS) {
-          const items = listId
+          const scope = listId
             ? await fetchListBatch(listId, skip)
             : await fetchDiscoveryBatch(listWhere, skip);
-          if (items.length === 0) break;
+          const batchLen =
+            scope.kind === "list"
+              ? scope.leads.length
+              : scope.businesses.length;
+          if (batchLen === 0) break;
           const lines = await buildCsvLines(
-            items,
-            listId ? null : { agencyId, discoveryId: discovery.id },
+            scope,
+            {
+              agencyId,
+              discoveryId: discovery.id,
+              cellKeys: discovery.cellKeys,
+            },
             activeSignals,
             goalSignals,
             includeContacts,
           );
           controller.enqueue(encoder.encode(`${lines.join("\n")}\n`));
-          if (items.length < EXPORT_BATCH) break;
+          if (batchLen < EXPORT_BATCH) break;
           skip += EXPORT_BATCH;
         }
         controller.close();
@@ -242,22 +216,22 @@ export async function GET(
 async function fetchDiscoveryBatch(
   listWhere: Prisma.BusinessWhereInput,
   skip: number,
-): Promise<ExportItem[]> {
+): Promise<WorkbenchScope> {
   const businesses = await prisma.business.findMany({
     where: listWhere,
     orderBy: [{ reviewCount: { sort: "desc", nulls: "last" } }, { id: "asc" }],
     skip,
     take: EXPORT_BATCH,
-    select: BIZ_SELECT,
+    select: WORKBENCH_BUSINESS_SELECT,
   });
-  return businesses.map((biz) => ({ biz, status: null, matchScore: null }));
+  return { kind: "discovery", businesses };
 }
 
 /** One window of a saved list's leads (page order + tiebreaker). */
 async function fetchListBatch(
   listId: string,
   skip: number,
-): Promise<ExportItem[]> {
+): Promise<WorkbenchScope> {
   const leads = await prisma.lead.findMany({
     // WP7-2 · a business suppressed AFTER it was saved to a list must still drop
     // out of the export — filter on the related business's suppressedAt.
@@ -266,216 +240,41 @@ async function fetchListBatch(
     skip,
     take: EXPORT_BATCH,
     select: {
+      id: true,
       status: true,
       matchScore: true,
-      business: { select: BIZ_SELECT },
+      contactedAt: true,
+      business: { select: WORKBENCH_BUSINESS_SELECT },
     },
   });
-  return leads.map((l) => ({
-    biz: l.business,
-    status: l.status as LeadStatus,
-    matchScore: l.matchScore,
-  }));
+  return { kind: "list", leads };
 }
 
 /**
- * Shape one batch into CSV lines — the same facts the workbench rows carry
- * (latest snapshot/audit, contacts, flagged findings, real signal eval), then
- * through the SHARED rowToCsvRecord mapping. All side-loads are scoped to the
- * batch's business ids (bounded per the scalability rule).
+ * Shape one batch into CSV lines via the ONE shared row builder (mode "csv":
+ * skips drafts/coverage/bands, excludes opted-out contacts) and the ONE shared
+ * rowToCsvRecord mapping. The free-plan wall blanks the contact VALUES after
+ * the build — `reachable` was already computed from the full arrays, so the
+ * export stays honest about whether contacts EXIST without handing them over.
  */
 async function buildCsvLines(
-  items: ExportItem[],
-  // Discovery scope only: adopt each business's Lead status from this
-  // discovery's saved lists (same rule as the workspace page). Null for the
-  // list scope (the item already carries its lead's status).
-  adoptLeadsFrom: { agencyId: string; discoveryId: string } | null,
+  scope: WorkbenchScope,
+  ctx: { agencyId: string; discoveryId: string; cellKeys: readonly string[] },
   activeSignals: ActiveSignal[],
   goalSignals: { key: string; title: string }[],
-  // WP7-5 · when false (Free plan), the contact columns are emptied — the
-  // upgrade wall. `reachable` still reflects reachableChannelCount so the wall
-  // is honest about whether contacts EXIST (Tom sees they're there, behind pay).
   includeContacts: boolean,
 ): Promise<string[]> {
-  const ids = items.map((i) => i.biz.id);
-
-  const [snapshots, audits, findings, contacts, existingLeads] =
-    await Promise.all([
-      prisma.businessSnapshot.findMany({
-        where: { businessId: { in: ids } },
-        orderBy: { snapshotDate: "desc" },
-        select: { businessId: true, reviewCount: true, rating: true },
-      }),
-      prisma.lighthouseAudit.findMany({
-        where: { businessId: { in: ids } },
-        orderBy: { auditedAt: "desc" },
-        select: { businessId: true, performance: true },
-      }),
-      prisma.playbookFinding.findMany({
-        where: { businessId: { in: ids }, status: "flagged" },
-        select: {
-          businessId: true,
-          signalKey: true,
-          confidence: true,
-          pitchAngle: true,
-        },
-      }),
-      prisma.contact.findMany({
-        // WP7-2 · opted-out contacts (Contact.optedOutAt, set via /opt-out or a
-        // wrong-data dispute) never leave the product in an export.
-        where: { businessId: { in: ids }, optedOutAt: null },
-        select: { businessId: true, channel: true, value: true },
-      }),
-      adoptLeadsFrom
-        ? prisma.lead.findMany({
-            where: {
-              agencyId: adoptLeadsFrom.agencyId,
-              businessId: { in: ids },
-              list: { discoveryId: adoptLeadsFrom.discoveryId },
-            },
-            orderBy: { statusChangedAt: "desc" },
-            select: { businessId: true, status: true },
-          })
-        : Promise.resolve([]),
-    ]);
-
-  const hydrated =
-    activeSignals.length > 0 && ids.length > 0
-      ? await hydrateBusinessForSignals(ids)
-      : null;
-  const evalNow = new Date();
-
-  // First (=latest) row per business.
-  const latestSnapshot = firstByBusiness(snapshots);
-  const latestAudit = firstByBusiness(audits);
-  const statusByBusiness = firstByBusiness(existingLeads);
-
-  // Contacts → phones / emails per business.
-  const phonesById = new Map<string, string[]>();
-  const emailsById = new Map<string, string[]>();
-  for (const c of contacts) {
-    if (c.channel === "PHONE" || c.channel === "WHATSAPP") {
-      push(phonesById, c.businessId, c.value);
-    } else if (c.channel === "EMAIL") {
-      push(emailsById, c.businessId, c.value);
-    }
-  }
-
-  // Flagged findings, most-confident first (JS rank — a DB orderBy on the
-  // string rank sorts alphabetically, WP2-4). Drives the pain-label fallback
-  // in "Top signals" + the strongest pitch angle.
-  const CONFIDENCE_RANK: Record<string, number> = {
-    high: 3,
-    medium: 2,
-    low: 1,
-  };
-  const rankedFindings = [...findings].sort(
-    (a, b) =>
-      (CONFIDENCE_RANK[b.confidence ?? ""] ?? 0) -
-      (CONFIDENCE_RANK[a.confidence ?? ""] ?? 0),
-  );
-  const painsById = new Map<
-    string,
-    { group: string; label: string; title: string }[]
-  >();
-  const pitchById = new Map<string, string>();
-  for (const f of rankedFindings) {
-    const label = signalKeyLabel(f.signalKey);
-    push(painsById, f.businessId, { group: "more", label, title: label });
-    if (f.pitchAngle && !pitchById.has(f.businessId)) {
-      pitchById.set(f.businessId, f.pitchAngle);
-    }
-  }
-
-  return items.map((item) => {
-    const b = item.biz;
-    const snap = latestSnapshot.get(b.id);
-    const audit = latestAudit.get(b.id);
-    const allPhones = phonesById.get(b.id) ?? (b.phone ? [b.phone] : []);
-    const allEmails = emailsById.get(b.id) ?? (b.email ? [b.email] : []);
-    // WP7-5 · Free plan → blank the exported contact values (upgrade wall). The
-    // `reachable` flag below is still computed from allPhones/allEmails so the
-    // export honestly says "contacts exist" without handing them over.
-    const phones = includeContacts ? allPhones : [];
-    const emails = includeContacts ? allEmails : [];
-    const pains = painsById.get(b.id) ?? [];
-    const evalResult =
-      hydrated && hydrated.get(b.id)
-        ? resolveMatches(activeSignals, hydrated.get(b.id)!, evalNow)
-        : null;
-    const { match, perSignal } = resolveLeadMatch(
-      evalResult,
-      item.matchScore,
-      pains.length,
-    );
-    const row: CsvExportRow = {
-      name: b.name,
-      addr: [b.address ?? b.city ?? "", prettyCell(b.cellKey)]
-        .filter(Boolean)
-        .join(" · "),
-      match,
-      status:
-        item.status ??
-        (statusByBusiness.get(b.id)?.status as LeadStatus | undefined) ??
-        "NEW",
-      reachable:
-        (b.reachableChannelCount ?? 0) > 0 ||
-        allPhones.length > 0 ||
-        allEmails.length > 0,
-      emails,
-      phones,
-      website: b.website ?? null,
-      rating: snap?.rating ?? b.rating ?? null,
-      reviews: snap?.reviewCount ?? b.reviewCount ?? null,
-      perf: audit?.performance ?? null,
-      perSignal,
-      pains: pains.map((p) => ({ ...p, group: "more" as const })),
-      pitchAngle: pitchById.get(b.id) ?? null,
-    };
-    return csvLine(rowToCsvRecord(row, goalSignals));
+  const { rows } = await buildWorkbenchRows(scope, {
+    ...ctx,
+    activeSignals,
+    mode: "csv",
   });
-}
-
-// ── Small pure helpers (mirrors the workbench pages) ─────────────────────────
-
-/** "medical_spa|miami|US" → "Medical spa · Miami" (best-effort, no DB). */
-function prettyCell(cellKey: string | null): string {
-  if (!cellKey) return "this market";
-  const parsed = parseCellKey(cellKey);
-  if (!parsed) return cellKey;
-  const cat = parsed.categorySlug.replace(/_/g, " ");
-  const metro = parsed.metroSlug.replace(/[_-]/g, " ");
-  const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
-  return `${cap(cat)} · ${cap(metro)}`;
-}
-
-/** Filesystem-safe lowercase slug for the CSV filename (WP2-4). */
-function csvSlug(s: string): string {
-  return (
-    s
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "")
-      .slice(0, 40) || "leads"
+  return rows.map((r) =>
+    csvLine(
+      rowToCsvRecord(
+        includeContacts ? r : { ...r, phones: [], emails: [] },
+        goalSignals,
+      ),
+    ),
   );
-}
-
-/** "perf_savings_ms" → "Perf savings ms" (best-effort signal-key label). */
-function signalKeyLabel(key: string): string {
-  const words = key.replace(/_/g, " ");
-  return words.charAt(0).toUpperCase() + words.slice(1);
-}
-
-function firstByBusiness<T extends { businessId: string }>(
-  rows: T[],
-): Map<string, T> {
-  const m = new Map<string, T>();
-  for (const r of rows) if (!m.has(r.businessId)) m.set(r.businessId, r);
-  return m;
-}
-
-function push<T>(map: Map<string, T[]>, key: string, value: T) {
-  const arr = map.get(key);
-  if (arr) arr.push(value);
-  else map.set(key, [value]);
 }

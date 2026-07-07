@@ -2235,10 +2235,12 @@
   left: 34px;
   background: #fff;
   z-index: 2;
-  /* A faint permanent hairline marks the frozen edge at rest; the real "detached"
-     read is a scroll-gated box-shadow (added below) — a shadow doesn't shift
-     layout the way a growing border would. */
-  border-right: 1px solid var(--line-2, #eef0f6);
+  /* A permanent hairline marks the frozen edge at rest (owner 2026-07-06:
+     1px #d4d9e6 — the same shade as the .gstart cluster divider so the two
+     rules read as one vocabulary); the real "detached" read is the
+     scroll-gated box-shadow below. The divider sits on td/th.biz — the LAST
+     sticky cell of the frozen sel+biz pair. */
+  border-right: 1px solid #d4d9e6;
   transition: box-shadow 0.12s;
 }
 /* AUDIT · the frozen Business column reads as "detached" only once the grid is
@@ -5745,8 +5747,11 @@
 }
 /* empty · ran, verified nothing → grey fill (distinct from the faint not-run). */
 .agency-portal .covchip.empty {
-  color: var(--faint);
-  background: var(--line-2, #eef0f6);
+  /* Owner 2026-07-06 · verified-empty is a COMPLETED research ("no ads" IS an
+     answer, and a filterable one) — soft-green done tone, never the grey that
+     reads as never-run. Solid green stays reserved for ran-with-data. */
+  color: var(--green-700, #0a6b48);
+  background: var(--green-50, #e6f8ef);
   box-shadow: none;
 }
 /* failed · errored + still not covered → red fill, distinct from grey never-run. */
@@ -5828,7 +5833,9 @@
    red failed. The data IS "none" — no need to rerun. */
 .agency-portal td .cell-none.verified {
   font-style: normal;
-  color: var(--muted);
+  /* Completed-research tone — the ✓ prefix plus green-leaning text so "none"
+     reads as an ANSWER, not a gap (owner 2026-07-06). */
+  color: var(--green-700, #0a6b48);
 }
 .agency-portal td .cell-none.verified::before {
   content: "✓ ";
@@ -6569,6 +6576,14 @@
 }
 
 /* ---------- DRAWER (lead detail) ---------- */
+/* ══ d7 SPLIT-RAIL (owner pick 2026-07-06 · docs/drawer-designs-2026-07-06.html)
+   The drawer is a flat white panel split into a 44px icon RAIL (close ·
+   prev/next · logo · section anchors) and a CONTENT column of full-bleed
+   1px-divided BANDS — 100% of the content column is data. Small pills, small
+   state tags, one-format deduped contacts (provenance = tooltip only,
+   report-wrong = hover-revealed flag), verified-empty in the COMPLETED
+   soft-green tone (matches .covchip.empty / td .cell-none.verified). This
+   block (scrim → .dtouch-body) is the drawer's entire CSS system. */
 .agency-portal .drawer-scrim {
   position: fixed;
   inset: 0;
@@ -6604,235 +6619,480 @@
   bottom: 0;
   width: 560px;
   max-width: 94vw;
-  /* Style audit · the portal overlay language is a FLAT WHITE PANEL with
-     1px-divided sections (see .enrich-panel) — not a gray page holding white
-     cards. One surface, one section grammar. */
   background: var(--surface);
   z-index: 95;
   box-shadow: -12px 0 40px rgba(15, 23, 42, 0.22);
   transform: translateX(100%);
   transition: transform 0.24s cubic-bezier(0.4, 0, 0.2, 1);
+  /* d7 split: rail (44px) + content column. */
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
 }
 .agency-portal .drawer.show {
   transform: translateX(0);
 }
-.agency-portal .drawer .dhead {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-4);
-  padding: var(--space-5) 20px;
-  border-bottom: 1px solid var(--line);
-  flex: 0 0 auto;
-}
-.agency-portal .drawer .dhead .nav-arrows {
-  display: flex;
-  gap: var(--space-1);
-}
-.agency-portal .drawer .dhead .ab {
-  width: 32px;
-  height: 32px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: #fff;
-  display: grid;
-  place-items: center;
-  font-size: var(--fs-base);
-  color: var(--ink-2);
-}
-.agency-portal .drawer .dhead .ab:hover {
+
+/* ── the 44px rail: close · prev/next · logo · section anchors ── */
+.agency-portal .ldrail {
+  width: 44px;
+  flex: none;
   background: var(--surface-2);
-}
-.agency-portal .drawer .dhead .x {
-  width: 32px;
-  height: 32px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: #fff;
-  display: grid;
-  place-items: center;
-  font-size: var(--fs-xl);
-  color: var(--faint);
-}
-/* header identity column (was inline flex styles) */
-.agency-portal .drawer .dhead-main {
-  flex: 1;
-  min-width: 0;
-}
-/* drawer h1 rides the portal h2 scale — a class, not an inline fontSize */
-.agency-portal .drawer .dhead h1 {
-  font-size: 19px;
-  margin: 0 0 3px;
-}
-.agency-portal .drawer .dhead .note {
-  margin: 0;
-}
-.agency-portal .drawer .dhead-pills {
+  border-right: 1px solid var(--line);
   display: flex;
-  gap: var(--space-2);
-  margin-top: var(--space-3);
-  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: center;
+  padding: 10px 0;
+  gap: 4px;
+  min-height: 0;
 }
-/* Business.logoUrl avatar — confirms "right business" at a glance */
-.agency-portal .drawer .davatar {
-  width: 36px;
-  height: 36px;
+.agency-portal .ldarw {
+  width: 28px;
+  height: 24px;
+  flex: none;
+  border: 1px solid var(--line);
+  background: #fff;
+  border-radius: 7px;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  font-size: 13px;
+  line-height: 1;
+  transition:
+    color 0.12s,
+    border-color 0.12s;
+}
+.agency-portal .ldarw:hover:not(:disabled) {
+  color: var(--indigo);
+  border-color: var(--indigo-100);
+}
+.agency-portal .ldarw:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.agency-portal .ldarw.ldx {
+  font-size: 15px;
+}
+/* rail identity tile — Business.logoUrl, else gradient initials */
+.agency-portal .ldlogo,
+.agency-portal .ldlogo-img {
+  width: 28px;
+  height: 28px;
+  flex: none;
+  margin-top: 6px;
   border-radius: 8px;
+}
+.agency-portal .ldlogo {
+  background: linear-gradient(135deg, var(--indigo), #7d64f8);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.agency-portal .ldlogo-img {
   object-fit: cover;
   border: 1px solid var(--line);
-  flex: 0 0 auto;
   background: var(--surface-2);
+}
+.agency-portal .ldrdiv {
+  width: 20px;
+  height: 1px;
+  flex: none;
+  background: var(--line);
+  margin: 8px 0 4px;
+}
+/* the anchor column scrolls if the section list outgrows the viewport */
+.agency-portal .ldancs {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  overflow-y: auto;
+  min-height: 0;
+  scrollbar-width: none;
+}
+.agency-portal .ldancs::-webkit-scrollbar {
+  display: none;
+}
+.agency-portal .ldanc {
+  width: 28px;
+  height: 26px;
+  flex: none;
+  border: 0;
+  background: none;
+  border-radius: 7px;
+  color: var(--faint);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+}
+.agency-portal .ldanc:hover {
+  background: var(--indigo-50);
+  color: var(--indigo);
+}
+.agency-portal .ldanc.on {
+  background: var(--indigo-100);
+  color: var(--indigo);
+}
+
+/* ── the content column: scrollable bands + sticky footer ── */
+.agency-portal .ldmain {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
 }
 .agency-portal .drawer .dbody {
   flex: 1;
   overflow: auto;
-  padding: 0 0 20px;
+  /* offsetParent for the rail's anchor-scroll + scroll-spy math */
+  position: relative;
 }
 .agency-portal .drawer .dfoot {
   border-top: 1px solid var(--line);
   background: var(--surface-2);
-  padding: var(--space-4) 20px;
+  padding: 10px 16px;
   display: flex;
   gap: var(--space-3);
   flex-wrap: wrap;
   align-items: center;
+  flex: 0 0 auto;
 }
 .agency-portal .drawer .dfoot .dfoot-note {
   margin-left: auto;
 }
-/* a drawer SECTION is a full-bleed divided band (the .enrich-group-row
-   grammar) — not a nested white card on gray */
-.agency-portal .drawer .dsec {
-  padding: 14px 20px 16px;
+
+/* ── a BAND: the flat full-bleed divided section (d7-band) ── */
+.agency-portal .ldband {
+  padding: 12px 16px;
   border-bottom: 1px solid var(--line-2);
 }
-.agency-portal .drawer .dsec:last-child {
+.agency-portal .ldband:last-child {
   border-bottom: 0;
 }
-/* section head = the portal-wide .eyebrow; flex so the Data head can carry
-   the vs-cell InfoTip inline */
-.agency-portal .drawer .dsec > .eyebrow {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}
-/* a fired SIGNAL in the drawer: the composite card, with its raw
-         evidence (vs-cell bars + metric rows) nested beneath it. */
-/* fired composite signals — compact collapsibles that match the .dacc
-         accordion visual language so the whole drawer reads as one system.
-         Collapsed: name + confidence + chevron, with the one-line means as a
-         muted teaser. Expanded: pitch + evidence + recipe. */
-.agency-portal .fsig {
-  border: 1px solid var(--line);
-  border-left: 3px solid var(--indigo);
-  border-radius: var(--radius-sm);
-  margin-bottom: var(--space-3);
-  overflow: hidden;
-  background: #fff;
-}
-/* WP7-10 · the header IS the disclosure button now; the card itself is a plain
-   container (its interactive body sits as a sibling, not nested). */
-.agency-portal .fsig-head {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  width: 100%;
-  text-align: left;
-  padding: 10px 13px;
-  background: none;
-  border: 0;
-  font: inherit;
-  cursor: pointer;
-  color: var(--ink);
-}
-.agency-portal .fsig.open .fsig-head {
-  padding-bottom: 0;
-}
-.agency-portal .fsig-head:focus-visible {
-  outline: 2px solid var(--indigo);
-  outline-offset: -2px;
-}
-.agency-portal .fsig:hover .fsig-head {
-  background: var(--surface-2);
-}
-.agency-portal .fsig-name {
+/* band cap — 10px caps indigo, with a muted mono provenance/count slot right */
+.agency-portal .ldcap {
+  font-size: 10px;
   font-weight: 700;
-  font-size: var(--fs-md);
-  min-width: 0;
-  flex: 1 1 auto;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--indigo);
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
 }
-.agency-portal .fsig-head .conf {
-  flex: 0 0 auto;
-}
-.agency-portal .fsig-chv {
-  flex: 0 0 auto;
-  color: var(--faint);
-  font-size: 12px;
-  transition: transform 0.15s ease;
-}
-.agency-portal .fsig.open .fsig-chv {
-  transform: rotate(180deg);
-}
-/* the always-visible means teaser sits under the header (shares the
-         header's hover background so the whole collapsed card reads as one row) */
-.agency-portal .fsig-sum {
-  font-size: 12px;
-  color: var(--ink-2);
-  padding: 2px 13px 10px;
-  line-height: 1.45;
-}
-.agency-portal .fsig:hover .fsig-sum {
-  background: var(--surface-2);
-}
-.agency-portal .fsig-body {
-  padding: 0 13px 11px;
-}
-.agency-portal .fsig-pitch {
-  font-size: 12px;
-  color: var(--indigo-700);
-  font-weight: 600;
-  margin-bottom: 9px;
-}
-/* dashed is the GHOST code (not-run) — plain dividers stay solid */
-.agency-portal .fsig-ev {
-  padding-top: 9px;
-  border-top: 1px solid var(--line-2);
-}
-.agency-portal .fsig-recipe {
-  margin-top: 10px;
-  padding-top: 9px;
-  border-top: 1px solid var(--line-2);
-}
-/* the "What we found" head — the shared .microlabel token, inline so the
-   vs-cell InfoTip sits beside it */
-.agency-portal .fsig-ev .microlabel {
+.agency-portal .ldcap-t {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  margin: 0 0 var(--space-1);
+  min-width: 0;
 }
-/* per-finding dispute row (was inline-styled) */
-.agency-portal .fsig-dispute {
-  margin-top: var(--space-3);
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
-  font-size: var(--fs-xs);
-}
-.agency-portal .fsig-ev .sig {
-  padding: var(--space-3) 0;
-}
-/* lean JetBrains Mono into technical sub-text */
-.agency-portal .fsig-ev .sig .val,
-.agency-portal .fsig-ev .sig .val b {
+.agency-portal .ldcap i {
+  font-style: normal;
+  font-size: var(--fs-2xs);
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--faint);
   font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 55%;
 }
 
-/* ============ DRAWER · flat lead detail (2026-07 restructure) ============ */
-/* The gauge + facts-grid hero is gone: match lives in the header pill, the
-   facts moved into the Data section's Profile block. What follows are the
-   drawer's small utilities (inline-style purge — target ≤5 dynamic-only). */
+/* ── header band ── */
+.agency-portal .ldhead .ldname {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.agency-portal .ldmeta {
+  font-size: var(--fs-xs);
+  color: var(--muted);
+  margin: 2px 0 0;
+}
+.agency-portal .ldopen {
+  color: var(--green);
+  font-weight: 600;
+}
+.agency-portal .ldopen.closed {
+  color: var(--red);
+}
+.agency-portal .ldrate {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 6px 0 0;
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+.agency-portal .ldrate b {
+  color: var(--ink);
+  font-weight: 700;
+}
+.agency-portal .ldstar {
+  color: var(--amber);
+  flex: none;
+}
+.agency-portal .ldpills {
+  display: flex;
+  gap: 5px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+/* SMALL pills (owner fix e) — drawer-scoped compaction of the shared tokens */
+.agency-portal .drawer .pill {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  padding: 2px 7px;
+  gap: 4px;
+}
+.agency-portal .drawer .pill.dot::before {
+  width: 5px;
+  height: 5px;
+}
+.agency-portal .drawer .statpill {
+  font-size: 10px;
+  padding: 2px 8px;
+  min-height: 0;
+}
+
+/* ── why band: d7 density block — big n/m + fired titles with checks ── */
+.agency-portal .ldwhy {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+.agency-portal .ldwhyn {
+  flex: none;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--green);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.25;
+  padding-top: 1px;
+}
+.agency-portal .ldwhyl {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  min-width: 0;
+  padding-top: 2px;
+}
+.agency-portal .ldwhyl > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.agency-portal .ldwhyl svg {
+  color: var(--green);
+  flex: none;
+}
+/* the not-fired / not-computable verdict rows — compact + honest */
+.agency-portal .sigverdicts {
+  margin: 0 0 8px;
+}
+.agency-portal .sigverdicts .sig {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+  border-bottom: 0;
+}
+.agency-portal .sigverdicts .sig .name {
+  flex: 1;
+  min-width: 0;
+  font-weight: 500;
+  font-size: var(--fs-sm);
+  color: var(--ink-2);
+}
+
+/* ── small state/meta TAGS (d7-tag) — the drawer's micro-vocabulary ── */
+.agency-portal .ldtag {
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--line-2);
+  color: var(--muted);
+  flex: none;
+  white-space: nowrap;
+}
+.agency-portal .ldtag.g {
+  background: var(--green-50);
+  color: var(--green-700);
+}
+/* verified-empty = COMPLETED tone (owner 2026-07-06): soft-green ✓ answer,
+   matching .covchip.empty / td .cell-none.verified — "no ads" IS an answer,
+   never the grey that reads as never-run. */
+.agency-portal .ldtag.done {
+  background: var(--green-50);
+  color: var(--green-700);
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  text-transform: none;
+  font-size: var(--fs-2xs);
+  letter-spacing: 0;
+  cursor: help;
+}
+.agency-portal .ldtag.done svg {
+  color: var(--green);
+  flex: none;
+}
+.agency-portal .ldtag.amber {
+  background: var(--amber-50);
+  color: var(--amber);
+}
+.agency-portal .ldtag.bad {
+  background: var(--red-50);
+  color: var(--red-700);
+}
+.agency-portal .ldtag.run {
+  background: var(--indigo-50);
+  color: var(--indigo-700);
+  text-transform: none;
+  font-size: var(--fs-2xs);
+  letter-spacing: 0;
+  animation: wb-cell-pulse 1.2s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .agency-portal .ldtag.run {
+    animation: none;
+  }
+}
+
+/* ── contact rows (d7-crow): icon · one-format value · tags · hover flag ── */
+.agency-portal .ldcrow {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 3px 0;
+  min-width: 0;
+}
+.agency-portal .ldcrow .ci {
+  color: var(--faint);
+  flex: none;
+  display: inline-flex;
+}
+/* the value — provenance lives ONLY in its tooltip (owner fix b); a dotted
+   underline on row hover signals "there's provenance here" */
+.agency-portal .ldcval {
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+  text-decoration: none;
+  border-bottom: 1px dotted transparent;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.agency-portal .ldcrow:hover .ldcval {
+  border-bottom-color: #c9cfdd;
+}
+.agency-portal .ldcval:hover {
+  color: var(--indigo);
+}
+/* report-wrong = a small flag ICON revealed on row hover (owner fix b);
+   keyboard focus reveals it fully (never hover-only — a11y) */
+.agency-portal .ldflag {
+  margin-left: auto;
+  border: 0;
+  background: none;
+  color: var(--red);
+  opacity: 0;
+  cursor: pointer;
+  display: inline-flex;
+  padding: 2px;
+  flex: none;
+}
+.agency-portal .ldcrow:hover .ldflag {
+  opacity: 0.45;
+}
+.agency-portal .ldflag:hover,
+.agency-portal .ldflag:focus-visible {
+  opacity: 1;
+}
+.agency-portal .ldcrow .report-done {
+  margin-left: auto;
+}
+/* the "+N more" expander (contacts groups · socials · GBP description) */
+.agency-portal .ldmore {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--indigo);
+  cursor: pointer;
+  margin: 2px 0 0 20px;
+  display: inline-block;
+}
+.agency-portal .ldmore:hover {
+  text-decoration: underline;
+}
+.agency-portal .ddesc .ldmore {
+  margin-left: 0;
+}
+/* socials — compact linked chips (d7-schip) */
+.agency-portal .ldsoc {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.agency-portal .ldschip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  color: var(--muted);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 3px 8px;
+  text-decoration: none;
+  max-width: 100%;
+  overflow: hidden;
+}
+.agency-portal .ldschip:hover {
+  color: var(--indigo);
+  border-color: var(--indigo-100);
+}
+/* faint platform prefix inside a social chip */
+.agency-portal .cplat {
+  color: var(--faint);
+  flex: none;
+}
+
+/* ── shared row utilities ── */
 /* body dim while a sibling lead refetches */
 .agency-portal .drawer .ddim {
   opacity: 0.55;
@@ -6846,173 +7106,8 @@
   margin: var(--space-3) 0 0;
   font-size: var(--fs-xs);
 }
-/* value tones — green better / red worse vs the cell; the Data head's
-   InfoTip explains them once for every toned value */
-.agency-portal .sig .val.tg {
-  color: var(--green);
-}
-.agency-portal .sig .val.ta {
-  color: var(--amber);
-}
-.agency-portal .sig .val.tr {
-  color: var(--red);
-}
-/* VsCellBar wrapper inside an evidence row */
-.agency-portal .sig .evbar {
-  margin: 4px 0 6px;
-}
-/* expert-finding callout icon pins to the first line */
-.agency-portal .drawer .callout svg {
-  flex: 0 0 auto;
-}
-/* per-value "report wrong" affordance (was a fully inline-styled button) */
-.agency-portal .report-link {
-  font-size: var(--fs-2xs);
-  margin-left: var(--space-1);
-  opacity: 0.6;
-  background: none;
-  border: 0;
-  cursor: pointer;
-  padding: 0;
-}
-.agency-portal .report-done {
-  font-size: var(--fs-2xs);
-  margin-left: var(--space-1);
-}
-/* loading skeleton bars */
-.agency-portal .drawer .skl {
-  height: 12px;
-  border-radius: 4px;
-  background: var(--surface-2);
-  margin: 10px 0;
-}
-.agency-portal .drawer .skl.sm {
-  width: 40%;
-}
-.agency-portal .drawer .skl.md {
-  width: 72%;
-}
-.agency-portal .drawer .skl.lg {
-  width: 100%;
-}
-/* Issue 5 · stacked per-channel contact groups (Phones / Emails / Socials) —
-   full drawer width, one group per line. Was: three levels of wrapping flex
-   squeezed beside the gauge, icons floating mid-air against multi-line value
-   blocks. */
-/* Contacts is its own eyebrow-headed section now — no divider of its own
-   (dashed is reserved for the ghost/not-run code). */
-.agency-portal .dcontacts {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-/* the GBP listing values row (was inline flex) */
-.agency-portal .dcontact-listing {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-/* one channel group: fixed 18px icon column (icon TOP-aligned) + a wrapping
-   value cell — wrapped lines align to one left edge, never under the icon. */
-.agency-portal .dcontact-group {
-  display: grid;
-  grid-template-columns: 18px 1fr;
-  column-gap: 6px;
-  align-items: start;
-  font-size: var(--fs-sm);
-  min-width: 0;
-}
-.agency-portal .dcontact-group .ci {
-  color: var(--faint);
-  font-size: 12px;
-  padding-top: 2px;
-}
-.agency-portal .dcontact-vals {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 10px;
-  align-items: baseline;
-  min-width: 0;
-}
-/* a value + its role/primary tags + report affordance = ONE non-breaking unit
-   (a value and its report link can never separate across a wrap) */
-.agency-portal .cunit {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 4px;
-  white-space: nowrap;
-  min-width: 0;
-}
-/* role / "primary" / provenance micro-tags on a contact value — on the token
-   scale (--fs-2xs), no more 9px one-off */
-.agency-portal .cctag {
-  font-size: var(--fs-2xs);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--faint);
-  font-family: var(--mono);
-  flex: 0 0 auto;
-}
-.agency-portal .cctag.primary {
-  color: var(--indigo-700);
-}
-/* provenance tag ("tel: link · 95%") — lowercase reads as data, not a label */
-.agency-portal .cctag.prov {
-  text-transform: none;
-  font-weight: 600;
-  cursor: help;
-}
-/* faint platform prefix inside a social handle link */
-.agency-portal .cplat {
-  color: var(--faint);
-  margin-right: 3px;
-}
-/* email/phone link inside the drawer contacts strip truncates with an
-         ellipsis (keeps its tooltip for full text on hover); the .wb-table cap
-         only applies inside the workbench table, not here. */
-.agency-portal .dcontacts .clink {
-  display: inline-block;
-  max-width: 200px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  vertical-align: bottom;
-  color: var(--indigo);
-  text-decoration: none;
-}
-.agency-portal .dcontacts .clink:hover {
-  text-decoration: underline;
-}
-/* the per-group "+N more" expander — a real button in .clink clothing */
-.agency-portal .dcontacts .cmore {
-  background: none;
-  border: 0;
-  padding: 0;
-  font: inherit;
-  font-size: var(--fs-sm);
-  cursor: pointer;
-}
-.agency-portal .dcontact-ghost {
-  font-size: var(--fs-sm);
-  color: var(--muted);
-}
-.agency-portal .dcontact-ghost a {
-  color: var(--indigo-700);
-  font-weight: 600;
-  text-decoration: none;
-  cursor: pointer;
-}
-/* "Other angles" chips row */
-.agency-portal .dchips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  margin-top: var(--space-2);
-}
-/* ---- Data section · flat blocks + one-line non-enriched rows ---- */
-/* ONE mono-caps micro-label token — the single 10px-caps rule; every variant
-   (dnr-tag, fsig-ev head) composes it in markup and adds layout only. */
+/* ONE mono-caps micro-label token — the single 10px-caps rule; variants
+   compose it in markup and add layout only. */
 .agency-portal .microlabel {
   display: block;
   font-size: 10px;
@@ -7023,52 +7118,45 @@
   font-family: var(--mono);
   margin: 8px 0 2px;
 }
-/* an ENRICHED domain: open flat block — head over dense rows, divided from
-   its siblings by the same 1px rule the enrich sheet uses */
-.agency-portal .dblock {
-  padding: 9px 0 11px;
-  border-bottom: 1px solid var(--line-2);
-}
-.agency-portal .dblock:last-child {
-  border-bottom: 0;
-  padding-bottom: 0;
-}
-.agency-portal .dblock-head {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  margin-bottom: 2px;
-}
-.agency-portal .dblock-head .bic {
-  color: var(--faint);
-  flex: 0 0 auto;
-  display: inline-flex;
-}
-.agency-portal .dblock-title {
-  font-weight: 600;
-  font-size: var(--fs-md);
-}
-/* right-aligned "source · as-of" provenance */
-.agency-portal .dblock-src {
-  margin-left: auto;
-  font-size: var(--fs-2xs);
-  color: var(--faint);
-  font-family: var(--mono);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 56%;
-}
-/* dense data rows inside a block (the default .sig is airier). The mono value
+/* dense data rows inside a band (the default .sig is airier). The mono value
    applies to metric pairs only — :not(.kv) keeps the AI-brief kv/prose rows
-   (Inter, left-aligned) and the tone color classes untouched. */
-.agency-portal .dblock .sig {
-  padding: 4px 0;
+   (Inter, left-aligned) untouched. */
+.agency-portal .ldband .sig {
+  padding: 3px 0;
   border-bottom: 0;
 }
-.agency-portal .dblock .sig:not(.kv) .val {
+.agency-portal .ldband .sig .row {
+  margin-bottom: 0;
+}
+.agency-portal .ldband .sig:not(.kv) .name {
+  font-weight: 500;
+  font-size: var(--fs-sm);
+  color: var(--muted);
+}
+.agency-portal .ldband .sig:not(.kv) .val {
   font-family: var(--mono);
   font-feature-settings: "tnum" 1;
+  font-size: var(--fs-sm);
+  color: var(--ink);
+}
+/* value tones — green better / red worse vs the cell; the Reviews band cap's
+   InfoTip explains them once for every toned value. Declared at both
+   specificities so band-dense rows keep their tones. */
+.agency-portal .sig .val.tg,
+.agency-portal .ldband .sig .val.tg {
+  color: var(--green);
+}
+.agency-portal .sig .val.ta,
+.agency-portal .ldband .sig .val.ta {
+  color: var(--amber);
+}
+.agency-portal .sig .val.tr,
+.agency-portal .ldband .sig .val.tr {
+  color: var(--red);
+}
+/* VsCellBar wrapper inside an evidence row */
+.agency-portal .sig .evbar {
+  margin: 4px 0 6px;
 }
 /* a pulled-review quote line */
 .agency-portal .dquote {
@@ -7093,133 +7181,294 @@
   line-height: 1.5;
   margin: 2px 0 4px;
 }
-.agency-portal .ddesc-more {
-  background: none;
-  border: 0;
-  padding: 0;
-  font: inherit;
-  font-size: var(--fs-sm);
-  cursor: pointer;
-}
-/* a NON-ENRICHED domain: ONE line in the enrich-sheet vocabulary — state dot
-   + title + right tag/CTA. Dashed underline = the ghost code, nowhere else. */
-.agency-portal .dnr {
+/* d7 number badge on an Opener-angle pain line (1/2/3) */
+.agency-portal .drawer .sig.kv.prose.pain {
   display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: 8px 0;
-  border-bottom: 1px dashed var(--line-2);
+  align-items: baseline;
+  gap: 8px;
 }
-.agency-portal .dnr:last-child {
-  border-bottom: 0;
-}
-/* the .egr-dot state circle, drawer-scoped (same visual values) */
-.agency-portal .dnr-dot {
-  flex: 0 0 auto;
-  width: 8px;
-  height: 8px;
-  border: 2px solid var(--line);
-  border-radius: 50%;
-  display: inline-block;
-  box-sizing: border-box;
-}
-.agency-portal .dnr-dot.on {
-  background: var(--green);
-  border-color: var(--green);
-}
-.agency-portal .dnr-dot.failed {
-  border-color: var(--red);
-}
-.agency-portal .dnr-dot.running {
-  border-color: var(--indigo);
-}
-.agency-portal .dnr-title {
-  font-weight: 600;
-  font-size: var(--fs-md);
-  color: var(--faint);
-  flex: 1 1 auto;
+.agency-portal .drawer .sig.kv.prose.pain .val {
+  flex: 1;
   min-width: 0;
 }
-/* right state tag — composes .microlabel in markup, layout-only here */
-.agency-portal .dnr-tag {
-  display: inline-block;
-  margin: 0 0 0 auto;
-  flex: 0 0 auto;
-  cursor: help;
-}
-.agency-portal .dnr-tag.failed {
-  color: var(--red);
-}
-/* E1 · the reviews listing facts under a non-enriched line */
-.agency-portal .dnr-listing {
-  padding: 0 0 8px 16px;
-  border-bottom: 1px dashed var(--line-2);
-}
-.agency-portal .dnr-listing .sig {
-  padding: 4px 0;
-  border-bottom: 0;
-}
-.agency-portal .dnr-listing .sig:not(.kv) .val {
-  font-family: var(--mono);
-  font-feature-settings: "tnum" 1;
-}
-/* the enrich CTA — the once-dead purpose-built class, now THE drawer CTA */
-.agency-portal .dacc-enrich {
+.agency-portal .ldang-n {
+  flex: none;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: var(--indigo-50);
+  color: var(--indigo);
+  font-size: 9.5px;
+  font-weight: 700;
   display: inline-flex;
   align-items: center;
-  gap: var(--space-1);
-  padding: 4px 10px;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--indigo-700);
-  background: #fff;
-  border: 1px solid var(--indigo-100);
-  border-radius: 8px;
-  cursor: pointer;
-  flex: 0 0 auto;
+  justify-content: center;
+  transform: translateY(2px);
 }
-.agency-portal .dacc-enrich:hover {
-  background: var(--indigo-50);
-  border-color: var(--indigo);
+/* "Other angles" / services / compliance-cue chips row */
+.agency-portal .dchips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
 }
-.agency-portal .dnr .dacc-enrich {
-  margin-left: auto;
-}
-.agency-portal .dnr .dnr-tag + .dacc-enrich {
-  margin-left: var(--space-2);
-}
-/* expert-findings callouts inside the why-qualifies section */
-.agency-portal .drawer .dsec .callout {
+/* expert-findings callouts inside the why band */
+.agency-portal .drawer .callout {
   font-size: 12px;
   margin-top: 8px;
 }
-/* research signal verdicts — the class existed in markup with NO stylesheet
-   entry; every row carried inline flex + padding overrides. */
-.agency-portal .sigverdicts {
-  margin: 0 0 12px;
+.agency-portal .drawer .callout svg {
+  flex: 0 0 auto;
 }
-.agency-portal .sigverdicts > .note {
-  margin: 0 0 8px;
+
+/* ── fired composite signals — FLAT collapsibles (d7 band grammar): a thin
+   indigo left rule instead of the old card box; evidence (vs-cell bars +
+   metric rows) nests beneath on expand. ── */
+.agency-portal .fsig {
+  border-left: 2px solid var(--indigo-100);
+  margin: 4px 0 6px;
+  padding: 2px 0 2px 10px;
 }
-.agency-portal .sigverdicts .sig {
+.agency-portal .fsig-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  text-align: left;
+  padding: 3px 0;
+  background: none;
+  border: 0;
+  font: inherit;
+  cursor: pointer;
+  color: var(--ink);
+}
+.agency-portal .fsig-head:focus-visible {
+  outline: 2px solid var(--indigo);
+  outline-offset: 2px;
+}
+.agency-portal .fsig-name {
+  font-weight: 600;
+  font-size: var(--fs-md);
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.agency-portal .fsig-head .conf {
+  flex: 0 0 auto;
+}
+.agency-portal .fsig-chv {
+  flex: 0 0 auto;
+  color: var(--faint);
+  font-size: 11px;
+  transition: transform 0.15s ease;
+}
+.agency-portal .fsig.open .fsig-chv {
+  transform: rotate(180deg);
+}
+/* the always-visible means teaser under the header */
+.agency-portal .fsig-sum {
+  font-size: 12px;
+  color: var(--ink-2);
+  padding: 0 0 4px;
+  line-height: 1.45;
+}
+.agency-portal .fsig-body {
+  padding: 2px 0 4px;
+}
+.agency-portal .fsig-pitch {
+  font-size: 12px;
+  color: var(--indigo-700);
+  font-weight: 600;
+  margin-bottom: 7px;
+}
+.agency-portal .fsig-ev {
+  padding-top: 6px;
+  border-top: 1px solid var(--line-2);
+}
+/* the "What we found" head — the shared .microlabel token, inline so the
+   vs-cell InfoTip sits beside it */
+.agency-portal .fsig-ev .microlabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0 0 var(--space-1);
+}
+.agency-portal .fsig-ev .sig {
+  padding: var(--space-2) 0;
+}
+/* lean JetBrains Mono into technical sub-text */
+.agency-portal .fsig-ev .sig .val,
+.agency-portal .fsig-ev .sig .val b {
+  font-family: var(--mono);
+}
+/* per-finding dispute row */
+.agency-portal .fsig-dispute {
+  margin-top: var(--space-2);
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--fs-xs);
+}
+/* the text-link skin of report-wrong (finding disputes) */
+.agency-portal .report-link {
+  font-size: var(--fs-2xs);
+  margin-left: var(--space-1);
+  background: none;
+  border: 0;
+  cursor: pointer;
+  padding: 0;
+  color: var(--indigo-700);
+  font-weight: 600;
+}
+.agency-portal .report-link:hover {
+  text-decoration: underline;
+}
+.agency-portal .report-done {
+  font-size: var(--fs-2xs);
+}
+
+/* ── honest state rows (coverage band + reviews pull + contact scan) ── */
+.agency-portal .ldnr {
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 5px 0;
 }
-.agency-portal .sigverdicts .sig .name {
-  flex: 1;
+.agency-portal .ldnr-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border: 2px solid var(--line);
+  border-radius: 50%;
+  box-sizing: border-box;
+}
+.agency-portal .ldnr-dot.empty {
+  background: var(--green-50);
+  border-color: var(--green);
+}
+.agency-portal .ldnr-dot.failed {
+  border-color: var(--red);
+}
+.agency-portal .ldnr-dot.running {
+  border-color: var(--indigo);
+}
+.agency-portal .ldnr-title {
+  font-weight: 600;
+  font-size: var(--fs-sm);
+  color: var(--muted);
+  flex: 1 1 auto;
   min-width: 0;
 }
-.agency-portal .sigverdicts .sig .pill {
-  flex-shrink: 0;
+.agency-portal .ldnr .ldtag,
+.agency-portal .ldnr .ldcta {
+  margin-left: auto;
 }
-/* one outreach-draft card in "Outreach · touches" — token-scale type/radius */
+.agency-portal .ldnr .ldtag + .ldcta {
+  margin-left: var(--space-2);
+}
+/* the enrich / retry CTA */
+.agency-portal .ldcta {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 3px 9px;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--indigo-700);
+  background: #fff;
+  border: 1px solid var(--indigo-100);
+  border-radius: 7px;
+  cursor: pointer;
+  flex: none;
+}
+.agency-portal .ldcta:hover {
+  background: var(--indigo-50);
+  border-color: var(--indigo);
+}
+/* coverage dots — one per data domain (d7-cov) */
+.agency-portal .lddots {
+  display: flex;
+  gap: 3px;
+  margin: 2px 0 6px;
+}
+.agency-portal .lddot {
+  width: 14px;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--line);
+}
+.agency-portal .lddot.enriched {
+  background: var(--indigo);
+}
+.agency-portal .lddot.empty {
+  background: var(--green);
+  opacity: 0.55;
+}
+.agency-portal .lddot.failed {
+  background: var(--red);
+}
+.agency-portal .lddot.running {
+  background: var(--indigo);
+  opacity: 0.45;
+}
+
+/* ── nearby rivals rows (d7-riv) ── */
+.agency-portal .ldriv {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  padding: 3px 0;
+  font-size: var(--fs-sm);
+}
+.agency-portal .ldriv em {
+  font-style: normal;
+  color: var(--ink);
+  font-weight: 500;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.agency-portal .ldriv span {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  font-family: var(--mono);
+  flex: none;
+}
+/* small standalone link (Maps listing) */
+.agency-portal .ldlink {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--indigo);
+  text-decoration: none;
+}
+.agency-portal .ldlink:hover {
+  text-decoration: underline;
+}
+
+/* ── loading skeleton bars ── */
+.agency-portal .drawer .skl {
+  height: 12px;
+  border-radius: 4px;
+  background: var(--surface-2);
+  margin: 10px 0;
+}
+.agency-portal .drawer .skl.sm {
+  width: 40%;
+}
+.agency-portal .drawer .skl.md {
+  width: 72%;
+}
+.agency-portal .drawer .skl.lg {
+  width: 100%;
+}
+
+/* ── one outreach-draft card in "Outreach · touches" ── */
 .agency-portal .dtouch {
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
-  padding: 11px;
-  margin-bottom: var(--space-3);
+  padding: 9px 11px;
+  margin-bottom: var(--space-2);
 }
 .agency-portal .dtouch:last-child {
   margin-bottom: 0;
@@ -7233,7 +7482,7 @@
 .agency-portal .dtouch-head b {
   font-size: var(--fs-sm);
 }
-/* channel note inside the head (was inline-styled) */
+/* channel note inside the head */
 .agency-portal .dtouch-head b .dtouch-ch {
   margin-left: var(--space-2);
   font-weight: 400;
@@ -8102,5 +8351,6 @@
    line, one notch heavier. */
 .agency-portal table.wb th.gstart,
 .agency-portal table.wb td.gstart {
-  border-left: 2px solid var(--line);
+  /* Owner 2026-07-06 · 1px, one shade darker than the grid line. */
+  border-left: 1px solid #d4d9e6;
 }

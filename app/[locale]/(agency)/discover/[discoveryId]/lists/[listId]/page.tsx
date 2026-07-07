@@ -10,10 +10,19 @@
  * grounded sequences. Built on the ported prototype classes (agency-portal.css)
  * + the adopted agency primitives (StatusPill, BulkActionBar).
  *
+ * The entire side-load → maps → rows/touches/stats pipeline lives in the ONE
+ * shared `buildWorkbenchRows` (modules/agency-portal/discover/workbench-rows.ts)
+ * — this page only resolves the SCOPE (auth · list ownership · the lead window)
+ * and the header. The 2026-07-06 refactor retired this page's near-verbatim
+ * copy of the market workbench pipeline, which had drifted: seo / metaAdCount /
+ * googleAdCount / serpRank / aiSummary / bookingTool were hardcoded null here
+ * (their Fields-menu columns rendered "— enrich" over data that exists), tech
+ * loaded CMS-only, ads were presence-only, and vs-cell bands were cohort-only.
+ * All of those are REAL on this page now — same values as the market workbench.
+ *
  * Match % comes from `Lead.matchScore` when stored, else is DERIVED from the
  * count of flagged PlaybookFindings (see deriveMatchPct). Pain-point chips and
  * "why this works" come from flagged PlaybookFindings grouped by signal group.
- * vs-cell bands are computed from the list's own cohort distribution.
  *
  * Per `.claude/rules/cache-components.md`:
  *   - Pattern 2 · default export is SYNC; the async body (auth + DB) lives in a
@@ -34,6 +43,7 @@
 
 import { Suspense } from "react";
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import { notFound, unauthorized } from "next/navigation";
 import { setRequestLocale } from "next-intl/server";
 
@@ -41,33 +51,23 @@ import { auth } from "@/lib/auth";
 import { redirect } from "@/i18n/navigation";
 import prisma from "@/lib/prisma";
 import { cellFreshnessState, parseCellKey } from "@/lib/cell";
-import { cellBand } from "@/modules/agency-portal/discover/signals";
-import {
-  anyLeadGroupRan,
-  deriveGroupStates,
-} from "@/modules/agency-portal/discover/family-coverage";
-import {
-  loadCoverageMatrix,
-  coverageTypeStatesToMap,
-  loadScannedAtMap,
-} from "@/modules/agency-portal/discover/coverage-matrix";
 import {
   WORKBENCH_WINDOW,
-  resolveLeadMatch,
-  mergeSignalVerdicts,
-  painGroupClass,
-  type CellBand,
-  type LeadStatus,
-  type TouchState,
-  type WorkbenchLeadRow,
+  WB_COLS_COOKIE,
+  defaultActiveColumnsForGoal,
+  heavyFieldsForColumns,
+  parseWbColsCookie,
 } from "@/modules/agency-portal/discover/leads-workbench";
 import {
-  hydrateBusinessForSignals,
-  resolveMatches,
-} from "@/modules/agency-portal/discover/signal-eval";
+  buildWorkbenchRows,
+  csvSlug,
+  parsePageParam,
+  prettyCell,
+  relativeDays,
+  WORKBENCH_BUSINESS_SELECT,
+} from "@/modules/agency-portal/discover/workbench-rows";
 import {
   activeSignalsFromJson,
-  allLibraryActiveSignals,
   allLibrarySignals,
   goalMetaFromJson,
 } from "@/modules/agency-portal/discover/discovery-signals";
@@ -86,9 +86,6 @@ import {
   resolveActiveRunForDiscovery,
   resolveSpendCreditsForDiscovery,
 } from "@/modules/agency-portal/discover/active-run";
-import type { WorkbenchTouch } from "@/modules/agency-portal/discover/components/TouchpointsTab";
-import { parseWhyJson } from "@/modules/agency-portal/discover/touchpoints";
-import { draftWhereForAgency } from "@/modules/outreach/draft-scope";
 
 export const metadata: Metadata = {
   title: "Workbench · Mapsly",
@@ -107,11 +104,8 @@ interface PageProps {
 // window crossing (+ the server export route streams the full set). See
 // WORKBENCH_WINDOW (leads-workbench.ts) for the window-size rationale.
 
-// The whole curated signal library as ActiveSignal[] (default thresholds) +
-// its {key,title} option list — built ONCE (pure over SIG_META). Every lead is
-// evaluated against ALL_LIB_SIGNALS so any signal with data on the full cohort
-// is filterable (#2); LIBRARY_OPTIONS is the "+ Signal" picker's option list.
-const ALL_LIB_SIGNALS = allLibraryActiveSignals();
+// The curated signal library's {key,title} option list — built ONCE (pure over
+// SIG_META). The "+ Signal" picker's option list (#2).
 const LIBRARY_OPTIONS = allLibrarySignals();
 
 export default function ListWorkbenchPage({ params, searchParams }: PageProps) {
@@ -120,17 +114,6 @@ export default function ListWorkbenchPage({ params, searchParams }: PageProps) {
       <ListWorkbenchBody params={params} searchParams={searchParams} />
     </Suspense>
   );
-}
-
-/** "medical_spa · miami" → "Medical spa · Miami" (best-effort, no DB). */
-function prettyCell(cellKey: string | null): string {
-  if (!cellKey) return "this market";
-  const parsed = parseCellKey(cellKey);
-  if (!parsed) return cellKey;
-  const cat = parsed.categorySlug.replace(/_/g, " ");
-  const metro = parsed.metroSlug.replace(/_/g, " ");
-  const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
-  return `${cap(cat)} · ${cap(metro)}`;
 }
 
 async function ListWorkbenchBody({ params, searchParams }: PageProps) {
@@ -179,7 +162,9 @@ async function ListWorkbenchBody({ params, searchParams }: PageProps) {
 
   // Server window (WP4-4): clamp the requested `?page=` into range, then fetch
   // ONE window of leads. The `id` tiebreaker keeps skip/take windows
-  // non-overlapping when createdAt collides (bulk-saved lists).
+  // non-overlapping when createdAt collides (bulk-saved lists). The business
+  // select is the shared WORKBENCH_BUSINESS_SELECT — one query feeds both the
+  // row builder and the signal hydration.
   const totalLeads = list._count.leads;
   const serverPageCount = Math.max(1, Math.ceil(totalLeads / WORKBENCH_WINDOW));
   const serverPage = Math.min(requestedPage, serverPageCount);
@@ -194,36 +179,12 @@ async function ListWorkbenchBody({ params, searchParams }: PageProps) {
       status: true,
       matchScore: true,
       contactedAt: true,
-      business: {
-        select: {
-          id: true,
-          name: true,
-          address: true,
-          city: true,
-          cellKey: true,
-          rating: true,
-          reviewCount: true,
-          reachability: true,
-          reachableChannelCount: true,
-          phone: true,
-          email: true,
-          website: true,
-          // Closed-on-Google flags → the row's "Closed" tag on the Business
-          // cell (Tom must never burn a touch on a closed business).
-          permanentlyClosed: true,
-          temporarilyClosed: true,
-        },
-      },
+      business: { select: WORKBENCH_BUSINESS_SELECT },
     },
   });
 
-  const businessIds = leads.map((l) => l.business.id);
-
-  // ── Real signal evaluation (P3) ────────────────────────────────────────────
   // The list belongs to a discovery; that discovery's persisted signals are the
-  // research's chosen set. Build ActiveSignal[] via SIG_META, hydrate this list's
-  // businesses ONCE (batched, read-only), and resolveMatches per lead for a REAL
-  // match% + per-signal verdicts. signalsJson absent / no signals → empty
+  // research's chosen set (P3). signalsJson absent / no signals → empty
   // ActiveSignal[] → the per-row fallback keeps the stored-score/heuristic path.
   const discoveryRow = await prisma.discovery.findUnique({
     where: { id: discoveryId },
@@ -235,13 +196,7 @@ async function ListWorkbenchBody({ params, searchParams }: PageProps) {
     },
   });
   const activeSignals = activeSignalsFromJson(discoveryRow?.signalsJson);
-  // Hydrate whenever there ARE leads (not only when the goal has signals) so the
-  // whole-library filters (#2) work even for a signal-less/legacy goal.
-  const hydrated =
-    businessIds.length > 0
-      ? await hydrateBusinessForSignals(businessIds)
-      : null;
-  const evalNow = new Date();
+
   // The goal's active signals (key + title) — drives the per-signal verdict
   // columns (see the discoveryId workspace page for the full rationale).
   const goalSignals = activeSignals
@@ -250,331 +205,30 @@ async function ListWorkbenchBody({ params, searchParams }: PageProps) {
       return title ? { key: s.key, title } : null;
     })
     .filter((s): s is { key: string; title: string } => s !== null);
-  const goalKeySet = new Set(goalSignals.map((s) => s.key));
   // WB-COL-1 · goal's research families → default the goal's data columns on.
   const goalResearches = researchesForSignals(activeSignals);
 
-  // Parallel side loads (all scoped to this list's businesses):
-  //   - latest snapshot per business (reviewCount / rating / website pillar →
-  //     used for vs-cell + perf proxy)
-  //   - latest Lighthouse audit per business (perf)
-  //   - flagged PlaybookFindings (pain chips + match derivation + "why")
-  //   - CMS tech (built-on)
-  //   - contacts (phones / emails for the contact columns + reachable count)
-  //   - OutreachDrafts (the Touchpoints tab + per-lead touch state)
-  const [snapshots, audits, findings, techs, contacts, drafts, ads, serps] =
-    businessIds.length === 0
-      ? [[], [], [], [], [], [], [], []]
-      : await Promise.all([
-          prisma.businessSnapshot.findMany({
-            where: { businessId: { in: businessIds } },
-            orderBy: { snapshotDate: "desc" },
-            select: {
-              businessId: true,
-              reviewCount: true,
-              rating: true,
-              websitePillar: true,
-              snapshotDate: true,
-            },
-          }),
-          prisma.lighthouseAudit.findMany({
-            where: { businessId: { in: businessIds } },
-            orderBy: { auditedAt: "desc" },
-            select: { businessId: true, performance: true, auditedAt: true },
-          }),
-          prisma.playbookFinding.findMany({
-            where: { businessId: { in: businessIds }, status: "flagged" },
-            orderBy: { confidence: "asc" },
-            select: {
-              businessId: true,
-              signalKey: true,
-              group: true,
-              confidence: true,
-              explanation: true,
-              pitchAngle: true,
-            },
-          }),
-          prisma.businessTech.findMany({
-            where: { businessId: { in: businessIds }, category: "CMS" },
-            orderBy: { confidence: "desc" },
-            select: { businessId: true, name: true },
-          }),
-          prisma.contact.findMany({
-            where: { businessId: { in: businessIds } },
-            select: { businessId: true, channel: true, value: true },
-          }),
-          prisma.outreachDraft.findMany({
-            // WP0-1/WP5 · agency-scoped draft read (see the discovery workspace
-            // page) — no cross-tenant read of outreach copy in shared cells.
-            where: draftWhereForAgency(agencyId, businessIds),
-            orderBy: { createdAt: "asc" },
-            select: {
-              id: true,
-              businessId: true,
-              leadId: true,
-              channel: true,
-              subject: true,
-              body: true,
-              status: true,
-              whyJson: true,
-            },
-          }),
-          // Ads + Search presence — the SAME real rows the lead drawer reads
-          // (adsEnriched = ads.length > 0 · serpEnriched = serp != null). Feeds
-          // the coverage map so the table no longer fakes ads/search negatives.
-          prisma.adLibraryEntry.findMany({
-            where: { businessId: { in: businessIds } },
-            select: { businessId: true },
-            distinct: ["businessId"],
-          }),
-          prisma.serpResult.findMany({
-            where: { businessId: { in: businessIds } },
-            select: { businessId: true },
-            distinct: ["businessId"],
-          }),
-        ]);
-
-  // Ads / Search presence sets (one membership test per business below).
-  const adsByBusiness = new Set(ads.map((r) => r.businessId));
-  const serpByBusiness = new Set(serps.map((r) => r.businessId));
-
-  // First (=latest) row per business for the "latest snapshot/audit" pattern.
-  const latestSnapshot = firstByBusiness(snapshots);
-  const latestAudit = firstByBusiness(audits);
-
-  // CMS built-on (highest-confidence first row wins).
-  const builtOnById = new Map<string, string>();
-  for (const t of techs)
-    if (!builtOnById.has(t.businessId)) builtOnById.set(t.businessId, t.name);
-
-  // Contacts → phones / emails / socials per business (AUDIT E6).
-  const SOCIAL_CHANNELS = new Set([
-    "INSTAGRAM",
-    "FACEBOOK",
-    "TIKTOK",
-    "YOUTUBE",
-    "X",
-    "LINKEDIN",
-  ]);
-  const phonesById = new Map<string, string[]>();
-  const emailsById = new Map<string, string[]>();
-  const socialsById = new Map<string, { channel: string; value: string }[]>();
-  for (const c of contacts) {
-    if (c.channel === "PHONE" || c.channel === "WHATSAPP") {
-      push(phonesById, c.businessId, c.value);
-    } else if (c.channel === "EMAIL") {
-      push(emailsById, c.businessId, c.value);
-    } else if (SOCIAL_CHANNELS.has(c.channel)) {
-      const arr = socialsById.get(c.businessId) ?? [];
-      arr.push({ channel: c.channel, value: c.value });
-      socialsById.set(c.businessId, arr);
-    }
-  }
-
-  // Flagged findings → pain chips per business (most-confident first).
-  // `confidence` is a string rank; a DB orderBy sorts it alphabetically
-  // (high < low < medium — wrong), so rank in JS instead (WP2-4 fix).
-  const CONFIDENCE_RANK: Record<string, number> = {
-    high: 3,
-    medium: 2,
-    low: 1,
-  };
-  const rankedFindings = [...findings].sort(
-    (a, b) =>
-      (CONFIDENCE_RANK[b.confidence ?? ""] ?? 0) -
-      (CONFIDENCE_RANK[a.confidence ?? ""] ?? 0),
+  // Step 4 · column-driven serialization (see the workspace page): the
+  // cookie's active-column set decides which HEAVY fields ship in the first
+  // paint; the rest hydrate lazily on column toggle.
+  const wbCols = parseWbColsCookie(
+    (await cookies()).get(WB_COLS_COOKIE)?.value,
   );
-  const painsById = new Map<
-    string,
-    { group: string; label: string; title: string }[]
-  >();
-  // Strongest pitch angle per business (first finding with one, in
-  // most-confident-first order) — the CSV export's "pitch angle" column.
-  const pitchById = new Map<string, string>();
-  for (const f of rankedFindings) {
-    const label = signalKeyLabel(f.signalKey);
-    push(painsById, f.businessId, {
-      group: f.group,
-      label,
-      title: f.explanation || f.pitchAngle || label,
-    });
-    if (f.pitchAngle && !pitchById.has(f.businessId)) {
-      pitchById.set(f.businessId, f.pitchAngle);
-    }
-  }
-
-  // Touch state per lead (the most-advanced draft status drives the pill).
-  const touchByBusiness = new Map<string, TouchState>();
-  for (const d of drafts) {
-    const t: TouchState = d.status === "sent" ? "Sent" : "Draft";
-    const cur = touchByBusiness.get(d.businessId);
-    if (!cur || rankTouch(t) > rankTouch(cur))
-      touchByBusiness.set(d.businessId, t);
-  }
-
-  // ── Build the workbench rows ───────────────────────────────────────────────
-  const rows: WorkbenchLeadRow[] = leads.map((lead) => {
-    const b = lead.business;
-    const snap = latestSnapshot.get(b.id);
-    const audit = latestAudit.get(b.id);
-    const reviews = snap?.reviewCount ?? b.reviewCount ?? null;
-    const rating = snap?.rating ?? b.rating ?? null;
-    const perf = audit?.performance ?? null;
-    const phones = phonesById.get(b.id) ?? (b.phone ? [b.phone] : []);
-    const emails = emailsById.get(b.id) ?? (b.email ? [b.email] : []);
-    const pains = painsById.get(b.id) ?? [];
-    const cell = prettyCell(b.cellKey);
-    // REAL signal eval when the discovery persisted signals; else fall back to
-    // the stored Lead.matchScore (when present) or the pain-count heuristic.
-    const hyd = hydrated?.get(b.id) ?? null;
-    const evalResult =
-      hyd && activeSignals.length > 0
-        ? resolveMatches(activeSignals, hyd, evalNow)
-        : null;
-    const {
-      match,
-      matchFromSignals,
-      matchDerived,
-      perSignal: goalPerSignal,
-    } = resolveLeadMatch(evalResult, lead.matchScore, pains.length);
-    // #2 · library verdicts (default thresholds) so any signal with data on the
-    // whole cohort is filterable; goal (tuned) verdicts win + are always kept.
-    const libPerSignal = hyd
-      ? resolveMatches(ALL_LIB_SIGNALS, hyd, evalNow).perSignal
-      : {};
-    const perSignal = mergeSignalVerdicts(
-      libPerSignal,
-      goalPerSignal,
-      goalKeySet,
-    );
-
-    return {
-      leadId: lead.id,
-      businessId: b.id,
-      name: b.name,
-      addr: [b.address ?? b.city ?? "", cell].filter(Boolean).join(" · "),
-      cell,
-      status: lead.status as LeadStatus,
-      match,
-      matchDerived,
-      matchFromSignals,
-      perSignal,
-      pains: pains.map((p) => ({ ...p, group: painGroupClass(p.group) })),
-      reachability: b.reachability,
-      reachable:
-        (b.reachableChannelCount ?? 0) > 0 ||
-        phones.length > 0 ||
-        emails.length > 0,
-      builtOn: builtOnById.get(b.id) ?? null,
-      bookingTool: null,
-      website: b.website ?? null,
-      pitchAngle: pitchById.get(b.id) ?? null,
-      touch: touchByBusiness.get(b.id) ?? "None",
-      lastContactedAt: lead.contactedAt?.toISOString() ?? null,
-      closed: b.permanentlyClosed
-        ? ("permanent" as const)
-        : b.temporarilyClosed
-          ? ("temporary" as const)
-          : null,
-      reviews,
-      rating,
-      perf,
-      // SEO/ad-count/AI-summary columns aren't hydrated on the list-detail
-      // surface (they're off by default; the market workbench carries them) —
-      // null keeps the shared row type satisfied without an extra query here.
-      seo: null,
-      metaAdCount: null,
-      googleAdCount: null,
-      serpRank: null,
-      aiSummary: null,
-      phones,
-      emails,
-      socials: socialsById.get(b.id) ?? [],
-    };
-  });
-
-  // ── vs-cell bands (computed from this list's own cohort) ───────────────────
-  const bands: Partial<Record<string, CellBand>> = {
-    match: cellBand(rows.map((r) => r.match)) ?? undefined,
-    reviews: cellBand(rows.map((r) => r.reviews).filter(isNum)) ?? undefined,
-    rating: cellBand(rows.map((r) => r.rating).filter(isNum)) ?? undefined,
-    perf: cellBand(rows.map((r) => r.perf).filter(isNum)) ?? undefined,
-  };
-
-  // ── Touchpoints tab read-model ─────────────────────────────────────────────
-  const leadByBusiness = new Map(
-    leads.map((l) => [
-      l.business.id,
-      { id: l.id, status: l.status as LeadStatus },
-    ]),
-  );
-  const nameById = new Map(leads.map((l) => [l.business.id, l.business.name]));
-
-  const touches: WorkbenchTouch[] = drafts.map((d) => {
-    const lead = leadByBusiness.get(d.businessId) ?? null;
-    const { why } = parseWhyJson(d.whyJson);
-    const findingPains = (painsById.get(d.businessId) ?? []).map((p) => ({
-      group: p.group,
-      label: p.label,
-      title: p.title,
-    }));
-    // Merge grounding why-strings (as neutral chips) after the flagged-finding
-    // pains so every drafted step shows what it leans on.
-    const whyPains = why.map((w) => ({ group: "more", label: w, title: w }));
-    return {
-      draftId: d.id,
-      businessId: d.businessId,
-      businessName: nameById.get(d.businessId) ?? "Business",
-      leadId: lead?.id ?? d.leadId ?? null,
-      leadStatus: (lead?.status ?? "NEW") as LeadStatus,
-      channel: d.channel,
-      subject: d.subject,
-      body: d.body,
-      sent: d.status === "sent",
-      pains: [...findingPains, ...whyPains].slice(0, 5),
-      phones: phonesById.get(d.businessId) ?? [],
-      emails: emailsById.get(d.businessId) ?? [],
-    };
-  });
-
-  // Stat strip — computed from the list's leads + drafts (agency-scoped already).
-  // Coverage matrix (the doc's batched GET /research/:id/coverage) — fetched
-  // server-side via the SHARED loader the endpoint uses, passed to the client as
-  // a PLAIN `{ businessId: families[] }` map (Pattern 4). Scoped to THIS list's
-  // exact lead businessIds — a curated list is an arbitrary subset that need not
-  // sit in the discovery's top-N, so an unscoped matrix would miss those rows
-  // and drop them to the legacy presence model.
-  const coverageRows = await loadCoverageMatrix(
-    discoveryId,
-    agencyId,
-    businessIds,
-  );
-  // AUDIT A2 · the per-TYPE state map (9 billed types) — THE atom every
-  // workbench surface derives from (the 7-group roll-up happens client-side).
-  const coverageTypeStates = coverageRows
-    ? coverageTypeStatesToMap(coverageRows)
-    : {};
-  // AUDIT U16 · per-data-group last-scanned dates for the value cells' provenance tip.
-  const scannedAt = await loadScannedAtMap(
-    leads.map((l) => ({ id: l.business.id, cellKey: l.business.cellKey })),
+  const serializeHeavyFields = heavyFieldsForColumns(
+    wbCols ?? defaultActiveColumnsForGoal(goalResearches),
   );
 
-  const stats = {
-    reachable: rows.filter((r) => r.reachable).length,
-    enriched: coverageRows
-      ? coverageRows.filter((r) =>
-          anyLeadGroupRan(deriveGroupStates(r.typeStates)),
-        ).length
-      : 0,
-    touches: touches.length,
-    businesses: new Set(touches.map((t) => t.businessId)).size,
-    contacted: rows.filter((r) =>
-      (["CONTACTED", "REPLIED", "WON", "LOST"] as LeadStatus[]).includes(
-        r.status,
-      ),
-    ).length,
-    won: rows.filter((r) => r.status === "WON").length,
-  };
+  // ── The ONE shared pipeline (rows + touches + stats + bands + coverage) ────
+  const data = await buildWorkbenchRows(
+    { kind: "list", leads },
+    {
+      agencyId,
+      discoveryId,
+      cellKeys: discoveryRow?.cellKeys ?? [],
+      activeSignals,
+      serializeHeavyFields,
+    },
+  );
 
   // WP4-1 · live workbench — poll + refresh new rows while an enrichment run for
   // this discovery is in flight (resolved by cellKey overlap; see active-run.ts).
@@ -598,11 +252,11 @@ async function ListWorkbenchBody({ params, searchParams }: PageProps) {
 
   const shell: WorkbenchShellProps = {
     leads: {
-      rows,
+      rows: data.rows,
       discoveryId,
-      bands,
-      coverageTypeStates,
-      scannedAt,
+      bands: data.bands,
+      coverageTypeStates: data.coverageTypeStates,
+      scannedAt: data.scannedAt,
       goalSignals,
       goalResearches,
       // #2 · the full curated library for the "+ Signal" picker (gated to those
@@ -615,8 +269,12 @@ async function ListWorkbenchBody({ params, searchParams }: PageProps) {
       // Streams THIS list's full set (WP4-4) — same 13 columns, scoped by
       // ?list= inside the discovery export route.
       exportAllUrl: `/api/agency/research/${discoveryId}/export?list=${listId}`,
+      // Step 4 · which HEAVY fields this payload carries + the list scope for
+      // the lazy row-fields action (its window is this list's leads).
+      serializedRowFields: [...serializeHeavyFields],
+      listId,
     },
-    touchpoints: { touches, stats },
+    touchpoints: { touches: data.touches, stats: data.stats },
   };
 
   const cellKey = leads[0]?.business.cellKey ?? null;
@@ -657,7 +315,7 @@ async function ListWorkbenchBody({ params, searchParams }: PageProps) {
       <WorkspaceHeader
         title={title}
         goalName={goalName}
-        showing={rows.length}
+        showing={data.rows.length}
         total={totalLeads}
         marketNoun="leads"
         scopeNoun="list"
@@ -677,59 +335,4 @@ async function ListWorkbenchBody({ params, searchParams }: PageProps) {
       </LiveRunGate>
     </div>
   );
-}
-
-// ── Server-side helpers (pure shaping) ───────────────────────────────────────
-
-/** `?page=` → a 1-based integer window index (defensive · default 1). */
-function parsePageParam(raw: string | string[] | undefined): number {
-  const v = Array.isArray(raw) ? raw[0] : raw;
-  const n = Number(v);
-  return Number.isInteger(n) && n >= 1 ? n : 1;
-}
-
-/** Filesystem-safe lowercase slug for the CSV filename (WP2-4). */
-function csvSlug(s: string): string {
-  return (
-    s
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "")
-      .slice(0, 40) || "leads"
-  );
-}
-
-function firstByBusiness<T extends { businessId: string }>(
-  rows: T[],
-): Map<string, T> {
-  const m = new Map<string, T>();
-  for (const r of rows) if (!m.has(r.businessId)) m.set(r.businessId, r);
-  return m;
-}
-
-function push<T>(map: Map<string, T[]>, key: string, value: T) {
-  const arr = map.get(key);
-  if (arr) arr.push(value);
-  else map.set(key, [value]);
-}
-
-function isNum(v: number | null): v is number {
-  return typeof v === "number" && Number.isFinite(v);
-}
-
-function rankTouch(t: TouchState): number {
-  return ["None", "Draft", "Queued", "Sent", "Replied"].indexOf(t);
-}
-
-/** "perf_savings_ms" → "Perf savings ms" (best-effort signal-key label). */
-function signalKeyLabel(key: string): string {
-  const words = key.replace(/_/g, " ");
-  return words.charAt(0).toUpperCase() + words.slice(1);
-}
-
-function relativeDays(d: Date): string {
-  const days = Math.floor((Date.now() - d.getTime()) / 86_400_000);
-  if (days <= 0) return "today";
-  if (days === 1) return "1 day ago";
-  return `${days} days ago`;
 }

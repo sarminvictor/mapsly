@@ -822,11 +822,14 @@ describe("orderColumnsForGoal", () => {
 
   test("identity/contact head + workflow tail never move", () => {
     const out = keys(orderColumnsForGoal(["meta_ads", "ai_research"]));
-    expect(out.slice(0, 7)).toEqual([
+    // Owner 2026-07-06 · rating anchors IMMEDIATELY after reviews (the
+    // reputation pair reads together), ahead of the contact anchors.
+    expect(out.slice(0, 8)).toEqual([
       "biz",
       "match",
       "pains",
       "reviews",
+      "rating",
       "website",
       "phones",
       "emails",

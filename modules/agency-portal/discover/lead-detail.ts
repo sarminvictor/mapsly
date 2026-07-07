@@ -605,7 +605,7 @@ export async function getLeadDetail(
       },
     }),
     prisma.review.count({
-      where: { businessId, ownerReplied: false, stars: { lte: 2 } },
+      where: { businessId, ownerReplied: false, stars: { lte: 3 } },
     }),
     prisma.adLibraryEntry.findMany({
       where: { businessId },
@@ -695,12 +695,22 @@ export async function getLeadDetail(
   const typeStates = coverageRows.get(business.id)!.typeStates;
 
   // ── Contacts → phones / emails / socials ──
+  // Owner fix (2026-07-06) · phones dedupe on their DIGIT identity (phoneKey —
+  // "+1 (208) 965-3777" and "208.965.3777" are ONE number) and every phone
+  // renders in ONE display format (formatPhoneDisplay). Emails dedupe
+  // case-insensitively. The GBP listing scalars below reuse the same keys so a
+  // listing phone matching a scraped row never renders twice.
   const phones: LeadContact[] = [];
   const emails: LeadContact[] = [];
   const socials: LeadContact[] = [];
   const seenContact = new Set<string>();
   for (const c of contacts) {
-    const dedupeKey = `${c.channel}:${c.value}`;
+    const dedupeKey =
+      c.channel === "PHONE" || c.channel === "WHATSAPP"
+        ? `PHONE:${phoneKey(c.value) ?? c.value}`
+        : c.channel === "EMAIL"
+          ? `EMAIL:${c.value.trim().toLowerCase()}`
+          : `${c.channel}:${c.value}`;
     if (seenContact.has(dedupeKey)) continue;
     seenContact.add(dedupeKey);
     // Issue 5 · role prefix ("owner" / "front desk"), primary tag, verified
@@ -716,7 +726,11 @@ export async function getLeadDetail(
       provenance: contactProvenance(c.source, c.confidence),
     };
     if (c.channel === "PHONE" || c.channel === "WHATSAPP") {
-      phones.push({ value: c.value, href: `tel:${c.value}`, ...meta });
+      phones.push({
+        value: formatPhoneDisplay(c.value),
+        href: `tel:${c.value}`,
+        ...meta,
+      });
     } else if (c.channel === "EMAIL") {
       emails.push({ value: c.value, href: `mailto:${c.value}`, ...meta });
     } else if (
@@ -741,14 +755,23 @@ export async function getLeadDetail(
   // The discovery GBP scalars are LISTING facts (free discovery data), never
   // proof the contacts enrichment ran — they render as "From the Google
   // listing" (the reviews listingRows pattern), deduped against the scrape.
+  // Owner fix (2026-07-06) · dedupe by DIGIT identity / lowercase email, not
+  // exact string — a GBP "+12089653777" matching a scraped "(208) 965-3777"
+  // must NOT render twice.
   const listingContacts: LeadContact[] = [];
-  if (business.phone && !phones.some((p) => p.value === business.phone)) {
+  if (
+    business.phone &&
+    !seenContact.has(`PHONE:${phoneKey(business.phone) ?? business.phone}`)
+  ) {
     listingContacts.push({
-      value: business.phone,
+      value: formatPhoneDisplay(business.phone),
       href: `tel:${business.phone}`,
     });
   }
-  if (business.email && !emails.some((e) => e.value === business.email)) {
+  if (
+    business.email &&
+    !seenContact.has(`EMAIL:${business.email.trim().toLowerCase()}`)
+  ) {
     listingContacts.push({
       value: business.email,
       href: `mailto:${business.email}`,
@@ -1065,7 +1088,7 @@ export async function getLeadDetail(
       : []),
   ];
 
-  // E1 · the review-ENRICHMENT rows (reply rate, unanswered ≤2★, lifecycle,
+  // E1 · the review-ENRICHMENT rows (reply rate, 1–3★ unanswered, lifecycle,
   // negative themes) — real only after an actual reviews pull. Reply rate is
   // owner-replied ÷ pulled reviews (never the GBP aggregate).
   const reviewEnrichmentRows: LeadEvidenceRow[] = reviewsEnriched
@@ -1089,7 +1112,7 @@ export async function getLeadDetail(
             ]
           : []),
         {
-          label: "Unanswered ≤2★",
+          label: "1–3★ unanswered",
           value: negUnanswered.toLocaleString(),
           tone: negUnanswered > 0 ? ("r" as const) : null,
         },
@@ -1156,8 +1179,10 @@ export async function getLeadDetail(
       state: techState,
       summary: techEnriched
         ? // "Custom / unknown" everywhere the scan found no CMS — a bare
-          // "Custom" claims more certainty than the scan supports.
-          `${cms ?? "Custom / unknown"}${!hasPixel ? " · no pixel" : ""} · booking ${hasBooking ? "online" : "phone"}`
+          // "Custom" claims more certainty than the scan supports. Booking
+          // phrasing (owner 2026-07-06): "no online booking", never "phone" —
+          // a phone is not a booking tool. Matches the workbench cell.
+          `${cms ?? "Custom / unknown"}${!hasPixel ? " · no pixel" : ""} · ${hasBooking ? "online booking" : "no online booking"}`
         : null,
       rows: techEnriched
         ? [
@@ -1189,13 +1214,15 @@ export async function getLeadDetail(
             },
             {
               // Names the incumbent (Square / Vagaro) — Tom pitches against a
-              // specific tool, not a boolean.
+              // specific tool, not a boolean. Absence phrasing (owner
+              // 2026-07-06): "No online booking" — a phone is not a booking
+              // tool. Matches the workbench cell's phrase.
               label: "Online booking",
               value: hasBooking
                 ? bookingTool
                   ? `Online · ${bookingTool}`
                   : "Online"
-                : "Phone only",
+                : "No online booking",
               tone: hasBooking ? null : ("a" as const),
             },
             // GBP-vs-site booking mismatch — one wedge, one line. Only when the
@@ -1887,6 +1914,44 @@ export function socialHandle(channel: string, url: string): string {
 /** Whole years since a date (floor). */
 function yearsSince(d: Date): number {
   return Math.floor((Date.now() - d.getTime()) / (365.25 * 86_400_000));
+}
+
+/** All digits of a phone value ("(208) 965-3777" → "2089653777"). */
+export function phoneDigits(value: string): string {
+  return value.replace(/\D+/g, "");
+}
+
+/**
+ * Owner fix (2026-07-06) · the phone-IDENTITY key used to dedupe the GBP
+ * listing scalar against scraped Contact rows (and scraped rows against each
+ * other). NANP-length numbers compare on their LAST 10 digits — so
+ * "+1 (208) 965-3777", "12089653777" and "208.965.3777" all collide into one
+ * key. Shorter values compare on their full digit string. No digits → null
+ * (never matches anything).
+ */
+export function phoneKey(value: string): string | null {
+  const digits = phoneDigits(value);
+  if (!digits) return null;
+  return digits.length >= 10 ? digits.slice(-10) : digits;
+}
+
+/**
+ * Owner fix (2026-07-06) · ONE display format for every phone the drawer
+ * renders: NANP pretty-print "(208) 965-3777" for 10-digit numbers (and
+ * 11-digit numbers with a leading 1 — the +1 is noise for a US/CA product).
+ * Anything else (international, extensions, vanity) renders as stored.
+ * Idempotent: an already-pretty value re-formats to itself.
+ */
+export function formatPhoneDisplay(value: string): string {
+  const digits = phoneDigits(value);
+  const ten =
+    digits.length === 10
+      ? digits
+      : digits.length === 11 && digits.startsWith("1")
+        ? digits.slice(1)
+        : null;
+  if (!ten) return value.trim();
+  return `(${ten.slice(0, 3)}) ${ten.slice(3, 6)}-${ten.slice(6)}`;
 }
 
 /**

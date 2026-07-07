@@ -60,6 +60,7 @@ import {
   FILTER_FIELD_DEFAULTS,
   availableNumericFields,
   availableSignalKeys,
+  heavyFieldsForColumns,
   orderColumnsForGoal,
   PAGE_SIZES,
   STATUS_ORDER,
@@ -74,10 +75,13 @@ import {
   reachabilityLabel,
   rowToCsvRecord,
   seedSignalFilters,
+  serializeWbColsCookie,
   sortRows,
+  WB_COLS_COOKIE,
   type CellBand,
   type ColumnDef,
   type ColumnTypeGroup,
+  type HeavyRowField,
   type LeadFilter,
   type NumericLeadFilter,
   type LeadStatus,
@@ -85,6 +89,10 @@ import {
   type SignalGroup,
   type WorkbenchLeadRow,
 } from "../leads-workbench";
+import {
+  getWorkbenchRowFieldsAction,
+  type WorkbenchRowFieldValues,
+} from "../workbench-row-fields-actions";
 import {
   ENRICHMENT_TYPES,
   DATA_GROUPS,
@@ -229,6 +237,19 @@ export interface LeadsWorkbenchProps {
    * paid lead is exportable even beyond the fetched window.
    */
   exportAllUrl?: string;
+  /**
+   * Step 4 · which HEAVY row fields the server serialized into `rows` (the
+   * `mapsly-wb-cols` cookie's active set → heavyFieldsForColumns). Fields
+   * outside this list are ABSENT on every row until the lazy hydration
+   * (getWorkbenchRowFieldsAction) fetches them — a column whose field isn't
+   * loaded renders a loading cell, never the "— enrich" affordance.
+   */
+  serializedRowFields?: string[];
+  /**
+   * Step 4 · the saved-list scope for the lazy row-fields action (present on
+   * the list workbench only; the market workbench scopes by discovery).
+   */
+  listId?: string;
 }
 
 /** How the table groups rows: flat, by cell, or by the combination of applied
@@ -250,6 +271,8 @@ export function LeadsWorkbench({
   serverPageCount = 1,
   totalRows = rows.length,
   exportAllUrl,
+  serializedRowFields,
+  listId,
 }: LeadsWorkbenchProps) {
   // TRUTH UNIFICATION (2026-07-06) · the matrix is REQUIRED and covers every
   // rendered row (both pages scope loadCoverageMatrix to the rendered window).
@@ -600,6 +623,11 @@ export function LeadsWorkbench({
 
   useEffect(() => {
     if (!hydrated.current) return;
+    // Step 4 · mirror the active-column set into the ONE server-readable
+    // cookie so the NEXT render serializes exactly the heavy fields these
+    // columns need (no lazy fetch on revisit). Defensive on both ends —
+    // parseWbColsCookie drops stale keys server-side.
+    document.cookie = `${WB_COLS_COOKIE}=${serializeWbColsCookie(activeCols)}; path=/; max-age=31536000; SameSite=Lax`;
     saveWorkbenchView(discoveryId, {
       vsCell,
       group,
@@ -705,6 +733,188 @@ export function LeadsWorkbench({
     },
     [sp, router, pathname],
   );
+
+  // ── Step 4 · lazy HEAVY-field hydration ─────────────────────────────────────
+  // The server serialized only the heavy fields of the cookie's active-column
+  // set (`serializedRowFields`); anything else is ABSENT from `rows`. When a
+  // column needing an unshipped field becomes active (Fields toggle, a restored
+  // view that outruns the cookie, an auto-shown column after a run), ONE action
+  // call fetches that field for the whole window and overlays it. Cells of a
+  // still-loading column render a loading state — never the "— enrich"
+  // affordance (which would lie about data that exists in the DB).
+  const [fetched, setFetched] = useState<{
+    fields: ReadonlySet<string>;
+    values: Record<string, WorkbenchRowFieldValues>;
+  }>({ fields: new Set(), values: {} });
+  // In-flight fields — a ref so the effect can't double-fetch mid-request.
+  const pendingHeavyRef = useRef<Set<string>>(new Set());
+  // REVIEW FIX 1 · window generation: bumped whenever the server payload
+  // changes. A fetch captures the generation at start; a resolve from a PRIOR
+  // window is DISCARDED (merging it would mark the field "loaded" with values
+  // keyed to rows that no longer exist — the exact "— enrich over real data"
+  // lie Step 4 exists to prevent, plus silent blank CSV columns).
+  const windowGenRef = useRef(0);
+  // REVIEW FIX 2 · fields whose hydration FAILED — their columns render a
+  // retry cell instead of an infinite "loading…" (and are excluded from the
+  // auto-refetch loop so a persistent failure can't spin).
+  const [failedHeavy, setFailedHeavy] = useState<ReadonlySet<string>>(
+    new Set(),
+  );
+
+  // A NEW server payload (window nav / live-run refresh) re-serializes per the
+  // cookie — drop the previous overlay so stale values never mask fresh rows,
+  // invalidate in-flight fetches (generation bump) and clear pending/failed so
+  // the new window hydrates cleanly. Deferred write per the repo's
+  // set-state-in-effect pattern.
+  useEffect(() => {
+    windowGenRef.current += 1;
+    pendingHeavyRef.current.clear();
+    const tid = window.setTimeout(() => {
+      setFetched((prev) =>
+        prev.fields.size === 0 && Object.keys(prev.values).length === 0
+          ? prev
+          : { fields: new Set(), values: {} },
+      );
+      setFailedHeavy((prev) => (prev.size === 0 ? prev : new Set()));
+    }, 0);
+    return () => window.clearTimeout(tid);
+  }, [rows]);
+
+  /** Heavy fields available on the CURRENT rows (server-shipped ∪ fetched). */
+  const loadedHeavy = useMemo(
+    () => new Set([...(serializedRowFields ?? []), ...fetched.fields]),
+    [serializedRowFields, fetched.fields],
+  );
+
+  const mergeFetched = useCallback(
+    (
+      fields: readonly string[],
+      values: Record<string, WorkbenchRowFieldValues>,
+    ) => {
+      setFetched((prev) => {
+        const nextFields = new Set(prev.fields);
+        for (const f of fields) nextFields.add(f);
+        const nextValues: Record<string, WorkbenchRowFieldValues> = {
+          ...prev.values,
+        };
+        for (const [id, v] of Object.entries(values)) {
+          nextValues[id] = { ...nextValues[id], ...v };
+        }
+        return { fields: nextFields, values: nextValues };
+      });
+    },
+    [],
+  );
+
+  /** Fetch heavy fields for the whole current window, overlay them, and
+   *  return the raw values (the CSV export reads them synchronously). Null on
+   *  failure (toasted — the effect retries on the next column/load change). */
+  const hydrateHeavyFields = useCallback(
+    async (
+      needed: readonly HeavyRowField[],
+    ): Promise<Record<string, WorkbenchRowFieldValues> | null> => {
+      // REVIEW FIX 1 · capture the window generation; a resolve from a prior
+      // window is discarded wholesale (values would be keyed to stale rows).
+      const gen = windowGenRef.current;
+      try {
+        const res = await getWorkbenchRowFieldsAction({
+          discoveryId,
+          listId,
+          page: serverPage,
+          fields: [...needed],
+        });
+        if (gen !== windowGenRef.current) return null; // window moved on
+        if (res.status !== "ok") {
+          showToast("Couldn't load column data — try again", "error");
+          setFailedHeavy((prev) => new Set([...prev, ...needed]));
+          return null;
+        }
+        mergeFetched(needed, res.values);
+        setFailedHeavy((prev) => {
+          if (![...needed].some((f) => prev.has(f))) return prev;
+          const next = new Set(prev);
+          for (const f of needed) next.delete(f);
+          return next;
+        });
+        return res.values;
+      } catch {
+        if (gen === windowGenRef.current) {
+          showToast("Couldn't load column data — try again", "error");
+          setFailedHeavy((prev) => new Set([...prev, ...needed]));
+        }
+        return null;
+      } finally {
+        // Only release the in-flight markers if this window still owns them —
+        // a new window already cleared/re-added its own.
+        if (gen === windowGenRef.current)
+          for (const f of needed) pendingHeavyRef.current.delete(f);
+      }
+    },
+    [discoveryId, listId, serverPage, mergeFetched],
+  );
+
+  // Toggle-driven hydration: any ACTIVE column whose heavy field isn't loaded
+  // triggers one fetch for the missing union. Re-runs as loads land (needed
+  // empties) — a failed fetch retries on the next column/load change.
+  useEffect(() => {
+    const needed = [...heavyFieldsForColumns(activeCols)].filter(
+      (f) =>
+        !loadedHeavy.has(f) &&
+        !pendingHeavyRef.current.has(f) &&
+        // REVIEW FIX 2 · failed fields wait for an explicit retry click.
+        !failedHeavy.has(f),
+    );
+    if (needed.length === 0) return;
+    for (const f of needed) pendingHeavyRef.current.add(f);
+    void hydrateHeavyFields(needed);
+  }, [activeCols, loadedHeavy, failedHeavy, hydrateHeavyFields]);
+
+  // The render rows: the server payload overlaid with lazily-fetched fields.
+  const effectiveRows = useMemo(() => {
+    if (Object.keys(fetched.values).length === 0) return rows;
+    return rows.map((r) => {
+      const extra = fetched.values[r.businessId];
+      return extra ? { ...r, ...extra } : r;
+    });
+  }, [rows, fetched.values]);
+
+  // Active columns whose heavy field hasn't landed yet → their cells render a
+  // loading state (renderCell gates on this before touching the value).
+  const unloadedCols = useMemo(() => {
+    const out = new Set<string>();
+    for (const key of activeCols) {
+      for (const f of heavyFieldsForColumns([key])) {
+        if (!loadedHeavy.has(f) && !failedHeavy.has(f)) {
+          out.add(key);
+          break;
+        }
+      }
+    }
+    return out;
+  }, [activeCols, loadedHeavy, failedHeavy]);
+
+  // REVIEW FIX 2 · columns whose heavy field FAILED to hydrate → retry cell.
+  const failedCols = useMemo(() => {
+    const out = new Set<string>();
+    for (const key of activeCols) {
+      for (const f of heavyFieldsForColumns([key])) {
+        if (failedHeavy.has(f)) {
+          out.add(key);
+          break;
+        }
+      }
+    }
+    return out;
+  }, [activeCols, failedHeavy]);
+  const retryHeavyCols = useCallback((colKey: string) => {
+    const fields = heavyFieldsForColumns([colKey]);
+    setFailedHeavy((prev) => {
+      const next = new Set(prev);
+      for (const f of fields) next.delete(f);
+      return next;
+    });
+    // The hydration effect refires via the failedHeavy dep.
+  }, []);
 
   // WB-COL-3 · the render-order registry for THIS research: the research-
   // detail span's data-group clusters are re-ordered goal-first (a site-speed
@@ -1052,8 +1262,10 @@ export function LeadsWorkbench({
   );
 
   // ── Filtered + sorted rows ────────────────────────────────────────────────
+  // Over effectiveRows (Step 4): the server payload + the lazily-hydrated
+  // heavy fields — so a freshly-toggled column sorts/exports real values.
   const filtered = useMemo(() => {
-    const f = rows.filter(
+    const f = effectiveRows.filter(
       (r) =>
         matchesSearch(r, search) &&
         passesFilters(r, filters) &&
@@ -1062,7 +1274,7 @@ export function LeadsWorkbench({
     );
     return sortRows(f, sortKey, sortDir);
   }, [
-    rows,
+    effectiveRows,
     search,
     filters,
     sortKey,
@@ -1356,9 +1568,26 @@ export function LeadsWorkbench({
    * server full-set export route so the two can never drift. This client
    * export covers the loaded window (filtered/selected); "Export all N"
    * streams the whole set from the server.
+   *
+   * Step 4 · `pitchAngle` is a CSV-only field, never serialized eagerly — the
+   * export hydrates it on demand (one action call for the window) so the CSV
+   * columns stay identical to before the payload split. A failed fetch still
+   * exports (with empty pitch-angle cells) rather than blocking the download.
    */
-  function exportCsv() {
-    const lines = filtered
+  async function exportCsv() {
+    let exportRows = filtered;
+    if (!loadedHeavy.has("pitchAngle")) {
+      // One action call — the merge also lands in state so a second export
+      // (and any pitch-angle consumer) skips the fetch.
+      const values = await hydrateHeavyFields(["pitchAngle"]);
+      if (values) {
+        exportRows = filtered.map((r) => {
+          const extra = values[r.businessId];
+          return extra ? { ...r, ...extra } : r;
+        });
+      }
+    }
+    const lines = exportRows
       .filter((r) => selected.size === 0 || selected.has(r.leadId))
       .map((r) =>
         csvLine(
@@ -1821,6 +2050,41 @@ export function LeadsWorkbench({
   // ── Render helpers ────────────────────────────────────────────────────────
   function renderCell(col: ColumnDef, r: WorkbenchLeadRow): ReactElement {
     const status = optimistic[r.leadId] ?? r.status;
+    // Step 4 · this column's heavy field hasn't landed yet (fresh toggle / a
+    // restored view outrunning the cookie) — render a loading cell while the
+    // one-shot hydration action fills it. NEVER the "— enrich" affordance:
+    // absent means "not shipped", not "no data" (the honesty rule).
+    // REVIEW FIX 2 · hydration failed for this column → an honest retry cell,
+    // never an endless "loading…" (and never a lying "— enrich").
+    if (failedCols.has(col.key)) {
+      return (
+        <td key={col.key}>
+          <button
+            type="button"
+            className="needsenr failed"
+            data-tip="Couldn't load this column — retry"
+            onClick={(e) => {
+              e.stopPropagation();
+              retryHeavyCols(col.key);
+            }}
+          >
+            failed · retry
+          </button>
+        </td>
+      );
+    }
+    if (unloadedCols.has(col.key)) {
+      return (
+        <td key={col.key} className="cell-loading" aria-busy="true">
+          <span
+            className="cell-none cell-enriching"
+            data-tip="Loading column data"
+          >
+            loading…
+          </span>
+        </td>
+      );
+    }
     switch (col.kind) {
       case "biz":
         return (
@@ -1956,14 +2220,10 @@ export function LeadsWorkbench({
         );
       }
       case "text": {
-        // AUDIT C3/F2 · key-aware text cell (was hardcoded to builtOn) so the
-        // Booking-tool + AI-summary columns render their own value.
-        const val =
-          col.key === "bookingTool"
-            ? r.bookingTool
-            : col.key === "aiSummary"
-              ? r.aiSummary
-              : r.builtOn;
+        // Step 5 · the cell's value comes from the REGISTRY accessor (was a
+        // hardcoded key switch — the class of mapping that shipped the lastC
+        // dead sort). Render styling below stays key-aware where it must be.
+        const val = col.textValue?.(r) ?? null;
         if (val == null) {
           // AUDIT · a null builtOn/bookingTool doesn't always mean "not scanned":
           // the tech scan may have RUN and simply found a custom/unknown CMS (or
@@ -1985,7 +2245,9 @@ export function LeadsWorkbench({
                   {/* Owner 2026-07-06 · the CELL shows the SHORT form ("Custom"
                       — one line, never wraps); the drawer keeps the full
                       "Custom / unknown". The tip carries the honest long read
-                      so Tom can hover-confirm it's scanned truth. */}
+                      so Tom can hover-confirm it's scanned truth. Booking:
+                      "No online booking" (owner — "Phone only" read as if
+                      phone WERE a booking tool). */}
                   <span
                     className="cell-none verified"
                     style={{ whiteSpace: "nowrap" }}
@@ -1995,7 +2257,7 @@ export function LeadsWorkbench({
                         : "Tech scan ran · no booking tool found"
                     }
                   >
-                    {col.key === "builtOn" ? "Custom" : "Phone only"}
+                    {col.key === "builtOn" ? "Custom" : "No online booking"}
                   </span>
                 </td>
               );
@@ -2090,7 +2352,10 @@ export function LeadsWorkbench({
         );
       }
       case "num": {
-        const v = numField(r, col.key);
+        // Step 5 · registry accessor, not a key switch — a num column without
+        // a numValue can't exist silently (it would render "— enrich" forever
+        // in dev, not ship a dead column).
+        const v = col.numValue?.(r) ?? null;
         if (v == null)
           return (
             <td className="num" key={col.key}>
@@ -2174,7 +2439,9 @@ export function LeadsWorkbench({
       case "socials": {
         // AUDIT E6 · social handles as compact linked chips (data was stored but
         // never shown). No socials → the state-aware enrich affordance.
-        if (r.socials.length === 0)
+        // (Heavy field — absent is gated above; the ?? [] is belt-and-braces.)
+        const socials = r.socials ?? [];
+        if (socials.length === 0)
           return (
             <td key={col.key}>
               <NeedsEnrich
@@ -2202,7 +2469,7 @@ export function LeadsWorkbench({
             <span
               style={{ display: "inline-flex", gap: 4, flexWrap: "nowrap" }}
             >
-              {r.socials.slice(0, 5).map((s, i) => {
+              {socials.slice(0, 5).map((s, i) => {
                 const href = /^https?:\/\//.test(s.value) ? s.value : undefined;
                 // AUDIT UX-review #7 · a mapped short tag, else a title-cased
                 // channel name (never an ugly 2-char enum slice like "WH").
@@ -3512,7 +3779,7 @@ export function LeadsWorkbench({
             ? ` · ~${fmtCredits(bulkEnrichCredits)} cr`
             : ""}
         </button>
-        <button type="button" className="bb" onClick={exportCsv}>
+        <button type="button" className="bb" onClick={() => void exportCsv()}>
           Export CSV
         </button>
         {exportAllUrl ? (
@@ -3539,27 +3806,6 @@ export function LeadsWorkbench({
       />
     </div>
   );
-}
-
-function numField(r: WorkbenchLeadRow, key: string): number | null {
-  switch (key) {
-    case "reviews":
-      return r.reviews;
-    case "rating":
-      return r.rating;
-    case "perf":
-      return r.perf;
-    case "seo":
-      return r.seo;
-    case "metaAdCount":
-      return r.metaAdCount;
-    case "googleAdCount":
-      return r.googleAdCount;
-    case "serpRank":
-      return r.serpRank;
-    default:
-      return null;
-  }
 }
 
 /** A "Set status ▾" bulk button with a small popover over STATUS_ORDER. */

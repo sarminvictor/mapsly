@@ -17,6 +17,7 @@ import {
   rollupContacts,
   rollupFindings,
   rollupKeywords,
+  rollupReviewAgg,
   rollupReviews,
   rollupSerp,
   rollupServices,
@@ -686,6 +687,93 @@ describe("rollupReviews", () => {
     expect(r.hasNegativeTheme).toBe(true);
     expect(r.negativeThemes.sort()).toEqual(["billing", "wait"]);
     expect(r.lastReviewAt?.toISOString().slice(0, 10)).toBe("2026-06-20");
+  });
+});
+
+describe("rollupReviewAgg (aggregate-fed twin — must mirror rollupReviews)", () => {
+  test("maps the SQL FILTER counts + themed negatives into HydratedReviews", () => {
+    const last = new Date("2026-06-20");
+    const agg = rollupReviewAgg(
+      {
+        total: 3,
+        unanswered: 2,
+        unanswered1: 1,
+        unansweredNeg: 2,
+        recentNeg: 1,
+        lastReviewAt: last,
+      },
+      [{ themes: ["Wait"] }, { themes: ["Billing", "wait"] }],
+    );
+    expect(agg.unanswered1StarCount).toBe(1);
+    expect(agg.unansweredNegativeCount).toBe(2);
+    expect(agg.unansweredCount).toBe(2);
+    expect(agg.recentNegativeCount).toBe(1);
+    expect(agg.hasAnyReview).toBe(true);
+    expect(agg.hasNegativeTheme).toBe(true);
+    // Lower-cased + de-duped, like rollupReviews.
+    expect(agg.negativeThemes.sort()).toEqual(["billing", "wait"]);
+    expect(agg.lastReviewAt).toBe(last);
+  });
+
+  test("no aggregate row (business has zero reviews) → all-empty, not-computable-safe", () => {
+    const agg = rollupReviewAgg(null, []);
+    expect(agg).toEqual({
+      unanswered1StarCount: 0,
+      unansweredNegativeCount: 0,
+      unansweredCount: 0,
+      hasNegativeTheme: false,
+      negativeThemes: [],
+      lastReviewAt: null,
+      recentNegativeCount: 0,
+      hasAnyReview: false,
+    });
+  });
+
+  test("agrees with rollupReviews on the same underlying facts", () => {
+    // The row-level reference implementation over three reviews…
+    const rows = [
+      {
+        stars: 1,
+        ownerReplied: false,
+        postedAt: new Date("2026-06-01"),
+        sentiment: "NEGATIVE",
+        themes: ["Wait"],
+      },
+      {
+        stars: 2,
+        ownerReplied: false,
+        postedAt: new Date("2026-06-10"),
+        sentiment: "NEGATIVE",
+        themes: ["Billing"],
+      },
+      {
+        stars: 5,
+        ownerReplied: true,
+        postedAt: new Date("2026-06-20"),
+        sentiment: "POSITIVE",
+        themes: [],
+      },
+    ];
+    const ref = rollupReviews(rows, NOW);
+    // …and the aggregate twin fed the equivalent SQL outputs.
+    const agg = rollupReviewAgg(
+      {
+        total: rows.length,
+        unanswered: ref.unansweredCount,
+        unanswered1: ref.unanswered1StarCount,
+        unansweredNeg: ref.unansweredNegativeCount,
+        recentNeg: ref.recentNegativeCount,
+        lastReviewAt: ref.lastReviewAt,
+      },
+      rows
+        .filter((r) => r.stars <= 2 || r.sentiment === "NEGATIVE")
+        .filter((r) => r.themes.length > 0)
+        .map((r) => ({ themes: r.themes })),
+    );
+    expect({ ...agg, negativeThemes: [...agg.negativeThemes].sort() }).toEqual({
+      ...ref,
+      negativeThemes: [...ref.negativeThemes].sort(),
+    });
   });
 });
 

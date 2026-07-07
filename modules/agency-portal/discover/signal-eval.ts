@@ -39,10 +39,14 @@ import type {
   SignalDefinition,
 } from "@/modules/signals/types";
 import { parseColumnRef } from "@/modules/hunter/evaluate";
-import { percentileRank, type Breakpoints } from "@/modules/scoring";
+import {
+  percentileRank,
+  type Breakpoints,
+  type CellReference,
+} from "@/modules/scoring";
 import { parseCellReference } from "@/modules/market/cell-metrics";
 import { slugify } from "@/modules/business-discovery";
-import prisma from "@/lib/prisma";
+import prisma, { Prisma } from "@/lib/prisma";
 
 import type { SignalTuneValue } from "./flow-types";
 import { sigMeta } from "./goal-templates";
@@ -1606,8 +1610,127 @@ export function resolveMatches(
 const NEGATIVE_STARS = 2;
 
 /**
+ * The Business scalar select the hydration pass reads — the registry's
+ * `Business.*` columns plus the cell/chain pre-pass inputs (cellKey, metroSlug,
+ * name/domain/googleCid). Callers that already loaded the window with a
+ * SUPERSET select (the workbench row builder's WORKBENCH_BUSINESS_SELECT) hand
+ * their rows in via {@link hydrateWorkbenchData} and skip every internal
+ * Business read (the old shape re-read Business up to 5× per render for
+ * cellKey/metro/brand inputs).
+ */
+const HYDRATE_BUSINESS_SELECT = {
+  id: true,
+  phone: true,
+  website: true,
+  emailVerifiedAt: true,
+  instagramHandle: true,
+  instagramFollowers: true,
+  categories: true,
+  category: true,
+  city: true,
+  province: true,
+  country: true,
+  rating: true,
+  reviewCount: true,
+  photosCount: true,
+  isClaimed: true,
+  isActive: true,
+  yearsOnGoogle: true,
+  ownerUserId: true,
+  gbpHasBooking: true,
+  openStatus: true,
+  reachability: true,
+  reachableChannelCount: true,
+  isHidden: true,
+  lastReviewAt: true,
+  lastRefreshedAt: true,
+  complianceFlags: true,
+  metroSlug: true,
+  cellKey: true,
+  // Chain-clustering inputs for multi_location (Cluster H).
+  name: true,
+  domain: true,
+  googleCid: true,
+  firstSeenOnGoogle: true,
+} as const satisfies Prisma.BusinessSelect;
+
+/** One pre-loaded Business row the hydration pass can run over. Structural —
+ *  a row selected with a superset (WORKBENCH_BUSINESS_SELECT) satisfies it. */
+export type HydrateBusinessSource = Prisma.BusinessGetPayload<{
+  select: typeof HYDRATE_BUSINESS_SELECT;
+}>;
+
+/**
+ * The extra ROW-BUILDING facts the one hydration pass collects alongside the
+ * evaluator's {@link HydratedBusiness} rollups (2026-07-06 render refactor).
+ * Before this, the workbench pages re-read Contact / BusinessTech /
+ * PlaybookFinding / AdLibraryEntry / SerpResult / BusinessEnrichment /
+ * CellMetric in a SECOND pass — and the coverage matrix scanned presence in a
+ * THIRD — over the same window. Everything here rides the queries the
+ * evaluator already needed, with a few columns widened. Plain data.
+ */
+export interface HydratedRowData {
+  /** Raw Contact rows (channel/value + the export's opt-out flag). */
+  contacts: {
+    businessId: string;
+    channel: string;
+    value: string;
+    optedOutAt: Date | null;
+  }[];
+  /** Raw BusinessTech rows (ALL categories — the builder filters CMS/BOOKING). */
+  techs: {
+    businessId: string;
+    name: string;
+    category: string;
+    confidence: number;
+  }[];
+  /** Flagged PlaybookFindings incl. the row-only explanation/pitchAngle. */
+  findings: {
+    businessId: string;
+    signalKey: string;
+    group: string;
+    confidence: string;
+    explanation: string;
+    pitchAngle: string;
+  }[];
+  /** Per-business AdLibraryEntry counts by platform — ALL entries, the same
+   *  semantics as the old page-side groupBy (which never filtered isActive). */
+  metaAdCountByBusiness: Map<string, number>;
+  googleAdCountByBusiness: Map<string, number>;
+  /** Businesses with ≥1 SerpResult row (coverage presence). */
+  serpPresence: Set<string>;
+  /** Businesses with a BusinessEnrichment row (AI-research coverage presence). */
+  aiPresence: Set<string>;
+  /** BusinessEnrichment.positioningSummary per business (raw — the builder
+   *  strips the `**bold**` markers for plain-text cells). */
+  aiSummaryByBusiness: Map<string, string>;
+  /** Businesses with ≥1 BusinessService row of ANY status (coverage presence —
+   *  the evaluator's service rollup still reads only ACTIVE rows). */
+  servicePresence: Set<string>;
+  /** Latest CellMetric per cellKey, parsed once via parseCellReference —
+   *  organic distributions for the evaluator + the workbench's market-true
+   *  vs-cell reference bands. */
+  cellRefs: Map<string, CellReference | null>;
+}
+
+function emptyRowData(): HydratedRowData {
+  return {
+    contacts: [],
+    techs: [],
+    findings: [],
+    metaAdCountByBusiness: new Map(),
+    googleAdCountByBusiness: new Map(),
+    serpPresence: new Set(),
+    aiPresence: new Set(),
+    aiSummaryByBusiness: new Map(),
+    servicePresence: new Set(),
+    cellRefs: new Map(),
+  };
+}
+
+/**
  * Batch-load the stored data the goal signals read for a set of businesses.
- * One `findMany` per relation with `where: { businessId: { in: ids } }` (no
+ * One BOUNDED query per relation with `where: { businessId: { in: ids } }` (no
  * N+1), selecting only the fields the resolver needs. Read-only and
  * agency-agnostic — the agency scope is applied upstream (the businesses are
  * already the agency's discovery cohort).
@@ -1616,25 +1739,90 @@ const NEGATIVE_STARS = 2;
  * keywords, contacts, findings) — never a live external API. Returns a Map
  * keyed by businessId; businesses with no related rows still get an entry with
  * empty/null rollups so the evaluator can return null verdicts cleanly.
+ *
+ * Pass `opts.businesses` (rows selected with ⊇ {@link HydrateBusinessSource}'s
+ * fields) to skip every internal Business read — the workbench pages load the
+ * window once and hand it in.
  */
 export async function hydrateBusinessForSignals(
   businessIds: string[],
+  opts?: { businesses?: readonly HydrateBusinessSource[] },
 ): Promise<Map<string, HydratedBusiness>> {
+  const { hydrated } = await hydrateInternal(
+    businessIds,
+    opts?.businesses ?? null,
+    [],
+  );
+  return hydrated;
+}
+
+/**
+ * The workbench row builder's entry: hydrate over PRE-LOADED window rows and
+ * also return the row-building side data ({@link HydratedRowData}) the same
+ * pass collects. `extraCellKeys` forces the CellMetric read to include cells no
+ * window business happens to sit in (the discovery's PRIMARY cell drives the
+ * market-true bands even on a window page holding none of its businesses).
+ */
+export async function hydrateWorkbenchData(
+  businesses: readonly HydrateBusinessSource[],
+  opts?: { extraCellKeys?: readonly string[] },
+): Promise<{
+  hydrated: Map<string, HydratedBusiness>;
+  rowData: HydratedRowData;
+}> {
+  return hydrateInternal(
+    businesses.map((b) => b.id),
+    businesses,
+    opts?.extraCellKeys ?? [],
+  );
+}
+
+/** Bounded scan cap for the themed-negative-review read (the one review fact
+ *  that still needs raw rows — themes are per-row string tags). Newest-first,
+ *  so a pathological cohort degrades by dropping the OLDEST themes only. */
+const REVIEW_THEME_SCAN_LIMIT = 10_000;
+
+async function hydrateInternal(
+  businessIds: string[],
+  preloaded: readonly HydrateBusinessSource[] | null,
+  extraCellKeys: readonly string[],
+): Promise<{
+  hydrated: Map<string, HydratedBusiness>;
+  rowData: HydratedRowData;
+}> {
   const ids = Array.from(new Set(businessIds)).filter((id) => id.length > 0);
   const out = new Map<string, HydratedBusiness>();
-  if (ids.length === 0) return out;
+  if (ids.length === 0) return { hydrated: out, rowData: emptyRowData() };
 
   const idFilter = { businessId: { in: ids } };
-  // Hoisted so the new-entrant pre-pass (inside the Promise.all) shares the same
-  // clock as the rollups below. A single `now` keeps the whole hydration pass
-  // deterministic for a given call.
+  // One clock for the whole hydration pass — the new-entrant pre-pass and every
+  // rollup below share it, keeping the pass deterministic for a given call.
   const now = new Date();
+  const spikeCutoff = new Date(
+    now.getTime() - REPUTATION_FIRE_WINDOW_DAYS * 86_400_000,
+  );
+
+  // ONE Business read (zero when the caller pre-loaded the window) feeds the
+  // scalar slot AND every cell/chain pre-pass below.
+  const businesses =
+    preloaded ??
+    (await prisma.business.findMany({
+      where: { id: { in: ids } },
+      select: HYDRATE_BUSINESS_SELECT,
+    }));
+  const cellKeys = Array.from(
+    new Set(
+      [...businesses.map((b) => b.cellKey), ...extraCellKeys].filter(
+        (k): k is string => typeof k === "string" && k.length > 0,
+      ),
+    ),
+  );
 
   const [
-    businesses,
-    snapshots,
+    snapshotPair,
     audits,
-    reviews,
+    reviewAgg,
+    themedNegatives,
     serps,
     ads,
     tech,
@@ -1642,70 +1830,76 @@ export async function hydrateBusinessForSignals(
     contacts,
     findings,
     businessServices,
+    enrichments,
     adMarketRuns,
     cellPrevalence,
-    cellOrganicRefs,
+    cellMetricRows,
     cellChainFacts,
   ] = await Promise.all([
-    prisma.business.findMany({
-      where: { id: { in: ids } },
-      select: {
-        id: true,
-        phone: true,
-        website: true,
-        emailVerifiedAt: true,
-        instagramHandle: true,
-        instagramFollowers: true,
-        categories: true,
-        category: true,
-        city: true,
-        province: true,
-        country: true,
-        rating: true,
-        reviewCount: true,
-        photosCount: true,
-        isClaimed: true,
-        isActive: true,
-        yearsOnGoogle: true,
-        ownerUserId: true,
-        gbpHasBooking: true,
-        openStatus: true,
-        reachability: true,
-        reachableChannelCount: true,
-        isHidden: true,
-        lastReviewAt: true,
-        lastRefreshedAt: true,
-        complianceFlags: true,
-        metroSlug: true,
-        cellKey: true,
-        // Chain-clustering inputs for multi_location (Cluster H).
-        name: true,
-        domain: true,
-        googleCid: true,
-        firstSeenOnGoogle: true,
-      },
-    }),
-    prisma.businessSnapshot.findMany({
-      where: idFilter,
-      orderBy: { snapshotDate: "desc" },
-      select: {
-        businessId: true,
-        snapshotDate: true,
-        rating: true,
-        reviewCount: true,
-        replyRate: true,
-        velocityLast30d: true,
-        velocityPrev30d: true,
-        mapslyScore: true,
-        msiRank: true,
-        msiPercentile: true,
-        reviewLifecycle: true,
-        reputationScore: true,
-      },
-    }),
+    // Snapshots · BOUNDED (was: the business's ENTIRE weekly history).
+    //   (a) the latest row per business (DISTINCT ON — the pattern proven on
+    //       serps), full field select;
+    //   (b) the rating-trend window: rows with a rating dated within
+    //       [minLatest − 135d, now] — the only historical rows rollupSnapshot's
+    //       ~90d-prior pick (target latest−90d, ±45d tolerance) can ever
+    //       select — at 3 columns each.
+    // Render cost stays flat as the weekly cron accumulates years of rows.
+    (async () => {
+      const latest = await prisma.businessSnapshot.findMany({
+        where: idFilter,
+        distinct: ["businessId"],
+        orderBy: [{ businessId: "asc" }, { snapshotDate: "desc" }],
+        select: {
+          businessId: true,
+          snapshotDate: true,
+          rating: true,
+          reviewCount: true,
+          replyRate: true,
+          velocityLast30d: true,
+          velocityPrev30d: true,
+          mapslyScore: true,
+          msiRank: true,
+          msiPercentile: true,
+          reviewLifecycle: true,
+          reputationScore: true,
+        },
+      });
+      if (latest.length === 0) {
+        return {
+          latest,
+          trend: [] as {
+            businessId: string;
+            snapshotDate: Date;
+            rating: number | null;
+          }[],
+        };
+      }
+      let minLatest = latest[0].snapshotDate;
+      for (const r of latest) {
+        if (r.snapshotDate.getTime() < minLatest.getTime()) {
+          minLatest = r.snapshotDate;
+        }
+      }
+      const windowStart = new Date(
+        minLatest.getTime() -
+          (RATING_TREND_DAYS + RATING_TREND_TOLERANCE_DAYS) * 86_400_000,
+      );
+      const trend = await prisma.businessSnapshot.findMany({
+        where: {
+          ...idFilter,
+          snapshotDate: { gte: windowStart },
+          rating: { not: null },
+        },
+        select: { businessId: true, snapshotDate: true, rating: true },
+      });
+      return { latest, trend };
+    })(),
+    // Lighthouse · latest row per business (DISTINCT ON) — the rollup only ever
+    // read row one; the full desc-ordered history was thrown away.
     prisma.lighthouseAudit.findMany({
       where: idFilter,
-      orderBy: { auditedAt: "desc" },
+      distinct: ["businessId"],
+      orderBy: [{ businessId: "asc" }, { auditedAt: "desc" }],
       select: {
         businessId: true,
         performance: true,
@@ -1723,16 +1917,45 @@ export async function hydrateBusinessForSignals(
         hasFaqSchema: true,
       },
     }),
+    // Reviews · DB-side aggregate (was: EVERY Review row for the window — a
+    // mature cell is 100k+ rows per render). One grouped scan computes the
+    // exact counts rollupReviews derived in JS (see rollupReviewAgg — the
+    // paired pure half). `::int` keeps the counts plain numbers (COUNT is
+    // bigint); aliases quoted for camelCase.
+    prisma.$queryRaw<
+      {
+        businessId: string;
+        total: number;
+        unanswered: number;
+        unanswered1: number;
+        unansweredNeg: number;
+        recentNeg: number;
+        lastReviewAt: Date | null;
+      }[]
+    >(Prisma.sql`
+      SELECT "businessId",
+             COUNT(*)::int AS "total",
+             COUNT(*) FILTER (WHERE NOT "ownerReplied")::int AS "unanswered",
+             COUNT(*) FILTER (WHERE NOT "ownerReplied" AND "stars" = 1)::int AS "unanswered1",
+             COUNT(*) FILTER (WHERE NOT "ownerReplied" AND "stars" <= ${NEGATIVE_STARS})::int AS "unansweredNeg",
+             COUNT(*) FILTER (WHERE "stars" <= ${NEGATIVE_STARS} AND "postedAt" >= ${spikeCutoff})::int AS "recentNeg",
+             MAX("postedAt") AS "lastReviewAt"
+      FROM "Review"
+      WHERE "businessId" IN (${Prisma.join(ids)})
+      GROUP BY "businessId"
+    `),
+    // Reviews · the themed NEGATIVES only (≤2★ or NEGATIVE sentiment, with ≥1
+    // theme tag) — the one review fact that needs raw rows. Bounded +
+    // newest-first so cost stays flat as reviews accumulate.
     prisma.review.findMany({
-      where: idFilter,
-      select: {
-        businessId: true,
-        stars: true,
-        ownerReplied: true,
-        postedAt: true,
-        sentiment: true,
-        themes: true,
+      where: {
+        ...idFilter,
+        OR: [{ stars: { lte: NEGATIVE_STARS } }, { sentiment: "NEGATIVE" }],
+        NOT: { themes: { isEmpty: true } },
       },
+      select: { businessId: true, themes: true },
+      orderBy: { postedAt: "desc" },
+      take: REVIEW_THEME_SCAN_LIMIT,
     }),
     prisma.serpResult.findMany({
       where: idFilter,
@@ -1743,10 +1966,14 @@ export async function hydrateBusinessForSignals(
         isBrandQuery: true,
       },
     }),
+    // ALL ad entries (any platform, active or not): the evaluator's rollup
+    // filters isActive itself; the per-platform row counts + coverage presence
+    // read the full set (the same semantics as the old page-side groupBy).
     prisma.adLibraryEntry.findMany({
-      where: { ...idFilter, isActive: true },
+      where: idFilter,
       select: {
         businessId: true,
+        platform: true,
         isActive: true,
         displayFormat: true,
         startedAt: true,
@@ -1777,6 +2004,8 @@ export async function hydrateBusinessForSignals(
         businessId: true,
         channel: true,
         role: true,
+        value: true,
+        optedOutAt: true,
       },
     }),
     prisma.playbookFinding.findMany({
@@ -1787,86 +2016,98 @@ export async function hydrateBusinessForSignals(
         group: true,
         value: true,
         confidence: true,
+        explanation: true,
+        pitchAngle: true,
       },
     }),
-    // Per-business services taxonomy (active, canonicalized) for the service-gap
-    // signal. Only the canonicalKey matters — that's what cell prevalence keys on.
+    // Per-business services taxonomy — ALL rows (the coverage matrix's
+    // presence signal); the service-gap rollup below filters to isActive.
     prisma.businessService.findMany({
-      where: { ...idFilter, isActive: true },
-      select: { businessId: true, canonicalKey: true },
+      where: idFilter,
+      select: { businessId: true, canonicalKey: true, isActive: true },
     }),
-    // Resolve cell prevalence per business via their cellKey (latest run).
-    prisma.business
-      .findMany({
-        where: { id: { in: ids } },
-        select: { id: true, cellKey: true },
-      })
-      .then(async (rows) => {
-        const cellKeys = Array.from(
-          new Set(rows.map((r) => r.cellKey).filter((k): k is string => !!k)),
-        );
-        if (cellKeys.length === 0)
-          return [] as {
-            businessId: string;
-            advertiserCount: number;
-          }[];
-        // TRUTH UNIFICATION (2026-07-06) · META only. advertiserCount is the
-        // Meta Ad Library market facet; the per-business GOOGLE telemetry rows
-        // (advertiserCount 0/1) were newest and CLOBBERED the cell's value.
-        const runs = await prisma.adMarketRun.findMany({
+    // AI research presence + the positioning summary (the "AI summary" column).
+    prisma.businessEnrichment.findMany({
+      where: idFilter,
+      select: { businessId: true, positioningSummary: true },
+    }),
+    // Cell ad-market prevalence — TRUTH UNIFICATION (2026-07-06) · META only:
+    // advertiserCount is the Meta Ad Library market facet; the per-business
+    // GOOGLE telemetry rows (advertiserCount 0/1) were newest and CLOBBERED the
+    // cell's value. cellKeys come from the already-loaded rows (no re-read).
+    cellKeys.length > 0
+      ? prisma.adMarketRun.findMany({
           where: { cellKey: { in: cellKeys }, platform: "META" },
           orderBy: { ranAt: "desc" },
           select: { cellKey: true, advertiserCount: true },
-        });
-        // Latest run per cellKey (rows are desc-ordered → first wins).
-        const latestByCell = new Map<string, number>();
-        for (const run of runs) {
-          if (!latestByCell.has(run.cellKey))
-            latestByCell.set(run.cellKey, run.advertiserCount);
-        }
-        return rows
-          .filter((r) => r.cellKey && latestByCell.has(r.cellKey))
-          .map((r) => ({
-            businessId: r.id,
-            advertiserCount: latestByCell.get(r.cellKey as string) as number,
-          }));
-      }),
-    // Common-service canonicalKeys per cell (prevalence ≥ threshold), resolved
-    // via each business's cellKey. Drives the service-gap "missing N common
-    // services" count. Returns cellKey → Set<canonicalKey>.
-    prisma.business
-      .findMany({
-        where: { id: { in: ids } },
-        select: { id: true, cellKey: true },
-      })
-      .then(async (rows) => {
-        const cellKeys = Array.from(
-          new Set(rows.map((r) => r.cellKey).filter((k): k is string => !!k)),
-        );
-        if (cellKeys.length === 0) return new Map<string, Set<string>>();
-        const prevRows = await prisma.cellServicePrevalence.findMany({
+        })
+      : Promise.resolve([] as { cellKey: string; advertiserCount: number }[]),
+    // Common-service canonicalKeys per cell (prevalence ≥ threshold) — the
+    // service-gap "missing N common services" count.
+    cellKeys.length > 0
+      ? prisma.cellServicePrevalence.findMany({
           where: {
             cellKey: { in: cellKeys },
             prevalence: { gte: COMMON_SERVICE_PREVALENCE },
           },
           select: { cellKey: true, canonicalKey: true },
-        });
-        const byCell = new Map<string, Set<string>>();
-        for (const p of prevRows) {
-          const set = byCell.get(p.cellKey) ?? new Set<string>();
-          set.add(p.canonicalKey);
-          byCell.set(p.cellKey, set);
-        }
-        return byCell;
-      }),
-    // Cluster-C · per-cell organic distributions (sampleSize + breakpoints) from
-    // the already-computed CellMetric rows. Returns cellKey → CellOrganicRef.
-    loadCellOrganicRefs(ids),
+        })
+      : Promise.resolve([] as { cellKey: string; canonicalKey: string }[]),
+    // Cluster-C · the LATEST CellMetric per cell (newest computedAt wins —
+    // deterministic; the old fold kept an arbitrary row when a cell had
+    // several). Feeds the organic distributions AND the workbench's
+    // market-true vs-cell reference bands.
+    cellKeys.length > 0
+      ? prisma.cellMetric.findMany({
+          where: { cellKey: { in: cellKeys } },
+          orderBy: { computedAt: "desc" },
+          select: {
+            cellKey: true,
+            sampleSize: true,
+            confidence: true,
+            adPrevalence: true,
+            distributions: true,
+          },
+        })
+      : Promise.resolve(
+          [] as {
+            cellKey: string;
+            sampleSize: number;
+            confidence: string;
+            adPrevalence: number | null;
+            distributions: Prisma.JsonValue | null;
+          }[],
+        ),
     // Cluster-H · same-metro chain clusters (multi_location) + per-cell recent
-    // new-entrant flags (competitor_pressure). One bounded pre-pass over the
-    // cohort's metros — already-stored Business rows, no external data.
-    loadCellChainFacts(ids, now),
+    // new-entrant flags (competitor_pressure) — the pre-pass reads the
+    // already-loaded cohort rows (no Business re-read).
+    loadCellChainFacts(businesses, now),
   ]);
+
+  // Latest CellMetric per cellKey (rows are desc-ordered → first wins), parsed
+  // once via parseCellReference so every consumer reads the same breakpoints.
+  const cellRefs = new Map<string, CellReference | null>();
+  for (const m of cellMetricRows) {
+    if (!cellRefs.has(m.cellKey)) {
+      cellRefs.set(m.cellKey, parseCellReference(m));
+    }
+  }
+
+  // Common-service keys per cell.
+  const prevalenceByCell = new Map<string, Set<string>>();
+  for (const p of cellPrevalence) {
+    const set = prevalenceByCell.get(p.cellKey) ?? new Set<string>();
+    set.add(p.canonicalKey);
+    prevalenceByCell.set(p.cellKey, set);
+  }
+
+  // Latest META AdMarketRun per cell (rows are desc-ordered → first wins).
+  const adMarketByCell = new Map<string, number>();
+  for (const run of adMarketRuns) {
+    if (!adMarketByCell.has(run.cellKey)) {
+      adMarketByCell.set(run.cellKey, run.advertiserCount);
+    }
+  }
 
   // SerpResult / AdLibraryEntry carry a nullable businessId in Prisma (they can
   // reference a not-yet-indexed competitor). We queried by `businessId in ids`,
@@ -1879,12 +2120,14 @@ export async function hydrateBusinessForSignals(
     (r): r is typeof r & { businessId: string } => r.businessId != null,
   );
 
-  // Index multi-row relations by businessId. Snapshots stay grouped (desc) so
-  // the rollup can read both the latest AND a ~90-day-prior row for the rating
-  // trend; everything else keeps its first/grouped shape.
-  const snapshotsByBiz = groupByBiz(snapshots);
+  // Index multi-row relations by businessId. Snapshots are reassembled as
+  // [latest, ...trend-window rows] per business — rollupSnapshot reads the
+  // latest first AND picks the ~90d-prior rating from the window rows.
+  const latestSnapshotByBiz = firstByBiz(snapshotPair.latest);
+  const trendByBiz = groupByBiz(snapshotPair.trend);
   const auditByBiz = firstByBiz(audits);
-  const reviewsByBiz = groupByBiz(reviews);
+  const reviewAggByBiz = new Map(reviewAgg.map((r) => [r.businessId, r]));
+  const themesByBiz = groupByBiz(themedNegatives);
   const serpsByBiz = groupByBiz(serpsWithBiz);
   const adsByBiz = groupByBiz(adsWithBiz);
   const techByBiz = groupByBiz(tech);
@@ -1892,86 +2135,84 @@ export async function hydrateBusinessForSignals(
   const contactsByBiz = groupByBiz(contacts);
   const findingsByBiz = groupByBiz(findings);
   const servicesByBiz = groupByBiz(businessServices);
-  const adMarketByBiz = new Map(
-    adMarketRuns.map((r) => [r.businessId, r.advertiserCount]),
-  );
 
   for (const b of businesses) {
     const cellKey = typeof b.cellKey === "string" ? b.cellKey : null;
+    const latestSnap = latestSnapshotByBiz.get(b.id) ?? null;
+    const snapshotRows = latestSnap
+      ? [latestSnap, ...(trendByBiz.get(b.id) ?? [])]
+      : [];
     out.set(b.id, {
       id: b.id,
       business: b as Record<string, unknown>,
-      snapshot: rollupSnapshot(snapshotsByBiz.get(b.id) ?? [], now),
+      snapshot: rollupSnapshot(snapshotRows, now),
       lighthouse: rollupLighthouse(auditByBiz.get(b.id) ?? null),
-      reviews: rollupReviews(reviewsByBiz.get(b.id) ?? [], now),
+      reviews: rollupReviewAgg(
+        reviewAggByBiz.get(b.id) ?? null,
+        themesByBiz.get(b.id) ?? [],
+      ),
       serp: rollupSerp(serpsByBiz.get(b.id) ?? null),
       ads: rollupAds(adsByBiz.get(b.id) ?? [], now),
       tech: rollupTech(techByBiz.get(b.id) ?? []),
-      adMarket: { advertiserCount: adMarketByBiz.get(b.id) ?? null },
+      adMarket: {
+        advertiserCount: cellKey ? (adMarketByCell.get(cellKey) ?? null) : null,
+      },
       keywords: rollupKeywords(keywordsByBiz.get(b.id) ?? []),
       contacts: rollupContacts(contactsByBiz.get(b.id) ?? []),
       findings: rollupFindings(findingsByBiz.get(b.id) ?? []),
       services: rollupServices(
-        servicesByBiz.get(b.id) ?? [],
-        cellKey ? (cellPrevalence.get(cellKey) ?? null) : null,
+        (servicesByBiz.get(b.id) ?? []).filter((s) => s.isActive),
+        cellKey ? (prevalenceByCell.get(cellKey) ?? null) : null,
       ),
-      cell: rollupCell(b, cellKey, cellOrganicRefs, cellChainFacts),
+      cell: rollupCell(b, cellKey, cellRefs, cellChainFacts),
     });
   }
 
-  return out;
-}
-
-// ── Cluster-C / Cluster-H cell pre-passes (DB-touching, bounded, $0) ─────────
-
-/** Per-cell organic distribution reference, read from CellMetric. */
-interface CellOrganicRef {
-  sampleSize: number;
-  organicTraffic: Breakpoints | null;
-  organicRank: Breakpoints | null;
-}
-
-/**
- * Load the organic distributions (organic-traffic + organic-rank breakpoints +
- * sampleSize) for every cell the cohort's businesses sit in, from the already-
- * computed `CellMetric` rows. ZERO external cost — a single read keyed on the
- * cohort's distinct cellKeys. Returns cellKey → {@link CellOrganicRef}.
- */
-async function loadCellOrganicRefs(
-  ids: string[],
-): Promise<Map<string, CellOrganicRef>> {
-  const out = new Map<string, CellOrganicRef>();
-  const rows = await prisma.business.findMany({
-    where: { id: { in: ids } },
-    select: { cellKey: true },
-  });
-  const cellKeys = Array.from(
-    new Set(rows.map((r) => r.cellKey).filter((k): k is string => !!k)),
-  );
-  if (cellKeys.length === 0) return out;
-
-  const metrics = await prisma.cellMetric.findMany({
-    where: { cellKey: { in: cellKeys } },
-    select: {
-      cellKey: true,
-      sampleSize: true,
-      confidence: true,
-      adPrevalence: true,
-      distributions: true,
-    },
-  });
-  for (const m of metrics) {
-    // parseCellReference reads the distributions bag (incl. the new organic keys)
-    // into typed Breakpoints, so the two paths can't diverge.
-    const ref = parseCellReference(m);
-    out.set(m.cellKey, {
-      sampleSize: m.sampleSize,
-      organicTraffic: ref?.organicTraffic ?? null,
-      organicRank: ref?.organicRank ?? null,
-    });
+  // ── Row-building side data (same pass, widened columns — Pattern 4 plain) ──
+  const metaAdCountByBusiness = new Map<string, number>();
+  const googleAdCountByBusiness = new Map<string, number>();
+  for (const a of adsWithBiz) {
+    if (a.platform === "META") {
+      metaAdCountByBusiness.set(
+        a.businessId,
+        (metaAdCountByBusiness.get(a.businessId) ?? 0) + 1,
+      );
+    } else if (a.platform === "GOOGLE") {
+      googleAdCountByBusiness.set(
+        a.businessId,
+        (googleAdCountByBusiness.get(a.businessId) ?? 0) + 1,
+      );
+    }
   }
-  return out;
+  const aiPresence = new Set<string>();
+  const aiSummaryByBusiness = new Map<string, string>();
+  for (const e of enrichments) {
+    aiPresence.add(e.businessId);
+    if (e.positioningSummary != null) {
+      aiSummaryByBusiness.set(e.businessId, e.positioningSummary);
+    }
+  }
+
+  const rowData: HydratedRowData = {
+    contacts,
+    techs: tech,
+    findings,
+    metaAdCountByBusiness,
+    googleAdCountByBusiness,
+    serpPresence: new Set(serpsWithBiz.map((r) => r.businessId)),
+    aiPresence,
+    aiSummaryByBusiness,
+    servicePresence: new Set(businessServices.map((r) => r.businessId)),
+    cellRefs,
+  };
+
+  return { hydrated: out, rowData };
 }
+
+// ── Cluster-H cell pre-pass (DB-touching, bounded, $0) ───────────────────────
+// (The Cluster-C organic-distribution read now rides the main hydration
+// Promise.all — one CellMetric query, latest-per-cell, parsed via
+// parseCellReference into the shared `cellRefs` map.)
 
 /** Per-cell chain-clustering + new-entrant facts for the cohort's businesses. */
 interface CellChainFacts {
@@ -1992,26 +2233,22 @@ interface CellChainFacts {
  *      first appeared on Google within {@link NEW_ENTRANT_WINDOW_DAYS}.
  *
  * Scoped to the cohort's metroSlugs/cellKeys (not the whole 2.1M index) and
- * capped at {@link CHAIN_PREPASS_SCAN_LIMIT} rows for safety.
+ * capped at {@link CHAIN_PREPASS_SCAN_LIMIT} rows for safety. The cohort rows
+ * are the caller's already-loaded Business slice (no re-read).
  */
 async function loadCellChainFacts(
-  ids: string[],
+  cohort: readonly {
+    id: string;
+    name: string;
+    domain: string | null;
+    googleCid: string | null;
+    metroSlug: string | null;
+    cellKey: string | null;
+  }[],
   now: Date,
 ): Promise<CellChainFacts> {
   const locationCountByBiz = new Map<string, number>();
   const newEntrantByCell = new Map<string, boolean>();
-
-  const cohort = await prisma.business.findMany({
-    where: { id: { in: ids } },
-    select: {
-      id: true,
-      name: true,
-      domain: true,
-      googleCid: true,
-      metroSlug: true,
-      cellKey: true,
-    },
-  });
 
   const metroSlugs = Array.from(
     new Set(cohort.map((b) => b.metroSlug).filter((m): m is string => !!m)),
@@ -2101,15 +2338,16 @@ function normalizeHost(domain: string | null | undefined): string | null {
 /**
  * Build the `cell` hydration slot for one business. Pure. `locationCount` is
  * keyed on businessId (independent of cellKey — chain clustering is per-metro);
- * the organic refs + new-entrant flag are keyed on the business's cellKey.
+ * the parsed CellMetric reference + new-entrant flag are keyed on the
+ * business's cellKey.
  */
 function rollupCell(
   b: { id: string },
   cellKey: string | null,
-  organicRefs: Map<string, CellOrganicRef>,
+  cellRefs: Map<string, CellReference | null>,
   chain: CellChainFacts,
 ): HydratedCell {
-  const ref = cellKey ? (organicRefs.get(cellKey) ?? null) : null;
+  const ref = cellKey ? (cellRefs.get(cellKey) ?? null) : null;
   return {
     sampleSize: ref?.sampleSize ?? null,
     organicTraffic: ref?.organicTraffic ?? null,
@@ -2278,6 +2516,44 @@ export function rollupReviews(rows: ReviewRow[], now: Date): HydratedReviews {
     lastReviewAt,
     recentNegativeCount: recentNegative,
     hasAnyReview: rows.length > 0,
+  };
+}
+
+/** One business's DB-side review aggregate (the `$queryRaw` FILTER counts). */
+export interface ReviewAggRow {
+  total: number;
+  unanswered: number;
+  unanswered1: number;
+  unansweredNeg: number;
+  recentNeg: number;
+  lastReviewAt: Date | null;
+}
+
+/**
+ * Aggregate-fed twin of {@link rollupReviews} (2026-07-06 · Step 3 of the
+ * render refactor): the counts now come from ONE grouped SQL scan instead of
+ * loading every Review row into JS, and the themes come from the bounded
+ * themed-negatives read. Produces the exact same {@link HydratedReviews} the
+ * evaluator reads — `rollupReviews` stays exported as the row-level reference
+ * implementation the unit tests pin the semantics with. Pure.
+ */
+export function rollupReviewAgg(
+  agg: ReviewAggRow | null,
+  themedNegativeRows: readonly { themes: string[] }[],
+): HydratedReviews {
+  const negativeThemes = new Set<string>();
+  for (const r of themedNegativeRows) {
+    for (const t of r.themes ?? []) negativeThemes.add(t.toLowerCase());
+  }
+  return {
+    unanswered1StarCount: agg?.unanswered1 ?? 0,
+    unansweredNegativeCount: agg?.unansweredNeg ?? 0,
+    unansweredCount: agg?.unanswered ?? 0,
+    hasNegativeTheme: negativeThemes.size > 0,
+    negativeThemes: Array.from(negativeThemes),
+    lastReviewAt: agg?.lastReviewAt ?? null,
+    recentNegativeCount: agg?.recentNeg ?? 0,
+    hasAnyReview: (agg?.total ?? 0) > 0,
   };
 }
 

@@ -74,20 +74,25 @@ export interface WorkbenchLeadRow {
   reachability: string;
   /** True when at least one contact channel exists. */
   reachable: boolean;
-  /** CMS / site-builder ("Wix", "WordPress", …) or null. */
+  /** CMS / site-builder ("Wix", "WordPress", …) or null. Stays CORE (always
+   *  serialized) even though its column is off-default — free-text search
+   *  matches on it. */
   builtOn: string | null;
   /** AUDIT C3 · the exact on-site booking tool (Square/Vagaro/Fresha/…) from
-   *  BusinessTech.name — stored, never surfaced as its own column. */
-  bookingTool: string | null;
+   *  BusinessTech.name. HEAVY (Step 4): serialized only while its column is
+   *  active; lazily hydrated on toggle. Absent ≠ null — absent means "not
+   *  shipped in this payload", null means "no booking tool". */
+  bookingTool?: string | null;
   /** Business website URL (Business.website) — CSV export column (WP2-4). */
   website: string | null;
   /**
    * The strongest pitch angle (highest-confidence flagged finding's
    * pitchAngle) — the one-liner Tom pastes into his opener. Null when no
-   * finding carries one. CSV export column (WP2-4). One short string per row
-   * keeps the serialized payload bounded.
+   * finding carries one. CSV export column (WP2-4) rendered in NO table
+   * column — HEAVY (Step 4): never serialized eagerly; the client CSV export
+   * hydrates it on demand via getWorkbenchRowFieldsAction.
    */
-  pitchAngle: string | null;
+  pitchAngle?: string | null;
   /** Touch state for this lead's business ("None" | "Draft" | "Sent" | …). */
   touch: TouchState;
   /** Lead.contactedAt, ISO string (plain-serializable) — null until contacted. */
@@ -100,28 +105,37 @@ export interface WorkbenchLeadRow {
    */
   closed?: "permanent" | "temporary" | null;
   // Raw numeric facts (null when the family isn't enriched on this lead).
+  // reviews/rating/perf stay CORE — the numeric FILTERS read them (a saved
+  // "perf < 50" filter must evaluate even while the column is hidden).
   reviews: number | null;
   rating: number | null;
   perf: number | null;
+  // ── HEAVY fields (Step 4 · column-driven serialization) ────────────────────
+  // Serialized only while their column is active (the `mapsly-wb-cols` cookie
+  // tells the server the active set); otherwise ABSENT from the payload and
+  // lazily hydrated by getWorkbenchRowFieldsAction when the column toggles on.
+  // Absent (undefined) means "not shipped" — the client renders a loading cell
+  // until hydration lands, NEVER the "— enrich" affordance (which would lie
+  // about data that exists). Null keeps its meaning: genuinely no data.
   /** AUDIT F2 · Lighthouse SEO score (0–100) — was stored, never columnised. */
-  seo: number | null;
+  seo?: number | null;
   /** Active Meta (FB/IG) ad-creative count — stored, columnised separately from
    *  Google (distinct source + attribution; never merged). */
-  metaAdCount: number | null;
+  metaAdCount?: number | null;
   /** Active Google ad-creative count (per-business target-host attribution). */
-  googleAdCount: number | null;
+  googleAdCount?: number | null;
   /** AUDIT F2 · best local-pack rank (lower = better; null = off the pack). */
-  serpRank: number | null;
+  serpRank?: number | null;
   /** AUDIT F2 · the AI-research one-line positioning summary (BusinessEnrichment.
    *  positioningSummary) — the researched read the drawer surfaces, now a
    *  toggle-able column. Null when AI research hasn't run for this lead. */
-  aiSummary: string | null;
+  aiSummary?: string | null;
   // Contact facts.
   phones: string[];
   emails: string[];
   /** Social handles (Instagram/Facebook/TikTok/…) from Contact rows — AUDIT E6:
-   *  the data was always stored, just never surfaced as a column. */
-  socials: SocialContact[];
+   *  the data was always stored, just never surfaced as a column. HEAVY. */
+  socials?: SocialContact[];
 }
 
 /** One social contact channel + its handle/URL (audit E6). */
@@ -400,14 +414,46 @@ export interface ColumnDef {
   unit?: string;
   /** For "sig" columns only: the SIG_META key to read from row.perSignal. */
   sigKey?: string;
+  // ── Registry-owned VALUE ACCESSORS (2026-07-06 · Step 5 of the render
+  //    refactor). ONE place maps a column key → its row field; the four
+  //    hardcoded switches that used to re-implement this mapping (renderCell's
+  //    text/num key-branches, numField, fieldValue, sortRows) all read these,
+  //    so the "column renders but silently won't sort/filter" bug class
+  //    (the shipped lastC dead sort) is unrepresentable: a column without an
+  //    accessor simply has no numeric/text value anywhere.
+  //
+  //    ⚠ cache-components.md Pattern 4 GUARD: these are FUNCTIONS, legal here
+  //    ONLY because COLUMNS is *imported* by both the server pages and the
+  //    client workbench — it must NEVER be serialized (passed as a prop,
+  //    returned from a server action, or embedded in page data). Rows carry
+  //    plain data; the registry carries the behavior. Before wiring COLUMNS
+  //    into any props object, re-read that rule — the boundary check lives in
+  //    React, not the type system.
+  /** Numeric value of this column for a row (sorting · filtering · the num
+   *  cell). Null = no data (renders the enrich affordance; sinks in sorts). */
+  numValue?: (r: WorkbenchLeadRow) => number | null;
+  /** Text value of this column for a row (the text cell). */
+  textValue?: (r: WorkbenchLeadRow) => string | null;
+  /** Sort key override when the sortable value isn't the displayed number
+   *  (e.g. Last contacted sorts by timestamp). Falls back to numValue. */
+  sortValue?: (r: WorkbenchLeadRow) => number | null;
+  /**
+   * Step 4 · the WorkbenchLeadRow fields this column READS. The server
+   * serializer ships CORE fields always and a HEAVY field only when an active
+   * column lists it here (union over the active set — heavyFieldsForColumns);
+   * the client's lazy hydration fetches the same union when a column toggles
+   * on. A column without rowFields reads only derived/coverage data.
+   */
+  rowFields?: readonly (keyof WorkbenchLeadRow)[];
 }
 
 /**
  * The canonical workbench column registry. Order here is render order
  * (2026-07-06 reorder): identity anchor (biz · match · pains) → decision
- * signal (reviews — the revenue proxy) → contact/action data (website ·
- * phones · emails) → per-research detail with GROUP MEMBERS ADJACENT
- * (rating · perf+seo · aiSummary · metaAdCount+googleAdCount · serpRank ·
+ * signals (reviews — the revenue proxy — with rating IMMEDIATELY beside it,
+ * owner: "review + rating should be close to each other") → contact/action
+ * data (website · phones · emails) → per-research detail with GROUP MEMBERS
+ * ADJACENT (perf+seo · aiSummary · metaAdCount+googleAdCount · serpRank ·
  * the contacts_tech extras) → workflow state at the right edge (cov ·
  * status · touch · lastContactedAt).
  *
@@ -423,6 +469,7 @@ export const COLUMNS: readonly ColumnDef[] = [
     sortable: false,
     defaultOn: true,
     typeGroup: "Identity",
+    rowFields: ["name", "addr", "closed"],
   },
   {
     key: "match",
@@ -431,6 +478,8 @@ export const COLUMNS: readonly ColumnDef[] = [
     sortable: true,
     defaultOn: true,
     typeGroup: "Identity",
+    numValue: (r) => r.match,
+    rowFields: ["match", "matchDerived", "matchFromSignals", "perSignal"],
   },
   {
     key: "pains",
@@ -440,6 +489,7 @@ export const COLUMNS: readonly ColumnDef[] = [
     sortable: false,
     defaultOn: true,
     typeGroup: "Identity",
+    rowFields: ["pains", "perSignal"],
   },
   {
     key: "reviews",
@@ -453,6 +503,25 @@ export const COLUMNS: readonly ColumnDef[] = [
     group: "reviews",
     higherIsBetter: true,
     typeGroup: "Reviews",
+    numValue: (r) => r.reviews,
+    rowFields: ["reviews"],
+  },
+  {
+    // Owner 2026-07-06 · rating sits IMMEDIATELY after reviews ("review +
+    // rating should be close to each other") — the pair reads as one
+    // reputation cluster ahead of the contact anchors, so it no longer rides
+    // the goal-first research-span reorder (it's an anchor now).
+    key: "rating",
+    label: "Rating",
+    kind: "num",
+    sortable: true,
+    defaultOn: false,
+    group: "reviews",
+    higherIsBetter: true,
+    unit: "★",
+    typeGroup: "Reviews",
+    numValue: (r) => r.rating,
+    rowFields: ["rating"],
   },
   {
     key: "website",
@@ -465,6 +534,7 @@ export const COLUMNS: readonly ColumnDef[] = [
     // The URL comes from the DOM/contacts fetch → the Contacts & site tech group.
     group: "contacts_tech",
     typeGroup: "Tech",
+    rowFields: ["website"],
   },
   {
     key: "phones",
@@ -477,6 +547,9 @@ export const COLUMNS: readonly ColumnDef[] = [
     defaultOn: true,
     group: "contacts_tech",
     typeGroup: "Contacts",
+    // The FILTER value ("Phones found ≥ 1") — the cell renders the array.
+    numValue: (r) => r.phones.length,
+    rowFields: ["phones"],
   },
   {
     key: "emails",
@@ -486,17 +559,9 @@ export const COLUMNS: readonly ColumnDef[] = [
     defaultOn: true,
     group: "contacts_tech",
     typeGroup: "Contacts",
-  },
-  {
-    key: "rating",
-    label: "Rating",
-    kind: "num",
-    sortable: true,
-    defaultOn: false,
-    group: "reviews",
-    higherIsBetter: true,
-    unit: "★",
-    typeGroup: "Reviews",
+    // The FILTER value ("Emails found ≥ 1") — the cell renders the array.
+    numValue: (r) => r.emails.length,
+    rowFields: ["emails"],
   },
   {
     key: "perf",
@@ -511,6 +576,8 @@ export const COLUMNS: readonly ColumnDef[] = [
     enrichTypes: ["lighthouse"],
     higherIsBetter: true,
     typeGroup: "Site audit",
+    numValue: (r) => r.perf,
+    rowFields: ["perf"],
   },
   {
     // AUDIT F2 · SEO score — stored on LighthouseAudit, never shown.
@@ -525,6 +592,8 @@ export const COLUMNS: readonly ColumnDef[] = [
     enrichTypes: ["lighthouse"],
     higherIsBetter: true,
     typeGroup: "Site audit",
+    numValue: (r) => r.seo ?? null,
+    rowFields: ["seo"],
   },
   {
     // AUDIT F2 · the AI-research positioning summary — stored on
@@ -542,6 +611,8 @@ export const COLUMNS: readonly ColumnDef[] = [
     group: "ai_brief",
     enrichTypes: ["ai_research"],
     typeGroup: "AI",
+    textValue: (r) => r.aiSummary ?? null,
+    rowFields: ["aiSummary"],
   },
   {
     // Meta and Google ads are SEPARATE columns — distinct sources, cost bases,
@@ -556,6 +627,8 @@ export const COLUMNS: readonly ColumnDef[] = [
     group: "meta_ads",
     higherIsBetter: true,
     typeGroup: "Ads",
+    numValue: (r) => r.metaAdCount ?? null,
+    rowFields: ["metaAdCount"],
   },
   {
     key: "googleAdCount",
@@ -567,6 +640,8 @@ export const COLUMNS: readonly ColumnDef[] = [
     group: "google_ads",
     higherIsBetter: true,
     typeGroup: "Ads",
+    numValue: (r) => r.googleAdCount ?? null,
+    rowFields: ["googleAdCount"],
   },
   {
     // AUDIT F2 · best local-pack rank — stored on SerpResult, never shown.
@@ -579,6 +654,8 @@ export const COLUMNS: readonly ColumnDef[] = [
     group: "search",
     higherIsBetter: false,
     typeGroup: "Search",
+    numValue: (r) => r.serpRank ?? null,
+    rowFields: ["serpRank"],
   },
   {
     key: "builtOn",
@@ -593,6 +670,8 @@ export const COLUMNS: readonly ColumnDef[] = [
     // Lighthouse. A cell-click enriches contacts+tech only.
     enrichTypes: ["contacts", "tech"],
     typeGroup: "Tech",
+    textValue: (r) => r.builtOn,
+    rowFields: ["builtOn"],
   },
   {
     // AUDIT C3 · the exact booking tool (Square/Vagaro/Fresha) — stored, unshown.
@@ -605,6 +684,8 @@ export const COLUMNS: readonly ColumnDef[] = [
     // Booking tool is read from the DOM/tech scan, not Lighthouse.
     enrichTypes: ["contacts", "tech"],
     typeGroup: "Tech",
+    textValue: (r) => r.bookingTool ?? null,
+    rowFields: ["bookingTool"],
   },
   {
     // AUDIT E6 · social handles were stored but never shown. Off by default
@@ -616,6 +697,7 @@ export const COLUMNS: readonly ColumnDef[] = [
     defaultOn: false,
     group: "contacts_tech",
     typeGroup: "Contacts",
+    rowFields: ["socials"],
   },
   {
     key: "reachable",
@@ -628,6 +710,7 @@ export const COLUMNS: readonly ColumnDef[] = [
     defaultOn: false,
     group: "contacts_tech",
     typeGroup: "Contacts",
+    rowFields: ["reachability", "reachable"],
   },
   {
     key: "cov",
@@ -648,6 +731,7 @@ export const COLUMNS: readonly ColumnDef[] = [
     sortable: false,
     defaultOn: true,
     typeGroup: "Identity",
+    rowFields: ["status"],
   },
   {
     key: "touch",
@@ -656,6 +740,7 @@ export const COLUMNS: readonly ColumnDef[] = [
     sortable: false,
     defaultOn: true,
     typeGroup: "Identity",
+    rowFields: ["touch"],
   },
   {
     key: "lastContactedAt",
@@ -667,6 +752,12 @@ export const COLUMNS: readonly ColumnDef[] = [
     // discovery. Sortable + addable from the Fields menu when Tom needs it.
     defaultOn: false,
     typeGroup: "Identity",
+    // Sorts by timestamp (the cell renders a relative form). This accessor is
+    // what the old sortRows switch got wrong once (the "lastC" kind vs key
+    // silent dead sort) — the registry owns it now.
+    sortValue: (r) =>
+      r.lastContactedAt ? new Date(r.lastContactedAt).getTime() : null,
+    rowFields: ["lastContactedAt"],
   },
 ] as const;
 
@@ -676,9 +767,93 @@ export const COLUMNS: readonly ColumnDef[] = [
 // "why qualifies" chips in the Pain-points column. The `sig` ColumnKind +
 // `sigKey` field remain on ColumnDef only for back-compat of persisted views.
 
+/** Key → ColumnDef lookup (sorting + filtering read the registry accessors). */
+const COLUMN_BY_KEY = new Map(COLUMNS.map((c) => [c.key, c] as const));
+
 export const DEFAULT_ACTIVE_COLUMNS: string[] = COLUMNS.filter(
   (c) => c.defaultOn,
 ).map((c) => c.key);
+
+// ── Step 4 · column-driven serialization (core vs heavy row fields) ──────────
+
+/**
+ * The HEAVY WorkbenchLeadRow fields — serialized only when an ACTIVE column
+ * reads them; everything else is CORE (always shipped: identity + search
+ * fields, the numeric-FILTER fields reviews/rating/perf/emails/phones — a
+ * saved filter must evaluate with its column hidden — status/touch, and
+ * perSignal for the filter library). `pitchAngle` is rendered in NO column —
+ * it ships only on demand (the client CSV export hydrates it before writing
+ * the file).
+ */
+export const HEAVY_ROW_FIELDS = [
+  "seo",
+  "metaAdCount",
+  "googleAdCount",
+  "serpRank",
+  "aiSummary",
+  "bookingTool",
+  "socials",
+  "pitchAngle",
+] as const satisfies readonly (keyof WorkbenchLeadRow)[];
+
+export type HeavyRowField = (typeof HEAVY_ROW_FIELDS)[number];
+
+const HEAVY_ROW_FIELD_SET: ReadonlySet<string> = new Set(HEAVY_ROW_FIELDS);
+
+/**
+ * The heavy fields a given ACTIVE column set needs — the union of the columns'
+ * `rowFields`, intersected with {@link HEAVY_ROW_FIELDS}. Both the server
+ * serializer (which heavy fields to ship in the first paint) and the client's
+ * lazy hydration (which fields to fetch when a column toggles on) read THIS,
+ * so the two can never disagree. Unknown keys are ignored (defensive — a
+ * stale cookie/blob from an older column set). Pure.
+ */
+export function heavyFieldsForColumns(
+  activeCols: readonly string[],
+): Set<HeavyRowField> {
+  const out = new Set<HeavyRowField>();
+  for (const key of activeCols) {
+    const col = COLUMN_BY_KEY.get(key);
+    if (!col?.rowFields) continue;
+    for (const f of col.rowFields) {
+      if (HEAVY_ROW_FIELD_SET.has(f)) out.add(f as HeavyRowField);
+    }
+  }
+  return out;
+}
+
+// ── Step 4 · the `mapsly-wb-cols` cookie (server-readable active columns) ────
+// localStorage keeps the per-research view blob (wb-view-state.ts); this ONE
+// small cookie mirrors the last-saved active-column set so the SERVER knows
+// which heavy fields to serialize into the first paint (no cookie → the
+// goal-default column set). Defensive parse like the localStorage blob —
+// stale/unknown keys are dropped; a mismatch is harmless (the client's lazy
+// hydration fills any gap after the view restores).
+
+export const WB_COLS_COOKIE = "mapsly-wb-cols";
+
+/** Serialize the active set for the cookie value (comma-joined, URI-encoded). */
+export function serializeWbColsCookie(activeCols: readonly string[]): string {
+  return encodeURIComponent(activeCols.join(","));
+}
+
+/** Parse the cookie value → valid column keys, or null when absent/unusable. */
+export function parseWbColsCookie(
+  raw: string | undefined | null,
+): string[] | null {
+  if (!raw) return null;
+  let decoded: string;
+  try {
+    decoded = decodeURIComponent(raw);
+  } catch {
+    return null;
+  }
+  const cols = decoded
+    .split(",")
+    .map((s) => s.trim())
+    .filter((k) => COLUMN_BY_KEY.has(k));
+  return cols.length > 0 ? cols : null;
+}
 
 /**
  * WB-COL-1 · the first-visit column set for a GOAL-BASED hunt: the always-on
@@ -711,8 +886,9 @@ export function defaultActiveColumnsForGoal(
 /**
  * WB-COL-3 · goal-first column order. Within the RESEARCH-DETAIL SPAN of the
  * registry (the block between the contact anchors and the workflow tail:
- * rating · perf/seo · aiSummary · meta/google ads · serpRank · the
- * contacts_tech extras), the data-group CLUSTERS tied to this research's goal
+ * perf/seo · aiSummary · meta/google ads · serpRank · the
+ * contacts_tech extras — reviews+rating are anchors, they never move), the
+ * data-group CLUSTERS tied to this research's goal
  * come first — a site-speed hunt reads perf/seo right after the anchors, not
  * behind rating. Rules:
  *   - identity/contact/workflow columns NEVER move (spatial anchors);
@@ -955,24 +1131,14 @@ export const FILTER_FIELD_DEFAULTS: Record<
   phones: { op: "≥", value: 1 },
 };
 
+/** A filter field's numeric value — read from the COLUMN REGISTRY's accessor
+ *  (Step 5 · one key→field mapping; every NumericFilterField is a column key,
+ *  and the contact columns' numValue is their count). */
 function fieldValue(
   row: WorkbenchLeadRow,
   field: NumericFilterField,
 ): number | null {
-  switch (field) {
-    case "match":
-      return row.match;
-    case "reviews":
-      return row.reviews;
-    case "rating":
-      return row.rating;
-    case "perf":
-      return row.perf;
-    case "emails":
-      return row.emails.length;
-    case "phones":
-      return row.phones.length;
-  }
+  return COLUMN_BY_KEY.get(field)?.numValue?.(row) ?? null;
 }
 
 /** Evaluate one filter against a row. A null backing value never matches. Pure. */
@@ -1135,32 +1301,23 @@ export function matchesSearch(row: WorkbenchLeadRow, q: string): boolean {
 
 // ── Sorting ──────────────────────────────────────────────────────────────────
 
+/**
+ * Sort rows by a COLUMN KEY via the registry's `sortValue ?? numValue`
+ * accessor (Step 5 · the old hand-written key switch shipped a silent dead
+ * sort — "lastC" the kind vs "lastContactedAt" the key — and silently ignored
+ * seo/metaAdCount/googleAdCount/serpRank, all marked sortable). A key with no
+ * accessor (unknown, or a non-value column) leaves the order untouched —
+ * exactly the old default-case behavior. Null values sink. Pure.
+ */
 export function sortRows(
   rows: WorkbenchLeadRow[],
   key: string,
   dir: 1 | -1,
 ): WorkbenchLeadRow[] {
-  const num = (r: WorkbenchLeadRow): number => {
-    switch (key) {
-      case "match":
-        return r.match;
-      case "reviews":
-        return r.reviews ?? -Infinity;
-      case "rating":
-        return r.rating ?? -Infinity;
-      case "perf":
-        return r.perf ?? -Infinity;
-      // NB: sortRows switches on the column KEY (not its kind). The Last-
-      // contacted column's key is "lastContactedAt" — using "lastC" (its kind)
-      // here was a silent dead sort (fell through to default → no reorder).
-      case "lastContactedAt":
-        return r.lastContactedAt
-          ? new Date(r.lastContactedAt).getTime()
-          : -Infinity;
-      default:
-        return 0;
-    }
-  };
+  const col = COLUMN_BY_KEY.get(key);
+  const accessor = col?.sortValue ?? col?.numValue;
+  if (!accessor) return [...rows];
+  const num = (r: WorkbenchLeadRow): number => accessor(r) ?? -Infinity;
   return [...rows].sort((a, b) => (num(a) - num(b)) * dir);
 }
 
@@ -1328,7 +1485,9 @@ export function rowToCsvRecord(
     r.reviews,
     r.perf,
     topCsvSignals(r, goalSignals),
-    r.pitchAngle,
+    // Optional (heavy) — the client export hydrates it first; an absent value
+    // still writes an empty cell rather than crashing the mapping.
+    r.pitchAngle ?? null,
   ];
 }
 

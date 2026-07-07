@@ -20,6 +20,7 @@ import {
   FAILED_JOB_STATUSES,
   type DataGroupKey,
   type EnrichmentTypeKey,
+  type TypePresence,
   type TypeState,
   deriveTypeStates,
 } from "./family-coverage";
@@ -52,10 +53,20 @@ const RUNNING_JOB_STATUSES = ["QUEUED", "RUNNING"] as const;
  * record + presence row and derive the honest per-type AND per-family states.
  * Everything that renders enrichment state calls THIS (directly or via
  * loadCoverageMatrix / lead-detail) — never a private re-derivation.
+ *
+ * `opts.presence` (2026-07-06 render refactor): the workbench row builder
+ * already holds every presence fact from its ONE hydration pass — passing it
+ * in skips the 9 per-type existence scans, leaving only this loader's
+ * genuinely distinct queries (the EnrichmentJob run matrix ×3, the cell-scoped
+ * AdMarketRun runs, the active EnrichmentRuns). Callers WITHOUT a data pass
+ * (drawer / endpoints) omit it and get the scans as before. The provided map
+ * must cover the same semantics as {@link scanTypePresence} — real rows only,
+ * never a derived aggregate like `reviewCount`.
  */
 export async function loadTypeStatesForBusinesses(
   businesses: readonly { id: string; cellKey: string | null }[],
   agencyId: string,
+  opts?: { presence?: ReadonlyMap<string, TypePresence> },
 ): Promise<Map<string, CoverageRow>> {
   const businessIds = businesses.map((b) => b.id);
   if (businessIds.length === 0) return new Map();
@@ -68,131 +79,56 @@ export async function loadTypeStatesForBusinesses(
     ),
   );
 
-  // Real enriched-row presence — one indexed existence scan per type — plus
+  // Real enriched-row presence (caller-provided or scanned) — plus
   // the EnrichmentJob run matrix, the cell-scoped AdMarketRun runs, and the
   // ACTIVE EnrichmentRuns (for the refresh-surviving Meta/SERP "running").
-  //
-  // Reviews presence is REAL `Review` rows, NOT `reviewCount` (a discovery GBP
-  // aggregate present on almost every business).
-  const [
-    reviewRows,
-    audits,
-    techs,
-    contacts,
-    services,
-    aiResearch,
-    metaAds,
-    googleAds,
-    serps,
-    jobRows,
-    failedRows,
-    runningRows,
-    adRuns,
-    activeRuns,
-  ] = await Promise.all([
-    prisma.review.findMany({
-      where: { businessId: { in: businessIds } },
-      select: { businessId: true },
-      distinct: ["businessId"],
-    }),
-    prisma.lighthouseAudit.findMany({
-      where: { businessId: { in: businessIds } },
-      select: { businessId: true },
-      distinct: ["businessId"],
-    }),
-    prisma.businessTech.findMany({
-      where: { businessId: { in: businessIds } },
-      select: { businessId: true },
-      distinct: ["businessId"],
-    }),
-    prisma.contact.findMany({
-      where: { businessId: { in: businessIds } },
-      select: { businessId: true },
-      distinct: ["businessId"],
-    }),
-    prisma.businessService.findMany({
-      where: { businessId: { in: businessIds } },
-      select: { businessId: true },
-      distinct: ["businessId"],
-    }),
-    prisma.businessEnrichment.findMany({
-      where: { businessId: { in: businessIds } },
-      select: { businessId: true },
-      distinct: ["businessId"],
-    }),
-    prisma.adLibraryEntry.findMany({
-      where: { businessId: { in: businessIds }, platform: "META" },
-      select: { businessId: true },
-      distinct: ["businessId"],
-    }),
-    prisma.adLibraryEntry.findMany({
-      where: { businessId: { in: businessIds }, platform: "GOOGLE" },
-      select: { businessId: true },
-      distinct: ["businessId"],
-    }),
-    prisma.serpResult.findMany({
-      where: { businessId: { in: businessIds } },
-      select: { businessId: true },
-      distinct: ["businessId"],
-    }),
-    // Captures work that produced no scalar (e.g. a contacts scan finding 0).
-    prisma.enrichmentJob.groupBy({
-      by: ["businessId", "family"],
-      where: {
-        businessId: { in: businessIds },
-        status: { in: [...COVERED_JOB_STATUSES] },
-      },
-    }),
-    prisma.enrichmentJob.groupBy({
-      by: ["businessId", "family"],
-      where: {
-        businessId: { in: businessIds },
-        status: { in: [...FAILED_JOB_STATUSES] },
-      },
-    }),
-    prisma.enrichmentJob.groupBy({
-      by: ["businessId", "family"],
-      where: {
-        businessId: { in: businessIds },
-        status: { in: [...RUNNING_JOB_STATUSES] },
-      },
-    }),
-    runCellKeys.length > 0
-      ? prisma.adMarketRun.groupBy({
-          by: ["cellKey", "platform", "status"],
-          where: { cellKey: { in: runCellKeys } },
-        })
-      : Promise.resolve(
-          [] as { cellKey: string; platform: string; status: string }[],
-        ),
-    // ACTIVE runs (PENDING/RUNNING) that cover a cell with a cell-basis type
-    // (meta_ads/serp). Those collectors run inline per-cell and write their
-    // AdMarketRun only on completion — the ONLY in-flight record is the
-    // EnrichmentRun itself. This is what lets a Meta/SERP field read `running`
-    // after a page refresh.
-    prisma.enrichmentRun.findMany({
-      where: { agencyId, status: { in: ["PENDING", "RUNNING"] } },
-      select: { enrichmentsJson: true, scopeRefsJson: true },
-      orderBy: { startedAt: "desc" },
-      take: 50,
-    }),
-  ]);
-
-  const reviewSet = new Set(reviewRows.map((r) => r.businessId));
-  const auditSet = new Set(audits.map((r) => r.businessId));
-  const techSet = new Set(techs.map((r) => r.businessId));
-  const contactSet = new Set(contacts.map((r) => r.businessId));
-  const serviceSet = new Set(services.map((r) => r.businessId));
-  const aiSet = new Set(aiResearch.map((r) => r.businessId));
-  // AdLibraryEntry.businessId is nullable in the schema; the `in: businessIds`
-  // filter never returns a null one, but narrow it for the typed Set anyway.
-  const metaAdsSet = new Set(
-    metaAds.map((r) => r.businessId).filter((id): id is string => id != null),
-  );
-  const googleAdsSet = new Set(
-    googleAds.map((r) => r.businessId).filter((id): id is string => id != null),
-  );
-  const serpSet = new Set(serps.map((r) => r.businessId));
+  const [presence, jobRows, failedRows, runningRows, adRuns, activeRuns] =
+    await Promise.all([
+      opts?.presence
+        ? Promise.resolve(opts.presence)
+        : scanTypePresence(businessIds),
+      // Captures work that produced no scalar (e.g. a contacts scan finding 0).
+      prisma.enrichmentJob.groupBy({
+        by: ["businessId", "family"],
+        where: {
+          businessId: { in: businessIds },
+          status: { in: [...COVERED_JOB_STATUSES] },
+        },
+      }),
+      prisma.enrichmentJob.groupBy({
+        by: ["businessId", "family"],
+        where: {
+          businessId: { in: businessIds },
+          status: { in: [...FAILED_JOB_STATUSES] },
+        },
+      }),
+      prisma.enrichmentJob.groupBy({
+        by: ["businessId", "family"],
+        where: {
+          businessId: { in: businessIds },
+          status: { in: [...RUNNING_JOB_STATUSES] },
+        },
+      }),
+      runCellKeys.length > 0
+        ? prisma.adMarketRun.groupBy({
+            by: ["cellKey", "platform", "status"],
+            where: { cellKey: { in: runCellKeys } },
+          })
+        : Promise.resolve(
+            [] as { cellKey: string; platform: string; status: string }[],
+          ),
+      // ACTIVE runs (PENDING/RUNNING) that cover a cell with a cell-basis type
+      // (meta_ads/serp). Those collectors run inline per-cell and write their
+      // AdMarketRun only on completion — the ONLY in-flight record is the
+      // EnrichmentRun itself. This is what lets a Meta/SERP field read `running`
+      // after a page refresh.
+      prisma.enrichmentRun.findMany({
+        where: { agencyId, status: { in: ["PENDING", "RUNNING"] } },
+        select: { enrichmentsJson: true, scopeRefsJson: true },
+        orderBy: { startedAt: "desc" },
+        take: 50,
+      }),
+    ]);
 
   const foldJobs = (
     rows: { businessId: string; family: string }[],
@@ -277,17 +213,7 @@ export async function loadTypeStatesForBusinesses(
     const cell = b.cellKey ? cellRuns.get(b.cellKey) : undefined;
     const running = b.cellKey ? cellRunning.get(b.cellKey) : undefined;
     const typeStates = deriveTypeStates({
-      presence: {
-        contacts: contactSet.has(b.id),
-        services: serviceSet.has(b.id),
-        tech: techSet.has(b.id),
-        reviews: reviewSet.has(b.id),
-        metaAds: metaAdsSet.has(b.id),
-        googleAds: googleAdsSet.has(b.id),
-        serp: serpSet.has(b.id),
-        lighthouse: auditSet.has(b.id),
-        aiResearch: aiSet.has(b.id),
-      },
+      presence: presence.get(b.id) ?? {},
       doneJobFamilies: doneJobs.get(b.id),
       failedJobFamilies: failedJobs.get(b.id),
       runningJobFamilies: runningJobs.get(b.id),
@@ -304,6 +230,107 @@ export async function loadTypeStatesForBusinesses(
         : undefined,
     });
     out.set(b.id, { businessId: b.id, typeStates });
+  }
+  return out;
+}
+
+/**
+ * The 9 per-type existence scans (one indexed `distinct businessId` each) for
+ * callers WITHOUT a data pass of their own. Reviews presence is REAL `Review`
+ * rows, NOT `reviewCount` (a discovery GBP aggregate present on almost every
+ * business — the audit bug). Presence only ever SPLITS a completed run into
+ * enriched-vs-empty; a flag with no run behind it never fakes "enriched".
+ */
+async function scanTypePresence(
+  businessIds: readonly string[],
+): Promise<Map<string, TypePresence>> {
+  const [
+    reviewRows,
+    audits,
+    techs,
+    contacts,
+    services,
+    aiResearch,
+    metaAds,
+    googleAds,
+    serps,
+  ] = await Promise.all([
+    prisma.review.findMany({
+      where: { businessId: { in: [...businessIds] } },
+      select: { businessId: true },
+      distinct: ["businessId"],
+    }),
+    prisma.lighthouseAudit.findMany({
+      where: { businessId: { in: [...businessIds] } },
+      select: { businessId: true },
+      distinct: ["businessId"],
+    }),
+    prisma.businessTech.findMany({
+      where: { businessId: { in: [...businessIds] } },
+      select: { businessId: true },
+      distinct: ["businessId"],
+    }),
+    prisma.contact.findMany({
+      where: { businessId: { in: [...businessIds] } },
+      select: { businessId: true },
+      distinct: ["businessId"],
+    }),
+    prisma.businessService.findMany({
+      where: { businessId: { in: [...businessIds] } },
+      select: { businessId: true },
+      distinct: ["businessId"],
+    }),
+    prisma.businessEnrichment.findMany({
+      where: { businessId: { in: [...businessIds] } },
+      select: { businessId: true },
+      distinct: ["businessId"],
+    }),
+    prisma.adLibraryEntry.findMany({
+      where: { businessId: { in: [...businessIds] }, platform: "META" },
+      select: { businessId: true },
+      distinct: ["businessId"],
+    }),
+    prisma.adLibraryEntry.findMany({
+      where: { businessId: { in: [...businessIds] }, platform: "GOOGLE" },
+      select: { businessId: true },
+      distinct: ["businessId"],
+    }),
+    prisma.serpResult.findMany({
+      where: { businessId: { in: [...businessIds] } },
+      select: { businessId: true },
+      distinct: ["businessId"],
+    }),
+  ]);
+
+  const reviewSet = new Set(reviewRows.map((r) => r.businessId));
+  const auditSet = new Set(audits.map((r) => r.businessId));
+  const techSet = new Set(techs.map((r) => r.businessId));
+  const contactSet = new Set(contacts.map((r) => r.businessId));
+  const serviceSet = new Set(services.map((r) => r.businessId));
+  const aiSet = new Set(aiResearch.map((r) => r.businessId));
+  // AdLibraryEntry.businessId is nullable in the schema; the `in: businessIds`
+  // filter never returns a null one, but narrow it for the typed Set anyway.
+  const metaAdsSet = new Set(
+    metaAds.map((r) => r.businessId).filter((id): id is string => id != null),
+  );
+  const googleAdsSet = new Set(
+    googleAds.map((r) => r.businessId).filter((id): id is string => id != null),
+  );
+  const serpSet = new Set(serps.map((r) => r.businessId));
+
+  const out = new Map<string, TypePresence>();
+  for (const id of businessIds) {
+    out.set(id, {
+      contacts: contactSet.has(id),
+      services: serviceSet.has(id),
+      tech: techSet.has(id),
+      reviews: reviewSet.has(id),
+      metaAds: metaAdsSet.has(id),
+      googleAds: googleAdsSet.has(id),
+      serp: serpSet.has(id),
+      lighthouse: auditSet.has(id),
+      aiResearch: aiSet.has(id),
+    });
   }
   return out;
 }

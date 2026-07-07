@@ -7,16 +7,20 @@
 // payload via getLeadDetailAction (loading skeleton meanwhile; the LAST payload
 // stays on screen while a new one refetches so prev/next feels instant).
 //
-// 2026-07 restructure (style audit): the drawer speaks the portal's flat-panel
-// overlay language — a white surface with full-bleed 1px-divided sections
-// (matching the EnrichMoreSheet), headed by the shared `.eyebrow` token.
-// Section order puts the money first: Why-qualifies → Contacts → Data (enriched
-// domain blocks render OPEN AND FLAT, non-enriched compress to one
-// enrich-sheet-vocabulary line each) → Outreach. The match gauge and the
-// duplicated facts grid are gone (the header pills carry identity + match
-// once). Data-domain blocks still render off the honest run state (enriched /
-// empty / failed / running / not_run — the shared loader's TypeState), never
-// data presence.
+// 2026-07-06 redesign · d7 SPLIT-RAIL (owner pick from
+// docs/drawer-designs-2026-07-06.html): identity + nav collapse into a 44px
+// icon RAIL (close · prev/next · logo · section anchors that scroll the body,
+// with a scroll-spy active state) so 100% of the content column is data,
+// served as flat 1px-divided BANDS. Small pills; contacts are deduped and
+// phone display is ONE format ("(208) 965-3777" — lead-detail.ts); provenance
+// is a tooltip only; report-wrong is a hover-revealed flag icon; verified-empty
+// states render in the COMPLETED soft-green tone ("Scanned · none found" ✓ —
+// "no ads" IS an answer). Band order puts the money first: Why → Contacts →
+// Reviews (always — the listing facts are free) → enriched data domains →
+// Profile → Nearby rivals → Coverage (dots + the honest not-run/failed/running
+// rows) → Touches. Every block still renders off the honest run state
+// (enriched / empty / failed / running / not_run — the shared loader's
+// TypeState), never data presence.
 //
 // Per .claude/rules/cache-components.md Pattern 4: this is a client component;
 // the callbacks (onClose / onNav) are owned by the client parent (LeadsWorkbench),
@@ -27,6 +31,7 @@
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   useTransition,
@@ -56,8 +61,10 @@ import type {
   LeadDomainBlock,
   LeadEvidenceRow,
   LeadFiredSignal,
+  LeadProfile,
   LeadRival,
   LeadSignalVerdict,
+  LeadTouch,
 } from "../lead-detail";
 import type { CellBand } from "../leads-workbench";
 import { percentileFromBand } from "../visual-helpers";
@@ -101,6 +108,13 @@ type Loaded =
   | { kind: "ok"; loadedId: string; lead: LeadDetail }
   | { kind: "error"; loadedId: string; message: string };
 
+/** One rail anchor: a section key + its icon + tooltip label. */
+interface RailAnchor {
+  key: string;
+  icon: IconName;
+  label: string;
+}
+
 export function LeadDrawer({
   businessId,
   discoveryId,
@@ -126,12 +140,16 @@ export function LeadDrawer({
   // WP4-8 · the drawer element — scopes the Tab focus-trap so focus can't
   // escape to the table behind the scrim (a11y for role=dialog aria-modal).
   const drawerRef = useRef<HTMLElement | null>(null);
+  // d7 · the scrollable content column — anchor scroll + scroll-spy target.
+  const bodyRef = useRef<HTMLDivElement | null>(null);
   // Token guards against an out-of-order resolve when the user clicks fast.
   const reqToken = useRef(0);
   // LD-1 · bumped by a 'lead-detail-changed' bus event (a touch was generated,
   // or a run enriched this lead) to force a re-fetch for the SAME businessId, so
   // "This lead's touches" stops saying "No touch yet" after a generation.
   const [refreshTick, setRefreshTick] = useState(0);
+  // d7 · rail scroll-spy — which section anchor is "on".
+  const [activeSec, setActiveSec] = useState("why");
 
   // AUDIT U22 · resizable drawer (persisted). A left-edge handle drags the width
   // so a power user can widen the detail view; ⌘/arrow prev-next already exists.
@@ -241,10 +259,10 @@ export function LeadDrawer({
 
   // ── Keyboard (WP4-8) · Escape closes · ↑/↓ walk prev/next lead · Tab traps ──
   // Focus the close button on open. ArrowUp/ArrowDown walk the sibling leads
-  // (mouse-free triage — the buttons stay for the mouse). Tab is trapped inside
-  // the drawer so focus can't fall behind the scrim to the table (a11y: a
-  // role=dialog aria-modal must not leak focus). Arrow-nav is skipped while the
-  // user is typing in a field (no forms in the drawer today, but defensive).
+  // (mouse-free triage — the rail buttons stay for the mouse). Tab is trapped
+  // inside the drawer so focus can't fall behind the scrim to the table (a11y:
+  // a role=dialog aria-modal must not leak focus). Arrow-nav is skipped while
+  // the user is typing in a field (no forms in the drawer today, but defensive).
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -307,6 +325,56 @@ export function LeadDrawer({
   // What to render: the settled lead when ready, else the last one while loading.
   const lead = settled?.kind === "ok" ? settled.lead : lastLead;
 
+  // ── d7 · rail anchors — one per rendered section, in band order ────────────
+  const anchors = useMemo<RailAnchor[]>(() => {
+    if (!lead) return [];
+    const list: RailAnchor[] = [
+      { key: "why", icon: "check", label: "Why this lead qualifies" },
+      { key: "contacts", icon: "phone", label: "Contacts" },
+      { key: "reviews", icon: "star", label: "Reviews" },
+    ];
+    for (const d of lead.domains) {
+      if (d.key !== "reviews" && d.state === "enriched") {
+        list.push({ key: d.key, icon: d.icon, label: d.title });
+      }
+    }
+    if (
+      lead.profile.rows.length > 0 ||
+      lead.profile.description ||
+      lead.profile.mapsUrl
+    ) {
+      list.push({ key: "profile", icon: "pin", label: "Profile" });
+    }
+    if (lead.rivals.length > 0) {
+      list.push({ key: "rivals", icon: "users", label: "Nearby rivals" });
+    }
+    list.push({ key: "coverage", icon: "coverage", label: "Coverage" });
+    list.push({ key: "touches", icon: "mail", label: "Outreach · touches" });
+    return list;
+  }, [lead]);
+
+  // d7 · scroll-spy: the LAST section whose top passed the fold is "on".
+  // setState in a scroll event callback (not an effect body) — rule-safe.
+  const onBodyScroll = useCallback(() => {
+    const body = bodyRef.current;
+    if (!body) return;
+    const secs = body.querySelectorAll<HTMLElement>("[data-sec]");
+    let next = "why";
+    for (const el of secs) {
+      if (el.offsetTop <= body.scrollTop + 72) next = el.dataset.sec ?? next;
+    }
+    setActiveSec((cur) => (cur === next ? cur : next));
+  }, []);
+
+  const scrollToSec = useCallback((key: string) => {
+    const body = bodyRef.current;
+    const el = body?.querySelector<HTMLElement>(`[data-sec="${key}"]`);
+    if (body && el) {
+      body.scrollTo({ top: Math.max(0, el.offsetTop - 6), behavior: "smooth" });
+      setActiveSec(key);
+    }
+  }, []);
+
   return (
     <>
       <div
@@ -319,7 +387,7 @@ export function LeadDrawer({
         className={`drawer${open ? " show" : ""}`}
         role="dialog"
         aria-modal="true"
-        aria-labelledby="leadDrawerName"
+        aria-label={lead ? `Lead detail: ${lead.name}` : "Lead detail"}
         aria-hidden={!open}
         style={drawerWidth ? { width: `${drawerWidth}px` } : undefined}
       >
@@ -334,95 +402,103 @@ export function LeadDrawer({
             onResizeStart(e.clientX);
           }}
         />
-        {/* ── Header ── */}
-        <div className="dhead">
-          <div className="nav-arrows">
-            {/* WP4-8 · kbd hints in the tooltip — ↑/↓ walk prev/next lead. */}
-            <button
-              type="button"
-              className="ab"
-              onClick={() => navTo(-1)}
-              aria-label="Previous lead (press up arrow)"
-              data-tip="Previous lead · ↑"
-              disabled={orderedIds.length < 2}
-            >
-              <Icon name="arrow-up" size={15} />
-            </button>
-            <button
-              type="button"
-              className="ab"
-              onClick={() => navTo(1)}
-              aria-label="Next lead (press down arrow)"
-              data-tip="Next lead · ↓"
-              disabled={orderedIds.length < 2}
-            >
-              <Icon name="arrow-down" size={15} />
-            </button>
-          </div>
-          {lead?.logoUrl ? <HeaderLogo src={lead.logoUrl} /> : null}
-          <div className="dhead-main">
-            <h1 id="leadDrawerName" data-tip={lead?.name}>
-              {lead?.name ?? (isLoading ? "Loading…" : "Lead")}
-            </h1>
-            <p className="note">
-              {lead ? headerSub(lead) : isError ? errorText : " "}
-            </p>
-            {lead ? (
-              <div className="dhead-pills">
-                <Pills lead={lead} />
-              </div>
-            ) : null}
-          </div>
+        {/* ── d7 rail · close / prev / next / logo / section anchors ── */}
+        <nav className="ldrail" aria-label="Lead sections">
           <button
             type="button"
-            className="x"
+            className="ldarw ldx"
             ref={xBtnRef}
             onClick={onClose}
             aria-label="Close drawer"
+            data-tip="Close · Esc"
           >
             ×
           </button>
-        </div>
-
-        {/* ── Body ── */}
-        <div className="dbody">
-          {isError && !lead ? (
-            <div className="dsec">
-              <p className="note m0">{errorText ?? "Couldn't load."}</p>
-            </div>
-          ) : lead ? (
-            <DrawerBody lead={lead} dimmed={isLoading} bands={bands} />
-          ) : (
-            <DrawerSkeleton />
-          )}
-        </div>
-
-        {/* ── Footer ── */}
-        <div className="dfoot">
+          {/* WP4-8 · kbd hints in the tooltip — ↑/↓ walk prev/next lead. */}
           <button
             type="button"
-            className="btn primary"
-            disabled={businessId == null}
-            onClick={() => setGenOpen(true)}
+            className="ldarw"
+            onClick={() => navTo(-1)}
+            aria-label="Previous lead (press up arrow)"
+            data-tip="Previous lead · ↑"
+            disabled={orderedIds.length < 2}
           >
-            Generate touch
+            <Icon name="arrow-up" size={13} />
           </button>
-          {/* WP6-10 · agency-branded share link (copies to clipboard). */}
           <button
             type="button"
-            className="btn"
-            disabled={businessId == null || sharing}
-            onClick={onShare}
+            className="ldarw"
+            onClick={() => navTo(1)}
+            aria-label="Next lead (press down arrow)"
+            data-tip="Next lead · ↓"
+            disabled={orderedIds.length < 2}
           >
-            {sharing ? "Creating link…" : "Share audit link"}
+            <Icon name="arrow-down" size={13} />
           </button>
-          {shareViews != null && shareViews.forId === businessId ? (
-            <span className="note dfoot-note">
-              {shareViews.count === 0
-                ? "Not opened yet"
-                : `Opened ${shareViews.count}× by the prospect`}
-            </span>
-          ) : null}
+          <RailLogo
+            key={businessId ?? "none"}
+            name={lead?.name ?? null}
+            logoUrl={lead?.logoUrl ?? null}
+          />
+          <div className="ldrdiv" aria-hidden="true" />
+          <div className="ldancs">
+            {anchors.map((a) => (
+              <button
+                key={a.key}
+                type="button"
+                className={`ldanc${activeSec === a.key ? " on" : ""}`}
+                data-tip={a.label}
+                aria-label={`Jump to ${a.label}`}
+                aria-current={activeSec === a.key ? "true" : undefined}
+                onClick={() => scrollToSec(a.key)}
+              >
+                <Icon name={a.icon} size={13} />
+              </button>
+            ))}
+          </div>
+        </nav>
+
+        {/* ── Content column · scrollable bands + sticky footer ── */}
+        <div className="ldmain">
+          <div className="dbody" ref={bodyRef} onScroll={onBodyScroll}>
+            {isError && !lead ? (
+              <div className="ldband">
+                <p className="note m0">{errorText ?? "Couldn't load."}</p>
+              </div>
+            ) : lead ? (
+              <DrawerBody lead={lead} dimmed={isLoading} bands={bands} />
+            ) : (
+              <DrawerSkeleton />
+            )}
+          </div>
+
+          {/* ── Footer ── */}
+          <div className="dfoot">
+            <button
+              type="button"
+              className="btn primary"
+              disabled={businessId == null}
+              onClick={() => setGenOpen(true)}
+            >
+              Generate touch
+            </button>
+            {/* WP6-10 · agency-branded share link (copies to clipboard). */}
+            <button
+              type="button"
+              className="btn"
+              disabled={businessId == null || sharing}
+              onClick={onShare}
+            >
+              {sharing ? "Creating link…" : "Share audit link"}
+            </button>
+            {shareViews != null && shareViews.forId === businessId ? (
+              <span className="note dfoot-note">
+                {shareViews.count === 0
+                  ? "Not opened yet"
+                  : `Opened ${shareViews.count}× by the prospect`}
+              </span>
+            ) : null}
+          </div>
         </div>
       </aside>
 
@@ -441,54 +517,98 @@ export function LeadDrawer({
   );
 }
 
-// ── Header helpers ───────────────────────────────────────────────────────────
+// ── Rail helpers ─────────────────────────────────────────────────────────────
 
 /**
- * The Business.logoUrl header avatar. Plain <img> on purpose: logo hosts vary
- * (Google-hosted CDNs), so the next/image proxy would 400 on any host outside
- * `images.remotePatterns` — and a 36px avatar gains nothing from optimization.
- * Graceful absent: a load error hides the element entirely (no broken box).
+ * The rail's identity square (d7 logo slot): the Business.logoUrl when it
+ * loads, else a two-letter initials tile. Plain <img> on purpose: logo hosts
+ * vary (Google-hosted CDNs), so the next/image proxy would 400 on any host
+ * outside `images.remotePatterns` — and a 28px tile gains nothing from
+ * optimization. Keyed by businessId in the parent so `failed` resets per lead.
  */
-function HeaderLogo({ src }: { src: string }) {
+function RailLogo({
+  name,
+  logoUrl,
+}: {
+  name: string | null;
+  logoUrl: string | null;
+}) {
   const [failed, setFailed] = useState(false);
-  if (failed) return null;
+  if (logoUrl && !failed) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        className="ldlogo-img"
+        src={logoUrl}
+        alt=""
+        width={28}
+        height={28}
+        loading="lazy"
+        data-tip={name ?? undefined}
+        onError={() => setFailed(true)}
+      />
+    );
+  }
   return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      className="davatar"
-      src={src}
-      alt=""
-      width={36}
-      height={36}
-      loading="lazy"
-      onError={() => setFailed(true)}
-    />
+    <div className="ldlogo" aria-hidden="true" data-tip={name ?? undefined}>
+      {name ? railInitials(name) : ""}
+    </div>
   );
 }
 
-function headerSub(lead: LeadDetail): string {
-  const bits: string[] = [];
-  if (lead.addressLine && lead.addressLine !== "—") bits.push(lead.addressLine);
-  if (lead.category) bits.push(lead.category);
-  // Tabular, emoji-free: "5.0 · 113 reviews" (style audit — no ⭐ in chrome).
-  const rev =
-    lead.rating != null
-      ? `${lead.rating.toFixed(1)}${lead.reviewCount != null ? ` · ${lead.reviewCount.toLocaleString()} reviews` : ""}`
-      : null;
-  if (rev) bits.push(rev);
-  if (lead.openStatus && lead.openStatus !== "—") bits.push(lead.openStatus);
-  return bits.join(" · ");
+/** "Meridian Family Acupuncture" → "MF" (first letters of the first 2 words). */
+function railInitials(name: string): string {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  const first = words[0]?.[0] ?? "";
+  const second = words[1]?.[0] ?? words[0]?.[1] ?? "";
+  return (first + second).toUpperCase();
+}
+
+// ── Header band ──────────────────────────────────────────────────────────────
+
+function HeaderBand({ lead }: { lead: LeadDetail }) {
+  const metaBits = [
+    lead.category,
+    lead.addressLine !== "—" ? lead.addressLine : null,
+  ].filter((b): b is string => !!b);
+  return (
+    <section className="ldband ldhead" data-sec="top">
+      <h1 className="ldname" data-tip={lead.name}>
+        {lead.name}
+      </h1>
+      <p className="ldmeta">
+        {metaBits.join(" · ")}
+        {lead.openStatus !== "—" ? (
+          <>
+            {metaBits.length ? " · " : ""}
+            <span className={`ldopen${lead.closed ? " closed" : ""}`}>
+              {lead.openStatus}
+            </span>
+          </>
+        ) : null}
+      </p>
+      {lead.rating != null ? (
+        <p className="ldrate">
+          <Icon name="star" size={12} className="ldstar" />
+          <b>{lead.rating.toFixed(1)}</b>
+          {lead.reviewCount != null ? (
+            <span> · {lead.reviewCount.toLocaleString()} reviews</span>
+          ) : null}
+        </p>
+      ) : null}
+      <div className="ldpills">
+        <Pills lead={lead} />
+      </div>
+    </section>
+  );
 }
 
 function Pills({ lead }: { lead: LeadDetail }) {
   const reachTone = reachabilityTone(lead.reachability);
   return (
     <>
-      <span className={`pill ${reachTone} dot`}>
-        Reachable · {lead.reachability.toLowerCase()}
-      </span>
-      {/* The gauge is gone — this pill is the ONE match surface. The tooltip
-          carries the measured-vs-derived framing the gauge used to imply. */}
+      {/* This pill is the ONE match surface. The tooltip carries the
+          measured-vs-derived framing. */}
       <span
         className="pill indigo"
         data-tip={
@@ -498,6 +618,9 @@ function Pills({ lead }: { lead: LeadDetail }) {
         }
       >
         Match {lead.match}%
+      </span>
+      <span className={`pill ${reachTone} dot`}>
+        Reachable · {lead.reachability.toLowerCase()}
       </span>
       <StatusPill status={lead.status} as="span" />
       {lead.complianceFlag ? (
@@ -538,486 +661,188 @@ function DrawerBody({
   dimmed: boolean;
   bands?: Partial<Record<string, CellBand>>;
 }) {
-  const enriched = lead.domains.filter((d) => d.state === "enriched");
-  const notEnriched = lead.domains.filter((d) => d.state !== "enriched");
+  const reviewsBlock = lead.domains.find((d) => d.key === "reviews");
+  const enrichedOthers = lead.domains.filter(
+    (d) => d.key !== "reviews" && d.state === "enriched",
+  );
+  const hasProfile =
+    lead.profile.rows.length > 0 ||
+    lead.profile.description != null ||
+    lead.profile.mapsUrl != null;
 
   return (
     <div className={dimmed ? "ddim" : undefined} aria-busy={dimmed}>
-      {/* 1. Why this lead qualifies — Tom's money, first. Expert findings
-          (compliance / ADA callouts) merge here: they are findings too. */}
-      <div className="dsec">
-        <div className="eyebrow">Why this lead qualifies</div>
+      <HeaderBand lead={lead} />
+      <WhyBand lead={lead} bands={bands} />
+      <ContactsBand lead={lead} />
+      {/* Reviews band ALWAYS renders — the GBP listing facts are free discovery
+          data (E1); the pull half is state-gated inside. */}
+      {reviewsBlock ? (
+        <ReviewsBand
+          block={reviewsBlock}
+          bands={bands}
+          businessId={lead.businessId}
+        />
+      ) : null}
+      {enrichedOthers.map((d) => (
+        <DataBand key={d.key} block={d} bands={bands} />
+      ))}
+      {hasProfile ? <ProfileBand profile={lead.profile} bands={bands} /> : null}
+      {lead.rivals.length > 0 ? <RivalsBand rivals={lead.rivals} /> : null}
+      <CoverageBand lead={lead} />
+      <TouchesBand touches={lead.touches} />
+    </div>
+  );
+}
 
-        {/* The research's chosen signals, with honest per-lead verdicts (P3):
-            fired / didn't / not computable yet ("enrich to unlock"). */}
-        {lead.signalVerdicts.length > 0 ? (
-          <SignalVerdicts verdicts={lead.signalVerdicts} />
+// ── 1 · Why this lead qualifies ──────────────────────────────────────────────
+
+/**
+ * Tom's money, first. The d7 density block leads: big fired-count + the FIRED
+ * signal titles inline with checks; the not-yet/didn't verdicts follow as
+ * compact honest rows (P3 — "Scanned · no data" wears the completed soft-green
+ * tone, "Enrich to unlock" stays amber, never a fake match). Fired composites
+ * (evidence + vs-cell bars + dispute), angle chips, expert findings, and the
+ * verified-claims note all live here too.
+ */
+function WhyBand({
+  lead,
+  bands,
+}: {
+  lead: LeadDetail;
+  bands?: Partial<Record<string, CellBand>>;
+}) {
+  const verdicts = lead.signalVerdicts;
+  const fired = verdicts.filter((v) => v.matched === true);
+  // null (not computable) before false (didn't fire) — pending beats dead.
+  const rest = verdicts
+    .filter((v) => v.matched !== true)
+    .sort(
+      (a, b) => (a.matched === null ? 0 : 1) - (b.matched === null ? 0 : 1),
+    );
+
+  return (
+    <section className="ldband" data-sec="why">
+      <div className="ldcap">
+        <span className="ldcap-t">Why this lead qualifies</span>
+        {verdicts.length > 0 ? (
+          <i>
+            {fired.length}/{verdicts.length} fired
+          </i>
         ) : null}
+      </div>
 
-        {lead.firedSignals.length === 0 ? (
-          lead.signalVerdicts.length === 0 ? (
-            <p className="note m0">
-              No composite signals fired — this lead matched on raw qualifiers
-              only. See the Data section below for the raw evidence.
-            </p>
-          ) : null
-        ) : (
-          lead.firedSignals.map((s) => (
-            <FiredSignal
-              key={s.key}
-              signal={s}
-              bands={bands}
-              businessId={lead.businessId}
-            />
-          ))
-        )}
-        {lead.angles.length > 0 ? (
-          <>
-            <div className="microlabel">Other angles to pitch</div>
-            <div className="dchips">
-              {lead.angles.map((a, i) => (
-                <span
-                  key={`${a.label}-${i}`}
-                  className={`ppchip ${a.group}`}
-                  data-tip={a.title}
-                >
-                  {a.label}
-                </span>
+      {verdicts.length > 0 ? (
+        <>
+          <div className="ldwhy">
+            <div className="ldwhyn">
+              {fired.length}/{verdicts.length}
+            </div>
+            <div className="ldwhyl">
+              {fired.length === 0 ? (
+                <span className="note">None of your signals fired yet</span>
+              ) : (
+                fired.map((v) => (
+                  <span key={v.key} data-tip={v.means}>
+                    <Icon name="check" size={11} />
+                    {v.title}
+                  </span>
+                ))
+              )}
+            </div>
+          </div>
+          {rest.length > 0 ? (
+            <div className="sigverdicts">
+              {rest.map((v) => (
+                <SignalVerdictRow key={v.key} verdict={v} />
               ))}
             </div>
-          </>
-        ) : null}
-        {lead.expertFindings.map((f) => (
-          <div key={f.key} className={`callout ${f.tone}`}>
-            <Icon name="warning" size={14} className="cicon" />
-            <p className="m0">
-              <b>{f.title}:</b> {f.body}
-            </p>
-          </div>
-        ))}
-        {/* WP6-9 · "we only cite what we verified" — surfaces when touch
-            generation pruned a claim it couldn't confirm (whyJson.droppedTokens).
-            Auditable evidence as a visible trust feature. */}
-        {lead.verifiedNote ? (
-          <p className="note vnote" role="note">
-            {lead.verifiedNote}
+          ) : null}
+        </>
+      ) : null}
+
+      {lead.firedSignals.length === 0 ? (
+        lead.signalVerdicts.length === 0 ? (
+          <p className="note m0">
+            No composite signals fired — this lead matched on raw qualifiers
+            only. See the data bands below for the raw evidence.
           </p>
-        ) : null}
-      </div>
-
-      {/* 2. Contacts — the outreach action, its own flat section. */}
-      <div className="dsec">
-        <div className="eyebrow">Contacts</div>
-        <ContactsStrip lead={lead} />
-      </div>
-
-      {/* 3. Data — one headed section. Enriched domains render OPEN AND FLAT
-          (the paid evidence is never behind a click); the always-free Profile
-          and Nearby rivals listing blocks follow; non-enriched domains compress
-          to ONE enrich-sheet-vocabulary line each (honest TypeState intact:
-          not_run / empty / failed / running each renders distinctly). */}
-      <div className="dsec">
-        <div className="eyebrow">
-          Data · {enriched.length} of {lead.domains.length} enriched
-          {/* WP4-16 · toned values across ALL data rows are covered here, not
-              just fired-signal evidence. */}
-          <InfoTip
-            text={VS_CELL_EXPLAINER}
-            triggerLabel="What the green/red values mean"
-          />
-        </div>
-        {enriched.map((d) => (
-          <DataBlock key={d.key} block={d} bands={bands} />
-        ))}
-        <ProfileBlock lead={lead} bands={bands} />
-        {lead.rivals.length > 0 ? <RivalsBlock rivals={lead.rivals} /> : null}
-        {notEnriched.map((d) => (
-          <DataGhostRow
-            key={d.key}
-            block={d}
+        ) : null
+      ) : (
+        lead.firedSignals.map((s) => (
+          <FiredSignal
+            key={s.key}
+            signal={s}
             bands={bands}
             businessId={lead.businessId}
           />
-        ))}
-      </div>
-
-      {/* 4. This lead's touches */}
-      <div className="dsec">
-        <div className="eyebrow">Outreach · touches</div>
-        {lead.touches.length === 0 ? (
-          <div className="note">
-            No touch yet. Generate touch below — grounded in this lead&rsquo;s
-            signals.
-          </div>
-        ) : (
-          lead.touches.map((t) => (
-            <div key={t.draftId} className="dtouch">
-              <div className="dtouch-head">
-                <b>
-                  Touch {t.seq} of {t.of}
-                  <span className="note dtouch-ch">{t.channel}</span>
-                </b>
-                <span className={`pill ${t.status === "Sent" ? "green" : ""}`}>
-                  {t.status}
-                </span>
-              </div>
-              {t.subject ? <p className="dtouch-subject">{t.subject}</p> : null}
-              <p className="dtouch-body">{t.body}</p>
-            </div>
-          ))
-        )}
-      </div>
-    </div>
-  );
-}
-
-/**
- * Issue 5 · the contacts strip, restructured into stacked per-channel groups
- * (Phones / Emails / Socials). Each group is an icon-column grid — the channel
- * icon top-aligned in a fixed 18px column, values in a wrapping flex cell so
- * wrapped lines align to one left edge. Each value + its role/primary tags +
- * report affordance is ONE non-breaking unit; groups cap at 4 values with a
- * real "+N more" toggle.
- *
- * Truth unification (2026-07-06): renders off the honest `contactsState` (the
- * shared loader's CONTACTS run state), never data presence. The discovery GBP
- * phone/email render as LISTING facts ("From the Google listing") in every
- * state — they are free discovery data, not proof the contact scan ran.
- */
-function ContactsStrip({ lead }: { lead: LeadDetail }) {
-  const listing =
-    lead.listingContacts.length > 0 ? (
-      <div>
-        <div className="microlabel">From the Google listing</div>
-        <div className="dcontact-listing">
-          {lead.listingContacts.map((c) => (
-            <a className="clink" key={c.href} href={c.href}>
-              {c.value}
-            </a>
-          ))}
-        </div>
-      </div>
-    ) : null;
-
-  if (lead.contactsState !== "enriched") {
-    const note =
-      lead.contactsState === "empty"
-        ? "Contacts scanned · none found"
-        : lead.contactsState === "failed"
-          ? "Contact scan failed on the last run"
-          : lead.contactsState === "running"
-            ? "Enriching contacts…"
-            : "Contacts not enriched yet";
-    const actionable =
-      lead.contactsState === "not_run" || lead.contactsState === "failed";
-    return (
-      <div className="dcontacts">
-        {listing}
-        <span className="dcontact-ghost">{note}</span>
-        {actionable ? (
-          <button
-            type="button"
-            className="btn sm"
-            onClick={() =>
-              openEnrichSheet({
-                enrichments: ["contacts"],
-                preselect: true,
-                scope: { selectedBusinessIds: [lead.businessId] },
-              })
-            }
-          >
-            {lead.contactsState === "failed"
-              ? "Retry contacts →"
-              : "Enrich contacts →"}
-          </button>
-        ) : null}
-      </div>
-    );
-  }
-  return (
-    <div className="dcontacts">
-      {listing}
-      <ContactGroup
-        icon="phone"
-        groupLabel="Phone numbers"
-        contacts={lead.phones}
-        businessId={lead.businessId}
-        reportReason="wrong_number"
-      />
-      <ContactGroup
-        icon="mail"
-        groupLabel="Email addresses"
-        contacts={lead.emails}
-        businessId={lead.businessId}
-        reportReason="wrong_email"
-      />
-      {/* E6 · socials — each stored social channel (Instagram / Facebook /
-          TikTok / YouTube / X / LinkedIn / Yelp) as its own linked handle.
-          Renders nothing when there are none — no empty "—" noise. */}
-      {lead.socials.length > 0 ? (
-        <ContactGroup
-          icon="link"
-          groupLabel="Social profiles"
-          contacts={lead.socials}
-          social
-        />
-      ) : null}
-    </div>
-  );
-}
-
-/** Per-group cap before the "+N more" toggle (issue 5). */
-const CONTACT_GROUP_CAP = 4;
-
-/**
- * Issue 5 · one channel group (phones / emails / socials): fixed icon column +
- * wrapping value cell. Values render primary-first (the loader orders by
- * isPrimary desc) with a mono-caps "primary" tag and a role prefix when known.
- * WP6-13 · the per-value ReportWrongButton lives INSIDE each unit — reporting
- * the 3rd email disputes the 3rd email, not [0] (and values 2..N are
- * reportable at all now).
- */
-function ContactGroup({
-  icon,
-  groupLabel,
-  contacts,
-  businessId,
-  reportReason,
-  social,
-}: {
-  icon: IconName;
-  groupLabel: string;
-  contacts: LeadContact[];
-  businessId?: string;
-  reportReason?: "wrong_number" | "wrong_email";
-  /** Social group: external links, platform prefix, no role tags. */
-  social?: boolean;
-}) {
-  const [expanded, setExpanded] = useState(false);
-  const overflow = contacts.length - CONTACT_GROUP_CAP;
-  const shown =
-    expanded || overflow <= 0 ? contacts : contacts.slice(0, CONTACT_GROUP_CAP);
-  return (
-    <div className="dcontact-group" aria-label={groupLabel}>
-      <span className="ci" aria-hidden="true">
-        <Icon name={icon} size={13} />
-      </span>
-      <span className="dcontact-vals">
-        {contacts.length === 0 ? (
-          <span className="note">—</span>
-        ) : (
-          shown.map((c, i) => (
-            <span className="cunit" key={`${c.href}-${i}`}>
-              {!social && c.role ? (
-                <span className="cctag">{c.role}</span>
-              ) : null}
-              <a
-                className="clink"
-                href={c.href}
-                data-tip={
-                  social
-                    ? c.href
-                    : c.verified
-                      ? `${c.value} · verified`
-                      : c.value
-                }
-                {...(social
-                  ? { target: "_blank", rel: "noopener noreferrer" }
-                  : {})}
+        ))
+      )}
+      {lead.angles.length > 0 ? (
+        <>
+          <div className="microlabel">Other angles to pitch</div>
+          <div className="dchips">
+            {lead.angles.map((a, i) => (
+              <span
+                key={`${a.label}-${i}`}
+                className={`ppchip ${a.group}`}
+                data-tip={a.title}
               >
-                {social && c.channel ? (
-                  <span className="cplat">
-                    {socialPlatformLabel(c.channel)}
-                  </span>
-                ) : null}
-                {c.value}
-              </a>
-              {c.primary ? (
-                <span className="cctag primary">primary</span>
-              ) : null}
-              {/* Per-value provenance ("tel: link · 95%") — trust before a
-                  cold dial. Socials skip it (the URL is its own provenance). */}
-              {!social && c.provenance ? (
-                <span
-                  className="cctag prov"
-                  data-tip={`Found via ${c.provenance.replace(" · ", " · confidence ")}`}
-                >
-                  {c.provenance}
-                </span>
-              ) : null}
-              {businessId && reportReason ? (
-                <ReportWrongButton
-                  businessId={businessId}
-                  reason={reportReason}
-                  value={c.value}
-                />
-              ) : null}
-            </span>
-          ))
-        )}
-        {overflow > 0 ? (
-          <button
-            type="button"
-            className="clink cmore"
-            aria-expanded={expanded}
-            onClick={() => setExpanded((e) => !e)}
-          >
-            {expanded ? "less" : `+${overflow} more`}
-          </button>
-        ) : null}
-      </span>
-    </div>
-  );
-}
-
-/** E6 · short platform label for a social ContactChannel enum value. */
-function socialPlatformLabel(channel?: string): string {
-  switch (channel) {
-    case "INSTAGRAM":
-      return "IG";
-    case "FACEBOOK":
-      return "FB";
-    case "TIKTOK":
-      return "TT";
-    case "YOUTUBE":
-      return "YT";
-    case "LINKEDIN":
-      return "LI";
-    case "X":
-      return "X";
-    case "YELP":
-      return "Yelp";
-    default:
-      return "";
-  }
-}
-
-/**
- * WP6-13 / WP7-3 · a compact "report wrong" affordance. Flags the datum as
- * wrong → hides it from every shared artifact (dispute-actions). Contact-data
- * reasons ALSO auto-refund the family credit; a `wrong_finding` dispute hides
- * the finding but doesn't refund (findings aren't independently billed).
- * One-shot: disables + shows "Reported" once fired. Agency voice, terse.
- */
-function ReportWrongButton({
-  businessId,
-  reason,
-  value,
-  signalKey,
-  label = "report wrong",
-  ariaLabel = "Report wrong data",
-}: {
-  businessId: string;
-  reason:
-    | "wrong_number"
-    | "wrong_email"
-    | "site_changed"
-    | "closed"
-    | "wrong_finding";
-  value?: string;
-  /** The disputed finding's signalKey (required when reason === wrong_finding). */
-  signalKey?: string;
-  /** Visible link text — differs for a finding ("dispute this"). */
-  label?: string;
-  ariaLabel?: string;
-}) {
-  const [reported, setReported] = useState(false);
-  const [pending, startTransition] = useTransition();
-
-  if (reported) {
-    return <span className="note report-done">Reported ✓</span>;
-  }
-  const title =
-    reason === "wrong_finding"
-      ? "Dispute this finding — we'll hide it from your leads and exports"
-      : "Report this data as wrong — we'll hide it and refund the credit";
-  return (
-    <button
-      type="button"
-      className="clink report-link"
-      disabled={pending}
-      data-tip={title}
-      aria-label={ariaLabel}
-      onClick={() =>
-        startTransition(async () => {
-          const r = await reportWrongDataAction({
-            businessId,
-            reason,
-            value,
-            signalKey,
-          });
-          if (r.status === "ok") {
-            setReported(true);
-            showToast(
-              r.refunded > 0
-                ? `Reported · ${r.refunded} credit${r.refunded === 1 ? "" : "s"} refunded`
-                : "Reported — thanks",
-            );
-          } else {
-            showToast("Couldn't report that — try again", "error");
-          }
-        })
-      }
-    >
-      {label}
-    </button>
-  );
-}
-
-// ── Research signal verdicts (the chosen signals + honest per-lead result) ────
-
-/**
- * The research's signals, each with its honest verdict for this lead (P3):
- *   - fired   · green dot  · this signal matched (a real qualifier)
- *   - didn't  · neutral    · evaluated, did not fire
- *   - not yet · amber dot  · not computable — the backing data isn't enriched
- *     (shown as "enrich to unlock", never a fake match).
- * Sorted fired → not-computable → didn't so the strongest qualifiers lead.
- */
-function SignalVerdicts({ verdicts }: { verdicts: LeadSignalVerdict[] }) {
-  const rank = (m: boolean | null): number =>
-    m === true ? 0 : m === null ? 1 : 2;
-  const ordered = [...verdicts].sort(
-    (a, b) => rank(a.matched) - rank(b.matched),
-  );
-  const firedCount = verdicts.filter((v) => v.matched === true).length;
-  const pendingCount = verdicts.filter((v) => v.matched === null).length;
-
-  return (
-    <div className="sigverdicts">
-      <div className="note">
-        {firedCount} of {verdicts.length} of your signals fired
-        {pendingCount > 0
-          ? ` · ${pendingCount} need${pendingCount === 1 ? "s" : ""} enrichment`
-          : ""}
-      </div>
-      {ordered.map((v) => (
-        <SignalVerdictRow key={v.key} verdict={v} />
+                {a.label}
+              </span>
+            ))}
+          </div>
+        </>
+      ) : null}
+      {lead.expertFindings.map((f) => (
+        <div key={f.key} className={`callout ${f.tone}`}>
+          <Icon name="warning" size={14} className="cicon" />
+          <p className="m0">
+            <b>{f.title}:</b> {f.body}
+          </p>
+        </div>
       ))}
-    </div>
+      {/* WP6-9 · "we only cite what we verified" — surfaces when touch
+          generation pruned a claim it couldn't confirm (whyJson.droppedTokens).
+          Auditable evidence as a visible trust feature. */}
+      {lead.verifiedNote ? (
+        <p className="note vnote" role="note">
+          {lead.verifiedNote}
+        </p>
+      ) : null}
+    </section>
   );
 }
 
+/**
+ * One non-fired verdict row (P3 honesty, Wave-3 split):
+ *   - didn't fire        · neutral tag (evaluated, no match)
+ *   - Scanned · no data  · COMPLETED soft-green tag (the backing researches
+ *     RAN — verified-absent is an answer, never a re-pay invite)
+ *   - Enrich to unlock   · amber tag (truly unscanned)
+ */
 function SignalVerdictRow({ verdict }: { verdict: LeadSignalVerdict }) {
-  // Wave-3 honesty · a null verdict whose backing researches already RAN is
-  // "Scanned · no data" (calm, never a re-pay invite); only a truly-unscanned
-  // signal offers "Enrich to unlock".
-  const { tone, label } =
-    verdict.matched === true
-      ? { tone: "green" as const, label: "Fired" }
-      : verdict.matched === null
-        ? verdict.scanned
-          ? { tone: "" as const, label: "Scanned · no data" }
-          : { tone: "amber" as const, label: "Enrich to unlock" }
-        : { tone: "" as const, label: "Didn’t fire" };
-  // Layout lives in `.sigverdicts .sig` (agency-portal.css) — the class existed
-  // in markup with no stylesheet entry, so every row carried inline overrides.
+  const tag =
+    verdict.matched === true ? (
+      <span className="ldtag g">Fired</span>
+    ) : verdict.matched === null ? (
+      verdict.scanned ? (
+        <span className="ldtag done">
+          <Icon name="check" size={9} />
+          Scanned · no data
+        </span>
+      ) : (
+        <span className="ldtag amber">Enrich to unlock</span>
+      )
+    ) : (
+      <span className="ldtag">Didn’t fire</span>
+    );
   return (
     <div className="sig">
       <span className="name" data-tip={verdict.means}>
         {verdict.title}
       </span>
-      <span className={`pill ${tone} dot`.trim()}>{label}</span>
+      {tag}
     </div>
   );
 }
@@ -1116,6 +941,816 @@ function ConfidencePill({ confidence }: { confidence: string }) {
   );
 }
 
+// ── 2 · Contacts ─────────────────────────────────────────────────────────────
+
+/** Per-group cap before the "+N more" toggle (issue 5). */
+const CONTACT_GROUP_CAP = 4;
+
+/**
+ * d7 contact rows: icon · ONE-format value · micro-tags (verified / role /
+ * primary / listing) · a hover-revealed report-wrong flag. Provenance
+ * ("tel: link · 95%") is a TOOLTIP on the value, never an inline tag (owner
+ * fix b). The GBP listing scalars render as rows tagged "listing" (already
+ * digit-deduped against the scrape in lead-detail.ts); the website joins as a
+ * row too (d7). Socials render as compact linked chips.
+ *
+ * Truth unification (2026-07-06): the scraped rows render only off the honest
+ * `contactsState` (the shared loader's CONTACTS run state), never data
+ * presence. Listing rows + website are free discovery facts — every state.
+ */
+function ContactsBand({ lead }: { lead: LeadDetail }) {
+  const enriched = lead.contactsState === "enriched";
+  const listingPhones = lead.listingContacts.filter((c) =>
+    c.href.startsWith("tel:"),
+  );
+  const listingEmails = lead.listingContacts.filter((c) =>
+    c.href.startsWith("mailto:"),
+  );
+  const channelCount =
+    (enriched
+      ? lead.phones.length + lead.emails.length + lead.socials.length
+      : 0) + lead.listingContacts.length;
+
+  return (
+    <section className="ldband" data-sec="contacts">
+      <div className="ldcap">
+        <span className="ldcap-t">Contacts</span>
+        {channelCount > 0 ? (
+          <i>
+            {channelCount} channel{channelCount === 1 ? "" : "s"} · deduped
+          </i>
+        ) : null}
+      </div>
+      <ContactRows
+        icon="phone"
+        groupLabel="Phone numbers"
+        scraped={enriched ? lead.phones : []}
+        listing={listingPhones}
+        businessId={lead.businessId}
+        reportReason="wrong_number"
+      />
+      <ContactRows
+        icon="mail"
+        groupLabel="Email addresses"
+        scraped={enriched ? lead.emails : []}
+        listing={listingEmails}
+        businessId={lead.businessId}
+        reportReason="wrong_email"
+      />
+      {lead.website ? <WebsiteRow url={lead.website} /> : null}
+      {!enriched ? <ContactsStateRow lead={lead} /> : null}
+      {enriched && lead.socials.length > 0 ? (
+        <SocialChips socials={lead.socials} />
+      ) : null}
+    </section>
+  );
+}
+
+/**
+ * One channel group (phones / emails): scraped values first (loader orders
+ * primary-first), then the GBP listing rows tagged "listing". Capped at 4 with
+ * a real "+N more" toggle. WP6-13 · the per-value flag lives INSIDE each row —
+ * reporting the 3rd email disputes the 3rd email, not [0].
+ */
+function ContactRows({
+  icon,
+  groupLabel,
+  scraped,
+  listing,
+  businessId,
+  reportReason,
+}: {
+  icon: IconName;
+  groupLabel: string;
+  scraped: LeadContact[];
+  listing: LeadContact[];
+  businessId: string;
+  reportReason: "wrong_number" | "wrong_email";
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const all = [
+    ...scraped.map((c) => ({ c, listing: false })),
+    ...listing.map((c) => ({ c, listing: true })),
+  ];
+  if (all.length === 0) return null;
+  const overflow = all.length - CONTACT_GROUP_CAP;
+  const shown =
+    expanded || overflow <= 0 ? all : all.slice(0, CONTACT_GROUP_CAP);
+  return (
+    <div role="group" aria-label={groupLabel}>
+      {shown.map((u, i) => (
+        <ContactRow
+          key={`${u.c.href}-${i}`}
+          icon={icon}
+          contact={u.c}
+          listing={u.listing}
+          businessId={businessId}
+          reportReason={reportReason}
+        />
+      ))}
+      {overflow > 0 ? (
+        <button
+          type="button"
+          className="ldmore"
+          aria-expanded={expanded}
+          onClick={() => setExpanded((e) => !e)}
+        >
+          {expanded ? "less" : `+${overflow} more`}
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+function ContactRow({
+  icon,
+  contact,
+  listing,
+  businessId,
+  reportReason,
+}: {
+  icon: IconName;
+  contact: LeadContact;
+  listing: boolean;
+  businessId: string;
+  reportReason: "wrong_number" | "wrong_email";
+}) {
+  // Owner fix b · provenance is a TOOLTIP only ("Found via tel: link ·
+  // confidence 95%") — trust before a cold dial, zero row noise.
+  const tip = listing
+    ? "From the Google listing"
+    : contact.provenance
+      ? `Found via ${contact.provenance.replace(" · ", " · confidence ")}`
+      : undefined;
+  return (
+    <div className="ldcrow">
+      <span className="ci" aria-hidden="true">
+        <Icon name={icon} size={13} />
+      </span>
+      <a className="ldcval" href={contact.href} data-tip={tip}>
+        {contact.value}
+      </a>
+      {contact.verified ? <span className="ldtag g">verified</span> : null}
+      {contact.role ? <span className="ldtag">{contact.role}</span> : null}
+      {contact.primary ? <span className="ldtag">primary</span> : null}
+      {listing ? (
+        <span className="ldtag" data-tip="From the Google listing">
+          listing
+        </span>
+      ) : (
+        <ReportWrongButton
+          variant="flag"
+          businessId={businessId}
+          reason={reportReason}
+          value={contact.value}
+          ariaLabel={`Report ${contact.value} as wrong`}
+        />
+      )}
+    </div>
+  );
+}
+
+/** The site as a contact row (d7) — free discovery data, every state. */
+function WebsiteRow({ url }: { url: string }) {
+  const display = url.replace(/^https?:\/\//, "").replace(/\/$/, "");
+  return (
+    <div className="ldcrow">
+      <span className="ci" aria-hidden="true">
+        <Icon name="link" size={13} />
+      </span>
+      <a
+        className="ldcval"
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        data-tip={url}
+      >
+        {display}
+      </a>
+    </div>
+  );
+}
+
+/**
+ * The honest CONTACTS run state when the scan hasn't produced a strip:
+ *   not_run → "Enrich contacts →" CTA · empty → COMPLETED soft-green
+ *   "Scanned · none found" (✓ — an answer, owner fix c) · failed → retry ·
+ *   running → in-flight tag.
+ */
+function ContactsStateRow({ lead }: { lead: LeadDetail }) {
+  const st = lead.contactsState;
+  const openSheet = () =>
+    openEnrichSheet({
+      enrichments: ["contacts"],
+      preselect: true,
+      scope: { selectedBusinessIds: [lead.businessId] },
+    });
+  return (
+    <div className="ldnr">
+      <span className={`ldnr-dot ${st}`} aria-hidden="true" />
+      <span className="ldnr-title">Contact scan</span>
+      {st === "empty" ? (
+        <span
+          className="ldtag done"
+          data-tip="The contact scan ran — no phone, email, or social found beyond the listing."
+        >
+          <Icon name="check" size={9} />
+          Scanned · none found
+        </span>
+      ) : st === "running" ? (
+        <span
+          className="ldtag run"
+          data-tip="Scan in progress — contacts land here when it finishes."
+        >
+          enriching…
+        </span>
+      ) : st === "failed" ? (
+        <>
+          <span
+            className="ldtag bad"
+            data-tip="The contact scan errored on the last run."
+          >
+            Failed
+          </span>
+          <button
+            type="button"
+            className="ldcta"
+            onClick={openSheet}
+            aria-label="Retry contacts enrichment"
+          >
+            Retry →
+          </button>
+        </>
+      ) : (
+        <button
+          type="button"
+          className="ldcta"
+          data-tip="Scan the site for phones, emails, and socials — with per-value provenance."
+          onClick={openSheet}
+          aria-label="Enrich contacts"
+        >
+          Enrich contacts →
+        </button>
+      )}
+    </div>
+  );
+}
+
+/** E6 · socials as compact linked chips (platform prefix + handle). */
+function SocialChips({ socials }: { socials: LeadContact[] }) {
+  const [expanded, setExpanded] = useState(false);
+  const overflow = socials.length - CONTACT_GROUP_CAP;
+  const shown =
+    expanded || overflow <= 0 ? socials : socials.slice(0, CONTACT_GROUP_CAP);
+  return (
+    <div className="ldsoc" role="group" aria-label="Social profiles">
+      {shown.map((c, i) => (
+        <a
+          key={`${c.href}-${i}`}
+          className="ldschip"
+          href={c.href}
+          target="_blank"
+          rel="noopener noreferrer"
+          data-tip={c.href}
+        >
+          <span className="cplat">{socialPlatformLabel(c.channel)}</span>
+          {c.value}
+        </a>
+      ))}
+      {overflow > 0 ? (
+        <button
+          type="button"
+          className="ldmore"
+          aria-expanded={expanded}
+          onClick={() => setExpanded((e) => !e)}
+        >
+          {expanded ? "less" : `+${overflow} more`}
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+/** E6 · short platform label for a social ContactChannel enum value. */
+function socialPlatformLabel(channel?: string): string {
+  switch (channel) {
+    case "INSTAGRAM":
+      return "IG";
+    case "FACEBOOK":
+      return "FB";
+    case "TIKTOK":
+      return "TT";
+    case "YOUTUBE":
+      return "YT";
+    case "LINKEDIN":
+      return "LI";
+    case "X":
+      return "X";
+    case "YELP":
+      return "Yelp";
+    default:
+      return "";
+  }
+}
+
+// ── Report-wrong (one-shot, WP6-13 / WP7-3) ──────────────────────────────────
+
+/**
+ * WP6-13 / WP7-3 · "report wrong" affordance. Flags the datum as wrong → hides
+ * it from every shared artifact (dispute-actions). Contact-data reasons ALSO
+ * auto-refund the family credit; a `wrong_finding` dispute hides the finding
+ * but doesn't refund (findings aren't independently billed). One-shot:
+ * disables + shows "Reported ✓" once fired. Two skins (owner fix b): the
+ * default text link (finding disputes) and a small hover-revealed FLAG icon on
+ * contact rows.
+ */
+function ReportWrongButton({
+  businessId,
+  reason,
+  value,
+  signalKey,
+  label = "report wrong",
+  ariaLabel = "Report wrong data",
+  variant = "link",
+}: {
+  businessId: string;
+  reason:
+    | "wrong_number"
+    | "wrong_email"
+    | "site_changed"
+    | "closed"
+    | "wrong_finding";
+  value?: string;
+  /** The disputed finding's signalKey (required when reason === wrong_finding). */
+  signalKey?: string;
+  /** Visible link text — differs for a finding ("dispute this"). */
+  label?: string;
+  ariaLabel?: string;
+  /** "flag" renders the hover-revealed icon (contact rows); "link" the text. */
+  variant?: "link" | "flag";
+}) {
+  const [reported, setReported] = useState(false);
+  const [pending, startTransition] = useTransition();
+
+  if (reported) {
+    return <span className="note report-done">Reported ✓</span>;
+  }
+  const title =
+    reason === "wrong_finding"
+      ? "Dispute this finding — we'll hide it from your leads and exports"
+      : "Report this data as wrong — we'll hide it and refund the credit";
+  const onClick = () =>
+    startTransition(async () => {
+      const r = await reportWrongDataAction({
+        businessId,
+        reason,
+        value,
+        signalKey,
+      });
+      if (r.status === "ok") {
+        setReported(true);
+        showToast(
+          r.refunded > 0
+            ? `Reported · ${r.refunded} credit${r.refunded === 1 ? "" : "s"} refunded`
+            : "Reported — thanks",
+        );
+      } else {
+        showToast("Couldn't report that — try again", "error");
+      }
+    });
+  if (variant === "flag") {
+    return (
+      <button
+        type="button"
+        className="ldflag"
+        disabled={pending}
+        data-tip={title}
+        aria-label={ariaLabel}
+        onClick={onClick}
+      >
+        <FlagIcon />
+      </button>
+    );
+  }
+  return (
+    <button
+      type="button"
+      className="report-link"
+      disabled={pending}
+      data-tip={title}
+      aria-label={ariaLabel}
+      onClick={onClick}
+    >
+      {label}
+    </button>
+  );
+}
+
+/** The d7 report-wrong flag glyph (not in the shared Icon set — drawer-only). */
+function FlagIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width={12}
+      height={12}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
+      <line x1="4" y1="22" x2="4" y2="15" />
+    </svg>
+  );
+}
+
+// ── 3 · Data bands ───────────────────────────────────────────────────────────
+
+/**
+ * The Reviews band — ALWAYS rendered: the GBP listing facts (total / rating /
+ * distribution / last review) are free discovery data (E1), honestly labelled
+ * as the listing. The pull half renders off the honest state: enriched → the
+ * reply-rate / unanswered / lifecycle / quote rows under "From the reviews
+ * pull"; anything else → the compact state row (ghost CTA / verified-empty ✓ /
+ * retry / running). Carries the vs-cell InfoTip — toned values and bars start
+ * here.
+ */
+function ReviewsBand({
+  block,
+  bands,
+  businessId,
+}: {
+  block: LeadDomainBlock;
+  bands?: Partial<Record<string, CellBand>>;
+  businessId: string;
+}) {
+  return (
+    <section className="ldband" data-sec="reviews">
+      <div className="ldcap">
+        <span className="ldcap-t">
+          {block.title}
+          <InfoTip
+            text={VS_CELL_EXPLAINER}
+            triggerLabel="What the green/red values mean"
+          />
+        </span>
+        <i>
+          {block.state === "enriched" && block.source
+            ? `${block.source}${block.asOf ? ` · ${block.asOf}` : ""}`
+            : "Google listing"}
+        </i>
+      </div>
+      {block.listingRows.length > 0 ? (
+        <>
+          <div className="microlabel">From the Google listing</div>
+          {block.listingRows.map((r, i) => (
+            <EvidenceRow key={`l-${i}`} row={r} bands={bands} />
+          ))}
+        </>
+      ) : null}
+      {block.state === "enriched" ? (
+        block.rows.length > 0 ? (
+          <>
+            <div className="microlabel">From the reviews pull</div>
+            <DomainRows rows={block.rows} bands={bands} hasListing />
+          </>
+        ) : null
+      ) : (
+        <DomainStateRow
+          block={block}
+          businessId={businessId}
+          title="Review pull"
+        />
+      )}
+    </section>
+  );
+}
+
+/**
+ * An ENRICHED non-reviews domain: one flat band — cap (title + right-aligned
+ * "source · as-of" provenance, WP6-9) over 3–8 dense rows. No accordion: the
+ * paid evidence is never behind a click.
+ */
+function DataBand({
+  block,
+  bands,
+}: {
+  block: LeadDomainBlock;
+  bands?: Partial<Record<string, CellBand>>;
+}) {
+  return (
+    <section className="ldband" data-sec={block.key}>
+      <div className="ldcap">
+        <span className="ldcap-t">{block.title}</span>
+        {block.source ? (
+          <i>
+            {block.source}
+            {block.asOf ? ` · ${block.asOf}` : ""}
+          </i>
+        ) : null}
+      </div>
+      <DomainRows rows={block.rows} bands={bands} hasListing={false} />
+    </section>
+  );
+}
+
+/**
+ * The always-free GBP Profile band: photos · claimed · years (tenure band) ·
+ * open-days · notable attributes, plus the owner's own GBP description
+ * (truncated, expandable) and the direct Maps listing link. Listing-labelled —
+ * free discovery data, never proof an enrichment ran.
+ */
+function ProfileBand({
+  profile,
+  bands,
+}: {
+  profile: LeadProfile;
+  bands?: Partial<Record<string, CellBand>>;
+}) {
+  return (
+    <section className="ldband" data-sec="profile">
+      <div className="ldcap">
+        <span className="ldcap-t">Profile</span>
+        <i>Google listing</i>
+      </div>
+      {profile.rows.map((r, i) => (
+        <EvidenceRow key={i} row={r} bands={bands} />
+      ))}
+      {profile.description ? (
+        <GbpDescription text={profile.description} />
+      ) : null}
+      {profile.mapsUrl ? (
+        <a
+          className="ldlink"
+          href={profile.mapsUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Open Maps listing ↗
+        </a>
+      ) : null}
+    </section>
+  );
+}
+
+/** GBP description clamp cutoff (chars) before the expand toggle. */
+const GBP_DESC_CLAMP = 160;
+
+/** The owner's own GBP pitch — truncated with a real expand/collapse toggle. */
+function GbpDescription({ text }: { text: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const needsClamp = text.length > GBP_DESC_CLAMP;
+  const shown =
+    !needsClamp || expanded
+      ? text
+      : `${text.slice(0, GBP_DESC_CLAMP - 1).trimEnd()}…`;
+  return (
+    <div className="ddesc">
+      <span className="microlabel">Their own pitch</span>
+      {shown}{" "}
+      {needsClamp ? (
+        <button
+          type="button"
+          className="ldmore"
+          aria-expanded={expanded}
+          onClick={() => setExpanded((e) => !e)}
+        >
+          {expanded ? "less" : "more"}
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * Nearby rivals — Business.peopleAlsoSearch (free discovery data): the
+ * competitor set Google's own algorithm surfaces, one dense d7 row each.
+ * Powers the "you're losing to Treasure Valley (136 reviews)" pitch at zero
+ * cost.
+ */
+function RivalsBand({ rivals }: { rivals: LeadRival[] }) {
+  return (
+    <section className="ldband" data-sec="rivals">
+      <div className="ldcap">
+        <span className="ldcap-t">Nearby rivals</span>
+        <i>People also search</i>
+      </div>
+      {rivals.map((r, i) => (
+        <div className="ldriv" key={`${r.name}-${i}`}>
+          <em>{r.name}</em>
+          <span>
+            {r.rating != null ? `${r.rating.toFixed(1)}★` : "—"}
+            {r.reviewCount != null
+              ? ` · ${r.reviewCount.toLocaleString()}`
+              : ""}
+          </span>
+        </div>
+      ))}
+    </section>
+  );
+}
+
+// ── 4 · Coverage (the honest not-yet-enriched rail) ──────────────────────────
+
+/**
+ * The d7 coverage band: one dot per data domain (filled = enriched, soft-green
+ * = verified empty, red = failed) + a compact honest state row for every
+ * non-enriched domain (reviews excluded — its own band carries its state):
+ *   not_run · "Enrich →" CTA (ghostNote in the tooltip)
+ *   empty   · COMPLETED soft-green "Scanned · none found" ✓ (owner fix c —
+ *             never a re-pay CTA; "no ads" IS an answer)
+ *   failed  · red "Failed" + "Retry →"
+ *   running · indigo "enriching…" (paid for — no CTA)
+ */
+function CoverageBand({ lead }: { lead: LeadDetail }) {
+  const enrichedCount = lead.domains.filter(
+    (d) => d.state === "enriched",
+  ).length;
+  const ghosts = lead.domains.filter(
+    (d) => d.key !== "reviews" && d.state !== "enriched",
+  );
+  return (
+    <section className="ldband" data-sec="coverage">
+      <div className="ldcap">
+        <span className="ldcap-t">Coverage</span>
+        <i>
+          {enrichedCount} of {lead.domains.length} enriched
+        </i>
+      </div>
+      <div className="lddots" aria-hidden="true">
+        {lead.domains.map((d) => (
+          <span
+            key={d.key}
+            className={`lddot ${d.state}`}
+            data-tip={`${d.title} · ${typeStateLabel(d.state)}`}
+          />
+        ))}
+      </div>
+      {ghosts.map((d) => (
+        <DomainStateRow key={d.key} block={d} businessId={lead.businessId} />
+      ))}
+    </section>
+  );
+}
+
+/** Human label for a domain's TypeState (dot tooltips). */
+function typeStateLabel(state: LeadDomainBlock["state"]): string {
+  switch (state) {
+    case "enriched":
+      return "enriched";
+    case "empty":
+      return "scanned · none found";
+    case "failed":
+      return "failed";
+    case "running":
+      return "enriching…";
+    default:
+      return "not enriched";
+  }
+}
+
+/**
+ * One compact honest state row: state dot + title + tag/CTA. Used by the
+ * coverage band and by the Reviews band's pull half.
+ */
+function DomainStateRow({
+  block,
+  businessId,
+  title,
+}: {
+  block: LeadDomainBlock;
+  businessId: string;
+  /** Override the row title (Reviews band says "Review pull"). */
+  title?: string;
+}) {
+  return (
+    <div className="ldnr">
+      <span className={`ldnr-dot ${block.state}`} aria-hidden="true" />
+      <span className="ldnr-title">{title ?? block.title}</span>
+      <StateTagCta block={block} businessId={businessId} />
+    </div>
+  );
+}
+
+/** The state tag / CTA half of a {@link DomainStateRow}. */
+function StateTagCta({
+  block,
+  businessId,
+}: {
+  block: LeadDomainBlock;
+  businessId: string;
+}) {
+  const enrichments = enrichTypesForDomainKey(block.key);
+  const openSheet = () =>
+    openEnrichSheet({
+      enrichments,
+      // AUDIT D1 · a drawer single-domain CTA → pre-select its enrichment.
+      preselect: true,
+      scope: { selectedBusinessIds: [businessId] },
+    });
+  if (block.state === "empty") {
+    return (
+      <span
+        className="ldtag done"
+        data-tip={
+          block.emptyNote ?? "Enrichment ran — nothing found for this lead."
+        }
+      >
+        <Icon name="check" size={9} />
+        Scanned · none found
+      </span>
+    );
+  }
+  if (block.state === "running") {
+    return (
+      <span
+        className="ldtag run"
+        data-tip="Scan in progress — results land here when it finishes."
+      >
+        enriching…
+      </span>
+    );
+  }
+  if (block.state === "failed") {
+    return (
+      <>
+        <span
+          className="ldtag bad"
+          data-tip="Enrichment errored on the last run."
+        >
+          Failed
+        </span>
+        {enrichments.length > 0 ? (
+          <button
+            type="button"
+            className="ldcta"
+            onClick={openSheet}
+            aria-label={`Retry ${block.title} enrichment`}
+          >
+            Retry →
+          </button>
+        ) : null}
+      </>
+    );
+  }
+  // not_run — WP5-3 · the CTA's promise made real: opens the in-workbench
+  // enrich sheet pre-seeded with this domain's families, scoped to this lead.
+  return enrichments.length > 0 ? (
+    <button
+      type="button"
+      className="ldcta"
+      data-tip={block.ghostNote}
+      onClick={openSheet}
+      aria-label={`Enrich ${block.title}`}
+    >
+      Enrich →
+    </button>
+  ) : (
+    <span className="ldtag" data-tip={block.ghostNote}>
+      Not enriched
+    </span>
+  );
+}
+
+// ── 5 · Touches ──────────────────────────────────────────────────────────────
+
+function TouchesBand({ touches }: { touches: LeadTouch[] }) {
+  return (
+    <section className="ldband" data-sec="touches">
+      <div className="ldcap">
+        <span className="ldcap-t">Outreach · touches</span>
+        <i>{touches.length > 0 ? touches.length : "none yet"}</i>
+      </div>
+      {touches.length === 0 ? (
+        <div className="note">
+          No touch yet. Generate touch below — grounded in this lead&rsquo;s
+          signals.
+        </div>
+      ) : (
+        touches.map((t) => (
+          <div key={t.draftId} className="dtouch">
+            <div className="dtouch-head">
+              <b>
+                Touch {t.seq} of {t.of}
+                <span className="note dtouch-ch">{t.channel}</span>
+              </b>
+              <span className={`pill ${t.status === "Sent" ? "green" : ""}`}>
+                {t.status}
+              </span>
+            </div>
+            {t.subject ? <p className="dtouch-subject">{t.subject}</p> : null}
+            <p className="dtouch-body">{t.body}</p>
+          </div>
+        ))
+      )}
+    </section>
+  );
+}
+
+// ── Evidence rows (shared by why + data bands) ───────────────────────────────
+
 /**
  * AI-brief readability (owner 2026-07-06) · render `**bold**` markdown emphasis
  * inside AI-written text. The ai-research pipeline now bolds the single most
@@ -1135,9 +1770,12 @@ function renderInlineBold(text: string): ReactNode {
 function EvidenceRow({
   row,
   bands,
+  painIndex,
 }: {
   row: LeadEvidenceRow;
   bands?: Partial<Record<string, CellBand>>;
+  /** d7 · 1-based number badge for an Opener-angle pain line. */
+  painIndex?: number;
 }) {
   // WP5-11 · when the row carries a structured metric AND the workbench has a
   // band for it, render the value ON the cell distribution (typical band + p90
@@ -1172,7 +1810,7 @@ function EvidenceRow({
   }
 
   // Tones are classes (tg/ta/tr — green/amber/red), not inline colors; the
-  // Data-section head's InfoTip explains them once for every toned value.
+  // Reviews band cap's InfoTip explains them once for every toned value.
   const toneClass =
     row.tone === "g"
       ? " tg"
@@ -1195,11 +1833,16 @@ function EvidenceRow({
 
   // Issue 13 · a prose row (Angle rows — counter labels add nothing): one
   // label-less full-width line under the section head DomainRows prints.
-  // `pain` lines (the outreach pain hypotheses) get the amber-rule highlight —
-  // the issues must stand out from neutral prose (owner 2026-07-06).
+  // `pain` lines (the outreach pain hypotheses) get the amber-rule highlight +
+  // a d7 number badge — the issues must stand out from neutral prose.
   if (row.prose) {
     return (
       <div className={`sig kv prose${row.pain ? " pain" : ""}`}>
+        {painIndex != null ? (
+          <b className="ldang-n" aria-hidden="true">
+            {painIndex}
+          </b>
+        ) : null}
         <p className={`val${toneClass}`}>{renderInlineBold(row.value)}</p>
       </div>
     );
@@ -1221,278 +1864,13 @@ function EvidenceRow({
   );
 }
 
-// ── Data-domain blocks (flat when enriched · one honest line otherwise) ──────
-
-/**
- * An ENRICHED domain: an open, flat block — head (icon + title + right-aligned
- * source · as-of provenance) over 3–6 dense rows. No accordion: the paid
- * evidence is never behind a click (style audit, information order).
- */
-function DataBlock({
-  block,
-  bands,
-}: {
-  block: LeadDomainBlock;
-  bands?: Partial<Record<string, CellBand>>;
-}) {
-  const hasListing = block.listingRows.length > 0;
-  return (
-    <div className="dblock">
-      <div className="dblock-head">
-        <span className="bic" aria-hidden="true">
-          <Icon name={block.icon} size={14} />
-        </span>
-        <span className="dblock-title">{block.title}</span>
-        {/* WP6-9 · evidence-honesty provenance — where this block's data came
-            from + when it was retrieved, so every claim is auditable. */}
-        {block.source ? (
-          <span className="dblock-src">
-            {block.source}
-            {block.asOf ? ` · ${block.asOf}` : ""}
-          </span>
-        ) : null}
-      </div>
-      {/* E1 · listing facts (Reviews) render first, labelled as the listing,
-          then the enrichment rows below. */}
-      {hasListing ? (
-        <>
-          <div className="microlabel">From the Google listing</div>
-          {block.listingRows.map((r, i) => (
-            <EvidenceRow key={`l-${i}`} row={r} bands={bands} />
-          ))}
-          {block.rows.length ? (
-            <div className="microlabel">From the reviews pull</div>
-          ) : null}
-        </>
-      ) : null}
-      <DomainRows rows={block.rows} bands={bands} hasListing={hasListing} />
-    </div>
-  );
-}
-
-/**
- * A NON-ENRICHED domain compressed to ONE line in the enrich-sheet vocabulary
- * (state dot + title + right-aligned state tag / CTA — the same visual code as
- * .enrich-group-row, so state reads identically in both surfaces). The honest
- * TypeState split is intact:
- *   not_run · hollow dot · "Enrich →" CTA (ghostNote in the tooltip)
- *   empty   · green dot  · "Ran · none found" (verified — never a CTA)
- *   failed  · red dot    · "Failed" tag + "Retry →" CTA
- *   running · indigo dot · "enriching…" (paid for — no CTA)
- * Reviews keeps its E1 exception: the free GBP listing facts still render in a
- * compact sub-group under the line, labelled as the listing.
- */
-function DataGhostRow({
-  block,
-  bands,
-  businessId,
-}: {
-  block: LeadDomainBlock;
-  bands?: Partial<Record<string, CellBand>>;
-  /** The open lead — the enrich CTA scopes the sheet to it. */
-  businessId: string;
-}) {
-  const enrichments = enrichTypesForDomainKey(block.key);
-  const hasListing = block.listingRows.length > 0;
-  const openSheet = () =>
-    openEnrichSheet({
-      enrichments,
-      // AUDIT D1 · a drawer single-domain CTA → pre-select its enrichment.
-      preselect: true,
-      scope: { selectedBusinessIds: [businessId] },
-    });
-
-  const dotClass =
-    block.state === "empty"
-      ? "dnr-dot on"
-      : block.state === "failed"
-        ? "dnr-dot failed"
-        : block.state === "running"
-          ? "dnr-dot running"
-          : "dnr-dot";
-
-  return (
-    <>
-      <div className="dnr">
-        <span className={dotClass} aria-hidden="true" />
-        <span className="dnr-title">{block.title}</span>
-        {block.state === "empty" ? (
-          <span
-            className="microlabel dnr-tag"
-            data-tip={
-              block.emptyNote ?? "Enrichment ran — nothing found for this lead."
-            }
-          >
-            Ran · none found
-          </span>
-        ) : block.state === "running" ? (
-          <span
-            className="microlabel dnr-tag"
-            data-tip="Scan in progress — results land here when it finishes."
-          >
-            enriching…
-          </span>
-        ) : block.state === "failed" ? (
-          <>
-            <span
-              className="microlabel dnr-tag failed"
-              data-tip="Enrichment errored on the last run."
-            >
-              Failed
-            </span>
-            {enrichments.length > 0 ? (
-              <button
-                type="button"
-                className="dacc-enrich"
-                onClick={openSheet}
-                aria-label={`Retry ${block.title} enrichment`}
-              >
-                Retry →
-              </button>
-            ) : null}
-          </>
-        ) : enrichments.length > 0 ? (
-          // WP5-3 · the CTA's promise made real: opens the in-workbench enrich
-          // sheet pre-seeded with this domain's families, scoped to this lead.
-          <button
-            type="button"
-            className="dacc-enrich dnr-cta"
-            data-tip={block.ghostNote}
-            onClick={openSheet}
-            aria-label={`Enrich ${block.title}`}
-          >
-            Enrich →
-          </button>
-        ) : (
-          <span className="microlabel dnr-tag" data-tip={block.ghostNote}>
-            Not enriched
-          </span>
-        )}
-      </div>
-      {/* E1 · discovery listing facts — shown even before enrichment ran,
-          labelled as the listing (not a review pull). */}
-      {hasListing ? (
-        <div className="dnr-listing">
-          <div className="microlabel">From the Google listing</div>
-          {block.listingRows.map((r, i) => (
-            <EvidenceRow key={i} row={r} bands={bands} />
-          ))}
-        </div>
-      ) : null}
-    </>
-  );
-}
-
-/**
- * The always-free GBP Profile block (Data section): photos · claimed · years ·
- * open-days · notable attributes, plus the owner's own GBP description
- * (truncated, expandable) and the direct Maps listing link. Listing-labelled —
- * free discovery data, never proof an enrichment ran.
- */
-function ProfileBlock({
-  lead,
-  bands,
-}: {
-  lead: LeadDetail;
-  bands?: Partial<Record<string, CellBand>>;
-}) {
-  const p = lead.profile;
-  if (p.rows.length === 0 && !p.description && !p.mapsUrl) return null;
-  return (
-    <div className="dblock">
-      <div className="dblock-head">
-        <span className="bic" aria-hidden="true">
-          <Icon name="pin" size={14} />
-        </span>
-        <span className="dblock-title">Profile</span>
-        <span className="dblock-src">Google listing</span>
-      </div>
-      {p.rows.map((r, i) => (
-        <EvidenceRow key={i} row={r} bands={bands} />
-      ))}
-      {p.description ? <GbpDescription text={p.description} /> : null}
-      {p.mapsUrl ? (
-        <a
-          className="clink"
-          href={p.mapsUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Open Maps listing ↗
-        </a>
-      ) : null}
-    </div>
-  );
-}
-
-/** GBP description clamp cutoff (chars) before the expand toggle. */
-const GBP_DESC_CLAMP = 160;
-
-/** The owner's own GBP pitch — truncated with a real expand/collapse toggle. */
-function GbpDescription({ text }: { text: string }) {
-  const [expanded, setExpanded] = useState(false);
-  const needsClamp = text.length > GBP_DESC_CLAMP;
-  const shown =
-    !needsClamp || expanded
-      ? text
-      : `${text.slice(0, GBP_DESC_CLAMP - 1).trimEnd()}…`;
-  return (
-    <div className="ddesc">
-      <span className="microlabel">Their own pitch</span>
-      {shown}{" "}
-      {needsClamp ? (
-        <button
-          type="button"
-          className="clink ddesc-more"
-          aria-expanded={expanded}
-          onClick={() => setExpanded((e) => !e)}
-        >
-          {expanded ? "less" : "more"}
-        </button>
-      ) : null}
-    </div>
-  );
-}
-
-/**
- * Nearby rivals — Business.peopleAlsoSearch (free discovery data): the
- * competitor set Google's own algorithm surfaces, one dense row each. Powers
- * the "you're losing to Treasure Valley (136 reviews)" pitch at zero cost.
- */
-function RivalsBlock({ rivals }: { rivals: LeadRival[] }) {
-  return (
-    <div className="dblock">
-      <div className="dblock-head">
-        <span className="bic" aria-hidden="true">
-          <Icon name="users" size={14} />
-        </span>
-        <span className="dblock-title">Nearby rivals</span>
-        <span className="dblock-src">People also search</span>
-      </div>
-      {rivals.map((r, i) => (
-        <div className="sig" key={`${r.name}-${i}`}>
-          <div className="row">
-            <span className="name">{r.name}</span>
-            <span className="val">
-              {r.rating != null ? `${r.rating.toFixed(1)}★` : "—"}
-              {r.reviewCount != null
-                ? ` · ${r.reviewCount.toLocaleString()} reviews`
-                : ""}
-            </span>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 /**
  * E3 · renders a block's rows, grouping consecutive rows that share a `section`
  * under a small heading (AI research: Services · Summary · Compliance cues ·
  * Opener angle). Ungrouped rows (every other block) render flat as before.
  * Issue 13 · a segment whose rows carry `chip` renders as one wrapping `.dchips`
  * row (the Services menu) instead of key/value lines; section heads are the
- * shared `.microlabel` token, not a shrunken brand eyebrow.
+ * shared `.microlabel` token. Pain prose lines get 1-based d7 number badges.
  */
 function DomainRows({
   rows,
@@ -1516,32 +1894,41 @@ function DomainRows({
   }
   return (
     <>
-      {segments.map((seg, i) => (
-        <div key={i}>
-          {seg.section != null ? (
-            <div className="microlabel">{seg.section}</div>
-          ) : null}
-          {seg.rows[0].chip ? (
-            <div className="dchips">
-              {seg.rows.map((r, j) => (
-                <span
-                  key={`${r.label}-${j}`}
-                  // Amber `warn` variant for attention chips (compliance cues);
-                  // neutral for plain facts (services menu).
-                  className={`ppchip${r.tone === "a" ? " warn" : ""}`}
-                  data-tip={r.value && r.value !== "—" ? r.value : undefined}
-                >
-                  {r.label}
-                </span>
-              ))}
-            </div>
-          ) : (
-            seg.rows.map((r, j) => (
-              <EvidenceRow key={j} row={r} bands={bands} />
-            ))
-          )}
-        </div>
-      ))}
+      {segments.map((seg, i) => {
+        // d7 · number the pain lines within their segment (Opener angle 1/2/3).
+        let painN = 0;
+        return (
+          <div key={i}>
+            {seg.section != null ? (
+              <div className="microlabel">{seg.section}</div>
+            ) : null}
+            {seg.rows[0].chip ? (
+              <div className="dchips">
+                {seg.rows.map((r, j) => (
+                  <span
+                    key={`${r.label}-${j}`}
+                    // Amber `warn` variant for attention chips (compliance cues);
+                    // neutral for plain facts (services menu).
+                    className={`ppchip${r.tone === "a" ? " warn" : ""}`}
+                    data-tip={r.value && r.value !== "—" ? r.value : undefined}
+                  >
+                    {r.label}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              seg.rows.map((r, j) => (
+                <EvidenceRow
+                  key={j}
+                  row={r}
+                  bands={bands}
+                  painIndex={r.prose && r.pain ? ++painN : undefined}
+                />
+              ))
+            )}
+          </div>
+        );
+      })}
     </>
   );
 }
@@ -1551,8 +1938,8 @@ function DomainRows({
 function DrawerSkeleton() {
   return (
     <div aria-hidden="true">
-      {Array.from({ length: 3 }).map((_, i) => (
-        <div className="dsec" key={i}>
+      {Array.from({ length: 4 }).map((_, i) => (
+        <div className="ldband" key={i}>
           <div className="skl sm" />
           <div className="skl lg" />
           <div className="skl md" />
