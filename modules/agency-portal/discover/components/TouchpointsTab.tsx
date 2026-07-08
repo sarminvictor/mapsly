@@ -24,7 +24,13 @@
 // email only, 1 cr); WP5-7 adds "Export sequence CSV" (CAN-SPAM guard intact,
 // Instantly/Smartlead-shaped columns + evidence merge fields).
 
-import { useMemo, useOptimistic, useState, useTransition } from "react";
+import {
+  useEffect,
+  useMemo,
+  useOptimistic,
+  useState,
+  useTransition,
+} from "react";
 import { useRouter } from "next/navigation";
 
 import { showToast } from "@/components/agency/Toast";
@@ -46,6 +52,7 @@ import {
   painGroupClass,
   type LeadStatus,
 } from "../leads-workbench";
+import { copyEmailText } from "./touch-gen-helpers";
 
 /** A serialized touchpoint draft + its grounding pains, resolved server-side. */
 export interface WorkbenchTouch {
@@ -89,6 +96,25 @@ export function TouchpointsTab({ touches, stats }: TouchpointsTabProps) {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState<number>(10);
+
+  // Table height — "fit" (default, capped to the viewport) vs "tall" (uncapped,
+  // more rows visible, the page scrolls). Mirrors the leads-table toggle; its
+  // own persistence key so each table remembers its own height. SSR-safe:
+  // default false, apply a saved value after mount via setTimeout(0).
+  const [tall, setTall] = useState(false);
+  useEffect(() => {
+    const tid = window.setTimeout(() => {
+      if (window.localStorage.getItem("tp-tall") === "1") setTall(true);
+    }, 0);
+    return () => window.clearTimeout(tid);
+  }, []);
+  function toggleTall() {
+    setTall((t) => {
+      const next = !t;
+      window.localStorage.setItem("tp-tall", next ? "1" : "0");
+      return next;
+    });
+  }
   const [open, setOpen] = useState<Set<string>>(new Set());
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
@@ -362,6 +388,20 @@ export function TouchpointsTab({ touches, stats }: TouchpointsTabProps) {
               </button>
             ))}
         </div>
+
+        {/* Table height toggle — same control as the leads table. "Fit" caps
+            the grid to the viewport; "Tall" lifts the cap so more rows show and
+            the page scrolls. Active (indigo) when tall; the choice persists. */}
+        <button
+          type="button"
+          className={`iconbtn${tall ? " active" : ""}`}
+          data-tip="Table height"
+          aria-label={`Table height: ${tall ? "tall" : "fit to screen"} — click to toggle`}
+          aria-pressed={tall}
+          onClick={toggleTall}
+        >
+          <span aria-hidden="true">⇕</span>
+        </button>
       </div>
 
       {error ? (
@@ -371,7 +411,7 @@ export function TouchpointsTab({ touches, stats }: TouchpointsTabProps) {
       ) : null}
 
       {/* ── Grouped table ─────────────────────────────────────────────────── */}
-      <div className="wbtable-wrap">
+      <div className={`wbtable-wrap${tall ? " tall" : ""}`}>
         <table className="wb">
           <thead>
             <tr>
@@ -673,7 +713,33 @@ function TouchStep({
   const [body, setBody] = useState(touch.body);
   const [saved, setSaved] = useState(false);
   const [busy, setBusy] = useState<"polish" | "regen" | null>(null);
+  // B6 · transient "Copied" confirmation on the copy-email button.
+  const [copied, setCopied] = useState(false);
   const [, startTransition] = useTransition();
+
+  /** B6 · copy subject + body to the clipboard for pasting into an email tool.
+   *  Guards for an undefined clipboard (insecure context / old browser). */
+  function copyEmail() {
+    const text = copyEmailText(touch.subject, body);
+    const clip =
+      typeof navigator !== "undefined" ? navigator.clipboard : undefined;
+    if (!clip?.writeText) {
+      showToast("Couldn't copy — clipboard unavailable.", "error");
+      return;
+    }
+    void clip.writeText(text).then(
+      () => {
+        setCopied(true);
+        // A11y (WCAG 4.1.3) · the button-label swap alone isn't announced (it
+        // mutates the focused button's accessible name, not a live region). Fire
+        // the polite toast (ToastHost is role=status aria-live=polite) so a
+        // screen-reader user hears the copy succeeded.
+        showToast("Copied email");
+        setTimeout(() => setCopied(false), 1500);
+      },
+      () => showToast("Couldn't copy — clipboard unavailable.", "error"),
+    );
+  }
 
   function save() {
     startTransition(async () => {
@@ -753,10 +819,21 @@ function TouchStep({
           </button>
         </span>
       </div>
+      {/* B5 · a labeled, copyable subject field (was a bare unlabeled div).
+          Readonly + select-all-on-focus so it drops straight into an email
+          client. */}
       {touch.subject ? (
-        <div className="tpstep-no" style={{ marginBottom: 4 }}>
-          {touch.subject}
-        </div>
+        <label className="tpstep-subject">
+          <span className="tpstep-subject-lbl">Subject</span>
+          <input
+            type="text"
+            className="tpstep-subject-in"
+            readOnly
+            value={touch.subject}
+            onFocus={(e) => e.currentTarget.select()}
+            aria-label={`Subject for touch ${seq}, ${touch.businessName}`}
+          />
+        </label>
       ) : null}
       <textarea
         className="tpedit"
@@ -801,6 +878,15 @@ function TouchStep({
         <button type="button" className="lk" onClick={save}>
           {saved ? "Saved ✓" : "Save"}
         </button>
+        {/* B6 · copy subject + body together for pasting into an email client. */}
+        <button
+          type="button"
+          className="lk"
+          onClick={copyEmail}
+          data-tip="Copy the subject and body to paste into your email tool"
+        >
+          {copied ? "Copied" : "Copy email"}
+        </button>
         {touch.channel === "email" ? (
           <button
             type="button"
@@ -809,7 +895,15 @@ function TouchStep({
             disabled={busy !== null}
             data-tip="Reword for fluency (gpt nano) — fact-checked, falls back to the grounded draft"
           >
-            {busy === "polish" ? "Polishing…" : "Polish · 1 cr"}
+            {/* B4 · per-touch pending state — spinner + disabled while it runs. */}
+            {busy === "polish" ? (
+              <span className="lk-busy">
+                <span className="spin" aria-hidden="true" />
+                Polishing…
+              </span>
+            ) : (
+              "Polish · 1 cr"
+            )}
           </button>
         ) : null}
         <button
@@ -819,9 +913,14 @@ function TouchStep({
           disabled={busy !== null}
           data-tip="Rebuild this step from fresh signals — themes stay deduped across the sequence"
         >
-          {busy === "regen"
-            ? "Regenerating…"
-            : `Regenerate · ${creditsForTouches(1)} cr`}
+          {busy === "regen" ? (
+            <span className="lk-busy">
+              <span className="spin" aria-hidden="true" />
+              Regenerating…
+            </span>
+          ) : (
+            `Regenerate · ${creditsForTouches(1)} cr`
+          )}
         </button>
       </div>
     </div>

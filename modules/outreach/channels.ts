@@ -51,6 +51,13 @@ export interface ChannelTouchOptions {
   /** A2/A14/A16 · per-business subject/frame variation seed (the businessId,
    *  passed to buildFirstTouch — see TouchOptions.variantSeed). */
   variantSeed?: string | null;
+  /**
+   * A12 (touchpoints v2 2026-07-07) · when true, the EMAIL subject prepends the
+   * short business name + Title Case (the founder's A/B). Default false (the
+   * expert lowercase-specific-no-name subject). Phone/social have no subject, so
+   * this is a no-op for those channels. Passed through to buildFirstTouch.
+   */
+  includeNameInSubject?: boolean;
 }
 
 export interface ChannelTouch {
@@ -89,6 +96,8 @@ export function buildChannelTouch(
       sequenceStep: opts.sequenceStep,
       agencySeed: opts.agencySeed,
       variantSeed: opts.variantSeed,
+      // A12 · email-only subject name toggle.
+      includeNameInSubject: opts.includeNameInSubject,
     });
     return toChannelTouch("email", touch);
   }

@@ -7,12 +7,15 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 
 const prismaMock = vi.hoisted(() => ({
   business: { findUnique: vi.fn() },
-  review: { count: vi.fn() },
+  review: { count: vi.fn(), findFirst: vi.fn() },
   adLibraryEntry: { count: vi.fn() },
   businessTech: { findFirst: vi.fn(), count: vi.fn() },
   playbookFinding: { findFirst: vi.fn() },
   // A10 · newest verified Meta ad-market run for the business's cell.
   adMarketRun: { findFirst: vi.fn() },
+  // Touchpoints v2 (A1–A4) · SERP ranks + AI research read.
+  serpResult: { findFirst: vi.fn() },
+  businessEnrichment: { findUnique: vi.fn() },
   outreachDraft: { create: vi.fn() },
   // WP7-4 · consent-basis log written per email touch.
   consentRecord: { create: vi.fn() },
@@ -289,11 +292,15 @@ describe("generateTouchesForLeads", () => {
 /** Baseline "no extra signals" mocks; individual tests override what they need. */
 function mockQuiet() {
   prismaMock.review.count.mockResolvedValue(0);
+  prismaMock.review.findFirst.mockResolvedValue(null);
   prismaMock.adLibraryEntry.count.mockResolvedValue(0);
   prismaMock.businessTech.findFirst.mockResolvedValue(null);
   prismaMock.businessTech.count.mockResolvedValue(0);
   prismaMock.playbookFinding.findFirst.mockResolvedValue(null);
   prismaMock.adMarketRun.findFirst.mockResolvedValue(null);
+  // Touchpoints v2 · no SERP scan / no AI research by default.
+  prismaMock.serpResult.findFirst.mockResolvedValue(null);
+  prismaMock.businessEnrichment.findUnique.mockResolvedValue(null);
 }
 
 describe("A6 · noun map — health practices say 'patients'", () => {
@@ -480,5 +487,240 @@ describe("A17 · sparse gate — zero grounded pains → skip, don't draft", () 
 
     expect(out.touches).toHaveLength(1);
     expect(out.skippedSparse).toBe(0);
+  });
+});
+
+// ── Touchpoints v2 (2026-07-07) · A1–A5 data plumbing, A13/A14 skip summary ──
+
+describe("A1–A5 · the 'stand out' facts are gathered from real data", () => {
+  test("A1 · named rivals from peopleAlsoSearch (top rival + other count)", async () => {
+    mockBiz({
+      peopleAlsoSearch: [
+        { title: "Zen Wellness", rating: { value: 4.8, votes_count: 210 } },
+        { title: "Calm Acupuncture" },
+        { title: "Needle Point Clinic" },
+      ],
+    });
+    mockQuiet();
+    const s = await gatherTouchSignals("biz_1");
+    expect(s.topRivalName).toBe("Zen Wellness");
+    expect(s.otherRivalCount).toBe(2); // 3 rivals, minus the top one
+  });
+
+  test("A1 · no rivals → null (grounded-or-omit)", async () => {
+    mockBiz({ peopleAlsoSearch: null });
+    mockQuiet();
+    const s = await gatherTouchSignals("biz_1");
+    expect(s.topRivalName).toBeNull();
+    expect(s.otherRivalCount).toBeNull();
+  });
+
+  test("A2 · SERP ranks + pack leader; keyword derived from category+city", async () => {
+    mockBiz({ category: "Acupuncturist", city: "Boise" });
+    mockQuiet();
+    prismaMock.serpResult.findFirst.mockResolvedValue({
+      localPackRank: null,
+      organicRank: 7,
+      pack1Name: "Zen Wellness",
+    });
+    const s = await gatherTouchSignals("biz_1");
+    expect(s.organicRank).toBe(7);
+    expect(s.localPackRank).toBeNull();
+    expect(s.packLeaderName).toBe("Zen Wellness");
+    // Keyword is derived (SerpResult stores a keywordId, not the text).
+    expect(s.trackedKeyword).toBe("acupuncturist boise");
+  });
+
+  test("A2 · no SERP scan → ranks/keyword-leader null (serp pain stays off)", async () => {
+    mockBiz({ category: "Acupuncturist", city: "Boise" });
+    mockQuiet(); // serpResult.findFirst → null
+    const s = await gatherTouchSignals("biz_1");
+    expect(s.organicRank).toBeNull();
+    expect(s.packLeaderName).toBeNull();
+    // trackedKeyword is still derivable from category+city (used only when a
+    // rank exists — the pain's present-gate requires organicRank).
+    expect(s.trackedKeyword).toBe("acupuncturist boise");
+  });
+
+  test("A3 · a real unanswered ≤3★ review is quoted (text + stars + month)", async () => {
+    mockBiz();
+    mockQuiet();
+    prismaMock.review.count.mockResolvedValue(3);
+    prismaMock.review.findFirst.mockResolvedValue({
+      stars: 2,
+      text: "  waited an hour and nobody came to the desk  ",
+      postedAt: new Date(Date.UTC(2026, 5, 12)), // June (month index 5)
+    });
+    const s = await gatherTouchSignals("biz_1");
+    expect(s.recentUnansweredReviewQuote).toBe(
+      "waited an hour and nobody came to the desk",
+    );
+    expect(s.reviewQuoteStars).toBe(2);
+    expect(s.reviewQuoteMonth).toBe("June");
+  });
+
+  test("A3 · a review with no text → no quote (grounded-or-omit)", async () => {
+    mockBiz();
+    mockQuiet();
+    prismaMock.review.count.mockResolvedValue(3);
+    prismaMock.review.findFirst.mockResolvedValue(null);
+    const s = await gatherTouchSignals("biz_1");
+    expect(s.recentUnansweredReviewQuote).toBeNull();
+    expect(s.reviewQuoteStars).toBeNull();
+    expect(s.reviewQuoteMonth).toBeNull();
+  });
+
+  test("A4 · the first short AI pain hypothesis is carried; long ones skipped", async () => {
+    mockBiz();
+    mockQuiet();
+    prismaMock.businessEnrichment.findUnique.mockResolvedValue({
+      painHypotheses: [
+        "x".repeat(200), // too long → skipped
+        "their booking page 404s on mobile",
+      ],
+    });
+    const s = await gatherTouchSignals("biz_1");
+    expect(s.aiPainHypothesis).toBe("their booking page 404s on mobile");
+  });
+
+  test("A5 · named booking tool only when booking exists; years on Google", async () => {
+    mockBiz({ firstSeenOnGoogle: new Date(Date.UTC(2019, 0, 1)) });
+    mockQuiet();
+    prismaMock.businessTech.findFirst.mockResolvedValue({
+      id: "t_1",
+      name: "Vagaro",
+    });
+    prismaMock.businessTech.count.mockResolvedValue(4); // tech scanned
+    const s = await gatherTouchSignals("biz_1");
+    expect(s.hasBookingTool).toBe(true);
+    expect(s.bookingToolName).toBe("Vagaro");
+    expect(s.yearsOnGoogle).toBeGreaterThanOrEqual(6);
+  });
+
+  test("A5 · bookingToolName null when tech scanned but no booking tool", async () => {
+    mockBiz();
+    mockQuiet();
+    prismaMock.businessTech.findFirst.mockResolvedValue(null);
+    prismaMock.businessTech.count.mockResolvedValue(4); // scanned, no booking
+    const s = await gatherTouchSignals("biz_1");
+    expect(s.hasBookingTool).toBe(false);
+    expect(s.bookingToolName).toBeNull();
+  });
+
+  test("A10 · categoryLabel humanizes/pluralizes a clean category", async () => {
+    mockBiz({ category: "Acupuncturist" });
+    mockQuiet();
+    expect((await gatherTouchSignals("biz_1")).categoryLabel).toBe(
+      "acupuncture clinics",
+    );
+    mockBiz({ category: "Barber shop" });
+    expect((await gatherTouchSignals("biz_1")).categoryLabel).toBe(
+      "barber shops",
+    );
+  });
+});
+
+describe("A13/A14 · structured skip summary (the '6 of 8' fix)", () => {
+  test("a gather-error is COUNTED (skippedError), not a silent drop", async () => {
+    // biz_ok gathers fine; biz_gone throws in gatherTouchSignals.
+    prismaMock.business.findUnique.mockImplementation(
+      async (args: { where: { id: string } }) =>
+        args.where.id === "biz_gone"
+          ? null // → gatherTouchSignals throws "business not found"
+          : {
+              id: "biz_ok",
+              name: "Glow Spa",
+              city: "Miami",
+              category: "Medical Spa",
+              snapshots: [],
+              lighthouseAudits: [],
+            },
+    );
+    mockQuiet();
+    prismaMock.review.count.mockResolvedValue(3); // biz_ok is grounded
+    prismaMock.outreachDraft.create.mockResolvedValue({ id: "draft_1" });
+
+    const out = await generateTouchesForLeads(["biz_ok", "biz_gone"], {
+      sellingWhat: "marketing",
+      channel: "email",
+      agencyId: "agency_1",
+      mailingAddress: "1 Main St, Miami FL",
+    });
+
+    expect(out.touches).toHaveLength(1);
+    expect(out.skippedError).toBe(1);
+    expect(out.skips.error).toBe(1);
+  });
+
+  test("the structured skips object mirrors the flat counters + alreadyDrafted=0", async () => {
+    // A no-address email run: the one lead is skipped for noAddress.
+    mockBiz();
+    mockQuiet();
+    prismaMock.review.count.mockResolvedValue(1);
+
+    const out = await generateTouchesForLeads(["biz_1"], {
+      sellingWhat: "marketing",
+      channel: "email",
+      agencyId: "agency_1",
+      // no mailingAddress → noAddress skip
+    });
+
+    expect(out.skips).toEqual({
+      noAddress: 1,
+      sparse: 0,
+      error: 0,
+      alreadyDrafted: 0, // generate never fills this — actions.ts does
+    });
+    expect(out.skippedNoAddress).toBe(out.skips.noAddress);
+    expect(out.skippedSparse).toBe(out.skips.sparse);
+    expect(out.skippedError).toBe(out.skips.error);
+  });
+});
+
+describe("A12 · includeNameInSubject plumbs through to the email subject", () => {
+  // NOTE: the generate path seeds the subject variant with the businessId
+  // (variantSeed) for cohort dedup, so the EXACT variant rotates — these tests
+  // assert the PLUMBING (name prefix on/off + Title Case), not a fixed variant.
+  test("true → the draft subject prepends the short name + Title Case", async () => {
+    mockBiz({ lighthouseAudits: [{ lcp: 7.7, performance: 30 }] });
+    mockQuiet();
+    prismaMock.review.count.mockResolvedValue(0); // slow_site is the only pain
+    prismaMock.outreachDraft.create.mockResolvedValue({ id: "draft_1" });
+
+    await generateTouchesForLeads(["biz_1"], {
+      sellingWhat: "website speed",
+      channel: "email",
+      agencyId: "agency_1",
+      mailingAddress: "1 Main St, Miami FL",
+      includeNameInSubject: true,
+    });
+
+    const data = prismaMock.outreachDraft.create.mock.calls[0][0].data;
+    // Name prefix + Title Case (the specific variant rotates with the seed).
+    expect(String(data.subject)).toMatch(/^Glow Spa — [A-Z]/);
+    // Any number in the subject is still body-backed (A3).
+    const body = String(data.body);
+    for (const n of String(data.subject).match(/\d+(?:\.\d+)?/g) ?? []) {
+      expect(body).toContain(n);
+    }
+  });
+
+  test("default (omitted) → lowercase specific subject, no business name", async () => {
+    mockBiz({ lighthouseAudits: [{ lcp: 7.7, performance: 30 }] });
+    mockQuiet();
+    prismaMock.review.count.mockResolvedValue(0);
+    prismaMock.outreachDraft.create.mockResolvedValue({ id: "draft_1" });
+
+    await generateTouchesForLeads(["biz_1"], {
+      sellingWhat: "website speed",
+      channel: "email",
+      agencyId: "agency_1",
+      mailingAddress: "1 Main St, Miami FL",
+    });
+
+    const data = prismaMock.outreachDraft.create.mock.calls[0][0].data;
+    // No name prefix, lowercase-leaning, a real slow-site subject variant.
+    expect(String(data.subject)).not.toContain("Glow Spa");
+    expect(String(data.subject)[0]).toBe(String(data.subject)[0].toLowerCase());
   });
 });

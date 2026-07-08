@@ -55,6 +55,7 @@ import {
 import {
   generateTouchesForLeads,
   gatherTouchSignals,
+  type TouchSkipSummary,
 } from "@/modules/outreach/generate";
 import { parseDiscoverySignals } from "@/modules/agency-portal/discover/discovery-signals";
 import { buildChannelTouch, type OutreachChannel } from "./channels";
@@ -88,6 +89,9 @@ const Input = z.object({
   tone: z.enum(["direct", "warm", "brief"]).optional(),
   sequenceLength: z.number().int().min(1).max(3).default(1),
   painPointKeys: z.array(z.string().min(1).max(64)).max(16).optional(),
+  /** A12 · when true, the email subject prepends the short business name +
+   *  Title Case (founder A/B). Default off (expert lowercase-specific hook). */
+  includeNameInSubject: z.boolean().optional(),
 });
 
 export type GenerateTouchpointsInput = z.input<typeof Input>;
@@ -105,6 +109,14 @@ export type GenerateTouchpointsResult =
       /** A17 · skipped because zero pains grounded for step 1 (sparse lead —
        *  a generic note would be spam-shaped; the UI suggests enriching). */
       skippedSparse: number;
+      /** A13 · skipped because reading the lead's data threw (was a silent
+       *  `continue` pre-v2). Mirrors `skips.error`. */
+      skippedError: number;
+      /** A14 · one structured skip summary the UI itemizes ("no pain to pitch",
+       *  "couldn't read data", "already drafted", "needs a mailing address").
+       *  `alreadyDrafted` is filled here from `skippedExisting`; the generator
+       *  always returns 0 for it. */
+      skips: TouchSkipSummary;
       /** Whole credits actually settled against the wallet. */
       creditsCharged: number;
     }
@@ -184,6 +196,8 @@ export async function generateTouchpointsAction(
         skippedExisting: 0,
         skippedNoAddress: 0,
         skippedSparse: 0,
+        skippedError: 0,
+        skips: { noAddress: 0, sparse: 0, error: 0, alreadyDrafted: 0 },
         creditsCharged: 0,
       };
     }
@@ -235,6 +249,8 @@ export async function generateTouchpointsAction(
         skippedExisting: 0,
         skippedNoAddress: 0,
         skippedSparse: 0,
+        skippedError: 0,
+        skips: { noAddress: 0, sparse: 0, error: 0, alreadyDrafted: 0 },
         creditsCharged: 0,
       };
     }
@@ -264,6 +280,13 @@ export async function generateTouchpointsAction(
         skippedExisting,
         skippedNoAddress: 0,
         skippedSparse: 0,
+        skippedError: 0,
+        skips: {
+          noAddress: 0,
+          sparse: 0,
+          error: 0,
+          alreadyDrafted: skippedExisting,
+        },
         creditsCharged: 0,
       };
     }
@@ -308,6 +331,8 @@ export async function generateTouchpointsAction(
         sequenceLength: parsed.data.sequenceLength,
         // A8 · explicit selection, else the goal-derived default (or none).
         painPointKeys,
+        // A12 · founder A/B — prepend the business name + Title Case the subject.
+        includeNameInSubject: parsed.data.includeNameInSubject,
       });
     } catch (err) {
       if (creditsNeeded > 0) await refundHold(runId);
@@ -343,6 +368,10 @@ export async function generateTouchpointsAction(
       skippedExisting,
       skippedNoAddress: gen.skippedNoAddress,
       skippedSparse: gen.skippedSparse,
+      skippedError: gen.skippedError,
+      // A14 · the generator returns alreadyDrafted: 0; the real "already had a
+      // draft" count is skippedExisting, computed here. Merge it in.
+      skips: { ...gen.skips, alreadyDrafted: skippedExisting },
       creditsCharged,
     };
   } catch (err) {

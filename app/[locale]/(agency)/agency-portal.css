@@ -2315,6 +2315,20 @@
   max-height: calc(100vh - var(--wb-chrome-offset));
   min-height: 300px;
 }
+/* Table-height toggle (the ⇕ toolbar button, sibling to row-density). Default
+   "fit" caps the grid to the viewport so the page never double-scrolls (AUDIT
+   U1); "tall" lifts the cap so the whole current page renders inline and the
+   PAGE scrolls instead — more rows visible at once. Persisted per table like
+   density. Shared by the leads table and the touchpoints table (both use
+   .wbtable-wrap). Bounded by the pagination cap (PAGE_SIZES max 100) — do NOT
+   couple with an all-rows view.
+   Tradeoff: overflow stays `auto` so wide tables never scroll the page body
+   sideways, which means in tall mode the sticky <thead> tracks the (now
+   non-scrolling) wrap and scrolls off with the page — accepted for an opt-in
+   "show more rows" mode. */
+.agency-portal .wbtable-wrap.tall {
+  max-height: none;
+}
 .agency-portal table.wb {
   font-size: var(--fs-md);
   min-width: 1180px;
@@ -4332,6 +4346,30 @@
 }
 .agency-portal .toggle.on .sw::after {
   left: 18px;
+}
+/* B7 · the touch-gen "Add business name to subject" toggle reuses .toggle/.sw.
+   Hide the native checkbox (it drives state + keyboard); the .sw span is the
+   visual switch, lit by the label's .on class. Same sr-only pattern as
+   .vscell-set input. Text on the left, switch pushed to the right. */
+.agency-portal .toggle.tg-subject-toggle {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  gap: 12px;
+}
+.agency-portal .toggle.tg-subject-toggle input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+/* A11y (WCAG 2.4.7 Focus Visible) · the native checkbox is clipped to 1px, so
+   the global input:focus-visible ring lands on an invisible box. Lift the ring
+   to the visible .sw switch when the input is keyboard-focused. */
+.agency-portal .toggle.tg-subject-toggle input:focus-visible ~ .sw {
+  outline: 2px solid var(--indigo);
+  outline-offset: 2px;
 }
 
 /* segmented control */
@@ -7855,11 +7893,57 @@
   background: var(--indigo-50);
   border-color: var(--indigo-100);
 }
+.agency-portal .tpstep-actions .lk:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+/* B4 · per-button pending state: a small spinner beside the label. The .spin
+   base is 15px — shrink it to sit inline with the .lk text. */
+.agency-portal .tpstep-actions .lk-busy {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.agency-portal .tpstep-actions .lk-busy .spin {
+  width: 11px;
+  height: 11px;
+  border-width: 2px;
+}
+/* B5 · labeled, copyable subject field (was an unlabeled bare div). */
+.agency-portal .tpstep-subject {
+  display: block;
+  margin: 0 0 var(--space-3);
+}
+.agency-portal .tpstep-subject-lbl {
+  display: block;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: var(--ink-2);
+  margin-bottom: 3px;
+}
+.agency-portal .tpstep-subject-in {
+  display: block;
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 7px 10px;
+  font-family: inherit;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--ink);
+  background: #fff;
+  box-sizing: border-box;
+}
+.agency-portal .tpstep-subject-in:focus {
+  outline: none;
+  border-color: var(--indigo-100);
+  box-shadow: 0 0 0 2px var(--indigo-50);
+}
 /* editable touch body */
 .agency-portal .tpedit {
   display: block;
   width: 100%;
-  min-height: 70px;
+  min-height: 140px;
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 9px 10px;

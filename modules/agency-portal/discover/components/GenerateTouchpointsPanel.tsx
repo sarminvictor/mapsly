@@ -15,10 +15,16 @@
 // A null Agency.mailingAddress makes email generation silently yield zero
 // drafts, so the email channel shows the banner + disables Generate upfront.
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { Link, useRouter } from "@/i18n/navigation";
 import { generateTouchpointsAction } from "@/modules/outreach/actions";
 import { PAIN_THEMES } from "@/modules/outreach/first-touch";
+import {
+  SUBJECT_NAME_KEY,
+  readSubjectNameToggle,
+  normalizeSkips,
+  buildGenerateSummary,
+} from "./touch-gen-helpers";
 
 // Matches TouchChannel in modules/outreach/first-touch.ts.
 type Channel = "email" | "dm" | "phone" | "social";
@@ -53,9 +59,29 @@ export function GenerateTouchpointsPanel({
   const [pains, setPains] = useState<Set<string>>(
     () => new Set(PAIN_THEMES.map((p) => p.key)),
   );
+  // B7 · subject name/case toggle. Default OFF — the expert default is a
+  // lowercase, specific, no-name subject. This panel is cross-discovery, so it
+  // uses the same GLOBAL key as its last-used default (no per-research scope).
+  const [includeNameInSubject, setIncludeNameInSubject] = useState(() =>
+    typeof window === "undefined"
+      ? false
+      : readSubjectNameToggle((k) => window.localStorage.getItem(k)),
+  );
   const [msg, setMsg] = useState<string | null>(null);
   const [error, setError] = useState(false);
   const [pending, start] = useTransition();
+
+  // B7 · persist the toggle so it survives navigation.
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(
+        SUBJECT_NAME_KEY,
+        includeNameInSubject ? "1" : "0",
+      );
+    } catch {
+      // Private mode — skip persistence.
+    }
+  }, [includeNameInSubject]);
 
   // B2 · email drafts are DEAD without an agency mailing address (CAN-SPAM/
   // CASL) — the generator skips every one. Block upfront, don't apologize after.
@@ -79,6 +105,8 @@ export function GenerateTouchpointsPanel({
         channel,
         tone,
         sequenceLength: steps,
+        // B7 · lowercase-specific subject by default; toggle prepends the name.
+        includeNameInSubject,
         // All themes selected = no restriction (a theme only fires when its
         // signal is grounded anyway).
         painPointKeys:
@@ -86,11 +114,14 @@ export function GenerateTouchpointsPanel({
       });
       if (r.status === "ok") {
         if (r.generated > 0) {
-          const extra: string[] = [];
-          if (r.skippedSparse > 0)
-            extra.push(`${r.skippedSparse} skipped — enrich first`);
+          // B3 · itemize skips from the structured shape (nested `skips`
+          // preferred, flat fields as fallback) instead of only "enrich first".
+          const summary = buildGenerateSummary(r.generated, normalizeSkips(r));
+          const tail = summary.reasons.length
+            ? ` · ${summary.reasons.join(" · ")}`
+            : "";
           setMsg(
-            `Generated ${r.generated} draft${r.generated === 1 ? "" : "s"} from ${r.scanned} prospects${r.creditsCharged > 0 ? ` · ${r.creditsCharged} cr` : ""}${extra.length ? ` · ${extra.join(" · ")}` : ""}.`,
+            `${summary.headline} from ${r.scanned} prospects${r.creditsCharged > 0 ? ` · ${r.creditsCharged} cr` : ""}${tail}.`,
           );
         } else if (r.skippedNoAddress > 0) {
           // TM-1 · the real reason nothing drafted was a missing mailing address,
@@ -222,6 +253,29 @@ export function GenerateTouchpointsPanel({
           ))}
         </div>
       </fieldset>
+      {/* B7 · subject name/case toggle. Default OFF — the expert default is a
+          lowercase, specific, no-name subject that leads with the hook. */}
+      <div className="mt-3">
+        <label
+          className={`toggle tg-subject-toggle text-xs${includeNameInSubject ? " on" : ""}`}
+          style={{ maxWidth: 340 }}
+        >
+          <span className="font-medium text-slate-700">
+            Add business name to subject
+          </span>
+          <input
+            type="checkbox"
+            role="switch"
+            checked={includeNameInSubject}
+            onChange={(e) => setIncludeNameInSubject(e.target.checked)}
+          />
+          <span className="sw" aria-hidden="true" />
+        </label>
+        <p className="mt-1 text-xs text-slate-500">
+          Subjects lead with the specific hook — turn on to prepend the business
+          name.
+        </p>
+      </div>
       {emailBlocked ? (
         <div
           role="alert"

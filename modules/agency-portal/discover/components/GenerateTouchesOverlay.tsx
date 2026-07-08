@@ -35,8 +35,19 @@ import { creditsForTouches } from "@/modules/outreach/touch-pricing";
 import { chunkBusinessIds } from "@/modules/outreach/touch-batching";
 import { PAIN_THEMES } from "@/modules/outreach/first-touch";
 import { defaultPainKeysForSignals } from "@/modules/outreach/pain-goals";
-
-const SELLING_KEY = "mapsly.touchgen.sellingWhat";
+import {
+  SELLING_GLOBAL_KEY,
+  sellingKeyFor,
+  resolveSellingWhat,
+  SUBJECT_NAME_KEY,
+  readSubjectNameToggle,
+  normalizeSkips,
+  addSkips,
+  EMPTY_SKIPS,
+  buildGenerateSummary,
+  type SkipCounts,
+  type GenerateSummary,
+} from "./touch-gen-helpers";
 
 type Channel = "email" | "dm" | "phone" | "social";
 type Tone = "direct" | "warm" | "brief";
@@ -79,14 +90,25 @@ export function GenerateTouchesOverlay({
   const pathname = usePathname();
   const sp = useSearchParams();
 
+  // B1 · per-research pitch memory. Prefer THIS research's own last pitch; fall
+  // back to the global last-used only for a brand-new research (see
+  // touch-gen-helpers). Keying by discoveryId stops one research's pitch from
+  // bleeding into the next.
   const [sellingWhat, setSellingWhat] = useState(() =>
     typeof window === "undefined"
       ? ""
-      : (window.localStorage.getItem(SELLING_KEY) ?? ""),
+      : resolveSellingWhat(discoveryId, (k) => window.localStorage.getItem(k)),
   );
   const [channel, setChannel] = useState<Channel>("email");
   const [tone, setTone] = useState<Tone>("direct");
   const [steps, setSteps] = useState(1);
+  // B7 · subject name/case toggle. Default OFF — the expert default is a
+  // lowercase, specific, no-name subject that leads with the hook. Persisted.
+  const [includeNameInSubject, setIncludeNameInSubject] = useState(() =>
+    typeof window === "undefined"
+      ? false
+      : readSubjectNameToggle((k) => window.localStorage.getItem(k)),
+  );
   const [pains, setPains] = useState<Set<string>>(
     () => new Set(PAIN_THEMES.map((p) => p.key)),
   );
@@ -109,6 +131,9 @@ export function GenerateTouchesOverlay({
     done: number;
     total: number;
   } | null>(null);
+  /** B3 · the in-overlay result summary (the 6-of-8 fix) — the primary signal
+   *  after a generate, so a skip is never invisible. null until a run returns. */
+  const [summary, setSummary] = useState<GenerateSummary | null>(null);
 
   const count = businessIds.length;
   // The live estimate must match how the server BILLS: one hold→settle per
@@ -134,6 +159,44 @@ export function GenerateTouchesOverlay({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose]);
+
+  // B1 · on (re)open, re-resolve the pitch for THIS research. The overlay
+  // instance is reused across leads from different researches, so the once-only
+  // initializer isn't enough — re-key by discoveryId each open, and clear the
+  // previous run's summary so a stale "Drafted N" never lingers. Done with
+  // React's "store previous state, adjust during render" pattern (setState in
+  // render is allowed + loop-safe when guarded; setState in an effect body
+  // cascades renders — the lint rule blocks that).
+  const openKey = open ? (discoveryId ?? "") : null;
+  const [lastOpenKey, setLastOpenKey] = useState<string | null>(null);
+  if (openKey !== lastOpenKey) {
+    setLastOpenKey(openKey);
+    if (openKey !== null) {
+      setSummary(null);
+      // Keep an in-progress edit if the user already typed something this open.
+      if (!sellingWhat.trim()) {
+        setSellingWhat(
+          resolveSellingWhat(discoveryId, (k) =>
+            typeof window === "undefined"
+              ? null
+              : window.localStorage.getItem(k),
+          ),
+        );
+      }
+    }
+  }
+
+  // B7 · persist the subject name/case toggle so it survives reopen.
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(
+        SUBJECT_NAME_KEY,
+        includeNameInSubject ? "1" : "0",
+      );
+    } catch {
+      // Private mode — skip persistence.
+    }
+  }, [includeNameInSubject]);
 
   // B1+B2 · fetch the preflight once per open: mailing-address state (banner +
   // disable BEFORE spending, not a post-hoc "Drafted 0") and the discovery's
@@ -188,6 +251,7 @@ export function GenerateTouchesOverlay({
   function run() {
     setError(null);
     setProgress(null);
+    setSummary(null);
     const selling = sellingWhat.trim();
     // Chunk the selection under the server's per-call cap so any size completes
     // (the whole selection is drafted across sequential batches, not truncated).
@@ -196,11 +260,9 @@ export function GenerateTouchesOverlay({
       pains.size === PAIN_THEMES.length ? undefined : [...pains];
 
     startTransition(async () => {
-      // Accumulate across batches so the final toast reports the WHOLE run.
+      // Accumulate across batches so the final summary reports the WHOLE run.
       let generated = 0;
-      let skippedExisting = 0;
-      let skippedNoAddress = 0;
-      let skippedSparse = 0;
+      let skips: SkipCounts = EMPTY_SKIPS;
       let creditsCharged = 0;
       let stopError: string | null = null;
 
@@ -215,15 +277,17 @@ export function GenerateTouchesOverlay({
           sequenceLength: steps,
           businessIds: batches[i],
           discoveryId,
+          // B7 · the expert default is a lowercase, specific, no-name subject;
+          // the toggle prepends the business name when on.
+          includeNameInSubject,
           // All themes selected = no restriction (a theme only fires when its
           // signal is grounded anyway).
           painPointKeys,
         });
         if (r.status === "ok") {
           generated += r.generated;
-          skippedExisting += r.skippedExisting;
-          skippedNoAddress += r.skippedNoAddress;
-          skippedSparse += r.skippedSparse;
+          // B3 · nested `skips` (AGENT A) preferred, flat fields as fallback.
+          skips = addSkips(skips, normalizeSkips(r));
           creditsCharged += r.creditsCharged;
           continue;
         }
@@ -257,7 +321,7 @@ export function GenerateTouchesOverlay({
       // TM-1 · nothing drafted because email touches need a mailing address the
       // agency hasn't set. Don't fire a misleading "Drafted 0" toast or close —
       // explain it and keep the overlay open (the email primer links to Settings).
-      if (generated === 0 && skippedNoAddress > 0 && !stopError) {
+      if (generated === 0 && skips.noAddress > 0 && !stopError) {
         setError(
           "Email drafts need your mailing address. Set it in Settings → Profile.",
         );
@@ -267,30 +331,50 @@ export function GenerateTouchesOverlay({
       // A17 · nothing drafted because every selected lead has no grounded pain
       // yet — a generic note would be spam-shaped (and CASL-weak). Say so and
       // point at enrichment instead of firing a hollow "Drafted 0".
-      if (generated === 0 && skippedSparse > 0 && !stopError) {
+      if (generated === 0 && skips.sparse > 0 && !stopError) {
         setError(
           `No grounded pain on ${
-            skippedSparse === 1 ? "this lead" : "these leads"
+            skips.sparse === 1 ? "this lead" : "these leads"
           } yet — enrich them first, then generate.`,
         );
         return;
       }
 
+      // B3 · nothing drafted, but leads WERE skipped for reasons invisible from
+      // the outside (already drafted, or a data-read error). noAddress/sparse
+      // already returned above, so this catches the error/alreadyDrafted-only
+      // case — never close silently, always show the itemized summary (the exact
+      // 6-of-8 mystery for a fully-skipped run).
+      const skipped0 =
+        skips.noAddress + skips.sparse + skips.error + skips.alreadyDrafted;
+      if (generated === 0 && skipped0 > 0 && !stopError) {
+        setSummary(buildGenerateSummary(0, skips));
+        showToast(`Drafted 0 · ${skipped0} skipped`);
+        return;
+      }
+
       if (generated > 0) {
+        // B1 · persist the pitch BOTH per-research (so this research reopens with
+        // it) and globally (a default for the next brand-new research). Only the
+        // per-research key is read first, so the global one never bleeds across
+        // researches that already have their own pitch.
         try {
-          window.localStorage.setItem(SELLING_KEY, selling);
+          window.localStorage.setItem(sellingKeyFor(discoveryId), selling);
+          window.localStorage.setItem(SELLING_GLOBAL_KEY, selling);
         } catch {
           // Private mode — skip persistence.
         }
+
+        // B3 · the durable in-overlay summary is the primary signal now. The
+        // toast stays as a fleeting confirmation, but a skip is never invisible.
+        setSummary(buildGenerateSummary(generated, skips));
+
         const bits = [
           `Drafted ${generated} touch${generated === 1 ? "" : "es"}`,
         ];
-        if (skippedExisting > 0)
-          bits.push(`${skippedExisting} already drafted`);
-        if (skippedNoAddress > 0)
-          bits.push(`${skippedNoAddress} need a mailing address`);
-        if (skippedSparse > 0)
-          bits.push(`${skippedSparse} skipped — enrich first`);
+        const skippedTotal =
+          skips.noAddress + skips.sparse + skips.error + skips.alreadyDrafted;
+        if (skippedTotal > 0) bits.push(`${skippedTotal} skipped`);
         if (creditsCharged > 0) bits.push(`${creditsCharged} cr`);
         // Partial completion (a later batch stopped): say so, don't pretend all ran.
         if (stopError) bits.push("stopped early");
@@ -310,6 +394,17 @@ export function GenerateTouchesOverlay({
         return;
       }
 
+      // B3 · when a run drafted some but SKIPPED others (the 6-of-8 case), keep
+      // the overlay open so the itemized summary is the primary signal — a skip
+      // is never invisible. Refresh the server counts underneath; the user
+      // dismisses (or navigates via the Touchpoints link) when they've read it.
+      const skippedTotal =
+        skips.noAddress + skips.sparse + skips.error + skips.alreadyDrafted;
+      if (generated > 0 && skippedTotal > 0) {
+        router.refresh();
+        return;
+      }
+
       onClose();
       // LD-2 · from the drawer, stay on the current lead (it refreshed in place
       // via the bus above); from the bulk bar, deep-link to the Touchpoints tab.
@@ -323,6 +418,17 @@ export function GenerateTouchesOverlay({
       router.replace(`${pathname}?${params.toString()}`, { scroll: false });
       router.refresh();
     });
+  }
+
+  // B3 · deep-link the user to the drafts they just paid for when they dismiss
+  // the summary from the bulk-bar entry point (the drawer stays in place).
+  function goToTouchpoints() {
+    onClose();
+    if (stayInPlace) return;
+    const params = new URLSearchParams(sp.toString());
+    params.set("tab", "touch");
+    params.delete("lead");
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
   }
 
   return (
@@ -438,6 +544,28 @@ export function GenerateTouchesOverlay({
           ) : null}
         </fieldset>
 
+        {/* B7 · subject name/case toggle. Default OFF — the expert default is a
+            lowercase, specific, no-name subject that leads with the hook. */}
+        <div style={styles.subjectToggleWrap}>
+          <label
+            className={`toggle tg-subject-toggle${includeNameInSubject ? " on" : ""}`}
+            style={styles.toggleLabel}
+          >
+            <span>Add business name to subject</span>
+            <input
+              type="checkbox"
+              role="switch"
+              checked={includeNameInSubject}
+              onChange={(e) => setIncludeNameInSubject(e.target.checked)}
+            />
+            <span className="sw" aria-hidden="true" />
+          </label>
+          <p style={styles.subjectToggleSub}>
+            Subjects lead with the specific hook — turn on to prepend the
+            business name.
+          </p>
+        </div>
+
         {emailBlocked ? (
           <div role="alert" style={styles.addressBanner}>
             Email drafts need your agency&apos;s mailing address (CAN-SPAM/CASL)
@@ -480,6 +608,49 @@ export function GenerateTouchesOverlay({
           <p role="alert" style={styles.error}>
             {error}
           </p>
+        ) : null}
+
+        {/* B2 · a real in-body generating state so the dialog reads as working,
+            not frozen. Keeps the chunked "N of M" progress. */}
+        {pending ? (
+          <div style={styles.working} role="status" aria-live="polite">
+            <span className="spin" aria-hidden="true" />
+            <span>
+              {progress
+                ? `Generating drafts… ${progress.done + 1} of ${progress.total}`
+                : "Generating drafts…"}
+            </span>
+          </div>
+        ) : null}
+
+        {/* B3 · the durable result summary — the primary signal after a run so a
+            skip is never invisible (the 6-of-8 fix). */}
+        {summary && !pending ? (
+          <div
+            style={styles.summary}
+            role="status"
+            aria-live="polite"
+            data-testid="gen-touches-summary"
+          >
+            <p style={styles.summaryHead}>{summary.headline}</p>
+            {summary.clean ? (
+              <p style={styles.summaryClean}>Every selected lead drafted.</p>
+            ) : (
+              <ul style={styles.summaryList}>
+                {summary.reasons.map((r, i) => (
+                  <li key={i}>{r}</li>
+                ))}
+              </ul>
+            )}
+            <button
+              type="button"
+              className="btn primary"
+              style={styles.summaryCta}
+              onClick={goToTouchpoints}
+            >
+              {stayInPlace ? "Done" : "Open touchpoints"}
+            </button>
+          </div>
         ) : null}
 
         <div style={styles.foot}>
@@ -532,6 +703,11 @@ const styles: Record<string, React.CSSProperties> = {
     maxHeight: "calc(100vh - 48px)",
     overflowY: "auto",
     background: "var(--panel, #fff)",
+    // Set an explicit readable base color — the dialog set a white bg but no
+    // color, so title + option labels were inheriting an ambient light color
+    // and washing out (owner 2026-07-07). Hex fallback holds if the var doesn't
+    // resolve in this portalled dialog.
+    color: "var(--ink, #1c2233)",
     border: "1px solid var(--line, #e5e7f0)",
     borderRadius: 14,
     boxShadow: "0 24px 64px rgba(15,17,26,.22)",
@@ -544,7 +720,12 @@ const styles: Record<string, React.CSSProperties> = {
     justifyContent: "space-between",
     marginBottom: 10,
   },
-  title: { margin: 0, fontSize: 16 },
+  title: {
+    margin: 0,
+    fontSize: 16,
+    fontWeight: 700,
+    color: "var(--ink, #1c2233)",
+  },
   close: {
     border: "none",
     background: "transparent",
@@ -597,6 +778,10 @@ const styles: Record<string, React.CSSProperties> = {
     gap: 6,
     fontSize: 12.5,
     padding: "2px 0",
+    // The checkable theme options are primary content — keep them full-ink,
+    // not the inherited light color that made them near-invisible.
+    color: "var(--ink, #1c2233)",
+    cursor: "pointer",
   },
   error: { color: "var(--red, #b53d47)", fontSize: 12.5, margin: "0 0 8px" },
   goalHint: {
@@ -657,4 +842,55 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 12,
     color: "var(--muted, #5a5f73)",
   },
+  // B7 · subject name/case toggle band.
+  subjectToggleWrap: { margin: "0 0 12px" },
+  toggleLabel: {
+    fontSize: 12.5,
+    color: "var(--ink, #1c2233)",
+  },
+  subjectToggleSub: {
+    margin: "4px 0 0",
+    fontSize: 11.5,
+    lineHeight: 1.5,
+    color: "var(--muted, #5a5f73)",
+  },
+  // B2 · in-body generating state.
+  working: {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    fontSize: 13,
+    color: "var(--muted, #5a5f73)",
+    padding: "8px 0 12px",
+  },
+  // B3 · durable result summary.
+  summary: {
+    border: "1px solid var(--line, #e5e7f0)",
+    borderRadius: 10,
+    background: "var(--bg, #f6f7fb)",
+    padding: "10px 12px",
+    margin: "0 0 12px",
+  },
+  summaryHead: {
+    margin: "0 0 6px",
+    fontSize: 13.5,
+    fontWeight: 700,
+    color: "var(--ink, #1c2233)",
+  },
+  summaryClean: {
+    margin: 0,
+    fontSize: 12.5,
+    color: "var(--muted, #5a5f73)",
+  },
+  summaryList: {
+    margin: 0,
+    paddingLeft: 16,
+    fontSize: 12.5,
+    lineHeight: 1.55,
+    color: "var(--muted, #5a5f73)",
+    display: "flex",
+    flexDirection: "column",
+    gap: 3,
+  },
+  summaryCta: { marginTop: 10 },
 };

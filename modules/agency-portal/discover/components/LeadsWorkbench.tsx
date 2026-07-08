@@ -611,7 +611,7 @@ export function LeadsWorkbench({
 
   // ── Pagination ──────────────────────────────────────────────────────────
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState<number>(20);
+  const [pageSize, setPageSize] = useState<number>(50);
 
   // ── Persisted view-state per research (WP4-13) ────────────────────────────
   // Hydrate saved vsCell/columns/filters/sort/pageSize/group from
@@ -1162,6 +1162,26 @@ export function LeadsWorkbench({
     setDensity((d) => {
       const next = d === "compact" ? "cozy" : "compact";
       window.localStorage.setItem("wb-density", next);
+      return next;
+    });
+  }
+
+  // Table height — "fit" (default, capped to the viewport) vs "tall" (uncapped,
+  // more rows visible, the page scrolls). A sibling toggle to row density; the
+  // choice persists per user under its own key. Same SSR-safe hydration as
+  // density: default false, apply a saved value after mount via setTimeout(0)
+  // to satisfy react-hooks/set-state-in-effect.
+  const [tall, setTall] = useState(false);
+  useEffect(() => {
+    const tid = window.setTimeout(() => {
+      if (window.localStorage.getItem("wb-tall") === "1") setTall(true);
+    }, 0);
+    return () => window.clearTimeout(tid);
+  }, []);
+  function toggleTall() {
+    setTall((t) => {
+      const next = !t;
+      window.localStorage.setItem("wb-tall", next ? "1" : "0");
       return next;
     });
   }
@@ -3283,9 +3303,24 @@ export function LeadsWorkbench({
           className="iconbtn"
           data-tip="Row density"
           aria-label={`Row density: ${density} — click to toggle`}
+          aria-pressed={density === "cozy"}
           onClick={toggleDensity}
         >
           <span aria-hidden="true">{density === "compact" ? "☰" : "▦"}</span>
+        </button>
+
+        {/* Table height toggle — sibling to row density. "Fit" caps the grid to
+            the viewport; "Tall" lifts the cap so more rows show and the page
+            scrolls. Active (indigo) when tall; the choice persists. */}
+        <button
+          type="button"
+          className={`iconbtn${tall ? " active" : ""}`}
+          data-tip="Table height"
+          aria-label={`Table height: ${tall ? "tall" : "fit to screen"} — click to toggle`}
+          aria-pressed={tall}
+          onClick={toggleTall}
+        >
+          <span aria-hidden="true">⇕</span>
         </button>
 
         {/* AUDIT U10 + B11f · the ONE primary action, at the FAR RIGHT edge
@@ -3927,7 +3962,7 @@ export function LeadsWorkbench({
 
         {/* ── The power table ───────────────────────────────────────────────── */}
         <div
-          className="wbtable-wrap"
+          className={`wbtable-wrap${tall ? " tall" : ""}`}
           ref={tableWrapRef}
           data-scrolled-x={scrolledX || undefined}
         >

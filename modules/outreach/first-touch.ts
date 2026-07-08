@@ -44,6 +44,91 @@ export interface TouchSignals {
   runsAds?: boolean | null;
   hasBookingTool?: boolean | null;
   hipaaPixelRisk?: boolean | null;
+
+  // ── Touchpoints v2 (2026-07-07) · this-business-only "stand out" facts. Every
+  // one is a REAL per-business datum (a NAME, a NUMBER, a RANK, a QUOTE) mirrored
+  // from the lead-detail drawer's own fetches. All nullable — a richer line fires
+  // only when its datum is present, else the copy falls back to the current line.
+  // NEVER a competitor's metric we don't store (no fabricated "rival loads in
+  // 1.9s"); the nano fact-check rejects any number not passed in here.
+
+  /**
+   * A1 · the strongest named nearby rival — rivalsFrom(peopleAlsoSearch)[0].name
+   * ONLY. A business Google surfaces in its "people also search for" cluster
+   * ADJACENT to this one. INC-54 · this is an ADJACENCY name, NOT a ranked or
+   * pack-leader entity — render it only in co-occurrence copy ("turns up next to
+   * you"), never as a rank/precedence claim ("ahead of you", "#N"). Null when
+   * discovery surfaced none.
+   */
+  topRivalName?: string | null;
+  /** A1 · how many OTHER named rivals we have beyond `topRivalName` ("and 2
+   *  others") — from the peopleAlsoSearch list length. 0/null → no "and N". */
+  otherRivalCount?: number | null;
+
+  /**
+   * A2 · local 3-pack rank + organic position from the newest SerpResult.
+   *
+   * INC-54 · NOT RENDERED in copy. The gatherer's SerpResult query is unfiltered
+   * by keyword, so an `organicRank` may belong to an arbitrary DataForSEO
+   * ranked-portfolio keyword — NOT `trackedKeyword`. Binding a real rank to the
+   * derived keyword ("you're #7 for 'acupuncture boise'") is a disprovable
+   * fabrication, so these two are gathered-but-unused pending real keyword
+   * resolution (join SerpResult.keywordId → Keyword.keyword). Do NOT re-surface
+   * them in a "#N for {trackedKeyword}" claim.
+   */
+  localPackRank?: number | null;
+  organicRank?: number | null;
+  /**
+   * A2 · derived "{category} {city}" (lowercased). INC-54 · NOT RENDERED. It is
+   * a GUESS — not the keyword any stored rank/pack row was actually scanned
+   * under — so quoting it next to a rank or a pack leader is a disprovable
+   * claim. Gathered for a future keyword-reconciliation pass (SerpResult.
+   * keywordId → Keyword.keyword, filtered to the same row).
+   */
+  trackedKeyword?: string | null;
+  /**
+   * A1/A2 · the pack leader from the newest SerpResult (pack1Name). INC-54 · NOT
+   * RENDERED. pack1Name is written per-keyword by TWO scanners (cell-intel MAPS
+   * for "{category} {city}" AND aggregate-cell-maps across the whole template
+   * pool) and the gatherer's read isn't keyword-filtered, so this leader is
+   * routinely for a DIFFERENT keyword than trackedKeyword — never pair them.
+   */
+  packLeaderName?: string | null;
+
+  /**
+   * A3 · a REAL pulled unanswered ≤3★ review's verbatim text (truncated). Only
+   * set when such a row exists — the unanswered-negative pain then QUOTES it.
+   */
+  recentUnansweredReviewQuote?: string | null;
+  /** A3 · that review's star count (1–3). */
+  reviewQuoteStars?: number | null;
+  /** A3 · that review's month name ("June") — from postedAt, a data field (not
+   *  wall-clock; determinism-safe). */
+  reviewQuoteMonth?: string | null;
+
+  /**
+   * A4 · the sharpest AI-derived pain hypothesis (BusinessEnrichment.
+   * painHypotheses[0]) when short + grounded — the step-2 deepener's fallback
+   * fact. Null when no AI research ran or the hypothesis is too long.
+   */
+  aiPainHypothesis?: string | null;
+
+  /** A5 · the NAMED booking incumbent (BusinessTech BOOKING name) when the site
+   *  DOES have booking — unused by the no-booking pain, reserved for future
+   *  "you're on {tool}" framing. Null when unknown or no named tool. */
+  bookingToolName?: string | null;
+  /** A5 · whole years the business has been on Google (firstSeenOnGoogle proxy).
+   *  A tenure fact for the opener/deepener. Null when unknown. */
+  yearsOnGoogle?: number | null;
+
+  /**
+   * A10 · a short, grounded category label for the opener ("acupuncture
+   * clinics") — from Business.category, lightly pluralized/humanized. Lets a
+   * variant read "I help acupuncture clinics around Boise…" instead of the
+   * generic "local businesses". Null when we have no clean category → the
+   * generic opener stays. Never invented; a real listing category or nothing.
+   */
+  categoryLabel?: string | null;
 }
 
 /** Deterministic voice variants (WP5-1). All stay grounded — tone only swaps
@@ -92,6 +177,17 @@ export interface TouchOptions {
    * from `agencySeed`, which rotates pain ORDER across agencies (WP6-15).
    */
   variantSeed?: string | null;
+  /**
+   * A12 (touchpoints v2 2026-07-07) · subject-name toggle for the founder's A/B.
+   * Default (false, the EXPERT recommendation): a lowercase, specific,
+   * no-name subject that reads like a person, not a campaign ("you're behind
+   * zen wellness on google"). When true: prepend the SHORT business name and
+   * Title-Case the whole subject ("Glow Spa — Your Site's 7.7s Load"). The
+   * grounded pain/number/name inside the subject is identical either way — only
+   * the name prefix + casing differ. A3 truthfulness is preserved: any number
+   * still comes from the same body-backed variant table.
+   */
+  includeNameInSubject?: boolean;
 }
 
 /**
@@ -138,7 +234,7 @@ interface PainLine {
  *
  *   band 0 — severity ≥ 90 (the standout hook, e.g. HIPAA) · never rotated
  *   band 1 — 60–89  (unanswered negatives / review decline / ads-no-booking)
- *   band 2 — < 60   (slow site / competitor ads / no booking)
+ *   band 2 — < 60   (slow site / not-in-pack / competitor ads / no booking)
  */
 function severityBand(severity: number): number {
   if (severity >= 90) return 0;
@@ -223,7 +319,13 @@ const PITCH_THEME_KEYWORDS: readonly {
   themes: readonly PainThemeKey[];
 }[] = [
   {
-    pattern: /\b(site|website|web|speed|redesign|seo)\b/,
+    pattern: /\b(site|website|web|speed|redesign)\b/,
+    themes: ["slow_site"],
+  },
+  {
+    // An SEO / local-search / rank pitch boosts slow_site (page speed feeds
+    // ranking) — the honest, grounded proxy we can actually stand behind.
+    pattern: /\b(seo|search|ranking|rank|local pack|3-?pack|maps)\b/,
     themes: ["slow_site"],
   },
   {
@@ -317,9 +419,45 @@ export function orderPains(
   return out;
 }
 
+/**
+ * A3 · quote a REAL pulled unanswered review inside the unanswered-negative
+ * pain — the sharpest "this-business-only" fact. Fires only when we actually
+ * pulled a ≤3★ unanswered row WITH text (quote + stars present); the month is a
+ * nice-to-have. Everything here is verbatim data (the nano fact-check accepts
+ * the star number because it's in this line). Returns null → the caller uses
+ * the count-based line below.
+ */
+function unansweredQuoteLine(s: TouchSignals): string | null {
+  const quote = s.recentUnansweredReviewQuote?.trim();
+  const stars = s.reviewQuoteStars;
+  if (!quote || typeof stars !== "number") return null;
+  const when = s.reviewQuoteMonth ? ` from ${s.reviewQuoteMonth}` : "";
+  return `a ${stars}★${when} — “${quote}” — is still sitting there with no reply.`;
+}
+
+/**
+ * The competitor_ads line is COUNT-ONLY, worded to exactly what the signal
+ * proves. `competitorAdsCount` is the number of distinct advertisers in this
+ * cell's Meta Ad Library run (generate.ts gatherTouchSignals) — i.e. businesses
+ * in the same category+area that run ads, while this prospect does not.
+ *
+ * HONESTY (touch v2 review 2026-07-07, INC-54): we deliberately DO NOT name a
+ * rival here or quote a keyword. `topRivalName` is a Google-Maps
+ * "people also search for" adjacency seed — we have ZERO evidence it advertises
+ * — and `trackedKeyword` is a synthesized "{category} {city}" string, not a
+ * keyword any ad was matched on. Splicing them ("Zen Wellness is running Google
+ * ads for 'acupuncture boise'") is a fabricated, disprovable claim. The count is
+ * the only grounded fact, so the count is all we say.
+ */
+function competitorAdsLine(s: TouchSignals): string {
+  const count = s.competitorAdsCount ?? 0;
+  return `${count} ${count === 1 ? "business" : "businesses"} in ${s.city || "your area"} ${count === 1 ? "is" : "are"} running ads while you're not.`;
+}
+
 /** Build the candidate pain lines, each gated by signal presence. */
 function painLines(s: TouchSignals): PainLine[] {
   const noun = s.noun || "customers";
+  const quoteLine = unansweredQuoteLine(s);
   return [
     {
       key: "hipaa_pixel_risk",
@@ -332,12 +470,18 @@ function painLines(s: TouchSignals): PainLine[] {
       key: "unanswered_negative",
       present: (s.unansweredNegative ?? 0) > 0,
       severity: 80,
-      // A5 · a PARTIAL review pull says "at least N" (the pull may be a small
-      // sample of the listing — an exact claim the owner can disprove kills
-      // credibility mid-read). The number itself stays exact either way (the
-      // nano fact-check matches numbers downstream).
-      line: `You have ${s.reviewSamplePartial === true ? "at least " : ""}${s.unansweredNegative} unanswered negative review${(s.unansweredNegative ?? 0) === 1 ? "" : "s"} — the kind ${noun} read before they call.`,
-      why: "Unanswered negative reviews (concrete, verifiable pain)",
+      // A3/A7 · PREFER quoting a REAL pulled unanswered review (the
+      // this-business-only fact). When no quote was pulled, fall back to the
+      // count line. A5 · a PARTIAL review pull says "at least N" (the pull may
+      // be a small sample of the listing — an exact claim the owner can
+      // disprove kills credibility mid-read). The number stays exact either way
+      // (the nano fact-check matches numbers downstream).
+      line:
+        quoteLine ??
+        `You have ${s.reviewSamplePartial === true ? "at least " : ""}${s.unansweredNegative} unanswered negative review${(s.unansweredNegative ?? 0) === 1 ? "" : "s"} — the kind ${noun} read before they call.`,
+      why: quoteLine
+        ? "Unanswered negative review (quoted verbatim)"
+        : "Unanswered negative reviews (concrete, verifiable pain)",
     },
     {
       key: "review_decline",
@@ -369,26 +513,29 @@ function painLines(s: TouchSignals): PainLine[] {
       key: "slow_site",
       present: (s.lcpSeconds ?? 0) >= 4,
       severity: 55,
-      line: `Your site takes ${s.lcpSeconds?.toFixed(1)}s to load on mobile — most visitors leave before it finishes.`,
+      // A7 · number + a GENERAL consequence (no fabricated %) — "most visitors
+      // leave" is a plain truth, the 7.7s is real data.
+      line: `Your site takes ${s.lcpSeconds?.toFixed(1)}s to load on mobile — most visitors leave before it opens.`,
       why: "Slow LCP (≥4s) — fixable conversion loss",
     },
     {
       key: "competitor_ads",
       present: (s.competitorAdsCount ?? 0) > 0 && s.runsAds !== true,
       severity: 50,
-      // Copy review B4 · state only what the signal proves — the prospect
-      // doesn't advertise while N rivals do. The old "you're not showing up"
-      // asserted an absence-of-visibility the data never established (a lead
-      // can rank organically without ads), and an owner could disprove it
-      // mid-read — the exact credibility loss the A5 fix was written to avoid.
-      line: `${s.competitorAdsCount} competitor${(s.competitorAdsCount ?? 0) === 1 ? " is" : "s are"} paying to show up in ${s.city || "your area"} — you're not.`,
+      // Count-only, worded to exactly what the signal proves: N advertisers in
+      // this cell run ads while the prospect does not. INC-54 · we do NOT name a
+      // rival or a keyword here — see competitorAdsLine for why that would be a
+      // fabricated, disprovable claim.
+      line: competitorAdsLine(s),
       why: "Competitors advertising while prospect is absent",
     },
     {
       key: "no_booking",
       present: s.hasBookingTool === false && s.runsAds !== true,
       severity: 40,
-      line: `There's no way for ${noun} to book online from your site.`,
+      // A7 · add the consequence — an after-hours booking is a lost
+      // customer/patient. Plain truth, no fabricated number.
+      line: `There's no way for ${noun} to book online from your site — after-hours, that's a lost ${noun === "patients" ? "patient" : noun === "clients" ? "client" : "customer"}.`,
       why: "No booking tool (relevant for booking-SaaS pitch)",
     },
   ];
@@ -487,12 +634,22 @@ function openerFor(
   const around = signals.city ? ` around ${signals.city}` : "";
   const sells = opts.sellingWhat;
   const tone = opts.tone ?? "direct";
+  // A10 · "who I help" — the grounded category when we have a clean one
+  // ("acupuncture clinics"), else the generic "local businesses". Named form is
+  // an ADDITIONAL variant, never variant 0, so un-seeded callers stay byte-stable.
+  const who = signals.categoryLabel?.trim() || null;
   const variants: readonly string[] =
     tone === "warm"
       ? [
           `Hi — I help local businesses${around} with ${sells}, and I had a look at ${short}.`,
           `Hi — I recently had a look at ${short}; I help local businesses${around} with ${sells}.`,
-          `Hi — while helping local businesses${around} with ${sells}, I had a look at ${short}.`,
+          ...(who
+            ? [
+                `Hi — I help ${who}${around} with ${sells}, and I had a look at ${short}.`,
+              ]
+            : [
+                `Hi — while helping local businesses${around} with ${sells}, I had a look at ${short}.`,
+              ]),
         ]
       : tone === "brief"
         ? [
@@ -503,7 +660,11 @@ function openerFor(
         : [
             `Hi — I help local businesses${around} with ${sells}.`,
             `Hi — I spend my days helping local businesses${around} with ${sells}.`,
-            `Hi — I work with local businesses${around}, helping them with ${sells}.`,
+            ...(who
+              ? [`Hi — I help ${who}${around} with ${sells}.`]
+              : [
+                  `Hi — I work with local businesses${around}, helping them with ${sells}.`,
+                ]),
           ];
   return variants[
     variantIndex(opts.variantSeed, `opener:${tone}`, variants.length)
@@ -542,24 +703,37 @@ function closeFor(
   return variants[variantIndex(variantSeed, "cta", variants.length)];
 }
 
-// ── A1/A2/A3 · subjects ──────────────────────────────────────────────────────
+// ── A1/A2/A3/A11 · subjects ──────────────────────────────────────────────────
 //
 // The audit's worst surface (3.3/10): subjects shipped the INTERNAL why-string
 // ("Tommy Gun's Original Barbershop — review momentum declining vs cell",
-// "… — slow lcp") byte-identical across a cohort. Replacement contract:
-//   - per pain theme, 2–4 deterministic plain-language variants — short,
-//     lowercase-leaning, problem-first, internal-feeling; NO Mapsly vocabulary
-//     ("vs cell" / "lcp" / why-strings), no full legal business name
+// "… — slow lcp") byte-identical across a cohort. Then the founder's v2 mandate:
+// LEAD with the SPECIFIC hook — the number, the name, the rank — so it reads
+// like a person spotted one real thing, not a campaign. Contract:
+//   - per pain theme, 2–4 deterministic variants — short, lowercase, specific
+//     FIRST (the real number/name/rank when grounded), then plainer fallbacks
+//     for cohort dedup; NO Mapsly vocabulary ("vs cell" / "lcp" / why-strings),
+//     no full legal business name, no " — " (spaced em-dash reads templated)
 //   - ≤50 chars ALWAYS (an interpolated variant that overflows falls through
-//     to the next; the static variants all fit)
-//   - A3 truthfulness (WA CEMA exposure): the subject derives ONLY from the
-//     top CHOSEN pain — which is by construction in the body — or the generic
-//     fallback; any number a variant interpolates uses the exact formatting
-//     the body line uses, so subject claims are always body-backed
+//     to the next; every theme has a static variant that fits)
+//   - A3 truthfulness (WA CEMA exposure): the subject derives ONLY from the top
+//     CHOSEN pain — which is by construction in the body — or the generic
+//     fallback; any NUMBER / NAME a variant interpolates uses the exact
+//     formatting the body line uses, so subject claims are always body-backed
 //   - A2 cohort dedup: the variant rotates per business (variantSeed)
+//   - A12: the name toggle + Title Case are applied AFTER selection, in
+//     subjectFor — the variants themselves stay lowercase + name-free
 
 /** Max subject length (chars). */
 const SUBJECT_MAX_CHARS = 50;
+
+/**
+ * A11/A3 · a > SUBJECT_MAX_CHARS sentinel a variant returns to DECLINE itself
+ * (e.g. the numeric unanswered subject when the body quotes a review instead of
+ * stating the count) — subjectFor's ≤50-char loop then falls through to the next
+ * variant. 60 chars of 'x' can never be a real subject and never fits.
+ */
+const SUBJECT_SKIP = "x".repeat(SUBJECT_MAX_CHARS + 10);
 
 const SUBJECT_VARIANTS: Record<
   PainThemeKey,
@@ -572,11 +746,18 @@ const SUBJECT_VARIANTS: Record<
     () => `something on your booking page to check`,
   ],
   unanswered_negative: [
+    // A11/A3 · lead with the SPECIFIC count ONLY when the body uses the COUNT
+    // line (not the quote). When the body QUOTES a review, the count is not in
+    // the body — so putting it in the subject would break the body-backed
+    // invariant. In the quote case this variant returns an over-length
+    // placeholder so subjectFor's ≤50-char loop skips to the plain variants,
+    // which reference "a review" (present in the quoted body).
     (s) => {
+      if (s.recentUnansweredReviewQuote) return SUBJECT_SKIP;
       const n = s.unansweredNegative ?? 0;
       return `${n} review${n === 1 ? "" : "s"} waiting on a reply?`;
     },
-    () => `a review that needs an answer`,
+    () => `a review with no reply yet`,
     () => `about your recent reviews`,
   ],
   review_decline: [
@@ -589,18 +770,27 @@ const SUBJECT_VARIANTS: Record<
     () => `ad clicks with nowhere to book`,
   ],
   slow_site: [
-    // Copy review B1 · lead with a plain human phrasing; a subject that opens
-    // with a decimal ("23.2 seconds…") reads system-generated. The number
-    // lives in the body (A3-safe without it in the subject).
-    () => `your website feels slow on mobile`,
-    () => `your site's load time`,
+    // A11 · lead with the REAL number ("your site's 7.7s load") — the specific
+    // hook the founder wants. TWO of the three variants carry the number so the
+    // cohort mostly ships a number-forward subject (dedup still rotates). The
+    // LCP is formatted exactly as the body line (toFixed(1)) so the subject
+    // number always matches the body (A3); the last plain variant covers the
+    // null-LCP edge and adds cohort variety.
+    (s) =>
+      s.lcpSeconds != null
+        ? `your site's ${s.lcpSeconds.toFixed(1)}s load`
+        : `your site's load time`,
+    (s) =>
+      s.lcpSeconds != null
+        ? `${s.lcpSeconds.toFixed(1)}s to load on mobile`
+        : `your website feels slow on mobile`,
     () => `your site takes a while to load`,
   ],
   competitor_ads: [
-    // Copy review B3 · curiosity-first (best performer), no fear-sell "your
-    // competitors" lead; dedup the null-city case (the old fallback collided
-    // with a later static variant).
-    () => `who's advertising around you`,
+    // INC-54 · curiosity-first, count-backed. We do NOT name a rival as an
+    // advertiser (topRivalName is a Maps adjacency seed, not a verified
+    // advertiser — naming it here would be a disprovable claim). The body line
+    // is the grounded advertiser count.
     (s) => `others in ${s.city ?? "your area"} are advertising`,
     () => `who's running ads nearby`,
   ],
@@ -611,38 +801,203 @@ const SUBJECT_VARIANTS: Record<
 };
 
 /**
+ * A12 · Title Case a subject for the name-on variant. Lowercases then
+ * capitalizes each word's first letter, leaving interior punctuation intact.
+ * Keeps a leading digit token as-is ("7.7s" → "7.7s"). Deterministic + pure.
+ */
+function titleCase(s: string): string {
+  return s.replace(
+    /\b([a-z])([a-z']*)/g,
+    (_m, first: string, rest: string) => first.toUpperCase() + rest,
+  );
+}
+
+/**
  * Subject line per step (email only). Follow-ups read as replies. Step 1
- * derives from the TOP CHOSEN pain's variant table (A3: never claims beyond
- * the body); a no-pain lead keeps a plain generic subject with the SHORT name.
+ * derives from the TOP CHOSEN pain's variant table (A11: the specific hook —
+ * number/name/rank — first; A3: never claims beyond the body); a no-pain lead
+ * keeps a plain generic subject with the SHORT name.
+ *
+ * A12 · `includeNameInSubject` (default false, the expert recommendation): OFF
+ * keeps the lowercase, specific, no-name subject. ON prepends the SHORT business
+ * name + Title-Cases the whole line ("Glow Spa — Your Site's 7.7s Load"); if the
+ * name prefix would overflow ≤50 chars we keep the name-free specific subject
+ * (the hook matters more than the name). Follow-up (step>1) subjects already
+ * carry the name and are unchanged by the toggle.
  */
 function subjectFor(
   signals: TouchSignals,
   step: number,
   chosen: PainLine[],
   variantSeed?: string | null,
+  includeNameInSubject?: boolean,
 ): string {
   const short = shortBusinessName(signals.businessName);
+  // Follow-ups read as replies and already name the business — the toggle
+  // doesn't apply (they're never a lowercase specific-hook subject).
   if (step > 1) return `re: ${short} — a quick look`;
+
   const top = chosen[0];
+  // Pick the specific, name-free, lowercase subject first.
+  let base: string;
   if (!top) {
-    const generic = `a quick look at ${short}`;
-    return generic.length <= SUBJECT_MAX_CHARS
-      ? generic
-      : `a quick look at your online presence`;
+    base = `a quick look at ${short}`;
+    if (base.length > SUBJECT_MAX_CHARS)
+      base = `a quick look at your online presence`;
+    // A generic subject already carries the short name — the toggle is a no-op.
+    return includeNameInSubject ? titleCase(base) : base;
+  } else {
+    const variants = SUBJECT_VARIANTS[top.key as PainThemeKey];
+    const start = variantIndex(
+      variantSeed,
+      `subject:${top.key}`,
+      variants.length,
+    );
+    // ≤50-char guard: an interpolated variant (number / rival name / city) that
+    // overflows — or a variant that DECLINED itself via SUBJECT_SKIP — falls
+    // through to the next; every theme has a static variant that fits.
+    base = `a quick look at your online presence`;
+    for (let i = 0; i < variants.length; i += 1) {
+      const candidate = variants[(start + i) % variants.length](signals);
+      if (candidate.length <= SUBJECT_MAX_CHARS) {
+        base = candidate;
+        break;
+      }
+    }
   }
-  const variants = SUBJECT_VARIANTS[top.key as PainThemeKey];
-  const start = variantIndex(
-    variantSeed,
-    `subject:${top.key}`,
-    variants.length,
-  );
-  // ≤50-char guard: an interpolated variant (city / count) that overflows
-  // falls through to the next; every theme has a static variant that fits.
-  for (let i = 0; i < variants.length; i += 1) {
-    const candidate = variants[(start + i) % variants.length](signals);
-    if (candidate.length <= SUBJECT_MAX_CHARS) return candidate;
+
+  // A12 · name OFF (default) → the lowercase specific subject as-is.
+  if (!includeNameInSubject) return base;
+
+  // A12 · name ON → "{ShortName} — {Title-Cased subject}" when it fits ≤50;
+  // otherwise keep the name-free specific subject Title-Cased (the specific
+  // hook still leads — a truncated name helps no one).
+  const named = `${short} — ${base}`;
+  return named.length <= SUBJECT_MAX_CHARS ? titleCase(named) : titleCase(base);
+}
+
+/**
+ * A9 · STEP-2 DEEPENING — the #1 quality complaint. Today a follow-up on a lead
+ * with only one pain ships an EMPTY body (opener + footer). This returns a
+ * follow-up body fact that ADDS A NEW GROUNDED fact about the SAME primary issue
+ * — a second real number, the named-rival RANK/keyword contrast, the specific
+ * consequence, or the AI pain hypothesis — so a follow-up is never "just
+ * following up." Returns null only when we genuinely have nothing new grounded
+ * (then the caller falls back to the plain follow-up close).
+ *
+ * `primaryTheme` is the theme the sequence already pitched (from the first
+ * excluded key, else the top present pain). Every returned string is REAL
+ * per-business data; numbers are already in `signals` (nano fact-check safe).
+ */
+function stepTwoDeepen(
+  primaryTheme: string | null,
+  signals: TouchSignals,
+): { line: string; why: string } | null {
+  const noun = signals.noun || "customers";
+
+  // A per-theme "second fact" that DIFFERS from the step-1 line for that theme.
+  switch (primaryTheme) {
+    case "slow_site": {
+      // A second speed number: the mobile performance score (distinct from the
+      // LCP seconds the step-1 line quoted). Only when grounded.
+      if (signals.lighthousePerf != null) {
+        return {
+          line: `Its mobile speed score sits at ${Math.round(signals.lighthousePerf)}/100 — Google now factors that into where you rank.`,
+          why: "Step-2 deepen · mobile performance score (new number)",
+        };
+      }
+      break;
+    }
+    case "unanswered_negative": {
+      // If step 1 used the COUNT, deepen with the QUOTE; if step 1 used the
+      // QUOTE, deepen with the total count. Both are real, and NOT what step 1
+      // said.
+      const quote = signals.recentUnansweredReviewQuote?.trim();
+      const stars = signals.reviewQuoteStars;
+      // Heuristic: if a quote exists it was preferred at step 1 → deepen with the
+      // count. Otherwise deepen with the (now-quoted) review if we have one.
+      if (
+        quote &&
+        typeof stars === "number" &&
+        (signals.unansweredNegative ?? 0) > 0
+      ) {
+        return {
+          line: `And it's not just that one — ${signals.reviewSamplePartial ? "at least " : ""}${signals.unansweredNegative} negative review${(signals.unansweredNegative ?? 0) === 1 ? "" : "s"} ${(signals.unansweredNegative ?? 0) === 1 ? "sits" : "sit"} unanswered right now.`,
+          why: "Step-2 deepen · total unanswered count (new number)",
+        };
+      }
+      break;
+    }
+    // INC-54 · no competitor_ads-specific deepener. Both former lines were
+    // fabrications: (1) the "Search '{category} {city}' and {packLeaderName}…"
+    // splice — pack1Name is NOT attributable to the derived keyword (a second
+    // writer, aggregate-cell-maps, sets pack1Name per TEMPLATE keyword, so the
+    // named leader is routinely for a different query); (2) "{rival} is the name
+    // Google keeps putting in front of you" — a ranking/precedence claim we have
+    // no data for (topRivalName is a "people also search" ADJACENCY seed).
+    // competitor_ads falls through to the grounded cross-theme fallbacks below.
+    default:
+      break;
   }
-  return `a quick look at your online presence`;
+
+  // Cross-theme fallbacks, sharpest first — each a REAL per-business fact. Any
+  // present signal yields a follow-up fact so a step-2 body is never empty when
+  // the lead has anything grounded:
+  // 1) the AI-derived pain hypothesis (a specific, grounded wedge),
+  if (signals.aiPainHypothesis?.trim()) {
+    return {
+      line: endWithPeriod(
+        `The other thing I spotted: ${lowerFirstChar(signals.aiPainHypothesis.trim())}`,
+      ),
+      why: "Step-2 deepen · AI pain hypothesis",
+    };
+  }
+  // 2) the named-rival ADJACENCY contrast — honest: peopleAlsoSearch = "people
+  //    also search for", so the rival turns up NEXT TO you in Google's results;
+  //    NO ranking/precedence claim (INC-54).
+  if (signals.topRivalName?.trim()) {
+    return {
+      line: `Worth knowing: ${signals.topRivalName.trim()} keeps turning up right next to you in the results your ${noun} see.`,
+      why: "Step-2 deepen · named nearby rival",
+    };
+  }
+  // 3) a second speed number even off a non-slow primary,
+  if (signals.lighthousePerf != null) {
+    return {
+      line: `Its mobile speed score sits at ${Math.round(signals.lighthousePerf)}/100 — Google now factors that into where you rank.`,
+      why: "Step-2 deepen · mobile performance score (new number)",
+    };
+  }
+  // 4) a tenure fact — "N years on Google" is a real, specific hook.
+  if (signals.yearsOnGoogle != null && signals.yearsOnGoogle >= 1) {
+    return {
+      line: `You've built ${signals.yearsOnGoogle} year${signals.yearsOnGoogle === 1 ? "" : "s"} of presence on Google — worth making sure the site does it justice.`,
+      why: "Step-2 deepen · years on Google (tenure)",
+    };
+  }
+  return null;
+}
+
+/** Lowercase the first character of a string (for mid-sentence insertion). */
+function lowerFirstChar(s: string): string {
+  return s.length > 0 ? s[0].toLowerCase() + s.slice(1) : s;
+}
+
+/** A9 · ensure a deepener line ends in sentence punctuation (AI hypotheses come
+ *  in without a terminal period). Leaves ? / ! / . as-is. */
+function endWithPeriod(s: string): string {
+  const t = s.trimEnd();
+  return /[.!?]$/.test(t) ? t : `${t}.`;
+}
+
+/** A9 · the sharpest PRESENT pain key across all lines (severity-desc) — the
+ *  fallback "primary theme" a deepener works from when no key was excluded and
+ *  nothing is left present. Null when the lead has no present pain at all. */
+function eligibleTopKey(lines: PainLine[]): string | null {
+  const top = [...lines]
+    .filter((l) => l.present)
+    .sort((a, b) => b.severity - a.severity)[0];
+  return top?.key ?? null;
 }
 
 /**
@@ -682,7 +1037,25 @@ export function buildFirstTouch(
   // reply); follow-up steps cite ONE fresh theme each so a 3-touch sequence
   // never repeats itself (WP5-10).
   const chosen = present.slice(0, step === 1 ? 2 : 1);
-  const painText = chosen.map((l) => l.line).join(" ");
+
+  // A9 · STEP-2 DEEPENING: on a follow-up with NO fresh pain left (the lead had
+  // only one issue), don't ship an empty "just following up." Add a NEW grounded
+  // fact about the SAME primary issue — the theme the sequence already pitched
+  // (the first excluded key, else the top present pain). The deepener returns
+  // null only when we truly have nothing new grounded, in which case the plain
+  // follow-up close still carries the message.
+  let painText = chosen.map((l) => l.line).join(" ");
+  let deepenWhy: string | null = null;
+  if (step >= 2 && chosen.length === 0) {
+    const primaryTheme =
+      opts.excludePainKeys?.[0] ?? present[0]?.key ?? eligibleTopKey(lines);
+    const deepen = stepTwoDeepen(primaryTheme, signals);
+    if (deepen) {
+      painText = deepen.line;
+      deepenWhy = deepen.why;
+    }
+  }
+
   const close = closeFor(signals, step, chosen.length > 0, opts.variantSeed);
 
   let body = [opener, painText, close].filter(Boolean).join("\n\n");
@@ -705,13 +1078,25 @@ export function buildFirstTouch(
 
   const subject =
     opts.channel === "email"
-      ? subjectFor(signals, step, chosen, opts.variantSeed)
+      ? subjectFor(
+          signals,
+          step,
+          chosen,
+          opts.variantSeed,
+          opts.includeNameInSubject,
+        )
       : undefined;
+
+  // A9 · a step-2 deepen contributes a why-string (so the UI shows the follow-up
+  // carried a real fact) but is NOT a pain theme key — it must NOT enter
+  // usedSignals (that drives the WP5-10 non-repeat dedup; a deepen re-uses the
+  // primary theme by design). why keeps the deepen reason for transparency.
+  const why = [...chosen.map((l) => l.why), ...(deepenWhy ? [deepenWhy] : [])];
 
   return {
     subject,
     body,
-    why: chosen.map((l) => l.why),
+    why,
     // Tier = personalization DEPTH (all grounded signals available), not just
     // the 1–2 lines we put in the body. More citable signals ⇒ higher reply.
     predictedTier: tierFor(present.length),

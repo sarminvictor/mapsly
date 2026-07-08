@@ -563,3 +563,317 @@ describe("A16 · per-business body variation (anti-fingerprinting)", () => {
     expect(a.subject).toBe(b.subject);
   });
 });
+
+// ── Touchpoints v2 (2026-07-07) · A7–A12 the "stand out" copy ────────────────
+
+describe("A7 · richer pain lines fire with data, fall back without", () => {
+  test("competitor_ads is count-only — never names a rival or a keyword (INC-54)", () => {
+    const t = buildFirstTouch(
+      {
+        businessName: "X",
+        city: "Boise",
+        competitorAdsCount: 3,
+        // Present but MUST NOT be spliced in: topRivalName is a Maps adjacency
+        // seed (not a verified advertiser) and trackedKeyword is a synthesized
+        // "{category} {city}" string — "{rival} is running Google ads for {kw}"
+        // would be a fabricated, disprovable attribution.
+        topRivalName: "Zen Wellness",
+        trackedKeyword: "acupuncture boise",
+      },
+      base,
+    );
+    expect(t.body).toContain(
+      "3 businesses in Boise are running ads while you're not.",
+    );
+    expect(t.body).not.toContain("Zen Wellness");
+    expect(t.body).not.toContain("Google ads");
+    expect(t.body).not.toContain("acupuncture boise");
+  });
+
+  test("competitor_ads count line handles the singular (1 business … is)", () => {
+    const t = buildFirstTouch(
+      { businessName: "X", city: "Boise", competitorAdsCount: 1 },
+      base,
+    );
+    expect(t.body).toContain(
+      "1 business in Boise is running ads while you're not.",
+    );
+  });
+
+  test("unanswered_negative QUOTES a real pulled review when one was pulled", () => {
+    const t = buildFirstTouch(
+      {
+        businessName: "X",
+        unansweredNegative: 4,
+        recentUnansweredReviewQuote: "waited an hour and nobody came",
+        reviewQuoteStars: 2,
+        reviewQuoteMonth: "June",
+      },
+      base,
+    );
+    expect(t.body).toContain(
+      "a 2★ from June — “waited an hour and nobody came” — is still sitting there with no reply.",
+    );
+  });
+
+  test("unanswered_negative falls back to the count line without a quote", () => {
+    const t = buildFirstTouch(
+      { businessName: "X", unansweredNegative: 4 },
+      base,
+    );
+    expect(t.body).toContain("You have 4 unanswered negative reviews");
+    expect(t.body).not.toContain("sitting there with no reply");
+  });
+
+  test("slow_site keeps a general consequence (no fabricated %)", () => {
+    const t = buildFirstTouch({ businessName: "X", lcpSeconds: 7.7 }, base);
+    expect(t.body).toContain(
+      "Your site takes 7.7s to load on mobile — most visitors leave before it opens.",
+    );
+    // No invented percentage.
+    expect(t.body).not.toMatch(/\d+%/);
+  });
+
+  test("no_booking adds the consequence noun-correctly", () => {
+    const t = buildFirstTouch(
+      { businessName: "X", noun: "patients", hasBookingTool: false },
+      base,
+    );
+    expect(t.body).toContain(
+      "There's no way for patients to book online from your site — after-hours, that's a lost patient.",
+    );
+  });
+});
+
+// A8 (serp_not_in_pack) was REMOVED (INC-54): the copy bound a real organicRank
+// to a synthesized "{category} {city}" keyword the rank was never measured for
+// — a disprovable claim. organicRank/localPackRank are gathered-but-unrendered
+// pending real keyword resolution; see first-touch.ts TouchSignals doc.
+
+describe("A3 honesty · a subject/body number is only ever real data", () => {
+  test("NO fabricated competitor metric — the body carries only signal numbers", () => {
+    // A rich lead: every present number here must trace to a signal field. We
+    // never store a rival's LCP/spend, so no such number can appear.
+    const signals: TouchSignals = {
+      businessName: "X",
+      city: "Boise",
+      competitorAdsCount: 3,
+      topRivalName: "Zen Wellness",
+      trackedKeyword: "acupuncture boise",
+      lcpSeconds: 7.7,
+      organicRank: 7,
+    };
+    const t = buildFirstTouch(signals, {
+      ...base,
+      sellingWhat: "ads",
+    });
+    // The only numbers allowed in the body are those we passed in (plus the
+    // "top 3" constant when the serp line fires, and 2 == count-1). Assert no
+    // number resembling a fabricated rival metric (e.g. a decimal that isn't
+    // our LCP) sneaks in.
+    const allowed = new Set([
+      "7.7", // our LCP
+      "3", // competitorAdsCount / "top 3"
+      "2", // count-1 ("2 others")
+      "7", // organicRank
+      "1", // address "1 Main St"
+    ]);
+    for (const n of t.body.match(/\d+(?:\.\d+)?/g) ?? []) {
+      expect(allowed.has(n), `unexpected number in body: ${n}`).toBe(true);
+    }
+  });
+});
+
+describe("A9 · step-2 deepening — a follow-up is never an empty body", () => {
+  const asParas = (body: string) =>
+    body
+      .split(/\n\n—\n/)[0] // strip footer
+      .split(/\n{2,}/)
+      .map((p) => p.trim())
+      .filter(Boolean);
+
+  test("a single-pain lead's step 2 ADDS a new grounded fact (a second number)", () => {
+    const s: TouchSignals = {
+      businessName: "X",
+      lcpSeconds: 7.7,
+      lighthousePerf: 34,
+    };
+    const t = buildFirstTouch(s, {
+      ...base,
+      sequenceStep: 2,
+      excludePainKeys: ["slow_site"], // step 1 already used slow_site
+    });
+    // Body = opener + a NEW fact + close (3 paras) — never opener+close only.
+    const paras = asParas(t.body);
+    expect(paras.length).toBeGreaterThanOrEqual(3);
+    // The new fact is a second real number (the perf score), not the LCP again.
+    expect(t.body).toContain("34/100");
+    expect(t.why).toContain(
+      "Step-2 deepen · mobile performance score (new number)",
+    );
+  });
+
+  test("deepens with the AI pain hypothesis when no per-theme second fact exists", () => {
+    const s: TouchSignals = {
+      businessName: "X",
+      unansweredNegative: 1,
+      aiPainHypothesis: "their booking page 404s on mobile",
+    };
+    const t = buildFirstTouch(s, {
+      ...base,
+      sequenceStep: 2,
+      excludePainKeys: ["unanswered_negative"],
+    });
+    const paras = asParas(t.body);
+    expect(paras.length).toBeGreaterThanOrEqual(3);
+    expect(t.body).toContain("their booking page 404s on mobile");
+  });
+
+  test("no step-2 body is ever just opener+footer when the lead has any signal", () => {
+    // A minimal lead with a single pain and one deepenable fact.
+    const cases: TouchSignals[] = [
+      { businessName: "X", lcpSeconds: 7.7, lighthousePerf: 34 },
+      {
+        businessName: "X",
+        unansweredNegative: 2,
+        aiPainHypothesis: "no NAP consistency across directories",
+      },
+      // INC-54 · SERP/pack fields no longer produce a deepener (unattributable);
+      // a tenure fact is the surviving grounded deepener for a thin lead.
+      { businessName: "X", yearsOnGoogle: 6 },
+      {
+        businessName: "X",
+        competitorAdsCount: 2,
+        topRivalName: "Zen",
+        yearsOnGoogle: 6,
+      },
+    ];
+    for (const s of cases) {
+      const t = buildFirstTouch(s, {
+        ...base,
+        sequenceStep: 2,
+        // Exclude the step-1 theme so no fresh pain remains → deepener must fire.
+        excludePainKeys: ["slow_site", "unanswered_negative", "competitor_ads"],
+      });
+      const paras = asParas(t.body);
+      // opener + deepen fact + close — strictly more than opener + close.
+      expect(paras.length, JSON.stringify(s)).toBeGreaterThanOrEqual(3);
+    }
+  });
+
+  test("deterministic — same step-2 inputs produce the same body", () => {
+    const s: TouchSignals = {
+      businessName: "X",
+      lcpSeconds: 7.7,
+      lighthousePerf: 34,
+    };
+    const opts = { ...base, sequenceStep: 2, excludePainKeys: ["slow_site"] };
+    expect(buildFirstTouch(s, opts).body).toBe(buildFirstTouch(s, opts).body);
+  });
+});
+
+describe("A11/A12 · subject specificity + name toggle", () => {
+  test("the specific hook leads the subject (number, then plain ads)", () => {
+    const slow = buildFirstTouch({ businessName: "X", lcpSeconds: 7.7 }, base);
+    expect(slow.subject).toBe("your site's 7.7s load");
+
+    // competitor_ads subjects are count-backed and plain — never the rival name
+    // (INC-54). topRivalName is present but must not surface in the subject.
+    const ads = buildFirstTouch(
+      {
+        businessName: "X",
+        city: "Boise",
+        competitorAdsCount: 2,
+        topRivalName: "Zen Wellness",
+      },
+      base,
+    );
+    expect(ads.subject).not.toContain("Zen Wellness");
+    expect([
+      "others in Boise are advertising",
+      "who's running ads nearby",
+    ]).toContain(ads.subject);
+  });
+
+  test("name toggle OFF (default) = lowercase specific, no business name", () => {
+    const t = buildFirstTouch(
+      { businessName: "Glow Spa LLC", lcpSeconds: 7.7 },
+      base,
+    );
+    expect(t.subject).toBe("your site's 7.7s load");
+    expect(t.subject).not.toContain("Glow Spa");
+  });
+
+  test("name toggle ON = short name prefix + Title Case", () => {
+    const t = buildFirstTouch(
+      { businessName: "Glow Spa LLC", lcpSeconds: 7.7 },
+      { ...base, includeNameInSubject: true },
+    );
+    expect(t.subject).toBe("Glow Spa — Your Site's 7.7s Load");
+    // The number is still body-backed (A3).
+    expect(t.body).toContain("7.7s");
+  });
+
+  test("name toggle stays ≤50 chars — a long name keeps the name-free hook", () => {
+    const t = buildFirstTouch(
+      {
+        businessName: "Serenity Aesthetics Laser & Advanced Skin Care Inc",
+        lcpSeconds: 7.7,
+      },
+      { ...base, includeNameInSubject: true },
+    );
+    expect((t.subject ?? "").length).toBeLessThanOrEqual(50);
+    // Falls back to the Title-Cased specific hook (still the load number).
+    expect(t.subject).toContain("7.7");
+  });
+
+  test("A3 · every subject number appears in the body across the name toggle", () => {
+    for (const includeNameInSubject of [false, true]) {
+      const t = buildFirstTouch(
+        { businessName: "Glow Spa", lcpSeconds: 7.7 },
+        { ...base, includeNameInSubject },
+      );
+      const bodyNums = new Set(t.body.match(/\d+(?:\.\d+)?/g) ?? []);
+      for (const n of (t.subject ?? "").match(/\d+(?:\.\d+)?/g) ?? []) {
+        expect(bodyNums.has(n), `subject num ${n} in body`).toBe(true);
+      }
+    }
+  });
+});
+
+describe("A10 · openers may name the real category when grounded", () => {
+  test("a grounded categoryLabel can surface in a variant, still short", () => {
+    // Across the seed space, at least one variant names the category (variant
+    // rotation is seed-driven, so scan enough seeds to hit the named variant).
+    let named = false;
+    for (const seed of "abcdefghijklmnop".split("")) {
+      const t = buildFirstTouch(
+        {
+          businessName: "X",
+          city: "Boise",
+          categoryLabel: "acupuncture clinics",
+          unansweredNegative: 1,
+        },
+        { ...base, variantSeed: seed },
+      );
+      if (t.body.includes("I help acupuncture clinics around Boise")) {
+        named = true;
+        // The opener stays short (single line, ≤ ~90 chars).
+        const opener = t.body.split(/\n{2,}/)[0];
+        expect(opener.length).toBeLessThanOrEqual(90);
+      }
+    }
+    expect(named).toBe(true);
+  });
+
+  test("without a categoryLabel every opener stays the generic 'local businesses'", () => {
+    for (const seed of ["a", "b", "c", "d", "e", "f"]) {
+      const t = buildFirstTouch(
+        { businessName: "X", city: "Boise", unansweredNegative: 1 },
+        { ...base, variantSeed: seed },
+      );
+      expect(t.body).toContain("local businesses");
+      expect(t.body).not.toContain("I help acupuncture clinics");
+    }
+  });
+});
