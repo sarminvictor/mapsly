@@ -40,6 +40,23 @@ import {
   type PlanKey,
   type TopUpPack,
 } from "@/modules/cost/pricing";
+import { isPaidAgency } from "@/modules/agency-portal/team/seats";
+import { createPortalSession } from "./portal";
+
+// Stripe subscription statuses that mean "no live subscription" — a fresh
+// checkout is safe. Anything else (active/trialing/past_due/unpaid/incomplete,
+// or an unknown status alongside a subscription id) means a subscription
+// already exists, so a NEW checkout would create a second one (double billing +
+// grant/status flapping). Review Part E · billing safety.
+const TERMINAL_SUB_STATUSES = new Set(["canceled", "incomplete_expired"]);
+
+function hasLiveSubscription(
+  subscriptionId: string | null,
+  status: string | null,
+): boolean {
+  if (!subscriptionId) return false;
+  return status == null || !TERMINAL_SUB_STATUSES.has(status);
+}
 
 // ─── Env-var resolution (call-time, per INC-07) ─────────────────────────────
 //
@@ -90,6 +107,8 @@ interface AgencyContext {
   agencyId: string;
   agencyName: string;
   stripeCustomerId: string | null;
+  stripeSubscriptionId: string | null;
+  stripeStatus: string | null;
   canManage: boolean;
 }
 
@@ -109,7 +128,13 @@ async function resolveAgencyContext(): Promise<
         select: {
           role: true,
           agency: {
-            select: { id: true, name: true, stripeCustomerId: true },
+            select: {
+              id: true,
+              name: true,
+              stripeCustomerId: true,
+              stripeSubscriptionId: true,
+              stripeStatus: true,
+            },
           },
         },
       },
@@ -125,6 +150,8 @@ async function resolveAgencyContext(): Promise<
     agencyId: agency.id,
     agencyName: agency.name,
     stripeCustomerId: agency.stripeCustomerId,
+    stripeSubscriptionId: agency.stripeSubscriptionId,
+    stripeStatus: agency.stripeStatus,
     canManage: membership.role === "OWNER" || membership.role === "ADMIN",
   };
 }
@@ -188,6 +215,28 @@ export async function startPlanCheckout(formData: FormData): Promise<void> {
   }
   if (!ctx.canManage) {
     redirect(billingUrl(locale, "?billing_error=role_required"));
+  }
+
+  // Review Part E · double-subscription guard (server-side, not just UI).
+  // If a live subscription already exists, a fresh checkout would create a
+  // SECOND one (double billing + last-writer-wins grant/status flapping). Send
+  // the buyer to the Stripe portal to CHANGE tier instead. This closes the hole
+  // the past_due UI path opened (fresh-checkout buttons shown to dunning
+  // subscribers) and any direct/crafted action call.
+  if (hasLiveSubscription(ctx.stripeSubscriptionId, ctx.stripeStatus)) {
+    let portalUrl: string | null = null;
+    try {
+      const portal = await createPortalSession({
+        userId: ctx.userId,
+        returnUrl: billingUrl(locale),
+      });
+      portalUrl = portal.url;
+    } catch {
+      portalUrl = null;
+    }
+    redirect(
+      portalUrl ?? billingUrl(locale, "?billing_error=has_subscription"),
+    );
   }
 
   // WP8-2 · bound checkout-session starts per user (Stripe-session churn).
@@ -342,6 +391,14 @@ export async function startTopUpCheckout(formData: FormData): Promise<void> {
   }
   if (!ctx.canManage) {
     redirect(billingUrl(locale, "?billing_error=role_required"));
+  }
+
+  // Review Part F · top-ups are a paid-plan pressure valve, not a subscription
+  // bypass. A Free agency must not be able to stack never-expiring credits at a
+  // sub-plan rate without ever subscribing. Gate on an active paid subscription
+  // (server-side; the TopUpPacks UI also disables the button for free agencies).
+  if (!isPaidAgency(ctx.stripeStatus)) {
+    redirect(billingUrl(locale, "?billing_error=plan_required"));
   }
 
   // WP8-2 · bound checkout-session starts per user (Stripe-session churn).

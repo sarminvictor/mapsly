@@ -48,9 +48,8 @@ describe("enrichRatePerLead", () => {
   });
 
   test("a full bundle sums the per-family CREDIT_PRICES (tech rides contacts)", () => {
-    // Under CREDIT_PRICES each chargeable business family = 1 credit; tech = 0
-    // (it rides the contacts DOM scan). So the full business bundle
-    // contacts+services+reviews+lighthouse+ai_research (+tech=0) = 5 credits.
+    // Under CREDIT_PRICES (repriced 2026-07-09): contacts 1 + services 1 +
+    // reviews 2 + lighthouse 2 + ai_research 1 + tech 0 = 7 credits.
     const all: EnrichmentType[] = [
       "contacts",
       "services",
@@ -59,7 +58,7 @@ describe("enrichRatePerLead", () => {
       "lighthouse",
       "ai_research",
     ];
-    expect(enrichRatePerLead(all)).toBe(5);
+    expect(enrichRatePerLead(all)).toBe(7);
   });
 
   test("booking-tool bundle (contacts + tech) is exactly 1 credit/lead", () => {

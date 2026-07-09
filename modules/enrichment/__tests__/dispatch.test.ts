@@ -747,14 +747,14 @@ describe("closeRunIfDone", () => {
     const closed = await closeRunIfDone("r1", now);
 
     expect(closed).toBe(true);
-    // contacts = 1 credit; meta_ads = 0 (blocked). NOT 1 + 4 = 5.
+    // contacts = 1 credit; meta_ads = 0 (blocked). NOT 1 + 12 = 13.
     expect(reconcileRunCredits).toHaveBeenCalledWith(
       "r1",
       expect.objectContaining({ actualCredits: 1, hadProgress: true }),
     );
   });
 
-  test("collected meta_ads cell IS billed (4 credits) alongside contacts", async () => {
+  test("collected meta_ads cell IS billed (12 credits) alongside contacts", async () => {
     const now = new Date("2026-07-06T00:00:00Z");
     p.enrichmentJob.count.mockResolvedValue(0);
     p.enrichmentRun.findUnique.mockResolvedValue({
@@ -778,10 +778,10 @@ describe("closeRunIfDone", () => {
     const closed = await closeRunIfDone("r1", now);
 
     expect(closed).toBe(true);
-    // contacts (1) + meta_ads collected (4 credits/cell) = 5.
+    // contacts (1) + meta_ads collected (12 credits/cell, repriced 4→12) = 13.
     expect(reconcileRunCredits).toHaveBeenCalledWith(
       "r1",
-      expect.objectContaining({ actualCredits: 5, hadProgress: true }),
+      expect.objectContaining({ actualCredits: 13, hadProgress: true }),
     );
   });
 

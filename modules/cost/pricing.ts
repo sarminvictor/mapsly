@@ -20,6 +20,11 @@
 
 import { DATAFORSEO_UNIT_COST_USD } from "@/services/dataforseo/pricing";
 
+// 2026-07-09.2 · REVIEW FIXES — top-up packs repriced above plan rates
+//   ($50/1k→$70/1k, $200/5k→$275/5k) so a pack is never cheaper than a plan
+//   credit, and APIFY_META_RUN_USD 0.05→0.12 to match real meta COGS (the doc's
+//   own $0.12 claim). Bumped so any in-flight quote re-quotes at the corrected
+//   meta cost. See docs/billing-repricing-review-2026-07-09.html Parts B3 + F.
 // 2026-07-09.1 · REPRICING — CREDIT_PRICES reviews 1→2, lighthouse 1→2,
 //   meta_ads 4→12; plan grants + rollover=0 (docs/billing-repricing-2026-07-09).
 //   Bumped so any in-flight quote minted under the old schedule re-quotes.
@@ -28,7 +33,7 @@ import { DATAFORSEO_UNIT_COST_USD } from "@/services/dataforseo/pricing";
 // decoupled from ENRICHMENT_PRICES.usdPerUnit (raw COGS). Any change to either
 // table must bump this so in-flight 15-min quotes re-quote.
 // (Prior: "2026-07-02.1" WP10-7 re-derived serp/google_ads + walled lighthouse.)
-export const PRICE_LIST_VERSION = "2026-07-09.1";
+export const PRICE_LIST_VERSION = "2026-07-09.2";
 
 /** Internal credit price. Apollo charges ~$0.20/credit; we undercut 4×. */
 export const CREDIT_USD = 0.05;
@@ -222,14 +227,14 @@ export const PLAN_CARDS: Record<PlanKey, PlanCard> = {
     oneTime: true,
     fullyEnriched: 8,
     withContacts: 50,
-    rate: "50 leads with contacts",
+    rate: "up to 50 leads with contacts",
     featured: false,
     features: [
-      "50 leads with verified contacts",
+      "Up to 50 leads with verified contacts",
       "Search everywhere we've already mapped",
       "No card required",
     ],
-    calc: "50 guaranteed leads with verified contacts — no market research needed. Enough to win your first client.",
+    calc: "Up to 50 leads with verified contacts — search everywhere we've already mapped, no market research needed. Enough to win your first client.",
   },
   starter: {
     key: "starter",
@@ -354,23 +359,29 @@ export interface TopUpPack {
 }
 
 /**
- * One-time top-up packs — the prototype's "the only place real money is
- * spent" surface. Purchased credits land in `AgencyWallet.purchasedCredits`
- * and never expire.
+ * One-time top-up packs — the pressure valve for running out mid-cycle.
+ * Purchased credits land in `AgencyWallet.purchasedCredits` and never expire.
+ *
+ * Repriced 2026-07-09 (review Part F · top-up inversion): packs now sit ABOVE
+ * every plan's per-credit rate ($0.07 / $0.055 vs Pro $0.046 … Starter $0.076),
+ * and `startTopUpCheckout` requires an active paid subscription — so a pack is
+ * never a cheaper substitute for upgrading, and a Free agency can't stack
+ * never-expiring credits without subscribing. Still far under Apollo's $0.20
+ * overage (F-7 ceiling).
  */
 export const TOPUP_PACKS: TopUpPack[] = [
   {
     key: "pack_1000",
     credits: 1_000,
-    priceUsd: 50,
-    rate: "$0.05 / credit",
+    priceUsd: 70,
+    rate: "$0.07 / credit",
     primary: false,
   },
   {
     key: "pack_5000",
     credits: 5_000,
-    priceUsd: 200,
-    rate: "$0.04 / credit",
+    priceUsd: 275,
+    rate: "$0.055 / credit",
     primary: true,
   },
 ];
@@ -399,8 +410,15 @@ export interface EnrichmentPrice {
   freshnessDays: number;
 }
 
-/** Apify Meta Ad Library actor run — the source is free; small compute. */
-export const APIFY_META_RUN_USD = 0.05;
+/**
+ * Apify Meta Ad Library actor run — measured stealth-rebuild cost per cell.
+ * 2026-07-09 review: corrected 0.05→0.12 to match real COGS (the repricing
+ * doc's own $0.12 claim). Runtime billing already uses the actor's actual
+ * usageTotalUsd (modules/cell-intel/meta-ads.ts), so this only fixes the
+ * pre-flight quote's netUsd/upperBound + any margin telemetry built on
+ * ENRICHMENT_PRICES, which previously understated meta spend ~2.4×.
+ */
+export const APIFY_META_RUN_USD = 0.12;
 
 /** gpt-5.4-nano blended cost per business for AI-assisted text reads. */
 export const NANO_PER_BUSINESS_USD = 0.01;
@@ -476,12 +494,13 @@ export const ENRICHMENT_PRICES: Record<EnrichmentType, EnrichmentPrice> = {
     // pre-flight prices and could false-trip insufficient_credits.
     freshnessDays: 90,
   },
-  // One Apify run per cell, attributed to all members.
+  // One Apify run per cell, attributed to all members. upperMultiplier 2
+  // reflects the retry/soft-block case (~$0.24) the Meta actor is prone to.
   meta_ads: {
     label: "Meta ads",
     unit: "cell",
     usdPerUnit: APIFY_META_RUN_USD,
-    upperMultiplier: 1,
+    upperMultiplier: 2,
     freshnessDays: 30,
   },
   // B1 · PER-BUSINESS (was per-cell). The collector now calls adsSearch with

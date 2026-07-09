@@ -31,6 +31,8 @@ export interface CurrentPlanWalletProps {
   topUpBalance: number;
   /** Available = plan + top-up − held (the spendable number). */
   availableBalance: number;
+  /** Credits reserved by an in-flight run (subtracted from available). */
+  heldCredits: number;
   /** Locale for the cancel/resume action's return URL. */
   locale: string;
   /** True when there's a live paid subscription (cancel/resume applies). */
@@ -52,6 +54,7 @@ export function CurrentPlanWalletCard({
   planBalance,
   topUpBalance,
   availableBalance,
+  heldCredits,
   locale,
   subActive,
   cancelAtPeriodEnd,
@@ -134,7 +137,10 @@ export function CurrentPlanWalletCard({
             : "of this cycle used · plan credits reset on renewal"}{" "}
           · ≈ {nf.format(fullyEnriched)} fully enriched left
           {topUpBalance > 0
-            ? ` · ${nf.format(topUpBalance)} top-up never expires`
+            ? ` · ${nf.format(topUpBalance)} top-up credits never expire`
+            : ""}
+          {heldCredits > 0
+            ? ` · ${nf.format(heldCredits)} held for a run in progress`
             : ""}
         </span>
         {subActive && canManage ? (

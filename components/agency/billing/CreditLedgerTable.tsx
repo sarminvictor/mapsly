@@ -1,50 +1,45 @@
 "use client";
 
 /**
- * Credit ledger / usage table — reworked 2026-07-09 (Phase 5, billing
- * repricing). "Every credit in and out — your activity, not a bill."
+ * Credit ledger / usage table — "Every credit in and out — your activity, not a
+ * bill."
  *
- * New this pass:
  *   - Pagination (10 rows / page) over the ≤50 rows the page loads.
  *   - Full timestamps (Mon D, YYYY · HH:MM) alongside the relative "When".
  *   - Action detail line under "What" — market · N businesses · what ran
  *     (joined from run metadata server-side; see modules/billing/usage-detail).
  *
+ * 2026-07-09 (review Part E1): the running-balance math + double-billing bug is
+ * fixed by collapsing each run's HOLD/SETTLE/REFUND rows into one net row via
+ * the pure `collapseWithBalance` helper (modules/billing/ledger-view.ts, unit-
+ * tested). This component is now display-only.
+ *
  * `'use client'` for the page-state only; every prop is plain serialized data
- * (Date survives the RSC boundary). Running balance is reconstructed once over
- * ALL rows, then sliced per page so the numbers stay correct across pages.
+ * (Date survives the RSC boundary).
  */
 
 import { useState } from "react";
 
-export interface LedgerRow {
-  id: string;
-  /** CreditLedgerType: HOLD / SETTLE / REFUND / TOPUP / EXPIRE / ADJUST. */
-  type: string;
-  /** Magnitude of the movement (always >= 0 in the DB). */
-  credits: number;
-  /** Optional human note carried on the ledger row. */
-  note: string | null;
-  /** When the movement happened. */
-  createdAt: Date;
-  /** Joined run detail (market · N businesses · what ran); null when none. */
-  detail?: string | null;
-}
+import {
+  collapseWithBalance,
+  type LedgerDisplayRow,
+  type LedgerMovement,
+} from "@/modules/billing/ledger-view";
+
+/** A raw ledger movement as loaded by the billing page (newest-first). */
+export type LedgerRow = LedgerMovement;
 
 export interface CreditLedgerTableProps {
   /** Newest-first ledger rows. */
   rows: LedgerRow[];
   /** The wallet's current available balance (anchors the running balance). */
   currentBalance: number;
+  /** True when exactly the row cap was fetched (older activity may exist). */
+  truncated?: boolean;
 }
 
 const nf = new Intl.NumberFormat("en-US");
 const PAGE_SIZE = 10;
-
-/** Ledger types that ADD credits (shown +/green) vs draw down (red). */
-function isCredit(type: string): boolean {
-  return type === "TOPUP" || type === "REFUND" || type === "ADJUST";
-}
 
 /** Relative "When" label — Today / Yesterday / N days ago / a date. */
 function whenLabel(d: Date): string {
@@ -82,27 +77,35 @@ function exactStamp(d: Date): string {
   }
 }
 
-/** Human "What" description — prefer the note, fall back to the type. */
-function whatLabel(row: LedgerRow): string {
-  if (row.note && row.note.length > 0) {
-    const pretty = prettyNote(row.note);
-    if (pretty) return pretty;
-  }
-  switch (row.type) {
-    case "HOLD":
-      return "Run hold";
-    case "SETTLE":
+/** Human "What" description for a collapsed display row. */
+function whatLabel(row: LedgerDisplayRow): string {
+  switch (row.kind) {
+    case "run-pending":
+      return "Run in progress";
+    case "run-settled":
       return "Run settled";
-    case "REFUND":
-      return "Refund";
-    case "TOPUP":
+    case "run-refunded":
+      return "Run refunded";
+    case "topup":
+      if (row.note) {
+        const pretty = prettyNote(row.note);
+        if (pretty) return pretty;
+      }
       return "Credits added";
-    case "EXPIRE":
-      return "Credits expired";
-    case "ADJUST":
-      return "Adjustment";
+    case "grant":
     default:
-      return row.type;
+      if (row.note) {
+        const pretty = prettyNote(row.note);
+        if (pretty) return pretty;
+      }
+      switch (row.type) {
+        case "EXPIRE":
+          return "Credits expired";
+        case "ADJUST":
+          return "Adjustment";
+        default:
+          return row.type;
+      }
   }
 }
 
@@ -124,41 +127,18 @@ function prettyNote(note: string): string | null {
   return note;
 }
 
-interface RowWithBalance {
-  row: LedgerRow;
-  rowBalance: number;
-  signed: number;
-}
-
-/**
- * Reconstruct a running balance from newest-first rows: the newest row's
- * balance is the current wallet balance; each older row's balance = the newer
- * balance minus the newer row's signed effect.
- */
-function withRunningBalance(
-  rows: LedgerRow[],
-  currentBalance: number,
-): RowWithBalance[] {
-  const out: RowWithBalance[] = [];
-  let balance = currentBalance;
-  for (const row of rows) {
-    const signed = isCredit(row.type) ? row.credits : -row.credits;
-    out.push({ row, rowBalance: balance, signed });
-    balance = balance - signed; // the balance BEFORE this row
-  }
-  return out;
-}
-
 export function CreditLedgerTable({
   rows,
   currentBalance,
+  truncated = false,
 }: CreditLedgerTableProps) {
   const [page, setPage] = useState(0);
-  const withBalance = withRunningBalance(rows, currentBalance);
+  const withBalance = collapseWithBalance(rows, currentBalance);
   const pageCount = Math.max(1, Math.ceil(withBalance.length / PAGE_SIZE));
   const safePage = Math.min(page, pageCount - 1);
   const start = safePage * PAGE_SIZE;
   const pageRows = withBalance.slice(start, start + PAGE_SIZE);
+  const onLastPage = safePage >= pageCount - 1;
 
   return (
     <div className="card" style={{ marginTop: 16 }}>
@@ -168,7 +148,7 @@ export function CreditLedgerTable({
       </p>
       {rows.length === 0 ? (
         <p className="note" style={{ marginTop: 8 }}>
-          No credit activity yet. Discovery is free; enrichment runs settle
+          No credit activity yet. Discovery is free — enrichment runs settle
           here.
         </p>
       ) : (
@@ -177,15 +157,22 @@ export function CreditLedgerTable({
             <table>
               <thead>
                 <tr>
-                  <th>When</th>
-                  <th>What</th>
-                  <th style={{ textAlign: "right" }}>Credits</th>
-                  <th style={{ textAlign: "right" }}>Balance</th>
+                  <th scope="col">When</th>
+                  <th scope="col">What</th>
+                  <th scope="col" style={{ textAlign: "right" }}>
+                    Credits
+                  </th>
+                  <th scope="col" style={{ textAlign: "right" }}>
+                    Balance
+                  </th>
                 </tr>
               </thead>
               <tbody>
-                {pageRows.map(({ row, rowBalance, signed }) => {
-                  const credit = isCredit(row.type);
+                {pageRows.map(({ row, rowBalance }) => {
+                  // Positive → green +, negative → red −, exactly zero
+                  // (fully-refunded / failed run) → neutral "0", no sign.
+                  const zero = row.signed === 0;
+                  const credit = row.signed > 0;
                   return (
                     <tr key={row.id}>
                       <td>
@@ -208,12 +195,16 @@ export function CreditLedgerTable({
                       <td
                         style={{
                           textAlign: "right",
-                          color: credit ? "var(--green)" : "var(--red)",
+                          color: zero
+                            ? "var(--muted)"
+                            : credit
+                              ? "var(--green)"
+                              : "var(--red)",
                           fontFamily: "var(--mono)",
                         }}
                       >
-                        {credit ? "+" : "−"}
-                        {nf.format(Math.abs(signed))}
+                        {zero ? "" : credit ? "+" : "−"}
+                        {nf.format(Math.abs(row.signed))}
                       </td>
                       <td
                         style={{
@@ -229,6 +220,13 @@ export function CreditLedgerTable({
               </tbody>
             </table>
           </div>
+
+          {truncated && onLastPage ? (
+            <p className="note" style={{ marginTop: 10, fontSize: 12 }}>
+              Showing your most recent activity. Older movements aren&apos;t
+              listed here.
+            </p>
+          ) : null}
 
           {pageCount > 1 ? (
             <div

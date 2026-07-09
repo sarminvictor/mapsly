@@ -64,6 +64,8 @@ const db = {
   }[],
   estimates: [] as FakeEstimate[],
   discoveries: [] as FakeDiscovery[],
+  // Controls the monthly cost-incurring map counter (seats.ts cap gate).
+  costIncurringMapCount: 0,
   seq: 0,
   id(p: string) {
     this.seq += 1;
@@ -83,6 +85,7 @@ const db = {
     ];
     this.estimates = [];
     this.discoveries = [];
+    this.costIncurringMapCount = 0;
     this.seq = 0;
   },
 };
@@ -218,6 +221,23 @@ vi.mock("@/lib/prisma", () => {
       },
     ),
     update: vi.fn(async () => ({})),
+    // Monthly cost-incurring map cap counter (queried only when a run is
+    // cost-incurring). Reads the controllable db field; default 0 = under cap.
+    count: vi.fn(async () => db.costIncurringMapCount),
+  };
+
+  // Agency billing state — read once in runDiscoveryAction for the free-market
+  // lock (flag-gated, OFF in tests) + the monthly map cap. Free/no-plan here.
+  const agency = {
+    findUnique: vi.fn(
+      async ({ select }: { select?: Record<string, boolean> }) => {
+        const row = {
+          plan: null as string | null,
+          stripeStatus: null as string | null,
+        };
+        return pick(row, select);
+      },
+    ),
   };
 
   const creditLedger = {
@@ -236,6 +256,7 @@ vi.mock("@/lib/prisma", () => {
     trackedLocation,
     costEstimate,
     discovery,
+    agency,
     creditLedger,
     business,
     // buildPreview uses prisma.$transaction([...]) — resolve the array of promises.
@@ -295,8 +316,9 @@ beforeEach(() => {
 afterEach(() => vi.clearAllMocks());
 
 /** Seed a QUOTED estimate whose stored scope has one cell (what the run
- *  reconstructs from, anti-tamper). `authorizeEstimate` is stubbed separately. */
-function seedEstimate(): string {
+ *  reconstructs from, anti-tamper). `authorizeEstimate` is stubbed separately.
+ *  `costIncurring` flags a run that will actually fetch (drives the map cap). */
+function seedEstimate(costIncurring = false): string {
   const id = "est-1";
   db.estimates.push({
     id,
@@ -305,6 +327,7 @@ function seedEstimate(): string {
     scopeRefsJson: {
       kind: "discovery",
       cells: [{ cellKey: "medical_spa|miami|US" }],
+      costIncurring,
     },
     enrichmentsJson: [],
     grossUsd: 0,
@@ -383,5 +406,42 @@ describe("runDiscoveryAction · WP5-8 spend gate", () => {
     SESSION = null;
     const r = await runDiscoveryAction({ estimateId: "est_x" });
     expect(r.status).toBe("unauthorized");
+  });
+});
+
+describe("runDiscoveryAction · monthly cost-incurring map cap", () => {
+  // Free agency (agency mock → {plan:null, stripeStatus:null}) → cap 5
+  // (MONTHLY_MAP_CAP_FREE). The count is controlled via db.costIncurringMapCount.
+
+  test("cost-incurring run at/over the cap is blocked (market_quota)", async () => {
+    const estimateId = seedEstimate(true); // this run WILL fetch → gated
+    authorizedQuote(0); // discovery is $0 to the user
+    db.costIncurringMapCount = 5; // already at the free cap
+
+    const r = await runDiscoveryAction({ estimateId });
+    expect(r.status).toBe("market_quota");
+    if (r.status !== "market_quota") return;
+    expect(r.cap).toBe(5);
+    // Blocked BEFORE any enqueue / hold.
+    expect(db.discoveries).toHaveLength(0);
+    expect(holdCredits).not.toHaveBeenCalled();
+  });
+
+  test("cost-incurring run under the cap proceeds", async () => {
+    const estimateId = seedEstimate(true);
+    authorizedQuote(0);
+    db.costIncurringMapCount = 4; // under the free cap of 5
+
+    const r = await runDiscoveryAction({ estimateId });
+    expect(r.status).toBe("ok");
+  });
+
+  test("a $0 all-fresh re-open (not cost-incurring) is NEVER capped", async () => {
+    const estimateId = seedEstimate(false); // free re-open of a mapped market
+    authorizedQuote(0);
+    db.costIncurringMapCount = 999; // way over any cap — must not matter
+
+    const r = await runDiscoveryAction({ estimateId });
+    expect(r.status).toBe("ok");
   });
 });

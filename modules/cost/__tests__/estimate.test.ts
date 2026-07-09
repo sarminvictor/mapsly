@@ -35,7 +35,10 @@ describe("price list (golden)", () => {
     //         adsSearch = 0.004 amortized across the cell).
     expect(ENRICHMENT_PRICES.serp.usdPerUnit).toBeCloseTo(0.043, 6);
     expect(ENRICHMENT_PRICES.google_ads.usdPerUnit).toBeCloseTo(0.002, 6);
-    expect(ENRICHMENT_PRICES.meta_ads.usdPerUnit).toBeCloseTo(0.05, 6);
+    // 2026-07-09 review: corrected 0.05→0.12 to match real meta COGS (the
+    // repricing doc's $0.12 claim); upperMultiplier 1→2 for the retry case.
+    expect(ENRICHMENT_PRICES.meta_ads.usdPerUnit).toBeCloseTo(0.12, 6);
+    expect(ENRICHMENT_PRICES.meta_ads.upperMultiplier).toBe(2);
     expect(CREDIT_USD).toBe(0.05);
   });
 

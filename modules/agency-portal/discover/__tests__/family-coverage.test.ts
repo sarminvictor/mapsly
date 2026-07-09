@@ -333,17 +333,19 @@ describe("deriveTypeStates · cellRunning (active Meta/SERP cell run)", () => {
 describe("group credit helpers · ONE estimator for button + sheet", () => {
   const byKey = (k: string) => DATA_GROUPS.find((g) => g.key === k)!;
   test("per-lead prices match the price list roll-up", () => {
-    // contacts 1 + tech 0 → 1 · services 1 + ai_research 1 → 2 · lighthouse 1.
+    // contacts 1 + tech 0 → 1 · services 1 + ai_research 1 → 2 · lighthouse 2
+    // (repriced 1→2, docs/billing-repricing-2026-07-09).
     expect(groupLeadCredits(byKey("contacts_tech"))).toBe(1);
     expect(groupLeadCredits(byKey("ai_brief"))).toBe(2);
-    expect(groupLeadCredits(byKey("site_speed"))).toBe(1);
+    expect(groupLeadCredits(byKey("site_speed"))).toBe(2);
     expect(groupLeadCredits(byKey("google_ads"))).toBe(1);
     // Pure market groups carry NO per-lead term.
     expect(groupLeadCredits(byKey("meta_ads"))).toBe(0);
     expect(groupLeadCredits(byKey("search"))).toBe(0);
   });
-  test("per-cell prices: meta 4/cell + serp 4/cell, lead groups 0", () => {
-    expect(groupCellCredits(byKey("meta_ads"))).toBe(4);
+  test("per-cell prices: meta 12/cell + serp 4/cell, lead groups 0", () => {
+    // meta_ads repriced 4→12/cell (real $0.12 COGS); serp stays 4/cell.
+    expect(groupCellCredits(byKey("meta_ads"))).toBe(12);
     expect(groupCellCredits(byKey("search"))).toBe(4);
     expect(groupCellCredits(byKey("contacts_tech"))).toBe(0);
   });

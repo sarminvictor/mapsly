@@ -159,6 +159,14 @@ function PlanCardView({
         ))}
       </ul>
 
+      {/* Review Part F · state the reset/expiry policy on the pre-purchase card
+          (not just the wallet), so hard monthly expiry is never a surprise. */}
+      {!card.oneTime ? (
+        <p className="note" style={{ fontSize: 11, marginTop: -2 }}>
+          Plan credits reset monthly · top-ups never expire
+        </p>
+      ) : null}
+
       <PlanCta
         card={card}
         active={active}

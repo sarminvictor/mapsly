@@ -38,6 +38,37 @@ export const DISCOVERY_DEPTH_FULL = 3000;
 /** Shallow per-cell map depth — the fetch ceiling for Free + Starter ($19). */
 export const DISCOVERY_DEPTH_ENTRY = 500;
 
+// ─── Monthly cost-incurring map cap (review Part B2 · uncapped discovery) ────
+//
+// Discovery is $0 to the agency but costs US DfS $ per never-seen/stale cell.
+// The depth cap bounds cost PER map; this bounds the COUNT of cost-incurring
+// maps per calendar month, replacing the old WARN-only soft ceiling with a hard
+// block. These are anti-abuse CEILINGS, not revenue matches — a normal agency
+// maps a handful of markets/month and never approaches them; they exist so a
+// hostile/farming account can't burn unbounded vendor spend (previously ∞).
+// Keyed by AgencyPlan enum; Free (no active sub) is the tightest.
+export const MONTHLY_MAP_CAP_FREE = 5;
+export const MONTHLY_MAP_CAPS: Record<string, number> = {
+  SOLO: 25, // display "Starter" ($19)
+  AGENCY_PRO: 75, // display "Solo" ($49)
+  GROWTH: 200, // display "Growth" ($99)
+  BOUTIQUE: 500, // display "Pro" ($299)
+};
+
+/**
+ * Max cost-incurring maps an agency may run per calendar month. Free (no active
+ * sub) → the tight free ceiling; paid tiers → their generous plan ceiling. Pure
+ * — no DB. The caller counts this month's cost-incurring Discovery rows and
+ * blocks the enqueue at/over this number.
+ */
+export function monthlyMapCapFor(agency: {
+  plan: string | null;
+  stripeStatus: string | null;
+}): number {
+  if (!isPaidAgency(agency.stripeStatus)) return MONTHLY_MAP_CAP_FREE;
+  return MONTHLY_MAP_CAPS[agency.plan ?? ""] ?? MONTHLY_MAP_CAP_FREE;
+}
+
 /**
  * Per-cell discovery map-depth cap for an agency. Free (no active sub) and the
  * SOLO enum (display "Starter", $19) map shallow; every paid tier above Starter

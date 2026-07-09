@@ -733,12 +733,22 @@ export function nextRolloverCredits(
  * Grant (or re-grant) a paid plan's monthly credits, keyed by billing period so
  * a webhook replay never double-grants. Resets the plan bucket to the tier
  * amount and rolls the prior period's UNUSED plan credits forward into
- * rolloverCredits, ACCUMULATING across cycles up to `ROLLOVER_CAP_MULTIPLE ×`
- * the tier grant (WP6-8). Purchased credits are untouched.
+ * rolloverCredits, up to `ROLLOVER_CAP_MULTIPLE ×` the tier grant (WP6-8; the
+ * multiple is currently 0 → unused plan credits EXPIRE, the hard-expiry
+ * decision). Purchased credits are untouched.
  *
- * Rollover is orthogonal to settle (docs/unit-economics.md): this only carries
- * unused plan credits forward at reset; `settleRun` still charges runs exactly
- * as before (plan → rollover → purchased draw-down).
+ * DEFERRED (review Part E2 · downgrade-credit preservation): a mid-cycle
+ * DOWNGRADE (e.g. Pro 6,500 → Starter 250) SETs planCredits to the lower tier
+ * and thus expires the surplus the customer already paid for. Preserving that
+ * surplus into purchasedCredits is a real improvement, but a naive
+ * `{ increment }` here is NOT idempotent under the concurrent same-period
+ * downgrade webhooks Stripe emits (subscription.updated + invoice.paid share the
+ * period → same dedupe note; two unserialized invocations can both read the
+ * pre-reset balance and double-credit). Doing it safely needs an atomic,
+ * idempotent transfer (a partial unique index on the grant note + P2002, or a
+ * single self-referential row-locked UPDATE) — implement that separately, with
+ * a concurrency test, before re-adding. Until then this stays SET-only (proven
+ * idempotent because the wallet write is a SET, not an increment).
  */
 export async function grantPlanCredits(
   agencyId: string,

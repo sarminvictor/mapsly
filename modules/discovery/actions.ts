@@ -50,7 +50,10 @@ import {
 import { discoveryIdempotencyKey } from "@/modules/discovery/run-discovery";
 import { kickDispatch } from "@/modules/enrichment/kick-dispatch";
 import { requireSpendMember } from "@/modules/agency-portal/roles";
-import { isPaidAgency } from "@/modules/agency-portal/team/seats";
+import {
+  isPaidAgency,
+  monthlyMapCapFor,
+} from "@/modules/agency-portal/team/seats";
 import { entitlementBillingEnabled } from "@/modules/cost/flags";
 
 const CellInput = z.object({
@@ -66,50 +69,37 @@ const CellInput = z.object({
 // hand-rolled caller sending 50 cells was a ~$46/enqueue free-vendor-spend hole.
 const MAX_DISCOVERY_CELLS = 3;
 
-// F-8 · light monthly market ceiling. The HARD COGS guard is the per-plan
-// map-depth cap (run-discovery.ts · discoveryDepthCapFor: Free/Starter ≤500 rows
-// ≈ $0.20/market, Solo+ ≤3,000 ≈ $1.20) plus the enqueue + IP rate limits and
-// the free-tier market lock. On top of those, this soft ceiling emits a WARN
-// (post-response, no added latency, no user-facing block) when a paying agency's
-// cost-incurring maps cross the threshold in a calendar month — the signal
-// Viktor watches for pathological map farming without a disruptive error path.
-const MONTHLY_MARKET_SOFT_CEILING = 200;
+// Review Part B2 · HARD monthly market cap (was a WARN-only soft ceiling). The
+// per-plan map-depth cap (run-discovery.ts · discoveryDepthCapFor: Free/Starter
+// ≤500 rows ≈ $0.20/market, Solo+ ≤3,000 ≈ $1.20) bounds cost PER map; this
+// bounds the COUNT of cost-incurring maps per calendar month and now BLOCKS the
+// enqueue at/over the plan ceiling (seats.ts · monthlyMapCapFor) instead of only
+// logging. Anti-abuse ceiling, not a revenue match — normal agencies map a
+// handful of markets/month and never approach it.
 
 /**
- * Post-response observability for the monthly market ceiling (F-8). Counts the
- * agency's cost-incurring Discovery rows so far this calendar month and logs a
- * structured WARN once it crosses {@link MONTHLY_MARKET_SOFT_CEILING}. Never
- * throws (best-effort) and never blocks the enqueue — the depth cap is the hard
- * bound. Runs inside `after()` so it adds zero latency to the run action.
+ * Count the agency's cost-incurring Discovery rows so far this calendar month
+ * (rows that actually spent DfS $). Best-effort direction: on a count error we
+ * return 0 (never block a legit run on an infra hiccup — the depth cap + rate
+ * limits remain as bounds). `now` is passed for month-boundary determinism.
  */
-async function checkMonthlyMarketCeiling(
+async function countCostIncurringMapsThisMonth(
   agencyId: string,
   now: Date,
-): Promise<void> {
+): Promise<number> {
   try {
     const monthStart = new Date(
       Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1),
     );
-    const mapsThisMonth = await prisma.discovery.count({
+    return await prisma.discovery.count({
       where: {
         agencyId,
         createdAt: { gte: monthStart },
         totalCostUsd: { gt: 0 }, // only maps that actually spent DfS $
       },
     });
-    if (mapsThisMonth >= MONTHLY_MARKET_SOFT_CEILING) {
-      console.warn(
-        JSON.stringify({
-          level: "warn",
-          event: "discovery.monthly_market_ceiling",
-          agencyId,
-          mapsThisMonth,
-          ceiling: MONTHLY_MARKET_SOFT_CEILING,
-        }),
-      );
-    }
   } catch {
-    // Observability only — a failed count must never affect the run.
+    return 0;
   }
 }
 
@@ -256,6 +246,7 @@ export type RunDiscoveryActionResult =
   | { status: "quote_expired" }
   | { status: "insufficient_credits"; netCredits: number }
   | { status: "market_locked" }
+  | { status: "market_quota"; cap: number }
   | { status: "error" };
 
 async function callerAgencyId(userId: string): Promise<string | null> {
@@ -520,6 +511,10 @@ export async function preflightDiscoveryAction(
           lines: [],
           planNetUsd: plan.estimate.netUsd,
           planNetCredits: plan.estimate.netCredits,
+          // Whether this run will actually fetch (never-seen/stale cells) and
+          // thus cost US DfS $ — drives the monthly cost-incurring map cap at
+          // enqueue (a $0 all-fresh re-open never counts against the ceiling).
+          costIncurring: plan.refetchCount > 0,
           // Carry the active goal signals through the authorized estimate so the
           // run (which only gets the estimateId, anti-tamper) can persist them
           // onto Discovery.signalsJson for the workbench evaluator (P3). Extra
@@ -627,16 +622,19 @@ export async function runDiscoveryAction(
     const agencyId = await callerAgencyId(session.user.id);
     if (!agencyId) return { status: "forbidden" };
 
+    // Agency billing state — used by BOTH the free-market lock and the monthly
+    // cost-incurring map cap below. One read.
+    const agencyRow = await prisma.agency.findUnique({
+      where: { id: agencyId },
+      select: { plan: true, stripeStatus: true },
+    });
+
     // FT-2 · free tier can't open brand-new markets (Target) — it uses "Search
     // everywhere" over our existing index instead. Server-side lock (the client
     // tab-hide is UX only). Flag-gated so today's free "unlimited discovery" is
     // unaffected until the entitlement model + search-everywhere ship together.
     if (entitlementBillingEnabled()) {
-      const agency = await prisma.agency.findUnique({
-        where: { id: agencyId },
-        select: { stripeStatus: true },
-      });
-      if (!isPaidAgency(agency?.stripeStatus ?? null)) {
+      if (!isPaidAgency(agencyRow?.stripeStatus ?? null)) {
         return { status: "market_locked" };
       }
     }
@@ -687,6 +685,7 @@ export async function runDiscoveryAction(
     });
     const scope = (est?.scopeRefsJson ?? {}) as {
       cells?: { cellKey?: string }[];
+      costIncurring?: boolean;
       signals?: unknown;
       goalName?: string | null;
       goalBase?: string | null;
@@ -696,6 +695,25 @@ export async function runDiscoveryAction(
       .filter((k): k is string => typeof k === "string" && k.length > 0);
     if (cellKeys.length === 0) {
       return { status: "invalid_input", message: "estimate has no cells" };
+    }
+
+    // Review Part B2 · monthly cap on COST-INCURRING maps. A $0 all-fresh
+    // re-open (costIncurring false) never counts and is never blocked; only a
+    // run that will actually fetch never-seen/stale cells is gated. Anti-abuse
+    // ceiling per plan (seats.ts · monthlyMapCapFor) — normal use never nears it.
+    // The counter reads SETTLED maps (totalCostUsd>0, set by the async dispatch),
+    // so a burst enqueued before settlement can transiently overshoot the cap;
+    // that residual is bounded by the enqueue (10/min/user) + IP + 3-cells/run
+    // limits — the goal (kill the previously unbounded burn) holds either way.
+    if (scope.costIncurring) {
+      const cap = monthlyMapCapFor({
+        plan: agencyRow?.plan ?? null,
+        stripeStatus: agencyRow?.stripeStatus ?? null,
+      });
+      const used = await countCostIncurringMapsThisMonth(agencyId, new Date());
+      if (used >= cap) {
+        return { status: "market_quota", cap };
+      }
     }
 
     // The active goal signals + goal identity carried through the estimate →
@@ -790,8 +808,6 @@ export async function runDiscoveryAction(
     // must never break the enqueue.
     try {
       after(() => kickDispatch());
-      // F-8 · monthly market-ceiling observability (best-effort, post-response).
-      after(() => checkMonthlyMarketCeiling(agencyId, new Date()));
     } catch {
       /* no request scope — the cron drains it */
     }

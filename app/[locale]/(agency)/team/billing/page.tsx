@@ -50,6 +50,7 @@ import {
 } from "@/modules/billing/queries";
 import { buildUsageDetails } from "@/modules/billing/usage-detail";
 import { grantFreeTierIfNew } from "@/modules/cost/server";
+import { isPaidAgency } from "@/modules/agency-portal/team/seats";
 import {
   PLAN_CARDS,
   planKeyForEnum,
@@ -78,6 +79,10 @@ interface PageProps {
   params: Promise<{ locale: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }
+
+/** Newest-N ledger rows loaded for the usage table; also drives the "older
+ *  activity exists" truncation note (must stay a single source of truth). */
+const LEDGER_PAGE_LIMIT = 50;
 
 export default function AgencyBillingPage({ params, searchParams }: PageProps) {
   return (
@@ -141,7 +146,7 @@ async function BillingBody({ params, searchParams }: PageProps) {
       prisma.creditLedger.findMany({
         where: { agencyId },
         orderBy: { createdAt: "desc" },
-        take: 50,
+        take: LEDGER_PAGE_LIMIT,
         select: {
           id: true,
           type: true,
@@ -174,8 +179,11 @@ async function BillingBody({ params, searchParams }: PageProps) {
   // subscription is actually live — feature-gating consults stripeStatus, and
   // the default plan (SOLO) covers the pre-billing free state. Without an
   // active subscription the agency is on Free regardless of the enum value.
-  const subActive =
-    agency?.stripeStatus === "active" || agency?.stripeStatus === "trialing";
+  //
+  // Review Part E · use isPaidAgency (active/trialing/PAST_DUE) so a dunning
+  // subscriber is treated as a subscriber: they see portal "switch/upgrade"
+  // CTAs, not fresh-checkout buttons that would create a second subscription.
+  const subActive = isPaidAgency(agency?.stripeStatus ?? null);
   const activePlanKey: PlanKey = subActive
     ? planKeyForEnum(
         (agency?.plan as AgencyPlanTier | null | undefined) ?? null,
@@ -198,8 +206,12 @@ async function BillingBody({ params, searchParams }: PageProps) {
     credits: l.credits,
     note: l.note,
     createdAt: l.createdAt,
+    runId: l.runId,
     detail: l.runId ? (usageDetails.get(l.runId) ?? null) : null,
   }));
+  // The ledger query loads at most LEDGER_PAGE_LIMIT rows; if it returned
+  // exactly that many, older activity exists beyond the loaded window.
+  const ledgerTruncated = ledger.length === LEDGER_PAGE_LIMIT;
 
   const planConfigured: Record<Exclude<PlanKey, "free">, boolean> = {
     starter: planCfg[0],
@@ -240,6 +252,7 @@ async function BillingBody({ params, searchParams }: PageProps) {
         planBalance={planBucket}
         topUpBalance={topUpBalance}
         availableBalance={availableBalance}
+        heldCredits={held}
         locale={locale}
         subActive={subActive}
         cancelAtPeriodEnd={Boolean(agency?.cancelAtPeriodEnd)}
@@ -265,12 +278,20 @@ async function BillingBody({ params, searchParams }: PageProps) {
         }}
       >
         <WhatACreditBuys />
-        <TopUpPacks configured={topUpConfigured} locale={locale} />
+        <TopUpPacks
+          configured={topUpConfigured}
+          locale={locale}
+          available={subActive}
+        />
       </div>
 
       <WhyCheaper />
 
-      <CreditLedgerTable rows={ledgerRows} currentBalance={availableBalance} />
+      <CreditLedgerTable
+        rows={ledgerRows}
+        currentBalance={availableBalance}
+        truncated={ledgerTruncated}
+      />
 
       <InvoicesSection
         invoices={invoices}

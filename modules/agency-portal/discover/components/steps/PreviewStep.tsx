@@ -383,6 +383,10 @@ export function PreviewStep({
         // re-quote; the next quote re-fires this effect and retries.
         autoRunKeyRef.current = null;
         await quotePreflight(myId, { resetFirst: false });
+      } else if (r.status === "market_quota") {
+        setJobError(
+          `You've hit this month's limit of ${r.cap.toLocaleString()} new markets. Upgrade your plan or wait for next month — already-mapped markets are still free to reopen.`,
+        );
       } else {
         setJobError(`Couldn't start mapping this market (${r.status}).`);
       }

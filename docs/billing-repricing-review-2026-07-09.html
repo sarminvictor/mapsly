@@ -1,0 +1,1493 @@
+<style>
+  :root {
+    --ink: #1a1d29;
+    --mut: #5b6172;
+    --line: #e4e7ef;
+    --panel: #f7f8fc;
+    --indigo: #5b3df5;
+    --green: #0f9d58;
+    --amber: #b8860b;
+    --red: #c0392b;
+    --g-bg: #eafaf1;
+    --a-bg: #fdf6e3;
+    --r-bg: #fdedeb;
+    --i-bg: #efeaff;
+  }
+  * {
+    box-sizing: border-box;
+  }
+  body {
+    margin: 0;
+    background: #fff;
+  }
+  .doc {
+    font:
+      15px/1.6 -apple-system,
+      "Segoe UI",
+      Roboto,
+      sans-serif;
+    color: var(--ink);
+    background: #fff;
+    max-width: 1020px;
+    margin: 0 auto;
+    padding: 36px 30px 80px;
+  }
+  h1 {
+    font-size: 28px;
+    margin: 0 0 3px;
+    letter-spacing: -0.02em;
+  }
+  .part {
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    color: var(--indigo);
+    text-transform: uppercase;
+    margin: 38px 0 -2px;
+  }
+  h2 {
+    font-size: 20px;
+    margin: 6px 0 8px;
+    padding-top: 12px;
+    border-top: 2px solid var(--line);
+  }
+  h3 {
+    font-size: 15.5px;
+    margin: 20px 0 5px;
+  }
+  .sub {
+    color: var(--mut);
+    margin: 0 0 6px;
+  }
+  .hl {
+    color: var(--indigo);
+  }
+  p {
+    margin: 7px 0;
+  }
+  code {
+    background: #eef0f7;
+    color: #4b32c2;
+    padding: 1px 5px;
+    border-radius: 4px;
+    font-size: 12.5px;
+  }
+  .src {
+    color: var(--mut);
+    font-size: 12px;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 10px 0 6px;
+    font-size: 13.5px;
+  }
+  th,
+  td {
+    text-align: left;
+    padding: 7px 10px;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+  }
+  thead th {
+    background: var(--panel);
+    color: var(--mut);
+    font-weight: 700;
+    font-size: 11.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    border-bottom: 2px solid var(--line);
+  }
+  td.n,
+  th.n {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+  tr.hi td {
+    background: var(--i-bg);
+  }
+  .call {
+    border-left: 4px solid var(--indigo);
+    background: var(--panel);
+    padding: 11px 15px;
+    border-radius: 7px;
+    margin: 12px 0;
+  }
+  .call.g {
+    border-color: var(--green);
+    background: var(--g-bg);
+  }
+  .call.a {
+    border-color: var(--amber);
+    background: var(--a-bg);
+  }
+  .call.r {
+    border-color: var(--red);
+    background: var(--r-bg);
+  }
+  b.g {
+    color: var(--green);
+  }
+  b.a {
+    color: var(--amber);
+  }
+  b.r {
+    color: var(--red);
+  }
+  .pill {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 1px 7px;
+    border-radius: 20px;
+  }
+  .p-g {
+    background: var(--g-bg);
+    color: var(--green);
+  }
+  .p-a {
+    background: var(--a-bg);
+    color: var(--amber);
+  }
+  .p-r {
+    background: var(--r-bg);
+    color: var(--red);
+  }
+  .p-i {
+    background: var(--i-bg);
+    color: var(--indigo);
+  }
+  ul {
+    margin: 5px 0;
+    padding-left: 19px;
+  }
+  li {
+    margin: 3px 0;
+  }
+  .score {
+    display: flex;
+    gap: 9px;
+    flex-wrap: wrap;
+    margin: 10px 0;
+  }
+  .sc {
+    flex: 1 1 128px;
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    padding: 9px 11px;
+  }
+  .sc .v {
+    font-size: 23px;
+    font-weight: 800;
+    line-height: 1;
+  }
+  .sc .k {
+    font-size: 11.5px;
+    color: var(--mut);
+    margin-top: 3px;
+  }
+  .as {
+    font-size: 12px;
+    color: var(--mut);
+    background: var(--panel);
+    border-radius: 6px;
+    padding: 8px 12px;
+    margin: 8px 0;
+  }
+  .foot {
+    color: var(--mut);
+    font-size: 12px;
+    margin-top: 34px;
+    border-top: 1px solid var(--line);
+    padding-top: 11px;
+  }
+  .toc {
+    columns: 2;
+    font-size: 13px;
+    margin: 8px 0;
+  }
+  .toc a {
+    color: var(--indigo);
+    text-decoration: none;
+  }
+</style>
+
+<div class="doc">
+  <h1>
+    Billing repricing —
+    <span class="hl">independent review &amp; scorecard</span>
+  </h1>
+  <p class="sub">
+    2026-07-09 · reviews commit <code>9d6e2ce</code> (v0.19.14) and
+    <code>docs/billing-repricing-2026-07-09.html</code> · unit economics · plans
+    &amp; credits vs industry best practice · rival-comparison legality · full
+    /team/billing page audit.
+    <b
+      >34 agents, every major finding adversarially verified against code + live
+      web sources.</b
+    >
+  </p>
+
+  <div class="toc">
+    <a href="#s">Scorecard &amp; verdict</a><br />
+    <a href="#a">A · What's verified solid</a><br />
+    <a href="#b">B · Unit economics — corrected numbers</a><br />
+    <a href="#c">C · "Why Mapsly is cheaper" — keep or change?</a><br />
+    <a href="#d">D · Legal analysis of the rival table</a><br />
+    <a href="#e">E · /team/billing page audit</a><br />
+    <a href="#f">F · Best-practice comparison</a><br />
+    <a href="#g">G · Verified rival pricing (Jul 2026)</a><br />
+    <a href="#h">H · Strategy risk — the CAC math</a><br />
+    <a href="#i">I · Blind spots nobody covered</a><br />
+    <a href="#j">J · Action plan + decisions</a>
+  </div>
+
+  <!-- ================= SCORECARD ================= -->
+  <div class="part" id="s">Scorecard</div>
+  <h2>Seven dimensions, adversarially verified</h2>
+  <div class="score">
+    <div class="sc">
+      <div class="v" style="color: var(--green)">7</div>
+      <div class="k">Unit economics soundness</div>
+    </div>
+    <div class="sc">
+      <div class="v" style="color: var(--green)">7</div>
+      <div class="k">Implementation fidelity &amp; billing safety</div>
+    </div>
+    <div class="sc">
+      <div class="v" style="color: var(--amber)">6.5</div>
+      <div class="k">Pricing &amp; packaging vs best practice</div>
+    </div>
+    <div class="sc">
+      <div class="v" style="color: var(--amber)">6.5</div>
+      <div class="k">Strategic soundness &amp; risk</div>
+    </div>
+    <div class="sc">
+      <div class="v" style="color: var(--amber)">6</div>
+      <div class="k">Billing page quality</div>
+    </div>
+    <div class="sc">
+      <div class="v" style="color: var(--red)">5</div>
+      <div class="k">Competitive-claim honesty</div>
+    </div>
+    <div class="sc">
+      <div class="v" style="color: var(--red)">5</div>
+      <div class="k">Legal safety of rival table</div>
+    </div>
+    <div class="sc">
+      <div class="v" style="color: var(--indigo)">6.2</div>
+      <div class="k"><b>Overall</b></div>
+    </div>
+  </div>
+
+  <div class="call">
+    <b>The verdict in one paragraph.</b> The economics core is real: every
+    constant shipped exactly as the doc says, the arithmetic reproduces, the old
+    negative-margin meta tail is genuinely dead, and typical-mix margins are
+    actually <i>better</i> than the claimed 70–84%. The strategy doc scored
+    itself 7.5; the verified score is <b>6.2</b>, and the gap is concentrated in
+    two places. <b>(1) The comparison story:</b> the "Why Mapsly is cheaper"
+    table quotes Mapsly's contacts-only price ($0.05–0.08) under a "per enriched
+    lead" header while Mapsly's own fully-enriched lead costs 6 credits =
+    <b>$0.28–0.46</b> — the same "$0.30+ full" it flags as Origami's weakness —
+    and the Apollo "2–4× more" uses Apollo's overage rate, not its ~$0.05
+    in-plan rate. <b>(2) The unpriced tails:</b> top-up packs sell credits
+    <i>cheaper</i> than every plan and never expire (a rational buyer never
+    upgrades — and Free agencies can buy them), the "Free can't map" lock ships
+    dark behind <code>ENTITLEMENT_BILLING</code>, and the monthly market ceiling
+    is a WARN log, not a block. All of it is fixable in 2–3 sessions of mostly
+    constants-and-copy work — details in Part J.
+  </div>
+
+  <!-- ================= PART A ================= -->
+  <div class="part" id="a">Part A</div>
+  <h2>
+    What's verified solid <span class="pill p-g">keep with confidence</span>
+  </h2>
+  <ul>
+    <li>
+      <b>Doc-to-code parity is complete.</b>
+      <code>CREDIT_PRICES</code> (contacts 1 · tech 0 · services 1 · reviews 2 ·
+      lighthouse 2 · ai 1 · google_ads 1 · meta 12/cell · serp 4/cell), grants
+      50/250/750/1,800/6,500, rollover 0, seats 1/1/1/3/10, depth guard
+      500/3,000 — all shipped exactly as written, parity-tested across all four
+      paid tiers (<code>estimate.test.ts:59-66</code>).
+    </li>
+    <li>
+      <b>All the doc's arithmetic reproduces.</b> Margins 84.2/81.6/78.2/73.9%,
+      top-ups 76/70%, payback 6.25/2.5/1.3/0.45 mo, the C1 worked example (626
+      credits), fullyEnriched = floor(credits/6) — every number checks out
+      within rounding.
+    </li>
+    <li>
+      <b>The old loss tail is genuinely dead.</b> Meta at 12cr is
+      $0.004–0.020/cr COGS (was $0.03–0.06); reviews and lighthouse at 2cr carry
+      84–95% per-credit margin in the expected case.
+    </li>
+    <li>
+      <b>Billing plumbing is defensively built.</b> Settle clamps to the
+      pre-authorized hold, FAILED/blocked cells refund, webhook is
+      signature-verified + INSERT-first idempotent, the known cell-path settle
+      bypass is <i>closed</i>, and
+      <code>PRICE_LIST_VERSION</code> force-requotes any in-flight quote.
+      Nothing was found that overcharges a customer.
+    </li>
+    <li>
+      <b>Stripe Solo tier works end-to-end</b> (env price id → checkout metadata
+      → webhook → AGENCY_PRO → 750-credit grant, test added), native
+      cancel/resume is exactly per spec with 7 tests.
+    </li>
+    <li>
+      <b>The value metric is genuinely good.</b> "1 credit = 1 delivered lead
+      with verified contacts" passes all five OpenView/Poyar value-metric
+      criteria and rides the 2025-26 outcome-pricing shift. Featured-tier
+      psychology (one ribbon, $299 anchor, declining $/credit) matches
+      conversion research.
+    </li>
+    <li>
+      <b>Repricing timing is optimal.</b> ~0 subscribers = nothing to
+      grandfather. Doing the 3× grant tightening now is exactly when best
+      practice says to do it.
+    </li>
+    <li>
+      <b>Honesty cleanup verified.</b> Greps are clean: no "roll over", no "deep
+      audit", no stale 900/6,000/24,000 grants anywhere in user-visible copy.
+      Top-up "never expire" is true in code.
+    </li>
+  </ul>
+
+  <!-- ================= PART B ================= -->
+  <div class="part" id="b">Part B</div>
+  <h2>Unit economics — the corrected numbers</h2>
+
+  <h3>
+    B1 · "$0.012/credit" is a ceiling, not a uniform cost
+    <span class="pill p-g">conservative in your favor</span>
+  </h3>
+  <table>
+    <thead>
+      <tr>
+        <th>Family</th>
+        <th class="n">Credits</th>
+        <th class="n">Expected COGS/credit</th>
+        <th class="n">Worst-case COGS/credit</th>
+        <th>Note</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Services / Google ads</td>
+        <td class="n">1</td>
+        <td class="n">$0.002</td>
+        <td class="n">$0.003–0.004</td>
+        <td>fattest margin</td>
+      </tr>
+      <tr>
+        <td>Reviews (depth 200)</td>
+        <td class="n">2</td>
+        <td class="n">$0.0075</td>
+        <td class="n"><b class="r">$0.28</b></td>
+        <td>full ladder $0.554/lead — see B3</td>
+      </tr>
+      <tr>
+        <td>Contacts (anchor)</td>
+        <td class="n">1</td>
+        <td class="n">$0.008</td>
+        <td class="n">$0.027</td>
+        <td>AI-email fallback tail</td>
+      </tr>
+      <tr>
+        <td>Lighthouse</td>
+        <td class="n">2</td>
+        <td class="n">$0.002–0.0095</td>
+        <td class="n"><b class="a">$0.030</b></td>
+        <td>walled = 35% margin at Pro rate, still positive</td>
+      </tr>
+      <tr>
+        <td>AI research</td>
+        <td class="n">1</td>
+        <td class="n">$0.010 <span class="src">(~$0.001 measured)</span></td>
+        <td class="n">$0.020</td>
+        <td>priced 10× measured cost</td>
+      </tr>
+      <tr>
+        <td>Meta ads (cell)</td>
+        <td class="n">12</td>
+        <td class="n">$0.004–0.010</td>
+        <td class="n">$0.020</td>
+        <td>see the $0.05-vs-$0.12 constant bug</td>
+      </tr>
+      <tr>
+        <td>SERP (cell)</td>
+        <td class="n">4</td>
+        <td class="n">$0.011</td>
+        <td class="n">$0.016</td>
+        <td>the true ~$0.012 family</td>
+      </tr>
+    </tbody>
+  </table>
+  <p class="as">
+    Real spread is <b>$0.002–0.012/credit</b> — a 6× range, all at-or-under the
+    claimed $0.012. Typical-mix margins run 2–11 points <b>better</b> than the
+    doc claims. Two doc figures don't reconcile with vendor constants (both
+    errors conservative): a full 3,000-row market costs <b>$0.93</b>, not $1.20;
+    discovery per lead is <b>~$0.0003</b>, not ~$0.0015.
+  </p>
+
+  <h3>
+    B2 · The three loss channels "no loss-making tail" misses
+    <span class="pill p-r">confirmed</span>
+  </h3>
+  <table>
+    <thead>
+      <tr>
+        <th>Tail</th>
+        <th>Mechanism</th>
+        <th class="n">Exposure</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><b>Discovery absorption</b></td>
+        <td>
+          Mapping is $0 to users; depth is capped (500/3,000, live server-side)
+          but market COUNT is a WARN log at 200/mo, never a block. Rate limits
+          allow ~30 markets/min.
+        </td>
+        <td class="n">
+          Solo mapping 25 new markets/mo absorbs ~$23–30 of its $40 GP;
+          adversarial Pro all-meta mix → margin as low as <b class="r">−112%</b>
+        </td>
+        <td>
+          <b class="a"
+            >Documented as accepted risk in the doc; no hard cap shipped</b
+          >
+        </td>
+      </tr>
+      <tr>
+        <td><b>"Free can't map" ships dark</b></td>
+        <td>
+          The UI paid-lock is live, but the server-side
+          <code>market_locked</code> gate only fires when
+          <code>ENTITLEMENT_BILLING=1</code> (default OFF, confirmed absent in
+          Vercel prod). A free account calling the server action directly maps
+          at ~$0.16/market — theoretical burn ceiling ~$360/hr/user under
+          current rate limits.
+        </td>
+        <td class="n">client-side-only cost gate</td>
+        <td>
+          <b class="r"
+            >Violates own security rule; ~3-line fix (hoist
+            <code>isPaidAgency</code> out of the flag)</b
+          >
+        </td>
+      </tr>
+      <tr>
+        <td><b>Reviews depth ladder</b></td>
+        <td>
+          DEPTH_LADDER [200, 700, 2000, 4490] re-submits a fresh DfS task per
+          rung — cumulative worst case <b>$0.554/lead</b> against a hard
+          2-credit charge ($0.08–0.15) that settle clamps. The doc never
+          mentions the ladder (models $0.015 flat, ~27× understatement of worst
+          case). Gated by recency: only fires on businesses with 2,000+
+          reviews/yr — rare, but trivially targetable via review-count filters.
+          <code>dispatch.ts:1257</code> also hardcodes job costUsd $0.015,
+          masking the tail in telemetry.
+        </td>
+        <td class="n">up to <b class="r">−$0.47/lead</b></td>
+        <td>
+          <b class="a"
+            >Real but narrow; price by rung or cap ladder at 700 below Pro</b
+          >
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>B3 · One-file contradiction: the meta COGS constant</h3>
+  <p>
+    <code>APIFY_META_RUN_USD = 0.05</code> (pricing.ts:403, upperMultiplier 1)
+    while the <code>CREDIT_PRICES</code> comment in the <i>same file</i> and the
+    doc both say real COGS is <b>$0.12, up to $0.24 with failures</b>. Customer
+    charges are unaffected (12cr flat; runtime logs use actual Apify spend), but
+    quotes, upper bounds, and every margin dashboard built on
+    <code>ENRICHMENT_PRICES</code>
+    understate meta spend ~2.4× — so even honest post-launch measurement (F-9)
+    would under-report. One of the two numbers must win; fix + bump
+    <code>PRICE_LIST_VERSION</code>.
+  </p>
+
+  <!-- ================= PART C ================= -->
+  <div class="part" id="c">Part C</div>
+  <h2>"Why Mapsly is cheaper" — keep it, but ship 5 edits first</h2>
+
+  <div class="call g">
+    <b
+      >Direct answer to "should we leave it as is?" — No, but don't remove it
+      either.</b
+    >
+    Named comparative tables are lawful and FTC-<i>encouraged</i> when truthful
+    (16 C.F.R. §14.15), naming Apollo/ZoomInfo/Origami is protected nominative
+    fair use, and this format is exactly right for the agency audience. The
+    problem isn't that rivals are named — it's that
+    <b
+      >the two claims most likely to be checked are the two that don't survive
+      checking</b
+    >, and the single riskiest claim in the table is about <i>Mapsly itself</i>,
+    not a rival.
+  </div>
+
+  <h3>
+    C1 · The five edits
+    <span class="src">(all confirmed by independent verifiers)</span>
+  </h3>
+  <table>
+    <thead>
+      <tr>
+        <th class="n">#</th>
+        <th>Problem</th>
+        <th>Severity</th>
+        <th>Fix</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr class="hi">
+        <td class="n">1</td>
+        <td>
+          <b>Mapsly's own row misstates its price at the point of sale.</b>
+          Column header "Per enriched lead", Mapsly shows $0.05–0.08 — the
+          contacts-only rate. Your own code says a fully-enriched lead is 6
+          credits = <b>$0.28–0.46</b>, and
+          <code>pricing.ts:56-58</code> literally says
+          <i>"do NOT call a credit a 'fully-enriched lead'"</i>. The adjacent
+          WhatACreditBuys card on the same page contradicts the table. Against
+          Origami's honestly-shown "$0.30+ full", the "1.5–2× more" verdict
+          fails on a like-for-like basis. First-party price misstatement on the
+          purchase page = FTC §5 / Competition Act s.74.01 fact pattern needing
+          no competitor plaintiff.
+        </td>
+        <td><b class="r">critical</b></td>
+        <td>
+          Rename column "Per lead with contacts"; mirror Origami's dual format
+          on the Mapsly row: <b>"$0.05–0.08 · ~$0.28–0.46 full"</b>. Fix the
+          strategy doc C4 too or they re-diverge.
+        </td>
+      </tr>
+      <tr>
+        <td class="n">2</td>
+        <td>
+          <b>Apollo "$0.20/contact → 2–4× more" is the overage rate.</b>
+          Verified: $0.20 is Apollo's top-up price; plan-inclusive exports run
+          ~<b>$0.049</b> (Basic $49 ÷ 1,000 credits) to $0.03 (Org) — at or
+          <i>below</i> Mapsly's band. The whole "we undercut 4×" positioning
+          (also in the pricing.ts comment) was built on the overage rate. The
+          honest wedge is stronger anyway: per-seat pricing.
+        </td>
+        <td><b class="a">major</b></td>
+        <td>
+          Reframe:
+          <i
+            >"Apollo: $49–119 per seat/mo + credit caps + $0.20 overages; a
+            3-seat team pays $147+/mo before exporting a lead. Mapsly Growth:
+            $99 flat, 3 seats included."</i
+          >
+          Add: mobiles up to ~8× email credits, credits expire monthly. Every
+          element verified.
+        </td>
+      </tr>
+      <tr>
+        <td class="n">3</td>
+        <td>
+          <b>The Origami wedge misdescribes Mapsly's own model.</b> "They bill
+          per lead forever; Mapsly is one flat fee that amortizes" — verified
+          false as a contrast: Origami sells flat monthly credit plans
+          ($29/2,000 · $129/9,000 · $499/40,000) exactly like Mapsly; both bill
+          per delivered lead. Worse, Origami advertises
+          <b>"0% markup · free if not found"</b> while Mapsly's D2 charges on
+          empty enrichment — the named closest rival has the more
+          customer-friendly guarantee.
+        </td>
+        <td><b class="a">major</b></td>
+        <td>
+          Rewrite to the true, verified differentiators:
+          <i
+            >"Discovery costs credits there — Mapsly maps the market free and
+            charges only delivered leads; top-up credits never expire; their
+            generic crawl can't produce our 60+ local signals."</i
+          >
+        </td>
+      </tr>
+      <tr>
+        <td class="n">4</td>
+        <td>
+          <b>"…annual locks Tom is fleeing"</b> — the internal persona name
+          shipped verbatim in customer copy (<code>WhyCheaper.tsx:99</code>),
+          copied from the strategy doc. Nonsense to a reader; embarrassing in a
+          rival's teardown. (Only other persona hit:
+          <code>en.json:1599</code> "Maria runs a med-spa. Tom runs an auto
+          shop" — plausibly intentional, decide explicitly.)
+        </td>
+        <td><b class="a">major</b></td>
+        <td>"…annual locks <b>you're</b> fleeing". One line.</td>
+      </tr>
+      <tr>
+        <td class="n">5</td>
+        <td>
+          <b>No substantiation discipline.</b> No as-of date, no sources, no
+          receipts anywhere in the repo — and rival pricing demonstrably drifts
+          (Origami's ladder changed from $80/5,500 to $29/2,000 between review
+          cycles). FTC substantiation doctrine requires a reasonable basis to
+          exist <i>before</i> publication, burden on the advertiser.
+        </td>
+        <td><b class="a">major</b></td>
+        <td>
+          Add <i>"Estimates as of Jul 2026 — pricing may have changed"</i> to
+          the disclaimer; commit
+          <code>docs/competitor-pricing-receipts/</code> with dated screenshots
+          + URLs; diary a quarterly re-check (including the public /compare/*
+          capability claims — soften absolutes like "None" to "None today").
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>C2 · What survives as-is</h3>
+  <ul>
+    <li>
+      <b>ZoomInfo row</b> — accurate and conservative: ~$15k/yr entry ÷ 5,000
+      credits ≈ $3.00/credit effective, overage $0.50–1.50, median contract
+      $31,875 (Vendr, 1,313 purchases). "15–40×" sits inside the arithmetic
+      envelope. Just mark it "≈$1–3/credit (est.)".
+    </li>
+    <li>
+      <b>Instantly row</b> — honest (concedes they're cheaper); slightly stale —
+      they moved to credit tiers ($47/1,500, ~$0.03–0.06/verified email,
+      email-only, no phones). Refresh strengthens your story: "same price class,
+      but every lead carries the local reasons to call."
+    </li>
+    <li>
+      <b>"Origami · closest rival" + "also crawls Maps"</b> — verified true,
+      legally safe opinion. Consider dropping the "closest rival" epithet (it
+      hands a substitutable rival's name to every buyer at the moment of
+      purchase) — business call, not legal.
+    </li>
+    <li>
+      <b>The disclaimer</b> — right instinct, right placement; it just can't
+      cure a mis-defined comparison basis, only estimate imprecision.
+    </li>
+  </ul>
+
+  <h3>
+    C3 · Two rows worth adding
+    <span class="pill p-i">winnable comparisons you're forfeiting</span>
+  </h3>
+  <ul>
+    <li>
+      <b>DIY Maps scrapers (Outscraper / D7)</b> — the objection a savvy agency
+      googles first. Outscraper: $3/1K raw records, ~$0.01/lead with emails; D7:
+      $44.99/mo. Own the objection:
+      <i
+        >"raw records for a cent — no dedup, no verification, no 60-signal
+        qualification, no scoring, no refresh."</i
+      >
+      Omitting the cheapest real category is why the table currently reads as
+      cherry-picked.
+    </li>
+    <li>
+      <b>Clay</b> — the standard agency enrichment stack: Launch $185/mo (2,500
+      credits), Growth $495, ~$30k/yr enterprise floor, multi-credit stacking.
+      Makes Mapsly's $49–99 flat tiers look excellent, and it's fully
+      verifiable. (Note internally: Clay offers 2× rollover and sells top-ups at
+      a 30% <i>premium</i> — both mechanics you inverted.)
+    </li>
+  </ul>
+
+  <!-- ================= PART D ================= -->
+  <div class="part" id="d">Part D</div>
+  <h2>Legal analysis — realistic exposure, not paranoia</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Question</th>
+        <th>Answer</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Is naming rivals with prices legal?</td>
+        <td>
+          <b class="g">Yes — protected and encouraged.</b> FTC
+          comparative-advertising policy (16 C.F.R. §14.15) encourages truthful
+          named comparisons; trademark use is nominative fair use (<i
+            >New Kids on the Block</i
+          >, <i>Smith v. Chanel</i>). "Closest rival" and "per-seat tax" are
+          non-actionable opinion (<i>Pizza Hut v. Papa John's</i>).
+        </td>
+      </tr>
+      <tr>
+        <td>What legal standards apply?</td>
+        <td>
+          Lanham Act §43(a) (literal falsity / misleading implication — only
+          <i>competitors</i> have standing, <i>Lexmark</i> 572 U.S. 118); FTC
+          Act §5 + substantiation doctrine (reasonable basis
+          <i>before</i> dissemination); Canada Competition Act s.74.01 (literal
+          meaning + general impression; AMPs now up to greater of $10M or 3% of
+          worldwide revenue — enforcement against a B2B micro-SaaS is remote).
+        </td>
+      </tr>
+      <tr>
+        <td>Does auth-gating help?</td>
+        <td>
+          <b class="a">It lowers exposure, not legality.</b> An in-app billing
+          page is still "commercial advertising" under §43(a). Verified: the
+          price-multiple claims are NOT on the indexed public /compare/* pages
+          (those carry only qualitative capability claims, currently
+          substantiable) — good separation, keep it.
+        </td>
+      </tr>
+      <tr>
+        <td>Realistic risk ladder</td>
+        <td>
+          Overwhelmingly nothing → <b>C&amp;D / demand letter</b> if a rival
+          notices (ZoomInfo and Apollo have active legal teams; a letter costs
+          them ~$0) → NAD/BBB challenge (rare at this scale) → Lanham suit (very
+          unlikely; injunction, not damages). The cheap insurance is the
+          substantiation kit in C1-#5.
+        </td>
+      </tr>
+      <tr>
+        <td>The actual highest-exposure claim</td>
+        <td>
+          <b class="r">Mapsly's own "per enriched lead $0.05–0.08"</b> —
+          first-party deceptive pricing needs no competitor plaintiff and would
+          arm any rival's C&amp;D ("their own table misstates their own price").
+          Fix #1 resolves it.
+        </td>
+      </tr>
+      <tr>
+        <td>Quebec / fr-CA</td>
+        <td>
+          Minor residual: English-only comparative claims with fr-CA shipping
+          creates modest Bill 96 exposure once Canadian marketing starts; B2B
+          buyers largely fall outside the consumer statute. Log for the Canada
+          push, not for launch.
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- ================= PART E ================= -->
+  <div class="part" id="e">Part E</div>
+  <h2>/team/billing — full page audit <span class="pill p-a">6/10</span></h2>
+
+  <p>
+    <b>The skeleton is genuinely strong:</b> every number derives from pricing
+    constants (never hand-typed) with parity tests; rates round conservatively;
+    "never expires" is true in wallet code; first-touch 10cr/100 matches what's
+    billed; the CTA state machine prevents the double-subscription path in the
+    UI; the <code>?deficit</code> credit-wall handoff is a real point-of-need
+    upgrade trigger; the ledger has pagination, dual timestamps, and defensive
+    run-detail joins; a11y basics are mostly right (real buttons, sr-only
+    labels, color never alone).
+  </p>
+
+  <h3>
+    E1 · Launch-blocking defects
+    <span class="src">(all verifier-confirmed)</span>
+  </h3>
+  <table>
+    <thead>
+      <tr>
+        <th class="n">#</th>
+        <th>Defect</th>
+        <th>Detail</th>
+        <th>Fix</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr class="hi">
+        <td class="n">1</td>
+        <td>
+          <b
+            >Ledger running Balance is arithmetically wrong for every settled
+            run</b
+          >
+        </td>
+        <td>
+          <code>withRunningBalance</code> treats HOLD and SETTLE as independent
+          movements, but settle <i>releases</i> the hold — so one 10-credit run
+          nets −20 in the table's model. Every historical balance older than a
+          settle cycle is inflated by the cumulative settled charges, then
+          <code>Math.max(0,·)</code> silently clamps. Worked trace: TOPUP +50,
+          HOLD 10, SETTLE 10 → true history 50→40→40; table renders 60→50→40.
+          The Credits column also reads as double-billing (−10 hold + −10 settle
+          for one run). This is the money table customers reconcile against; no
+          test covers it.
+        </td>
+        <td>
+          Collapse HOLD/SETTLE/REFUND per runId into one net row, or drop the
+          reconstructed Balance column until the server snapshots post-row
+          balances.
+        </td>
+      </tr>
+      <tr>
+        <td class="n">2</td>
+        <td><b>"Tom is fleeing" persona leak</b></td>
+        <td>See C1-#4.</td>
+        <td>One-line rewrite.</td>
+      </tr>
+      <tr>
+        <td class="n">3</td>
+        <td><b>"Per enriched lead" self-contradiction</b></td>
+        <td>
+          See C1-#1 — the page's own WhatACreditBuys card ("Fully enrich … 6
+          total") contradicts the table two cards below it.
+        </td>
+        <td>C1-#1 fix.</td>
+      </tr>
+      <tr>
+        <td class="n">4</td>
+        <td><b>Double-subscription guard is UI-only</b></td>
+        <td>
+          <code>startPlanCheckout</code> never checks for an existing
+          subscription — goes straight to <code>checkout.sessions.create</code>.
+          And the page computes <code>subActive = active||trialing</code> while
+          <code>isPaidAgency</code> includes <code>past_due</code> — so a
+          past_due subscriber (a state Stripe recovers ~30% of) is shown
+          fresh-checkout buttons <i>in the UI itself</i>. Result: two live
+          subscriptions, double billing, webhook grant/status flapping
+          (last-writer-wins on the agency row).
+        </td>
+        <td>
+          Server-side guard: if a subscription exists in any non-terminal state,
+          redirect to the portal. Align <code>subActive</code> with
+          <code>isPaidAgency</code>.
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>E2 · Worth fixing soon</h3>
+  <ul>
+    <li>
+      <b>Paid-vs-Free market access is advertised but not enforced</b> — "Open
+      any market" (paid cards) vs "Search everywhere we've already mapped" (Free
+      strip) reads as a live restriction, but the server lock is dark behind
+      <code>ENTITLEMENT_BILLING</code>. Customer-favorable error direction, but
+      a $19 buyer is paying partly for something Free already has. Flip the flag
+      or soften the strip.
+    </li>
+    <li>
+      <b>"Upgrade to {plan}" lands on the generic Stripe portal</b> — the buyer
+      must re-find the tier. Use the portal deep-link flow (<code
+        >subscription_update_confirm</code
+      >
+      with the target price) so the highest-intent click lands preselected.
+    </li>
+    <li>
+      <b>Ledger truncates at 50 rows with no notice</b> (~2 weeks of activity
+      for a Growth agency); <b>ADJUST is hardcoded as a credit</b> — the first
+      negative support adjustment renders green with "+". Add a "showing last
+      50" footer; make sign explicit before ADJUST is ever written.
+    </li>
+    <li>
+      <b>Held credits are invisible</b> — during an in-flight run, "available"
+      drops while the usage bar shows nothing spent; two adjacent numbers
+      disagree with no explanation. Append "· N held for a running job" when
+      held &gt; 0.
+    </li>
+    <li>
+      <b>Mid-cycle tier-switch semantics are accidental</b> — the grant dedupe
+      key includes the tier, so a mid-cycle switch re-grants the full new tier:
+      upgrades over-grant (bounded), downgrades
+      <b>destroy paid-for credits</b> (Pro→Starter mid-cycle SETs 6,500-tier
+      balance to 250). Untested, undocumented. Decide and freeze with a test.
+    </li>
+    <li>
+      <b>Free credits are wiped on upgrade</b> — first paid grant SETs
+      planCredits, so 40 unspent free credits + Solo = 750, not 790. Move
+      free-grant leftovers into purchasedCredits (3-line change) or accept
+      explicitly.
+    </li>
+    <li>
+      <b>i18n + a11y debt</b> — all 8 billing components hardcode English
+      (sanctioned for en-only launch; log the extraction, especially PLAN_CARDS
+      copy fields); tables lack <code>th scope</code>; tooltips on disabled
+      buttons are unreachable to keyboard/SR users.
+    </li>
+    <li>
+      <b>SOLO-enum repricing guard is asymmetric</b> —
+      <code>check-agency-pro.ts</code> only flags AGENCY_PRO rows, but the real
+      blast radius is any existing SOLO subscriber (900→250 at the same $19).
+      Zero rows today; extend the script anyway.
+    </li>
+  </ul>
+
+  <!-- ================= PART F ================= -->
+  <div class="part" id="f">Part F</div>
+  <h2>
+    Best-practice comparison — where the model matches the industry and where it
+    inverts it
+  </h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Choice</th>
+        <th>Industry norm (sourced)</th>
+        <th>Mapsly</th>
+        <th>Verdict</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Value metric</td>
+        <td>
+          Outcome-anchored, predictable, feasible (OpenView/Poyar 5 criteria;
+          Intercom $0.99/resolution trend)
+        </td>
+        <td>1 credit = 1 delivered lead</td>
+        <td><b class="g">✓ best-in-class</b></td>
+      </tr>
+      <tr>
+        <td>Model type</td>
+        <td>
+          Hybrid seats+credits is the dominant 2025-26 pattern (79 of
+          PricingSaaS 500, +126% YoY)
+        </td>
+        <td>Hybrid seats+credits</td>
+        <td><b class="g">✓</b></td>
+      </tr>
+      <tr>
+        <td>Cost preview / quote versioning</td>
+        <td>Metronome top-2: preview before spend, no surprise charges</td>
+        <td>15-min TTL quotes + drift re-quote + version force-requote</td>
+        <td><b class="g">✓ rare pre-launch</b></td>
+      </tr>
+      <tr>
+        <td>Tier ladder</td>
+        <td>
+          3-tier converts 1.4× vs 2, 1.8× vs 4+; one featured tier lifts uptake
+          35–50%
+        </td>
+        <td>5 visible tiers, 2 overlapping 1-seat entries</td>
+        <td>
+          <b class="a"
+            >◐ — watch Starter share; pre-register the demotion experiment</b
+          >
+        </td>
+      </tr>
+      <tr class="hi">
+        <td><b>Top-up pricing</b></td>
+        <td>
+          Top-ups at a <b>premium</b> to plan rate (Clay +30%; Apollo overage
+          $0.20)
+        </td>
+        <td>
+          $0.04–0.05/cr — <b>below every plan</b>, never expires, no plan gate
+        </td>
+        <td><b class="r">✗ inverted — the sharpest concrete defect</b></td>
+      </tr>
+      <tr>
+        <td>Rollover</td>
+        <td>
+          Expiry tolerated only with alerts + disclosure (Chargebee: 2–3 mo
+          rollover, 50/80/95% alerts; Metronome: surprise expiry erodes trust)
+        </td>
+        <td>
+          Dropped to 0; reset stated on wallet card but NOT on pre-purchase plan
+          cards; no alerts, no pre-reset email
+        </td>
+        <td>
+          <b class="a"
+            >◐ — expiry is defensible, shipping it without the trust kit
+            isn't</b
+          >
+        </td>
+      </tr>
+      <tr>
+        <td>Free tier</td>
+        <td>
+          Recurring free usage sustains the conversion long tail (Clay 1.2k
+          credits/yr + 500 actions/mo; freemium median ~8%, much of it &gt;90
+          days out)
+        </td>
+        <td>One-time 50 credits — a disguised trial</td>
+        <td>
+          <b class="a"
+            >◐ — add a 10–25/mo trickle (~$0.12–0.30 COGS) or reposition as
+            reverse trial</b
+          >
+        </td>
+      </tr>
+      <tr>
+        <td>Annual plans</td>
+        <td>
+          ~92% 12-mo retention vs ~68% monthly; 15–20% discount is standard
+        </td>
+        <td>None, not even on roadmap</td>
+        <td>
+          <b class="a"
+            >◐ — fine at launch; decide credit-grant cadence now (upfront grant
+            × no-rollover interact badly)</b
+          >
+        </td>
+      </tr>
+      <tr>
+        <td>Auto-recharge / overage</td>
+        <td>Auto top-up with user cap is standard self-serve (OpenAI, Clay)</td>
+        <td>Hard stop at zero mid-run</td>
+        <td>
+          <b class="a"
+            >◐ — churn moment for Tom's deadline workflow; ship after alerts</b
+          >
+        </td>
+      </tr>
+      <tr>
+        <td>Repricing mechanics</td>
+        <td>46% grandfather; 60–90-day notice for significant changes</td>
+        <td>
+          Version bump + requote; no notice policy for held top-up credits
+        </td>
+        <td>
+          <b class="g">✓ now</b> /
+          <b class="a">write the notice policy while it's free</b>
+        </td>
+      </tr>
+      <tr>
+        <td>Public price transparency</td>
+        <td>
+          Publish the credit price book (m3ter); buyers comparison-shop on
+          published $/lead
+        </td>
+        <td>Credit schedule is auth-gated; no public /pricing route</td>
+        <td>
+          <b class="a"
+            >◐ — also the SEO surface for "apollo alternative" queries</b
+          >
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- ================= PART G ================= -->
+  <div class="part" id="g">Part G</div>
+  <h2>
+    Verified rival pricing
+    <span class="src"
+      >(live-checked Jul 2026 — the receipts for the receipts folder)</span
+    >
+  </h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Rival</th>
+        <th>Verified current pricing</th>
+        <th>Effective rate</th>
+        <th>Doc's claim</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>
+          <b>Origami</b>
+          <span class="src">origami.chat (ex-origamiagents.com)</span>
+        </td>
+        <td>
+          Free 1,000 one-time · Starter $29/2,000cr · Pro $129/9,000cr · Scale
+          $499/40,000cr · email 3cr, phone 15cr · "0% markup, free if not found"
+          · free Sequencer · PAYG overage
+        </td>
+        <td class="n">$0.0125–0.0145/cr · ~$0.04/email-lead · phone $0.21</td>
+        <td>
+          <b class="a"
+            >$/lead range plausible; "pay-per-result forever" model claim
+            false</b
+          >
+        </td>
+      </tr>
+      <tr>
+        <td><b>Apollo</b></td>
+        <td>
+          Basic $49 / Pro $79 / Org $119 per user/mo (annual) ·
+          ~1,000/2,000/4,000 export credits · mobiles ~8× · monthly expiry ·
+          overage $0.20 (min $50)
+        </td>
+        <td class="n">in-plan ~$0.03–0.06/export</td>
+        <td>
+          <b class="r"
+            >"$0.20/contact · 2–4× more" = overage-only, fails for in-plan</b
+          >
+        </td>
+      </tr>
+      <tr>
+        <td><b>ZoomInfo</b></td>
+        <td>
+          Quote-only, ~$14,995/yr entry (5,000 credits), Advanced ~$24k/12,000 ·
+          overage $0.50–1.50 · median contract $31,875 (Vendr)
+        </td>
+        <td class="n">~$2–3/credit effective</td>
+        <td><b class="g">"$1–3/credit · 15–40×" holds (mark as est.)</b></td>
+      </tr>
+      <tr>
+        <td><b>Instantly</b></td>
+        <td>
+          Growth Credits $47/1,500 · Supersonic $197/5,000 · 1–2 credits per
+          verified email · email-only, no phones
+        </td>
+        <td class="n">~$0.03–0.06/verified email</td>
+        <td>
+          <b class="g"
+            >holds, slightly stale (their price went UP — refresh helps you)</b
+          >
+        </td>
+      </tr>
+      <tr>
+        <td><b>Clay</b> <span class="src">omitted from table</span></td>
+        <td>
+          Launch $185/2,500 data credits · Growth $495/6,000 · 2× rollover ·
+          top-ups at +30% premium · ~$30k/yr enterprise
+        </td>
+        <td class="n">~$0.03–0.05/credit, multi-credit stacking</td>
+        <td><b class="p-i pill">add — favorable</b></td>
+      </tr>
+      <tr>
+        <td><b>Outscraper / D7</b> <span class="src">omitted</span></td>
+        <td>
+          Outscraper $3/1K Maps records, ~$9–11/1K with emails · D7
+          $44.99–119.99/mo
+        </td>
+        <td class="n">$0.003–0.01/raw lead</td>
+        <td>
+          <b class="p-a pill">add + pre-empt — the real budget benchmark</b>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+  <p class="as">
+    Positioning check: <b>$49/750 is mid-pack, not money left on the table</b>,
+    and $19 as an organic land tier is defensible (every rival's entry is $29+).
+    But the blanket word "cheaper" is not defensible against Origami ($29 entry,
+    3–5× cheaper per credit) — the defensible claim is
+    <b>"predictable and complete per lead"</b> (1 credit = full contact record,
+    no 3cr-email/15cr-phone waterfall), plus "cheaper" specifically vs Apollo
+    seats and ZoomInfo contracts.
+  </p>
+
+  <!-- ================= PART H ================= -->
+  <div class="part" id="h">Part H</div>
+  <h2>Strategy risk — the advertise-Solo math is assumption-fragile</h2>
+  <p>
+    B3's arithmetic is correct, but all three inputs stack optimistic: $100 CAC
+    (2026 self-serve median runs $250–500+ for cold traffic to an unknown brand;
+    agency-keyword CPCs $6–25 at ~1–2% landing conversion), 12-month retention
+    (low-ACV SMB SaaS churns 5–10%/mo; prospecting tools skew worse — usage is
+    project-based), 4% free→paid (in-norm but untested against a ~5.7k-row
+    index).
+  </p>
+  <table>
+    <thead>
+      <tr>
+        <th>Scenario</th>
+        <th class="n">Solo LTV/CAC</th>
+        <th class="n">Growth LTV/CAC</th>
+        <th>Reading</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Doc: $100 CAC · 12-mo life</td>
+        <td class="n"><b class="g">4.8×</b></td>
+        <td class="n"><b class="g">9.3×</b></td>
+        <td>healthy — the doc's case</td>
+      </tr>
+      <tr>
+        <td>$250 CAC · 12-mo life</td>
+        <td class="n"><b class="a">1.9×</b></td>
+        <td class="n"><b class="g">3.7×</b></td>
+        <td>Solo below the 3× bar on the CAC axis alone</td>
+      </tr>
+      <tr>
+        <td>$100 CAC · 6-mo life</td>
+        <td class="n"><b class="a">2.4×</b></td>
+        <td class="n"><b class="g">4.6×</b></td>
+        <td>Solo below bar</td>
+      </tr>
+      <tr>
+        <td>$250 CAC · 6-mo life</td>
+        <td class="n"><b class="r">0.96×</b></td>
+        <td class="n"><b class="a">1.85×</b></td>
+        <td>Solo underwater; payback (6.25 mo) exceeds lifetime</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>
+    <b>What to do with this:</b> not re-price — <b>gate</b>. Run B3 as a
+    sensitivity grid before any ad spend, set per-channel kill thresholds (e.g.
+    pause if blended CAC &gt; $150 or 3-mo retention &lt; 70%), gate Solo ads on
+    measured 90-day retention from the first organic cohort, and treat annual
+    prepay as the structural hedge. Also verified: the funnel is leaky as
+    shipped — the marketing surface still shows a 3-up grid (Free/$19/$99) with
+    <b>Solo, the designated advertise tier, entirely absent</b>; "advertise Solo
+    only" can't work until <code>AgPricing.tsx</code> carries the 5-tier ladder.
+  </p>
+
+  <h3>Structural ladder risks (all confirmed)</h3>
+  <ul>
+    <li>
+      <b>Top-up inversion:</b> Starter $19 + $200 packs ≈ $39/mo effective at
+      Solo-scale usage with <i>better</i> terms (never expires) vs Solo $49; at
+      Pro scale ≈ $269 vs $299. And <code>startTopUpCheckout</code> has no plan
+      gate — a
+      <b
+        >Free agency can stack 5,000 never-expiring credits at $0.04 without
+        ever subscribing</b
+      >. The rational buyer never upgrades. Decide before the first paying
+      customer; repricing packs later is a visible take-away.
+    </li>
+    <li>
+      <b>Starter/Solo cannibalization:</b> identical feature lists except credit
+      count and the (user-illegible) depth cap. Give Solo one visible workflow
+      differentiator (make the cap legible: "top 500 businesses per market" vs
+      "every business"), and keep Starter off paid-landing variants.
+    </li>
+    <li>
+      <b>D2 on the contacts family contradicts the anchor:</b> "1 credit = 1
+      <i>delivered</i> lead" but a Target-path contacts scan returning zero
+      contacts still bills 1 credit — and can even hide the lead (isHidden).
+      Rival norm for contacts specifically is charge-on-found (Apollo, Hunter,
+      Snov). One Stripe dispute ($15 fee) wipes a Starter month's GP. Carve out
+      contacts from D2 (auto-refund on zero reachable channels — the REFUND
+      primitive exists; COGS ≈ $0); keep D2 for analysis families, and disclose
+      at point of charge.
+    </li>
+    <li>
+      <b>"50 guaranteed leads" vs a ~5.7k-row index:</b> the live browser test
+      delivered 3 leads on a tuned goal. A Free convert who gets 3 instead of 50
+      churns at the wow moment. Soften to "up to 50" (marketing copy already
+      says this — the card doesn't) and seed the 3–5 launch verticals/metros
+      before acquisition spend. Anti-farming is better than the doc implies
+      (disposable-domain blocklist exists and is enforced) but has no per-IP
+      signup cap.
+    </li>
+    <li>
+      <b>Entitlement dependency unsequenced:</b> the margin model implicitly
+      assumes entitlement billing (charge-from-DB = the highest-margin sale) but
+      the flag is dark and the repricing doc's Part G never mentions the
+      dependency. Remaining go-live gate: shadow-run, G9 remnants
+      (scraped-contacts gate, playbook prose, CSV export), flip the flag. The
+      dedup-index migration is already applied in prod. Footnote the margin
+      table "assumes entitlement billing live" and sequence the flip before paid
+      acquisition.
+    </li>
+  </ul>
+
+  <!-- ================= PART I ================= -->
+  <div class="part" id="i">Part I</div>
+  <h2>
+    Blind spots — what even this review's analysts missed
+    <span class="src">(completeness critic, then verified)</span>
+  </h2>
+  <ul>
+    <li>
+      <b>Tax &amp; currency:</b> Stripe live launch, USD-only, no Stripe Tax /
+      US sales-tax / Canadian GST-HST treatment anywhere in doc or code —
+      despite explicitly targeting Canada. Tax on credit packs + cross-border
+      registration thresholds are a genuine launch blind spot.
+    </li>
+    <li>
+      <b>Chargeback clawback:</b> <code>refundCredits</code> exists as a
+      make-good, but there is no clawback when a top-up payment is disputed
+      <i>after</i> the credits were spent — no negative-balance handling, no
+      <code>charge.dispute</code> webhook consumer. Never-expiring purchased
+      credits are also an open-ended deferred-service liability with no ToS
+      language.
+    </li>
+    <li>
+      <b>Vendor-ToS resale go/no-go</b> — still the open item from the
+      entitlement review; the repricing doubles down on per-credit resale of
+      DataForSEO SERP/reviews data and Apify-scraped Meta ads without a
+      documented pass on upstream terms.
+    </li>
+    <li>
+      <b>No post-launch measurement plan:</b> F-9 says "replace assumptions with
+      real numbers" but nothing defines the instrumentation or decision triggers
+      — and the meta COGS constant bug means the telemetry that would validate
+      the model currently under-reports meta spend 2.4×.
+    </li>
+    <li>
+      <b>Downgrade/cancel credit semantics</b> (see E2) — nobody defined what a
+      lapsed account may do with remaining purchased credits, or whether plan
+      credits survive to period end after native cancel.
+    </li>
+  </ul>
+
+  <!-- ================= PART J ================= -->
+  <div class="part" id="j">Part J</div>
+  <h2>
+    Action plan
+    <span class="src"
+      >— one phase ≈ one session · nothing here is committed until you
+      approve</span
+    >
+  </h2>
+  <table>
+    <thead>
+      <tr>
+        <th class="n">Phase</th>
+        <th>Work</th>
+        <th>Why first</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr class="hi">
+        <td class="n">1</td>
+        <td>
+          <b>Truth &amp; copy pass (constants + strings only).</b> WhyCheaper:
+          relabel column, dual Mapsly figure, Apollo per-seat row, Origami wedge
+          rewrite, "Tom"→"you're", as-of-date disclaimer, move strings to
+          en.json; fix the strategy doc C4 to match; "50 guaranteed" → "up to
+          50" on the Free card; commit
+          <code>docs/competitor-pricing-receipts/</code>.
+        </td>
+        <td>
+          Removes the only critical legal item + the persona leak on a revenue
+          surface. ~1 session, zero logic risk.
+        </td>
+      </tr>
+      <tr>
+        <td class="n">2</td>
+        <td>
+          <b>Billing safety.</b> Server-side existing-subscription guard in
+          <code>startPlanCheckout</code> + align <code>subActive</code> with
+          past_due; fix or drop the ledger running-Balance column; hoist the
+          free-map <code>isPaidAgency</code> check out of the entitlement flag;
+          <code>APIFY_META_RUN_USD</code> 0.05→0.12 (+ version bump).
+        </td>
+        <td>Money-path correctness before any real subscriber exists.</td>
+      </tr>
+      <tr>
+        <td class="n">3</td>
+        <td>
+          <b>Ladder integrity (needs your decisions below).</b> Reprice/gate
+          top-up packs; hard per-plan monthly cap on cost-incurring maps (WARN
+          stays as telemetry); reviews priced by depth rung or ladder capped
+          below Pro; mid-cycle switch semantics frozen with a test; free-grant
+          leftovers → purchasedCredits.
+        </td>
+        <td>Closes the arbitrage + the two loss tails.</td>
+      </tr>
+      <tr>
+        <td class="n">4</td>
+        <td>
+          <b>Lifecycle trust kit.</b> "Plan credits reset monthly · top-ups
+          never expire" on plan cards; 50/80/95% usage alerts + pre-reset
+          "you're about to lose N credits" email; held-credits note on the
+          wallet card; portal deep-link upgrades.
+        </td>
+        <td>
+          The scaffolding best practice treats as inseparable from expiring
+          credits.
+        </td>
+      </tr>
+      <tr>
+        <td class="n">5</td>
+        <td>
+          <b>GTM prerequisites (before any paid acquisition).</b> /for-agencies
+          5-tier ladder with Solo featured; public /pricing route; B3
+          sensitivity grid + kill thresholds; entitlement flag flip sequencing
+          (shadow-run + G9 remnants); index seeding for launch verticals; Stripe
+          Tax decision.
+        </td>
+        <td>
+          "Advertise Solo" is incoherent until the ad-landing surface shows
+          Solo.
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>Decisions only you can make</h3>
+  <table>
+    <thead>
+      <tr>
+        <th class="n">#</th>
+        <th>Decision</th>
+        <th>Recommendation</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="n">R-1</td>
+        <td>Top-up packs: premium vs plan-gate vs both</td>
+        <td>
+          <b>Both:</b> require an active paid plan AND reprice ≥ the buyer's
+          plan rate (e.g. $70/1k · $275/5k — still 3× under Apollo's $0.20).
+          Resolves the inversion and the free-agency bypass in one move.
+        </td>
+      </tr>
+      <tr>
+        <td class="n">R-2</td>
+        <td>D2 carve-out for contacts</td>
+        <td>
+          Auto-refund a contacts scan with zero reachable channels (COGS ≈ $0,
+          the REFUND primitive exists). Keep full D2 for analysis families.
+          Preserves the anchor's literal truth exactly where users test it.
+        </td>
+      </tr>
+      <tr>
+        <td class="n">R-3</td>
+        <td>Rollover: stay hard-expiry or add grace</td>
+        <td>
+          Keep hard expiry for launch <b>+ ship the Phase-4 trust kit</b>;
+          instrument cancellation reasons; reinstate a 0.5–1× cap only if
+          &gt;25% of churn cites expiry (fix the webhook double-grant keying
+          first — documented at the constant).
+        </td>
+      </tr>
+      <tr>
+        <td class="n">R-4</td>
+        <td>Free tier: one-time vs trickle</td>
+        <td>
+          Keep 50 one-time as the hook + add 10–25 credits/mo trickle
+          (~$0.12–0.30/mo COGS) to keep free accounts warm for the &gt;90-day
+          conversion tail.
+        </td>
+      </tr>
+      <tr>
+        <td class="n">R-5</td>
+        <td>Starter: keep, hide from paid landings, or drop</td>
+        <td>
+          Keep for organic price discovery; exclude from ad-landing variants;
+          pre-register the kill criterion (&gt;30% of paid signups with
+          &lt;30-day expansion → demote to downgrade-only).
+        </td>
+      </tr>
+      <tr>
+        <td class="n">R-6</td>
+        <td>"Closest rival" epithet on the Origami row</td>
+        <td>
+          Drop the epithet, keep the row — the content already communicates
+          proximity without handing every buyer a substitutability admission at
+          the point of purchase.
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="foot">
+    Mapsly · billing repricing independent review · 2026-07-09 · Method: two
+    Claude workflows, 34 agents (7 analysts + 26 adversarial verifiers + 1
+    completeness critic); every critical/major finding independently verified
+    against the repo at <code>9d6e2ce</code> and live web sources; verifier
+    corrections folded in. Legal sections are analysis, not legal advice — for a
+    pre-launch posture decision they're proportionate; get counsel before a
+    large paid-marketing push. Sources: FTC 16 C.F.R. §14.15 · Lanham §43(a) /
+    Lexmark · Canada Competition Act s.74.01 · origami.chat/pricing · apollo.io
+    + salesmotion/warmly benchmarks · ZoomInfo via Vendr/factors.ai ·
+    instantly.ai/pricing · clay.com/pricing · outscraper.com · Chargebee Pricing
+    Labs · Metronome · OpenView/Growth Unhinged · Paddle/Baremetrics. Companion
+    to <code>docs/billing-repricing-2026-07-09.html</code>. No code changed —
+    awaiting Part J decisions.
+  </div>
+</div>
