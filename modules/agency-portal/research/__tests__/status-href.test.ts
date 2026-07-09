@@ -36,6 +36,14 @@ describe("deriveResearchStatus", () => {
     ).toBe("enriching");
   });
 
+  // FT-2 · a delivered "Search everywhere" (OK run, scopeKind "search") is its
+  // own status and wins over the generic "done → enriched" mapping.
+  test("delivered search → delivered (beats done→enriched)", () => {
+    expect(
+      deriveResearchStatus("READY", { phase: "done", delivered: true }),
+    ).toBe("delivered");
+  });
+
   test("mapped + no enrichment → discovered", () => {
     expect(deriveResearchStatus("READY", NONE)).toBe("discovered");
     expect(deriveResearchStatus("PARTIAL", NONE)).toBe("discovered");
@@ -75,6 +83,26 @@ describe("buildResearchHref", () => {
         base,
         "partial",
         { phase: "done", partial: true },
+        catMap,
+      ),
+    ).toBe("/discover/disc_1");
+  });
+
+  // FT-2 · a delivered search opens its leads LIST directly (it never enriched).
+  test("delivered → the leads list (falls back to workbench if no listId)", () => {
+    expect(
+      buildResearchHref(
+        base,
+        "delivered",
+        { phase: "done", delivered: true, listId: "list_7" },
+        catMap,
+      ),
+    ).toBe("/discover/disc_1/lists/list_7");
+    expect(
+      buildResearchHref(
+        base,
+        "delivered",
+        { phase: "done", delivered: true },
         catMap,
       ),
     ).toBe("/discover/disc_1");

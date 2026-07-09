@@ -28,6 +28,8 @@
 // (`.claude/rules/security.md`, `.claude/rules/cost-discipline.md`).
 
 import prisma from "@/lib/prisma";
+import { entitlementBillingEnabled } from "@/modules/cost/flags";
+import { loadEntitlements } from "@/modules/discovery/entitlements";
 import type { IconName } from "@/components/agency/Icon";
 import { draftWhereForAgency } from "@/modules/outreach/draft-scope";
 
@@ -1827,6 +1829,56 @@ export async function getLeadDetail(
     business.country,
   ]);
 
+  // Read gate (S9/S11 · entitlement model): the drawer AND the public one-pager
+  // (share.ts → getLeadDetail) must not serialize a family THIS agency doesn't
+  // own. Raw contacts are the worst leak (a rival's paid phones/emails); domains
+  // already reflect the entitlement-gated typeStates via coverage-matrix. No-op
+  // when the flag is off.
+  let outPhones = phones;
+  let outEmails = emails;
+  let outSocials = socials;
+  let outListingContacts = listingContacts;
+  let outDomains = domains;
+  if (entitlementBillingEnabled()) {
+    const gate = await loadEntitlements(
+      agencyId,
+      [business.id],
+      business.cellKey ? [business.cellKey] : [],
+    );
+    const ownedBiz = gate.perBusiness.get(business.id);
+    const ownedCell = business.cellKey
+      ? gate.perCell.get(business.cellKey)
+      : undefined;
+    if (!(ownedBiz?.has("contacts") ?? false)) {
+      outPhones = [];
+      outEmails = [];
+      outSocials = [];
+      outListingContacts = [];
+    }
+    // Clear the evidence rows on un-entitled research domains so a rival's paid
+    // reviews/ads/serp/site data never serializes (the coverage gate already
+    // forces state=not_run; this stops the raw bytes leaving the server). The
+    // always-honest discovery listingRows + the state stay.
+    const DOMAIN_FAMILY: Record<string, string> = {
+      reviews: "reviews",
+      tech: "tech",
+      speed: "lighthouse",
+      meta_ads: "meta_ads",
+      google_ads: "google_ads",
+      serp: "serp",
+      ai: "ai_research",
+    };
+    outDomains = domains.map((d) => {
+      const fam = DOMAIN_FAMILY[d.key];
+      if (!fam) return d;
+      const isCell = fam === "meta_ads" || fam === "serp";
+      const owned = isCell
+        ? (ownedCell?.has(fam as never) ?? false)
+        : (ownedBiz?.has(fam as never) ?? false);
+      return owned ? d : { ...d, rows: [], summary: null };
+    });
+  }
+
   return {
     businessId: business.id,
     leadId: lead?.id ?? null,
@@ -1846,15 +1898,15 @@ export async function getLeadDetail(
     matchDerived: derived,
     matchFromSignals,
     facts,
-    phones,
-    emails,
-    socials,
-    listingContacts,
+    phones: outPhones,
+    emails: outEmails,
+    socials: outSocials,
+    listingContacts: outListingContacts,
     contactsState,
     firedSignals,
     signalVerdicts,
     angles,
-    domains,
+    domains: outDomains,
     profile,
     rivals,
     expertFindings,

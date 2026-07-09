@@ -198,11 +198,16 @@ export interface LibrarySignal {
   title: string;
 }
 
-/** True when a SIG_META entry is worth evaluating for the workbench: anything
- *  not explicitly `roadmap` (ready / deriv / unset all have a real resolver). */
-function isEvaluableSigMeta(key: string): boolean {
+/** True when a SIG_META entry is worth evaluating: anything not explicitly
+ *  `roadmap` (ready / deriv / unset all have a real resolver). A `roadmap`
+ *  signal resolves to `null` for EVERY business, so a strict "all signals must
+ *  match" gate (FT-2 search) can never satisfy it — such signals must be
+ *  excluded from that gate or the search always returns nothing. */
+export function isEvaluableSignalKey(key: string): boolean {
   return SIG_META[key]?.status !== "roadmap";
 }
+/** @deprecated internal alias — use {@link isEvaluableSignalKey}. */
+const isEvaluableSigMeta = isEvaluableSignalKey;
 
 /**
  * Every evaluable library signal as an {@link ActiveSignal} with its SIG_META

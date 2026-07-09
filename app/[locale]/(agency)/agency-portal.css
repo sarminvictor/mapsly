@@ -6024,7 +6024,7 @@
      answer, and a filterable one) — soft-green done tone, never the grey that
      reads as never-run. Solid green stays reserved for ran-with-data. */
   color: var(--green-700, #0a6b48);
-  background: var(--green-50, #e6f8ef);
+  background: var(--green-50, #c1e3d2);
   box-shadow: none;
 }
 /* failed · errored + still not covered → red fill, distinct from grey never-run. */

@@ -50,6 +50,8 @@ import {
 import { discoveryIdempotencyKey } from "@/modules/discovery/run-discovery";
 import { kickDispatch } from "@/modules/enrichment/kick-dispatch";
 import { requireSpendMember } from "@/modules/agency-portal/roles";
+import { isPaidAgency } from "@/modules/agency-portal/team/seats";
+import { entitlementBillingEnabled } from "@/modules/cost/flags";
 
 const CellInput = z.object({
   categorySlug: z.string().min(1).max(120),
@@ -206,6 +208,7 @@ export type RunDiscoveryActionResult =
   | { status: "needs_requote"; netUsd: number; netCredits: number }
   | { status: "quote_expired" }
   | { status: "insufficient_credits"; netCredits: number }
+  | { status: "market_locked" }
   | { status: "error" };
 
 async function callerAgencyId(userId: string): Promise<string | null> {
@@ -576,6 +579,20 @@ export async function runDiscoveryAction(
   try {
     const agencyId = await callerAgencyId(session.user.id);
     if (!agencyId) return { status: "forbidden" };
+
+    // FT-2 · free tier can't open brand-new markets (Target) — it uses "Search
+    // everywhere" over our existing index instead. Server-side lock (the client
+    // tab-hide is UX only). Flag-gated so today's free "unlimited discovery" is
+    // unaffected until the entitlement model + search-everywhere ship together.
+    if (entitlementBillingEnabled()) {
+      const agency = await prisma.agency.findUnique({
+        where: { id: agencyId },
+        select: { stripeStatus: true },
+      });
+      if (!isPaidAgency(agency?.stripeStatus ?? null)) {
+        return { status: "market_locked" };
+      }
+    }
 
     await grantFreeTierIfNew(agencyId);
 

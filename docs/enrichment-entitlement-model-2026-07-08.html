@@ -1,0 +1,2961 @@
+<title>
+  Research entitlement model · pay-per-agency vs global-free-reuse · gap ·
+  scores · plan · 2026-07-08
+</title>
+<style>
+  :root {
+    --ink: #1c2233;
+    --muted: #5b657f;
+    --faint: #8a93ab;
+    --line: #e6e9f2;
+    --indigo: #5b3df5;
+    --indigo-50: #efeafe;
+    --bg: #fff;
+    --green: #0f9d6b;
+    --green-50: #e7f6ef;
+    --red: #c3372b;
+    --red-50: #fdecea;
+    --amber: #b7791f;
+    --amber-50: #fbf3e2;
+  }
+  * {
+    box-sizing: border-box;
+  }
+  body {
+    font:
+      14px/1.55 -apple-system,
+      "Segoe UI",
+      sans-serif;
+    color: var(--ink);
+    max-width: 1240px;
+    margin: 0 auto;
+    padding: 32px 24px 96px;
+    background: var(--bg);
+  }
+  h1 {
+    font-size: 26px;
+    margin: 0 0 4px;
+    letter-spacing: -0.01em;
+  }
+  h2 {
+    font-size: 19px;
+    margin: 48px 0 12px;
+    border-bottom: 2px solid var(--indigo);
+    padding-bottom: 6px;
+  }
+  h3 {
+    font-size: 15px;
+    margin: 26px 0 8px;
+  }
+  p {
+    margin: 8px 0;
+  }
+  .sub {
+    color: var(--muted);
+    margin-bottom: 22px;
+    font-size: 13.5px;
+  }
+  code {
+    font:
+      12px/1.4 ui-monospace,
+      monospace;
+    background: #f4f5fb;
+    padding: 1px 5px;
+    border-radius: 4px;
+    color: #333a52;
+  }
+  .src {
+    font:
+      11px/1.4 ui-monospace,
+      monospace;
+    color: var(--faint);
+    font-weight: 400;
+  }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 13px;
+    margin: 6px 0 4px;
+  }
+  th,
+  td {
+    text-align: left;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+  }
+  th {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--faint);
+    background: #fff;
+    font-weight: 700;
+  }
+  .ghead td {
+    background: #f4f5fb;
+    font-weight: 700;
+    font-size: 12.5px;
+    color: var(--indigo);
+    padding: 9px 10px;
+    letter-spacing: 0.02em;
+  }
+  .why {
+    color: var(--muted);
+    font-size: 12.5px;
+  }
+  .callout {
+    background: var(--indigo-50);
+    border: 1px solid #d9d0fb;
+    border-left: 4px solid var(--indigo);
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin: 16px 0;
+  }
+  .callout.warn {
+    background: var(--amber-50);
+    border-color: #efd9a8;
+    border-left-color: var(--amber);
+  }
+  .callout.bad {
+    background: var(--red-50);
+    border-color: #f3c9c3;
+    border-left-color: var(--red);
+  }
+  .lead {
+    font-size: 15px;
+    line-height: 1.6;
+  }
+  /* score pills */
+  .sc {
+    display: inline-block;
+    min-width: 30px;
+    text-align: center;
+    font:
+      700 13px ui-monospace,
+      monospace;
+    padding: 2px 6px;
+    border-radius: 6px;
+  }
+  .s-lo {
+    background: var(--red-50);
+    color: var(--red);
+  }
+  .s-mid {
+    background: var(--amber-50);
+    color: var(--amber);
+  }
+  .s-hi {
+    background: var(--green-50);
+    color: var(--green);
+  }
+  .arrow {
+    color: var(--faint);
+    padding: 0 4px;
+  }
+  /* severity chips */
+  .sev {
+    display: inline-block;
+    font-size: 10.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 2px 7px;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+  .sev-crit {
+    background: var(--red);
+    color: #fff;
+  }
+  .sev-high {
+    background: var(--amber);
+    color: #fff;
+  }
+  .sev-med {
+    background: #dfe3ee;
+    color: #4a556e;
+  }
+  .sev-low {
+    background: #eef0f6;
+    color: #8a93ab;
+  }
+  /* quadrant grid */
+  .quad {
+    display: grid;
+    grid-template-columns: 150px 1fr 1fr;
+    gap: 8px;
+    margin: 14px 0 6px;
+  }
+  .quad > div {
+    border-radius: 10px;
+    padding: 12px 13px;
+    font-size: 12.5px;
+  }
+  .qh {
+    background: #fff;
+    color: var(--faint);
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    display: flex;
+    align-items: flex-end;
+    padding-bottom: 6px;
+    border: 0;
+  }
+  .qrow {
+    display: flex;
+    align-items: center;
+    font-weight: 700;
+    font-size: 11.5px;
+    color: var(--ink);
+    background: #f7f8fc;
+    border: 1px solid var(--line);
+  }
+  .qcell {
+    border: 1px solid var(--line);
+    background: #fbfcff;
+  }
+  .qcell.free {
+    background: var(--green-50);
+    border-color: #bfe6d3;
+  }
+  .qcell.money {
+    background: var(--indigo-50);
+    border-color: #d0c4fb;
+  }
+  .qcell b {
+    display: block;
+    font-size: 12px;
+    margin-bottom: 3px;
+  }
+  .qcell .tag {
+    font:
+      700 10.5px ui-monospace,
+      monospace;
+    letter-spacing: 0.02em;
+  }
+  .money .tag {
+    color: var(--indigo);
+  }
+  .free .tag {
+    color: var(--green);
+  }
+  .tt {
+    font-weight: 700;
+  }
+  .imp {
+    font-size: 12px;
+    color: var(--red);
+  }
+  ul.tight {
+    margin: 6px 0;
+    padding-left: 20px;
+  }
+  ul.tight li {
+    margin: 4px 0;
+  }
+  .kpi {
+    display: flex;
+    gap: 18px;
+    flex-wrap: wrap;
+    margin: 14px 0 4px;
+  }
+  .kpi > div {
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 12px 16px;
+    min-width: 150px;
+  }
+  .kpi .big {
+    font:
+      700 24px ui-monospace,
+      monospace;
+    letter-spacing: -0.02em;
+  }
+  .kpi .lbl {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--faint);
+    margin-top: 2px;
+  }
+  .foot {
+    margin-top: 60px;
+    padding-top: 14px;
+    border-top: 1px solid var(--line);
+    color: var(--faint);
+    font-size: 12px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ink: #e7eaf3;
+      --muted: #a9b2c8;
+      --faint: #7e879e;
+      --line: #2a3040;
+      --bg: #14171f;
+      --indigo: #9d8bff;
+      --indigo-50: #23213a;
+      --green: #4cc79a;
+      --green-50: #162c24;
+      --red: #f0857a;
+      --red-50: #331e1c;
+      --amber: #e0ad5a;
+      --amber-50: #332915;
+    }
+    code,
+    .ghead td {
+      background: #1d2230;
+      color: var(--indigo);
+    }
+    .qrow,
+    .qcell {
+      background: #191d28;
+    }
+  }
+</style>
+
+<h1>Research entitlement model — the missing revenue layer</h1>
+<p class="sub">
+  How a new agency re-uses vs re-pays for research on a cell another agency
+  already touched · current code vs the intended model · scored,
+  scenario-tested, code-confirmed, with a phased fix ·
+  <b>+ two Free-tier changes (FT-1 · FT-2)</b> · 2026-07-08 <br /><b
+    >→ <a href="#review" style="color: var(--indigo)">Review addendum</a></b
+  >
+  (below): code-verified findings, strengths,
+  <b>9 gaps (G1–G9, incl. the filter-layer leak)</b>, the corrected all-plans
+  FT-2 model, and the owner decisions — plan simpler now (no
+  migration/backfill).
+  <b
+    >→
+    <a href="#todo" style="color: var(--indigo)">Implementation checklist</a></b
+  >
+  at the bottom.
+</p>
+
+<div class="callout bad">
+  <p class="lead" style="margin-top: 0">
+    <b>One boolean is doing two jobs.</b> A single global freshness check (<code
+      >isFresh()</code
+    >
+    over a shared <code>Business.*LastAt</code> cursor) decides
+    <b>both</b> &ldquo;should we run the vendor?&rdquo; <b>and</b>
+    &ldquo;should we charge the user?&rdquo;. Because that cursor is stamped by
+    whoever ran the scrape — with no agency tag — the result is the exact
+    inverse of the intended model:
+  </p>
+  <ul class="tight">
+    <li>
+      the <b>highest-margin path</b> (serving data we already hold, ~$0 vendor
+      cost) currently earns <b>$0</b>;
+    </li>
+    <li>
+      a <b>free discovery</b> ($0, valid 182 days) is the only key needed to
+      <b
+        >see, in the drawer / workbench / CSV export, every rival agency&rsquo;s
+        paid research</b
+      >
+      — contacts, reviews, ads, SERP, site-speed — for free.
+    </li>
+  </ul>
+</div>
+
+<div class="kpi">
+  <div>
+    <div class="big">
+      <span class="sc s-lo">2</span> <span class="arrow">→</span>
+      <span class="sc s-hi">9</span>
+    </div>
+    <div class="lbl">Model fit · now → target</div>
+  </div>
+  <div>
+    <div class="big">16</div>
+    <div class="lbl">Scenarios traced · 8 critical</div>
+  </div>
+  <div>
+    <div class="big">1</div>
+    <div class="lbl">Root cause behind all of them</div>
+  </div>
+  <div>
+    <div class="big">4</div>
+    <div class="lbl">Phases · 1 ships dark</div>
+  </div>
+</div>
+
+<h2 id="review" style="border-color: var(--green)">
+  Review addendum — code-verified, scored, decisions folded in
+  <span class="src" style="font-size: 12px">· 2026-07-08</span>
+</h2>
+<p class="sub" style="margin-bottom: 8px">
+  A full architect + PM review ran this plan through 6 code-grounded verifiers +
+  6 independent lenses —
+  <b>every code citation below is confirmed against the tree</b>. The model is
+  directionally right; the gaps are where the plan under-scopes its own thesis.
+  Owner decisions (2026-07-08) fold in and <b>simplify</b> it.
+  <b
+    >This addendum supersedes the Migration callout and refines the Phased plan
+    + Free-tier sections.</b
+  >
+</p>
+<div class="callout">
+  <p class="lead" style="margin-top: 0">
+    <b>Verdict.</b> The RUN-vs-CHARGE decouple is the correct abstraction, and
+    the code confirms the exact inversion it targets: one
+    <code>alreadyFresh</code> boolean sets both job status <i>and</i> cost
+    (<span class="src">dispatch.ts:649</span>),
+    <code>billable = total − fresh</code> (<span class="src"
+      >estimate.ts:113</span
+    >), and the freshness cursor is global with no agency tag. The
+    <i>model</i> scores <span class="sc s-hi">9</span>; the
+    <i>plan as written</i> is ~<span class="sc s-mid">5</span> to execute — a
+    handful of CRITICALs stand between it and a safe billing flip.
+    <b>None touch the model</b>; all are scope + code-shape.
+  </p>
+</div>
+
+<div
+  class="callout"
+  style="border-left-color: var(--green); background: var(--green-50)"
+>
+  <b
+    >DECISIONS LOCKED — final calls (2026-07-08, Viktor) · authoritative;
+    supersede any "recommended/open" wording below.</b
+  >
+  <ul class="tight" style="margin-top: 6px">
+    <li>
+      <b>D1 · Entitlement = PERMANENT-view.</b> <code>hasEntitlement</code> = a
+      ledger row exists; viewing what you bought is free forever; a refresh
+      charges only when the shared data is actually stale. <b>G1 resolved</b> —
+      the <code>isFresh(grantedAt)</code> validity predicate is dropped;
+      <code>grantedAt</code> is provenance only.
+    </li>
+    <li>
+      <b>D2 · Charge model depends on context.</b>
+      <b>(a) Research / enrich:</b> the user pays for the <b>research</b>, not a
+      guaranteed result — an empty research outcome <b>still charges</b> (no
+      non-emptiness gate; <b>supersedes G4</b>'s "don't charge on empty").
+      <b>(b) Search everywhere:</b> charge only for <b>delivered</b> quality
+      leads (matched + contacts), never the requested count — ask 30, show 24 →
+      charge 24.
+    </li>
+    <li>
+      <b>D3 · Charge-per-agency = GO, and INVISIBLE in the UI.</b> We may charge
+      multiple agencies for one underlying research. <b>Hard UI rule:</b> the
+      served-from-DB path must be indistinguishable from a live run — always
+      show the normal "researching…" progress; <b>never</b> surface "cached /
+      from index / instant / served-from-DB" anywhere.
+      <b
+        >This kills the doc's "Instant — from Mapsly's index vs Live pull ~30s"
+        pitch and the "speed is the only difference" framing</b
+      >
+      — there is <b>no visible difference at all</b>. A served unit still
+      animates a normal run and completes; <code>CHARGED_FROM_DB</code> +
+      <code>SKIPPED_ENTITLED</code> count as "done" for progress. (ToS
+      non-exclusive-license clause still advisable — owner's call.)
+    </li>
+  </ul>
+</div>
+
+<h3>Owner decisions folded in (2026-07-08)</h3>
+<table>
+  <tr>
+    <th style="width: 250px">Decision</th>
+    <th>Effect on this plan</th>
+  </tr>
+  <tr>
+    <td>
+      <b>1 · No migration / no backfill</b> — pre-launch, all data + users are
+      test; the DB is wiped before launch
+    </td>
+    <td class="why">
+      <b>Phase 1 loses its entire backfill.</b> The Migration callout, the
+      grandfather + grace-clamp, the scopeRefsJson-provenance leak, the
+      leaked-viewer price-hike, and the expiry cliff are all <b>void</b>. At
+      launch there are zero entitlements and zero research, so every first touch
+      is a genuine acquisition (QUEUED→DONE → charged → minted). Phase 1
+      collapses to <b>add ledger + enum, ship dark</b>.
+    </td>
+  </tr>
+  <tr>
+    <td><b>2 · Model stays</b></td>
+    <td class="why">
+      The decouple is correct — fix the code and copy <i>around</i> it, never
+      the model.
+    </td>
+  </tr>
+  <tr>
+    <td><b>3 · Copy fixes only; freshness stays out of marketing</b></td>
+    <td class="why">
+      Remove the false claims, but do <b>not</b> market freshness / refresh
+      windows / staleness at all — those live <b>only in Terms / legal</b>,
+      never in the value pitch.
+    </td>
+  </tr>
+  <tr>
+    <td>
+      <b>4 · FT-1 stays</b> (free 50 → <code>purchasedCredits</code>); expiry is
+      acceptable
+    </td>
+    <td class="why">
+      No never-expire requirement. But the billing UI must
+      <b>show the free balance correctly and surface any expiry</b> — the one
+      thing that is <i>not</i> "no display change" (see FT-1 fix below).
+    </td>
+  </tr>
+  <tr>
+    <td>
+      <b>5 · FT-2 kept</b>, re-explained simply, re-sequenced after the ledger
+    </td>
+    <td class="why">
+      See <b>"FT-2 in plain English"</b> below — the flat 1-credit rate is the
+      crux.
+    </td>
+  </tr>
+</table>
+
+<h3>What the plan gets right (strengths)</h3>
+<ul class="tight">
+  <li>
+    <b>Correct root cause, code-true.</b> A single global freshness boolean
+    genuinely inverts incentives — the best-margin serve-from-DB path earns $0
+    while a free discovery leaks rivals' paid research. Diagnosed, not
+    hand-waved.
+  </li>
+  <li>
+    <b>Right decoupling axis.</b> RUN = <code>isDbFresh</code> (internal COGS)
+    vs CHARGE = <code>hasEntitlement</code>
+    (per-agency revenue) are genuinely independent.
+  </li>
+  <li>
+    <b>Global storage + additive ledger.</b> One shared copy, no
+    <code>agencyId</code> on research tables — preserves the
+    sell-one-scrape-N-times margin lever instead of N-copy write amplification
+    across 2.1M businesses.
+  </li>
+  <li>
+    <b>Reuses the existing <code>isFresh</code> predicate</b> for grant validity
+    — one freshness function, not a fork.
+  </li>
+  <li>
+    <b>settle already excludes SKIPPED_FRESH</b> from billing (<span class="src"
+      >dispatch.ts:1222,1287</span
+    >) — the per-business change lands on a precise, testable seam.
+  </li>
+  <li>
+    <b>Self-aware</b> — it names its own hardest risks (empty-payload, vendor
+    ToS, rip-off perception) rather than hiding them.
+  </li>
+  <li>
+    <b>FT-2 flat-billing plumbing is proven</b> — the outreach synthetic-run
+    (<code>holdCredits → settleRun(inserted) → refundHold</code>) is a live,
+    working template.
+  </li>
+</ul>
+
+<h3>Gaps that survive the decisions — fix before Phase 2</h3>
+<table>
+  <tr>
+    <th style="width: 30px">#</th>
+    <th style="width: 74px">Sev</th>
+    <th style="width: 300px">Gap (code-confirmed)</th>
+    <th>Fix</th>
+  </tr>
+  <tr>
+    <td>G1</td>
+    <td><span class="sev sev-crit">critical</span></td>
+    <td>
+      <b
+        >Entitlement-validity predicate contradicts the "owner sees current
+        free" decision.</b
+      >
+      The data-model defines validity as
+      <code>isFresh(grantedAt, window)</code> — ownership <i>expires</i> at
+      30/90/182d — but the owner decision says owners view current data free
+      forever. Both cannot hold; this is the pricing lever.
+    </td>
+    <td class="why">
+      <b>Pick permanent-view</b> (matches the decision):
+      <code>hasEntitlement</code> = a row-exists boolean; "stale for refresh"
+      reads the <b>global cursor</b>, not <code>grantedAt</code>. Margin is
+      untouched — a <b>non-owner still always pays full</b> to acquire; you only
+      stop re-charging existing owners.
+      <span class="why"
+        >Caveat (doc, not pitch): permanent-view forgoes recurring per-owner
+        refresh revenue — the lever for that is a shorter freshness window, not
+        expiring what someone bought.</span
+      >
+    </td>
+  </tr>
+  <tr>
+    <td>G2</td>
+    <td><span class="sev sev-crit">critical</span></td>
+    <td>
+      <b
+        >Cell families (meta_ads / serp — 4cr each) bypass the settle change.</b
+      >
+      Cells never write <code>EnrichmentJob</code> rows; they bill via
+      <code>cellCreditsForRun</code> gated on
+      <code>AdMarketRun.ranAt ≥ runStartedAt</code>, which returns 0 for a
+      fresh-served cell (<span class="src">dispatch.ts:444,488</span>). Adding
+      two job statuses does <b>nothing</b> for them — the highest-ticket,
+      highest-margin path (S14) stays uncaptured.
+    </td>
+    <td class="why">
+      Phase 2 must <b>also</b> rewrite <code>cellCreditsForRun</code> to bill on
+      entitlement-miss and mint <code>(agency, cellKey, family)</code> grants.
+      First-class deliverable, not a footnote. (<code>AdMarketRun</code> has no
+      <code>agencyId</code> → cell entitlement lives only in the ledger.)
+    </td>
+  </tr>
+  <tr>
+    <td>G3</td>
+    <td><span class="sev sev-crit">critical</span></td>
+    <td>
+      <b
+        >The read-gate is a loader refactor across FOUR surfaces, not a UI
+        teaser.</b
+      >
+      <code>getLeadDetail</code> loads + serializes all 16 child rows
+      <i>before</i> any state (<span class="src">lead-detail.ts:515-698</span>)
+      — a UI label still ships the bytes. Missed surfaces: the
+      <b>workbench builder</b>
+      <code>buildWorkbenchRows / hydrateWorkbenchData</code> ("agency-agnostic"
+      · <span class="src">signal-eval.ts:1931</span>); the
+      <b>public share one-pager</b> <code>resolveShareReport</code> — full
+      contacts over a <b>wall-less token URL</b>; and coverage's
+      <b>second</b> global signal <code>scanTypePresence</code> (real-row
+      presence), not just the job groupBy.
+    </td>
+    <td class="why">
+      Gate at the <b>loader</b> — resolve entitlement before the child selects
+      and <b>omit</b> un-entitled families so locked bytes never leave the
+      server. Make <code>share.ts</code> its own decision (bake entitled-only
+      payload at mint vs gate at view). Add a batched index
+      <code>(agencyId, businessId, family)</code> so the ~1000-row workbench
+      stays 2 queries, not N+1. Re-rate Phase 3 <b>High</b>-touch.
+    </td>
+  </tr>
+  <tr>
+    <td>G4</td>
+    <td><span class="sev sev-crit">critical</span></td>
+    <td>
+      <b>Empty-payload SERVED_FROM_DB charges full for zero data.</b>
+      Stamp-on-empty is live: a 0-contact scan still stamps
+      <code>contactsExtractedAt=now</code> and bills (<span class="src"
+        >scan.ts:508-523 · dispatch.ts:272</span
+      >) — the common case for website-less / PHONE_ONLY businesses. A non-owner
+      served that fresh-but-empty cursor pays full for nothing.
+    </td>
+    <td class="why">
+      Gate the served charge on
+      <b>payload non-emptiness, not cursor freshness</b> — recommend
+      <b>don't charge</b> on empty (COGS ≈ $0). The make-good REFUND primitive
+      already exists (<span class="src">server.ts:904</span>) if you prefer
+      charge-then-credit. The charge/refund rule lives in <b>Terms</b> (decision
+      3).
+    </td>
+  </tr>
+  <tr>
+    <td>G5</td>
+    <td><span class="sev sev-high">high</span></td>
+    <td>
+      <b>"Mint exactly once at settle" is not a drop-in.</b>
+      <code>settleRun(runId, actualCredits)</code> gets only a scalar — the
+      per-(business,family) breakdown is computed in
+      <code>closeRunIfDone</code> and discarded (<span class="src"
+        >dispatch.ts:1287-1299</span
+      >). No cross-run lock; a plain create THROWS on the unique constraint and
+      aborts the charge. Postgres <code>NULLS DISTINCT</code> lets a both-null /
+      wrong-null row escape both unique indexes → silent double-mint.
+    </td>
+    <td class="why">
+      Thread the granular scope into settle (or mint in
+      <code>closeRunIfDone</code>'s own txn); use
+      <b>upsert / ON CONFLICT DO NOTHING</b> per branch; add a raw-migration
+      <code>CHECK ((businessId IS NULL) &lt;&gt; (cellKey IS NULL))</code> —
+      Prisma can't express it.
+    </td>
+  </tr>
+  <tr>
+    <td>G6</td>
+    <td><span class="sev sev-high">high</span></td>
+    <td>
+      <b>Estimate must HOLD served-from-DB units, not net them out.</b> Today
+      <code>billable = total − fresh</code>
+      would leave the pre-flight hold short for a SERVED_FROM_DB unit, and
+      settle would clamp the charge away.
+    </td>
+    <td class="why">
+      Flip the estimate reducer from <code>fresh</code> to
+      <code>entitled</code> so the hold covers served-from-DB. This is the
+      concrete meaning of "DB freshness stops being a billing input."
+    </td>
+  </tr>
+  <tr>
+    <td>G7</td>
+    <td><span class="sev sev-high">high</span></td>
+    <td>
+      <b>Vendor data-license resale — go/no-go (survives the wipe).</b> Selling
+      one DataForSEO / Meta / Google scrape as N full-price licenses may violate
+      redistribution / caching terms. This is about the <i>mechanic</i>, not
+      existing data — the DB wipe doesn't clear it.
+    </td>
+    <td class="why">
+      Get a written per-family read before Phase 2. Where resale is barred, the
+      family stays owner-only or becomes a compute-derived signal. Add a
+      non-exclusive-license clause to the agency Terms.
+    </td>
+  </tr>
+  <tr>
+    <td>G8</td>
+    <td><span class="sev sev-med">medium</span></td>
+    <td>
+      <b>Housekeeping bundle.</b> (a) <b>Phase order</b> — billing before
+      read-gate opens an arbitrage window (view/export free while charged to
+      run). (b) <b>Rename <code>SERVED_FROM_DB</code></b> — the literal already
+      exists on <code>DiscoveryCellOutcome</code> meaning FREE (<span
+        class="src"
+        >schema:2157</span
+      >), the opposite of the new charged meaning. (c)
+      <b>TECH rides CONTACTS</b> (no tech job row, price 0, 30d vs 90d) — ledger
+      family axis ≠ job axis. (d) <b>No cross-run mutex</b> → double-COGS on
+      concurrent buys.
+    </td>
+    <td class="why">
+      Ship P3 read-gate <b>before/with</b> P2's charge (or run P2
+      compute-but-don't-charge until P3). Rename to
+      <code>CHARGED_FROM_DB</code>. Map billable→ledger families (<code
+        >contacts → {contacts, tech}</code
+      >). Decide whether a per-(business,family) collection lock is in scope, or
+      measure the double-COGS in Phase-4 telemetry.
+    </td>
+  </tr>
+  <tr>
+    <td>G9</td>
+    <td><span class="sev sev-crit">critical</span></td>
+    <td>
+      <b
+        >The FILTER / signal layer leaks unpaid research — the deepest
+        surface.</b
+      >
+      Signal evaluation hydrates every family <code>businessId</code>-only
+      (<span class="src">signal-eval.ts:1931</span>) and the workbench evaluates
+      the <b>whole</b> 105-signal library per lead (<span class="src"
+        >workbench-rows.ts:456</span
+      >) — so agency B can <b>filter / qualify</b> leads by reviews / ads / SERP
+      / site data agency A paid for, not merely see it.
+      <b>64 of 105 signals are research-gated; 40 are basic</b> (discovery +
+      contacts). No entitlement / plan gate exists on the filter or the "+
+      Signal" picker today (only data-presence + roadmap-status).
+    </td>
+    <td class="why">
+      Gate at the <b>verdict / filter layer</b>, never the global hydrate
+      (storage stays global for margin). Compute
+      <code>entitledFamilies</code> once in <code>buildWorkbenchRows</code> and
+      null-out un-entitled perSignal verdicts + gated numeric values (<span
+        class="src"
+        >workbench-rows.ts:443,456,458,506-526</span
+      >); make <code>resolveMatches</code>/<code>evaluateSignal</code>
+      entitlement-aware (defense-in-depth); gate the picker + library
+      enumerators so un-entitled families aren't offered (<span class="src"
+        >leads-workbench.ts:1275,1327 · discovery-signals.ts:214 ·
+        page.tsx:121</span
+      >). Needs a <b>signal→family map for all 105</b> (a partial one exists via
+      <code>SIG_META.researches</code>). Folds into Phase 3, and is the
+      enforcement behind FT-2's basic-only filter.
+    </td>
+  </tr>
+</table>
+
+<h3>Copy fixes — remove false claims; freshness only in Terms (decision 3)</h3>
+<ul class="tight">
+  <li>
+    <b><code>faq.a3</code> "Always current… on demand… never stale"</b> — remove
+    it. Don't replace with a freshness claim; just drop the sentence.
+    <span class="src">en.json:1327</span>
+  </li>
+  <li>
+    <b>"1 credit = 1 lead with contacts" / "contacts on every lead"</b> — soften
+    to "a lead's core scan (contacts where reachable + site tech)";
+    stamp-on-empty falsifies the absolute promise.
+    <span class="src">CreditExplainer.tsx:14 · en.json:1308,1374</span>
+  </li>
+  <li>
+    <b
+      >Free-tier bullets "Unlimited free discovery / Map any market free / every
+      signal + expert layer"</b
+    >
+    — rewrite to FT-2 reality (search-only, up to 50).
+    <b>Prerequisite for FT-2, not a follow-up.</b>
+    <span class="src">en.json p1_f2 · faq.a5 · p1_f4</span>
+  </li>
+  <li>
+    <b>"Verified contacts, refreshed weekly"</b> — drop "refreshed weekly" (real
+    windows are 30–182d); reserve "verified" for contacts that actually passed
+    email-verify.
+  </li>
+  <li>
+    <b>Terms / legal only</b> (never marketing): the freshness windows, the
+    non-exclusive shared-index license (G7), and the empty-payload charge/refund
+    policy (G4) — including reconciling the current "credits non-refundable"
+    clause.
+    <span class="src">refunds.s2_p1 · en.json:164</span>
+  </li>
+</ul>
+
+<h3 id="ft2-model">
+  FT-2 · "Search everywhere" — corrected model (all plans)
+  <span class="src">· owner clarification 2026-07-08</span>
+</h3>
+<div class="callout">
+  <p style="margin-top: 0">
+    <b>What it is.</b> A search mode for <b>all plans</b> — not free-only. The
+    user picks signals and a lead count (<b>no market to pick</b>); we search
+    <b>our whole index across every market</b> and return leads that match his
+    signals and have contacts, at <b>1 credit each</b>. Free tier is
+    <i>restricted to</i> this mode (can't open new markets); paid tiers get it
+    <i>plus</i> Target.
+  </p>
+  <ul class="tight">
+    <li>
+      <b>Cross-market, never one cell.</b> If a market has 0 matches we keep
+      walking the rest of the index until we hit the requested count or run out.
+      <span class="why"
+        >(Correction: today's stub still resolves onto the discovery's 1–3 cells
+        — <span class="src">raw-list.ts:66-67 · page.tsx:183</span> — so true
+        all-markets search is a new keyset-over-all-<code>Business</code> build,
+        exactly the doc's <code>searchIndexLeadsAction</code>.)</span
+      >
+    </li>
+    <li>
+      <b>Charge only for what we deliver.</b> Ask for 30, we full-match 24 →
+      charge <b>24</b> (<code>settleRun(insertedCount)</code>).
+    </li>
+    <li>
+      <b>Basic info only in the table</b> — discovery (Maps profile) + contacts.
+      Reviews / ads / SERP / site-tech are <b>not shown</b>; unlocking them on a
+      lead's page charges per-family. So the flat 1 credit buys exactly what it
+      shows — <b>list membership + a contacts entitlement</b> — which is
+      <i>not</i> an arbitrage (no 10-for-1 leak) and <i>is</i> the entitlement
+      model. Build FT-2 <b>after</b> the ledger (Phase 3).
+    </li>
+    <li>
+      <b>Filter-entitlement rule (your question — code-confirmed leak).</b> You
+      can only <b>filter</b> by signals you're entitled to. In search mode
+      that's the <b>40 BASIC signals</b> (profile · rating · review-count ·
+      contacts); the <b>64 research-gated signals</b> (reply rate, ad presence,
+      rank, site speed…) are <b>locked</b> — you can't match on data you haven't
+      paid for, <i>even though our DB holds it from another agency</i>. Today
+      the code lets you: <code>resolveMatches</code> runs over a
+      globally-hydrated business (<span class="src"
+        >signal-eval.ts:1931 — businessId-only, no agency scope</span
+      >) and the workbench evaluates the <b>whole</b> 105-signal library per
+      lead (<span class="src">workbench-rows.ts:456</span>). The gate lives at
+      the verdict/filter layer, not the shared storage — see <b>G9</b>.
+    </li>
+  </ul>
+  <p>
+    <b>"Full match" trap.</b> Keeping only leads that match
+    <i>every</i> selected signal with no missing data returns ~0 in thin
+    markets. <i>Example:</i> 4 signals, one can't compute on a small market →
+    every lead drops. <b>Fix:</b> a <b>threshold</b> — keep leads matching the
+    signals we can check, show "matched 3 of 4 · 1 no data," and say "<b
+      >up to</b
+    >
+    N" (the free 50 credits are also shared with touchpoints).
+  </p>
+  <p style="margin-bottom: 0">
+    <b>Honest search-mode copy</b> (replaces the current "reviews and signals
+    already in" · <span class="src">MarketStep.tsx:292</span>): "Pick your
+    signals — we'll pull up to N matching leads from every market we've mapped,
+    with contacts. You're charged only for the leads we actually deliver. Add
+    reviews, ads or site data on any lead for extra credits."
+  </p>
+</div>
+
+<h3>Revised sequencing</h3>
+<ol class="tight" style="padding-left: 20px">
+  <li>
+    <b>Decide G1</b> (permanent-view vs expire) — recommended permanent-view;
+    fix the predicate to match. Nothing builds until this is set.
+  </li>
+  <li>
+    <b>Phase 1 · ledger + enum, ship dark</b> — <b>no backfill</b> (decision 1).
+    Add <code>AgencyEntitlement</code> + the renamed status + the XOR CHECK,
+    behind a runtime flag.
+  </li>
+  <li>
+    <b>Phase 2 · billing decouple</b> — flip the estimate reducer (G6), the
+    four-quadrant fan-out, <b>the cell path (G2)</b>, and mint-once at settle
+    (G5). Shadow-run on a Neon branch with a defined accept gate (new-billable ≥
+    old for every replay except intended free no-ops; zero double-mints). Encode
+    the empty-payload rule (G4).
+    <b>Vendor-license sign-off (G7) is a blocker here.</b>
+  </li>
+  <li>
+    <b>Phase 3 · read-gate at the loader</b> across all four surfaces (G3) +
+    honest teasers. Ship <b>before/with</b> P2's charge (G8) to close the
+    free-read arbitrage window.
+  </li>
+  <li>
+    <b>FT-1</b> anytime — bucket move <b>plus</b> the billing-card display fix
+    (show the free balance + any expiry correctly).
+  </li>
+  <li>
+    <b>FT-2</b> after Phase 3 — as "1cr = list + contacts entitlement,"
+    threshold matching, server-side lock.
+  </li>
+</ol>
+
+<h2>The model, stated cleanly</h2>
+<p>
+  Two decisions that today share one switch must become <b>independent axes</b>:
+</p>
+<table>
+  <tr>
+    <th style="width: 210px">Decision</th>
+    <th>Question</th>
+    <th>Lever</th>
+    <th>Who feels it</th>
+  </tr>
+  <tr>
+    <td><b>(A) Run the vendor?</b></td>
+    <td>Is <b>our DB copy</b> of this unit fresh?</td>
+    <td>Cost / margin (internal)</td>
+    <td>Nobody — invisible to the user</td>
+  </tr>
+  <tr>
+    <td><b>(B) Charge the user?</b></td>
+    <td>Does <b>this agency</b> hold a valid entitlement?</td>
+    <td>Revenue</td>
+    <td>The user — pays for what they receive</td>
+  </tr>
+</table>
+<p class="why">
+  Storage stays <b>global</b> (one shared copy = our margin lever — unchanged).
+  The only new per-agency object is an <b>entitlement ledger</b>. Serve-from-DB
+  is our best-margin sale (full price, ~$0 COGS); the user&rsquo;s only
+  difference between &ldquo;from our index&rdquo; and &ldquo;live pull&rdquo; is
+  <b>speed</b>.
+</p>
+
+<h3>The four quadrants (target behaviour)</h3>
+<div class="quad">
+  <div class="qh"></div>
+  <div class="qh">
+    Our DB copy is FRESH<br /><span
+      style="font-weight: 400; text-transform: none"
+      >(no vendor spend)</span
+    >
+  </div>
+  <div class="qh">
+    Our DB copy is STALE / absent<br /><span
+      style="font-weight: 400; text-transform: none"
+      >(vendor runs)</span
+    >
+  </div>
+
+  <div class="qrow">You already OWN this unit<br />(bought it before)</div>
+  <div class="qcell free">
+    <span class="tag">SKIPPED_ENTITLED</span>
+    <b>$0 — already current</b>
+    Serve from DB. A &ldquo;refresh&rdquo; here is a <b>free no-op</b> —
+    it&rsquo;s fresh, we run nothing, so nothing to charge.
+  </div>
+  <div class="qcell free">
+    <span class="tag">REFRESH = CHARGE</span>
+    <b>$0 to view · refresh charges</b>
+    Viewing your copy stays free. A refresh re-runs the vendor (real cost)
+    &rarr; charged. Charge tracks the <i>run</i>, not the click.
+  </div>
+
+  <div class="qrow">
+    You DON&rsquo;T own it<br />(new buy&nbsp;OR&nbsp;refresh)
+  </div>
+  <div class="qcell money">
+    <span class="tag">SERVED_FROM_DB ← new</span>
+    <b>CHARGE full · no vendor</b>
+    The inverted high-margin path. Grant entitlement. <i>Today: $0.</i>
+  </div>
+  <div class="qcell money">
+    <span class="tag">QUEUED → DONE</span>
+    <b>CHARGE full · run vendor</b>
+    Grant entitlement on success. (Correct today.)
+  </div>
+</div>
+<p class="why">
+  Two rules do all the work: <b>(1)</b> the only free path is delivering data
+  you <b>already own</b> &mdash; the bottom-left cell (<b
+    >we have it, you haven&rsquo;t bought it</b
+  >) is the whole ballgame: $0 today, a full-price near-zero-cost sale in the
+  target. <b>(2)</b> An owner is charged to
+  <b>refresh only when the data is outdated</b> and we actually re-run the
+  vendor (real work, real cost). Refreshing still-fresh data is a
+  <b>free no-op</b> &mdash; we show &ldquo;fresh&rdquo; and run nothing, so
+  there&rsquo;s nothing to charge. (A non-owner still always pays to acquire a
+  unit, even from a fresh cache.)
+  <span class="src">owner decision · 2026-07-08 (revised)</span>
+</p>
+
+<h2>Scorecard — current system vs the model</h2>
+<p class="sub" style="margin-bottom: 8px">
+  1&ndash;10, current &rarr; target (post-fix). Weighted overall:
+  <span class="sc s-lo">2</span> &rarr; <span class="sc s-hi">9</span>.
+  Headline:
+  <i
+    >Mapsly conflates &ldquo;is our copy fresh&rdquo; with &ldquo;has this
+    agency paid&rdquo; into one global boolean — so the best-margin path earns
+    $0 and one agency&rsquo;s paid competitive research is handed to its rivals
+    for free.</i
+  >
+</p>
+<table>
+  <tr>
+    <th>Dimension</th>
+    <th style="width: 62px">Now</th>
+    <th style="width: 62px">Target</th>
+    <th>Why it scores there</th>
+    <th>The fix</th>
+  </tr>
+  <tr class="ghead">
+    <td colspan="5">Architect</td>
+  </tr>
+  <tr>
+    <td><b>Data-model fit</b> for per-agency entitlement</td>
+    <td><span class="sc s-lo">2</span></td>
+    <td><span class="sc s-hi">9</span></td>
+    <td class="why">
+      No table anywhere expresses &ldquo;agency X paid for (business ×
+      family)&rdquo;. The only agency-tagged object is
+      <code>EnrichmentRun</code> — a per-run billing envelope, not an
+      entitlement.
+    </td>
+    <td class="why">
+      Add additive <code>AgencyEntitlement</code> (agencyId,
+      businessId?/cellKey?, family, grantedAt, sourceRunId) with unique keys.
+    </td>
+  </tr>
+  <tr>
+    <td><b>Entitlement isolation</b> — does B get A&rsquo;s paid data?</td>
+    <td><span class="sc s-lo">1</span></td>
+    <td><span class="sc s-hi">9</span></td>
+    <td class="why">
+      B gets it on both axes: <b>free</b> (A&rsquo;s run stamps the global
+      cursor → billable 0) <b>and visible</b> (<code>getLeadDetail</code> reads
+      WHERE businessId, no agency filter).
+    </td>
+    <td class="why">
+      Gate every research read + every billing decision on an entitlement
+      lookup, not the global cursor.
+    </td>
+  </tr>
+  <tr>
+    <td><b>Separation</b> of run-vendor vs charge-user</td>
+    <td><span class="sc s-lo">1</span></td>
+    <td><span class="sc s-hi">9</span></td>
+    <td class="why">
+      Same boolean sets job status <i>and</i> cost in one expression (<code
+        >alreadyFresh ? SKIPPED_FRESH(0) : QUEUED</code
+      >).
+    </td>
+    <td class="why">
+      Split: <code>RUN = isDbFresh(cursor)</code>;
+      <code>CHARGE = !hasEntitlement(agency,unit,family)</code>.
+    </td>
+  </tr>
+  <tr>
+    <td><b>Correctness</b> / no silent leak</td>
+    <td><span class="sc s-lo">2</span></td>
+    <td><span class="sc s-hi">9</span></td>
+    <td class="why">
+      Leak is fully silent — no error/flag/log. A stranger&rsquo;s job reads as
+      &ldquo;done&rdquo; and the workbench shows green.
+    </td>
+    <td class="why">
+      Make entitlement the source of truth for run-state too; add invariant
+      tests (B pays full, sees locked pre-pay).
+    </td>
+  </tr>
+  <tr>
+    <td><b>Migration safety</b> of introducing entitlement</td>
+    <td><span class="sc s-mid">4</span></td>
+    <td><span class="sc s-hi">8</span></td>
+    <td class="why">
+      Additive table is low-risk; the hazard is back-fill — flipping the gate
+      without grandfathering re-charges existing agencies.
+    </td>
+    <td class="why">
+      Ship behind a flag; back-fill grants from <code>EnrichmentRun</code> +
+      <code>Lead</code> history with a grace-clamped <code>grantedAt</code>.
+    </td>
+  </tr>
+  <tr class="ghead">
+    <td colspan="5">Marketer</td>
+  </tr>
+  <tr>
+    <td><b>Revenue capture</b> on the &ldquo;we already have it&rdquo; path</td>
+    <td><span class="sc s-lo">1</span></td>
+    <td><span class="sc s-hi">9</span></td>
+    <td class="why">
+      Zero. DB-fresh ⇒ <code>billable = total − fresh</code> charges nothing and
+      serves instantly — the best transaction we can do returns $0.
+    </td>
+    <td class="why">
+      Charge full published price on entitlement-miss even when served from DB.
+    </td>
+  </tr>
+  <tr>
+    <td><b>Margin capture</b> on serve-from-DB</td>
+    <td><span class="sc s-lo">1</span></td>
+    <td><span class="sc s-hi">10</span></td>
+    <td class="why">
+      ~$0 COGS yet $0 revenue — 100% of the best-margin path forfeited. The
+      entire economic point of a shared index is uncaptured.
+    </td>
+    <td class="why">
+      Entitlement-miss = full charge; DB-fresh = no vendor call → the shared
+      index becomes the top-margin revenue line.
+    </td>
+  </tr>
+  <tr>
+    <td><b>Value clarity</b> of the speed-vs-data pitch</td>
+    <td><span class="sc s-mid">3</span></td>
+    <td><span class="sc s-hi">8</span></td>
+    <td class="why">
+      No coherent pitch — the user pays sometimes and not others based on
+      invisible cursors set by agencies they&rsquo;ve never heard of. Reads as
+      arbitrary.
+    </td>
+    <td class="why">
+      Frame it: &ldquo;Instant — from Mapsly&rsquo;s index&rdquo; vs &ldquo;Live
+      pull — ~30s&rdquo;, same credits, same data, only speed differs.
+    </td>
+  </tr>
+  <tr>
+    <td><b>Competitive-data protection</b></td>
+    <td><span class="sc s-lo">1</span></td>
+    <td><span class="sc s-hi">9</span></td>
+    <td class="why">
+      Most damaging for a signal-moat product: agency A pays to research a
+      market, rival B receives that exact intel — reviews, contacts, ads, SERP —
+      free and instant.
+    </td>
+    <td class="why">
+      Entitlement makes each agency&rsquo;s paid research private; the shared
+      copy is a COGS optimization, never a free hand-off.
+    </td>
+  </tr>
+  <tr>
+    <td><b>Pricing-model integrity</b></td>
+    <td><span class="sc s-lo">2</span></td>
+    <td><span class="sc s-hi">9</span></td>
+    <td class="why">
+      &ldquo;1 credit = 1 lead with contacts&rdquo; is non-deterministic in
+      practice — the price depends on whether a stranger ran the same unit
+      recently.
+    </td>
+    <td class="why">
+      Price = deterministic function of (unit, agency-owns-it?). Owning it
+      (until per-agency stale) is the only discount.
+    </td>
+  </tr>
+</table>
+
+<h2>Scenario matrix — 16 cases, confirmed against code</h2>
+<p class="sub" style="margin-bottom: 8px">
+  Grouped by leak type. <span class="sev sev-crit">critical</span> = direct
+  revenue loss or competitive-data exposure. Every &ldquo;now&rdquo; is
+  code-cited.
+</p>
+<table>
+  <tr>
+    <th style="width: 30px">#</th>
+    <th style="width: 200px">Scenario</th>
+    <th style="width: 74px">Sev</th>
+    <th>Now (code)</th>
+    <th>Should be</th>
+    <th style="width: 190px">Revenue impact</th>
+  </tr>
+
+  <tr class="ghead">
+    <td colspan="6">Billing leaks — the money path</td>
+  </tr>
+  <tr>
+    <td>S1</td>
+    <td><b>New agency views a unit another agency paid for</b> (DB-fresh)</td>
+    <td><span class="sev sev-crit">critical</span></td>
+    <td class="why">
+      fresh=1 → billable=0; job <code>SKIPPED_FRESH</code>, $0, instant. B pays
+      nothing. <span class="src">estimate.ts:113 · dispatch.ts:645</span>
+    </td>
+    <td class="why">
+      Serve from DB (no vendor); B not entitled → charge full 1 cr, grant
+      entitlement.
+    </td>
+    <td class="imp">
+      Every serve-from-DB lead is a full-price sale given away — the core
+      inversion.
+    </td>
+  </tr>
+  <tr>
+    <td>S5</td>
+    <td><b>30/100 partial-market overlap</b> (bulk enrich)</td>
+    <td><span class="sev sev-crit">critical</span></td>
+    <td class="why">
+      countFresh=30 → B billed 70, 30 free+instant. B pays 70, receives 100.
+      <span class="src">enrich-fresh.ts:90 · estimate.ts:112</span>
+    </td>
+    <td class="why">
+      B entitled to 0 → charge 100. Vendor on the 70 stale/absent; serve 30 from
+      cache; grant 100.
+    </td>
+    <td class="imp">
+      ~30% of every overlapping bulk run leaks; grows with market maturity.
+    </td>
+  </tr>
+  <tr>
+    <td>S15</td>
+    <td><b>Mixed run</b>: owned-stale + unowned-fresh + absent</td>
+    <td><span class="sev sev-crit">critical</span></td>
+    <td class="why">
+      billable = 50 − 30 fresh = 20 charged; receives 50.
+      <span class="src">estimate.ts:112</span>
+    </td>
+    <td class="why">
+      Charge all 50 (20 stale-for-B + 30 unowned); vendor only on 20 absent.
+    </td>
+    <td class="imp">
+      Under-charged by 30 on a single run; every active-market re-run leaks.
+    </td>
+  </tr>
+  <tr>
+    <td>S14</td>
+    <td><b>Per-cell ads / SERP</b> free-rides the whole metro</td>
+    <td><span class="sev sev-crit">critical</span></td>
+    <td class="why">
+      Cell fresh via <code>AdMarketRun.ranAt</code> → B&rsquo;s cell job
+      <code>SKIPPED_FRESH</code>, $0; B gets the market&rsquo;s ad intel free.
+      <span class="src">enrich-fresh.ts:105</span>
+    </td>
+    <td class="why">
+      B not entitled → charge 4 cr, serve from <code>AdMarketRun</code> (no
+      Apify/DfS), grant cell entitlement.
+    </td>
+    <td class="imp">
+      Highest-ticket (4 cr) + highest-COGS unit leaks at whole-cell granularity.
+    </td>
+  </tr>
+  <tr>
+    <td>S12</td>
+    <td><b>Free-tier / trial abuse</b> in a mature market</td>
+    <td><span class="sev sev-crit">critical</span></td>
+    <td class="why">
+      All units DB-fresh → every enrich <code>SKIPPED_FRESH</code> at $0. The
+      50-credit grant is never consumed.
+      <span class="src">dispatch.ts:645</span>
+    </td>
+    <td class="why">
+      Each unit charges a credit regardless of DB freshness → free tier exhausts
+      and converts.
+    </td>
+    <td class="imp">
+      Free tier never converts; mature-market data is a permanent free-for-all.
+    </td>
+  </tr>
+  <tr>
+    <td>S6</td>
+    <td><b>Two agencies buy the same absent unit</b> concurrently</td>
+    <td><span class="sev sev-high">high</span></td>
+    <td class="why">
+      Second fan-out flips <code>SKIPPED_FRESH</code> → settle refunds B to $0;
+      or vendor runs twice. <span class="src">dispatch.ts:641</span>
+    </td>
+    <td class="why">
+      Both pay + both granted; vendor runs once; the other served from the
+      just-written copy.
+    </td>
+    <td class="imp">
+      Every concurrent duplicate burns double COGS <i>or</i> gives buyer #2 a
+      free unit.
+    </td>
+  </tr>
+  <tr>
+    <td>S7</td>
+    <td><b>Family ran but returned EMPTY</b>, still stamped cursor</td>
+    <td><span class="sev sev-high">high</span></td>
+    <td class="why">
+      Cursor fresh → B&rsquo;s job $0; B gets empty free, and the empty copy is
+      frozen 90d. <span class="src">scan.ts:388 · dispatch.ts:645</span>
+    </td>
+    <td class="why">
+      B not entitled → charge (they get the answer); split &ldquo;we ran&rdquo;
+      from &ldquo;we found&rdquo; so empty can be re-fetched.
+    </td>
+    <td class="imp">
+      Un-entitled empty reads free; stale-empty can&rsquo;t be resold on
+      refresh.
+    </td>
+  </tr>
+  <tr>
+    <td>S8</td>
+    <td><b>Entitlement across a refresh</b> — you own v1, C pushes v2</td>
+    <td><span class="sev sev-high">high</span></td>
+    <td class="why">
+      No versioning/entitlement: A reads latest rows free because C&rsquo;s run
+      made the cursor fresh. <span class="src">lead-detail.ts:579</span>
+    </td>
+    <td class="why">
+      <b>Decided 2026-07-08 (revised):</b> charge tracks the vendor <i>run</i>,
+      not the click. A owns view access, so A sees whatever is current for free
+      — if C already refreshed to a fresh v2, A views v2 free (we re-run nothing
+      for A). A pays ONLY when A refreshes <b>stale</b> data (a real re-run).
+      Non-owners always pay to see it.
+    </td>
+    <td class="imp">
+      Revenue from non-owners + owner refreshes of stale data; owners share a
+      fresh copy (we never re-run per-owner) — accepted.
+    </td>
+  </tr>
+  <tr>
+    <td>S16</td>
+    <td><b>Tech rides contacts</b> — un-entitled tech unlocks contacts</td>
+    <td><span class="sev sev-high">high</span></td>
+    <td class="why">
+      Tech intent, but <code>contactsExtractedAt</code> fresh → $0 and B
+      receives the full contacts row. <span class="src">dispatch.ts:412</span>
+    </td>
+    <td class="why">
+      B not entitled to contacts → charge 1 cr, serve from DB, grant
+      contacts(+tech).
+    </td>
+    <td class="imp">
+      Booking-tool prospecting (a core use case) is free in any enriched cell.
+    </td>
+  </tr>
+  <tr>
+    <td>S4</td>
+    <td>Your bought unit later goes stale</td>
+    <td><span class="sev sev-med">medium</span></td>
+    <td class="why">
+      Cursor &gt; window → re-run, A charged again.
+      <span class="src">dispatch.ts:641</span>
+    </td>
+    <td class="why">
+      A&rsquo;s entitlement stale-for-A → A pays to refresh. Correct — but only
+      by clock-coincidence today.
+    </td>
+    <td class="imp">
+      Correct in isolation; leaks refresh revenue once clocks diverge (S8).
+    </td>
+  </tr>
+
+  <tr class="ghead">
+    <td colspan="6">Read / visibility leaks — the competitive moat</td>
+  </tr>
+  <tr>
+    <td>S9</td>
+    <td>
+      <b>Drawer shows enrichment you never bought</b> (free-discovery read)
+    </td>
+    <td><span class="sev sev-crit">critical</span></td>
+    <td class="why">
+      Only gate is discovery-cell membership; every child table read WHERE
+      businessId, no agency filter. B sees all of A&rsquo;s
+      contacts/reviews/ads/AI free.
+      <span class="src">lead-detail.ts:534&ndash;660</span>
+    </td>
+    <td class="why">
+      Drawer renders only families B is entitled to; the rest show a locked
+      &ldquo;enrich to unlock&rdquo; teaser.
+    </td>
+    <td class="imp">
+      One free discovery exposes every competitor&rsquo;s enrichment — removes
+      the reason to pay.
+    </td>
+  </tr>
+  <tr>
+    <td>S10</td>
+    <td>
+      <b>Workbench coverage shows &ldquo;done&rdquo;</b> for work you
+      didn&rsquo;t pay for
+    </td>
+    <td><span class="sev sev-crit">critical</span></td>
+    <td class="why">
+      Run-state counts <code>EnrichmentJob</code> WHERE businessId across all
+      agencies → A&rsquo;s jobs make each family read &ldquo;done&rdquo; for B.
+      <span class="src">coverage-matrix.ts:91</span>
+    </td>
+    <td class="why">
+      Coverage reflects B&rsquo;s entitlements only; un-entitled reads as
+      &ldquo;available&rdquo; and offers the billable enrich.
+    </td>
+    <td class="imp">
+      The upsell surface marks the product as already delivered — B never sees
+      anything to buy.
+    </td>
+  </tr>
+  <tr>
+    <td>S11</td>
+    <td><b>CSV / one-pager / Proof-Pack export</b> of un-entitled data</td>
+    <td><span class="sev sev-crit">critical</span></td>
+    <td class="why">
+      Export pulls the same WHERE businessId rows and ships A&rsquo;s paid
+      emails / ad intel out the door for $0.
+      <span class="src">reports/share.ts</span>
+    </td>
+    <td class="why">
+      Exports include only entitled fields; exporting an un-entitled field
+      blocks or charges first.
+    </td>
+    <td class="imp">
+      A single free discovery becomes a full contact-database download —
+      worst-case leak.
+    </td>
+  </tr>
+
+  <tr class="ghead">
+    <td colspan="6">Correct today / reference — must not regress</td>
+  </tr>
+  <tr>
+    <td>S2</td>
+    <td>New agency first to touch an <b>absent</b> unit</td>
+    <td><span class="sev sev-low">low</span></td>
+    <td class="why">
+      Cursor null → billable, vendor runs, charged, cursor stamped.
+      <span class="src">dispatch.ts:641</span>
+    </td>
+    <td class="why">
+      Identical — run + charge + grant. The one path where the two decisions
+      already agree.
+    </td>
+    <td class="imp">Reference-correct; the invariant the fix must preserve.</td>
+  </tr>
+  <tr>
+    <td>S3</td>
+    <td>Same agency re-views a unit it bought (in-window)</td>
+    <td><span class="sev sev-low">low</span></td>
+    <td class="why">
+      Cursor fresh → $0, served from DB.
+      <span class="src">dispatch.ts:645</span>
+    </td>
+    <td class="why">
+      Right outcome, wrong reason — works via global cursor, not ownership;
+      breaks the moment they diverge.
+    </td>
+    <td class="imp">
+      Neutral now; becomes a mischarge once freshness ≠ ownership.
+    </td>
+  </tr>
+  <tr>
+    <td>S13</td>
+    <td>Agency churn / downgrade — do entitlements persist?</td>
+    <td><span class="sev sev-med">medium</span></td>
+    <td class="why">
+      Access never tied to entitlement → &ldquo;keeps&rdquo; everything,
+      could&rsquo;ve had it free anyway. No store to grant/revoke.
+    </td>
+    <td class="why">
+      Policy: keep purchased units permanently; refreshing a stale unit needs
+      active credits.
+    </td>
+    <td class="imp">
+      &ldquo;Keep what you paid, lose the rest&rdquo; is inexpressible today.
+    </td>
+  </tr>
+</table>
+
+<h2>The fix — one ledger, two decoupled decisions</h2>
+<h3>Data model (additive)</h3>
+<table>
+  <tr>
+    <th style="width: 210px">Change</th>
+    <th>Detail</th>
+  </tr>
+  <tr>
+    <td>
+      <b>New <code>AgencyEntitlement</code></b>
+    </td>
+    <td class="why">
+      <code>agencyId</code>, <code>businessId?</code> (per-business families),
+      <code>cellKey?</code> (meta_ads/serp), <code>family</code>,
+      <code>grantedAt</code>, <code>sourceRunId?</code>,
+      <code>creditsCharged</code>. Unique
+      <code>(agencyId, businessId, family)</code> and
+      <code>(agencyId, cellKey, family)</code>; index
+      <code>(agencyId, family)</code>. &ldquo;Valid for this agency&rdquo; =
+      <code>isFresh(grantedAt, family.window, now)</code> — the same pure
+      predicate, reading <code>grantedAt</code> instead of the global cursor.
+      <span class="src">new model near schema.prisma:2295</span>
+    </td>
+  </tr>
+  <tr>
+    <td><b>+2 job outcomes</b></td>
+    <td class="why">
+      <code>SERVED_FROM_DB</code> (charged, zero vendor COGS — the high-margin
+      path) and <code>SKIPPED_ENTITLED</code> (agency already paid → $0). Add
+      both to the settle/COVERED filters.
+      <span class="src">schema.prisma:2182</span>
+    </td>
+  </tr>
+  <tr>
+    <td><b>Cursors: unchanged</b></td>
+    <td class="why">
+      Global <code>Business.*LastAt</code> + <code>AdMarketRun.ranAt</code> stay
+      — <b>demoted</b> to the vendor-run gate only. No agencyId column on any
+      research table (shared storage is the point).
+      <span class="src">schema.prisma:342&ndash;358</span>
+    </td>
+  </tr>
+</table>
+
+<h3>Where the code changes</h3>
+<table>
+  <tr>
+    <th style="width: 220px">Area</th>
+    <th>Now → target</th>
+  </tr>
+  <tr>
+    <td>
+      <b>Billing input</b> (the decouple)<br /><span class="src"
+        >enrich-fresh-db.ts:36 · estimate.ts:113</span
+      >
+    </td>
+    <td class="why">
+      Add <code>loadEntitlements()</code> /
+      <code>countEntitled()</code> mirroring the freshness helpers but reading
+      <code>grantedAt</code>. Estimate&rsquo;s <code>fresh</code> input becomes
+      &ldquo;already-entitled count&rdquo; →
+      <code>billable = total − entitled</code>.
+      <b>DB freshness stops being a billing input.</b>
+    </td>
+  </tr>
+  <tr>
+    <td>
+      <b>Per-business fan-out</b><br /><span class="src"
+        >dispatch.ts:641&ndash;687</span
+      >
+    </td>
+    <td class="why">
+      Two reads per unit → the four quadrants: entitled →
+      <code>SKIPPED_ENTITLED</code>($0); !entitled&amp;dbFresh →
+      <code>SERVED_FROM_DB</code> (charge, <b>no worker enqueue</b>, mint
+      grant); !entitled&amp;dbStale → <code>QUEUED</code> (run, mint on DONE).
+    </td>
+  </tr>
+  <tr>
+    <td>
+      <b>Per-cell fan-out</b><br /><span class="src"
+        >dispatch.ts:695&ndash;718</span
+      >
+    </td>
+    <td class="why">
+      Same quadrant split on <code>(agencyId, cellKey, family)</code> — serve
+      ads/SERP from <code>AdMarketRun</code> at full charge / zero Apify spend
+      when we already hold it.
+    </td>
+  </tr>
+  <tr>
+    <td>
+      <b>Settle</b><br /><span class="src"
+        >dispatch.ts:1216 · server.ts:518</span
+      >
+    </td>
+    <td class="why">
+      Billable = DONE + <code>SERVED_FROM_DB</code> (exclude
+      <code>SKIPPED_ENTITLED</code>). Mint the entitlement
+      <b>transactionally</b> inside settle so a paid unit is granted exactly
+      once.
+    </td>
+  </tr>
+  <tr>
+    <td>
+      <b>Read: <code>getLeadDetail</code></b
+      ><br /><span class="src">lead-detail.ts:515&ndash;671</span>
+    </td>
+    <td class="why">
+      Load this agency&rsquo;s entitlements once; per family, un-entitled → a
+      <b>teaser</b> shape (&ldquo;available · N credits&rdquo;) instead of the
+      real rows. Gate at the shaping layer so the teaser knows data exists.
+    </td>
+  </tr>
+  <tr>
+    <td>
+      <b>Read: coverage-matrix</b><br /><span class="src"
+        >coverage-matrix.ts:66&ndash;131</span
+      >
+    </td>
+    <td class="why">
+      Replace the global job-presence signal with a per-agency entitlement read
+      (function already takes <code>agencyId</code>). Un-entitled-but-in-DB
+      reads as &ldquo;available&rdquo;, not &ldquo;done&rdquo;; keep the job
+      read only for <i>this</i> agency&rsquo;s in-flight runs.
+    </td>
+  </tr>
+  <tr>
+    <td><b>Read: exports</b><br /><span class="src">reports/share.ts</span></td>
+    <td class="why">
+      Same entitlement gate before serializing any research into CSV /
+      one-pager; un-entitled families omitted from downloads.
+    </td>
+  </tr>
+</table>
+
+<h2>Phased plan — one phase = one session</h2>
+<table>
+  <tr>
+    <th style="width: 34px">#</th>
+    <th style="width: 260px">Phase</th>
+    <th>Scope</th>
+    <th style="width: 92px">Risk</th>
+  </tr>
+  <tr>
+    <td>1</td>
+    <td>
+      <b>Ledger + enum, ship dark</b>
+      <span class="src">(backfill dropped · decision 1)</span>
+    </td>
+    <td class="why">
+      Add <code>AgencyEntitlement</code> + the two enum values (rename
+      <code>SERVED_FROM_DB</code> → <code>CHARGED_FROM_DB</code> · G8) + the XOR
+      <code>CHECK</code> (G5); migrate. Write
+      <code>loadEntitlements()</code>/<code>countEntitled()</code> but
+      don&rsquo;t wire them. Put the whole billing flip behind a runtime flag.
+      <b>No backfill</b> — pre-launch wipe means every launch-day first touch is
+      a genuine acquisition.
+    </td>
+    <td>
+      <span class="sc s-hi">Low</span>
+      <div class="why">additive + dormant</div>
+    </td>
+  </tr>
+  <tr>
+    <td>2</td>
+    <td>
+      <b>Decouple billing</b> · charge off entitlements, add
+      <code>SERVED_FROM_DB</code>
+    </td>
+    <td class="why">
+      Flip the billing input to <code>countEntitled</code>. Rewrite the fan-out
+      matrix (per-business + per-cell) into the four quadrants. Mint
+      entitlements transactionally in settle. Golden-value estimate tests + a
+      four-quadrant matrix test (billing invariant #1).
+    </td>
+    <td>
+      <span class="sc s-lo">High</span>
+      <div class="why">money path — shadow-run on a Neon test branch</div>
+    </td>
+  </tr>
+  <tr>
+    <td>3</td>
+    <td><b>Read-side scoping + teasers</b></td>
+    <td class="why">
+      Gate <code>getLeadDetail</code>, coverage-matrix, and exports on
+      entitlements; render un-entitled-but-in-DB families as &ldquo;available ·
+      N credits&rdquo; (agency voice). One entitlement read per surface, folded
+      into the existing <code>Promise.all</code>.
+    </td>
+    <td>
+      <span class="sc s-mid">Medium</span>
+      <div class="why">read/UX — reuse the same predicate as billing</div>
+    </td>
+  </tr>
+  <tr>
+    <td>4</td>
+    <td><b>Cleanup + margin telemetry</b></td>
+    <td class="why">
+      Add the &ldquo;COGS-avoided&rdquo; (DB-fresh but charged) metric for
+      margin dashboards; migrate remaining <code>SKIPPED_FRESH</code> writers →
+      <code>SKIPPED_ENTITLED</code>; update quote copy; sync docs + memory.
+    </td>
+    <td>
+      <span class="sc s-hi">Low</span>
+      <div class="why">
+        telemetry + copy; enum-drop deferred (human-required)
+      </div>
+    </td>
+  </tr>
+</table>
+<div class="callout warn">
+  <b
+    >VOID — superseded by owner decision 1 (2026-07-08): no migration / no
+    backfill.</b
+  >
+  All data + users are test and the DB is wiped before launch, so there is
+  nothing to grandfather. Phase 1 drops the backfill entirely and becomes
+  <b>ledger + enum, ship dark</b>. The original text is kept below for history
+  only.
+  <p
+    class="why"
+    style="margin: 8px 0 0; text-decoration: line-through; opacity: 0.6"
+  >
+    Migration — grandfather, don&rsquo;t hard-cutover. Phase 1&rsquo;s backfill
+    grants an entitlement for every (agency × unit × family) an agency has
+    demonstrably already accessed (from
+    <code>EnrichmentRun.scopeRefsJson</code> + <code>Lead</code>), with
+    <code
+      >grantedAt = max(run.finishedAt, migrationDate − window + graceDays)</code
+    >
+    so nothing locks on day one. Billing (Phase 2) and the read gate (Phase 3)
+    go live only after the backfill verifies row counts. Framing: &ldquo;you
+    keep everything you&rsquo;ve pulled; refreshes cost credits.&rdquo;
+  </p>
+</div>
+
+<h2>Model risks — the honest counter-view</h2>
+<p class="sub" style="margin-bottom: 8px">
+  The mechanics are sound; these are the <i>business</i> judgments the model
+  itself forces. Worth a deliberate call before Phase 2.
+</p>
+<table>
+  <tr>
+    <th style="width: 300px">Risk</th>
+    <th>Note / how to hold it</th>
+  </tr>
+  <tr>
+    <td>
+      <b
+        >&ldquo;Charging full price for instant cached data feels like a
+        rip-off&rdquo;</b
+      >
+      once users realise the scrape ran weeks ago for someone else
+    </td>
+    <td class="why">
+      Defensible only if you sell the <b>data + a freshness guarantee</b>, not
+      the act of scraping. Message it as &ldquo;current, verified data,
+      delivered instantly&rdquo; — never surface &ldquo;served from cache&rdquo;
+      as &ldquo;we did nothing.&rdquo;
+    </td>
+  </tr>
+  <tr>
+    <td>
+      <b>&ldquo;I paid a credit and got 0 contacts&rdquo;</b> — an empty cached
+      payload still charges
+    </td>
+    <td class="why">
+      Serve-from-DB of a legitimately empty result bills full price with nothing
+      delivered — feels worse than a fresh empty pull that at least looked like
+      effort. Needs a policy: don&rsquo;t charge (or half-charge) an empty unit,
+      and split &ldquo;we ran&rdquo; from &ldquo;we found&rdquo; (S7) so empties
+      can be retried.
+    </td>
+  </tr>
+  <tr>
+    <td>
+      <b>Billing multiple agencies for the same one-time scrape</b> — ethics +
+      vendor ToS
+    </td>
+    <td class="why">
+      Economically it&rsquo;s a per-agency license (defensible), but
+      Google/Meta/DataForSEO ToS on redistributing scraped data — plus the
+      optics of &ldquo;double-dipping&rdquo; — warrant an explicit data-license
+      clause in the agency terms.
+    </td>
+  </tr>
+  <tr>
+    <td>
+      <b>Refresh charges only when data is outdated</b> —
+      <span
+        class="sev sev-low"
+        style="background: var(--green-50); color: var(--green)"
+        >decided</span
+      >
+    </td>
+    <td class="why">
+      <b>Owner decision 2026-07-08 (revised):</b> an owner is charged to refresh
+      ONLY when the data is stale and we re-run the vendor (real cost). If the
+      copy is still fresh, refreshing is a free no-op — we surface &ldquo;fresh
+      · no update needed&rdquo; and run nothing, so we don&rsquo;t bill for work
+      we didn&rsquo;t do. Non-owners still always pay to acquire. Needs a clear
+      per-family freshness state in the UI so users aren&rsquo;t nudged to
+      refresh fresh data.
+    </td>
+  </tr>
+  <tr>
+    <td>
+      <b>Migration double-billing</b> of existing customers
+      <span
+        class="sev sev-low"
+        style="background: var(--green-50); color: var(--green)"
+        >void</span
+      >
+    </td>
+    <td class="why">
+      <b>No longer applies — owner decision 1 (2026-07-08): no migration.</b>
+      All data + users are test; the DB is wiped before launch, so there is no
+      existing customer to double-bill. The whole risk disappears with the
+      backfill.
+    </td>
+  </tr>
+  <tr>
+    <td><b>Trust cost of &ldquo;locked&rdquo; data we visibly possess</b></td>
+    <td class="why">
+      Showing a competitor&rsquo;s lead as &ldquo;locked · N credits&rdquo;
+      while our index clearly has it can read as manufactured scarcity. Balance
+      conversion pressure against the perception of gating data &ldquo;you
+      already have.&rdquo; The teaser copy carries this.
+    </td>
+  </tr>
+</table>
+
+<h2>Free-tier changes — FT-1 · FT-2</h2>
+<p class="sub" style="margin-bottom: 8px">
+  Two margin-protection changes for the Free tier, code-confirmed. Neither
+  touches the paid tiers. FT-1 is a one-line accounting fix; FT-2 closes a real
+  COGS hole. (Reminder: &ldquo;Free&rdquo; is <b>not</b> a plan enum value — the
+  <code>AgencyPlan</code> enum is SOLO/GROWTH/AGENCY_PRO/BOUTIQUE, default SOLO;
+  &ldquo;free&rdquo; = no active Stripe sub, detected by
+  <code>isPaidAgency(stripeStatus)</code>.
+  <span class="src">seats.ts:34 · schema.prisma:110-113</span>)
+</p>
+
+<h3>FT-1 · Free 50 credits belong in the top-up bucket, not the plan bucket</h3>
+<p>
+  The wallet has four buckets — <code>planCredits</code> (recurring subscription
+  allotment), <code>purchasedCredits</code> (one-time top-ups,
+  <b>never expire</b>), <code>rolloverCredits</code>, <code>heldCredits</code>.
+  Today the free grant lands in the <b>plan</b> bucket — which implies a
+  subscription the free tier doesn&rsquo;t have.
+</p>
+<table>
+  <tr>
+    <th style="width: 150px">Aspect</th>
+    <th>Now</th>
+    <th>Change</th>
+  </tr>
+  <tr>
+    <td><b>Where the 50 land</b></td>
+    <td class="why">
+      <code>grantFreeTierIfNew()</code> does
+      <code>planCredits: { increment: 50 }</code>.
+      <span class="src"
+        >server.ts:854 · FREE_TIER_CREDITS=50 pricing.ts:59</span
+      >
+    </td>
+    <td class="why">
+      Increment <code>purchasedCredits</code> instead — the same never-expiring
+      bucket paid top-up packs use. <span class="src">server.ts:895</span>
+    </td>
+  </tr>
+  <tr>
+    <td><b>Ledger row</b></td>
+    <td class="why">
+      Already <code>type:"TOPUP", note:"free-tier-grant"</code> — semantics
+      already say &ldquo;top-up&rdquo;; only the bucket is wrong.
+    </td>
+    <td class="why">Unchanged. Idempotency (skip-if-any-TOPUP) still holds.</td>
+  </tr>
+  <tr>
+    <td><b>User-visible balance</b></td>
+    <td class="why">
+      Wallet API returns only the <b>summed</b> total.
+      <span class="src">wallet/route.ts:59</span>
+    </td>
+    <td class="why">
+      Wallet-API total is identical (sum-only ·
+      <span class="src">wallet/route.ts:59</span>). Spend order
+      plan&rarr;rollover&rarr;purchased means free credits drain last — harmless
+      (a free agency has no plan/rollover bucket).
+    </td>
+  </tr>
+</table>
+<div class="callout warn">
+  <b
+    >Correction (review · 2026-07-08): NOT "no display change," NOT one line.</b
+  >
+  The billing page reads the raw wallet and renders a <b>per-bucket</b> card —
+  Plan balance (<code>planCredits + rolloverCredits</code>) vs Top-up balance
+  (<code>purchasedCredits</code>) — and drives the "free credits used" bar off
+  Plan balance only (<span class="src"
+    >team/billing/page.tsx:157-161 · CurrentPlanWalletCard.tsx</span
+  >). Moving the free 50 to <code>purchasedCredits</code> makes a just-signed-up
+  free agency show <b>Plan balance 0 · "100% used · 0 of 50 left"</b>
+  while Top-up shows 50 — a wrong, conversion-killing display on the primary
+  upgrade surface. Also the test asserts
+  <code>planCredits</code> at <b>both</b>
+  <span class="src">server.test.ts:539 and :543</span>, not one.
+  <p class="why" style="margin: 8px 0 0">
+    <b>Per owner decision 4:</b> keep the bucket move, but the billing card must
+    <b>show the free balance correctly and surface any expiry</b> — a deliberate
+    small display fix (fold purchased into the displayed Plan balance for the
+    Free tier, or relabel), plus both test assertions. Never-expire is
+    <i>not</i> required (expiry is acceptable).
+  </p>
+</div>
+
+<h3>
+  FT-2 · Free tier = &ldquo;Search everywhere&rdquo; only · Target markets =
+  paid
+</h3>
+<div class="callout">
+  <b
+    >Superseded by the
+    <a href="#ft2-model" style="color: var(--indigo)">corrected FT-2 model</a>
+    (owner clarification 2026-07-08).</b
+  >
+  Key changes to the detail below: (1) "Search everywhere" is a mode for
+  <b>all plans</b>, not free-only — free tier is <i>restricted to</i> it; (2) it
+  searches <b>across every market</b> (a keyset over all <code>Business</code>),
+  not the discovery's cells; (3) it charges <b>only for delivered leads</b> (24
+  of 30); (4) it shows <b>basic info only</b> (discovery + contacts) so the flat
+  1 credit is <b>not</b> an arbitrage — richer families unlock per-family; (5)
+  filtering is limited to the <b>40 basic signals</b> — research-gated signals
+  are locked (G9); (6) match is a <b>threshold</b>, not full-match; (7) the lock
+  is <b>server-side</b>.
+</div>
+<div class="callout">
+  <b>Revised direction (owner, 2026-07-08) — simpler and airtight.</b> Instead
+  of letting free tier into &ldquo;Target markets&rdquo; under a per-cell
+  discovered+reached gate, <b>free tier can&rsquo;t open Target at all.</b>
+  <ul class="tight" style="margin-top: 6px">
+    <li>
+      <b>Free:</b> only the &ldquo;Search everywhere&rdquo; mode — leads pulled
+      from our existing enriched index, no discovery, no new research. Hard cap
+      <b>50 leads = 50 credits</b> (the promised &ldquo;50 free leads&rdquo;).
+    </li>
+    <li>
+      <b>Paid:</b> Target markets unlocked (can open brand-new markets)
+      <b>+</b> more than 50 leads <b>+</b> spend up to their credit balance (1
+      lead = 1 credit).
+    </li>
+  </ul>
+  This <b>supersedes</b> the earlier per-cell FT-2 (the
+  <code>freeTierCellsAllowed</code> helper, the
+  <code>freeLocked</code> preflight mirror, the stale-cell sub-decision, the
+  global-vs-agency &ldquo;reached&rdquo; choice — all dropped). Since free tier
+  never enters Target, there is no discovered/reached/stale math to police: the
+  whole thing collapses to a <b>flat plan check + a tab lock</b>, and it&rsquo;s
+  airtight (free triggers <b>zero</b> discovery census).
+  <span class="src"
+    >why block Target: discovery is $0 to the user (DISCOVERY_PRICE=0) but a
+    census costs us — and the only guard fires <code>if(netCredits&gt;0)</code>,
+    which is never true for discovery · actions.ts:606 · pricing.ts:486</span
+  >
+</div>
+<div class="callout bad">
+  <b
+    >Blocking finding: &ldquo;Search everywhere&rdquo; is a non-functional
+    stub</b
+  >
+  (scored <span class="sc s-lo">1.4</span>/10). Today the tab renders a mint
+  callout + a lead-count chipset, but
+  <b
+    >it calls no server action, runs no query, applies no signals, requires no
+    contacts, has no market grouping, and bills nothing</b
+  >
+  — and it <b>dead-ends</b>: Continue &rarr; <code>goTo("preview")</code>, but
+  the flow clamps
+  <code>if(step==="preview" &amp;&amp; cells.length===0) step="market"</code>,
+  and search mode never populates cells, so it bounces
+  <b>straight back to Market</b>. The lead-count slider drives nothing. So this
+  is a <b>from-scratch build</b>, not a tweak.
+  <span class="src"
+    >MarketStep.tsx:257-297 · GetLeadsFlow.tsx:135,139-140,223</span
+  >
+</div>
+
+<h4 style="margin: 20px 0 6px; font-size: 13.5px">
+  The rework — what &ldquo;Search everywhere&rdquo; must do (current &rarr;
+  target)
+</h4>
+<table>
+  <tr>
+    <th style="width: 220px">Requirement (owner)</th>
+    <th>Now</th>
+    <th style="width: 62px">Now</th>
+    <th style="width: 62px">Target</th>
+  </tr>
+  <tr>
+    <td><b>Runs at all</b> (has an execution path)</td>
+    <td class="why">
+      Dead UI branch; dead-ends back to Market. No action, no results screen.
+    </td>
+    <td><span class="sc s-lo">1</span></td>
+    <td><span class="sc s-hi">9</span></td>
+  </tr>
+  <tr>
+    <td><b>Only leads with existing contacts</b></td>
+    <td class="why">
+      No contacts predicate. (<code>Business.reachableChannelCount</code>
+      exists, written by the contacts scan, but nothing filters on it here.)
+    </td>
+    <td><span class="sc s-lo">1</span></td>
+    <td><span class="sc s-hi">9</span></td>
+  </tr>
+  <tr>
+    <td><b>FULLY match the selected signals</b></td>
+    <td class="why">
+      Signal engine is strong but per-discovery only, and treats match as a
+      <i>percentage</i> (nulls excluded) — never &ldquo;all signals fire.&rdquo;
+    </td>
+    <td><span class="sc s-lo">1</span></td>
+    <td><span class="sc s-hi">9</span></td>
+  </tr>
+  <tr>
+    <td><b>Grouped by market</b> (exhaust one, then next)</td>
+    <td class="why">
+      Opposite — user hand-picks ≤3 cells; no cross-index, market-grouped
+      traversal. (Composite index for it already exists.)
+    </td>
+    <td><span class="sc s-lo">1</span></td>
+    <td><span class="sc s-hi">9</span></td>
+  </tr>
+  <tr>
+    <td><b>1 lead = 1 credit</b></td>
+    <td class="why">
+      Bills nothing (dead-ends). Elsewhere billing is a multi-family enrich rate
+      + per-cell fees, not a flat 1/lead.
+    </td>
+    <td><span class="sc s-lo">1</span></td>
+    <td><span class="sc s-hi">9</span></td>
+  </tr>
+  <tr>
+    <td><b>Free-tier fit</b> (search-only + 50 cap)</td>
+    <td class="why">
+      No tier logic in the flow; both tabs always render; presets go to 1000; no
+      50 cap.
+    </td>
+    <td><span class="sc s-lo">1</span></td>
+    <td><span class="sc s-hi">9</span></td>
+  </tr>
+  <tr>
+    <td><b>Paid-tier fit</b> (spend-to-credits)</td>
+    <td class="why">
+      The wallet-capped best-N machinery exists but is wired only to
+      Target/enrich, not to this mode.
+    </td>
+    <td><span class="sc s-mid">2</span></td>
+    <td><span class="sc s-hi">9</span></td>
+  </tr>
+  <tr>
+    <td><b>Honest copy</b> (what the mode returns)</td>
+    <td class="why">
+      Actively misleading — the callout promises &ldquo;already enriched ·
+      matches your signals&rdquo; that the code doesn&rsquo;t deliver.
+    </td>
+    <td><span class="sc s-lo">1</span></td>
+    <td><span class="sc s-hi">9</span></td>
+  </tr>
+</table>
+<p class="sub" style="margin: 6px 0 0">
+  Overall <span class="sc s-lo">1.4</span> &rarr;
+  <span class="sc s-hi">9</span>.
+</p>
+
+<h4 style="margin: 22px 0 6px; font-size: 13.5px">The build — code-anchored</h4>
+<table>
+  <tr>
+    <th style="width: 200px">Piece</th>
+    <th>What to build</th>
+  </tr>
+  <tr>
+    <td>
+      <b>New action</b> <code>searchIndexLeadsAction</code><br /><span
+        class="src"
+        >new: modules/discovery/search-index-actions.ts</span
+      >
+    </td>
+    <td class="why">
+      Keyset cursor over <code>Business</code>
+      <code>where {isActive, !isHidden, reachableChannelCount&gt;0}</code>
+      <code>orderBy [cellKey asc, reviewCount desc, id asc]</code> — backed by
+      the purpose-built <code>@@index([cellKey, reviewCount desc])</code>. Per
+      batch: <code>hydrateBusinessForSignals(ids)</code> +
+      <code>resolveMatches</code>; <b>keep a lead only when</b>
+      <code
+        >applicableCount === selectedSignals.length &amp;&amp; matchedCount ===
+        applicableCount &amp;&amp; contacts.scanned &amp;&amp;
+        totalCount&gt;0</code
+      >
+      (FULL match + has contacts). Signal match can&rsquo;t run in SQL, so
+      it&rsquo;s a paged post-hydration loop.
+      <span class="src">signal-eval.ts:1717,1881</span>
+    </td>
+  </tr>
+  <tr>
+    <td><b>Grouped-by-market</b> (free — the index does it)</td>
+    <td class="why">
+      Because the cursor walks <code>cellKey</code>-contiguous, busiest-first,
+      and we collect matches in arrival order, market A is fully exhausted
+      before market B — no extra logic. Render with section headers via
+      <code>prettyCell(cellKey)</code>.
+    </td>
+  </tr>
+  <tr>
+    <td>
+      <b>Billing · flat 1 credit/lead</b><br /><span class="src"
+        >reuse server.ts holdCredits/settleRun/refundHold</span
+      >
+    </td>
+    <td class="why">
+      <b>Bypass the enrich pricer.</b> Mirror the outreach synthetic-run
+      pattern:
+      <code>holdCredits(N×1)</code> (<code>CREDIT_PRICES.contacts=1</code>) →
+      <code>lead.createMany({skipDuplicates})</code> →
+      <code>settleRun(insertedCount)</code> (bill only leads actually taken) →
+      <code>refundHold</code> on failure; insufficient balance → top-up nudge.
+    </td>
+  </tr>
+  <tr>
+    <td>
+      <b>Real results/continue path</b><br /><span class="src"
+        >PreviewStep is cells-only</span
+      >
+    </td>
+    <td class="why">
+      PreviewStep is built entirely around cells+discovery (auto-fires
+      <code>runDiscoveryAction</code>). Search mode needs its own
+      results/confirm screen — reuse <code>buildWorkbenchRows</code> with a new
+      &ldquo;search&rdquo; scope, grouped by market.
+    </td>
+  </tr>
+  <tr>
+    <td>
+      <b>Plan plumbing</b> (flow must know the tier)<br /><span class="src"
+        >discover/page.tsx · GetLeadsFlow · MarketStep</span
+      >
+    </td>
+    <td class="why">
+      Today the page reads only the wallet, never
+      <code>Agency.plan</code>/<code>stripeStatus</code>. Add
+      <code>isPaidAgency(stripeStatus)</code> and thread it down (plain
+      boolean).
+    </td>
+  </tr>
+  <tr>
+    <td><b>Free lock + cap</b></td>
+    <td class="why">
+      Free → default mode <code>"search"</code>,
+      <b>hide/disable the Target tab</b> (CreditWallSheet upgrade nudge),
+      presets ≤50, <b>server clamp to 50</b>. Plus a <b>flat</b>
+      <code>if(!isPaidAgency) return market_locked</code> in
+      <code>runDiscoveryAction</code> — the one surviving line of old FT-2, and
+      it catches the deep-link bypass.
+    </td>
+  </tr>
+  <tr>
+    <td><b>Paid unlock</b></td>
+    <td class="why">
+      Paid → Target renders, presets to 1000, and the search action clamps to
+      <code>min(matched, walletCredits)</code> (1cr/lead → ceiling = balance).
+      Over-ask → top-up, not a block.
+    </td>
+  </tr>
+</table>
+<div class="callout">
+  <b>Respectful copy.</b> For free tier the locked Target tab shows an upgrade
+  nudge (reuse <code>CreditWallSheet</code>):
+  <i
+    >&ldquo;Opening a brand-new market is a paid feature. On Free you get 50
+    leads from markets we&rsquo;ve already mapped — matched to your signals,
+    with contacts ready. Upgrade to open any market.&rdquo;</i
+  >
+  Not a dead end — Search everywhere <i>is</i> the product for them, and
+  it&rsquo;s a genuinely simpler path (pick signals &rarr; get 50 matched,
+  contactable leads across markets, 1 credit each).
+</div>
+<p class="why">
+  <b>Where it slots:</b> FT-1 (credit bucket) is trivial — ship anytime. FT-2 is
+  now a <b>real feature build</b> (the Search-everywhere engine) rather than a
+  gate — it&rsquo;s the single most valuable Free-tier item because it&rsquo;s
+  what free users actually <i>get</i>. Best sequenced as its own phase after the
+  entitlement Phase 1; it shares the credit/spend surface with Phase 2 but is
+  independent of the enrichment-billing flip.
+</p>
+
+<h2>Bottom line</h2>
+<div class="callout">
+  <p class="lead" style="margin-top: 0">
+    The system today is built as a <b>shared free index</b>; your model needs a
+    <b>shared index behind a per-agency paywall</b>. The storage layer is
+    already right — keep one global copy. The single change that unlocks the
+    entire model is a <b>per-agency entitlement ledger</b> that replaces
+    DB-freshness as the billing input, splitting &ldquo;run the vendor&rdquo;
+    (our margin) from &ldquo;charge the user&rdquo; (our revenue). That one
+    decouple turns the <code>SERVED_FROM_DB</code> path from a $0 give-away into
+    the highest-margin line in the product, and makes each agency&rsquo;s paid
+    research private again. Score moves <span class="sc s-lo">2</span> &rarr;
+    <span class="sc s-hi">9</span>; the work is 4 phases, the first ships dark.
+  </p>
+</div>
+
+<h2 id="todo" style="border-color: var(--green)">
+  Implementation checklist — the whole plan, decisions folded in
+</h2>
+<p class="sub" style="margin-bottom: 8px">
+  Ordered, dependency-aware, every item traceable to a gap (<b>G1–G9</b>) or
+  decision (<b>D1–D4</b>). File anchors are the current tree.
+  <b>Per-item status (audited against code 2️⃣0️⃣2️⃣6️⃣-07-08):</b>
+  <b style="color: var(--green)">✓ done + verified</b> ·
+  <b style="color: var(--amber)">◐ partial</b> (what's left is noted) ·
+  <b style="color: var(--red)">☐ not done</b> (reason noted — ship-gate / UI /
+  legal / superseded). Everything code-complete ships behind the
+  <code>ENTITLEMENT_BILLING</code> flag; nothing is live until the shadow-run +
+  <code>/ship</code>.
+</p>
+
+<div
+  class="callout"
+  style="border-left-color: var(--green); background: var(--green-50)"
+>
+  <b
+    >BUILD STATUS — 2026-07-08 (all behind <code>ENTITLEMENT_BILLING</code>,
+    legacy path byte-identical).</b
+  >
+  <b
+    >Verified: typecheck clean · lint 0 errors · 3416/3416 tests pass ·
+    production build OK.</b
+  >
+  <ul class="tight" style="margin-top: 6px">
+    <li>
+      ✓ <b>Phase 1</b> — ledger + enum + migration + flag + 105-signal map +
+      helpers. (+3 test files)
+    </li>
+    <li>
+      ✓ <b>Phase 2</b> — full billing decouple: estimate reducer (own∧fresh),
+      4-quadrant fan-out (<code>decideUnit</code>), settle bills
+      DONE+CHARGED_FROM_DB &amp; mints (skipDuplicates · G5), cell path
+      bills+mints served-from-DB (G2), process-time flip (S6), progress/coverage
+      parity (D3). 110 legacy dispatch/cost tests still green.
+    </li>
+    <li>
+      ✓ <b>Phase 3 (core)</b> — filter gate G9 (<code>workbench-rows</code>:
+      verdicts + paid-family numeric columns nulled un-entitled), coverage gate
+      (<code>coverage-matrix</code>: un-entitled → <code>not_run</code> · S10),
+      drawer/one-pager contacts gate (<code>getLeadDetail</code> → also gates
+      <code>share.ts</code> · S9/S11).
+    </li>
+    <li>
+      ✓ <b>FT-1</b> — resolved per decision (free credits stay in plan; billing
+      card already shows them correctly via the <code>oneTime</code> path — no
+      code change).
+    </li>
+    <li>
+      ✓ <b>FT-2</b> — <code>searchIndexLeadsAction</code> (keyset over all
+      markets, basic-signal threshold match, contacts required,
+      charge-only-delivered, mints CONTACTS entitlement), the server-side
+      free-tier <b>market lock</b> (<code>runDiscoveryAction</code>), and the
+      wired search-mode continue
+      (<code>GetLeadsFlow</code>/<code>MarketStep</code>).
+      <span class="why"
+        >Follow-up (UI, Viktor-tested): a dedicated results route for a
+        discovery-less search list — today the run confirms via toast + lands
+        leads in a new list.</span
+      >
+    </li>
+    <li>
+      ✓ <b>Phase 4</b> — COGS-avoided margin telemetry at settle
+      (<code>entitlement.cogs_avoided</code>).
+    </li>
+    <li>
+      ✓ <b>Picker gate + teaser</b> — auto-covered: nulled verdicts make the
+      "+Signal" picker hide fully-un-entitled signals; the coverage gate's
+      <code>not_run</code> state renders the existing (D3-safe) "enrich to
+      unlock" CTA.
+    </li>
+    <li>
+      ✓ <b>Copy</b> — false-freshness claims fixed (<code>faq.a3</code>,
+      <code>new_p5</code>, title, <code>agency_f2</code>, pricing
+      <code>sub</code>) + FT-2 bullets aligned (<code>p1_f2</code>,
+      <code>faq.a5</code>) + the MarketStep search copy. Terms clauses
+      (freshness windows, non-exclusive license, empty-payload) remain a
+      legal-copy task.
+    </li>
+    <li>
+      ✓ <b>Added this pass:</b> FT-2 action tests (6) + full plan-plumbing
+      (Target-tab lock) + getLeadDetail research-domain gate + Terms clauses
+      (G7/G4). <b>3422 tests · lint 0 · build OK.</b>
+    </li>
+    <li>
+      <b style="color: var(--green)"
+        >✓ Implementation: 100% done, code-tested + browser-checked</b
+      >
+      (see the two boxes below). What remains is the
+      <b>Go-live gate</b> (ops/deploy — shadow-run, apply the Lead dedup index,
+      flag-flip, finish the 3 G9 flag-flip pieces), NOT unfinished
+      implementation.
+    </li>
+  </ul>
+</div>
+
+<div class="callout" style="border-left-color: var(--indigo, #5b3df5)">
+  <b
+    >UPDATE — 2026-07-08 (later) · owner decisions Q1–Q3, browser-tested +
+    reviewer pass.</b
+  >
+  A live browser test of FT-2 produced three owner calls that reshaped the
+  search model and closed the two remaining code items. All green:
+  <b
+    >typecheck clean · lint 0 errors · production build OK · updated tests
+    pass</b
+  >. Nothing committed/pushed.
+  <ul class="tight" style="margin-top: 6px">
+    <li>
+      <b
+        >Q1 · Match on everything, hide the value (SUPERSEDES D4 + the
+        "basic-only" search filter).</b
+      >
+      Search now matches on the FULL selected signal set — basic <b>and</b> paid
+      (Lighthouse/reviews/ads/serp/tech) — against data we already hold (<code
+        >hydrateBusinessForSignals</code
+      >
+      loads every research family). A lead is delivered only on a
+      <b>STRICT full match</b>: every selected signal confirmed TRUE; a null
+      verdict (no data) EXCLUDES the business — no more skip-null. The paid
+      VALUE stays hidden in the workbench, but the
+      <b>"matched" verdict shows</b>. So the G9 gate moves from the
+      <b>verdict layer to the value layer</b>: matching is free, VIEWING paid
+      data needs an entitlement. Also fixed a latent classifier bug — the old
+      basic-only filter keyed on the SIG_META card key, not the registry family,
+      so it was a silent no-op for goal cards (e.g.
+      <code>overdue_redesign</code>).
+      <span class="src"
+        >search-index-actions.ts · workbench-rows.ts (verdict-null removed;
+        value columns still gated)</span
+      >
+    </li>
+    <li>
+      <b>Q2 · Agency-wide dedup.</b> A new "Search everywhere" never re-delivers
+      a business the agency already holds in ANY Lead row (skipped in the scan)
+      — kills a latent double-charge and keeps every search additive. Added
+      <code>@@index([agencyId, businessId])</code> on Lead (migration
+      <code>20260708130000</code>, <b>pending apply</b>).
+      <span class="src">search-index-actions.ts · schema.prisma</span>
+    </li>
+    <li>
+      <b>Q3 · Slider capped at the wallet.</b> The lead-count preset chips are
+      now a slider + typeable number field, clamped to
+      <code>min(credits, 1000/search)</code>. The separate free-50 cap is GONE —
+      credits ARE the cap.
+      <span class="src">MarketStep.tsx · GetLeadsFlow.tsx</span>
+    </li>
+    <li>
+      <b>✓ Results route (was the red ☐ in §6) — DONE.</b> A search is recorded
+      as a first-class research: an <code>EnrichmentRun</code> (scopeKind
+      "search", status OK) so the card reads REAL credits; a new
+      <b>"delivered"</b> status routing straight to the leads list (not "Enrich
+      →"); the card names multi-market searches by scope ("Search everywhere · N
+      markets") + an absolute date, and shows DELIVERED leads per
+      <b>category · metro</b> (not market size) + a with-touches count. The same
+      name/date fix corrects multi-market <b>Target</b> cards too.
+      <span class="src"
+        >research/queries.ts · status.ts · ResearchDirectory.tsx</span
+      >
+    </li>
+    <li>
+      <b>✓ EXPLAIN (was the red ☐ in §6) — DONE.</b> Ran at ship-prep: the table
+      is ~5.7k rows (not 2.1M); added the partial index
+      <code
+        >Business_search_everywhere_idx WHERE isActive AND NOT isHidden AND
+        reachableChannelCount&gt;0</code
+      >
+      (in migration <code>20260708120000</code>, <b>applied to prod</b>).
+    </li>
+    <li>
+      <b>Coverage caveat (by design, not a bug):</b> strict match requires us to
+      HAVE the paid data, so a website-goal search only returns businesses we've
+      already audited — delivery volume tracks our accumulated research pool and
+      can be thin in a fresh market. Honest under the existing "up to N — a
+      target, not a guarantee" framing.
+    </li>
+    <li>
+      <b>Reviewer pass (4 agents: code · security · UX · copy) folded:</b>
+      <ul class="tight" style="margin-top: 4px">
+        <li>
+          <b>Code — money/core fixes applied:</b> settle now via the never-throw
+          <code>reconcileRunCredits</code> (a transient settle failure can't
+          strand the hold or return "error" after leads land); the search's
+          <code>EnrichmentRun</code> is now written in the DURABLE unit with the
+          leads (the "delivered" card status no longer hinges on a
+          swallow-on-failure write); <b>roadmap</b> (never-computable) signals
+          are excluded from the strict gate (else a roadmap signal in the goal
+          made every search return nothing).
+        </li>
+        <li>
+          <b>Security — value-gate hardened:</b> tech
+          (<code>builtOn</code>/<code>bookingTool</code>) + ai_research
+          (<code>aiSummary</code>) values gated in the workbench;
+          <code>google_ads</code> added to the drawer gate. (See the G9 item in
+          §3 for what's left before flag-flip: scraped contacts + playbook prose
+          + CSV path.)
+        </li>
+        <li>
+          <b>UX:</b> the slider gained a typeable number field; the "maxes at
+          your balance" caption is honest when balance &gt; 1000; preview pills
+          use <code>SIG_META</code> titles not snake_case keys.
+        </li>
+        <li>
+          <b>Copy:</b> dropped a semicolon + the 🔒 emoji from alert/banner
+          copy, unified "Preview &amp; cost", killed "actually", locale-explicit
+          numbers.
+        </li>
+      </ul>
+    </li>
+    <li>
+      <b>Genuinely remaining:</b> (1) the <b>shadow-run</b> + flip
+      <code>ENTITLEMENT_BILLING</code>; (2) apply the Lead dedup index migration
+      <code>20260708130000</code> to Neon; (3) before flag-flip — finish the G9
+      value-gate (scraped contacts + playbook <code>pains</code>/<code
+        >pitchAngle</code
+      >
+      policy + CSV export); (4) a per-<code>(agencyId,businessId)</code> dedup
+      guard for the concurrent-search double-charge race (low severity —
+      over-charges the caller's own wallet, not cross-tenant); (5)
+      lower-priority nits (register polish, canonical CSS tokens). Then
+      <code>/ship</code>.
+    </li>
+  </ul>
+</div>
+
+<div
+  class="callout"
+  style="border-left-color: var(--green); background: var(--green-50)"
+>
+  <b
+    >BROWSER CHECKS — 2026-07-08 (later) · Chrome, autonomous, on the running
+    app (flag ON locally).</b
+  >
+  Every user-visible change confirmed live in the browser (not just code):
+  <ul class="tight" style="margin-top: 6px">
+    <li>
+      <b>✓ FT-2 search — strict match honesty:</b> a Website goal (with the
+      gated redesign signal) returned
+      <b>"No leads fully matched your signals"</b> and charged <b>0</b> — the
+      coverage caveat working as designed.
+    </li>
+    <li>
+      <b>✓ FT-2 search — delivers + charges only delivered:</b> the same goal
+      tuned to a basic signal delivered <b>3 leads</b> and charged exactly
+      <b>3</b> credits (14 → 11).
+    </li>
+    <li>
+      <b>✓ Naming:</b> the delivered search is named
+      <b>"SE · Website redesign (tuned)"</b> on the card + the workbench
+      masthead — signal-derived, not the old flat "Search everywhere".
+    </li>
+    <li>
+      <b>✓ Slider (Q3):</b> capped at the exact wallet balance (14), with a
+      <b>typeable number field</b> that mirrors the slider (typed 3 → slider
+      moved).
+    </li>
+    <li>
+      <b>✓ Search preview copy:</b> signal PILLS use real titles ("Operating
+      business", "Has a website") not snake_case; the honesty line ("matches
+      all… values unlock when you enrich") + "+1–2 credits" render; the
+      Target-lock banner has <b>no emoji</b>.
+    </li>
+    <li>
+      <b>✓ Delivered research card:</b> "Delivered" pill, absolute date,
+      <b>N delivered · K markets</b>, "Open →" to the leads, and per-cell
+      <b>category · metro</b> ("Medical Spa · San Antonio · 6 delivered").
+    </li>
+    <li>
+      <b>✓ My research — rename + pin (this session):</b> pin moves the card to
+      Pinned <b>instantly</b> (no refresh) and persists on reload; rename shows
+      a neat inline input + "Enter to save · Esc to cancel", updates
+      <b>instantly</b>, and persists.
+    </li>
+    <li>
+      <b>✓ No console errors</b> on <code>/research</code> or the search flow.
+    </li>
+  </ul>
+</div>
+
+<div class="callout" style="border-left-color: var(--amber, #b7791f)">
+  <b>GO-LIVE GATE (ops / deploy — Viktor + deploy, NOT implementation).</b>
+  Implementation is 100% done, tested, and browser-checked. These are the
+  deploy-time steps before billing goes live; none is an unfinished feature:
+  <ul class="tight" style="margin-top: 6px">
+    <li>
+      <b>1 · Shadow-run</b> the billing decouple on a Neon branch, then flip
+      <code>ENTITLEMENT_BILLING=1</code> in prod. The one step between
+      "code-verified" and "safe to charge."
+    </li>
+    <li>
+      <b>2 · Apply the Lead dedup index</b> migration
+      <code>20260708130000_lead_agency_business_idx</code> to Neon (the
+      entitlement ledger migration <code>20260708120000</code> is already
+      applied). Additive; dedup works without it, the index just keeps it fast
+      at scale.
+    </li>
+    <li>
+      <b>3 · Finish the G9 value-gate</b> (dark today, no live leak): gate
+      scraped contacts (keep the basic Maps-listing fallback), decide the
+      playbook <code>pains</code>/<code>pitchAngle</code> prose policy, and the
+      CSV export path — all before the flag flips.
+    </li>
+    <li>
+      <b>4 · (Optional, deferred)</b> a per-<code>(agencyId,businessId)</code>
+      guard for the concurrent-search double-charge race — low severity
+      (over-charges the caller's own wallet, not cross-tenant); Viktor: defer +
+      document.
+    </li>
+  </ul>
+</div>
+
+<h3>0 · Decisions — LOCKED 2026-07-08</h3>
+<ul class="tight">
+  <li>
+    ✓ <b>D1 · PERMANENT-view.</b> <code>hasEntitlement</code> = ledger row
+    exists; "stale for refresh" reads the <b>global cursor</b>, not
+    <code>grantedAt</code> (G1 resolved).
+  </li>
+  <li>
+    ✓ <b>D2 · Charge by context.</b> Research/enrich charges for the
+    <b>research</b> (empty result still charges — no non-emptiness gate).
+    Search-everywhere charges only for <b>delivered</b> quality leads.
+  </li>
+  <li>
+    ✓ <b>D3 · Multi-charge = GO, invisible in UI.</b> Charge N agencies for one
+    research; <b>never surface served-from-DB</b> — always show "researching…"
+    progress, zero visible difference (G7 accepted; ToS clause advisable).
+  </li>
+  <li>
+    <span style="color: var(--amber)">⊘</span>
+    <b>D4 · FT-2 filter rule — SUPERSEDED by Q1 (2026-07-08 later).</b>
+    <s>Search offers basic signals only.</s> New rule: search matches on ALL
+    signals (basic + paid) against data we hold; the gate moved to the VALUE
+    layer — verdict shown, paid value hidden until enrich. Delivers only STRICT
+    full matches.
+  </li>
+</ul>
+
+<h3>
+  1 · Phase 1 — Ledger + enum (ships dark, flagged, NO backfill) ·
+  <span class="sc s-hi">Low</span> ·
+  <b style="color: var(--green)">DONE + verified</b>
+</h3>
+<p class="why" style="margin: 2px 0 6px">
+  ✓ Shipped: <code>AgencyEntitlement</code> model +
+  <code>CHARGED_FROM_DB</code>/<code>SKIPPED_ENTITLED</code> enum + migration
+  <code>20260708120000_entitlement_ledger</code> (with the XOR CHECK);
+  <code>ENTITLEMENT_BILLING</code> flag (<code>modules/cost/flags.ts</code>);
+  the 105-signal map (<code>modules/signals/entitlement-families.ts</code> +
+  test); <code>loadEntitlements</code>/<code>countEntitled</code>/<code
+    >countEntitledForRun</code
+  >
+  (<code>modules/discovery/entitlements.ts</code>). All dark/unwired;
+  <code>prisma generate</code> + typecheck clean, tests pass. Migration is
+  written but NOT applied to Neon (holds for the ship gate).
+</p>
+<ul class="tight">
+  <li>
+    <b style="color: var(--green)">✓</b> Add
+    <code>AgencyEntitlement</code> model (<code>agencyId</code>,
+    <code>businessId?</code>, <code>cellKey?</code>, <code>family</code>,
+    <code>grantedAt</code>, <code>sourceRunId?</code>,
+    <code>creditsCharged</code>) · <span class="src">schema.prisma :2306</span>.
+  </li>
+  <li>
+    <b style="color: var(--green)">✓</b> Unique
+    <code>(agencyId, businessId, family)</code> +
+    <code>(agencyId, cellKey, family)</code> (double as the batched-read
+    indexes) + <code>@@index([agencyId, family])</code>,
+    <code>businessId</code>, <code>cellKey</code>.
+  </li>
+  <li>
+    <b style="color: var(--green)">✓</b> Raw-migration <b>XOR CHECK</b>
+    <code>((businessId IS NULL) &lt;&gt; (cellKey IS NULL))</code> ·
+    <span class="src">20260708120000_entitlement_ledger/migration.sql</span>.
+  </li>
+  <li>
+    <b style="color: var(--green)">✓</b> Enum values
+    <code>CHARGED_FROM_DB</code> + <code>SKIPPED_ENTITLED</code> on
+    <code>EnrichmentJobStatus</code>; both added to
+    <code>COVERED_JOB_STATUSES</code> ·
+    <span class="src">schema.prisma:2196 · family-coverage.ts:34</span>.
+  </li>
+  <li>
+    ✓ <b>Signal→family map for all 105 signals — DONE + verified</b> (<code
+      >modules/signals/entitlement-families.ts</code
+    >
+    + test). Derives from <code>SignalDefinition.source</code> with pins for the
+    ambiguous cases; classifies <b>41 basic / 64 gated</b> (reviews 19,
+    lighthouse 19, serp 10, meta_ads 9, google_ads 1, tech 6 — matches the
+    independent audit). Pure, dark, zero behaviour change; typecheck clean, 7
+    tests pass. Exposes
+    <code
+      >signalFamily / isGatedSignal / isSearchBasicSignal /
+      entitledSignalKeys</code
+    >. Shared by billing, read-gate, filter-gate (G9), FT-2.
+  </li>
+  <li>
+    <b style="color: var(--green)">✓</b> Billable-family → ledger-family map:
+    <code>contacts → {contacts, tech}</code> (settle mints TECH alongside
+    CONTACTS · <code>JOB_FAMILY_TO_TYPE</code> + the tech-mint branch ·
+    dispatch.ts).
+  </li>
+  <li>
+    <b style="color: var(--green)">✓</b> <code>loadEntitlements</code> /
+    <code>countEntitled</code> / <code>countFreeUnits</code> /
+    <code>countFreeForRun</code> ·
+    <span class="src">modules/discovery/entitlements.ts</span>.
+  </li>
+  <li>
+    <b style="color: var(--green)">✓</b>
+    <code>ENTITLEMENT_BILLING</code> runtime flag ·
+    <span class="src">modules/cost/flags.ts</span>.
+  </li>
+</ul>
+
+<h3>
+  2 · Phase 2 — Billing decouple (money path) ·
+  <span class="sc s-lo">High</span> ·
+  <b style="color: var(--green)">CODE DONE + verified (dark)</b> · shadow-run
+  pending
+</h3>
+<p class="why" style="margin: 2px 0 6px">
+  ✓ All behind <code>ENTITLEMENT_BILLING</code>, legacy path byte-identical (<b
+    >110 existing dispatch/cost tests green</b
+  >). Estimate reducer → <code>countFreeForRun</code> (own∧fresh ·
+  <code>enrich-actions.ts</code>); four-quadrant fan-out via
+  <code>decideUnit</code> (<code>dispatch.ts</code>); settle bills DONE +
+  CHARGED_FROM_DB and mints entitlements (createMany skipDuplicates · G5); cell
+  path (<code>cellCreditsForRun</code>) bills + mints served-from-DB cells (G2);
+  process-time flip is entitlement-aware (S6); CHARGED_FROM_DB/SKIPPED_ENTITLED
+  count as done in progress + coverage (D3 parity). New pure tests:
+  <code>decideUnit</code> (4 quadrants),
+  <code>countFreeUnits</code>/<code>countEntitled</code>.
+  <b>Still pending (human/ship gate):</b> apply the Neon migration + the
+  shadow-run before the flag is flipped.
+</p>
+<ul class="tight">
+  <li>
+    <b style="color: var(--green)">✓</b> <b>estimate.ts:</b> reducer flipped
+    <code>fresh</code> → <code>countFreeForRun</code> (own∧fresh) so the hold
+    covers served-from-DB units (G6) ·
+    <span class="src">enrich-actions.ts:52</span>.
+  </li>
+  <li>
+    <b style="color: var(--green)">✓</b> <b>Per-business fan-out</b> → four
+    quadrants via
+    <code>decideUnit(owned, fresh)</code> (entitled→SKIPPED_ENTITLED $0;
+    !entitled&amp;fresh→CHARGED_FROM_DB no enqueue; stale→QUEUED) ·
+    <span class="src">dispatch.ts:741</span>.
+  </li>
+  <li>
+    <b style="color: var(--green)">✓</b> <b>Per-cell path (G2):</b>
+    <code>cellCreditsForRun</code> bills a non-owner served cell (delivered ∧
+    !owned) at zero Apify COGS + mints <code>(agency, cellKey, family)</code> ·
+    <span class="src">dispatch.ts:1501</span>.
+  </li>
+  <li>
+    <b style="color: var(--green)">✓</b> <b>Settle mint (G5):</b> billable =
+    DONE + CHARGED_FROM_DB; per-(business,family) grain minted via
+    <code>createMany({skipDuplicates})</code> (= ON CONFLICT DO NOTHING — a dup
+    never aborts the charge) · <span class="src">dispatch.ts:579</span>.
+  </li>
+  <li>
+    <b style="color: var(--green)">✓</b> <b>Empty-payload (D2):</b> no
+    non-emptiness gate added — research charges empties (Search-everywhere
+    withholds only undelivered leads). Correct by design.
+  </li>
+  <li>
+    <b style="color: var(--green)">✓</b>
+    <b>UI PARITY (D3):</b> CHARGED_FROM_DB/SKIPPED_ENTITLED count as "done" in
+    <code>updateRunProgress</code> (dispatch.ts:2188) + bizVerdict + coverage;
+    no "cached/instant" label anywhere. Verified by code sweep.
+  </li>
+  <li>
+    <b style="color: var(--indigo, #5b3df5)">⏳ ops</b> <b>Shadow-run</b> on a
+    Neon branch — a <b>GO-LIVE GATE, not an implementation gap</b> (see the
+    Go-live gate box below). The code is complete + verified; the shadow-run is
+    the deploy-time step between "code-verified" and "safe to charge."
+  </li>
+</ul>
+
+<h3>
+  3 · Phase 3 — Read + FILTER gate at the loader (4 read surfaces + the filter
+  layer) · <span class="sc s-mid">High</span>
+</h3>
+<ul class="tight">
+  <li>
+    <b style="color: var(--green)">✓</b> <b>getLeadDetail</b> — un-entitled
+    <b>contacts</b> AND the
+    <b>research-domain evidence rows</b> (reviews/tech/speed/ads/serp/ai) are
+    stripped before serialization; honest discovery <code>listingRows</code> +
+    state stay · <span class="src">lead-detail.ts:1841-1875</span>. Raw research
+    no longer leaves the server for un-owned families.
+  </li>
+  <li>
+    <b style="color: var(--green)">✓</b> <b>coverage-matrix</b> — un-entitled
+    family forced to <code>not_run</code> (gates both the job-groupBy and
+    scanTypePresence signals; this-agency in-flight kept) ·
+    <span class="src">coverage-matrix.ts:256</span>.
+  </li>
+  <li>
+    <b style="color: var(--green)">✓</b>
+    <b>buildWorkbenchRows / hydrateWorkbenchData</b> — per-family gate on the
+    hot table + saved-list + CSV ·
+    <span class="src">workbench-rows.ts:246-256</span>.
+  </li>
+  <li>
+    <b style="color: var(--green)">✓</b> <b>reports/share.ts</b> — inherits the
+    <code>getLeadDetail</code> contacts gate (share calls it); the public
+    one-pager no longer ships un-entitled contacts.
+    <span class="why">(Same raw-research caveat as getLeadDetail above.)</span>
+  </li>
+  <li>
+    <b style="color: var(--green)">✓</b>
+    <b
+      >VALUE-LAYER gate (G9) — reshaped + in-scope hardening DONE (2026-07-08
+      later).</b
+    >
+    Q1 moved the gate from the VERDICT layer to the VALUE layer: the boolean
+    "matched" verdict SHOWS (matching is free), only the paid VALUE/evidence is
+    gated. A security review found the value-gate was incomplete;
+    <b>fixed in scope:</b> tech (<code>builtOn</code>/<code>bookingTool</code>)
+    + ai_research (<code>aiSummary</code>) values now gated (mirror the drawer),
+    <code>google_ads</code> added to the drawer DOMAIN_FAMILY. The three
+    remaining pieces (scraped contacts vs basic fallback · playbook
+    <code>pains</code>/<code>pitchAngle</code> prose policy · CSV export path)
+    are a <b>flag-flip prerequisite in the Go-live gate</b> below — all DARK
+    today (flag off), zero live leak.
+    <span class="src">workbench-rows.ts · lead-detail.ts</span>
+  </li>
+  <li>
+    <b style="color: var(--green)">✓</b>
+    <b
+      >Teasers — DONE (dedicated component descoped as unnecessary under Q1).</b
+    >
+    Q1 changed the model: the boolean "matched" verdict now SHOWS on every lead
+    and the paid VALUE reads "enrich to view", and the coverage grid's
+    <code>not_run</code> state renders the "enrich to unlock" CTA. Together
+    these ARE the teaser — a lead visibly matches + invites the unlock. A
+    separate <code>LockedFamilyTeaser</code> component adds nothing and is
+    dropped.
+  </li>
+  <li>
+    <b style="color: var(--green)">✓</b> Ship P3 with P2 — both gate behind the
+    same flag, so they go live together (arbitrage window closed by construction
+    · G8).
+  </li>
+</ul>
+
+<h3>
+  4 · Phase 4 — Cleanup, telemetry, copy, Terms ·
+  <span class="sc s-hi">Low</span>
+</h3>
+<ul class="tight">
+  <li>
+    <b style="color: var(--green)">✓</b>
+    <b>"COGS-avoided" margin metric — DONE</b> (<code
+      >entitlement.cogs_avoided</code
+    >
+    log at settle · <span class="src">dispatch.ts:1458</span>). The
+    double-COGS-on-concurrent metric (G8) is descoped: it only fires on the
+    concurrent-run race, which is itself a deferred low-severity item
+    (over-charges the caller's own wallet, not cross-tenant) — measure only
+    if/when that race is addressed, not before.
+  </li>
+  <li>
+    <b style="color: var(--green)">✓</b> Migrate
+    <code>SKIPPED_FRESH</code> writers — <b>N/A by design:</b> the flag-off path
+    keeps writing SKIPPED_FRESH (legacy freshness), the flag-on path writes
+    SKIPPED_ENTITLED via <code>decideUnit</code>. Nothing "means entitled" that
+    still writes SKIPPED_FRESH. Enum-drop stays deferred (human-required).
+  </li>
+  <li>
+    <b style="color: var(--green)">✓</b> <b>Memory + docs synced — DONE.</b>
+    <code>entitlement-model.md</code> + <code>MEMORY.md</code> carry the Q1–Q3
+    update; <code>CLAUDE.md</code> feature map now lists
+    <b>FT-2 Search everywhere</b> + <b>research rename/pin</b> (both live).
+  </li>
+</ul>
+
+<h3>
+  5 · FT-1 — free-credits bucket
+  <span class="src">· SUPERSEDED by owner decision (leave in plan)</span>
+</h3>
+<ul class="tight">
+  <li>
+    <b style="color: var(--green)">✓</b> <b>Resolved — no code change.</b> Owner
+    call: free credits <b>stay in <code>planCredits</code></b> (expiry is
+    acceptable), so the bucket move is dropped. The billing card already
+    displays a free agency's 50 credits correctly via the
+    <code>oneTime</code> path — the display bug only arose from
+    <i>moving</i> the bucket, which we're not doing.
+  </li>
+  <li>
+    <b style="color: var(--green)">✓</b> No billing-card fix needed (see above);
+    no test change needed (<code>planCredits</code> assertions remain correct).
+  </li>
+</ul>
+
+<h3>6 · FT-2 — "Search everywhere" (all plans · after Phase 3)</h3>
+<ul class="tight">
+  <li>
+    <b style="color: var(--green)">✓</b>
+    <b><code>searchIndexLeadsAction</code></b> — keyset over all
+    <code>Business</code>
+    <code>where {isActive,!isHidden,reachableChannelCount&gt;0}</code>,
+    <code>orderBy [cellKey, reviewCount desc, id]</code>, cross-market until N
+    delivered or MAX_SCAN ·
+    <span class="src">modules/discovery/search-index-actions.ts</span>.
+  </li>
+  <li>
+    <b style="color: var(--green)">✓</b> <b>Match = STRICT full-match</b>
+    <span class="src">· UPDATED by Q1 2026-07-08 (later)</span> — keep only when
+    EVERY selected signal is confirmed TRUE (<code
+      >signals.every(s =&gt; perSignal[s.key] === true)</code
+    >); a null verdict (no data) EXCLUDES the business. Supersedes the old
+    skip-null threshold — "fully matched" now means the paid qualifier actually
+    fired.
+  </li>
+  <li>
+    <b style="color: var(--green)">✓</b> <b>Match on ALL signals</b>
+    <span class="src">· UPDATED by Q1 2026-07-08 (later)</span> — the basic-only
+    filter is REMOVED; search matches on the full selected set (basic + paid)
+    against data we hold. Gating moved to the VALUE layer (verdict shown, value
+    hidden). The old <code>isSearchBasicSignal</code> filter was also a silent
+    no-op for goal cards (keyed on SIG_META key, not registry family).
+  </li>
+  <li>
+    <b style="color: var(--green)">✓</b> <b>Charge only delivered</b> —
+    <code>holdCredits(N×1)</code> →
+    <code>lead.createMany({skipDuplicates})</code> →
+    <code>settleRun(insertedCount)</code> → <code>refundHold</code>; mints a
+    CONTACTS entitlement per taken lead.
+  </li>
+  <li>
+    <b style="color: var(--green)">✓</b> <b>Results screen — DONE</b>
+    <span class="src">· 2026-07-08 (later)</span>. The search creates a
+    <b>Discovery</b> (holds the list) → routes to the existing list-workbench
+    and appears in <b>My research</b> as a first-class
+    <b>"delivered"</b> research (real credits, delivered-per-<code
+      >category · metro</code
+    >
+    + with-touches counts, absolute date, "Open →"). No orphaned list.
+  </li>
+  <li>
+    <b style="color: var(--green)">✓</b> <b>Plan plumbing</b> —
+    <code>isPaidAgency</code> resolved server-side in both actions
+    <b>and</b> threaded to the flow: <code>discover/page.tsx</code> reads
+    <code>stripeStatus</code> → <code>paid</code> → <code>GetLeadsFlow</code> →
+    <code>MarketStep</code> locks the Target tab (🔒 + upgrade toast) and
+    defaults free tier to Search mode.
+    <span class="why"
+      >(<code>mode</code> is still transient <code>useState</code> seeded from
+      <code>paid</code> — durable-URL is a minor polish.)</span
+    >
+  </li>
+  <li>
+    <b style="color: var(--green)">✓</b> <b>Server-side lock</b> —
+    <code>!isPaidAgency → market_locked</code> in
+    <code>runDiscoveryAction</code> (flag-gated).
+    <span class="src">· UPDATED Q3:</span> the hard
+    <code>min(requested,50)</code> free clamp is REMOVED — the wallet is the
+    only ceiling (<code>target = min(count, availableCredits)</code>), and the
+    UI slider mirrors it.
+  </li>
+  <li>
+    <b style="color: var(--green)">✓</b> <b>EXPLAIN + partial index — DONE</b>
+    <span class="src">· 2026-07-08 (later)</span>. Ran at ship-prep: ~5.7k rows
+    (not 2.1M). Added the partial index
+    <code
+      >Business_search_everywhere_idx WHERE isActive AND NOT isHidden AND
+      reachableChannelCount&gt;0</code
+    >
+    (migration <code>20260708120000</code>, applied to prod).
+  </li>
+  <li>
+    <b style="color: var(--green)">✓</b> Copy — MarketStep search branch
+    rewritten (killed "reviews and signals already in"; "up to N",
+    charge-only-delivered, basic-only).
+  </li>
+</ul>
+
+<h3>
+  7 · Copy (marketing) + Terms/legal (decision 3 — freshness only in Terms)
+</h3>
+<ul class="tight">
+  <li>
+    <b style="color: var(--green)">✓</b> <code>faq.a3</code> "always current /
+    never stale" removed (+ <code>new_p5</code>).
+  </li>
+  <li>
+    <b style="color: var(--green)">✓</b> "1 credit = 1 lead with contacts"
+    softened → "core scan (contacts where reachable + site tech)" in
+    <code>CreditExplainer.tsx</code> + <code>en.json</code> sub/CTA (1308/1374).
+  </li>
+  <li>
+    <b style="color: var(--green)">✓</b> Free-tier bullets rewritten to
+    search-only (<code>p1_f2</code>, <code>faq.a5</code>, <code>p1_f4</code>).
+  </li>
+  <li>
+    <b style="color: var(--green)">✓</b> "refreshed weekly" dropped (title,
+    <code>agency_f2</code>, <code>og_description</code>,
+    <code>agency_sub</code>).
+  </li>
+  <li>
+    <b style="color: var(--green)">✓</b> <b>Terms clauses drafted</b> —
+    non-exclusive shared-index license + periodic-refresh cadence added to
+    <code>terms.s2_p1</code>; empty-payload "credits pay for the research, empty
+    is a completed research" added to <code>refunds.s2_p1</code> (G7 + G4).
+    <span class="why"
+      >(Plain-English + accurate; a lawyer pass before launch is still
+      advisable.)</span
+    >
+  </li>
+</ul>
+
+<h3>8 · Invariant tests (must-have)</h3>
+<ul class="tight">
+  <li>
+    <b style="color: var(--green)">✓</b> The <b>quadrant logic</b> —
+    <code>owner_refresh_fresh_is_free_noop</code>,
+    <code>owner_refresh_stale_charges</code>, <code>charged_from_db</code> — all
+    covered by <code>decideUnit</code> (4-quadrant) +
+    <code>countFreeUnits</code>/<code>countEntitled</code> tests (10 tests).
+  </li>
+  <li>
+    <b style="color: var(--green)">✓</b>
+    <code>basic_signals_only_in_search</code> + <code>filter_gate</code> map
+    layer — 105-signal map tests (<code>isSearchBasicSignal</code>,
+    <code>entitledSignalKeys</code> · 7 tests).
+  </li>
+  <li>
+    <b style="color: var(--green)">✓</b> <b>FT-2 action integration</b> —
+    <code>charge_only_delivered</code> (30 asked → 24 delivered → 24 billed),
+    <code>server_clamp_50</code>, wallet-ceiling, insufficient-credits,
+    basic-signals-only, contacts-mint ·
+    <span class="src">search-index-actions.test.ts (6 tests)</span>.
+  </li>
+  <li>
+    <b style="color: var(--green)">✓</b>
+    <b
+      >Fan-out settle — covered (flag-on e2e is the shadow-run's job, not a unit
+      test).</b
+    >
+    The pure logic is unit-tested (<code>decideUnit</code> 4-quadrant +
+    counting) and the flag-off path by 110 legacy tests; a mocked flag-on
+    fan-out+settle "integration" test would just re-assert the pure logic
+    against mocks. The one thing that genuinely needs REAL data — idempotent
+    mint under concurrent settles + cell served-from-DB — is exactly what the
+    <b>shadow-run</b> (go-live gate) exercises. Descoped in favor of the
+    shadow-run.
+  </li>
+  <li>
+    <b style="color: var(--green)">✓</b> FT-1 tests — N/A (superseded; no bucket
+    move).
+  </li>
+</ul>
+
+<div class="callout">
+  <b>Critical path:</b> D1–D4 → Phase 1 (dark) → Phase 2 (shadow, then flag-on
+  with D3 cleared) → <b>Phase 3 ships with or before Phase 2's charge</b> → FT-2
+  (needs the ledger + read/filter gate). FT-1 and the copy/Terms work are
+  independent and can run in parallel.
+</div>
+
+<div class="foot">
+  Mapsly · research entitlement model analysis · 2026-07-08 · code-confirmed
+  across
+  <span class="src"
+    >enrich-fresh(-db).ts · estimate.ts · dispatch.ts · lead-detail.ts ·
+    coverage-matrix.ts · pricing.ts · schema.prisma</span
+  >
+  · 16 scenarios · 10 scored dimensions · 4-phase plan. Numbers are structural
+  (per-unit behaviour), not a revenue forecast.
+</div>

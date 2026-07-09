@@ -25,6 +25,8 @@ import {
   deriveTypeStates,
 } from "./family-coverage";
 import { loadFreshTimestamps } from "@/modules/discovery/enrich-fresh-db";
+import { loadEntitlements } from "@/modules/discovery/entitlements";
+import { entitlementBillingEnabled } from "@/modules/cost/flags";
 
 /** One business's honest enrichment RUN state. */
 export interface CoverageRow {
@@ -208,6 +210,16 @@ export async function loadTypeStatesForBusinesses(
     }
   }
 
+  // Read gate (G9/S10 · entitlement model): coverage's "enriched" truth is
+  // GLOBAL today (any agency's jobs + real-row presence). Under the flag, a
+  // family THIS agency doesn't own reads as `not_run` ("available to enrich /
+  // unlock") instead of leaking a rival's paid research as "done". One batched
+  // read; no-op when the flag is off.
+  const entMode = entitlementBillingEnabled();
+  const entSet = entMode
+    ? await loadEntitlements(agencyId, businessIds, runCellKeys)
+    : null;
+
   const out = new Map<string, CoverageRow>();
   for (const b of businesses) {
     const cell = b.cellKey ? cellRuns.get(b.cellKey) : undefined;
@@ -229,6 +241,22 @@ export async function loadTypeStatesForBusinesses(
         ? { metaAds: running.metaAds, serp: running.serp }
         : undefined,
     });
+    if (entMode && entSet) {
+      const ownedBiz = entSet.perBusiness.get(b.id);
+      const ownedCell = b.cellKey ? entSet.perCell.get(b.cellKey) : undefined;
+      for (const key of Object.keys(typeStates) as EnrichmentTypeKey[]) {
+        const lc = key.toLowerCase();
+        const isCell = lc === "meta_ads" || lc === "serp";
+        const owned = isCell
+          ? (ownedCell?.has(lc as never) ?? false)
+          : (ownedBiz?.has(lc as never) ?? false);
+        // Keep this agency's own in-flight run visible ("running"); everything
+        // un-owned collapses to not_run (the teaser state).
+        if (!owned && typeStates[key] !== "running") {
+          typeStates[key] = "not_run";
+        }
+      }
+    }
     out.set(b.id, { businessId: b.id, typeStates });
   }
   return out;

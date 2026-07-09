@@ -24,14 +24,19 @@ import {
 
 /**
  * Job statuses that count as "this type's work is done" for coverage. These
- * are the only members of the `EnrichmentJobStatus` enum that mean the unit
- * needed no further work: `DONE` (ran) + `SKIPPED_FRESH` (already fresh, $0).
- * (The doc mentions a `SKIPPED_CACHED` status, but it does NOT exist in the
- * Prisma `EnrichmentJobStatus` enum — only DONE / SKIPPED_FRESH do — so adding
- * it would break the typed `groupBy` where-clause. Add it here if the enum ever
- * gains it.)
+ * are the members of the `EnrichmentJobStatus` enum that mean the unit needed
+ * no further work: `DONE` (ran) + `SKIPPED_FRESH` (already fresh, $0) + the
+ * entitlement-model successes `CHARGED_FROM_DB` (served from our DB, charged)
+ * and `SKIPPED_ENTITLED` (already owned, $0). All four are terminal-success and
+ * are UI-indistinguishable from a live run (D3). Legacy runs never emit the two
+ * entitlement statuses, so including them here is a no-op when the flag is off.
  */
-export const COVERED_JOB_STATUSES = ["DONE", "SKIPPED_FRESH"] as const;
+export const COVERED_JOB_STATUSES = [
+  "DONE",
+  "SKIPPED_FRESH",
+  "CHARGED_FROM_DB",
+  "SKIPPED_ENTITLED",
+] as const;
 
 /**
  * The `EnrichmentJobStatus` values that mean "this type's work was ATTEMPTED

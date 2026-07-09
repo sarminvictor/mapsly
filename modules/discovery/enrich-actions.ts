@@ -50,6 +50,8 @@ import {
 } from "@/modules/cost/pricing";
 import { buildEnrichLines } from "@/modules/discovery/enrich-lines";
 import { countFreshForRun } from "@/modules/discovery/enrich-fresh-db";
+import { countFreeForRun } from "@/modules/discovery/entitlements";
+import { entitlementBillingEnabled } from "@/modules/cost/flags";
 import { trackProductEvent } from "@/lib/analytics/product-events";
 
 // ── Input schema ──────────────────────────────────────────────────────────
@@ -248,12 +250,24 @@ export async function preflightEnrichAction(
       // honor it, just cap the count.
       businessIds = businessIds.slice(0, parsed.data.topN);
     }
-    const freshByEnrichment = await countFreshForRun({
-      enrichments: parsed.data.enrichments,
-      businessIds,
-      cellKeys: parsed.data.cellKeys,
-      now,
-    });
+    // Entitlement model (Phase 2 · G6): the billing reducer becomes the FREE
+    // quadrant (owned ∧ fresh), not global freshness — so a non-owner served
+    // from our DB is billable and the hold covers it. DB freshness stops being a
+    // billing input. Legacy path (flag off) is byte-identical.
+    const freshByEnrichment = entitlementBillingEnabled()
+      ? await countFreeForRun({
+          agencyId,
+          enrichments: parsed.data.enrichments,
+          businessIds,
+          cellKeys: parsed.data.cellKeys,
+          now,
+        })
+      : await countFreshForRun({
+          enrichments: parsed.data.enrichments,
+          businessIds,
+          cellKeys: parsed.data.cellKeys,
+          now,
+        });
     const lines = buildEnrichLines({
       enrichments: parsed.data.enrichments,
       businessCount: businessIds.length,

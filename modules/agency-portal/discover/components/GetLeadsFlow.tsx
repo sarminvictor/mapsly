@@ -39,6 +39,9 @@ import {
   type MarketCell,
 } from "../flow-types";
 import { decodeGoal, encodeGoal } from "../goal-url";
+import { buildDiscoverySignals } from "../discovery-signals";
+import { SIG_META } from "../goal-templates";
+import { searchIndexLeadsAction } from "@/modules/discovery/search-index-actions";
 import type { SavedTemplateRow } from "../saved-templates";
 import { GoalStep } from "./steps/GoalStep";
 import {
@@ -47,7 +50,28 @@ import {
   type MetroOption,
 } from "./steps/MarketStep";
 import { PreviewStep } from "./steps/PreviewStep";
+import { SearchPreviewStep } from "./steps/SearchPreviewStep";
 import { EnrichingStep } from "./steps/EnrichingStep";
+
+/**
+ * FT-2 · a concise, signal-derived research name (replaces the flat
+ * "Search everywhere" that made every search card identical). "SE" = Search
+ * Everywhere; the goal IS the chosen signal bundle, so its name is the most
+ * concise honest label (e.g. "SE · Website redesign"). A tuned goal appends
+ * "(tuned)"; a goal with no name falls back to the first few signal titles so
+ * the card still reads by its signals, capped so it never overwhelms.
+ */
+function buildSearchName(goal: GoalState): string {
+  const base = goal.name?.trim();
+  if (base) return `SE · ${base}${goal.customized ? " (tuned)" : ""}`;
+  const titles = goal.filters
+    .filter((f) => f.on)
+    .map((f) => SIG_META[f.key]?.title)
+    .filter((t): t is string => Boolean(t));
+  if (titles.length === 0) return "SE · Search everywhere";
+  const head = titles.slice(0, 3).join(", ");
+  return `SE · ${head}${titles.length > 3 ? ` +${titles.length - 3}` : ""}`;
+}
 
 const FLOW_KEYS = FLOW_STEPS.map((s) => s.key);
 function isFlowStep(x: string | null): x is FlowStep {
@@ -93,6 +117,7 @@ export function GetLeadsFlow({
   walletCredits,
   locale,
   myTemplates = [],
+  paid = true,
 }: {
   metros: MetroOption[];
   categories: CategoryOption[];
@@ -101,6 +126,8 @@ export function GetLeadsFlow({
   locale: string;
   /** The agency's saved goal templates (WP5-12) — server-loaded, plain rows. */
   myTemplates?: SavedTemplateRow[];
+  /** FT-2 · false for the free tier → Target markets locked, default to Search. */
+  paid?: boolean;
 }) {
   const sp = useSearchParams();
   const router = useRouter();
@@ -126,18 +153,24 @@ export function GetLeadsFlow({
     [sp],
   );
 
+  // Transient UI that doesn't need to survive a reload. Free tier defaults to
+  // (and is locked to) "search" — Target markets is a paid feature (FT-2).
+  const [mode, setMode] = useState<"target" | "search">(
+    paid ? "target" : "search",
+  );
+  const [searchLeadCount, setSearchLeadCount] = useState(50);
+
   // Clamp the requested step to what the available state can actually render —
   // a deep/stale link can't strand the user on a blank step.
   const rawStep = sp.get("step");
   let step: FlowStep = isFlowStep(rawStep) ? rawStep : "goal";
   if (step === "enriching" && (!runId || !discoveryId))
     step = cells.length ? "preview" : "market";
-  if (step === "preview" && cells.length === 0) step = "market";
+  // Search mode reaches Preview with NO cells (it selects from the whole index),
+  // so only bounce a cell-less preview back to Market in Target mode.
+  if (step === "preview" && cells.length === 0 && mode !== "search")
+    step = "market";
   if (step === "market" && !goal) step = "goal";
-
-  // Transient UI that doesn't need to survive a reload.
-  const [mode, setMode] = useState<"target" | "search">("target");
-  const [searchLeadCount, setSearchLeadCount] = useState(50);
 
   // ── URL writers ─────────────────────────────────────────────────────────
   const setParams = useCallback(
@@ -175,6 +208,46 @@ export function GetLeadsFlow({
 
   // The active goal — falls back to the website preset for display only.
   const activeGoal = goal ?? fallbackGoal();
+
+  // FT-2 · "Search everywhere" continue → run the index search engine (all
+  // markets, basic-signal full match, contacts required), charge only for
+  // delivered leads, land them in a new research/list, then OPEN that list's
+  // workbench (the search creates a Discovery so it uses the proven route).
+  const [searching, setSearching] = useState(false);
+  const runSearch = useCallback(async () => {
+    if (searching) return;
+    setSearching(true);
+    try {
+      const signalsJson = buildDiscoverySignals(activeGoal.filters);
+      const res = await searchIndexLeadsAction({
+        signalsJson,
+        count: searchLeadCount,
+        name: buildSearchName(activeGoal),
+      });
+      if (res.status === "ok") {
+        showToast(
+          `${res.delivered} lead${res.delivered === 1 ? "" : "s"} added — 1 credit each`,
+          "info",
+        );
+        // Open the results workbench. The flow lives at `.../discover`, so the
+        // locale prefix (if any) is everything before it.
+        const base = pathname.replace(/\/discover$/, "");
+        router.push(`${base}/discover/${res.discoveryId}/lists/${res.listId}`);
+        return;
+      } else if (res.status === "no_matches") {
+        showToast(
+          "No leads fully matched your signals. Try fewer or broader signals.",
+          "error",
+        );
+      } else if (res.status === "insufficient_credits") {
+        showToast("Not enough credits — top up to pull more leads.", "error");
+      } else {
+        showToast("Couldn't run the search. Try again.", "error");
+      }
+    } finally {
+      setSearching(false);
+    }
+  }, [activeGoal, searchLeadCount, searching, pathname, router]);
 
   return (
     <div className="view wide">
@@ -218,15 +291,29 @@ export function GetLeadsFlow({
             onModeChange={setMode}
             leadCount={searchLeadCount}
             onLeadCountChange={setSearchLeadCount}
+            walletCredits={walletCredits ?? 0}
             onEditSignals={() => goTo("goal")}
             onBack={() => goTo("goal")}
             onContinue={() => goTo("preview")}
+            paid={paid}
             onToast={showToast}
           />
         </>
       ) : null}
 
-      {step === "preview" ? (
+      {step === "preview" && mode === "search" ? (
+        <SearchPreviewStep
+          goal={activeGoal}
+          leadCount={searchLeadCount}
+          walletCredits={walletCredits ?? 0}
+          searching={searching}
+          onRun={runSearch}
+          onBack={() => goTo("market")}
+          onAddCredits={() =>
+            router.push(`${pathname.replace(/\/discover$/, "")}/usage`)
+          }
+        />
+      ) : step === "preview" ? (
         <PreviewStep
           goal={activeGoal}
           cells={cells}

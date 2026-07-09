@@ -54,6 +54,9 @@ export type { ResearchStatus } from "./status";
 /** One informational cell sub-row (location coverage) inside a research card. */
 export interface ResearchCardCell {
   cellKey: string;
+  /** Category portion of "{category} · {metro}" — a cell is category × metro,
+   *  so a cross-category search shows distinct rows per category, not just metro. */
+  categoryLabel: string;
   /** Metro portion of "{category} · {metro}" — what the sub-row shows. */
   metroLabel: string;
   /** Live lead count: Business rows in this cell. */
@@ -77,12 +80,21 @@ export interface ResearchCard {
   freshness: FreshnessState;
   /** "2 days ago" — when the market was mapped. */
   mapped: string;
+  /** "Jul 8, 2026" — absolute map date, so the directory is scannable by when. */
+  mappedDate: string;
   /** "today" — when the research was last opened. */
   opened: string;
   /** Whole "credits to date" (from spend-to-date USD). */
   credits: number;
-  /** Total leads across all cells. */
+  /** Total leads. For a delivered search this is the DELIVERED count; for a
+   *  mapped-only Target research it is the available market size. */
   totalLeads: number;
+  /** FT-2 · true when this is a delivered "Search everywhere" — the card shows
+   *  delivered leads (not market size) + a "with touches" count, and opens the
+   *  leads directly. */
+  delivered: boolean;
+  /** Delivered leads that carry ≥1 touchpoint (0 unless `delivered`). */
+  touchedLeads: number;
   /** Distinct metro labels — used by the Location filter. */
   metros: string[];
   /** Distinct category labels — used by the Category filter. */
@@ -161,9 +173,30 @@ interface DiscoveryRow {
   finishedAt: Date | null;
 }
 
+/** Delivered-lead counts for one search research (per-cell + total + touches). */
+interface DeliveredInfo {
+  perCell: Map<string, number>;
+  total: number;
+  touched: number;
+}
+
+/** "Jul 8, 2026" — locale-explicit absolute date (i18n.md: never bare
+ *  toLocaleDateString). PPR-safe: `at` is a real date passed in, not read here. */
+const ABS_DATE_FMT = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+  year: "numeric",
+});
+const marketWord = (n: number) => `${n} market${n === 1 ? "" : "s"}`;
+
 /**
  * Shape one Discovery row + its per-cell lead counts into a ResearchCard.
  * Pure given `leadCountByCell` + `now` (PPR-safe — no argless `new Date()`).
+ *
+ * `deliveredInfo` (FT-2) is present for a delivered "Search everywhere": its
+ * per-cell + total counts are the DELIVERED leads (what the agency paid for),
+ * not the available market size — so the card stops advertising market breadth
+ * as delivered volume.
  */
 function toResearchCard(
   d: DiscoveryRow,
@@ -172,6 +205,7 @@ function toResearchCard(
   categoryIdBySlug: Map<string, string>,
   enrich: EnrichInfo,
   now: Date,
+  deliveredInfo: DeliveredInfo | null,
 ): ResearchCard {
   const metros: string[] = [];
   const categories: string[] = [];
@@ -199,22 +233,39 @@ function toResearchCard(
     if (!categories.includes(categoryLabel)) categories.push(categoryLabel);
     if (!metros.includes(metroLabel)) metros.push(metroLabel);
 
-    const leadCount = leadCountByCell.get(key) ?? 0;
+    // Delivered search → DELIVERED leads in this cell; else available market size.
+    const leadCount = deliveredInfo
+      ? (deliveredInfo.perCell.get(key) ?? 0)
+      : (leadCountByCell.get(key) ?? 0);
     totalLeads += leadCount;
-    cells.push({ cellKey: key, metroLabel, leadCount });
+    cells.push({ cellKey: key, categoryLabel, metroLabel, leadCount });
   }
 
-  // Fall back to the denormalized whole-research count if no cells resolved.
-  if (totalLeads === 0) totalLeads = d.totalBusinesses;
+  // Delivered total is authoritative (what we charged for); otherwise fall back
+  // to the denormalized whole-research count if no cells resolved.
+  if (deliveredInfo) totalLeads = deliveredInfo.total;
+  else if (totalLeads === 0) totalLeads = d.totalBusinesses;
 
   // "Mapped" anchor = when discovery finished (else created). Drives freshness.
   const mappedAt = d.finishedAt ?? d.createdAt;
   const freshness = cellFreshnessState(mappedAt, now);
 
-  const titleCategory = firstCategory ?? (d.name || "Research");
-  const title = firstMetro
-    ? `${titleCategory} · ${firstMetro}`
-    : d.name || titleCategory;
+  // Title: a set `name` ALWAYS wins verbatim — that is either a user rename or
+  // the search auto-name ("Search everywhere"). The market count + date live in
+  // the meta line and the cell sub-rows, so the title needs no decoration. Only
+  // an un-named (Target) research derives a scope title: single market →
+  // "{category} · {metro}"; multi-market → "{category} · N markets".
+  const customName = d.name?.trim();
+  let title: string;
+  if (customName) {
+    title = customName;
+  } else if (d.cellKeys.length <= 1) {
+    title = firstMetro
+      ? `${firstCategory ?? "Research"} · ${firstMetro}`
+      : (firstCategory ?? "Research");
+  } else {
+    title = `${firstCategory ?? "Research"} · ${marketWord(d.cellKeys.length)}`;
+  }
 
   const status = deriveResearchStatus(d.status, enrich);
   const href = buildResearchHref(d, status, enrich, categoryIdBySlug);
@@ -228,9 +279,12 @@ function toResearchCard(
     href,
     freshness,
     mapped: relativeTime(mappedAt, now),
+    mappedDate: ABS_DATE_FMT.format(mappedAt),
     opened: relativeTime(d.lastOpenedAt ?? mappedAt, now),
     credits: enrich.spendCredits ?? 0,
     totalLeads,
+    delivered: enrich.delivered ?? false,
+    touchedLeads: deliveredInfo?.touched ?? 0,
     metros,
     categories,
     isPinned: d.isPinned,
@@ -261,6 +315,7 @@ async function resolveEnrichPhases(
       discoveryId: true,
       unitsRequested: true,
       creditsCharged: true,
+      scopeKind: true,
       scopeRefsJson: true,
     },
   });
@@ -276,6 +331,7 @@ async function resolveEnrichPhases(
   for (const d of discoveries) {
     let phase: EnrichInfo["phase"] = "none";
     let partial = false;
+    let delivered = false;
     let activeRunId: string | undefined;
     let activeUnits: number | undefined;
     // SPEND-1 · sum settled credits across EVERY overlapping OK/PARTIAL run
@@ -298,6 +354,9 @@ async function resolveEnrichPhases(
           // WP4-2 · surface the PARTIAL outcome so the directory shows an amber
           // "Partial" pill (some leads couldn't finish) instead of a clean green.
           partial = r.status === "PARTIAL";
+          // FT-2 · a search run (scopeKind "search") delivered leads with no
+          // enrich step → its own "Delivered" status downstream.
+          delivered = r.scopeKind === "search";
           phaseLocked = true; // DONE wins for phase; keep summing spend
         }
         continue;
@@ -309,7 +368,82 @@ async function resolveEnrichPhases(
         // keep scanning in case a DONE run also overlaps (it would win)
       }
     }
-    out.set(d.id, { phase, partial, activeRunId, activeUnits, spendCredits });
+    out.set(d.id, {
+      phase,
+      partial,
+      delivered,
+      activeRunId,
+      activeUnits,
+      spendCredits,
+    });
+  }
+
+  // FT-2 · resolve the delivered searches' list ids (the "Open" target) in one
+  // batched read. A search creates exactly one List per Discovery.
+  const deliveredIds = [...out.entries()]
+    .filter(([, v]) => v.delivered)
+    .map(([id]) => id);
+  if (deliveredIds.length > 0) {
+    const lists = await prisma.list.findMany({
+      where: { discoveryId: { in: deliveredIds } },
+      orderBy: { createdAt: "asc" },
+      select: { id: true, discoveryId: true },
+    });
+    for (const l of lists) {
+      if (!l.discoveryId) continue;
+      const info = out.get(l.discoveryId);
+      if (info && !info.listId) info.listId = l.id;
+    }
+  }
+  return out;
+}
+
+/**
+ * FT-2 · per-search DELIVERED-lead counts (per cell + total + with-touches).
+ * A delivered search's leads live in one List (list.discoveryId = the search).
+ * We count the agency's actual Lead rows — NOT Business rows in the cell — so the
+ * card shows what was delivered + how many carry ≥1 touchpoint, not market size.
+ * Three bounded, agency-scoped reads; only runs when there are delivered searches.
+ */
+async function loadDeliveredCounts(
+  agencyId: string,
+  deliveredDiscoveryIds: string[],
+): Promise<Map<string, DeliveredInfo>> {
+  const out = new Map<string, DeliveredInfo>();
+  if (deliveredDiscoveryIds.length === 0) return out;
+
+  const leads = await prisma.lead.findMany({
+    where: { agencyId, list: { discoveryId: { in: deliveredDiscoveryIds } } },
+    select: { businessId: true, list: { select: { discoveryId: true } } },
+  });
+  if (leads.length === 0) return out;
+
+  const businessIds = Array.from(new Set(leads.map((l) => l.businessId)));
+  const [bizCells, drafts] = await Promise.all([
+    prisma.business.findMany({
+      where: { id: { in: businessIds } },
+      select: { id: true, cellKey: true },
+    }),
+    prisma.outreachDraft.findMany({
+      where: { agencyId, businessId: { in: businessIds } },
+      select: { businessId: true },
+    }),
+  ]);
+  const cellByBusiness = new Map(bizCells.map((b) => [b.id, b.cellKey]));
+  const touchedBusinesses = new Set(drafts.map((d) => d.businessId));
+
+  for (const l of leads) {
+    const discoveryId = l.list?.discoveryId;
+    if (!discoveryId) continue;
+    let info = out.get(discoveryId);
+    if (!info) {
+      info = { perCell: new Map(), total: 0, touched: 0 };
+      out.set(discoveryId, info);
+    }
+    info.total += 1;
+    const cell = cellByBusiness.get(l.businessId);
+    if (cell) info.perCell.set(cell, (info.perCell.get(cell) ?? 0) + 1);
+    if (touchedBusinesses.has(l.businessId)) info.touched += 1;
   }
   return out;
 }
@@ -397,6 +531,15 @@ export async function getResearchList(agencyId: string): Promise<ResearchList> {
     // in JS. A DONE run (OK/PARTIAL) beats an ACTIVE one (a re-enrich in flight).
     const enrichByDiscovery = await resolveEnrichPhases(agencyId, discoveries);
 
+    // FT-2 · DELIVERED-lead counts for search researches (delivered/with-touches,
+    // not market size). Only runs when the set contains delivered searches.
+    const deliveredData = await loadDeliveredCounts(
+      agencyId,
+      discoveries
+        .filter((d) => enrichByDiscovery.get(d.id)?.delivered)
+        .map((d) => d.id),
+    );
+
     // `now` is read once at request time — the function is uncached at runtime
     // (cacheLife('minutes')) so this is a request-scoped read, PPR-safe.
     const now = new Date();
@@ -409,6 +552,7 @@ export async function getResearchList(agencyId: string): Promise<ResearchList> {
         categoryIdBySlug,
         enrichByDiscovery.get(d.id) ?? { phase: "none" },
         now,
+        deliveredData.get(d.id) ?? null,
       ),
     );
 

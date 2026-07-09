@@ -37,6 +37,7 @@ import {
 } from "@/modules/business-discovery/known-categories";
 import { GetLeadsFlow } from "@/modules/agency-portal/discover/components/GetLeadsFlow";
 import { savedTemplateRowFromDb } from "@/modules/agency-portal/discover/saved-templates";
+import { isPaidAgency } from "@/modules/agency-portal/team/seats";
 
 /** Bigger metro first — a proxy for "most valuable" in the default (no-query)
  *  combobox view. Array.sort is stable, so within a tier the curated majors
@@ -83,7 +84,7 @@ async function DiscoverBody({ params }: PageProps) {
     return null;
   }
 
-  const [categories, wallet, templateRows] = await Promise.all([
+  const [categories, wallet, templateRows, agencyRow] = await Promise.all([
     prisma.businessCategory.findMany({
       where: { isActive: true },
       select: { id: true, dataforseoId: true, label: true },
@@ -111,7 +112,14 @@ async function DiscoverBody({ params }: PageProps) {
       orderBy: { updatedAt: "desc" },
       take: 50,
     }),
+    // FT-2 · the agency's paid status → Target markets is a paid-only feature.
+    prisma.agency.findUnique({
+      where: { id: member.agencyId },
+      select: { stripeStatus: true },
+    }),
   ]);
+
+  const paid = isPaidAgency(agencyRow?.stripeStatus ?? null);
 
   const myTemplates = templateRows
     .map(savedTemplateRowFromDb)
@@ -168,6 +176,7 @@ async function DiscoverBody({ params }: PageProps) {
       walletCredits={walletCredits}
       locale={locale}
       myTemplates={myTemplates}
+      paid={paid}
     />
   );
 }

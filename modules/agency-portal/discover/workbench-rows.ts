@@ -41,6 +41,9 @@
 import prisma, { Prisma } from "@/lib/prisma";
 import { parseCellKey } from "@/lib/cell";
 import { draftWhereForAgency } from "@/modules/outreach/draft-scope";
+import { entitlementBillingEnabled } from "@/modules/cost/flags";
+import { loadEntitlements } from "@/modules/discovery/entitlements";
+import { type ResearchFamily } from "@/modules/signals/entitlement-families";
 import { parseWhyJson } from "./touchpoints";
 import { resolveCellBands, type CellReferenceBands } from "./signals";
 import {
@@ -226,6 +229,19 @@ export async function buildWorkbenchRows(
   const businessIds = businesses.map((b) => b.id);
   const activeSignals = ctx.activeSignals;
   const primaryCellKey = ctx.cellKeys[0] ?? null;
+
+  // Filter/read gate (G9 · entitlement model): a signal or a paid-family column
+  // may only be evaluated/shown for a business whose family THIS agency owns —
+  // otherwise an agency could filter/qualify leads by research a rival paid for.
+  // One batched read; only when the flag is on (legacy path unaffected). A
+  // discovery-basic signal (family=null) is always allowed.
+  const entMode = entitlementBillingEnabled();
+  const entSet =
+    entMode && businessIds.length > 0
+      ? await loadEntitlements(ctx.agencyId, businessIds, [])
+      : null;
+  const familyEntitled = (businessId: string, fam: ResearchFamily): boolean =>
+    entSet?.perBusiness.get(businessId)?.has(fam) ?? false;
 
   // ── THE data pass + the two workbench-only side loads, in parallel ─────────
   //   - hydrateWorkbenchData · every table the signal evaluator AND the row
@@ -455,11 +471,19 @@ export async function buildWorkbenchRows(
       hyd && !isCsv
         ? resolveMatches(ALL_LIB_SIGNALS, hyd, evalNow).perSignal
         : {};
-    const perSignal = mergeSignalVerdicts(
+    const mergedPerSignal = mergeSignalVerdicts(
       libPerSignal,
       goalPerSignal,
       goalKeySet,
     );
+    // G9 (2026-07-08 owner decision) · matching is FREE; only VIEWING paid data
+    // needs an entitlement. So the boolean VERDICT ("matched") is always shown +
+    // filterable — a lead we delivered genuinely matched the signal, and the user
+    // is entitled to know that. What stays gated is the paid VALUE (the perf/seo/
+    // ad/serp NUMERIC columns below, nulled when un-entitled) and the per-signal
+    // EVIDENCE in the drawer (lead-detail.ts). This lets "Overdue for redesign:
+    // matched" render while the actual 42/100 score reads "enrich to view".
+    const perSignal = mergedPerSignal;
 
     return {
       // Real Lead id when this business already lives in a saved list (wired
@@ -488,9 +512,16 @@ export async function buildWorkbenchRows(
         (b.reachableChannelCount ?? 0) > 0 ||
         phones.length > 0 ||
         emails.length > 0,
-      builtOn: builtOnById.get(b.id) ?? null,
+      // builtOn + bookingTool are TECH-family paid research → gate the VALUE
+      // when un-entitled (G9 value layer · mirrors the drawer's DOMAIN_FAMILY).
+      builtOn:
+        entMode && !familyEntitled(b.id, "tech")
+          ? null
+          : (builtOnById.get(b.id) ?? null),
       bookingTool: keep("bookingTool")
-        ? (bookingToolById.get(b.id) ?? null)
+        ? entMode && !familyEntitled(b.id, "tech")
+          ? null
+          : (bookingToolById.get(b.id) ?? null)
         : undefined,
       website: b.website ?? null,
       pitchAngle: keep("pitchAngle")
@@ -503,23 +534,39 @@ export async function buildWorkbenchRows(
         : b.temporarilyClosed
           ? ("temporary" as const)
           : null,
+      // reviews (count) + rating are DISCOVERY-basic (Maps numbers) → never gated.
       reviews,
       rating,
-      perf,
-      seo: keep("seo") ? (hyd?.lighthouse?.seo ?? null) : undefined,
+      // Paid-family numeric columns are nulled when un-entitled (G9), so a
+      // numeric-column filter can't leak a rival's paid research either.
+      perf: entMode && !familyEntitled(b.id, "lighthouse") ? null : perf,
+      seo: keep("seo")
+        ? entMode && !familyEntitled(b.id, "lighthouse")
+          ? null
+          : (hyd?.lighthouse?.seo ?? null)
+        : undefined,
       metaAdCount: keep("metaAdCount")
-        ? (rowData.metaAdCountByBusiness.get(b.id) ?? null)
+        ? entMode && !familyEntitled(b.id, "meta_ads")
+          ? null
+          : (rowData.metaAdCountByBusiness.get(b.id) ?? null)
         : undefined,
       googleAdCount: keep("googleAdCount")
-        ? (rowData.googleAdCountByBusiness.get(b.id) ?? null)
+        ? entMode && !familyEntitled(b.id, "google_ads")
+          ? null
+          : (rowData.googleAdCountByBusiness.get(b.id) ?? null)
         : undefined,
       // Best (lowest) local-pack rank — the hydration rollup's exact value
       // (null = scanned but off the pack, or never scanned).
       serpRank: keep("serpRank")
-        ? (hyd?.serp?.bestLocalPackRank ?? null)
+        ? entMode && !familyEntitled(b.id, "serp")
+          ? null
+          : (hyd?.serp?.bestLocalPackRank ?? null)
         : undefined,
+      // aiSummary is AI_RESEARCH-family paid research → gate the VALUE (G9).
       aiSummary: keep("aiSummary")
-        ? (aiSummaryById.get(b.id) ?? null)
+        ? entMode && !familyEntitled(b.id, "ai_research")
+          ? null
+          : (aiSummaryById.get(b.id) ?? null)
         : undefined,
       phones,
       emails,

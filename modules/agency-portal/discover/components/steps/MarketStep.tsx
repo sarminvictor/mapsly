@@ -10,6 +10,7 @@
 // .freshdot/.bgr-chip …). English-only for now.
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 
 import { SIG_META } from "../../goal-templates";
 import { type GoalState, type MarketCell } from "../../flow-types";
@@ -30,7 +31,9 @@ export interface CategoryOption {
 }
 
 const MAX_MARKETS = 3;
-const LEAD_PRESETS = [25, 50, 100, 250, 500, 1000];
+/** Per-call safety ceiling (mirrors the server Input cap). The slider's real
+ *  max is the wallet balance — credits ARE the cap (owner decision Q3). */
+const SEARCH_MAX_PER_CALL = 1000;
 
 export function MarketStep({
   goal,
@@ -42,9 +45,11 @@ export function MarketStep({
   onModeChange,
   leadCount,
   onLeadCountChange,
+  walletCredits,
   onEditSignals,
   onBack,
   onContinue,
+  paid = true,
   onToast,
 }: {
   goal: GoalState;
@@ -56,9 +61,13 @@ export function MarketStep({
   onModeChange: (mode: "target" | "search") => void;
   leadCount: number;
   onLeadCountChange: (n: number) => void;
+  /** FT-2 · the wallet balance — the search slider's hard ceiling (1cr/lead). */
+  walletCredits: number;
   onEditSignals: () => void;
   onBack: () => void;
   onContinue: () => void;
+  /** FT-2 · false for the free tier → Target markets is a paid-only lock. */
+  paid?: boolean;
   onToast: (msg: string) => void;
 }) {
   const [pickedMetro, setPickedMetro] = useState<MetroOption | null>(null);
@@ -128,9 +137,14 @@ export function MarketStep({
   }
 
   const activeFilters = goal.filters.filter((f) => f.on);
-  const continueLabel =
-    mode === "target" ? "Preview & credits →" : "Preview & cost →";
+  const continueLabel = "Preview & cost →";
   const canContinue = mode === "target" ? cells.length > 0 : true;
+
+  // Search slider (Q3): credits are the cap — the slider maxes at the wallet
+  // balance (bounded by the per-call safety ceiling). `shownLeadCount` clamps a
+  // stale/over-cap selection so the thumb + number never exceed what's buyable.
+  const sliderCap = Math.max(1, Math.min(walletCredits, SEARCH_MAX_PER_CALL));
+  const shownLeadCount = Math.min(Math.max(1, leadCount), sliderCap);
 
   return (
     <>
@@ -150,9 +164,20 @@ export function MarketStep({
               role="tab"
               aria-selected={mode === "target"}
               className={mode === "target" ? "on" : ""}
-              onClick={() => onModeChange("target")}
+              title={
+                paid
+                  ? undefined
+                  : "Opening a brand-new market is a paid feature — upgrade to unlock"
+              }
+              onClick={() =>
+                paid
+                  ? onModeChange("target")
+                  : onToast(
+                      "Target markets is a paid feature — upgrade to open any market. On Free, use Search everywhere.",
+                    )
+              }
             >
-              🎯 Target markets
+              🎯 Target markets {paid ? "" : "🔒"}
             </button>
             <button
               role="tab"
@@ -163,6 +188,26 @@ export function MarketStep({
               🔎 Search everywhere
             </button>
           </div>
+
+          {!paid ? (
+            <div
+              className="note"
+              style={{
+                margin: "0 0 14px",
+                padding: "8px 10px",
+                borderRadius: 8,
+                background: "var(--amber-50, #fbf3e2)",
+                border: "1px solid var(--amber, #b7791f)",
+              }}
+            >
+              <b>Target markets is a paid feature.</b> On Free you get up to 50
+              leads from markets we&apos;ve already mapped — matched to your
+              signals, contacts ready.{" "}
+              <Link href="/team/billing" style={{ fontWeight: 700 }}>
+                Upgrade to open any market →
+              </Link>
+            </div>
+          ) : null}
 
           {mode === "target" ? (
             <div>
@@ -266,32 +311,98 @@ export function MarketStep({
                 }}
               >
                 <p style={{ margin: 0, fontSize: 13, lineHeight: 1.5 }}>
-                  Not sure where to start? Search Mapsly&apos;s existing index —
-                  businesses already discovered and enriched by us. No
-                  discovery, no waiting. You only pay for the leads you take.
+                  Pick your signals — we&apos;ll pull leads from every market
+                  we&apos;ve already mapped that match them and have contacts.
+                  You&apos;re charged 1 credit per lead — only for the leads we
+                  deliver.
                 </p>
               </div>
 
               <div className="field">
                 <label htmlFor="searchLeads">How many leads do you want?</label>
-                <div className="chipset" id="mktLeadChips">
-                  {LEAD_PRESETS.map((n) => (
-                    <button
-                      key={n}
-                      type="button"
-                      className={`ch ${leadCount === n ? "on" : ""}`}
-                      onClick={() => onLeadCountChange(n)}
+                {walletCredits < 1 ? (
+                  <div
+                    className="note"
+                    style={{
+                      margin: "6px 0 0",
+                      padding: "8px 10px",
+                      borderRadius: 8,
+                      background: "var(--amber-50, #fbf3e2)",
+                      border: "1px solid var(--amber, #b7791f)",
+                    }}
+                  >
+                    You have <b>no credits</b>. Search charges 1 credit per lead
+                    — add credits on the next step to pull leads.
+                  </div>
+                ) : (
+                  <>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 14,
+                        marginTop: 8,
+                      }}
                     >
-                      {n.toLocaleString()}
-                    </button>
-                  ))}
-                </div>
+                      <input
+                        id="searchLeads"
+                        type="range"
+                        min={1}
+                        max={sliderCap}
+                        step={1}
+                        value={shownLeadCount}
+                        onChange={(e) =>
+                          onLeadCountChange(Number(e.target.value))
+                        }
+                        aria-label={`Number of leads, 1 to ${sliderCap}`}
+                        style={{
+                          flex: 1,
+                          accentColor: "var(--agency-indigo, #5b3df5)",
+                        }}
+                      />
+                      {/* Editable number mirrors the slider — drag OR type an
+                          exact count (both clamp to 1…cap). */}
+                      <input
+                        type="number"
+                        min={1}
+                        max={sliderCap}
+                        value={shownLeadCount}
+                        onChange={(e) => {
+                          const n = Number(e.target.value);
+                          if (Number.isFinite(n))
+                            onLeadCountChange(
+                              Math.min(Math.max(1, Math.round(n)), sliderCap),
+                            );
+                        }}
+                        aria-label="Number of leads"
+                        style={{
+                          width: 92,
+                          fontWeight: 750,
+                          fontSize: 22,
+                          textAlign: "right",
+                          fontVariantNumeric: "tabular-nums",
+                          border: "1px solid var(--line, #e5e7f0)",
+                          borderRadius: 8,
+                          padding: "4px 8px",
+                        }}
+                      />
+                    </div>
+                    <div className="note" style={{ marginTop: 8 }}>
+                      You have <b>{walletCredits.toLocaleString("en-US")}</b>{" "}
+                      credit{walletCredits === 1 ? "" : "s"} · 1 credit per lead
+                      {walletCredits > SEARCH_MAX_PER_CALL
+                        ? ` · max ${SEARCH_MAX_PER_CALL.toLocaleString("en-US")} per search`
+                        : ""}
+                      .
+                    </div>
+                  </>
+                )}
               </div>
 
               <div className="note" style={{ marginTop: 12 }}>
-                These match your goal&apos;s signals and are pre-enriched —
-                contacts, reviews and signals already in. Pay only for the ones
-                you keep.
+                A target, not a guarantee — you get up to this many leads that
+                fully match your signals and have contacts. Add reviews, ads or
+                site data on any lead later for a credit or two more.
               </div>
             </div>
           )}

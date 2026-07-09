@@ -1140,6 +1140,9 @@ model Lead {
 
   @@unique([listId, businessId])
   @@index([agencyId, status])
+  // FT-2 agency-wide dedup: "businesses this agency already holds" is
+  // SELECT DISTINCT businessId WHERE agencyId — one scan of this index.
+  @@index([agencyId, businessId])
 }
 
 enum LeadStatus {
@@ -2185,6 +2188,14 @@ enum EnrichmentJobStatus {
   DONE
   FAILED
   SKIPPED_FRESH
+  // Entitlement model (2026-07-08). CHARGED_FROM_DB: served from our DB copy at
+  // full charge, zero vendor COGS (the high-margin path — the agency held no
+  // entitlement, we ran no vendor). SKIPPED_ENTITLED: the agency already owns
+  // this unit → $0. Both are terminal-SUCCESS for run-progress + coverage
+  // (like DONE/SKIPPED_FRESH). Renamed from the doc's SERVED_FROM_DB to avoid
+  // colliding with DiscoveryCellOutcome.SERVED_FROM_DB (opposite meaning).
+  CHARGED_FROM_DB
+  SKIPPED_ENTITLED
 }
 
 enum BusinessTechCategory {
@@ -2319,6 +2330,41 @@ model EnrichmentJob {
   // ORDER BY createdAt, id). nextAttemptAt leads so the range predicate is an
   // index scan; createdAt keeps the deterministic ordering (WP3-12).
   @@index([status, nextAttemptAt, createdAt])
+}
+
+// Per-agency research entitlement ledger (entitlement model · 2026-07-08).
+//
+// The ONE object that expresses "agency X paid for (business|cell × family)".
+// Research STORAGE stays global (no agencyId on research tables — the margin
+// lever); this ledger is the per-agency REVENUE axis. `hasEntitlement` = a row
+// exists (D1 · PERMANENT-view — no expiry; grantedAt is provenance only). A
+// refresh charges only when the shared data is stale (read the global cursor,
+// never grantedAt).
+//
+// Exactly one of businessId / cellKey is set (per-business families vs the
+// per-cell meta_ads/serp). Enforced by a raw CHECK
+// `((businessId IS NULL) <> (cellKey IS NULL))` in the migration — Prisma can't
+// express it, and Postgres NULLS DISTINCT would otherwise let a both-null /
+// wrong-null row escape both unique indexes and silently double-mint.
+//
+// The two @@unique keys double as the batched-read indexes for the workbench
+// hot path (WHERE agencyId AND businessId IN (...) AND family IN (...)).
+model AgencyEntitlement {
+  id             String           @id @default(cuid())
+  agencyId       String
+  businessId     String?
+  cellKey        String?
+  family         EnrichmentFamily
+  grantedAt      DateTime         @default(now())
+  sourceRunId    String?
+  creditsCharged Int              @default(0)
+  createdAt      DateTime         @default(now())
+
+  @@unique([agencyId, businessId, family])
+  @@unique([agencyId, cellKey, family])
+  @@index([agencyId, family])
+  @@index([businessId])
+  @@index([cellKey])
 }
 
 // Credit wallet per agency. Credit columns are non-null @default(0) (INC-32).

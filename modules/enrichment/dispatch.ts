@@ -36,8 +36,11 @@ import {
   type EnrichmentType,
 } from "@/modules/cost/pricing";
 import { reconcileRunCredits } from "@/modules/cost/server";
+import { entitlementBillingEnabled } from "@/modules/cost/flags";
 import { trackProductEvent } from "@/lib/analytics/product-events";
 import { loadFreshTimestamps } from "@/modules/discovery/enrich-fresh-db";
+import { loadEntitlements } from "@/modules/discovery/entitlements";
+import { decideUnit } from "@/modules/enrichment/unit-decision";
 import { enrichLighthouseForBusinesses } from "@/modules/discovery/enrich-lighthouse";
 import { runDiscovery } from "@/modules/discovery/run-discovery";
 import { rawListWhere } from "@/modules/discovery/raw-list";
@@ -215,6 +218,18 @@ type FreshCursor =
   | "ai_research"
   | "google_ads"
   | null;
+
+/** Per-business JobFamily → billable EnrichmentType, for the entitlement lookup.
+ *  (TECH rides the CONTACTS job, so a contacts entitlement covers it — the mint
+ *  side materializes both; here we only key on the job's own family.) */
+const JOB_FAMILY_TO_TYPE: Record<JobFamily, EnrichmentType> = {
+  CONTACTS: "contacts",
+  SERVICES: "services",
+  REVIEWS: "reviews",
+  AI_RESEARCH: "ai_research",
+  LIGHTHOUSE: "lighthouse",
+  GOOGLE_ADS: "google_ads",
+};
 
 interface JobPlanEntry {
   family: JobFamily;
@@ -450,6 +465,7 @@ async function cellCreditsForRun(
   families: readonly EnrichmentType[],
   cellKeys: readonly string[],
   runStartedAt: Date,
+  agencyId: string | null = null,
 ): Promise<number> {
   const cellFamilies = families.filter((f) => CELL_FAMILIES.includes(f));
   if (cellFamilies.length === 0 || cellKeys.length === 0) return 0;
@@ -497,14 +513,78 @@ async function cellCreditsForRun(
     collectedByPlatform.set(r.platform, set);
   }
 
+  // ── Legacy path (flag off): bill only cells collected THIS run. ──
+  if (agencyId == null) {
+    let credits = 0;
+    for (const f of cellFamilies) {
+      const platform = CELL_PLATFORM[f];
+      const collected = platform
+        ? (collectedByPlatform.get(platform)?.size ?? 0)
+        : 0;
+      const billable = Math.min(quotedBillable.get(f) ?? 0, collected);
+      credits += billable * CREDIT_PRICES[f];
+    }
+    return credits;
+  }
+
+  // ── Entitlement path (G2): a non-owner served a FRESH cell from our DB pays
+  // full at zero Apify/DfS COGS (the S14 metro-leak fix). Bill a (cell × family)
+  // unless it is owned∧fresh-and-not-collected (SKIPPED_ENTITLED). Mint what we
+  // bill. `delivered = collected this run OR fresh in DB`. ──
+  const now = new Date();
+  const [cellEnt, freshTs] = await Promise.all([
+    loadEntitlements(agencyId, [], cellKeys),
+    loadFreshTimestamps([], cellKeys),
+  ]);
+  const CELL_FAMILY_ENUM: Record<string, "META_ADS" | "SERP"> = {
+    meta_ads: "META_ADS",
+    serp: "SERP",
+  };
   let credits = 0;
+  const grants: {
+    agencyId: string;
+    cellKey: string;
+    family: "META_ADS" | "SERP";
+    creditsCharged: number;
+  }[] = [];
   for (const f of cellFamilies) {
     const platform = CELL_PLATFORM[f];
-    const collected = platform
-      ? (collectedByPlatform.get(platform)?.size ?? 0)
-      : 0;
-    const billable = Math.min(quotedBillable.get(f) ?? 0, collected);
-    credits += billable * CREDIT_PRICES[f];
+    const famEnum = CELL_FAMILY_ENUM[f];
+    if (!platform || !famEnum) continue;
+    const collectedSet = collectedByPlatform.get(platform) ?? new Set<string>();
+    const window = ENRICHMENT_PRICES[f].freshnessDays;
+    let billed = 0;
+    const cap = quotedBillable.get(f) ?? 0;
+    for (const k of cellKeys) {
+      if (billed >= cap) break; // never charge above the authorized count
+      const owned = cellEnt.perCell.get(k)?.has(f) ?? false;
+      const collected = collectedSet.has(k);
+      const fresh = isFresh(freshTs.perCell.get(k)?.[f] ?? null, window, now);
+      const delivered = collected || fresh;
+      // owned∧fresh∧!collected = SKIPPED_ENTITLED (free no-op); everything else
+      // delivered charges (new buy, served-from-DB, or owner refresh of stale).
+      if (!delivered || (owned && !collected)) continue;
+      billed += 1;
+      credits += CREDIT_PRICES[f];
+      grants.push({
+        agencyId,
+        cellKey: k,
+        family: famEnum,
+        creditsCharged: CREDIT_PRICES[f],
+      });
+    }
+  }
+  if (grants.length > 0) {
+    try {
+      await prisma.agencyEntitlement.createMany({
+        data: grants,
+        skipDuplicates: true,
+      });
+    } catch (err) {
+      console.warn(
+        `[entitlement-mint:cell] mint failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
   }
   return credits;
 }
@@ -524,6 +604,7 @@ export async function fanOutRun(
     select: {
       id: true,
       status: true,
+      agencyId: true,
       enrichmentsJson: true,
       scopeRefsJson: true,
     },
@@ -540,6 +621,12 @@ export async function fanOutRun(
   const cellKeys = scope.cellKeys ?? [];
 
   const fresh = await loadFreshTimestamps(businessIds, cellKeys);
+  // Entitlement model (Phase 2): who does THIS agency already own? Loaded only
+  // when the flag is on; legacy path never reads it. Empty set = own nothing.
+  const entMode = entitlementBillingEnabled();
+  const entitlements = entMode
+    ? await loadEntitlements(run.agencyId, businessIds, cellKeys)
+    : null;
 
   // Flip RUNNING first so a concurrent tick won't re-fan-out this run (the
   // findUnique+guard above + this flip together gate re-entry).
@@ -634,7 +721,7 @@ export async function fanOutRun(
   const jobRows: {
     businessId: string;
     family: JobFamily;
-    status: "QUEUED" | "SKIPPED_FRESH";
+    status: "QUEUED" | "SKIPPED_FRESH" | "CHARGED_FROM_DB" | "SKIPPED_ENTITLED";
     costUsd: number;
     runId: string;
   }[] = [];
@@ -643,13 +730,31 @@ export async function fanOutRun(
     for (const entry of plan) {
       const cursorVal = entry.cursor ? pb[entry.cursor] : null;
       const alreadyFresh = isFresh(cursorVal, entry.freshDays, now);
-      jobRows.push({
-        businessId: id,
-        family: entry.family,
-        status: alreadyFresh ? "SKIPPED_FRESH" : "QUEUED",
-        costUsd: alreadyFresh ? 0 : entry.plannedUsd,
-        runId,
-      });
+      if (entMode && entitlements) {
+        // Four-quadrant decouple: owned∧fresh → SKIPPED_ENTITLED ($0 no-op);
+        // !owned∧fresh → CHARGED_FROM_DB (charge, no vendor); stale → QUEUED
+        // (run). costUsd is VENDOR COGS → 0 unless we actually run the vendor.
+        const owned =
+          entitlements.perBusiness
+            .get(id)
+            ?.has(JOB_FAMILY_TO_TYPE[entry.family]) ?? false;
+        const decision = decideUnit(owned, alreadyFresh);
+        jobRows.push({
+          businessId: id,
+          family: entry.family,
+          status: decision.status,
+          costUsd: decision.run ? entry.plannedUsd : 0,
+          runId,
+        });
+      } else {
+        jobRows.push({
+          businessId: id,
+          family: entry.family,
+          status: alreadyFresh ? "SKIPPED_FRESH" : "QUEUED",
+          costUsd: alreadyFresh ? 0 : entry.plannedUsd,
+          runId,
+        });
+      }
     }
   }
   // Chunked createMany (avoid a single oversized INSERT on big cohorts). One
@@ -906,11 +1011,30 @@ export async function processJob(
     return "failed";
   }
 
-  // Worker-side freshness re-check — don't re-fetch / re-bill a now-fresh unit.
+  // Worker-side freshness re-check — don't re-fetch a now-fresh unit (a
+  // concurrent run made our DB copy fresh, S6). Legacy: SKIPPED_FRESH at $0.
+  // Entitlement model: we still DELIVER the now-fresh data, so a non-owner is
+  // CHARGED_FROM_DB (served, billable) and only an owner is SKIPPED_ENTITLED
+  // ($0) — otherwise the non-owner would get the concurrent scrape free.
   if (await unitFreshAtProcess(job.businessId, family, now)) {
+    let flip: "SKIPPED_FRESH" | "SKIPPED_ENTITLED" | "CHARGED_FROM_DB" =
+      "SKIPPED_FRESH";
+    if (entitlementBillingEnabled() && job.runId) {
+      const r = await prisma.enrichmentRun.findUnique({
+        where: { id: job.runId },
+        select: { agencyId: true },
+      });
+      if (r) {
+        const owned = await prisma.agencyEntitlement.findFirst({
+          where: { agencyId: r.agencyId, businessId: job.businessId, family },
+          select: { id: true },
+        });
+        flip = owned ? "SKIPPED_ENTITLED" : "CHARGED_FROM_DB";
+      }
+    }
     await prisma.enrichmentJob.update({
       where: { id: job.id },
-      data: { status: "SKIPPED_FRESH", costUsd: 0, finishedAt: now },
+      data: { status: flip, costUsd: 0, finishedAt: now },
     });
     await bumpRunProgress(job.runId, "done");
     return "skipped";
@@ -1199,6 +1323,7 @@ export async function closeRunIfDone(
   const families = (
     Array.isArray(run.enrichmentsJson) ? run.enrichmentsJson : []
   ) as EnrichmentType[];
+  const entMode = entitlementBillingEnabled();
 
   const jobs = await prisma.enrichmentJob.findMany({
     where: { runId },
@@ -1221,6 +1346,10 @@ export async function closeRunIfDone(
 
   const done = jobs.filter((j) => j.status === "DONE");
   const fresh = jobs.filter((j) => j.status === "SKIPPED_FRESH");
+  // Entitlement model: CHARGED_FROM_DB = served from our DB copy, zero vendor
+  // COGS but BILLABLE (the high-margin path). SKIPPED_ENTITLED = already owned,
+  // $0. Both are terminal-SUCCESS for progress (D3 · UI-invisible).
+  const chargedFromDb = jobs.filter((j) => j.status === "CHARGED_FROM_DB");
 
   const jobUsd = done.reduce((s, j) => s + Number(j.costUsd ?? 0), 0);
   const cellUsd = Number(run.actualUsd ?? 0);
@@ -1233,7 +1362,13 @@ export async function closeRunIfDone(
   const bizVerdict = new Map<string, { success: boolean; failed: boolean }>();
   for (const j of jobs) {
     const v = bizVerdict.get(j.businessId) ?? { success: false, failed: false };
-    if (j.status === "DONE" || j.status === "SKIPPED_FRESH") v.success = true;
+    if (
+      j.status === "DONE" ||
+      j.status === "SKIPPED_FRESH" ||
+      j.status === "CHARGED_FROM_DB" ||
+      j.status === "SKIPPED_ENTITLED"
+    )
+      v.success = true;
     else if (j.status === "FAILED") v.failed = true;
     bizVerdict.set(j.businessId, v);
   }
@@ -1284,7 +1419,10 @@ export async function closeRunIfDone(
   // (job-precise, actual). Per-cell: bill the as-held cell credits. Settle is
   // still clamped to the hold, so this never charges above what was authorized.
   const hasFam = (f: EnrichmentType) => families.includes(f);
-  const businessCredits = done.reduce(
+  // Entitlement model: CHARGED_FROM_DB units bill their family credit at zero
+  // vendor COGS (served from our DB). Legacy path (flag off) has no such jobs.
+  const billableBusinessJobs = entMode ? [...done, ...chargedFromDb] : done;
+  const businessCredits = billableBusinessJobs.reduce(
     (s, j) => s + creditsForBusinessJob(j.family as JobFamily, hasFam),
     0,
   );
@@ -1294,6 +1432,7 @@ export async function closeRunIfDone(
     families,
     cellScope.cellKeys ?? [],
     run.startedAt ?? now,
+    entMode ? run.agencyId : null,
   );
   const actualCredits = businessCredits + cellCredits;
   const settle = (await reconcileRunCredits(runId, {
@@ -1304,6 +1443,69 @@ export async function closeRunIfDone(
     where: { id: runId },
     data: { creditsCharged: settle.charged },
   });
+
+  // Phase 4 · margin telemetry — CHARGED_FROM_DB units are full-price revenue at
+  // ~$0 vendor COGS (served from our shared index). One line per run so the
+  // dashboard can trend "COGS avoided" (the economic point of the shared index).
+  if (entMode && chargedFromDb.length > 0) {
+    const cogsAvoidedCredits = chargedFromDb.reduce(
+      (s, j) => s + creditsForBusinessJob(j.family as JobFamily, hasFam),
+      0,
+    );
+    console.log(
+      JSON.stringify({
+        level: "info",
+        event: "entitlement.cogs_avoided",
+        runId,
+        agencyId: run.agencyId,
+        units: chargedFromDb.length,
+        credits: cogsAvoidedCredits,
+      }),
+    );
+  }
+
+  // Entitlement model: mint what was paid for. Every billable per-business
+  // success (DONE from a run OR CHARGED_FROM_DB served from our DB) grants the
+  // agency the (business × family) entitlement. TECH rides CONTACTS → grant both
+  // when tech was requested. Idempotent via skipDuplicates on the unique key
+  // (a repeat/concurrent mint is a no-op — never aborts the charge · G5).
+  if (entMode && billableBusinessJobs.length > 0) {
+    const wantsTech = families.includes("tech");
+    const grants: {
+      agencyId: string;
+      businessId: string;
+      family: JobFamily | "TECH";
+      sourceRunId: string;
+      creditsCharged: number;
+    }[] = [];
+    for (const j of billableBusinessJobs) {
+      const fam = j.family as JobFamily;
+      grants.push({
+        agencyId: run.agencyId,
+        businessId: j.businessId,
+        family: fam,
+        sourceRunId: runId,
+        creditsCharged: creditsForBusinessJob(fam, hasFam),
+      });
+      if (fam === "CONTACTS" && wantsTech) {
+        grants.push({
+          agencyId: run.agencyId,
+          businessId: j.businessId,
+          family: "TECH",
+          sourceRunId: runId,
+          creditsCharged: 0,
+        });
+      }
+    }
+    try {
+      await prisma.agencyEntitlement.createMany({
+        data: grants,
+        skipDuplicates: true,
+      });
+    } catch (err) {
+      logErr("entitlement-mint", runId, err);
+    }
+  }
 
   // WP6-4 · enrich_completed — fired exactly once per run (the finishedAt CAS
   // above admits only one closer). The terminal end of the activation funnel:
@@ -1983,7 +2185,12 @@ export async function updateRunProgress(runId: string): Promise<void> {
     };
     if (g.status === "QUEUED" || g.status === "RUNNING")
       entry.outstanding = true;
-    else if (g.status === "DONE" || g.status === "SKIPPED_FRESH")
+    else if (
+      g.status === "DONE" ||
+      g.status === "SKIPPED_FRESH" ||
+      g.status === "CHARGED_FROM_DB" ||
+      g.status === "SKIPPED_ENTITLED"
+    )
       entry.success = true;
     else if (g.status === "FAILED") entry.failed = true;
     perBiz.set(g.businessId, entry);

@@ -26,6 +26,7 @@ import { buildResumeGoalG } from "@/modules/agency-portal/discover/goal-url";
 export type ResearchStatus =
   | "draft"
   | "discovered"
+  | "delivered"
   | "enriching"
   | "partial"
   | "enriched";
@@ -52,6 +53,12 @@ export interface EnrichInfo {
   /** SPEND-1 · sum of settled EnrichmentRun.creditsCharged (OK/PARTIAL) over
    *  this discovery's cells — the real "credits to date" the card shows. */
   spendCredits?: number;
+  /** FT-2 · this research is a "Search everywhere" that already DELIVERED leads
+   *  (an OK run with scopeKind "search"). Drives the "Delivered" pill + routes
+   *  the card straight to its leads instead of the enrich flow. */
+  delivered?: boolean;
+  /** The delivered search's list id — the "Open" target for a delivered card. */
+  listId?: string;
 }
 
 /** The Discovery fields the pure status/href logic reads. */
@@ -73,6 +80,9 @@ export function deriveResearchStatus(
   discoveryStatus: DiscoveryStatusValue,
   enrich: EnrichInfo,
 ): ResearchStatus {
+  // FT-2 · a "Search everywhere" already delivered its leads (no enrich step) —
+  // its own status, routes straight to the leads, never "Enrich →".
+  if (enrich.delivered) return "delivered";
   // WP4-2 · a completed-but-PARTIAL enrichment is its own status (amber pill),
   // but still routes to the workbench — there ARE leads to see.
   if (enrich.phase === "done") return enrich.partial ? "partial" : "enriched";
@@ -95,6 +105,11 @@ export function buildResearchHref(
   enrich: EnrichInfo,
   categoryIdBySlug: Map<string, string>,
 ): string {
+  // FT-2 · a delivered search opens its leads list directly (it never enriched).
+  if (status === "delivered")
+    return enrich.listId
+      ? `/discover/${d.id}/lists/${enrich.listId}`
+      : `/discover/${d.id}`;
   // WP4-2 · partial + enriched both open the workbench (there are leads).
   if (status === "enriched" || status === "partial") return `/discover/${d.id}`;
 

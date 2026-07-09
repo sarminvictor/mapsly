@@ -1,7 +1,7 @@
 {
   "marketing": {
     "hero_smb": {
-      "title": "Local business intelligence — refreshed weekly",
+      "title": "Local business intelligence for agencies",
       "subtitle": "See what's working, what's not, and exactly what to fix this week.",
       "cta_primary": "Start free",
       "cta_secondary": "See how it works"
@@ -99,7 +99,7 @@
       "s1_heading": "1. Acceptance",
       "s1_p1": "By creating an account, claiming a business, or using Mapsly, you agree to these terms and the Privacy Policy. If you use Mapsly for a business or agency, you confirm you have the authority to bind it.",
       "s2_heading": "2. The service",
-      "s2_p1": "Mapsly watches the public footprint of your local business — reviews, search results, ads, and website — and turns it into a clear weekly picture with the fixes that matter most. The owner plan is $29 per month. Agency plans are priced at checkout.",
+      "s2_p1": "Mapsly watches the public footprint of your local business — reviews, search results, ads, and website — and turns it into a clear weekly picture with the fixes that matter most. The owner plan is $29 per month. Agency plans are priced at checkout. The intelligence Mapsly provides is drawn from a shared index we build from public sources across millions of local businesses. The data you access is licensed to you on a non-exclusive basis — the same underlying public-source data may be provided to other customers; you are paying for access to Mapsly's index and analysis, not for exclusive ownership of the underlying data. Data is refreshed on a periodic cadence rather than in real time, and each lead shows when it was last verified.",
       "s2_p2": "Mapsly is a monitoring and insight tool built on public data. It is not legal, medical, or financial advice.",
       "s3_heading": "3. Your account and your claim",
       "s3_p1": "Keep your contact email current and your sign-in to yourself. You are responsible for activity under your account, including team members you invite.",
@@ -161,7 +161,7 @@
       "s1_heading": "1. Cancel anytime",
       "s1_p1": "Cancel from Settings → Billing whenever you like. No call, no form, no retention offer. Your plan stays active until the end of the period you've already paid for, then simply doesn't renew. You won't be charged again.",
       "s2_heading": "2. Payments are final",
-      "s2_p1": "Mapsly has a free plan, so you can map a market and pull your first leads at no cost — and no risk — before you ever pay. Because of that, paid charges (subscriptions and credit top-ups) are non-refundable once made, including partial months. Cancelling stops every future charge; it does not refund a charge already made.",
+      "s2_p1": "Mapsly has a free plan, so you can map a market and pull your first leads at no cost — and no risk — before you ever pay. Because of that, paid charges (subscriptions and credit top-ups) are non-refundable once made, including partial months. Cancelling stops every future charge; it does not refund a charge already made. Credits pay for the research we run or serve on a business — contacts, reviews, ads, rankings and site health. A research that comes back empty (for example, a business with no website or no reviews on file) is still a completed research and is charged: you are paying for the look, not a guaranteed result.",
       "s3_heading": "3. Your rights under law",
       "s3_p1": "Nothing in this policy removes any cancellation or refund right you have under the consumer-protection law of your province or state. Where the law requires a refund, we honour it.",
       "s4_heading": "4. How refunds arrive",
@@ -1159,7 +1159,7 @@
       "agency_title": "Hunter",
       "agency_desc": "Skip the database. Skip the spray-and-pray. Hunter shows you which local SMBs need exactly what you sell — right now.",
       "agency_f1": "Query businesses by signal — declining reviews, no ads, slow site",
-      "agency_f2": "Verified owner emails + phones, refreshed weekly",
+      "agency_f2": "Verified owner emails + phones on every lead",
       "agency_f3": "Weekly new-opportunities email per saved search",
       "agency_f4": "White-label one-pager exports for your pitches",
       "agency_f5": "From $49/mo. 50 free leads to start",
@@ -1255,7 +1255,7 @@
       "new_p2": "Pitch only the ones who already have the problem you fix.",
       "new_p3": "Reply rate 18%+. You're naming a real symptom.",
       "new_p4": "Signal is the SMB's own observable behavior.",
-      "new_p5": "Verified on demand — always fresh, never stale."
+      "new_p5": "Verified contacts and signals, ready to pitch."
     },
     "hunter": {
       "title_lead": "This is Hunter.",
@@ -1305,15 +1305,15 @@
     "pricing": {
       "title_lead": "Pay for outcomes,",
       "title_emph": "not seats.",
-      "sub": "1 credit maps to one lead's core data — verified contacts and site tech. Layer on reviews, site speed, ads, and rankings for a credit or two more each. Discovery is always free; every plan ships unlimited discovery, always-fresh data, saved lists, and CSV export. Need 8,000+ a month? Scale is $299.",
+      "sub": "1 credit maps to one lead's core scan — verified contacts and site tech. Layer on reviews, site speed, ads, and rankings for a credit or two more each. Paid plans open any market; saved lists and CSV export ship on every plan. Need 8,000+ a month? Scale is $299.",
       "p1_name": "Free",
       "p1_price": "$0",
       "p1_period": "/mo",
       "p1_sub": "For solo consultants testing a single vertical.",
       "p1_f1": "~50 leads to start",
-      "p1_f2": "Unlimited free discovery",
+      "p1_f2": "50 free leads from mapped markets",
       "p1_f3": "Contacts on every lead",
-      "p1_f4": "Every signal + the expert layer",
+      "p1_f4": "Signal-matched leads, contacts ready",
       "p1_f5": "CSV export",
       "p1_cta": "Start free",
       "p2_badge": "Most popular",
@@ -1360,18 +1360,18 @@
       "q2": "How is Mapsly different from a contact database?",
       "a2": "Contact databases sell names and emails by the seat — the same list everyone else buys. Mapsly is built on local-business signals they can't see: Google reviews, the ad libraries, search rankings, site speed, and the page's own code. You're not buying contacts; you're finding the businesses with the exact problem you fix.",
       "q3": "How fresh is the data?",
-      "a3": "Always current. Mapsly maps and reads each business on demand when you run a search — not from a weekly snapshot — so you never pitch off stale data. Markets you've already paid for stay saved and re-open for free.",
+      "a3": "Mapsly reads each business across our index of 2M+ local businesses — contacts, reviews, ads, rankings and site health — so you pitch with a real reason, not a guess. Leads and markets you've paid for stay saved and re-open for free.",
       "q4": "Where does the data come from?",
       "a4": "Public sources only — Google Business profiles and reviews, the Meta and Google ad libraries, search results, and the business's own website. We don't collect, buy, or broker private customer lists, patient records, or any non-public data.",
       "q5": "Is discovery really free?",
-      "a5": "Yes. Map any market and see the whole list of local businesses for free — you only spend to enrich the leads you'll actually pitch. Start with 50 free leads, no card.",
+      "a5": "Start with up to 50 free leads from markets we've already mapped — matched to your signals, with contacts ready. No card. Opening a brand-new market is a paid feature.",
       "q6": "How does Mapsly compare to Apollo or Origami?",
       "a6": "Apollo and Origami sell contacts; Mapsly sells qualified local businesses with the reason to call. Apollo bills per seat and is built for B2B — it's blind to most local businesses and the signals that close them (reviews, ads, site speed, rankings). Origami meters every action, so a fully-enriched lead adds up fast. Mapsly prices in whole credits — a lead's core data (contacts + site tech) is one credit, and you add reviews, speed, ads, or rankings only when a pitch needs them. Discovery is free and there's no per-seat tax — meaningfully cheaper per lead you actually work, on data neither of them computes."
     },
     "cta": {
       "title_lead": "See 50 leads.",
       "title_emph": "Free.",
-      "sub": "Pick a vertical, pick a metro, pick a filter. We'll show you 50 SMBs that match — with verified contacts. No card, no demo call.",
+      "sub": "Pick a vertical, pick a metro, pick a filter. We'll show you up to 50 SMBs that match — with contacts ready. No card, no demo call.",
       "primary": "See 50 free leads",
       "secondary": "Book a 15-min walkthrough"
     }
@@ -1584,7 +1584,7 @@
       "title": "Pricing · Mapsly · $29/mo for owners, $49–$499/mo for agencies",
       "description": "One plan for local business owners ($29/mo). Four tiers for marketing agencies ($49 Solo, $99 Growth, $249 Pro, $499 Boutique). Cancel anytime. 30-day money back.",
       "og_title": "Mapsly pricing · Owners $29/mo · Agencies from $49/mo",
-      "og_description": "Pay for outcomes, not seats. All plans include verified contacts, weekly refresh, full signal stack. Cancel anytime."
+      "og_description": "Pay for outcomes, not seats. All plans include verified contacts and the full signal stack. Cancel anytime."
     },
     "hero": {
       "eyebrow": "Pricing",
@@ -1601,7 +1601,7 @@
     "includes_label": "Included",
     "agency_eyebrow": "For agencies",
     "agency_title": "Pick a tier. Scale up when you outgrow it.",
-    "agency_sub": "Every tier ships verified contacts, the full signal stack, weekly refresh, CSV + CRM export, and white-label one-pagers. Lead volume and seat count scale with the tier.",
+    "agency_sub": "Every tier ships verified contacts, the full signal stack, CSV + CRM export, and white-label one-pagers. Lead volume and seat count scale with the tier.",
     "trust": {
       "heading": "Built for the long haul",
       "secure_label": "Stripe-powered checkout",

@@ -206,7 +206,13 @@ async function buildEnrichStages(
     const entry = familyTotals.get(g.family) ?? { done: 0, total: 0 };
     const n = g._count._all;
     entry.total += n;
-    if (g.status === "DONE" || g.status === "SKIPPED_FRESH") entry.done += n;
+    if (
+      g.status === "DONE" ||
+      g.status === "SKIPPED_FRESH" ||
+      g.status === "CHARGED_FROM_DB" ||
+      g.status === "SKIPPED_ENTITLED"
+    )
+      entry.done += n;
     familyTotals.set(g.family, entry);
   }
 
